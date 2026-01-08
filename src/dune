@@ -1,0 +1,13 @@
+(executable
+ (name main)
+ (public_name obc2why3)
+ (modules ast lexer parser whygen main)
+ (libraries str re why3)
+ (preprocess (pps ppx_deriving.show)))
+
+(include_subdirs no)
+
+(ocamllex lexer)
+
+(menhir
+ (modules parser))

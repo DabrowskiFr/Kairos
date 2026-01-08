@@ -1,0 +1,18 @@
+node until_counter(x: int) returns (y: int)
+requires {x} >= {1};
+guarantee G( ({y} < {10}) U ({y} >= {10}) );
+locals
+  init_done : bool;
+states
+  S;
+init S
+trans
+  S -> S {
+    if not init_done then
+      y := 0;
+      init_done := true;
+    else
+      y := y + x;
+    end;
+  }
+end

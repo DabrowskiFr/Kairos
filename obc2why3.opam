@@ -1,0 +1,10 @@
+opam-version: "2.1"
+name: "obc2why3"
+version: "dev"
+depends: [
+  "dune" {>= "3.10"}
+  "menhir"
+  "ppx_deriving"
+  "ocamllex"
+  "ocaml"
+]

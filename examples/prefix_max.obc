@@ -1,0 +1,20 @@
+
+node prefix_max(x: int) returns (y: int)
+guarantee G( X( {scan1(max, x)} >= {0} ) );
+locals
+  acc : int;
+  init_done : bool;
+states
+  S;
+init S
+trans
+  S -> S {
+    if not init_done then
+      acc := x;
+      init_done := true;
+    else
+      if x >= acc then acc := x; else skip; end;
+    end;
+    y := acc;
+  }
+end

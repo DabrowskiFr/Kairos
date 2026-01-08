@@ -1,0 +1,25 @@
+node nested_ltl(x: int) returns (y: int)
+assume G( {x} >= {0} );
+guarantee G( {y} >= {0} );
+guarantee F {3 - count}( G( {y} = {x} ) );
+locals
+  count : int;
+  ready : bool;
+states
+  S;
+init S
+trans
+  S -> S {
+    count := count + 1;
+    if count >= 2 then
+      ready := true;
+    else
+      ready := false;
+    end;
+    if ready then
+      y := x;
+    else
+      y := 0;
+    end;
+  }
+end

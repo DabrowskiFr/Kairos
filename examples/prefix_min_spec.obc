@@ -1,0 +1,19 @@
+node prefix_min(x: int) returns (y: int)
+guarantee G( {y} <= {scan1(min, x)} );
+locals
+  m : int;
+  init_done : bool;
+states
+  S;
+init S
+trans
+  S -> S {
+    if not init_done then
+      m := x;
+      init_done := true;
+    else
+      if x <= m then m := x; else skip; end;
+    end;
+    y := m;
+  }
+end
