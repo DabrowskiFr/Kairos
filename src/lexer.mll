@@ -8,14 +8,16 @@ let () =
   [
     "node", NODE; "returns", RETURNS; "locals", LOCALS; "states", STATES;
     "init", INIT; "trans", TRANS; "end", END;
-    "requires", REQUIRES; "ensures", ENSURES; "assume", ASSUME; "guarantee", GUARANTEE;
+    "requires", REQUIRES; "ensures", ENSURES; "assume", ASSUME; "guarantee", GUARANTEE; "invariant", INVARIANT; "invariants", INVARIANTS;
+    "instance", INSTANCE; "instances", INSTANCES; "call", CALL;
     "if", IF; "then", THEN; "else", ELSE; "skip", SKIP; "assert", ASSERT;
     "true", TRUE; "false", FALSE;
     "int", TINT; "bool", TBOOL; "real", TREAL;
     "pre", PRE;
     "min", MIN; "max", MAX; "add", ADD; "mul", MUL; "and", AND; "or", OR; "not", NOT;
-    "G", G; "F", F; "X", X; "U", U;
+    "G", G; "X", X;
     "let", LET; "in", IN;
+    "state", STATE;
   ]
 }
 
