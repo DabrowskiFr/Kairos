@@ -102,6 +102,20 @@ In practice:
 
 This yields a compact and consistent relational encoding.
 
+### Proof Availability Policy
+Why3 proves each `ensures` goal separately. Facts that are only present in
+other `ensures` are *not* available as hypotheses. We therefore make
+critical facts explicitly available in the proof flow:
+
+- History snapshots use ghost variables (`__pre_old_x`) updated at the
+  beginning of `step`. Postconditions that need `pre(x)` use
+  `__pre_old_x` instead of `old(__pre_in_x)`.
+- State/value invariants are injected as `assume` at the start of `step`,
+  so they are usable when proving each `ensures`.
+- For specific instance call patterns (e.g. delays), we emit a local
+  `assume` immediately after the call (using a pre-call snapshot), so the
+  result is available in the same VC.
+
 Why3 Generation
 --------------
 For each node `N`, we generate a module `N`:
@@ -129,6 +143,8 @@ prefixed with `__<node>_...`.
 `step (vars : vars) (inputs...)`:
 
 - Updates ghost fold variables first.
+- Updates `__pre_old_x` from `__pre_in_x`, then updates `__pre_in_x` from
+  the current inputs.
 - Executes the state machine:
   - `match vars.st` then evaluate guarded transitions.
   - Executes transition body statements.
@@ -153,12 +169,14 @@ Relational LTL is compiled into Why3 `requires` and `ensures`:
 
 ### Value Invariants
 Value invariants are compiled as equalities between a named variable and
-its defining history expression, and are added to both `requires` and
-`ensures` to make them usable as hypotheses and obligations.
+its defining history expression. They are injected as `assume` at the
+start of `step` and also emitted as `ensures`, to keep them usable and
+globally exposed without turning them into external preconditions.
 
 ### State Invariants
 State invariants are compiled as implications over `vars.st`.
-They are included in both `requires` and `ensures`. This gives:
+They are injected as `assume` at the start of `step` and included in
+`ensures`. This gives:
 
 - an assumption for proving postconditions inside the node, and
 - a guarantee exposed to callers.

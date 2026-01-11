@@ -1,7 +1,16 @@
 (executable
  (name main)
  (public_name obc2why3)
- (modules ast lexer parser whygen main)
+(modules
+  ast
+  lexer
+  parser
+  whygen_support
+  whygen_collect
+  whygen_compile_expr
+  whygen_emit
+  whygen
+  main)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))
 

@@ -1,0 +1,34 @@
+node minmax_scan1(x: int) returns (lo: int, hi: int)
+assume G( {x} >= {0} );
+guarantee G( X( {lo} <= {hi} ) );
+guarantee G( X( {hi} = {scan1(max, x)} ) );
+guarantee G( X( {lo} = {scan1(min, x)} ) );
+invariants
+  invariant acc_min = {scan1(min, x)};
+  invariant acc_max = {scan1(max, x)};
+locals
+  acc_min : int;
+  acc_max : int;
+  init_min : bool;
+  init_max : bool;
+states
+  S;
+init S
+trans
+  S -> S {
+    if not init_min then
+      acc_min := x;
+      init_min := true;
+    else
+      if x <= acc_min then acc_min := x; else skip; end;
+    end;
+    if not init_max then
+      acc_max := x;
+      init_max := true;
+    else
+      if x >= acc_max then acc_max := x; else skip; end;
+    end;
+    lo := acc_min;
+    hi := acc_max;
+  }
+end

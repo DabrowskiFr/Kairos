@@ -8,7 +8,7 @@ type ty =
 type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
 [@@deriving show]
 type unop = Neg | Not [@@deriving show]
-type op = OMin | OMax | OAdd | OMul | OAnd | OOr [@@deriving show]
+type op = OMin | OMax | OAdd | OMul | OAnd | OOr | OFirst [@@deriving show]
 type wop = WMin | WMax | WSum | WCount [@@deriving show]
 
 type iexpr =
@@ -28,6 +28,7 @@ type hexpr =
   | HPreK of iexpr * iexpr * int          (* pre_k(e, init, k) *)
   | HScan1 of op * iexpr                  (* scan1(op, x) *)
   | HScan of op * iexpr * iexpr           (* scan(op, init, x) *)
+  | HFold of op * iexpr * iexpr           (* fold(op, init, x) *)
   | HWindow of int * wop * iexpr          (* window(k, wop, x) *)
   | HLet of ident * hexpr * hexpr
 [@@deriving show]

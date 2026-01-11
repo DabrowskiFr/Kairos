@@ -1,0 +1,17 @@
+node phase_hold(x: int) returns (y: int)
+guarantee G( X( ({y} = {x}) or ({y} = {0}) ) );
+locals
+  (* none *)
+states
+  Hold, Pass;
+init Hold
+trans
+  Hold -> Pass {
+    ensures {y} = {0};
+    y := 0;
+  }
+  Pass -> Hold {
+    ensures {y} = {x};
+    y := x;
+  }
+end

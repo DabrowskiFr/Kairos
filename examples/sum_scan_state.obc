@@ -1,0 +1,20 @@
+node sum_scan_state(x: int) returns (y: int)
+assume G( {x} >= {0} );
+guarantee G( X( {y} = fold(add, {0}, {x}) ) );
+invariants
+  invariant acc = fold(add, {0}, {x});
+locals
+  acc : int;
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    acc := 0;
+    y := acc;
+  }
+  Run -> Run {
+    acc := acc + x;
+    y := acc;
+  }
+end

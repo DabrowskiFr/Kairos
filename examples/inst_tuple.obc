@@ -1,0 +1,36 @@
+node split_pair(x: int) returns (lo: int, hi: int)
+guarantee G( X( {lo} <= {hi} ) );
+guarantee G( X( {lo + hi} = {x} ) );
+locals
+  (* none *)
+states
+  S;
+init S
+trans
+  S -> S {
+    if x <= 0 then
+      lo := x;
+      hi := 0;
+    else
+      lo := 0;
+      hi := x;
+    end;
+  }
+end
+
+node use_split(x: int) returns (sum: int)
+guarantee G( X( {sum} = {x} ) );
+instances
+  instance sp: split_pair;
+locals
+  lo: int;
+  hi: int;
+states
+  S;
+init S
+trans
+  S -> S {
+    call sp(x) returns (lo, hi);
+    sum := lo + hi;
+  }
+end

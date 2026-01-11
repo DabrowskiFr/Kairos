@@ -1,0 +1,23 @@
+node toggle01() returns (y: int)
+guarantee {y} = {0};
+guarantee G( {y} = {1 - prev} );
+guarantee G( (not ({y} = {0})) or X( {y} = {1} ) );
+guarantee G( (not ({y} = {1})) or X( X( {y} = {1} ) ) );
+locals
+  prev : int;
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    ensures {prev} = {1};
+    ensures {y} = {0};
+    prev := 1;
+    y := 0;
+  }
+  Run -> Run {
+    ensures {y} = {1 - prev};
+    prev := y;
+    y := 1 - prev;
+  }
+end

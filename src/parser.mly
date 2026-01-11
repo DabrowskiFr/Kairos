@@ -15,7 +15,7 @@ let expect_now h =
 %token TRUE FALSE
 %token TINT TBOOL TREAL
 %token PRE
-%token MIN MAX ADD MUL AND OR NOT
+%token MIN MAX ADD MUL AND OR NOT FIRST
 %token G X
 %token LET IN
 %token STATE
@@ -207,7 +207,7 @@ harith_atom:
   | IDENT LPAREN op COMMA harith RPAREN
       { if $1 = "scan1" then IScan1($3,$5) else failwith "unknown scan1" }
   | IDENT LPAREN op COMMA harith COMMA harith RPAREN
-      { if $1 = "scan" then IScan($3,$5,$7) else failwith "unknown scan" }
+      { if $1 = "scan" then IScan($3,$5,$7) else if $1 = "fold" then IScan($3,$5,$7) else failwith "unknown scan" }
   | IDENT LPAREN INT COMMA wop COMMA harith RPAREN
       { if $1 = "window" then IScan(OMin, ILitInt $3, $7) else failwith "unknown window" }
   | LPAREN hiexpr RPAREN { IPar $2 }
@@ -315,7 +315,7 @@ hexpr:
   | IDENT LPAREN op COMMA hexpr RPAREN
       { if $1 = "scan1" then HScan1($3, expect_now $5) else failwith "unknown history op" }
   | IDENT LPAREN op COMMA hexpr COMMA hexpr RPAREN
-      { if $1 = "scan" then HScan($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
+      { if $1 = "scan" then HScan($3, expect_now $5, expect_now $7) else if $1 = "fold" then HFold($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
   | IDENT LPAREN INT COMMA wop COMMA hexpr RPAREN
       { if $1 = "window" then HWindow($3,$5, expect_now $7) else failwith "unknown window op" }
   | LET IDENT EQ hexpr IN hexpr { HLet($2,$4,$6) }
@@ -327,6 +327,7 @@ op:
   | MUL { OMul }
   | AND { OAnd }
   | OR  { OOr }
+  | FIRST { OFirst }
 
 wop:
   | MIN { WMin }
