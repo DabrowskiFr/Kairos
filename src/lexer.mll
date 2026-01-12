@@ -30,6 +30,7 @@ rule token = parse
   | "(*" { comment lexbuf; token lexbuf }
   | ":=" { ASSIGN }
   | "->" { ARROW }
+  | "=>" { IMPL }
   | ">=" { GE }
   | "<=" { LE }
   | "!=" { NEQ }

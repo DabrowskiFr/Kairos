@@ -20,7 +20,7 @@ let expect_now h =
 %token LET IN
 %token STATE
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
-%token ASSIGN ARROW
+%token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
 %token EQ NEQ LT LE GT GE
 %token <int> INT
@@ -357,6 +357,10 @@ ltl_or:
   | ltl_and { $1 }
 
 ltl:
+  | ltl_imp { $1 }
+
+ltl_imp:
+  | ltl_or IMPL ltl_imp { LImp($1,$3) }
   | ltl_or { $1 }
 
 relop:

@@ -6,6 +6,8 @@ guarantee G( X( {lo} = {scan1(min, x)} ) );
 invariants
   invariant acc_min = {scan1(min, x)};
   invariant acc_max = {scan1(max, x)};
+  invariant lo = {acc_min};
+  invariant hi = {acc_max};
 locals
   acc_min : int;
   acc_max : int;

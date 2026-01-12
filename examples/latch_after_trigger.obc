@@ -1,0 +1,21 @@
+node latch_after_trigger(trig: bool) returns (y: bool)
+guarantee G( (not ({trig} = {true})) or X( G( {y} = {true} ) ) );
+locals
+  latched : bool;
+states
+  Run;
+init Run
+trans
+  Run -> Run {
+    if trig then
+      latched := true;
+    else
+      skip;
+    end;
+    if latched then
+      y := true;
+    else
+      y := false;
+    end;
+  }
+end

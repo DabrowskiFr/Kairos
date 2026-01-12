@@ -147,7 +147,7 @@ let fold_post_terms env fi =
         term_implies (mk_term (Tnot is_init_old)) acc_when_step ]
   | None -> []
 
-let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option * Ptree.decl list * string =
+let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option * Ptree.decl list * string =
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function
     | LG _ -> false
@@ -254,7 +254,7 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
     in
     List.fold_left max 0 ks
   in
-  let needs_step_count = max_k_guard > 1 in
+  let needs_step_count = max_k_guard > 0 in
   let needs_first_step_folds = List.exists (fun fi -> fi.init_flag = None) folds in
   let needs_first_step = needs_first_step_folds || has_initial_only_contracts in
   let inv_links =
@@ -312,9 +312,32 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
            f_ghost=false })
       n.instances
   in
+  let is_atom_local name =
+    String.length name >= 7 && String.sub name 0 7 = "__atom_"
+  in
+  let local_fields =
+    List.map
+      (fun v ->
+         { f_loc=loc;
+           f_ident=ident (rec_var_name env v.vname);
+           f_pty=default_pty v.vty;
+           f_mutable=true;
+           f_ghost=is_atom_local v.vname })
+      n.locals
+  in
+  let output_fields =
+    List.map
+      (fun v ->
+         { f_loc=loc;
+           f_ident=ident (rec_var_name env v.vname);
+           f_pty=default_pty v.vty;
+           f_mutable=true;
+           f_ghost=false })
+      n.outputs
+  in
   let fields : Ptree.field list =
     ( { f_loc=loc; f_ident=ident (rec_var_name env "st"); f_pty=Ptree.PTtyapp(qid1 "state", []); f_mutable=true; f_ghost=false } )
-    :: List.map (fun v -> { f_loc=loc; f_ident=ident (rec_var_name env v.vname); f_pty=default_pty v.vty; f_mutable=true; f_ghost=false }) (n.locals @ n.outputs)
+    :: (local_fields @ output_fields)
     @ instance_fields
     @ List.map
         (fun v ->
@@ -624,7 +647,7 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
               let st = term_of_var env "st" in
               let rhs = mk_term (Tident (qid1 st_name)) in
               let cond = (if is_eq then term_eq else term_neq) st rhs in
-              let body = compile_ltl_term ~prefer_link:true env f in
+              let body = compile_ltl_term ~prefer_link:false env f in
               Some (term_implies cond body)
           | _ -> None)
         n.contracts
@@ -652,6 +675,52 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
     | vs -> mk_expr (Etuple (List.map (fun v -> field env v.vname) vs))
   in
 
+  let conj_terms = function
+    | [] -> mk_term Ttrue
+    | [t] -> t
+    | t :: rest ->
+        List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest
+  in
+  let k_induction_terms ~rel ~frag k =
+    if k <= 1 || not needs_step_count then None
+    else
+      let post_conj = conj_terms frag.post in
+      let prev_terms =
+        let rec build acc i =
+          if i >= k - 1 then Some (List.rev acc)
+          else
+            let rel_shift =
+              if i = 0 then Some rel
+              else shift_ltl_by ~init_for_var i rel
+            in
+            match rel_shift with
+            | None -> None
+            | Some rel_i ->
+                let frag_i = ltl_spec env rel_i in
+                let term_i = conj_terms frag_i.post in
+                build (term_old term_i :: acc) (i + 1)
+        in
+        build [] 0
+      in
+      begin match prev_terms with
+      | None -> None
+      | Some prev_terms ->
+          let count_old = term_old (term_of_var env "__step_count") in
+          let k_minus_one =
+            mk_term (Tconst (Constant.int_const (BigInt.of_int (k - 1))))
+          in
+          let guard_base =
+            mk_term (Tinnfix (count_old, infix_ident "<", k_minus_one))
+          in
+          let guard_step =
+            mk_term (Tinnfix (count_old, infix_ident ">=", k_minus_one))
+          in
+          let hyp = conj_terms prev_terms in
+          let base_term = term_implies guard_base post_conj in
+          let step_term = term_implies guard_step (term_implies hyp post_conj) in
+          Some [base_term; step_term]
+      end
+  in
   let apply_k_guard ~in_post k_guard terms =
     match k_guard with
     | None -> terms
@@ -691,27 +760,29 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
              (guarded @ pre, post)
          | Ensures _ | Guarantee _ ->
              let frag = ltl_spec env rel in
-             let guarded_k = apply_k_guard ~in_post:true k_guard frag.post in
+             let guarded_k =
+               match k_induction, k_guard with
+               | true, Some k when k > 1 ->
+                   begin match k_induction_terms ~rel ~frag k with
+                   | Some terms -> terms
+                   | None -> apply_k_guard ~in_post:true k_guard frag.post
+                   end
+               | _ -> apply_k_guard ~in_post:true k_guard frag.post
+             in
              let guarded =
                if is_initial_only rel then
                  let guard = term_old (term_of_var env "__first_step") in
                  List.map (fun t -> term_implies guard t) guarded_k
                else
                  guarded_k
-             in
-             (pre, guarded @ post)
+            in
+            (pre, guarded @ post)
          | Invariant _ | InvariantState _ | InvariantStateRel _ -> (pre, post))
       ([],[]) n.contracts
   in
   let state_post =
     let st = term_of_var env "st" in
     let st_old = term_old st in
-    let conj_terms = function
-      | [] -> mk_term Ttrue
-      | [t] -> t
-      | t :: rest ->
-          List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest
-    in
     List.fold_left
       (fun post t ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
@@ -734,7 +805,15 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
                   let norm = normalize_ltl f in
                   let rel = ltl_relational env norm.ltl in
                   let frag = ltl_spec env rel in
-                  let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
+                  let guarded_k =
+                    match k_induction, norm.k_guard with
+                    | true, Some k when k > 1 ->
+                        begin match k_induction_terms ~rel ~frag k with
+                        | Some terms -> terms
+                        | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
+                        end
+                    | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
+                  in
                   let guarded = List.map (fun p -> term_implies guard p) guarded_k in
                   (List.map (term_implies cond_post) guarded) @ post
               | _ -> post)
@@ -749,7 +828,10 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
             let lhs = term_of_var env id in
             let rhs = compile_hexpr ~prefer_link:false ~in_post:true env h in
             let t = term_eq lhs rhs in
-            (pre, t :: post)
+            let t_old =
+              term_eq (term_old lhs) (term_old (compile_hexpr ~prefer_link:false ~in_post:true env h))
+            in
+            (pre, t_old :: t :: post)
         | InvariantState (is_eq, st_name) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
@@ -759,7 +841,7 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
             let cond = (if is_eq then term_eq else term_neq) st rhs in
-            let body = compile_ltl_term ~prefer_link:true env f in
+            let body = compile_ltl_term ~prefer_link:false env f in
             let t = term_implies cond body in
             (pre, t :: post)
         | _ -> (pre, post)
@@ -973,7 +1055,8 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
     else []
   in
   let pre =
-    link_invariants @ first_step_init_link_pre @ instance_input_links_pre @ link_terms_pre @ pre
+    link_invariants @ first_step_init_link_pre @ instance_input_links_pre
+    @ link_terms_pre @ pre
     |> uniq_terms
   in
   let post =
@@ -1026,11 +1109,11 @@ let compile_node (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option 
   in
   (ident module_name, None, decls, comment)
 
-let compile_program (p:program) : string =
+let compile_program ?(k_induction=false) (p:program) : string =
   let modules =
     match p with
     | [] -> []
-    | nodes -> List.map (compile_node nodes) nodes
+    | nodes -> List.map (compile_node ~k_induction nodes) nodes
   in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in
@@ -1059,4 +1142,25 @@ let compile_program (p:program) : string =
       loop 0;
       Buffer.contents b
   in
-  replace_all ~sub:"(old " ~by:"old(" out
+  let out = replace_all ~sub:"(old " ~by:"old(" out in
+  let lemma_block =
+    "  axiom bool_eq_true: forall b:bool. b = true <-> b\n" ^
+    "  axiom bool_eq_false: forall b:bool. b = false <-> not b\n" ^
+    "  axiom bool_not_eq_true: forall b:bool. not (b = true) <-> not b\n" ^
+    "  axiom bool_not_eq_false: forall b:bool. not (b = false) <-> b\n" ^
+    "  axiom bool_ite_true_false: forall b:bool. (if b then true else false) = b\n" ^
+    "  axiom bool_ite_false_true: forall b:bool. (if b then false else true) = not b\n"
+  in
+  let inject_lemmas s =
+    let lines = String.split_on_char '\n' s in
+    let rec loop acc = function
+      | [] -> List.rev acc
+      | line :: rest ->
+          if String.length line >= 7 && String.sub line 0 7 = "module " then
+            loop (lemma_block :: line :: acc) rest
+          else
+            loop (line :: acc) rest
+    in
+    String.concat "\n" (loop [] lines)
+  in
+  inject_lemmas out

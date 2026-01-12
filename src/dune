@@ -10,6 +10,8 @@
   whygen_compile_expr
   whygen_emit
   whygen
+  whygen_automaton_core
+  whygen_automaton
   main)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))

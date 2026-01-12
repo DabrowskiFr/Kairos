@@ -6,11 +6,16 @@ cd "$root_dir"
 
 unknown_only=false
 dump_unknown_vc=false
+prover="alt-ergo"
 examples=()
 for arg in "$@"; do
   case "$arg" in
     --unknown-only) unknown_only=true ;;
     --dump-unknown-vc) dump_unknown_vc=true ;;
+    --prover)
+      shift
+      prover="${1:-$prover}"
+      ;;
     *) examples+=("$arg") ;;
   esac
 done
@@ -33,15 +38,15 @@ for f in "${examples[@]}"; do
   dune exec -- obc2why3 "$f" > "$out"
   echo "== why3 prove $out"
   if [ "$unknown_only" = true ]; then
-    why3 prove -P alt-ergo -t 30 -a split_vc "$out" | rg "Unknown|unknown" || true
+    why3 prove -P "$prover" -t 30 -a split_vc "$out" | rg "Unknown|unknown" || true
   else
-    why3 prove -P alt-ergo -t 30 -a split_vc "$out"
+    why3 prove -P "$prover" -t 30 -a split_vc "$out"
   fi
 
   if [ "$dump_unknown_vc" = true ]; then
     out_dir="out/why3_tasks_$(basename "${f%.obc}")"
     mkdir -p "$out_dir"
-    why3 prove -a split_vc -P alt-ergo -o "$out_dir" "$out"
+    why3 prove -a split_vc -P "$prover" -o "$out_dir" "$out"
     for vc in "$out_dir"/*.psmt2; do
       [ -e "$vc" ] || continue
       res=$(alt-ergo --timelimit 2 "$vc" | tail -n 1 || true)

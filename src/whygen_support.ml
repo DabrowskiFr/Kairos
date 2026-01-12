@@ -184,13 +184,68 @@ let normalize_ltl_for_k ~init_for_var (f:ltl) : ltl_norm =
   match f with
   | LG a ->
       let k = max_x_depth a in
-      if k <= 1 then { ltl = f; k_guard = None }
+      if k = 0 then { ltl = f; k_guard = None }
+      else if k = 1 then { ltl = f; k_guard = Some 1 }
       else
         begin match shift_ltl_with_depth k 0 a with
         | Some a' -> { ltl = LG a'; k_guard = Some k }
         | None -> { ltl = f; k_guard = None }
         end
   | _ -> { ltl = f; k_guard = None }
+
+let rec shift_ltl_by ~init_for_var shift (f:ltl) : ltl option =
+  if shift <= 0 then Some f
+  else
+    match f with
+    | LX a ->
+        shift_ltl_by ~init_for_var (shift + 1) a
+    | LTrue | LFalse -> Some f
+    | LNot a ->
+        begin match shift_ltl_by ~init_for_var shift a with
+        | Some a' -> Some (LNot a')
+        | None -> None
+        end
+    | LAnd (a,b) ->
+        begin match shift_ltl_by ~init_for_var shift a,
+                    shift_ltl_by ~init_for_var shift b with
+        | Some a', Some b' -> Some (LAnd (a', b'))
+        | _ -> None
+        end
+    | LOr (a,b) ->
+        begin match shift_ltl_by ~init_for_var shift a,
+                    shift_ltl_by ~init_for_var shift b with
+        | Some a', Some b' -> Some (LOr (a', b'))
+        | _ -> None
+        end
+    | LImp (a,b) ->
+        begin match shift_ltl_by ~init_for_var shift a,
+                    shift_ltl_by ~init_for_var shift b with
+        | Some a', Some b' -> Some (LImp (a', b'))
+        | _ -> None
+        end
+    | LG a ->
+        begin match shift_ltl_by ~init_for_var shift a with
+        | Some a' -> Some (LG a')
+        | None -> None
+        end
+    | LAtom (ARel (h1,r,h2)) ->
+        begin match shift_hexpr_by ~init_for_var shift h1,
+                    shift_hexpr_by ~init_for_var shift h2 with
+        | Some h1', Some h2' -> Some (LAtom (ARel (h1', r, h2')))
+        | _ -> None
+        end
+    | LAtom (APred (id,hs)) ->
+        let rec map acc = function
+          | [] -> Some (List.rev acc)
+          | h :: rest ->
+              match shift_hexpr_by ~init_for_var shift h with
+              | Some h' -> map (h' :: acc) rest
+              | None -> None
+        in
+        begin match map [] hs with
+        | Some hs' -> Some (LAtom (APred (id, hs')))
+        | None -> None
+        end
 
 let rec string_of_iexpr ?(ctx=0) (e:iexpr) =
   let prec_of_binop = function
