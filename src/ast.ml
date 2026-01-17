@@ -57,6 +57,7 @@ type vdecl = { vname: ident; vty: ty } [@@deriving show]
 type stmt =
   | SAssign of ident * iexpr
   | SIf of iexpr * stmt list * stmt list
+  | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SAssert of ltl
   | SCall of ident * iexpr list * ident list
@@ -67,6 +68,8 @@ type contract =
   | Ensures of ltl
   | Assume of ltl
   | Guarantee of ltl
+  | Lemma of ltl
+  | InvariantFormula of ltl
   | Invariant of ident * hexpr
   | InvariantState of bool * ident
   | InvariantStateRel of bool * ident * ltl

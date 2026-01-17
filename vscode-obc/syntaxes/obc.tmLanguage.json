@@ -1,0 +1,69 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "OBC",
+  "scopeName": "source.obc",
+  "patterns": [
+    {"include": "#comments"},
+    {"include": "#strings"},
+    {"include": "#numbers"},
+    {"include": "#keywords"},
+    {"include": "#types"},
+    {"include": "#operators"},
+    {"include": "#builtins"},
+    {"include": "#braces"}
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {"name": "comment.line.double-slash.obc", "match": "//.*$"},
+        {"name": "comment.block.obc", "begin": "\\(\\*", "end": "\\*\\)"}
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {"name": "string.quoted.double.obc", "begin": "\"", "end": "\""}
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {"name": "constant.numeric.integer.obc", "match": "\\b[0-9]+\\b"}
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.obc",
+          "match": "\\b(node|returns|locals|states|init|trans|invariants|invariant|assume|guarantee|requires|ensures|call|end)\\b"
+        },
+        {
+          "name": "keyword.operator.word.obc",
+          "match": "\\b(G|X|pre|pre_k|fold|scan|scan1|window|min|max|add|mul|first)\\b"
+        },
+        {
+          "name": "constant.language.obc",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {"name": "storage.type.obc", "match": "\\b(int|bool|real)\\b"}
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {"name": "keyword.operator.obc", "match": "(:=|->|=>|<=|>=|!=|=|<|>|\\+|-|\\*|/|&&|\\|\\|)"}
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {"name": "support.function.obc", "match": "\\b(and|or|not)\\b"}
+      ]
+    },
+    "braces": {
+      "patterns": [
+        {"name": "punctuation.section.braces.obc", "match": "[{}]"}
+      ]
+    }
+  }
+}

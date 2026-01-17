@@ -8,7 +8,7 @@ let expect_now h =
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
-%token REQUIRES ENSURES ASSUME GUARANTEE
+%token REQUIRES ENSURES ASSUME GUARANTEE LEMMA
 %token INVARIANT INVARIANTS
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP ASSERT
@@ -86,7 +86,11 @@ contracts:
 
 invariants_opt:
   | /* empty */ { [] }
-  | INVARIANTS invariant_list { $2 }
+  | INVARIANTS invariant_list_opt { $2 }
+
+invariant_list_opt:
+  | /* empty */ { [] }
+  | invariant_list { $1 }
 
 instances_opt:
   | /* empty */ { [] }
@@ -107,15 +111,18 @@ invariant_decl:
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
   | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
   | INVARIANT STATE state_relop IDENT ARROW ltl_atom SEMI { InvariantStateRel ($3, $4, $6) }
+  | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 contract:
   | REQUIRES ltl SEMI { Requires $2 }
   | ENSURES ltl SEMI { Ensures $2 }
   | ASSUME ltl SEMI { Assume $2 }
   | GUARANTEE ltl SEMI { Guarantee $2 }
+  | LEMMA ltl SEMI { Lemma $2 }
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
   | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
   | INVARIANT STATE state_relop IDENT ARROW ltl_atom SEMI { InvariantStateRel ($3, $4, $6) }
+  | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -171,10 +178,10 @@ trans_contracts:
   | trans_contract { [$1] }
 
 trans_contract:
-  | REQUIRES ltl SEMI { Requires $2 }
-  | ENSURES ltl SEMI { Ensures $2 }
-  | ASSUME ltl SEMI { Assume $2 }
-  | GUARANTEE ltl SEMI { Guarantee $2 }
+  | REQUIRES fo_formula SEMI { Requires $2 }
+  | ENSURES fo_formula SEMI { Ensures $2 }
+  | GUARANTEE fo_formula SEMI { Guarantee $2 }
+  | LEMMA fo_formula SEMI { Lemma $2 }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
@@ -341,6 +348,32 @@ ltl_atom:
   | hexpr relop hexpr { LAtom (ARel($1,$2,$3)) }
   | IDENT LPAREN hexpr_list_opt RPAREN { LAtom (APred($1,$3)) }
   | LPAREN ltl RPAREN { $2 }
+
+fo_atom:
+  | TRUE { LTrue }
+  | FALSE { LFalse }
+  | hexpr relop hexpr { LAtom (ARel($1,$2,$3)) }
+  | IDENT LPAREN hexpr_list_opt RPAREN { LAtom (APred($1,$3)) }
+  | LPAREN fo_formula RPAREN { $2 }
+
+fo_un:
+  | NOT fo_un { LNot $2 }
+  | fo_atom { $1 }
+
+fo_and:
+  | fo_and AND fo_un { LAnd($1,$3) }
+  | fo_un { $1 }
+
+fo_or:
+  | fo_or OR fo_and { LOr($1,$3) }
+  | fo_and { $1 }
+
+fo_formula:
+  | fo_imp { $1 }
+
+fo_imp:
+  | fo_or IMPL fo_imp { LImp($1,$3) }
+  | fo_or { $1 }
 
 ltl_un:
   | NOT ltl_un { LNot $2 }

@@ -138,7 +138,8 @@ let classify_fold h =
 let collect_folds_from_contracts (cs:contract list) =
   let hexprs = List.fold_left (fun acc c ->
       match c with
-      | Requires f | Ensures f | Assume f | Guarantee f -> collect_ltl f acc
+      | Requires f | Ensures f | Assume f | Guarantee f | Lemma f | InvariantFormula f ->
+          collect_ltl f acc
       | Invariant (_id,h) -> collect_hexpr h acc
       | InvariantState _ | InvariantStateRel _ -> acc
     ) [] cs |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false) in
@@ -170,7 +171,8 @@ let collect_pre_k_from_contracts (cs:contract list) =
   List.fold_left
     (fun acc c ->
        match c with
-       | Requires f | Ensures f | Assume f | Guarantee f -> collect_pre_k_ltl f acc
+       | Requires f | Ensures f | Assume f | Guarantee f | Lemma f | InvariantFormula f ->
+           collect_pre_k_ltl f acc
        | Invariant (_id,h) -> collect_pre_k_hexpr h acc
        | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_ltl f acc
        | InvariantState _ -> acc)
@@ -196,6 +198,8 @@ let build_pre_k_infos (n:node) =
     | Ensures f -> Ensures (normalize_ltl_for_k ~init_for_var f).ltl
     | Assume f -> Assume (normalize_ltl_for_k ~init_for_var f).ltl
     | Guarantee f -> Guarantee (normalize_ltl_for_k ~init_for_var f).ltl
+    | Lemma f -> Lemma (normalize_ltl_for_k ~init_for_var f).ltl
+    | InvariantFormula f -> InvariantFormula (normalize_ltl_for_k ~init_for_var f).ltl
     | Invariant _ as c -> c
     | InvariantState _ as c -> c
     | InvariantStateRel (is_eq, st, f) ->
@@ -239,6 +243,14 @@ let rec collect_calls_stmt acc s =
   | SIf (_c, tbr, fbr) ->
       let acc = List.fold_left collect_calls_stmt acc tbr in
       List.fold_left collect_calls_stmt acc fbr
+  | SMatch (_e, branches, def) ->
+      let acc =
+        List.fold_left
+          (fun acc (_ctor, body) -> List.fold_left collect_calls_stmt acc body)
+          acc
+          branches
+      in
+      List.fold_left collect_calls_stmt acc def
   | SAssign _ | SSkip | SAssert _ -> acc
 
 let collect_calls_trans (ts:transition list) =
@@ -252,6 +264,14 @@ let rec collect_calls_stmt_full acc s =
   | SIf (_c, tbr, fbr) ->
       let acc = List.fold_left collect_calls_stmt_full acc tbr in
       List.fold_left collect_calls_stmt_full acc fbr
+  | SMatch (_e, branches, def) ->
+      let acc =
+        List.fold_left
+          (fun acc (_ctor, body) -> List.fold_left collect_calls_stmt_full acc body)
+          acc
+          branches
+      in
+      List.fold_left collect_calls_stmt_full acc def
   | SAssign _ | SSkip | SAssert _ -> acc
 
 let collect_calls_trans_full (ts:transition list) =

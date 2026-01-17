@@ -21,21 +21,18 @@ for arg in "$@"; do
 done
 if [ "${#examples[@]}" -eq 0 ]; then
   examples=(
-    examples/first_value.obc
-    examples/delay_int.obc
-    examples/delay_int2.obc
-    examples/toggle01.obc
-    examples/sum_scan.obc
-    examples/sum_scan_state.obc
-    examples/minmax_scan1.obc
-    examples/minmax_scan1_state.obc
+    examples/main/first_value.obc
+    examples/main/delay_int.obc
+    examples/main/delay_int2.obc
+    examples/main/toggle01.obc
+    examples/main/identity.obc
   )
 fi
 
 for f in "${examples[@]}"; do
-  out="out/$(basename "${f%.obc}").why"
+  out="out/$(basename "${f%.obc}")_monitor.why"
   echo "== generate $out"
-  dune exec -- obc2why3 "$f" > "$out"
+  dune exec -- obc2why3 --monitor "$f" > "$out"
   echo "== why3 prove $out"
   if [ "$unknown_only" = true ]; then
     why3 prove -P "$prover" -t 30 -a split_vc "$out" | rg "Unknown|unknown" || true

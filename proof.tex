@@ -1,0 +1,168 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{hyperref}
+
+\title{Correction de l'automate et de l'instrumentation}
+\author{}
+\date{}
+
+\newcommand{\Tr}{\mathcal{T}}
+\newcommand{\AP}{\mathsf{AP}}
+\newcommand{\eval}{\models}
+\newcommand{\Prog}{\mathrm{Prog}}
+\newcommand{\nnf}{\mathrm{nnf}}
+\newcommand{\res}{\mathrm{res}}
+\newcommand{\step}{\mathrm{step}}
+\newcommand{\bad}{\mathsf{bad}}
+\newcommand{\states}{\mathsf{States}}
+\newcommand{\deltaa}{\delta}
+\newcommand{\atoms}{\mathsf{Atoms}}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+
+\begin{document}
+\maketitle
+
+\section{Preliminaires}
+
+\subsection{Traces et semantique LTL (fragment $G/X$)}
+
+\begin{definition}[Etats et traces]
+Soit $\Sigma$ l'ensemble des etats. Une \emph{trace} est une suite infinie
+$\tau = s_0 s_1 s_2 \ldots$ avec $s_i \in \Sigma$. On note $\tau[i] = s_i$.
+\end{definition}
+
+\begin{definition}[Atomes]
+Soit $\AP$ un ensemble fini d'atomes propositionnels. Une valuation
+$\sigma : \AP \to \{\mathsf{true},\mathsf{false}\}$ associe une valeur a chaque atome.
+Chaque etat $s \in \Sigma$ definit une valuation $\sigma_s$ des atomes.
+\end{definition}
+
+\begin{definition}[Fragment $G/X$]
+Les formules LTL sont definies par:
+\[
+\varphi ::= \mathsf{true} \mid \mathsf{false} \mid p \in \AP \mid \neg\varphi
+\mid (\varphi \wedge \varphi) \mid (\varphi \vee \varphi)
+\mid X\varphi \mid G\varphi.
+\]
+Les formules sont en NNF (negations uniquement sur les atomes).
+\end{definition}
+
+\begin{definition}[Semantique]
+Pour une trace $\tau$ et un indice $i$:
+\begin{align*}
+\tau,i \eval p &\iff \sigma_{\tau[i]}(p) = \mathsf{true} \\
+\tau,i \eval \neg p &\iff \sigma_{\tau[i]}(p) = \mathsf{false} \\
+\tau,i \eval \varphi \wedge \psi &\iff \tau,i \eval \varphi \text{ et } \tau,i \eval \psi \\
+\tau,i \eval \varphi \vee \psi &\iff \tau,i \eval \varphi \text{ ou } \tau,i \eval \psi \\
+\tau,i \eval X\varphi &\iff \tau,i+1 \eval \varphi \\
+\tau,i \eval G\varphi &\iff \forall j \ge i,\ \tau,j \eval \varphi.
+\end{align*}
+On note $\tau \eval \varphi$ pour $\tau,0 \eval \varphi$.
+\end{definition}
+
+\subsection{Progression}
+
+\begin{definition}[Progression]
+La progression $\Prog(\varphi,\sigma)$ renvoie une formule residuelle telle que:
+\[
+\tau,i \eval \varphi \iff \tau,i+1 \eval \Prog(\varphi,\sigma_{\tau[i]}).
+\]
+Sur le fragment $G/X$ (NNF):
+\[
+\Prog(p,\sigma)=\begin{cases}\mathsf{true} & \sigma(p)=\mathsf{true}\\ \mathsf{false} & \text{sinon}\end{cases}
+\quad
+\Prog(\neg p,\sigma)=\begin{cases}\mathsf{true} & \sigma(p)=\mathsf{false}\\ \mathsf{false} & \text{sinon}\end{cases}
+\]
+\[
+\Prog(\varphi\wedge\psi,\sigma)=\Prog(\varphi,\sigma)\wedge\Prog(\psi,\sigma),\quad
+\Prog(\varphi\vee\psi,\sigma)=\Prog(\varphi,\sigma)\vee\Prog(\psi,\sigma)
+\]
+\[
+\Prog(X\varphi,\sigma)=\varphi,\quad
+\Prog(G\varphi,\sigma)=\Prog(\varphi,\sigma)\wedge G\varphi.
+\]
+\end{definition}
+
+\section{Automate residual}
+
+\begin{definition}[Residus et automate]
+Soit $\varphi$ une formule en NNF. On definit l'ensemble fini $\states$ des residus
+comme l'ensemble des formules obtenues en appliquant iterativement $\Prog$
+a partir de $\varphi$, puis en simplifiant. L'automate residual est:
+\[
+\mathcal{A}_\varphi = (\states, q_0, \deltaa, \bad)
+\]
+avec $q_0 = \varphi$, $\bad = \mathsf{false}$, et
+$\deltaa(q,\sigma)=\mathrm{Simplify}(\Prog(q,\sigma))$.
+\end{definition}
+
+\begin{lemma}[Correctness de la progression]
+Pour toute trace $\tau$, tout $i$ et toute formule $\varphi$:
+\[
+\tau,i \eval \varphi \iff \tau,i+1 \eval \Prog(\varphi,\sigma_{\tau[i]}).
+\]
+\end{lemma}
+\begin{proof}
+Par induction structurelle sur $\varphi$, en utilisant la definition de $\Prog$.
+\end{proof}
+
+\begin{theorem}[Correction de l'automate]
+Pour toute trace $\tau$, la suite d'etats $q_{i+1}=\deltaa(q_i,\sigma_{\tau[i]})$
+avec $q_0=\varphi$ verifie:
+\[
+\tau \eval \varphi \iff \forall i,\ q_i \ne \bad.
+\]
+\end{theorem}
+\begin{proof}[Esquisse]
+Par induction sur $i$ et le lemme de progression, on montre que
+$\tau,i \eval q_i$ pour tout $i$. Ainsi, si un residu vaut $\mathsf{false}$,
+la formule est violee. Reciprocquement, si aucun residu n'est $\mathsf{false}$,
+la formule est satisfaite.
+\end{proof}
+
+\section{Instrumentation du programme}
+
+\subsection{Langage imperatif jouet}
+
+\begin{definition}[Programme]
+Un programme est un systeme de transition $(\Sigma,\rightarrow)$ avec etat initial
+$s_0$. Une execution est une trace $\tau$ telle que $s_0 \rightarrow s_1 \rightarrow \cdots$.
+\end{definition}
+
+\begin{definition}[Instrumentation moniteur]
+On etend l'etat a $\Sigma'=\Sigma \times \states$.
+L'etat initial est $(s_0,q_0)$. La transition est:
+\[
+(s,q)\rightarrow (s',q') \iff s\rightarrow s' \text{ et } q'=\deltaa(q,\sigma_s).
+\]
+On ajoute l'invariant $q \ne \bad$.
+\end{definition}
+
+\begin{theorem}[Correction de l'instrumentation]
+Pour toute execution instrumentee $\tau'=(s_0,q_0)(s_1,q_1)\ldots$:
+\[
+\forall i,\ q_i \ne \bad \iff s_0 s_1 s_2 \ldots \eval \varphi.
+\]
+Donc, prouver l'invariant $q \ne \bad$ sur $\Sigma'$ garantit la propriete LTL.
+\end{theorem}
+\begin{proof}[Esquisse]
+La projection de $\tau'$ sur $\Sigma$ donne une trace $\tau$ du programme.
+La suite $(q_i)$ suit l'automate residual par construction. On conclut par
+la correction de l'automate.
+\end{proof}
+
+\section{Conclusion}
+
+La preuve se decouple en deux etapes: (1) correction de l'automate residual vis-a-vis
+de la formule LTL, (2) correction de l'instrumentation qui synchronise le programme
+et l'automate. Ainsi, la satisfaction de l'invariant ``$\bad$ non atteint'' implique
+la satisfaction de la specification LTL sur toutes les executions du programme.
+
+\end{document}

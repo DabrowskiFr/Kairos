@@ -4,12 +4,28 @@ open Ptree
 open Ast
 open Whygen_support
 
+let is_mon_state_ctor name =
+  let len = String.length name in
+  len >= 4
+  && String.sub name 0 3 = "Mon"
+  && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
+
 let rec compile_iexpr env (e:iexpr) : Ptree.expr =
+  let match_mon_state_eq ctor other is_eq =
+    let scrut = compile_iexpr env other in
+    let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
+    let tru = mk_expr Etrue in
+    let fls = mk_expr Efalse in
+    let then_e, else_e = if is_eq then (tru, fls) else (fls, tru) in
+    mk_expr (Ematch (scrut, [ (pat, then_e); ({pat_desc=Pwild; pat_loc=loc}, else_e) ], []))
+  in
   match e with
   | ILitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_expr (if b then Etrue else Efalse)
   | IVar x ->
-      if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+      if is_rec_var env x then field env x
+      else if is_mon_state_ctor x then mk_expr (Eidapp (qid1 x, []))
+      else mk_expr (Eident (qid1 x))
   | IScan1 (_,e) -> compile_iexpr env e
   | IScan (_,init,e) ->
       (* conservative: compile current value *)
@@ -17,6 +33,15 @@ let rec compile_iexpr env (e:iexpr) : Ptree.expr =
   | IPar e -> compile_iexpr env e
   | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [compile_iexpr env a]))
   | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
+  | IBin ((Eq | Neq as op), IVar a, IVar b)
+    when is_mon_state_ctor a || is_mon_state_ctor b ->
+      if is_mon_state_ctor a && is_mon_state_ctor b then
+        let same = a = b in
+        let is_eq = match op with Eq -> true | Neq -> false | _ -> true in
+        mk_expr (if same = is_eq then Etrue else Efalse)
+      else
+        let ctor, other = if is_mon_state_ctor a then (a, IVar b) else (b, IVar a) in
+        match_mon_state_eq ctor other (op = Eq)
   | IBin (op,a,b) ->
       mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
 
@@ -119,6 +144,11 @@ let term_of_outputs env outputs =
 let rec compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) env (h:hexpr) : Ptree.term =
   let is_const_iexpr = function
     | ILitInt _ | ILitBool _ -> true
+    | IVar name ->
+        let len = String.length name in
+        len >= 4
+        && String.sub name 0 3 = "Mon"
+        && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
     | _ -> false
   in
   match find_link env h, prefer_link with

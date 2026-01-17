@@ -3,10 +3,11 @@
 Top-level
 ---------
 - `src/` core compiler and Why3 generation.
-- `examples/` sample OBC programs.
-- `out/` generated Why3 and automata outputs.
+- `examples/main/` main OBC programs used for verification.
+- `examples/others/` additional OBC examples not verified by default.
+- `out/` generated Why3 and monitor DOT outputs.
 - `scripts/` helper scripts (Why3 batch runs).
-- `manual.md`, `automaton.md`, `Method.md`, `Formal.md` documentation.
+- `manual.md`, `Method.md`, `Formal.md` documentation.
 
 Source modules
 --------------
@@ -32,19 +33,19 @@ Source modules
   Facade module re-exporting the direct Why3 pipeline.
 
 - `src/whygen_automaton_core.ml`  
-  Automaton core logic: valuations, LTL progression/simplification, residual
-  graph construction, edge label simplification, safety minimization.
+  Monitor core logic: valuations, LTL progression/simplification, residual
+  graph construction, and edge label simplification.
 
 - `src/whygen_automaton.ml`  
-  Automaton-oriented pipeline: atom extraction and mapping, fold handling,
-  injection of atom invariants, and DOT rendering (atoms/residual/product).
+  Monitor pipeline: atom extraction and mapping, fold handling,
+  injection of atom invariants, and DOT rendering (monitor residual).
 
 - `src/main.ml`  
-  CLI: `--direct` (default), `--automaton`, `--automaton-dot`, `--help`.
+  CLI: `--monitor` (default), `--monitor-dot`, `--help`.
 
 Generated artifacts
 -------------------
 - `out/*.why`  
   Why3 files produced by `obc2why3`.
-- `out/*_automaton_*.dot` / `out/*_automaton_*.pdf`  
-  Automaton visualizations (atoms, residual, product).
+- `out/*_monitor.dot` / `out/*_monitor.pdf`  
+  Monitor residual graph visualizations.

@@ -102,14 +102,11 @@ In practice:
 
 This yields a compact and consistent relational encoding.
 
-### Safety Automata Interpretation
+### Safety Interpretation
 For the X/G fragment, specifications describe safety properties: any
-violation is witnessed by a finite bad prefix. This enables a safety
-automaton view, where acceptance means "never reach a rejecting state".
-Equivalently, a Buchi automaton with all non-rejecting states accepting
-captures the same notion. Our automaton-based generation therefore treats
-`False` as the rejecting sink in the residual formula graph, and accepts
-all other residuals.
+violation is witnessed by a finite bad prefix. The monitor construction
+tracks residual formulas and treats `False` as the rejecting sink; all
+other residuals are considered safe.
 
 ### Proof Availability Policy
 Why3 proves each `ensures` goal separately. Facts that are only present in

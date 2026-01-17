@@ -1,0 +1,73 @@
+{
+  "name": "obc-syntax",
+  "displayName": "OBC Syntax Highlighting",
+  "description": "Syntax highlighting for OBC files with LSP client hooks.",
+  "version": "0.1.0",
+  "publisher": "obc",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:obc",
+    "onCommand:obc.restartLsp"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.15.0",
+    "typescript": "^5.4.0",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "obc",
+        "aliases": [
+          "OBC"
+        ],
+        "extensions": [
+          ".obc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "obc",
+        "scopeName": "source.obc",
+        "path": "./syntaxes/obc.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "OBC",
+      "properties": {
+        "obc.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the OBC LSP server executable."
+        },
+        "obc.lsp.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Arguments to pass to the OBC LSP server."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "obc.restartLsp",
+        "title": "OBC: Restart LSP"
+      }
+    ]
+  }
+}

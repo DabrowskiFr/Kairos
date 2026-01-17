@@ -1,2 +1,2 @@
 (include_subdirs no)
-(dirs src examples)
+(dirs src examples coq)

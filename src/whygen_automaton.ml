@@ -2,7 +2,52 @@ open Ast
 open Whygen_support
 open Whygen_automaton_core
 
-let atom_name i = Printf.sprintf "__atom_%d" (i + 1)
+let monitor_state_type = "mon_state"
+let monitor_state_name = "__mon_state"
+let monitor_state_ctor i = Printf.sprintf "Mon%d" i
+let monitor_state_expr i = IVar (monitor_state_ctor i)
+
+let sanitize_ident s =
+  let buf = Buffer.create (String.length s) in
+  let add_underscore () =
+    if Buffer.length buf = 0 || Buffer.nth buf (Buffer.length buf - 1) <> '_' then
+      Buffer.add_char buf '_'
+  in
+  String.iter
+    (fun c ->
+       match c with
+       | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' -> Buffer.add_char buf c
+       | _ -> add_underscore ())
+    s;
+  let out = Buffer.contents buf in
+  let out = String.lowercase_ascii out in
+  let out =
+    let len = String.length out in
+    if len > 0 && out.[len - 1] = '_' then String.sub out 0 (len - 1) else out
+  in
+  let out = if out = "" then "atom" else out in
+  let starts_with_digit =
+    match out.[0] with '0' .. '9' -> true | _ -> false
+  in
+  if starts_with_digit then "atom_" ^ out else out
+
+let make_atom_names atom_exprs =
+  let used = Hashtbl.create 16 in
+  let fresh base =
+    let rec loop n =
+      let name = if n = 0 then base else base ^ "_" ^ string_of_int n in
+      if Hashtbl.mem used name then loop (n + 1)
+      else (Hashtbl.add used name (); name)
+    in
+    loop 0
+  in
+  List.map
+    (fun (_atom, expr) ->
+       let base =
+         "atom_" ^ sanitize_ident (Whygen_support.string_of_iexpr expr)
+       in
+       fresh base)
+    atom_exprs
 
 let iexpr_to_why ~prefix ~inputs =
   let rec go = function
@@ -31,11 +76,9 @@ let rec collect_atoms_ltl f acc =
       collect_atoms_ltl b (collect_atoms_ltl a acc)
 
 let collect_atoms_contract = function
-  | Requires f | Ensures f | Assume f | Guarantee f ->
+  | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
       collect_atoms_ltl f []
-  | InvariantStateRel (_is_eq, _st, f) ->
-      collect_atoms_ltl f []
-  | Invariant _ | InvariantState _ -> []
+  | Invariant _ | InvariantState _ | InvariantStateRel _ | InvariantFormula _ -> []
 
 let relop_to_binop = function
   | REq -> Eq
@@ -144,6 +187,8 @@ let replace_atoms_contract atom_map = function
   | Ensures f -> Ensures (replace_atoms_ltl atom_map f)
   | Assume f -> Assume (replace_atoms_ltl atom_map f)
   | Guarantee f -> Guarantee (replace_atoms_ltl atom_map f)
+  | Lemma f -> Lemma (replace_atoms_ltl atom_map f)
+  | InvariantFormula f -> InvariantFormula (replace_atoms_ltl atom_map f)
   | InvariantStateRel (is_eq, st, f) ->
       InvariantStateRel (is_eq, st, replace_atoms_ltl atom_map f)
   | Invariant _ as c -> c
@@ -204,17 +249,23 @@ let transform_node (n:node) : node =
   in
   if atoms = [] then n
   else
-    let atom_map = List.mapi (fun i a -> (a, atom_name i)) atoms in
     let atom_exprs =
       List.filter_map
-        (fun (a, name) ->
+        (fun a ->
            match atom_to_iexpr ~inputs ~var_types ~fold_map a with
-           | Some e -> Some (name, e)
+           | Some e -> Some (a, e)
            | None -> None)
-        atom_map
+        atoms
+    in
+    let atom_names = make_atom_names atom_exprs in
+    let atom_map =
+      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+    in
+    let atom_named_exprs =
+      List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
     in
     let atom_locals =
-      List.map (fun (_, name) -> { vname = name; vty = TBool }) atom_map
+      List.map (fun name -> { vname = name; vty = TBool }) atom_names
     in
     let atom_assigns =
       List.map
@@ -226,7 +277,7 @@ let transform_node (n:node) : node =
         atom_map
     in
     let atom_invariants =
-      List.map (fun (name, e) -> Invariant (name, HNow e)) atom_exprs
+      List.map (fun (name, e) -> Invariant (name, HNow e)) atom_named_exprs
     in
     let trans =
       List.map
@@ -239,95 +290,297 @@ let transform_node (n:node) : node =
     let contracts = List.map (replace_atoms_contract atom_map) n.contracts in
     { n with locals = n.locals @ atom_locals; contracts = contracts @ atom_invariants; trans }
 
-let compile_program ?(k_induction=false) (p:program) : string =
-  let lemma_block_for_node (n:node) =
-    let fold_map = fold_map_for_contracts n.contracts in
-    let inputs = List.map (fun v -> v.vname) n.inputs in
-    let var_types =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
-    in
-    let atoms =
-      List.fold_left
-        (fun acc c -> collect_atoms_contract c @ acc)
-        []
-      n.contracts
-      |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
-      |> List.sort_uniq compare
-    in
-    let pre_k_map = Whygen_collect.build_pre_k_infos n in
-    let atom_map = List.mapi (fun i a -> (a, atom_name i)) atoms in
-    let atom_exprs =
-      List.filter_map
-        (fun (a, name) ->
-           match atom_to_iexpr ~inputs ~var_types ~fold_map a with
-           | Some e -> Some (name, e)
-           | None -> None)
-        atom_map
-    in
-    let prefix = Whygen_support.prefix_for_node n.nname in
-    let atom_lemmas =
-      List.map
-        (fun (name, e) ->
-           let expr = iexpr_to_why ~prefix ~inputs e in
-           Printf.sprintf
-             "  axiom %s_true: forall v:vars. v.%s%s = true <-> %s\n"
-             name prefix name expr)
-        atom_exprs
-    in
-    let inv_lemmas =
-      List.filter_map
-        (function
-          | Invariant (id, h) ->
-              begin match List.find_map (fun (h', info) -> if h' = h then Some info else None) pre_k_map with
-              | None -> None
-              | Some info ->
-                  let name = List.nth info.names (List.length info.names - 1) in
-                  Some (Printf.sprintf
-                          "  axiom inv_%s_pre_k: forall v:vars. v.%s%s = v.%s%s\n"
-                          id prefix id prefix name)
-              end
-          | _ -> None)
-        n.contracts
-    in
-    let lemmas = atom_lemmas @ inv_lemmas in
-    if lemmas = [] then None
-    else Some (Whygen_support.module_name_of_node n.nname, String.concat "" lemmas)
+
+let combine_contracts_for_monitor contracts =
+  let rec mk_and = function
+    | [] -> LTrue
+    | [x] -> x
+    | x :: xs -> LAnd (x, mk_and xs)
   in
-  let lemma_map =
-    List.filter_map lemma_block_for_node p
+  let assumes, guarantees =
+    List.fold_left
+      (fun (a, g) c ->
+         match c with
+         | Requires f | Assume f -> (f :: a, g)
+         | Ensures f | Guarantee f -> (a, f :: g)
+         | Lemma _ | InvariantFormula _ -> (a, g)
+         | _ -> (a, g))
+      ([], [])
+      contracts
   in
-  let p' = List.map transform_node p in
-  let out = Whygen.compile_program ~k_induction p' in
-  let inject_lemmas s =
-    let lines = String.split_on_char '\n' s in
-    let rec loop acc current pending in_vars = function
-      | [] -> List.rev acc
-      | line :: rest ->
-          let line_trim =
-            if String.length line >= 7 then String.sub line 0 7 else line
+  let a = mk_and (List.rev assumes) in
+  let g = mk_and (List.rev guarantees) in
+  match assumes, guarantees with
+  | [], [] -> LTrue
+  | [], _ -> g
+  | _ , [] -> LImp (a, LTrue)
+  | _ -> LImp (a, g)
+
+let monitor_update_stmts atom_names states transitions =
+  let mon = monitor_state_name in
+  let by_src = Hashtbl.create 16 in
+  List.iter
+    (fun (i, vals, j) ->
+       let per_src =
+         match Hashtbl.find_opt by_src i with
+         | Some m -> m
+         | None ->
+             let m = Hashtbl.create 16 in
+             Hashtbl.add by_src i m;
+             m
+       in
+       let prev = Hashtbl.find_opt per_src j |> Option.value ~default:[] in
+       Hashtbl.replace per_src j (vals :: prev))
+    transitions;
+  let is_true = function ILitBool true -> true | _ -> false in
+  let is_false = function ILitBool false -> true | _ -> false in
+  let rec chain = function
+    | [] -> SSkip
+    | (dst, cond) :: rest ->
+        if is_true cond then
+          SAssign (mon, monitor_state_expr dst)
+        else if is_false cond then
+          chain rest
+        else
+          SIf (cond, [SAssign (mon, monitor_state_expr dst)], [chain rest])
+  in
+  let per_state =
+    List.init (List.length states) (fun i -> i)
+    |> List.map (fun i ->
+      match Hashtbl.find_opt by_src i with
+      | None -> (i, SSkip)
+      | Some per_src ->
+          let dests =
+            Hashtbl.fold
+              (fun dst vals_list acc ->
+                 let cond = valuations_to_iexpr atom_names vals_list in
+                 (dst, cond) :: acc)
+              per_src
+              []
           in
-          if line_trim = "module " then
-            let name =
-              String.trim (String.sub line 7 (String.length line - 7))
-            in
-            let pending = List.assoc_opt name lemma_map in
-            loop (line :: acc) (Some name) pending false rest
-          else
-            begin match current, pending with
-            | Some _name, Some block ->
-                if String.trim line = "type vars = mutable {" then
-                  loop (line :: acc) current pending true rest
-                else if in_vars && String.trim line = "}" then
-                  loop (block :: line :: acc) current None false rest
-                else
-                  loop (line :: acc) current pending in_vars rest
-            | _ ->
-                loop (line :: acc) current pending in_vars rest
-            end
-    in
-    String.concat "\n" (loop [] None None false lines)
+          let dests = List.sort_uniq compare dests in
+          (i, chain dests))
   in
-  inject_lemmas out
+  let branches =
+    List.map
+      (fun (i, body) -> (monitor_state_ctor i, [body]))
+      per_state
+  in
+  match branches with
+  | [] -> []
+  | _ -> [SMatch (IVar mon, branches, [])]
+
+let monitor_assert bad_idx =
+  if bad_idx < 0 then []
+  else
+    [SAssert (LAtom (ARel (HNow (IVar monitor_state_name),
+                          RNeq,
+                          HNow (monitor_state_expr bad_idx))))]
+
+let transform_node_monitor (n:node) : node =
+  let fold_map = fold_map_for_contracts n.contracts in
+  let inputs = List.map (fun v -> v.vname) n.inputs in
+  let var_types =
+    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+  in
+  let atoms =
+    List.fold_left
+      (fun acc c -> collect_atoms_contract c @ acc)
+      []
+      n.contracts
+    |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
+    |> List.sort_uniq compare
+  in
+  let atom_exprs =
+    List.filter_map
+      (fun a ->
+         match atom_to_iexpr ~inputs ~var_types ~fold_map a with
+         | Some e -> Some (a, e)
+         | None -> None)
+      atoms
+  in
+  let atom_names = make_atom_names atom_exprs in
+  let atom_map =
+    List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+  in
+  let atom_named_exprs =
+    List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
+  in
+  let atom_locals =
+    List.map (fun name -> { vname = name; vty = TBool }) atom_names
+  in
+  let atom_assigns =
+    List.map
+      (fun (a, name) ->
+         match atom_to_iexpr ~inputs ~var_types ~fold_map a with
+         | Some e -> SAssign (name, e)
+         | None -> SSkip
+      )
+      atom_map
+  in
+  let atom_invariants =
+    List.map (fun (name, e) -> Invariant (name, HNow e)) atom_named_exprs
+  in
+  let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
+  let contracts =
+    List.map (replace_atoms_contract atom_map) n.contracts
+  in
+  let spec =
+    combine_contracts_for_monitor contracts
+    |> replace_atoms_ltl atom_map
+    |> simplify_ltl
+  in
+  let valuations = all_valuations atom_names in
+  let states, transitions = build_residual_graph atom_map valuations spec in
+  let states, transitions =
+    minimize_residual_graph valuations states transitions
+  in
+  let compat_invariants =
+    let n_states = List.length n.states in
+    let n_mon = List.length states in
+    if n_states = 0 || n_mon = 0 then []
+    else
+      let state_index = Hashtbl.create n_states in
+      List.iteri (fun i s -> Hashtbl.add state_index s i) n.states;
+      let prog_out = Array.make n_states [] in
+      List.iter
+        (fun (t:transition) ->
+           match Hashtbl.find_opt state_index t.src,
+                 Hashtbl.find_opt state_index t.dst with
+           | Some i, Some j ->
+               if not (List.mem j prog_out.(i)) then
+                 prog_out.(i) <- j :: prog_out.(i)
+           | _ -> ())
+        n.trans;
+      let mon_out = Array.make n_mon [] in
+      List.iter
+        (fun (i, _vals, j) ->
+           if not (List.mem j mon_out.(i)) then
+             mon_out.(i) <- j :: mon_out.(i))
+        transitions;
+      let visited = Array.make_matrix n_states n_mon false in
+      let q = Queue.create () in
+      begin match Hashtbl.find_opt state_index n.init_state with
+      | Some i0 ->
+          visited.(i0).(0) <- true;
+          Queue.add (i0, 0) q
+      | None -> ()
+      end;
+      while not (Queue.is_empty q) do
+        let (i, j) = Queue.take q in
+        List.iter
+          (fun i' ->
+             List.iter
+               (fun j' ->
+                  if not visited.(i').(j') then (
+                    visited.(i').(j') <- true;
+                    Queue.add (i', j') q
+                  ))
+               mon_out.(j))
+          prog_out.(i)
+      done;
+      let mk_or acc f =
+        match acc with
+        | None -> Some f
+        | Some a -> Some (LOr (a, f))
+      in
+      let mon_eq i =
+        LAtom (ARel (HNow (IVar monitor_state_name),
+                    REq,
+                    HNow (monitor_state_expr i)))
+      in
+      List.mapi
+        (fun si st_name ->
+           let disj =
+             let acc = ref None in
+             for mi = 0 to n_mon - 1 do
+               if visited.(si).(mi) then
+                 acc := mk_or !acc (mon_eq mi)
+             done;
+             match !acc with
+             | Some f -> simplify_ltl f
+             | None -> LFalse
+           in
+           InvariantStateRel (true, st_name, disj))
+        n.states
+  in
+  let bad_idx =
+    let rec find i = function
+      | [] -> -1
+      | LFalse :: _ -> i
+      | _ :: tl -> find (i + 1) tl
+    in
+    find 0 states
+  in
+  let monitor_invariants =
+    let mon = monitor_state_name in
+    let mk_state_formula i f =
+      let cond =
+        LAtom (ARel (HNow (IVar mon), REq, HNow (monitor_state_expr i)))
+      in
+      let f = simplify_ltl f in
+      let inv = LG (LImp (cond, f)) in
+      [Requires inv; Ensures inv]
+    in
+    let state_invs = List.concat (List.mapi mk_state_formula states) in
+    let rec ltl_of_iexpr_now = function
+      | ILitBool true -> LTrue
+      | ILitBool false -> LFalse
+      | IVar name ->
+          let h = HNow (IVar name) in
+          LAtom (ARel (h, REq, HNow (ILitBool true)))
+      | IUn (Not, IVar name) ->
+          let h = HNow (IVar name) in
+          LAtom (ARel (h, REq, HNow (ILitBool false)))
+      | IUn (Not, e) -> LNot (ltl_of_iexpr_now e)
+      | IBin (And, a, b) -> LAnd (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
+      | IBin (Or, a, b) -> LOr (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
+      | _ -> LTrue
+    in
+    let incoming_prev =
+      let by_dst = Hashtbl.create 16 in
+      List.iter
+        (fun (_i, vals, j) ->
+           let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:[] in
+           Hashtbl.replace by_dst j (vals :: prev))
+        transitions;
+      Hashtbl.fold
+        (fun j vals_list acc ->
+           let cond =
+             LAtom (ARel (HNow (IVar mon), REq, HNow (monitor_state_expr j)))
+           in
+           let guard_expr = valuations_to_iexpr atom_names vals_list in
+           let guard = ltl_of_iexpr_now guard_expr in
+           let inv = simplify_ltl (LG (LImp (cond, guard))) in
+           InvariantFormula inv :: acc)
+        by_dst
+        []
+    in
+    state_invs @ incoming_prev
+  in
+  let monitor_updates = monitor_update_stmts atom_names states transitions in
+  let monitor_asserts = monitor_assert bad_idx in
+  let trans =
+    List.map
+      (fun (t:transition) ->
+         let contracts = List.map (replace_atoms_contract atom_map) t.contracts in
+         let body = t.body @ atom_assigns @ monitor_updates @ monitor_asserts in
+         { t with contracts; body })
+      n.trans
+  in
+  { n with locals = n.locals @ atom_locals @ [monitor_local];
+           contracts = contracts @ atom_invariants @ monitor_invariants @ compat_invariants;
+           trans }
+
+let compile_program_with_transform ?(k_induction=false) ?(prefix_fields=true) transform (p:program) : string =
+  let p' = List.map transform p in
+  Whygen.compile_program ~k_induction ~prefix_fields p'
+
+let compile_program ?(k_induction=false) ?(prefix_fields=true) (p:program) : string =
+  compile_program_with_transform ~k_induction ~prefix_fields transform_node p
+
+let compile_program_monitor ?(k_induction=false) ?(prefix_fields=true) (p:program) : string =
+  compile_program_with_transform ~k_induction ~prefix_fields transform_node_monitor p
 
 let dot_program (p:program) : string =
   let buf = Buffer.create 2048 in
@@ -347,18 +600,25 @@ let dot_program (p:program) : string =
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
-    let atom_map = List.mapi (fun i a -> (a, atom_name i)) atoms in
-    let atom_names = List.map snd atom_map in
-    let atom_lines =
+    let atom_exprs =
       List.filter_map
-        (fun (a, name) ->
+        (fun a ->
            match atom_to_iexpr ~inputs ~var_types ~fold_map a with
-           | Some e ->
-               let base = Printf.sprintf "%s = %s" name (Whygen_support.string_of_iexpr e) in
-               let suffix = fold_origin_suffix_for_expr fold_map e in
-               Some (base ^ suffix)
+           | Some e -> Some (a, e)
            | None -> None)
-        atom_map
+        atoms
+    in
+    let atom_names = make_atom_names atom_exprs in
+    let atom_map =
+      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+    in
+    let atom_lines =
+      List.map2
+        (fun (_, e) name ->
+           let base = Printf.sprintf "%s = %s" name (Whygen_support.string_of_iexpr e) in
+           let suffix = fold_origin_suffix_for_expr fold_map e in
+           base ^ suffix)
+        atom_exprs atom_names
     in
     let contract_lines =
       List.filter_map
@@ -367,6 +627,9 @@ let dot_program (p:program) : string =
           | Ensures f -> Some ("ensures " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
           | Assume f -> Some ("assume " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
           | Guarantee f -> Some ("guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          | Lemma f -> Some ("lemma " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          | InvariantFormula f ->
+              Some ("invariant " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
           | Invariant (id,h) -> Some ("invariant " ^ id ^ " = " ^ Whygen_support.string_of_hexpr h)
           | InvariantState (is_eq, st) ->
               let op = if is_eq then "=" else "!=" in
@@ -409,7 +672,7 @@ let dot_program (p:program) : string =
       let f_list =
         List.filter_map
           (function
-            | Requires f | Ensures f | Assume f | Guarantee f ->
+            | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
                 Some (replace_atoms_ltl atom_map f)
             | _ -> None)
           n.contracts
@@ -459,23 +722,30 @@ let dot_residual_program (p:program) : string =
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
-    let atom_map = List.mapi (fun i a -> (a, atom_name i)) atoms in
-    let atom_lines =
+    let atom_exprs =
       List.filter_map
-        (fun (a, name) ->
+        (fun a ->
            match atom_to_iexpr ~inputs ~var_types ~fold_map a with
-           | Some e ->
-               let base = Printf.sprintf "%s = %s" name (Whygen_support.string_of_iexpr e) in
-               let suffix = fold_origin_suffix_for_expr fold_map e in
-               Some (base ^ suffix)
+           | Some e -> Some (a, e)
            | None -> None)
-        atom_map
+        atoms
     in
-    let atom_names = List.map snd atom_map in
+    let atom_names = make_atom_names atom_exprs in
+    let atom_map =
+      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+    in
+    let atom_lines =
+      List.map2
+        (fun (_, e) name ->
+           let base = Printf.sprintf "%s = %s" name (Whygen_support.string_of_iexpr e) in
+           let suffix = fold_origin_suffix_for_expr fold_map e in
+           base ^ suffix)
+        atom_exprs atom_names
+    in
     let f_list =
       List.filter_map
         (function
-          | Requires f | Ensures f | Assume f | Guarantee f ->
+          | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
               Some (replace_atoms_ltl atom_map f)
           | _ -> None)
         n.contracts
@@ -521,6 +791,9 @@ let dot_residual_program (p:program) : string =
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
+let dot_monitor_program (p:program) : string =
+  dot_residual_program p
+
 let dot_product_program (p:program) : string =
   let buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLProduct {\n";
@@ -539,13 +812,23 @@ let dot_product_program (p:program) : string =
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
-    let atom_map = List.mapi (fun i a -> (a, atom_name i)) atoms in
-    let atom_names = List.map snd atom_map in
+    let atom_exprs =
+      List.filter_map
+        (fun a ->
+           match atom_to_iexpr ~inputs ~var_types ~fold_map a with
+           | Some e -> Some (a, e)
+           | None -> None)
+        atoms
+    in
+    let atom_names = make_atom_names atom_exprs in
+    let atom_map =
+      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+    in
     let valuations = all_valuations atom_names in
     let f_list =
       List.filter_map
         (function
-          | Requires f | Ensures f | Assume f | Guarantee f ->
+          | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
               Some (replace_atoms_ltl atom_map f)
           | _ -> None)
         n.contracts

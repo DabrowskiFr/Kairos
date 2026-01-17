@@ -193,6 +193,67 @@ let valuations_to_formula atom_names vals_list =
         | [p] -> p
         | _ -> String.concat " || " parts
 
+let term_to_iexpr term =
+  let parts =
+    List.filter_map
+      (fun (name, v) ->
+         match v with
+         | None -> None
+         | Some true -> Some (IVar name)
+         | Some false -> Some (IUn (Not, IVar name)))
+      term
+  in
+  match parts with
+  | [] -> ILitBool true
+  | [p] -> p
+  | p :: rest -> List.fold_left (fun acc x -> IBin (And, acc, x)) p rest
+
+let terms_to_iexpr terms =
+  match terms with
+  | [] -> ILitBool false
+  | _ ->
+      if List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) terms then
+        ILitBool true
+      else
+        let parts = List.map term_to_iexpr terms in
+        match parts with
+        | [] -> ILitBool false
+        | [p] -> p
+        | p :: rest -> List.fold_left (fun acc x -> IBin (Or, acc, x)) p rest
+
+let valuations_to_iexpr atom_names vals_list =
+  match vals_list with
+  | [] -> ILitBool false
+  | _ ->
+      let implicants = choose_implicants atom_names vals_list in
+      terms_to_iexpr implicants
+
+let rec nnf_ltl ?(neg=false) f =
+  match f with
+  | LTrue -> if neg then LFalse else LTrue
+  | LFalse -> if neg then LTrue else LFalse
+  | LAtom a -> if neg then LNot (LAtom a) else LAtom a
+  | LNot a -> nnf_ltl ~neg:(not neg) a
+  | LAnd (a,b) ->
+      if neg then LOr (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b)
+      else LAnd (nnf_ltl a, nnf_ltl b)
+  | LOr (a,b) ->
+      if neg then LAnd (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b)
+      else LOr (nnf_ltl a, nnf_ltl b)
+  | LImp (a,b) ->
+      nnf_ltl ~neg (LOr (LNot a, b))
+  | LX a ->
+      if neg then LX (nnf_ltl ~neg:true a) else LX (nnf_ltl a)
+  | LG a ->
+      if neg then
+        let msg =
+          "NNF: negation above G not supported in G/X fragment: not G("
+          ^ Whygen_support.string_of_ltl a ^ ")"
+        in
+        failwith msg
+      else
+        LG (nnf_ltl a)
+
 let rec simplify_ltl f =
   match f with
   | LAnd _ ->
@@ -286,6 +347,7 @@ type residual_state = ltl
 type residual_transition = int * (string * bool) list * int
 
 let build_residual_graph atom_map valuations f0 =
+  let f0 = nnf_ltl f0 |> simplify_ltl in
   let tbl = Hashtbl.create 16 in
   let states = ref [] in
   let transitions = ref [] in

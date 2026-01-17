@@ -16,7 +16,22 @@ let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
       mk_expr (Eassign [(tgt, None, compile_iexpr env e)])
   | SIf (c, tbr, fbr) ->
       mk_expr (Eif (compile_iexpr env c, compile_seq env call_asserts tbr, compile_seq env call_asserts fbr))
-  | SAssert _ -> mk_expr (Etuple [])
+  | SMatch (e, branches, default) ->
+      let scrut = compile_iexpr env e in
+      let branches =
+        List.map
+          (fun (ctor, body) ->
+             let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
+             (pat, compile_seq env call_asserts body))
+          branches
+      in
+      let branches =
+        if default = [] then branches
+        else branches @ [({pat_desc=Pwild; pat_loc=loc}, compile_seq env call_asserts default)]
+      in
+      mk_expr (Ematch (scrut, branches, []))
+  | SAssert f ->
+      mk_expr (Eassert (Expr.Assert, compile_ltl_term env f))
   | SCall (inst, args, outs) ->
       let node_name =
         match List.assoc_opt inst env.inst_map with
@@ -63,16 +78,8 @@ let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
           mk_expr (Ematch (call_expr, [(pat, body)], []))
         end
       in
-      let let_bindings, asserts = call_asserts (inst, args, outs) in
-      let assert_exprs =
-        List.map (fun t -> mk_expr (Eassert (Expr.Assume, t))) asserts
-      in
-      let call_with_asserts =
-        match assert_exprs with
-        | [] -> call_expr
-        | a :: rest ->
-            List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) call_expr (a :: rest)
-      in
+      let let_bindings, _asserts = call_asserts (inst, args, outs) in
+      let call_with_asserts = call_expr in
       let wrap_let (id, pre_expr) acc =
         mk_expr (Elet (id, false, Expr.RKnone, pre_expr, acc))
       in
@@ -147,7 +154,10 @@ let fold_post_terms env fi =
         term_implies (mk_term (Tnot is_init_old)) acc_when_step ]
   | None -> []
 
-let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.qualid option * Ptree.decl list * string =
+type spec_groups = { pre_labels: string list; post_labels: string list }
+
+let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
+  : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function
     | LG _ -> false
@@ -166,12 +176,146 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
     ] @ instance_imports
   in
 
+  let is_mon_state_ctor s =
+    let len = String.length s in
+    if len < 4 then false
+    else
+      String.sub s 0 3 = "Mon"
+      && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub s 3 (len - 3))
+  in
+  let collect_ctor acc name =
+    if is_mon_state_ctor name then
+      if List.mem name acc then acc else name :: acc
+    else acc
+  in
+  let rec collect_ctor_iexpr acc = function
+    | IVar v -> collect_ctor acc v
+    | IScan1 (_, e) | IScan (_, _, e) | IPar e | IUn (_, e) -> collect_ctor_iexpr acc e
+    | IBin (_, a, b) -> collect_ctor_iexpr (collect_ctor_iexpr acc a) b
+    | ILitInt _ | ILitBool _ -> acc
+  in
+  let rec collect_ctor_hexpr acc = function
+    | HNow e -> collect_ctor_iexpr acc e
+    | HPre (e, None) -> collect_ctor_iexpr acc e
+    | HPre (e, Some init) -> collect_ctor_iexpr (collect_ctor_iexpr acc e) init
+    | HPreK (e, init, _) -> collect_ctor_iexpr (collect_ctor_iexpr acc e) init
+    | HScan1 (_, e) -> collect_ctor_iexpr acc e
+    | HScan (_, init, e) | HFold (_, init, e) -> collect_ctor_iexpr (collect_ctor_iexpr acc init) e
+    | HWindow (_, _, e) -> collect_ctor_iexpr acc e
+    | HLet (_, h1, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
+  in
+  let rec collect_ctor_ltl acc = function
+    | LTrue | LFalse -> acc
+    | LNot a -> collect_ctor_ltl acc a
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) -> collect_ctor_ltl (collect_ctor_ltl acc a) b
+    | LX a | LG a -> collect_ctor_ltl acc a
+    | LAtom (ARel (h1, _, h2)) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
+    | LAtom (APred (_, hs)) -> List.fold_left collect_ctor_hexpr acc hs
+  in
+  let rec collect_ctor_stmt acc = function
+    | SAssign (_x, e) -> collect_ctor_iexpr acc e
+    | SIf (c, tbr, fbr) ->
+        let acc = collect_ctor_iexpr acc c in
+        let acc = List.fold_left collect_ctor_stmt acc tbr in
+        List.fold_left collect_ctor_stmt acc fbr
+    | SMatch (e, branches, def) ->
+        let acc = collect_ctor_iexpr acc e in
+        let acc =
+          List.fold_left
+            (fun acc (_ctor, body) -> List.fold_left collect_ctor_stmt acc body)
+            acc
+            branches
+        in
+        List.fold_left collect_ctor_stmt acc def
+    | SAssert f -> collect_ctor_ltl acc f
+    | SCall (_, args, _) -> List.fold_left collect_ctor_iexpr acc args
+    | SSkip -> acc
+  in
+  let mon_state_ctors =
+    let acc = ref [] in
+    List.iter
+      (fun c ->
+         match c with
+         | Requires f | Ensures f | Assume f | Guarantee f | Lemma f | InvariantFormula f ->
+             acc := collect_ctor_ltl !acc f
+         | Invariant (_, h) -> acc := collect_ctor_hexpr !acc h
+         | InvariantStateRel (_, _, f) -> acc := collect_ctor_ltl !acc f
+         | InvariantState _ -> ())
+      n.contracts;
+    List.iter
+      (fun t -> acc := List.fold_left collect_ctor_stmt !acc t.body)
+      n.trans;
+    let ctor_index s =
+      try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0
+    in
+    List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
+  in
+  let type_mon_state =
+    match mon_state_ctors with
+    | [] -> []
+    | ctors ->
+        [Ptree.Dtype [
+           { td_loc=loc; td_ident=ident "mon_state"; td_params=[]; td_vis=Public; td_mut=false; td_inv=[]; td_wit=None;
+             td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) ctors) }
+         ]]
+  in
+
   let type_state =
     Ptree.Dtype [
       { td_loc=loc; td_ident=ident "state"; td_params=[]; td_vis=Public; td_mut=false; td_inv=[]; td_wit=None;
         td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.states) }
     ]
   in
+
+  let default_custom_init = function
+    | "mon_state" ->
+        begin match mon_state_ctors with
+        | first :: _ -> Some (IVar first)
+        | [] -> None
+        end
+    | _ -> None
+  in
+  let init_for_var =
+    let table =
+      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    in
+    fun v ->
+      match List.assoc_opt v table with
+      | Some TBool -> ILitBool false
+      | Some TInt -> ILitInt 0
+      | Some TReal -> ILitInt 0
+      | Some (TCustom name) ->
+          Option.value (default_custom_init name) ~default:(ILitInt 0)
+      | None -> ILitInt 0
+  in
+  let rec pre_to_prek_hexpr = function
+    | HPre (IVar v, init) ->
+        let init = Option.value init ~default:(init_for_var v) in
+        HPreK (IVar v, init, 1)
+    | HPre _ as h -> h
+    | HLet (id, h1, h2) -> HLet (id, pre_to_prek_hexpr h1, pre_to_prek_hexpr h2)
+    | h -> h
+  in
+  let rec pre_to_prek_ltl = function
+    | LTrue | LFalse as f -> f
+    | LNot a -> LNot (pre_to_prek_ltl a)
+    | LAnd (a, b) -> LAnd (pre_to_prek_ltl a, pre_to_prek_ltl b)
+    | LOr (a, b) -> LOr (pre_to_prek_ltl a, pre_to_prek_ltl b)
+    | LImp (a, b) -> LImp (pre_to_prek_ltl a, pre_to_prek_ltl b)
+    | LX a -> LX (pre_to_prek_ltl a)
+    | LG a -> LG (pre_to_prek_ltl a)
+    | LAtom (ARel (h1, r, h2)) ->
+        LAtom (ARel (pre_to_prek_hexpr h1, r, pre_to_prek_hexpr h2))
+    | LAtom (APred (id, hs)) ->
+        LAtom (APred (id, List.map pre_to_prek_hexpr hs))
+  in
+  let normalize_invariant_contract = function
+    | InvariantFormula f -> InvariantFormula (pre_to_prek_ltl f)
+    | InvariantStateRel (is_eq, st, f) ->
+        InvariantStateRel (is_eq, st, pre_to_prek_ltl f)
+    | c -> c
+  in
+  let n = { n with contracts = List.map normalize_invariant_contract n.contracts } in
 
   let folds : fold_info list = collect_folds_from_contracts n.contracts in
   let pre_k_map = build_pre_k_infos n in
@@ -223,27 +367,18 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
   let has_initial_only_contracts =
     List.exists
       (function
-        | Requires f | Ensures f | Assume f | Guarantee f -> is_initial_only f
+        | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
+            is_initial_only f
         | _ -> false)
       n.contracts
-  in
-  let init_for_var =
-    let table =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
-    in
-    fun v ->
-      match List.assoc_opt v table with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
-      | Some (TCustom _) | None -> ILitInt 0
   in
   let transition_contracts =
     List.fold_left (fun acc (t:transition) -> t.contracts @ acc) [] n.trans
   in
   let max_k_guard =
     let k_of_contract = function
-      | Requires f | Ensures f | Assume f | Guarantee f ->
+      | Requires f | Ensures f | Assume f | Guarantee f | Lemma f
+      | InvariantFormula f ->
           (normalize_ltl_for_k ~init_for_var f).k_guard
       | InvariantStateRel (_is_eq, _st, f) ->
           (normalize_ltl_for_k ~init_for_var f).k_guard
@@ -274,7 +409,7 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
         | None -> None
       ) inv_links
   in
-  let field_prefix = prefix_for_node n.nname in
+  let field_prefix = if prefix_fields then prefix_for_node n.nname else "" in
   let input_names = List.map (fun v -> v.vname) n.inputs in
   let pre_inputs = List.map pre_input_name input_names in
   let pre_input_olds = List.map pre_input_old_name input_names in
@@ -288,6 +423,15 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
     @ (if needs_step_count then ["__step_count"] else [])
     @ List.map (fun fi -> fi.acc) folds
     @ List.concat_map (fun info -> info.names) pre_k_infos
+  in
+  let rec hexpr_needs_old (h:hexpr) : bool =
+    match h with
+    | HNow _ -> false
+    | HPre (IVar x, _) when List.mem x input_names -> false
+    | HPre _ -> true
+    | HPreK _ -> false
+    | HScan1 _ | HScan _ | HFold _ | HWindow _ -> false
+    | HLet (_id, h1, h2) -> hexpr_needs_old h1 || hexpr_needs_old h2
   in
   let var_map = List.map (fun name -> (name, field_prefix ^ name)) base_vars in
   let env =
@@ -313,7 +457,8 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
       n.instances
   in
   let is_atom_local name =
-    String.length name >= 7 && String.sub name 0 7 = "__atom_"
+    (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
   in
   let local_fields =
     List.map
@@ -382,14 +527,19 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
   in
 
   let field_qid name = qid1 (rec_var_name env name) in
+  let default_expr_for_type = function
+    | TInt -> mk_expr (Econst (Constant.int_const BigInt.zero))
+    | TBool -> mk_expr Efalse
+    | TReal -> mk_expr (Econst (Constant.real_const_from_string ~radix:10 ~neg:false ~int:"0" ~frac:"" ~exp:None))
+    | TCustom name ->
+        begin match default_custom_init name with
+        | Some (IVar id) -> mk_expr (Eident (qid1 id))
+        | _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
+        end
+  in
   let init_fields =
     (field_qid "st", mk_expr (Eident (qid1 n.init_state)))
-    :: List.map (fun v -> (field_qid v.vname, match v.vty with
-        | TInt -> mk_expr (Econst (Constant.int_const BigInt.zero))
-        | TBool -> mk_expr Efalse
-        | TReal -> mk_expr (Econst (Constant.real_const_from_string ~radix:10 ~neg:false ~int:"0" ~frac:"" ~exp:None))
-        | TCustom _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
-      )) (n.locals @ n.outputs)
+    :: List.map (fun v -> (field_qid v.vname, default_expr_for_type v.vty)) (n.locals @ n.outputs)
     @ List.map
         (fun (inst_name, node_name) ->
            let mod_name = module_name_of_node node_name in
@@ -398,24 +548,10 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
               [mk_expr (Etuple [])]))
         n.instances
     @ List.map (fun (v:vdecl) ->
-        let init =
-          match v.vty with
-          | TInt -> mk_expr (Econst (Constant.int_const BigInt.zero))
-          | TBool -> mk_expr Efalse
-          | TReal -> mk_expr (Econst (Constant.real_const_from_string ~radix:10 ~neg:false ~int:"0" ~frac:"" ~exp:None))
-          | TCustom _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
-        in
-        (field_qid (pre_input_name v.vname), init)
+        (field_qid (pre_input_name v.vname), default_expr_for_type v.vty)
       ) n.inputs
     @ List.map (fun (v:vdecl) ->
-        let init =
-          match v.vty with
-          | TInt -> mk_expr (Econst (Constant.int_const BigInt.zero))
-          | TBool -> mk_expr Efalse
-          | TReal -> mk_expr (Econst (Constant.real_const_from_string ~radix:10 ~neg:false ~int:"0" ~frac:"" ~exp:None))
-          | TCustom _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
-        in
-        (field_qid (pre_input_old_name v.vname), init)
+        (field_qid (pre_input_old_name v.vname), default_expr_for_type v.vty)
       ) n.inputs
     @ List.concat_map
         (fun info ->
@@ -631,41 +767,9 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
                         ([ (pre_id, pre_expr) ], term_eq lhs rhs :: inv_terms)
                   end
   in
-  let invariant_assumes =
-    let node_terms =
-      List.filter_map
-        (function
-          | Invariant (id,h) ->
-              let lhs = term_of_var env id in
-              let rhs = compile_hexpr ~prefer_link:false ~in_post:false env h in
-              Some (term_eq lhs rhs)
-          | InvariantState (is_eq, st_name) ->
-              let st = term_of_var env "st" in
-              let rhs = mk_term (Tident (qid1 st_name)) in
-              Some ((if is_eq then term_eq else term_neq) st rhs)
-          | InvariantStateRel (is_eq, st_name, f) ->
-              let st = term_of_var env "st" in
-              let rhs = mk_term (Tident (qid1 st_name)) in
-              let cond = (if is_eq then term_eq else term_neq) st rhs in
-              let body = compile_ltl_term ~prefer_link:false env f in
-              Some (term_implies cond body)
-          | _ -> None)
-        n.contracts
-    in
-    let terms = node_terms @ instance_invariants_for () in
-    match terms with
-    | [] -> None
-    | t :: rest ->
-        let mk_assert t = mk_expr (Eassert (Expr.Assume, t)) in
-        let seq = List.fold_left (fun acc x -> mk_expr (Esequence (acc, mk_assert x))) (mk_assert t) rest in
-        Some seq
-  in
   let body =
     let main = compile_transitions env call_asserts n.trans in
-    match invariant_assumes with
-    | None -> mk_expr (Esequence (ghost_updates, main))
-    | Some assumes ->
-        mk_expr (Esequence (assumes, mk_expr (Esequence (ghost_updates, main))))
+    mk_expr (Esequence (ghost_updates, main))
   in
 
   let ret_expr =
@@ -736,12 +840,13 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
           List.map (fun t -> term_implies guard t) terms
   in
   let normalize_ltl f = normalize_ltl_for_k ~init_for_var f in
-  let pre, post =
+  let pre_contract, post_contract, pre_invf, post_invf =
     List.fold_left
-      (fun (pre,post) c ->
+      (fun (pre,post,pre_invf,post_invf) c ->
          let rel, k_guard =
            match c with
-           | Requires f | Ensures f | Assume f | Guarantee f ->
+           | Requires f | Ensures f | Assume f | Guarantee f | Lemma f
+           | InvariantFormula f ->
                let norm = normalize_ltl f in
                (ltl_relational env norm.ltl, norm.k_guard)
            | Invariant _ | InvariantState _ | InvariantStateRel _ -> (LTrue, None)
@@ -757,8 +862,8 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
                else
                  guarded_k
              in
-             (guarded @ pre, post)
-         | Ensures _ | Guarantee _ ->
+             (guarded @ pre, post, pre_invf, post_invf)
+         | Ensures _ | Guarantee _ | Lemma _ ->
              let frag = ltl_spec env rel in
              let guarded_k =
                match k_induction, k_guard with
@@ -775,33 +880,62 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
                  List.map (fun t -> term_implies guard t) guarded_k
                else
                  guarded_k
-            in
-            (pre, guarded @ post)
-         | Invariant _ | InvariantState _ | InvariantStateRel _ -> (pre, post))
-      ([],[]) n.contracts
+             in
+             let pre =
+               match c with
+               | Lemma _ ->
+                   let frag_pre = ltl_spec env rel in
+                   let pre_guarded =
+                     apply_k_guard ~in_post:false k_guard frag_pre.pre
+                   in
+                   let pre_guarded =
+                     if is_initial_only rel then
+                       let guard = term_of_var env "__first_step" in
+                       List.map (fun t -> term_implies guard t) pre_guarded
+                     else
+                       pre_guarded
+                   in
+                   pre_guarded @ pre
+               | _ -> pre
+             in
+            (pre, guarded @ post, pre_invf, post_invf)
+         | InvariantFormula _ ->
+             let frag = ltl_spec env rel in
+             let pre_guarded = apply_k_guard ~in_post:false k_guard frag.pre in
+             let post_guarded = apply_k_guard ~in_post:true k_guard frag.post in
+             (pre, post, pre_guarded @ pre_invf, post_guarded @ post_invf)
+         | Invariant _ | InvariantState _ | InvariantStateRel _ -> (pre, post, pre_invf, post_invf))
+      ([],[],[],[]) n.contracts
   in
+  let pre_contract_user = pre_contract in
+  let post_contract_user = post_contract in
+  let pre_contract = pre_contract_user @ pre_invf in
+  let post_contract = post_contract_user @ post_invf in
   let state_post =
     let st = term_of_var env "st" in
     let st_old = term_old st in
     List.fold_left
       (fun post t ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
-         let guard_terms =
-           List.concat_map
-             (function
-               | Requires f | Assume f ->
-                   let norm = normalize_ltl f in
+        let guard_terms =
+          List.concat_map
+            (function
+              | Requires f | Assume f ->
+                  let norm = normalize_ltl f in
                    let rel = ltl_relational env norm.ltl in
                    let frag = ltl_spec env rel in
-                   apply_k_guard ~in_post:false norm.k_guard frag.pre
-               | _ -> [])
-             t.contracts
-         in
-         let guard = term_old (conj_terms guard_terms) in
+               apply_k_guard ~in_post:false norm.k_guard frag.pre
+              | _ -> [])
+            t.contracts
+        in
+        let guard =
+          if guard_terms = [] then None
+          else Some (term_old (conj_terms guard_terms))
+        in
          List.fold_left
            (fun post c ->
               match c with
-              | Ensures f | Guarantee f ->
+              | Ensures f | Guarantee f | Lemma f ->
                   let norm = normalize_ltl f in
                   let rel = ltl_relational env norm.ltl in
                   let frag = ltl_spec env rel in
@@ -814,13 +948,41 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
                         end
                     | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
                   in
-                  let guarded = List.map (fun p -> term_implies guard p) guarded_k in
+                  let guarded =
+                    match guard with
+                    | None -> guarded_k
+                    | Some g -> List.map (fun p -> term_implies g p) guarded_k
+                  in
                   (List.map (term_implies cond_post) guarded) @ post
               | _ -> post)
            post t.contracts)
       [] n.trans
   in
-  let post = state_post @ post in
+  let post_contract = state_post @ post_contract in
+  let post_assume_terms =
+    let guard_terms_for_contracts contracts =
+      List.fold_left
+        (fun acc c ->
+           match c with
+           | Requires f | Assume f ->
+               let norm = normalize_ltl f in
+               let rel = ltl_relational env norm.ltl in
+               let frag = ltl_spec env rel in
+               apply_k_guard ~in_post:false norm.k_guard frag.pre @ acc
+           | _ -> acc)
+        [] contracts
+      |> List.rev
+    in
+    let terms =
+      List.fold_left
+        (fun acc (t:transition) ->
+           let guards = guard_terms_for_contracts t.contracts in
+           List.rev_append (List.map term_old guards) acc)
+        [] n.trans
+      |> List.rev
+    in
+    uniq_terms terms
+  in
   let link_terms_pre, link_terms_post =
     List.fold_left (fun (pre, post) c ->
         match c with
@@ -828,22 +990,22 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
             let lhs = term_of_var env id in
             let rhs = compile_hexpr ~prefer_link:false ~in_post:true env h in
             let t = term_eq lhs rhs in
-            let t_old =
-              term_eq (term_old lhs) (term_old (compile_hexpr ~prefer_link:false ~in_post:true env h))
-            in
-            (pre, t_old :: t :: post)
+            if hexpr_needs_old h then
+              (pre, t :: post)
+            else
+              (t :: pre, t :: post)
         | InvariantState (is_eq, st_name) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
             let t = (if is_eq then term_eq else term_neq) st rhs in
-            (pre, t :: post)
+            (t :: pre, post)
         | InvariantStateRel (is_eq, st_name, f) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
             let cond = (if is_eq then term_eq else term_neq) st rhs in
             let body = compile_ltl_term ~prefer_link:false env f in
             let t = term_implies cond body in
-            (pre, t :: post)
+            (t :: pre, t :: post)
         | _ -> (pre, post)
       ) ([], []) n.contracts
   in
@@ -1005,7 +1167,7 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
       calls
   in
   let fold_post = List.concat (List.map (fold_post_terms env) folds) in
-  let post = fold_post @ post @ pre_input_post @ pre_input_old_post in
+  let post = fold_post @ post_contract @ pre_input_post @ pre_input_old_post in
   let output_links =
     let outputs = List.map (fun v -> v.vname) n.outputs in
     List.filter_map (fun out ->
@@ -1056,7 +1218,7 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
   in
   let pre =
     link_invariants @ first_step_init_link_pre @ instance_input_links_pre
-    @ link_terms_pre @ pre
+    @ link_terms_pre @ pre_contract
     |> uniq_terms
   in
   let post =
@@ -1064,10 +1226,26 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
     @ link_terms_post @ post
     |> uniq_terms
   in
-  let post =
+  let result_term_opt =
     match term_of_outputs env n.outputs with
+    | None -> None
+    | Some ret_term -> Some (term_eq (mk_term (Tident (qid1 "result"))) ret_term)
+  in
+  let post =
+    match result_term_opt with
     | None -> post
-    | Some ret_term -> uniq_terms (term_eq (mk_term (Tident (qid1 "result"))) ret_term :: post)
+    | Some t -> uniq_terms (t :: post)
+  in
+  let is_true_term t =
+    match t.term_desc with
+    | Ttrue -> true
+    | _ -> false
+  in
+  let pre = List.filter (fun t -> not (is_true_term t)) pre in
+  let post = List.filter (fun t -> not (is_true_term t)) post in
+  let post_contract_terms = uniq_terms post_contract in
+  let post_generated_terms =
+    List.filter (fun t -> not (List.mem t post_contract_terms)) post
   in
 
   let step_decl =
@@ -1082,8 +1260,79 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
   in
 
   let decls =
-    imports @ [type_state; type_vars; init_decl; step_decl]
+    imports @ type_mon_state @ [type_state; type_vars; init_decl; step_decl]
   in
+
+  let pre_out = List.rev pre in
+  let post_out = List.rev post in
+  let group_terms_by_pre terms =
+    List.filter (fun t -> List.mem t pre_out) terms
+  in
+  let group_terms_by_post terms =
+    List.filter (fun t -> List.mem t post_out) terms
+  in
+  let contains_sub s sub =
+    let len_s = String.length s in
+    let len_sub = String.length sub in
+    let rec loop i =
+      if i + len_sub > len_s then false
+      else if String.sub s i len_sub = sub then true
+      else loop (i + 1)
+    in
+    if len_sub = 0 then true else loop 0
+  in
+  let split_link_terms terms =
+    List.fold_right
+      (fun t (compat, atom, user) ->
+         let s = string_of_term t in
+         if contains_sub s "__mon_state" && contains_sub s "st" then
+           (t :: compat, atom, user)
+         else if contains_sub s "atom_" then
+           (compat, t :: atom, user)
+         else
+           (compat, atom, t :: user))
+      terms
+      ([], [], [])
+  in
+  let compat_pre, atom_pre, user_pre = split_link_terms link_terms_pre in
+  let compat_post, atom_post, user_post = split_link_terms link_terms_post in
+  let pre_groups =
+    [
+      ("Monitor", group_terms_by_pre pre_invf);
+      ("Contract requires", group_terms_by_pre pre_contract_user);
+      ("Atoms", group_terms_by_pre atom_pre);
+      ("Compatibility", group_terms_by_pre compat_pre);
+      ("User invariants", group_terms_by_pre user_pre);
+      ("Instance links (pre)", group_terms_by_pre instance_input_links_pre);
+      ("Initialization/first_step", group_terms_by_pre first_step_init_link_pre);
+      ("Internal links", group_terms_by_pre link_invariants);
+    ]
+  in
+  let post_groups =
+    let base =
+      [
+        ("Monitor", group_terms_by_post post_invf);
+        ("Contract ensures", group_terms_by_post post_contract_user);
+        ("Atoms", group_terms_by_post atom_post);
+        ("Compatibility", group_terms_by_post compat_post);
+        ("User invariants", group_terms_by_post user_post);
+        ("pre_k history", group_terms_by_post pre_k_links);
+        ("Instance links (post)", group_terms_by_post instance_input_links_post);
+        ("Instance invariants", group_terms_by_post instance_invariants);
+        ("Internal links", group_terms_by_post link_invariants);
+      ]
+    in
+    match result_term_opt with
+      | None -> base
+      | Some t -> base @ [("Result", group_terms_by_post [t])]
+  in
+  let label_for_term groups t =
+    match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
+    | Some (lbl, _) -> lbl
+    | None -> "Other"
+  in
+  let pre_labels = List.map (label_for_term pre_groups) pre_out in
+  let post_labels = List.map (label_for_term post_groups) post_out in
 
   let show_contract rel c =
     let to_ltl f = if rel then ltl_relational env f else f in
@@ -1092,6 +1341,8 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
     | Ensures f -> "ensures " ^ string_of_ltl (to_ltl f)
     | Assume f -> "assume " ^ string_of_ltl (to_ltl f)
     | Guarantee f -> "guarantee " ^ string_of_ltl (to_ltl f)
+    | Lemma f -> "lemma " ^ string_of_ltl (to_ltl f)
+    | InvariantFormula f -> "invariant " ^ string_of_ltl (to_ltl f)
     | Invariant (id,h) -> "invariant " ^ id ^ " = " ^ string_of_hexpr h
     | InvariantState (is_eq, st_name) ->
         let op = if is_eq then "=" else "!=" in
@@ -1101,26 +1352,139 @@ let compile_node ~k_induction (nodes:node list) (n:node) : Ptree.ident * Ptree.q
         "invariant state " ^ op ^ " " ^ st_name ^ " -> " ^ string_of_ltl f
   in
   let comment =
-    let contracts_txt = String.concat "\n  " (List.map (show_contract false) n.contracts) in
-    let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
-    let post_txt = String.concat "\n    " (List.map string_of_term post) in
-    Printf.sprintf "Module %s\n  LTL (compact):\n  %s\n  Relational (pre/post):\n    pre:\n    %s\n    post:\n    %s\n"
-      module_name contracts_txt pre_txt post_txt
+    let is_monitor =
+      List.exists (fun v -> v.vname = "__mon_state") n.locals
+    in
+    if is_monitor then
+      let simplify = Whygen_automaton_core.simplify_ltl in
+      let prefixes =
+        nodes |> List.map (fun nd -> Whygen_support.prefix_for_node nd.nname)
+      in
+      let replace_all ~sub ~by s =
+        if sub = "" then s else
+          let sub_len = String.length sub in
+          let len = String.length s in
+          let b = Buffer.create len in
+          let rec loop i =
+            if i >= len then ()
+            else if i + sub_len <= len && String.sub s i sub_len = sub then (
+              Buffer.add_string b by;
+              loop (i + sub_len)
+            ) else (
+              Buffer.add_char b s.[i];
+              loop (i + 1)
+            )
+          in
+          loop 0;
+          Buffer.contents b
+      in
+      let strip_vars s =
+        let s = replace_all ~sub:"vars." ~by:"" s in
+        List.fold_left (fun acc pref -> replace_all ~sub:pref ~by:"" acc) s prefixes
+      in
+      let is_prefix p s =
+        let lp = String.length p in
+        String.length s >= lp && String.sub s 0 lp = p
+      in
+      let atom_eqs =
+        List.filter_map
+          (function
+            | Invariant (id, h) when is_prefix "atom_" id ->
+                Some (Printf.sprintf "%s | %s" (strip_vars id) (string_of_hexpr h))
+            | _ -> None)
+          n.contracts
+      in
+      let atom_table =
+        let lines =
+          if atom_eqs = [] then [ "(none)" ] else atom_eqs
+        in
+        "  Atom table (atom | formula):\n    "
+        ^ String.concat "\n    " lines
+        ^ "\n"
+      in
+      let assumes =
+        List.filter_map
+          (function Assume f -> Some (simplify f) | _ -> None)
+          n.contracts
+      in
+      let guarantees =
+        List.filter_map
+          (function Guarantee f -> Some (simplify f) | _ -> None)
+          n.contracts
+      in
+      let fmt_list label items =
+        let lines =
+          match items with
+          | [] -> [ "(none)" ]
+          | _ -> List.map string_of_ltl items
+        in
+        Printf.sprintf "  %s:\n    %s\n" label (String.concat "\n    " lines)
+      in
+      let mon_states =
+        match mon_state_ctors with
+        | [] -> "  Monitor states: (none)\n"
+        | _ -> "  Monitor states: " ^ String.concat ", " mon_state_ctors ^ "\n"
+      in
+      let mon_residuals =
+        let table = Hashtbl.create 8 in
+        let is_mon_cond = function
+          | LAtom (ARel (HNow (IVar ms), REq, HNow (IVar ctor)))
+            when ms = "__mon_state" && is_mon_state_ctor ctor ->
+              Some ctor
+          | _ -> None
+        in
+        let extract = function
+          | Requires (LG (LImp (cond, f)))
+          | Ensures (LG (LImp (cond, f)))
+          | InvariantFormula (LG (LImp (cond, f))) ->
+              begin match is_mon_cond cond with
+              | Some ctor ->
+                  if not (Hashtbl.mem table ctor) then Hashtbl.add table ctor f
+              | None -> ()
+              end
+          | _ -> ()
+        in
+        List.iter extract n.contracts;
+        let lines =
+          mon_state_ctors
+          |> List.filter_map (fun ctor ->
+                 match Hashtbl.find_opt table ctor with
+                 | None -> None
+                 | Some f ->
+                     let s = f |> simplify |> string_of_ltl |> strip_vars in
+                     Some (ctor ^ " => " ^ s))
+        in
+        let lines = if lines = [] then [ "(none)" ] else lines in
+        "  Monitor residuals:\n    " ^ String.concat "\n    " lines ^ "\n"
+      in
+      Printf.sprintf "Module %s\n%s%s%s%s%s"
+        module_name
+        atom_table
+        (fmt_list "Assume (simplified LTL)" assumes)
+        (fmt_list "Guarantee (simplified LTL)" guarantees)
+        mon_states
+        mon_residuals
+    else
+      let contracts_txt = String.concat "\n  " (List.map (show_contract false) n.contracts) in
+      let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
+      let post_txt = String.concat "\n    " (List.map string_of_term post) in
+      Printf.sprintf "Module %s\n  LTL (compact):\n  %s\n  Relational (pre/post):\n    pre:\n    %s\n    post:\n    %s\n"
+        module_name contracts_txt pre_txt post_txt
   in
-  (ident module_name, None, decls, comment)
+  (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program ?(k_induction=false) (p:program) : string =
+let compile_program ?(k_induction=false) ?(prefix_fields=true) (p:program) : string =
   let modules =
     match p with
     | [] -> []
-    | nodes -> List.map (compile_node ~k_induction nodes) nodes
+    | nodes -> List.map (compile_node ~k_induction ~prefix_fields nodes) nodes
   in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in
-  List.iter (fun (_,_,_,comment) ->
+  List.iter (fun (_,_,_,comment,_) ->
       Format.fprintf fmt "(* %s*)@.@." comment
     ) modules;
-  let mlw = Ptree.Modules (List.map (fun (a,b,c,_) -> (a,b,c)) modules) in
+  let mlw = Ptree.Modules (List.map (fun (a,b,c,_,_) -> (a,b,c)) modules) in
   Mlw_printer.pp_mlw_file fmt mlw;
   Format.pp_print_flush fmt ();
   let out = Buffer.contents buf in
@@ -1143,24 +1507,124 @@ let compile_program ?(k_induction=false) (p:program) : string =
       Buffer.contents b
   in
   let out = replace_all ~sub:"(old " ~by:"old(" out in
-  let lemma_block =
-    "  axiom bool_eq_true: forall b:bool. b = true <-> b\n" ^
-    "  axiom bool_eq_false: forall b:bool. b = false <-> not b\n" ^
-    "  axiom bool_not_eq_true: forall b:bool. not (b = true) <-> not b\n" ^
-    "  axiom bool_not_eq_false: forall b:bool. not (b = false) <-> b\n" ^
-    "  axiom bool_ite_true_false: forall b:bool. (if b then true else false) = b\n" ^
-    "  axiom bool_ite_false_true: forall b:bool. (if b then false else true) = not b\n"
-  in
-  let inject_lemmas s =
-    let lines = String.split_on_char '\n' s in
-    let rec loop acc = function
-      | [] -> List.rev acc
-      | line :: rest ->
-          if String.length line >= 7 && String.sub line 0 7 = "module " then
-            loop (lemma_block :: line :: acc) rest
-          else
-            loop (line :: acc) rest
+  let insert_spec_group_comments s =
+    let starts_with_module line =
+      String.length line >= 7 && String.sub line 0 7 = "module "
     in
-    String.concat "\n" (loop [] lines)
+    let lines = Array.of_list (String.split_on_char '\n' s) in
+    let line_count = Array.length lines in
+    let module_starts =
+      let acc = ref [] in
+      for i = 0 to line_count - 1 do
+        if starts_with_module lines.(i) then acc := i :: !acc
+      done;
+      List.rev !acc
+    in
+    let module_ranges =
+      match module_starts with
+      | [] -> []
+      | _ ->
+          let rec build acc = function
+            | [start] -> List.rev ((start, line_count) :: acc)
+            | start :: ((next :: _) as rest) ->
+                build ((start, next) :: acc) rest
+            | [] -> List.rev acc
+          in
+          build [] module_starts
+    in
+    let module_info =
+      List.map
+        (fun (id, _, _, _, groups) ->
+           (id.id_str, groups))
+        modules
+    in
+    let comment_for label indent =
+      indent ^ "(* " ^ label ^ " *)"
+    in
+    let out = Buffer.create (String.length s) in
+    let current = ref 0 in
+    let range_idx = ref 0 in
+    let ranges = Array.of_list module_ranges in
+    let active_groups = ref None in
+    let req_idx = ref 0 in
+    let ens_idx = ref 0 in
+    while !current < line_count do
+      while !range_idx < Array.length ranges
+            && !current >= let (_, e) = ranges.(!range_idx) in e do
+        incr range_idx
+      done;
+      let in_module =
+        if !range_idx < Array.length ranges then
+          let (s_idx, e_idx) = ranges.(!range_idx) in
+          !current >= s_idx && !current < e_idx
+        else
+          false
+      in
+      if in_module && !current = fst ranges.(!range_idx) then (
+        let line = lines.(!current) in
+        let name =
+          let parts = String.split_on_char ' ' line in
+          match parts with
+          | _ :: mod_name :: _ -> mod_name
+          | _ -> ""
+        in
+        let groups =
+          List.assoc_opt name module_info
+          |> Option.value ~default:{ pre_labels = []; post_labels = [] }
+        in
+        active_groups := Some (groups.pre_labels, groups.post_labels);
+        req_idx := 0;
+        ens_idx := 0
+      );
+      let line = lines.(!current) in
+      let trimmed = String.trim line in
+      let indent =
+        let len = String.length line in
+        let rec loop i =
+          if i >= len then ""
+          else if line.[i] = ' ' then loop (i + 1)
+          else String.sub line 0 i
+        in
+        loop 0
+      in
+      begin match !active_groups with
+      | Some (pre_labels, post_labels) ->
+          if String.length trimmed >= 9 && String.sub trimmed 0 9 = "requires " then (
+            let label =
+              if !req_idx < List.length pre_labels then List.nth pre_labels !req_idx
+              else "Autres"
+            in
+            let prev_label =
+              if !req_idx = 0 then None
+              else if !req_idx - 1 < List.length pre_labels then
+                Some (List.nth pre_labels (!req_idx - 1))
+              else None
+            in
+            if prev_label <> Some label then
+              Buffer.add_string out (comment_for label indent ^ "\n");
+            incr req_idx
+          ) else if String.length trimmed >= 8 && String.sub trimmed 0 8 = "ensures " then (
+            let label =
+              if !ens_idx < List.length post_labels then List.nth post_labels !ens_idx
+              else "Autres"
+            in
+            let prev_label =
+              if !ens_idx = 0 then None
+              else if !ens_idx - 1 < List.length post_labels then
+                Some (List.nth post_labels (!ens_idx - 1))
+              else None
+            in
+            if prev_label <> Some label then
+              Buffer.add_string out (comment_for label indent ^ "\n");
+            incr ens_idx
+          )
+      | None -> ()
+      end;
+      Buffer.add_string out line;
+      if !current < line_count - 1 then Buffer.add_char out '\n';
+      incr current
+    done;
+    Buffer.contents out
   in
-  inject_lemmas out
+  let out = insert_spec_group_comments out in
+  out
