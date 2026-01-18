@@ -16,7 +16,7 @@
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))
 
-(include_subdirs no)
+(include_subdirs unqualified)
 
 (ocamllex lexer)
 
