@@ -10,10 +10,16 @@ let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
   match s with
   | SSkip -> mk_expr (Etuple [])
   | SAssign (x,e) ->
+      let is_ghost_local name =
+        (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+        || (String.length name >= 5 && String.sub name 0 5 = "atom_")
+        || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+      in
       let tgt =
         if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
       in
-      mk_expr (Eassign [(tgt, None, compile_iexpr env e)])
+      let assign = mk_expr (Eassign [(tgt, None, compile_iexpr env e)]) in
+      if is_ghost_local x then mk_expr (Eghost assign) else assign
   | SIf (c, tbr, fbr) ->
       mk_expr (Eif (compile_iexpr env c, compile_seq env call_asserts tbr, compile_seq env call_asserts fbr))
   | SMatch (e, branches, default) ->
@@ -458,6 +464,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let is_atom_local name =
     (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+    || (String.length name >= 5 && String.sub name 0 5 = "atom_")
     || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
   in
   let local_fields =
@@ -587,6 +594,9 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
 
   let has_pre_inputs = n.inputs <> [] in
   let has_pre_k = pre_k_infos <> [] in
+  let has_ghost_updates =
+    has_folds || has_pre_inputs || has_pre_k || needs_step_count
+  in
   let ghost_updates =
     if not has_folds && not has_pre_inputs && not has_pre_k && not needs_step_count then
       mk_expr (Etuple [])
@@ -769,7 +779,13 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let body =
     let main = compile_transitions env call_asserts n.trans in
-    mk_expr (Esequence (ghost_updates, main))
+    let ghost_expr =
+      if has_ghost_updates then
+        mk_expr (Eghost ghost_updates)
+      else
+        ghost_updates
+    in
+    mk_expr (Esequence (ghost_expr, main))
   in
 
   let ret_expr =
@@ -840,9 +856,9 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
           List.map (fun t -> term_implies guard t) terms
   in
   let normalize_ltl f = normalize_ltl_for_k ~init_for_var f in
-  let pre_contract, post_contract, pre_invf, post_invf =
+  let pre_contract, post_contract, pre_invf, post_invf, pre_lemma_terms, post_lemma_terms =
     List.fold_left
-      (fun (pre,post,pre_invf,post_invf) c ->
+      (fun (pre,post,pre_invf,post_invf,pre_lemma,post_lemma) c ->
          let rel, k_guard =
            match c with
            | Requires f | Ensures f | Assume f | Guarantee f | Lemma f
@@ -855,14 +871,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
          | Requires _ | Assume _ ->
              let frag = ltl_spec env rel in
              let guarded_k = apply_k_guard ~in_post:false k_guard frag.pre in
-             let guarded =
-               if is_initial_only rel then
-                 let guard = term_of_var env "__first_step" in
-                 List.map (fun t -> term_implies guard t) guarded_k
-               else
-                 guarded_k
-             in
-             (guarded @ pre, post, pre_invf, post_invf)
+             (guarded_k @ pre, post, pre_invf, post_invf, pre_lemma, post_lemma)
          | Ensures _ | Guarantee _ | Lemma _ ->
              let frag = ltl_spec env rel in
              let guarded_k =
@@ -874,13 +883,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
                    end
                | _ -> apply_k_guard ~in_post:true k_guard frag.post
              in
-             let guarded =
-               if is_initial_only rel then
-                 let guard = term_old (term_of_var env "__first_step") in
-                 List.map (fun t -> term_implies guard t) guarded_k
-               else
-                 guarded_k
-             in
+             let guarded = guarded_k in
              let pre =
                match c with
                | Lemma _ ->
@@ -888,35 +891,82 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
                    let pre_guarded =
                      apply_k_guard ~in_post:false k_guard frag_pre.pre
                    in
-                   let pre_guarded =
-                     if is_initial_only rel then
-                       let guard = term_of_var env "__first_step" in
-                       List.map (fun t -> term_implies guard t) pre_guarded
-                     else
-                       pre_guarded
-                   in
                    pre_guarded @ pre
                | _ -> pre
              in
-            (pre, guarded @ post, pre_invf, post_invf)
+            let pre_lemma =
+              match c with
+              | Lemma _ ->
+                  let frag_pre = ltl_spec env rel in
+                  let pre_guarded =
+                    apply_k_guard ~in_post:false k_guard frag_pre.pre
+                  in
+                  pre_guarded @ pre_lemma
+              | _ -> pre_lemma
+            in
+            let post_lemma =
+              match c with
+              | Lemma _ -> guarded @ post_lemma
+              | _ -> post_lemma
+            in
+            (pre, guarded @ post, pre_invf, post_invf, pre_lemma, post_lemma)
          | InvariantFormula _ ->
              let frag = ltl_spec env rel in
              let pre_guarded = apply_k_guard ~in_post:false k_guard frag.pre in
              let post_guarded = apply_k_guard ~in_post:true k_guard frag.post in
-             (pre, post, pre_guarded @ pre_invf, post_guarded @ post_invf)
-         | Invariant _ | InvariantState _ | InvariantStateRel _ -> (pre, post, pre_invf, post_invf))
-      ([],[],[],[]) n.contracts
+             (pre, post, pre_guarded @ pre_invf, post_guarded @ post_invf, pre_lemma, post_lemma)
+         | Invariant _ | InvariantState _ | InvariantStateRel _ ->
+             (pre, post, pre_invf, post_invf, pre_lemma, post_lemma))
+      ([],[],[],[],[],[]) n.contracts
+  in
+  let transition_requires_pre_terms =
+    List.fold_left
+      (fun acc (t:transition) ->
+         let cond_pre =
+           term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
+         in
+         let label =
+           Printf.sprintf "Transition requires (%s -> %s)" t.src t.dst
+         in
+         List.fold_left
+           (fun acc c ->
+              match c with
+              | Requires f ->
+                  let norm = normalize_ltl f in
+                  let rel = ltl_relational env norm.ltl in
+                  let frag = ltl_spec env rel in
+                  let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+                  let terms = List.map (term_implies cond_pre) guarded_k in
+                  let labeled = List.map (fun t -> (t, label)) terms in
+                  labeled @ acc
+              | _ -> acc)
+           acc
+           t.contracts)
+      []
+      n.trans
+  in
+  let transition_requires_pre =
+    List.map fst transition_requires_pre_terms
   in
   let pre_contract_user = pre_contract in
   let post_contract_user = post_contract in
-  let pre_contract = pre_contract_user @ pre_invf in
+  let pre_contract_user_no_lemma =
+    List.filter (fun t -> not (List.mem t pre_lemma_terms)) pre_contract_user
+  in
+  let post_contract_user_no_lemma =
+    List.filter (fun t -> not (List.mem t post_lemma_terms)) post_contract_user
+  in
+  let pre_contract = transition_requires_pre @ pre_contract_user @ pre_invf in
   let post_contract = post_contract_user @ post_invf in
-  let state_post =
+  let state_post, state_post_lemmas_terms =
     let st = term_of_var env "st" in
     let st_old = term_old st in
     List.fold_left
-      (fun post t ->
+      (fun (post, lemmas) t ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
+         let lemma_label =
+           Printf.sprintf "Transition lemmas (%s -> %s)" t.src t.dst
+         in
         let guard_terms =
           List.concat_map
             (function
@@ -933,7 +983,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
           else Some (term_old (conj_terms guard_terms))
         in
          List.fold_left
-           (fun post c ->
+           (fun (post, lemmas) c ->
               match c with
               | Ensures f | Guarantee f | Lemma f ->
                   let norm = normalize_ltl f in
@@ -953,10 +1003,21 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
                     | None -> guarded_k
                     | Some g -> List.map (fun p -> term_implies g p) guarded_k
                   in
-                  (List.map (term_implies cond_post) guarded) @ post
-              | _ -> post)
-           post t.contracts)
-      [] n.trans
+                  let terms = List.map (term_implies cond_post) guarded in
+                  let lemmas =
+                    match c with
+                    | Lemma _ ->
+                        let labeled = List.map (fun t -> (t, lemma_label)) terms in
+                        labeled @ lemmas
+                    | _ -> lemmas
+                  in
+                  (terms @ post, lemmas)
+              | _ -> (post, lemmas))
+           (post, lemmas) t.contracts)
+      ([], []) n.trans
+  in
+  let state_post_lemmas =
+    List.map fst state_post_lemmas_terms
   in
   let post_contract = state_post @ post_contract in
   let post_assume_terms =
@@ -1298,12 +1359,14 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   let compat_post, atom_post, user_post = split_link_terms link_terms_post in
   let pre_groups =
     [
-      ("Monitor", group_terms_by_pre pre_invf);
-      ("Contract requires", group_terms_by_pre pre_contract_user);
+      ("Transition requires", group_terms_by_pre transition_requires_pre);
+      ("Contract requires", group_terms_by_pre pre_contract_user_no_lemma);
+      ("Lemmas (pre)", group_terms_by_pre pre_lemma_terms);
       ("Atoms", group_terms_by_pre atom_pre);
       ("Compatibility", group_terms_by_pre compat_pre);
       ("User invariants", group_terms_by_pre user_pre);
       ("Instance links (pre)", group_terms_by_pre instance_input_links_pre);
+      ("Monitor", group_terms_by_pre pre_invf);
       ("Initialization/first_step", group_terms_by_pre first_step_init_link_pre);
       ("Internal links", group_terms_by_pre link_invariants);
     ]
@@ -1311,14 +1374,16 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   let post_groups =
     let base =
       [
-        ("Monitor", group_terms_by_post post_invf);
-        ("Contract ensures", group_terms_by_post post_contract_user);
+        ("Transition lemmas", group_terms_by_post state_post_lemmas);
+        ("Lemmas", group_terms_by_post post_lemma_terms);
+        ("Contract ensures", group_terms_by_post post_contract_user_no_lemma);
         ("Atoms", group_terms_by_post atom_post);
         ("Compatibility", group_terms_by_post compat_post);
         ("User invariants", group_terms_by_post user_post);
-        ("pre_k history", group_terms_by_post pre_k_links);
         ("Instance links (post)", group_terms_by_post instance_input_links_post);
         ("Instance invariants", group_terms_by_post instance_invariants);
+        ("Monitor", group_terms_by_post post_invf);
+        ("pre_k history", group_terms_by_post pre_k_links);
         ("Internal links", group_terms_by_post link_invariants);
       ]
     in
@@ -1326,13 +1391,20 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
       | None -> base
       | Some t -> base @ [("Result", group_terms_by_post [t])]
   in
-  let label_for_term groups t =
-    match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
-    | Some (lbl, _) -> lbl
-    | None -> "Other"
+  let label_for_term groups overrides t =
+    match List.find_opt (fun (term, _) -> term = t) overrides with
+    | Some (_, lbl) -> lbl
+    | None ->
+        match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
+        | Some (lbl, _) -> lbl
+        | None -> "Other"
   in
-  let pre_labels = List.map (label_for_term pre_groups) pre_out in
-  let post_labels = List.map (label_for_term post_groups) post_out in
+  let pre_labels =
+    List.map (label_for_term pre_groups transition_requires_pre_terms) pre_out
+  in
+  let post_labels =
+    List.map (label_for_term post_groups state_post_lemmas_terms) post_out
+  in
 
   let show_contract rel c =
     let to_ltl f = if rel then ltl_relational env f else f in

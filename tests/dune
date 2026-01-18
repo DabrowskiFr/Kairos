@@ -1,0 +1,39 @@
+(rule
+ (alias runtest)
+ (targets toggle_toggle.why)
+ (deps toggle/toggle.obc)
+ (action
+  (progn
+   (with-stdout-to %{target}
+    (run %{bin:obc2why3} %{dep:toggle/toggle.obc}))
+   (run why3 prove -P z3 -t 30 %{target}))))
+
+(rule
+ (alias runtest)
+ (targets toggle_toggle2.why)
+ (deps toggle/toggle2.obc)
+ (action
+  (progn
+   (with-stdout-to %{target}
+    (run %{bin:obc2why3} %{dep:toggle/toggle2.obc}))
+   (run why3 prove -P z3 -t 30 %{target}))))
+
+(rule
+ (alias runtest)
+ (targets toggle_toggle3.why)
+ (deps toggle/toggle3.obc)
+ (action
+  (progn
+   (with-stdout-to %{target}
+    (run %{bin:obc2why3} %{dep:toggle/toggle3.obc}))
+   (run why3 prove -P z3 -t 30 %{target}))))
+
+(rule
+ (alias runtest)
+ (targets delay_delay_int.why)
+ (deps delay/delay_int.obc)
+ (action
+  (progn
+   (with-stdout-to %{target}
+    (run %{bin:obc2why3} %{dep:delay/delay_int.obc}))
+   (run why3 prove -P z3 -t 30 %{target}))))

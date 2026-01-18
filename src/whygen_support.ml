@@ -104,12 +104,19 @@ let rec max_x_depth = function
 
 let is_const_iexpr = function
   | ILitInt _ | ILitBool _ -> true
+  | IVar name ->
+      let len = String.length name in
+      len >= 4
+      && String.sub name 0 3 = "Mon"
+      && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
   | _ -> false
 
 let rec shift_hexpr_by ~init_for_var shift h =
   if shift <= 0 then Some h
   else
     match h with
+    | HNow (IVar v) when is_const_iexpr (IVar v) ->
+        Some (HNow (IVar v))
     | HNow (IVar v) ->
         Some (HPreK (IVar v, init_for_var v, shift))
     | HNow e when is_const_iexpr e ->
@@ -181,17 +188,9 @@ let normalize_ltl_for_k ~init_for_var (f:ltl) : ltl_norm =
         | None -> None
         end
   in
-  match f with
-  | LG a ->
-      let k = max_x_depth a in
-      if k = 0 then { ltl = f; k_guard = None }
-      else if k = 1 then { ltl = f; k_guard = Some 1 }
-      else
-        begin match shift_ltl_with_depth k 0 a with
-        | Some a' -> { ltl = LG a'; k_guard = Some k }
-        | None -> { ltl = f; k_guard = None }
-        end
-  | _ -> { ltl = f; k_guard = None }
+  let k = max_x_depth f in
+  if k = 0 then { ltl = f; k_guard = None }
+  else { ltl = f; k_guard = Some k }
 
 let rec shift_ltl_by ~init_for_var shift (f:ltl) : ltl option =
   if shift <= 0 then Some f

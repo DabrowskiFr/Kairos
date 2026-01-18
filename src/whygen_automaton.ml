@@ -425,6 +425,13 @@ let transform_node_monitor (n:node) : node =
   let contracts =
     List.map (replace_atoms_contract atom_map) n.contracts
   in
+  let contracts_for_node =
+    List.filter
+      (function
+        | Guarantee _ -> false
+        | _ -> true)
+      contracts
+  in
   let spec =
     combine_contracts_for_monitor contracts
     |> replace_atoms_ltl atom_map
@@ -520,7 +527,7 @@ let transform_node_monitor (n:node) : node =
       in
       let f = simplify_ltl f in
       let inv = LG (LImp (cond, f)) in
-      [Requires inv; Ensures inv]
+      [Requires inv]
     in
     let state_invs = List.concat (List.mapi mk_state_formula states) in
     let rec ltl_of_iexpr_now = function
@@ -569,7 +576,7 @@ let transform_node_monitor (n:node) : node =
       n.trans
   in
   { n with locals = n.locals @ atom_locals @ [monitor_local];
-           contracts = contracts @ atom_invariants @ monitor_invariants @ compat_invariants;
+           contracts = contracts_for_node @ atom_invariants @ monitor_invariants @ compat_invariants;
            trans }
 
 let compile_program_with_transform ?(k_induction=false) ?(prefix_fields=true) transform (p:program) : string =

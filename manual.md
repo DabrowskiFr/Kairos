@@ -3,32 +3,38 @@
 Overview
 --------
 `obc2why3` translates OBC programs into Why3 using the monitor-based
-translation.
+translation by default.
 
 Notes
 -----
-- Transition `requires` are also emitted as `ensures` on every incoming transition
-  to the same target state, so entry conditions are re-established.
+- For each transition, we add lemmas stating that its `ensures` (shifted one
+  step forward in history) imply the `requires` of successor transitions.
 - `invariant` formulas are restricted to first-order + history (no `G`/`X`).
 
 Basic usage
 -----------
-Generate Why3 (monitor translation):
+Generate Why3 (monitor translation, default):
 
 ```sh
-dune exec -- obc2why3 --monitor examples/main/toggle01.obc > out/toggle01_monitor.why
+dune exec -- obc2why3 examples/main/toggle01.obc > out/toggle01_monitor.why
+```
+
+Generate Why3 to a file:
+
+```sh
+dune exec -- obc2why3 -o out/toggle01_monitor.why examples/main/toggle01.obc
 ```
 
 Generate Why3 with k-induction obligations for X^k under G:
 
 ```sh
-dune exec -- obc2why3 --monitor --k-induction examples/main/toggle01.obc > out/toggle01_monitor_k.why
+dune exec -- obc2why3 --k-induction examples/main/toggle01.obc > out/toggle01_monitor_k.why
 ```
 
 Run Why3 directly from obc2why3:
 
 ```sh
-dune exec -- obc2why3 --monitor --prove --prover z3 examples/main/toggle01.obc > out/toggle01_monitor.why
+dune exec -- obc2why3 --prove --prover z3 examples/main/toggle01.obc > out/toggle01_monitor.why
 ```
 
 Monitor DOT and PDF
@@ -104,10 +110,11 @@ dune exec -- obc2why3 --help
 All available options:
 
 - `--help`                 Show this help message
-- `--monitor`              Generate Why3 using a monitor state for residuals (default)
-- `--monitor-no-prefix`    Do not prefix `vars` fields with the module name (monitor mode)
-- `--no-prefix`            Do not prefix `vars` fields with the module name (monitor mode)
+- `--monitor-no-prefix`    Do not prefix `vars` fields with the module name (monitor mode, default)
+- `--no-prefix`            Do not prefix `vars` fields with the module name (monitor mode, default)
 - `--monitor-dot <file>`   Generate DOT for the monitor residual graph and print Why3
+- `-o <file.why>`          Write generated Why3 to this file
 - `--k-induction`          Generate k-induction proof obligations for X^k under G
 - `--prove`                Run why3 prove on the generated output
-- `--prover <name>`        Prover for --prove (default: alt-ergo)
+- `-vc-all`                Show results for all VCs (split VC)
+- `--prover <name>`        Prover for --prove (default: z3)
