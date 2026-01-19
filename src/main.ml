@@ -70,26 +70,17 @@ let add_post_for_next_pre (n:node) : node =
       | Some TReal -> ILitInt 0
       | Some (TCustom _) | None -> ILitInt 0
   in
-  let node_ensures =
-    List.filter_map
-      (function
-        | Ensures f -> Some f
-        | _ -> None)
-      n.contracts
-  in
   let succ_requires_by_state : (ident, fo list) Hashtbl.t = Hashtbl.create 16 in
   List.iter
     (fun (t:transition) ->
       List.iter
-        (function
-          | Requires f ->
-              let existing =
-                Hashtbl.find_opt succ_requires_by_state t.src
-                |> Option.value ~default:[]
-              in
-              Hashtbl.replace succ_requires_by_state t.src (f :: existing)
-          | _ -> ())
-        t.contracts)
+        (fun f ->
+          let existing =
+            Hashtbl.find_opt succ_requires_by_state t.src
+            |> Option.value ~default:[]
+          in
+          Hashtbl.replace succ_requires_by_state t.src (f :: existing))
+        t.requires)
     n.trans;
   let uniq lst =
     List.sort_uniq compare lst
@@ -102,14 +93,7 @@ let add_post_for_next_pre (n:node) : node =
           |> Option.value ~default:[]
           |> uniq
         in
-        let trans_ensures =
-          List.filter_map
-            (function
-              | Ensures f -> Some f
-              | _ -> None)
-            t.contracts
-        in
-        let ensures_all = node_ensures @ trans_ensures in
+        let ensures_all = t.ensures in
         let new_lemmas =
           match conj_fo ensures_all with
           | None -> []
@@ -120,18 +104,16 @@ let add_post_for_next_pre (n:node) : node =
               in
               let has_lemma f =
                 List.exists
-                  (function
-                    | Lemma f' -> f' = f
-                    | _ -> false)
-                  t.contracts
+                  (fun f' -> f' = f)
+                  t.lemmas
               in
               succ_reqs
               |> List.map (fun req -> FImp (ensures_shifted, req))
               |> List.filter (fun f -> not (has_lemma f))
-              |> List.map (fun f -> Lemma f)
+              |> List.map (fun f -> f)
         in
         if new_lemmas = [] then t
-        else { t with contracts = t.contracts @ new_lemmas })
+        else { t with lemmas = t.lemmas @ new_lemmas })
       n.trans
   in
   { n with trans }

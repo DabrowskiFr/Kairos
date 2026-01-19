@@ -48,23 +48,33 @@ let classify_fold h =
   | HFold (op,init,e) -> Some (`Scan (op,init,e))
   | _ -> None
 
-let collect_folds_from_contracts (cs:contract list) =
-  let hexprs = List.fold_left (fun acc c ->
-      match c with
-      | Requires f | Ensures f | Lemma f ->
-          collect_fo f acc
-      | Assume f | Guarantee f ->
-          collect_ltl f acc
-      | Invariant (_id,h) -> collect_hexpr h acc
-      | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc
-    ) [] cs |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false) in
+let collect_folds_from_specs
+    ~(fo:fo list)
+    ~(ltl:ltl list)
+    ~(invariants_mon:invariant_mon list) =
+  let hexprs =
+    List.fold_left (fun acc f -> collect_fo f acc) [] fo
+    |> fun acc -> List.fold_left (fun acc f -> collect_ltl f acc) acc ltl
+    |> fun acc ->
+      List.fold_left
+        (fun acc inv ->
+           match inv with
+           | Invariant (_id, h) -> collect_hexpr h acc
+           | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc)
+        acc
+        invariants_mon
+    |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false)
+  in
   let rec aux i acc = function
     | [] -> List.rev acc
     | h::t -> aux (i+1) ({ h; acc = fold_name i; init_flag = None } :: acc) t
   in
   aux 1 [] hexprs
 
-let collect_pre_k_from_contracts (cs:contract list) =
+let collect_pre_k_from_specs
+    ~(fo:fo list)
+    ~(ltl:ltl list)
+    ~(invariants_mon:invariant_mon list) =
   let collect_pre_k_hexpr h acc =
     let acc =
       match h with
@@ -88,21 +98,17 @@ let collect_pre_k_from_contracts (cs:contract list) =
     | FNot a -> collect_pre_k_fo a acc
     | FAnd (a,b) | FOr (a,b) | FImp (a,b) -> collect_pre_k_fo b (collect_pre_k_fo a acc)
   in
+  let acc = List.fold_left (fun acc f -> collect_pre_k_fo f acc) [] fo in
+  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
   List.fold_left
-    (fun acc c ->
-       match c with
-       | Requires f | Ensures f | Lemma f ->
-           collect_pre_k_fo f acc
-       | Assume f | Guarantee f ->
-           collect_pre_k_ltl f acc
+    (fun acc inv ->
+       match inv with
        | Invariant (_id,h) -> collect_pre_k_hexpr h acc
        | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_fo f acc)
-    [] cs
+    acc
+    invariants_mon
 
 let build_pre_k_infos (n:node) =
-  let transition_contracts =
-    List.fold_left (fun acc (t:transition) -> t.contracts @ acc) [] n.trans
-  in
   let init_for_var =
     let table =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
@@ -118,20 +124,26 @@ let build_pre_k_infos (n:node) =
     let normalized = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
     fo_of_ltl normalized.ltl
   in
-  let normalize_contract = function
-    | Requires f -> Requires (normalize_fo f)
-    | Ensures f -> Ensures (normalize_fo f)
-    | Assume f -> Assume (normalize_ltl_for_k ~init_for_var f).ltl
-    | Guarantee f -> Guarantee (normalize_ltl_for_k ~init_for_var f).ltl
-    | Lemma f -> Lemma (normalize_fo f)
-    | Invariant _ as c -> c
-    | InvariantStateRel (is_eq, st, f) ->
-        InvariantStateRel (is_eq, st, normalize_fo f)
+  let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
+  let transition_fo =
+    List.concat_map (fun (t:transition) -> t.requires @ t.ensures @ t.lemmas) n.trans
   in
-  let normalized =
-    List.map normalize_contract (n.contracts @ transition_contracts)
+  let normalized_fo = List.map normalize_fo transition_fo in
+  let normalized_ltl = List.map normalize_ltl (n.assumes @ n.guarantees) in
+  let normalized_invariants =
+    List.map
+      (function
+        | Invariant (id, h) -> Invariant (id, h)
+        | InvariantStateRel (is_eq, st, f) ->
+            InvariantStateRel (is_eq, st, normalize_fo f))
+      n.invariants_mon
   in
-  let pre_k_exprs = collect_pre_k_from_contracts normalized in
+  let pre_k_exprs =
+    collect_pre_k_from_specs
+      ~fo:normalized_fo
+      ~ltl:normalized_ltl
+      ~invariants_mon:normalized_invariants
+  in
   let vars = n.inputs @ n.locals @ n.outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
@@ -202,7 +214,7 @@ let collect_calls_trans_full (ts:transition list) =
     (fun acc t -> List.fold_left collect_calls_stmt_full acc t.body)
     [] ts
 
-let extract_delay_spec (cs:contract list) =
+let extract_delay_spec (guarantees:ltl list) =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp, _)))
@@ -210,9 +222,4 @@ let extract_delay_spec (cs:contract list) =
         Some (out, inp)
     | _ -> None
   in
-  List.find_map
-    (function
-      | Guarantee f -> find_in_ltl f
-      | Ensures f -> find_in_ltl (ltl_of_fo f)
-      | _ -> None)
-    cs
+  List.find_map find_in_ltl guarantees

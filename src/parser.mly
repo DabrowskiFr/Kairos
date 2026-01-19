@@ -8,8 +8,7 @@ let expect_now h =
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
-%token REQUIRES ENSURES ASSUME GUARANTEE LEMMA
-%token INVARIANT INVARIANTS
+%token REQUIRES ENSURES ASSUME GUARANTEE
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP
 %token TRUE FALSE
@@ -17,7 +16,6 @@ let expect_now h =
 %token PRE
 %token MIN MAX ADD MUL AND OR NOT FIRST
 %token G X
-%token STATE
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
@@ -38,7 +36,7 @@ nodes:
   | node { [$1] }
 
 node:
-  NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN contracts_opt invariants_opt instances_opt
+  NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN node_contracts_opt instances_opt
   LOCALS vdecls_opt
   STATES state_list SEMI
   INIT IDENT
@@ -49,12 +47,14 @@ node:
       nname = $2;
       inputs = $4;
       outputs = $8;
-      contracts = $10 @ $11;
-      instances = $12;
-      locals = $14;
-      states = $16;
-      init_state = $19;
-      trans = $21;
+      assumes = fst $10;
+      guarantees = snd $10;
+      invariants_mon = [];
+      instances = $11;
+      locals = $13;
+      states = $15;
+      init_state = $18;
+      trans = $20;
     }
   }
 
@@ -75,21 +75,9 @@ ty:
   | TREAL { TReal }
   | IDENT { TCustom $1 }
 
-contracts_opt:
-  | /* empty */ { [] }
-  | contracts { $1 }
-
-contracts:
-  | contract contracts { $1 :: $2 }
-  | contract { [$1] }
-
-invariants_opt:
-  | /* empty */ { [] }
-  | INVARIANTS invariant_list_opt { $2 }
-
-invariant_list_opt:
-  | /* empty */ { [] }
-  | invariant_list { $1 }
+node_contracts_opt:
+  | /* empty */ { ([], []) }
+  | node_contracts { $1 }
 
 instances_opt:
   | /* empty */ { [] }
@@ -102,22 +90,11 @@ instance_list:
 instance_decl:
   | INSTANCE IDENT COLON IDENT SEMI { ($2, $4) }
 
-invariant_list:
-  | invariant_decl invariant_list { $1 :: $2 }
-  | invariant_decl { [$1] }
-
-invariant_decl:
-  | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
-  | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
-
-contract:
-  | REQUIRES fo_formula SEMI { Requires $2 }
-  | ENSURES fo_formula SEMI { Ensures $2 }
-  | ASSUME ltl SEMI { Assume $2 }
-  | GUARANTEE ltl SEMI { Guarantee $2 }
-  | LEMMA fo_formula SEMI { Lemma $2 }
-  | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
-  | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
+node_contracts:
+  | ASSUME ltl SEMI node_contracts { let (a, g) = $4 in ($2 :: a, g) }
+  | GUARANTEE ltl SEMI node_contracts { let (a, g) = $4 in (a, $2 :: g) }
+  | ASSUME ltl SEMI { ([$2], []) }
+  | GUARANTEE ltl SEMI { ([], [$2]) }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -141,7 +118,8 @@ transitions:
 transition:
   IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
   {
-    { src=$1; dst=$3; guard=$4; contracts=$6; body=$7 }
+    let (reqs, enss) = $6 in
+    { src=$1; dst=$3; guard=$4; requires=reqs; ensures=enss; lemmas=[]; body=$7 }
   }
 
 guard_opt:
@@ -164,17 +142,14 @@ stmt:
       { SCall($2, $4, $8) }
 
 trans_contracts_opt:
-  | /* empty */ { [] }
+  | /* empty */ { ([], []) }
   | trans_contracts { $1 }
 
 trans_contracts:
-  | trans_contract trans_contracts { $1 :: $2 }
-  | trans_contract { [$1] }
-
-trans_contract:
-  | REQUIRES fo_formula SEMI { Requires $2 }
-  | ENSURES fo_formula SEMI { Ensures $2 }
-  | LEMMA fo_formula SEMI { Lemma $2 }
+  | REQUIRES fo_formula SEMI trans_contracts { let (reqs, enss) = $4 in ($2 :: reqs, enss) }
+  | ENSURES fo_formula SEMI trans_contracts { let (reqs, enss) = $4 in (reqs, $2 :: enss) }
+  | REQUIRES fo_formula SEMI { ([$2], []) }
+  | ENSURES fo_formula SEMI { ([], [$2]) }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
@@ -327,10 +302,6 @@ relop:
   | LE { RLe }
   | GT { RGt }
   | GE { RGe }
-
-state_relop:
-  | EQ { true }
-  | NEQ { false }
 
 hexpr_list_opt:
   | /* empty */ { [] }

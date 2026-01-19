@@ -82,13 +82,18 @@ and collect_atoms_fo f acc =
   | FAnd (a,b) | FOr (a,b) | FImp (a,b) ->
       collect_atoms_fo b (collect_atoms_fo a acc)
 
-let collect_atoms_contract = function
-  | Requires f | Ensures f | Lemma f ->
-      collect_atoms_fo f []
-  | Assume f | Guarantee f ->
-      collect_atoms_ltl f []
-  | Invariant _ -> []
-  | InvariantStateRel (_is_eq, _st, f) -> collect_atoms_fo f []
+let collect_atoms_from_node (n:node) =
+  let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] (n.assumes @ n.guarantees) in
+  List.fold_left
+    (fun acc inv ->
+       match inv with
+       | Invariant (_id, _h) -> acc
+       | InvariantStateRel (_is_eq, _st, f) -> collect_atoms_fo f acc)
+    acc
+    n.invariants_mon
+
+let transition_fo (t:transition) = t.requires @ t.ensures @ t.lemmas
+
 
 let relop_to_binop = function
   | REq -> Eq
@@ -181,19 +186,27 @@ and replace_atoms_fo atom_map f =
   | FOr (a,b) -> FOr (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
   | FImp (a,b) -> FImp (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
 
-let replace_atoms_contract atom_map = function
-  | Requires f -> Requires (replace_atoms_fo atom_map f)
-  | Ensures f -> Ensures (replace_atoms_fo atom_map f)
-  | Assume f -> Assume (replace_atoms_ltl atom_map f)
-  | Guarantee f -> Guarantee (replace_atoms_ltl atom_map f)
-  | Lemma f -> Lemma (replace_atoms_fo atom_map f)
-  | InvariantStateRel (is_eq, st, f) ->
-      InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f)
-  | Invariant _ as c -> c
+let replace_atoms_invariants_mon atom_map =
+  List.map
+    (function
+      | Invariant (id, h) -> Invariant (id, h)
+      | InvariantStateRel (is_eq, st, f) ->
+          InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f))
 
-let fold_map_for_contracts (cs:contract list) =
+let replace_atoms_transition atom_map (t:transition) =
+  let replace_fo_list = List.map (replace_atoms_fo atom_map) in
+  { t with
+    requires = replace_fo_list t.requires;
+    ensures = replace_fo_list t.ensures;
+    lemmas = replace_fo_list t.lemmas;
+  }
+
+let fold_map_for_node (n:node) =
   let folds : Whygen_support.fold_info list =
-    Whygen_collect.collect_folds_from_contracts cs
+    Whygen_collect.collect_folds_from_specs
+      ~fo:[]
+      ~ltl:(n.assumes @ n.guarantees)
+      ~invariants_mon:n.invariants_mon
   in
   List.map (fun (fi:Whygen_support.fold_info) -> (fi.h, fi.acc)) folds
 
@@ -231,16 +244,13 @@ let fold_origin_suffix_for_expr fold_map e =
       " (" ^ String.concat ", " parts ^ ")"
 
 let transform_node (n:node) : node =
-  let fold_map = fold_map_for_contracts n.contracts in
+  let fold_map = fold_map_for_node n in
   let inputs = List.map (fun v -> v.vname) n.inputs in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let atoms =
-    List.fold_left
-      (fun acc c -> collect_atoms_contract c @ acc)
-      []
-      n.contracts
+    collect_atoms_from_node n
     |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
     |> List.sort_uniq compare
   in
@@ -279,30 +289,28 @@ let transform_node (n:node) : node =
     let trans =
       List.map
         (fun (t:transition) ->
-           let contracts = List.map (replace_atoms_contract atom_map) t.contracts in
+           let t = replace_atoms_transition atom_map t in
            let body = t.body @ atom_assigns in
-           { t with contracts; body })
+           { t with body })
         n.trans
     in
-    let contracts = List.map (replace_atoms_contract atom_map) n.contracts in
-    { n with locals = n.locals @ atom_locals; contracts = contracts @ atom_invariants; trans }
+    let assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
+    let guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
+    let invariants_mon = replace_atoms_invariants_mon atom_map n.invariants_mon in
+    { n with
+      locals = n.locals @ atom_locals;
+      assumes;
+      guarantees;
+      invariants_mon = invariants_mon @ atom_invariants;
+      trans;
+    }
 
 
-let combine_contracts_for_monitor contracts =
+let combine_contracts_for_monitor ~(assumes:ltl list) ~(guarantees:ltl list) =
   let rec mk_and = function
     | [] -> LTrue
     | [x] -> x
     | x :: xs -> LAnd (x, mk_and xs)
-  in
-  let assumes, guarantees =
-    List.fold_left
-      (fun (a, g) c ->
-         match c with
-         | Assume f -> (f :: a, g)
-         | Guarantee f -> (a, f :: g)
-         | _ -> (a, g))
-      ([], [])
-      contracts
   in
   let a = mk_and (List.rev assumes) in
   let g = mk_and (List.rev guarantees) in
@@ -370,16 +378,13 @@ let monitor_assert bad_idx =
   if bad_idx < 0 then [] else []
 
 let transform_node_monitor (n:node) : node =
-  let fold_map = fold_map_for_contracts n.contracts in
+  let fold_map = fold_map_for_node n in
   let inputs = List.map (fun v -> v.vname) n.inputs in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let atoms =
-    List.fold_left
-      (fun acc c -> collect_atoms_contract c @ acc)
-      []
-      n.contracts
+    collect_atoms_from_node n
     |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
     |> List.sort_uniq compare
   in
@@ -414,19 +419,11 @@ let transform_node_monitor (n:node) : node =
     List.map (fun (name, e) -> Invariant (name, HNow e)) atom_named_exprs
   in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
-  let contracts =
-    List.map (replace_atoms_contract atom_map) n.contracts
-  in
-  let contracts_for_node =
-    List.filter
-      (function
-        | Guarantee _ -> false
-        | _ -> true)
-      contracts
-  in
+  let user_assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
+  let user_guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
+  let invariants_mon = replace_atoms_invariants_mon atom_map n.invariants_mon in
   let spec =
-    combine_contracts_for_monitor contracts
-    |> replace_atoms_ltl atom_map
+    combine_contracts_for_monitor ~assumes:user_assumes ~guarantees:user_guarantees
     |> simplify_ltl
   in
   let valuations = all_valuations atom_names in
@@ -511,7 +508,7 @@ let transform_node_monitor (n:node) : node =
     in
     find 0 states
   in
-  let monitor_invariants =
+  let monitor_assumes, monitor_guarantees =
     let mon = monitor_state_name in
     let mk_state_formula i f =
       let cond =
@@ -519,7 +516,7 @@ let transform_node_monitor (n:node) : node =
       in
       let f = simplify_ltl f in
       let inv = LG (LImp (cond, f)) in
-      [Assume inv]
+      [inv]
     in
     let state_invs = List.concat (List.mapi mk_state_formula states) in
     let rec ltl_of_iexpr_now = function
@@ -551,25 +548,30 @@ let transform_node_monitor (n:node) : node =
            let guard_expr = valuations_to_iexpr atom_names vals_list in
            let guard = ltl_of_iexpr_now guard_expr in
            let inv = simplify_ltl (LG (LImp (cond, guard))) in
-           Assume inv :: Guarantee inv :: acc)
+           inv :: acc)
         by_dst
         []
     in
-    state_invs @ incoming_prev
+    let incoming_prev = incoming_prev in
+    (state_invs @ incoming_prev, incoming_prev)
   in
   let monitor_updates = monitor_update_stmts atom_names states transitions in
   let monitor_asserts = monitor_assert bad_idx in
   let trans =
     List.map
       (fun (t:transition) ->
-         let contracts = List.map (replace_atoms_contract atom_map) t.contracts in
+         let t = replace_atoms_transition atom_map t in
          let body = t.body @ atom_assigns @ monitor_updates @ monitor_asserts in
-         { t with contracts; body })
+         { t with body })
       n.trans
   in
-  { n with locals = n.locals @ atom_locals @ [monitor_local];
-           contracts = contracts_for_node @ atom_invariants @ monitor_invariants @ compat_invariants;
-           trans }
+  { n with
+    locals = n.locals @ atom_locals @ [monitor_local];
+    assumes = user_assumes @ monitor_assumes;
+    guarantees = monitor_guarantees;
+    invariants_mon = invariants_mon @ atom_invariants @ compat_invariants;
+    trans;
+  }
 
 let compile_program_with_transform ?(k_induction=false) ?(prefix_fields=true) transform (p:program) : string =
   let p' = List.map transform p in
@@ -586,16 +588,13 @@ let dot_program (p:program) : string =
   Buffer.add_string buf "digraph LTLAutomata {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
-    let fold_map = fold_map_for_contracts n.contracts in
+    let fold_map = fold_map_for_node n in
     let inputs = List.map (fun v -> v.vname) n.inputs in
     let var_types =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
     in
     let atoms =
-      List.fold_left
-        (fun acc c -> collect_atoms_contract c @ acc)
-        []
-        n.contracts
+      collect_atoms_from_node n
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
@@ -620,23 +619,26 @@ let dot_program (p:program) : string =
         atom_exprs atom_names
     in
     let contract_lines =
-      List.filter_map
-        (function
-          | Requires f ->
-              Some ("requires " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
-          | Ensures f ->
-              Some ("ensures " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
-          | Assume f ->
-              Some ("assume " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Guarantee f ->
-              Some ("guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Lemma f ->
-              Some ("lemma " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
-          | Invariant (id,h) -> Some ("invariant " ^ id ^ " = " ^ Whygen_support.string_of_hexpr h)
-          | InvariantStateRel (is_eq, st, f) ->
-              let op = if is_eq then "=" else "!=" in
-              Some ("invariant state " ^ op ^ " " ^ st ^ " -> " ^ Whygen_support.string_of_fo f))
-        n.contracts
+      let assume_lines =
+        List.map
+          (fun f -> "assume " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          n.assumes
+      in
+      let guarantee_lines =
+        List.map
+          (fun f -> "guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          n.guarantees
+      in
+      let invariant_lines =
+        List.filter_map
+          (function
+            | Invariant (id, h) -> Some ("invariant " ^ id ^ " = " ^ Whygen_support.string_of_hexpr h)
+            | InvariantStateRel (is_eq, st, f) ->
+                let op = if is_eq then "=" else "!=" in
+                Some ("invariant state " ^ op ^ " " ^ st ^ " -> " ^ Whygen_support.string_of_fo f))
+          n.invariants_mon
+      in
+      assume_lines @ guarantee_lines @ invariant_lines
     in
     let label_lines =
       let atoms_txt =
@@ -669,14 +671,7 @@ let dot_program (p:program) : string =
           Buffer.add_string buf (Printf.sprintf "    %s_v%d [shape=circle,label=\"%s\"];\n" cluster i vlabel)
         ) valuations;
       let f_list =
-        List.filter_map
-          (function
-            | Requires f | Ensures f | Lemma f ->
-                Some (replace_atoms_ltl atom_map (ltl_of_fo f))
-            | Assume f | Guarantee f ->
-                Some (replace_atoms_ltl atom_map f)
-            | _ -> None)
-          n.contracts
+        List.map (replace_atoms_ltl atom_map) (n.assumes @ n.guarantees)
       in
       let ok vals =
         List.for_all (fun f -> eval_ltl atom_map vals f) f_list
@@ -710,16 +705,13 @@ let dot_residual_program (p:program) : string =
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
-    let fold_map = fold_map_for_contracts n.contracts in
+    let fold_map = fold_map_for_node n in
     let inputs = List.map (fun v -> v.vname) n.inputs in
     let var_types =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
     in
     let atoms =
-      List.fold_left
-        (fun acc c -> collect_atoms_contract c @ acc)
-        []
-        n.contracts
+      collect_atoms_from_node n
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
@@ -744,14 +736,7 @@ let dot_residual_program (p:program) : string =
         atom_exprs atom_names
     in
     let f_list =
-      List.filter_map
-        (function
-          | Requires f | Ensures f | Lemma f ->
-              Some (replace_atoms_ltl atom_map (ltl_of_fo f))
-          | Assume f | Guarantee f ->
-              Some (replace_atoms_ltl atom_map f)
-          | _ -> None)
-        n.contracts
+      List.map (replace_atoms_ltl atom_map) (n.assumes @ n.guarantees)
     in
     let f0 =
       List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list
@@ -802,16 +787,13 @@ let dot_product_program (p:program) : string =
   Buffer.add_string buf "digraph LTLProduct {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
-    let fold_map = fold_map_for_contracts n.contracts in
+    let fold_map = fold_map_for_node n in
     let inputs = List.map (fun v -> v.vname) n.inputs in
     let var_types =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
     in
     let atoms =
-      List.fold_left
-        (fun acc c -> collect_atoms_contract c @ acc)
-        []
-        n.contracts
+      collect_atoms_from_node n
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
       |> List.sort_uniq compare
     in
@@ -829,14 +811,7 @@ let dot_product_program (p:program) : string =
     in
     let valuations = all_valuations atom_names in
     let f_list =
-      List.filter_map
-        (function
-          | Requires f | Ensures f | Lemma f ->
-              Some (replace_atoms_ltl atom_map (ltl_of_fo f))
-          | Assume f | Guarantee f ->
-              Some (replace_atoms_ltl atom_map f)
-          | _ -> None)
-        n.contracts
+      List.map (replace_atoms_ltl atom_map) (n.assumes @ n.guarantees)
     in
     let f0 =
       List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list

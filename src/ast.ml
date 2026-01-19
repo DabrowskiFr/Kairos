@@ -61,12 +61,7 @@ type stmt =
   | SCall of ident * iexpr list * ident list
 [@@deriving show]
 
-type contract =
-  | Requires of fo
-  | Ensures of fo
-  | Assume of ltl
-  | Guarantee of ltl
-  | Lemma of fo
+type invariant_mon =
   | Invariant of ident * hexpr
   | InvariantStateRel of bool * ident * fo
 [@@deriving show]
@@ -75,7 +70,9 @@ type transition = {
   src: ident;
   dst: ident;
   guard: iexpr option;
-  contracts: contract list;
+  requires: fo list;
+  ensures: fo list;
+  lemmas: fo list;
   body: stmt list;
 } [@@deriving show]
 
@@ -83,7 +80,9 @@ type node = {
   nname: ident;
   inputs: vdecl list;
   outputs: vdecl list;
-  contracts: contract list;
+  assumes: ltl list;
+  guarantees: ltl list;
+  invariants_mon: invariant_mon list;
   instances: (ident * ident) list;
   locals: vdecl list;
   states: ident list;

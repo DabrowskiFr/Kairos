@@ -239,16 +239,17 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let mon_state_ctors =
     let acc = ref [] in
+    List.iter (fun f -> acc := collect_ctor_ltl !acc f) (n.assumes @ n.guarantees);
     List.iter
-      (fun c ->
-         match c with
-         | Requires f | Ensures f | Lemma f ->
-             acc := collect_ctor_fo !acc f
-         | Assume f | Guarantee f ->
-             acc := collect_ctor_ltl !acc f
+      (fun inv ->
+         match inv with
          | Invariant (_, h) -> acc := collect_ctor_hexpr !acc h
          | InvariantStateRel (_, _, f) -> acc := collect_ctor_fo !acc f)
-      n.contracts;
+      n.invariants_mon;
+    List.iter
+      (fun (t:transition) ->
+         List.iter (fun f -> acc := collect_ctor_fo !acc f) (t.requires @ t.ensures @ t.lemmas))
+      n.trans;
     List.iter
       (fun t -> acc := List.fold_left collect_ctor_stmt !acc t.body)
       n.trans;
@@ -322,14 +323,25 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
     | FPred (id, hs) ->
         FPred (id, List.map pre_to_prek_hexpr hs)
   in
-  let normalize_invariant_contract = function
-    | InvariantStateRel (is_eq, st, f) ->
-        InvariantStateRel (is_eq, st, pre_to_prek_fo f)
-    | c -> c
+  let invariants_mon =
+    List.map
+      (function
+        | InvariantStateRel (is_eq, st, f) ->
+            InvariantStateRel (is_eq, st, pre_to_prek_fo f)
+        | Invariant (id, h) -> Invariant (id, h))
+      n.invariants_mon
   in
-  let n = { n with contracts = List.map normalize_invariant_contract n.contracts } in
+  let n = { n with invariants_mon } in
 
-  let folds : fold_info list = collect_folds_from_contracts n.contracts in
+  let transition_fo =
+    List.concat_map (fun (t:transition) -> t.requires @ t.ensures @ t.lemmas) n.trans
+  in
+  let folds : fold_info list =
+    collect_folds_from_specs
+      ~fo:transition_fo
+      ~ltl:(n.assumes @ n.guarantees)
+      ~invariants_mon:n.invariants_mon
+  in
   let pre_k_map = build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
   let fold_init_links = [] in
@@ -342,30 +354,25 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let has_folds = folds <> [] in
   let has_initial_only_contracts =
-    List.exists
-      (function
-        | Requires f | Ensures f | Lemma f ->
-            is_initial_only (ltl_of_fo f)
-        | Assume f | Guarantee f ->
-            is_initial_only f
-        | _ -> false)
-      n.contracts
-  in
-  let transition_contracts =
-    List.fold_left (fun acc (t:transition) -> t.contracts @ acc) [] n.trans
+    List.exists is_initial_only (n.assumes @ n.guarantees)
   in
   let max_k_guard =
-    let k_of_contract = function
-      | Requires f | Ensures f | Lemma f ->
-          (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
-      | Assume f | Guarantee f ->
-          (normalize_ltl_for_k ~init_for_var f).k_guard
-      | InvariantStateRel (_is_eq, _st, f) ->
-          (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
-      | _ -> None
+    let k_guard_fo f =
+      (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
+    in
+    let k_guard_ltl f =
+      (normalize_ltl_for_k ~init_for_var f).k_guard
+    in
+    let inv_fo =
+      List.filter_map
+        (function
+          | InvariantStateRel (_is_eq, _st, f) -> Some f
+          | Invariant _ -> None)
+        n.invariants_mon
     in
     let ks =
-      List.filter_map k_of_contract (n.contracts @ transition_contracts)
+      List.filter_map k_guard_fo (transition_fo @ inv_fo)
+      @ List.filter_map k_guard_ltl (n.assumes @ n.guarantees)
     in
     List.fold_left max 0 ks
   in
@@ -373,11 +380,11 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   let needs_first_step_folds = List.exists (fun fi -> fi.init_flag = None) folds in
   let needs_first_step = needs_first_step_folds || has_initial_only_contracts in
   let inv_links =
-    List.filter_map (fun c ->
-        match c with
-        | Invariant (id,h) -> Some (h, id)
-        | _ -> None
-      ) n.contracts
+    List.filter_map
+      (function
+        | Invariant (id, h) -> Some (h, id)
+        | InvariantStateRel _ -> None)
+      n.invariants_mon
   in
   let ghost_links =
     List.filter_map (fun (h,id) ->
@@ -697,9 +704,8 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
             let body =
               compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map f
             in
-            Some (term_implies cond body)
-        | _ -> None)
-      inst_node.contracts
+            Some (term_implies cond body))
+      inst_node.invariants_mon
   in
   let instance_invariants_for ?(in_post=false) () =
     List.concat_map
@@ -725,7 +731,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
           | None -> ([], [])
           | Some inst_node ->
               let inv_terms = instance_invariant_terms inst_name node_name inst_node in
-              match extract_delay_spec inst_node.contracts with
+              match extract_delay_spec inst_node.guarantees with
               | None -> ([], inv_terms)
               | Some (out_name, in_name) ->
                   let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -825,69 +831,40 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
           List.map (fun t -> term_implies guard t) terms
   in
   let normalize_ltl f = normalize_ltl_for_k ~init_for_var f in
-  let pre_contract, post_contract, pre_invf, post_invf, pre_lemma_terms, post_lemma_terms =
+  let pre_contract =
     List.fold_left
-      (fun (pre,post,pre_invf,post_invf,pre_lemma,post_lemma) c ->
-         let rel, k_guard =
-           match c with
-           | Requires f | Ensures f | Lemma f ->
-               let norm = normalize_ltl (ltl_of_fo f) in
-               (ltl_relational env norm.ltl, norm.k_guard)
-           | Assume f | Guarantee f ->
-               let norm = normalize_ltl f in
-               (ltl_relational env norm.ltl, norm.k_guard)
-           | InvariantStateRel (_is_eq, _st, f) ->
-               let norm = normalize_ltl (ltl_of_fo f) in
-               (ltl_relational env norm.ltl, norm.k_guard)
-           | Invariant _ -> (LTrue, None)
-         in
-         match c with
-         | Requires _ | Assume _ ->
-             let frag = ltl_spec env rel in
-             let guarded_k = apply_k_guard ~in_post:false k_guard frag.pre in
-             (guarded_k @ pre, post, pre_invf, post_invf, pre_lemma, post_lemma)
-         | Ensures _ | Guarantee _ | Lemma _ ->
-             let frag = ltl_spec env rel in
-             let guarded_k =
-               match k_induction, k_guard with
-               | true, Some k when k > 1 ->
-                   begin match k_induction_terms ~rel ~frag k with
-                   | Some terms -> terms
-                   | None -> apply_k_guard ~in_post:true k_guard frag.post
-                   end
-               | _ -> apply_k_guard ~in_post:true k_guard frag.post
-             in
-             let guarded = guarded_k in
-             let pre =
-               match c with
-               | Lemma _ ->
-                   let frag_pre = ltl_spec env rel in
-                   let pre_guarded =
-                     apply_k_guard ~in_post:false k_guard frag_pre.pre
-                   in
-                   pre_guarded @ pre
-               | _ -> pre
-             in
-            let pre_lemma =
-              match c with
-              | Lemma _ ->
-                  let frag_pre = ltl_spec env rel in
-                  let pre_guarded =
-                    apply_k_guard ~in_post:false k_guard frag_pre.pre
-                  in
-                  pre_guarded @ pre_lemma
-              | _ -> pre_lemma
-            in
-            let post_lemma =
-              match c with
-              | Lemma _ -> guarded @ post_lemma
-              | _ -> post_lemma
-            in
-            (pre, guarded @ post, pre_invf, post_invf, pre_lemma, post_lemma)
-         | Invariant _ | InvariantStateRel _ ->
-             (pre, post, pre_invf, post_invf, pre_lemma, post_lemma))
-      ([],[],[],[],[],[]) n.contracts
+      (fun pre f ->
+         let norm = normalize_ltl f in
+         let rel = ltl_relational env norm.ltl in
+         let frag = ltl_spec env rel in
+         let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+         guarded_k @ pre)
+      []
+      n.assumes
   in
+  let post_contract =
+    List.fold_left
+      (fun post f ->
+         let norm = normalize_ltl f in
+         let rel = ltl_relational env norm.ltl in
+         let frag = ltl_spec env rel in
+         let guarded_k =
+           match k_induction, norm.k_guard with
+           | true, Some k when k > 1 ->
+               begin match k_induction_terms ~rel ~frag k with
+               | Some terms -> terms
+               | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
+               end
+           | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
+         in
+         guarded_k @ post)
+      []
+      n.guarantees
+  in
+  let pre_invf = [] in
+  let post_invf = [] in
+  let pre_lemma_terms = [] in
+  let post_lemma_terms = [] in
   let transition_requires_pre_terms =
     List.fold_left
       (fun acc (t:transition) ->
@@ -898,19 +875,16 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
            Printf.sprintf "Transition requires (%s -> %s)" t.src t.dst
          in
          List.fold_left
-           (fun acc c ->
-              match c with
-              | Requires f ->
-                  let norm = normalize_ltl (ltl_of_fo f) in
-                  let rel = ltl_relational env norm.ltl in
-                  let frag = ltl_spec env rel in
-                  let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-                  let terms = List.map (term_implies cond_pre) guarded_k in
-                  let labeled = List.map (fun t -> (t, label)) terms in
-                  labeled @ acc
-              | _ -> acc)
+           (fun acc f ->
+              let norm = normalize_ltl (ltl_of_fo f) in
+              let rel = ltl_relational env norm.ltl in
+              let frag = ltl_spec env rel in
+              let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+              let terms = List.map (term_implies cond_pre) guarded_k in
+              let labeled = List.map (fun t -> (t, label)) terms in
+              labeled @ acc)
            acc
-           t.contracts)
+           t.requires)
       []
       n.trans
   in
@@ -938,76 +912,50 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
          in
         let guard_terms =
           List.concat_map
-            (function
-              | Requires f ->
-                  let norm = normalize_ltl (ltl_of_fo f) in
-                  let rel = ltl_relational env norm.ltl in
-                  let frag = ltl_spec env rel in
-                  apply_k_guard ~in_post:false norm.k_guard frag.pre
-              | Assume f ->
-                  let norm = normalize_ltl f in
-                  let rel = ltl_relational env norm.ltl in
-                  let frag = ltl_spec env rel in
-                  apply_k_guard ~in_post:false norm.k_guard frag.pre
-              | _ -> [])
-            t.contracts
+            (fun f ->
+              let norm = normalize_ltl (ltl_of_fo f) in
+              let rel = ltl_relational env norm.ltl in
+              let frag = ltl_spec env rel in
+              apply_k_guard ~in_post:false norm.k_guard frag.pre)
+            t.requires
         in
         let guard =
           if guard_terms = [] then None
           else Some (term_old (conj_terms guard_terms))
         in
-         List.fold_left
-           (fun (post, lemmas) c ->
-              match c with
-              | Ensures f | Lemma f ->
-                  let norm = normalize_ltl (ltl_of_fo f) in
-                  let rel = ltl_relational env norm.ltl in
-                  let frag = ltl_spec env rel in
-                  let guarded_k =
-                    match k_induction, norm.k_guard with
-                    | true, Some k when k > 1 ->
-                        begin match k_induction_terms ~rel ~frag k with
-                        | Some terms -> terms
-                        | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                        end
-                    | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                  in
-                  let guarded =
-                    match guard with
-                    | None -> guarded_k
-                    | Some g -> List.map (fun p -> term_implies g p) guarded_k
-                  in
-                  let terms = List.map (term_implies cond_post) guarded in
-                  let lemmas =
-                    match c with
-                    | Lemma _ ->
-                        let labeled = List.map (fun t -> (t, lemma_label)) terms in
-                        labeled @ lemmas
-                    | _ -> lemmas
-                  in
-                  (terms @ post, lemmas)
-              | Guarantee f ->
-                  let norm = normalize_ltl f in
-                  let rel = ltl_relational env norm.ltl in
-                  let frag = ltl_spec env rel in
-                  let guarded_k =
-                    match k_induction, norm.k_guard with
-                    | true, Some k when k > 1 ->
-                        begin match k_induction_terms ~rel ~frag k with
-                        | Some terms -> terms
-                        | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                        end
-                    | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                  in
-                  let guarded =
-                    match guard with
-                    | None -> guarded_k
-                    | Some g -> List.map (fun p -> term_implies g p) guarded_k
-                  in
-                  let terms = List.map (term_implies cond_post) guarded in
-                  (terms @ post, lemmas)
-              | _ -> (post, lemmas))
-           (post, lemmas) t.contracts)
+         let apply_post_terms post lemmas fo_list is_lemma =
+           List.fold_left
+             (fun (post, lemmas) f ->
+                let norm = normalize_ltl (ltl_of_fo f) in
+                let rel = ltl_relational env norm.ltl in
+                let frag = ltl_spec env rel in
+                let guarded_k =
+                  match k_induction, norm.k_guard with
+                  | true, Some k when k > 1 ->
+                      begin match k_induction_terms ~rel ~frag k with
+                      | Some terms -> terms
+                      | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
+                      end
+                  | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
+                in
+                let guarded =
+                  match guard with
+                  | None -> guarded_k
+                  | Some g -> List.map (fun p -> term_implies g p) guarded_k
+                in
+                let terms = List.map (term_implies cond_post) guarded in
+                let lemmas =
+                  if is_lemma then
+                    let labeled = List.map (fun t -> (t, lemma_label)) terms in
+                    labeled @ lemmas
+                  else lemmas
+                in
+                (terms @ post, lemmas))
+             (post, lemmas)
+             fo_list
+         in
+         let post, lemmas = apply_post_terms post lemmas t.ensures false in
+         apply_post_terms post lemmas t.lemmas true)
       ([], []) n.trans
   in
   let state_post_lemmas =
@@ -1015,28 +963,20 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let post_contract = state_post @ post_contract in
   let post_assume_terms =
-    let guard_terms_for_contracts contracts =
+    let guard_terms_for_transition (t:transition) =
       List.fold_left
-        (fun acc c ->
-           match c with
-           | Requires f ->
-               let norm = normalize_ltl (ltl_of_fo f) in
-               let rel = ltl_relational env norm.ltl in
-               let frag = ltl_spec env rel in
-               apply_k_guard ~in_post:false norm.k_guard frag.pre @ acc
-           | Assume f ->
-               let norm = normalize_ltl f in
-               let rel = ltl_relational env norm.ltl in
-               let frag = ltl_spec env rel in
-               apply_k_guard ~in_post:false norm.k_guard frag.pre @ acc
-           | _ -> acc)
-        [] contracts
+        (fun acc f ->
+           let norm = normalize_ltl (ltl_of_fo f) in
+           let rel = ltl_relational env norm.ltl in
+           let frag = ltl_spec env rel in
+           apply_k_guard ~in_post:false norm.k_guard frag.pre @ acc)
+        [] t.requires
       |> List.rev
     in
     let terms =
       List.fold_left
         (fun acc (t:transition) ->
-           let guards = guard_terms_for_contracts t.contracts in
+           let guards = guard_terms_for_transition t in
            List.rev_append (List.map term_old guards) acc)
         [] n.trans
       |> List.rev
@@ -1060,9 +1000,8 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
             let cond = (if is_eq then term_eq else term_neq) st rhs in
             let body = compile_fo_term env f in
             let t = term_implies cond body in
-            (t :: pre, t :: post)
-        | _ -> (pre, post)
-      ) ([], []) n.contracts
+            (t :: pre, t :: post))
+      ([], []) n.invariants_mon
   in
   let pre_input_post =
     List.map
@@ -1153,7 +1092,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec inst_node.contracts with
+                 match extract_delay_spec inst_node.guarantees with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -1200,7 +1139,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec inst_node.contracts with
+                 match extract_delay_spec inst_node.guarantees with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -1400,19 +1339,20 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
     List.map (label_for_term post_groups state_post_lemmas_terms) post_out
   in
 
-  let show_contract rel c =
-    let to_ltl f = if rel then ltl_relational env f else f in
-    let to_fo f = if rel then rel_fo env f else f in
-    match c with
-    | Requires f -> "requires " ^ string_of_fo (to_fo f)
-    | Ensures f -> "ensures " ^ string_of_fo (to_fo f)
-    | Assume f -> "assume " ^ string_of_ltl (to_ltl f)
-    | Guarantee f -> "guarantee " ^ string_of_ltl (to_ltl f)
-    | Lemma f -> "lemma " ^ string_of_fo (to_fo f)
+  let show_assume rel f =
+    let f = if rel then ltl_relational env f else f in
+    "assume " ^ string_of_ltl f
+  in
+  let show_guarantee rel f =
+    let f = if rel then ltl_relational env f else f in
+    "guarantee " ^ string_of_ltl f
+  in
+  let show_invariant rel = function
     | Invariant (id,h) -> "invariant " ^ id ^ " = " ^ string_of_hexpr h
     | InvariantStateRel (is_eq, st_name, f) ->
         let op = if is_eq then "=" else "!=" in
-        "invariant state " ^ op ^ " " ^ st_name ^ " -> " ^ string_of_fo (to_fo f)
+        let f = if rel then rel_fo env f else f in
+        "invariant state " ^ op ^ " " ^ st_name ^ " -> " ^ string_of_fo f
   in
   let comment =
     let is_monitor =
@@ -1455,7 +1395,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
             | Invariant (id, h) when is_prefix "atom_" id ->
                 Some (Printf.sprintf "%s | %s" (strip_vars id) (string_of_hexpr h))
             | _ -> None)
-          n.contracts
+          n.invariants_mon
       in
       let atom_table =
         let lines =
@@ -1465,16 +1405,8 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
         ^ String.concat "\n    " lines
         ^ "\n"
       in
-      let assumes =
-        List.filter_map
-          (function Assume f -> Some (simplify f) | _ -> None)
-          n.contracts
-      in
-      let guarantees =
-        List.filter_map
-          (function Guarantee f -> Some (simplify f) | _ -> None)
-          n.contracts
-      in
+      let assumes = List.map simplify n.assumes in
+      let guarantees = List.map simplify n.guarantees in
       let fmt_list label items =
         let lines =
           match items with
@@ -1497,8 +1429,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
           | _ -> None
         in
         let extract = function
-          | Assume (LG (LImp (cond, f)))
-          | Guarantee (LG (LImp (cond, f))) ->
+          | LG (LImp (cond, f)) ->
               begin match is_mon_cond cond with
               | Some ctor ->
                   if not (Hashtbl.mem table ctor) then Hashtbl.add table ctor f
@@ -1506,7 +1437,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
               end
           | _ -> ()
         in
-        List.iter extract n.contracts;
+        List.iter extract (n.assumes @ n.guarantees);
         let lines =
           mon_state_ctors
           |> List.filter_map (fun ctor ->
@@ -1527,7 +1458,12 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
         mon_states
         mon_residuals
     else
-      let contracts_txt = String.concat "\n  " (List.map (show_contract false) n.contracts) in
+      let contract_lines =
+        List.map (show_assume false) n.assumes
+        @ List.map (show_guarantee false) n.guarantees
+        @ List.map (show_invariant false) n.invariants_mon
+      in
+      let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
       let post_txt = String.concat "\n    " (List.map string_of_term post) in
       Printf.sprintf "Module %s\n  LTL (compact):\n  %s\n  Relational (pre/post):\n    pre:\n    %s\n    post:\n    %s\n"
