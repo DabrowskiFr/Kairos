@@ -108,9 +108,7 @@ invariant_list:
 
 invariant_decl:
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
-  | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
   | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
-  | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 contract:
   | REQUIRES fo_formula SEMI { Requires $2 }
@@ -119,9 +117,7 @@ contract:
   | GUARANTEE ltl SEMI { Guarantee $2 }
   | LEMMA fo_formula SEMI { Lemma $2 }
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
-  | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
   | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
-  | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 vdecls_opt:
   | /* empty */ { [] }

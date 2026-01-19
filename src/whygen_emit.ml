@@ -242,13 +242,12 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
     List.iter
       (fun c ->
          match c with
-         | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+         | Requires f | Ensures f | Lemma f ->
              acc := collect_ctor_fo !acc f
          | Assume f | Guarantee f ->
              acc := collect_ctor_ltl !acc f
          | Invariant (_, h) -> acc := collect_ctor_hexpr !acc h
-         | InvariantStateRel (_, _, f) -> acc := collect_ctor_fo !acc f
-         | InvariantState _ -> ())
+         | InvariantStateRel (_, _, f) -> acc := collect_ctor_fo !acc f)
       n.contracts;
     List.iter
       (fun t -> acc := List.fold_left collect_ctor_stmt !acc t.body)
@@ -324,7 +323,6 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
         FPred (id, List.map pre_to_prek_hexpr hs)
   in
   let normalize_invariant_contract = function
-    | InvariantFormula f -> InvariantFormula (pre_to_prek_fo f)
     | InvariantStateRel (is_eq, st, f) ->
         InvariantStateRel (is_eq, st, pre_to_prek_fo f)
     | c -> c
@@ -346,7 +344,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   let has_initial_only_contracts =
     List.exists
       (function
-        | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+        | Requires f | Ensures f | Lemma f ->
             is_initial_only (ltl_of_fo f)
         | Assume f | Guarantee f ->
             is_initial_only f
@@ -358,7 +356,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   let max_k_guard =
     let k_of_contract = function
-      | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+      | Requires f | Ensures f | Lemma f ->
           (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
       | Assume f | Guarantee f ->
           (normalize_ltl_for_k ~init_for_var f).k_guard
@@ -692,10 +690,6 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
               compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map h
             in
             Some (term_eq lhs rhs)
-        | InvariantState (is_eq, st_name) ->
-            let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            Some ((if is_eq then term_eq else term_neq) st rhs)
         | InvariantStateRel (is_eq, st_name, f) ->
             let st = term_of_instance_var env inst_name node_name "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
@@ -836,7 +830,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
       (fun (pre,post,pre_invf,post_invf,pre_lemma,post_lemma) c ->
          let rel, k_guard =
            match c with
-           | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+           | Requires f | Ensures f | Lemma f ->
                let norm = normalize_ltl (ltl_of_fo f) in
                (ltl_relational env norm.ltl, norm.k_guard)
            | Assume f | Guarantee f ->
@@ -845,7 +839,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
            | InvariantStateRel (_is_eq, _st, f) ->
                let norm = normalize_ltl (ltl_of_fo f) in
                (ltl_relational env norm.ltl, norm.k_guard)
-           | Invariant _ | InvariantState _ -> (LTrue, None)
+           | Invariant _ -> (LTrue, None)
          in
          match c with
          | Requires _ | Assume _ ->
@@ -890,12 +884,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
               | _ -> post_lemma
             in
             (pre, guarded @ post, pre_invf, post_invf, pre_lemma, post_lemma)
-         | InvariantFormula _ ->
-             let frag = ltl_spec env rel in
-             let pre_guarded = apply_k_guard ~in_post:false k_guard frag.pre in
-             let post_guarded = apply_k_guard ~in_post:true k_guard frag.post in
-             (pre, post, pre_guarded @ pre_invf, post_guarded @ post_invf, pre_lemma, post_lemma)
-         | Invariant _ | InvariantState _ | InvariantStateRel _ ->
+         | Invariant _ | InvariantStateRel _ ->
              (pre, post, pre_invf, post_invf, pre_lemma, post_lemma))
       ([],[],[],[],[],[]) n.contracts
   in
@@ -1065,11 +1054,6 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
               (pre, t :: post)
             else
               (t :: pre, t :: post)
-        | InvariantState (is_eq, st_name) ->
-            let st = term_of_var env "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            let t = (if is_eq then term_eq else term_neq) st rhs in
-            (t :: pre, post)
         | InvariantStateRel (is_eq, st_name, f) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
@@ -1425,11 +1409,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
     | Assume f -> "assume " ^ string_of_ltl (to_ltl f)
     | Guarantee f -> "guarantee " ^ string_of_ltl (to_ltl f)
     | Lemma f -> "lemma " ^ string_of_fo (to_fo f)
-    | InvariantFormula f -> "invariant " ^ string_of_fo (to_fo f)
     | Invariant (id,h) -> "invariant " ^ id ^ " = " ^ string_of_hexpr h
-    | InvariantState (is_eq, st_name) ->
-        let op = if is_eq then "=" else "!=" in
-        "invariant state " ^ op ^ " " ^ st_name
     | InvariantStateRel (is_eq, st_name, f) ->
         let op = if is_eq then "=" else "!=" in
         "invariant state " ^ op ^ " " ^ st_name ^ " -> " ^ string_of_fo (to_fo f)

@@ -51,12 +51,11 @@ let classify_fold h =
 let collect_folds_from_contracts (cs:contract list) =
   let hexprs = List.fold_left (fun acc c ->
       match c with
-      | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+      | Requires f | Ensures f | Lemma f ->
           collect_fo f acc
       | Assume f | Guarantee f ->
           collect_ltl f acc
       | Invariant (_id,h) -> collect_hexpr h acc
-      | InvariantState _ -> acc
       | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc
     ) [] cs |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false) in
   let rec aux i acc = function
@@ -92,13 +91,12 @@ let collect_pre_k_from_contracts (cs:contract list) =
   List.fold_left
     (fun acc c ->
        match c with
-       | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+       | Requires f | Ensures f | Lemma f ->
            collect_pre_k_fo f acc
        | Assume f | Guarantee f ->
            collect_pre_k_ltl f acc
        | Invariant (_id,h) -> collect_pre_k_hexpr h acc
-       | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_fo f acc
-       | InvariantState _ -> acc)
+       | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_fo f acc)
     [] cs
 
 let build_pre_k_infos (n:node) =
@@ -126,9 +124,7 @@ let build_pre_k_infos (n:node) =
     | Assume f -> Assume (normalize_ltl_for_k ~init_for_var f).ltl
     | Guarantee f -> Guarantee (normalize_ltl_for_k ~init_for_var f).ltl
     | Lemma f -> Lemma (normalize_fo f)
-    | InvariantFormula f -> InvariantFormula (normalize_fo f)
     | Invariant _ as c -> c
-    | InvariantState _ as c -> c
     | InvariantStateRel (is_eq, st, f) ->
         InvariantStateRel (is_eq, st, normalize_fo f)
   in

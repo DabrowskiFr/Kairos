@@ -67,9 +67,7 @@ type contract =
   | Assume of ltl
   | Guarantee of ltl
   | Lemma of fo
-  | InvariantFormula of fo
   | Invariant of ident * hexpr
-  | InvariantState of bool * ident
   | InvariantStateRel of bool * ident * fo
 [@@deriving show]
 

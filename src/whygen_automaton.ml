@@ -83,11 +83,11 @@ and collect_atoms_fo f acc =
       collect_atoms_fo b (collect_atoms_fo a acc)
 
 let collect_atoms_contract = function
-  | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+  | Requires f | Ensures f | Lemma f ->
       collect_atoms_fo f []
   | Assume f | Guarantee f ->
       collect_atoms_ltl f []
-  | Invariant _ | InvariantState _ -> []
+  | Invariant _ -> []
   | InvariantStateRel (_is_eq, _st, f) -> collect_atoms_fo f []
 
 let relop_to_binop = function
@@ -187,11 +187,9 @@ let replace_atoms_contract atom_map = function
   | Assume f -> Assume (replace_atoms_ltl atom_map f)
   | Guarantee f -> Guarantee (replace_atoms_ltl atom_map f)
   | Lemma f -> Lemma (replace_atoms_fo atom_map f)
-  | InvariantFormula f -> InvariantFormula (replace_atoms_fo atom_map f)
   | InvariantStateRel (is_eq, st, f) ->
       InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f)
   | Invariant _ as c -> c
-  | InvariantState _ as c -> c
 
 let fold_map_for_contracts (cs:contract list) =
   let folds : Whygen_support.fold_info list =
@@ -634,12 +632,7 @@ let dot_program (p:program) : string =
               Some ("guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
           | Lemma f ->
               Some ("lemma " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
-          | InvariantFormula f ->
-              Some ("invariant " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
           | Invariant (id,h) -> Some ("invariant " ^ id ^ " = " ^ Whygen_support.string_of_hexpr h)
-          | InvariantState (is_eq, st) ->
-              let op = if is_eq then "=" else "!=" in
-              Some ("invariant state " ^ op ^ " " ^ st)
           | InvariantStateRel (is_eq, st, f) ->
               let op = if is_eq then "=" else "!=" in
               Some ("invariant state " ^ op ^ " " ^ st ^ " -> " ^ Whygen_support.string_of_fo f))
