@@ -56,8 +56,6 @@ let iexpr_to_why ~prefix ~inputs =
     | IVar x ->
         if List.mem x inputs then "v." ^ prefix ^ Whygen_support.pre_input_name x
         else "v." ^ prefix ^ x
-    | IScan1 (_,e) -> go e
-    | IScan (_,_,e) -> go e
     | IPar e -> "(" ^ go e ^ ")"
     | IUn (Neg, a) -> "(-" ^ go a ^ ")"
     | IUn (Not, a) -> "(not " ^ go a ^ ")"
@@ -70,15 +68,27 @@ let iexpr_to_why ~prefix ~inputs =
 let rec collect_atoms_ltl f acc =
   match f with
   | LTrue | LFalse -> acc
-  | LAtom a -> if List.exists ((=) a) acc then acc else a :: acc
+  | LAtom a -> collect_atoms_fo a acc
   | LNot a | LX a | LG a -> collect_atoms_ltl a acc
   | LAnd (a,b) | LOr (a,b) | LImp (a,b) ->
       collect_atoms_ltl b (collect_atoms_ltl a acc)
 
+and collect_atoms_fo f acc =
+  let add a acc = if List.exists ((=) a) acc then acc else a :: acc in
+  match f with
+  | FTrue | FFalse -> acc
+  | FRel _ | FPred _ -> add f acc
+  | FNot a -> collect_atoms_fo a acc
+  | FAnd (a,b) | FOr (a,b) | FImp (a,b) ->
+      collect_atoms_fo b (collect_atoms_fo a acc)
+
 let collect_atoms_contract = function
-  | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
+  | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+      collect_atoms_fo f []
+  | Assume f | Guarantee f ->
       collect_atoms_ltl f []
-  | Invariant _ | InvariantState _ | InvariantStateRel _ | InvariantFormula _ -> []
+  | Invariant _ | InvariantState _ -> []
+  | InvariantStateRel (_is_eq, _st, f) -> collect_atoms_fo f []
 
 let relop_to_binop = function
   | REq -> Eq
@@ -92,27 +102,7 @@ let fold_var_of_hexpr fold_map h =
   List.find_map (fun (h', name) -> if h = h' then Some name else None) fold_map
 
 let hexpr_to_iexpr ~inputs ~fold_map = function
-  | HNow (IScan1 _ as e) ->
-      begin match fold_var_of_hexpr fold_map (HNow e) with
-      | Some name -> Some (IVar name)
-      | None -> None
-      end
-  | HNow (IScan _ as e) ->
-      begin match fold_var_of_hexpr fold_map (HNow e) with
-      | Some name -> Some (IVar name)
-      | None -> None
-      end
   | HNow e -> Some e
-  | HScan1 _ as h ->
-      begin match fold_var_of_hexpr fold_map h with
-      | Some name -> Some (IVar name)
-      | None -> None
-      end
-  | HScan _ as h ->
-      begin match fold_var_of_hexpr fold_map h with
-      | Some name -> Some (IVar name)
-      | None -> None
-      end
   | HFold _ as h ->
       begin match fold_var_of_hexpr fold_map h with
       | Some name -> Some (IVar name)
@@ -127,7 +117,6 @@ let infer_iexpr_type ~var_types =
     | ILitBool _ -> Some TBool
     | ILitInt _ -> Some TInt
     | IVar x -> List.assoc_opt x var_types
-    | IScan1 _ | IScan _ -> None
     | IPar e -> go e
     | IUn (Not, _) -> Some TBool
     | IUn (Neg, _) -> Some TInt
@@ -149,7 +138,7 @@ let mk_bool_neq a b =
         IBin (And, IUn (Not, a), b))
 
 let atom_to_iexpr ~inputs ~var_types ~fold_map = function
-  | ARel (h1, r, h2) ->
+  | FRel (h1, r, h2) ->
       begin match hexpr_to_iexpr ~inputs ~fold_map h1,
                   hexpr_to_iexpr ~inputs ~fold_map h2 with
       | Some e1, Some e2 ->
@@ -162,19 +151,16 @@ let atom_to_iexpr ~inputs ~var_types ~fold_map = function
           end
       | _ -> None
       end
-  | APred _ -> None
+  | FPred _ -> None
+  | FTrue | FFalse | FNot _ | FAnd _ | FOr _ | FImp _ -> None
 
 let atom_to_var_rel name =
-  ARel (HNow (IVar name), REq, HNow (ILitBool true))
+  FRel (HNow (IVar name), REq, HNow (ILitBool true))
 
 let rec replace_atoms_ltl atom_map f =
   match f with
   | LTrue | LFalse -> f
-  | LAtom a ->
-      begin match List.assoc_opt a atom_map with
-      | Some name -> LAtom (atom_to_var_rel name)
-      | None -> LAtom a
-      end
+  | LAtom a -> LAtom (replace_atoms_fo atom_map a)
   | LNot a -> LNot (replace_atoms_ltl atom_map a)
   | LAnd (a,b) -> LAnd (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
   | LOr (a,b) -> LOr (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
@@ -182,15 +168,28 @@ let rec replace_atoms_ltl atom_map f =
   | LX a -> LX (replace_atoms_ltl atom_map a)
   | LG a -> LG (replace_atoms_ltl atom_map a)
 
+and replace_atoms_fo atom_map f =
+  match f with
+  | FTrue | FFalse -> f
+  | FRel _ | FPred _ ->
+      begin match List.assoc_opt f atom_map with
+      | Some name -> atom_to_var_rel name
+      | None -> f
+      end
+  | FNot a -> FNot (replace_atoms_fo atom_map a)
+  | FAnd (a,b) -> FAnd (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
+  | FOr (a,b) -> FOr (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
+  | FImp (a,b) -> FImp (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
+
 let replace_atoms_contract atom_map = function
-  | Requires f -> Requires (replace_atoms_ltl atom_map f)
-  | Ensures f -> Ensures (replace_atoms_ltl atom_map f)
+  | Requires f -> Requires (replace_atoms_fo atom_map f)
+  | Ensures f -> Ensures (replace_atoms_fo atom_map f)
   | Assume f -> Assume (replace_atoms_ltl atom_map f)
   | Guarantee f -> Guarantee (replace_atoms_ltl atom_map f)
-  | Lemma f -> Lemma (replace_atoms_ltl atom_map f)
-  | InvariantFormula f -> InvariantFormula (replace_atoms_ltl atom_map f)
+  | Lemma f -> Lemma (replace_atoms_fo atom_map f)
+  | InvariantFormula f -> InvariantFormula (replace_atoms_fo atom_map f)
   | InvariantStateRel (is_eq, st, f) ->
-      InvariantStateRel (is_eq, st, replace_atoms_ltl atom_map f)
+      InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f)
   | Invariant _ as c -> c
   | InvariantState _ as c -> c
 
@@ -209,7 +208,7 @@ let fold_origin_suffix fold_map name =
 let rec fold_vars_in_iexpr acc = function
   | IVar v -> if List.mem v acc then acc else v :: acc
   | ILitInt _ | ILitBool _ -> acc
-  | IScan1 (_, e) | IScan (_, _, e) | IPar e -> fold_vars_in_iexpr acc e
+  | IPar e -> fold_vars_in_iexpr acc e
   | IUn (_, e) -> fold_vars_in_iexpr acc e
   | IBin (_, a, b) -> fold_vars_in_iexpr (fold_vars_in_iexpr acc a) b
 
@@ -301,9 +300,8 @@ let combine_contracts_for_monitor contracts =
     List.fold_left
       (fun (a, g) c ->
          match c with
-         | Requires f | Assume f -> (f :: a, g)
-         | Ensures f | Guarantee f -> (a, f :: g)
-         | Lemma _ | InvariantFormula _ -> (a, g)
+         | Assume f -> (f :: a, g)
+         | Guarantee f -> (a, f :: g)
          | _ -> (a, g))
       ([], [])
       contracts
@@ -373,9 +371,9 @@ let monitor_update_stmts atom_names states transitions =
 let monitor_assert bad_idx =
   if bad_idx < 0 then []
   else
-    [SAssert (LAtom (ARel (HNow (IVar monitor_state_name),
-                          RNeq,
-                          HNow (monitor_state_expr bad_idx))))]
+    [SAssert (FRel (HNow (IVar monitor_state_name),
+                    RNeq,
+                    HNow (monitor_state_expr bad_idx)))]
 
 let transform_node_monitor (n:node) : node =
   let fold_map = fold_map_for_contracts n.contracts in
@@ -486,15 +484,15 @@ let transform_node_monitor (n:node) : node =
                mon_out.(j))
           prog_out.(i)
       done;
-      let mk_or acc f =
+      let mk_or_fo acc f =
         match acc with
         | None -> Some f
-        | Some a -> Some (LOr (a, f))
+        | Some a -> Some (FOr (a, f))
       in
       let mon_eq i =
-        LAtom (ARel (HNow (IVar monitor_state_name),
-                    REq,
-                    HNow (monitor_state_expr i)))
+        FRel (HNow (IVar monitor_state_name),
+              REq,
+              HNow (monitor_state_expr i))
       in
       List.mapi
         (fun si st_name ->
@@ -502,11 +500,11 @@ let transform_node_monitor (n:node) : node =
              let acc = ref None in
              for mi = 0 to n_mon - 1 do
                if visited.(si).(mi) then
-                 acc := mk_or !acc (mon_eq mi)
+                 acc := mk_or_fo !acc (mon_eq mi)
              done;
              match !acc with
-             | Some f -> simplify_ltl f
-             | None -> LFalse
+             | Some f -> f |> ltl_of_fo |> simplify_ltl |> fo_of_ltl
+             | None -> FFalse
            in
            InvariantStateRel (true, st_name, disj))
         n.states
@@ -523,11 +521,11 @@ let transform_node_monitor (n:node) : node =
     let mon = monitor_state_name in
     let mk_state_formula i f =
       let cond =
-        LAtom (ARel (HNow (IVar mon), REq, HNow (monitor_state_expr i)))
+        LAtom (FRel (HNow (IVar mon), REq, HNow (monitor_state_expr i)))
       in
       let f = simplify_ltl f in
       let inv = LG (LImp (cond, f)) in
-      [Requires inv]
+      [Assume inv]
     in
     let state_invs = List.concat (List.mapi mk_state_formula states) in
     let rec ltl_of_iexpr_now = function
@@ -535,10 +533,10 @@ let transform_node_monitor (n:node) : node =
       | ILitBool false -> LFalse
       | IVar name ->
           let h = HNow (IVar name) in
-          LAtom (ARel (h, REq, HNow (ILitBool true)))
+          LAtom (FRel (h, REq, HNow (ILitBool true)))
       | IUn (Not, IVar name) ->
           let h = HNow (IVar name) in
-          LAtom (ARel (h, REq, HNow (ILitBool false)))
+          LAtom (FRel (h, REq, HNow (ILitBool false)))
       | IUn (Not, e) -> LNot (ltl_of_iexpr_now e)
       | IBin (And, a, b) -> LAnd (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
       | IBin (Or, a, b) -> LOr (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
@@ -554,12 +552,12 @@ let transform_node_monitor (n:node) : node =
       Hashtbl.fold
         (fun j vals_list acc ->
            let cond =
-             LAtom (ARel (HNow (IVar mon), REq, HNow (monitor_state_expr j)))
+             LAtom (FRel (HNow (IVar mon), REq, HNow (monitor_state_expr j)))
            in
            let guard_expr = valuations_to_iexpr atom_names vals_list in
            let guard = ltl_of_iexpr_now guard_expr in
            let inv = simplify_ltl (LG (LImp (cond, guard))) in
-           InvariantFormula inv :: acc)
+           Assume inv :: Guarantee inv :: acc)
         by_dst
         []
     in
@@ -630,20 +628,25 @@ let dot_program (p:program) : string =
     let contract_lines =
       List.filter_map
         (function
-          | Requires f -> Some ("requires " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Ensures f -> Some ("ensures " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Assume f -> Some ("assume " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Guarantee f -> Some ("guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
-          | Lemma f -> Some ("lemma " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          | Requires f ->
+              Some ("requires " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
+          | Ensures f ->
+              Some ("ensures " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
+          | Assume f ->
+              Some ("assume " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          | Guarantee f ->
+              Some ("guarantee " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+          | Lemma f ->
+              Some ("lemma " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
           | InvariantFormula f ->
-              Some ("invariant " ^ Whygen_support.string_of_ltl (replace_atoms_ltl atom_map f))
+              Some ("invariant " ^ Whygen_support.string_of_fo (replace_atoms_fo atom_map f))
           | Invariant (id,h) -> Some ("invariant " ^ id ^ " = " ^ Whygen_support.string_of_hexpr h)
           | InvariantState (is_eq, st) ->
               let op = if is_eq then "=" else "!=" in
               Some ("invariant state " ^ op ^ " " ^ st)
           | InvariantStateRel (is_eq, st, f) ->
               let op = if is_eq then "=" else "!=" in
-              Some ("invariant state " ^ op ^ " " ^ st ^ " -> " ^ Whygen_support.string_of_ltl f))
+              Some ("invariant state " ^ op ^ " " ^ st ^ " -> " ^ Whygen_support.string_of_fo f))
         n.contracts
     in
     let label_lines =
@@ -679,7 +682,9 @@ let dot_program (p:program) : string =
       let f_list =
         List.filter_map
           (function
-            | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
+            | Requires f | Ensures f | Lemma f ->
+                Some (replace_atoms_ltl atom_map (ltl_of_fo f))
+            | Assume f | Guarantee f ->
                 Some (replace_atoms_ltl atom_map f)
             | _ -> None)
           n.contracts
@@ -752,7 +757,9 @@ let dot_residual_program (p:program) : string =
     let f_list =
       List.filter_map
         (function
-          | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
+          | Requires f | Ensures f | Lemma f ->
+              Some (replace_atoms_ltl atom_map (ltl_of_fo f))
+          | Assume f | Guarantee f ->
               Some (replace_atoms_ltl atom_map f)
           | _ -> None)
         n.contracts
@@ -835,7 +842,9 @@ let dot_product_program (p:program) : string =
     let f_list =
       List.filter_map
         (function
-          | Requires f | Ensures f | Assume f | Guarantee f | Lemma f ->
+          | Requires f | Ensures f | Lemma f ->
+              Some (replace_atoms_ltl atom_map (ltl_of_fo f))
+          | Assume f | Guarantee f ->
               Some (replace_atoms_ltl atom_map f)
           | _ -> None)
         n.contracts

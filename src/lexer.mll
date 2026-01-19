@@ -17,7 +17,6 @@ let () =
     "min", MIN; "max", MAX; "add", ADD; "mul", MUL; "and", AND; "or", OR; "not", NOT;
     "first", FIRST;
     "G", G; "X", X;
-    "let", LET; "in", IN;
     "state", STATE;
   ]
 }

@@ -17,103 +17,13 @@ let stmt_list_is_assign name expr = function
 let is_skip_list lst =
   lst = [] || List.for_all (function SSkip -> true | _ -> false) lst
 
-let scan1_cond op x acc cond =
-  match op, cond with
-  | OMin, IBin (Le, IVar x1, IVar acc1) -> x = x1 && acc = acc1
-  | OMax, IBin (Ge, IVar x1, IVar acc1) -> x = x1 && acc = acc1
-  | _ -> false
-
-let op_to_binop = function
-  | OAdd -> Some Add
-  | OMul -> Some Mul
-  | OAnd -> Some And
-  | OOr -> Some Or
-  | OMin | OMax | OFirst -> None
-
-let rec find_scan1_init_flag op x acc = function
-  | [] -> None
-  | SIf (cond, tbr, fbr) :: rest ->
-      begin match cond with
-      | IUn (Not, IVar init_done) ->
-          let has_init = stmt_list_has_assign acc (IVar x) tbr
-                         && stmt_list_has_assign init_done (ILitBool true) tbr in
-          let has_step =
-            match fbr with
-            | [SIf (cond2, t2, f2)] ->
-                scan1_cond op x acc cond2
-                && stmt_list_has_assign acc (IVar x) t2
-                && is_skip_list f2
-            | _ -> false
-          in
-          if has_init && has_step then Some init_done else find_scan1_init_flag op x acc rest
-      | _ -> find_scan1_init_flag op x acc rest
-      end
-  | _ :: rest -> find_scan1_init_flag op x acc rest
-
-let rec find_scan_init_flag op x acc init_expr = function
-  | [] -> None
-  | SIf (cond, tbr, fbr) :: rest ->
-      begin match cond with
-      | IUn (Not, IVar init_done) ->
-          let has_init = stmt_list_has_assign acc init_expr tbr
-                         && stmt_list_has_assign init_done (ILitBool true) tbr in
-          let has_step =
-            match op with
-            | OMin | OMax ->
-                begin match fbr with
-                | [SIf (cond2, t2, f2)] ->
-                    scan1_cond op x acc cond2
-                    && stmt_list_has_assign acc (IVar x) t2
-                    && is_skip_list f2
-                | _ -> false
-                end
-            | _ ->
-                begin match op_to_binop op with
-                | None -> false
-                | Some bop ->
-                    let e1 = IBin (bop, IVar acc, IVar x) in
-                    let e2 = IBin (bop, IVar x, IVar acc) in
-                    stmt_list_is_assign acc e1 fbr || stmt_list_is_assign acc e2 fbr
-                end
-          in
-          if has_init && has_step then Some init_done else find_scan_init_flag op x acc init_expr rest
-      | _ -> find_scan_init_flag op x acc init_expr rest
-      end
-  | _ :: rest -> find_scan_init_flag op x acc init_expr rest
-let rec collect_scan_expr (e:iexpr) acc =
-  let acc =
-    match e with
-    | IScan1 (op, inner) ->
-        let h = HScan1 (op, inner) in
-        if List.exists ((=) h) acc then acc else h :: acc
-    | IScan (op, init, inner) ->
-        let h = HScan (op, init, inner) in
-        if List.exists ((=) h) acc then acc else h :: acc
-    | _ -> acc
-  in
-  match e with
-  | ILitInt _ | ILitBool _ | IVar _ -> acc
-  | IScan1 (_op, inner) -> collect_scan_expr inner acc
-  | IScan (_op, init, inner) -> collect_scan_expr inner (collect_scan_expr init acc)
-  | IBin (_, a, b) -> collect_scan_expr b (collect_scan_expr a acc)
-  | IUn (_, a) -> collect_scan_expr a acc
-  | IPar a -> collect_scan_expr a acc
-
 let rec collect_hexpr (h:hexpr) acc =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with
-  | HNow e ->
-      begin match e with
-      | IScan1 _ | IScan _ -> acc
-      | _ -> collect_scan_expr e acc
-      end
+  | HNow _ -> acc
   | HPre (e,_) -> collect_hexpr (HNow e) acc
   | HPreK (e, init, _) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
-  | HScan1 (_,e) -> collect_hexpr (HNow e) acc
-  | HScan (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
   | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
-  | HWindow (_,_,e) -> collect_hexpr (HNow e) acc
-  | HLet (_,h1,h2) -> collect_hexpr h1 (collect_hexpr h2 acc)
 
 let rec collect_ltl (f:ltl) acc =
   match f with
@@ -121,27 +31,33 @@ let rec collect_ltl (f:ltl) acc =
   | LNot a -> collect_ltl a acc
   | LAnd (a,b) | LOr (a,b) | LImp (a,b) -> collect_ltl b (collect_ltl a acc)
   | LX a | LG a -> collect_ltl a acc
-  | LAtom (ARel (h1,_,h2)) -> collect_hexpr h2 (collect_hexpr h1 acc)
-  | LAtom (APred (_id,hs)) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
+  | LAtom f -> collect_fo f acc
+
+and collect_fo (f:fo) acc =
+  match f with
+  | FTrue | FFalse -> acc
+  | FRel (h1,_,h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
+  | FPred (_id,hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
+  | FNot a -> collect_fo a acc
+  | FAnd (a,b) | FOr (a,b) | FImp (a,b) -> collect_fo b (collect_fo a acc)
 
 let fold_name i = Printf.sprintf "__fold%d" i
 
 let classify_fold h =
   match h with
-  | HNow (IScan1 (op,e)) -> Some (`Scan1 (op,e))
-  | HNow (IScan (op,init,e)) -> Some (`Scan (op,init,e))
-  | HScan1 (op,e) -> Some (`Scan1 (op,e))
-  | HScan (op,init,e) -> Some (`Scan (op,init,e))
   | HFold (op,init,e) -> Some (`Scan (op,init,e))
   | _ -> None
 
 let collect_folds_from_contracts (cs:contract list) =
   let hexprs = List.fold_left (fun acc c ->
       match c with
-      | Requires f | Ensures f | Assume f | Guarantee f | Lemma f | InvariantFormula f ->
+      | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+          collect_fo f acc
+      | Assume f | Guarantee f ->
           collect_ltl f acc
       | Invariant (_id,h) -> collect_hexpr h acc
-      | InvariantState _ | InvariantStateRel _ -> acc
+      | InvariantState _ -> acc
+      | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc
     ) [] cs |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false) in
   let rec aux i acc = function
     | [] -> List.rev acc
@@ -150,31 +66,38 @@ let collect_folds_from_contracts (cs:contract list) =
   aux 1 [] hexprs
 
 let collect_pre_k_from_contracts (cs:contract list) =
-  let rec collect_pre_k_hexpr h acc =
+  let collect_pre_k_hexpr h acc =
     let acc =
       match h with
       | HPreK _ -> if List.exists ((=) h) acc then acc else h :: acc
       | _ -> acc
     in
     match h with
-    | HLet (_id, h1, h2) -> collect_pre_k_hexpr h1 (collect_pre_k_hexpr h2 acc)
-    | HScan1 _ | HScan _ | HFold _ | HWindow _ | HNow _ | HPre _ | HPreK _ -> acc
+    | HFold _ | HNow _ | HPre _ | HPreK _ -> acc
   in
   let rec collect_pre_k_ltl f acc =
     match f with
     | LTrue | LFalse -> acc
     | LNot a | LX a | LG a -> collect_pre_k_ltl a acc
     | LAnd (a,b) | LOr (a,b) | LImp (a,b) -> collect_pre_k_ltl b (collect_pre_k_ltl a acc)
-    | LAtom (ARel (h1,_,h2)) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
-    | LAtom (APred (_id,hs)) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
+    | LAtom f -> collect_pre_k_fo f acc
+  and collect_pre_k_fo f acc =
+    match f with
+    | FTrue | FFalse -> acc
+    | FRel (h1,_,h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
+    | FPred (_id,hs) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
+    | FNot a -> collect_pre_k_fo a acc
+    | FAnd (a,b) | FOr (a,b) | FImp (a,b) -> collect_pre_k_fo b (collect_pre_k_fo a acc)
   in
   List.fold_left
     (fun acc c ->
        match c with
-       | Requires f | Ensures f | Assume f | Guarantee f | Lemma f | InvariantFormula f ->
+       | Requires f | Ensures f | Lemma f | InvariantFormula f ->
+           collect_pre_k_fo f acc
+       | Assume f | Guarantee f ->
            collect_pre_k_ltl f acc
        | Invariant (_id,h) -> collect_pre_k_hexpr h acc
-       | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_ltl f acc
+       | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_fo f acc
        | InvariantState _ -> acc)
     [] cs
 
@@ -193,17 +116,21 @@ let build_pre_k_infos (n:node) =
       | Some TReal -> ILitInt 0
       | Some (TCustom _) | None -> ILitInt 0
   in
+  let normalize_fo f =
+    let normalized = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
+    fo_of_ltl normalized.ltl
+  in
   let normalize_contract = function
-    | Requires f -> Requires (normalize_ltl_for_k ~init_for_var f).ltl
-    | Ensures f -> Ensures (normalize_ltl_for_k ~init_for_var f).ltl
+    | Requires f -> Requires (normalize_fo f)
+    | Ensures f -> Ensures (normalize_fo f)
     | Assume f -> Assume (normalize_ltl_for_k ~init_for_var f).ltl
     | Guarantee f -> Guarantee (normalize_ltl_for_k ~init_for_var f).ltl
-    | Lemma f -> Lemma (normalize_ltl_for_k ~init_for_var f).ltl
-    | InvariantFormula f -> InvariantFormula (normalize_ltl_for_k ~init_for_var f).ltl
+    | Lemma f -> Lemma (normalize_fo f)
+    | InvariantFormula f -> InvariantFormula (normalize_fo f)
     | Invariant _ as c -> c
     | InvariantState _ as c -> c
     | InvariantStateRel (is_eq, st, f) ->
-        InvariantStateRel (is_eq, st, (normalize_ltl_for_k ~init_for_var f).ltl)
+        InvariantStateRel (is_eq, st, normalize_fo f)
   in
   let normalized =
     List.map normalize_contract (n.contracts @ transition_contracts)
@@ -282,13 +209,14 @@ let collect_calls_trans_full (ts:transition list) =
 let extract_delay_spec (cs:contract list) =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
-    | LAtom (ARel (HNow (IVar out), REq, HPre (IVar inp, _)))
-    | LAtom (ARel (HPre (IVar inp, _), REq, HNow (IVar out))) ->
+    | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp, _)))
+    | LAtom (FRel (HPre (IVar inp, _), REq, HNow (IVar out))) ->
         Some (out, inp)
     | _ -> None
   in
   List.find_map
     (function
-      | Guarantee f | Ensures f -> find_in_ltl f
+      | Guarantee f -> find_in_ltl f
+      | Ensures f -> find_in_ltl (ltl_of_fo f)
       | _ -> None)
     cs

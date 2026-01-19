@@ -310,7 +310,7 @@ let rec simplify_ltl f =
   | _ -> f
 
 let eval_atom _atom_map vals = function
-  | ARel (HNow (IVar name), REq, HNow (ILitBool true)) ->
+  | FRel (HNow (IVar name), REq, HNow (ILitBool true)) ->
       lookup_val vals name
   | _ -> false
 

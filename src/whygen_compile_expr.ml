@@ -26,10 +26,6 @@ let rec compile_iexpr env (e:iexpr) : Ptree.expr =
       if is_rec_var env x then field env x
       else if is_mon_state_ctor x then mk_expr (Eidapp (qid1 x, []))
       else mk_expr (Eident (qid1 x))
-  | IScan1 (_,e) -> compile_iexpr env e
-  | IScan (_,init,e) ->
-      (* conservative: compile current value *)
-      compile_iexpr env e
   | IPar e -> compile_iexpr env e
   | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [compile_iexpr env a]))
   | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
@@ -50,8 +46,6 @@ let rec compile_term env (e:iexpr) : Ptree.term =
   | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
   | IVar x -> mk_term (term_var env x)
-  | IScan1 (_,e) -> compile_term env e
-  | IScan (_,_,e) -> compile_term env e
   | IPar e -> compile_term env e
   | IUn (Neg,a) -> mk_term (Tidapp (qid1 "(-)", [compile_term env a]))
   | IUn (Not,a) -> mk_term (Tnot (compile_term env a))
@@ -76,8 +70,6 @@ let rec compile_term_instance env inst_name node_name inputs (e:iexpr) : Ptree.t
       if List.mem x inputs
       then term_of_instance_var env inst_name node_name (pre_input_name x)
       else term_of_instance_var env inst_name node_name x
-  | IScan1 (_,e) -> compile_term_instance env inst_name node_name inputs e
-  | IScan (_,_,e) -> compile_term_instance env inst_name node_name inputs e
   | IPar e -> compile_term_instance env inst_name node_name inputs e
   | IUn (Neg,a) ->
       mk_term (Tidapp (qid1 "(-)", [compile_term_instance env inst_name node_name inputs a]))
@@ -88,7 +80,7 @@ let rec compile_term_instance env inst_name node_name inputs (e:iexpr) : Ptree.t
                         infix_ident (binop_id op),
                         compile_term_instance env inst_name node_name inputs b))
 
-let rec compile_hexpr_instance ?(in_post=false) env inst_name node_name inputs pre_k_map (h:hexpr) : Ptree.term =
+let compile_hexpr_instance ?(in_post=false) env inst_name node_name inputs pre_k_map (h:hexpr) : Ptree.term =
   match h with
   | HNow e -> compile_term_instance env inst_name node_name inputs e
   | HPre (IVar x,_) when List.mem x inputs ->
@@ -104,11 +96,7 @@ let rec compile_hexpr_instance ?(in_post=false) env inst_name node_name inputs p
           let name = List.nth info.names (List.length info.names - 1) in
           term_of_instance_var env inst_name node_name name
       end
-  | HScan1 (_,e) -> compile_term_instance env inst_name node_name inputs e
-  | HScan (_,_,e) -> compile_term_instance env inst_name node_name inputs e
   | HFold (_,_,e) -> compile_term_instance env inst_name node_name inputs e
-  | HWindow (_,_,e) -> compile_term_instance env inst_name node_name inputs e
-  | HLet (_id,_h1,h2) -> compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map h2
 
 let rec compile_ltl_term_instance ?(in_post=false) env inst_name node_name inputs pre_k_map (f:ltl) : Ptree.term =
   match f with
@@ -130,18 +118,38 @@ let rec compile_ltl_term_instance ?(in_post=false) env inst_name node_name input
                        compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
   | LX a -> compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a
   | LG a -> compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a
-  | LAtom (ARel (h1,r,h2)) ->
+  | LAtom f ->
+      compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map f
+
+and compile_fo_term_instance ?(in_post=false) env inst_name node_name inputs pre_k_map (f:fo) : Ptree.term =
+  match f with
+  | FTrue -> mk_term Ttrue
+  | FFalse -> mk_term Tfalse
+  | FRel (h1, r, h2) ->
       mk_term (Tinnfix (compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map h1,
                         infix_ident (relop_id r),
                         compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map h2))
-  | LAtom (APred (id,hs)) ->
+  | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map) hs))
+  | FNot a -> mk_term (Tnot (compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a))
+  | FAnd (a,b) ->
+      mk_term (Tbinop (compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+                       Dterm.DTand,
+                       compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
+  | FOr (a,b) ->
+      mk_term (Tbinop (compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+                       Dterm.DTor,
+                       compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
+  | FImp (a,b) ->
+      mk_term (Tbinop (compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+                       Dterm.DTimplies,
+                       compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
 let term_of_outputs env outputs =
   match outputs with
   | [] -> None
   | [v] -> Some (term_of_var env v.vname)
   | vs -> Some (mk_term (Ttuple (List.map (fun v -> term_of_var env v.vname) vs)))
-let rec compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) env (h:hexpr) : Ptree.term =
+let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) env (h:hexpr) : Ptree.term =
   let is_const_iexpr = function
     | ILitInt _ | ILitBool _ -> true
     | IVar name ->
@@ -182,11 +190,7 @@ let rec compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) env (h:
                   let name = List.nth info.names (List.length info.names - 1) in
                   term_of_var env name
               end
-          | HScan1 (_,e) -> compile_term env e
-          | HScan (_,_,e) -> compile_term env e
           | HFold (_,_,e) -> compile_term env e
-          | HWindow (_,_,e) -> compile_term env e
-          | HLet (_id,_h1,h2) -> compile_hexpr env h2
 
 let rec compile_ltl_term ?(prefer_link=false) env (f:ltl) : Ptree.term =
   match f with
@@ -198,10 +202,24 @@ let rec compile_ltl_term ?(prefer_link=false) env (f:ltl) : Ptree.term =
   | LImp (a,b) -> mk_term (Tbinop (compile_ltl_term ~prefer_link env a, Dterm.DTimplies, compile_ltl_term ~prefer_link env b))
   | LX a -> compile_ltl_term ~prefer_link env a
   | LG a -> compile_ltl_term ~prefer_link env a
-  | LAtom (ARel (h1,r,h2)) ->
+  | LAtom f ->
+      compile_fo_term ~prefer_link env f
+
+and compile_fo_term ?(prefer_link=false) env (f:fo) : Ptree.term =
+  match f with
+  | FTrue -> mk_term Ttrue
+  | FFalse -> mk_term Tfalse
+  | FRel (h1, r, h2) ->
       mk_term (Tinnfix (compile_hexpr ~prefer_link env h1, infix_ident (relop_id r), compile_hexpr ~prefer_link env h2))
-  | LAtom (APred (id,hs)) ->
+  | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~prefer_link env) hs))
+  | FNot a -> mk_term (Tnot (compile_fo_term ~prefer_link env a))
+  | FAnd (a,b) ->
+      mk_term (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTand, compile_fo_term ~prefer_link env b))
+  | FOr (a,b) ->
+      mk_term (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTor, compile_fo_term ~prefer_link env b))
+  | FImp (a,b) ->
+      mk_term (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTimplies, compile_fo_term ~prefer_link env b))
 
 let rec compile_ltl_term_shift ?(prefer_link=false) ?(in_post=false) env shift (f:ltl) : Ptree.term =
   let shift = if shift <= 0 then 0 else 1 in
@@ -220,15 +238,32 @@ let rec compile_ltl_term_shift ?(prefer_link=false) ?(in_post=false) env shift (
                        compile_ltl_term_shift ~prefer_link ~in_post env shift b))
   | LX a -> compile_ltl_term_shift ~prefer_link ~in_post env 1 a
   | LG a -> compile_ltl_term_shift ~prefer_link ~in_post env shift a
-  | LAtom (ARel (h1,r,h2)) ->
+  | LAtom f ->
       let old = shift = 0 in
-      mk_term (Tinnfix (compile_hexpr ~old ~prefer_link ~in_post env h1, infix_ident (relop_id r),
-                        compile_hexpr ~old ~prefer_link ~in_post env h2))
-  | LAtom (APred (id,hs)) ->
-      let old = shift = 0 in
-      mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
+      compile_fo_term_shift ~prefer_link ~in_post env old f
 
-let rec rel_hexpr env (h:hexpr) : hexpr =
+and compile_fo_term_shift ?(prefer_link=false) ?(in_post=false) env old (f:fo) : Ptree.term =
+  match f with
+  | FTrue -> mk_term Ttrue
+  | FFalse -> mk_term Tfalse
+  | FRel (h1, r, h2) ->
+      mk_term (Tinnfix (compile_hexpr ~old ~prefer_link ~in_post env h1,
+                        infix_ident (relop_id r),
+                        compile_hexpr ~old ~prefer_link ~in_post env h2))
+  | FPred (id, hs) ->
+      mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
+  | FNot a -> mk_term (Tnot (compile_fo_term_shift ~prefer_link ~in_post env old a))
+  | FAnd (a,b) ->
+      mk_term (Tbinop (compile_fo_term_shift ~prefer_link ~in_post env old a, Dterm.DTand,
+                       compile_fo_term_shift ~prefer_link ~in_post env old b))
+  | FOr (a,b) ->
+      mk_term (Tbinop (compile_fo_term_shift ~prefer_link ~in_post env old a, Dterm.DTor,
+                       compile_fo_term_shift ~prefer_link ~in_post env old b))
+  | FImp (a,b) ->
+      mk_term (Tbinop (compile_fo_term_shift ~prefer_link ~in_post env old a, Dterm.DTimplies,
+                       compile_fo_term_shift ~prefer_link ~in_post env old b))
+
+let rel_hexpr env (h:hexpr) : hexpr =
   match find_fold env h with
   | Some name -> HNow (IVar name)
   | None ->
@@ -236,8 +271,7 @@ let rec rel_hexpr env (h:hexpr) : hexpr =
       | HNow e -> HNow e
       | HPre (e,init) -> HPre (e, init)
       | HPreK (e,init,k) -> HPreK (e, init, k)
-      | HScan1 _ | HScan _ | HFold _ | HWindow _ -> h
-      | HLet (id, h1, h2) -> HLet (id, rel_hexpr env h1, rel_hexpr env h2)
+      | HFold _ -> h
 
 let rec ltl_relational env (f:ltl) : ltl =
   match f with
@@ -248,10 +282,18 @@ let rec ltl_relational env (f:ltl) : ltl =
   | LImp (a,b) -> LImp (ltl_relational env a, ltl_relational env b)
   | LX a -> LX (ltl_relational env a)
   | LG a -> LG (ltl_relational env a)
-  | LAtom (ARel (h1,r,h2)) ->
-      LAtom (ARel (rel_hexpr env h1, r, rel_hexpr env h2))
-  | LAtom (APred (id,hs)) ->
-      LAtom (APred (id, List.map (rel_hexpr env) hs))
+  | LAtom f ->
+      LAtom (rel_fo env f)
+
+and rel_fo env (f:fo) : fo =
+  match f with
+  | FTrue | FFalse -> f
+  | FRel (h1, r, h2) -> FRel (rel_hexpr env h1, r, rel_hexpr env h2)
+  | FPred (id, hs) -> FPred (id, List.map (rel_hexpr env) hs)
+  | FNot a -> FNot (rel_fo env a)
+  | FAnd (a,b) -> FAnd (rel_fo env a, rel_fo env b)
+  | FOr (a,b) -> FOr (rel_fo env a, rel_fo env b)
+  | FImp (a,b) -> FImp (rel_fo env a, rel_fo env b)
 
 type spec_frag = { pre: Ptree.term list; post: Ptree.term list }
 

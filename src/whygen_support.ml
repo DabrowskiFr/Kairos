@@ -79,12 +79,6 @@ let string_of_op = function
   | OOr -> "or"
   | OFirst -> "first"
 
-let string_of_wop = function
-  | WMin -> "min"
-  | WMax -> "max"
-  | WSum -> "add"
-  | WCount -> "mul"
-
 let string_of_relop = function
   | REq -> "="
   | RNeq -> "<>"
@@ -102,6 +96,27 @@ let rec max_x_depth = function
   | LAnd (a,b) | LOr (a,b) | LImp (a,b) ->
       max (max_x_depth a) (max_x_depth b)
 
+let rec ltl_of_fo (f:fo) : ltl =
+  match f with
+  | FTrue -> LTrue
+  | FFalse -> LFalse
+  | FRel _ | FPred _ -> LAtom f
+  | FNot a -> LNot (ltl_of_fo a)
+  | FAnd (a,b) -> LAnd (ltl_of_fo a, ltl_of_fo b)
+  | FOr (a,b) -> LOr (ltl_of_fo a, ltl_of_fo b)
+  | FImp (a,b) -> LImp (ltl_of_fo a, ltl_of_fo b)
+
+let rec fo_of_ltl (f:ltl) : fo =
+  match f with
+  | LTrue -> FTrue
+  | LFalse -> FFalse
+  | LAtom a -> a
+  | LNot a -> FNot (fo_of_ltl a)
+  | LAnd (a,b) -> FAnd (fo_of_ltl a, fo_of_ltl b)
+  | LOr (a,b) -> FOr (fo_of_ltl a, fo_of_ltl b)
+  | LImp (a,b) -> FImp (fo_of_ltl a, fo_of_ltl b)
+  | LX _ | LG _ -> failwith "fo_of_ltl: LTL operator in FO formula"
+
 let is_const_iexpr = function
   | ILitInt _ | ILitBool _ -> true
   | IVar name ->
@@ -111,7 +126,7 @@ let is_const_iexpr = function
       && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
   | _ -> false
 
-let rec shift_hexpr_by ~init_for_var shift h =
+let shift_hexpr_by ~init_for_var shift h =
   if shift <= 0 then Some h
   else
     match h with
@@ -126,12 +141,6 @@ let rec shift_hexpr_by ~init_for_var shift h =
         Some (HPreK (IVar v, init, shift + 1))
     | HPreK (IVar v, init, k) ->
         Some (HPreK (IVar v, init, k + shift))
-    | HLet (id, h1, h2) ->
-        begin match shift_hexpr_by ~init_for_var shift h1,
-                    shift_hexpr_by ~init_for_var shift h2 with
-        | Some h1', Some h2' -> Some (HLet (id, h1', h2'))
-        | _ -> None
-        end
     | _ -> None
 
 let normalize_ltl_for_k ~init_for_var (f:ltl) : ltl_norm =
@@ -167,14 +176,14 @@ let normalize_ltl_for_k ~init_for_var (f:ltl) : ltl_norm =
         | Some a' -> Some (LG a')
         | None -> None
         end
-    | LAtom (ARel (h1,r,h2)) ->
+    | LAtom (FRel (h1,r,h2)) ->
         let shift = k - depth in
         begin match shift_hexpr_by ~init_for_var shift h1,
                     shift_hexpr_by ~init_for_var shift h2 with
-        | Some h1', Some h2' -> Some (LAtom (ARel (h1', r, h2')))
+        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
         | _ -> None
         end
-    | LAtom (APred (id,hs)) ->
+    | LAtom (FPred (id,hs)) ->
         let shift = k - depth in
         let rec map acc = function
           | [] -> Some (List.rev acc)
@@ -184,7 +193,7 @@ let normalize_ltl_for_k ~init_for_var (f:ltl) : ltl_norm =
               | None -> None
         in
         begin match map [] hs with
-        | Some hs' -> Some (LAtom (APred (id, hs')))
+        | Some hs' -> Some (LAtom (FPred (id, hs')))
         | None -> None
         end
   in
@@ -227,13 +236,13 @@ let rec shift_ltl_by ~init_for_var shift (f:ltl) : ltl option =
         | Some a' -> Some (LG a')
         | None -> None
         end
-    | LAtom (ARel (h1,r,h2)) ->
+    | LAtom (FRel (h1,r,h2)) ->
         begin match shift_hexpr_by ~init_for_var shift h1,
                     shift_hexpr_by ~init_for_var shift h2 with
-        | Some h1', Some h2' -> Some (LAtom (ARel (h1', r, h2')))
+        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
         | _ -> None
         end
-    | LAtom (APred (id,hs)) ->
+    | LAtom (FPred (id,hs)) ->
         let rec map acc = function
           | [] -> Some (List.rev acc)
           | h :: rest ->
@@ -242,7 +251,7 @@ let rec shift_ltl_by ~init_for_var shift (f:ltl) : ltl option =
               | None -> None
         in
         begin match map [] hs with
-        | Some hs' -> Some (LAtom (APred (id, hs')))
+        | Some hs' -> Some (LAtom (FPred (id, hs')))
         | None -> None
         end
 
@@ -259,10 +268,6 @@ let rec string_of_iexpr ?(ctx=0) (e:iexpr) =
   | ILitInt n -> string_of_int n
   | ILitBool b -> if b then "true" else "false"
   | IVar x -> x
-  | IScan1 (op, inner) ->
-      "scan1(" ^ string_of_op op ^ ", " ^ string_of_iexpr inner ^ ")"
-  | IScan (op, init, inner) ->
-      "scan(" ^ string_of_op op ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_iexpr inner ^ ")"
   | IPar inner -> "(" ^ string_of_iexpr inner ^ ")"
   | IUn (Neg, a) ->
       wrap 6 ("-" ^ string_of_iexpr ~ctx:6 a)
@@ -273,35 +278,36 @@ let rec string_of_iexpr ?(ctx=0) (e:iexpr) =
       let op_str = binop_id op in
       wrap prec (string_of_iexpr ~ctx:prec a ^ " " ^ op_str ^ " " ^ string_of_iexpr ~ctx:prec b)
 
-let rec string_of_hexpr (h:hexpr) =
+let string_of_hexpr (h:hexpr) =
   match h with
   | HNow e -> "{" ^ string_of_iexpr e ^ "}"
   | HPre (e, None) -> "pre(" ^ string_of_iexpr e ^ ")"
   | HPre (e, Some init) -> "pre(" ^ string_of_iexpr e ^ ", " ^ string_of_iexpr init ^ ")"
   | HPreK (e, init, k) ->
       "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_int k ^ ")"
-  | HScan1 (op, e) -> "scan1(" ^ string_of_op op ^ ", " ^ string_of_iexpr e ^ ")"
-  | HScan (op, init, e) ->
-      "scan(" ^ string_of_op op ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_iexpr e ^ ")"
   | HFold (op, init, e) ->
       "fold(" ^ string_of_op op ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_iexpr e ^ ")"
-  | HWindow (k, wop, e) ->
-      "window(" ^ string_of_int k ^ ", " ^ string_of_wop wop ^ ", " ^ string_of_iexpr e ^ ")"
-  | HLet (id, h1, h2) ->
-      "let " ^ id ^ " = " ^ string_of_hexpr h1 ^ " in " ^ string_of_hexpr h2
 
-let string_of_atom = function
-  | ARel (h1, r, h2) ->
+let rec string_of_fo ?(ctx=0) (f:fo) =
+  let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
+  match f with
+  | FTrue -> "true"
+  | FFalse -> "false"
+  | FRel (h1, r, h2) ->
       string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
-  | APred (id, hs) ->
+  | FPred (id, hs) ->
       id ^ "(" ^ String.concat ", " (List.map string_of_hexpr hs) ^ ")"
+  | FNot a -> wrap 5 ("not " ^ string_of_fo ~ctx:5 a)
+  | FAnd (a,b) -> wrap 3 (string_of_fo ~ctx:3 a ^ " and " ^ string_of_fo ~ctx:3 b)
+  | FOr (a,b) -> wrap 2 (string_of_fo ~ctx:2 a ^ " or " ^ string_of_fo ~ctx:2 b)
+  | FImp (a,b) -> wrap 1 (string_of_fo ~ctx:1 a ^ " -> " ^ string_of_fo ~ctx:1 b)
 
 let rec string_of_ltl ?(ctx=0) (f:ltl) =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
   match f with
   | LTrue -> "true"
   | LFalse -> "false"
-  | LAtom a -> string_of_atom a
+  | LAtom a -> string_of_fo a
   | LNot a -> wrap 5 ("not " ^ string_of_ltl ~ctx:5 a)
   | LX a -> "X(" ^ string_of_ltl a ^ ")"
   | LG a -> "G(" ^ string_of_ltl a ^ ")"

@@ -17,7 +17,6 @@ let expect_now h =
 %token PRE
 %token MIN MAX ADD MUL AND OR NOT FIRST
 %token G X
-%token LET IN
 %token STATE
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
 %token ASSIGN ARROW IMPL
@@ -110,18 +109,18 @@ invariant_list:
 invariant_decl:
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
   | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
-  | INVARIANT STATE state_relop IDENT ARROW ltl_atom SEMI { InvariantStateRel ($3, $4, $6) }
+  | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
   | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 contract:
-  | REQUIRES ltl SEMI { Requires $2 }
-  | ENSURES ltl SEMI { Ensures $2 }
+  | REQUIRES fo_formula SEMI { Requires $2 }
+  | ENSURES fo_formula SEMI { Ensures $2 }
   | ASSUME ltl SEMI { Assume $2 }
   | GUARANTEE ltl SEMI { Guarantee $2 }
-  | LEMMA ltl SEMI { Lemma $2 }
+  | LEMMA fo_formula SEMI { Lemma $2 }
   | INVARIANT IDENT EQ hexpr SEMI { Invariant ($2, $4) }
   | INVARIANT STATE state_relop IDENT SEMI { InvariantState ($3, $4) }
-  | INVARIANT STATE state_relop IDENT ARROW ltl_atom SEMI { InvariantStateRel ($3, $4, $6) }
+  | INVARIANT STATE state_relop IDENT ARROW fo_formula SEMI { InvariantStateRel ($3, $4, $6) }
   | INVARIANT fo_formula SEMI { InvariantFormula $2 }
 
 vdecls_opt:
@@ -165,7 +164,7 @@ stmt:
   | IDENT ASSIGN iexpr { SAssign($1,$3) }
   | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { SIf($2,$4,$6) }
   | SKIP { SSkip }
-  | ASSERT ltl { SAssert $2 }
+  | ASSERT fo_formula { SAssert $2 }
   | CALL IDENT LPAREN iexpr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { SCall($2, $4, $8) }
 
@@ -180,7 +179,6 @@ trans_contracts:
 trans_contract:
   | REQUIRES fo_formula SEMI { Requires $2 }
   | ENSURES fo_formula SEMI { Ensures $2 }
-  | GUARANTEE fo_formula SEMI { Guarantee $2 }
   | LEMMA fo_formula SEMI { Lemma $2 }
 
 (* arithmetic expressions without booleans *)
@@ -205,33 +203,6 @@ arith:
   | arith MINUS arith_mul { IBin(Sub,$1,$3) }
   | arith_mul { $1 }
 
-(* arithmetic/boolean expressions for history contexts; include scan/scan1 *)
-harith_atom:
-  | INT { ILitInt $1 }
-  | TRUE { ILitBool true }
-  | FALSE { ILitBool false }
-  | IDENT { IVar $1 }
-  | IDENT LPAREN op COMMA harith RPAREN
-      { if $1 = "scan1" then IScan1($3,$5) else failwith "unknown scan1" }
-  | IDENT LPAREN op COMMA harith COMMA harith RPAREN
-      { if $1 = "scan" then IScan($3,$5,$7) else if $1 = "fold" then IScan($3,$5,$7) else failwith "unknown scan" }
-  | IDENT LPAREN INT COMMA wop COMMA harith RPAREN
-      { if $1 = "window" then IScan(OMin, ILitInt $3, $7) else failwith "unknown window" }
-  | LPAREN hiexpr RPAREN { IPar $2 }
-
-harith_unary:
-  | MINUS harith_unary { IUn(Neg,$2) }
-  | harith_atom { $1 }
-
-harith_mul:
-  | harith_mul STAR harith_unary { IBin(Mul,$1,$3) }
-  | harith_mul SLASH harith_unary { IBin(Div,$1,$3) }
-  | harith_unary { $1 }
-
-harith:
-  | harith PLUS harith_mul { IBin(Add,$1,$3) }
-  | harith MINUS harith_mul { IBin(Sub,$1,$3) }
-  | harith_mul { $1 }
 
 (* boolean/relational expressions over arith, layered to avoid precedence conflicts *)
 iexpr_tail_opt:
@@ -265,37 +236,6 @@ iexpr_or:
 iexpr:
   | iexpr_or { $1 }
 
-(* boolean/relational expressions for history contexts *)
-hiexpr_tail_opt:
-  | relop harith {
-      fun lhs ->
-        match $1 with
-        | REq -> IBin(Eq, lhs, $2)
-        | RNeq -> IBin(Neq, lhs, $2)
-        | RLt -> IBin(Lt, lhs, $2)
-        | RLe -> IBin(Le, lhs, $2)
-        | RGt -> IBin(Gt, lhs, $2)
-        | RGe -> IBin(Ge, lhs, $2)
-    }
-  | /* empty */ { fun lhs -> lhs }
-
-hiexpr_atom:
-  | harith hiexpr_tail_opt { $2 $1 }
-
-hiexpr_not:
-  | NOT hiexpr_not { IUn(Not,$2) }
-  | hiexpr_atom { $1 }
-
-hiexpr_and:
-  | hiexpr_and AND hiexpr_not { IBin(And,$1,$3) }
-  | hiexpr_not { $1 }
-
-hiexpr_or:
-  | hiexpr_or OR hiexpr_and { IBin(Or,$1,$3) }
-  | hiexpr_and { $1 }
-
-hiexpr:
-  | hiexpr_or { $1 }
 
 iexpr_list_opt:
   | /* empty */ { [] }
@@ -314,18 +254,13 @@ id_list:
   | IDENT { [$1] }
 
 hexpr:
-  | LBRACE hiexpr RBRACE { HNow $2 }
-  | PRE LPAREN arith RPAREN { HPre($3,None) }
-  | PRE LPAREN arith COMMA arith RPAREN { HPre($3,Some $5) }
-  | IDENT LPAREN arith COMMA arith COMMA INT RPAREN
+  | LBRACE iexpr RBRACE { HNow $2 }
+  | PRE LPAREN iexpr RPAREN { HPre($3,None) }
+  | PRE LPAREN iexpr COMMA iexpr RPAREN { HPre($3,Some $5) }
+  | IDENT LPAREN iexpr COMMA iexpr COMMA INT RPAREN
       { if $1 = "pre_k" then HPreK($3,$5,$7) else failwith "unknown history op" }
-  | IDENT LPAREN op COMMA hexpr RPAREN
-      { if $1 = "scan1" then HScan1($3, expect_now $5) else failwith "unknown history op" }
   | IDENT LPAREN op COMMA hexpr COMMA hexpr RPAREN
-      { if $1 = "scan" then HScan($3, expect_now $5, expect_now $7) else if $1 = "fold" then HFold($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
-  | IDENT LPAREN INT COMMA wop COMMA hexpr RPAREN
-      { if $1 = "window" then HWindow($3,$5, expect_now $7) else failwith "unknown window op" }
-  | LET IDENT EQ hexpr IN hexpr { HLet($2,$4,$6) }
+      { if $1 = "fold" then HFold($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
 
 op:
   | MIN { OMin }
@@ -336,43 +271,37 @@ op:
   | OR  { OOr }
   | FIRST { OFirst }
 
-wop:
-  | MIN { WMin }
-  | MAX { WMax }
-  | ADD { WSum }
-  | MUL { WCount }
-
 ltl_atom:
-  | TRUE { LTrue }
-  | FALSE { LFalse }
-  | hexpr relop hexpr { LAtom (ARel($1,$2,$3)) }
-  | IDENT LPAREN hexpr_list_opt RPAREN { LAtom (APred($1,$3)) }
+  | fo_atom_noparen { LAtom $1 }
   | LPAREN ltl RPAREN { $2 }
 
+fo_atom_noparen:
+  | TRUE { FTrue }
+  | FALSE { FFalse }
+  | hexpr relop hexpr { FRel($1,$2,$3) }
+  | IDENT LPAREN hexpr_list_opt RPAREN { FPred($1,$3) }
+
 fo_atom:
-  | TRUE { LTrue }
-  | FALSE { LFalse }
-  | hexpr relop hexpr { LAtom (ARel($1,$2,$3)) }
-  | IDENT LPAREN hexpr_list_opt RPAREN { LAtom (APred($1,$3)) }
+  | fo_atom_noparen { $1 }
   | LPAREN fo_formula RPAREN { $2 }
 
 fo_un:
-  | NOT fo_un { LNot $2 }
+  | NOT fo_un { FNot $2 }
   | fo_atom { $1 }
 
 fo_and:
-  | fo_and AND fo_un { LAnd($1,$3) }
+  | fo_and AND fo_un { FAnd($1,$3) }
   | fo_un { $1 }
 
 fo_or:
-  | fo_or OR fo_and { LOr($1,$3) }
+  | fo_or OR fo_and { FOr($1,$3) }
   | fo_and { $1 }
 
 fo_formula:
   | fo_imp { $1 }
 
 fo_imp:
-  | fo_or IMPL fo_imp { LImp($1,$3) }
+  | fo_or IMPL fo_imp { FImp($1,$3) }
   | fo_or { $1 }
 
 ltl_un:

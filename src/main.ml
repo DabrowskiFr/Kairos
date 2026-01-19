@@ -1,7 +1,7 @@
 
 open Ast
 
-let rec shift_hexpr_forward ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool) (h:hexpr) : hexpr =
+let shift_hexpr_forward ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool) (h:hexpr) : hexpr =
   match h with
   | HNow (IVar v) when is_input v ->
       HPreK (IVar v, init_for_var v, 1)
@@ -15,12 +15,28 @@ let rec shift_hexpr_forward ~(init_for_var:ident -> iexpr) ~(is_input:ident -> b
       HPre (e, None)
   | HPreK (e, init, k) ->
       HPreK (e, init, k + 1)
-  | HLet (id, h1, h2) ->
-      HLet (id, shift_hexpr_forward ~init_for_var ~is_input h1,
-            shift_hexpr_forward ~init_for_var ~is_input h2)
-  | HScan1 _ | HScan _ | HFold _ | HWindow _ -> h
+  | HFold _ -> h
 
-let rec shift_ltl_forward_inputs ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool) (f:ltl) : ltl =
+let rec shift_fo_forward_inputs ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool) (f:fo) : fo =
+  match f with
+  | FTrue | FFalse -> f
+  | FNot a -> FNot (shift_fo_forward_inputs ~init_for_var ~is_input a)
+  | FAnd (a, b) ->
+      FAnd (shift_fo_forward_inputs ~init_for_var ~is_input a,
+            shift_fo_forward_inputs ~init_for_var ~is_input b)
+  | FOr (a, b) ->
+      FOr (shift_fo_forward_inputs ~init_for_var ~is_input a,
+           shift_fo_forward_inputs ~init_for_var ~is_input b)
+  | FImp (a, b) ->
+      FImp (shift_fo_forward_inputs ~init_for_var ~is_input a,
+            shift_fo_forward_inputs ~init_for_var ~is_input b)
+  | FRel (h1, r, h2) ->
+      FRel (shift_hexpr_forward ~init_for_var ~is_input h1, r,
+            shift_hexpr_forward ~init_for_var ~is_input h2)
+  | FPred (id, hs) ->
+      FPred (id, List.map (shift_hexpr_forward ~init_for_var ~is_input) hs)
+
+let[@warning "-32"] rec shift_ltl_forward_inputs ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool) (f:ltl) : ltl =
   match f with
   | LTrue | LFalse -> f
   | LNot a -> LNot (shift_ltl_forward_inputs ~init_for_var ~is_input a)
@@ -35,16 +51,12 @@ let rec shift_ltl_forward_inputs ~(init_for_var:ident -> iexpr) ~(is_input:ident
             shift_ltl_forward_inputs ~init_for_var ~is_input b)
   | LX a -> LX (shift_ltl_forward_inputs ~init_for_var ~is_input a)
   | LG a -> LG (shift_ltl_forward_inputs ~init_for_var ~is_input a)
-  | LAtom (ARel (h1, r, h2)) ->
-      LAtom (ARel (shift_hexpr_forward ~init_for_var ~is_input h1, r,
-                   shift_hexpr_forward ~init_for_var ~is_input h2))
-  | LAtom (APred (id, hs)) ->
-      LAtom (APred (id, List.map (shift_hexpr_forward ~init_for_var ~is_input) hs))
+  | LAtom f -> LAtom (shift_fo_forward_inputs ~init_for_var ~is_input f)
 
-let conj_ltl (fs:ltl list) : ltl option =
+let conj_fo (fs:fo list) : fo option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> LAnd (acc, x)) f rest)
+  | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
 
 let add_post_for_next_pre (n:node) : node =
   let init_for_var =
@@ -61,11 +73,11 @@ let add_post_for_next_pre (n:node) : node =
   let node_ensures =
     List.filter_map
       (function
-        | Ensures f | Guarantee f -> Some f
+        | Ensures f -> Some f
         | _ -> None)
       n.contracts
   in
-  let succ_requires_by_state : (ident, ltl list) Hashtbl.t = Hashtbl.create 16 in
+  let succ_requires_by_state : (ident, fo list) Hashtbl.t = Hashtbl.create 16 in
   List.iter
     (fun (t:transition) ->
       List.iter
@@ -93,18 +105,18 @@ let add_post_for_next_pre (n:node) : node =
         let trans_ensures =
           List.filter_map
             (function
-              | Ensures f | Guarantee f -> Some f
+              | Ensures f -> Some f
               | _ -> None)
             t.contracts
         in
         let ensures_all = node_ensures @ trans_ensures in
         let new_lemmas =
-          match conj_ltl ensures_all with
+          match conj_fo ensures_all with
           | None -> []
           | Some ensures_conj ->
               let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
               let ensures_shifted =
-                shift_ltl_forward_inputs ~init_for_var ~is_input ensures_conj
+                shift_fo_forward_inputs ~init_for_var ~is_input ensures_conj
               in
               let has_lemma f =
                 List.exists
@@ -114,7 +126,7 @@ let add_post_for_next_pre (n:node) : node =
                   t.contracts
               in
               succ_reqs
-              |> List.map (fun req -> LImp (ensures_shifted, req))
+              |> List.map (fun req -> FImp (ensures_shifted, req))
               |> List.filter (fun f -> not (has_lemma f))
               |> List.map (fun f -> Lemma f)
         in
