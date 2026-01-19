@@ -369,11 +369,7 @@ let monitor_update_stmts atom_names states transitions =
   | _ -> [SMatch (IVar mon, branches, [])]
 
 let monitor_assert bad_idx =
-  if bad_idx < 0 then []
-  else
-    [SAssert (FRel (HNow (IVar monitor_state_name),
-                    RNeq,
-                    HNow (monitor_state_expr bad_idx)))]
+  if bad_idx < 0 then [] else []
 
 let transform_node_monitor (n:node) : node =
   let fold_map = fold_map_for_contracts n.contracts in

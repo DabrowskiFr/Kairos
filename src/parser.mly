@@ -11,7 +11,7 @@ let expect_now h =
 %token REQUIRES ENSURES ASSUME GUARANTEE LEMMA
 %token INVARIANT INVARIANTS
 %token INSTANCE INSTANCES CALL
-%token IF THEN ELSE SKIP ASSERT
+%token IF THEN ELSE SKIP
 %token TRUE FALSE
 %token TINT TBOOL TREAL
 %token PRE
@@ -164,7 +164,6 @@ stmt:
   | IDENT ASSIGN iexpr { SAssign($1,$3) }
   | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { SIf($2,$4,$6) }
   | SKIP { SSkip }
-  | ASSERT fo_formula { SAssert $2 }
   | CALL IDENT LPAREN iexpr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { SCall($2, $4, $8) }
 

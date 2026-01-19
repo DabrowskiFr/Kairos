@@ -36,8 +36,6 @@ let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
         else branches @ [({pat_desc=Pwild; pat_loc=loc}, compile_seq env call_asserts default)]
       in
       mk_expr (Ematch (scrut, branches, []))
-  | SAssert f ->
-      mk_expr (Eassert (Expr.Assert, compile_fo_term env f))
   | SCall (inst, args, outs) ->
       let node_name =
         match List.assoc_opt inst env.inst_map with
@@ -236,7 +234,6 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
             branches
         in
         List.fold_left collect_ctor_stmt acc def
-    | SAssert f -> collect_ctor_fo acc f
     | SCall (_, args, _) -> List.fold_left collect_ctor_iexpr acc args
     | SSkip -> acc
   in

@@ -10,7 +10,7 @@ let () =
     "init", INIT; "trans", TRANS; "end", END;
     "requires", REQUIRES; "ensures", ENSURES; "assume", ASSUME; "guarantee", GUARANTEE; "lemma", LEMMA; "invariant", INVARIANT; "invariants", INVARIANTS;
     "instance", INSTANCE; "instances", INSTANCES; "call", CALL;
-    "if", IF; "then", THEN; "else", ELSE; "skip", SKIP; "assert", ASSERT;
+    "if", IF; "then", THEN; "else", ELSE; "skip", SKIP;
     "true", TRUE; "false", FALSE;
     "int", TINT; "bool", TBOOL; "real", TREAL;
     "pre", PRE;

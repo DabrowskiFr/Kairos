@@ -178,7 +178,7 @@ let rec collect_calls_stmt acc s =
           branches
       in
       List.fold_left collect_calls_stmt acc def
-  | SAssign _ | SSkip | SAssert _ -> acc
+  | SAssign _ | SSkip -> acc
 
 let collect_calls_trans (ts:transition list) =
   List.fold_left
@@ -199,7 +199,7 @@ let rec collect_calls_stmt_full acc s =
           branches
       in
       List.fold_left collect_calls_stmt_full acc def
-  | SAssign _ | SSkip | SAssert _ -> acc
+  | SAssign _ | SSkip -> acc
 
 let collect_calls_trans_full (ts:transition list) =
   List.fold_left

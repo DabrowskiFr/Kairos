@@ -58,7 +58,6 @@ type stmt =
   | SIf of iexpr * stmt list * stmt list
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
-  | SAssert of fo
   | SCall of ident * iexpr list * ident list
 [@@deriving show]
 
