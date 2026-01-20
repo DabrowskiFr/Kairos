@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Whygen_passes
+open Passes
 
 let parse_file (fn:string) : program =
   let ic = open_in fn in
@@ -147,16 +147,16 @@ let () =
             output_string oc content;
             close_out oc
           in
-          write residual_file (Whygen_dot.dot_monitor_program p);
+          write residual_file (Dot.dot_monitor_program p);
           let out =
-            Whygen_monitor_emit.compile_program_monitor
+            Monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in
           output_and_maybe_prove out
       | None ->
           let out =
-            Whygen_monitor_emit.compile_program_monitor
+            Monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in

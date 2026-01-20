@@ -5,17 +5,20 @@
   ast
   lexer
   parser
-  whygen_support
-  whygen_collect
-  whygen_passes
-  whygen_compile_expr
-  whygen_emit
-  whygen_monitor_transform
-  whygen_dot
-  whygen_monitor_emit
+  support
+  collect
+  passes
+  compile_expr
+  emit_why_env
+  emit_why_contracts
+  emit_why_core
+  emit
+  monitor_transform
+  dot
+  monitor_emit
   whygen
-  whygen_specs
-  whygen_automaton_core
+  specs
+  automaton_core
   main)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))

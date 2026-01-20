@@ -21,7 +21,7 @@ open Why3
 open Ptree
 open Ast
 
-include Whygen_support
-include Whygen_collect
-include Whygen_compile_expr
-include Whygen_emit
+include Support
+include Collect
+include Compile_expr
+include Emit
