@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Tempo - synchronous runtime for OCaml
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Why3
 open Ptree
@@ -6,7 +24,9 @@ open Whygen_support
 open Whygen_collect
 open Whygen_compile_expr
 
-let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
+let rec compile_stmt (env:env)
+  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
+  (s:stmt) : Ptree.expr =
   match s with
   | SSkip -> mk_expr (Etuple [])
   | SAssign (x,e) ->
@@ -88,14 +108,16 @@ let rec compile_stmt env call_asserts (s:stmt) : Ptree.expr =
         mk_expr (Elet (id, false, Expr.RKnone, pre_expr, acc))
       in
       List.fold_right wrap_let let_bindings call_with_asserts
-and compile_seq env call_asserts (lst:stmt list) : Ptree.expr =
+and compile_seq (env:env)
+  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
+  (lst:stmt list) : Ptree.expr =
   match lst with
   | [] -> mk_expr (Etuple [])
   | [s] -> compile_stmt env call_asserts s
   | s::rest ->
       mk_expr (Esequence (compile_stmt env call_asserts s, compile_seq env call_asserts rest))
 
-let apply_op op e1 e2 =
+let apply_op (op:op) (e1:Ptree.expr) (e2:Ptree.expr) : Ptree.expr =
   match op with
   | OMin ->
       mk_expr (Eif (mk_expr (Einnfix (e1, infix_ident "<=", e2)), e1, e2))
@@ -106,7 +128,10 @@ let apply_op op e1 e2 =
   | OAnd -> mk_expr (Einnfix (e1, infix_ident "&&", e2))
   | OOr -> mk_expr (Einnfix (e1, infix_ident "||", e2))
   | OFirst -> e1
-let compile_state_branch env call_asserts st trs : Ptree.reg_branch =
+let compile_state_branch (env:env)
+  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
+  (st:ident)
+  (trs:transition list) : Ptree.reg_branch =
   let st_expr = field env "st" in
   let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
   let rec chain = function
@@ -120,7 +145,10 @@ let compile_state_branch env call_asserts st trs : Ptree.reg_branch =
   let body = chain trs in
   (pat, body)
 
-let compile_transitions env call_asserts (ts:transition list) : Ptree.expr =
+let compile_transitions (env:env)
+  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
+  (ts:transition list)
+  : Ptree.expr =
   let by_state =
     List.fold_left
       (fun m t ->
@@ -131,7 +159,7 @@ let compile_transitions env call_asserts (ts:transition list) : Ptree.expr =
   let branches = List.map (fun (st,trs) -> compile_state_branch env call_asserts st trs) by_state in
   mk_expr (Ematch (field env "st", branches @ [({pat_desc=Pwild; pat_loc=loc}, mk_expr (Etuple []))], []))
 
-let fold_post_terms env fi =
+let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
   let acc = term_of_var env fi.acc in
   let acc_old = term_old acc in
   let is_init_old =

@@ -7,11 +7,13 @@
   parser
   whygen_support
   whygen_collect
+  whygen_passes
   whygen_compile_expr
   whygen_emit
   whygen
+  whygen_specs
   whygen_automaton_core
-  whygen_automaton
+  whygen_emit_automaton
   main)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))

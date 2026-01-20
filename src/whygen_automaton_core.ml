@@ -1,6 +1,24 @@
+(*---------------------------------------------------------------------------
+ * Tempo - synchronous runtime for OCaml
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
 
-let escape_dot s =
+let escape_dot (s:string) : string =
   let b = Buffer.create (String.length s) in
   String.iter
     (function
@@ -11,7 +29,7 @@ let escape_dot s =
     s;
   Buffer.contents b
 
-let escape_dot_label s =
+let escape_dot_label (s:string) : string =
   let b = Buffer.create (String.length s) in
   String.iter
     (function
@@ -21,7 +39,7 @@ let escape_dot_label s =
     s;
   Buffer.contents b
 
-let all_valuations names =
+let all_valuations (names:string list) : (string * bool) list list =
   let rec aux acc = function
     | [] -> [List.rev acc]
     | n :: rest ->
@@ -31,22 +49,22 @@ let all_valuations names =
   in
   aux [] names
 
-let valuation_label vals =
+let valuation_label (vals:(string * bool) list) : string =
   vals
   |> List.map (fun (n,b) -> n ^ "=" ^ (if b then "1" else "0"))
   |> String.concat ","
 
 type term = (string * bool option) list
 
-let lookup_val vals name =
+let lookup_val (vals:(string * bool) list) (name:string) : bool =
   match List.assoc_opt name vals with
   | Some b -> b
   | None -> false
 
-let term_of_vals atom_names vals =
+let term_of_vals (atom_names:string list) (vals:(string * bool) list) : term =
   List.map (fun name -> (name, Some (lookup_val vals name))) atom_names
 
-let can_merge_terms t1 t2 =
+let can_merge_terms (t1:term) (t2:term) : bool =
   let diff = ref 0 in
   let rec loop = function
     | [], [] -> !diff = 1
@@ -63,7 +81,7 @@ let can_merge_terms t1 t2 =
   in
   loop (t1, t2)
 
-let merge_terms t1 t2 =
+let merge_terms (t1:term) (t2:term) : term =
   List.map2
     (fun (n1, v1) (_n2, v2) ->
        let v =
@@ -76,14 +94,14 @@ let merge_terms t1 t2 =
        (n1, v))
     t1 t2
 
-let uniq_terms terms =
+let uniq_terms (terms:term list) : term list =
   let rec loop acc = function
     | [] -> List.rev acc
     | t :: rest -> if List.exists ((=) t) acc then loop acc rest else loop (t :: acc) rest
   in
   loop [] terms
 
-let prime_implicants terms =
+let prime_implicants (terms:term list) : term list =
   let rec loop terms primes =
     let terms = uniq_terms terms in
     let n = List.length terms in
@@ -111,7 +129,7 @@ let prime_implicants terms =
   in
   loop terms []
 
-let term_covers term vals =
+let term_covers (term:term) (vals:(string * bool) list) : bool =
   List.for_all
     (fun (name, v) ->
        match v with
@@ -119,7 +137,8 @@ let term_covers term vals =
        | Some b -> lookup_val vals name = b)
     term
 
-let choose_implicants atom_names vals_list =
+let choose_implicants (atom_names:string list) (vals_list:(string * bool) list list)
+  : term list =
   if vals_list = [] then []
   else
     let minterms = List.map (term_of_vals atom_names) vals_list in
@@ -165,7 +184,7 @@ let choose_implicants atom_names vals_list =
     loop ();
     uniq_terms !chosen
 
-let term_to_string term =
+let term_to_string (term:term) : string =
   let parts =
     List.filter_map
       (fun (name, v) ->
@@ -179,7 +198,8 @@ let term_to_string term =
   | [] -> "true"
   | _ -> String.concat " && " parts
 
-let valuations_to_formula atom_names vals_list =
+let valuations_to_formula (atom_names:string list) (vals_list:(string * bool) list list)
+  : string =
   match vals_list with
   | [] -> "false"
   | _ ->
@@ -193,7 +213,7 @@ let valuations_to_formula atom_names vals_list =
         | [p] -> p
         | _ -> String.concat " || " parts
 
-let term_to_iexpr term =
+let term_to_iexpr (term:term) : iexpr =
   let parts =
     List.filter_map
       (fun (name, v) ->
@@ -208,7 +228,7 @@ let term_to_iexpr term =
   | [p] -> p
   | p :: rest -> List.fold_left (fun acc x -> IBin (And, acc, x)) p rest
 
-let terms_to_iexpr terms =
+let terms_to_iexpr (terms:term list) : iexpr =
   match terms with
   | [] -> ILitBool false
   | _ ->
@@ -221,14 +241,15 @@ let terms_to_iexpr terms =
         | [p] -> p
         | p :: rest -> List.fold_left (fun acc x -> IBin (Or, acc, x)) p rest
 
-let valuations_to_iexpr atom_names vals_list =
+let valuations_to_iexpr (atom_names:string list) (vals_list:(string * bool) list list)
+  : iexpr =
   match vals_list with
   | [] -> ILitBool false
   | _ ->
       let implicants = choose_implicants atom_names vals_list in
       terms_to_iexpr implicants
 
-let rec nnf_ltl ?(neg=false) f =
+let rec nnf_ltl ?(neg=false) (f:ltl) : ltl =
   match f with
   | LTrue -> if neg then LFalse else LTrue
   | LFalse -> if neg then LTrue else LFalse
@@ -254,7 +275,7 @@ let rec nnf_ltl ?(neg=false) f =
       else
         LG (nnf_ltl a)
 
-let rec simplify_ltl f =
+let rec simplify_ltl (f:ltl) : ltl =
   match f with
   | LAnd _ ->
       let rec flatten acc = function
@@ -309,12 +330,15 @@ let rec simplify_ltl f =
   | LX a -> LX (simplify_ltl a)
   | _ -> f
 
-let eval_atom _atom_map vals = function
+let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
+  : bool =
+  match f with
   | FRel (HNow (IVar name), REq, HNow (ILitBool true)) ->
       lookup_val vals name
   | _ -> false
 
-let rec eval_ltl atom_map vals f =
+let rec eval_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
+  : bool =
   match f with
   | LTrue -> true
   | LFalse -> false
@@ -326,7 +350,8 @@ let rec eval_ltl atom_map vals f =
   | LX _ -> true
   | LG a -> eval_ltl atom_map vals a
 
-let rec progress_ltl atom_map vals f =
+let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
+  : ltl =
   let f =
     match f with
     | LTrue | LFalse -> f
@@ -346,7 +371,9 @@ type residual_state = ltl
 
 type residual_transition = int * (string * bool) list * int
 
-let build_residual_graph atom_map valuations f0 =
+let build_residual_graph (atom_map:(fo * ident) list)
+  (valuations:(string * bool) list list) (f0:ltl)
+  : residual_state list * residual_transition list =
   let f0 = nnf_ltl f0 |> simplify_ltl in
   let tbl = Hashtbl.create 16 in
   let states = ref [] in
@@ -377,7 +404,9 @@ let build_residual_graph atom_map valuations f0 =
   done;
   (!states, List.rev !transitions)
 
-let minimize_residual_graph valuations states transitions =
+let minimize_residual_graph (valuations:(string * bool) list list)
+  (states:residual_state list) (transitions:residual_transition list)
+  : residual_state list * residual_transition list =
   let n_states = List.length states in
   let val_index =
     let tbl = Hashtbl.create 16 in

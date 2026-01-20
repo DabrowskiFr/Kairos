@@ -1,23 +1,43 @@
+(*---------------------------------------------------------------------------
+ * Tempo - synchronous runtime for OCaml
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Ast
 open Whygen_support
 
-let rec stmt_list_has_assign name expr = function
+let rec stmt_list_has_assign (name:ident) (expr:iexpr) (stmts:stmt list) : bool =
+  match stmts with
   | [] -> false
   | SAssign (x,e) :: _ when x = name && e = expr -> true
   | _ :: rest -> stmt_list_has_assign name expr rest
 
-let stmt_list_is_assign name expr = function
+let stmt_list_is_assign (name:ident) (expr:iexpr) (stmts:stmt list) : bool =
+  match stmts with
   | [] -> false
   | [SAssign (x,e)] -> x = name && e = expr
   | [SAssign (x,e); SSkip] -> x = name && e = expr
   | [SSkip; SAssign (x,e)] -> x = name && e = expr
   | _ -> false
 
-let is_skip_list lst =
+let is_skip_list (lst:stmt list) : bool =
   lst = [] || List.for_all (function SSkip -> true | _ -> false) lst
 
-let rec collect_hexpr (h:hexpr) acc =
+let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with
   | HNow _ -> acc
@@ -25,7 +45,7 @@ let rec collect_hexpr (h:hexpr) acc =
   | HPreK (e, init, _) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
   | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
 
-let rec collect_ltl (f:ltl) acc =
+let rec collect_ltl (f:ltl) (acc:hexpr list) : hexpr list =
   match f with
   | LTrue | LFalse -> acc
   | LNot a -> collect_ltl a acc
@@ -33,7 +53,7 @@ let rec collect_ltl (f:ltl) acc =
   | LX a | LG a -> collect_ltl a acc
   | LAtom f -> collect_fo f acc
 
-and collect_fo (f:fo) acc =
+and collect_fo (f:fo) (acc:hexpr list) : hexpr list =
   match f with
   | FTrue | FFalse -> acc
   | FRel (h1,_,h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
@@ -41,9 +61,11 @@ and collect_fo (f:fo) acc =
   | FNot a -> collect_fo a acc
   | FAnd (a,b) | FOr (a,b) | FImp (a,b) -> collect_fo b (collect_fo a acc)
 
-let fold_name i = Printf.sprintf "__fold%d" i
+let fold_name (i:int) : string =
+  Printf.sprintf "__fold%d" i
 
-let classify_fold h =
+let classify_fold (h:hexpr)
+  : [ `Scan of op * iexpr * iexpr | `Scan1 of op * iexpr ] option =
   match h with
   | HFold (op,init,e) -> Some (`Scan (op,init,e))
   | _ -> None
@@ -51,7 +73,7 @@ let classify_fold h =
 let collect_folds_from_specs
     ~(fo:fo list)
     ~(ltl:ltl list)
-    ~(invariants_mon:invariant_mon list) =
+    ~(invariants_mon:invariant_mon list) : fold_info list =
   let hexprs =
     List.fold_left (fun acc f -> collect_fo f acc) [] fo
     |> fun acc -> List.fold_left (fun acc f -> collect_ltl f acc) acc ltl
@@ -74,7 +96,7 @@ let collect_folds_from_specs
 let collect_pre_k_from_specs
     ~(fo:fo list)
     ~(ltl:ltl list)
-    ~(invariants_mon:invariant_mon list) =
+    ~(invariants_mon:invariant_mon list) : hexpr list =
   let collect_pre_k_hexpr h acc =
     let acc =
       match h with
@@ -108,7 +130,7 @@ let collect_pre_k_from_specs
     acc
     invariants_mon
 
-let build_pre_k_infos (n:node) =
+let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let init_for_var =
     let table =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
@@ -172,7 +194,8 @@ let build_pre_k_infos (n:node) =
              let names = make_names base k in
              (h, { h; expr = e; init; names; vty })
          | _ -> failwith "expected pre_k hexpr")
-let rec collect_calls_stmt acc s =
+let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
+  : (ident * iexpr list) list =
   match s with
   | SCall (inst, args, _outs) -> (inst, args) :: acc
   | SIf (_c, tbr, fbr) ->
@@ -188,12 +211,13 @@ let rec collect_calls_stmt acc s =
       List.fold_left collect_calls_stmt acc def
   | SAssign _ | SSkip -> acc
 
-let collect_calls_trans (ts:transition list) =
+let collect_calls_trans (ts:transition list) : (ident * iexpr list) list =
   List.fold_left
     (fun acc t -> List.fold_left collect_calls_stmt acc t.body)
     [] ts
 
-let rec collect_calls_stmt_full acc s =
+let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:stmt)
+  : (ident * iexpr list * ident list) list =
   match s with
   | SCall (inst, args, outs) -> (inst, args, outs) :: acc
   | SIf (_c, tbr, fbr) ->
@@ -209,12 +233,13 @@ let rec collect_calls_stmt_full acc s =
       List.fold_left collect_calls_stmt_full acc def
   | SAssign _ | SSkip -> acc
 
-let collect_calls_trans_full (ts:transition list) =
+let collect_calls_trans_full (ts:transition list)
+  : (ident * iexpr list * ident list) list =
   List.fold_left
     (fun acc t -> List.fold_left collect_calls_stmt_full acc t.body)
     [] ts
 
-let extract_delay_spec (guarantees:ltl list) =
+let extract_delay_spec (guarantees:ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp, _)))
