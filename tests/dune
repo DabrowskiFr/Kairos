@@ -37,3 +37,31 @@
    (with-stdout-to delay_delay_int.why
     (run %{bin:obc2why3} delay/delay_int.obc))
    (run %{bin:why3} prove -P z3 -t 30 delay_delay_int.why))))
+
+(rule
+ (alias runtest)
+ (target golden_delay_int.gen.why)
+ (deps delay/delay_int.obc)
+ (action
+  (with-stdout-to %{target}
+   (run %{bin:obc2why3} delay/delay_int.obc))))
+
+(rule
+ (alias runtest)
+ (deps golden/delay_int.why golden_delay_int.gen.why)
+ (action
+  (diff golden/delay_int.why golden_delay_int.gen.why)))
+
+(rule
+ (alias runtest)
+ (target golden_toggle.gen.why)
+ (deps toggle/toggle.obc)
+ (action
+  (with-stdout-to %{target}
+   (run %{bin:obc2why3} toggle/toggle.obc))))
+
+(rule
+ (alias runtest)
+ (deps golden/toggle.why golden_toggle.gen.why)
+ (action
+  (diff golden/toggle.why golden_toggle.gen.why)))

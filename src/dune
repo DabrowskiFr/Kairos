@@ -9,8 +9,10 @@
   collect
   passes
   compile_expr
+  emit_why_types
   emit_why_env
   emit_why_contracts
+  emit_why_diagnostics
   emit_why_core
   emit
   monitor_transform

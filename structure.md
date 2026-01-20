@@ -7,6 +7,7 @@ Top-level
 - `examples/others/` additional OBC examples not verified by default.
 - `out/` generated Why3 and monitor DOT outputs.
 - `scripts/` helper scripts (Why3 batch runs).
+- `tests/` regression tests and golden Why3 outputs.
 - `manual.md`, `Method.md`, `Formal.md` documentation.
 
 General principles and where they live
@@ -18,7 +19,8 @@ General principles and where they live
   `src/compile_expr.ml`.
 - Collection passes (folds, pre_k, instance calls) are computed before
   emission in `src/collect.ml`, and the final Why3 AST is produced in
-  `src/emit_why_core.ml`/`src/emit_why_contracts.ml`, aggregated by
+  `src/emit_why_env.ml`/`src/emit_why_contracts.ml`/`src/emit_why_core.ml`,
+  with diagnostics in `src/emit_why_diagnostics.ml`, aggregated by
   `src/emit.ml` and `src/whygen.ml`.
 - Monitors are derived from LTL specs by progressing formulas and building
   a residual automaton; only then are they injected into the Why3 output.
@@ -44,11 +46,17 @@ Source modules
 - `src/compile_expr.ml`  
   Compile expressions/LTL into Why3 terms.
 
+- `src/emit_why_types.ml`  
+  Shared record types for Why3 emission (environment + contracts).
+
 - `src/emit_why_env.ml`  
-  Helper logic for monitor constructors and environment-like probes.
+  Helper logic for monitor constructors and environment preparation.
 
 - `src/emit_why_contracts.ml`  
-  Contract helpers (fold post-conditions).
+  Contract assembly and fold post-conditions.
+
+- `src/emit_why_diagnostics.ml`  
+  Spec labeling and grouping for diagnostics.
 
 - `src/emit_why_core.ml`  
   Statement/transition emission.
