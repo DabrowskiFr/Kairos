@@ -347,13 +347,28 @@ type residual_state = ltl
 
 type residual_transition = int * (string * bool) list * int
 
+let monitor_log_enabled : bool =
+  match Sys.getenv_opt "OBCWHY3_LOG_MONITOR" with
+  | Some ("1" | "true" | "yes") -> true
+  | _ -> false
+
+let log_monitor fmt =
+  Printf.ksprintf
+    (fun s ->
+       if monitor_log_enabled then
+         prerr_endline ("[monitor] " ^ s))
+    fmt
+
 let build_residual_graph (atom_map:(fo * ident) list)
   (valuations:(string * bool) list list) (f0:ltl)
   : residual_state list * residual_transition list =
+  let start_time = Sys.time () in
   let f0 = nnf_ltl f0 |> simplify_ltl in
   let tbl = Hashtbl.create 16 in
   let states = ref [] in
   let transitions = ref [] in
+  let state_count = ref 0 in
+  log_monitor "build residual graph: valuations=%d" (List.length valuations);
   let add_state f =
     let key = Support.string_of_ltl f in
     match Hashtbl.find_opt tbl key with
@@ -361,6 +376,12 @@ let build_residual_graph (atom_map:(fo * ident) list)
     | None ->
         let i = List.length !states in
         states := !states @ [f];
+        incr state_count;
+        if !state_count mod 100 = 0 then
+          log_monitor "states=%d transitions=%d"
+            !state_count (List.length !transitions);
+        if !state_count = 1000 || !state_count = 10000 then
+          log_monitor "state threshold reached: %d" !state_count;
         Hashtbl.add tbl key i;
         (i, true)
   in
@@ -378,6 +399,8 @@ let build_residual_graph (atom_map:(fo * ident) list)
          if is_new then Queue.add f' q)
       valuations
   done;
+  log_monitor "done: states=%d transitions=%d time=%.3fs"
+    !state_count (List.length !transitions) (Sys.time () -. start_time);
   (!states, List.rev !transitions)
 
 let minimize_residual_graph (valuations:(string * bool) list list)

@@ -21,11 +21,12 @@ for arg in "$@"; do
 done
 if [ "${#examples[@]}" -eq 0 ]; then
   examples=(
-    examples/main/first_value.obc
-    examples/main/delay_int.obc
-    examples/main/delay_int2.obc
-    examples/main/toggle01.obc
-    examples/main/identity.obc
+    tests/delay/delay_int.obc
+    tests/delay/delay_int2.obc
+    tests/toggle/toggle.obc
+    tests/toggle/toggle_if.obc
+    tests/toggle/toggle2.obc
+    tests/toggle/toggle3.obc
   )
 fi
 

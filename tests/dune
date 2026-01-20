@@ -50,13 +50,44 @@
 
 (rule
  (alias runtest)
- (targets toggle_toggle01.why)
- (deps toggle/toggle01.obc)
+ (targets toggle_toggle_if.why)
+ (deps toggle/toggle_if.obc)
  (action
   (progn
-   (with-stdout-to toggle_toggle01.why
-    (run %{bin:obc2why3} toggle/toggle01.obc))
-   (run %{bin:why3} prove -P z3 -t 30 toggle_toggle01.why))))
+   (with-stdout-to toggle_toggle_if.why
+    (run %{bin:obc2why3} toggle/toggle_if.obc))
+   (run %{bin:why3} prove -P z3 -t 30 toggle_toggle_if.why))))
+
+(rule
+ (alias runtest)
+ (targets edge_edge_rise.why)
+ (deps edge/edge_rise.obc)
+ (action
+  (progn
+   (with-stdout-to edge_edge_rise.why
+    (run %{bin:obc2why3} edge/edge_rise.obc))
+   (run %{bin:why3} prove -P z3 -t 30 edge_edge_rise.why))))
+
+
+(rule
+ (alias runtest)
+ (targets history_and2_history.why)
+ (deps history/and2_history.obc)
+ (action
+  (progn
+   (with-stdout-to history_and2_history.why
+    (run %{bin:obc2why3} history/and2_history.obc))
+   (run %{bin:why3} prove -P z3 -t 30 history_and2_history.why))))
+
+(rule
+ (alias runtest)
+ (targets traffic_traffic3.why)
+ (deps traffic/traffic3.obc)
+ (action
+  (progn
+   (with-stdout-to traffic_traffic3.why
+    (run %{bin:obc2why3} traffic/traffic3.obc))
+   (run %{bin:why3} prove -P z3 -t 30 traffic_traffic3.why))))
 
 (rule
  (alias runtest)
@@ -85,3 +116,31 @@
  (deps golden/toggle.why golden_toggle.gen.why)
  (action
   (diff golden/toggle.why golden_toggle.gen.why)))
+
+(rule
+ (alias runtest)
+ (target golden_delay_int2.gen.why)
+ (deps delay/delay_int2.obc)
+ (action
+  (with-stdout-to %{target}
+   (run %{bin:obc2why3} delay/delay_int2.obc))))
+
+(rule
+ (alias runtest)
+ (deps golden/delay_int2.why golden_delay_int2.gen.why)
+ (action
+  (diff golden/delay_int2.why golden_delay_int2.gen.why)))
+
+(rule
+ (alias runtest)
+ (target golden_toggle_if.gen.why)
+ (deps toggle/toggle_if.obc)
+ (action
+  (with-stdout-to %{target}
+   (run %{bin:obc2why3} toggle/toggle_if.obc))))
+
+(rule
+ (alias runtest)
+ (deps golden/toggle_if.why golden_toggle_if.gen.why)
+ (action
+  (diff golden/toggle_if.why golden_toggle_if.gen.why)))
