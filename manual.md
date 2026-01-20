@@ -25,12 +25,6 @@ Generate Why3 to a file:
 dune exec -- obc2why3 -o out/toggle01_monitor.why examples/main/toggle01.obc
 ```
 
-Generate Why3 with k-induction obligations for X^k under G:
-
-```sh
-dune exec -- obc2why3 --k-induction examples/main/toggle01.obc > out/toggle01_monitor_k.why
-```
-
 Run Why3 directly from obc2why3:
 
 ```sh
@@ -42,7 +36,7 @@ Monitor DOT and PDF
 Generate DOT file for the monitor residual graph:
 
 ```sh
-dune exec -- obc2why3 --monitor-dot out/toggle01_monitor.dot examples/main/toggle01.obc
+dune exec -- obc2why3 --dot out/toggle01_monitor.dot examples/main/toggle01.obc
 ```
 
 This writes:
@@ -110,11 +104,8 @@ dune exec -- obc2why3 --help
 All available options:
 
 - `--help`                 Show this help message
-- `--monitor-no-prefix`    Do not prefix `vars` fields with the module name (monitor mode, default)
-- `--no-prefix`            Do not prefix `vars` fields with the module name (monitor mode, default)
-- `--monitor-dot <file>`   Generate DOT for the monitor residual graph and print Why3
+- `--no-prefix`            Do not prefix `vars` fields with the module name (default)
+- `--dot <file>`           Generate DOT for the monitor residual graph and print Why3
 - `-o <file.why>`          Write generated Why3 to this file
-- `--k-induction`          Generate k-induction proof obligations for X^k under G
 - `--prove`                Run why3 prove on the generated output
-- `-vc-all`                Show results for all VCs (split VC)
 - `--prover <name>`        Prover for --prove (default: z3)

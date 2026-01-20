@@ -32,7 +32,7 @@ fi
 for f in "${examples[@]}"; do
   out="out/$(basename "${f%.obc}")_monitor.why"
   echo "== generate $out"
-  dune exec -- obc2why3 --monitor "$f" > "$out"
+  dune exec -- obc2why3 "$f" > "$out"
   echo "== why3 prove $out"
   if [ "$unknown_only" = true ]; then
     why3 prove -P "$prover" -t 30 -a split_vc "$out" | rg "Unknown|unknown" || true

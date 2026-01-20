@@ -33,32 +33,24 @@ let parse_file (fn:string) : program =
     raise e
 
 let () =
-  let use_monitor = ref true in
   let monitor_dot = ref None in
-  let monitor_no_prefix = ref true in
-  let no_prefix = ref false in
+  let no_prefix = ref true in
   let show_help = ref false in
-  let k_induction = ref false in
   let prove = ref false in
   let prover = ref "z3" in
-  let vc_all = ref false in
   let output_file = ref None in
   let files = ref [] in
   let usage =
-    "Usage: obc2why3 [--monitor] [--k-induction]\n" ^
-    "                [--monitor-dot <file.dot>]\n" ^
+    "Usage: obc2why3\n" ^
+    "                [--dot <file.dot>]\n" ^
     "                [-o <file.why>]\n" ^
     "                [--prove --prover <name>] <file.obc>\n" ^
     "Options:\n" ^
     "  --help               Show this help message\n" ^
-    "  --monitor            Generate Why3 using a monitor state for residuals (default)\n" ^
-    "  --monitor-no-prefix  Do not prefix vars fields with the module name (monitor mode, default)\n" ^
-    "  --no-prefix          Do not prefix vars fields with the module name (monitor mode, default)\n" ^
-    "  --monitor-dot        Generate DOT for the monitor residual graph and print Why3\n" ^
+    "  --no-prefix          Do not prefix vars fields with the module name (default)\n" ^
+    "  --dot                Generate DOT for the monitor residual graph and print Why3\n" ^
     "  -o <file.why>        Write generated Why3 to this file\n" ^
-    "  --k-induction        Generate k-induction proof obligations for X^k under G\n" ^
     "  --prove              Run why3 prove on the generated output\n" ^
-    "  -vc-all              Show results for all VCs (split VC)\n" ^
     "  --prover <name>      Prover for --prove (default: z3)\n"
   in
   let i = ref 1 in
@@ -67,31 +59,19 @@ let () =
     | "--help" ->
         show_help := true;
         incr i
-    | "--monitor-no-prefix" ->
-        monitor_no_prefix := true;
-        incr i
     | "--no-prefix" ->
         no_prefix := true;
         incr i
-    | "--monitor" ->
-        use_monitor := true;
-        incr i
-    | "--monitor-dot" ->
+    | "--dot" ->
         if !i + 1 >= Array.length Sys.argv then (
-          prerr_endline "Missing argument for --monitor-dot";
+          prerr_endline "Missing argument for --dot";
           exit 1
         ) else (
           monitor_dot := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
-    | "--k-induction" ->
-        k_induction := true;
-        incr i
     | "--prove" ->
         prove := true;
-        incr i
-    | "-vc-all" ->
-        vc_all := true;
         incr i
     | "-o" ->
         if !i + 1 >= Array.length Sys.argv then (
@@ -120,9 +100,6 @@ let () =
     print_string usage;
     exit 0
   );
-  if !no_prefix then (
-    monitor_no_prefix := true
-  );
   match List.rev !files with
   | [file] ->
       let p = parse_file file |> add_post_for_next_pre_program in
@@ -147,10 +124,7 @@ let () =
                 close_out oc;
                 (tmp, true)
           in
-          let action =
-            if !vc_all then "-a split_vc "
-            else ""
-          in
+          let action = "" in
           let cmd =
             Printf.sprintf "why3 prove -P %s -t 30 %s%s"
               !prover action (Filename.quote prove_path)
@@ -176,23 +150,15 @@ let () =
           write residual_file (Whygen_emit_automaton.dot_monitor_program p);
           let out =
             Whygen_emit_automaton.compile_program_monitor
-              ~k_induction:!k_induction
-              ~prefix_fields:(not !monitor_no_prefix)
+              ~prefix_fields:(not !no_prefix)
               p
           in
           output_and_maybe_prove out
       | None ->
           let out =
-            if !use_monitor then
-              Whygen_emit_automaton.compile_program_monitor
-                ~k_induction:!k_induction
-                ~prefix_fields:(not !monitor_no_prefix)
-                p
-            else
-              Whygen_emit_automaton.compile_program_monitor
-                ~k_induction:!k_induction
-                ~prefix_fields:(not !monitor_no_prefix)
-                p
+            Whygen_emit_automaton.compile_program_monitor
+              ~prefix_fields:(not !no_prefix)
+              p
           in
           output_and_maybe_prove out
       end

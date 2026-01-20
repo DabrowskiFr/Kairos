@@ -187,7 +187,7 @@ let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 
-let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
+let compile_node ~prefix_fields (nodes:node list) (n:node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function
@@ -803,46 +803,6 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
     | t :: rest ->
         List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest
   in
-  let k_induction_terms ~rel ~frag k =
-    if k <= 1 || not needs_step_count then None
-    else
-      let post_conj = conj_terms frag.post in
-      let prev_terms =
-        let rec build acc i =
-          if i >= k - 1 then Some (List.rev acc)
-          else
-            let rel_shift =
-              if i = 0 then Some rel
-              else shift_ltl_by ~init_for_var i rel
-            in
-            match rel_shift with
-            | None -> None
-            | Some rel_i ->
-                let frag_i = ltl_spec env rel_i in
-                let term_i = conj_terms frag_i.post in
-                build (term_old term_i :: acc) (i + 1)
-        in
-        build [] 0
-      in
-      begin match prev_terms with
-      | None -> None
-      | Some prev_terms ->
-          let count_old = term_old (term_of_var env "__step_count") in
-          let k_minus_one =
-            mk_term (Tconst (Constant.int_const (BigInt.of_int (k - 1))))
-          in
-          let guard_base =
-            mk_term (Tinnfix (count_old, infix_ident "<", k_minus_one))
-          in
-          let guard_step =
-            mk_term (Tinnfix (count_old, infix_ident ">=", k_minus_one))
-          in
-          let hyp = conj_terms prev_terms in
-          let base_term = term_implies guard_base post_conj in
-          let step_term = term_implies guard_step (term_implies hyp post_conj) in
-          Some [base_term; step_term]
-      end
-  in
   let apply_k_guard ~in_post k_guard terms =
     match k_guard with
     | None -> terms
@@ -875,16 +835,8 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
          let norm = normalize_ltl f in
          let rel = ltl_relational env norm.ltl in
          let frag = ltl_spec env rel in
-         let guarded_k =
-           match k_induction, norm.k_guard with
-           | true, Some k when k > 1 ->
-               begin match k_induction_terms ~rel ~frag k with
-               | Some terms -> terms
-               | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
-               end
-           | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
-         in
-         guarded_k @ post)
+        let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
+        guarded_k @ post)
       []
       n.guarantees
   in
@@ -956,15 +908,7 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
                 let norm = normalize_ltl (ltl_of_fo f) in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
-                let guarded_k =
-                  match k_induction, norm.k_guard with
-                  | true, Some k when k > 1 ->
-                      begin match k_induction_terms ~rel ~frag k with
-                      | Some terms -> terms
-                      | None -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                      end
-                  | _ -> apply_k_guard ~in_post:true norm.k_guard frag.post
-                in
+                let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
                 let guarded =
                   match guard with
                   | None -> guarded_k
@@ -1498,11 +1442,11 @@ let compile_node ~k_induction ~prefix_fields (nodes:node list) (n:node)
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program ?(k_induction=false) ?(prefix_fields=true) (p:program) : string =
+let compile_program ?(prefix_fields=true) (p:program) : string =
   let modules =
     match p with
     | [] -> []
-    | nodes -> List.map (compile_node ~k_induction ~prefix_fields nodes) nodes
+    | nodes -> List.map (compile_node ~prefix_fields nodes) nodes
   in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in

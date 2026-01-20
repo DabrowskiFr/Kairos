@@ -63,7 +63,7 @@ Source modules
   preconditions).
 
 - `src/main.ml`  
-  CLI: `--monitor` (default), `--monitor-dot`, `--help`.
+  CLI: `--dot`, `--help`.
 
 Notes
 -----
