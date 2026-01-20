@@ -16,38 +16,30 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** {1 Core Types} *)
 
-type ident = string [@@deriving show]
-
-type ty =
-  | TInt | TBool | TReal | TCustom of string
-[@@deriving show]
-
+type ident = string
+type ty = TInt | TBool | TReal | TCustom of string
 type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
-[@@deriving show]
-type unop = Neg | Not [@@deriving show]
-type op = OMin | OMax | OAdd | OMul | OAnd | OOr | OFirst [@@deriving show]
-
+type unop = Neg | Not
+type op = OMin | OMax | OAdd | OMul | OAnd | OOr | OFirst
 type iexpr =
-  | ILitInt of int
+    ILitInt of int
   | ILitBool of bool
   | IVar of ident
   | IBin of binop * iexpr * iexpr
   | IUn of unop * iexpr
   | IPar of iexpr
-[@@deriving show]
-
 type hexpr =
-  | HNow of iexpr
-  | HPre of iexpr * iexpr option          (* pre(e) or pre(e, init) *)
-  | HPreK of iexpr * iexpr * int          (* pre_k(e, init, k) *)
-  | HFold of op * iexpr * iexpr           (* fold(op, init, x) *)
-[@@deriving show]
+    HNow of iexpr
+  | HPre of iexpr * iexpr option
+  | HPreK of iexpr * iexpr * int
+  | HFold of op * iexpr * iexpr
+type relop = REq | RNeq | RLt | RLe | RGt | RGe
 
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show]
-
+(** {1 Logical Formulas} *)
 type fo =
-  | FTrue
+    FTrue
   | FFalse
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
@@ -55,62 +47,60 @@ type fo =
   | FAnd of fo * fo
   | FOr of fo * fo
   | FImp of fo * fo
-[@@deriving show]
-
 type ltl =
-  | LTrue
+    LTrue
   | LFalse
   | LAtom of fo
   | LNot of ltl
   | LAnd of ltl * ltl
   | LOr of ltl * ltl
   | LImp of ltl * ltl
-  | LX of ltl                       (* Next *)
-  | LG of ltl                       (* Globally *)
-[@@deriving show]
+  | LX of ltl
+  | LG of ltl
+type vdecl = { vname : ident; vty : ty; }
 
-type vdecl = { vname: ident; vty: ty } [@@deriving show]
-
+(** {1 Statements And Contracts} *)
 type stmt =
-  | SAssign of ident * iexpr
+    SAssign of ident * iexpr
   | SIf of iexpr * stmt list * stmt list
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
-[@@deriving show]
-
 type invariant_mon =
-  | Invariant of ident * hexpr
+    Invariant of ident * hexpr
   | InvariantStateRel of bool * ident * fo
-[@@deriving show]
-
 type transition = {
-  src: ident;
-  dst: ident;
-  guard: iexpr option;
-  requires: fo list;
-  ensures: fo list;
-  lemmas: fo list;
-  body: stmt list;
-} [@@deriving show]
-
+  src : ident;
+  dst : ident;
+  guard : iexpr option;
+  requires : fo list;
+  ensures : fo list;
+  lemmas : fo list;
+  body : stmt list;
+}
 type node = {
-  nname: ident;
-  inputs: vdecl list;
-  outputs: vdecl list;
-  assumes: ltl list;
-  guarantees: ltl list;
-  invariants_mon: invariant_mon list;
-  instances: (ident * ident) list;
-  locals: vdecl list;
-  states: ident list;
-  init_state: ident;
-  trans: transition list;
-} [@@deriving show]
+  nname : ident;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  assumes : ltl list;
+  guarantees : ltl list;
+  invariants_mon : invariant_mon list;
+  instances : (ident * ident) list;
+  locals : vdecl list;
+  states : ident list;
+  init_state : ident;
+  trans : transition list;
+}
+type program = node list
 
-type program = node list [@@deriving show]
+(** {1 Phase Markers} *)
 
-type user_node = node [@@deriving show]
-type internal_node = node [@@deriving show]
-type user_program = program [@@deriving show]
-type internal_program = program [@@deriving show]
+type user_node = node
+type internal_node = node
+type user_program = program
+type internal_program = program
+
+(** {1 Debug Output} *)
+
+(** Render a program using the derived [show] printer. *)
+val show_program : program -> string

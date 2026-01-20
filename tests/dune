@@ -40,6 +40,26 @@
 
 (rule
  (alias runtest)
+ (targets delay_delay_int2.why)
+ (deps delay/delay_int2.obc)
+ (action
+  (progn
+   (with-stdout-to delay_delay_int2.why
+    (run %{bin:obc2why3} delay/delay_int2.obc))
+   (run %{bin:why3} prove -P z3 -t 30 delay_delay_int2.why))))
+
+(rule
+ (alias runtest)
+ (targets toggle_toggle01.why)
+ (deps toggle/toggle01.obc)
+ (action
+  (progn
+   (with-stdout-to toggle_toggle01.why
+    (run %{bin:obc2why3} toggle/toggle01.obc))
+   (run %{bin:why3} prove -P z3 -t 30 toggle_toggle01.why))))
+
+(rule
+ (alias runtest)
  (target golden_delay_int.gen.why)
  (deps delay/delay_int.obc)
  (action

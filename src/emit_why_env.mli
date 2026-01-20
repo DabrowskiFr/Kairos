@@ -16,12 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-[@@@ocaml.warning "-8-26-27-32-33"]
-open Why3
-open Ptree
-open Ast
+(** {1 Monitor Constructor Discovery} *)
 
-include Support
-include Collect
-include Compile_expr
-include Emit
+(** Detect if an identifier is a monitor state constructor. *)
+val is_mon_state_ctor : string -> bool
+(** Collect monitor state constructors referenced by a node. *)
+val collect_mon_state_ctors : Ast.node -> Ast.ident list
+
+(** {1 Why3 Environment Preparation} *)
+
+(** Precomputed data for emitting a node. *)
+type env_info = Emit_why_types.env_info
+
+(** {2 Invariants}
+
+    - [node] is the normalized node used for emission (pre->pre_k in invariants).
+    - [inputs] includes the implicit [vars] record binder (and inputs if any).
+    - [env] records links/ghosts/pre_k derived from [node] and collection passes. *)
+
+(** Build environment data needed by the Why3 emission pipeline. *)
+val prepare_node : prefix_fields:bool -> Ast.node -> env_info

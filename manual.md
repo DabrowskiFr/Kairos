@@ -36,7 +36,7 @@ Monitor DOT and PDF
 Generate DOT file for the monitor residual graph:
 
 ```sh
-dune exec -- obc2why3 --dot out/toggle01_monitor.dot examples/main/toggle01.obc
+dune exec -- obc2why3 --dump-dot out/toggle01_monitor.dot examples/main/toggle01.obc
 ```
 
 This writes:
@@ -105,7 +105,7 @@ All available options:
 
 - `--help`                 Show this help message
 - `--no-prefix`            Do not prefix `vars` fields with the module name (default)
-- `--dot <file>`           Generate DOT for the monitor residual graph and print Why3
+- `--dump-dot <file>`      Generate DOT for the monitor residual graph only
 - `-o <file.why>`          Write generated Why3 to this file
 - `--prove`                Run why3 prove on the generated output
 - `--prover <name>`        Prover for --prove (default: z3)

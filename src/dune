@@ -1,7 +1,7 @@
-(executable
- (name main)
- (public_name obc2why3)
-(modules
+(library
+ (name obcwhy3_lib)
+ (wrapped false)
+ (modules
   ast
   lexer
   parser
@@ -18,12 +18,16 @@
   monitor_transform
   dot
   monitor_emit
-  whygen
   specs
-  automaton_core
-  main)
+  automaton_core)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))
+
+(executable
+ (name main)
+ (public_name obc2why3)
+ (modules main)
+ (libraries obcwhy3_lib))
 
 (include_subdirs no)
 

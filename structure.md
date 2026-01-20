@@ -8,6 +8,7 @@ Top-level
 - `out/` generated Why3 and monitor DOT outputs.
 - `scripts/` helper scripts (Why3 batch runs).
 - `tests/` regression tests and golden Why3 outputs.
+- `ARCHITECTURE.md` architecture overview and entry points.
 - `manual.md`, `Method.md`, `Formal.md` documentation.
 
 General principles and where they live
@@ -21,7 +22,7 @@ General principles and where they live
   emission in `src/collect.ml`, and the final Why3 AST is produced in
   `src/emit_why_env.ml`/`src/emit_why_contracts.ml`/`src/emit_why_core.ml`,
   with diagnostics in `src/emit_why_diagnostics.ml`, aggregated by
-  `src/emit.ml` and `src/whygen.ml`.
+  `src/emit.ml`.
 - Monitors are derived from LTL specs by progressing formulas and building
   a residual automaton; only then are they injected into the Why3 output.
   This is split between `src/automaton_core.ml` (logic),
@@ -64,8 +65,6 @@ Source modules
 - `src/emit.ml`  
   Why3 AST emission for nodes, contracts, and step semantics (façade).
 
-- `src/whygen.ml`  
-  Facade module re-exporting the direct Why3 pipeline.
 
 - `src/automaton_core.ml`  
   Monitor core logic: valuations, LTL progression/simplification, residual
@@ -76,7 +75,7 @@ Source modules
   invariants, and monitor-state enrichment.
 
 - `src/monitor_emit.ml`  
-  Monitor-focused textual generation (entry points over Whygen).
+  Monitor-focused textual generation (entry points over Emit).
 
 - `src/dot.ml`  
   DOT rendering for residual/monitor graphs.
@@ -86,7 +85,7 @@ Source modules
   preconditions).
 
 - `src/main.ml`  
-  CLI: `--dot`, `--help`.
+  CLI: `--dump-dot`, `--help`.
 
 Generated artifacts
 -------------------

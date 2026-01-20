@@ -32,23 +32,52 @@ let parse_file (fn:string) : program =
     close_in_noerr ic;
     raise e
 
+let json_escape (s:string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '\"' -> Buffer.add_string b "\\\""
+      | '\\' -> Buffer.add_string b "\\\\"
+      | '\n' -> Buffer.add_string b "\\n"
+      | '\r' -> Buffer.add_string b "\\r"
+      | '\t' -> Buffer.add_string b "\\t"
+      | c when Char.code c < 0x20 ->
+          Buffer.add_string b (Printf.sprintf "\\u%04x" (Char.code c))
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
+let dump_program_json ~(out:string option) (p:program) : unit =
+  let payload = show_program p |> json_escape in
+  let json = Printf.sprintf "{\"program\":\"%s\"}" payload in
+  match out with
+  | None -> print_endline json
+  | Some path ->
+      let oc = open_out path in
+      output_string oc json;
+      output_char oc '\n';
+      close_out oc
+
 let () =
-  let monitor_dot = ref None in
+  let dump_dot = ref None in
   let no_prefix = ref true in
   let show_help = ref false in
   let prove = ref false in
   let prover = ref "z3" in
   let output_file = ref None in
+  let dump_json = ref None in
   let files = ref [] in
   let usage =
     "Usage: obc2why3\n" ^
-    "                [--dot <file.dot>]\n" ^
+    "                [--dump-dot <file.dot>]\n" ^
+    "                [--dump-json <file.json>|-]\n" ^
     "                [-o <file.why>]\n" ^
     "                [--prove --prover <name>] <file.obc>\n" ^
     "Options:\n" ^
     "  --help               Show this help message\n" ^
     "  --no-prefix          Do not prefix vars fields with the module name (default)\n" ^
-    "  --dot                Generate DOT for the monitor residual graph and print Why3\n" ^
+    "  --dump-dot           Generate DOT for the monitor residual graph only\n" ^
+    "  --dump-json          Dump internal AST as JSON to file (or - for stdout)\n" ^
     "  -o <file.why>        Write generated Why3 to this file\n" ^
     "  --prove              Run why3 prove on the generated output\n" ^
     "  --prover <name>      Prover for --prove (default: z3)\n"
@@ -62,17 +91,25 @@ let () =
     | "--no-prefix" ->
         no_prefix := true;
         incr i
-    | "--dot" ->
+    | "--dump-dot" ->
         if !i + 1 >= Array.length Sys.argv then (
-          prerr_endline "Missing argument for --dot";
+          prerr_endline "Missing argument for --dump-dot";
           exit 1
         ) else (
-          monitor_dot := Some Sys.argv.(!i + 1);
+          dump_dot := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
     | "--prove" ->
         prove := true;
         incr i
+    | "--dump-json" ->
+        if !i + 1 >= Array.length Sys.argv then (
+          prerr_endline "Missing argument for --dump-json";
+          exit 1
+        ) else (
+          dump_json := Some Sys.argv.(!i + 1);
+          i := !i + 2
+        )
     | "-o" ->
         if !i + 1 >= Array.length Sys.argv then (
           prerr_endline "Missing argument for -o";
@@ -103,6 +140,16 @@ let () =
   match List.rev !files with
   | [file] ->
       let p = parse_file file |> add_post_for_next_pre_program in
+      if !dump_dot <> None && (!prove || !output_file <> None) then (
+        prerr_endline "--dump-dot cannot be combined with --prove or -o";
+        exit 1
+      );
+      begin
+        match !dump_json with
+        | None -> ()
+        | Some "-" -> dump_program_json ~out:None p
+        | Some path -> dump_program_json ~out:(Some path) p
+      end;
       let output_and_maybe_prove out =
         let output_path =
           match !output_file with
@@ -135,7 +182,7 @@ let () =
         );
         if output_path = None then print_string out
       in
-      begin match !monitor_dot with
+      begin match !dump_dot with
       | Some out_file ->
           let residual_file =
             if Filename.check_suffix out_file ".dot"
@@ -148,12 +195,6 @@ let () =
             close_out oc
           in
           write residual_file (Dot.dot_monitor_program p);
-          let out =
-            Monitor_emit.compile_program_monitor
-              ~prefix_fields:(not !no_prefix)
-              p
-          in
-          output_and_maybe_prove out
       | None ->
           let out =
             Monitor_emit.compile_program_monitor
