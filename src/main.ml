@@ -147,16 +147,16 @@ let () =
             output_string oc content;
             close_out oc
           in
-          write residual_file (Whygen_emit_automaton.dot_monitor_program p);
+          write residual_file (Whygen_dot.dot_monitor_program p);
           let out =
-            Whygen_emit_automaton.compile_program_monitor
+            Whygen_monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in
           output_and_maybe_prove out
       | None ->
           let out =
-            Whygen_emit_automaton.compile_program_monitor
+            Whygen_monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in

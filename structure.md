@@ -21,8 +21,10 @@ General principles and where they live
   `src/whygen_emit.ml`, aggregated by `src/whygen.ml`.
 - Monitors are derived from LTL specs by progressing formulas and building
   a residual automaton; only then are they injected into the Why3 output.
-  This is split between `src/whygen_automaton_core.ml` (logic) and
-  `src/whygen_emit_automaton.ml` (textual generation + DOT rendering).
+  This is split between `src/whygen_automaton_core.ml` (logic),
+  `src/whygen_monitor_transform.ml` (AST enrichment),
+  `src/whygen_monitor_emit.ml` (textual generation), and
+  `src/whygen_dot.ml` (DOT rendering).
 
 Source modules
 --------------
@@ -44,9 +46,6 @@ Source modules
 - `src/whygen_emit.ml`  
   Why3 AST emission for nodes, contracts, and step semantics.
 
-- `src/whygen_collect.ml`  
-  Collection passes (folds, pre_k, instance calls, etc.).
-
 - `src/whygen.ml`  
   Facade module re-exporting the direct Why3 pipeline.
 
@@ -54,9 +53,15 @@ Source modules
   Monitor core logic: valuations, LTL progression/simplification, residual
   graph construction, and edge label simplification.
 
-- `src/whygen_emit_automaton.ml`  
+- `src/whygen_monitor_transform.ml`  
   Monitor output pipeline: atom extraction/mapping, injection of atom
-  invariants, and DOT rendering (monitor residuals).
+  invariants, and monitor-state enrichment.
+
+- `src/whygen_monitor_emit.ml`  
+  Monitor-focused textual generation (entry points over Whygen).
+
+- `src/whygen_dot.ml`  
+  DOT rendering for residual/monitor graphs.
 
 - `src/whygen_passes.ml`  
   Compiler passes on the AST (e.g., post-conditions added for next-step
@@ -64,11 +69,6 @@ Source modules
 
 - `src/main.ml`  
   CLI: `--dot`, `--help`.
-
-Notes
------
-- The `src/whygen/` directory mirrors the Whygen pipeline with alternate
-  module names used by some tooling and experiments. Keep both in sync.
 
 Generated artifacts
 -------------------
