@@ -18,17 +18,6 @@
 
 open Ast
 
-let escape_dot (s:string) : string =
-  let b = Buffer.create (String.length s) in
-  String.iter
-    (function
-      | '\\' -> Buffer.add_string b "\\\\"
-      | '"' -> Buffer.add_string b "\\\""
-      | '\n' -> Buffer.add_string b "\\n"
-      | c -> Buffer.add_char b c)
-    s;
-  Buffer.contents b
-
 let escape_dot_label (s:string) : string =
   let b = Buffer.create (String.length s) in
   String.iter
@@ -336,19 +325,6 @@ let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
   | FRel (HNow (IVar name), REq, HNow (ILitBool true)) ->
       lookup_val vals name
   | _ -> false
-
-let rec eval_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
-  : bool =
-  match f with
-  | LTrue -> true
-  | LFalse -> false
-  | LAtom a -> eval_atom atom_map vals a
-  | LNot a -> not (eval_ltl atom_map vals a)
-  | LAnd (a,b) -> eval_ltl atom_map vals a && eval_ltl atom_map vals b
-  | LOr (a,b) -> eval_ltl atom_map vals a || eval_ltl atom_map vals b
-  | LImp (a,b) -> (not (eval_ltl atom_map vals a)) || eval_ltl atom_map vals b
-  | LX _ -> true
-  | LG a -> eval_ltl atom_map vals a
 
 let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
   : ltl =

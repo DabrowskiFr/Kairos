@@ -119,32 +119,7 @@ let compile_hexpr_instance ?(in_post=false) (env:env) (inst_name:ident)
       end
   | HFold (_,_,e) -> compile_term_instance env inst_name node_name inputs e
 
-let rec compile_ltl_term_instance ?(in_post=false) (env:env) (inst_name:ident)
-  (node_name:ident) (inputs:ident list) (pre_k_map:(hexpr * pre_k_info) list)
-  (f:ltl) : Ptree.term =
-  match f with
-  | LTrue -> mk_term Ttrue
-  | LFalse -> mk_term Tfalse
-  | LNot a ->
-      mk_term (Tnot (compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a))
-  | LAnd (a,b) ->
-      mk_term (Tbinop (compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
-                       Dterm.DTand,
-                       compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
-  | LOr (a,b) ->
-      mk_term (Tbinop (compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
-                       Dterm.DTor,
-                       compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
-  | LImp (a,b) ->
-      mk_term (Tbinop (compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
-                       Dterm.DTimplies,
-                       compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map b))
-  | LX a -> compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a
-  | LG a -> compile_ltl_term_instance ~in_post env inst_name node_name inputs pre_k_map a
-  | LAtom f ->
-      compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map f
-
-and compile_fo_term_instance ?(in_post=false) (env:env) (inst_name:ident)
+let rec compile_fo_term_instance ?(in_post=false) (env:env) (inst_name:ident)
   (node_name:ident) (inputs:ident list) (pre_k_map:(hexpr * pre_k_info) list)
   (f:fo) : Ptree.term =
   match f with
@@ -218,20 +193,7 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
               end
           | HFold (_,_,e) -> compile_term env e
 
-let rec compile_ltl_term ?(prefer_link=false) (env:env) (f:ltl) : Ptree.term =
-  match f with
-  | LTrue -> mk_term Ttrue
-  | LFalse -> mk_term Tfalse
-  | LNot a -> mk_term (Tnot (compile_ltl_term ~prefer_link env a))
-  | LAnd (a,b) -> mk_term (Tbinop (compile_ltl_term ~prefer_link env a, Dterm.DTand, compile_ltl_term ~prefer_link env b))
-  | LOr (a,b) -> mk_term (Tbinop (compile_ltl_term ~prefer_link env a, Dterm.DTor, compile_ltl_term ~prefer_link env b))
-  | LImp (a,b) -> mk_term (Tbinop (compile_ltl_term ~prefer_link env a, Dterm.DTimplies, compile_ltl_term ~prefer_link env b))
-  | LX a -> compile_ltl_term ~prefer_link env a
-  | LG a -> compile_ltl_term ~prefer_link env a
-  | LAtom f ->
-      compile_fo_term ~prefer_link env f
-
-and compile_fo_term ?(prefer_link=false) (env:env) (f:fo) : Ptree.term =
+let rec compile_fo_term ?(prefer_link=false) (env:env) (f:fo) : Ptree.term =
   match f with
   | FTrue -> mk_term Ttrue
   | FFalse -> mk_term Tfalse
@@ -326,9 +288,6 @@ and rel_fo (env:env) (f:fo) : fo =
 type spec_frag = { pre: Ptree.term list; post: Ptree.term list }
 
 let empty_frag : spec_frag = { pre = []; post = [] }
-
-let join_and (a:spec_frag) (b:spec_frag) : spec_frag =
-  { pre = a.pre @ b.pre; post = a.post @ b.post }
 
 let ltl_spec (env:env) (f:ltl) : spec_frag =
   let rec has_x = function

@@ -16,5 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** {1 Parsing} *)
+
 (** Parse file. *)
 val parse_file : string -> Ast.program

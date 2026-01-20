@@ -24,98 +24,97 @@ open Whygen_support
 open Whygen_collect
 open Whygen_compile_expr
 
-let rec compile_stmt (env:env)
-  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
-  (s:stmt) : Ptree.expr =
-  match s with
-  | SSkip -> mk_expr (Etuple [])
-  | SAssign (x,e) ->
-      let is_ghost_local name =
-        (String.length name >= 7 && String.sub name 0 7 = "__atom_")
-        || (String.length name >= 5 && String.sub name 0 5 = "atom_")
-        || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
-      in
-      let tgt =
-        if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
-      in
-      let assign = mk_expr (Eassign [(tgt, None, compile_iexpr env e)]) in
-      if is_ghost_local x then mk_expr (Eghost assign) else assign
-  | SIf (c, tbr, fbr) ->
-      mk_expr (Eif (compile_iexpr env c, compile_seq env call_asserts tbr, compile_seq env call_asserts fbr))
-  | SMatch (e, branches, default) ->
-      let scrut = compile_iexpr env e in
-      let branches =
-        List.map
-          (fun (ctor, body) ->
-             let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
-             (pat, compile_seq env call_asserts body))
-          branches
-      in
-      let branches =
-        if default = [] then branches
-        else branches @ [({pat_desc=Pwild; pat_loc=loc}, compile_seq env call_asserts default)]
-      in
-      mk_expr (Ematch (scrut, branches, []))
-  | SCall (inst, args, outs) ->
-      let node_name =
-        match List.assoc_opt inst env.inst_map with
-        | Some n -> n
-        | None -> failwith ("unknown instance: " ^ inst)
-      in
-      let module_name = module_name_of_node node_name in
-      let inst_var = field env inst in
-      let call_args = inst_var :: List.map (compile_iexpr env) args in
-      let call_expr =
-        apply_expr (mk_expr (Eident (qdot (qid1 module_name) "step"))) call_args
-      in
-      let call_expr =
-        begin match outs with
-      | [] ->
-          let tmp = ident "__call" in
-          mk_expr (Elet (tmp, false, Expr.RKnone, call_expr, mk_expr (Etuple [])))
-      | [x] ->
-          let tgt =
-            if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
-          in
-          mk_expr (Eassign [(tgt, None, call_expr)])
-      | xs ->
-          let tmp_ids = List.mapi (fun i _ -> ident (Printf.sprintf "__call%d" i)) xs in
-          let pat =
-            { pat_desc = Ptuple (List.map (fun id -> { pat_desc = Pvar id; pat_loc = loc }) tmp_ids);
-              pat_loc = loc }
-          in
-          let assigns =
-            List.map2
-              (fun x id ->
-                 let tgt =
-                   if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
-                 in
-                 mk_expr (Eassign [(tgt, None, mk_expr (Eident (Ptree.Qident id))) ]))
-              xs tmp_ids
-          in
-          let body =
-            match assigns with
-            | [] -> mk_expr (Etuple [])
-            | [a] -> a
-            | a::rest -> List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) a rest
-          in
-          mk_expr (Ematch (call_expr, [(pat, body)], []))
-        end
-      in
-      let let_bindings, _asserts = call_asserts (inst, args, outs) in
-      let call_with_asserts = call_expr in
-      let wrap_let (id, pre_expr) acc =
-        mk_expr (Elet (id, false, Expr.RKnone, pre_expr, acc))
-      in
-      List.fold_right wrap_let let_bindings call_with_asserts
-and compile_seq (env:env)
+let rec compile_seq (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
   (lst:stmt list) : Ptree.expr =
+  let compile_stmt (s:stmt) : Ptree.expr =
+    match s with
+    | SSkip -> mk_expr (Etuple [])
+    | SAssign (x,e) ->
+        let is_ghost_local name =
+          (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+          || (String.length name >= 5 && String.sub name 0 5 = "atom_")
+          || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+        in
+        let tgt =
+          if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+        in
+        let assign = mk_expr (Eassign [(tgt, None, compile_iexpr env e)]) in
+        if is_ghost_local x then mk_expr (Eghost assign) else assign
+    | SIf (c, tbr, fbr) ->
+        mk_expr (Eif (compile_iexpr env c, compile_seq env call_asserts tbr, compile_seq env call_asserts fbr))
+    | SMatch (e, branches, default) ->
+        let scrut = compile_iexpr env e in
+        let branches =
+          List.map
+            (fun (ctor, body) ->
+               let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
+               (pat, compile_seq env call_asserts body))
+            branches
+        in
+        let branches =
+          if default = [] then branches
+          else branches @ [({pat_desc=Pwild; pat_loc=loc}, compile_seq env call_asserts default)]
+        in
+        mk_expr (Ematch (scrut, branches, []))
+    | SCall (inst, args, outs) ->
+        let node_name =
+          match List.assoc_opt inst env.inst_map with
+          | Some n -> n
+          | None -> failwith ("unknown instance: " ^ inst)
+        in
+        let module_name = module_name_of_node node_name in
+        let inst_var = field env inst in
+        let call_args = inst_var :: List.map (compile_iexpr env) args in
+        let call_expr =
+          apply_expr (mk_expr (Eident (qdot (qid1 module_name) "step"))) call_args
+        in
+        let call_expr =
+          begin match outs with
+        | [] ->
+            let tmp = ident "__call" in
+            mk_expr (Elet (tmp, false, Expr.RKnone, call_expr, mk_expr (Etuple [])))
+        | [x] ->
+            let tgt =
+              if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+            in
+            mk_expr (Eassign [(tgt, None, call_expr)])
+        | xs ->
+            let tmp_ids = List.mapi (fun i _ -> ident (Printf.sprintf "__call%d" i)) xs in
+            let pat =
+              { pat_desc = Ptuple (List.map (fun id -> { pat_desc = Pvar id; pat_loc = loc }) tmp_ids);
+                pat_loc = loc }
+            in
+            let assigns =
+              List.map2
+                (fun x id ->
+                   let tgt =
+                     if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+                   in
+                   mk_expr (Eassign [(tgt, None, mk_expr (Eident (Ptree.Qident id))) ]))
+                xs tmp_ids
+            in
+            let body =
+              match assigns with
+              | [] -> mk_expr (Etuple [])
+              | [a] -> a
+              | a::rest -> List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) a rest
+            in
+            mk_expr (Ematch (call_expr, [(pat, body)], []))
+          end
+        in
+        let let_bindings, _asserts = call_asserts (inst, args, outs) in
+        let call_with_asserts = call_expr in
+        let wrap_let (id, pre_expr) acc =
+          mk_expr (Elet (id, false, Expr.RKnone, pre_expr, acc))
+        in
+        List.fold_right wrap_let let_bindings call_with_asserts
+  in
   match lst with
   | [] -> mk_expr (Etuple [])
-  | [s] -> compile_stmt env call_asserts s
+  | [s] -> compile_stmt s
   | s::rest ->
-      mk_expr (Esequence (compile_stmt env call_asserts s, compile_seq env call_asserts rest))
+      mk_expr (Esequence (compile_stmt s, compile_seq env call_asserts rest))
 
 let apply_op (op:op) (e1:Ptree.expr) (e2:Ptree.expr) : Ptree.expr =
   match op with

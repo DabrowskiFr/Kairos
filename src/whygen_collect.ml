@@ -20,23 +20,6 @@
 open Ast
 open Whygen_support
 
-let rec stmt_list_has_assign (name:ident) (expr:iexpr) (stmts:stmt list) : bool =
-  match stmts with
-  | [] -> false
-  | SAssign (x,e) :: _ when x = name && e = expr -> true
-  | _ :: rest -> stmt_list_has_assign name expr rest
-
-let stmt_list_is_assign (name:ident) (expr:iexpr) (stmts:stmt list) : bool =
-  match stmts with
-  | [] -> false
-  | [SAssign (x,e)] -> x = name && e = expr
-  | [SAssign (x,e); SSkip] -> x = name && e = expr
-  | [SSkip; SAssign (x,e)] -> x = name && e = expr
-  | _ -> false
-
-let is_skip_list (lst:stmt list) : bool =
-  lst = [] || List.for_all (function SSkip -> true | _ -> false) lst
-
 let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with
