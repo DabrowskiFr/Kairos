@@ -1,0 +1,23 @@
+node edge_rise(x: int) returns (y: int)
+guarantee G( {y} = {1} => {x} = {1} );
+guarantee G( {y} = {1} => pre(x, 0) = {0} );
+guarantee G( ({x} = {1} and pre(x, 0) = {0}) => {y} = {1} );
+locals
+  prev : int;
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    y := 0;
+    prev := x;
+  }
+  Run -> Run {
+    if x = 1 and prev = 0 then
+      y := 1;
+    else
+      y := 0;
+    end;
+    prev := x;
+  }
+end

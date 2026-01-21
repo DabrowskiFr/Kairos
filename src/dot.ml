@@ -21,8 +21,10 @@ open Support
 open Automaton_core
 open Specs
 
-let dot_residual_program (p:program) : string =
+let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   let buf = Buffer.create 4096 in
+  let label_buf = Buffer.create 4096 in
+  let edge_id = ref 0 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let collect_atoms_specs ~(fo:fo list) ~(ltl:ltl list) : fo list =
@@ -62,14 +64,6 @@ let dot_residual_program (p:program) : string =
     let atom_map =
       List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
     in
-    let atom_lines =
-      List.map2
-        (fun (_, e) name ->
-           let base = Printf.sprintf "%s = %s" name (Support.string_of_iexpr e) in
-           let suffix = fold_origin_suffix_for_expr fold_map e in
-           base ^ suffix)
-        atom_exprs atom_names
-    in
     let f_list =
       let ltl_terms = List.map (replace_atoms_ltl atom_map) ltl_specs in
       let fo_terms =
@@ -80,43 +74,74 @@ let dot_residual_program (p:program) : string =
     let f0 =
       List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list
     in
-    let valuations = all_valuations atom_names in
+    let valuations = enumerate_valuations atom_map atom_names in
     let cluster = Support.module_name_of_node n.nname in
-    let cluster_label =
-      if atom_lines = [] then cluster
-      else
-        cluster ^ "\\n\\n" ^ "atoms:\\n" ^ String.concat "\\n" atom_lines
+    let atom_lines =
+      List.map2
+        (fun (_, e) name ->
+           let base = Printf.sprintf "%s = %s" name (Support.string_of_iexpr e) in
+           let suffix = fold_origin_suffix_for_expr fold_map e in
+           base ^ suffix)
+        atom_exprs atom_names
     in
+    if (not show_labels) && atom_lines <> [] then (
+      Buffer.add_string label_buf (Printf.sprintf "atoms:\n");
+      Buffer.add_string label_buf (Printf.sprintf "  module: %s\n" cluster);
+      Buffer.add_string label_buf "  items:\n";
+      List.iter
+        (fun line -> Buffer.add_string label_buf (Printf.sprintf "    - %s\n" line))
+        atom_lines;
+      Buffer.add_string label_buf "\n"
+    );
     Buffer.add_string buf (Printf.sprintf "  subgraph cluster_%s {\n" cluster);
-    Buffer.add_string buf (Printf.sprintf "    label=\"%s\";\n" (escape_dot_label cluster_label));
+    Buffer.add_string buf (Printf.sprintf "    label=\"%s\";\n" (escape_dot_label cluster));
     Buffer.add_string buf "    labelloc=\"b\";\n";
     Buffer.add_string buf "    labeljust=\"l\";\n";
     let (states, transitions) = build_residual_graph atom_map valuations f0 in
     let (states, transitions) =
       minimize_residual_graph valuations states transitions
     in
+    let grouped = group_transitions_bdd atom_names transitions in
     List.iteri
       (fun i f ->
-         let lbl = escape_dot_label (Support.string_of_ltl f) in
-         Buffer.add_string buf (Printf.sprintf "    %s_r%d [shape=box,label=\"%s\"];\n" cluster i lbl))
+         let node_id = string_of_int i in
+         let node_label =
+           if show_labels then Support.string_of_ltl f else node_id
+         in
+         let lbl = escape_dot_label node_label in
+         let shape =
+           match f with
+           | LFalse -> "doublecircle"
+           | _ -> "circle"
+         in
+         Buffer.add_string buf
+           (Printf.sprintf "    %s_r%d [shape=%s,label=\"%s\"];\n" cluster i shape lbl);
+         if not show_labels then
+           Buffer.add_string label_buf
+             (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n"
+                node_id (Support.string_of_ltl f)))
       states;
-    let edge_map = Hashtbl.create 16 in
     List.iter
-      (fun (i, vals, j) ->
-         let key = (i, j) in
-         let prev = Hashtbl.find_opt edge_map key |> Option.value ~default:[] in
-         Hashtbl.replace edge_map key (vals :: prev))
-      transitions;
-    Hashtbl.iter
-      (fun (i, j) vals_list ->
-         let lbl = valuations_to_formula atom_names vals_list |> escape_dot_label in
+      (fun (i, guard, j) ->
+         let formula = bdd_to_formula atom_names guard in
+         let lbl =
+           if show_labels then
+             escape_dot_label formula
+           else
+             let id = Printf.sprintf "e_%d" !edge_id in
+             incr edge_id;
+             Buffer.add_string label_buf
+               (Printf.sprintf "edge:\n  id: %s\n  src: %d\n  dst: %d\n  guard: %s\n\n"
+                  id i j formula);
+             escape_dot_label id
+         in
          Buffer.add_string buf (Printf.sprintf "    %s_r%d -> %s_r%d [label=\"%s\"];\n" cluster i cluster j lbl))
-      edge_map;
+      grouped;
     Buffer.add_string buf "  }\n";
   in
   List.iter add_node_block p;
   Buffer.add_string buf "}\n";
-  Buffer.contents buf
+  (Buffer.contents buf, Buffer.contents label_buf)
 
-let dot_monitor_program (p:program) : string =
-  dot_residual_program p
+let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
+  dot_residual_program ~show_labels p

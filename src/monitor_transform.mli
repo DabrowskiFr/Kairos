@@ -42,7 +42,7 @@ val transform_node : Ast.node -> Ast.node
 val monitor_update_stmts :
   Ast.ident list ->
   Automaton_core.residual_state list ->
-  Automaton_core.residual_transition list -> Ast.stmt list
+  Automaton_core.guarded_transition list -> Ast.stmt list
 (** Compute monitor assert. *)
 val monitor_assert : int -> Ast.stmt list
 (** Compute transform node monitor. *)

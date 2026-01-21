@@ -60,16 +60,19 @@ let dump_program_json ~(out:string option) (p:program) : unit =
 
 let () =
   let dump_dot = ref None in
+  let dump_dot_labels = ref None in
   let no_prefix = ref true in
   let show_help = ref false in
   let prove = ref false in
   let prover = ref "z3" in
   let output_file = ref None in
   let dump_json = ref None in
+  let naive_automaton = ref false in
   let files = ref [] in
   let usage =
     "Usage: obc2why3\n" ^
     "                [--dump-dot <file.dot>]\n" ^
+    "                [--dump-dot-labels <file.dot>]\n" ^
     "                [--dump-json <file.json>|-]\n" ^
     "                [-o <file.why>]\n" ^
     "                [--prove --prover <name>] <file.obc>\n" ^
@@ -77,6 +80,9 @@ let () =
     "  --help               Show this help message\n" ^
     "  --no-prefix          Do not prefix vars fields with the module name (default)\n" ^
     "  --dump-dot           Generate DOT for the monitor residual graph only\n" ^
+    "                       (writes node/edge labels to <file>.labels)\n" ^
+    "  --dump-dot-labels    Generate DOT with full node/edge labels\n" ^
+    "  --naive-automaton    Use naive automaton construction (no BDD constraints)\n" ^
     "  --dump-json          Dump internal AST as JSON to file (or - for stdout)\n" ^
     "  -o <file.why>        Write generated Why3 to this file\n" ^
     "  --prove              Run why3 prove on the generated output\n" ^
@@ -99,6 +105,14 @@ let () =
           dump_dot := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
+    | "--dump-dot-labels" ->
+        if !i + 1 >= Array.length Sys.argv then (
+          prerr_endline "Missing argument for --dump-dot-labels";
+          exit 1
+        ) else (
+          dump_dot_labels := Some Sys.argv.(!i + 1);
+          i := !i + 2
+        )
     | "--prove" ->
         prove := true;
         incr i
@@ -110,6 +124,9 @@ let () =
           dump_json := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
+    | "--naive-automaton" ->
+        naive_automaton := true;
+        incr i
     | "-o" ->
         if !i + 1 >= Array.length Sys.argv then (
           prerr_endline "Missing argument for -o";
@@ -140,8 +157,14 @@ let () =
   match List.rev !files with
   | [file] ->
       let p = parse_file file |> add_post_for_next_pre_program in
-      if !dump_dot <> None && (!prove || !output_file <> None) then (
+      Automaton_core.set_naive_automaton !naive_automaton;
+      if (!dump_dot <> None || !dump_dot_labels <> None)
+         && (!prove || !output_file <> None) then (
         prerr_endline "--dump-dot cannot be combined with --prove or -o";
+        exit 1
+      );
+      if !dump_dot <> None && !dump_dot_labels <> None then (
+        prerr_endline "--dump-dot and --dump-dot-labels are mutually exclusive";
         exit 1
       );
       begin
@@ -182,8 +205,10 @@ let () =
         );
         if output_path = None then print_string out
       in
-      begin match !dump_dot with
-      | Some out_file ->
+      begin match !dump_dot, !dump_dot_labels with
+      | Some out_file, None
+      | None, Some out_file ->
+          let show_labels = !dump_dot_labels <> None in
           let residual_file =
             if Filename.check_suffix out_file ".dot"
             then out_file
@@ -194,14 +219,25 @@ let () =
             output_string oc content;
             close_out oc
           in
-          write residual_file (Dot.dot_monitor_program p);
-      | None ->
+          let dot, labels = Dot.dot_monitor_program ~show_labels p in
+          write residual_file dot;
+          if not show_labels then (
+            let label_file =
+              if Filename.check_suffix residual_file ".dot" then
+                Filename.remove_extension residual_file ^ ".labels"
+              else
+                residual_file ^ ".labels"
+            in
+            write label_file labels
+          );
+      | None, None ->
           let out =
             Monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in
           output_and_maybe_prove out
+      | Some _, Some _ -> ()
       end
   | _ ->
       prerr_endline usage;

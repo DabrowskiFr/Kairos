@@ -26,6 +26,24 @@ val escape_dot_label : string -> string
 (** Escape a string for DOT quoted labels. *)
 val all_valuations : string list -> (string * bool) list list
 (** Enumerate all boolean valuations for a list of atom names. *)
+
+val monitor_log_enabled : bool
+(** True when monitor logging is enabled via [OBCWHY3_LOG_MONITOR]. *)
+
+val constrained_valuations :
+  (Ast.fo * Ast.ident) list ->
+  string list ->
+  (string * bool) list list
+(** Enumerate valuations and filter inconsistent ones using atom equalities. *)
+
+val set_naive_automaton : bool -> unit
+(** Toggle naive automaton construction (no BDD constraints). *)
+
+val enumerate_valuations :
+  (Ast.fo * Ast.ident) list ->
+  string list ->
+  (string * bool) list list
+(** Enumerate valuations using the selected automaton strategy. *)
 val valuation_label : (string * bool) list -> string
 (** Compact label for a valuation (name=0/1). *)
 type term = (string * bool option) list
@@ -76,6 +94,11 @@ val progress_ltl :
 (** Progress an LTL formula through one valuation. *)
 type residual_state = Ast.ltl
 type residual_transition = int * (string * bool) list * int
+(** Residual transition (src, valuation, dst). *)
+type grouped_transition = int * (string * bool) list list * int
+(** Residual transition grouped by destination (src, valuations, dst). *)
+type guarded_transition = int * int * int
+(** Residual transition grouped with a BDD guard (src, guard, dst). *)
 (** Build residual graph. *)
 val build_residual_graph :
   (Ast.fo * Ast.ident) list ->
@@ -87,3 +110,14 @@ val minimize_residual_graph :
   residual_state list ->
   residual_transition list -> residual_state list * residual_transition list
 (** Minimize the residual automaton by partition refinement. *)
+
+val group_transitions : residual_transition list -> grouped_transition list
+(** Group transitions by (src,dst) and aggregate valuations. *)
+val group_transitions_bdd :
+  string list -> residual_transition list -> guarded_transition list
+(** Group transitions by (src,dst) and aggregate valuations into a BDD guard. *)
+
+val bdd_to_formula : string list -> int -> string
+(** Convert a BDD into a boolean formula string. *)
+val bdd_to_iexpr : string list -> int -> Ast.iexpr
+(** Convert a BDD into an iexpr formula. *)

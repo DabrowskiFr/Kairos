@@ -16,19 +16,19 @@ Basic usage
 Generate Why3 (monitor translation, default):
 
 ```sh
-dune exec -- obc2why3 examples/main/toggle01.obc > out/toggle01_monitor.why
+dune exec -- obc2why3 tests/toggle/toggle.obc > out/toggle_monitor.why
 ```
 
 Generate Why3 to a file:
 
 ```sh
-dune exec -- obc2why3 -o out/toggle01_monitor.why examples/main/toggle01.obc
+dune exec -- obc2why3 -o out/toggle_monitor.why tests/toggle/toggle.obc
 ```
 
 Run Why3 directly from obc2why3:
 
 ```sh
-dune exec -- obc2why3 --prove --prover z3 examples/main/toggle01.obc > out/toggle01_monitor.why
+dune exec -- obc2why3 --prove --prover z3 tests/toggle/toggle.obc > out/toggle_monitor.why
 ```
 
 Monitor DOT and PDF
@@ -36,17 +36,27 @@ Monitor DOT and PDF
 Generate DOT file for the monitor residual graph:
 
 ```sh
-dune exec -- obc2why3 --dump-dot out/toggle01_monitor.dot examples/main/toggle01.obc
+dune exec -- obc2why3 --dump-dot out/toggle_monitor.dot tests/toggle/toggle.obc
 ```
 
 This writes:
 
-- `out/toggle01_monitor.dot`
+- `out/toggle_monitor.dot`
+- `out/toggle_monitor.labels`
+
+The `.labels` file stores node and edge formulas in a YAML format. Nodes and
+edges in the DOT use compact labels (`<n>` for nodes, `e_<n>` for edges).
 
 Convert DOT to PDF (Graphviz `dot`):
 
 ```sh
-dot -Tpdf out/toggle01_monitor.dot -o out/toggle01_monitor.pdf
+dot -Tpdf out/toggle_monitor.dot -o out/toggle_monitor.pdf
+```
+
+Generate DOT with full labels (no `.labels` file):
+
+```sh
+dune exec -- obc2why3 --dump-dot-labels out/toggle_monitor.dot tests/toggle/toggle.obc
 ```
 
 Why3 verification
@@ -105,7 +115,10 @@ All available options:
 
 - `--help`                 Show this help message
 - `--no-prefix`            Do not prefix `vars` fields with the module name (default)
-- `--dump-dot <file>`      Generate DOT for the monitor residual graph only
+- `--dump-dot <file>`      Generate DOT for the monitor residual graph only (writes `.labels`)
+- `--dump-dot-labels <file>` Generate DOT with full node/edge labels
+- `--dump-json <file>|-`   Dump internal AST as JSON to file (or `-` for stdout)
+- `--naive-automaton`      Use naive automaton construction (no BDD constraints)
 - `-o <file.why>`          Write generated Why3 to this file
 - `--prove`                Run why3 prove on the generated output
 - `--prover <name>`        Prover for --prove (default: z3)

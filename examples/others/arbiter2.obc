@@ -1,0 +1,30 @@
+node arbiter2(req1: int, req2: int) returns (g1: int, g2: int)
+guarantee G( {req1} = {1} => X( {g1} = {1} ) );
+guarantee G( {req1} = {1} => X( {g2} = {0} ) );
+guarantee G( ({req1} = {0} and {req2} = {1}) => X( {g2} = {1} ) );
+guarantee G( ({req1} = {0} and {req2} = {1}) => X( {g1} = {0} ) );
+guarantee G( ({req1} = {0} and {req2} = {0}) => X( {g1} = {0} and {g2} = {0} ) );
+locals
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    g1 := 0;
+    g2 := 0;
+  }
+  Run -> Run {
+    if req1 = 1 then
+      g1 := 1;
+      g2 := 0;
+    else
+      if req2 = 1 then
+        g1 := 0;
+        g2 := 1;
+      else
+        g1 := 0;
+        g2 := 0;
+      end;
+    end;
+  }
+end
