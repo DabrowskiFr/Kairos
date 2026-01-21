@@ -19,6 +19,15 @@
   dot
   monitor_emit
   specs
+  automaton_util
+  automaton_config
+  automaton_atoms
+  automaton_naive
+  automaton_valuation
+  automaton_bdd
+  automaton_ltl
+  automaton_types
+  automaton_residual
   automaton_core)
  (libraries str re why3)
  (preprocess (pps ppx_deriving.show)))
@@ -29,9 +38,4 @@
  (modules main)
  (libraries obcwhy3_lib))
 
-(include_subdirs no)
-
-(ocamllex lexer)
-
-(menhir
- (modules parser))
+(include_subdirs unqualified)

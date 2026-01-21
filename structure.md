@@ -25,7 +25,10 @@ General principles and where they live
   `src/emit.ml`.
 - Monitors are derived from LTL specs by progressing formulas and building
   a residual automaton; only then are they injected into the Why3 output.
-  This is split between `src/automaton_core.ml` (logic),
+  This is split between `src/automaton_residual.ml` (automaton building),
+  `src/automaton_bdd.ml`/`src/automaton_naive.ml` (valuation strategies),
+  `src/automaton_ltl.ml` (LTL normalization),
+  `src/automaton_core.ml` (façade),
   `src/monitor_transform.ml` (AST enrichment),
   `src/monitor_emit.ml` (textual generation), and
   `src/dot.ml` (DOT rendering).
@@ -35,7 +38,7 @@ Source modules
 - `src/ast.ml`  
   AST for OBC, expressions, and LTL.
 
-- `src/lexer.mll` / `src/parser.mly`  
+- `src/parse/lexer.mll` / `src/parse/parser.mly`  
   Lexer and parser for OBC and contracts.
 
 - `src/support.ml`  
@@ -47,37 +50,63 @@ Source modules
 - `src/compile_expr.ml`  
   Compile expressions/LTL into Why3 terms.
 
-- `src/emit_why_types.ml`  
+- `src/emit_why/emit_why_types.ml`  
   Shared record types for Why3 emission (environment + contracts).
 
-- `src/emit_why_env.ml`  
+- `src/emit_why/emit_why_env.ml`  
   Helper logic for monitor constructors and environment preparation.
 
-- `src/emit_why_contracts.ml`  
+- `src/emit_why/emit_why_contracts.ml`  
   Contract assembly and fold post-conditions.
 
-- `src/emit_why_diagnostics.ml`  
+- `src/emit_why/emit_why_diagnostics.ml`  
   Spec labeling and grouping for diagnostics.
 
-- `src/emit_why_core.ml`  
+- `src/emit_why/emit_why_core.ml`  
   Statement/transition emission.
 
 - `src/emit.ml`  
   Why3 AST emission for nodes, contracts, and step semantics (façade).
 
 
-- `src/automaton_core.ml`  
-  Monitor core logic: valuations, LTL progression/simplification, residual
-  graph construction, and edge label simplification.
+- `src/automaton/automaton_core.ml`  
+  Façade over automaton components; exposes a stable API to the rest of the pipeline.
 
-- `src/monitor_transform.ml`  
+- `src/automaton/automaton_util.ml`  
+  DOT helpers (label escaping).
+
+- `src/automaton/automaton_config.ml`  
+  Monitor logging flags and selection of naive vs BDD strategies.
+
+- `src/logic/automaton_atoms.ml`  
+  Atom equality extraction used by valuation constraints.
+
+- `src/automaton/automaton_naive.ml`  
+  Naive valuation enumeration and consistency filtering.
+
+- `src/automaton/automaton_bdd.ml`  
+  BDD-backed valuation enumeration, guard aggregation, and BDD to formula conversion.
+
+- `src/logic/automaton_valuation.ml`  
+  Valuation helpers and boolean minimization utilities.
+
+- `src/logic/automaton_ltl.ml`  
+  LTL normalization, simplification, and progression.
+
+- `src/automaton/automaton_types.ml`  
+  Shared residual automaton types.
+
+- `src/automaton/automaton_residual.ml`  
+  Residual automaton construction, minimization, and transition grouping.
+
+- `src/monitor/monitor_transform.ml`  
   Monitor output pipeline: atom extraction/mapping, injection of atom
   invariants, and monitor-state enrichment.
 
-- `src/monitor_emit.ml`  
+- `src/monitor/monitor_emit.ml`  
   Monitor-focused textual generation (entry points over Emit).
 
-- `src/dot.ml`  
+- `src/monitor/dot.ml`  
   DOT rendering for residual/monitor graphs.
 
 - `src/passes.ml`  
@@ -85,7 +114,7 @@ Source modules
   preconditions).
 
 - `src/main.ml`  
-  CLI: `--dump-dot`, `--help`.
+  CLI: `--dump-dot`, `--dump-dot-labels`, `--dump-json`, `--help`.
 
 Generated artifacts
 -------------------
