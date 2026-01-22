@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+[@@@ocaml.warning "-32"]
+
 open Ast
 open Support
 open Automaton_core
@@ -144,6 +146,7 @@ let bool_like_vars ~(var_types:(ident * ty) list) (n:node)
     table
     []
 
+(* NOTE: currently unused; kept for reference if we re-enable bool-like normalization. *)
 let normalize_bool_atoms ~(bool_vars:(ident * bool_like) list) (n:node) : node =
   let bool_map = List.to_seq bool_vars |> Hashtbl.of_seq in
   let base_int x = FRel (HNow (IVar x), REq, HNow (ILitInt 1)) in
@@ -232,8 +235,8 @@ let transform_node (n:node) : node =
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
-  let bool_vars = bool_like_vars ~var_types n in
-  let n = normalize_bool_atoms ~bool_vars n in
+  let _bool_vars = bool_like_vars ~var_types n in
+  let n = n in
   let fold_map = fold_map_for_node n in
   let fold_internal_invariants =
     List.map
@@ -343,8 +346,8 @@ let transform_node_monitor (n:node) : node =
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
-  let bool_vars = bool_like_vars ~var_types n in
-  let n = normalize_bool_atoms ~bool_vars n in
+  let _bool_vars = bool_like_vars ~var_types n in
+  let n = n in
   let fold_map = fold_map_for_node n in
   let fold_internal_invariants =
     List.map
@@ -484,57 +487,41 @@ let transform_node_monitor (n:node) : node =
     in
     find 0 states
   in
-  let monitor_assumes, monitor_guarantees =
+  let bad_state_fo_opt =
+    if bad_idx < 0 then
+      None
+    else
+      Some
+        (FRel (HNow (IVar monitor_state_name),
+               RNeq,
+               HNow (monitor_state_expr bad_idx)))
+  in
+  let incoming_prev_fo =
     let mon = monitor_state_name in
-    let mk_state_formula i f =
-      let cond =
-        LAtom (FRel (HNow (IVar mon), REq, HNow (monitor_state_expr i)))
-      in
-      let f = simplify_ltl f in
-      let inv = LG (LImp (cond, f)) in
-      [inv]
+    let by_dst = Hashtbl.create 16 in
+    List.iter
+      (fun (_i, guard, j) ->
+         let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:[] in
+         Hashtbl.replace by_dst j (guard :: prev))
+      grouped;
+    let or_iexpr = function
+      | [] -> ILitBool false
+      | [x] -> x
+      | x :: xs -> List.fold_left (fun acc v -> IBin (Or, acc, v)) x xs
     in
-    let state_invs = List.concat (List.mapi mk_state_formula states) in
-    let rec ltl_of_iexpr_now = function
-      | ILitBool true -> LTrue
-      | ILitBool false -> LFalse
-      | IVar name ->
-          let h = HNow (IVar name) in
-          LAtom (FRel (h, REq, HNow (ILitBool true)))
-      | IUn (Not, IVar name) ->
-          let h = HNow (IVar name) in
-          LAtom (FRel (h, REq, HNow (ILitBool false)))
-      | IUn (Not, e) -> LNot (ltl_of_iexpr_now e)
-      | IBin (And, a, b) -> LAnd (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
-      | IBin (Or, a, b) -> LOr (ltl_of_iexpr_now a, ltl_of_iexpr_now b)
-      | _ -> LTrue
+    let guard_fo guard =
+      FRel (HNow guard, REq, HNow (ILitBool true))
     in
-    let incoming_prev =
-      let by_dst = Hashtbl.create 16 in
-      List.iter
-        (fun (_i, guard, j) ->
-           let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:[] in
-           Hashtbl.replace by_dst j (guard :: prev))
-        grouped;
-      let or_iexpr = function
-        | [] -> ILitBool false
-        | [x] -> x
-        | x :: xs -> List.fold_left (fun acc v -> IBin (Or, acc, v)) x xs
-      in
-      Hashtbl.fold
-        (fun j guards acc ->
-           let cond =
-             LAtom (FRel (HNow (IVar mon), REq, HNow (monitor_state_expr j)))
-           in
-           let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
-           let guard = ltl_of_iexpr_now (or_iexpr guard_exprs) in
-           let inv = simplify_ltl (LG (LImp (cond, guard))) in
-           inv :: acc)
-        by_dst
-        []
-    in
-    let incoming_prev = incoming_prev in
-    (state_invs @ incoming_prev, incoming_prev)
+    Hashtbl.fold
+      (fun j guards acc ->
+         let cond =
+           FRel (HNow (IVar mon), REq, HNow (monitor_state_expr j))
+         in
+         let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
+         let guard = guard_fo (or_iexpr guard_exprs) in
+         FImp (cond, guard) :: acc)
+      by_dst
+      []
   in
   let monitor_updates = monitor_update_stmts atom_names states grouped in
   let monitor_asserts = monitor_assert bad_idx in
@@ -542,14 +529,28 @@ let transform_node_monitor (n:node) : node =
     List.map
       (fun (t:transition) ->
          let t = replace_atoms_transition atom_map t in
+         let t =
+           match bad_state_fo_opt with
+           | None -> t
+           | Some bad_fo ->
+               { t with
+                 requires = t.requires @ [bad_fo];
+                 ensures = t.ensures @ [bad_fo]; }
+         in
+         let t =
+           if incoming_prev_fo = [] then t
+           else { t with
+                  requires = t.requires @ incoming_prev_fo;
+                  ensures = t.ensures @ incoming_prev_fo; }
+         in
          let body = t.body @ atom_assigns @ monitor_updates @ monitor_asserts in
          { t with body })
       n.trans
   in
   { n with
     locals = n.locals @ atom_locals @ [monitor_local];
-    assumes = user_assumes @ monitor_assumes;
-    guarantees = monitor_guarantees;
+    assumes = user_assumes;
+    guarantees = user_guarantees;
     invariants_mon =
       invariants_mon @ atom_invariants @ compat_invariants @ fold_internal_invariants;
     trans;

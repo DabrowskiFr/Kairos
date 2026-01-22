@@ -572,12 +572,7 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
       | Some fs -> mk_expr (Esequence (updates, mk_expr (Eassign [ (fs, None, mk_expr Efalse) ])))
       | None -> updates
   in
-  let ret_expr =
-    match n.outputs with
-    | [] -> mk_expr (Etuple [])
-    | [v] -> field env v.vname
-    | vs -> mk_expr (Etuple (List.map (fun v -> field env v.vname) vs))
-  in
+  let ret_expr = mk_expr (Etuple []) in
   let reset_updates =
     let init_flags = List.map (fun (_, _, init_done) -> init_done) fold_init_links in
     let reset_flags =

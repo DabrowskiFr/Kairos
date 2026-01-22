@@ -31,8 +31,10 @@ let compile_transitions = Emit_why_core.compile_transitions
 let fold_post_terms = Emit_why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
+type comment_specs =
+  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
 
-let compile_node ~prefix_fields (nodes:node list) (n:node)
+let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let info = Emit_why_env.prepare_node ~prefix_fields n in
   let n = info.node in
@@ -142,6 +144,11 @@ let compile_node ~prefix_fields (nodes:node list) (n:node)
     imports @ type_mon_state @ [type_state; type_vars; init_decl; step_decl]
   in
 
+  let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
+    match comment_specs with
+    | None -> (n.assumes, n.guarantees, n.trans, [])
+    | Some (a, g, t, m) -> (a, g, t, m)
+  in
   let show_assume rel f =
     let f = if rel then ltl_relational env f else f in
     "assume " ^ string_of_ltl f
@@ -208,8 +215,8 @@ let compile_node ~prefix_fields (nodes:node list) (n:node)
         ^ String.concat "\n    " lines
         ^ "\n"
       in
-      let assumes = List.map simplify n.assumes in
-      let guarantees = List.map simplify n.guarantees in
+      let assumes = List.map simplify comment_assumes in
+      let guarantees = List.map simplify comment_guarantees in
       let fmt_list label items =
         let lines =
           match items with
@@ -223,47 +230,49 @@ let compile_node ~prefix_fields (nodes:node list) (n:node)
         | [] -> "  Monitor states: (none)\n"
         | _ -> "  Monitor states: " ^ String.concat ", " mon_state_ctors ^ "\n"
       in
-      let mon_residuals =
-        let table = Hashtbl.create 8 in
-        let is_mon_cond = function
-          | LAtom (FRel (HNow (IVar ms), REq, HNow (IVar ctor)))
-            when ms = "__mon_state" && Emit_why_env.is_mon_state_ctor ctor ->
-              Some ctor
-          | _ -> None
+      let transition_contracts =
+        let line_for (t:transition) =
+          let show_fo f = string_of_fo f |> strip_vars in
+          let reqs =
+            match t.requires with
+            | [] -> [ "(none)" ]
+            | _ -> List.map show_fo t.requires
+          in
+          let enss =
+            match t.ensures with
+            | [] -> [ "(none)" ]
+            | _ -> List.map show_fo t.ensures
+          in
+          Printf.sprintf
+            "  Transition %s -> %s\n    requires:\n      %s\n    ensures:\n      %s\n"
+            t.src t.dst
+            (String.concat "\n      " reqs)
+            (String.concat "\n      " enss)
         in
-        let extract = function
-          | LG (LImp (cond, f)) ->
-              begin match is_mon_cond cond with
-              | Some ctor ->
-                  if not (Hashtbl.mem table ctor) then Hashtbl.add table ctor f
-              | None -> ()
-              end
-          | _ -> ()
+        String.concat "" (List.map line_for comment_trans)
+      in
+      let monitor_transitions =
+        let line_for (src, dst, guard) =
+          Printf.sprintf "  %s -> %s : %s\n" src dst (strip_vars guard)
         in
-        List.iter extract (n.assumes @ n.guarantees);
         let lines =
-          mon_state_ctors
-          |> List.filter_map (fun ctor ->
-                 match Hashtbl.find_opt table ctor with
-                 | None -> None
-                 | Some f ->
-                     let s = f |> simplify |> string_of_ltl |> strip_vars in
-                     Some (ctor ^ " => " ^ s))
+          match comment_mon_trans with
+          | [] -> [ "  (none)\n" ]
+          | _ -> List.map line_for comment_mon_trans
         in
-        let lines = if lines = [] then [ "(none)" ] else lines in
-        "  Monitor residuals:\n    " ^ String.concat "\n    " lines ^ "\n"
+        "  Monitor transitions:\n" ^ String.concat "" lines
       in
       Printf.sprintf "Module %s\n%s%s%s%s%s"
         module_name
         atom_table
         (fmt_list "Assume (simplified LTL)" assumes)
         (fmt_list "Guarantee (simplified LTL)" guarantees)
-        mon_states
-        mon_residuals
+        transition_contracts
+        (mon_states ^ monitor_transitions)
     else
       let contract_lines =
-        List.map (show_assume false) n.assumes
-        @ List.map (show_guarantee false) n.guarantees
+        List.map (show_assume false) comment_assumes
+        @ List.map (show_guarantee false) comment_guarantees
         @ List.map (show_invariant false) n.invariants_mon
       in
       let contracts_txt = String.concat "\n  " contract_lines in
@@ -274,11 +283,18 @@ let compile_node ~prefix_fields (nodes:node list) (n:node)
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program ?(prefix_fields=true) (p:program) : string =
+let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string =
+  let lookup_comment name =
+    List.assoc_opt name comment_map
+  in
   let modules =
     match p with
     | [] -> []
-    | nodes -> List.map (compile_node ~prefix_fields nodes) nodes
+    | nodes ->
+        List.map
+          (fun n ->
+             compile_node ~prefix_fields ?comment_specs:(lookup_comment n.nname) nodes n)
+          nodes
   in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in

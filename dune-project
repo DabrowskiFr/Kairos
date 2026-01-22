@@ -2,3 +2,4 @@
 (name obc2why3)
 (generate_opam_files false)
 (using menhir 2.1)
+(using coq 0.8)

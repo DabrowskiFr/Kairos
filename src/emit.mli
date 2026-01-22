@@ -47,12 +47,18 @@ val compile_transitions :
 val fold_post_terms :
   Support.env -> Support.fold_info -> Why3.Ptree.term list
 type spec_groups = { pre_labels : string list; post_labels : string list; }
+type comment_specs =
+  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
 (** Compile node. *)
 val compile_node :
   prefix_fields:bool ->
+  ?comment_specs:comment_specs ->
   Ast.node list ->
   Ast.node ->
   Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list *
   string * spec_groups
 (** Compile program. *)
-val compile_program : ?prefix_fields:bool -> Ast.program -> string
+val compile_program :
+  ?prefix_fields:bool ->
+  ?comment_map:(Ast.ident * comment_specs) list ->
+  Ast.program -> string

@@ -133,8 +133,27 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let transition_requires_pre =
     List.map fst transition_requires_pre_terms
   in
+  let transition_requires_post =
+    List.fold_left
+      (fun acc (t:transition) ->
+         let cond_post =
+           term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
+         in
+         List.fold_left
+           (fun acc f ->
+              let norm = normalize_ltl (ltl_of_fo f) in
+              let rel = ltl_relational env norm.ltl in
+              let frag = ltl_spec env rel in
+              let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+              let terms = List.map (term_implies cond_post) guarded_k in
+              terms @ acc)
+           acc
+           t.requires)
+      []
+      n.trans
+  in
   let pre_contract_user = pre_contract in
-  let post_contract_user = post_contract in
+  let post_contract_user = [] in
   let pre_contract_user_no_lemma =
     List.filter (fun t -> not (List.mem t pre_lemma_terms)) pre_contract_user
   in
@@ -410,7 +429,10 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
       calls
   in
   let fold_post = List.concat (List.map (fold_post_terms env) folds) in
-  let post = fold_post @ post_contract @ pre_input_post @ pre_input_old_post in
+  let post =
+    fold_post @ post_contract @ transition_requires_post
+    @ pre_input_post @ pre_input_old_post
+  in
   let output_links =
     let outputs = List.map (fun v -> v.vname) n.outputs in
     List.filter_map (fun out ->
@@ -431,9 +453,10 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
       ) outputs
   in
   let fold_links =
-    List.map
+    List.filter_map
       (fun (ghost_acc, acc, _init_done) ->
-         term_eq (term_of_var env acc) (term_of_var env ghost_acc))
+         if ghost_acc = acc then None
+         else Some (term_eq (term_of_var env acc) (term_of_var env ghost_acc)))
       fold_init_links
   in
   let first_step_links =
@@ -469,16 +492,7 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     @ link_terms_post @ post
     |> uniq_terms
   in
-  let result_term_opt =
-    match term_of_outputs env n.outputs with
-    | None -> None
-    | Some ret_term -> Some (term_eq (mk_term (Tident (qid1 "result"))) ret_term)
-  in
-  let post =
-    match result_term_opt with
-    | None -> post
-    | Some t -> uniq_terms (t :: post)
-  in
+  let result_term_opt = None in
   let is_true_term t =
     match t.term_desc with
     | Ttrue -> true

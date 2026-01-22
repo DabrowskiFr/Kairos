@@ -1,4 +1,4 @@
 (coq.theory
- (name obc2why3)
- (modules proof proof_obc)
+ (name Obc)
+ (modules Obc)
  (theories Stdlib))
