@@ -38,12 +38,6 @@ let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
         term_old (mk_term (term_var env "__first_step"))
   in
   match classify_fold fi.h with
-  | Some (`Scan1 (op,e)) ->
-      let t_e = compile_term env e in
-      let acc_when_init = term_eq acc t_e in
-      let acc_when_step = term_eq acc (term_apply_op op acc_old t_e) in
-      [ term_implies is_init_old acc_when_init;
-        term_implies (mk_term (Tnot is_init_old)) acc_when_step ]
   | Some (`Scan (op,init_e,e)) ->
       let t_init = compile_term env init_e in
       let t_e = compile_term env e in
@@ -202,10 +196,13 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     List.map fst state_post_lemmas_terms
   in
   let post_contract = state_post @ post_contract in
+  let is_internal_fold_id id =
+    String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
+  in
   let link_terms_pre, link_terms_post =
     List.fold_left (fun (pre, post) c ->
         match c with
-        | Invariant (id,h) ->
+        | Invariant (id,h) when not (is_internal_fold_id id) ->
             let lhs = term_of_var env id in
             let rhs = compile_hexpr ~prefer_link:false ~in_post:true env h in
             let t = term_eq lhs rhs in
@@ -213,6 +210,8 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
               (pre, t :: post)
             else
               (t :: pre, t :: post)
+        | Invariant (id,_h) when is_internal_fold_id id ->
+            (pre, post)
         | InvariantStateRel (is_eq, st_name, f) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in

@@ -124,3 +124,33 @@
  (deps golden/toggle_if.why golden_toggle_if.gen.why)
  (action
   (diff golden/toggle_if.why golden_toggle_if.gen.why)))
+
+(rule
+ (alias runtest)
+ (targets fold_fold_add.why)
+ (deps fold/fold_add.obc)
+ (action
+  (progn
+   (with-stdout-to fold_fold_add.why
+    (run %{bin:obc2why3} fold/fold_add.obc))
+   (run %{bin:why3} prove -P z3 -t 30 fold_fold_add.why))))
+
+(rule
+ (alias runtest)
+ (targets fold_fold_max.why)
+ (deps fold/fold_max.obc)
+ (action
+  (progn
+   (with-stdout-to fold_fold_max.why
+    (run %{bin:obc2why3} fold/fold_max.obc))
+   (run %{bin:why3} prove -P z3 -t 30 fold_fold_max.why))))
+
+(rule
+ (alias runtest)
+ (targets fold_fold_first.why)
+ (deps fold/fold_first.obc)
+ (action
+  (progn
+   (with-stdout-to fold_fold_first.why
+    (run %{bin:obc2why3} fold/fold_first.obc))
+   (run %{bin:why3} prove -P z3 -t 30 fold_fold_first.why))))

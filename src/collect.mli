@@ -29,9 +29,7 @@ val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
 val fold_name : int -> string
 (** Deterministic fold accumulator name for an index. *)
 val classify_fold :
-  Ast.hexpr ->
-  [ `Scan of Ast.op * Ast.iexpr * Ast.iexpr | `Scan1 of Ast.op * Ast.iexpr ]
-  option
+  Ast.hexpr -> [ `Scan of Ast.op * Ast.iexpr * Ast.iexpr ] option
 (** Classify a fold hexpr into its operator and operands. *)
 val collect_folds_from_specs :
   fo:Ast.fo list ->

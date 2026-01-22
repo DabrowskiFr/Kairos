@@ -235,6 +235,11 @@ let transform_node (n:node) : node =
   let bool_vars = bool_like_vars ~var_types n in
   let n = normalize_bool_atoms ~bool_vars n in
   let fold_map = fold_map_for_node n in
+  let fold_internal_invariants =
+    List.map
+      (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
+      fold_map
+  in
   let inputs = List.map (fun v -> v.vname) n.inputs in
   let atoms =
     collect_atoms_from_node n
@@ -288,7 +293,7 @@ let transform_node (n:node) : node =
       locals = n.locals @ atom_locals;
       assumes;
       guarantees;
-      invariants_mon = invariants_mon @ atom_invariants;
+      invariants_mon = invariants_mon @ atom_invariants @ fold_internal_invariants;
       trans;
     }
 
@@ -341,6 +346,11 @@ let transform_node_monitor (n:node) : node =
   let bool_vars = bool_like_vars ~var_types n in
   let n = normalize_bool_atoms ~bool_vars n in
   let fold_map = fold_map_for_node n in
+  let fold_internal_invariants =
+    List.map
+      (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
+      fold_map
+  in
   let inputs = List.map (fun v -> v.vname) n.inputs in
   let atoms =
     collect_atoms_from_node n
@@ -540,6 +550,7 @@ let transform_node_monitor (n:node) : node =
     locals = n.locals @ atom_locals @ [monitor_local];
     assumes = user_assumes @ monitor_assumes;
     guarantees = monitor_guarantees;
-    invariants_mon = invariants_mon @ atom_invariants @ compat_invariants;
+    invariants_mon =
+      invariants_mon @ atom_invariants @ compat_invariants @ fold_internal_invariants;
     trans;
   }

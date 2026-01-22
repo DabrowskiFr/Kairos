@@ -207,7 +207,13 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
   in
   let pre_k_map = Collect.build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
-  let fold_init_links : (ident * ident * ident) list = [] in
+  let fold_init_links : (ident * ident * ident) list =
+    List.map
+      (fun (fi:fold_info) ->
+         let init_done = fi.acc ^ "_init" in
+         (fi.acc, fi.acc, init_done))
+      folds
+  in
   let folds =
     List.map (fun fi ->
         match List.find_opt (fun (ghost_acc, _, _) -> ghost_acc = fi.acc) fold_init_links with
@@ -242,11 +248,14 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
   let needs_step_count = max_k_guard > 0 in
   let needs_first_step_folds = List.exists (fun fi -> fi.init_flag = None) folds in
   let needs_first_step = needs_first_step_folds || has_initial_only_contracts in
+  let is_internal_fold_id id =
+    String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
+  in
   let inv_links =
     List.filter_map
       (function
-        | Invariant (id, h) -> Some (h, id)
-        | InvariantStateRel _ -> None)
+        | Invariant (id, h) when not (is_internal_fold_id id) -> Some (h, id)
+        | _ -> None)
       n.invariants_mon
   in
   let ghost_links =
@@ -263,6 +272,7 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
   let input_names = List.map (fun v -> v.vname) n.inputs in
   let pre_inputs = List.map pre_input_name input_names in
   let pre_input_olds = List.map pre_input_old_name input_names in
+  let fold_init_flags = List.map (fun (_ghost_acc, _acc, init_done) -> init_done) fold_init_links in
   let base_vars =
     "st"
     :: List.map (fun v -> v.vname) (n.locals @ n.outputs)
@@ -271,6 +281,7 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     @ pre_input_olds
     @ (if needs_first_step then ["__first_step"] else [])
     @ (if needs_step_count then ["__step_count"] else [])
+    @ fold_init_flags
     @ List.map (fun fi -> fi.acc) folds
     @ List.concat_map (fun info -> info.names) pre_k_infos
   in
@@ -366,6 +377,11 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     @ (if needs_step_count then
          [ { f_loc=loc; f_ident=ident (rec_var_name env "__step_count"); f_pty=Ptree.PTtyapp(qid1 "int", []); f_mutable=true; f_ghost=true } ]
        else [])
+    @ List.map
+        (fun (_ghost_acc, _acc, init_done) ->
+           { f_loc=loc; f_ident=ident (rec_var_name env init_done);
+             f_pty=Ptree.PTtyapp(qid1 "bool", []); f_mutable=true; f_ghost=true })
+        fold_init_links
     @ List.map (fun fi -> { f_loc=loc; f_ident=ident (rec_var_name env fi.acc); f_pty=Ptree.PTtyapp(qid1 "int", []); f_mutable=true; f_ghost=true }) folds
   in
   let type_vars =
@@ -375,6 +391,16 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     ]
   in
   let field_qid name = qid1 (rec_var_name env name) in
+  let empty_spec =
+    { Ptree.sp_pre=[]; sp_post=[]; sp_xpost=[]; sp_reads=[]; sp_writes=[];
+      sp_alias=[]; sp_variant=[]; sp_checkrw=false; sp_diverge=false;
+      sp_partial=false }
+  in
+  let any_expr_for_type ty =
+    let pty = default_pty ty in
+    let pat = { pat_desc=Pwild; pat_loc=loc } in
+    mk_expr (Eany ([], Expr.RKnone, Some pty, pat, Ity.MaskVisible, empty_spec))
+  in
   let default_expr_for_type = function
     | TInt -> mk_expr (Econst (Constant.int_const BigInt.zero))
     | TBool -> mk_expr Efalse
@@ -385,9 +411,19 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
         | _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
         end
   in
+  let init_expr_for_name vname vty =
+    let should_init =
+      vname = "st"
+      || vname = "__mon_state"
+      || vname = "acc"
+      || List.mem vname fold_init_flags
+      || List.exists (fun fi -> fi.acc = vname) folds
+    in
+    if should_init then default_expr_for_type vty else any_expr_for_type vty
+  in
   let init_fields =
     (field_qid "st", mk_expr (Eident (qid1 n.init_state)))
-    :: List.map (fun v -> (field_qid v.vname, default_expr_for_type v.vty)) (n.locals @ n.outputs)
+    :: List.map (fun v -> (field_qid v.vname, init_expr_for_name v.vname v.vty)) (n.locals @ n.outputs)
     @ List.map
         (fun (inst_name, node_name) ->
            let mod_name = module_name_of_node node_name in
@@ -396,28 +432,28 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
               [mk_expr (Etuple [])]))
         n.instances
     @ List.map (fun (v:vdecl) ->
-        (field_qid (pre_input_name v.vname), default_expr_for_type v.vty)
+        (field_qid (pre_input_name v.vname), any_expr_for_type v.vty)
       ) n.inputs
     @ List.map (fun (v:vdecl) ->
-        (field_qid (pre_input_old_name v.vname), default_expr_for_type v.vty)
+        (field_qid (pre_input_old_name v.vname), any_expr_for_type v.vty)
       ) n.inputs
     @ List.concat_map
         (fun info ->
-           let init = Compile_expr.compile_iexpr env info.init in
-           List.map (fun name -> (field_qid name, init)) info.names)
+          let init = any_expr_for_type info.vty in
+          List.map (fun name -> (field_qid name, init)) info.names)
         pre_k_infos
-    @ (if needs_first_step then [ (field_qid "__first_step", mk_expr Etrue) ] else [])
-    @ (if needs_step_count then [ (field_qid "__step_count", mk_expr (Econst (Constant.int_const BigInt.zero))) ] else [])
+    @ (if needs_first_step then [ (field_qid "__first_step", any_expr_for_type TBool) ] else [])
+    @ (if needs_step_count then [ (field_qid "__step_count", any_expr_for_type TInt) ] else [])
+    @ List.map (fun (_ghost_acc, _acc, init_done) -> (field_qid init_done, mk_expr Efalse)) fold_init_links
     @ List.map (fun fi -> (field_qid fi.acc, mk_expr (Econst (Constant.int_const BigInt.zero)))) folds
   in
   let init_decl =
-    let spc = { Ptree.sp_pre=[]; sp_post=[]; sp_xpost=[]; sp_reads=[]; sp_writes=[]; sp_alias=[]; sp_variant=[]; sp_checkrw=false; sp_diverge=false; sp_partial=false } in
     let fun_body = mk_expr (Erecord init_fields) in
     let args =
       [ (loc, Some (ident "_unit"), false, Some (Ptree.PTtyapp(qid1 "unit", []))) ]
     in
     let fd : Ptree.fundef =
-      (ident "init_vars", false, Expr.RKnone, args, None, {pat_desc=Pwild; pat_loc=loc}, Ity.MaskVisible, spc, fun_body)
+      (ident "init_vars", false, Expr.RKnone, args, None, {pat_desc=Pwild; pat_loc=loc}, Ity.MaskVisible, empty_spec, fun_body)
     in
     Ptree.Drec [fd]
   in
@@ -443,18 +479,6 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
       let fold_updates =
         List.map (fun (fi:fold_info) ->
             match Collect.classify_fold fi.h with
-            | Some (`Scan1 (op,e)) ->
-                let target = field env fi.acc in
-                let rhs = Emit_why_core.apply_op op target (Compile_expr.compile_iexpr env e) in
-                let init_branch = mk_expr (Eassign [ (target,None, Compile_expr.compile_iexpr env e) ]) in
-                let step_branch = mk_expr (Eassign [ (target, None, rhs) ]) in
-                let init_cond =
-                  match fi.init_flag, first_step with
-                  | Some init_done, _ -> mk_expr (Enot (field env init_done))
-                  | None, Some fs -> fs
-                  | None, None -> mk_expr Efalse
-                in
-                mk_expr (Eif (init_cond, init_branch, step_branch))
             | Some (`Scan (op,init,e)) ->
                 let target = field env fi.acc in
                 let rhs = Emit_why_core.apply_op op target (Compile_expr.compile_iexpr env e) in
@@ -469,6 +493,12 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
                 mk_expr (Eif (init_cond, init_branch, step_branch))
             | None -> mk_expr (Etuple [])
           ) folds
+      in
+      let fold_init_done_updates =
+        List.map
+          (fun (_ghost_acc, _acc, init_done) ->
+             mk_expr (Eassign [ (field env init_done, None, mk_expr Etrue) ]))
+          fold_init_links
       in
       let pre_old_updates =
         List.map
@@ -526,7 +556,9 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
       in
       let updates =
         let all =
-          let base = fold_updates @ pre_k_updates @ pre_old_updates @ pre_updates in
+          let base =
+            fold_updates @ fold_init_done_updates @ pre_k_updates @ pre_old_updates @ pre_updates
+          in
           match step_count_update with
           | None -> base
           | Some u -> base @ [u]
@@ -546,8 +578,22 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     | [v] -> field env v.vname
     | vs -> mk_expr (Etuple (List.map (fun v -> field env v.vname) vs))
   in
+  let reset_updates =
+    let init_flags = List.map (fun (_, _, init_done) -> init_done) fold_init_links in
+    let reset_flags =
+      List.map (fun name -> SAssign (name, ILitBool false)) init_flags
+    in
+    List.map
+      (fun (t:transition) ->
+         if t.dst = n.init_state && reset_flags <> [] then
+           { t with body = t.body @ reset_flags }
+         else
+           t)
+      n.trans
+  in
+  let node = { n with trans = reset_updates } in
   {
-    node = n;
+    node;
     module_name;
     imports;
     type_mon_state;

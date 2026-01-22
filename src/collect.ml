@@ -48,7 +48,7 @@ let fold_name (i:int) : string =
   Printf.sprintf "__fold%d" i
 
 let classify_fold (h:hexpr)
-  : [ `Scan of op * iexpr * iexpr | `Scan1 of op * iexpr ] option =
+  : [ `Scan of op * iexpr * iexpr ] option =
   match h with
   | HFold (op,init,e) -> Some (`Scan (op,init,e))
   | _ -> None
@@ -57,17 +57,62 @@ let collect_folds_from_specs
     ~(fo:fo list)
     ~(ltl:ltl list)
     ~(invariants_mon:invariant_mon list) : fold_info list =
-  let hexprs =
-    List.fold_left (fun acc f -> collect_fo f acc) [] fo
-    |> fun acc -> List.fold_left (fun acc f -> collect_ltl f acc) acc ltl
-    |> fun acc ->
+  let is_internal_fold_invariant = function
+    | Invariant (id, _) ->
+        String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
+    | InvariantStateRel _ -> false
+  in
+  let fold_in_other_specs =
+    let from_fo =
+      List.fold_left (fun acc f -> collect_fo f acc) [] fo
+    in
+    let from_inv =
       List.fold_left
         (fun acc inv ->
            match inv with
            | Invariant (_id, h) -> collect_hexpr h acc
            | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc)
-        acc
+        []
         invariants_mon
+      |> List.filter_map (fun h -> Some h)
+    in
+    List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false)
+      (from_fo @ from_inv)
+  in
+  let fold_in_other_specs =
+    if List.exists is_internal_fold_invariant invariants_mon then
+      let internal_hexprs =
+        List.fold_left
+          (fun acc inv ->
+             match inv with
+             | Invariant (_id, h) when is_internal_fold_invariant inv -> h :: acc
+             | _ -> acc)
+          []
+          invariants_mon
+      in
+      List.filter (fun h -> not (List.exists ((=) h) internal_hexprs)) fold_in_other_specs
+    else
+      fold_in_other_specs
+  in
+  begin match fold_in_other_specs with
+  | [] -> ()
+  | h :: _ ->
+      failwith ("fold is only supported in node assume/guarantee, found: "
+                ^ Support.string_of_hexpr h)
+  end;
+  let internal_folds =
+    List.fold_left
+      (fun acc inv ->
+         match inv with
+         | Invariant (_id, h) when is_internal_fold_invariant inv ->
+             if List.exists ((=) h) acc then acc else h :: acc
+         | _ -> acc)
+      []
+      invariants_mon
+  in
+  let hexprs =
+    List.fold_left (fun acc f -> collect_ltl f acc) [] ltl
+    |> fun acc -> internal_folds @ acc
     |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false)
   in
   let rec aux i acc = function

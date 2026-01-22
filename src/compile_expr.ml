@@ -168,6 +168,9 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
       match find_fold env h with
       | Some name -> mk_term (Tident (qdot (qid1 env.rec_name) (rec_var_name env name)))
       | None ->
+          begin match h with
+          | HFold _ -> failwith "fold accumulator not registered"
+          | _ ->
           match h with
           | HNow (IVar x) when old && List.mem x env.inputs ->
               term_of_var env (pre_input_name x)
@@ -192,6 +195,7 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
                   term_of_var env name
               end
           | HFold (_,_,e) -> compile_term env e
+          end
 
 let rec compile_fo_term ?(prefer_link=false) (env:env) (f:fo) : Ptree.term =
   match f with
