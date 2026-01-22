@@ -165,12 +165,12 @@ let shift_hexpr_by ~(init_for_var:ident -> iexpr) (shift:int) (h:hexpr)
     | HNow (IVar v) when is_const_iexpr (IVar v) ->
         Some (HNow (IVar v))
     | HNow (IVar v) ->
-        Some (HPreK (IVar v, init_for_var v, shift))
+        Some (HPre (IVar v, Some (init_for_var v)))
     | HNow e when is_const_iexpr e ->
         Some (HNow e)
     | HPre (IVar v, init_opt) ->
         let init = match init_opt with Some i -> i | None -> init_for_var v in
-        Some (HPreK (IVar v, init, shift + 1))
+        Some (HPre (IVar v, Some init))
     | HPreK (IVar v, init, k) ->
         Some (HPreK (IVar v, init, k + shift))
     | _ -> None

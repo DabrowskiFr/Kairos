@@ -153,6 +153,8 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
       n.trans
   in
   let pre_contract_user = pre_contract in
+  (* Do not inject user LTL guarantees as postconditions here; they are enforced
+     via the monitor/post-to-pre rules. Transition ensures are handled separately. *)
   let post_contract_user = [] in
   let pre_contract_user_no_lemma =
     List.filter (fun t -> not (List.mem t pre_lemma_terms)) pre_contract_user
@@ -215,6 +217,76 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     List.map fst state_post_lemmas_terms
   in
   let post_contract = state_post @ post_contract in
+  let state_rel_terms =
+    List.filter_map
+      (function
+        | InvariantStateRel (true, st_name, f) ->
+            let st = term_of_var env "st" in
+            let rhs = mk_term (Tident (qid1 st_name)) in
+            let cond = term_eq st rhs in
+            let body = compile_fo_term env f in
+            Some (st_name, (cond, body))
+        | _ -> None)
+      n.invariants_mon
+  in
+  let state_rel_for name =
+    List.find_map (fun (st, term) -> if st = name then Some term else None) state_rel_terms
+  in
+  let transition_post_to_pre =
+    let requires_terms (t:transition) =
+      List.concat_map
+        (fun f ->
+           let norm = normalize_ltl (ltl_of_fo f) in
+           let rel = ltl_relational env norm.ltl in
+           let frag = ltl_spec env rel in
+           apply_k_guard ~in_post:false norm.k_guard frag.pre)
+        t.requires
+    in
+    let ensures_terms_shifted (t:transition) =
+      List.concat_map
+        (fun f ->
+           let ltl = ltl_of_fo f in
+           let shifted = shift_ltl_by ~init_for_var 1 ltl in
+           match shifted with
+           | None -> []
+           | Some ltl' ->
+               let norm = normalize_ltl ltl' in
+               let rel = ltl_relational env norm.ltl in
+               let fo =
+                 try fo_of_ltl rel with _ -> f
+               in
+               let term = compile_fo_term env fo in
+               apply_k_guard ~in_post:true norm.k_guard [term])
+        t.ensures
+    in
+    List.concat_map
+      (fun (t:transition) ->
+         let next_trans =
+           List.filter (fun t2 -> t2.src = t.dst) n.trans
+         in
+         let shifted_ens = ensures_terms_shifted t in
+         if shifted_ens = [] then []
+         else
+           let ens_conj = conj_terms shifted_ens in
+           List.concat_map
+             (fun t2 ->
+                let cond_post =
+                  term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.dst)))
+                in
+                let guard =
+                  match state_rel_for t2.src with
+                  | None -> cond_post
+                  | Some (_cond, rel) ->
+                      mk_term (Tbinop (cond_post, Dterm.DTand, rel))
+                in
+                let guard =
+                  mk_term (Tbinop (guard, Dterm.DTand, ens_conj))
+                in
+                let reqs = requires_terms t2 in
+                List.map (fun r -> term_implies guard r) reqs)
+             next_trans)
+      n.trans
+  in
   let is_internal_fold_id id =
     String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
   in
@@ -431,7 +503,7 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let fold_post = List.concat (List.map (fold_post_terms env) folds) in
   let post =
     fold_post @ post_contract @ transition_requires_post
-    @ pre_input_post @ pre_input_old_post
+    @ transition_post_to_pre @ pre_input_post @ pre_input_old_post
   in
   let output_links =
     let outputs = List.map (fun v -> v.vname) n.outputs in
