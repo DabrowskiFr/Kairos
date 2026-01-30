@@ -22,7 +22,6 @@ type fold_info = { h : Ast.hexpr; acc : string; init_flag : string option; }
 type pre_k_info = {
   h : Ast.hexpr;
   expr : Ast.iexpr;
-  init : Ast.iexpr;
   names : string list;
   vty : Ast.ty;
 }

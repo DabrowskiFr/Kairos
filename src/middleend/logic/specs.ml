@@ -80,7 +80,7 @@ let hexpr_to_iexpr ~(inputs:ident list) ~(fold_map:(hexpr * ident) list)
       | Some name -> Some (IVar name)
       | None -> None
       end
-  | HPre (IVar x, _) ->
+  | HPre (IVar x) ->
       if List.mem x inputs || List.mem_assoc x var_types then
         Some (IVar (Support.pre_input_old_name x))
       else

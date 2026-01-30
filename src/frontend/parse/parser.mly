@@ -225,10 +225,9 @@ id_list:
 
 hexpr:
   | LBRACE iexpr RBRACE { HNow $2 }
-  | PRE LPAREN iexpr RPAREN { HPre($3,None) }
-  | PRE LPAREN iexpr COMMA iexpr RPAREN { HPre($3,Some $5) }
-  | IDENT LPAREN iexpr COMMA iexpr COMMA INT RPAREN
-      { if $1 = "pre_k" then HPreK($3,$5,$7) else failwith "unknown history op" }
+  | PRE LPAREN iexpr RPAREN { HPre($3) }
+  | IDENT LPAREN iexpr COMMA INT RPAREN
+      { if $1 = "pre_k" then HPreK($3,$5) else failwith "unknown history op" }
   | IDENT LPAREN op COMMA hexpr COMMA hexpr RPAREN
       { if $1 = "fold" then HFold($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
 

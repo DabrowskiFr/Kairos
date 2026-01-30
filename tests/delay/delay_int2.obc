@@ -1,5 +1,5 @@
 node delay_int2(x: int) returns (y: int)
-guarantee G( {y} = pre_k(x, 0, 2) );
+guarantee G( {y} = pre_k(x, 2) );
 locals
   prev1: int;
   prev2: int;

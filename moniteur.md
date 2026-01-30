@@ -29,7 +29,7 @@ Atomes et expressions historiques
 ---------------------------------
 Un atome est une relation entre expressions historiques (HNow, HPre, HPreK,
 scan/fold). En OBC, cela correspond aux formules dans les contrats, par exemple :
-  {y} = pre(x, 0)
+  {y} = pre(x)
 
 Ces expressions historiques sont calculees par le programme via des variables
 auxiliaires (pre, pre_k, scan/fold). Le moniteur ne reconstruit pas l'historique :
@@ -37,9 +37,9 @@ il consomme uniquement la valeur booleenne de chaque atome a l'instant courant.
 
 Exemple d'atome
 ---------------
-Atome : {y} = pre(x, 0)
-Dans le code, on calcule pre(x,0), puis on fixe :
-  __atom_1 = (y = pre(x,0))
+Atome : {y} = pre(x)
+Dans le code, on calcule pre(x), puis on fixe :
+  __atom_1 = (y = pre(x))
 Le moniteur ne voit que __atom_1.
 
 Semantique informelle
@@ -254,8 +254,8 @@ Algorithm BuildAtoms(contracts):
 
 Exemple
 -------
-Atome: {y} = pre(x,0)
-Invariant: __atom_1 = (y = pre(x,0))
+Atome: {y} = pre(x)
+Invariant: __atom_1 = (y = pre(x))
 
 Compilation des contrats LTL (pre/post)
 ----------------------------------------
@@ -289,7 +289,7 @@ Post(f) = p au pas suivant
 Historique (pre/pre_k)
 ----------------------
 Les variables d'historique sont mises a jour automatiquement et reliees par
-ensures (chaines de old). Par exemple, pour pre_k(x,0,2) :
+ensures (chaines de old). Par exemple, pour pre_k(x, 2) :
   __pre_k1_x_1 = old(__pre_in_x)
   __pre_k1_x_2 = old(__pre_k1_x_1)
 

@@ -24,8 +24,9 @@ let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with
   | HNow _ -> acc
-  | HPre (e,_) -> collect_hexpr (HNow e) acc
-  | HPreK (e, init, _) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
+  | HPre e -> collect_hexpr (HNow e) acc
+  | HPreK (e, _) ->
+      collect_hexpr (HNow e) acc
   | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
 
 let rec collect_ltl (f:ltl) (acc:hexpr list) : hexpr list =
@@ -210,7 +211,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   pre_k_exprs
   |> List.mapi (fun i h ->
          match h with
-         | HPreK (e, init, k) ->
+         | HPreK (e, k) ->
              if k <= 0 then failwith "pre_k expects k >= 1";
              let vname =
                match e with
@@ -220,7 +221,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
              let vty = find_vty vname in
              let base = Printf.sprintf "__pre_k%d_%s" (i + 1) vname in
              let names = make_names base k in
-             (h, { h; expr = e; init; names; vty })
+             (h, { h; expr = e; names; vty })
          | _ -> failwith "expected pre_k hexpr")
 let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
   : (ident * iexpr list) list =
@@ -270,8 +271,8 @@ let collect_calls_trans_full (ts:transition list)
 let extract_delay_spec (guarantees:ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
-    | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp, _)))
-    | LAtom (FRel (HPre (IVar inp, _), REq, HNow (IVar out))) ->
+    | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp)))
+    | LAtom (FRel (HPre (IVar inp), REq, HNow (IVar out))) ->
         Some (out, inp)
     | _ -> None
   in

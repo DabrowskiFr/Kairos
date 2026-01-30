@@ -104,13 +104,13 @@ let compile_hexpr_instance ?(in_post=false) (env:env) (inst_name:ident)
   (h:hexpr) : Ptree.term =
   match h with
   | HNow e -> compile_term_instance env inst_name node_name inputs e
-  | HPre (IVar x,_) when List.mem x inputs ->
+  | HPre (IVar x) when List.mem x inputs ->
       let name =
         if in_post then pre_input_old_name x else pre_input_name x
       in
       term_of_instance_var env inst_name node_name name
-  | HPre (e,_) -> term_old (compile_term_instance env inst_name node_name inputs e)
-  | HPreK (_e,_,_) ->
+  | HPre e -> term_old (compile_term_instance env inst_name node_name inputs e)
+  | HPreK (_e,_) ->
       begin match List.find_map (fun (h', info) -> if h' = h then Some info else None) pre_k_map with
       | None -> failwith "pre_k not registered (instance)"
       | Some info ->
@@ -177,17 +177,17 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
           | HNow e ->
               let t = compile_term env e in
               if old && not (is_const_iexpr e) then term_old t else t
-          | HPre (IVar x,_) when List.mem x env.inputs ->
+          | HPre (IVar x) when List.mem x env.inputs ->
               let t =
                 if in_post
                 then term_of_var env (pre_input_old_name x)
                 else term_of_var env (pre_input_name x)
               in
               t
-          | HPre (e,_) ->
+          | HPre e ->
               let t = compile_term env e in
               term_old t
-          | HPreK (_e,_,_) ->
+          | HPreK (_e,_) ->
               begin match find_pre_k env h with
               | None -> failwith "pre_k not registered"
               | Some info ->
@@ -263,8 +263,8 @@ let rel_hexpr (env:env) (h:hexpr) : hexpr =
   | None ->
       match h with
       | HNow e -> HNow e
-      | HPre (e,init) -> HPre (e, init)
-      | HPreK (e,init,k) -> HPreK (e, init, k)
+      | HPre e -> HPre e
+      | HPreK (e,k) -> HPreK (e, k)
       | HFold _ -> h
 
 let rec ltl_relational (env:env) (f:ltl) : ltl =

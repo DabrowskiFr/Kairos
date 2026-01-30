@@ -32,7 +32,7 @@ Program expressions:
 
 History expressions:
 
-  h ::= {e} | pre(e) | pre(e, e0) | pre_k(e, e0, k)
+  h ::= {e} | pre(e) | pre_k(e, k)
       | scan1(op, e) | scan(op, e0, e)
       | window(k, wop, e)
       | let x = h1 in h2
@@ -70,9 +70,9 @@ where:
 Given a run rho and time t:
 
 - [[{e}]]_{rho,t} = [[e]]_{sigma_t}
-- [[pre(e)]]_{rho,0} = [[e]]_{sigma_0} (or user-provided init if present)
+- [[pre(e)]]_{rho,0} is unconstrained
 - [[pre(e)]]_{rho,t+1} = [[e]]_{sigma_t}
-- [[pre_k(e,e0,k)]]_{rho,t} = [[e]]_{sigma_{t-k}} with e0 used for the first k steps
+- [[pre_k(e, k)]]_{rho,t} = [[e]]_{sigma_{t-k}} for t >= k, unconstrained for t < k
 
 For scan1:
 - Let v_t = [[e]]_{sigma_t}

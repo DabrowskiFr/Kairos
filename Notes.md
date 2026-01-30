@@ -29,7 +29,7 @@ Resume plus fidele de l'implementation actuelle (avec exemples sur delay_int):
 - La spec LTL est traduite en automate de residus. Le moniteur est instrumente
   dans le programme via un etat ghost (__mon_state) mis a jour a chaque pas
   en fonction des atomes; on prouve ensuite que __mon_state n'atteint pas Bad.
-  Exemple delay_int: la garantie "X G(y = pre(x,0))" produit un automate avec
+  Exemple delay_int: la garantie "X G(y = pre(x))" produit un automate avec
   des residus Mon0/Mon1/Mon2, et une assertion "mon_state <> Mon2".
 
 - Les obligations ajoutees dans Why3 ne sont pas des requires/ensures explicites
@@ -42,17 +42,17 @@ Resume plus fidele de l'implementation actuelle (avec exemples sur delay_int):
   (ensures du pas courant, decales d'un pas vers l'avant) => requires des
   transitions successeurs. Ces lemmes sont emets comme postconditions Why3.
   Exemple delay_int: le ensures "prev = x" de Run->Run est decale et doit impliquer
-  le requires "prev = pre(x,0)" du pas suivant.
+  le requires "prev = pre(x)" du pas suivant.
 
 - Les requires de transitions sont aussi injectes comme preconditions du step,
   gardees par l'etat source (st = src).
-  Exemple delay_int: le requires "prev = pre(x,0)" de Run->Run devient un requires
+  Exemple delay_int: le requires "prev = pre(x)" de Run->Run devient un requires
   Why3 guardee par (st = Run).
 
 - Pas de produit d'automates explicite dans le code: la construction par residus
   suffit pour le moniteur.
   Exemple delay_int: on ne construit pas (automate formule x automate etats),
-  on se contente des residus de "X G(y = pre(x,0))".
+  on se contente des residus de "X G(y = pre(x))".
 
 Detail algorithmique (contrat de step, par type):
 

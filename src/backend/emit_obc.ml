@@ -77,22 +77,20 @@ let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
 let rec hexpr_mentions_generated (h:hexpr) : bool =
   match h with
   | HNow e -> iexpr_mentions_generated e
-  | HPre (e, init) ->
+  | HPre e ->
       iexpr_mentions_generated e
-      || (match init with None -> false | Some i -> iexpr_mentions_generated i)
-  | HPreK (e, init, _) ->
-      iexpr_mentions_generated e || iexpr_mentions_generated init
+  | HPreK (e, _) ->
+      iexpr_mentions_generated e
   | HFold (_, init, e) ->
       iexpr_mentions_generated init || iexpr_mentions_generated e
 
 let rec hexpr_has_tag (tag:gen_tag) (h:hexpr) : bool =
   match h with
   | HNow e -> iexpr_has_tag tag e
-  | HPre (e, init) ->
+  | HPre e ->
       iexpr_has_tag tag e
-      || (match init with None -> false | Some i -> iexpr_has_tag tag i)
-  | HPreK (e, init, _) ->
-      iexpr_has_tag tag e || iexpr_has_tag tag init
+  | HPreK (e, _) ->
+      iexpr_has_tag tag e
   | HFold (_, init, e) ->
       iexpr_has_tag tag init || iexpr_has_tag tag e
 
@@ -240,15 +238,15 @@ let inline_hexpr atom_map ~(init_for_var:ident -> iexpr) ~(vars:ident list) = fu
       | IVar id when starts_with id "__pre_old_" ->
           let base = String.sub id 10 (String.length id - 10) in
           if List.mem base vars then
-            HPre (IVar base, Some (init_for_var base))
+            HPre (IVar base)
           else
             HNow (IVar id)
       | e -> HNow e
       end
-  | HPre (e, init) ->
-      HPre (inline_iexpr atom_map e, Option.map (inline_iexpr atom_map) init)
-  | HPreK (e, init, k) ->
-      HPreK (inline_iexpr atom_map e, inline_iexpr atom_map init, k)
+  | HPre e ->
+      HPre (inline_iexpr atom_map e)
+  | HPreK (e, k) ->
+      HPreK (inline_iexpr atom_map e, k)
   | HFold (op, init, e) ->
       HFold (op, inline_iexpr atom_map init, inline_iexpr atom_map e)
 
@@ -289,7 +287,7 @@ let prettify_pre_old ~init_for_var ~vars s =
   List.fold_left
     (fun acc v ->
        let sub = "__pre_old_" ^ v in
-       let by = "pre(" ^ v ^ ", " ^ string_of_iexpr (init_for_var v) ^ ")" in
+       let by = "pre(" ^ v ^ ")" in
        replace_all ~sub ~by acc)
     s vars
 

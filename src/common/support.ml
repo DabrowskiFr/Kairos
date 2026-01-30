@@ -22,7 +22,7 @@ open Ptree
 open Ast
 
 type fold_info = { h: hexpr; acc: string; init_flag: string option }
-type pre_k_info = { h: hexpr; expr: iexpr; init: iexpr; names: string list; vty: ty }
+type pre_k_info = { h: hexpr; expr: iexpr; names: string list; vty: ty }
 type env = {
   rec_name: string;
   rec_vars: string list;
@@ -165,14 +165,13 @@ let shift_hexpr_by ~(init_for_var:ident -> iexpr) (shift:int) (h:hexpr)
     | HNow (IVar v) when is_const_iexpr (IVar v) ->
         Some (HNow (IVar v))
     | HNow (IVar v) ->
-        Some (HPre (IVar v, Some (init_for_var v)))
+        Some (HPre (IVar v))
     | HNow e when is_const_iexpr e ->
         Some (HNow e)
-    | HPre (IVar v, init_opt) ->
-        let init = match init_opt with Some i -> i | None -> init_for_var v in
-        Some (HPre (IVar v, Some init))
-    | HPreK (IVar v, init, k) ->
-        Some (HPreK (IVar v, init, k + shift))
+    | HPre (IVar v) ->
+        Some (HPre (IVar v))
+    | HPreK (IVar v, k) ->
+        Some (HPreK (IVar v, k + shift))
     | _ -> None
 
 let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:ltl) : ltl_norm =
@@ -314,10 +313,9 @@ let rec string_of_iexpr ?(ctx=0) (e:iexpr) : string =
 let string_of_hexpr (h:hexpr) : string =
   match h with
   | HNow e -> "{" ^ string_of_iexpr e ^ "}"
-  | HPre (e, None) -> "pre(" ^ string_of_iexpr e ^ ")"
-  | HPre (e, Some init) -> "pre(" ^ string_of_iexpr e ^ ", " ^ string_of_iexpr init ^ ")"
-  | HPreK (e, init, k) ->
-      "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_int k ^ ")"
+  | HPre e -> "pre(" ^ string_of_iexpr e ^ ")"
+  | HPreK (e, k) ->
+      "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_int k ^ ")"
   | HFold (op, init, e) ->
       "fold(" ^ string_of_op op ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_iexpr e ^ ")"
 

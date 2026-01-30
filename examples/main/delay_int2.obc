@@ -1,10 +1,10 @@
 node delay_int2(x: int) returns (y: int)
-guarantee G( {y} = pre(x, 0) );
+guarantee G( {y} = pre(x) );
 invariants
-  invariant state = Init -> pre(x, 0) = {0};
-  invariant state = Run -> {prev} = pre(x, 0);
+  invariant state = Init -> pre(x) = {0};
+  invariant state = Run -> {prev} = pre(x);
   invariant y = pre(prev);
-  invariant y = pre(x, 0);
+  invariant y = pre(x);
 locals
   prev : int;
 states
@@ -12,26 +12,26 @@ states
 init Init
 trans
   Init -> Run {
-    requires pre(x, 0) = {0};
+    requires pre(x) = {0};
     ensures {y} = {0};
-    ensures {y} = pre(x, 0);
+    ensures {y} = pre(x);
     y := 0;
     prev := x;
   }
   Run -> Run {
-    requires {prev} = pre(x, 0);
+    requires {prev} = pre(x);
     ensures {y} = pre(prev);
-    ensures {y} = pre(x, 0);
+    ensures {y} = pre(x);
     y := prev;
     prev := x;
   }
 end
 
 node delay2_int(x: int) returns (y: int)
-guarantee G( {y} = pre_k(x, 0, 2) );
+guarantee G( {y} = pre_k(x, 2) );
 invariants
-  invariant mid = pre(x, 0);
-  invariant y = pre_k(x, 0, 2);
+  invariant mid = pre(x);
+  invariant y = pre_k(x, 2);
 instances
   instance d1 : delay_int2;
   instance d2 : delay_int2;

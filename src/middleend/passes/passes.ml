@@ -22,17 +22,14 @@ let shift_hexpr_forward ~(init_for_var:ident -> iexpr) ~(is_input:ident -> bool)
   (h:hexpr) : hexpr =
   match h with
   | HNow (IVar v) when is_input v ->
-      HPreK (IVar v, init_for_var v, 1)
+      HPreK (IVar v, 1)
   | HNow _ -> h
-  | HPre (IVar v, init_opt) ->
-      let init = Option.value init_opt ~default:(init_for_var v) in
-      HPreK (IVar v, init, 2)
-  | HPre (e, Some init) ->
-      HPreK (e, init, 2)
-  | HPre (e, None) ->
-      HPre (e, None)
-  | HPreK (e, init, k) ->
-      HPreK (e, init, k + 1)
+  | HPre (IVar v) ->
+      HPreK (IVar v, 2)
+  | HPre e ->
+      HPre e
+  | HPreK (e, k) ->
+      HPreK (e, k + 1)
   | HFold _ -> h
 
 let rec shift_fo_forward_inputs ~(init_for_var:ident -> iexpr)
