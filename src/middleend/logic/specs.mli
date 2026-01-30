@@ -29,6 +29,8 @@ val collect_atoms_from_node : Ast.node -> Ast.fo list
 
 val transition_fo : Ast.transition -> Ast.fo list
 (** Flatten transition requires/ensures/lemmas into a single list. *)
+val conj_fo : Ast.fo list -> Ast.fo option
+(** Conjoin a list of FO formulas, or None for empty. *)
 (** {1 Expression Conversion} *)
 
 val relop_to_binop : Ast.relop -> Ast.binop

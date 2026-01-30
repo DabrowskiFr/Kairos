@@ -62,7 +62,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
            | None -> None)
         atoms
     in
-    let atom_names = Monitor_transform.make_atom_names atom_exprs in
+    let atom_names = Monitor_atoms.make_atom_names atom_exprs in
     let atom_named_exprs =
       List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
     in
@@ -220,7 +220,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
       (fun (i, guard, j) ->
          let formula =
            bdd_to_iexpr atom_names guard
-           |> Monitor_transform.inline_atoms_iexpr atom_named_exprs
+           |> Monitor_atoms.inline_atoms_iexpr atom_named_exprs
            |> Support.string_of_iexpr
          in
          let lbl =
@@ -269,7 +269,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
            | None -> None)
         atoms
     in
-    let atom_names = Monitor_transform.make_atom_names atom_exprs in
+    let atom_names = Monitor_atoms.make_atom_names atom_exprs in
     let atom_named_exprs =
       List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
     in
@@ -383,7 +383,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
       (fun (i, guard, j) ->
          let formula =
            bdd_to_iexpr atom_names guard
-           |> Monitor_transform.inline_atoms_iexpr atom_named_exprs
+           |> Monitor_atoms.inline_atoms_iexpr atom_named_exprs
            |> Support.string_of_iexpr
          in
          let lbl =

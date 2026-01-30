@@ -16,6 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-val ensure_next_requires : Ast.user_node -> Ast.internal_node
-(** Add post-conditions that imply successor requires. *)
+open Ast
+open Automaton_core
+open Specs
+
+let build_monitor_spec ~(atom_map:(fo * ident) list) (n:node) : ltl =
+  let spec_assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
+  let spec_guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
+  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
+  |> simplify_ltl

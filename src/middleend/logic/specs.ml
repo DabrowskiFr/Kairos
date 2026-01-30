@@ -49,6 +49,11 @@ let collect_atoms_from_node (n:node) : fo list =
 let transition_fo (t:transition) : fo list =
   t.requires @ t.ensures @ t.lemmas
 
+let conj_fo (fs:fo list) : fo option =
+  match fs with
+  | [] -> None
+  | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
+
 let relop_to_binop (r:relop) : binop =
   match r with
   | REq -> Eq

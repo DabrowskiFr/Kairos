@@ -42,7 +42,7 @@ let monitor_edges (n:A.node) : (string * string * string) list =
          | None -> None)
       atoms
   in
-  let atom_names = Monitor_transform.make_atom_names atom_exprs in
+  let atom_names = Monitor_atoms.make_atom_names atom_exprs in
   let atom_named_exprs =
     List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
   in
@@ -65,11 +65,11 @@ let monitor_edges (n:A.node) : (string * string * string) list =
     (fun (src, guard, dst) ->
        let guard_expr = bdd_to_iexpr atom_names guard in
        let guard_expr =
-         Monitor_transform.inline_atoms_iexpr atom_named_exprs guard_expr
+         Monitor_atoms.inline_atoms_iexpr atom_named_exprs guard_expr
        in
        let guard_str = string_of_iexpr guard_expr in
-       (Monitor_transform.monitor_state_ctor src,
-        Monitor_transform.monitor_state_ctor dst,
+       (Monitor_instrument.monitor_state_ctor src,
+        Monitor_instrument.monitor_state_ctor dst,
         guard_str))
     grouped
 
@@ -79,7 +79,7 @@ let compile_program_with_transform ?(prefix_fields=true)
   Emit.compile_program ~prefix_fields p'
 
 let compile_program ?(prefix_fields=true) (p:A.program) : string =
-  compile_program_with_transform ~prefix_fields Monitor_transform.transform_node p
+  compile_program_with_transform ~prefix_fields Monitor_instrument.transform_node p
 
 let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
   let comment_map =
@@ -88,5 +88,5 @@ let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
          (n.nname, (n.assumes, n.guarantees, n.trans, monitor_edges n)))
       p
   in
-  let p' = List.map Monitor_transform.transform_node_monitor p in
+  let p' = List.map Monitor_instrument.transform_node_monitor p in
   Emit.compile_program ~prefix_fields ~comment_map p'

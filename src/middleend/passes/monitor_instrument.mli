@@ -16,35 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Monitor Naming} *)
-
-(** Compute monitor state type. *)
-val monitor_state_type : string
-(** Compute monitor state name. *)
-val monitor_state_name : string
-(** Compute monitor state ctor. *)
 val monitor_state_ctor : int -> string
-(** Compute monitor state expr. *)
-val monitor_state_expr : int -> Ast.iexpr
+(** Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
 
-(** {1 Atom Naming} *)
-
-(** Compute sanitize ident. *)
-val sanitize_ident : string -> string
-(** Make atom names. *)
-val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
-val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
-
-(** {1 Node Transforms} *)
-
-(** Compute transform node. *)
 val transform_node : Ast.node -> Ast.node
-(** Compute monitor update stmts. *)
-val monitor_update_stmts :
-  (Ast.ident * Ast.iexpr) list ->
-  Automaton_core.residual_state list ->
-  Automaton_core.guarded_transition list -> Ast.stmt list
-(** Compute monitor assert. *)
-val monitor_assert : int -> Ast.stmt list
-(** Compute transform node monitor. *)
+(** Instrument a node with monitor support (standard compilation). *)
+
 val transform_node_monitor : Ast.node -> Ast.node
+(** Instrument a node with monitor support and preserve monitor details. *)

@@ -16,6 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-val ensure_next_requires : Ast.user_node -> Ast.internal_node
-(** Add post-conditions that imply successor requires. *)
+type monitor_automaton = {
+  states_raw: Ast.ltl list;
+  transitions_raw: Automaton_core.residual_transition list;
+  states: Ast.ltl list;
+  transitions: Automaton_core.residual_transition list;
+  grouped: Automaton_core.guarded_transition list;
+}
+
+val build_monitor_automaton :
+  atom_map:(Ast.fo * Ast.ident) list ->
+  atom_names:Ast.ident list ->
+  Ast.ltl -> monitor_automaton
+(** Build, minimize, and group the monitor residual automaton. *)

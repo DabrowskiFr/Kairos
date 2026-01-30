@@ -16,6 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-val ensure_next_requires : Ast.user_node -> Ast.internal_node
-(** Add post-conditions that imply successor requires. *)
+type monitor_atoms = {
+  var_types: (Ast.ident * Ast.ty) list;
+  fold_map: (Ast.hexpr * Ast.ident) list;
+  atom_names: Ast.ident list;
+  atom_map: (Ast.fo * Ast.ident) list;
+  atom_name_to_fo: (Ast.ident * Ast.fo) list;
+  atom_named_exprs: (Ast.ident * Ast.iexpr) list;
+}
+
+val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
+(** Generate stable, unique atom names from atom expressions. *)
+
+val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
+(** Inline atom variables inside a boolean expression using a name->expr map. *)
+
+val collect_monitor_atoms : Ast.node -> monitor_atoms
+(** Collect and validate atoms used by the monitor construction. *)

@@ -580,5 +580,5 @@ let string_of_program (p:program) : string =
   String.concat "\n" (List.map (fun n -> String.concat "\n" (node_lines n)) p) ^ "\n"
 
 let compile_program_monitor (p:program) : string =
-  let p' = List.map Monitor_transform.transform_node_monitor p in
+  let p' = List.map Monitor_instrument.transform_node_monitor p in
   string_of_program p'

@@ -16,30 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val shift_hexpr_forward :
-  init_for_var:(Ast.ident -> Ast.iexpr) ->
-  is_input:(Ast.ident -> bool) ->
-  Ast.hexpr -> Ast.hexpr
-(** Shift hexpr forward by one step for inputs. *)
-
 val shift_fo_forward_inputs :
-  init_for_var:(Ast.ident -> Ast.iexpr) ->
   is_input:(Ast.ident -> bool) ->
   Ast.fo -> Ast.fo
-(** Shift input references inside a FO formula forward by one step. *)
-
-val shift_hexpr_backward :
-  is_input:(Ast.ident -> bool) ->
-  Ast.hexpr -> Ast.hexpr
-(** Shift input references one step backward. *)
+(** Shift input references inside an FO formula one step forward in time.
+    Parameters:
+    - [is_input]: predicate to decide which identifiers are inputs.
+    Effect:
+    - [HNow(x)] where [x] is an input becomes [pre_k(x, 1)].
+    - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k+1)].
+    Non-inputs and non-history expressions are left unchanged. *)
 
 val shift_fo_backward_inputs :
   is_input:(Ast.ident -> bool) ->
   Ast.fo -> Ast.fo
-(** Shift input references inside a FO formula backward by one step. *)
-
-val shift_ltl_forward_inputs :
-  init_for_var:(Ast.ident -> Ast.iexpr) ->
-  is_input:(Ast.ident -> bool) ->
-  Ast.ltl -> Ast.ltl
-(** Shift input references inside an LTL formula forward by one step. *)
+(** Shift input references inside an FO formula one step backward in time.
+    Parameters:
+    - [is_input]: predicate to decide which identifiers are inputs.
+    Effect:
+    - [pre_k(x, 1)] where [x] is an input becomes [HNow(x)].
+    - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k-1)].
+    Non-inputs and non-history expressions are left unchanged. *)

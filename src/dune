@@ -16,7 +16,10 @@
   emit_why_diagnostics
   emit_why_core
   emit
-  monitor_transform
+  monitor_atoms
+  monitor_spec
+  monitor_automaton
+  monitor_instrument
   dot
   monitor_emit
   specs

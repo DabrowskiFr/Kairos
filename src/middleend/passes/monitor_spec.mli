@@ -16,6 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-val ensure_next_requires : Ast.user_node -> Ast.internal_node
-(** Add post-conditions that imply successor requires. *)
+val build_monitor_spec :
+  atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.ltl
+(** Build and simplify the monitor LTL spec using atom substitution. *)

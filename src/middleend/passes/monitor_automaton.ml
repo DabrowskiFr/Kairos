@@ -16,6 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-val ensure_next_requires : Ast.user_node -> Ast.internal_node
-(** Add post-conditions that imply successor requires. *)
+open Ast
+open Automaton_core
+
+type monitor_automaton = {
+  states_raw: ltl list;
+  transitions_raw: residual_transition list;
+  states: ltl list;
+  transitions: residual_transition list;
+  grouped: guarded_transition list;
+}
+
+let build_monitor_automaton ~(atom_map:(fo * ident) list) ~(atom_names:ident list)
+  (spec:ltl) : monitor_automaton =
+  let valuations = enumerate_valuations atom_map atom_names in
+  let states_raw, transitions_raw = build_residual_graph atom_map valuations spec in
+  let states, transitions =
+    minimize_residual_graph valuations states_raw transitions_raw
+  in
+  let grouped = group_transitions_bdd atom_names transitions in
+  { states_raw; transitions_raw; states; transitions; grouped }

@@ -23,53 +23,14 @@ open Support
 open Automaton_core
 open Specs
 open Time_shit
+open Monitor_atoms
+open Monitor_spec
+open Monitor_automaton
 
 let monitor_state_type : string = "mon_state"
 let monitor_state_name : string = "__mon_state"
 let monitor_state_ctor (i:int) : string = Printf.sprintf "Mon%d" i
 let monitor_state_expr (i:int) : iexpr = IVar (monitor_state_ctor i)
-
-let sanitize_ident (s:string) : string =
-  let buf = Buffer.create (String.length s) in
-  let add_underscore () =
-    if Buffer.length buf = 0 || Buffer.nth buf (Buffer.length buf - 1) <> '_' then
-      Buffer.add_char buf '_'
-  in
-  String.iter
-    (fun c ->
-       match c with
-       | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' -> Buffer.add_char buf c
-       | _ -> add_underscore ())
-    s;
-  let out = Buffer.contents buf in
-  let out = String.lowercase_ascii out in
-  let out =
-    let len = String.length out in
-    if len > 0 && out.[len - 1] = '_' then String.sub out 0 (len - 1) else out
-  in
-  let out = if out = "" then "atom" else out in
-  let starts_with_digit =
-    match out.[0] with '0' .. '9' -> true | _ -> false
-  in
-  if starts_with_digit then "atom_" ^ out else out
-
-let make_atom_names (atom_exprs:(fo * iexpr) list) : string list =
-  let used = Hashtbl.create 16 in
-  let fresh base =
-    let rec loop n =
-      let name = if n = 0 then base else base ^ "_" ^ string_of_int n in
-      if Hashtbl.mem used name then loop (n + 1)
-      else (Hashtbl.add used name (); name)
-    in
-    loop 0
-  in
-  List.map
-    (fun (_atom, expr) ->
-       let base =
-         "atom_" ^ sanitize_ident (Support.string_of_iexpr expr)
-       in
-       fresh base)
-    atom_exprs
 
 let rec iexpr_to_fo_with_atoms (atom_map:(ident * fo) list) (e:iexpr) : fo =
   match e with
@@ -97,22 +58,6 @@ let rec iexpr_to_fo_with_atoms (atom_map:(ident * fo) list) (e:iexpr) : fo =
       FRel (HNow (IBin (Eq, a, b)), REq, HNow (ILitBool true))
   | IUn (_, a) ->
       FRel (HNow (IUn (Not, a)), REq, HNow (ILitBool true))
-
-let inline_atoms_iexpr (atom_map:(ident * iexpr) list) (e:iexpr) : iexpr =
-  let map = Hashtbl.create 16 in
-  List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_map;
-  let rec go = function
-    | IVar name ->
-        begin match Hashtbl.find_opt map name with
-        | Some expr -> expr
-        | None -> IVar name
-        end
-    | ILitInt _ | ILitBool _ as e -> e
-    | IPar e -> IPar (go e)
-    | IUn (op, e) -> IUn (op, go e)
-    | IBin (op, a, b) -> IBin (op, go a, go b)
-  in
-  go e
 
 type bool_like =
   | BoolInt
@@ -391,46 +336,18 @@ let monitor_assert (bad_idx:int) : stmt list =
   if bad_idx < 0 then [] else []
 
 let transform_node_monitor (n:node) : node =
-  let init_for_var =
-    let table =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
-    in
-    fun v ->
-      match List.assoc_opt v table with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
-      | Some (TCustom _) | None -> ILitInt 0
-  in
   let is_input v = List.exists (fun vd -> vd.vname = v) n.inputs in
-  let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
-  in
+  let atoms = collect_monitor_atoms n in
+  let var_types = atoms.var_types in
   let _bool_vars = bool_like_vars ~var_types n in
   let n = n in
-  let fold_map = fold_map_for_node n in
-  let pre_k_map = Collect.build_pre_k_infos n in
+  let fold_map = atoms.fold_map in
   let fold_internal_invariants =
     List.map
       (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
       fold_map
   in
-  let inputs = List.map (fun v -> v.vname) n.inputs in
-  let atoms =
-    collect_atoms_from_node n
-    |> List.filter (fun a ->
-           atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a <> None)
-    |> List.sort_uniq compare
-  in
-  let atom_exprs =
-    List.filter_map
-      (fun a ->
-         match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
-         | Some e -> Some (a, e)
-         | None -> None)
-      atoms
-  in
-  let atom_names = make_atom_names atom_exprs in
+  let atom_names = atoms.atom_names in
   let debug_incoming =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_INCOMING" with
     | Some "1" -> true
@@ -440,49 +357,38 @@ let transform_node_monitor (n:node) : node =
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
   if Automaton_core.monitor_log_enabled || debug_incoming then
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
-  let atom_map =
-    List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
-  in
-  let atom_name_to_fo =
-    List.map2 (fun (a, _) name -> (name, a)) atom_exprs atom_names
-  in
-  let atom_named_exprs =
-    List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
-  in
+  let atom_map = atoms.atom_map in
+  let atom_name_to_fo = atoms.atom_name_to_fo in
+  let atom_named_exprs = atoms.atom_named_exprs in
   let atom_map_exprs = atom_named_exprs in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
-  let spec_assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
-  let spec_guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
   let user_assumes = n.assumes in
   let user_guarantees = n.guarantees in
   let invariants_mon = n.invariants_mon in
-  let spec =
-    combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
-    |> simplify_ltl
-  in
-  let valuations = enumerate_valuations atom_map atom_names in
-  let states, transitions = build_residual_graph atom_map valuations spec in
+  let spec = build_monitor_spec ~atom_map n in
+  let automaton = build_monitor_automaton ~atom_map ~atom_names spec in
   if Automaton_core.monitor_log_enabled || debug_incoming then (
     List.iteri
       (fun i f ->
          prerr_endline
            (Printf.sprintf "[monitor] state %s = %s"
               (monitor_state_ctor i) (Support.string_of_ltl f)))
-      states;
+      automaton.states_raw;
     List.iter
       (fun (src, vals, dst) ->
          let guard_str = valuations_to_formula atom_names [vals] in
          prerr_endline
            (Printf.sprintf "[monitor] edge %s -> %s : %s"
               (monitor_state_ctor src) (monitor_state_ctor dst) guard_str))
-      transitions
+      automaton.transitions_raw
   );
-  let states, transitions =
-    minimize_residual_graph valuations states transitions
-  in
-  let grouped = group_transitions_bdd atom_names transitions in
   if Automaton_core.monitor_log_enabled then
-    prerr_endline (Printf.sprintf "[monitor] grouped edges=%d" (List.length grouped));
+    prerr_endline
+      (Printf.sprintf "[monitor] grouped edges=%d"
+         (List.length automaton.grouped));
+  let states = automaton.states in
+  let transitions = automaton.transitions in
+  let grouped = automaton.grouped in
   let compat_invariants =
     let n_states = List.length n.states in
     let n_mon = List.length states in
@@ -598,7 +504,7 @@ let transform_node_monitor (n:node) : node =
           let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
           let guard_fos = List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs in
           let guard_fos =
-            List.map (shift_fo_forward_inputs ~init_for_var ~is_input) guard_fos
+            List.map (shift_fo_forward_inputs ~is_input) guard_fos
           in
           let guard_strs = List.map string_of_fo guard_fos in
           prerr_endline
@@ -614,7 +520,7 @@ let transform_node_monitor (n:node) : node =
                  let g =
                    bdd_to_iexpr atom_names guard
                    |> iexpr_to_fo_with_atoms atom_name_to_fo
-                   |> shift_fo_forward_inputs ~init_for_var ~is_input
+                   |> shift_fo_forward_inputs ~is_input
                    |> string_of_fo
                  in
                  Printf.sprintf "%s -> %s : %s"
@@ -646,7 +552,7 @@ let transform_node_monitor (n:node) : node =
     in
     let shifted =
       List.map
-        (shift_fo_forward_inputs ~init_for_var ~is_input)
+        (shift_fo_forward_inputs ~is_input)
         unshifted_in
     in
     let unshifted_out =
