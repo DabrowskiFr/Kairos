@@ -35,4 +35,4 @@ type env_info = Emit_why_types.env_info
     - [env] records links/ghosts/pre_k derived from [node] and collection passes. *)
 
 (** Build environment data needed by the Why3 emission pipeline. *)
-val prepare_node : prefix_fields:bool -> Ast.node -> env_info
+val prepare_node : prefix_fields:bool -> nodes:Ast.node list -> Ast.node -> env_info

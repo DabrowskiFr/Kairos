@@ -38,7 +38,10 @@ val fold_var_of_hexpr :
 (** Resolve a fold accumulator name for a hexpr using a fold map. *)
 val hexpr_to_iexpr :
   inputs:Ast.ident list ->
-  fold_map:(Ast.hexpr * Ast.ident) list -> Ast.hexpr -> Ast.iexpr option
+  fold_map:(Ast.hexpr * Ast.ident) list ->
+  var_types:(Ast.ident * Ast.ty) list ->
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
+  Ast.hexpr -> Ast.iexpr option
 (** Convert a hexpr to an iexpr when representable. *)
 val infer_iexpr_type :
   var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
@@ -50,7 +53,9 @@ val mk_bool_neq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
 val atom_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
-  fold_map:(Ast.hexpr * Ast.ident) list -> Ast.fo -> Ast.iexpr option
+  fold_map:(Ast.hexpr * Ast.ident) list ->
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
+  Ast.fo -> Ast.iexpr option
 (** Convert an atomic FO predicate to an iexpr when possible. *)
 val atom_to_var_rel : Ast.ident -> Ast.fo
 (** Encode an atom variable as a FO relation (var = true). *)

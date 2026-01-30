@@ -36,14 +36,14 @@ type comment_specs =
 
 let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Emit_why_env.prepare_node ~prefix_fields n in
+  let info = Emit_why_env.prepare_node ~prefix_fields ~nodes n in
   let n = info.node in
   let module_name = info.module_name in
   let imports = info.imports in
   let type_mon_state = info.type_mon_state in
   let type_state = info.type_state in
   let type_vars = info.type_vars in
-  let init_decl = info.init_decl in
+  let init_vars_decl = info.init_vars_decl in
   let env = info.env in
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
@@ -54,7 +54,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   let find_node (name:string) : node option =
     List.find_opt (fun nd -> nd.nname = name) nodes
   in
-  let instance_invariant_terms ?(in_post=false) (inst_name:string) (node_name:string) (inst_node:node) =
+  let instance_invariant_terms ?(in_post=false) (env:env) (inst_name:string)
+    (node_name:string) (inst_node:node) =
     let input_names = List.map (fun v -> v.vname) inst_node.inputs in
     let pre_k_map = build_pre_k_infos inst_node in
     List.filter_map
@@ -90,7 +91,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
           match find_node node_name with
           | None -> ([], [])
           | Some inst_node ->
-              let inv_terms = instance_invariant_terms inst_name node_name inst_node in
+              let inv_terms = instance_invariant_terms env inst_name node_name inst_node in
               match extract_delay_spec inst_node.guarantees with
               | None -> ([], inv_terms)
               | Some (out_name, in_name) ->
@@ -141,7 +142,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   in
 
   let decls =
-    imports @ type_mon_state @ [type_state; type_vars; init_decl; step_decl]
+    imports @ type_mon_state @ [type_state; type_vars; init_vars_decl; step_decl]
   in
 
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =

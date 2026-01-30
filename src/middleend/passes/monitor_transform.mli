@@ -33,6 +33,7 @@ val monitor_state_expr : int -> Ast.iexpr
 val sanitize_ident : string -> string
 (** Make atom names. *)
 val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
+val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 
 (** {1 Node Transforms} *)
 
@@ -40,7 +41,7 @@ val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
 val transform_node : Ast.node -> Ast.node
 (** Compute monitor update stmts. *)
 val monitor_update_stmts :
-  Ast.ident list ->
+  (Ast.ident * Ast.iexpr) list ->
   Automaton_core.residual_state list ->
   Automaton_core.guarded_transition list -> Ast.stmt list
 (** Compute monitor assert. *)

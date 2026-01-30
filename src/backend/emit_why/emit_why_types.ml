@@ -25,7 +25,8 @@ type env_info = {
   type_mon_state : Why3.Ptree.decl list;
   type_state : Why3.Ptree.decl;
   type_vars : Why3.Ptree.decl;
-  init_decl : Why3.Ptree.decl;
+  init_vars_decl : Why3.Ptree.decl;
+  init_posts : Why3.Ptree.term list;
   env : Support.env;
   inputs : Why3.Ptree.binder list;
   ret_expr : Why3.Ptree.expr;

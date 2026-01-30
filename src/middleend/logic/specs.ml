@@ -62,8 +62,17 @@ let fold_var_of_hexpr (fold_map:(hexpr * ident) list) (h:hexpr)
   : ident option =
   List.find_map (fun (h', name) -> if h = h' then Some name else None) fold_map
 
+let pre_k_var_of_hexpr ~(pre_k_map:(hexpr * Support.pre_k_info) list)
+  (h:hexpr) : ident option =
+  match List.find_opt (fun (h', _) -> h' = h) pre_k_map with
+  | None -> None
+  | Some (_h, info) ->
+      let names = info.Support.names in
+      if names = [] then None else Some (List.nth names (List.length names - 1))
+
 let hexpr_to_iexpr ~(inputs:ident list) ~(fold_map:(hexpr * ident) list)
-  (h:hexpr) : iexpr option =
+  ~(var_types:(ident * ty) list)
+  ~(pre_k_map:(hexpr * Support.pre_k_info) list) (h:hexpr) : iexpr option =
   match h with
   | HNow e -> Some e
   | HFold _ as h ->
@@ -71,8 +80,16 @@ let hexpr_to_iexpr ~(inputs:ident list) ~(fold_map:(hexpr * ident) list)
       | Some name -> Some (IVar name)
       | None -> None
       end
-  | HPre (IVar x, _) when List.mem x inputs ->
-      Some (IVar (Support.pre_input_old_name x))
+  | HPre (IVar x, _) ->
+      if List.mem x inputs || List.mem_assoc x var_types then
+        Some (IVar (Support.pre_input_old_name x))
+      else
+        None
+  | HPreK _ as h ->
+      begin match pre_k_var_of_hexpr ~pre_k_map h with
+      | Some name -> Some (IVar name)
+      | None -> None
+      end
   | _ -> None
 
 let infer_iexpr_type ~(var_types:(ident * ty) list) (e:iexpr) : ty option =
@@ -101,11 +118,12 @@ let mk_bool_neq (a:iexpr) (b:iexpr) : iexpr =
         IBin (And, IUn (Not, a), b))
 
 let atom_to_iexpr ~(inputs:ident list) ~(var_types:(ident * ty) list)
-  ~(fold_map:(hexpr * ident) list) (f:fo) : iexpr option =
+  ~(fold_map:(hexpr * ident) list) ~(pre_k_map:(hexpr * Support.pre_k_info) list)
+  (f:fo) : iexpr option =
   match f with
   | FRel (h1, r, h2) ->
-      begin match hexpr_to_iexpr ~inputs ~fold_map h1,
-                  hexpr_to_iexpr ~inputs ~fold_map h2 with
+      begin match hexpr_to_iexpr ~inputs ~fold_map ~var_types ~pre_k_map h1,
+                  hexpr_to_iexpr ~inputs ~fold_map ~var_types ~pre_k_map h2 with
       | Some e1, Some e2 ->
           let ty1 = infer_iexpr_type ~var_types e1 in
           let ty2 = infer_iexpr_type ~var_types e2 in

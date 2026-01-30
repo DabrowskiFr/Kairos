@@ -1,5 +1,5 @@
-(lang dune 3.10)
+(lang dune 3.21)
 (name obc2why3)
 (generate_opam_files false)
 (using menhir 2.1)
-(using coq 0.8)
+(using rocq 0.11)

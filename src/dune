@@ -9,6 +9,7 @@
   collect
   passes
   compile_expr
+  emit_obc
   emit_why_types
   emit_why_env
   emit_why_contracts

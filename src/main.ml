@@ -61,6 +61,7 @@ let dump_program_json ~(out:string option) (p:program) : unit =
 let () =
   let dump_dot = ref None in
   let dump_dot_labels = ref None in
+  let dump_obc = ref None in
   let no_prefix = ref true in
   let show_help = ref false in
   let prove = ref false in
@@ -74,6 +75,7 @@ let () =
     "                [--dump-dot <file.dot>]\n" ^
     "                [--dump-dot-labels <file.dot>]\n" ^
     "                [--dump-json <file.json>|-]\n" ^
+    "                [--dump-obc <file.obc+>]\n" ^
     "                [-o <file.why>]\n" ^
     "                [--prove --prover <name>] <file.obc>\n" ^
     "Options:\n" ^
@@ -84,6 +86,7 @@ let () =
     "  --dump-dot-labels    Generate DOT with full node/edge labels\n" ^
     "  --naive-automaton    Use naive automaton construction (no BDD constraints)\n" ^
     "  --dump-json          Dump internal AST as JSON to file (or - for stdout)\n" ^
+    "  --dump-obc           Dump augmented OBC (monitor-instrumented) to file\n" ^
     "  -o <file.why>        Write generated Why3 to this file\n" ^
     "  --prove              Run why3 prove on the generated output\n" ^
     "  --prover <name>      Prover for --prove (default: z3)\n"
@@ -111,6 +114,14 @@ let () =
           exit 1
         ) else (
           dump_dot_labels := Some Sys.argv.(!i + 1);
+          i := !i + 2
+        )
+    | "--dump-obc" ->
+        if !i + 1 >= Array.length Sys.argv then (
+          prerr_endline "Missing argument for --dump-obc";
+          exit 1
+        ) else (
+          dump_obc := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
     | "--prove" ->
@@ -158,9 +169,13 @@ let () =
   | [file] ->
       let p = parse_file file |> add_post_for_next_pre_program in
       Automaton_core.set_naive_automaton !naive_automaton;
-      if (!dump_dot <> None || !dump_dot_labels <> None)
+      if (!dump_dot <> None || !dump_dot_labels <> None || !dump_obc <> None)
          && (!prove || !output_file <> None) then (
-        prerr_endline "--dump-dot cannot be combined with --prove or -o";
+        prerr_endline "--dump-dot/--dump-obc cannot be combined with --prove or -o";
+        exit 1
+      );
+      if !dump_obc <> None && (!dump_dot <> None || !dump_dot_labels <> None) then (
+        prerr_endline "--dump-obc cannot be combined with --dump-dot or --dump-dot-labels";
         exit 1
       );
       if !dump_dot <> None && !dump_dot_labels <> None then (
@@ -205,9 +220,9 @@ let () =
         );
         if output_path = None then print_string out
       in
-      begin match !dump_dot, !dump_dot_labels with
-      | Some out_file, None
-      | None, Some out_file ->
+      begin match !dump_dot, !dump_dot_labels, !dump_obc with
+      | Some out_file, None, None
+      | None, Some out_file, None ->
           let show_labels = !dump_dot_labels <> None in
           let residual_file =
             if Filename.check_suffix out_file ".dot"
@@ -230,14 +245,25 @@ let () =
             in
             write label_file labels
           );
-      | None, None ->
+      | None, None, Some out_file ->
+          let ensure_ext path =
+            if Filename.check_suffix path ".obc+" then path
+            else if Filename.check_suffix path ".obc" then path ^ "+"
+            else path ^ ".obc+"
+          in
+          let path = ensure_ext out_file in
+          let out = Emit_obc.compile_program_monitor p in
+          let oc = open_out path in
+          output_string oc out;
+          close_out oc
+      | None, None, None ->
           let out =
             Monitor_emit.compile_program_monitor
               ~prefix_fields:(not !no_prefix)
               p
           in
           output_and_maybe_prove out
-      | Some _, Some _ -> ()
+      | _ -> ()
       end
   | _ ->
       prerr_endline usage;

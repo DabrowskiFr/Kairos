@@ -26,6 +26,39 @@ open Compile_expr
 
 type contract_info = Emit_why_types.contract_info
 
+let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list)
+  : Ptree.term list =
+  let atom_map = Hashtbl.create 16 in
+  List.iter
+    (function
+      | Invariant (id, HNow e) when String.length id >= 5 && String.sub id 0 5 = "atom_" ->
+          let qid =
+            let field = rec_var_name env id in
+            let q = qdot (qid1 env.rec_name) field in
+            string_of_qid q
+          in
+          Hashtbl.replace atom_map qid (compile_term env e)
+      | _ -> ())
+    invs;
+  let rec go (t:Ptree.term) : Ptree.term =
+    match t.term_desc with
+    | Tident q ->
+        begin match Hashtbl.find_opt atom_map (string_of_qid q) with
+        | Some repl -> repl
+        | None -> t
+        end
+    | Tconst _ | Ttrue | Tfalse -> t
+    | Tnot a -> mk_term (Tnot (go a))
+    | Tbinop (a, op, b) -> mk_term (Tbinop (go a, op, go b))
+    | Tinnfix (a, op, b) -> mk_term (Tinnfix (go a, op, go b))
+    | Tidapp (q, args) -> mk_term (Tidapp (q, List.map go args))
+    | Tapply (f, a) -> mk_term (Tapply (go f, go a))
+    | Tif (c, t1, t2) -> mk_term (Tif (go c, go t1, go t2))
+    | Ttuple ts -> mk_term (Ttuple (List.map go ts))
+    | _ -> t
+  in
+  List.map go terms
+
 let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
   let acc = term_of_var env fi.acc in
   let acc_old = term_old acc in
@@ -232,6 +265,65 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let state_rel_for name =
     List.find_map (fun (st, term) -> if st = name then Some term else None) state_rel_terms
   in
+  let init_guard_terms =
+    let st_init =
+      term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state)))
+    in
+    let mon_init =
+      match info.mon_state_ctors with
+      | first :: _ ->
+          [ term_eq (term_of_var env "__mon_state") (mk_term (Tident (qid1 first))) ]
+      | [] -> []
+    in
+    let inv_terms =
+      List.filter_map
+        (function
+          | Invariant (id, h) ->
+              let lhs = term_of_var env id in
+              let rhs = compile_hexpr ~prefer_link:false ~in_post:false env h in
+              Some (term_eq lhs rhs)
+          | InvariantStateRel (is_eq, st_name, f) ->
+              if is_eq && st_name = n.init_state then
+                Some (compile_fo_term env f)
+              else
+                None)
+        n.invariants_mon
+    in
+    let instance_terms =
+      let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
+      List.concat_map
+        (fun (inst_name, node_name) ->
+           match find_node node_name with
+           | None -> []
+           | Some inst_node ->
+               let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+               let pre_k_map = build_pre_k_infos inst_node in
+               List.filter_map
+                 (function
+                   | Invariant (id,h) ->
+                       let lhs = term_of_instance_var env inst_name node_name id in
+                       let rhs =
+                         compile_hexpr_instance ~in_post:false env inst_name node_name input_names pre_k_map h
+                       in
+                       Some (term_eq lhs rhs)
+                   | InvariantStateRel (is_eq, st_name, f) ->
+                       let st = term_of_instance_var env inst_name node_name "st" in
+                       let rhs = mk_term (Tident (qid1 st_name)) in
+                       let cond = (if is_eq then term_eq else term_neq) st rhs in
+                       let body =
+                         compile_fo_term_instance ~in_post:false env inst_name node_name input_names pre_k_map f
+                       in
+                       Some (term_implies cond body))
+                 inst_node.invariants_mon)
+        n.instances
+    in
+    st_init :: (mon_init @ inv_terms @ instance_terms)
+  in
+  let init_guard =
+    match init_guard_terms with
+    | [] -> None
+    | terms -> Some (conj_terms terms)
+  in
   let transition_post_to_pre =
     let requires_terms (t:transition) =
       List.concat_map
@@ -246,17 +338,13 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
       List.concat_map
         (fun f ->
            let ltl = ltl_of_fo f in
-           let shifted = shift_ltl_by ~init_for_var 1 ltl in
-           match shifted with
-           | None -> []
-           | Some ltl' ->
-               let norm = normalize_ltl ltl' in
-               let rel = ltl_relational env norm.ltl in
-               let fo =
-                 try fo_of_ltl rel with _ -> f
-               in
-               let term = compile_fo_term env fo in
-               apply_k_guard ~in_post:true norm.k_guard [term])
+           let norm = normalize_ltl ltl in
+           let rel = ltl_relational env norm.ltl in
+           let fo =
+             try fo_of_ltl rel with _ -> f
+           in
+           let term = compile_fo_term env fo in
+           apply_k_guard ~in_post:true norm.k_guard [term])
         t.ensures
     in
     List.concat_map
@@ -283,7 +371,13 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
                   mk_term (Tbinop (guard, Dterm.DTand, ens_conj))
                 in
                 let reqs = requires_terms t2 in
-                List.map (fun r -> term_implies guard r) reqs)
+                let base = List.map (fun r -> term_implies guard r) reqs in
+                let init_case =
+                  match init_guard, t2.src = n.init_state with
+                  | Some g, true -> List.map (fun r -> term_implies g r) reqs
+                  | _ -> []
+                in
+                base @ init_case)
              next_trans)
       n.trans
   in
@@ -572,6 +666,9 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   in
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
+
+  let pre = inline_atom_terms env n.invariants_mon pre in
+  let post = inline_atom_terms env n.invariants_mon post in
 
   let label_context : Emit_why_diagnostics.label_context =
     { pre;

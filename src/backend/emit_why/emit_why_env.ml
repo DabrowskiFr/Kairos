@@ -21,6 +21,7 @@ open Why3
 open Ptree
 open Ast
 open Support
+open Compile_expr
 
 type env_info = Emit_why_types.env_info
 
@@ -105,7 +106,8 @@ let collect_mon_state_ctors (n:node) : ident list =
   in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
-let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
+let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
+  : Emit_why_types.env_info =
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function
     | LG _ -> false
@@ -273,12 +275,16 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
   let pre_inputs = List.map pre_input_name input_names in
   let pre_input_olds = List.map pre_input_old_name input_names in
   let fold_init_flags = List.map (fun (_ghost_acc, _acc, init_done) -> init_done) fold_init_links in
+  let pre_old_locals_outputs =
+    List.map (fun v -> Support.pre_input_old_name v.vname) (n.locals @ n.outputs)
+  in
   let base_vars =
     "st"
     :: List.map (fun v -> v.vname) (n.locals @ n.outputs)
     @ List.map fst n.instances
     @ pre_inputs
     @ pre_input_olds
+    @ pre_old_locals_outputs
     @ (if needs_first_step then ["__first_step"] else [])
     @ (if needs_step_count then ["__step_count"] else [])
     @ fold_init_flags
@@ -288,7 +294,9 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
   let hexpr_needs_old (h:hexpr) : bool =
     match h with
     | HNow _ -> false
-    | HPre (IVar x, _) when List.mem x input_names -> false
+    | HPre (IVar x, _) when List.mem x input_names
+                            || List.exists (fun v -> v.vname = x) (n.locals @ n.outputs) ->
+        false
     | HPre _ -> true
     | HPreK _ -> false
     | HFold _ -> false
@@ -360,6 +368,14 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
              f_mutable=true;
              f_ghost=true })
         n.inputs
+    @ List.map
+        (fun v ->
+           { f_loc=loc;
+             f_ident=ident (rec_var_name env (pre_input_old_name v.vname));
+             f_pty=default_pty v.vty;
+             f_mutable=true;
+             f_ghost=true })
+        (n.locals @ n.outputs)
     @ List.concat_map
         (fun info ->
            List.map
@@ -437,6 +453,9 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     @ List.map (fun (v:vdecl) ->
         (field_qid (pre_input_old_name v.vname), any_expr_for_type v.vty)
       ) n.inputs
+    @ List.map (fun (v:vdecl) ->
+        (field_qid (pre_input_old_name v.vname), any_expr_for_type v.vty)
+      ) (n.locals @ n.outputs)
     @ List.concat_map
         (fun info ->
           let init = any_expr_for_type info.vty in
@@ -447,13 +466,81 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     @ List.map (fun (_ghost_acc, _acc, init_done) -> (field_qid init_done, mk_expr Efalse)) fold_init_links
     @ List.map (fun fi -> (field_qid fi.acc, mk_expr (Econst (Constant.int_const BigInt.zero)))) folds
   in
-  let init_decl =
+  let init_posts =
+    let env_init = { env with rec_name = "result" } in
+    let is_generated_invariant_id id =
+      (String.length id >= 5 && String.sub id 0 5 = "atom_")
+      || (String.length id >= 15 && String.sub id 0 15 = "__fold_internal")
+    in
+    let st_is_init =
+      term_eq (term_of_var env_init "st") (mk_term (Tident (qid1 n.init_state)))
+    in
+    let mon_init_posts =
+      match mon_state_ctors with
+      | first :: _ ->
+          [ term_eq (term_of_var env_init "__mon_state") (mk_term (Tident (qid1 first))) ]
+      | [] -> []
+    in
+    let inv_posts =
+      List.filter_map
+        (function
+          | Invariant (id, h) when not (is_generated_invariant_id id) ->
+              let lhs = term_of_var env_init id in
+              let rhs = compile_hexpr ~prefer_link:false ~in_post:false env_init h in
+              Some (term_eq lhs rhs)
+          | Invariant _ -> None
+          | InvariantStateRel (is_eq, st_name, f) ->
+              if is_eq && st_name = n.init_state then
+                Some (compile_fo_term env_init f)
+              else
+                None)
+        n.invariants_mon
+    in
+    let find_node (name:string) : node option =
+      List.find_opt (fun nd -> nd.nname = name) nodes
+    in
+    let instance_invariant_terms ?(in_post=false) (inst_name:string) (node_name:string) (inst_node:node) =
+      let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+      let pre_k_map = Collect.build_pre_k_infos inst_node in
+      List.filter_map
+        (function
+          | Invariant (id,h) ->
+              let lhs = term_of_instance_var env_init inst_name node_name id in
+              let rhs =
+                compile_hexpr_instance ~in_post env_init inst_name node_name input_names pre_k_map h
+              in
+              Some (term_eq lhs rhs)
+          | InvariantStateRel (is_eq, st_name, f) ->
+              let st = term_of_instance_var env_init inst_name node_name "st" in
+              let rhs = mk_term (Tident (qid1 st_name)) in
+              let cond = (if is_eq then term_eq else term_neq) st rhs in
+              let body =
+                compile_fo_term_instance ~in_post env_init inst_name node_name input_names pre_k_map f
+              in
+              Some (term_implies cond body))
+        inst_node.invariants_mon
+    in
+    let instance_posts =
+      List.concat_map
+        (fun (inst_name, node_name) ->
+           match find_node node_name with
+           | None -> []
+           | Some inst_node -> instance_invariant_terms ~in_post:false inst_name node_name inst_node)
+        n.instances
+    in
+    st_is_init :: (mon_init_posts @ inv_posts @ instance_posts)
+  in
+  let init_vars_decl =
     let fun_body = mk_expr (Erecord init_fields) in
     let args =
       [ (loc, Some (ident "_unit"), false, Some (Ptree.PTtyapp(qid1 "unit", []))) ]
     in
+    let result_pat = { pat_desc = Pvar (ident "result"); pat_loc = loc } in
+    let mk_post t = (loc, [ (result_pat, t) ]) in
+    let spc = { empty_spec with sp_post = List.map mk_post init_posts } in
     let fd : Ptree.fundef =
-      (ident "init_vars", false, Expr.RKnone, args, None, {pat_desc=Pwild; pat_loc=loc}, Ity.MaskVisible, empty_spec, fun_body)
+      (ident "init_vars", false, Expr.RKnone, args, None, {pat_desc=Pwild; pat_loc=loc},
+       Ity.MaskVisible, spc, fun_body)
     in
     Ptree.Drec [fd]
   in
@@ -508,6 +595,14 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
              mk_expr (Eassign [ (target, None, rhs) ]))
           n.inputs
       in
+      let pre_old_local_updates =
+        List.map
+          (fun v ->
+             let target = field env (pre_input_old_name v.vname) in
+             let rhs = field env v.vname in
+             mk_expr (Eassign [ (target, None, rhs) ]))
+          (n.locals @ n.outputs)
+      in
       let pre_updates =
         List.map
           (fun v ->
@@ -557,7 +652,8 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
       let updates =
         let all =
           let base =
-            fold_updates @ fold_init_done_updates @ pre_k_updates @ pre_old_updates @ pre_updates
+            fold_updates @ fold_init_done_updates @ pre_k_updates
+            @ pre_old_updates @ pre_old_local_updates @ pre_updates
           in
           match step_count_update with
           | None -> base
@@ -594,7 +690,8 @@ let prepare_node ~(prefix_fields:bool) (n:node) : Emit_why_types.env_info =
     type_mon_state;
     type_state;
     type_vars;
-    init_decl;
+    init_vars_decl;
+    init_posts;
     env;
     inputs;
     ret_expr;

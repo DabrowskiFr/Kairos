@@ -26,21 +26,26 @@ let monitor_edges (n:A.node) : (string * string * string) list =
     List.map (fun v -> (v.Ast.vname, v.Ast.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let fold_map = fold_map_for_node n in
+  let pre_k_map = Collect.build_pre_k_infos n in
   let inputs = List.map (fun v -> v.Ast.vname) n.inputs in
   let atoms =
     collect_atoms_from_node n
-    |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~fold_map a <> None)
+    |> List.filter (fun a ->
+           atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a <> None)
     |> List.sort_uniq compare
   in
   let atom_exprs =
     List.filter_map
       (fun a ->
-         match atom_to_iexpr ~inputs ~var_types ~fold_map a with
+         match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
          | Some e -> Some (a, e)
          | None -> None)
       atoms
   in
   let atom_names = Monitor_transform.make_atom_names atom_exprs in
+  let atom_named_exprs =
+    List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
+  in
   let atom_map =
     List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
   in
@@ -59,6 +64,9 @@ let monitor_edges (n:A.node) : (string * string * string) list =
   List.map
     (fun (src, guard, dst) ->
        let guard_expr = bdd_to_iexpr atom_names guard in
+       let guard_expr =
+         Monitor_transform.inline_atoms_iexpr atom_named_exprs guard_expr
+       in
        let guard_str = string_of_iexpr guard_expr in
        (Monitor_transform.monitor_state_ctor src,
         Monitor_transform.monitor_state_ctor dst,

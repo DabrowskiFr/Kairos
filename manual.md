@@ -25,6 +25,12 @@ Generate Why3 to a file:
 dune exec -- obc2why3 -o out/toggle_monitor.why tests/toggle/toggle.obc
 ```
 
+Dump augmented OBC (monitor-instrumented):
+
+```sh
+dune exec -- obc2why3 --dump-obc out/toggle_monitor.obc+ tests/toggle/toggle.obc
+```
+
 Run Why3 directly from obc2why3:
 
 ```sh
@@ -119,6 +125,7 @@ All available options:
 - `--dump-dot-labels <file>` Generate DOT with full node/edge labels
 - `--dump-json <file>|-`   Dump internal AST as JSON to file (or `-` for stdout)
 - `--naive-automaton`      Use naive automaton construction (no BDD constraints)
+- `--dump-obc <file>`      Dump augmented OBC (monitor-instrumented) to file
 - `-o <file.why>`          Write generated Why3 to this file
 - `--prove`                Run why3 prove on the generated output
 - `--prover <name>`        Prover for --prove (default: z3)
