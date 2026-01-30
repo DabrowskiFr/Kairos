@@ -32,7 +32,6 @@ type iexpr =
   | IPar of iexpr
 type hexpr =
     HNow of iexpr
-  | HPre of iexpr
   | HPreK of iexpr * int
   | HFold of op * iexpr * iexpr
 type relop = REq | RNeq | RLt | RLe | RGt | RGe

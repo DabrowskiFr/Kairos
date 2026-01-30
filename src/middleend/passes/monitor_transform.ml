@@ -22,7 +22,7 @@ open Ast
 open Support
 open Automaton_core
 open Specs
-open Passes
+open Time_shit
 
 let monitor_state_type : string = "mon_state"
 let monitor_state_name : string = "__mon_state"

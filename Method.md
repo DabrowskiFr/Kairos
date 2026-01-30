@@ -38,7 +38,7 @@ Transition bodies contain statements:
 ### History and Temporal Operators
 Expressions inside contracts can use history operators:
 
-- `pre(e)` (previous value)
+- `pre(e)` (sugar for `pre_k(e, 1)`)
 - `pre_k(e, k)` (k-step history, unconstrained for the first k steps)
 - `scan1(op, e)` and `scan(op, init, e)` (folds over time)
 - `window(k, wop, e)` (windowed fold; currently treated conservatively)

@@ -77,8 +77,6 @@ let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
 let rec hexpr_mentions_generated (h:hexpr) : bool =
   match h with
   | HNow e -> iexpr_mentions_generated e
-  | HPre e ->
-      iexpr_mentions_generated e
   | HPreK (e, _) ->
       iexpr_mentions_generated e
   | HFold (_, init, e) ->
@@ -87,8 +85,6 @@ let rec hexpr_mentions_generated (h:hexpr) : bool =
 let rec hexpr_has_tag (tag:gen_tag) (h:hexpr) : bool =
   match h with
   | HNow e -> iexpr_has_tag tag e
-  | HPre e ->
-      iexpr_has_tag tag e
   | HPreK (e, _) ->
       iexpr_has_tag tag e
   | HFold (_, init, e) ->
@@ -238,13 +234,11 @@ let inline_hexpr atom_map ~(init_for_var:ident -> iexpr) ~(vars:ident list) = fu
       | IVar id when starts_with id "__pre_old_" ->
           let base = String.sub id 10 (String.length id - 10) in
           if List.mem base vars then
-            HPre (IVar base)
+            HPreK (IVar base, 1)
           else
             HNow (IVar id)
       | e -> HNow e
       end
-  | HPre e ->
-      HPre (inline_iexpr atom_map e)
   | HPreK (e, k) ->
       HPreK (inline_iexpr atom_map e, k)
   | HFold (op, init, e) ->

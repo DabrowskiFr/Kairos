@@ -39,7 +39,6 @@ type iexpr =
 
 type hexpr =
   | HNow of iexpr
-  | HPre of iexpr                         (* pre(e) *)
   | HPreK of iexpr * int                  (* pre_k(e, k) *)
   | HFold of op * iexpr * iexpr           (* fold(op, init, x) *)
 [@@deriving show]

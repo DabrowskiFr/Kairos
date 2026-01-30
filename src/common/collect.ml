@@ -24,7 +24,6 @@ let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with
   | HNow _ -> acc
-  | HPre e -> collect_hexpr (HNow e) acc
   | HPreK (e, _) ->
       collect_hexpr (HNow e) acc
   | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
@@ -133,7 +132,7 @@ let collect_pre_k_from_specs
       | _ -> acc
     in
     match h with
-    | HFold _ | HNow _ | HPre _ | HPreK _ -> acc
+    | HFold _ | HNow _ | HPreK _ -> acc
   in
   let rec collect_pre_k_ltl f acc =
     match f with
@@ -271,8 +270,8 @@ let collect_calls_trans_full (ts:transition list)
 let extract_delay_spec (guarantees:ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
-    | LAtom (FRel (HNow (IVar out), REq, HPre (IVar inp)))
-    | LAtom (FRel (HPre (IVar inp), REq, HNow (IVar out))) ->
+    | LAtom (FRel (HNow (IVar out), REq, HPreK (IVar inp, 1)))
+    | LAtom (FRel (HPreK (IVar inp, 1), REq, HNow (IVar out))) ->
         Some (out, inp)
     | _ -> None
   in

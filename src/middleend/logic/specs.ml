@@ -80,17 +80,11 @@ let hexpr_to_iexpr ~(inputs:ident list) ~(fold_map:(hexpr * ident) list)
       | Some name -> Some (IVar name)
       | None -> None
       end
-  | HPre (IVar x) ->
-      if List.mem x inputs || List.mem_assoc x var_types then
-        Some (IVar (Support.pre_input_old_name x))
-      else
-        None
   | HPreK _ as h ->
       begin match pre_k_var_of_hexpr ~pre_k_map h with
       | Some name -> Some (IVar name)
       | None -> None
       end
-  | _ -> None
 
 let infer_iexpr_type ~(var_types:(ident * ty) list) (e:iexpr) : ty option =
   let rec go = function

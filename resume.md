@@ -5,7 +5,7 @@ Langage accepte
 - Noeud: `node <id>(params) returns (params)` puis contrats (`requires`, `ensures`, `assume`, `guarantee`), `locals`, `states`, `init`, `trans` et `end`.
 - Instructions: affectation, `if ... then ... else ... end`, `skip`, `assert <ltl>` (actuellement ignoré dans le code exécutable).
 - Expressions impératives: entiers/bools/réels, identifiants, binaires (+,-,*,/, comparaisons, and/or), unaires (neg/not), parenthèses.
-- `hexpr` stateful pour les specs: `pre(e)`, `pre_k(e, k)`, `scan(op,init,x)`, `scan1(op,x)`, `window(k,wop,x)`, `let x = h1 in h2` (+ `HNow`).
+- `hexpr` stateful pour les specs: `pre(e)` (sucre pour `pre_k(e, 1)`), `pre_k(e, k)`, `scan(op,init,x)`, `scan1(op,x)`, `window(k,wop,x)`, `let x = h1 in h2` (+ `HNow`).
 
 Spécifications et LTL
 - Atomes: relation `hexpr rel hexpr` ou prédicats nommés (APred; pas encore gérés au codegen).

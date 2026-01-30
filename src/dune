@@ -7,7 +7,7 @@
   parser
   support
   collect
-  passes
+  contract_link
   compile_expr
   emit_obc
   emit_why_types
@@ -20,6 +20,7 @@
   dot
   monitor_emit
   specs
+  time_shit
   automaton_util
   automaton_config
   automaton_atoms

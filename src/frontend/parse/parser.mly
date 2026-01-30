@@ -225,7 +225,7 @@ id_list:
 
 hexpr:
   | LBRACE iexpr RBRACE { HNow $2 }
-  | PRE LPAREN iexpr RPAREN { HPre($3) }
+  | PRE LPAREN iexpr RPAREN { HPreK($3, 1) }
   | IDENT LPAREN iexpr COMMA INT RPAREN
       { if $1 = "pre_k" then HPreK($3,$5) else failwith "unknown history op" }
   | IDENT LPAREN op COMMA hexpr COMMA hexpr RPAREN

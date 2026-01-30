@@ -45,7 +45,7 @@ let collect_ctor_iexpr (acc:ident list) (e:iexpr) : ident list =
 
 let collect_ctor_hexpr (acc:ident list) (h:hexpr) : ident list =
   match h with
-  | HNow e | HPre e -> collect_ctor_iexpr acc e
+  | HNow e -> collect_ctor_iexpr acc e
   | HPreK (e, _) ->
       collect_ctor_iexpr acc e
   | HFold (_, init, e) ->
@@ -163,9 +163,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
       | None -> ILitInt 0
   in
   let pre_to_prek_hexpr = function
-    | HPre (IVar v) ->
-        HPreK (IVar v, 1)
-    | HPre _ as h -> h
+    | HPreK _ as h -> h
     | h -> h
   in
   let rec pre_to_prek_ltl = function
@@ -293,10 +291,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   let hexpr_needs_old (h:hexpr) : bool =
     match h with
     | HNow _ -> false
-    | HPre (IVar x) when List.mem x input_names
-                            || List.exists (fun v -> v.vname = x) (n.locals @ n.outputs) ->
-        false
-    | HPre _ -> true
     | HPreK _ -> false
     | HFold _ -> false
   in

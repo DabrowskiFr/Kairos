@@ -32,7 +32,7 @@ Program expressions:
 
 History expressions:
 
-  h ::= {e} | pre(e) | pre_k(e, k)
+  h ::= {e} | pre(e) | pre_k(e, k)  (avec pre(e) comme sucre pour pre_k(e, 1))
       | scan1(op, e) | scan(op, e0, e)
       | window(k, wop, e)
       | let x = h1 in h2

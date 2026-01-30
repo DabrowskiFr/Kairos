@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Passes
+open Contract_link
 
 let parse_file (fn:string) : program =
   let ic = open_in fn in
@@ -167,7 +167,7 @@ let () =
   );
   match List.rev !files with
   | [file] ->
-      let p = parse_file file |> add_post_for_next_pre_program in
+      let p = parse_file file |> ensure_next_requires_program in
       Automaton_core.set_naive_automaton !naive_automaton;
       if (!dump_dot <> None || !dump_dot_labels <> None || !dump_obc <> None)
          && (!prove || !output_file <> None) then (
