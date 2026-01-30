@@ -338,16 +338,18 @@ let monitor_assert (bad_idx:int) : stmt list =
 let transform_node_monitor (n:node) : node =
   let is_input v = List.exists (fun vd -> vd.vname = v) n.inputs in
   let atoms = collect_monitor_atoms n in
-  let var_types = atoms.var_types in
+  let var_types =
+    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+  in
   let _bool_vars = bool_like_vars ~var_types n in
   let n = n in
-  let fold_map = atoms.fold_map in
+  let fold_map = fold_map_for_node n in
   let fold_internal_invariants =
     List.map
       (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
       fold_map
   in
-  let atom_names = atoms.atom_names in
+  let atom_names = List.map snd atoms.atom_map in
   let debug_incoming =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_INCOMING" with
     | Some "1" -> true
@@ -358,7 +360,7 @@ let transform_node_monitor (n:node) : node =
   if Automaton_core.monitor_log_enabled || debug_incoming then
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
   let atom_map = atoms.atom_map in
-  let atom_name_to_fo = atoms.atom_name_to_fo in
+  let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atom_map in
   let atom_named_exprs = atoms.atom_named_exprs in
   let atom_map_exprs = atom_named_exprs in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in

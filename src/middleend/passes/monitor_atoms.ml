@@ -82,22 +82,13 @@ let inline_atoms_iexpr (atom_map:(ident * iexpr) list) (e:iexpr) : iexpr =
   go e
 
 type monitor_atoms = {
-  var_types: (ident * ty) list;
-  (* Types for all node variables (inputs/locals/outputs). *)
-  fold_map: (hexpr * ident) list;
-  (* Map from fold hexpr to its accumulator variable name. *)
-  atom_names: ident list;
-  (* Fresh, unique names assigned to each atom. *)
   atom_map: (fo * ident) list;
-  (* Map from atom formula to its generated name. *)
-  atom_name_to_fo: (ident * fo) list;
-  (* Map from atom name back to the original formula. *)
+  (* Atom formula -> generated name. *)
   atom_named_exprs: (ident * iexpr) list;
-  (* Map from atom name to the boolean iexpr it represents. *)
+  (* Cache of atom names mapped to their boolean iexpr (FO -> iexpr conversion). *)
 }
 
 let collect_monitor_atoms (n:node) : monitor_atoms =
-  (* Collect and validate atom mappings needed for monitor construction. *)
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
@@ -108,11 +99,11 @@ let collect_monitor_atoms (n:node) : monitor_atoms =
     collect_atoms_from_node n
     |> List.sort_uniq compare
   in
-  let atoms, skipped =
+  let atom_exprs, skipped =
     List.fold_left
       (fun (ok, bad) a ->
          match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
-         | Some _ -> (a :: ok, bad)
+         | Some e -> ((a, e) :: ok, bad)
          | None -> (ok, a :: bad))
       ([], [])
       atoms_all
@@ -127,29 +118,15 @@ let collect_monitor_atoms (n:node) : monitor_atoms =
     prerr_endline lines;
     failwith "Cannot build monitor: some atoms are not translatable to iexpr."
   );
-  let atom_exprs =
-    List.filter_map
-      (fun a ->
-         match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
-         | Some e -> Some (a, e)
-         | None -> None)
-      atoms
-  in
+  let atom_exprs = List.rev atom_exprs in
   let atom_names = make_atom_names atom_exprs in
   let atom_map =
     List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
-  in
-  let atom_name_to_fo =
-    List.map2 (fun (a, _) name -> (name, a)) atom_exprs atom_names
   in
   let atom_named_exprs =
     List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
   in
   {
-    var_types;
-    fold_map;
-    atom_names;
     atom_map;
-    atom_name_to_fo;
     atom_named_exprs;
   }

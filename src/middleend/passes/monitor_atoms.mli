@@ -17,11 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 type monitor_atoms = {
-  var_types: (Ast.ident * Ast.ty) list;
-  fold_map: (Ast.hexpr * Ast.ident) list;
-  atom_names: Ast.ident list;
   atom_map: (Ast.fo * Ast.ident) list;
-  atom_name_to_fo: (Ast.ident * Ast.fo) list;
   atom_named_exprs: (Ast.ident * Ast.iexpr) list;
 }
 
