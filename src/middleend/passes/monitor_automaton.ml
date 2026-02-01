@@ -18,6 +18,8 @@
 
 open Ast
 open Automaton_core
+open Monitor_atoms
+open Monitor_spec
 
 type monitor_automaton = {
   states_raw: ltl list;
@@ -36,3 +38,19 @@ let build_monitor_automaton ~(atom_map:(fo * ident) list) ~(atom_names:ident lis
   in
   let grouped = group_transitions_bdd atom_names transitions in
   { states_raw; transitions_raw; states; transitions; grouped }
+
+type monitor_build = {
+  atoms: Monitor_atoms.monitor_atoms;
+  atom_names: ident list;
+  spec: ltl;
+  automaton: monitor_automaton;
+}
+
+let build_monitor_for_node (n:node) : monitor_build =
+  let atoms = collect_monitor_atoms n in
+  let atom_names = List.map snd atoms.atom_map in
+  let spec = build_monitor_spec ~atom_map:atoms.atom_map n in
+  let automaton =
+    build_monitor_automaton ~atom_map:atoms.atom_map ~atom_names spec
+  in
+  { atoms; atom_names; spec; automaton }

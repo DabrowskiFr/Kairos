@@ -16,26 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type monitor_automaton = {
-  states_raw: Ast.ltl list;
-  transitions_raw: Automaton_core.residual_transition list;
-  states: Ast.ltl list;
-  transitions: Automaton_core.residual_transition list;
-  grouped: Automaton_core.guarded_transition list;
-}
+module A = Ast
 
-type monitor_build = {
-  atoms: Monitor_atoms.monitor_atoms;
-  atom_names: Ast.ident list;
-  spec: Ast.ltl;
-  automaton: monitor_automaton;
-}
+let compile_program_with_transform ?(prefix_fields=true)
+  (transform:A.node -> A.node) (p:A.program) : string =
+  let p' = List.map transform p in
+  Emit.compile_program ~prefix_fields p'
 
-val build_monitor_automaton :
-  atom_map:(Ast.fo * Ast.ident) list ->
-  atom_names:Ast.ident list ->
-  Ast.ltl -> monitor_automaton
-(** Build, minimize, and group the monitor residual automaton. *)
+let compile_program ?(prefix_fields=true) (p:A.program) : string =
+  compile_program_with_transform ~prefix_fields Monitor_instrument.transform_node p
 
-val build_monitor_for_node : Ast.node -> monitor_build
-(** Collect monitor atoms, build the monitor spec, and construct the automaton. *)
+let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
+  let p' = List.map Monitor_instrument.transform_node_monitor p in
+  let comment_map =
+    List.map
+      (fun (n:A.node) -> (n.nname, (n.assumes, n.guarantees, n.trans, [])))
+      p'
+  in
+  Emit.compile_program ~prefix_fields ~comment_map p'
