@@ -332,7 +332,9 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
       requires = List.map inline_fo t.requires;
       ensures = List.map inline_fo t.ensures;
       lemmas = List.map inline_fo t.lemmas;
+      ghost = List.map inline_stmt t.ghost;
       body = List.map inline_stmt t.body;
+      monitor = List.map inline_stmt t.monitor;
     }
   in
   {
@@ -713,8 +715,8 @@ let transform_node_monitor (n:node) : node =
            let lemmas = List.map (inline_fo_atoms atom_map_exprs) t.lemmas in
            { t with requires = reqs; ensures = ens; lemmas }
          in
-         let body = t.body @ monitor_updates @ monitor_asserts in
-         { t with body })
+         let monitor = t.monitor @ monitor_updates @ monitor_asserts in
+         { t with monitor })
       n.trans
   in
   let trans =

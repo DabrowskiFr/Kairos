@@ -77,7 +77,9 @@ type transition = {
   requires : fo list;
   ensures : fo list;
   lemmas : fo list;
+  ghost : stmt list;
   body : stmt list;
+  monitor : stmt list;
 }
 type node = {
   nname : ident;

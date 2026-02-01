@@ -47,8 +47,6 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   let env = info.env in
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
-  let ghost_updates = info.ghost_updates in
-  let has_ghost_updates = info.has_ghost_updates in
   let mon_state_ctors = info.mon_state_ctors in
 
   let find_node (name:string) : node option =
@@ -115,13 +113,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   in
   let body =
     let main = compile_transitions env call_asserts n.trans in
-    let ghost_expr =
-      if has_ghost_updates then
-        mk_expr (Eghost ghost_updates)
-      else
-        ghost_updates
-    in
-    mk_expr (Esequence (ghost_expr, main))
+    main
   in
 
   let contracts = Emit_why_contracts.build_contracts ~nodes info in
@@ -488,4 +480,74 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
   in
   let out = insert_spec_group_comments out in
   let out = insert_user_code_comment out in
+  let annotate_vars_fields s =
+    let has_prefix name p =
+      String.length name >= String.length p
+      && String.sub name 0 (String.length p) = p
+    in
+    let field_comment name =
+      if name = "__mon_state" then
+        Some "monitor state"
+      else if has_prefix name "__pre_in_" then
+        Some "input from previous step"
+      else if has_prefix name "__pre_old_" then
+        Some "previous value snapshot"
+      else if has_prefix name "__pre_k" then
+        Some "k-step history"
+      else if has_prefix name "__fold" then
+        Some "fold accumulator"
+      else if name = "__first_step" then
+        Some "first step flag"
+      else if name = "__step_count" then
+        Some "step counter"
+      else if name = "st" then
+        None
+      else
+        Some "user local"
+    in
+    let trim_left s =
+      let len = String.length s in
+      let rec loop i =
+        if i >= len then ""
+        else if s.[i] = ' ' || s.[i] = '\t' then loop (i + 1)
+        else String.sub s i (len - i)
+      in
+      loop 0
+    in
+    let lines = Array.of_list (String.split_on_char '\n' s) in
+    let line_count = Array.length lines in
+    let out = Buffer.create (String.length s + 64) in
+    let in_vars = ref false in
+    for i = 0 to line_count - 1 do
+      let line = lines.(i) in
+      let trimmed = trim_left line in
+      if String.length trimmed >= 12 && String.sub trimmed 0 12 = "type vars =" then
+        in_vars := true
+      else if !in_vars && trimmed = "}" then
+        in_vars := false;
+      let line =
+        if !in_vars then
+          match String.split_on_char ':' trimmed with
+          | name :: _rest ->
+              let name = String.trim name in
+              let name =
+                if String.length name >= 8 && String.sub name 0 8 = "mutable " then
+                  String.sub name 8 (String.length name - 8)
+                else
+                  name
+              in
+              begin match field_comment name with
+              | None -> line
+              | Some msg -> line ^ " (* " ^ msg ^ " *)"
+              end
+          | _ -> line
+        else
+          line
+      in
+      Buffer.add_string out line;
+      if i < line_count - 1 then Buffer.add_char out '\n'
+    done;
+    Buffer.contents out
+  in
+  let out = annotate_vars_fields out in
   out

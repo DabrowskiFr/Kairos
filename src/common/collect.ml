@@ -241,7 +241,10 @@ let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
 
 let collect_calls_trans (ts:transition list) : (ident * iexpr list) list =
   List.fold_left
-    (fun acc t -> List.fold_left collect_calls_stmt acc t.body)
+    (fun acc t ->
+       let acc = List.fold_left collect_calls_stmt acc t.ghost in
+       let acc = List.fold_left collect_calls_stmt acc t.body in
+       List.fold_left collect_calls_stmt acc t.monitor)
     [] ts
 
 let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:stmt)
@@ -264,7 +267,10 @@ let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:
 let collect_calls_trans_full (ts:transition list)
   : (ident * iexpr list * ident list) list =
   List.fold_left
-    (fun acc t -> List.fold_left collect_calls_stmt_full acc t.body)
+    (fun acc t ->
+       let acc = List.fold_left collect_calls_stmt_full acc t.ghost in
+       let acc = List.fold_left collect_calls_stmt_full acc t.body in
+       List.fold_left collect_calls_stmt_full acc t.monitor)
     [] ts
 
 let extract_delay_spec (guarantees:fo_ltl list) : (ident * ident) option =

@@ -27,7 +27,14 @@ let compile_program ?(prefix_fields=true) (p:A.program) : string =
   compile_program_with_transform ~prefix_fields Monitor_instrument.transform_node p
 
 let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
-  let p' = List.map Monitor_instrument.transform_node_monitor p in
+  let p' =
+    List.map
+      (fun n ->
+         n
+         |> Monitor_instrument.transform_node_monitor
+         |> Ghost_instrument.transform_node_ghost)
+      p
+  in
   let comment_map =
     List.map
       (fun (n:A.node) -> (n.nname, (n.assumes, n.guarantees, n.trans, [])))

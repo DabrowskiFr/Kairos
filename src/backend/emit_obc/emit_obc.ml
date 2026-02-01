@@ -270,6 +270,28 @@ let vdecl_line (v:vdecl) : string =
    | TReal -> "real"
    | TCustom s -> s)
 
+let local_comment (name:ident) : string option =
+  let has_prefix p =
+    String.length name >= String.length p
+    && String.sub name 0 (String.length p) = p
+  in
+  if name = "__mon_state" then
+    Some "monitor state"
+  else if has_prefix "__pre_in_" then
+    Some "input from previous step"
+  else if has_prefix "__pre_old_" then
+    Some "previous value snapshot"
+  else if has_prefix "__pre_k" then
+    Some "k-step history"
+  else if has_prefix "__fold" then
+    Some "fold accumulator"
+  else if name = "__first_step" then
+    Some "first step flag"
+  else if name = "__step_count" then
+    Some "step counter"
+  else
+    Some "user local"
+
 let params_of_vdecls (vs:vdecl list) : string =
   String.concat ", " (List.map vdecl_line vs)
 
@@ -291,13 +313,7 @@ let replace_all ~sub ~by s =
     loop 0;
     Buffer.contents b
 
-let prettify_pre_old ~init_for_var ~vars s =
-  List.fold_left
-    (fun acc v ->
-       let sub = "__pre_old_" ^ v in
-       let by = "pre(" ^ v ^ ")" in
-       replace_all ~sub ~by acc)
-    s vars
+let prettify_pre_old ~init_for_var:_ ~vars:_ s = s
 
 let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
   (invariants:invariant_mon list)
@@ -365,30 +381,6 @@ let transition_lines (indent:int) (t:transition)
     label_counters.ens <- label_counters.ens + 1;
     Printf.sprintf "G%d" label_counters.ens
   in
-  let is_monitor_tag = function
-    | MonitorAtom | MonitorState -> true
-    | CompatInvariant | BadState | MonitorPre | MonitorPost | FoldInternal | PostForNextPre -> false
-  in
-  let stmt_is_monitor (s:stmt) : bool =
-    match s with
-    | SAssign (id, e) ->
-        let tags = tags_for_ident id @ tags_for_iexpr e in
-        List.exists is_monitor_tag tags
-    | SIf (c, _, _) | SMatch (c, _, _) ->
-        List.exists is_monitor_tag (tags_for_iexpr c)
-    | SCall _ | SSkip -> false
-  in
-  let split_monitor_suffix (stmts:stmt list) : stmt list * stmt list =
-    let rec take_rev acc = function
-      | [] -> ([], List.rev acc)
-      | s :: rest ->
-          if stmt_is_monitor s then
-            take_rev (s :: acc) rest
-          else
-            (List.rev rest @ [s], List.rev acc)
-    in
-    take_rev [] (List.rev stmts)
-  in
   let guard =
     match t.guard with
     | None -> ""
@@ -435,10 +427,20 @@ let transition_lines (indent:int) (t:transition)
       )
       t.lemmas
   in
-  let body_user, body_mon = split_monitor_suffix t.body in
+  let body_ghost = t.ghost in
+  let body_user = t.body in
+  let body_mon = t.monitor in
+  let ghost_lines =
+    stmt_lines ~allow_empty:true (indent + 1) body_ghost
+    |> List.map (prettify_pre_old ~init_for_var ~vars)
+  in
   let body_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_user
     |> List.map (prettify_pre_old ~init_for_var ~vars)
+  in
+  let ghost_header =
+    if body_ghost = [] then []
+    else [comment_line (indent + 1) "ghost code"]
   in
   let user_header =
     if body_user = [] then []
@@ -456,6 +458,7 @@ let transition_lines (indent:int) (t:transition)
   [header]
   @ req_block @ ens_block
   @ List.concat lemma_lines
+  @ ghost_header @ ghost_lines
   @ user_header @ body_lines
   @ mon_header @ body_mon_lines
   @ [footer]
@@ -497,8 +500,14 @@ let node_lines (n:node) : string list =
     match n.locals with
     | [] -> [indent_str 1 ^ "locals"]
     | _ ->
+        let local_line v =
+          let base = indent_str 2 ^ vdecl_line v ^ ";" in
+          match local_comment v.vname with
+          | None -> base
+          | Some msg -> base ^ " (* " ^ msg ^ " *)"
+        in
         (indent_str 1 ^ "locals")
-        :: List.map (fun v -> indent_str 2 ^ vdecl_line v ^ ";") n.locals
+        :: List.map local_line n.locals
   in
   let states =
     indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";"
@@ -523,5 +532,12 @@ let string_of_program (p:program) : string =
   String.concat "\n" (List.map (fun n -> String.concat "\n" (node_lines n)) p) ^ "\n"
 
 let compile_program_monitor (p:program) : string =
-  let p' = List.map Monitor_instrument.transform_node_monitor p in
+  let p' =
+    List.map
+      (fun n ->
+         n
+         |> Monitor_instrument.transform_node_monitor
+         |> Ghost_instrument.transform_node_ghost)
+      p
+  in
   string_of_program p'

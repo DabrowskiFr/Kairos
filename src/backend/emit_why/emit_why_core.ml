@@ -34,6 +34,10 @@ let rec compile_seq (env:env)
           (String.length name >= 7 && String.sub name 0 7 = "__atom_")
           || (String.length name >= 5 && String.sub name 0 5 = "atom_")
           || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+          || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
+          || (String.length name >= 6 && String.sub name 0 6 = "__fold")
+          || name = "__first_step"
+          || name = "__step_count"
         in
         let tgt =
           if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
@@ -138,7 +142,19 @@ let compile_state_branch (env:env)
     | t::rest ->
         let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
         let assign_dst = mk_expr (Eassign [ (st_expr, None, mk_expr (Eident (qid1 t.dst))) ]) in
-        let trans_body = mk_expr (Esequence (compile_seq env call_asserts t.body, assign_dst)) in
+        let ghost_expr =
+          match t.ghost with
+          | [] -> mk_expr (Etuple [])
+          | _ -> mk_expr (Eghost (compile_seq env call_asserts t.ghost))
+        in
+        let user_expr = compile_seq env call_asserts t.body in
+        let mon_expr = compile_seq env call_asserts t.monitor in
+        let body =
+          mk_expr (Esequence (ghost_expr,
+                              mk_expr (Esequence (user_expr,
+                                                  mk_expr (Esequence (mon_expr, assign_dst))))))
+        in
+        let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
   in
   let body = chain trs in

@@ -99,7 +99,10 @@ let collect_mon_state_ctors (n:node) : ident list =
        List.iter (fun f -> acc := collect_ctor_fo !acc f) (t.requires @ t.ensures @ t.lemmas))
     n.trans;
   List.iter
-    (fun t -> acc := List.fold_left collect_ctor_stmt !acc t.body)
+    (fun t ->
+       acc := List.fold_left collect_ctor_stmt !acc t.ghost;
+       acc := List.fold_left collect_ctor_stmt !acc t.body;
+       acc := List.fold_left collect_ctor_stmt !acc t.monitor)
     n.trans;
   let ctor_index s =
     try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0
@@ -279,14 +282,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     "st"
     :: List.map (fun v -> v.vname) (n.locals @ n.outputs)
     @ List.map fst n.instances
-    @ pre_inputs
-    @ pre_input_olds
-    @ pre_old_locals_outputs
-    @ (if needs_first_step then ["__first_step"] else [])
-    @ (if needs_step_count then ["__step_count"] else [])
-    @ fold_init_flags
-    @ List.map (fun fi -> fi.acc) folds
-    @ List.concat_map (fun info -> info.names) pre_k_infos
   in
   let hexpr_needs_old (h:hexpr) : bool =
     match h with
@@ -316,10 +311,14 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
            f_ghost=false })
       n.instances
   in
-  let is_atom_local name =
+  let is_ghost_local name =
     (String.length name >= 7 && String.sub name 0 7 = "__atom_")
     || (String.length name >= 5 && String.sub name 0 5 = "atom_")
     || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__fold")
+    || name = "__first_step"
+    || name = "__step_count"
   in
   let local_fields =
     List.map
@@ -328,7 +327,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
            f_ident=ident (rec_var_name env v.vname);
            f_pty=default_pty v.vty;
            f_mutable=true;
-           f_ghost=is_atom_local v.vname })
+           f_ghost=is_ghost_local v.vname })
       n.locals
   in
   let output_fields =
@@ -345,53 +344,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     ( { f_loc=loc; f_ident=ident (rec_var_name env "st"); f_pty=Ptree.PTtyapp(qid1 "state", []); f_mutable=true; f_ghost=false } )
     :: (local_fields @ output_fields)
     @ instance_fields
-    @ List.map
-        (fun v ->
-           { f_loc=loc;
-             f_ident=ident (rec_var_name env (pre_input_name v.vname));
-             f_pty=default_pty v.vty;
-             f_mutable=true;
-             f_ghost=true })
-        n.inputs
-    @ List.map
-        (fun v ->
-           { f_loc=loc;
-             f_ident=ident (rec_var_name env (pre_input_old_name v.vname));
-             f_pty=default_pty v.vty;
-             f_mutable=true;
-             f_ghost=true })
-        n.inputs
-    @ List.map
-        (fun v ->
-           { f_loc=loc;
-             f_ident=ident (rec_var_name env (pre_input_old_name v.vname));
-             f_pty=default_pty v.vty;
-             f_mutable=true;
-             f_ghost=true })
-        (n.locals @ n.outputs)
-    @ List.concat_map
-        (fun info ->
-           List.map
-             (fun name ->
-                { f_loc=loc;
-                  f_ident=ident (rec_var_name env name);
-                  f_pty=default_pty info.vty;
-                  f_mutable=true;
-                  f_ghost=true })
-             info.names)
-        pre_k_infos
-    @ (if needs_first_step then
-         [ { f_loc=loc; f_ident=ident (rec_var_name env "__first_step"); f_pty=Ptree.PTtyapp(qid1 "bool", []); f_mutable=true; f_ghost=true } ]
-       else [])
-    @ (if needs_step_count then
-         [ { f_loc=loc; f_ident=ident (rec_var_name env "__step_count"); f_pty=Ptree.PTtyapp(qid1 "int", []); f_mutable=true; f_ghost=true } ]
-       else [])
-    @ List.map
-        (fun (_ghost_acc, _acc, init_done) ->
-           { f_loc=loc; f_ident=ident (rec_var_name env init_done);
-             f_pty=Ptree.PTtyapp(qid1 "bool", []); f_mutable=true; f_ghost=true })
-        fold_init_links
-    @ List.map (fun fi -> { f_loc=loc; f_ident=ident (rec_var_name env fi.acc); f_pty=Ptree.PTtyapp(qid1 "int", []); f_mutable=true; f_ghost=true }) folds
+    @ []
   in
   let type_vars =
     Ptree.Dtype [
@@ -440,24 +393,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
             apply_expr (mk_expr (Eident (qdot (qid1 mod_name) "init_vars")))
               [mk_expr (Etuple [])]))
         n.instances
-    @ List.map (fun (v:vdecl) ->
-        (field_qid (pre_input_name v.vname), any_expr_for_type v.vty)
-      ) n.inputs
-    @ List.map (fun (v:vdecl) ->
-        (field_qid (pre_input_old_name v.vname), any_expr_for_type v.vty)
-      ) n.inputs
-    @ List.map (fun (v:vdecl) ->
-        (field_qid (pre_input_old_name v.vname), any_expr_for_type v.vty)
-      ) (n.locals @ n.outputs)
-    @ List.concat_map
-        (fun info ->
-          let init = any_expr_for_type info.vty in
-          List.map (fun name -> (field_qid name, init)) info.names)
-        pre_k_infos
-    @ (if needs_first_step then [ (field_qid "__first_step", any_expr_for_type TBool) ] else [])
-    @ (if needs_step_count then [ (field_qid "__step_count", any_expr_for_type TInt) ] else [])
-    @ List.map (fun (_ghost_acc, _acc, init_done) -> (field_qid init_done, mk_expr Efalse)) fold_init_links
-    @ List.map (fun fi -> (field_qid fi.acc, mk_expr (Econst (Constant.int_const BigInt.zero)))) folds
   in
   let init_posts =
     let env_init = { env with rec_name = "result" } in
@@ -546,121 +481,8 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     | _ ->
         vars_param :: List.map (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty))) n.inputs
   in
-  let has_pre_inputs = n.inputs <> [] in
-  let has_pre_k = pre_k_infos <> [] in
-  let has_ghost_updates =
-    has_folds || has_pre_inputs || has_pre_k || needs_step_count
-  in
-  let ghost_updates =
-    if not has_folds && not has_pre_inputs && not has_pre_k && not needs_step_count then
-      mk_expr (Etuple [])
-    else
-      let first_step = if needs_first_step then Some (field env "__first_step") else None in
-      let fold_updates =
-        List.map (fun (fi:fold_info) ->
-            match Collect.classify_fold fi.h with
-            | Some (`Scan (op,init,e)) ->
-                let target = field env fi.acc in
-                let rhs = Emit_why_core.apply_op op target (Compile_expr.compile_iexpr env e) in
-                let init_branch = mk_expr (Eassign [ (target,None, Compile_expr.compile_iexpr env init) ]) in
-                let step_branch = mk_expr (Eassign [ (target, None, rhs) ]) in
-                let init_cond =
-                  match fi.init_flag, first_step with
-                  | Some init_done, _ -> mk_expr (Enot (field env init_done))
-                  | None, Some fs -> fs
-                  | None, None -> mk_expr Efalse
-                in
-                mk_expr (Eif (init_cond, init_branch, step_branch))
-            | None -> mk_expr (Etuple [])
-          ) folds
-      in
-      let fold_init_done_updates =
-        List.map
-          (fun (_ghost_acc, _acc, init_done) ->
-             mk_expr (Eassign [ (field env init_done, None, mk_expr Etrue) ]))
-          fold_init_links
-      in
-      let pre_old_updates =
-        List.map
-          (fun v ->
-             let target = field env (pre_input_old_name v.vname) in
-             let rhs = field env (pre_input_name v.vname) in
-             mk_expr (Eassign [ (target, None, rhs) ]))
-          n.inputs
-      in
-      let pre_old_local_updates =
-        List.map
-          (fun v ->
-             let target = field env (pre_input_old_name v.vname) in
-             let rhs = field env v.vname in
-             mk_expr (Eassign [ (target, None, rhs) ]))
-          (n.locals @ n.outputs)
-      in
-      let pre_updates =
-        List.map
-          (fun v ->
-             let target = field env (pre_input_name v.vname) in
-             let rhs = Compile_expr.compile_iexpr env (IVar v.vname) in
-             mk_expr (Eassign [ (target, None, rhs) ]))
-          n.inputs
-      in
-      let pre_k_updates =
-        List.map
-          (fun info ->
-             let names = info.names in
-             let rec shift acc i =
-               if i <= 1 then acc
-               else
-                 let tgt = List.nth names (i - 1) in
-                 let src = List.nth names (i - 2) in
-                 let assign = mk_expr (Eassign [ (field env tgt, None, field env src) ]) in
-                 shift (assign :: acc) (i - 1)
-             in
-             let shifts = shift [] (List.length names) in
-             let first =
-               mk_expr (Eassign [ (field env (List.hd names), None, Compile_expr.pre_k_source_expr env info.expr) ])
-             in
-             let all = shifts @ [first] in
-             match all with
-             | [] -> mk_expr (Etuple [])
-             | [u] -> u
-             | u::rest -> List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) u rest)
-          pre_k_infos
-      in
-      let step_count_update =
-        if not needs_step_count then
-          None
-        else
-          let count = field env "__step_count" in
-          let limit = mk_expr (Econst (Constant.int_const (BigInt.of_int max_k_guard))) in
-          let cond = mk_expr (Einnfix (count, infix_ident "<", limit)) in
-          let incr =
-            mk_expr
-              (Eassign [ (count, None,
-                          mk_expr (Einnfix (count, infix_ident "+",
-                                            mk_expr (Econst (Constant.int_const BigInt.one))))) ])
-          in
-          Some (mk_expr (Eif (cond, incr, mk_expr (Etuple []))))
-      in
-      let updates =
-        let all =
-          let base =
-            fold_updates @ fold_init_done_updates @ pre_k_updates
-            @ pre_old_updates @ pre_old_local_updates @ pre_updates
-          in
-          match step_count_update with
-          | None -> base
-          | Some u -> base @ [u]
-        in
-        match all with
-        | [] -> mk_expr (Etuple [])
-        | [u] -> u
-        | u::rest -> List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) u rest
-      in
-      match first_step with
-      | Some fs -> mk_expr (Esequence (updates, mk_expr (Eassign [ (fs, None, mk_expr Efalse) ])))
-      | None -> updates
-  in
+  let has_ghost_updates = false in
+  let ghost_updates = mk_expr (Etuple []) in
   let ret_expr = mk_expr (Etuple []) in
   let reset_updates =
     let init_flags = List.map (fun (_, _, init_done) -> init_done) fold_init_links in
@@ -670,7 +492,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     List.map
       (fun (t:transition) ->
          if t.dst = n.init_state && reset_flags <> [] then
-           { t with body = t.body @ reset_flags }
+           { t with ghost = t.ghost @ reset_flags }
          else
            t)
       n.trans

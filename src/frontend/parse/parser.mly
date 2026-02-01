@@ -119,7 +119,8 @@ transition:
   IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
   {
     let (reqs, enss) = $6 in
-    { src=$1; dst=$3; guard=$4; requires=reqs; ensures=enss; lemmas=[]; body=$7 }
+    { src=$1; dst=$3; guard=$4; requires=reqs; ensures=enss; lemmas=[];
+      ghost=[]; body=$7; monitor=[] }
   }
 
 guard_opt:

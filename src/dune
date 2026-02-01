@@ -20,6 +20,7 @@
   monitor_spec
   monitor_automaton
   monitor_instrument
+  ghost_instrument
   dot
   monitor_emit
   fo_specs
