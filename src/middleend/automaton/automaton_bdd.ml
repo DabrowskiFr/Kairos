@@ -17,9 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Fo_atoms
-open Automaton_config
-open Automaton_types
 open Ltl_valuation
 
 type bdd_node = {
@@ -104,123 +101,6 @@ let bdd_apply (op:bool -> bool -> bool) (a:int) (b:int) : int =
 let bdd_and a b = bdd_apply (fun x y -> x && y) a b
 let bdd_or a b = bdd_apply (fun x y -> x || y) a b
 
-let bdd_exactly_one (vars:int list) : int =
-  let rec pairwise_not acc = function
-    | [] -> acc
-    | v :: rest ->
-        let acc =
-          List.fold_left
-            (fun acc u ->
-               let both = bdd_and (bdd_var v) (bdd_var u) in
-               bdd_and acc (bdd_not both))
-            acc
-            rest
-        in
-        pairwise_not acc rest
-  in
-  let at_least_one =
-    List.fold_left (fun acc v -> bdd_or acc (bdd_var v)) bdd_false vars
-  in
-  let at_most_one = pairwise_not bdd_true vars in
-  bdd_and at_least_one at_most_one
-
-let bdd_at_most_one (vars:int list) : int =
-  let rec pairwise_not acc = function
-    | [] -> acc
-    | v :: rest ->
-        let acc =
-          List.fold_left
-            (fun acc u ->
-               let both = bdd_and (bdd_var v) (bdd_var u) in
-               bdd_and acc (bdd_not both))
-            acc
-            rest
-        in
-        pairwise_not acc rest
-  in
-  pairwise_not bdd_true vars
-
-let bdd_valuations (atom_map:(fo * ident) list) (names:string list)
-  : (string * bool) list list =
-  let index_of name =
-    let rec loop i = function
-      | [] -> None
-      | x :: xs -> if x = name then Some i else loop (i + 1) xs
-    in
-    loop 0 names
-  in
-  let eq_atoms = List.filter_map extract_eq_atom atom_map in
-  let by_var =
-    List.fold_left
-      (fun acc a ->
-         let existing = List.assoc_opt a.var acc |> Option.value ~default:[] in
-         (a.var, a :: existing)
-         :: List.remove_assoc a.var acc)
-      []
-      eq_atoms
-  in
-  let constraints =
-    List.map
-      (fun (_var, atoms) ->
-         let indexed =
-           List.filter_map
-             (fun a ->
-                match index_of a.name with
-                | None -> None
-                | Some i -> Some (a.value, i))
-             atoms
-         in
-         let bool_true = List.exists (fun (v, _) -> v = VBool true) indexed in
-         let bool_false = List.exists (fun (v, _) -> v = VBool false) indexed in
-         let vars = List.map snd indexed in
-         if bool_true && bool_false then bdd_exactly_one vars
-         else bdd_at_most_one vars)
-      by_var
-  in
-  let constraint_bdd = List.fold_left bdd_and bdd_true constraints in
-  let rec expand_rest i =
-    if i >= List.length names then [ [] ]
-    else
-      let tail = expand_rest (i + 1) in
-      List.concat_map
-        (fun acc -> [ (List.nth names i, false) :: acc; (List.nth names i, true) :: acc ])
-        tail
-  in
-  let rec enumerate node idx =
-    if node = bdd_false then []
-    else if node = bdd_true then
-      List.map List.rev (expand_rest idx)
-    else
-      let n = Hashtbl.find bdd_nodes node in
-      let rec fill_until i =
-        if i >= n.bdd_var then [ [] ]
-        else
-          let tails = fill_until (i + 1) in
-          List.concat_map
-            (fun acc -> [ (List.nth names i, false) :: acc; (List.nth names i, true) :: acc ])
-            tails
-      in
-      let prefix = fill_until idx in
-      let low_vals = enumerate n.bdd_low (n.bdd_var + 1) in
-      let high_vals = enumerate n.bdd_high (n.bdd_var + 1) in
-      let with_low =
-        List.concat_map
-          (fun pre ->
-             List.map (fun tail -> List.rev_append tail ((List.nth names n.bdd_var, false) :: pre)) low_vals)
-          prefix
-      in
-      let with_high =
-        List.concat_map
-          (fun pre ->
-             List.map (fun tail -> List.rev_append tail ((List.nth names n.bdd_var, true) :: pre)) high_vals)
-          prefix
-      in
-      with_low @ with_high
-  in
-  let vals = enumerate constraint_bdd 0 in
-  log_monitor "valuations: raw=%d bdd=%d constraints=%d"
-    (List.length (Automaton_naive.all_valuations names)) (List.length vals) (List.length by_var);
-  vals
 
 let empty_term (atom_names:string list) : term =
   List.map (fun name -> (name, None)) atom_names
@@ -278,45 +158,3 @@ let bdd_to_formula (atom_names:string list) (node:int) : string =
 let bdd_to_iexpr (atom_names:string list) (node:int) : iexpr =
   let terms = bdd_to_terms atom_names node |> simplify_terms in
   simplify_iexpr (terms_to_iexpr terms)
-
-let bdd_of_vals (index_tbl:(string, int) Hashtbl.t) (vals:(string * bool) list) : int =
-  List.fold_left
-    (fun acc (name, v) ->
-       match Hashtbl.find_opt index_tbl name with
-       | None -> acc
-       | Some idx ->
-           let lit = if v then bdd_var idx else bdd_not (bdd_var idx) in
-           bdd_and acc lit)
-    bdd_true
-    vals
-
-let group_transitions_bdd (atom_names:string list)
-  (transitions:residual_transition list) : guarded_transition list =
-  let index_tbl = Hashtbl.create 16 in
-  List.iteri (fun i name -> Hashtbl.add index_tbl name i) atom_names;
-  let by_src = Hashtbl.create 16 in
-  List.iter
-    (fun (i, vals, j) ->
-       let per_src =
-         match Hashtbl.find_opt by_src i with
-         | Some m -> m
-         | None ->
-             let m = Hashtbl.create 16 in
-             Hashtbl.add by_src i m;
-             m
-       in
-       let guard = bdd_of_vals index_tbl vals in
-       let prev = Hashtbl.find_opt per_src j |> Option.value ~default:bdd_false in
-       Hashtbl.replace per_src j (bdd_or prev guard))
-    transitions;
-  Hashtbl.fold
-    (fun src per_src acc ->
-       let items =
-         Hashtbl.fold
-           (fun dst guard acc -> (src, guard, dst) :: acc)
-           per_src
-           []
-       in
-       items @ acc)
-    by_src
-    []

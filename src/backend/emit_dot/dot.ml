@@ -28,7 +28,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   let edge_id = ref 0 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
-  let fold_map_for_specs ~(fo:fo list) ~(ltl:ltl list) : (hexpr * ident) list =
+  let fold_map_for_specs ~(fo:fo list) ~(ltl:fo_ltl list) : (hexpr * ident) list =
     let folds =
       Collect.collect_folds_from_specs ~fo ~ltl ~invariants_mon:[]
     in
@@ -39,14 +39,51 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
       List.fold_left (fun acc (t:transition) -> t.requires @ t.ensures @ acc) [] n.trans
     in
     let ltl_specs = n.assumes @ n.guarantees in
-    let build = build_monitor_for_node n in
-    let atoms = build.atoms in
-    let atom_map = atoms.atom_map in
-    let atom_named_exprs = atoms.atom_named_exprs in
-    let atom_names = build.atom_names in
-    let states = build.automaton.states in
-    let grouped = build.automaton.grouped in
     let fold_map = fold_map_for_specs ~fo:fo_specs ~ltl:ltl_specs in
+    let pre_k_map = Collect.build_pre_k_infos n in
+    let inputs = List.map (fun v -> v.vname) n.inputs in
+    let var_types =
+      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    in
+    let atoms =
+      let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltl_specs in
+      List.fold_left (fun acc f -> collect_atoms_fo f acc) acc fo_specs
+      |> List.filter (fun a ->
+           atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a <> None)
+      |> List.sort_uniq compare
+    in
+    let atom_exprs =
+      List.filter_map
+        (fun a ->
+           match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
+           | Some e -> Some (a, e)
+           | None -> None)
+        atoms
+    in
+    let atom_names = Monitor_atoms.make_atom_names atom_exprs in
+    let atom_named_exprs =
+      List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
+    in
+    let atom_map =
+      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
+    in
+    let states, grouped =
+      let f_list =
+        let ltl_terms = ltl_specs in
+        let fo_terms = List.map ltl_of_fo fo_specs in
+        ltl_terms @ fo_terms
+      in
+      let f0 =
+        List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list
+      in
+      let states_raw, transitions_raw =
+        build_residual_graph_bdd ~atom_map ~atom_names f0
+      in
+      let states, transitions =
+        minimize_residual_graph_bdd states_raw transitions_raw
+      in
+      (states, transitions)
+    in
     let atom_expr_tbl = Hashtbl.create 16 in
     let () =
       List.iter (fun (name, e) -> Hashtbl.replace atom_expr_tbl name e) atom_named_exprs
@@ -125,16 +162,6 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
            let acc = replace_all ~sub:name ~by acc in
            acc)
         s atom_named_exprs
-    in
-    let f_list =
-      let ltl_terms = List.map (replace_atoms_ltl atom_map) ltl_specs in
-      let fo_terms =
-        List.map (fun f -> replace_atoms_ltl atom_map (ltl_of_fo f)) fo_specs
-      in
-      ltl_terms @ fo_terms
-    in
-    let f0 =
-      List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list
     in
     let cluster = Support.module_name_of_node n.nname in
     let atom_lines =

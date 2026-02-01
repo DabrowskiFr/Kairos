@@ -23,9 +23,3 @@ val monitor_log_enabled : bool
 
 val log_monitor : ('a, unit, string, unit) format4 -> 'a
 (** Log a monitor message when logging is enabled. *)
-
-val set_naive_automaton : bool -> unit
-(** Toggle naive automaton construction (no BDD constraints). *)
-
-val use_naive_automaton : unit -> bool
-(** True when naive automaton mode is active. *)

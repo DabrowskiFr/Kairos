@@ -18,7 +18,7 @@
 
 open Ast
 
-let rec nnf_ltl ?(neg=false) (f:ltl) : ltl =
+let rec nnf_ltl ?(neg=false) (f:fo_ltl) : fo_ltl =
   match f with
   | LTrue -> if neg then LFalse else LTrue
   | LFalse -> if neg then LTrue else LFalse
@@ -44,7 +44,7 @@ let rec nnf_ltl ?(neg=false) (f:ltl) : ltl =
       else
         LG (nnf_ltl a)
 
-let rec simplify_ltl (f:ltl) : ltl =
+let rec simplify_ltl (f:fo_ltl) : fo_ltl =
   let sort_terms terms =
     let cmp a b =
       String.compare (Support.string_of_ltl a) (Support.string_of_ltl b)

@@ -68,7 +68,6 @@ let () =
   let prover = ref "z3" in
   let output_file = ref None in
   let dump_json = ref None in
-  let naive_automaton = ref false in
   let files = ref [] in
   let usage =
     "Usage: obc2why3\n" ^
@@ -84,7 +83,6 @@ let () =
     "  --dump-dot           Generate DOT for the monitor residual graph only\n" ^
     "                       (writes node/edge labels to <file>.labels)\n" ^
     "  --dump-dot-labels    Generate DOT with full node/edge labels\n" ^
-    "  --naive-automaton    Use naive automaton construction (no BDD constraints)\n" ^
     "  --dump-json          Dump internal AST as JSON to file (or - for stdout)\n" ^
     "  --dump-obc           Dump augmented OBC (monitor-instrumented) to file\n" ^
     "  -o <file.why>        Write generated Why3 to this file\n" ^
@@ -135,9 +133,6 @@ let () =
           dump_json := Some Sys.argv.(!i + 1);
           i := !i + 2
         )
-    | "--naive-automaton" ->
-        naive_automaton := true;
-        incr i
     | "-o" ->
         if !i + 1 >= Array.length Sys.argv then (
           prerr_endline "Missing argument for -o";
@@ -165,10 +160,23 @@ let () =
     print_string usage;
     exit 0
   );
+  if !files = [] then (
+    let wants_input =
+      !dump_dot <> None || !dump_dot_labels <> None || !dump_obc <> None
+      || !output_file <> None || !prove || !dump_json <> None
+    in
+    if wants_input then
+      prerr_endline "Missing input file. Provide a .obc file as the last argument.";
+    prerr_endline usage;
+    exit 1
+  );
   match List.rev !files with
   | [file] ->
-      let p = parse_file file |> List.map ensure_next_requires in
-      Automaton_core.set_naive_automaton !naive_automaton;
+      let p =
+        parse_file file
+        |> List.map strip_input_invariants
+        |> List.map ensure_next_requires
+      in
       if (!dump_dot <> None || !dump_dot_labels <> None || !dump_obc <> None)
          && (!prove || !output_file <> None) then (
         prerr_endline "--dump-dot/--dump-obc cannot be combined with --prove or -o";
@@ -211,7 +219,8 @@ let () =
           in
           let action = "" in
           let cmd =
-            Printf.sprintf "why3 prove -P %s -t 30 %s%s"
+            Printf.sprintf
+              "why3 prove -a split_vc -a simplify_formula -P %s -t 30 %s%s"
               !prover action (Filename.quote prove_path)
           in
           let status = Sys.command cmd in

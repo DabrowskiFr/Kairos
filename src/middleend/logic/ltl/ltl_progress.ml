@@ -25,8 +25,8 @@ let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
       Ltl_valuation.lookup_val vals name
   | _ -> false
 
-let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
-  : ltl =
+let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo_ltl)
+  : fo_ltl =
   let f =
     match f with
     | LTrue | LFalse -> f

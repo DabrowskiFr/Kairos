@@ -27,7 +27,6 @@
   automaton_util
   automaton_config
   fo_atoms
-  automaton_naive
   ltl_valuation
   automaton_bdd
   ltl_norm

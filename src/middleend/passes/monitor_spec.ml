@@ -20,8 +20,9 @@ open Ast
 open Automaton_core
 open Fo_specs
 
-let build_monitor_spec ~(atom_map:(fo * ident) list) (n:node) : ltl =
-  let spec_assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
-  let spec_guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
+let build_monitor_spec ~(atom_map:(fo * ident) list) (n:node) : fo_ltl =
+  let _ = atom_map in
+  let spec_assumes = n.assumes in
+  let spec_guarantees = n.guarantees in
   combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
   |> simplify_ltl

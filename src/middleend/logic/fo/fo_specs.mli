@@ -19,7 +19,7 @@
 (** {1 Atom Collection} *)
 
 (** Collect atoms ltl. *)
-val collect_atoms_ltl : Ast.ltl -> Ast.fo list -> Ast.fo list
+val collect_atoms_ltl : Ast.fo_ltl -> Ast.fo list -> Ast.fo list
 (** Collect atomic FO formulas referenced by an LTL formula. *)
 val collect_atoms_fo : Ast.fo -> Ast.fo list -> Ast.fo list
 (** Collect atomic FO formulas referenced by a FO formula. *)
@@ -65,7 +65,7 @@ val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.fo
 (** Reconstruct FO by inlining atom variables from a name->atom map. *)
 (** {1 Atom Replacement} *)
 
-val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.ltl -> Ast.ltl
+val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.fo_ltl -> Ast.fo_ltl
 (** Replace atom formulas by their variable representation in LTL. *)
 val replace_atoms_fo : (Ast.fo * Ast.ident) list -> Ast.fo -> Ast.fo
 (** Replace atom formulas by their variable representation in FO. *)
@@ -88,5 +88,5 @@ val fold_origin_suffix_for_expr :
 (** {1 Monitor Specs} *)
 
 val combine_contracts_for_monitor :
-  assumes:Ast.ltl list -> guarantees:Ast.ltl list -> Ast.ltl
+  assumes:Ast.fo_ltl list -> guarantees:Ast.fo_ltl list -> Ast.fo_ltl
 (** Combine assume/guarantee lists into a single monitor spec. *)

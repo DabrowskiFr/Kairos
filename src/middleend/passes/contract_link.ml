@@ -20,6 +20,9 @@ open Ast
 open Fo_specs
 open Fo_time
 
+let strip_input_invariants (n:user_node) : user_node =
+  { n with invariants_mon = [] }
+
 let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
   (* Index successor requires by source state for quick lookup per dst. *)
   let tbl : (ident, fo list) Hashtbl.t = Hashtbl.create 16 in
@@ -69,10 +72,38 @@ let updated_transitions ~(is_input:ident -> bool)
       else { t with ensures = t.ensures @ new_ensures })
     trans
 
+let add_state_invariants_to_transitions
+  ~(invariants_mon:invariant_mon list)
+  (trans:transition list) : transition list =
+  let add_unique f lst = if List.exists ((=) f) lst then lst else f :: lst in
+  let invs =
+    List.filter_map
+      (function
+        | InvariantStateRel (is_eq, st, f) -> Some (is_eq, st, f)
+        | Invariant _ -> None)
+      invariants_mon
+  in
+  List.map
+    (fun (t:transition) ->
+       let reqs, ens =
+         List.fold_left
+           (fun (reqs, ens) (is_eq, st, f) ->
+              let pre_ok = if is_eq then t.src = st else t.src <> st in
+              let post_ok = if is_eq then t.dst = st else t.dst <> st in
+              let reqs = if pre_ok then add_unique f reqs else reqs in
+              let ens = if post_ok then add_unique f ens else ens in
+              (reqs, ens))
+           (t.requires, t.ensures)
+           invs
+       in
+       { t with requires = reqs; ensures = ens })
+    trans
+
 let ensure_next_requires (n:user_node) : internal_node =
   let succ_requires_by_state = succ_requires_by_state n in
   let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
   let trans =
     updated_transitions ~is_input ~succ_requires_by_state n.trans
+    |> add_state_invariants_to_transitions ~invariants_mon:n.invariants_mon
   in
   { n with trans }

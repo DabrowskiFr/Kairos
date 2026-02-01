@@ -62,7 +62,7 @@ val compile_fo_term :
 (** Compile ltl term shift. *)
 val compile_ltl_term_shift :
   ?prefer_link:bool ->
-  ?in_post:bool -> Support.env -> int -> Ast.ltl -> Why3.Ptree.term
+  ?in_post:bool -> Support.env -> int -> Ast.fo_ltl -> Why3.Ptree.term
 (** Compile fo term shift. *)
 val compile_fo_term_shift :
   ?prefer_link:bool ->
@@ -72,7 +72,7 @@ val compile_fo_term_shift :
 (** Compute rel hexpr. *)
 val rel_hexpr : Support.env -> Ast.hexpr -> Ast.hexpr
 (** Compute ltl relational. *)
-val ltl_relational : Support.env -> Ast.ltl -> Ast.ltl
+val ltl_relational : Support.env -> Ast.fo_ltl -> Ast.fo_ltl
 (** Compute rel fo. *)
 val rel_fo : Support.env -> Ast.fo -> Ast.fo
 (** {1 Spec Fragments} *)
@@ -81,7 +81,7 @@ type spec_frag = { pre : Why3.Ptree.term list; post : Why3.Ptree.term list; }
 (** Compute empty frag. *)
 val empty_frag : spec_frag
 (** Compute ltl spec. *)
-val ltl_spec : Support.env -> Ast.ltl -> spec_frag
+val ltl_spec : Support.env -> Ast.fo_ltl -> spec_frag
 (** {1 Pre_k Helpers} *)
 
 (** Compute pre k source expr. *)

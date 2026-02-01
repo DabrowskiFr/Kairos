@@ -19,7 +19,7 @@
 open Ast
 open Support
 
-let rec collect_atoms_ltl (f:ltl) (acc:fo list) : fo list =
+let rec collect_atoms_ltl (f:fo_ltl) (acc:fo list) : fo list =
   match f with
   | LTrue | LFalse -> acc
   | LAtom a -> collect_atoms_fo a acc
@@ -166,7 +166,7 @@ let rec iexpr_to_fo_with_atoms (atom_map:(ident * fo) list) (e:iexpr) : fo =
   | IUn (_, a) ->
       FRel (HNow (IUn (Not, a)), REq, HNow (ILitBool true))
 
-let rec replace_atoms_ltl (atom_map:(fo * ident) list) (f:ltl) : ltl =
+let rec replace_atoms_ltl (atom_map:(fo * ident) list) (f:fo_ltl) : fo_ltl =
   match f with
   | LTrue | LFalse -> f
   | LAtom a -> LAtom (replace_atoms_fo atom_map a)
@@ -246,8 +246,8 @@ let fold_origin_suffix_for_expr (fold_map:(hexpr * ident) list) (e:iexpr)
       in
       " (" ^ String.concat ", " parts ^ ")"
 
-let combine_contracts_for_monitor ~(assumes:ltl list) ~(guarantees:ltl list)
-  : ltl =
+let combine_contracts_for_monitor ~(assumes:fo_ltl list) ~(guarantees:fo_ltl list)
+  : fo_ltl =
   let rec mk_and = function
     | [] -> LTrue
     | [x] -> x

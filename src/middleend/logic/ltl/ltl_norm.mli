@@ -18,7 +18,7 @@
 
 (** {1 LTL Normalization} *)
 
-val nnf_ltl : ?neg:bool -> Ast.ltl -> Ast.ltl
+val nnf_ltl : ?neg:bool -> Ast.fo_ltl -> Ast.fo_ltl
 (** Convert an LTL formula into negation normal form. *)
-val simplify_ltl : Ast.ltl -> Ast.ltl
+val simplify_ltl : Ast.fo_ltl -> Ast.fo_ltl
 (** Simplify LTL formulas via boolean rewrites. *)

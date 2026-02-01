@@ -18,7 +18,7 @@
 
 open Ast
 
-type residual_state = ltl
+type residual_state = fo_ltl
 
 type residual_transition = int * (string * bool) list * int
 

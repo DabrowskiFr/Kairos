@@ -16,21 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 BDD-Based Valuation Enumeration} *)
+(** {1 BDD Helpers} *)
 
-val bdd_valuations :
-  (Ast.fo * Ast.ident) list ->
-  string list ->
-  (string * bool) list list
-(** Enumerate valuations using BDD constraints. *)
+val bdd_false : int
+(** BDD false constant. *)
+val bdd_true : int
+(** BDD true constant. *)
+val bdd_var : int -> int
+(** Build a BDD variable by index. *)
+val bdd_not : int -> int
+(** Logical negation of a BDD. *)
+val bdd_and : int -> int -> int
+(** Logical conjunction of two BDDs. *)
+val bdd_or : int -> int -> int
+(** Logical disjunction of two BDDs. *)
 
 val bdd_to_formula : string list -> int -> string
 (** Convert a BDD into a boolean formula string. *)
 val bdd_to_iexpr : string list -> int -> Ast.iexpr
 (** Convert a BDD into an iexpr formula. *)
-
-val group_transitions_bdd :
-  string list ->
-  Automaton_types.residual_transition list ->
-  Automaton_types.guarded_transition list
-(** Group transitions by (src,dst) and aggregate valuations into a BDD guard. *)

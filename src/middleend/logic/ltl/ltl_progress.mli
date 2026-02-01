@@ -22,5 +22,5 @@ val eval_atom :
   (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
 (** Evaluate an atom against a valuation. *)
 val progress_ltl :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.ltl -> Ast.ltl
+  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo_ltl -> Ast.fo_ltl
 (** Progress an LTL formula through one valuation. *)

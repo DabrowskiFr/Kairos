@@ -18,21 +18,15 @@
 
 (** {1 Residual Automaton} *)
 
-val build_residual_graph :
-  (Ast.fo * Ast.ident) list ->
-  (string * bool) list list ->
-  Ast.ltl ->
-  Automaton_types.residual_state list * Automaton_types.residual_transition list
-(** Build the residual automaton for an LTL formula. *)
+val build_residual_graph_bdd :
+  atom_map:(Ast.fo * Ast.ident) list ->
+  atom_names:Ast.ident list ->
+  Ast.fo_ltl ->
+  Automaton_types.residual_state list * Automaton_types.guarded_transition list
+(** Build the residual automaton using BDD guards (no valuation enumeration). *)
 
-val minimize_residual_graph :
-  (string * bool) list list ->
+val minimize_residual_graph_bdd :
   Automaton_types.residual_state list ->
-  Automaton_types.residual_transition list ->
-  Automaton_types.residual_state list * Automaton_types.residual_transition list
-(** Minimize the residual automaton by partition refinement. *)
-
-val group_transitions :
-  Automaton_types.residual_transition list ->
-  Automaton_types.grouped_transition list
-(** Group transitions by (src,dst) and aggregate valuations. *)
+  Automaton_types.guarded_transition list ->
+  Automaton_types.residual_state list * Automaton_types.guarded_transition list
+(** Minimize a residual automaton with BDD-guarded transitions. *)

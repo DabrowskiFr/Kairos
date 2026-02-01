@@ -42,15 +42,21 @@ type gen_tag =
   | MonitorAtom
   | MonitorState
   | CompatInvariant
+  | BadState
+  | MonitorPre
+  | MonitorPost
   | FoldInternal
   | PostForNextPre
 
 let tag_label = function
-  | MonitorAtom -> "monitor_atom"
-  | MonitorState -> "monitor_state"
-  | CompatInvariant -> "compat_invariant"
-  | FoldInternal -> "fold_internal"
-  | PostForNextPre -> "post_for_next_pre"
+  | MonitorAtom -> "monitor atom definition"
+  | MonitorState -> "monitor state"
+  | CompatInvariant -> "monitor/program compatibility"
+  | BadState -> "no bad state"
+  | MonitorPre -> "monitor pre-condition"
+  | MonitorPost -> "monitor post-condition"
+  | FoldInternal -> "internal fold link"
+  | PostForNextPre -> "post -> next pre"
 
 let rec iexpr_mentions_generated (e:iexpr) : bool =
   match e with
@@ -68,7 +74,7 @@ let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
       | MonitorAtom -> false
       | MonitorState -> id = "__mon_state" || is_mon_ctor id
       | FoldInternal -> starts_with id "__fold_internal_"
-      | CompatInvariant | PostForNextPre -> false
+      | CompatInvariant | BadState | MonitorPre | MonitorPost | PostForNextPre -> false
       end
   | IPar e -> iexpr_has_tag tag e
   | IUn (_, e) -> iexpr_has_tag tag e
@@ -112,6 +118,45 @@ let rec fo_has_tag (tag:gen_tag) (f:fo) : bool =
   | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
       fo_has_tag tag a || fo_has_tag tag b
 
+let is_mon_state_var = function
+  | "__mon_state" -> true
+  | s -> is_mon_ctor s
+
+let rec iexpr_only_mon_state = function
+  | ILitInt _ | ILitBool _ -> true
+  | IVar id -> is_mon_state_var id
+  | IPar e -> iexpr_only_mon_state e
+  | IUn (_, e) -> iexpr_only_mon_state e
+  | IBin (_, a, b) -> iexpr_only_mon_state a && iexpr_only_mon_state b
+
+let rec hexpr_only_mon_state = function
+  | HNow e -> iexpr_only_mon_state e
+  | HPreK (e, _) -> iexpr_only_mon_state e
+  | HFold (_, init, e) ->
+      iexpr_only_mon_state init && iexpr_only_mon_state e
+
+let rec fo_only_mon_state = function
+  | FTrue | FFalse -> true
+  | FRel (h1, _, h2) -> hexpr_only_mon_state h1 && hexpr_only_mon_state h2
+  | FPred (_, hs) -> List.for_all hexpr_only_mon_state hs
+  | FNot a -> fo_only_mon_state a
+  | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+      fo_only_mon_state a && fo_only_mon_state b
+
+let is_mon_state_eq = function
+  | FRel (HNow (IVar a), REq, HNow (IVar b)) ->
+      is_mon_state_var a && is_mon_state_var b
+  | _ -> false
+
+let is_bad_state_formula = function
+  | FRel (HNow (IVar a), RNeq, HNow (IVar b)) ->
+      is_mon_state_var a && is_mon_state_var b
+  | _ -> false
+
+let is_monitor_implication = function
+  | FImp (cond, _body) -> is_mon_state_eq cond
+  | _ -> false
+
 let comment_line (indent:int) (msg:string) : string =
   indent_str indent ^ "(* " ^ msg ^ " *)"
 
@@ -120,18 +165,14 @@ let comment_for_tag indent tag =
 
 let comment_for_tags indent tags =
   let tags = List.sort_uniq compare tags in
-  let monitor_details =
-    List.filter (function MonitorAtom | MonitorState | CompatInvariant -> true | _ -> false) tags
-  in
   let other_tags =
-    List.filter (function MonitorAtom | MonitorState | CompatInvariant -> false | _ -> true) tags
+    List.filter (function MonitorAtom | MonitorState -> false | _ -> true) tags
   in
-  let monitor_line =
-    match monitor_details with
-    | [] -> []
-    | _ -> [comment_line indent "generated: monitor"]
+  let explicit_tags =
+    (List.filter (function MonitorAtom | MonitorState -> true | _ -> false) tags)
+    @ other_tags
   in
-  monitor_line @ (List.map (comment_for_tag indent) other_tags)
+  List.map (comment_for_tag indent) explicit_tags
 
 let tags_for_ident (id:string) : gen_tag list =
   let tags = ref [] in
@@ -149,7 +190,24 @@ let tags_for_fo (f:fo) : gen_tag list =
   let tags = ref [] in
   if fo_has_tag MonitorState f then tags := MonitorState :: !tags;
   if fo_has_tag FoldInternal f then tags := FoldInternal :: !tags;
+  if is_bad_state_formula f then tags := BadState :: !tags;
+  if (not (is_bad_state_formula f)) && fo_only_mon_state f then
+    tags := CompatInvariant :: !tags;
   !tags
+
+let tags_for_fo_with_context ~(is_require:bool) (f:fo) : gen_tag list =
+  let tags = tags_for_fo f in
+  if is_monitor_implication f then
+    if is_require then MonitorPre :: tags else MonitorPost :: tags
+  else tags
+
+let primary_tag_for_fo ~(is_require:bool) (f:fo) : gen_tag option =
+  let tags = tags_for_fo_with_context ~is_require f in
+  let priority =
+    [CompatInvariant; BadState; MonitorPre; MonitorPost; FoldInternal; PostForNextPre;
+     MonitorAtom; MonitorState]
+  in
+  List.find_opt (fun t -> List.mem t tags) priority
 
 let add_semicolon (lines:string list) : string list =
   match List.rev lines with
@@ -212,53 +270,6 @@ let vdecl_line (v:vdecl) : string =
 let params_of_vdecls (vs:vdecl list) : string =
   String.concat ", " (List.map vdecl_line vs)
 
-let inline_iexpr (atom_map:(ident * iexpr) list) (e:iexpr) : iexpr =
-  let tbl = Hashtbl.create 16 in
-  List.iter (fun (id, ex) -> Hashtbl.replace tbl id ex) atom_map;
-  let rec go = function
-    | IVar id ->
-        begin match Hashtbl.find_opt tbl id with
-        | Some ex -> ex
-        | None -> IVar id
-        end
-    | ILitInt _ | ILitBool _ as e -> e
-    | IPar e -> IPar (go e)
-    | IUn (op, e) -> IUn (op, go e)
-    | IBin (op, a, b) -> IBin (op, go a, go b)
-  in
-  go e
-
-let inline_hexpr atom_map ~(init_for_var:ident -> iexpr) ~(vars:ident list) = function
-  | HNow e ->
-      begin match inline_iexpr atom_map e with
-      | IVar id when starts_with id "__pre_old_" ->
-          let base = String.sub id 10 (String.length id - 10) in
-          if List.mem base vars then
-            HPreK (IVar base, 1)
-          else
-            HNow (IVar id)
-      | e -> HNow e
-      end
-  | HPreK (e, k) ->
-      HPreK (inline_iexpr atom_map e, k)
-  | HFold (op, init, e) ->
-      HFold (op, inline_iexpr atom_map init, inline_iexpr atom_map e)
-
-let rec inline_fo atom_map ~init_for_var ~vars = function
-  | FTrue | FFalse as f -> f
-  | FRel (h1, r, h2) ->
-      FRel (inline_hexpr atom_map ~init_for_var ~vars h1, r,
-            inline_hexpr atom_map ~init_for_var ~vars h2)
-  | FPred (id, hs) ->
-      FPred (id, List.map (inline_hexpr atom_map ~init_for_var ~vars) hs)
-  | FNot a -> FNot (inline_fo atom_map ~init_for_var ~vars a)
-  | FAnd (a, b) -> FAnd (inline_fo atom_map ~init_for_var ~vars a,
-                         inline_fo atom_map ~init_for_var ~vars b)
-  | FOr (a, b) -> FOr (inline_fo atom_map ~init_for_var ~vars a,
-                       inline_fo atom_map ~init_for_var ~vars b)
-  | FImp (a, b) -> FImp (inline_fo atom_map ~init_for_var ~vars a,
-                         inline_fo atom_map ~init_for_var ~vars b)
-
 let replace_all ~sub ~by s =
   if sub = "" then s else
     let sub_len = String.length sub in
@@ -285,8 +296,8 @@ let prettify_pre_old ~init_for_var ~vars s =
        replace_all ~sub ~by acc)
     s vars
 
-let contract_lines (indent:int) (assumes:ltl list) (guarantees:ltl list)
-  (invariants:invariant_mon list) (atom_map:(ident * iexpr) list)
+let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
+  (invariants:invariant_mon list)
   ~(init_for_var:ident -> iexpr) ~(vars:ident list) : string list =
   let assume_lines =
     List.map (fun f -> indent_str indent ^ "assume " ^ string_of_ltl f ^ ";") assumes
@@ -314,7 +325,6 @@ let contract_lines (indent:int) (assumes:ltl list) (guarantees:ltl list)
                   @ (if hexpr_has_tag FoldInternal h then [FoldInternal] else [])
                 in
                 let prefix = comment_for_tags indent tags in
-            let h = inline_hexpr atom_map ~init_for_var ~vars h in
             let line =
               indent_str indent ^ "(* invariant " ^ id ^ " = "
               ^ string_of_hexpr h ^ " *)"
@@ -325,11 +335,7 @@ let contract_lines (indent:int) (assumes:ltl list) (guarantees:ltl list)
             | InvariantStateRel (is_eq, st, f) ->
                 let op = if is_eq then "=" else "!=" in
                 let tags = tags_for_fo f in
-                let tags =
-                  if fo_has_tag MonitorState f then CompatInvariant :: tags else tags
-                in
                 let prefix = comment_for_tags indent tags in
-            let f = inline_fo atom_map ~init_for_var ~vars f in
             let line =
               indent_str indent ^ "(* invariant state " ^ op ^ " " ^ st ^ " -> "
               ^ string_of_fo f ^ " *)"
@@ -343,12 +349,12 @@ let contract_lines (indent:int) (assumes:ltl list) (guarantees:ltl list)
   in
   assume_lines @ guarantee_lines @ inv_lines
 
-let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
+let transition_lines (indent:int) (t:transition)
   ~(init_for_var:ident -> iexpr) ~(vars:ident list)
   : string list =
   let is_monitor_tag = function
     | MonitorAtom | MonitorState -> true
-    | CompatInvariant | FoldInternal | PostForNextPre -> false
+    | CompatInvariant | BadState | MonitorPre | MonitorPost | FoldInternal | PostForNextPre -> false
   in
   let stmt_is_monitor (s:stmt) : bool =
     match s with
@@ -393,8 +399,9 @@ let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
         @ (let rec build acc last_prefix = function
              | [] -> acc
              | f :: rest ->
-          let f = inline_fo atom_map ~init_for_var ~vars f in
-          let prefix = comment_for_tags (indent + 1) (tags_for_fo f) in
+          let prefix =
+            comment_for_tags (indent + 1) (tags_for_fo_with_context ~is_require:true f)
+          in
           let line =
             indent_str (indent + 1) ^ "requires " ^ string_of_fo f ^ ";"
           in
@@ -413,24 +420,38 @@ let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
     match gen_requires with
     | [] -> []
     | _ ->
-        (let rec build acc last_prefix = function
-          | [] -> acc
-          | f :: rest ->
-              let f = inline_fo atom_map ~init_for_var ~vars f in
-              let prefix = comment_for_tags (indent + 1) (tags_for_fo f) in
-              let line =
-                indent_str (indent + 1) ^ "requires " ^ string_of_fo f ^ ";"
-              in
-              let line = prettify_pre_old ~init_for_var ~vars line in
-              let acc, last_prefix =
-                if prefix = [] || prefix = last_prefix then
-                  (acc @ [line], last_prefix)
-                else
-                  (acc @ prefix @ [line], prefix)
-              in
-              build acc last_prefix rest
-         in
-         build [] [] gen_requires)
+        let buckets = Hashtbl.create 8 in
+        List.iter
+          (fun f ->
+             let key = primary_tag_for_fo ~is_require:true f in
+             let prev = Hashtbl.find_opt buckets key |> Option.value ~default:[] in
+             Hashtbl.replace buckets key (prev @ [f]))
+          gen_requires;
+        let order =
+          [Some CompatInvariant; Some BadState; Some MonitorPre; Some MonitorPost;
+           Some FoldInternal; Some PostForNextPre; Some MonitorAtom; Some MonitorState; None]
+        in
+        List.concat_map
+          (fun key ->
+             match Hashtbl.find_opt buckets key with
+             | None | Some [] -> []
+             | Some items ->
+                 let prefix =
+                   match key with
+                   | Some tag -> [comment_for_tag (indent + 1) tag]
+                   | None -> []
+                 in
+                 let lines =
+                   List.map
+                     (fun f ->
+                        let line =
+                          indent_str (indent + 1) ^ "requires " ^ string_of_fo f ^ ";"
+                        in
+                        prettify_pre_old ~init_for_var ~vars line)
+                     items
+                 in
+                 prefix @ lines)
+          order
   in
   let user_ens_block =
     match user_ensures with
@@ -440,8 +461,9 @@ let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
         @ (let rec build acc last_prefix = function
              | [] -> acc
              | f :: rest ->
-          let f = inline_fo atom_map ~init_for_var ~vars f in
-          let prefix = comment_for_tags (indent + 1) (tags_for_fo f) in
+          let prefix =
+            comment_for_tags (indent + 1) (tags_for_fo_with_context ~is_require:false f)
+          in
           let line =
             indent_str (indent + 1) ^ "ensures " ^ string_of_fo f ^ ";"
           in
@@ -460,29 +482,42 @@ let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
     match gen_ensures with
     | [] -> []
     | _ ->
-        (let rec build acc last_prefix = function
-          | [] -> acc
-          | f :: rest ->
-              let f = inline_fo atom_map ~init_for_var ~vars f in
-              let prefix = comment_for_tags (indent + 1) (tags_for_fo f) in
-              let line =
-                indent_str (indent + 1) ^ "ensures " ^ string_of_fo f ^ ";"
-              in
-              let line = prettify_pre_old ~init_for_var ~vars line in
-              let acc, last_prefix =
-                if prefix = [] || prefix = last_prefix then
-                  (acc @ [line], last_prefix)
-                else
-                  (acc @ prefix @ [line], prefix)
-              in
-              build acc last_prefix rest
-         in
-         build [] [] gen_ensures)
+        let buckets = Hashtbl.create 8 in
+        List.iter
+          (fun f ->
+             let key = primary_tag_for_fo ~is_require:false f in
+             let prev = Hashtbl.find_opt buckets key |> Option.value ~default:[] in
+             Hashtbl.replace buckets key (prev @ [f]))
+          gen_ensures;
+        let order =
+          [Some CompatInvariant; Some BadState; Some MonitorPre; Some MonitorPost;
+           Some FoldInternal; Some PostForNextPre; Some MonitorAtom; Some MonitorState; None]
+        in
+        List.concat_map
+          (fun key ->
+             match Hashtbl.find_opt buckets key with
+             | None | Some [] -> []
+             | Some items ->
+                 let prefix =
+                   match key with
+                   | Some tag -> [comment_for_tag (indent + 1) tag]
+                   | None -> []
+                 in
+                 let lines =
+                   List.map
+                     (fun f ->
+                        let line =
+                          indent_str (indent + 1) ^ "ensures " ^ string_of_fo f ^ ";"
+                        in
+                        prettify_pre_old ~init_for_var ~vars line)
+                     items
+                 in
+                 prefix @ lines)
+          order
   in
   let lemma_lines =
     List.map
       (fun f ->
-         let f = inline_fo atom_map ~init_for_var ~vars f in
          let line =
            indent_str (indent + 1) ^ "(* lemma " ^ string_of_fo f ^ " *)"
          in
@@ -513,12 +548,6 @@ let transition_lines (indent:int) (t:transition) (atom_map:(ident * iexpr) list)
   @ [footer]
 
 let node_lines (n:node) : string list =
-  let atom_map =
-    n.invariants_mon
-    |> List.filter_map (function
-         | Invariant (id, HNow e) when starts_with id "atom_" -> Some (id, e)
-         | _ -> None)
-  in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
@@ -536,7 +565,7 @@ let node_lines (n:node) : string list =
     ^ " returns (" ^ params_of_vdecls n.outputs ^ ")"
   in
   let contracts =
-    contract_lines 1 n.assumes n.guarantees n.invariants_mon atom_map
+    contract_lines 1 n.assumes n.guarantees n.invariants_mon
       ~init_for_var ~vars
   in
   let instances =
@@ -565,7 +594,7 @@ let node_lines (n:node) : string list =
   let trans =
     (indent_str 1 ^ "trans")
     :: List.concat_map
-         (fun t -> transition_lines 2 t atom_map ~init_for_var ~vars)
+         (fun t -> transition_lines 2 t ~init_for_var ~vars)
          n.trans
   in
   [header]

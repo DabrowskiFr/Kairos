@@ -23,27 +23,9 @@ val escape_dot_label : string -> string
 
 (** {1 Valuations And Boolean Minimization} *)
 
-(** Escape a string for DOT quoted labels. *)
-val all_valuations : string list -> (string * bool) list list
-(** Enumerate all boolean valuations for a list of atom names. *)
-
 val monitor_log_enabled : bool
 (** True when monitor logging is enabled via [OBCWHY3_LOG_MONITOR]. *)
 
-val constrained_valuations :
-  (Ast.fo * Ast.ident) list ->
-  string list ->
-  (string * bool) list list
-(** Enumerate valuations and filter inconsistent ones using atom equalities. *)
-
-val set_naive_automaton : bool -> unit
-(** Toggle naive automaton construction (no BDD constraints). *)
-
-val enumerate_valuations :
-  (Ast.fo * Ast.ident) list ->
-  string list ->
-  (string * bool) list list
-(** Enumerate valuations using the selected automaton strategy. *)
 val valuation_label : (string * bool) list -> string
 (** Compact label for a valuation (name=0/1). *)
 type term = (string * bool option) list
@@ -80,9 +62,9 @@ val valuations_to_iexpr :
 (** Build an iexpr formula covering valuations. *)
 (** {1 LTL Normalization} *)
 
-val nnf_ltl : ?neg:bool -> Ast.ltl -> Ast.ltl
+val nnf_ltl : ?neg:bool -> Ast.fo_ltl -> Ast.fo_ltl
 (** Convert an LTL formula into negation normal form. *)
-val simplify_ltl : Ast.ltl -> Ast.ltl
+val simplify_ltl : Ast.fo_ltl -> Ast.fo_ltl
 (** Simplify LTL formulas via boolean rewrites. *)
 val eval_atom :
   (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
@@ -90,32 +72,21 @@ val eval_atom :
 (** {1 Residual Automaton} *)
 
 val progress_ltl :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.ltl -> Ast.ltl
+  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo_ltl -> Ast.fo_ltl
 (** Progress an LTL formula through one valuation. *)
-type residual_state = Ast.ltl
-type residual_transition = int * (string * bool) list * int
-(** Residual transition (src, valuation, dst). *)
-type grouped_transition = int * (string * bool) list list * int
-(** Residual transition grouped by destination (src, valuations, dst). *)
+type residual_state = Ast.fo_ltl
 type guarded_transition = int * int * int
 (** Residual transition grouped with a BDD guard (src, guard, dst). *)
-(** Build residual graph. *)
-val build_residual_graph :
-  (Ast.fo * Ast.ident) list ->
-  (string * bool) list list ->
-  Ast.ltl -> residual_state list * residual_transition list
-(** Build the residual automaton for an LTL formula. *)
-val minimize_residual_graph :
-  (string * bool) list list ->
+val build_residual_graph_bdd :
+  atom_map:(Ast.fo * Ast.ident) list ->
+  atom_names:Ast.ident list ->
+  Ast.fo_ltl -> residual_state list * guarded_transition list
+(** Build the residual automaton using BDD guards (no valuation enumeration). *)
+val minimize_residual_graph_bdd :
   residual_state list ->
-  residual_transition list -> residual_state list * residual_transition list
-(** Minimize the residual automaton by partition refinement. *)
+  guarded_transition list -> residual_state list * guarded_transition list
+(** Minimize a residual automaton with BDD-guarded transitions. *)
 
-val group_transitions : residual_transition list -> grouped_transition list
-(** Group transitions by (src,dst) and aggregate valuations. *)
-val group_transitions_bdd :
-  string list -> residual_transition list -> guarded_transition list
-(** Group transitions by (src,dst) and aggregate valuations into a BDD guard. *)
 
 val bdd_to_formula : string list -> int -> string
 (** Convert a BDD into a boolean formula string. *)

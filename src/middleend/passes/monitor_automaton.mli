@@ -17,24 +17,24 @@
  *---------------------------------------------------------------------------*)
 
 type monitor_automaton = {
-  states_raw: Ast.ltl list;
-  transitions_raw: Automaton_core.residual_transition list;
-  states: Ast.ltl list;
-  transitions: Automaton_core.residual_transition list;
+  states_raw: Ast.fo_ltl list;
+  transitions_raw: Automaton_core.guarded_transition list;
+  states: Ast.fo_ltl list;
+  transitions: Automaton_core.guarded_transition list;
   grouped: Automaton_core.guarded_transition list;
 }
 
 type monitor_build = {
   atoms: Monitor_atoms.monitor_atoms;
   atom_names: Ast.ident list;
-  spec: Ast.ltl;
+  spec: Ast.fo_ltl;
   automaton: monitor_automaton;
 }
 
 val build_monitor_automaton :
   atom_map:(Ast.fo * Ast.ident) list ->
   atom_names:Ast.ident list ->
-  Ast.ltl -> monitor_automaton
+  Ast.fo_ltl -> monitor_automaton
 (** Build, minimize, and group the monitor residual automaton. *)
 
 val build_monitor_for_node : Ast.node -> monitor_build

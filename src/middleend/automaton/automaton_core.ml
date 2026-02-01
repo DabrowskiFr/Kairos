@@ -18,17 +18,9 @@
 
 include Automaton_util
 include Automaton_config
-include Automaton_naive
 include Ltl_valuation
 include Ltl_norm
 include Ltl_progress
 include Automaton_types
 include Automaton_residual
 include Automaton_bdd
-
-let enumerate_valuations (atom_map:(Ast.fo * Ast.ident) list) (names:string list)
-  : (string * bool) list list =
-  if use_naive_automaton () then
-    all_valuations names
-  else
-    bdd_valuations atom_map names

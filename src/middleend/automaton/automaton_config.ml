@@ -27,11 +27,3 @@ let log_monitor fmt =
        if monitor_log_enabled then
          prerr_endline ("[monitor] " ^ s))
     fmt
-
-let naive_automaton = ref false
-
-let set_naive_automaton (flag:bool) : unit =
-  naive_automaton := flag
-
-let use_naive_automaton () : bool =
-  !naive_automaton

@@ -32,7 +32,7 @@ let fold_post_terms = Emit_why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
-  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
 
 let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =

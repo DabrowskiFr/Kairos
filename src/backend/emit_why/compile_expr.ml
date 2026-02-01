@@ -210,7 +210,7 @@ let rec compile_fo_term ?(prefer_link=false) (env:env) (f:fo) : Ptree.term =
       mk_term (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTimplies, compile_fo_term ~prefer_link env b))
 
 let rec compile_ltl_term_shift ?(prefer_link=false) ?(in_post=false) (env:env)
-  (shift:int) (f:ltl) : Ptree.term =
+  (shift:int) (f:fo_ltl) : Ptree.term =
   let shift = if shift <= 0 then 0 else 1 in
   match f with
   | LTrue -> mk_term Ttrue
@@ -262,7 +262,7 @@ let rel_hexpr (env:env) (h:hexpr) : hexpr =
       | HPreK (e,k) -> HPreK (e, k)
       | HFold _ -> h
 
-let rec ltl_relational (env:env) (f:ltl) : ltl =
+let rec ltl_relational (env:env) (f:fo_ltl) : fo_ltl =
   match f with
   | LTrue | LFalse -> f
   | LNot a -> LNot (ltl_relational env a)
@@ -288,7 +288,7 @@ type spec_frag = { pre: Ptree.term list; post: Ptree.term list }
 
 let empty_frag : spec_frag = { pre = []; post = [] }
 
-let ltl_spec (env:env) (f:ltl) : spec_frag =
+let ltl_spec (env:env) (f:fo_ltl) : spec_frag =
   let rec has_x = function
     | LX _ -> true
     | LTrue | LFalse | LAtom _ -> false

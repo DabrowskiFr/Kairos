@@ -28,7 +28,7 @@ let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
       collect_hexpr (HNow e) acc
   | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
 
-let rec collect_ltl (f:ltl) (acc:hexpr list) : hexpr list =
+let rec collect_ltl (f:fo_ltl) (acc:hexpr list) : hexpr list =
   match f with
   | LTrue | LFalse -> acc
   | LNot a -> collect_ltl a acc
@@ -55,7 +55,7 @@ let classify_fold (h:hexpr)
 
 let collect_folds_from_specs
     ~(fo:fo list)
-    ~(ltl:ltl list)
+    ~(ltl:fo_ltl list)
     ~(invariants_mon:invariant_mon list) : fold_info list =
   let is_internal_fold_invariant = function
     | Invariant (id, _) ->
@@ -123,7 +123,7 @@ let collect_folds_from_specs
 
 let collect_pre_k_from_specs
     ~(fo:fo list)
-    ~(ltl:ltl list)
+    ~(ltl:fo_ltl list)
     ~(invariants_mon:invariant_mon list) : hexpr list =
   let collect_pre_k_hexpr h acc =
     let acc =
@@ -267,7 +267,7 @@ let collect_calls_trans_full (ts:transition list)
     (fun acc t -> List.fold_left collect_calls_stmt_full acc t.body)
     [] ts
 
-let extract_delay_spec (guarantees:ltl list) : (ident * ident) option =
+let extract_delay_spec (guarantees:fo_ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LAtom (FRel (HNow (IVar out), REq, HPreK (IVar inp, 1)))

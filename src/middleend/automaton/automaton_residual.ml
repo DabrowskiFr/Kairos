@@ -21,18 +21,89 @@ open Automaton_config
 open Ltl_norm
 open Ltl_progress
 open Automaton_types
-open Ltl_valuation
+open Automaton_bdd
 
-let build_residual_graph (atom_map:(fo * ident) list)
-  (valuations:(string * bool) list list) (f0:ltl)
-  : residual_state list * residual_transition list =
+let merge_by_formula (items:(int * fo_ltl) list) : (int * fo_ltl) list =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (guard, f) ->
+       if guard <> bdd_false then
+         let key = Support.string_of_ltl f in
+         let prev = Hashtbl.find_opt tbl key in
+         match prev with
+         | None -> Hashtbl.add tbl key (guard, f)
+         | Some (g, f') ->
+             Hashtbl.replace tbl key (bdd_or g guard, f'))
+    items;
+  Hashtbl.fold (fun _ v acc -> v :: acc) tbl []
+
+let progress_ltl_bdd ~(atom_map:(fo * ident) list)
+  ~(index_tbl:(string, int) Hashtbl.t) (f:fo_ltl) : (int * fo_ltl) list =
+  let rec go = function
+    | LTrue -> [ (bdd_true, LTrue) ]
+    | LFalse -> [ (bdd_true, LFalse) ]
+    | LAtom a ->
+        begin match List.assoc_opt a atom_map with
+        | None -> [ (bdd_true, LFalse) ]
+        | Some name ->
+            let idx = Hashtbl.find index_tbl name in
+            let var = bdd_var idx in
+            [ (var, LTrue); (bdd_not var, LFalse) ]
+        end
+    | LNot a ->
+        go a
+        |> List.map (fun (g, f') -> (g, simplify_ltl (LNot f')))
+        |> merge_by_formula
+    | LAnd (a, b) ->
+        let la = go a in
+        let lb = go b in
+        let combos =
+          List.concat_map
+            (fun (ga, fa) ->
+               List.map
+                 (fun (gb, fb) ->
+                    let g = bdd_and ga gb in
+                    (g, simplify_ltl (LAnd (fa, fb))))
+                 lb)
+            la
+        in
+        merge_by_formula combos
+    | LOr (a, b) ->
+        let la = go a in
+        let lb = go b in
+        let combos =
+          List.concat_map
+            (fun (ga, fa) ->
+               List.map
+                 (fun (gb, fb) ->
+                    let g = bdd_and ga gb in
+                    (g, simplify_ltl (LOr (fa, fb))))
+                 lb)
+            la
+        in
+        merge_by_formula combos
+    | LImp (a, b) ->
+        go (LOr (LNot a, b))
+    | LX a ->
+        [ (bdd_true, a) ]
+    | LG a ->
+        go a
+        |> List.map (fun (g, f') -> (g, simplify_ltl (LAnd (f', LG a))))
+        |> merge_by_formula
+  in
+  go f
+
+let build_residual_graph_bdd ~(atom_map:(fo * ident) list)
+  ~(atom_names:ident list) (f0:fo_ltl)
+  : residual_state list * guarded_transition list =
   let start_time = Sys.time () in
   let f0 = nnf_ltl f0 |> simplify_ltl in
+  let index_tbl = Hashtbl.create 16 in
+  List.iteri (fun i name -> Hashtbl.add index_tbl name i) atom_names;
   let tbl = Hashtbl.create 16 in
   let states = ref [] in
   let transitions = ref [] in
   let state_count = ref 0 in
-  log_monitor "build residual graph: valuations=%d" (List.length valuations);
   let add_state f =
     let key = Support.string_of_ltl f in
     match Hashtbl.find_opt tbl key with
@@ -55,63 +126,41 @@ let build_residual_graph (atom_map:(fo * ident) list)
   while not (Queue.is_empty q) do
     let f = Queue.take q in
     let i = Hashtbl.find tbl (Support.string_of_ltl f) in
+    let parts = progress_ltl_bdd ~atom_map ~index_tbl f in
+    let by_dst = Hashtbl.create 16 in
     List.iter
-      (fun vals ->
-         let f' = progress_ltl atom_map vals f in
-         let (j, is_new) = add_state f' in
-         transitions := (i, vals, j) :: !transitions;
-         if is_new then Queue.add f' q)
-      valuations
+      (fun (guard, f') ->
+         if guard <> bdd_false then
+           let (j, is_new) = add_state f' in
+           let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:bdd_false in
+           Hashtbl.replace by_dst j (bdd_or prev guard);
+           if is_new then Queue.add f' q)
+      parts;
+    Hashtbl.iter
+      (fun j guard -> transitions := (i, guard, j) :: !transitions)
+      by_dst
   done;
-  log_monitor "done: states=%d transitions=%d time=%.3fs"
+  log_monitor "done: states=%d transitions=%d time=%.3fs (bdd)"
     !state_count (List.length !transitions) (Sys.time () -. start_time);
   (!states, List.rev !transitions)
 
-let group_transitions (transitions:residual_transition list)
-  : grouped_transition list =
-  let by_src = Hashtbl.create 16 in
+let minimize_residual_graph_bdd (states:residual_state list)
+  (transitions:guarded_transition list)
+  : residual_state list * guarded_transition list =
+  let n_states = List.length states in
+  let by_src = Hashtbl.create n_states in
   List.iter
-    (fun (i, vals, j) ->
+    (fun (i, guard, j) ->
        let per_src =
          match Hashtbl.find_opt by_src i with
          | Some m -> m
          | None ->
-             let m = Hashtbl.create 16 in
+             let m = Hashtbl.create 8 in
              Hashtbl.add by_src i m;
              m
        in
-       let prev = Hashtbl.find_opt per_src j |> Option.value ~default:[] in
-       Hashtbl.replace per_src j (vals :: prev))
-    transitions;
-  Hashtbl.fold
-    (fun src per_src acc ->
-       let items =
-         Hashtbl.fold
-           (fun dst vals_list acc -> (src, vals_list, dst) :: acc)
-           per_src
-           []
-       in
-       items @ acc)
-    by_src
-    []
-
-let minimize_residual_graph (valuations:(string * bool) list list)
-  (states:residual_state list) (transitions:residual_transition list)
-  : residual_state list * residual_transition list =
-  let n_states = List.length states in
-  let val_index =
-    let tbl = Hashtbl.create 16 in
-    List.iteri (fun i v -> Hashtbl.add tbl (valuation_label v) i) valuations;
-    tbl
-  in
-  let n_inputs = List.length valuations in
-  let delta = Array.make_matrix n_states n_inputs 0 in
-  List.iter
-    (fun (i, vals, j) ->
-       let key = valuation_label vals in
-       match Hashtbl.find_opt val_index key with
-       | Some k -> delta.(i).(k) <- j
-       | None -> ())
+       let prev = Hashtbl.find_opt per_src j |> Option.value ~default:bdd_false in
+       Hashtbl.replace per_src j (bdd_or prev guard))
     transitions;
   let is_accept i =
     match List.nth states i with
@@ -127,12 +176,30 @@ let minimize_residual_graph (valuations:(string * bool) list list)
     let next_class = Array.make n_states 0 in
     let next_id = ref 0 in
     for i = 0 to n_states - 1 do
-      let buf = Buffer.create 32 in
+      let per_src = Hashtbl.find_opt by_src i |> Option.value ~default:(Hashtbl.create 0) in
+      let per_class = Hashtbl.create 8 in
+      Hashtbl.iter
+        (fun dst guard ->
+           let c = class_of.(dst) in
+           let prev = Hashtbl.find_opt per_class c |> Option.value ~default:bdd_false in
+           Hashtbl.replace per_class c (bdd_or prev guard))
+        per_src;
+      let key_parts =
+        Hashtbl.fold
+          (fun c guard acc -> (c, guard) :: acc)
+          per_class
+          []
+        |> List.sort (fun (a, _) (b, _) -> compare a b)
+      in
+      let buf = Buffer.create 64 in
       Buffer.add_string buf (if is_accept i then "1|" else "0|");
-      for k = 0 to n_inputs - 1 do
-        Buffer.add_string buf (string_of_int class_of.(delta.(i).(k)));
-        Buffer.add_char buf ','
-      done;
+      List.iter
+        (fun (c, guard) ->
+           Buffer.add_string buf (string_of_int c);
+           Buffer.add_char buf ':';
+           Buffer.add_string buf (string_of_int guard);
+           Buffer.add_char buf ',')
+        key_parts;
       let key = Buffer.contents buf in
       match Hashtbl.find_opt table key with
       | Some id -> next_class.(i) <- id
@@ -161,14 +228,28 @@ let minimize_residual_graph (valuations:(string * bool) list list)
   let new_states =
     List.init class_count (fun c -> List.nth states rep.(c))
   in
-  let new_transitions = ref [] in
-  for c = 0 to class_count - 1 do
-    let s = rep.(c) in
-    for k = 0 to n_inputs - 1 do
-      let t = delta.(s).(k) in
-      let c' = class_of.(t) in
-      let vals = List.nth valuations k in
-      new_transitions := (c, vals, c') :: !new_transitions
-    done
-  done;
-  (new_states, List.rev !new_transitions)
+  let new_transitions_tbl = Hashtbl.create 16 in
+  Array.iteri
+    (fun c s ->
+       if s <> -1 then
+         match Hashtbl.find_opt by_src s with
+         | None -> ()
+         | Some per_src ->
+             Hashtbl.iter
+               (fun dst guard ->
+                  let c' = class_of.(dst) in
+                  let key = (c, c') in
+                  let prev =
+                    Hashtbl.find_opt new_transitions_tbl key
+                    |> Option.value ~default:bdd_false
+                  in
+                  Hashtbl.replace new_transitions_tbl key (bdd_or prev guard))
+               per_src)
+    rep;
+  let new_transitions =
+    Hashtbl.fold
+      (fun (c, c') guard acc -> (c, guard, c') :: acc)
+      new_transitions_tbl
+      []
+  in
+  (new_states, new_transitions)

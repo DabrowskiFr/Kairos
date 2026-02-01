@@ -18,7 +18,7 @@
 
 (** {1 Residual Automaton Types} *)
 
-type residual_state = Ast.ltl
+type residual_state = Ast.fo_ltl
 (** Residual automaton state as an LTL formula. *)
 type residual_transition = int * (string * bool) list * int
 (** Residual transition (src, valuation, dst). *)

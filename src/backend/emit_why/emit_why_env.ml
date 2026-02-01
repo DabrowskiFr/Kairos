@@ -59,7 +59,7 @@ let rec collect_ctor_fo (acc:ident list) (f:fo) : ident list =
   | FNot a -> collect_ctor_fo acc a
   | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_ctor_fo (collect_ctor_fo acc a) b
 
-let rec collect_ctor_ltl (acc:ident list) (f:ltl) : ident list =
+let rec collect_ctor_ltl (acc:ident list) (f:fo_ltl) : ident list =
   match f with
   | LTrue | LFalse -> acc
   | LAtom a -> collect_ctor_fo acc a

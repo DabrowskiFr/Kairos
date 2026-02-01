@@ -71,7 +71,7 @@ let inline_atoms_iexpr (atom_map:(ident * iexpr) list) (e:iexpr) : iexpr =
   let rec go = function
     | IVar name ->
         begin match Hashtbl.find_opt map name with
-        | Some expr -> expr
+        | Some expr -> go expr
         | None -> IVar name
         end
     | ILitInt _ | ILitBool _ as e -> e

@@ -198,71 +198,16 @@ let transform_node (n:node) : node =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let _bool_vars = bool_like_vars ~var_types n in
-  let n = n in
   let fold_map = fold_map_for_node n in
-  let pre_k_map = Collect.build_pre_k_infos n in
   let fold_internal_invariants =
     List.map
       (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
       fold_map
   in
-  let inputs = List.map (fun v -> v.vname) n.inputs in
-  let atoms =
-    collect_atoms_from_node n
-    |> List.filter (fun a ->
-           atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a <> None)
-    |> List.sort_uniq compare
-  in
-  if atoms = [] then n
+  if fold_internal_invariants = [] then
+    n
   else
-    let atom_exprs =
-      List.filter_map
-        (fun a ->
-           match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
-           | Some e -> Some (a, e)
-           | None -> None)
-        atoms
-    in
-    let atom_names = make_atom_names atom_exprs in
-    let atom_map =
-      List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names
-    in
-    let atom_named_exprs =
-      List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names
-    in
-    let atom_locals =
-      List.map (fun name -> { vname = name; vty = TBool }) atom_names
-    in
-    let atom_assigns =
-      List.map
-        (fun (a, name) ->
-           match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
-           | Some e -> SAssign (name, e)
-           | None -> SSkip
-        )
-        atom_map
-    in
-    let atom_invariants =
-      List.map (fun (name, e) -> Invariant (name, HNow e)) atom_named_exprs
-    in
-    let trans =
-      List.map
-        (fun (t:transition) ->
-           let t = replace_atoms_transition atom_map t in
-           let body = t.body @ atom_assigns in
-           { t with body })
-        n.trans
-    in
-    let assumes = List.map (replace_atoms_ltl atom_map) n.assumes in
-    let guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees in
-    let invariants_mon = replace_atoms_invariants_mon atom_map n.invariants_mon in
-    { n with
-      locals = n.locals @ atom_locals;
-      assumes;
-      guarantees;
-      invariants_mon = invariants_mon @ atom_invariants @ fold_internal_invariants;
-      trans;
-    }
+    { n with invariants_mon = n.invariants_mon @ fold_internal_invariants; }
 
 let monitor_update_stmts (atom_map:(ident * iexpr) list) (states:residual_state list)
   (transitions:guarded_transition list) : stmt list =
@@ -308,8 +253,176 @@ let monitor_update_stmts (atom_map:(ident * iexpr) list) (states:residual_state 
 let monitor_assert (bad_idx:int) : stmt list =
   if bad_idx < 0 then [] else []
 
+let inline_fo_atoms (atom_map:(ident * iexpr) list) (f:fo) : fo =
+  let tbl = Hashtbl.create 16 in
+  List.iter (fun (id, ex) -> Hashtbl.replace tbl id ex) atom_map;
+  let rec inline_iexpr = function
+    | IVar id ->
+        begin match Hashtbl.find_opt tbl id with
+        | Some ex -> inline_iexpr ex
+        | None -> IVar id
+        end
+    | ILitInt _ | ILitBool _ as e -> e
+    | IPar e -> IPar (inline_iexpr e)
+    | IUn (op, e) -> IUn (op, inline_iexpr e)
+    | IBin (op, a, b) -> IBin (op, inline_iexpr a, inline_iexpr b)
+  in
+  let rec inline_hexpr = function
+    | HNow e -> HNow (inline_iexpr e)
+    | HPreK (e, k) -> HPreK (inline_iexpr e, k)
+    | HFold (op, init, e) ->
+        HFold (op, inline_iexpr init, inline_iexpr e)
+  in
+  let rec go = function
+    | FTrue | FFalse as f -> f
+    | FRel (h1, r, h2) -> FRel (inline_hexpr h1, r, inline_hexpr h2)
+    | FPred (id, hs) -> FPred (id, List.map inline_hexpr hs)
+    | FNot a -> FNot (go a)
+    | FAnd (a, b) -> FAnd (go a, go b)
+    | FOr (a, b) -> FOr (go a, go b)
+    | FImp (a, b) -> FImp (go a, go b)
+  in
+  go f
+
+let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
+  let inline_iexpr = inline_atoms_iexpr atom_map in
+  let inline_hexpr = function
+    | HNow e -> HNow (inline_iexpr e)
+    | HPreK (e, k) -> HPreK (inline_iexpr e, k)
+    | HFold (op, init, e) ->
+        HFold (op, inline_iexpr init, inline_iexpr e)
+  in
+  let inline_fo = inline_fo_atoms atom_map in
+  let rec inline_ltl = function
+    | LTrue | LFalse as f -> f
+    | LAtom a -> LAtom (inline_fo a)
+    | LNot a -> LNot (inline_ltl a)
+    | LAnd (a, b) -> LAnd (inline_ltl a, inline_ltl b)
+    | LOr (a, b) -> LOr (inline_ltl a, inline_ltl b)
+    | LImp (a, b) -> LImp (inline_ltl a, inline_ltl b)
+    | LX a -> LX (inline_ltl a)
+    | LG a -> LG (inline_ltl a)
+  in
+  let rec inline_stmt = function
+    | SAssign (id, e) -> SAssign (id, inline_iexpr e)
+    | SIf (c, t, e) ->
+        SIf (inline_iexpr c,
+             List.map inline_stmt t,
+             List.map inline_stmt e)
+    | SMatch (e, cases, dflt) ->
+        let cases =
+          List.map
+            (fun (id, body) -> (id, List.map inline_stmt body))
+            cases
+        in
+        SMatch (inline_iexpr e, cases, List.map inline_stmt dflt)
+    | SSkip -> SSkip
+    | SCall (id, args, outs) ->
+        SCall (id, List.map inline_iexpr args, outs)
+  in
+  let inline_invariant = function
+    | Invariant (id, h) -> Invariant (id, inline_hexpr h)
+    | InvariantStateRel (is_eq, st, f) ->
+        InvariantStateRel (is_eq, st, inline_fo f)
+  in
+  let inline_transition (t:transition) : transition =
+    {
+      t with
+      guard = Option.map inline_iexpr t.guard;
+      requires = List.map inline_fo t.requires;
+      ensures = List.map inline_fo t.ensures;
+      lemmas = List.map inline_fo t.lemmas;
+      body = List.map inline_stmt t.body;
+    }
+  in
+  {
+    n with
+    assumes = List.map inline_ltl n.assumes;
+    guarantees = List.map inline_ltl n.guarantees;
+    invariants_mon = List.map inline_invariant n.invariants_mon;
+    trans = List.map inline_transition n.trans;
+  }
+
+let add_state_invariants_to_transitions
+  ~(invariants_mon:invariant_mon list)
+  ?(log:(transition -> fo -> unit) option=None)
+  (trans:transition list) : transition list =
+  let add_unique f lst = if List.exists ((=) f) lst then lst else f :: lst in
+  let invs =
+    List.filter_map
+      (function
+        | InvariantStateRel (is_eq, st, f) -> Some (is_eq, st, f)
+        | Invariant _ -> None)
+      invariants_mon
+  in
+  List.map
+    (fun (t:transition) ->
+       let reqs, ens =
+         List.fold_left
+           (fun (reqs, ens) (is_eq, st, f) ->
+              let pre_ok = if is_eq then t.src = st else t.src <> st in
+              let post_ok = if is_eq then t.dst = st else t.dst <> st in
+              let reqs =
+                if pre_ok then (
+                  Option.iter (fun l -> l t f) log;
+                  add_unique f reqs
+                ) else reqs
+              in
+              let ens =
+                if post_ok then (
+                  Option.iter (fun l -> l t f) log;
+                  add_unique f ens
+                ) else ens
+              in
+              (reqs, ens))
+           (t.requires, t.ensures)
+           invs
+       in
+       { t with requires = reqs; ensures = ens })
+    trans
+
+let simplify_mon_state_implications (fs:fo list) : fo list =
+  let mon = monitor_state_name in
+  let mon_state_of_var v = if String.length v >= 3 && String.sub v 0 3 = "Mon" then Some v else None in
+  let mon_state_eq = function
+    | FRel (HNow (IVar a), REq, HNow (IVar b)) ->
+        if a = mon then mon_state_of_var b
+        else if b = mon then mon_state_of_var a
+        else None
+    | _ -> None
+  in
+  let mon_state_cond = function
+    | FImp (cond, _body) -> mon_state_eq cond
+    | _ -> None
+  in
+  let eqs =
+    fs
+    |> List.filter_map mon_state_eq
+    |> List.sort_uniq String.compare
+  in
+  match eqs with
+  | [st] ->
+      List.filter
+        (fun f ->
+           match mon_state_cond f with
+           | None -> true
+           | Some st' -> st' = st)
+        fs
+  | _ -> fs
+
 let transform_node_monitor (n:node) : node =
   let is_input v = List.exists (fun vd -> vd.vname = v) n.inputs in
+  let debug_contracts =
+    match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_CONTRACTS" with
+    | Some "1" -> true
+    | _ -> false
+  in
+  let log_contract ~(reason:string) ~(t:transition) (f:fo) : unit =
+    if debug_contracts then
+      prerr_endline
+        (Printf.sprintf "[monitor] %s %s->%s: %s"
+           reason t.src t.dst (string_of_fo f))
+  in
   let atoms = collect_monitor_atoms n in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
@@ -350,8 +463,8 @@ let transform_node_monitor (n:node) : node =
               (monitor_state_ctor i) (Support.string_of_ltl f)))
       automaton.states_raw;
     List.iter
-      (fun (src, vals, dst) ->
-         let guard_str = valuations_to_formula atom_names [vals] in
+      (fun (src, guard, dst) ->
+         let guard_str = bdd_to_formula atom_names guard in
          prerr_endline
            (Printf.sprintf "[monitor] edge %s -> %s : %s"
               (monitor_state_ctor src) (monitor_state_ctor dst) guard_str))
@@ -383,7 +496,7 @@ let transform_node_monitor (n:node) : node =
         n.trans;
       let mon_out = Array.make n_mon [] in
       List.iter
-        (fun (i, _vals, j) ->
+        (fun (i, _guard, j) ->
            if not (List.mem j mon_out.(i)) then
              mon_out.(i) <- j :: mon_out.(i))
         transitions;
@@ -476,8 +589,14 @@ let transform_node_monitor (n:node) : node =
         grouped;
       Hashtbl.iter
         (fun j guards ->
-          let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
-          let guard_fos = List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs in
+          let guard_exprs =
+            List.map (bdd_to_iexpr atom_names) guards
+            |> List.map (inline_atoms_iexpr atom_map_exprs)
+          in
+          let guard_fos =
+            List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
+            |> List.map (inline_fo_atoms atom_map_exprs)
+          in
           let guard_fos =
             List.map (shift_fo_forward_inputs ~is_input) guard_fos
           in
@@ -494,7 +613,9 @@ let transform_node_monitor (n:node) : node =
                (fun (src, guard) ->
                  let g =
                    bdd_to_iexpr atom_names guard
+                   |> inline_atoms_iexpr atom_map_exprs
                    |> iexpr_to_fo_with_atoms atom_name_to_fo
+                   |> inline_fo_atoms atom_map_exprs
                    |> shift_fo_forward_inputs ~is_input
                    |> string_of_fo
                  in
@@ -514,8 +635,14 @@ let transform_node_monitor (n:node) : node =
          let cond =
            FRel (HNow (IVar mon), REq, HNow (monitor_state_expr j))
          in
-         let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
-         let guard_fos = List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs in
+         let guard_exprs =
+           List.map (bdd_to_iexpr atom_names) guards
+           |> List.map (inline_atoms_iexpr atom_map_exprs)
+         in
+         let guard_fos =
+           List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
+           |> List.map (inline_fo_atoms atom_map_exprs)
+         in
          let guard =
            match guard_fos with
            | [] -> FFalse
@@ -536,8 +663,14 @@ let transform_node_monitor (n:node) : node =
          let cond =
            FRel (HNow (IVar mon), REq, HNow (monitor_state_expr i))
          in
-         let guard_exprs = List.map (bdd_to_iexpr atom_names) guards in
-         let guard_fos = List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs in
+         let guard_exprs =
+           List.map (bdd_to_iexpr atom_names) guards
+           |> List.map (inline_atoms_iexpr atom_map_exprs)
+         in
+         let guard_fos =
+           List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
+           |> List.map (inline_fo_atoms atom_map_exprs)
+         in
          let guard =
            match guard_fos with
            | [] -> FFalse
@@ -558,6 +691,8 @@ let transform_node_monitor (n:node) : node =
            match bad_state_fo_opt with
            | None -> t
            | Some bad_fo ->
+               let () = log_contract ~reason:"no_bad_state (require)" ~t bad_fo in
+               let () = log_contract ~reason:"no_bad_state (ensure)" ~t bad_fo in
                { t with
                  requires = t.requires @ [bad_fo];
                  ensures = t.ensures @ [bad_fo]; }
@@ -565,23 +700,60 @@ let transform_node_monitor (n:node) : node =
          let t =
            let reqs =
              if incoming_prev_fo_shifted = [] then t.requires
-             else t.requires @ incoming_prev_fo_shifted
+             else (
+               List.iter (log_contract ~reason:"monitor_pre (compat)" ~t)
+                 incoming_prev_fo_shifted;
+               t.requires @ incoming_prev_fo_shifted
+             )
            in
            let ens =
              if outgoing_now_fo = [] then t.ensures
-             else t.ensures @ outgoing_now_fo
+             else (
+               List.iter (log_contract ~reason:"monitor_post (compat)" ~t)
+                 outgoing_now_fo;
+               t.ensures @ outgoing_now_fo
+             )
            in
-           { t with requires = reqs; ensures = ens }
+           let reqs = List.map (inline_fo_atoms atom_map_exprs) reqs in
+           let ens = List.map (inline_fo_atoms atom_map_exprs) ens in
+           let lemmas = List.map (inline_fo_atoms atom_map_exprs) t.lemmas in
+           { t with requires = reqs; ensures = ens; lemmas }
          in
          let body = t.body @ monitor_updates @ monitor_asserts in
          { t with body })
       n.trans
   in
-  { n with
-    locals = n.locals @ [monitor_local];
-    assumes = user_assumes;
-    guarantees = user_guarantees;
-    invariants_mon =
-      invariants_mon @ compat_invariants @ fold_internal_invariants;
-    trans;
-  }
+  let trans =
+    List.map
+      (fun (t:transition) ->
+         let reqs = List.map (inline_fo_atoms atom_map_exprs) t.requires in
+         let ens = List.map (inline_fo_atoms atom_map_exprs) t.ensures in
+         let lemmas = List.map (inline_fo_atoms atom_map_exprs) t.lemmas in
+         { t with requires = reqs; ensures = ens; lemmas })
+      trans
+  in
+  let trans =
+    add_state_invariants_to_transitions
+      ~invariants_mon:compat_invariants
+      ~log:(Some (fun t f -> log_contract ~reason:"compat_invariant" ~t f))
+      trans
+  in
+  let trans =
+    List.map
+      (fun (t:transition) ->
+         { t with
+           requires = simplify_mon_state_implications t.requires;
+           ensures = simplify_mon_state_implications t.ensures; })
+      trans
+  in
+  let n =
+    { n with
+      locals = n.locals @ [monitor_local];
+      assumes = user_assumes;
+      guarantees = user_guarantees;
+      invariants_mon =
+        invariants_mon @ fold_internal_invariants;
+      trans;
+    }
+  in
+  inline_atoms_in_node atom_map_exprs n

@@ -22,27 +22,31 @@ open Monitor_atoms
 open Monitor_spec
 
 type monitor_automaton = {
-  states_raw: ltl list;
-  transitions_raw: residual_transition list;
-  states: ltl list;
-  transitions: residual_transition list;
+  states_raw: fo_ltl list;
+  transitions_raw: guarded_transition list;
+  states: fo_ltl list;
+  transitions: guarded_transition list;
   grouped: guarded_transition list;
 }
 
 let build_monitor_automaton ~(atom_map:(fo * ident) list) ~(atom_names:ident list)
-  (spec:ltl) : monitor_automaton =
-  let valuations = enumerate_valuations atom_map atom_names in
-  let states_raw, transitions_raw = build_residual_graph atom_map valuations spec in
-  let states, transitions =
-    minimize_residual_graph valuations states_raw transitions_raw
+  (spec:fo_ltl) : monitor_automaton =
+  let states_raw, transitions_raw =
+    build_residual_graph_bdd ~atom_map ~atom_names spec
   in
-  let grouped = group_transitions_bdd atom_names transitions in
-  { states_raw; transitions_raw; states; transitions; grouped }
+  let states, transitions =
+    minimize_residual_graph_bdd states_raw transitions_raw
+  in
+  { states_raw;
+    transitions_raw;
+    states;
+    transitions;
+    grouped = transitions; }
 
 type monitor_build = {
   atoms: Monitor_atoms.monitor_atoms;
   atom_names: ident list;
-  spec: ltl;
+  spec: fo_ltl;
   automaton: monitor_automaton;
 }
 

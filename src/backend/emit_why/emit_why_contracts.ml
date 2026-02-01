@@ -26,6 +26,20 @@ open Compile_expr
 
 type contract_info = Emit_why_types.contract_info
 
+let term_and (a:Ptree.term) (b:Ptree.term) : Ptree.term =
+  mk_term (Tbinop (a, Dterm.DTand, b))
+
+let guard_term_pre (env:env) (t:transition) : Ptree.term option =
+  Option.map (compile_term env) t.guard
+
+let guard_term_old (env:env) (t:transition) : Ptree.term option =
+  Option.map (fun g -> term_old (compile_term env g)) t.guard
+
+let with_guard (cond:Ptree.term) (guard:Ptree.term option) : Ptree.term =
+  match guard with
+  | None -> cond
+  | Some g -> term_and cond g
+
 let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list)
   : Ptree.term list =
   let atom_map = Hashtbl.create 16 in
@@ -146,6 +160,7 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
          let cond_pre =
            term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
          in
+         let cond_pre = with_guard cond_pre (guard_term_pre env t) in
          let label =
            Printf.sprintf "Transition requires (%s -> %s)" t.src t.dst
          in
@@ -172,6 +187,7 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
          let cond_post =
            term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
          in
+         let cond_post = with_guard cond_post (guard_term_pre env t) in
          List.fold_left
            (fun acc f ->
               let norm = normalize_ltl (ltl_of_fo f) in
@@ -203,6 +219,7 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     List.fold_left
       (fun (post, lemmas) t ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
+         let cond_post = with_guard cond_post (guard_term_old env t) in
          let lemma_label =
            Printf.sprintf "Transition lemmas (%s -> %s)" t.src t.dst
          in
@@ -356,11 +373,12 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
          if shifted_ens = [] then []
          else
            let ens_conj = conj_terms shifted_ens in
-           List.concat_map
+          List.concat_map
              (fun t2 ->
                 let cond_post =
                   term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.dst)))
                 in
+                let cond_post = with_guard cond_post (guard_term_old env t) in
                 let guard =
                   match state_rel_for t2.src with
                   | None -> cond_post

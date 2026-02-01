@@ -56,17 +56,19 @@ type fo =
   | FImp of fo * fo
 [@@deriving show]
 
-type ltl =
+type 'a ltl =
   | LTrue
   | LFalse
-  | LAtom of fo
-  | LNot of ltl
-  | LAnd of ltl * ltl
-  | LOr of ltl * ltl
-  | LImp of ltl * ltl
-  | LX of ltl                       (* Next *)
-  | LG of ltl                       (* Globally *)
+  | LAtom of 'a
+  | LNot of 'a ltl
+  | LAnd of 'a ltl * 'a ltl
+  | LOr of 'a ltl * 'a ltl
+  | LImp of 'a ltl * 'a ltl
+  | LX of 'a ltl                       (* Next *)
+  | LG of 'a ltl                       (* Globally *)
 [@@deriving show]
+type fo_ltl = fo ltl [@@deriving show]
+type atom_ltl = ident ltl [@@deriving show]
 
 type vdecl = { vname: ident; vty: ty } [@@deriving show]
 
@@ -97,8 +99,8 @@ type node = {
   nname: ident;
   inputs: vdecl list;
   outputs: vdecl list;
-  assumes: ltl list;
-  guarantees: ltl list;
+  assumes: fo_ltl list;
+  guarantees: fo_ltl list;
   invariants_mon: invariant_mon list;
   instances: (ident * ident) list;
   locals: vdecl list;

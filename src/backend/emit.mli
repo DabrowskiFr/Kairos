@@ -48,7 +48,7 @@ val fold_post_terms :
   Support.env -> Support.fold_info -> Why3.Ptree.term list
 type spec_groups = { pre_labels : string list; post_labels : string list; }
 type comment_specs =
-  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
 (** Compile node. *)
 val compile_node :
   prefix_fields:bool ->

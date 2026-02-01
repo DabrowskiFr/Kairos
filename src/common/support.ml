@@ -116,9 +116,9 @@ let string_of_relop (op:relop) : string =
   | RGt -> ">"
   | RGe -> ">="
 
-type ltl_norm = { ltl: ltl; k_guard: int option }
+type ltl_norm = { ltl: fo_ltl; k_guard: int option }
 
-let rec max_x_depth (f:ltl) : int =
+let rec max_x_depth (f:fo_ltl) : int =
   match f with
   | LX a -> 1 + max_x_depth a
   | LTrue | LFalse | LAtom _ -> 0
@@ -126,7 +126,7 @@ let rec max_x_depth (f:ltl) : int =
   | LAnd (a,b) | LOr (a,b) | LImp (a,b) ->
       max (max_x_depth a) (max_x_depth b)
 
-let rec ltl_of_fo (f:fo) : ltl =
+let rec ltl_of_fo (f:fo) : fo_ltl =
   match f with
   | FTrue -> LTrue
   | FFalse -> LFalse
@@ -136,7 +136,7 @@ let rec ltl_of_fo (f:fo) : ltl =
   | FOr (a,b) -> LOr (ltl_of_fo a, ltl_of_fo b)
   | FImp (a,b) -> LImp (ltl_of_fo a, ltl_of_fo b)
 
-let rec fo_of_ltl (f:ltl) : fo =
+let rec fo_of_ltl (f:fo_ltl) : fo =
   match f with
   | LTrue -> FTrue
   | LFalse -> FFalse
@@ -172,7 +172,7 @@ let shift_hexpr_by ~(init_for_var:ident -> iexpr) (shift:int) (h:hexpr)
       Some (HPreK (IVar v, k + shift))
     | _ -> None
 
-let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:ltl) : ltl_norm =
+let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:fo_ltl) : ltl_norm =
   let rec shift_ltl_with_depth k depth f =
     match f with
     | LX a -> shift_ltl_with_depth k (depth + 1) a
@@ -230,8 +230,8 @@ let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:ltl) : ltl_norm =
   if k = 0 then { ltl = f; k_guard = None }
   else { ltl = f; k_guard = Some k }
 
-let rec shift_ltl_by ~(init_for_var:ident -> iexpr) (shift:int) (f:ltl)
-  : ltl option =
+let rec shift_ltl_by ~(init_for_var:ident -> iexpr) (shift:int) (f:fo_ltl)
+  : fo_ltl option =
   if shift <= 0 then Some f
   else
     match f with
@@ -333,7 +333,7 @@ let rec string_of_fo ?(ctx=0) (f:fo) : string =
   | FOr (a,b) -> wrap 2 (string_of_fo ~ctx:2 a ^ " or " ^ string_of_fo ~ctx:2 b)
   | FImp (a,b) -> wrap 1 (string_of_fo ~ctx:1 a ^ " -> " ^ string_of_fo ~ctx:1 b)
 
-let rec string_of_ltl ?(ctx=0) (f:ltl) : string =
+let rec string_of_ltl ?(ctx=0) (f:fo_ltl) : string =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
   match f with
   | LTrue -> "true"

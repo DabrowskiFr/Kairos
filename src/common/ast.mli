@@ -46,16 +46,18 @@ type fo =
   | FAnd of fo * fo
   | FOr of fo * fo
   | FImp of fo * fo
-type ltl =
+type 'a ltl =
     LTrue
   | LFalse
-  | LAtom of fo
-  | LNot of ltl
-  | LAnd of ltl * ltl
-  | LOr of ltl * ltl
-  | LImp of ltl * ltl
-  | LX of ltl
-  | LG of ltl
+  | LAtom of 'a
+  | LNot of 'a ltl
+  | LAnd of 'a ltl * 'a ltl
+  | LOr of 'a ltl * 'a ltl
+  | LImp of 'a ltl * 'a ltl
+  | LX of 'a ltl
+  | LG of 'a ltl
+type fo_ltl = fo ltl
+type atom_ltl = ident ltl
 type vdecl = { vname : ident; vty : ty; }
 
 (** {1 Statements And Contracts} *)
@@ -81,8 +83,8 @@ type node = {
   nname : ident;
   inputs : vdecl list;
   outputs : vdecl list;
-  assumes : ltl list;
-  guarantees : ltl list;
+  assumes : fo_ltl list;
+  guarantees : fo_ltl list;
   invariants_mon : invariant_mon list;
   instances : (ident * ident) list;
   locals : vdecl list;

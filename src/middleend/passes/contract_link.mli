@@ -17,5 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 (** {1 Contract Linking} *)
+val strip_input_invariants : Ast.user_node -> Ast.user_node
+(** Drop any invariants provided by the frontend input. *)
 val ensure_next_requires : Ast.user_node -> Ast.internal_node
 (** Add post-conditions that imply successor requires. *)
