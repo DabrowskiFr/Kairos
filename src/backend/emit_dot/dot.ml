@@ -19,7 +19,7 @@
 open Ast
 open Support
 open Automaton_core
-open Specs
+open Fo_specs
 
 let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   let buf = Buffer.create 4096 in

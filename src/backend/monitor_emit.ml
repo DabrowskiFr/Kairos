@@ -19,7 +19,7 @@
 module A = Ast
 open Support
 open Automaton_core
-open Specs
+open Fo_specs
 
 let monitor_edges (n:A.node) : (string * string * string) list =
   let var_types =

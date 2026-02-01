@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Automaton_atoms
+open Fo_atoms
 open Automaton_config
 
 let all_valuations (names:string list) : (string * bool) list list =

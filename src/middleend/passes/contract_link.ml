@@ -17,8 +17,8 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Specs
-open Time_shit
+open Fo_specs
+open Fo_time
 
 let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
   (* Index successor requires by source state for quick lookup per dst. *)

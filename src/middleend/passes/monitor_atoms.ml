@@ -18,7 +18,7 @@
 
 open Ast
 open Support
-open Specs
+open Fo_specs
 
 let sanitize_ident (s:string) : string =
   (* Normalize an arbitrary string into a safe, lowercase identifier. *)

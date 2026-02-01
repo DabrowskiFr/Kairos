@@ -1,6 +1,6 @@
 (*---------------------------------------------------------------------------
  * Tempo - synchronous runtime for OCaml
- * Copyright (C) 2026 Frédéric Dabrowski
+ * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,9 +22,3 @@ val nnf_ltl : ?neg:bool -> Ast.ltl -> Ast.ltl
 (** Convert an LTL formula into negation normal form. *)
 val simplify_ltl : Ast.ltl -> Ast.ltl
 (** Simplify LTL formulas via boolean rewrites. *)
-val eval_atom :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
-(** Evaluate an atom against a valuation. *)
-val progress_ltl :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.ltl -> Ast.ltl
-(** Progress an LTL formula through one valuation. *)

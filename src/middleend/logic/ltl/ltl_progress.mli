@@ -1,6 +1,6 @@
 (*---------------------------------------------------------------------------
  * Tempo - synchronous runtime for OCaml
- * Copyright (C) 2026 Frédéric Dabrowski
+ * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,19 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-include Automaton_util
-include Automaton_config
-include Automaton_naive
-include Ltl_valuation
-include Ltl_norm
-include Ltl_progress
-include Automaton_types
-include Automaton_residual
-include Automaton_bdd
+(** {1 LTL Progression} *)
 
-let enumerate_valuations (atom_map:(Ast.fo * Ast.ident) list) (names:string list)
-  : (string * bool) list list =
-  if use_naive_automaton () then
-    all_valuations names
-  else
-    bdd_valuations atom_map names
+val eval_atom :
+  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
+(** Evaluate an atom against a valuation. *)
+val progress_ltl :
+  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.ltl -> Ast.ltl
+(** Progress an LTL formula through one valuation. *)

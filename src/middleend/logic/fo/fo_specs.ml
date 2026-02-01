@@ -139,6 +139,33 @@ let atom_to_iexpr ~(inputs:ident list) ~(var_types:(ident * ty) list)
 let atom_to_var_rel (name:ident) : fo =
   FRel (HNow (IVar name), REq, HNow (ILitBool true))
 
+let rec iexpr_to_fo_with_atoms (atom_map:(ident * fo) list) (e:iexpr) : fo =
+  match e with
+  | ILitBool true -> FTrue
+  | ILitBool false -> FFalse
+  | ILitInt i -> FRel (HNow (ILitInt i), REq, HNow (ILitBool true))
+  | IVar v ->
+      begin match List.assoc_opt v atom_map with
+      | Some f -> f
+      | None -> FRel (HNow (IVar v), REq, HNow (ILitBool true))
+      end
+  | IPar e -> iexpr_to_fo_with_atoms atom_map e
+  | IUn (Not, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
+  | IBin (And, a, b) ->
+      FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | IBin (Or, a, b) ->
+      FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | IBin (Eq, a, b) -> FRel (HNow a, REq, HNow b)
+  | IBin (Neq, a, b) -> FRel (HNow a, RNeq, HNow b)
+  | IBin (Lt, a, b) -> FRel (HNow a, RLt, HNow b)
+  | IBin (Le, a, b) -> FRel (HNow a, RLe, HNow b)
+  | IBin (Gt, a, b) -> FRel (HNow a, RGt, HNow b)
+  | IBin (Ge, a, b) -> FRel (HNow a, RGe, HNow b)
+  | IBin (_, a, b) ->
+      FRel (HNow (IBin (Eq, a, b)), REq, HNow (ILitBool true))
+  | IUn (_, a) ->
+      FRel (HNow (IUn (Not, a)), REq, HNow (ILitBool true))
+
 let rec replace_atoms_ltl (atom_map:(fo * ident) list) (f:ltl) : ltl =
   match f with
   | LTrue | LFalse -> f

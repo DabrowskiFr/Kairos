@@ -1,6 +1,6 @@
 (*---------------------------------------------------------------------------
  * Tempo - synchronous runtime for OCaml
- * Copyright (C) 2026 Frédéric Dabrowski
+ * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -124,27 +124,3 @@ let rec simplify_ltl (f:ltl) : ltl =
   | LG a -> LG (simplify_ltl a)
   | LX a -> LX (simplify_ltl a)
   | _ -> f
-
-let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
-  : bool =
-  match f with
-  | FRel (HNow (IVar name), REq, HNow (ILitBool true)) ->
-      Automaton_valuation.lookup_val vals name
-  | _ -> false
-
-let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:ltl)
-  : ltl =
-  let f =
-    match f with
-    | LTrue | LFalse -> f
-    | LAtom a -> if eval_atom atom_map vals a then LTrue else LFalse
-    | LNot a -> LNot (progress_ltl atom_map vals a)
-    | LAnd (a,b) -> LAnd (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
-    | LOr (a,b) -> LOr (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
-    | LImp (a,b) -> LImp (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
-    | LX a -> a
-    | LG a ->
-        let a_now = progress_ltl atom_map vals a in
-        LAnd (a_now, LG a)
-  in
-  simplify_ltl f

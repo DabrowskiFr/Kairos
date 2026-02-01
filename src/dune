@@ -22,15 +22,16 @@
   monitor_instrument
   dot
   monitor_emit
-  specs
-  time_shit
+  fo_specs
+  fo_time
   automaton_util
   automaton_config
-  automaton_atoms
+  fo_atoms
   automaton_naive
-  automaton_valuation
+  ltl_valuation
   automaton_bdd
-  automaton_ltl
+  ltl_norm
+  ltl_progress
   automaton_types
   automaton_residual
   automaton_core)

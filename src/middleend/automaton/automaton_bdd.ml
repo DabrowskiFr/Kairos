@@ -17,10 +17,10 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Automaton_atoms
+open Fo_atoms
 open Automaton_config
 open Automaton_types
-open Automaton_valuation
+open Ltl_valuation
 
 type bdd_node = {
   bdd_var: int;

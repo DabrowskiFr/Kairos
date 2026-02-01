@@ -18,9 +18,10 @@
 
 open Ast
 open Automaton_config
-open Automaton_ltl
+open Ltl_norm
+open Ltl_progress
 open Automaton_types
-open Automaton_valuation
+open Ltl_valuation
 
 let build_residual_graph (atom_map:(fo * ident) list)
   (valuations:(string * bool) list list) (f0:ltl)

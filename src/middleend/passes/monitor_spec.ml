@@ -18,7 +18,7 @@
 
 open Ast
 open Automaton_core
-open Specs
+open Fo_specs
 
 let build_monitor_spec ~(atom_map:(fo * ident) list) (n:node) : ltl =
   let spec_assumes = List.map (replace_atoms_ltl atom_map) n.assumes in

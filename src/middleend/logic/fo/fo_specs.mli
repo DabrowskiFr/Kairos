@@ -61,6 +61,8 @@ val atom_to_iexpr :
 (** Convert an atomic FO predicate to an iexpr when possible. *)
 val atom_to_var_rel : Ast.ident -> Ast.fo
 (** Encode an atom variable as a FO relation (var = true). *)
+val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.fo
+(** Reconstruct FO by inlining atom variables from a name->atom map. *)
 (** {1 Atom Replacement} *)
 
 val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.ltl -> Ast.ltl

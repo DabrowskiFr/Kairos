@@ -21,8 +21,8 @@
 open Ast
 open Support
 open Automaton_core
-open Specs
-open Time_shit
+open Fo_specs
+open Fo_time
 open Monitor_atoms
 open Monitor_spec
 open Monitor_automaton
@@ -31,33 +31,6 @@ let monitor_state_type : string = "mon_state"
 let monitor_state_name : string = "__mon_state"
 let monitor_state_ctor (i:int) : string = Printf.sprintf "Mon%d" i
 let monitor_state_expr (i:int) : iexpr = IVar (monitor_state_ctor i)
-
-let rec iexpr_to_fo_with_atoms (atom_map:(ident * fo) list) (e:iexpr) : fo =
-  match e with
-  | ILitBool true -> FTrue
-  | ILitBool false -> FFalse
-  | ILitInt i -> FRel (HNow (ILitInt i), REq, HNow (ILitBool true))
-  | IVar v ->
-      begin match List.assoc_opt v atom_map with
-      | Some f -> f
-      | None -> FRel (HNow (IVar v), REq, HNow (ILitBool true))
-      end
-  | IPar e -> iexpr_to_fo_with_atoms atom_map e
-  | IUn (Not, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
-  | IBin (And, a, b) ->
-      FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Or, a, b) ->
-      FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Eq, a, b) -> FRel (HNow a, REq, HNow b)
-  | IBin (Neq, a, b) -> FRel (HNow a, RNeq, HNow b)
-  | IBin (Lt, a, b) -> FRel (HNow a, RLt, HNow b)
-  | IBin (Le, a, b) -> FRel (HNow a, RLe, HNow b)
-  | IBin (Gt, a, b) -> FRel (HNow a, RGt, HNow b)
-  | IBin (Ge, a, b) -> FRel (HNow a, RGe, HNow b)
-  | IBin (_, a, b) ->
-      FRel (HNow (IBin (Eq, a, b)), REq, HNow (ILitBool true))
-  | IUn (_, a) ->
-      FRel (HNow (IUn (Not, a)), REq, HNow (ILitBool true))
 
 type bool_like =
   | BoolInt
