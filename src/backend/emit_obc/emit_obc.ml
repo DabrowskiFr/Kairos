@@ -203,6 +203,9 @@ let tags_for_fo_with_context ~(is_require:bool) (f:fo) : gen_tag list =
 
 let primary_tag_for_fo ~(is_require:bool) (f:fo) : gen_tag option =
   let tags = tags_for_fo_with_context ~is_require f in
+  if List.mem MonitorPre tags || List.mem MonitorPost tags then
+    Some CompatInvariant
+  else
   let priority =
     [CompatInvariant; BadState; MonitorPre; MonitorPost; FoldInternal; PostForNextPre;
      MonitorAtom; MonitorState]
@@ -349,9 +352,19 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
   in
   assume_lines @ guarantee_lines @ inv_lines
 
+type label_counters = { mutable req : int; mutable ens : int }
+
 let transition_lines (indent:int) (t:transition)
-  ~(init_for_var:ident -> iexpr) ~(vars:ident list)
+  ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
   : string list =
+  let next_req_label () =
+    label_counters.req <- label_counters.req + 1;
+    Printf.sprintf "H%d" label_counters.req
+  in
+  let next_ens_label () =
+    label_counters.ens <- label_counters.ens + 1;
+    Printf.sprintf "G%d" label_counters.ens
+  in
   let is_monitor_tag = function
     | MonitorAtom | MonitorState -> true
     | CompatInvariant | BadState | MonitorPre | MonitorPost | FoldInternal | PostForNextPre -> false
@@ -382,139 +395,35 @@ let transition_lines (indent:int) (t:transition)
     | Some g -> " [" ^ string_of_iexpr g ^ "]"
   in
   let header = indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {" in
-  let split_user_generated fo_list =
-    List.fold_left
-      (fun (user, gen) f ->
-         if tags_for_fo f = [] then (user @ [f], gen) else (user, gen @ [f]))
-      ([], [])
-      fo_list
+  let requires_labeled =
+    List.map (fun f -> (f, next_req_label ())) t.requires
   in
-  let user_requires, gen_requires = split_user_generated t.requires in
-  let user_ensures, gen_ensures = split_user_generated t.ensures in
-  let user_req_block =
-    match user_requires with
-    | [] -> []
-    | _ ->
-        [comment_line (indent + 1) "user requires"]
-        @ (let rec build acc last_prefix = function
-             | [] -> acc
-             | f :: rest ->
+  let ensures_labeled =
+    List.map (fun f -> (f, next_ens_label ())) t.ensures
+  in
+  let build_block ~is_require items =
+    let rec build acc last_tag = function
+      | [] -> acc
+      | (f, label) :: rest ->
+          let tag = primary_tag_for_fo ~is_require f in
           let prefix =
-            comment_for_tags (indent + 1) (tags_for_fo_with_context ~is_require:true f)
+            if tag = last_tag then []
+            else
+              match tag with
+              | Some t -> [comment_for_tag (indent + 1) t]
+              | None -> []
           in
           let line =
-            indent_str (indent + 1) ^ "requires " ^ string_of_fo f ^ ";"
+            let kw = if is_require then "requires " else "ensures " in
+            indent_str (indent + 1) ^ kw ^ string_of_fo f ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
-                 let acc, last_prefix =
-                   if prefix = [] || prefix = last_prefix then
-                     (acc @ [line], last_prefix)
-                   else
-                     (acc @ prefix @ [line], prefix)
-                 in
-                 build acc last_prefix rest
-           in
-           build [] [] user_requires)
+          build (acc @ prefix @ [comment_line (indent + 1) label; line]) tag rest
+    in
+    build [] None items
   in
-  let gen_req_block =
-    match gen_requires with
-    | [] -> []
-    | _ ->
-        let buckets = Hashtbl.create 8 in
-        List.iter
-          (fun f ->
-             let key = primary_tag_for_fo ~is_require:true f in
-             let prev = Hashtbl.find_opt buckets key |> Option.value ~default:[] in
-             Hashtbl.replace buckets key (prev @ [f]))
-          gen_requires;
-        let order =
-          [Some CompatInvariant; Some BadState; Some MonitorPre; Some MonitorPost;
-           Some FoldInternal; Some PostForNextPre; Some MonitorAtom; Some MonitorState; None]
-        in
-        List.concat_map
-          (fun key ->
-             match Hashtbl.find_opt buckets key with
-             | None | Some [] -> []
-             | Some items ->
-                 let prefix =
-                   match key with
-                   | Some tag -> [comment_for_tag (indent + 1) tag]
-                   | None -> []
-                 in
-                 let lines =
-                   List.map
-                     (fun f ->
-                        let line =
-                          indent_str (indent + 1) ^ "requires " ^ string_of_fo f ^ ";"
-                        in
-                        prettify_pre_old ~init_for_var ~vars line)
-                     items
-                 in
-                 prefix @ lines)
-          order
-  in
-  let user_ens_block =
-    match user_ensures with
-    | [] -> []
-    | _ ->
-        [comment_line (indent + 1) "user ensures"]
-        @ (let rec build acc last_prefix = function
-             | [] -> acc
-             | f :: rest ->
-          let prefix =
-            comment_for_tags (indent + 1) (tags_for_fo_with_context ~is_require:false f)
-          in
-          let line =
-            indent_str (indent + 1) ^ "ensures " ^ string_of_fo f ^ ";"
-          in
-          let line = prettify_pre_old ~init_for_var ~vars line in
-                 let acc, last_prefix =
-                   if prefix = [] || prefix = last_prefix then
-                     (acc @ [line], last_prefix)
-                   else
-                     (acc @ prefix @ [line], prefix)
-                 in
-                 build acc last_prefix rest
-           in
-           build [] [] user_ensures)
-  in
-  let gen_ens_block =
-    match gen_ensures with
-    | [] -> []
-    | _ ->
-        let buckets = Hashtbl.create 8 in
-        List.iter
-          (fun f ->
-             let key = primary_tag_for_fo ~is_require:false f in
-             let prev = Hashtbl.find_opt buckets key |> Option.value ~default:[] in
-             Hashtbl.replace buckets key (prev @ [f]))
-          gen_ensures;
-        let order =
-          [Some CompatInvariant; Some BadState; Some MonitorPre; Some MonitorPost;
-           Some FoldInternal; Some PostForNextPre; Some MonitorAtom; Some MonitorState; None]
-        in
-        List.concat_map
-          (fun key ->
-             match Hashtbl.find_opt buckets key with
-             | None | Some [] -> []
-             | Some items ->
-                 let prefix =
-                   match key with
-                   | Some tag -> [comment_for_tag (indent + 1) tag]
-                   | None -> []
-                 in
-                 let lines =
-                   List.map
-                     (fun f ->
-                        let line =
-                          indent_str (indent + 1) ^ "ensures " ^ string_of_fo f ^ ";"
-                        in
-                        prettify_pre_old ~init_for_var ~vars line)
-                     items
-                 in
-                 prefix @ lines)
-          order
-  in
+  let req_block = build_block ~is_require:true requires_labeled in
+  let ens_block = build_block ~is_require:false ensures_labeled in
   let lemma_lines =
     List.map
       (fun f ->
@@ -541,7 +450,7 @@ let transition_lines (indent:int) (t:transition)
   in
   let footer = indent_str indent ^ "}" in
   [header]
-  @ user_req_block @ gen_req_block @ user_ens_block @ gen_ens_block
+  @ req_block @ ens_block
   @ List.concat lemma_lines
   @ body_lines
   @ mon_header @ body_mon_lines
@@ -591,10 +500,11 @@ let node_lines (n:node) : string list =
     indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";"
   in
   let init = indent_str 1 ^ "init " ^ n.init_state in
+  let label_counters = { req = 0; ens = 0 } in
   let trans =
     (indent_str 1 ^ "trans")
     :: List.concat_map
-         (fun t -> transition_lines 2 t ~init_for_var ~vars)
+         (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters)
          n.trans
   in
   [header]

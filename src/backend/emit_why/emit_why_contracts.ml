@@ -29,6 +29,16 @@ type contract_info = Emit_why_types.contract_info
 let term_and (a:Ptree.term) (b:Ptree.term) : Ptree.term =
   mk_term (Tbinop (a, Dterm.DTand, b))
 
+let contains_sub (s:string) (sub:string) : bool =
+  let len_s = String.length s in
+  let len_sub = String.length sub in
+  let rec loop i =
+    if i + len_sub > len_s then false
+    else if String.sub s i len_sub = sub then true
+    else loop (i + 1)
+  in
+  if len_sub = 0 then true else loop 0
+
 let guard_term_pre (env:env) (t:transition) : Ptree.term option =
   Option.map (compile_term env) t.guard
 
@@ -40,8 +50,24 @@ let with_guard (cond:Ptree.term) (guard:Ptree.term option) : Ptree.term =
   | None -> cond
   | Some g -> term_and cond g
 
-let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list)
-  : Ptree.term list =
+let rec term_has_old (t:Ptree.term) : bool =
+  match t.term_desc with
+  | Tapply (fn, _arg) ->
+      begin match fn.term_desc with
+      | Tident q -> Support.string_of_qid q = "old"
+      | _ -> term_has_old fn
+      end
+  | Tbinop (a, _, b)
+  | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
+  | Tnot a -> term_has_old a
+  | Tidapp (_q, args) -> List.exists term_has_old args
+  | Tif (c, t1, t2) -> term_has_old c || term_has_old t1 || term_has_old t2
+  | Ttuple ts -> List.exists term_has_old ts
+  | Tident _ | Tconst _ | Ttrue | Tfalse -> false
+  | _ -> false
+
+let inline_atom_terms_map (env:env) (invs:invariant_mon list)
+  : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
   List.iter
     (function
@@ -71,6 +97,11 @@ let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list
     | Ttuple ts -> mk_term (Ttuple (List.map go ts))
     | _ -> t
   in
+  go
+
+let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list)
+  : Ptree.term list =
+  let go = inline_atom_terms_map env invs in
   List.map go terms
 
 let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
@@ -154,18 +185,33 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let post_invf = [] in
   let pre_lemma_terms = [] in
   let post_lemma_terms = [] in
+  let req_counter = ref 0 in
+  let ens_counter = ref 0 in
+  let next_h () =
+    req_counter := !req_counter + 1;
+    Printf.sprintf "H%d" !req_counter
+  in
+  let next_g () =
+    ens_counter := !ens_counter + 1;
+    Printf.sprintf "G%d" !ens_counter
+  in
+  let labeled_trans =
+    List.map
+      (fun (t:transition) ->
+         let reqs = List.map (fun f -> (f, next_h ())) t.requires in
+         let ens = List.map (fun f -> (f, next_g ())) t.ensures in
+         (t, reqs, ens))
+      n.trans
+  in
   let transition_requires_pre_terms =
     List.fold_left
-      (fun acc (t:transition) ->
+      (fun acc (t, reqs, _ens) ->
          let cond_pre =
            term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
          in
          let cond_pre = with_guard cond_pre (guard_term_pre env t) in
-         let label =
-           Printf.sprintf "Transition requires (%s -> %s)" t.src t.dst
-         in
          List.fold_left
-           (fun acc f ->
+           (fun acc (f, label) ->
               let norm = normalize_ltl (ltl_of_fo f) in
               let rel = ltl_relational env norm.ltl in
               let frag = ltl_spec env rel in
@@ -174,9 +220,9 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
               let labeled = List.map (fun t -> (t, label)) terms in
               labeled @ acc)
            acc
-           t.requires)
+           reqs)
       []
-      n.trans
+      labeled_trans
   in
   let transition_requires_pre =
     List.map fst transition_requires_pre_terms
@@ -213,11 +259,11 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   in
   let pre_contract = transition_requires_pre @ pre_contract_user @ pre_invf in
   let post_contract = post_contract_user @ post_invf in
-  let state_post, state_post_lemmas_terms =
+  let state_post, state_post_lemmas_terms, state_post_terms =
     let st = term_of_var env "st" in
     let st_old = term_old st in
     List.fold_left
-      (fun (post, lemmas) t ->
+      (fun (post, lemmas, post_terms) (t, _reqs, ens) ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
          let cond_post = with_guard cond_post (guard_term_old env t) in
          let lemma_label =
@@ -236,9 +282,9 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
            if guard_terms = [] then None
            else Some (term_old (conj_terms guard_terms))
          in
-         let apply_post_terms post lemmas fo_list is_lemma =
+         let apply_post_terms post lemmas post_terms fo_list is_lemma =
            List.fold_left
-             (fun (post, lemmas) f ->
+             (fun (post, lemmas, post_terms) (f, label_opt) ->
                 let norm = normalize_ltl (ltl_of_fo f) in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
@@ -255,13 +301,23 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
                     labeled @ lemmas
                   else lemmas
                 in
-                (terms @ post, lemmas))
-             (post, lemmas)
+                let post_terms =
+                  match label_opt with
+                  | None -> post_terms
+                  | Some label ->
+                      List.map (fun t -> (t, label)) terms @ post_terms
+                in
+                (terms @ post, lemmas, post_terms))
+             (post, lemmas, post_terms)
              fo_list
          in
-         let post, lemmas = apply_post_terms post lemmas t.ensures false in
-         apply_post_terms post lemmas t.lemmas true)
-      ([], []) n.trans
+         let ens_terms = List.map (fun (f, label) -> (f, Some label)) ens in
+         let post, lemmas, post_terms =
+           apply_post_terms post lemmas post_terms ens_terms false
+         in
+         let lemma_terms = List.map (fun f -> (f, None)) t.lemmas in
+         apply_post_terms post lemmas post_terms lemma_terms true)
+      ([], [], []) labeled_trans
   in
   let state_post_lemmas =
     List.map fst state_post_lemmas_terms
@@ -685,14 +741,27 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
 
-  let pre = inline_atom_terms env n.invariants_mon pre in
-  let post = inline_atom_terms env n.invariants_mon post in
+  let inline_term = inline_atom_terms_map env n.invariants_mon in
+  let pre = List.map inline_term pre in
+  let post = List.map inline_term post in
+  let transition_requires_pre = List.map inline_term transition_requires_pre in
+  let transition_requires_pre_terms =
+    List.map (fun (t, lbl) -> (inline_term t, lbl)) transition_requires_pre_terms
+  in
+  let state_post_lemmas = List.map inline_term state_post_lemmas in
+  let state_post_lemmas_terms =
+    List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_lemmas_terms
+  in
+  let state_post_terms =
+    List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_terms
+  in
 
   let label_context : Emit_why_diagnostics.label_context =
     { pre;
       post;
       transition_requires_pre;
       transition_requires_pre_terms;
+      transition_post_terms = [];
       pre_contract_user_no_lemma;
       pre_lemma_terms;
       link_terms_pre;
@@ -715,4 +784,42 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
   let pre_labels, post_labels =
     Emit_why_diagnostics.build_labels label_context
   in
+  let build_label_opts
+    (labeled:(Ptree.term * string) list)
+    (terms:Ptree.term list)
+    ~(is_candidate:Ptree.term -> bool) =
+    let buckets = Hashtbl.create 64 in
+    List.iter
+      (fun (term, lbl) ->
+         let q =
+           match Hashtbl.find_opt buckets term with
+           | Some q -> q
+           | None ->
+               let q = Queue.create () in
+               Hashtbl.add buckets term q;
+               q
+         in
+         Queue.add lbl q)
+      labeled;
+    List.map
+      (fun term ->
+         if not (is_candidate term) then None else
+         match Hashtbl.find_opt buckets term with
+         | Some q when not (Queue.is_empty q) -> Some (Queue.take q)
+         | _ -> None)
+      terms
+  in
+  let pre_out = List.rev pre in
+  let post_out = List.rev post in
+  let pre_label_opts =
+    build_label_opts transition_requires_pre_terms pre_out ~is_candidate:(fun _ -> true)
+  in
+  let post_label_opts =
+    build_label_opts state_post_terms post_out ~is_candidate:term_has_old
+  in
+  let merge_labels opts groups =
+    List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
+  in
+  let pre_labels = merge_labels pre_label_opts pre_labels in
+  let post_labels = merge_labels post_label_opts post_labels in
   { pre; post; pre_labels; post_labels }

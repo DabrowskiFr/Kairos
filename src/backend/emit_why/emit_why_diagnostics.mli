@@ -23,6 +23,7 @@ type label_context = {
   post : Why3.Ptree.term list;
   transition_requires_pre : Why3.Ptree.term list;
   transition_requires_pre_terms : (Why3.Ptree.term * string) list;
+  transition_post_terms : (Why3.Ptree.term * string) list;
   pre_contract_user_no_lemma : Why3.Ptree.term list;
   pre_lemma_terms : Why3.Ptree.term list;
   link_terms_pre : Why3.Ptree.term list;

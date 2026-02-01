@@ -299,9 +299,6 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
   in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in
-  List.iter (fun (_,_,_,comment,_) ->
-      Format.fprintf fmt "(* %s*)@.@." comment
-    ) modules;
   let mlw = Ptree.Modules (List.map (fun (a,b,c,_,_) -> (a,b,c)) modules) in
   Mlw_printer.pp_mlw_file fmt mlw;
   Format.pp_print_flush fmt ();
@@ -326,6 +323,16 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
   in
   let out = replace_all ~sub:"(old " ~by:"old(" out in
   let insert_spec_group_comments s =
+    let contains_sub s sub =
+      let len_s = String.length s in
+      let len_sub = String.length sub in
+      let rec loop i =
+        if i + len_sub > len_s then false
+        else if String.sub s i len_sub = sub then true
+        else loop (i + 1)
+      in
+      if len_sub = 0 then true else loop 0
+    in
     let starts_with_module line =
       String.length line >= 7 && String.sub line 0 7 = "module "
     in
@@ -426,15 +433,24 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
               if !ens_idx < List.length post_labels then List.nth post_labels !ens_idx
               else "Autres"
             in
+            let is_g_label =
+              String.length label > 1
+              && label.[0] = 'G'
+              && (try ignore (int_of_string (String.sub label 1 (String.length label - 1))); true
+                  with _ -> false)
+            in
+            let has_old = contains_sub trimmed "old(" in
             let prev_label =
               if !ens_idx = 0 then None
               else if !ens_idx - 1 < List.length post_labels then
                 Some (List.nth post_labels (!ens_idx - 1))
               else None
             in
-            if prev_label <> Some label then
-              Buffer.add_string out (comment_for label indent ^ "\n");
-            incr ens_idx
+            if (not is_g_label) || has_old then (
+              if prev_label <> Some label then
+                Buffer.add_string out (comment_for label indent ^ "\n");
+              incr ens_idx
+            )
           )
       | None -> ()
       end;
