@@ -346,6 +346,7 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
 let add_state_invariants_to_transitions
   ~(invariants_mon:invariant_mon list)
   ?(log:(transition -> fo -> unit) option=None)
+  ?(add_to_ensures:bool=true)
   (trans:transition list) : transition list =
   let add_unique f lst = if List.exists ((=) f) lst then lst else f :: lst in
   let invs =
@@ -369,7 +370,7 @@ let add_state_invariants_to_transitions
                 ) else reqs
               in
               let ens =
-                if post_ok then (
+                if add_to_ensures && post_ok then (
                   Option.iter (fun l -> l t f) log;
                   add_unique f ens
                 ) else ens
@@ -706,14 +707,7 @@ let transform_node_monitor (n:node) : node =
                t.requires @ incoming_prev_fo_shifted
              )
            in
-           let ens =
-             if outgoing_now_fo = [] then t.ensures
-             else (
-               List.iter (log_contract ~reason:"monitor_post (compat)" ~t)
-                 outgoing_now_fo;
-               t.ensures @ outgoing_now_fo
-             )
-           in
+           let ens = t.ensures in
            let reqs = List.map (inline_fo_atoms atom_map_exprs) reqs in
            let ens = List.map (inline_fo_atoms atom_map_exprs) ens in
            let lemmas = List.map (inline_fo_atoms atom_map_exprs) t.lemmas in
@@ -736,6 +730,7 @@ let transform_node_monitor (n:node) : node =
     add_state_invariants_to_transitions
       ~invariants_mon:compat_invariants
       ~log:(Some (fun t f -> log_contract ~reason:"compat_invariant" ~t f))
+      ~add_to_ensures:false
       trans
   in
   let trans =

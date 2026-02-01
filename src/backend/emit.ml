@@ -460,5 +460,32 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
     done;
     Buffer.contents out
   in
+  let insert_user_code_comment s =
+    let contains_sub s sub =
+      let len_s = String.length s in
+      let len_sub = String.length sub in
+      let rec loop i =
+        if i + len_sub > len_s then false
+        else if String.sub s i len_sub = sub then true
+        else loop (i + 1)
+      in
+      if len_sub = 0 then true else loop 0
+    in
+    let lines = Array.of_list (String.split_on_char '\n' s) in
+    let line_count = Array.length lines in
+    let out = Buffer.create (String.length s + 64) in
+    let injected = ref false in
+    for i = 0 to line_count - 1 do
+      let line = lines.(i) in
+      if (not !injected) && contains_sub line "match vars.st with" then (
+        Buffer.add_string out "  (* user code *)\n";
+        injected := true
+      );
+      Buffer.add_string out line;
+      if i < line_count - 1 then Buffer.add_char out '\n'
+    done;
+    Buffer.contents out
+  in
   let out = insert_spec_group_comments out in
+  let out = insert_user_code_comment out in
   out

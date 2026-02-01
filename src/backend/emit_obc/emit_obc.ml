@@ -203,7 +203,7 @@ let tags_for_fo_with_context ~(is_require:bool) (f:fo) : gen_tag list =
 
 let primary_tag_for_fo ~(is_require:bool) (f:fo) : gen_tag option =
   let tags = tags_for_fo_with_context ~is_require f in
-  if List.mem MonitorPre tags || List.mem MonitorPost tags then
+  if is_require && List.mem MonitorPre tags then
     Some CompatInvariant
   else
   let priority =
@@ -440,6 +440,10 @@ let transition_lines (indent:int) (t:transition)
     stmt_lines ~allow_empty:true (indent + 1) body_user
     |> List.map (prettify_pre_old ~init_for_var ~vars)
   in
+  let user_header =
+    if body_user = [] then []
+    else [comment_line (indent + 1) "user code"]
+  in
   let mon_header =
     if body_mon = [] then []
     else [comment_line (indent + 1) "monitor code (generated)"]
@@ -452,7 +456,7 @@ let transition_lines (indent:int) (t:transition)
   [header]
   @ req_block @ ens_block
   @ List.concat lemma_lines
-  @ body_lines
+  @ user_header @ body_lines
   @ mon_header @ body_mon_lines
   @ [footer]
 
