@@ -21,6 +21,7 @@ open Support
 open Automaton_core
 open Fo_specs
 open Monitor_automaton
+open Monitor_instrument
 
 let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   let buf = Buffer.create 4096 in
@@ -181,10 +182,6 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
         atom_lines;
       Buffer.add_string label_buf "\n"
     );
-    Buffer.add_string buf (Printf.sprintf "  subgraph cluster_%s {\n" cluster);
-    Buffer.add_string buf (Printf.sprintf "    label=\"%s\";\n" (escape_dot_label cluster));
-    Buffer.add_string buf "    labelloc=\"b\";\n";
-    Buffer.add_string buf "    labeljust=\"l\";\n";
     let debug_inline =
       match Sys.getenv_opt "OBC2WHY3_DEBUG_DOT_INLINE" with
       | Some "1" -> true
@@ -209,7 +206,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
            | _ -> "circle"
          in
          Buffer.add_string buf
-           (Printf.sprintf "    %s_r%d [shape=%s,label=\"%s\"];\n" cluster i shape lbl);
+           (Printf.sprintf "  r%d [shape=%s,label=\"%s\"];\n" i shape lbl);
          if not show_labels then
            Buffer.add_string label_buf
              (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n"
@@ -233,9 +230,8 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
                   id i j formula);
              escape_dot_label id
          in
-         Buffer.add_string buf (Printf.sprintf "    %s_r%d -> %s_r%d [label=\"%s\"];\n" cluster i cluster j lbl))
+         Buffer.add_string buf (Printf.sprintf "  r%d -> r%d [label=\"%s\"];\n" i j lbl))
       grouped;
-    Buffer.add_string buf "  }\n";
   in
   List.iter add_node_block p;
   Buffer.add_string buf "}\n";
@@ -248,12 +244,12 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
-    let build = build_monitor_for_node n in
-    let atoms = build.atoms in
-    let atom_named_exprs = atoms.atom_named_exprs in
-    let atom_names = build.atom_names in
-    let states = build.automaton.states in
-    let grouped = build.automaton.grouped in
+    let stage = pass_atoms n in
+    let automaton = pass_build_automaton stage in
+    let atom_named_exprs = stage.atom_map_exprs in
+    let atom_names = stage.atom_names in
+    let states = automaton.states in
+    let grouped = automaton.grouped in
     let fold_map = fold_map_for_node n in
     let atom_expr_tbl = Hashtbl.create 16 in
     let () =
@@ -323,10 +319,6 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
         atom_lines;
       Buffer.add_string label_buf "\n"
     );
-    Buffer.add_string buf (Printf.sprintf "  subgraph cluster_%s {\n" cluster);
-    Buffer.add_string buf (Printf.sprintf "    label=\"%s\";\n" (escape_dot_label cluster));
-    Buffer.add_string buf "    labelloc=\"b\";\n";
-    Buffer.add_string buf "    labeljust=\"l\";\n";
     List.iteri
       (fun i f ->
          let node_id = string_of_int i in
@@ -340,7 +332,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
            | _ -> "circle"
          in
          Buffer.add_string buf
-           (Printf.sprintf "    %s_r%d [shape=%s,label=\"%s\"];\n" cluster i shape lbl);
+           (Printf.sprintf "    r%d [shape=%s,label=\"%s\"];\n" i shape lbl);
          if not show_labels then
            Buffer.add_string label_buf
              (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n"
@@ -364,9 +356,8 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
                   id i j formula);
              escape_dot_label id
          in
-         Buffer.add_string buf (Printf.sprintf "    %s_r%d -> %s_r%d [label=\"%s\"];\n" cluster i cluster j lbl))
+         Buffer.add_string buf (Printf.sprintf "    r%d -> r%d [label=\"%s\"];\n" i j lbl))
       grouped;
-    Buffer.add_string buf "  }\n";
   in
   List.iter add_node_block p;
   Buffer.add_string buf "}\n";

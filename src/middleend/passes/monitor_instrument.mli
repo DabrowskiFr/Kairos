@@ -19,7 +19,13 @@
 val monitor_state_ctor : int -> string
 (** Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
 
-type monitor_atoms_stage
+type monitor_atoms_stage = {
+  node_atoms: Ast.node;
+  atoms: Monitor_atoms.monitor_atoms;
+  atom_names: Ast.ident list;
+  atom_map_exprs: (Ast.ident * Ast.iexpr) list;
+  atom_name_to_fo: (Ast.ident * Ast.fo) list;
+}
 (** Intermediate stage for monitor construction (atoms extracted/replaced). *)
 
 val pass_atoms : Ast.node -> monitor_atoms_stage

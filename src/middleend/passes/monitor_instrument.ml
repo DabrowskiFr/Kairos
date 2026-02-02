@@ -32,38 +32,6 @@ let monitor_state_name : string = "__mon_state"
 let monitor_state_ctor (i:int) : string = Printf.sprintf "Mon%d" i
 let monitor_state_expr (i:int) : iexpr = IVar (monitor_state_ctor i)
 
-type monitor_atoms_stage = {
-  node_atoms: node;
-  atoms: monitor_atoms;
-  atom_names: ident list;
-  atom_map_exprs: (ident * iexpr) list;
-  atom_name_to_fo: (ident * fo) list;
-}
-
-let pass_atoms (n:node) : monitor_atoms_stage =
-  let atoms = collect_monitor_atoms n in
-  let atom_names = List.map snd atoms.atom_map in
-  let atom_map = atoms.atom_map in
-  let node_atoms =
-    {
-      n with
-      assumes = List.map (replace_atoms_ltl atom_map) n.assumes;
-      guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees;
-      invariants_mon = replace_atoms_invariants_mon atom_map n.invariants_mon;
-      trans = List.map (replace_atoms_transition atom_map) n.trans;
-    }
-  in
-  let atom_map_exprs = atoms.atom_named_exprs in
-  let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atom_map in
-  { node_atoms; atoms; atom_names; atom_map_exprs; atom_name_to_fo }
-
-let pass_build_automaton (stage:monitor_atoms_stage) : monitor_automaton =
-  let spec = build_monitor_spec ~atom_map:stage.atoms.atom_map stage.node_atoms in
-  build_monitor_automaton ~atom_map:stage.atoms.atom_map ~atom_names:stage.atom_names spec
-
-let pass_inline_atoms (stage:monitor_atoms_stage) (n:node) : node =
-  inline_atoms_in_node stage.atom_map_exprs n
-
 type bool_like =
   | BoolInt
   | BoolBool
@@ -368,6 +336,29 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
     trans = List.map inline_transition n.trans;
   }
 
+type monitor_atoms_stage = {
+  node_atoms: node;
+  atoms: monitor_atoms;
+  atom_names: ident list;
+  atom_map_exprs: (ident * iexpr) list;
+  atom_name_to_fo: (ident * fo) list;
+}
+
+let pass_atoms (n:node) : monitor_atoms_stage =
+  let atoms = collect_monitor_atoms n in
+  let atom_names = List.map snd atoms.atom_map in
+  let node_atoms = n in
+  let atom_map_exprs = atoms.atom_named_exprs in
+  let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atoms.atom_map in
+  { node_atoms; atoms; atom_names; atom_map_exprs; atom_name_to_fo }
+
+let pass_build_automaton (stage:monitor_atoms_stage) : monitor_automaton =
+  let spec = build_monitor_spec ~atom_map:stage.atoms.atom_map stage.node_atoms in
+  build_monitor_automaton ~atom_map:stage.atoms.atom_map ~atom_names:stage.atom_names spec
+
+let pass_inline_atoms (stage:monitor_atoms_stage) (n:node) : node =
+  inline_atoms_in_node stage.atom_map_exprs n
+
 let add_state_invariants_to_transitions
   ~(invariants_mon:invariant_mon list)
   ?(log:(transition -> fo -> unit) option=None)
@@ -465,7 +456,6 @@ let transform_node_monitor (n:node) : node =
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
   if Automaton_core.monitor_log_enabled || debug_incoming then
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
-  let atom_map = stage.atoms.atom_map in
   let atom_name_to_fo = stage.atom_name_to_fo in
   let atom_map_exprs = stage.atom_map_exprs in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
