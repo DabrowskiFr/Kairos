@@ -175,7 +175,7 @@ let () =
       let p =
         parse_file file
         |> List.map strip_input_invariants
-        |> List.map ensure_next_requires
+        |> List.map user_contracts_coherency
       in
       if (!dump_dot <> None || !dump_dot_labels <> None || !dump_obc <> None)
          && (!prove || !output_file <> None) then (

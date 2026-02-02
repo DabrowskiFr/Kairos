@@ -107,3 +107,34 @@ let ensure_next_requires (n:user_node) : internal_node =
     |> add_state_invariants_to_transitions ~invariants_mon:n.invariants_mon
   in
   { n with trans }
+
+let user_contracts_coherency (n:user_node) : user_node =
+  let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
+  let trans_indexed = List.mapi (fun i t -> (i, t)) n.trans in
+  let by_src = Hashtbl.create 16 in
+  List.iter
+    (fun (i, t) ->
+       let lst = Hashtbl.find_opt by_src t.src |> Option.value ~default:[] in
+       Hashtbl.replace by_src t.src (i :: lst))
+    trans_indexed;
+  let user_requires = Array.of_list (List.map (fun (t:transition) -> t.requires) n.trans) in
+  let user_ensures = Array.of_list (List.map (fun (t:transition) -> t.ensures) n.trans) in
+  let shift_req f = shift_fo_backward_inputs ~is_input f in
+  let add_coherency (i:int) (t:transition) =
+    match conj_fo user_ensures.(i) with
+    | None -> t
+    | Some ens_conj ->
+        let next = Hashtbl.find_opt by_src t.dst |> Option.value ~default:[] in
+        let new_ensures =
+          List.concat_map
+            (fun j ->
+               List.map (fun r -> FImp (ens_conj, shift_req r)) user_requires.(j))
+            next
+        in
+        if new_ensures = [] then t
+        else { t with ensures = t.ensures @ new_ensures }
+  in
+  let trans =
+    List.map (fun (i, t) -> add_coherency i t) trans_indexed
+  in
+  { n with trans }

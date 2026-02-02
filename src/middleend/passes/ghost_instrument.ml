@@ -160,22 +160,7 @@ let transform_node_ghost (n:node) : node =
          shifts @ first)
       pre_k_infos
   in
-  let pre_k_links : fo list =
-    List.concat_map
-      (fun info ->
-         match info.names with
-         | [] -> []
-         | first :: rest ->
-             let first_link = FRel (HNow (IVar first), REq, HPreK (info.expr, 1)) in
-             let rec build acc prev = function
-               | [] -> List.rev acc
-               | name :: tl ->
-                   let link = FRel (HNow (IVar name), REq, HPreK (IVar prev, 1)) in
-                   build (link :: acc) name tl
-             in
-             first_link :: build [] first rest)
-      pre_k_infos
-  in
+  let pre_k_links : fo list = [] in
   let ghost_base = [] in
   let reset_flags = [] in
   let trans =

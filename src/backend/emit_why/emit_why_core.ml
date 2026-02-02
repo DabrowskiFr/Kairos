@@ -129,6 +129,18 @@ let apply_op (op:op) (e1:Ptree.expr) (e2:Ptree.expr) : Ptree.expr =
   | OOr -> mk_expr (Einnfix (e1, infix_ident "||", e2))
   | OFirst -> e1
 
+let is_unit_expr (e:Ptree.expr) : bool =
+  match e.expr_desc with
+  | Etuple [] -> true
+  | _ -> false
+
+let seq_exprs (es:Ptree.expr list) : Ptree.expr =
+  let es = List.filter (fun e -> not (is_unit_expr e)) es in
+  match es with
+  | [] -> mk_expr (Etuple [])
+  | e :: rest ->
+      List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) e rest
+
 let compile_state_branch (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
   (st:ident)
@@ -139,7 +151,7 @@ let compile_state_branch (env:env)
     | [] -> mk_expr (Etuple [])
     | t::rest ->
         let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
-        let assign_dst = mk_expr (Eassign [ (st_expr, None, mk_expr (Eident (qid1 t.dst))) ]) in
+        let assign_dst = mk_expr (Etuple []) in
         let ghost_expr =
           match t.ghost with
           | [] -> mk_expr (Etuple [])
@@ -147,11 +159,7 @@ let compile_state_branch (env:env)
         in
         let user_expr = compile_seq env call_asserts t.body in
         let mon_expr = compile_seq env call_asserts t.monitor in
-        let body =
-          mk_expr (Esequence (ghost_expr,
-                              mk_expr (Esequence (user_expr,
-                                                  mk_expr (Esequence (mon_expr, assign_dst))))))
-        in
+        let body = seq_exprs [ghost_expr; user_expr; mon_expr; assign_dst] in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
   in

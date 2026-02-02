@@ -26,6 +26,9 @@ val fold_post_terms : Support.env -> Support.fold_info -> Why3.Ptree.term list
 (** Pre/post conditions with label groups for UI diagnostics. *)
 type contract_info = Emit_why_types.contract_info
 
+(** Enable/disable pure translation mode (no extra contract generation). *)
+val set_pure_translation : bool -> unit
+
 (** {2 Invariants}
 
     - [build_contracts] expects [env_info] produced by [prepare_node].

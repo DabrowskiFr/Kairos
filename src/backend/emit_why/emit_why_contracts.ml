@@ -26,6 +26,9 @@ open Compile_expr
 
 type contract_info = Emit_why_types.contract_info
 
+let pure_translation = ref false
+let set_pure_translation (b:bool) : unit = pure_translation := b
+
 let term_and (a:Ptree.term) (b:Ptree.term) : Ptree.term =
   mk_term (Tbinop (a, Dterm.DTand, b))
 
@@ -388,71 +391,11 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     | [] -> None
     | terms -> Some (conj_terms terms)
   in
-  let transition_post_to_pre =
-    let requires_terms (t:transition) =
-      List.concat_map
-        (fun f ->
-           let norm = normalize_ltl (ltl_of_fo f) in
-           let rel = ltl_relational env norm.ltl in
-           let frag = ltl_spec env rel in
-           apply_k_guard ~in_post:false norm.k_guard frag.pre)
-        t.requires
-    in
-    let ensures_terms_shifted (t:transition) =
-      List.concat_map
-        (fun f ->
-           let ltl = ltl_of_fo f in
-           let norm = normalize_ltl ltl in
-           let rel = ltl_relational env norm.ltl in
-           let fo =
-             try fo_of_ltl rel with _ -> f
-           in
-           let term = compile_fo_term env fo in
-           apply_k_guard ~in_post:true norm.k_guard [term])
-        t.ensures
-    in
-    List.concat_map
-      (fun (t:transition) ->
-         let next_trans =
-           List.filter (fun t2 -> t2.src = t.dst) n.trans
-         in
-         let shifted_ens = ensures_terms_shifted t in
-         if shifted_ens = [] then []
-         else
-           let ens_conj = conj_terms shifted_ens in
-          List.concat_map
-             (fun t2 ->
-                let cond_post =
-                  term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.dst)))
-                in
-                let cond_post = with_guard cond_post (guard_term_old env t) in
-                let guard =
-                  match state_rel_for t2.src with
-                  | None -> cond_post
-                  | Some (_cond, rel) ->
-                      mk_term (Tbinop (cond_post, Dterm.DTand, rel))
-                in
-                let guard =
-                  mk_term (Tbinop (guard, Dterm.DTand, ens_conj))
-                in
-                let reqs = requires_terms t2 in
-                let base = List.map (fun r -> term_implies guard r) reqs in
-                let init_case =
-                  match init_guard, t2.src = n.init_state with
-                  | Some g, true -> List.map (fun r -> term_implies g r) reqs
-                  | _ -> []
-                in
-                base @ init_case)
-             next_trans)
-      n.trans
-  in
-  let is_internal_fold_id id =
-    String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
-  in
+  let transition_post_to_pre = [] in
   let link_terms_pre, link_terms_post =
     List.fold_left (fun (pre, post) c ->
         match c with
-        | Invariant (id,h) when not (is_internal_fold_id id) ->
+        | Invariant (id,h) ->
             let lhs = term_of_var env id in
             let rhs = compile_hexpr ~prefer_link:false ~in_post:true env h in
             let t = term_eq lhs rhs in
@@ -460,8 +403,6 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
               (pre, t :: post)
             else
               (t :: pre, t :: post)
-        | Invariant (id,_h) when is_internal_fold_id id ->
-            (pre, post)
         | InvariantStateRel (is_eq, st_name, f) ->
             let st = term_of_var env "st" in
             let rhs = mk_term (Tident (qid1 st_name)) in
@@ -647,6 +588,12 @@ let build_contracts ~(nodes:node list) (info:Emit_why_env.env_info)
     link_invariants @ instance_invariants @ instance_input_links_post
     @ link_terms_post @ post
     |> uniq_terms
+  in
+  let pre, post =
+    if !pure_translation then
+      (transition_requires_pre, state_post)
+    else
+      (pre, post)
   in
   let result_term_opt = None in
   let is_true_term t =

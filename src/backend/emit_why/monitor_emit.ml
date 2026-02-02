@@ -27,12 +27,17 @@ let compile_program ?(prefix_fields=true) (p:A.program) : string =
   compile_program_with_transform ~prefix_fields Monitor_instrument.transform_node p
 
 let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
+  let is_instrumented (n:A.node) =
+    List.exists (fun v -> v.A.vname = "__mon_state") n.A.locals
+  in
   let p' =
     List.map
       (fun n ->
-         n
-         |> Monitor_instrument.transform_node_monitor
-         |> Ghost_instrument.transform_node_ghost)
+         if is_instrumented n then n
+         else
+           n
+           |> Monitor_instrument.transform_node_monitor
+           |> Ghost_instrument.transform_node_ghost)
       p
   in
   let comment_map =
@@ -40,4 +45,7 @@ let compile_program_monitor ?(prefix_fields=true) (p:A.program) : string =
       (fun (n:A.node) -> (n.nname, (n.assumes, n.guarantees, n.trans, [])))
       p'
   in
-  Emit.compile_program ~prefix_fields ~comment_map p'
+  Emit_why_contracts.set_pure_translation true;
+  let out = Emit.compile_program ~prefix_fields ~comment_map p' in
+  Emit_why_contracts.set_pure_translation false;
+  out

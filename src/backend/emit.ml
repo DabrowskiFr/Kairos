@@ -43,7 +43,6 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   let type_mon_state = info.type_mon_state in
   let type_state = info.type_state in
   let type_vars = info.type_vars in
-  let init_vars_decl = info.init_vars_decl in
   let env = info.env in
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
@@ -145,7 +144,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   in
 
   let decls =
-    imports @ type_mon_state @ [type_state; type_vars; init_vars_decl; step_decl]
+    imports @ type_mon_state @ [type_state; type_vars; step_decl]
   in
 
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
@@ -325,6 +324,58 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
       Buffer.contents b
   in
   let out = replace_all ~sub:"(old " ~by:"old(" out in
+  let remove_else_unit s =
+    let len = String.length s in
+    let b = Buffer.create len in
+    let is_word_char = function
+      | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> true
+      | _ -> false
+    in
+    let rec skip_ws i =
+      if i < len then
+        match s.[i] with
+        | ' ' | '\t' | '\n' | '\r' -> skip_ws (i + 1)
+        | _ -> i
+      else i
+    in
+    let rec loop i =
+      if i >= len then ()
+      else if i + 4 <= len && String.sub s i 4 = "else" then
+        let prev_ok =
+          if i = 0 then true else not (is_word_char s.[i - 1])
+        in
+        let j = i + 4 in
+        let next_ok =
+          if j >= len then true else not (is_word_char s.[j])
+        in
+        if prev_ok && next_ok then
+          let k = skip_ws j in
+          if k + 1 < len && s.[k] = '(' then
+            let k' = skip_ws (k + 1) in
+            if k' < len && s.[k'] = ')' then
+              let k'' = k' + 1 in
+              loop k''
+            else (
+              Buffer.add_string b "else";
+              loop j
+            )
+          else (
+            Buffer.add_string b "else";
+            loop j
+          )
+        else (
+          Buffer.add_char b s.[i];
+          loop (i + 1)
+        )
+      else (
+        Buffer.add_char b s.[i];
+        loop (i + 1)
+      )
+    in
+    loop 0;
+    Buffer.contents b
+  in
+  let out = remove_else_unit out in
   let insert_spec_group_comments s =
     let contains_sub s sub =
       let len_s = String.length s in

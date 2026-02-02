@@ -200,10 +200,10 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
     | Some v -> v.vty
     | None -> failwith ("pre_k unknown variable: " ^ name)
   in
-  let make_names base k =
+  let make_names vname k =
     let rec loop acc i =
       if i > k then List.rev acc
-      else loop (Printf.sprintf "%s_%d" base i :: acc) (i + 1)
+      else loop (Printf.sprintf "__pre_k%d_%s" i vname :: acc) (i + 1)
     in
     loop [] 1
   in
@@ -218,8 +218,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
                | _ -> failwith "pre_k expects a variable as first argument"
              in
              let vty = find_vty vname in
-             let base = Printf.sprintf "__pre_k%d_%s" (i + 1) vname in
-             let names = make_names base k in
+             let names = make_names vname k in
              (h, { h; expr = e; names; vty })
          | _ -> failwith "expected pre_k hexpr")
 let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)

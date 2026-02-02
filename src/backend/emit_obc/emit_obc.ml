@@ -45,7 +45,6 @@ type gen_tag =
   | BadState
   | MonitorPre
   | MonitorPost
-  | FoldInternal
   | PostForNextPre
 
 let tag_label = function
@@ -55,7 +54,6 @@ let tag_label = function
   | BadState -> "no bad state"
   | MonitorPre -> "monitor pre-condition"
   | MonitorPost -> "monitor post-condition"
-  | FoldInternal -> "internal fold link"
   | PostForNextPre -> "post -> next pre"
 
 let rec iexpr_mentions_generated (e:iexpr) : bool =
@@ -73,7 +71,6 @@ let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
       begin match tag with
       | MonitorAtom -> false
       | MonitorState -> id = "__mon_state" || is_mon_ctor id
-      | FoldInternal -> starts_with id "__fold_internal_"
       | CompatInvariant | BadState | MonitorPre | MonitorPost | PostForNextPre -> false
       end
   | IPar e -> iexpr_has_tag tag e
@@ -165,31 +162,22 @@ let comment_for_tag indent tag =
 
 let comment_for_tags indent tags =
   let tags = List.sort_uniq compare tags in
-  let other_tags =
-    List.filter (function MonitorAtom | MonitorState -> false | _ -> true) tags
-  in
-  let explicit_tags =
-    (List.filter (function MonitorAtom | MonitorState -> true | _ -> false) tags)
-    @ other_tags
-  in
+  let explicit_tags = List.filter (function MonitorAtom | MonitorState -> true | _ -> false) tags in
   List.map (comment_for_tag indent) explicit_tags
 
 let tags_for_ident (id:string) : gen_tag list =
   let tags = ref [] in
-  if starts_with id "__fold_internal_" then tags := FoldInternal :: !tags;
   if id = "__mon_state" || is_mon_ctor id then tags := MonitorState :: !tags;
   !tags
 
 let tags_for_iexpr (e:iexpr) : gen_tag list =
   let tags = ref [] in
   if iexpr_has_tag MonitorState e then tags := MonitorState :: !tags;
-  if iexpr_has_tag FoldInternal e then tags := FoldInternal :: !tags;
   !tags
 
 let tags_for_fo (f:fo) : gen_tag list =
   let tags = ref [] in
   if fo_has_tag MonitorState f then tags := MonitorState :: !tags;
-  if fo_has_tag FoldInternal f then tags := FoldInternal :: !tags;
   if is_bad_state_formula f then tags := BadState :: !tags;
   if (not (is_bad_state_formula f)) && fo_only_mon_state f then
     tags := CompatInvariant :: !tags;
@@ -207,7 +195,7 @@ let primary_tag_for_fo ~(is_require:bool) (f:fo) : gen_tag option =
     Some CompatInvariant
   else
   let priority =
-    [CompatInvariant; BadState; MonitorPre; MonitorPost; FoldInternal; PostForNextPre;
+    [CompatInvariant; BadState; MonitorPre; MonitorPost; PostForNextPre;
      MonitorAtom; MonitorState]
   in
   List.find_opt (fun t -> List.mem t tags) priority
@@ -307,6 +295,74 @@ let replace_all ~sub ~by s =
 
 let prettify_pre_old ~init_for_var:_ ~vars:_ s = s
 
+let pre_k_var_map (n:node) : (hexpr * ident) list =
+  let pre_k_map = Collect.build_pre_k_infos n in
+  List.filter_map
+    (fun (h, info) ->
+       match info.Support.names with
+       | [] -> None
+       | names -> Some (h, List.nth names (List.length names - 1)))
+    pre_k_map
+
+let rec replace_pre_k_hexpr ~(map:(hexpr * ident) list) (h:hexpr) : hexpr =
+  match h with
+  | HPreK _ as h ->
+      begin match List.assoc_opt h map with
+      | Some name -> HNow (IVar name)
+      | None -> h
+      end
+  | HNow _ -> h
+  | HFold _ -> h
+
+let rec replace_pre_k_fo ~(map:(hexpr * ident) list) (f:fo) : fo =
+  match f with
+  | FTrue | FFalse -> f
+  | FNot a -> FNot (replace_pre_k_fo ~map a)
+  | FAnd (a, b) -> FAnd (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
+  | FOr (a, b) -> FOr (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
+  | FImp (a, b) -> FImp (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
+  | FRel (h1, r, h2) ->
+      FRel (replace_pre_k_hexpr ~map h1, r, replace_pre_k_hexpr ~map h2)
+  | FPred (id, hs) ->
+      FPred (id, List.map (replace_pre_k_hexpr ~map) hs)
+
+let rec replace_pre_k_ltl ~(map:(hexpr * ident) list) (f:fo_ltl) : fo_ltl =
+  match f with
+  | LTrue -> LTrue
+  | LFalse -> LFalse
+  | LAtom a -> LAtom (replace_pre_k_fo ~map a)
+  | LNot a -> LNot (replace_pre_k_ltl ~map a)
+  | LX a -> LX (replace_pre_k_ltl ~map a)
+  | LG a -> LG (replace_pre_k_ltl ~map a)
+  | LAnd (a, b) -> LAnd (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
+  | LOr (a, b) -> LOr (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
+  | LImp (a, b) -> LImp (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
+
+let replace_pre_k_invariant ~(map:(hexpr * ident) list) (inv:invariant_mon)
+  : invariant_mon =
+  match inv with
+  | Invariant (id, h) -> Invariant (id, replace_pre_k_hexpr ~map h)
+  | InvariantStateRel (is_eq, st, f) ->
+      InvariantStateRel (is_eq, st, replace_pre_k_fo ~map f)
+
+let replace_pre_k_transition ~(map:(hexpr * ident) list) (t:transition) : transition =
+  {
+    t with
+    requires = List.map (replace_pre_k_fo ~map) t.requires;
+    ensures = List.map (replace_pre_k_fo ~map) t.ensures;
+    lemmas = List.map (replace_pre_k_fo ~map) t.lemmas;
+  }
+
+let replace_pre_k_node (n:node) : node =
+  let map = pre_k_var_map n in
+  {
+    n with
+    assumes = List.map (replace_pre_k_ltl ~map) n.assumes;
+    guarantees = List.map (replace_pre_k_ltl ~map) n.guarantees;
+    invariants_mon = List.map (replace_pre_k_invariant ~map) n.invariants_mon;
+    trans = List.map (replace_pre_k_transition ~map) n.trans;
+  }
+
 let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
   (invariants:invariant_mon list)
   ~(init_for_var:ident -> iexpr) ~(vars:ident list) : string list =
@@ -333,7 +389,6 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
                   tags_for_ident id
                   @ (if hexpr_has_tag MonitorAtom h then [MonitorAtom] else [])
                   @ (if hexpr_has_tag MonitorState h then [MonitorState] else [])
-                  @ (if hexpr_has_tag FoldInternal h then [FoldInternal] else [])
                 in
                 let prefix = comment_for_tags indent tags in
             let line =
@@ -362,8 +417,36 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
 
 type label_counters = { mutable req : int; mutable ens : int }
 
+let is_contract_coherency (f:fo) : bool =
+  match f with
+  | FImp _ -> true
+  | _ -> false
+
+let source_of_fo ~(is_require:bool) (f:fo) : string =
+  match primary_tag_for_fo ~is_require f with
+  | Some t -> tag_label t
+  | None ->
+      if (not is_require) && is_contract_coherency f then
+        "user contracts coherency"
+      else
+        "user"
+
+let source_order (s:string) : int =
+  match s with
+  | "user" -> 0
+  | "user contracts coherency" -> 1
+  | "monitor/program compatibility" -> 2
+  | "no bad state" -> 3
+  | "monitor pre-condition" -> 4
+  | "monitor post-condition" -> 5
+  | "internal fold link" -> 6
+  | "monitor atom definition" -> 7
+  | "monitor state" -> 8
+  | _ -> 9
+
 let transition_lines (indent:int) (t:transition)
   ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
+  ~(label_align_col:int option)
   : string list =
   let next_req_label () =
     label_counters.req <- label_counters.req + 1;
@@ -386,28 +469,46 @@ let transition_lines (indent:int) (t:transition)
     List.map (fun f -> (f, next_ens_label ())) t.ensures
   in
   let build_block ~is_require items =
-    let rec build acc last_tag = function
+    let items =
+      List.map (fun (f, label) -> (source_of_fo ~is_require f, f, label)) items
+      |> List.sort (fun (s1, _, _) (s2, _, _) ->
+           let c = compare (source_order s1) (source_order s2) in
+           if c <> 0 then c else compare s1 s2)
+    in
+    let rec build acc current_source = function
       | [] -> acc
-      | (f, label) :: rest ->
-          let tag = primary_tag_for_fo ~is_require f in
-          let prefix =
-            if tag = last_tag then []
-            else
-              match tag with
-              | Some t -> [comment_for_tag (indent + 1) t]
-              | None -> []
+      | (source, f, label) :: rest ->
+          let header =
+            if Some source = current_source then []
+            else [comment_line (indent + 1) ("source: " ^ source)]
           in
           let line =
             let kw = if is_require then "requires " else "ensures " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
-          build (acc @ prefix @ [comment_line (indent + 1) label; line]) tag rest
+          let line =
+            match label_align_col with
+            | None -> line ^ "  (* " ^ label ^ " *)"
+            | Some col ->
+                let pad =
+                  let n = col - String.length line in
+                  if n <= 1 then " " else String.make n ' '
+                in
+                line ^ pad ^ "(* " ^ label ^ " *)"
+          in
+          build (acc @ header @ [line]) (Some source) rest
     in
     build [] None items
   in
-  let req_block = build_block ~is_require:true requires_labeled in
-  let ens_block = build_block ~is_require:false ensures_labeled in
+  let req_block =
+    if requires_labeled = [] then []
+    else comment_line (indent + 1) "-- requires --" :: build_block ~is_require:true requires_labeled
+  in
+  let ens_block =
+    if ensures_labeled = [] then []
+    else comment_line (indent + 1) "-- ensures --" :: build_block ~is_require:false ensures_labeled
+  in
   let lemma_lines =
     List.map
       (fun f ->
@@ -415,7 +516,7 @@ let transition_lines (indent:int) (t:transition)
            indent_str (indent + 1) ^ "(* lemma " ^ string_of_fo f ^ " *)"
          in
          let line = prettify_pre_old ~init_for_var ~vars line in
-         comment_for_tag (indent + 1) PostForNextPre :: [line]
+         [line]
       )
       t.lemmas
   in
@@ -430,17 +531,14 @@ let transition_lines (indent:int) (t:transition)
     stmt_lines ~allow_empty:true (indent + 1) body_user
     |> List.map (prettify_pre_old ~init_for_var ~vars)
   in
-  let ghost_header =
-    if ghost_lines = [] then []
-    else [comment_line (indent + 1) "ghost code"]
-  in
+  let ghost_header = [] in
   let user_header =
     if body_user = [] then []
-    else [comment_line (indent + 1) "user code"]
+    else [comment_line (indent + 1) "-- user code --"]
   in
   let mon_header =
     if body_mon = [] then []
-    else [comment_line (indent + 1) "monitor code (generated)"]
+    else [comment_line (indent + 1) "-- monitor code --"]
   in
   let body_mon_lines =
     stmt_lines ~allow_empty:true ~with_comments:false (indent + 1) body_mon
@@ -456,6 +554,7 @@ let transition_lines (indent:int) (t:transition)
   @ [footer]
 
 let node_lines (n:node) : string list =
+  let n = replace_pre_k_node n in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
@@ -506,10 +605,29 @@ let node_lines (n:node) : string list =
   in
   let init = indent_str 1 ^ "init " ^ n.init_state in
   let label_counters = { req = 0; ens = 0 } in
+  let label_align_col =
+    let base_line_len is_require f =
+      let kw = if is_require then "requires " else "ensures " in
+      let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
+      String.length (prettify_pre_old ~init_for_var ~vars line)
+    in
+    let lens =
+      List.concat_map
+        (fun (t:transition) ->
+           List.map (base_line_len true) t.requires
+           @ List.map (base_line_len false) t.ensures)
+        n.trans
+    in
+    match lens with
+    | [] -> None
+    | _ ->
+        let max_len = List.fold_left max 0 lens in
+        Some (max_len + 2)
+  in
   let trans =
     (indent_str 1 ^ "trans")
     :: List.concat_map
-         (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters)
+         (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
          n.trans
   in
   [header]

@@ -32,6 +32,38 @@ let monitor_state_name : string = "__mon_state"
 let monitor_state_ctor (i:int) : string = Printf.sprintf "Mon%d" i
 let monitor_state_expr (i:int) : iexpr = IVar (monitor_state_ctor i)
 
+type monitor_atoms_stage = {
+  node_atoms: node;
+  atoms: monitor_atoms;
+  atom_names: ident list;
+  atom_map_exprs: (ident * iexpr) list;
+  atom_name_to_fo: (ident * fo) list;
+}
+
+let pass_atoms (n:node) : monitor_atoms_stage =
+  let atoms = collect_monitor_atoms n in
+  let atom_names = List.map snd atoms.atom_map in
+  let atom_map = atoms.atom_map in
+  let node_atoms =
+    {
+      n with
+      assumes = List.map (replace_atoms_ltl atom_map) n.assumes;
+      guarantees = List.map (replace_atoms_ltl atom_map) n.guarantees;
+      invariants_mon = replace_atoms_invariants_mon atom_map n.invariants_mon;
+      trans = List.map (replace_atoms_transition atom_map) n.trans;
+    }
+  in
+  let atom_map_exprs = atoms.atom_named_exprs in
+  let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atom_map in
+  { node_atoms; atoms; atom_names; atom_map_exprs; atom_name_to_fo }
+
+let pass_build_automaton (stage:monitor_atoms_stage) : monitor_automaton =
+  let spec = build_monitor_spec ~atom_map:stage.atoms.atom_map stage.node_atoms in
+  build_monitor_automaton ~atom_map:stage.atoms.atom_map ~atom_names:stage.atom_names spec
+
+let pass_inline_atoms (stage:monitor_atoms_stage) (n:node) : node =
+  inline_atoms_in_node stage.atom_map_exprs n
+
 type bool_like =
   | BoolInt
   | BoolBool
@@ -198,16 +230,7 @@ let transform_node (n:node) : node =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let _bool_vars = bool_like_vars ~var_types n in
-  let fold_map = fold_map_for_node n in
-  let fold_internal_invariants =
-    List.map
-      (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
-      fold_map
-  in
-  if fold_internal_invariants = [] then
-    n
-  else
-    { n with invariants_mon = n.invariants_mon @ fold_internal_invariants; }
+  n
 
 let monitor_update_stmts (atom_map:(ident * iexpr) list) (states:residual_state list)
   (transitions:guarded_transition list) : stmt list =
@@ -426,19 +449,13 @@ let transform_node_monitor (n:node) : node =
         (Printf.sprintf "[monitor] %s %s->%s: %s"
            reason t.src t.dst (string_of_fo f))
   in
-  let atoms = collect_monitor_atoms n in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let _bool_vars = bool_like_vars ~var_types n in
-  let n = n in
-  let fold_map = fold_map_for_node n in
-  let fold_internal_invariants =
-    List.map
-      (fun (h, acc) -> Invariant ("__fold_internal_" ^ acc, h))
-      fold_map
-  in
-  let atom_names = List.map snd atoms.atom_map in
+  let stage = pass_atoms n in
+  let n = stage.node_atoms in
+  let atom_names = stage.atom_names in
   let debug_incoming =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_INCOMING" with
     | Some "1" -> true
@@ -448,16 +465,14 @@ let transform_node_monitor (n:node) : node =
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
   if Automaton_core.monitor_log_enabled || debug_incoming then
     prerr_endline (Printf.sprintf "[monitor] atoms=%d" (List.length atom_names));
-  let atom_map = atoms.atom_map in
-  let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atom_map in
-  let atom_named_exprs = atoms.atom_named_exprs in
-  let atom_map_exprs = atom_named_exprs in
+  let atom_map = stage.atoms.atom_map in
+  let atom_name_to_fo = stage.atom_name_to_fo in
+  let atom_map_exprs = stage.atom_map_exprs in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
   let user_assumes = n.assumes in
   let user_guarantees = n.guarantees in
   let invariants_mon = n.invariants_mon in
-  let spec = build_monitor_spec ~atom_map n in
-  let automaton = build_monitor_automaton ~atom_map ~atom_names spec in
+  let automaton = pass_build_automaton stage in
   if Automaton_core.monitor_log_enabled || debug_incoming then (
     List.iteri
       (fun i f ->
@@ -566,72 +581,14 @@ let transform_node_monitor (n:node) : node =
                RNeq,
                HNow (monitor_state_expr bad_idx)))
   in
-  let incoming_prev_fo, incoming_prev_fo_shifted, outgoing_now_fo =
+  let incoming_prev_fo_shifted =
     let mon = monitor_state_name in
     let by_dst = Hashtbl.create 16 in
-    let by_src = Hashtbl.create 16 in
     List.iter
       (fun (_i, guard, j) ->
          let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:[] in
          Hashtbl.replace by_dst j (guard :: prev))
       grouped;
-    List.iter
-      (fun (i, guard, _j) ->
-         let prev = Hashtbl.find_opt by_src i |> Option.value ~default:[] in
-         Hashtbl.replace by_src i (guard :: prev))
-      grouped;
-    if debug_incoming then (
-      let by_dst_with_src = Hashtbl.create 16 in
-      List.iter
-        (fun (src, guard, dst) ->
-           let prev =
-             Hashtbl.find_opt by_dst_with_src dst
-             |> Option.value ~default:[]
-           in
-           Hashtbl.replace by_dst_with_src dst ((src, guard) :: prev))
-        grouped;
-      Hashtbl.iter
-        (fun j guards ->
-          let guard_exprs =
-            List.map (bdd_to_iexpr atom_names) guards
-            |> List.map (inline_atoms_iexpr atom_map_exprs)
-          in
-          let guard_fos =
-            List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
-            |> List.map (inline_fo_atoms atom_map_exprs)
-          in
-          let guard_fos =
-            List.map (shift_fo_forward_inputs ~is_input) guard_fos
-          in
-          let guard_strs = List.map string_of_fo guard_fos in
-          prerr_endline
-            (Printf.sprintf "[monitor] incoming dst=%s guards=%s"
-               (monitor_state_ctor j)
-               (String.concat " OR " guard_strs)))
-        by_dst;
-      Hashtbl.iter
-        (fun dst entries ->
-           let lines =
-             List.map
-               (fun (src, guard) ->
-                 let g =
-                   bdd_to_iexpr atom_names guard
-                   |> inline_atoms_iexpr atom_map_exprs
-                   |> iexpr_to_fo_with_atoms atom_name_to_fo
-                   |> inline_fo_atoms atom_map_exprs
-                   |> shift_fo_forward_inputs ~is_input
-                   |> string_of_fo
-                 in
-                 Printf.sprintf "%s -> %s : %s"
-                   (monitor_state_ctor src) (monitor_state_ctor dst) g)
-               entries
-           in
-           prerr_endline
-             (Printf.sprintf "[monitor] incoming edges dst=%s:\n  %s"
-                (monitor_state_ctor dst)
-                (String.concat "\n  " lines)))
-        by_dst_with_src
-    );
     let unshifted_in =
       Hashtbl.fold
         (fun j guards acc ->
@@ -649,41 +606,13 @@ let transform_node_monitor (n:node) : node =
          let guard =
            match guard_fos with
            | [] -> FFalse
-          | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
+           | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
          in
          FImp (cond, guard) :: acc)
         by_dst
         []
     in
-    let shifted =
-      List.map
-        (shift_fo_forward_inputs ~is_input)
-        unshifted_in
-    in
-    let unshifted_out =
-      Hashtbl.fold
-        (fun i guards acc ->
-         let cond =
-           FRel (HNow (IVar mon), REq, HNow (monitor_state_expr i))
-         in
-         let guard_exprs =
-           List.map (bdd_to_iexpr atom_names) guards
-           |> List.map (inline_atoms_iexpr atom_map_exprs)
-         in
-         let guard_fos =
-           List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
-           |> List.map (inline_fo_atoms atom_map_exprs)
-         in
-         let guard =
-           match guard_fos with
-           | [] -> FFalse
-           | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
-         in
-         FImp (cond, guard) :: acc)
-        by_src
-        []
-    in
-    (unshifted_in, shifted, unshifted_out)
+    List.map (shift_fo_forward_inputs ~is_input) unshifted_in
   in
   let monitor_updates = monitor_update_stmts atom_map_exprs states grouped in
   let monitor_asserts = monitor_assert bad_idx in
@@ -748,9 +677,8 @@ let transform_node_monitor (n:node) : node =
       locals = n.locals @ [monitor_local];
       assumes = user_assumes;
       guarantees = user_guarantees;
-      invariants_mon =
-        invariants_mon @ fold_internal_invariants;
+      invariants_mon = invariants_mon;
       trans;
     }
   in
-  inline_atoms_in_node atom_map_exprs n
+  pass_inline_atoms stage n

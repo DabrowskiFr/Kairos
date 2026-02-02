@@ -19,6 +19,18 @@
 val monitor_state_ctor : int -> string
 (** Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
 
+type monitor_atoms_stage
+(** Intermediate stage for monitor construction (atoms extracted/replaced). *)
+
+val pass_atoms : Ast.node -> monitor_atoms_stage
+(** FO -> atoms: extract atoms and replace them in the node. *)
+
+val pass_build_automaton : monitor_atoms_stage -> Monitor_automaton.monitor_automaton
+(** Build the monitor automaton from the atomized spec. *)
+
+val pass_inline_atoms : monitor_atoms_stage -> Ast.node -> Ast.node
+(** Atoms -> FO: inline atom variables back to formulas. *)
+
 val transform_node : Ast.node -> Ast.node
 (** Instrument a node with monitor support (standard compilation). *)
 

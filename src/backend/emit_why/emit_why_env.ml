@@ -230,13 +230,10 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   let needs_step_count = false in
   let needs_first_step_folds = false in
   let needs_first_step = false in
-  let is_internal_fold_id id =
-    String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
-  in
   let inv_links =
     List.filter_map
       (function
-        | Invariant (id, h) when not (is_internal_fold_id id) -> Some (h, id)
+        | Invariant (id, h) -> Some (h, id)
         | _ -> None)
       n.invariants_mon
   in
@@ -356,95 +353,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     in
     if should_init then default_expr_for_type vty else any_expr_for_type vty
   in
-  let init_fields =
-    (field_qid "st", mk_expr (Eident (qid1 n.init_state)))
-    :: List.map (fun v -> (field_qid v.vname, init_expr_for_name v.vname v.vty)) (n.locals @ n.outputs)
-    @ List.map
-        (fun (inst_name, node_name) ->
-           let mod_name = module_name_of_node node_name in
-           (field_qid inst_name,
-            apply_expr (mk_expr (Eident (qdot (qid1 mod_name) "init_vars")))
-              [mk_expr (Etuple [])]))
-        n.instances
-  in
-  let init_posts =
-    let env_init = { env with rec_name = "result" } in
-    let is_generated_invariant_id id =
-      (String.length id >= 5 && String.sub id 0 5 = "atom_")
-      || (String.length id >= 15 && String.sub id 0 15 = "__fold_internal")
-    in
-    let st_is_init =
-      term_eq (term_of_var env_init "st") (mk_term (Tident (qid1 n.init_state)))
-    in
-    let mon_init_posts =
-      match mon_state_ctors with
-      | first :: _ ->
-          [ term_eq (term_of_var env_init "__mon_state") (mk_term (Tident (qid1 first))) ]
-      | [] -> []
-    in
-    let inv_posts =
-      List.filter_map
-        (function
-          | Invariant (id, h) when not (is_generated_invariant_id id) ->
-              let lhs = term_of_var env_init id in
-              let rhs = compile_hexpr ~prefer_link:false ~in_post:false env_init h in
-              Some (term_eq lhs rhs)
-          | Invariant _ -> None
-          | InvariantStateRel (is_eq, st_name, f) ->
-              if is_eq && st_name = n.init_state then
-                Some (compile_fo_term env_init f)
-              else
-                None)
-        n.invariants_mon
-    in
-    let find_node (name:string) : node option =
-      List.find_opt (fun nd -> nd.nname = name) nodes
-    in
-    let instance_invariant_terms ?(in_post=false) (inst_name:string) (node_name:string) (inst_node:node) =
-      let input_names = List.map (fun v -> v.vname) inst_node.inputs in
-      let pre_k_map = Collect.build_pre_k_infos inst_node in
-      List.filter_map
-        (function
-          | Invariant (id,h) ->
-              let lhs = term_of_instance_var env_init inst_name node_name id in
-              let rhs =
-                compile_hexpr_instance ~in_post env_init inst_name node_name input_names pre_k_map h
-              in
-              Some (term_eq lhs rhs)
-          | InvariantStateRel (is_eq, st_name, f) ->
-              let st = term_of_instance_var env_init inst_name node_name "st" in
-              let rhs = mk_term (Tident (qid1 st_name)) in
-              let cond = (if is_eq then term_eq else term_neq) st rhs in
-              let body =
-                compile_fo_term_instance ~in_post env_init inst_name node_name input_names pre_k_map f
-              in
-              Some (term_implies cond body))
-        inst_node.invariants_mon
-    in
-    let instance_posts =
-      List.concat_map
-        (fun (inst_name, node_name) ->
-           match find_node node_name with
-           | None -> []
-           | Some inst_node -> instance_invariant_terms ~in_post:false inst_name node_name inst_node)
-        n.instances
-    in
-    st_is_init :: (mon_init_posts @ inv_posts @ instance_posts)
-  in
-  let init_vars_decl =
-    let fun_body = mk_expr (Erecord init_fields) in
-    let args =
-      [ (loc, Some (ident "_unit"), false, Some (Ptree.PTtyapp(qid1 "unit", []))) ]
-    in
-    let result_pat = { pat_desc = Pvar (ident "result"); pat_loc = loc } in
-    let mk_post t = (loc, [ (result_pat, t) ]) in
-    let spc = { empty_spec with sp_post = List.map mk_post init_posts } in
-    let fd : Ptree.fundef =
-      (ident "init_vars", false, Expr.RKnone, args, None, {pat_desc=Pwild; pat_loc=loc},
-       Ity.MaskVisible, spc, fun_body)
-    in
-    Ptree.Drec [fd]
-  in
   let vars_param =
     (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp(qid1 "vars", [])))
   in
@@ -478,8 +386,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     type_mon_state;
     type_state;
     type_vars;
-    init_vars_decl;
-    init_posts;
     env;
     inputs;
     ret_expr;
