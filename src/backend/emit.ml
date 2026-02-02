@@ -103,8 +103,19 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
                         let pre_id =
                           ident (Printf.sprintf "__call_pre_%s_%s" inst_name in_name)
                         in
+                        let pre_k_map = build_pre_k_infos inst_node in
+                        let pre_name =
+                          List.find_map
+                            (fun (_, info) ->
+                               match info.expr, info.names with
+                               | IVar x, name :: _ when x = in_name -> Some name
+                               | _ -> None)
+                            pre_k_map
+                        in
                         let pre_expr =
-                          expr_of_instance_var env inst_name node_name (pre_input_name in_name)
+                          match pre_name with
+                          | None -> expr_of_instance_var env inst_name node_name in_name
+                          | Some name -> expr_of_instance_var env inst_name node_name name
                         in
                         let lhs = term_of_var env out_var in
                         let rhs = mk_term (Tident (qid1 pre_id.id_str)) in
@@ -480,6 +491,38 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
   in
   let out = insert_spec_group_comments out in
   let out = insert_user_code_comment out in
+  let parenthesize_implications_under_conj s =
+    let contains_sub s sub =
+      let len_s = String.length s in
+      let len_sub = String.length sub in
+      let rec loop i =
+        if i + len_sub > len_s then false
+        else if String.sub s i len_sub = sub then true
+        else loop (i + 1)
+      in
+      if len_sub = 0 then true else loop 0
+    in
+    let lines = Array.of_list (String.split_on_char '\n' s) in
+    let line_count = Array.length lines in
+    let out = Buffer.create (String.length s + 64) in
+    for i = 0 to line_count - 1 do
+      let line = lines.(i) in
+      let line =
+        if contains_sub line "/\\ (" && contains_sub line "->" && not (contains_sub line "/\\ ((") then
+          let replaced = replace_all ~sub:"/\\ (" ~by:"/\\ ((" line in
+          replaced ^ ")"
+        else if contains_sub line "/\\" && contains_sub line "->" then
+          let replaced = replace_all ~sub:" /\\ " ~by:" /\\ (" line in
+          replaced ^ ")"
+        else
+          line
+      in
+      Buffer.add_string out line;
+      if i < line_count - 1 then Buffer.add_char out '\n'
+    done;
+    Buffer.contents out
+  in
+  let out = parenthesize_implications_under_conj out in
   let annotate_vars_fields s =
     let has_prefix name p =
       String.length name >= String.length p
@@ -488,18 +531,10 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
     let field_comment name =
       if name = "__mon_state" then
         Some "monitor state"
-      else if has_prefix name "__pre_in_" then
-        Some "input from previous step"
-      else if has_prefix name "__pre_old_" then
-        Some "previous value snapshot"
       else if has_prefix name "__pre_k" then
         Some "k-step history"
       else if has_prefix name "__fold" then
         Some "fold accumulator"
-      else if name = "__first_step" then
-        Some "first step flag"
-      else if name = "__step_count" then
-        Some "step counter"
       else if name = "st" then
         None
       else

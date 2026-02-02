@@ -227,29 +227,9 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   let has_initial_only_contracts =
     List.exists is_initial_only (n.assumes @ n.guarantees)
   in
-  let max_k_guard =
-    let k_guard_fo f =
-      (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
-    in
-    let k_guard_ltl f =
-      (normalize_ltl_for_k ~init_for_var f).k_guard
-    in
-    let inv_fo =
-      List.filter_map
-        (function
-          | InvariantStateRel (_is_eq, _st, f) -> Some f
-          | Invariant _ -> None)
-        n.invariants_mon
-    in
-    let ks =
-      List.filter_map k_guard_fo (transition_fo @ inv_fo)
-      @ List.filter_map k_guard_ltl (n.assumes @ n.guarantees)
-    in
-    List.fold_left max 0 ks
-  in
-  let needs_step_count = max_k_guard > 0 in
-  let needs_first_step_folds = List.exists (fun fi -> fi.init_flag = None) folds in
-  let needs_first_step = needs_first_step_folds || has_initial_only_contracts in
+  let needs_step_count = false in
+  let needs_first_step_folds = false in
+  let needs_first_step = false in
   let is_internal_fold_id id =
     String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
   in
@@ -272,12 +252,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   in
   let field_prefix = if prefix_fields then prefix_for_node n.nname else "" in
   let input_names = List.map (fun v -> v.vname) n.inputs in
-  let pre_inputs = List.map pre_input_name input_names in
-  let pre_input_olds = List.map pre_input_old_name input_names in
   let fold_init_flags = List.map (fun (_ghost_acc, _acc, init_done) -> init_done) fold_init_links in
-  let pre_old_locals_outputs =
-    List.map (fun v -> Support.pre_input_old_name v.vname) (n.locals @ n.outputs)
-  in
   let base_vars =
     "st"
     :: List.map (fun v -> v.vname) (n.locals @ n.outputs)
@@ -317,8 +292,6 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
     || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
     || (String.length name >= 6 && String.sub name 0 6 = "__fold")
-    || name = "__first_step"
-    || name = "__step_count"
   in
   let local_fields =
     List.map

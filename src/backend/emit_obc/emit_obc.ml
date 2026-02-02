@@ -277,18 +277,10 @@ let local_comment (name:ident) : string option =
   in
   if name = "__mon_state" then
     Some "monitor state"
-  else if has_prefix "__pre_in_" then
-    Some "input from previous step"
-  else if has_prefix "__pre_old_" then
-    Some "previous value snapshot"
   else if has_prefix "__pre_k" then
     Some "k-step history"
   else if has_prefix "__fold" then
     Some "fold accumulator"
-  else if name = "__first_step" then
-    Some "first step flag"
-  else if name = "__step_count" then
-    Some "step counter"
   else
     Some "user local"
 

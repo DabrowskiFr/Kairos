@@ -36,8 +36,6 @@ let rec compile_seq (env:env)
           || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
           || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
           || (String.length name >= 6 && String.sub name 0 6 = "__fold")
-          || name = "__first_step"
-          || name = "__step_count"
         in
         let tgt =
           if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))

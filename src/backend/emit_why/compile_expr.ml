@@ -86,9 +86,7 @@ let rec compile_term_instance (env:env) (inst_name:ident) (node_name:ident)
   | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
   | IVar x ->
-      if List.mem x inputs
-      then term_of_instance_var env inst_name node_name (pre_input_name x)
-      else term_of_instance_var env inst_name node_name x
+      term_of_instance_var env inst_name node_name x
   | IPar e -> compile_term_instance env inst_name node_name inputs e
   | IUn (Neg,a) ->
       mk_term (Tidapp (qid1 "(-)", [compile_term_instance env inst_name node_name inputs a]))
@@ -104,11 +102,6 @@ let compile_hexpr_instance ?(in_post=false) (env:env) (inst_name:ident)
   (h:hexpr) : Ptree.term =
   match h with
   | HNow e -> compile_term_instance env inst_name node_name inputs e
-  | HPreK (IVar x, 1) when List.mem x inputs ->
-      let name =
-        if in_post then pre_input_old_name x else pre_input_name x
-      in
-      term_of_instance_var env inst_name node_name name
   | HPreK (e,_) ->
       begin match List.find_map (fun (h', info) -> if h' = h then Some info else None) pre_k_map with
       | None -> failwith "pre_k not registered (instance)"
@@ -171,18 +164,9 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
           | HFold _ -> failwith "fold accumulator not registered"
           | _ ->
           match h with
-          | HNow (IVar x) when old && List.mem x env.inputs ->
-              term_of_var env (pre_input_name x)
           | HNow e ->
               let t = compile_term env e in
               if old && not (is_const_iexpr e) then term_old t else t
-          | HPreK (IVar x, 1) when List.mem x env.inputs ->
-              let t =
-                if in_post
-                then term_of_var env (pre_input_old_name x)
-                else term_of_var env (pre_input_name x)
-              in
-              t
           | HPreK (_e,_) ->
               begin match find_pre_k env h with
               | None -> failwith "pre_k not registered"
@@ -314,16 +298,10 @@ let ltl_spec (env:env) (f:fo_ltl) : spec_frag =
       { pre = [pre_t]; post = [post_t] }
 let pre_k_source_expr (env:env) (e:iexpr) : Ptree.expr =
   match e with
-  | IVar x ->
-      if List.mem x env.inputs
-      then field env (pre_input_name x)
-      else field env x
+  | IVar x -> field env x
   | _ -> failwith "pre_k expects a variable as first argument"
 
 let pre_k_source_term (env:env) (e:iexpr) : Ptree.term =
   match e with
-  | IVar x ->
-      if List.mem x env.inputs
-      then term_of_var env (pre_input_name x)
-      else term_of_var env x
+  | IVar x -> term_of_var env x
   | _ -> failwith "pre_k expects a variable as first argument"

@@ -41,11 +41,7 @@ let apply_fold_step ~(acc:ident) ~(op:op) ~(e:iexpr) : stmt list =
       in
       [SAssign (acc, rhs)]
 
-let pre_k_source_expr ~(inputs:vdecl list) (e:iexpr) : iexpr =
-  match e with
-  | IVar v when List.exists (fun vd -> vd.vname = v) inputs ->
-      IVar (pre_input_name v)
-  | _ -> e
+let pre_k_source_expr (e:iexpr) : iexpr = e
 
 let transform_node_ghost (n:node) : node =
   let init_for_var =
@@ -91,47 +87,11 @@ let transform_node_ghost (n:node) : node =
   let has_initial_only_contracts =
     List.exists is_initial_only (n.assumes @ n.guarantees)
   in
-  let max_k_guard =
-    let k_guard_fo f =
-      (normalize_ltl_for_k ~init_for_var (ltl_of_fo f)).k_guard
-    in
-    let k_guard_ltl f =
-      (normalize_ltl_for_k ~init_for_var f).k_guard
-    in
-    let inv_fo =
-      List.filter_map
-        (function
-          | InvariantStateRel (_is_eq, _st, f) -> Some f
-          | Invariant _ -> None)
-        n.invariants_mon
-    in
-    let ks =
-      List.filter_map k_guard_fo (transition_fo @ inv_fo)
-      @ List.filter_map k_guard_ltl (n.assumes @ n.guarantees)
-    in
-    List.fold_left max 0 ks
-  in
-  let needs_step_count = max_k_guard > 0 in
-  let needs_first_step_folds = List.exists (fun fi -> fi.init_flag = None) folds in
-  let needs_first_step = needs_first_step_folds || has_initial_only_contracts in
+  let needs_step_count = false in
+  let needs_first_step = false in
 
   let locals =
     let locals = ref n.locals in
-    List.iter
-      (fun v ->
-         locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
-           (pre_input_name v.vname) v.vty)
-      n.inputs;
-    List.iter
-      (fun v ->
-         locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
-           (pre_input_old_name v.vname) v.vty)
-      n.inputs;
-    List.iter
-      (fun v ->
-         locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
-           (pre_input_old_name v.vname) v.vty)
-      (n.locals @ n.outputs);
     List.iter
       (fun info ->
          List.iter
@@ -140,12 +100,6 @@ let transform_node_ghost (n:node) : node =
                 name info.vty)
            info.names)
       pre_k_infos;
-    if needs_first_step then
-      locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
-        "__first_step" TBool;
-    if needs_step_count then
-      locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
-        "__step_count" TInt;
     List.iter
       (fun (_ghost_acc, _acc, init_done) ->
          locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
@@ -169,8 +123,7 @@ let transform_node_ghost (n:node) : node =
              let init_cond =
                match fi.init_flag with
                | Some init_done -> IUn (Not, IVar init_done)
-               | None ->
-                   if needs_first_step then IVar "__first_step" else ILitBool false
+               | None -> ILitBool false
              in
              Some (SIf (init_cond, init_branch, step_branch))
          | None -> None)
@@ -181,24 +134,9 @@ let transform_node_ghost (n:node) : node =
       (fun (_ghost_acc, _acc, init_done) -> SAssign (init_done, ILitBool true))
       fold_init_links
   in
-  let pre_old_updates =
-    List.map
-      (fun v ->
-         SAssign (pre_input_old_name v.vname, IVar (pre_input_name v.vname)))
-      n.inputs
-  in
-  let pre_old_local_updates =
-    List.map
-      (fun v ->
-         SAssign (pre_input_old_name v.vname, IVar v.vname))
-      (n.locals @ n.outputs)
-  in
-  let pre_updates =
-    List.map
-      (fun v ->
-         SAssign (pre_input_name v.vname, IVar v.vname))
-      n.inputs
-  in
+  let pre_old_updates = [] in
+  let pre_old_local_updates = [] in
+  let pre_updates = [] in
   let pre_k_updates =
     List.concat_map
       (fun info ->
@@ -217,23 +155,26 @@ let transform_node_ghost (n:node) : node =
            match names with
            | [] -> []
            | name :: _ ->
-               [SAssign (name, pre_k_source_expr ~inputs:n.inputs info.expr)]
+               [SAssign (name, pre_k_source_expr info.expr)]
          in
          shifts @ first)
       pre_k_infos
   in
-  let step_count_update =
-    if not needs_step_count then []
-    else
-      let cond = IBin (Lt, IVar "__step_count", ILitInt max_k_guard) in
-      let inc =
-        SAssign ("__step_count",
-                 IBin (Add, IVar "__step_count", ILitInt 1))
-      in
-      [SIf (cond, [inc], [])]
-  in
-  let first_step_update =
-    if needs_first_step then [SAssign ("__first_step", ILitBool false)] else []
+  let pre_k_links : fo list =
+    List.concat_map
+      (fun info ->
+         match info.names with
+         | [] -> []
+         | first :: rest ->
+             let first_link = FRel (HNow (IVar first), REq, HPreK (info.expr, 1)) in
+             let rec build acc prev = function
+               | [] -> List.rev acc
+               | name :: tl ->
+                   let link = FRel (HNow (IVar name), REq, HPreK (IVar prev, 1)) in
+                   build (link :: acc) name tl
+             in
+             first_link :: build [] first rest)
+      pre_k_infos
   in
   let ghost_base = [] in
   let reset_flags = [] in
@@ -242,7 +183,7 @@ let transform_node_ghost (n:node) : node =
       (fun (t:transition) ->
          let _ghost = ghost_base in
          let _reset = reset_flags in
-         { t with ghost = t.ghost })
+         { t with ghost = t.ghost; ensures = t.ensures @ pre_k_links })
       n.trans
   in
   { n with locals; trans }
