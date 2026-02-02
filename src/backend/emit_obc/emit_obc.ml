@@ -439,7 +439,7 @@ let transition_lines (indent:int) (t:transition)
     |> List.map (prettify_pre_old ~init_for_var ~vars)
   in
   let ghost_header =
-    if body_ghost = [] then []
+    if ghost_lines = [] then []
     else [comment_line (indent + 1) "ghost code"]
   in
   let user_header =
