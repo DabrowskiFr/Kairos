@@ -1,8 +1,8 @@
 type cli_config = {
   dump_dot : string option;
-  dump_dot_labels : string option;
+  dump_dot_short : string option;
+
   dump_obc : string option;
-  no_prefix : bool;
   show_help : bool;
   prove : bool;
   prover : string;
@@ -10,15 +10,18 @@ type cli_config = {
   dump_json : string option;
   dump_ast : (string * string) option;
   dump_ast_all : string option;
-  trace : bool;
   files : string list;
+  log_level : string;
+  log_format : string;
+  log_color : string;
+  log_file : string option;
 }
 
 let default_config = {
   dump_dot = None;
-  dump_dot_labels = None;
+  dump_dot_short = None;
+
   dump_obc = None;
-  no_prefix = true;
   show_help = false;
   prove = false;
   prover = "z3";
@@ -26,42 +29,43 @@ let default_config = {
   dump_json = None;
   dump_ast = None;
   dump_ast_all = None;
-  trace = false;
   files = [];
+  log_level = "normal";
+  log_format = "pretty";
+  log_color = "auto";
+  log_file = None;
 }
 
 let usage_text =
   "Usage: obc2why3\n" ^
-  "                [--dump-dot <file.dot>]\n" ^
-  "                [--dump-dot-labels <file.dot>]\n" ^
-  "                [--dump-json <file.json>|-]\n" ^
-  "                [--dump-obc <file.obc+>]\n" ^
-  "                [--dump-ast <stage> <file|->]\n" ^
-  "                [--dump-ast-all <dir>]\n" ^
-  "                [--trace-stages]\n" ^
-  "                [-o <file.why>]\n" ^
-  "                [--prove --prover <name>] <file.obc>\n" ^
+  "  [--dump-dot <file|->] [--dump-dot-short <file|->] [--dump-json <file|->]\n" ^
+  "  [--dump-obc <file|->] [--dump-why <file|->] [--dump-ast <stage> <file|->]\n" ^
+  "  [--dump-ast-all <dir>]\n" ^
+  "  [--log-level <quiet|normal|verbose|debug|trace>] [--log-format <pretty|json>]\n" ^
+  "  [--log-color <auto|always|never>] [--log-file <path>] [--version]\n" ^
+  "  [--prove --prover <name>] <file.obc>\n" ^
   "Options:\n" ^
-  "  --help               Show this help message\n" ^
-  "  --no-prefix          Do not prefix vars fields with the module name (default)\n" ^
-  "  --dump-dot           Generate DOT for the monitor residual graph only\n" ^
-  "                       (writes node/edge labels to <file>.labels)\n" ^
-  "  --dump-dot-labels    Generate DOT with full node/edge labels\n" ^
-  "  --dump-json          Dump internal AST as JSON to file (or - for stdout)\n" ^
-  "  --dump-obc           Dump augmented OBC (monitor-instrumented) to file\n" ^
-  "  --dump-ast <stage> <file|->\n" ^
-  "                       Dump AST after stage: " ^
-    (String.concat "|" (List.map Stage_names.to_string Stage_names.all)) ^ "\n" ^
-  "  --dump-ast-all <dir> Dump all AST stages as JSON into <dir>\n" ^
-  "  --trace-stages       Trace stage execution to stderr\n" ^
-  "  -o <file.why>        Write generated Why3 to this file\n" ^
-  "  --prove              Run why3 prove on the generated output\n" ^
-  "  --prover <name>      Prover for --prove (default: z3)\n" ^
+  "  --help                           Show this help message\n" ^
+  "  --dump-dot <file|->              Generate DOT with full node/edge labels\n" ^
+  "  --dump-dot-short <file|->        Generate DOT with short labels and <file>.labels output\n" ^
+  "  --dump-json <file|->             Dump internal AST as JSON to file (or - for stdout)\n" ^
+  "  --dump-obc <file|->              Dump augmented OBC (monitor-instrumented) to file\n" ^
+  "  --dump-why <file|->              Dump Why3 to file (or - for stdout)\n" ^
+  "  --dump-ast <stage> <file|->      Dump AST after stage: " ^
+    (String.concat "|" (List.map Stage_names.to_string Stage_names.ast_stages)) ^ "\n" ^
+  "  --dump-ast-all <dir>             Dump all AST stages as JSON into <dir>\n" ^
+  "  --version                        Show tool version\n" ^
+  "  --log-level <level>              Log verbosity (quiet|normal|verbose|debug|trace)\n" ^
+  "  --log-format <format>            Log format (pretty|json)\n" ^
+  "  --log-color <mode>               Color mode (auto|always|never)\n" ^
+  "  --log-file <path>                Write logs to file instead of stderr\n" ^
+  "  --prove                          Run why3 prove on the generated output\n" ^
+  "  --prover <name>                  Prover for --prove (default: z3)\n" ^
   "Examples:\n" ^
   "  obc2why3 --dump-dot out.dot input.obc\n" ^
   "  obc2why3 --dump-ast automaton - input.obc\n" ^
   "  obc2why3 --dump-ast-all out_ast input.obc\n" ^
-  "  obc2why3 -o out.why input.obc\n"
+  "  obc2why3 --dump-why out.why input.obc\n"
 
 let parse_args () : (cli_config, string) result =
   let argv = Sys.argv in
@@ -71,13 +75,12 @@ let parse_args () : (cli_config, string) result =
     else
       match argv.(i) with
       | "--help" -> loop (i + 1) { cfg with show_help = true }
-      | "--no-prefix" -> loop (i + 1) { cfg with no_prefix = true }
       | "--dump-dot" ->
           if i + 1 >= len then Error "Missing argument for --dump-dot"
           else loop (i + 2) { cfg with dump_dot = Some argv.(i + 1) }
-      | "--dump-dot-labels" ->
-          if i + 1 >= len then Error "Missing argument for --dump-dot-labels"
-          else loop (i + 2) { cfg with dump_dot_labels = Some argv.(i + 1) }
+      | "--dump-dot-short" ->
+          if i + 1 >= len then Error "Missing argument for --dump-dot-short"
+          else loop (i + 2) { cfg with dump_dot_short = Some argv.(i + 1) }
       | "--dump-obc" ->
           if i + 1 >= len then Error "Missing argument for --dump-obc"
           else loop (i + 2) { cfg with dump_obc = Some argv.(i + 1) }
@@ -93,13 +96,27 @@ let parse_args () : (cli_config, string) result =
       | "--dump-ast-all" ->
           if i + 1 >= len then Error "Missing argument for --dump-ast-all"
           else loop (i + 2) { cfg with dump_ast_all = Some argv.(i + 1) }
-      | "-o" ->
-          if i + 1 >= len then Error "Missing argument for -o"
+      | "--dump-why" ->
+          if i + 1 >= len then Error "Missing argument for --dump-why"
           else loop (i + 2) { cfg with output_file = Some argv.(i + 1) }
       | "--prover" ->
           if i + 1 >= len then Error "Missing argument for --prover"
           else loop (i + 2) { cfg with prover = argv.(i + 1) }
-      | "--trace-stages" -> loop (i + 1) { cfg with trace = true }
+      | "--version" ->
+          print_endline "obc2why3 0.1";
+          exit 0
+      | "--log-level" ->
+          if i + 1 >= len then Error "Missing argument for --log-level"
+          else loop (i + 2) { cfg with log_level = argv.(i + 1) }
+      | "--log-format" ->
+          if i + 1 >= len then Error "Missing argument for --log-format"
+          else loop (i + 2) { cfg with log_format = argv.(i + 1) }
+      | "--log-color" ->
+          if i + 1 >= len then Error "Missing argument for --log-color"
+          else loop (i + 2) { cfg with log_color = argv.(i + 1) }
+      | "--log-file" ->
+          if i + 1 >= len then Error "Missing argument for --log-file"
+          else loop (i + 2) { cfg with log_file = Some argv.(i + 1) }
       | arg when String.length arg > 0 && arg.[0] = '-' ->
           Error ("Unknown option: " ^ arg)
       | arg -> loop (i + 1) { cfg with files = cfg.files @ [arg] }
@@ -114,16 +131,19 @@ let validate_config (cfg:cli_config) : (cli_config, string) result =
        || (cfg.dump_json <> None && cfg.dump_ast_all <> None)
        || (cfg.dump_ast <> None && cfg.dump_ast_all <> None) then
     Error "--dump-json/--dump-ast/--dump-ast-all are mutually exclusive"
-  else if (cfg.dump_dot <> None || cfg.dump_dot_labels <> None || cfg.dump_obc <> None
+  else if (cfg.dump_dot <> None || cfg.dump_dot_short <> None || cfg.dump_obc <> None
            || cfg.dump_ast <> None || cfg.dump_ast_all <> None)
           && (cfg.prove || cfg.output_file <> None) then
-    Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or -o"
+    Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
   else if cfg.dump_obc <> None
-          && (cfg.dump_dot <> None || cfg.dump_dot_labels <> None
+          && (cfg.dump_dot <> None || cfg.dump_dot_short <> None
               || cfg.dump_ast <> None || cfg.dump_ast_all <> None) then
-    Error "--dump-obc cannot be combined with --dump-dot, --dump-dot-labels, or --dump-ast"
-  else if cfg.dump_dot <> None && cfg.dump_dot_labels <> None then
-    Error "--dump-dot and --dump-dot-labels are mutually exclusive"
+    Error "--dump-obc cannot be combined with --dump-dot/--dump-dot-short or --dump-ast"
+  else if cfg.dump_dot <> None && cfg.dump_dot_short <> None then
+    Error "--dump-dot and --dump-dot-short are mutually exclusive"
+  else if cfg.dump_dot = None && cfg.dump_dot_short = None && cfg.dump_obc = None
+          && cfg.output_file = None && not cfg.prove then
+    Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
   else Ok cfg
 
 let run () =
@@ -145,6 +165,27 @@ let run () =
         print_string usage_text;
         exit 0
       );
+      let log_level =
+        match Logger.parse_level cfg.log_level with
+        | Ok v -> v
+        | Error msg -> prerr_endline msg; exit 1
+      in
+      let log_format =
+        match Logger.parse_format cfg.log_format with
+        | Ok v -> v
+        | Error msg -> prerr_endline msg; exit 1
+      in
+      let log_color =
+        match Logger.parse_color cfg.log_color with
+        | Ok v -> v
+        | Error msg -> prerr_endline msg; exit 1
+      in
+      let log_output =
+        match cfg.log_file with
+        | None -> stderr
+        | Some path -> open_out path
+      in
+      Logger.set_config { level = log_level; format = log_format; color = log_color; output = log_output };
       let file = List.hd (List.rev cfg.files) in
       let dump_ast_stage, dump_ast_out =
         match cfg.dump_ast, cfg.dump_json with
@@ -165,16 +206,16 @@ let run () =
         |> Result.map (fun dump_ast_stage ->
             {
               Stages.dump_dot = cfg.dump_dot;
-              dump_dot_labels = cfg.dump_dot_labels;
+              dump_dot_short = cfg.dump_dot_short;
+
               dump_obc = cfg.dump_obc;
               dump_ast_stage;
               dump_ast_out;
               dump_ast_all = cfg.dump_ast_all;
-              trace = cfg.trace;
               output_file = cfg.output_file;
               prove = cfg.prove;
               prover = cfg.prover;
-              prefix_fields = not cfg.no_prefix;
+              prefix_fields = false;
               input_file = file;
             })
       in

@@ -4,8 +4,11 @@ type stage_id =
   | Contracts
   | Monitor
   | Obc
+  | Why
+  | Prove
 
-let all = [Parsed; Automaton; Contracts; Monitor; Obc]
+let ast_stages = [Parsed; Automaton; Contracts; Monitor; Obc]
+let all = ast_stages @ [Why; Prove]
 
 let to_string = function
   | Parsed -> "parsed"
@@ -13,6 +16,8 @@ let to_string = function
   | Contracts -> "contracts"
   | Monitor -> "monitor"
   | Obc -> "obc"
+  | Why -> "why"
+  | Prove -> "prove"
 
 let description = function
   | Parsed -> "after parsing"
@@ -20,6 +25,8 @@ let description = function
   | Contracts -> "after user contract coherency"
   | Monitor -> "after monitor injection"
   | Obc -> "after OBC stage"
+  | Why -> "after Why3 generation"
+  | Prove -> "after Why3 proof"
 
 let of_string = function
   | "parsed" -> Ok Parsed
@@ -30,5 +37,5 @@ let of_string = function
   | other ->
       Error
         ("Unknown stage for --dump-ast. Use: "
-         ^ String.concat "|" (List.map to_string all)
+         ^ String.concat "|" (List.map to_string ast_stages)
          ^ " (got " ^ other ^ ")")

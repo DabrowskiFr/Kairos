@@ -13,6 +13,7 @@
   stage_types
   stage_names
   stages_info
+  logger
   stage_io
   cli
   contract_link

@@ -10,6 +10,7 @@ val dump_ast_all :
   obc:Ast.program ->
   (unit, string) result
 
+
 val emit_dot_files :
   show_labels:bool -> out_file:string -> Ast.program -> unit
 
@@ -18,7 +19,11 @@ val emit_obc_file : out_file:string -> Ast.program -> unit
 val emit_why :
   prefix_fields:bool ->
   output_file:string option ->
-  prove:bool ->
-  prover:string ->
   Ast.program ->
+  string
+
+val prove_why :
+  prover:string ->
+  output_file:string option ->
+  why_text:string ->
   unit
