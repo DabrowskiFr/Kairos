@@ -1,0 +1,25 @@
+node and2_history(x: int) returns (y: int)
+guarantee G( {y} = {1} => pre_k(x, 1) = {1} and pre_k(x, 2) = {1} );
+guarantee G( pre_k(x, 1) = {1} and pre_k(x, 2) = {1} => {y} = {1} );
+locals
+  prev1 : int;
+  prev2 : int;
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    y := 0;
+    prev1 := x;
+    prev2 := 0;
+  }
+  Run -> Run {
+    if prev1 = 1 and prev2 = 1 then
+      y := 1;
+    else
+      y := 0;
+    end;
+    prev2 := prev1;
+    prev1 := x;
+  }
+end

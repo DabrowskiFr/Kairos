@@ -1,5 +1,5 @@
 node delay_int2(x: int) returns (y: int)
-guarantee G( {y} = pre_k(x, 2) );
+guarantee X(X(G( {y} = pre_k(x, 2) )));
 locals
   prev1: int;
   prev2: int;
@@ -11,19 +11,22 @@ trans
     ensures {prev1} = {x};
     ensures {prev2} = {0};
     y := 0;
-    prev1 := 0;
+    prev1 := x;
     prev2 := 0;
   }
   Init2 -> Run {
-    ensures {prev2} = pre(prev1);
+    requires {prev1} = pre_k(x, 1);
     ensures {prev1} = {x};
+    ensures {prev2} = pre_k(x, 1);
     y := 0;
     prev2 := prev1;
     prev1 := x;
   }
   Run -> Run {
-    ensures {prev2} = pre(prev1);
+    requires {prev1} = pre_k(x, 1);
+    requires {prev2} = pre_k(x,2);
     ensures {prev1} = {x};
+    ensures {prev2} = pre_k(x, 1);
     y := prev2;
     prev2 := prev1;
     prev1 := x;

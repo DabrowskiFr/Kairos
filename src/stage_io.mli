@@ -24,6 +24,5 @@ val emit_why :
 
 val prove_why :
   prover:string ->
-  output_file:string option ->
   why_text:string ->
   unit

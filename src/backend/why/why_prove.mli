@@ -12,4 +12,4 @@ type result = {
   summary : summary;
 }
 
-val prove_file : ?timeout:int -> prover:string -> file:string -> unit -> result
+val prove_text : ?timeout:int -> prover:string -> text:string -> unit -> result

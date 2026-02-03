@@ -114,20 +114,11 @@ let emit_why
 
 let prove_why
   ~(prover:string)
-  ~(output_file:string option)
   ~(why_text:string)
   : unit =
-  let prove_path, remove_after =
-    match output_file with
-    | Some path when path <> "-" -> (path, false)
-    | _ ->
-        let tmp = Filename.temp_file "obc2why3_" ".why" in
-        write_text tmp why_text;
-        (tmp, true)
-  in
   let t_prove = Unix.gettimeofday () in
   Logger.stage_start Stage_names.Prove;
-  let result = Why_prove.prove_file ~prover ~file:prove_path () in
+  let result = Why_prove.prove_text ~prover ~text:why_text () in
   let duration_ms =
     int_of_float ((Unix.gettimeofday () -. t_prove) *. 1000.)
   in
@@ -164,5 +155,4 @@ let prove_why
       (Printf.sprintf
          "Why3: proof failed (%d/%d goals not proved)"
          failed summary.total);
-  if result.status <> 0 then exit result.status;
-  if remove_after then Sys.remove prove_path
+  if result.status <> 0 then exit result.status

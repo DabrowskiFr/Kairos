@@ -184,7 +184,6 @@ let run (cfg:config) : (unit, string) result =
                 if cfg.prove then
                   Stage_io.prove_why
                     ~prover:cfg.prover
-                    ~output_file:cfg.output_file
                     ~why_text;
                 Ok ()
           end

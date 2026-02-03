@@ -27,7 +27,7 @@ let test_compile_term_var () : unit =
       inst_map = [];
       inputs = [] }
   in
-  let term = Compile_expr.compile_term env (Ast.IVar "x") in
+  let term = Why_compile_expr.compile_term env (Ast.IVar "x") in
   let rendered = Support.string_of_term term in
   assert (rendered = "vars.x")
 
@@ -53,7 +53,7 @@ let test_pre_k_infos_for_pre () : unit =
       assumes =
         [ Ast.LAtom
             (Ast.FRel
-               (Ast.HPreK (Ast.IVar "x", Ast.ILitInt 0, 1),
+               (Ast.HPreK (Ast.IVar "x", 1),
                 Ast.REq,
                 Ast.HNow (Ast.ILitInt 0))) ];
       guarantees = [];
@@ -67,7 +67,7 @@ let test_pre_k_infos_for_pre () : unit =
   let infos = Collect.build_pre_k_infos n in
   match infos with
   | [ (_h, info) ] ->
-      assert (info.names = [ "__pre_k1_x_1" ])
+      assert (info.names = [ "__pre_k1_x" ])
   | _ -> assert false
 
 let test_collect_empty_folds () : unit =

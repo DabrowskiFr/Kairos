@@ -1,0 +1,5 @@
+(cram
+ (alias runtest)
+ (deps
+  %{bin:obc2why3}
+  (glob_files inputs/*.obc)))
