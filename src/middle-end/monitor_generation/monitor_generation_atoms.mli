@@ -16,4 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let () = Cli.run ()
+type monitor_generation_atoms = {
+  atom_map: (Ast.fo * Ast.ident) list;
+  atom_named_exprs: (Ast.ident * Ast.iexpr) list;
+}
+
+val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
+(** Generate stable, unique atom names from atom expressions. *)
+
+val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
+(** Inline atom variables inside a boolean expression using a name->expr map. *)
+
+val collect_monitor_atoms : Ast.node -> monitor_generation_atoms
+(** Collect and validate atoms used by the monitor construction. *)

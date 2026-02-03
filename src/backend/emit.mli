@@ -49,6 +49,7 @@ val fold_post_terms :
 type spec_groups = { pre_labels : string list; post_labels : string list; }
 type comment_specs =
   Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
+type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list; }
 (** Compile node. *)
 val compile_node :
   prefix_fields:bool ->
@@ -62,3 +63,8 @@ val compile_program :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
   Ast.program -> string
+val compile_program_ast :
+  ?prefix_fields:bool ->
+  ?comment_map:(Ast.ident * comment_specs) list ->
+  Ast.program -> program_ast
+val emit_program_ast : program_ast -> string

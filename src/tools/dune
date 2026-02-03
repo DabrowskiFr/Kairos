@@ -1,0 +1,6 @@
+(include_subdirs no)
+
+(executable
+ (name gen_pipeline_dot)
+ (modules gen_pipeline_dot)
+ (libraries obcwhy3_lib))

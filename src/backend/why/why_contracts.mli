@@ -16,4 +16,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let () = Cli.run ()
+(** {1 Fold Contracts} *)
+
+(** Compute fold post terms. *)
+val fold_post_terms : Support.env -> Support.fold_info -> Why3.Ptree.term list
+
+(** {1 Contract Assembly} *)
+
+(** Pre/post conditions with label groups for UI diagnostics. *)
+type contract_info = Why_types.contract_info
+
+(** Enable/disable pure translation mode (no extra contract generation). *)
+val set_pure_translation : bool -> unit
+
+(** {2 Invariants}
+
+    - [build_contracts] expects [env_info] produced by [prepare_node]. *)
+
+(** Build full contract terms (pre/post) and their labels. *)
+val build_contracts :
+  nodes:Ast.node list ->
+  Why_env.env_info ->
+  contract_info

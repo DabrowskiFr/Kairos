@@ -16,4 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let () = Cli.run ()
+(** {1 Monitor Constructor Discovery} *)
+
+(** Detect if an identifier is a monitor state constructor. *)
+val is_mon_state_ctor : string -> bool
+(** Collect monitor state constructors referenced by a node. *)
+val collect_mon_state_ctors : Ast.node -> Ast.ident list
+
+(** {1 Why3 Environment Preparation} *)
+
+(** Precomputed data for emitting a node. *)
+type env_info = Why_types.env_info
+
+(** {2 Invariants}
+
+    - [node] is the node used for emission.
+    - [inputs] includes the implicit [vars] record binder (and inputs if any).
+    - [env] records links/ghosts/pre_k derived from [node] and collection passes. *)
+
+(** Build environment data needed by the Why3 emission stages. *)
+val prepare_node : prefix_fields:bool -> nodes:Ast.node list -> Ast.node -> env_info

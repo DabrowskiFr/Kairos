@@ -3,26 +3,41 @@
  (wrapped false)
  (modules
   ast
+  ast_dump
+  frontend
   lexer
   parser
+  parse_file
   support
   collect
+  stage_types
+  stage_names
+  stages_info
+  stage_io
+  cli
   contract_link
-  compile_expr
-  emit_obc
-  emit_why_types
-  emit_why_env
-  emit_why_contracts
-  emit_why_diagnostics
-  emit_why_core
+  middle_end_stages
+  middle_end
+  stages
+  why_compile_expr
+  obc_stage
+  obc_emit
+  obc_ghost_instrument
+  why_types
+  why_prove
+  why_env
+  why_contracts
+  why_diagnostics
+  why_core
+  why_emit
   emit
-  monitor_atoms
-  monitor_spec
-  monitor_automaton
+  backend
+  monitor_generation_atoms
+  monitor_generation_spec
+  monitor_generation
   monitor_instrument
-  ghost_instrument
-  dot
-  monitor_emit
+  dot_emit
+  why_stage
   fo_specs
   fo_time
   automaton_util

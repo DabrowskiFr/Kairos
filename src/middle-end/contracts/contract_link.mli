@@ -16,4 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let () = Cli.run ()
+(** {1 Contract Linking} *)
+(** Drop any invariants provided by the frontend input. *)
+val user_contracts_coherency : Ast.user_node -> Ast.user_node
+(** Add post-conditions that imply successor requires (user contracts only). *)
+val ensure_next_requires : Ast.user_node -> Ast.internal_node
+(** Add post-conditions that imply successor requires. *)

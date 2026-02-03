@@ -22,21 +22,22 @@ open Ptree
 open Ast
 open Support
 open Collect
-open Compile_expr
+open Why_compile_expr
 
-let compile_seq = Emit_why_core.compile_seq
-let apply_op = Emit_why_core.apply_op
-let compile_state_branch = Emit_why_core.compile_state_branch
-let compile_transitions = Emit_why_core.compile_transitions
-let fold_post_terms = Emit_why_contracts.fold_post_terms
+let compile_seq = Why_core.compile_seq
+let apply_op = Why_core.apply_op
+let compile_state_branch = Why_core.compile_state_branch
+let compile_transitions = Why_core.compile_transitions
+let fold_post_terms = Why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
   Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
+type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
 let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Emit_why_env.prepare_node ~prefix_fields ~nodes n in
+  let info = Why_env.prepare_node ~prefix_fields ~nodes n in
   let n = info.node in
   let module_name = info.module_name in
   let imports = info.imports in
@@ -126,7 +127,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
     main
   in
 
-  let contracts = Emit_why_contracts.build_contracts ~nodes info in
+  let contracts = Why_contracts.build_contracts ~nodes info in
   let pre = contracts.pre in
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
@@ -286,7 +287,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string =
+let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:program)
+  : program_ast =
   let lookup_comment name =
     List.assoc_opt name comment_map
   in
@@ -299,9 +301,19 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
              compile_node ~prefix_fields ?comment_specs:(lookup_comment n.nname) nodes n)
           nodes
   in
+  let mlw = Ptree.Modules (List.map (fun (a,b,c,_,_) -> (a,b,c)) modules) in
+  let module_info =
+    List.map
+      (fun (id, _, _, _, groups) -> (id.id_str, groups))
+      modules
+  in
+  { mlw; module_info }
+
+let emit_program_ast (ast:program_ast) : string =
+  let mlw = ast.mlw in
+  let module_info = ast.module_info in
   let buf = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buf in
-  let mlw = Ptree.Modules (List.map (fun (a,b,c,_,_) -> (a,b,c)) modules) in
   Mlw_printer.pp_mlw_file fmt mlw;
   Format.pp_print_flush fmt ();
   let out = Buffer.contents buf in
@@ -410,12 +422,6 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
             | [] -> List.rev acc
           in
           build [] module_starts
-    in
-    let module_info =
-      List.map
-        (fun (id, _, _, _, groups) ->
-           (id.id_str, groups))
-        modules
     in
     let comment_for label indent =
       indent ^ "(* " ^ label ^ " *)"
@@ -637,3 +643,7 @@ let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string
   in
   let out = annotate_vars_fields out in
   out
+
+let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string =
+  let ast = compile_program_ast ~prefix_fields ~comment_map p in
+  emit_program_ast ast
