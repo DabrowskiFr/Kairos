@@ -1,0 +1,5 @@
+Note
+- The use of pre_k(x,1) and pre_k(x,2) is undefined at the first instants.
+- We add two leading X to delay the guarantees so they only apply once history is defined.
+- A better model would include an explicit "undefined" history value (as in synchronous/reactive semantics),
+  or an explicit initialization policy for pre_k variables.

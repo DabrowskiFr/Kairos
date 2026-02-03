@@ -8,15 +8,12 @@ states
 init Green
 trans
   Green -> Yellow {
-    requires {color} = {0};
     color := 1;
   }
   Yellow -> Red {
-    requires {color} = {1};
     color := 2;
   }
   Red -> Green {
-    requires {color} = {2};
     color := 0;
   }
 end

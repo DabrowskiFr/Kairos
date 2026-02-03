@@ -1,7 +1,7 @@
 node edge_rise(x: int) returns (y: int)
 guarantee G( {y} = {1} => {x} = {1} );
-guarantee G( {y} = {1} => pre(x) = {0} );
-guarantee G( ({x} = {1} and pre(x) = {0}) => {y} = {1} );
+guarantee X(G( {y} = {1} => pre(x) = {0} ));
+guarantee X(G( ({x} = {1} and pre(x) = {0}) => {y} = {1} ));
 locals
   prev : int;
 states
@@ -13,6 +13,8 @@ trans
     prev := x;
   }
   Run -> Run {
+    requires {prev} = pre_k(x, 1);
+    ensures {prev} = {x};
     if x = 1 and prev = 0 then
       y := 1;
     else

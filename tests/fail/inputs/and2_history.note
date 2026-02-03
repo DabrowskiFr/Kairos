@@ -1,0 +1,5 @@
+Note
+- The initial monitor node (Mon0) has only "true" outgoing arcs in the DOT.
+- Therefore no compatibility constraint of the form "Mon0 -> formula(pre_k)" should be generated.
+- If such constraints appear, it points to a bug in the compatibility construction (likely using node formulas instead of arc labels, or wrong state mapping).
+- We should fix this at the construction level (not by filtering/patching after the fact).

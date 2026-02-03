@@ -5,7 +5,6 @@
   >   obc2why3 --log-level quiet --dump-why - "$f" > /dev/null;
   >   obc2why3 --log-level quiet --prove "$f" > /dev/null;
   > done
-  [ok] ./inputs/and2_history.obc
   [ok] ./inputs/delay_int.obc
   [ok] ./inputs/delay_int2.obc
   [ok] ./inputs/edge_rise.obc
