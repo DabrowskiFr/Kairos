@@ -149,62 +149,99 @@ let () =
   let css = GObj.css_provider () in
   css#load_from_data
     {|
-* {
+.window, * {
   font-size: 12px;
+  font-family: "SF Pro Text", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
 }
 .actionbar {
-  padding: 4px 4px;
+  padding: 4px 6px;
+  background: #f6f6f6;
+  border-bottom: 1px solid #e3e3e3;
 }
 .actionbar button {
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 6px;
+  border: 1px solid #d6d6d6;
+  background: #ffffff;
+}
+.actionbar button:hover {
+  background: #f2f2f2;
+}
+.actionbar button.active {
+  background: #e8effb;
+  border-color: #0a84ff;
+  color: #0a2f6f;
+}
+.actionbar label.toolbar-label {
+  color: #6b6b6b;
+  font-size: 11px;
+}
+.segmented button {
+  border-radius: 0;
+  border-right-width: 0;
+}
+.segmented button:first-child {
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.segmented button:last-child {
+  border-right-width: 1px;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+.vsep {
+  background: #dddddd;
 }
 .actionbar button.primary {
-  background: #4c7bbd;
+  background: #0a84ff;
   color: #ffffff;
-  border-color: #4c7bbd;
+  border-color: #0a84ff;
 }
 .actionbar button.primary:hover {
-  background: #3f6aa6;
+  background: #0077f0;
 }
 .actionbar entry, .actionbar combobox {
-  padding: 1px 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #d6d6d6;
+  background: #ffffff;
 }
 .main-tabs tab {
-  padding: 3px 8px;
-  color: #6b7785;
+  padding: 4px 10px;
+  color: #6b6b6b;
+  border-radius: 8px 8px 0 0;
 }
 .main-tabs tab:checked {
-  color: #2b3745;
-  border-bottom: 2px solid #4c7bbd;
+  color: #1f1f1f;
+  border-bottom: 2px solid #0a84ff;
 }
 .status-row {
-  background: #f7f8fa;
-  border-top: 1px solid #dfe4ea;
+  background: #f6f6f6;
+  border-top: 1px solid #e3e3e3;
 }
 .status-tabs tab {
-  padding: 2px 8px;
+  padding: 3px 8px;
   font-size: 11px;
-  color: #6b7785;
+  color: #6b6b6b;
 }
 .muted {
-  color: #8b96a5;
+  color: #8a8a8a;
   font-size: 11px;
 }
 .cursor-badge {
-  background: #f3f5f8;
-  border: 1px solid #d7dce3;
-  border-radius: 6px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 7px;
 }
 .cursor-badge label {
-  color: #5f6b7a;
-  font-family: "Menlo", "Monaco", monospace;
+  color: #5a5a5a;
+  font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 11px;
 }
 .parse-badge {
-  background: #f3f5f8;
-  border: 1px solid #d7dce3;
-  border-radius: 6px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 7px;
 }
 .parse-badge.ok label {
   color: #2e7d32;
@@ -215,7 +252,7 @@ let () =
   font-size: 11px;
 }
 .separator {
-  background: #e1e5ea;
+  background: #e3e3e3;
 }
 treeview.goals row {
   padding: 2px;
@@ -255,18 +292,43 @@ treeview.goals row:selected {
 
   let toolbar = GPack.hbox ~spacing:8 ~packing:vbox#pack () in
   toolbar#misc#style_context#add_class "actionbar";
-  let open_btn = GButton.button ~label:"Open OBC" ~packing:toolbar#pack () in
-  let save_btn = GButton.button ~label:"Save OBC" ~packing:toolbar#pack () in
-  let rerun_btn = GButton.button ~label:"Re-run" ~packing:toolbar#pack () in
-  let monitor_btn = GButton.button ~label:"Monitor" ~packing:toolbar#pack () in
-  let obcplus_btn = GButton.button ~label:"OBC+" ~packing:toolbar#pack () in
-  let why_btn = GButton.button ~label:"Why3" ~packing:toolbar#pack () in
-  let obligations_btn = GButton.button ~label:"Obligations" ~packing:toolbar#pack () in
-  let prove_btn = GButton.button ~label:"Prove" ~packing:toolbar#pack () in
+
+  let file_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
+  file_group#misc#style_context#add_class "segmented";
+  let open_btn = GButton.button ~label:"Open OBC" ~packing:file_group#pack () in
+  let save_btn = GButton.button ~label:"Save OBC" ~packing:file_group#pack () in
+
+  let sep1 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
+  sep1#misc#style_context#add_class "vsep";
+
+  let pass_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
+  pass_group#misc#style_context#add_class "segmented";
+  let monitor_btn = GButton.button ~label:"Monitor" ~packing:pass_group#pack () in
+  let obcplus_btn = GButton.button ~label:"OBC+" ~packing:pass_group#pack () in
+  let why_btn = GButton.button ~label:"Why3" ~packing:pass_group#pack () in
+  let obligations_btn = GButton.button ~label:"Obligations" ~packing:pass_group#pack () in
+  let prove_btn = GButton.button ~label:"Prove" ~packing:pass_group#pack () in
   prove_btn#misc#style_context#add_class "primary";
-  ignore (GMisc.label ~text:"Prover:" ~packing:toolbar#pack ());
+  let pass_buttons =
+    [ monitor_btn; obcplus_btn; why_btn; obligations_btn; prove_btn ]
+  in
+  List.iter (fun b -> b#set_can_focus false) pass_buttons;
+
+  let sep2 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
+  sep2#misc#style_context#add_class "vsep";
+
+  let rerun_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
+  rerun_group#misc#style_context#add_class "segmented";
+  let rerun_btn = GButton.button ~label:"Re-run" ~packing:rerun_group#pack () in
+
+  let sep3 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
+  sep3#misc#style_context#add_class "vsep";
+
+  let options_group = GPack.hbox ~spacing:6 ~packing:toolbar#pack () in
+  let prover_label = GMisc.label ~text:"Prover:" ~packing:options_group#pack () in
+  prover_label#misc#style_context#add_class "toolbar-label";
   let prover_box, (prover_store, prover_col) =
-    GEdit.combo_box_text ~packing:toolbar#pack ()
+    GEdit.combo_box_text ~packing:options_group#pack ()
   in
   let add_prover p =
     let row = prover_store#append () in
@@ -274,8 +336,9 @@ treeview.goals row:selected {
   in
   List.iter add_prover ["z3"; "alt-ergo"; "cvc5"; "vampire"; "eprover"];
   prover_box#set_active 0;
-  ignore (GMisc.label ~text:"Timeout (s):" ~packing:toolbar#pack ());
-  let timeout_entry = GEdit.entry ~text:"30" ~width_chars:4 ~packing:toolbar#pack () in
+  let timeout_label = GMisc.label ~text:"Timeout (s):" ~packing:options_group#pack () in
+  timeout_label#misc#style_context#add_class "toolbar-label";
+  let timeout_entry = GEdit.entry ~text:"30" ~width_chars:4 ~packing:options_group#pack () in
 
 
   let toolbar_sep = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
@@ -486,6 +549,15 @@ treeview.goals row:selected {
       ~editable:false
       ()
   in
+  let task_tab = GMisc.label ~text:"Task" () in
+  let task_view, task_buf, task_page =
+    make_text_panel
+      ~label:""
+      ~packing:(fun w ->
+        ignore (notebook#append_page ~tab_label:task_tab#coerce w))
+      ~editable:false
+      ()
+  in
   let vc_keyword_tag =
     vc_buf#create_tag
       [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
@@ -595,9 +667,14 @@ treeview.goals row:selected {
   let text_views =
     [ obc_view; obcplus_view; why_view; vc_view; smt_view; dot_view ]
   in
+  let latest_vc_text = ref "" in
   let set_tab_sensitive page tab_label sensitive =
     page#misc#set_sensitive sensitive;
     tab_label#misc#set_sensitive sensitive
+  in
+  let show_task_tab () =
+    let idx = notebook#page_num task_page in
+    if idx >= 0 then notebook#goto_page idx
   in
   let show_page page =
     let idx = notebook#page_num page in
@@ -695,7 +772,8 @@ treeview.goals row:selected {
   List.iter
     (fun (page, tab) -> set_tab_sensitive page tab false)
     [ (obc_page, obc_tab); (obcplus_page, obcplus_tab); (why_page, why_tab);
-      (vc_page, vc_tab); (smt_page, smt_tab); (dot_page#coerce, dot_tab) ];
+      (vc_page, vc_tab); (task_page, task_tab); (smt_page, smt_tab);
+      (dot_page#coerce, dot_tab) ];
 
   obc_buf#connect#changed ~callback:(fun () ->
     if not !suppress_dirty then (
@@ -1293,12 +1371,6 @@ treeview.goals row:selected {
     | None -> ()
   in
 
-  let toggle_readonly = ref false in
-  let set_obc_editable () =
-    obc_view#set_editable (not !toggle_readonly);
-    obc_view#set_cursor_visible (not !toggle_readonly)
-  in
-
   let focus_mode = ref false in
   let apply_focus_mode () =
     if !focus_mode then (
@@ -1599,24 +1671,6 @@ treeview.goals row:selected {
     ~flags:[`VISIBLE]
     GdkKeysyms._f;
 
-  let view_readonly_item =
-    GMenu.menu_item ~label:"Toggle Readonly (OBC)" ~packing:view_menu#append ()
-  in
-  view_readonly_item#connect#activate ~callback:(fun () ->
-    toggle_readonly := not !toggle_readonly;
-    set_obc_editable ()
-  ) |> ignore;
-  view_readonly_item#add_accelerator
-    ~group:accel_group
-    ~modi:[`CONTROL; `SHIFT]
-    ~flags:[`VISIBLE]
-    GdkKeysyms._r;
-  view_readonly_item#add_accelerator
-    ~group:accel_group
-    ~modi:[`META; `SHIFT]
-    ~flags:[`VISIBLE]
-    GdkKeysyms._r;
-
   let confirm_save_if_dirty () =
     if not !dirty then true
     else (
@@ -1673,6 +1727,101 @@ treeview.goals row:selected {
     clear_goals ()
   in
 
+  let split_tasks vc_text =
+    let sep = "\n(* ---- goal ---- *)\n" in
+    let re = Str.regexp_string sep in
+    Str.split_delim re vc_text
+  in
+
+  let find_task_for_goal vc_text goal =
+    let tasks = split_tasks vc_text in
+    let re = Str.regexp (Printf.sprintf "\\bgoal[ \t]+%s\\b" (Str.quote goal)) in
+    let rec loop = function
+      | [] -> None
+      | t :: rest ->
+          if Str.string_match re t 0 || (try ignore (Str.search_forward re t 0); true with Not_found -> false)
+          then Some t
+          else loop rest
+    in
+    loop tasks
+  in
+
+  let render_task_sequent task goal =
+    let lines = String.split_on_char '\n' task in
+    let is_noise line =
+      let s = String.trim line in
+      s = "" || s = "theory" || s = "end"
+    in
+    let goal_re = Str.regexp (Printf.sprintf "^\\s*goal[ \t]+%s\\b" (Str.quote goal)) in
+    let rec find_goal_idx i = function
+      | [] -> None
+      | line :: rest ->
+          if Str.string_match goal_re line 0 then Some i
+          else find_goal_idx (i + 1) rest
+    in
+    let split_at_idx n lst =
+      let rec loop i acc = function
+        | [] -> (List.rev acc, [])
+        | x :: xs as all ->
+            if i = 0 then (List.rev acc, all)
+            else loop (i - 1) (x :: acc) xs
+      in
+      loop n [] lst
+    in
+    match find_goal_idx 0 lines with
+    | None -> task
+    | Some idx ->
+        let before, after = split_at_idx idx lines in
+        let goal_line_raw, goal_lines =
+          match after with
+          | [] -> ("", [])
+          | g :: rest -> (g, rest)
+        in
+        let goal_line =
+          try
+            let colon = String.index goal_line_raw ':' in
+            String.sub goal_line_raw (colon + 1) (String.length goal_line_raw - colon - 1)
+          with Not_found -> goal_line_raw
+        in
+        let hyps =
+          List.filter (fun l -> not (is_noise l)) before
+          |> List.map String.trim
+        in
+        let goal_text =
+          let rest =
+            List.map String.trim goal_lines
+            |> List.filter (fun s -> s <> "")
+          in
+          String.concat "\n" (String.trim goal_line :: rest)
+        in
+        let buf = Buffer.create 256 in
+        List.iter (fun h -> Buffer.add_string buf (h ^ "\n")) hyps;
+        Buffer.add_string buf "--------------------\n";
+        Buffer.add_string buf goal_text;
+        Buffer.contents buf
+  in
+
+  let set_task_view ~goal =
+    if !latest_vc_text = "" then task_buf#set_text ""
+    else
+      match find_task_for_goal !latest_vc_text goal with
+      | None -> task_buf#set_text "Task not found"
+      | Some task ->
+          let rendered = render_task_sequent task goal in
+          task_buf#set_text rendered
+  in
+
+  goal_view#selection#connect#changed ~callback:(fun () ->
+    match goal_view#selection#get_selected_rows with
+    | [] -> task_buf#set_text ""
+    | path :: _ ->
+        let row = goal_model#get_iter path in
+        let goal = goal_model#get ~row ~column:goal_col in
+        set_task_view ~goal;
+        set_tab_sensitive task_page task_tab true;
+        show_task_tab ()
+  ) |> ignore;
+
   let set_obcplus_buffer obc_text =
     obcplus_buf#set_text obc_text;
     highlight_obcplus obc_text;
@@ -1686,6 +1835,7 @@ treeview.goals row:selected {
   in
 
   let set_obligations_buffers ~vc ~smt =
+    latest_vc_text := vc;
     vc_buf#set_text vc;
     smt_buf#set_text smt;
     highlight_vc_buf vc;
@@ -1697,6 +1847,7 @@ treeview.goals row:selected {
 
   let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png =
     let _ = labels in
+    latest_vc_text := vc;
     set_obcplus_buffer obcplus;
     set_why_buffer why;
     set_obligations_buffers ~vc ~smt;
@@ -1719,9 +1870,15 @@ treeview.goals row:selected {
         let row = goal_model#append () in
         goal_model#set ~row ~column:status_icon_col (status_icon status_txt);
         goal_model#set ~row ~column:goal_col goal;
-        goal_model#set ~row ~column:time_col (Printf.sprintf "%.2fs" time_s);
+        goal_model#set ~row ~column:time_col (Printf.sprintf "%.4fs" time_s);
         goal_model#set ~row ~column:dump_col (match dump_path with None -> "" | Some p -> p))
       goals
+  in
+
+  let set_pass_active btn =
+    let ctx = btn#misc#style_context in
+    List.iter (fun b -> b#misc#style_context#remove_class "active") pass_buttons;
+    ctx#add_class "active"
   in
 
   goal_view#connect#row_activated ~callback:(fun path _ ->
@@ -1784,6 +1941,7 @@ treeview.goals row:selected {
   in
   monitor_btn#connect#clicked ~callback:(fun () ->
     last_action := Some run_monitor;
+    set_pass_active monitor_btn;
     run_monitor ()
   ) |> ignore;
 
@@ -1821,6 +1979,7 @@ treeview.goals row:selected {
   in
   obcplus_btn#connect#clicked ~callback:(fun () ->
     last_action := Some run_obcplus;
+    set_pass_active obcplus_btn;
     run_obcplus ()
   ) |> ignore;
 
@@ -1858,6 +2017,7 @@ treeview.goals row:selected {
   in
   why_btn#connect#clicked ~callback:(fun () ->
     last_action := Some run_why;
+    set_pass_active why_btn;
     run_why ()
   ) |> ignore;
 
@@ -1900,6 +2060,7 @@ treeview.goals row:selected {
   in
   obligations_btn#connect#clicked ~callback:(fun () ->
     last_action := Some run_obligations;
+    set_pass_active obligations_btn;
     run_obligations ()
   ) |> ignore;
 
@@ -1955,6 +2116,7 @@ treeview.goals row:selected {
   in
   prove_btn#connect#clicked ~callback:(fun () ->
     last_action := Some run_prove;
+    set_pass_active prove_btn;
     run_prove ()
   ) |> ignore;
 
