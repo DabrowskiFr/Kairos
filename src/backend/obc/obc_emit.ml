@@ -491,10 +491,7 @@ let transition_lines (indent:int) (t:transition)
             if Some source = current_source then []
             else [comment_line (indent + 1) ("source: " ^ source)]
           in
-          let vcid_line =
-            if is_require then []
-            else [comment_line (indent + 1) (Printf.sprintf "vcid:%d" f.oid)]
-          in
+          let vcid_line = [] in
           let line =
             let kw = if is_require then "requires " else "ensures " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
@@ -657,7 +654,7 @@ let string_of_program (p:program) : string =
 let compile_program (p:program) : string =
   string_of_program p
 
-type line_with_vcid = string * string option
+type line_with_vcid = string * int option
 
 let transition_lines_with_vcid (indent:int) (t:transition)
   ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
@@ -688,7 +685,7 @@ let transition_lines_with_vcid (indent:int) (t:transition)
       List.map
         (fun (f, label) ->
            let vcid =
-             if is_require then None else Some (Printf.sprintf "vcid:%d" f.oid)
+             if is_require then None else Some f.oid
            in
            (source_of_fo ~is_require f, f, label, vcid))
         items
@@ -703,10 +700,7 @@ let transition_lines_with_vcid (indent:int) (t:transition)
             if Some source = current_source then []
             else [ (comment_line (indent + 1) ("source: " ^ source), None) ]
           in
-          let vcid_line =
-            if is_require then []
-            else [ (comment_line (indent + 1) (Printf.sprintf "vcid:%d" f.oid), None) ]
-          in
+          let vcid_line = [] in
           let line =
             let kw = if is_require then "requires " else "ensures " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
@@ -875,7 +869,7 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   @ trans
   @ [("end", None)]
 
-let string_of_program_with_spans (p:program) : string * (string * (int * int)) list =
+let string_of_program_with_spans (p:program) : string * (int * (int * int)) list =
   let lines = List.concat_map node_lines_with_vcid p in
   let buf = Buffer.create 4096 in
   let spans = ref [] in
@@ -893,5 +887,5 @@ let string_of_program_with_spans (p:program) : string * (string * (int * int)) l
   List.iter add_line lines;
   (Buffer.contents buf, List.rev !spans)
 
-let compile_program_with_spans (p:program) : string * (string * (int * int)) list =
+let compile_program_with_spans (p:program) : string * (int * (int * int)) list =
   string_of_program_with_spans p

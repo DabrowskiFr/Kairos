@@ -233,14 +233,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
             | _ -> None)
           n.invariants_mon
       in
-      let atom_table =
-        let lines =
-          if atom_eqs = [] then [ "(none)" ] else atom_eqs
-        in
-        "  Atom table (atom | formula):\n    "
-        ^ String.concat "\n    " lines
-        ^ "\n"
-      in
+      let atom_table = "" in
       let assumes = List.map simplify (Ast.values comment_assumes) in
       let guarantees = List.map simplify (Ast.values comment_guarantees) in
       let fmt_list label items =
@@ -665,6 +658,34 @@ let emit_program_ast (ast:program_ast) : string =
   in
   let out = annotate_vars_fields out in
   out
+
+let emit_program_ast_with_spans (ast:program_ast) : string * (int * (int * int)) list =
+  let out = emit_program_ast ast in
+  let spans = ref [] in
+  let re = Str.regexp "wid:[0-9]+" in
+  let len = String.length out in
+  let rec loop pos =
+    if pos >= len then ()
+    else
+      try
+        let _ = Str.search_forward re out pos in
+        let wid_s = Str.matched_string out in
+        let wid =
+          try int_of_string (String.sub wid_s 4 (String.length wid_s - 4))
+          with _ -> -1
+        in
+        let line_start =
+          try String.rindex_from out (Str.match_beginning ()) '\n' + 1 with Not_found -> 0
+        in
+        let line_end =
+          try String.index_from out (Str.match_end ()) '\n' with Not_found -> len
+        in
+        if wid >= 0 then spans := (wid, (line_start, line_end)) :: !spans;
+        loop (Str.match_end ())
+      with Not_found -> ()
+  in
+  loop 0;
+  (out, List.rev !spans)
 
 let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string =
   let ast = compile_program_ast ~prefix_fields ~comment_map p in

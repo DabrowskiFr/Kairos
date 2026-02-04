@@ -18,6 +18,7 @@
 
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Why3
+open Provenance
 open Ptree
 open Support
 open Ast
@@ -208,13 +209,15 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
              (fun f -> (f.value, origin_label f.origin))
              t.requires
          in
-         let ens =
-           List.map
+        let ens =
+          List.map
              (fun f ->
-                let vcid = Printf.sprintf "vcid:%d" f.oid in
-                (f.value, origin_label f.origin, vcid))
+                let wid = fresh_id () in
+                add_parents ~child:wid ~parents:[f.oid];
+                let wid_attr = Printf.sprintf "wid:%d" wid in
+                (f.value, origin_label f.origin, wid_attr))
              t.ensures
-         in
+        in
          (t, reqs, ens))
       n.trans
   in

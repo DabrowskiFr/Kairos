@@ -9,13 +9,15 @@ type outputs = {
   dot_text : string;
   labels_text : string;
   goals : goal_info list;
-  obcplus_sequents : (string * string) list;
+  obcplus_sequents : (int * string) list;
   task_sequents : (string list * string) list;
-  vc_locs : (string * Ast.loc) list;
-  obcplus_spans : (string * (int * int)) list;
+  vc_locs : (int * Ast.loc) list;
+  obcplus_spans : (int * (int * int)) list;
   vc_locs_ordered : Ast.loc list;
   obcplus_spans_ordered : (int * int) list;
   vc_spans_ordered : (int * int) list;
+  why_spans : (int * (int * int)) list;
+  vc_ids_ordered : int list;
   dot_png : string option;
 }
 
@@ -141,6 +143,32 @@ let emit_automaton_debug_stats (p:Ast.program) =
     duration_ms = None;
   }
 
+let reid_with_origin (x:'a Ast.with_origin) : 'a Ast.with_origin =
+  let new_id = Provenance.fresh_id () in
+  Provenance.add_parents ~child:new_id ~parents:[x.oid];
+  { x with oid = new_id }
+
+let reid_program (p:Ast.program) : Ast.program =
+  let reid_fo = reid_with_origin in
+  let reid_ltl = reid_with_origin in
+  let reid_trans (t:Ast.transition) =
+    {
+      t with
+      requires = List.map reid_fo t.requires;
+      ensures = List.map reid_fo t.ensures;
+      lemmas = List.map reid_fo t.lemmas;
+    }
+  in
+  let reid_node (n:Ast.node) =
+    {
+      n with
+      assumes = List.map reid_ltl n.assumes;
+      guarantees = List.map reid_ltl n.guarantees;
+      trans = List.map reid_trans n.trans;
+    }
+  in
+  List.map reid_node p
+
 let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
   let parse () =
     try
@@ -182,7 +210,7 @@ let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
             (program_stats p_monitor);
         let t4 = Unix.gettimeofday () in
         if log then Logger.stage_start Stage_names.Obc;
-        let p_obc = Obc_stage.run p_monitor in
+        let p_obc = Obc_stage.run p_monitor |> reid_program in
         if log then
           Logger.stage_end Stage_names.Obc
             (int_of_float ((Unix.gettimeofday () -. t4) *. 1000.))
@@ -191,14 +219,14 @@ let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
       with exn ->
         Error (Stage_error (Printexc.to_string exn))
 
-let build_obcplus_sequents (p_obc:Ast.program) : (string * string) list =
+let build_obcplus_sequents (p_obc:Ast.program) : (int * string) list =
   let acc = ref [] in
   let add_node (node:Ast.node) =
     List.iter
       (fun (t:Ast.transition) ->
          List.iter
            (fun (ens:Ast.fo_o) ->
-              let vcid = Printf.sprintf "vcid:%d" ens.oid in
+                let vcid = ens.oid in
               let reqs =
                 List.map (fun (r:Ast.fo_o) -> Support.string_of_fo r.value) t.requires
               in
@@ -207,7 +235,7 @@ let build_obcplus_sequents (p_obc:Ast.program) : (string * string) list =
               List.iter (fun r -> Buffer.add_string buf (r ^ "\n")) reqs;
               Buffer.add_string buf "--------------------\n";
               Buffer.add_string buf ensure;
-              acc := (vcid, Buffer.contents buf) :: !acc)
+                acc := (vcid, Buffer.contents buf) :: !acc)
            t.ensures)
       node.trans
   in
@@ -215,7 +243,7 @@ let build_obcplus_sequents (p_obc:Ast.program) : (string * string) list =
   List.rev !acc
 
 let build_vcid_locs (p_parsed:Ast.program)
-  : (string * Ast.loc) list * Ast.loc list =
+  : (int * Ast.loc) list * Ast.loc list =
   let acc = ref [] in
   let ordered = ref [] in
   let add_node (node:Ast.node) =
@@ -226,14 +254,14 @@ let build_vcid_locs (p_parsed:Ast.program)
               match ens.loc with
               | None -> ()
               | Some loc ->
-                  let vcid = Printf.sprintf "vcid:%d" ens.oid in
-                  acc := (vcid, loc) :: !acc;
+                  acc := (ens.oid, loc) :: !acc;
                   ordered := loc :: !ordered)
            t.ensures)
       node.trans
   in
   List.iter add_node p_parsed;
   (List.rev !acc, List.rev !ordered)
+
 
 let dot_png_from_text (dot_text:string) : string option =
   try
@@ -253,6 +281,7 @@ let dot_png_from_text (dot_text:string) : string option =
   with _ -> None
 
 let monitor_pass ~generate_png ~input_file : (monitor_outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -266,6 +295,7 @@ let monitor_pass ~generate_png ~input_file : (monitor_outputs, error) result =
         Error (Io_error (Printexc.to_string exn))
 
 let obc_pass ~input_file : (obc_outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -276,6 +306,7 @@ let obc_pass ~input_file : (obc_outputs, error) result =
         Error (Stage_error (Printexc.to_string exn))
 
 let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -286,6 +317,7 @@ let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
         Error (Why3_error (Printexc.to_string exn))
 
 let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -302,6 +334,7 @@ let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, 
         Error (Why3_error (Printexc.to_string exn))
 
 let run (cfg:config) : (outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file:cfg.input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -310,9 +343,19 @@ let run (cfg:config) : (outputs, error) result =
         let obcplus_sequents = build_obcplus_sequents asts.obc in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
-        let why_text = Stage_io.emit_why ~prefix_fields:cfg.prefix_fields ~output_file:None asts.obc in
+        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
+        let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
         let task_sequents = Why_prove.task_sequents ~text:why_text in
         let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
+        let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
+        let vc_ids_ordered =
+          List.map
+            (fun wids ->
+               let vc_id = Provenance.fresh_id () in
+               Provenance.add_parents ~child:vc_id ~parents:wids;
+               vc_id)
+            why_ids_per_task
+        in
         let smt_tasks = Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text in
         let vc_text, vc_spans_ordered =
           join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
@@ -324,10 +367,13 @@ let run (cfg:config) : (outputs, error) result =
         let goals =
           if cfg.prove then
             let summary, goals =
-              Why_prove.prove_text_detailed
+              Why_prove.prove_text_detailed_with_callbacks
                 ~timeout:cfg.timeout_s
                 ~prover:cfg.prover
                 ~text:why_text
+                ~vc_ids_ordered:(Some vc_ids_ordered)
+                ~on_goal_start:(fun _ _ -> ())
+                ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
                 ()
             in
             let _ = summary in
@@ -353,6 +399,8 @@ let run (cfg:config) : (outputs, error) result =
           vc_locs_ordered;
           obcplus_spans_ordered;
           vc_spans_ordered;
+          why_spans;
+          vc_ids_ordered;
           dot_png;
         }
       with exn ->
@@ -360,9 +408,10 @@ let run (cfg:config) : (outputs, error) result =
 
 let run_with_callbacks
   (cfg:config)
-  ~(on_goals_ready:string list -> unit)
+  ~(on_goals_ready:string list * int list -> unit)
   ~(on_goal_done:int -> string -> string -> float -> string option -> string -> string option -> unit)
   : (outputs, error) result =
+  Provenance.reset ();
   match build_ast ~input_file:cfg.input_file () with
   | Error _ as err -> err
   | Ok asts ->
@@ -371,8 +420,18 @@ let run_with_callbacks
         let obcplus_sequents = build_obcplus_sequents asts.obc in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
-        let why_text = Stage_io.emit_why ~prefix_fields:cfg.prefix_fields ~output_file:None asts.obc in
+        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
+        let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
         let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
+        let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
+        let vc_ids_ordered =
+          List.map
+            (fun wids ->
+               let vc_id = Provenance.fresh_id () in
+               Provenance.add_parents ~child:vc_id ~parents:wids;
+               vc_id)
+            why_ids_per_task
+        in
         let task_sequents = Why_prove.task_sequents ~text:why_text in
         let smt_tasks = Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text in
         let vc_text, vc_spans_ordered =
@@ -392,7 +451,7 @@ let run_with_callbacks
               Str.matched_group 1 line
         in
         let goal_names = List.map extract_goal_name vc_tasks in
-        on_goals_ready goal_names;
+        on_goals_ready (goal_names, vc_ids_ordered);
         let goals =
           if cfg.prove then
             let summary, goals =
@@ -400,6 +459,7 @@ let run_with_callbacks
                 ~timeout:cfg.timeout_s
                 ~prover:cfg.prover
                 ~text:why_text
+                ~vc_ids_ordered:(Some vc_ids_ordered)
                 ~on_goal_start:(fun _ _ -> ())
                 ~on_goal_done
                 ()
@@ -427,6 +487,8 @@ let run_with_callbacks
           vc_locs_ordered;
           obcplus_spans_ordered;
           vc_spans_ordered;
+          why_spans;
+          vc_ids_ordered;
           dot_png;
         }
       with exn ->

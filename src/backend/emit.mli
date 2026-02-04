@@ -68,3 +68,5 @@ val compile_program_ast :
   ?comment_map:(Ast.ident * comment_specs) list ->
   Ast.program -> program_ast
 val emit_program_ast : program_ast -> string
+val emit_program_ast_with_spans :
+  program_ast -> string * (int * (int * int)) list

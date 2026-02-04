@@ -1,5 +1,6 @@
 open GMain
 open Str
+open Provenance
 
 module Ide_backend = Pipeline
 
@@ -77,6 +78,7 @@ let () =
   padding: 4px 10px;
   color: #6b6b6b;
   border-radius: 8px 8px 0 0;
+  font-size: 13px;
 }
 .main-tabs tab:checked {
   color: #1f1f1f;
@@ -184,9 +186,9 @@ treeview.goals row:selected {
   let sep2 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
   sep2#misc#style_context#add_class "vsep";
 
-  let rerun_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
-  rerun_group#misc#style_context#add_class "segmented";
-  let rerun_btn = GButton.button ~label:"Re-run" ~packing:rerun_group#pack () in
+  let reset_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
+  reset_group#misc#style_context#add_class "segmented";
+  let reset_btn = GButton.button ~label:"Reset" ~packing:reset_group#pack () in
 
   let sep3 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
   sep3#misc#style_context#add_class "vsep";
@@ -306,23 +308,37 @@ treeview.goals row:selected {
   in
   let obc_keyword_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
   in
   let obc_comment_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "gray40"; `STYLE `ITALIC ]
+      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
   in
   let obc_number_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "darkorange4" ]
+      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
   in
   let obc_type_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
   in
   let obc_state_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "purple4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#7c3aed"; `WEIGHT `BOLD ]
+  in
+  let obc_debug_tag =
+    obc_buf#create_tag
+      [ `BACKGROUND "#fff2a8"; `FOREGROUND "#ff0000" ]
+  in
+  let obc_debug_enabled =
+    match Sys.getenv_opt "OBCWHY3_DEBUG_TAGS" with
+    | Some "1" | Some "true" | Some "yes" -> true
+    | _ -> false
+  in
+  let obc_debug_matches =
+    match Sys.getenv_opt "OBCWHY3_DEBUG_MATCHES" with
+    | Some "1" | Some "true" | Some "yes" -> true
+    | _ -> false
   in
   let obc_error_tag =
     obc_buf#create_tag
@@ -402,19 +418,19 @@ treeview.goals row:selected {
   in
   let why_keyword_tag =
     why_buf#create_tag
-      [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
   in
   let why_comment_tag =
     why_buf#create_tag
-      [ `FOREGROUND "gray40"; `STYLE `ITALIC ]
+      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
   in
   let why_number_tag =
     why_buf#create_tag
-      [ `FOREGROUND "darkorange4" ]
+      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
   in
   let why_type_tag =
     why_buf#create_tag
-      [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
   in
   let why_goal_tag = why_buf#create_tag goal_highlight_props in
   let vc_tab = GMisc.label ~text:"Theory" () in
@@ -437,19 +453,19 @@ treeview.goals row:selected {
   in
   let vc_keyword_tag =
     vc_buf#create_tag
-      [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
   in
   let vc_comment_tag =
     vc_buf#create_tag
-      [ `FOREGROUND "gray40"; `STYLE `ITALIC ]
+      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
   in
   let vc_number_tag =
     vc_buf#create_tag
-      [ `FOREGROUND "darkorange4" ]
+      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
   in
   let vc_type_tag =
     vc_buf#create_tag
-      [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
   in
   let vc_goal_tag = vc_buf#create_tag goal_highlight_props in
   let smt_tab = GMisc.label ~text:"SMT" () in
@@ -463,19 +479,19 @@ treeview.goals row:selected {
   in
   let smt_keyword_tag =
     smt_buf#create_tag
-      [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
   in
   let smt_comment_tag =
     smt_buf#create_tag
-      [ `FOREGROUND "gray40"; `STYLE `ITALIC ]
+      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
   in
   let smt_number_tag =
     smt_buf#create_tag
-      [ `FOREGROUND "darkorange4" ]
+      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
   in
   let smt_type_tag =
     smt_buf#create_tag
-      [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
+      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
   in
   let dot_page = GPack.vbox ~spacing:8 () in
   let dot_img = GMisc.image ~packing:dot_page#pack () in
@@ -559,6 +575,8 @@ treeview.goals row:selected {
     obc_buf#get_text ~start:obc_buf#start_iter ~stop:obc_buf#end_iter ()
   in
   let parse_timer_id : GMain.Timeout.id option ref = ref None in
+  let highlight_timer_id : GMain.Timeout.id option ref = ref None in
+  let highlight_obc_ref : (string -> unit) ref = ref (fun _ -> ()) in
   let last_parsed_version = ref (-1) in
   let last_parse_ok = ref true in
   let parse_current_text () =
@@ -614,6 +632,19 @@ treeview.goals row:selected {
     in
     parse_timer_id := Some id
   in
+  let schedule_highlight () =
+    begin match !highlight_timer_id with
+    | Some id -> ignore (GMain.Timeout.remove id)
+    | None -> ()
+    end;
+    let id =
+      GMain.Timeout.add ~ms:200 ~callback:(fun () ->
+        highlight_timer_id := None;
+        (!highlight_obc_ref) (get_obc_text ());
+        false)
+    in
+    highlight_timer_id := Some id
+  in
   let update_dirty_from_text () =
     dirty := (get_obc_text () <> !saved_snapshot);
     update_dirty_indicator ()
@@ -647,6 +678,8 @@ treeview.goals row:selected {
       update_dirty_from_text ()
       ;
       schedule_parse ()
+      ;
+      schedule_highlight ()
     )
   ) |> ignore;
   obc_buf#connect#mark_set ~callback:(fun _ _ -> update_cursor_label ()) |> ignore;
@@ -728,11 +761,7 @@ treeview.goals row:selected {
   in
 
   let char_offset map byte_offset =
-    if byte_offset <= 0 then 0
-    else if byte_offset >= Array.length map then
-      map.(Array.length map - 1)
-    else
-      map.(byte_offset)
+    byte_offset
   in
 
   let apply_words buf text tag words =
@@ -745,6 +774,8 @@ treeview.goals row:selected {
       | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> true
       | _ -> false
     in
+    let applied = ref 0 in
+    let logged = ref false in
     let rec loop i =
       if i >= len then ()
       else
@@ -758,28 +789,48 @@ treeview.goals row:selected {
           if Hashtbl.mem word_set w then (
             let s = char_offset map i in
             let e = char_offset map !j in
-            let it_s = buf#start_iter in
-            ignore (it_s#forward_chars s);
-            let it_e = buf#start_iter in
-            ignore (it_e#forward_chars e);
-            buf#apply_tag tag ~start:it_s ~stop:it_e
+            let it_s = buf#start_iter#forward_chars s in
+            let it_e = buf#start_iter#forward_chars e in
+            if obc_debug_matches then (
+              let end_off = buf#end_iter#offset in
+              print_endline
+                (Printf.sprintf
+                   "[obc-hl] iter offsets s=%d e=%d end=%d s_off=%d e_off=%d"
+                   s e end_off it_s#offset it_e#offset)
+            );
+            let has_tag =
+              try
+                buf#apply_tag tag ~start:it_s ~stop:it_e;
+                true
+              with _ -> false
+            in
+            if obc_debug_matches && not !logged then (
+              logged := true;
+              print_endline
+                (Printf.sprintf
+                   "[obc-hl] apply word=\"%s\" s=%d e=%d ok=%b"
+                   w s e has_tag)
+            );
+            incr applied
           );
           loop !j
         ) else
           loop (i + 1)
     in
-    loop 0
+    loop 0;
+    !applied
   in
 
   let apply_regex_to_buf buf text tag re =
+    let map = build_utf8_map text in
     let applied = ref 0 in
     let rec loop pos =
       try
         let _ = Str.search_forward re text pos in
         let s_byte = Str.match_beginning () in
         let e_byte = Str.match_end () in
-        let s = s_byte in
-        let e = e_byte in
+        let s = char_offset map s_byte in
+        let e = char_offset map e_byte in
         if e > s then (
           let it_s = buf#start_iter in
           ignore (it_s#forward_chars s);
@@ -854,14 +905,19 @@ treeview.goals row:selected {
         (obcplus_buf, obcplus_goal_tag);
         (why_buf, why_goal_tag);
         (vc_buf, vc_goal_tag) ]
+    ;
+    obc_buf#select_range obc_buf#start_iter obc_buf#start_iter;
+    obcplus_buf#select_range obcplus_buf#start_iter obcplus_buf#start_iter;
+    why_buf#select_range why_buf#start_iter why_buf#start_iter;
+    vc_buf#select_range vc_buf#start_iter vc_buf#start_iter
   in
 
-  let apply_span buf tag s e =
+  let apply_span buf tag map s e =
+    let s = char_offset map s in
+    let e = char_offset map e in
     if e > s then (
-      let it_s = buf#start_iter in
-      ignore (it_s#forward_chars s);
-      let it_e = buf#start_iter in
-      ignore (it_e#forward_chars e);
+      let it_s = buf#start_iter#forward_chars s in
+      let it_e = buf#start_iter#forward_chars e in
       buf#apply_tag tag ~start:it_s ~stop:it_e;
       ignore (vc_view#scroll_to_iter it_s);
       buf#select_range it_s it_e
@@ -880,23 +936,25 @@ treeview.goals row:selected {
     obc_buf#select_range start_iter end_iter
   in
 
-  let obcplus_sequents : (string, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
-  let obcplus_span_map : (string, (int * int)) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let obcplus_sequents : (int, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let obcplus_span_map : (int, (int * int)) Hashtbl.t ref = ref (Hashtbl.create 0) in
   let obcplus_spans_ordered : (int * int) list ref = ref [] in
-  let vc_loc_map : (string, Ast.loc) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let why_span_map : (int, (int * int)) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let vc_loc_map : (int, Ast.loc) Hashtbl.t ref = ref (Hashtbl.create 0) in
   let vc_locs_ordered : Ast.loc list ref = ref [] in
   let vc_spans_ordered : (int * int) list ref = ref [] in
+  let obcplus_utf8_map = ref (Array.make 0 0) in
+  let why_utf8_map = ref (Array.make 0 0) in
+  let vc_utf8_map = ref (Array.make 0 0) in
 
   let highlight_obcplus_vcid vcid =
-    if vcid = "" then ()
-    else
-      match Hashtbl.find_opt !obcplus_span_map vcid with
+    match Hashtbl.find_opt !obcplus_span_map vcid with
       | None -> ()
       | Some (s, e) ->
-          let it_s = obcplus_buf#start_iter in
-          ignore (it_s#forward_chars s);
-          let it_e = obcplus_buf#start_iter in
-          ignore (it_e#forward_chars e);
+          let s = char_offset !obcplus_utf8_map s in
+          let e = char_offset !obcplus_utf8_map e in
+          let it_s = obcplus_buf#start_iter#forward_chars s in
+          let it_e = obcplus_buf#start_iter#forward_chars e in
           obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
           ignore (obcplus_view#scroll_to_iter it_s)
   in
@@ -905,69 +963,179 @@ treeview.goals row:selected {
     clear_goal_highlights ();
     if goal = "" then ()
     else (
-      let vcid =
+      let log s = print_endline ("[highlight] " ^ s) in
+      let applied = ref false in
+      let mark_applied () = applied := true in
+      let vcid_opt =
         match index with
-        | None -> ""
+        | None -> None
         | Some i ->
             let path = GTree.Path.create [i] in
             let row = goal_model#get_iter path in
-            goal_model#get ~row ~column:vcid_col
+            let vcid_s = goal_model#get ~row ~column:vcid_col in
+            (try Some (int_of_string vcid_s) with _ -> None)
       in
-      highlight_obcplus_vcid vcid;
-      begin
-        match Hashtbl.find_opt !vc_loc_map vcid with
-        | Some loc -> apply_loc_obc loc
-        | None ->
-            begin match index with
-            | Some idx ->
-                begin match List.nth_opt !vc_locs_ordered idx with
-                | Some loc -> apply_loc_obc loc
-                | None -> ()
-                end
-            | None -> ()
-            end
-      end;
-      begin
-        match Hashtbl.find_opt !obcplus_span_map vcid with
-        | Some _ -> ()
-        | None ->
-            begin match index with
-            | Some idx ->
-                begin match List.nth_opt !obcplus_spans_ordered idx with
-                | Some (s, e) ->
-                    let it_s = obcplus_buf#start_iter in
-                    ignore (it_s#forward_chars s);
-                    let it_e = obcplus_buf#start_iter in
-                    ignore (it_e#forward_chars e);
-                    obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
-                    ignore (obcplus_view#scroll_to_iter it_s)
-                | None -> ()
-                end
-            | None -> ()
-            end
-      end;
-      begin match index with
-      | Some idx ->
-          begin match List.nth_opt !vc_spans_ordered idx with
-          | Some (s, e) -> apply_span vc_buf vc_goal_tag s e
+      log (Printf.sprintf "goal=\"%s\" index=%s vcid=%s"
+             goal
+             (match index with None -> "none" | Some i -> string_of_int i)
+             (match vcid_opt with None -> "none" | Some v -> string_of_int v));
+      log (Printf.sprintf "maps obc_loc=%d obcplus_span=%d why_span=%d vc_spans=%d"
+             (Hashtbl.length !vc_loc_map)
+             (Hashtbl.length !obcplus_span_map)
+             (Hashtbl.length !why_span_map)
+             (List.length !vc_spans_ordered));
+      begin match vcid_opt with
+      | Some vcid ->
+          begin match Hashtbl.find_opt !obcplus_span_map vcid with
           | None -> ()
+          | Some _ ->
+              highlight_obcplus_vcid vcid;
+              mark_applied ()
           end
       | None -> ()
-      end
+      end;
+      begin
+        match vcid_opt with
+        | Some vcid ->
+            let ancestors = Provenance.ancestors vcid in
+            log (Printf.sprintf "ancestors(%d)=%s" vcid
+                   (String.concat "," (List.map string_of_int ancestors)));
+            let highlight_obc id =
+              match Hashtbl.find_opt !vc_loc_map id with
+              | Some loc ->
+                  log (Printf.sprintf "obc loc hit id=%d" id);
+                  apply_loc_obc loc;
+                  mark_applied ()
+              | None -> ()
+            in
+            List.iter highlight_obc ancestors
+        | None -> ()
+      end;
+      begin
+        match vcid_opt with
+        | Some vcid ->
+            let ancestors = Provenance.ancestors vcid in
+            let highlight_obcplus id =
+              match Hashtbl.find_opt !obcplus_span_map id with
+              | None -> ()
+              | Some (s, e) ->
+                  log (Printf.sprintf "obc+ span hit id=%d (%d,%d)" id s e);
+                  let s = char_offset !obcplus_utf8_map s in
+                  let e = char_offset !obcplus_utf8_map e in
+                  let it_s = obcplus_buf#start_iter#forward_chars s in
+                  let it_e = obcplus_buf#start_iter#forward_chars e in
+                  obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+                  mark_applied ()
+            in
+            List.iter highlight_obcplus ancestors
+        | None -> ()
+      end;
+      begin
+        match vcid_opt with
+        | Some vcid ->
+            let ancestors = Provenance.ancestors vcid in
+            let highlight_why id =
+              match Hashtbl.find_opt !why_span_map id with
+              | None -> ()
+              | Some (s, e) ->
+                  log (Printf.sprintf "why span hit id=%d (%d,%d)" id s e);
+                  let s = char_offset !why_utf8_map s in
+                  let e = char_offset !why_utf8_map e in
+                  let it_s = why_buf#start_iter#forward_chars s in
+                  let it_e = why_buf#start_iter#forward_chars e in
+                  why_buf#apply_tag why_goal_tag ~start:it_s ~stop:it_e;
+                  ignore (why_view#scroll_to_iter it_s);
+                  mark_applied ()
+            in
+            List.iter highlight_why ancestors
+        | None -> ()
+      end;
+      let fallback () =
+        log "fallback by index";
+        begin match index with
+        | Some idx ->
+            begin match List.nth_opt !vc_locs_ordered idx with
+            | Some loc ->
+                log (Printf.sprintf "fallback obc loc idx=%d" idx);
+                apply_loc_obc loc
+            | None -> ()
+            end;
+            begin match List.nth_opt !obcplus_spans_ordered idx with
+            | Some (s, e) ->
+                log (Printf.sprintf "fallback obc+ span idx=%d (%d,%d)" idx s e);
+                let s = char_offset !obcplus_utf8_map s in
+                let e = char_offset !obcplus_utf8_map e in
+                let it_s = obcplus_buf#start_iter#forward_chars s in
+                let it_e = obcplus_buf#start_iter#forward_chars e in
+                obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+                ignore (obcplus_view#scroll_to_iter it_s)
+            | None -> ()
+            end;
+            begin match List.nth_opt !vc_spans_ordered idx with
+            | Some (s, e) ->
+                log (Printf.sprintf "fallback vc span idx=%d (%d,%d)" idx s e);
+                apply_span vc_buf vc_goal_tag !vc_utf8_map s e
+            | None -> ()
+            end
+        | None -> ()
+        end
+      in
+      if not !applied then fallback ()
     )
+  in
+
+  let apply_vc_highlight_by_index index =
+    match index with
+    | None -> ()
+    | Some idx ->
+        begin match List.nth_opt !vc_spans_ordered idx with
+        | Some (s, e) ->
+            print_endline (Printf.sprintf "[highlight] vc span idx=%d (%d,%d)" idx s e);
+            apply_span vc_buf vc_goal_tag !vc_utf8_map s e
+        | None -> ()
+        end
   in
 
   let current_goal_highlight : (string * string * int option) option ref = ref None in
   let apply_current_goal_highlight () =
     match !current_goal_highlight with
     | None -> clear_goal_highlights ()
-    | Some (goal, source, index) -> apply_goal_highlights ~goal ~source ~index
+    | Some (goal, source, index) ->
+        apply_goal_highlights ~goal ~source ~index;
+        apply_vc_highlight_by_index index
   in
 
-  let highlight_obc_buf ~buf ~keyword_tag ~type_tag ~number_tag ~comment_tag ~state_tag text =
+  let highlight_obc_buf ~(buf:GText.buffer) ~keyword_tag:_ ~type_tag:_ ~number_tag:_ ~comment_tag:_ ~state_tag:_ text =
     let start_iter = buf#start_iter in
     let end_iter = buf#end_iter in
     buf#remove_all_tags ~start:start_iter ~stop:end_iter;
+    let buf_text = buf#get_text ~start:start_iter ~stop:end_iter () in
+    let text =
+      if buf_text <> text then (
+        print_endline
+          (Printf.sprintf
+             "[obc-hl] text_mismatch arg_len=%d buf_len=%d"
+             (String.length text) (String.length buf_text));
+        buf_text
+      ) else
+        text
+    in
+    let keyword_tag =
+      buf#create_tag [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
+    in
+    let type_tag =
+      buf#create_tag [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
+    in
+    let number_tag =
+      buf#create_tag [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
+    in
+    let comment_tag =
+      buf#create_tag [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
+    in
+    let state_tag =
+      buf#create_tag [ `FOREGROUND "#7c3aed"; `WEIGHT `BOLD ]
+    in
+    let map = build_utf8_map text in
     let apply_regex = apply_regex_to_buf buf text in
     let keywords =
       ["node"; "returns"; "guarantee"; "locals"; "states"; "init"; "trans";
@@ -977,10 +1145,10 @@ treeview.goals row:selected {
     let types = ["int"; "bool"] in
     let number_re = Str.regexp "\\b[0-9]+\\b" in
     let comment_re = Str.regexp "(\\*.*\\*)" in
-    apply_words buf text keyword_tag keywords;
-    apply_words buf text type_tag types;
-    ignore (apply_regex number_tag number_re);
-    ignore (apply_regex comment_tag comment_re);
+    let kw_count = apply_words buf text keyword_tag keywords in
+    let type_count = apply_words buf text type_tag types in
+    let num_count = apply_regex number_tag number_re in
+    let com_count = apply_regex comment_tag comment_re in
     let states_re = Str.regexp "\\bstates\\b" in
     let init_re = Str.regexp "\\binit\\b" in
     let trans_re = Str.regexp "\\btrans\\b" in
@@ -988,6 +1156,8 @@ treeview.goals row:selected {
       Str.regexp
         "\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b[ \t\r\n]*->[ \t\r\n]*\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b"
     in
+    let state_count = ref 0 in
+    let trans_count = ref 0 in
     let highlight_states start_pos end_pos =
       let id_re = Str.regexp "\\b[A-Za-z_][A-Za-z0-9_]*\\b" in
       let rec loop pos =
@@ -998,11 +1168,14 @@ treeview.goals row:selected {
             let s = Str.match_beginning () in
             let e = Str.match_end () in
             if s < end_pos then (
+              let s = char_offset map s in
+              let e = char_offset map (min e end_pos) in
               let it_s = buf#start_iter in
               ignore (it_s#forward_chars s);
               let it_e = buf#start_iter in
-              ignore (it_e#forward_chars (min e end_pos));
+              ignore (it_e#forward_chars e);
               buf#apply_tag state_tag ~start:it_s ~stop:it_e;
+              incr state_count;
               loop e
             ) else ()
           with Not_found -> ()
@@ -1035,37 +1208,93 @@ treeview.goals row:selected {
             let g2_s = Str.group_beginning 2 in
             let g2_e = Str.group_end 2 in
             if g1_s >= trans_start then (
+              let g1_s = char_offset map g1_s in
+              let g1_e = char_offset map g1_e in
               let it1_s = buf#start_iter in
               ignore (it1_s#forward_chars g1_s);
               let it1_e = buf#start_iter in
               ignore (it1_e#forward_chars g1_e);
-              buf#apply_tag state_tag ~start:it1_s ~stop:it1_e
+              buf#apply_tag state_tag ~start:it1_s ~stop:it1_e;
+              incr trans_count
             );
             if g2_s >= trans_start then (
+              let g2_s = char_offset map g2_s in
+              let g2_e = char_offset map g2_e in
               let it2_s = buf#start_iter in
               ignore (it2_s#forward_chars g2_s);
               let it2_e = buf#start_iter in
               ignore (it2_e#forward_chars g2_e);
-              buf#apply_tag state_tag ~start:it2_s ~stop:it2_e
+              buf#apply_tag state_tag ~start:it2_s ~stop:it2_e;
+              incr trans_count
             );
             loop (Str.match_end ())
           with Not_found -> ()
         in
         loop trans_start
       with Not_found -> ()
-    end
+    end;
+    print_endline
+      (Printf.sprintf
+         "[obc-hl] len=%d kw=%d types=%d numbers=%d comments=%d states=%d trans=%d"
+         (String.length text) kw_count type_count num_count com_count
+         !state_count !trans_count)
+    ;
+    if obc_debug_matches then (
+      let probe_word w tag =
+        let re = Str.regexp (Printf.sprintf "\\b%s\\b" (Str.quote w)) in
+        try
+          ignore (Str.search_forward re text 0);
+          let s = Str.match_beginning () in
+          let s = char_offset map s in
+          let it = buf#start_iter in
+          ignore (it#forward_chars s);
+          let tags = it#tags in
+          let has = it#has_tag tag in
+          print_endline
+            (Printf.sprintf
+               "[obc-hl] probe %s tag=%b tag_count=%d"
+               w has (List.length tags))
+        with Not_found ->
+          print_endline (Printf.sprintf "[obc-hl] probe %s not_found" w)
+      in
+      probe_word "node" keyword_tag;
+      probe_word "int" type_tag
+    )
   in
 
   let highlight_obc text =
+    let buf = obc_view#buffer in
     highlight_obc_buf
-      ~buf:obc_buf
+      ~buf
       ~keyword_tag:obc_keyword_tag
       ~type_tag:obc_type_tag
       ~number_tag:obc_number_tag
       ~comment_tag:obc_comment_tag
       ~state_tag:obc_state_tag
-      text
+      text;
+    if obc_debug_enabled then (
+      let len = String.length text in
+      let it_s = obc_buf#start_iter in
+      let it_e = obc_buf#end_iter in
+      obc_buf#apply_tag obc_debug_tag ~start:it_s ~stop:it_e;
+      obc_buf#select_range it_s it_e;
+      ignore (obc_view#scroll_to_iter it_s);
+      obc_view#misc#grab_focus ();
+      let view_text_len =
+        String.length
+          (obc_view#buffer#get_text
+             ~start:obc_view#buffer#start_iter
+             ~stop:obc_view#buffer#end_iter
+             ())
+      in
+      print_endline
+        (Printf.sprintf
+           "[obc-debug] len=%d view_len=%d buffer_eq=%b"
+           len view_text_len
+           (obc_view#buffer == obc_buf))
+    )
   in
+  highlight_obc_ref := highlight_obc;
 
   let highlight_obcplus text =
     highlight_obc_buf
@@ -1092,8 +1321,8 @@ treeview.goals row:selected {
     let types = ["int"; "bool"; "real"] in
     let number_re = Str.regexp "\\b[0-9]+\\b" in
     let comment_re = Str.regexp "(\\*.*\\*)" in
-    apply_words buf text keyword_tag keywords;
-    apply_words buf text type_tag types;
+    ignore (apply_words buf text keyword_tag keywords);
+    ignore (apply_words buf text type_tag types);
     ignore (apply_regex number_tag number_re);
     ignore (apply_regex comment_tag comment_re)
   in
@@ -1129,8 +1358,8 @@ treeview.goals row:selected {
     let types = ["Int"; "Bool"; "Real"] in
     let number_re = Str.regexp "\\b-?[0-9]+\\b" in
     let comment_re = Str.regexp ";[^\n]*" in
-    apply_words smt_buf text smt_keyword_tag keywords;
-    apply_words smt_buf text smt_type_tag types;
+    ignore (apply_words smt_buf text smt_keyword_tag keywords);
+    ignore (apply_words smt_buf text smt_type_tag types);
     ignore (apply_regex smt_number_tag number_re);
     ignore (apply_regex smt_comment_tag comment_re)
   in
@@ -1559,12 +1788,6 @@ treeview.goals row:selected {
   file_export_smt#connect#activate ~callback:(fun () ->
     export_text ~title:"Export SMT" ~text:(smt_buf#get_text ~start:smt_buf#start_iter ~stop:smt_buf#end_iter ())
   ) |> ignore;
-  let file_export_monitor =
-    GMenu.menu_item ~label:"Export Monitor (labels)" ~packing:file_menu#append ()
-  in
-  file_export_monitor#connect#activate ~callback:(fun () ->
-    export_text ~title:"Export Monitor (labels)" ~text:(dot_buf#get_text ~start:dot_buf#start_iter ~stop:dot_buf#end_iter ())
-  ) |> ignore;
 
   let edit_undo_item =
     GMenu.menu_item ~label:"Undo" ~packing:edit_menu#append ()
@@ -1733,6 +1956,7 @@ treeview.goals row:selected {
     goals_empty_label#misc#set_sensitive true
   in
 
+
   let monitor_cache : (int * Ide_backend.monitor_outputs) option ref = ref None in
   let obc_cache : (int * Ide_backend.obc_outputs) option ref = ref None in
   let why_cache : (int * Ide_backend.why_outputs) option ref = ref None in
@@ -1744,6 +1968,7 @@ treeview.goals row:selected {
     : (int * string * int * Ide_backend.outputs) option ref
     = ref None
   in
+
 
   let set_monitor_buffers ~dot:_ ~labels ~dot_png =
     dot_buf#set_text labels;
@@ -1791,6 +2016,66 @@ treeview.goals row:selected {
 
   let task_sequents_list : (string list * string) list ref = ref [] in
 
+  let reset_state_and_reload () =
+    if confirm_save_if_dirty () then (
+      let file_opt = !current_file in
+      last_action := None;
+      monitor_cache := None;
+      obc_cache := None;
+      why_cache := None;
+      obligations_cache := None;
+      prove_cache := None;
+      clear_goals ();
+      clear_goal_highlights ();
+      task_sequents_list := [];
+      latest_vc_text := "";
+      obcplus_sequents := Hashtbl.create 0;
+      obcplus_span_map := Hashtbl.create 0;
+      obcplus_spans_ordered := [];
+      why_span_map := Hashtbl.create 0;
+      vc_loc_map := Hashtbl.create 0;
+      vc_locs_ordered := [];
+      vc_spans_ordered := [];
+      obcplus_utf8_map := Array.make 0 0;
+      why_utf8_map := Array.make 0 0;
+      vc_utf8_map := Array.make 0 0;
+      obcplus_buf#set_text "";
+      why_buf#set_text "";
+      vc_buf#set_text "";
+      smt_buf#set_text "";
+      dot_buf#set_text "";
+      task_buf#set_text "";
+      List.iter (fun b -> b#misc#style_context#remove_class "active") pass_buttons;
+      List.iter
+        (fun (page, tab) -> set_tab_sensitive page tab false)
+        [ (obcplus_page, obcplus_tab); (why_page, why_tab);
+          (vc_page, vc_tab); (task_page, task_tab); (smt_page, smt_tab);
+          (dot_page#coerce, dot_tab) ];
+      log_buf#set_text "";
+      history_buf#set_text "";
+      set_parse_badge ~ok:true ~text:"Parse: ok";
+      cursor_label#set_text "Ln 1, Col 1";
+      dirty := false;
+      last_snapshot := "";
+      saved_snapshot := "";
+      undo_stack := [];
+      redo_stack := [];
+      content_version := 0;
+      last_parsed_version := -1;
+      last_parse_ok := true;
+      update_dirty_indicator ();
+      begin match file_opt with
+      | Some file -> load_file file
+      | None ->
+          suppress_dirty := true;
+          obc_buf#set_text "";
+          suppress_dirty := false;
+          set_tab_sensitive obc_page obc_tab false;
+          set_status_quiet "No file loaded"
+      end
+    )
+  in
+
   let set_task_view ~goal:_ ~vcid:_ ~index =
     if !latest_vc_text = "" then task_buf#set_text ""
     else
@@ -1825,12 +2110,14 @@ treeview.goals row:selected {
         set_task_view ~goal ~vcid ~index;
         set_tab_sensitive task_page task_tab true;
         current_goal_highlight := Some (goal, source, index);
-        apply_goal_highlights ~goal ~source ~index
+        apply_goal_highlights ~goal ~source ~index;
+        apply_vc_highlight_by_index index
   ) |> ignore;
 
   let set_obcplus_buffer obc_text =
     obcplus_buf#set_text obc_text;
     highlight_obcplus obc_text;
+    obcplus_utf8_map := build_utf8_map obc_text;
     set_tab_sensitive obcplus_page obcplus_tab true;
     apply_current_goal_highlight ()
   in
@@ -1838,6 +2125,7 @@ treeview.goals row:selected {
   let set_why_buffer why =
     why_buf#set_text why;
     highlight_why_buf why;
+    why_utf8_map := build_utf8_map why;
     set_tab_sensitive why_page why_tab true;
     apply_current_goal_highlight ()
   in
@@ -1848,13 +2136,14 @@ treeview.goals row:selected {
     smt_buf#set_text smt;
     highlight_vc_buf vc;
     highlight_smt smt;
+    vc_utf8_map := build_utf8_map vc;
     set_tab_sensitive vc_page vc_tab true;
     set_tab_sensitive smt_page smt_tab true;
     clear_goals ();
     apply_current_goal_highlight ()
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs ~task_seqs ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans =
+  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs ~task_seqs ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans ~why_spans =
     let _ = labels in
     latest_vc_text := vc;
     set_obcplus_buffer obcplus;
@@ -1870,6 +2159,9 @@ treeview.goals row:selected {
     List.iter (fun (k, v) -> Hashtbl.replace span_tbl k v) obcplus_spans;
     obcplus_span_map := span_tbl;
     obcplus_spans_ordered := obcplus_spans_ordered_list;
+    let why_tbl = Hashtbl.create (List.length why_spans * 2) in
+    List.iter (fun (k, v) -> Hashtbl.replace why_tbl k v) why_spans;
+    why_span_map := why_tbl;
     let loc_tbl = Hashtbl.create (List.length vc_locs * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace loc_tbl k v) vc_locs;
     vc_loc_map := loc_tbl;
@@ -1909,20 +2201,25 @@ treeview.goals row:selected {
       goals
   in
 
-  let set_goals_pending goal_names =
+  let set_goals_pending goal_names vc_ids =
     goal_model#clear ();
     goals_empty_label#misc#set_sensitive false;
     let rows = ref [] in
     List.iteri
       (fun idx goal ->
          let row = goal_model#append () in
+         let vcid =
+           match List.nth_opt vc_ids idx with
+           | Some id -> string_of_int id
+           | None -> ""
+         in
          goal_model#set ~row ~column:status_icon_col (status_icon "pending");
          goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
          goal_model#set ~row ~column:goal_raw_col goal;
          goal_model#set ~row ~column:source_col "";
          goal_model#set ~row ~column:time_col "--";
          goal_model#set ~row ~column:dump_col "";
-         goal_model#set ~row ~column:vcid_col "";
+         goal_model#set ~row ~column:vcid_col vcid;
          rows := row :: !rows)
       goal_names
     ;
@@ -2163,9 +2460,12 @@ treeview.goals row:selected {
               ignore (Glib.Main.iteration false)
             done
           in
-          goal_rows := set_goals_pending goal_names;
+          goal_rows := set_goals_pending goal_names [];
           flush_ui ();
-          let on_goals_ready _ = () in
+          let on_goals_ready (names, vc_ids) =
+            goal_rows := set_goals_pending names vc_ids;
+            flush_ui ()
+          in
           let on_goal_done idx _goal status time_s dump_path source vcid =
             if idx < Array.length !goal_rows then (
               let row = (!goal_rows).(idx) in
@@ -2211,7 +2511,8 @@ treeview.goals row:selected {
               ~obcplus_spans:out.obcplus_spans
               ~vc_locs_ordered:out.vc_locs_ordered
               ~obcplus_spans_ordered:out.obcplus_spans_ordered
-              ~vc_spans_ordered:out.vc_spans_ordered;
+              ~vc_spans_ordered:out.vc_spans_ordered
+              ~why_spans:out.why_spans;
             set_goals out.goals;
             if cached <> None then (set_status_cached "Done"; add_history "Prove: done (cached)")
             else (set_status "Done"; add_history "Prove: done")
@@ -2228,11 +2529,7 @@ treeview.goals row:selected {
     run_prove ()
   ) |> ignore;
 
-  rerun_btn#connect#clicked ~callback:(fun () ->
-    match !last_action with
-    | None -> set_status "Nothing to re-run"
-    | Some action -> action ()
-  ) |> ignore;
+  reset_btn#connect#clicked ~callback:reset_state_and_reload |> ignore;
 
   let tools_monitor_item =
     GMenu.menu_item ~label:"Monitor" ~packing:tools_menu#append ()
@@ -2309,20 +2606,16 @@ treeview.goals row:selected {
     ~flags:[`VISIBLE]
     GdkKeysyms._5;
 
-  let tools_rerun_item =
-    GMenu.menu_item ~label:"Re-run last" ~packing:tools_menu#append ()
+  let tools_reset_item =
+    GMenu.menu_item ~label:"Reset" ~packing:tools_menu#append ()
   in
-  tools_rerun_item#connect#activate ~callback:(fun () ->
-    match !last_action with
-    | None -> set_status "Nothing to re-run"
-    | Some action -> action ()
-  ) |> ignore;
-  tools_rerun_item#add_accelerator
+  tools_reset_item#connect#activate ~callback:reset_state_and_reload |> ignore;
+  tools_reset_item#add_accelerator
     ~group:accel_group
     ~modi:[`CONTROL]
     ~flags:[`VISIBLE]
     GdkKeysyms._r;
-  tools_rerun_item#add_accelerator
+  tools_reset_item#add_accelerator
     ~group:accel_group
     ~modi:[`META]
     ~flags:[`VISIBLE]

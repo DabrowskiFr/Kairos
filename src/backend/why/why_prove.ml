@@ -1,4 +1,5 @@
 open Why3
+open Provenance
 open Why_labels
 
 type summary = {
@@ -60,6 +61,10 @@ let normalize_tasks ~(env:Env.env) ~(text:string) : Task.task list =
   tasks_of_text ~env ~filename:"<generated>" ~text
   |> apply_transform "split_vc" env
   |> apply_transform "simplify_formula" env
+
+let split_vc_tasks ~(env:Env.env) ~(text:string) : Task.task list =
+  tasks_of_text ~env ~filename:"<generated>" ~text
+  |> apply_transform "split_vc" env
 
 let find_config_file () =
   let env_opt name =
@@ -238,6 +243,7 @@ let rec prove_text ?(timeout=30) ~(prover:string) ~(text:string) () : result =
       ~use_direct_z3
       ~prove_with_z3_direct
       ~goal_labels:(Hashtbl.create 0)
+      ~vc_ids_ordered:None
       ~on_goal_start:(fun _ _ -> ())
       ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
       tasks
@@ -258,6 +264,7 @@ and prove_tasks_with_details
   ~(use_direct_z3:bool)
   ~(prove_with_z3_direct:Buffer.t -> Call_provers.prover_answer)
   ~(goal_labels:(string, string) Hashtbl.t)
+  ~(vc_ids_ordered:int list option)
   ~(on_goal_start:(int -> string -> unit))
   ~(on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit))
   (tasks:Task.task list)
@@ -354,18 +361,31 @@ and prove_tasks_with_details
               | None -> ""
         in
         let vcid =
-          let attrs =
-            try (Task.task_goal_fmla prepared).Term.t_attrs with _ -> Ident.Sattr.empty
-          in
-          let matches =
-            Ident.Sattr.elements attrs
-            |> List.filter_map (fun attr ->
-                 let s = attr.Ident.attr_string in
-                 if String.length s >= 5 && String.sub s 0 5 = "vcid:" then Some s else None)
-          in
-          match matches with
-          | [] -> None
-          | x :: _ -> Some x
+          match vc_ids_ordered with
+          | Some ids ->
+              begin match List.nth_opt ids idx with
+              | Some id -> Some (string_of_int id)
+              | None -> None
+              end
+          | None ->
+              let attrs =
+                try (Task.task_goal_fmla prepared).Term.t_attrs with _ -> Ident.Sattr.empty
+              in
+              let why_ids =
+                Ident.Sattr.elements attrs
+                |> List.filter_map (fun attr ->
+                     let s = attr.Ident.attr_string in
+                     if String.length s >= 4 && String.sub s 0 4 = "wid:" then
+                       try Some (int_of_string (String.sub s 4 (String.length s - 4)))
+                       with _ -> None
+                     else None)
+              in
+              if why_ids = [] then None
+              else (
+                let vc_id = Provenance.fresh_id () in
+                Provenance.add_parents ~child:vc_id ~parents:why_ids;
+                Some (string_of_int vc_id)
+              )
         in
         on_goal_done idx goal status elapsed dump_path provenance vcid;
         loop (idx + 1) (add_answer acc answer) ((goal, status, elapsed, dump_path, provenance, vcid) :: details) rest
@@ -412,6 +432,38 @@ let dump_why3_tasks_with_attrs ~(text:string) : string list =
     else Buffer.contents buffer ^ "\n" ^ String.concat "\n" prop_lines ^ "\n"
   in
   List.map task_to_string tasks
+
+let task_goal_wids ~(text:string) : int list list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  let tasks = split_vc_tasks ~env ~text in
+  let extract_wids attrs =
+    Ident.Sattr.elements attrs
+    |> List.filter_map (fun attr ->
+         let s = attr.Ident.attr_string in
+         if String.length s >= 4 && String.sub s 0 4 = "wid:" then
+           try Some (int_of_string (String.sub s 4 (String.length s - 4)))
+           with _ -> None
+         else None)
+  in
+  let task_wids task =
+    let wids = ref [] in
+    let add_wids attrs =
+      extract_wids attrs
+      |> List.iter (fun w -> if List.mem w !wids then () else wids := w :: !wids)
+    in
+    begin
+      try
+        add_wids (Task.task_goal_fmla task).Term.t_attrs
+      with _ -> ()
+    end;
+    Task.task_decls task
+    |> List.iter (fun decl ->
+         match decl.Decl.d_node with
+         | Decl.Dprop (_kind, _pr, t) -> add_wids t.Term.t_attrs
+         | _ -> ());
+    List.rev !wids
+  in
+  List.map task_wids tasks
 
 let task_sequents ~(text:string) : (string list * string) list =
   let _config, _main, env, _datadir_opt = setup_env () in
@@ -508,6 +560,7 @@ let prove_text_detailed_with_callbacks
   ?(timeout=30)
   ~(prover:string)
   ~(text:string)
+  ~(vc_ids_ordered:int list option)
   ~(on_goal_start:(int -> string -> unit))
   ~(on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit))
   ()
@@ -639,6 +692,7 @@ let prove_text_detailed_with_callbacks
     ~use_direct_z3
     ~prove_with_z3_direct
     ~goal_labels
+    ~vc_ids_ordered
     ~on_goal_start
     ~on_goal_done
     tasks
@@ -651,6 +705,7 @@ let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
     ~timeout
     ~prover
     ~text
+    ~vc_ids_ordered:None
     ~on_goal_start:noop_start
     ~on_goal_done:noop_done
     ()

@@ -81,27 +81,37 @@ type origin =
 [@@deriving show]
 
 type loc = { line: int; col: int; line_end: int; col_end: int } [@@deriving show]
-type 'a with_origin = { value: 'a; origin: origin; oid: int; loc: loc option } [@@deriving show]
+type 'a with_origin = {
+  value: 'a;
+  origin: origin;
+  oid: int;
+  loc: loc option;
+  attrs: string list;
+} [@@deriving show]
 type fo_o = fo with_origin [@@deriving show]
 type fo_ltl_o = fo_ltl with_origin [@@deriving show]
 
-let oid_counter = ref 0
-
 let fresh_oid () =
-  incr oid_counter;
-  !oid_counter
+  Provenance.fresh_id ()
 
-let with_origin_id oid origin value = { value; origin; oid; loc = None }
+let with_origin_id oid origin value = { value; origin; oid; loc = None; attrs = [] }
 
 let with_origin origin value =
   with_origin_id (fresh_oid ()) origin value
 let with_origin_loc origin loc value =
-  { value; origin; oid = fresh_oid (); loc = Some loc }
+  { value; origin; oid = fresh_oid (); loc = Some loc; attrs = [] }
 
 let with_origin_id_loc oid origin loc value =
-  { value; origin; oid; loc = Some loc }
+  { value; origin; oid; loc = Some loc; attrs = [] }
 
-let map_with_origin f x = { x with value = f x.value; loc = x.loc }
+let map_with_origin f x = { x with value = f x.value; loc = x.loc; attrs = x.attrs }
+
+let add_attr attr x =
+  if List.mem attr x.attrs then x
+  else { x with attrs = x.attrs @ [attr] }
+
+let add_attrs attrs x =
+  List.fold_left (fun acc a -> add_attr a acc) x attrs
 let values xs = List.map (fun x -> x.value) xs
 let origins xs = List.map (fun x -> x.origin) xs
 

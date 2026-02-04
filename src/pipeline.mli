@@ -9,13 +9,15 @@ type outputs = {
   dot_text : string;
   labels_text : string;
   goals : goal_info list;
-  obcplus_sequents : (string * string) list;
+  obcplus_sequents : (int * string) list;
   task_sequents : (string list * string) list;
-  vc_locs : (string * Ast.loc) list;
-  obcplus_spans : (string * (int * int)) list;
+  vc_locs : (int * Ast.loc) list;
+  obcplus_spans : (int * (int * int)) list;
   vc_locs_ordered : Ast.loc list;
   obcplus_spans_ordered : (int * int) list;
   vc_spans_ordered : (int * int) list;
+  why_spans : (int * (int * int)) list;
+  vc_ids_ordered : int list;
   dot_png : string option;
 }
 
@@ -79,6 +81,6 @@ val run : config -> (outputs, error) result
 
 val run_with_callbacks :
   config ->
-  on_goals_ready:(string list -> unit) ->
+  on_goals_ready:(string list * int list -> unit) ->
   on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
   (outputs, error) result
