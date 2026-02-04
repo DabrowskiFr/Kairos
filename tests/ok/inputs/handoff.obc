@@ -1,0 +1,22 @@
+node handoff() returns (modeA: int, modeB: int)
+guarantee G( {modeA} = {1} => X( {modeB} = {1} ) );
+guarantee G( {modeB} = {1} => X( {modeA} = {1} ) );
+guarantee G(G( {modeA} = {1} => X( {modeB} = {1} ) ));
+locals
+states
+  A, B;
+init A
+trans
+  A -> B {
+    requires {modeA} = {1};
+    requires {modeB} = {0};
+    modeA := 0;
+    modeB := 1;
+  }
+  B -> A {
+    requires {modeA} = {0};
+    requires {modeB} = {1};
+    modeA := 1;
+    modeB := 0;
+  }
+end

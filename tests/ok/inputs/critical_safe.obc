@@ -1,0 +1,21 @@
+node critical_safe() returns (crit: int, safe: int)
+guarantee G( {crit} = {1} => G( {safe} = {1} ) );
+guarantee G(G( {crit} = {1} => G( {safe} = {1} ) ));
+locals
+states
+  Normal, Critical;
+init Normal
+trans
+  Normal -> Critical {
+    requires {crit} = {0};
+    requires {safe} = {0};
+    crit := 1;
+    safe := 1;
+  }
+  Critical -> Critical {
+    requires {crit} = {1};
+    requires {safe} = {1};
+    crit := 1;
+    safe := 1;
+  }
+end

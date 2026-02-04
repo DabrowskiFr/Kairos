@@ -1,0 +1,17 @@
+node interlock_cycle() returns (motor: int)
+guarantee G( {motor} = {1} => X( {motor} = {0} ) );
+guarantee G(G( {motor} = {1} => X( {motor} = {0} ) ));
+locals
+states
+  On, Off;
+init Off
+trans
+  Off -> On {
+    requires {motor} = {0};
+    motor := 1;
+  }
+  On -> Off {
+    requires {motor} = {1};
+    motor := 0;
+  }
+end

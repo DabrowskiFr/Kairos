@@ -1,0 +1,21 @@
+node ack_cycle() returns (req: int, ack: int)
+guarantee G( {req} = {1} => G( {ack} = {1} ) );
+guarantee G(G( {req} = {1} => G( {ack} = {1} ) ));
+locals
+states
+  Idle, Req;
+init Idle
+trans
+  Idle -> Req {
+    requires {req} = {0};
+    requires {ack} = {1};
+    req := 1;
+    ack := 1;
+  }
+  Req -> Idle {
+    requires {req} = {1};
+    requires {ack} = {1};
+    req := 0;
+    ack := 1;
+  }
+end

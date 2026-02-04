@@ -1,0 +1,18 @@
+node heartbeat() returns (beat: int)
+guarantee G( {beat} = {0} => X( {beat} = {1} ) );
+guarantee G( {beat} = {1} => X( {beat} = {0} ) );
+guarantee G(G( {beat} = {0} => X( {beat} = {1} ) ));
+locals
+states
+  Low, High;
+init Low
+trans
+  Low -> High {
+    requires {beat} = {0};
+    beat := 1;
+  }
+  High -> Low {
+    requires {beat} = {1};
+    beat := 0;
+  }
+end
