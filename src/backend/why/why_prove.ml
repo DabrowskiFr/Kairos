@@ -384,6 +384,64 @@ let dump_why3_tasks ~(text:string) : string list =
   in
   List.map task_to_string tasks
 
+let dump_why3_tasks_with_attrs ~(text:string) : string list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  let tasks = normalize_tasks ~env ~text in
+  let attrs_to_string (attrs:Ident.Sattr.t) : string =
+    Ident.Sattr.elements attrs
+    |> List.map (fun a -> a.Ident.attr_string)
+    |> String.concat ", "
+  in
+  let task_to_string task =
+    let buffer = Buffer.create 4096 in
+    let fmt = Format.formatter_of_buffer buffer in
+    Pretty.print_task fmt task;
+    Format.pp_print_flush fmt ();
+    let prop_lines =
+      Task.task_decls task
+      |> List.filter_map (fun decl ->
+           match decl.Decl.d_node with
+           | Decl.Dprop (_kind, pr, t) ->
+               let name = pr.Decl.pr_name.Ident.id_string in
+               let attrs = attrs_to_string t.Term.t_attrs in
+               if attrs = "" then None
+               else Some (Printf.sprintf "(* attrs %s: %s *)" name attrs)
+           | _ -> None)
+    in
+    if prop_lines = [] then Buffer.contents buffer
+    else Buffer.contents buffer ^ "\n" ^ String.concat "\n" prop_lines ^ "\n"
+  in
+  List.map task_to_string tasks
+
+let task_sequents ~(text:string) : (string list * string) list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  let tasks = normalize_tasks ~env ~text in
+  let term_to_string t =
+    let buf = Buffer.create 256 in
+    let fmt = Format.formatter_of_buffer buf in
+    Pretty.print_term fmt t;
+    Format.pp_print_flush fmt ();
+    Buffer.contents buf
+  in
+  let task_to_sequent task =
+    let goal_pr = Task.task_goal task in
+    let goal_term = Task.task_goal_fmla task in
+    let hyps =
+      Task.task_decls task
+      |> List.filter_map (fun decl ->
+           match decl.Decl.d_node with
+           | Decl.Dprop (_kind, pr, t) ->
+               if Decl.pr_equal pr goal_pr then None
+               else
+                 let has_local_news = not (Ident.Sid.is_empty decl.Decl.d_news) in
+                 if has_local_news then Some t else None
+           | _ -> None)
+      |> List.map term_to_string
+    in
+    (hyps, term_to_string goal_term)
+  in
+  List.map task_to_sequent tasks
+
 let dump_smt2_tasks ~(prover:string) ~(text:string) : string list =
   let config, main, env, datadir_opt = setup_env () in
   let filter =

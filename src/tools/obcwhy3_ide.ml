@@ -13,6 +13,7 @@ module Ide_backend = struct
     labels_text : string;
     goals : (string * string * float * string option * string * string option) list;
     obcplus_sequents : (string * string) list;
+    task_sequents : (string list * string) list;
     dot_png : string option;
   }
 
@@ -115,7 +116,7 @@ module Ide_backend = struct
     try
       let p_obc = build_obc input_file in
       let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let vc_tasks = Why_prove.dump_why3_tasks ~text:why_text in
+      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
       let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
@@ -132,7 +133,8 @@ module Ide_backend = struct
       let obc_text = Core_backend.emit_obc p_obc in
       let obcplus_sequents = build_obcplus_sequents p_obc in
       let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let vc_tasks = Why_prove.dump_why3_tasks ~text:why_text in
+      let task_sequents = Why_prove.task_sequents ~text:why_text in
+      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
       let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
@@ -156,7 +158,7 @@ module Ide_backend = struct
           if status = 0 then Some png_file else (Sys.remove png_file; None)
         with _ -> None
       in
-      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; dot_png }
+      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; task_sequents; dot_png }
     with exn ->
       Error (Printexc.to_string exn)
 
@@ -175,7 +177,8 @@ module Ide_backend = struct
       let obc_text = Core_backend.emit_obc p_obc in
       let obcplus_sequents = build_obcplus_sequents p_obc in
       let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let vc_tasks = Why_prove.dump_why3_tasks ~text:why_text in
+      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
+      let task_sequents = Why_prove.task_sequents ~text:why_text in
       let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
@@ -218,7 +221,7 @@ module Ide_backend = struct
           if status = 0 then Some png_file else (Sys.remove png_file; None)
         with _ -> None
       in
-      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; dot_png }
+      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; task_sequents; dot_png }
     with exn ->
       Error (Printexc.to_string exn)
 end
@@ -637,7 +640,7 @@ treeview.goals row:selected {
       [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
   in
   let why_goal_tag = why_buf#create_tag goal_highlight_props in
-  let vc_tab = GMisc.label ~text:"VC" () in
+  let vc_tab = GMisc.label ~text:"Theory" () in
   let vc_view, vc_buf, vc_page =
     make_text_panel
       ~label:""
@@ -769,17 +772,6 @@ treeview.goals row:selected {
   let set_tab_sensitive page tab_label sensitive =
     page#misc#set_sensitive sensitive;
     tab_label#misc#set_sensitive sensitive
-  in
-  let select_in_buffer ~(view:GText.view) ~(buf:GText.buffer) ~needle =
-    let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
-    try
-      let idx = Str.search_forward (Str.regexp_string needle) text 0 in
-      let it_s = buf#get_iter_at_char idx in
-      let it_e = buf#get_iter_at_char (idx + String.length needle) in
-      buf#select_range it_s it_e;
-      ignore (view#scroll_to_iter it_s);
-      true
-    with Not_found -> false
   in
   let update_dirty_indicator () =
     let suffix = if !dirty then " *" else "" in
@@ -2070,14 +2062,22 @@ treeview.goals row:selected {
 
   let obcplus_sequents : (string, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
 
-  let set_task_view ~goal ~vcid =
+  let task_sequents_list : (string list * string) list ref = ref [] in
+
+  let set_task_view ~goal:_ ~vcid:_ ~index =
     if !latest_vc_text = "" then task_buf#set_text ""
-    else if vcid <> "" then
-      match Hashtbl.find_opt !obcplus_sequents vcid with
-      | Some seq -> task_buf#set_text seq
-      | None -> task_buf#set_text "No OBC+ mapping for this VC"
     else
-      task_buf#set_text "No OBC+ mapping for this VC"
+      match index with
+      | None -> task_buf#set_text "Task not found"
+      | Some idx ->
+          match List.nth_opt !task_sequents_list idx with
+          | None -> task_buf#set_text "Task not found"
+          | Some (hyps, goal_term) ->
+              let buf = Buffer.create 256 in
+              List.iter (fun h -> Buffer.add_string buf (h ^ "\n")) hyps;
+              if hyps <> [] then Buffer.add_string buf "--------------------\n";
+              Buffer.add_string buf goal_term;
+              task_buf#set_text (Buffer.contents buf)
   in
 
   goal_view#selection#connect#changed ~callback:(fun () ->
@@ -2095,7 +2095,7 @@ treeview.goals row:selected {
           let idxs = GTree.Path.get_indices path in
           if Array.length idxs = 0 then None else Some idxs.(0)
         in
-        set_task_view ~goal ~vcid;
+        set_task_view ~goal ~vcid ~index;
         set_tab_sensitive task_page task_tab true;
         current_goal_highlight := Some (goal, source, index);
         apply_goal_highlights ~goal ~source ~index
@@ -2127,7 +2127,7 @@ treeview.goals row:selected {
     apply_current_goal_highlight ()
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs =
+  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs ~task_seqs =
     let _ = labels in
     latest_vc_text := vc;
     set_obcplus_buffer obcplus;
@@ -2138,6 +2138,8 @@ treeview.goals row:selected {
     let tbl = Hashtbl.create (List.length obcplus_seqs * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace tbl k v) obcplus_seqs;
     obcplus_sequents := tbl
+    ;
+    task_sequents_list := task_seqs
   in
 
   let status_icon status =
@@ -2209,11 +2211,7 @@ treeview.goals row:selected {
       set_status ("Loaded SMT2 dump: " ^ dump_path)
     ) else (
       set_tab_sensitive vc_page vc_tab true;
-      let found = select_in_buffer ~view:vc_view ~buf:vc_buf ~needle:goal in
-      if found then
-        add_history (Printf.sprintf "Jumped to goal %s" goal)
-      else
-        set_status ("Goal not found in VC: " ^ goal)
+      add_history (Printf.sprintf "Selected goal %s" goal)
     )
   ) |> ignore;
 
@@ -2460,7 +2458,8 @@ treeview.goals row:selected {
               ~dot:out.dot_text
               ~labels:out.labels_text
               ~dot_png:out.dot_png
-              ~obcplus_seqs:out.obcplus_sequents;
+              ~obcplus_seqs:out.obcplus_sequents
+              ~task_seqs:out.task_sequents;
             set_goals out.goals;
             if cached <> None then (set_status_cached "Done"; add_history "Prove: done (cached)")
             else (set_status "Done"; add_history "Prove: done")

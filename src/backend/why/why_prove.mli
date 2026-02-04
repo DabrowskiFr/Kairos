@@ -15,6 +15,7 @@ type result = {
 val prove_text : ?timeout:int -> prover:string -> text:string -> unit -> result
 
 val dump_why3_tasks : text:string -> string list
+val dump_why3_tasks_with_attrs : text:string -> string list
 
 val dump_smt2_tasks : prover:string -> text:string -> string list
 
@@ -33,3 +34,6 @@ val prove_text_detailed_with_callbacks :
   on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
   unit ->
   summary * (string * string * float * string option * string * string option) list
+
+val task_sequents :
+  text:string -> (string list * string) list
