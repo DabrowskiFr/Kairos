@@ -1133,6 +1133,33 @@ treeview.goals row:selected {
     loop res
   in
 
+  let highlight_obcplus_vcid vcid =
+    if vcid = "" then ()
+    else
+      let text =
+        obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()
+      in
+      let marker = "(* " ^ vcid ^ " *)" in
+      try
+        let pos = Str.search_forward (Str.regexp_string marker) text 0 in
+        let line_end =
+          try String.index_from text pos '\n' with Not_found -> String.length text
+        in
+        let next_start =
+          if line_end < String.length text then line_end + 1 else line_end
+        in
+        let next_end =
+          try String.index_from text next_start '\n' with Not_found -> String.length text
+        in
+        let it_s = obcplus_buf#start_iter in
+        ignore (it_s#forward_chars next_start);
+        let it_e = obcplus_buf#start_iter in
+        ignore (it_e#forward_chars next_end);
+        obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+        ignore (obcplus_view#scroll_to_iter it_s)
+      with Not_found -> ()
+  in
+
   let obc_patterns_for_source source =
     let s = String.lowercase_ascii (String.trim source) in
     match s with
@@ -1175,6 +1202,15 @@ treeview.goals row:selected {
       let obcplus_res = obc_res in
       apply_regexes obc_buf obc_text obc_goal_tag obc_res;
       apply_regexes obcplus_buf obcplus_text obcplus_goal_tag obcplus_res;
+      let vcid =
+        match index with
+        | None -> ""
+        | Some i ->
+            let path = GTree.Path.create [i] in
+            let row = goal_model#get_iter path in
+            goal_model#get ~row ~column:vcid_col
+      in
+      highlight_obcplus_vcid vcid;
       begin match first_match_offset obc_text obc_res with
       | Some off ->
           let it = obc_buf#start_iter in

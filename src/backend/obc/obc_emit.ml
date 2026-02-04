@@ -491,6 +491,10 @@ let transition_lines (indent:int) (t:transition)
             if Some source = current_source then []
             else [comment_line (indent + 1) ("source: " ^ source)]
           in
+          let vcid_line =
+            if is_require then []
+            else [comment_line (indent + 1) (Printf.sprintf "vcid:%d" f.oid)]
+          in
           let line =
             let kw = if is_require then "requires " else "ensures " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
@@ -506,7 +510,7 @@ let transition_lines (indent:int) (t:transition)
                 in
                 line ^ pad ^ "(* " ^ label ^ " *)"
           in
-          build (acc @ header @ [line]) (Some source) rest
+          build (acc @ header @ vcid_line @ [line]) (Some source) rest
     in
     build [] None items
   in
