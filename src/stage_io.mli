@@ -16,6 +16,10 @@ val emit_dot_files :
 
 val emit_obc_file : out_file:string -> Ast.program -> unit
 
+val emit_why3_vc : out_file:string -> why_text:string -> unit
+
+val emit_smt2 : out_file:string -> prover:string -> why_text:string -> unit
+
 val emit_why :
   prefix_fields:bool ->
   output_file:string option ->

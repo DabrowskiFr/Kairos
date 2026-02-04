@@ -93,6 +93,38 @@ let emit_obc_file ~(out_file:string) (program:Ast.program) : unit =
     Logger.output_written "obc" path (file_size path)
   )
 
+let emit_why3_vc ~(out_file:string) ~(why_text:string) : unit =
+  let tasks = Why_prove.dump_why3_tasks ~text:why_text in
+  let buf = Buffer.create 4096 in
+  List.iteri
+    (fun i task ->
+       if i > 0 then Buffer.add_string buf "\n(* ---- goal ---- *)\n";
+       Buffer.add_string buf task)
+    tasks;
+  let out = Buffer.contents buf in
+  if out_file = "-" then
+    print_string out
+  else (
+    write_text out_file out;
+    Logger.output_written "why3_vc" out_file (file_size out_file)
+  )
+
+let emit_smt2 ~(out_file:string) ~(prover:string) ~(why_text:string) : unit =
+  let tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
+  let buf = Buffer.create 4096 in
+  List.iteri
+    (fun i task ->
+       if i > 0 then Buffer.add_string buf "\n; ---- goal ----\n";
+       Buffer.add_string buf task)
+    tasks;
+  let out = Buffer.contents buf in
+  if out_file = "-" then
+    print_string out
+  else (
+    write_text out_file out;
+    Logger.output_written "smt2" out_file (file_size out_file)
+  )
+
 let emit_why
   ~(prefix_fields:bool)
   ~(output_file:string option)

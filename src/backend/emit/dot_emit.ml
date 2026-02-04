@@ -71,10 +71,23 @@ let rewrite_history_vars (s:string) : string =
   loop 0;
   Buffer.contents b
 
+let strip_braces (s:string) : string =
+  let len = String.length s in
+  let b = Buffer.create len in
+  let rec loop i =
+    if i >= len then ()
+    else (
+      let c = s.[i] in
+      if c <> '{' && c <> '}' then Buffer.add_char b c;
+      loop (i + 1)
+    )
+  in
+  loop 0;
+  Buffer.contents b
+
 let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
-  let edge_id = ref 0 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let fold_map_for_specs ~(fo:fo list) ~(ltl:fo_ltl list) : (hexpr * ident) list =
@@ -247,7 +260,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
              let inl = inline_atom_names raw in
              if debug_inline then
                prerr_endline (Printf.sprintf "[dot] node %s raw=%s inl=%s" node_id raw inl);
-             inl
+             strip_braces inl
            else node_id
          in
          let lbl = escape_dot_label node_label in
@@ -261,27 +274,23 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
          if not show_labels then
            Buffer.add_string label_buf
              (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n"
-                node_id (Support.string_of_ltl f)))
+                node_id (strip_braces (Support.string_of_ltl f))))
       states;
     List.iter
       (fun (i, guard, j) ->
-         let formula =
-           bdd_to_iexpr atom_names guard
-           |> iexpr_to_fo_with_atoms atom_name_to_fo
-           |> Support.string_of_fo
-         in
-         let lbl =
-           if show_labels then
-             escape_dot_label formula
-           else
-             let id = Printf.sprintf "e_%d" !edge_id in
-             incr edge_id;
-             Buffer.add_string label_buf
-               (Printf.sprintf "edge:\n  id: %s\n  src: %d\n  dst: %d\n  guard: %s\n\n"
-                  id i j formula);
-             escape_dot_label id
-         in
-         Buffer.add_string buf (Printf.sprintf "  r%d -> r%d [label=\"%s\"];\n" i j lbl))
+        let formula =
+          bdd_to_iexpr atom_names guard
+          |> iexpr_to_fo_with_atoms atom_name_to_fo
+          |> Support.string_of_fo
+          |> strip_braces
+        in
+        let lbl =
+          if show_labels then
+            escape_dot_label formula
+          else
+            escape_dot_label formula
+        in
+        Buffer.add_string buf (Printf.sprintf "  r%d -> r%d [label=\"%s\"];\n" i j lbl))
       grouped;
   in
   List.iter add_node_block p;
@@ -291,7 +300,6 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
 let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
-  let edge_id = ref 0 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
@@ -375,7 +383,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
       (fun i f ->
          let node_id = string_of_int i in
          let node_label =
-           if show_labels then string_of_ltl_inline f else node_id
+           if show_labels then strip_braces (string_of_ltl_inline f) else node_id
          in
          let lbl = escape_dot_label node_label in
          let shape =
@@ -388,27 +396,23 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
          if not show_labels then
            Buffer.add_string label_buf
              (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n"
-                node_id (Support.string_of_ltl f)))
+                node_id (strip_braces (Support.string_of_ltl f))))
       states;
     List.iter
       (fun (i, guard, j) ->
-         let formula =
-           bdd_to_iexpr atom_names guard
-           |> iexpr_to_fo_with_atoms atom_name_to_fo
-           |> Support.string_of_fo
-         in
-         let lbl =
-           if show_labels then
-             escape_dot_label formula
-           else
-             let id = Printf.sprintf "e_%d" !edge_id in
-             incr edge_id;
-             Buffer.add_string label_buf
-               (Printf.sprintf "edge:\n  id: %s\n  src: %d\n  dst: %d\n  guard: %s\n\n"
-                  id i j formula);
-             escape_dot_label id
-         in
-         Buffer.add_string buf (Printf.sprintf "    r%d -> r%d [label=\"%s\"];\n" i j lbl))
+        let formula =
+          bdd_to_iexpr atom_names guard
+          |> iexpr_to_fo_with_atoms atom_name_to_fo
+          |> Support.string_of_fo
+          |> strip_braces
+        in
+        let lbl =
+          if show_labels then
+            escape_dot_label formula
+          else
+            escape_dot_label formula
+        in
+        Buffer.add_string buf (Printf.sprintf "    r%d -> r%d [label=\"%s\"];\n" i j lbl))
       grouped;
   in
   List.iter add_node_block p;

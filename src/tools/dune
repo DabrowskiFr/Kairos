@@ -4,3 +4,8 @@
  (name gen_pipeline_dot)
  (modules gen_pipeline_dot)
  (libraries obcwhy3_lib))
+
+(executable
+ (name obcwhy3_ide)
+ (modules obcwhy3_ide)
+ (libraries obcwhy3_lib lablgtk3))

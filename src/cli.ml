@@ -3,6 +3,8 @@ type cli_config = {
   dump_dot_short : string option;
 
   dump_obc : string option;
+  dump_why3_vc : string option;
+  dump_smt2 : string option;
   show_help : bool;
   prove : bool;
   prover : string;
@@ -22,6 +24,8 @@ let default_config = {
   dump_dot_short = None;
 
   dump_obc = None;
+  dump_why3_vc = None;
+  dump_smt2 = None;
   show_help = false;
   prove = false;
   prover = "z3";
@@ -40,14 +44,16 @@ let usage_text =
   "Usage: obc2why3\n" ^
   "  [--dump-dot <file|->] [--dump-dot-short <file|->] [--dump-json <file|->]\n" ^
   "  [--dump-obc <file|->] [--dump-why <file|->] [--dump-ast <stage> <file|->]\n" ^
-  "  [--dump-ast-all <dir>]\n" ^
+  "  [--dump-ast-all <dir>] [--dump-why3-vc <file|->] [--dump-smt2 <file|->]\n" ^
   "  [--log-level <quiet|normal|verbose|debug|trace>] [--log-format <pretty|json>]\n" ^
   "  [--log-color <auto|always|never>] [--log-file <path>] [--version]\n" ^
   "  [--prove --prover <name>] <file.obc>\n" ^
   "Options:\n" ^
   "  --help                           Show this help message\n" ^
-  "  --dump-dot <file|->              Generate DOT with full node/edge labels\n" ^
-  "  --dump-dot-short <file|->        Generate DOT with short labels and <file>.labels output\n" ^
+  "  --dump-dot <file|->              Generate DOT with node ids and <file>.labels output\n" ^
+  "  --dump-dot-short <file|->        Alias of --dump-dot\n" ^
+  "  --dump-why3-vc <file|->          Dump Why3 VCs (after split/simplify)\n" ^
+  "  --dump-smt2 <file|->             Dump SMT-LIB tasks sent to the solver\n" ^
   "  --dump-json <file|->             Dump internal AST as JSON to file (or - for stdout)\n" ^
   "  --dump-obc <file|->              Dump augmented OBC (monitor-instrumented) to file\n" ^
   "  --dump-why <file|->              Dump Why3 to file (or - for stdout)\n" ^
@@ -84,6 +90,12 @@ let parse_args () : (cli_config, string) result =
       | "--dump-obc" ->
           if i + 1 >= len then Error "Missing argument for --dump-obc"
           else loop (i + 2) { cfg with dump_obc = Some argv.(i + 1) }
+      | "--dump-why3-vc" ->
+          if i + 1 >= len then Error "Missing argument for --dump-why3-vc"
+          else loop (i + 2) { cfg with dump_why3_vc = Some argv.(i + 1) }
+      | "--dump-smt2" ->
+          if i + 1 >= len then Error "Missing argument for --dump-smt2"
+          else loop (i + 2) { cfg with dump_smt2 = Some argv.(i + 1) }
       | "--prove" -> loop (i + 1) { cfg with prove = true }
       | "--dump-json" ->
           if i + 1 >= len then Error "Missing argument for --dump-json"
@@ -137,11 +149,18 @@ let validate_config (cfg:cli_config) : (cli_config, string) result =
     Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
   else if cfg.dump_obc <> None
           && (cfg.dump_dot <> None || cfg.dump_dot_short <> None
-              || cfg.dump_ast <> None || cfg.dump_ast_all <> None) then
+              || cfg.dump_ast <> None || cfg.dump_ast_all <> None
+              || cfg.dump_why3_vc <> None || cfg.dump_smt2 <> None) then
     Error "--dump-obc cannot be combined with --dump-dot/--dump-dot-short or --dump-ast"
+  else if (cfg.dump_why3_vc <> None || cfg.dump_smt2 <> None)
+          && (cfg.dump_dot <> None || cfg.dump_dot_short <> None
+              || cfg.dump_obc <> None || cfg.dump_ast <> None
+              || cfg.dump_ast_all <> None) then
+    Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-obc/--dump-ast"
   else if cfg.dump_dot <> None && cfg.dump_dot_short <> None then
     Error "--dump-dot and --dump-dot-short are mutually exclusive"
   else if cfg.dump_dot = None && cfg.dump_dot_short = None && cfg.dump_obc = None
+          && cfg.dump_why3_vc = None && cfg.dump_smt2 = None
           && cfg.output_file = None && not cfg.prove then
     Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
   else Ok cfg
@@ -209,6 +228,8 @@ let run () =
               dump_dot_short = cfg.dump_dot_short;
 
               dump_obc = cfg.dump_obc;
+              dump_why3_vc = cfg.dump_why3_vc;
+              dump_smt2 = cfg.dump_smt2;
               dump_ast_stage;
               dump_ast_out;
               dump_ast_all = cfg.dump_ast_all;

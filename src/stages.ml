@@ -2,6 +2,8 @@ type config = {
   dump_dot : string option;
   dump_dot_short : string option;
   dump_obc : string option;
+  dump_why3_vc : string option;
+  dump_smt2 : string option;
   dump_ast_stage : Stage_names.stage_id option;
   dump_ast_out : string option;
   dump_ast_all : string option;
@@ -153,7 +155,7 @@ let run (cfg:config) : (unit, string) result =
       begin match cfg.dump_dot, cfg.dump_dot_short, cfg.dump_obc with
       | Some out_file, None, None ->
           log_stage "emit dot";
-          Stage_io.emit_dot_files ~show_labels:true ~out_file p_automaton;
+          Stage_io.emit_dot_files ~show_labels:false ~out_file p_automaton;
           Ok ()
       | None, Some out_file, None ->
           log_stage "emit dot (short)";
@@ -181,6 +183,16 @@ let run (cfg:config) : (unit, string) result =
                 Logger.stage_end Stage_names.Why
                   (int_of_float ((Unix.gettimeofday () -. t5) *. 1000.))
                   [];
+                begin match cfg.dump_why3_vc with
+                | None -> ()
+                | Some out_file ->
+                    Stage_io.emit_why3_vc ~out_file ~why_text
+                end;
+                begin match cfg.dump_smt2 with
+                | None -> ()
+                | Some out_file ->
+                    Stage_io.emit_smt2 ~out_file ~prover:cfg.prover ~why_text
+                end;
                 if cfg.prove then
                   Stage_io.prove_why
                     ~prover:cfg.prover
