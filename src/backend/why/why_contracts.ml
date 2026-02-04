@@ -99,6 +99,7 @@ let inline_atom_terms_map (env:env) (invs:invariant_mon list)
     | Tapply (f, a) -> mk_term (Tapply (go f, go a))
     | Tif (c, t1, t2) -> mk_term (Tif (go c, go t1, go t2))
     | Ttuple ts -> mk_term (Ttuple (List.map go ts))
+    | Tattr (attr, t) -> mk_term (Tattr (attr, go t))
     | _ -> t
   in
   go
@@ -309,6 +310,14 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
                   | Some g -> List.map (fun p -> term_implies g p) guarded_k
                 in
                 let terms = List.map (term_implies cond_post) guarded in
+                let terms =
+                  match vcid_opt with
+                  | None -> terms
+                  | Some vcid ->
+                      List.map
+                        (fun t -> mk_term (Tattr (ATstr (Ident.create_attribute vcid), t)))
+                        terms
+                in
                 let lemmas =
                   if is_lemma then
                     let labeled = List.map (fun t -> (t, lemma_label)) terms in
@@ -714,7 +723,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
     build_label_opts state_post_terms post_out ~is_candidate:term_has_old
   in
   let post_vcid_opts =
-    build_label_opts state_post_terms_vcid post_out ~is_candidate:(fun _ -> true)
+    List.map (fun _ -> None) post_out
   in
   let merge_labels opts groups =
     List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
