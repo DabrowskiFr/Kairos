@@ -37,7 +37,12 @@ and collect_atoms_fo (f:fo) (acc:fo list) : fo list =
       collect_atoms_fo b (collect_atoms_fo a acc)
 
 let collect_atoms_from_node (n:node) : fo list =
-  let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] (n.assumes @ n.guarantees) in
+  let acc =
+    List.fold_left
+      (fun acc f -> collect_atoms_ltl f acc)
+      []
+      (Ast.values n.assumes @ Ast.values n.guarantees)
+  in
   List.fold_left
     (fun acc inv ->
        match inv with
@@ -47,7 +52,7 @@ let collect_atoms_from_node (n:node) : fo list =
     n.invariants_mon
 
 let transition_fo (t:transition) : fo list =
-  t.requires @ t.ensures @ t.lemmas
+  Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas
 
 let conj_fo (fs:fo list) : fo option =
   match fs with
@@ -201,18 +206,17 @@ let replace_atoms_invariants_mon (atom_map:(fo * ident) list)
 
 let replace_atoms_transition (atom_map:(fo * ident) list) (t:transition)
   : transition =
-  let replace_fo_list = List.map (replace_atoms_fo atom_map) in
   { t with
-    requires = replace_fo_list t.requires;
-    ensures = replace_fo_list t.ensures;
-    lemmas = replace_fo_list t.lemmas;
+    requires = List.map (Ast.map_with_origin (replace_atoms_fo atom_map)) t.requires;
+    ensures = List.map (Ast.map_with_origin (replace_atoms_fo atom_map)) t.ensures;
+    lemmas = List.map (Ast.map_with_origin (replace_atoms_fo atom_map)) t.lemmas;
   }
 
 let fold_map_for_node (n:node) : (hexpr * ident) list =
   let folds : Support.fold_info list =
     Collect.collect_folds_from_specs
       ~fo:[]
-      ~ltl:(n.assumes @ n.guarantees)
+      ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
       ~invariants_mon:n.invariants_mon
   in
   List.map (fun (fi:Support.fold_info) -> (fi.h, fi.acc)) folds

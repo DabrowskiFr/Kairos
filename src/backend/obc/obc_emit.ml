@@ -348,17 +348,17 @@ let replace_pre_k_invariant ~(map:(hexpr * ident) list) (inv:invariant_mon)
 let replace_pre_k_transition ~(map:(hexpr * ident) list) (t:transition) : transition =
   {
     t with
-    requires = List.map (replace_pre_k_fo ~map) t.requires;
-    ensures = List.map (replace_pre_k_fo ~map) t.ensures;
-    lemmas = List.map (replace_pre_k_fo ~map) t.lemmas;
+    requires = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.requires;
+    ensures = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.ensures;
+    lemmas = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.lemmas;
   }
 
 let replace_pre_k_node (n:node) : node =
   let map = pre_k_var_map n in
   {
     n with
-    assumes = List.map (replace_pre_k_ltl ~map) n.assumes;
-    guarantees = List.map (replace_pre_k_ltl ~map) n.guarantees;
+    assumes = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.assumes;
+    guarantees = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.guarantees;
     invariants_mon = List.map (replace_pre_k_invariant ~map) n.invariants_mon;
     trans = List.map (replace_pre_k_transition ~map) n.trans;
   }
@@ -422,14 +422,23 @@ let is_contract_coherency (f:fo) : bool =
   | FImp _ -> true
   | _ -> false
 
-let source_of_fo ~(is_require:bool) (f:fo) : string =
-  match primary_tag_for_fo ~is_require f with
-  | Some t -> tag_label t
-  | None ->
-      if (not is_require) && is_contract_coherency f then
-        "user contracts coherency"
-      else
-        "user"
+let source_of_fo ~(is_require:bool) (f:fo_o) : string =
+  match f.origin with
+  | UserContract -> "user"
+  | Coherency -> "user contracts coherency"
+  | Compatibility -> "monitor/program compatibility"
+  | Monitor ->
+      if is_require then "monitor pre-condition" else "monitor post-condition"
+  | Internal -> "internal"
+  | Other s -> s
+  | Unknown ->
+      match primary_tag_for_fo ~is_require f.value with
+      | Some t -> tag_label t
+      | None ->
+          if (not is_require) && is_contract_coherency f.value then
+            "user contracts coherency"
+          else
+            "user"
 
 let source_order (s:string) : int =
   match s with
@@ -484,7 +493,7 @@ let transition_lines (indent:int) (t:transition)
           in
           let line =
             let kw = if is_require then "requires " else "ensures " in
-            indent_str (indent + 1) ^ kw ^ string_of_fo f ^ ";"
+            indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
           let line =
@@ -513,7 +522,7 @@ let transition_lines (indent:int) (t:transition)
     List.map
       (fun f ->
          let line =
-           indent_str (indent + 1) ^ "(* lemma " ^ string_of_fo f ^ " *)"
+           indent_str (indent + 1) ^ "(* lemma " ^ string_of_fo f.value ^ " *)"
          in
          let line = prettify_pre_old ~init_for_var ~vars line in
          [line]
@@ -572,7 +581,7 @@ let node_lines (n:node) : string list =
     ^ " returns (" ^ params_of_vdecls n.outputs ^ ")"
   in
   let contracts =
-    contract_lines 1 n.assumes n.guarantees n.invariants_mon
+    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees) n.invariants_mon
       ~init_for_var ~vars
   in
   let instances =
@@ -614,8 +623,8 @@ let node_lines (n:node) : string list =
     let lens =
       List.concat_map
         (fun (t:transition) ->
-           List.map (base_line_len true) t.requires
-           @ List.map (base_line_len false) t.ensures)
+           List.map (base_line_len true) (Ast.values t.requires)
+           @ List.map (base_line_len false) (Ast.values t.ensures))
         n.trans
     in
     match lens with

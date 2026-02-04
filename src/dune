@@ -25,6 +25,7 @@
   obc_emit
   obc_ghost_instrument
   why_types
+  why_labels
   why_prove
   why_env
   why_contracts

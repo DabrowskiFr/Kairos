@@ -49,4 +49,7 @@ type contract_info = {
   post : Why3.Ptree.term list;
   pre_labels : string list;
   post_labels : string list;
+  pre_origin_labels : string list;
+  post_origin_labels : string list;
+  post_vcids : string option list;
 }

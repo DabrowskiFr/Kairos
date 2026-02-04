@@ -60,12 +60,15 @@ let transform_node_ghost (n:node) : node =
     | _ -> true
   in
   let transition_fo =
-    List.concat_map (fun (t:transition) -> t.requires @ t.ensures @ t.lemmas) n.trans
+    List.concat_map
+      (fun (t:transition) ->
+        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+      n.trans
   in
   let folds =
     Collect.collect_folds_from_specs
       ~fo:transition_fo
-      ~ltl:(n.assumes @ n.guarantees)
+      ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
       ~invariants_mon:n.invariants_mon
   in
   let pre_k_map = Collect.build_pre_k_infos n in
@@ -85,7 +88,7 @@ let transform_node_ghost (n:node) : node =
       ) folds
   in
   let has_initial_only_contracts =
-    List.exists is_initial_only (n.assumes @ n.guarantees)
+    List.exists is_initial_only (Ast.values n.assumes @ Ast.values n.guarantees)
   in
   let needs_step_count = false in
   let needs_first_step = false in
@@ -160,7 +163,7 @@ let transform_node_ghost (n:node) : node =
          shifts @ first)
       pre_k_infos
   in
-  let pre_k_links : fo list = [] in
+  let pre_k_links : fo_o list = [] in
   let ghost_base = [] in
   let reset_flags = [] in
   let trans =

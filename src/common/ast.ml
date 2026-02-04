@@ -70,6 +70,34 @@ type 'a ltl =
 type fo_ltl = fo ltl [@@deriving show]
 type atom_ltl = ident ltl [@@deriving show]
 
+type origin =
+  | UserContract
+  | Monitor
+  | Coherency
+  | Compatibility
+  | Internal
+  | Unknown
+  | Other of string
+[@@deriving show]
+
+type 'a with_origin = { value: 'a; origin: origin; oid: int } [@@deriving show]
+type fo_o = fo with_origin [@@deriving show]
+type fo_ltl_o = fo_ltl with_origin [@@deriving show]
+
+let oid_counter = ref 0
+
+let fresh_oid () =
+  incr oid_counter;
+  !oid_counter
+
+let with_origin_id oid origin value = { value; origin; oid }
+
+let with_origin origin value =
+  with_origin_id (fresh_oid ()) origin value
+let map_with_origin f x = { x with value = f x.value }
+let values xs = List.map (fun x -> x.value) xs
+let origins xs = List.map (fun x -> x.origin) xs
+
 type vdecl = { vname: ident; vty: ty } [@@deriving show]
 
 type stmt =
@@ -89,9 +117,9 @@ type transition = {
   src: ident;
   dst: ident;
   guard: iexpr option;
-  requires: fo list;
-  ensures: fo list;
-  lemmas: fo list;
+  requires: fo_o list;
+  ensures: fo_o list;
+  lemmas: fo_o list;
   ghost: stmt list;
   body: stmt list;
   monitor: stmt list;
@@ -101,8 +129,8 @@ type node = {
   nname: ident;
   inputs: vdecl list;
   outputs: vdecl list;
-  assumes: fo_ltl list;
-  guarantees: fo_ltl list;
+  assumes: fo_ltl_o list;
+  guarantees: fo_ltl_o list;
   invariants_mon: invariant_mon list;
   instances: (ident * ident) list;
   locals: vdecl list;

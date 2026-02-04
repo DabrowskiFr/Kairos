@@ -87,7 +87,9 @@ let rec collect_ctor_stmt (acc:ident list) (s:stmt) : ident list =
 
 let collect_mon_state_ctors (n:node) : ident list =
   let acc = ref [] in
-  List.iter (fun f -> acc := collect_ctor_ltl !acc f) (n.assumes @ n.guarantees);
+  List.iter
+    (fun f -> acc := collect_ctor_ltl !acc f)
+    (Ast.values n.assumes @ Ast.values n.guarantees);
   List.iter
     (fun inv ->
        match inv with
@@ -96,7 +98,9 @@ let collect_mon_state_ctors (n:node) : ident list =
     n.invariants_mon;
   List.iter
     (fun (t:transition) ->
-       List.iter (fun f -> acc := collect_ctor_fo !acc f) (t.requires @ t.ensures @ t.lemmas))
+       List.iter
+         (fun f -> acc := collect_ctor_fo !acc f)
+         (Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas))
     n.trans;
   List.iter
     (fun t ->
@@ -166,12 +170,15 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
       | None -> ILitInt 0
   in
   let transition_fo =
-    List.concat_map (fun (t:transition) -> t.requires @ t.ensures @ t.lemmas) n.trans
+    List.concat_map
+      (fun (t:transition) ->
+        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+      n.trans
   in
   let folds : fold_info list =
     Collect.collect_folds_from_specs
       ~fo:transition_fo
-      ~ltl:(n.assumes @ n.guarantees)
+      ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
       ~invariants_mon:n.invariants_mon
   in
   let pre_k_map = Collect.build_pre_k_infos n in
@@ -192,7 +199,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   in
   let has_folds = folds <> [] in
   let has_initial_only_contracts =
-    List.exists is_initial_only (n.assumes @ n.guarantees)
+    List.exists is_initial_only (Ast.values n.assumes @ Ast.values n.guarantees)
   in
   let needs_step_count = false in
   let needs_first_step_folds = false in

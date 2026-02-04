@@ -1,4 +1,5 @@
 open Why3
+open Why_labels
 
 type summary = {
   total : int;
@@ -236,6 +237,9 @@ let rec prove_text ?(timeout=30) ~(prover:string) ~(text:string) () : result =
       ~command
       ~use_direct_z3
       ~prove_with_z3_direct
+      ~goal_labels:(Hashtbl.create 0)
+      ~on_goal_start:(fun _ _ -> ())
+      ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
       tasks
   in
   let status =
@@ -253,8 +257,11 @@ and prove_tasks_with_details
   ~(command:string)
   ~(use_direct_z3:bool)
   ~(prove_with_z3_direct:Buffer.t -> Call_provers.prover_answer)
+  ~(goal_labels:(string, string) Hashtbl.t)
+  ~(on_goal_start:(int -> string -> unit))
+  ~(on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit))
   (tasks:Task.task list)
-  : summary * (string * string * float * string option) list =
+  : summary * (string * string * float * string option * string * string option) list =
   let total_tasks = List.length tasks in
   let rec loop idx acc details = function
     | [] -> (finalize_summary acc, List.rev details)
@@ -280,6 +287,7 @@ and prove_tasks_with_details
             pr.Decl.pr_name.Ident.id_string
           with _ -> "goal"
         in
+        on_goal_start idx goal;
         let t0 = Unix.gettimeofday () in
         let answer =
           if use_direct_z3 then
@@ -334,7 +342,33 @@ and prove_tasks_with_details
           | Call_provers.Failure _ -> "failure"
           | Call_provers.HighFailure _ -> "failure"
         in
-        loop (idx + 1) (add_answer acc answer) ((goal, status, elapsed, dump_path) :: details) rest
+        let provenance =
+          let attrs =
+            try (Task.task_goal_fmla prepared).Term.t_attrs with _ -> Ident.Sattr.empty
+          in
+          match label_of_attrs attrs with
+          | Some lbl -> lbl
+          | None ->
+              match Hashtbl.find_opt goal_labels goal with
+              | Some lbl -> lbl
+              | None -> ""
+        in
+        let vcid =
+          let attrs =
+            try (Task.task_goal_fmla prepared).Term.t_attrs with _ -> Ident.Sattr.empty
+          in
+          let matches =
+            Ident.Sattr.elements attrs
+            |> List.filter_map (fun attr ->
+                 let s = attr.Ident.attr_string in
+                 if String.length s >= 5 && String.sub s 0 5 = "vcid:" then Some s else None)
+          in
+          match matches with
+          | [] -> None
+          | x :: _ -> Some x
+        in
+        on_goal_done idx goal status elapsed dump_path provenance vcid;
+        loop (idx + 1) (add_answer acc answer) ((goal, status, elapsed, dump_path, provenance, vcid) :: details) rest
   in
   loop 0 empty_summary [] tasks
 
@@ -412,8 +446,46 @@ let dump_smt2_tasks ~(prover:string) ~(text:string) : string list =
   in
   List.map task_to_smt2 tasks
 
-let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
-  summary * (string * string * float * string option) list =
+let prove_text_detailed_with_callbacks
+  ?(timeout=30)
+  ~(prover:string)
+  ~(text:string)
+  ~(on_goal_start:(int -> string -> unit))
+  ~(on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit))
+  ()
+  : summary * (string * string * float * string option * string * string option) list =
+  let extract_goal_labels_from_tasks tasks =
+    let tbl = Hashtbl.create 64 in
+    let comment_re = Str.regexp "^\\s*\\(\\* \\(.*\\) \\*\\)\\s*$" in
+    let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
+    let extract_label task =
+      let labels =
+        String.split_on_char '\n' task
+        |> List.filter_map (fun line ->
+             if Str.string_match comment_re line 0 then
+               Some (Str.matched_group 2 line)
+             else None)
+      in
+      match labels with
+      | [] -> ""
+      | x :: _ -> x
+    in
+    List.iter
+      (fun task ->
+        let label = extract_label task in
+        if label <> "" then
+          match
+            let lines = String.split_on_char '\n' task in
+            List.find_opt (fun line -> Str.string_match goal_re line 0) lines
+          with
+          | None -> ()
+          | Some line ->
+              ignore (Str.string_match goal_re line 0);
+              let g = Str.matched_group 1 line in
+              Hashtbl.replace tbl g label)
+      tasks;
+    tbl
+  in
   let write_text path content =
     let oc = open_out path in
     output_string oc content;
@@ -496,6 +568,10 @@ let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
     else if String.equal out "unknown" then Call_provers.Unknown "unknown"
     else Call_provers.Failure output
   in
+  let goal_labels =
+    let tasks = dump_why3_tasks ~text in
+    extract_goal_labels_from_tasks tasks
+  in
   prove_tasks_with_details
     ~write_text
     ~driver
@@ -504,4 +580,19 @@ let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
     ~command
     ~use_direct_z3
     ~prove_with_z3_direct
+    ~goal_labels
+    ~on_goal_start
+    ~on_goal_done
     tasks
+
+let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
+  summary * (string * string * float * string option * string * string option) list =
+  let noop_start _ _ = () in
+  let noop_done _ _ _ _ _ _ _ = () in
+  prove_text_detailed_with_callbacks
+    ~timeout
+    ~prover
+    ~text
+    ~on_goal_start:noop_start
+    ~on_goal_done:noop_done
+    ()

@@ -32,7 +32,7 @@ let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
             |> Option.value ~default:[]
           in
           Hashtbl.replace tbl t.src (f :: existing))
-        t.requires)
+        (Ast.values t.requires))
     n.trans;
   tbl
 
@@ -50,7 +50,7 @@ let updated_transitions ~(is_input:ident -> bool)
         |> Option.value ~default:[]
         |> uniq
       in
-      let ensures_all = t.ensures in
+      let ensures_all = Ast.values t.ensures in
       let new_ensures =
         match conj_fo ensures_all with
         | None -> []
@@ -59,20 +59,27 @@ let updated_transitions ~(is_input:ident -> bool)
               shift_fo_backward_inputs ~is_input req
             in
             let has_ensure f =
-              List.exists (fun f' -> f' = f) t.ensures
+              List.exists (fun f' -> f' = f) ensures_all
             in
             succ_reqs
             |> List.map (fun req -> FImp (ensures_conj, shifted_req req))
             |> List.filter (fun f -> not (has_ensure f))
       in
       if new_ensures = [] then t
-      else { t with ensures = t.ensures @ new_ensures })
+      else
+        let new_ensures_o =
+          List.map (Ast.with_origin Coherency) new_ensures
+        in
+        { t with ensures = t.ensures @ new_ensures_o })
     trans
 
 let add_state_invariants_to_transitions
   ~(invariants_mon:invariant_mon list)
   (trans:transition list) : transition list =
-  let add_unique f lst = if List.exists ((=) f) lst then lst else f :: lst in
+  let add_unique f lst =
+    if List.exists (fun fo -> fo.value = f) lst then lst
+    else Ast.with_origin Compatibility f :: lst
+  in
   let invs =
     List.filter_map
       (function
@@ -114,8 +121,12 @@ let user_contracts_coherency (n:user_node) : user_node =
        let lst = Hashtbl.find_opt by_src t.src |> Option.value ~default:[] in
        Hashtbl.replace by_src t.src (i :: lst))
     trans_indexed;
-  let user_requires = Array.of_list (List.map (fun (t:transition) -> t.requires) n.trans) in
-  let user_ensures = Array.of_list (List.map (fun (t:transition) -> t.ensures) n.trans) in
+  let user_requires =
+    Array.of_list (List.map (fun (t:transition) -> Ast.values t.requires) n.trans)
+  in
+  let user_ensures =
+    Array.of_list (List.map (fun (t:transition) -> Ast.values t.ensures) n.trans)
+  in
   let shift_req f = shift_fo_backward_inputs ~is_input f in
   let add_coherency (i:int) (t:transition) =
     match conj_fo user_ensures.(i) with
@@ -129,7 +140,11 @@ let user_contracts_coherency (n:user_node) : user_node =
             next
         in
         if new_ensures = [] then t
-        else { t with ensures = t.ensures @ new_ensures }
+        else
+          let new_ensures_o =
+            List.map (Ast.with_origin Coherency) new_ensures
+          in
+          { t with ensures = t.ensures @ new_ensures_o }
   in
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed

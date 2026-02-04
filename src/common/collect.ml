@@ -176,10 +176,15 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   in
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
   let transition_fo =
-    List.concat_map (fun (t:transition) -> t.requires @ t.ensures @ t.lemmas) n.trans
+    List.concat_map
+      (fun (t:transition) ->
+        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+      n.trans
   in
   let normalized_fo = List.map normalize_fo transition_fo in
-  let normalized_ltl = List.map normalize_ltl (n.assumes @ n.guarantees) in
+  let normalized_ltl =
+    List.map normalize_ltl (Ast.values n.assumes @ Ast.values n.guarantees)
+  in
   let normalized_invariants =
     List.map
       (function

@@ -23,6 +23,7 @@ open Ast
 open Support
 open Collect
 open Why_compile_expr
+open Why_labels
 
 let compile_seq = Why_core.compile_seq
 let apply_op = Why_core.apply_op
@@ -32,7 +33,7 @@ let fold_post_terms = Why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
-  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast.transition list * (string * string * string) list
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
 let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
@@ -90,7 +91,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
           | None -> ([], [])
           | Some inst_node ->
               let inv_terms = instance_invariant_terms env inst_name node_name inst_node in
-              match extract_delay_spec inst_node.guarantees with
+              match extract_delay_spec (Ast.values inst_node.guarantees) with
               | None -> ([], inv_terms)
               | Some (out_name, in_name) ->
                   let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -132,6 +133,27 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
   let post_labels = contracts.post_labels in
+  let pre_origin_labels = contracts.pre_origin_labels in
+  let post_origin_labels = contracts.post_origin_labels in
+  let post_vcids = contracts.post_vcids in
+  let add_origin_attr label term =
+    mk_term (Tattr (ATstr (attr_for_label label), term))
+  in
+  let pre =
+    List.map2 add_origin_attr pre_origin_labels pre
+  in
+  let post =
+    List.map2 add_origin_attr post_origin_labels post
+  in
+  let add_vcid_attr vcid_opt term =
+    match vcid_opt with
+    | None -> term
+    | Some vcid ->
+        mk_term (Tattr (ATstr (Ident.create_attribute vcid), term))
+  in
+  let post =
+    List.map2 add_vcid_attr post_vcids post
+  in
 
   let step_decl =
     let spc = { Ptree.sp_pre=[]; sp_post=[]; sp_xpost=[]; sp_reads=[]; sp_writes=[]; sp_alias=[]; sp_variant=[]; sp_checkrw=false; sp_diverge=false; sp_partial=false } in
@@ -219,8 +241,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
         ^ String.concat "\n    " lines
         ^ "\n"
       in
-      let assumes = List.map simplify comment_assumes in
-      let guarantees = List.map simplify comment_guarantees in
+      let assumes = List.map simplify (Ast.values comment_assumes) in
+      let guarantees = List.map simplify (Ast.values comment_guarantees) in
       let fmt_list label items =
         let lines =
           match items with
@@ -240,12 +262,12 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
           let reqs =
             match t.requires with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo t.requires
+            | _ -> List.map show_fo (Ast.values t.requires)
           in
           let enss =
             match t.ensures with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo t.ensures
+            | _ -> List.map show_fo (Ast.values t.ensures)
           in
           Printf.sprintf
             "  Transition %s -> %s\n    requires:\n      %s\n    ensures:\n      %s\n"
@@ -275,8 +297,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
         (mon_states ^ monitor_transitions)
     else
       let contract_lines =
-        List.map (show_assume false) comment_assumes
-        @ List.map (show_guarantee false) comment_guarantees
+        List.map (show_assume false) (Ast.values comment_assumes)
+        @ List.map (show_guarantee false) (Ast.values comment_guarantees)
         @ List.map (show_invariant false) n.invariants_mon
       in
       let contracts_txt = String.concat "\n  " contract_lines in

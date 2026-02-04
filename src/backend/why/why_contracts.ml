@@ -23,6 +23,7 @@ open Support
 open Ast
 open Collect
 open Why_compile_expr
+open Why_labels
 
 type contract_info = Why_types.contract_info
 
@@ -153,6 +154,15 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
         terms
   in
   let normalize_ltl f = normalize_ltl_for_k ~init_for_var f in
+  let origin_label = function
+    | UserContract -> "User contract"
+    | Coherency -> "User contracts coherency"
+    | Compatibility -> "Compatibility"
+    | Monitor -> "Monitor"
+    | Internal -> "Internal"
+    | Unknown -> "Other"
+    | Other s -> s
+  in
   let pre_contract =
     List.fold_left
       (fun pre f ->
@@ -162,7 +172,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
          guarded_k @ pre)
       []
-      n.assumes
+      (Ast.values n.assumes)
   in
   let post_contract =
     List.fold_left
@@ -173,7 +183,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
          guarded_k @ post)
       []
-      n.guarantees
+      (Ast.values n.guarantees)
   in
   let pre_invf = [] in
   let post_invf = [] in
@@ -192,8 +202,18 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
   let labeled_trans =
     List.map
       (fun (t:transition) ->
-         let reqs = List.map (fun f -> (f, next_h ())) t.requires in
-         let ens = List.map (fun f -> (f, next_g ())) t.ensures in
+         let reqs =
+           List.map
+             (fun f -> (f.value, origin_label f.origin))
+             t.requires
+         in
+         let ens =
+           List.map
+             (fun f ->
+                let vcid = Printf.sprintf "vcid:%d" f.oid in
+                (f.value, origin_label f.origin, vcid))
+             t.ensures
+         in
          (t, reqs, ens))
       n.trans
   in
@@ -237,7 +257,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
               let terms = List.map (term_implies cond_post) guarded_k in
               terms @ acc)
            acc
-           t.requires)
+           (Ast.values t.requires))
       []
       n.trans
   in
@@ -253,11 +273,11 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
   in
   let pre_contract = transition_requires_pre @ pre_contract_user @ pre_invf in
   let post_contract = post_contract_user @ post_invf in
-  let state_post, state_post_lemmas_terms, state_post_terms =
+  let state_post, state_post_lemmas_terms, state_post_terms, state_post_terms_vcid =
     let st = term_of_var env "st" in
     let st_old = term_old st in
     List.fold_left
-      (fun (post, lemmas, post_terms) (t, _reqs, ens) ->
+      (fun (post, lemmas, post_terms, post_terms_vcid) (t, _reqs, ens) ->
          let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
          let cond_post = with_guard cond_post (guard_term_old env t) in
          let lemma_label =
@@ -270,15 +290,15 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
-             t.requires
+            (Ast.values t.requires)
          in
          let guard =
            if guard_terms = [] then None
            else Some (term_old (conj_terms guard_terms))
          in
-         let apply_post_terms post lemmas post_terms fo_list is_lemma =
+         let apply_post_terms post lemmas post_terms post_terms_vcid fo_list is_lemma =
            List.fold_left
-             (fun (post, lemmas, post_terms) (f, label_opt) ->
+             (fun (post, lemmas, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
                 let norm = normalize_ltl (ltl_of_fo f) in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
@@ -301,17 +321,27 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
                   | Some label ->
                       List.map (fun t -> (t, label)) terms @ post_terms
                 in
-                (terms @ post, lemmas, post_terms))
-             (post, lemmas, post_terms)
+                let post_terms_vcid =
+                  match vcid_opt with
+                  | None -> post_terms_vcid
+                  | Some vcid ->
+                      List.map (fun t -> (t, vcid)) terms @ post_terms_vcid
+                in
+                (terms @ post, lemmas, post_terms, post_terms_vcid))
+             (post, lemmas, post_terms, post_terms_vcid)
              fo_list
          in
-         let ens_terms = List.map (fun (f, label) -> (f, Some label)) ens in
-         let post, lemmas, post_terms =
-           apply_post_terms post lemmas post_terms ens_terms false
+         let ens_terms =
+           List.map (fun (f, label, vcid) -> (f, Some label, Some vcid)) ens
          in
-         let lemma_terms = List.map (fun f -> (f, None)) t.lemmas in
-         apply_post_terms post lemmas post_terms lemma_terms true)
-      ([], [], []) labeled_trans
+         let post, lemmas, post_terms, post_terms_vcid =
+           apply_post_terms post lemmas post_terms post_terms_vcid ens_terms false
+         in
+         let lemma_terms =
+           List.map (fun f -> (f, None, None)) (Ast.values t.lemmas)
+         in
+         apply_post_terms post lemmas post_terms post_terms_vcid lemma_terms true)
+      ([], [], [], []) labeled_trans
   in
   let state_post_lemmas =
     List.map fst state_post_lemmas_terms
@@ -464,7 +494,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec inst_node.guarantees with
+                match extract_delay_spec (Ast.values inst_node.guarantees) with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -522,7 +552,7 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec inst_node.guarantees with
+                 match extract_delay_spec (Ast.values inst_node.guarantees) with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names = List.map (fun v -> v.vname) inst_node.outputs in
@@ -618,6 +648,9 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
   let state_post_terms =
     List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_terms
   in
+  let state_post_terms_vcid =
+    List.map (fun (t, vcid) -> (inline_term t, vcid)) state_post_terms_vcid
+  in
 
   let label_context : Why_diagnostics.label_context =
     { pre;
@@ -680,9 +713,15 @@ let build_contracts ~(nodes:node list) (info:Why_env.env_info)
   let post_label_opts =
     build_label_opts state_post_terms post_out ~is_candidate:term_has_old
   in
+  let post_vcid_opts =
+    build_label_opts state_post_terms_vcid post_out ~is_candidate:(fun _ -> true)
+  in
   let merge_labels opts groups =
     List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
   in
   let pre_labels = merge_labels pre_label_opts pre_labels in
   let post_labels = merge_labels post_label_opts post_labels in
-  { pre; post; pre_labels; post_labels }
+  let post_vcids = post_vcid_opts in
+  let pre_origin_labels = List.map normalize_label pre_labels in
+  let post_origin_labels = List.map normalize_label post_labels in
+  { pre; post; pre_labels; post_labels; pre_origin_labels; post_origin_labels; post_vcids }

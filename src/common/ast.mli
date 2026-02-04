@@ -57,6 +57,27 @@ type 'a ltl =
   | LX of 'a ltl
   | LG of 'a ltl
 type fo_ltl = fo ltl
+
+(** {1 Provenance} *)
+type origin =
+    UserContract
+  | Monitor
+  | Coherency
+  | Compatibility
+  | Internal
+  | Unknown
+  | Other of string
+
+type 'a with_origin = { value : 'a; origin : origin; oid : int }
+type fo_o = fo with_origin
+type fo_ltl_o = fo_ltl with_origin
+
+val with_origin : origin -> 'a -> 'a with_origin
+val with_origin_id : int -> origin -> 'a -> 'a with_origin
+val fresh_oid : unit -> int
+val map_with_origin : ('a -> 'b) -> 'a with_origin -> 'b with_origin
+val values : 'a with_origin list -> 'a list
+val origins : 'a with_origin list -> origin list
 type atom_ltl = ident ltl
 type vdecl = { vname : ident; vty : ty; }
 
@@ -74,9 +95,9 @@ type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : fo list;
-  ensures : fo list;
-  lemmas : fo list;
+  requires : fo_o list;
+  ensures : fo_o list;
+  lemmas : fo_o list;
   ghost : stmt list;
   body : stmt list;
   monitor : stmt list;
@@ -85,8 +106,8 @@ type node = {
   nname : ident;
   inputs : vdecl list;
   outputs : vdecl list;
-  assumes : fo_ltl list;
-  guarantees : fo_ltl list;
+  assumes : fo_ltl_o list;
+  guarantees : fo_ltl_o list;
   invariants_mon : invariant_mon list;
   instances : (ident * ident) list;
   locals : vdecl list;

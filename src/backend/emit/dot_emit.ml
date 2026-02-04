@@ -98,9 +98,13 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   in
   let add_node_block n =
     let fo_specs =
-      List.fold_left (fun acc (t:transition) -> t.requires @ t.ensures @ acc) [] n.trans
+      List.fold_left
+        (fun acc (t:transition) ->
+          Ast.values t.requires @ Ast.values t.ensures @ acc)
+        []
+        n.trans
     in
-    let ltl_specs = n.assumes @ n.guarantees in
+    let ltl_specs = Ast.values n.assumes @ Ast.values n.guarantees in
     let fold_map = fold_map_for_specs ~fo:fo_specs ~ltl:ltl_specs in
     let pre_k_map = Collect.build_pre_k_infos n in
     let inputs = List.map (fun v -> v.vname) n.inputs in

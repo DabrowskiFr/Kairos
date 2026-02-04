@@ -23,4 +23,13 @@ val prove_text_detailed :
   prover:string ->
   text:string ->
   unit ->
-  summary * (string * string * float * string option) list
+  summary * (string * string * float * string option * string * string option) list
+
+val prove_text_detailed_with_callbacks :
+  ?timeout:int ->
+  prover:string ->
+  text:string ->
+  on_goal_start:(int -> string -> unit) ->
+  on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
+  unit ->
+  summary * (string * string * float * string option * string * string option) list

@@ -5,6 +5,8 @@ let expect_now h =
   match h with
   | HNow e -> e
   | _ -> failwith "expected {expr} here"
+
+let with_origin origin value = Ast.with_origin origin value
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
@@ -91,10 +93,12 @@ instance_decl:
   | INSTANCE IDENT COLON IDENT SEMI { ($2, $4) }
 
 node_contracts:
-  | ASSUME ltl SEMI node_contracts { let (a, g) = $4 in ($2 :: a, g) }
-  | GUARANTEE ltl SEMI node_contracts { let (a, g) = $4 in (a, $2 :: g) }
-  | ASSUME ltl SEMI { ([$2], []) }
-  | GUARANTEE ltl SEMI { ([], [$2]) }
+  | ASSUME ltl SEMI node_contracts
+      { let (a, g) = $4 in (with_origin UserContract $2 :: a, g) }
+  | GUARANTEE ltl SEMI node_contracts
+      { let (a, g) = $4 in (a, with_origin UserContract $2 :: g) }
+  | ASSUME ltl SEMI { ([with_origin UserContract $2], []) }
+  | GUARANTEE ltl SEMI { ([], [with_origin UserContract $2]) }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -147,10 +151,12 @@ trans_contracts_opt:
   | trans_contracts { $1 }
 
 trans_contracts:
-  | REQUIRES fo_formula SEMI trans_contracts { let (reqs, enss) = $4 in ($2 :: reqs, enss) }
-  | ENSURES fo_formula SEMI trans_contracts { let (reqs, enss) = $4 in (reqs, $2 :: enss) }
-  | REQUIRES fo_formula SEMI { ([$2], []) }
-  | ENSURES fo_formula SEMI { ([], [$2]) }
+  | REQUIRES fo_formula SEMI trans_contracts
+      { let (reqs, enss) = $4 in (with_origin UserContract $2 :: reqs, enss) }
+  | ENSURES fo_formula SEMI trans_contracts
+      { let (reqs, enss) = $4 in (reqs, with_origin UserContract $2 :: enss) }
+  | REQUIRES fo_formula SEMI { ([with_origin UserContract $2], []) }
+  | ENSURES fo_formula SEMI { ([], [with_origin UserContract $2]) }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
