@@ -254,7 +254,7 @@ and prove_tasks_with_details
   ~(use_direct_z3:bool)
   ~(prove_with_z3_direct:Buffer.t -> Call_provers.prover_answer)
   (tasks:Task.task list)
-  : summary * (string * string * float) list =
+  : summary * (string * string * float * string option) list =
   let total_tasks = List.length tasks in
   let rec loop idx acc details = function
     | [] -> (finalize_summary acc, List.rev details)
@@ -300,26 +300,29 @@ and prove_tasks_with_details
             result.Call_provers.pr_answer
         in
         let elapsed = Unix.gettimeofday () -. t0 in
-        if answer <> Call_provers.Valid then (
-          let tmp =
-            Filename.temp_file (Printf.sprintf "why3_failed_%d_" (idx + 1)) ".smt2"
-          in
-          write_text tmp (Buffer.contents buffer);
-          Logger.warning
-            ~stage:Stage_names.Prove
-            (Printf.sprintf "goal %d/%d failed (%s); dumped to %s"
-               (idx + 1) total_tasks
-               (match answer with
-                | Call_provers.Invalid -> "invalid"
-                | Call_provers.Timeout -> "timeout"
-                | Call_provers.StepLimitExceeded -> "timeout"
-                | Call_provers.Unknown _ -> "unknown"
-                | Call_provers.OutOfMemory -> "oom"
-                | Call_provers.Failure _ -> "failure"
-                | Call_provers.HighFailure _ -> "failure"
-                | Call_provers.Valid -> "valid")
-               tmp)
-        );
+        let dump_path =
+          if answer <> Call_provers.Valid then (
+            let tmp =
+              Filename.temp_file (Printf.sprintf "why3_failed_%d_" (idx + 1)) ".smt2"
+            in
+            write_text tmp (Buffer.contents buffer);
+            Logger.warning
+              ~stage:Stage_names.Prove
+              (Printf.sprintf "goal %d/%d failed (%s); dumped to %s"
+                 (idx + 1) total_tasks
+                 (match answer with
+                  | Call_provers.Invalid -> "invalid"
+                  | Call_provers.Timeout -> "timeout"
+                  | Call_provers.StepLimitExceeded -> "timeout"
+                  | Call_provers.Unknown _ -> "unknown"
+                  | Call_provers.OutOfMemory -> "oom"
+                  | Call_provers.Failure _ -> "failure"
+                  | Call_provers.HighFailure _ -> "failure"
+                  | Call_provers.Valid -> "valid")
+                 tmp);
+            Some tmp
+          ) else None
+        in
         let status =
           match answer with
           | Call_provers.Valid -> "valid"
@@ -331,7 +334,7 @@ and prove_tasks_with_details
           | Call_provers.Failure _ -> "failure"
           | Call_provers.HighFailure _ -> "failure"
         in
-        loop (idx + 1) (add_answer acc answer) ((goal, status, elapsed) :: details) rest
+        loop (idx + 1) (add_answer acc answer) ((goal, status, elapsed, dump_path) :: details) rest
   in
   loop 0 empty_summary [] tasks
 
@@ -410,7 +413,7 @@ let dump_smt2_tasks ~(prover:string) ~(text:string) : string list =
   List.map task_to_smt2 tasks
 
 let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
-  summary * (string * string * float) list =
+  summary * (string * string * float * string option) list =
   let write_text path content =
     let oc = open_out path in
     output_string oc content;

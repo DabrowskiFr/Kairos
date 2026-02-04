@@ -23,4 +23,4 @@ val prove_text_detailed :
   prover:string ->
   text:string ->
   unit ->
-  summary * (string * string * float) list
+  summary * (string * string * float * string option) list

@@ -13,6 +13,11 @@ CLI usage
 - Dump internal AST JSON: `dune exec -- obc2why3 --dump-json - <file.obc>`
 - Write Why3 to file: `dune exec -- obc2why3 -o out/file.why <file.obc>`
 
+GTK IDE (skeleton)
+------------------
+- Build: `dune build src/tools/obcwhy3_ide.exe`
+- Run: `dune exec -- src/tools/obcwhy3_ide.exe`
+
 Notes
 -----
 - `scripts/lint.sh` runs build + unit tests + golden diffs. To include Why3

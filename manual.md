@@ -121,8 +121,10 @@ All available options:
 
 - `--help`                 Show this help message
 - `--no-prefix`            Do not prefix `vars` fields with the module name (default)
-- `--dump-dot <file>`      Generate DOT for the monitor residual graph only (writes `.labels`)
-- `--dump-dot-labels <file>` Generate DOT with full node/edge labels
+- `--dump-dot <file>`      Generate DOT with node ids and `<file>.labels` mapping
+- `--dump-dot-short <file>` Alias of `--dump-dot`
+- `--dump-why3-vc <file>`  Dump Why3 VCs (after split/simplify)
+- `--dump-smt2 <file>`     Dump SMT-LIB tasks sent to the solver
 - `--dump-json <file>|-`   Dump internal AST as JSON to file (or `-` for stdout)
 - `--naive-automaton`      Use naive automaton construction (no BDD constraints)
 - `--dump-obc <file>`      Dump augmented OBC (monitor-instrumented) to file

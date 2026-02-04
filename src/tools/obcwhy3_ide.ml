@@ -11,7 +11,7 @@ module Ide_backend = struct
     smt_text : string;
     dot_text : string;
     labels_text : string;
-    goals : (string * string * float) list;
+    goals : (string * string * float * string option) list;
     dot_png : string option;
   }
 
@@ -146,6 +146,92 @@ let make_text_panel ~label ~packing ~editable () =
 
 let () =
   ignore (GMain.init ());
+  let css = GObj.css_provider () in
+  css#load_from_data
+    {|
+* {
+  font-size: 12px;
+}
+.actionbar {
+  padding: 4px 4px;
+}
+.actionbar button {
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.actionbar button.primary {
+  background: #4c7bbd;
+  color: #ffffff;
+  border-color: #4c7bbd;
+}
+.actionbar button.primary:hover {
+  background: #3f6aa6;
+}
+.actionbar entry, .actionbar combobox {
+  padding: 1px 6px;
+}
+.main-tabs tab {
+  padding: 3px 8px;
+  color: #6b7785;
+}
+.main-tabs tab:checked {
+  color: #2b3745;
+  border-bottom: 2px solid #4c7bbd;
+}
+.status-row {
+  background: #f7f8fa;
+  border-top: 1px solid #dfe4ea;
+}
+.status-tabs tab {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #6b7785;
+}
+.muted {
+  color: #8b96a5;
+  font-size: 11px;
+}
+.cursor-badge {
+  background: #f3f5f8;
+  border: 1px solid #d7dce3;
+  border-radius: 6px;
+}
+.cursor-badge label {
+  color: #5f6b7a;
+  font-family: "Menlo", "Monaco", monospace;
+  font-size: 11px;
+}
+.parse-badge {
+  background: #f3f5f8;
+  border: 1px solid #d7dce3;
+  border-radius: 6px;
+}
+.parse-badge.ok label {
+  color: #2e7d32;
+  font-size: 11px;
+}
+.parse-badge.error label {
+  color: #b42318;
+  font-size: 11px;
+}
+.separator {
+  background: #e1e5ea;
+}
+treeview.goals row {
+  padding: 2px;
+}
+treeview.goals row:nth-child(even) {
+  background: #fbfbfc;
+}
+treeview.goals row:selected {
+  background: #e6edf7;
+}
+|}
+  ;
+  GtkData.StyleContext.add_provider_for_screen
+    (Gdk.Screen.default ())
+    css#as_css_provider
+    GtkData.StyleContext.ProviderPriority.application;
   let base_title = "obcwhy3 IDE (GTK)" in
   let window = GWindow.window ~title:base_title ~width:1200 ~height:800 () in
   window#connect#destroy ~callback:Main.quit |> ignore;
@@ -163,18 +249,21 @@ let () =
   window#add_accel_group accel_group;
   let _file_item, file_menu = add_menu "File" in
   let _edit_item, edit_menu = add_menu "Edit" in
-  ignore (add_menu "Tools");
+  let _tools_item, tools_menu = add_menu "Tools" in
   let _view_item, view_menu = add_menu "View" in
   ignore (add_menu "Help");
 
   let toolbar = GPack.hbox ~spacing:8 ~packing:vbox#pack () in
+  toolbar#misc#style_context#add_class "actionbar";
   let open_btn = GButton.button ~label:"Open OBC" ~packing:toolbar#pack () in
   let save_btn = GButton.button ~label:"Save OBC" ~packing:toolbar#pack () in
+  let rerun_btn = GButton.button ~label:"Re-run" ~packing:toolbar#pack () in
   let monitor_btn = GButton.button ~label:"Monitor" ~packing:toolbar#pack () in
   let obcplus_btn = GButton.button ~label:"OBC+" ~packing:toolbar#pack () in
   let why_btn = GButton.button ~label:"Why3" ~packing:toolbar#pack () in
   let obligations_btn = GButton.button ~label:"Obligations" ~packing:toolbar#pack () in
   let prove_btn = GButton.button ~label:"Prove" ~packing:toolbar#pack () in
+  prove_btn#misc#style_context#add_class "primary";
   ignore (GMisc.label ~text:"Prover:" ~packing:toolbar#pack ());
   let prover_box, (prover_store, prover_col) =
     GEdit.combo_box_text ~packing:toolbar#pack ()
@@ -188,7 +277,12 @@ let () =
   ignore (GMisc.label ~text:"Timeout (s):" ~packing:toolbar#pack ());
   let timeout_entry = GEdit.entry ~text:"30" ~width_chars:4 ~packing:toolbar#pack () in
 
+
+  let toolbar_sep = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
+  toolbar_sep#misc#style_context#add_class "separator";
+
   let paned = GPack.paned `HORIZONTAL ~packing:vbox#add () in
+  paned#set_position 320;
 
   let left = GPack.vbox ~spacing:8 ~packing:paned#add1 () in
   ignore (GMisc.label ~text:"Goals" ~packing:left#pack ());
@@ -197,8 +291,10 @@ let () =
   let status_icon_col = goal_cols#add Gobject.Data.string in
   let goal_col = goal_cols#add Gobject.Data.string in
   let time_col = goal_cols#add Gobject.Data.string in
+  let dump_col = goal_cols#add Gobject.Data.string in
   let goal_model = GTree.list_store goal_cols in
   let goal_view = GTree.view ~model:goal_model ~packing:goal_scrolled#add () in
+  goal_view#misc#style_context#add_class "goals";
   let add_text_column title col =
     let renderer = GTree.cell_renderer_text [] in
     let column = GTree.view_column ~title () in
@@ -219,11 +315,16 @@ let () =
 
   let right = GPack.vbox ~spacing:8 ~packing:paned#add2 () in
   let notebook = GPack.notebook ~tab_pos:`TOP ~packing:right#add () in
+  notebook#misc#style_context#add_class "main-tabs";
 
+  let content_sep = GMisc.separator `HORIZONTAL ~packing:right#pack () in
+  content_sep#misc#style_context#add_class "separator";
   let status_area = GPack.vbox ~packing:right#pack () in
   status_area#misc#set_size_request ~width:(-1) ~height:40 ();
   let status_row = GPack.hbox ~spacing:8 ~packing:status_area#add () in
+  status_row#misc#style_context#add_class "status-row";
   let status_notebook = GPack.notebook ~tab_pos:`TOP ~packing:(status_row#pack ~expand:true ~fill:true) () in
+  status_notebook#misc#style_context#add_class "status-tabs";
   let status_tab = GMisc.label ~text:"Status" () in
   let status = GMisc.label ~text:"No file loaded" () in
   ignore (status_notebook#append_page ~tab_label:status_tab#coerce status#coerce);
@@ -236,9 +337,26 @@ let () =
   log_buf#set_text "";
   let log_buf_ref : GText.buffer option ref = ref (Some log_buf) in
   ignore (status_notebook#append_page ~tab_label:log_tab#coerce log_scrolled#coerce);
+  let history_tab = GMisc.label ~text:"History" () in
+  let history_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
+  let history_view = GText.view ~packing:history_scrolled#add () in
+  history_view#set_editable false;
+  history_view#set_cursor_visible false;
+  let history_buf = history_view#buffer in
+  history_buf#set_text "";
+  let history_buf_ref : GText.buffer option ref = ref (Some history_buf) in
+  ignore (status_notebook#append_page ~tab_label:history_tab#coerce history_scrolled#coerce);
+  let parse_frame = GBin.frame ~packing:(status_row#pack ~from:`END) () in
+  parse_frame#set_shadow_type `ETCHED_IN;
+  parse_frame#set_border_width 1;
+  parse_frame#misc#style_context#add_class "parse-badge";
+  parse_frame#misc#style_context#add_class "ok";
+  let parse_box = GPack.hbox ~spacing:6 ~border_width:4 ~packing:parse_frame#add () in
+  let parse_label = GMisc.label ~text:"Parse: ok" ~packing:parse_box#pack () in
   let cursor_frame = GBin.frame ~packing:(status_row#pack ~from:`END) () in
   cursor_frame#set_shadow_type `ETCHED_IN;
   cursor_frame#set_border_width 1;
+  cursor_frame#misc#style_context#add_class "cursor-badge";
   let cursor_box = GPack.hbox ~spacing:6 ~border_width:4 ~packing:cursor_frame#add () in
   let cursor_label = GMisc.label ~text:"" ~packing:cursor_box#pack () in
   cursor_label#set_text "Ln 1, Col 1";
@@ -246,7 +364,7 @@ let () =
   let obc_tab = GMisc.label ~text:"OBC" () in
   let obc_view, obc_buf, obc_page =
     make_text_panel
-      ~label:"OBC"
+      ~label:""
       ~packing:(fun w ->
         ignore (notebook#append_page ~tab_label:obc_tab#coerce w))
       ~editable:true
@@ -272,10 +390,43 @@ let () =
     obc_buf#create_tag
       [ `FOREGROUND "purple4"; `WEIGHT `BOLD ]
   in
+  let obc_error_tag =
+    obc_buf#create_tag
+      [ `FOREGROUND "#b42318"; `UNDERLINE `SINGLE ]
+  in
+  let clear_obc_error () =
+    obc_buf#remove_tag
+      obc_error_tag
+      ~start:obc_buf#start_iter
+      ~stop:obc_buf#end_iter
+  in
+
+  let parse_error_location msg =
+    let re = Str.regexp "at .*:\\([0-9]+\\):\\([0-9]+\\)" in
+    try
+      ignore (Str.search_forward re msg 0);
+      let line = int_of_string (Str.matched_group 1 msg) in
+      let col = int_of_string (Str.matched_group 2 msg) in
+      Some (line, col)
+    with Not_found -> None
+  in
+
+  let apply_parse_error msg =
+    clear_obc_error ();
+    match parse_error_location msg with
+    | None -> ()
+    | Some (line, col) ->
+        let line_idx = max 0 (line - 1) in
+        let col_idx = max 0 (col - 1) in
+        let start_iter = obc_buf#get_iter_at_char ~line:line_idx col_idx in
+        let end_iter = start_iter#forward_to_line_end in
+        obc_buf#apply_tag obc_error_tag ~start:start_iter ~stop:end_iter;
+        ignore (obc_view#scroll_to_iter start_iter)
+  in
   let obcplus_tab = GMisc.label ~text:"OBC+" () in
   let obcplus_view, obcplus_buf, obcplus_page =
     make_text_panel
-      ~label:"OBC+"
+      ~label:""
       ~packing:(fun w ->
         ignore (notebook#append_page ~tab_label:obcplus_tab#coerce w))
       ~editable:false
@@ -304,7 +455,7 @@ let () =
   let why_tab = GMisc.label ~text:"Why3" () in
   let why_view, why_buf, why_page =
     make_text_panel
-      ~label:"Why3"
+      ~label:""
       ~packing:(fun w ->
         ignore (notebook#append_page ~tab_label:why_tab#coerce w))
       ~editable:false
@@ -329,7 +480,7 @@ let () =
   let vc_tab = GMisc.label ~text:"VC" () in
   let vc_view, vc_buf, vc_page =
     make_text_panel
-      ~label:"Why3 VCs"
+      ~label:""
       ~packing:(fun w ->
         ignore (notebook#append_page ~tab_label:vc_tab#coerce w))
       ~editable:false
@@ -354,7 +505,7 @@ let () =
   let smt_tab = GMisc.label ~text:"SMT" () in
   let smt_view, smt_buf, smt_page =
     make_text_panel
-      ~label:"SMT-LIB"
+      ~label:""
       ~packing:(fun w ->
         ignore (notebook#append_page ~tab_label:smt_tab#coerce w))
       ~editable:false
@@ -389,8 +540,16 @@ let () =
   let suppress_dirty = ref false in
   let content_version = ref 0 in
   let touch_content () = content_version := !content_version + 1 in
+  let last_action : (unit -> unit) option ref = ref None in
   let append_log msg =
     match !log_buf_ref with
+    | None -> ()
+    | Some buf ->
+        let iter = buf#end_iter in
+        buf#insert ~iter (msg ^ "\n")
+  in
+  let append_history msg =
+    match !history_buf_ref with
     | None -> ()
     | Some buf ->
         let iter = buf#end_iter in
@@ -399,6 +558,23 @@ let () =
   let set_status msg =
     status#set_text msg;
     append_log msg
+  in
+  let set_status_quiet msg =
+    status#set_text msg
+  in
+  let set_parse_badge ~ok ~text =
+    parse_label#set_text text;
+    let ctx = parse_frame#misc#style_context in
+    ctx#remove_class "ok";
+    ctx#remove_class "error";
+    ctx#add_class (if ok then "ok" else "error")
+  in
+  let now_stamp () =
+    let tm = Unix.localtime (Unix.time ()) in
+    Printf.sprintf "%02d:%02d:%02d" tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
+  in
+  let add_history msg =
+    append_history (Printf.sprintf "%s  %s" (now_stamp ()) msg)
   in
   let update_cursor_label () =
     let iter =
@@ -423,6 +599,21 @@ let () =
     page#misc#set_sensitive sensitive;
     tab_label#misc#set_sensitive sensitive
   in
+  let show_page page =
+    let idx = notebook#page_num page in
+    if idx >= 0 then notebook#goto_page idx
+  in
+  let select_in_buffer ~(view:GText.view) ~(buf:GText.buffer) ~needle =
+    let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
+    try
+      let idx = Str.search_forward (Str.regexp_string needle) text 0 in
+      let it_s = buf#get_iter_at_char idx in
+      let it_e = buf#get_iter_at_char (idx + String.length needle) in
+      buf#select_range it_s it_e;
+      ignore (view#scroll_to_iter it_s);
+      true
+    with Not_found -> false
+  in
   let update_dirty_indicator () =
     let suffix = if !dirty then " *" else "" in
     window#set_title (base_title ^ suffix);
@@ -430,6 +621,62 @@ let () =
   in
   let get_obc_text () =
     obc_buf#get_text ~start:obc_buf#start_iter ~stop:obc_buf#end_iter ()
+  in
+  let parse_timer_id : GMain.Timeout.id option ref = ref None in
+  let last_parsed_version = ref (-1) in
+  let last_parse_ok = ref true in
+  let parse_current_text () =
+    let text = get_obc_text () in
+    if String.trim text = "" then (
+      clear_obc_error ();
+      last_parse_ok := true;
+      set_parse_badge ~ok:true ~text:"Parse: empty";
+      set_status_quiet "Empty buffer"
+    ) else if !last_parsed_version = !content_version then ()
+    else (
+      let tmp = Filename.temp_file "obcwhy3_parse_" ".obc" in
+      let ok =
+        try
+          let oc = open_out tmp in
+          output_string oc text;
+          close_out oc;
+          ignore (Frontend.parse_file tmp);
+          true
+        with Failure msg ->
+          apply_parse_error msg;
+          set_parse_badge ~ok:false ~text:"Parse: error";
+          set_status_quiet msg;
+          false
+        | _ ->
+          set_parse_badge ~ok:false ~text:"Parse: error";
+          false
+      in
+      begin
+        try Sys.remove tmp with _ -> ()
+      end;
+      last_parsed_version := !content_version;
+      if ok then (
+        clear_obc_error ();
+        set_parse_badge ~ok:true ~text:"Parse: ok";
+        if not !last_parse_ok then set_status_quiet "Parse ok";
+        last_parse_ok := true
+      ) else (
+        last_parse_ok := false
+      )
+    )
+  in
+  let schedule_parse () =
+    begin match !parse_timer_id with
+    | Some id -> ignore (GMain.Timeout.remove id)
+    | None -> ()
+    end;
+    let id =
+      GMain.Timeout.add ~ms:250 ~callback:(fun () ->
+        parse_timer_id := None;
+        parse_current_text ();
+        false)
+    in
+    parse_timer_id := Some id
   in
   let update_dirty_from_text () =
     dirty := (get_obc_text () <> !saved_snapshot);
@@ -452,6 +699,7 @@ let () =
 
   obc_buf#connect#changed ~callback:(fun () ->
     if not !suppress_dirty then (
+      clear_obc_error ();
       let current = get_obc_text () in
       if current <> !last_snapshot then (
         undo_stack := !last_snapshot :: !undo_stack;
@@ -460,6 +708,8 @@ let () =
       );
       touch_content ();
       update_dirty_from_text ()
+      ;
+      schedule_parse ()
     )
   ) |> ignore;
   obc_buf#connect#mark_set ~callback:(fun _ _ -> update_cursor_label ()) |> ignore;
@@ -723,6 +973,7 @@ let () =
       text
   in
 
+
   let highlight_why buf text ~keyword_tag ~comment_tag ~number_tag ~type_tag =
     let start_iter = buf#start_iter in
     let end_iter = buf#end_iter in
@@ -779,9 +1030,25 @@ let () =
     ignore (apply_regex smt_comment_tag comment_re)
   in
 
+  let read_file_text path =
+    let ic = open_in path in
+    let buf = Buffer.create 4096 in
+    begin
+      try
+        while true do
+          Buffer.add_string buf (input_line ic);
+          Buffer.add_char buf '\n'
+        done
+      with End_of_file -> ()
+    end;
+    close_in ic;
+    Buffer.contents buf
+  in
+
   let load_file file =
     current_file := Some file;
     set_status ("Loaded: " ^ file);
+    add_history ("Loaded file: " ^ file);
     begin
       try
         let ic = open_in file in
@@ -800,7 +1067,8 @@ let () =
         dirty := false;
         touch_content ();
         update_dirty_indicator ();
-        update_cursor_label ()
+        update_cursor_label ();
+        schedule_parse ()
       with _ ->
         obc_buf#set_text ""
     end
@@ -901,11 +1169,13 @@ let () =
     undo_stack := [];
     redo_stack := [];
     set_status "New file";
+    add_history "New file";
     set_tab_sensitive obc_page obc_tab true;
     dirty := true;
     touch_content ();
     update_dirty_indicator ();
-    update_cursor_label ()
+    update_cursor_label ();
+    schedule_parse ()
   in
 
   let file_new_item =
@@ -930,12 +1200,83 @@ let () =
 
   open_btn#connect#clicked ~callback:open_file_dialog |> ignore;
 
-  let clipboard = GData.clipboard Gdk.Atom.clipboard in
   let focused_view () =
     let views = [obc_view; obcplus_view; why_view; vc_view; smt_view; dot_view] in
     List.find_opt (fun v -> v#has_focus) views
   in
+  let focused_buffer () =
+    match focused_view () with
+    | Some v -> Some v#buffer
+    | None -> None
+  in
 
+  let find_in_buffer () =
+    match focused_buffer () with
+    | None -> ()
+    | Some buf ->
+        let dialog =
+          GWindow.dialog ~title:"Find" ~parent:window ~modal:true ()
+        in
+        let entry = GEdit.entry ~packing:dialog#vbox#add () in
+        dialog#add_button "Cancel" `CANCEL;
+        dialog#add_button "Find" `OK;
+        let response = dialog#run () in
+        let needle = entry#text in
+        dialog#destroy ();
+        if response = `OK && needle <> "" then (
+          let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
+          let start_pos = buf#cursor_position in
+          let len = String.length needle in
+          let rec search_from i =
+            if i + len > String.length text then None
+            else if String.sub text i len = needle then Some i
+            else search_from (i + 1)
+          in
+          let found =
+            match search_from start_pos with
+            | Some i -> Some i
+            | None -> search_from 0
+          in
+          match found with
+          | None -> set_status "Not found"
+          | Some i ->
+              let it_s = buf#get_iter_at_char i in
+              let it_e = buf#get_iter_at_char (i + len) in
+              buf#select_range it_s it_e;
+              begin match focused_view () with
+              | Some v -> ignore (v#scroll_to_iter it_s)
+              | None -> ()
+              end
+        )
+  in
+
+  let go_to_line () =
+    match focused_buffer () with
+    | None -> ()
+    | Some buf ->
+        let dialog =
+          GWindow.dialog ~title:"Go to line" ~parent:window ~modal:true ()
+        in
+        let entry = GEdit.entry ~packing:dialog#vbox#add () in
+        dialog#add_button "Cancel" `CANCEL;
+        dialog#add_button "Go" `OK;
+        let response = dialog#run () in
+        let text = entry#text in
+        dialog#destroy ();
+        if response = `OK then (
+          try
+            let line = max 1 (int_of_string (String.trim text)) in
+            let it = buf#get_iter_at_char ~line:(line - 1) 0 in
+            buf#place_cursor ~where:it;
+            begin match focused_view () with
+            | Some v -> ignore (v#scroll_to_iter it)
+            | None -> ()
+            end
+          with _ -> set_status "Invalid line"
+        )
+  in
+
+  let clipboard = GData.clipboard Gdk.Atom.clipboard in
   let edit_copy () =
     match focused_view () with
     | Some v -> v#buffer#copy_clipboard clipboard
@@ -950,6 +1291,23 @@ let () =
     match focused_view () with
     | Some v -> v#buffer#paste_clipboard clipboard
     | None -> ()
+  in
+
+  let toggle_readonly = ref false in
+  let set_obc_editable () =
+    obc_view#set_editable (not !toggle_readonly);
+    obc_view#set_cursor_visible (not !toggle_readonly)
+  in
+
+  let focus_mode = ref false in
+  let apply_focus_mode () =
+    if !focus_mode then (
+      left#misc#hide ();
+      status_area#misc#hide ()
+    ) else (
+      left#misc#show ();
+      status_area#misc#show ()
+    )
   in
 
   let edit_undo () =
@@ -1017,6 +1375,7 @@ let () =
             close_out oc;
             current_file := Some path;
             set_status ("Saved: " ^ path);
+            add_history ("Saved file: " ^ path);
             set_tab_sensitive obc_page obc_tab true;
             saved_snapshot := text;
             dirty := false;
@@ -1044,6 +1403,68 @@ let () =
     GdkKeysyms._s;
 
   save_btn#connect#clicked ~callback:(fun () -> ignore (save_current_file ())) |> ignore;
+
+  let export_text ~title ~text =
+    let dialog =
+      GWindow.file_chooser_dialog
+        ~action:`SAVE
+        ~title
+        ~parent:window
+        ()
+    in
+    dialog#add_button "Save" `SAVE;
+    dialog#add_button "Cancel" `CANCEL;
+    let selected =
+      begin match dialog#run () with
+      | `SAVE -> dialog#filename
+      | _ -> None
+      end
+    in
+    dialog#destroy ();
+    match selected with
+    | None -> ()
+    | Some path ->
+        begin
+          try
+            let oc = open_out path in
+            output_string oc text;
+            close_out oc;
+            set_status ("Exported: " ^ path)
+          with _ ->
+            set_status "Export failed"
+        end
+  in
+
+  let file_export_obcplus =
+    GMenu.menu_item ~label:"Export OBC+" ~packing:file_menu#append ()
+  in
+  file_export_obcplus#connect#activate ~callback:(fun () ->
+    export_text ~title:"Export OBC+" ~text:(obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ())
+  ) |> ignore;
+  let file_export_why =
+    GMenu.menu_item ~label:"Export Why3" ~packing:file_menu#append ()
+  in
+  file_export_why#connect#activate ~callback:(fun () ->
+    export_text ~title:"Export Why3" ~text:(why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ())
+  ) |> ignore;
+  let file_export_vc =
+    GMenu.menu_item ~label:"Export VC" ~packing:file_menu#append ()
+  in
+  file_export_vc#connect#activate ~callback:(fun () ->
+    export_text ~title:"Export VC" ~text:(vc_buf#get_text ~start:vc_buf#start_iter ~stop:vc_buf#end_iter ())
+  ) |> ignore;
+  let file_export_smt =
+    GMenu.menu_item ~label:"Export SMT" ~packing:file_menu#append ()
+  in
+  file_export_smt#connect#activate ~callback:(fun () ->
+    export_text ~title:"Export SMT" ~text:(smt_buf#get_text ~start:smt_buf#start_iter ~stop:smt_buf#end_iter ())
+  ) |> ignore;
+  let file_export_monitor =
+    GMenu.menu_item ~label:"Export Monitor (labels)" ~packing:file_menu#append ()
+  in
+  file_export_monitor#connect#activate ~callback:(fun () ->
+    export_text ~title:"Export Monitor (labels)" ~text:(dot_buf#get_text ~start:dot_buf#start_iter ~stop:dot_buf#end_iter ())
+  ) |> ignore;
 
   let edit_undo_item =
     GMenu.menu_item ~label:"Undo" ~packing:edit_menu#append ()
@@ -1130,6 +1551,72 @@ let () =
     ~flags:[`VISIBLE]
     GdkKeysyms._v;
 
+  let edit_find_item =
+    GMenu.menu_item ~label:"Find" ~packing:edit_menu#append ()
+  in
+  edit_find_item#connect#activate ~callback:find_in_buffer |> ignore;
+  edit_find_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._f;
+  edit_find_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._f;
+
+  let edit_goto_item =
+    GMenu.menu_item ~label:"Go to line" ~packing:edit_menu#append ()
+  in
+  edit_goto_item#connect#activate ~callback:go_to_line |> ignore;
+  edit_goto_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._l;
+  edit_goto_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._l;
+
+  let view_focus_item =
+    GMenu.menu_item ~label:"Focus mode" ~packing:view_menu#append ()
+  in
+  view_focus_item#connect#activate ~callback:(fun () ->
+    focus_mode := not !focus_mode;
+    apply_focus_mode ()
+  ) |> ignore;
+  view_focus_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL; `SHIFT]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._f;
+  view_focus_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META; `SHIFT]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._f;
+
+  let view_readonly_item =
+    GMenu.menu_item ~label:"Toggle Readonly (OBC)" ~packing:view_menu#append ()
+  in
+  view_readonly_item#connect#activate ~callback:(fun () ->
+    toggle_readonly := not !toggle_readonly;
+    set_obc_editable ()
+  ) |> ignore;
+  view_readonly_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL; `SHIFT]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._r;
+  view_readonly_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META; `SHIFT]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._r;
+
   let confirm_save_if_dirty () =
     if not !dirty then true
     else (
@@ -1156,7 +1643,13 @@ let () =
     else (set_status "Cancelled"; false)
   in
 
-  let clear_goals () = goal_model#clear () in
+  let goals_empty_label = GMisc.label ~text:"No goals yet" ~packing:left#pack () in
+  goals_empty_label#misc#style_context#add_class "muted";
+
+  let clear_goals () =
+    goal_model#clear ();
+    goals_empty_label#misc#set_sensitive true
+  in
 
   let monitor_cache : (int * Ide_backend.monitor_outputs) option ref = ref None in
   let obc_cache : (int * Ide_backend.obc_outputs) option ref = ref None in
@@ -1220,22 +1713,49 @@ let () =
 
   let set_goals goals =
     goal_model#clear ();
+    goals_empty_label#misc#set_sensitive false;
     List.iter
-      (fun (goal, status_txt, time_s) ->
+      (fun (goal, status_txt, time_s, dump_path) ->
         let row = goal_model#append () in
         goal_model#set ~row ~column:status_icon_col (status_icon status_txt);
         goal_model#set ~row ~column:goal_col goal;
-        goal_model#set ~row ~column:time_col (Printf.sprintf "%.2fs" time_s))
+        goal_model#set ~row ~column:time_col (Printf.sprintf "%.2fs" time_s);
+        goal_model#set ~row ~column:dump_col (match dump_path with None -> "" | Some p -> p))
       goals
   in
 
-  monitor_btn#connect#clicked ~callback:(fun () ->
+  goal_view#connect#row_activated ~callback:(fun path _ ->
+    let row = goal_model#get_iter path in
+    let goal = goal_model#get ~row ~column:goal_col in
+    let dump_path = goal_model#get ~row ~column:dump_col in
+    if dump_path <> "" && Sys.file_exists dump_path then (
+      let smt_text = read_file_text dump_path in
+      smt_buf#set_text smt_text;
+      highlight_smt smt_text;
+      set_tab_sensitive smt_page smt_tab true;
+      show_page smt_page;
+      add_history (Printf.sprintf "Opened SMT2 dump for %s" goal);
+      set_status ("Loaded SMT2 dump: " ^ dump_path)
+    ) else (
+      set_tab_sensitive vc_page vc_tab true;
+      show_page vc_page;
+      let found = select_in_buffer ~view:vc_view ~buf:vc_buf ~needle:goal in
+      if found then
+        add_history (Printf.sprintf "Jumped to goal %s" goal)
+      else
+        set_status ("Goal not found in VC: " ^ goal)
+    )
+  ) |> ignore;
+
+  let run_monitor () =
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running monitor...";
+        clear_obc_error ();
+        add_history "Monitor: running";
         let cached =
           match !monitor_cache with
           | Some (v, out) when v = !content_version -> Some out
@@ -1254,18 +1774,28 @@ let () =
               ~dot:out.dot_text
               ~labels:out.labels_text
               ~dot_png:out.dot_png;
-            if cached <> None then set_status_cached "Done" else set_status "Done"
-        | Error msg -> set_status ("Error: " ^ msg)
+            if cached <> None then (set_status_cached "Done"; add_history "Monitor: done (cached)")
+            else (set_status "Done"; add_history "Monitor: done")
+        | Error msg ->
+            set_status ("Error: " ^ msg);
+            apply_parse_error msg;
+            add_history ("Monitor: error (" ^ msg ^ ")")
         end
+  in
+  monitor_btn#connect#clicked ~callback:(fun () ->
+    last_action := Some run_monitor;
+    run_monitor ()
   ) |> ignore;
 
-  obcplus_btn#connect#clicked ~callback:(fun () ->
+  let run_obcplus () =
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running OBC+...";
+        clear_obc_error ();
+        add_history "OBC+: running";
         let cached =
           match !obc_cache with
           | Some (v, out) when v = !content_version -> Some out
@@ -1281,18 +1811,28 @@ let () =
         begin match (match cached with Some out -> Ok out | None -> run ()) with
         | Ok out ->
             set_obcplus_buffer out.obc_text;
-            if cached <> None then set_status_cached "Done" else set_status "Done"
-        | Error msg -> set_status ("Error: " ^ msg)
+            if cached <> None then (set_status_cached "Done"; add_history "OBC+: done (cached)")
+            else (set_status "Done"; add_history "OBC+: done")
+        | Error msg ->
+            set_status ("Error: " ^ msg);
+            apply_parse_error msg;
+            add_history ("OBC+: error (" ^ msg ^ ")")
         end
+  in
+  obcplus_btn#connect#clicked ~callback:(fun () ->
+    last_action := Some run_obcplus;
+    run_obcplus ()
   ) |> ignore;
 
-  why_btn#connect#clicked ~callback:(fun () ->
+  let run_why () =
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running Why3...";
+        clear_obc_error ();
+        add_history "Why3: running";
         let cached =
           match !why_cache with
           | Some (v, out) when v = !content_version -> Some out
@@ -1308,18 +1848,28 @@ let () =
         begin match (match cached with Some out -> Ok out | None -> run ()) with
         | Ok out ->
             set_why_buffer out.why_text;
-            if cached <> None then set_status_cached "Done" else set_status "Done"
-        | Error msg -> set_status ("Error: " ^ msg)
+            if cached <> None then (set_status_cached "Done"; add_history "Why3: done (cached)")
+            else (set_status "Done"; add_history "Why3: done")
+        | Error msg ->
+            set_status ("Error: " ^ msg);
+            apply_parse_error msg;
+            add_history ("Why3: error (" ^ msg ^ ")")
         end
+  in
+  why_btn#connect#clicked ~callback:(fun () ->
+    last_action := Some run_why;
+    run_why ()
   ) |> ignore;
 
-  obligations_btn#connect#clicked ~callback:(fun () ->
+  let run_obligations () =
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running obligations...";
+        clear_obc_error ();
+        add_history "Obligations: running";
         let prover =
           match prover_box#active_iter with
           | None -> "z3"
@@ -1340,18 +1890,28 @@ let () =
         begin match (match cached with Some out -> Ok out | None -> run ()) with
         | Ok out ->
             set_obligations_buffers ~vc:out.vc_text ~smt:out.smt_text;
-            if cached <> None then set_status_cached "Done" else set_status "Done"
-        | Error msg -> set_status ("Error: " ^ msg)
+            if cached <> None then (set_status_cached "Done"; add_history "Obligations: done (cached)")
+            else (set_status "Done"; add_history "Obligations: done")
+        | Error msg ->
+            set_status ("Error: " ^ msg);
+            apply_parse_error msg;
+            add_history ("Obligations: error (" ^ msg ^ ")")
         end
+  in
+  obligations_btn#connect#clicked ~callback:(fun () ->
+    last_action := Some run_obligations;
+    run_obligations ()
   ) |> ignore;
 
-  prove_btn#connect#clicked ~callback:(fun () ->
+  let run_prove () =
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running prove...";
+        clear_obc_error ();
+        add_history "Prove: running";
         let prover =
           match prover_box#active_iter with
           | None -> "z3"
@@ -1385,10 +1945,118 @@ let () =
               ~labels:out.labels_text
               ~dot_png:out.dot_png;
             set_goals out.goals;
-            if cached <> None then set_status_cached "Done" else set_status "Done"
-        | Error msg -> set_status ("Error: " ^ msg)
+            if cached <> None then (set_status_cached "Done"; add_history "Prove: done (cached)")
+            else (set_status "Done"; add_history "Prove: done")
+        | Error msg ->
+            set_status ("Error: " ^ msg);
+            apply_parse_error msg;
+            add_history ("Prove: error (" ^ msg ^ ")")
         end
+  in
+  prove_btn#connect#clicked ~callback:(fun () ->
+    last_action := Some run_prove;
+    run_prove ()
   ) |> ignore;
+
+  rerun_btn#connect#clicked ~callback:(fun () ->
+    match !last_action with
+    | None -> set_status "Nothing to re-run"
+    | Some action -> action ()
+  ) |> ignore;
+
+  let tools_monitor_item =
+    GMenu.menu_item ~label:"Monitor" ~packing:tools_menu#append ()
+  in
+  tools_monitor_item#connect#activate ~callback:run_monitor |> ignore;
+  tools_monitor_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._1;
+  tools_monitor_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._1;
+
+  let tools_obcplus_item =
+    GMenu.menu_item ~label:"OBC+" ~packing:tools_menu#append ()
+  in
+  tools_obcplus_item#connect#activate ~callback:run_obcplus |> ignore;
+  tools_obcplus_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._2;
+  tools_obcplus_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._2;
+
+  let tools_why_item =
+    GMenu.menu_item ~label:"Why3" ~packing:tools_menu#append ()
+  in
+  tools_why_item#connect#activate ~callback:run_why |> ignore;
+  tools_why_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._3;
+  tools_why_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._3;
+
+  let tools_obligations_item =
+    GMenu.menu_item ~label:"Obligations" ~packing:tools_menu#append ()
+  in
+  tools_obligations_item#connect#activate ~callback:run_obligations |> ignore;
+  tools_obligations_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._4;
+  tools_obligations_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._4;
+
+  let tools_prove_item =
+    GMenu.menu_item ~label:"Prove" ~packing:tools_menu#append ()
+  in
+  tools_prove_item#connect#activate ~callback:run_prove |> ignore;
+  tools_prove_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._5;
+  tools_prove_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._5;
+
+  let tools_rerun_item =
+    GMenu.menu_item ~label:"Re-run last" ~packing:tools_menu#append ()
+  in
+  tools_rerun_item#connect#activate ~callback:(fun () ->
+    match !last_action with
+    | None -> set_status "Nothing to re-run"
+    | Some action -> action ()
+  ) |> ignore;
+  tools_rerun_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`CONTROL]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._r;
+  tools_rerun_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._r;
 
   window#show ();
   Main.main ()
