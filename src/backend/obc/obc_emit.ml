@@ -656,3 +656,242 @@ let string_of_program (p:program) : string =
 
 let compile_program (p:program) : string =
   string_of_program p
+
+type line_with_vcid = string * string option
+
+let transition_lines_with_vcid (indent:int) (t:transition)
+  ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
+  ~(label_align_col:int option)
+  : line_with_vcid list =
+  let next_req_label () =
+    label_counters.req <- label_counters.req + 1;
+    Printf.sprintf "H%d" label_counters.req
+  in
+  let next_ens_label () =
+    label_counters.ens <- label_counters.ens + 1;
+    Printf.sprintf "G%d" label_counters.ens
+  in
+  let guard =
+    match t.guard with
+    | None -> ""
+    | Some g -> " [" ^ string_of_iexpr g ^ "]"
+  in
+  let header = (indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {", None) in
+  let requires_labeled =
+    List.map (fun f -> (f, next_req_label ())) t.requires
+  in
+  let ensures_labeled =
+    List.map (fun f -> (f, next_ens_label ())) t.ensures
+  in
+  let build_block ~is_require items =
+    let items =
+      List.map
+        (fun (f, label) ->
+           let vcid =
+             if is_require then None else Some (Printf.sprintf "vcid:%d" f.oid)
+           in
+           (source_of_fo ~is_require f, f, label, vcid))
+        items
+      |> List.sort (fun (s1, _, _, _) (s2, _, _, _) ->
+           let c = compare (source_order s1) (source_order s2) in
+           if c <> 0 then c else compare s1 s2)
+    in
+    let rec build acc current_source = function
+      | [] -> acc
+      | (source, f, label, vcid) :: rest ->
+          let header =
+            if Some source = current_source then []
+            else [ (comment_line (indent + 1) ("source: " ^ source), None) ]
+          in
+          let vcid_line =
+            if is_require then []
+            else [ (comment_line (indent + 1) (Printf.sprintf "vcid:%d" f.oid), None) ]
+          in
+          let line =
+            let kw = if is_require then "requires " else "ensures " in
+            indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
+          in
+          let line = prettify_pre_old ~init_for_var ~vars line in
+          let line =
+            match label_align_col with
+            | None -> line ^ "  (* " ^ label ^ " *)"
+            | Some col ->
+                let pad =
+                  let n = col - String.length line in
+                  if n <= 1 then " " else String.make n ' '
+                in
+                line ^ pad ^ "(* " ^ label ^ " *)"
+          in
+          build (acc @ header @ vcid_line @ [ (line, vcid) ]) (Some source) rest
+    in
+    build [] None items
+  in
+  let req_block =
+    if requires_labeled = [] then []
+    else (comment_line (indent + 1) "-- requires --", None)
+         :: build_block ~is_require:true requires_labeled
+  in
+  let ens_block =
+    if ensures_labeled = [] then []
+    else (comment_line (indent + 1) "-- ensures --", None)
+         :: build_block ~is_require:false ensures_labeled
+  in
+  let lemma_lines =
+    List.map
+      (fun f ->
+         let line =
+           indent_str (indent + 1) ^ "(* lemma " ^ string_of_fo f.value ^ " *)"
+         in
+         let line = prettify_pre_old ~init_for_var ~vars line in
+         (line, None))
+      t.lemmas
+  in
+  let body_ghost = t.ghost in
+  let body_user = t.body in
+  let body_mon = t.monitor in
+  let ghost_lines =
+    stmt_lines ~allow_empty:true (indent + 1) body_ghost
+    |> List.map (prettify_pre_old ~init_for_var ~vars)
+    |> List.map (fun line -> (line, None))
+  in
+  let body_lines =
+    stmt_lines ~allow_empty:true (indent + 1) body_user
+    |> List.map (prettify_pre_old ~init_for_var ~vars)
+    |> List.map (fun line -> (line, None))
+  in
+  let ghost_header = [] in
+  let user_header =
+    if body_user = [] then [] else [ (comment_line (indent + 1) "-- user code --", None) ]
+  in
+  let mon_header =
+    if body_mon = [] then [] else [ (comment_line (indent + 1) "-- monitor code --", None) ]
+  in
+  let body_mon_lines =
+    stmt_lines ~allow_empty:true ~with_comments:false (indent + 1) body_mon
+    |> List.map (prettify_pre_old ~init_for_var ~vars)
+    |> List.map (fun line -> (line, None))
+  in
+  let footer = (indent_str indent ^ "}", None) in
+  [header]
+  @ req_block
+  @ ens_block
+  @ lemma_lines
+  @ ghost_header
+  @ ghost_lines
+  @ user_header
+  @ body_lines
+  @ mon_header
+  @ body_mon_lines
+  @ [footer]
+
+let node_lines_with_vcid (n:node) : line_with_vcid list =
+  let n = replace_pre_k_node n in
+  let var_types =
+    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+  in
+  let init_for_var v =
+    match List.assoc_opt v var_types with
+    | Some TBool -> ILitBool false
+    | Some TInt -> ILitInt 0
+    | Some TReal -> ILitInt 0
+    | Some (TCustom _) | None -> ILitInt 0
+  in
+  let vars = List.map fst var_types in
+  let header =
+    let params =
+      let params = params_of_vdecls n.inputs in
+      if params = "" then "" else " (" ^ params ^ ")"
+    in
+    let returns =
+      let returns = params_of_vdecls n.outputs in
+      if returns = "" then "" else " returns (" ^ returns ^ ")"
+    in
+    (Printf.sprintf "node %s%s%s" n.nname params returns, None)
+  in
+  let contracts =
+    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees) n.invariants_mon
+      ~init_for_var ~vars
+    |> List.map (fun line -> (line, None))
+  in
+  let instances =
+    match n.instances with
+    | [] -> [ (indent_str 1 ^ "instances", None) ]
+    | _ ->
+        let inst_line (inst_name, node_name) =
+          indent_str 2 ^ "instance " ^ inst_name ^ " : " ^ node_name ^ ";"
+        in
+        (indent_str 1 ^ "instances", None)
+        :: List.map (fun line -> (line, None)) (List.map inst_line n.instances)
+  in
+  let locals =
+    match n.locals with
+    | [] -> [ (indent_str 1 ^ "locals", None) ]
+    | _ ->
+        let local_line v =
+          let base = indent_str 2 ^ vdecl_line v ^ ";" in
+          match local_comment v.vname with
+          | None -> base
+          | Some msg -> base ^ " (* " ^ msg ^ " *)"
+        in
+        (indent_str 1 ^ "locals", None)
+        :: List.map (fun line -> (line, None)) (List.map local_line n.locals)
+  in
+  let states =
+    (indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";", None)
+  in
+  let init = (indent_str 1 ^ "init " ^ n.init_state, None) in
+  let label_counters = { req = 0; ens = 0 } in
+  let label_align_col =
+    let base_line_len is_require f =
+      let kw = if is_require then "requires " else "ensures " in
+      let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
+      String.length (prettify_pre_old ~init_for_var ~vars line)
+    in
+    let lens =
+      List.concat_map
+        (fun (t:transition) ->
+           List.map (base_line_len true) (Ast.values t.requires)
+           @ List.map (base_line_len false) (Ast.values t.ensures))
+        n.trans
+    in
+    match lens with
+    | [] -> None
+    | _ ->
+        let max_len = List.fold_left max 0 lens in
+        Some (max_len + 2)
+  in
+  let trans =
+    (indent_str 1 ^ "trans", None)
+    :: List.concat_map
+         (fun t ->
+            transition_lines_with_vcid 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
+         n.trans
+  in
+  [header]
+  @ contracts
+  @ instances
+  @ locals
+  @ [states; init]
+  @ trans
+  @ [("end", None)]
+
+let string_of_program_with_spans (p:program) : string * (string * (int * int)) list =
+  let lines = List.concat_map node_lines_with_vcid p in
+  let buf = Buffer.create 4096 in
+  let spans = ref [] in
+  let offset = ref 0 in
+  let add_line (line, vcid_opt) =
+    Buffer.add_string buf line;
+    let line_len = String.length line in
+    begin match vcid_opt with
+    | None -> ()
+    | Some vcid -> spans := (vcid, (!offset, !offset + line_len)) :: !spans
+    end;
+    Buffer.add_char buf '\n';
+    offset := !offset + line_len + 1
+  in
+  List.iter add_line lines;
+  (Buffer.contents buf, List.rev !spans)
+
+let compile_program_with_spans (p:program) : string * (string * (int * int)) list =
+  string_of_program_with_spans p

@@ -6,7 +6,13 @@ let expect_now h =
   | HNow e -> e
   | _ -> failwith "expected {expr} here"
 
-let with_origin origin value = Ast.with_origin origin value
+let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) =
+  { line = start_pos.pos_lnum;
+    col = start_pos.pos_cnum - start_pos.pos_bol;
+    line_end = end_pos.pos_lnum;
+    col_end = end_pos.pos_cnum - end_pos.pos_bol; }
+
+let with_origin_loc origin loc value = Ast.with_origin_loc origin loc value
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
@@ -94,11 +100,25 @@ instance_decl:
 
 node_contracts:
   | ASSUME ltl SEMI node_contracts
-      { let (a, g) = $4 in (with_origin UserContract $2 :: a, g) }
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (a, g) = $4 in (with_origin_loc UserContract loc $2 :: a, g)
+      }
   | GUARANTEE ltl SEMI node_contracts
-      { let (a, g) = $4 in (a, with_origin UserContract $2 :: g) }
-  | ASSUME ltl SEMI { ([with_origin UserContract $2], []) }
-  | GUARANTEE ltl SEMI { ([], [with_origin UserContract $2]) }
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (a, g) = $4 in (a, with_origin_loc UserContract loc $2 :: g)
+      }
+  | ASSUME ltl SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([with_origin_loc UserContract loc $2], [])
+      }
+  | GUARANTEE ltl SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([], [with_origin_loc UserContract loc $2])
+      }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -152,11 +172,25 @@ trans_contracts_opt:
 
 trans_contracts:
   | REQUIRES fo_formula SEMI trans_contracts
-      { let (reqs, enss) = $4 in (with_origin UserContract $2 :: reqs, enss) }
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (reqs, enss) = $4 in (with_origin_loc UserContract loc $2 :: reqs, enss)
+      }
   | ENSURES fo_formula SEMI trans_contracts
-      { let (reqs, enss) = $4 in (reqs, with_origin UserContract $2 :: enss) }
-  | REQUIRES fo_formula SEMI { ([with_origin UserContract $2], []) }
-  | ENSURES fo_formula SEMI { ([], [with_origin UserContract $2]) }
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (reqs, enss) = $4 in (reqs, with_origin_loc UserContract loc $2 :: enss)
+      }
+  | REQUIRES fo_formula SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([with_origin_loc UserContract loc $2], [])
+      }
+  | ENSURES fo_formula SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([], [with_origin_loc UserContract loc $2])
+      }
 
 (* arithmetic expressions without booleans *)
 arith_atom:

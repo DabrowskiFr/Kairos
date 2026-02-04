@@ -15,6 +15,7 @@
   stages_info
   logger
   stage_io
+  pipeline
   cli
   contract_link
   middle_end_stages

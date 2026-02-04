@@ -68,12 +68,15 @@ type origin =
   | Unknown
   | Other of string
 
-type 'a with_origin = { value : 'a; origin : origin; oid : int }
+type loc = { line : int; col : int; line_end : int; col_end : int }
+type 'a with_origin = { value : 'a; origin : origin; oid : int; loc : loc option }
 type fo_o = fo with_origin
 type fo_ltl_o = fo_ltl with_origin
 
 val with_origin : origin -> 'a -> 'a with_origin
 val with_origin_id : int -> origin -> 'a -> 'a with_origin
+val with_origin_loc : origin -> loc -> 'a -> 'a with_origin
+val with_origin_id_loc : int -> origin -> loc -> 'a -> 'a with_origin
 val fresh_oid : unit -> int
 val map_with_origin : ('a -> 'b) -> 'a with_origin -> 'b with_origin
 val values : 'a with_origin list -> 'a list

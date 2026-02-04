@@ -1,230 +1,7 @@
 open GMain
 open Str
 
-module Core_backend = Backend
-
-module Ide_backend = struct
-  type outputs = {
-    obc_text : string;
-    why_text : string;
-    vc_text : string;
-    smt_text : string;
-    dot_text : string;
-    labels_text : string;
-    goals : (string * string * float * string option * string * string option) list;
-    obcplus_sequents : (string * string) list;
-    task_sequents : (string list * string) list;
-    dot_png : string option;
-  }
-
-  type monitor_outputs = {
-    dot_text : string;
-    labels_text : string;
-    dot_png : string option;
-  }
-
-  type obc_outputs = { obc_text : string }
-  type why_outputs = { why_text : string }
-  type obligations_outputs = { vc_text : string; smt_text : string }
-
-  let join_blocks ~sep blocks =
-    let buf = Buffer.create 4096 in
-    List.iteri
-      (fun i block ->
-        if i > 0 then Buffer.add_string buf sep;
-        Buffer.add_string buf block)
-      blocks;
-    Buffer.contents buf
-
-  let build_automaton input_file =
-    let p_parsed = Frontend.parse_file input_file in
-    Middle_end.stage_automaton p_parsed
-
-  let build_obc input_file =
-    let p_automaton = build_automaton input_file in
-    let p_contracts = Middle_end.stage_contracts p_automaton in
-    let p_mid = Middle_end.stage_monitor_injection p_contracts in
-    Obc_stage.run p_mid
-
-  let build_obcplus_sequents (p_obc:Ast.program) : (string * string) list =
-    let acc = ref [] in
-    let add_node (node:Ast.node) =
-      List.iter
-        (fun (t:Ast.transition) ->
-           List.iter
-             (fun (ens:Ast.fo_o) ->
-                let vcid = Printf.sprintf "vcid:%d" ens.oid in
-                let reqs =
-                  List.map (fun (r:Ast.fo_o) -> Support.string_of_fo r.value) t.requires
-                in
-                let ensure = Support.string_of_fo ens.value in
-                let buf = Buffer.create 256 in
-                List.iter (fun r -> Buffer.add_string buf (r ^ "\n")) reqs;
-                Buffer.add_string buf "--------------------\n";
-                Buffer.add_string buf ensure;
-                acc := (vcid, Buffer.contents buf) :: !acc)
-             t.ensures)
-        node.trans
-    in
-    List.iter add_node p_obc;
-    List.rev !acc
-
-  let monitor_pass ~input_file : (monitor_outputs, string) result =
-    try
-      let p_automaton = build_automaton input_file in
-      let dot_text, labels_text =
-        Dot_emit.dot_monitor_program ~show_labels:false p_automaton
-      in
-      let dot_png =
-        try
-          let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
-          let png_file = Filename.temp_file "obcwhy3_ide_" ".png" in
-          let oc = open_out dot_file in
-          output_string oc dot_text;
-          close_out oc;
-          let cmd =
-            Printf.sprintf "dot -Tpng %s -o %s"
-              (Filename.quote dot_file)
-              (Filename.quote png_file)
-          in
-          let status = Sys.command cmd in
-          Sys.remove dot_file;
-          if status = 0 then Some png_file else (Sys.remove png_file; None)
-        with _ -> None
-      in
-      Ok { dot_text; labels_text; dot_png }
-    with exn ->
-      Error (Printexc.to_string exn)
-
-  let obc_pass ~input_file : (obc_outputs, string) result =
-    try
-      let p_obc = build_obc input_file in
-      let obc_text = Core_backend.emit_obc p_obc in
-      Ok { obc_text }
-    with exn ->
-      Error (Printexc.to_string exn)
-
-  let why_pass ~input_file : (why_outputs, string) result =
-    try
-      let p_obc = build_obc input_file in
-      let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      Ok { why_text }
-    with exn ->
-      Error (Printexc.to_string exn)
-
-  let obligations_pass ~input_file ~prover : (obligations_outputs, string) result =
-    try
-      let p_obc = build_obc input_file in
-      let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
-      let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
-      let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
-      let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-      Ok { vc_text; smt_text }
-    with exn ->
-      Error (Printexc.to_string exn)
-
-  let run_pipeline ~input_file ~prover ~timeout_s : (outputs, string) result =
-    try
-      let p_automaton = build_automaton input_file in
-      let p_contracts = Middle_end.stage_contracts p_automaton in
-      let p_mid = Middle_end.stage_monitor_injection p_contracts in
-      let p_obc = Obc_stage.run p_mid in
-      let obc_text = Core_backend.emit_obc p_obc in
-      let obcplus_sequents = build_obcplus_sequents p_obc in
-      let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let task_sequents = Why_prove.task_sequents ~text:why_text in
-      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
-      let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
-      let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
-      let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-      let dot_text, labels_text = Dot_emit.dot_monitor_program ~show_labels:false p_automaton in
-      let summary, goals = Why_prove.prove_text_detailed ~timeout:timeout_s ~prover ~text:why_text () in
-      let _ = summary in
-      let dot_png =
-        try
-          let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
-          let png_file = Filename.temp_file "obcwhy3_ide_" ".png" in
-          let oc = open_out dot_file in
-          output_string oc dot_text;
-          close_out oc;
-          let cmd =
-            Printf.sprintf "dot -Tpng %s -o %s"
-              (Filename.quote dot_file)
-              (Filename.quote png_file)
-          in
-          let status = Sys.command cmd in
-          Sys.remove dot_file;
-          if status = 0 then Some png_file else (Sys.remove png_file; None)
-        with _ -> None
-      in
-      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; task_sequents; dot_png }
-    with exn ->
-      Error (Printexc.to_string exn)
-
-  let run_pipeline_with_callbacks
-    ~input_file
-    ~prover
-    ~timeout_s
-    ~(on_goals_ready:string list -> unit)
-    ~(on_goal_done:int -> string -> string -> float -> string option -> string -> string option -> unit)
-    : (outputs, string) result =
-    try
-      let p_automaton = build_automaton input_file in
-      let p_contracts = Middle_end.stage_contracts p_automaton in
-      let p_mid = Middle_end.stage_monitor_injection p_contracts in
-      let p_obc = Obc_stage.run p_mid in
-      let obc_text = Core_backend.emit_obc p_obc in
-      let obcplus_sequents = build_obcplus_sequents p_obc in
-      let why_text = Stage_io.emit_why ~prefix_fields:false ~output_file:None p_obc in
-      let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
-      let task_sequents = Why_prove.task_sequents ~text:why_text in
-      let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
-      let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
-      let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-      let dot_text, labels_text = Dot_emit.dot_monitor_program ~show_labels:false p_automaton in
-      let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
-      let extract_goal_name task =
-        let lines = String.split_on_char '\n' task in
-        match List.find_opt (fun line -> Str.string_match goal_re line 0) lines with
-        | None -> "goal"
-        | Some line ->
-            ignore (Str.string_match goal_re line 0);
-            Str.matched_group 1 line
-      in
-      let goal_names = List.map extract_goal_name vc_tasks in
-      on_goals_ready goal_names;
-      let summary, goals =
-        Why_prove.prove_text_detailed_with_callbacks
-          ~timeout:timeout_s
-          ~prover
-          ~text:why_text
-          ~on_goal_start:(fun _ _ -> ())
-          ~on_goal_done
-          ()
-      in
-      let _ = summary in
-      let dot_png =
-        try
-          let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
-          let png_file = Filename.temp_file "obcwhy3_ide_" ".png" in
-          let oc = open_out dot_file in
-          output_string oc dot_text;
-          close_out oc;
-          let cmd =
-            Printf.sprintf "dot -Tpng %s -o %s"
-              (Filename.quote dot_file)
-              (Filename.quote png_file)
-          in
-          let status = Sys.command cmd in
-          Sys.remove dot_file;
-          if status = 0 then Some png_file else (Sys.remove png_file; None)
-        with _ -> None
-      in
-      Ok { obc_text; why_text; vc_text; smt_text; dot_text; labels_text; goals; obcplus_sequents; task_sequents; dot_png }
-    with exn ->
-      Error (Printexc.to_string exn)
-end
+module Ide_backend = Pipeline
 
 let make_text_panel ~label ~packing ~editable () =
   let frame = GBin.frame ~label ~packing () in
@@ -1068,24 +845,6 @@ treeview.goals row:selected {
     task_spans vc_text |> List.map (fun (_, _, task) -> task)
   in
 
-  let find_task_span vc_text goal =
-    let goal_re =
-      Str.regexp (Printf.sprintf "\\bgoal[ \t]+%s\\b" (Str.quote goal))
-    in
-    task_spans vc_text
-    |> List.find_map (fun (s, e, task) ->
-         if Str.string_match goal_re task 0
-            || (try ignore (Str.search_forward goal_re task 0); true with Not_found -> false)
-         then Some (s, e)
-         else None)
-  in
-
-  let find_task_span_by_index vc_text idx =
-    match List.nth_opt (task_spans vc_text) idx with
-    | Some (s, e, _task) -> Some (s, e)
-    | None -> None
-  in
-
   let clear_goal_highlights () =
     let clear (buf, tag) =
       buf#remove_tag tag ~start:buf#start_iter ~stop:buf#end_iter
@@ -1109,91 +868,43 @@ treeview.goals row:selected {
     )
   in
 
-  let apply_regexes buf text tag res =
-    List.iter (fun re -> ignore (apply_regex_to_buf buf text tag re)) res
+  let apply_loc_obc (loc:Ast.loc) =
+    let line_start = max 0 (loc.line - 1) in
+    let line_end = max 0 (loc.line_end - 1) in
+    let col_start = max 0 loc.col in
+    let col_end = max 0 loc.col_end in
+    let start_iter = obc_buf#get_iter_at_char ~line:line_start col_start in
+    let end_iter = obc_buf#get_iter_at_char ~line:line_end col_end in
+    obc_buf#apply_tag obc_goal_tag ~start:start_iter ~stop:end_iter;
+    ignore (obc_view#scroll_to_iter start_iter);
+    obc_buf#select_range start_iter end_iter
   in
 
-  let first_match_offset text res =
-    let rec loop = function
-      | [] -> None
-      | re :: rest ->
-          try
-            ignore (Str.search_forward re text 0);
-            Some (Str.match_beginning ())
-          with Not_found -> loop rest
-    in
-    loop res
-  in
+  let obcplus_sequents : (string, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let obcplus_span_map : (string, (int * int)) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let obcplus_spans_ordered : (int * int) list ref = ref [] in
+  let vc_loc_map : (string, Ast.loc) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let vc_locs_ordered : Ast.loc list ref = ref [] in
+  let vc_spans_ordered : (int * int) list ref = ref [] in
 
   let highlight_obcplus_vcid vcid =
     if vcid = "" then ()
     else
-      let text =
-        obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()
-      in
-      let marker = "(* " ^ vcid ^ " *)" in
-      try
-        let pos = Str.search_forward (Str.regexp_string marker) text 0 in
-        let line_end =
-          try String.index_from text pos '\n' with Not_found -> String.length text
-        in
-        let next_start =
-          if line_end < String.length text then line_end + 1 else line_end
-        in
-        let next_end =
-          try String.index_from text next_start '\n' with Not_found -> String.length text
-        in
-        let it_s = obcplus_buf#start_iter in
-        ignore (it_s#forward_chars next_start);
-        let it_e = obcplus_buf#start_iter in
-        ignore (it_e#forward_chars next_end);
-        obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
-        ignore (obcplus_view#scroll_to_iter it_s)
-      with Not_found -> ()
+      match Hashtbl.find_opt !obcplus_span_map vcid with
+      | None -> ()
+      | Some (s, e) ->
+          let it_s = obcplus_buf#start_iter in
+          ignore (it_s#forward_chars s);
+          let it_e = obcplus_buf#start_iter in
+          ignore (it_e#forward_chars e);
+          obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+          ignore (obcplus_view#scroll_to_iter it_s)
   in
 
-  let obc_patterns_for_source source =
-    let s = String.lowercase_ascii (String.trim source) in
-    match s with
-    | "user" | "coherency" ->
-        [ Str.regexp "\\bassume\\b";
-          Str.regexp "\\bguarantee\\b";
-          Str.regexp "\\brequires\\b";
-          Str.regexp "\\bensures\\b" ]
-    | "monitor" | "compatibility" ->
-        [ Str.regexp "__mon_state";
-          Str.regexp "\\batom_[A-Za-z0-9_]+\\b" ]
-    | _ -> []
-  in
-
-  let apply_goal_highlights ~goal ~source ~index =
+  let apply_goal_highlights ~goal ~source:_ ~index =
     clear_goal_highlights ();
     if goal = "" then ()
     else (
-      let attr = Why_labels.attr_string source in
-      let attr_re = Str.regexp (Str.quote attr) in
-      let obc_text =
-        obc_buf#get_text ~start:obc_buf#start_iter ~stop:obc_buf#end_iter ()
-      in
-      let obcplus_text =
-        obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()
-      in
-      let why_text =
-        why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ()
-      in
-      let vc_text = !latest_vc_text in
-      let obc_res =
-        let base = obc_patterns_for_source source in
-        if base = [] then
-          [ Str.regexp "\\bassume\\b";
-            Str.regexp "\\bguarantee\\b";
-            Str.regexp "\\brequires\\b";
-            Str.regexp "\\bensures\\b" ]
-        else base
-      in
-      let obcplus_res = obc_res in
-      apply_regexes obc_buf obc_text obc_goal_tag obc_res;
-      apply_regexes obcplus_buf obcplus_text obcplus_goal_tag obcplus_res;
       let vcid =
         match index with
         | None -> ""
@@ -1203,28 +914,45 @@ treeview.goals row:selected {
             goal_model#get ~row ~column:vcid_col
       in
       highlight_obcplus_vcid vcid;
-      begin match first_match_offset obc_text obc_res with
-      | Some off ->
-          let it = obc_buf#start_iter in
-          ignore (it#forward_chars off);
-          ignore (obc_view#scroll_to_iter it)
-      | None -> ()
+      begin
+        match Hashtbl.find_opt !vc_loc_map vcid with
+        | Some loc -> apply_loc_obc loc
+        | None ->
+            begin match index with
+            | Some idx ->
+                begin match List.nth_opt !vc_locs_ordered idx with
+                | Some loc -> apply_loc_obc loc
+                | None -> ()
+                end
+            | None -> ()
+            end
       end;
-      if source <> "" then
-        apply_regexes why_buf why_text why_goal_tag [attr_re];
-      begin match find_task_span vc_text goal with
-      | Some (s, e) -> apply_span vc_buf vc_goal_tag s e
-      | None ->
-          begin match index with
-          | Some idx ->
-              begin match find_task_span_by_index vc_text idx with
-              | Some (s, e) -> apply_span vc_buf vc_goal_tag s e
-              | None ->
-                  if source <> "" then apply_regexes vc_buf vc_text vc_goal_tag [attr_re]
-              end
-          | None ->
-              if source <> "" then apply_regexes vc_buf vc_text vc_goal_tag [attr_re]
+      begin
+        match Hashtbl.find_opt !obcplus_span_map vcid with
+        | Some _ -> ()
+        | None ->
+            begin match index with
+            | Some idx ->
+                begin match List.nth_opt !obcplus_spans_ordered idx with
+                | Some (s, e) ->
+                    let it_s = obcplus_buf#start_iter in
+                    ignore (it_s#forward_chars s);
+                    let it_e = obcplus_buf#start_iter in
+                    ignore (it_e#forward_chars e);
+                    obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+                    ignore (obcplus_view#scroll_to_iter it_s)
+                | None -> ()
+                end
+            | None -> ()
+            end
+      end;
+      begin match index with
+      | Some idx ->
+          begin match List.nth_opt !vc_spans_ordered idx with
+          | Some (s, e) -> apply_span vc_buf vc_goal_tag s e
+          | None -> ()
           end
+      | None -> ()
       end
     )
   in
@@ -1490,7 +1218,7 @@ treeview.goals row:selected {
   in
   let recent_menu = GMenu.menu () in
   let recent_item =
-    GMenu.menu_item ~label:"Open Recent" ~packing:file_menu#append ()
+    GMenu.menu_item ~label:"Open Recent OBC" ~packing:file_menu#append ()
   in
   recent_item#set_submenu recent_menu;
 
@@ -1557,7 +1285,7 @@ treeview.goals row:selected {
   in
 
   let file_new_item =
-    GMenu.menu_item ~label:"New" ~packing:file_menu#append ()
+    GMenu.menu_item ~label:"New OBC" ~packing:file_menu#append ()
   in
   file_new_item#connect#activate ~callback:new_file |> ignore;
   file_new_item#add_accelerator
@@ -1572,7 +1300,7 @@ treeview.goals row:selected {
     GdkKeysyms._n;
 
   let file_open_item =
-    GMenu.menu_item ~label:"Open" ~packing:file_menu#append ()
+    GMenu.menu_item ~label:"Open OBC" ~packing:file_menu#append ()
   in
   file_open_item#connect#activate ~callback:open_file_dialog |> ignore;
 
@@ -1760,7 +1488,7 @@ treeview.goals row:selected {
   in
 
   let file_save_item =
-    GMenu.menu_item ~label:"Save" ~packing:file_menu#append ()
+    GMenu.menu_item ~label:"Save OBC" ~packing:file_menu#append ()
   in
   file_save_item#connect#activate ~callback:(fun () -> ignore (save_current_file ())) |> ignore;
   file_save_item#add_accelerator
@@ -1820,10 +1548,10 @@ treeview.goals row:selected {
     export_text ~title:"Export Why3" ~text:(why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ())
   ) |> ignore;
   let file_export_vc =
-    GMenu.menu_item ~label:"Export VC" ~packing:file_menu#append ()
+    GMenu.menu_item ~label:"Export Theory" ~packing:file_menu#append ()
   in
   file_export_vc#connect#activate ~callback:(fun () ->
-    export_text ~title:"Export VC" ~text:(vc_buf#get_text ~start:vc_buf#start_iter ~stop:vc_buf#end_iter ())
+    export_text ~title:"Export Theory" ~text:(vc_buf#get_text ~start:vc_buf#start_iter ~stop:vc_buf#end_iter ())
   ) |> ignore;
   let file_export_smt =
     GMenu.menu_item ~label:"Export SMT" ~packing:file_menu#append ()
@@ -2060,7 +1788,6 @@ treeview.goals row:selected {
     tbl
   in
 
-  let obcplus_sequents : (string, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
 
   let task_sequents_list : (string list * string) list ref = ref [] in
 
@@ -2127,7 +1854,7 @@ treeview.goals row:selected {
     apply_current_goal_highlight ()
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs ~task_seqs =
+  let set_all_buffers ~obcplus ~why ~vc ~smt ~dot ~labels ~dot_png ~obcplus_seqs ~task_seqs ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans =
     let _ = labels in
     latest_vc_text := vc;
     set_obcplus_buffer obcplus;
@@ -2138,6 +1865,16 @@ treeview.goals row:selected {
     let tbl = Hashtbl.create (List.length obcplus_seqs * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace tbl k v) obcplus_seqs;
     obcplus_sequents := tbl
+    ;
+    let span_tbl = Hashtbl.create (List.length obcplus_spans * 2) in
+    List.iter (fun (k, v) -> Hashtbl.replace span_tbl k v) obcplus_spans;
+    obcplus_span_map := span_tbl;
+    obcplus_spans_ordered := obcplus_spans_ordered_list;
+    let loc_tbl = Hashtbl.create (List.length vc_locs * 2) in
+    List.iter (fun (k, v) -> Hashtbl.replace loc_tbl k v) vc_locs;
+    vc_loc_map := loc_tbl;
+    vc_locs_ordered := vc_locs_ordered_list;
+    vc_spans_ordered := vc_spans
     ;
     task_sequents_list := task_seqs
   in
@@ -2230,7 +1967,7 @@ treeview.goals row:selected {
           | _ -> None
         in
         let run () =
-          match Ide_backend.monitor_pass ~input_file:file with
+          match Ide_backend.monitor_pass ~generate_png:true ~input_file:file with
           | Ok out ->
               monitor_cache := Some (!content_version, out);
               Ok out
@@ -2244,7 +1981,8 @@ treeview.goals row:selected {
               ~dot_png:out.dot_png;
             if cached <> None then (set_status_cached "Done"; add_history "Monitor: done (cached)")
             else (set_status "Done"; add_history "Monitor: done")
-        | Error msg ->
+        | Error err ->
+            let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg);
             apply_parse_error msg;
             add_history ("Monitor: error (" ^ msg ^ ")")
@@ -2282,7 +2020,8 @@ treeview.goals row:selected {
             set_obcplus_buffer out.obc_text;
             if cached <> None then (set_status_cached "Done"; add_history "OBC+: done (cached)")
             else (set_status "Done"; add_history "OBC+: done")
-        | Error msg ->
+        | Error err ->
+            let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg);
             apply_parse_error msg;
             add_history ("OBC+: error (" ^ msg ^ ")")
@@ -2309,7 +2048,7 @@ treeview.goals row:selected {
           | _ -> None
         in
         let run () =
-          match Ide_backend.why_pass ~input_file:file with
+          match Ide_backend.why_pass ~prefix_fields:false ~input_file:file with
           | Ok out ->
               why_cache := Some (!content_version, out);
               Ok out
@@ -2320,7 +2059,8 @@ treeview.goals row:selected {
             set_why_buffer out.why_text;
             if cached <> None then (set_status_cached "Done"; add_history "Why3: done (cached)")
             else (set_status "Done"; add_history "Why3: done")
-        | Error msg ->
+        | Error err ->
+            let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg);
             apply_parse_error msg;
             add_history ("Why3: error (" ^ msg ^ ")")
@@ -2352,7 +2092,7 @@ treeview.goals row:selected {
           | _ -> None
         in
         let run () =
-          match Ide_backend.obligations_pass ~input_file:file ~prover with
+          match Ide_backend.obligations_pass ~prefix_fields:false ~input_file:file ~prover with
           | Ok out ->
               obligations_cache := Some (!content_version, prover, out);
               Ok out
@@ -2363,7 +2103,8 @@ treeview.goals row:selected {
             set_obligations_buffers ~vc:out.vc_text ~smt:out.smt_text;
             if cached <> None then (set_status_cached "Done"; add_history "Obligations: done (cached)")
             else (set_status "Done"; add_history "Obligations: done")
-        | Error msg ->
+        | Error err ->
+            let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg);
             apply_parse_error msg;
             add_history ("Obligations: error (" ^ msg ^ ")")
@@ -2402,7 +2143,7 @@ treeview.goals row:selected {
         let run () =
           let goal_rows = ref [||] in
           let goal_names =
-            match Ide_backend.obligations_pass ~input_file:file ~prover with
+            match Ide_backend.obligations_pass ~prefix_fields:false ~input_file:file ~prover with
             | Ok out ->
                 let tasks = split_tasks out.vc_text in
                 let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
@@ -2436,10 +2177,16 @@ treeview.goals row:selected {
               flush_ui ()
             )
           in
-          match Ide_backend.run_pipeline_with_callbacks
-                  ~input_file:file
-                  ~prover
-                  ~timeout_s
+          let cfg : Ide_backend.config = {
+            input_file = file;
+            prover;
+            timeout_s;
+            prefix_fields = false;
+            prove = true;
+            generate_dot_png = true;
+          } in
+          match Ide_backend.run_with_callbacks
+                  cfg
                   ~on_goals_ready
                   ~on_goal_done
           with
@@ -2459,11 +2206,17 @@ treeview.goals row:selected {
               ~labels:out.labels_text
               ~dot_png:out.dot_png
               ~obcplus_seqs:out.obcplus_sequents
-              ~task_seqs:out.task_sequents;
+              ~task_seqs:out.task_sequents
+              ~vc_locs:out.vc_locs
+              ~obcplus_spans:out.obcplus_spans
+              ~vc_locs_ordered:out.vc_locs_ordered
+              ~obcplus_spans_ordered:out.obcplus_spans_ordered
+              ~vc_spans_ordered:out.vc_spans_ordered;
             set_goals out.goals;
             if cached <> None then (set_status_cached "Done"; add_history "Prove: done (cached)")
             else (set_status "Done"; add_history "Prove: done")
-        | Error msg ->
+        | Error err ->
+            let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg);
             apply_parse_error msg;
             add_history ("Prove: error (" ^ msg ^ ")")
