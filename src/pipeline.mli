@@ -81,6 +81,7 @@ val run : config -> (outputs, error) result
 
 val run_with_callbacks :
   config ->
+  on_outputs_ready:(outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->
   on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
   (outputs, error) result

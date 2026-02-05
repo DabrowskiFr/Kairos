@@ -408,6 +408,7 @@ let run (cfg:config) : (outputs, error) result =
 
 let run_with_callbacks
   (cfg:config)
+  ~(on_outputs_ready:outputs -> unit)
   ~(on_goals_ready:string list * int list -> unit)
   ~(on_goal_done:int -> string -> string -> float -> string option -> string -> string option -> unit)
   : (outputs, error) result =
@@ -441,6 +442,9 @@ let run_with_callbacks
         let dot_text, labels_text =
           Dot_emit.dot_monitor_program ~show_labels:false asts.automaton
         in
+        let dot_png =
+          if cfg.generate_dot_png then dot_png_from_text dot_text else None
+        in
         let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
         let extract_goal_name task =
           let lines = String.split_on_char '\n' task in
@@ -451,6 +455,25 @@ let run_with_callbacks
               Str.matched_group 1 line
         in
         let goal_names = List.map extract_goal_name vc_tasks in
+        on_outputs_ready {
+          obc_text;
+          why_text;
+          vc_text;
+          smt_text;
+          dot_text;
+          labels_text;
+          goals = [];
+          obcplus_sequents;
+          task_sequents;
+          vc_locs;
+          obcplus_spans;
+          vc_locs_ordered;
+          obcplus_spans_ordered;
+          vc_spans_ordered;
+          why_spans;
+          vc_ids_ordered;
+          dot_png;
+        };
         on_goals_ready (goal_names, vc_ids_ordered);
         let goals =
           if cfg.prove then
@@ -468,9 +491,6 @@ let run_with_callbacks
             goals
           else
             []
-        in
-        let dot_png =
-          if cfg.generate_dot_png then dot_png_from_text dot_text else None
         in
         Ok {
           obc_text;

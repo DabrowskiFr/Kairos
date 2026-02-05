@@ -232,24 +232,7 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
            acc)
         s atom_named_exprs
     in
-    let cluster = Support.module_name_of_node n.nname in
-    let atom_lines =
-      List.map
-        (fun (name, e) ->
-           let base = Printf.sprintf "%s = %s" name (Support.string_of_iexpr e) in
-           let suffix = fold_origin_suffix_for_expr fold_map e in
-           base ^ suffix)
-        atom_named_exprs
-    in
-    if (not show_labels) && atom_lines <> [] then (
-      Buffer.add_string label_buf (Printf.sprintf "atoms:\n");
-      Buffer.add_string label_buf (Printf.sprintf "  module: %s\n" cluster);
-      Buffer.add_string label_buf "  items:\n";
-      List.iter
-        (fun line -> Buffer.add_string label_buf (Printf.sprintf "    - %s\n" line))
-        atom_lines;
-      Buffer.add_string label_buf "\n"
-    );
+    let _cluster = Support.module_name_of_node n.nname in
     let debug_inline =
       match Sys.getenv_opt "OBC2WHY3_DEBUG_DOT_INLINE" with
       | Some "1" -> true
@@ -313,7 +296,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
     let atom_names = stage.atom_names in
     let states = automaton.states in
     let grouped = automaton.grouped in
-    let fold_map = fold_map_for_node n in
+    let _fold_map = fold_map_for_node n in
     let atom_name_to_fo = stage.atom_name_to_fo in
     let atom_expr_tbl = Hashtbl.create 16 in
     let () =
@@ -365,24 +348,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
       | LOr (a,b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a,b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
     in
-    let cluster = Support.module_name_of_node n.nname in
-    let atom_lines =
-      List.map
-        (fun (name, e) ->
-           let base = Printf.sprintf "%s = %s" name (Support.string_of_iexpr e) in
-           let suffix = fold_origin_suffix_for_expr fold_map e in
-           base ^ suffix)
-        atom_named_exprs
-    in
-    if (not show_labels) && atom_lines <> [] then (
-      Buffer.add_string label_buf (Printf.sprintf "atoms:\n");
-      Buffer.add_string label_buf (Printf.sprintf "  module: %s\n" cluster);
-      Buffer.add_string label_buf "  items:\n";
-      List.iter
-        (fun line -> Buffer.add_string label_buf (Printf.sprintf "    - %s\n" line))
-        atom_lines;
-      Buffer.add_string label_buf "\n"
-    );
+    let _cluster = Support.module_name_of_node n.nname in
     List.iteri
       (fun i f ->
          let node_id = string_of_int i in
