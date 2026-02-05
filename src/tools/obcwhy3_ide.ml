@@ -269,16 +269,7 @@ treeview.goals row:selected {
   let status_tab = GMisc.label ~text:"Status" () in
   let status = GMisc.label ~text:"No file loaded" () in
   ignore (status_notebook#append_page ~tab_label:status_tab#coerce status#coerce);
-  let log_tab = GMisc.label ~text:"Log" () in
-  let log_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
-  let log_view = GText.view ~packing:log_scrolled#add () in
-  log_view#set_editable false;
-  log_view#set_cursor_visible false;
-  let log_buf = log_view#buffer in
-  log_buf#set_text "";
-  let log_buf_ref : GText.buffer option ref = ref (Some log_buf) in
-  ignore (status_notebook#append_page ~tab_label:log_tab#coerce log_scrolled#coerce);
-  let history_tab = GMisc.label ~text:"History" () in
+  let history_tab = GMisc.label ~text:"Logs" () in
   let history_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
   let history_view = GText.view ~packing:history_scrolled#add () in
   history_view#set_editable false;
@@ -337,6 +328,13 @@ treeview.goals row:selected {
     perf_model#set ~row ~column:perf_pass_col name;
     perf_model#set ~row ~column:perf_time_col (Printf.sprintf "%.4fs" elapsed);
     perf_model#set ~row ~column:perf_cached_col (if cached then "yes" else "no")
+  in
+  let remove_pass_time name =
+    match Hashtbl.find_opt perf_rows name with
+    | None -> ()
+    | Some row ->
+        ignore (perf_model#remove row);
+        Hashtbl.remove perf_rows name
   in
   let update_vc_time_sum () =
     let total = sum_vc_times () in
@@ -541,13 +539,6 @@ treeview.goals row:selected {
   let content_version = ref 0 in
   let touch_content () = content_version := !content_version + 1 in
   let last_action : (unit -> unit) option ref = ref None in
-  let append_log msg =
-    match !log_buf_ref with
-    | None -> ()
-    | Some buf ->
-        let iter = buf#end_iter in
-        buf#insert ~iter (msg ^ "\n")
-  in
   let append_history msg =
     match !history_buf_ref with
     | None -> ()
@@ -557,7 +548,7 @@ treeview.goals row:selected {
   in
   let set_status msg =
     status#set_text msg;
-    append_log msg
+    append_history msg
   in
   let set_status_quiet msg =
     status#set_text msg
@@ -1550,7 +1541,6 @@ treeview.goals row:selected {
         [ (obcplus_page, obcplus_tab); (why_page, why_tab);
           (task_page, task_tab);
           (dot_page#coerce, dot_tab) ];
-      log_buf#set_text "";
       history_buf#set_text "";
       set_parse_badge ~ok:true ~text:"Parse: ok";
       cursor_label#set_text "Ln 1, Col 1";
@@ -1978,8 +1968,20 @@ treeview.goals row:selected {
         in
         begin match cached with
         | Some out ->
-            record_pass_time ~name:"monitor" ~elapsed:0.0 ~cached:true;
-            set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+            record_pass_time ~name:"automaton-gen" ~elapsed:0.0 ~cached:true;
+            begin match out.dot_png with
+            | Some _ ->
+                record_pass_time ~name:"automaton-draw" ~elapsed:0.0 ~cached:true;
+                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+            | None ->
+                let t0 = Unix.gettimeofday () in
+                let png = Ide_backend.dot_png_from_text out.dot_text in
+                let elapsed = Unix.gettimeofday () -. t0 in
+                record_pass_time ~name:"automaton-draw" ~elapsed ~cached:false;
+                let out = { out with dot_png = png } in
+                monitor_cache := Some (!content_version, out);
+                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+            end;
             set_status_cached "Done";
             add_history "Monitor: done (cached)"
         | None ->
@@ -1987,12 +1989,19 @@ treeview.goals row:selected {
             run_async
               ~compute:(fun () ->
                 let t0 = Unix.gettimeofday () in
-                match Ide_backend.monitor_pass ~generate_png:true ~input_file:file with
-                | Ok out -> Ok (out, Unix.gettimeofday () -. t0)
+                match Ide_backend.monitor_pass ~generate_png:false ~input_file:file with
+                | Ok out ->
+                    let gen_elapsed = Unix.gettimeofday () -. t0 in
+                    let t1 = Unix.gettimeofday () in
+                    let png = Ide_backend.dot_png_from_text out.dot_text in
+                    let draw_elapsed = Unix.gettimeofday () -. t1 in
+                    Ok (out, png, gen_elapsed, draw_elapsed)
                 | Error _ as err -> err)
-              ~on_ok:(fun (out, elapsed) ->
+              ~on_ok:(fun (out, png, gen_elapsed, draw_elapsed) ->
+                let out = { out with dot_png = png } in
                 monitor_cache := Some (!content_version, out);
-                record_pass_time ~name:"monitor" ~elapsed ~cached:false;
+                record_pass_time ~name:"automaton-gen" ~elapsed:gen_elapsed ~cached:false;
+                record_pass_time ~name:"automaton-draw" ~elapsed:draw_elapsed ~cached:false;
                 set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
                 set_status "Done";
                 add_history "Monitor: done")
@@ -2029,7 +2038,7 @@ treeview.goals row:selected {
         in
         begin match cached_monitor with
         | Some out ->
-            record_pass_time ~name:"monitor" ~elapsed:0.0 ~cached:true;
+            record_pass_time ~name:"automaton-gen" ~elapsed:0.0 ~cached:true;
             set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
         | None -> ()
         end;
@@ -2075,7 +2084,7 @@ treeview.goals row:selected {
               begin match mon_opt with
               | Some out when cached_monitor = None ->
                   monitor_cache := Some (!content_version, out);
-                  record_pass_time ~name:"monitor"
+                  record_pass_time ~name:"automaton-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
                   set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
@@ -2130,7 +2139,7 @@ treeview.goals row:selected {
         in
         begin match cached_monitor with
         | Some out ->
-            record_pass_time ~name:"monitor" ~elapsed:0.0 ~cached:true;
+            record_pass_time ~name:"automaton-gen" ~elapsed:0.0 ~cached:true;
             set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
         | None -> ()
         end;
@@ -2195,7 +2204,7 @@ treeview.goals row:selected {
               begin match mon_opt with
               | Some out when cached_monitor = None ->
                   monitor_cache := Some (!content_version, out);
-                  record_pass_time ~name:"monitor"
+                  record_pass_time ~name:"automaton-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
                   set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
@@ -2238,6 +2247,7 @@ treeview.goals row:selected {
     match !current_file with
     | None -> set_status "No file selected"
     | Some file ->
+        remove_pass_time "prove";
         if not (ensure_saved_or_cancel ()) then ()
         else
         set_status "Running prove...";
@@ -2258,6 +2268,18 @@ treeview.goals row:selected {
               Some out
           | _ -> None
         in
+        let record_stage_times ~cached (out:Ide_backend.outputs) =
+          if out.automaton_build_time_s > 0.0 then
+            record_pass_time ~name:"automaton-build" ~elapsed:out.automaton_build_time_s ~cached;
+          if out.obcplus_time_s > 0.0 then
+            record_pass_time ~name:"obc+" ~elapsed:out.obcplus_time_s ~cached;
+          if out.why_time_s > 0.0 then
+            record_pass_time ~name:"why3" ~elapsed:out.why_time_s ~cached;
+          if out.why3_prep_time_s > 0.0 then
+            record_pass_time ~name:"why3-prep" ~elapsed:out.why3_prep_time_s ~cached;
+          if out.automaton_time_s > 0.0 then
+            record_pass_time ~name:"automaton-gen" ~elapsed:out.automaton_time_s ~cached
+        in
         let cache_monitor_from_outputs (out:Ide_backend.outputs) =
           if out.dot_text <> "" || out.labels_text <> "" then
             monitor_cache :=
@@ -2268,7 +2290,7 @@ treeview.goals row:selected {
         in
         begin match cached with
         | Some out ->
-            record_pass_time ~name:"prove" ~elapsed:0.0 ~cached:true;
+            record_stage_times ~cached:true out;
             cache_monitor_from_outputs out;
             set_all_buffers
               ~obcplus:out.obc_text
@@ -2291,6 +2313,7 @@ treeview.goals row:selected {
         | None ->
             let run_in_thread () =
               let on_outputs_ready (out:Ide_backend.outputs) =
+                record_stage_times ~cached:false out;
                 cache_monitor_from_outputs out;
                 ignore (Glib.Idle.add (fun () ->
                   set_all_buffers
@@ -2335,9 +2358,11 @@ treeview.goals row:selected {
                 timeout_s;
                 prefix_fields = false;
                 prove = true;
+                generate_vc_text = false;
+                generate_smt_text = false;
+                generate_monitor_text = false;
                 generate_dot_png = false;
               } in
-              let t0 = Unix.gettimeofday () in
               let res =
                 Ide_backend.run_with_callbacks
                   cfg
@@ -2345,17 +2370,15 @@ treeview.goals row:selected {
                   ~on_goals_ready
                   ~on_goal_done
               in
-              let elapsed = Unix.gettimeofday () -. t0 in
               match res with
-              | Ok out ->
-                  Ok (out, elapsed)
+              | Ok out -> Ok out
               | Error _ as err -> err
             in
             run_async
               ~compute:run_in_thread
-              ~on_ok:(fun (out, elapsed) ->
+              ~on_ok:(fun out ->
                 prove_cache := Some (!content_version, prover, timeout_s, out);
-                record_pass_time ~name:"prove" ~elapsed ~cached:false;
+                record_stage_times ~cached:false out;
                 cache_monitor_from_outputs out;
                 set_all_buffers
                   ~obcplus:out.obc_text

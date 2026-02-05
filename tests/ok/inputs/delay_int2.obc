@@ -10,7 +10,6 @@ trans
   Init1 -> Init2 {
     ensures {prev1} = {x};
     ensures {prev2} = {0};
-    y := 0;
     prev1 := x;
     prev2 := 0;
   }
@@ -18,7 +17,6 @@ trans
     requires {prev1} = pre_k(x, 1);
     ensures {prev1} = {x};
     ensures {prev2} = pre_k(x, 1);
-    y := 0;
     prev2 := prev1;
     prev1 := x;
   }

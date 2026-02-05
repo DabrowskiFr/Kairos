@@ -18,6 +18,11 @@ type outputs = {
   vc_spans_ordered : (int * int) list;
   why_spans : (int * (int * int)) list;
   vc_ids_ordered : int list;
+  obcplus_time_s : float;
+  why_time_s : float;
+  automaton_time_s : float;
+  automaton_build_time_s : float;
+  why3_prep_time_s : float;
   dot_png : string option;
 }
 
@@ -45,6 +50,9 @@ type config = {
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;
+  generate_vc_text : bool;
+  generate_smt_text : bool;
+  generate_monitor_text : bool;
   generate_dot_png : bool;
 }
 
@@ -335,18 +343,31 @@ let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, 
 
 let run (cfg:config) : (outputs, error) result =
   Provenance.reset ();
+  let t_build0 = Unix.gettimeofday () in
   match build_ast ~input_file:cfg.input_file () with
   | Error _ as err -> err
   | Ok asts ->
       try
+        let automaton_build_time_s = Unix.gettimeofday () -. t_build0 in
+        let t_obc0 = Unix.gettimeofday () in
         let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans asts.obc in
         let obcplus_sequents = build_obcplus_sequents asts.obc in
+        let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
+        let t_why0 = Unix.gettimeofday () in
         let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
         let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
+        let why_time_s = Unix.gettimeofday () -. t_why0 in
+        let t_prep0 = Unix.gettimeofday () in
         let task_sequents = Why_prove.task_sequents ~text:why_text in
-        let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
+        let why3_prep_time_s = Unix.gettimeofday () -. t_prep0 in
+        let vc_tasks =
+          if cfg.generate_vc_text then
+            Why_prove.dump_why3_tasks_with_attrs ~text:why_text
+          else
+            []
+        in
         let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
         let vc_ids_ordered =
           List.map
@@ -356,13 +377,33 @@ let run (cfg:config) : (outputs, error) result =
                vc_id)
             why_ids_per_task
         in
-        let smt_tasks = Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text in
-        let vc_text, vc_spans_ordered =
-          join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+        let smt_tasks =
+          if cfg.generate_smt_text then
+            Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text
+          else
+            []
         in
-        let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-        let dot_text, labels_text =
-          Dot_emit.dot_monitor_program ~show_labels:false asts.automaton
+        let vc_text, vc_spans_ordered =
+          if cfg.generate_vc_text then
+            join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+          else
+            ("", [])
+        in
+        let smt_text =
+          if cfg.generate_smt_text then
+            join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks
+          else
+            ""
+        in
+        let automaton_time_s, dot_text, labels_text =
+          if cfg.generate_monitor_text then
+            let t0 = Unix.gettimeofday () in
+            let dot_text, labels_text =
+              Dot_emit.dot_monitor_program ~show_labels:false asts.automaton
+            in
+            (Unix.gettimeofday () -. t0, dot_text, labels_text)
+          else
+            (0.0, "", "")
         in
         let goals =
           if cfg.prove then
@@ -382,7 +423,7 @@ let run (cfg:config) : (outputs, error) result =
             []
         in
         let dot_png =
-          if cfg.generate_dot_png then dot_png_from_text dot_text else None
+          if cfg.generate_dot_png && dot_text <> "" then dot_png_from_text dot_text else None
         in
         Ok {
           obc_text;
@@ -401,6 +442,11 @@ let run (cfg:config) : (outputs, error) result =
           vc_spans_ordered;
           why_spans;
           vc_ids_ordered;
+          obcplus_time_s;
+          why_time_s;
+          automaton_time_s;
+          automaton_build_time_s;
+          why3_prep_time_s;
           dot_png;
         }
       with exn ->
@@ -413,17 +459,28 @@ let run_with_callbacks
   ~(on_goal_done:int -> string -> string -> float -> string option -> string -> string option -> unit)
   : (outputs, error) result =
   Provenance.reset ();
+  let t_build0 = Unix.gettimeofday () in
   match build_ast ~input_file:cfg.input_file () with
   | Error _ as err -> err
   | Ok asts ->
       try
+        let automaton_build_time_s = Unix.gettimeofday () -. t_build0 in
+        let t_obc0 = Unix.gettimeofday () in
         let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans asts.obc in
         let obcplus_sequents = build_obcplus_sequents asts.obc in
+        let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
+        let t_why0 = Unix.gettimeofday () in
         let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
         let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
-        let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
+        let why_time_s = Unix.gettimeofday () -. t_why0 in
+        let vc_tasks =
+          if cfg.generate_vc_text then
+            Why_prove.dump_why3_tasks_with_attrs ~text:why_text
+          else
+            []
+        in
         let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
         let vc_ids_ordered =
           List.map
@@ -433,28 +490,55 @@ let run_with_callbacks
                vc_id)
             why_ids_per_task
         in
+        let t_prep0 = Unix.gettimeofday () in
         let task_sequents = Why_prove.task_sequents ~text:why_text in
-        let smt_tasks = Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text in
-        let vc_text, vc_spans_ordered =
-          join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+        let why3_prep_time_s = Unix.gettimeofday () -. t_prep0 in
+        let smt_tasks =
+          if cfg.generate_smt_text then
+            Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text
+          else
+            []
         in
-        let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-        let dot_text, labels_text =
-          Dot_emit.dot_monitor_program ~show_labels:false asts.automaton
+        let vc_text, vc_spans_ordered =
+          if cfg.generate_vc_text then
+            join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+          else
+            ("", [])
+        in
+        let smt_text =
+          if cfg.generate_smt_text then
+            join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks
+          else
+            ""
+        in
+        let automaton_time_s, dot_text, labels_text =
+          if cfg.generate_monitor_text then
+            let t0 = Unix.gettimeofday () in
+            let dot_text, labels_text =
+              Dot_emit.dot_monitor_program ~show_labels:false asts.automaton
+            in
+            (Unix.gettimeofday () -. t0, dot_text, labels_text)
+          else
+            (0.0, "", "")
         in
         let dot_png =
-          if cfg.generate_dot_png then dot_png_from_text dot_text else None
+          if cfg.generate_dot_png && dot_text <> "" then dot_png_from_text dot_text else None
         in
-        let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
-        let extract_goal_name task =
-          let lines = String.split_on_char '\n' task in
-          match List.find_opt (fun line -> Str.string_match goal_re line 0) lines with
-          | None -> "goal"
-          | Some line ->
-              ignore (Str.string_match goal_re line 0);
-              Str.matched_group 1 line
+        let goal_names =
+          if cfg.generate_vc_text then (
+            let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
+            let extract_goal_name task =
+              let lines = String.split_on_char '\n' task in
+              match List.find_opt (fun line -> Str.string_match goal_re line 0) lines with
+              | None -> "goal"
+              | Some line ->
+                  ignore (Str.string_match goal_re line 0);
+                  Str.matched_group 1 line
+            in
+            List.map extract_goal_name vc_tasks
+          ) else
+            List.mapi (fun i _ -> Printf.sprintf "goal%d" (i + 1)) vc_ids_ordered
         in
-        let goal_names = List.map extract_goal_name vc_tasks in
         on_outputs_ready {
           obc_text;
           why_text;
@@ -472,6 +556,11 @@ let run_with_callbacks
           vc_spans_ordered;
           why_spans;
           vc_ids_ordered;
+          obcplus_time_s;
+          why_time_s;
+          automaton_time_s;
+          automaton_build_time_s;
+          why3_prep_time_s;
           dot_png;
         };
         on_goals_ready (goal_names, vc_ids_ordered);
@@ -509,6 +598,11 @@ let run_with_callbacks
           vc_spans_ordered;
           why_spans;
           vc_ids_ordered;
+          obcplus_time_s;
+          why_time_s;
+          automaton_time_s;
+          automaton_build_time_s;
+          why3_prep_time_s;
           dot_png;
         }
       with exn ->

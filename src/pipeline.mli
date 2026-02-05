@@ -18,6 +18,11 @@ type outputs = {
   vc_spans_ordered : (int * int) list;
   why_spans : (int * (int * int)) list;
   vc_ids_ordered : int list;
+  obcplus_time_s : float;
+  why_time_s : float;
+  automaton_time_s : float;
+  automaton_build_time_s : float;
+  why3_prep_time_s : float;
   dot_png : string option;
 }
 
@@ -45,6 +50,9 @@ type config = {
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;
+  generate_vc_text : bool;
+  generate_smt_text : bool;
+  generate_monitor_text : bool;
   generate_dot_png : bool;
 }
 
@@ -85,3 +93,5 @@ val run_with_callbacks :
   on_goals_ready:(string list * int list -> unit) ->
   on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
   (outputs, error) result
+
+val dot_png_from_text : string -> string option
