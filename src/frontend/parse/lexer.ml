@@ -33,6 +33,28 @@ let tok lexbuf t =
   ignore (set_lexeme lexbuf);
   t
 
+let expected_tokens : (string * Parser.token) list =
+  [
+    "node", NODE; "returns", RETURNS; "locals", LOCALS; "states", STATES;
+    "init", INIT; "trans", TRANS; "end", END;
+    "requires", REQUIRES; "ensures", ENSURES; "assume", ASSUME; "guarantee", GUARANTEE;
+    "instance", INSTANCE; "instances", INSTANCES; "call", CALL;
+    "if", IF; "then", THEN; "else", ELSE; "skip", SKIP;
+    "true", TRUE; "false", FALSE;
+    "int", TINT; "bool", TBOOL; "real", TREAL;
+    "pre", PRE;
+    "min", MIN; "max", MAX; "add", ADD; "mul", MUL; "and", AND; "or", OR; "not", NOT;
+    "first", FIRST;
+    "G", G; "X", X;
+    ":=", ASSIGN; "->", ARROW; "=>", IMPL; ">=", GE; "<=", LE; "!=", NEQ;
+    "=", EQ; ">", GT; "<", LT; "+", PLUS; "-", MINUS; "*", STAR; "/", SLASH;
+    "(", LPAREN; ")", RPAREN; "{", LBRACE; "}", RBRACE; "[", LBRACK; "]", RBRACK;
+    ",", COMMA; ";", SEMI; ":", COLON; ".", DOT;
+    "int-literal", INT 0;
+    "identifier", IDENT "";
+    "<eof>", EOF;
+  ]
+
 let rec token lexbuf =
   match%sedlex lexbuf with
   | Plus (Chars " \t\r\n") ->

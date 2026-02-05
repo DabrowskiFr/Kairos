@@ -1,4 +1,4 @@
-node ack_cycle(req: int) returns (ack: int)
+node ack_cycle(req : int) returns (ack: int)
 guarantee G( {req} = {1} => G( {ack} = {1} ) );
 locals
 states

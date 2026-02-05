@@ -285,7 +285,7 @@ progressbar.goal-progress.empty progress {
   let content_sep = GMisc.separator `HORIZONTAL ~packing:right#pack () in
   content_sep#misc#style_context#add_class "separator";
   let status_area = GPack.vbox ~packing:right#pack () in
-  status_area#misc#set_size_request ~width:(-1) ~height:40 ();
+  status_area#misc#set_size_request ~width:(-1) ~height:60 ();
   let goals_progress = GRange.progress_bar ~packing:status_area#pack () in
   goals_progress#set_show_text true;
   goals_progress#misc#style_context#add_class "goal-progress";
@@ -294,7 +294,8 @@ progressbar.goal-progress.empty progress {
   let status_notebook = GPack.notebook ~tab_pos:`TOP ~packing:(status_row#pack ~expand:true ~fill:true) () in
   status_notebook#misc#style_context#add_class "status-tabs";
   let status_tab = GMisc.label ~text:"Status" () in
-  let status = GMisc.label ~text:"No file loaded" () in
+  let status = GMisc.label ~text:"No file loaded" ~line_wrap:true () in
+  status#set_xalign 0.0;
   ignore (status_notebook#append_page ~tab_label:status_tab#coerce status#coerce);
   let history_tab = GMisc.label ~text:"Logs" () in
   let history_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
@@ -515,6 +516,14 @@ progressbar.goal-progress.empty progress {
     obc_buf#create_tag
       [ `FOREGROUND "#7c3aed"; `WEIGHT `BOLD ]
   in
+  let obc_error_line_tag =
+    obc_buf#create_tag
+      [ `PARAGRAPH_BACKGROUND "#ffe4e6" ]
+  in
+  let obc_error_bar_tag =
+    obc_buf#create_tag
+      [ `BACKGROUND "#ff6b6b"; `FOREGROUND "#ff6b6b" ]
+  in
   let obc_error_tag =
     obc_buf#create_tag
       [ `FOREGROUND "#b42318"; `UNDERLINE `SINGLE ]
@@ -526,6 +535,16 @@ progressbar.goal-progress.empty progress {
   let clear_obc_error () =
     obc_buf#remove_tag
       obc_error_tag
+      ~start:obc_buf#start_iter
+      ~stop:obc_buf#end_iter
+    ;
+    obc_buf#remove_tag
+      obc_error_bar_tag
+      ~start:obc_buf#start_iter
+      ~stop:obc_buf#end_iter
+    ;
+    obc_buf#remove_tag
+      obc_error_line_tag
       ~start:obc_buf#start_iter
       ~stop:obc_buf#end_iter
   in
@@ -550,7 +569,34 @@ progressbar.goal-progress.empty progress {
         let start_iter = obc_buf#get_iter_at_char ~line:line_idx col_idx in
         let end_iter = start_iter#forward_to_line_end in
         obc_buf#apply_tag obc_error_tag ~start:start_iter ~stop:end_iter;
+        let line_start = obc_buf#get_iter_at_char ~line:line_idx 0 in
+        obc_buf#apply_tag obc_error_line_tag ~start:line_start ~stop:end_iter;
+        let bar_end =
+          match line_start#forward_chars 2 with
+          | exception _ -> line_start
+          | it -> it
+        in
+        obc_buf#apply_tag obc_error_bar_tag ~start:line_start ~stop:bar_end;
         ignore (obc_view#scroll_to_iter start_iter)
+  in
+  let parse_error_excerpt msg text =
+    match parse_error_location msg with
+    | None -> None
+    | Some (line, col) ->
+        let lines = String.split_on_char '\n' text in
+        let idx = max 0 (line - 1) in
+        begin match List.nth_opt lines idx with
+        | None -> None
+        | Some raw ->
+            let line_text =
+              if raw = "" then "<empty line>" else raw
+            in
+            let col_idx = max 1 col in
+            let caret =
+              String.make (col_idx - 1) ' ' ^ "^"
+            in
+            Some (line_text ^ "\n" ^ caret)
+        end
   in
   let obcplus_tab = GMisc.label ~text:"OBC+" () in
   let obcplus_view, obcplus_buf, obcplus_page =
@@ -870,7 +916,12 @@ progressbar.goal-progress.empty progress {
         with Failure msg ->
           apply_parse_error msg;
           set_parse_badge ~ok:false ~text:"Parse: error";
-          set_status_quiet msg;
+          let details =
+            match parse_error_excerpt msg text with
+            | None -> msg
+            | Some excerpt -> msg ^ "\n" ^ excerpt
+          in
+          set_status details;
           false
         | _ ->
           set_parse_badge ~ok:false ~text:"Parse: error";
