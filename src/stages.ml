@@ -16,15 +16,7 @@ type config = {
 
 let run (cfg:config) : (unit, string) result =
   let log_stage msg =
-    Logger.emit {
-      Logger.kind = Logger.StageInfo;
-      stage = None;
-      level = Logger.Trace;
-      relevance = Logger.Low;
-      message = msg;
-      data = [];
-      duration_ms = None;
-    }
+    Log.debug msg
   in
   match Pipeline.build_ast ~log:true ~input_file:cfg.input_file () with
   | Error err -> Error (Pipeline.error_to_string err)
@@ -86,7 +78,7 @@ let run (cfg:config) : (unit, string) result =
             | None when not cfg.prove ->
                 Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
             | _ ->
-                Logger.stage_start Stage_names.Why;
+                Log.stage_start Stage_names.Why;
                 let t5 = Unix.gettimeofday () in
                 let why_text =
                   Stage_io.emit_why
@@ -94,7 +86,7 @@ let run (cfg:config) : (unit, string) result =
                     ~output_file:cfg.output_file
                     asts.obc
                 in
-                Logger.stage_end Stage_names.Why
+                Log.stage_end Stage_names.Why
                   (int_of_float ((Unix.gettimeofday () -. t5) *. 1000.))
                   [];
                 begin match cfg.dump_why3_vc with

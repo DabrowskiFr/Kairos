@@ -138,18 +138,13 @@ let emit_automaton_debug_stats (p:Ast.program) =
   let edges =
     List.fold_left (fun acc n -> acc + List.length n.Ast.trans) 0 p
   in
-  Logger.emit {
-    Logger.kind = Logger.StageInfo;
-    stage = Some Stage_names.Automaton;
-    level = Logger.Debug;
-    relevance = Logger.Medium;
-    message = "automaton stats";
-    data = [
+  Log.stage_info
+    (Some Stage_names.Automaton)
+    "automaton stats"
+    [
       "nodes", string_of_int nodes;
       "edges", string_of_int edges;
-    ];
-    duration_ms = None;
-  }
+    ]
 
 let reid_with_origin (x:'a Ast.with_origin) : 'a Ast.with_origin =
   let new_id = Provenance.fresh_id () in
@@ -180,11 +175,11 @@ let reid_program (p:Ast.program) : Ast.program =
 let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
   let parse () =
     try
-      if log then Logger.stage_start Stage_names.Parsed;
+      if log then Log.stage_start Stage_names.Parsed;
       let t0 = Unix.gettimeofday () in
       let p_parsed = Frontend.parse_file input_file in
       if log then
-        Logger.stage_end Stage_names.Parsed
+        Log.stage_end Stage_names.Parsed
           (int_of_float ((Unix.gettimeofday () -. t0) *. 1000.))
           (program_stats p_parsed);
       Ok p_parsed
@@ -195,32 +190,32 @@ let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
   | Ok p_parsed ->
       try
         let t1 = Unix.gettimeofday () in
-        if log then Logger.stage_start Stage_names.Automaton;
+        if log then Log.stage_start Stage_names.Automaton;
         let p_automaton = Middle_end.stage_automaton p_parsed in
         emit_automaton_debug_stats p_automaton;
         if log then
-          Logger.stage_end Stage_names.Automaton
+          Log.stage_end Stage_names.Automaton
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
-        if log then Logger.stage_start Stage_names.Contracts;
+        if log then Log.stage_start Stage_names.Contracts;
         let p_contracts = Middle_end.stage_contracts p_automaton in
         if log then
-          Logger.stage_end Stage_names.Contracts
+          Log.stage_end Stage_names.Contracts
             (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
             (program_stats p_contracts);
         let t3 = Unix.gettimeofday () in
-        if log then Logger.stage_start Stage_names.Monitor;
+        if log then Log.stage_start Stage_names.Monitor;
         let p_monitor = Middle_end.stage_monitor_injection p_contracts in
         if log then
-          Logger.stage_end Stage_names.Monitor
+          Log.stage_end Stage_names.Monitor
             (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
             (program_stats p_monitor);
         let t4 = Unix.gettimeofday () in
-        if log then Logger.stage_start Stage_names.Obc;
+        if log then Log.stage_start Stage_names.Obc;
         let p_obc = Obc_stage.run p_monitor |> reid_program in
         if log then
-          Logger.stage_end Stage_names.Obc
+          Log.stage_end Stage_names.Obc
             (int_of_float ((Unix.gettimeofday () -. t4) *. 1000.))
             (program_stats p_obc);
         Ok { parsed = p_parsed; automaton = p_automaton; contracts = p_contracts; monitor = p_monitor; obc = p_obc }
@@ -272,21 +267,27 @@ let build_vcid_locs (p_parsed:Ast.program)
 
 
 let dot_png_from_text (dot_text:string) : string option =
-  try
-    let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
-    let png_file = Filename.temp_file "obcwhy3_ide_" ".png" in
-    let oc = open_out dot_file in
-    output_string oc dot_text;
-    close_out oc;
-    let cmd =
-      Printf.sprintf "dot -Tpng %s -o %s"
-        (Filename.quote dot_file)
-        (Filename.quote png_file)
-    in
-    let status = Sys.command cmd in
-    Sys.remove dot_file;
-    if status = 0 then Some png_file else (Sys.remove png_file; None)
-  with _ -> None
+  let open Bos in
+  match OS.File.tmp "obcwhy3_ide_%s.dot" with
+  | Error _ -> None
+  | Ok dot_file ->
+      let png_file = Fpath.set_ext "png" dot_file in
+      begin
+        match OS.File.write dot_file dot_text with
+        | Error _ ->
+            ignore (OS.File.delete dot_file);
+            None
+        | Ok () ->
+            let cmd = Cmd.(v "dot" % "-Tpng" % p dot_file % "-o" % p png_file) in
+            match OS.Cmd.run cmd with
+            | Ok () ->
+                ignore (OS.File.delete dot_file);
+                Some (Fpath.to_string png_file)
+            | Error _ ->
+                ignore (OS.File.delete dot_file);
+                ignore (OS.File.delete png_file);
+                None
+      end
 
 let monitor_pass ~generate_png ~input_file : (monitor_outputs, error) result =
   Provenance.reset ();

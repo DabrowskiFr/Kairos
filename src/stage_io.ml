@@ -1,10 +1,13 @@
 let write_text path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
+  let p = Fpath.v path in
+  match Bos.OS.File.write p content with
+  | Ok () -> ()
+  | Error (`Msg msg) -> failwith msg
 
 let file_size path =
-  (Unix.stat path).Unix.st_size
+  match Bos.OS.Path.stat (Fpath.v path) with
+  | Ok st -> st.Unix.st_size
+  | Error _ -> 0
 
 let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
   (program:Ast.program) : (unit, string) result =
@@ -27,22 +30,22 @@ let dump_ast_all
   : (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
-    let ensure_dir d =
-      if Sys.file_exists d then (
-        if not (Sys.is_directory d) then
-          Error ("--dump-ast-all: not a directory: " ^ d)
-        else Ok ()
-      ) else (
-        Unix.mkdir d 0o755;
-        Ok ()
-      )
+    let d = Fpath.v dir in
+    let ensure_dir () =
+      match Bos.OS.Dir.exists d with
+      | Ok true -> Ok ()
+      | Ok false ->
+          Bos.OS.Dir.create d
+          |> Result.map (fun _ -> ())
+          |> Result.map_error (fun (`Msg msg) -> msg)
+      | Error (`Msg msg) -> Error msg
     in
-    match ensure_dir dir with
+    match ensure_dir () with
     | Error _ as err -> err
     | Ok () ->
         let write_stage name program =
-          let path = Filename.concat dir (Stage_names.to_string name ^ ".json") in
-          Ast_dump.dump_program_json ~out:(Some path) program
+          let path = Fpath.(d / (Stage_names.to_string name ^ ".json")) in
+          Ast_dump.dump_program_json ~out:(Some (Fpath.to_string path)) program
         in
         write_stage Stage_names.Parsed parsed;
         write_stage Stage_names.Automaton automaton;
@@ -57,24 +60,25 @@ let emit_dot_files ~(show_labels:bool) ~(out_file:string) (program:Ast.program) 
   if out_file = "-" then (
     print_string dot;
     if not show_labels then
-      Logger.warning "DOT labels suppressed when output is stdout"
+      Log.warning "DOT labels suppressed when output is stdout"
   ) else (
     let residual_file =
-      if Filename.check_suffix out_file ".dot"
-      then out_file
-      else out_file ^ ".dot"
+      let p = Fpath.v out_file in
+      if Fpath.has_ext ".dot" p then p else Fpath.add_ext ".dot" p
     in
-    write_text residual_file dot;
-    Logger.output_written "dot" residual_file (file_size residual_file);
+    let residual_path = Fpath.to_string residual_file in
+    write_text residual_path dot;
+    Log.output_written "dot" residual_path (file_size residual_path);
     if not show_labels then (
       let label_file =
-        if Filename.check_suffix residual_file ".dot" then
-          Filename.remove_extension residual_file ^ ".labels"
+        if Fpath.has_ext ".dot" residual_file then
+          Fpath.set_ext ".labels" residual_file
         else
-          residual_file ^ ".labels"
+          Fpath.add_ext ".labels" residual_file
       in
-      write_text label_file labels;
-      Logger.output_written "dot_labels" label_file (file_size label_file)
+      let label_path = Fpath.to_string label_file in
+      write_text label_path labels;
+      Log.output_written "dot_labels" label_path (file_size label_path)
     )
   )
 
@@ -90,7 +94,7 @@ let emit_obc_file ~(out_file:string) (program:Ast.program) : unit =
     in
     let path = ensure_ext out_file in
     write_text path out;
-    Logger.output_written "obc" path (file_size path)
+    Log.output_written "obc" path (file_size path)
   )
 
 let emit_why3_vc ~(out_file:string) ~(why_text:string) : unit =
@@ -106,7 +110,7 @@ let emit_why3_vc ~(out_file:string) ~(why_text:string) : unit =
     print_string out
   else (
     write_text out_file out;
-    Logger.output_written "why3_vc" out_file (file_size out_file)
+    Log.output_written "why3_vc" out_file (file_size out_file)
   )
 
 let emit_smt2 ~(out_file:string) ~(prover:string) ~(why_text:string) : unit =
@@ -122,7 +126,7 @@ let emit_smt2 ~(out_file:string) ~(prover:string) ~(why_text:string) : unit =
     print_string out
   else (
     write_text out_file out;
-    Logger.output_written "smt2" out_file (file_size out_file)
+    Log.output_written "smt2" out_file (file_size out_file)
   )
 
 let emit_why
@@ -139,7 +143,7 @@ let emit_why
   end;
   begin match output_file with
   | Some "-" -> ()
-  | Some path -> Logger.output_written "why" path (file_size path)
+  | Some path -> Log.output_written "why" path (file_size path)
   | None -> ()
   end;
   out
@@ -149,7 +153,7 @@ let prove_why
   ~(why_text:string)
   : unit =
   let t_prove = Unix.gettimeofday () in
-  Logger.stage_start Stage_names.Prove;
+  Log.stage_start Stage_names.Prove;
   let result = Why_prove.prove_text ~prover ~text:why_text () in
   let duration_ms =
     int_of_float ((Unix.gettimeofday () -. t_prove) *. 1000.)
@@ -166,23 +170,18 @@ let prove_why
     "timeout", string_of_int summary.timeout;
     "failure", string_of_int summary.failure;
   ] in
-  Logger.stage_end Stage_names.Prove duration_ms data;
+  Log.stage_end Stage_names.Prove duration_ms data;
   if summary.total = 0 then
-    Logger.warning
+    Log.warning
       ~stage:Stage_names.Prove
       "Why3: no proof goals found"
   else if failed = 0 then
-    Logger.emit {
-      kind = Logger.StageInfo;
-      stage = Some Stage_names.Prove;
-      level = Logger.Normal;
-      relevance = Logger.High;
-      message = Printf.sprintf "Why3: all goals proved (%d)" summary.total;
-      data = [];
-      duration_ms = None;
-    }
+    Log.stage_info
+      (Some Stage_names.Prove)
+      (Printf.sprintf "Why3: all goals proved (%d)" summary.total)
+      []
   else
-    Logger.warning
+    Log.warning
       ~stage:Stage_names.Prove
       (Printf.sprintf
          "Why3: proof failed (%d/%d goals not proved)"

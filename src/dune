@@ -14,7 +14,7 @@
   stage_types
   stage_names
   stages_info
-  logger
+  log
   stage_io
   pipeline
   cli
@@ -54,8 +54,8 @@
   automaton_types
   automaton_residual
   automaton_core)
- (libraries str re why3)
- (preprocess (pps ppx_deriving.show)))
+ (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult)
+ (preprocess (pps ppx_deriving.show sedlex.ppx)))
 
 (executable
  (name main)

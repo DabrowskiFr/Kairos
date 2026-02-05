@@ -274,15 +274,10 @@ and prove_tasks_with_details
     | [] -> (finalize_summary acc, List.rev details)
     | task :: rest ->
         if idx = 0 || idx = total_tasks - 1 || (idx + 1) mod 10 = 0 then
-          Logger.emit {
-            kind = Logger.StageInfo;
-            stage = Some Stage_names.Prove;
-            level = Logger.Debug;
-            relevance = Logger.Low;
-            message = Printf.sprintf "proving goal %d/%d" (idx + 1) total_tasks;
-            data = [];
-            duration_ms = None;
-          };
+          Log.stage_info
+            (Some Stage_names.Prove)
+            (Printf.sprintf "proving goal %d/%d" (idx + 1) total_tasks)
+            [];
         let prepared = Driver.prepare_task driver task in
         let buffer = Buffer.create 4096 in
         let fmt = Format.formatter_of_buffer buffer in
@@ -321,7 +316,7 @@ and prove_tasks_with_details
               Filename.temp_file (Printf.sprintf "why3_failed_%d_" (idx + 1)) ".smt2"
             in
             write_text tmp (Buffer.contents buffer);
-            Logger.warning
+            Log.warning
               ~stage:Stage_names.Prove
               (Printf.sprintf "goal %d/%d failed (%s); dumped to %s"
                  (idx + 1) total_tasks
