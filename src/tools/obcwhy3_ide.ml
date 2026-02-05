@@ -132,6 +132,29 @@ treeview.goals row:nth-child(even) {
 treeview.goals row:selected {
   background: #e6edf7;
 }
+progressbar.goal-progress {
+  min-height: 8px;
+}
+progressbar.goal-progress trough {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+progressbar.goal-progress progress {
+  background: #22c55e;
+  border-radius: 4px;
+}
+progressbar.goal-progress.ok progress {
+  background: #22c55e;
+}
+progressbar.goal-progress.pending progress {
+  background: #f59e0b;
+}
+progressbar.goal-progress.fail progress {
+  background: #ef4444;
+}
+progressbar.goal-progress.empty progress {
+  background: #9ca3af;
+}
 |}
   ;
   GtkData.StyleContext.add_provider_for_screen
@@ -213,7 +236,7 @@ treeview.goals row:selected {
   prover_box#set_active 0;
   let timeout_label = GMisc.label ~text:"Timeout (s):" ~packing:options_group#pack () in
   timeout_label#misc#style_context#add_class "toolbar-label";
-  let timeout_entry = GEdit.entry ~text:"30" ~width_chars:4 ~packing:options_group#pack () in
+  let timeout_entry = GEdit.entry ~text:"5" ~width_chars:4 ~packing:options_group#pack () in
 
   let toolbar_sep = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
   toolbar_sep#misc#style_context#add_class "separator";
@@ -228,6 +251,7 @@ treeview.goals row:selected {
   let status_icon_col = goal_cols#add Gobject.Data.string in
   let goal_col = goal_cols#add Gobject.Data.string in
   let goal_raw_col = goal_cols#add Gobject.Data.string in
+  let goal_status_col = goal_cols#add Gobject.Data.string in
   let source_col = goal_cols#add Gobject.Data.string in
   let time_col = goal_cols#add Gobject.Data.string in
   let dump_col = goal_cols#add Gobject.Data.string in
@@ -262,6 +286,9 @@ treeview.goals row:selected {
   content_sep#misc#style_context#add_class "separator";
   let status_area = GPack.vbox ~packing:right#pack () in
   status_area#misc#set_size_request ~width:(-1) ~height:40 ();
+  let goals_progress = GRange.progress_bar ~packing:status_area#pack () in
+  goals_progress#set_show_text true;
+  goals_progress#misc#style_context#add_class "goal-progress";
   let status_row = GPack.hbox ~spacing:8 ~packing:status_area#add () in
   status_row#misc#style_context#add_class "status-row";
   let status_notebook = GPack.notebook ~tab_pos:`TOP ~packing:(status_row#pack ~expand:true ~fill:true) () in
@@ -315,6 +342,74 @@ treeview.goals row:selected {
       false
     );
     !total
+  in
+  let update_goal_progress () =
+    let status_from_icon = function
+      | "gtk-apply" -> "valid"
+      | "gtk-cancel" -> "invalid"
+      | "gtk-stop" -> "timeout"
+      | "gtk-dialog-question" -> "pending"
+      | _ -> ""
+    in
+    let total = ref 0 in
+    let valid = ref 0 in
+    let invalid = ref 0 in
+    let timeout = ref 0 in
+    let pending = ref 0 in
+    let other = ref 0 in
+    goal_model#foreach (fun _path row ->
+      let icon = goal_model#get ~row ~column:status_icon_col in
+      let status_from_icon = status_from_icon icon in
+      let status_raw =
+        goal_model#get ~row ~column:goal_status_col
+        |> String.trim
+      in
+      let status =
+        if status_from_icon <> "" then status_from_icon
+        else if status_raw <> "" then String.lowercase_ascii status_raw
+        else ""
+      in
+      incr total;
+      begin match status with
+      | "valid" -> incr valid
+      | "invalid" | "failure" | "oom" -> incr invalid
+      | "timeout" -> incr timeout
+      | "pending" | "unknown" | "" -> incr pending
+      | _ -> incr other
+      end;
+      false
+    );
+    let total = !total in
+    let valid = !valid in
+    let invalid = !invalid in
+    let timeout = !timeout in
+    let pending = !pending in
+    let other = !other in
+    let ctx = goals_progress#misc#style_context in
+    List.iter (fun c -> ctx#remove_class c) [ "ok"; "fail"; "pending"; "empty" ];
+    if total = 0 then (
+      goals_progress#set_fraction 0.0;
+      goals_progress#set_text "No goals";
+      ctx#add_class "empty"
+    ) else (
+      goals_progress#set_fraction (float_of_int valid /. float_of_int total);
+      if invalid > 0 then (
+        goals_progress#set_text (Printf.sprintf "Goals: %d/%d (failed %d)" valid total invalid);
+        ctx#add_class "fail"
+      ) else if other > 0 then (
+        goals_progress#set_text (Printf.sprintf "Goals: %d/%d (other %d)" valid total other);
+        ctx#add_class "pending"
+      ) else if timeout > 0 then (
+        goals_progress#set_text (Printf.sprintf "Goals: %d/%d (timeout %d)" valid total timeout);
+        ctx#add_class "pending"
+      ) else if pending > 0 then (
+        goals_progress#set_text (Printf.sprintf "Goals: %d/%d (pending %d)" valid total pending);
+        ctx#add_class "pending"
+      ) else (
+        goals_progress#set_text (Printf.sprintf "Goals: %d/%d" valid total);
+        ctx#add_class "ok"
+      )
+    )
   in
   let record_pass_time ~name ~elapsed ~cached =
     let row =
@@ -522,12 +617,162 @@ treeview.goals row:selected {
       ~editable:false
       ()
   in
-  let dot_page = GPack.vbox ~spacing:8 () in
-  let dot_img = GMisc.image ~packing:dot_page#pack () in
+  let dot_page = GPack.paned `VERTICAL () in
+  let dot_scrolled =
+    GBin.scrolled_window
+      ~hpolicy:`AUTOMATIC
+      ~vpolicy:`AUTOMATIC
+      ()
+  in
+  let dot_event = GBin.event_box () in
+  dot_event#set_visible_window true;
+  dot_event#set_above_child true;
+  dot_event#event#add
+    [`BUTTON_PRESS; `BUTTON_RELEASE; `BUTTON1_MOTION; `POINTER_MOTION; `SCROLL];
+  dot_scrolled#add_with_viewport dot_event#coerce;
+  let dot_img = GMisc.image ~packing:dot_event#add () in
+  let dot_pixbuf : GdkPixbuf.pixbuf option ref = ref None in
+  let dot_zoom = ref 1.0 in
+  let dot_last_scale = ref 1.0 in
+  let dot_last_fit_scale = ref 1.0 in
+  let update_dot_image () =
+    match !dot_pixbuf with
+    | None -> dot_img#clear ()
+    | Some pb ->
+        let alloc = dot_scrolled#misc#allocation in
+        let view_w = max 1 alloc.width in
+        let view_h = max 1 alloc.height in
+        let img_w = GdkPixbuf.get_width pb in
+        let img_h = GdkPixbuf.get_height pb in
+        if view_w <= 1 || view_h <= 1 then (
+          dot_last_fit_scale := 1.0;
+          dot_last_scale := 1.0;
+          dot_img#set_pixbuf pb
+        ) else (
+          let scale_w = float view_w /. float img_w in
+          let scale_h = float view_h /. float img_h in
+          let fit_scale = min 1.0 (min scale_w scale_h) in
+          let scale =
+            let s = fit_scale *. !dot_zoom in
+            if s < 0.1 then 0.1 else if s > 1.0 then 1.0 else s
+          in
+          dot_last_fit_scale := fit_scale;
+          dot_last_scale := scale;
+          let w = max 1 (int_of_float (float img_w *. scale)) in
+          let h = max 1 (int_of_float (float img_h *. scale)) in
+          if w = img_w && h = img_h then
+            dot_img#set_pixbuf pb
+        else (
+          let scaled =
+            GdkPixbuf.create
+              ~width:w
+              ~height:h
+              ~has_alpha:(GdkPixbuf.get_has_alpha pb)
+              ~bits:(GdkPixbuf.get_bits_per_sample pb)
+              ~colorspace:`RGB
+              ()
+          in
+          GdkPixbuf.scale
+            ~dest:scaled
+            ~width:w
+            ~height:h
+            ~interp:`BILINEAR
+            pb;
+          dot_img#set_pixbuf scaled
+        )
+        )
+  in
+  let refit_monitor () =
+    dot_zoom := 1.0;
+    update_dot_image ()
+  in
+  dot_scrolled#misc#connect#size_allocate ~callback:(fun _ -> refit_monitor ()) |> ignore;
+  dot_event#misc#connect#size_allocate ~callback:(fun _ -> refit_monitor ()) |> ignore;
+  let adjust_zoom factor =
+    dot_zoom := !dot_zoom *. factor;
+    update_dot_image ()
+  in
+  let drag_active = ref false in
+  let drag_start_x = ref 0.0 in
+  let drag_start_y = ref 0.0 in
+  let drag_start_h = ref 0.0 in
+  let drag_start_v = ref 0.0 in
+  let clamp_adjustment adj v =
+    let lower = adj#lower in
+    let upper = adj#upper -. adj#page_size in
+    let v =
+      if v < lower then lower
+      else if v > upper then upper
+      else v
+    in
+    adj#set_value v
+  in
+  dot_event#event#connect#button_press ~callback:(fun ev ->
+    if GdkEvent.Button.button ev = 1 then (
+      drag_active := true;
+      drag_start_x := GdkEvent.Button.x_root ev;
+      drag_start_y := GdkEvent.Button.y_root ev;
+      drag_start_h := dot_scrolled#hadjustment#value;
+      drag_start_v := dot_scrolled#vadjustment#value;
+      true
+    ) else false
+  ) |> ignore;
+  dot_event#event#connect#button_release ~callback:(fun ev ->
+    if GdkEvent.Button.button ev = 1 then (
+      drag_active := false;
+      true
+    ) else false
+  ) |> ignore;
+  dot_event#event#connect#motion_notify ~callback:(fun ev ->
+    if !drag_active then (
+      let dx = GdkEvent.Motion.x_root ev -. !drag_start_x in
+      let dy = GdkEvent.Motion.y_root ev -. !drag_start_y in
+      clamp_adjustment dot_scrolled#hadjustment (!drag_start_h -. dx);
+      clamp_adjustment dot_scrolled#vadjustment (!drag_start_v -. dy);
+      true
+    ) else false
+  ) |> ignore;
+  let handle_zoom_scroll ev =
+    let state = GdkEvent.Scroll.state ev |> Gdk.Convert.modifier in
+    let has_zoom_mod =
+      List.exists (fun m -> List.mem m state) [`CONTROL; `META; `SUPER]
+    in
+    if has_zoom_mod then (
+      begin match GdkEvent.Scroll.direction ev with
+      | `UP -> adjust_zoom 1.1
+      | `DOWN -> adjust_zoom (1.0 /. 1.1)
+      | `SMOOTH ->
+          let dy = GdkEvent.Scroll.delta_y ev in
+          if dy < 0.0 then adjust_zoom 1.1 else if dy > 0.0 then adjust_zoom (1.0 /. 1.1)
+      | _ -> ()
+      end;
+      true
+    ) else if !dot_last_scale > !dot_last_fit_scale +. 1e-3 then (
+      let dx, dy =
+        match GdkEvent.Scroll.direction ev with
+        | `UP -> (0.0, -30.0)
+        | `DOWN -> (0.0, 30.0)
+        | `LEFT -> (-30.0, 0.0)
+        | `RIGHT -> (30.0, 0.0)
+        | `SMOOTH -> (GdkEvent.Scroll.delta_x ev *. 40.0, GdkEvent.Scroll.delta_y ev *. 40.0)
+      in
+      clamp_adjustment dot_scrolled#hadjustment (dot_scrolled#hadjustment#value +. dx);
+      clamp_adjustment dot_scrolled#vadjustment (dot_scrolled#vadjustment#value +. dy);
+      true
+    ) else
+      false
+  in
+  dot_event#event#connect#scroll ~callback:handle_zoom_scroll |> ignore;
   let dot_tab = GMisc.label ~text:"Monitor" () in
   let dot_view, dot_buf, dot_text_page =
-    make_text_panel ~label:"Labels" ~packing:dot_page#add ~editable:false ()
+    make_text_panel ~label:"Labels" ~packing:(fun _ -> ()) ~editable:false ()
   in
+  dot_page#pack1 ~resize:true ~shrink:false dot_scrolled#coerce;
+  dot_page#pack2 ~resize:false ~shrink:false dot_text_page;
+  dot_page#misc#connect#size_allocate ~callback:(fun alloc ->
+    let total_h = alloc.height in
+    if total_h > 0 then dot_page#set_position (total_h * 3 / 4)
+  ) |> ignore;
   ignore (notebook#append_page ~tab_label:dot_tab#coerce dot_page#coerce);
   notebook#connect#switch_page ~callback:(fun _ ->
     (!load_obligations_ref) ()
@@ -1226,6 +1471,71 @@ treeview.goals row:selected {
             set_status "Export failed"
         end
   in
+  let prompt_dpi () =
+    let dialog = GWindow.dialog ~title:"PNG DPI" ~parent:window () in
+    dialog#add_button "OK" `OK;
+    dialog#add_button "Cancel" `CANCEL;
+    let box = dialog#vbox in
+    let row = GPack.hbox ~spacing:8 ~border_width:8 ~packing:box#add () in
+    let _ = GMisc.label ~text:"DPI:" ~packing:row#pack () in
+    let entry = GEdit.entry ~text:"150" ~width_chars:6 ~packing:row#pack () in
+    let res =
+      match dialog#run () with
+      | `OK ->
+          let v =
+            try int_of_string (String.trim entry#text) with _ -> 150
+          in
+          Some (max 10 v)
+      | _ -> None
+    in
+    dialog#destroy ();
+    res
+  in
+  let export_png_with_dpi ~dot_text =
+    match prompt_dpi () with
+    | None -> ()
+    | Some dpi ->
+        let dialog =
+          GWindow.file_chooser_dialog
+            ~action:`SAVE
+            ~title:"Export PNG"
+            ~parent:window
+            ()
+        in
+        dialog#add_button "Save" `SAVE;
+        dialog#add_button "Cancel" `CANCEL;
+        let selected =
+          begin match dialog#run () with
+          | `SAVE -> dialog#filename
+          | _ -> None
+          end
+        in
+        dialog#destroy ();
+        match selected with
+        | None -> ()
+        | Some path ->
+            begin
+              try
+                let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
+                let oc = open_out dot_file in
+                output_string oc dot_text;
+                close_out oc;
+                let cmd =
+                  Printf.sprintf "dot -Tpng -Gdpi=%d %s -o %s"
+                    dpi
+                    (Filename.quote dot_file)
+                    (Filename.quote path)
+                in
+                let code = Sys.command cmd in
+                Sys.remove dot_file;
+                if code = 0 then
+                  set_status ("Exported PNG: " ^ path)
+                else
+                  set_status "Export PNG failed"
+              with _ ->
+                set_status "Export PNG failed"
+            end
+  in
 
   let file_export_obcplus =
     GMenu.menu_item ~label:"Export OBC+" ~packing:file_menu#append ()
@@ -1279,6 +1589,9 @@ treeview.goals row:selected {
             let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg)
   ) |> ignore;
+  let file_export_png =
+    GMenu.menu_item ~label:"Export Monitor" ~packing:file_menu#append ()
+  in
 
   let edit_undo_item =
     GMenu.menu_item ~label:"Undo" ~packing:edit_menu#append ()
@@ -1463,11 +1776,36 @@ treeview.goals row:selected {
   let set_monitor_buffers ~dot:_ ~labels ~dot_png =
     dot_buf#set_text labels;
     begin match dot_png with
-    | Some png -> dot_img#set_file png
-    | None -> ()
+    | Some png ->
+        (try
+           let pb = GdkPixbuf.from_file png in
+           dot_pixbuf := Some pb;
+           dot_zoom := 1.0;
+           update_dot_image ()
+         with _ -> ());
+    | None ->
+        dot_pixbuf := None;
+        dot_zoom := 1.0;
+        dot_img#clear ()
     end;
     set_tab_sensitive dot_page#coerce dot_tab true
   in
+  file_export_png#connect#activate ~callback:(fun () ->
+    match !monitor_cache with
+    | Some (_v, out) when out.dot_text <> "" ->
+        export_png_with_dpi ~dot_text:out.dot_text
+    | _ ->
+        match !current_file with
+        | None -> set_status "No file selected"
+        | Some file ->
+            if not ((!ensure_saved_or_cancel_ref) ()) then ()
+            else
+            match Ide_backend.monitor_pass ~generate_png:false ~input_file:file with
+            | Ok out -> export_png_with_dpi ~dot_text:out.dot_text
+            | Error err ->
+                let msg = Ide_backend.error_to_string err in
+                set_status ("Error: " ^ msg)
+  ) |> ignore;
 
   let extract_goal_sources = Ide_tasks.extract_goal_sources in
 
@@ -1533,8 +1871,11 @@ treeview.goals row:selected {
       obcplus_buf#set_text "";
       why_buf#set_text "";
       dot_buf#set_text "";
+      dot_pixbuf := None;
+      dot_img#clear ();
       task_buf#set_text "";
       clear_perf ();
+      update_goal_progress ();
       List.iter (fun b -> b#misc#style_context#remove_class "active") pass_buttons;
       List.iter
         (fun (page, tab) -> set_tab_sensitive page tab false)
@@ -1687,12 +2028,14 @@ treeview.goals row:selected {
 
   List.iter (fun item -> file_menu#remove item)
     [ file_new_item; file_open_item; file_save_item; recent_item;
-      file_export_obcplus; file_export_why; file_export_vc; file_export_smt ];
+      file_export_obcplus; file_export_why; file_export_vc; file_export_smt;
+      file_export_png ];
   List.iter (fun item -> file_menu#append item)
     [ file_new_item; file_open_item; file_save_item; recent_item ];
   ignore (GMenu.separator_item ~packing:file_menu#append ());
   List.iter (fun item -> file_menu#append item)
-    [ file_export_obcplus; file_export_why; file_export_vc; file_export_smt ];
+    [ file_export_obcplus; file_export_why; file_export_vc; file_export_smt;
+      file_export_png ];
 
   let set_task_view ~goal:_ ~vcid:_ ~index =
     if !latest_vc_text = "" then task_buf#set_text ""
@@ -1890,7 +2233,9 @@ treeview.goals row:selected {
     List.iteri
       (fun idx (goal, status_txt, time_s, dump_path, source, vcid) ->
         let row = goal_model#append () in
-        goal_model#set ~row ~column:status_icon_col (status_icon status_txt);
+        let status_norm = String.trim status_txt in
+        goal_model#set ~row ~column:status_icon_col (status_icon status_norm);
+        goal_model#set ~row ~column:goal_status_col status_norm;
         goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
         goal_model#set ~row ~column:goal_raw_col goal;
         let source =
@@ -1903,7 +2248,8 @@ treeview.goals row:selected {
         goal_model#set ~row ~column:vcid_col (match vcid with None -> "" | Some v -> v))
       goals
     ;
-    update_vc_time_sum ()
+    update_vc_time_sum ();
+    update_goal_progress ()
   in
 
   let set_goals_pending goal_names vc_ids =
@@ -1918,9 +2264,10 @@ treeview.goals row:selected {
            | Some id -> string_of_int id
            | None -> ""
          in
-         goal_model#set ~row ~column:status_icon_col (status_icon "pending");
-         goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
-         goal_model#set ~row ~column:goal_raw_col goal;
+        goal_model#set ~row ~column:status_icon_col (status_icon "pending");
+        goal_model#set ~row ~column:goal_status_col "pending";
+        goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
+        goal_model#set ~row ~column:goal_raw_col goal;
          goal_model#set ~row ~column:source_col "";
          goal_model#set ~row ~column:time_col "--";
         goal_model#set ~row ~column:dump_col "";
@@ -1929,6 +2276,7 @@ treeview.goals row:selected {
       goal_names
     ;
     update_vc_time_sum ();
+    update_goal_progress ();
     Array.of_list (List.rev !rows)
   in
 
@@ -2343,12 +2691,15 @@ treeview.goals row:selected {
                   (try
                      let path = GTree.Path.create [idx] in
                      let row = goal_model#get_iter path in
-                     goal_model#set ~row ~column:status_icon_col (status_icon status);
+                     let status_norm = String.trim status in
+                     goal_model#set ~row ~column:status_icon_col (status_icon status_norm);
+                     goal_model#set ~row ~column:goal_status_col status_norm;
                      goal_model#set ~row ~column:source_col source;
                      goal_model#set ~row ~column:time_col (Printf.sprintf "%.4fs" time_s);
                      goal_model#set ~row ~column:dump_col (match dump_path with None -> "" | Some p -> p);
                      goal_model#set ~row ~column:vcid_col (match vcid with None -> "" | Some v -> v);
-                     update_vc_time_sum ()
+                     update_vc_time_sum ();
+                     update_goal_progress ()
                    with _ -> ());
                   false))
               in
