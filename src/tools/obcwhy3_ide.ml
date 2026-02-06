@@ -280,7 +280,7 @@ module Ide_config = struct
     write "use_cache" (if prefs.use_cache then "true" else "false");
     close_out oc
 
-  let css_magic = "why3obc-theme-v3"
+  let css_magic = "why3obc-theme-v4"
   let css_of_prefs (p:prefs) : string =
     let font_size = max 8 (int_of_float (12.0 *. p.ui_scale)) in
     let font_family =
@@ -358,6 +358,22 @@ button:active, button:checked, button:focus {
 .actionbar label.toolbar-label {
   color: %s !important;
   font-size: 11px;
+}
+.activity-bar {
+  background-color: %s;
+  border-right: 1px solid %s;
+  padding: 6px 4px;
+}
+.activity-button {
+  background-color: %s;
+  color: %s;
+  border: 1px solid %s;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 28px;
+}
+.activity-button:hover {
+  background-color: %s;
 }
 .segmented button {
   border-radius: 0;
@@ -448,6 +464,11 @@ button:active, button:checked, button:focus {
   background-color: %s;
   border-top: 1px solid %s;
 }
+.status-bar {
+  background-color: %s;
+  border-top: 1px solid %s;
+  padding: 4px 8px;
+}
 .status-row, .status-row * {
   background-color: %s;
 }
@@ -490,11 +511,11 @@ button:active, button:checked, button:focus {
   border: 1px solid %s;
   border-radius: 7px;
 }
-.parse-badge.ok label {
+.parse-badge.ok {
   color: %s;
   font-size: 11px;
 }
-.parse-badge.error label {
+.parse-badge.error {
   color: %s;
   font-size: 11px;
 }
@@ -558,6 +579,31 @@ treeview header button {
 treeview header button label {
   color: %s;
 }
+/* VSCode-like overrides */
+.actionbar button,
+.actionbar button:checked,
+.actionbar button:active,
+.actionbar button:focus {
+  background-color: %s !important;
+  color: %s !important;
+  border-color: %s !important;
+}
+.actionbar button:hover {
+  background-color: %s !important;
+}
+.main-tabs tab {
+  background-color: %s !important;
+  color: %s !important;
+  border: 1px solid %s !important;
+}
+.main-tabs tab:checked {
+  background-color: %s !important;
+  color: %s !important;
+  border-bottom: 2px solid %s !important;
+}
+separator, .separator {
+  background-color: %s !important;
+}
 |}
       css_magic
       font_size
@@ -588,6 +634,12 @@ treeview header button label {
       p.accent
       p.text
       p.muted
+      p.background
+      p.border
+      p.background
+      p.muted
+      p.border
+      p.border
       p.muted
       p.accent
       p.accent
@@ -616,6 +668,8 @@ treeview header button label {
       p.text
       p.background
       p.accent
+      p.background
+      p.border
       p.background
       p.border
       p.background
@@ -654,6 +708,17 @@ treeview header button label {
       p.text
       p.border
       p.text
+      p.background
+      p.text
+      p.border
+      p.border
+      p.background
+      p.muted
+      p.border
+      p.background
+      p.text
+      p.accent
+      p.border
 
   let ensure_css_file (prefs:prefs) : unit =
     ensure_dir ();
@@ -848,6 +913,9 @@ let () =
     ref (fun _ -> ())
   in
   let set_status_quiet_ref : (string -> unit) ref =
+    ref (fun _ -> ())
+  in
+  let set_status_bar_ref : (string -> unit) ref =
     ref (fun _ -> ())
   in
   let clear_caches_ref : (unit -> unit) ref =
@@ -1576,7 +1644,13 @@ let () =
   let toolbar_sep = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
   toolbar_sep#misc#style_context#add_class "separator";
 
-  let paned = GPack.paned `HORIZONTAL ~packing:vbox#add () in
+  let main_row = GPack.hbox ~spacing:0 ~packing:vbox#add () in
+  let activity_bar = GPack.vbox ~spacing:6 ~packing:main_row#pack () in
+  activity_bar#misc#style_context#add_class "activity-bar";
+  activity_bar#misc#set_size_request ~width:48 ~height:(-1) ();
+  let content_vbox = GPack.vbox ~spacing:8 ~packing:(main_row#pack ~expand:true ~fill:true) () in
+
+  let paned = GPack.paned `HORIZONTAL ~packing:content_vbox#add () in
   paned#set_position 320;
 
   let left = GPack.vbox ~spacing:8 ~packing:paned#add1 () in
@@ -1670,6 +1744,19 @@ let () =
   add_perf_column "Time" perf_time_col;
   add_perf_column "Cached" perf_cached_col;
   ignore (status_notebook#append_page ~tab_label:perf_tab#coerce perf_scrolled#coerce);
+  let status_pages =
+    [ ("Status", status_tab#coerce); ("Logs", history_tab#coerce);
+      ("Stages", meta_tab#coerce); ("Perf", perf_tab#coerce) ]
+  in
+  let select_status_page name =
+    let rec find idx = function
+      | [] -> ()
+      | (label, _) :: xs ->
+          if label = name then status_notebook#goto_page idx
+          else find (idx + 1) xs
+    in
+    find 0 status_pages
+  in
   let perf_rows = Hashtbl.create 16 in
   let sum_vc_times () =
     let total = ref 0.0 in
@@ -1807,20 +1894,40 @@ let () =
         false))
     ) ())
   in
-  let parse_frame = GBin.frame ~packing:(status_row#pack ~from:`END) () in
-  parse_frame#set_shadow_type `ETCHED_IN;
-  parse_frame#set_border_width 1;
-  parse_frame#misc#style_context#add_class "parse-badge";
-  parse_frame#misc#style_context#add_class "ok";
-  let parse_box = GPack.hbox ~spacing:6 ~border_width:4 ~packing:parse_frame#add () in
-  let parse_label = GMisc.label ~text:"Parse: ok" ~packing:parse_box#pack () in
-  let cursor_frame = GBin.frame ~packing:(status_row#pack ~from:`END) () in
-  cursor_frame#set_shadow_type `ETCHED_IN;
-  cursor_frame#set_border_width 1;
-  cursor_frame#misc#style_context#add_class "cursor-badge";
-  let cursor_box = GPack.hbox ~spacing:6 ~border_width:4 ~packing:cursor_frame#add () in
-  let cursor_label = GMisc.label ~text:"" ~packing:cursor_box#pack () in
-  cursor_label#set_text "Ln 1, Col 1";
+  let status_bar = GPack.hbox ~spacing:8 ~packing:content_vbox#pack () in
+  status_bar#misc#style_context#add_class "status-bar";
+  let status_bar_left = GMisc.label ~text:"No file loaded" ~packing:(status_bar#pack ~expand:true ~fill:true) () in
+  status_bar_left#set_xalign 0.0;
+  let parse_label = GMisc.label ~text:"Parse: ok" ~packing:(status_bar#pack ~from:`END) () in
+  parse_label#misc#style_context#add_class "parse-badge";
+  let cursor_label = GMisc.label ~text:"Ln 1, Col 1" ~packing:(status_bar#pack ~from:`END) () in
+  cursor_label#misc#style_context#add_class "cursor-badge";
+
+  set_status_bar_ref := (fun text -> status_bar_left#set_text text);
+
+  let activity_btn label tooltip =
+    let b = GButton.button ~label ~packing:activity_bar#pack () in
+    b#misc#style_context#add_class "activity-button";
+    b#set_can_focus false;
+    b#misc#set_tooltip_text tooltip;
+    b
+  in
+  let activity_goals = activity_btn "G" "Goals" in
+  let activity_logs = activity_btn "L" "Logs" in
+  let activity_stages = activity_btn "S" "Stages" in
+  let activity_perf = activity_btn "P" "Perf" in
+  ignore (activity_goals#connect#clicked ~callback:(fun () ->
+    paned#set_position 320
+  ));
+  ignore (activity_logs#connect#clicked ~callback:(fun () ->
+    select_status_page "Logs"
+  ));
+  ignore (activity_stages#connect#clicked ~callback:(fun () ->
+    select_status_page "Stages"
+  ));
+  ignore (activity_perf#connect#clicked ~callback:(fun () ->
+    select_status_page "Perf"
+  ));
 
   let highlight_scroll_pending = ref false in
   let schedule_highlight_ref : (unit -> unit) ref = ref (fun () -> ()) in
@@ -2258,11 +2365,13 @@ let () =
   let set_status msg =
     status_base := msg;
     status#set_text (render_status ());
+    (!set_status_bar_ref) (render_status ());
     append_history ~level:"info" msg
   in
   let set_status_quiet msg =
     status_base := msg;
-    status#set_text (render_status ())
+    status#set_text (render_status ());
+    (!set_status_bar_ref) (render_status ())
   in
   set_status_quiet_ref := set_status_quiet;
   let update_status_meta_summary (meta:(string * (string * string) list) list) =
@@ -2317,7 +2426,7 @@ let () =
   in
   let set_parse_badge ~ok ~text =
     parse_label#set_text text;
-    let ctx = parse_frame#misc#style_context in
+    let ctx = parse_label#misc#style_context in
     ctx#remove_class "ok";
     ctx#remove_class "error";
     ctx#add_class (if ok then "ok" else "error")
