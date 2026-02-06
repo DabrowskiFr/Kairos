@@ -1,6 +1,15 @@
 module A = Ast
 
-let parse_file (fn:string) : A.program =
+let read_all (fn:string) : string =
+  let ic = open_in_bin fn in
+  let len = in_channel_length ic in
+  let s = really_input_string ic len in
+  close_in ic;
+  s
+
+let parse_file (fn:string) : Ast_user.program =
+  let file_text = read_all fn in
+  let file_hash = Digest.to_hex (Digest.string file_text) in
   let ic = open_in fn in
   let lb = Sedlexing.Utf8.from_channel ic in
   Sedlexing.set_filename lb fn;
@@ -63,7 +72,16 @@ let parse_file (fn:string) : A.program =
         checkpoint
     in
     close_in ic;
-    p
+    let program = Ast_user.of_ast p in
+    let info =
+      {
+        Ast.source_path = Some fn;
+        Ast.text_hash = Some file_hash;
+        Ast.parse_errors = [];
+        Ast.warnings = [];
+      }
+    in
+    Ast_user.map_nodes (Ast_user.with_node_info info) program
   with
   | Lexer.Lexing_error msg ->
       let pos, _ = Sedlexing.lexing_positions lb in

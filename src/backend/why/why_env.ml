@@ -34,11 +34,12 @@ let is_mon_state_ctor (s:string) : bool =
 
 let collect_ctor_iexpr (acc:ident list) (e:iexpr) : ident list =
   let add acc name = if List.mem name acc then acc else name :: acc in
-  let rec go acc = function
+  let rec go acc (e:iexpr) =
+    match e.iexpr with
     | IVar name -> if is_mon_state_ctor name then add acc name else acc
     | ILitInt _ | ILitBool _ -> acc
-    | IPar e -> go acc e
-    | IUn (_, e) -> go acc e
+    | IPar inner -> go acc inner
+    | IUn (_, inner) -> go acc inner
     | IBin (_, a, b) -> go (go acc a) b
   in
   go acc e
@@ -67,7 +68,7 @@ let rec collect_ctor_ltl (acc:ident list) (f:fo_ltl) : ident list =
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) -> collect_ctor_ltl (collect_ctor_ltl acc a) b
 
 let rec collect_ctor_stmt (acc:ident list) (s:stmt) : ident list =
-  match s with
+  match s.stmt with
   | SAssign (_, e) -> collect_ctor_iexpr acc e
   | SIf (c, tbr, fbr) ->
       let acc = collect_ctor_iexpr acc c in
@@ -85,7 +86,8 @@ let rec collect_ctor_stmt (acc:ident list) (s:stmt) : ident list =
   | SCall (_, args, _) -> List.fold_left collect_ctor_iexpr acc args
   | SSkip -> acc
 
-let collect_mon_state_ctors (n:node) : ident list =
+let collect_mon_state_ctors (n:Ast_obc.node) : ident list =
+  let n = Ast_obc.node_to_ast n in
   let acc = ref [] in
   List.iter
     (fun f -> acc := collect_ctor_ltl !acc f)
@@ -95,26 +97,30 @@ let collect_mon_state_ctors (n:node) : ident list =
        match inv with
        | Invariant (_, h) -> acc := collect_ctor_hexpr !acc h
        | InvariantStateRel (_, _, f) -> acc := collect_ctor_fo !acc f)
-    n.invariants_mon;
+    (Ast.node_invariants_mon n);
   List.iter
     (fun (t:transition) ->
        List.iter
          (fun f -> acc := collect_ctor_fo !acc f)
-         (Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas))
+         (Ast.values t.requires @ Ast.values t.ensures
+          @ Ast.values (Ast.transition_lemmas t)))
     n.trans;
   List.iter
     (fun t ->
-       acc := List.fold_left collect_ctor_stmt !acc t.ghost;
+       acc := List.fold_left collect_ctor_stmt !acc (Ast.transition_ghost t);
        acc := List.fold_left collect_ctor_stmt !acc t.body;
-       acc := List.fold_left collect_ctor_stmt !acc t.monitor)
+       acc := List.fold_left collect_ctor_stmt !acc (Ast.transition_monitor t))
     n.trans;
   let ctor_index s =
     try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0
   in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
-let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
+let prepare_node ~(prefix_fields:bool) ~(nodes:Ast_obc.node list) (n:Ast_obc.node)
   : Why_types.env_info =
+  let n_obc = n in
+  let nodes = List.map Ast_obc.node_to_ast nodes in
+  let n = Ast_obc.node_to_ast n in
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function
     | LG _ -> false
@@ -132,7 +138,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
       Ptree.Duseimport (loc, false, [qid1 "array.Array", None]);
     ] @ instance_imports
   in
-  let mon_state_ctors = collect_mon_state_ctors n in
+  let mon_state_ctors = collect_mon_state_ctors n_obc in
   let type_mon_state =
     match mon_state_ctors with
     | [] -> []
@@ -151,7 +157,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   let default_custom_init = function
     | "mon_state" ->
         begin match mon_state_ctors with
-        | first :: _ -> Some (IVar first)
+        | first :: _ -> Some (mk_var first)
         | [] -> None
         end
     | _ -> None
@@ -162,24 +168,25 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     in
     fun v ->
       match List.assoc_opt v table with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
+      | Some TBool -> mk_bool false
+      | Some TInt -> mk_int 0
+      | Some TReal -> mk_int 0
       | Some (TCustom name) ->
-          Option.value (default_custom_init name) ~default:(ILitInt 0)
-      | None -> ILitInt 0
+          Option.value (default_custom_init name) ~default:(mk_int 0)
+      | None -> mk_int 0
   in
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+        Ast.values t.requires @ Ast.values t.ensures
+        @ Ast.values (Ast.transition_lemmas t))
       n.trans
   in
   let folds : fold_info list =
     Collect.collect_folds_from_specs
       ~fo:transition_fo
       ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
-      ~invariants_mon:n.invariants_mon
+      ~invariants_mon:(Ast.node_invariants_mon n)
   in
   let pre_k_map = Collect.build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
@@ -209,7 +216,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
       (function
         | Invariant (id, h) -> Some (h, id)
         | _ -> None)
-      n.invariants_mon
+      (Ast.node_invariants_mon n)
   in
   let ghost_links =
     List.filter_map (fun (h,id) ->
@@ -217,7 +224,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
           List.find_map (fun (fi:fold_info) -> if fi.h = h then Some fi.acc else None) folds
         in
         match name with
-        | Some acc -> Some (HNow (IVar acc), id)
+        | Some acc -> Some (HNow (mk_var acc), id)
         | None -> None
       ) inv_links
   in
@@ -313,7 +320,11 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
     | TReal -> mk_expr (Econst (Constant.real_const_from_string ~radix:10 ~neg:false ~int:"0" ~frac:"" ~exp:None))
     | TCustom name ->
         begin match default_custom_init name with
-        | Some (IVar id) -> mk_expr (Eident (qid1 id))
+        | Some e ->
+            begin match e.iexpr with
+            | IVar id -> mk_expr (Eident (qid1 id))
+            | _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
+            end
         | _ -> mk_expr (Econst (Constant.int_const BigInt.zero))
         end
   in
@@ -342,17 +353,19 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:node list) (n:node)
   let reset_updates =
     let init_flags = List.map (fun (_, _, init_done) -> init_done) fold_init_links in
     let reset_flags =
-      List.map (fun name -> SAssign (name, ILitBool false)) init_flags
+      List.map (fun name -> mk_stmt (SAssign (name, mk_bool false))) init_flags
     in
     List.map
       (fun (t:transition) ->
          if t.dst = n.init_state && reset_flags <> [] then
-           { t with ghost = t.ghost @ reset_flags }
+           Ast.with_transition_ghost
+             ((Ast.transition_ghost t) @ reset_flags)
+             t
          else
            t)
       n.trans
   in
-  let node = { n with trans = reset_updates } in
+  let node = Ast_obc.node_of_ast { n with trans = reset_updates } in
   {
     node;
     module_name;

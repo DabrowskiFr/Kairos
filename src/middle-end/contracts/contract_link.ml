@@ -103,16 +103,18 @@ let add_state_invariants_to_transitions
        { t with requires = reqs; ensures = ens })
     trans
 
-let ensure_next_requires (n:user_node) : internal_node =
+let ensure_next_requires (n:Ast_automaton.node) : Ast_contracts.node =
+  let n = Ast_automaton.node_to_ast n in
   let succ_requires_by_state = succ_requires_by_state n in
   let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
   let trans =
     updated_transitions ~is_input ~succ_requires_by_state n.trans
-    |> add_state_invariants_to_transitions ~invariants_mon:n.invariants_mon
+    |> add_state_invariants_to_transitions ~invariants_mon:(Ast.node_invariants_mon n)
   in
-  { n with trans }
+  Ast_contracts.node_of_ast { n with trans }
 
-let user_contracts_coherency (n:user_node) : user_node =
+let user_contracts_coherency (n:Ast_automaton.node) : Ast_contracts.node =
+  let n = Ast_automaton.node_to_ast n in
   let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
   let trans_indexed = List.mapi (fun i t -> (i, t)) n.trans in
   let by_src = Hashtbl.create 16 in
@@ -149,4 +151,4 @@ let user_contracts_coherency (n:user_node) : user_node =
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed
   in
-  { n with trans }
+  Ast_contracts.node_of_ast { n with trans }

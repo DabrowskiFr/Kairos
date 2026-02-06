@@ -1,1 +1,1 @@
-val dump_program_json : out:string option -> Ast.program -> unit
+val dump_program_json : out:string option -> Ast_user.program -> unit

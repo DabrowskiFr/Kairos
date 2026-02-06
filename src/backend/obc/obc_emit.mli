@@ -1,4 +1,4 @@
-val string_of_program : Ast.program -> string
-val compile_program : Ast.program -> string
+val string_of_program : Ast_obc.program -> string
+val compile_program : Ast_obc.program -> string
 val compile_program_with_spans :
-  Ast.program -> string * (int * (int * int)) list
+  Ast_obc.program -> string * (int * (int * int)) list

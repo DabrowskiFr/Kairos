@@ -85,7 +85,8 @@ let strip_braces (s:string) : string =
   loop 0;
   Buffer.contents b
 
-let dot_residual_program ?(show_labels=false) (p:program) : string * string =
+let dot_residual_program ?(show_labels=false) (p:Ast_automaton.program) : string * string =
+  let p = Ast_automaton.to_ast p in
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLResidual {\n";
@@ -157,38 +158,54 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
     let () =
       List.iter (fun (name, e) -> Hashtbl.replace atom_expr_tbl name e) atom_named_exprs
     in
-    let rec unwrap = function
-      | IPar e -> unwrap e
-      | e -> e
+    let rec unwrap (e:iexpr) =
+      match e.iexpr with
+      | IPar inner -> unwrap inner
+      | _ -> e
     in
     let rec string_of_fo_inline = function
       | FRel (HNow e1, REq, HNow e2) ->
           begin match unwrap e1, unwrap e2 with
-          | IVar x, ILitBool true
-          | ILitBool true, IVar x ->
+          | { iexpr = IVar x; _ }, { iexpr = ILitBool true; _ }
+          | { iexpr = ILitBool true; _ }, { iexpr = IVar x; _ } ->
               begin match Hashtbl.find_opt atom_expr_tbl x with
               | Some e -> Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (IVar x), REq, HNow (ILitBool true)))
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool true)))
               end
-          | IVar x, ILitBool false
-          | ILitBool false, IVar x ->
+          | { iexpr = IVar x; _ }, { iexpr = ILitBool false; _ }
+          | { iexpr = ILitBool false; _ }, { iexpr = IVar x; _ } ->
               begin match Hashtbl.find_opt atom_expr_tbl x with
               | Some e -> "not " ^ Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (IVar x), REq, HNow (ILitBool false)))
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool false)))
               end
           | _ -> Support.string_of_fo (FRel (HNow e1, REq, HNow e2))
           end
-      | FRel (HNow (IVar x), RNeq, HNow (ILitBool true))
-      | FRel (HNow (ILitBool true), RNeq, HNow (IVar x)) ->
-          begin match Hashtbl.find_opt atom_expr_tbl x with
-          | Some e -> "not " ^ Support.string_of_iexpr e
-          | None -> Support.string_of_fo (FRel (HNow (IVar x), RNeq, HNow (ILitBool true)))
-          end
-      | FRel (HNow (IVar x), RNeq, HNow (ILitBool false))
-      | FRel (HNow (ILitBool false), RNeq, HNow (IVar x)) ->
-          begin match Hashtbl.find_opt atom_expr_tbl x with
-          | Some e -> Support.string_of_iexpr e
-          | None -> Support.string_of_fo (FRel (HNow (IVar x), RNeq, HNow (ILitBool false)))
+      | FRel (HNow a, RNeq, HNow b) ->
+          begin match as_var a, b.iexpr with
+          | Some x, ILitBool true ->
+              begin match Hashtbl.find_opt atom_expr_tbl x with
+              | Some e -> "not " ^ Support.string_of_iexpr e
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+              end
+          | Some x, ILitBool false ->
+              begin match Hashtbl.find_opt atom_expr_tbl x with
+              | Some e -> Support.string_of_iexpr e
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+              end
+          | _ ->
+              begin match as_var b, a.iexpr with
+              | Some x, ILitBool true ->
+                  begin match Hashtbl.find_opt atom_expr_tbl x with
+                  | Some e -> "not " ^ Support.string_of_iexpr e
+                  | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+                  end
+              | Some x, ILitBool false ->
+                  begin match Hashtbl.find_opt atom_expr_tbl x with
+                  | Some e -> Support.string_of_iexpr e
+                  | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+                  end
+              | _ -> Support.string_of_fo (FRel (HNow a, RNeq, HNow b))
+              end
           end
       | f -> Support.string_of_fo f
     in
@@ -284,12 +301,17 @@ let dot_residual_program ?(show_labels=false) (p:program) : string * string =
   Buffer.add_string buf "}\n";
   (Buffer.contents buf, Buffer.contents label_buf)
 
-let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
+let dot_monitor_program ?(show_labels=false) (p:Ast_automaton.program) : string * string =
+  let p =
+    Ast_automaton.to_ast p
+    |> List.map Ast_contracts.node_of_ast
+  in
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
+    let n_ast = Ast_contracts.node_to_ast n in
     let stage = pass_atoms n in
     let automaton = pass_build_automaton stage in
     let atom_named_exprs = stage.atom_map_exprs in
@@ -302,38 +324,54 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
     let () =
       List.iter (fun (name, e) -> Hashtbl.replace atom_expr_tbl name e) atom_named_exprs
     in
-    let rec unwrap = function
-      | IPar e -> unwrap e
-      | e -> e
+    let rec unwrap (e:iexpr) =
+      match e.iexpr with
+      | IPar inner -> unwrap inner
+      | _ -> e
     in
     let rec string_of_fo_inline = function
       | FRel (HNow e1, REq, HNow e2) ->
           begin match unwrap e1, unwrap e2 with
-          | IVar x, ILitBool true
-          | ILitBool true, IVar x ->
+          | { iexpr = IVar x; _ }, { iexpr = ILitBool true; _ }
+          | { iexpr = ILitBool true; _ }, { iexpr = IVar x; _ } ->
               begin match Hashtbl.find_opt atom_expr_tbl x with
               | Some e -> Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (IVar x), REq, HNow (ILitBool true)))
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool true)))
               end
-          | IVar x, ILitBool false
-          | ILitBool false, IVar x ->
+          | { iexpr = IVar x; _ }, { iexpr = ILitBool false; _ }
+          | { iexpr = ILitBool false; _ }, { iexpr = IVar x; _ } ->
               begin match Hashtbl.find_opt atom_expr_tbl x with
               | Some e -> "not " ^ Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (IVar x), REq, HNow (ILitBool false)))
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool false)))
               end
           | _ -> Support.string_of_fo (FRel (HNow e1, REq, HNow e2))
           end
-      | FRel (HNow (IVar x), RNeq, HNow (ILitBool true))
-      | FRel (HNow (ILitBool true), RNeq, HNow (IVar x)) ->
-          begin match Hashtbl.find_opt atom_expr_tbl x with
-          | Some e -> "not " ^ Support.string_of_iexpr e
-          | None -> Support.string_of_fo (FRel (HNow (IVar x), RNeq, HNow (ILitBool true)))
-          end
-      | FRel (HNow (IVar x), RNeq, HNow (ILitBool false))
-      | FRel (HNow (ILitBool false), RNeq, HNow (IVar x)) ->
-          begin match Hashtbl.find_opt atom_expr_tbl x with
-          | Some e -> Support.string_of_iexpr e
-          | None -> Support.string_of_fo (FRel (HNow (IVar x), RNeq, HNow (ILitBool false)))
+      | FRel (HNow a, RNeq, HNow b) ->
+          begin match as_var a, b.iexpr with
+          | Some x, ILitBool true ->
+              begin match Hashtbl.find_opt atom_expr_tbl x with
+              | Some e -> "not " ^ Support.string_of_iexpr e
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+              end
+          | Some x, ILitBool false ->
+              begin match Hashtbl.find_opt atom_expr_tbl x with
+              | Some e -> Support.string_of_iexpr e
+              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+              end
+          | _ ->
+              begin match as_var b, a.iexpr with
+              | Some x, ILitBool true ->
+                  begin match Hashtbl.find_opt atom_expr_tbl x with
+                  | Some e -> "not " ^ Support.string_of_iexpr e
+                  | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+                  end
+              | Some x, ILitBool false ->
+                  begin match Hashtbl.find_opt atom_expr_tbl x with
+                  | Some e -> Support.string_of_iexpr e
+                  | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+                  end
+              | _ -> Support.string_of_fo (FRel (HNow a, RNeq, HNow b))
+              end
           end
       | f -> Support.string_of_fo f
     in
@@ -348,7 +386,7 @@ let dot_monitor_program ?(show_labels=false) (p:program) : string * string =
       | LOr (a,b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a,b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
     in
-    let _cluster = Support.module_name_of_node n.nname in
+    let _cluster = Support.module_name_of_node n_ast.nname in
     List.iteri
       (fun i f ->
          let node_id = string_of_int i in

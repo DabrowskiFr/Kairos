@@ -13,6 +13,10 @@ let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) =
     col_end = end_pos.pos_cnum - end_pos.pos_bol; }
 
 let with_origin_loc origin loc value = Ast.with_origin_loc origin loc value
+let mk_iexpr_loc start_pos end_pos desc =
+  Ast.mk_iexpr ~loc:(loc_of_positions start_pos end_pos) desc
+let mk_stmt_loc start_pos end_pos desc =
+  Ast.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
@@ -24,7 +28,7 @@ let with_origin_loc origin loc value = Ast.with_origin_loc origin loc value
 %token PRE
 %token MIN MAX ADD MUL AND OR NOT FIRST
 %token G X
-%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
+%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
 %token EQ NEQ LT LE GT GE
@@ -51,19 +55,17 @@ node:
   TRANS transitions
   END
   {
-    {
-      nname = $2;
-      inputs = $4;
-      outputs = $8;
-      assumes = fst $10;
-      guarantees = snd $10;
-      invariants_mon = [];
-      instances = $11;
-      locals = $13;
-      states = $15;
-      init_state = $18;
-      trans = $20;
-    }
+    Ast.mk_node
+      ~nname:$2
+      ~inputs:$4
+      ~outputs:$8
+      ~assumes:(fst $10)
+      ~guarantees:(snd $10)
+      ~instances:$11
+      ~locals:$13
+      ~states:$15
+      ~init_state:$18
+      ~trans:$20
   }
 
 params_opt:
@@ -143,8 +145,13 @@ transition:
   IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
   {
     let (reqs, enss) = $6 in
-    { src=$1; dst=$3; guard=$4; requires=reqs; ensures=enss; lemmas=[];
-      ghost=[]; body=$7; monitor=[] }
+    Ast.mk_transition
+      ~src:$1
+      ~dst:$3
+      ~guard:$4
+      ~requires:reqs
+      ~ensures:enss
+      ~body:$7
   }
 
 guard_opt:
@@ -160,11 +167,11 @@ stmt_list:
   | stmt SEMI { [$1] }
 
 stmt:
-  | IDENT ASSIGN iexpr { SAssign($1,$3) }
-  | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { SIf($2,$4,$6) }
-  | SKIP { SSkip }
+  | IDENT ASSIGN iexpr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
+  | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf($2,$4,$6)) }
+  | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSkip }
   | CALL IDENT LPAREN iexpr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
-      { SCall($2, $4, $8) }
+      { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SCall($2, $4, $8)) }
 
 trans_contracts_opt:
   | /* empty */ { ([], []) }
@@ -194,24 +201,24 @@ trans_contracts:
 
 (* arithmetic expressions without booleans *)
 arith_atom:
-  | INT { ILitInt $1 }
-  | TRUE { ILitBool true }
-  | FALSE { ILitBool false }
-  | IDENT { IVar $1 }
-  | LPAREN iexpr RPAREN { IPar $2 }
+  | INT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitInt $1) }
+  | TRUE { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitBool true) }
+  | FALSE { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitBool false) }
+  | IDENT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (IVar $1) }
+  | LPAREN iexpr RPAREN { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IPar $2) }
 
 arith_unary:
-  | MINUS arith_unary { IUn(Neg,$2) }
+  | MINUS arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Neg,$2)) }
   | arith_atom { $1 }
 
 arith_mul:
-  | arith_mul STAR arith_unary { IBin(Mul,$1,$3) }
-  | arith_mul SLASH arith_unary { IBin(Div,$1,$3) }
+  | arith_mul STAR arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(Mul,$1,$3)) }
+  | arith_mul SLASH arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(Div,$1,$3)) }
   | arith_unary { $1 }
 
 arith:
-  | arith PLUS arith_mul { IBin(Add,$1,$3) }
-  | arith MINUS arith_mul { IBin(Sub,$1,$3) }
+  | arith PLUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(Add,$1,$3)) }
+  | arith MINUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(Sub,$1,$3)) }
   | arith_mul { $1 }
 
 
@@ -220,12 +227,12 @@ iexpr_tail_opt:
   | relop arith {
       fun lhs ->
         match $1 with
-        | REq -> IBin(Eq, lhs, $2)
-        | RNeq -> IBin(Neq, lhs, $2)
-        | RLt -> IBin(Lt, lhs, $2)
-        | RLe -> IBin(Le, lhs, $2)
-        | RGt -> IBin(Gt, lhs, $2)
-        | RGe -> IBin(Ge, lhs, $2)
+        | REq -> Ast.mk_iexpr (IBin(Eq, lhs, $2))
+        | RNeq -> Ast.mk_iexpr (IBin(Neq, lhs, $2))
+        | RLt -> Ast.mk_iexpr (IBin(Lt, lhs, $2))
+        | RLe -> Ast.mk_iexpr (IBin(Le, lhs, $2))
+        | RGt -> Ast.mk_iexpr (IBin(Gt, lhs, $2))
+        | RGe -> Ast.mk_iexpr (IBin(Ge, lhs, $2))
     }
   | /* empty */ { fun lhs -> lhs }
 
@@ -233,15 +240,15 @@ iexpr_atom:
   | arith iexpr_tail_opt { $2 $1 }
 
 iexpr_not:
-  | NOT iexpr_not { IUn(Not,$2) }
+  | NOT iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Not,$2)) }
   | iexpr_atom { $1 }
 
 iexpr_and:
-  | iexpr_and AND iexpr_not { IBin(And,$1,$3) }
+  | iexpr_and AND iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(And,$1,$3)) }
   | iexpr_not { $1 }
 
 iexpr_or:
-  | iexpr_or OR iexpr_and { IBin(Or,$1,$3) }
+  | iexpr_or OR iexpr_and { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBin(Or,$1,$3)) }
   | iexpr_and { $1 }
 
 iexpr:

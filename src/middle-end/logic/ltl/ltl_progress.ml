@@ -21,8 +21,11 @@ open Ast
 let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
   : bool =
   match f with
-  | FRel (HNow (IVar name), REq, HNow (ILitBool true)) ->
-      Ltl_valuation.lookup_val vals name
+  | FRel (HNow a, REq, HNow b) ->
+      begin match as_var a, b.iexpr with
+      | Some name, ILitBool true -> Ltl_valuation.lookup_val vals name
+      | _ -> false
+      end
   | _ -> false
 
 let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo_ltl)

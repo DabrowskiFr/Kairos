@@ -8,6 +8,7 @@ type outputs = {
   smt_text : string;
   dot_text : string;
   labels_text : string;
+  stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   obcplus_sequents : (int * string) list;
   task_sequents : (string list * string) list;
@@ -30,18 +31,19 @@ type monitor_outputs = {
   dot_text : string;
   labels_text : string;
   dot_png : string option;
+  stage_meta : (string * (string * string) list) list;
 }
 
-type obc_outputs = { obc_text : string }
-type why_outputs = { why_text : string }
+type obc_outputs = { obc_text : string; stage_meta : (string * (string * string) list) list }
+type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
 type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_stages = {
-  parsed : Ast.program;
-  automaton : Ast.program;
-  contracts : Ast.program;
-  monitor : Ast.program;
-  obc : Ast.program;
+  parsed : Ast_user.program;
+  automaton : Ast_automaton.program;
+  contracts : Ast_contracts.program;
+  monitor : Ast_monitor.program;
+  obc : Ast_obc.program;
 }
 
 type config = {

@@ -31,8 +31,15 @@ type eq_atom = {
 let extract_eq_atom ((f, name):(fo * ident)) : eq_atom option =
   let mk var value = Some { name; var; value } in
   match f with
-  | FRel (HNow (IVar x), REq, HNow (ILitInt i)) -> mk x (VInt i)
-  | FRel (HNow (ILitInt i), REq, HNow (IVar x)) -> mk x (VInt i)
-  | FRel (HNow (IVar x), REq, HNow (ILitBool b)) -> mk x (VBool b)
-  | FRel (HNow (ILitBool b), REq, HNow (IVar x)) -> mk x (VBool b)
+  | FRel (HNow a, REq, HNow b) ->
+      begin match as_var a, b.iexpr with
+      | Some x, ILitInt i -> mk x (VInt i)
+      | Some x, ILitBool v -> mk x (VBool v)
+      | _ ->
+          begin match as_var b, a.iexpr with
+          | Some x, ILitInt i -> mk x (VInt i)
+          | Some x, ILitBool v -> mk x (VBool v)
+          | _ -> None
+          end
+      end
   | _ -> None

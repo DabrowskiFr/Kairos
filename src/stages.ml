@@ -27,11 +27,11 @@ let run (cfg:config) : (unit, string) result =
         | Some stage ->
             let program =
               match stage with
-              | Stage_names.Parsed -> asts.parsed
-              | Stage_names.Automaton -> asts.automaton
-              | Stage_names.Contracts -> asts.contracts
-              | Stage_names.Monitor -> asts.monitor
-              | Stage_names.Obc -> asts.obc
+              | Stage_names.Parsed -> Ast_user.to_ast asts.parsed
+              | Stage_names.Automaton -> Ast_automaton.to_ast asts.automaton
+              | Stage_names.Contracts -> Ast_contracts.to_ast asts.contracts
+              | Stage_names.Monitor -> Ast_monitor.to_ast asts.monitor
+              | Stage_names.Obc -> Ast_obc.to_ast asts.obc
               | Stage_names.Why
               | Stage_names.Prove ->
                   invalid_arg "dump-ast does not support why/prove stages"

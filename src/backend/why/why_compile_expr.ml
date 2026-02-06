@@ -37,7 +37,7 @@ let rec compile_iexpr (env:env) (e:iexpr) : Ptree.expr =
     let then_e, else_e = if is_eq then (tru, fls) else (fls, tru) in
     mk_expr (Ematch (scrut, [ (pat, then_e); ({pat_desc=Pwild; pat_loc=loc}, else_e) ], []))
   in
-  match e with
+  match e.iexpr with
   | ILitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_expr (if b then Etrue else Efalse)
   | IVar x ->
@@ -47,20 +47,26 @@ let rec compile_iexpr (env:env) (e:iexpr) : Ptree.expr =
   | IPar e -> compile_iexpr env e
   | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [compile_iexpr env a]))
   | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
-  | IBin ((Eq | Neq as op), IVar a, IVar b)
-    when is_mon_state_ctor a || is_mon_state_ctor b ->
-      if is_mon_state_ctor a && is_mon_state_ctor b then
-        let same = a = b in
-        let is_eq = match op with Eq -> true | Neq -> false | _ -> true in
-        mk_expr (if same = is_eq then Etrue else Efalse)
-      else
-        let ctor, other = if is_mon_state_ctor a then (a, IVar b) else (b, IVar a) in
-        match_mon_state_eq ctor other (op = Eq)
+  | IBin ((Eq | Neq as op), a, b) ->
+      begin match as_var a, as_var b with
+      | Some va, Some vb when is_mon_state_ctor va || is_mon_state_ctor vb ->
+          if is_mon_state_ctor va && is_mon_state_ctor vb then
+            let same = va = vb in
+            let is_eq = match op with Eq -> true | Neq -> false | _ -> true in
+            mk_expr (if same = is_eq then Etrue else Efalse)
+          else
+            let ctor, other =
+              if is_mon_state_ctor va then (va, mk_var vb) else (vb, mk_var va)
+            in
+            match_mon_state_eq ctor other (op = Eq)
+      | _ ->
+          mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
+      end
   | IBin (op,a,b) ->
       mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
 
 let rec compile_term (env:env) (e:iexpr) : Ptree.term =
-  match e with
+  match e.iexpr with
   | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
   | IVar x -> mk_term (term_var env x)
@@ -82,7 +88,7 @@ let term_apply_op (op:op) (t1:Ptree.term) (t2:Ptree.term) : Ptree.term =
   | OFirst -> t1
 let rec compile_term_instance (env:env) (inst_name:ident) (node_name:ident)
   (inputs:ident list) (e:iexpr) : Ptree.term =
-  match e with
+  match e.iexpr with
   | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
   | IVar x ->
@@ -143,7 +149,8 @@ let term_of_outputs (env:env) (outputs:vdecl list) : Ptree.term option =
   | vs -> Some (mk_term (Ttuple (List.map (fun v -> term_of_var env v.vname) vs)))
 let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
   (h:hexpr) : Ptree.term =
-  let is_const_iexpr = function
+  let is_const_iexpr (e:iexpr) =
+    match e.iexpr with
     | ILitInt _ | ILitBool _ -> true
     | IVar name ->
         let len = String.length name in
@@ -239,7 +246,7 @@ and compile_fo_term_shift ?(prefer_link=false) ?(in_post=false) (env:env)
 
 let rel_hexpr (env:env) (h:hexpr) : hexpr =
   match find_fold env h with
-  | Some name -> HNow (IVar name)
+  | Some name -> HNow (mk_var name)
   | None ->
       match h with
       | HNow e -> HNow e
@@ -297,11 +304,11 @@ let ltl_spec (env:env) (f:fo_ltl) : spec_frag =
       let post_t = post_term a in
       { pre = [pre_t]; post = [post_t] }
 let pre_k_source_expr (env:env) (e:iexpr) : Ptree.expr =
-  match e with
+  match e.iexpr with
   | IVar x -> field env x
   | _ -> failwith "pre_k expects a variable as first argument"
 
 let pre_k_source_term (env:env) (e:iexpr) : Ptree.term =
-  match e with
+  match e.iexpr with
   | IVar x -> term_of_var env x
   | _ -> failwith "pre_k expects a variable as first argument"

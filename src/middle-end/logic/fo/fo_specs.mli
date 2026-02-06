@@ -23,11 +23,11 @@ val collect_atoms_ltl : Ast.fo_ltl -> Ast.fo list -> Ast.fo list
 (** Collect atomic FO formulas referenced by an LTL formula. *)
 val collect_atoms_fo : Ast.fo -> Ast.fo list -> Ast.fo list
 (** Collect atomic FO formulas referenced by a FO formula. *)
-val collect_atoms_from_node : Ast.node -> Ast.fo list
+val collect_atoms_from_node : Ast_contracts.node -> Ast.fo list
 (** Collect atom formulas from node-level specs and invariants. *)
 (** {1 Transition Helpers} *)
 
-val transition_fo : Ast.transition -> Ast.fo list
+val transition_fo : Ast_contracts.transition -> Ast.fo list
 (** Flatten transition requires/ensures/lemmas into a single list. *)
 val conj_fo : Ast.fo list -> Ast.fo option
 (** Conjoin a list of FO formulas, or None for empty. *)
@@ -74,11 +74,11 @@ val replace_atoms_invariants_mon :
   Ast.invariant_mon list -> Ast.invariant_mon list
 (** Replace atom formulas inside monitor invariants. *)
 val replace_atoms_transition :
-  (Ast.fo * Ast.ident) list -> Ast.transition -> Ast.transition
+  (Ast.fo * Ast.ident) list -> Ast_contracts.transition -> Ast_contracts.transition
 (** Replace atom formulas inside a transition. *)
 (** {1 Fold Diagnostics} *)
 
-val fold_map_for_node : Ast.node -> (Ast.hexpr * Ast.ident) list
+val fold_map_for_node : Ast_contracts.node -> (Ast.hexpr * Ast.ident) list
 (** Build a fold map for a node, for atom replacement purposes. *)
 val fold_vars_in_iexpr : Ast.ident list -> Ast.iexpr -> Ast.ident list
 (** Collect variable names used by an iexpr. *)

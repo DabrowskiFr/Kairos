@@ -27,7 +27,7 @@ let rec compile_seq (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
   (lst:stmt list) : Ptree.expr =
   let compile_stmt (s:stmt) : Ptree.expr =
-    match s with
+    match s.stmt with
     | SSkip -> mk_expr (Etuple [])
     | SAssign (x,e) ->
         let is_ghost_local name =
@@ -141,7 +141,7 @@ let seq_exprs (es:Ptree.expr list) : Ptree.expr =
   | e :: rest ->
       List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) e rest
 
-let compile_state_branch (env:env)
+let compile_state_branch_ast (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
   (st:ident)
   (trs:transition list) : Ptree.reg_branch =
@@ -153,12 +153,12 @@ let compile_state_branch (env:env)
         let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
         let assign_dst = mk_expr (Etuple []) in
         let ghost_expr =
-          match t.ghost with
+          match Ast.transition_ghost t with
           | [] -> mk_expr (Etuple [])
-          | _ -> mk_expr (Eghost (compile_seq env call_asserts t.ghost))
+          | _ -> mk_expr (Eghost (compile_seq env call_asserts (Ast.transition_ghost t)))
         in
         let user_expr = compile_seq env call_asserts t.body in
-        let mon_expr = compile_seq env call_asserts t.monitor in
+        let mon_expr = compile_seq env call_asserts (Ast.transition_monitor t) in
         let body = seq_exprs [ghost_expr; user_expr; mon_expr; assign_dst] in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
@@ -166,10 +166,18 @@ let compile_state_branch (env:env)
   let body = chain trs in
   (pat, body)
 
+let compile_state_branch (env:env)
+  (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
+  (st:ident)
+  (trs:Ast_obc.transition list) : Ptree.reg_branch =
+  let trs = List.map Ast_obc.transition_to_ast trs in
+  compile_state_branch_ast env call_asserts st trs
+
 let compile_transitions (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
-  (ts:transition list)
+  (ts:Ast_obc.transition list)
   : Ptree.expr =
+  let ts = List.map Ast_obc.transition_to_ast ts in
   let by_state =
     List.fold_left
       (fun m t ->
@@ -177,5 +185,5 @@ let compile_transitions (env:env)
          (t.src, prev @ [t]) :: List.remove_assoc t.src m)
       [] ts
   in
-  let branches = List.map (fun (st,trs) -> compile_state_branch env call_asserts st trs) by_state in
+  let branches = List.map (fun (st,trs) -> compile_state_branch_ast env call_asserts st trs) by_state in
   mk_expr (Ematch (field env "st", branches @ [({pat_desc=Pwild; pat_loc=loc}, mk_expr (Etuple []))], []))

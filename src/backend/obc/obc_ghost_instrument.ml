@@ -7,6 +7,9 @@
 open Ast
 open Support
 
+let s desc = mk_stmt desc
+let mk_e desc = mk_iexpr desc
+
 let add_local_if_missing (locals:vdecl list) ~(inputs:vdecl list) ~(outputs:vdecl list)
   (name:ident) (vty:ty) : vdecl list =
   let exists =
@@ -26,34 +29,36 @@ let op_binop = function
 let apply_fold_step ~(acc:ident) ~(op:op) ~(e:iexpr) : stmt list =
   match op with
   | OMin ->
-      let cond = IBin (Le, IVar acc, e) in
-      [SIf (cond, [SAssign (acc, IVar acc)], [SAssign (acc, e)])]
+      let cond = mk_e (IBin (Le, mk_var acc, e)) in
+      [s (SIf (cond, [s (SAssign (acc, mk_var acc))], [s (SAssign (acc, e))]))]
   | OMax ->
-      let cond = IBin (Ge, IVar acc, e) in
-      [SIf (cond, [SAssign (acc, IVar acc)], [SAssign (acc, e)])]
+      let cond = mk_e (IBin (Ge, mk_var acc, e)) in
+      [s (SIf (cond, [s (SAssign (acc, mk_var acc))], [s (SAssign (acc, e))]))]
   | OFirst ->
-      [SAssign (acc, IVar acc)]
+      [s (SAssign (acc, mk_var acc))]
   | _ ->
       let rhs =
         match op_binop op with
-        | Some bop -> IBin (bop, IVar acc, e)
-        | None -> IVar acc
+        | Some bop -> mk_e (IBin (bop, mk_var acc, e))
+        | None -> mk_var acc
       in
-      [SAssign (acc, rhs)]
+      [s (SAssign (acc, rhs))]
 
 let pre_k_source_expr (e:iexpr) : iexpr = e
 
-let transform_node_ghost (n:node) : node =
+let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
+  let n = Ast_obc.node_to_ast n in
+  let orig_locals = n.locals in
   let init_for_var =
     let table =
       List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
     in
     fun v ->
       match List.assoc_opt v table with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
-      | Some (TCustom _) | None -> ILitInt 0
+      | Some TBool -> mk_bool false
+      | Some TInt -> mk_int 0
+      | Some TReal -> mk_int 0
+      | Some (TCustom _) | None -> mk_int 0
   in
   let is_initial_only = function
     | LG _ -> false
@@ -62,14 +67,15 @@ let transform_node_ghost (n:node) : node =
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+        Ast.values t.requires @ Ast.values t.ensures
+        @ Ast.values (Ast.transition_lemmas t))
       n.trans
   in
   let folds =
     Collect.collect_folds_from_specs
       ~fo:transition_fo
       ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
-      ~invariants_mon:n.invariants_mon
+      ~invariants_mon:(Ast.node_invariants_mon n)
   in
   let pre_k_map = Collect.build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
@@ -115,26 +121,32 @@ let transform_node_ghost (n:node) : node =
       folds;
     !locals
   in
+  let ghost_locals_added =
+    let existing = List.map (fun v -> v.vname) orig_locals in
+    locals
+    |> List.filter (fun v -> not (List.mem v.vname existing))
+    |> List.map (fun v -> v.vname)
+  in
 
   let fold_updates =
     List.filter_map
       (fun (fi:fold_info) ->
          match Collect.classify_fold fi.h with
          | Some (`Scan (op, init, e)) ->
-             let init_branch = [SAssign (fi.acc, init)] in
+             let init_branch = [s (SAssign (fi.acc, init))] in
              let step_branch = apply_fold_step ~acc:fi.acc ~op ~e in
              let init_cond =
                match fi.init_flag with
-               | Some init_done -> IUn (Not, IVar init_done)
-               | None -> ILitBool false
+               | Some init_done -> mk_e (IUn (Not, mk_var init_done))
+               | None -> mk_bool false
              in
-             Some (SIf (init_cond, init_branch, step_branch))
+             Some (s (SIf (init_cond, init_branch, step_branch)))
          | None -> None)
       folds
   in
   let fold_init_done_updates =
     List.map
-      (fun (_ghost_acc, _acc, init_done) -> SAssign (init_done, ILitBool true))
+      (fun (_ghost_acc, _acc, init_done) -> s (SAssign (init_done, mk_bool true)))
       fold_init_links
   in
   let pre_old_updates = [] in
@@ -150,7 +162,7 @@ let transform_node_ghost (n:node) : node =
              else
                let tgt = List.nth names (i - 1) in
                let src = List.nth names (i - 2) in
-               loop (SAssign (tgt, IVar src) :: acc) (i - 1)
+               loop (s (SAssign (tgt, mk_var src)) :: acc) (i - 1)
            in
            loop [] (List.length names)
          in
@@ -158,7 +170,7 @@ let transform_node_ghost (n:node) : node =
            match names with
            | [] -> []
            | name :: _ ->
-               [SAssign (name, pre_k_source_expr info.expr)]
+               [s (SAssign (name, pre_k_source_expr info.expr))]
          in
          shifts @ first)
       pre_k_infos
@@ -171,7 +183,17 @@ let transform_node_ghost (n:node) : node =
       (fun (t:transition) ->
          let _ghost = ghost_base in
          let _reset = reset_flags in
-         { t with ghost = t.ghost; ensures = t.ensures @ pre_k_links })
+         let t = Ast.with_transition_ghost (Ast.transition_ghost t) t in
+         { t with ensures = t.ensures @ pre_k_links })
       n.trans
   in
-  { n with locals; trans }
+  let info =
+    {
+      ghost_locals_added;
+      pre_k_infos = List.map (fun info -> info.names) pre_k_infos;
+      fold_infos = List.map (fun fi -> (fi.acc, fi.h)) folds;
+      warnings = [];
+    }
+  in
+  Ast_obc.node_of_ast { n with locals; trans }
+  |> Ast_obc.with_node_info info

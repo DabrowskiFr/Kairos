@@ -68,16 +68,17 @@ let inline_atoms_iexpr (atom_map:(ident * iexpr) list) (e:iexpr) : iexpr =
   (* Substitute atom variables with their underlying boolean expressions. *)
   let map = Hashtbl.create 16 in
   List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_map;
-  let rec go = function
+  let rec go (e:iexpr) =
+    match e.iexpr with
     | IVar name ->
         begin match Hashtbl.find_opt map name with
         | Some expr -> go expr
-        | None -> IVar name
+        | None -> e
         end
-    | ILitInt _ | ILitBool _ as e -> e
-    | IPar e -> IPar (go e)
-    | IUn (op, e) -> IUn (op, go e)
-    | IBin (op, a, b) -> IBin (op, go a, go b)
+    | ILitInt _ | ILitBool _ -> e
+    | IPar inner -> with_iexpr_desc e (IPar (go inner))
+    | IUn (op, inner) -> with_iexpr_desc e (IUn (op, go inner))
+    | IBin (op, a, b) -> with_iexpr_desc e (IBin (op, go a, go b))
   in
   go e
 
@@ -88,13 +89,14 @@ type monitor_generation_atoms = {
   (* Cache of atom names mapped to their boolean iexpr (FO -> iexpr conversion). *)
 }
 
-let collect_monitor_atoms (n:node) : monitor_generation_atoms =
+let collect_monitor_atoms (n:Ast_contracts.node) : monitor_generation_atoms =
+  let n_ast = Ast_contracts.node_to_ast n in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    List.map (fun v -> (v.vname, v.vty)) (n_ast.inputs @ n_ast.locals @ n_ast.outputs)
   in
   let fold_map = fold_map_for_node n in
-  let pre_k_map = Collect.build_pre_k_infos n in
-  let inputs = List.map (fun v -> v.vname) n.inputs in
+  let pre_k_map = Collect.build_pre_k_infos n_ast in
+  let inputs = List.map (fun v -> v.vname) n_ast.inputs in
   let atoms_all =
     collect_atoms_from_node n
     |> List.sort_uniq compare

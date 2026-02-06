@@ -35,6 +35,6 @@ val set_pure_translation : bool -> unit
 
 (** Build full contract terms (pre/post) and their labels. *)
 val build_contracts :
-  nodes:Ast.node list ->
+  nodes:Ast_obc.node list ->
   Why_env.env_info ->
   contract_info

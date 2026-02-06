@@ -19,6 +19,6 @@
 (** {1 Dot Output} *)
 
 (** Compute dot residual program and label mapping. *)
-val dot_residual_program : ?show_labels:bool -> Ast.program -> string * string
+val dot_residual_program : ?show_labels:bool -> Ast_automaton.program -> string * string
 (** Compute dot monitor program and label mapping. *)
-val dot_monitor_program : ?show_labels:bool -> Ast.program -> string * string
+val dot_monitor_program : ?show_labels:bool -> Ast_automaton.program -> string * string

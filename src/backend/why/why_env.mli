@@ -21,7 +21,7 @@
 (** Detect if an identifier is a monitor state constructor. *)
 val is_mon_state_ctor : string -> bool
 (** Collect monitor state constructors referenced by a node. *)
-val collect_mon_state_ctors : Ast.node -> Ast.ident list
+val collect_mon_state_ctors : Ast_obc.node -> Ast.ident list
 
 (** {1 Why3 Environment Preparation} *)
 
@@ -35,4 +35,4 @@ type env_info = Why_types.env_info
     - [env] records links/ghosts/pre_k derived from [node] and collection passes. *)
 
 (** Build environment data needed by the Why3 emission stages. *)
-val prepare_node : prefix_fields:bool -> nodes:Ast.node list -> Ast.node -> env_info
+val prepare_node : prefix_fields:bool -> nodes:Ast_obc.node list -> Ast_obc.node -> env_info

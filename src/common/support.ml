@@ -148,7 +148,7 @@ let rec fo_of_ltl (f:fo_ltl) : fo =
   | LX _ | LG _ -> failwith "fo_of_ltl: LTL operator in FO formula"
 
 let is_const_iexpr (e:iexpr) : bool =
-  match e with
+  match e.iexpr with
   | ILitInt _ | ILitBool _ -> true
   | IVar name ->
       let len = String.length name in
@@ -162,14 +162,18 @@ let shift_hexpr_by ~(init_for_var:ident -> iexpr) (shift:int) (h:hexpr)
   if shift <= 0 then Some h
   else
     match h with
-    | HNow (IVar v) when is_const_iexpr (IVar v) ->
-        Some (HNow (IVar v))
-    | HNow (IVar v) ->
-        Some (HPreK (IVar v, 1))
     | HNow e when is_const_iexpr e ->
         Some (HNow e)
-    | HPreK (IVar v, k) ->
-      Some (HPreK (IVar v, k + shift))
+    | HNow e ->
+        begin match as_var e with
+        | Some v -> Some (HPreK (mk_var v, 1))
+        | None -> None
+        end
+    | HPreK (e, k) ->
+      begin match as_var e with
+      | Some v -> Some (HPreK (mk_var v, k + shift))
+      | None -> None
+      end
     | _ -> None
 
 let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:fo_ltl) : ltl_norm =
@@ -294,7 +298,7 @@ let rec string_of_iexpr ?(ctx=0) (e:iexpr) : string =
     | Mul | Div -> 5
   in
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
-  match e with
+  match e.iexpr with
   | ILitInt n -> string_of_int n
   | ILitBool b -> if b then "true" else "false"
   | IVar x -> x

@@ -306,6 +306,15 @@ progressbar.goal-progress.empty progress {
   history_buf#set_text "";
   let history_buf_ref : GText.buffer option ref = ref (Some history_buf) in
   ignore (status_notebook#append_page ~tab_label:history_tab#coerce history_scrolled#coerce);
+  let meta_tab = GMisc.label ~text:"Stages" () in
+  let meta_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
+  let meta_view = GText.view ~packing:meta_scrolled#add () in
+  meta_view#set_editable false;
+  meta_view#set_cursor_visible false;
+  let meta_buf = meta_view#buffer in
+  meta_buf#set_text "";
+  let meta_buf_ref : GText.buffer option ref = ref (Some meta_buf) in
+  ignore (status_notebook#append_page ~tab_label:meta_tab#coerce meta_scrolled#coerce);
   let perf_tab = GMisc.label ~text:"Perf" () in
   let perf_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
   let perf_cols = new GTree.column_list in
@@ -837,12 +846,72 @@ progressbar.goal-progress.empty progress {
         let iter = buf#end_iter in
         buf#insert ~iter (msg ^ "\n")
   in
+  let status_base = ref "" in
+  let status_meta = ref "" in
+  let render_status () =
+    if !status_meta = "" then
+      !status_base
+    else
+      !status_base ^ " — " ^ !status_meta
+  in
   let set_status msg =
-    status#set_text msg;
+    status_base := msg;
+    status#set_text (render_status ());
     append_history msg
   in
   let set_status_quiet msg =
-    status#set_text msg
+    status_base := msg;
+    status#set_text (render_status ())
+  in
+  let update_status_meta_summary (meta:(string * (string * string) list) list) =
+    let find_stage name =
+      List.find_opt (fun (stage, _) -> stage = name) meta
+    in
+    let find_kv key items =
+      List.find_opt (fun (k, _) -> k = key) items
+    in
+    let atoms =
+      match find_stage "monitor" with
+      | None -> None
+      | Some (_, items) -> find_kv "atoms" items |> Option.map snd
+    in
+    let ghosts =
+      match find_stage "obc" with
+      | None -> None
+      | Some (_, items) -> find_kv "ghost_locals" items |> Option.map snd
+    in
+    let states =
+      match find_stage "automaton" with
+      | None -> None
+      | Some (_, items) -> find_kv "states" items |> Option.map snd
+    in
+    let parts =
+      List.filter_map
+        (fun (label, v) ->
+           match v with
+           | None | Some "" -> None
+           | Some s -> Some (Printf.sprintf "%s: %s" label s))
+        [ ("atoms", atoms); ("ghost", ghosts); ("states", states) ]
+    in
+    status_meta := String.concat ", " parts;
+    status#set_text (render_status ())
+  in
+  let set_stage_meta (meta:(string * (string * string) list) list) =
+    match !meta_buf_ref with
+    | None -> ()
+    | Some buf ->
+        let b = Buffer.create 512 in
+        let add_kv (k, v) =
+          if v <> "" then Buffer.add_string b (Printf.sprintf "  %s: %s\n" k v)
+        in
+        List.iter
+          (fun (stage, items) ->
+             Buffer.add_string b (Printf.sprintf "%s\n" stage);
+             List.iter add_kv items;
+             Buffer.add_char b '\n')
+          meta;
+        buf#set_text (Buffer.contents b);
+        update_status_meta_summary meta
   in
   let set_parse_badge ~ok ~text =
     parse_label#set_text text;
@@ -1852,7 +1921,9 @@ progressbar.goal-progress.empty progress {
             if not ((!ensure_saved_or_cancel_ref) ()) then ()
             else
             match Ide_backend.monitor_pass ~generate_png:false ~input_file:file with
-            | Ok out -> export_png_with_dpi ~dot_text:out.dot_text
+            | Ok out ->
+                set_stage_meta out.stage_meta;
+                export_png_with_dpi ~dot_text:out.dot_text
             | Error err ->
                 let msg = Ide_backend.error_to_string err in
                 set_status ("Error: " ^ msg)
@@ -1908,6 +1979,7 @@ progressbar.goal-progress.empty progress {
       obligations_cache := None;
       prove_cache := None;
       clear_goals ();
+      set_stage_meta [];
       clear_goal_highlights ();
       task_sequents_list := [];
       latest_vc_text := "";
@@ -2153,6 +2225,7 @@ progressbar.goal-progress.empty progress {
         time_pass ~name:"monitor" ~cached:true (fun () ->
           set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
         );
+        set_stage_meta out.stage_meta;
         Some out
     | _ ->
         set_status "Running monitor...";
@@ -2161,6 +2234,7 @@ progressbar.goal-progress.empty progress {
           | Ok out ->
               monitor_cache := Some (!content_version, out);
               set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+              set_stage_meta out.stage_meta;
               Some out
           | Error err ->
               let msg = Ide_backend.error_to_string err in
@@ -2177,6 +2251,7 @@ progressbar.goal-progress.empty progress {
         time_pass ~name:"obc+" ~cached:true (fun () ->
           set_obcplus_buffer out.obc_text
         );
+        set_stage_meta out.stage_meta;
         Some out
     | _ ->
         set_status "Running OBC+...";
@@ -2185,6 +2260,7 @@ progressbar.goal-progress.empty progress {
           | Ok out ->
               obc_cache := Some (!content_version, out);
               set_obcplus_buffer out.obc_text;
+              set_stage_meta out.stage_meta;
               Some out
           | Error err ->
               let msg = Ide_backend.error_to_string err in
@@ -2201,6 +2277,7 @@ progressbar.goal-progress.empty progress {
         time_pass ~name:"why3" ~cached:true (fun () ->
           set_why_buffer out.why_text
         );
+        set_stage_meta out.stage_meta;
         Some out
     | _ ->
         set_status "Running Why3...";
@@ -2209,6 +2286,7 @@ progressbar.goal-progress.empty progress {
           | Ok out ->
               why_cache := Some (!content_version, out);
               set_why_buffer out.why_text;
+              set_stage_meta out.stage_meta;
               Some out
           | Error err ->
               let msg = Ide_backend.error_to_string err in
@@ -2381,6 +2459,7 @@ progressbar.goal-progress.empty progress {
                 monitor_cache := Some (!content_version, out);
                 set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
             end;
+            set_stage_meta out.stage_meta;
             set_status_cached "Done";
             add_history "Monitor: done (cached)"
         | None ->
@@ -2402,6 +2481,7 @@ progressbar.goal-progress.empty progress {
                 record_pass_time ~name:"automaton-gen" ~elapsed:gen_elapsed ~cached:false;
                 record_pass_time ~name:"automaton-draw" ~elapsed:draw_elapsed ~cached:false;
                 set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                set_stage_meta out.stage_meta;
                 set_status "Done";
                 add_history "Monitor: done")
               ~on_error:(fun err ->
@@ -2439,12 +2519,14 @@ progressbar.goal-progress.empty progress {
         | Some out ->
             record_pass_time ~name:"automaton-gen" ~elapsed:0.0 ~cached:true;
             set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+            ; set_stage_meta out.stage_meta
         | None -> ()
         end;
         begin match cached_obc with
         | Some out ->
             record_pass_time ~name:"obc+" ~elapsed:0.0 ~cached:true;
             set_obcplus_buffer out.obc_text
+            ; set_stage_meta out.stage_meta
         | None -> ()
         end;
         if cached_monitor <> None && cached_obc <> None then (
@@ -2486,7 +2568,8 @@ progressbar.goal-progress.empty progress {
                   record_pass_time ~name:"automaton-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
-                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                  set_stage_meta out.stage_meta
               | _ -> ()
               end;
               begin match obc_opt with
@@ -2495,7 +2578,8 @@ progressbar.goal-progress.empty progress {
                   record_pass_time ~name:"obc+"
                     ~elapsed:(Option.value obc_elapsed ~default:0.0)
                     ~cached:false;
-                  set_obcplus_buffer out.obc_text
+                  set_obcplus_buffer out.obc_text;
+                  set_stage_meta out.stage_meta
               | _ -> ()
               end;
               set_status "Done";
@@ -2540,18 +2624,21 @@ progressbar.goal-progress.empty progress {
         | Some out ->
             record_pass_time ~name:"automaton-gen" ~elapsed:0.0 ~cached:true;
             set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+            ; set_stage_meta out.stage_meta
         | None -> ()
         end;
         begin match cached_obc with
         | Some out ->
             record_pass_time ~name:"obc+" ~elapsed:0.0 ~cached:true;
             set_obcplus_buffer out.obc_text
+            ; set_stage_meta out.stage_meta
         | None -> ()
         end;
         begin match cached_why with
         | Some out ->
             record_pass_time ~name:"why3" ~elapsed:0.0 ~cached:true;
             set_why_buffer out.why_text
+            ; set_stage_meta out.stage_meta
         | None -> ()
         end;
         if cached_monitor <> None && cached_obc <> None && cached_why <> None then (
@@ -2606,7 +2693,8 @@ progressbar.goal-progress.empty progress {
                   record_pass_time ~name:"automaton-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
-                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                  set_stage_meta out.stage_meta
               | _ -> ()
               end;
               begin match obc_opt with
@@ -2615,7 +2703,8 @@ progressbar.goal-progress.empty progress {
                   record_pass_time ~name:"obc+"
                     ~elapsed:(Option.value obc_elapsed ~default:0.0)
                     ~cached:false;
-                  set_obcplus_buffer out.obc_text
+                  set_obcplus_buffer out.obc_text;
+                  set_stage_meta out.stage_meta
               | _ -> ()
               end;
               begin match why_opt with
@@ -2624,7 +2713,8 @@ progressbar.goal-progress.empty progress {
                   record_pass_time ~name:"why3"
                     ~elapsed:(Option.value why_elapsed ~default:0.0)
                     ~cached:false;
-                  set_why_buffer out.why_text
+                  set_why_buffer out.why_text;
+                  set_stage_meta out.stage_meta
               | _ -> ()
               end;
               set_status "Done";
@@ -2685,7 +2775,8 @@ progressbar.goal-progress.empty progress {
               Some (!content_version,
                 { Ide_backend.dot_text = out.dot_text;
                   labels_text = out.labels_text;
-                  dot_png = out.dot_png })
+                  dot_png = out.dot_png;
+                  stage_meta = out.stage_meta })
         in
         begin match cached with
         | Some out ->
@@ -2706,6 +2797,7 @@ progressbar.goal-progress.empty progress {
               ~obcplus_spans_ordered:out.obcplus_spans_ordered
               ~vc_spans_ordered:out.vc_spans_ordered
               ~why_spans:out.why_spans;
+            set_stage_meta out.stage_meta;
             set_goals out.goals;
             set_status_cached "Done";
             add_history "Prove: done (cached)"
@@ -2726,10 +2818,11 @@ progressbar.goal-progress.empty progress {
                     ~task_seqs:out.task_sequents
                     ~vc_locs:out.vc_locs
                     ~obcplus_spans:out.obcplus_spans
-                    ~vc_locs_ordered:out.vc_locs_ordered
-                    ~obcplus_spans_ordered:out.obcplus_spans_ordered
-                    ~vc_spans_ordered:out.vc_spans_ordered
-                    ~why_spans:out.why_spans;
+                  ~vc_locs_ordered:out.vc_locs_ordered
+                  ~obcplus_spans_ordered:out.obcplus_spans_ordered
+                  ~vc_spans_ordered:out.vc_spans_ordered
+                  ~why_spans:out.why_spans;
+                  set_stage_meta out.stage_meta;
                   false))
               in
               let on_goals_ready (names, vc_ids) =
@@ -2797,6 +2890,7 @@ progressbar.goal-progress.empty progress {
                   ~obcplus_spans_ordered:out.obcplus_spans_ordered
                   ~vc_spans_ordered:out.vc_spans_ordered
                   ~why_spans:out.why_spans;
+                set_stage_meta out.stage_meta;
                 set_goals out.goals;
                 set_status "Done";
                 add_history "Prove: done")

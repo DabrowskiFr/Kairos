@@ -188,73 +188,74 @@ let term_to_iexpr (term:term) : iexpr =
       (fun (name, v) ->
          match v with
          | None -> None
-         | Some true -> Some (IVar name)
-         | Some false -> Some (IUn (Not, IVar name)))
+         | Some true -> Some (mk_var name)
+         | Some false -> Some (mk_iexpr (IUn (Not, mk_var name))))
       term
   in
   match parts with
-  | [] -> ILitBool true
+  | [] -> mk_bool true
   | [p] -> p
-  | p :: rest -> List.fold_left (fun acc x -> IBin (And, acc, x)) p rest
+  | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBin (And, acc, x))) p rest
 
 let terms_to_iexpr (terms:term list) : iexpr =
   match terms with
-  | [] -> ILitBool false
+  | [] -> mk_bool false
   | _ ->
       if List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) terms then
-        ILitBool true
+        mk_bool true
       else
         let parts = List.map term_to_iexpr terms in
         match parts with
-        | [] -> ILitBool false
+        | [] -> mk_bool false
         | [p] -> p
-        | p :: rest -> List.fold_left (fun acc x -> IBin (Or, acc, x)) p rest
+        | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBin (Or, acc, x))) p rest
 
 let rec simplify_iexpr (e:iexpr) : iexpr =
   let is_negation a b =
-    match a, b with
-    | IUn (Not, x), y | x, IUn (Not, y) -> x = y
+    match a.iexpr, b.iexpr with
+    | IUn (Not, x), _ when x = b -> true
+    | _, IUn (Not, x) when x = a -> true
     | _ -> false
   in
-  match e with
+  match e.iexpr with
   | ILitInt _ | ILitBool _ | IVar _ -> e
   | IUn (Not, x) ->
       begin match simplify_iexpr x with
-      | ILitBool true -> ILitBool false
-      | ILitBool false -> ILitBool true
-      | IUn (Not, y) -> y
-      | y -> IUn (Not, y)
+      | { iexpr = ILitBool true; _ } -> mk_bool false
+      | { iexpr = ILitBool false; _ } -> mk_bool true
+      | { iexpr = IUn (Not, y); _ } -> y
+      | y -> mk_iexpr (IUn (Not, y))
       end
   | IUn (op, x) ->
-      IUn (op, simplify_iexpr x)
+      mk_iexpr (IUn (op, simplify_iexpr x))
   | IBin (And, a, b) ->
       let a = simplify_iexpr a in
       let b = simplify_iexpr b in
-      if a = ILitBool false || b = ILitBool false then ILitBool false
-      else if a = ILitBool true then b
-      else if b = ILitBool true then a
+      if a.iexpr = ILitBool false || b.iexpr = ILitBool false then mk_bool false
+      else if a.iexpr = ILitBool true then b
+      else if b.iexpr = ILitBool true then a
       else if a = b then a
-      else if is_negation a b then ILitBool false
-      else IBin (And, a, b)
+      else if is_negation a b then mk_bool false
+      else mk_iexpr (IBin (And, a, b))
   | IBin (Or, a, b) ->
       let a = simplify_iexpr a in
       let b = simplify_iexpr b in
-      if a = ILitBool true || b = ILitBool true then ILitBool true
-      else if a = ILitBool false then b
-      else if b = ILitBool false then a
+      if a.iexpr = ILitBool true || b.iexpr = ILitBool true then mk_bool true
+      else if a.iexpr = ILitBool false then b
+      else if b.iexpr = ILitBool false then a
       else if a = b then a
-      else if is_negation a b then ILitBool true
-      else IBin (Or, a, b)
+      else if is_negation a b then mk_bool true
+      else mk_iexpr (IBin (Or, a, b))
   | IBin (op, a, b) ->
       let a = simplify_iexpr a in
       let b = simplify_iexpr b in
-      IBin (op, a, b)
-  | IPar x -> IPar (simplify_iexpr x)
+      mk_iexpr (IBin (op, a, b))
+  | IPar x -> mk_iexpr (IPar (simplify_iexpr x))
 
 let valuations_to_iexpr (atom_names:string list) (vals_list:(string * bool) list list)
   : iexpr =
   match vals_list with
-  | [] -> ILitBool false
+  | [] -> mk_bool false
   | _ ->
       let implicants = choose_implicants atom_names vals_list in
       terms_to_iexpr implicants

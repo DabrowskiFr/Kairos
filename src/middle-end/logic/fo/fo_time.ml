@@ -20,20 +20,28 @@ open Ast
 
 let shift_hexpr_forward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
   match h with
-  | HNow (IVar v) when is_input v ->
-      HPreK (IVar v, 1)
-  | HNow _ -> h
+  | HNow e ->
+      begin match as_var e with
+      | Some v when is_input v -> HPreK (e, 1)
+      | _ -> h
+      end
   | HPreK (e, k) ->
       HPreK (e, k + 1)
   | HFold _ -> h
 
 let shift_hexpr_backward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
   match h with
-  | HNow (IVar v) when is_input v -> HNow (IVar v)
-  | HNow _ -> h
-  | HPreK (IVar v, k) when is_input v ->
-      if k <= 1 then HNow (IVar v) else HPreK (IVar v, k - 1)
-  | HPreK _ -> h
+  | HNow e ->
+      begin match as_var e with
+      | Some v when is_input v -> HNow e
+      | _ -> h
+      end
+  | HPreK (e, k) ->
+      begin match as_var e with
+      | Some v when is_input v ->
+          if k <= 1 then HNow e else HPreK (e, k - 1)
+      | _ -> h
+      end
   | HFold _ -> h
 
 let rec shift_fo_forward_inputs ~(is_input:ident -> bool) (f:fo) : fo =

@@ -165,10 +165,10 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
     in
     fun v ->
       match List.assoc_opt v table with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
-      | Some (TCustom _) | None -> ILitInt 0
+      | Some TBool -> mk_bool false
+      | Some TInt -> mk_int 0
+      | Some TReal -> mk_int 0
+      | Some (TCustom _) | None -> mk_int 0
   in
   let normalize_fo f =
     let normalized = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
@@ -178,7 +178,8 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values t.requires @ Ast.values t.ensures @ Ast.values t.lemmas)
+        Ast.values t.requires @ Ast.values t.ensures
+        @ Ast.values (Ast.transition_lemmas t))
       n.trans
   in
   let normalized_fo = List.map normalize_fo transition_fo in
@@ -191,7 +192,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
         | Invariant (id, h) -> Invariant (id, h)
         | InvariantStateRel (is_eq, st, f) ->
             InvariantStateRel (is_eq, st, normalize_fo f))
-      n.invariants_mon
+      (Ast.node_invariants_mon n)
   in
   let pre_k_exprs =
     collect_pre_k_from_specs
@@ -218,9 +219,9 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
          | HPreK (e, k) ->
              if k <= 0 then failwith "pre_k expects k >= 1";
              let vname =
-               match e with
-               | IVar x -> x
-               | _ -> failwith "pre_k expects a variable as first argument"
+              match e.iexpr with
+              | IVar x -> x
+              | _ -> failwith "pre_k expects a variable as first argument"
              in
              let vty = find_vty vname in
              let names = make_names vname k in
@@ -228,7 +229,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
          | _ -> failwith "expected pre_k hexpr")
 let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
   : (ident * iexpr list) list =
-  match s with
+  match s.stmt with
   | SCall (inst, args, _outs) -> (inst, args) :: acc
   | SIf (_c, tbr, fbr) ->
       let acc = List.fold_left collect_calls_stmt acc tbr in
@@ -246,14 +247,14 @@ let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
 let collect_calls_trans (ts:transition list) : (ident * iexpr list) list =
   List.fold_left
     (fun acc t ->
-       let acc = List.fold_left collect_calls_stmt acc t.ghost in
+       let acc = List.fold_left collect_calls_stmt acc (Ast.transition_ghost t) in
        let acc = List.fold_left collect_calls_stmt acc t.body in
-       List.fold_left collect_calls_stmt acc t.monitor)
+       List.fold_left collect_calls_stmt acc (Ast.transition_monitor t))
     [] ts
 
 let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:stmt)
   : (ident * iexpr list * ident list) list =
-  match s with
+  match s.stmt with
   | SCall (inst, args, outs) -> (inst, args, outs) :: acc
   | SIf (_c, tbr, fbr) ->
       let acc = List.fold_left collect_calls_stmt_full acc tbr in
@@ -272,17 +273,20 @@ let collect_calls_trans_full (ts:transition list)
   : (ident * iexpr list * ident list) list =
   List.fold_left
     (fun acc t ->
-       let acc = List.fold_left collect_calls_stmt_full acc t.ghost in
+       let acc = List.fold_left collect_calls_stmt_full acc (Ast.transition_ghost t) in
        let acc = List.fold_left collect_calls_stmt_full acc t.body in
-       List.fold_left collect_calls_stmt_full acc t.monitor)
+       List.fold_left collect_calls_stmt_full acc (Ast.transition_monitor t))
     [] ts
 
 let extract_delay_spec (guarantees:fo_ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
-    | LAtom (FRel (HNow (IVar out), REq, HPreK (IVar inp, 1)))
-    | LAtom (FRel (HPreK (IVar inp, 1), REq, HNow (IVar out))) ->
-        Some (out, inp)
+    | LAtom (FRel (HNow a, REq, HPreK (b, 1)))
+    | LAtom (FRel (HPreK (b, 1), REq, HNow a)) ->
+        begin match as_var a, as_var b with
+        | Some out, Some inp -> Some (out, inp)
+        | _ -> None
+        end
     | _ -> None
   in
   List.find_map find_in_ltl guarantees

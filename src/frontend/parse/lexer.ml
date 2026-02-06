@@ -49,7 +49,7 @@ let expected_tokens : (string * Parser.token) list =
     ":=", ASSIGN; "->", ARROW; "=>", IMPL; ">=", GE; "<=", LE; "!=", NEQ;
     "=", EQ; ">", GT; "<", LT; "+", PLUS; "-", MINUS; "*", STAR; "/", SLASH;
     "(", LPAREN; ")", RPAREN; "{", LBRACE; "}", RBRACE; "[", LBRACK; "]", RBRACK;
-    ",", COMMA; ";", SEMI; ":", COLON; ".", DOT;
+    ",", COMMA; ";", SEMI; ":", COLON;
     "int-literal", INT 0;
     "identifier", IDENT "";
     "<eof>", EOF;
@@ -84,7 +84,6 @@ let rec token lexbuf =
   | ","  -> tok lexbuf COMMA
   | ";"  -> tok lexbuf SEMI
   | ":"  -> tok lexbuf COLON
-  | "."  -> tok lexbuf DOT
   | Plus ('0'..'9') ->
       let s = set_lexeme lexbuf in
       INT (int_of_string s)

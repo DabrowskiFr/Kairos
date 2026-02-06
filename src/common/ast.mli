@@ -23,13 +23,23 @@ type ty = TInt | TBool | TReal | TCustom of string
 type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
 type unop = Neg | Not
 type op = OMin | OMax | OAdd | OMul | OAnd | OOr | OFirst
+type loc = { line : int; col : int; line_end : int; col_end : int }
 type iexpr =
+  { iexpr : iexpr_desc; loc : loc option }
+and iexpr_desc =
     ILitInt of int
   | ILitBool of bool
   | IVar of ident
   | IBin of binop * iexpr * iexpr
   | IUn of unop * iexpr
   | IPar of iexpr
+val mk_iexpr : ?loc:loc -> iexpr_desc -> iexpr
+val iexpr_desc : iexpr -> iexpr_desc
+val mk_var : ident -> iexpr
+val mk_int : int -> iexpr
+val mk_bool : bool -> iexpr
+val as_var : iexpr -> ident option
+val with_iexpr_desc : iexpr -> iexpr_desc -> iexpr
 type hexpr =
     HNow of iexpr
   | HPreK of iexpr * int
@@ -68,7 +78,6 @@ type origin =
   | Unknown
   | Other of string
 
-type loc = { line : int; col : int; line_end : int; col_end : int }
 type 'a with_origin = {
   value : 'a;
   origin : origin;
@@ -94,24 +103,76 @@ type vdecl = { vname : ident; vty : ty; }
 
 (** {1 Statements And Contracts} *)
 type stmt =
+  { stmt : stmt_desc; loc : loc option }
+and stmt_desc =
     SAssign of ident * iexpr
   | SIf of iexpr * stmt list * stmt list
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
+val mk_stmt : ?loc:loc -> stmt_desc -> stmt
+val stmt_desc : stmt -> stmt_desc
+val with_stmt_desc : stmt -> stmt_desc -> stmt
 type invariant_mon =
     Invariant of ident * hexpr
   | InvariantStateRel of bool * ident * fo
+
+type parse_error = { loc : loc option; message : string }
+type parse_info = {
+  source_path : string option;
+  text_hash : string option;
+  parse_errors : parse_error list;
+  warnings : string list;
+}
+type automaton_info = {
+  residual_state_count : int;
+  residual_edge_count : int;
+  warnings : string list;
+}
+type contracts_info = {
+  contract_origin_map : (int * origin) list;
+  warnings : string list;
+}
+type monitor_info = {
+  monitor_state_ctors : string list;
+  atom_count : int;
+  warnings : string list;
+}
+type obc_info = {
+  ghost_locals_added : string list;
+  pre_k_infos : string list list;
+  fold_infos : (string * hexpr) list;
+  warnings : string list;
+}
+type why_info = {
+  vc_count : int;
+  vcid_map : (string * int list) list;
+  prefix_fields : bool option;
+  warnings : string list;
+}
+type transition_attrs = {
+  lemmas : fo_o list;
+  ghost : stmt list;
+  monitor : stmt list;
+  warnings : string list;
+}
+type node_attrs = {
+  invariants_mon : invariant_mon list;
+  parse_info : parse_info option;
+  automaton_info : automaton_info option;
+  contracts_info : contracts_info option;
+  monitor_info : monitor_info option;
+  obc_info : obc_info option;
+  why_info : why_info option;
+}
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
   requires : fo_o list;
   ensures : fo_o list;
-  lemmas : fo_o list;
-  ghost : stmt list;
   body : stmt list;
-  monitor : stmt list;
+  attrs : transition_attrs;
 }
 type node = {
   nname : ident;
@@ -119,14 +180,65 @@ type node = {
   outputs : vdecl list;
   assumes : fo_ltl_o list;
   guarantees : fo_ltl_o list;
-  invariants_mon : invariant_mon list;
   instances : (ident * ident) list;
   locals : vdecl list;
   states : ident list;
   init_state : ident;
   trans : transition list;
+  attrs : node_attrs;
 }
 type program = node list
+
+val empty_node_attrs : node_attrs
+val empty_transition_attrs : transition_attrs
+val node_attrs : node -> node_attrs
+val transition_attrs : transition -> transition_attrs
+val with_node_attrs : node_attrs -> node -> node
+val with_transition_attrs : transition_attrs -> transition -> transition
+
+val node_invariants_mon : node -> invariant_mon list
+val with_node_invariants_mon : invariant_mon list -> node -> node
+val transition_lemmas : transition -> fo_o list
+val transition_ghost : transition -> stmt list
+val transition_monitor : transition -> stmt list
+val with_transition_lemmas : fo_o list -> transition -> transition
+val with_transition_ghost : stmt list -> transition -> transition
+val with_transition_monitor : stmt list -> transition -> transition
+val transition_warnings : transition -> string list
+val with_transition_warnings : string list -> transition -> transition
+
+val node_parse_info : node -> parse_info option
+val node_automaton_info : node -> automaton_info option
+val node_contracts_info : node -> contracts_info option
+val node_monitor_info : node -> monitor_info option
+val node_obc_info : node -> obc_info option
+val node_why_info : node -> why_info option
+val with_node_parse_info : parse_info -> node -> node
+val with_node_automaton_info : automaton_info -> node -> node
+val with_node_contracts_info : contracts_info -> node -> node
+val with_node_monitor_info : monitor_info -> node -> node
+val with_node_obc_info : obc_info -> node -> node
+val with_node_why_info : why_info -> node -> node
+val mk_transition :
+  src:ident ->
+  dst:ident ->
+  guard:iexpr option ->
+  requires:fo_o list ->
+  ensures:fo_o list ->
+  body:stmt list ->
+  transition
+val mk_node :
+  nname:ident ->
+  inputs:vdecl list ->
+  outputs:vdecl list ->
+  assumes:fo_ltl_o list ->
+  guarantees:fo_ltl_o list ->
+  instances:(ident * ident) list ->
+  locals:vdecl list ->
+  states:ident list ->
+  init_state:ident ->
+  trans:transition list ->
+  node
 
 (** {1 Phase Markers} *)
 

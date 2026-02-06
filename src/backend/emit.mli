@@ -34,13 +34,13 @@ val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
    (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.ident -> Ast.transition list -> Why3.Ptree.reg_branch
+  Ast.ident -> Ast_obc.transition list -> Why3.Ptree.reg_branch
 (** Compile transitions. *)
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
    (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.transition list -> Why3.Ptree.expr
+  Ast_obc.transition list -> Why3.Ptree.expr
 (** {1 Node Compilation} *)
 
 (** Compute fold post terms. *)
@@ -48,25 +48,25 @@ val fold_post_terms :
   Support.env -> Support.fold_info -> Why3.Ptree.term list
 type spec_groups = { pre_labels : string list; post_labels : string list; }
 type comment_specs =
-  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast_obc.transition list * (string * string * string) list
 type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list; }
 (** Compile node. *)
 val compile_node :
   prefix_fields:bool ->
   ?comment_specs:comment_specs ->
-  Ast.node list ->
-  Ast.node ->
+  Ast_obc.node list ->
+  Ast_obc.node ->
   Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list *
   string * spec_groups
 (** Compile program. *)
 val compile_program :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
-  Ast.program -> string
+  Ast_obc.program -> string
 val compile_program_ast :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
-  Ast.program -> program_ast
+  Ast_obc.program -> program_ast
 val emit_program_ast : program_ast -> string
 val emit_program_ast_with_spans :
   program_ast -> string * (int * (int * int)) list

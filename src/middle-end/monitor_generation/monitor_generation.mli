@@ -37,5 +37,5 @@ val build_monitor_automaton :
   Ast.fo_ltl -> monitor_generation_automaton
 (** Build, minimize, and group the monitor residual automaton. *)
 
-val build_monitor_for_node : Ast.node -> monitor_generation_build
+val build_monitor_for_node : Ast_contracts.node -> monitor_generation_build
 (** Collect monitor atoms, build the monitor spec, and construct the automaton. *)

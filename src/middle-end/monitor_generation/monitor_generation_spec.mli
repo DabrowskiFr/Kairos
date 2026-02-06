@@ -17,5 +17,5 @@
  *---------------------------------------------------------------------------*)
 
 val build_monitor_spec :
-  atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
+  atom_map:(Ast.fo * Ast.ident) list -> Ast_contracts.node -> Ast.fo_ltl
 (** Build and simplify the monitor LTL spec using atom substitution. *)

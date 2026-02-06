@@ -33,13 +33,19 @@ let fold_post_terms = Why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
-  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast_obc.transition list * (string * string * string) list
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
-let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
+let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_obc.node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
+  let nodes_ast = List.map Ast_obc.node_to_ast nodes in
   let info = Why_env.prepare_node ~prefix_fields ~nodes n in
-  let n = info.node in
+  let n = Ast_obc.node_to_ast info.node in
+  let comment_specs =
+    match comment_specs with
+    | None -> None
+    | Some (a, g, t, m) -> Some (a, g, List.map Ast_obc.transition_to_ast t, m)
+  in
   let module_name = info.module_name in
   let imports = info.imports in
   let type_mon_state = info.type_mon_state in
@@ -51,7 +57,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   let mon_state_ctors = info.mon_state_ctors in
 
   let find_node (name:string) : node option =
-    List.find_opt (fun nd -> nd.nname = name) nodes
+    List.find_opt (fun nd -> nd.nname = name) nodes_ast
   in
   let instance_invariant_terms ?(in_post=false) (env:env) (inst_name:string)
     (node_name:string) (inst_node:node) =
@@ -73,7 +79,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
               compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map f
             in
             Some (term_implies cond body))
-      inst_node.invariants_mon
+      (Ast.node_invariants_mon inst_node)
   in
   let call_asserts =
     let index_of name lst =
@@ -108,7 +114,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
                         let pre_name =
                           List.find_map
                             (fun (_, info) ->
-                               match info.expr, info.names with
+                               match info.expr.iexpr, info.names with
                                | IVar x, name :: _ when x = in_name -> Some name
                                | _ -> None)
                             pre_k_map
@@ -124,7 +130,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
                   end
   in
   let body =
-    let main = compile_transitions env call_asserts n.trans in
+    let trans = List.map Ast_obc.transition_of_ast n.trans in
+    let main = compile_transitions env call_asserts trans in
     main
   in
 
@@ -197,7 +204,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
     if is_monitor then
       let simplify = Automaton_core.simplify_ltl in
       let prefixes =
-        nodes |> List.map (fun nd -> Support.prefix_for_node nd.nname)
+        nodes_ast |> List.map (fun nd -> Support.prefix_for_node nd.nname)
       in
       let replace_all ~sub ~by s =
         if sub = "" then s else
@@ -231,7 +238,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
             | Invariant (id, h) when is_prefix "atom_" id ->
                 Some (Printf.sprintf "%s | %s" (strip_vars id) (string_of_hexpr h))
             | _ -> None)
-          n.invariants_mon
+          (Ast.node_invariants_mon n)
       in
       let atom_table = "" in
       let assumes = List.map simplify (Ast.values comment_assumes) in
@@ -292,7 +299,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
       let contract_lines =
         List.map (show_assume false) (Ast.values comment_assumes)
         @ List.map (show_guarantee false) (Ast.values comment_guarantees)
-        @ List.map (show_invariant false) n.invariants_mon
+        @ List.map (show_invariant false) (Ast.node_invariants_mon n)
       in
       let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
@@ -302,18 +309,21 @@ let compile_node ~prefix_fields ?comment_specs (nodes:node list) (n:node)
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:program)
+let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.program)
   : program_ast =
+  let p = Ast_obc.to_ast p in
+  let nodes_obc = List.map Ast_obc.node_of_ast p in
   let lookup_comment name =
     List.assoc_opt name comment_map
   in
   let modules =
-    match p with
+    match nodes_obc with
     | [] -> []
     | nodes ->
         List.map
           (fun n ->
-             compile_node ~prefix_fields ?comment_specs:(lookup_comment n.nname) nodes n)
+             let name = (Ast_obc.node_to_ast n).nname in
+             compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
           nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a,b,c,_,_) -> (a,b,c)) modules) in
@@ -687,6 +697,6 @@ let emit_program_ast_with_spans (ast:program_ast) : string * (int * (int * int))
   loop 0;
   (out, List.rev !spans)
 
-let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:program) : string =
+let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.program) : string =
   let ast = compile_program_ast ~prefix_fields ~comment_map p in
   emit_program_ast ast

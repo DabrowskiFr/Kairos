@@ -57,7 +57,7 @@ let tag_label = function
   | PostForNextPre -> "post -> next pre"
 
 let rec iexpr_mentions_generated (e:iexpr) : bool =
-  match e with
+  match e.iexpr with
   | ILitInt _ | ILitBool _ -> false
   | IVar id -> is_generated_ident id
   | IPar e -> iexpr_mentions_generated e
@@ -65,7 +65,7 @@ let rec iexpr_mentions_generated (e:iexpr) : bool =
   | IBin (_, a, b) -> iexpr_mentions_generated a || iexpr_mentions_generated b
 
 let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
-  match e with
+  match e.iexpr with
   | ILitInt _ | ILitBool _ -> false
   | IVar id ->
       begin match tag with
@@ -120,11 +120,13 @@ let is_mon_state_var = function
   | s -> is_mon_ctor s
 
 let rec iexpr_only_mon_state = function
-  | ILitInt _ | ILitBool _ -> true
-  | IVar id -> is_mon_state_var id
-  | IPar e -> iexpr_only_mon_state e
-  | IUn (_, e) -> iexpr_only_mon_state e
-  | IBin (_, a, b) -> iexpr_only_mon_state a && iexpr_only_mon_state b
+  | e ->
+      match e.iexpr with
+      | ILitInt _ | ILitBool _ -> true
+      | IVar id -> is_mon_state_var id
+      | IPar inner -> iexpr_only_mon_state inner
+      | IUn (_, inner) -> iexpr_only_mon_state inner
+      | IBin (_, a, b) -> iexpr_only_mon_state a && iexpr_only_mon_state b
 
 let rec hexpr_only_mon_state = function
   | HNow e -> iexpr_only_mon_state e
@@ -141,13 +143,19 @@ let rec fo_only_mon_state = function
       fo_only_mon_state a && fo_only_mon_state b
 
 let is_mon_state_eq = function
-  | FRel (HNow (IVar a), REq, HNow (IVar b)) ->
-      is_mon_state_var a && is_mon_state_var b
+  | FRel (HNow a, REq, HNow b) ->
+      begin match as_var a, as_var b with
+      | Some va, Some vb -> is_mon_state_var va && is_mon_state_var vb
+      | _ -> false
+      end
   | _ -> false
 
 let is_bad_state_formula = function
-  | FRel (HNow (IVar a), RNeq, HNow (IVar b)) ->
-      is_mon_state_var a && is_mon_state_var b
+  | FRel (HNow a, RNeq, HNow b) ->
+      begin match as_var a, as_var b with
+      | Some va, Some vb -> is_mon_state_var va && is_mon_state_var vb
+      | _ -> false
+      end
   | _ -> false
 
 let is_monitor_implication = function
@@ -216,14 +224,14 @@ let rec stmt_lines ?(allow_empty=true) ?(with_comments=true)
 
 and stmt_one_lines ?(with_comments=true) (indent:int) (s:stmt) : string list =
   let tags =
-    match s with
+    match s.stmt with
     | SAssign (id, e) -> tags_for_ident id @ tags_for_iexpr e
     | SIf (c, _, _) -> tags_for_iexpr c
     | SMatch (e, _, _) -> tags_for_iexpr e
     | SCall _ | SSkip -> []
   in
   let prefix = if with_comments then comment_for_tags indent tags else [] in
-  match s with
+  match s.stmt with
   | SAssign (id, e) ->
       prefix @ [indent_str indent ^ id ^ " := " ^ string_of_iexpr e]
   | SSkip ->
@@ -308,7 +316,7 @@ let rec replace_pre_k_hexpr ~(map:(hexpr * ident) list) (h:hexpr) : hexpr =
   match h with
   | HPreK _ as h ->
       begin match List.assoc_opt h map with
-      | Some name -> HNow (IVar name)
+      | Some name -> HNow (mk_var name)
       | None -> h
       end
   | HNow _ -> h
@@ -346,22 +354,29 @@ let replace_pre_k_invariant ~(map:(hexpr * ident) list) (inv:invariant_mon)
       InvariantStateRel (is_eq, st, replace_pre_k_fo ~map f)
 
 let replace_pre_k_transition ~(map:(hexpr * ident) list) (t:transition) : transition =
+  let t =
+    Ast.with_transition_lemmas
+      (List.map (Ast.map_with_origin (replace_pre_k_fo ~map))
+         (Ast.transition_lemmas t))
+      t
+  in
   {
     t with
     requires = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.requires;
     ensures = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.ensures;
-    lemmas = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.lemmas;
   }
 
 let replace_pre_k_node (n:node) : node =
   let map = pre_k_var_map n in
-  {
-    n with
-    assumes = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.assumes;
-    guarantees = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.guarantees;
-    invariants_mon = List.map (replace_pre_k_invariant ~map) n.invariants_mon;
-    trans = List.map (replace_pre_k_transition ~map) n.trans;
-  }
+  let n =
+    { n with
+      assumes = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.assumes;
+      guarantees = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.guarantees;
+      trans = List.map (replace_pre_k_transition ~map) n.trans; }
+  in
+  Ast.with_node_invariants_mon
+    (List.map (replace_pre_k_invariant ~map) (Ast.node_invariants_mon n))
+    n
 
 let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
   (invariants:invariant_mon list)
@@ -528,11 +543,11 @@ let transition_lines (indent:int) (t:transition)
          let line = prettify_pre_old ~init_for_var ~vars line in
          [line]
       )
-      t.lemmas
+      (Ast.transition_lemmas t)
   in
-  let body_ghost = t.ghost in
+  let body_ghost = Ast.transition_ghost t in
   let body_user = t.body in
-  let body_mon = t.monitor in
+  let body_mon = Ast.transition_monitor t in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
     |> List.map (prettify_pre_old ~init_for_var ~vars)
@@ -571,10 +586,10 @@ let node_lines (n:node) : string list =
   let init_for_var =
     fun v ->
       match List.assoc_opt v var_types with
-      | Some TBool -> ILitBool false
-      | Some TInt -> ILitInt 0
-      | Some TReal -> ILitInt 0
-      | Some (TCustom _) | None -> ILitInt 0
+      | Some TBool -> mk_bool false
+      | Some TInt -> mk_int 0
+      | Some TReal -> mk_int 0
+      | Some (TCustom _) | None -> mk_int 0
   in
   let vars = List.map fst var_types in
   let header =
@@ -582,7 +597,8 @@ let node_lines (n:node) : string list =
     ^ " returns (" ^ params_of_vdecls n.outputs ^ ")"
   in
   let contracts =
-    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees) n.invariants_mon
+    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees)
+      (Ast.node_invariants_mon n)
       ~init_for_var ~vars
   in
   let instances =
@@ -648,10 +664,11 @@ let node_lines (n:node) : string list =
   @ trans
   @ ["end"]
 
-let string_of_program (p:program) : string =
+let string_of_program (p:Ast_obc.program) : string =
+  let p = Ast_obc.to_ast p in
   String.concat "\n" (List.map (fun n -> String.concat "\n" (node_lines n)) p) ^ "\n"
 
-let compile_program (p:program) : string =
+let compile_program (p:Ast_obc.program) : string =
   string_of_program p
 
 type line_with_vcid = string * int option
@@ -738,11 +755,11 @@ let transition_lines_with_vcid (indent:int) (t:transition)
          in
          let line = prettify_pre_old ~init_for_var ~vars line in
          (line, None))
-      t.lemmas
+      (Ast.transition_lemmas t)
   in
-  let body_ghost = t.ghost in
+  let body_ghost = Ast.transition_ghost t in
   let body_user = t.body in
-  let body_mon = t.monitor in
+  let body_mon = Ast.transition_monitor t in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
     |> List.map (prettify_pre_old ~init_for_var ~vars)
@@ -785,10 +802,10 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   in
   let init_for_var v =
     match List.assoc_opt v var_types with
-    | Some TBool -> ILitBool false
-    | Some TInt -> ILitInt 0
-    | Some TReal -> ILitInt 0
-    | Some (TCustom _) | None -> ILitInt 0
+    | Some TBool -> mk_bool false
+    | Some TInt -> mk_int 0
+    | Some TReal -> mk_int 0
+    | Some (TCustom _) | None -> mk_int 0
   in
   let vars = List.map fst var_types in
   let header =
@@ -803,7 +820,8 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     (Printf.sprintf "node %s%s%s" n.nname params returns, None)
   in
   let contracts =
-    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees) n.invariants_mon
+    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees)
+      (Ast.node_invariants_mon n)
       ~init_for_var ~vars
     |> List.map (fun line -> (line, None))
   in
@@ -869,7 +887,8 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   @ trans
   @ [("end", None)]
 
-let string_of_program_with_spans (p:program) : string * (int * (int * int)) list =
+let string_of_program_with_spans (p:Ast_obc.program) : string * (int * (int * int)) list =
+  let p = Ast_obc.to_ast p in
   let lines = List.concat_map node_lines_with_vcid p in
   let buf = Buffer.create 4096 in
   let spans = ref [] in
@@ -887,5 +906,5 @@ let string_of_program_with_spans (p:program) : string * (int * (int * int)) list
   List.iter add_line lines;
   (Buffer.contents buf, List.rev !spans)
 
-let compile_program_with_spans (p:program) : string * (int * (int * int)) list =
+let compile_program_with_spans (p:Ast_obc.program) : string * (int * (int * int)) list =
   string_of_program_with_spans p

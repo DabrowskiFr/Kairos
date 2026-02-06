@@ -50,7 +50,7 @@ type monitor_generation_build = {
   automaton: monitor_generation_automaton;
 }
 
-let build_monitor_for_node (n:node) : monitor_generation_build =
+let build_monitor_for_node (n:Ast_contracts.node) : monitor_generation_build =
   let atoms = collect_monitor_atoms n in
   let atom_names = List.map snd atoms.atom_map in
   let spec = build_monitor_spec ~atom_map:atoms.atom_map n in

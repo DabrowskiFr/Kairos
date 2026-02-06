@@ -3,6 +3,12 @@
  (wrapped false)
  (modules
   ast
+  ast_user
+  ast_automaton
+  ast_contracts
+  ast_monitor
+  ast_obc
+  ast_why
   ast_dump
   frontend
   lexer

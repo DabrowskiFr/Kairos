@@ -17,16 +17,16 @@ let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
     | Some "-" -> None
     | other -> other
   in
-  Ast_dump.dump_program_json ~out program;
+  Ast_dump.dump_program_json ~out (Ast_user.of_ast program);
   Ok ()
 
 let dump_ast_all
   ~(dir:string)
-  ~(parsed:Ast.program)
-  ~(automaton:Ast.program)
-  ~(contracts:Ast.program)
-  ~(monitor:Ast.program)
-  ~(obc:Ast.program)
+  ~(parsed:Ast_user.program)
+  ~(automaton:Ast_automaton.program)
+  ~(contracts:Ast_contracts.program)
+  ~(monitor:Ast_monitor.program)
+  ~(obc:Ast_obc.program)
   : (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
@@ -48,14 +48,14 @@ let dump_ast_all
           Ast_dump.dump_program_json ~out:(Some (Fpath.to_string path)) program
         in
         write_stage Stage_names.Parsed parsed;
-        write_stage Stage_names.Automaton automaton;
-        write_stage Stage_names.Contracts contracts;
-        write_stage Stage_names.Monitor monitor;
-        write_stage Stage_names.Obc obc;
+        write_stage Stage_names.Automaton (Ast_user.of_ast (Ast_automaton.to_ast automaton));
+        write_stage Stage_names.Contracts (Ast_user.of_ast (Ast_contracts.to_ast contracts));
+        write_stage Stage_names.Monitor (Ast_user.of_ast (Ast_monitor.to_ast monitor));
+        write_stage Stage_names.Obc (Ast_user.of_ast (Ast_obc.to_ast obc));
         Ok ()
 
 
-let emit_dot_files ~(show_labels:bool) ~(out_file:string) (program:Ast.program) : unit =
+let emit_dot_files ~(show_labels:bool) ~(out_file:string) (program:Ast_automaton.program) : unit =
   let dot, labels = Dot_emit.dot_monitor_program ~show_labels program in
   if out_file = "-" then (
     print_string dot;
@@ -82,7 +82,7 @@ let emit_dot_files ~(show_labels:bool) ~(out_file:string) (program:Ast.program) 
     )
   )
 
-let emit_obc_file ~(out_file:string) (program:Ast.program) : unit =
+let emit_obc_file ~(out_file:string) (program:Ast_obc.program) : unit =
   let out = Obc_emit.compile_program program in
   if out_file = "-" then
     print_string out
@@ -132,7 +132,7 @@ let emit_smt2 ~(out_file:string) ~(prover:string) ~(why_text:string) : unit =
 let emit_why
   ~(prefix_fields:bool)
   ~(output_file:string option)
-  (program:Ast.program)
+  (program:Ast_obc.program)
   : string =
   let why_ast = Why_stage.build_ast ~prefix_fields program in
   let out = Why_stage.emit_ast why_ast in

@@ -27,14 +27,14 @@ let test_compile_term_var () : unit =
       inst_map = [];
       inputs = [] }
   in
-  let term = Why_compile_expr.compile_term env (Ast.IVar "x") in
+  let term = Why_compile_expr.compile_term env (Ast.mk_var "x") in
   let rendered = Support.string_of_term term in
   assert (rendered = "vars.x")
 
 let test_progress_ltl_true_atom () : unit =
   let atom =
     Ast.FRel
-      (Ast.HNow (Ast.IVar "a"), Ast.REq, Ast.HNow (Ast.ILitBool true))
+      (Ast.HNow (Ast.mk_var "a"), Ast.REq, Ast.HNow (Ast.mk_bool true))
   in
   let formula = Ast.LG (Ast.LAtom atom) in
   let progressed =
@@ -47,22 +47,22 @@ let test_progress_ltl_true_atom () : unit =
 
 let test_pre_k_infos_for_pre () : unit =
   let n : Ast.node =
-    { nname = "n";
-      inputs = [ { Ast.vname = "x"; vty = Ast.TInt } ];
-      outputs = [];
-      assumes =
+    Ast.mk_node
+      ~nname:"n"
+      ~inputs:[ { Ast.vname = "x"; vty = Ast.TInt } ]
+      ~outputs:[]
+      ~assumes:
         [ Ast.LAtom
             (Ast.FRel
-               (Ast.HPreK (Ast.IVar "x", 1),
+               (Ast.HPreK (Ast.mk_var "x", 1),
                 Ast.REq,
-                Ast.HNow (Ast.ILitInt 0))) ];
-      guarantees = [];
-      invariants_mon = [];
-      instances = [];
-      locals = [];
-      states = [ "S" ];
-      init_state = "S";
-      trans = []; }
+                Ast.HNow (Ast.mk_int 0))) ]
+      ~guarantees:[]
+      ~instances:[]
+      ~locals:[]
+      ~states:[ "S" ]
+      ~init_state:"S"
+      ~trans:[]
   in
   let infos = Collect.build_pre_k_infos n in
   match infos with
