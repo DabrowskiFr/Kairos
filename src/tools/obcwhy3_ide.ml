@@ -567,10 +567,10 @@ progressbar.goal-progress.empty progress {
         let line_idx = max 0 (line - 1) in
         let col_idx = max 0 (col - 1) in
         let start_iter = obc_buf#get_iter_at_char ~line:line_idx col_idx in
-        let end_iter = start_iter#forward_to_line_end in
-        obc_buf#apply_tag obc_error_tag ~start:start_iter ~stop:end_iter;
         let line_start = obc_buf#get_iter_at_char ~line:line_idx 0 in
-        obc_buf#apply_tag obc_error_line_tag ~start:line_start ~stop:end_iter;
+        let line_end = line_start#forward_to_line_end in
+        obc_buf#apply_tag obc_error_tag ~start:start_iter ~stop:line_end;
+        obc_buf#apply_tag obc_error_line_tag ~start:line_start ~stop:line_end;
         let bar_end =
           match line_start#forward_chars 2 with
           | exception _ -> line_start
