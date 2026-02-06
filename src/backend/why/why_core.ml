@@ -150,14 +150,18 @@ let compile_state_branch_ast (env:env)
   let rec chain = function
     | [] -> mk_expr (Etuple [])
     | t::rest ->
-        let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
+        let guard =
+          match Ast.transition_guard t with
+          | None -> mk_expr Etrue
+          | Some g -> compile_iexpr env g
+        in
         let assign_dst = mk_expr (Etuple []) in
         let ghost_expr =
           match Ast.transition_ghost t with
           | [] -> mk_expr (Etuple [])
           | _ -> mk_expr (Eghost (compile_seq env call_asserts (Ast.transition_ghost t)))
         in
-        let user_expr = compile_seq env call_asserts t.body in
+        let user_expr = compile_seq env call_asserts (Ast.transition_body t) in
         let mon_expr = compile_seq env call_asserts (Ast.transition_monitor t) in
         let body = seq_exprs [ghost_expr; user_expr; mon_expr; assign_dst] in
         let trans_body = body in
@@ -181,8 +185,9 @@ let compile_transitions (env:env)
   let by_state =
     List.fold_left
       (fun m t ->
-         let prev = Option.value ~default:[] (List.assoc_opt t.src m) in
-         (t.src, prev @ [t]) :: List.remove_assoc t.src m)
+         let src = Ast.transition_src t in
+         let prev = Option.value ~default:[] (List.assoc_opt src m) in
+         (src, prev @ [t]) :: List.remove_assoc src m)
       [] ts
   in
   let branches = List.map (fun (st,trs) -> compile_state_branch_ast env call_asserts st trs) by_state in

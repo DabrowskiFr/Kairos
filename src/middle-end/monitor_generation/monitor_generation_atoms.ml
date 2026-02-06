@@ -92,11 +92,13 @@ type monitor_generation_atoms = {
 let collect_monitor_atoms (n:Ast_contracts.node) : monitor_generation_atoms =
   let n_ast = Ast_contracts.node_to_ast n in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n_ast.inputs @ n_ast.locals @ n_ast.outputs)
+    List.map
+      (fun v -> (v.vname, v.vty))
+      (Ast.node_inputs n_ast @ Ast.node_locals n_ast @ Ast.node_outputs n_ast)
   in
   let fold_map = fold_map_for_node n in
   let pre_k_map = Collect.build_pre_k_infos n_ast in
-  let inputs = List.map (fun v -> v.vname) n_ast.inputs in
+  let inputs = List.map (fun v -> v.vname) (Ast.node_inputs n_ast) in
   let atoms_all =
     collect_atoms_from_node n
     |> List.sort_uniq compare

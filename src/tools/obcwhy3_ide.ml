@@ -4,44 +4,359 @@ open Provenance
 
 module Ide_backend = Pipeline
 
-let make_text_panel ~label ~packing ~editable () =
-  let frame = GBin.frame ~label ~packing () in
-  let scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:frame#add () in
-  let view = GText.view ~packing:scrolled#add () in
-  view#set_editable editable;
-  view#set_cursor_visible editable;
-  (view, view#buffer, frame#coerce)
+module Ide_config = struct
+  type prefs = {
+    theme : string;
+    accent : string;
+    background : string;
+    text : string;
+    border : string;
+    muted : string;
+    success : string;
+    warning : string;
+    error : string;
+    ui_scale : float;
+    ui_font : string;
+    show_whitespace : bool;
+    highlight_line : bool;
+    prover : string;
+    prover_cmd : string;
+    wp_only : bool;
+    timeout_s : int;
+    font_size : int;
+    tab_width : int;
+    cursor_visible : bool;
+    insert_spaces : bool;
+    undo_limit : int;
+    auto_parse : bool;
+    parse_delay_ms : int;
+    parse_underline : bool;
+    export_dir : string;
+    export_auto_open : bool;
+    export_name_obcplus : string;
+    export_name_why3 : string;
+    export_name_theory : string;
+    export_name_smt : string;
+    export_name_png : string;
+    export_encoding : string;
+    open_dir : string;
+    temp_dir : string;
+    log_to_file : bool;
+    log_file : string;
+    log_max_lines : int;
+    log_verbosity : string;
+    use_cache : bool;
+  }
 
-let () =
-  ignore (GMain.init ());
-  let css = GObj.css_provider () in
-  css#load_from_data
-    {|
-.window, * {
-  font-size: 12px;
-  font-family: "SF Pro Text", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+  let home_dir () =
+    try Sys.getenv "HOME" with Not_found -> "."
+
+  let config_dir () =
+    Filename.concat (home_dir ()) ".why3obc"
+
+  let config_file () =
+    Filename.concat (config_dir ()) "config.ini"
+
+  let css_file () =
+    Filename.concat (config_dir ()) "theme.css"
+
+  let recent_file () =
+    Filename.concat (config_dir ()) "recent_files.txt"
+
+  let ensure_dir () =
+    let dir = config_dir () in
+    if not (Sys.file_exists dir) then
+      try Unix.mkdir dir 0o755 with _ -> ()
+
+  let default_prefs ?(theme="light") () : prefs =
+    let base =
+      {
+        theme = "light";
+        accent = "#0a84ff";
+        background = "#f6f6f6";
+        text = "#1f1f1f";
+        border = "#e3e3e3";
+        muted = "#6b6b6b";
+        success = "#22c55e";
+        warning = "#f59e0b";
+        error = "#ef4444";
+        ui_scale = 1.0;
+        ui_font = "";
+        show_whitespace = false;
+        highlight_line = true;
+        prover = "z3";
+        prover_cmd = "";
+        wp_only = false;
+        timeout_s = 5;
+        font_size = 12;
+        tab_width = 2;
+        cursor_visible = true;
+        insert_spaces = true;
+        undo_limit = 200;
+        auto_parse = true;
+        parse_delay_ms = 250;
+        parse_underline = true;
+        export_dir = "";
+        export_auto_open = false;
+        export_name_obcplus = "{base}.obc+";
+        export_name_why3 = "{base}.why";
+        export_name_theory = "{base}.theory";
+        export_name_smt = "{base}.smt2";
+        export_name_png = "{base}.png";
+        export_encoding = "utf-8";
+        open_dir = "";
+        temp_dir = "";
+        log_to_file = false;
+        log_file = Filename.concat (config_dir ()) "logs.txt";
+        log_max_lines = 500;
+        log_verbosity = "info";
+        use_cache = true;
+      }
+    in
+    match String.lowercase_ascii theme with
+    | "dark" ->
+        {
+          base with
+          theme = "dark";
+          accent = "#0a84ff";
+          background = "#1c1c1e";
+          text = "#e9e9ea";
+          border = "#2c2c2e";
+          muted = "#8e8e93";
+          success = "#32d74b";
+          warning = "#ff9f0a";
+          error = "#ff453a";
+        }
+    | _ ->
+        base
+
+  let parse_bool s default =
+    match String.lowercase_ascii (String.trim s) with
+    | "true" | "1" | "yes" -> true
+    | "false" | "0" | "no" -> false
+    | _ -> default
+
+  let parse_int s default =
+    match int_of_string_opt (String.trim s) with
+    | Some v -> v
+    | None -> default
+
+  let parse_float s default =
+    match float_of_string_opt (String.trim s) with
+    | Some v -> v
+    | None -> default
+
+  let parse_line acc line =
+    let line = String.trim line in
+    if line = "" || (String.length line > 0 && line.[0] = '#') then acc
+    else
+      match String.split_on_char '=' line with
+      | [k; v] -> (String.trim k, String.trim v) :: acc
+      | _ -> acc
+
+  let load_prefs () : prefs =
+    let defaults = default_prefs () in
+    let path = config_file () in
+    if not (Sys.file_exists path) then defaults
+    else
+      try
+        let ic = open_in path in
+        let rec loop acc =
+          match input_line ic with
+          | line -> loop (parse_line acc line)
+          | exception End_of_file ->
+              close_in ic;
+              List.rev acc
+        in
+        let kvs = loop [] in
+        let get k = List.assoc_opt k kvs in
+        let theme = Option.value ~default:defaults.theme (get "theme") in
+        let base = default_prefs ~theme () in
+        let get_or k d = Option.value ~default:d (get k) in
+        let timeout_s = parse_int (get_or "timeout_s" (string_of_int base.timeout_s)) base.timeout_s in
+        let font_size = parse_int (get_or "font_size" (string_of_int base.font_size)) base.font_size in
+        let tab_width = max 1 (parse_int (get_or "tab_width" (string_of_int base.tab_width)) base.tab_width) in
+        let cursor_visible = parse_bool (get_or "cursor_visible" (if base.cursor_visible then "true" else "false")) base.cursor_visible in
+        let ui_scale = parse_float (get_or "ui_scale" (string_of_float base.ui_scale)) base.ui_scale in
+        let show_whitespace = parse_bool (get_or "show_whitespace" (if base.show_whitespace then "true" else "false")) base.show_whitespace in
+        let highlight_line = parse_bool (get_or "highlight_line" (if base.highlight_line then "true" else "false")) base.highlight_line in
+        let insert_spaces = parse_bool (get_or "insert_spaces" (if base.insert_spaces then "true" else "false")) base.insert_spaces in
+        let undo_limit = max 1 (parse_int (get_or "undo_limit" (string_of_int base.undo_limit)) base.undo_limit) in
+        let auto_parse = parse_bool (get_or "auto_parse" (if base.auto_parse then "true" else "false")) base.auto_parse in
+        let parse_delay_ms = max 50 (parse_int (get_or "parse_delay_ms" (string_of_int base.parse_delay_ms)) base.parse_delay_ms) in
+        let parse_underline = parse_bool (get_or "parse_underline" (if base.parse_underline then "true" else "false")) base.parse_underline in
+        let export_auto_open = parse_bool (get_or "export_auto_open" (if base.export_auto_open then "true" else "false")) base.export_auto_open in
+        let log_to_file = parse_bool (get_or "log_to_file" (if base.log_to_file then "true" else "false")) base.log_to_file in
+        let log_max_lines = max 50 (parse_int (get_or "log_max_lines" (string_of_int base.log_max_lines)) base.log_max_lines) in
+        let use_cache = parse_bool (get_or "use_cache" (if base.use_cache then "true" else "false")) base.use_cache in
+        {
+          theme;
+          accent = get_or "accent" base.accent;
+          background = get_or "background" base.background;
+          text = get_or "text" base.text;
+          border = get_or "border" base.border;
+          muted = get_or "muted" base.muted;
+          success = get_or "success" base.success;
+          warning = get_or "warning" base.warning;
+          error = get_or "error" base.error;
+          ui_scale;
+          ui_font = get_or "ui_font" base.ui_font;
+          show_whitespace;
+          highlight_line;
+          prover = get_or "prover" base.prover;
+          prover_cmd = get_or "prover_cmd" base.prover_cmd;
+          wp_only = parse_bool (get_or "wp_only" (if base.wp_only then "true" else "false")) base.wp_only;
+          timeout_s;
+          font_size;
+          tab_width;
+          cursor_visible;
+          insert_spaces;
+          undo_limit;
+          auto_parse;
+          parse_delay_ms;
+          parse_underline;
+          export_dir = get_or "export_dir" base.export_dir;
+          export_auto_open;
+          export_name_obcplus = get_or "export_name_obcplus" base.export_name_obcplus;
+          export_name_why3 = get_or "export_name_why3" base.export_name_why3;
+          export_name_theory = get_or "export_name_theory" base.export_name_theory;
+          export_name_smt = get_or "export_name_smt" base.export_name_smt;
+          export_name_png = get_or "export_name_png" base.export_name_png;
+          export_encoding = get_or "export_encoding" base.export_encoding;
+          open_dir = get_or "open_dir" base.open_dir;
+          temp_dir = get_or "temp_dir" base.temp_dir;
+          log_to_file;
+          log_file = get_or "log_file" base.log_file;
+          log_max_lines;
+          log_verbosity = get_or "log_verbosity" base.log_verbosity;
+          use_cache;
+        }
+      with _ ->
+        defaults
+
+  let save_prefs (prefs:prefs) : unit =
+    ensure_dir ();
+    let oc = open_out (config_file ()) in
+    let write k v = output_string oc (k ^ "=" ^ v ^ "\n") in
+    write "theme" prefs.theme;
+    write "accent" prefs.accent;
+    write "background" prefs.background;
+    write "text" prefs.text;
+    write "border" prefs.border;
+    write "muted" prefs.muted;
+    write "success" prefs.success;
+    write "warning" prefs.warning;
+    write "error" prefs.error;
+    write "ui_scale" (string_of_float prefs.ui_scale);
+    write "ui_font" prefs.ui_font;
+    write "show_whitespace" (if prefs.show_whitespace then "true" else "false");
+    write "highlight_line" (if prefs.highlight_line then "true" else "false");
+    write "prover" prefs.prover;
+    write "prover_cmd" prefs.prover_cmd;
+    write "wp_only" (if prefs.wp_only then "true" else "false");
+    write "timeout_s" (string_of_int prefs.timeout_s);
+    write "font_size" (string_of_int prefs.font_size);
+    write "tab_width" (string_of_int prefs.tab_width);
+    write "cursor_visible" (if prefs.cursor_visible then "true" else "false");
+    write "insert_spaces" (if prefs.insert_spaces then "true" else "false");
+    write "undo_limit" (string_of_int prefs.undo_limit);
+    write "auto_parse" (if prefs.auto_parse then "true" else "false");
+    write "parse_delay_ms" (string_of_int prefs.parse_delay_ms);
+    write "parse_underline" (if prefs.parse_underline then "true" else "false");
+    write "export_dir" prefs.export_dir;
+    write "export_auto_open" (if prefs.export_auto_open then "true" else "false");
+    write "export_name_obcplus" prefs.export_name_obcplus;
+    write "export_name_why3" prefs.export_name_why3;
+    write "export_name_theory" prefs.export_name_theory;
+    write "export_name_smt" prefs.export_name_smt;
+    write "export_name_png" prefs.export_name_png;
+    write "export_encoding" prefs.export_encoding;
+    write "open_dir" prefs.open_dir;
+    write "temp_dir" prefs.temp_dir;
+    write "log_to_file" (if prefs.log_to_file then "true" else "false");
+    write "log_file" prefs.log_file;
+    write "log_max_lines" (string_of_int prefs.log_max_lines);
+    write "log_verbosity" prefs.log_verbosity;
+    write "use_cache" (if prefs.use_cache then "true" else "false");
+    close_out oc
+
+  let css_magic = "why3obc-theme-v3"
+  let css_of_prefs (p:prefs) : string =
+    let font_size = max 8 (int_of_float (12.0 *. p.ui_scale)) in
+    let font_family =
+      if String.trim p.ui_font = "" then
+        "\"SF Pro Text\", \"Helvetica Neue\", \"Helvetica\", \"Arial\", sans-serif"
+      else
+        p.ui_font
+    in
+    Printf.sprintf
+      {|
+/* %s */
+.window, window, dialog, .background {
+  font-size: %dpx;
+  font-family: %s;
+  color: %s;
+  background-color: %s;
+}
+* {
+  color: %s;
+}
+menubar, menu, menuitem {
+  background-color: %s;
+  color: %s;
+}
+menuitem:hover, menuitem:selected {
+  background-color: %s;
+}
+menuitem:disabled {
+  color: %s;
+}
+button, entry, combobox, spinbutton {
+  background-color: %s !important;
+  color: %s !important;
+  border: 1px solid %s !important;
+  border-radius: 6px;
+  background-image: none;
+}
+button, .button, button.flat, button.toggle, button.suggested-action, button.destructive-action {
+  background-color: %s !important;
+  color: %s !important;
+  border-color: %s !important;
+  background-image: none;
+}
+button:hover {
+  background-color: %s !important;
+  background-image: none;
+}
+button:active, button:checked, button:focus {
+  background-image: none;
+}
+.actionbar button {
+  background-color: %s !important;
+  color: %s !important;
+  border-color: %s !important;
 }
 .actionbar {
   padding: 4px 6px;
-  background: #f6f6f6;
-  border-bottom: 1px solid #e3e3e3;
+  background-color: %s !important;
+  border-bottom: 1px solid %s !important;
 }
 .actionbar button {
   padding: 2px 8px;
   border-radius: 6px;
-  border: 1px solid #d6d6d6;
-  background: #ffffff;
+  border: 1px solid %s !important;
+  background-color: %s !important;
 }
 .actionbar button:hover {
-  background: #f2f2f2;
+  background-color: %s !important;
 }
 .actionbar button.active {
-  background: #e8effb;
-  border-color: #0a84ff;
-  color: #0a2f6f;
+  background-color: %s !important;
+  border-color: %s !important;
+  color: %s !important;
 }
 .actionbar label.toolbar-label {
-  color: #6b6b6b;
+  color: %s !important;
   font-size: 11px;
 }
 .segmented button {
@@ -58,109 +373,382 @@ let () =
   border-bottom-right-radius: 6px;
 }
 .vsep {
-  background: #dddddd;
+  background: %s;
 }
 .actionbar button.primary {
-  background: #0a84ff;
+  background-color: %s !important;
   color: #ffffff;
-  border-color: #0a84ff;
+  border-color: %s !important;
 }
 .actionbar button.primary:hover {
-  background: #0077f0;
+  background-color: #0077f0;
 }
 .actionbar entry, .actionbar combobox {
   padding: 2px 6px;
   border-radius: 6px;
-  border: 1px solid #d6d6d6;
-  background: #ffffff;
+  border: 1px solid %s !important;
+  background-color: %s !important;
 }
 .main-tabs tab {
   padding: 4px 10px;
-  color: #6b6b6b;
+  color: %s !important;
   border-radius: 8px 8px 0 0;
   font-size: 13px;
+  background-color: %s !important;
 }
 .main-tabs tab:checked {
-  color: #1f1f1f;
-  border-bottom: 2px solid #0a84ff;
+  color: %s !important;
+  background-color: %s !important;
+  border-bottom: 2px solid %s !important;
+}
+.prefs-root {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-root * {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-root box, .prefs-root table, .prefs-root grid,
+.prefs-root viewport, .prefs-root scrolledwindow, .prefs-root frame {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-root notebook > stack,
+.prefs-root notebook > stack > box,
+.prefs-root notebook > stack > grid,
+.prefs-root notebook > stack > viewport,
+.prefs-root notebook > stack > scrolledwindow,
+.prefs-root notebook > stack > frame {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-page {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-page box, .prefs-page table, .prefs-page grid,
+.prefs-page viewport, .prefs-page scrolledwindow, .prefs-page frame {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-root label {
+  color: %s !important;
+}
+.prefs-tabs tab {
+  background-color: %s !important;
+  color: %s !important;
+}
+.prefs-tabs tab:checked {
+  color: %s !important;
+  background-color: %s !important;
+  border-bottom: 2px solid %s !important;
 }
 .status-row {
-  background: #f6f6f6;
-  border-top: 1px solid #e3e3e3;
+  background-color: %s;
+  border-top: 1px solid %s;
+}
+.status-row, .status-row * {
+  background-color: %s;
+}
+.status-row .button, .status-row button {
+  background-color: %s;
+  color: %s;
+  border-color: %s;
+}
+.status-row textview,
+.status-row treeview,
+.status-row viewport,
+.status-row scrolledwindow,
+.status-row frame,
+.status-row notebook {
+  background-color: %s;
+  color: %s;
 }
 .status-tabs tab {
   padding: 3px 8px;
   font-size: 11px;
-  color: #6b6b6b;
+  color: %s;
+  background-color: %s;
 }
 .muted {
-  color: #8a8a8a;
+  color: %s;
   font-size: 11px;
 }
 .cursor-badge {
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
+  background-color: %s;
+  border: 1px solid %s;
   border-radius: 7px;
 }
 .cursor-badge label {
-  color: #5a5a5a;
+  color: %s;
   font-family: "SF Mono", "Menlo", "Monaco", monospace;
   font-size: 11px;
 }
 .parse-badge {
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
+  background-color: %s;
+  border: 1px solid %s;
   border-radius: 7px;
 }
 .parse-badge.ok label {
-  color: #2e7d32;
+  color: %s;
   font-size: 11px;
 }
 .parse-badge.error label {
-  color: #b42318;
+  color: %s;
   font-size: 11px;
 }
 .separator {
-  background: #e3e3e3;
+  background: %s;
 }
 treeview.goals row {
   padding: 2px;
 }
 treeview.goals row:nth-child(even) {
-  background: #fbfbfc;
+  background-color: %s;
 }
 treeview.goals row:selected {
-  background: #e6edf7;
+  background-color: %s;
+}
+.invalid {
+  background-color: %s;
 }
 progressbar.goal-progress {
   min-height: 8px;
 }
 progressbar.goal-progress trough {
-  background: #e5e7eb;
+  background-color: %s;
   border-radius: 4px;
 }
 progressbar.goal-progress progress {
-  background: #22c55e;
+  background-color: %s;
   border-radius: 4px;
 }
 progressbar.goal-progress.ok progress {
-  background: #22c55e;
+  background-color: %s;
 }
 progressbar.goal-progress.pending progress {
-  background: #f59e0b;
+  background-color: %s;
 }
 progressbar.goal-progress.fail progress {
-  background: #ef4444;
+  background-color: %s;
 }
 progressbar.goal-progress.empty progress {
-  background: #9ca3af;
+  background-color: %s;
+}
+textview, treeview, .view, viewport, scrolledwindow, frame, notebook {
+  background-color: %s;
+  color: %s;
+}
+notebook > header {
+  background-color: %s;
+}
+notebook tab {
+  background-color: %s;
+}
+textview, textview text, treeview, treeview view, .view {
+  background-color: %s;
+  color: %s;
+}
+treeview header button {
+  background-color: %s;
+  color: %s;
+  border-color: %s;
+}
+treeview header button label {
+  color: %s;
 }
 |}
-  ;
+      css_magic
+      font_size
+      font_family
+      p.text
+      p.background
+      p.text
+      p.background
+      p.text
+      p.border
+      p.muted
+      p.background
+      p.text
+      p.border
+      p.background
+      p.text
+      p.border
+      p.border
+      p.background
+      p.text
+      p.border
+      p.background
+      p.border
+      p.border
+      p.background
+      p.border
+      p.border
+      p.accent
+      p.text
+      p.muted
+      p.muted
+      p.accent
+      p.accent
+      p.border
+      p.background
+      p.muted
+      p.background
+      p.text
+      p.background
+      p.accent
+      p.background
+      p.text
+      p.background
+      p.text
+      p.background
+      p.text
+      p.background
+      p.text
+      p.background
+      p.text
+      p.background
+      p.text
+      p.text
+      p.background
+      p.muted
+      p.text
+      p.background
+      p.accent
+      p.background
+      p.border
+      p.background
+      p.background
+      p.text
+      p.border
+      p.background
+      p.text
+      p.muted
+      p.border
+      p.muted
+      p.background
+      p.border
+      p.text
+      p.background
+      p.border
+      p.success
+      p.error
+      p.muted
+      p.border
+      p.accent
+      p.error
+      p.border
+      p.accent
+      p.success
+      p.warning
+      p.error
+      p.muted
+      p.background
+      p.text
+      p.background
+      p.border
+      p.background
+      p.text
+      p.border
+      p.text
+      p.border
+      p.text
+
+  let ensure_css_file (prefs:prefs) : unit =
+    ensure_dir ();
+    let path = css_file () in
+    let needs_refresh =
+      if Sys.file_exists path then
+        try
+          let ic = open_in path in
+          let len = in_channel_length ic in
+          let buf = really_input_string ic len in
+          close_in ic;
+          not (String.contains buf css_magic.[0])
+          || (try ignore (Str.search_forward (Str.regexp_string css_magic) buf 0); false
+              with Not_found -> true)
+        with _ -> true
+      else
+        true
+    in
+    if needs_refresh then
+      let oc = open_out path in
+      output_string oc (css_of_prefs prefs);
+      close_out oc
+
+  let load_css () : string option =
+    let path = css_file () in
+    if Sys.file_exists path then
+      try
+        let ic = open_in path in
+        let len = in_channel_length ic in
+        let buf = really_input_string ic len in
+        close_in ic;
+        Some buf
+      with _ -> None
+    else
+      None
+
+  let save_css (css:string) : unit =
+    ensure_dir ();
+    let oc = open_out (css_file ()) in
+    output_string oc css;
+    close_out oc
+end
+
+let make_text_panel ~label ~packing ~editable () =
+  let frame = GBin.frame ~label ~packing () in
+  let scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:frame#add () in
+  let view = GText.view ~packing:scrolled#add () in
+  view#set_editable editable;
+  view#set_cursor_visible editable;
+  (view, view#buffer, frame#coerce)
+
+let create_temp_file ?dir ~prefix ~suffix () =
+  let dir =
+    match dir with
+    | None | Some "" -> Filename.get_temp_dir_name ()
+    | Some d -> d
+  in
+  let rec loop tries =
+    if tries > 100 then
+      Filename.temp_file prefix suffix
+    else
+      let name =
+        Printf.sprintf "%s_%d_%d%s"
+          prefix (Unix.getpid ()) (Random.bits ()) suffix
+      in
+      let path = Filename.concat dir name in
+      if Sys.file_exists path then loop (tries + 1)
+      else
+        try
+          let oc = open_out path in
+          close_out oc;
+          path
+        with _ -> loop (tries + 1)
+  in
+  loop 0
+
+let () =
+  ignore (GMain.init ());
+  Random.self_init ();
+  let prefs = ref (Ide_config.load_prefs ()) in
+  Ide_config.ensure_dir ();
+  Ide_config.ensure_css_file !prefs;
+  let css = GObj.css_provider () in
+  let load_css () =
+    match Ide_config.load_css () with
+    | Some data -> css#load_from_data data
+    | None ->
+        let fallback = Ide_config.css_of_prefs !prefs in
+        css#load_from_data fallback
+  in
+  load_css ();
   GtkData.StyleContext.add_provider_for_screen
     (Gdk.Screen.default ())
     css#as_css_provider
-    GtkData.StyleContext.ProviderPriority.application;
+    GtkData.StyleContext.ProviderPriority.user;
   let base_title = "obcwhy3 IDE (GTK)" in
   let window = GWindow.window ~title:base_title ~width:1200 ~height:800 () in
   window#connect#destroy ~callback:Main.quit |> ignore;
@@ -233,10 +821,757 @@ progressbar.goal-progress.empty progress {
     prover_store#set ~row ~column:prover_col p
   in
   List.iter add_prover ["z3"];
-  prover_box#set_active 0;
+  let prover_name = !prefs.Ide_config.prover in
+  if prover_name <> "" && not (List.mem prover_name ["z3"]) then
+    add_prover prover_name;
+  let set_prover_active name =
+    let rec find idx = function
+      | [] -> 0
+      | x :: xs -> if x = name then idx else find (idx + 1) xs
+    in
+    prover_box#set_active (find 0 ["z3"; prover_name])
+  in
+  set_prover_active prover_name;
   let timeout_label = GMisc.label ~text:"Timeout (s):" ~packing:options_group#pack () in
   timeout_label#misc#style_context#add_class "toolbar-label";
-  let timeout_entry = GEdit.entry ~text:"5" ~width_chars:4 ~packing:options_group#pack () in
+  let timeout_entry =
+    GEdit.entry
+      ~text:(string_of_int !prefs.Ide_config.timeout_s)
+      ~width_chars:4
+      ~packing:options_group#pack ()
+  in
+
+  let apply_prefs_to_editor_ref : (Ide_config.prefs -> unit) ref =
+    ref (fun _ -> ())
+  in
+  let apply_prefs_to_runtime_ref : (Ide_config.prefs -> unit) ref =
+    ref (fun _ -> ())
+  in
+  let set_status_quiet_ref : (string -> unit) ref =
+    ref (fun _ -> ())
+  in
+  let clear_caches_ref : (unit -> unit) ref =
+    ref (fun () -> ())
+  in
+  let apply_prefs_to_ui (p:Ide_config.prefs) =
+    timeout_entry#set_text (string_of_int p.timeout_s);
+    if p.prover <> "" && not (List.mem p.prover ["z3"]) then
+      add_prover p.prover;
+    let rec find idx = function
+      | [] -> 0
+      | x :: xs -> if x = p.prover then idx else find (idx + 1) xs
+    in
+    prover_box#set_active (find 0 ["z3"; p.prover])
+    ; (!apply_prefs_to_editor_ref) p
+    ; (!apply_prefs_to_runtime_ref) p
+  in
+
+  let open_preferences () =
+    let pref_win = GWindow.window ~title:"Preferences" ~width:520 ~height:420 () in
+    pref_win#connect#destroy ~callback:pref_win#destroy |> ignore;
+    pref_win#misc#style_context#add_class "prefs-root";
+    let pref_bg : GDraw.color = `NAME !prefs.Ide_config.background in
+    let pref_fg : GDraw.color = `NAME !prefs.Ide_config.text in
+    let set_pref_bg (w:#GObj.widget) =
+      w#misc#modify_bg [`NORMAL, pref_bg]
+    in
+    let set_pref_fg (w:#GObj.widget) =
+      w#misc#modify_fg [`NORMAL, pref_fg]
+    in
+    set_pref_bg pref_win#coerce;
+    set_pref_fg pref_win#coerce;
+    let vbox = GPack.vbox ~spacing:8 ~border_width:10 ~packing:pref_win#add () in
+    set_pref_bg vbox#coerce;
+    set_pref_fg vbox#coerce;
+    let notebook = GPack.notebook ~packing:vbox#add () in
+    notebook#misc#style_context#add_class "prefs-tabs";
+    set_pref_bg notebook#coerce;
+    set_pref_fg notebook#coerce;
+
+    let add_tab label widget =
+      ignore (notebook#append_page ~tab_label:(GMisc.label ~text:label ())#coerce widget)
+    in
+
+    let add_pref_page_class (w:#GObj.widget) =
+      w#misc#style_context#add_class "prefs-page"
+    in
+    let appearance_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class appearance_box#coerce;
+    set_pref_bg appearance_box#coerce;
+    set_pref_fg appearance_box#coerce;
+    let appearance_grid = GPack.table ~rows:13 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:appearance_box#pack () in
+    set_pref_bg appearance_grid#coerce;
+    set_pref_fg appearance_grid#coerce;
+
+    let add_row row label widget =
+      let l = GMisc.label ~text:label ~xalign:0.0 () in
+      appearance_grid#attach ~left:0 ~top:row l#coerce;
+      appearance_grid#attach ~left:1 ~top:row widget
+    in
+
+    let set_entry_valid_generic entry ok msg =
+      let ctx = entry#misc#style_context in
+      if ok then ctx#remove_class "invalid" else ctx#add_class "invalid";
+      if ok then ignore (entry#misc#set_tooltip_text "")
+      else ignore (entry#misc#set_tooltip_text msg)
+    in
+    let attach_float_entry ~min:min_v ~max:max_v (entry:GEdit.entry) =
+      let parse v = float_of_string_opt (String.trim v) in
+      entry#connect#changed ~callback:(fun () ->
+        match parse entry#text with
+        | None -> set_entry_valid_generic entry false "Invalid number."
+        | Some _ -> set_entry_valid_generic entry true ""
+      ) |> ignore;
+      entry#event#connect#focus_out ~callback:(fun _ ->
+        match parse entry#text with
+        | None ->
+            let () = set_entry_valid_generic entry false "Invalid number." in
+            false
+        | Some v ->
+            let v = Stdlib.max min_v (Stdlib.min max_v v) in
+            entry#set_text (Printf.sprintf "%.2f" v);
+            let () = set_entry_valid_generic entry true "" in
+            false
+      ) |> ignore
+    in
+    let attach_int_entry ~min:min_v (entry:GEdit.entry) =
+      let parse v = int_of_string_opt (String.trim v) in
+      entry#connect#changed ~callback:(fun () ->
+        match parse entry#text with
+        | None -> set_entry_valid_generic entry false "Invalid integer."
+        | Some _ -> set_entry_valid_generic entry true ""
+      ) |> ignore;
+      entry#event#connect#focus_out ~callback:(fun _ ->
+        match parse entry#text with
+        | None ->
+            let () = set_entry_valid_generic entry false "Invalid integer." in
+            false
+        | Some v ->
+            let v = Stdlib.max min_v v in
+            entry#set_text (string_of_int v);
+            let () = set_entry_valid_generic entry true "" in
+            false
+      ) |> ignore
+    in
+
+    let theme_box, (theme_store, theme_col) = GEdit.combo_box_text () in
+    let add_theme t =
+      let row = theme_store#append () in
+      theme_store#set ~row ~column:theme_col t
+    in
+    List.iter add_theme ["light"; "dark"];
+    add_row 0 "Theme" theme_box#coerce;
+
+
+    let ui_scale_entry =
+      GEdit.entry ~text:(Printf.sprintf "%.2f" !prefs.ui_scale) ~width_chars:6 ()
+    in
+    attach_float_entry ~min:0.5 ~max:2.0 ui_scale_entry;
+    add_row 1 "UI scale" ui_scale_entry#coerce;
+    let ui_font_entry = GEdit.entry ~text:!prefs.ui_font ~width_chars:24 () in
+    add_row 2 "UI font" ui_font_entry#coerce;
+    let highlight_line_check =
+      GButton.check_button ~label:"Highlight current line" ()
+    in
+    highlight_line_check#set_active !prefs.highlight_line;
+    appearance_grid#attach ~left:0 ~top:3 ~right:2 highlight_line_check#coerce;
+    let whitespace_check =
+      GButton.check_button ~label:"Show whitespace (background)" ()
+    in
+    whitespace_check#set_active !prefs.show_whitespace;
+    appearance_grid#attach ~left:0 ~top:4 ~right:2 whitespace_check#coerce;
+
+    let mk_entry value =
+      GEdit.entry ~text:value ~width_chars:12 ()
+    in
+    let accent_entry = mk_entry !prefs.accent in
+    let bg_entry = mk_entry !prefs.background in
+    let text_entry = mk_entry !prefs.text in
+    let border_entry = mk_entry !prefs.border in
+    let muted_entry = mk_entry !prefs.muted in
+    let success_entry = mk_entry !prefs.success in
+    let warning_entry = mk_entry !prefs.warning in
+    let error_entry = mk_entry !prefs.error in
+
+    let color_to_hex (c:Gdk.color) =
+      Printf.sprintf "#%02x%02x%02x"
+        (Gdk.Color.red c / 257)
+        (Gdk.Color.green c / 257)
+        (Gdk.Color.blue c / 257)
+    in
+    let set_entry_valid entry ok =
+      let ctx = entry#misc#style_context in
+      if ok then ctx#remove_class "invalid"
+      else ctx#add_class "invalid";
+      if ok then
+        entry#misc#set_tooltip_text ""
+      else
+        entry#misc#set_tooltip_text
+          "Invalid color. Use #RRGGBB, #RRGGBBAA, rgba(255,0,0,0.5), or a named color."
+    in
+    let hex_byte s =
+      try Some (int_of_string ("0x" ^ s)) with _ -> None
+    in
+    let parse_color_string s =
+      let s = String.trim s in
+      if s = "" then None
+      else if String.length s = 7 && s.[0] = '#' then (
+        match hex_byte (String.sub s 1 2),
+              hex_byte (String.sub s 3 2),
+              hex_byte (String.sub s 5 2) with
+        | Some r, Some g, Some b ->
+            let c = Gdk.Color.color_parse s in
+            Some (c, 65535)
+        | _ -> None
+      ) else if String.length s = 9 && s.[0] = '#' then (
+        match hex_byte (String.sub s 1 2),
+              hex_byte (String.sub s 3 2),
+              hex_byte (String.sub s 5 2),
+              hex_byte (String.sub s 7 2) with
+        | Some r, Some g, Some b, Some a ->
+            let c = Gdk.Color.color_parse (Printf.sprintf "#%02x%02x%02x" r g b) in
+            let alpha = a * 257 in
+            Some (c, alpha)
+        | _ -> None
+      ) else if Str.string_match (Str.regexp "rgba([ \t]*\\([0-9.]+\\)[ \t]*,[ \t]*\\([0-9.]+\\)[ \t]*,[ \t]*\\([0-9.]+\\)[ \t]*,[ \t]*\\([0-9.]+\\)[ \t]*)") s 0 then (
+        try
+          let r = float_of_string (Str.matched_group 1 s) in
+          let g = float_of_string (Str.matched_group 2 s) in
+          let b = float_of_string (Str.matched_group 3 s) in
+          let a = float_of_string (Str.matched_group 4 s) in
+          let clamp v = max 0.0 (min 255.0 v) in
+          let rf = clamp r in
+          let gf = clamp g in
+          let bf = clamp b in
+          let alpha =
+            if a <= 1.0 then int_of_float (a *. 255.0) else int_of_float (min 255.0 a)
+          in
+          let c =
+            Gdk.Color.color_parse
+              (Printf.sprintf "#%02x%02x%02x"
+                 (int_of_float rf) (int_of_float gf) (int_of_float bf))
+          in
+          Some (c, alpha * 257)
+        with _ -> None
+      ) else (
+        try
+          let c = Gdk.Color.color_parse s in
+          Some (c, 65535)
+        with _ -> None
+      )
+    in
+    let entry_text_from_btn btn =
+      let c = btn#color in
+      let base = color_to_hex c in
+      if btn#use_alpha then
+        let a = btn#alpha / 257 in
+        if a >= 255 then base
+        else base ^ Printf.sprintf "%02x" a
+      else
+        base
+    in
+    let normalized_hex (c, alpha) =
+      let base = color_to_hex c in
+      if alpha >= 65535 then base
+      else base ^ Printf.sprintf "%02x" (alpha / 257)
+    in
+    let add_color_row row label entry =
+      let box = GPack.hbox ~spacing:6 () in
+      box#pack ~expand:true entry#coerce;
+      let btn = GButton.color_button ~packing:box#pack () in
+      btn#set_title ("Pick " ^ label);
+      btn#set_use_alpha true;
+      let updating = ref false in
+      let refresh_from_entry ?(normalize=false) () =
+        if not !updating then (
+          match parse_color_string entry#text with
+          | None -> set_entry_valid entry false
+          | Some (c, alpha) ->
+              set_entry_valid entry true;
+              btn#set_color c;
+              if btn#use_alpha then btn#set_alpha alpha;
+              if normalize then (
+                let norm = normalized_hex (c, alpha) in
+                if entry#text <> norm then (
+                  updating := true;
+                  entry#set_text norm;
+                  updating := false
+                )
+              )
+        )
+      in
+      refresh_from_entry ~normalize:false ();
+      entry#connect#changed ~callback:(fun () ->
+        refresh_from_entry ~normalize:false ()
+      ) |> ignore;
+      entry#event#connect#focus_out ~callback:(fun _ ->
+        refresh_from_entry ~normalize:true ();
+        false
+      ) |> ignore;
+      btn#connect#color_set ~callback:(fun () ->
+        entry#set_text (entry_text_from_btn btn)
+      ) |> ignore;
+      add_row row label box#coerce;
+      (btn, refresh_from_entry)
+    in
+    let accent_btn, refresh_accent = add_color_row 5 "Accent" accent_entry in
+    let bg_btn, refresh_bg = add_color_row 6 "Background" bg_entry in
+    let text_btn, refresh_text = add_color_row 7 "Text" text_entry in
+    let border_btn, refresh_border = add_color_row 8 "Border" border_entry in
+    let muted_btn, refresh_muted = add_color_row 9 "Muted" muted_entry in
+    let success_btn, refresh_success = add_color_row 10 "Success" success_entry in
+    let warning_btn, refresh_warning = add_color_row 11 "Warning" warning_entry in
+    let error_btn, refresh_error = add_color_row 12 "Error" error_entry in
+
+    let normalize_color_entry label entry =
+      match parse_color_string entry#text with
+      | None ->
+        set_entry_valid entry false;
+          None
+      | Some (c, alpha) ->
+          set_entry_valid entry true;
+          let text = normalized_hex (c, alpha) in
+          entry#set_text text;
+          Some text
+    in
+
+    let theme_defaults theme =
+      let p = Ide_config.default_prefs ~theme () in
+      accent_entry#set_text p.accent;
+      bg_entry#set_text p.background;
+      text_entry#set_text p.text;
+      border_entry#set_text p.border;
+      muted_entry#set_text p.muted;
+      success_entry#set_text p.success;
+      warning_entry#set_text p.warning;
+      error_entry#set_text p.error
+    in
+    let theme_active_text () =
+      match theme_box#active_iter with
+      | None -> None
+      | Some row -> Some (theme_store#get ~row ~column:theme_col)
+    in
+    theme_box#connect#changed ~callback:(fun () ->
+        match theme_active_text () with
+        | None -> ()
+        | Some t -> theme_defaults t) |> ignore;
+    begin match !prefs.theme with
+    | "dark" -> theme_box#set_active 1
+    | _ -> theme_box#set_active 0
+    end;
+
+    add_tab "Appearance" appearance_box#coerce;
+
+    let prover_box_tab = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class prover_box_tab#coerce;
+    set_pref_bg prover_box_tab#coerce;
+    set_pref_fg prover_box_tab#coerce;
+    let prover_grid = GPack.table ~rows:5 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:prover_box_tab#pack () in
+    let prov_label = GMisc.label ~text:"Prover" ~xalign:0.0 () in
+    let prov_entry = GEdit.entry ~text:!prefs.prover () in
+    prover_grid#attach ~left:0 ~top:0 prov_label#coerce;
+    prover_grid#attach ~left:1 ~top:0 prov_entry#coerce;
+    let timeout_label = GMisc.label ~text:"Timeout (s)" ~xalign:0.0 () in
+    let timeout_pref_entry =
+      GEdit.entry ~text:(string_of_int !prefs.timeout_s) () in
+    attach_int_entry ~min:1 timeout_pref_entry;
+    prover_grid#attach ~left:0 ~top:1 timeout_label#coerce;
+    prover_grid#attach ~left:1 ~top:1 timeout_pref_entry#coerce;
+    let cache_check =
+      GButton.check_button ~label:"Use cached pipeline results" ()
+    in
+    cache_check#set_active !prefs.use_cache;
+    prover_grid#attach ~left:0 ~top:2 ~right:2 cache_check#coerce;
+    let prover_cmd_label = GMisc.label ~text:"Prover command override" ~xalign:0.0 () in
+    let prover_cmd_entry = GEdit.entry ~text:!prefs.prover_cmd () in
+    prover_grid#attach ~left:0 ~top:3 prover_cmd_label#coerce;
+    prover_grid#attach ~left:1 ~top:3 prover_cmd_entry#coerce;
+    let wp_only_check = GButton.check_button ~label:"WP-only (no prover)" () in
+    wp_only_check#set_active !prefs.wp_only;
+    prover_grid#attach ~left:0 ~top:4 ~right:2 wp_only_check#coerce;
+    add_tab "Prover" prover_box_tab#coerce;
+
+    let language_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class language_box#coerce;
+    set_pref_bg language_box#coerce;
+    set_pref_fg language_box#coerce;
+    let language_grid = GPack.table ~rows:3 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:language_box#pack () in
+    let auto_parse_check =
+      GButton.check_button ~label:"Auto-parse on edit" ()
+    in
+    auto_parse_check#set_active !prefs.auto_parse;
+    language_grid#attach ~left:0 ~top:0 ~right:2 auto_parse_check#coerce;
+    let parse_delay_entry =
+      GEdit.entry ~text:(string_of_int !prefs.parse_delay_ms) () in
+    attach_int_entry ~min:50 parse_delay_entry;
+    let parse_delay_label = GMisc.label ~text:"Parse delay (ms)" ~xalign:0.0 () in
+    language_grid#attach ~left:0 ~top:1 parse_delay_label#coerce;
+    language_grid#attach ~left:1 ~top:1 parse_delay_entry#coerce;
+    let parse_underline_check =
+      GButton.check_button ~label:"Underline parse errors" ()
+    in
+    parse_underline_check#set_active !prefs.parse_underline;
+    language_grid#attach ~left:0 ~top:2 ~right:2 parse_underline_check#coerce;
+    add_tab "Language" language_box#coerce;
+
+    let editor_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class editor_box#coerce;
+    set_pref_bg editor_box#coerce;
+    set_pref_fg editor_box#coerce;
+    let editor_grid = GPack.table ~rows:5 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:editor_box#pack () in
+    let editor_label row text =
+      let l = GMisc.label ~text ~xalign:0.0 () in
+      editor_grid#attach ~left:0 ~top:row l#coerce
+    in
+    let font_entry = GEdit.entry ~text:(string_of_int !prefs.font_size) () in
+    attach_int_entry ~min:6 font_entry;
+    editor_label 0 "Font size";
+    editor_grid#attach ~left:1 ~top:0 font_entry#coerce;
+    let tab_entry = GEdit.entry ~text:(string_of_int !prefs.tab_width) () in
+    attach_int_entry ~min:1 tab_entry;
+    editor_label 1 "Tab width";
+    editor_grid#attach ~left:1 ~top:1 tab_entry#coerce;
+    let insert_spaces_check =
+      GButton.check_button ~label:"Insert spaces when pressing Tab" ()
+    in
+    insert_spaces_check#set_active !prefs.insert_spaces;
+    editor_grid#attach ~left:0 ~top:2 ~right:2 insert_spaces_check#coerce;
+    let undo_entry = GEdit.entry ~text:(string_of_int !prefs.undo_limit) () in
+    attach_int_entry ~min:1 undo_entry;
+    editor_label 3 "Undo history limit";
+    editor_grid#attach ~left:1 ~top:3 undo_entry#coerce;
+    let cursor_check = GButton.check_button ~label:"Show cursor in editors" () in
+    cursor_check#set_active !prefs.cursor_visible;
+    editor_grid#attach ~left:0 ~top:4 ~right:2 cursor_check#coerce;
+    add_tab "Editor" editor_box#coerce;
+
+    let outputs_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class outputs_box#coerce;
+    set_pref_bg outputs_box#coerce;
+    set_pref_fg outputs_box#coerce;
+    let outputs_grid = GPack.table ~rows:8 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:outputs_box#pack () in
+    let outputs_label row text =
+      let l = GMisc.label ~text ~xalign:0.0 () in
+      outputs_grid#attach ~left:0 ~top:row l#coerce
+    in
+    let export_dir_entry = GEdit.entry ~text:!prefs.export_dir () in
+    outputs_label 0 "Export directory";
+    outputs_grid#attach ~left:1 ~top:0 export_dir_entry#coerce;
+    let export_encoding_entry = GEdit.entry ~text:!prefs.export_encoding () in
+    outputs_label 1 "Export encoding";
+    outputs_grid#attach ~left:1 ~top:1 export_encoding_entry#coerce;
+    let export_auto_open_check =
+      GButton.check_button ~label:"Open export folder after saving" ()
+    in
+    export_auto_open_check#set_active !prefs.export_auto_open;
+    outputs_grid#attach ~left:0 ~top:2 ~right:2 export_auto_open_check#coerce;
+    let export_obcplus_entry = GEdit.entry ~text:!prefs.export_name_obcplus () in
+    outputs_label 3 "Default OBC+ name";
+    outputs_grid#attach ~left:1 ~top:3 export_obcplus_entry#coerce;
+    let export_why_entry = GEdit.entry ~text:!prefs.export_name_why3 () in
+    outputs_label 4 "Default Why3 name";
+    outputs_grid#attach ~left:1 ~top:4 export_why_entry#coerce;
+    let export_theory_entry = GEdit.entry ~text:!prefs.export_name_theory () in
+    outputs_label 5 "Default Theory name";
+    outputs_grid#attach ~left:1 ~top:5 export_theory_entry#coerce;
+    let export_smt_entry = GEdit.entry ~text:!prefs.export_name_smt () in
+    outputs_label 6 "Default SMT name";
+    outputs_grid#attach ~left:1 ~top:6 export_smt_entry#coerce;
+    let export_png_entry = GEdit.entry ~text:!prefs.export_name_png () in
+    outputs_label 7 "Default PNG name";
+    outputs_grid#attach ~left:1 ~top:7 export_png_entry#coerce;
+    add_tab "Outputs" outputs_box#coerce;
+
+    let dirs_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class dirs_box#coerce;
+    set_pref_bg dirs_box#coerce;
+    set_pref_fg dirs_box#coerce;
+    let dirs_grid = GPack.table ~rows:3 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:dirs_box#pack () in
+    let dirs_label row text =
+      let l = GMisc.label ~text ~xalign:0.0 () in
+      dirs_grid#attach ~left:0 ~top:row l#coerce
+    in
+    let open_dir_entry = GEdit.entry ~text:!prefs.open_dir () in
+    dirs_label 0 "Default open directory";
+    dirs_grid#attach ~left:1 ~top:0 open_dir_entry#coerce;
+    let temp_dir_entry = GEdit.entry ~text:!prefs.temp_dir () in
+    dirs_label 1 "Temporary files directory";
+    dirs_grid#attach ~left:1 ~top:1 temp_dir_entry#coerce;
+    let clear_cache_btn =
+      GButton.button ~label:"Clear cached passes" ()
+    in
+    dirs_grid#attach ~left:0 ~top:2 ~right:2 clear_cache_btn#coerce;
+    add_tab "Directories" dirs_box#coerce;
+
+    let diag_box = GPack.vbox ~spacing:8 ~border_width:8 () in
+    add_pref_page_class diag_box#coerce;
+    set_pref_bg diag_box#coerce;
+    set_pref_fg diag_box#coerce;
+    let diag_grid = GPack.table ~rows:4 ~columns:2 ~row_spacings:6 ~col_spacings:10
+        ~packing:diag_box#pack () in
+    let diag_label row text =
+      let l = GMisc.label ~text ~xalign:0.0 () in
+      diag_grid#attach ~left:0 ~top:row l#coerce
+    in
+    let log_to_file_check =
+      GButton.check_button ~label:"Write logs to file" ()
+    in
+    log_to_file_check#set_active !prefs.log_to_file;
+    diag_grid#attach ~left:0 ~top:0 ~right:2 log_to_file_check#coerce;
+    let log_file_entry = GEdit.entry ~text:!prefs.log_file () in
+    diag_label 1 "Log file";
+    diag_grid#attach ~left:1 ~top:1 log_file_entry#coerce;
+    let log_limit_entry = GEdit.entry ~text:(string_of_int !prefs.log_max_lines) () in
+    attach_int_entry ~min:50 log_limit_entry;
+    diag_label 2 "Log max lines";
+    diag_grid#attach ~left:1 ~top:2 log_limit_entry#coerce;
+    let log_level_box, (log_store, log_col) = GEdit.combo_box_text () in
+    let add_log_level v =
+      let row = log_store#append () in
+      log_store#set ~row ~column:log_col v
+    in
+    List.iter add_log_level ["error"; "warn"; "info"; "debug"];
+    let set_log_level_active level =
+      let rec find_level idx = function
+        | [] -> 0
+        | x :: xs -> if x = level then idx else find_level (idx + 1) xs
+      in
+      log_level_box#set_active (find_level 0 ["error"; "warn"; "info"; "debug"])
+    in
+    set_log_level_active !prefs.log_verbosity;
+    diag_label 3 "Log verbosity";
+    diag_grid#attach ~left:1 ~top:3 log_level_box#coerce;
+    add_tab "Diagnostics" diag_box#coerce;
+
+    let css_box = GPack.vbox ~spacing:6 ~border_width:8 () in
+    add_pref_page_class css_box#coerce;
+    set_pref_bg css_box#coerce;
+    set_pref_fg css_box#coerce;
+    let css_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC
+        ~packing:css_box#add () in
+    let css_view = GText.view ~packing:css_scrolled#add () in
+    let css_buf = css_view#buffer in
+    begin match Ide_config.load_css () with
+    | Some css_text -> css_buf#set_text css_text
+    | None -> css_buf#set_text (Ide_config.css_of_prefs !prefs)
+    end;
+    let css_buttons = GPack.hbox ~spacing:8 ~packing:css_box#pack () in
+    let save_css_btn = GButton.button ~label:"Save CSS" ~packing:css_buttons#pack () in
+    let reload_css_btn = GButton.button ~label:"Reload CSS" ~packing:css_buttons#pack () in
+    save_css_btn#connect#clicked ~callback:(fun () ->
+        let text = css_buf#get_text () in
+        Ide_config.save_css text;
+        load_css ()) |> ignore;
+    reload_css_btn#connect#clicked ~callback:(fun () ->
+        match Ide_config.load_css () with
+        | Some text -> css_buf#set_text text; load_css ()
+        | None -> ()) |> ignore;
+    add_tab "CSS" css_box#coerce;
+
+    let actions = GPack.hbox ~spacing:8 ~packing:vbox#pack () in
+    let open_dir_btn =
+      GButton.button ~label:"Open Config Folder" ~packing:actions#pack ()
+    in
+    let reset_btn =
+      GButton.button ~label:"Reset Defaults" ~packing:actions#pack ()
+    in
+    let save_btn = GButton.button ~label:"Save" ~packing:actions#pack () in
+    let cancel_btn = GButton.button ~label:"Close" ~packing:actions#pack () in
+    open_dir_btn#connect#clicked ~callback:(fun () ->
+        let dir = Ide_config.config_dir () in
+        let cmd =
+          if Sys.file_exists "/usr/bin/open" then Printf.sprintf "open %s" dir
+          else Printf.sprintf "xdg-open %s" dir
+        in
+        ignore (Sys.command cmd)
+      ) |> ignore;
+    clear_cache_btn#connect#clicked ~callback:(fun () ->
+        (!clear_caches_ref) ()
+      ) |> ignore;
+    reset_btn#connect#clicked ~callback:(fun () ->
+        let defaults = Ide_config.default_prefs () in
+        theme_box#set_active (if defaults.theme = "dark" then 1 else 0);
+        ui_scale_entry#set_text (Printf.sprintf "%.2f" defaults.ui_scale);
+        ui_font_entry#set_text defaults.ui_font;
+        highlight_line_check#set_active defaults.highlight_line;
+        whitespace_check#set_active defaults.show_whitespace;
+        accent_entry#set_text defaults.accent;
+        bg_entry#set_text defaults.background;
+        text_entry#set_text defaults.text;
+        border_entry#set_text defaults.border;
+        muted_entry#set_text defaults.muted;
+        success_entry#set_text defaults.success;
+        warning_entry#set_text defaults.warning;
+        error_entry#set_text defaults.error;
+        refresh_accent ~normalize:false ();
+        refresh_bg ~normalize:false ();
+        refresh_text ~normalize:false ();
+        refresh_border ~normalize:false ();
+        refresh_muted ~normalize:false ();
+        refresh_success ~normalize:false ();
+        refresh_warning ~normalize:false ();
+        refresh_error ~normalize:false ();
+        prov_entry#set_text defaults.prover;
+        prover_cmd_entry#set_text defaults.prover_cmd;
+        wp_only_check#set_active defaults.wp_only;
+        timeout_pref_entry#set_text (string_of_int defaults.timeout_s);
+        cache_check#set_active defaults.use_cache;
+        auto_parse_check#set_active defaults.auto_parse;
+        parse_delay_entry#set_text (string_of_int defaults.parse_delay_ms);
+        parse_underline_check#set_active defaults.parse_underline;
+        font_entry#set_text (string_of_int defaults.font_size);
+        tab_entry#set_text (string_of_int defaults.tab_width);
+        insert_spaces_check#set_active defaults.insert_spaces;
+        undo_entry#set_text (string_of_int defaults.undo_limit);
+        cursor_check#set_active defaults.cursor_visible;
+        export_dir_entry#set_text defaults.export_dir;
+        export_encoding_entry#set_text defaults.export_encoding;
+        export_auto_open_check#set_active defaults.export_auto_open;
+        export_obcplus_entry#set_text defaults.export_name_obcplus;
+        export_why_entry#set_text defaults.export_name_why3;
+        export_theory_entry#set_text defaults.export_name_theory;
+        export_smt_entry#set_text defaults.export_name_smt;
+        export_png_entry#set_text defaults.export_name_png;
+        open_dir_entry#set_text defaults.open_dir;
+        temp_dir_entry#set_text defaults.temp_dir;
+        log_to_file_check#set_active defaults.log_to_file;
+        log_file_entry#set_text defaults.log_file;
+        log_limit_entry#set_text (string_of_int defaults.log_max_lines);
+        set_log_level_active defaults.log_verbosity
+      ) |> ignore;
+    save_btn#connect#clicked ~callback:(fun () ->
+        let validate_colors () =
+          let all =
+            [ ("Accent", accent_entry)
+            ; ("Background", bg_entry)
+            ; ("Text", text_entry)
+            ; ("Border", border_entry)
+            ; ("Muted", muted_entry)
+            ; ("Success", success_entry)
+            ; ("Warning", warning_entry)
+            ; ("Error", error_entry)
+            ]
+          in
+          let rec loop = function
+            | [] -> Ok ()
+            | (label, entry) :: rest ->
+                begin match normalize_color_entry label entry with
+                | None -> Error label
+                | Some _ -> loop rest
+                end
+          in
+          loop all
+        in
+        begin match validate_colors () with
+        | Error label ->
+            (!set_status_quiet_ref) ("Invalid color: " ^ label);
+            ()
+        | Ok () ->
+        let theme =
+          match theme_active_text () with Some t -> t | None -> "light"
+        in
+        let ui_scale =
+          match float_of_string_opt (ui_scale_entry#text) with
+          | Some v -> max 0.5 (min 2.0 v)
+          | None -> !prefs.ui_scale
+        in
+        let timeout_s =
+          match int_of_string_opt (timeout_pref_entry#text) with
+          | Some v -> v
+          | None -> !prefs.timeout_s
+        in
+        let font_size =
+          match int_of_string_opt (font_entry#text) with
+          | Some v -> v
+          | None -> !prefs.font_size
+        in
+        let tab_width =
+          match int_of_string_opt (tab_entry#text) with
+          | Some v -> max 1 v
+          | None -> !prefs.tab_width
+        in
+        let undo_limit =
+          match int_of_string_opt (undo_entry#text) with
+          | Some v -> max 1 v
+          | None -> !prefs.undo_limit
+        in
+        let parse_delay_ms =
+          match int_of_string_opt (parse_delay_entry#text) with
+          | Some v -> max 50 v
+          | None -> !prefs.parse_delay_ms
+        in
+        let log_max_lines =
+          match int_of_string_opt (log_limit_entry#text) with
+          | Some v -> max 50 v
+          | None -> !prefs.log_max_lines
+        in
+        let log_level =
+          match log_level_box#active_iter with
+          | None -> !prefs.log_verbosity
+          | Some row -> log_store#get ~row ~column:log_col
+        in
+        let new_prefs =
+          {
+            Ide_config.theme = theme;
+            accent = accent_entry#text;
+            background = bg_entry#text;
+            text = text_entry#text;
+            border = border_entry#text;
+            muted = muted_entry#text;
+            success = success_entry#text;
+            warning = warning_entry#text;
+            error = error_entry#text;
+            ui_scale;
+            ui_font = ui_font_entry#text;
+            show_whitespace = whitespace_check#active;
+            highlight_line = highlight_line_check#active;
+            prover = prov_entry#text;
+            prover_cmd = prover_cmd_entry#text;
+            wp_only = wp_only_check#active;
+            timeout_s;
+            font_size;
+            tab_width;
+            cursor_visible = cursor_check#active;
+            insert_spaces = insert_spaces_check#active;
+            undo_limit;
+            auto_parse = auto_parse_check#active;
+            parse_delay_ms;
+            parse_underline = parse_underline_check#active;
+            export_dir = export_dir_entry#text;
+            export_auto_open = export_auto_open_check#active;
+            export_name_obcplus = export_obcplus_entry#text;
+            export_name_why3 = export_why_entry#text;
+            export_name_theory = export_theory_entry#text;
+            export_name_smt = export_smt_entry#text;
+            export_name_png = export_png_entry#text;
+            export_encoding = export_encoding_entry#text;
+            open_dir = open_dir_entry#text;
+            temp_dir = temp_dir_entry#text;
+            log_to_file = log_to_file_check#active;
+            log_file = log_file_entry#text;
+            log_max_lines;
+            log_verbosity = log_level;
+            use_cache = cache_check#active;
+          }
+        in
+        prefs := new_prefs;
+        Ide_config.save_prefs new_prefs;
+        Ide_config.save_css (Ide_config.css_of_prefs new_prefs);
+        load_css ();
+        apply_prefs_to_ui new_prefs;
+        (!set_status_quiet_ref) "Preferences saved"
+        end
+      ) |> ignore;
+    cancel_btn#connect#clicked ~callback:pref_win#destroy |> ignore;
+
+    pref_win#show ()
+  in
 
   let toolbar_sep = GMisc.separator `HORIZONTAL ~packing:vbox#pack () in
   toolbar_sep#misc#style_context#add_class "separator";
@@ -507,27 +1842,33 @@ progressbar.goal-progress.empty progress {
   ) |> ignore;
   let obc_keyword_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#78a9ff" else "#0a84ff");
+        `WEIGHT `BOLD ]
   in
   let obc_comment_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#8b949e" else "#6b7280");
+        `STYLE `ITALIC ]
   in
   let obc_number_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#f2cc60" else "#d97706");
+        `WEIGHT `BOLD ]
   in
   let obc_type_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#7ee787" else "#16a34a");
+        `WEIGHT `BOLD ]
   in
   let obc_state_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#7c3aed"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#c297ff" else "#7c3aed");
+        `WEIGHT `BOLD ]
   in
   let obc_error_line_tag =
     obc_buf#create_tag
-      [ `PARAGRAPH_BACKGROUND "#ffe4e6" ]
+      [ `PARAGRAPH_BACKGROUND
+          (if !prefs.Ide_config.theme = "dark" then "#3b1d1d" else "#ffe4e6") ]
   in
   let obc_error_bar_tag =
     obc_buf#create_tag
@@ -535,10 +1876,22 @@ progressbar.goal-progress.empty progress {
   in
   let obc_error_tag =
     obc_buf#create_tag
-      [ `FOREGROUND "#b42318"; `UNDERLINE `SINGLE ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#ffb4b4" else "#b42318");
+        `UNDERLINE `SINGLE ]
+  in
+  let obc_whitespace_tag =
+    obc_buf#create_tag
+      [ `BACKGROUND (if !prefs.Ide_config.theme = "dark" then "#2a2a2a" else "#eef2ff") ]
+  in
+  let obc_line_tag =
+    obc_buf#create_tag
+      [ `BACKGROUND (if !prefs.Ide_config.theme = "dark" then "#262628" else "#f1f5f9") ]
   in
   let goal_highlight_props =
-    [ `BACKGROUND "#dbe8ff"; `FOREGROUND "#1f4db3"; `UNDERLINE `SINGLE; `WEIGHT `BOLD ]
+    if !prefs.Ide_config.theme = "dark" then
+      [ `BACKGROUND "#24324a"; `FOREGROUND "#dbe8ff"; `UNDERLINE `SINGLE; `WEIGHT `BOLD ]
+    else
+      [ `BACKGROUND "#dbe8ff"; `FOREGROUND "#1f4db3"; `UNDERLINE `SINGLE; `WEIGHT `BOLD ]
   in
   let obc_goal_tag = obc_buf#create_tag goal_highlight_props in
   let clear_obc_error () =
@@ -573,6 +1926,8 @@ progressbar.goal-progress.empty progress {
     match parse_error_location msg with
     | None -> ()
     | Some (line, col) ->
+        if not !prefs.Ide_config.parse_underline then ()
+        else
         let line_idx = max 0 (line - 1) in
         let col_idx = max 0 (col - 1) in
         let start_iter = obc_buf#get_iter_at_char ~line:line_idx col_idx in
@@ -618,23 +1973,31 @@ progressbar.goal-progress.empty progress {
   in
   let obcplus_keyword_tag =
     obcplus_buf#create_tag
-      [ `FOREGROUND "steelblue4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#78a9ff" else "steelblue4");
+        `WEIGHT `BOLD ]
   in
   let obcplus_comment_tag =
     obcplus_buf#create_tag
-      [ `FOREGROUND "gray40"; `STYLE `ITALIC ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#8b949e" else "gray40");
+        `STYLE `ITALIC ]
   in
   let obcplus_number_tag =
     obcplus_buf#create_tag
-      [ `FOREGROUND "darkorange4" ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#f2cc60" else "darkorange4") ]
   in
   let obcplus_type_tag =
     obcplus_buf#create_tag
-      [ `FOREGROUND "darkgreen"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#7ee787" else "darkgreen");
+        `WEIGHT `BOLD ]
   in
   let obcplus_state_tag =
     obcplus_buf#create_tag
-      [ `FOREGROUND "purple4"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#c297ff" else "purple4");
+        `WEIGHT `BOLD ]
+  in
+  let obcplus_whitespace_tag =
+    obcplus_buf#create_tag
+      [ `BACKGROUND (if !prefs.Ide_config.theme = "dark" then "#2a2a2a" else "#eef2ff") ]
   in
   let obcplus_goal_tag = obcplus_buf#create_tag goal_highlight_props in
   let why_tab = GMisc.label ~text:"Why3" () in
@@ -648,19 +2011,27 @@ progressbar.goal-progress.empty progress {
   in
   let why_keyword_tag =
     why_buf#create_tag
-      [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#78a9ff" else "#0a84ff");
+        `WEIGHT `BOLD ]
   in
   let why_comment_tag =
     why_buf#create_tag
-      [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#8b949e" else "#6b7280");
+        `STYLE `ITALIC ]
   in
   let why_number_tag =
     why_buf#create_tag
-      [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#f2cc60" else "#d97706");
+        `WEIGHT `BOLD ]
   in
   let why_type_tag =
     why_buf#create_tag
-      [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
+      [ `FOREGROUND (if !prefs.Ide_config.theme = "dark" then "#7ee787" else "#16a34a");
+        `WEIGHT `BOLD ]
+  in
+  let why_whitespace_tag =
+    why_buf#create_tag
+      [ `BACKGROUND (if !prefs.Ide_config.theme = "dark" then "#2a2a2a" else "#eef2ff") ]
   in
   let why_goal_tag = why_buf#create_tag goal_highlight_props in
   let task_tab = GMisc.label ~text:"Task" () in
@@ -839,12 +2210,42 @@ progressbar.goal-progress.empty progress {
   let content_version = ref 0 in
   let touch_content () = content_version := !content_version + 1 in
   let last_action : (unit -> unit) option ref = ref None in
-  let append_history msg =
+  let log_level_rank = function
+    | "error" -> 0
+    | "warn" -> 1
+    | "debug" -> 3
+    | _ -> 2
+  in
+  let log_enabled level =
+    log_level_rank level <= log_level_rank !prefs.Ide_config.log_verbosity
+  in
+  let append_history ?(level="info") msg =
+    if not (log_enabled level) then ()
+    else
     match !history_buf_ref with
     | None -> ()
     | Some buf ->
         let iter = buf#end_iter in
-        buf#insert ~iter (msg ^ "\n")
+        buf#insert ~iter (msg ^ "\n");
+        let max_lines = !prefs.Ide_config.log_max_lines in
+        if max_lines > 0 then (
+          let lines = buf#line_count in
+          if lines > max_lines then (
+            let cut = lines - max_lines in
+            let stop_iter =
+              try buf#get_iter_at_char ~line:cut 0 with _ -> buf#start_iter
+            in
+            buf#delete ~start:buf#start_iter ~stop:stop_iter
+          )
+        );
+        if !prefs.Ide_config.log_to_file then (
+          try
+            Ide_config.ensure_dir ();
+            let oc = open_out_gen [Open_creat; Open_text; Open_append] 0o644 !prefs.Ide_config.log_file in
+            output_string oc (msg ^ "\n");
+            close_out oc
+          with _ -> ()
+        )
   in
   let status_base = ref "" in
   let status_meta = ref "" in
@@ -857,12 +2258,13 @@ progressbar.goal-progress.empty progress {
   let set_status msg =
     status_base := msg;
     status#set_text (render_status ());
-    append_history msg
+    append_history ~level:"info" msg
   in
   let set_status_quiet msg =
     status_base := msg;
     status#set_text (render_status ())
   in
+  set_status_quiet_ref := set_status_quiet;
   let update_status_meta_summary (meta:(string * (string * string) list) list) =
     let find_stage name =
       List.find_opt (fun (stage, _) -> stage = name) meta
@@ -937,12 +2339,37 @@ progressbar.goal-progress.empty progress {
     cursor_label#set_text
       (Printf.sprintf "Ln %d, Col %d" line col)
   in
+  let update_current_line_highlight () =
+    obc_buf#remove_tag
+      obc_line_tag
+      ~start:obc_buf#start_iter
+      ~stop:obc_buf#end_iter;
+    if !prefs.Ide_config.highlight_line then (
+      let iter =
+        try obc_buf#get_iter_at_char obc_buf#cursor_position
+        with _ -> obc_buf#start_iter
+      in
+      let line_start = obc_buf#get_iter_at_char ~line:iter#line 0 in
+      let line_end = line_start#forward_to_line_end in
+      obc_buf#apply_tag obc_line_tag ~start:line_start ~stop:line_end
+    )
+  in
   let set_status_cached msg = set_status (msg ^ " (cached)") in
   let undo_stack : string list ref = ref [] in
   let redo_stack : string list ref = ref [] in
+  let trim_history limit lst =
+    let rec take n acc = function
+      | [] -> List.rev acc
+      | _ when n <= 0 -> List.rev acc
+      | x :: xs -> take (n - 1) (x :: acc) xs
+    in
+    take limit [] lst
+  in
   let last_snapshot = ref "" in
   let saved_snapshot = ref "" in
-  let font_size = ref 12 in
+  let font_size = ref !prefs.Ide_config.font_size in
+  let tab_width = ref !prefs.Ide_config.tab_width in
+  let cursor_visible = ref !prefs.Ide_config.cursor_visible in
   let text_views =
     [ obc_view; obcplus_view; why_view; dot_view ]
   in
@@ -974,7 +2401,11 @@ progressbar.goal-progress.empty progress {
       set_status_quiet "Empty buffer"
     ) else if !last_parsed_version = !content_version then ()
     else (
-      let tmp = Filename.temp_file "obcwhy3_parse_" ".obc" in
+      let tmp =
+        create_temp_file
+          ?dir:(if !prefs.Ide_config.temp_dir = "" then None else Some !prefs.Ide_config.temp_dir)
+          ~prefix:"obcwhy3_parse" ~suffix:".obc" ()
+      in
       let ok =
         try
           let oc = open_out tmp in
@@ -1011,12 +2442,14 @@ progressbar.goal-progress.empty progress {
     )
   in
   let schedule_parse () =
+    if not !prefs.Ide_config.auto_parse then ()
+    else
     begin match !parse_timer_id with
     | Some id -> ignore (GMain.Timeout.remove id)
     | None -> ()
     end;
     let id =
-      GMain.Timeout.add ~ms:250 ~callback:(fun () ->
+      GMain.Timeout.add ~ms:!prefs.Ide_config.parse_delay_ms ~callback:(fun () ->
         parse_timer_id := None;
         parse_current_text ();
         false)
@@ -1050,11 +2483,33 @@ progressbar.goal-progress.empty progress {
     let spec = Printf.sprintf "Monospace %d" !font_size in
     List.iter (fun view -> view#misc#modify_font_by_name spec) text_views
   in
+  let apply_cursor_visible () =
+    List.iter (fun view -> view#set_cursor_visible !cursor_visible) text_views
+  in
+  let apply_tab_width () = () in
   let set_font_size size =
     font_size := max 8 (min 32 size);
     apply_font_size ()
   in
+  let persist_editor_prefs () =
+    prefs :=
+      { !prefs with
+        Ide_config.font_size = !font_size;
+        tab_width = !tab_width;
+        cursor_visible = !cursor_visible; };
+    Ide_config.save_prefs !prefs;
+    (!set_status_quiet_ref) "Editor preferences saved"
+  in
   apply_font_size ();
+  apply_cursor_visible ();
+  apply_prefs_to_editor_ref :=
+    (fun p ->
+       font_size := p.Ide_config.font_size;
+       tab_width := max 1 p.Ide_config.tab_width;
+       cursor_visible := p.Ide_config.cursor_visible;
+       apply_font_size ();
+       apply_cursor_visible ();
+       apply_tab_width ());
 
   List.iter
     (fun (page, tab) -> set_tab_sensitive page tab false)
@@ -1067,7 +2522,7 @@ progressbar.goal-progress.empty progress {
       clear_obc_error ();
       let current = get_obc_text () in
       if current <> !last_snapshot then (
-        undo_stack := !last_snapshot :: !undo_stack;
+        undo_stack := trim_history !prefs.Ide_config.undo_limit (!last_snapshot :: !undo_stack);
         redo_stack := [];
         last_snapshot := current
       );
@@ -1079,13 +2534,31 @@ progressbar.goal-progress.empty progress {
       schedule_highlight ()
     )
   ) |> ignore;
-  obc_buf#connect#mark_set ~callback:(fun _ _ -> update_cursor_label ()) |> ignore;
+  obc_buf#connect#mark_set ~callback:(fun _ _ ->
+    update_cursor_label ();
+    update_current_line_highlight ()
+  ) |> ignore;
+  obc_view#event#connect#key_press ~callback:(fun ev ->
+      if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then (
+        let iter =
+          try obc_buf#get_iter_at_char obc_buf#cursor_position
+          with _ -> obc_buf#end_iter
+        in
+        if !prefs.Ide_config.insert_spaces then
+          obc_buf#insert ~iter (String.make !tab_width ' ')
+        else
+          obc_buf#insert ~iter "\t";
+        true
+      ) else
+        false
+    ) |> ignore;
 
   let view_increase_item =
     GMenu.menu_item ~label:"Increase Font Size" ~packing:view_menu#append ()
   in
   view_increase_item#connect#activate ~callback:(fun () ->
     set_font_size (!font_size + 1)
+    ; persist_editor_prefs ()
   ) |> ignore;
   view_increase_item#add_accelerator
     ~group:accel_group
@@ -1103,6 +2576,7 @@ progressbar.goal-progress.empty progress {
   in
   view_decrease_item#connect#activate ~callback:(fun () ->
     set_font_size (!font_size - 1)
+    ; persist_editor_prefs ()
   ) |> ignore;
   view_decrease_item#add_accelerator
     ~group:accel_group
@@ -1119,7 +2593,8 @@ progressbar.goal-progress.empty progress {
     GMenu.menu_item ~label:"Reset Font Size" ~packing:view_menu#append ()
   in
   view_reset_item#connect#activate ~callback:(fun () ->
-    set_font_size 12
+    set_font_size !prefs.Ide_config.font_size
+    ; persist_editor_prefs ()
   ) |> ignore;
   view_reset_item#add_accelerator
     ~group:accel_group
@@ -1293,6 +2768,13 @@ progressbar.goal-progress.empty progress {
         apply_goal_highlights ~goal ~source ~index
   in
 
+  let whitespace_re = Str.regexp "[ \t]+" in
+  let apply_whitespace buf text tag =
+    buf#remove_tag tag ~start:buf#start_iter ~stop:buf#end_iter;
+    if !prefs.Ide_config.show_whitespace then
+      Ide_text_utils.apply_regex_to_buf buf text tag whitespace_re
+  in
+
   let highlight_obc_buf = Ide_highlight.highlight_obc_buf in
 
   let highlight_obc text =
@@ -1326,6 +2808,8 @@ progressbar.goal-progress.empty progress {
         ~comment_tag:obc_comment_tag
         ~state_tag:obc_state_tag
         slice
+    ;
+    apply_whitespace buf text obc_whitespace_tag
   in
   highlight_obc_ref := highlight_obc;
 
@@ -1338,6 +2822,8 @@ progressbar.goal-progress.empty progress {
       ~comment_tag:obcplus_comment_tag
       ~state_tag:obcplus_state_tag
       text
+    ;
+    apply_whitespace obcplus_buf text obcplus_whitespace_tag
   in
 
   let highlight_why_buf_impl = Ide_highlight.highlight_why_buf_impl in
@@ -1348,7 +2834,29 @@ progressbar.goal-progress.empty progress {
       ~comment_tag:why_comment_tag
       ~number_tag:why_number_tag
       ~type_tag:why_type_tag
+    ;
+    apply_whitespace why_buf text why_whitespace_tag
   in
+  apply_prefs_to_runtime_ref :=
+    (fun p ->
+       if not p.Ide_config.parse_underline then clear_obc_error ();
+       if not p.Ide_config.auto_parse then (
+         set_parse_badge ~ok:true ~text:"Parse: manual"
+       ) else (
+         schedule_parse ()
+       );
+       schedule_highlight ();
+       let obcplus_text =
+         obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()
+       in
+       if obcplus_text <> "" then highlight_obcplus obcplus_text;
+       let why_text =
+         why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ()
+       in
+       if why_text <> "" then highlight_why_buf why_text;
+       update_current_line_highlight ()
+    );
+  (!apply_prefs_to_runtime_ref) !prefs;
 
   let load_file file =
     current_file := Some file;
@@ -1373,6 +2881,7 @@ progressbar.goal-progress.empty progress {
         touch_content ();
         update_dirty_indicator ();
         update_cursor_label ();
+        update_current_line_highlight ();
         apply_current_goal_highlight ();
         schedule_parse ()
       with _ ->
@@ -1489,7 +2998,7 @@ progressbar.goal-progress.empty progress {
     | prev :: rest ->
         let current = get_obc_text () in
         undo_stack := rest;
-        redo_stack := current :: !redo_stack;
+        redo_stack := trim_history !prefs.Ide_config.undo_limit (current :: !redo_stack);
         suppress_dirty := true;
         obc_buf#set_text prev;
         suppress_dirty := false;
@@ -1503,7 +3012,7 @@ progressbar.goal-progress.empty progress {
     | next :: rest ->
         let current = get_obc_text () in
         redo_stack := rest;
-        undo_stack := current :: !undo_stack;
+        undo_stack := trim_history !prefs.Ide_config.undo_limit (current :: !undo_stack);
         suppress_dirty := true;
         obc_buf#set_text next;
         suppress_dirty := false;
@@ -1520,6 +3029,13 @@ progressbar.goal-progress.empty progress {
         ~parent:window
         ()
     in
+    let initial_dir =
+      match !current_file with
+      | Some path -> Filename.dirname path
+      | None when !prefs.Ide_config.open_dir <> "" -> !prefs.Ide_config.open_dir
+      | None -> Ide_config.home_dir ()
+    in
+    ignore (dialog#set_current_folder initial_dir);
     dialog#add_button "Save" `SAVE;
     dialog#add_button "Cancel" `CANCEL;
     let selected =
@@ -1530,6 +3046,43 @@ progressbar.goal-progress.empty progress {
     in
     dialog#destroy ();
     selected
+  in
+
+  let base_name_of path =
+    let base = Filename.basename path in
+    match String.rindex_opt base '.' with
+    | None -> base
+    | Some idx when idx > 0 -> String.sub base 0 idx
+    | _ -> base
+  in
+  let expand_export_name template =
+    let base =
+      match !current_file with
+      | Some path -> base_name_of path
+      | None -> "output"
+    in
+    Str.global_replace (Str.regexp_string "{base}") base template
+  in
+
+  let update_open_dir path =
+    let dir = Filename.dirname path in
+    prefs := { !prefs with Ide_config.open_dir = dir };
+    Ide_config.save_prefs !prefs
+  in
+  let update_export_dir path =
+    let dir = Filename.dirname path in
+    prefs := { !prefs with Ide_config.export_dir = dir };
+    Ide_config.save_prefs !prefs
+  in
+  let maybe_open_folder path =
+    if !prefs.Ide_config.export_auto_open then (
+      let dir = Filename.dirname path in
+      let cmd =
+        if Sys.file_exists "/usr/bin/open" then Printf.sprintf "open %s" (Filename.quote dir)
+        else Printf.sprintf "xdg-open %s" (Filename.quote dir)
+      in
+      ignore (Sys.command cmd)
+    )
   in
 
   let save_current_file () =
@@ -1548,6 +3101,7 @@ progressbar.goal-progress.empty progress {
             output_string oc text;
             close_out oc;
             current_file := Some path;
+            update_open_dir path;
             set_status ("Saved: " ^ path);
             add_history ("Saved file: " ^ path);
             set_tab_sensitive obc_page obc_tab true;
@@ -1561,7 +3115,92 @@ progressbar.goal-progress.empty progress {
         end
   in
 
-  let export_text ~title ~text =
+  let normalize_encoding enc =
+    match String.lowercase_ascii (String.trim enc) with
+    | "utf-8" | "utf8" -> Some "utf-8"
+    | "latin1" | "latin-1" | "iso-8859-1" | "iso8859-1" -> Some "latin1"
+    | "ascii" -> Some "ascii"
+    | _ -> None
+  in
+  let convert_text ~encoding text =
+    match normalize_encoding encoding with
+    | None -> Error ("Unsupported encoding: " ^ encoding)
+    | Some "utf-8" -> Ok (text, false)
+    | Some target ->
+        let len = String.length text in
+        let buf = Buffer.create len in
+        let i = ref 0 in
+        let lossy = ref false in
+        let add_codepoint cp =
+          let out =
+            match target with
+            | "ascii" ->
+                if cp <= 0x7F then cp else (lossy := true; Char.code '?')
+            | _ ->
+                if cp <= 0xFF then cp else (lossy := true; Char.code '?')
+          in
+          Buffer.add_char buf (Char.chr out)
+        in
+        while !i < len do
+          let b0 = Char.code text.[!i] in
+          if b0 < 0x80 then (
+            add_codepoint b0;
+            i := !i + 1
+          ) else if b0 land 0xE0 = 0xC0 && !i + 1 < len then (
+            let b1 = Char.code text.[!i + 1] in
+            if b1 land 0xC0 = 0x80 then (
+              let cp = ((b0 land 0x1F) lsl 6) lor (b1 land 0x3F) in
+              add_codepoint cp;
+              i := !i + 2
+            ) else (
+              lossy := true;
+              add_codepoint 0xFFFD;
+              i := !i + 1
+            )
+          ) else if b0 land 0xF0 = 0xE0 && !i + 2 < len then (
+            let b1 = Char.code text.[!i + 1] in
+            let b2 = Char.code text.[!i + 2] in
+            if b1 land 0xC0 = 0x80 && b2 land 0xC0 = 0x80 then (
+              let cp =
+                ((b0 land 0x0F) lsl 12)
+                lor ((b1 land 0x3F) lsl 6)
+                lor (b2 land 0x3F)
+              in
+              add_codepoint cp;
+              i := !i + 3
+            ) else (
+              lossy := true;
+              add_codepoint 0xFFFD;
+              i := !i + 1
+            )
+          ) else if b0 land 0xF8 = 0xF0 && !i + 3 < len then (
+            let b1 = Char.code text.[!i + 1] in
+            let b2 = Char.code text.[!i + 2] in
+            let b3 = Char.code text.[!i + 3] in
+            if b1 land 0xC0 = 0x80 && b2 land 0xC0 = 0x80 && b3 land 0xC0 = 0x80 then (
+              let cp =
+                ((b0 land 0x07) lsl 18)
+                lor ((b1 land 0x3F) lsl 12)
+                lor ((b2 land 0x3F) lsl 6)
+                lor (b3 land 0x3F)
+              in
+              add_codepoint cp;
+              i := !i + 4
+            ) else (
+              lossy := true;
+              add_codepoint 0xFFFD;
+              i := !i + 1
+            )
+          ) else (
+            lossy := true;
+            add_codepoint 0xFFFD;
+            i := !i + 1
+          )
+        done;
+        Ok (Buffer.contents buf, !lossy)
+  in
+
+  let export_text ~title ~default_name ~text =
     let dialog =
       GWindow.file_chooser_dialog
         ~action:`SAVE
@@ -1569,6 +3208,15 @@ progressbar.goal-progress.empty progress {
         ~parent:window
         ()
     in
+    let initial_dir =
+      if !prefs.Ide_config.export_dir <> "" then !prefs.Ide_config.export_dir
+      else if !prefs.Ide_config.open_dir <> "" then !prefs.Ide_config.open_dir
+      else match !current_file with
+        | Some path -> Filename.dirname path
+        | None -> Ide_config.home_dir ()
+    in
+    ignore (dialog#set_current_folder initial_dir);
+    ignore (dialog#set_current_name (expand_export_name default_name));
     dialog#add_button "Save" `SAVE;
     dialog#add_button "Cancel" `CANCEL;
     let selected =
@@ -1582,13 +3230,19 @@ progressbar.goal-progress.empty progress {
     | None -> ()
     | Some path ->
         begin
-          try
-            let oc = open_out path in
-            output_string oc text;
-            close_out oc;
-            set_status ("Exported: " ^ path)
-          with _ ->
-            set_status "Export failed"
+          match convert_text ~encoding:!prefs.Ide_config.export_encoding text with
+          | Error msg -> set_status msg
+          | Ok (out_text, lossy) ->
+              try
+                let oc = open_out_bin path in
+                output_string oc out_text;
+                close_out oc;
+                update_export_dir path;
+                set_status
+                  (if lossy then "Exported (lossy): " ^ path else "Exported: " ^ path);
+                maybe_open_folder path
+              with _ ->
+                set_status "Export failed"
         end
   in
   let prompt_dpi () =
@@ -1622,6 +3276,15 @@ progressbar.goal-progress.empty progress {
             ~parent:window
             ()
         in
+        let initial_dir =
+          if !prefs.Ide_config.export_dir <> "" then !prefs.Ide_config.export_dir
+          else if !prefs.Ide_config.open_dir <> "" then !prefs.Ide_config.open_dir
+          else match !current_file with
+            | Some path -> Filename.dirname path
+            | None -> Ide_config.home_dir ()
+        in
+        ignore (dialog#set_current_folder initial_dir);
+        ignore (dialog#set_current_name (expand_export_name !prefs.Ide_config.export_name_png));
         dialog#add_button "Save" `SAVE;
         dialog#add_button "Cancel" `CANCEL;
         let selected =
@@ -1636,7 +3299,11 @@ progressbar.goal-progress.empty progress {
         | Some path ->
             begin
               try
-                let dot_file = Filename.temp_file "obcwhy3_ide_" ".dot" in
+                let dot_file =
+                  create_temp_file
+                    ?dir:(if !prefs.Ide_config.temp_dir = "" then None else Some !prefs.Ide_config.temp_dir)
+                    ~prefix:"obcwhy3_ide" ~suffix:".dot" ()
+                in
                 let oc = open_out dot_file in
                 output_string oc dot_text;
                 close_out oc;
@@ -1648,8 +3315,11 @@ progressbar.goal-progress.empty progress {
                 in
                 let code = Sys.command cmd in
                 Sys.remove dot_file;
-                if code = 0 then
-                  set_status ("Exported PNG: " ^ path)
+                if code = 0 then (
+                  update_export_dir path;
+                  set_status ("Exported PNG: " ^ path);
+                  maybe_open_folder path
+                )
                 else
                   set_status "Export PNG failed"
               with _ ->
@@ -1661,13 +3331,15 @@ progressbar.goal-progress.empty progress {
     GMenu.menu_item ~label:"Export OBC+" ~packing:file_menu#append ()
   in
   file_export_obcplus#connect#activate ~callback:(fun () ->
-    export_text ~title:"Export OBC+" ~text:(obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ())
+    export_text ~title:"Export OBC+" ~default_name:!prefs.Ide_config.export_name_obcplus
+      ~text:(obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ())
   ) |> ignore;
   let file_export_why =
     GMenu.menu_item ~label:"Export Why3" ~packing:file_menu#append ()
   in
   file_export_why#connect#activate ~callback:(fun () ->
-    export_text ~title:"Export Why3" ~text:(why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ())
+    export_text ~title:"Export Why3" ~default_name:!prefs.Ide_config.export_name_why3
+      ~text:(why_buf#get_text ~start:why_buf#start_iter ~stop:why_buf#end_iter ())
   ) |> ignore;
   let file_export_vc =
     GMenu.menu_item ~label:"Export Theory" ~packing:file_menu#append ()
@@ -1684,7 +3356,9 @@ progressbar.goal-progress.empty progress {
           | Some row -> prover_store#get ~row ~column:prover_col
         in
         match Ide_backend.obligations_pass ~prefix_fields:false ~input_file:file ~prover with
-        | Ok out -> export_text ~title:"Export Theory" ~text:out.vc_text
+        | Ok out ->
+            export_text ~title:"Export Theory" ~default_name:!prefs.Ide_config.export_name_theory
+              ~text:out.vc_text
         | Error err ->
             let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg)
@@ -1704,7 +3378,9 @@ progressbar.goal-progress.empty progress {
           | Some row -> prover_store#get ~row ~column:prover_col
         in
         match Ide_backend.obligations_pass ~prefix_fields:false ~input_file:file ~prover with
-        | Ok out -> export_text ~title:"Export SMT" ~text:out.smt_text
+        | Ok out ->
+            export_text ~title:"Export SMT" ~default_name:!prefs.Ide_config.export_name_smt
+              ~text:out.smt_text
         | Error err ->
             let msg = Ide_backend.error_to_string err in
             set_status ("Error: " ^ msg)
@@ -1712,6 +3388,16 @@ progressbar.goal-progress.empty progress {
   let file_export_png =
     GMenu.menu_item ~label:"Export Monitor" ~packing:file_menu#append ()
   in
+
+  let edit_prefs_item =
+    GMenu.menu_item ~label:"Preferences..." ~packing:edit_menu#append ()
+  in
+  edit_prefs_item#connect#activate ~callback:open_preferences |> ignore;
+  edit_prefs_item#add_accelerator
+    ~group:accel_group
+    ~modi:[`META]
+    ~flags:[`VISIBLE]
+    GdkKeysyms._comma;
 
   let edit_undo_item =
     GMenu.menu_item ~label:"Undo" ~packing:edit_menu#append ()
@@ -1892,6 +3578,17 @@ progressbar.goal-progress.empty progress {
     : (int * string * int * Ide_backend.outputs) option ref
     = ref None
   in
+  let cache_enabled () = !prefs.Ide_config.use_cache in
+  let clear_caches () =
+    monitor_cache := None;
+    obc_cache := None;
+    why_cache := None;
+    obligations_cache := None;
+    prove_cache := None;
+    clear_perf ();
+    set_status "Caches cleared"
+  in
+  clear_caches_ref := clear_caches;
 
   let set_monitor_buffers ~dot:_ ~labels ~dot_png =
     dot_buf#set_text labels;
@@ -1911,7 +3608,7 @@ progressbar.goal-progress.empty progress {
     set_tab_sensitive dot_page#coerce dot_tab true
   in
   file_export_png#connect#activate ~callback:(fun () ->
-    match !monitor_cache with
+    match (if cache_enabled () then !monitor_cache else None) with
     | Some (_v, out) when out.dot_text <> "" ->
         export_png_with_dpi ~dot_text:out.dot_text
     | _ ->
@@ -1934,18 +3631,38 @@ progressbar.goal-progress.empty progress {
   let task_sequents_list : (string list * string) list ref = ref [] in
 
   let rec recent_files : string list ref = ref [] in
-  let recent_conf_path =
+  let recent_conf_path = Ide_config.recent_file () in
+  let legacy_recent_conf =
     try Filename.concat (Sys.getenv "HOME") ".obc2why3.conf"
     with Not_found -> ".obc2why3.conf"
   in
   let save_recent_files () =
     try
+      Ide_config.ensure_dir ();
       let oc = open_out recent_conf_path in
       List.iter (fun file -> output_string oc (file ^ "\n")) !recent_files;
       close_out oc
     with _ -> ()
   in
   let load_recent_files () =
+    if (not (Sys.file_exists recent_conf_path)) && Sys.file_exists legacy_recent_conf then
+      begin
+        try
+          Ide_config.ensure_dir ();
+          let ic = open_in legacy_recent_conf in
+          let oc = open_out recent_conf_path in
+          let rec loop () =
+            match input_line ic with
+            | line ->
+                output_string oc (line ^ "\n");
+                loop ()
+            | exception End_of_file -> ()
+          in
+          loop ();
+          close_in ic;
+          close_out oc
+        with _ -> ()
+      end;
     if Sys.file_exists recent_conf_path then
       try
         let ic = open_in recent_conf_path in
@@ -2048,6 +3765,7 @@ progressbar.goal-progress.empty progress {
       let item = GMenu.menu_item ~label:file ~packing:recent_menu#append () in
       item#connect#activate ~callback:(fun () ->
         reset_state_no_load ();
+        update_open_dir file;
         load_file file
       ) |> ignore
     in
@@ -2071,12 +3789,20 @@ progressbar.goal-progress.empty progress {
         ~parent:window
         ()
     in
+    let initial_dir =
+      if !prefs.Ide_config.open_dir <> "" then !prefs.Ide_config.open_dir
+      else match !current_file with
+        | Some path -> Filename.dirname path
+        | None -> Ide_config.home_dir ()
+    in
+    ignore (dialog#set_current_folder initial_dir);
     dialog#add_button "Open" `OPEN;
     dialog#add_button "Cancel" `CANCEL;
     begin match dialog#run () with
     | `OPEN ->
         begin match dialog#filename with
         | Some file ->
+            update_open_dir file;
             reset_state_no_load ();
             load_file file;
             add_recent_file file
@@ -2220,7 +3946,7 @@ progressbar.goal-progress.empty progress {
   load_obligations_ref := (fun () -> ());
 
   let _ensure_monitor ~file =
-    match !monitor_cache with
+    match (if cache_enabled () then !monitor_cache else None) with
     | Some (v, out) when v = !content_version ->
         time_pass ~name:"monitor" ~cached:true (fun () ->
           set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
@@ -2246,7 +3972,7 @@ progressbar.goal-progress.empty progress {
   in
 
   let _ensure_obc ~file =
-    match !obc_cache with
+    match (if cache_enabled () then !obc_cache else None) with
     | Some (v, out) when v = !content_version ->
         time_pass ~name:"obc+" ~cached:true (fun () ->
           set_obcplus_buffer out.obc_text
@@ -2272,7 +3998,7 @@ progressbar.goal-progress.empty progress {
   in
 
   let _ensure_why ~file =
-    match !why_cache with
+    match (if cache_enabled () then !why_cache else None) with
     | Some (v, out) when v = !content_version ->
         time_pass ~name:"why3" ~cached:true (fun () ->
           set_why_buffer out.why_text
@@ -2298,7 +4024,7 @@ progressbar.goal-progress.empty progress {
   in
 
   let _ensure_obligations ~file ~prover =
-    match !obligations_cache with
+    match (if cache_enabled () then !obligations_cache else None) with
     | Some (v, p, out) when v = !content_version && p = prover ->
         time_pass ~name:"obligations" ~cached:true (fun () ->
           set_obligations_buffers ~vc:out.vc_text
@@ -2436,7 +4162,7 @@ progressbar.goal-progress.empty progress {
         clear_obc_error ();
         add_history "Monitor: running";
         let cached =
-          match !monitor_cache with
+          match (if cache_enabled () then !monitor_cache else None) with
           | Some (v, out) when v = !content_version ->
               if out.dot_text = "" && out.labels_text = "" then None
               else if out.dot_png = None then None
@@ -2506,12 +4232,12 @@ progressbar.goal-progress.empty progress {
         clear_obc_error ();
         add_history "OBC+: running";
         let cached_monitor =
-          match !monitor_cache with
+          match (if cache_enabled () then !monitor_cache else None) with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
         let cached_obc =
-          match !obc_cache with
+          match (if cache_enabled () then !obc_cache else None) with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
@@ -2606,17 +4332,17 @@ progressbar.goal-progress.empty progress {
         clear_obc_error ();
         add_history "Why3: running";
         let cached_monitor =
-          match !monitor_cache with
+          match (if cache_enabled () then !monitor_cache else None) with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
         let cached_obc =
-          match !obc_cache with
+          match (if cache_enabled () then !obc_cache else None) with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
         let cached_why =
-          match !why_cache with
+          match (if cache_enabled () then !why_cache else None) with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
@@ -2751,7 +4477,7 @@ progressbar.goal-progress.empty progress {
           try int_of_string (String.trim timeout_entry#text) with _ -> 30
         in
         let cached =
-          match !prove_cache with
+          match (if cache_enabled () then !prove_cache else None) with
           | Some (v, p, t, out)
             when v = !content_version && p = prover && t = timeout_s ->
               Some out
@@ -2850,6 +4576,8 @@ progressbar.goal-progress.empty progress {
               let cfg : Ide_backend.config = {
                 input_file = file;
                 prover;
+                prover_cmd = (let s = String.trim !prefs.Ide_config.prover_cmd in if s = "" then None else Some s);
+                wp_only = !prefs.Ide_config.wp_only;
                 timeout_s;
                 prefix_fields = false;
                 prove = true;

@@ -57,11 +57,11 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
   let mon_state_ctors = info.mon_state_ctors in
 
   let find_node (name:string) : node option =
-    List.find_opt (fun nd -> nd.nname = name) nodes_ast
+    List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes_ast
   in
   let instance_invariant_terms ?(in_post=false) (env:env) (inst_name:string)
     (node_name:string) (inst_node:node) =
-    let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+    let input_names = List.map (fun v -> v.vname) (Ast.node_inputs inst_node) in
     let pre_k_map = build_pre_k_infos inst_node in
     List.filter_map
       (function
@@ -90,17 +90,19 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
       loop 0 lst
     in
     fun (inst_name, _args, outs) ->
-      match List.assoc_opt inst_name n.instances with
+      match List.assoc_opt inst_name (Ast.node_instances n) with
       | None -> ([], [])
       | Some node_name ->
           match find_node node_name with
           | None -> ([], [])
           | Some inst_node ->
               let inv_terms = instance_invariant_terms env inst_name node_name inst_node in
-              match extract_delay_spec (Ast.values inst_node.guarantees) with
+              match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
               | None -> ([], inv_terms)
               | Some (out_name, in_name) ->
-                  let output_names = List.map (fun v -> v.vname) inst_node.outputs in
+                  let output_names =
+                    List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                  in
                   begin match index_of out_name output_names with
                   | None -> ([], inv_terms)
                   | Some out_idx ->
@@ -130,7 +132,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
                   end
   in
   let body =
-    let trans = List.map Ast_obc.transition_of_ast n.trans in
+    let trans = List.map Ast_obc.transition_of_ast (Ast.node_trans n) in
     let main = compile_transitions env call_asserts trans in
     main
   in
@@ -179,7 +181,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
 
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
     match comment_specs with
-    | None -> (n.assumes, n.guarantees, n.trans, [])
+    | None ->
+        (Ast.node_assumes n, Ast.node_guarantees n, Ast.node_trans n, [])
     | Some (a, g, t, m) -> (a, g, t, m)
   in
   let show_assume rel f =
@@ -199,12 +202,13 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
   in
   let comment =
     let is_monitor =
-      List.exists (fun v -> v.vname = "__mon_state") n.locals
+      List.exists (fun v -> v.vname = "__mon_state") (Ast.node_locals n)
     in
     if is_monitor then
       let simplify = Automaton_core.simplify_ltl in
       let prefixes =
-        nodes_ast |> List.map (fun nd -> Support.prefix_for_node nd.nname)
+        nodes_ast
+        |> List.map (fun nd -> Support.prefix_for_node (Ast.node_sig nd).nname)
       in
       let replace_all ~sub ~by s =
         if sub = "" then s else
@@ -260,18 +264,18 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
         let line_for (t:transition) =
           let show_fo f = string_of_fo f |> strip_vars in
           let reqs =
-            match t.requires with
+            match Ast.transition_requires t with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast.values t.requires)
+            | _ -> List.map show_fo (Ast.values (Ast.transition_requires t))
           in
           let enss =
-            match t.ensures with
+            match Ast.transition_ensures t with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast.values t.ensures)
+            | _ -> List.map show_fo (Ast.values (Ast.transition_ensures t))
           in
           Printf.sprintf
             "  Transition %s -> %s\n    requires:\n      %s\n    ensures:\n      %s\n"
-            t.src t.dst
+            (Ast.transition_src t) (Ast.transition_dst t)
             (String.concat "\n      " reqs)
             (String.concat "\n      " enss)
         in
@@ -322,7 +326,7 @@ let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.progr
     | nodes ->
         List.map
           (fun n ->
-             let name = (Ast_obc.node_to_ast n).nname in
+             let name = (Ast.node_sig (Ast_obc.node_to_ast n)).nname in
              compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
           nodes
   in

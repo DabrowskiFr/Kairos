@@ -1,5 +1,10 @@
 val dump_ast_stage :
-  stage:Stage_names.stage_id -> out:string option -> Ast.program -> (unit, string) result
+  stage:Stage_names.stage_id ->
+  out:string option ->
+  stable:bool ->
+  include_attrs:bool ->
+  Ast.program ->
+  (unit, string) result
 
 val dump_ast_all :
   dir:string ->
@@ -8,6 +13,8 @@ val dump_ast_all :
   contracts:Ast_contracts.program ->
   monitor:Ast_monitor.program ->
   obc:Ast_obc.program ->
+  stable:bool ->
+  include_attrs:bool ->
   (unit, string) result
 
 
@@ -28,5 +35,6 @@ val emit_why :
 
 val prove_why :
   prover:string ->
+  prover_cmd:string option ->
   why_text:string ->
   unit

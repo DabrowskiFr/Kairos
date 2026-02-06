@@ -48,10 +48,12 @@ let pre_k_source_expr (e:iexpr) : iexpr = e
 
 let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
   let n = Ast_obc.node_to_ast n in
-  let orig_locals = n.locals in
+  let orig_locals = Ast.node_locals n in
   let init_for_var =
     let table =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+      List.map
+        (fun v -> (v.vname, v.vty))
+        (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
     in
     fun v ->
       match List.assoc_opt v table with
@@ -67,14 +69,15 @@ let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values t.requires @ Ast.values t.ensures
+        Ast.values (Ast.transition_requires t)
+        @ Ast.values (Ast.transition_ensures t)
         @ Ast.values (Ast.transition_lemmas t))
-      n.trans
+      (Ast.node_trans n)
   in
   let folds =
     Collect.collect_folds_from_specs
       ~fo:transition_fo
-      ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
+      ~ltl:(Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
       ~invariants_mon:(Ast.node_invariants_mon n)
   in
   let pre_k_map = Collect.build_pre_k_infos n in
@@ -94,29 +97,42 @@ let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
       ) folds
   in
   let has_initial_only_contracts =
-    List.exists is_initial_only (Ast.values n.assumes @ Ast.values n.guarantees)
+    List.exists is_initial_only
+      (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
   in
   let needs_step_count = false in
   let needs_first_step = false in
 
   let locals =
-    let locals = ref n.locals in
+    let locals = ref (Ast.node_locals n) in
     List.iter
       (fun info ->
          List.iter
            (fun name ->
-              locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
+              locals :=
+                add_local_if_missing
+                  !locals
+                  ~inputs:(Ast.node_inputs n)
+                  ~outputs:(Ast.node_outputs n)
                 name info.vty)
            info.names)
       pre_k_infos;
     List.iter
       (fun (_ghost_acc, _acc, init_done) ->
-         locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
+         locals :=
+           add_local_if_missing
+             !locals
+             ~inputs:(Ast.node_inputs n)
+             ~outputs:(Ast.node_outputs n)
            init_done TBool)
       fold_init_links;
     List.iter
       (fun fi ->
-         locals := add_local_if_missing !locals ~inputs:n.inputs ~outputs:n.outputs
+         locals :=
+           add_local_if_missing
+             !locals
+             ~inputs:(Ast.node_inputs n)
+             ~outputs:(Ast.node_outputs n)
            fi.acc TInt)
       folds;
     !locals
@@ -184,8 +200,11 @@ let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
          let _ghost = ghost_base in
          let _reset = reset_flags in
          let t = Ast.with_transition_ghost (Ast.transition_ghost t) t in
-         { t with ensures = t.ensures @ pre_k_links })
-      n.trans
+         { t with
+           contracts =
+             { t.contracts with
+               ensures = Ast.transition_ensures t @ pre_k_links; } })
+      (Ast.node_trans n)
   in
   let info =
     {
@@ -195,5 +214,5 @@ let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
       warnings = [];
     }
   in
-  Ast_obc.node_of_ast { n with locals; trans }
+  Ast_obc.node_of_ast { n with body = { n.body with locals; trans } }
   |> Ast_obc.with_node_info info

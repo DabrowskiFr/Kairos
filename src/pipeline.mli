@@ -49,6 +49,8 @@ type ast_stages = {
 type config = {
   input_file : string;
   prover : string;
+  prover_cmd : string option;
+  wp_only : bool;
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;

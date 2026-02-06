@@ -1,6 +1,7 @@
 type goal_info =
   string * string * float * string option * string * string option
 
+
 type outputs = {
   obc_text : string;
   why_text : string;
@@ -49,6 +50,8 @@ type ast_stages = {
 type config = {
   input_file : string;
   prover : string;
+  prover_cmd : string option;
+  wp_only : bool;
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;
@@ -102,18 +105,26 @@ let join_blocks_with_spans ~sep blocks =
 let program_stats (p:Ast.program) : (string * string) list =
   let nodes = List.length p in
   let transitions =
-    List.fold_left (fun acc n -> acc + List.length n.Ast.trans) 0 p
+    List.fold_left (fun acc (n:Ast.node) -> acc + List.length (Ast.node_trans n)) 0 p
   in
   let requires =
     List.fold_left
-      (fun acc n ->
-         acc + List.fold_left (fun a t -> a + List.length t.Ast.requires) 0 n.Ast.trans)
+      (fun acc (n:Ast.node) ->
+         acc
+         + List.fold_left
+             (fun a (t:Ast.transition) -> a + List.length (Ast.transition_requires t))
+             0
+             (Ast.node_trans n))
       0 p
   in
   let ensures =
     List.fold_left
-      (fun acc n ->
-         acc + List.fold_left (fun a t -> a + List.length t.Ast.ensures) 0 n.Ast.trans)
+      (fun acc (n:Ast.node) ->
+         acc
+         + List.fold_left
+             (fun a (t:Ast.transition) -> a + List.length (Ast.transition_ensures t))
+             0
+             (Ast.node_trans n))
       0 p
   in
   let guards =
@@ -121,12 +132,12 @@ let program_stats (p:Ast.program) : (string * string) list =
       (fun acc n ->
          acc +
          List.fold_left
-           (fun a t -> if t.Ast.guard = None then a else a + 1)
-           0 n.Ast.trans)
+           (fun a t -> if Ast.transition_guard t = None then a else a + 1)
+          0 (Ast.node_trans n))
       0 p
   in
   let locals =
-    List.fold_left (fun acc n -> acc + List.length n.Ast.locals) 0 p
+    List.fold_left (fun acc n -> acc + List.length (Ast.node_locals n)) 0 p
   in
   [("nodes", string_of_int nodes);
    ("transitions", string_of_int transitions);
@@ -196,7 +207,7 @@ let stage_meta (asts:ast_stages) : (string * (string * string) list) list =
 let emit_automaton_debug_stats (p:Ast.program) =
   let nodes = List.length p in
   let edges =
-    List.fold_left (fun acc n -> acc + List.length n.Ast.trans) 0 p
+    List.fold_left (fun acc n -> acc + List.length (Ast.node_trans n)) 0 p
   in
   Log.stage_info
     (Some Stage_names.Automaton)
@@ -220,21 +231,20 @@ let reid_program (p:Ast.program) : Ast.program =
         (List.map reid_fo (Ast.transition_lemmas t))
         t
     in
-    {
-      t with
-      requires = List.map reid_fo t.requires;
-      ensures = List.map reid_fo t.ensures;
-    }
+    t
+    |> Ast.with_transition_requires (List.map reid_fo (Ast.transition_requires t))
+    |> Ast.with_transition_ensures (List.map reid_fo (Ast.transition_ensures t))
   in
   let reid_node (n:Ast.node) =
     {
       n with
-      assumes = List.map reid_ltl n.assumes;
-      guarantees = List.map reid_ltl n.guarantees;
-      trans = List.map reid_trans n.trans;
+      contracts =
+        { assumes = List.map reid_ltl (Ast.node_assumes n);
+          guarantees = List.map reid_ltl (Ast.node_guarantees n); };
+      body = { (Ast.node_body n) with trans = List.map reid_trans (Ast.node_trans n); };
     }
   in
-  List.map reid_node p
+  List.map reid_node p |> Ast.ensure_program_uids
 
 let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
   let parse () =
@@ -320,7 +330,8 @@ let build_obcplus_sequents (p_obc:Ast_obc.program) : (int * string) list =
            (fun (ens:Ast.fo_o) ->
                 let vcid = ens.oid in
               let reqs =
-                List.map (fun (r:Ast.fo_o) -> Support.string_of_fo r.value) t.requires
+                List.map (fun (r:Ast.fo_o) -> Support.string_of_fo r.value)
+                  (Ast.transition_requires t)
               in
               let ensure = Support.string_of_fo ens.value in
               let buf = Buffer.create 256 in
@@ -328,8 +339,8 @@ let build_obcplus_sequents (p_obc:Ast_obc.program) : (int * string) list =
               Buffer.add_string buf "--------------------\n";
               Buffer.add_string buf ensure;
                 acc := (vcid, Buffer.contents buf) :: !acc)
-           t.ensures)
-      node.trans
+           (Ast.transition_ensures t))
+      (Ast.node_trans node)
   in
   List.iter add_node p_obc;
   List.rev !acc
@@ -349,8 +360,8 @@ let build_vcid_locs (p_parsed:Ast_user.program)
               | Some loc ->
                   acc := (ens.oid, loc) :: !acc;
                   ordered := loc :: !ordered)
-           t.ensures)
-      node.trans
+           (Ast.transition_ensures t))
+      (Ast.node_trans node)
   in
   List.iter add_node p_parsed;
   (List.rev !acc, List.rev !ordered)
@@ -496,12 +507,14 @@ let run (cfg:config) : (outputs, error) result =
           else
             (0.0, "", "")
         in
+        let should_prove = cfg.prove && not cfg.wp_only in
         let goals =
-          if cfg.prove then
+          if should_prove then
             let summary, goals =
               Why_prove.prove_text_detailed_with_callbacks
                 ~timeout:cfg.timeout_s
                 ~prover:cfg.prover
+                ?prover_cmd:cfg.prover_cmd
                 ~text:why_text
                 ~vc_ids_ordered:(Some vc_ids_ordered)
                 ~on_goal_start:(fun _ _ -> ())
@@ -659,12 +672,14 @@ let run_with_callbacks
           dot_png;
         };
         on_goals_ready (goal_names, vc_ids_ordered);
+        let should_prove = cfg.prove && not cfg.wp_only in
         let goals =
-          if cfg.prove then
+          if should_prove then
             let summary, goals =
               Why_prove.prove_text_detailed_with_callbacks
                 ~timeout:cfg.timeout_s
                 ~prover:cfg.prover
+                ?prover_cmd:cfg.prover_cmd
                 ~text:why_text
                 ~vc_ids_ordered:(Some vc_ids_ordered)
                 ~on_goal_start:(fun _ _ -> ())

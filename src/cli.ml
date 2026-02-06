@@ -36,32 +36,46 @@ let run
     dump_why3_vc
     dump_smt2
     dump_json
+    dump_json_stable
+    dump_json_attrs
     dump_ast
     dump_ast_all
+    dump_ast_stable
+    dump_ast_attrs
+    check_ast
     output_file
     prove
     prover
+    prover_cmd
+    wp_only
     log_level
     log_file
     file =
   Log.setup ~level:log_level ~log_file;
   let dump_ast_stage, dump_ast_out =
-    match dump_ast, dump_json with
-    | Some (stage, out), None -> (Some stage, Some out)
-    | None, Some out -> (Some "contracts", Some out)
-    | None, None -> (None, None)
-    | Some _, Some _ -> (None, None)
+    match dump_ast, dump_json, dump_json_stable with
+    | Some (stage, out), None, None -> (Some stage, Some out)
+    | None, Some out, None -> (Some "contracts", Some out)
+    | None, None, Some out -> (Some "contracts", Some out)
+    | None, None, None -> (None, None)
+    | _ -> (None, None)
   in
   let validate () =
     if dump_ast <> None && dump_json <> None then
       Error "--dump-json and --dump-ast are mutually exclusive"
+    else if dump_json <> None && dump_json_stable <> None then
+      Error "--dump-json and --dump-json-stable are mutually exclusive"
+    else if dump_json_stable = None && dump_json_attrs then
+      Error "--dump-json-attrs requires --dump-json-stable"
+    else if dump_ast_all <> None && dump_ast_stable = false && dump_ast_attrs then
+      Error "--dump-ast-attrs requires --dump-ast-stable"
     else if dump_ast <> None && dump_ast_all <> None then
       Error "--dump-ast and --dump-ast-all are mutually exclusive"
-    else if dump_json <> None && dump_ast_all <> None then
+    else if (dump_json <> None || dump_json_stable <> None) && dump_ast_all <> None then
       Error "--dump-json and --dump-ast-all are mutually exclusive"
     else if (dump_dot <> None || dump_dot_short <> None || dump_obc <> None
              || dump_ast_stage <> None || dump_ast_all <> None)
-            && (prove || output_file <> None) then
+            && (prove || wp_only || output_file <> None) then
       Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
     else if dump_obc <> None
             && (dump_dot <> None || dump_dot_short <> None
@@ -77,7 +91,7 @@ let run
       Error "--dump-dot and --dump-dot-short are mutually exclusive"
     else if dump_dot = None && dump_dot_short = None && dump_obc = None
             && dump_why3_vc = None && dump_smt2 = None
-            && output_file = None && not prove then
+            && output_file = None && not prove && not wp_only then
       Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
     else Ok ()
   in
@@ -104,9 +118,14 @@ let run
               dump_ast_stage;
               dump_ast_out;
               dump_ast_all = dump_ast_all;
+              dump_ast_stable = dump_ast_stable || dump_json_stable <> None;
+              dump_ast_include_attrs = dump_json_attrs || dump_ast_attrs;
+              check_ast = check_ast;
               output_file = output_file;
               prove = prove;
               prover = prover;
+              prover_cmd = prover_cmd;
+              wp_only = wp_only;
               prefix_fields = false;
               input_file = file;
             }
@@ -147,6 +166,14 @@ let cmd =
     value & opt (some string) None & info ["dump-json"] ~docv:"FILE"
       ~doc:"Dump internal AST as JSON (contracts stage) to file or '-' for stdout."
   in
+  let dump_json_stable =
+    value & opt (some string) None & info ["dump-json-stable"] ~docv:"FILE"
+      ~doc:"Dump stable AST JSON (contracts stage) to file or '-' for stdout."
+  in
+  let dump_json_attrs =
+    value & flag & info ["dump-json-attrs"]
+      ~doc:"Include attrs in --dump-json-stable output."
+  in
   let dump_ast =
     value & opt (some dump_ast_conv) None & info ["dump-ast"] ~docv:"STAGE:FILE"
       ~doc:"Dump AST after stage: parsed|automaton|contracts|monitor|obc to file or '-' for stdout."
@@ -154,6 +181,18 @@ let cmd =
   let dump_ast_all =
     value & opt (some string) None & info ["dump-ast-all"] ~docv:"DIR"
       ~doc:"Dump all AST stages as JSON into DIR."
+  in
+  let dump_ast_stable =
+    value & flag & info ["dump-ast-stable"]
+      ~doc:"Use stable JSON for --dump-ast/--dump-ast-all."
+  in
+  let dump_ast_attrs =
+    value & flag & info ["dump-ast-attrs"]
+      ~doc:"Include attrs in stable AST JSON dumps."
+  in
+  let check_ast =
+    value & flag & info ["check-ast"]
+      ~doc:"Run AST invariant checks after each stage."
   in
   let output_file =
     value & opt (some string) None & info ["dump-why"] ~docv:"FILE"
@@ -165,6 +204,14 @@ let cmd =
   let prover =
     value & opt string "z3" & info ["prover"] ~docv:"NAME"
       ~doc:"Prover for --prove (default: z3)."
+  in
+  let prover_cmd =
+    value & opt (some string) None & info ["prover-cmd"] ~docv:"CMD"
+      ~doc:"Override prover command used by Why3 (advanced)."
+  in
+  let wp_only =
+    value & flag & info ["wp-only"]
+      ~doc:"Compute verification conditions but do not call a prover."
   in
   let log_level =
     value & opt log_level_conv (Some Logs.Info) & info ["log-level"] ~docv:"LEVEL"
@@ -183,11 +230,18 @@ let cmd =
                         $ dump_why3_vc
                         $ dump_smt2
                         $ dump_json
+                        $ dump_json_stable
+                        $ dump_json_attrs
                         $ dump_ast
                         $ dump_ast_all
+                        $ dump_ast_stable
+                        $ dump_ast_attrs
+                        $ check_ast
                         $ output_file
                         $ prove
                         $ prover
+                        $ prover_cmd
+                        $ wp_only
                         $ log_level
                         $ log_file
                         $ file))

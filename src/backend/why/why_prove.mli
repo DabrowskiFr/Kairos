@@ -12,7 +12,8 @@ type result = {
   summary : summary;
 }
 
-val prove_text : ?timeout:int -> prover:string -> text:string -> unit -> result
+val prove_text :
+  ?timeout:int -> ?prover_cmd:string -> prover:string -> text:string -> unit -> result
 
 val dump_why3_tasks : text:string -> string list
 val dump_why3_tasks_with_attrs : text:string -> string list
@@ -21,6 +22,7 @@ val dump_smt2_tasks : prover:string -> text:string -> string list
 
 val prove_text_detailed :
   ?timeout:int ->
+  ?prover_cmd:string ->
   prover:string ->
   text:string ->
   unit ->
@@ -28,6 +30,7 @@ val prove_text_detailed :
 
 val prove_text_detailed_with_callbacks :
   ?timeout:int ->
+  ?prover_cmd:string ->
   prover:string ->
   text:string ->
   vc_ids_ordered:int list option ->

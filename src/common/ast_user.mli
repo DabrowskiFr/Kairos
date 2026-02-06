@@ -1,9 +1,9 @@
-type node = Ast.node
-type transition = Ast.transition
+type node
+type transition
 type parse_error = Ast.parse_error
 type node_info = Ast.parse_info
 type transition_info = Ast.transition_attrs
-type program = Ast.program
+type program
 
 val empty_node_info : node_info
 val empty_transition_info : transition_info

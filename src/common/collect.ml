@@ -161,7 +161,9 @@ let collect_pre_k_from_specs
 let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let init_for_var =
     let table =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+      List.map
+        (fun v -> (v.vname, v.vty))
+        (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
     in
     fun v ->
       match List.assoc_opt v table with
@@ -178,13 +180,14 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values t.requires @ Ast.values t.ensures
+        Ast.values (Ast.transition_requires t) @ Ast.values (Ast.transition_ensures t)
         @ Ast.values (Ast.transition_lemmas t))
-      n.trans
+      (Ast.node_trans n)
   in
   let normalized_fo = List.map normalize_fo transition_fo in
   let normalized_ltl =
-    List.map normalize_ltl (Ast.values n.assumes @ Ast.values n.guarantees)
+    List.map normalize_ltl
+      (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
   in
   let normalized_invariants =
     List.map
@@ -200,7 +203,7 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
       ~ltl:normalized_ltl
       ~invariants_mon:normalized_invariants
   in
-  let vars = n.inputs @ n.locals @ n.outputs in
+  let vars = Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
     | Some v -> v.vty
@@ -248,7 +251,7 @@ let collect_calls_trans (ts:transition list) : (ident * iexpr list) list =
   List.fold_left
     (fun acc t ->
        let acc = List.fold_left collect_calls_stmt acc (Ast.transition_ghost t) in
-       let acc = List.fold_left collect_calls_stmt acc t.body in
+       let acc = List.fold_left collect_calls_stmt acc (Ast.transition_body t) in
        List.fold_left collect_calls_stmt acc (Ast.transition_monitor t))
     [] ts
 
@@ -274,7 +277,7 @@ let collect_calls_trans_full (ts:transition list)
   List.fold_left
     (fun acc t ->
        let acc = List.fold_left collect_calls_stmt_full acc (Ast.transition_ghost t) in
-       let acc = List.fold_left collect_calls_stmt_full acc t.body in
+       let acc = List.fold_left collect_calls_stmt_full acc (Ast.transition_body t) in
        List.fold_left collect_calls_stmt_full acc (Ast.transition_monitor t))
     [] ts
 

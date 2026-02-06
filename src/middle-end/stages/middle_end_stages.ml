@@ -28,16 +28,21 @@ let stage_contracts (p:Stage_types.automaton_stage) : Stage_types.contracts_stag
          let ast = Ast_contracts.node_to_ast n in
          let collect_origins acc fo_o = (fo_o.oid, fo_o.origin) :: acc in
          let acc =
-           List.fold_left collect_origins [] (ast.assumes @ ast.guarantees)
+           List.fold_left collect_origins []
+             (Ast.node_assumes ast @ Ast.node_guarantees ast)
          in
          let acc =
            List.fold_left
              (fun acc (t:Ast.transition) ->
-                let acc = List.fold_left collect_origins acc t.requires in
-                let acc = List.fold_left collect_origins acc t.ensures in
+                let acc =
+                  List.fold_left collect_origins acc (Ast.transition_requires t)
+                in
+                let acc =
+                  List.fold_left collect_origins acc (Ast.transition_ensures t)
+                in
                 List.fold_left collect_origins acc (Ast.transition_lemmas t))
              acc
-             ast.trans
+             (Ast.node_trans ast)
          in
          let info =
            {

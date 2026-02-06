@@ -360,19 +360,32 @@ let replace_pre_k_transition ~(map:(hexpr * ident) list) (t:transition) : transi
          (Ast.transition_lemmas t))
       t
   in
-  {
-    t with
-    requires = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.requires;
-    ensures = List.map (Ast.map_with_origin (replace_pre_k_fo ~map)) t.ensures;
-  }
+  t
+  |> Ast.with_transition_requires
+       (List.map (Ast.map_with_origin (replace_pre_k_fo ~map))
+          (Ast.transition_requires t))
+  |> Ast.with_transition_ensures
+       (List.map (Ast.map_with_origin (replace_pre_k_fo ~map))
+          (Ast.transition_ensures t))
 
 let replace_pre_k_node (n:node) : node =
   let map = pre_k_var_map n in
   let n =
-    { n with
-      assumes = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.assumes;
-      guarantees = List.map (Ast.map_with_origin (replace_pre_k_ltl ~map)) n.guarantees;
-      trans = List.map (replace_pre_k_transition ~map) n.trans; }
+    n
+    |> Ast.with_node_contracts
+         {
+           assumes =
+             List.map (Ast.map_with_origin (replace_pre_k_ltl ~map))
+               (Ast.node_assumes n);
+           guarantees =
+             List.map (Ast.map_with_origin (replace_pre_k_ltl ~map))
+               (Ast.node_guarantees n);
+         }
+    |> Ast.with_node_body
+         {
+           (Ast.node_body n) with
+           trans = List.map (replace_pre_k_transition ~map) (Ast.node_trans n);
+         }
   in
   Ast.with_node_invariants_mon
     (List.map (replace_pre_k_invariant ~map) (Ast.node_invariants_mon n))
@@ -481,16 +494,18 @@ let transition_lines (indent:int) (t:transition)
     Printf.sprintf "G%d" label_counters.ens
   in
   let guard =
-    match t.guard with
+    match Ast.transition_guard t with
     | None -> ""
     | Some g -> " [" ^ string_of_iexpr g ^ "]"
   in
-  let header = indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {" in
+  let header =
+    indent_str indent ^ Ast.transition_src t ^ " -> " ^ Ast.transition_dst t ^ guard ^ " {"
+  in
   let requires_labeled =
-    List.map (fun f -> (f, next_req_label ())) t.requires
+    List.map (fun f -> (f, next_req_label ())) (Ast.transition_requires t)
   in
   let ensures_labeled =
-    List.map (fun f -> (f, next_ens_label ())) t.ensures
+    List.map (fun f -> (f, next_ens_label ())) (Ast.transition_ensures t)
   in
   let build_block ~is_require items =
     let items =
@@ -546,7 +561,7 @@ let transition_lines (indent:int) (t:transition)
       (Ast.transition_lemmas t)
   in
   let body_ghost = Ast.transition_ghost t in
-  let body_user = t.body in
+  let body_user = Ast.transition_body t in
   let body_mon = Ast.transition_monitor t in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
@@ -581,7 +596,9 @@ let transition_lines (indent:int) (t:transition)
 let node_lines (n:node) : string list =
   let n = replace_pre_k_node n in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    List.map
+      (fun v -> (v.vname, v.vty))
+      (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
   in
   let init_for_var =
     fun v ->
@@ -593,28 +610,34 @@ let node_lines (n:node) : string list =
   in
   let vars = List.map fst var_types in
   let header =
-    "node " ^ n.nname ^ " (" ^ params_of_vdecls n.inputs ^ ")"
-    ^ " returns (" ^ params_of_vdecls n.outputs ^ ")"
+    "node "
+    ^ (Ast.node_sig n).nname
+    ^ " ("
+    ^ params_of_vdecls (Ast.node_inputs n)
+    ^ ")"
+    ^ " returns ("
+    ^ params_of_vdecls (Ast.node_outputs n)
+    ^ ")"
   in
   let contracts =
-    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees)
+    contract_lines 1 (Ast.values (Ast.node_assumes n)) (Ast.values (Ast.node_guarantees n))
       (Ast.node_invariants_mon n)
       ~init_for_var ~vars
   in
   let instances =
-    match n.instances with
+    match Ast.node_instances n with
     | [] -> []
     | _ ->
         let inst_lines =
           List.map
             (fun (inst, node_name) ->
                indent_str 1 ^ "instance " ^ inst ^ ": " ^ node_name ^ ";")
-            n.instances
+            (Ast.node_instances n)
         in
         (indent_str 1 ^ "instances") :: inst_lines
   in
   let locals =
-    match n.locals with
+    match Ast.node_locals n with
     | [] -> [indent_str 1 ^ "locals"]
     | _ ->
         let local_line v =
@@ -624,12 +647,12 @@ let node_lines (n:node) : string list =
           | Some msg -> base ^ " (* " ^ msg ^ " *)"
         in
         (indent_str 1 ^ "locals")
-        :: List.map local_line n.locals
+        :: List.map local_line (Ast.node_locals n)
   in
   let states =
-    indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";"
+    indent_str 1 ^ "states " ^ String.concat ", " (Ast.node_states n) ^ ";"
   in
-  let init = indent_str 1 ^ "init " ^ n.init_state in
+  let init = indent_str 1 ^ "init " ^ Ast.node_init_state n in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
     let base_line_len is_require f =
@@ -640,9 +663,9 @@ let node_lines (n:node) : string list =
     let lens =
       List.concat_map
         (fun (t:transition) ->
-           List.map (base_line_len true) (Ast.values t.requires)
-           @ List.map (base_line_len false) (Ast.values t.ensures))
-        n.trans
+           List.map (base_line_len true) (Ast.values (Ast.transition_requires t))
+           @ List.map (base_line_len false) (Ast.values (Ast.transition_ensures t)))
+        (Ast.node_trans n)
     in
     match lens with
     | [] -> None
@@ -654,7 +677,7 @@ let node_lines (n:node) : string list =
     (indent_str 1 ^ "trans")
     :: List.concat_map
          (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
-         n.trans
+         (Ast.node_trans n)
   in
   [header]
   @ contracts
@@ -686,16 +709,19 @@ let transition_lines_with_vcid (indent:int) (t:transition)
     Printf.sprintf "G%d" label_counters.ens
   in
   let guard =
-    match t.guard with
+    match Ast.transition_guard t with
     | None -> ""
     | Some g -> " [" ^ string_of_iexpr g ^ "]"
   in
-  let header = (indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {", None) in
+  let header =
+    (indent_str indent ^ Ast.transition_src t ^ " -> " ^ Ast.transition_dst t ^ guard ^ " {",
+     None)
+  in
   let requires_labeled =
-    List.map (fun f -> (f, next_req_label ())) t.requires
+    List.map (fun f -> (f, next_req_label ())) (Ast.transition_requires t)
   in
   let ensures_labeled =
-    List.map (fun f -> (f, next_ens_label ())) t.ensures
+    List.map (fun f -> (f, next_ens_label ())) (Ast.transition_ensures t)
   in
   let build_block ~is_require items =
     let items =
@@ -758,7 +784,7 @@ let transition_lines_with_vcid (indent:int) (t:transition)
       (Ast.transition_lemmas t)
   in
   let body_ghost = Ast.transition_ghost t in
-  let body_user = t.body in
+  let body_user = Ast.transition_body t in
   let body_mon = Ast.transition_monitor t in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
@@ -798,7 +824,9 @@ let transition_lines_with_vcid (indent:int) (t:transition)
 let node_lines_with_vcid (n:node) : line_with_vcid list =
   let n = replace_pre_k_node n in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    List.map
+      (fun v -> (v.vname, v.vty))
+      (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
   in
   let init_for_var v =
     match List.assoc_opt v var_types with
@@ -810,33 +838,33 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   let vars = List.map fst var_types in
   let header =
     let params =
-      let params = params_of_vdecls n.inputs in
+      let params = params_of_vdecls (Ast.node_inputs n) in
       if params = "" then "" else " (" ^ params ^ ")"
     in
     let returns =
-      let returns = params_of_vdecls n.outputs in
+      let returns = params_of_vdecls (Ast.node_outputs n) in
       if returns = "" then "" else " returns (" ^ returns ^ ")"
     in
-    (Printf.sprintf "node %s%s%s" n.nname params returns, None)
+    (Printf.sprintf "node %s%s%s" (Ast.node_sig n).nname params returns, None)
   in
   let contracts =
-    contract_lines 1 (Ast.values n.assumes) (Ast.values n.guarantees)
+    contract_lines 1 (Ast.values (Ast.node_assumes n)) (Ast.values (Ast.node_guarantees n))
       (Ast.node_invariants_mon n)
       ~init_for_var ~vars
     |> List.map (fun line -> (line, None))
   in
   let instances =
-    match n.instances with
+    match Ast.node_instances n with
     | [] -> [ (indent_str 1 ^ "instances", None) ]
     | _ ->
         let inst_line (inst_name, node_name) =
           indent_str 2 ^ "instance " ^ inst_name ^ " : " ^ node_name ^ ";"
         in
         (indent_str 1 ^ "instances", None)
-        :: List.map (fun line -> (line, None)) (List.map inst_line n.instances)
+        :: List.map (fun line -> (line, None)) (List.map inst_line (Ast.node_instances n))
   in
   let locals =
-    match n.locals with
+    match Ast.node_locals n with
     | [] -> [ (indent_str 1 ^ "locals", None) ]
     | _ ->
         let local_line v =
@@ -846,12 +874,12 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
           | Some msg -> base ^ " (* " ^ msg ^ " *)"
         in
         (indent_str 1 ^ "locals", None)
-        :: List.map (fun line -> (line, None)) (List.map local_line n.locals)
+        :: List.map (fun line -> (line, None)) (List.map local_line (Ast.node_locals n))
   in
   let states =
-    (indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";", None)
+    (indent_str 1 ^ "states " ^ String.concat ", " (Ast.node_states n) ^ ";", None)
   in
-  let init = (indent_str 1 ^ "init " ^ n.init_state, None) in
+  let init = (indent_str 1 ^ "init " ^ Ast.node_init_state n, None) in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
     let base_line_len is_require f =
@@ -862,9 +890,9 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     let lens =
       List.concat_map
         (fun (t:transition) ->
-           List.map (base_line_len true) (Ast.values t.requires)
-           @ List.map (base_line_len false) (Ast.values t.ensures))
-        n.trans
+           List.map (base_line_len true) (Ast.values (Ast.transition_requires t))
+           @ List.map (base_line_len false) (Ast.values (Ast.transition_ensures t)))
+        (Ast.node_trans n)
     in
     match lens with
     | [] -> None
@@ -877,7 +905,7 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     :: List.concat_map
          (fun t ->
             transition_lines_with_vcid 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
-         n.trans
+         (Ast.node_trans n)
   in
   [header]
   @ contracts

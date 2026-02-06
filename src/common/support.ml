@@ -34,7 +34,7 @@ type env = {
   inputs: ident list;
 }
 
-let loc : Loc.position = Loc.dummy_position
+let loc : Why3.Loc.position = Why3.Loc.dummy_position
 let ident (s:string) : Ptree.ident = { Ptree.id_str = s; id_ats = []; id_loc = loc }
 let infix_ident (s:string) : Ptree.ident = { Ptree.id_str = Ident.op_infix s; id_ats = []; id_loc = loc }
 let qid1 (s:string) : Ptree.qualid = Ptree.Qident (ident s)

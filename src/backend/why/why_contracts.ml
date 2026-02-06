@@ -45,10 +45,10 @@ let contains_sub (s:string) (sub:string) : bool =
   if len_sub = 0 then true else loop 0
 
 let guard_term_pre (env:env) (t:transition) : Ptree.term option =
-  Option.map (compile_term env) t.guard
+  Option.map (compile_term env) (Ast.transition_guard t)
 
 let guard_term_old (env:env) (t:transition) : Ptree.term option =
-  Option.map (fun g -> term_old (compile_term env g)) t.guard
+  Option.map (fun g -> term_old (compile_term env g)) (Ast.transition_guard t)
 
 let with_guard (cond:Ptree.term) (guard:Ptree.term option) : Ptree.term =
   match guard with
@@ -175,7 +175,7 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
          guarded_k @ pre)
       []
-      (Ast.values n.assumes)
+      (Ast.values (Ast.node_assumes n))
   in
   let post_contract =
     List.fold_left
@@ -186,7 +186,7 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
          guarded_k @ post)
       []
-      (Ast.values n.guarantees)
+      (Ast.values (Ast.node_guarantees n))
   in
   let pre_invf = [] in
   let post_invf = [] in
@@ -208,7 +208,7 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
          let reqs =
            List.map
              (fun f -> (f.value, origin_label f.origin))
-             t.requires
+             (Ast.transition_requires t)
          in
         let ens =
           List.map
@@ -217,16 +217,17 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
                 add_parents ~child:wid ~parents:[f.oid];
                 let wid_attr = Printf.sprintf "wid:%d" wid in
                 (f.value, origin_label f.origin, wid_attr))
-             t.ensures
+             (Ast.transition_ensures t)
         in
          (t, reqs, ens))
-      n.trans
+      (Ast.node_trans n)
   in
   let transition_requires_pre_terms =
     List.fold_left
       (fun acc (t, reqs, _ens) ->
          let cond_pre =
-           term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
+           term_eq (term_of_var env "st")
+             (mk_term (Tident (qid1 (Ast.transition_src t))))
          in
          let cond_pre = with_guard cond_pre (guard_term_pre env t) in
          List.fold_left
@@ -250,7 +251,8 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
     List.fold_left
       (fun acc (t:transition) ->
          let cond_post =
-           term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src)))
+           term_eq (term_of_var env "st")
+             (mk_term (Tident (qid1 (Ast.transition_src t))))
          in
          let cond_post = with_guard cond_post (guard_term_pre env t) in
          List.fold_left
@@ -262,9 +264,9 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
               let terms = List.map (term_implies cond_post) guarded_k in
               terms @ acc)
            acc
-           (Ast.values t.requires))
+           (Ast.values (Ast.transition_requires t)))
       []
-      n.trans
+      (Ast.node_trans n)
   in
   let pre_contract_user = pre_contract in
   (* Do not inject user LTL guarantees as postconditions here; they are enforced
@@ -283,10 +285,13 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
     let st_old = term_old st in
     List.fold_left
       (fun (post, lemmas, post_terms, post_terms_vcid) (t, _reqs, ens) ->
-         let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
+         let cond_post =
+           term_eq st_old (mk_term (Tident (qid1 (Ast.transition_src t))))
+         in
          let cond_post = with_guard cond_post (guard_term_old env t) in
          let lemma_label =
-           Printf.sprintf "Transition lemmas (%s -> %s)" t.src t.dst
+           Printf.sprintf "Transition lemmas (%s -> %s)"
+             (Ast.transition_src t) (Ast.transition_dst t)
          in
          let guard_terms =
            List.concat_map
@@ -295,7 +300,7 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
-            (Ast.values t.requires)
+            (Ast.values (Ast.transition_requires t))
          in
          let guard =
            if guard_terms = [] then None
@@ -377,7 +382,8 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
   in
   let init_guard_terms =
     let st_init =
-      term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state)))
+      term_eq (term_of_var env "st")
+        (mk_term (Tident (qid1 (Ast.node_init_state n))))
     in
     let mon_init =
       match info.mon_state_ctors with
@@ -393,20 +399,24 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
               let rhs = compile_hexpr ~prefer_link:false ~in_post:false env h in
               Some (term_eq lhs rhs)
           | InvariantStateRel (is_eq, st_name, f) ->
-              if is_eq && st_name = n.init_state then
+              if is_eq && st_name = Ast.node_init_state n then
                 Some (compile_fo_term env f)
               else
                 None)
         (Ast.node_invariants_mon n)
     in
     let instance_terms =
-      let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
+      let find_node name =
+        List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+      in
       List.concat_map
         (fun (inst_name, node_name) ->
            match find_node node_name with
            | None -> []
            | Some inst_node ->
-               let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+               let input_names =
+                 List.map (fun v -> v.vname) (Ast.node_inputs inst_node)
+               in
                let pre_k_map = build_pre_k_infos inst_node in
                List.filter_map
                  (function
@@ -425,7 +435,7 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
                        in
                        Some (term_implies cond body))
                  (Ast.node_invariants_mon inst_node))
-        n.instances
+        (Ast.node_instances n)
     in
     st_init :: (mon_init @ inv_terms @ instance_terms)
   in
@@ -457,10 +467,10 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
   in
   let pre_k_links = [] in
   let find_node (name:string) : node option =
-    List.find_opt (fun nd -> nd.nname = name) nodes
+    List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
   in
   let instance_invariant_terms ?(in_post=false) (inst_name:string) (node_name:string) (inst_node:node) =
-    let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+    let input_names = List.map (fun v -> v.vname) (Ast.node_inputs inst_node) in
     let pre_k_map = build_pre_k_infos inst_node in
     List.filter_map
       (function
@@ -486,12 +496,14 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
          match find_node node_name with
          | None -> []
          | Some inst_node -> instance_invariant_terms ~in_post:false inst_name node_name inst_node)
-      n.instances
+      (Ast.node_instances n)
   in
   let instance_input_links_pre, instance_input_links_post = ([], []) in
   let instance_delay_links_post =
-    let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
-    let calls = collect_calls_trans_full n.trans in
+    let find_node name =
+      List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+    in
+    let calls = collect_calls_trans_full (Ast.node_trans n) in
     let index_of name lst =
       let rec loop i = function
         | [] -> None
@@ -501,17 +513,21 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
     in
     List.filter_map
       (fun (inst_name, _args, outs) ->
-         match List.assoc_opt inst_name n.instances with
+         match List.assoc_opt inst_name (Ast.node_instances n) with
          | None -> None
          | Some node_name ->
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                match extract_delay_spec (Ast.values inst_node.guarantees) with
+                match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
                  | None -> None
                  | Some (out_name, in_name) ->
-                     let output_names = List.map (fun v -> v.vname) inst_node.outputs in
-                     let input_names = List.map (fun v -> v.vname) inst_node.inputs in
+                     let output_names =
+                       List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                     in
+                     let input_names =
+                       List.map (fun v -> v.vname) (Ast.node_inputs inst_node)
+                     in
                      begin match index_of out_name output_names with
                      | None -> None
                      | Some out_idx ->
@@ -540,8 +556,10 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
       calls
   in
   let instance_delay_links_inv =
-    let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
-    let calls = collect_calls_trans_full n.trans in
+    let find_node name =
+      List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+    in
+    let calls = collect_calls_trans_full (Ast.node_trans n) in
     let index_of name lst =
       let rec loop i = function
         | [] -> None
@@ -559,23 +577,29 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
     in
     List.filter_map
       (fun (inst_name, args, outs) ->
-         match List.assoc_opt inst_name n.instances with
+         match List.assoc_opt inst_name (Ast.node_instances n) with
          | None -> None
          | Some node_name ->
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec (Ast.values inst_node.guarantees) with
+                 match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
                  | None -> None
                  | Some (out_name, in_name) ->
-                     let output_names = List.map (fun v -> v.vname) inst_node.outputs in
+                     let output_names =
+                       List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                     in
                      begin match index_of out_name output_names with
                      | None -> None
                      | Some out_idx ->
                          if out_idx >= List.length outs then None
                          else
                            let out_var = List.nth outs out_idx in
-                          match List.assoc_opt in_name (List.combine (List.map (fun v -> v.vname) inst_node.inputs) args) with
+                          match List.assoc_opt in_name
+                                  (List.combine
+                                     (List.map (fun v -> v.vname) (Ast.node_inputs inst_node))
+                                     args)
+                          with
                           | Some e ->
                               begin match e.iexpr with
                               | IVar v ->
@@ -596,11 +620,11 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
     @ transition_post_to_pre
   in
   let output_links =
-    let outputs = List.map (fun v -> v.vname) n.outputs in
+    let outputs = List.map (fun v -> v.vname) (Ast.node_outputs n) in
     List.filter_map (fun out ->
         let assigns =
-          List.filter_map (fun t ->
-              match List.rev t.body with
+          List.filter_map (fun (t:Ast.transition) ->
+              match List.rev (Ast.transition_body t) with
               | s :: _ ->
                   begin match s.stmt with
                   | SAssign (x, e) when x = out ->
@@ -611,12 +635,12 @@ let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
                   | _ -> None
                   end
               | _ -> None
-            ) n.trans
+            ) (Ast.node_trans n)
         in
         match assigns with
         | [] -> None
         | v :: _ ->
-            if List.length assigns = List.length n.trans
+            if List.length assigns = List.length (Ast.node_trans n)
                && List.for_all ((=) v) assigns
             then Some (term_eq (term_of_var env out) (term_of_var env v))
             else None

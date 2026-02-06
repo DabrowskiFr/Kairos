@@ -151,12 +151,17 @@ type why_info = {
   warnings : string list;
 }
 type transition_attrs = {
+  uid : int option;
   lemmas : fo_o list;
   ghost : stmt list;
   monitor : stmt list;
   warnings : string list;
 }
+type transition_core = { src : ident; dst : ident; guard : iexpr option; }
+type transition_contracts = { requires : fo_o list; ensures : fo_o list; }
+type transition_body = { body : stmt list; }
 type node_attrs = {
+  uid : int option;
   invariants_mon : invariant_mon list;
   parse_info : parse_info option;
   automaton_info : automaton_info option;
@@ -166,28 +171,87 @@ type node_attrs = {
   why_info : why_info option;
 }
 type transition = {
-  src : ident;
-  dst : ident;
-  guard : iexpr option;
-  requires : fo_o list;
-  ensures : fo_o list;
-  body : stmt list;
+  core : transition_core;
+  contracts : transition_contracts;
+  body : transition_body;
   attrs : transition_attrs;
 }
-type node = {
-  nname : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  assumes : fo_ltl_o list;
-  guarantees : fo_ltl_o list;
-  instances : (ident * ident) list;
+type node_sig = { nname : ident; inputs : vdecl list; outputs : vdecl list; }
+type node_contracts = { assumes : fo_ltl_o list; guarantees : fo_ltl_o list; }
+type node_body = {
   locals : vdecl list;
   states : ident list;
   init_state : ident;
   trans : transition list;
+}
+type node = {
+  sig_ : node_sig;
+  contracts : node_contracts;
+  instances : (ident * ident) list;
+  body : node_body;
   attrs : node_attrs;
 }
 type program = node list
+type node_core = node_sig * node_contracts * (ident * ident) list * node_body
+type transition_core_t = transition_core * transition_contracts * transition_body
+
+module Core : sig
+  type nonrec node_core = node_core
+  type nonrec transition_bundle = transition_core_t
+  val node_core : node -> node_core
+  val with_node_core : node_core -> node -> node
+  val transition_core : transition -> transition_bundle
+  val with_transition_core : transition_bundle -> transition -> transition
+  val node_sig : node -> node_sig
+  val node_contracts : node -> node_contracts
+  val node_instances : node -> (ident * ident) list
+  val node_body : node -> node_body
+  val with_node_sig : node_sig -> node -> node
+  val with_node_contracts : node_contracts -> node -> node
+  val with_node_instances : (ident * ident) list -> node -> node
+  val with_node_body : node_body -> node -> node
+  val transition_core_data : transition -> transition_core
+  val transition_contracts : transition -> transition_contracts
+  val transition_body_data : transition -> transition_body
+  val with_transition_core_data : transition_core -> transition -> transition
+  val with_transition_contracts : transition_contracts -> transition -> transition
+  val with_transition_body_data : transition_body -> transition -> transition
+end
+
+module Attrs : sig
+  type nonrec node_attrs = node_attrs
+  type nonrec transition_attrs = transition_attrs
+  val node_attrs : node -> node_attrs
+  val transition_attrs : transition -> transition_attrs
+  val with_node_attrs : node_attrs -> node -> node
+  val with_transition_attrs : transition_attrs -> transition -> transition
+  val node_invariants_mon : node -> invariant_mon list
+  val with_node_invariants_mon : invariant_mon list -> node -> node
+  val node_uid : node -> int option
+  val with_node_uid : int -> node -> node
+  val transition_lemmas : transition -> fo_o list
+  val transition_ghost : transition -> stmt list
+  val transition_monitor : transition -> stmt list
+  val with_transition_lemmas : fo_o list -> transition -> transition
+  val with_transition_ghost : stmt list -> transition -> transition
+  val with_transition_monitor : stmt list -> transition -> transition
+  val transition_uid : transition -> int option
+  val with_transition_uid : int -> transition -> transition
+  val transition_warnings : transition -> string list
+  val with_transition_warnings : string list -> transition -> transition
+  val node_parse_info : node -> parse_info option
+  val node_automaton_info : node -> automaton_info option
+  val node_contracts_info : node -> contracts_info option
+  val node_monitor_info : node -> monitor_info option
+  val node_obc_info : node -> obc_info option
+  val node_why_info : node -> why_info option
+  val with_node_parse_info : parse_info -> node -> node
+  val with_node_automaton_info : automaton_info -> node -> node
+  val with_node_contracts_info : contracts_info -> node -> node
+  val with_node_monitor_info : monitor_info -> node -> node
+  val with_node_obc_info : obc_info -> node -> node
+  val with_node_why_info : why_info -> node -> node
+end
 
 val empty_node_attrs : node_attrs
 val empty_transition_attrs : transition_attrs
@@ -198,9 +262,13 @@ val with_transition_attrs : transition_attrs -> transition -> transition
 
 val node_invariants_mon : node -> invariant_mon list
 val with_node_invariants_mon : invariant_mon list -> node -> node
+val node_uid : node -> int option
+val with_node_uid : int -> node -> node
 val transition_lemmas : transition -> fo_o list
 val transition_ghost : transition -> stmt list
 val transition_monitor : transition -> stmt list
+val transition_uid : transition -> int option
+val with_transition_uid : int -> transition -> transition
 val with_transition_lemmas : fo_o list -> transition -> transition
 val with_transition_ghost : stmt list -> transition -> transition
 val with_transition_monitor : stmt list -> transition -> transition
@@ -219,6 +287,106 @@ val with_node_contracts_info : contracts_info -> node -> node
 val with_node_monitor_info : monitor_info -> node -> node
 val with_node_obc_info : obc_info -> node -> node
 val with_node_why_info : why_info -> node -> node
+val ensure_node_uid : node -> node
+val ensure_transition_uid : transition -> transition
+val ensure_program_uids : program -> program
+
+module Origin : sig
+  val to_string : origin -> string
+  val of_string : string -> origin
+end
+
+module Loc : sig
+  val to_string : loc -> string
+  val compare : loc -> loc -> int
+end
+
+module Readonly : sig
+  type nonrec node = node
+  type nonrec transition = transition
+  type nonrec program = program
+  module Core : sig
+    type nonrec node_core = node_core
+    type nonrec transition_bundle = transition_core_t
+    val node_core : node -> node_core
+    val transition_core : transition -> transition_bundle
+  end
+  module Attrs : sig
+    type nonrec node_attrs = node_attrs
+    type nonrec transition_attrs = transition_attrs
+    val node_attrs : node -> node_attrs
+    val transition_attrs : transition -> transition_attrs
+    val node_uid : node -> int option
+    val transition_uid : transition -> int option
+  end
+  val node_sig : node -> node_sig
+  val node_contracts : node -> node_contracts
+  val node_instances : node -> (ident * ident) list
+  val node_body : node -> node_body
+  val node_inputs : node -> vdecl list
+  val node_outputs : node -> vdecl list
+  val node_assumes : node -> fo_ltl_o list
+  val node_guarantees : node -> fo_ltl_o list
+  val node_locals : node -> vdecl list
+  val node_states : node -> ident list
+  val node_init_state : node -> ident
+  val node_trans : node -> transition list
+  val transition_src : transition -> ident
+  val transition_dst : transition -> ident
+  val transition_guard : transition -> iexpr option
+  val transition_requires : transition -> fo_o list
+  val transition_ensures : transition -> fo_o list
+  val transition_body : transition -> stmt list
+end
+
+module Mutable : sig
+  type nonrec node = node
+  type nonrec transition = transition
+  type nonrec program = program
+  val with_node_sig : node_sig -> node -> node
+  val with_node_contracts : node_contracts -> node -> node
+  val with_node_instances : (ident * ident) list -> node -> node
+  val with_node_body : node_body -> node -> node
+  val with_node_attrs : node_attrs -> node -> node
+  val with_transition_core_data : transition_core -> transition -> transition
+  val with_transition_contracts : transition_contracts -> transition -> transition
+  val with_transition_body_data : transition_body -> transition -> transition
+  val with_transition_attrs : transition_attrs -> transition -> transition
+  val with_transition_requires : fo_o list -> transition -> transition
+  val with_transition_ensures : fo_o list -> transition -> transition
+  val with_transition_body : stmt list -> transition -> transition
+end
+val node_inputs : node -> vdecl list
+val node_outputs : node -> vdecl list
+val node_assumes : node -> fo_ltl_o list
+val node_guarantees : node -> fo_ltl_o list
+val node_locals : node -> vdecl list
+val node_states : node -> ident list
+val node_init_state : node -> ident
+val node_trans : node -> transition list
+val transition_src : transition -> ident
+val transition_dst : transition -> ident
+val transition_guard : transition -> iexpr option
+val transition_requires : transition -> fo_o list
+val transition_ensures : transition -> fo_o list
+val transition_body : transition -> stmt list
+val with_transition_requires : fo_o list -> transition -> transition
+val with_transition_ensures : fo_o list -> transition -> transition
+val with_transition_body : stmt list -> transition -> transition
+val node_sig : node -> node_sig
+val node_contracts : node -> node_contracts
+val node_instances : node -> (ident * ident) list
+val node_body : node -> node_body
+val with_node_sig : node_sig -> node -> node
+val with_node_contracts : node_contracts -> node -> node
+val with_node_instances : (ident * ident) list -> node -> node
+val with_node_body : node_body -> node -> node
+val transition_core_data : transition -> transition_core
+val transition_contracts : transition -> transition_contracts
+val transition_body_data : transition -> transition_body
+val with_transition_core_data : transition_core -> transition -> transition
+val with_transition_contracts : transition_contracts -> transition -> transition
+val with_transition_body_data : transition_body -> transition -> transition
 val mk_transition :
   src:ident ->
   dst:ident ->

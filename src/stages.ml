@@ -7,12 +7,21 @@ type config = {
   dump_ast_stage : Stage_names.stage_id option;
   dump_ast_out : string option;
   dump_ast_all : string option;
+  dump_ast_stable : bool;
+  dump_ast_include_attrs : bool;
+  check_ast : bool;
   output_file : string option;
   prove : bool;
   prover : string;
+  prover_cmd : string option;
+  wp_only : bool;
   prefix_fields : bool;
   input_file : string;
 }
+
+let check_stage label checks =
+  if checks = [] then Ok ()
+  else Error (Printf.sprintf "%s: %s" label (String.concat " | " checks))
 
 let run (cfg:config) : (unit, string) result =
   let log_stage msg =
@@ -21,6 +30,47 @@ let run (cfg:config) : (unit, string) result =
   match Pipeline.build_ast ~log:true ~input_file:cfg.input_file () with
   | Error err -> Error (Pipeline.error_to_string err)
   | Ok asts ->
+      let r_check =
+        if not cfg.check_ast then Ok ()
+        else
+          let open Ast_invariants in
+          let r0 =
+            check_stage "parsed"
+              (check_program_basic (Ast_user.to_ast asts.parsed))
+          in
+          let r1 =
+            match r0 with
+            | Error _ as err -> err
+            | Ok () ->
+                check_stage "automaton"
+                  (check_program_basic (Ast_automaton.to_ast asts.automaton))
+          in
+          let r2 =
+            match r1 with
+            | Error _ as err -> err
+            | Ok () ->
+                check_stage "contracts"
+                  (check_program_basic (Ast_contracts.to_ast asts.contracts)
+                   @ check_program_contracts (Ast_contracts.to_ast asts.contracts))
+          in
+          let r3 =
+            match r2 with
+            | Error _ as err -> err
+            | Ok () ->
+                check_stage "monitor"
+                  (check_program_basic (Ast_monitor.to_ast asts.monitor)
+                   @ check_program_monitor (Ast_monitor.to_ast asts.monitor))
+          in
+          match r3 with
+          | Error _ as err -> err
+          | Ok () ->
+              check_stage "obc"
+                (check_program_basic (Ast_obc.to_ast asts.obc)
+                 @ check_program_obc (Ast_obc.to_ast asts.obc))
+      in
+      match r_check with
+      | Error _ as err -> err
+      | Ok () ->
       let r0 =
         match cfg.dump_ast_stage with
         | None -> Ok ()
@@ -36,7 +86,12 @@ let run (cfg:config) : (unit, string) result =
               | Stage_names.Prove ->
                   invalid_arg "dump-ast does not support why/prove stages"
             in
-            Stage_io.dump_ast_stage ~stage ~out:cfg.dump_ast_out program
+            Stage_io.dump_ast_stage
+              ~stage
+              ~out:cfg.dump_ast_out
+              ~stable:cfg.dump_ast_stable
+              ~include_attrs:cfg.dump_ast_include_attrs
+              program
       in
       let r1 =
         match r0 with
@@ -53,6 +108,8 @@ let run (cfg:config) : (unit, string) result =
                     ~contracts:asts.contracts
                     ~monitor:asts.monitor
                     ~obc:asts.obc
+                    ~stable:cfg.dump_ast_stable
+                    ~include_attrs:cfg.dump_ast_include_attrs
             end
       in
       match r1 with
@@ -99,9 +156,10 @@ let run (cfg:config) : (unit, string) result =
                 | Some out_file ->
                     Stage_io.emit_smt2 ~out_file ~prover:cfg.prover ~why_text
                 end;
-                if cfg.prove then
+                if cfg.prove && not cfg.wp_only then
                   Stage_io.prove_why
                     ~prover:cfg.prover
+                    ~prover_cmd:cfg.prover_cmd
                     ~why_text;
                 Ok ()
           end

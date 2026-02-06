@@ -101,16 +101,21 @@ let dot_residual_program ?(show_labels=false) (p:Ast_automaton.program) : string
     let fo_specs =
       List.fold_left
         (fun acc (t:transition) ->
-          Ast.values t.requires @ Ast.values t.ensures @ acc)
+          Ast.values (Ast.transition_requires t)
+          @ Ast.values (Ast.transition_ensures t) @ acc)
         []
-        n.trans
+        (Ast.node_trans n)
     in
-    let ltl_specs = Ast.values n.assumes @ Ast.values n.guarantees in
+    let ltl_specs =
+      Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n)
+    in
     let fold_map = fold_map_for_specs ~fo:fo_specs ~ltl:ltl_specs in
     let pre_k_map = Collect.build_pre_k_infos n in
-    let inputs = List.map (fun v -> v.vname) n.inputs in
+    let inputs = List.map (fun v -> v.vname) (Ast.node_inputs n) in
     let var_types =
-      List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+      List.map
+        (fun v -> (v.vname, v.vty))
+        (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
     in
     let atoms =
       let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltl_specs in
@@ -249,7 +254,7 @@ let dot_residual_program ?(show_labels=false) (p:Ast_automaton.program) : string
            acc)
         s atom_named_exprs
     in
-    let _cluster = Support.module_name_of_node n.nname in
+    let _cluster = Support.module_name_of_node (Ast.node_sig n).nname in
     let debug_inline =
       match Sys.getenv_opt "OBC2WHY3_DEBUG_DOT_INLINE" with
       | Some "1" -> true
@@ -386,7 +391,7 @@ let dot_monitor_program ?(show_labels=false) (p:Ast_automaton.program) : string 
       | LOr (a,b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a,b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
     in
-    let _cluster = Support.module_name_of_node n_ast.nname in
+    let _cluster = Support.module_name_of_node (Ast.node_sig n_ast).nname in
     List.iteri
       (fun i f ->
          let node_id = string_of_int i in

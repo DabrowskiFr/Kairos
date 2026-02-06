@@ -145,7 +145,7 @@ let setup_env () =
   let env = Env.create_env (Whyconf.loadpath main) in
   (config, main, env, datadir_opt)
 
-let rec prove_text ?(timeout=30) ~(prover:string) ~(text:string) () : result =
+let rec prove_text ?(timeout=30) ?prover_cmd ~(prover:string) ~(text:string) () : result =
   let write_text path content =
     let oc = open_out path in
     output_string oc content;
@@ -212,7 +212,17 @@ let rec prove_text ?(timeout=30) ~(prover:string) ~(text:string) () : result =
     limit_time = float_of_int timeout;
     limit_mem = Whyconf.memlimit main;
   } in
-  let command = Whyconf.get_complete_command prover_cfg ~with_steps:false in
+  let override_cmd =
+    match prover_cmd with
+    | Some s when String.trim s <> "" -> Some s
+    | _ -> None
+  in
+  let command =
+    match override_cmd with
+    | Some cmd -> cmd
+    | None -> Whyconf.get_complete_command prover_cfg ~with_steps:false
+  in
+  let use_direct_z3 = if override_cmd <> None then false else use_direct_z3 in
   let prove_with_z3_direct buffer =
     let tmp = Filename.temp_file "why3_task_" ".smt2" in
     let oc = open_out tmp in
@@ -553,6 +563,7 @@ let dump_smt2_tasks ~(prover:string) ~(text:string) : string list =
 
 let prove_text_detailed_with_callbacks
   ?(timeout=30)
+  ?prover_cmd
   ~(prover:string)
   ~(text:string)
   ~(vc_ids_ordered:int list option)
@@ -653,7 +664,17 @@ let prove_text_detailed_with_callbacks
     limit_time = float_of_int timeout;
     limit_mem = Whyconf.memlimit main;
   } in
-  let command = Whyconf.get_complete_command prover_cfg ~with_steps:false in
+  let override_cmd =
+    match prover_cmd with
+    | Some s when String.trim s <> "" -> Some s
+    | _ -> None
+  in
+  let command =
+    match override_cmd with
+    | Some cmd -> cmd
+    | None -> Whyconf.get_complete_command prover_cfg ~with_steps:false
+  in
+  let use_direct_z3 = if override_cmd <> None then false else use_direct_z3 in
   let prove_with_z3_direct buffer =
     let tmp = Filename.temp_file "why3_task_" ".smt2" in
     let oc = open_out tmp in
@@ -692,12 +713,13 @@ let prove_text_detailed_with_callbacks
     ~on_goal_done
     tasks
 
-let prove_text_detailed ?(timeout=30) ~(prover:string) ~(text:string) () :
+let prove_text_detailed ?(timeout=30) ?prover_cmd ~(prover:string) ~(text:string) () :
   summary * (string * string * float * string option * string * string option) list =
   let noop_start _ _ = () in
   let noop_done _ _ _ _ _ _ _ = () in
   prove_text_detailed_with_callbacks
     ~timeout
+    ?prover_cmd
     ~prover
     ~text
     ~vc_ids_ordered:None

@@ -42,7 +42,7 @@ let collect_atoms_from_node (n:Ast_contracts.node) : fo list =
     List.fold_left
       (fun acc f -> collect_atoms_ltl f acc)
       []
-      (Ast.values n.assumes @ Ast.values n.guarantees)
+      (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
   in
   List.fold_left
     (fun acc inv ->
@@ -54,7 +54,9 @@ let collect_atoms_from_node (n:Ast_contracts.node) : fo list =
 
 let transition_fo (t:Ast_contracts.transition) : fo list =
   let t = Ast_contracts.transition_to_ast t in
-  Ast.values t.requires @ Ast.values t.ensures @ Ast.values (Ast.transition_lemmas t)
+  Ast.values (Ast.transition_requires t)
+  @ Ast.values (Ast.transition_ensures t)
+  @ Ast.values (Ast.transition_lemmas t)
 
 let conj_fo (fs:fo list) : fo option =
   match fs with
@@ -218,8 +220,13 @@ let replace_atoms_transition (atom_map:(fo * ident) list) (t:Ast_contracts.trans
       t
   in
   { t with
-    requires = List.map (Ast.map_with_origin (replace_atoms_fo atom_map)) t.requires;
-    ensures = List.map (Ast.map_with_origin (replace_atoms_fo atom_map)) t.ensures;
+    contracts =
+      { requires =
+          List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
+            (Ast.transition_requires t);
+        ensures =
+          List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
+            (Ast.transition_ensures t); };
   }
   |> Ast_contracts.transition_of_ast
 
@@ -228,7 +235,7 @@ let fold_map_for_node (n:Ast_contracts.node) : (hexpr * ident) list =
   let folds : Support.fold_info list =
     Collect.collect_folds_from_specs
       ~fo:[]
-      ~ltl:(Ast.values n.assumes @ Ast.values n.guarantees)
+      ~ltl:(Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
       ~invariants_mon:(Ast.node_invariants_mon n)
   in
   List.map (fun (fi:Support.fold_info) -> (fi.h, fi.acc)) folds

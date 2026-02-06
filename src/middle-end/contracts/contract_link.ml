@@ -28,12 +28,12 @@ let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
       List.iter
         (fun f ->
           let existing =
-            Hashtbl.find_opt tbl t.src
+            Hashtbl.find_opt tbl (Ast.transition_src t)
             |> Option.value ~default:[]
           in
-          Hashtbl.replace tbl t.src (f :: existing))
-        (Ast.values t.requires))
-    n.trans;
+          Hashtbl.replace tbl (Ast.transition_src t) (f :: existing))
+        (Ast.values (Ast.transition_requires t)))
+    (Ast.node_trans n);
   tbl
 
 let updated_transitions ~(is_input:ident -> bool)
@@ -46,11 +46,11 @@ let updated_transitions ~(is_input:ident -> bool)
   List.map
     (fun (t:transition) ->
       let succ_reqs =
-        Hashtbl.find_opt succ_requires_by_state t.dst
+        Hashtbl.find_opt succ_requires_by_state (Ast.transition_dst t)
         |> Option.value ~default:[]
         |> uniq
       in
-      let ensures_all = Ast.values t.ensures in
+      let ensures_all = Ast.values (Ast.transition_ensures t) in
       let new_ensures =
         match conj_fo ensures_all with
         | None -> []
@@ -70,7 +70,10 @@ let updated_transitions ~(is_input:ident -> bool)
         let new_ensures_o =
           List.map (Ast.with_origin Coherency) new_ensures
         in
-        { t with ensures = t.ensures @ new_ensures_o })
+        { t with
+          contracts =
+            { t.contracts with
+              ensures = Ast.transition_ensures t @ new_ensures_o; } })
     trans
 
 let add_state_invariants_to_transitions
@@ -92,49 +95,63 @@ let add_state_invariants_to_transitions
        let reqs, ens =
          List.fold_left
            (fun (reqs, ens) (is_eq, st, f) ->
-              let pre_ok = if is_eq then t.src = st else t.src <> st in
-              let post_ok = if is_eq then t.dst = st else t.dst <> st in
+              let pre_ok =
+                if is_eq then Ast.transition_src t = st
+                else Ast.transition_src t <> st
+              in
+              let post_ok =
+                if is_eq then Ast.transition_dst t = st
+                else Ast.transition_dst t <> st
+              in
               let reqs = if pre_ok then add_unique f reqs else reqs in
               let ens = if post_ok then add_unique f ens else ens in
               (reqs, ens))
-           (t.requires, t.ensures)
+           (Ast.transition_requires t, Ast.transition_ensures t)
            invs
        in
-       { t with requires = reqs; ensures = ens })
+       { t with contracts = { requires = reqs; ensures = ens } })
     trans
 
 let ensure_next_requires (n:Ast_automaton.node) : Ast_contracts.node =
   let n = Ast_automaton.node_to_ast n in
   let succ_requires_by_state = succ_requires_by_state n in
-  let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
+  let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
   let trans =
-    updated_transitions ~is_input ~succ_requires_by_state n.trans
+    updated_transitions ~is_input ~succ_requires_by_state (Ast.node_trans n)
     |> add_state_invariants_to_transitions ~invariants_mon:(Ast.node_invariants_mon n)
   in
-  Ast_contracts.node_of_ast { n with trans }
+  Ast_contracts.node_of_ast { n with body = { n.body with trans } }
 
 let user_contracts_coherency (n:Ast_automaton.node) : Ast_contracts.node =
   let n = Ast_automaton.node_to_ast n in
-  let is_input v = List.exists (fun vi -> vi.vname = v) n.inputs in
-  let trans_indexed = List.mapi (fun i t -> (i, t)) n.trans in
+  let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
+  let trans_indexed = List.mapi (fun i t -> (i, t)) (Ast.node_trans n) in
   let by_src = Hashtbl.create 16 in
   List.iter
     (fun (i, t) ->
-       let lst = Hashtbl.find_opt by_src t.src |> Option.value ~default:[] in
-       Hashtbl.replace by_src t.src (i :: lst))
+       let lst =
+         Hashtbl.find_opt by_src (Ast.transition_src t) |> Option.value ~default:[]
+       in
+       Hashtbl.replace by_src (Ast.transition_src t) (i :: lst))
     trans_indexed;
   let user_requires =
-    Array.of_list (List.map (fun (t:transition) -> Ast.values t.requires) n.trans)
+    Array.of_list
+      (List.map (fun (t:transition) -> Ast.values (Ast.transition_requires t))
+         (Ast.node_trans n))
   in
   let user_ensures =
-    Array.of_list (List.map (fun (t:transition) -> Ast.values t.ensures) n.trans)
+    Array.of_list
+      (List.map (fun (t:transition) -> Ast.values (Ast.transition_ensures t))
+         (Ast.node_trans n))
   in
   let shift_req f = shift_fo_backward_inputs ~is_input f in
   let add_coherency (i:int) (t:transition) =
     match conj_fo user_ensures.(i) with
     | None -> t
     | Some ens_conj ->
-        let next = Hashtbl.find_opt by_src t.dst |> Option.value ~default:[] in
+        let next =
+          Hashtbl.find_opt by_src (Ast.transition_dst t) |> Option.value ~default:[]
+        in
         let new_ensures =
           List.concat_map
             (fun j ->
@@ -146,9 +163,12 @@ let user_contracts_coherency (n:Ast_automaton.node) : Ast_contracts.node =
           let new_ensures_o =
             List.map (Ast.with_origin Coherency) new_ensures
           in
-          { t with ensures = t.ensures @ new_ensures_o }
+          { t with
+            contracts =
+              { t.contracts with
+                ensures = Ast.transition_ensures t @ new_ensures_o; } }
   in
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed
   in
-  Ast_contracts.node_of_ast { n with trans }
+  Ast_contracts.node_of_ast { n with body = { n.body with trans } }

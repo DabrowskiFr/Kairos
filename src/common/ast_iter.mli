@@ -16,14 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Ast
-open Automaton_core
-open Fo_specs
+val iter_program : (Ast.node -> unit) -> Ast.program -> unit
+val iter_nodes : (Ast.node -> unit) -> Ast.program -> unit
+val iter_transitions : (Ast.transition -> unit) -> Ast.program -> unit
+val iter_node_transitions : (Ast.node -> Ast.transition -> unit) -> Ast.program -> unit
 
-let build_monitor_spec ~(atom_map:(fo * ident) list) (n:Ast_contracts.node) : fo_ltl =
-  let n = Ast_contracts.node_to_ast n in
-  let _ = atom_map in
-  let spec_assumes = Ast.values (Ast.node_assumes n) in
-  let spec_guarantees = Ast.values (Ast.node_guarantees n) in
-  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
-  |> simplify_ltl
+val fold_nodes : ('a -> Ast.node -> 'a) -> 'a -> Ast.program -> 'a
+val fold_transitions : ('a -> Ast.transition -> 'a) -> 'a -> Ast.program -> 'a
+
+val map_program : (Ast.node -> Ast.node) -> Ast.program -> Ast.program
+val map_transitions : (Ast.transition -> Ast.transition) -> Ast.program -> Ast.program
+val map_node_transitions : (Ast.transition -> Ast.transition) -> Ast.node -> Ast.node

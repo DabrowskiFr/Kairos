@@ -10,6 +10,7 @@ let file_size path =
   | Error _ -> 0
 
 let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
+  ~(stable:bool) ~(include_attrs:bool)
   (program:Ast.program) : (unit, string) result =
   let _ = Stage_names.to_string stage in
   let out =
@@ -17,7 +18,10 @@ let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
     | Some "-" -> None
     | other -> other
   in
-  Ast_dump.dump_program_json ~out (Ast_user.of_ast program);
+  if stable then
+    Ast_dump.dump_program_json_stable ~include_attrs ~out (Ast_user.of_ast program)
+  else
+    Ast_dump.dump_program_json ~out (Ast_user.of_ast program);
   Ok ()
 
 let dump_ast_all
@@ -27,6 +31,8 @@ let dump_ast_all
   ~(contracts:Ast_contracts.program)
   ~(monitor:Ast_monitor.program)
   ~(obc:Ast_obc.program)
+  ~(stable:bool)
+  ~(include_attrs:bool)
   : (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
@@ -45,7 +51,11 @@ let dump_ast_all
     | Ok () ->
         let write_stage name program =
           let path = Fpath.(d / (Stage_names.to_string name ^ ".json")) in
-          Ast_dump.dump_program_json ~out:(Some (Fpath.to_string path)) program
+          if stable then
+            Ast_dump.dump_program_json_stable ~include_attrs
+              ~out:(Some (Fpath.to_string path)) program
+          else
+            Ast_dump.dump_program_json ~out:(Some (Fpath.to_string path)) program
         in
         write_stage Stage_names.Parsed parsed;
         write_stage Stage_names.Automaton (Ast_user.of_ast (Ast_automaton.to_ast automaton));
@@ -150,11 +160,12 @@ let emit_why
 
 let prove_why
   ~(prover:string)
+  ~(prover_cmd:string option)
   ~(why_text:string)
   : unit =
   let t_prove = Unix.gettimeofday () in
   Log.stage_start Stage_names.Prove;
-  let result = Why_prove.prove_text ~prover ~text:why_text () in
+  let result = Why_prove.prove_text ~prover ?prover_cmd ~text:why_text () in
   let duration_ms =
     int_of_float ((Unix.gettimeofday () -. t_prove) *. 1000.)
   in

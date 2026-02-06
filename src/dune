@@ -10,6 +10,12 @@
   ast_obc
   ast_why
   ast_dump
+  ast_map
+  ast_builder
+  ast_invariants
+  ast_diff
+  ast_serialize
+  ast_iter
   frontend
   lexer
   parser

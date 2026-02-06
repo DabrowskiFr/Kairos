@@ -26,3 +26,15 @@ let dump_program_json ~(out:string option) (p:Ast_user.program) : unit =
       output_string oc json;
       output_char oc '\n';
       close_out oc
+
+let dump_program_json_stable ?(include_attrs=false) ~(out:string option)
+  (p:Ast_user.program) : unit =
+  let p = Ast_user.to_ast p in
+  let json = Ast_serialize.program_to_json ~include_attrs p in
+  match out with
+  | None -> print_endline json
+  | Some path ->
+      let oc = open_out path in
+      output_string oc json;
+      output_char oc '\n';
+      close_out oc

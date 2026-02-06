@@ -22,3 +22,4 @@ Notes
 -----
 - `scripts/lint.sh` runs build + unit tests + golden diffs. To include Why3
   proofs, run: `LINT_RUN_WHY3=1 scripts/lint.sh`.
+- AST API overview: `AST_API.md`.
