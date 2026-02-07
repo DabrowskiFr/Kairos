@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -687,11 +687,11 @@ let node_lines (n:node) : string list =
   @ trans
   @ ["end"]
 
-let string_of_program (p:Ast_obc.program) : string =
-  let p = Ast_obc.to_ast p in
+let string_of_program (p:Ast.program) : string =
+  let p = p in
   String.concat "\n" (List.map (fun n -> String.concat "\n" (node_lines n)) p) ^ "\n"
 
-let compile_program (p:Ast_obc.program) : string =
+let compile_program (p:Ast.program) : string =
   string_of_program p
 
 type line_with_vcid = string * int option
@@ -915,8 +915,8 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   @ trans
   @ [("end", None)]
 
-let string_of_program_with_spans (p:Ast_obc.program) : string * (int * (int * int)) list =
-  let p = Ast_obc.to_ast p in
+let string_of_program_with_spans (p:Ast.program) : string * (int * (int * int)) list =
+  let p = p in
   let lines = List.concat_map node_lines_with_vcid p in
   let buf = Buffer.create 4096 in
   let spans = ref [] in
@@ -934,5 +934,5 @@ let string_of_program_with_spans (p:Ast_obc.program) : string * (int * (int * in
   List.iter add_line lines;
   (Buffer.contents buf, List.rev !spans)
 
-let compile_program_with_spans (p:Ast_obc.program) : string * (int * (int * int)) list =
+let compile_program_with_spans (p:Ast.program) : string * (int * (int * int)) list =
   string_of_program_with_spans p

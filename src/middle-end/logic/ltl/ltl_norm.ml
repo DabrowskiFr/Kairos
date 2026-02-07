@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify

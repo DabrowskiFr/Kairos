@@ -40,11 +40,11 @@ type why_outputs = { why_text : string; stage_meta : (string * (string * string)
 type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_stages = {
-  parsed : Ast_user.program;
-  automaton : Ast_automaton.program;
-  contracts : Ast_contracts.program;
-  monitor : Ast_monitor.program;
-  obc : Ast_obc.program;
+  parsed : Ast.program;
+  automaton : Ast.program;
+  contracts : Ast.program;
+  monitor : Ast.program;
+  obc : Ast.program;
 }
 
 type config = {
@@ -152,10 +152,10 @@ let stage_meta (asts:ast_stages) : (string * (string * string) list) list =
     | x :: _ -> Some x
   in
   let user =
-    match Ast_user.to_nodes asts.parsed |> head_opt with
+    match asts.parsed |> head_opt with
     | None -> ("user", [])
     | Some n ->
-        let info = Ast_user.node_info n in
+        let info = Ast.node_parse_info_or_empty n in
         ( "user",
           [ ("source_path", Option.value ~default:"" info.source_path);
             ("text_hash", Option.value ~default:"" info.text_hash);
@@ -163,39 +163,39 @@ let stage_meta (asts:ast_stages) : (string * (string * string) list) list =
             ("warnings", string_of_int (List.length info.warnings)) ] )
   in
   let automaton =
-    match Ast_automaton.to_nodes asts.automaton |> head_opt with
+    match asts.automaton |> head_opt with
     | None -> ("automaton", [])
     | Some n ->
-        let info = Ast_automaton.node_info n in
+        let info = Ast.node_automaton_info_or_empty n in
         ( "automaton",
           [ ("states", string_of_int info.residual_state_count);
             ("edges", string_of_int info.residual_edge_count);
             ("warnings", string_of_int (List.length info.warnings)) ] )
   in
   let contracts =
-    match Ast_contracts.to_nodes asts.contracts |> head_opt with
+    match asts.contracts |> head_opt with
     | None -> ("contracts", [])
     | Some n ->
-        let info = Ast_contracts.node_info n in
+        let info = Ast.node_contracts_info_or_empty n in
         ( "contracts",
           [ ("origins", string_of_int (List.length info.contract_origin_map));
             ("warnings", string_of_int (List.length info.warnings)) ] )
   in
   let monitor =
-    match Ast_monitor.to_nodes asts.monitor |> head_opt with
+    match asts.monitor |> head_opt with
     | None -> ("monitor", [])
     | Some n ->
-        let info = Ast_monitor.node_info n in
+        let info = Ast.node_monitor_info_or_empty n in
         ( "monitor",
           [ ("atoms", string_of_int info.atom_count);
             ("states", string_of_int (List.length info.monitor_state_ctors));
             ("warnings", string_of_int (List.length info.warnings)) ] )
   in
   let obc =
-    match Ast_obc.to_nodes asts.obc |> head_opt with
+    match asts.obc |> head_opt with
     | None -> ("obc", [])
     | Some n ->
-        let info = Ast_obc.node_info n in
+        let info = Ast.node_obc_info_or_empty n in
         ( "obc",
           [ ("ghost_locals", string_of_int (List.length info.ghost_locals_added));
             ("pre_k_infos", string_of_int (List.length info.pre_k_infos));
@@ -255,7 +255,7 @@ let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
       if log then
         Log.stage_end Stage_names.Parsed
           (int_of_float ((Unix.gettimeofday () -. t0) *. 1000.))
-          (program_stats (Ast_user.to_ast p_parsed));
+          (program_stats p_parsed);
       Ok p_parsed
     with exn -> Error (Parse_error (Printexc.to_string exn))
   in
@@ -268,60 +268,52 @@ let build_ast ?(log=false) ~input_file () : (ast_stages, error) result =
         let p_automaton =
           p_parsed
           |> Middle_end.stage_automaton
-          |> Ast_automaton.to_ast
           |> reid_program
-          |> Ast_automaton.of_ast
         in
-        emit_automaton_debug_stats (Ast_automaton.to_ast p_automaton);
+        emit_automaton_debug_stats p_automaton;
         if log then
           Log.stage_end Stage_names.Automaton
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
-            (program_stats (Ast_automaton.to_ast p_automaton));
+            (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Contracts;
         let p_contracts =
           p_automaton
           |> Middle_end.stage_contracts
-          |> Ast_contracts.to_ast
           |> reid_program
-          |> Ast_contracts.of_ast
         in
         if log then
           Log.stage_end Stage_names.Contracts
             (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-            (program_stats (Ast_contracts.to_ast p_contracts));
+            (program_stats p_contracts);
         let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Monitor;
         let p_monitor =
           p_contracts
           |> Middle_end.stage_monitor_injection
-          |> Ast_monitor.to_ast
           |> reid_program
-          |> Ast_monitor.of_ast
         in
         if log then
           Log.stage_end Stage_names.Monitor
             (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
-            (program_stats (Ast_monitor.to_ast p_monitor));
+            (program_stats p_monitor);
         let t4 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Obc;
         let p_obc =
           p_monitor
           |> Obc_stage.run
-          |> Ast_obc.to_ast
           |> reid_program
-          |> Ast_obc.of_ast
         in
         if log then
           Log.stage_end Stage_names.Obc
             (int_of_float ((Unix.gettimeofday () -. t4) *. 1000.))
-            (program_stats (Ast_obc.to_ast p_obc));
+            (program_stats p_obc);
         Ok { parsed = p_parsed; automaton = p_automaton; contracts = p_contracts; monitor = p_monitor; obc = p_obc }
       with exn ->
         Error (Stage_error (Printexc.to_string exn))
 
-let build_obcplus_sequents (p_obc:Ast_obc.program) : (int * string) list =
-  let p_obc = Ast_obc.to_ast p_obc in
+let build_obcplus_sequents (p_obc:Ast.program) : (int * string) list =
+  let p_obc = p_obc in
   let acc = ref [] in
   let add_node (node:Ast.node) =
     List.iter
@@ -345,9 +337,9 @@ let build_obcplus_sequents (p_obc:Ast_obc.program) : (int * string) list =
   List.iter add_node p_obc;
   List.rev !acc
 
-let build_vcid_locs (p_parsed:Ast_user.program)
+let build_vcid_locs (p_parsed:Ast.program)
   : (int * Ast.loc) list * Ast.loc list =
-  let p_parsed = Ast_user.to_ast p_parsed in
+  let p_parsed = p_parsed in
   let acc = ref [] in
   let ordered = ref [] in
   let add_node (node:Ast.node) =
@@ -369,7 +361,7 @@ let build_vcid_locs (p_parsed:Ast_user.program)
 
 let dot_png_from_text (dot_text:string) : string option =
   let open Bos in
-  match OS.File.tmp "obcwhy3_ide_%s.dot" with
+  match OS.File.tmp "kairos_ide_%s.dot" with
   | Error _ -> None
   | Ok dot_file ->
       let png_file = Fpath.set_ext "png" dot_file in

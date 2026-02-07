@@ -1,9 +1,9 @@
   $ for f in ./inputs/*.obc; do
   >   [ -e "$f" ] || continue;
   >   echo "[ok] $f";
-  >   obc2why3 --log-level quiet --dump-obc - "$f" > /dev/null;
-  >   obc2why3 --log-level quiet --dump-why - "$f" > /dev/null;
-  >   obc2why3 --log-level quiet --prove "$f" > /dev/null;
+  >   kairos --log-level quiet --dump-obc - "$f" > /dev/null;
+  >   kairos --log-level quiet --dump-why - "$f" > /dev/null;
+  >   kairos --log-level quiet --prove "$f" > /dev/null;
   > done
   [ok] ./inputs/ack_cycle.obc
   [ok] ./inputs/counter4.obc

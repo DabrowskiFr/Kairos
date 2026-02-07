@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  *---------------------------------------------------------------------------*)
 
-val transform_node_ghost : Ast_obc.node -> Ast_obc.node
+val transform_node_ghost : Ast.node -> Ast.node

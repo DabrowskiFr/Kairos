@@ -1,26 +1,11 @@
 open Ide_text_utils
 
-let highlight_obc_buf ~(buf:GText.buffer) ~keyword_tag:_ ~type_tag:_ ~number_tag:_ ~comment_tag:_ ~state_tag:_ text =
+let highlight_obc_buf ~(buf:GText.buffer) ~keyword_tag ~type_tag ~number_tag ~comment_tag ~state_tag text =
   let start_iter = buf#start_iter in
   let end_iter = buf#end_iter in
   buf#remove_all_tags ~start:start_iter ~stop:end_iter;
   let buf_text = buf#get_text ~start:start_iter ~stop:end_iter () in
   let text = buf_text in
-  let keyword_tag =
-    buf#create_tag [ `FOREGROUND "#0a84ff"; `WEIGHT `BOLD ]
-  in
-  let type_tag =
-    buf#create_tag [ `FOREGROUND "#16a34a"; `WEIGHT `BOLD ]
-  in
-  let number_tag =
-    buf#create_tag [ `FOREGROUND "#d97706"; `WEIGHT `BOLD ]
-  in
-  let comment_tag =
-    buf#create_tag [ `FOREGROUND "#6b7280"; `STYLE `ITALIC ]
-  in
-  let state_tag =
-    buf#create_tag [ `FOREGROUND "#7c3aed"; `WEIGHT `BOLD ]
-  in
   let map = build_utf8_map text in
   let apply_regex = apply_regex_to_buf buf text in
   let keywords =

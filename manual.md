@@ -2,7 +2,7 @@
 
 Overview
 --------
-`obc2why3` translates OBC programs into Why3 using the monitor-based
+`kairos` translates OBC programs into Why3 using the monitor-based
 translation by default.
 
 Notes
@@ -16,25 +16,25 @@ Basic usage
 Generate Why3 (monitor translation, default):
 
 ```sh
-dune exec -- obc2why3 tests/toggle/toggle.obc > out/toggle_monitor.why
+dune exec -- kairos tests/toggle/toggle.obc > out/toggle_monitor.why
 ```
 
 Generate Why3 to a file:
 
 ```sh
-dune exec -- obc2why3 -o out/toggle_monitor.why tests/toggle/toggle.obc
+dune exec -- kairos -o out/toggle_monitor.why tests/toggle/toggle.obc
 ```
 
 Dump augmented OBC (monitor-instrumented):
 
 ```sh
-dune exec -- obc2why3 --dump-obc out/toggle_monitor.obc+ tests/toggle/toggle.obc
+dune exec -- kairos --dump-obc out/toggle_monitor.obc+ tests/toggle/toggle.obc
 ```
 
-Run Why3 directly from obc2why3:
+Run Why3 directly from kairos:
 
 ```sh
-dune exec -- obc2why3 --prove --prover z3 tests/toggle/toggle.obc > out/toggle_monitor.why
+dune exec -- kairos --prove --prover z3 tests/toggle/toggle.obc > out/toggle_monitor.why
 ```
 
 Monitor DOT and PDF
@@ -42,7 +42,7 @@ Monitor DOT and PDF
 Generate DOT file for the monitor residual graph:
 
 ```sh
-dune exec -- obc2why3 --dump-dot out/toggle_monitor.dot tests/toggle/toggle.obc
+dune exec -- kairos --dump-dot out/toggle_monitor.dot tests/toggle/toggle.obc
 ```
 
 This writes:
@@ -62,7 +62,7 @@ dot -Tpdf out/toggle_monitor.dot -o out/toggle_monitor.pdf
 Generate DOT with full labels (no `.labels` file):
 
 ```sh
-dune exec -- obc2why3 --dump-dot-labels out/toggle_monitor.dot tests/toggle/toggle.obc
+dune exec -- kairos --dump-dot-labels out/toggle_monitor.dot tests/toggle/toggle.obc
 ```
 
 Why3 verification
@@ -114,7 +114,7 @@ Options
 Display help:
 
 ```sh
-dune exec -- obc2why3 --help
+dune exec -- kairos --help
 ```
 
 All available options:

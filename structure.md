@@ -119,6 +119,6 @@ Source modules
 Generated artifacts
 -------------------
 - `out/*.why`  
-  Why3 files produced by `obc2why3`.
+  Why3 files produced by `kairos`.
 - `out/*_monitor.dot` / `out/*_monitor.pdf`  
   Monitor residual graph visualizations.

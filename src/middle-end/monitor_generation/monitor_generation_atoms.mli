@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -27,5 +27,5 @@ val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
 val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 (** Inline atom variables inside a boolean expression using a name->expr map. *)
 
-val collect_monitor_atoms : Ast_contracts.node -> monitor_generation_atoms
+val collect_monitor_atoms : Ast.node -> monitor_generation_atoms
 (** Collect and validate atoms used by the monitor construction. *)

@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -89,8 +89,8 @@ type monitor_generation_atoms = {
   (* Cache of atom names mapped to their boolean iexpr (FO -> iexpr conversion). *)
 }
 
-let collect_monitor_atoms (n:Ast_contracts.node) : monitor_generation_atoms =
-  let n_ast = Ast_contracts.node_to_ast n in
+let collect_monitor_atoms (n:Ast.node) : monitor_generation_atoms =
+  let n_ast = n in
   let var_types =
     List.map
       (fun v -> (v.vname, v.vty))

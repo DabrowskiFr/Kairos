@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -19,7 +19,7 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 type env_info = {
-  node : Ast_obc.node;
+  node : Ast.node;
   module_name : string;
   imports : Why3.Ptree.decl list;
   type_mon_state : Why3.Ptree.decl list;

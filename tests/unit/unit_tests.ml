@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frederic Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -52,11 +52,12 @@ let test_pre_k_infos_for_pre () : unit =
       ~inputs:[ { Ast.vname = "x"; vty = Ast.TInt } ]
       ~outputs:[]
       ~assumes:
-        [ Ast.LAtom
-            (Ast.FRel
-               (Ast.HPreK (Ast.mk_var "x", 1),
-                Ast.REq,
-                Ast.HNow (Ast.mk_int 0))) ]
+        [ Ast.with_origin Ast.Unknown
+            (Ast.LAtom
+               (Ast.FRel
+                  (Ast.HPreK (Ast.mk_var "x", 1),
+                   Ast.REq,
+                   Ast.HNow (Ast.mk_int 0)))) ]
       ~guarantees:[]
       ~instances:[]
       ~locals:[]

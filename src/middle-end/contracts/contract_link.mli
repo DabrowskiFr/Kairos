@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 
 (** {1 Contract Linking} *)
 (** Drop any invariants provided by the frontend input. *)
-val user_contracts_coherency : Ast_automaton.node -> Ast_contracts.node
+val user_contracts_coherency : Ast.node -> Ast.node
 (** Add post-conditions that imply successor requires (user contracts only). *)
-val ensure_next_requires : Ast_automaton.node -> Ast_contracts.node
+val ensure_next_requires : Ast.node -> Ast.node
 (** Add post-conditions that imply successor requires. *)

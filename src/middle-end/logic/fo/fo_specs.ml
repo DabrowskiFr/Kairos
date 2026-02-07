@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -36,8 +36,7 @@ and collect_atoms_fo (f:fo) (acc:fo list) : fo list =
   | FAnd (a,b) | FOr (a,b) | FImp (a,b) ->
       collect_atoms_fo b (collect_atoms_fo a acc)
 
-let collect_atoms_from_node (n:Ast_contracts.node) : fo list =
-  let n = Ast_contracts.node_to_ast n in
+let collect_atoms_from_node (n:Ast.node) : fo list =
   let acc =
     List.fold_left
       (fun acc f -> collect_atoms_ltl f acc)
@@ -52,8 +51,7 @@ let collect_atoms_from_node (n:Ast_contracts.node) : fo list =
     acc
     (Ast.node_invariants_mon n)
 
-let transition_fo (t:Ast_contracts.transition) : fo list =
-  let t = Ast_contracts.transition_to_ast t in
+let transition_fo (t:Ast.transition) : fo list =
   Ast.values (Ast.transition_requires t)
   @ Ast.values (Ast.transition_ensures t)
   @ Ast.values (Ast.transition_lemmas t)
@@ -210,9 +208,8 @@ let replace_atoms_invariants_mon (atom_map:(fo * ident) list)
           InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f))
     invs
 
-let replace_atoms_transition (atom_map:(fo * ident) list) (t:Ast_contracts.transition)
-  : Ast_contracts.transition =
-  let t = Ast_contracts.transition_to_ast t in
+let replace_atoms_transition (atom_map:(fo * ident) list) (t:Ast.transition)
+  : Ast.transition =
   let t =
     Ast.with_transition_lemmas
       (List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
@@ -228,10 +225,9 @@ let replace_atoms_transition (atom_map:(fo * ident) list) (t:Ast_contracts.trans
           List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
             (Ast.transition_ensures t); };
   }
-  |> Ast_contracts.transition_of_ast
+  |> (fun t -> t)
 
-let fold_map_for_node (n:Ast_contracts.node) : (hexpr * ident) list =
-  let n = Ast_contracts.node_to_ast n in
+let fold_map_for_node (n:Ast.node) : (hexpr * ident) list =
   let folds : Support.fold_info list =
     Collect.collect_folds_from_specs
       ~fo:[]

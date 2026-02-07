@@ -36,37 +36,37 @@ let run (cfg:config) : (unit, string) result =
           let open Ast_invariants in
           let r0 =
             check_stage "parsed"
-              (check_program_basic (Ast_user.to_ast asts.parsed))
+              (check_program_basic asts.parsed)
           in
           let r1 =
             match r0 with
             | Error _ as err -> err
             | Ok () ->
                 check_stage "automaton"
-                  (check_program_basic (Ast_automaton.to_ast asts.automaton))
+                  (check_program_basic asts.automaton)
           in
           let r2 =
             match r1 with
             | Error _ as err -> err
             | Ok () ->
                 check_stage "contracts"
-                  (check_program_basic (Ast_contracts.to_ast asts.contracts)
-                   @ check_program_contracts (Ast_contracts.to_ast asts.contracts))
+                  (check_program_basic asts.contracts
+                   @ check_program_contracts asts.contracts)
           in
           let r3 =
             match r2 with
             | Error _ as err -> err
             | Ok () ->
                 check_stage "monitor"
-                  (check_program_basic (Ast_monitor.to_ast asts.monitor)
-                   @ check_program_monitor (Ast_monitor.to_ast asts.monitor))
+                  (check_program_basic asts.monitor
+                   @ check_program_monitor asts.monitor)
           in
           match r3 with
           | Error _ as err -> err
           | Ok () ->
               check_stage "obc"
-                (check_program_basic (Ast_obc.to_ast asts.obc)
-                 @ check_program_obc (Ast_obc.to_ast asts.obc))
+                (check_program_basic asts.obc
+                 @ check_program_obc asts.obc)
       in
       match r_check with
       | Error _ as err -> err
@@ -77,11 +77,11 @@ let run (cfg:config) : (unit, string) result =
         | Some stage ->
             let program =
               match stage with
-              | Stage_names.Parsed -> Ast_user.to_ast asts.parsed
-              | Stage_names.Automaton -> Ast_automaton.to_ast asts.automaton
-              | Stage_names.Contracts -> Ast_contracts.to_ast asts.contracts
-              | Stage_names.Monitor -> Ast_monitor.to_ast asts.monitor
-              | Stage_names.Obc -> Ast_obc.to_ast asts.obc
+              | Stage_names.Parsed -> asts.parsed
+              | Stage_names.Automaton -> asts.automaton
+              | Stage_names.Contracts -> asts.contracts
+              | Stage_names.Monitor -> asts.monitor
+              | Stage_names.Obc -> asts.obc
               | Stage_names.Why
               | Stage_names.Prove ->
                   invalid_arg "dump-ast does not support why/prove stages"

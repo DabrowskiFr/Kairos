@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ val monitor_state_ctor : int -> string
 (** Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
 
 type monitor_atoms_stage = {
-  node_atoms: Ast_contracts.node;
+  node_atoms: Ast.node;
   atoms: Monitor_generation_atoms.monitor_generation_atoms;
   atom_names: Ast.ident list;
   atom_map_exprs: (Ast.ident * Ast.iexpr) list;
@@ -28,21 +28,21 @@ type monitor_atoms_stage = {
 }
 (** Intermediate stage for monitor construction (atoms extracted/replaced). *)
 
-val pass_atoms : Ast_contracts.node -> monitor_atoms_stage
+val pass_atoms : Ast.node -> monitor_atoms_stage
 (** FO -> atoms: extract atoms and replace them in the node. *)
 
 val pass_build_automaton :
   monitor_atoms_stage -> Monitor_generation.monitor_generation_automaton
 (** Build the monitor automaton from the atomized spec. *)
 
-val pass_inline_atoms : monitor_atoms_stage -> Ast_contracts.node -> Ast_contracts.node
+val pass_inline_atoms : monitor_atoms_stage -> Ast.node -> Ast.node
 (** Atoms -> FO: inline atom variables back to formulas. *)
 
-val pass_automaton_only : Ast_user.node -> Ast_user.node
+val pass_automaton_only : Ast.node -> Ast.node
 (** Run the automaton construction pass for its effects, return the node unchanged. *)
 
-val transform_node : Ast_contracts.node -> Ast_monitor.node
+val transform_node : Ast.node -> Ast.node
 (** Instrument a node with monitor support (standard compilation). *)
 
-val transform_node_monitor : Ast_contracts.node -> Ast_monitor.node
+val transform_node_monitor : Ast.node -> Ast.node
 (** Instrument a node with monitor support and preserve monitor details. *)

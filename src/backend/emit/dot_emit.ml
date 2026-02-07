@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -85,8 +85,8 @@ let strip_braces (s:string) : string =
   loop 0;
   Buffer.contents b
 
-let dot_residual_program ?(show_labels=false) (p:Ast_automaton.program) : string * string =
-  let p = Ast_automaton.to_ast p in
+let dot_residual_program ?(show_labels=false) (p:Ast.program) : string * string =
+  let p = p in
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLResidual {\n";
@@ -306,17 +306,16 @@ let dot_residual_program ?(show_labels=false) (p:Ast_automaton.program) : string
   Buffer.add_string buf "}\n";
   (Buffer.contents buf, Buffer.contents label_buf)
 
-let dot_monitor_program ?(show_labels=false) (p:Ast_automaton.program) : string * string =
+let dot_monitor_program ?(show_labels=false) (p:Ast.program) : string * string =
   let p =
-    Ast_automaton.to_ast p
-    |> List.map Ast_contracts.node_of_ast
+    p
   in
   let buf = Buffer.create 4096 in
   let label_buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
-    let n_ast = Ast_contracts.node_to_ast n in
+    let n_ast = n in
     let stage = pass_atoms n in
     let automaton = pass_build_automaton stage in
     let atom_named_exprs = stage.atom_map_exprs in

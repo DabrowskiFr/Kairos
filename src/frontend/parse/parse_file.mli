@@ -1,1 +1,1 @@
-val parse_file : string -> Ast_user.program
+val parse_file : string -> Ast.program

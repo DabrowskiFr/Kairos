@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -86,8 +86,8 @@ let rec collect_ctor_stmt (acc:ident list) (s:stmt) : ident list =
   | SCall (_, args, _) -> List.fold_left collect_ctor_iexpr acc args
   | SSkip -> acc
 
-let collect_mon_state_ctors (n:Ast_obc.node) : ident list =
-  let n = Ast_obc.node_to_ast n in
+let collect_mon_state_ctors (n:Ast.node) : ident list =
+  let n = n in
   let acc = ref [] in
   List.iter
     (fun f -> acc := collect_ctor_ltl !acc f)
@@ -117,11 +117,11 @@ let collect_mon_state_ctors (n:Ast_obc.node) : ident list =
   in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
-let prepare_node ~(prefix_fields:bool) ~(nodes:Ast_obc.node list) (n:Ast_obc.node)
+let prepare_node ~(prefix_fields:bool) ~(nodes:Ast.node list) (n:Ast.node)
   : Why_types.env_info =
   let n_obc = n in
-  let nodes = List.map Ast_obc.node_to_ast nodes in
-  let n = Ast_obc.node_to_ast n in
+  let nodes = nodes in
+  let n = n in
   let module_name = module_name_of_node (Ast.node_sig n).nname in
   let is_initial_only = function
     | LG _ -> false
@@ -375,7 +375,7 @@ let prepare_node ~(prefix_fields:bool) ~(nodes:Ast_obc.node list) (n:Ast_obc.nod
       (Ast.node_trans n)
   in
   let node =
-    Ast_obc.node_of_ast { n with body = { n.body with trans = reset_updates } }
+    { n with body = { n.body with trans = reset_updates } }
   in
   {
     node;

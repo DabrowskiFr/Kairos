@@ -15,8 +15,8 @@ let json_escape (s:string) : string =
     s;
   Buffer.contents b
 
-let dump_program_json ~(out:string option) (p:Ast_user.program) : unit =
-  let p = Ast_user.to_ast p in
+let dump_program_json ~(out:string option) (p:Ast.program) : unit =
+  let p = p in
   let payload = A.show_program p |> json_escape in
   let json = Printf.sprintf "{\"program\":\"%s\"}" payload in
   match out with
@@ -28,8 +28,8 @@ let dump_program_json ~(out:string option) (p:Ast_user.program) : unit =
       close_out oc
 
 let dump_program_json_stable ?(include_attrs=false) ~(out:string option)
-  (p:Ast_user.program) : unit =
-  let p = Ast_user.to_ast p in
+  (p:Ast.program) : unit =
+  let p = p in
   let json = Ast_serialize.program_to_json ~include_attrs p in
   match out with
   | None -> print_endline json

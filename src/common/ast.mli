@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -281,6 +281,18 @@ val node_contracts_info : node -> contracts_info option
 val node_monitor_info : node -> monitor_info option
 val node_obc_info : node -> obc_info option
 val node_why_info : node -> why_info option
+val empty_parse_info : parse_info
+val empty_automaton_info : automaton_info
+val empty_contracts_info : contracts_info
+val empty_monitor_info : monitor_info
+val empty_obc_info : obc_info
+val empty_why_info : why_info
+val node_parse_info_or_empty : node -> parse_info
+val node_automaton_info_or_empty : node -> automaton_info
+val node_contracts_info_or_empty : node -> contracts_info
+val node_monitor_info_or_empty : node -> monitor_info
+val node_obc_info_or_empty : node -> obc_info
+val node_why_info_or_empty : node -> why_info
 val with_node_parse_info : parse_info -> node -> node
 val with_node_automaton_info : automaton_info -> node -> node
 val with_node_contracts_info : contracts_info -> node -> node
@@ -301,61 +313,6 @@ module Loc : sig
   val compare : loc -> loc -> int
 end
 
-module Readonly : sig
-  type nonrec node = node
-  type nonrec transition = transition
-  type nonrec program = program
-  module Core : sig
-    type nonrec node_core = node_core
-    type nonrec transition_bundle = transition_core_t
-    val node_core : node -> node_core
-    val transition_core : transition -> transition_bundle
-  end
-  module Attrs : sig
-    type nonrec node_attrs = node_attrs
-    type nonrec transition_attrs = transition_attrs
-    val node_attrs : node -> node_attrs
-    val transition_attrs : transition -> transition_attrs
-    val node_uid : node -> int option
-    val transition_uid : transition -> int option
-  end
-  val node_sig : node -> node_sig
-  val node_contracts : node -> node_contracts
-  val node_instances : node -> (ident * ident) list
-  val node_body : node -> node_body
-  val node_inputs : node -> vdecl list
-  val node_outputs : node -> vdecl list
-  val node_assumes : node -> fo_ltl_o list
-  val node_guarantees : node -> fo_ltl_o list
-  val node_locals : node -> vdecl list
-  val node_states : node -> ident list
-  val node_init_state : node -> ident
-  val node_trans : node -> transition list
-  val transition_src : transition -> ident
-  val transition_dst : transition -> ident
-  val transition_guard : transition -> iexpr option
-  val transition_requires : transition -> fo_o list
-  val transition_ensures : transition -> fo_o list
-  val transition_body : transition -> stmt list
-end
-
-module Mutable : sig
-  type nonrec node = node
-  type nonrec transition = transition
-  type nonrec program = program
-  val with_node_sig : node_sig -> node -> node
-  val with_node_contracts : node_contracts -> node -> node
-  val with_node_instances : (ident * ident) list -> node -> node
-  val with_node_body : node_body -> node -> node
-  val with_node_attrs : node_attrs -> node -> node
-  val with_transition_core_data : transition_core -> transition -> transition
-  val with_transition_contracts : transition_contracts -> transition -> transition
-  val with_transition_body_data : transition_body -> transition -> transition
-  val with_transition_attrs : transition_attrs -> transition -> transition
-  val with_transition_requires : fo_o list -> transition -> transition
-  val with_transition_ensures : fo_o list -> transition -> transition
-  val with_transition_body : stmt list -> transition -> transition
-end
 val node_inputs : node -> vdecl list
 val node_outputs : node -> vdecl list
 val node_assumes : node -> fo_ltl_o list

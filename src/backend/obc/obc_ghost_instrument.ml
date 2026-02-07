@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  *---------------------------------------------------------------------------*)
 
 [@@@ocaml.warning "-8-26-27-32-33"]
@@ -46,8 +46,8 @@ let apply_fold_step ~(acc:ident) ~(op:op) ~(e:iexpr) : stmt list =
 
 let pre_k_source_expr (e:iexpr) : iexpr = e
 
-let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
-  let n = Ast_obc.node_to_ast n in
+let transform_node_ghost (n:Ast.node) : Ast.node =
+  let n = n in
   let orig_locals = Ast.node_locals n in
   let init_for_var =
     let table =
@@ -214,5 +214,5 @@ let transform_node_ghost (n:Ast_obc.node) : Ast_obc.node =
       warnings = [];
     }
   in
-  Ast_obc.node_of_ast { n with body = { n.body with locals; trans } }
-  |> Ast_obc.with_node_info info
+  { n with body = { n.body with locals; trans } }
+  |> Ast.with_node_obc_info info

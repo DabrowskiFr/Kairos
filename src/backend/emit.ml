@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -33,18 +33,18 @@ let fold_post_terms = Why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
-  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast_obc.transition list * (string * string * string) list
+  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast.transition list * (string * string * string) list
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
-let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_obc.node)
+let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node)
   : Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let nodes_ast = List.map Ast_obc.node_to_ast nodes in
+  let nodes_ast = nodes in
   let info = Why_env.prepare_node ~prefix_fields ~nodes n in
-  let n = Ast_obc.node_to_ast info.node in
+  let n = info.node in
   let comment_specs =
     match comment_specs with
     | None -> None
-    | Some (a, g, t, m) -> Some (a, g, List.map Ast_obc.transition_to_ast t, m)
+    | Some (a, g, t, m) -> Some (a, g, t, m)
   in
   let module_name = info.module_name in
   let imports = info.imports in
@@ -132,7 +132,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
                   end
   in
   let body =
-    let trans = List.map Ast_obc.transition_of_ast (Ast.node_trans n) in
+    let trans = Ast.node_trans n in
     let main = compile_transitions env call_asserts trans in
     main
   in
@@ -313,10 +313,10 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast_obc.node list) (n:Ast_
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.program)
+let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast.program)
   : program_ast =
-  let p = Ast_obc.to_ast p in
-  let nodes_obc = List.map Ast_obc.node_of_ast p in
+  let p = p in
+  let nodes_obc = p in
   let lookup_comment name =
     List.assoc_opt name comment_map
   in
@@ -326,7 +326,7 @@ let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.progr
     | nodes ->
         List.map
           (fun n ->
-             let name = (Ast.node_sig (Ast_obc.node_to_ast n)).nname in
+             let name = (Ast.node_sig n).nname in
              compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
           nodes
   in
@@ -701,6 +701,6 @@ let emit_program_ast_with_spans (ast:program_ast) : string * (int * (int * int))
   loop 0;
   (out, List.rev !spans)
 
-let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:Ast_obc.program) : string =
+let compile_program ?(prefix_fields=true) ?(comment_map=[]) (p:Ast.program) : string =
   let ast = compile_program_ast ~prefix_fields ~comment_map p in
   emit_program_ast ast

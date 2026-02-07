@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -112,18 +112,16 @@ let add_state_invariants_to_transitions
        { t with contracts = { requires = reqs; ensures = ens } })
     trans
 
-let ensure_next_requires (n:Ast_automaton.node) : Ast_contracts.node =
-  let n = Ast_automaton.node_to_ast n in
+let ensure_next_requires (n:Ast.node) : Ast.node =
   let succ_requires_by_state = succ_requires_by_state n in
   let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
   let trans =
     updated_transitions ~is_input ~succ_requires_by_state (Ast.node_trans n)
     |> add_state_invariants_to_transitions ~invariants_mon:(Ast.node_invariants_mon n)
   in
-  Ast_contracts.node_of_ast { n with body = { n.body with trans } }
+  { n with body = { n.body with trans } }
 
-let user_contracts_coherency (n:Ast_automaton.node) : Ast_contracts.node =
-  let n = Ast_automaton.node_to_ast n in
+let user_contracts_coherency (n:Ast.node) : Ast.node =
   let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
   let trans_indexed = List.mapi (fun i t -> (i, t)) (Ast.node_trans n) in
   let by_src = Hashtbl.create 16 in
@@ -171,4 +169,4 @@ let user_contracts_coherency (n:Ast_automaton.node) : Ast_contracts.node =
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed
   in
-  Ast_contracts.node_of_ast { n with body = { n.body with trans } }
+  { n with body = { n.body with trans } }

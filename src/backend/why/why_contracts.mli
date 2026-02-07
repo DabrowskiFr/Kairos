@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,6 @@ val set_pure_translation : bool -> unit
 
 (** Build full contract terms (pre/post) and their labels. *)
 val build_contracts :
-  nodes:Ast_obc.node list ->
+  nodes:Ast.node list ->
   Why_env.env_info ->
   contract_info

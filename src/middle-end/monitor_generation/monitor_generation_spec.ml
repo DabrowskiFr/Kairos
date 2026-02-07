@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,8 +20,7 @@ open Ast
 open Automaton_core
 open Fo_specs
 
-let build_monitor_spec ~(atom_map:(fo * ident) list) (n:Ast_contracts.node) : fo_ltl =
-  let n = Ast_contracts.node_to_ast n in
+let build_monitor_spec ~(atom_map:(fo * ident) list) (n:Ast.node) : fo_ltl =
   let _ = atom_map in
   let spec_assumes = Ast.values (Ast.node_assumes n) in
   let spec_guarantees = Ast.values (Ast.node_guarantees n) in

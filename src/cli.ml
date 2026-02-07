@@ -222,7 +222,7 @@ let cmd =
       ~doc:"Write logs to FILE instead of stderr."
   in
   let doc = "Translate OBC to Why3 and run verification passes." in
-  let info = Cmd.info "obc2why3" ~version:"0.1" ~doc in
+  let info = Cmd.info "kairos" ~version:"0.1" ~doc in
   Cmd.v info Term.(ret (const run
                         $ dump_dot
                         $ dump_dot_short

@@ -1,12 +1,10 @@
 open Ast
 
 let stage_automaton (p:Stage_types.parsed) : Stage_types.automaton_stage =
-  Ast_user.to_nodes p
-  |> List.map
+  List.map
       (fun n ->
-         let n_ast = Ast_user.node_to_ast n in
          let stage =
-           Monitor_instrument.pass_atoms (Ast_contracts.node_of_ast n_ast)
+           Monitor_instrument.pass_atoms n
          in
          let automaton = Monitor_instrument.pass_build_automaton stage in
          let info =
@@ -16,16 +14,14 @@ let stage_automaton (p:Stage_types.parsed) : Stage_types.automaton_stage =
              warnings = [];
            }
          in
-         Ast_automaton.node_of_ast n_ast
-         |> Ast_automaton.with_node_info info)
-  |> Ast_automaton.of_nodes
+         Ast.with_node_automaton_info info n)
+    p
 
 let stage_contracts (p:Stage_types.automaton_stage) : Stage_types.contracts_stage =
-  Ast_automaton.to_nodes p
-  |> List.map
+  List.map
       (fun n ->
          let n = Contract_link.user_contracts_coherency n in
-         let ast = Ast_contracts.node_to_ast n in
+         let ast = n in
          let collect_origins acc fo_o = (fo_o.oid, fo_o.origin) :: acc in
          let acc =
            List.fold_left collect_origins []
@@ -50,13 +46,11 @@ let stage_contracts (p:Stage_types.automaton_stage) : Stage_types.contracts_stag
              warnings = [];
            }
          in
-         Ast_contracts.with_node_info info n)
-  |> Ast_contracts.of_nodes
+         Ast.with_node_contracts_info info n)
+    p
 
 let stage_monitor_injection (p:Stage_types.contracts_stage) : Stage_types.monitor_stage =
-  Ast_contracts.to_nodes p
-  |> List.map Monitor_instrument.transform_node_monitor
-  |> Ast_monitor.of_nodes
+  List.map Monitor_instrument.transform_node_monitor p
 
 let run (p:Stage_types.parsed) : Stage_types.monitor_stage =
   p

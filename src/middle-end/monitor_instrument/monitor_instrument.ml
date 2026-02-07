@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -181,13 +181,12 @@ let normalize_bool_atoms ~(bool_vars:(ident * bool_like) list) (n:node) : node =
   in
   Ast.with_node_invariants_mon invariants_mon n
 
-let transform_node (n:Ast_contracts.node) : Ast_monitor.node =
-  let n = Ast_contracts.node_to_ast n in
+let transform_node (n:Ast.node) : Ast.node =
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) ((Ast.node_inputs n) @ (Ast.node_locals n) @ (Ast.node_outputs n))
   in
   let _bool_vars = bool_like_vars ~var_types n in
-  Ast_monitor.node_of_ast n
+  n
 
 let monitor_update_stmts (atom_map:(ident * iexpr) list) (states:residual_state list)
   (transitions:guarded_transition list) : stmt list =
@@ -348,22 +347,20 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
     n
 
 type monitor_atoms_stage = {
-  node_atoms: Ast_contracts.node;
+  node_atoms: Ast.node;
   atoms: monitor_generation_atoms;
   atom_names: ident list;
   atom_map_exprs: (ident * iexpr) list;
   atom_name_to_fo: (ident * fo) list;
 }
 
-let pass_atoms (n:Ast_contracts.node) : monitor_atoms_stage =
-  let n_ast = Ast_contracts.node_to_ast n in
+let pass_atoms (n:Ast.node) : monitor_atoms_stage =
   let atoms = collect_monitor_atoms n in
   let atom_names = List.map snd atoms.atom_map in
-  let node_atoms = n_ast in
+  let node_atoms = n in
   let atom_map_exprs = atoms.atom_named_exprs in
   let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) atoms.atom_map in
-  { node_atoms = Ast_contracts.node_of_ast node_atoms;
-    atoms; atom_names; atom_map_exprs; atom_name_to_fo }
+  { node_atoms; atoms; atom_names; atom_map_exprs; atom_name_to_fo }
 
 let pass_build_automaton (stage:monitor_atoms_stage) : monitor_generation_automaton =
   let spec =
@@ -371,15 +368,12 @@ let pass_build_automaton (stage:monitor_atoms_stage) : monitor_generation_automa
   in
   build_monitor_automaton ~atom_map:stage.atoms.atom_map ~atom_names:stage.atom_names spec
 
-let pass_inline_atoms (stage:monitor_atoms_stage) (n:Ast_contracts.node)
-  : Ast_contracts.node =
-  let n = Ast_contracts.node_to_ast n in
+let pass_inline_atoms (stage:monitor_atoms_stage) (n:Ast.node)
+  : Ast.node =
   inline_atoms_in_node stage.atom_map_exprs n
-  |> Ast_contracts.node_of_ast
 
-let pass_automaton_only (n:Ast_user.node) : Ast_user.node =
-  let n_contracts = Ast_contracts.node_of_ast (Ast_user.node_to_ast n) in
-  let stage = pass_atoms n_contracts in
+let pass_automaton_only (n:Ast.node) : Ast.node =
+  let stage = pass_atoms n in
   let _ = pass_build_automaton stage in
   n
 
@@ -458,8 +452,7 @@ let simplify_mon_state_implications (fs:fo_o list) : fo_o list =
         fs
   | _ -> fs
 
-let transform_node_monitor (n:Ast_contracts.node) : Ast_monitor.node =
-  let n = Ast_contracts.node_to_ast n in
+let transform_node_monitor (n:Ast.node) : Ast.node =
   let is_input v = List.exists (fun vd -> vd.vname = v) ((Ast.node_inputs n)) in
   let debug_contracts =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_CONTRACTS" with
@@ -476,8 +469,8 @@ let transform_node_monitor (n:Ast_contracts.node) : Ast_monitor.node =
     List.map (fun v -> (v.vname, v.vty)) ((Ast.node_inputs n) @ (Ast.node_locals n) @ (Ast.node_outputs n))
   in
   let _bool_vars = bool_like_vars ~var_types n in
-  let stage = pass_atoms (Ast_contracts.node_of_ast n) in
-  let n = Ast_contracts.node_to_ast stage.node_atoms in
+  let stage = pass_atoms n in
+  let n = stage.node_atoms in
   let atom_names = stage.atom_names in
   let debug_incoming =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_INCOMING" with
@@ -722,9 +715,7 @@ let transform_node_monitor (n:Ast_contracts.node) : Ast_monitor.node =
   in
   let n = Ast.with_node_invariants_mon invariants_mon n in
   let node =
-    pass_inline_atoms stage (Ast_contracts.node_of_ast n)
-    |> Ast_contracts.node_to_ast
-    |> Ast_monitor.node_of_ast
+    pass_inline_atoms stage n
   in
   let info =
     {
@@ -734,4 +725,4 @@ let transform_node_monitor (n:Ast_contracts.node) : Ast_monitor.node =
       warnings = [];
     }
   in
-  Ast_monitor.with_node_info info node
+  Ast.with_node_monitor_info info node

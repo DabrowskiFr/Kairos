@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -35,10 +35,10 @@ val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
    (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.ident -> Ast_obc.transition list -> Why3.Ptree.reg_branch
+  Ast.ident -> Ast.transition list -> Why3.Ptree.reg_branch
 (** Compile transitions. *)
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
    (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast_obc.transition list -> Why3.Ptree.expr
+  Ast.transition list -> Why3.Ptree.expr

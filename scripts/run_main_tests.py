@@ -116,7 +116,7 @@ def main():
         out_why = os.path.join("out", base + "_monitor.why")
 
         print(f"[{idx}/{total_examples}] generate {ex} (monitor)", file=sys.stderr)
-        gen_cmd = ["dune", "exec", "--", "obc2why3"]
+        gen_cmd = ["dune", "exec", "--", "kairos"]
         gen_cmd.append(ex_path)
         gen_code, gen_out = run_cmd(gen_cmd, cwd=root_dir)
         if gen_code == 0:

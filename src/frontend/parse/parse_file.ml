@@ -7,7 +7,7 @@ let read_all (fn:string) : string =
   close_in ic;
   s
 
-let parse_file (fn:string) : Ast_user.program =
+let parse_file (fn:string) : Ast.program =
   let file_text = read_all fn in
   let file_hash = Digest.to_hex (Digest.string file_text) in
   let ic = open_in fn in
@@ -72,7 +72,7 @@ let parse_file (fn:string) : Ast_user.program =
         checkpoint
     in
     close_in ic;
-    let program = Ast_user.of_ast p in
+    let program = p in
     let info =
       {
         Ast.source_path = Some fn;
@@ -81,7 +81,7 @@ let parse_file (fn:string) : Ast_user.program =
         Ast.warnings = [];
       }
     in
-    Ast_user.map_nodes (Ast_user.with_node_info info) program
+    List.map (Ast.with_node_parse_info info) program
   with
   | Lexer.Lexing_error msg ->
       let pos, _ = Sedlexing.lexing_positions lb in

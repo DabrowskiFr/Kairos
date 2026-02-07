@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -173,15 +173,15 @@ let compile_state_branch_ast (env:env)
 let compile_state_branch (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
   (st:ident)
-  (trs:Ast_obc.transition list) : Ptree.reg_branch =
-  let trs = List.map Ast_obc.transition_to_ast trs in
+  (trs:Ast.transition list) : Ptree.reg_branch =
+  let trs = trs in
   compile_state_branch_ast env call_asserts st trs
 
 let compile_transitions (env:env)
   (call_asserts:(ident * iexpr list * ident list) -> (Ptree.ident * Ptree.expr) list * Ptree.term list)
-  (ts:Ast_obc.transition list)
+  (ts:Ast.transition list)
   : Ptree.expr =
-  let ts = List.map Ast_obc.transition_to_ast ts in
+  let ts = ts in
   let by_state =
     List.fold_left
       (fun m t ->

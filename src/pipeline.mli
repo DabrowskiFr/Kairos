@@ -39,11 +39,11 @@ type why_outputs = { why_text : string; stage_meta : (string * (string * string)
 type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_stages = {
-  parsed : Ast_user.program;
-  automaton : Ast_automaton.program;
-  contracts : Ast_contracts.program;
-  monitor : Ast_monitor.program;
-  obc : Ast_obc.program;
+  parsed : Ast.program;
+  automaton : Ast.program;
+  contracts : Ast.program;
+  monitor : Ast.program;
+  obc : Ast.program;
 }
 
 type config = {

@@ -1,4 +1,4 @@
-# obcwhy3
+# kairos
 
 Quick commands
 --------------
@@ -8,10 +8,10 @@ Quick commands
 
 CLI usage
 ---------
-- Generate Why3: `dune exec -- obc2why3 <file.obc>`
-- Dump DOT only: `dune exec -- obc2why3 --dump-dot out/monitor.dot <file.obc>`
-- Dump internal AST JSON: `dune exec -- obc2why3 --dump-json - <file.obc>`
-- Write Why3 to file: `dune exec -- obc2why3 -o out/file.why <file.obc>`
+- Generate Why3: `dune exec -- kairos <file.obc>`
+- Dump DOT only: `dune exec -- kairos --dump-dot out/monitor.dot <file.obc>`
+- Dump internal AST JSON: `dune exec -- kairos --dump-json - <file.obc>`
+- Write Why3 to file: `dune exec -- kairos -o out/file.why <file.obc>`
 
 GTK IDE (skeleton)
 ------------------

@@ -1,4 +1,4 @@
-  $ obc2why3 --log-level quiet --dump-obc - ./inputs/delay_int.obc
+  $ kairos --log-level quiet --dump-obc - ./inputs/delay_int.obc
   node delay_int (x: int) returns (y: int)
     guarantee X(G({y} = {__pre_k1_x}));
     locals

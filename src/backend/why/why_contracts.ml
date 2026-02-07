@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -130,10 +130,10 @@ let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
         term_implies (mk_term (Tnot is_init_old)) acc_when_step ]
   | None -> []
 
-let build_contracts ~(nodes:Ast_obc.node list) (info:Why_env.env_info)
+let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   : Why_types.contract_info =
-  let nodes = List.map Ast_obc.node_to_ast nodes in
-  let n = Ast_obc.node_to_ast info.node in
+  let nodes = nodes in
+  let n = info.node in
   let env = info.env in
   let folds = info.folds in
   let pre_k_map = info.pre_k_map in

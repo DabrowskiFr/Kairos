@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -274,6 +274,42 @@ let node_contracts_info (n:node) : contracts_info option = n.attrs.contracts_inf
 let node_monitor_info (n:node) : monitor_info option = n.attrs.monitor_info
 let node_obc_info (n:node) : obc_info option = n.attrs.obc_info
 let node_why_info (n:node) : why_info option = n.attrs.why_info
+let empty_parse_info : parse_info =
+  { source_path = None; text_hash = None; parse_errors = []; warnings = [] }
+let empty_automaton_info : automaton_info =
+  { residual_state_count = 0; residual_edge_count = 0; warnings = [] }
+let empty_contracts_info : contracts_info =
+  { contract_origin_map = []; warnings = [] }
+let empty_monitor_info : monitor_info =
+  { monitor_state_ctors = []; atom_count = 0; warnings = [] }
+let empty_obc_info : obc_info =
+  { ghost_locals_added = []; pre_k_infos = []; fold_infos = []; warnings = [] }
+let empty_why_info : why_info =
+  { vc_count = 0; vcid_map = []; prefix_fields = None; warnings = [] }
+let node_parse_info_or_empty (n:node) : parse_info =
+  match n.attrs.parse_info with
+  | Some info -> info
+  | None -> empty_parse_info
+let node_automaton_info_or_empty (n:node) : automaton_info =
+  match n.attrs.automaton_info with
+  | Some info -> info
+  | None -> empty_automaton_info
+let node_contracts_info_or_empty (n:node) : contracts_info =
+  match n.attrs.contracts_info with
+  | Some info -> info
+  | None -> empty_contracts_info
+let node_monitor_info_or_empty (n:node) : monitor_info =
+  match n.attrs.monitor_info with
+  | Some info -> info
+  | None -> empty_monitor_info
+let node_obc_info_or_empty (n:node) : obc_info =
+  match n.attrs.obc_info with
+  | Some info -> info
+  | None -> empty_obc_info
+let node_why_info_or_empty (n:node) : why_info =
+  match n.attrs.why_info with
+  | Some info -> info
+  | None -> empty_why_info
 let with_node_parse_info (parse_info:parse_info) (n:node) : node =
   { n with attrs = { n.attrs with parse_info = Some parse_info } }
 let with_node_automaton_info (automaton_info:automaton_info) (n:node) : node =
@@ -303,6 +339,7 @@ let ensure_program_uids (p:program) : program =
        if trans == body.trans then n
        else { n with body = { body with trans } })
     p
+
 let node_inputs (n:node) : vdecl list = n.sig_.inputs
 let node_outputs (n:node) : vdecl list = n.sig_.outputs
 let node_sig (n:node) : node_sig = n.sig_
@@ -486,60 +523,4 @@ module Loc = struct
         | c -> c
         end
     | c -> c
-end
-
-module Readonly = struct
-  type nonrec node = node
-  type nonrec transition = transition
-  type nonrec program = program
-  module Core = struct
-    type nonrec node_core = node_core
-    type nonrec transition_bundle = transition_core_t
-    let node_core = node_core
-    let transition_core = transition_core
-  end
-  module Attrs = struct
-    type nonrec node_attrs = node_attrs
-    type nonrec transition_attrs = transition_attrs
-    let node_attrs = node_attrs
-    let transition_attrs = transition_attrs
-    let node_uid = node_uid
-    let transition_uid = transition_uid
-  end
-  let node_sig = node_sig
-  let node_contracts = node_contracts
-  let node_instances = node_instances
-  let node_body = node_body
-  let node_inputs = node_inputs
-  let node_outputs = node_outputs
-  let node_assumes = node_assumes
-  let node_guarantees = node_guarantees
-  let node_locals = node_locals
-  let node_states = node_states
-  let node_init_state = node_init_state
-  let node_trans = node_trans
-  let transition_src = transition_src
-  let transition_dst = transition_dst
-  let transition_guard = transition_guard
-  let transition_requires = transition_requires
-  let transition_ensures = transition_ensures
-  let transition_body = transition_body
-end
-
-module Mutable = struct
-  type nonrec node = node
-  type nonrec transition = transition
-  type nonrec program = program
-  let with_node_sig = with_node_sig
-  let with_node_contracts = with_node_contracts
-  let with_node_instances = with_node_instances
-  let with_node_body = with_node_body
-  let with_node_attrs = with_node_attrs
-  let with_transition_core_data = with_transition_core_data
-  let with_transition_contracts = with_transition_contracts
-  let with_transition_body_data = with_transition_body_data
-  let with_transition_attrs = with_transition_attrs
-  let with_transition_requires = with_transition_requires
-  let with_transition_ensures = with_transition_ensures
-  let with_transition_body = with_transition_body
 end

@@ -1,5 +1,5 @@
 (*---------------------------------------------------------------------------
- * Tempo - synchronous runtime for OCaml
+ * Kairos - deductive verification for synchronous programs
  * Copyright (C) 2026 Frédéric Dabrowski
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,5 +17,5 @@
  *---------------------------------------------------------------------------*)
 
 val build_monitor_spec :
-  atom_map:(Ast.fo * Ast.ident) list -> Ast_contracts.node -> Ast.fo_ltl
+  atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
 (** Build and simplify the monitor LTL spec using atom substitution. *)

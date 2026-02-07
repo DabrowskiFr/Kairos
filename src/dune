@@ -3,12 +3,6 @@
  (wrapped false)
  (modules
   ast
-  ast_user
-  ast_automaton
-  ast_contracts
-  ast_monitor
-  ast_obc
-  ast_why
   ast_dump
   ast_map
   ast_builder
@@ -71,7 +65,7 @@
 
 (executable
  (name main)
- (public_name obc2why3)
+ (public_name kairos)
  (modules main)
  (libraries obcwhy3_lib))
 

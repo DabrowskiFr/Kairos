@@ -28,7 +28,7 @@ Construction / utilisation
 - Dépendances: dune, menhir, ocamllex, `ppx_deriving.show`.
 - Commandes typiques:
   - `dune build`
-  - `dune exec obc2why3 -- examples/prefix_max.obc > out.why`
+  - `dune exec kairos -- examples/prefix_max.obc > out.why`
 
 Limites repérées
 - APred non géré au codegen; `assert` dans le corps ignoré pour l’instant.
