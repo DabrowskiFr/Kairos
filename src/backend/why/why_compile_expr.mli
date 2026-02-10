@@ -24,9 +24,6 @@ val is_mon_state_ctor : Ast.ident -> bool
 val compile_iexpr : Support.env -> Ast.iexpr -> Why3.Ptree.expr
 (** Compile term. *)
 val compile_term : Support.env -> Ast.iexpr -> Why3.Ptree.term
-(** Compute term apply op. *)
-val term_apply_op :
-  Ast.op -> Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 (** Compile term instance. *)
 val compile_term_instance :
   Support.env ->

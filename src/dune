@@ -1,15 +1,14 @@
 (library
  (name obcwhy3_lib)
+ (public_name kairos)
  (wrapped false)
  (modules
   ast
+  ast_builders
+  ast_provenance
+  ast_utils
   ast_dump
-  ast_map
-  ast_builder
   ast_invariants
-  ast_diff
-  ast_serialize
-  ast_iter
   frontend
   lexer
   parser
@@ -19,12 +18,13 @@
   collect
   stage_types
   stage_names
+  stage_info
   stages_info
   log
   stage_io
   pipeline
   cli
-  contract_link
+  contract_coherency
   middle_end_stages
   middle_end
   stages
@@ -61,7 +61,8 @@
   automaton_residual
   automaton_core)
  (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult)
- (preprocess (pps ppx_deriving.show sedlex.ppx)))
+ (preprocess
+  (pps ppx_deriving.show sedlex.ppx)))
 
 (executable
  (name main)

@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 
 let valuation_label (vals:(string * bool) list) : string =
   vals

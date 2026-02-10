@@ -10,7 +10,7 @@ let file_size path =
   | Error _ -> 0
 
 let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
-  ~(stable:bool) ~(include_attrs:bool)
+  ~(stable:bool)
   (program:Ast.program) : (unit, string) result =
   let _ = Stage_names.to_string stage in
   let out =
@@ -19,7 +19,7 @@ let dump_ast_stage ~(stage:Stage_names.stage_id) ~(out:string option)
     | other -> other
   in
   if stable then
-    Ast_dump.dump_program_json_stable ~include_attrs ~out program
+    Ast_dump.dump_program_json_stable ~out program
   else
     Ast_dump.dump_program_json ~out program;
   Ok ()
@@ -32,7 +32,6 @@ let dump_ast_all
   ~(monitor:Ast.program)
   ~(obc:Ast.program)
   ~(stable:bool)
-  ~(include_attrs:bool)
   : (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
@@ -52,8 +51,7 @@ let dump_ast_all
         let write_stage name program =
           let path = Fpath.(d / (Stage_names.to_string name ^ ".json")) in
           if stable then
-            Ast_dump.dump_program_json_stable ~include_attrs
-              ~out:(Some (Fpath.to_string path)) program
+            Ast_dump.dump_program_json_stable ~out:(Some (Fpath.to_string path)) program
           else
             Ast_dump.dump_program_json ~out:(Some (Fpath.to_string path)) program
         in

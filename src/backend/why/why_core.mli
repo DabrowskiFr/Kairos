@@ -27,9 +27,6 @@ val compile_seq :
 
 (** {1 Transition Compilation} *)
 
-(** Compute apply op. *)
-val apply_op :
-  Ast.op -> Why3.Ptree.expr -> Why3.Ptree.expr -> Why3.Ptree.expr
 (** Compile state branch. *)
 val compile_state_branch :
   Support.env ->

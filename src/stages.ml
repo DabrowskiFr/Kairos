@@ -8,7 +8,6 @@ type config = {
   dump_ast_out : string option;
   dump_ast_all : string option;
   dump_ast_stable : bool;
-  dump_ast_include_attrs : bool;
   check_ast : bool;
   output_file : string option;
   prove : bool;
@@ -90,7 +89,6 @@ let run (cfg:config) : (unit, string) result =
               ~stage
               ~out:cfg.dump_ast_out
               ~stable:cfg.dump_ast_stable
-              ~include_attrs:cfg.dump_ast_include_attrs
               program
       in
       let r1 =
@@ -109,7 +107,6 @@ let run (cfg:config) : (unit, string) result =
                     ~monitor:asts.monitor
                     ~obc:asts.obc
                     ~stable:cfg.dump_ast_stable
-                    ~include_attrs:cfg.dump_ast_include_attrs
             end
       in
       match r1 with

@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 open Support
 
 let rec collect_atoms_ltl (f:fo_ltl) (acc:fo list) : fo list =
@@ -41,20 +42,17 @@ let collect_atoms_from_node (n:Ast.node) : fo list =
     List.fold_left
       (fun acc f -> collect_atoms_ltl f acc)
       []
-      (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
+      (n.assumes @ n.guarantees)
   in
   List.fold_left
     (fun acc inv ->
-       match inv with
-       | Invariant (_id, _h) -> acc
-       | InvariantStateRel (_is_eq, _st, f) -> collect_atoms_fo f acc)
+       collect_atoms_fo inv.formula acc)
     acc
-    (Ast.node_invariants_mon n)
+    (n.attrs.invariants_state_rel)
 
 let transition_fo (t:Ast.transition) : fo list =
-  Ast.values (Ast.transition_requires t)
-  @ Ast.values (Ast.transition_ensures t)
-  @ Ast.values (Ast.transition_lemmas t)
+  Ast_provenance.values (t.requires)
+  @ Ast_provenance.values (t.ensures)
 
 let conj_fo (fs:fo list) : fo option =
   match fs with
@@ -70,10 +68,6 @@ let relop_to_binop (r:relop) : binop =
   | RGt -> Gt
   | RGe -> Ge
 
-let fold_var_of_hexpr (fold_map:(hexpr * ident) list) (h:hexpr)
-  : ident option =
-  List.find_map (fun (h', name) -> if h = h' then Some name else None) fold_map
-
 let pre_k_var_of_hexpr ~(pre_k_map:(hexpr * Support.pre_k_info) list)
   (h:hexpr) : ident option =
   match List.find_opt (fun (h', _) -> h' = h) pre_k_map with
@@ -82,16 +76,11 @@ let pre_k_var_of_hexpr ~(pre_k_map:(hexpr * Support.pre_k_info) list)
       let names = info.Support.names in
       if names = [] then None else Some (List.nth names (List.length names - 1))
 
-let hexpr_to_iexpr ~(inputs:ident list) ~(fold_map:(hexpr * ident) list)
+let hexpr_to_iexpr ~(inputs:ident list)
   ~(var_types:(ident * ty) list)
   ~(pre_k_map:(hexpr * Support.pre_k_info) list) (h:hexpr) : iexpr option =
   match h with
   | HNow e -> Some e
-  | HFold _ as h ->
-      begin match fold_var_of_hexpr fold_map h with
-      | Some name -> Some (mk_var name)
-      | None -> None
-      end
   | HPreK _ as h ->
       begin match pre_k_var_of_hexpr ~pre_k_map h with
       | Some name -> Some (mk_var name)
@@ -126,12 +115,11 @@ let mk_bool_neq (a:iexpr) (b:iexpr) : iexpr =
            mk_iexpr (IBin (And, mk_iexpr (IUn (Not, a)), b))))
 
 let atom_to_iexpr ~(inputs:ident list) ~(var_types:(ident * ty) list)
-  ~(fold_map:(hexpr * ident) list) ~(pre_k_map:(hexpr * Support.pre_k_info) list)
-  (f:fo) : iexpr option =
+  ~(pre_k_map:(hexpr * Support.pre_k_info) list) (f:fo) : iexpr option =
   match f with
   | FRel (h1, r, h2) ->
-      begin match hexpr_to_iexpr ~inputs ~fold_map ~var_types ~pre_k_map h1,
-                  hexpr_to_iexpr ~inputs ~fold_map ~var_types ~pre_k_map h2 with
+      begin match hexpr_to_iexpr ~inputs ~var_types ~pre_k_map h1,
+                  hexpr_to_iexpr ~inputs ~var_types ~pre_k_map h2 with
       | Some e1, Some e2 ->
           let ty1 = infer_iexpr_type ~var_types e1 in
           let ty2 = infer_iexpr_type ~var_types e2 in
@@ -199,71 +187,25 @@ and replace_atoms_fo (atom_map:(fo * ident) list) (f:fo) : fo =
   | FOr (a,b) -> FOr (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
   | FImp (a,b) -> FImp (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
 
-let replace_atoms_invariants_mon (atom_map:(fo * ident) list)
-  (invs:invariant_mon list) : invariant_mon list =
+let replace_atoms_invariants_state_rel (atom_map:(fo * ident) list)
+  (invs:invariant_state_rel list) : invariant_state_rel list =
   List.map
-    (function
-      | Invariant (id, h) -> Invariant (id, h)
-      | InvariantStateRel (is_eq, st, f) ->
-          InvariantStateRel (is_eq, st, replace_atoms_fo atom_map f))
+    (fun inv -> { inv with formula = replace_atoms_fo atom_map inv.formula })
     invs
 
 let replace_atoms_transition (atom_map:(fo * ident) list) (t:Ast.transition)
   : Ast.transition =
-  let t =
-    Ast.with_transition_lemmas
-      (List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
-         (Ast.transition_lemmas t))
-      t
-  in
   { t with
-    contracts =
-      { requires =
-          List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
-            (Ast.transition_requires t);
-        ensures =
-          List.map (Ast.map_with_origin (replace_atoms_fo atom_map))
-            (Ast.transition_ensures t); };
+    requires =
+      List.map (Ast_provenance.map_with_origin (replace_atoms_fo atom_map))
+        (t.requires);
+    ensures =
+      List.map (Ast_provenance.map_with_origin (replace_atoms_fo atom_map))
+        (t.ensures);
   }
   |> (fun t -> t)
 
-let fold_map_for_node (n:Ast.node) : (hexpr * ident) list =
-  let folds : Support.fold_info list =
-    Collect.collect_folds_from_specs
-      ~fo:[]
-      ~ltl:(Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
-      ~invariants_mon:(Ast.node_invariants_mon n)
-  in
-  List.map (fun (fi:Support.fold_info) -> (fi.h, fi.acc)) folds
-
-let rec fold_vars_in_iexpr (acc:ident list) (e:iexpr) : ident list =
-  match e.iexpr with
-  | IVar v -> if List.mem v acc then acc else v :: acc
-  | ILitInt _ | ILitBool _ -> acc
-  | IPar e -> fold_vars_in_iexpr acc e
-  | IUn (_, e) -> fold_vars_in_iexpr acc e
-  | IBin (_, a, b) -> fold_vars_in_iexpr (fold_vars_in_iexpr acc a) b
-
-let fold_origin_suffix_for_expr (fold_map:(hexpr * ident) list) (e:iexpr)
-  : string =
-  let vars = fold_vars_in_iexpr [] e in
-  let origins =
-    List.filter_map
-      (fun v ->
-         match List.find_opt (fun (_h, acc) -> acc = v) fold_map with
-         | None -> None
-         | Some (h, _) -> Some (v, h))
-      vars
-  in
-  match origins with
-  | [] -> ""
-  | _ ->
-      let parts =
-        List.map
-          (fun (v, h) -> v ^ " = " ^ Support.string_of_hexpr h)
-          origins
-      in
-      " (" ^ String.concat ", " parts ^ ")"
+(* Fold-specific helpers removed. *)
 
 let combine_contracts_for_monitor ~(assumes:fo_ltl list) ~(guarantees:fo_ltl list)
   : fo_ltl =

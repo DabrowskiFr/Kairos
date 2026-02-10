@@ -35,7 +35,6 @@ let rec compile_seq (env:env)
           || (String.length name >= 5 && String.sub name 0 5 = "atom_")
           || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
           || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
-          || (String.length name >= 6 && String.sub name 0 6 = "__fold")
         in
         let tgt =
           if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
@@ -117,18 +116,6 @@ let rec compile_seq (env:env)
   | s::rest ->
       mk_expr (Esequence (compile_stmt s, compile_seq env call_asserts rest))
 
-let apply_op (op:op) (e1:Ptree.expr) (e2:Ptree.expr) : Ptree.expr =
-  match op with
-  | OMin ->
-      mk_expr (Eif (mk_expr (Einnfix (e1, infix_ident "<=", e2)), e1, e2))
-  | OMax ->
-      mk_expr (Eif (mk_expr (Einnfix (e1, infix_ident ">=", e2)), e1, e2))
-  | OAdd -> mk_expr (Einnfix (e1, infix_ident "+", e2))
-  | OMul -> mk_expr (Einnfix (e1, infix_ident "*", e2))
-  | OAnd -> mk_expr (Einnfix (e1, infix_ident "&&", e2))
-  | OOr -> mk_expr (Einnfix (e1, infix_ident "||", e2))
-  | OFirst -> e1
-
 let is_unit_expr (e:Ptree.expr) : bool =
   match e.expr_desc with
   | Etuple [] -> true
@@ -151,18 +138,18 @@ let compile_state_branch_ast (env:env)
     | [] -> mk_expr (Etuple [])
     | t::rest ->
         let guard =
-          match Ast.transition_guard t with
+          match t.guard with
           | None -> mk_expr Etrue
           | Some g -> compile_iexpr env g
         in
         let assign_dst = mk_expr (Etuple []) in
         let ghost_expr =
-          match Ast.transition_ghost t with
+          match t.attrs.ghost with
           | [] -> mk_expr (Etuple [])
-          | _ -> mk_expr (Eghost (compile_seq env call_asserts (Ast.transition_ghost t)))
+          | _ -> mk_expr (Eghost (compile_seq env call_asserts (t.attrs.ghost)))
         in
-        let user_expr = compile_seq env call_asserts (Ast.transition_body t) in
-        let mon_expr = compile_seq env call_asserts (Ast.transition_monitor t) in
+        let user_expr = compile_seq env call_asserts (t.body) in
+        let mon_expr = compile_seq env call_asserts (t.attrs.monitor) in
         let body = seq_exprs [ghost_expr; user_expr; mon_expr; assign_dst] in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
@@ -185,7 +172,7 @@ let compile_transitions (env:env)
   let by_state =
     List.fold_left
       (fun m t ->
-         let src = Ast.transition_src t in
+         let src = t.src in
          let prev = Option.value ~default:[] (List.assoc_opt src m) in
          (src, prev @ [t]) :: List.remove_assoc src m)
       [] ts

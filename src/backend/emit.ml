@@ -26,14 +26,12 @@ open Why_compile_expr
 open Why_labels
 
 let compile_seq = Why_core.compile_seq
-let apply_op = Why_core.apply_op
 let compile_state_branch = Why_core.compile_state_branch
 let compile_transitions = Why_core.compile_transitions
-let fold_post_terms = Why_contracts.fold_post_terms
 
 type spec_groups = { pre_labels: string list; post_labels: string list }
 type comment_specs =
-  Ast.fo_ltl_o list * Ast.fo_ltl_o list * Ast.transition list * (string * string * string) list
+  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
 let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node)
@@ -57,29 +55,37 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
   let mon_state_ctors = info.mon_state_ctors in
 
   let find_node (name:string) : node option =
-    List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes_ast
+    List.find_opt (fun nd -> nd.nname = name) nodes_ast
   in
   let instance_invariant_terms ?(in_post=false) (env:env) (inst_name:string)
     (node_name:string) (inst_node:node) =
-    let input_names = List.map (fun v -> v.vname) (Ast.node_inputs inst_node) in
+    let input_names = List.map (fun v -> v.vname) (inst_node.inputs) in
     let pre_k_map = build_pre_k_infos inst_node in
-    List.filter_map
-      (function
-        | Invariant (id,h) ->
-            let lhs = term_of_instance_var env inst_name node_name id in
-            let rhs =
-              compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map h
-            in
-            Some (term_eq lhs rhs)
-        | InvariantStateRel (is_eq, st_name, f) ->
-            let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            let cond = (if is_eq then term_eq else term_neq) st rhs in
-            let body =
-              compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map f
-            in
-            Some (term_implies cond body))
-      (Ast.node_invariants_mon inst_node)
+    let from_user =
+      List.filter_map
+        (fun inv ->
+           let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
+           let rhs =
+             compile_hexpr_instance
+               ~in_post env inst_name node_name input_names pre_k_map inv.inv_expr
+           in
+           Some (term_eq lhs rhs))
+        (inst_node.attrs.invariants_user)
+    in
+    let from_state_rel =
+      List.filter_map
+        (fun inv ->
+           let st = term_of_instance_var env inst_name node_name "st" in
+           let rhs = mk_term (Tident (qid1 inv.state)) in
+           let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
+           let body =
+             compile_fo_term_instance
+               ~in_post env inst_name node_name input_names pre_k_map inv.formula
+           in
+           Some (term_implies cond body))
+        (inst_node.attrs.invariants_state_rel)
+    in
+    from_user @ from_state_rel
   in
   let call_asserts =
     let index_of name lst =
@@ -90,18 +96,18 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
       loop 0 lst
     in
     fun (inst_name, _args, outs) ->
-      match List.assoc_opt inst_name (Ast.node_instances n) with
+      match List.assoc_opt inst_name (n.instances) with
       | None -> ([], [])
       | Some node_name ->
           match find_node node_name with
           | None -> ([], [])
           | Some inst_node ->
               let inv_terms = instance_invariant_terms env inst_name node_name inst_node in
-              match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
+              match extract_delay_spec (inst_node.guarantees) with
               | None -> ([], inv_terms)
               | Some (out_name, in_name) ->
                   let output_names =
-                    List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                    List.map (fun v -> v.vname) (inst_node.outputs)
                   in
                   begin match index_of out_name output_names with
                   | None -> ([], inv_terms)
@@ -132,7 +138,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
                   end
   in
   let body =
-    let trans = Ast.node_trans n in
+    let trans = n.trans in
     let main = compile_transitions env call_asserts trans in
     main
   in
@@ -182,7 +188,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
     match comment_specs with
     | None ->
-        (Ast.node_assumes n, Ast.node_guarantees n, Ast.node_trans n, [])
+        (n.assumes, n.guarantees, n.trans, [])
     | Some (a, g, t, m) -> (a, g, t, m)
   in
   let show_assume rel f =
@@ -193,22 +199,24 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
     let f = if rel then ltl_relational env f else f in
     "guarantee " ^ string_of_ltl f
   in
-  let show_invariant rel = function
-    | Invariant (id,h) -> "invariant " ^ id ^ " = " ^ string_of_hexpr h
-    | InvariantStateRel (is_eq, st_name, f) ->
-        let op = if is_eq then "=" else "!=" in
-        let f = if rel then rel_fo env f else f in
-        "invariant state " ^ op ^ " " ^ st_name ^ " -> " ^ string_of_fo f
+  let show_invariant_user rel (inv:invariant_user) =
+    ignore rel;
+    "invariant " ^ inv.inv_id ^ " = " ^ string_of_hexpr inv.inv_expr
+  in
+  let show_invariant_state_rel rel (inv:invariant_state_rel) =
+    let op = if inv.is_eq then "=" else "!=" in
+    let f = if rel then rel_fo env inv.formula else inv.formula in
+    "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_fo f
   in
   let comment =
     let is_monitor =
-      List.exists (fun v -> v.vname = "__mon_state") (Ast.node_locals n)
+      List.exists (fun v -> v.vname = "__mon_state") (n.locals)
     in
     if is_monitor then
       let simplify = Automaton_core.simplify_ltl in
       let prefixes =
         nodes_ast
-        |> List.map (fun nd -> Support.prefix_for_node (Ast.node_sig nd).nname)
+        |> List.map (fun nd -> Support.prefix_for_node nd.nname)
       in
       let replace_all ~sub ~by s =
         if sub = "" then s else
@@ -238,15 +246,17 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
       in
       let atom_eqs =
         List.filter_map
-          (function
-            | Invariant (id, h) when is_prefix "atom_" id ->
-                Some (Printf.sprintf "%s | %s" (strip_vars id) (string_of_hexpr h))
-            | _ -> None)
-          (Ast.node_invariants_mon n)
+          (fun inv ->
+             if is_prefix "atom_" inv.inv_id then
+               Some (Printf.sprintf "%s | %s"
+                       (strip_vars inv.inv_id)
+                       (string_of_hexpr inv.inv_expr))
+             else None)
+          (n.attrs.invariants_user)
       in
       let atom_table = "" in
-      let assumes = List.map simplify (Ast.values comment_assumes) in
-      let guarantees = List.map simplify (Ast.values comment_guarantees) in
+      let assumes = List.map simplify comment_assumes in
+      let guarantees = List.map simplify comment_guarantees in
       let fmt_list label items =
         let lines =
           match items with
@@ -264,18 +274,18 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
         let line_for (t:transition) =
           let show_fo f = string_of_fo f |> strip_vars in
           let reqs =
-            match Ast.transition_requires t with
+            match t.requires with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast.values (Ast.transition_requires t))
+            | _ -> List.map show_fo (Ast_provenance.values (t.requires))
           in
           let enss =
-            match Ast.transition_ensures t with
+            match t.ensures with
             | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast.values (Ast.transition_ensures t))
+            | _ -> List.map show_fo (Ast_provenance.values (t.ensures))
           in
           Printf.sprintf
             "  Transition %s -> %s\n    requires:\n      %s\n    ensures:\n      %s\n"
-            (Ast.transition_src t) (Ast.transition_dst t)
+            (t.src) (t.dst)
             (String.concat "\n      " reqs)
             (String.concat "\n      " enss)
         in
@@ -301,9 +311,10 @@ let compile_node ~prefix_fields ?comment_specs (nodes:Ast.node list) (n:Ast.node
         (mon_states ^ monitor_transitions)
     else
       let contract_lines =
-        List.map (show_assume false) (Ast.values comment_assumes)
-        @ List.map (show_guarantee false) (Ast.values comment_guarantees)
-        @ List.map (show_invariant false) (Ast.node_invariants_mon n)
+        List.map (show_assume false) comment_assumes
+        @ List.map (show_guarantee false) comment_guarantees
+        @ List.map (show_invariant_user false) (n.attrs.invariants_user)
+        @ List.map (show_invariant_state_rel false) (n.attrs.invariants_state_rel)
       in
       let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
@@ -326,7 +337,7 @@ let compile_program_ast ?(prefix_fields=true) ?(comment_map=[]) (p:Ast.program)
     | nodes ->
         List.map
           (fun n ->
-             let name = (Ast.node_sig n).nname in
+             let name = n.nname in
              compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
           nodes
   in
@@ -619,8 +630,6 @@ let emit_program_ast (ast:program_ast) : string =
         Some "monitor state"
       else if has_prefix name "__pre_k" then
         Some "k-step history"
-      else if has_prefix name "__fold" then
-        Some "fold accumulator"
       else if name = "st" then
         None
       else

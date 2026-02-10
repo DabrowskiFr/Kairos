@@ -18,7 +18,6 @@
 
 (** {1 Environment Types} *)
 
-type fold_info = { h : Ast.hexpr; acc : string; init_flag : string option; }
 type pre_k_info = {
   h : Ast.hexpr;
   expr : Ast.iexpr;
@@ -29,7 +28,6 @@ type env = {
   rec_name : string;
   rec_vars : string list;
   var_map : (Ast.ident * Ast.ident) list;
-  ghosts : fold_info list;
   links : (Ast.hexpr * Ast.ident) list;
   pre_k : (Ast.hexpr * pre_k_info) list;
   inst_map : (Ast.ident * Ast.ident) list;
@@ -85,8 +83,6 @@ val field : env -> Ast.ident -> Why3.Ptree.expr
 val is_rec_var : env -> Ast.ident -> bool
 (** Compute term var. *)
 val term_var : env -> Ast.ident -> Why3.Ptree.term_desc
-(** Compute find fold. *)
-val find_fold : env -> Ast.hexpr -> Ast.ident option
 (** Compute find link. *)
 val find_link : env -> Ast.hexpr -> Ast.ident option
 (** Compute find pre k. *)
@@ -97,8 +93,6 @@ val find_pre_k : env -> Ast.hexpr -> pre_k_info option
 val string_of_qid : Why3.Ptree.qualid -> string
 (** Render const as a string. *)
 val string_of_const : Why3.Constant.constant -> string
-(** Render op as a string. *)
-val string_of_op : Ast.op -> string
 (** Render relop as a string. *)
 val string_of_relop : Ast.relop -> string
 type ltl_norm = { ltl : Ast.fo_ltl; k_guard : int option; }

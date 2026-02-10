@@ -22,7 +22,7 @@ open Fo_specs
 
 let build_monitor_spec ~(atom_map:(fo * ident) list) (n:Ast.node) : fo_ltl =
   let _ = atom_map in
-  let spec_assumes = Ast.values (Ast.node_assumes n) in
-  let spec_guarantees = Ast.values (Ast.node_guarantees n) in
+  let spec_assumes = n.assumes in
+  let spec_guarantees = n.guarantees in
   combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
   |> simplify_ltl

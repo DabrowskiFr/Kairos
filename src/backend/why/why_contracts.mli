@@ -18,8 +18,6 @@
 
 (** {1 Fold Contracts} *)
 
-(** Compute fold post terms. *)
-val fold_post_terms : Support.env -> Support.fold_info -> Why3.Ptree.term list
 
 (** {1 Contract Assembly} *)
 

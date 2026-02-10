@@ -16,9 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Linking} *)
-(** Drop any invariants provided by the frontend input. *)
-val user_contracts_coherency : Ast.node -> Ast.node
+(** {1 Contract Coherency} *)
+
 (** Add post-conditions that imply successor requires (user contracts only). *)
 val ensure_next_requires : Ast.node -> Ast.node
-(** Add post-conditions that imply successor requires. *)
+
+(** Add coherency constraints derived from user contracts. *)
+val user_contracts_coherency : Ast.node -> Ast.node

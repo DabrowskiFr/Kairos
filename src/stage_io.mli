@@ -2,7 +2,6 @@ val dump_ast_stage :
   stage:Stage_names.stage_id ->
   out:string option ->
   stable:bool ->
-  include_attrs:bool ->
   Ast.program ->
   (unit, string) result
 
@@ -14,7 +13,6 @@ val dump_ast_all :
   monitor:Ast.program ->
   obc:Ast.program ->
   stable:bool ->
-  include_attrs:bool ->
   (unit, string) result
 
 

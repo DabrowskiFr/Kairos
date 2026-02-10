@@ -45,10 +45,10 @@ let contains_sub (s:string) (sub:string) : bool =
   if len_sub = 0 then true else loop 0
 
 let guard_term_pre (env:env) (t:transition) : Ptree.term option =
-  Option.map (compile_term env) (Ast.transition_guard t)
+  Option.map (compile_term env) (t.guard)
 
 let guard_term_old (env:env) (t:transition) : Ptree.term option =
-  Option.map (fun g -> term_old (compile_term env g)) (Ast.transition_guard t)
+  Option.map (fun g -> term_old (compile_term env g)) (t.guard)
 
 let with_guard (cond:Ptree.term) (guard:Ptree.term option) : Ptree.term =
   match guard with
@@ -71,19 +71,20 @@ let rec term_has_old (t:Ptree.term) : bool =
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
 
-let inline_atom_terms_map (env:env) (invs:invariant_mon list)
+let inline_atom_terms_map (env:env) (invs:invariant_user list)
   : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
   List.iter
-    (function
-      | Invariant (id, HNow e) when String.length id >= 5 && String.sub id 0 5 = "atom_" ->
+    (fun inv ->
+       match inv.inv_expr with
+       | HNow e when String.length inv.inv_id >= 5 && String.sub inv.inv_id 0 5 = "atom_" ->
           let qid =
-            let field = rec_var_name env id in
+            let field = rec_var_name env inv.inv_id in
             let q = qdot (qid1 env.rec_name) field in
             string_of_qid q
           in
           Hashtbl.replace atom_map qid (compile_term env e)
-      | _ -> ())
+       | _ -> ())
     invs;
   let rec go (t:Ptree.term) : Ptree.term =
     match t.term_desc with
@@ -105,44 +106,21 @@ let inline_atom_terms_map (env:env) (invs:invariant_mon list)
   in
   go
 
-let inline_atom_terms (env:env) (invs:invariant_mon list) (terms:Ptree.term list)
+let inline_atom_terms (env:env) (invs:invariant_user list) (terms:Ptree.term list)
   : Ptree.term list =
   let go = inline_atom_terms_map env invs in
   List.map go terms
-
-let fold_post_terms (env:env) (fi:fold_info) : Ptree.term list =
-  let acc = term_of_var env fi.acc in
-  let acc_old = term_old acc in
-  let is_init_old =
-    match fi.init_flag with
-    | Some init_done ->
-        let init_old = term_old (mk_term (term_var env init_done)) in
-        mk_term (Tnot init_old)
-    | None -> mk_term Tfalse
-  in
-  match classify_fold fi.h with
-  | Some (`Scan (op,init_e,e)) ->
-      let t_init = compile_term env init_e in
-      let t_e = compile_term env e in
-      let acc_when_init = term_eq acc t_init in
-      let acc_when_step = term_eq acc (term_apply_op op acc_old t_e) in
-      [ term_implies is_init_old acc_when_init;
-        term_implies (mk_term (Tnot is_init_old)) acc_when_step ]
-  | None -> []
 
 let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   : Why_types.contract_info =
   let nodes = nodes in
   let n = info.node in
   let env = info.env in
-  let folds = info.folds in
   let pre_k_map = info.pre_k_map in
   let pre_k_infos = info.pre_k_infos in
   let needs_step_count = info.needs_step_count in
-  let needs_first_step_folds = info.needs_first_step_folds in
   let has_initial_only_contracts = info.has_initial_only_contracts in
   let hexpr_needs_old = info.hexpr_needs_old in
-  let fold_init_links = info.fold_init_links in
   let init_for_var = info.init_for_var in
   let conj_terms = function
     | [] -> mk_term Ttrue
@@ -158,13 +136,12 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   in
   let normalize_ltl f = normalize_ltl_for_k ~init_for_var f in
   let origin_label = function
-    | UserContract -> "User contract"
-    | Coherency -> "User contracts coherency"
-    | Compatibility -> "Compatibility"
-    | Monitor -> "Monitor"
-    | Internal -> "Internal"
-    | Unknown -> "Other"
-    | Other s -> s
+    | Some UserContract -> "User contract"
+    | Some Coherency -> "User contracts coherency"
+    | Some Compatibility -> "Compatibility"
+    | Some Monitor -> "Monitor"
+    | Some Internal -> "Internal"
+    | None -> "Unknown"
   in
   let pre_contract =
     List.fold_left
@@ -175,7 +152,7 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
          guarded_k @ pre)
       []
-      (Ast.values (Ast.node_assumes n))
+      (n.assumes)
   in
   let post_contract =
     List.fold_left
@@ -186,12 +163,10 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
          let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
          guarded_k @ post)
       []
-      (Ast.values (Ast.node_guarantees n))
+      (n.guarantees)
   in
   let pre_invf = [] in
   let post_invf = [] in
-  let pre_lemma_terms = [] in
-  let post_lemma_terms = [] in
   let req_counter = ref 0 in
   let ens_counter = ref 0 in
   let next_h () =
@@ -208,7 +183,7 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
          let reqs =
            List.map
              (fun f -> (f.value, origin_label f.origin))
-             (Ast.transition_requires t)
+             (t.requires)
          in
         let ens =
           List.map
@@ -217,17 +192,17 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                 add_parents ~child:wid ~parents:[f.oid];
                 let wid_attr = Printf.sprintf "wid:%d" wid in
                 (f.value, origin_label f.origin, wid_attr))
-             (Ast.transition_ensures t)
+             (t.ensures)
         in
          (t, reqs, ens))
-      (Ast.node_trans n)
+      (n.trans)
   in
   let transition_requires_pre_terms =
     List.fold_left
       (fun acc (t, reqs, _ens) ->
          let cond_pre =
            term_eq (term_of_var env "st")
-             (mk_term (Tident (qid1 (Ast.transition_src t))))
+             (mk_term (Tident (qid1 (t.src))))
          in
          let cond_pre = with_guard cond_pre (guard_term_pre env t) in
          List.fold_left
@@ -252,7 +227,7 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
       (fun acc (t:transition) ->
          let cond_post =
            term_eq (term_of_var env "st")
-             (mk_term (Tident (qid1 (Ast.transition_src t))))
+             (mk_term (Tident (qid1 (t.src))))
          in
          let cond_post = with_guard cond_post (guard_term_pre env t) in
          List.fold_left
@@ -264,35 +239,25 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
               let terms = List.map (term_implies cond_post) guarded_k in
               terms @ acc)
            acc
-           (Ast.values (Ast.transition_requires t)))
+           (Ast_provenance.values (t.requires)))
       []
-      (Ast.node_trans n)
+      (n.trans)
   in
   let pre_contract_user = pre_contract in
   (* Do not inject user LTL guarantees as postconditions here; they are enforced
      via the monitor/post-to-pre rules. Transition ensures are handled separately. *)
   let post_contract_user = [] in
-  let pre_contract_user_no_lemma =
-    List.filter (fun t -> not (List.mem t pre_lemma_terms)) pre_contract_user
-  in
-  let post_contract_user_no_lemma =
-    List.filter (fun t -> not (List.mem t post_lemma_terms)) post_contract_user
-  in
   let pre_contract = transition_requires_pre @ pre_contract_user @ pre_invf in
   let post_contract = post_contract_user @ post_invf in
-  let state_post, state_post_lemmas_terms, state_post_terms, state_post_terms_vcid =
+  let state_post, state_post_terms, state_post_terms_vcid =
     let st = term_of_var env "st" in
     let st_old = term_old st in
     List.fold_left
-      (fun (post, lemmas, post_terms, post_terms_vcid) (t, _reqs, ens) ->
+      (fun (post, post_terms, post_terms_vcid) (t, _reqs, ens) ->
          let cond_post =
-           term_eq st_old (mk_term (Tident (qid1 (Ast.transition_src t))))
+           term_eq st_old (mk_term (Tident (qid1 (t.src))))
          in
          let cond_post = with_guard cond_post (guard_term_old env t) in
-         let lemma_label =
-           Printf.sprintf "Transition lemmas (%s -> %s)"
-             (Ast.transition_src t) (Ast.transition_dst t)
-         in
          let guard_terms =
            List.concat_map
              (fun f ->
@@ -300,15 +265,15 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
-            (Ast.values (Ast.transition_requires t))
+            (Ast_provenance.values (t.requires))
          in
          let guard =
            if guard_terms = [] then None
            else Some (term_old (conj_terms guard_terms))
          in
-         let apply_post_terms post lemmas post_terms post_terms_vcid fo_list is_lemma =
+         let apply_post_terms post post_terms post_terms_vcid fo_list =
            List.fold_left
-             (fun (post, lemmas, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
+             (fun (post, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
                 let norm = normalize_ltl (ltl_of_fo f) in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
@@ -327,12 +292,6 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                         (fun t -> mk_term (Tattr (ATstr (Ident.create_attribute vcid), t)))
                         terms
                 in
-                let lemmas =
-                  if is_lemma then
-                    let labeled = List.map (fun t -> (t, lemma_label)) terms in
-                    labeled @ lemmas
-                  else lemmas
-                in
                 let post_terms =
                   match label_opt with
                   | None -> post_terms
@@ -345,37 +304,29 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                   | Some vcid ->
                       List.map (fun t -> (t, vcid)) terms @ post_terms_vcid
                 in
-                (terms @ post, lemmas, post_terms, post_terms_vcid))
-             (post, lemmas, post_terms, post_terms_vcid)
+                (terms @ post, post_terms, post_terms_vcid))
+             (post, post_terms, post_terms_vcid)
              fo_list
          in
          let ens_terms =
            List.map (fun (f, label, vcid) -> (f, Some label, Some vcid)) ens
          in
-         let post, lemmas, post_terms, post_terms_vcid =
-           apply_post_terms post lemmas post_terms post_terms_vcid ens_terms false
-         in
-         let lemma_terms =
-           List.map (fun f -> (f, None, None)) (Ast.values (Ast.transition_lemmas t))
-         in
-         apply_post_terms post lemmas post_terms post_terms_vcid lemma_terms true)
-      ([], [], [], []) labeled_trans
-  in
-  let state_post_lemmas =
-    List.map fst state_post_lemmas_terms
+         apply_post_terms post post_terms post_terms_vcid ens_terms)
+      ([], [], []) labeled_trans
   in
   let post_contract = state_post @ post_contract in
   let state_rel_terms =
     List.filter_map
-      (function
-        | InvariantStateRel (true, st_name, f) ->
-            let st = term_of_var env "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            let cond = term_eq st rhs in
-            let body = compile_fo_term env f in
-            Some (st_name, (cond, body))
-        | _ -> None)
-      (Ast.node_invariants_mon n)
+      (fun inv ->
+         if inv.is_eq then
+           let st = term_of_var env "st" in
+           let rhs = mk_term (Tident (qid1 inv.state)) in
+           let cond = term_eq st rhs in
+           let body = compile_fo_term env inv.formula in
+           Some (inv.state, (cond, body))
+         else
+           None)
+      (n.attrs.invariants_state_rel)
   in
   let state_rel_for name =
     List.find_map (fun (st, term) -> if st = name then Some term else None) state_rel_terms
@@ -383,7 +334,7 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   let init_guard_terms =
     let st_init =
       term_eq (term_of_var env "st")
-        (mk_term (Tident (qid1 (Ast.node_init_state n))))
+        (mk_term (Tident (qid1 (n.init_state))))
     in
     let mon_init =
       match info.mon_state_ctors with
@@ -391,23 +342,26 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
           [ term_eq (term_of_var env "__mon_state") (mk_term (Tident (qid1 first))) ]
       | [] -> []
     in
-    let inv_terms =
+    let inv_terms_user =
+      List.map
+        (fun inv ->
+           let lhs = term_of_var env inv.inv_id in
+           let rhs = compile_hexpr ~prefer_link:false ~in_post:false env inv.inv_expr in
+           term_eq lhs rhs)
+        (n.attrs.invariants_user)
+    in
+    let inv_terms_state =
       List.filter_map
-        (function
-          | Invariant (id, h) ->
-              let lhs = term_of_var env id in
-              let rhs = compile_hexpr ~prefer_link:false ~in_post:false env h in
-              Some (term_eq lhs rhs)
-          | InvariantStateRel (is_eq, st_name, f) ->
-              if is_eq && st_name = Ast.node_init_state n then
-                Some (compile_fo_term env f)
-              else
-                None)
-        (Ast.node_invariants_mon n)
+        (fun inv ->
+           if inv.is_eq && inv.state = n.init_state then
+             Some (compile_fo_term env inv.formula)
+           else
+             None)
+        (n.attrs.invariants_state_rel)
     in
     let instance_terms =
       let find_node name =
-        List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+        List.find_opt (fun nd -> nd.nname = name) nodes
       in
       List.concat_map
         (fun (inst_name, node_name) ->
@@ -415,29 +369,37 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
            | None -> []
            | Some inst_node ->
                let input_names =
-                 List.map (fun v -> v.vname) (Ast.node_inputs inst_node)
+                 List.map (fun v -> v.vname) (inst_node.inputs)
                in
                let pre_k_map = build_pre_k_infos inst_node in
-               List.filter_map
-                 (function
-                   | Invariant (id,h) ->
-                       let lhs = term_of_instance_var env inst_name node_name id in
-                       let rhs =
-                         compile_hexpr_instance ~in_post:false env inst_name node_name input_names pre_k_map h
-                       in
-                       Some (term_eq lhs rhs)
-                   | InvariantStateRel (is_eq, st_name, f) ->
-                       let st = term_of_instance_var env inst_name node_name "st" in
-                       let rhs = mk_term (Tident (qid1 st_name)) in
-                       let cond = (if is_eq then term_eq else term_neq) st rhs in
-                       let body =
-                         compile_fo_term_instance ~in_post:false env inst_name node_name input_names pre_k_map f
-                       in
-                       Some (term_implies cond body))
-                 (Ast.node_invariants_mon inst_node))
-        (Ast.node_instances n)
+               let from_user =
+                 List.map
+                   (fun inv ->
+                      let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
+                      let rhs =
+                        compile_hexpr_instance
+                          ~in_post:false env inst_name node_name input_names pre_k_map inv.inv_expr
+                      in
+                      term_eq lhs rhs)
+                   (inst_node.attrs.invariants_user)
+               in
+               let from_state_rel =
+                 List.map
+                   (fun inv ->
+                      let st = term_of_instance_var env inst_name node_name "st" in
+                      let rhs = mk_term (Tident (qid1 inv.state)) in
+                      let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
+                      let body =
+                        compile_fo_term_instance
+                          ~in_post:false env inst_name node_name input_names pre_k_map inv.formula
+                      in
+                      term_implies cond body)
+                   (inst_node.attrs.invariants_state_rel)
+               in
+               from_user @ from_state_rel)
+        (n.instances)
     in
-    st_init :: (mon_init @ inv_terms @ instance_terms)
+    st_init :: (mon_init @ inv_terms_user @ inv_terms_state @ instance_terms)
   in
   let init_guard =
     match init_guard_terms with
@@ -446,49 +408,60 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   in
   let transition_post_to_pre = [] in
   let link_terms_pre, link_terms_post =
-    List.fold_left (fun (pre, post) c ->
-        match c with
-        | Invariant (id,h) ->
-            let lhs = term_of_var env id in
-            let rhs = compile_hexpr ~prefer_link:false ~in_post:true env h in
-            let t = term_eq lhs rhs in
-            if hexpr_needs_old h then
-              (pre, t :: post)
-            else
-              (t :: pre, t :: post)
-        | InvariantStateRel (is_eq, st_name, f) ->
-            let st = term_of_var env "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            let cond = (if is_eq then term_eq else term_neq) st rhs in
-            let body = compile_fo_term env f in
-            let t = term_implies cond body in
-            (t :: pre, t :: post))
-      ([], []) (Ast.node_invariants_mon n)
+    let pre, post =
+      List.fold_left
+        (fun (pre, post) inv ->
+           let lhs = term_of_var env inv.inv_id in
+           let rhs = compile_hexpr ~prefer_link:false ~in_post:true env inv.inv_expr in
+           let t = term_eq lhs rhs in
+           if hexpr_needs_old inv.inv_expr then
+             (pre, t :: post)
+           else
+             (t :: pre, t :: post))
+        ([], [])
+        (n.attrs.invariants_user)
+    in
+    List.fold_left
+      (fun (pre, post) inv ->
+         let st = term_of_var env "st" in
+         let rhs = mk_term (Tident (qid1 inv.state)) in
+         let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
+         let body = compile_fo_term env inv.formula in
+         let t = term_implies cond body in
+         (t :: pre, t :: post))
+      (pre, post)
+      (n.attrs.invariants_state_rel)
   in
   let pre_k_links = [] in
   let find_node (name:string) : node option =
-    List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+    List.find_opt (fun nd -> nd.nname = name) nodes
   in
   let instance_invariant_terms ?(in_post=false) (inst_name:string) (node_name:string) (inst_node:node) =
-    let input_names = List.map (fun v -> v.vname) (Ast.node_inputs inst_node) in
+    let input_names = List.map (fun v -> v.vname) (inst_node.inputs) in
     let pre_k_map = build_pre_k_infos inst_node in
-    List.filter_map
-      (function
-        | Invariant (id,h) ->
-            let lhs = term_of_instance_var env inst_name node_name id in
-            let rhs =
-              compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map h
-            in
-            Some (term_eq lhs rhs)
-        | InvariantStateRel (is_eq, st_name, f) ->
-            let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 st_name)) in
-            let cond = (if is_eq then term_eq else term_neq) st rhs in
-            let body =
-              compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map f
-            in
-            Some (term_implies cond body))
-      (Ast.node_invariants_mon inst_node)
+    let from_user =
+      List.map
+        (fun inv ->
+           let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
+           let rhs =
+             compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map inv.inv_expr
+           in
+           term_eq lhs rhs)
+        (inst_node.attrs.invariants_user)
+    in
+    let from_state_rel =
+      List.map
+        (fun inv ->
+           let st = term_of_instance_var env inst_name node_name "st" in
+           let rhs = mk_term (Tident (qid1 inv.state)) in
+           let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
+           let body =
+             compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map inv.formula
+           in
+           term_implies cond body)
+        (inst_node.attrs.invariants_state_rel)
+    in
+    from_user @ from_state_rel
   in
   let instance_invariants =
     List.concat_map
@@ -496,14 +469,14 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
          match find_node node_name with
          | None -> []
          | Some inst_node -> instance_invariant_terms ~in_post:false inst_name node_name inst_node)
-      (Ast.node_instances n)
+      (n.instances)
   in
   let instance_input_links_pre, instance_input_links_post = ([], []) in
   let instance_delay_links_post =
     let find_node name =
-      List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+      List.find_opt (fun nd -> nd.nname = name) nodes
     in
-    let calls = collect_calls_trans_full (Ast.node_trans n) in
+    let calls = collect_calls_trans_full (n.trans) in
     let index_of name lst =
       let rec loop i = function
         | [] -> None
@@ -513,20 +486,20 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
     in
     List.filter_map
       (fun (inst_name, _args, outs) ->
-         match List.assoc_opt inst_name (Ast.node_instances n) with
+         match List.assoc_opt inst_name (n.instances) with
          | None -> None
          | Some node_name ->
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
+                match extract_delay_spec (inst_node.guarantees) with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names =
-                       List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                       List.map (fun v -> v.vname) (inst_node.outputs)
                      in
                      let input_names =
-                       List.map (fun v -> v.vname) (Ast.node_inputs inst_node)
+                       List.map (fun v -> v.vname) (inst_node.inputs)
                      in
                      begin match index_of out_name output_names with
                      | None -> None
@@ -557,9 +530,9 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   in
   let instance_delay_links_inv =
     let find_node name =
-      List.find_opt (fun nd -> (Ast.node_sig nd).nname = name) nodes
+      List.find_opt (fun nd -> nd.nname = name) nodes
     in
-    let calls = collect_calls_trans_full (Ast.node_trans n) in
+    let calls = collect_calls_trans_full (n.trans) in
     let index_of name lst =
       let rec loop i = function
         | [] -> None
@@ -577,17 +550,17 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
     in
     List.filter_map
       (fun (inst_name, args, outs) ->
-         match List.assoc_opt inst_name (Ast.node_instances n) with
+         match List.assoc_opt inst_name (n.instances) with
          | None -> None
          | Some node_name ->
              match find_node node_name with
              | None -> None
              | Some inst_node ->
-                 match extract_delay_spec (Ast.values (Ast.node_guarantees inst_node)) with
+                 match extract_delay_spec (inst_node.guarantees) with
                  | None -> None
                  | Some (out_name, in_name) ->
                      let output_names =
-                       List.map (fun v -> v.vname) (Ast.node_outputs inst_node)
+                       List.map (fun v -> v.vname) (inst_node.outputs)
                      in
                      begin match index_of out_name output_names with
                      | None -> None
@@ -597,7 +570,7 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                            let out_var = List.nth outs out_idx in
                           match List.assoc_opt in_name
                                   (List.combine
-                                     (List.map (fun v -> v.vname) (Ast.node_inputs inst_node))
+                                     (List.map (fun v -> v.vname) (inst_node.inputs))
                                      args)
                           with
                           | Some e ->
@@ -614,17 +587,16 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                      end)
       calls
   in
-  let fold_post = List.concat (List.map (fold_post_terms env) folds) in
   let post =
-    fold_post @ post_contract @ transition_requires_post
+    post_contract @ transition_requires_post
     @ transition_post_to_pre
   in
   let output_links =
-    let outputs = List.map (fun v -> v.vname) (Ast.node_outputs n) in
+    let outputs = List.map (fun v -> v.vname) (n.outputs) in
     List.filter_map (fun out ->
         let assigns =
           List.filter_map (fun (t:Ast.transition) ->
-              match List.rev (Ast.transition_body t) with
+              match List.rev (t.body) with
               | s :: _ ->
                   begin match s.stmt with
                   | SAssign (x, e) when x = out ->
@@ -635,27 +607,20 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
                   | _ -> None
                   end
               | _ -> None
-            ) (Ast.node_trans n)
+            ) (n.trans)
         in
         match assigns with
         | [] -> None
         | v :: _ ->
-            if List.length assigns = List.length (Ast.node_trans n)
+            if List.length assigns = List.length (n.trans)
                && List.for_all ((=) v) assigns
             then Some (term_eq (term_of_var env out) (term_of_var env v))
             else None
       ) outputs
   in
-  let fold_links =
-    List.filter_map
-      (fun (ghost_acc, acc, _init_done) ->
-         if ghost_acc = acc then None
-         else Some (term_eq (term_of_var env acc) (term_of_var env ghost_acc)))
-      fold_init_links
-  in
   let first_step_links = [] in
   let link_invariants =
-    output_links @ fold_links @ first_step_links @ instance_delay_links_inv
+    output_links @ first_step_links @ instance_delay_links_inv
   in
   let first_step_init_link_pre = [] in
   let pre =
@@ -683,16 +648,12 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
 
-  let inline_term = inline_atom_terms_map env (Ast.node_invariants_mon n) in
+  let inline_term = inline_atom_terms_map env (n.attrs.invariants_user) in
   let pre = List.map inline_term pre in
   let post = List.map inline_term post in
   let transition_requires_pre = List.map inline_term transition_requires_pre in
   let transition_requires_pre_terms =
     List.map (fun (t, lbl) -> (inline_term t, lbl)) transition_requires_pre_terms
-  in
-  let state_post_lemmas = List.map inline_term state_post_lemmas in
-  let state_post_lemmas_terms =
-    List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_lemmas_terms
   in
   let state_post_terms =
     List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_terms
@@ -707,18 +668,14 @@ let build_contracts ~(nodes:Ast.node list) (info:Why_env.env_info)
       transition_requires_pre;
       transition_requires_pre_terms;
       transition_post_terms = [];
-      pre_contract_user_no_lemma;
-      pre_lemma_terms;
+      pre_contract_user;
       link_terms_pre;
       link_terms_post;
       instance_input_links_pre;
       pre_invf;
       first_step_init_link_pre;
       link_invariants;
-      post_contract_user_no_lemma;
-      post_lemma_terms;
-      state_post_lemmas;
-      state_post_lemmas_terms;
+      post_contract_user;
       instance_input_links_post;
       instance_invariants;
       post_invf;

@@ -26,19 +26,12 @@ val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
 (** Collect hexprs referenced by a FO formula. *)
 (** {1 Fold And Pre_k Extraction} *)
 
-val fold_name : int -> string
-(** Deterministic fold accumulator name for an index. *)
-val classify_fold :
-  Ast.hexpr -> [ `Scan of Ast.op * Ast.iexpr * Ast.iexpr ] option
-(** Classify a fold hexpr into its operator and operands. *)
-val collect_folds_from_specs :
-  fo:Ast.fo list ->
-  ltl:Ast.fo_ltl list ->
-  invariants_mon:Ast.invariant_mon list -> Support.fold_info list
-(** Extract fold accumulators used by a set of specs. *)
 val collect_pre_k_from_specs :
   fo:Ast.fo list ->
-  ltl:Ast.fo_ltl list -> invariants_mon:Ast.invariant_mon list -> Ast.hexpr list
+  ltl:Ast.fo_ltl list ->
+  invariants_user:Ast.invariant_user list ->
+  invariants_state_rel:Ast.invariant_state_rel list ->
+  Ast.hexpr list
 (** Extract pre_k hexprs used by a set of specs. *)
 val build_pre_k_infos :
   Ast.node -> (Ast.hexpr * Support.pre_k_info) list

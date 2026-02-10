@@ -15,8 +15,7 @@ let () =
       "true", TRUE; "false", FALSE;
       "int", TINT; "bool", TBOOL; "real", TREAL;
       "pre", PRE;
-      "min", MIN; "max", MAX; "add", ADD; "mul", MUL; "and", AND; "or", OR; "not", NOT;
-      "first", FIRST;
+      "and", AND; "or", OR; "not", NOT;
       "G", G; "X", X;
     ]
 
@@ -43,8 +42,7 @@ let expected_tokens : (string * Parser.token) list =
     "true", TRUE; "false", FALSE;
     "int", TINT; "bool", TBOOL; "real", TREAL;
     "pre", PRE;
-    "min", MIN; "max", MAX; "add", ADD; "mul", MUL; "and", AND; "or", OR; "not", NOT;
-    "first", FIRST;
+    "and", AND; "or", OR; "not", NOT;
     "G", G; "X", X;
     ":=", ASSIGN; "->", ARROW; "=>", IMPL; ">=", GE; "<=", LE; "!=", NEQ;
     "=", EQ; ">", GT; "<", LT; "+", PLUS; "-", MINUS; "*", STAR; "/", SLASH;

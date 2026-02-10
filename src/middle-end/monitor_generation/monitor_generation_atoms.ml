@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 open Support
 open Fo_specs
 
@@ -94,11 +95,10 @@ let collect_monitor_atoms (n:Ast.node) : monitor_generation_atoms =
   let var_types =
     List.map
       (fun v -> (v.vname, v.vty))
-      (Ast.node_inputs n_ast @ Ast.node_locals n_ast @ Ast.node_outputs n_ast)
+      (n_ast.inputs @ n_ast.locals @ n_ast.outputs)
   in
-  let fold_map = fold_map_for_node n in
   let pre_k_map = Collect.build_pre_k_infos n_ast in
-  let inputs = List.map (fun v -> v.vname) (Ast.node_inputs n_ast) in
+  let inputs = List.map (fun v -> v.vname) (n_ast.inputs) in
   let atoms_all =
     collect_atoms_from_node n
     |> List.sort_uniq compare
@@ -106,7 +106,7 @@ let collect_monitor_atoms (n:Ast.node) : monitor_generation_atoms =
   let atom_exprs, skipped =
     List.fold_left
       (fun (ok, bad) a ->
-         match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
+         match atom_to_iexpr ~inputs ~var_types ~pre_k_map a with
          | Some e -> ((a, e) :: ok, bad)
          | None -> (ok, a :: bad))
       ([], [])

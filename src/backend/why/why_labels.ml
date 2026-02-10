@@ -21,14 +21,10 @@
 open Why3
 
 let normalize_label (label:string) : string =
-  let prefix = "Transition lemmas (" in
   if label = "User contract" then
     "user"
   else if label = "User contracts coherency" || label = "User constract coherency" then
     "coherency"
-  else if String.length label >= String.length prefix
-     && String.sub label 0 (String.length prefix) = prefix then
-    "Transition lemmas"
   else if label = "" then
     "Other"
   else
@@ -60,21 +56,17 @@ let known_labels : string list =
     "Internal";
     "Transition requires";
     "Contract requires";
-    "Lemmas (pre)";
     "Atoms";
     "User invariants";
     "Instance links (pre)";
     "Initialization/first_step";
     "Internal links";
-    "Transition lemmas";
-    "Lemmas";
     "Contract ensures";
     "Instance links (post)";
     "Instance invariants";
     "pre_k history";
     "Result";
     "Bad state";
-    "Other";
   ]
 
 let label_attrs : (string * Ident.attribute) list =

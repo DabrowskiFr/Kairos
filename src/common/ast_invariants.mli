@@ -18,10 +18,14 @@
 
 type issue = string
 
-val check_transition_basic : Ast.node -> Ast.transition -> issue list
-val check_node_basic : Ast.node -> issue list
+(** {1 Validation helpers}
+    Lightweight checks for structural invariants. These are intended for
+    debugging/CLI validation rather than full semantic verification. *)
+
 val check_program_basic : Ast.program -> issue list
 
 val check_program_contracts : Ast.program -> issue list
 val check_program_monitor : Ast.program -> issue list
+(** No-op check (monitor metadata is no longer embedded in the AST). *)
 val check_program_obc : Ast.program -> issue list
+(** No-op check (OBC+ metadata is no longer embedded in the AST). *)

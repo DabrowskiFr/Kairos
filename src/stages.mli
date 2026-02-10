@@ -8,7 +8,6 @@ type config = {
   dump_ast_out : string option;
   dump_ast_all : string option;
   dump_ast_stable : bool;
-  dump_ast_include_attrs : bool;
   check_ast : bool;
   output_file : string option;
   prove : bool;

@@ -26,18 +26,14 @@ type label_context = {
   transition_requires_pre : Ptree.term list;
   transition_requires_pre_terms : (Ptree.term * string) list;
   transition_post_terms : (Ptree.term * string) list;
-  pre_contract_user_no_lemma : Ptree.term list;
-  pre_lemma_terms : Ptree.term list;
+  pre_contract_user : Ptree.term list;
   link_terms_pre : Ptree.term list;
   link_terms_post : Ptree.term list;
   instance_input_links_pre : Ptree.term list;
   pre_invf : Ptree.term list;
   first_step_init_link_pre : Ptree.term list;
   link_invariants : Ptree.term list;
-  post_contract_user_no_lemma : Ptree.term list;
-  post_lemma_terms : Ptree.term list;
-  state_post_lemmas : Ptree.term list;
-  state_post_lemmas_terms : (Ptree.term * string) list;
+  post_contract_user : Ptree.term list;
   instance_input_links_post : Ptree.term list;
   instance_invariants : Ptree.term list;
   post_invf : Ptree.term list;
@@ -82,8 +78,7 @@ let build_labels (ctx:label_context) : string list * string list =
   let pre_groups =
     [
       ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
-      ("Contract requires", group_terms_by_pre ctx.pre_contract_user_no_lemma);
-      ("Lemmas (pre)", group_terms_by_pre ctx.pre_lemma_terms);
+      ("User contract requires", group_terms_by_pre ctx.pre_contract_user);
       ("Atoms", group_terms_by_pre atom_pre);
       ("Compatibility", group_terms_by_pre compat_pre);
       ("User invariants", group_terms_by_pre user_pre);
@@ -96,9 +91,7 @@ let build_labels (ctx:label_context) : string list * string list =
   let post_groups =
     let base =
       [
-        ("Transition lemmas", group_terms_by_post ctx.state_post_lemmas);
-        ("Lemmas", group_terms_by_post ctx.post_lemma_terms);
-        ("Contract ensures", group_terms_by_post ctx.post_contract_user_no_lemma);
+        ("User contract ensures", group_terms_by_post ctx.post_contract_user);
         ("Atoms", group_terms_by_post atom_post);
         ("Compatibility", group_terms_by_post compat_post);
         ("User invariants", group_terms_by_post user_post);
@@ -155,18 +148,11 @@ let build_labels (ctx:label_context) : string list * string list =
   in
   let post_label_queue = Queue.create () in
   List.iter (fun (_t, lbl) -> Queue.add lbl post_label_queue) ctx.transition_post_terms;
-  let lemma_label_for_term t =
-    List.find_map
-      (fun (term, lbl) -> if term = t then Some lbl else None)
-      ctx.state_post_lemmas_terms
-  in
   let label_for_post_term t =
-    match lemma_label_for_term t with
-    | Some lbl -> lbl
-    | None when term_has_old t && not (Queue.is_empty post_label_queue) ->
+    if term_has_old t && not (Queue.is_empty post_label_queue) then
         Queue.take post_label_queue
-    | None ->
-        label_for_term post_groups [] t
+    else
+      label_for_term post_groups [] t
   in
   let post_labels = List.map label_for_post_term post_out in
   (pre_labels, post_labels)

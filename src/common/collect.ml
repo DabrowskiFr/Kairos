@@ -18,6 +18,7 @@
 
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Ast
+open Ast_builders
 open Support
 
 let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
@@ -26,7 +27,6 @@ let rec collect_hexpr (h:hexpr) (acc:hexpr list) : hexpr list =
   | HNow _ -> acc
   | HPreK (e, _) ->
       collect_hexpr (HNow e) acc
-  | HFold (_,init,e) -> collect_hexpr (HNow init) (collect_hexpr (HNow e) acc)
 
 let rec collect_ltl (f:fo_ltl) (acc:hexpr list) : hexpr list =
   match f with
@@ -44,87 +44,11 @@ and collect_fo (f:fo) (acc:hexpr list) : hexpr list =
   | FNot a -> collect_fo a acc
   | FAnd (a,b) | FOr (a,b) | FImp (a,b) -> collect_fo b (collect_fo a acc)
 
-let fold_name (i:int) : string =
-  Printf.sprintf "__fold%d" i
-
-let classify_fold (h:hexpr)
-  : [ `Scan of op * iexpr * iexpr ] option =
-  match h with
-  | HFold (op,init,e) -> Some (`Scan (op,init,e))
-  | _ -> None
-
-let collect_folds_from_specs
-    ~(fo:fo list)
-    ~(ltl:fo_ltl list)
-    ~(invariants_mon:invariant_mon list) : fold_info list =
-  let is_internal_fold_invariant = function
-    | Invariant (id, _) ->
-        String.length id >= 15 && String.sub id 0 15 = "__fold_internal"
-    | InvariantStateRel _ -> false
-  in
-  let fold_in_other_specs =
-    let from_fo =
-      List.fold_left (fun acc f -> collect_fo f acc) [] fo
-    in
-    let from_inv =
-      List.fold_left
-        (fun acc inv ->
-           match inv with
-           | Invariant (_id, h) -> collect_hexpr h acc
-           | InvariantStateRel (_is_eq, _st, f) -> collect_fo f acc)
-        []
-        invariants_mon
-      |> List.filter_map (fun h -> Some h)
-    in
-    List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false)
-      (from_fo @ from_inv)
-  in
-  let fold_in_other_specs =
-    if List.exists is_internal_fold_invariant invariants_mon then
-      let internal_hexprs =
-        List.fold_left
-          (fun acc inv ->
-             match inv with
-             | Invariant (_id, h) when is_internal_fold_invariant inv -> h :: acc
-             | _ -> acc)
-          []
-          invariants_mon
-      in
-      List.filter (fun h -> not (List.exists ((=) h) internal_hexprs)) fold_in_other_specs
-    else
-      fold_in_other_specs
-  in
-  begin match fold_in_other_specs with
-  | [] -> ()
-  | h :: _ ->
-      failwith ("fold is only supported in node assume/guarantee, found: "
-                ^ Support.string_of_hexpr h)
-  end;
-  let internal_folds =
-    List.fold_left
-      (fun acc inv ->
-         match inv with
-         | Invariant (_id, h) when is_internal_fold_invariant inv ->
-             if List.exists ((=) h) acc then acc else h :: acc
-         | _ -> acc)
-      []
-      invariants_mon
-  in
-  let hexprs =
-    List.fold_left (fun acc f -> collect_ltl f acc) [] ltl
-    |> fun acc -> internal_folds @ acc
-    |> List.filter (fun h -> match classify_fold h with Some _ -> true | None -> false)
-  in
-  let rec aux i acc = function
-    | [] -> List.rev acc
-    | h::t -> aux (i+1) ({ h; acc = fold_name i; init_flag = None } :: acc) t
-  in
-  aux 1 [] hexprs
-
 let collect_pre_k_from_specs
     ~(fo:fo list)
     ~(ltl:fo_ltl list)
-    ~(invariants_mon:invariant_mon list) : hexpr list =
+    ~(invariants_user:invariant_user list)
+    ~(invariants_state_rel:invariant_state_rel list) : hexpr list =
   let collect_pre_k_hexpr h acc =
     let acc =
       match h with
@@ -132,7 +56,7 @@ let collect_pre_k_from_specs
       | _ -> acc
     in
     match h with
-    | HFold _ | HNow _ | HPreK _ -> acc
+    | HNow _ | HPreK _ -> acc
   in
   let rec collect_pre_k_ltl f acc =
     match f with
@@ -151,19 +75,21 @@ let collect_pre_k_from_specs
   let acc = List.fold_left (fun acc f -> collect_pre_k_fo f acc) [] fo in
   let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
   List.fold_left
-    (fun acc inv ->
-       match inv with
-       | Invariant (_id,h) -> collect_pre_k_hexpr h acc
-       | InvariantStateRel (_is_eq, _st, f) -> collect_pre_k_fo f acc)
+    (fun acc inv -> collect_pre_k_hexpr inv.inv_expr acc)
     acc
-    invariants_mon
+    invariants_user
+  |> fun acc ->
+  List.fold_left
+    (fun acc inv -> collect_pre_k_fo inv.formula acc)
+    acc
+    invariants_state_rel
 
 let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let init_for_var =
     let table =
       List.map
         (fun v -> (v.vname, v.vty))
-        (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
+        (n.inputs @ n.locals @ n.outputs)
     in
     fun v ->
       match List.assoc_opt v table with
@@ -180,30 +106,28 @@ let build_pre_k_infos (n:node) : (hexpr * pre_k_info) list =
   let transition_fo =
     List.concat_map
       (fun (t:transition) ->
-        Ast.values (Ast.transition_requires t) @ Ast.values (Ast.transition_ensures t)
-        @ Ast.values (Ast.transition_lemmas t))
-      (Ast.node_trans n)
+        Ast_provenance.values (t.requires) @ Ast_provenance.values (t.ensures))
+      (n.trans)
   in
   let normalized_fo = List.map normalize_fo transition_fo in
   let normalized_ltl =
     List.map normalize_ltl
-      (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n))
+      (n.assumes @ n.guarantees)
   in
-  let normalized_invariants =
+  let normalized_invariants_user = n.attrs.invariants_user in
+  let normalized_invariants_state_rel =
     List.map
-      (function
-        | Invariant (id, h) -> Invariant (id, h)
-        | InvariantStateRel (is_eq, st, f) ->
-            InvariantStateRel (is_eq, st, normalize_fo f))
-      (Ast.node_invariants_mon n)
+      (fun inv -> { inv with formula = normalize_fo inv.formula })
+      (n.attrs.invariants_state_rel)
   in
   let pre_k_exprs =
     collect_pre_k_from_specs
       ~fo:normalized_fo
       ~ltl:normalized_ltl
-      ~invariants_mon:normalized_invariants
+      ~invariants_user:normalized_invariants_user
+      ~invariants_state_rel:normalized_invariants_state_rel
   in
-  let vars = Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n in
+  let vars = n.inputs @ n.locals @ n.outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
     | Some v -> v.vty
@@ -249,10 +173,10 @@ let rec collect_calls_stmt (acc:(ident * iexpr list) list) (s:stmt)
 
 let collect_calls_trans (ts:transition list) : (ident * iexpr list) list =
   List.fold_left
-    (fun acc t ->
-       let acc = List.fold_left collect_calls_stmt acc (Ast.transition_ghost t) in
-       let acc = List.fold_left collect_calls_stmt acc (Ast.transition_body t) in
-       List.fold_left collect_calls_stmt acc (Ast.transition_monitor t))
+    (fun acc (t:transition) ->
+       let acc = List.fold_left collect_calls_stmt acc (t.attrs.ghost) in
+       let acc = List.fold_left collect_calls_stmt acc (t.body) in
+       List.fold_left collect_calls_stmt acc (t.attrs.monitor))
     [] ts
 
 let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:stmt)
@@ -275,10 +199,10 @@ let rec collect_calls_stmt_full (acc:(ident * iexpr list * ident list) list) (s:
 let collect_calls_trans_full (ts:transition list)
   : (ident * iexpr list * ident list) list =
   List.fold_left
-    (fun acc t ->
-       let acc = List.fold_left collect_calls_stmt_full acc (Ast.transition_ghost t) in
-       let acc = List.fold_left collect_calls_stmt_full acc (Ast.transition_body t) in
-       List.fold_left collect_calls_stmt_full acc (Ast.transition_monitor t))
+    (fun acc (t:transition) ->
+       let acc = List.fold_left collect_calls_stmt_full acc (t.attrs.ghost) in
+       let acc = List.fold_left collect_calls_stmt_full acc (t.body) in
+       List.fold_left collect_calls_stmt_full acc (t.attrs.monitor))
     [] ts
 
 let extract_delay_spec (guarantees:fo_ltl list) : (ident * ident) option =

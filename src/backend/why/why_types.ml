@@ -30,16 +30,13 @@ type env_info = {
   ret_expr : Why3.Ptree.expr;
   ghost_updates : Why3.Ptree.expr;
   has_ghost_updates : bool;
-  folds : Support.fold_info list;
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   pre_k_infos : Support.pre_k_info list;
   needs_step_count : bool;
   needs_first_step : bool;
-  needs_first_step_folds : bool;
   has_initial_only_contracts : bool;
   hexpr_needs_old : Ast.hexpr -> bool;
   input_names : Ast.ident list;
-  fold_init_links : (Ast.ident * Ast.ident * Ast.ident) list;
   mon_state_ctors : Ast.ident list;
   init_for_var : Ast.ident -> Ast.iexpr;
 }

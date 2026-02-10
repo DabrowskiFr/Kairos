@@ -21,20 +21,21 @@ let test_compile_term_var () : unit =
     { rec_name = "vars";
       rec_vars = ["x"];
       var_map = ["x", "x"];
-      ghosts = [];
       links = [];
       pre_k = [];
       inst_map = [];
       inputs = [] }
   in
-  let term = Why_compile_expr.compile_term env (Ast.mk_var "x") in
+  let term = Why_compile_expr.compile_term env (Ast.Helpers.mk_var "x") in
   let rendered = Support.string_of_term term in
   assert (rendered = "vars.x")
 
 let test_progress_ltl_true_atom () : unit =
   let atom =
     Ast.FRel
-      (Ast.HNow (Ast.mk_var "a"), Ast.REq, Ast.HNow (Ast.mk_bool true))
+      (Ast.HNow (Ast.Helpers.mk_var "a"),
+       Ast.REq,
+       Ast.HNow (Ast.Helpers.mk_bool true))
   in
   let formula = Ast.LG (Ast.LAtom atom) in
   let progressed =
@@ -52,12 +53,11 @@ let test_pre_k_infos_for_pre () : unit =
       ~inputs:[ { Ast.vname = "x"; vty = Ast.TInt } ]
       ~outputs:[]
       ~assumes:
-        [ Ast.with_origin Ast.Unknown
-            (Ast.LAtom
-               (Ast.FRel
-                  (Ast.HPreK (Ast.mk_var "x", 1),
-                   Ast.REq,
-                   Ast.HNow (Ast.mk_int 0)))) ]
+        [ Ast.LAtom
+            (Ast.FRel
+               (Ast.HPreK (Ast.Helpers.mk_var "x", 1),
+                Ast.REq,
+                Ast.HNow (Ast.Helpers.mk_int 0))) ]
       ~guarantees:[]
       ~instances:[]
       ~locals:[]
@@ -71,12 +71,7 @@ let test_pre_k_infos_for_pre () : unit =
       assert (info.names = [ "__pre_k1_x" ])
   | _ -> assert false
 
-let test_collect_empty_folds () : unit =
-  let folds = Collect.collect_folds_from_specs ~fo:[] ~ltl:[] ~invariants_mon:[] in
-  assert (folds = [])
-
 let () =
   test_compile_term_var ();
   test_progress_ltl_true_atom ();
-  test_pre_k_infos_for_pre ();
-  test_collect_empty_folds ()
+  test_pre_k_infos_for_pre ()

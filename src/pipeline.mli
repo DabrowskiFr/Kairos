@@ -46,6 +46,14 @@ type ast_stages = {
   obc : Ast.program;
 }
 
+type stage_infos = {
+  parse : Stage_info.parse_info option;
+  automaton : Stage_info.automaton_info option;
+  contracts : Stage_info.contracts_info option;
+  monitor : Stage_info.monitor_info option;
+  obc : Stage_info.obc_info option;
+}
+
 type config = {
   input_file : string;
   prover : string;
@@ -70,6 +78,8 @@ type error =
 val error_to_string : error -> string
 
 val build_ast : ?log:bool -> input_file:string -> unit -> (ast_stages, error) result
+val build_ast_with_info :
+  ?log:bool -> input_file:string -> unit -> (ast_stages * stage_infos, error) result
 
 val monitor_pass :
   generate_png:bool ->

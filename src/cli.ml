@@ -37,11 +37,9 @@ let run
     dump_smt2
     dump_json
     dump_json_stable
-    dump_json_attrs
     dump_ast
     dump_ast_all
     dump_ast_stable
-    dump_ast_attrs
     check_ast
     output_file
     prove
@@ -65,10 +63,6 @@ let run
       Error "--dump-json and --dump-ast are mutually exclusive"
     else if dump_json <> None && dump_json_stable <> None then
       Error "--dump-json and --dump-json-stable are mutually exclusive"
-    else if dump_json_stable = None && dump_json_attrs then
-      Error "--dump-json-attrs requires --dump-json-stable"
-    else if dump_ast_all <> None && dump_ast_stable = false && dump_ast_attrs then
-      Error "--dump-ast-attrs requires --dump-ast-stable"
     else if dump_ast <> None && dump_ast_all <> None then
       Error "--dump-ast and --dump-ast-all are mutually exclusive"
     else if (dump_json <> None || dump_json_stable <> None) && dump_ast_all <> None then
@@ -119,7 +113,6 @@ let run
               dump_ast_out;
               dump_ast_all = dump_ast_all;
               dump_ast_stable = dump_ast_stable || dump_json_stable <> None;
-              dump_ast_include_attrs = dump_json_attrs || dump_ast_attrs;
               check_ast = check_ast;
               output_file = output_file;
               prove = prove;
@@ -170,10 +163,6 @@ let cmd =
     value & opt (some string) None & info ["dump-json-stable"] ~docv:"FILE"
       ~doc:"Dump stable AST JSON (contracts stage) to file or '-' for stdout."
   in
-  let dump_json_attrs =
-    value & flag & info ["dump-json-attrs"]
-      ~doc:"Include attrs in --dump-json-stable output."
-  in
   let dump_ast =
     value & opt (some dump_ast_conv) None & info ["dump-ast"] ~docv:"STAGE:FILE"
       ~doc:"Dump AST after stage: parsed|automaton|contracts|monitor|obc to file or '-' for stdout."
@@ -185,10 +174,6 @@ let cmd =
   let dump_ast_stable =
     value & flag & info ["dump-ast-stable"]
       ~doc:"Use stable JSON for --dump-ast/--dump-ast-all."
-  in
-  let dump_ast_attrs =
-    value & flag & info ["dump-ast-attrs"]
-      ~doc:"Include attrs in stable AST JSON dumps."
   in
   let check_ast =
     value & flag & info ["check-ast"]
@@ -231,11 +216,9 @@ let cmd =
                         $ dump_smt2
                         $ dump_json
                         $ dump_json_stable
-                        $ dump_json_attrs
                         $ dump_ast
                         $ dump_ast_all
                         $ dump_ast_stable
-                        $ dump_ast_attrs
                         $ check_ast
                         $ output_file
                         $ prove

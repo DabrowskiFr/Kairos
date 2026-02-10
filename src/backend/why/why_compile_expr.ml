@@ -20,6 +20,7 @@
 open Why3
 open Ptree
 open Ast
+open Ast_builders
 open Support
 
 let is_mon_state_ctor (name:ident) : bool =
@@ -75,17 +76,7 @@ let rec compile_term (env:env) (e:iexpr) : Ptree.term =
   | IUn (Not,a) -> mk_term (Tnot (compile_term env a))
   | IBin (op,a,b) -> mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b))
 
-let term_apply_op (op:op) (t1:Ptree.term) (t2:Ptree.term) : Ptree.term =
-  match op with
-  | OMin ->
-      mk_term (Tif (mk_term (Tinnfix (t1, infix_ident "<=", t2)), t1, t2))
-  | OMax ->
-      mk_term (Tif (mk_term (Tinnfix (t1, infix_ident ">=", t2)), t1, t2))
-  | OAdd -> mk_term (Tinnfix (t1, infix_ident "+", t2))
-  | OMul -> mk_term (Tinnfix (t1, infix_ident "*", t2))
-  | OAnd -> mk_term (Tinnfix (t1, infix_ident "&&", t2))
-  | OOr -> mk_term (Tinnfix (t1, infix_ident "||", t2))
-  | OFirst -> t1
+
 let rec compile_term_instance (env:env) (inst_name:ident) (node_name:ident)
   (inputs:ident list) (e:iexpr) : Ptree.term =
   match e.iexpr with
@@ -115,7 +106,6 @@ let compile_hexpr_instance ?(in_post=false) (env:env) (inst_name:ident)
           let name = List.nth info.names (List.length info.names - 1) in
           term_of_instance_var env inst_name node_name name
       end
-  | HFold (_,_,e) -> compile_term_instance env inst_name node_name inputs e
 
 let rec compile_fo_term_instance ?(in_post=false) (env:env) (inst_name:ident)
   (node_name:ident) (inputs:ident list) (pre_k_map:(hexpr * pre_k_info) list)
@@ -164,25 +154,18 @@ let compile_hexpr ?(old=false) ?(prefer_link=false) ?(in_post=false) (env:env)
       let t = mk_term (term_var env id) in
       if old then term_old t else t
   | _ ->
-      match find_fold env h with
-      | Some name -> mk_term (Tident (qdot (qid1 env.rec_name) (rec_var_name env name)))
-      | None ->
-          begin match h with
-          | HFold _ -> failwith "fold accumulator not registered"
-          | _ ->
-          match h with
-          | HNow e ->
-              let t = compile_term env e in
-              if old && not (is_const_iexpr e) then term_old t else t
-          | HPreK (_e,_) ->
-              begin match find_pre_k env h with
-              | None -> failwith "pre_k not registered"
-              | Some info ->
-                  let name = List.nth info.names (List.length info.names - 1) in
-                  term_of_var env name
-              end
-          | HFold (_,_,e) -> compile_term env e
+      begin match h with
+      | HNow e ->
+          let t = compile_term env e in
+          if old && not (is_const_iexpr e) then term_old t else t
+      | HPreK (_e,_) ->
+          begin match find_pre_k env h with
+          | None -> failwith "pre_k not registered"
+          | Some info ->
+              let name = List.nth info.names (List.length info.names - 1) in
+              term_of_var env name
           end
+      end
 
 let rec compile_fo_term ?(prefer_link=false) (env:env) (f:fo) : Ptree.term =
   match f with
@@ -245,13 +228,9 @@ and compile_fo_term_shift ?(prefer_link=false) ?(in_post=false) (env:env)
                        compile_fo_term_shift ~prefer_link ~in_post env old b))
 
 let rel_hexpr (env:env) (h:hexpr) : hexpr =
-  match find_fold env h with
-  | Some name -> HNow (mk_var name)
-  | None ->
-      match h with
-      | HNow e -> HNow e
-      | HPreK (e,k) -> HPreK (e, k)
-      | HFold _ -> h
+  match h with
+  | HNow e -> HNow e
+  | HPreK (e,k) -> HPreK (e, k)
 
 let rec ltl_relational (env:env) (f:fo_ltl) : fo_ltl =
   match f with

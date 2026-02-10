@@ -4,9 +4,9 @@ let build_ast ?(prefix_fields=true) (p:Ast.program) : Emit.program_ast =
   let comment_map =
     List.map
       (fun (n:A.node) ->
-         let trans = Ast.node_trans n in
-         ((Ast.node_sig n).nname,
-          (Ast.node_assumes n, Ast.node_guarantees n, trans, [])))
+         let trans = n.trans in
+         (n.nname,
+          (n.assumes, n.guarantees, trans, [])))
       p
   in
   Why_contracts.set_pure_translation true;

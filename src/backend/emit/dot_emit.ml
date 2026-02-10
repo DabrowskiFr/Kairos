@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 open Support
 open Automaton_core
 open Fo_specs
@@ -91,43 +92,36 @@ let dot_residual_program ?(show_labels=false) (p:Ast.program) : string * string 
   let label_buf = Buffer.create 4096 in
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
-  let fold_map_for_specs ~(fo:fo list) ~(ltl:fo_ltl list) : (hexpr * ident) list =
-    let folds =
-      Collect.collect_folds_from_specs ~fo ~ltl ~invariants_mon:[]
-    in
-    List.map (fun (fi:Support.fold_info) -> (fi.h, fi.acc)) folds
-  in
   let add_node_block n =
     let fo_specs =
       List.fold_left
         (fun acc (t:transition) ->
-          Ast.values (Ast.transition_requires t)
-          @ Ast.values (Ast.transition_ensures t) @ acc)
+          Ast_provenance.values (t.requires)
+          @ Ast_provenance.values (t.ensures) @ acc)
         []
-        (Ast.node_trans n)
+        (n.trans)
     in
     let ltl_specs =
-      Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n)
+      n.assumes @ n.guarantees
     in
-    let fold_map = fold_map_for_specs ~fo:fo_specs ~ltl:ltl_specs in
     let pre_k_map = Collect.build_pre_k_infos n in
-    let inputs = List.map (fun v -> v.vname) (Ast.node_inputs n) in
+    let inputs = List.map (fun v -> v.vname) (n.inputs) in
     let var_types =
       List.map
         (fun v -> (v.vname, v.vty))
-        (Ast.node_inputs n @ Ast.node_locals n @ Ast.node_outputs n)
+        (n.inputs @ n.locals @ n.outputs)
     in
     let atoms =
       let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltl_specs in
       List.fold_left (fun acc f -> collect_atoms_fo f acc) acc fo_specs
       |> List.filter (fun a ->
-           atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a <> None)
+           atom_to_iexpr ~inputs ~var_types ~pre_k_map a <> None)
       |> List.sort_uniq compare
     in
     let atom_exprs =
       List.filter_map
         (fun a ->
-           match atom_to_iexpr ~inputs ~var_types ~fold_map ~pre_k_map a with
+           match atom_to_iexpr ~inputs ~var_types ~pre_k_map a with
            | Some e -> Some (a, e)
            | None -> None)
         atoms
@@ -254,7 +248,7 @@ let dot_residual_program ?(show_labels=false) (p:Ast.program) : string * string 
            acc)
         s atom_named_exprs
     in
-    let _cluster = Support.module_name_of_node (Ast.node_sig n).nname in
+    let _cluster = Support.module_name_of_node n.nname in
     let debug_inline =
       match Sys.getenv_opt "OBC2WHY3_DEBUG_DOT_INLINE" with
       | Some "1" -> true
@@ -322,7 +316,6 @@ let dot_monitor_program ?(show_labels=false) (p:Ast.program) : string * string =
     let atom_names = stage.atom_names in
     let states = automaton.states in
     let grouped = automaton.grouped in
-    let _fold_map = fold_map_for_node n in
     let atom_name_to_fo = stage.atom_name_to_fo in
     let atom_expr_tbl = Hashtbl.create 16 in
     let () =
@@ -390,7 +383,7 @@ let dot_monitor_program ?(show_labels=false) (p:Ast.program) : string * string =
       | LOr (a,b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a,b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
     in
-    let _cluster = Support.module_name_of_node (Ast.node_sig n_ast).nname in
+    let _cluster = Support.module_name_of_node n_ast.nname in
     List.iteri
       (fun i f ->
          let node_id = string_of_int i in

@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 
 let shift_hexpr_forward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
   match h with
@@ -27,7 +28,6 @@ let shift_hexpr_forward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
       end
   | HPreK (e, k) ->
       HPreK (e, k + 1)
-  | HFold _ -> h
 
 let shift_hexpr_backward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
   match h with
@@ -42,7 +42,6 @@ let shift_hexpr_backward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
           if k <= 1 then HNow e else HPreK (e, k - 1)
       | _ -> h
       end
-  | HFold _ -> h
 
 let rec shift_fo_forward_inputs ~(is_input:ident -> bool) (f:fo) : fo =
   match f with

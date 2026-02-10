@@ -19,6 +19,7 @@
 [@@@ocaml.warning "-32"]
 
 open Ast
+open Ast_builders
 open Support
 open Automaton_core
 open Fo_specs
@@ -79,12 +80,10 @@ let bool_like_vars ~(var_types:(ident * ty) list) (n:node)
     | LAnd (a, b) | LOr (a, b) | LImp (a, b) ->
         collect_ltl a; collect_ltl b
   in
-  List.iter collect_ltl (Ast.values (Ast.node_assumes n) @ Ast.values (Ast.node_guarantees n));
+  List.iter collect_ltl (n.assumes @ n.guarantees);
   List.iter
-    (function
-      | InvariantStateRel (_is_eq, _st, f) -> collect_fo f
-      | Invariant _ -> ())
-    (Ast.node_invariants_mon n);
+    (fun inv -> collect_fo inv.formula)
+    (n.attrs.invariants_state_rel);
   let decide var values =
     if Hashtbl.mem invalid var then None
     else
@@ -165,25 +164,21 @@ let normalize_bool_atoms ~(bool_vars:(ident * bool_like) list) (n:node) : node =
     | LX a -> LX (norm_ltl a)
     | LG a -> LG (norm_ltl a)
   in
-  let invariants_mon =
+  let invariants_state_rel =
     List.map
-      (function
-        | Invariant (id, h) -> Invariant (id, h)
-        | InvariantStateRel (is_eq, st, f) ->
-            InvariantStateRel (is_eq, st, norm_fo f))
-      (Ast.node_invariants_mon n)
+      (fun inv -> { inv with formula = norm_fo inv.formula })
+      (n.attrs.invariants_state_rel)
   in
   let n =
     { n with
-      contracts =
-        { assumes = List.map (Ast.map_with_origin norm_ltl) (Ast.node_assumes n);
-          guarantees = List.map (Ast.map_with_origin norm_ltl) (Ast.node_guarantees n); } }
+      assumes = List.map norm_ltl n.assumes;
+      guarantees = List.map norm_ltl n.guarantees; }
   in
-  Ast.with_node_invariants_mon invariants_mon n
+  { n with attrs = { n.attrs with invariants_state_rel = invariants_state_rel } }
 
 let transform_node (n:Ast.node) : Ast.node =
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) ((Ast.node_inputs n) @ (Ast.node_locals n) @ (Ast.node_outputs n))
+    List.map (fun v -> (v.vname, v.vty)) ((n.inputs) @ (n.locals) @ (n.outputs))
   in
   let _bool_vars = bool_like_vars ~var_types n in
   n
@@ -250,8 +245,6 @@ let inline_fo_atoms (atom_map:(ident * iexpr) list) (f:fo) : fo =
   let rec inline_hexpr = function
     | HNow e -> HNow (inline_iexpr e)
     | HPreK (e, k) -> HPreK (inline_iexpr e, k)
-    | HFold (op, init, e) ->
-        HFold (op, inline_iexpr init, inline_iexpr e)
   in
   let rec go = function
     | FTrue | FFalse as f -> f
@@ -269,8 +262,6 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
   let inline_hexpr = function
     | HNow e -> HNow (inline_iexpr e)
     | HPreK (e, k) -> HPreK (inline_iexpr e, k)
-    | HFold (op, init, e) ->
-        HFold (op, inline_iexpr init, inline_iexpr e)
   in
   let inline_fo = inline_fo_atoms atom_map in
   let rec inline_ltl = function
@@ -302,49 +293,40 @@ let inline_atoms_in_node (atom_map:(ident * iexpr) list) (n:node) : node =
     | SCall (id, args, outs) ->
         with_stmt_desc s (SCall (id, List.map inline_iexpr args, outs))
   in
-  let inline_invariant = function
-    | Invariant (id, h) -> Invariant (id, inline_hexpr h)
-    | InvariantStateRel (is_eq, st, f) ->
-        InvariantStateRel (is_eq, st, inline_fo f)
+  let inline_invariant_user (inv:invariant_user) : invariant_user =
+    { inv with inv_expr = inline_hexpr inv.inv_expr }
+  in
+  let inline_invariant_state_rel (inv:invariant_state_rel) : invariant_state_rel =
+    { inv with formula = inline_fo inv.formula }
   in
   let inline_transition (t:transition) : transition =
     let t =
-      t
-      |> Ast.with_transition_lemmas
-        (List.map (Ast.map_with_origin inline_fo) (Ast.transition_lemmas t))
-      |> Ast.with_transition_ghost
-        (List.map inline_stmt (Ast.transition_ghost t))
-      |> Ast.with_transition_monitor
-        (List.map inline_stmt (Ast.transition_monitor t))
+      { t with
+        attrs =
+          { t.attrs with
+            ghost = List.map inline_stmt t.attrs.ghost;
+            monitor = List.map inline_stmt t.attrs.monitor; } }
     in
-    let core =
-      { t.core with guard = Option.map inline_iexpr ((Ast.transition_guard t)) }
-    in
-    let contracts =
-      {
-        requires = List.map (Ast.map_with_origin inline_fo) ((Ast.transition_requires t));
-        ensures = List.map (Ast.map_with_origin inline_fo) ((Ast.transition_ensures t));
-      }
-    in
-    let body =
-      { body = List.map inline_stmt ((Ast.transition_body t)) }
-    in
-    { t with core; contracts; body }
+    { t with
+      guard = Option.map inline_iexpr t.guard;
+      requires = List.map (Ast_provenance.map_with_origin inline_fo) t.requires;
+      ensures = List.map (Ast_provenance.map_with_origin inline_fo) t.ensures;
+      body = List.map inline_stmt t.body; }
   in
   let n =
     { n with
-      contracts =
-        { assumes = List.map (Ast.map_with_origin inline_ltl) (Ast.node_assumes n);
-          guarantees = List.map (Ast.map_with_origin inline_ltl) (Ast.node_guarantees n); };
-      body =
-        {
-          (Ast.node_body n) with
-          trans = List.map inline_transition ((Ast.node_trans n));
-        } }
+      assumes = List.map inline_ltl n.assumes;
+      guarantees = List.map inline_ltl n.guarantees;
+      trans = List.map inline_transition n.trans; }
   in
-  Ast.with_node_invariants_mon
-    (List.map inline_invariant (Ast.node_invariants_mon n))
-    n
+  n
+  |> (fun n ->
+        { n with
+          attrs =
+            { n.attrs with
+              invariants_user = List.map inline_invariant_user n.attrs.invariants_user;
+              invariants_state_rel =
+                List.map inline_invariant_state_rel n.attrs.invariants_state_rel; } })
 
 type monitor_atoms_stage = {
   node_atoms: Ast.node;
@@ -378,45 +360,45 @@ let pass_automaton_only (n:Ast.node) : Ast.node =
   n
 
 let add_state_invariants_to_transitions
-  ~(invariants_mon:invariant_mon list)
+  ~(invariants_state_rel:invariant_state_rel list)
   ?(log:(transition -> fo -> unit) option=None)
   ?(add_to_ensures:bool=true)
   (trans:transition list) : transition list =
   let add_unique f lst =
     if List.exists (fun fo -> fo.value = f) lst then lst
-    else Ast.with_origin Compatibility f :: lst
+    else Ast_provenance.with_origin Compatibility f :: lst
   in
-  let invs =
-    List.filter_map
-      (function
-        | InvariantStateRel (is_eq, st, f) -> Some (is_eq, st, f)
-        | Invariant _ -> None)
-      invariants_mon
-  in
+  let invs = invariants_state_rel in
   List.map
     (fun (t:transition) ->
        let reqs, ens =
          List.fold_left
-           (fun (reqs, ens) (is_eq, st, f) ->
-              let pre_ok = if is_eq then (Ast.transition_src t) = st else (Ast.transition_src t) <> st in
-              let post_ok = if is_eq then (Ast.transition_dst t) = st else (Ast.transition_dst t) <> st in
+           (fun (reqs, ens) inv ->
+              let pre_ok =
+                if inv.is_eq then (t.src) = inv.state
+                else (t.src) <> inv.state
+              in
+              let post_ok =
+                if inv.is_eq then (t.dst) = inv.state
+                else (t.dst) <> inv.state
+              in
               let reqs =
                 if pre_ok then (
-                  Option.iter (fun l -> l t f) log;
-                  add_unique f reqs
+                  Option.iter (fun l -> l t inv.formula) log;
+                  add_unique inv.formula reqs
                 ) else reqs
               in
               let ens =
                 if add_to_ensures && post_ok then (
-                  Option.iter (fun l -> l t f) log;
-                  add_unique f ens
+                  Option.iter (fun l -> l t inv.formula) log;
+                  add_unique inv.formula ens
                 ) else ens
               in
               (reqs, ens))
-           ((Ast.transition_requires t), (Ast.transition_ensures t))
+           ((t.requires), (t.ensures))
            invs
        in
-       { t with contracts = { requires = reqs; ensures = ens } })
+       { t with requires = reqs; ensures = ens })
     trans
 
 let simplify_mon_state_implications (fs:fo_o list) : fo_o list =
@@ -452,8 +434,8 @@ let simplify_mon_state_implications (fs:fo_o list) : fo_o list =
         fs
   | _ -> fs
 
-let transform_node_monitor (n:Ast.node) : Ast.node =
-  let is_input v = List.exists (fun vd -> vd.vname = v) ((Ast.node_inputs n)) in
+let transform_node_monitor_with_info (n:Ast.node) : Ast.node * Stage_info.monitor_info =
+  let is_input v = List.exists (fun vd -> vd.vname = v) ((n.inputs)) in
   let debug_contracts =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_CONTRACTS" with
     | Some "1" -> true
@@ -463,10 +445,10 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
     if debug_contracts then
       prerr_endline
         (Printf.sprintf "[monitor] %s %s->%s: %s"
-           reason ((Ast.transition_src t)) ((Ast.transition_dst t)) (string_of_fo f))
+           reason ((t.src)) ((t.dst)) (string_of_fo f))
   in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) ((Ast.node_inputs n) @ (Ast.node_locals n) @ (Ast.node_outputs n))
+    List.map (fun v -> (v.vname, v.vty)) ((n.inputs) @ (n.locals) @ (n.outputs))
   in
   let _bool_vars = bool_like_vars ~var_types n in
   let stage = pass_atoms n in
@@ -484,9 +466,10 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
   let atom_name_to_fo = stage.atom_name_to_fo in
   let atom_map_exprs = stage.atom_map_exprs in
   let monitor_local = { vname = monitor_state_name; vty = TCustom monitor_state_type } in
-  let user_assumes = Ast.node_assumes n in
-  let user_guarantees = Ast.node_guarantees n in
-  let invariants_mon = Ast.node_invariants_mon n in
+  let user_assumes = n.assumes in
+  let user_guarantees = n.guarantees in
+  let invariants_user = n.attrs.invariants_user in
+  let invariants_state_rel = n.attrs.invariants_state_rel in
   let automaton = pass_build_automaton stage in
   if Automaton_core.monitor_log_enabled || debug_incoming then (
     List.iteri
@@ -511,22 +494,22 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
   let transitions = automaton.transitions in
   let grouped = automaton.grouped in
   let compat_invariants =
-    let n_states = List.length ((Ast.node_states n)) in
+    let n_states = List.length ((n.states)) in
     let n_mon = List.length states in
     if n_states = 0 || n_mon = 0 then []
     else
       let state_index = Hashtbl.create n_states in
-      List.iteri (fun i s -> Hashtbl.add state_index s i) (Ast.node_states n);
+      List.iteri (fun i s -> Hashtbl.add state_index s i) (n.states);
       let prog_out = Array.make n_states [] in
       List.iter
         (fun (t:transition) ->
-           match Hashtbl.find_opt state_index (Ast.transition_src t),
-                 Hashtbl.find_opt state_index (Ast.transition_dst t) with
+           match Hashtbl.find_opt state_index (t.src),
+                 Hashtbl.find_opt state_index (t.dst) with
            | Some i, Some j ->
                if not (List.mem j prog_out.(i)) then
                  prog_out.(i) <- j :: prog_out.(i)
            | _ -> ())
-        (Ast.node_trans n);
+        (n.trans);
       let mon_out = Array.make n_mon [] in
       List.iter
         (fun (i, _guard, j) ->
@@ -535,7 +518,7 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
         transitions;
       let visited = Array.make_matrix n_states n_mon false in
       let q = Queue.create () in
-      begin match Hashtbl.find_opt state_index (Ast.node_init_state n) with
+      begin match Hashtbl.find_opt state_index (n.init_state) with
       | Some i0 ->
           visited.(i0).(0) <- true;
           Queue.add (i0, 0) q
@@ -576,8 +559,8 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
              | Some f -> f |> ltl_of_fo |> simplify_ltl |> fo_of_ltl
              | None -> FFalse
            in
-           InvariantStateRel (true, st_name, disj))
-        (Ast.node_states n)
+           { is_eq = true; state = st_name; formula = disj })
+        (n.states)
   in
   let bad_idx =
     let rec find i = function
@@ -641,60 +624,49 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
                let () = log_contract ~reason:"no_bad_state (require)" ~t bad_fo in
                let () = log_contract ~reason:"no_bad_state (ensure)" ~t bad_fo in
                { t with
-                 contracts =
-                   { requires = (Ast.transition_requires t) @ [Ast.with_origin Monitor bad_fo];
-                     ensures = (Ast.transition_ensures t) @ [Ast.with_origin Monitor bad_fo]; } }
+                 requires = (t.requires) @ [Ast_provenance.with_origin Monitor bad_fo];
+                 ensures = (t.ensures) @ [Ast_provenance.with_origin Monitor bad_fo]; }
          in
          let t =
            let reqs =
-             if incoming_prev_fo_shifted = [] then (Ast.transition_requires t)
+             if incoming_prev_fo_shifted = [] then (t.requires)
              else (
                List.iter (log_contract ~reason:"monitor_pre (compat)" ~t)
                  incoming_prev_fo_shifted;
                let incoming_prev_o =
-                 List.map (Ast.with_origin Compatibility) incoming_prev_fo_shifted
+                 List.map (Ast_provenance.with_origin Compatibility) incoming_prev_fo_shifted
                in
-               (Ast.transition_requires t) @ incoming_prev_o
+               (t.requires) @ incoming_prev_o
              )
            in
-           let ens = (Ast.transition_ensures t) in
-           let reqs = List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs)) reqs in
-           let ens = List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs)) ens in
-           let lemmas =
-             List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs))
-               (Ast.transition_lemmas t)
-           in
-           { (Ast.with_transition_lemmas lemmas t) with
-             contracts = { requires = reqs; ensures = ens; } }
+           let ens = (t.ensures) in
+           let reqs = List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) reqs in
+           let ens = List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) ens in
+           { t with requires = reqs; ensures = ens; }
          in
          let monitor =
-           Ast.transition_monitor t @ monitor_updates @ monitor_asserts
+           t.attrs.monitor @ monitor_updates @ monitor_asserts
          in
-         Ast.with_transition_monitor monitor t)
-      (Ast.node_trans n)
+         { t with attrs = { t.attrs with monitor = monitor } })
+      (n.trans)
   in
   let trans =
     List.map
       (fun (t:transition) ->
          let reqs =
-           List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs))
-             ((Ast.transition_requires t))
+           List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs))
+             ((t.requires))
          in
          let ens =
-           List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs))
-             ((Ast.transition_ensures t))
+           List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs))
+             ((t.ensures))
          in
-         let lemmas =
-           List.map (Ast.map_with_origin (inline_fo_atoms atom_map_exprs))
-             (Ast.transition_lemmas t)
-         in
-         { (Ast.with_transition_lemmas lemmas t) with
-           contracts = { requires = reqs; ensures = ens; } })
+         { t with requires = reqs; ensures = ens; })
       trans
   in
   let trans =
     add_state_invariants_to_transitions
-      ~invariants_mon:compat_invariants
+      ~invariants_state_rel:compat_invariants
       ~log:(Some (fun t f -> log_contract ~reason:"compat_invariant" ~t f))
       ~add_to_ensures:false
       trans
@@ -703,26 +675,39 @@ let transform_node_monitor (n:Ast.node) : Ast.node =
     List.map
       (fun (t:transition) ->
          { t with
-           contracts =
-             { requires = simplify_mon_state_implications ((Ast.transition_requires t));
-               ensures = simplify_mon_state_implications ((Ast.transition_ensures t)); } })
+           requires = simplify_mon_state_implications ((t.requires));
+           ensures = simplify_mon_state_implications ((t.ensures)); })
       trans
   in
   let n =
     { n with
-      body = { n.body with locals = (Ast.node_locals n) @ [monitor_local]; trans };
-      contracts = { assumes = user_assumes; guarantees = user_guarantees; }; }
+      locals = (n.locals) @ [monitor_local];
+      trans;
+      assumes = user_assumes;
+      guarantees = user_guarantees; }
   in
-  let n = Ast.with_node_invariants_mon invariants_mon n in
+  let n =
+    n
+    |> (fun n ->
+          { n with
+            attrs =
+              { n.attrs with
+                invariants_user;
+                invariants_state_rel; } })
+  in
   let node =
     pass_inline_atoms stage n
   in
   let info =
     {
-      monitor_state_ctors =
+      Stage_info.monitor_state_ctors =
         List.mapi (fun i _ -> monitor_state_ctor i) states;
-      atom_count = List.length atom_names;
-      warnings = [];
+      Stage_info.atom_count = List.length atom_names;
+      Stage_info.warnings = [];
     }
   in
-  Ast.with_node_monitor_info info node
+  (node, info)
+
+let transform_node_monitor (n:Ast.node) : Ast.node =
+  let node, _info = transform_node_monitor_with_info n in
+  node

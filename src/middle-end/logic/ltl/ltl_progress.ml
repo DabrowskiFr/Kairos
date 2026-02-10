@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 
 let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
   : bool =

@@ -1,3 +1,4 @@
+open Ast
 module A = Ast
 
 let read_all (fn:string) : string =
@@ -7,7 +8,7 @@ let read_all (fn:string) : string =
   close_in ic;
   s
 
-let parse_file (fn:string) : Ast.program =
+let parse_file_with_info (fn:string) : Ast.program * Stage_info.parse_info =
   let file_text = read_all fn in
   let file_hash = Digest.to_hex (Digest.string file_text) in
   let ic = open_in fn in
@@ -75,13 +76,13 @@ let parse_file (fn:string) : Ast.program =
     let program = p in
     let info =
       {
-        Ast.source_path = Some fn;
-        Ast.text_hash = Some file_hash;
-        Ast.parse_errors = [];
-        Ast.warnings = [];
+        Stage_info.source_path = Some fn;
+        Stage_info.text_hash = Some file_hash;
+        Stage_info.parse_errors = [];
+        Stage_info.warnings = [];
       }
     in
-    List.map (Ast.with_node_parse_info info) program
+    (program, info)
   with
   | Lexer.Lexing_error msg ->
       let pos, _ = Sedlexing.lexing_positions lb in
@@ -95,3 +96,7 @@ let parse_file (fn:string) : Ast.program =
         pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol);
       close_in_noerr ic;
       raise e
+
+let parse_file (fn:string) : Ast.program =
+  let program, _info = parse_file_with_info fn in
+  program

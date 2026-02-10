@@ -28,19 +28,15 @@ val collect_atoms_from_node : Ast.node -> Ast.fo list
 (** {1 Transition Helpers} *)
 
 val transition_fo : Ast.transition -> Ast.fo list
-(** Flatten transition requires/ensures/lemmas into a single list. *)
+(** Flatten transition requires/ensures into a single list. *)
 val conj_fo : Ast.fo list -> Ast.fo option
 (** Conjoin a list of FO formulas, or None for empty. *)
 (** {1 Expression Conversion} *)
 
 val relop_to_binop : Ast.relop -> Ast.binop
 (** Map a relational operator to its boolean binary operator. *)
-val fold_var_of_hexpr :
-  (Ast.hexpr * Ast.ident) list -> Ast.hexpr -> Ast.ident option
-(** Resolve a fold accumulator name for a hexpr using a fold map. *)
 val hexpr_to_iexpr :
   inputs:Ast.ident list ->
-  fold_map:(Ast.hexpr * Ast.ident) list ->
   var_types:(Ast.ident * Ast.ty) list ->
   pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
   Ast.hexpr -> Ast.iexpr option
@@ -55,7 +51,6 @@ val mk_bool_neq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
 val atom_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
-  fold_map:(Ast.hexpr * Ast.ident) list ->
   pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
   Ast.fo -> Ast.iexpr option
 (** Convert an atomic FO predicate to an iexpr when possible. *)
@@ -69,22 +64,15 @@ val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.fo_ltl -> Ast.fo_ltl
 (** Replace atom formulas by their variable representation in LTL. *)
 val replace_atoms_fo : (Ast.fo * Ast.ident) list -> Ast.fo -> Ast.fo
 (** Replace atom formulas by their variable representation in FO. *)
-val replace_atoms_invariants_mon :
+val replace_atoms_invariants_state_rel :
   (Ast.fo * Ast.ident) list ->
-  Ast.invariant_mon list -> Ast.invariant_mon list
-(** Replace atom formulas inside monitor invariants. *)
+  Ast.invariant_state_rel list -> Ast.invariant_state_rel list
+(** Replace atom formulas inside monitor state-relation invariants. *)
 val replace_atoms_transition :
   (Ast.fo * Ast.ident) list -> Ast.transition -> Ast.transition
 (** Replace atom formulas inside a transition. *)
 (** {1 Fold Diagnostics} *)
-
-val fold_map_for_node : Ast.node -> (Ast.hexpr * Ast.ident) list
-(** Build a fold map for a node, for atom replacement purposes. *)
-val fold_vars_in_iexpr : Ast.ident list -> Ast.iexpr -> Ast.ident list
-(** Collect variable names used by an iexpr. *)
-val fold_origin_suffix_for_expr :
-  (Ast.hexpr * Ast.ident) list -> Ast.iexpr -> string
-(** Human-readable fold origin suffix for an iexpr. *)
+(** Fold-specific diagnostics removed. *)
 (** {1 Monitor Specs} *)
 
 val combine_contracts_for_monitor :

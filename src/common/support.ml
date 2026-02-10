@@ -20,14 +20,13 @@
 open Why3
 open Ptree
 open Ast
+open Ast_builders
 
-type fold_info = { h: hexpr; acc: string; init_flag: string option }
 type pre_k_info = { h: hexpr; expr: iexpr; names: string list; vty: ty }
 type env = {
   rec_name: string;
   rec_vars: string list;
   var_map: (ident * ident) list;
-  ghosts: fold_info list;
   links: (hexpr * ident) list;
   pre_k: (hexpr * pre_k_info) list;
   inst_map: (ident * ident) list;
@@ -82,8 +81,6 @@ let term_var (env:env) (x:ident) : Ptree.term_desc =
   if is_rec_var env x
   then Tident (qdot (qid1 env.rec_name) (rec_var_name env x))
   else Tident (qid1 x)
-let find_fold (env:env) (h:hexpr) : ident option =
-  List.find_map (fun (fi:fold_info) -> if fi.h = h then Some fi.acc else None) env.ghosts
 let find_link (env:env) (h:hexpr) : ident option =
   List.find_map (fun (h', id) -> if h' = h then Some id else None) env.links
 let find_pre_k (env:env) (h:hexpr) : pre_k_info option =
@@ -96,16 +93,6 @@ let rec string_of_qid (q:Ptree.qualid) : string =
 
 let string_of_const (c:Constant.constant) : string =
   Format.asprintf "%a" Constant.print_def c
-
-let string_of_op (op:op) : string =
-  match op with
-  | OMin -> "min"
-  | OMax -> "max"
-  | OAdd -> "add"
-  | OMul -> "mul"
-  | OAnd -> "and"
-  | OOr -> "or"
-  | OFirst -> "first"
 
 let string_of_relop (op:relop) : string =
   match op with
@@ -174,7 +161,6 @@ let shift_hexpr_by ~(init_for_var:ident -> iexpr) (shift:int) (h:hexpr)
       | Some v -> Some (HPreK (mk_var v, k + shift))
       | None -> None
       end
-    | _ -> None
 
 let normalize_ltl_for_k ~(init_for_var:ident -> iexpr) (f:fo_ltl) : ltl_norm =
   let rec shift_ltl_with_depth k depth f =
@@ -320,8 +306,6 @@ let string_of_hexpr (h:hexpr) : string =
         "pre(" ^ string_of_iexpr e ^ ")"
       else
         "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_int k ^ ")"
-  | HFold (op, init, e) ->
-      "fold(" ^ string_of_op op ^ ", " ^ string_of_iexpr init ^ ", " ^ string_of_iexpr e ^ ")"
 
 let rec string_of_fo ?(ctx=0) (f:fo) : string =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in

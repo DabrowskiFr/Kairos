@@ -20,7 +20,7 @@ open Ast
 open Fo_specs
 open Fo_time
 
-let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
+let succ_requires_by_state (n:node) : (ident, fo list) Hashtbl.t =
   (* Index successor requires by source state for quick lookup per dst. *)
   let tbl : (ident, fo list) Hashtbl.t = Hashtbl.create 16 in
   List.iter
@@ -28,12 +28,12 @@ let succ_requires_by_state (n:user_node) : (ident, fo list) Hashtbl.t =
       List.iter
         (fun f ->
           let existing =
-            Hashtbl.find_opt tbl (Ast.transition_src t)
+            Hashtbl.find_opt tbl (t.src)
             |> Option.value ~default:[]
           in
-          Hashtbl.replace tbl (Ast.transition_src t) (f :: existing))
-        (Ast.values (Ast.transition_requires t)))
-    (Ast.node_trans n);
+          Hashtbl.replace tbl (t.src) (f :: existing))
+        (Ast_provenance.values (t.requires)))
+    (n.trans);
   tbl
 
 let updated_transitions ~(is_input:ident -> bool)
@@ -46,11 +46,11 @@ let updated_transitions ~(is_input:ident -> bool)
   List.map
     (fun (t:transition) ->
       let succ_reqs =
-        Hashtbl.find_opt succ_requires_by_state (Ast.transition_dst t)
+        Hashtbl.find_opt succ_requires_by_state (t.dst)
         |> Option.value ~default:[]
         |> uniq
       in
-      let ensures_all = Ast.values (Ast.transition_ensures t) in
+      let ensures_all = Ast_provenance.values (t.ensures) in
       let new_ensures =
         match conj_fo ensures_all with
         | None -> []
@@ -68,79 +68,40 @@ let updated_transitions ~(is_input:ident -> bool)
       if new_ensures = [] then t
       else
         let new_ensures_o =
-          List.map (Ast.with_origin Coherency) new_ensures
+          List.map (Ast_provenance.with_origin Coherency) new_ensures
         in
         { t with
-          contracts =
-            { t.contracts with
-              ensures = Ast.transition_ensures t @ new_ensures_o; } })
-    trans
-
-let add_state_invariants_to_transitions
-  ~(invariants_mon:invariant_mon list)
-  (trans:transition list) : transition list =
-  let add_unique f lst =
-    if List.exists (fun fo -> fo.value = f) lst then lst
-    else Ast.with_origin Compatibility f :: lst
-  in
-  let invs =
-    List.filter_map
-      (function
-        | InvariantStateRel (is_eq, st, f) -> Some (is_eq, st, f)
-        | Invariant _ -> None)
-      invariants_mon
-  in
-  List.map
-    (fun (t:transition) ->
-       let reqs, ens =
-         List.fold_left
-           (fun (reqs, ens) (is_eq, st, f) ->
-              let pre_ok =
-                if is_eq then Ast.transition_src t = st
-                else Ast.transition_src t <> st
-              in
-              let post_ok =
-                if is_eq then Ast.transition_dst t = st
-                else Ast.transition_dst t <> st
-              in
-              let reqs = if pre_ok then add_unique f reqs else reqs in
-              let ens = if post_ok then add_unique f ens else ens in
-              (reqs, ens))
-           (Ast.transition_requires t, Ast.transition_ensures t)
-           invs
-       in
-       { t with contracts = { requires = reqs; ensures = ens } })
+          ensures = t.ensures @ new_ensures_o; })
     trans
 
 let ensure_next_requires (n:Ast.node) : Ast.node =
   let succ_requires_by_state = succ_requires_by_state n in
-  let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
+  let is_input v = List.exists (fun vi -> vi.vname = v) (n.inputs) in
   let trans =
-    updated_transitions ~is_input ~succ_requires_by_state (Ast.node_trans n)
-    |> add_state_invariants_to_transitions ~invariants_mon:(Ast.node_invariants_mon n)
+    updated_transitions ~is_input ~succ_requires_by_state (n.trans)
   in
-  { n with body = { n.body with trans } }
+  { n with trans }
 
 let user_contracts_coherency (n:Ast.node) : Ast.node =
-  let is_input v = List.exists (fun vi -> vi.vname = v) (Ast.node_inputs n) in
-  let trans_indexed = List.mapi (fun i t -> (i, t)) (Ast.node_trans n) in
+  let is_input v = List.exists (fun vi -> vi.vname = v) (n.inputs) in
+  let trans_indexed = List.mapi (fun i t -> (i, t)) (n.trans) in
   let by_src = Hashtbl.create 16 in
   List.iter
     (fun (i, t) ->
        let lst =
-         Hashtbl.find_opt by_src (Ast.transition_src t) |> Option.value ~default:[]
+         Hashtbl.find_opt by_src (t.src) |> Option.value ~default:[]
        in
-       Hashtbl.replace by_src (Ast.transition_src t) (i :: lst))
+       Hashtbl.replace by_src (t.src) (i :: lst))
     trans_indexed;
   let user_requires =
     Array.of_list
-      (List.map (fun (t:transition) -> Ast.values (Ast.transition_requires t))
-         (Ast.node_trans n))
+      (List.map (fun (t:transition) -> Ast_provenance.values (t.requires))
+         (n.trans))
   in
   let user_ensures =
     Array.of_list
-      (List.map (fun (t:transition) -> Ast.values (Ast.transition_ensures t))
-         (Ast.node_trans n))
+      (List.map (fun (t:transition) -> Ast_provenance.values (t.ensures))
+         (n.trans))
   in
   let shift_req f = shift_fo_backward_inputs ~is_input f in
   let add_coherency (i:int) (t:transition) =
@@ -148,7 +109,7 @@ let user_contracts_coherency (n:Ast.node) : Ast.node =
     | None -> t
     | Some ens_conj ->
         let next =
-          Hashtbl.find_opt by_src (Ast.transition_dst t) |> Option.value ~default:[]
+          Hashtbl.find_opt by_src (t.dst) |> Option.value ~default:[]
         in
         let new_ensures =
           List.concat_map
@@ -159,14 +120,12 @@ let user_contracts_coherency (n:Ast.node) : Ast.node =
         if new_ensures = [] then t
         else
           let new_ensures_o =
-            List.map (Ast.with_origin Coherency) new_ensures
+            List.map (Ast_provenance.with_origin Coherency) new_ensures
           in
           { t with
-            contracts =
-              { t.contracts with
-                ensures = Ast.transition_ensures t @ new_ensures_o; } }
+            ensures = t.ensures @ new_ensures_o }
   in
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed
   in
-  { n with body = { n.body with trans } }
+  { n with trans }

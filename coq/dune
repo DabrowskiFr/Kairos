@@ -1,4 +1,0 @@
-(rocq.theory
- (name Obc)
- (modules Obc)
- (theories Stdlib))

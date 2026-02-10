@@ -12,11 +12,11 @@ let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) =
     line_end = end_pos.pos_lnum;
     col_end = end_pos.pos_cnum - end_pos.pos_bol; }
 
-let with_origin_loc origin loc value = Ast.with_origin_loc origin loc value
+let with_origin_loc origin loc value = Ast_provenance.with_origin ~loc origin value
 let mk_iexpr_loc start_pos end_pos desc =
-  Ast.mk_iexpr ~loc:(loc_of_positions start_pos end_pos) desc
+  Ast_builders.mk_iexpr ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_stmt_loc start_pos end_pos desc =
-  Ast.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
+  Ast_builders.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
@@ -26,7 +26,7 @@ let mk_stmt_loc start_pos end_pos desc =
 %token TRUE FALSE
 %token TINT TBOOL TREAL
 %token PRE
-%token MIN MAX ADD MUL AND OR NOT FIRST
+%token AND OR NOT
 %token G X
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
 %token ASSIGN ARROW IMPL
@@ -55,7 +55,7 @@ node:
   TRANS transitions
   END
   {
-    Ast.mk_node
+    Ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
       ~outputs:$8
@@ -103,23 +103,19 @@ instance_decl:
 node_contracts:
   | ASSUME ltl SEMI node_contracts
       {
-        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
-        let (a, g) = $4 in (with_origin_loc UserContract loc $2 :: a, g)
+        let (a, g) = $4 in ($2 :: a, g)
       }
   | GUARANTEE ltl SEMI node_contracts
       {
-        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
-        let (a, g) = $4 in (a, with_origin_loc UserContract loc $2 :: g)
+        let (a, g) = $4 in (a, $2 :: g)
       }
   | ASSUME ltl SEMI
       {
-        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
-        ([with_origin_loc UserContract loc $2], [])
+        ([$2], [])
       }
   | GUARANTEE ltl SEMI
       {
-        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
-        ([], [with_origin_loc UserContract loc $2])
+        ([], [$2])
       }
 
 vdecls_opt:
@@ -145,7 +141,7 @@ transition:
   IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
   {
     let (reqs, enss) = $6 in
-    Ast.mk_transition
+    Ast_builders.mk_transition
       ~src:$1
       ~dst:$3
       ~guard:$4
@@ -227,12 +223,12 @@ iexpr_tail_opt:
   | relop arith {
       fun lhs ->
         match $1 with
-        | REq -> Ast.mk_iexpr (IBin(Eq, lhs, $2))
-        | RNeq -> Ast.mk_iexpr (IBin(Neq, lhs, $2))
-        | RLt -> Ast.mk_iexpr (IBin(Lt, lhs, $2))
-        | RLe -> Ast.mk_iexpr (IBin(Le, lhs, $2))
-        | RGt -> Ast.mk_iexpr (IBin(Gt, lhs, $2))
-        | RGe -> Ast.mk_iexpr (IBin(Ge, lhs, $2))
+        | REq -> Ast_builders.mk_iexpr (IBin(Eq, lhs, $2))
+        | RNeq -> Ast_builders.mk_iexpr (IBin(Neq, lhs, $2))
+        | RLt -> Ast_builders.mk_iexpr (IBin(Lt, lhs, $2))
+        | RLe -> Ast_builders.mk_iexpr (IBin(Le, lhs, $2))
+        | RGt -> Ast_builders.mk_iexpr (IBin(Gt, lhs, $2))
+        | RGe -> Ast_builders.mk_iexpr (IBin(Ge, lhs, $2))
     }
   | /* empty */ { fun lhs -> lhs }
 
@@ -276,17 +272,6 @@ hexpr:
   | PRE LPAREN iexpr RPAREN { HPreK($3, 1) }
   | IDENT LPAREN iexpr COMMA INT RPAREN
       { if $1 = "pre_k" then HPreK($3,$5) else failwith "unknown history op" }
-  | IDENT LPAREN op COMMA hexpr COMMA hexpr RPAREN
-      { if $1 = "fold" then HFold($3, expect_now $5, expect_now $7) else failwith "unknown history op" }
-
-op:
-  | MIN { OMin }
-  | MAX { OMax }
-  | ADD { OAdd }
-  | MUL { OMul }
-  | AND { OAnd }
-  | OR  { OOr }
-  | FIRST { OFirst }
 
 ltl_atom:
   | fo_atom_noparen { LAtom $1 }

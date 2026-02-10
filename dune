@@ -1,2 +1,6 @@
 (include_subdirs no)
+
 (dirs src examples coq tests)
+
+(documentation
+ (package kairos))
