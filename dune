@@ -1,6 +1,6 @@
 (include_subdirs no)
 
-(dirs src examples coq tests)
+(dirs lib bin examples coq tests)
 
 (documentation
  (package kairos))

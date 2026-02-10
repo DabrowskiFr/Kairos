@@ -1,0 +1,6 @@
+(executable
+ (name obcwhy3_ide)
+ (public_name kairos-ide)
+ (modules obcwhy3_ide ide_text_utils ide_tasks ide_highlight)
+ (libraries obcwhy3_lib lablgtk3 threads)
+ (link_flags :standard -cclib -Wl,-no_warn_duplicate_libraries))

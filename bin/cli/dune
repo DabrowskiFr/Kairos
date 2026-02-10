@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name kairos)
+ (modules main cli)
+ (libraries obcwhy3_lib))

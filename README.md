@@ -2,7 +2,7 @@
 
 Quick commands
 --------------
-- Build the CLI: `dune build src/main.exe`
+- Build the CLI: `dune build bin/cli/main.exe`
 - Run lint checks: `scripts/lint.sh`
 - Run all tests: `dune runtest`
 
@@ -15,8 +15,8 @@ CLI usage
 
 GTK IDE (skeleton)
 ------------------
-- Build: `dune build src/tools/obcwhy3_ide.exe`
-- Run: `dune exec -- src/tools/obcwhy3_ide.exe`
+- Build: `dune build bin/ide/obcwhy3_ide.exe`
+- Run: `dune exec -- bin/ide/obcwhy3_ide.exe`
 
 Notes
 -----

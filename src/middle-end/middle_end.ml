@@ -1,7 +1,0 @@
-let stage_automaton = Middle_end_stages.stage_automaton
-let stage_automaton_with_info = Middle_end_stages.stage_automaton_with_info
-let stage_contracts = Middle_end_stages.stage_contracts
-let stage_contracts_with_info = Middle_end_stages.stage_contracts_with_info
-let stage_monitor_injection = Middle_end_stages.stage_monitor_injection
-let stage_monitor_injection_with_info = Middle_end_stages.stage_monitor_injection_with_info
-let run = Middle_end_stages.run
