@@ -41,6 +41,7 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 type ast_stages = {
   parsed : Ast.program;
   automaton : Ast.program;
+  automata : Middle_end_stages.automaton_stage;
   contracts : Ast.program;
   monitor : Ast.program;
   obc : Ast.program;

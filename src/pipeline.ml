@@ -44,6 +44,7 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 type ast_stages = {
   parsed : Ast.program;
   automaton : Ast.program;
+  automata : Middle_end_stages.automaton_stage;
   contracts : Ast.program;
   monitor : Ast.program;
   obc : Ast.program;
@@ -257,10 +258,10 @@ let build_ast_with_info ?(log=false) ~input_file ()
       try
         let t1 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Automaton;
-        let p_automaton, automaton_info =
+        let p_automaton, automata, automaton_info =
           p_parsed
           |> Middle_end.stage_automaton_with_info
-          |> (fun (p, info) -> (reid_program p, info))
+          |> (fun (p, stage, info) -> (reid_program p, stage, info))
         in
         emit_automaton_debug_stats p_automaton;
         if log then
@@ -269,10 +270,10 @@ let build_ast_with_info ?(log=false) ~input_file ()
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Contracts;
-        let p_contracts, contracts_info =
-          p_automaton
+        let p_contracts, automata, contracts_info =
+          (p_automaton, automata)
           |> Middle_end.stage_contracts_with_info
-          |> (fun (p, info) -> (reid_program p, info))
+          |> (fun (p, stage, info) -> (reid_program p, stage, info))
         in
         if log then
           Log.stage_end Stage_names.Contracts
@@ -280,10 +281,10 @@ let build_ast_with_info ?(log=false) ~input_file ()
             (program_stats p_contracts);
         let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Monitor;
-        let p_monitor, monitor_info =
-          p_contracts
+        let p_monitor, automata, monitor_info =
+          (p_contracts, automata)
           |> Middle_end.stage_monitor_injection_with_info
-          |> (fun (p, info) -> (reid_program p, info))
+          |> (fun (p, stage, info) -> (reid_program p, stage, info))
         in
         if log then
           Log.stage_end Stage_names.Monitor
@@ -301,7 +302,14 @@ let build_ast_with_info ?(log=false) ~input_file ()
             (int_of_float ((Unix.gettimeofday () -. t4) *. 1000.))
             (program_stats p_obc);
         let asts =
-          { parsed = p_parsed; automaton = p_automaton; contracts = p_contracts; monitor = p_monitor; obc = p_obc }
+          {
+            parsed = p_parsed;
+            automaton = p_automaton;
+            automata;
+            contracts = p_contracts;
+            monitor = p_monitor;
+            obc = p_obc;
+          }
         in
         let infos =
           {

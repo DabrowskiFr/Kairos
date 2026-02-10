@@ -26,16 +26,16 @@ let test_compile_term_var () : unit =
       inst_map = [];
       inputs = [] }
   in
-  let term = Why_compile_expr.compile_term env (Ast.Helpers.mk_var "x") in
+  let term = Why_compile_expr.compile_term env (Ast_builders.mk_var "x") in
   let rendered = Support.string_of_term term in
   assert (rendered = "vars.x")
 
 let test_progress_ltl_true_atom () : unit =
   let atom =
     Ast.FRel
-      (Ast.HNow (Ast.Helpers.mk_var "a"),
+      (Ast.HNow (Ast_builders.mk_var "a"),
        Ast.REq,
-       Ast.HNow (Ast.Helpers.mk_bool true))
+       Ast.HNow (Ast_builders.mk_bool true))
   in
   let formula = Ast.LG (Ast.LAtom atom) in
   let progressed =
@@ -48,16 +48,16 @@ let test_progress_ltl_true_atom () : unit =
 
 let test_pre_k_infos_for_pre () : unit =
   let n : Ast.node =
-    Ast.mk_node
+    Ast_builders.mk_node
       ~nname:"n"
       ~inputs:[ { Ast.vname = "x"; vty = Ast.TInt } ]
       ~outputs:[]
       ~assumes:
         [ Ast.LAtom
             (Ast.FRel
-               (Ast.HPreK (Ast.Helpers.mk_var "x", 1),
+               (Ast.HPreK (Ast_builders.mk_var "x", 1),
                 Ast.REq,
-                Ast.HNow (Ast.Helpers.mk_int 0))) ]
+                Ast.HNow (Ast_builders.mk_int 0))) ]
       ~guarantees:[]
       ~instances:[]
       ~locals:[]

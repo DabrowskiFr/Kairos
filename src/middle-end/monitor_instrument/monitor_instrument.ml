@@ -434,7 +434,8 @@ let simplify_mon_state_implications (fs:fo_o list) : fo_o list =
         fs
   | _ -> fs
 
-let transform_node_monitor_with_info (n:Ast.node) : Ast.node * Stage_info.monitor_info =
+let transform_node_monitor_with_info ?automaton (n:Ast.node)
+  : Ast.node * Stage_info.monitor_info =
   let is_input v = List.exists (fun vd -> vd.vname = v) ((n.inputs)) in
   let debug_contracts =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_CONTRACTS" with
@@ -470,7 +471,11 @@ let transform_node_monitor_with_info (n:Ast.node) : Ast.node * Stage_info.monito
   let user_guarantees = n.guarantees in
   let invariants_user = n.attrs.invariants_user in
   let invariants_state_rel = n.attrs.invariants_state_rel in
-  let automaton = pass_build_automaton stage in
+  let automaton =
+    match automaton with
+    | Some a -> a
+    | None -> pass_build_automaton stage
+  in
   if Automaton_core.monitor_log_enabled || debug_incoming then (
     List.iteri
       (fun i f ->

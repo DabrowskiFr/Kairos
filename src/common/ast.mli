@@ -203,3 +203,6 @@ type program = node list
 
 (** {2 Utilities}
     Utilities live in [Ast_utils]. *)
+
+(** Debug string representation of a program (mainly for dumps). *)
+val show_program : program -> string

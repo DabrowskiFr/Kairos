@@ -27,6 +27,8 @@
   contract_coherency
   middle_end_stages
   middle_end
+  automaton_pass
+  automaton_default
   stages
   why_compile_expr
   obc_stage
@@ -46,6 +48,9 @@
   monitor_generation_spec
   monitor_generation
   monitor_instrument
+  middle_end_pass
+  contracts_pass
+  monitor_pass
   dot_emit
   why_stage
   fo_specs
@@ -58,7 +63,7 @@
   ltl_norm
   ltl_progress
   automaton_types
-  automaton_residual
+ automaton_residual
   automaton_core)
  (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult)
  (preprocess

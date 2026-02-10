@@ -45,5 +45,7 @@ val transform_node : Ast.node -> Ast.node
 (** Instrument a node with monitor support (standard compilation). *)
 
 val transform_node_monitor : Ast.node -> Ast.node
-val transform_node_monitor_with_info : Ast.node -> Ast.node * Stage_info.monitor_info
+val transform_node_monitor_with_info :
+  ?automaton:Monitor_generation.monitor_generation_automaton ->
+  Ast.node -> Ast.node * Stage_info.monitor_info
 (** Instrument a node with monitor support and preserve monitor details. *)
