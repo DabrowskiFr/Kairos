@@ -85,7 +85,7 @@ let run (cfg:config) : (unit, string) result =
               | Stage_names.Prove ->
                   invalid_arg "dump-ast does not support why/prove stages"
             in
-            Stage_io.dump_ast_stage
+            Io.dump_ast_stage
               ~stage
               ~out:cfg.dump_ast_out
               ~stable:cfg.dump_ast_stable
@@ -99,7 +99,7 @@ let run (cfg:config) : (unit, string) result =
               match cfg.dump_ast_all with
               | None -> Ok ()
               | Some dir ->
-                  Stage_io.dump_ast_all
+                  Io.dump_ast_all
                     ~dir
                     ~parsed:asts.parsed
                     ~automaton:asts.monitor_generation
@@ -115,15 +115,15 @@ let run (cfg:config) : (unit, string) result =
           begin match cfg.dump_dot, cfg.dump_dot_short, cfg.dump_obc with
       | Some out_file, None, None ->
           log_stage "emit dot";
-          Stage_io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
+          Io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
           Ok ()
       | None, Some out_file, None ->
           log_stage "emit dot (short)";
-          Stage_io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
+          Io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
           Ok ()
       | None, None, Some out_file ->
           log_stage "emit obc";
-          Stage_io.emit_obc_file ~out_file asts.obc;
+          Io.emit_obc_file ~out_file asts.obc;
           Ok ()
       | None, None, None ->
           log_stage "emit why3";
@@ -135,7 +135,7 @@ let run (cfg:config) : (unit, string) result =
                 Log.stage_start Stage_names.Why;
                 let t5 = Unix.gettimeofday () in
                 let why_text =
-                  Stage_io.emit_why
+                  Io.emit_why
                     ~prefix_fields:cfg.prefix_fields
                     ~output_file:cfg.output_file
                     asts.obc
@@ -146,15 +146,15 @@ let run (cfg:config) : (unit, string) result =
                 begin match cfg.dump_why3_vc with
                 | None -> ()
                 | Some out_file ->
-                    Stage_io.emit_why3_vc ~out_file ~why_text
+                    Io.emit_why3_vc ~out_file ~why_text
                 end;
                 begin match cfg.dump_smt2 with
                 | None -> ()
                 | Some out_file ->
-                    Stage_io.emit_smt2 ~out_file ~prover:cfg.prover ~why_text
+                    Io.emit_smt2 ~out_file ~prover:cfg.prover ~why_text
                 end;
                 if cfg.prove && not cfg.wp_only then
-                  Stage_io.prove_why
+                  Io.prove_why
                     ~prover:cfg.prover
                     ~prover_cmd:cfg.prover_cmd
                     ~why_text;

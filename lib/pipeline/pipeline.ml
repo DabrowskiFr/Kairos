@@ -430,7 +430,7 @@ let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
   | Error _ as err -> err
   | Ok (asts, infos) ->
       try
-        let why_text = Stage_io.emit_why ~prefix_fields ~output_file:None asts.obc in
+        let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.obc in
         Ok { why_text; stage_meta = stage_meta infos }
       with exn ->
         Error (Why3_error (Printexc.to_string exn))
@@ -441,7 +441,7 @@ let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, 
   | Error _ as err -> err
   | Ok asts ->
       try
-        let why_text = Stage_io.emit_why ~prefix_fields ~output_file:None asts.obc in
+        let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.obc in
         let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
         let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
         let vc_text, _vc_spans =

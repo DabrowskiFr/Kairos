@@ -104,7 +104,7 @@ let run
       | Ok dump_ast_stage ->
           let stages_cfg =
             {
-              Stages.dump_dot = dump_dot;
+              Runner.dump_dot = dump_dot;
               dump_dot_short = dump_dot_short;
               dump_obc = dump_obc;
               dump_why3_vc = dump_why3_vc;
@@ -123,7 +123,7 @@ let run
               input_file = file;
             }
           in
-          begin match Stages.run stages_cfg with
+          begin match Runner.run stages_cfg with
           | Ok () -> `Ok ()
           | Error msg -> `Error (false, msg)
           end

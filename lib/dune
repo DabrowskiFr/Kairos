@@ -21,14 +21,14 @@
   stage_info
   stages_info
   log
-  stage_io
+  io
   pipeline
   contract_coherency
   middle_end_stages
   middle_end
   monitor_generation_pass_sig
   monitor_generation_default
-  stages
+  runner
   why_compile_expr
   obc_stage
   obc_emit
