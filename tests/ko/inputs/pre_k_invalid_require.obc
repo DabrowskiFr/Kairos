@@ -1,0 +1,14 @@
+node pre_k_invalid_require(x: int) returns (y: int)
+locals
+states
+  Init, Run;
+init Init
+trans
+  Init -> Run {
+    requires pre_k(x, 1) = {0};
+    y := x;
+  }
+  Run -> Run {
+    y := x;
+  }
+end

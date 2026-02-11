@@ -20,8 +20,24 @@ open Ast
 open Automaton_core
 open Fo_specs
 
+let rec simplify_temporal_idempotence (f : fo_ltl) : fo_ltl =
+  match f with
+  | LTrue | LFalse | LAtom _ -> f
+  | LNot a -> LNot (simplify_temporal_idempotence a)
+  | LX a -> LX (simplify_temporal_idempotence a)
+  | LG a -> begin
+      match simplify_temporal_idempotence a with
+      | LG b -> LG b
+      | a' -> LG a'
+    end
+  | LAnd (a, b) -> LAnd (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+  | LOr (a, b) -> LOr (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+  | LImp (a, b) -> LImp (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+
 let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
   let _ = atom_map in
   let spec_assumes = n.assumes in
   let spec_guarantees = n.guarantees in
-  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees |> simplify_ltl
+  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
+  |> simplify_temporal_idempotence
+  |> simplify_ltl

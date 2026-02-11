@@ -70,6 +70,7 @@ type config = {
   prover : string;
   prover_cmd : string option;
   wp_only : bool;
+  smoke_tests : bool;
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;

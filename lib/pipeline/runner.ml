@@ -14,9 +14,20 @@ type config = {
   prover : string;
   prover_cmd : string option;
   wp_only : bool;
+  smoke_tests : bool;
   prefix_fields : bool;
   input_file : string;
 }
+
+let with_smoke_tests (p : Ast.program) : Ast.program =
+  let has_false_ensure (t : Ast.transition) =
+    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.FFalse) t.ensures
+  in
+  let add_transition_smoke (t : Ast.transition) : Ast.transition =
+    if has_false_ensure t then t
+    else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.FFalse ] }
+  in
+  List.map (fun (n : Ast.node) -> { n with trans = List.map add_transition_smoke n.trans }) p
 
 let check_stage label checks =
   if checks = [] then Ok () else Error (Printf.sprintf "%s: %s" label (String.concat " | " checks))
@@ -57,6 +68,9 @@ let run (cfg : config) : (unit, string) result =
       match r_check with
       | Error _ as err -> err
       | Ok () -> (
+          let obc =
+            if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc
+          in
           let r0 =
             match cfg.dump_ast_stage with
             | None -> Ok ()
@@ -67,7 +81,7 @@ let run (cfg : config) : (unit, string) result =
                   | Stage_names.Automaton -> asts.monitor_generation
                   | Stage_names.Contracts -> asts.contracts
                   | Stage_names.Monitor -> asts.monitor
-                  | Stage_names.Obc -> asts.obc
+                  | Stage_names.Obc -> obc
                   | Stage_names.Why | Stage_names.Prove ->
                       invalid_arg "dump-ast does not support why/prove stages"
                 in
@@ -99,7 +113,7 @@ let run (cfg : config) : (unit, string) result =
                   Ok ()
               | None, None, Some out_file ->
                   log_stage "emit obc";
-                  Io.emit_obc_file ~out_file asts.obc;
+                  Io.emit_obc_file ~out_file obc;
                   Ok ()
               | None, None, None ->
                   log_stage "emit why3";
@@ -111,7 +125,7 @@ let run (cfg : config) : (unit, string) result =
                       let t5 = Unix.gettimeofday () in
                       let why_text =
                         Io.emit_why ~prefix_fields:cfg.prefix_fields ~output_file:cfg.output_file
-                          asts.obc
+                          obc
                       in
                       Log.stage_end Stage_names.Why
                         (int_of_float ((Unix.gettimeofday () -. t5) *. 1000.))

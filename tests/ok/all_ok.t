@@ -15,6 +15,8 @@
   [ok] ./inputs/handoff.obc
   [ok] ./inputs/heartbeat.obc
   [ok] ./inputs/interlock_cycle.obc
+  [ok] ./inputs/pre_k_ltl_valid.obc
+  [ok] ./inputs/pre_k_valid.obc
   [ok] ./inputs/safe_mode.obc
   [ok] ./inputs/toggle.obc
   [ok] ./inputs/toggle_if.obc

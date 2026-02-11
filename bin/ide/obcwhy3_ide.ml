@@ -44,6 +44,7 @@ module Ide_config = struct
     prover : string;
     prover_cmd : string;
     wp_only : bool;
+    smoke_tests : bool;
     timeout_s : int;
     font_size : int;
     tab_width : int;
@@ -277,6 +278,7 @@ module Ide_config = struct
         prover = "z3";
         prover_cmd = "";
         wp_only = false;
+        smoke_tests = false;
         timeout_s = 5;
         font_size = 12;
         tab_width = 2;
@@ -465,6 +467,10 @@ module Ide_config = struct
           prover_cmd = get_or "prover_cmd" base.prover_cmd;
           wp_only =
             parse_bool (get_or "wp_only" (if base.wp_only then "true" else "false")) base.wp_only;
+          smoke_tests =
+            parse_bool
+              (get_or "smoke_tests" (if base.smoke_tests then "true" else "false"))
+              base.smoke_tests;
           timeout_s;
           font_size;
           tab_width;
@@ -504,6 +510,7 @@ module Ide_config = struct
     write "prover" prefs.prover;
     write "prover_cmd" prefs.prover_cmd;
     write "wp_only" (if prefs.wp_only then "true" else "false");
+    write "smoke_tests" (if prefs.smoke_tests then "true" else "false");
     write "timeout_s" (string_of_int prefs.timeout_s);
     write "font_size" (string_of_int prefs.font_size);
     write "tab_width" (string_of_int prefs.tab_width);
@@ -1290,6 +1297,12 @@ let () =
       ~text:(string_of_int !prefs.Ide_config.timeout_s)
       ~width_chars:4 ~packing:options_group#pack ()
   in
+  let smoke_toolbar_check =
+    GButton.check_button ~label:"Smoke" ~packing:options_group#pack ()
+  in
+  smoke_toolbar_check#set_active !prefs.Ide_config.smoke_tests;
+  smoke_toolbar_check#misc#set_tooltip_text
+    "Inject smoke obligations (ensure false) during prove";
 
   let apply_prefs_to_editor_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in
   let apply_prefs_to_runtime_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in
@@ -1298,6 +1311,7 @@ let () =
   let clear_caches_ref : (unit -> unit) ref = ref (fun () -> ()) in
   let apply_prefs_to_ui (p : Ide_config.prefs) =
     timeout_entry#set_text (string_of_int p.timeout_s);
+    smoke_toolbar_check#set_active p.smoke_tests;
     if p.prover <> "" && not (List.mem p.prover [ "z3" ]) then add_prover p.prover;
     let rec find idx = function
       | [] -> 0
@@ -1307,6 +1321,12 @@ let () =
     !apply_prefs_to_editor_ref p;
     !apply_prefs_to_runtime_ref p
   in
+  smoke_toolbar_check#connect#toggled ~callback:(fun () ->
+      let active = smoke_toolbar_check#active in
+      if active <> !prefs.Ide_config.smoke_tests then (
+        prefs := { !prefs with smoke_tests = active };
+        Ide_config.save_prefs !prefs))
+  |> ignore;
 
   let open_preferences () =
     let pref_win = GWindow.window ~title:"Preferences" ~width:520 ~height:420 () in
@@ -1885,7 +1905,7 @@ let () =
     set_pref_bg prover_box_tab#coerce;
     set_pref_fg prover_box_tab#coerce;
     let prover_grid =
-      GPack.table ~rows:5 ~columns:2 ~row_spacings:6 ~col_spacings:10 ~packing:prover_box_tab#pack
+      GPack.table ~rows:6 ~columns:2 ~row_spacings:6 ~col_spacings:10 ~packing:prover_box_tab#pack
         ()
     in
     let prov_label = GMisc.label ~text:"Prover" ~xalign:0.0 () in
@@ -1912,6 +1932,10 @@ let () =
     wp_only_check#set_active !prefs.wp_only;
     wp_only_check#connect#toggled ~callback:mark_dirty |> ignore;
     prover_grid#attach ~left:0 ~top:4 ~right:2 wp_only_check#coerce;
+    let smoke_tests_check = GButton.check_button ~label:"Smoke tests (inject ensure false)" () in
+    smoke_tests_check#set_active !prefs.smoke_tests;
+    smoke_tests_check#connect#toggled ~callback:mark_dirty |> ignore;
+    prover_grid#attach ~left:0 ~top:5 ~right:2 smoke_tests_check#coerce;
     add_tab "Prover" prover_box_tab#coerce;
 
     let language_box = GPack.vbox ~spacing:8 ~border_width:8 () in
@@ -2200,6 +2224,7 @@ let () =
         prov_entry#set_text defaults.prover;
         prover_cmd_entry#set_text defaults.prover_cmd;
         wp_only_check#set_active defaults.wp_only;
+        smoke_tests_check#set_active defaults.smoke_tests;
         timeout_pref_entry#set_text (string_of_int defaults.timeout_s);
         cache_check#set_active defaults.use_cache;
         auto_parse_check#set_active defaults.auto_parse;
@@ -2354,6 +2379,7 @@ let () =
               prover = prov_entry#text;
               prover_cmd = prover_cmd_entry#text;
               wp_only = wp_only_check#active;
+              smoke_tests = smoke_tests_check#active;
               timeout_s;
               font_size;
               tab_width;
@@ -4310,7 +4336,7 @@ let () =
   let obc_cache : (int * Ide_backend.obc_outputs) option ref = ref None in
   let why_cache : (int * Ide_backend.why_outputs) option ref = ref None in
   let obligations_cache : (int * string * Ide_backend.obligations_outputs) option ref = ref None in
-  let prove_cache : (int * string * int * Ide_backend.outputs) option ref = ref None in
+  let prove_cache : (int * string * int * bool * Ide_backend.outputs) option ref = ref None in
   let cache_enabled () = !prefs.Ide_config.use_cache in
   let clear_caches () =
     monitor_cache := None;
@@ -5292,9 +5318,12 @@ let () =
           | Some row -> prover_store#get ~row ~column:prover_col
         in
         let timeout_s = try int_of_string (String.trim timeout_entry#text) with _ -> 30 in
+        let smoke_tests = !prefs.Ide_config.smoke_tests in
         let cached =
           match if cache_enabled () then !prove_cache else None with
-          | Some (v, p, t, out) when v = !content_version && p = prover && t = timeout_s -> Some out
+          | Some (v, p, t, smoke, out)
+            when v = !content_version && p = prover && t = timeout_s && smoke = smoke_tests ->
+              Some out
           | _ -> None
         in
         let record_stage_times ~cached (out : Ide_backend.outputs) =
@@ -5387,6 +5416,7 @@ let () =
                     (let s = String.trim !prefs.Ide_config.prover_cmd in
                      if s = "" then None else Some s);
                   wp_only = !prefs.Ide_config.wp_only;
+                  smoke_tests;
                   timeout_s;
                   prefix_fields = false;
                   prove = true;
@@ -5403,7 +5433,7 @@ let () =
             in
             run_async ~compute:run_in_thread
               ~on_ok:(fun out ->
-                prove_cache := Some (!content_version, prover, timeout_s, out);
+                prove_cache := Some (!content_version, prover, timeout_s, smoke_tests, out);
                 record_stage_times ~cached:false out;
                 cache_monitor_from_outputs out;
                 set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text

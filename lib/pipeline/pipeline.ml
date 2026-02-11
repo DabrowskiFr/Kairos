@@ -61,6 +61,7 @@ type config = {
   prover : string;
   prover_cmd : string option;
   wp_only : bool;
+  smoke_tests : bool;
   timeout_s : int;
   prefix_fields : bool;
   prove : bool;
@@ -218,6 +219,16 @@ let reid_program (p : Ast.program) : Ast.program =
     }
   in
   List.map reid_node p |> Ast_builders.ensure_program_uids
+
+let with_smoke_tests (p : Ast.program) : Ast.program =
+  let has_false_ensure (t : Ast.transition) =
+    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.FFalse) t.ensures
+  in
+  let add_transition_smoke (t : Ast.transition) : Ast.transition =
+    if has_false_ensure t then t
+    else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.FFalse ] }
+  in
+  List.map (fun (n : Ast.node) -> { n with trans = List.map add_transition_smoke n.trans }) p
 
 let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_infos, error) result =
   let parse () =
@@ -430,15 +441,16 @@ let run (cfg : config) : (outputs, error) result =
   | Error _ as err -> err
   | Ok (asts, infos) -> (
       try
+        let p_obc = if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc in
         let monitor_generation_build_time_s = Unix.gettimeofday () -. t_build0 in
         let t_obc0 = Unix.gettimeofday () in
-        let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans asts.obc in
-        let obcplus_sequents = build_obcplus_sequents asts.obc in
+        let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans p_obc in
+        let obcplus_sequents = build_obcplus_sequents p_obc in
         let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
         let t_why0 = Unix.gettimeofday () in
-        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
+        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields p_obc in
         let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
         let why_time_s = Unix.gettimeofday () -. t_why0 in
         let t_prep0 = Unix.gettimeofday () in
@@ -534,15 +546,16 @@ let run_with_callbacks (cfg : config) ~(on_outputs_ready : outputs -> unit)
   | Error _ as err -> err
   | Ok (asts, infos) -> (
       try
+        let p_obc = if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc in
         let monitor_generation_build_time_s = Unix.gettimeofday () -. t_build0 in
         let t_obc0 = Unix.gettimeofday () in
-        let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans asts.obc in
-        let obcplus_sequents = build_obcplus_sequents asts.obc in
+        let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans p_obc in
+        let obcplus_sequents = build_obcplus_sequents p_obc in
         let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
         let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
         let obcplus_spans_ordered = List.map snd obcplus_spans in
         let t_why0 = Unix.gettimeofday () in
-        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields asts.obc in
+        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields p_obc in
         let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
         let why_time_s = Unix.gettimeofday () -. t_why0 in
         let vc_tasks =

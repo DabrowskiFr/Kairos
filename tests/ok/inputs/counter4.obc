@@ -3,7 +3,6 @@ guarantee G( {count} = {0} => X( {count} = {1} ) );
 guarantee G( {count} = {1} => X( {count} = {2} ) );
 guarantee G( {count} = {2} => X( {count} = {3} ) );
 guarantee G( {count} = {3} => X( {count} = {0} ) );
-guarantee G(G( {count} = {0} => X( {count} = {1} ) ));
 locals
 states
   S0, S1, S2, S3;

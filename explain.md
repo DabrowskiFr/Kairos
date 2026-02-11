@@ -2,91 +2,65 @@
 
 ## Passe `contract_coherency`
 
-### TL;DR
+### Résumé
 
-La passe `contract_coherency` vérifie la cohérence temporelle entre contrats utilisateur d'un nœud.
-Elle ne modifie pas le code exécutable des transitions.
-Elle génère des obligations logiques et les stocke dans `node.attrs.coherency_goals`.
-Ces obligations sont ensuite visibles en OBC+ et émises en goals dédiés en Why3.
+La passe fait deux choses :
 
-### Ce que la passe fait
+1. Elle valide l'usage de `pre_k` dans les contrats utilisateur (`requires` et `ensures`).
+2. Elle ajoute des contraintes de cohérence dans les `ensures` des transitions.
 
-- Pour chaque transition `t`, elle calcule `conj(ensures(t))`.
-- Elle récupère les transitions partant de `t.dst`.
-- Pour chaque `require` successeur `r`, elle ajoute le goal :
-  - `conj(ensures(t)) -> shift(r)`
-- `shift` correspond à `shift_fo_backward_inputs` (alignement temporel des entrées).
+### Validation statique de `pre_k`
 
-### Ce que la passe ne fait pas
+Fonction : `validate_user_pre_k_definedness`.
 
-- Elle ne modifie pas les gardes ou actions de transitions.
-- Elle n'injecte pas ces contraintes dans les `ensures` des transitions.
-- Elle ne crée pas de WP supplémentaire dans le code `step`.
+- On calcule une borne minimale de pas atteignable par état depuis `init_state` (`min_step_by_state`).
+- Pour une transition `t : src -> dst` :
+  - chaque `pre_k(_, k)` dans un `require` doit vérifier `k <= min_step(src)`;
+  - chaque `pre_k(_, k)` dans un `ensure` doit vérifier `k <= min_step(dst)`.
+- En cas de violation, la passe échoue avec un message explicite (nœud, transition, phase, localisation).
 
-### Règle formelle
+Intuition :
+- un `require` est évalué sur l'état source ;
+- un `ensure` est évalué sur l'état destination.
 
-Pour toute transition `t : src -> dst`, et toute transition `u` telle que `u.src = dst`, pour tout `r` dans `requires(u)` :
+### Cohérence des contrats
 
-- goal de cohérence : `conj(ensures(t)) -> shift(r)`
-- si `ensures(t)` est vide, `conj(ensures(t))` est interprété comme `true`, donc le goal devient `shift(r)`.
+Fonction : `user_contracts_coherency`.
 
-### Cas initial
+Pour chaque transition `t : src -> dst` :
 
-Le démarrage est traité sans transition `_boot` explicite :
+- on prend `ens_conj = conj(ensures_user(t))` ;
+- on regarde toutes les transitions `u` sortant de `dst` ;
+- pour chaque `r` dans `requires_user(u)`, on génère :
+  - `ens_conj -> shift(r)`
 
-- on prend les transitions sortant de `init_state`,
-- leurs `requires` deviennent des goals initiaux avec antécédent `true` et décalage temporel des entrées.
+où `shift` est `shift_fo_backward_inputs` (décalage temporel sur les entrées).
 
-Implémentation :
+Les formules générées sont ajoutées à `t.ensures` avec provenance `Coherency`.
 
-- `Ast_utils.requires_from_state_fn n n.init_state`
+### Cas `ensures(t)` vide
 
-### Algorithme (implémentation actuelle)
-
-1. Construire `is_input` avec `Ast_utils.is_input_of_node`.
-2. Construire le lookup des transitions sortantes avec `Ast_utils.transitions_from_state_fn`.
-3. Pour chaque transition `t` :
-   - calculer `conj(ensures(t))`,
-   - récupérer les successeurs depuis `t.dst`,
-   - générer les implications vers leurs `requires` (après `shift`).
-4. Ajouter les goals initiaux depuis `init_state`.
-5. Fusionner avec l'existant via `Ast_utils.add_new_coherency_goals` :
-   - déduplication,
-   - origine `Coherency`.
+Si `ensures_user(t)` est vide, `conj(...) = None` et aucune implication de cohérence n'est ajoutée pour `t`.
 
 ### Entrée / sortie AST
 
 - Entrée :
-  - `node.trans` (avec `requires`/`ensures` utilisateur),
+  - `node.trans` (`requires`/`ensures` utilisateur),
   - `node.init_state`,
-  - `node.inputs` (pour `shift`).
+  - `node.inputs`.
 - Sortie :
-  - `node.attrs.coherency_goals` enrichi,
-  - transitions inchangées.
+  - transitions enrichies (`t.ensures`) ;
+  - pas de structure `coherency_goals` séparée dans cette version.
 
-### Exemple minimal
+### Exemple
 
-Si `t1 : S0 -> S1` avec `ensures(t1) = [E]`, et `t2 : S1 -> S2` avec `requires(t2) = [R]`, alors :
+Si :
+- `t1 : S0 -> S1`, `ensures(t1) = [E]`
+- `t2 : S1 -> S2`, `requires(t2) = [R]`
 
-- goal généré : `E -> shift(R)`
-
-Si `t0` sort de `init_state` avec `requires(t0) = [R0]`, alors :
-
-- goal initial généré : `true -> shift(R0)`
-
-### Sortie backend
-
-- OBC+ : goals visibles dans la section `coherency goals`.
-- Why3 : goals dédiés (séparés des obligations WP du `step`).
-
-### Points d'attention
-
-- L'ordre des transitions peut influencer l'ordre d'affichage des goals (pas leur sens logique).
-- La déduplication se fait sur la formule logique (`fo`) avant wrapping provenance.
-- Si `ensures(t)` est vide, les goals sont quand même générés avec antécédent `true`.
+alors `t1.ensures` reçoit en plus : `E -> shift(R)`.
 
 ### Références code
 
 - `lib/middle-end/contracts/contract_coherency.ml`
-- `lib/common/ast/ast_utils.ml`
 - `lib/middle-end/contracts/contracts_pass.ml`

@@ -23,6 +23,62 @@ open Ltl_progress
 open Automaton_types
 open Automaton_bdd
 
+let atom_eq_var_const (a : fo) : (ident * string) option =
+  let const_key (e : iexpr) : string option =
+    match e.iexpr with
+    | ILitInt i -> Some ("i:" ^ string_of_int i)
+    | ILitBool b -> Some ("b:" ^ string_of_bool b)
+    | _ -> None
+  in
+  let as_var (e : iexpr) : ident option = match e.iexpr with IVar v -> Some v | _ -> None in
+  match a with
+  | FRel (HNow e1, REq, HNow e2) -> begin
+      match as_var e1, const_key e2 with
+      | Some v, Some k -> Some (v, k)
+      | _ -> begin
+          match const_key e1, as_var e2 with
+          | Some k, Some v -> Some (v, k)
+          | _ -> None
+        end
+    end
+  | _ -> None
+
+let mutex_constraint_bdd ~(atom_map : (fo * ident) list) ~(index_tbl : (string, int) Hashtbl.t) : int =
+  let by_var : (ident, (string * ident) list) Hashtbl.t = Hashtbl.create 16 in
+  List.iter
+    (fun (a, name) ->
+      match atom_eq_var_const a with
+      | None -> ()
+      | Some (v, c) ->
+          let prev = Hashtbl.find_opt by_var v |> Option.value ~default:[] in
+          Hashtbl.replace by_var v ((c, name) :: prev))
+    atom_map;
+  let mk_not_both n1 n2 =
+    let i1 = Hashtbl.find index_tbl n1 in
+    let i2 = Hashtbl.find index_tbl n2 in
+    bdd_not (bdd_and (bdd_var i1) (bdd_var i2))
+  in
+  let per_var_constraints =
+    Hashtbl.fold
+      (fun _ entries acc ->
+        let entries = List.sort_uniq compare entries in
+        let pairs =
+          List.concat_map
+            (fun (c1, n1) ->
+              entries
+              |> List.filter_map (fun (c2, n2) ->
+                     if c1 = c2 || n1 = n2 then None
+                     else if compare n1 n2 < 0 then Some (n1, n2)
+                     else Some (n2, n1)))
+            entries
+        in
+        let pairs = List.sort_uniq compare pairs in
+        let cs = List.map (fun (n1, n2) -> mk_not_both n1 n2) pairs in
+        cs @ acc)
+      by_var []
+  in
+  List.fold_left bdd_and bdd_true per_var_constraints
+
 let merge_by_formula (items : (int * fo_ltl) list) : (int * fo_ltl) list =
   let tbl = Hashtbl.create 16 in
   List.iter
@@ -91,6 +147,7 @@ let build_residual_graph_bdd ~(atom_map : (fo * ident) list) ~(atom_names : iden
   let f0 = nnf_ltl f0 |> simplify_ltl in
   let index_tbl = Hashtbl.create 16 in
   List.iteri (fun i name -> Hashtbl.add index_tbl name i) atom_names;
+  let atom_mutex = mutex_constraint_bdd ~atom_map ~index_tbl in
   let tbl = Hashtbl.create 16 in
   let states = ref [] in
   let transitions = ref [] in
@@ -120,6 +177,7 @@ let build_residual_graph_bdd ~(atom_map : (fo * ident) list) ~(atom_names : iden
     let by_dst = Hashtbl.create 16 in
     List.iter
       (fun (guard, f') ->
+        let guard = bdd_and guard atom_mutex in
         if guard <> bdd_false then (
           let j, is_new = add_state f' in
           let prev = Hashtbl.find_opt by_dst j |> Option.value ~default:bdd_false in

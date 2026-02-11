@@ -30,8 +30,8 @@ let log_level_conv =
   Arg.conv (parse, print)
 
 let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_json_stable dump_ast
-    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only log_level
-    log_file file =
+    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only smoke_tests
+    log_level log_file file =
   Log.setup ~level:log_level ~log_file;
   let dump_ast_stage, dump_ast_out =
     match (dump_ast, dump_json, dump_json_stable) with
@@ -101,6 +101,7 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
               prover;
               prover_cmd;
               wp_only;
+              smoke_tests;
               prefix_fields = false;
               input_file = file;
             }
@@ -189,6 +190,12 @@ let cmd =
     value & flag
     & info [ "wp-only" ] ~doc:"Compute verification conditions but do not call a prover."
   in
+  let smoke_tests =
+    value & flag
+    & info [ "smoke-tests" ]
+        ~doc:
+          "Inject smoke obligations (ensure false) to detect inconsistent assumptions/hypotheses."
+  in
   let log_level =
     value
     & opt log_level_conv (Some Logs.Info)
@@ -206,6 +213,6 @@ let cmd =
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_why3_vc $ dump_smt2 $ dump_json
        $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast $ output_file
-       $ prove $ prover $ prover_cmd $ wp_only $ log_level $ log_file $ file))
+       $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ log_level $ log_file $ file))
 
 let run () = exit (Cmd.eval cmd)

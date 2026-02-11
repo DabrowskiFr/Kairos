@@ -16,10 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(* {1 Contract Coherency} *)
+(** {1 Contract Coherency} *)
 
+(** Add post-conditions that imply successor requires (user contracts only). *)
+val ensure_next_requires : Ast.node -> Ast.node
+
+(** Reject contracts that reference [pre_k] before it can be defined from [init_state].
+    If a monitor automaton is provided, reachability is computed on the product
+    (program states, monitor states). *)
+val validate_user_pre_k_definedness :
+  ?monitor_automaton:Automaton_engine.automaton -> Ast.node -> unit
+
+(** Add coherency constraints derived from user contracts. *)
 val user_contracts_coherency : Ast.node -> Ast.node
-(* Add coherency constraints derived from user-provided transition contracts (requires/ensures),
-   across compatible state-successor transitions. Generated obligations are stored in
-   [node.attrs.coherency_goals] with origin [Coherency] (they are not injected in transition
-   ensures). *)
