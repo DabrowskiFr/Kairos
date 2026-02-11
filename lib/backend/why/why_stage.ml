@@ -1,12 +1,11 @@
 module A = Ast
 
-let build_ast ?(prefix_fields=true) (p:Ast.program) : Emit.program_ast =
+let build_ast ?(prefix_fields = true) (p : Ast.program) : Emit.program_ast =
   let comment_map =
     List.map
-      (fun (n:A.node) ->
-         let trans = n.trans in
-         (n.nname,
-          (n.assumes, n.guarantees, trans, [])))
+      (fun (n : A.node) ->
+        let trans = n.trans in
+        (n.nname, (n.assumes, n.guarantees, trans, [])))
       p
   in
   Why_contracts.set_pure_translation true;
@@ -14,8 +13,7 @@ let build_ast ?(prefix_fields=true) (p:Ast.program) : Emit.program_ast =
   Why_contracts.set_pure_translation false;
   ast
 
-let emit_ast (ast:Emit.program_ast) : string =
-  Why_emit.emit_program_ast ast
+let emit_ast (ast : Emit.program_ast) : string = Why_emit.emit_program_ast ast
 
-let compile_program ?(prefix_fields=true) (p:Ast.program) : string =
+let compile_program ?(prefix_fields = true) (p : Ast.program) : string =
   p |> build_ast ~prefix_fields |> emit_ast

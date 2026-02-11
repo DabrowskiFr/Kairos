@@ -16,26 +16,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Statement Compilation} *)
+(* {1 Statement Compilation} *)
 
-(** Compile a sequence of statements to a Why3 expression. *)
+(* Compile a sequence of statements to a Why3 expression. *)
 val compile_seq :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.stmt list -> Why3.Ptree.expr
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.stmt list ->
+  Why3.Ptree.expr
 
-(** {1 Transition Compilation} *)
+(* {1 Transition Compilation} *)
 
-(** Compile a state branch (pattern match arm) for transitions. *)
+(* Compile a state branch (pattern match arm) for transitions. *)
 val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.ident -> Ast.transition list -> Why3.Ptree.reg_branch
-(** Compile all transitions into a Why3 expression. *)
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.ident ->
+  Ast.transition list ->
+  Why3.Ptree.reg_branch
+
+(* Compile all transitions into a Why3 expression. *)
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.transition list -> Why3.Ptree.expr
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.transition list ->
+  Why3.Ptree.expr

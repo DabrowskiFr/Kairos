@@ -16,19 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Term Compilation} *)
+(* {1 Term Compilation} *)
 
-(** Predicate for monitor state constructor identifiers. *)
+(* Predicate for monitor state constructor identifiers. *)
 val is_mon_state_ctor : Ast.ident -> bool
-(** Compile an immediate expression to Why3 expr. *)
+
+(* Compile an immediate expression to Why3 expr. *)
 val compile_iexpr : Support.env -> Ast.iexpr -> Why3.Ptree.expr
-(** Compile an immediate expression to Why3 term. *)
+
+(* Compile an immediate expression to Why3 term. *)
 val compile_term : Support.env -> Ast.iexpr -> Why3.Ptree.term
-(** Compile a term for an instance (qualified by node/instance names). *)
+
+(* Compile a term for an instance (qualified by node/instance names). *)
 val compile_term_instance :
-  Support.env ->
-  Ast.ident -> Ast.ident -> Ast.ident list -> Ast.iexpr -> Why3.Ptree.term
-(** Compile a historical expression for an instance. *)
+  Support.env -> Ast.ident -> Ast.ident -> Ast.ident list -> Ast.iexpr -> Why3.Ptree.term
+
+(* Compile a historical expression for an instance. *)
 val compile_hexpr_instance :
   ?in_post:bool ->
   Support.env ->
@@ -36,52 +39,60 @@ val compile_hexpr_instance :
   Ast.ident ->
   Ast.ident list ->
   (Ast.hexpr * Support.pre_k_info) list ->
-  Ast.hexpr -> Why3.Ptree.term
-(** Compile a FO formula for an instance. *)
+  Ast.hexpr ->
+  Why3.Ptree.term
+
+(* Compile a FO formula for an instance. *)
 val compile_fo_term_instance :
   ?in_post:bool ->
   Support.env ->
   Ast.ident ->
   Ast.ident ->
   Ast.ident list ->
-  (Ast.hexpr * Support.pre_k_info) list -> Ast.fo -> Why3.Ptree.term
-(** Build a tuple term from output variables (if any). *)
-val term_of_outputs :
-  Support.env -> Ast.vdecl list -> Why3.Ptree.term option
-(** Compile a historical expression to a Why3 term. *)
+  (Ast.hexpr * Support.pre_k_info) list ->
+  Ast.fo ->
+  Why3.Ptree.term
+
+(* Build a tuple term from output variables (if any). *)
+val term_of_outputs : Support.env -> Ast.vdecl list -> Why3.Ptree.term option
+
+(* Compile a historical expression to a Why3 term. *)
 val compile_hexpr :
-  ?old:bool ->
-  ?prefer_link:bool ->
-  ?in_post:bool -> Support.env -> Ast.hexpr -> Why3.Ptree.term
-(** Compile a FO formula to a Why3 term. *)
-val compile_fo_term :
-  ?prefer_link:bool -> Support.env -> Ast.fo -> Why3.Ptree.term
-(** Compile an LTL formula shifted by k (temporal unrolling). *)
+  ?old:bool -> ?prefer_link:bool -> ?in_post:bool -> Support.env -> Ast.hexpr -> Why3.Ptree.term
+
+(* Compile a FO formula to a Why3 term. *)
+val compile_fo_term : ?prefer_link:bool -> Support.env -> Ast.fo -> Why3.Ptree.term
+
+(* Compile an LTL formula shifted by k (temporal unrolling). *)
 val compile_ltl_term_shift :
-  ?prefer_link:bool ->
-  ?in_post:bool -> Support.env -> int -> Ast.fo_ltl -> Why3.Ptree.term
-(** Compile a FO formula shifted by k (temporal unrolling). *)
+  ?prefer_link:bool -> ?in_post:bool -> Support.env -> int -> Ast.fo_ltl -> Why3.Ptree.term
+
+(* Compile a FO formula shifted by k (temporal unrolling). *)
 val compile_fo_term_shift :
-  ?prefer_link:bool ->
-  ?in_post:bool -> Support.env -> bool -> Ast.fo -> Why3.Ptree.term
-(** {1 Relational Rewriting} *)
+  ?prefer_link:bool -> ?in_post:bool -> Support.env -> bool -> Ast.fo -> Why3.Ptree.term
+(* {1 Relational Rewriting} *)
 
-(** Replace variables by their relational form in a hexpr. *)
+(* Replace variables by their relational form in a hexpr. *)
 val rel_hexpr : Support.env -> Ast.hexpr -> Ast.hexpr
-(** Replace variables by relational forms inside an LTL formula. *)
+
+(* Replace variables by relational forms inside an LTL formula. *)
 val ltl_relational : Support.env -> Ast.fo_ltl -> Ast.fo_ltl
-(** Replace variables by relational forms inside a FO formula. *)
+
+(* Replace variables by relational forms inside a FO formula. *)
 val rel_fo : Support.env -> Ast.fo -> Ast.fo
-(** {1 Spec Fragments} *)
+(* {1 Spec Fragments} *)
 
-type spec_frag = { pre : Why3.Ptree.term list; post : Why3.Ptree.term list; }
-(** Empty spec fragment (no pre/post). *)
+type spec_frag = { pre : Why3.Ptree.term list; post : Why3.Ptree.term list }
+
+(* Empty spec fragment (no pre/post). *)
 val empty_frag : spec_frag
-(** Translate an LTL formula into pre/post fragments. *)
-val ltl_spec : Support.env -> Ast.fo_ltl -> spec_frag
-(** {1 Pre_k Helpers} *)
 
-(** Build source expr for a pre‑k variable. *)
+(* Translate an LTL formula into pre/post fragments. *)
+val ltl_spec : Support.env -> Ast.fo_ltl -> spec_frag
+(* {1 Pre_k Helpers} *)
+
+(* Build source expr for a pre‑k variable. *)
 val pre_k_source_expr : Support.env -> Ast.iexpr -> Why3.Ptree.expr
-(** Build source term for a pre‑k variable. *)
+
+(* Build source term for a pre‑k variable. *)
 val pre_k_source_term : Support.env -> Ast.iexpr -> Why3.Ptree.term

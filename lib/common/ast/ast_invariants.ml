@@ -22,16 +22,14 @@ type issue = string
 
 let issue fmt = Printf.sprintf fmt
 
-let check_program_info ~(label:string) ~(get_info:Ast.node -> 'a option)
-  (p:Ast.program) : issue list =
+let check_program_info ~(label : string) ~(get_info : Ast.node -> 'a option) (p : Ast.program) :
+    issue list =
   let check n =
-    if get_info n = None then
-      Some (issue "node '%s' missing %s info" n.nname label)
-    else None
+    if get_info n = None then Some (issue "node '%s' missing %s info" n.nname label) else None
   in
   List.filter_map check p
 
-let check_transition_basic (n:Ast.node) (t:Ast.transition) : issue list =
+let check_transition_basic (n : Ast.node) (t : Ast.transition) : issue list =
   let states = n.states in
   let src = t.src in
   let dst = t.dst in
@@ -42,7 +40,7 @@ let check_transition_basic (n:Ast.node) (t:Ast.transition) : issue list =
     acc := issue "transition dst state '%s' not in node states" dst :: !acc;
   !acc
 
-let check_node_basic (n:Ast.node) : issue list =
+let check_node_basic (n : Ast.node) : issue list =
   let acc = ref [] in
   let states = n.states in
   let init_state = n.init_state in
@@ -50,41 +48,34 @@ let check_node_basic (n:Ast.node) : issue list =
   if List.length (uniq states) <> List.length states then
     acc := issue "node '%s' has duplicate states" n.nname :: !acc;
   if not (List.mem init_state states) then
-    acc := issue "node '%s' init_state '%s' not in states"
-      n.nname init_state :: !acc;
-  let trans_issues =
-    List.concat_map (check_transition_basic n) (n.trans)
-  in
+    acc := issue "node '%s' init_state '%s' not in states" n.nname init_state :: !acc;
+  let trans_issues = List.concat_map (check_transition_basic n) n.trans in
   acc := List.rev_append trans_issues !acc;
   List.rev !acc
 
-let check_program_basic (p:Ast.program) : issue list =
+let check_program_basic (p : Ast.program) : issue list =
   let acc = ref [] in
   let names = List.map (fun n -> n.nname) p in
   let uniq = List.sort_uniq String.compare names in
-  if List.length uniq <> List.length names then
-    acc := "duplicate node names detected" :: !acc;
-  List.iter
-    (fun n ->
-       List.iter (fun i -> acc := i :: !acc) (check_node_basic n))
-    p;
+  if List.length uniq <> List.length names then acc := "duplicate node names detected" :: !acc;
+  List.iter (fun n -> List.iter (fun i -> acc := i :: !acc) (check_node_basic n)) p;
   List.rev !acc
 
-let check_program_contracts (p:Ast.program) : issue list =
+let check_program_contracts (p : Ast.program) : issue list =
   let acc = ref [] in
   List.iter
     (fun n ->
-       let assumes = n.assumes in
-       let guarantees = n.guarantees in
-       if assumes = [] && guarantees = [] then
-         acc := issue "node '%s' has no contracts" n.nname :: !acc)
+      let assumes = n.assumes in
+      let guarantees = n.guarantees in
+      if assumes = [] && guarantees = [] then
+        acc := issue "node '%s' has no contracts" n.nname :: !acc)
     p;
   List.rev !acc
 
-let check_program_monitor (p:Ast.program) : issue list =
+let check_program_monitor (p : Ast.program) : issue list =
   let _ = p in
   []
 
-let check_program_obc (p:Ast.program) : issue list =
+let check_program_obc (p : Ast.program) : issue list =
   let _ = p in
   []

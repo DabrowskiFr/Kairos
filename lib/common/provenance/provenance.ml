@@ -13,23 +13,17 @@ let fresh_id () =
   Hashtbl.replace parents_tbl id [];
   id
 
-let register id =
-  if not (Hashtbl.mem parents_tbl id) then
-    Hashtbl.add parents_tbl id []
+let register id = if not (Hashtbl.mem parents_tbl id) then Hashtbl.add parents_tbl id []
 
 let add_parents ~child ~parents =
   let existing = Hashtbl.find_opt parents_tbl child |> Option.value ~default:[] in
   let merged =
-    List.fold_left
-      (fun acc p -> if List.mem p acc then acc else acc @ [p])
-      existing
-      parents
+    List.fold_left (fun acc p -> if List.mem p acc then acc else acc @ [ p ]) existing parents
   in
   Hashtbl.replace parents_tbl child merged;
   List.iter register parents
 
-let parents id =
-  Hashtbl.find_opt parents_tbl id |> Option.value ~default:[]
+let parents id = Hashtbl.find_opt parents_tbl id |> Option.value ~default:[]
 
 let ancestors id =
   let visited = Hashtbl.create 128 in
@@ -40,7 +34,6 @@ let ancestors id =
         else (
           Hashtbl.add visited x ();
           let ps = parents x in
-          dfs (x :: acc) (ps @ xs)
-        )
+          dfs (x :: acc) (ps @ xs))
   in
   List.rev (dfs [] (parents id))

@@ -16,6 +16,5 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Build LTL monitor specification from a node (assumes/guarantees). *)
-val build_monitor_spec :
-  atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
+val build_monitor_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
+(* Build LTL monitor specification from a node (assumes/guarantees). *)

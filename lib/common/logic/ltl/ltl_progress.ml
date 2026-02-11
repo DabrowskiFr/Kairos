@@ -19,26 +19,25 @@
 open Ast
 open Ast_builders
 
-let eval_atom (_atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo)
-  : bool =
+let eval_atom (_atom_map : (fo * ident) list) (vals : (string * bool) list) (f : fo) : bool =
   match f with
-  | FRel (HNow a, REq, HNow b) ->
-      begin match as_var a, b.iexpr with
+  | FRel (HNow a, REq, HNow b) -> begin
+      match (as_var a, b.iexpr) with
       | Some name, ILitBool true -> Ltl_valuation.lookup_val vals name
       | _ -> false
-      end
+    end
   | _ -> false
 
-let rec progress_ltl (atom_map:(fo * ident) list) (vals:(string * bool) list) (f:fo_ltl)
-  : fo_ltl =
+let rec progress_ltl (atom_map : (fo * ident) list) (vals : (string * bool) list) (f : fo_ltl) :
+    fo_ltl =
   let f =
     match f with
     | LTrue | LFalse -> f
     | LAtom a -> if eval_atom atom_map vals a then LTrue else LFalse
     | LNot a -> LNot (progress_ltl atom_map vals a)
-    | LAnd (a,b) -> LAnd (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
-    | LOr (a,b) -> LOr (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
-    | LImp (a,b) -> LImp (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
+    | LAnd (a, b) -> LAnd (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
+    | LOr (a, b) -> LOr (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
+    | LImp (a, b) -> LImp (progress_ltl atom_map vals a, progress_ltl atom_map vals b)
     | LX a -> a
     | LG a ->
         let a_now = progress_ltl atom_map vals a in

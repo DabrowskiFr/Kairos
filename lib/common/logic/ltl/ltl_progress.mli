@@ -16,11 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 LTL Progression} *)
+(* {1 LTL Progression} *)
 
-val eval_atom :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
-(** Evaluate an atom against a valuation. *)
-val progress_ltl :
-  (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo_ltl -> Ast.fo_ltl
-(** Progress an LTL formula through one valuation. *)
+val eval_atom : (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
+
+(* Evaluate an atom against a valuation. *)
+val progress_ltl : (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo_ltl -> Ast.fo_ltl
+(* Progress an LTL formula through one valuation. *)

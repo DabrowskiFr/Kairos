@@ -18,17 +18,18 @@
 
 type issue = string
 
-(** {1 Validation helpers}
-    Lightweight checks for structural invariants. These are intended for
-    debugging/CLI validation rather than full semantic verification. *)
+(* {1 Validation helpers} Lightweight checks for structural invariants. These are intended for
+   debugging/CLI validation rather than full semantic verification. *)
 
-(** Check structural sanity of the core AST (nodes, transitions, states). *)
+(* Check structural sanity of the core AST (nodes, transitions, states). *)
 val check_program_basic : Ast.program -> issue list
 
-(** Check invariants after contract enrichment (coherency/compatibility). *)
+(* Check invariants after contract enrichment (coherency/compatibility). *)
 val check_program_contracts : Ast.program -> issue list
-(** Check invariants after monitor injection. *)
+
+(* Check invariants after monitor injection. *)
 val check_program_monitor : Ast.program -> issue list
-(** No-op check (monitor metadata is no longer embedded in the AST). *)
+
+(* No-op check (monitor metadata is no longer embedded in the AST). *)
 val check_program_obc : Ast.program -> issue list
-(** No-op check (OBC+ metadata is no longer embedded in the AST). *)
+(* No-op check (OBC+ metadata is no longer embedded in the AST). *)

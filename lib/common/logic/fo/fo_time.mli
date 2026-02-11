@@ -16,24 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val shift_fo_forward_inputs :
-  is_input:(Ast.ident -> bool) ->
-  Ast.fo -> Ast.fo
-(** Shift input references inside an FO formula one step forward in time.
-    Parameters:
-    - [is_input]: predicate to decide which identifiers are inputs.
-    Effect:
-    - [HNow(x)] where [x] is an input becomes [pre_k(x, 1)].
-    - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k+1)].
-    Non-inputs and non-history expressions are left unchanged. *)
+val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo -> Ast.fo
+(* Shift input references inside an FO formula one step forward in time. Parameters: - [is_input]:
+   predicate to decide which identifiers are inputs. Effect: - [HNow(x)] where [x] is an input
+   becomes [pre_k(x, 1)]. - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k+1)]. Non-inputs
+   and non-history expressions are left unchanged. *)
 
-val shift_fo_backward_inputs :
-  is_input:(Ast.ident -> bool) ->
-  Ast.fo -> Ast.fo
-(** Shift input references inside an FO formula one step backward in time.
-    Parameters:
-    - [is_input]: predicate to decide which identifiers are inputs.
-    Effect:
-    - [pre_k(x, 1)] where [x] is an input becomes [HNow(x)].
-    - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k-1)].
-    Non-inputs and non-history expressions are left unchanged. *)
+val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo -> Ast.fo
+(* Shift input references inside an FO formula one step backward in time. Parameters: - [is_input]:
+   predicate to decide which identifiers are inputs. Effect: - [pre_k(x, 1)] where [x] is an input
+   becomes [HNow(x)]. - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k-1)]. Non-inputs and
+   non-history expressions are left unchanged. *)

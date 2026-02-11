@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 [@@@ocaml.warning "-8-26-27-32-33"]
+
 open Why3
 open Ptree
 
@@ -41,15 +42,11 @@ type label_context = {
   result_term_opt : Ptree.term option;
 }
 
-let build_labels (ctx:label_context) : string list * string list =
+let build_labels (ctx : label_context) : string list * string list =
   let pre_out = List.rev ctx.pre in
   let post_out = List.rev ctx.post in
-  let group_terms_by_pre terms =
-    List.filter (fun t -> List.mem t pre_out) terms
-  in
-  let group_terms_by_post terms =
-    List.filter (fun t -> List.mem t post_out) terms
-  in
+  let group_terms_by_pre terms = List.filter (fun t -> List.mem t pre_out) terms in
+  let group_terms_by_post terms = List.filter (fun t -> List.mem t post_out) terms in
   let contains_sub s sub =
     let len_s = String.length s in
     let len_sub = String.length sub in
@@ -63,15 +60,11 @@ let build_labels (ctx:label_context) : string list * string list =
   let split_link_terms terms =
     List.fold_right
       (fun t (compat, atom, user) ->
-         let s = Support.string_of_term t in
-         if contains_sub s "__mon_state" && contains_sub s "st" then
-           (t :: compat, atom, user)
-         else if contains_sub s "atom_" then
-           (compat, t :: atom, user)
-         else
-           (compat, atom, t :: user))
-      terms
-      ([], [], [])
+        let s = Support.string_of_term t in
+        if contains_sub s "__mon_state" && contains_sub s "st" then (t :: compat, atom, user)
+        else if contains_sub s "atom_" then (compat, t :: atom, user)
+        else (compat, atom, t :: user))
+      terms ([], [], [])
   in
   let compat_pre, atom_pre, user_pre = split_link_terms ctx.link_terms_pre in
   let compat_post, atom_post, user_post = split_link_terms ctx.link_terms_post in
@@ -104,27 +97,20 @@ let build_labels (ctx:label_context) : string list * string list =
     in
     match ctx.result_term_opt with
     | None -> base
-    | Some t -> base @ [("Result", group_terms_by_post [t])]
+    | Some t -> base @ [ ("Result", group_terms_by_post [ t ]) ]
   in
   let fallback_label t =
     let s = Support.string_of_term t in
     if contains_sub s "__mon_state" then
-      if contains_sub s "<>" || contains_sub s "!=" then
-        Some "Bad state"
-      else
-        Some "Compatibility"
-    else
-      None
+      if contains_sub s "<>" || contains_sub s "!=" then Some "Bad state" else Some "Compatibility"
+    else None
   in
-  let rec term_has_old (t:Ptree.term) : bool =
+  let rec term_has_old (t : Ptree.term) : bool =
     match t.term_desc with
-    | Tapply (fn, _arg) ->
-        begin match fn.term_desc with
-        | Tident q -> Support.string_of_qid q = "old"
-        | _ -> term_has_old fn
-        end
-    | Tbinop (a, _, b)
-    | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
+    | Tapply (fn, _arg) -> begin
+        match fn.term_desc with Tident q -> Support.string_of_qid q = "old" | _ -> term_has_old fn
+      end
+    | Tbinop (a, _, b) | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
     | Tnot a -> term_has_old a
     | Tidapp (_q, args) -> List.exists term_has_old args
     | Tif (c, t1, t2) -> term_has_old c || term_has_old t1 || term_has_old t2
@@ -135,24 +121,17 @@ let build_labels (ctx:label_context) : string list * string list =
   let label_for_term groups overrides t =
     match List.find_opt (fun (term, _) -> term = t) overrides with
     | Some (_, lbl) -> lbl
-    | None ->
+    | None -> (
         match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
         | Some (lbl, _) -> lbl
-        | None ->
-            (match fallback_label t with
-             | Some lbl -> lbl
-             | None -> "Other")
+        | None -> ( match fallback_label t with Some lbl -> lbl | None -> "Other"))
   in
-  let pre_labels =
-    List.map (label_for_term pre_groups ctx.transition_requires_pre_terms) pre_out
-  in
+  let pre_labels = List.map (label_for_term pre_groups ctx.transition_requires_pre_terms) pre_out in
   let post_label_queue = Queue.create () in
   List.iter (fun (_t, lbl) -> Queue.add lbl post_label_queue) ctx.transition_post_terms;
   let label_for_post_term t =
-    if term_has_old t && not (Queue.is_empty post_label_queue) then
-        Queue.take post_label_queue
-    else
-      label_for_term post_groups [] t
+    if term_has_old t && not (Queue.is_empty post_label_queue) then Queue.take post_label_queue
+    else label_for_term post_groups [] t
   in
   let post_labels = List.map label_for_post_term post_out in
   (pre_labels, post_labels)

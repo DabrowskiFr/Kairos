@@ -18,37 +18,30 @@
 
 open Ast
 
-let rec nnf_ltl ?(neg=false) (f:fo_ltl) : fo_ltl =
+let rec nnf_ltl ?(neg = false) (f : fo_ltl) : fo_ltl =
   match f with
   | LTrue -> if neg then LFalse else LTrue
   | LFalse -> if neg then LTrue else LFalse
   | LAtom a -> if neg then LNot (LAtom a) else LAtom a
   | LNot a -> nnf_ltl ~neg:(not neg) a
-  | LAnd (a,b) ->
-      if neg then LOr (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b)
-      else LAnd (nnf_ltl a, nnf_ltl b)
-  | LOr (a,b) ->
-      if neg then LAnd (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b)
-      else LOr (nnf_ltl a, nnf_ltl b)
-  | LImp (a,b) ->
-      nnf_ltl ~neg (LOr (LNot a, b))
-  | LX a ->
-      if neg then LX (nnf_ltl ~neg:true a) else LX (nnf_ltl a)
+  | LAnd (a, b) ->
+      if neg then LOr (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b) else LAnd (nnf_ltl a, nnf_ltl b)
+  | LOr (a, b) ->
+      if neg then LAnd (nnf_ltl ~neg:true a, nnf_ltl ~neg:true b) else LOr (nnf_ltl a, nnf_ltl b)
+  | LImp (a, b) -> nnf_ltl ~neg (LOr (LNot a, b))
+  | LX a -> if neg then LX (nnf_ltl ~neg:true a) else LX (nnf_ltl a)
   | LG a ->
       if neg then
         let msg =
-          "NNF: negation above G not supported in G/X fragment: not G("
-          ^ Support.string_of_ltl a ^ ")"
+          "NNF: negation above G not supported in G/X fragment: not G(" ^ Support.string_of_ltl a
+          ^ ")"
         in
         failwith msg
-      else
-        LG (nnf_ltl a)
+      else LG (nnf_ltl a)
 
-let rec simplify_ltl (f:fo_ltl) : fo_ltl =
+let rec simplify_ltl (f : fo_ltl) : fo_ltl =
   let sort_terms terms =
-    let cmp a b =
-      String.compare (Support.string_of_ltl a) (Support.string_of_ltl b)
-    in
+    let cmp a b = String.compare (Support.string_of_ltl a) (Support.string_of_ltl b) in
     List.sort cmp terms
   in
   let uniq_terms terms =
@@ -91,35 +84,30 @@ let rec simplify_ltl (f:fo_ltl) : fo_ltl =
   match f with
   | LAnd _ ->
       let parts = flatten_and [] f |> List.map simplify_ltl in
-      if List.exists ((=) LFalse) parts then LFalse
+      if List.exists (( = ) LFalse) parts then LFalse
       else
         let parts = List.filter (fun x -> x <> LTrue) parts in
         let parts = absorb_and parts |> uniq_terms |> sort_terms in
         begin match parts with
         | [] -> LTrue
-        | [x] -> x
+        | [ x ] -> x
         | x :: xs -> List.fold_left (fun acc y -> LAnd (acc, y)) x xs
         end
   | LOr _ ->
       let parts = flatten_or [] f |> List.map simplify_ltl in
-      if List.exists ((=) LTrue) parts then LTrue
+      if List.exists (( = ) LTrue) parts then LTrue
       else
         let parts = List.filter (fun x -> x <> LFalse) parts in
         let parts = absorb_or parts |> uniq_terms |> sort_terms in
         begin match parts with
         | [] -> LFalse
-        | [x] -> x
+        | [ x ] -> x
         | x :: xs -> List.fold_left (fun acc y -> LOr (acc, y)) x xs
         end
-  | LImp (a,b) ->
-      simplify_ltl (LOr (LNot a, b))
+  | LImp (a, b) -> simplify_ltl (LOr (LNot a, b))
   | LNot a ->
       let a = simplify_ltl a in
-      begin match a with
-      | LTrue -> LFalse
-      | LFalse -> LTrue
-      | LNot b -> b
-      | _ -> LNot a
+      begin match a with LTrue -> LFalse | LFalse -> LTrue | LNot b -> b | _ -> LNot a
       end
   | LG a -> LG (simplify_ltl a)
   | LX a -> LX (simplify_ltl a)

@@ -16,56 +16,63 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Statement Compilation} *)
+(* {1 Statement Compilation} *)
 
-(** Compile a sequence of statements to a Why3 expression. *)
+(* Compile a sequence of statements to a Why3 expression. *)
 val compile_seq :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.stmt list -> Why3.Ptree.expr
-(** {1 Transition Compilation} *)
-(** Compile a branch for a single state (pattern match arm). *)
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.stmt list ->
+  Why3.Ptree.expr
+
+(* {1 Transition Compilation} *)
+(* Compile a branch for a single state (pattern match arm). *)
 val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.ident -> Ast.transition list -> Why3.Ptree.reg_branch
-(** Compile a set of transitions into a Why3 expression. *)
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.ident ->
+  Ast.transition list ->
+  Why3.Ptree.reg_branch
+
+(* Compile a set of transitions into a Why3 expression. *)
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.iexpr list * Ast.ident list ->
-   (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.transition list -> Why3.Ptree.expr
-(** {1 Node Compilation} *)
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  Ast.transition list ->
+  Why3.Ptree.expr
+(* {1 Node Compilation} *)
 
-(** Pre/post labels attached to generated specs (for highlighting). *)
-type spec_groups = { pre_labels : string list; post_labels : string list; }
-(** Raw comment payloads used to emit VC/goal comments. *)
+(* Pre/post labels attached to generated specs (for highlighting). *)
+type spec_groups = { pre_labels : string list; post_labels : string list }
+
+(* Raw comment payloads used to emit VC/goal comments. *)
 type comment_specs =
   Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
-(** In‑memory Why3 representation of a full program. *)
-type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list; }
-(** Compile a single node into Why3 declarations. *)
+
+(* In‑memory Why3 representation of a full program. *)
+type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }
+
+(* Compile a single node into Why3 declarations. *)
 val compile_node :
   prefix_fields:bool ->
   ?comment_specs:comment_specs ->
   Ast.node list ->
   Ast.node ->
-  Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list *
-  string * spec_groups
-(** Compile a full program to textual Why3. *)
+  Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list * string * spec_groups
+
+(* Compile a full program to textual Why3. *)
 val compile_program :
-  ?prefix_fields:bool ->
-  ?comment_map:(Ast.ident * comment_specs) list ->
-  Ast.program -> string
-(** Compile a full program to an in‑memory Why3 AST. *)
+  ?prefix_fields:bool -> ?comment_map:(Ast.ident * comment_specs) list -> Ast.program -> string
+
+(* Compile a full program to an in‑memory Why3 AST. *)
 val compile_program_ast :
-  ?prefix_fields:bool ->
-  ?comment_map:(Ast.ident * comment_specs) list ->
-  Ast.program -> program_ast
-(** Render a Why3 AST to text. *)
+  ?prefix_fields:bool -> ?comment_map:(Ast.ident * comment_specs) list -> Ast.program -> program_ast
+
+(* Render a Why3 AST to text. *)
 val emit_program_ast : program_ast -> string
-(** Render a Why3 AST to text and return declaration spans. *)
-val emit_program_ast_with_spans :
-  program_ast -> string * (int * (int * int)) list
+
+(* Render a Why3 AST to text and return declaration spans. *)
+val emit_program_ast_with_spans : program_ast -> string * (int * (int * int)) list

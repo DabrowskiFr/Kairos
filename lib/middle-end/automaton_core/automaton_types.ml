@@ -19,15 +19,9 @@
 open Ast
 
 type residual_state = fo_ltl
-
 type residual_transition = int * (string * bool) list * int
-
 type grouped_transition = int * (string * bool) list list * int
-
 type bdd_guard = int
-
 type bdd_transition = int * bdd_guard * int
-
 type guard = (string * bool option) list list
-
 type guarded_transition = int * guard * int

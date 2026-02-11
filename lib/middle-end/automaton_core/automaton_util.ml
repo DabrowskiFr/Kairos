@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let escape_dot_label (s:string) : string =
+let escape_dot_label (s : string) : string =
   let b = Buffer.create (String.length s) in
   String.iter
     (function

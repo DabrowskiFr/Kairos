@@ -16,23 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Assembly}
-    Translate node contracts (assumes/guarantees and transition requires/ensures)
-    into Why3 pre/post terms with labels for UI/VC tracing. *)
-(** {1 Contract Assembly} *)
+(* {1 Contract Assembly} Translate node contracts (assumes/guarantees and transition
+   requires/ensures) into Why3 pre/post terms with labels for UI/VC tracing. *)
 
-(** Pre/post conditions with label groups for UI diagnostics. *)
+(* {1 Contract Assembly} *)
+
 type contract_info = Why_types.contract_info
+(* Pre/post conditions with label groups for UI diagnostics. *)
 
-(** Enable/disable pure translation mode (no extra contract generation). *)
 val set_pure_translation : bool -> unit
+(* Enable/disable pure translation mode (no extra contract generation). *)
 
-(** {2 Invariants}
+(* {2 Invariants}
 
-    - [build_contracts] expects [env_info] produced by [prepare_node]. *)
+   - [build_contracts] expects [env_info] produced by [prepare_node]. *)
 
-(** Build full contract terms (pre/post) and their labels. *)
-val build_contracts :
-  nodes:Ast.node list ->
-  Why_env.env_info ->
-  contract_info
+val build_contracts : nodes:Ast.node list -> Why_env.env_info -> contract_info
+(* Build full contract terms (pre/post) and their labels. *)

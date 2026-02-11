@@ -1,4 +1,3 @@
-(** CLI-oriented configuration for dumping stages and running proofs. *)
 type config = {
   dump_dot : string option;
   dump_dot_short : string option;
@@ -18,6 +17,7 @@ type config = {
   prefix_fields : bool;
   input_file : string;
 }
+(* CLI-oriented configuration for dumping stages and running proofs. *)
 
-(** Run the pipeline according to the CLI configuration. *)
 val run : config -> (unit, string) result
+(* Run the pipeline according to the CLI configuration. *)

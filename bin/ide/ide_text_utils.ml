@@ -31,25 +31,30 @@ let apply_words buf text tag words =
       let wlen = String.length w in
       let rec loop i =
         if i + wlen <= String.length text then
-          if String.sub text i wlen = w
-             && (i = 0 || not (Char.code text.[i - 1] |> fun c ->
-                     (c >= Char.code 'A' && c <= Char.code 'Z')
-                     || (c >= Char.code 'a' && c <= Char.code 'z')
-                     || (c >= Char.code '0' && c <= Char.code '9')
-                     || text.[i - 1] = '_'))
-             && (i + wlen = String.length text || not (Char.code text.[i + wlen] |> fun c ->
-                     (c >= Char.code 'A' && c <= Char.code 'Z')
-                     || (c >= Char.code 'a' && c <= Char.code 'z')
-                     || (c >= Char.code '0' && c <= Char.code '9')
-                     || text.[i + wlen] = '_'))
+          if
+            String.sub text i wlen = w
+            && (i = 0
+               || not
+                    ( Char.code text.[i - 1] |> fun c ->
+                      (c >= Char.code 'A' && c <= Char.code 'Z')
+                      || (c >= Char.code 'a' && c <= Char.code 'z')
+                      || (c >= Char.code '0' && c <= Char.code '9')
+                      || text.[i - 1] = '_' ))
+            && (i + wlen = String.length text
+               || not
+                    ( Char.code text.[i + wlen] |> fun c ->
+                      (c >= Char.code 'A' && c <= Char.code 'Z')
+                      || (c >= Char.code 'a' && c <= Char.code 'z')
+                      || (c >= Char.code '0' && c <= Char.code '9')
+                      || text.[i + wlen] = '_' ))
           then (
             let s = char_offset map i in
             let e = char_offset map (i + wlen) in
             let it_s = buf#start_iter#forward_chars s in
             let it_e = buf#start_iter#forward_chars e in
             buf#apply_tag tag ~start:it_s ~stop:it_e;
-            loop (i + wlen)
-          ) else loop (i + 1)
+            loop (i + wlen))
+          else loop (i + 1)
       in
       loop 0)
     words
@@ -78,25 +83,30 @@ let apply_words_range buf ~base text tag words =
       let wlen = String.length w in
       let rec loop i =
         if i + wlen <= String.length text then
-          if String.sub text i wlen = w
-             && (i = 0 || not (Char.code text.[i - 1] |> fun c ->
-                     (c >= Char.code 'A' && c <= Char.code 'Z')
-                     || (c >= Char.code 'a' && c <= Char.code 'z')
-                     || (c >= Char.code '0' && c <= Char.code '9')
-                     || text.[i - 1] = '_'))
-             && (i + wlen = String.length text || not (Char.code text.[i + wlen] |> fun c ->
-                     (c >= Char.code 'A' && c <= Char.code 'Z')
-                     || (c >= Char.code 'a' && c <= Char.code 'z')
-                     || (c >= Char.code '0' && c <= Char.code '9')
-                     || text.[i + wlen] = '_'))
+          if
+            String.sub text i wlen = w
+            && (i = 0
+               || not
+                    ( Char.code text.[i - 1] |> fun c ->
+                      (c >= Char.code 'A' && c <= Char.code 'Z')
+                      || (c >= Char.code 'a' && c <= Char.code 'z')
+                      || (c >= Char.code '0' && c <= Char.code '9')
+                      || text.[i - 1] = '_' ))
+            && (i + wlen = String.length text
+               || not
+                    ( Char.code text.[i + wlen] |> fun c ->
+                      (c >= Char.code 'A' && c <= Char.code 'Z')
+                      || (c >= Char.code 'a' && c <= Char.code 'z')
+                      || (c >= Char.code '0' && c <= Char.code '9')
+                      || text.[i + wlen] = '_' ))
           then (
             let s = base + char_offset map i in
             let e = base + char_offset map (i + wlen) in
             let it_s = buf#start_iter#forward_chars s in
             let it_e = buf#start_iter#forward_chars e in
             buf#apply_tag tag ~start:it_s ~stop:it_e;
-            loop (i + wlen)
-          ) else loop (i + 1)
+            loop (i + wlen))
+          else loop (i + 1)
       in
       loop 0)
     words

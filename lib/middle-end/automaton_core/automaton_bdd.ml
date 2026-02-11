@@ -19,20 +19,15 @@
 open Ast
 open Ltl_valuation
 
-type bdd_node = {
-  bdd_var: int;
-  bdd_low: int;
-  bdd_high: int;
-}
+type bdd_node = { bdd_var : int; bdd_low : int; bdd_high : int }
 
 let bdd_false = 0
 let bdd_true = 1
-
 let bdd_nodes : (int, bdd_node) Hashtbl.t = Hashtbl.create 128
 let bdd_unique : (int * int * int, int) Hashtbl.t = Hashtbl.create 128
 let bdd_next = ref 2
 
-let bdd_mk (var:int) (low:int) (high:int) : int =
+let bdd_mk (var : int) (low : int) (high : int) : int =
   if low = high then low
   else
     match Hashtbl.find_opt bdd_unique (var, low, high) with
@@ -44,9 +39,9 @@ let bdd_mk (var:int) (low:int) (high:int) : int =
         Hashtbl.add bdd_unique (var, low, high) id;
         id
 
-let bdd_var (i:int) : int = bdd_mk i bdd_false bdd_true
+let bdd_var (i : int) : int = bdd_mk i bdd_false bdd_true
 
-let bdd_not (a:int) : int =
+let bdd_not (a : int) : int =
   let memo = Hashtbl.create 128 in
   let rec go n =
     if n = bdd_false then bdd_true
@@ -64,7 +59,7 @@ let bdd_not (a:int) : int =
   in
   go a
 
-let bdd_apply (op:bool -> bool -> bool) (a:int) (b:int) : int =
+let bdd_apply (op : bool -> bool -> bool) (a : int) (b : int) : int =
   let memo = Hashtbl.create 256 in
   let rec go x y =
     if x = bdd_false && y = bdd_false then if op false false then bdd_true else bdd_false
@@ -80,15 +75,15 @@ let bdd_apply (op:bool -> bool -> bool) (a:int) (b:int) : int =
           let v = min vx vy in
           let xl, xh =
             if vx = v then
-              let n = Hashtbl.find bdd_nodes x in (n.bdd_low, n.bdd_high)
-            else
-              (x, x)
+              let n = Hashtbl.find bdd_nodes x in
+              (n.bdd_low, n.bdd_high)
+            else (x, x)
           in
           let yl, yh =
             if vy = v then
-              let n = Hashtbl.find bdd_nodes y in (n.bdd_low, n.bdd_high)
-            else
-              (y, y)
+              let n = Hashtbl.find bdd_nodes y in
+              (n.bdd_low, n.bdd_high)
+            else (y, y)
           in
           let low = go xl yl in
           let high = go xh yh in
@@ -100,15 +95,12 @@ let bdd_apply (op:bool -> bool -> bool) (a:int) (b:int) : int =
 
 let bdd_and a b = bdd_apply (fun x y -> x && y) a b
 let bdd_or a b = bdd_apply (fun x y -> x || y) a b
+let empty_term (atom_names : string list) : term = List.map (fun name -> (name, None)) atom_names
 
-
-let empty_term (atom_names:string list) : term =
-  List.map (fun name -> (name, None)) atom_names
-
-let set_term (name:string) (value:bool) (t:term) : term =
+let set_term (name : string) (value : bool) (t : term) : term =
   List.map (fun (n, v) -> if n = name then (n, Some value) else (n, v)) t
 
-let bdd_to_terms (atom_names:string list) (node:int) : term list =
+let bdd_to_terms (atom_names : string list) (node : int) : term list =
   let memo = Hashtbl.create 64 in
   let rec go n =
     match Hashtbl.find_opt memo n with
@@ -116,7 +108,7 @@ let bdd_to_terms (atom_names:string list) (node:int) : term list =
     | None ->
         let res =
           if n = bdd_false then []
-          else if n = bdd_true then [empty_term atom_names]
+          else if n = bdd_true then [ empty_term atom_names ]
           else
             let node = Hashtbl.find bdd_nodes n in
             let name = List.nth atom_names node.bdd_var in
@@ -129,35 +121,27 @@ let bdd_to_terms (atom_names:string list) (node:int) : term list =
   in
   go node
 
-let term_covers_term (t1:term) (t2:term) : bool =
+let term_covers_term (t1 : term) (t2 : term) : bool =
   List.for_all
-    (fun ((_, v1), (_, v2)) ->
-       match v1 with
-       | None -> true
-       | Some b1 -> v2 = Some b1)
+    (fun ((_, v1), (_, v2)) -> match v1 with None -> true | Some b1 -> v2 = Some b1)
     (List.combine t1 t2)
 
-let simplify_terms (terms:term list) : term list =
+let simplify_terms (terms : term list) : term list =
   let terms = uniq_terms terms in
   List.filter
-    (fun t ->
-       not (List.exists (fun other -> other <> t && term_covers_term other t) terms))
+    (fun t -> not (List.exists (fun other -> other <> t && term_covers_term other t) terms))
     terms
 
-let bdd_to_formula (atom_names:string list) (node:int) : string =
+let bdd_to_formula (atom_names : string list) (node : int) : string =
   let terms = bdd_to_terms atom_names node |> simplify_terms in
-  if List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) terms then
-    "true"
+  if List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) terms then "true"
   else
     let parts = List.map term_to_string terms in
-    match parts with
-    | [] -> "false"
-    | [p] -> p
-    | _ -> String.concat " || " parts
+    match parts with [] -> "false" | [ p ] -> p | _ -> String.concat " || " parts
 
-let bdd_to_iexpr (atom_names:string list) (node:int) : iexpr =
+let bdd_to_iexpr (atom_names : string list) (node : int) : iexpr =
   let terms = bdd_to_terms atom_names node |> simplify_terms in
   simplify_iexpr (terms_to_iexpr terms)
 
-let bdd_to_guard (atom_names:string list) (node:int) : Automaton_types.guard =
+let bdd_to_guard (atom_names : string list) (node : int) : Automaton_types.guard =
   bdd_to_terms atom_names node |> simplify_terms

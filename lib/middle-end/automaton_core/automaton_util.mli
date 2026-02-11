@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 DOT Helpers} *)
+(* {1 DOT Helpers} *)
 
 val escape_dot_label : string -> string
-(** Escape a string for DOT node/edge labels. *)
+(* Escape a string for DOT node/edge labels. *)

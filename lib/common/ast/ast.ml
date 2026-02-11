@@ -16,22 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-
 type ident = string [@@deriving show]
-
-type ty =
-  | TInt | TBool | TReal | TCustom of string
-[@@deriving show]
-
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
-[@@deriving show]
+type ty = TInt | TBool | TReal | TCustom of string [@@deriving show]
+type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving show]
 type unop = Neg | Not [@@deriving show]
 (* fold removed: op type no longer used *)
 
-type loc = { line: int; col: int; line_end: int; col_end: int } [@@deriving show]
+type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving show]
 
-type iexpr =
-  { iexpr: iexpr_desc; loc: loc option }
+type iexpr = { iexpr : iexpr_desc; loc : loc option }
+
 and iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
@@ -41,11 +35,7 @@ and iexpr_desc =
   | IPar of iexpr
 [@@deriving show]
 
-type hexpr =
-  | HNow of iexpr
-  | HPreK of iexpr * int                  (* pre_k(e, k) *)
-[@@deriving show]
-
+type hexpr = HNow of iexpr | HPreK of iexpr * int (* pre_k(e, k) *) [@@deriving show]
 type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show]
 
 type fo =
@@ -67,31 +57,18 @@ type 'a ltl =
   | LAnd of 'a ltl * 'a ltl
   | LOr of 'a ltl * 'a ltl
   | LImp of 'a ltl * 'a ltl
-  | LX of 'a ltl                       (* Next *)
-  | LG of 'a ltl                       (* Globally *)
+  | LX of 'a ltl (* Next *)
+  | LG of 'a ltl (* Globally *)
 [@@deriving show]
+
 type fo_ltl = fo ltl [@@deriving show]
 type atom_ltl = ident ltl [@@deriving show]
+type origin = UserContract | Monitor | Coherency | Compatibility | Internal [@@deriving show]
+type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving show]
+type vdecl = { vname : ident; vty : ty } [@@deriving show]
 
-type origin =
-  | UserContract
-  | Monitor
-  | Coherency
-  | Compatibility
-  | Internal
-[@@deriving show]
+type stmt = { stmt : stmt_desc; loc : loc option }
 
-type fo_o = {
-  value: fo;
-  origin: origin option;
-  oid: int;
-  loc: loc option;
-} [@@deriving show]
-
-type vdecl = { vname: ident; vty: ty } [@@deriving show]
-
-type stmt =
-  { stmt: stmt_desc; loc: loc option }
 and stmt_desc =
   | SAssign of ident * iexpr
   | SIf of iexpr * stmt list * stmt list
@@ -102,40 +79,47 @@ and stmt_desc =
 
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show]
 type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show]
+
 type node_attrs = {
-  uid: int option;
+  uid : int option;
   invariants_user : invariant_user list;
   invariants_state_rel : invariant_state_rel list;
-} [@@deriving show]
+  coherency_goals : fo_o list;
+}
+[@@deriving show]
+
 type transition_attrs = {
-  uid: int option;
+  uid : int option;
   ghost : stmt list;
   monitor : stmt list;
   warnings : string list;
-} [@@deriving show]
+}
+[@@deriving show]
 
 type transition = {
-  src: ident;
-  dst: ident;
-  guard: iexpr option;
-  requires: fo_o list;
-  ensures: fo_o list;
-  body: stmt list;
-  attrs: transition_attrs;
-} [@@deriving show]
+  src : ident;
+  dst : ident;
+  guard : iexpr option;
+  requires : fo_o list;
+  ensures : fo_o list;
+  body : stmt list;
+  attrs : transition_attrs;
+}
+[@@deriving show]
 
 type node = {
-  nname: ident;
-  inputs: vdecl list;
-  outputs: vdecl list;
-  assumes: fo_ltl list;
-  guarantees: fo_ltl list;
-  instances: (ident * ident) list;
-  locals: vdecl list;
-  states: ident list;
-  init_state: ident;
-  trans: transition list;
-  attrs: node_attrs;
-} [@@deriving show]
+  nname : ident;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  assumes : fo_ltl list;
+  guarantees : fo_ltl list;
+  instances : (ident * ident) list;
+  locals : vdecl list;
+  states : ident list;
+  init_state : ident;
+  trans : transition list;
+  attrs : node_attrs;
+}
+[@@deriving show]
 
 type program = node list [@@deriving show]

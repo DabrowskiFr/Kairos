@@ -16,9 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Dot Output} *)
+(* {1 Dot Output} *)
 
-(** Render a residual automaton graph (dot_text, labels_text). *)
+(* Render a residual automaton graph (dot_text, labels_text). *)
 val dot_residual_program : ?show_labels:bool -> Ast.program -> string * string
-(** Render a monitor automaton graph (dot_text, labels_text). *)
+
+(* Render a monitor automaton graph (dot_text, labels_text). *)
 val dot_monitor_program : ?show_labels:bool -> Ast.program -> string * string

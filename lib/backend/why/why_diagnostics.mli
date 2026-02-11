@@ -16,9 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Diagnostics} *)
+(* {1 Contract Diagnostics} *)
 
-(** Context used to generate diagnostic labels from contract terms. *)
 type label_context = {
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
@@ -39,6 +38,7 @@ type label_context = {
   pre_k_links : Why3.Ptree.term list;
   result_term_opt : Why3.Ptree.term option;
 }
+(* Context used to generate diagnostic labels from contract terms. *)
 
-(** Build pre/post labels for diagnostics and UI. *)
 val build_labels : label_context -> string list * string list
+(* Build pre/post labels for diagnostics and UI. *)

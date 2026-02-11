@@ -20,23 +20,21 @@ open Ast
 open Ast_builders
 open Support
 
-let indent_str (n:int) : string = String.make (2 * n) ' '
+let indent_str (n : int) : string = String.make (2 * n) ' '
 
-let starts_with (s:string) (prefix:string) : bool =
+let starts_with (s : string) (prefix : string) : bool =
   let ls = String.length s in
   let lp = String.length prefix in
   ls >= lp && String.sub s 0 lp = prefix
 
-let is_mon_ctor (s:string) : bool =
+let is_mon_ctor (s : string) : bool =
   let len = String.length s in
   len >= 4
   && String.sub s 0 3 = "Mon"
   && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub s 3 (len - 3))
 
-let is_generated_ident (id:string) : bool =
-  starts_with id "__mon_state"
-  || starts_with id "__mon_"
-  || is_mon_ctor id
+let is_generated_ident (id : string) : bool =
+  starts_with id "__mon_state" || starts_with id "__mon_" || is_mon_ctor id
 
 type gen_tag =
   | MonitorAtom
@@ -56,7 +54,7 @@ let tag_label = function
   | MonitorPost -> "monitor post-condition"
   | PostForNextPre -> "post -> next pre"
 
-let rec iexpr_mentions_generated (e:iexpr) : bool =
+let rec iexpr_mentions_generated (e : iexpr) : bool =
   match e.iexpr with
   | ILitInt _ | ILitBool _ -> false
   | IVar id -> is_generated_ident id
@@ -64,65 +62,51 @@ let rec iexpr_mentions_generated (e:iexpr) : bool =
   | IUn (_, e) -> iexpr_mentions_generated e
   | IBin (_, a, b) -> iexpr_mentions_generated a || iexpr_mentions_generated b
 
-let rec iexpr_has_tag (tag:gen_tag) (e:iexpr) : bool =
+let rec iexpr_has_tag (tag : gen_tag) (e : iexpr) : bool =
   match e.iexpr with
   | ILitInt _ | ILitBool _ -> false
-  | IVar id ->
-      begin match tag with
+  | IVar id -> begin
+      match tag with
       | MonitorAtom -> false
       | MonitorState -> id = "__mon_state" || is_mon_ctor id
       | CompatInvariant | BadState | MonitorPre | MonitorPost | PostForNextPre -> false
-      end
+    end
   | IPar e -> iexpr_has_tag tag e
   | IUn (_, e) -> iexpr_has_tag tag e
   | IBin (_, a, b) -> iexpr_has_tag tag a || iexpr_has_tag tag b
 
-let rec hexpr_mentions_generated (h:hexpr) : bool =
-  match h with
-  | HNow e -> iexpr_mentions_generated e
-  | HPreK (e, _) ->
-      iexpr_mentions_generated e
+let rec hexpr_mentions_generated (h : hexpr) : bool =
+  match h with HNow e -> iexpr_mentions_generated e | HPreK (e, _) -> iexpr_mentions_generated e
 
-let rec hexpr_has_tag (tag:gen_tag) (h:hexpr) : bool =
-  match h with
-  | HNow e -> iexpr_has_tag tag e
-  | HPreK (e, _) ->
-      iexpr_has_tag tag e
+let rec hexpr_has_tag (tag : gen_tag) (h : hexpr) : bool =
+  match h with HNow e -> iexpr_has_tag tag e | HPreK (e, _) -> iexpr_has_tag tag e
 
-let rec fo_mentions_generated (f:fo) : bool =
+let rec fo_mentions_generated (f : fo) : bool =
   match f with
   | FTrue | FFalse -> false
-  | FRel (h1, _, h2) ->
-      hexpr_mentions_generated h1 || hexpr_mentions_generated h2
-  | FPred (_, hs) ->
-      List.exists hexpr_mentions_generated hs
+  | FRel (h1, _, h2) -> hexpr_mentions_generated h1 || hexpr_mentions_generated h2
+  | FPred (_, hs) -> List.exists hexpr_mentions_generated hs
   | FNot a -> fo_mentions_generated a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
-      fo_mentions_generated a || fo_mentions_generated b
+  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_mentions_generated a || fo_mentions_generated b
 
-let rec fo_has_tag (tag:gen_tag) (f:fo) : bool =
+let rec fo_has_tag (tag : gen_tag) (f : fo) : bool =
   match f with
   | FTrue | FFalse -> false
-  | FRel (h1, _, h2) ->
-      hexpr_has_tag tag h1 || hexpr_has_tag tag h2
-  | FPred (_, hs) ->
-      List.exists (hexpr_has_tag tag) hs
+  | FRel (h1, _, h2) -> hexpr_has_tag tag h1 || hexpr_has_tag tag h2
+  | FPred (_, hs) -> List.exists (hexpr_has_tag tag) hs
   | FNot a -> fo_has_tag tag a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
-      fo_has_tag tag a || fo_has_tag tag b
+  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_has_tag tag a || fo_has_tag tag b
 
-let is_mon_state_var = function
-  | "__mon_state" -> true
-  | s -> is_mon_ctor s
+let is_mon_state_var = function "__mon_state" -> true | s -> is_mon_ctor s
 
 let rec iexpr_only_mon_state = function
-  | e ->
+  | e -> (
       match e.iexpr with
       | ILitInt _ | ILitBool _ -> true
       | IVar id -> is_mon_state_var id
       | IPar inner -> iexpr_only_mon_state inner
       | IUn (_, inner) -> iexpr_only_mon_state inner
-      | IBin (_, a, b) -> iexpr_only_mon_state a && iexpr_only_mon_state b
+      | IBin (_, a, b) -> iexpr_only_mon_state a && iexpr_only_mon_state b)
 
 let rec hexpr_only_mon_state = function
   | HNow e -> iexpr_only_mon_state e
@@ -133,90 +117,84 @@ let rec fo_only_mon_state = function
   | FRel (h1, _, h2) -> hexpr_only_mon_state h1 && hexpr_only_mon_state h2
   | FPred (_, hs) -> List.for_all hexpr_only_mon_state hs
   | FNot a -> fo_only_mon_state a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
-      fo_only_mon_state a && fo_only_mon_state b
+  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_only_mon_state a && fo_only_mon_state b
 
 let is_mon_state_eq = function
-  | FRel (HNow a, REq, HNow b) ->
-      begin match as_var a, as_var b with
+  | FRel (HNow a, REq, HNow b) -> begin
+      match (as_var a, as_var b) with
       | Some va, Some vb -> is_mon_state_var va && is_mon_state_var vb
       | _ -> false
-      end
+    end
   | _ -> false
 
 let is_bad_state_formula = function
-  | FRel (HNow a, RNeq, HNow b) ->
-      begin match as_var a, as_var b with
+  | FRel (HNow a, RNeq, HNow b) -> begin
+      match (as_var a, as_var b) with
       | Some va, Some vb -> is_mon_state_var va && is_mon_state_var vb
       | _ -> false
-      end
+    end
   | _ -> false
 
-let is_monitor_implication = function
-  | FImp (cond, _body) -> is_mon_state_eq cond
-  | _ -> false
-
-let comment_line (indent:int) (msg:string) : string =
-  indent_str indent ^ "(* " ^ msg ^ " *)"
-
-let comment_for_tag indent tag =
-  comment_line indent ("generated: " ^ tag_label tag)
+let is_monitor_implication = function FImp (cond, _body) -> is_mon_state_eq cond | _ -> false
+let comment_line (indent : int) (msg : string) : string = indent_str indent ^ "(* " ^ msg ^ " *)"
+let comment_for_tag indent tag = comment_line indent ("generated: " ^ tag_label tag)
 
 let comment_for_tags indent tags =
   let tags = List.sort_uniq compare tags in
-  let explicit_tags = List.filter (function MonitorAtom | MonitorState -> true | _ -> false) tags in
+  let explicit_tags =
+    List.filter (function MonitorAtom | MonitorState -> true | _ -> false) tags
+  in
   List.map (comment_for_tag indent) explicit_tags
 
-let tags_for_ident (id:string) : gen_tag list =
+let tags_for_ident (id : string) : gen_tag list =
   let tags = ref [] in
   if id = "__mon_state" || is_mon_ctor id then tags := MonitorState :: !tags;
   !tags
 
-let tags_for_iexpr (e:iexpr) : gen_tag list =
+let tags_for_iexpr (e : iexpr) : gen_tag list =
   let tags = ref [] in
   if iexpr_has_tag MonitorState e then tags := MonitorState :: !tags;
   !tags
 
-let tags_for_fo (f:fo) : gen_tag list =
+let tags_for_fo (f : fo) : gen_tag list =
   let tags = ref [] in
   if fo_has_tag MonitorState f then tags := MonitorState :: !tags;
   if is_bad_state_formula f then tags := BadState :: !tags;
-  if (not (is_bad_state_formula f)) && fo_only_mon_state f then
-    tags := CompatInvariant :: !tags;
+  if (not (is_bad_state_formula f)) && fo_only_mon_state f then tags := CompatInvariant :: !tags;
   !tags
 
-let tags_for_fo_with_context ~(is_require:bool) (f:fo) : gen_tag list =
+let tags_for_fo_with_context ~(is_require : bool) (f : fo) : gen_tag list =
   let tags = tags_for_fo f in
-  if is_monitor_implication f then
-    if is_require then MonitorPre :: tags else MonitorPost :: tags
+  if is_monitor_implication f then if is_require then MonitorPre :: tags else MonitorPost :: tags
   else tags
 
-let primary_tag_for_fo ~(is_require:bool) (f:fo) : gen_tag option =
+let primary_tag_for_fo ~(is_require : bool) (f : fo) : gen_tag option =
   let tags = tags_for_fo_with_context ~is_require f in
-  if is_require && List.mem MonitorPre tags then
-    Some CompatInvariant
+  if is_require && List.mem MonitorPre tags then Some CompatInvariant
   else
-  let priority =
-    [CompatInvariant; BadState; MonitorPre; MonitorPost; PostForNextPre;
-     MonitorAtom; MonitorState]
-  in
-  List.find_opt (fun t -> List.mem t tags) priority
+    let priority =
+      [
+        CompatInvariant;
+        BadState;
+        MonitorPre;
+        MonitorPost;
+        PostForNextPre;
+        MonitorAtom;
+        MonitorState;
+      ]
+    in
+    List.find_opt (fun t -> List.mem t tags) priority
 
-let add_semicolon (lines:string list) : string list =
-  match List.rev lines with
-  | [] -> []
-  | last :: rest_rev -> List.rev ((last ^ ";") :: rest_rev)
+let add_semicolon (lines : string list) : string list =
+  match List.rev lines with [] -> [] | last :: rest_rev -> List.rev ((last ^ ";") :: rest_rev)
 
-let rec stmt_lines ?(allow_empty=true) ?(with_comments=true)
-  (indent:int) (stmts:stmt list) : string list =
+let rec stmt_lines ?(allow_empty = true) ?(with_comments = true) (indent : int) (stmts : stmt list)
+    : string list =
   match stmts with
-  | [] -> if allow_empty then [] else [indent_str indent ^ "skip"]
-  | _ ->
-      List.concat_map
-        (fun s -> add_semicolon (stmt_one_lines ~with_comments indent s))
-        stmts
+  | [] -> if allow_empty then [] else [ indent_str indent ^ "skip" ]
+  | _ -> List.concat_map (fun s -> add_semicolon (stmt_one_lines ~with_comments indent s)) stmts
 
-and stmt_one_lines ?(with_comments=true) (indent:int) (s:stmt) : string list =
+and stmt_one_lines ?(with_comments = true) (indent : int) (s : stmt) : string list =
   let tags =
     match s.stmt with
     | SAssign (id, e) -> tags_for_ident id @ tags_for_iexpr e
@@ -226,57 +204,50 @@ and stmt_one_lines ?(with_comments=true) (indent:int) (s:stmt) : string list =
   in
   let prefix = if with_comments then comment_for_tags indent tags else [] in
   match s.stmt with
-  | SAssign (id, e) ->
-      prefix @ [indent_str indent ^ id ^ " := " ^ string_of_iexpr e]
-  | SSkip ->
-      prefix @ [indent_str indent ^ "skip"]
+  | SAssign (id, e) -> prefix @ [ indent_str indent ^ id ^ " := " ^ string_of_iexpr e ]
+  | SSkip -> prefix @ [ indent_str indent ^ "skip" ]
   | SCall (inst, args, outs) ->
       let args_s = String.concat ", " (List.map string_of_iexpr args) in
       let outs_s = String.concat ", " outs in
-      prefix @ [indent_str indent ^ "call " ^ inst ^ "(" ^ args_s ^ ") returns (" ^ outs_s ^ ")"]
+      prefix @ [ indent_str indent ^ "call " ^ inst ^ "(" ^ args_s ^ ") returns (" ^ outs_s ^ ")" ]
   | SIf (cond, tbr, fbr) ->
-      prefix @ [indent_str indent ^ "if " ^ string_of_iexpr cond ^ " then"]
+      prefix
+      @ [ indent_str indent ^ "if " ^ string_of_iexpr cond ^ " then" ]
       @ stmt_lines ~allow_empty:false ~with_comments (indent + 1) tbr
-      @ [indent_str indent ^ "else"]
+      @ [ indent_str indent ^ "else" ]
       @ stmt_lines ~allow_empty:false ~with_comments (indent + 1) fbr
-      @ [indent_str indent ^ "end"]
+      @ [ indent_str indent ^ "end" ]
   | SMatch (e, branches, def) ->
-      prefix @ [indent_str indent ^ "match " ^ string_of_iexpr e ^ " with"]
+      prefix
+      @ [ indent_str indent ^ "match " ^ string_of_iexpr e ^ " with" ]
       @ List.concat_map
           (fun (ctor, body) ->
-             [indent_str indent ^ "| " ^ ctor ^ " ->"]
-             @ stmt_lines ~allow_empty:false ~with_comments (indent + 1) body)
+            [ indent_str indent ^ "| " ^ ctor ^ " ->" ]
+            @ stmt_lines ~allow_empty:false ~with_comments (indent + 1) body)
           branches
-      @ (if def = [] then [] else
-           [indent_str indent ^ "| _ ->"]
+      @ (if def = [] then []
+         else
+           [ indent_str indent ^ "| _ ->" ]
            @ stmt_lines ~allow_empty:false ~with_comments (indent + 1) def)
-      @ [indent_str indent ^ "end"]
+      @ [ indent_str indent ^ "end" ]
 
-let vdecl_line (v:vdecl) : string =
-  v.vname ^ ": " ^
-  (match v.vty with
-   | TInt -> "int"
-   | TBool -> "bool"
-   | TReal -> "real"
-   | TCustom s -> s)
+let vdecl_line (v : vdecl) : string =
+  v.vname ^ ": "
+  ^ match v.vty with TInt -> "int" | TBool -> "bool" | TReal -> "real" | TCustom s -> s
 
-let local_comment (name:ident) : string option =
+let local_comment (name : ident) : string option =
   let has_prefix p =
-    String.length name >= String.length p
-    && String.sub name 0 (String.length p) = p
+    String.length name >= String.length p && String.sub name 0 (String.length p) = p
   in
-  if name = "__mon_state" then
-    Some "monitor state"
-  else if has_prefix "__pre_k" then
-    Some "k-step history"
-  else
-    Some "user local"
+  if name = "__mon_state" then Some "monitor state"
+  else if has_prefix "__pre_k" then Some "k-step history"
+  else Some "user local"
 
-let params_of_vdecls (vs:vdecl list) : string =
-  String.concat ", " (List.map vdecl_line vs)
+let params_of_vdecls (vs : vdecl list) : string = String.concat ", " (List.map vdecl_line vs)
 
 let replace_all ~sub ~by s =
-  if sub = "" then s else
+  if sub = "" then s
+  else
     let sub_len = String.length sub in
     let len = String.length s in
     let b = Buffer.create len in
@@ -284,48 +255,43 @@ let replace_all ~sub ~by s =
       if i >= len then ()
       else if i + sub_len <= len && String.sub s i sub_len = sub then (
         Buffer.add_string b by;
-        loop (i + sub_len)
-      ) else (
+        loop (i + sub_len))
+      else (
         Buffer.add_char b s.[i];
-        loop (i + 1)
-      )
+        loop (i + 1))
     in
     loop 0;
     Buffer.contents b
 
 let prettify_pre_old ~init_for_var:_ ~vars:_ s = s
 
-let pre_k_var_map (n:node) : (hexpr * ident) list =
+let pre_k_var_map (n : node) : (hexpr * ident) list =
   let pre_k_map = Collect.build_pre_k_infos n in
   List.filter_map
     (fun (h, info) ->
-       match info.Support.names with
-       | [] -> None
-       | names -> Some (h, List.nth names (List.length names - 1)))
+      match info.Support.names with
+      | [] -> None
+      | names -> Some (h, List.nth names (List.length names - 1)))
     pre_k_map
 
-let rec replace_pre_k_hexpr ~(map:(hexpr * ident) list) (h:hexpr) : hexpr =
+let rec replace_pre_k_hexpr ~(map : (hexpr * ident) list) (h : hexpr) : hexpr =
   match h with
-  | HPreK _ as h ->
-      begin match List.assoc_opt h map with
-      | Some name -> HNow (mk_var name)
-      | None -> h
-      end
+  | HPreK _ as h -> begin
+      match List.assoc_opt h map with Some name -> HNow (mk_var name) | None -> h
+    end
   | HNow _ -> h
 
-let rec replace_pre_k_fo ~(map:(hexpr * ident) list) (f:fo) : fo =
+let rec replace_pre_k_fo ~(map : (hexpr * ident) list) (f : fo) : fo =
   match f with
   | FTrue | FFalse -> f
   | FNot a -> FNot (replace_pre_k_fo ~map a)
   | FAnd (a, b) -> FAnd (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
   | FOr (a, b) -> FOr (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
   | FImp (a, b) -> FImp (replace_pre_k_fo ~map a, replace_pre_k_fo ~map b)
-  | FRel (h1, r, h2) ->
-      FRel (replace_pre_k_hexpr ~map h1, r, replace_pre_k_hexpr ~map h2)
-  | FPred (id, hs) ->
-      FPred (id, List.map (replace_pre_k_hexpr ~map) hs)
+  | FRel (h1, r, h2) -> FRel (replace_pre_k_hexpr ~map h1, r, replace_pre_k_hexpr ~map h2)
+  | FPred (id, hs) -> FPred (id, List.map (replace_pre_k_hexpr ~map) hs)
 
-let rec replace_pre_k_ltl ~(map:(hexpr * ident) list) (f:fo_ltl) : fo_ltl =
+let rec replace_pre_k_ltl ~(map : (hexpr * ident) list) (f : fo_ltl) : fo_ltl =
   match f with
   | LTrue -> LTrue
   | LFalse -> LFalse
@@ -337,49 +303,49 @@ let rec replace_pre_k_ltl ~(map:(hexpr * ident) list) (f:fo_ltl) : fo_ltl =
   | LOr (a, b) -> LOr (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
   | LImp (a, b) -> LImp (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
 
-let replace_pre_k_invariant_user ~(map:(hexpr * ident) list) (inv:invariant_user)
-  : invariant_user =
+let replace_pre_k_invariant_user ~(map : (hexpr * ident) list) (inv : invariant_user) :
+    invariant_user =
   { inv with inv_expr = replace_pre_k_hexpr ~map inv.inv_expr }
 
-let replace_pre_k_invariant_state_rel ~(map:(hexpr * ident) list)
-  (inv:invariant_state_rel) : invariant_state_rel =
+let replace_pre_k_invariant_state_rel ~(map : (hexpr * ident) list) (inv : invariant_state_rel) :
+    invariant_state_rel =
   { inv with formula = replace_pre_k_fo ~map inv.formula }
 
-let replace_pre_k_transition ~(map:(hexpr * ident) list) (t:transition) : transition =
-  { t with
-    requires =
-      List.map (Ast_provenance.map_with_origin (replace_pre_k_fo ~map))
-        t.requires;
-    ensures =
-      List.map (Ast_provenance.map_with_origin (replace_pre_k_fo ~map))
-        t.ensures; }
+let replace_pre_k_coherency_goal ~(map : (hexpr * ident) list) (f : fo_o) : fo_o =
+  Ast_provenance.map_with_origin (replace_pre_k_fo ~map) f
 
-let replace_pre_k_node (n:node) : node =
+let replace_pre_k_transition ~(map : (hexpr * ident) list) (t : transition) : transition =
+  {
+    t with
+    requires = List.map (Ast_provenance.map_with_origin (replace_pre_k_fo ~map)) t.requires;
+    ensures = List.map (Ast_provenance.map_with_origin (replace_pre_k_fo ~map)) t.ensures;
+  }
+
+let replace_pre_k_node (n : node) : node =
   let map = pre_k_var_map n in
   let n =
-    { n with
-      assumes =
-        List.map (replace_pre_k_ltl ~map)
-          n.assumes;
-      guarantees =
-        List.map (replace_pre_k_ltl ~map)
-          n.guarantees;
-      trans = List.map (replace_pre_k_transition ~map) n.trans; }
+    {
+      n with
+      assumes = List.map (replace_pre_k_ltl ~map) n.assumes;
+      guarantees = List.map (replace_pre_k_ltl ~map) n.guarantees;
+      trans = List.map (replace_pre_k_transition ~map) n.trans;
+    }
   in
-  { n with
+  {
+    n with
     attrs =
-      { n.attrs with
-        invariants_user =
-          List.map (replace_pre_k_invariant_user ~map)
-            n.attrs.invariants_user;
+      {
+        n.attrs with
+        invariants_user = List.map (replace_pre_k_invariant_user ~map) n.attrs.invariants_user;
         invariants_state_rel =
-          List.map (replace_pre_k_invariant_state_rel ~map)
-            n.attrs.invariants_state_rel; } }
+          List.map (replace_pre_k_invariant_state_rel ~map) n.attrs.invariants_state_rel;
+        coherency_goals = List.map (replace_pre_k_coherency_goal ~map) n.attrs.coherency_goals;
+      };
+  }
 
-let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
-  ~(invariants_user:invariant_user list)
-  ~(invariants_state_rel:invariant_state_rel list)
-  ~(init_for_var:ident -> iexpr) ~(vars:ident list) : string list =
+let contract_lines (indent : int) (assumes : fo_ltl list) (guarantees : fo_ltl list)
+    ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list)
+    ~(init_for_var : ident -> iexpr) ~(vars : ident list) : string list =
   let assume_lines =
     List.map (fun f -> indent_str indent ^ "assume " ^ string_of_ltl f ^ ";") assumes
   in
@@ -388,21 +354,19 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
   in
   let inv_lines =
     let add_with_prefix (acc, last_prefix) prefix line =
-      if prefix = [] || prefix = last_prefix then
-        (acc @ [line], last_prefix)
-      else
-        (acc @ prefix @ [line], prefix)
+      if prefix = [] || prefix = last_prefix then (acc @ [ line ], last_prefix)
+      else (acc @ prefix @ [ line ], prefix)
     in
     let add_user acc last_prefix inv =
       let tags =
         tags_for_ident inv.inv_id
-        @ (if hexpr_has_tag MonitorAtom inv.inv_expr then [MonitorAtom] else [])
-        @ (if hexpr_has_tag MonitorState inv.inv_expr then [MonitorState] else [])
+        @ (if hexpr_has_tag MonitorAtom inv.inv_expr then [ MonitorAtom ] else [])
+        @ if hexpr_has_tag MonitorState inv.inv_expr then [ MonitorState ] else []
       in
       let prefix = comment_for_tags indent tags in
       let line =
-        indent_str indent ^ "(* invariant " ^ inv.inv_id ^ " = "
-        ^ string_of_hexpr inv.inv_expr ^ " *)"
+        indent_str indent ^ "(* invariant " ^ inv.inv_id ^ " = " ^ string_of_hexpr inv.inv_expr
+        ^ " *)"
       in
       let line = prettify_pre_old ~init_for_var ~vars line in
       add_with_prefix (acc, last_prefix) prefix line
@@ -421,14 +385,12 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
     let acc, last_prefix =
       List.fold_left
         (fun (acc, last_prefix) inv -> add_user acc last_prefix inv)
-        ([], [])
-        invariants_user
+        ([], []) invariants_user
     in
     let acc, _ =
       List.fold_left
         (fun (acc, last_prefix) inv -> add_state_rel acc last_prefix inv)
-        (acc, last_prefix)
-        invariants_state_rel
+        (acc, last_prefix) invariants_state_rel
     in
     acc
   in
@@ -436,29 +398,48 @@ let contract_lines (indent:int) (assumes:fo_ltl list) (guarantees:fo_ltl list)
 
 type label_counters = { mutable req : int; mutable ens : int }
 
-let is_contract_coherency (f:fo) : bool =
-  match f with
-  | FImp _ -> true
-  | _ -> false
+let coherency_goal_lines (indent : int) ~(goals : fo_o list) ~(init_for_var : ident -> iexpr)
+    ~(vars : ident list) : string list =
+  if goals = [] then []
+  else
+    let is_init_goal = function FImp (FTrue, _) -> true | _ -> false in
+    let compare_goal a b = compare (string_of_fo a.value) (string_of_fo b.value) in
+    let init_goals, transition_goals = List.partition (fun f -> is_init_goal f.value) goals in
+    let emit_group acc title group next_id =
+      if group = [] then (acc, next_id)
+      else
+        let group = List.sort compare_goal group in
+        let lines, next_id =
+          List.fold_left
+            (fun (acc, id) f ->
+              let line = indent_str indent ^ "goal " ^ string_of_fo f.value ^ ";" in
+              let line = prettify_pre_old ~init_for_var ~vars line in
+              (acc @ [ line ^ "  (* C" ^ string_of_int id ^ " *)" ], id + 1))
+            ([], next_id) group
+        in
+        (acc @ [ comment_line indent title ] @ lines, next_id)
+    in
+    let acc, next_id = emit_group [] "-- coherency goals (init) --" init_goals 1 in
+    let acc, _ = emit_group acc "-- coherency goals (transitions) --" transition_goals next_id in
+    acc
 
-let source_of_fo ~(is_require:bool) (f:fo_o) : string =
+let is_contract_coherency (f : fo) : bool = match f with FImp _ -> true | _ -> false
+
+let source_of_fo ~(is_require : bool) (f : fo_o) : string =
   match f.origin with
   | Some UserContract -> "user"
   | Some Coherency -> "user contracts coherency"
   | Some Compatibility -> "monitor/program compatibility"
-  | Some Monitor ->
-      if is_require then "monitor pre-condition" else "monitor post-condition"
+  | Some Monitor -> if is_require then "monitor pre-condition" else "monitor post-condition"
   | Some Internal -> "internal"
-  | None ->
+  | None -> (
       match primary_tag_for_fo ~is_require f.value with
       | Some t -> tag_label t
       | None ->
-          if (not is_require) && is_contract_coherency f.value then
-            "user contracts coherency"
-          else
-            "user"
+          if (not is_require) && is_contract_coherency f.value then "user contracts coherency"
+          else "user")
 
-let source_order (s:string) : int =
+let source_order (s : string) : int =
   match s with
   | "user" -> 0
   | "user contracts coherency" -> 1
@@ -471,10 +452,9 @@ let source_order (s:string) : int =
   | "monitor state" -> 8
   | _ -> 9
 
-let transition_lines (indent:int) (t:transition)
-  ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
-  ~(label_align_col:int option)
-  : string list =
+let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> iexpr)
+    ~(vars : ident list) ~(label_counters : label_counters) ~(label_align_col : int option) :
+    string list =
   let next_req_label () =
     label_counters.req <- label_counters.req + 1;
     Printf.sprintf "H%d" label_counters.req
@@ -483,33 +463,23 @@ let transition_lines (indent:int) (t:transition)
     label_counters.ens <- label_counters.ens + 1;
     Printf.sprintf "G%d" label_counters.ens
   in
-  let guard =
-    match t.guard with
-    | None -> ""
-    | Some g -> " [" ^ string_of_iexpr g ^ "]"
-  in
-  let header =
-    indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {"
-  in
-  let requires_labeled =
-    List.map (fun f -> (f, next_req_label ())) (t.requires)
-  in
-  let ensures_labeled =
-    List.map (fun f -> (f, next_ens_label ())) (t.ensures)
-  in
+  let guard = match t.guard with None -> "" | Some g -> " [" ^ string_of_iexpr g ^ "]" in
+  let header = indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {" in
+  let requires_labeled = List.map (fun f -> (f, next_req_label ())) t.requires in
+  let ensures_labeled = List.map (fun f -> (f, next_ens_label ())) t.ensures in
   let build_block ~is_require items =
     let items =
       List.map (fun (f, label) -> (source_of_fo ~is_require f, f, label)) items
       |> List.sort (fun (s1, _, _) (s2, _, _) ->
-           let c = compare (source_order s1) (source_order s2) in
-           if c <> 0 then c else compare s1 s2)
+          let c = compare (source_order s1) (source_order s2) in
+          if c <> 0 then c else compare s1 s2)
     in
     let rec build acc current_source = function
       | [] -> acc
       | (source, f, label) :: rest ->
           let header =
             if Some source = current_source then []
-            else [comment_line (indent + 1) ("source: " ^ source)]
+            else [ comment_line (indent + 1) ("source: " ^ source) ]
           in
           let vcid_line = [] in
           let line =
@@ -527,7 +497,7 @@ let transition_lines (indent:int) (t:transition)
                 in
                 line ^ pad ^ "(* " ^ label ^ " *)"
           in
-          build (acc @ header @ vcid_line @ [line]) (Some source) rest
+          build (acc @ header @ vcid_line @ [ line ]) (Some source) rest
     in
     build [] None items
   in
@@ -552,56 +522,39 @@ let transition_lines (indent:int) (t:transition)
   in
   let ghost_header = [] in
   let user_header =
-    if body_user = [] then []
-    else [comment_line (indent + 1) "-- user code --"]
+    if body_user = [] then [] else [ comment_line (indent + 1) "-- user code --" ]
   in
   let mon_header =
-    if body_mon = [] then []
-    else [comment_line (indent + 1) "-- monitor code --"]
+    if body_mon = [] then [] else [ comment_line (indent + 1) "-- monitor code --" ]
   in
   let body_mon_lines =
     stmt_lines ~allow_empty:true ~with_comments:false (indent + 1) body_mon
     |> List.map (prettify_pre_old ~init_for_var ~vars)
   in
   let footer = indent_str indent ^ "}" in
-  [header]
-  @ req_block @ ens_block
-  @ ghost_header @ ghost_lines
-  @ user_header @ body_lines
-  @ mon_header @ body_mon_lines
-  @ [footer]
+  [ header ] @ req_block @ ens_block @ ghost_header @ ghost_lines @ user_header @ body_lines
+  @ mon_header @ body_mon_lines @ [ footer ]
 
-let node_lines (n:node) : string list =
+let node_lines (n : node) : string list =
   let n = replace_pre_k_node n in
-  let var_types =
-    List.map
-      (fun v -> (v.vname, v.vty))
-      (n.inputs @ n.locals @ n.outputs)
-  in
+  let var_types = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
   let init_for_var =
-    fun v ->
-      match List.assoc_opt v var_types with
-      | Some TBool -> mk_bool false
-      | Some TInt -> mk_int 0
-      | Some TReal -> mk_int 0
-      | Some (TCustom _) | None -> mk_int 0
+   fun v ->
+    match List.assoc_opt v var_types with
+    | Some TBool -> mk_bool false
+    | Some TInt -> mk_int 0
+    | Some TReal -> mk_int 0
+    | Some (TCustom _) | None -> mk_int 0
   in
   let vars = List.map fst var_types in
   let header =
-    "node "
-    ^ n.nname
-    ^ " ("
-    ^ params_of_vdecls (n.inputs)
-    ^ ")"
-    ^ " returns ("
-    ^ params_of_vdecls (n.outputs)
-    ^ ")"
+    "node " ^ n.nname ^ " (" ^ params_of_vdecls n.inputs ^ ")" ^ " returns ("
+    ^ params_of_vdecls n.outputs ^ ")"
   in
   let contracts =
-    contract_lines 1 (n.assumes) (n.guarantees)
-      ~invariants_user:(n.attrs.invariants_user)
-      ~invariants_state_rel:(n.attrs.invariants_state_rel)
-      ~init_for_var ~vars
+    contract_lines 1 n.assumes n.guarantees ~invariants_user:n.attrs.invariants_user
+      ~invariants_state_rel:n.attrs.invariants_state_rel ~init_for_var ~vars
+    @ coherency_goal_lines 1 ~goals:n.attrs.coherency_goals ~init_for_var ~vars
   in
   let instances =
     match n.instances with
@@ -609,28 +562,22 @@ let node_lines (n:node) : string list =
     | _ ->
         let inst_lines =
           List.map
-            (fun (inst, node_name) ->
-               indent_str 1 ^ "instance " ^ inst ^ ": " ^ node_name ^ ";")
-            (n.instances)
+            (fun (inst, node_name) -> indent_str 1 ^ "instance " ^ inst ^ ": " ^ node_name ^ ";")
+            n.instances
         in
         (indent_str 1 ^ "instances") :: inst_lines
   in
   let locals =
     match n.locals with
-    | [] -> [indent_str 1 ^ "locals"]
+    | [] -> [ indent_str 1 ^ "locals" ]
     | _ ->
         let local_line v =
           let base = indent_str 2 ^ vdecl_line v ^ ";" in
-          match local_comment v.vname with
-          | None -> base
-          | Some msg -> base ^ " (* " ^ msg ^ " *)"
+          match local_comment v.vname with None -> base | Some msg -> base ^ " (* " ^ msg ^ " *)"
         in
-        (indent_str 1 ^ "locals")
-        :: List.map local_line (n.locals)
+        (indent_str 1 ^ "locals") :: List.map local_line n.locals
   in
-  let states =
-    indent_str 1 ^ "states " ^ String.concat ", " (n.states) ^ ";"
-  in
+  let states = indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";" in
   let init = indent_str 1 ^ "init " ^ n.init_state in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
@@ -641,10 +588,10 @@ let node_lines (n:node) : string list =
     in
     let lens =
       List.concat_map
-        (fun (t:transition) ->
-           List.map (base_line_len true) (Ast_provenance.values (t.requires))
-           @ List.map (base_line_len false) (Ast_provenance.values (t.ensures)))
-        (n.trans)
+        (fun (t : transition) ->
+          List.map (base_line_len true) (Ast_provenance.values t.requires)
+          @ List.map (base_line_len false) (Ast_provenance.values t.ensures))
+        n.trans
     in
     match lens with
     | [] -> None
@@ -656,29 +603,46 @@ let node_lines (n:node) : string list =
     (indent_str 1 ^ "trans")
     :: List.concat_map
          (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
-         (n.trans)
+         n.trans
   in
-  [header]
-  @ contracts
-  @ instances
-  @ locals
-  @ [states; init]
-  @ trans
-  @ ["end"]
+  [ header ] @ contracts @ instances @ locals @ [ states; init ] @ trans @ [ "end" ]
 
-let string_of_program (p:Ast.program) : string =
+let string_of_program (p : Ast.program) : string =
   let p = p in
   String.concat "\n" (List.map (fun n -> String.concat "\n" (node_lines n)) p) ^ "\n"
 
-let compile_program (p:Ast.program) : string =
-  string_of_program p
+let compile_program (p : Ast.program) : string = string_of_program p
 
 type line_with_vcid = string * int option
 
-let transition_lines_with_vcid (indent:int) (t:transition)
-  ~(init_for_var:ident -> iexpr) ~(vars:ident list) ~(label_counters:label_counters)
-  ~(label_align_col:int option)
-  : line_with_vcid list =
+let coherency_goal_lines_with_vcid (indent : int) ~(goals : fo_o list)
+    ~(init_for_var : ident -> iexpr) ~(vars : ident list) : line_with_vcid list =
+  if goals = [] then []
+  else
+    let is_init_goal = function FImp (FTrue, _) -> true | _ -> false in
+    let compare_goal a b = compare (string_of_fo a.value) (string_of_fo b.value) in
+    let init_goals, transition_goals = List.partition (fun f -> is_init_goal f.value) goals in
+    let emit_group acc title group next_id =
+      if group = [] then (acc, next_id)
+      else
+        let group = List.sort compare_goal group in
+        let lines, next_id =
+          List.fold_left
+            (fun (acc, id) f ->
+              let line = indent_str indent ^ "goal " ^ string_of_fo f.value ^ ";" in
+              let line = prettify_pre_old ~init_for_var ~vars line in
+              (acc @ [ (line ^ "  (* C" ^ string_of_int id ^ " *)", Some f.oid) ], id + 1))
+            ([], next_id) group
+        in
+        (acc @ [ (comment_line indent title, None) ] @ lines, next_id)
+    in
+    let acc, next_id = emit_group [] "-- coherency goals (init) --" init_goals 1 in
+    let acc, _ = emit_group acc "-- coherency goals (transitions) --" transition_goals next_id in
+    acc
+
+let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : ident -> iexpr)
+    ~(vars : ident list) ~(label_counters : label_counters) ~(label_align_col : int option) :
+    line_with_vcid list =
   let next_req_label () =
     label_counters.req <- label_counters.req + 1;
     Printf.sprintf "H%d" label_counters.req
@@ -687,33 +651,20 @@ let transition_lines_with_vcid (indent:int) (t:transition)
     label_counters.ens <- label_counters.ens + 1;
     Printf.sprintf "G%d" label_counters.ens
   in
-  let guard =
-    match t.guard with
-    | None -> ""
-    | Some g -> " [" ^ string_of_iexpr g ^ "]"
-  in
-  let header =
-    (indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {",
-     None)
-  in
-  let requires_labeled =
-    List.map (fun f -> (f, next_req_label ())) (t.requires)
-  in
-  let ensures_labeled =
-    List.map (fun f -> (f, next_ens_label ())) (t.ensures)
-  in
+  let guard = match t.guard with None -> "" | Some g -> " [" ^ string_of_iexpr g ^ "]" in
+  let header = (indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {", None) in
+  let requires_labeled = List.map (fun f -> (f, next_req_label ())) t.requires in
+  let ensures_labeled = List.map (fun f -> (f, next_ens_label ())) t.ensures in
   let build_block ~is_require items =
     let items =
       List.map
         (fun (f, label) ->
-           let vcid =
-             if is_require then None else Some f.oid
-           in
-           (source_of_fo ~is_require f, f, label, vcid))
+          let vcid = if is_require then None else Some f.oid in
+          (source_of_fo ~is_require f, f, label, vcid))
         items
       |> List.sort (fun (s1, _, _, _) (s2, _, _, _) ->
-           let c = compare (source_order s1) (source_order s2) in
-           if c <> 0 then c else compare s1 s2)
+          let c = compare (source_order s1) (source_order s2) in
+          if c <> 0 then c else compare s1 s2)
     in
     let rec build acc current_source = function
       | [] -> acc
@@ -744,13 +695,15 @@ let transition_lines_with_vcid (indent:int) (t:transition)
   in
   let req_block =
     if requires_labeled = [] then []
-    else (comment_line (indent + 1) "-- requires --", None)
-         :: build_block ~is_require:true requires_labeled
+    else
+      (comment_line (indent + 1) "-- requires --", None)
+      :: build_block ~is_require:true requires_labeled
   in
   let ens_block =
     if ensures_labeled = [] then []
-    else (comment_line (indent + 1) "-- ensures --", None)
-         :: build_block ~is_require:false ensures_labeled
+    else
+      (comment_line (indent + 1) "-- ensures --", None)
+      :: build_block ~is_require:false ensures_labeled
   in
   let body_ghost = t.attrs.ghost in
   let body_user = t.body in
@@ -778,24 +731,12 @@ let transition_lines_with_vcid (indent:int) (t:transition)
     |> List.map (fun line -> (line, None))
   in
   let footer = (indent_str indent ^ "}", None) in
-  [header]
-  @ req_block
-  @ ens_block
-  @ ghost_header
-  @ ghost_lines
-  @ user_header
-  @ body_lines
-  @ mon_header
-  @ body_mon_lines
-  @ [footer]
+  [ header ] @ req_block @ ens_block @ ghost_header @ ghost_lines @ user_header @ body_lines
+  @ mon_header @ body_mon_lines @ [ footer ]
 
-let node_lines_with_vcid (n:node) : line_with_vcid list =
+let node_lines_with_vcid (n : node) : line_with_vcid list =
   let n = replace_pre_k_node n in
-  let var_types =
-    List.map
-      (fun v -> (v.vname, v.vty))
-      (n.inputs @ n.locals @ n.outputs)
-  in
+  let var_types = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
   let init_for_var v =
     match List.assoc_opt v var_types with
     | Some TBool -> mk_bool false
@@ -806,21 +747,22 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
   let vars = List.map fst var_types in
   let header =
     let params =
-      let params = params_of_vdecls (n.inputs) in
+      let params = params_of_vdecls n.inputs in
       if params = "" then "" else " (" ^ params ^ ")"
     in
     let returns =
-      let returns = params_of_vdecls (n.outputs) in
+      let returns = params_of_vdecls n.outputs in
       if returns = "" then "" else " returns (" ^ returns ^ ")"
     in
     (Printf.sprintf "node %s%s%s" n.nname params returns, None)
   in
   let contracts =
-    contract_lines 1 (n.assumes) (n.guarantees)
-      ~invariants_user:(n.attrs.invariants_user)
-      ~invariants_state_rel:(n.attrs.invariants_state_rel)
-      ~init_for_var ~vars
+    contract_lines 1 n.assumes n.guarantees ~invariants_user:n.attrs.invariants_user
+      ~invariants_state_rel:n.attrs.invariants_state_rel ~init_for_var ~vars
     |> List.map (fun line -> (line, None))
+  in
+  let coherency_goals =
+    coherency_goal_lines_with_vcid 1 ~goals:n.attrs.coherency_goals ~init_for_var ~vars
   in
   let instances =
     match n.instances with
@@ -830,7 +772,7 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
           indent_str 2 ^ "instance " ^ inst_name ^ " : " ^ node_name ^ ";"
         in
         (indent_str 1 ^ "instances", None)
-        :: List.map (fun line -> (line, None)) (List.map inst_line (n.instances))
+        :: List.map (fun line -> (line, None)) (List.map inst_line n.instances)
   in
   let locals =
     match n.locals with
@@ -838,16 +780,12 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     | _ ->
         let local_line v =
           let base = indent_str 2 ^ vdecl_line v ^ ";" in
-          match local_comment v.vname with
-          | None -> base
-          | Some msg -> base ^ " (* " ^ msg ^ " *)"
+          match local_comment v.vname with None -> base | Some msg -> base ^ " (* " ^ msg ^ " *)"
         in
         (indent_str 1 ^ "locals", None)
-        :: List.map (fun line -> (line, None)) (List.map local_line (n.locals))
+        :: List.map (fun line -> (line, None)) (List.map local_line n.locals)
   in
-  let states =
-    (indent_str 1 ^ "states " ^ String.concat ", " (n.states) ^ ";", None)
-  in
+  let states = (indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";", None) in
   let init = (indent_str 1 ^ "init " ^ n.init_state, None) in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
@@ -858,10 +796,10 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     in
     let lens =
       List.concat_map
-        (fun (t:transition) ->
-           List.map (base_line_len true) (Ast_provenance.values (t.requires))
-           @ List.map (base_line_len false) (Ast_provenance.values (t.ensures)))
-        (n.trans)
+        (fun (t : transition) ->
+          List.map (base_line_len true) (Ast_provenance.values t.requires)
+          @ List.map (base_line_len false) (Ast_provenance.values t.ensures))
+        n.trans
     in
     match lens with
     | [] -> None
@@ -873,18 +811,13 @@ let node_lines_with_vcid (n:node) : line_with_vcid list =
     (indent_str 1 ^ "trans", None)
     :: List.concat_map
          (fun t ->
-            transition_lines_with_vcid 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
-         (n.trans)
+           transition_lines_with_vcid 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
+         n.trans
   in
-  [header]
-  @ contracts
-  @ instances
-  @ locals
-  @ [states; init]
-  @ trans
-  @ [("end", None)]
+  [ header ] @ contracts @ coherency_goals @ instances @ locals @ [ states; init ] @ trans
+  @ [ ("end", None) ]
 
-let string_of_program_with_spans (p:Ast.program) : string * (int * (int * int)) list =
+let string_of_program_with_spans (p : Ast.program) : string * (int * (int * int)) list =
   let p = p in
   let lines = List.concat_map node_lines_with_vcid p in
   let buf = Buffer.create 4096 in
@@ -903,5 +836,5 @@ let string_of_program_with_spans (p:Ast.program) : string * (int * (int * int)) 
   List.iter add_line lines;
   (Buffer.contents buf, List.rev !spans)
 
-let compile_program_with_spans (p:Ast.program) : string * (int * (int * int)) list =
+let compile_program_with_spans (p : Ast.program) : string * (int * (int * int)) list =
   string_of_program_with_spans p

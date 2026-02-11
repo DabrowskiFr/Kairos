@@ -16,66 +16,66 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Shared Emission Types} *)
+(* {1 Shared Emission Types} *)
 
-(** Environment snapshot used while emitting Why3 for a node. *)
+(* Environment snapshot used while emitting Why3 for a node. *)
 type env_info = {
-  (** Source AST node. *)
+  (* Source AST node. *)
   node : Ast.node;
-  (** Name of the generated Why3 module. *)
+  (* Name of the generated Why3 module. *)
   module_name : string;
-  (** Extra imports required by this module. *)
+  (* Extra imports required by this module. *)
   imports : Why3.Ptree.decl list;
-  (** Monitor state type declarations (if any). *)
+  (* Monitor state type declarations (if any). *)
   type_mon_state : Why3.Ptree.decl list;
-  (** Node state type declaration. *)
+  (* Node state type declaration. *)
   type_state : Why3.Ptree.decl;
-  (** Variable tuple type declaration. *)
+  (* Variable tuple type declaration. *)
   type_vars : Why3.Ptree.decl;
-  (** Emission environment (names, links, pre‑k). *)
+  (* Emission environment (names, links, pre‑k). *)
   env : Support.env;
-  (** Why3 binders for inputs. *)
+  (* Why3 binders for inputs. *)
   inputs : Why3.Ptree.binder list;
-  (** Return expression for the node. *)
+  (* Return expression for the node. *)
   ret_expr : Why3.Ptree.expr;
-  (** Ghost update expression (if any). *)
+  (* Ghost update expression (if any). *)
   ghost_updates : Why3.Ptree.expr;
-  (** Whether ghost updates are present. *)
+  (* Whether ghost updates are present. *)
   has_ghost_updates : bool;
-  (** Mapping from pre‑k expressions to generated info. *)
+  (* Mapping from pre‑k expressions to generated info. *)
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
-  (** Flat list of pre‑k infos. *)
+  (* Flat list of pre‑k infos. *)
   pre_k_infos : Support.pre_k_info list;
-  (** Whether a step counter is required. *)
+  (* Whether a step counter is required. *)
   needs_step_count : bool;
-  (** Whether a first‑step flag is required. *)
+  (* Whether a first‑step flag is required. *)
   needs_first_step : bool;
-  (** Whether the node has contracts only at initialization. *)
+  (* Whether the node has contracts only at initialization. *)
   has_initial_only_contracts : bool;
-  (** Predicate to decide whether an [old] is needed for a hexpr. *)
+  (* Predicate to decide whether an [old] is needed for a hexpr. *)
   hexpr_needs_old : Ast.hexpr -> bool;
-  (** Input names as identifiers. *)
+  (* Input names as identifiers. *)
   input_names : Ast.ident list;
-  (** Monitor state constructors (if any). *)
+  (* Monitor state constructors (if any). *)
   mon_state_ctors : Ast.ident list;
-  (** Initialization expression for an input variable. *)
+  (* Initialization expression for an input variable. *)
   init_for_var : Ast.ident -> Ast.iexpr;
 }
 
-(** Pre/post contract payload ready for Why3 emission. *)
+(* Pre/post contract payload ready for Why3 emission. *)
 type contract_info = {
-  (** Preconditions. *)
+  (* Preconditions. *)
   pre : Why3.Ptree.term list;
-  (** Postconditions. *)
+  (* Postconditions. *)
   post : Why3.Ptree.term list;
-  (** Labels for preconditions. *)
+  (* Labels for preconditions. *)
   pre_labels : string list;
-  (** Labels for postconditions. *)
+  (* Labels for postconditions. *)
   post_labels : string list;
-  (** Origin labels for preconditions. *)
+  (* Origin labels for preconditions. *)
   pre_origin_labels : string list;
-  (** Origin labels for postconditions. *)
+  (* Origin labels for postconditions. *)
   post_origin_labels : string list;
-  (** Optional VC ids associated to postconditions. *)
+  (* Optional VC ids associated to postconditions. *)
   post_vcids : string option list;
 }

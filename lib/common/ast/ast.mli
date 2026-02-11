@@ -16,77 +16,64 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 AST Overview}
+(* {1 AST Overview}
 
-    This module defines the core AST used across all passes. The design is:
-    {ul
-      {- immutable records with small, predictable helpers;}
-      {- explicit provenance on FO formulas (requires/ensures);}
-      {- node/transition attributes carry uids + invariants + injected stmts;}
-      {- per‑pass metadata is kept in [Stage_info], not inside the AST;}
-      {- constructors and provenance helpers live in [Ast_builders] / [Ast_provenance];}
-      {- small utilities live in [Ast_utils].}
-      {- a single program type (list of nodes) shared by all stages.}}
+   This module defines the core AST used across all passes. The design is: {ul {- immutable records
+   with small, predictable helpers;} {- explicit provenance on FO formulas (requires/ensures);} {-
+   node/transition attributes carry uids + invariants + injected stmts;} {- per‑pass metadata is
+   kept in [Stage_info], not inside the AST;} {- constructors and provenance helpers live in
+   [Ast_builders] / [Ast_provenance];} {- small utilities live in [Ast_utils].} {- a single program
+   type (list of nodes) shared by all stages.}}
 
-    Post‑parse modifications:
-    {ul
-      {- FO contracts are wrapped with provenance and ids ([fo_o]);}
-      {- attributes are filled/updated by passes (uids, invariants, ghost/monitor).}
-      {- LTL contracts (assumes/guarantees) remain plain [fo_ltl] in the pipeline.}}
+   Post‑parse modifications: {ul {- FO contracts are wrapped with provenance and ids ([fo_o]);} {-
+   attributes are filled/updated by passes (uids, invariants, ghost/monitor).} {- LTL contracts
+   (assumes/guarantees) remain plain [fo_ltl] in the pipeline.}}
 
-    Quick map (structural core):
-    {v
-      program -> node -> transition -> stmt
-               \-> assumes/guarantees (fo_ltl)
-               \-> requires/ensures (fo_o -> fo)
-    v}
+   Quick map (structural core): {v program -> node -> transition -> stmt \-> assumes/guarantees
+   (fo_ltl) \-> requires/ensures (fo_o -> fo) v}
 
-    Sections below follow the language structure: expressions, formulas,
-    statements, program structure, and utilities. *)
+   Sections below follow the language structure: expressions, formulas, statements, program
+   structure, and utilities. *)
 
-(** {1 Core Types} *)
+(* {1 Core Types} *)
 
-(** Identifier used for variables, nodes, states, etc. *)
+(* Identifier used for variables, nodes, states, etc. *)
 type ident = string
 
-(** Simple types for variables and expressions. *)
+(* Simple types for variables and expressions. *)
 type ty = TInt | TBool | TReal | TCustom of string
 
-(** Binary operators for expressions. Includes arithmetic, comparisons,
-    and boolean connectives used at the expression level. *)
+(* Binary operators for expressions. Includes arithmetic, comparisons, and boolean connectives used
+   at the expression level. *)
 type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
 
-(** Unary operators for expressions. *)
+(* Unary operators for expressions. *)
 type unop = Neg | Not
 
-(** Source location (1‑based lines/columns). *)
+(* Source location (1‑based lines/columns). *)
 type loc = { line : int; col : int; line_end : int; col_end : int }
 
-(** {2 Expressions}
-    Immediate expressions (current instant). *)
-type iexpr =
-  { iexpr : iexpr_desc; loc : loc option }
+(* {2 Expressions} Immediate expressions (current instant). *)
+type iexpr = { iexpr : iexpr_desc; loc : loc option }
+
 and iexpr_desc =
-    ILitInt of int
+  | ILitInt of int
   | ILitBool of bool
   | IVar of ident
   | IBin of binop * iexpr * iexpr
   | IUn of unop * iexpr
   | IPar of iexpr
 
-(** {2 Historical expressions}
-    Expressions with temporal operators (pre‑k). *)
-type hexpr =
-    HNow of iexpr
-  | HPreK of iexpr * int
+(* {2 Historical expressions} Expressions with temporal operators (pre‑k). *)
+type hexpr = HNow of iexpr | HPreK of iexpr * int
 
-(** Relational operators for FO formulas (over [hexpr]). *)
+(* Relational operators for FO formulas (over [hexpr]). *)
 type relop = REq | RNeq | RLt | RLe | RGt | RGe
 
-(** {1 Logical Formulas & Provenance} *)
-(** First‑order formulas used in requires/ensures and VC generation. *)
+(* {1 Logical Formulas & Provenance} *)
+(* First‑order formulas used in requires/ensures and VC generation. *)
 type fo =
-    FTrue
+  | FTrue
   | FFalse
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
@@ -95,9 +82,9 @@ type fo =
   | FOr of fo * fo
   | FImp of fo * fo
 
-(** Generic LTL (linear‑time temporal logic) formula over atoms of type ['a]. *)
+(* Generic LTL (linear‑time temporal logic) formula over atoms of type ['a]. *)
 type 'a ltl =
-    LTrue
+  | LTrue
   | LFalse
   | LAtom of 'a
   | LNot of 'a ltl
@@ -107,68 +94,55 @@ type 'a ltl =
   | LX of 'a ltl
   | LG of 'a ltl
 
-(** LTL over first‑order formulas. Used for assumes/guarantees. *)
+(* LTL over first‑order formulas. Used for assumes/guarantees. *)
 type fo_ltl = fo ltl
 
-(** {2 Provenance}
-    Provenance categories allow tracing a VC back to its source. *)
-type origin =
-    UserContract
-  | Monitor
-  | Coherency
-  | Compatibility
-  | Internal
+(* {2 Provenance} Provenance categories allow tracing a VC back to its source. *)
+type origin = UserContract | Monitor | Coherency | Compatibility | Internal
 
-(** First‑order formula annotated with provenance and optional location.
-    Rationale: this is the primary traceability hook in the pipeline. *)
-type fo_o = {
-  value : fo;
-  origin : origin option;
-  oid : int;
-  loc : loc option;
-}
+(* First‑order formula annotated with provenance and optional location. Rationale: this is the
+   primary traceability hook in the pipeline. *)
+type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option }
 
-
-(** {1 Statements & Invariants}
+(* {1 Statements & Invariants}
     Rationale: statements are the executable core, while invariants are the
     proof‑oriented facts injected by the monitor/contract passes. *)
-(** Executable statements. *)
-type stmt =
-  { stmt : stmt_desc; loc : loc option }
+(* Executable statements. *)
+type stmt = { stmt : stmt_desc; loc : loc option }
+
 and stmt_desc =
-    SAssign of ident * iexpr
+  | SAssign of ident * iexpr
   | SIf of iexpr * stmt list * stmt list
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
 
-(** User‑level monitor invariants (named expressions). *)
+(* User‑level monitor invariants (named expressions). *)
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show]
 
-(** Monitor state‑relation invariants. *)
+(* Monitor state‑relation invariants. *)
 type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show]
 
-(** {1 Per‑pass Metadata}
-    Moved to [Stage_info] (kept separate from the AST). *)
+(* {1 Per‑pass Metadata} Moved to [Stage_info] (kept separate from the AST). *)
 
-(** {1 Program Structure}
-    Rationale: a program is a list of normalized nodes; nodes and transitions
-    are the stable backbone that later passes enrich via attributes. *)
+(* {1 Program Structure} Rationale: a program is a list of normalized nodes; nodes and transitions
+   are the stable backbone that later passes enrich via attributes. *)
 
-(** Atomic LTL proposition (identifier). *)
+(* Atomic LTL proposition (identifier). *)
 type atom_ltl = ident ltl
 
-(** Variable declaration (name + type). *)
-type vdecl = { vname : ident; vty : ty; }
+(* Variable declaration (name + type). *)
+type vdecl = { vname : ident; vty : ty }
 
-(** Node‑level attributes and annotations populated by passes. *)
+(* Node‑level attributes and annotations populated by passes. *)
 type node_attrs = {
   uid : int option;
   invariants_user : invariant_user list;
   invariants_state_rel : invariant_state_rel list;
+  coherency_goals : fo_o list;
 }
 
-(** Transition‑level attributes and annotations populated by passes. *)
+(* Transition‑level attributes and annotations populated by passes. *)
 type transition_attrs = {
   uid : int option;
   ghost : stmt list;
@@ -176,7 +150,7 @@ type transition_attrs = {
   warnings : string list;
 }
 
-(** Normalized transition (post‑parse, used across passes). *)
+(* Normalized transition (post‑parse, used across passes). *)
 type transition = {
   src : ident;
   dst : ident;
@@ -187,7 +161,7 @@ type transition = {
   attrs : transition_attrs;
 }
 
-(** Normalized node (post‑parse, used across passes). *)
+(* Normalized node (post‑parse, used across passes). *)
 type node = {
   nname : ident;
   inputs : vdecl list;
@@ -202,11 +176,10 @@ type node = {
   attrs : node_attrs;
 }
 
-(** A program is a list of nodes. *)
+(* A program is a list of nodes. *)
 type program = node list
 
-(** {2 Utilities}
-    Utilities live in [Ast_utils]. *)
+(* {2 Utilities} Utilities live in [Ast_utils]. *)
 
-(** Debug string representation of a program (mainly for dumps). *)
+(* Debug string representation of a program (mainly for dumps). *)
 val show_program : program -> string

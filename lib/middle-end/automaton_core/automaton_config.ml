@@ -17,13 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 let monitor_log_enabled : bool =
-  match Sys.getenv_opt "OBCWHY3_LOG_MONITOR" with
-  | Some ("1" | "true" | "yes") -> true
-  | _ -> false
+  match Sys.getenv_opt "OBCWHY3_LOG_MONITOR" with Some ("1" | "true" | "yes") -> true | _ -> false
 
 let log_monitor fmt =
-  Printf.ksprintf
-    (fun s ->
-       if monitor_log_enabled then
-         prerr_endline ("[monitor] " ^ s))
-    fmt
+  Printf.ksprintf (fun s -> if monitor_log_enabled then prerr_endline ("[monitor] " ^ s)) fmt

@@ -16,12 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Per‑pass Metadata} *)
+(* {1 Per‑pass Metadata} *)
 
-(** Parser error payload. *)
+(* Parser error payload. *)
 type parse_error = { loc : Ast.loc option; message : string }
 
-(** Parsing metadata reported by the frontend. *)
+(* Parsing metadata reported by the frontend. *)
 type parse_info = {
   source_path : string option;
   text_hash : string option;
@@ -29,40 +29,40 @@ type parse_info = {
   warnings : string list;
 }
 
-(** Metadata produced by the monitor generation pass. *)
+(* Metadata produced by the monitor generation pass. *)
 type monitor_generation_info = {
   residual_state_count : int;
   residual_edge_count : int;
   warnings : string list;
 }
 
-(** Metadata produced by the contracts pass. *)
+(* Metadata produced by the contracts pass. *)
 type contracts_info = {
   contract_origin_map : (int * Ast.origin option) list;
   warnings : string list;
 }
 
-(** Metadata produced by the monitor instrumentation pass. *)
-type monitor_info = {
-  monitor_state_ctors : string list;
-  atom_count : int;
-  warnings : string list;
-}
+(* Metadata produced by the monitor instrumentation pass. *)
+type monitor_info = { monitor_state_ctors : string list; atom_count : int; warnings : string list }
 
-(** Metadata produced by the OBC+ generation pass. *)
+(* Metadata produced by the OBC+ generation pass. *)
 type obc_info = {
   ghost_locals_added : string list;
   pre_k_infos : string list list;
   warnings : string list;
 }
 
-(** Default (empty) parse metadata. *)
+(* Default (empty) parse metadata. *)
 val empty_parse_info : parse_info
-(** Default (empty) monitor generation metadata. *)
+
+(* Default (empty) monitor generation metadata. *)
 val empty_monitor_generation_info : monitor_generation_info
-(** Default (empty) contracts metadata. *)
+
+(* Default (empty) contracts metadata. *)
 val empty_contracts_info : contracts_info
-(** Default (empty) monitor injection metadata. *)
+
+(* Default (empty) monitor injection metadata. *)
 val empty_monitor_info : monitor_info
-(** Default (empty) OBC+ metadata. *)
+
+(* Default (empty) OBC+ metadata. *)
 val empty_obc_info : obc_info

@@ -16,22 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Concrete automaton type returned by the engine. *)
 type monitor_generation_automaton = Automaton_engine.automaton
+(* Concrete automaton type returned by the engine. *)
 
-(** Full build artifact for a node: atoms, spec, and automaton. *)
 type monitor_generation_build = {
-  atoms: Monitor_generation_atoms.monitor_generation_atoms;
-  atom_names: Ast.ident list;
-  spec: Ast.fo_ltl;
-  automaton: monitor_generation_automaton;
+  atoms : Monitor_generation_atoms.monitor_generation_atoms;
+  atom_names : Ast.ident list;
+  spec : Ast.fo_ltl;
+  automaton : monitor_generation_automaton;
 }
+(* Full build artifact for a node: atoms, spec, and automaton. *)
 
-(** Build, minimize, and group the monitor residual automaton. *)
 val build_monitor_automaton :
   atom_map:(Ast.fo * Ast.ident) list ->
   atom_names:Ast.ident list ->
-  Ast.fo_ltl -> monitor_generation_automaton
+  Ast.fo_ltl ->
+  monitor_generation_automaton
+(* Build, minimize, and group the monitor residual automaton. *)
 
-(** Collect monitor atoms, build the monitor spec, and construct the automaton. *)
 val build_monitor_for_node : Ast.node -> monitor_generation_build
+(* Collect monitor atoms, build the monitor spec, and construct the automaton. *)

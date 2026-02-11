@@ -20,19 +20,15 @@ open Ltl_valuation
 
 type guard = Automaton_types.guard
 
-let guard_is_true (g:guard) : bool =
+let guard_is_true (g : guard) : bool =
   List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) g
 
-let guard_to_formula (g:guard) : string =
+let guard_to_formula (g : guard) : string =
   match g with
   | [] -> "false"
   | _ when guard_is_true g -> "true"
-  | _ ->
+  | _ -> (
       let parts = List.map term_to_string g in
-      match parts with
-      | [] -> "false"
-      | [p] -> p
-      | _ -> String.concat " || " parts
+      match parts with [] -> "false" | [ p ] -> p | _ -> String.concat " || " parts)
 
-let guard_to_iexpr (g:guard) : Ast.iexpr =
-  terms_to_iexpr g |> simplify_iexpr
+let guard_to_iexpr (g : guard) : Ast.iexpr = terms_to_iexpr g |> simplify_iexpr

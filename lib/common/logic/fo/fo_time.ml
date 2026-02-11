@@ -19,64 +19,37 @@
 open Ast
 open Ast_builders
 
-let shift_hexpr_forward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
+let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   match h with
-  | HNow e ->
-      begin match as_var e with
-      | Some v when is_input v -> HPreK (e, 1)
-      | _ -> h
-      end
-  | HPreK (e, k) ->
-      HPreK (e, k + 1)
+  | HNow e -> begin match as_var e with Some v when is_input v -> HPreK (e, 1) | _ -> h end
+  | HPreK (e, k) -> HPreK (e, k + 1)
 
-let shift_hexpr_backward ~(is_input:ident -> bool) (h:hexpr) : hexpr =
+let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   match h with
-  | HNow e ->
-      begin match as_var e with
-      | Some v when is_input v -> HNow e
+  | HNow e -> begin match as_var e with Some v when is_input v -> HNow e | _ -> h end
+  | HPreK (e, k) -> begin
+      match as_var e with
+      | Some v when is_input v -> if k <= 1 then HNow e else HPreK (e, k - 1)
       | _ -> h
-      end
-  | HPreK (e, k) ->
-      begin match as_var e with
-      | Some v when is_input v ->
-          if k <= 1 then HNow e else HPreK (e, k - 1)
-      | _ -> h
-      end
+    end
 
-let rec shift_fo_forward_inputs ~(is_input:ident -> bool) (f:fo) : fo =
+let rec shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo) : fo =
   match f with
   | FTrue | FFalse -> f
   | FNot a -> FNot (shift_fo_forward_inputs ~is_input a)
-  | FAnd (a, b) ->
-      FAnd (shift_fo_forward_inputs ~is_input a,
-            shift_fo_forward_inputs ~is_input b)
-  | FOr (a, b) ->
-      FOr (shift_fo_forward_inputs ~is_input a,
-           shift_fo_forward_inputs ~is_input b)
-  | FImp (a, b) ->
-      FImp (shift_fo_forward_inputs ~is_input a,
-            shift_fo_forward_inputs ~is_input b)
-  | FRel (h1, r, h2) ->
-      FRel (shift_hexpr_forward ~is_input h1, r,
-            shift_hexpr_forward ~is_input h2)
-  | FPred (id, hs) ->
-      FPred (id, List.map (shift_hexpr_forward ~is_input) hs)
+  | FAnd (a, b) -> FAnd (shift_fo_forward_inputs ~is_input a, shift_fo_forward_inputs ~is_input b)
+  | FOr (a, b) -> FOr (shift_fo_forward_inputs ~is_input a, shift_fo_forward_inputs ~is_input b)
+  | FImp (a, b) -> FImp (shift_fo_forward_inputs ~is_input a, shift_fo_forward_inputs ~is_input b)
+  | FRel (h1, r, h2) -> FRel (shift_hexpr_forward ~is_input h1, r, shift_hexpr_forward ~is_input h2)
+  | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_forward ~is_input) hs)
 
-let rec shift_fo_backward_inputs ~(is_input:ident -> bool) (f:fo) : fo =
+let rec shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo) : fo =
   match f with
   | FTrue | FFalse -> f
   | FNot a -> FNot (shift_fo_backward_inputs ~is_input a)
-  | FAnd (a, b) ->
-      FAnd (shift_fo_backward_inputs ~is_input a,
-            shift_fo_backward_inputs ~is_input b)
-  | FOr (a, b) ->
-      FOr (shift_fo_backward_inputs ~is_input a,
-           shift_fo_backward_inputs ~is_input b)
-  | FImp (a, b) ->
-      FImp (shift_fo_backward_inputs ~is_input a,
-            shift_fo_backward_inputs ~is_input b)
+  | FAnd (a, b) -> FAnd (shift_fo_backward_inputs ~is_input a, shift_fo_backward_inputs ~is_input b)
+  | FOr (a, b) -> FOr (shift_fo_backward_inputs ~is_input a, shift_fo_backward_inputs ~is_input b)
+  | FImp (a, b) -> FImp (shift_fo_backward_inputs ~is_input a, shift_fo_backward_inputs ~is_input b)
   | FRel (h1, r, h2) ->
-      FRel (shift_hexpr_backward ~is_input h1, r,
-            shift_hexpr_backward ~is_input h2)
-  | FPred (id, hs) ->
-      FPred (id, List.map (shift_hexpr_backward ~is_input) hs)
+      FRel (shift_hexpr_backward ~is_input h1, r, shift_hexpr_backward ~is_input h2)
+  | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_backward ~is_input) hs)

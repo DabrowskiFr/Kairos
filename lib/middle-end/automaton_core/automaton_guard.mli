@@ -16,13 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Guard Helpers} *)
+(* {1 Guard Helpers} *)
 
 type guard = Automaton_types.guard
-(** DNF guard (list of implicants). *)
+(* DNF guard (list of implicants). *)
 
 val guard_to_formula : guard -> string
-(** Render a guard as a boolean formula string. *)
+(* Render a guard as a boolean formula string. *)
 
 val guard_to_iexpr : guard -> Ast.iexpr
-(** Convert a guard into an iexpr formula. *)
+(* Convert a guard into an iexpr formula. *)

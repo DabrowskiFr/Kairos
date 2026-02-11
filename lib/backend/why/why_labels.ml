@@ -20,32 +20,24 @@
 
 open Why3
 
-let normalize_label (label:string) : string =
-  if label = "User contract" then
-    "user"
-  else if label = "User contracts coherency" || label = "User constract coherency" then
-    "coherency"
-  else if label = "" then
-    "Other"
-  else
-    label
+let normalize_label (label : string) : string =
+  if label = "User contract" then "user"
+  else if label = "User contracts coherency" || label = "User constract coherency" then "coherency"
+  else if label = "" then "Other"
+  else label
 
-let sanitize_label (label:string) : string =
+let sanitize_label (label : string) : string =
   let b = Buffer.create (String.length label) in
   String.iter
     (fun c ->
-       if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') then
-         Buffer.add_char b (Char.lowercase_ascii c)
-       else
-         Buffer.add_char b '_')
+      if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') then
+        Buffer.add_char b (Char.lowercase_ascii c)
+      else Buffer.add_char b '_')
     label;
   Buffer.contents b
 
-let attr_string (label:string) : string =
-  "origin:" ^ sanitize_label (normalize_label label)
-
-let attr_for_label (label:string) : Ident.attribute =
-  Ident.create_attribute (attr_string label)
+let attr_string (label : string) : string = "origin:" ^ sanitize_label (normalize_label label)
+let attr_for_label (label : string) : Ident.attribute = Ident.create_attribute (attr_string label)
 
 let known_labels : string list =
   [
@@ -72,7 +64,7 @@ let known_labels : string list =
 let label_attrs : (string * Ident.attribute) list =
   List.map (fun lbl -> (lbl, attr_for_label lbl)) known_labels
 
-let label_of_attrs (attrs:Ident.Sattr.t) : string option =
+let label_of_attrs (attrs : Ident.Sattr.t) : string option =
   List.find_map
     (fun (label, attr) -> if Ident.Sattr.mem attr attrs then Some label else None)
     label_attrs

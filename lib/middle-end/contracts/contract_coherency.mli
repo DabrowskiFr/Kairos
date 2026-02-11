@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Contract Coherency} *)
+(* {1 Contract Coherency} *)
 
-(** Add post-conditions that imply successor requires (user contracts only). *)
-val ensure_next_requires : Ast.node -> Ast.node
-
-(** Add coherency constraints derived from user contracts. *)
 val user_contracts_coherency : Ast.node -> Ast.node
+(* Add coherency constraints derived from user-provided transition contracts (requires/ensures),
+   across compatible state-successor transitions. Generated obligations are stored in
+   [node.attrs.coherency_goals] with origin [Coherency] (they are not injected in transition
+   ensures). *)

@@ -16,24 +16,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 BDD Helpers} *)
+(* {1 BDD Helpers} *)
 
 val bdd_false : int
-(** BDD false constant. *)
+
+(* BDD false constant. *)
 val bdd_true : int
-(** BDD true constant. *)
+
+(* BDD true constant. *)
 val bdd_var : int -> int
-(** Build a BDD variable by index. *)
+
+(* Build a BDD variable by index. *)
 val bdd_not : int -> int
-(** Logical negation of a BDD. *)
+
+(* Logical negation of a BDD. *)
 val bdd_and : int -> int -> int
-(** Logical conjunction of two BDDs. *)
+
+(* Logical conjunction of two BDDs. *)
 val bdd_or : int -> int -> int
-(** Logical disjunction of two BDDs. *)
+(* Logical disjunction of two BDDs. *)
 
 val bdd_to_formula : string list -> int -> string
-(** Convert a BDD into a boolean formula string. *)
+
+(* Convert a BDD into a boolean formula string. *)
 val bdd_to_iexpr : string list -> int -> Ast.iexpr
-(** Convert a BDD into an iexpr formula. *)
+
+(* Convert a BDD into an iexpr formula. *)
 val bdd_to_guard : string list -> int -> Automaton_types.guard
-(** Convert a BDD into a DNF guard. *)
+(* Convert a BDD into a DNF guard. *)

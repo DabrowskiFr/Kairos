@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 Automaton Configuration} *)
+(* {1 Automaton Configuration} *)
 
 val monitor_log_enabled : bool
-(** True when monitor logging is enabled via [OBCWHY3_LOG_MONITOR]. *)
+(* True when monitor logging is enabled via [OBCWHY3_LOG_MONITOR]. *)
 
 val log_monitor : ('a, unit, string, unit) format4 -> 'a
-(** Log a monitor message when logging is enabled. *)
+(* Log a monitor message when logging is enabled. *)

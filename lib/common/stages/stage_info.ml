@@ -17,26 +17,27 @@
  *---------------------------------------------------------------------------*)
 
 type parse_error = { loc : Ast.loc option; message : string }
+
 type parse_info = {
   source_path : string option;
   text_hash : string option;
   parse_errors : parse_error list;
   warnings : string list;
 }
+
 type monitor_generation_info = {
   residual_state_count : int;
   residual_edge_count : int;
   warnings : string list;
 }
+
 type contracts_info = {
   contract_origin_map : (int * Ast.origin option) list;
   warnings : string list;
 }
-type monitor_info = {
-  monitor_state_ctors : string list;
-  atom_count : int;
-  warnings : string list;
-}
+
+type monitor_info = { monitor_state_ctors : string list; atom_count : int; warnings : string list }
+
 type obc_info = {
   ghost_locals_added : string list;
   pre_k_infos : string list list;
@@ -45,11 +46,10 @@ type obc_info = {
 
 let empty_parse_info : parse_info =
   { source_path = None; text_hash = None; parse_errors = []; warnings = [] }
+
 let empty_monitor_generation_info : monitor_generation_info =
   { residual_state_count = 0; residual_edge_count = 0; warnings = [] }
-let empty_contracts_info : contracts_info =
-  { contract_origin_map = []; warnings = [] }
-let empty_monitor_info : monitor_info =
-  { monitor_state_ctors = []; atom_count = 0; warnings = [] }
-let empty_obc_info : obc_info =
-  { ghost_locals_added = []; pre_k_infos = []; warnings = [] }
+
+let empty_contracts_info : contracts_info = { contract_origin_map = []; warnings = [] }
+let empty_monitor_info : monitor_info = { monitor_state_ctors = []; atom_count = 0; warnings = [] }
+let empty_obc_info : obc_info = { ghost_locals_added = []; pre_k_infos = []; warnings = [] }

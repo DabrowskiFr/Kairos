@@ -16,14 +16,11 @@ let task_spans vc_text =
         let task = String.sub vc_text start (next - start) in
         scan next ((start, next, task) :: acc)
       with Not_found ->
-        if pos = 0 then
-          if len > 0 then [ (0, len, vc_text) ] else []
-        else List.rev acc
+        if pos = 0 then if len > 0 then [ (0, len, vc_text) ] else [] else List.rev acc
   in
   scan 0 []
 
-let split_tasks vc_text =
-  task_spans vc_text |> List.map (fun (_, _, task) -> task)
+let split_tasks vc_text = task_spans vc_text |> List.map (fun (_, _, task) -> task)
 
 let extract_goal_sources vc_text =
   let tbl = Hashtbl.create 64 in
@@ -36,22 +33,16 @@ let extract_goal_sources vc_text =
       let label =
         List.find_map
           (fun line ->
-            if Str.string_match comment_re line 0 then
-              Some (Str.matched_group 2 line)
-            else None)
+            if Str.string_match comment_re line 0 then Some (Str.matched_group 2 line) else None)
           lines
         |> Option.value ~default:""
       in
       let goal =
         List.find_map
           (fun line ->
-            if Str.string_match goal_re line 0 then
-              Some (Str.matched_group 1 line)
-            else None)
+            if Str.string_match goal_re line 0 then Some (Str.matched_group 1 line) else None)
           lines
       in
-      match goal with
-      | None -> ()
-      | Some g -> if label <> "" then Hashtbl.replace tbl g label)
+      match goal with None -> () | Some g -> if label <> "" then Hashtbl.replace tbl g label)
     tasks;
   tbl

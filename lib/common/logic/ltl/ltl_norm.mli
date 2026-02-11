@@ -16,9 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** {1 LTL Normalization} *)
+(* {1 LTL Normalization} *)
 
 val nnf_ltl : ?neg:bool -> Ast.fo_ltl -> Ast.fo_ltl
-(** Convert an LTL formula into negation normal form. *)
+
+(* Convert an LTL formula into negation normal form. *)
 val simplify_ltl : Ast.fo_ltl -> Ast.fo_ltl
-(** Simplify LTL formulas via boolean rewrites. *)
+(* Simplify LTL formulas via boolean rewrites. *)

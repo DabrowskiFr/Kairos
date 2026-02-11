@@ -1,6 +1,5 @@
 let stage_monitor_generation = Middle_end_stages.stage_monitor_generation
-let stage_monitor_generation_with_info =
-  Middle_end_stages.stage_monitor_generation_with_info
+let stage_monitor_generation_with_info = Middle_end_stages.stage_monitor_generation_with_info
 let stage_contracts = Middle_end_stages.stage_contracts
 let stage_contracts_with_info = Middle_end_stages.stage_contracts_with_info
 let stage_monitor_injection = Middle_end_stages.stage_monitor_injection

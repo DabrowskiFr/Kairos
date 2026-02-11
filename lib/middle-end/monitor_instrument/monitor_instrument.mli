@@ -16,15 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
+(* Monitor state constructor name for a given index (e.g. Mon0, Mon1). *)
 val monitor_state_ctor : int -> string
 
-(** Instrument a node with monitor support (standard compilation). *)
+(* Instrument a node with monitor support (standard compilation). *)
 val transform_node : build:Monitor_generation.monitor_generation_build -> Ast.node -> Ast.node
 
-(** Instrument a node, but only for monitor‑specific code paths. *)
-val transform_node_monitor : build:Monitor_generation.monitor_generation_build -> Ast.node -> Ast.node
-(** Instrument a node and return detailed monitor metadata. *)
+(* Instrument a node, but only for monitor‑specific code paths. *)
+val transform_node_monitor :
+  build:Monitor_generation.monitor_generation_build -> Ast.node -> Ast.node
+
+(* Instrument a node and return detailed monitor metadata. *)
 val transform_node_monitor_with_info :
   build:Monitor_generation.monitor_generation_build ->
-  Ast.node -> Ast.node * Stage_info.monitor_info
+  Ast.node ->
+  Ast.node * Stage_info.monitor_info

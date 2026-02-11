@@ -1,14 +1,7 @@
-type stage_id =
-  | Parsed
-  | Automaton
-  | Contracts
-  | Monitor
-  | Obc
-  | Why
-  | Prove
+type stage_id = Parsed | Automaton | Contracts | Monitor | Obc | Why | Prove
 
-let ast_stages = [Parsed; Automaton; Contracts; Monitor; Obc]
-let all = ast_stages @ [Why; Prove]
+let ast_stages = [ Parsed; Automaton; Contracts; Monitor; Obc ]
+let all = ast_stages @ [ Why; Prove ]
 
 let to_string = function
   | Parsed -> "parsed"
@@ -37,5 +30,5 @@ let of_string = function
   | other ->
       Error
         ("Unknown stage for --dump-ast. Use: "
-         ^ String.concat "|" (List.map to_string ast_stages)
-         ^ " (got " ^ other ^ ")")
+        ^ String.concat "|" (List.map to_string ast_stages)
+        ^ " (got " ^ other ^ ")")
