@@ -13,24 +13,25 @@ let stage_monitor_generation (p : Stage_types.parsed) :
     Stage_types.parsed * monitor_generation_stage =
   Monitor_generation.run p ()
 
-let stage_contracts_with_info ((p, automata) : Stage_types.parsed * monitor_generation_stage) :
+let stage_contracts_with_info ((p, automata) : Stage_types.monitor_stage * monitor_generation_stage)
+    :
     Stage_types.contracts_stage * monitor_generation_stage * Stage_info.contracts_info =
   Contracts.run_with_info p automata
 
-let stage_contracts ((p, automata) : Stage_types.parsed * monitor_generation_stage) :
+let stage_contracts ((p, automata) : Stage_types.monitor_stage * monitor_generation_stage) :
     Stage_types.contracts_stage * monitor_generation_stage =
   Contracts.run p automata
 
 let stage_monitor_injection_with_info
-    ((p, automata) : Stage_types.contracts_stage * monitor_generation_stage) :
+    ((p, automata) : Stage_types.parsed * monitor_generation_stage) :
     Stage_types.monitor_stage * monitor_generation_stage * Stage_info.monitor_info =
   Monitor.run_with_info p automata
 
-let stage_monitor_injection ((p, automata) : Stage_types.contracts_stage * monitor_generation_stage)
+let stage_monitor_injection ((p, automata) : Stage_types.parsed * monitor_generation_stage)
     : Stage_types.monitor_stage * monitor_generation_stage =
   Monitor.run p automata
 
-let run (p : Stage_types.parsed) : Stage_types.monitor_stage * monitor_generation_stage =
+let run (p : Stage_types.parsed) : Stage_types.contracts_stage * monitor_generation_stage =
   let p, automata = stage_monitor_generation p in
-  let p, automata = stage_contracts (p, automata) in
-  stage_monitor_injection (p, automata)
+  let p, automata = stage_monitor_injection (p, automata) in
+  stage_contracts (p, automata)

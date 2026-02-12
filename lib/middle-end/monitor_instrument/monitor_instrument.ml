@@ -363,6 +363,45 @@ let simplify_mon_state_implications (fs : fo_o list) : fo_o list =
         fs
   | _ -> fs
 
+(* Sub-pass 1: inject executable monitor code into transitions. *)
+let inject_monitor_code ~(monitor_updates : stmt list) ~(monitor_asserts : stmt list)
+    (trans : transition list) : transition list =
+  List.map
+    (fun (t : transition) ->
+      let monitor = t.attrs.monitor @ monitor_updates @ monitor_asserts in
+      { t with attrs = { t.attrs with monitor } })
+    trans
+
+(* Sub-pass 2: add no-bad-state contracts on transitions. *)
+let add_not_bad_state_contracts ?(log : (transition -> fo -> unit) option = None)
+    ~(bad_state_fo_opt : fo option) (trans : transition list) : transition list =
+  match bad_state_fo_opt with
+  | None -> trans
+  | Some bad_fo ->
+      List.map
+        (fun (t : transition) ->
+          Option.iter (fun l -> l t bad_fo) log;
+          {
+            t with
+            requires = t.requires @ [ Ast_provenance.with_origin Monitor bad_fo ];
+            ensures = t.ensures @ [ Ast_provenance.with_origin Monitor bad_fo ];
+          })
+        trans
+
+(* Sub-pass 3: add monitor/program compatibility requirements. *)
+let add_monitor_compatibility_requires ?(log : (transition -> fo -> unit) option = None)
+    ~(incoming_prev_fo_shifted : fo list) (trans : transition list) : transition list =
+  if incoming_prev_fo_shifted = [] then trans
+  else
+    List.map
+      (fun (t : transition) ->
+        List.iter (fun f -> Option.iter (fun l -> l t f) log) incoming_prev_fo_shifted;
+        let incoming_prev_o =
+          List.map (Ast_provenance.with_origin Compatibility) incoming_prev_fo_shifted
+        in
+        { t with requires = t.requires @ incoming_prev_o })
+      trans
+
 let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
     Ast.node * Stage_info.monitor_info =
   let is_input = Ast_utils.is_input_of_node n in
@@ -502,55 +541,19 @@ let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
   in
   let monitor_updates = monitor_update_stmts atom_map_exprs states grouped in
   let monitor_asserts = monitor_assert bad_idx in
+  (* Explicitly sequence the monitor stage in 3 sub-passes:
+     1) monitor code injection, 2) no-bad-state contracts, 3) compatibility contracts. *)
+  let trans = inject_monitor_code ~monitor_updates ~monitor_asserts n.trans in
   let trans =
-    List.map
-      (fun (t : transition) ->
-        let t =
-          match bad_state_fo_opt with
-          | None -> t
-          | Some bad_fo ->
-              let () = log_contract ~reason:"no_bad_state (require)" ~t bad_fo in
-              let () = log_contract ~reason:"no_bad_state (ensure)" ~t bad_fo in
-              {
-                t with
-                requires = t.requires @ [ Ast_provenance.with_origin Monitor bad_fo ];
-                ensures = t.ensures @ [ Ast_provenance.with_origin Monitor bad_fo ];
-              }
-        in
-        let t =
-          let reqs =
-            if incoming_prev_fo_shifted = [] then t.requires
-            else (
-              List.iter (log_contract ~reason:"monitor_pre (compat)" ~t) incoming_prev_fo_shifted;
-              let incoming_prev_o =
-                List.map (Ast_provenance.with_origin Compatibility) incoming_prev_fo_shifted
-              in
-              t.requires @ incoming_prev_o)
-          in
-          let ens = t.ensures in
-          let reqs =
-            List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) reqs
-          in
-          let ens =
-            List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) ens
-          in
-          { t with requires = reqs; ensures = ens }
-        in
-        let monitor = t.attrs.monitor @ monitor_updates @ monitor_asserts in
-        { t with attrs = { t.attrs with monitor } })
-      n.trans
+    add_not_bad_state_contracts
+      ~log:(Some (fun t f ->
+        log_contract ~reason:"no_bad_state (require/ensure)" ~t f))
+      ~bad_state_fo_opt trans
   in
   let trans =
-    List.map
-      (fun (t : transition) ->
-        let reqs =
-          List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) t.requires
-        in
-        let ens =
-          List.map (Ast_provenance.map_with_origin (inline_fo_atoms atom_map_exprs)) t.ensures
-        in
-        { t with requires = reqs; ensures = ens })
-      trans
+    add_monitor_compatibility_requires
+      ~log:(Some (fun t f -> log_contract ~reason:"monitor_pre (compat)" ~t f))
+      ~incoming_prev_fo_shifted trans
   in
   let trans =
     add_state_invariants_to_transitions ~invariants_state_rel:compat_invariants

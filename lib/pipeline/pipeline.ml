@@ -259,29 +259,29 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
-        if log then Log.stage_start Stage_names.Contracts;
-        let p_contracts, automata, contracts_info =
-          (p_automaton, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
-          (reid_program p, stage, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Contracts
-            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-            (program_stats p_contracts);
-        let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Monitor;
         let p_monitor, automata, monitor_info =
-          (p_contracts, automata) |> Middle_end.stage_monitor_injection_with_info
+          (p_automaton, automata) |> Middle_end.stage_monitor_injection_with_info
           |> fun (p, stage, info) -> (reid_program p, stage, info)
         in
         if log then
           Log.stage_end Stage_names.Monitor
-            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
             (program_stats p_monitor);
+        let t3 = Unix.gettimeofday () in
+        if log then Log.stage_start Stage_names.Contracts;
+        let p_contracts, automata, contracts_info =
+          (p_monitor, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
+          (reid_program p, stage, info)
+        in
+        if log then
+          Log.stage_end Stage_names.Contracts
+            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (program_stats p_contracts);
         let t4 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Obc;
         let p_obc, obc_info =
-          p_monitor |> Obc_stage.run_with_info |> fun (p, info) -> (reid_program p, info)
+          p_contracts |> Obc_stage.run_with_info |> fun (p, info) -> (reid_program p, info)
         in
         if log then
           Log.stage_end Stage_names.Obc

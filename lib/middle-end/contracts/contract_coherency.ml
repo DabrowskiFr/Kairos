@@ -20,6 +20,11 @@ open Ast
 open Fo_specs
 open Fo_time
 
+let is_user_contract (f : fo_o) : bool =
+  match f.origin with Some UserContract -> true | _ -> false
+
+let user_formulas (fs : fo_o list) : fo_o list = List.filter is_user_contract fs
+
 let rec collect_pre_k_fo (f : fo) : (ident * int) list =
   let from_hexpr = function
     | HNow _ -> []
@@ -125,10 +130,12 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
         match Hashtbl.find_opt min_step t.src, Hashtbl.find_opt min_step t.dst with
         | Some src_d, Some dst_d ->
             let req_errs =
-              List.concat_map (check_formula ~phase:"require" ~bound:src_d ~tr:t) t.requires
+              List.concat_map (check_formula ~phase:"require" ~bound:src_d ~tr:t)
+                (user_formulas t.requires)
             in
             let ens_errs =
-              List.concat_map (check_formula ~phase:"ensure" ~bound:dst_d ~tr:t) t.ensures
+              List.concat_map (check_formula ~phase:"ensure" ~bound:dst_d ~tr:t)
+                (user_formulas t.ensures)
             in
             req_errs @ ens_errs
         | _ -> [])
@@ -218,12 +225,14 @@ let user_contracts_coherency (n:Ast.node) : Ast.node =
     trans_indexed;
   let user_requires =
     Array.of_list
-      (List.map (fun (t:transition) -> Ast_provenance.values (t.requires))
+      (List.map
+         (fun (t:transition) -> Ast_provenance.values (user_formulas t.requires))
          (n.trans))
   in
   let user_ensures =
     Array.of_list
-      (List.map (fun (t:transition) -> Ast_provenance.values (t.ensures))
+      (List.map
+         (fun (t:transition) -> Ast_provenance.values (user_formulas t.ensures))
          (n.trans))
   in
   let shift_req f = shift_fo_backward_inputs ~is_input f in

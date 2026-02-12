@@ -19,10 +19,9 @@ let stage_items (stage : Stage_names.stage_id) : string list =
       [ "pair T to T' ensures with next T' to T'' requires"; "shift requires by one step" ]
   | Stage_names.Monitor ->
       [
-        "add bad-state guards";
-        "add monitor pre-conditions";
-        "add program/monitor compatibility";
         "inject monitor code into OBC";
+        "add no-bad-state requires/ensures";
+        "add program/monitor compatibility";
       ]
   | Stage_names.Obc -> [ "add ghost history variables"; "materialize pre_k as locals" ]
   | Stage_names.Why -> [ "build Why3 AST"; "emit Why3 code" ]

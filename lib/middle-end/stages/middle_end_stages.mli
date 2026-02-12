@@ -9,19 +9,19 @@ module Monitor_generation :
      and type stage_out = Monitor_generation_pass_sig.stage
      and type info = Stage_info.monitor_generation_info
 
-(* Contracts pass: adds coherency/compatibility constraints. *)
+(* Contracts pass: adds user contract coherency constraints. *)
 module Contracts :
   Middle_end_pass.S
-    with type ast_in = Stage_types.parsed
+    with type ast_in = Stage_types.monitor_stage
      and type ast_out = Stage_types.contracts_stage
      and type stage_in = Monitor_generation_pass_sig.stage
      and type stage_out = Monitor_generation_pass_sig.stage
      and type info = Stage_info.contracts_info
 
-(* Monitor injection pass: instruments transitions using automata. *)
+(* Monitor pass: instruments transitions using automata. *)
 module Monitor :
   Middle_end_pass.S
-    with type ast_in = Stage_types.contracts_stage
+    with type ast_in = Stage_types.parsed
      and type ast_out = Stage_types.monitor_stage
      and type stage_in = Monitor_generation_pass_sig.stage
      and type stage_out = Monitor_generation_pass_sig.stage
@@ -38,25 +38,26 @@ val stage_monitor_generation_with_info :
   Stage_types.parsed ->
   Stage_types.parsed * monitor_generation_stage * Stage_info.monitor_generation_info
 
-(* Add user contract coherency/compatibility constraints. *)
+(* Add user contract coherency constraints (after monitor instrumentation). *)
 val stage_contracts :
-  Stage_types.parsed * monitor_generation_stage ->
+  Stage_types.monitor_stage * monitor_generation_stage ->
   Stage_types.contracts_stage * monitor_generation_stage
 
-(* Add user contract coherency/compatibility constraints + metadata. *)
+(* Add user contract coherency constraints + metadata. *)
 val stage_contracts_with_info :
-  Stage_types.parsed * monitor_generation_stage ->
+  Stage_types.monitor_stage * monitor_generation_stage ->
   Stage_types.contracts_stage * monitor_generation_stage * Stage_info.contracts_info
 
-(* Inject monitor-related contracts into transitions. *)
+(* Run monitor pass (code injection -> no-bad-state -> compatibility). *)
 val stage_monitor_injection :
-  Stage_types.contracts_stage * monitor_generation_stage ->
+  Stage_types.parsed * monitor_generation_stage ->
   Stage_types.monitor_stage * monitor_generation_stage
 
-(* Inject monitor-related contracts into transitions + metadata. *)
+(* Run monitor pass + metadata. *)
 val stage_monitor_injection_with_info :
-  Stage_types.contracts_stage * monitor_generation_stage ->
+  Stage_types.parsed * monitor_generation_stage ->
   Stage_types.monitor_stage * monitor_generation_stage * Stage_info.monitor_info
 
-(* Compose all middle-end stages in order. *)
-val run : Stage_types.parsed -> Stage_types.monitor_stage * monitor_generation_stage
+(* Compose all middle-end stages in order:
+   monitor generation -> monitor pass -> contracts pass. *)
+val run : Stage_types.parsed -> Stage_types.contracts_stage * monitor_generation_stage

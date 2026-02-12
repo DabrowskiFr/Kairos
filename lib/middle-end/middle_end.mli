@@ -1,4 +1,4 @@
-(* Middle‑end stage combinators (monitor generation → contracts → injection). *)
+(* Middle‑end stage combinators (monitor generation → monitor pass → contracts). *)
 
 (* Run monitor generation (automata) without extra metadata. *)
 val stage_monitor_generation :
@@ -11,28 +11,28 @@ val stage_monitor_generation_with_info :
   * Middle_end_stages.monitor_generation_stage
   * Stage_info.monitor_generation_info
 
-(* Run the contracts pass (coherency/compatibility). *)
+(* Run the contracts pass (user contract coherency). *)
 val stage_contracts :
-  Stage_types.parsed * Middle_end_stages.monitor_generation_stage ->
+  Stage_types.monitor_stage * Middle_end_stages.monitor_generation_stage ->
   Stage_types.contracts_stage * Middle_end_stages.monitor_generation_stage
 
 (* Run the contracts pass and collect metadata. *)
 val stage_contracts_with_info :
-  Stage_types.parsed * Middle_end_stages.monitor_generation_stage ->
+  Stage_types.monitor_stage * Middle_end_stages.monitor_generation_stage ->
   Stage_types.contracts_stage
   * Middle_end_stages.monitor_generation_stage
   * Stage_info.contracts_info
 
-(* Run monitor injection (instrument transitions). *)
+(* Run monitor pass (instrument code, then add no-bad-state and compatibility obligations). *)
 val stage_monitor_injection :
-  Stage_types.contracts_stage * Middle_end_stages.monitor_generation_stage ->
+  Stage_types.parsed * Middle_end_stages.monitor_generation_stage ->
   Stage_types.monitor_stage * Middle_end_stages.monitor_generation_stage
 
 (* Run monitor injection and collect metadata. *)
 val stage_monitor_injection_with_info :
-  Stage_types.contracts_stage * Middle_end_stages.monitor_generation_stage ->
+  Stage_types.parsed * Middle_end_stages.monitor_generation_stage ->
   Stage_types.monitor_stage * Middle_end_stages.monitor_generation_stage * Stage_info.monitor_info
 
 (* Compose all middle‑end stages in order. *)
 val run :
-  Stage_types.parsed -> Stage_types.monitor_stage * Middle_end_stages.monitor_generation_stage
+  Stage_types.parsed -> Stage_types.contracts_stage * Middle_end_stages.monitor_generation_stage

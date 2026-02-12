@@ -1,6 +1,6 @@
 type stage_id = Parsed | Automaton | Contracts | Monitor | Obc | Why | Prove
 
-let ast_stages = [ Parsed; Automaton; Contracts; Monitor; Obc ]
+let ast_stages = [ Parsed; Automaton; Monitor; Contracts; Obc ]
 let all = ast_stages @ [ Why; Prove ]
 
 let to_string = function
@@ -15,8 +15,8 @@ let to_string = function
 let description = function
   | Parsed -> "after parsing"
   | Automaton -> "after monitor automaton generation"
+  | Monitor -> "after monitor pass"
   | Contracts -> "after user contract coherency"
-  | Monitor -> "after monitor injection"
   | Obc -> "after OBC stage"
   | Why -> "after Why3 generation"
   | Prove -> "after Why3 proof"

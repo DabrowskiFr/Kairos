@@ -39,8 +39,8 @@ let dump_ast_all ~(dir : string) ~(parsed : Ast.program) ~(automaton : Ast.progr
         in
         write_stage Stage_names.Parsed parsed;
         write_stage Stage_names.Automaton automaton;
-        write_stage Stage_names.Contracts contracts;
         write_stage Stage_names.Monitor monitor;
+        write_stage Stage_names.Contracts contracts;
         write_stage Stage_names.Obc obc;
         Ok ()
 
