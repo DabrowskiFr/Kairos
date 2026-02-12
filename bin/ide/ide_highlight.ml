@@ -15,6 +15,7 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
       "returns";
       "guarantee";
       "assume";
+      "contracts";
       "locals";
       "states";
       "invariants";
@@ -22,6 +23,7 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
       "in";
       "init";
       "trans";
+      "when";
       "requires";
       "ensures";
       "if";
@@ -121,6 +123,7 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
       "returns";
       "guarantee";
       "assume";
+      "contracts";
       "locals";
       "states";
       "invariants";
@@ -128,6 +131,7 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
       "in";
       "init";
       "trans";
+      "when";
       "requires";
       "ensures";
       "if";

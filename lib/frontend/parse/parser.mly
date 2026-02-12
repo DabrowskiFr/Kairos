@@ -17,17 +17,30 @@ let mk_iexpr_loc start_pos end_pos desc =
   Ast_builders.mk_iexpr ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_stmt_loc start_pos end_pos desc =
   Ast_builders.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
+
+let resolve_init_state ~(inline_init:Ast.ident option) ~(explicit_init:Ast.ident option) : Ast.ident =
+  match (inline_init, explicit_init) with
+  | Some s, None | None, Some s -> s
+  | Some s1, Some s2 when String.equal s1 s2 -> s1
+  | Some s1, Some s2 ->
+      failwith
+        (Printf.sprintf
+           "ambiguous init state: inline init is '%s' but explicit init is '%s'" s1 s2)
+  | None, None -> failwith "missing init state: use 'init S' or mark a state with '(init)'"
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
 %token REQUIRES ENSURES ASSUME GUARANTEE
 %token INVARIANT IN
 %token INVARIANTS
+%token CONTRACTS
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP
+%token WHEN
 %token TRUE FALSE
 %token TINT TBOOL TREAL
 %token PRE
+%token PREK
 %token AND OR NOT
 %token G X
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
@@ -37,6 +50,9 @@ let mk_stmt_loc start_pos end_pos desc =
 %token <int> INT
 %token <string> IDENT
 %token EOF
+
+%nonassoc IEXPR_ARITH
+%nonassoc RPAREN
 
 %start <Ast.program> program
 
@@ -52,12 +68,14 @@ nodes:
 node:
   NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN node_contracts_opt instances_opt
   LOCALS vdecls_opt
-  STATES state_list SEMI
-  INIT IDENT
+  STATES state_decls SEMI
+  init_decl_opt
   state_invariants_opt
   TRANS transitions
   END
   {
+    let states, inline_init = $15 in
+    let init_state = resolve_init_state ~inline_init ~explicit_init:$17 in
     Ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
@@ -66,11 +84,11 @@ node:
       ~guarantees:(snd $10)
       ~instances:$11
       ~locals:$13
-      ~states:$15
-      ~init_state:$18
-      ~trans:$21
+      ~states
+      ~init_state
+      ~trans:$20
     |> fun n ->
-      { n with attrs = { n.attrs with invariants_state_rel = $19 } }
+      { n with attrs = { n.attrs with invariants_state_rel = $18 } }
   }
 
 params_opt:
@@ -93,6 +111,8 @@ ty:
 node_contracts_opt:
   | /* empty */ { ([], []) }
   | node_contracts { $1 }
+  | CONTRACTS { ([], []) }
+  | CONTRACTS node_contracts { $2 }
 
 instances_opt:
   | /* empty */ { [] }
@@ -128,15 +148,43 @@ vdecls_opt:
   | vdecls { $1 }
 
 vdecls:
-  | vdecl vdecls { $1 :: $2 }
-  | vdecl { [$1] }
+  | vdecl_group vdecls { $1 @ $2 }
+  | vdecl_group { $1 }
 
-vdecl:
-  IDENT COLON ty SEMI { {vname=$1; vty=$3} }
+vdecl_group:
+  ident_list COLON ty SEMI { List.map (fun name -> {vname=name; vty=$3}) $1 }
 
-state_list:
-  | IDENT COMMA state_list { $1 :: $3 }
+ident_list:
+  | IDENT COMMA ident_list { $1 :: $3 }
   | IDENT { [$1] }
+
+state_decls:
+  | state_decl COMMA state_decls {
+      let s, i = $1 in
+      let ss, ii = $3 in
+      let init_opt =
+        match (i, ii) with
+        | None, x | x, None -> x
+        | Some a, Some b when String.equal a b -> Some a
+        | Some a, Some b ->
+            failwith
+              (Printf.sprintf
+                 "multiple inline init states are not allowed: '%s' and '%s'" a b)
+      in
+      (s :: ss, init_opt)
+    }
+  | state_decl {
+      let s, i = $1 in
+      ([s], i)
+    }
+
+state_decl:
+  | IDENT { ($1, None) }
+  | IDENT LPAREN INIT RPAREN { ($1, Some $1) }
+
+init_decl_opt:
+  | /* empty */ { None }
+  | INIT IDENT { Some $2 }
 
 state_invariants_opt:
   | /* empty */ { [] }
@@ -183,6 +231,19 @@ transition:
 guard_opt:
   | /* empty */ { None }
   | LBRACK iexpr RBRACK { Some $2 }
+  | LBRACK TRUE RBRACK {
+      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true))
+    }
+  | LBRACK FALSE RBRACK {
+      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false))
+    }
+  | WHEN iexpr { Some $2 }
+  | WHEN TRUE {
+      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true))
+    }
+  | WHEN FALSE {
+      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false))
+    }
 
 stmt_list_opt:
   | /* empty */ { [] }
@@ -194,7 +255,23 @@ stmt_list:
 
 stmt:
   | IDENT ASSIGN iexpr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
+  | IDENT ASSIGN TRUE {
+      let e = mk_iexpr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ILitBool true) in
+      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
+    }
+  | IDENT ASSIGN FALSE {
+      let e = mk_iexpr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ILitBool false) in
+      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
+    }
   | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf($2,$4,$6)) }
+  | IF TRUE THEN stmt_list_opt ELSE stmt_list_opt END {
+      let c = mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true) in
+      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
+    }
+  | IF FALSE THEN stmt_list_opt ELSE stmt_list_opt END {
+      let c = mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false) in
+      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
+    }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSkip }
   | CALL IDENT LPAREN iexpr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SCall($2, $4, $8)) }
@@ -228,10 +305,8 @@ trans_contracts:
 (* arithmetic expressions without booleans *)
 arith_atom:
   | INT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitInt $1) }
-  | TRUE { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitBool true) }
-  | FALSE { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitBool false) }
   | IDENT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (IVar $1) }
-  | LPAREN iexpr RPAREN { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IPar $2) }
+  | LPAREN arith RPAREN { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IPar $2) }
 
 arith_unary:
   | MINUS arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Neg,$2)) }
@@ -248,22 +323,18 @@ arith:
   | arith_mul { $1 }
 
 
-(* boolean/relational expressions over arith, layered to avoid precedence conflicts *)
-iexpr_tail_opt:
-  | relop arith {
-      fun lhs ->
-        match $1 with
-        | REq -> Ast_builders.mk_iexpr (IBin(Eq, lhs, $2))
-        | RNeq -> Ast_builders.mk_iexpr (IBin(Neq, lhs, $2))
-        | RLt -> Ast_builders.mk_iexpr (IBin(Lt, lhs, $2))
-        | RLe -> Ast_builders.mk_iexpr (IBin(Le, lhs, $2))
-        | RGt -> Ast_builders.mk_iexpr (IBin(Gt, lhs, $2))
-        | RGe -> Ast_builders.mk_iexpr (IBin(Ge, lhs, $2))
-    }
-  | /* empty */ { fun lhs -> lhs }
-
 iexpr_atom:
-  | arith iexpr_tail_opt { $2 $1 }
+  | LPAREN iexpr RPAREN { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IPar $2) }
+  | arith relop arith {
+      match $2 with
+      | REq -> Ast_builders.mk_iexpr (IBin(Eq, $1, $3))
+      | RNeq -> Ast_builders.mk_iexpr (IBin(Neq, $1, $3))
+      | RLt -> Ast_builders.mk_iexpr (IBin(Lt, $1, $3))
+      | RLe -> Ast_builders.mk_iexpr (IBin(Le, $1, $3))
+      | RGt -> Ast_builders.mk_iexpr (IBin(Gt, $1, $3))
+      | RGe -> Ast_builders.mk_iexpr (IBin(Ge, $1, $3))
+    }
+  | arith %prec IEXPR_ARITH { $1 }
 
 iexpr_not:
   | NOT iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Not,$2)) }
@@ -298,10 +369,10 @@ id_list:
   | IDENT { [$1] }
 
 hexpr:
+  | arith { HNow $1 }
   | LBRACE iexpr RBRACE { HNow $2 }
   | PRE LPAREN iexpr RPAREN { HPreK($3, 1) }
-  | IDENT LPAREN iexpr COMMA INT RPAREN
-      { if $1 = "pre_k" then HPreK($3,$5) else failwith "unknown history op" }
+  | PREK LPAREN iexpr COMMA INT RPAREN { HPreK($3, $5) }
 
 ltl_atom:
   | fo_atom_noparen { LAtom $1 }

@@ -22,12 +22,14 @@ let () =
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
+      ("contracts", CONTRACTS);
       ("instance", INSTANCE);
       ("instances", INSTANCES);
       ("call", CALL);
       ("if", IF);
       ("then", THEN);
       ("else", ELSE);
+      ("when", WHEN);
       ("skip", SKIP);
       ("true", TRUE);
       ("false", FALSE);
@@ -35,6 +37,7 @@ let () =
       ("bool", TBOOL);
       ("real", TREAL);
       ("pre", PRE);
+      ("pre_k", PREK);
       ("and", AND);
       ("or", OR);
       ("not", NOT);
@@ -70,12 +73,14 @@ let expected_tokens : (string * Parser.token) list =
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);
+    ("contracts", CONTRACTS);
     ("instance", INSTANCE);
     ("instances", INSTANCES);
     ("call", CALL);
     ("if", IF);
     ("then", THEN);
     ("else", ELSE);
+    ("when", WHEN);
     ("skip", SKIP);
     ("true", TRUE);
     ("false", FALSE);
@@ -83,6 +88,7 @@ let expected_tokens : (string * Parser.token) list =
     ("bool", TBOOL);
     ("real", TREAL);
     ("pre", PRE);
+    ("pre_k", PREK);
     ("and", AND);
     ("or", OR);
     ("not", NOT);
@@ -120,6 +126,9 @@ let rec token lexbuf =
   | Plus (Chars " \t\r\n") ->
       let s = Sedlexing.Utf8.lexeme lexbuf in
       String.iter (fun c -> if c = '\n' then Sedlexing.new_line lexbuf) s;
+      token lexbuf
+  | "//", Star (Compl '\n') ->
+      ignore (set_lexeme lexbuf);
       token lexbuf
   | "(*" ->
       comment lexbuf;
