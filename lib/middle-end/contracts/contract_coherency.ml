@@ -228,25 +228,23 @@ let user_contracts_coherency (n:Ast.node) : Ast.node =
   in
   let shift_req f = shift_fo_backward_inputs ~is_input f in
   let add_coherency (i:int) (t:transition) =
-    match conj_fo user_ensures.(i) with
-    | None -> t
-    | Some ens_conj ->
-        let next =
-          Hashtbl.find_opt by_src (t.dst) |> Option.value ~default:[]
-        in
-        let new_ensures =
-          List.concat_map
-            (fun j ->
-               List.map (fun r -> FImp (ens_conj, shift_req r)) user_requires.(j))
-            next
-        in
-        if new_ensures = [] then t
-        else
-          let new_ensures_o =
-            List.map (Ast_provenance.with_origin Coherency) new_ensures
-          in
-          { t with
-            ensures = t.ensures @ new_ensures_o }
+    let antecedent = Option.value ~default:FTrue (conj_fo user_ensures.(i)) in
+    let next =
+      Hashtbl.find_opt by_src (t.dst) |> Option.value ~default:[]
+    in
+    let new_ensures =
+      List.concat_map
+        (fun j ->
+           List.map (fun r -> FImp (antecedent, shift_req r)) user_requires.(j))
+        next
+    in
+    if new_ensures = [] then t
+    else
+      let new_ensures_o =
+        List.map (Ast_provenance.with_origin Coherency) new_ensures
+      in
+      { t with
+        ensures = t.ensures @ new_ensures_o }
   in
   let trans =
     List.map (fun (i, t) -> add_coherency i t) trans_indexed
