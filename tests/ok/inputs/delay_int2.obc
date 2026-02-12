@@ -6,25 +6,22 @@ locals
 states
   Init1, Init2, Run;
 init Init1
+invariants
+  in Init2:
+    {prev1} = pre_k(x, 1);
+  in Run:
+    {prev1} = pre_k(x, 1);
+    {prev2} = pre_k(x,2);
 trans
   Init1 -> Init2 {
-    ensures {prev1} = {x};
-    ensures {prev2} = {0};
     prev1 := x;
     prev2 := 0;
   }
   Init2 -> Run {
-    requires {prev1} = pre_k(x, 1);
-    ensures {prev1} = {x};
-    ensures {prev2} = pre_k(x, 1);
     prev2 := prev1;
     prev1 := x;
   }
   Run -> Run {
-    requires {prev1} = pre_k(x, 1);
-    requires {prev2} = pre_k(x,2);
-    ensures {prev1} = {x};
-    ensures {prev2} = pre_k(x, 1);
     y := prev2;
     prev2 := prev1;
     prev1 := x;

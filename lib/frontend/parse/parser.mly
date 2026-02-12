@@ -21,6 +21,8 @@ let mk_stmt_loc start_pos end_pos desc =
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
 %token REQUIRES ENSURES ASSUME GUARANTEE
+%token INVARIANT IN
+%token INVARIANTS
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP
 %token TRUE FALSE
@@ -52,6 +54,7 @@ node:
   LOCALS vdecls_opt
   STATES state_list SEMI
   INIT IDENT
+  state_invariants_opt
   TRANS transitions
   END
   {
@@ -65,7 +68,9 @@ node:
       ~locals:$13
       ~states:$15
       ~init_state:$18
-      ~trans:$20
+      ~trans:$21
+    |> fun n ->
+      { n with attrs = { n.attrs with invariants_state_rel = $19 } }
   }
 
 params_opt:
@@ -132,6 +137,31 @@ vdecl:
 state_list:
   | IDENT COMMA state_list { $1 :: $3 }
   | IDENT { [$1] }
+
+state_invariants_opt:
+  | /* empty */ { [] }
+  | state_invariants { $1 }
+
+state_invariants:
+  | INVARIANTS invariant_entries { $2 }
+  | state_invariant state_invariants { $1 @ $2 }
+  | state_invariant { $1 }
+
+state_invariant:
+  | INVARIANT IN IDENT COLON invariant_formula_list
+      { List.map (fun f -> { is_eq = true; state = $3; formula = f }) $5 }
+
+invariant_entries:
+  | invariant_entry invariant_entries { $1 @ $2 }
+  | invariant_entry { $1 }
+
+invariant_entry:
+  | IN IDENT COLON invariant_formula_list
+      { List.map (fun f -> { is_eq = true; state = $2; formula = f }) $4 }
+
+invariant_formula_list:
+  | fo_formula SEMI invariant_formula_list { $1 :: $3 }
+  | fo_formula SEMI { [$1] }
 
 transitions:
   | transition transitions { $1 :: $2 }

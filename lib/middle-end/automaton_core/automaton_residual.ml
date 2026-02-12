@@ -33,17 +33,16 @@ let atom_eq_var_const (a : fo) : (ident * string) option =
   let as_var (e : iexpr) : ident option = match e.iexpr with IVar v -> Some v | _ -> None in
   match a with
   | FRel (HNow e1, REq, HNow e2) -> begin
-      match as_var e1, const_key e2 with
+      match (as_var e1, const_key e2) with
       | Some v, Some k -> Some (v, k)
       | _ -> begin
-          match const_key e1, as_var e2 with
-          | Some k, Some v -> Some (v, k)
-          | _ -> None
+          match (const_key e1, as_var e2) with Some k, Some v -> Some (v, k) | _ -> None
         end
     end
   | _ -> None
 
-let mutex_constraint_bdd ~(atom_map : (fo * ident) list) ~(index_tbl : (string, int) Hashtbl.t) : int =
+let mutex_constraint_bdd ~(atom_map : (fo * ident) list) ~(index_tbl : (string, int) Hashtbl.t) :
+    int =
   let by_var : (ident, (string * ident) list) Hashtbl.t = Hashtbl.create 16 in
   List.iter
     (fun (a, name) ->
@@ -67,9 +66,9 @@ let mutex_constraint_bdd ~(atom_map : (fo * ident) list) ~(index_tbl : (string, 
             (fun (c1, n1) ->
               entries
               |> List.filter_map (fun (c2, n2) ->
-                     if c1 = c2 || n1 = n2 then None
-                     else if compare n1 n2 < 0 then Some (n1, n2)
-                     else Some (n2, n1)))
+                  if c1 = c2 || n1 = n2 then None
+                  else if compare n1 n2 < 0 then Some (n1, n2)
+                  else Some (n2, n1)))
             entries
         in
         let pairs = List.sort_uniq compare pairs in

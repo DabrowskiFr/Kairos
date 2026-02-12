@@ -58,6 +58,5 @@ val stage_monitor_injection_with_info :
   Stage_types.parsed * monitor_generation_stage ->
   Stage_types.monitor_stage * monitor_generation_stage * Stage_info.monitor_info
 
-(* Compose all middle-end stages in order:
-   monitor generation -> monitor pass -> contracts pass. *)
+(* Compose all middle-end stages in order: monitor generation -> monitor pass -> contracts pass. *)
 val run : Stage_types.parsed -> Stage_types.contracts_stage * monitor_generation_stage

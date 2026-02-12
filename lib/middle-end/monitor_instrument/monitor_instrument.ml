@@ -541,13 +541,12 @@ let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
   in
   let monitor_updates = monitor_update_stmts atom_map_exprs states grouped in
   let monitor_asserts = monitor_assert bad_idx in
-  (* Explicitly sequence the monitor stage in 3 sub-passes:
-     1) monitor code injection, 2) no-bad-state contracts, 3) compatibility contracts. *)
+  (* Explicitly sequence the monitor stage in 3 sub-passes: 1) monitor code injection, 2)
+     no-bad-state contracts, 3) compatibility contracts. *)
   let trans = inject_monitor_code ~monitor_updates ~monitor_asserts n.trans in
   let trans =
     add_not_bad_state_contracts
-      ~log:(Some (fun t f ->
-        log_contract ~reason:"no_bad_state (require/ensure)" ~t f))
+      ~log:(Some (fun t f -> log_contract ~reason:"no_bad_state (require/ensure)" ~t f))
       ~bad_state_fo_opt trans
   in
   let trans =

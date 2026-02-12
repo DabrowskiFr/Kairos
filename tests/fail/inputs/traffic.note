@@ -1,4 +1,0 @@
-Analysis
-- The proof fails because there is no logical link between the program state and the output color.
-- Monitor/program compatibility requires facts about "color" in the pre-state, but color is unconstrained without contracts.
-- A minimal fix is to require color to match the current state (Green->0, Yellow->1, Red->2), or to add an invariant expressing that mapping.

@@ -19,6 +19,9 @@ let () =
       ("ensures", ENSURES);
       ("assume", ASSUME);
       ("guarantee", GUARANTEE);
+      ("invariant", INVARIANT);
+      ("invariants", INVARIANTS);
+      ("in", IN);
       ("instance", INSTANCE);
       ("instances", INSTANCES);
       ("call", CALL);
@@ -64,6 +67,9 @@ let expected_tokens : (string * Parser.token) list =
     ("ensures", ENSURES);
     ("assume", ASSUME);
     ("guarantee", GUARANTEE);
+    ("invariant", INVARIANT);
+    ("invariants", INVARIANTS);
+    ("in", IN);
     ("instance", INSTANCE);
     ("instances", INSTANCES);
     ("call", CALL);

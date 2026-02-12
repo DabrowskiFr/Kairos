@@ -24,15 +24,28 @@ let is_user_contract (f : fo_o) : bool =
   match f.origin with Some UserContract -> true | _ -> false
 
 let user_formulas (fs : fo_o list) : fo_o list = List.filter is_user_contract fs
+let dedup_fo (xs : fo list) : fo list = List.sort_uniq compare xs
+let monitor_state_var = "__mon_state"
+
+let rec fo_mentions_var (v : ident) (f : fo) : bool =
+  let hexpr_mentions_var = function
+    | HNow e | HPreK (e, _) -> begin
+        match e.iexpr with
+        | IVar v' -> String.equal v v'
+        | _ -> false
+      end
+  in
+  match f with
+  | FTrue | FFalse -> false
+  | FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
+  | FPred (_, hs) -> List.exists hexpr_mentions_var hs
+  | FNot a -> fo_mentions_var v a
+  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_mentions_var v a || fo_mentions_var v b
 
 let rec collect_pre_k_fo (f : fo) : (ident * int) list =
   let from_hexpr = function
     | HNow _ -> []
-    | HPreK (e, k) -> begin
-        match e.iexpr with
-        | IVar v -> [ (v, k) ]
-        | _ -> []
-      end
+    | HPreK (e, k) -> begin match e.iexpr with IVar v -> [ (v, k) ] | _ -> [] end
   in
   match f with
   | FTrue | FFalse -> []
@@ -103,9 +116,7 @@ let min_step_by_state_monitor_aware (n : node) (automaton : Automaton_engine.aut
   done;
   dist_state
 
-let format_loc = function
-  | None -> "<unknown>"
-  | Some l -> Printf.sprintf "%d:%d" l.line l.col
+let format_loc = function None -> "<unknown>" | Some l -> Printf.sprintf "%d:%d" l.line l.col
 
 let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
   let min_step =
@@ -117,24 +128,26 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
     let pre_ks = collect_pre_k_fo foo.value in
     pre_ks
     |> List.filter_map (fun (v, k) ->
-           if k <= bound then None
-           else
-             Some
-               (Printf.sprintf
-                  "node %s, transition %s->%s, %s at %s: pre_k(%s,%d) is not defined before step %d"
-                  n.nname tr.src tr.dst phase (format_loc foo.loc) v k bound))
+        if k <= bound then None
+        else
+          Some
+            (Printf.sprintf
+               "node %s, transition %s->%s, %s at %s: pre_k(%s,%d) is not defined before step %d"
+               n.nname tr.src tr.dst phase (format_loc foo.loc) v k bound))
   in
   let errors =
     List.concat_map
       (fun (t : transition) ->
-        match Hashtbl.find_opt min_step t.src, Hashtbl.find_opt min_step t.dst with
+        match (Hashtbl.find_opt min_step t.src, Hashtbl.find_opt min_step t.dst) with
         | Some src_d, Some dst_d ->
             let req_errs =
-              List.concat_map (check_formula ~phase:"require" ~bound:src_d ~tr:t)
+              List.concat_map
+                (check_formula ~phase:"require" ~bound:src_d ~tr:t)
                 (user_formulas t.requires)
             in
             let ens_errs =
-              List.concat_map (check_formula ~phase:"ensure" ~bound:dst_d ~tr:t)
+              List.concat_map
+                (check_formula ~phase:"ensure" ~bound:dst_d ~tr:t)
                 (user_formulas t.ensures)
             in
             req_errs @ ens_errs
@@ -150,112 +163,91 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
       in
       failwith (header ^ "\n" ^ String.concat "\n" errors)
 
-let succ_requires_by_state (n:node) : (ident, fo list) Hashtbl.t =
-  (* Index successor requires by source state for quick lookup per dst. *)
-  let tbl : (ident, fo list) Hashtbl.t = Hashtbl.create 16 in
+let user_ensures_by_target_state (n : node) : (ident, fo list) Hashtbl.t =
+  let by_dst = Hashtbl.create 16 in
   List.iter
-    (fun (t:transition) ->
-      List.iter
-        (fun f ->
-          let existing =
-            Hashtbl.find_opt tbl (t.src)
-            |> Option.value ~default:[]
-          in
-          Hashtbl.replace tbl (t.src) (f :: existing))
-        (Ast_provenance.values (t.requires)))
-    (n.trans);
-  tbl
+    (fun (t : transition) ->
+      let user_ens = Ast_provenance.values (user_formulas t.ensures) in
+      if user_ens <> [] then
+        let existing = Hashtbl.find_opt by_dst t.dst |> Option.value ~default:[] in
+        Hashtbl.replace by_dst t.dst (dedup_fo (user_ens @ existing)))
+    n.trans;
+  by_dst
 
-let updated_transitions ~(is_input:ident -> bool)
-  ~(succ_requires_by_state:(ident, fo list) Hashtbl.t)
-  (trans:transition list) : transition list =
-  (* Add ensures derived from successor requires. *)
-  let uniq lst =
-    List.sort_uniq compare lst
+let declared_state_invariants (n : node) : (ident, fo list) Hashtbl.t =
+  let by_state = Hashtbl.create 16 in
+  List.iter
+    (fun (inv : invariant_state_rel) ->
+      if inv.is_eq && List.mem inv.state n.states && not (fo_mentions_var monitor_state_var inv.formula)
+      then
+        let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
+        Hashtbl.replace by_state inv.state (dedup_fo (inv.formula :: existing)))
+    n.attrs.invariants_state_rel;
+  by_state
+
+let state_invariant_from_node (n : node) : ident -> fo option =
+  let from_declared = declared_state_invariants n in
+  let by_dst = user_ensures_by_target_state n in
+  fun st ->
+    let from_declared = Hashtbl.find_opt from_declared st |> Option.value ~default:[] in
+    let from_ensures = Hashtbl.find_opt by_dst st |> Option.value ~default:[] in
+    let all = dedup_fo (from_declared @ from_ensures) in
+    conj_fo all
+
+let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo option) : node =
+  let existing = n.attrs.invariants_state_rel in
+  let has_inv st f =
+    List.exists (fun inv -> inv.is_eq && inv.state = st && inv.formula = f) existing
   in
-  List.map
-    (fun (t:transition) ->
-      let succ_reqs =
-        Hashtbl.find_opt succ_requires_by_state (t.dst)
-        |> Option.value ~default:[]
-        |> uniq
-      in
-      let ensures_all = Ast_provenance.values (t.ensures) in
-      let new_ensures =
-        match conj_fo ensures_all with
-        | None -> []
-        | Some ensures_conj ->
-            let shifted_req req =
-              shift_fo_backward_inputs ~is_input req
-            in
-            let has_ensure f =
-              List.exists (fun f' -> f' = f) ensures_all
-            in
-            succ_reqs
-            |> List.map (fun req -> FImp (ensures_conj, shifted_req req))
-            |> List.filter (fun f -> not (has_ensure f))
-      in
-      if new_ensures = [] then t
-      else
-        let new_ensures_o =
-          List.map (Ast_provenance.with_origin Coherency) new_ensures
+  let extra =
+    n.states
+    |> List.filter_map (fun st ->
+        match inv_of_state st with
+        | None -> None
+        | Some f when has_inv st f -> None
+        | Some f -> Some { is_eq = true; state = st; formula = f })
+  in
+  if extra = [] then n
+  else { n with attrs = { n.attrs with invariants_state_rel = existing @ extra } }
+
+let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo option) : node =
+  let is_input = Ast_utils.is_input_of_node n in
+  let shift_inv inv = shift_fo_backward_inputs ~is_input inv in
+  let add_unique_formula (origin : origin) (f : fo) (xs : fo_o list) : fo_o list =
+    if List.exists (fun (x : fo_o) -> x.value = f) xs then xs
+    else xs @ [ Ast_provenance.with_origin origin f ]
+  in
+  let trans =
+    List.map
+      (fun (t : transition) ->
+        let requires =
+          match inv_of_state t.src with
+          | None -> t.requires
+          | Some inv -> add_unique_formula Coherency inv t.requires
         in
-        { t with
-          ensures = t.ensures @ new_ensures_o; })
-    trans
-
-let ensure_next_requires (n:Ast.node) : Ast.node =
-  let succ_requires_by_state = succ_requires_by_state n in
-  let is_input v = List.exists (fun vi -> vi.vname = v) (n.inputs) in
-  let trans =
-    updated_transitions ~is_input ~succ_requires_by_state (n.trans)
+        let ensures =
+          match inv_of_state t.dst with
+          | None -> t.ensures
+          | Some inv -> add_unique_formula Coherency (shift_inv inv) t.ensures
+        in
+        if requires == t.requires && ensures == t.ensures then t else { t with requires; ensures })
+      n.trans
   in
   { n with trans }
 
-let user_contracts_coherency (n:Ast.node) : Ast.node =
-  let is_input v = List.exists (fun vi -> vi.vname = v) (n.inputs) in
-  let trans_indexed = List.mapi (fun i t -> (i, t)) (n.trans) in
-  let by_src = Hashtbl.create 16 in
-  List.iter
-    (fun (i, t) ->
-       let lst =
-         Hashtbl.find_opt by_src (t.src) |> Option.value ~default:[]
-       in
-       Hashtbl.replace by_src (t.src) (i :: lst))
-    trans_indexed;
-  let user_requires =
-    Array.of_list
-      (List.map
-         (fun (t:transition) -> Ast_provenance.values (user_formulas t.requires))
-         (n.trans))
-  in
-  let user_ensures =
-    Array.of_list
-      (List.map
-         (fun (t:transition) -> Ast_provenance.values (user_formulas t.ensures))
-         (n.trans))
-  in
-  let shift_req f = shift_fo_backward_inputs ~is_input f in
-  let add_coherency (i:int) (t:transition) =
-    let antecedent = Option.value ~default:FTrue (conj_fo user_ensures.(i)) in
-    let next =
-      Hashtbl.find_opt by_src (t.dst) |> Option.value ~default:[]
-    in
-    let new_ensures =
-      List.concat_map
-        (fun j ->
-           List.map (fun r -> FImp (antecedent, shift_req r)) user_requires.(j))
-        next
-    in
-    if new_ensures = [] then t
-    else
-      let new_ensures_o =
-        List.map (Ast_provenance.with_origin Coherency) new_ensures
-      in
-      { t with
-        ensures = t.ensures @ new_ensures_o }
-  in
-  let trans =
-    List.map (fun (i, t) -> add_coherency i t) trans_indexed
-  in
-  { n with trans }
+let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> fo option) : node =
+  let is_input = Ast_utils.is_input_of_node n in
+  match inv_of_state n.init_state with
+  | None -> n
+  | Some inv ->
+      let init_goal = shift_fo_backward_inputs ~is_input inv in
+      Ast_utils.add_new_coherency_goals n [ init_goal ]
+
+let ensure_next_requires (n : Ast.node) : Ast.node =
+  let inv_of_state = state_invariant_from_node n in
+  n
+  |> inject_state_invariant_contracts ~inv_of_state
+  |> add_state_invariants_in_attrs ~inv_of_state
+  |> add_initial_invariant_goal ~inv_of_state
+
+let user_contracts_coherency (n : Ast.node) : Ast.node = ensure_next_requires n

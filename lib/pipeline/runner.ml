@@ -68,9 +68,7 @@ let run (cfg : config) : (unit, string) result =
       match r_check with
       | Error _ as err -> err
       | Ok () -> (
-          let obc =
-            if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc
-          in
+          let obc = if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc in
           let r0 =
             match cfg.dump_ast_stage with
             | None -> Ok ()

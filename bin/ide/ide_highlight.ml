@@ -14,8 +14,12 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
       "node";
       "returns";
       "guarantee";
+      "assume";
       "locals";
       "states";
+      "invariants";
+      "invariant";
+      "in";
       "init";
       "trans";
       "requires";
@@ -116,8 +120,12 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
       "node";
       "returns";
       "guarantee";
+      "assume";
       "locals";
       "states";
+      "invariants";
+      "invariant";
+      "in";
       "init";
       "trans";
       "requires";

@@ -1297,12 +1297,9 @@ let () =
       ~text:(string_of_int !prefs.Ide_config.timeout_s)
       ~width_chars:4 ~packing:options_group#pack ()
   in
-  let smoke_toolbar_check =
-    GButton.check_button ~label:"Smoke" ~packing:options_group#pack ()
-  in
+  let smoke_toolbar_check = GButton.check_button ~label:"Smoke" ~packing:options_group#pack () in
   smoke_toolbar_check#set_active !prefs.Ide_config.smoke_tests;
-  smoke_toolbar_check#misc#set_tooltip_text
-    "Inject smoke obligations (ensure false) during prove";
+  smoke_toolbar_check#misc#set_tooltip_text "Inject smoke obligations (ensure false) during prove";
 
   let apply_prefs_to_editor_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in
   let apply_prefs_to_runtime_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in

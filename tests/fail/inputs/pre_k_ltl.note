@@ -1,7 +1,0 @@
-Note
-- These are counterexamples where `pre_k` appears in LTL guarantees without enough leading `X`.
-- Files:
-  - `pre_k_ltl_invalid_no_x_k1.obc`
-  - `pre_k_ltl_invalid_x1_k2.obc`
-- Semantically, they should be rejected because history is not yet defined on early phases.
-- With the current pipeline, this is not rejected at the LTL level (only transition contracts are checked).
