@@ -430,6 +430,7 @@ let source_of_fo ~(is_require : bool) (f : fo_o) : string =
   | Some UserContract -> "user"
   | Some Coherency -> "user contracts coherency"
   | Some Compatibility -> "monitor/program compatibility"
+  | Some AssumeAutomaton -> "assumption automaton"
   | Some Monitor -> if is_require then "monitor pre-condition" else "monitor post-condition"
   | Some Internal -> "internal"
   | None -> (
@@ -444,6 +445,7 @@ let source_order (s : string) : int =
   | "user" -> 0
   | "user contracts coherency" -> 1
   | "monitor/program compatibility" -> 2
+  | "assumption automaton" -> 3
   | "no bad state" -> 3
   | "monitor pre-condition" -> 4
   | "monitor post-condition" -> 5
@@ -451,6 +453,129 @@ let source_order (s : string) : int =
   | "monitor atom definition" -> 7
   | "monitor state" -> 8
   | _ -> 9
+
+type bool_lit = Pos of string * int | Neg of string * int
+
+let eq_var_int (f : fo) : (string * int) option =
+  match f with
+  | FRel (HNow a, REq, HNow b) -> begin
+      match (a.iexpr, b.iexpr) with
+      | IVar v, ILitInt c -> Some (v, c)
+      | ILitInt c, IVar v -> Some (v, c)
+      | _ -> None
+    end
+  | _ -> None
+
+let rec and_terms (f : fo) : fo list = match f with FAnd (a, b) -> and_terms a @ and_terms b | _ -> [ f ]
+let rec or_terms (f : fo) : fo list = match f with FOr (a, b) -> or_terms a @ or_terms b | _ -> [ f ]
+
+let bool_lit_of_fo (f : fo) : bool_lit option =
+  match f with
+  | FNot inner -> Option.map (fun (v, c) -> Neg (v, c)) (eq_var_int inner)
+  | _ -> Option.map (fun (v, c) -> Pos (v, c)) (eq_var_int f)
+
+let collect_some (xs : 'a option list) : 'a list option =
+  List.fold_right
+    (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
+    xs (Some [])
+
+let decode_bool_choice (lits : bool_lit list) : (string * int) list option =
+  let tbl = Hashtbl.create 16 in
+  let add v c is_pos =
+    let v0, n0, v1, n1 =
+      Hashtbl.find_opt tbl v |> Option.value ~default:(false, false, false, false)
+    in
+    let next =
+      match (c, is_pos) with
+      | 0, true -> (true, n0, v1, n1)
+      | 0, false -> (v0, true, v1, n1)
+      | 1, true -> (v0, n0, true, n1)
+      | 1, false -> (v0, n0, v1, true)
+      | _ -> (v0, n0, v1, n1)
+    in
+    Hashtbl.replace tbl v next
+  in
+  List.iter
+    (function
+      | Pos (v, c) when c = 0 || c = 1 -> add v c true
+      | Neg (v, c) when c = 0 || c = 1 -> add v c false
+      | _ -> ())
+    lits;
+  let bad =
+    List.exists
+      (function
+        | Pos (_, c) | Neg (_, c) -> c <> 0 && c <> 1)
+      lits
+  in
+  if bad then None
+  else
+    let out = ref [] in
+    let ok = ref true in
+    Hashtbl.iter
+      (fun v (v0, n0, v1, n1) ->
+        if v0 && n1 && not (v1 || n0) then out := (v, 0) :: !out
+        else if v1 && n0 && not (v0 || n1) then out := (v, 1) :: !out
+        else ok := false)
+      tbl;
+    if !ok then Some !out else None
+
+let simplify_assume_dnf_bool_domain (f : fo) : fo =
+  let terms = or_terms f in
+  let decoded =
+    List.map
+      (fun t ->
+        match and_terms t |> List.map bool_lit_of_fo |> collect_some with
+        | None -> None
+        | Some lits -> decode_bool_choice lits)
+      terms
+  in
+  match collect_some decoded with
+  | None -> f
+  | Some choices -> begin
+      match choices with
+      | [] -> f
+      | first :: _ ->
+          let vars = List.map fst first |> List.sort_uniq String.compare in
+          let per_term_same_vars =
+            List.for_all
+              (fun ch -> List.sort_uniq String.compare (List.map fst ch) = vars)
+              choices
+          in
+          if not per_term_same_vars then f
+          else
+            let tbl = Hashtbl.create 32 in
+            let key_of_choice ch =
+              ch
+              |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+              |> List.map (fun (_v, c) -> string_of_int c)
+              |> String.concat ","
+            in
+            List.iter (fun ch -> Hashtbl.replace tbl (key_of_choice ch) true) choices;
+            let expected = 1 lsl List.length vars in
+            if Hashtbl.length tbl <> expected then f
+            else
+              let var_formula v =
+                FOr
+                  ( FRel (HNow (mk_var v), REq, HNow (mk_int 0)),
+                    FRel (HNow (mk_var v), REq, HNow (mk_int 1)) )
+              in
+              (match vars with
+              | [] -> f
+              | v :: rest -> List.fold_left (fun acc x -> FAnd (acc, var_formula x)) (var_formula v) rest)
+    end
+
+let simplify_for_display (f : fo) : fo =
+  match f with
+  | FImp (cond, body) -> FImp (cond, simplify_assume_dnf_bool_domain body)
+  | _ -> simplify_assume_dnf_bool_domain f
+
+let string_of_fo_display (f : fo) : string = string_of_fo (simplify_for_display f)
+
+let debug_contract_ids =
+  ref (match Sys.getenv_opt "OBC2WHY3_DEBUG_CONTRACT_IDS" with Some "1" -> true | _ -> false)
+
+let set_debug_contract_ids (b : bool) : unit = debug_contract_ids := b
+let debug_contract_ids_enabled () : bool = !debug_contract_ids
 
 let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> iexpr)
     ~(vars : ident list) ~(label_counters : label_counters) ~(label_align_col : int option) :
@@ -467,6 +592,7 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
   let header = indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {" in
   let requires_labeled = List.map (fun f -> (f, next_req_label ())) t.requires in
   let ensures_labeled = List.map (fun f -> (f, next_ens_label ())) t.ensures in
+  let debug_ids = debug_contract_ids_enabled () in
   let build_block ~is_require items =
     let items =
       List.map (fun (f, label) -> (source_of_fo ~is_require f, f, label)) items
@@ -484,9 +610,17 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
           let vcid_line = [] in
           let line =
             let kw = if is_require then "assumes " else "guarantees " in
-            indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
+            indent_str (indent + 1) ^ kw ^ string_of_fo_display f.value ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
+          let line =
+            if not debug_ids then line
+            else
+              let src = source_of_fo ~is_require f in
+              let kind = if is_require then "req" else "ens" in
+              Printf.sprintf "%s  (* %s oid=%d src=%s %s->%s *)" line kind f.oid src t.src
+                t.dst
+          in
           let line =
             match label_align_col with
             | None -> line ^ "  (* " ^ label ^ " *)"
@@ -589,7 +723,7 @@ let node_lines (n : node) : string list =
   let label_align_col =
     let base_line_len is_require f =
       let kw = if is_require then "assumes " else "guarantees " in
-      let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
+      let line = indent_str 3 ^ kw ^ string_of_fo_display f ^ ";" in
       String.length (prettify_pre_old ~init_for_var ~vars line)
     in
     let lens =
@@ -635,7 +769,7 @@ let coherency_goal_lines_with_vcid (indent : int) ~(goals : fo_o list)
         let lines, next_id =
           List.fold_left
             (fun (acc, id) f ->
-              let line = indent_str indent ^ "goal " ^ string_of_fo f.value ^ ";" in
+              let line = indent_str indent ^ "goal " ^ string_of_fo_display f.value ^ ";" in
               let line = prettify_pre_old ~init_for_var ~vars line in
               (acc @ [ (line ^ "  (* C" ^ string_of_int id ^ " *)", Some f.oid) ], id + 1))
             ([], next_id) group
@@ -661,6 +795,7 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
   let header = (indent_str indent ^ t.src ^ " -> " ^ t.dst ^ guard ^ " {", None) in
   let requires_labeled = List.map (fun f -> (f, next_req_label ())) t.requires in
   let ensures_labeled = List.map (fun f -> (f, next_ens_label ())) t.ensures in
+  let debug_ids = debug_contract_ids_enabled () in
   let build_block ~is_require items =
     let items =
       List.map
@@ -682,9 +817,17 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
           let vcid_line = [] in
           let line =
             let kw = if is_require then "assumes " else "guarantees " in
-            indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
+            indent_str (indent + 1) ^ kw ^ string_of_fo_display f.value ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
+          let line =
+            if not debug_ids then line
+            else
+              let src = source_of_fo ~is_require f in
+              let kind = if is_require then "req" else "ens" in
+              Printf.sprintf "%s  (* %s oid=%d src=%s %s->%s *)" line kind f.oid src t.src
+                t.dst
+          in
           let line =
             match label_align_col with
             | None -> line ^ "  (* " ^ label ^ " *)"
@@ -803,7 +946,7 @@ let node_lines_with_vcid (n : node) : line_with_vcid list =
   let label_align_col =
     let base_line_len is_require f =
       let kw = if is_require then "assumes " else "guarantees " in
-      let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
+      let line = indent_str 3 ^ kw ^ string_of_fo_display f ^ ";" in
       String.length (prettify_pre_old ~init_for_var ~vars line)
     in
     let lens =

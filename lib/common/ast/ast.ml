@@ -63,7 +63,14 @@ type 'a ltl =
 
 type fo_ltl = fo ltl [@@deriving show]
 type atom_ltl = ident ltl [@@deriving show]
-type origin = UserContract | Monitor | Coherency | Compatibility | Internal [@@deriving show]
+type origin =
+  | UserContract
+  | Monitor
+  | Coherency
+  | Compatibility
+  | AssumeAutomaton
+  | Internal
+[@@deriving show]
 type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving show]
 type vdecl = { vname : ident; vty : ty } [@@deriving show]
 

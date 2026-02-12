@@ -1,14 +1,10 @@
 node light_latch(on: int, off: int) returns (light: int)
 contracts
-  ensures: G(((on = 0 or on = 1) and (off = 0 or off = 1)) => (light = 0 or light = 1));
-  ensures: G(((on = 0 or on = 1) and (off = 0 or off = 1)) => (off = 1 => light = 0));
-  ensures: G(((on = 0 or on = 1) and (off = 0 or off = 1)) => ((off = 0 and on = 1) => light = 1));
-  ensures: G
-    (((on = 0 or on = 1) and (off = 0 or off = 1))
-    => ((off = 0 and on = 0 and light = 1) => X(light = 1)));
-  ensures: G
-    (((on = 0 or on = 1) and (off = 0 or off = 1))
-    => ((off = 0 and on = 0 and light = 0) => X(light = 0)));
+  requires: G((on = 0 or on = 1) and (off = 0 or off = 1));
+  ensures: G(light = 0 or light = 1);
+  ensures: X G(off = 1 => light = 0);
+  ensures: X G((off = 0 and on = 1) => light = 1);
+  ensures: X G((off = 0 and on = 0) => light = prev light);
 states
   Init(init), Off, On;
 invariants
@@ -28,13 +24,13 @@ transitions
       light := 1;
     }
     to Off when not (on = 1 and off = 0) {
-      light := 0;
+      skip;
     }
   On:
     to Off when off = 1 {
       light := 0;
     }
     to On when off = 0 {
-      light := 1;
+      skip;
     }
 end

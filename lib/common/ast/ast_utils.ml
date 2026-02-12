@@ -11,6 +11,7 @@ let origin_to_string = function
   | Monitor -> "monitor"
   | Coherency -> "coherency"
   | Compatibility -> "compatibility"
+  | AssumeAutomaton -> "assume-automaton"
   | Internal -> "internal"
 
 let origin_of_string = function
@@ -18,6 +19,7 @@ let origin_of_string = function
   | "monitor" | "Monitor" -> Some Monitor
   | "coherency" | "Coherency" -> Some Coherency
   | "compatibility" | "Compatibility" -> Some Compatibility
+  | "assume-automaton" | "AssumeAutomaton" -> Some AssumeAutomaton
   | "internal" | "Internal" -> Some Internal
   | _ -> None
 

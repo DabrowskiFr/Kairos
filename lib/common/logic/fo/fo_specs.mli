@@ -87,6 +87,7 @@ val replace_atoms_transition : (Ast.fo * Ast.ident) list -> Ast.transition -> As
 (* Fold-specific diagnostics removed. *)
 (* {1 Monitor Specs} *)
 
-(* Combine assume/guarantee lists into a single monitor spec. *)
+(* Build the monitorized temporal spec.
+   Current policy: only guarantees are monitorized; assumptions are handled as proof hypotheses. *)
 val combine_contracts_for_monitor :
   assumes:Ast.fo_ltl list -> guarantees:Ast.fo_ltl list -> Ast.fo_ltl

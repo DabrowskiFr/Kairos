@@ -18,3 +18,6 @@
 
 val build_monitor_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
 (* Build LTL monitor specification from a node (assumes/guarantees). *)
+
+val build_assumption_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.fo_ltl
+(* Build LTL spec made of node assumptions only. *)

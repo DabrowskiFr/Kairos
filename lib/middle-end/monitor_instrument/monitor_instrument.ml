@@ -402,6 +402,169 @@ let add_monitor_compatibility_requires ?(log : (transition -> fo -> unit) option
         { t with requires = t.requires @ incoming_prev_o })
       trans
 
+let terms_overlap (t1 : (string * bool option) list) (t2 : (string * bool option) list) : bool =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (n, v) -> match v with Some b -> Hashtbl.replace tbl n b | None -> ())
+    t2;
+  List.for_all
+    (fun (n, v) ->
+      match (v, Hashtbl.find_opt tbl n) with Some b1, Some b2 -> b1 = b2 | _ -> true)
+    t1
+
+let guards_overlap (g1 : Automaton_types.guard) (g2 : Automaton_types.guard) : bool =
+  List.exists (fun t1 -> List.exists (fun t2 -> terms_overlap t1 t2) g2) g1
+
+type lit = { var : ident; cst : string; is_pos : bool }
+
+let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
+  let mk ?(is_pos = true) v c = Some { var = v; cst = c; is_pos } in
+  match (h1, r, h2) with
+  | HNow a, REq, HNow b -> begin
+      match (a.iexpr, b.iexpr) with
+      | IVar v, ILitInt i -> mk v (string_of_int i)
+      | ILitInt i, IVar v -> mk v (string_of_int i)
+      | IVar v, ILitBool b -> mk v (if b then "true" else "false")
+      | ILitBool b, IVar v -> mk v (if b then "true" else "false")
+      | _ -> None
+    end
+  | HNow a, RNeq, HNow b -> begin
+      match (a.iexpr, b.iexpr) with
+      | IVar v, ILitInt i -> mk ~is_pos:false v (string_of_int i)
+      | ILitInt i, IVar v -> mk ~is_pos:false v (string_of_int i)
+      | IVar v, ILitBool b -> mk ~is_pos:false v (if b then "true" else "false")
+      | ILitBool b, IVar v -> mk ~is_pos:false v (if b then "true" else "false")
+      | _ -> None
+    end
+  | _ -> None
+
+let rec conj_lits (f : fo) : lit list option =
+  match f with
+  | FTrue -> Some []
+  | FRel (h1, r, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
+  | FNot x -> begin
+      match x with
+      | FRel (h1, REq, h2) -> Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
+      | _ -> None
+    end
+  | FAnd (a, b) -> begin
+      match (conj_lits a, conj_lits b) with
+      | Some la, Some lb -> Some (la @ lb)
+      | _ -> None
+    end
+  | _ -> None
+
+let disj_conjs (f : fo) : lit list list option =
+  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
+  let xs = go f |> List.map conj_lits in
+  List.fold_right
+    (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
+    xs (Some [])
+
+let lits_consistent (a : lit list) (b : lit list) : bool =
+  let pos = Hashtbl.create 16 in
+  let neg = Hashtbl.create 16 in
+  let add_lit l =
+    if l.is_pos then (
+      let prev = Hashtbl.find_opt pos l.var |> Option.value ~default:[] in
+      if not (List.mem l.cst prev) then Hashtbl.replace pos l.var (l.cst :: prev))
+    else (
+      let prev = Hashtbl.find_opt neg l.var |> Option.value ~default:[] in
+      if not (List.mem l.cst prev) then Hashtbl.replace neg l.var (l.cst :: prev))
+  in
+  List.iter add_lit (a @ b);
+  let ok = ref true in
+  Hashtbl.iter
+    (fun v vals ->
+      match vals with
+      | [] | [ _ ] -> ()
+      | _ -> ok := false;
+      let neg_vals = Hashtbl.find_opt neg v |> Option.value ~default:[] in
+      if List.exists (fun c -> List.mem c neg_vals) vals then ok := false)
+    pos;
+  !ok
+
+let fo_overlap_conservative (a : fo) (b : fo) : bool =
+  match (disj_conjs a, disj_conjs b) with
+  | Some da, Some db ->
+      List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
+  | _ -> true
+
+let add_assumption_state_aware_requires ?(log : (transition -> fo -> unit) option = None)
+    ~(monitor_grouped : Automaton_engine.transition list) ~(monitor_states : Automaton_engine.residual_state list)
+    ~(assume_grouped : Automaton_engine.transition list) ~(assume_states : Automaton_engine.residual_state list)
+    ~(assume_bad_idx : int) ~(assume_atom_map_exprs : (ident * iexpr) list)
+    ~(assume_atom_name_to_fo : (ident * fo) list) (trans : transition list) : transition list =
+  if assume_states = [] || monitor_states = [] then trans
+  else
+    let n_m = List.length monitor_states in
+    let n_a = List.length assume_states in
+    let mon_out = Array.make n_m [] in
+    let asm_out = Array.make n_a [] in
+    List.iter (fun (i, g, j) -> mon_out.(i) <- (g, j) :: mon_out.(i)) monitor_grouped;
+    List.iter (fun (i, g, j) -> asm_out.(i) <- (g, j) :: asm_out.(i)) assume_grouped;
+    let reachable = Array.make_matrix n_m n_a false in
+    let q = Queue.create () in
+    reachable.(0).(0) <- true;
+    Queue.add (0, 0) q;
+    while not (Queue.is_empty q) do
+      let i_m, i_a = Queue.take q in
+      List.iter
+        (fun (g_m, j_m) ->
+          List.iter
+            (fun (g_a, j_a) ->
+              (* State-aware assumptions are conditioned by the hypothesis that assumptions
+                 held so far; we do not propagate product states where the assumption
+                 automaton is already in bad. *)
+              if
+                guards_overlap g_m g_a
+                && not (assume_bad_idx >= 0 && j_a = assume_bad_idx)
+                && not reachable.(j_m).(j_a)
+              then (
+                reachable.(j_m).(j_a) <- true;
+                Queue.add (j_m, j_a) q))
+            asm_out.(i_a))
+        mon_out.(i_m)
+    done;
+    let req_for_assume_state (qa : int) : fo =
+      let nonbad_guards =
+        List.filter_map
+          (fun (g, j) ->
+            if assume_bad_idx >= 0 && j = assume_bad_idx then None
+            else
+              let e = Automaton_guard.guard_to_iexpr g |> inline_atoms_iexpr assume_atom_map_exprs in
+              Some (iexpr_to_fo_with_atoms assume_atom_name_to_fo e |> inline_fo_atoms assume_atom_map_exprs))
+          asm_out.(qa)
+      in
+      match nonbad_guards with
+      | [] -> if assume_bad_idx >= 0 then FFalse else FTrue
+      | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
+    in
+    let mon_req_forms =
+      Array.init n_m (fun qm ->
+          let acc = ref [] in
+          for qa = 0 to n_a - 1 do
+            if reachable.(qm).(qa) then acc := req_for_assume_state qa :: !acc
+          done;
+          match !acc with [] -> FTrue | f :: rest -> List.fold_left (fun a b -> FAnd (a, b)) f rest)
+    in
+    let reqs =
+      Array.to_list
+        (Array.mapi
+           (fun qm req_body ->
+             let cond = FRel (HNow (mk_var monitor_state_name), REq, HNow (monitor_state_expr qm)) in
+             FImp (cond, req_body))
+           mon_req_forms)
+    in
+    List.map
+      (fun (t : transition) ->
+        List.iter (fun f -> Option.iter (fun l -> l t f) log) reqs;
+        {
+          t with
+          requires = t.requires @ List.map (Ast_provenance.with_origin AssumeAutomaton) reqs;
+        })
+      trans
+
 let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
     Ast.node * Stage_info.monitor_info =
   let is_input = Ast_utils.is_input_of_node n in
@@ -460,13 +623,12 @@ let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
         (fun (t : transition) ->
           match (Hashtbl.find_opt state_index t.src, Hashtbl.find_opt state_index t.dst) with
           | Some i, Some j ->
-              if not (List.mem j prog_out.(i)) then prog_out.(i) <- j :: prog_out.(i)
+              let g = Option.map (iexpr_to_fo_with_atoms []) t.guard in
+              prog_out.(i) <- (j, g) :: prog_out.(i)
           | _ -> ())
         n.trans;
       let mon_out = Array.make n_mon [] in
-      List.iter
-        (fun (i, _guard, j) -> if not (List.mem j mon_out.(i)) then mon_out.(i) <- j :: mon_out.(i))
-        transitions;
+      List.iter (fun (i, guard, j) -> mon_out.(i) <- (guard, j) :: mon_out.(i)) transitions;
       let visited = Array.make_matrix n_states n_mon false in
       let q = Queue.create () in
       begin match Hashtbl.find_opt state_index n.init_state with
@@ -478,10 +640,17 @@ let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
       while not (Queue.is_empty q) do
         let i, j = Queue.take q in
         List.iter
-          (fun i' ->
+          (fun (i', g_prog) ->
             List.iter
-              (fun j' ->
-                if not visited.(i').(j') then (
+              (fun (g_mon, j') ->
+                let g_mon =
+                  Automaton_guard.guard_to_iexpr g_mon |> inline_atoms_iexpr atom_map_exprs
+                  |> iexpr_to_fo_with_atoms atom_name_to_fo |> inline_fo_atoms atom_map_exprs
+                in
+                let overlap =
+                  match g_prog with None -> true | Some gp -> fo_overlap_conservative gp g_mon
+                in
+                if overlap && not visited.(i').(j') then (
                   visited.(i').(j') <- true;
                   Queue.add (i', j') q))
               mon_out.(j))
@@ -553,6 +722,25 @@ let transform_node_monitor_with_info ~(build : monitor_build) (n : Ast.node) :
     add_monitor_compatibility_requires
       ~log:(Some (fun t f -> log_contract ~reason:"monitor_pre (compat)" ~t f))
       ~incoming_prev_fo_shifted trans
+  in
+  let trans =
+    match (build.assume_automaton, build.assume_atoms) with
+    | Some a, Some assume_atoms ->
+        let assume_states = a.states in
+        let assume_grouped = a.grouped in
+        let assume_bad_idx =
+          let rec find i = function [] -> -1 | LFalse :: _ -> i | _ :: tl -> find (i + 1) tl in
+          find 0 assume_states
+        in
+        let assume_atom_map_exprs = assume_atoms.atom_named_exprs in
+        let assume_atom_name_to_fo =
+          List.map (fun (af, name) -> (name, af)) assume_atoms.atom_map
+        in
+        add_assumption_state_aware_requires
+          ~log:(Some (fun t f -> log_contract ~reason:"assume_state_aware" ~t f))
+          ~monitor_grouped:grouped ~monitor_states:states ~assume_grouped ~assume_states
+          ~assume_bad_idx ~assume_atom_map_exprs ~assume_atom_name_to_fo trans
+    | _ -> trans
   in
   let trans =
     add_state_invariants_to_transitions ~invariants_state_rel:compat_invariants

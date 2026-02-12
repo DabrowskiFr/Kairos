@@ -34,5 +34,11 @@ let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
   let _ = atom_map in
   let spec_assumes = n.assumes in
   let spec_guarantees = n.guarantees in
+  (* Assumptions are not monitorized (they remain backend proof hypotheses). *)
   combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
   |> simplify_temporal_idempotence |> simplify_ltl
+
+let build_assumption_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
+  let _ = atom_map in
+  let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
+  mk_and (List.rev n.assumes) |> simplify_temporal_idempotence |> simplify_ltl

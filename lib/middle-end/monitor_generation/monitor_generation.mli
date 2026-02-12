@@ -24,6 +24,10 @@ type monitor_generation_build = {
   atom_names : Ast.ident list;
   spec : Ast.fo_ltl;
   automaton : monitor_generation_automaton;
+  assume_atoms : Monitor_generation_atoms.monitor_generation_atoms option;
+  assume_atom_names : Ast.ident list;
+  assume_spec : Ast.fo_ltl option;
+  assume_automaton : monitor_generation_automaton option;
 }
 (* Full build artifact for a node: atoms, spec, and automaton. *)
 

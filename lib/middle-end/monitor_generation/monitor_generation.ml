@@ -32,6 +32,10 @@ type monitor_generation_build = {
   atom_names : ident list;
   spec : fo_ltl;
   automaton : monitor_generation_automaton;
+  assume_atoms : Monitor_generation_atoms.monitor_generation_atoms option;
+  assume_atom_names : ident list;
+  assume_spec : fo_ltl option;
+  assume_automaton : monitor_generation_automaton option;
 }
 
 let build_monitor_for_node (n : Ast.node) : monitor_generation_build =
@@ -39,4 +43,24 @@ let build_monitor_for_node (n : Ast.node) : monitor_generation_build =
   let atom_names = List.map snd atoms.atom_map in
   let spec = build_monitor_spec ~atom_map:atoms.atom_map n in
   let automaton = build_monitor_automaton ~atom_map:atoms.atom_map ~atom_names spec in
-  { atoms; atom_names; spec; automaton }
+  let assume_atoms, assume_atom_names, assume_spec, assume_automaton =
+    if n.assumes = [] then (None, [], None, None)
+    else
+      let atoms_a = collect_monitor_atoms_from_ltls n ~ltls:n.assumes in
+      let atom_names_a = List.map snd atoms_a.atom_map in
+      let spec_a = build_assumption_spec ~atom_map:atoms_a.atom_map n in
+      let automaton_a =
+        build_monitor_automaton ~atom_map:atoms_a.atom_map ~atom_names:atom_names_a spec_a
+      in
+      (Some atoms_a, atom_names_a, Some spec_a, Some automaton_a)
+  in
+  {
+    atoms;
+    atom_names;
+    spec;
+    automaton;
+    assume_atoms;
+    assume_atom_names;
+    assume_spec;
+    assume_automaton;
+  }

@@ -15,6 +15,7 @@ type config = {
   prover_cmd : string option;
   wp_only : bool;
   smoke_tests : bool;
+  debug_contract_ids : bool;
   prefix_fields : bool;
   input_file : string;
 }

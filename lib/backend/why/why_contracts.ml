@@ -123,20 +123,14 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
     | Some UserContract -> "User contract"
     | Some Coherency -> "User contracts coherency"
     | Some Compatibility -> "Compatibility"
+    | Some AssumeAutomaton -> "Assume automaton"
     | Some Monitor -> "Monitor"
     | Some Internal -> "Internal"
     | None -> "Unknown"
   in
-  let pre_contract =
-    List.fold_left
-      (fun pre f ->
-        let norm = normalize_ltl f in
-        let rel = ltl_relational env norm.ltl in
-        let frag = ltl_spec env rel in
-        let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-        guarded_k @ pre)
-      [] n.assumes
-  in
+  (* Assumption LTL formulas are handled state-aware by middle-end injection on transitions.
+     Do not also inject them globally as step preconditions. *)
+  let pre_contract = [] in
   let post_contract =
     List.fold_left
       (fun post f ->
@@ -162,7 +156,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
   let labeled_trans =
     List.map
       (fun (t : transition) ->
-        let reqs = List.map (fun f -> (f.value, origin_label f.origin)) t.requires in
+        let reqs = List.map (fun f -> (f, origin_label f.origin)) t.requires in
         let ens =
           List.map
             (fun f ->
@@ -182,11 +176,13 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
         let cond_pre = with_guard cond_pre (guard_term_pre env t) in
         List.fold_left
           (fun acc (f, label) ->
-            let norm = normalize_ltl (ltl_of_fo f) in
+            let norm = normalize_ltl (ltl_of_fo f.value) in
             let rel = ltl_relational env norm.ltl in
             let frag = ltl_spec env rel in
             let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
             let terms = List.map (term_implies cond_pre) guarded_k in
+            let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
+            let terms = List.map (fun t -> mk_term (Tattr (rid_attr, t))) terms in
             let labeled = List.map (fun t -> (t, label)) terms in
             labeled @ acc)
           acc reqs)

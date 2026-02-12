@@ -53,3 +53,31 @@ let rec shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo) : fo =
   | FRel (h1, r, h2) ->
       FRel (shift_hexpr_backward ~is_input h1, r, shift_hexpr_backward ~is_input h2)
   | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_backward ~is_input) hs)
+
+let shift_hexpr_forward_all (h : hexpr) : hexpr =
+  match h with
+  | HNow e -> begin match as_var e with Some _ -> HPreK (e, 1) | None -> h end
+  | HPreK (e, k) -> HPreK (e, k + 1)
+
+let shift_hexpr_backward_all (h : hexpr) : hexpr =
+  match h with HNow e -> HNow e | HPreK (e, k) -> if k <= 1 then HNow e else HPreK (e, k - 1)
+
+let rec shift_fo_forward_all (f : fo) : fo =
+  match f with
+  | FTrue | FFalse -> f
+  | FNot a -> FNot (shift_fo_forward_all a)
+  | FAnd (a, b) -> FAnd (shift_fo_forward_all a, shift_fo_forward_all b)
+  | FOr (a, b) -> FOr (shift_fo_forward_all a, shift_fo_forward_all b)
+  | FImp (a, b) -> FImp (shift_fo_forward_all a, shift_fo_forward_all b)
+  | FRel (h1, r, h2) -> FRel (shift_hexpr_forward_all h1, r, shift_hexpr_forward_all h2)
+  | FPred (id, hs) -> FPred (id, List.map shift_hexpr_forward_all hs)
+
+let rec shift_fo_backward_all (f : fo) : fo =
+  match f with
+  | FTrue | FFalse -> f
+  | FNot a -> FNot (shift_fo_backward_all a)
+  | FAnd (a, b) -> FAnd (shift_fo_backward_all a, shift_fo_backward_all b)
+  | FOr (a, b) -> FOr (shift_fo_backward_all a, shift_fo_backward_all b)
+  | FImp (a, b) -> FImp (shift_fo_backward_all a, shift_fo_backward_all b)
+  | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
+  | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)

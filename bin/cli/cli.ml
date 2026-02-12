@@ -31,7 +31,7 @@ let log_level_conv =
 
 let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_json_stable dump_ast
     dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only smoke_tests
-    log_level log_file file =
+    debug_contract_ids log_level log_file file =
   Log.setup ~level:log_level ~log_file;
   let dump_ast_stage, dump_ast_out =
     match (dump_ast, dump_json, dump_json_stable) with
@@ -102,6 +102,7 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
               prover_cmd;
               wp_only;
               smoke_tests;
+              debug_contract_ids;
               prefix_fields = false;
               input_file = file;
             }
@@ -196,6 +197,12 @@ let cmd =
         ~doc:
           "Inject smoke obligations (ensure false) to detect inconsistent assumptions/hypotheses."
   in
+  let debug_contract_ids =
+    value & flag
+    & info [ "debug-contract-ids" ]
+        ~doc:
+          "Add debug ids/origins for transition contracts in OBC+ and Why3 outputs (rid/wid tags)."
+  in
   let log_level =
     value
     & opt log_level_conv (Some Logs.Info)
@@ -213,6 +220,7 @@ let cmd =
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_why3_vc $ dump_smt2 $ dump_json
        $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast $ output_file
-       $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ log_level $ log_file $ file))
+       $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ debug_contract_ids $ log_level
+       $ log_file $ file))
 
 let run () = exit (Cmd.eval cmd)

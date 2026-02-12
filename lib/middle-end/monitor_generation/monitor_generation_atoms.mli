@@ -32,3 +32,7 @@ val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 
 val collect_monitor_atoms : Ast.node -> monitor_generation_atoms
 (* Collect and validate atoms used by the monitor construction. *)
+
+val collect_monitor_atoms_from_ltls :
+  Ast.node -> ltls:Ast.fo_ltl list -> monitor_generation_atoms
+(* Collect and validate atoms for an explicit list of LTL formulas. *)

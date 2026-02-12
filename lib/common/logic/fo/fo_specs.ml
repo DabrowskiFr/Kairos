@@ -178,10 +178,8 @@ let replace_atoms_transition (atom_map : (fo * ident) list) (t : Ast.transition)
 
 let combine_contracts_for_monitor ~(assumes : fo_ltl list) ~(guarantees : fo_ltl list) : fo_ltl =
   let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
-  let a = mk_and (List.rev assumes) in
   let g = mk_and (List.rev guarantees) in
-  match (assumes, guarantees) with
-  | [], [] -> LTrue
-  | [], _ -> g
-  | _, [] -> LImp (a, LTrue)
-  | _ -> LImp (a, g)
+  let _ = assumes in
+  (* Monitorization targets guarantees only.
+     Assumptions stay as global proof hypotheses in backend contracts. *)
+  match guarantees with [] -> LTrue | _ -> g

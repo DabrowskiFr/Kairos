@@ -98,7 +98,13 @@ type 'a ltl =
 type fo_ltl = fo ltl
 
 (* {2 Provenance} Provenance categories allow tracing a VC back to its source. *)
-type origin = UserContract | Monitor | Coherency | Compatibility | Internal
+type origin =
+  | UserContract
+  | Monitor
+  | Coherency
+  | Compatibility
+  | AssumeAutomaton
+  | Internal
 
 (* First‑order formula annotated with provenance and optional location. Rationale: this is the
    primary traceability hook in the pipeline. *)

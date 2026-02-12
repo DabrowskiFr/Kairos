@@ -84,14 +84,15 @@ type monitor_generation_atoms = {
       (* Cache of atom names mapped to their boolean iexpr (FO -> iexpr conversion). *)
 }
 
-let collect_monitor_atoms (n : Ast.node) : monitor_generation_atoms =
+let collect_monitor_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.fo_ltl list) :
+    monitor_generation_atoms =
   let n_ast = n in
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (n_ast.inputs @ n_ast.locals @ n_ast.outputs)
   in
   let pre_k_map = Collect.build_pre_k_infos n_ast in
   let inputs = List.map (fun v -> v.vname) n_ast.inputs in
-  let atoms_all = collect_atoms_from_node n |> List.sort_uniq compare in
+  let atoms_all = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltls |> List.sort_uniq compare in
   let atom_exprs, skipped =
     List.fold_left
       (fun (ok, bad) a ->
@@ -112,3 +113,7 @@ let collect_monitor_atoms (n : Ast.node) : monitor_generation_atoms =
   let atom_map = List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names in
   let atom_named_exprs = List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names in
   { atom_map; atom_named_exprs }
+
+let collect_monitor_atoms (n : Ast.node) : monitor_generation_atoms =
+  (* Monitor construction is guarantee-only: do not collect atoms from assumptions. *)
+  collect_monitor_atoms_from_ltls n ~ltls:n.guarantees

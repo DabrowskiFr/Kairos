@@ -15,6 +15,7 @@ type config = {
   prover_cmd : string option;
   wp_only : bool;
   smoke_tests : bool;
+  debug_contract_ids : bool;
   prefix_fields : bool;
   input_file : string;
 }
@@ -33,6 +34,7 @@ let check_stage label checks =
   if checks = [] then Ok () else Error (Printf.sprintf "%s: %s" label (String.concat " | " checks))
 
 let run (cfg : config) : (unit, string) result =
+  Obc_emit.set_debug_contract_ids cfg.debug_contract_ids;
   let log_stage msg = Log.debug msg in
   match Pipeline.build_ast ~log:true ~input_file:cfg.input_file () with
   | Error err -> Error (Pipeline.error_to_string err)
