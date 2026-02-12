@@ -1,16 +1,17 @@
 node toggle() returns (y: int)
-guarantee {y} = {0};
-guarantee G( {y} = {0} => X( {y} = {1} ) );
-guarantee G( {y} = {1} => X( {y} = {0} ) );
-locals
+contracts
+  ensures: y = 0;
+  ensures: G ( y = 0 => X ( y = 1 ) );
+  ensures: G ( y = 1 => X ( y = 0 ) );
 states
-  Init, Run;
-init Init
-trans
-  Init -> Run {
+  Init(init), Run;
+transitions
+  Init:
+    to Run  {
     y := 0;
   }
-  Run -> Run {
+  Run:
+    to Run  {
     y := 1 - y;
   }
 end

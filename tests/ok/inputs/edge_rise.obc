@@ -1,25 +1,28 @@
 node edge_rise(x: int) returns (y: int)
-guarantee G( {y} = {1} => {x} = {1} );
-guarantee X(G( {y} = {1} => pre(x) = {0} ));
-guarantee X(G( ({x} = {1} and pre(x) = {0}) => {y} = {1} ));
+contracts
+  ensures:  G ( {y} = {1} => {x} = {1} );
+  ensures: X G( {y} = {1} => pre(x) = {0} );
+  ensures: X G( ({x} = {1} and pre(x) = {0}) => {y} = {1});
 locals
-  prev : int;
+  s : int;
 states
-  Init, Run;
-init Init
-trans
-  Init -> Run {
+  Init(init), Run;
+invariants
+  in Run:
+    s = pre(x);
+transitions
+  Init:
+    to Run  {
     y := 0;
-    prev := x;
+    s := x;
   }
-  Run -> Run {
-    requires {prev} = pre_k(x, 1);
-    ensures {prev} = {x};
-    if x = 1 and prev = 0 then
+  Run:
+    to Run  {
+    if x = 1 and s = 0 then
       y := 1;
     else
       y := 0;
     end;
-    prev := x;
+    s := x;
   }
 end

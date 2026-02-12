@@ -48,8 +48,8 @@ module Pass :
           if req_dropped + ens_dropped > 0 then (
             let msg =
               Printf.sprintf
-                "node %s: transition requires/ensures are currently disabled; ignored %d \
-                 requires and %d ensures"
+                "node %s: transition assumes/guarantees (legacy requires/ensures too) are \
+                 currently disabled; ignored %d assumes and %d guarantees"
                 n.nname req_dropped ens_dropped
             in
             warnings := msg :: !warnings;

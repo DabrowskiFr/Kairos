@@ -8,3 +8,6 @@
 * problem performance ide
 * refactoring
 * avoid using textfile if no export
+
+* ajouter aux transitions une transition par défaut qui va vers bad, pas de progrès = erreur.   
+* problème gestion utf8

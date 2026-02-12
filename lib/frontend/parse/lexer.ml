@@ -14,22 +14,30 @@ let () =
       ("states", STATES);
       ("init", INIT);
       ("trans", TRANS);
+      ("transitions", TRANS);
       ("end", END);
       ("requires", REQUIRES);
       ("ensures", ENSURES);
       ("assume", ASSUME);
+      ("assumes", ASSUME);
       ("guarantee", GUARANTEE);
+      ("guarantees", GUARANTEE);
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
       ("contracts", CONTRACTS);
+      ("let", LET);
       ("instance", INSTANCE);
       ("instances", INSTANCES);
       ("call", CALL);
       ("if", IF);
       ("then", THEN);
       ("else", ELSE);
+      ("match", MATCH);
+      ("with", WITH);
       ("when", WHEN);
+      ("from", FROM);
+      ("to", TO);
       ("skip", SKIP);
       ("true", TRUE);
       ("false", FALSE);
@@ -41,6 +49,8 @@ let () =
       ("and", AND);
       ("or", OR);
       ("not", NOT);
+      ("always", G);
+      ("next", X);
       ("G", G);
       ("X", X);
     ]
@@ -65,22 +75,30 @@ let expected_tokens : (string * Parser.token) list =
     ("states", STATES);
     ("init", INIT);
     ("trans", TRANS);
+    ("transitions", TRANS);
     ("end", END);
     ("requires", REQUIRES);
     ("ensures", ENSURES);
     ("assume", ASSUME);
+    ("assumes", ASSUME);
     ("guarantee", GUARANTEE);
+    ("guarantees", GUARANTEE);
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);
     ("contracts", CONTRACTS);
+    ("let", LET);
     ("instance", INSTANCE);
     ("instances", INSTANCES);
     ("call", CALL);
     ("if", IF);
     ("then", THEN);
     ("else", ELSE);
+    ("match", MATCH);
+    ("with", WITH);
     ("when", WHEN);
+    ("from", FROM);
+    ("to", TO);
     ("skip", SKIP);
     ("true", TRUE);
     ("false", FALSE);
@@ -92,6 +110,8 @@ let expected_tokens : (string * Parser.token) list =
     ("and", AND);
     ("or", OR);
     ("not", NOT);
+    ("always", G);
+    ("next", X);
     ("G", G);
     ("X", X);
     (":=", ASSIGN);
@@ -155,12 +175,15 @@ let rec token lexbuf =
   | "," -> tok lexbuf COMMA
   | ";" -> tok lexbuf SEMI
   | ":" -> tok lexbuf COLON
+  | "|" -> tok lexbuf BAR
   | Plus '0' .. '9' ->
       let s = set_lexeme lexbuf in
       INT (int_of_string s)
   | ('A' .. 'Z' | 'a' .. 'z' | '_'), Star ('A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '\'') -> (
       let s = set_lexeme lexbuf in
-      try Hashtbl.find kw_table s with Not_found -> IDENT s)
+      match Hashtbl.find_opt kw_table s with
+      | Some t -> t
+      | None -> IDENT s)
   | eof -> tok lexbuf EOF
   | _ ->
       let s = set_lexeme lexbuf in

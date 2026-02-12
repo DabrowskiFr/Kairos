@@ -1,4 +1,4 @@
-node pre_k_ltl_valid(x: int) returns (y: int)
+node delay_int2(x: int) returns (y: int)
 guarantee X(X(G( {y} = pre_k(x, 2) )));
 locals
   prev1: int;
@@ -6,23 +6,29 @@ locals
 states
   Init1, Init2, Run;
 init Init1
-trans
-  Init1 -> Init2 {
+invariant in Init1: true;
+invariant in Init2: true;
+invariant in Run: true;
+transitions
+  Init1:
+    to Init2  {
     ensures {prev1} = {x};
     ensures {prev2} = {0};
     prev1 := x;
     prev2 := 0;
   }
-  Init2 -> Run {
+  Init2:
+    to Run  {
     requires {prev1} = pre_k(x, 1);
     ensures {prev1} = {x};
     ensures {prev2} = pre_k(x, 1);
     prev2 := prev1;
     prev1 := x;
   }
-  Run -> Run {
+  Run:
+    to Run  {
     requires {prev1} = pre_k(x, 1);
-    requires {prev2} = pre_k(x, 2);
+    requires {prev2} = pre_k(x,2);
     ensures {prev1} = {x};
     ensures {prev2} = pre_k(x, 1);
     y := prev2;

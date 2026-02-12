@@ -1101,7 +1101,7 @@ let () =
   load_css ();
   GtkData.StyleContext.add_provider_for_screen (Gdk.Screen.default ()) css#as_css_provider
     GtkData.StyleContext.ProviderPriority.user;
-  let base_title = "Kairos IDE (GTK)" in
+  let base_title = "Kairos IDE" in
   let screen_w = Gdk.Screen.width () in
   let screen_h = Gdk.Screen.height () in
   let target_w = min 1200 (max 900 (screen_w - 120)) in
@@ -1701,7 +1701,7 @@ let () =
 
     add_section_c "Syntax colors";
     let syntax_keyword_btn, refresh_syntax_keyword =
-      add_color_row add_row_c "Keyword (node/guarantee/etc.)" syntax_keyword_entry
+      add_color_row add_row_c "Keyword (node/requires/ensures/etc.)" syntax_keyword_entry
     in
     let syntax_type_btn, refresh_syntax_type =
       add_color_row add_row_c "Type (int/bool/etc.)" syntax_type_entry
@@ -3277,7 +3277,12 @@ let () =
   in
   let update_dirty_indicator () =
     let suffix = if !dirty then " *" else "" in
-    window#set_title (base_title ^ suffix);
+    let file_suffix =
+      match !current_file with
+      | Some path -> " (" ^ Filename.basename path ^ ")"
+      | None -> ""
+    in
+    window#set_title (base_title ^ file_suffix ^ suffix);
     obc_tab#set_text (if !dirty then "OBC*" else "OBC")
   in
   let get_obc_text () = obc_buf#get_text ~start:obc_buf#start_iter ~stop:obc_buf#end_iter () in
@@ -4677,10 +4682,10 @@ let () =
     let node_re = Str.regexp "^[ \t]*node[ \t]+\\([A-Za-z0-9_']+\\)" in
     let trans_re = Str.regexp "^[ \t]*\\([A-Za-z0-9_']+\\)[ \t]*->[ \t]*\\([A-Za-z0-9_']+\\)" in
     let ensures_re = Str.regexp "^[ \t]*ensures\\b" in
-    let guarantee_re = Str.regexp "^[ \t]*guarantee\\b" in
+    let guarantees_re = Str.regexp "^[ \t]*guarantees\\b" in
     let nodes = ref [] in
     let trans = ref [] in
-    let ensures = ref [] in
+    let contracts = ref [] in
     let lines = String.split_on_char '\n' text in
     List.iteri
       (fun idx line ->
@@ -4691,17 +4696,17 @@ let () =
             let from_s = Str.matched_group 1 line in
             let to_s = Str.matched_group 2 line in
             trans := (Printf.sprintf "%s -> %s" from_s to_s, idx + 1) :: !trans;
-            if Str.string_match ensures_re line 0 || Str.string_match guarantee_re line 0 then
-              ensures := (String.trim line, idx + 1) :: !ensures)))
+            if Str.string_match ensures_re line 0 || Str.string_match guarantees_re line 0 then
+              contracts := (String.trim line, idx + 1) :: !contracts)))
       lines;
-    (List.rev !nodes, List.rev !trans, List.rev !ensures)
+    (List.rev !nodes, List.rev !trans, List.rev !contracts)
   in
   let refresh_outline () =
     outline_model#clear ();
     let add_section parent title =
       outline_add_row ~parent:(Some parent) ~text:title ~line:(-1) ~target:"" ~kind:"section"
     in
-    let fill_section parent target (nodes, trans, ensures) =
+    let fill_section parent target (nodes, trans, contracts) =
       let nodes_row = add_section parent "Nodes" in
       (match nodes with
       | [] ->
@@ -4727,8 +4732,8 @@ let () =
                 (outline_add_row ~parent:(Some trans_row) ~text:name ~line ~target
                    ~kind:"transition"))
             trans);
-      let ens_row = add_section parent "Ensures" in
-      match ensures with
+      let ens_row = add_section parent "Contracts" in
+      match contracts with
       | [] ->
           ignore
             (outline_add_row ~parent:(Some ens_row) ~text:"<none>" ~line:(-1) ~target:""
@@ -4737,8 +4742,9 @@ let () =
           List.iter
             (fun (name, line) ->
               ignore
-                (outline_add_row ~parent:(Some ens_row) ~text:name ~line ~target ~kind:"ensure"))
-            ensures
+                (outline_add_row ~parent:(Some ens_row) ~text:name ~line ~target
+                   ~kind:"contract"))
+            contracts
     in
     let obc_text = get_obc_text () in
     let obcplus_text =

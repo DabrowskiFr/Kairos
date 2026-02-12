@@ -16,6 +16,7 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
       "guarantee";
       "assume";
       "contracts";
+      "let";
       "locals";
       "states";
       "invariants";
@@ -23,10 +24,19 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
       "in";
       "init";
       "trans";
+      "transitions";
       "when";
+      "from";
+      "to";
+      "always";
+      "next";
+      "G";
+      "X";
       "requires";
       "ensures";
       "if";
+      "assumes";
+      "guarantees";
       "then";
       "else";
       "end";
@@ -43,11 +53,21 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
   ignore (apply_regex number_tag number_re);
   ignore (apply_regex comment_tag comment_re);
   let states_re = Str.regexp "\\bstates\\b" in
-  let init_re = Str.regexp "\\binit\\b" in
-  let trans_re = Str.regexp "\\btrans\\b" in
+  let trans_re = Str.regexp "\\btrans\\(?:itions\\)?\\b" in
   let arrow_re =
     Str.regexp
       "\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b[ \t\r\n]*->[ \t\r\n]*\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b"
+  in
+  let src_group_re =
+    Str.regexp "\\(?:^\\|[\n\r]\\)[ \t]*\\([A-Za-z_][A-Za-z0-9_]*\\)[ \t]*:"
+  in
+  let to_re = Str.regexp "\\bto\\s+\\([A-Za-z_][A-Za-z0-9_]*\\)\\b" in
+  let apply_state_range s e =
+    let s = char_offset map s in
+    let e = char_offset map e in
+    let it_s = buf#start_iter#forward_chars s in
+    let it_e = buf#start_iter#forward_chars e in
+    buf#apply_tag state_tag ~start:it_s ~stop:it_e
   in
   let highlight_states start_pos end_pos =
     let id_re = Str.regexp "\\b[A-Za-z_][A-Za-z0-9_]*\\b" in
@@ -59,11 +79,7 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
           let s = Str.match_beginning () in
           let e = Str.match_end () in
           if s < end_pos then (
-            let s = char_offset map s in
-            let e = char_offset map (min e end_pos) in
-            let it_s = buf#start_iter#forward_chars s in
-            let it_e = buf#start_iter#forward_chars e in
-            buf#apply_tag state_tag ~start:it_s ~stop:it_e;
+            apply_state_range s (min e end_pos);
             loop e)
           else ()
         with Not_found -> ()
@@ -75,8 +91,8 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
     let states_start = Str.match_end () in
     let states_end =
       try
-        let _ = Str.search_forward init_re text states_start in
-        Str.match_beginning ()
+        let semi = String.index_from text states_start ';' in
+        semi
       with Not_found -> String.length text
     in
     highlight_states states_start states_end
@@ -85,35 +101,45 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
   begin try
     let _ = Str.search_forward trans_re text 0 in
     let trans_start = Str.match_end () in
-    let rec loop pos =
+    let rec loop_arrow pos =
       try
         let _ = Str.search_forward arrow_re text pos in
         let g1_s = Str.group_beginning 1 in
         let g1_e = Str.group_end 1 in
         let g2_s = Str.group_beginning 2 in
         let g2_e = Str.group_end 2 in
-        (if g1_s >= trans_start then
-           let g1_s = char_offset map g1_s in
-           let g1_e = char_offset map g1_e in
-           let it1_s = buf#start_iter#forward_chars g1_s in
-           let it1_e = buf#start_iter#forward_chars g1_e in
-           buf#apply_tag state_tag ~start:it1_s ~stop:it1_e);
-        (if g2_s >= trans_start then
-           let g2_s = char_offset map g2_s in
-           let g2_e = char_offset map g2_e in
-           let it2_s = buf#start_iter#forward_chars g2_s in
-           let it2_e = buf#start_iter#forward_chars g2_e in
-           buf#apply_tag state_tag ~start:it2_s ~stop:it2_e);
-        loop (Str.match_end ())
+        (if g1_s >= trans_start then apply_state_range g1_s g1_e);
+        (if g2_s >= trans_start then apply_state_range g2_s g2_e);
+        loop_arrow (Str.match_end ())
       with Not_found -> ()
     in
-    loop trans_start
+    let rec loop_src pos =
+      try
+        let _ = Str.search_forward src_group_re text pos in
+        let s = Str.group_beginning 1 in
+        let e = Str.group_end 1 in
+        if s >= trans_start then apply_state_range s e;
+        loop_src (Str.match_end ())
+      with Not_found -> ()
+    in
+    let rec loop_to pos =
+      try
+        let _ = Str.search_forward to_re text pos in
+        let s = Str.group_beginning 1 in
+        let e = Str.group_end 1 in
+        if s >= trans_start then apply_state_range s e;
+        loop_to (Str.match_end ())
+      with Not_found -> ()
+    in
+    loop_arrow trans_start;
+    loop_src trans_start;
+    loop_to trans_start
   with Not_found -> ()
   end;
   ()
 
 let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_tag ~number_tag
-    ~comment_tag ~state_tag:_ text =
+    ~comment_tag ~state_tag text =
   let start_iter = buf#start_iter#forward_chars start_offset in
   let end_iter = buf#start_iter#forward_chars (start_offset + String.length text) in
   buf#remove_all_tags ~start:start_iter ~stop:end_iter;
@@ -124,6 +150,7 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
       "guarantee";
       "assume";
       "contracts";
+      "let";
       "locals";
       "states";
       "invariants";
@@ -131,10 +158,19 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
       "in";
       "init";
       "trans";
+      "transitions";
       "when";
+      "from";
+      "to";
+      "always";
+      "next";
+      "G";
+      "X";
       "requires";
       "ensures";
       "if";
+      "assumes";
+      "guarantees";
       "then";
       "else";
       "end";
@@ -150,6 +186,84 @@ let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_t
   ignore (Ide_text_utils.apply_words_range buf ~base:start_offset text type_tag types);
   ignore (Ide_text_utils.apply_regex_range buf ~base:start_offset text number_tag number_re);
   ignore (Ide_text_utils.apply_regex_range buf ~base:start_offset text comment_tag comment_re);
+  let states_re = Str.regexp "\\bstates\\b" in
+  let trans_re = Str.regexp "\\btrans\\(?:itions\\)?\\b" in
+  let id_re = Str.regexp "\\b[A-Za-z_][A-Za-z0-9_]*\\b" in
+  let arrow_re =
+    Str.regexp
+      "\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b[ \t\r\n]*->[ \t\r\n]*\\b\\([A-Za-z_][A-Za-z0-9_]*\\)\\b"
+  in
+  let src_group_re =
+    Str.regexp "\\(?:^\\|[\n\r]\\)[ \t]*\\([A-Za-z_][A-Za-z0-9_]*\\)[ \t]*:"
+  in
+  let to_re = Str.regexp "\\bto\\s+\\([A-Za-z_][A-Za-z0-9_]*\\)\\b" in
+  let apply_state_range s e =
+    let it_s = buf#start_iter#forward_chars (start_offset + s) in
+    let it_e = buf#start_iter#forward_chars (start_offset + e) in
+    buf#apply_tag state_tag ~start:it_s ~stop:it_e
+  in
+  begin
+    try
+      let _ = Str.search_forward states_re text 0 in
+      let states_start = Str.match_end () in
+      let states_end =
+        try String.index_from text states_start ';' with Not_found -> String.length text
+      in
+      let rec loop pos =
+        if pos >= states_end then ()
+        else
+          try
+            let _ = Str.search_forward id_re text pos in
+            let s = Str.match_beginning () in
+            let e = Str.match_end () in
+            if s < states_end then (
+              apply_state_range s (min e states_end);
+              loop e)
+            else ()
+          with Not_found -> ()
+      in
+      loop states_start
+    with Not_found -> ()
+  end;
+  begin
+    try
+      let _ = Str.search_forward trans_re text 0 in
+      let trans_start = Str.match_end () in
+      let rec loop_arrow pos =
+        try
+          let _ = Str.search_forward arrow_re text pos in
+          let g1_s = Str.group_beginning 1 in
+          let g1_e = Str.group_end 1 in
+          let g2_s = Str.group_beginning 2 in
+          let g2_e = Str.group_end 2 in
+          if g1_s >= trans_start then apply_state_range g1_s g1_e;
+          if g2_s >= trans_start then apply_state_range g2_s g2_e;
+          loop_arrow (Str.match_end ())
+        with Not_found -> ()
+      in
+      let rec loop_src pos =
+        try
+          let _ = Str.search_forward src_group_re text pos in
+          let s = Str.group_beginning 1 in
+          let e = Str.group_end 1 in
+          if s >= trans_start then apply_state_range s e;
+          loop_src (Str.match_end ())
+        with Not_found -> ()
+      in
+      let rec loop_to pos =
+        try
+          let _ = Str.search_forward to_re text pos in
+          let s = Str.group_beginning 1 in
+          let e = Str.group_end 1 in
+          if s >= trans_start then apply_state_range s e;
+          loop_to (Str.match_end ())
+        with Not_found -> ()
+      in
+      loop_arrow trans_start;
+      loop_src trans_start;
+      loop_to trans_start
+    with Not_found -> ()
+  end;
   ()
 
 let highlight_why_buf_impl buf text ~keyword_tag ~comment_tag ~number_tag ~type_tag =

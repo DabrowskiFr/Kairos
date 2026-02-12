@@ -5,23 +5,31 @@ guarantee G( {count} = {2} => X( {count} = {3} ) );
 guarantee G( {count} = {3} => X( {count} = {0} ) );
 locals
 states
-  S0, S1, S2, S3;
-init S0
-trans
-  S0 -> S1 {
-    requires {count} = {0};
+  S0(init), S1, S2, S3;
+invariants
+  in S0:
+    count = 0;
+  in S1:
+    count = 1;
+  in S2:
+    count = 2;
+  in S3:
+    count = 3;
+transitions
+  S0:
+    to S1  {
     count := 1;
   }
-  S1 -> S2 {
-    requires {count} = {1};
+  S1:
+    to S2  {
     count := 2;
   }
-  S2 -> S3 {
-    requires {count} = {2};
+  S2:
+    to S3  {
     count := 3;
   }
-  S3 -> S0 {
-    requires {count} = {3};
+  S3:
+    to S0  {
     count := 0;
   }
 end

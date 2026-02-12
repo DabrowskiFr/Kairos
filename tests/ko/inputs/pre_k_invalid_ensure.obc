@@ -3,12 +3,14 @@ locals
 states
   Init, Run;
 init Init
-trans
-  Init -> Run {
+transitions
+  Init:
+    to Run  {
     ensures pre_k(x, 2) = {0};
     y := x;
   }
-  Run -> Run {
+  Run:
+    to Run  {
     y := x;
   }
 end

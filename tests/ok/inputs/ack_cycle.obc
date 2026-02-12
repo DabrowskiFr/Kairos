@@ -1,15 +1,12 @@
 node ack_cycle(req : int) returns (ack: int)
-guarantee G( {req} = {1} => G( {ack} = {1} ) );
-locals
+contracts
+  ensures: G (req = 1 => G (ack = 1));
 states
-  Init;
-init Init
-trans
-  Init -> Init {
-    if req = 1 or ack = 1 then
-      ack := 1;
-    else
-      skip;
-    end;
-  }
+  Init(init);
+transitions
+  Init:
+    to Init  {
+      if req = 1 or ack = 1 then ack := 1;
+      else skip; end;
+    }
 end

@@ -347,10 +347,10 @@ let contract_lines (indent : int) (assumes : fo_ltl list) (guarantees : fo_ltl l
     ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list)
     ~(init_for_var : ident -> iexpr) ~(vars : ident list) : string list =
   let assume_lines =
-    List.map (fun f -> indent_str indent ^ "assume " ^ string_of_ltl f ^ ";") assumes
+    List.map (fun f -> indent_str indent ^ "requires " ^ string_of_ltl f ^ ";") assumes
   in
   let guarantee_lines =
-    List.map (fun f -> indent_str indent ^ "guarantee " ^ string_of_ltl f ^ ";") guarantees
+    List.map (fun f -> indent_str indent ^ "ensures " ^ string_of_ltl f ^ ";") guarantees
   in
   let inv_lines =
     let add_with_prefix (acc, last_prefix) prefix line =
@@ -483,7 +483,7 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
           in
           let vcid_line = [] in
           let line =
-            let kw = if is_require then "requires " else "ensures " in
+            let kw = if is_require then "assumes " else "guarantees " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
@@ -503,11 +503,11 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
   in
   let req_block =
     if requires_labeled = [] then []
-    else comment_line (indent + 1) "-- requires --" :: build_block ~is_require:true requires_labeled
+    else comment_line (indent + 1) "-- assumes --" :: build_block ~is_require:true requires_labeled
   in
   let ens_block =
     if ensures_labeled = [] then []
-    else comment_line (indent + 1) "-- ensures --" :: build_block ~is_require:false ensures_labeled
+    else comment_line (indent + 1) "-- guarantees --" :: build_block ~is_require:false ensures_labeled
   in
   let body_ghost = t.attrs.ghost in
   let body_user = t.body in
@@ -569,7 +569,7 @@ let node_lines (n : node) : string list =
   in
   let locals =
     match n.locals with
-    | [] -> [ indent_str 1 ^ "locals" ]
+    | [] -> []
     | _ ->
         let local_line v =
           let base = indent_str 2 ^ vdecl_line v ^ ";" in
@@ -577,12 +577,18 @@ let node_lines (n : node) : string list =
         in
         (indent_str 1 ^ "locals") :: List.map local_line n.locals
   in
-  let states = indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";" in
-  let init = indent_str 1 ^ "init " ^ n.init_state in
+  let states =
+    let states_with_init =
+      List.map
+        (fun s -> if String.equal s n.init_state then s ^ "(init)" else s)
+        n.states
+    in
+    indent_str 1 ^ "states " ^ String.concat ", " states_with_init ^ ";"
+  in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
     let base_line_len is_require f =
-      let kw = if is_require then "requires " else "ensures " in
+      let kw = if is_require then "assumes " else "guarantees " in
       let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
       String.length (prettify_pre_old ~init_for_var ~vars line)
     in
@@ -600,12 +606,12 @@ let node_lines (n : node) : string list =
         Some (max_len + 2)
   in
   let trans =
-    (indent_str 1 ^ "trans")
+    (indent_str 1 ^ "transitions")
     :: List.concat_map
          (fun t -> transition_lines 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
          n.trans
   in
-  [ header ] @ contracts @ instances @ locals @ [ states; init ] @ trans @ [ "end" ]
+  [ header ] @ contracts @ instances @ locals @ [ states ] @ trans @ [ "end" ]
 
 let string_of_program (p : Ast.program) : string =
   let p = p in
@@ -675,7 +681,7 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
           in
           let vcid_line = [] in
           let line =
-            let kw = if is_require then "requires " else "ensures " in
+            let kw = if is_require then "assumes " else "guarantees " in
             indent_str (indent + 1) ^ kw ^ string_of_fo f.value ^ ";"
           in
           let line = prettify_pre_old ~init_for_var ~vars line in
@@ -696,13 +702,13 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
   let req_block =
     if requires_labeled = [] then []
     else
-      (comment_line (indent + 1) "-- requires --", None)
+      (comment_line (indent + 1) "-- assumes --", None)
       :: build_block ~is_require:true requires_labeled
   in
   let ens_block =
     if ensures_labeled = [] then []
     else
-      (comment_line (indent + 1) "-- ensures --", None)
+      (comment_line (indent + 1) "-- guarantees --", None)
       :: build_block ~is_require:false ensures_labeled
   in
   let body_ghost = t.attrs.ghost in
@@ -776,7 +782,7 @@ let node_lines_with_vcid (n : node) : line_with_vcid list =
   in
   let locals =
     match n.locals with
-    | [] -> [ (indent_str 1 ^ "locals", None) ]
+    | [] -> []
     | _ ->
         let local_line v =
           let base = indent_str 2 ^ vdecl_line v ^ ";" in
@@ -785,12 +791,18 @@ let node_lines_with_vcid (n : node) : line_with_vcid list =
         (indent_str 1 ^ "locals", None)
         :: List.map (fun line -> (line, None)) (List.map local_line n.locals)
   in
-  let states = (indent_str 1 ^ "states " ^ String.concat ", " n.states ^ ";", None) in
-  let init = (indent_str 1 ^ "init " ^ n.init_state, None) in
+  let states =
+    let states_with_init =
+      List.map
+        (fun s -> if String.equal s n.init_state then s ^ "(init)" else s)
+        n.states
+    in
+    (indent_str 1 ^ "states " ^ String.concat ", " states_with_init ^ ";", None)
+  in
   let label_counters = { req = 0; ens = 0 } in
   let label_align_col =
     let base_line_len is_require f =
-      let kw = if is_require then "requires " else "ensures " in
+      let kw = if is_require then "assumes " else "guarantees " in
       let line = indent_str 3 ^ kw ^ string_of_fo f ^ ";" in
       String.length (prettify_pre_old ~init_for_var ~vars line)
     in
@@ -808,13 +820,13 @@ let node_lines_with_vcid (n : node) : line_with_vcid list =
         Some (max_len + 2)
   in
   let trans =
-    (indent_str 1 ^ "trans", None)
+    (indent_str 1 ^ "transitions", None)
     :: List.concat_map
          (fun t ->
            transition_lines_with_vcid 2 t ~init_for_var ~vars ~label_counters ~label_align_col)
          n.trans
   in
-  [ header ] @ contracts @ coherency_goals @ instances @ locals @ [ states; init ] @ trans
+  [ header ] @ contracts @ coherency_goals @ instances @ locals @ [ states ] @ trans
   @ [ ("end", None) ]
 
 let string_of_program_with_spans (p : Ast.program) : string * (int * (int * int)) list =

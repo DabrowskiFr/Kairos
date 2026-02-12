@@ -18,15 +18,67 @@ let mk_iexpr_loc start_pos end_pos desc =
 let mk_stmt_loc start_pos end_pos desc =
   Ast_builders.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
 
-let resolve_init_state ~(inline_init:Ast.ident option) ~(explicit_init:Ast.ident option) : Ast.ident =
-  match (inline_init, explicit_init) with
-  | Some s, None | None, Some s -> s
-  | Some s1, Some s2 when String.equal s1 s2 -> s1
-  | Some s1, Some s2 ->
-      failwith
-        (Printf.sprintf
-           "ambiguous init state: inline init is '%s' but explicit init is '%s'" s1 s2)
-  | None, None -> failwith "missing init state: use 'init S' or mark a state with '(init)'"
+let resolve_init_state ~(inline_init:Ast.ident option) : Ast.ident =
+  match inline_init with
+  | Some s -> s
+  | None -> failwith "missing init state: mark one state with '(init)'"
+
+let history_aliases : (string, (string * int)) Hashtbl.t = Hashtbl.create 17
+
+let reset_history_aliases () = Hashtbl.clear history_aliases
+
+let register_history_alias ~(alias:string) ~(param:string) ~(rhs_param:string) ~(k:int) =
+  if k < 1 then failwith (Printf.sprintf "history alias '%s' uses invalid k=%d (expected >= 1)" alias k);
+  if not (String.equal param rhs_param) then
+    failwith
+      (Printf.sprintf
+         "history alias '%s' is inconsistent: parameter is '%s' but rhs uses '%s'" alias param
+         rhs_param);
+  Hashtbl.replace history_aliases alias (param, k)
+
+let implicit_history_alias_k (alias:string) : int option =
+  let prefix = "prev" in
+  let plen = String.length prefix in
+  if String.length alias < plen then None
+  else if not (String.equal (String.sub alias 0 plen) prefix) then None
+  else
+    let suffix = String.sub alias plen (String.length alias - plen) in
+    if String.length suffix = 0 then Some 1
+    else
+      let all_digits =
+        let rec loop i =
+          if i >= String.length suffix then true
+          else
+            match suffix.[i] with
+            | '0' .. '9' -> loop (i + 1)
+            | _ -> false
+        in
+        loop 0
+      in
+      if not all_digits then None
+      else
+        let k = int_of_string suffix in
+        if k < 1 then None else Some k
+
+let expand_history_alias (alias:string) (arg:iexpr) : hexpr =
+  match Hashtbl.find_opt history_aliases alias with
+  | Some (_param, k) -> HPreK (arg, k)
+  | None -> (
+      match implicit_history_alias_k alias with
+      | Some k -> HPreK (arg, k)
+      | None -> failwith (Printf.sprintf "unknown history alias '%s'" alias))
+
+let mk_var_iexpr_loc start_pos end_pos id =
+  mk_iexpr_loc start_pos end_pos (IVar id)
+
+let is_reserved_history_alias_name (id:string) : bool =
+  match implicit_history_alias_k id with Some _ -> true | None -> false
+
+let forbid_reserved_identifier ~(context:string) (id:string) : unit =
+  if is_reserved_history_alias_name id then
+    failwith
+      (Printf.sprintf
+         "identifier '%s' is reserved for implicit history aliases (context: %s)" id context)
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
@@ -34,9 +86,12 @@ let resolve_init_state ~(inline_init:Ast.ident option) ~(explicit_init:Ast.ident
 %token INVARIANT IN
 %token INVARIANTS
 %token CONTRACTS
+%token LET
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP
 %token WHEN
+%token MATCH WITH BAR
+%token FROM TO
 %token TRUE FALSE
 %token TINT TBOOL TREAL
 %token PRE
@@ -66,24 +121,27 @@ nodes:
   | node { [$1] }
 
 node:
-  NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN node_contracts_opt instances_opt
-  LOCALS vdecls_opt
+  NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN
+  alias_scope_start
+  alias_decls_opt
+  node_contracts_block instances_opt
+  locals_opt
   STATES state_decls SEMI
-  init_decl_opt
   state_invariants_opt
   TRANS transitions
   END
   {
-    let states, inline_init = $15 in
-    let init_state = resolve_init_state ~inline_init ~explicit_init:$17 in
+    let () = forbid_reserved_identifier ~context:"node name" $2 in
+    let states, inline_init = $16 in
+    let init_state = resolve_init_state ~inline_init in
     Ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
       ~outputs:$8
-      ~assumes:(fst $10)
-      ~guarantees:(snd $10)
-      ~instances:$11
-      ~locals:$13
+      ~assumes:(fst $12)
+      ~guarantees:(snd $12)
+      ~instances:$13
+      ~locals:$14
       ~states
       ~init_state
       ~trans:$20
@@ -100,7 +158,11 @@ params:
   | param { [$1] }
 
 param:
-  IDENT COLON ty { {vname=$1; vty=$3} }
+  IDENT COLON ty
+    {
+      let () = forbid_reserved_identifier ~context:"parameter" $1 in
+      {vname=$1; vty=$3}
+    }
 
 ty:
   | TINT { TInt }
@@ -108,9 +170,7 @@ ty:
   | TREAL { TReal }
   | IDENT { TCustom $1 }
 
-node_contracts_opt:
-  | /* empty */ { ([], []) }
-  | node_contracts { $1 }
+node_contracts_block:
   | CONTRACTS { ([], []) }
   | CONTRACTS node_contracts { $2 }
 
@@ -118,29 +178,38 @@ instances_opt:
   | /* empty */ { [] }
   | INSTANCES instance_list { $2 }
 
+locals_opt:
+  | /* empty */ { [] }
+  | LOCALS vdecls_opt { $2 }
+
 instance_list:
   | instance_decl instance_list { $1 :: $2 }
   | instance_decl { [$1] }
 
 instance_decl:
-  | INSTANCE IDENT COLON IDENT SEMI { ($2, $4) }
+  | INSTANCE IDENT COLON IDENT SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"instance name" $2 in
+        let () = forbid_reserved_identifier ~context:"instance node reference" $4 in
+        ($2, $4)
+      }
 
 node_contracts:
-  | ASSUME ltl SEMI node_contracts
+  | REQUIRES COLON ltl SEMI node_contracts
       {
-        let (a, g) = $4 in ($2 :: a, g)
+        let (a, g) = $5 in ($3 :: a, g)
       }
-  | GUARANTEE ltl SEMI node_contracts
+  | ENSURES COLON ltl SEMI node_contracts
       {
-        let (a, g) = $4 in (a, $2 :: g)
+        let (a, g) = $5 in (a, $3 :: g)
       }
-  | ASSUME ltl SEMI
+  | REQUIRES COLON ltl SEMI
       {
-        ([$2], [])
+        ([$3], [])
       }
-  | GUARANTEE ltl SEMI
+  | ENSURES COLON ltl SEMI
       {
-        ([], [$2])
+        ([], [$3])
       }
 
 vdecls_opt:
@@ -152,11 +221,40 @@ vdecls:
   | vdecl_group { $1 }
 
 vdecl_group:
-  ident_list COLON ty SEMI { List.map (fun name -> {vname=name; vty=$3}) $1 }
+  ident_list COLON ty SEMI
+    {
+      List.iter (fun name -> forbid_reserved_identifier ~context:"variable declaration" name) $1;
+      List.map (fun name -> {vname=name; vty=$3}) $1
+    }
 
 ident_list:
   | IDENT COMMA ident_list { $1 :: $3 }
   | IDENT { [$1] }
+
+alias_scope_start:
+  | /* empty */ { reset_history_aliases () }
+
+alias_decls_opt:
+  | /* empty */ { () }
+  | alias_decls { () }
+
+alias_decls:
+  | alias_decl alias_decls { () }
+  | alias_decl { () }
+
+alias_decl:
+  | LET IDENT IDENT EQ PRE LPAREN IDENT RPAREN SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"history alias parameter" $3 in
+        let () = forbid_reserved_identifier ~context:"history alias rhs parameter" $7 in
+        register_history_alias ~alias:$2 ~param:$3 ~rhs_param:$7 ~k:1
+      }
+  | LET IDENT IDENT EQ PREK LPAREN IDENT COMMA INT RPAREN SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"history alias parameter" $3 in
+        let () = forbid_reserved_identifier ~context:"history alias rhs parameter" $7 in
+        register_history_alias ~alias:$2 ~param:$3 ~rhs_param:$7 ~k:$9
+      }
 
 state_decls:
   | state_decl COMMA state_decls {
@@ -179,12 +277,16 @@ state_decls:
     }
 
 state_decl:
-  | IDENT { ($1, None) }
-  | IDENT LPAREN INIT RPAREN { ($1, Some $1) }
-
-init_decl_opt:
-  | /* empty */ { None }
-  | INIT IDENT { Some $2 }
+  | IDENT
+      {
+        let () = forbid_reserved_identifier ~context:"state name" $1 in
+        ($1, None)
+      }
+  | IDENT LPAREN INIT RPAREN
+      {
+        let () = forbid_reserved_identifier ~context:"state name" $1 in
+        ($1, Some $1)
+      }
 
 state_invariants_opt:
   | /* empty */ { [] }
@@ -212,21 +314,70 @@ invariant_formula_list:
   | fo_formula SEMI { [$1] }
 
 transitions:
-  | transition transitions { $1 :: $2 }
-  | transition { [$1] }
+  | transition_group transitions { $1 @ $2 }
+  | transition_group { $1 }
+  | MATCH IDENT WITH match_transitions
+      {
+        if not (String.equal $2 "state") then
+          failwith
+            (Printf.sprintf
+               "unsupported match target '%s' in transitions (expected 'state')" $2);
+        $4
+      }
 
-transition:
-  IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
-  {
-    let (reqs, enss) = $6 in
-    Ast_builders.mk_transition
-      ~src:$1
-      ~dst:$3
-      ~guard:$4
-      ~requires:reqs
-      ~ensures:enss
-      ~body:$7
-  }
+transition_group:
+  | FROM IDENT COLON to_transitions {
+      List.map
+        (fun (dst, guard, reqs, enss, body) ->
+          Ast_builders.mk_transition
+            ~src:$2
+            ~dst
+            ~guard
+            ~requires:reqs
+            ~ensures:enss
+            ~body)
+        $4
+    }
+  | IDENT COLON to_transitions {
+      List.map
+        (fun (dst, guard, reqs, enss, body) ->
+          Ast_builders.mk_transition
+            ~src:$1
+            ~dst
+            ~guard
+            ~requires:reqs
+            ~ensures:enss
+            ~body)
+        $3
+    }
+
+to_transitions:
+  | to_transition to_transitions { $1 :: $2 }
+  | to_transition { [$1] }
+
+to_transition:
+  | TO IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
+      {
+        let (reqs, enss) = $5 in
+        ($2, $3, reqs, enss, $6)
+      }
+
+match_transitions:
+  | match_transition match_transitions { $1 :: $2 }
+  | match_transition { [$1] }
+
+match_transition:
+  | BAR IDENT ARROW IDENT guard_opt LBRACE trans_contracts_opt stmt_list_opt RBRACE
+      {
+        let (reqs, enss) = $7 in
+        Ast_builders.mk_transition
+          ~src:$2
+          ~dst:$4
+          ~guard:$5
+          ~requires:reqs
+          ~ensures:enss
+          ~body:$8
+      }
 
 guard_opt:
   | /* empty */ { None }
@@ -281,6 +432,27 @@ trans_contracts_opt:
   | trans_contracts { $1 }
 
 trans_contracts:
+  | ASSUME fo_formula SEMI trans_contracts
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (reqs, enss) = $4 in (with_origin_loc UserContract loc $2 :: reqs, enss)
+      }
+  | GUARANTEE fo_formula SEMI trans_contracts
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        let (reqs, enss) = $4 in (reqs, with_origin_loc UserContract loc $2 :: enss)
+      }
+  | ASSUME fo_formula SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([with_origin_loc UserContract loc $2], [])
+      }
+  | GUARANTEE fo_formula SEMI
+      {
+        let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
+        ([], [with_origin_loc UserContract loc $2])
+      }
+  (* Legacy spelling kept for backward compatibility. *)
   | REQUIRES fo_formula SEMI trans_contracts
       {
         let loc = loc_of_positions (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) in
@@ -369,6 +541,10 @@ id_list:
   | IDENT { [$1] }
 
 hexpr:
+  | IDENT IDENT {
+      let arg = mk_var_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) $2 in
+      expand_history_alias $1 arg
+    }
   | arith { HNow $1 }
   | LBRACE iexpr RBRACE { HNow $2 }
   | PRE LPAREN iexpr RPAREN { HPreK($3, 1) }
