@@ -29,10 +29,22 @@ let log_level_conv =
   in
   Arg.conv (parse, print)
 
-let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_json_stable dump_ast
-    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only smoke_tests
-    debug_contract_ids log_level log_file file =
+let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_product
+    dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 dump_json dump_json_stable
+    dump_ast dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only
+    smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
+    log_file file =
   Log.setup ~level:log_level ~log_file;
+  let read_all_stdin () =
+    let b = Buffer.create 4096 in
+    (try
+       while true do
+         Buffer.add_string b (input_line stdin);
+         Buffer.add_char b '\n'
+       done
+     with End_of_file -> ());
+    Buffer.contents b
+  in
   let dump_ast_stage, dump_ast_out =
     match (dump_ast, dump_json, dump_json_stable) with
     | Some (stage, out), None, None -> (Some stage, Some out)
@@ -42,6 +54,18 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
     | _ -> (None, None)
   in
   let validate () =
+    let dump_mode_count =
+      List.fold_left (fun acc b -> if b then acc + 1 else acc) 0
+        [
+          dump_dot <> None;
+          dump_dot_short <> None;
+          dump_obc <> None;
+          dump_automata <> None;
+          dump_product <> None;
+          dump_obligations_map <> None;
+          dump_prune_reasons <> None;
+        ]
+    in
     if dump_ast <> None && dump_json <> None then
       Error "--dump-json and --dump-ast are mutually exclusive"
     else if dump_json <> None && dump_json_stable <> None then
@@ -52,24 +76,39 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
       Error "--dump-json and --dump-ast-all are mutually exclusive"
     else if
       (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
-     || dump_ast_all <> None)
+     || dump_ast_all <> None || dump_automata <> None || dump_product <> None
+        || dump_obligations_map <> None || dump_prune_reasons <> None)
       && (prove || wp_only || output_file <> None)
     then Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
     else if
       dump_obc <> None
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
-        || dump_ast_all <> None || dump_why3_vc <> None || dump_smt2 <> None)
+        || dump_ast_all <> None || dump_why3_vc <> None || dump_smt2 <> None
+        || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
+        || dump_prune_reasons <> None)
     then Error "--dump-obc cannot be combined with --dump-dot/--dump-dot-short or --dump-ast"
     else if
       (dump_why3_vc <> None || dump_smt2 <> None)
       && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
-        || dump_ast_all <> None)
+        || dump_ast_all <> None || dump_automata <> None || dump_product <> None
+        || dump_obligations_map <> None || dump_prune_reasons <> None)
     then Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-obc/--dump-ast"
-    else if dump_dot <> None && dump_dot_short <> None then
-      Error "--dump-dot and --dump-dot-short are mutually exclusive"
+    else if dump_mode_count > 1 then
+      Error
+        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-obc/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons"
+    else if eval_trace <> None
+            && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None
+               || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
+               || dump_prune_reasons <> None || dump_why3_vc <> None || dump_smt2 <> None
+               || dump_ast_stage <> None || dump_ast_all <> None || output_file <> None || prove
+               || wp_only)
+    then Error "--eval-trace cannot be combined with dump/prove options"
     else if
-      dump_dot = None && dump_dot_short = None && dump_obc = None && dump_why3_vc = None
-      && dump_smt2 = None && output_file = None && (not prove) && not wp_only
+      dump_dot = None && dump_dot_short = None && dump_obc = None && dump_automata = None
+      && dump_product = None && dump_obligations_map = None && dump_prune_reasons = None
+      && dump_why3_vc = None && dump_smt2 = None && output_file = None && (not prove)
+      && not wp_only
+      && eval_trace = None
     then Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
     else Ok ()
   in
@@ -89,6 +128,11 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
               Runner.dump_dot;
               dump_dot_short;
               dump_obc;
+              dump_obc_abstract;
+              dump_automata;
+              dump_product;
+              dump_obligations_map;
+              dump_prune_reasons;
               dump_why3_vc;
               dump_smt2;
               dump_ast_stage;
@@ -107,8 +151,36 @@ let run dump_dot dump_dot_short dump_obc dump_why3_vc dump_smt2 dump_json dump_j
               input_file = file;
             }
           in
-          begin match Runner.run stages_cfg with Ok () -> `Ok () | Error msg -> `Error (false, msg)
-          end
+          if eval_trace <> None then (
+            let trace_text_res =
+              match eval_trace with
+              | None -> Ok ""
+              | Some "-" -> Ok (read_all_stdin ())
+              | Some path -> (
+                  try
+                    let ic = open_in path in
+                    let n = in_channel_length ic in
+                    let text = really_input_string ic n in
+                    close_in ic;
+                    Ok text
+                  with exn -> Error ("Cannot read eval trace file: " ^ Printexc.to_string exn))
+            in
+            match trace_text_res with
+            | Error msg -> `Error (false, msg)
+            | Ok trace_text -> (
+                match
+                  Pipeline.eval_pass ~input_file:file ~trace_text ~with_state:eval_with_state
+                    ~with_locals:eval_with_locals
+                with
+                | Error err -> `Error (false, Pipeline.error_to_string err)
+                | Ok out ->
+                    (match eval_out with
+                    | None | Some "-" -> print_endline out
+                    | Some path -> Io.write_text path out);
+                    `Ok ()))
+          else
+            begin match Runner.run stages_cfg with Ok () -> `Ok () | Error msg -> `Error (false, msg)
+            end
       end
 
 let cmd =
@@ -131,6 +203,37 @@ let cmd =
     value
     & opt (some string) None
     & info [ "dump-obc" ] ~docv:"FILE" ~doc:"Dump augmented OBC (monitor-instrumented)."
+  in
+  let dump_obc_abstract =
+    value
+    & flag
+    & info [ "dump-obc-abstract" ]
+        ~doc:
+          "With --dump-obc, render from Abstract Kairos IR (OBC+-like text) instead of legacy OBC emitter."
+  in
+  let dump_automata =
+    value
+    & opt (some string) None
+    & info [ "dump-automata" ] ~docv:"FILE"
+        ~doc:"Dump guarantee+assume automata (pure/runtime diagnostics text)."
+  in
+  let dump_product =
+    value
+    & opt (some string) None
+    & info [ "dump-product" ] ~docv:"FILE"
+        ~doc:"Dump reachable product Prog x A x G diagnostics (text)."
+  in
+  let dump_obligations_map =
+    value
+    & opt (some string) None
+    & info [ "dump-obligations-map" ] ~docv:"FILE"
+        ~doc:"Dump mapping from transitions to generated coherency obligations (text)."
+  in
+  let dump_prune_reasons =
+    value
+    & opt (some string) None
+    & info [ "dump-prune-reasons" ] ~docv:"FILE"
+        ~doc:"Dump prune reason counters used while exploring product compatibility."
   in
   let dump_why3_vc =
     value
@@ -159,7 +262,7 @@ let cmd =
     & opt (some dump_ast_conv) None
     & info [ "dump-ast" ] ~docv:"STAGE:FILE"
         ~doc:
-          "Dump AST after stage: parsed|automaton|contracts|monitor|obc to file or '-' for stdout."
+          "Dump AST after stage: parsed|automaton|contracts|instrumentation|obc to file or '-' for stdout."
   in
   let dump_ast_all =
     value
@@ -197,6 +300,27 @@ let cmd =
         ~doc:
           "Inject smoke obligations (ensure false) to detect inconsistent assumptions/hypotheses."
   in
+  let eval_trace =
+    value
+    & opt (some string) None
+    & info [ "eval-trace" ] ~docv:"FILE"
+        ~doc:
+          "Evaluate the source program on a trace file ('-' for stdin). Formats auto-detected: x=v lines, CSV (header+rows), or JSONL objects."
+  in
+  let eval_out =
+    value
+    & opt (some string) None
+    & info [ "eval-out" ] ~docv:"FILE"
+        ~doc:"Write evaluator output to FILE ('-' or omitted: stdout)."
+  in
+  let eval_with_state =
+    value & flag
+    & info [ "eval-with-state" ] ~doc:"Include current state in evaluator output."
+  in
+  let eval_with_locals =
+    value & flag
+    & info [ "eval-with-locals" ] ~doc:"Include locals in evaluator output."
+  in
   let debug_contract_ids =
     value & flag
     & info [ "debug-contract-ids" ]
@@ -218,9 +342,11 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_why3_vc $ dump_smt2 $ dump_json
-       $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast $ output_file
-       $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ debug_contract_ids $ log_level
+        (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_obc_abstract $ dump_automata
+       $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2
+       $ dump_json $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast
+       $ output_file $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ eval_trace
+       $ eval_out $ eval_with_state $ eval_with_locals $ debug_contract_ids $ log_level
        $ log_file $ file))
 
 let run () = exit (Cmd.eval cmd)

@@ -1,0 +1,10 @@
+digraph G {
+  rankdir=LR;
+  node [shape=circle];
+  I [shape=doublecircle,label="Init, ok_A, q0"];
+  R1 [shape=doublecircle,label="Run, ok_A, q1"];
+  R0 [shape=doublecircle,label="Run, ok_A, q0"];
+  I -> R1;
+  R1 -> R0;
+  R0 -> R1;
+}

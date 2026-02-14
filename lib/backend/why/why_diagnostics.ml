@@ -61,7 +61,7 @@ let build_labels (ctx : label_context) : string list * string list =
     List.fold_right
       (fun t (compat, atom, user) ->
         let s = Support.string_of_term t in
-        if contains_sub s "__mon_state" && contains_sub s "st" then (t :: compat, atom, user)
+        if contains_sub s "__aut_state" && contains_sub s "st" then (t :: compat, atom, user)
         else if contains_sub s "atom_" then (compat, t :: atom, user)
         else (compat, atom, t :: user))
       terms ([], [], [])
@@ -76,7 +76,7 @@ let build_labels (ctx : label_context) : string list * string list =
       ("Compatibility", group_terms_by_pre compat_pre);
       ("User invariants", group_terms_by_pre user_pre);
       ("Instance links (pre)", group_terms_by_pre ctx.instance_input_links_pre);
-      ("Monitor", group_terms_by_pre ctx.pre_invf);
+      ("Instrumentation", group_terms_by_pre ctx.pre_invf);
       ("Initialization/first_step", group_terms_by_pre ctx.first_step_init_link_pre);
       ("Internal links", group_terms_by_pre ctx.link_invariants);
     ]
@@ -90,7 +90,7 @@ let build_labels (ctx : label_context) : string list * string list =
         ("User invariants", group_terms_by_post user_post);
         ("Instance links (post)", group_terms_by_post ctx.instance_input_links_post);
         ("Instance invariants", group_terms_by_post ctx.instance_invariants);
-        ("Monitor", group_terms_by_post ctx.post_invf);
+        ("Instrumentation", group_terms_by_post ctx.post_invf);
         ("pre_k history", group_terms_by_post ctx.pre_k_links);
         ("Internal links", group_terms_by_post ctx.link_invariants);
       ]
@@ -101,7 +101,7 @@ let build_labels (ctx : label_context) : string list * string list =
   in
   let fallback_label t =
     let s = Support.string_of_term t in
-    if contains_sub s "__mon_state" then
+    if contains_sub s "__aut_state" then
       if contains_sub s "<>" || contains_sub s "!=" then Some "Bad state" else Some "Compatibility"
     else None
   in

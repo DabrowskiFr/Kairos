@@ -27,7 +27,7 @@ open Support
 let is_mon_state_ctor (name : ident) : bool =
   let len = String.length name in
   len >= 4
-  && String.sub name 0 3 = "Mon"
+  && String.sub name 0 3 = "Aut"
   && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
 
 let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
@@ -157,7 +157,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | IVar name ->
         let len = String.length name in
         len >= 4
-        && String.sub name 0 3 = "Mon"
+        && String.sub name 0 3 = "Aut"
         && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
     | _ -> false
   in
@@ -229,6 +229,9 @@ let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : 
              compile_ltl_term_shift ~prefer_link ~in_post env shift b ))
   | LX a -> compile_ltl_term_shift ~prefer_link ~in_post env 1 a
   | LG a -> compile_ltl_term_shift ~prefer_link ~in_post env shift a
+  | LW (a, b) ->
+      compile_ltl_term_shift ~prefer_link ~in_post env shift
+        (LOr (b, LAnd (a, LX (LW (a, b)))))
   | LAtom f ->
       let old = shift = 0 in
       compile_fo_term_shift ~prefer_link ~in_post env old f
@@ -278,6 +281,7 @@ let rec ltl_relational (env : env) (f : fo_ltl) : fo_ltl =
   | LImp (a, b) -> LImp (ltl_relational env a, ltl_relational env b)
   | LX a -> LX (ltl_relational env a)
   | LG a -> LG (ltl_relational env a)
+  | LW (a, b) -> LW (ltl_relational env a, ltl_relational env b)
   | LAtom f -> LAtom (rel_fo env f)
 
 and rel_fo (env : env) (f : fo) : fo =
@@ -299,7 +303,7 @@ let ltl_spec (env : env) (f : fo_ltl) : spec_frag =
     | LX _ -> true
     | LTrue | LFalse | LAtom _ -> false
     | LNot a | LG a -> has_x a
-    | LAnd (a, b) | LOr (a, b) | LImp (a, b) -> has_x a || has_x b
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> has_x a || has_x b
   in
   let post_term f =
     if has_x f then compile_ltl_term_shift ~prefer_link:true ~in_post:true env 0 f
@@ -308,7 +312,7 @@ let ltl_spec (env : env) (f : fo_ltl) : spec_frag =
   match f with
   | LTrue -> empty_frag
   | LFalse -> { pre = []; post = [ mk_term Tfalse ] }
-  | LNot _ | LAnd _ | LOr _ | LImp _ | LAtom _ | LX _ ->
+  | LNot _ | LAnd _ | LOr _ | LImp _ | LAtom _ | LX _ | LW _ ->
       let pre_t = compile_ltl_term_shift ~prefer_link:true ~in_post:false env 1 f in
       let post_t = post_term f in
       { pre = [ pre_t ]; post = [ post_t ] }

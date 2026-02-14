@@ -51,8 +51,12 @@ let () =
       ("not", NOT);
       ("always", G);
       ("next", X);
+      ("weakuntil", W);
+      ("release", R);
       ("G", G);
       ("X", X);
+      ("W", W);
+      ("R", R);
     ]
 
 let last_lexeme_ref = ref ""
@@ -112,8 +116,12 @@ let expected_tokens : (string * Parser.token) list =
     ("not", NOT);
     ("always", G);
     ("next", X);
+    ("weakuntil", W);
+    ("release", R);
     ("G", G);
     ("X", X);
+    ("W", W);
+    ("R", R);
     (":=", ASSIGN);
     ("->", ARROW);
     ("=>", IMPL);

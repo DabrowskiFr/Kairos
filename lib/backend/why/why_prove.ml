@@ -46,12 +46,55 @@ let apply_transform name env tasks =
   List.concat_map (fun task -> Trans.apply_transform name env task) tasks
 
 let normalize_tasks ~(env : Env.env) ~(text : string) : Task.task list =
-  tasks_of_text ~env ~filename:"<generated>" ~text
-  |> apply_transform "split_vc" env
-  |> apply_transform "simplify_formula" env
+  tasks_of_text ~env ~filename:"<generated>" ~text |> apply_transform "split_vc" env
 
 let split_vc_tasks ~(env : Env.env) ~(text : string) : Task.task list =
   tasks_of_text ~env ~filename:"<generated>" ~text |> apply_transform "split_vc" env
+
+let extract_wids_from_attrs (attrs : Ident.Sattr.t) : int list =
+  Ident.Sattr.elements attrs
+  |> List.filter_map (fun attr ->
+         let s = attr.Ident.attr_string in
+         if String.length s >= 4 && String.sub s 0 4 = "wid:" then
+           try Some (int_of_string (String.sub s 4 (String.length s - 4))) with _ -> None
+         else None)
+
+let task_wids_deep (task : Task.task) : int list =
+  let wids = ref [] in
+  let add_wids attrs =
+    extract_wids_from_attrs attrs
+    |> List.iter (fun w -> if List.mem w !wids then () else wids := w :: !wids)
+  in
+  let add_wids_from_term (t : Term.term) =
+    add_wids t.Term.t_attrs;
+    ignore
+      (Term.t_fold
+         (fun () tm ->
+           add_wids tm.Term.t_attrs;
+           ())
+         () t)
+  in
+  begin try add_wids_from_term (Task.task_goal_fmla task) with _ -> ()
+  end;
+  Task.task_decls task
+  |> List.iter (fun decl ->
+         match decl.Decl.d_node with
+         | Decl.Dprop (_kind, _pr, t) -> add_wids_from_term t
+         | _ -> ());
+  List.rev !wids
+
+let normalize_tasks_with_wids ~(env : Env.env) ~(text : string) : (Task.task * int list) list =
+  let tasks0 = tasks_of_text ~env ~filename:"<generated>" ~text in
+  List.concat_map
+    (fun task0 ->
+      let parent_wids = task_wids_deep task0 in
+      let split = Trans.apply_transform "split_vc" env task0 in
+      List.map
+        (fun t ->
+          let local_wids = task_wids_deep t in
+          if local_wids = [] then (t, parent_wids) else (t, local_wids))
+        split)
+    tasks0
 
 let find_config_file () =
   let env_opt name =
@@ -163,11 +206,7 @@ let rec prove_text ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : strin
   in
   let prover_cfg, use_direct_z3 = ensure_prover config in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks =
-    tasks_of_text ~env ~filename:"<generated>" ~text
-    |> apply_transform "split_vc" env
-    |> apply_transform "simplify_formula" env
-  in
+  let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
   let limits =
     {
       Call_provers.empty_limits with
@@ -203,9 +242,10 @@ let rec prove_text ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : strin
   let summary, _details =
     prove_tasks_with_details ~write_text ~driver ~main ~limits ~command ~use_direct_z3
       ~prove_with_z3_direct ~goal_labels:(Hashtbl.create 0) ~vc_ids_ordered:None
+      ~selected_goal_index:None
       ~on_goal_start:(fun _ _ -> ())
       ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
-      tasks
+      tasks_with_wids
   in
   let status =
     if summary.invalid + summary.unknown + summary.timeout + summary.failure = 0 then 0 else 1
@@ -216,18 +256,26 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
     ~(main : Whyconf.main) ~(limits : Call_provers.resource_limits) ~(command : string)
     ~(use_direct_z3 : bool) ~(prove_with_z3_direct : Buffer.t -> Call_provers.prover_answer)
     ~(goal_labels : (string, string) Hashtbl.t) ~(vc_ids_ordered : int list option)
+    ~(selected_goal_index : int option)
     ~(on_goal_start : int -> string -> unit)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit)
-    (tasks : Task.task list) :
+    (tasks_with_wids : (Task.task * int list) list) :
     summary * (string * string * float * string option * string * string option) list =
-  let total_tasks = List.length tasks in
-  let rec loop idx acc details = function
+  let indexed_tasks =
+    List.mapi (fun i tw -> (i, tw)) tasks_with_wids
+    |> (fun xs ->
+         match selected_goal_index with
+         | None -> xs
+         | Some k -> List.filter (fun (i, _) -> i = k) xs)
+  in
+  let total_tasks = List.length indexed_tasks in
+  let rec loop pos acc details = function
     | [] -> (finalize_summary acc, List.rev details)
-    | task :: rest ->
-        if idx = 0 || idx = total_tasks - 1 || (idx + 1) mod 10 = 0 then
+    | (orig_idx, (task, seed_wids)) :: rest ->
+        if pos = 0 || pos = total_tasks - 1 || (pos + 1) mod 10 = 0 then
           Log.stage_info (Some Stage_names.Prove)
-            (Printf.sprintf "proving goal %d/%d" (idx + 1) total_tasks)
+            (Printf.sprintf "proving goal %d/%d" (pos + 1) total_tasks)
             [];
         let prepared = Driver.prepare_task driver task in
         let buffer = Buffer.create 4096 in
@@ -240,7 +288,7 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
             pr.Decl.pr_name.Ident.id_string
           with _ -> "goal"
         in
-        on_goal_start idx goal;
+        on_goal_start orig_idx goal;
         let t0 = Unix.gettimeofday () in
         let answer =
           if use_direct_z3 then prove_with_z3_direct buffer
@@ -255,10 +303,10 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
         let elapsed = Unix.gettimeofday () -. t0 in
         let dump_path =
           if answer <> Call_provers.Valid then (
-            let tmp = Filename.temp_file (Printf.sprintf "why3_failed_%d_" (idx + 1)) ".smt2" in
+            let tmp = Filename.temp_file (Printf.sprintf "why3_failed_%d_" (orig_idx + 1)) ".smt2" in
             write_text tmp (Buffer.contents buffer);
             Log.warning ~stage:Stage_names.Prove
-              (Printf.sprintf "goal %d/%d failed (%s); dumped to %s" (idx + 1) total_tasks
+              (Printf.sprintf "goal %d/%d failed (%s); dumped to %s" (pos + 1) total_tasks
                  (match answer with
                  | Call_provers.Invalid -> "invalid"
                  | Call_provers.Timeout -> "timeout"
@@ -294,20 +342,13 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
         let vcid =
           match vc_ids_ordered with
           | Some ids -> begin
-              match List.nth_opt ids idx with Some id -> Some (string_of_int id) | None -> None
+              match List.nth_opt ids orig_idx with Some id -> Some (string_of_int id) | None -> None
             end
           | None ->
-              let attrs =
-                try (Task.task_goal_fmla prepared).Term.t_attrs with _ -> Ident.Sattr.empty
-              in
               let why_ids =
-                Ident.Sattr.elements attrs
-                |> List.filter_map (fun attr ->
-                    let s = attr.Ident.attr_string in
-                    if String.length s >= 4 && String.sub s 0 4 = "wid:" then
-                      try Some (int_of_string (String.sub s 4 (String.length s - 4)))
-                      with _ -> None
-                    else None)
+                if seed_wids <> [] then seed_wids
+                else
+                  try task_wids_deep prepared with _ -> []
               in
               if why_ids = [] then None
               else
@@ -315,12 +356,12 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
                 Provenance.add_parents ~child:vc_id ~parents:why_ids;
                 Some (string_of_int vc_id)
         in
-        on_goal_done idx goal status elapsed dump_path provenance vcid;
-        loop (idx + 1) (add_answer acc answer)
+        on_goal_done orig_idx goal status elapsed dump_path provenance vcid;
+        loop (pos + 1) (add_answer acc answer)
           ((goal, status, elapsed, dump_path, provenance, vcid) :: details)
           rest
   in
-  loop 0 empty_summary [] tasks
+  loop 0 empty_summary [] indexed_tasks
 
 let dump_why3_tasks ~(text : string) : string list =
   let _config, _main, env, _datadir_opt = setup_env () in
@@ -362,30 +403,104 @@ let dump_why3_tasks_with_attrs ~(text : string) : string list =
 
 let task_goal_wids ~(text : string) : int list list =
   let _config, _main, env, _datadir_opt = setup_env () in
-  let tasks = split_vc_tasks ~env ~text in
-  let extract_wids attrs =
-    Ident.Sattr.elements attrs
-    |> List.filter_map (fun attr ->
-        let s = attr.Ident.attr_string in
-        if String.length s >= 4 && String.sub s 0 4 = "wid:" then
-          try Some (int_of_string (String.sub s 4 (String.length s - 4))) with _ -> None
-        else None)
+  normalize_tasks_with_wids ~env ~text |> List.map snd
+
+let task_state_pairs ~(text : string) : (string * string) option list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  let tasks = normalize_tasks ~env ~text in
+  let is_vars_name s =
+    let n = String.length s in
+    n >= 4 && String.sub s 0 4 = "vars"
   in
-  let task_wids task =
-    let wids = ref [] in
-    let add_wids attrs =
-      extract_wids attrs |> List.iter (fun w -> if List.mem w !wids then () else wids := w :: !wids)
+  let vars_index s =
+    if s = "vars" then Some 0
+    else
+      let n = String.length s in
+      if n > 4 && is_vars_name s then
+        int_of_string_opt (String.sub s 4 (n - 4))
+      else None
+  in
+  let var_of_st_term (t : Term.term) : string option =
+    match t.Term.t_node with
+    | Term.Tapp (ls_st, [ vterm ]) when ls_st.Term.ls_name.Ident.id_string = "st" -> (
+        match vterm.Term.t_node with
+        | Term.Tapp (vls, []) ->
+            let v = vls.Term.ls_name.Ident.id_string in
+            if is_vars_name v then Some v else None
+        | _ -> None)
+    | _ -> None
+  in
+  let const_of_term (t : Term.term) : string option =
+    match t.Term.t_node with
+    | Term.Tapp (ls, []) ->
+        let n = ls.Term.ls_name.Ident.id_string in
+        if is_vars_name n then None else Some n
+    | _ -> None
+  in
+  let add_unique_pair acc (a, b) =
+    if List.exists (fun (x, y) -> x = a && y = b) acc then acc else (a, b) :: acc
+  in
+  let infer_one (task : Task.task) : (string * string) option =
+    let var_state : (string, string) Hashtbl.t = Hashtbl.create 8 in
+    let var_aliases = ref [] in
+    let record_eq (a : Term.term) (b : Term.term) =
+      match (var_of_st_term a, const_of_term b, var_of_st_term b, const_of_term a) with
+      | Some v, Some st, _, _ ->
+          if not (Hashtbl.mem var_state v) then Hashtbl.add var_state v st
+      | _, _, Some v, Some st ->
+          if not (Hashtbl.mem var_state v) then Hashtbl.add var_state v st
+      | Some va, None, Some vb, None ->
+          var_aliases := add_unique_pair !var_aliases (va, vb)
+      | _ -> ()
     in
-    begin try add_wids (Task.task_goal_fmla task).Term.t_attrs with _ -> ()
+    let walk_term (t : Term.term) =
+      ignore
+        (Term.t_fold
+           (fun () tm ->
+             match tm.Term.t_node with
+             | Term.Tapp (ls, [ a; b ]) when Term.ls_equal ls Term.ps_equ -> record_eq a b
+             | _ -> ();
+             ())
+           () t)
+    in
+    begin try walk_term (Task.task_goal_fmla task) with _ -> ()
     end;
     Task.task_decls task
     |> List.iter (fun decl ->
-        match decl.Decl.d_node with
-        | Decl.Dprop (_kind, _pr, t) -> add_wids t.Term.t_attrs
-        | _ -> ());
-    List.rev !wids
+           match decl.Decl.d_node with
+           | Decl.Dprop (_kind, _pr, t) -> walk_term t
+           | _ -> ());
+    let changed = ref true in
+    while !changed do
+      changed := false;
+      List.iter
+        (fun (a, b) ->
+          match (Hashtbl.find_opt var_state a, Hashtbl.find_opt var_state b) with
+          | Some sa, None ->
+              Hashtbl.replace var_state b sa;
+              changed := true
+          | None, Some sb ->
+              Hashtbl.replace var_state a sb;
+              changed := true
+          | _ -> ())
+        !var_aliases
+    done;
+    let pairs =
+      Hashtbl.to_seq var_state |> List.of_seq
+      |> List.filter_map (fun (v, st) -> Option.map (fun i -> (i, st)) (vars_index v))
+      |> List.sort (fun (i, _) (j, _) -> compare i j)
+    in
+    match pairs with
+    | [] -> None
+    | (i0, src) :: rest ->
+        let dst =
+          match List.rev ((i0, src) :: rest) with
+          | (_, d) :: _ -> d
+          | [] -> src
+        in
+        Some (src, dst)
   in
-  List.map task_wids tasks
+  List.map infer_one tasks
 
 let task_sequents ~(text : string) : (string list * string) list =
   let _config, _main, env, _datadir_opt = setup_env () in
@@ -457,7 +572,7 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
       end
   in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks = normalize_tasks ~env ~text in
+  let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
   let task_to_smt2 task =
     let prepared = Driver.prepare_task driver task in
     let buffer = Buffer.create 4096 in
@@ -466,9 +581,9 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
     Format.pp_print_flush fmt ();
     Buffer.contents buffer
   in
-  List.map task_to_smt2 tasks
+  List.map (fun (t, _wids) -> task_to_smt2 t) tasks_with_wids
 
-let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ~(prover : string)
+let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goal_index ~(prover : string)
     ~(text : string) ~(vc_ids_ordered : int list option) ~(on_goal_start : int -> string -> unit)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit) () :
@@ -546,7 +661,7 @@ let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ~(prover : st
       end
   in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks = normalize_tasks ~env ~text in
+  let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
   let limits =
     {
       Call_provers.empty_limits with
@@ -584,11 +699,13 @@ let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ~(prover : st
     extract_goal_labels_from_tasks tasks
   in
   prove_tasks_with_details ~write_text ~driver ~main ~limits ~command ~use_direct_z3
-    ~prove_with_z3_direct ~goal_labels ~vc_ids_ordered ~on_goal_start ~on_goal_done tasks
+    ~prove_with_z3_direct ~goal_labels ~vc_ids_ordered ~selected_goal_index ~on_goal_start
+    ~on_goal_done tasks_with_wids
 
-let prove_text_detailed ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : string) () :
+let prove_text_detailed ?(timeout = 30) ?prover_cmd ?selected_goal_index ~(prover : string)
+    ~(text : string) () :
     summary * (string * string * float * string option * string * string option) list =
   let noop_start _ _ = () in
   let noop_done _ _ _ _ _ _ _ = () in
-  prove_text_detailed_with_callbacks ~timeout ?prover_cmd ~prover ~text ~vc_ids_ordered:None
-    ~on_goal_start:noop_start ~on_goal_done:noop_done ()
+  prove_text_detailed_with_callbacks ~timeout ?prover_cmd ?selected_goal_index ~prover ~text
+    ~vc_ids_ordered:None ~on_goal_start:noop_start ~on_goal_done:noop_done ()

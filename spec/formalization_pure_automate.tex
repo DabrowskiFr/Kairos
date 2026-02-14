@@ -1,0 +1,1103 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+]{article}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\providecommand{\llbracket}{\mathopen{[\![}}
+\providecommand{\rrbracket}{\mathclose{]\!]}}
+\providecommand{\coloneqq}{:=}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\newenvironment{Shaded}{}{}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.49,0.56,0.16}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.53,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.56,0.13,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.73,0.13,0.13}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{1.00,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.25,0.63,0.44}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.02,0.16,0.49}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.50,0.00}{\textbf{#1}}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.40,0.40,0.40}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.44,0.13}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.74,0.48,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.73,0.40,0.53}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.10,0.09,0.49}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.25,0.44,0.63}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.38,0.63,0.69}{\textbf{\textit{#1}}}}
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\author{}
+\date{}
+
+\begin{document}
+
+\section{Formalization (Pure Automata
+Version)}\label{formalization-pure-automata-version}
+
+\subsection{1. Scope and Goal}\label{scope-and-goal}
+
+Scope:
+
+\begin{itemize}
+\tightlist
+\item
+  synchronous Kairos programs modeled in abstract relational form,
+\item
+  temporal contracts in the safety LTL fragment,
+\item
+  translation of LTL contracts into local first-order obligations over
+  finite histories, proved with standard deductive verification
+  techniques.
+\end{itemize}
+
+Goal:
+
+Given a node \(N\) (program semantics) and a specification
+\(\Phi=(A,G)\), generate and prove local first-order obligations over
+finite histories such that:
+
+\[
+\forall u,\;
+u \models A
+\implies
+run(N,u) \models G.
+\]
+
+where \(u\) is an input stream (values read at each logical tick), and
+\(run(N,u)\) is the observable trace produced by \(N\) on \(u\). In
+short, every admissible input stream (satisfying \texttt{A}) induces
+only observable behaviors satisfying \texttt{G}.
+
+\subsection{2. Logic and Contracts}\label{logic-and-contracts}
+
+\subsubsection{2.1 Streams and Interpretation
+Domains}\label{streams-and-interpretation-domains}
+
+Let \(I\) be the set of input variables and \(O\) the set of output
+variables.
+
+For any variable set \(V\), let \(\mathrm{Val}(V)\) be the set of
+valuations of \(V\), and \(\mathrm{Str}(V)=\mathrm{Val}(V)^\omega\) the
+set of infinite streams of valuations.
+
+No finiteness assumption is made on value domains: \(\mathrm{Val}(V)\)
+may be infinite (for example with integer-valued variables).
+
+We use input streams \(u \in \mathrm{Str}(I)\) and observable streams
+\(w \in \mathrm{Str}(I \cup O)\) as semantic domains.
+
+Assumptions constrain input behavior, so they are interpreted on
+\(\mathrm{Str}(I)\); guarantees constrain observable behavior, so they
+are interpreted on \(\mathrm{Str}(I \cup O)\). For a node \(N\), Section
+3 will define how each input stream \(u\) induces one observable stream
+\(run(N,u)\in\mathrm{Str}(I\cup O)\).
+
+We write \(\mathrm{Hist}(V)\) for the set of finite backward histories
+over \(V\), and \(\mathrm{HFO}(V)\) for first-order predicates over
+\(\mathrm{Hist}(V)\). At time \(i\), \(h_i^V\in\mathrm{Hist}(V)\)
+denotes the current finite history prefix used to interpret state
+predicates. Hence \(A\) is an LTL formula whose state propositions are
+in \(\mathrm{HFO}(I)\), and \(G\) is an LTL formula whose state
+propositions are in \(\mathrm{HFO}(I\cup O)\).
+
+\subsubsection{2.2 Formula Fragment and
+Satisfaction}\label{formula-fragment-and-satisfaction}
+
+We use formulas built from temporal operators \texttt{X} (next) and
+\texttt{W} (weak until), with standard Boolean connectives
+(\(\land,\lor,\neg\)); \(\Rightarrow\) and \(\Leftrightarrow\) are
+abbreviations.
+
+In this document, contract formulas \(A\) and \(G\) are assumed to
+satisfy the safety-oriented positivity condition: \texttt{W} occurs only
+positively (never under negation). This condition is checked
+syntactically and is used later to build deterministic safety automata.
+
+Grammar: \[
+\varphi ::= p \mid \neg\varphi \mid \varphi \land \varphi \mid \varphi \lor \varphi \mid X\varphi \mid \varphi \,W\, \varphi,
+\qquad p\in\mathrm{HFO}(V).
+\]
+
+We also use the standard global operator \(\mathbf{G}\) as an
+abbreviation: \[
+\mathbf{G}\varphi \;\equiv\; \varphi\,W\,false.
+\]
+
+Satisfaction for \(\pi\in\mathrm{Str}(V)\), \(i\in\mathbb N\): \[
+\begin{array}{l}
+\pi,i \models p \iff p(h_i^V) \text{ where } h_i^V \in \mathrm{Hist}(V) \text{ is the finite history at time } i\\
+\pi,i \models \neg\varphi \iff \neg(\pi,i\models\varphi)\\
+\pi,i \models \varphi\land\psi \iff (\pi,i\models\varphi)\land(\pi,i\models\psi)\\
+\pi,i \models \varphi\lor\psi \iff (\pi,i\models\varphi)\lor(\pi,i\models\psi)\\
+\pi,i \models X\varphi \iff \pi,i+1\models\varphi\\
+\pi,i \models \varphi W \psi \iff
+\Bigl(\forall j\ge i,\ \pi,j\models\varphi\Bigr)\ \lor
+\Bigl(\exists k\ge i,\ \pi,k\models\psi\ \land\ \forall j\in[i,k),\ \pi,j\models\varphi\Bigr)\\
+\pi,i \models \mathbf{G}\varphi \iff \forall j\ge i,\ \pi,j\models\varphi\\
+\quad\text{and}\quad
+\pi\models\varphi \iff \pi,0\models\varphi
+\end{array}
+\]
+
+\subsubsection{2.3 Safety Property
+Assumption}\label{safety-property-assumption}
+
+From the positivity condition above (with Boolean abbreviations
+expanded), contracts are taken in the safety fragment: \[
+A \in \mathrm{LTL}_{safe}(\mathrm{HFO}(I)),
+\qquad
+G \in \mathrm{LTL}_{safe}(\mathrm{HFO}(I\cup O)).
+\]
+
+Formally, \(\varphi\) is safety iff: \[
+\forall \pi \in \mathrm{Str}(V),\;
+\pi \not\models \varphi
+\Rightarrow
+\exists n\in\mathbb N,\;
+\forall \pi' \in \mathrm{Str}(V),\;
+\pi[0..n]\cdot \pi' \not\models \varphi.
+\]
+
+Intuition: every violation has a finite bad prefix.
+
+The automata-level view used by the method is introduced in Section 5.
+
+\subsection{3. Abstract Kairos Model}\label{abstract-kairos-model}
+
+This abstraction follows the synchronous reactive tradition and is close
+to a symbolic Mealy/Lustre-style model.
+
+Kairos is viewed as a synchronous transition language: at each logical
+tick, a node reads inputs, evaluates control conditions (\texttt{when}),
+and produces outputs and next-state values through guarded updates.
+
+The objective is a relational, proof-oriented semantics of Kairos
+programs so temporal contracts can be reduced to local first-order proof
+obligations over transitions.
+
+We separate the program from its specification. This abstract model is
+used to simplify the presentation; the tool does not explicitly
+translate programs into this model as a standalone intermediate
+artifact.
+
+\subsubsection{3.1 Syntax}\label{syntax}
+
+\paragraph{3.1.1 Node and Specification}\label{node-and-specification}
+
+A node is represented as \(N=(\mathcal S,s_0,\mathcal T,X,I,O)\), where
+\(\mathcal S\) is the finite control-state set, \(s_0\in\mathcal S\) is
+the initial control state, \(X\) is the variable set, and
+\(I,O\subseteq X\) are the input and output variables with
+\(I\cap O=\varnothing\). Internal variables are
+\(L=X\setminus(I\cup O)\), so \(X=I\uplus O\uplus L\).
+
+We write transitions with the arrow notation
+\(s \xrightarrow{\gamma/\rho} s'\), equivalently
+\((s,\gamma,\rho,s')\in\mathcal T\).
+
+Let \(\Sigma=\mathrm{Val}(X)\) be the valuation domain over program
+variables. We use \(\Gamma=(\Sigma\to\mathbb B)\) for guards and
+\(R=(\Sigma\times\Sigma\to\mathbb B)\) for update relations, so
+\(\mathcal T\subseteq\mathcal S\times\Gamma\times R\times\mathcal S\).
+Intuitively, \(\gamma\) constrains the current step context and \(\rho\)
+constrains the pair (current valuation, next valuation). Guards are
+interpreted on the current finite history \(h_i^X\).
+
+Update relations are intentionally open-world in this abstraction: if a
+next-state variable is not constrained by \(\rho\), it remains
+unconstrained.
+
+Initialization convention: before the first logical step, internal and
+output variables may be undefined. Here, ``undefined'' means ``has no
+value yet'', not ``can take an arbitrary value''. The \texttt{Init}
+control phase is used to establish defined values before regular-state
+reads.
+
+The specification associated with a node is \(\Phi=(A,G,Inv)\), where
+\texttt{A} is a temporal assumption on input traces, \texttt{G} is a
+temporal guarantee on observable traces, and
+\(Inv:\mathcal S\to\mathrm{HFO}(X)\) maps each control state to a
+first-order state invariant over finite histories.
+
+Types of \texttt{A} and \texttt{G} are those introduced in Section 2.
+Correctness is established for the pair \((N,\Phi)\).
+
+\paragraph{3.1.2 Well-Formedness (Deterministic
+Profile)}\label{well-formedness-deterministic-profile}
+
+We target deterministic, non-blocking programs. Since the transition
+model is relational, this is not automatic: from one configuration
+\((s,\sigma)\), several control branches may be enabled, or one branch
+may admit several next valuations. We therefore impose two high-level
+constraints.
+
+In this document, these constraints are assumptions of the model and are
+considered true by construction of well-formed Kairos programs.
+
+\texttt{Det-Step} (total functional step): \[
+\forall s\in\mathcal S,\forall \sigma\in\Sigma,\exists!\,s'\in\mathcal S,\exists!\,\sigma'\in\Sigma,\;
+(s,\sigma)\to(s',\sigma').
+\]
+
+\texttt{Input-Frame} (inputs are read-only across one step): \[
+\forall (s,\sigma)\to(s',\sigma'),\;
+\sigma\!\upharpoonright_I=\sigma'\!\upharpoonright_I.
+\]
+
+\paragraph{3.1.3 Abstract Examples}\label{abstract-examples}
+
+For readability, we present only the node part in these examples and
+omit the associated specification \(\Phi\) at this stage.
+
+\texttt{delay\_int} (one-tick integer delay): \[
+\begin{array}{l}
+N_{delay}=(\{Init,Run\},Init,\mathcal T_{delay},X,\{x\},\{y\})\quad\text{with}\quad X=\{x,y,z\}\\
+\mathcal T_{delay}=\{Init\xrightarrow{true\,/\,z'=x}Run,\;Run\xrightarrow{true\,/\,y'=z\land z'=x}Run\}
+\end{array}
+\]
+
+\texttt{toggle} (alternating output): \[
+\begin{array}{l}
+N_{toggle}=(\{Init,Run\},Init,\mathcal T_{toggle},\{y\},\varnothing,\{y\})\\
+\mathcal T_{toggle}=\{Init\xrightarrow{true\,/\,y'=0}Run,\;Run\xrightarrow{true\,/\,y'=1-y}Run\}
+\end{array}
+\]
+
+\subsection{4. Node Semantics}\label{node-semantics}
+
+\subsubsection{4.1 Step Semantics}\label{step-semantics}
+
+The operational semantics of \(N\) is a transition relation on
+configurations \((s,\sigma)\), where \(s \in \mathcal S\) and
+\(\sigma \in \Sigma\). Intuitively, \((s,\sigma)\) moves to
+\((s',\sigma')\) when there is a control transition
+\((s,\gamma,\rho,s') \in \mathcal T\), \(\sigma\) satisfies \(\gamma\),
+and \((\sigma,\sigma')\) satisfies \(\rho\).
+
+Formally:
+
+\[
+(s,\sigma) \to (s',\sigma')
+\iff
+\exists \gamma,\rho.\;
+(s,\gamma,\rho,s')\in\mathcal T
+\;\land\;
+\sigma\models\gamma
+\;\land\;
+(\sigma,\sigma')\models\rho
+\]
+
+This step relation is intra-instant: it computes the end-of-tick
+valuation from the begin-of-tick valuation under the current input.
+
+Under the \texttt{Det-Step} assumption from Section 3.1.2, this relation
+is total and functional. We therefore write: \[
+step_N:\mathcal S\times\Sigma\to\mathcal S\times\Sigma,\qquad
+step_N(s,\sigma)=(s',\sigma')\iff (s,\sigma)\to(s',\sigma').
+\]
+
+\subsubsection{4.2 Stream Semantics}\label{stream-semantics}
+
+An input stream is a sequence:
+
+\[
+u = u_0,u_1,u_2,\dots
+\quad\text{with}\quad
+u_i \in \{\sigma\!\upharpoonright_I \mid \sigma \in \Sigma\}.
+\]
+
+For a given input stream \(u\), an execution is a sequence of
+begin-of-tick configurations \((s_i,\sigma_i)_{i\ge 0}\) such that, for
+every \(i\), there exists an end-of-tick valuation
+\(\sigma_i^+ \in \Sigma\) satisfying:
+
+\[
+\begin{array}{l}
+\text{Step}(i):\ (s_i,\sigma_i)\to(s_{i+1},\sigma_i^+)\\
+\text{SampleIn}(i):\ \sigma_i\!\upharpoonright_I = u_i\\
+\text{Carry}(i):\ \sigma_{i+1}\!\upharpoonright_{X\setminus I} = \sigma_i^+\!\upharpoonright_{X\setminus I}\\
+\text{SampleIn}(i+1):\ \sigma_{i+1}\!\upharpoonright_I = u_{i+1}
+\end{array}
+\]
+
+The two \texttt{SampleIn} clauses encode input sampling at each tick.
+\texttt{Carry} encodes state propagation: non-input variables at the
+next tick start come from the previous tick end.
+
+The observable trace induced by \(u\) is
+\(run(N,u)=\tau_0,\tau_1,\tau_2,\dots\) over \(I\cup O\), where for
+every \(i\): \[
+\tau_i\!\upharpoonright_I=u_i
+\qquad\text{and}\qquad
+\tau_i\!\upharpoonright_O=\sigma_i^+\!\upharpoonright_O.
+\]
+
+Consistently with the initialization convention of Section 3, variables
+may be undefined before the first step. In examples, when an initial
+output is intentionally not constrained, we only comment the guaranteed
+part of the output stream.
+
+Example (\texttt{delay\_int}):
+
+Using \(N_{delay}\) from Section 3.1.3 and input stream
+\(x_0=3,\ x_1=5,\ x_2=2,\dots\), one execution is:
+
+\[
+\begin{array}{l}
+(Init,\sigma_0)\to(Run,\sigma_0^+),\quad \sigma_0(x)=3,\ \sigma_0^+(z)=3\\
+(Run,\sigma_1)\to(Run,\sigma_1^+),\quad \sigma_1(x)=5,\ \sigma_1(z)=3,\ \sigma_1^+(y)=3,\ \sigma_1^+(z)=5\\
+(Run,\sigma_2)\to(Run,\sigma_2^+),\quad \sigma_2(x)=2,\ \sigma_2(z)=5,\ \sigma_2^+(y)=5,\ \sigma_2^+(z)=2
+\end{array}
+\]
+
+Hence: \[
+y_1 = x_0,\quad y_2 = x_1,\ \dots
+\] so \(y\) is one tick behind \(x\) (after initialization). The value
+\(y_0\) is not constrained by the \texttt{Init} transition in this
+abstract example.
+
+Example (\texttt{toggle}):
+
+Using \(N_{toggle}\) from Section 3.1.3, one execution (begin-of-tick
+valuations \(\sigma_i\), end-of-tick valuations \(\sigma_i^+\)) is:
+
+\[
+\begin{array}{l}
+(Init,\sigma_0)\to(Run,\sigma_0^+),\quad \sigma_0^+(y)=0\\
+(Run,\sigma_1)\to(Run,\sigma_1^+),\quad \sigma_1(y)=0,\ \sigma_1^+(y)=1\\
+(Run,\sigma_2)\to(Run,\sigma_2^+),\quad \sigma_2(y)=1,\ \sigma_2^+(y)=0\\
+(Run,\sigma_3)\to(Run,\sigma_3^+),\quad \sigma_3(y)=0,\ \sigma_3^+(y)=1
+\end{array}
+\]
+
+so the observable output stream is \(0,1,0,1,\dots\).
+
+Implementation correspondence: one logical tick in the implementation
+matches one application of \texttt{step\_N}, plus input resampling and
+state carry as above. The resulting stream \(run(N,u)\) is exactly the
+semantic object consumed later by contract automata (Sections 5 to 7).
+
+\subsubsection{4.3 Correctness w.r.t. the Temporal
+Specification}\label{correctness-w.r.t.-the-temporal-specification}
+
+Contract semantics is evaluated as follows: \texttt{A} is interpreted on
+the input stream \(u\), and \texttt{G} is interpreted on the observable
+stream \(run(N,u)\).
+
+With \(\Phi=(A,G,Inv)\), we say that \(N\) is temporally correct w.r.t.
+\(\Phi\) iff:
+
+\[
+\forall u,\;
+u \models A
+\implies
+run(N,u) \models G.
+\]
+
+Intuitively: every admissible input stream (satisfying \texttt{A})
+induces only observable behaviors that satisfy \texttt{G}.
+
+\subsection{5. From Temporal Contracts to Safety
+Automata}\label{from-temporal-contracts-to-safety-automata}
+
+\subsubsection{5.1 Symbolic Safety
+Automata}\label{symbolic-safety-automata}
+
+Each safety formula \(\varphi\) over \(\mathrm{HFO}(V)\) can be compiled
+into a deterministic symbolic safety automaton
+\(\mathcal S_\varphi=(Q,q_0,\delta,bad)\), where: - \(Q\) is finite, -
+\(q_0\in Q\) is initial, - \(\delta: Q \times \mathrm{Hist}(V) \to Q\)
+is a total deterministic transition function, - \(bad\in Q\) is an
+absorbing bad state.
+
+Equivalently, for all \(q\in Q\) and \(h\in\mathrm{Hist}(V)\), there
+exists exactly one \(q'\in Q\) such that \(\delta(q,h)=q'\).
+
+For readability, we also use symbolic edge notation
+\(q \xrightarrow{\alpha} q'\), where \(\alpha\in\mathrm{HFO}(V)\)
+characterizes the histories \(h\) such that \(\delta(q,h)=q'\).
+
+Given \(\pi\in\mathrm{Str}(V)\), we define its (unique) state sequence
+\(r^\pi:\mathbb N\to Q\) by: \[
+r^\pi(0)=q_0,\qquad r^\pi(i+1)=\delta(r^\pi(i),h_i^V).
+\] The trace \(\pi\) is accepted iff
+\(\forall i\in\mathbb N,\ r^\pi(i)\neq bad\).
+
+Correctness of this automaton construction is the language equivalence:
+\[
+L(\varphi)=L(\mathcal S_\varphi)
+=\{\pi\in\mathrm{Str}(V) \mid \pi \models \varphi\}.
+\]
+
+\subsubsection{\texorpdfstring{5.2 Contract Automata for \(A\) and
+\(G\)}{5.2 Contract Automata for A and G}}\label{contract-automata-for-a-and-g}
+
+Given \(\Phi=(A,G,Inv)\), we assume:
+
+\begin{itemize}
+\tightlist
+\item
+  \texttt{A} is compiled into a safety automaton
+  \(\mathcal A=(Q_A,q^A_0,\Delta_A,bad_A)\),
+\item
+  \texttt{G} is compiled into a safety automaton
+  \(\mathcal G=(Q_G,q^G_0,\Delta_G,bad_G)\).
+\end{itemize}
+
+The mapping \(Inv\) is used later to help the deductive proof method by
+strengthening local proof contexts.
+
+Assumptions on these automata:
+
+\begin{itemize}
+\tightlist
+\item
+  each symbolic edge guard is interpreted as a first-order predicate
+  over finite histories;
+\item
+  automata are deterministic and complete (equivalently, they denote
+  total transition functions on finite histories);
+\item
+  \(bad_A\) and \(bad_G\) are absorbing.
+\end{itemize}
+
+Standard correctness assumptions:
+
+\begin{itemize}
+\tightlist
+\item
+  automaton executions exactly follow the compiled LTL semantics,
+\item
+  \texttt{bad\_A} means violation of \texttt{A},
+\item
+  \texttt{bad\_G} means violation of \texttt{G}.
+\end{itemize}
+
+These are exactly the artifacts consumed by the logical-product phase in
+Section 6.
+
+\subsubsection{5.3 Example (toggle)}\label{example-toggle}
+
+For \texttt{toggle}, an obvious choice is:
+
+\begin{itemize}
+\tightlist
+\item
+  assumption \(A=true\);
+\item
+  guarantee
+  \(G=(y=0)\land \mathbf{G}(y=0\Rightarrow X(y=1))\land \mathbf{G}(y=1\Rightarrow X(y=0))\).
+\end{itemize}
+
+The resulting safety automata for these formulas are shown below. For
+this \(A=true\) case, a complete view may include an explicit sink
+\(bad_A\), but it is unreachable and omitted here for readability.
+
+\begin{center}
+\includegraphics[width=0.38\linewidth]{spec/figures/toggle_assume.pdf}
+\end{center}
+
+\begin{center}
+\includegraphics[width=0.72\linewidth]{spec/figures/toggle_guarantee.pdf}
+\end{center}
+
+\subsection{6. Logical Product and
+Reachability}\label{logical-product-and-reachability}
+
+We work on product triples
+\((s,q_A,q_G)\in\mathcal S\times Q_A\times Q_G\), where \(s\) is the
+program control state, \(q_A\) is the residual assumption state, and
+\(q_G\) is the residual guarantee state.
+
+Initialization is \((s_0,q^A_0,q^G_0)\).
+
+Logical successor relation: \[
+(s,q_A,q_G)\leadsto (s',q'_A,q'_G)
+\] iff there exist a program transition
+\(s\xrightarrow{\gamma/\rho}s'\), an automaton edge
+\(q_A\xrightarrow{\alpha_A}q'_A\), and an automaton edge
+\(q_G\xrightarrow{\alpha_G}q'_G\), such that \[
+\mathrm{SAT}\bigl(\gamma\land \llbracket\alpha_A\rrbracket\land \llbracket\alpha_G\rrbracket\bigr).
+\]
+
+The product-compatibility check uses guards only. The update relation
+\(\rho\) is handled later when generating local obligations.
+
+Reachability is the least fixpoint: \[
+Reach_0=\{(s_0,q^A_0,q^G_0)\},
+\] \[
+Reach_{k+1}=Reach_k\cup
+\left\{
+x'\ \middle|\
+x=(s,q_A,q_G)\in Reach_k,\ x\leadsto x'=(s',q'_A,q'_G),\ q_G\neq bad_G,\ q'_G\neq bad_G
+\right\},
+\] \[
+Reach=\bigcup_{k\in\mathbb N} Reach_k.
+\]
+
+So triples in \(bad_G\) are not propagated in \(Reach\). However,
+candidate moves from reached triples toward \(q'_G=bad_G\) are still
+enumerated later in Section 7 to generate \texttt{GenObl} formulas.
+
+Implementation correspondence: this phase is a BFS over product triples,
+where each candidate successor is validated by one SAT check of guard
+compatibility.
+
+\subsubsection{6.1 Examples (toggle and delay
+products)}\label{examples-toggle-and-delay-products}
+
+Example (\texttt{delay\_int} product):
+
+Using \(N_{delay}\) (Section 3.1.3), take the contract pair \[
+A=true,\qquad G=\mathbf{G}(X(y)=x)
+\] which captures one-tick delay from the second tick onward. A
+corresponding safety-automaton shape for \(G\) uses a tracking state
+after initialization and a bad sink.
+
+At product level, one representative reachable prefix is: \[
+(Init,ok_A,q^G_{init})\leadsto(Run,ok_A,q^G_{run}),
+\] then in \texttt{Run}: \[
+(Run,ok_A,q^G_{run})\leadsto(Run,ok_A,q^G_{run})\leadsto\cdots
+\] as long as step guards remain compatible with the delay condition.
+
+An abstract reachable-product sketch is:
+
+\begin{center}
+\includegraphics[width=0.70\linewidth]{spec/figures/delay_product.pdf}
+\end{center}
+
+Example (\texttt{toggle} product):
+
+Using \(N_{toggle}\) (Section 3.1.3) and the automata of Section 5.3: \[
+(Init,ok_A,q_0)\leadsto(Run,ok_A,q_1)
+\] through \(Init\xrightarrow{true/y'=0}Run\),
+\(ok_A\xrightarrow{true}ok_A\), and \(q_0\xrightarrow{(y=0)}q_1\).
+
+Then the \texttt{Run\ -\textgreater{}\ Run} transition
+\(Run\xrightarrow{true/y'=1-y}Run\) alternates the guarantee state: \[
+(Run,ok_A,q_1)\leadsto(Run,ok_A,q_0)\leadsto(Run,ok_A,q_1)\leadsto\cdots
+\]
+
+Automaton-style rendering of the reachable product:
+
+\begin{center}
+\includegraphics[width=0.72\linewidth]{spec/figures/toggle_product.pdf}
+\end{center}
+
+No reachable triple contains \(bad_G\), which matches the expected
+correctness of \texttt{toggle}.
+
+Why no \texttt{bad} state appears in these product views: Section 6 only
+shows the reachable safe product, i.e., triples kept in \(Reach\). By
+construction, triples with \(q_G=bad_G\) (and successors with
+\(q'_G=bad_G\)) are not propagated in this reachability set. Potential
+moves toward \(bad_G\) are still considered later in Section 7 to
+generate \texttt{GenObl} formulas.
+
+\subsection{7. Generating Local
+Obligations}\label{generating-local-obligations}
+
+\subsubsection{\texorpdfstring{7.1 Formal Definition (\texttt{GenHyp}
+then
+\texttt{GenObl})}{7.1 Formal Definition (GenHyp then GenObl)}}\label{formal-definition-genhyp-then-genobl}
+
+Let \(Reach \subseteq \mathcal S \times Q_A \times Q_G\) be the reached
+set.
+
+For a fixed program transition \(t=(s,\gamma,\rho,s')\in\mathcal T\), we
+enumerate compatible combinations starting from reached source triples
+\((s,q_A,q_G)\in Reach\), with outgoing automaton edges from \(q_A\) and
+\(q_G\).
+
+\texttt{Compat} (locally SAT-compatible combinations):
+
+\[
+\begin{aligned}
+Compat_t=\{&(q_A,q_G,q'_A,q'_G,\alpha_A,\alpha_G)\mid\\
+&(s,q_A,q_G)\in Reach,\\
+&(q_A,\alpha_A,q'_A)\in\Delta_A,\ (q_G,\alpha_G,q'_G)\in\Delta_G,\\
+&\mathrm{SAT}(\gamma\land\llbracket\alpha_A\rrbracket\land\llbracket\alpha_G\rrbracket)\}.
+\end{aligned}
+\]
+
+The SAT filter is guard-only:
+\(\gamma\land\llbracket\alpha_A\rrbracket\land\llbracket\alpha_G\rrbracket\),
+interpreted on the current finite history. The update relation \(\rho\)
+is used later in the deductive obligations attached to \(t\), not in
+this compatibility test.
+
+For readability, for any
+\(c=(q_A,q_G,q'_A,q'_G,\alpha_A,\alpha_G)\in Compat_t\), define: \[
+\psi_t(c)=\gamma\land\llbracket\alpha_A\rrbracket\land\llbracket\alpha_G\rrbracket,
+\] \[
+safe(c)\iff (q'_A\neq bad_A \land q'_G\neq bad_G),\qquad
+badG(c)\iff (q'_A\neq bad_A \land q'_G=bad_G).
+\]
+
+\texttt{GenHyp} (disjunction of safe incoming contexts for \(t\)): keep
+combinations in \(Compat_t\) whose successors stay outside \(bad_A\) and
+\(bad_G\), then build:
+
+\[
+Hyp_t=
+\bigvee
+\left\{
+\psi_t(c)
+\mid
+c\in Compat_t,\ safe(c)
+\right\}.
+\]
+
+If the set is empty, no hypothesis is added. Otherwise \(Hyp_t\) is
+added to \texttt{requires(t)}.
+
+\texttt{GenObl} (forbid bad-\(G\) successors under active assumptions):
+keep combinations in \(Compat_t\) with \(q'_G=bad_G\) and
+\(q'_A\neq bad_A\), then generate:
+
+\[
+Obl_t=
+\left\{
+\neg\psi_t(c)
+\mid
+c\in Compat_t,\ badG(c)
+\right\}.
+\]
+
+All formulas in \(Obl_t\) are added to \texttt{ensures(t)}.
+
+The condition \(q'_A\neq bad_A\) enforces assume/guarantee discipline:
+once assumptions are violated, no guarantee-preservation obligation is
+generated.
+
+Generated annotations for \(t\): \[
+(requires(t),ensures(t))\;\supseteq\;(Hyp_t,Obl_t).
+\]
+
+Global phase:
+
+\[
+GenHypObl(N,\mathcal A,\mathcal G,Reach)=
+\left(\{Hyp_t\}_t,\{Obl_t\}_t\right).
+\]
+
+Abstractly, Section 7 computes a transition annotation map: \[
+Ann_7:\mathcal T\to \mathcal P(\mathrm{HFO}(X))\times \mathcal P(\mathrm{HFO}(X)),
+\] with \(Ann_7(t)=(Req_t^{(7)},Ens_t^{(7)})\), where \(Req_t^{(7)}\) is
+inserted in \texttt{requires(t)} and \(Ens_t^{(7)}\) in
+\texttt{ensures(t)}.
+
+\subsubsection{7.2 Examples (delay and
+toggle)}\label{examples-delay-and-toggle}
+
+Example (\texttt{delay\_int}):
+
+Using the delay product from Section 6.1, consider the two reached safe
+contexts: \[
+(Init,ok_A,q^G_{init}),\qquad (Run,ok_A,q^G_{run}).
+\]
+
+For \texttt{GenHyp}, the \texttt{Init\ -\textgreater{}\ Run} transition
+gets one compatible safe combination, yielding: \[
+Hyp_{init}\coloneqq \gamma_{init}\land true\land\llbracket\alpha_{init}\rrbracket,
+\] where \(\alpha_{init}\) is the guarantee-edge label from
+\(q^G_{init}\) to its safe successor.
+
+For the loop transition \texttt{Run\ -\textgreater{}\ Run}, the
+compatible safe combination yields: \[
+Hyp_{delay}\coloneqq \gamma_{run}\land true\land\llbracket\alpha_{run}\rrbracket.
+\] Since \(\gamma_{run}=true\) in \(N_{delay}\), this simplifies to: \[
+Hyp_{delay}=\llbracket\alpha_{run}\rrbracket.
+\]
+
+For \texttt{GenObl}, bad-target combinations are those with
+\(q'_G=bad_G\) and \(q'_A\neq bad_A\); each one produces an
+\texttt{ensures} formula of the form: \[
+\neg\bigl(\gamma\land true\land\llbracket\alpha_{bad}\rrbracket\bigr).
+\] These obligations are attached to the corresponding transition and
+rule out locally compatible moves toward \(bad_G\).
+
+Example (\texttt{toggle}):
+
+For \texttt{toggle}, the reachable product in Section 6.1 has only safe
+alternating triples and no compatible bad-target combination.
+
+Therefore:
+
+\[
+Obl_t=\varnothing
+\]
+
+for all transitions \(t\).
+
+For \texttt{GenHyp}, the result is non-empty on the
+\texttt{Run\ -\textgreater{}\ Run} transition. Using the two reachable
+product contexts \((Run,ok_A,q_0)\) and \((Run,ok_A,q_1)\), the
+compatible safe combinations induce:
+
+\[
+HypLoop \coloneqq (\gamma\land true\land(y=0)) \lor (\gamma\land true\land(y=1)).
+\]
+
+Since \(\gamma=true\) on \texttt{Run\ -\textgreater{}\ Run} for
+\texttt{toggle}, this simplifies to:
+
+\[
+HypLoop=(y=0)\lor(y=1),
+\]
+
+which is added to \texttt{requires(Run\ -\textgreater{}\ Run)}. This
+context fact is simplifiable, but it is intentionally kept in generated
+annotations for debugging and traceability.
+
+\subsection{\texorpdfstring{8. User-Provided State Invariants
+(\texttt{Inv})}{8. User-Provided State Invariants (Inv)}}\label{user-provided-state-invariants-inv}
+
+User invariants are proof annotations attached to control states through
+\[
+Inv:\mathcal S\to \mathrm{HFO}(X).
+\]
+
+In the implementation, \texttt{Inv} is built and injected by a dedicated
+coherency pass.
+
+Construction of \(Inv(s)\):
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  collect declared state invariants already attached to state \(s\),
+\item
+  collect user \texttt{ensures} formulas targeting state \(s\),
+\item
+  build \(Inv(s)\) as their conjunction (after deduplication).
+\end{enumerate}
+
+Insertion on transitions \(t:s\to s'\):
+
+\[
+requires(t)\;\leftarrow\;requires(t)\cup\{Inv(s)\},
+\] \[
+ensures(t)\;\leftarrow\;ensures(t)\cup\{Shift(Inv(s'))\}.
+\]
+
+An initialization coherency goal is also added at \texttt{init\_state}:
+\[
+Shift(Inv(s_0)).
+\]
+
+\texttt{Shift} is defined abstractly by semantic correctness: for any
+\(\phi\in\mathrm{HFO}(X)\) and any finite history
+\(h\in\mathrm{Hist}(X)\), \[
+h \models Shift(\phi)\iff next(h)\models \phi,
+\] where \(next(h)\) is the one-step extended history.
+
+This insertion is purely proof-oriented: it does not modify the
+operational step semantics. In pure-automate mode, these state-relation
+invariants are then reused to strengthen local transition contexts
+during obligation generation.
+
+Combined with Section 7, this yields the final per-transition proof
+annotation: \[
+Ann:\mathcal T\to \mathcal P(\mathrm{HFO}(X))\times \mathcal P(\mathrm{HFO}(X)),
+\] where for each \(t\), \(Ann(t)=(Req_t,Ens_t)\) is the pair of formula
+sets ultimately attached to \texttt{requires(t)} and
+\texttt{ensures(t)}.
+
+\subsection{9. Transition-Local Deductive
+Verification}\label{transition-local-deductive-verification}
+
+At this stage, each transition \(t\in\mathcal T\) carries two sets of
+formulas: \[
+Req_t\subseteq \mathrm{HFO}(X),\qquad Ens_t\subseteq \mathrm{HFO}(X),
+\] coming from Sections 7 and 8 (plus user contracts when present).
+
+In the implementation, verification conditions are generated as guarded
+local implications. For a transition \(t=(s,\gamma,\rho,s')\), define
+its activation condition: \[
+Active_t \;\coloneqq\; (state=s)\land \gamma.
+\]
+
+The generated obligations are abstractly: \[
+\mathrm{Req\text{-}VC}(t):\quad Active_t \Rightarrow \bigwedge Req_t,
+\] \[
+\mathrm{Ens\text{-}VC}(t):\quad Active_t \land \rho \land \bigwedge Req_t \Rightarrow \bigwedge Ens_t.
+\]
+
+\texttt{Req-VC} comes from transition \texttt{requires}: if \(t\) is
+active, its \texttt{requires} must hold.\\
+\texttt{Ens-VC} comes from transition \texttt{ensures}: for an active
+\(t\), under \(\rho\) and established \texttt{requires}, the
+\texttt{ensures} must hold.
+
+So guards are not a separate side condition: they are part of the
+activation predicate that gates transition-local obligations.
+
+Equivalent relational/inclusion view (Hoare-style with a relational
+transition):
+
+For \(t=(s,\gamma,\rho,s')\), define: \[
+Pre_t(h)\coloneqq Active_t(h)\land \bigwedge Req_t(h),
+\] \[
+Post_t(h')\coloneqq \bigwedge Ens_t(h'),
+\] \[
+Rel_t(h,h')\coloneqq \rho(h,h').
+\]
+
+Then \texttt{Ens-VC} is equivalently: \[
+\forall h,h'.\; Pre_t(h)\land Rel_t(h,h')\Rightarrow Post_t(h'),
+\] or, as a set inclusion: \[
+Rel_t[\{h\mid Pre_t(h)\}] \subseteq \{h'\mid Post_t(h')\}.
+\]
+
+This is the relational counterpart of weakest-precondition reasoning: no
+imperative code block is needed, because the middle of the Hoare triple
+is the transition relation itself.
+
+This is Hoare-style in spirit, but operationally it is encoded as a
+family of guarded implications that are composed in the global VC.
+
+\subsection{10. Soundness Theorem (with Key
+Lemmas)}\label{soundness-theorem-with-key-lemmas}
+
+\subsubsection{10.1 Lemma 1 (Local generation
+exactness)}\label{lemma-1-local-generation-exactness}
+
+Every local combination \((t,q_A,q_G,q'_A,q'_G,\alpha_A,\alpha_G)\)
+leading to \texttt{bad\_G} under \(q'_A \neq bad_A\) (and encountered
+during reached-triple enumeration) produces an obligation that exactly
+negates its guard conjunction.
+
+\subsubsection{10.2 Lemma 2 (Local safety)}\label{lemma-2-local-safety}
+
+If all local obligations of a transition \texttt{t} are valid, then no
+concrete step executing \texttt{t} can realize a local combination
+leading to \texttt{bad\_G} under \(q'_A \neq bad_A\).
+
+Proof: immediate by contradiction, each forbidden combination is the
+negation of one precise conjunction.
+
+\subsubsection{\texorpdfstring{10.3 Lemma 3 (Preservation outside
+\texttt{bad\_G})}{10.3 Lemma 3 (Preservation outside bad\_G)}}\label{lemma-3-preservation-outside-bad_g}
+
+Assume all obligations are valid. For any concrete step in the trace and
+any associated coherent logical triple, if we are outside
+\texttt{bad\_G} before the step and outside \texttt{bad\_A} after the
+step, then we remain outside \texttt{bad\_G} after the step.
+
+Proof: apply Lemma 2 to the current step.
+
+\subsubsection{10.4 Main Theorem}\label{main-theorem}
+
+\paragraph{Statement}\label{statement}
+
+Under the assumptions:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  correctness of LTL-to-automata compilation (\texttt{A}, \texttt{G}),
+\item
+  correctness of guard interpretation as first-order predicates over
+  finite histories,
+\item
+  WP/backend correctness (all proved obligations are valid),
+\item
+  adequacy of local enumeration (all relevant combinations are covered),
+\end{enumerate}
+
+then:
+
+\[
+\forall \rho,\; \rho\!\upharpoonright_{I} \models A
+\implies
+\rho\!\upharpoonright_{I\cup O} \models G.
+\]
+
+\paragraph{Proof (outline)}\label{proof-outline}
+
+\begin{itemize}
+\tightlist
+\item
+  Let \(\rho\) be an execution such that
+  \(\rho\!\upharpoonright_{I} \models A\).
+\item
+  By correctness of \(\mathcal A\), the \texttt{A} automaton never
+  visits \texttt{bad\_A}.
+\item
+  Assume for contradiction that
+  \(\rho\!\upharpoonright_{I\cup O} \not\models G\).
+\item
+  Then, by correctness of \(\mathcal G\), there exists a first index
+  where the \texttt{G} state reaches \texttt{bad\_G}.
+\item
+  On the corresponding step, we have a local combination
+  \((t,\alpha_A,\alpha_G)\) that leads to \texttt{bad\_G} while staying
+  outside \texttt{bad\_A}.
+\item
+  This combination is covered by generation (Assumption 4), so its local
+  obligation exists (Lemma 1), and is valid (Assumption 3), hence
+  impossible (Lemma 2).
+\item
+  Contradiction.
+\end{itemize}
+
+Therefore \(\rho\!\upharpoonright_{I\cup O} \models G\).
+
+\subsection{11. Implementation Mapping and Pass
+Order}\label{implementation-mapping-and-pass-order}
+
+From the implementation perspective, the pipeline is:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  parse/normalize source contracts and abstract node structure,
+\item
+  compute safety automata for \texttt{A} and \texttt{G},
+\item
+  build and explore the logical product over \((s,q_A,q_G)\),
+\item
+  run \texttt{GenHyp} to add incoming-context formulas to transition
+  \texttt{requires},
+\item
+  run \texttt{GenObl} to add bad-target forbiddance formulas to
+  transition \texttt{ensures},
+\item
+  discharge generated obligations with standard WP/SAT backends.
+\end{enumerate}
+
+Operational details:
+
+\begin{itemize}
+\tightlist
+\item
+  obligations are generated as local first-order formulas over finite
+  histories,
+\item
+  compatibility checks use SAT on guard conjunctions,
+\item
+  the concrete implementation of \texttt{Shift} is realized with history
+  operators (\texttt{now}/\texttt{pre\_k}) and checked against the
+  abstract criterion given in Section 8,
+\item
+  generated formulas are simplified before insertion (including trivial
+  ones, kept for diagnostics),
+\item
+  the concrete generated artifact is an annotated OBC+ node where each
+  transition carries the computed \texttt{requires}/\texttt{ensures}
+  pair,
+\item
+  verification is performed in pure-automate mode.
+\end{itemize}
+
+\subsection{12. Examples End-to-End}\label{examples-end-to-end}
+
+The two running examples cover the full chain:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \texttt{delay\_int}: abstract syntax (Section 3.1.3) and stream
+  semantics (Section 4.2) show one-tick delay behavior.
+\item
+  \texttt{toggle}: contract automata (Section 5.3), reachable logical
+  product (Section 6.1), and local obligation generation (Section 7.2)
+  illustrate the end-to-end method.
+\end{enumerate}
+
+In both examples, the generated local formulas match the expected
+temporal intent after simplification.
+
+\subsection{13. Limits and Assumptions}\label{limits-and-assumptions}
+
+This formalization relies on:
+
+\begin{itemize}
+\tightlist
+\item
+  deterministic program profile (\texttt{Det-Step},
+  \texttt{Input-Frame}),
+\item
+  contracts in the safety-oriented fragment (positivity condition on
+  \texttt{W}),
+\item
+  correctness of contract-to-automata construction,
+\item
+  adequacy of product reachability/enumeration for relevant
+  combinations,
+\item
+  soundness of SAT/WP backends used to discharge obligations.
+\end{itemize}
+
+A practical caution is that systematically trivial generated formulas
+(for example \(\neg(true\land true\land true)\)) often indicate a
+construction issue, typically around bad-state propagation.
+
+\end{document}

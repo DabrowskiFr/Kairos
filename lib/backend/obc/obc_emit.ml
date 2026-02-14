@@ -30,11 +30,11 @@ let starts_with (s : string) (prefix : string) : bool =
 let is_mon_ctor (s : string) : bool =
   let len = String.length s in
   len >= 4
-  && String.sub s 0 3 = "Mon"
+  && String.sub s 0 3 = "Aut"
   && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub s 3 (len - 3))
 
 let is_generated_ident (id : string) : bool =
-  starts_with id "__mon_state" || starts_with id "__mon_" || is_mon_ctor id
+  starts_with id "__aut_state" || starts_with id "__aut_" || is_mon_ctor id
 
 type gen_tag =
   | MonitorAtom
@@ -46,12 +46,12 @@ type gen_tag =
   | PostForNextPre
 
 let tag_label = function
-  | MonitorAtom -> "monitor atom definition"
-  | MonitorState -> "monitor state"
-  | CompatInvariant -> "monitor/program compatibility"
+  | MonitorAtom -> "automata atom definition"
+  | MonitorState -> "automata state"
+  | CompatInvariant -> "automata/program compatibility"
   | BadState -> "no bad state"
-  | MonitorPre -> "monitor pre-condition"
-  | MonitorPost -> "monitor post-condition"
+  | MonitorPre -> "automata pre-condition"
+  | MonitorPost -> "automata post-condition"
   | PostForNextPre -> "post -> next pre"
 
 let rec iexpr_mentions_generated (e : iexpr) : bool =
@@ -68,7 +68,7 @@ let rec iexpr_has_tag (tag : gen_tag) (e : iexpr) : bool =
   | IVar id -> begin
       match tag with
       | MonitorAtom -> false
-      | MonitorState -> id = "__mon_state" || is_mon_ctor id
+      | MonitorState -> id = "__aut_state" || is_mon_ctor id
       | CompatInvariant | BadState | MonitorPre | MonitorPost | PostForNextPre -> false
     end
   | IPar e -> iexpr_has_tag tag e
@@ -97,7 +97,7 @@ let rec fo_has_tag (tag : gen_tag) (f : fo) : bool =
   | FNot a -> fo_has_tag tag a
   | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_has_tag tag a || fo_has_tag tag b
 
-let is_mon_state_var = function "__mon_state" -> true | s -> is_mon_ctor s
+let is_mon_state_var = function "__aut_state" -> true | s -> is_mon_ctor s
 
 let rec iexpr_only_mon_state = function
   | e -> (
@@ -148,7 +148,7 @@ let comment_for_tags indent tags =
 
 let tags_for_ident (id : string) : gen_tag list =
   let tags = ref [] in
-  if id = "__mon_state" || is_mon_ctor id then tags := MonitorState :: !tags;
+  if id = "__aut_state" || is_mon_ctor id then tags := MonitorState :: !tags;
   !tags
 
 let tags_for_iexpr (e : iexpr) : gen_tag list =
@@ -239,7 +239,7 @@ let local_comment (name : ident) : string option =
   let has_prefix p =
     String.length name >= String.length p && String.sub name 0 (String.length p) = p
   in
-  if name = "__mon_state" then Some "monitor state"
+  if name = "__aut_state" then Some "automata state"
   else if has_prefix "__pre_k" then Some "k-step history"
   else Some "user local"
 
@@ -299,6 +299,7 @@ let rec replace_pre_k_ltl ~(map : (hexpr * ident) list) (f : fo_ltl) : fo_ltl =
   | LNot a -> LNot (replace_pre_k_ltl ~map a)
   | LX a -> LX (replace_pre_k_ltl ~map a)
   | LG a -> LG (replace_pre_k_ltl ~map a)
+  | LW (a, b) -> LW (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
   | LAnd (a, b) -> LAnd (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
   | LOr (a, b) -> LOr (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
   | LImp (a, b) -> LImp (replace_pre_k_ltl ~map a, replace_pre_k_ltl ~map b)
@@ -429,9 +430,9 @@ let source_of_fo ~(is_require : bool) (f : fo_o) : string =
   match f.origin with
   | Some UserContract -> "user"
   | Some Coherency -> "user contracts coherency"
-  | Some Compatibility -> "monitor/program compatibility"
+  | Some Compatibility -> "automata/program compatibility"
   | Some AssumeAutomaton -> "assumption automaton"
-  | Some Monitor -> if is_require then "monitor pre-condition" else "monitor post-condition"
+  | Some Instrumentation -> if is_require then "automata pre-condition" else "automata post-condition"
   | Some Internal -> "internal"
   | None -> (
       match primary_tag_for_fo ~is_require f.value with
@@ -444,14 +445,14 @@ let source_order (s : string) : int =
   match s with
   | "user" -> 0
   | "user contracts coherency" -> 1
-  | "monitor/program compatibility" -> 2
+  | "automata/program compatibility" -> 2
   | "assumption automaton" -> 3
   | "no bad state" -> 3
-  | "monitor pre-condition" -> 4
-  | "monitor post-condition" -> 5
+  | "automata pre-condition" -> 4
+  | "automata post-condition" -> 5
   | "internal fold link" -> 6
-  | "monitor atom definition" -> 7
-  | "monitor state" -> 8
+  | "automata atom definition" -> 7
+  | "automata state" -> 8
   | _ -> 9
 
 type bool_lit = Pos of string * int | Neg of string * int
@@ -645,7 +646,7 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
   in
   let body_ghost = t.attrs.ghost in
   let body_user = t.body in
-  let body_mon = t.attrs.monitor in
+  let body_mon = t.attrs.instrumentation in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
     |> List.map (prettify_pre_old ~init_for_var ~vars)
@@ -659,7 +660,7 @@ let transition_lines (indent : int) (t : transition) ~(init_for_var : ident -> i
     if body_user = [] then [] else [ comment_line (indent + 1) "-- user code --" ]
   in
   let mon_header =
-    if body_mon = [] then [] else [ comment_line (indent + 1) "-- monitor code --" ]
+    if body_mon = [] then [] else [ comment_line (indent + 1) "-- automata update code --" ]
   in
   let body_mon_lines =
     stmt_lines ~allow_empty:true ~with_comments:false (indent + 1) body_mon
@@ -856,7 +857,7 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
   in
   let body_ghost = t.attrs.ghost in
   let body_user = t.body in
-  let body_mon = t.attrs.monitor in
+  let body_mon = t.attrs.instrumentation in
   let ghost_lines =
     stmt_lines ~allow_empty:true (indent + 1) body_ghost
     |> List.map (prettify_pre_old ~init_for_var ~vars)
@@ -872,7 +873,7 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
     if body_user = [] then [] else [ (comment_line (indent + 1) "-- user code --", None) ]
   in
   let mon_header =
-    if body_mon = [] then [] else [ (comment_line (indent + 1) "-- monitor code --", None) ]
+    if body_mon = [] then [] else [ (comment_line (indent + 1) "-- automata update code --", None) ]
   in
   let body_mon_lines =
     stmt_lines ~allow_empty:true ~with_comments:false (indent + 1) body_mon

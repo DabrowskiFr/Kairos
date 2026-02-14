@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(* {1 Monitor Constructor Discovery} *)
+(* {1 Instrumentation Constructor Discovery} *)
 
 (* Detect if an identifier is a monitor state constructor. *)
 val is_mon_state_ctor : string -> bool

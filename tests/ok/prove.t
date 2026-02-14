@@ -1,2 +1,1 @@
-  $ kairos --log-level quiet --prove ./inputs/delay_int.obc
-  [1]
+  $ kairos --log-level quiet --prove ./inputs/delay_int.kairos

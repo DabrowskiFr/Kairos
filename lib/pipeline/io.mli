@@ -1,5 +1,8 @@
 (* Helpers to dump/emit intermediate pipeline artifacts. *)
 
+val write_text : string -> string -> unit
+(* Write raw text content to a file path. *)
+
 val dump_ast_stage :
   stage:Stage_names.stage_id ->
   out:string option ->
@@ -13,7 +16,7 @@ val dump_ast_all :
   parsed:Ast.program ->
   automaton:Ast.program ->
   contracts:Ast.program ->
-  monitor:Ast.program ->
+  instrumentation:Ast.program ->
   obc:Ast.program ->
   stable:bool ->
   (unit, string) result
@@ -22,7 +25,7 @@ val dump_ast_all :
 val emit_dot_files : show_labels:bool -> out_file:string -> Ast.program -> unit
 (* Emit DOT graph files for a program. *)
 
-val emit_obc_file : out_file:string -> Ast.program -> unit
+val emit_obc_file : out_file:string -> use_abstract:bool -> Ast.program -> unit
 (* Emit OBC+ source to a file. *)
 
 val emit_why3_vc : out_file:string -> why_text:string -> unit

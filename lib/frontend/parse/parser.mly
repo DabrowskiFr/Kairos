@@ -97,7 +97,7 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %token PRE
 %token PREK
 %token AND OR NOT
-%token G X
+%token G X W R
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
@@ -597,12 +597,17 @@ ltl_or:
   | ltl_or OR ltl_and { LOr($1,$3) }
   | ltl_and { $1 }
 
+ltl_w:
+  | ltl_or W ltl_w { LW($1,$3) }
+  | ltl_or R ltl_w { LW($3, LAnd($1, $3)) }
+  | ltl_or { $1 }
+
 ltl:
   | ltl_imp { $1 }
 
 ltl_imp:
-  | ltl_or IMPL ltl_imp { LImp($1,$3) }
-  | ltl_or { $1 }
+  | ltl_w IMPL ltl_imp { LImp($1,$3) }
+  | ltl_w { $1 }
 
 relop:
   | EQ { REq }

@@ -138,6 +138,95 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
   end;
   ()
 
+let highlight_abstract_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~comment_tag
+    ~state_tag text =
+  let start_iter = buf#start_iter in
+  let end_iter = buf#end_iter in
+  buf#remove_all_tags ~start:start_iter ~stop:end_iter;
+  let text = buf#get_text ~start:start_iter ~stop:end_iter () in
+  let map = build_utf8_map text in
+  let apply_regex = apply_regex_to_buf buf text in
+  let keywords =
+    [
+      "node";
+      "inputs";
+      "outputs";
+      "locals";
+      "states";
+      "init";
+      "assume";
+      "guarantee";
+      "transition";
+      "when";
+      "require";
+      "ensure";
+      "do";
+      "ghost";
+      "if";
+      "then";
+      "else";
+      "match";
+      "with";
+      "skip";
+      "end";
+      "G";
+      "X";
+    ]
+  in
+  let types = [ "int"; "bool"; "real" ] in
+  let number_re = Str.regexp "\\b[0-9]+\\b" in
+  let comment_re = Str.regexp "(\\*.*\\*)" in
+  ignore (apply_words buf text keyword_tag keywords);
+  ignore (apply_words buf text type_tag types);
+  ignore (apply_regex number_tag number_re);
+  ignore (apply_regex comment_tag comment_re);
+  let apply_state_range s e =
+    let s = char_offset map s in
+    let e = char_offset map e in
+    let it_s = buf#start_iter#forward_chars s in
+    let it_e = buf#start_iter#forward_chars e in
+    buf#apply_tag state_tag ~start:it_s ~stop:it_e
+  in
+  let states_re = Str.regexp "\\bstates\\b" in
+  let trans_re =
+    Str.regexp
+      "\\btransition\\s+\\([A-Za-z_][A-Za-z0-9_']*\\)\\s*->\\s*\\([A-Za-z_][A-Za-z0-9_']*\\)"
+  in
+  begin
+    try
+      let _ = Str.search_forward states_re text 0 in
+      let states_start = Str.match_end () in
+      let states_end =
+        try String.index_from text states_start ';' with Not_found -> String.length text
+      in
+      let id_re = Str.regexp "\\b[A-Za-z_][A-Za-z0-9_']*\\b" in
+      let rec loop pos =
+        if pos >= states_end then ()
+        else
+          try
+            let _ = Str.search_forward id_re text pos in
+            let s = Str.match_beginning () in
+            let e = Str.match_end () in
+            if s < states_end then (
+              apply_state_range s (min e states_end);
+              loop e)
+            else ()
+          with Not_found -> ()
+      in
+      loop states_start
+    with Not_found -> ()
+  end;
+  let rec loop_trans pos =
+    try
+      let _ = Str.search_forward trans_re text pos in
+      apply_state_range (Str.group_beginning 1) (Str.group_end 1);
+      apply_state_range (Str.group_beginning 2) (Str.group_end 2);
+      loop_trans (Str.match_end ())
+    with Not_found -> ()
+  in
+  loop_trans 0;
+  ()
+
 let highlight_obc_range ~(buf : GText.buffer) ~start_offset ~keyword_tag ~type_tag ~number_tag
     ~comment_tag ~state_tag text =
   let start_iter = buf#start_iter#forward_chars start_offset in

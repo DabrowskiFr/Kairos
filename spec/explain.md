@@ -62,5 +62,5 @@ alors `t1.ensures` reçoit en plus : `E -> shift(R)`.
 
 ### Références code
 
-- `lib/middle-end/contracts/contract_coherency.ml`
-- `lib/middle-end/contracts/contracts_pass.ml`
+- `lib/middle_end/contracts/contract_coherency.ml`
+- `lib/middle_end/contracts/contracts_pass.ml`

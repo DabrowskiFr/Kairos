@@ -46,9 +46,6 @@ let contains_sub (s : string) (sub : string) : bool =
 let guard_term_pre (env : env) (t : transition) : Ptree.term option =
   Option.map (compile_term env) t.guard
 
-let guard_term_old (env : env) (t : transition) : Ptree.term option =
-  Option.map (fun g -> term_old (compile_term env g)) t.guard
-
 let with_guard (cond : Ptree.term) (guard : Ptree.term option) : Ptree.term =
   match guard with None -> cond | Some g -> term_and cond g
 
@@ -64,6 +61,30 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Ttuple ts -> List.exists term_has_old ts
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
+
+let rec qid_root = function Ptree.Qident id -> id.id_str | Ptree.Qdot (q, _) -> qid_root q
+
+let rec term_mentions_record (rec_name : string) (t : Ptree.term) : bool =
+  match t.term_desc with
+  | Tident q -> qid_root q = rec_name
+  | Tapply (fn, arg) -> term_mentions_record rec_name fn || term_mentions_record rec_name arg
+  | Tbinop (a, _, b) | Tinnfix (a, _, b) ->
+      term_mentions_record rec_name a || term_mentions_record rec_name b
+  | Tnot a -> term_mentions_record rec_name a
+  | Tidapp (_q, args) -> List.exists (term_mentions_record rec_name) args
+  | Tif (c, t1, t2) ->
+      term_mentions_record rec_name c || term_mentions_record rec_name t1
+      || term_mentions_record rec_name t2
+  | Ttuple ts -> List.exists (term_mentions_record rec_name) ts
+  | Tattr (_attr, t) -> term_mentions_record rec_name t
+  | Tconst _ | Ttrue | Tfalse -> false
+  | _ -> false
+
+let old_if_needed (env : env) (t : Ptree.term) : Ptree.term =
+  if term_mentions_record env.rec_name t then term_old t else t
+
+let guard_term_old (env : env) (t : transition) : Ptree.term option =
+  Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
 let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
@@ -124,7 +145,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
     | Some Coherency -> "User contracts coherency"
     | Some Compatibility -> "Compatibility"
     | Some AssumeAutomaton -> "Assume automaton"
-    | Some Monitor -> "Monitor"
+    | Some Instrumentation -> "Instrumentation"
     | Some Internal -> "Internal"
     | None -> "Unknown"
   in
@@ -132,14 +153,16 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
      Do not also inject them globally as step preconditions. *)
   let pre_contract = [] in
   let post_contract =
-    List.fold_left
-      (fun post f ->
-        let norm = normalize_ltl f in
-        let rel = ltl_relational env norm.ltl in
-        let frag = ltl_spec env rel in
-        let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
-        guarded_k @ post)
-      [] n.guarantees
+    if !pure_translation then []
+    else
+      List.fold_left
+        (fun post f ->
+          let norm = normalize_ltl f in
+          let rel = ltl_relational env norm.ltl in
+          let frag = ltl_spec env rel in
+          let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
+          guarded_k @ post)
+        [] n.guarantees
   in
   let pre_invf = [] in
   let post_invf = [] in
@@ -228,7 +251,9 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
               apply_k_guard ~in_post:false norm.k_guard frag.pre)
             (Ast_provenance.values t.requires)
         in
-        let guard = if guard_terms = [] then None else Some (term_old (conj_terms guard_terms)) in
+        let guard =
+          if guard_terms = [] then None else Some (old_if_needed env (conj_terms guard_terms))
+        in
         let apply_post_terms post post_terms post_terms_vcid fo_list =
           List.fold_left
             (fun (post, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
@@ -288,7 +313,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
     let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state))) in
     let mon_init =
       match info.mon_state_ctors with
-      | first :: _ -> [ term_eq (term_of_var env "__mon_state") (mk_term (Tident (qid1 first))) ]
+      | first :: _ -> [ term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 first))) ]
       | [] -> []
     in
     let inv_terms_user =
@@ -619,13 +644,39 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
           | _ -> None)
       terms
   in
+  let build_vcid_opts (labeled : (Ptree.term * string) list) (terms : Ptree.term list)
+      ~(is_candidate : Ptree.term -> bool) =
+    let buckets = Hashtbl.create 64 in
+    List.iter
+      (fun (term, vcid) ->
+        let q =
+          match Hashtbl.find_opt buckets term with
+          | Some q -> q
+          | None ->
+              let q = Queue.create () in
+              Hashtbl.add buckets term q;
+              q
+        in
+        Queue.add vcid q)
+      labeled;
+    List.map
+      (fun term ->
+        if not (is_candidate term) then None
+        else
+          match Hashtbl.find_opt buckets term with
+          | Some q when not (Queue.is_empty q) -> Some (Queue.take q)
+          | _ -> None)
+      terms
+  in
   let pre_out = List.rev pre in
   let post_out = List.rev post in
   let pre_label_opts =
     build_label_opts transition_requires_pre_terms pre_out ~is_candidate:(fun _ -> true)
   in
   let post_label_opts = build_label_opts state_post_terms post_out ~is_candidate:term_has_old in
-  let post_vcid_opts = List.map (fun _ -> None) post_out in
+  let post_vcid_opts =
+    build_vcid_opts state_post_terms_vcid post_out ~is_candidate:term_has_old
+  in
   let merge_labels opts groups =
     List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
   in

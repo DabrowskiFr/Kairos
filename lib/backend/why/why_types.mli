@@ -26,7 +26,7 @@ type env_info = {
   module_name : string;
   (* Extra imports required by this module. *)
   imports : Why3.Ptree.decl list;
-  (* Monitor state type declarations (if any). *)
+  (* Instrumentation state type declarations (if any). *)
   type_mon_state : Why3.Ptree.decl list;
   (* Node state type declaration. *)
   type_state : Why3.Ptree.decl;
@@ -56,7 +56,7 @@ type env_info = {
   hexpr_needs_old : Ast.hexpr -> bool;
   (* Input names as identifiers. *)
   input_names : Ast.ident list;
-  (* Monitor state constructors (if any). *)
+  (* Instrumentation state constructors (if any). *)
   mon_state_ctors : Ast.ident list;
   (* Initialization expression for an input variable. *)
   init_for_var : Ast.ident -> Ast.iexpr;

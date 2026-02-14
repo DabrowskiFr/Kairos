@@ -30,6 +30,7 @@ val dump_smt2_tasks : prover:string -> text:string -> string list
 val prove_text_detailed :
   ?timeout:int ->
   ?prover_cmd:string ->
+  ?selected_goal_index:int ->
   prover:string ->
   text:string ->
   unit ->
@@ -39,6 +40,7 @@ val prove_text_detailed :
 val prove_text_detailed_with_callbacks :
   ?timeout:int ->
   ?prover_cmd:string ->
+  ?selected_goal_index:int ->
   prover:string ->
   text:string ->
   vc_ids_ordered:int list option ->
@@ -50,6 +52,10 @@ val prove_text_detailed_with_callbacks :
 
 (* Extract Why3 goal ids for each task. *)
 val task_goal_wids : text:string -> int list list
+
+(* Infer (src,dst) state names per normalized task from Why3 AST structure.
+   Returns [None] when source cannot be inferred for a task. *)
+val task_state_pairs : text:string -> (string * string) option list
 
 (* Extract sequents as (hypotheses, goal) pairs. *)
 val task_sequents : text:string -> (string list * string) list

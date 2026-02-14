@@ -3,6 +3,17 @@ open Str
 open Provenance
 module Ide_backend = Pipeline
 
+type run_state = Idle | Parsing | Building | Proving | Completed | Failed
+
+let sanitize_utf8_text (s : string) : string =
+  if String.for_all (fun c -> Char.code c < 128) s then s
+  else
+    String.map
+      (fun c ->
+        let k = Char.code c in
+        if k < 128 then c else '?')
+      s
+
 module Ide_config = struct
   type prefs = {
     theme : string;
@@ -109,6 +120,82 @@ module Ide_config = struct
     else Filename.concat (themes_custom_dir ()) file
 
   let recent_file () = Filename.concat (config_dir ()) "recent_files.txt"
+  let session_file () = Filename.concat (config_dir ()) "ide_session.ini"
+
+  type session_state = {
+    last_file : string;
+    paned_pos : int;
+    left_page : int;
+    center_page : int;
+    scope_node : string;
+    scope_transition : string;
+    selected_goal_source : string;
+  }
+
+  let default_session_state =
+    {
+      last_file = "";
+      paned_pos = 320;
+      left_page = 0;
+      center_page = 0;
+      scope_node = "";
+      scope_transition = "";
+      selected_goal_source = "";
+    }
+
+  let load_session_state () : session_state =
+    let path = session_file () in
+    if not (Sys.file_exists path) then default_session_state
+    else
+      try
+        let ic = open_in path in
+        let rec loop acc =
+          match input_line ic with
+          | line ->
+              let line = String.trim line in
+              if line = "" || line.[0] = '#' then loop acc
+              else
+                let k, v =
+                  match String.index_opt line '=' with
+                  | None -> (line, "")
+                  | Some i ->
+                      ( String.sub line 0 i |> String.trim,
+                        String.sub line (i + 1) (String.length line - i - 1) |> String.trim )
+                in
+                loop ((k, v) :: acc)
+          | exception End_of_file ->
+              close_in ic;
+              acc
+        in
+        let data = loop [] in
+        let get k d = match List.assoc_opt k data with Some v -> v | None -> d in
+        let get_int k d = match int_of_string_opt (get k (string_of_int d)) with Some v -> v | None -> d in
+        {
+          last_file = get "last_file" default_session_state.last_file;
+          paned_pos = get_int "paned_pos" default_session_state.paned_pos;
+          left_page = get_int "left_page" default_session_state.left_page;
+          center_page = get_int "center_page" default_session_state.center_page;
+          scope_node = get "scope_node" default_session_state.scope_node;
+          scope_transition = get "scope_transition" default_session_state.scope_transition;
+          selected_goal_source = get "selected_goal_source" default_session_state.selected_goal_source;
+        }
+      with _ -> default_session_state
+
+  let save_session_state (s : session_state) : unit =
+    try
+      let dir = config_dir () in
+      if not (Sys.file_exists dir) then (try Unix.mkdir dir 0o755 with _ -> ());
+      let oc = open_out (session_file ()) in
+      let wr k v = output_string oc (k ^ "=" ^ v ^ "\n") in
+      wr "last_file" s.last_file;
+      wr "paned_pos" (string_of_int s.paned_pos);
+      wr "left_page" (string_of_int s.left_page);
+      wr "center_page" (string_of_int s.center_page);
+      wr "scope_node" s.scope_node;
+      wr "scope_transition" s.scope_transition;
+      wr "selected_goal_source" s.selected_goal_source;
+      close_out oc
+    with _ -> ()
 
   let ensure_dir () =
     let dir = config_dir () in
@@ -290,7 +377,7 @@ module Ide_config = struct
         parse_underline = true;
         export_dir = "";
         export_auto_open = false;
-        export_name_obcplus = "{base}.obc+";
+        export_name_obcplus = "{base}.abstract";
         export_name_why3 = "{base}.why";
         export_name_theory = "{base}.theory";
         export_name_smt = "{base}.smt2";
@@ -537,7 +624,7 @@ module Ide_config = struct
     write "use_cache" (if prefs.use_cache then "true" else "false");
     close_out oc
 
-  let css_magic = "kairos-theme-v22"
+  let css_magic = "kairos-theme-v23"
 
   let css_of_prefs (p : prefs) : string =
     let font_size = max 8 (int_of_float (12.0 *. p.ui_scale)) in
@@ -583,10 +670,11 @@ button, .button, button.flat, button.toggle, button.suggested-action, button.des
   background-image: none;
 }
 .icon-button {
-  padding: 4px 6px;
-  min-width: 30px;
-  min-height: 26px;
-  border: 1px solid %s;
+  padding: 5px 7px;
+  min-width: 34px;
+  min-height: 30px;
+  border: 0 solid %s;
+  background-color: transparent;
 }
 button:hover {
   background-color: %s;
@@ -618,6 +706,30 @@ button:active, button:checked, button:focus {
   background-color: %s;
   border-color: %s;
   color: %s;
+}
+.actionbar .icon-button,
+.actionbar .icon-button:focus,
+.actionbar .icon-button:active {
+  border: none;
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+.actionbar .segmented .icon-button,
+.actionbar .segmented .icon-button:focus,
+.actionbar .segmented .icon-button:active,
+.actionbar .segmented .icon-button:hover {
+  border: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.actionbar .icon-button:hover {
+  background-color: rgba(127, 127, 127, 0.18);
+}
+.actionbar .icon-button.active {
+  background-color: rgba(127, 127, 127, 0.22);
+  color: inherit;
 }
 .actionbar label.toolbar-label {
   color: %s;
@@ -662,6 +774,22 @@ button:active, button:checked, button:focus {
 }
 .actionbar button.primary:hover {
   background-color: %s;
+}
+/* final toolbar flattening overrides */
+.actionbar .icon-button,
+.actionbar .icon-button.primary,
+.actionbar .icon-button.active {
+  border: none !important;
+  border-color: transparent !important;
+  background-color: transparent;
+  box-shadow: none;
+}
+.actionbar .icon-button:hover,
+.actionbar .icon-button.primary:hover {
+  background-color: rgba(127, 127, 127, 0.18);
+}
+.actionbar .icon-button.active {
+  background-color: rgba(127, 127, 127, 0.22);
 }
 .actionbar entry, .actionbar combobox {
   padding: 2px 6px;
@@ -818,6 +946,19 @@ treeview.goals row:nth-child(even) {
 treeview.goals row:selected {
   background-color: %s;
 }
+treeview.goals row:selected,
+treeview.goals row:selected:focus,
+treeview.goals row:selected:backdrop,
+treeview.outline row:selected,
+treeview.outline row:selected:focus,
+treeview.outline row:selected:backdrop {
+  background-color: rgba(66, 153, 225, 0.30);
+  border-left: 2px solid rgba(66, 153, 225, 0.95);
+}
+treeview.goals row:selected *,
+treeview.outline row:selected * {
+  font-weight: 600;
+}
 treeview {
   -GtkTreeView-grid-line-width: 0;
   -GtkTreeView-horizontal-separator: 0;
@@ -971,6 +1112,22 @@ separator, .separator {
   background-color: %s;
   opacity: 1.0;
 }
+/* hard override: flat toolbar icon buttons */
+.actionbar .segmented .icon-button,
+.actionbar .segmented .icon-button:hover,
+.actionbar .segmented .icon-button:active,
+.actionbar .segmented .icon-button:focus,
+.actionbar .segmented .icon-button:checked {
+  border: none !important;
+  border-width: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.actionbar .segmented .icon-button:first-child,
+.actionbar .segmented .icon-button:last-child {
+  border-width: 0 !important;
+}
 |}
         css_magic font_size font_family p.text p.background p.text p.background p.text p.border
         p.muted p.background p.text p.border p.background p.text p.border p.separator p.border
@@ -1082,21 +1239,42 @@ let create_temp_file ?dir ~prefix ~suffix () =
   in
   loop 0
 
-let () =
+  let () =
   ignore (GMain.init ());
   Random.self_init ();
   let prefs = ref (Ide_config.load_prefs ()) in
+  let session = ref (Ide_config.load_session_state ()) in
   Ide_config.ensure_dir ();
   Ide_config.ensure_default_theme_css ();
   Ide_config.ensure_default_theme_prefs ();
   Ide_config.ensure_css_file_for_theme !prefs.Ide_config.theme !prefs;
   let css = GObj.css_provider () in
+  let forced_tree_selection_css =
+    {|
+treeview.goals row:selected,
+treeview.goals row:selected:focus,
+treeview.goals row:selected:backdrop,
+treeview.outline row:selected,
+treeview.outline row:selected:focus,
+treeview.outline row:selected:backdrop {
+  background-color: rgba(66, 153, 225, 0.30);
+  border-left: 2px solid rgba(66, 153, 225, 0.95);
+}
+treeview.goals row:selected *,
+treeview.outline row:selected * {
+  font-weight: 600;
+}
+|}
+  in
+  let load_css_data_with_forced_selection (data : string) =
+    css#load_from_data (data ^ "\n" ^ forced_tree_selection_css)
+  in
   let load_css () =
     match Ide_config.load_css_for_theme !prefs.Ide_config.theme with
-    | Some data -> css#load_from_data data
+    | Some data -> load_css_data_with_forced_selection data
     | None ->
         let fallback = Ide_config.css_of_prefs !prefs in
-        css#load_from_data fallback
+        load_css_data_with_forced_selection fallback
   in
   load_css ();
   GtkData.StyleContext.add_provider_for_screen (Gdk.Screen.default ()) css#as_css_provider
@@ -1113,6 +1291,8 @@ let () =
       false)
   |> ignore;
   window#connect#destroy ~callback:Main.quit |> ignore;
+  let run_state_ref = ref Idle in
+  let update_action_sensitivity_ref : (unit -> unit) ref = ref (fun () -> ()) in
 
   let vbox = GPack.vbox ~spacing:8 ~border_width:8 ~packing:window#add () in
 
@@ -1132,8 +1312,27 @@ let () =
   ignore (add_menu "Help");
 
   let icon_theme_dir () =
-    let theme = String.lowercase_ascii !prefs.Ide_config.theme in
-    if theme = "dark" then "dark" else "light"
+    let parse_hex_rgb (s : string) =
+      let s = String.trim s in
+      if String.length s = 7 && s.[0] = '#' then
+        try
+          let r = int_of_string ("0x" ^ String.sub s 1 2) in
+          let g = int_of_string ("0x" ^ String.sub s 3 2) in
+          let b = int_of_string ("0x" ^ String.sub s 5 2) in
+          Some (r, g, b)
+        with _ -> None
+      else None
+    in
+    let is_dark =
+      match parse_hex_rgb !prefs.Ide_config.background with
+      | None ->
+          let theme = String.lowercase_ascii !prefs.Ide_config.theme in
+          theme = "dark"
+      | Some (r, g, b) ->
+          let luma = 0.2126 *. float r +. 0.7152 *. float g +. 0.0722 *. float b in
+          luma < 140.0
+    in
+    if is_dark then "dark" else "light"
   in
   let icon_dirs () =
     let theme_dir = icon_theme_dir () in
@@ -1170,7 +1369,7 @@ let () =
           ~bits:(GdkPixbuf.get_bits_per_sample pb)
           ~colorspace:`RGB ()
       in
-      GdkPixbuf.scale ~dest ~width:new_w ~height:new_h ~interp:`BILINEAR pb;
+      GdkPixbuf.scale ~dest ~width:new_w ~height:new_h ~interp:`HYPER pb;
       dest
   in
   let load_icon ?(size = 16) name =
@@ -1189,10 +1388,14 @@ let () =
             let len = in_channel_length ic in
             let data = really_input_string ic len in
             close_in ic;
+            let effective_icon_color =
+              if String.lowercase_ascii !prefs.Ide_config.theme = "dark" then "#F8FAFC"
+              else !prefs.Ide_config.icon_color
+            in
             let recolor =
               Str.global_replace
                 (Str.regexp "#[0-9a-fA-F]\\{6\\}")
-                !prefs.Ide_config.icon_color data
+                effective_icon_color data
             in
             let tmp = Filename.concat (Ide_config.config_dir ()) (Filename.basename path) in
             let oc = open_out tmp in
@@ -1202,22 +1405,25 @@ let () =
           with _ -> load_from_path path
         else load_from_path path
   in
-  let icon_buttons : (GMisc.image * string) list ref = ref [] in
+  let icon_buttons : (GMisc.image * string * int) list ref = ref [] in
   let make_icon_button ~icon ~tooltip ~packing () =
+    let icon_size = 24 in
     let btn = GButton.button ~packing () in
+    btn#set_relief `NONE;
     btn#misc#set_tooltip_text tooltip;
     btn#misc#style_context#add_class "icon-button";
     btn#set_can_focus false;
     let img = GMisc.image () in
-    begin match load_icon icon with Some pb -> img#set_pixbuf pb | None -> ()
+    begin match load_icon ~size:icon_size icon with Some pb -> img#set_pixbuf pb | None -> ()
     end;
     btn#add img#coerce;
-    icon_buttons := (img, icon) :: !icon_buttons;
+    icon_buttons := (img, icon, icon_size) :: !icon_buttons;
     btn
   in
   let refresh_toolbar_icons () =
     List.iter
-      (fun (img, icon) -> match load_icon icon with Some pb -> img#set_pixbuf pb | None -> ())
+      (fun (img, icon, size) ->
+        match load_icon ~size icon with Some pb -> img#set_pixbuf pb | None -> ())
       !icon_buttons
   in
 
@@ -1226,6 +1432,9 @@ let () =
 
   let file_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
   file_group#misc#style_context#add_class "segmented";
+  let new_btn =
+    make_icon_button ~icon:"new.svg" ~tooltip:"New OBC" ~packing:file_group#pack ()
+  in
   let open_btn =
     make_icon_button ~icon:"open.svg" ~tooltip:"Open OBC" ~packing:file_group#pack ()
   in
@@ -1236,13 +1445,12 @@ let () =
   let sep1 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
   sep1#misc#style_context#add_class "vsep";
 
-  let pass_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
-  pass_group#misc#style_context#add_class "segmented";
-  let obcplus_btn =
-    make_icon_button ~icon:"obcplus.svg" ~tooltip:"OBC+" ~packing:pass_group#pack ()
+  let build_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
+  build_group#misc#style_context#add_class "segmented";
+  let build_btn =
+    make_icon_button ~icon:"obcplus.svg" ~tooltip:"Build (Abstract Program + Why)" ~packing:build_group#pack ()
   in
-  let why_btn = make_icon_button ~icon:"why3.svg" ~tooltip:"Why3" ~packing:pass_group#pack () in
-  let prove_btn = make_icon_button ~icon:"prove.svg" ~tooltip:"Prove" ~packing:pass_group#pack () in
+  let prove_btn = make_icon_button ~icon:"prove.svg" ~tooltip:"Prove" ~packing:build_group#pack () in
   prove_btn#misc#style_context#add_class "primary";
 
   let sep2 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
@@ -1251,7 +1459,10 @@ let () =
   let monitor_group = GPack.hbox ~spacing:0 ~packing:toolbar#pack () in
   monitor_group#misc#style_context#add_class "segmented";
   let monitor_btn =
-    make_icon_button ~icon:"monitor.svg" ~tooltip:"Monitor" ~packing:monitor_group#pack ()
+    make_icon_button ~icon:"instrumentation.svg" ~tooltip:"Automates" ~packing:monitor_group#pack ()
+  in
+  let eval_btn =
+    make_icon_button ~icon:"eval.svg" ~tooltip:"Eval" ~packing:monitor_group#pack ()
   in
 
   let sep3 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
@@ -1266,7 +1477,7 @@ let () =
   let sep4 = GMisc.separator `VERTICAL ~packing:toolbar#pack () in
   sep4#misc#style_context#add_class "vsep";
 
-  let pass_buttons = [ monitor_btn; obcplus_btn; why_btn; prove_btn ] in
+  let pass_buttons = [ monitor_btn; build_btn; eval_btn; prove_btn ] in
   List.iter (fun b -> b#set_can_focus false) pass_buttons;
 
   let options_group = GPack.hbox ~spacing:6 ~packing:toolbar#pack () in
@@ -1300,12 +1511,46 @@ let () =
   let smoke_toolbar_check = GButton.check_button ~label:"Smoke" ~packing:options_group#pack () in
   smoke_toolbar_check#set_active !prefs.Ide_config.smoke_tests;
   smoke_toolbar_check#misc#set_tooltip_text "Inject smoke obligations (ensure false) during prove";
+  let cancel_run_btn = GButton.button ~label:"Cancel run" ~packing:options_group#pack () in
+  cancel_run_btn#set_sensitive false;
+  cancel_run_btn#misc#set_tooltip_text "Cancel current build/prove run";
+  let tools_monitor_item_ref : GMenu.menu_item option ref = ref None in
+  let instrumentation_ready_ref : (unit -> bool) ref = ref (fun () -> false) in
+  let update_instrumentation_button_state_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let main_action_buttons = [ new_btn; open_btn; save_btn; build_btn; eval_btn; prove_btn; reset_btn ] in
+  let update_action_sensitivity () =
+    let active =
+      match !run_state_ref with
+      | Parsing | Building | Proving -> true
+      | Idle | Completed | Failed -> false
+    in
+    List.iter (fun b -> b#set_sensitive (not active)) main_action_buttons;
+    let monitor_enabled = (not active) && (!instrumentation_ready_ref) () in
+    monitor_btn#set_sensitive monitor_enabled;
+    begin match !tools_monitor_item_ref with Some it -> it#set_sensitive monitor_enabled | None -> ()
+    end;
+    cancel_run_btn#set_sensitive active
+  in
+  update_instrumentation_button_state_ref := update_action_sensitivity;
+  update_action_sensitivity_ref := update_action_sensitivity;
+  update_action_sensitivity ();
 
   let apply_prefs_to_editor_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in
   let apply_prefs_to_runtime_ref : (Ide_config.prefs -> unit) ref = ref (fun _ -> ()) in
   let set_status_quiet_ref : (string -> unit) ref = ref (fun _ -> ()) in
   let set_status_bar_ref : (string -> unit) ref = ref (fun _ -> ()) in
   let clear_caches_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_open_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_save_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_build_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_prove_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_reset_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_cancel_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_focus_source_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_focus_abstract_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_focus_why_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_focus_goals_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let action_diff_abstract_ref : (unit -> unit) ref = ref (fun () -> ()) in
   let apply_prefs_to_ui (p : Ide_config.prefs) =
     timeout_entry#set_text (string_of_int p.timeout_s);
     smoke_toolbar_check#set_active p.smoke_tests;
@@ -2019,7 +2264,7 @@ let () =
     outputs_grid#attach ~left:0 ~top:2 ~right:2 export_auto_open_check#coerce;
     let export_obcplus_entry = GEdit.entry ~text:!prefs.export_name_obcplus () in
     export_obcplus_entry#connect#changed ~callback:mark_dirty |> ignore;
-    outputs_label 3 "Default OBC+ name";
+    outputs_label 3 "Default Abstract Program name";
     outputs_grid#attach ~left:1 ~top:3 export_obcplus_entry#coerce;
     let export_why_entry = GEdit.entry ~text:!prefs.export_name_why3 () in
     export_why_entry#connect#changed ~callback:mark_dirty |> ignore;
@@ -2410,7 +2655,7 @@ let () =
         | None -> ()
         | Some new_prefs ->
             prefs := new_prefs;
-            css#load_from_data (Ide_config.css_of_prefs new_prefs);
+            load_css_data_with_forced_selection (Ide_config.css_of_prefs new_prefs);
             apply_prefs_to_ui new_prefs;
             refresh_toolbar_icons ();
             mark_dirty ())
@@ -2469,7 +2714,7 @@ let () =
   let content_vbox = GPack.vbox ~spacing:8 ~packing:(main_row#pack ~expand:true ~fill:true) () in
 
   let paned = GPack.paned `HORIZONTAL ~packing:content_vbox#add () in
-  paned#set_position 320;
+  paned#set_position (max 180 session.contents.Ide_config.paned_pos);
 
   let left = GPack.vbox ~spacing:8 ~packing:paned#add1 () in
   let left_notebook = GPack.notebook ~tab_pos:`TOP ~packing:left#add () in
@@ -2477,43 +2722,62 @@ let () =
   left_notebook#set_show_border false;
 
   let goals_page = GPack.vbox ~spacing:6 () in
-  ignore (GMisc.label ~text:"Goals" ~packing:goals_page#pack ());
+  let goals_header = GPack.hbox ~spacing:8 ~packing:goals_page#pack () in
+  let _ = GMisc.label ~text:"Goals" ~packing:goals_header#pack () in
+  let goals_scope_label =
+    GMisc.label ~text:"All" ~packing:(goals_header#pack ~expand:true ~fill:true) ()
+  in
+  goals_scope_label#set_xalign 1.0;
+  goals_scope_label#misc#style_context#add_class "muted";
   let goal_scrolled =
     GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:goals_page#add ()
   in
   let goal_cols = new GTree.column_list in
   let status_icon_col = goal_cols#add Gobject.Data.string in
   let goal_col = goal_cols#add Gobject.Data.string in
+  let goal_label_base_col = goal_cols#add Gobject.Data.string in
+  let goal_row_bg_col = goal_cols#add Gobject.Data.string in
+  let goal_row_bg_set_col = goal_cols#add Gobject.Data.boolean in
+  let goal_row_fg_col = goal_cols#add Gobject.Data.string in
+  let goal_row_fg_set_col = goal_cols#add Gobject.Data.boolean in
+  let goal_row_weight_col = goal_cols#add Gobject.Data.int in
   let goal_raw_col = goal_cols#add Gobject.Data.string in
   let goal_status_col = goal_cols#add Gobject.Data.string in
   let source_col = goal_cols#add Gobject.Data.string in
   let time_col = goal_cols#add Gobject.Data.string in
   let dump_col = goal_cols#add Gobject.Data.string in
   let vcid_col = goal_cols#add Gobject.Data.string in
-  let goal_model = GTree.list_store goal_cols in
+  let goal_is_header_col = goal_cols#add Gobject.Data.boolean in
+  let goal_flat_index_col = goal_cols#add Gobject.Data.int in
+  let goal_model = GTree.tree_store goal_cols in
   let goal_view = GTree.view ~model:goal_model ~packing:goal_scrolled#add () in
   goal_view#misc#style_context#add_class "goals";
-  let add_text_column title col =
-    let renderer = GTree.cell_renderer_text [] in
-    let column = GTree.view_column ~title () in
-    column#pack renderer;
-    column#add_attribute renderer "text" col;
-    ignore (goal_view#append_column column)
-  in
   let add_icon_column title col =
     let renderer = GTree.cell_renderer_pixbuf [] in
     let column = GTree.view_column ~title () in
     column#pack renderer;
     column#add_attribute renderer "stock-id" col;
-    ignore (goal_view#append_column column)
+    ignore (goal_view#append_column column);
+    column
   in
-  add_icon_column "Status" status_icon_col;
-  add_text_column "Goal" goal_col;
-  add_text_column "Source" source_col;
-  add_text_column "Time" time_col;
+  let _status_column = add_icon_column "Status" status_icon_col in
+  let goal_renderer = GTree.cell_renderer_text [] in
+  let goal_column = GTree.view_column ~title:"Goal" () in
+  goal_column#pack goal_renderer;
+  goal_column#add_attribute goal_renderer "text" goal_col;
+  goal_column#add_attribute goal_renderer "cell-background" goal_row_bg_col;
+  goal_column#add_attribute goal_renderer "cell-background-set" goal_row_bg_set_col;
+  goal_column#add_attribute goal_renderer "foreground" goal_row_fg_col;
+  goal_column#add_attribute goal_renderer "foreground-set" goal_row_fg_set_col;
+  goal_column#add_attribute goal_renderer "weight" goal_row_weight_col;
+  ignore (goal_view#append_column goal_column);
+  let time_renderer = GTree.cell_renderer_text [ `XALIGN 1.0 ] in
+  let time_column = GTree.view_column ~title:"Time" () in
+  time_column#pack time_renderer;
+  time_column#add_attribute time_renderer "text" time_col;
+  ignore (goal_view#append_column time_column);
+  goal_view#set_expander_column (Some goal_column);
 
-  let goals_empty_label = GMisc.label ~text:"No goals yet" ~packing:goals_page#pack () in
-  goals_empty_label#misc#style_context#add_class "muted";
   ignore (left_notebook#append_page goals_page#coerce);
 
   let outline_page = GPack.vbox ~spacing:6 () in
@@ -2523,22 +2787,39 @@ let () =
   in
   let outline_cols = new GTree.column_list in
   let outline_text_col = outline_cols#add Gobject.Data.string in
+  let outline_label_base_col = outline_cols#add Gobject.Data.string in
+  let outline_row_bg_col = outline_cols#add Gobject.Data.string in
+  let outline_row_bg_set_col = outline_cols#add Gobject.Data.boolean in
+  let outline_row_fg_col = outline_cols#add Gobject.Data.string in
+  let outline_row_fg_set_col = outline_cols#add Gobject.Data.boolean in
+  let outline_row_weight_col = outline_cols#add Gobject.Data.int in
   let outline_line_col = outline_cols#add Gobject.Data.int in
   let outline_target_col = outline_cols#add Gobject.Data.string in
   let outline_kind_col = outline_cols#add Gobject.Data.string in
   let outline_model = GTree.tree_store outline_cols in
   let outline_view = GTree.view ~model:outline_model ~packing:outline_scrolled#add () in
+  outline_view#misc#style_context#add_class "outline";
   outline_view#set_headers_visible false;
   let outline_renderer = GTree.cell_renderer_text [] in
   let outline_column = GTree.view_column ~title:"Outline" () in
   outline_column#pack outline_renderer;
   outline_column#add_attribute outline_renderer "text" outline_text_col;
+  outline_column#add_attribute outline_renderer "cell-background" outline_row_bg_col;
+  outline_column#add_attribute outline_renderer "cell-background-set" outline_row_bg_set_col;
+  outline_column#add_attribute outline_renderer "foreground" outline_row_fg_col;
+  outline_column#add_attribute outline_renderer "foreground-set" outline_row_fg_set_col;
+  outline_column#add_attribute outline_renderer "weight" outline_row_weight_col;
   ignore (outline_view#append_column outline_column);
   ignore (left_notebook#append_page outline_page#coerce);
 
   let right = GPack.vbox ~spacing:8 ~packing:paned#add2 () in
   let notebook = GPack.notebook ~tab_pos:`TOP ~packing:right#add () in
   notebook#misc#style_context#add_class "main-tabs";
+  let safe_page i maxp = max 0 (min i maxp) in
+  let restore_ui_tabs () =
+    left_notebook#goto_page (safe_page session.contents.Ide_config.left_page 1);
+    notebook#goto_page (safe_page session.contents.Ide_config.center_page 8)
+  in
 
   let content_sep = GMisc.separator `HORIZONTAL ~packing:right#pack () in
   content_sep#misc#style_context#add_class "separator";
@@ -2588,6 +2869,53 @@ let () =
   add_diag_column "Location" diag_loc_col;
   add_diag_column "Stage" diag_stage_col;
   ignore (status_notebook#append_page ~tab_label:diagnostics_tab#coerce diagnostics_scrolled#coerce);
+  let jump_to_source_ref : (int -> int -> unit) ref = ref (fun _ _ -> ()) in
+  let diag_nav_index = ref (-1) in
+  let jump_to_diag_location loc_s =
+    let re = Str.regexp "Ln[ ]+\\([0-9]+\\),[ ]*Col[ ]+\\([0-9]+\\)" in
+    if Str.string_match re loc_s 0 then (
+      let line = int_of_string (Str.matched_group 1 loc_s) in
+      let col = int_of_string (Str.matched_group 2 loc_s) in
+      (!jump_to_source_ref) line col)
+  in
+  let focus_diag_index idx =
+    let path = GTree.Path.create [ idx ] in
+    let row = diag_model#get_iter path in
+    let loc_s = diag_model#get ~row ~column:diag_loc_col in
+    status_notebook#goto_page 2;
+    diag_view#selection#select_path path;
+    jump_to_diag_location loc_s
+  in
+  let diag_count () =
+    let c = ref 0 in
+    diag_model#foreach (fun _ _ ->
+        incr c;
+        false);
+    !c
+  in
+  let goto_next_diag () =
+    let n = diag_count () in
+    if n > 0 then (
+      let idx = if !diag_nav_index < 0 then 0 else (!diag_nav_index + 1) mod n in
+      diag_nav_index := idx;
+      focus_diag_index idx)
+  in
+  let goto_prev_diag () =
+    let n = diag_count () in
+    if n > 0 then (
+      let idx =
+        if !diag_nav_index < 0 then n - 1
+        else if !diag_nav_index = 0 then n - 1
+        else !diag_nav_index - 1
+      in
+      diag_nav_index := idx;
+      focus_diag_index idx)
+  in
+  diag_view#connect#row_activated ~callback:(fun path _ ->
+      let row = diag_model#get_iter path in
+      let loc_s = diag_model#get ~row ~column:diag_loc_col in
+      jump_to_diag_location loc_s)
+  |> ignore;
   let meta_tab = GMisc.label ~text:"Stages" () in
   let meta_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
   let meta_view = GText.view ~packing:meta_scrolled#add () in
@@ -2621,14 +2949,16 @@ let () =
   let sum_vc_times () =
     let total = ref 0.0 in
     goal_model#foreach (fun _path row ->
-        let t = goal_model#get ~row ~column:time_col in
-        (if t <> "--" then
-           try
-             let len = String.length t in
-             if len > 1 && t.[len - 1] = 's' then
-               let v = String.sub t 0 (len - 1) |> float_of_string in
-               total := !total +. v
-           with _ -> ());
+        let is_header = goal_model#get ~row ~column:goal_is_header_col in
+        if not is_header then (
+          let t = goal_model#get ~row ~column:time_col in
+          if t <> "--" then
+            try
+              let len = String.length t in
+              if len > 1 && t.[len - 1] = 's' then
+                let v = String.sub t 0 (len - 1) |> float_of_string in
+                total := !total +. v
+            with _ -> ());
         false);
     !total
   in
@@ -2647,22 +2977,24 @@ let () =
     let pending = ref 0 in
     let other = ref 0 in
     goal_model#foreach (fun _path row ->
-        let icon = goal_model#get ~row ~column:status_icon_col in
-        let status_from_icon = status_from_icon icon in
-        let status_raw = goal_model#get ~row ~column:goal_status_col |> String.trim in
-        let status =
-          if status_from_icon <> "" then status_from_icon
-          else if status_raw <> "" then String.lowercase_ascii status_raw
-          else ""
-        in
-        incr total;
-        begin match status with
-        | "valid" -> incr valid
-        | "invalid" | "failure" | "oom" -> incr invalid
-        | "timeout" -> incr timeout
-        | "pending" | "unknown" | "" -> incr pending
-        | _ -> incr other
-        end;
+        let is_header = goal_model#get ~row ~column:goal_is_header_col in
+        if not is_header then (
+          let icon = goal_model#get ~row ~column:status_icon_col in
+          let status_from_icon = status_from_icon icon in
+          let status_raw = goal_model#get ~row ~column:goal_status_col |> String.trim in
+          let status =
+            if status_from_icon <> "" then status_from_icon
+            else if status_raw <> "" then String.lowercase_ascii status_raw
+            else ""
+          in
+          incr total;
+          begin match status with
+          | "valid" -> incr valid
+          | "invalid" | "failure" | "oom" -> incr invalid
+          | "timeout" -> incr timeout
+          | "pending" | "unknown" | "" -> incr pending
+          | _ -> incr other
+          end);
         false);
     let total = !total in
     let valid = !valid in
@@ -2723,6 +3055,18 @@ let () =
     Hashtbl.clear perf_rows
   in
   let _ = update_vc_time_sum in
+  let async_run_generation = ref 0 in
+  let async_run_active = ref false in
+  let set_async_run_active active =
+    async_run_active := active;
+    !update_action_sensitivity_ref ()
+  in
+  let cancel_async_run () =
+    if !async_run_active then (
+      incr async_run_generation;
+      set_async_run_active false;
+      (!set_status_bar_ref) "Cancelled")
+  in
   let time_pass ~name ~cached f =
     if cached then (
       record_pass_time ~name ~elapsed:0.0 ~cached:true;
@@ -2735,28 +3079,38 @@ let () =
       res
   in
   let run_async ~compute ~on_ok ~on_error =
+    if !async_run_active then (!set_status_bar_ref) "Run already active"
+    else (
+    incr async_run_generation;
+    let token = !async_run_generation in
+    set_async_run_active true;
     ignore
       (Thread.create
          (fun () ->
            let res = compute () in
            ignore
              (Glib.Idle.add (fun () ->
-                  (match res with Ok v -> on_ok v | Error e -> on_error e);
+                  if token = !async_run_generation then (
+                    set_async_run_active false;
+                    match res with Ok v -> on_ok v | Error e -> on_error e);
                   false)))
-         ())
+         ()))
   in
+  cancel_run_btn#connect#clicked ~callback:cancel_async_run |> ignore;
+  action_cancel_ref := cancel_async_run;
   let status_bar = GPack.hbox ~spacing:8 ~packing:content_vbox#pack () in
   status_bar#misc#style_context#add_class "status-bar";
   let status_bar_left =
-    GMisc.label ~text:"No file loaded" ~packing:(status_bar#pack ~expand:true ~fill:true) ()
+    GMisc.label ~text:"" ~packing:(status_bar#pack ~expand:true ~fill:true) ()
   in
   status_bar_left#set_xalign 0.0;
+  status_bar_left#misc#hide ();
   let parse_label = GMisc.label ~text:"Parse: ok" ~packing:(status_bar#pack ~from:`END) () in
   parse_label#misc#style_context#add_class "parse-badge";
   let cursor_label = GMisc.label ~text:"Ln 1, Col 1" ~packing:(status_bar#pack ~from:`END) () in
   cursor_label#misc#style_context#add_class "cursor-badge";
 
-  (set_status_bar_ref := fun text -> status_bar_left#set_text text);
+  (set_status_bar_ref := fun _ -> ());
 
   let activity_btn label tooltip =
     let b = GButton.button ~label ~packing:activity_bar#pack () in
@@ -2781,7 +3135,7 @@ let () =
   let schedule_outline_refresh_ref : (unit -> unit) ref = ref (fun () -> ()) in
   let load_obligations_ref : (unit -> unit) ref = ref (fun () -> ()) in
   let ensure_saved_or_cancel_ref : (unit -> bool) ref = ref (fun () -> true) in
-  let obc_tab = GMisc.label ~text:"OBC" () in
+  let obc_tab = GMisc.label ~text:"Source" () in
   let obc_view, obc_buf, obc_page =
     make_text_panel ~label:""
       ~packing:(fun w -> ignore (notebook#append_page ~tab_label:obc_tab#coerce w))
@@ -2836,6 +3190,15 @@ let () =
     obc_buf#remove_tag obc_error_bar_tag ~start:obc_buf#start_iter ~stop:obc_buf#end_iter;
     obc_buf#remove_tag obc_error_line_tag ~start:obc_buf#start_iter ~stop:obc_buf#end_iter
   in
+  jump_to_source_ref :=
+    (fun line col ->
+      notebook#goto_page 0;
+      let line_idx = max 0 (line - 1) in
+      let col_idx = max 0 (col - 1) in
+      let it = obc_buf#get_iter_at_char ~line:line_idx col_idx in
+      let line_end = it#forward_to_line_end in
+      obc_buf#select_range it line_end;
+      ignore (obc_view#scroll_to_iter it));
 
   let add_diagnostic ~severity ~message ~loc ~stage =
     let row = diag_model#append () in
@@ -2898,7 +3261,7 @@ let () =
             Some (line_text ^ "\n" ^ caret)
         end
   in
-  let obcplus_tab = GMisc.label ~text:"OBC+" () in
+  let obcplus_tab = GMisc.label ~text:"Abstract Program" () in
   let obcplus_view, obcplus_buf, obcplus_page =
     make_text_panel ~label:""
       ~packing:(fun w -> ignore (notebook#append_page ~tab_label:obcplus_tab#coerce w))
@@ -2920,8 +3283,10 @@ let () =
   let obcplus_whitespace_tag =
     obcplus_buf#create_tag [ `BACKGROUND !prefs.Ide_config.syntax_whitespace ]
   in
+  let previous_obcplus_text = ref "" in
+  let current_obcplus_text = ref "" in
   let obcplus_goal_tag = obcplus_buf#create_tag goal_highlight_props in
-  let why_tab = GMisc.label ~text:"Why3" () in
+  let why_tab = GMisc.label ~text:"Why VC" () in
   let why_view, why_buf, why_page =
     make_text_panel ~label:""
       ~packing:(fun w -> ignore (notebook#append_page ~tab_label:why_tab#coerce w))
@@ -2986,12 +3351,147 @@ let () =
         `WEIGHT `BOLD;
       ]
   in
-  let task_tab = GMisc.label ~text:"Task" () in
+  let eval_window_ref : GWindow.window option ref = ref None in
+  let eval_in_buf_ref : GText.buffer option ref = ref None in
+  let eval_out_buf_ref : GText.buffer option ref = ref None in
+  let eval_trace_file_ref : string option ref = ref None in
+  let eval_run_action_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let get_eval_in_text () =
+    match !eval_in_buf_ref with
+    | None -> "# one step per line: x=1, y=0"
+    | Some b -> b#get_text ~start:b#start_iter ~stop:b#end_iter ()
+  in
+  let set_eval_out_text text =
+    match !eval_out_buf_ref with None -> () | Some b -> b#set_text text
+  in
+  let ensure_eval_window () =
+    let basename_no_ext path =
+      let base = Filename.basename path in
+      match String.rindex_opt base '.' with
+      | None -> base
+      | Some i when i > 0 -> String.sub base 0 i
+      | _ -> base
+    in
+    match !eval_window_ref with
+    | Some w ->
+        (match !eval_trace_file_ref with
+        | None -> w#set_title "Kairos Eval"
+        | Some p -> w#set_title ("Kairos Eval (" ^ basename_no_ext p ^ ")"));
+        w#present ();
+        w
+    | None ->
+        let w = GWindow.window ~title:"Kairos Eval" ~width:900 ~height:620 ~position:`CENTER () in
+        w#set_transient_for window#as_window;
+        let v = GPack.vbox ~spacing:8 ~border_width:8 ~packing:w#add () in
+        let controls = GPack.hbox ~spacing:8 ~packing:v#pack () in
+        let new_btn = GButton.button ~label:"New" ~packing:controls#pack () in
+        let open_btn = GButton.button ~label:"Open" ~packing:controls#pack () in
+        let save_btn = GButton.button ~label:"Save" ~packing:controls#pack () in
+        let run_btn = GButton.button ~label:"Run" ~packing:controls#pack () in
+        run_btn#misc#style_context#add_class "primary";
+        ignore (GMisc.separator `VERTICAL ~packing:controls#pack ());
+        ignore
+          (GMisc.label
+             ~text:"Trace input (assign lines, CSV header+rows, or JSONL objects):"
+             ~packing:controls#pack ());
+        let split = GPack.paned `VERTICAL ~packing:v#add () in
+        split#set_position 300;
+        let in_sc = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
+        let in_view = GText.view ~packing:in_sc#add () in
+        let in_buf = in_view#buffer in
+        in_buf#set_text "# one step per line: x=1, y=0";
+        split#add1 in_sc#coerce;
+        let out_sc = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
+        let out_view = GText.view ~packing:out_sc#add () in
+        out_view#set_editable false;
+        out_view#set_cursor_visible false;
+        let out_buf = out_view#buffer in
+        split#add2 out_sc#coerce;
+        let set_eval_file path_opt =
+          eval_trace_file_ref := path_opt;
+          match path_opt with
+          | None -> w#set_title "Kairos Eval"
+          | Some p -> w#set_title ("Kairos Eval (" ^ basename_no_ext p ^ ")")
+        in
+        let read_file path =
+          let ic = open_in path in
+          let n = in_channel_length ic in
+          let text = really_input_string ic n in
+          close_in ic;
+          text
+        in
+        let write_file path text =
+          let oc = open_out path in
+          output_string oc text;
+          close_out oc
+        in
+        let choose_open_file () =
+          let dialog =
+            GWindow.file_chooser_dialog ~action:`OPEN ~title:"Open trace file" ~parent:w ()
+          in
+          dialog#add_button "Open" `OPEN;
+          dialog#add_button "Cancel" `CANCEL;
+          let selected = if dialog#run () = `OPEN then dialog#filename else None in
+          dialog#destroy ();
+          selected
+        in
+        let choose_save_file () =
+          let dialog =
+            GWindow.file_chooser_dialog ~action:`SAVE ~title:"Save trace file" ~parent:w ()
+          in
+          dialog#add_button "Save" `SAVE;
+          dialog#add_button "Cancel" `CANCEL;
+          let selected = if dialog#run () = `SAVE then dialog#filename else None in
+          dialog#destroy ();
+          selected
+        in
+        new_btn#connect#clicked ~callback:(fun () ->
+            in_buf#set_text "# one step per line: x=1, y=0";
+            out_buf#set_text "";
+            set_eval_file None)
+        |> ignore;
+        open_btn#connect#clicked ~callback:(fun () ->
+            match choose_open_file () with
+            | None -> ()
+            | Some path -> (
+                try
+                  in_buf#set_text (sanitize_utf8_text (read_file path));
+                  set_eval_file (Some path);
+                  out_buf#set_text ""
+                with _ -> out_buf#set_text (sanitize_utf8_text ("Error: cannot open file " ^ path))))
+        |> ignore;
+        save_btn#connect#clicked ~callback:(fun () ->
+            let target = match !eval_trace_file_ref with Some p -> Some p | None -> choose_save_file () in
+            match target with
+            | None -> ()
+            | Some path -> (
+                try
+                  let text = in_buf#get_text ~start:in_buf#start_iter ~stop:in_buf#end_iter () in
+                  write_file path text;
+                  set_eval_file (Some path)
+                with _ -> out_buf#set_text (sanitize_utf8_text ("Error: cannot save file " ^ path))))
+        |> ignore;
+        run_btn#connect#clicked ~callback:(fun () -> (!eval_run_action_ref) ()) |> ignore;
+        eval_in_buf_ref := Some in_buf;
+        eval_out_buf_ref := Some out_buf;
+        eval_window_ref := Some w;
+        set_eval_file !eval_trace_file_ref;
+        ignore
+          (w#event#connect#delete ~callback:(fun _ ->
+               eval_window_ref := None;
+               eval_in_buf_ref := None;
+               eval_out_buf_ref := None;
+               false));
+        w#show ();
+        w
+  in
+  let task_tab = GMisc.label ~text:"Requires/Ensures" () in
   let task_view, task_buf, task_page =
     make_text_panel ~label:""
       ~packing:(fun w -> ignore (notebook#append_page ~tab_label:task_tab#coerce w))
       ~editable:false ()
   in
+  ignore task_view;
   let dot_page = GPack.paned `VERTICAL () in
   let dot_scrolled = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
   let dot_event = GBin.event_box () in
@@ -3113,7 +3613,6 @@ let () =
     else false
   in
   dot_event#event#connect#scroll ~callback:handle_zoom_scroll |> ignore;
-  let dot_tab = GMisc.label ~text:"Monitor" () in
   let dot_view, dot_buf, dot_text_page =
     make_text_panel ~label:"Labels" ~packing:(fun _ -> ()) ~editable:false ()
   in
@@ -3123,14 +3622,63 @@ let () =
       let total_h = alloc.height in
       if total_h > 0 then dot_page#set_position (total_h * 3 / 4))
   |> ignore;
-  ignore (notebook#append_page ~tab_label:dot_tab#coerce dot_page#coerce);
+  let g_tab = GMisc.label ~text:"Guarantee G" () in
+  let a_tab = GMisc.label ~text:"Assume A" () in
+  let p_tab = GMisc.label ~text:"Product" () in
+  let ap_diag_tab = GMisc.label ~text:"Auto Diag" () in
+  let make_ap_graph_view () =
+    let sc = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
+    let ev = GBin.event_box () in
+    sc#add_with_viewport ev#coerce;
+    let img = GMisc.image ~packing:ev#add () in
+    (sc, img)
+  in
+  let g_sc, g_img = make_ap_graph_view () in
+  let a_sc, a_img = make_ap_graph_view () in
+  let p_sc, p_img = make_ap_graph_view () in
+  let _ap_view, ap_buf, ap_diag_page =
+    make_text_panel ~label:"Obligations / Prunes" ~packing:(fun _ -> ()) ~editable:false ()
+  in
+  let automata_window_ref : GWindow.window option ref = ref None in
+  let ensure_automata_window () =
+    match !automata_window_ref with
+    | Some w ->
+        if w#misc#visible then w#present () else w#show ();
+        w
+    | None ->
+        let w = GWindow.window ~title:"Automata" ~width:1000 ~height:720 () in
+        let nb = GPack.notebook ~tab_pos:`TOP ~packing:w#add () in
+        let dot_tab = GMisc.label ~text:"Instrumentation" () in
+        ignore (nb#append_page ~tab_label:dot_tab#coerce dot_page#coerce);
+        ignore (nb#append_page ~tab_label:g_tab#coerce g_sc#coerce);
+        ignore (nb#append_page ~tab_label:a_tab#coerce a_sc#coerce);
+        ignore (nb#append_page ~tab_label:p_tab#coerce p_sc#coerce);
+        ignore (nb#append_page ~tab_label:ap_diag_tab#coerce ap_diag_page);
+        ignore
+          (w#event#connect#delete ~callback:(fun _ ->
+               w#misc#hide ();
+               true));
+        automata_window_ref := Some w;
+        w#show ();
+        w
+  in
   notebook#connect#switch_page ~callback:(fun _ -> !load_obligations_ref ()) |> ignore;
+  action_focus_source_ref := (fun () -> notebook#goto_page 0);
+  action_focus_abstract_ref := (fun () -> notebook#goto_page 1);
+  action_focus_why_ref := (fun () -> notebook#goto_page 2);
+  action_focus_goals_ref := (fun () ->
+    paned#set_position 320;
+    left_notebook#goto_page 0);
+  restore_ui_tabs ();
 
   let current_file = ref None in
   let dirty = ref false in
   let suppress_dirty = ref false in
   let content_version = ref 0 in
-  let touch_content () = content_version := !content_version + 1 in
+  let touch_content () =
+    content_version := !content_version + 1;
+    !update_instrumentation_button_state_ref ()
+  in
   let last_action : (unit -> unit) option ref = ref None in
   let log_level_rank = function "error" -> 0 | "warn" -> 1 | "debug" -> 3 | _ -> 2 in
   let log_enabled level = log_level_rank level <= log_level_rank !prefs.Ide_config.log_verbosity in
@@ -3141,7 +3689,7 @@ let () =
       | None -> ()
       | Some buf -> (
           let iter = buf#end_iter in
-          buf#insert ~iter (msg ^ "\n");
+          buf#insert ~iter (sanitize_utf8_text (msg ^ "\n"));
           let max_lines = !prefs.Ide_config.log_max_lines in
           (if max_lines > 0 then
              let lines = buf#line_count in
@@ -3161,26 +3709,62 @@ let () =
   in
   let status_base = ref "" in
   let status_meta = ref "" in
+  let run_started_at : float option ref = ref None in
+  let run_state_to_string = function
+    | Idle -> "Idle"
+    | Parsing -> "Parsing"
+    | Building -> "Building"
+    | Proving -> "Proving"
+    | Completed -> "Completed"
+    | Failed -> "Failed"
+  in
+  let run_state_is_active = function Parsing | Building | Proving -> true | _ -> false in
+  let run_elapsed_string () =
+    match !run_started_at with
+    | None -> None
+    | Some t0 ->
+        let dt = max 0.0 (Unix.gettimeofday () -. t0) in
+        Some (Printf.sprintf "%.1fs" dt)
+  in
   let render_status () =
-    if !status_meta = "" then !status_base else !status_base ^ " — " ^ !status_meta
+    let state_part = run_state_to_string !run_state_ref in
+    let elapsed_part = match run_elapsed_string () with None -> "" | Some s -> " (" ^ s ^ ")" in
+    let base_part = if !status_base = "" then state_part else state_part ^ ": " ^ !status_base in
+    let with_elapsed = base_part ^ elapsed_part in
+    if !status_meta = "" then with_elapsed else with_elapsed ^ " — " ^ !status_meta
+  in
+  let render_status_bar () =
+    let elapsed_part = match run_elapsed_string () with None -> "" | Some s -> " (" ^ s ^ ")" in
+    let base_part =
+      if !status_base = "" then run_state_to_string !run_state_ref else !status_base
+    in
+    base_part ^ elapsed_part
   in
   let set_status msg =
     status_base := msg;
     status#set_text (render_status ());
-    !set_status_bar_ref (render_status ());
+    !set_status_bar_ref (render_status_bar ());
     append_history ~level:"info" msg
   in
   let set_status_quiet msg =
     status_base := msg;
     status#set_text (render_status ());
-    !set_status_bar_ref (render_status ())
+    !set_status_bar_ref (render_status_bar ())
+  in
+  let set_run_state st =
+    run_state_ref := st;
+    if run_state_is_active st then run_started_at := Some (Unix.gettimeofday ());
+    if st = Completed || st = Failed || st = Idle then run_started_at := None;
+    status#set_text (render_status ());
+    !set_status_bar_ref (render_status_bar ());
+    !update_action_sensitivity_ref ()
   in
   set_status_quiet_ref := set_status_quiet;
   let update_status_meta_summary (meta : (string * (string * string) list) list) =
     let find_stage name = List.find_opt (fun (stage, _) -> stage = name) meta in
     let find_kv key items = List.find_opt (fun (k, _) -> k = key) items in
     let atoms =
-      match find_stage "monitor" with
+      match find_stage "instrumentation" with
       | None -> None
       | Some (_, items) -> find_kv "atoms" items |> Option.map snd
     in
@@ -3190,7 +3774,7 @@ let () =
       | Some (_, items) -> find_kv "ghost_locals" items |> Option.map snd
     in
     let states =
-      match find_stage "automaton" with
+      match find_stage "automata" with
       | None -> None
       | Some (_, items) -> find_kv "states" items |> Option.map snd
     in
@@ -3201,7 +3785,8 @@ let () =
         [ ("atoms", atoms); ("ghost", ghosts); ("states", states) ]
     in
     status_meta := String.concat ", " parts;
-    status#set_text (render_status ())
+    status#set_text (render_status ());
+    !set_status_bar_ref (render_status_bar ())
   in
   let set_stage_meta (meta : (string * (string * string) list) list) =
     match !meta_buf_ref with
@@ -3215,10 +3800,13 @@ let () =
             List.iter add_kv items;
             Buffer.add_char b '\n')
           meta;
-        buf#set_text (Buffer.contents b);
+        buf#set_text (sanitize_utf8_text (Buffer.contents b));
         update_status_meta_summary meta
   in
-  let clear_diagnostics () = diag_model#clear () in
+  let clear_diagnostics () =
+    diag_model#clear ();
+    diag_nav_index := -1
+  in
   let set_parse_badge ~ok ~text =
     parse_label#set_text text;
     let ctx = parse_label#misc#style_context in
@@ -3283,24 +3871,28 @@ let () =
       | None -> ""
     in
     window#set_title (base_title ^ file_suffix ^ suffix);
-    obc_tab#set_text (if !dirty then "OBC*" else "OBC")
+    obc_tab#set_text (if !dirty then "Source*" else "Source")
   in
   let get_obc_text () = obc_buf#get_text ~start:obc_buf#start_iter ~stop:obc_buf#end_iter () in
   let parse_timer_id : GMain.Timeout.id option ref = ref None in
   let highlight_timer_id : GMain.Timeout.id option ref = ref None in
   let highlight_obc_ref : (string -> unit) ref = ref (fun _ -> ()) in
+  let parsed_source_ast : Ast.program option ref = ref None in
   let last_highlight_text = ref "" in
   let last_parsed_version = ref (-1) in
   let last_parse_ok = ref true in
   let parse_current_text () =
+    set_run_state Parsing;
     let text = get_obc_text () in
     if String.trim text = "" then (
       clear_obc_error ();
       last_parse_ok := true;
+      parsed_source_ast := None;
       clear_diagnostics ();
       set_parse_badge ~ok:true ~text:"Parse: empty";
-      set_status_quiet "Empty buffer")
-    else if !last_parsed_version = !content_version then ()
+      set_status_quiet "Empty buffer";
+      set_run_state Completed)
+    else if !last_parsed_version = !content_version then set_run_state Idle
     else
       let tmp =
         create_temp_file
@@ -3312,10 +3904,12 @@ let () =
           let oc = open_out tmp in
           output_string oc text;
           close_out oc;
-          ignore (Frontend.parse_file tmp);
+          let p = Frontend.parse_file tmp in
+          parsed_source_ast := Some p;
           true
         with
         | Failure msg ->
+            parsed_source_ast := None;
             apply_parse_error msg;
             set_parse_badge ~ok:false ~text:"Parse: error";
             clear_diagnostics ();
@@ -3328,6 +3922,7 @@ let () =
             set_status details;
             false
         | _ ->
+            parsed_source_ast := None;
             set_parse_badge ~ok:false ~text:"Parse: error";
             false
       in
@@ -3339,8 +3934,11 @@ let () =
         clear_diagnostics ();
         set_parse_badge ~ok:true ~text:"Parse: ok";
         if not !last_parse_ok then set_status_quiet "Parse ok";
-        last_parse_ok := true)
-      else last_parse_ok := false
+        last_parse_ok := true;
+        set_run_state Completed)
+      else (
+        last_parse_ok := false;
+        set_run_state Failed)
   in
   let schedule_parse () =
     if not !prefs.Ide_config.auto_parse then ()
@@ -3471,7 +4069,6 @@ let () =
       (obcplus_page, obcplus_tab);
       (why_page, why_tab);
       (task_page, task_tab);
-      (dot_page#coerce, dot_tab);
     ];
 
   obc_buf#connect#changed ~callback:(fun () ->
@@ -3564,6 +4161,9 @@ let () =
   in
 
   let obcplus_sequents : (int, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let vc_source_map : (int, string) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let source_transition_line_map : (string, int) Hashtbl.t ref = ref (Hashtbl.create 0) in
+  let abstract_transition_line_map : (string, int) Hashtbl.t ref = ref (Hashtbl.create 0) in
   let obcplus_span_map : (int, int * int) Hashtbl.t ref = ref (Hashtbl.create 0) in
   let obcplus_spans_ordered : (int * int) list ref = ref [] in
   let why_span_map : (int, int * int) Hashtbl.t ref = ref (Hashtbl.create 0) in
@@ -3584,7 +4184,50 @@ let () =
         ignore (obcplus_view#scroll_to_iter it_s)
   in
 
-  let apply_goal_highlights ~goal ~source:_ ~index =
+  let transition_key_from_source_label (source : string) : string option =
+    let s = String.trim source in
+    let s =
+      match String.index_opt s ':' with
+      | None -> s
+      | Some i -> String.trim (String.sub s (i + 1) (String.length s - i - 1))
+    in
+    match String.index_opt s '-' with
+    | None -> None
+    | Some _ ->
+        if String.contains s '>' then Some s else None
+  in
+
+  let highlight_transition_in_source ~source =
+    match transition_key_from_source_label source with
+    | None -> ()
+    | Some key -> (
+        match Hashtbl.find_opt !source_transition_line_map key with
+        | Some line when line > 0 ->
+            let li = max 0 (line - 1) in
+            let it_s = obc_buf#get_iter_at_char ~line:li 0 in
+            let it_e = it_s#copy in
+            ignore (it_e#forward_to_line_end);
+            obc_buf#apply_tag obc_goal_tag ~start:it_s ~stop:it_e;
+            ignore (obc_view#scroll_to_iter it_s)
+        | _ -> ())
+  in
+
+  let highlight_transition_in_abstract ~source =
+    match transition_key_from_source_label source with
+    | None -> ()
+    | Some key -> (
+        match Hashtbl.find_opt !abstract_transition_line_map key with
+        | Some line when line > 0 ->
+            let li = max 0 (line - 1) in
+            let it_s = obcplus_buf#get_iter_at_char ~line:li 0 in
+            let it_e = it_s#copy in
+            ignore (it_e#forward_to_line_end);
+            obcplus_buf#apply_tag obcplus_goal_tag ~start:it_s ~stop:it_e;
+            ignore (obcplus_view#scroll_to_iter it_s)
+        | _ -> ())
+  in
+
+  let apply_goal_highlights ~goal ~source ~index =
     clear_goal_highlights ();
     if goal = "" then ()
     else
@@ -3662,6 +4305,10 @@ let () =
           List.iter highlight_why ancestors
       | None -> ()
       end;
+      if String.trim source <> "" then (
+        highlight_transition_in_source ~source;
+        highlight_transition_in_abstract ~source;
+        mark_applied ());
       let fallback () =
         begin match index with
         | Some idx ->
@@ -3736,9 +4383,9 @@ let () =
   highlight_obc_ref := highlight_obc;
 
   let highlight_obcplus text =
-    highlight_obc_buf ~buf:obcplus_buf ~keyword_tag:obcplus_keyword_tag ~type_tag:obcplus_type_tag
-      ~number_tag:obcplus_number_tag ~comment_tag:obcplus_comment_tag ~state_tag:obcplus_state_tag
-      text;
+    Ide_highlight.highlight_abstract_buf ~buf:obcplus_buf ~keyword_tag:obcplus_keyword_tag
+      ~type_tag:obcplus_type_tag ~number_tag:obcplus_number_tag ~comment_tag:obcplus_comment_tag
+      ~state_tag:obcplus_state_tag text;
     apply_whitespace obcplus_buf text obcplus_whitespace_tag
   in
 
@@ -3775,6 +4422,7 @@ let () =
       let len = in_channel_length ic in
       let content = really_input_string ic len in
       close_in ic;
+      let content = sanitize_utf8_text content in
       suppress_dirty := true;
       obc_buf#set_text content;
       suppress_dirty := false;
@@ -4170,10 +4818,70 @@ let () =
             with _ -> set_status "Export PNG failed"
           end)
   in
+  let unified_diff_text ~(old_text : string) ~(new_text : string) : string =
+    if old_text = new_text then "No differences."
+    else
+      let old_f = Filename.temp_file "kairos_ide_prev_" ".txt" in
+      let new_f = Filename.temp_file "kairos_ide_curr_" ".txt" in
+      let write p s =
+        let oc = open_out p in
+        output_string oc s;
+        close_out oc
+      in
+      let cleanup () =
+        (try Sys.remove old_f with _ -> ());
+        (try Sys.remove new_f with _ -> ())
+      in
+      try
+        write old_f old_text;
+        write new_f new_text;
+        let cmd = Printf.sprintf "diff -u %s %s" (Filename.quote old_f) (Filename.quote new_f) in
+        let ic = Unix.open_process_in cmd in
+        let b = Buffer.create 4096 in
+        (try
+           while true do
+             Buffer.add_string b (input_line ic);
+             Buffer.add_char b '\n'
+           done
+         with End_of_file -> ());
+        ignore (Unix.close_process_in ic);
+        cleanup ();
+        let out = Buffer.contents b in
+        if String.trim out = "" then "No differences." else out
+      with _ ->
+        cleanup ();
+        "Unable to compute diff."
+  in
+  let show_abstract_diff () =
+    if !previous_obcplus_text = "" then set_status "No previous Abstract Program to diff against"
+    else
+      let diff_txt =
+        unified_diff_text ~old_text:!previous_obcplus_text ~new_text:!current_obcplus_text
+      in
+      let w = GWindow.window ~title:"Abstract Program Diff" ~width:900 ~height:620 () in
+      let vb = GPack.vbox ~spacing:6 ~border_width:8 ~packing:w#add () in
+      let info =
+        GMisc.label
+          ~text:"Diff: previous generation -> current generation"
+          ~packing:vb#pack ()
+      in
+      info#set_xalign 0.0;
+      let sc = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vb#add () in
+      let tv = GText.view ~editable:false ~packing:sc#add () in
+      tv#buffer#set_text diff_txt;
+      w#show ()
+  in
+  action_diff_abstract_ref := show_abstract_diff;
+  let ap_guarantee_dot = ref "" in
+  let ap_assume_dot = ref "" in
+  let ap_product_dot = ref "" in
 
-  let file_export_obcplus = GMenu.menu_item ~label:"Export OBC+" ~packing:file_menu#append () in
+  let file_export_obcplus =
+    GMenu.menu_item ~label:"Export Abstract Program" ~packing:file_menu#append ()
+  in
   file_export_obcplus#connect#activate ~callback:(fun () ->
-      export_text ~title:"Export OBC+" ~default_name:!prefs.Ide_config.export_name_obcplus
+      export_text ~title:"Export Abstract Program"
+        ~default_name:!prefs.Ide_config.export_name_obcplus
         ~text:(obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()))
   |> ignore;
   let file_export_why = GMenu.menu_item ~label:"Export Why3" ~packing:file_menu#append () in
@@ -4221,7 +4929,29 @@ let () =
                 let msg = Ide_backend.error_to_string err in
                 set_status ("Error: " ^ msg)))
   |> ignore;
-  let file_export_png = GMenu.menu_item ~label:"Export Monitor" ~packing:file_menu#append () in
+  let file_export_png = GMenu.menu_item ~label:"Export Instrumentation" ~packing:file_menu#append () in
+  let file_export_g_auto_png =
+    GMenu.menu_item ~label:"Export Guarantee Automaton" ~packing:file_menu#append ()
+  in
+  let file_export_a_auto_png =
+    GMenu.menu_item ~label:"Export Assume Automaton" ~packing:file_menu#append ()
+  in
+  let file_export_product_png =
+    GMenu.menu_item ~label:"Export Product" ~packing:file_menu#append ()
+  in
+  let export_ap_dot label dot_ref =
+    if String.trim !dot_ref = "" then set_status ("No " ^ label ^ " graph to export")
+    else export_png_with_dpi ~dot_text:!dot_ref
+  in
+  file_export_g_auto_png#connect#activate
+    ~callback:(fun () -> export_ap_dot "Guarantee automaton" ap_guarantee_dot)
+  |> ignore;
+  file_export_a_auto_png#connect#activate
+    ~callback:(fun () -> export_ap_dot "Assume automaton" ap_assume_dot)
+  |> ignore;
+  file_export_product_png#connect#activate
+    ~callback:(fun () -> export_ap_dot "Product" ap_product_dot)
+  |> ignore;
 
   let edit_prefs_item = GMenu.menu_item ~label:"Preferences..." ~packing:edit_menu#append () in
   edit_prefs_item#connect#activate ~callback:open_preferences |> ignore;
@@ -4307,6 +5037,20 @@ let () =
   view_focus_vc_item#add_accelerator ~group:accel_group ~modi:[ `META; `SHIFT ] ~flags:[ `VISIBLE ]
     GdkKeysyms._v;
 
+  let view_next_diag_item =
+    GMenu.menu_item ~label:"Next Diagnostic" ~packing:view_menu#append ()
+  in
+  view_next_diag_item#connect#activate ~callback:goto_next_diag |> ignore;
+  view_next_diag_item#add_accelerator ~group:accel_group ~modi:[] ~flags:[ `VISIBLE ]
+    GdkKeysyms._F8;
+
+  let view_prev_diag_item =
+    GMenu.menu_item ~label:"Previous Diagnostic" ~packing:view_menu#append ()
+  in
+  view_prev_diag_item#connect#activate ~callback:goto_prev_diag |> ignore;
+  view_prev_diag_item#add_accelerator ~group:accel_group ~modi:[ `SHIFT ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._F8;
+
   let confirm_save_if_dirty () =
     if not !dirty then true
     else
@@ -4324,35 +5068,327 @@ let () =
   let ensure_saved_or_cancel () =
     if confirm_save_if_dirty () then true
     else (
+      set_run_state Idle;
       set_status "Cancelled";
       false)
   in
   ensure_saved_or_cancel_ref := ensure_saved_or_cancel;
 
+  let goals_grouped_mode = ref true in
+  let goals_filter_mode = ref "all" in
+  let goals_sort_mode = ref "source order" in
+  let goals_scope_node : string option ref = ref None in
+  let goals_scope_transition : string option ref = ref None in
+  let selected_goal_source_ref : string option ref =
+    ref
+      (let s = String.trim session.contents.Ide_config.selected_goal_source in
+       if s = "" then None else Some s)
+  in
+  let latest_final_goals :
+      (string * string * float * string option * string * string option) list ref =
+    ref []
+  in
+  let task_sequents_list : (string list * string) list ref = ref [] in
+  let pending_goal_rows = ref (Hashtbl.create 0) in
+  let rerender_goals_ref : (unit -> unit) ref = ref (fun () -> ()) in
+  let update_goals_scope_label () =
+    goals_scope_label#set_text "All";
+    goals_scope_label#misc#set_tooltip_text "Scope: all"
+  in
+  update_goals_scope_label ();
+
   let clear_goals () =
     goal_model#clear ();
-    goals_empty_label#misc#set_sensitive true
+    pending_goal_rows := Hashtbl.create 0;
+    update_goals_scope_label ();
+    latest_final_goals := []
   in
 
-  let monitor_cache : (int * Ide_backend.monitor_outputs) option ref = ref None in
+  let grouped_source_key (source : string) : string =
+    let s = String.trim source in
+    if s = "" then "<no transition>"
+    else
+      try
+        let idx = String.index s ':' in
+        String.trim (String.sub s 0 idx)
+      with Not_found -> s
+  in
+
+  let parse_source_scope (source : string) : string * string =
+    let s = String.trim source in
+    let node = grouped_source_key s in
+    let trans_re = Str.regexp "\\([A-Za-z0-9_']+\\)[ \t]*->[ \t]*\\([A-Za-z0-9_']+\\)" in
+    let transition =
+      try
+        ignore (Str.search_forward trans_re s 0);
+        Printf.sprintf "%s -> %s" (Str.matched_group 1 s) (Str.matched_group 2 s)
+      with Not_found -> "<no transition>"
+    in
+    (node, transition)
+  in
+
+  let vc_goal_label_for_idx ~idx:_ ~fallback:_ = "vc"
+  in
+
+  let goal_status_icon status =
+    match String.lowercase_ascii (String.trim status) with
+    | "valid" -> "gtk-apply"
+    | "invalid" | "failure" | "oom" -> "gtk-cancel"
+    | "timeout" -> "gtk-stop"
+    | "pending" | "unknown" -> "gtk-dialog-question"
+    | _ -> "gtk-dialog-question"
+  in
+
+  let aggregate_status (statuses : string list) : string =
+    let has p = List.exists p statuses in
+    if statuses = [] then "pending"
+    else if
+      has (fun s ->
+          match String.lowercase_ascii (String.trim s) with
+          | "invalid" | "failure" | "oom" -> true
+          | _ -> false)
+    then "invalid"
+    else if has (fun s -> String.lowercase_ascii (String.trim s) = "timeout") then "timeout"
+    else if has (fun s ->
+                let x = String.lowercase_ascii (String.trim s) in
+                x = "pending" || x = "unknown" || x = "") then
+      "pending"
+    else "valid"
+  in
+
+  let append_goal_header ~parent ?(source = "") ?(status_norm = "") group_label =
+    let row = goal_model#append ?parent () in
+    goal_model#set ~row ~column:status_icon_col (goal_status_icon status_norm);
+    goal_model#set ~row ~column:goal_status_col status_norm;
+    goal_model#set ~row ~column:goal_col group_label;
+    goal_model#set ~row ~column:goal_label_base_col group_label;
+    goal_model#set ~row ~column:goal_row_bg_col "#000000";
+    goal_model#set ~row ~column:goal_row_bg_set_col false;
+    goal_model#set ~row ~column:goal_row_fg_col "#ffffff";
+    goal_model#set ~row ~column:goal_row_fg_set_col false;
+    goal_model#set ~row ~column:goal_row_weight_col 400;
+    goal_model#set ~row ~column:goal_raw_col "";
+    goal_model#set ~row ~column:source_col (if source = "" then group_label else source);
+    goal_model#set ~row ~column:time_col "--";
+    goal_model#set ~row ~column:dump_col "";
+    goal_model#set ~row ~column:vcid_col "";
+    goal_model#set ~row ~column:goal_is_header_col true;
+    goal_model#set ~row ~column:goal_flat_index_col (-1);
+    row
+  in
+
+  let append_goal_row ~parent ~idx ~display_no ~goal ~status_norm ~source ~time_s ~dump_path
+      ~vcid =
+    let row = goal_model#append ?parent () in
+    goal_model#set ~row ~column:status_icon_col (goal_status_icon status_norm);
+    goal_model#set ~row ~column:goal_status_col status_norm;
+    let goal_txt = vc_goal_label_for_idx ~idx ~fallback:goal in
+    let goal_label = Printf.sprintf "%d. %s" display_no goal_txt in
+    goal_model#set ~row ~column:goal_col goal_label;
+    goal_model#set ~row ~column:goal_label_base_col goal_label;
+    goal_model#set ~row ~column:goal_row_bg_col "#000000";
+    goal_model#set ~row ~column:goal_row_bg_set_col false;
+    goal_model#set ~row ~column:goal_row_fg_col "#ffffff";
+    goal_model#set ~row ~column:goal_row_fg_set_col false;
+    goal_model#set ~row ~column:goal_row_weight_col 400;
+    goal_model#set ~row ~column:goal_raw_col goal_txt;
+    goal_model#set ~row ~column:source_col source;
+    let time_txt =
+      let st = String.lowercase_ascii (String.trim status_norm) in
+      if (st = "pending" || st = "unknown") && time_s <= 0.0 then "--"
+      else Printf.sprintf "%.4fs" time_s
+    in
+    goal_model#set ~row ~column:time_col time_txt;
+    goal_model#set ~row ~column:dump_col (match dump_path with None -> "" | Some p -> p);
+    goal_model#set ~row ~column:vcid_col (match vcid with None -> "" | Some v -> v);
+    goal_model#set ~row ~column:goal_is_header_col false;
+    goal_model#set ~row ~column:goal_flat_index_col idx;
+    row
+  in
+
+  let is_failed_status (status_txt : string) : bool =
+    match String.lowercase_ascii (String.trim status_txt) with
+    | "invalid" | "failure" | "oom" | "timeout" -> true
+    | _ -> false
+  in
+
+  let status_severity_rank (status_txt : string) =
+    match String.lowercase_ascii (String.trim status_txt) with
+    | "invalid" | "failure" | "oom" -> 0
+    | "timeout" -> 1
+    | "unknown" | "pending" -> 2
+    | "valid" -> 3
+    | _ -> 4
+  in
+
+  let parse_seconds_opt (s : string) : float option =
+    let t = String.trim s in
+    if t = "" || t = "--" then None
+    else
+      try
+        let len = String.length t in
+        if len > 1 && t.[len - 1] = 's' then Some (float_of_string (String.sub t 0 (len - 1)))
+        else Some (float_of_string t)
+      with _ -> None
+  in
+
+  let refresh_header_status_icons () =
+    let node_statuses : (string, string list ref) Hashtbl.t = Hashtbl.create 32 in
+    let trans_statuses : (string, string list ref) Hashtbl.t = Hashtbl.create 64 in
+    let node_times : (string, float ref) Hashtbl.t = Hashtbl.create 32 in
+    let trans_times : (string, float ref) Hashtbl.t = Hashtbl.create 64 in
+    let node_time_seen : (string, bool ref) Hashtbl.t = Hashtbl.create 32 in
+    let trans_time_seen : (string, bool ref) Hashtbl.t = Hashtbl.create 64 in
+    goal_model#foreach (fun _path row ->
+        let is_header = goal_model#get ~row ~column:goal_is_header_col in
+        if not is_header then (
+          let source = goal_model#get ~row ~column:source_col in
+          let st = goal_model#get ~row ~column:goal_status_col in
+          let t_opt =
+            goal_model#get ~row ~column:time_col |> parse_seconds_opt
+          in
+          let node_key, trans_key = parse_source_scope source in
+          let node_bucket =
+            match Hashtbl.find_opt node_statuses node_key with
+            | Some r -> r
+            | None ->
+                let r = ref [] in
+                Hashtbl.add node_statuses node_key r;
+                r
+          in
+          node_bucket := st :: !node_bucket;
+          let tk = node_key ^ ": " ^ trans_key in
+          let trans_bucket =
+            match Hashtbl.find_opt trans_statuses tk with
+            | Some r -> r
+            | None ->
+                let r = ref [] in
+                Hashtbl.add trans_statuses tk r;
+                r
+          in
+          trans_bucket := st :: !trans_bucket;
+          begin match t_opt with
+          | None -> ()
+          | Some dt ->
+              let node_time =
+                match Hashtbl.find_opt node_times node_key with
+                | Some r -> r
+                | None ->
+                    let r = ref 0.0 in
+                    Hashtbl.add node_times node_key r;
+                    r
+              in
+              node_time := !node_time +. dt;
+              let trans_time =
+                match Hashtbl.find_opt trans_times tk with
+                | Some r -> r
+                | None ->
+                    let r = ref 0.0 in
+                    Hashtbl.add trans_times tk r;
+                    r
+              in
+              trans_time := !trans_time +. dt;
+              let node_seen =
+                match Hashtbl.find_opt node_time_seen node_key with
+                | Some r -> r
+                | None ->
+                    let r = ref false in
+                    Hashtbl.add node_time_seen node_key r;
+                    r
+              in
+              node_seen := true;
+              let trans_seen =
+                match Hashtbl.find_opt trans_time_seen tk with
+                | Some r -> r
+                | None ->
+                    let r = ref false in
+                    Hashtbl.add trans_time_seen tk r;
+                    r
+              in
+              trans_seen := true
+          end);
+        false);
+    goal_model#foreach (fun _path row ->
+        let is_header = goal_model#get ~row ~column:goal_is_header_col in
+        if is_header then (
+          let src = goal_model#get ~row ~column:source_col |> String.trim in
+          let status_norm =
+            if src = "" then "pending"
+            else if String.contains src ':' then
+              aggregate_status
+                (match Hashtbl.find_opt trans_statuses src with Some r -> !r | None -> [])
+            else
+              aggregate_status
+                (match Hashtbl.find_opt node_statuses src with Some r -> !r | None -> [])
+          in
+          goal_model#set ~row ~column:goal_status_col status_norm;
+          goal_model#set ~row ~column:status_icon_col (goal_status_icon status_norm);
+          let seen_opt, time_opt =
+            if src = "" then (None, None)
+            else if String.contains src ':' then
+              ( Hashtbl.find_opt trans_time_seen src,
+                Hashtbl.find_opt trans_times src )
+            else
+              ( Hashtbl.find_opt node_time_seen src,
+                Hashtbl.find_opt node_times src )
+          in
+          let time_txt =
+            match (seen_opt, time_opt) with
+            | Some seen, Some t when !seen -> Printf.sprintf "%.4fs" !t
+            | _ -> "--"
+          in
+          goal_model#set ~row ~column:time_col time_txt);
+        false)
+  in
+
+  let collapse_proved_groups () =
+    let to_collapse = ref [] in
+    goal_model#foreach (fun path row ->
+        let is_header = goal_model#get ~row ~column:goal_is_header_col in
+        if is_header then (
+          let st =
+            goal_model#get ~row ~column:goal_status_col |> String.trim |> String.lowercase_ascii
+          in
+          if st = "valid" then to_collapse := path :: !to_collapse);
+        false);
+    List.iter (fun path -> goal_view#collapse_row path) !to_collapse
+  in
+
+  let automata_cache : (int * Ide_backend.automata_outputs) option ref = ref None in
   let obc_cache : (int * Ide_backend.obc_outputs) option ref = ref None in
   let why_cache : (int * Ide_backend.why_outputs) option ref = ref None in
   let obligations_cache : (int * string * Ide_backend.obligations_outputs) option ref = ref None in
   let prove_cache : (int * string * int * bool * Ide_backend.outputs) option ref = ref None in
   let cache_enabled () = !prefs.Ide_config.use_cache in
+  let instrumentation_ready () =
+    match !automata_cache with
+    | Some (v, out) when v = !content_version ->
+        String.trim out.dot_text <> "" || String.trim out.labels_text <> ""
+    | _ -> false
+  in
+  instrumentation_ready_ref := instrumentation_ready;
+  let update_instrumentation_button_state () =
+    !update_action_sensitivity_ref ()
+  in
+  update_instrumentation_button_state_ref := update_instrumentation_button_state;
+  update_instrumentation_button_state ();
   let clear_caches () =
-    monitor_cache := None;
+    automata_cache := None;
     obc_cache := None;
     why_cache := None;
     obligations_cache := None;
     prove_cache := None;
+    ap_guarantee_dot := "";
+    ap_assume_dot := "";
+    ap_product_dot := "";
     clear_perf ();
+    update_instrumentation_button_state ();
     set_status "Caches cleared"
   in
   clear_caches_ref := clear_caches;
 
   let set_monitor_buffers ~dot:_ ~labels ~dot_png =
-    dot_buf#set_text labels;
+    dot_buf#set_text (sanitize_utf8_text labels);
     begin match dot_png with
     | Some png -> (
         try
@@ -4365,11 +5401,52 @@ let () =
         dot_pixbuf := None;
         dot_zoom := 1.0;
         dot_img#clear ()
-    end;
-    set_tab_sensitive dot_page#coerce dot_tab true
+    end
+  in
+  let set_automata_product_buffers ~guarantee ~assume ~product ~obligations ~prune ~guarantee_dot
+      ~assume_dot ~product_dot =
+    let set_img_from_dot img dot =
+      if String.trim dot = "" then img#clear ()
+      else
+        match Ide_backend.dot_png_from_text dot with
+        | None -> img#clear ()
+        | Some png -> (
+            try
+              let pb = GdkPixbuf.from_file png in
+              img#set_pixbuf pb
+            with _ -> img#clear ())
+    in
+    set_img_from_dot g_img guarantee_dot;
+    set_img_from_dot a_img assume_dot;
+    set_img_from_dot p_img product_dot;
+    ap_guarantee_dot := guarantee_dot;
+    ap_assume_dot := assume_dot;
+    ap_product_dot := product_dot;
+    let block title body =
+      "## " ^ title ^ "\n" ^ if String.trim body = "" then "<empty>\n" else body ^ "\n"
+    in
+    let text =
+      String.concat "\n"
+        [
+          block "Guarantee automaton" guarantee;
+          block "Assume automaton" assume;
+          block "Reachable product" product;
+          block "Transition obligations map" obligations;
+          block "Prune reasons" prune;
+        ]
+    in
+    ap_buf#set_text (sanitize_utf8_text text)
+  in
+  let set_automata_buffers_from_out (out : Ide_backend.automata_outputs) =
+    set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+    set_automata_product_buffers ~guarantee:out.guarantee_automaton_text
+      ~assume:out.assume_automaton_text ~product:out.product_text
+      ~obligations:out.obligations_map_text ~prune:out.prune_reasons_text
+      ~guarantee_dot:out.guarantee_automaton_dot ~assume_dot:out.assume_automaton_dot
+      ~product_dot:out.product_dot
   in
   file_export_png#connect#activate ~callback:(fun () ->
-      match if cache_enabled () then !monitor_cache else None with
+      match if cache_enabled () then !automata_cache else None with
       | Some (_v, out) when out.dot_text <> "" -> export_png_with_dpi ~dot_text:out.dot_text
       | _ -> (
           match !current_file with
@@ -4377,7 +5454,7 @@ let () =
           | Some file -> (
               if not (!ensure_saved_or_cancel_ref ()) then ()
               else
-                match Ide_backend.monitor_pass ~generate_png:false ~input_file:file with
+                match Ide_backend.instrumentation_pass ~generate_png:false ~input_file:file with
                 | Ok out ->
                     set_stage_meta out.stage_meta;
                     export_png_with_dpi ~dot_text:out.dot_text
@@ -4386,9 +5463,7 @@ let () =
                     set_status ("Error: " ^ msg))))
   |> ignore;
 
-  let extract_goal_sources = Ide_tasks.extract_goal_sources in
-
-  let task_sequents_list : (string list * string) list ref = ref [] in
+  let extract_goal_sources_by_index = Ide_tasks.extract_goal_sources_by_index in
 
   let rec recent_files : string list ref = ref [] in
   let recent_conf_path = Ide_config.recent_file () in
@@ -4448,7 +5523,7 @@ let () =
   let reset_state_no_load () =
     if confirm_save_if_dirty () then (
       last_action := None;
-      monitor_cache := None;
+      automata_cache := None;
       obc_cache := None;
       why_cache := None;
       obligations_cache := None;
@@ -4460,6 +5535,7 @@ let () =
       task_sequents_list := [];
       latest_vc_text := "";
       obcplus_sequents := Hashtbl.create 0;
+      vc_source_map := Hashtbl.create 0;
       obcplus_span_map := Hashtbl.create 0;
       obcplus_spans_ordered := [];
       why_span_map := Hashtbl.create 0;
@@ -4469,7 +5545,12 @@ let () =
       why_utf8_map := Array.make 0 0;
       obcplus_buf#set_text "";
       why_buf#set_text "";
+      set_eval_out_text "";
       dot_buf#set_text "";
+      ap_buf#set_text "";
+      g_img#clear ();
+      a_img#clear ();
+      p_img#clear ();
       dot_pixbuf := None;
       dot_img#clear ();
       task_buf#set_text "";
@@ -4482,7 +5563,6 @@ let () =
           (obcplus_page, obcplus_tab);
           (why_page, why_tab);
           (task_page, task_tab);
-          (dot_page#coerce, dot_tab);
         ];
       history_buf#set_text "";
       set_parse_badge ~ok:true ~text:"Parse: ok";
@@ -4493,6 +5573,7 @@ let () =
       undo_stack := [];
       redo_stack := [];
       content_version := 0;
+      !update_instrumentation_button_state_ref ();
       last_parsed_version := -1;
       last_parse_ok := true;
       update_dirty_indicator ();
@@ -4567,6 +5648,14 @@ let () =
 
   load_recent_files ();
   refresh_recent_menu ();
+  let restore_last_file () =
+    let f = String.trim session.contents.Ide_config.last_file in
+    if f <> "" && Sys.file_exists f then (
+      reset_state_no_load ();
+      update_open_dir f;
+      load_file f)
+  in
+  restore_last_file ();
 
   let new_file () =
     reset_state_no_load ();
@@ -4597,7 +5686,9 @@ let () =
   let file_open_item = GMenu.menu_item ~label:"Open OBC" ~packing:file_menu#append () in
   file_open_item#connect#activate ~callback:open_file_dialog |> ignore;
 
+  new_btn#connect#clicked ~callback:new_file |> ignore;
   open_btn#connect#clicked ~callback:open_file_dialog |> ignore;
+  action_open_ref := open_file_dialog;
 
   let file_save_item = GMenu.menu_item ~label:"Save OBC" ~packing:file_menu#append () in
   file_save_item#connect#activate ~callback:(fun () -> ignore (save_current_file ())) |> ignore;
@@ -4607,6 +5698,7 @@ let () =
     GdkKeysyms._s;
 
   save_btn#connect#clicked ~callback:(fun () -> ignore (save_current_file ())) |> ignore;
+  action_save_ref := (fun () -> ignore (save_current_file ()));
 
   List.iter
     (fun item -> file_menu#remove item)
@@ -4620,6 +5712,9 @@ let () =
       file_export_vc;
       file_export_smt;
       file_export_png;
+      file_export_g_auto_png;
+      file_export_a_auto_png;
+      file_export_product_png;
     ];
   List.iter
     (fun item -> file_menu#append item)
@@ -4627,43 +5722,127 @@ let () =
   ignore (GMenu.separator_item ~packing:file_menu#append ());
   List.iter
     (fun item -> file_menu#append item)
-    [ file_export_obcplus; file_export_why; file_export_vc; file_export_smt; file_export_png ];
+    [
+      file_export_obcplus;
+      file_export_why;
+      file_export_vc;
+      file_export_smt;
+      file_export_png;
+      file_export_g_auto_png;
+      file_export_a_auto_png;
+      file_export_product_png;
+    ];
 
   let set_task_view ~goal:_ ~vcid:_ ~index =
-    if !latest_vc_text = "" then task_buf#set_text ""
-    else
-      match index with
-      | None -> task_buf#set_text "Task not found"
-      | Some idx -> (
-          match List.nth_opt !task_sequents_list idx with
-          | None -> task_buf#set_text "Task not found"
-          | Some (hyps, goal_term) ->
-              let buf = Buffer.create 256 in
-              List.iter (fun h -> Buffer.add_string buf (h ^ "\n")) hyps;
-              if hyps <> [] then Buffer.add_string buf "--------------------\n";
-              Buffer.add_string buf goal_term;
-              task_buf#set_text (Buffer.contents buf))
+    match index with
+    | None -> task_buf#set_text (sanitize_utf8_text "Requires/ensures obligations not found")
+    | Some idx -> (
+        match List.nth_opt !task_sequents_list idx with
+        | None -> task_buf#set_text (sanitize_utf8_text "Requires/ensures obligations not found")
+        | Some (hyps, goal_term) ->
+            let buf = Buffer.create 256 in
+            List.iter (fun h -> Buffer.add_string buf (h ^ "\n")) hyps;
+            if hyps <> [] then Buffer.add_string buf "--------------------\n";
+            Buffer.add_string buf goal_term;
+            task_buf#set_text (sanitize_utf8_text (Buffer.contents buf)))
+  in
+  let focus_outline_from_source_ref : (string -> unit) ref = ref (fun _ -> ()) in
+  let selected_goal_path : Gtk.tree_path option ref = ref None in
+  let selected_outline_path : Gtk.tree_path option ref = ref None in
+  let mark_goal_path (path_opt : Gtk.tree_path option) : unit =
+    let hl_bg = "#234a78" in
+    let hl_fg = "#ffffff" in
+    let reset_path p =
+      try
+        let row = goal_model#get_iter p in
+        goal_model#set ~row ~column:goal_row_bg_set_col false;
+        goal_model#set ~row ~column:goal_row_bg_col "#000000";
+        goal_model#set ~row ~column:goal_row_fg_set_col false;
+        goal_model#set ~row ~column:goal_row_fg_col "#ffffff";
+        goal_model#set ~row ~column:goal_row_weight_col 400
+      with _ -> ()
+    in
+    Option.iter reset_path !selected_goal_path;
+    begin match path_opt with
+    | None -> ()
+    | Some p -> (
+        try
+          let row = goal_model#get_iter p in
+          goal_model#set ~row ~column:goal_row_bg_col hl_bg;
+          goal_model#set ~row ~column:goal_row_bg_set_col true;
+          goal_model#set ~row ~column:goal_row_fg_col hl_fg;
+          goal_model#set ~row ~column:goal_row_fg_set_col true;
+          goal_model#set ~row ~column:goal_row_weight_col 700
+        with _ -> ())
+    end;
+    selected_goal_path := path_opt
+  in
+  let mark_outline_path (path_opt : Gtk.tree_path option) : unit =
+    let hl_bg = "#234a78" in
+    let hl_fg = "#ffffff" in
+    let reset_path p =
+      try
+        let row = outline_model#get_iter p in
+        outline_model#set ~row ~column:outline_row_bg_set_col false;
+        outline_model#set ~row ~column:outline_row_bg_col "#000000";
+        outline_model#set ~row ~column:outline_row_fg_set_col false;
+        outline_model#set ~row ~column:outline_row_fg_col "#ffffff";
+        outline_model#set ~row ~column:outline_row_weight_col 400
+      with _ -> ()
+    in
+    Option.iter reset_path !selected_outline_path;
+    begin match path_opt with
+    | None -> ()
+    | Some p -> (
+        try
+          let row = outline_model#get_iter p in
+          outline_model#set ~row ~column:outline_row_bg_col hl_bg;
+          outline_model#set ~row ~column:outline_row_bg_set_col true;
+          outline_model#set ~row ~column:outline_row_fg_col hl_fg;
+          outline_model#set ~row ~column:outline_row_fg_set_col true;
+          outline_model#set ~row ~column:outline_row_weight_col 700
+        with _ -> ())
+    end;
+    selected_outline_path := path_opt
   in
 
   goal_view#selection#connect#changed ~callback:(fun () ->
       match goal_view#selection#get_selected_rows with
       | [] ->
+          mark_goal_path None;
+          selected_goal_source_ref := None;
           task_buf#set_text "";
           current_goal_highlight := None;
           clear_goal_highlights ()
       | path :: _ ->
-          let row = goal_model#get_iter path in
-          let goal = goal_model#get ~row ~column:goal_raw_col in
-          let source = goal_model#get ~row ~column:source_col in
-          let vcid = goal_model#get ~row ~column:vcid_col in
-          let index =
-            let idxs = GTree.Path.get_indices path in
-            if Array.length idxs = 0 then None else Some idxs.(0)
-          in
-          set_task_view ~goal ~vcid ~index;
-          set_tab_sensitive task_page task_tab true;
-          current_goal_highlight := Some (goal, source, index);
-          apply_goal_highlights ~goal ~source ~index)
+          mark_goal_path (Some path);
+          (try
+             let row = goal_model#get_iter path in
+             let is_header = goal_model#get ~row ~column:goal_is_header_col in
+             if is_header then (
+               let source = goal_model#get ~row ~column:source_col in
+               selected_goal_source_ref := Some source;
+               !focus_outline_from_source_ref source;
+               task_buf#set_text "";
+               current_goal_highlight := None;
+               clear_goal_highlights ())
+             else
+               let goal = goal_model#get ~row ~column:goal_raw_col in
+               let source = goal_model#get ~row ~column:source_col in
+               selected_goal_source_ref := Some source;
+               let vcid = goal_model#get ~row ~column:vcid_col in
+               let status = goal_model#get ~row ~column:goal_status_col |> String.lowercase_ascii in
+               let index =
+                 let idx = goal_model#get ~row ~column:goal_flat_index_col in
+                 if idx < 0 then None else Some idx
+               in
+               set_task_view ~goal ~vcid ~index;
+               set_tab_sensitive task_page task_tab true;
+               current_goal_highlight := Some (goal, source, index);
+               apply_goal_highlights ~goal ~source ~index;
+               !focus_outline_from_source_ref source;
+               if is_failed_status status || status = "unknown" then notebook#goto_page 2 else ()
+           with _ -> ()))
   |> ignore;
 
   let outline_add_row ~parent ~text ~line ~target ~kind =
@@ -4673,6 +5852,12 @@ let () =
       | Some p -> outline_model#append ~parent:p ()
     in
     outline_model#set ~row ~column:outline_text_col text;
+    outline_model#set ~row ~column:outline_label_base_col text;
+    outline_model#set ~row ~column:outline_row_bg_col "#000000";
+    outline_model#set ~row ~column:outline_row_bg_set_col false;
+    outline_model#set ~row ~column:outline_row_fg_col "#ffffff";
+    outline_model#set ~row ~column:outline_row_fg_set_col false;
+    outline_model#set ~row ~column:outline_row_weight_col 400;
     outline_model#set ~row ~column:outline_line_col line;
     outline_model#set ~row ~column:outline_target_col target;
     outline_model#set ~row ~column:outline_kind_col kind;
@@ -4680,29 +5865,132 @@ let () =
   in
   let outline_extract text =
     let node_re = Str.regexp "^[ \t]*node[ \t]+\\([A-Za-z0-9_']+\\)" in
-    let trans_re = Str.regexp "^[ \t]*\\([A-Za-z0-9_']+\\)[ \t]*->[ \t]*\\([A-Za-z0-9_']+\\)" in
-    let ensures_re = Str.regexp "^[ \t]*ensures\\b" in
-    let guarantees_re = Str.regexp "^[ \t]*guarantees\\b" in
+    let trans_re = Str.regexp "\\([A-Za-z0-9_']+\\)[ \t]*->[ \t]*\\([A-Za-z0-9_']+\\)" in
+    let contract_re =
+      Str.regexp
+        "\\brequires\\b\\|\\bensures\\b\\|\\bassumes\\b\\|\\bguarantees\\b\\|\\bassume\\b\\|\\bguarantee\\b"
+    in
+    let transitions_header_re = Str.regexp "^[ \t]*transitions\\b" in
+    let section_header_re =
+      Str.regexp
+        "^[ \t]*\\(states\\|contracts\\|locals\\|invariants\\|instances\\|transitions\\|end\\)\\b"
+    in
+    let src_state_re = Str.regexp "^[ \t]*\\([A-Za-z0-9_']+\\)[ \t]*:[ \t]*\\({\\)?[ \t]*$" in
+    let to_dst_re = Str.regexp "^[ \t]*to[ \t]+\\([A-Za-z0-9_']+\\)\\b" in
     let nodes = ref [] in
     let trans = ref [] in
     let contracts = ref [] in
+    let seen_trans = Hashtbl.create 32 in
+    let seen_contracts = Hashtbl.create 32 in
+    let add_trans name line_no =
+      let k = String.lowercase_ascii (String.trim name) ^ "@" ^ string_of_int line_no in
+      if not (Hashtbl.mem seen_trans k) then (
+        Hashtbl.add seen_trans k ();
+        trans := (name, line_no) :: !trans)
+    in
+    let add_contract name line_no =
+      let k = String.lowercase_ascii (String.trim name) ^ "@" ^ string_of_int line_no in
+      if not (Hashtbl.mem seen_contracts k) then (
+        Hashtbl.add seen_contracts k ();
+        contracts := (name, line_no) :: !contracts)
+    in
+    let in_transitions = ref false in
+    let current_src = ref None in
     let lines = String.split_on_char '\n' text in
     List.iteri
-      (fun idx line ->
+      (fun idx raw_line ->
+        let line = String.trim (Str.global_replace (Str.regexp "\r") "" raw_line) in
+        if Str.string_match transitions_header_re line 0 then (
+          in_transitions := true;
+          current_src := None)
+        else if Str.string_match section_header_re line 0 then (
+          in_transitions := false;
+          current_src := None);
         if Str.string_match node_re line 0 then (
           let name = Str.matched_group 1 line in
-          nodes := (name, idx + 1) :: !nodes;
-          if Str.string_match trans_re line 0 then (
-            let from_s = Str.matched_group 1 line in
-            let to_s = Str.matched_group 2 line in
-            trans := (Printf.sprintf "%s -> %s" from_s to_s, idx + 1) :: !trans;
-            if Str.string_match ensures_re line 0 || Str.string_match guarantees_re line 0 then
-              contracts := (String.trim line, idx + 1) :: !contracts)))
+          nodes := (name, idx + 1) :: !nodes);
+        if
+          (try
+             ignore (Str.search_forward trans_re line 0);
+             true
+           with Not_found -> false)
+        then
+          let from_s = Str.matched_group 1 line in
+          let to_s = Str.matched_group 2 line in
+          add_trans (Printf.sprintf "%s -> %s" from_s to_s) (idx + 1);
+        if !in_transitions && Str.string_match src_state_re line 0 then
+          current_src := Some (Str.matched_group 1 line);
+        if !in_transitions && Str.string_match to_dst_re line 0 then
+          match !current_src with
+          | Some src ->
+              let dst = Str.matched_group 1 line in
+              add_trans (Printf.sprintf "%s -> %s" src dst) (idx + 1)
+          | None -> ();
+        if
+          (try
+             ignore (Str.search_forward contract_re line 0);
+             true
+           with Not_found -> false)
+        then
+          add_contract (String.trim line) (idx + 1))
       lines;
     (List.rev !nodes, List.rev !trans, List.rev !contracts)
   in
+  let outline_extract_from_ast (text : string) (p : Ast.program) =
+    let text_nodes, text_trans, text_contracts = outline_extract text in
+    let node_line_map = Hashtbl.create 32 in
+    List.iter
+      (fun (name, line) ->
+        if line > 0 && not (Hashtbl.mem node_line_map name) then Hashtbl.add node_line_map name line)
+      text_nodes;
+    let trans_line_map = Hashtbl.create 64 in
+    List.iter
+      (fun (name, line) ->
+        if line > 0 && not (Hashtbl.mem trans_line_map name) then Hashtbl.add trans_line_map name line)
+      text_trans;
+    let nodes =
+      List.map
+        (fun (n : Ast.node) ->
+          let line = Hashtbl.find_opt node_line_map n.nname |> Option.value ~default:(-1) in
+          (n.nname, line))
+        p
+    in
+    let trans =
+      List.concat_map
+        (fun (n : Ast.node) ->
+          List.map
+            (fun (t : Ast.transition) ->
+              let key = Printf.sprintf "%s -> %s" t.src t.dst in
+              let line = Hashtbl.find_opt trans_line_map key |> Option.value ~default:(-1) in
+              (key, line))
+            n.trans)
+        p
+    in
+    let contract_labels =
+      List.concat_map
+        (fun (n : Ast.node) ->
+          let assumes = List.map (fun f -> Printf.sprintf "assumes %s" (Support.string_of_ltl f)) n.assumes in
+          let guarantees =
+            List.map (fun f -> Printf.sprintf "guarantees %s" (Support.string_of_ltl f)) n.guarantees
+          in
+          assumes @ guarantees)
+        p
+    in
+    let contracts =
+      List.mapi
+        (fun i label ->
+          let line =
+            match List.nth_opt text_contracts i with Some (_, l) when l > 0 -> l | _ -> -1
+          in
+          (label, line))
+        contract_labels
+    in
+    (nodes, trans, contracts)
+  in
   let refresh_outline () =
     outline_model#clear ();
+    source_transition_line_map := Hashtbl.create 64;
+    abstract_transition_line_map := Hashtbl.create 64;
     let add_section parent title =
       outline_add_row ~parent:(Some parent) ~text:title ~line:(-1) ~target:"" ~kind:"section"
     in
@@ -4750,16 +6038,33 @@ let () =
     let obcplus_text =
       obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()
     in
-    let obc_root = outline_add_row ~parent:None ~text:"OBC" ~line:(-1) ~target:"" ~kind:"root" in
-    fill_section obc_root "obc" (outline_extract obc_text);
+    let obc_root = outline_add_row ~parent:None ~text:"Source" ~line:(-1) ~target:"" ~kind:"root" in
+    let source_outline =
+      match !parsed_source_ast with
+      | Some p -> outline_extract_from_ast obc_text p
+      | None -> outline_extract obc_text
+    in
+    let _, source_trans, _ = source_outline in
+    List.iter
+      (fun (name, line) ->
+        if line > 0 then Hashtbl.replace !source_transition_line_map name line)
+      source_trans;
+    fill_section obc_root "obc" source_outline;
     let obcplus_root =
-      outline_add_row ~parent:None ~text:"OBC+" ~line:(-1) ~target:"" ~kind:"root"
+      outline_add_row ~parent:None ~text:"Abstract Program" ~line:(-1) ~target:"" ~kind:"root"
     in
     if String.trim obcplus_text = "" then
       ignore
         (outline_add_row ~parent:(Some obcplus_root) ~text:"<not generated>" ~line:(-1) ~target:""
            ~kind:"item")
-    else fill_section obcplus_root "obcplus" (outline_extract obcplus_text)
+    else (
+      let abs_outline = outline_extract obcplus_text in
+      let _, abs_trans, _ = abs_outline in
+      List.iter
+        (fun (name, line) ->
+          if line > 0 then Hashtbl.replace !abstract_transition_line_map name line)
+        abs_trans;
+      fill_section obcplus_root "obcplus" abs_outline)
   in
   let outline_timer_id : GMain.Timeout.id option ref = ref None in
   let schedule_outline_refresh () =
@@ -4774,6 +6079,69 @@ let () =
     outline_timer_id := Some id
   in
   schedule_outline_refresh_ref := schedule_outline_refresh;
+  let suppress_outline_scope_update = ref false in
+  let apply_goals_scope_from_outline () =
+    if !suppress_outline_scope_update then ()
+    else
+      let selected = outline_view#selection#get_selected_rows in
+      match selected with
+      | [] ->
+          mark_outline_path None
+      | path :: _ -> mark_outline_path (Some path)
+  in
+  outline_view#selection#connect#changed ~callback:apply_goals_scope_from_outline |> ignore;
+  let focus_outline_from_source source =
+    let source =
+      source
+      |> String.trim
+      |> Str.global_replace (Str.regexp "[ \t]*(\\([0-9]+/[0-9]+ failed\\))$")
+           ""
+      |> String.trim
+    in
+    if source = "" then ()
+    else
+      let trans_re = Str.regexp "\\([A-Za-z0-9_']+\\)[ \t]*->[ \t]*\\([A-Za-z0-9_']+\\)" in
+      let trans_key =
+        try
+          ignore (Str.search_forward trans_re source 0);
+          Some
+            ( String.lowercase_ascii (Str.matched_group 1 source),
+              String.lowercase_ascii (Str.matched_group 2 source) )
+        with Not_found -> None
+      in
+      let normalize_arrow s =
+        String.lowercase_ascii (Str.global_replace (Str.regexp "[ \t]+") "" s)
+      in
+      let node_key =
+        let g = grouped_source_key source in
+        String.lowercase_ascii (String.trim g)
+      in
+      let found = ref None in
+      outline_model#foreach (fun path row ->
+          let kind = outline_model#get ~row ~column:outline_kind_col in
+          let text = outline_model#get ~row ~column:outline_text_col |> String.trim in
+          let text_lc = String.lowercase_ascii text in
+          let ok =
+            match (kind, trans_key) with
+            | "transition", Some (src, dst) ->
+                normalize_arrow text = normalize_arrow (src ^ "->" ^ dst)
+            | "node", _ when node_key <> "" -> text_lc = node_key
+            | _ -> false
+          in
+          if ok then (
+            found := Some path;
+            true)
+          else false);
+      match !found with
+      | None -> ()
+      | Some path ->
+          suppress_outline_scope_update := true;
+          outline_view#expand_to_path path;
+          outline_view#selection#select_path path;
+          mark_outline_path (Some path);
+          suppress_outline_scope_update := false
+  in
+  focus_outline_from_source_ref := focus_outline_from_source;
   outline_view#connect#row_activated ~callback:(fun path _col ->
       let row = outline_model#get_iter path in
       let line = outline_model#get ~row ~column:outline_line_col in
@@ -4792,6 +6160,10 @@ let () =
   refresh_outline ();
 
   let set_obcplus_buffer obc_text =
+    let obc_text = sanitize_utf8_text obc_text in
+    if !current_obcplus_text <> "" && !current_obcplus_text <> obc_text then
+      previous_obcplus_text := !current_obcplus_text;
+    current_obcplus_text := obc_text;
     obcplus_buf#set_text obc_text;
     highlight_obcplus obc_text;
     obcplus_utf8_map := build_utf8_map obc_text;
@@ -4801,6 +6173,7 @@ let () =
   in
 
   let set_why_buffer why =
+    let why = sanitize_utf8_text why in
     why_buf#set_text why;
     highlight_why_buf why;
     why_utf8_map := build_utf8_map why;
@@ -4815,26 +6188,27 @@ let () =
   (load_obligations_ref := fun () -> ());
 
   let _ensure_monitor ~file =
-    match if cache_enabled () then !monitor_cache else None with
+    match if cache_enabled () then !automata_cache else None with
     | Some (v, out) when v = !content_version ->
-        time_pass ~name:"monitor" ~cached:true (fun () ->
-            set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png);
+        time_pass ~name:"instrumentation" ~cached:true (fun () ->
+            set_automata_buffers_from_out out);
         set_stage_meta out.stage_meta;
         Some out
     | _ ->
-        set_status "Running monitor...";
-        time_pass ~name:"monitor" ~cached:false (fun () ->
-            match Ide_backend.monitor_pass ~generate_png:true ~input_file:file with
+        set_status "Running instrumentation...";
+        time_pass ~name:"instrumentation" ~cached:false (fun () ->
+            match Ide_backend.instrumentation_pass ~generate_png:true ~input_file:file with
             | Ok out ->
-                monitor_cache := Some (!content_version, out);
-                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                automata_cache := Some (!content_version, out);
+                !update_instrumentation_button_state_ref ();
+                set_automata_buffers_from_out out;
                 set_stage_meta out.stage_meta;
                 Some out
             | Error err ->
                 let msg = Ide_backend.error_to_string err in
                 set_status ("Error: " ^ msg);
                 apply_parse_error msg;
-                add_history ("Monitor: error (" ^ msg ^ ")");
+                add_history ("Instrumentation: error (" ^ msg ^ ")");
                 None)
   in
 
@@ -4845,7 +6219,7 @@ let () =
         set_stage_meta out.stage_meta;
         Some out
     | _ ->
-        set_status "Running OBC+...";
+        set_status "Running Abstract Program...";
         time_pass ~name:"obc+" ~cached:false (fun () ->
             match Ide_backend.obc_pass ~input_file:file with
             | Ok out ->
@@ -4857,7 +6231,7 @@ let () =
                 let msg = Ide_backend.error_to_string err in
                 set_status ("Error: " ^ msg);
                 apply_parse_error msg;
-                add_history ("OBC+: error (" ^ msg ^ ")");
+                add_history ("Abstract Program: error (" ^ msg ^ ")");
                 None)
   in
 
@@ -4908,17 +6282,25 @@ let () =
                 None)
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~obcplus_seqs ~task_seqs
+  let set_all_buffers ~obcplus ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~guarantee_automaton
+      ~assume_automaton ~product ~obligations_map ~prune_reasons ~guarantee_automaton_dot
+      ~assume_automaton_dot ~product_dot ~obcplus_seqs ~vc_sources ~task_seqs
       ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list
       ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans ~why_spans =
     (let _ = vc_spans in
      latest_vc_text := vc;
      set_obcplus_buffer obcplus;
      set_why_buffer why;
-     set_obligations_buffers ~vc);
+     set_obligations_buffers ~vc;
+     set_automata_product_buffers ~guarantee:guarantee_automaton ~assume:assume_automaton
+       ~product ~obligations:obligations_map ~prune:prune_reasons ~guarantee_dot:guarantee_automaton_dot
+       ~assume_dot:assume_automaton_dot ~product_dot);
     let tbl = Hashtbl.create (List.length obcplus_seqs * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace tbl k v) obcplus_seqs;
     obcplus_sequents := tbl;
+    let src_tbl = Hashtbl.create (List.length vc_sources * 2) in
+    List.iter (fun (k, v) -> Hashtbl.replace src_tbl k v) vc_sources;
+    vc_source_map := src_tbl;
     let span_tbl = Hashtbl.create (List.length obcplus_spans * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace span_tbl k v) obcplus_spans;
     obcplus_span_map := span_tbl;
@@ -4942,52 +6324,268 @@ let () =
     | _ -> "gtk-dialog-question"
   in
 
-  let set_goals goals =
+  let render_final_goals goals =
     goal_model#clear ();
-    goals_empty_label#misc#set_sensitive false;
-    let source_map = extract_goal_sources !latest_vc_text in
-    List.iteri
-      (fun idx (goal, status_txt, time_s, dump_path, source, vcid) ->
-        let row = goal_model#append () in
-        let status_norm = String.trim status_txt in
-        goal_model#set ~row ~column:status_icon_col (status_icon status_norm);
-        goal_model#set ~row ~column:goal_status_col status_norm;
-        goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
-        goal_model#set ~row ~column:goal_raw_col goal;
-        let source =
-          if source <> "" then source
-          else Hashtbl.find_opt source_map goal |> Option.value ~default:""
-        in
-        goal_model#set ~row ~column:source_col source;
-        goal_model#set ~row ~column:time_col (Printf.sprintf "%.4fs" time_s);
-        goal_model#set ~row ~column:dump_col (match dump_path with None -> "" | Some p -> p);
-        goal_model#set ~row ~column:vcid_col (match vcid with None -> "" | Some v -> v))
-      goals;
+    let source_by_index = extract_goal_sources_by_index !latest_vc_text in
+    let entries =
+      List.mapi
+        (fun flat_idx (goal, status_txt, time_s, dump_path, source, vcid) ->
+          let source_from_vcid =
+            match vcid with
+            | None -> ""
+            | Some v -> (
+                match int_of_string_opt v with
+                | None -> ""
+                | Some id -> Hashtbl.find_opt !vc_source_map id |> Option.value ~default:"")
+          in
+          let source_from_index =
+            Hashtbl.find_opt source_by_index flat_idx |> Option.value ~default:""
+          in
+          let source =
+            if source_from_vcid <> "" then source_from_vcid
+            else if source_from_index <> "" then source_from_index
+            else source
+          in
+          let status_norm = String.trim status_txt in
+          (flat_idx, goal, status_norm, time_s, dump_path, source, vcid))
+        goals
+    in
+    let entries =
+      List.filter
+        (fun (_flat_idx, _goal, status_norm, _time_s, _dump_path, source, _vcid) ->
+          let status_ok =
+            match !goals_filter_mode with
+            | "failed" -> is_failed_status status_norm
+            | "timeout" -> String.lowercase_ascii status_norm = "timeout"
+            | "unknown" ->
+                let s = String.lowercase_ascii status_norm in
+                s = "unknown" || s = "pending"
+            | "proved" -> String.lowercase_ascii status_norm = "valid"
+            | _ -> true
+          in
+          let _ = source in
+          status_ok)
+        entries
+    in
+    let entries =
+      match !goals_sort_mode with
+      | "duration" ->
+          List.sort
+            (fun (i1, _, _, t1, _, _, _) (i2, _, _, t2, _, _, _) ->
+              let c = compare t2 t1 in
+              if c <> 0 then c else compare i1 i2)
+            entries
+      | "status severity" ->
+          List.sort
+            (fun (i1, _, s1, t1, _, _, _) (i2, _, s2, t2, _, _, _) ->
+              let c = compare (status_severity_rank s1) (status_severity_rank s2) in
+              if c <> 0 then c
+              else
+                let c2 = compare t2 t1 in
+                if c2 <> 0 then c2 else compare i1 i2)
+            entries
+      | _ -> entries
+    in
+    if !goals_grouped_mode then (
+      let nodes = Hashtbl.create 32 in
+      let node_counts = Hashtbl.create 32 in
+      let node_order = ref [] in
+      List.iter
+        (fun (idx, goal, status_txt, time_s, dump_path, source, vcid) ->
+          let node_key, trans_key = parse_source_scope source in
+          if not (Hashtbl.mem nodes node_key) then (
+            Hashtbl.add nodes node_key (Hashtbl.create 8, ref []);
+            Hashtbl.add node_counts node_key (0, 0);
+            node_order := !node_order @ [ node_key ]);
+          let trans_map, trans_order = Hashtbl.find nodes node_key in
+          if not (Hashtbl.mem trans_map trans_key) then (
+            Hashtbl.add trans_map trans_key [];
+            trans_order := !trans_order @ [ trans_key ]);
+          let succeeded, total =
+            Hashtbl.find_opt node_counts node_key |> Option.value ~default:(0, 0)
+          in
+          let succeeded' =
+            if String.lowercase_ascii (String.trim status_txt) = "valid" then succeeded + 1
+            else succeeded
+          in
+          Hashtbl.replace node_counts node_key (succeeded', total + 1);
+          let entry = (idx, goal, status_txt, time_s, dump_path, source, vcid) in
+          let prev = Hashtbl.find trans_map trans_key in
+          Hashtbl.replace trans_map trans_key (prev @ [ entry ]))
+        entries;
+      List.iter
+        (fun node_key ->
+          let succeeded, total =
+            Hashtbl.find_opt node_counts node_key |> Option.value ~default:(0, 0)
+          in
+          let node_row =
+            append_goal_header
+              ~parent:None
+              ~source:node_key
+              ~status_norm:"pending"
+              (Printf.sprintf "%s (%d/%d)" node_key succeeded total)
+          in
+          let trans_map, trans_order = Hashtbl.find nodes node_key in
+          List.iter
+            (fun trans_key ->
+              let items = Hashtbl.find trans_map trans_key in
+              let succeeded_t, total_t =
+                List.fold_left
+                  (fun (s, t) (_, _, status_txt, _, _, _, _) ->
+                    ( (if String.lowercase_ascii (String.trim status_txt) = "valid" then s + 1
+                      else s),
+                      t + 1 ))
+                  (0, 0) items
+              in
+              let trans_row =
+                append_goal_header
+                  ~parent:(Some node_row)
+                  ~source:(node_key ^ ": " ^ trans_key)
+                  ~status_norm:"pending"
+                  (Printf.sprintf "%s (%d/%d)" trans_key succeeded_t total_t)
+              in
+              List.iter
+                (fun (local_i, (idx, goal, status_txt, time_s, dump_path, source, vcid)) ->
+                  ignore
+                    (append_goal_row ~parent:(Some trans_row) ~idx ~display_no:(local_i + 1)
+                       ~goal ~status_norm:status_txt ~source ~time_s ~dump_path ~vcid))
+                (List.mapi (fun i x -> (i, x)) items))
+            !trans_order)
+        !node_order)
+    else
+      List.iter
+        (fun (idx, goal, status_txt, time_s, dump_path, source, vcid) ->
+          ignore
+            (append_goal_row ~parent:None ~idx ~display_no:(idx + 1) ~goal
+               ~status_norm:status_txt ~source ~time_s ~dump_path ~vcid))
+        entries;
+    goal_view#expand_all ();
     update_vc_time_sum ();
-    update_goal_progress ()
+    update_goal_progress ();
+    refresh_header_status_icons ();
+    collapse_proved_groups ()
   in
+
+  let set_goals goals =
+    latest_final_goals := goals;
+    pending_goal_rows := Hashtbl.create 0;
+    render_final_goals goals;
+    begin match !selected_goal_source_ref with
+    | None -> ()
+    | Some wanted ->
+        let found = ref None in
+        goal_model#foreach (fun path row ->
+            let is_header = goal_model#get ~row ~column:goal_is_header_col in
+            if is_header then false
+            else
+              let src = goal_model#get ~row ~column:source_col |> String.trim in
+              if src = String.trim wanted then (
+                found := Some path;
+                true)
+              else false);
+        begin match !found with
+        | None -> ()
+        | Some path ->
+            goal_view#selection#select_path path
+        end
+    end
+  in
+  rerender_goals_ref := (fun () -> render_final_goals !latest_final_goals);
 
   let set_goals_pending goal_names vc_ids =
     goal_model#clear ();
-    goals_empty_label#misc#set_sensitive false;
-    let rows = ref [] in
-    List.iteri
-      (fun idx goal ->
-        let row = goal_model#append () in
-        let vcid = match List.nth_opt vc_ids idx with Some id -> string_of_int id | None -> "" in
-        goal_model#set ~row ~column:status_icon_col (status_icon "pending");
-        goal_model#set ~row ~column:goal_status_col "pending";
-        goal_model#set ~row ~column:goal_col (Printf.sprintf "%d. %s" (idx + 1) goal);
-        goal_model#set ~row ~column:goal_raw_col goal;
-        goal_model#set ~row ~column:source_col "";
-        goal_model#set ~row ~column:time_col "--";
-        goal_model#set ~row ~column:dump_col "";
-        goal_model#set ~row ~column:vcid_col vcid;
-        rows := row :: !rows)
-      goal_names;
+    pending_goal_rows := Hashtbl.create (List.length goal_names * 2);
+    if !goals_grouped_mode then (
+      let entries =
+        List.mapi
+          (fun idx goal ->
+            let vcid_opt = List.nth_opt vc_ids idx in
+            let source =
+              match vcid_opt with
+              | None -> ""
+              | Some id -> Hashtbl.find_opt !vc_source_map id |> Option.value ~default:""
+            in
+            let node_key, trans_key = parse_source_scope source in
+            (idx, goal, vcid_opt, source, node_key, trans_key))
+          goal_names
+      in
+      let nodes = Hashtbl.create 32 in
+      let node_order = ref [] in
+      List.iter
+        (fun (idx, goal, vcid_opt, source, node_key, trans_key) ->
+          if not (Hashtbl.mem nodes node_key) then (
+            Hashtbl.add nodes node_key (Hashtbl.create 8, ref []);
+            node_order := !node_order @ [ node_key ]);
+          let trans_map, trans_order = Hashtbl.find nodes node_key in
+          if not (Hashtbl.mem trans_map trans_key) then (
+            Hashtbl.add trans_map trans_key [];
+            trans_order := !trans_order @ [ trans_key ]);
+          let prev = Hashtbl.find trans_map trans_key in
+          Hashtbl.replace trans_map trans_key (prev @ [ (idx, goal, vcid_opt, source) ]))
+        entries;
+      List.iter
+        (fun node_key ->
+          let trans_map, trans_order = Hashtbl.find nodes node_key in
+          let total_node =
+            List.fold_left
+              (fun acc trans_key -> acc + List.length (Hashtbl.find trans_map trans_key))
+              0 !trans_order
+          in
+          let node_row =
+            append_goal_header ~parent:None ~source:node_key ~status_norm:"pending"
+              (Printf.sprintf "%s (0/%d)" node_key total_node)
+          in
+          List.iter
+            (fun trans_key ->
+              let items = Hashtbl.find trans_map trans_key in
+              let trans_row =
+                append_goal_header ~parent:(Some node_row)
+                  ~source:(node_key ^ ": " ^ trans_key)
+                  ~status_norm:"pending"
+                  (Printf.sprintf "%s (0/%d)" trans_key (List.length items))
+              in
+              List.iter
+                (fun (local_i, (idx, goal, vcid_opt, source)) ->
+                  let row =
+                    append_goal_row ~parent:(Some trans_row) ~idx ~display_no:(local_i + 1)
+                      ~goal ~status_norm:"pending" ~source ~time_s:0.0 ~dump_path:None
+                      ~vcid:(Option.map string_of_int vcid_opt)
+                  in
+                  Hashtbl.replace !pending_goal_rows idx row)
+                (List.mapi (fun i x -> (i, x)) items))
+            !trans_order)
+        !node_order;
+      goal_view#expand_all ())
+    else
+      List.iteri
+        (fun idx goal ->
+          let row = goal_model#append () in
+          let vcid = match List.nth_opt vc_ids idx with Some id -> string_of_int id | None -> "" in
+          let goal_txt = vc_goal_label_for_idx ~idx ~fallback:goal in
+          goal_model#set ~row ~column:status_icon_col (status_icon "pending");
+          goal_model#set ~row ~column:goal_status_col "pending";
+          let lbl = Printf.sprintf "%d. %s" (idx + 1) goal_txt in
+          goal_model#set ~row ~column:goal_col lbl;
+          goal_model#set ~row ~column:goal_label_base_col lbl;
+          goal_model#set ~row ~column:goal_row_bg_col "#000000";
+          goal_model#set ~row ~column:goal_row_bg_set_col false;
+          goal_model#set ~row ~column:goal_row_fg_col "#ffffff";
+          goal_model#set ~row ~column:goal_row_fg_set_col false;
+          goal_model#set ~row ~column:goal_row_weight_col 400;
+          goal_model#set ~row ~column:goal_raw_col goal_txt;
+          goal_model#set ~row ~column:source_col "";
+          goal_model#set ~row ~column:time_col "--";
+          goal_model#set ~row ~column:dump_col "";
+          goal_model#set ~row ~column:vcid_col vcid;
+          goal_model#set ~row ~column:goal_is_header_col false;
+          goal_model#set ~row ~column:goal_flat_index_col idx;
+          Hashtbl.replace !pending_goal_rows idx row)
+        goal_names;
     update_vc_time_sum ();
     update_goal_progress ();
-    Array.of_list (List.rev !rows)
+    refresh_header_status_icons ();
+    collapse_proved_groups ();
+    [||]
   in
 
   let set_pass_active btn =
@@ -4998,76 +6596,41 @@ let () =
 
   goal_view#connect#row_activated ~callback:(fun path _ ->
       let row = goal_model#get_iter path in
-      let goal = goal_model#get ~row ~column:goal_raw_col in
-      let dump_path = goal_model#get ~row ~column:dump_col in
-      if dump_path <> "" && Sys.file_exists dump_path then (
-        add_history (Printf.sprintf "SMT2 dump available for %s" goal);
-        set_status ("SMT2 dump ready (export to save): " ^ dump_path))
-      else add_history (Printf.sprintf "Selected goal %s" goal))
+      let is_header = goal_model#get ~row ~column:goal_is_header_col in
+      if is_header then ()
+      else
+        let goal = goal_model#get ~row ~column:goal_raw_col in
+        let dump_path = goal_model#get ~row ~column:dump_col in
+        if dump_path <> "" && Sys.file_exists dump_path then (
+          add_history (Printf.sprintf "SMT2 dump available for %s" goal);
+          set_status ("SMT2 dump ready (export to save): " ^ dump_path))
+        else add_history (Printf.sprintf "Selected goal %s" goal))
   |> ignore;
 
   let run_monitor () =
     match !current_file with
-    | None -> set_status "No file selected"
-    | Some file ->
-        if not (ensure_saved_or_cancel ()) then () else clear_obc_error ();
-        add_history "Monitor: running";
-        let cached =
-          match if cache_enabled () then !monitor_cache else None with
-          | Some (v, out) when v = !content_version ->
-              if out.dot_text = "" && out.labels_text = "" then None
-              else if out.dot_png = None then None
-              else Some out
-          | _ -> None
-        in
-        begin match cached with
-        | Some out ->
-            record_pass_time ~name:"monitor-gen" ~elapsed:0.0 ~cached:true;
-            begin match out.dot_png with
-            | Some _ ->
-                record_pass_time ~name:"automaton-draw" ~elapsed:0.0 ~cached:true;
-                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
-            | None ->
-                let t0 = Unix.gettimeofday () in
-                let png = Ide_backend.dot_png_from_text out.dot_text in
-                let elapsed = Unix.gettimeofday () -. t0 in
-                record_pass_time ~name:"automaton-draw" ~elapsed ~cached:false;
-                let out = { out with dot_png = png } in
-                monitor_cache := Some (!content_version, out);
-                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
-            end;
-            set_stage_meta out.stage_meta;
-            set_status_cached "Done";
-            add_history "Monitor: done (cached)"
-        | None ->
-            set_status "Running monitor...";
-            run_async
-              ~compute:(fun () ->
-                let t0 = Unix.gettimeofday () in
-                match Ide_backend.monitor_pass ~generate_png:false ~input_file:file with
-                | Ok out ->
-                    let gen_elapsed = Unix.gettimeofday () -. t0 in
-                    let t1 = Unix.gettimeofday () in
-                    let png = Ide_backend.dot_png_from_text out.dot_text in
-                    let draw_elapsed = Unix.gettimeofday () -. t1 in
-                    Ok (out, png, gen_elapsed, draw_elapsed)
-                | Error _ as err -> err)
-              ~on_ok:(fun (out, png, gen_elapsed, draw_elapsed) ->
-                let out = { out with dot_png = png } in
-                monitor_cache := Some (!content_version, out);
-                record_pass_time ~name:"monitor-gen" ~elapsed:gen_elapsed ~cached:false;
-                record_pass_time ~name:"automaton-draw" ~elapsed:draw_elapsed ~cached:false;
-                set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
-                set_stage_meta out.stage_meta;
-                set_status "Done";
-                add_history "Monitor: done")
-              ~on_error:(fun err ->
-                let msg = Ide_backend.error_to_string err in
-                set_status ("Error: " ^ msg);
-                add_error_diagnostic ~stage:"Monitor" msg;
-                apply_parse_error msg;
-                add_history ("Monitor: error (" ^ msg ^ ")"))
-        end
+    | None ->
+        set_run_state Idle;
+        set_status "No file selected"
+    | Some _file ->
+        if not (ensure_saved_or_cancel ()) then ()
+        else
+          let cached =
+            match !automata_cache with
+            | Some (v, out) when v = !content_version -> Some out
+            | _ -> None
+          in
+          begin match cached with
+          | None ->
+              set_status "Automata are not available. Run Build or Prove first.";
+              add_history "Instrumentation: unavailable (build/prove required)"
+          | Some out ->
+              set_automata_buffers_from_out out;
+              set_stage_meta out.stage_meta;
+              ignore (ensure_automata_window ());
+              set_status "Automata window opened";
+              add_history "Instrumentation: opened"
+          end
   in
   monitor_btn#connect#clicked ~callback:(fun () ->
       last_action := Some run_monitor;
@@ -5075,14 +6638,16 @@ let () =
       run_monitor ())
   |> ignore;
 
-  let run_obcplus () =
+  let _run_obcplus () =
     match !current_file with
-    | None -> set_status "No file selected"
+    | None ->
+        set_run_state Idle;
+        set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then () else clear_obc_error ();
-        add_history "OBC+: running";
+        add_history "Abstract Program: running";
         let cached_monitor =
-          match if cache_enabled () then !monitor_cache else None with
+          match if cache_enabled () then !automata_cache else None with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
@@ -5093,8 +6658,8 @@ let () =
         in
         begin match cached_monitor with
         | Some out ->
-            record_pass_time ~name:"monitor-gen" ~elapsed:0.0 ~cached:true;
-            set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+            record_pass_time ~name:"instrumentation-gen" ~elapsed:0.0 ~cached:true;
+            set_automata_buffers_from_out out;
             set_stage_meta out.stage_meta
         | None -> ()
         end;
@@ -5106,10 +6671,13 @@ let () =
         | None -> ()
         end;
         if cached_monitor <> None && cached_obc <> None then (
+          set_run_state Building;
           set_status_cached "Done";
-          add_history "OBC+: done (cached)")
+          set_run_state Completed;
+          add_history "Abstract Program: done (cached)")
         else (
-          set_status "Running OBC+...";
+          set_run_state Building;
+          set_status "Running Abstract Program...";
           run_async
             ~compute:(fun () ->
               let mon_res =
@@ -5117,7 +6685,7 @@ let () =
                 | Some out -> Ok (Some out, None)
                 | None -> (
                     let t0 = Unix.gettimeofday () in
-                    match Ide_backend.monitor_pass ~generate_png:true ~input_file:file with
+                    match Ide_backend.instrumentation_pass ~generate_png:true ~input_file:file with
                     | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
                     | Error err -> Error err)
               in
@@ -5140,11 +6708,12 @@ let () =
             ~on_ok:(fun (mon_opt, mon_elapsed, obc_opt, obc_elapsed) ->
               begin match mon_opt with
               | Some out when cached_monitor = None ->
-                  monitor_cache := Some (!content_version, out);
-                  record_pass_time ~name:"monitor-gen"
+                  automata_cache := Some (!content_version, out);
+                  !update_instrumentation_button_state_ref ();
+                  record_pass_time ~name:"instrumentation-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
-                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                  set_automata_buffers_from_out out;
                   set_stage_meta out.stage_meta
               | _ -> ()
               end;
@@ -5158,29 +6727,27 @@ let () =
                   set_stage_meta out.stage_meta
               | _ -> ()
               end;
+              set_run_state Completed;
               set_status "Done";
-              add_history "OBC+: done")
+              add_history "Abstract Program: done")
             ~on_error:(fun err ->
               let msg = Ide_backend.error_to_string err in
+              set_run_state Failed;
               set_status ("Error: " ^ msg);
-              add_error_diagnostic ~stage:"OBC+" msg;
+              add_error_diagnostic ~stage:"Abstract Program" msg;
               apply_parse_error msg;
-              add_history ("OBC+: error (" ^ msg ^ ")")))
+              add_history ("Abstract Program: error (" ^ msg ^ ")")))
   in
-  obcplus_btn#connect#clicked ~callback:(fun () ->
-      last_action := Some run_obcplus;
-      set_pass_active obcplus_btn;
-      run_obcplus ())
-  |> ignore;
-
   let run_why () =
     match !current_file with
-    | None -> set_status "No file selected"
+    | None ->
+        set_run_state Idle;
+        set_status "No file selected"
     | Some file ->
         if not (ensure_saved_or_cancel ()) then () else clear_obc_error ();
-        add_history "Why3: running";
+        add_history "Build: running";
         let cached_monitor =
-          match if cache_enabled () then !monitor_cache else None with
+          match if cache_enabled () then !automata_cache else None with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
@@ -5196,8 +6763,8 @@ let () =
         in
         begin match cached_monitor with
         | Some out ->
-            record_pass_time ~name:"monitor-gen" ~elapsed:0.0 ~cached:true;
-            set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+            record_pass_time ~name:"instrumentation-gen" ~elapsed:0.0 ~cached:true;
+            set_automata_buffers_from_out out;
             set_stage_meta out.stage_meta
         | None -> ()
         end;
@@ -5216,10 +6783,13 @@ let () =
         | None -> ()
         end;
         if cached_monitor <> None && cached_obc <> None && cached_why <> None then (
+          set_run_state Building;
           set_status_cached "Done";
-          add_history "Why3: done (cached)")
+          set_run_state Completed;
+          add_history "Build: done (cached)")
         else (
-          set_status "Running Why3...";
+          set_run_state Building;
+          set_status "Running build...";
           run_async
             ~compute:(fun () ->
               let mon_res =
@@ -5227,7 +6797,7 @@ let () =
                 | Some out -> Ok (Some out, None)
                 | None -> (
                     let t0 = Unix.gettimeofday () in
-                    match Ide_backend.monitor_pass ~generate_png:true ~input_file:file with
+                    match Ide_backend.instrumentation_pass ~generate_png:true ~input_file:file with
                     | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
                     | Error err -> Error err)
               in
@@ -5264,11 +6834,12 @@ let () =
             ~on_ok:(fun (mon_opt, mon_elapsed, obc_opt, obc_elapsed, why_opt, why_elapsed) ->
               begin match mon_opt with
               | Some out when cached_monitor = None ->
-                  monitor_cache := Some (!content_version, out);
-                  record_pass_time ~name:"monitor-gen"
+                  automata_cache := Some (!content_version, out);
+                  !update_instrumentation_button_state_ref ();
+                  record_pass_time ~name:"instrumentation-gen"
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
-                  set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
+                  set_automata_buffers_from_out out;
                   set_stage_meta out.stage_meta
               | _ -> ()
               end;
@@ -5292,25 +6863,130 @@ let () =
                   set_stage_meta out.stage_meta
               | _ -> ()
               end;
+              set_run_state Completed;
               set_status "Done";
-              add_history "Why3: done")
+              add_history "Build: done")
             ~on_error:(fun err ->
               let msg = Ide_backend.error_to_string err in
+              set_run_state Failed;
               set_status ("Error: " ^ msg);
-              add_error_diagnostic ~stage:"Why3" msg;
+              add_error_diagnostic ~stage:"Build" msg;
               apply_parse_error msg;
-              add_history ("Why3: error (" ^ msg ^ ")")))
+              add_history ("Build: error (" ^ msg ^ ")")))
   in
-  why_btn#connect#clicked ~callback:(fun () ->
+  action_build_ref := run_why;
+  build_btn#connect#clicked ~callback:(fun () ->
       last_action := Some run_why;
-      set_pass_active why_btn;
+      set_pass_active build_btn;
       run_why ())
+  |> ignore;
+
+  let eval_output_to_table (text : string) : string =
+    let lines =
+      text |> String.split_on_char '\n' |> List.map String.trim |> List.filter (( <> ) "")
+    in
+    let parse_line (line : string) : (string * string) list option =
+      let parts =
+        line |> String.split_on_char ',' |> List.map String.trim |> List.filter (( <> ) "")
+      in
+      let rec loop acc = function
+        | [] -> Some (List.rev acc)
+        | p :: rest -> (
+            match String.split_on_char '=' p with
+            | [ k; v ] -> loop ((String.trim k, String.trim v) :: acc) rest
+            | _ -> None)
+      in
+      loop [] parts
+    in
+    let parsed = List.filter_map parse_line lines in
+    if parsed = [] then text
+    else
+      let cols = ref [] in
+      let seen = Hashtbl.create 32 in
+      List.iter
+        (fun row ->
+          List.iter
+            (fun (k, _) ->
+              if not (Hashtbl.mem seen k) then (
+                Hashtbl.add seen k true;
+                cols := !cols @ [ k ]))
+            row)
+        parsed;
+      let cols = !cols in
+      let value_for row k = List.assoc_opt k row |> Option.value ~default:"" in
+      let width_for k =
+        List.fold_left
+          (fun w row -> max w (String.length (value_for row k)))
+          (String.length k) parsed
+      in
+      let widths = List.map (fun k -> (k, width_for k)) cols in
+      let pad s w =
+        let n = String.length s in
+        if n >= w then s else s ^ String.make (w - n) ' '
+      in
+      let mk_row values =
+        "| " ^ String.concat " | " values ^ " |"
+      in
+      let header = mk_row (List.map (fun (k, w) -> pad k w) widths) in
+      let sep =
+        "|-"
+        ^ String.concat "-|-"
+            (List.map (fun (_k, w) -> String.make w '-') widths)
+        ^ "-|"
+      in
+      let body =
+        List.map
+          (fun row -> mk_row (List.map (fun (k, w) -> pad (value_for row k) w) widths))
+          parsed
+      in
+      String.concat "\n" (header :: sep :: body)
+  in
+
+  let run_eval () =
+    match !current_file with
+    | None -> set_status "No file selected"
+    | Some file ->
+        if not (ensure_saved_or_cancel ()) then ()
+        else (
+          let eval_w = ensure_eval_window () in
+          clear_obc_error ();
+          add_history "Eval: running";
+          set_status "Running eval...";
+          let trace_text = get_eval_in_text () in
+          time_pass ~name:"eval" ~cached:false (fun () ->
+              match
+                Ide_backend.eval_pass ~input_file:file ~trace_text ~with_state:false
+                  ~with_locals:false
+              with
+              | Ok out ->
+                  let table = eval_output_to_table out in
+                  set_eval_out_text (out ^ "\n\n" ^ table);
+                  eval_w#present ();
+                  set_status "Done";
+                  add_history "Eval: done"
+              | Error err ->
+                  let msg = Ide_backend.error_to_string err in
+                  set_status ("Error: " ^ msg);
+                  add_error_diagnostic ~stage:"Eval" msg;
+                  apply_parse_error msg;
+                  set_eval_out_text ("Error: " ^ msg);
+                  eval_w#present ();
+                  add_history ("Eval: error (" ^ msg ^ ")")))
+  in
+  eval_run_action_ref := run_eval;
+  eval_btn#connect#clicked ~callback:(fun () ->
+      last_action := Some run_eval;
+      set_pass_active eval_btn;
+      run_eval ())
   |> ignore;
 
   let run_prove () =
     match !current_file with
-    | None -> set_status "No file selected"
+    | None ->
+        set_run_state Idle;
+        set_status "No file selected"
     | Some file ->
+        set_run_state Proving;
         remove_pass_time "prove";
         if not (ensure_saved_or_cancel ()) then () else set_status "Running prove...";
         clear_obc_error ();
@@ -5330,28 +7006,37 @@ let () =
           | _ -> None
         in
         let record_stage_times ~cached (out : Ide_backend.outputs) =
-          if out.monitor_generation_build_time_s > 0.0 then
-            record_pass_time ~name:"monitor-build" ~elapsed:out.monitor_generation_build_time_s
+          if out.automata_build_time_s > 0.0 then
+            record_pass_time ~name:"instrumentation-build" ~elapsed:out.automata_build_time_s
               ~cached;
           if out.obcplus_time_s > 0.0 then
             record_pass_time ~name:"obc+" ~elapsed:out.obcplus_time_s ~cached;
           if out.why_time_s > 0.0 then record_pass_time ~name:"why3" ~elapsed:out.why_time_s ~cached;
           if out.why3_prep_time_s > 0.0 then
             record_pass_time ~name:"why3-prep" ~elapsed:out.why3_prep_time_s ~cached;
-          if out.monitor_generation_time_s > 0.0 then
-            record_pass_time ~name:"monitor-gen" ~elapsed:out.monitor_generation_time_s ~cached
+          if out.automata_generation_time_s > 0.0 then
+            record_pass_time ~name:"instrumentation-gen" ~elapsed:out.automata_generation_time_s ~cached
         in
         let cache_monitor_from_outputs (out : Ide_backend.outputs) =
           if out.dot_text <> "" || out.labels_text <> "" then
-            monitor_cache :=
-              Some
-                ( !content_version,
+            (automata_cache :=
+               Some
+                 ( !content_version,
                   {
-                    Ide_backend.dot_text = out.dot_text;
-                    labels_text = out.labels_text;
-                    dot_png = out.dot_png;
-                    stage_meta = out.stage_meta;
-                  } )
+                     Ide_backend.dot_text = out.dot_text;
+                     labels_text = out.labels_text;
+                     guarantee_automaton_text = out.guarantee_automaton_text;
+                     assume_automaton_text = out.assume_automaton_text;
+                     product_text = out.product_text;
+                     obligations_map_text = out.obligations_map_text;
+                     prune_reasons_text = out.prune_reasons_text;
+                     guarantee_automaton_dot = out.guarantee_automaton_dot;
+                     assume_automaton_dot = out.assume_automaton_dot;
+                     product_dot = out.product_dot;
+                     dot_png = out.dot_png;
+                     stage_meta = out.stage_meta;
+                   } );
+             !update_instrumentation_button_state_ref ())
         in
         begin match cached with
         | Some out ->
@@ -5359,12 +7044,19 @@ let () =
             cache_monitor_from_outputs out;
             set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
               ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
-              ~obcplus_seqs:out.obcplus_sequents ~task_seqs:out.task_sequents ~vc_locs:out.vc_locs
+              ~guarantee_automaton:out.guarantee_automaton_text
+              ~assume_automaton:out.assume_automaton_text ~product:out.product_text
+              ~obligations_map:out.obligations_map_text ~prune_reasons:out.prune_reasons_text
+              ~guarantee_automaton_dot:out.guarantee_automaton_dot
+              ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
+              ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+              ~task_seqs:out.task_sequents ~vc_locs:out.vc_locs
               ~obcplus_spans:out.obcplus_spans ~vc_locs_ordered:out.vc_locs_ordered
               ~obcplus_spans_ordered:out.obcplus_spans_ordered
               ~vc_spans_ordered:out.vc_spans_ordered ~why_spans:out.why_spans;
             set_stage_meta out.stage_meta;
             set_goals out.goals;
+            set_run_state Completed;
             set_status_cached "Done";
             add_history "Prove: done (cached)";
             restore_window_size ()
@@ -5377,7 +7069,14 @@ let () =
                   (Glib.Idle.add (fun () ->
                        set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
                          ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
-                         ~obcplus_seqs:out.obcplus_sequents ~task_seqs:out.task_sequents
+                         ~guarantee_automaton:out.guarantee_automaton_text
+                         ~assume_automaton:out.assume_automaton_text ~product:out.product_text
+                         ~obligations_map:out.obligations_map_text
+                         ~prune_reasons:out.prune_reasons_text
+                         ~guarantee_automaton_dot:out.guarantee_automaton_dot
+                         ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
+                         ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+                         ~task_seqs:out.task_sequents
                          ~vc_locs:out.vc_locs ~obcplus_spans:out.obcplus_spans
                          ~vc_locs_ordered:out.vc_locs_ordered
                          ~obcplus_spans_ordered:out.obcplus_spans_ordered
@@ -5395,8 +7094,13 @@ let () =
                 ignore
                   (Glib.Idle.add (fun () ->
                        (try
-                          let path = GTree.Path.create [ idx ] in
-                          let row = goal_model#get_iter path in
+                          let row =
+                            match Hashtbl.find_opt !pending_goal_rows idx with
+                            | Some r -> r
+                            | None ->
+                                let path = GTree.Path.create [ idx ] in
+                                goal_model#get_iter path
+                          in
                           let status_norm = String.trim status in
                           goal_model#set ~row ~column:status_icon_col (status_icon status_norm);
                           goal_model#set ~row ~column:goal_status_col status_norm;
@@ -5407,7 +7111,9 @@ let () =
                           goal_model#set ~row ~column:vcid_col
                             (match vcid with None -> "" | Some v -> v);
                           update_vc_time_sum ();
-                          update_goal_progress ()
+                          update_goal_progress ();
+                          refresh_header_status_icons ();
+                          collapse_proved_groups ()
                         with _ -> ());
                        false))
               in
@@ -5425,8 +7131,8 @@ let () =
                   prove = true;
                   generate_vc_text = false;
                   generate_smt_text = false;
-                  generate_monitor_text = false;
-                  generate_dot_png = false;
+                  generate_monitor_text = true;
+                  generate_dot_png = true;
                 }
               in
               let res =
@@ -5441,18 +7147,26 @@ let () =
                 cache_monitor_from_outputs out;
                 set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
                   ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
-                  ~obcplus_seqs:out.obcplus_sequents ~task_seqs:out.task_sequents
+                  ~guarantee_automaton:out.guarantee_automaton_text
+                  ~assume_automaton:out.assume_automaton_text ~product:out.product_text
+                  ~obligations_map:out.obligations_map_text ~prune_reasons:out.prune_reasons_text
+                  ~guarantee_automaton_dot:out.guarantee_automaton_dot
+                  ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
+                  ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+                  ~task_seqs:out.task_sequents
                   ~vc_locs:out.vc_locs ~obcplus_spans:out.obcplus_spans
                   ~vc_locs_ordered:out.vc_locs_ordered
                   ~obcplus_spans_ordered:out.obcplus_spans_ordered
                   ~vc_spans_ordered:out.vc_spans_ordered ~why_spans:out.why_spans;
                 set_stage_meta out.stage_meta;
                 set_goals out.goals;
+                set_run_state Completed;
                 set_status "Done";
                 add_history "Prove: done";
                 restore_window_size ())
               ~on_error:(fun err ->
                 let msg = Ide_backend.error_to_string err in
+                set_run_state Failed;
                 set_status ("Error: " ^ msg);
                 add_error_diagnostic ~stage:"Prove" msg;
                 apply_parse_error msg;
@@ -5460,34 +7174,152 @@ let () =
                 restore_window_size ())
         end
   in
+  action_prove_ref := run_prove;
   prove_btn#connect#clicked ~callback:(fun () ->
       last_action := Some run_prove;
       set_pass_active prove_btn;
       run_prove ())
   |> ignore;
 
+  action_reset_ref := reset_state_and_reload;
   reset_btn#connect#clicked ~callback:reset_state_and_reload |> ignore;
 
-  let tools_monitor_item = GMenu.menu_item ~label:"Monitor" ~packing:tools_menu#append () in
+  let open_command_palette () =
+    let dialog = GWindow.dialog ~title:"Command Palette" ~parent:window ~modal:true () in
+    dialog#set_default_size ~width:520 ~height:360;
+    ignore (dialog#add_button "Close" `CLOSE);
+    let vbox = GPack.vbox ~spacing:6 ~border_width:8 ~packing:dialog#vbox#add () in
+    let query = GEdit.entry ~packing:vbox#pack () in
+    query#set_text "";
+    query#misc#set_tooltip_text "Type to filter commands";
+    let scroll =
+      GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC ~packing:vbox#add ()
+    in
+    let cols = new GTree.column_list in
+    let name_col = cols#add Gobject.Data.string in
+    let desc_col = cols#add Gobject.Data.string in
+    let model = GTree.list_store cols in
+    let view = GTree.view ~model ~packing:scroll#add () in
+    view#set_headers_visible true;
+    let col_name = GTree.view_column ~title:"Command" () in
+    let cell_name = GTree.cell_renderer_text [] in
+    col_name#pack cell_name;
+    col_name#add_attribute cell_name "text" name_col;
+    ignore (view#append_column col_name);
+    let col_desc = GTree.view_column ~title:"Description" () in
+    let cell_desc = GTree.cell_renderer_text [] in
+    col_desc#pack cell_desc;
+    col_desc#add_attribute cell_desc "text" desc_col;
+    ignore (view#append_column col_desc);
+    let all_actions : (string * string * (unit -> unit)) list =
+      [
+        ("Open file", "Open Kairos source file", (fun () -> (!action_open_ref) ()));
+        ("Save file", "Save current source file", (fun () -> (!action_save_ref) ()));
+        ("Build", "Generate Abstract Program + Why VC", (fun () -> (!action_build_ref) ()));
+        ("Prove", "Run full proving pipeline", (fun () -> (!action_prove_ref) ()));
+        ("Cancel run", "Cancel current build/prove run", (fun () -> (!action_cancel_ref) ()));
+        ("Reset", "Reset state and reload file", (fun () -> (!action_reset_ref) ()));
+        ("Focus Source", "Open Source tab", (fun () -> (!action_focus_source_ref) ()));
+        ("Focus Abstract Program", "Open Abstract Program tab", (fun () -> (!action_focus_abstract_ref) ()));
+        ("Focus Why VC", "Open Why VC tab", (fun () -> (!action_focus_why_ref) ()));
+        ("Focus Goals", "Show Goals panel", (fun () -> (!action_focus_goals_ref) ()));
+        ("Diff Abstract Program", "Compare current and previous generated Abstract Program", (fun () -> (!action_diff_abstract_ref) ()));
+      ]
+    in
+    let active_actions : ((unit -> unit) list) ref = ref [] in
+    let refresh_actions () =
+      model#clear ();
+      active_actions := [];
+      let q = String.lowercase_ascii (String.trim query#text) in
+      let selected = ref false in
+      List.iter
+        (fun (name, desc, f) ->
+          let hay = String.lowercase_ascii (name ^ " " ^ desc) in
+          let matches =
+            if q = "" then true
+            else
+              try
+                ignore (Str.search_forward (Str.regexp_string q) hay 0);
+                true
+              with Not_found -> false
+          in
+          if matches then (
+            let row = model#append () in
+            model#set ~row ~column:name_col name;
+            model#set ~row ~column:desc_col desc;
+            active_actions := !active_actions @ [ f ];
+            if not !selected then (
+              view#selection#select_iter row;
+              selected := true)))
+        all_actions
+    in
+    let closed = ref false in
+    let close_dialog () =
+      if not !closed then (
+        closed := true;
+        dialog#destroy ())
+    in
+    let run_selected () =
+      match view#selection#get_selected_rows with
+      | [] -> ()
+      | path :: _ ->
+          begin match GTree.Path.get_indices path with
+          | idxs when Array.length idxs > 0 -> (
+              let idx = idxs.(0) in
+              match List.nth_opt !active_actions idx with
+              | None -> ()
+              | Some f ->
+                  close_dialog ();
+                  f ())
+          | _ -> ()
+          end
+    in
+    query#connect#changed ~callback:refresh_actions |> ignore;
+    view#connect#row_activated ~callback:(fun _ _ -> run_selected ()) |> ignore;
+    query#connect#activate ~callback:run_selected |> ignore;
+    refresh_actions ();
+    query#misc#grab_focus ();
+    ignore (dialog#run ());
+    close_dialog ()
+  in
+
+  let tools_cmd_palette_item =
+    GMenu.menu_item ~label:"Command Palette" ~packing:tools_menu#append ()
+  in
+  tools_cmd_palette_item#connect#activate ~callback:open_command_palette |> ignore;
+  tools_cmd_palette_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._k;
+  tools_cmd_palette_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._k;
+
+  let tools_diff_abstract_item =
+    GMenu.menu_item ~label:"Diff Abstract Program (previous)" ~packing:tools_menu#append ()
+  in
+  tools_diff_abstract_item#connect#activate ~callback:(fun () -> (!action_diff_abstract_ref) ())
+  |> ignore;
+
+  let tools_monitor_item = GMenu.menu_item ~label:"Automates" ~packing:tools_menu#append () in
+  tools_monitor_item_ref := Some tools_monitor_item;
+  !update_instrumentation_button_state_ref ();
   tools_monitor_item#connect#activate ~callback:run_monitor |> ignore;
   tools_monitor_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
     GdkKeysyms._1;
   tools_monitor_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
     GdkKeysyms._1;
 
-  let tools_obcplus_item = GMenu.menu_item ~label:"OBC+" ~packing:tools_menu#append () in
-  tools_obcplus_item#connect#activate ~callback:run_obcplus |> ignore;
-  tools_obcplus_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
-    GdkKeysyms._2;
-  tools_obcplus_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
-    GdkKeysyms._2;
+  let tools_build_item = GMenu.menu_item ~label:"Build" ~packing:tools_menu#append () in
+  tools_build_item#connect#activate ~callback:run_why |> ignore;
+  tools_build_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._b;
+  tools_build_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._b;
 
-  let tools_why_item = GMenu.menu_item ~label:"Why3" ~packing:tools_menu#append () in
-  tools_why_item#connect#activate ~callback:run_why |> ignore;
-  tools_why_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
-    GdkKeysyms._3;
-  tools_why_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
-    GdkKeysyms._3;
+  let tools_eval_item = GMenu.menu_item ~label:"Eval" ~packing:tools_menu#append () in
+  tools_eval_item#connect#activate ~callback:run_eval |> ignore;
+  tools_eval_item#add_accelerator ~group:accel_group ~modi:[ `CONTROL ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._4;
+  tools_eval_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
+    GdkKeysyms._4;
 
   let tools_prove_item = GMenu.menu_item ~label:"Prove" ~packing:tools_menu#append () in
   tools_prove_item#connect#activate ~callback:run_prove |> ignore;
@@ -5502,6 +7334,27 @@ let () =
     GdkKeysyms._r;
   tools_reset_item#add_accelerator ~group:accel_group ~modi:[ `META ] ~flags:[ `VISIBLE ]
     GdkKeysyms._r;
+
+  let save_session () =
+    let last_file = match !current_file with Some f -> f | None -> "" in
+    let paned_pos = (try paned#position with _ -> 320) in
+    let left_page = (try left_notebook#current_page with _ -> 0) in
+    let center_page = (try notebook#current_page with _ -> 0) in
+    let scope_node = match !goals_scope_node with Some s -> s | None -> "" in
+    let scope_transition = match !goals_scope_transition with Some s -> s | None -> "" in
+    let selected_goal_source = match !selected_goal_source_ref with Some s -> s | None -> "" in
+    Ide_config.save_session_state
+      {
+        Ide_config.last_file;
+        paned_pos;
+        left_page;
+        center_page;
+        scope_node;
+        scope_transition;
+        selected_goal_source;
+      }
+  in
+  window#connect#destroy ~callback:save_session |> ignore;
 
   window#show ();
   Main.main ()

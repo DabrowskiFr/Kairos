@@ -1,0 +1,4 @@
+(executable
+ (name probe_vc)
+ (modules probe_vc)
+ (libraries obcwhy3_lib))

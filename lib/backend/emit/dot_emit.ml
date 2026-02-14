@@ -21,8 +21,8 @@ open Ast_builders
 open Support
 open Automaton_core
 open Fo_specs
-open Monitor_generation
-open Monitor_instrument
+open Automata_generation
+open Instrumentation
 
 let rewrite_history_vars (s : string) : string =
   let len = String.length s in
@@ -104,7 +104,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
           | None -> None)
         atoms
     in
-    let atom_names = Monitor_generation_atoms.make_atom_names atom_exprs in
+    let atom_names = Automata_atoms.make_atom_names atom_exprs in
     let atom_named_exprs = List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names in
     let atom_map = List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names in
     let atom_name_to_fo = List.map2 (fun (a, _) name -> (name, a)) atom_exprs atom_names in
@@ -175,6 +175,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
       | LNot a -> "not " ^ string_of_ltl_inline a
       | LX a -> "X(" ^ string_of_ltl_inline a ^ ")"
       | LG a -> "G(" ^ string_of_ltl_inline a ^ ")"
+      | LW (a, b) -> "(" ^ string_of_ltl_inline a ^ " W " ^ string_of_ltl_inline b ^ ")"
       | LAnd (a, b) -> string_of_ltl_inline a ^ " and " ^ string_of_ltl_inline b
       | LOr (a, b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a, b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
@@ -255,7 +256,7 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
     let n_ast = n in
-    let build = Monitor_generation.build_monitor_for_node n in
+    let build = Automata_generation.build_for_node n in
     let automaton = build.automaton in
     let atom_named_exprs = build.atoms.atom_named_exprs in
     let _atom_names = build.atom_names in
@@ -319,6 +320,7 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
       | LNot a -> "not " ^ string_of_ltl_inline a
       | LX a -> "X(" ^ string_of_ltl_inline a ^ ")"
       | LG a -> "G(" ^ string_of_ltl_inline a ^ ")"
+      | LW (a, b) -> "(" ^ string_of_ltl_inline a ^ " W " ^ string_of_ltl_inline b ^ ")"
       | LAnd (a, b) -> string_of_ltl_inline a ^ " and " ^ string_of_ltl_inline b
       | LOr (a, b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
       | LImp (a, b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b

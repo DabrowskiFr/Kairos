@@ -14,7 +14,7 @@ let dump_ast_stage ~(stage : Stage_names.stage_id) ~(out : string option) ~(stab
   Ok ()
 
 let dump_ast_all ~(dir : string) ~(parsed : Ast.program) ~(automaton : Ast.program)
-    ~(contracts : Ast.program) ~(monitor : Ast.program) ~(obc : Ast.program) ~(stable : bool) :
+    ~(contracts : Ast.program) ~(instrumentation : Ast.program) ~(obc : Ast.program) ~(stable : bool) :
     (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
@@ -39,7 +39,7 @@ let dump_ast_all ~(dir : string) ~(parsed : Ast.program) ~(automaton : Ast.progr
         in
         write_stage Stage_names.Parsed parsed;
         write_stage Stage_names.Automaton automaton;
-        write_stage Stage_names.Monitor monitor;
+        write_stage Stage_names.Instrumentation instrumentation;
         write_stage Stage_names.Contracts contracts;
         write_stage Stage_names.Obc obc;
         Ok ()
@@ -66,8 +66,12 @@ let emit_dot_files ~(show_labels : bool) ~(out_file : string) (program : Ast.pro
       write_text label_path labels;
       Log.output_written "dot_labels" label_path (file_size label_path))
 
-let emit_obc_file ~(out_file : string) (program : Ast.program) : unit =
-  let out = Obc_emit.compile_program program in
+let emit_obc_file ~(out_file : string) ~(use_abstract : bool) (program : Ast.program) : unit =
+  let out =
+    if use_abstract then
+      program |> List.map Abstract_model.of_ast_node |> Abstract_model.render_program
+    else Obc_emit.compile_program program
+  in
   if out_file = "-" then print_string out
   else
     let ensure_ext path =

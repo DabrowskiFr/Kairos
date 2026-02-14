@@ -2,4 +2,4 @@
  (alias runtest)
  (deps
   %{bin:kairos}
-  (glob_files inputs/*.obc)))
+  (glob_files inputs/*.kairos)))

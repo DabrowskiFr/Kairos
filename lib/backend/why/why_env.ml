@@ -31,7 +31,7 @@ let is_mon_state_ctor (s : string) : bool =
   let len = String.length s in
   if len < 4 then false
   else
-    String.sub s 0 3 = "Mon"
+    String.sub s 0 3 = "Aut"
     && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub s 3 (len - 3))
 
 let collect_ctor_iexpr (acc : ident list) (e : iexpr) : ident list =
@@ -62,7 +62,8 @@ let rec collect_ctor_ltl (acc : ident list) (f : fo_ltl) : ident list =
   | LTrue | LFalse -> acc
   | LAtom a -> collect_ctor_fo acc a
   | LNot a | LX a | LG a -> collect_ctor_ltl acc a
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) -> collect_ctor_ltl (collect_ctor_ltl acc a) b
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      collect_ctor_ltl (collect_ctor_ltl acc a) b
 
 let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   match s.stmt with
@@ -97,7 +98,7 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
     (fun (t : transition) ->
       acc := List.fold_left collect_ctor_stmt !acc t.attrs.ghost;
       acc := List.fold_left collect_ctor_stmt !acc t.body;
-      acc := List.fold_left collect_ctor_stmt !acc t.attrs.monitor)
+      acc := List.fold_left collect_ctor_stmt !acc t.attrs.instrumentation)
     n.trans;
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
@@ -132,7 +133,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
             [
               {
                 td_loc = loc;
-                td_ident = ident "mon_state";
+                td_ident = ident "aut_state";
                 td_params = [];
                 td_vis = Public;
                 td_mut = false;
@@ -159,7 +160,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
       ]
   in
   let default_custom_init = function
-    | "mon_state" -> begin
+    | "aut_state" -> begin
         match mon_state_ctors with first :: _ -> Some (mk_var first) | [] -> None
       end
     | _ -> None
@@ -214,7 +215,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
   let is_ghost_local name =
     (String.length name >= 7 && String.sub name 0 7 = "__atom_")
     || (String.length name >= 5 && String.sub name 0 5 = "atom_")
-    || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
     || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
   in
   let local_fields =
@@ -304,7 +305,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
       end
   in
   let init_expr_for_name vname vty =
-    let should_init = vname = "st" || vname = "__mon_state" || vname = "acc" in
+    let should_init = vname = "st" || vname = "__aut_state" || vname = "acc" in
     if should_init then default_expr_for_type vty else any_expr_for_type vty
   in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in

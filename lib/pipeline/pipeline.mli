@@ -9,9 +9,18 @@ type outputs = {
   smt_text : string;
   dot_text : string;
   labels_text : string;
+  guarantee_automaton_text : string;
+  assume_automaton_text : string;
+  product_text : string;
+  obligations_map_text : string;
+  prune_reasons_text : string;
+  guarantee_automaton_dot : string;
+  assume_automaton_dot : string;
+  product_dot : string;
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   obcplus_sequents : (int * string) list;
+  vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
   vc_locs : (int * Ast.loc) list;
   obcplus_spans : (int * (int * int)) list;
@@ -22,16 +31,24 @@ type outputs = {
   vc_ids_ordered : int list;
   obcplus_time_s : float;
   why_time_s : float;
-  monitor_generation_time_s : float;
-  monitor_generation_build_time_s : float;
+  automata_generation_time_s : float;
+  automata_build_time_s : float;
   why3_prep_time_s : float;
   dot_png : string option;
 }
 
-(* Outputs of the monitor‑only pass. *)
-type monitor_outputs = {
+(* Outputs of the instrumentation‑only pass. *)
+type automata_outputs = {
   dot_text : string;
   labels_text : string;
+  guarantee_automaton_text : string;
+  assume_automaton_text : string;
+  product_text : string;
+  obligations_map_text : string;
+  prune_reasons_text : string;
+  guarantee_automaton_dot : string;
+  assume_automaton_dot : string;
+  product_dot : string;
   dot_png : string option;
   stage_meta : (string * (string * string) list) list;
 }
@@ -48,19 +65,22 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 (* AST snapshots per stage (used by IDE/diagnostics). *)
 type ast_stages = {
   parsed : Ast.program;
-  monitor_generation : Ast.program;
-  automata : Middle_end_stages.monitor_generation_stage;
+  automata_generation : Ast.program;
+  automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
-  monitor : Ast.program;
+  instrumentation : Ast.program;
   obc : Ast.program;
+  (* Clean OBC-stage AST view for diagnostics/dumps (no generated contract payload). *)
+  obc_abstract : Abstract_model.node list;
+  (* Canonical abstract OBC program used for backend materialization/proofs. *)
 }
 
 (* Stage metadata aggregated from passes. *)
 type stage_infos = {
   parse : Stage_info.parse_info option;
-  monitor_generation : Stage_info.monitor_generation_info option;
+  automata_generation : Stage_info.automata_info option;
   contracts : Stage_info.contracts_info option;
-  monitor : Stage_info.monitor_info option;
+  instrumentation : Stage_info.instrumentation_info option;
   obc : Stage_info.obc_info option;
 }
 
@@ -98,8 +118,8 @@ val build_ast : ?log:bool -> input_file:string -> unit -> (ast_stages, error) re
 val build_ast_with_info :
   ?log:bool -> input_file:string -> unit -> (ast_stages * stage_infos, error) result
 
-(* Run the monitor‑only pass (dot + labels). *)
-val monitor_pass : generate_png:bool -> input_file:string -> (monitor_outputs, error) result
+(* Run the instrumentation‑only pass (dot + labels). *)
+val instrumentation_pass : generate_png:bool -> input_file:string -> (automata_outputs, error) result
 
 (* Run the OBC text pass. *)
 val obc_pass : input_file:string -> (obc_outputs, error) result
@@ -110,6 +130,18 @@ val why_pass : prefix_fields:bool -> input_file:string -> (why_outputs, error) r
 (* Run VC/SMT exports. *)
 val obligations_pass :
   prefix_fields:bool -> prover:string -> input_file:string -> (obligations_outputs, error) result
+
+(* Evaluate one top-level Kairos node on an input trace.
+   Supported trace formats (auto-detected):
+   - assignments: one step per line, "x=1, y=true"
+   - CSV: header row with input names, then one row per step
+   - JSONL: one JSON object per step, e.g. {"x":1,"y":true} *)
+val eval_pass :
+  input_file:string ->
+  trace_text:string ->
+  with_state:bool ->
+  with_locals:bool ->
+  (string, error) result
 
 (* Full end‑to‑end pipeline run. *)
 val run : config -> (outputs, error) result

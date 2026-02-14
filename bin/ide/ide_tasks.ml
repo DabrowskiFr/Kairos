@@ -46,3 +46,21 @@ let extract_goal_sources vc_text =
       match goal with None -> () | Some g -> if label <> "" then Hashtbl.replace tbl g label)
     tasks;
   tbl
+
+let extract_goal_sources_by_index vc_text =
+  let tbl = Hashtbl.create 64 in
+  let comment_re = Str.regexp "^\\s*\\(\\* \\(.+\\) \\*\\)\\s*$" in
+  let tasks = split_tasks vc_text in
+  List.iteri
+    (fun idx task ->
+      let lines = String.split_on_char '\n' task in
+      let label =
+        List.find_map
+          (fun line ->
+            if Str.string_match comment_re line 0 then Some (Str.matched_group 2 line) else None)
+          lines
+        |> Option.value ~default:""
+      in
+      if label <> "" then Hashtbl.replace tbl idx label)
+    tasks;
+  tbl

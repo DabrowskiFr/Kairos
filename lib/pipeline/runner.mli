@@ -2,6 +2,11 @@ type config = {
   dump_dot : string option;
   dump_dot_short : string option;
   dump_obc : string option;
+  dump_obc_abstract : bool;
+  dump_automata : string option;
+  dump_product : string option;
+  dump_obligations_map : string option;
+  dump_prune_reasons : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
   dump_ast_stage : Stage_names.stage_id option;

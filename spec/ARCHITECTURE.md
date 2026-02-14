@@ -6,11 +6,11 @@ through the toolchain (parser → middle‑end → backend → IDE/CLI).
 ## Repository Layout (Top‑Level)
 
 - `lib/frontend/` — parsing and AST construction.
-- `lib/middle-end/` — AST‑to‑AST passes (monitor generation, contracts, injection).
+- `lib/middle_end/` — AST‑to‑AST passes (automata generation, contracts, instrumentation).
 - `lib/backend/` — Why3 generation, VCs, SMT, proving.
 - `bin/cli/` — CLI entry point.
 - `bin/ide/` — IDE entry point and UI helpers.
-- `lib/common/` — shared types (AST), provenance, stages, utilities.
+- `lib/core/` — shared types (AST), provenance, stages, utilities.
 
 ## Pipeline Overview
 

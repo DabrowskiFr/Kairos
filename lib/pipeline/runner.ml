@@ -2,6 +2,11 @@ type config = {
   dump_dot : string option;
   dump_dot_short : string option;
   dump_obc : string option;
+  dump_obc_abstract : bool;
+  dump_automata : string option;
+  dump_product : string option;
+  dump_obligations_map : string option;
+  dump_prune_reasons : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
   dump_ast_stage : Stage_names.stage_id option;
@@ -36,9 +41,10 @@ let check_stage label checks =
 let run (cfg : config) : (unit, string) result =
   Obc_emit.set_debug_contract_ids cfg.debug_contract_ids;
   let log_stage msg = Log.debug msg in
-  match Pipeline.build_ast ~log:true ~input_file:cfg.input_file () with
+  let result =
+  match Pipeline.build_ast_with_info ~log:true ~input_file:cfg.input_file () with
   | Error err -> Error (Pipeline.error_to_string err)
-  | Ok asts -> (
+  | Ok (asts, infos) -> (
       let r_check =
         if not cfg.check_ast then Ok ()
         else
@@ -47,7 +53,7 @@ let run (cfg : config) : (unit, string) result =
           let r1 =
             match r0 with
             | Error _ as err -> err
-            | Ok () -> check_stage "automaton" (check_program_basic asts.monitor_generation)
+            | Ok () -> check_stage "automaton" (check_program_basic asts.automata_generation)
           in
           let r2 =
             match r1 with
@@ -60,8 +66,8 @@ let run (cfg : config) : (unit, string) result =
             match r2 with
             | Error _ as err -> err
             | Ok () ->
-                check_stage "monitor"
-                  (check_program_basic asts.monitor @ check_program_monitor asts.monitor)
+                check_stage "instrumentation"
+                  (check_program_basic asts.instrumentation @ check_program_monitor asts.instrumentation)
           in
           match r3 with
           | Error _ as err -> err
@@ -70,7 +76,12 @@ let run (cfg : config) : (unit, string) result =
       match r_check with
       | Error _ as err -> err
       | Ok () -> (
-          let obc = if cfg.smoke_tests then with_smoke_tests asts.obc else asts.obc in
+          let obc_clean = asts.obc in
+          let obc_backend =
+            let p = List.map Abstract_model.to_ast_node asts.obc_abstract in
+            if cfg.smoke_tests then with_smoke_tests p else p
+          in
+          let obc = obc_backend in
           let r0 =
             match cfg.dump_ast_stage with
             | None -> Ok ()
@@ -78,10 +89,10 @@ let run (cfg : config) : (unit, string) result =
                 let program =
                   match stage with
                   | Stage_names.Parsed -> asts.parsed
-                  | Stage_names.Automaton -> asts.monitor_generation
+                  | Stage_names.Automaton -> asts.automata_generation
                   | Stage_names.Contracts -> asts.contracts
-                  | Stage_names.Monitor -> asts.monitor
-                  | Stage_names.Obc -> obc
+                  | Stage_names.Instrumentation -> asts.instrumentation
+                  | Stage_names.Obc -> obc_clean
                   | Stage_names.Why | Stage_names.Prove ->
                       invalid_arg "dump-ast does not support why/prove stages"
                 in
@@ -94,28 +105,56 @@ let run (cfg : config) : (unit, string) result =
                 match cfg.dump_ast_all with
                 | None -> Ok ()
                 | Some dir ->
-                    Io.dump_ast_all ~dir ~parsed:asts.parsed ~automaton:asts.monitor_generation
-                      ~contracts:asts.contracts ~monitor:asts.monitor ~obc:asts.obc
+                    Io.dump_ast_all ~dir ~parsed:asts.parsed ~automaton:asts.automata_generation
+                      ~contracts:asts.contracts ~instrumentation:asts.instrumentation ~obc:obc_clean
                       ~stable:cfg.dump_ast_stable
               end
           in
           match r1 with
           | Error _ as err -> err
           | Ok () -> begin
-              match (cfg.dump_dot, cfg.dump_dot_short, cfg.dump_obc) with
-              | Some out_file, None, None ->
+              match
+                ( cfg.dump_dot,
+                  cfg.dump_dot_short,
+                  cfg.dump_obc,
+                  cfg.dump_automata,
+                  cfg.dump_product,
+                  cfg.dump_obligations_map,
+                  cfg.dump_prune_reasons )
+              with
+              | Some out_file, None, None, None, None, None, None ->
                   log_stage "emit dot";
-                  Io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
+                  Io.emit_dot_files ~show_labels:false ~out_file asts.automata_generation;
                   Ok ()
-              | None, Some out_file, None ->
+              | None, Some out_file, None, None, None, None, None ->
                   log_stage "emit dot (short)";
-                  Io.emit_dot_files ~show_labels:false ~out_file asts.monitor_generation;
+                  Io.emit_dot_files ~show_labels:false ~out_file asts.automata_generation;
                   Ok ()
-              | None, None, Some out_file ->
+              | None, None, Some out_file, None, None, None, None ->
                   log_stage "emit obc";
-                  Io.emit_obc_file ~out_file obc;
+                  Io.emit_obc_file ~out_file ~use_abstract:cfg.dump_obc_abstract obc;
                   Ok ()
-              | None, None, None ->
+              | None, None, None, Some out_file, None, None, None ->
+                  let mi = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
+                  let text =
+                    String.concat "\n"
+                      (mi.guarantee_automaton_lines @ [ "" ] @ mi.assume_automaton_lines)
+                  in
+                  Io.write_text out_file text;
+                  Ok ()
+              | None, None, None, None, Some out_file, None, None ->
+                  let mi = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
+                  Io.write_text out_file (String.concat "\n" mi.product_lines);
+                  Ok ()
+              | None, None, None, None, None, Some out_file, None ->
+                  let mi = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
+                  Io.write_text out_file (String.concat "\n" mi.obligations_lines);
+                  Ok ()
+              | None, None, None, None, None, None, Some out_file ->
+                  let mi = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
+                  Io.write_text out_file (String.concat "\n" mi.prune_lines);
+                  Ok ()
+              | None, None, None, None, None, None, None ->
                   log_stage "emit why3";
                   begin match cfg.output_file with
                   | None when not cfg.prove ->
@@ -144,3 +183,5 @@ let run (cfg : config) : (unit, string) result =
                   end
               | _ -> Ok ()
             end))
+  in
+  result

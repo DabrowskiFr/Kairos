@@ -35,7 +35,7 @@ let rec compile_seq (env : env)
         let is_ghost_local name =
           (String.length name >= 7 && String.sub name 0 7 = "__atom_")
           || (String.length name >= 5 && String.sub name 0 5 = "atom_")
-          || (String.length name >= 6 && String.sub name 0 6 = "__mon_")
+          || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
           || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
         in
         let tgt = if is_rec_var env x then field env x else mk_expr (Eident (qid1 x)) in
@@ -141,7 +141,7 @@ let compile_state_branch_ast (env : env)
           | _ -> mk_expr (Eghost (compile_seq env call_asserts t.attrs.ghost))
         in
         let user_expr = compile_seq env call_asserts t.body in
-        let mon_expr = compile_seq env call_asserts t.attrs.monitor in
+        let mon_expr = compile_seq env call_asserts t.attrs.instrumentation in
         let body = seq_exprs [ ghost_expr; user_expr; mon_expr; assign_dst ] in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))

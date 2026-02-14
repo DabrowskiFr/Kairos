@@ -45,7 +45,7 @@ let known_labels : string list =
     "coherency";
     "Compatibility";
     "Assume automaton";
-    "Monitor";
+    "Instrumentation";
     "Internal";
     "Transition requires";
     "Contract requires";

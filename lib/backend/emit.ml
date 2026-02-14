@@ -235,7 +235,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
     "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_fo f
   in
   let comment =
-    let is_monitor = List.exists (fun v -> v.vname = "__mon_state") n.locals in
+    let is_monitor = List.exists (fun v -> v.vname = "__aut_state") n.locals in
     if is_monitor then
       let simplify = Automaton_core.simplify_ltl in
       let prefixes = nodes_ast |> List.map (fun nd -> Support.prefix_for_node nd.nname) in
@@ -282,8 +282,8 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
       in
       let mon_states =
         match mon_state_ctors with
-        | [] -> "  Monitor states: (none)\n"
-        | _ -> "  Monitor states: " ^ String.concat ", " mon_state_ctors ^ "\n"
+        | [] -> "  Instrumentation states: (none)\n"
+        | _ -> "  Instrumentation states: " ^ String.concat ", " mon_state_ctors ^ "\n"
       in
       let transition_contracts =
         let line_for (t : transition) =
@@ -312,7 +312,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
           | [] -> [ "  (none)\n" ]
           | _ -> List.map line_for comment_mon_trans
         in
-        "  Monitor transitions:\n" ^ String.concat "" lines
+        "  Instrumentation transitions:\n" ^ String.concat "" lines
       in
       Printf.sprintf "Module %s\n%s%s%s%s%s" module_name atom_table
         (fmt_list "Assume (simplified LTL)" assumes)
@@ -576,44 +576,13 @@ let emit_program_ast (ast : program_ast) : string =
   in
   let out = insert_spec_group_comments out in
   let out = insert_user_code_comment out in
-  let parenthesize_implications_under_conj s =
-    let contains_sub s sub =
-      let len_s = String.length s in
-      let len_sub = String.length sub in
-      let rec loop i =
-        if i + len_sub > len_s then false
-        else if String.sub s i len_sub = sub then true
-        else loop (i + 1)
-      in
-      if len_sub = 0 then true else loop 0
-    in
-    let lines = Array.of_list (String.split_on_char '\n' s) in
-    let line_count = Array.length lines in
-    let out = Buffer.create (String.length s + 64) in
-    for i = 0 to line_count - 1 do
-      let line = lines.(i) in
-      let line =
-        if contains_sub line "/\\ (" && contains_sub line "->" && not (contains_sub line "/\\ ((")
-        then
-          let replaced = replace_all ~sub:"/\\ (" ~by:"/\\ ((" line in
-          replaced ^ ")"
-        else if contains_sub line "/\\" && contains_sub line "->" then
-          let replaced = replace_all ~sub:" /\\ " ~by:" /\\ (" line in
-          replaced ^ ")"
-        else line
-      in
-      Buffer.add_string out line;
-      if i < line_count - 1 then Buffer.add_char out '\n'
-    done;
-    Buffer.contents out
-  in
-  let out = parenthesize_implications_under_conj out in
+  let out = out in
   let annotate_vars_fields s =
     let has_prefix name p =
       String.length name >= String.length p && String.sub name 0 (String.length p) = p
     in
     let field_comment name =
-      if name = "__mon_state" then Some "monitor state"
+      if name = "__aut_state" then Some "automata state"
       else if has_prefix name "__pre_k" then Some "k-step history"
       else if name = "st" then None
       else Some "user local"

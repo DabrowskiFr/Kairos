@@ -3,6 +3,7 @@
  (public_name kairos)
  (wrapped false)
  (modules
+  abstract_model
   ast
   ast_builders
   ast_provenance
@@ -26,8 +27,8 @@
   contract_coherency
   middle_end_stages
   middle_end
-  monitor_generation_pass_sig
-  monitor_generation_default
+  automata_pass_sig
+  automata_default
   runner
   why_compile_expr
   obc_stage
@@ -43,14 +44,16 @@
   why_emit
   emit
   backend
-  monitor_generation_atoms
-  monitor_generation_spec
-  monitor_generation
-  monitor_generation_pass
-  monitor_instrument
+  automata_atoms
+  automata_spec
+  automata_generation
+  automata_pass
+  gen_hyp
+  gen_obl
+  instrumentation
   middle_end_pass
   contracts_pass
-  monitor_pass
+  instrumentation_pass
   dot_emit
   why_stage
   fo_specs
