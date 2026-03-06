@@ -1,0 +1,5 @@
+(library
+ (name kairos_v2_monitor_layer)
+ (wrapped false)
+ (modules rocq_monitor_sig)
+ (libraries kairos_v2_core_layer kairos_v2_logic_layer))

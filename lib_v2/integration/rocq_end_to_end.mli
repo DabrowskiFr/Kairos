@@ -1,4 +1,6 @@
-type run_config = Rocq_end_to_end.run_config = {
+(** Central v2 orchestrator mirroring Rocq end-to-end layering. *)
+
+type run_config = {
   input_file : string;
   dump_obc : string option;
   dump_obc_abstract : bool;
@@ -10,4 +12,4 @@ type run_config = Rocq_end_to_end.run_config = {
   prover_cmd : string option;
 }
 
-let run_with_native_pipeline (cfg : run_config) : (unit, string) result = Rocq_end_to_end.run cfg
+val run : run_config -> (unit, string) result

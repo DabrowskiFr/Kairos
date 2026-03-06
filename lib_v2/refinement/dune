@@ -1,0 +1,5 @@
+(library
+ (name kairos_v2_refinement_layer)
+ (wrapped false)
+ (modules rocq_refinement_sig)
+ (libraries kairos_v2_logic_layer))

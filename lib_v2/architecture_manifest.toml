@@ -1,0 +1,49 @@
+version = 1
+
+[[mapping]]
+rocq = "core/CoreStepSig.v"
+ocaml = "lib_v2/core/rocq_core_step_sig.mli"
+
+[[mapping]]
+rocq = "monitor/MonitorSig.v"
+ocaml = "lib_v2/monitor/rocq_monitor_sig.mli"
+
+[[mapping]]
+rocq = "logic/FOLanguageSig.v"
+ocaml = "lib_v2/logic/rocq_fo_language_sig.mli"
+
+[[mapping]]
+rocq = "logic/ShiftSpecSig.v"
+ocaml = "lib_v2/logic/rocq_shift_spec_sig.mli"
+
+[[mapping]]
+rocq = "logic/LTLPredicate.v"
+ocaml = "lib_v2/logic/rocq_ltl_predicate_sig.mli"
+
+[[mapping]]
+rocq = "obligations/ObligationTaxonomySig.v"
+ocaml = "lib_v2/obligations/rocq_obligation_taxonomy_sig.mli"
+
+[[mapping]]
+rocq = "obligations/ObligationStratifiedSig.v"
+ocaml = "lib_v2/obligations/rocq_obligation_stratified_sig.mli"
+
+[[mapping]]
+rocq = "obligations/ObligationGenSig.v"
+ocaml = "lib_v2/obligations/rocq_obligation_gen_sig.mli"
+
+[[mapping]]
+rocq = "obligations/ObcAugmentationSig.v"
+ocaml = "lib_v2/obligations/rocq_obc_augmentation_sig.mli"
+
+[[mapping]]
+rocq = "obligations/OracleSemSig.v"
+ocaml = "lib_v2/obligations/rocq_oracle_sem_sig.mli"
+
+[[mapping]]
+rocq = "refinement/RefinementSig.v"
+ocaml = "lib_v2/refinement/rocq_refinement_sig.mli"
+
+[[mapping]]
+rocq = "integration/EndToEndTheorem.v"
+ocaml = "lib_v2/integration/rocq_end_to_end.ml"

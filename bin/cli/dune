@@ -2,10 +2,10 @@
  (name main)
  (public_name kairos)
  (modules main cli)
- (libraries obcwhy3_lib kairos_v2_lib))
+ (libraries obcwhy3_lib kairos_v2_pipeline cmdliner))
 
 (executable
  (name main_v2)
  (public_name kairos_v2)
  (modules main_v2 cli_v2)
- (libraries obcwhy3_lib kairos_v2_lib cmdliner))
+ (libraries obcwhy3_lib kairos_v2_pipeline cmdliner))

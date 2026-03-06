@@ -200,8 +200,8 @@ dans `lib_v2/` pour une structure explicitement v2.
 
 ### Methodologie active
 1. Deplacer le contenu de `lib/` vers `lib_v2/runtime/`.
-2. Conserver les noms de bibliotheques (`obcwhy3_lib`, `kairos_v2_lib`) pour eviter
-   de casser les points d'entree.
+2. Conserver `obcwhy3_lib` pour le runtime historique et introduire des bibliotheques
+   v2 par couche (`kairos_v2_*`) pour aligner le build sur la decomposition Rocq.
 3. Mettre a jour la racine `dune` pour ne plus declarer `lib` dans les dossiers actifs.
 4. Recompiler et executer les commandes smoke CLI v2.
 5. Supprimer/neutraliser les entrees legacy (`runner`, `Pipeline.run*` et passes legacy).
