@@ -1,0 +1,6 @@
+(include_subdirs unqualified)
+
+(library
+ (name kairos_v2_lib)
+ (wrapped false)
+ (libraries obcwhy3_lib cmdliner))

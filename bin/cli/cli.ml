@@ -32,8 +32,8 @@ let log_level_conv =
 let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_product
     dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 dump_json dump_json_stable
     dump_ast dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only
-    smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
-    log_file file =
+    smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids
+    log_level log_file file =
   Log.setup ~level:log_level ~log_file;
   let read_all_stdin () =
     let b = Buffer.create 4096 in
@@ -123,34 +123,8 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
       begin match dump_ast_stage with
       | Error msg -> `Error (false, msg)
       | Ok dump_ast_stage ->
-          let stages_cfg =
-            {
-              Runner.dump_dot;
-              dump_dot_short;
-              dump_obc;
-              dump_obc_abstract;
-              dump_automata;
-              dump_product;
-              dump_obligations_map;
-              dump_prune_reasons;
-              dump_why3_vc;
-              dump_smt2;
-              dump_ast_stage;
-              dump_ast_out;
-              dump_ast_all;
-              dump_ast_stable = dump_ast_stable || dump_json_stable <> None;
-              check_ast;
-              output_file;
-              prove;
-              prover;
-              prover_cmd;
-              wp_only;
-              smoke_tests;
-              debug_contract_ids;
-              prefix_fields = false;
-              input_file = file;
-            }
-          in
+          let _ = dump_ast_stage in
+          let _ = dump_ast_out in
           if eval_trace <> None then (
             let trace_text_res =
               match eval_trace with
@@ -169,8 +143,8 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
             | Error msg -> `Error (false, msg)
             | Ok trace_text -> (
                 match
-                  Pipeline.eval_pass ~input_file:file ~trace_text ~with_state:eval_with_state
-                    ~with_locals:eval_with_locals
+                  Engine_service.eval_pass ~engine:Engine_service.V2 ~input_file:file ~trace_text
+                    ~with_state:eval_with_state ~with_locals:eval_with_locals
                 with
                 | Error err -> `Error (false, Pipeline.error_to_string err)
                 | Ok out ->
@@ -179,8 +153,93 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
                     | Some path -> Io.write_text path out);
                     `Ok ()))
           else
-            begin match Runner.run stages_cfg with Ok () -> `Ok () | Error msg -> `Error (false, msg)
-            end
+            let v2_supported =
+              dump_json = None && dump_json_stable = None && dump_ast = None
+              && dump_ast_all = None && not dump_ast_stable && not check_ast && not wp_only
+              && not smoke_tests && not debug_contract_ids
+            in
+            if not v2_supported then
+              `Error
+                ( false,
+                  "The v1 path has been removed. Unsupported options for v2: ast/json/check/smoke/debug/wp-only."
+                )
+            else (
+              let write_target out text =
+                match out with
+                | "-" -> print_string text
+                | path -> Io.write_text path text
+              in
+              match
+                (dump_dot, dump_dot_short, dump_automata, dump_product, dump_obligations_map, dump_prune_reasons)
+              with
+              | Some out, None, None, None, None, None
+              | None, Some out, None, None, None, None -> (
+                  match
+                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                      ~input_file:file
+                  with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok o ->
+                      let dot_path = if Filename.check_suffix out ".dot" then out else out ^ ".dot" in
+                      write_target dot_path o.dot_text;
+                      let labels_path =
+                        if Filename.check_suffix dot_path ".dot" then
+                          Filename.chop_suffix dot_path ".dot" ^ ".labels"
+                        else dot_path ^ ".labels"
+                      in
+                      write_target labels_path o.labels_text;
+                      `Ok ())
+              | None, None, Some out, None, None, None -> (
+                  match
+                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                      ~input_file:file
+                  with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok o ->
+                      write_target out (o.guarantee_automaton_text ^ "\n\n" ^ o.assume_automaton_text);
+                      `Ok ())
+              | None, None, None, Some out, None, None -> (
+                  match
+                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                      ~input_file:file
+                  with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok o ->
+                      write_target out o.product_text;
+                      `Ok ())
+              | None, None, None, None, Some out, None -> (
+                  match
+                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                      ~input_file:file
+                  with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok o ->
+                      write_target out o.obligations_map_text;
+                      `Ok ())
+              | None, None, None, None, None, Some out -> (
+                  match
+                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                      ~input_file:file
+                  with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok o ->
+                      write_target out o.prune_reasons_text;
+                      `Ok ())
+              | _ ->
+                  let cfg : V2_pipeline.config =
+                    {
+                      input_file = file;
+                      dump_obc;
+                      dump_obc_abstract;
+                      dump_why = output_file;
+                      dump_why3_vc;
+                      dump_smt2;
+                      prove;
+                      prover;
+                      prover_cmd;
+                    }
+                  in
+                  (match V2_pipeline.run cfg with Ok () -> `Ok () | Error msg -> `Error (false, msg)))
       end
 
 let cmd =
@@ -346,7 +405,7 @@ let cmd =
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2
        $ dump_json $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast
        $ output_file $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ eval_trace
-       $ eval_out $ eval_with_state $ eval_with_locals $ debug_contract_ids $ log_level
-       $ log_file $ file))
+       $ eval_out $ eval_with_state $ eval_with_locals $ debug_contract_ids $ log_level $ log_file
+       $ file))
 
 let run () = exit (Cmd.eval cmd)

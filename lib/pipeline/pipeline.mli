@@ -148,6 +148,7 @@ val run : config -> (outputs, error) result
 
 (* Pipeline run with incremental callbacks for the IDE. *)
 val run_with_callbacks :
+  ?should_cancel:(unit -> bool) ->
   config ->
   on_outputs_ready:(outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->

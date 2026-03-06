@@ -660,6 +660,43 @@ This is the relational counterpart of weakest-precondition reasoning: no imperat
 
 This is Hoare-style in spirit, but operationally it is encoded as a family of guarded implications that are composed in the global VC.
 
+### 9.1 Obligation Taxonomy (Implementation-Aligned)
+
+Beyond the abstract `GenHyp`/`GenObl` split, generated and propagated obligations are tracked by origin:
+
+- `UserContract`: user-declared transition contracts.
+- `Coherency`: local temporal chaining (`ensure -> require`) and state-invariant propagation.
+- `Compatibility`: monitor/program compatibility preconditions.
+- `AssumeAutomaton`: assumptions-side automaton constraints.
+- `Instrumentation`: monitor-side obligations (including no-bad constraints).
+- `Internal`: technical linking obligations introduced by the pipeline.
+
+For each transition `t`, we write:
+\[
+Req_t^+ = Req_t^{user}\land Req_t^{coh}\land Req_t^{compat}\land Req_t^{assume}\land Req_t^{instr}\land Req_t^{internal},
+\]
+\[
+Ens_t^+ = Ens_t^{user}\land Ens_t^{coh}\land Ens_t^{nobad}\land Ens_t^{instr}\land Ens_t^{internal}.
+\]
+
+`Req-VC`/`Ens-VC` in Section 9 are understood on these enriched sets.
+
+### 9.2 Semantic Meaning of Obligations
+
+Each obligation `obl` is interpreted on concrete executions of `N`.
+We write:
+\[
+N,k \models obl
+\]
+when `obl` holds at logical step `k` of an execution of `N`.
+
+Global semantic validity on `N`:
+\[
+\models_N obl \iff \forall \text{ executions } \rho,\ \forall k,\ N,k \models obl.
+\]
+
+This is the semantic target used below for oracle assumptions.
+
 ## 10. Soundness Theorem (with Key Lemmas)
 
 ### 10.1 Lemma 1 (Local generation exactness)
@@ -711,6 +748,41 @@ then:
 
 Therefore \(\rho\!\upharpoonright_{I\cup O} \models G\).
 
+### 10.5 Fully Explicit Conditional Theorem (Oracle Form)
+
+We now restate the result with explicit hypotheses:
+
+H1. Program step semantics is total and deterministic (`Det-Step`).  
+H2. Stream semantics `run(N,u)` is exactly the one of Section 4.  
+H3. Interpretation domains are fixed: `A` on `Str(I)`, `G` on `Str(I \cup O)`.  
+H4. `A` and `G` belong to the safety fragment accepted by the compilation.  
+H5. LTL-to-automata correctness:
+\[
+u \models A \iff run_{\mathcal A}(u)\text{ avoids }bad_A,\quad
+w \models G \iff run_{\mathcal G}(w)\text{ avoids }bad_G.
+\]
+H6. Step/product correspondence: each concrete step corresponds to the enumerated local product combinations, and conversely satisfiable enumerated combinations denote feasible local steps.
+H7. Coverage of bad-target generation: every concrete step that reaches \(q'_G=bad_G\) with \(q'_A \neq bad_A\) is covered by some generated `GenObl` obligation.
+H8. Local adequacy: if \(\models_N obl(c)\), then the concrete local combination \(c\) is impossible.
+H9. Temporal well-formedness for history operators (`pre_k`, shift, local chaining), so all generated formulas are semantically defined where used.
+H10. Oracle soundness:
+\[
+Oracle(obl)=true \Rightarrow \models_N obl.
+\]
+H11. Complete validation:
+\[
+\forall obl \in GenOblAll(N,\mathcal A,\mathcal G),\ Oracle(obl)=true.
+\]
+
+where \(GenOblAll\) is the full generated/propagated obligation set used in local pre/post reasoning.
+
+Under H1-H11:
+\[
+\forall u\in Str(I),\quad u \models A \Rightarrow run(N,u)\models G.
+\]
+
+Proof sketch: identical contradiction argument as 10.4, replacing backend-validity assumptions by H10+H11 and using H6-H9 to close all semantic side conditions.
+
 ## 11. Implementation Mapping and Pass Order
 
 From the implementation perspective, the pipeline is:
@@ -749,5 +821,9 @@ This formalization relies on:
 - correctness of contract-to-automata construction,
 - adequacy of product reachability/enumeration for relevant combinations,
 - soundness of SAT/WP backends used to discharge obligations.
+
+In oracle mode, the last item is replaced by oracle soundness/completeness assumptions (Section 10.5, H10-H11).
+
+This document is now the single reference for both backend-discharge and oracle-conditional soundness.
 
 A practical caution is that systematically trivial generated formulas (for example \(\neg(true\land true\land true)\)) often indicate a construction issue, typically around bad-state propagation.

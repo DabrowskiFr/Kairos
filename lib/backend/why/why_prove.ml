@@ -243,6 +243,7 @@ let rec prove_text ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : strin
     prove_tasks_with_details ~write_text ~driver ~main ~limits ~command ~use_direct_z3
       ~prove_with_z3_direct ~goal_labels:(Hashtbl.create 0) ~vc_ids_ordered:None
       ~selected_goal_index:None
+      ~should_cancel:(fun () -> false)
       ~on_goal_start:(fun _ _ -> ())
       ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
       tasks_with_wids
@@ -257,6 +258,7 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
     ~(use_direct_z3 : bool) ~(prove_with_z3_direct : Buffer.t -> Call_provers.prover_answer)
     ~(goal_labels : (string, string) Hashtbl.t) ~(vc_ids_ordered : int list option)
     ~(selected_goal_index : int option)
+    ~(should_cancel : unit -> bool)
     ~(on_goal_start : int -> string -> unit)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit)
@@ -272,6 +274,7 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
   let total_tasks = List.length indexed_tasks in
   let rec loop pos acc details = function
     | [] -> (finalize_summary acc, List.rev details)
+    | _ when should_cancel () -> (finalize_summary acc, List.rev details)
     | (orig_idx, (task, seed_wids)) :: rest ->
         if pos = 0 || pos = total_tasks - 1 || (pos + 1) mod 10 = 0 then
           Log.stage_info (Some Stage_names.Prove)
@@ -289,6 +292,8 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
           with _ -> "goal"
         in
         on_goal_start orig_idx goal;
+        if should_cancel () then (finalize_summary acc, List.rev details)
+        else
         let t0 = Unix.gettimeofday () in
         let answer =
           if use_direct_z3 then prove_with_z3_direct buffer
@@ -357,9 +362,13 @@ and prove_tasks_with_details ~(write_text : string -> string -> unit) ~(driver :
                 Some (string_of_int vc_id)
         in
         on_goal_done orig_idx goal status elapsed dump_path provenance vcid;
-        loop (pos + 1) (add_answer acc answer)
-          ((goal, status, elapsed, dump_path, provenance, vcid) :: details)
-          rest
+        if should_cancel () then
+          ( finalize_summary (add_answer acc answer),
+            List.rev ((goal, status, elapsed, dump_path, provenance, vcid) :: details) )
+        else
+          loop (pos + 1) (add_answer acc answer)
+            ((goal, status, elapsed, dump_path, provenance, vcid) :: details)
+            rest
   in
   loop 0 empty_summary [] indexed_tasks
 
@@ -583,7 +592,8 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
   in
   List.map (fun (t, _wids) -> task_to_smt2 t) tasks_with_wids
 
-let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goal_index ~(prover : string)
+let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goal_index
+    ?(should_cancel = fun () -> false) ~(prover : string)
     ~(text : string) ~(vc_ids_ordered : int list option) ~(on_goal_start : int -> string -> unit)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit) () :
@@ -699,13 +709,14 @@ let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goa
     extract_goal_labels_from_tasks tasks
   in
   prove_tasks_with_details ~write_text ~driver ~main ~limits ~command ~use_direct_z3
-    ~prove_with_z3_direct ~goal_labels ~vc_ids_ordered ~selected_goal_index ~on_goal_start
+    ~prove_with_z3_direct ~goal_labels ~vc_ids_ordered ~selected_goal_index ~should_cancel ~on_goal_start
     ~on_goal_done tasks_with_wids
 
-let prove_text_detailed ?(timeout = 30) ?prover_cmd ?selected_goal_index ~(prover : string)
+let prove_text_detailed ?(timeout = 30) ?prover_cmd ?selected_goal_index
+    ?(should_cancel = fun () -> false) ~(prover : string)
     ~(text : string) () :
     summary * (string * string * float * string option * string * string option) list =
   let noop_start _ _ = () in
   let noop_done _ _ _ _ _ _ _ = () in
-  prove_text_detailed_with_callbacks ~timeout ?prover_cmd ?selected_goal_index ~prover ~text
+  prove_text_detailed_with_callbacks ~timeout ?prover_cmd ?selected_goal_index ~should_cancel ~prover ~text
     ~vc_ids_ordered:None ~on_goal_start:noop_start ~on_goal_done:noop_done ()

@@ -1,7 +1,7 @@
 open Ide_text_utils
 
 let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~comment_tag
-    ~state_tag text =
+    ~state_tag _text =
   let start_iter = buf#start_iter in
   let end_iter = buf#end_iter in
   buf#remove_all_tags ~start:start_iter ~stop:end_iter;
@@ -139,7 +139,7 @@ let highlight_obc_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~
   ()
 
 let highlight_abstract_buf ~(buf : GText.buffer) ~keyword_tag ~type_tag ~number_tag ~comment_tag
-    ~state_tag text =
+    ~state_tag _text =
   let start_iter = buf#start_iter in
   let end_iter = buf#end_iter in
   buf#remove_all_tags ~start:start_iter ~stop:end_iter;

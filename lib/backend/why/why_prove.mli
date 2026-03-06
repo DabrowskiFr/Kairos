@@ -31,6 +31,7 @@ val prove_text_detailed :
   ?timeout:int ->
   ?prover_cmd:string ->
   ?selected_goal_index:int ->
+  ?should_cancel:(unit -> bool) ->
   prover:string ->
   text:string ->
   unit ->
@@ -41,6 +42,7 @@ val prove_text_detailed_with_callbacks :
   ?timeout:int ->
   ?prover_cmd:string ->
   ?selected_goal_index:int ->
+  ?should_cancel:(unit -> bool) ->
   prover:string ->
   text:string ->
   vc_ids_ordered:int list option ->

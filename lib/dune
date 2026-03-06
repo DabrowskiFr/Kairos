@@ -23,6 +23,11 @@
   stages_info
   log
   io
+  obligation_taxonomy
+  engine_service
+  pipeline_v2_indep
+  lsp_app
+  lsp_services
   pipeline
   contract_coherency
   middle_end_stages
@@ -70,7 +75,7 @@
   automaton_guard
   automaton_residual
   automaton_core)
- (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult)
+ (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult yojson kairos_lsp_protocol)
  (preprocess
   (pps ppx_deriving.show sedlex.ppx)))
 

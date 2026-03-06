@@ -1149,7 +1149,8 @@ let run (cfg : config) : (outputs, error) result =
           }
       with exn -> Error (Stage_error (Printexc.to_string exn)))
 
-let run_with_callbacks (cfg : config) ~(on_outputs_ready : outputs -> unit)
+let run_with_callbacks ?(should_cancel = fun () -> false) (cfg : config)
+    ~(on_outputs_ready : outputs -> unit)
     ~(on_goals_ready : string list * int list -> unit)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit) :
@@ -1276,12 +1277,13 @@ let run_with_callbacks (cfg : config) ~(on_outputs_ready : outputs -> unit)
             dot_png;
           };
         on_goals_ready (goal_names, vc_ids_ordered);
-        let should_prove = cfg.prove && not cfg.wp_only in
+        let should_prove = cfg.prove && not cfg.wp_only && not (should_cancel ()) in
         let goals =
           if should_prove then
             let summary, goals =
               Why_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s ~prover:cfg.prover
                 ?prover_cmd:cfg.prover_cmd ~text:why_text ~vc_ids_ordered:(Some vc_ids_ordered)
+                ~should_cancel
                 ~on_goal_start:(fun _ _ -> ())
                 ~on_goal_done ()
             in

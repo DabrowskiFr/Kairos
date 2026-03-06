@@ -1,0 +1,815 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{automata,positioning,arrows.meta}
+\geometry{margin=2.5cm}
+
+\newtheorem{definition}{Définition}[section]
+\newtheorem{theorem}[definition]{Théorème}
+\newtheorem{lemma}[definition]{Lemme}
+\newtheorem{proposition}[definition]{Proposition}
+\newtheorem{remark}[definition]{Remarque}
+
+\newcommand{\Nat}{\mathbb{N}}
+\newcommand{\Stream}[1]{\mathrm{Str}(#1)}
+\newcommand{\True}{\mathsf{true}}
+\newcommand{\False}{\mathsf{false}}
+
+\title{Formalisation Mathématique du Modèle Oracle\\
+\large (abstraction programme/automates, obligations locales et correction)}
+\author{Projet Kairos}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Objectif}
+
+Cette note formalise un schéma de preuve pour un programme synchrone à état, décrit
+par un automate de contrôle \(S\) couplé à une mémoire \(M\). Un pas d'exécution lit
+une entrée courante \(i\in I\), part d'un état de contrôle \(s\in S\) et d'une mémoire
+courante \(m\in M\), puis produit un état de contrôle suivant \(s'\in S\), une mémoire
+suivante \(m'\in M\) et une sortie \(o\in O\). On note ce pas local
+\[
+(s,m,i)\longmapsto (s',m',o).
+\]
+Il est réalisé par une transition de l'automate de contrôle, munie d'une garde,
+d'une mise à jour mémoire et d'une fonction de sortie.
+
+Cette dynamique locale est ensuite itérée sur un flux d'entrée
+\(u\in\Stream{I}\), noté
+\[
+u=(i_0,i_1,\dots),
+\]
+ce qui induit simultanément une suite de configurations
+\[
+(s_0,m_0)\to(s_1,m_1)\to(s_2,m_2)\to\cdots
+\]
+et un flux de sortie
+\[
+y=(o_0,o_1,\dots)\in\Stream{O},
+\]
+d'où la trace observable entrée/sortie
+\[
+\mathrm{run}(u)=( (i_0,o_0),(i_1,o_1),\dots )\in\Stream{I\times O}.
+\]
+
+La spécification externe est donnée par deux automates de sûreté: un automate
+d'hypothèse \(A\), interprété sur les entrées, et un automate de garantie \(G\),
+interprété sur la trace \(\mathrm{run}(u)\). Le cadre est déterministe: au tick
+courant, le programme sélectionne une transition unique, et chaque automate
+(\(A\) et \(G\)) sélectionne une arête unique pour la paire
+(état courant, observation courante).
+
+Les obligations générées sont de deux natures:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{obligations issues du produit} programme \(\times\) automates
+(\texttt{Compatibility}/\texttt{Instrumentation} selon la classification),
+construites à partir des pas produits bien formés et de leurs cibles (sûres ou dangereuses);
+\item \textbf{obligations de contrat local} déjà attachées aux transitions
+(\texttt{UserContract}, \texttt{Coherency}, etc., selon la provenance).
+\end{itemize}
+
+Le mécanisme de preuve est local par transition (lecture Hoare): chaque obligation
+est évaluée sur un contexte de pas, puis propagée le long des exécutions.
+L'oracle est supposé certifier la validité de ces obligations locales.
+Le résultat visé est donc explicitement \emph{conditionnel}:
+si les obligations/contrats locaux générés sur les transitions sont validés,
+alors la garantie globale de sûreté est satisfaite sous l'hypothèse d'entrée.
+
+Formellement, on établit:
+\[
+\forall u \in \Stream{I},\quad \mathrm{AvoidA}(u)\Rightarrow \mathrm{AvoidG}(\mathrm{run}(u)),
+\]
+où \(\mathrm{AvoidA}\) et \(\mathrm{AvoidG}\) signifient ``n'atteint jamais l'état \(\mathit{bad}\)'' dans les automates de sûreté correspondants.
+
+\section{Préliminaires: notations et conventions}
+
+\subsection{Conventions de nommage}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Domaines/types} (majuscules): \(I,O,M,S,Q,\dots\)
+\item \textbf{Éléments} (minuscules): \(i\in I,\ o\in O,\ m\in M,\ s\in S,\ q\in Q\)
+\item \textbf{Flux} (lettres \(u,w\)): \(u\in \Stream{I}\), \(w\in \Stream{I\times O}\)
+\item \textbf{Transitions/arêtes}: \(t\) pour le programme, \(e_A,e_G\) pour automates
+\item \textbf{Fonctions de transition}:
+  \(\delta_A,\delta_G\) pour automates; \(\mathrm{step}\) pour programme
+\item \textbf{Indices temporels}:
+  \(k,j,n\in\Nat\), avec \(k\) ``tick courant'', \(k+1\) ``tick suivant''
+\item \textbf{États initiaux}: indice \(0\), notés \(s_0,m_0,q_0\)
+\item \textbf{États mauvais}: notés \(bad_A,bad_G\)
+\end{itemize}
+
+\subsection{Notations mathématiques globales}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \(\Stream{X} := \Nat \to X\) (flux infini de valeurs de \(X\))
+\item \(\mathrm{run}(u)\) : trace observable entrée/sortie produite par le programme sous \(u\)
+\item \(\mathrm{AvoidA}(u)\) : ``\(A\) n'atteint jamais \(bad_A\) sur \(u\)''
+\item \(\mathrm{AvoidG}(\mathrm{run}(u))\) : ``\(G\) n'atteint jamais \(bad_G\) sur \(\mathrm{run}(u)\)''
+\item \(\mathrm{cfg}(u,k)\) : configuration interne du programme au tick \(k\)
+\item \(\mathrm{rps}(u,k)\) : état du produit au tick \(k\)
+\item \(\mathrm{BadLocal}(u,k)\) : existence d'un pas local dangereux au tick \(k\)
+\item \(\mathrm{GeneratedBy}(o,t,\varphi)\) : \(\varphi\) est générée (origine \(o\), transition \(t\))
+\end{itemize}
+
+\subsection{Conventions de produits et projections}
+
+Pour un tuple \((a,b,c)\), on utilise des fonctions de projection nommées par domaine
+(par exemple composante programme, composante automate \(A\), composante automate \(G\)).
+Dans les définitions formelles, ces projections sont toujours explicites afin d'éviter les ambiguïtés
+entre ``état courant'' et ``état cible'' d'un pas.
+
+\subsection{Conventions logiques}
+
+\begin{itemize}[leftmargin=1.4em]
+\item Toutes les obligations locales sont des prédicats booléens sur un contexte de pas.
+\item ``Valide'' signifie: vrai pour tout tick, sur toute exécution.
+\item Les implications ``oracle correct'' sont lues dans le sens soundness:
+  \[
+  \mathrm{Oracle}(\varphi)=\True \Rightarrow \varphi\ \text{valide}.
+  \]
+\item Les preuves par contradiction utilisent explicitement:
+  \[
+  \neg \forall k\,P(k) \Rightarrow \exists k\,\neg P(k)
+  \]
+  sur \(\Nat\).
+\end{itemize}
+
+\section{Lecture par étapes avec deux exemples fil rouge}
+
+Cette section donne une vue opérationnelle de la chaîne complète, en parallèle sur
+\texttt{delay\_int} et \texttt{toggle}.
+
+\subsection{Étape 1 --- Programme \(\to\) automate de contrôle}
+
+\paragraph{delay\_int.}
+On considère un automate à deux états:
+\[
+s_{\mathit{init}}\xrightarrow{\ \top\ /\ o:=0,\ m':=i\ }s_{\mathit{run}},\qquad
+s_{\mathit{run}}\xrightarrow{\ \top\ /\ o:=m,\ m':=i\ }s_{\mathit{run}}.
+\]
+
+\paragraph{toggle.}
+Le programme alterne \(0/1\) en sortie, avec deux états de contrôle:
+\[
+t_{\mathit{init}}:\ \tau_{\mathit{init}}\to\tau_{\mathit{run}},\ o:=0,\ m':=1,
+\]
+\[
+t_{\mathit{run}}:\ \tau_{\mathit{run}}\to\tau_{\mathit{run}},\ o:=m,\ m':=1-m.
+\]
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,node distance=2.9cm,semithick]
+  \node[align=center] at (-3.1,1.8) {\textbf{delay\_int}};
+  \node[state,initial] (dinit) at (-4.1,0) {$s_{\mathit{init}}$};
+  \node[state] (drun) at (-1.2,0) {$s_{\mathit{run}}$};
+  \path[->]
+    (dinit) edge node[midway,above,align=center] {$\top$\\$o:=0,\ m':=i$} (drun)
+    (drun) edge[loop right] node[right,align=left] {$\top$\\$o:=m,\ m':=i$} (drun);
+
+  \node[align=center] at (3.6,1.8) {\textbf{toggle}};
+  \node[state,initial] (tinit) at (2.6,0) {$\tau_{\mathit{init}}$};
+  \node[state] (trun) at (5.5,0) {$\tau_{\mathit{run}}$};
+  \path[->]
+    (tinit) edge node[midway,above,align=center] {$\top$\\$o:=0,\ m':=1$} (trun)
+    (trun) edge[loop right] node[right,align=left] {$\top$\\$o:=m,\ m':=1-m$} (trun);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Étape 2 --- Sémantique de flux}
+
+\paragraph{delay\_int.}
+Pour \(u=(u_0,u_1,\dots)\), on obtient:
+\[
+y=(0,u_0,u_1,\dots).
+\]
+
+\paragraph{toggle.}
+Sans entrée utile (ou entrée ignorée), la sortie est:
+\[
+y=(0,1,0,1,\dots).
+\]
+
+\subsection{Étape 3 --- Automates d'hypothèse et de garantie}
+
+\paragraph{delay\_int.}
+\begin{itemize}[leftmargin=1.4em]
+\item \(A\): automate d'entrée permissif (reste en \(\mathit{ok}\)).
+\item \(G\): vérifie \(o(0)=0\) puis \(o(k+1)=i(k)\).
+\end{itemize}
+
+\paragraph{toggle.}
+\begin{itemize}[leftmargin=1.4em]
+\item \(A\): trivial (aucune contrainte d'entrée).
+\item \(G\): vérifie \(o(0)=0\), puis alternance \(0\leftrightarrow 1\).
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,node distance=3.3cm,semithick]
+  \node[align=center] at (-3.1,1.7) {\textbf{\(G\) de delay\_int}};
+  \node[state,initial] (gd0) at (-4.6,0) {$g_{\mathit{init}}$};
+  \node[state] (gd1) at (-1.6,0) {$g_{\mathit{run}}(z)$};
+  \node[state] (gdb) at (-3.1,-2.0) {$g_{\mathit{bad}}$};
+  \path[->]
+    (gd0) edge node[midway,above] {$o=0$} (gd1)
+    (gd0) edge node[midway,left] {$o\neq 0$} (gdb)
+    (gd1) edge[loop right] node[right] {$o=z$} (gd1)
+    (gd1) edge node[midway,right] {$o\neq z$} (gdb)
+    (gdb) edge[loop below] node {$\top$} (gdb);
+
+  \node[align=center] at (4.4,1.7) {\textbf{\(G\) de toggle}};
+  \node[state,initial] (gt0) at (2.4,0) {$h_{\mathit{init}}$};
+  \node[state] (gtz) at (5.1,0.8) {$h_0$};
+  \node[state] (gto) at (5.1,-0.8) {$h_1$};
+  \node[state] (gtb) at (7.4,0) {$h_{\mathit{bad}}$};
+  \path[->]
+    (gt0) edge node[midway,above] {$o=0$} (gtz)
+    (gt0) edge node[midway,below] {$o\neq 0$} (gtb)
+    (gtz) edge[bend left=18] node[above] {$o=1$} (gto)
+    (gto) edge[bend left=18] node[below] {$o=0$} (gtz)
+    (gtz) edge node[midway,above] {$o\neq 1$} (gtb)
+    (gto) edge node[midway,below] {$o\neq 0$} (gtb)
+    (gtb) edge[loop right] node {$\top$} (gtb);
+\end{tikzpicture}
+\end{center}
+
+\subsection{Étape 4 --- Produit programme \(\times A \times G\)}
+
+État produit:
+\[
+PS := S\times Q_A\times Q_G.
+\]
+Un tick calcule un pas programme, puis fait avancer \(A\) avec \(i(k)\) et \(G\) avec \((i(k),o(k))\).
+
+\paragraph{delay\_int.}
+\[
+(s_{\mathit{init}},a_{\mathit{ok}},g_{\mathit{init}})
+\to
+(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_0))
+\to \cdots
+\]
+
+\paragraph{toggle.}
+\[
+(\tau_{\mathit{init}},a_{\mathit{ok}},h_{\mathit{init}})
+\to
+(\tau_{\mathit{run}},a_{\mathit{ok}},h_0)
+\to
+(\tau_{\mathit{run}},a_{\mathit{ok}},h_1)
+\to \cdots
+\]
+
+\subsection{Étape 5 --- Obligations locales par transition}
+
+Chaque transition (ou pas produit) génère des obligations locales sur le contexte du tick.
+Le schéma canonique est une obligation de non-matching:
+\[
+\mathrm{obl}_p(c) := \neg\,\mathrm{match}(c,p).
+\]
+Si un pas dangereux est effectivement réalisé, l'obligation associée est falsifiée au tick courant.
+
+\paragraph{delay\_int.}
+Une violation \(o(k+1)\neq i(k)\) force la composante garantie en \(\mathit{bad}\), donc produit un
+pas local dangereux couvert par une obligation générée.
+
+\paragraph{toggle.}
+Une répétition \(0,0\) ou \(1,1\) en sortie provoque une transition de \(G\) vers \(\mathit{bad}\),
+donc une obligation locale violée au tick correspondant.
+
+\subsection{Étape 6 --- Catégories d'obligations}
+
+La formalisation distingue explicitement:
+\begin{itemize}[leftmargin=1.4em]
+\item \texttt{ObjectiveNoBad},
+\item \texttt{CoherencyGoal},
+\item \texttt{SupportAutomaton},
+\item \texttt{SupportUserInvariant}.
+\end{itemize}
+Cette taxonomie est utilisée par les noyaux de correction (objectif + cohérence), pour
+\texttt{delay\_int} et \texttt{toggle} de la même manière.
+
+\paragraph{Couverture explicite de l'OBC augmenté.}
+Au niveau pré-Why3 (formules injectées dans l'OBC/Kairos augmenté), la formalisation
+inclut maintenant une partition fine des familles:
+\begin{itemize}[leftmargin=1.4em]
+\item \texttt{FamTransitionRequires}, \texttt{FamTransitionEnsures},
+\item \texttt{FamCoherencyRequires}, \texttt{FamCoherencyEnsuresShifted},
+\item \texttt{FamInitialCoherencyGoal},
+\item \texttt{FamNoBadRequires}, \texttt{FamNoBadEnsures},
+\item \texttt{FamMonitorCompatibilityRequires},
+\item \texttt{FamStateAwareAssumptionRequires}.
+\end{itemize}
+Cette couche est capturée par \texttt{obligations/ObcAugmentationSig.v}.
+
+\subsection{Étape 7 --- Pont vers l'outil externe}
+
+Le coeur mathématique reste au niveau ``triplets/obligations de transition''.
+L'implémentation traduit ensuite ces triplets vers un format externe (Why3), possiblement
+avec encodage de l'état automate par variables de programme.
+
+La preuve suppose uniquement:
+\[
+\text{(validité externe de l'encodage)} \Rightarrow \text{(validité des triplets abstraits)}.
+\]
+Donc \texttt{delay\_int} et \texttt{toggle} partagent la même architecture de preuve,
+indépendamment du format concret envoyé à Why3.
+
+\subsection{Étape 8 --- Théorème global}
+
+Pour chaque exemple:
+\[
+\forall u,\ \mathrm{AvoidA}(u)\Rightarrow \mathrm{AvoidG}(\mathrm{run}(u)).
+\]
+
+\paragraph{delay\_int.}
+Sous hypothèse d'entrée admissible, la sortie respecte toujours
+\(y=(0,u_0,u_1,\dots)\), donc \(G\) reste hors \(\mathit{bad}\).
+
+\paragraph{toggle.}
+Le premier tick impose \(y_0=0\), puis l'alternance est préservée à chaque tick;
+l'automate garantie n'atteint jamais \(\mathit{bad}\).
+
+\section{Notations et structures de base}
+
+\subsection{Flux et domaines}
+
+On fixe les types:
+\[
+I \text{ (valeurs d'entrée)},\quad O \text{ (valeurs de sortie)},\quad
+M \text{ (mémoire)},\quad S \text{ (état de contrôle)}.
+\]
+Un flux est une fonction \(\Nat\to X\), notée \(\Stream{X}\).
+
+\subsection{Automate de programme}
+
+\begin{definition}[Transition de programme]
+Une transition de programme \(t\in T\) est munie de:
+\[
+\mathrm{src}(t)\in S,\quad \mathrm{dst}(t)\in S,\quad
+\mathrm{guard}(t):M\times I\to \{\True,\False\},
+\]
+\[
+\mathrm{upd}(t):M\times I\to M,\quad
+\mathrm{out}(t):M\times I\to O.
+\]
+\end{definition}
+
+\begin{definition}[Activation et résultat]
+Pour \(s\in S,m\in M,i\in I\):
+\[
+\mathrm{enabled}(t,s,m,i)\;:\!\!\iff\; \mathrm{src}(t)=s\land \mathrm{guard}(t,m,i).
+\]
+Le résultat de \(t\) sur \((m,i)\) est:
+\[
+\mathrm{res}(t,m,i)=\bigl(\mathrm{dst}(t),\mathrm{upd}(t,m,i),\mathrm{out}(t,m,i)\bigr).
+\]
+\end{definition}
+
+\begin{definition}[Sémantique déterministe du pas]
+On se donne un sélecteur déterministe
+\[
+\mathrm{prog\_select}:S\times M\times I\to T
+\]
+tel que \(\mathrm{enabled}(\mathrm{prog\_select}(s,m,i),s,m,i)\) pour tout \((s,m,i)\).
+Le pas du programme est alors
+\[
+\mathrm{step}(s,m,i):=\mathrm{res}(\mathrm{prog\_select}(s,m,i),m,i).
+\]
+\end{definition}
+
+\subsection{Exemple: retard d'une entrée d'un pas}
+On illustre la définition précédente avec un programme qui produit en sortie l'entrée retardée d'un tick,
+en injectant explicitement la constante $0$ au premier tick. On fixe $I=O=M=\mathbb{Z}$, deux états de contrôle
+$S=\{s_{\mathit{init}},s_{\mathit{run}}\}$ et deux transitions $T=\{t_{\mathit{init}},t_{\mathit{run}}\}$ définies par:
+\[
+\begin{aligned}
+\mathrm{src}(t_{\mathit{init}})&=s_{\mathit{init}},&
+\mathrm{dst}(t_{\mathit{init}})&=s_{\mathit{run}},&
+\mathrm{guard}(t_{\mathit{init}})(m,i)&=\True,\\
+\mathrm{upd}(t_{\mathit{init}},m,i)&=i,&
+\mathrm{out}(t_{\mathit{init}},m,i)&=0,\\[0.4em]
+\mathrm{src}(t_{\mathit{run}})&=s_{\mathit{run}},&
+\mathrm{dst}(t_{\mathit{run}})&=s_{\mathit{run}},&
+\mathrm{guard}(t_{\mathit{run}})(m,i)&=\True,\\
+\mathrm{upd}(t_{\mathit{run}},m,i)&=i,&
+\mathrm{out}(t_{\mathit{run}},m,i)&=m.
+\end{aligned}
+\]
+L'état initial de contrôle est $s_0=s_{\mathit{init}}$ et la mémoire initiale $m_0\in M$ est non déterminée.
+La première sortie vaut néanmoins toujours $0$, car elle est fixée par $\mathrm{out}(t_{\mathit{init}},m,i)=0$
+indépendamment de $m$. Si $u=(u_0,u_1,u_2,\dots)$, la sémantique de flux induit:
+\[
+y(0)=0,\qquad y(k+1)=u(k)\ \text{ pour tout }k\in\Nat,
+\]
+donc explicitement
+\[
+y=(0,u_0,u_1,u_2,\dots).
+\]
+L'automate de contrôle correspondant est:
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,node distance=4.2cm,semithick]
+  \node[state,initial] (sinit) {$s_{\mathit{init}}$};
+  \node[state,right of=sinit] (srun) {$s_{\mathit{run}}$};
+  \path[->]
+    (sinit) edge node[midway,above] {$\top\,/\,o:=0,\ m':=i$} (srun)
+    (srun) edge[loop right] node[right,align=left] {$\top\,/\,o:=m,$\\$m':=i$} (srun);
+\end{tikzpicture}
+\end{center}
+Ce programme est déterministe: le premier tick exécute $t_{\mathit{init}}$, puis tous les ticks suivants
+exécutent $t_{\mathit{run}}$.
+
+\subsection{Exécution du programme}
+
+Soient \(s_0\in S\), \(m_0\in M\) les conditions initiales.
+Pour \(u\in \Stream{I}\), on définit récursivement:
+\[
+\mathrm{cfg}(u,0)=(s_0,m_0),
+\]
+\[
+\mathrm{cfg}(u,k+1)=\pi_{S,M}\!\left(\mathrm{step}\bigl(\mathrm{cfg}(u,k),u(k)\bigr)\right),
+\]
+et la sortie au tick \(k\):
+\[
+o_u(k)=\pi_O\!\left(\mathrm{step}\bigl(\mathrm{cfg}(u,k),u(k)\bigr)\right).
+\]
+La trace observable est:
+\[
+\mathrm{run}(u)(k)=\bigl(u(k),o_u(k)\bigr)\in I\times O.
+\]
+
+\section{Automates de sûreté (hypothèse/garantie)}
+
+\subsection{Vue arêtes étiquetées}
+
+\begin{definition}[Automate de sûreté]
+Un automate de sûreté sur \(X\) est donné par:
+\[
+(Q,q_0,bad,E,\mathrm{src}_E,\mathrm{dst}_E,\lambda_E),
+\]
+où \(\lambda_E(e):X\to \{\True,\False\}\) est un label (formule FO vue comme prédicat).
+\end{definition}
+
+\begin{definition}[Sélecteur d'arête]
+On suppose un sélecteur déterministe d'arête
+\[
+\mathrm{select}:Q\times X\to E
+\]
+tel que, pour tout \((q,x)\):
+\[
+\mathrm{src}_E(\mathrm{select}(q,x))=q,\qquad
+\lambda_E(\mathrm{select}(q,x))(x)=\True.
+\]
+Le pas d'automate est:
+\[
+\delta(q,x):=\mathrm{dst}_E(\mathrm{select}(q,x)).
+\]
+\end{definition}
+
+On instancie cela pour:
+\begin{itemize}[leftmargin=1.4em]
+\item l'automate d'hypothèse \(A\) sur \(I\),
+\item l'automate de garantie \(G\) sur \(I\times O\).
+\end{itemize}
+
+\paragraph{Exemple (retard d'un pas).}
+Pour le programme de la sous-section précédente (\(I=O=M=\mathbb{Z}\)), on peut prendre:
+\[
+Q_A=\{a_{\mathit{ok}},a_{\mathit{bad}}\},\quad q^A_0=a_{\mathit{ok}},\quad bad_A=a_{\mathit{bad}}.
+\]
+Avec les arêtes:
+\[
+\lambda_A(e_{A,\mathit{ok}})(i)=\True,\ \mathrm{src}_A(e_{A,\mathit{ok}})=a_{\mathit{ok}},\ \mathrm{dst}_A(e_{A,\mathit{ok}})=a_{\mathit{ok}},
+\]
+\[
+\lambda_A(e_{A,\mathit{bad}})(i)=\True,\ \mathrm{src}_A(e_{A,\mathit{bad}})=a_{\mathit{bad}},\ \mathrm{dst}_A(e_{A,\mathit{bad}})=a_{\mathit{bad}}.
+\]
+L'automate d'entrée \(A\) ne contraint donc pas le flux d'entrée.
+
+Pour la garantie delay, on prend:
+\[
+Q_G=\{g_{\mathit{init}},g_{\mathit{bad}}\}\cup\{g_{\mathit{run}}(z)\mid z\in\mathbb{Z}\},\quad
+q^G_0=g_{\mathit{init}},\quad bad_G=g_{\mathit{bad}}.
+\]
+Les arêtes de \(G\) sont:
+\[
+g_{\mathit{init}}\xrightarrow{\,o=0\,}g_{\mathit{run}}(i),\qquad
+g_{\mathit{init}}\xrightarrow{\,o\neq 0\,}g_{\mathit{bad}},
+\]
+\[
+g_{\mathit{run}}(z)\xrightarrow{\,o=z\,}g_{\mathit{run}}(i),\qquad
+g_{\mathit{run}}(z)\xrightarrow{\,o\neq z\,}g_{\mathit{bad}},
+\]
+\[
+g_{\mathit{bad}}\xrightarrow{\,\True\,}g_{\mathit{bad}}.
+\]
+Ainsi \(G\) accepte exactement les traces \((i,o)\) telles que \(o(0)=0\) puis \(o(k+1)=i(k)\).
+
+\subsection{Sémantique des états automates sur flux}
+
+\[
+q_A(0)=q^A_0,\quad q_A(k+1)=\delta_A\bigl(q_A(k),u(k)\bigr).
+\]
+\[
+q_G(0)=q^G_0,\quad q_G(k+1)=\delta_G\bigl(q_G(k),\mathrm{run}(u)(k)\bigr).
+\]
+
+Notations de sûreté:
+\[
+\mathrm{AvoidA}(u)\;:\!\!\iff\;\forall k,\; q_A(k)\neq bad_A,
+\]
+\[
+\mathrm{AvoidG}(\mathrm{run}(u))\;:\!\!\iff\;\forall k,\; q_G(k)\neq bad_G.
+\]
+
+\section{Automate produit et pas locaux}
+
+\subsection{État et pas du produit}
+
+\begin{definition}[État produit]
+\[
+PS := S\times Q_A\times Q_G.
+\]
+Au tick \(k\), l'état produit concret est:
+\[
+\mathrm{rps}(u,k):=\bigl(s_u(k),q_A(k),q_G(k)\bigr).
+\]
+\end{definition}
+
+\paragraph{Exemple (automate produit du delay).}
+Avec \(S=\{s_{\mathit{init}},s_{\mathit{run}}\}\), \(A\) et \(G\) ci-dessus:
+\[
+\mathrm{rps}(u,0)=\bigl(s_{\mathit{init}},a_{\mathit{ok}},g_{\mathit{init}}\bigr).
+\]
+Si \(u(0)=u_0\), le pas avec \(t_{\mathit{init}}\) (sortie \(0\)) mène à:
+\[
+\mathrm{rps}(u,1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_0)\bigr).
+\]
+Puis, pour \(k\ge 1\), si \(\mathrm{rps}(u,k)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_{k-1})\bigr)\),
+le pas avec \(t_{\mathit{run}}\) (sortie \(u_{k-1}\)) mène à:
+\[
+\mathrm{rps}(u,k+1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_k)\bigr).
+\]
+En cas de sortie non conforme, la composante garantie passe en \(g_{\mathit{bad}}\), ce qui donne un pas produit dangereux.
+
+\begin{definition}[Pas produit candidat]
+Un pas produit \(p\) contient:
+\[
+p=(\mathrm{from},t,e_A,e_G,m,i),
+\]
+où \(t\) est une transition programme, \(e_A,e_G\) des arêtes automates, \(m\) la mémoire, \(i\) l'entrée.
+\end{definition}
+
+\begin{definition}[Bien-formation]
+\(p\) est bien formé si:
+\begin{enumerate}[leftmargin=1.4em]
+\item \(t\) est activée sur la composante programme de \(\mathrm{from}\) avec \((m,i)\),
+\item \(e_A\) est activée depuis la composante \(A\) de \(\mathrm{from}\) sur \(i\),
+\item \(e_G\) est activée depuis la composante \(G\) de \(\mathrm{from}\) sur \((i,\mathrm{out}(t,m,i))\),
+\item les destinations de \(e_A,e_G\) coïncident avec \(\delta_A,\delta_G\).
+\end{enumerate}
+\end{definition}
+
+\begin{definition}[Cible dangereuse]
+Pour un pas \(p\), sa cible est dite dangereuse si:
+\[
+q_A' \neq bad_A \quad\land\quad q_G'=bad_G.
+\]
+\end{definition}
+
+\subsection{Pas réalisé au tick \(k\)}
+
+\begin{definition}[Réalisation]
+Un pas produit \(p\) est réalisé au tick \(k\) sous \(u\) si:
+\begin{itemize}[leftmargin=1.4em]
+\item \(\mathrm{from}(p)=\mathrm{rps}(u,k)\),
+\item \(m\) est la mémoire concrète à \(k\),
+\item \(i=u(k)\),
+\item \(t=\mathrm{prog\_select}(s_u(k),m_u(k),u(k))\).
+\end{itemize}
+\end{definition}
+
+\section{Obligations locales et oracle}
+
+\subsection{Contexte local}
+
+Le contexte local au tick \(k\) contient:
+\[
+(k,\; s_u(k),\; m_u(k),\; u(k),\; s_u(k+1),\; m_u(k+1),\; o_u(k)).
+\]
+
+\subsection{Obligation générée par un pas produit}
+
+\begin{definition}[Matching]
+Un contexte \(c\) matche un pas produit \(p\) si:
+\[
+\text{(état, mémoire, entrée de }c\text{)}=\text{(source, mémoire, entrée de }p\text{)}
+\]
+et la transition de \(p\) est activée dans ce contexte.
+\end{definition}
+
+\begin{definition}[Obligation canonique]
+L'obligation attachée à \(p\) est:
+\[
+\mathrm{obl}_p(c):=\neg\,\mathrm{match}(c,p).
+\]
+\end{definition}
+
+\subsection{Génération relationnelle}
+
+\begin{definition}[Relation \(\mathrm{GeneratedBy}\)]
+\(\mathrm{GeneratedBy}(o,t,\varphi)\) vaut s'il existe un pas produit bien formé \(p\) tel que:
+\[
+t=\mathrm{tr}(p),\qquad \varphi=\mathrm{obl}_p,\qquad o=\mathrm{classify}(p).
+\]
+On pose:
+\[
+\mathrm{Generated}(\varphi):\iff \exists o,t,\;\mathrm{GeneratedBy}(o,t,\varphi).
+\]
+\end{definition}
+
+\subsection{Oracle}
+
+On suppose un oracle booléen \(\mathrm{Oracle}\) sur les obligations, avec:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Soundness}:
+\[
+\mathrm{Oracle}(\varphi)=\True \Rightarrow \varphi \text{ est valide sur tous ticks/toutes exécutions}.
+\]
+\item \textbf{Completeness}:
+\[
+\mathrm{Generated}(\varphi)\Rightarrow \mathrm{Oracle}(\varphi)=\True.
+\]
+\end{itemize}
+
+\section{Résultats}
+
+\subsection{Lemmes de base}
+
+\begin{lemma}[Existence d'un pas réalisé]
+Pour tout \(u,k\), il existe un pas produit bien formé réalisé au tick \(k\).
+\end{lemma}
+
+\begin{proof}
+On construit explicitement le pas à partir de:
+\begin{itemize}[leftmargin=1.4em]
+\item la transition \(\mathrm{prog\_select}(s_u(k),m_u(k),u(k))\),
+\item les arêtes \(\mathrm{select}_A(q_A(k),u(k))\), \(\mathrm{select}_G(q_G(k),\mathrm{run}(u)(k))\).
+\end{itemize}
+Les hypothèses de source/label des sélecteurs garantissent la bien-formation.
+\end{proof}
+
+\begin{lemma}[Correction de cible]
+Si un pas produit bien formé \(p\) est réalisé au tick \(k\), alors sa cible coïncide
+avec \((q_A(k+1),q_G(k+1))\) sur les composantes automates.
+\end{lemma}
+
+\begin{proof}
+Par développement de \(\delta_A,\delta_G\), des sélecteurs, et de la définition de ``réalisé''.
+\end{proof}
+
+\subsection{Du global au local}
+
+\begin{definition}[Pas dangereux local]
+\(\mathrm{BadLocal}(u,k)\) s'il existe un pas produit bien formé réalisé au tick \(k\),
+dont la cible est dangereuse (\(q_A'\neq bad_A,\,q_G'=bad_G\)).
+\end{definition}
+
+\begin{theorem}[Violation globale \(\Rightarrow\) pas dangereux local]
+Si \(\mathrm{AvoidA}(u)\) et \(\neg \mathrm{AvoidG}(\mathrm{run}(u))\), alors
+\[
+\exists k,\;\mathrm{BadLocal}(u,k).
+\]
+\end{theorem}
+
+\begin{proof}
+On prend le premier indice \(j\) tel que \(q_G(j)=bad_G\) (existence par \(\neg\mathrm{AvoidG}\)).
+Le cas \(j=0\) est impossible (\(q^G_0\neq bad_G\)).
+Donc \(j=S(k)\). Par le lemme d'existence d'un pas réalisé à \(k\), puis correction de cible,
+la composante \(G\) de la cible vaut \(q_G(S(k))=bad_G\), et la composante \(A\) reste hors \(bad_A\)
+par \(\mathrm{AvoidA}(u)\). Donc \(\mathrm{BadLocal}(u,k)\).
+\end{proof}
+
+\subsection{Couverture par obligations}
+
+\begin{theorem}[Couverture locale]
+Si \(\mathrm{BadLocal}(u,k)\), alors il existe une obligation générée \(\varphi\) telle que
+\[
+\neg \varphi(\mathrm{ctx}(u,k)).
+\]
+\end{theorem}
+
+\begin{proof}
+Prendre le pas produit dangereux \(p\) qui témoigne \(\mathrm{BadLocal}(u,k)\).
+Par définition de \(\mathrm{GeneratedBy}\), \(\mathrm{obl}_p\) est générée.
+Comme \(p\) est réalisé à \(k\), le contexte \(\mathrm{ctx}(u,k)\) matche \(p\), donc
+\(\mathrm{obl}_p(\mathrm{ctx}(u,k))\) est faux.
+\end{proof}
+
+\section{Théorème principal}
+
+\begin{theorem}[Correction conditionnelle]
+Pour tout flux d'entrée \(u\):
+\[
+\mathrm{AvoidA}(u)\Rightarrow \mathrm{AvoidG}(\mathrm{run}(u)).
+\]
+\end{theorem}
+
+\begin{proof}
+Supposons \(\mathrm{AvoidA}(u)\) et \(\neg \mathrm{AvoidG}(\mathrm{run}(u))\).
+Par le théorème ``violation globale \(\Rightarrow\) pas dangereux local'', il existe \(k\)
+avec \(\mathrm{BadLocal}(u,k)\). Par couverture locale, il existe une obligation générée
+\(\varphi\) telle que \(\neg \varphi(\mathrm{ctx}(u,k))\).
+
+Par complétude oracle, \(\mathrm{Oracle}(\varphi)=\True\). Par soundness oracle, \(\varphi\)
+est valide sur tous ticks, en particulier au tick \(k\): \(\varphi(\mathrm{ctx}(u,k))\), contradiction.
+
+Donc \(\mathrm{AvoidG}(\mathrm{run}(u))\).
+\end{proof}
+
+\section{Traçabilité vers les modules Rocq actuels}
+
+Cette section aligne explicitement le texte mathématique avec l'architecture modulaire en
+Rocq (version courante du dépôt).
+
+\subsection{Signatures centrales}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \texttt{core/CoreStepSig.v} (\texttt{CORE\_STEP\_SIG}): sémantique réactive de base
+(\(\mathrm{cfg}\), \(\mathrm{ctx}\), \(\mathrm{run}\)).
+\item \texttt{obligations/ObligationGenSig.v} (\texttt{OBLIGATION\_GEN\_SIG}):
+obligations abstraites \(\texttt{StepCtx}\to\texttt{Prop}\).
+\item \texttt{obligations/ObligationTaxonomySig.v}:
+catégories \texttt{ObjectiveNoBad}, \texttt{CoherencyGoal},
+\texttt{SupportAutomaton}, \texttt{SupportUserInvariant} et partition.
+\item \texttt{obligations/ObligationStratifiedSig.v}:
+stratification des phases, avec notamment
+\texttt{objective\_before\_coherency} et \texttt{coherency\_before\_support\_automaton}.
+\item \texttt{obligations/ObcAugmentationSig.v}:
+partition fine des formules de l'OBC augmenté avant validation externe.
+\item \texttt{obligations/OracleSemSig.v} (\texttt{ORACLE\_SEM\_SIG}):
+interface oracle avec propriété pointwise
+\(\texttt{obligation\_valid\_pointwise}\).
+\end{itemize}
+
+\subsection{Noyaux de correction}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \texttt{kernels/ObjectiveSafetyKernel.v}:
+\texttt{oracle\_conditional\_correctness\_from\_objectives} et version enrichie
+\texttt{oracle\_conditional\_correctness\_with\_coherency}.
+\item \texttt{kernels/SupportNonBlockingKernel.v}:
+préservation de correction sous changement d'oracle, y compris
+\texttt{correction\_preserved\_if\_oracles\_agree\_on\_objectives\_and\_coherency}.
+\item \texttt{integration/ThreeLayerArchitecture.v}:
+théorème trois couches
+\texttt{oracle\_conditional\_correctness\_three\_layers}.
+\end{itemize}
+
+\subsection{Ponts avec l'implémentation externe}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \texttt{obligations/ImplementationValidatorBridge.v}:
+pont ``validateur d'obligations'' \(\to\) \texttt{ORACLE\_SEM\_SIG}.
+\item \texttt{obligations/HoareExternalBridge.v}:
+pont ``obligations \(\to\) tâches/triplets Hoare \(\to\) outil externe''.
+\item \texttt{obligations/TransitionTriplesBridge.v}:
+pont ``triplets par transition'' + encodage externe abstrait
+(incluant l'hypothèse de soundness de l'encodage), via
+\texttt{MakeOracleSemFromTransitionTriples}.
+\end{itemize}
+
+\subsection{Blueprint de refactoring}
+
+Le fichier \texttt{KairosRefactorBlueprint.v} regroupe les alias de signatures
+et les foncteurs canoniques. Il sert de contrat d'architecture entre:
+\begin{enumerate}[leftmargin=1.4em]
+\item la couche sémantique programme/automates,
+\item la couche de génération et classification d'obligations,
+\item la couche de validation externe (sans figer Why3 dans le coeur formel).
+\end{enumerate}
+
+\section{Remarques de portée}
+
+\begin{remark}
+Cette formalisation est indépendante d'une syntaxe LTL explicite: les entrées/sorties sont
+spécifiées directement par automates de sûreté.
+\end{remark}
+
+\begin{remark}
+Les hypothèses externes restantes sont:
+\begin{itemize}[leftmargin=1.4em]
+\item validité des sélecteurs (\(\mathrm{prog\_select}\), \(\mathrm{select}_A\), \(\mathrm{select}_G\)),
+\item états initiaux non mauvais (\(q^A_0\neq bad_A,\; q^G_0\neq bad_G\)),
+\item soundness/completeness de l'oracle sur les obligations générées.
+\end{itemize}
+\end{remark}
+
+\end{document}
