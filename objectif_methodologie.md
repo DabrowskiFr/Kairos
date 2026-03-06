@@ -193,3 +193,15 @@ Rendre explicite dans l'implementation v2 la correspondance avec la taxonomie Ro
    - `stage_meta`,
    - `obligations_map_text`.
 4. Verifier compilation et execution des passes v2 sans regression.
+
+## Objectif courant (2026-03-06 - unification de l'arborescence v2)
+Supprimer le repertoire `lib/` de premier niveau et centraliser les bibliotheques
+dans `lib_v2/` pour une structure explicitement v2.
+
+### Methodologie active
+1. Deplacer le contenu de `lib/` vers `lib_v2/runtime/`.
+2. Conserver les noms de bibliotheques (`obcwhy3_lib`, `kairos_v2_lib`) pour eviter
+   de casser les points d'entree.
+3. Mettre a jour la racine `dune` pour ne plus declarer `lib` dans les dossiers actifs.
+4. Recompiler et executer les commandes smoke CLI v2.
+5. Supprimer/neutraliser les entrees legacy (`runner`, `Pipeline.run*` et passes legacy).

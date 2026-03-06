@@ -285,6 +285,36 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 - Validation:
   - build `dune build` du depot Kairos: OK.
   - execution smoke v2 (`dump-obligations-map`, `dump-why`): OK.
+
+### Mise a jour (suppression du repertoire `lib/` au profit de `lib_v2`) - succes
+- Demande:
+  - finaliser la bascule pour ne plus garder de repertoire `lib` de premier niveau.
+- Changement structurel:
+  - deplacement complet de `lib/` vers `lib_v2/runtime/`,
+  - mise a jour de la racine `dune`:
+    - suppression de `lib` dans `(dirs ...)`,
+    - conservation de `lib_v2` comme racine unique des bibliotheques applicatives.
+- Validation:
+  - `dune build` OK,
+  - `dune exec -- kairos --dump-obligations-map - tests/ok/inputs/delay_int.kairos` OK,
+  - `dune exec -- kairos_v2 --dump-why - tests/ok/inputs/toggle.kairos` OK.
+
+### Mise a jour (purge finale des points d'entree legacy) - succes
+- Demande:
+  - eliminer les derniers points d'entree legacy encore presents dans `pipeline`.
+- Actions:
+  - suppression du module `runner` du runtime (`runner.ml/.mli` supprimes, retrait du `dune`).
+  - neutralisation explicite des anciennes entrees `Pipeline`:
+    - `instrumentation_pass`,
+    - `obc_pass`,
+    - `why_pass`,
+    - `obligations_pass`,
+    - `run`,
+    - `run_with_callbacks`,
+    qui renvoient toutes une erreur "Legacy ... removed".
+- Validation:
+  - `dune build` OK,
+  - commandes smoke v2 OK (`kairos`, `kairos_v2`).
     - interface `LOCAL_OBJECTIVE_COVERAGE_SIG` avec
       `objective_coverage_if_not_avoidG`,
     - foncteur `MakeObjectiveSafetyKernel`,

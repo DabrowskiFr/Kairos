@@ -34,7 +34,6 @@
   middle_end
   automata_pass_sig
   automata_default
-  runner
   why_compile_expr
   obc_stage
   obc_emit

@@ -537,69 +537,24 @@ let dot_png_from_text (dot_text : string) : string option =
       end
 
 let instrumentation_pass ~generate_png ~input_file : (automata_outputs, error) result =
-  Provenance.reset ();
-  match build_ast_with_info ~input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) -> (
-      try
-        let dot_text, labels_text =
-          Dot_emit.dot_monitor_program ~show_labels:false asts.automata_generation
-        in
-        let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text,
-            prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
-          instrumentation_diag_texts infos
-        in
-        let dot_png = if generate_png then dot_png_from_text dot_text else None in
-        Ok
-          {
-            dot_text;
-            labels_text;
-            guarantee_automaton_text;
-            assume_automaton_text;
-            product_text;
-            obligations_map_text;
-            prune_reasons_text;
-            guarantee_automaton_dot;
-            assume_automaton_dot;
-            product_dot;
-            dot_png;
-            stage_meta = stage_meta infos;
-          }
-      with exn -> Error (Io_error (Printexc.to_string exn)))
+  let _ = (generate_png, input_file) in
+  Error
+    (Stage_error
+       "Legacy Pipeline.instrumentation_pass is removed. Use Pipeline_v2_indep.instrumentation_pass.")
 
 let obc_pass ~input_file : (obc_outputs, error) result =
-  Provenance.reset ();
-  match build_ast_with_info ~input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) -> (
-      try
-        let obc_text = Abs.render_program asts.obc_abstract in
-        Ok { obc_text; stage_meta = stage_meta infos }
-      with exn -> Error (Stage_error (Printexc.to_string exn)))
+  let _ = input_file in
+  Error (Stage_error "Legacy Pipeline.obc_pass is removed. Use Pipeline_v2_indep.obc_pass.")
 
 let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
-  Provenance.reset ();
-  match build_ast_with_info ~input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) -> (
-      try
-        let why_text = Io.emit_why ~prefix_fields ~output_file:None (materialize_obc_ast asts) in
-        Ok { why_text; stage_meta = stage_meta infos }
-      with exn -> Error (Why3_error (Printexc.to_string exn)))
+  let _ = (prefix_fields, input_file) in
+  Error (Stage_error "Legacy Pipeline.why_pass is removed. Use Pipeline_v2_indep.why_pass.")
 
 let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, error) result =
-  Provenance.reset ();
-  match build_ast ~input_file () with
-  | Error _ as err -> err
-  | Ok asts -> (
-      try
-        let why_text = Io.emit_why ~prefix_fields ~output_file:None (materialize_obc_ast asts) in
-        let vc_tasks = Why_prove.dump_why3_tasks_with_attrs ~text:why_text in
-        let smt_tasks = Why_prove.dump_smt2_tasks ~prover ~text:why_text in
-        let vc_text, _vc_spans = join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks in
-        let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks in
-        Ok { vc_text; smt_text }
-      with exn -> Error (Why3_error (Printexc.to_string exn)))
+  let _ = (prefix_fields, prover, input_file) in
+  Error
+    (Stage_error
+       "Legacy Pipeline.obligations_pass is removed. Use Pipeline_v2_indep.obligations_pass.")
 
 type eval_value =
   | VInt of int
@@ -1026,128 +981,8 @@ let eval_pass ~input_file ~trace_text ~with_state ~with_locals : (string, error)
   with exn -> Error (Stage_error ("eval: " ^ Printexc.to_string exn))
 
 let run (cfg : config) : (outputs, error) result =
-  Provenance.reset ();
-  let t_build0 = Unix.gettimeofday () in
-  match build_ast_with_info ~input_file:cfg.input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) -> (
-      try
-        let p_obc = backend_obc_program ~smoke_tests:cfg.smoke_tests asts in
-        let automata_build_time_s = Unix.gettimeofday () -. t_build0 in
-        let t_obc0 = Unix.gettimeofday () in
-        let obc_abs = List.map Abs.of_ast_node p_obc in
-        let obc_text = Abs.render_program obc_abs in
-        let obcplus_spans = [] in
-        let obcplus_sequents = build_obcplus_sequents_abs obc_abs in
-        let formula_sources = build_formula_sources_abs obc_abs in
-        let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
-        let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
-        let obcplus_spans_ordered = [] in
-        let t_why0 = Unix.gettimeofday () in
-        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields p_obc in
-        let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
-        let why_time_s = Unix.gettimeofday () -. t_why0 in
-        let t_prep0 = Unix.gettimeofday () in
-        let task_sequents = Why_prove.task_sequents ~text:why_text in
-        let why3_prep_time_s = Unix.gettimeofday () -. t_prep0 in
-        let vc_tasks =
-          if cfg.generate_vc_text then Why_prove.dump_why3_tasks_with_attrs ~text:why_text else []
-        in
-        let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
-        let vc_ids_ordered =
-          List.map
-            (fun wids ->
-              let vc_id = Provenance.fresh_id () in
-              Provenance.add_parents ~child:vc_id ~parents:wids;
-              vc_id)
-            why_ids_per_task
-        in
-        let vc_sources =
-          build_vc_sources_from_formula_sources ~formula_sources ~vc_ids_ordered
-        in
-        let vc_sources =
-          let state_pairs = Why_prove.task_state_pairs ~text:why_text in
-          enrich_vc_sources_from_task_states ~vc_sources ~vc_ids_ordered ~obc_abs
-            ~task_state_pairs:state_pairs
-        in
-        let smt_tasks =
-          if cfg.generate_smt_text then Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text
-          else []
-        in
-        let vc_text, vc_spans_ordered =
-          if cfg.generate_vc_text then
-            join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
-          else ("", [])
-        in
-        let smt_text =
-          if cfg.generate_smt_text then join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks else ""
-        in
-        let automata_generation_time_s, dot_text, labels_text =
-          if cfg.generate_monitor_text then
-            let t0 = Unix.gettimeofday () in
-            let dot_text, labels_text =
-              Dot_emit.dot_monitor_program ~show_labels:false asts.automata_generation
-            in
-            (Unix.gettimeofday () -. t0, dot_text, labels_text)
-          else (0.0, "", "")
-        in
-        let should_prove = cfg.prove && not cfg.wp_only in
-        let goals =
-          if should_prove then
-            let summary, goals =
-              Why_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s ~prover:cfg.prover
-                ?prover_cmd:cfg.prover_cmd ~text:why_text ~vc_ids_ordered:(Some vc_ids_ordered)
-                ~on_goal_start:(fun _ _ -> ())
-                ~on_goal_done:(fun _ _ _ _ _ _ _ -> ())
-                ()
-            in
-            let _ = summary in
-            goals
-          else []
-        in
-        let dot_png =
-          if cfg.generate_dot_png && dot_text <> "" then dot_png_from_text dot_text else None
-        in
-        let meta = stage_meta infos in
-        let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text, prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
-          instrumentation_diag_texts infos
-        in
-        Ok
-          {
-            obc_text;
-            why_text;
-            vc_text;
-            smt_text;
-            dot_text;
-            labels_text;
-            guarantee_automaton_text;
-            assume_automaton_text;
-            product_text;
-            obligations_map_text;
-            prune_reasons_text;
-            guarantee_automaton_dot;
-            assume_automaton_dot;
-            product_dot;
-            stage_meta = meta;
-            goals;
-            obcplus_sequents;
-            vc_sources;
-            task_sequents;
-            vc_locs;
-            obcplus_spans;
-            vc_locs_ordered;
-            obcplus_spans_ordered;
-            vc_spans_ordered;
-            why_spans;
-            vc_ids_ordered;
-            obcplus_time_s;
-            why_time_s;
-            automata_generation_time_s;
-            automata_build_time_s;
-            why3_prep_time_s;
-            dot_png;
-          }
-      with exn -> Error (Stage_error (Printexc.to_string exn)))
+  let _ = cfg in
+  Error (Stage_error "Legacy Pipeline.run is removed. Use Pipeline_v2_indep.run.")
 
 let run_with_callbacks ?(should_cancel = fun () -> false) (cfg : config)
     ~(on_outputs_ready : outputs -> unit)
@@ -1155,175 +990,7 @@ let run_with_callbacks ?(should_cancel = fun () -> false) (cfg : config)
     ~(on_goal_done :
        int -> string -> string -> float -> string option -> string -> string option -> unit) :
     (outputs, error) result =
-  Provenance.reset ();
-  let t_build0 = Unix.gettimeofday () in
-  match build_ast_with_info ~input_file:cfg.input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) -> (
-      try
-        let p_obc = backend_obc_program ~smoke_tests:cfg.smoke_tests asts in
-        let automata_build_time_s = Unix.gettimeofday () -. t_build0 in
-        let t_obc0 = Unix.gettimeofday () in
-        let obc_abs = List.map Abs.of_ast_node p_obc in
-        let obc_text = Abs.render_program obc_abs in
-        let obcplus_spans = [] in
-        let obcplus_sequents = build_obcplus_sequents_abs obc_abs in
-        let formula_sources = build_formula_sources_abs obc_abs in
-        let obcplus_time_s = Unix.gettimeofday () -. t_obc0 in
-        let vc_locs, vc_locs_ordered = build_vcid_locs asts.parsed in
-        let obcplus_spans_ordered = [] in
-        let t_why0 = Unix.gettimeofday () in
-        let why_ast = Backend.build_why_ast ~prefix_fields:cfg.prefix_fields p_obc in
-        let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
-        let why_time_s = Unix.gettimeofday () -. t_why0 in
-        let vc_tasks =
-          if cfg.generate_vc_text then Why_prove.dump_why3_tasks_with_attrs ~text:why_text else []
-        in
-        let why_ids_per_task = Why_prove.task_goal_wids ~text:why_text in
-        let vc_ids_ordered =
-          List.map
-            (fun wids ->
-              let vc_id = Provenance.fresh_id () in
-              Provenance.add_parents ~child:vc_id ~parents:wids;
-              vc_id)
-            why_ids_per_task
-        in
-        let vc_sources =
-          build_vc_sources_from_formula_sources ~formula_sources ~vc_ids_ordered
-        in
-        let vc_sources =
-          let state_pairs = Why_prove.task_state_pairs ~text:why_text in
-          enrich_vc_sources_from_task_states ~vc_sources ~vc_ids_ordered ~obc_abs
-            ~task_state_pairs:state_pairs
-        in
-        let t_prep0 = Unix.gettimeofday () in
-        let task_sequents = Why_prove.task_sequents ~text:why_text in
-        let why3_prep_time_s = Unix.gettimeofday () -. t_prep0 in
-        let smt_tasks =
-          if cfg.generate_smt_text then Why_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text
-          else []
-        in
-        let vc_text, vc_spans_ordered =
-          if cfg.generate_vc_text then
-            join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
-          else ("", [])
-        in
-        let smt_text =
-          if cfg.generate_smt_text then join_blocks ~sep:"\n; ---- goal ----\n" smt_tasks else ""
-        in
-        let automata_generation_time_s, dot_text, labels_text =
-          if cfg.generate_monitor_text then
-            let t0 = Unix.gettimeofday () in
-            let dot_text, labels_text =
-              Dot_emit.dot_monitor_program ~show_labels:false asts.automata_generation
-            in
-            (Unix.gettimeofday () -. t0, dot_text, labels_text)
-          else (0.0, "", "")
-        in
-        let dot_png =
-          if cfg.generate_dot_png && dot_text <> "" then dot_png_from_text dot_text else None
-        in
-        let meta = stage_meta infos in
-        let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text, prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
-          instrumentation_diag_texts infos
-        in
-        let goal_names =
-          if cfg.generate_vc_text then
-            let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
-            let extract_goal_name task =
-              let lines = String.split_on_char '\n' task in
-              match List.find_opt (fun line -> Str.string_match goal_re line 0) lines with
-              | None -> "goal"
-              | Some line ->
-                  ignore (Str.string_match goal_re line 0);
-                  Str.matched_group 1 line
-            in
-            List.map extract_goal_name vc_tasks
-          else List.mapi (fun i _ -> Printf.sprintf "goal%d" (i + 1)) vc_ids_ordered
-        in
-        on_outputs_ready
-          {
-            obc_text;
-            why_text;
-            vc_text;
-            smt_text;
-            dot_text;
-            labels_text;
-            guarantee_automaton_text;
-            assume_automaton_text;
-            product_text;
-            obligations_map_text;
-            prune_reasons_text;
-            guarantee_automaton_dot;
-            assume_automaton_dot;
-            product_dot;
-            stage_meta = meta;
-            goals = [];
-            obcplus_sequents;
-            vc_sources;
-            task_sequents;
-            vc_locs;
-            obcplus_spans;
-            vc_locs_ordered;
-            obcplus_spans_ordered;
-            vc_spans_ordered;
-            why_spans;
-            vc_ids_ordered;
-            obcplus_time_s;
-            why_time_s;
-            automata_generation_time_s;
-            automata_build_time_s;
-            why3_prep_time_s;
-            dot_png;
-          };
-        on_goals_ready (goal_names, vc_ids_ordered);
-        let should_prove = cfg.prove && not cfg.wp_only && not (should_cancel ()) in
-        let goals =
-          if should_prove then
-            let summary, goals =
-              Why_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s ~prover:cfg.prover
-                ?prover_cmd:cfg.prover_cmd ~text:why_text ~vc_ids_ordered:(Some vc_ids_ordered)
-                ~should_cancel
-                ~on_goal_start:(fun _ _ -> ())
-                ~on_goal_done ()
-            in
-            let _ = summary in
-            goals
-          else []
-        in
-        Ok
-          {
-            obc_text;
-            why_text;
-            vc_text;
-            smt_text;
-            dot_text;
-            labels_text;
-            guarantee_automaton_text;
-            assume_automaton_text;
-            product_text;
-            obligations_map_text;
-            prune_reasons_text;
-            guarantee_automaton_dot;
-            assume_automaton_dot;
-            product_dot;
-            stage_meta = meta;
-            goals;
-            obcplus_sequents;
-            vc_sources;
-            task_sequents;
-            vc_locs;
-            obcplus_spans;
-            vc_locs_ordered;
-            obcplus_spans_ordered;
-            vc_spans_ordered;
-            why_spans;
-            vc_ids_ordered;
-            obcplus_time_s;
-            why_time_s;
-            automata_generation_time_s;
-            automata_build_time_s;
-            why3_prep_time_s;
-            dot_png;
-          }
-      with exn -> Error (Stage_error (Printexc.to_string exn)))
+  let _ = (should_cancel, cfg, on_outputs_ready, on_goals_ready, on_goal_done) in
+  Error
+    (Stage_error
+       "Legacy Pipeline.run_with_callbacks is removed. Use Pipeline_v2_indep.run_with_callbacks.")
