@@ -357,7 +357,7 @@ let compile_program_ast ?(prefix_fields = true) ?(comment_map = []) (p : Ast.pro
             compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
           nodes
   in
-  let mlw = Ptree.Modules (List.map (fun (a, b, c, _, _) -> (a, b, c)) modules) in
+  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
   let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
   { mlw; module_info }
 

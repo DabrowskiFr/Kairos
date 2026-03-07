@@ -3,6 +3,40 @@
 ## Objectif
 Utiliser la formalisation Rocq comme contrat d'architecture pour refactorer l'application sans regression semantique (correction vis-a-vis des formules LTL et du decalage temporel).
 
+## Objectif courant du chantier
+Clarifier et stabiliser la preuve de correction automate autour de trois blocs nettement
+separes:
+
+1. noyau prouve interne:
+   `~AvoidG -> exists pas local dangereux -> exists obligation generee violee`;
+2. progression explicite et non-blocage du produit programme × A × G;
+3. hypotheses externes minimales, localisees hors du noyau prouve.
+
+## Methodologie de travail
+
+1. Conserver dans `KairosOracle.v` la version monolithique executable de reference.
+2. Extraire seulement des alias/foncteurs lisibles dans `rocq/core`,
+   `rocq/integration` et `rocq/interfaces`.
+3. Faire porter au noyau prouve uniquement les proprietes derivees de la
+   semantique du produit.
+4. Isoler dans `rocq/interfaces` les axiomes relies a la validation externe.
+5. Aligner la documentation PDF (`spec/rocq_oracle_model.tex`) sur cette
+   decomposition avant de reprendre des raffinements applicatifs.
+6. Tenir a jour `cahier_de_laboratoire.md` avec les validations reelles
+   (`coqc`, PDF, build applicatif) et les echecs.
+
+## Prochaines etapes concretes
+
+1. Maintenir la lisibilite du chemin de preuve:
+   `product_progresses_at_each_tick`
+   -> `bad_local_step_if_G_violated`
+   -> `generation_coverage`
+   -> `automata_program_correctness`.
+2. Eviter toute re-axiomatisation du noyau dans les couches modulaires.
+3. Garder le guardrail CI sur les `Axiom` hors `rocq/interfaces`.
+4. Ne pas annoncer `dune build` comme vert tant que les erreurs OCaml hors Rocq
+   dans `lib_v2/runtime/backend/*` ne sont pas corrigees.
+
 ## Arborescence cible
 ```text
 rocq/
@@ -52,8 +86,10 @@ rocq/
 2. Extraire `A/G` + produit dans `monitor/*`.
 3. Connecter `ShiftSpec` a l'admissibilite d'entree.
 4. Brancher generation + oracle avec traces d'origine.
-5. Ajouter `RefinementSig` et relier l'implementation concrete (prev_k, transform).
-6. Reprouver le theoreme end-to-end sur le pipeline modulaire.
+5. Stabiliser la decomposition "core prouve / hypotheses externes / theoremes finaux"
+   sur la correction automate.
+6. Ajouter `RefinementSig` et relier l'implementation concrete (prev_k, transform).
+7. Reprouver le theoreme end-to-end sur le pipeline modulaire.
 
 ## Critere de "pret pour refactor applicatif"
 - Chaque passe applicative a une interface Rocq homologue.

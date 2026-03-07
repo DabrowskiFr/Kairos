@@ -21,6 +21,7 @@
 \newcommand{\Stream}[1]{\mathrm{Str}(#1)}
 \newcommand{\True}{\mathsf{true}}
 \newcommand{\False}{\mathsf{false}}
+\newcommand{\Sem}[1]{\mathrm{Sem}(#1)}
 
 \title{Formalisation Mathématique du Modèle Oracle\\
 \large (abstraction programme/automates, obligations locales et correction)}
@@ -168,16 +169,20 @@ t_{\mathit{run}}:\ \tau_{\mathit{run}}\to\tau_{\mathit{run}},\ o:=m,\ m':=1-m.
 
 \begin{center}
 \begin{tikzpicture}[>=Stealth,auto,node distance=2.9cm,semithick]
-  \node[align=center] at (-3.1,1.8) {\textbf{delay\_int}};
-  \node[state,initial] (dinit) at (-4.1,0) {$s_{\mathit{init}}$};
-  \node[state] (drun) at (-1.2,0) {$s_{\mathit{run}}$};
+  \node[align=center] at (-1.5,1.8) {\textbf{delay\_int}};
+  \node[state,initial] (dinit) at (-2.5,0) {$s_{\mathit{init}}$};
+  \node[state] (drun) at (0.4,0) {$s_{\mathit{run}}$};
   \path[->]
     (dinit) edge node[midway,above,align=center] {$\top$\\$o:=0,\ m':=i$} (drun)
     (drun) edge[loop right] node[right,align=left] {$\top$\\$o:=m,\ m':=i$} (drun);
+\end{tikzpicture}
+\end{center}
 
-  \node[align=center] at (3.6,1.8) {\textbf{toggle}};
-  \node[state,initial] (tinit) at (2.6,0) {$\tau_{\mathit{init}}$};
-  \node[state] (trun) at (5.5,0) {$\tau_{\mathit{run}}$};
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,node distance=2.9cm,semithick]
+  \node[align=center] at (-1.5,1.8) {\textbf{toggle}};
+  \node[state,initial] (tinit) at (-2.5,0) {$\tau_{\mathit{init}}$};
+  \node[state] (trun) at (0.4,0) {$\tau_{\mathit{run}}$};
   \path[->]
     (tinit) edge node[midway,above,align=center] {$\top$\\$o:=0,\ m':=1$} (trun)
     (trun) edge[loop right] node[right,align=left] {$\top$\\$o:=m,\ m':=1-m$} (trun);
@@ -201,42 +206,72 @@ y=(0,1,0,1,\dots).
 \subsection{Étape 3 --- Automates d'hypothèse et de garantie}
 
 \paragraph{delay\_int.}
-\begin{itemize}[leftmargin=1.4em]
-\item \(A\): automate d'entrée permissif (reste en \(\mathit{ok}\)).
-\item \(G\): vérifie \(o(0)=0\) puis \(o(k+1)=i(k)\).
-\end{itemize}
-
-\paragraph{toggle.}
-\begin{itemize}[leftmargin=1.4em]
-\item \(A\): trivial (aucune contrainte d'entrée).
-\item \(G\): vérifie \(o(0)=0\), puis alternance \(0\leftrightarrow 1\).
-\end{itemize}
+L'exemple concret \texttt{delay\_int.kairos} porte la garantie
+\[
+X\,G(y = prev(x)).
+\]
+Dans l'implémentation, cette formule est compilée en un petit automate de résidus
+(trois états de moniteur) et le terme \(prev(x)\) est matérialisé par une variable
+d'historique d'un tick. Le dessin ci-dessous suit cette lecture moniteur, plus fidèle
+au cas concret que la version précédente paramétrée par une valeur \(z\).
 
 \begin{center}
 \begin{tikzpicture}[>=Stealth,auto,node distance=3.3cm,semithick]
-  \node[align=center] at (-3.1,1.7) {\textbf{\(G\) de delay\_int}};
-  \node[state,initial] (gd0) at (-4.6,0) {$g_{\mathit{init}}$};
-  \node[state] (gd1) at (-1.6,0) {$g_{\mathit{run}}(z)$};
-  \node[state] (gdb) at (-3.1,-2.0) {$g_{\mathit{bad}}$};
+  \node[align=center] at (0,1.8) {\textbf{delay\_int} --- automate d'hypothèse \(A\)};
+  \node[state,initial] (adok) at (0,0) {$a_{\mathit{ok}}$};
   \path[->]
-    (gd0) edge node[midway,above] {$o=0$} (gd1)
-    (gd0) edge node[midway,left] {$o\neq 0$} (gdb)
-    (gd1) edge[loop right] node[right] {$o=z$} (gd1)
-    (gd1) edge node[midway,right] {$o\neq z$} (gdb)
-    (gdb) edge[loop below] node {$\top$} (gdb);
+    (adok) edge[loop left] node[left] {$\top$} (adok);
+\end{tikzpicture}
+\end{center}
 
-  \node[align=center] at (4.4,1.7) {\textbf{\(G\) de toggle}};
-  \node[state,initial] (gt0) at (2.4,0) {$h_{\mathit{init}}$};
-  \node[state] (gtz) at (5.1,0.8) {$h_0$};
-  \node[state] (gto) at (5.1,-0.8) {$h_1$};
-  \node[state] (gtb) at (7.4,0) {$h_{\mathit{bad}}$};
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,semithick]
+  \node[align=center] at (0,2.2) {\textbf{delay\_int} --- automate de garantie \(G\)};
+  \node[state,initial] (gd0) at (-3.2,0) {$Mon_0$};
+  \node[state] (gd1) at (0,0) {$Mon_1$};
+  \node[state] (gdb) at (3.2,0) {$Mon_{bad}$};
   \path[->]
-    (gt0) edge node[midway,above] {$o=0$} (gtz)
-    (gt0) edge node[midway,below] {$o\neq 0$} (gtb)
-    (gtz) edge[bend left=18] node[above] {$o=1$} (gto)
-    (gto) edge[bend left=18] node[below] {$o=0$} (gtz)
-    (gtz) edge node[midway,above] {$o\neq 1$} (gtb)
-    (gto) edge node[midway,below] {$o\neq 0$} (gtb)
+    (gd0) edge node[midway,above] {$\top$} (gd1)
+    (gd1) edge[loop above] node[align=center] {$y = prev(x)$} (gd1)
+    (gd1) edge[bend left=18] node[midway,above] {$y \neq prev(x)$} (gdb)
+    (gdb) edge[loop above] node {$\top$} (gdb);
+\end{tikzpicture}
+\end{center}
+
+Ici :
+\begin{itemize}[leftmargin=1.4em]
+\item \(Mon_0\) représente le résidu initial avant que le \(\mathbf{X}\) soit consommé;
+\item \(Mon_1\) représente le résidu stable \(G(y = prev(x))\);
+\item \(Mon_{bad}\) représente la violation.
+\end{itemize}
+
+\paragraph{toggle.}
+Pour \texttt{toggle}, le moniteur de garantie reste naturellement un automate fini
+sur la sortie observée.
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,node distance=3.3cm,semithick]
+  \node[align=center] at (0,1.8) {\textbf{toggle} --- automate d'hypothèse \(A\)};
+  \node[state,initial] (atok) at (0,0) {$a'_{\mathit{ok}}$};
+  \path[->]
+    (atok) edge[loop left] node[left] {$\top$} (atok);
+\end{tikzpicture}
+\end{center}
+
+\begin{center}
+\begin{tikzpicture}[>=Stealth,auto,semithick]
+  \node[align=center] at (0,2.9) {\textbf{toggle} --- automate de garantie \(G\)};
+  \node[state,initial] (gt0) at (-3.4,0) {$h_{\mathit{init}}$};
+  \node[state] (gtz) at (0,1.4) {$h_0$};
+  \node[state] (gto) at (0,-1.4) {$h_1$};
+  \node[state] (gtb) at (3.8,0) {$h_{\mathit{bad}}$};
+  \path[->]
+    (gt0) edge node[midway,above left] {$o=0$} (gtz)
+    (gt0) edge node[midway,below left] {$o\neq 0$} (gtb)
+    (gtz) edge[bend left=18] node[midway,above] {$o=1$} (gto)
+    (gto) edge[bend left=18] node[midway,below] {$o=0$} (gtz)
+    (gtz) edge node[midway,above right] {$o\neq 1$} (gtb)
+    (gto) edge node[midway,below right] {$o\neq 0$} (gtb)
     (gtb) edge[loop right] node {$\top$} (gtb);
 \end{tikzpicture}
 \end{center}
@@ -277,8 +312,9 @@ Le schéma canonique est une obligation de non-matching:
 Si un pas dangereux est effectivement réalisé, l'obligation associée est falsifiée au tick courant.
 
 \paragraph{delay\_int.}
-Une violation \(o(k+1)\neq i(k)\) force la composante garantie en \(\mathit{bad}\), donc produit un
-pas local dangereux couvert par une obligation générée.
+Une violation de la contrainte moniteur \(y \neq prev(x)\) en régime établi
+force la composante garantie en \(\mathit{bad}\), donc produit un pas local
+dangereux couvert par une obligation générée.
 
 \paragraph{toggle.}
 Une répétition \(0,0\) ou \(1,1\) en sortie provoque une transition de \(G\) vers \(\mathit{bad}\),
@@ -447,7 +483,152 @@ La trace observable est:
 
 \section{Automates de sûreté (hypothèse/garantie)}
 
+\subsection{Vue standard sur mots infinis}
+
+\begin{definition}[Mot infini]
+Soit \(X\) un alphabet d'observation. Un mot infini sur \(X\) est une suite
+\[
+w = (w(0),w(1),w(2),\dots)\in \Stream{X}.
+\]
+Dans ce document, un flux \(\Nat \to X\) et un mot infini sur \(X\) sont donc le
+même objet mathématique.
+\end{definition}
+
+\begin{definition}[Automate de sûreté déterministe]
+Un automate de sûreté déterministe sur \(X\) est un quadruplet
+\[
+\mathcal A = (Q,q_0,bad,\delta),
+\]
+où:
+\begin{itemize}[leftmargin=1.4em]
+\item \(Q\) est un ensemble d'états;
+\item \(q_0 \in Q\) est l'état initial;
+\item \(bad \in Q\) est l'état de violation;
+\item \(\delta : Q \times X \to Q\) est la fonction de transition.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Run sur un mot infini]
+Étant donnés un automate \(\mathcal A=(Q,q_0,bad,\delta)\) et un mot
+\(w \in \Stream{X}\), son exécution est la suite d'états
+\[
+\mathrm{run}_{\mathcal A,w}(0)=q_0,
+\qquad
+\mathrm{run}_{\mathcal A,w}(k+1)=\delta(\mathrm{run}_{\mathcal A,w}(k), w(k)).
+\]
+Autrement dit, l'état au tick \(k+1\) se calcule à partir de l'état courant et de
+l'observation courante \(w(k)\).
+\end{definition}
+
+\begin{definition}[Condition d'acceptation de sûreté]
+Un mot infini \(w\) est accepté par \(\mathcal A\) si l'exécution n'atteint jamais
+l'état \(bad\):
+\[
+\mathcal A \models_{\mathit{safe}} w
+\quad:\Longleftrightarrow\quad
+\forall k \in \Nat,\ \mathrm{run}_{\mathcal A,w}(k) \neq bad.
+\]
+De manière équivalente, \(w\) est rejeté dès qu'il existe un préfixe fini sur lequel
+l'exécution atteint \(bad\):
+\[
+\neg(\mathcal A \models_{\mathit{safe}} w)
+\quad\Longleftrightarrow\quad
+\exists k \in \Nat,\ \mathrm{run}_{\mathcal A,w}(k) = bad.
+\]
+\end{definition}
+
+Cette lecture est celle utilisée partout dans la formalisation Rocq:
+\begin{itemize}[leftmargin=1.4em]
+\item \(\mathrm{AvoidA}(u)\) signifie que le mot d'entrée \(u\) est accepté par
+  l'automate d'hypothèse \(A\);
+\item \(\mathrm{AvoidG}(\mathrm{run}(u))\) signifie que le mot entrée/sortie
+  \(\mathrm{run}(u)\) est accepté par l'automate de garantie \(G\).
+\end{itemize}
+
 \subsection{Vue arêtes étiquetées}
+
+\subsection{Des mots d'alphabet aux prédicats d'état et d'historique}
+
+Dans la présentation automates-théorie des langages, un automate lit un mot
+\[
+w \in X^\omega,
+\]
+où \(X\) est un alphabet. Ici, l'``alphabet'' n'est pas forcément un ensemble de
+symboles atomiques déjà discrétisés: on prend comme observations des valuations ou
+des fragments d'état du système.
+
+\begin{definition}[Alphabet d'observation sémantique]
+On fixe un domaine d'observation \(X\). Typiquement:
+\begin{itemize}[leftmargin=1.4em]
+\item pour l'hypothèse \(A\), \(X = I\) (valeur d'entrée courante);
+\item pour la garantie \(G\), \(X = I \times O\) (observation entrée/sortie du tick);
+\item plus généralement, \(X\) peut être un espace de valuations de variables observables.
+\end{itemize}
+Un ``symbole lu'' au tick \(k\) est alors une observation \(x_k \in X\).
+\end{definition}
+
+\begin{definition}[Contexte d'évaluation au tick]
+Pour interpréter des formules parlant du présent et du passé, on n'évalue pas les
+labels sur un symbole brut isolé, mais sur un contexte de tick contenant suffisamment
+d'information. On note ce contexte abstrait
+\[
+Ctx(k),
+\]
+et il contient au minimum:
+\begin{itemize}[leftmargin=1.4em]
+\item les valeurs courantes observables au tick \(k\);
+\item l'état/mémoire utiles à l'interprétation;
+\item l'historique nécessaire pour donner un sens à des termes comme \(prev(x)\) ou
+  \(pre_k(x,d)\).
+\end{itemize}
+Dans la formalisation Rocq, ce rôle est joué par le type \texttt{StepCtx}.
+\end{definition}
+
+\begin{definition}[Atomes et labels sémantiques]
+Un atome observable est une formule \(\alpha\) interprétée par un prédicat
+\[
+\Sem{\alpha} : Ctx \to \{\True,\False\}.
+\]
+Un label d'arête est alors simplement un prédicat sur les contextes (ou sur les
+observations quand aucun historique n'est nécessaire).
+\end{definition}
+
+Le passage ``automate sur alphabet'' \(\to\) ``automate sur états/formules'' se fait
+donc en deux étapes:
+\begin{enumerate}[leftmargin=1.4em]
+\item on choisit comme alphabet \(X\) un domaine d'observations suffisamment riche
+  (valeurs d'entrée, valeurs entrée/sortie, valuation partielle, etc.);
+\item on interprète les labels comme des prédicats sémantiques sur le contexte du tick,
+  plutôt que comme de simples comparaisons sur un symbole syntaxique atomique.
+\end{enumerate}
+
+\paragraph{Cas des atomes avec passé.}
+Quand une formule mentionne le passé, par exemple \(prev(x)\) ou plus généralement
+\(pre_k(x,d)\), le label ne peut pas être évalué à partir de la seule observation
+courante \(x_k\). Il faut enrichir le contexte avec un historique. Formellement,
+on suppose une fonction d'évaluation
+\[
+\mathrm{Eval}(Ctx(k), pre_k(x,d)) = x_{k-d},
+\qquad \text{quand } k \ge d.
+\]
+Ainsi, un label comme \(y = prev(x)\) signifie en réalité:
+\[
+\Sem{y = prev(x)}(Ctx(k))
+\quad:\Longleftrightarrow\quad
+y_k = x_{k-1}.
+\]
+
+Dans l'implémentation, cet historique peut être réalisé de deux manières
+équivalentes pour la preuve:
+\begin{itemize}[leftmargin=1.4em]
+\item soit par une variable explicite d'historique, comme \texttt{\_\_pre\_k1\_x};
+\item soit par une mémoire de programme reliée au passé par invariant, comme
+  \texttt{z = prev(x)} dans \texttt{delay\_int}.
+\end{itemize}
+
+Autrement dit, l'automate continue bien à reconnaître un langage de mots infinis,
+mais les ``lettres'' du mot sont des observations sémantiques évaluées sur des
+contextes de tick, et non des symboles purement syntaxiques sans mémoire.
 
 \begin{definition}[Automate de sûreté]
 Un automate de sûreté sur \(X\) est donné par:
@@ -493,24 +674,38 @@ Avec les arêtes:
 \]
 L'automate d'entrée \(A\) ne contraint donc pas le flux d'entrée.
 
-Pour la garantie delay, on prend:
+Pour la garantie \texttt{delay\_int}, il est plus fidèle de prendre un automate de
+résidus pour la formule
 \[
-Q_G=\{g_{\mathit{init}},g_{\mathit{bad}}\}\cup\{g_{\mathit{run}}(z)\mid z\in\mathbb{Z}\},\quad
-q^G_0=g_{\mathit{init}},\quad bad_G=g_{\mathit{bad}}.
+X\,G(y = prev(x)).
 \]
-Les arêtes de \(G\) sont:
+On note:
 \[
-g_{\mathit{init}}\xrightarrow{\,o=0\,}g_{\mathit{run}}(i),\qquad
-g_{\mathit{init}}\xrightarrow{\,o\neq 0\,}g_{\mathit{bad}},
+Q_G=\{Mon_0,Mon_1,Mon_{bad}\},\quad q^G_0=Mon_0,\quad bad_G=Mon_{bad}.
+\]
+Lecture des états:
+\begin{itemize}[leftmargin=1.4em]
+\item \(Mon_0\): état initial, avant consommation du \(\mathbf{X}\);
+\item \(Mon_1\): état stable où l'on vérifie à chaque tick \(y = prev(x)\);
+\item \(Mon_{bad}\): état absorbant de violation.
+\end{itemize}
+Les arêtes de \(G\) sont alors:
+\[
+Mon_0\xrightarrow{\,\True\,}Mon_1,
 \]
 \[
-g_{\mathit{run}}(z)\xrightarrow{\,o=z\,}g_{\mathit{run}}(i),\qquad
-g_{\mathit{run}}(z)\xrightarrow{\,o\neq z\,}g_{\mathit{bad}},
+Mon_1\xrightarrow{\,y = prev(x)\,}Mon_1,\qquad
+Mon_1\xrightarrow{\,y \neq prev(x)\,}Mon_{bad},
 \]
 \[
-g_{\mathit{bad}}\xrightarrow{\,\True\,}g_{\mathit{bad}}.
+Mon_{bad}\xrightarrow{\,\True\,}Mon_{bad}.
 \]
-Ainsi \(G\) accepte exactement les traces \((i,o)\) telles que \(o(0)=0\) puis \(o(k+1)=i(k)\).
+Dans l'implémentation, le terme \(prev(x)\) n'est pas un état supplémentaire de
+l'automate: il est réalisé par la variable d'historique \texttt{\_\_pre\_k1\_x}
+(ou, dans le noeud source, via la mémoire locale \texttt{z} et l'invariant
+\(z = prev(x)\) en état \texttt{Run}).
+Ainsi \(G\) accepte exactement les traces qui satisfont, à partir du tick suivant
+l'initialisation, la contrainte \(y = prev(x)\).
 
 \subsection{Sémantique des états automates sur flux}
 
@@ -546,18 +741,19 @@ Au tick \(k\), l'état produit concret est:
 \paragraph{Exemple (automate produit du delay).}
 Avec \(S=\{s_{\mathit{init}},s_{\mathit{run}}\}\), \(A\) et \(G\) ci-dessus:
 \[
-\mathrm{rps}(u,0)=\bigl(s_{\mathit{init}},a_{\mathit{ok}},g_{\mathit{init}}\bigr).
+\mathrm{rps}(u,0)=\bigl(s_{\mathit{init}},a_{\mathit{ok}},Mon_0\bigr).
 \]
 Si \(u(0)=u_0\), le pas avec \(t_{\mathit{init}}\) (sortie \(0\)) mène à:
 \[
-\mathrm{rps}(u,1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_0)\bigr).
+\mathrm{rps}(u,1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},Mon_1\bigr).
 \]
-Puis, pour \(k\ge 1\), si \(\mathrm{rps}(u,k)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_{k-1})\bigr)\),
-le pas avec \(t_{\mathit{run}}\) (sortie \(u_{k-1}\)) mène à:
+Puis, pour \(k\ge 1\), si \(\mathrm{rps}(u,k)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},Mon_1\bigr)\),
+le pas avec \(t_{\mathit{run}}\) maintient la composante garantie dans \(Mon_1\)
+tant que la contrainte \(y = prev(x)\) est satisfaite:
 \[
-\mathrm{rps}(u,k+1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},g_{\mathit{run}}(u_k)\bigr).
+\mathrm{rps}(u,k+1)=\bigl(s_{\mathit{run}},a_{\mathit{ok}},Mon_1\bigr).
 \]
-En cas de sortie non conforme, la composante garantie passe en \(g_{\mathit{bad}}\), ce qui donne un pas produit dangereux.
+En cas de sortie non conforme, la composante garantie passe en \(Mon_{bad}\), ce qui donne un pas produit dangereux.
 
 \begin{definition}[Pas produit candidat]
 Un pas produit \(p\) contient:
@@ -762,6 +958,24 @@ interface oracle avec propriété pointwise
 \subsection{Noyaux de correction}
 
 \begin{itemize}[leftmargin=1.4em]
+\item \texttt{KairosOracle.v}:
+preuve monolithique de référence avec progression explicite du produit via
+\texttt{product\_select\_at}, \texttt{realizable\_product\_step},
+\texttt{product\_progresses\_at\_each\_tick}, puis noyau de correction via
+\texttt{bad\_local\_step\_if\_G\_violated} et \texttt{generation\_coverage}.
+\item \texttt{core/AutomataCorrectnessCore.v}:
+alias du noyau prouvé interne pour éviter toute re-axiomatisation.
+\item \texttt{integration/ThreeLayerFromCore.v}:
+reconstruction du lemme de couverture
+\texttt{coverage\_if\_not\_avoidG} à partir des deux ingrédients prouvés
+``violation globale \(\Rightarrow\) pas local dangereux'' et
+``pas local dangereux \(\Rightarrow\) obligation générée violée''.
+\item \texttt{interfaces/ExternalValidationAssumptions.v}:
+frontière unique des hypothèses externes
+(\texttt{oracle\_sound\_true}, \texttt{oracle\_complete\_generated}).
+\item \texttt{integration/AutomataFinalCorrectness.v}:
+théorème final modulaire
+\texttt{automata\_program\_correctness}.
 \item \texttt{kernels/ObjectiveSafetyKernel.v}:
 \texttt{oracle\_conditional\_correctness\_from\_objectives} et version enrichie
 \texttt{oracle\_conditional\_correctness\_with\_coherency}.
@@ -810,6 +1024,13 @@ Les hypothèses externes restantes sont:
 \item états initiaux non mauvais (\(q^A_0\neq bad_A,\; q^G_0\neq bad_G\)),
 \item soundness/completeness de l'oracle sur les obligations générées.
 \end{itemize}
+\end{remark}
+
+\begin{remark}
+Le point important de l'état courant est que la progression du produit n'est plus une
+hypothèse implicite: elle est construite explicitement, tick par tick, dans
+\texttt{KairosOracle.v}. Le théorème final modulaire n'assume donc que la validation
+externe des obligations générées, et non le non-blocage du produit.
 \end{remark}
 
 \end{document}

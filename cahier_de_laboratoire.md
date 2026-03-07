@@ -403,3 +403,101 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
   - echec de compilation globale, cause externe a `lib_v2`:
     - erreurs preexistantes dans `lib/backend/why/why_prove.ml` et `lib/backend/emit.ml`.
   - conclusion: integration structurelle faite, validation executable bloquee tant que le tronc courant ne compile pas.
+
+### Mise a jour (2026-03-07, clarification de la correction automate Rocq + documentation) - succes
+- Demande:
+  - reprendre le chantier de formalisation Rocq et la documentation PDF pour clarifier
+    la correction vis-a-vis des automates de surete, avec separation nette entre:
+    - non atteinte de `bad_G`,
+    - progression explicite du produit,
+    - hypotheses externes.
+- Constat initial:
+  - la branche courante est bien `codex/refactoring-architecture-rocq`;
+  - les nouveaux fichiers de decomposition de preuve sont presents:
+    - `rocq/core/AutomataCorrectnessCore.v`,
+    - `rocq/integration/ThreeLayerFromCore.v`,
+    - `rocq/interfaces/ExternalValidationAssumptions.v`,
+    - `rocq/integration/AutomataFinalCorrectness.v`,
+    - `rocq/PROOF_STATUS.md`;
+  - contrairement au contexte annonce, `dune build` echoue initialement sur du code OCaml
+    hors Rocq:
+    - `lib_v2/runtime/backend/emit.ml`,
+    - `lib_v2/runtime/backend/why/why_prove.ml`.
+- Verification Rocq:
+  - compilation OK avec `opam exec --switch=default -- coqc -Q rocq ''` sur:
+    - `rocq/KairosOracle.v`,
+    - `rocq/core/AutomataCorrectnessCore.v`,
+    - `rocq/integration/ThreeLayerFromCore.v`,
+    - `rocq/interfaces/ExternalValidationAssumptions.v`,
+    - `rocq/integration/AutomataFinalCorrectness.v`.
+- Lecture technique retenue:
+  - `KairosOracle.v` contient bien maintenant un chemin de preuve explicite:
+    - `product_select_at`,
+    - `product_select_at_wf`,
+    - `product_select_at_realizes`,
+    - `realizable_product_step`,
+    - `product_progresses_at_each_tick`,
+    - `bad_local_step_if_G_violated`,
+    - `generation_coverage`,
+    - `oracle_conditional_correctness`.
+  - la progression du produit est donc prouvee, et non simplement supposee.
+  - le theoreme final modulaire ne depend plus que de la validation externe des
+    obligations generees.
+- Mise a jour documentaire:
+  - `rocq/README.md`:
+    - reecriture pour faire apparaitre la decomposition
+      "progression du produit / noyau prouve / hypotheses externes / theoreme final".
+  - `rocq/PROOF_STATUS.md`:
+    - ajout explicite du statut de `product_progresses_at_each_tick`,
+    - ajout de `ThreeLayerFromCore.v` comme couche de reconstruction depuis le noyau prouve,
+    - clarification: le non-blocage est prouve en Rocq.
+  - `rocq/RefactorArchitecturePlan.md`:
+    - mise a jour de l'objectif courant, de la methodologie et des prochaines etapes
+      pour ce chantier.
+  - `spec/rocq_oracle_model.tex`:
+    - alignement de la section de tracabilite avec les nouveaux modules,
+    - ajout d'une remarque explicite sur la progression du produit comme fait prouve.
+- Pourquoi certaines tentatives etaient insuffisantes avant cette mise a jour:
+  - se contenter du theoreme final ou du seul noyau monolithique ne rendait pas visible
+    la frontiere exacte entre faits internes prouves et hypotheses externes.
+  - documenter uniquement `bad_local_step_if_G_violated` et `generation_coverage`
+    laissait implicite la question du non-blocage du produit.
+- Validation intermediaire:
+  - `coqc` OK sur toute la chaine Rocq ciblee.
+  - `dune build` KO a ce stade, echec hors perimetre de cette sous-passe.
+
+### Mise a jour (2026-03-07, compatibilite Why3 1.8.2 et validation globale en switch 5.4.1+options) - succes
+- Demande:
+  - clarifier l'environnement opam actif et revalider la compilation complete du
+    projet OCaml et du projet Rocq avec un unique switch.
+- Methodologie retenue:
+  - abandon des verifications faites dans `default` et `5.3.0+options`;
+  - adoption du switch unique `5.4.1+options` pour toutes les commandes;
+  - correction minimale des incompatibilites API Why3 avant recompilation globale.
+- Corrections appliquees:
+  - `lib_v2/runtime/backend/why/why_prove.ml`:
+    - adaptation a l'API Why3 recente:
+      `Pmodule.mod_theory m` -> `m.Pmodule.mod_theory`.
+  - `lib_v2/runtime/backend/emit.ml`:
+    - adaptation du constructeur `Ptree.Modules` qui attend maintenant des couples
+      `(ident, decl list)` plutot que des triples avec qualid optionnel.
+- Pourquoi l'ancien code echouait:
+  - il correspondait a une API Why3 plus ancienne;
+  - dans le switch actif, la bibliotheque exposee est compatible avec l'acces
+    en champ `m.Pmodule.mod_theory` et avec `Ptree.Modules [ (id, decls) ]`.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build`:
+    - succes.
+  - compilation Rocq globale:
+    - generation makefile:
+      `opam exec --switch=5.4.1+options -- rocq makefile -Q rocq "" ...`;
+    - compilation:
+      `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2`;
+    - succes jusqu'aux theoremes finaux (`AutomataFinalCorrectness.v`,
+      `KairosRefactorBlueprint.v`).
+- Conclusion:
+  - l'environnement de travail courant est maintenant stabilise autour de
+    `5.4.1+options`;
+  - le projet OCaml et le projet Rocq recompilent tous deux dans cet environnement;
+  - les corrections documentaires et de preuve peuvent desormais etre discutees sans
+    ambiguite sur l'etat du build.

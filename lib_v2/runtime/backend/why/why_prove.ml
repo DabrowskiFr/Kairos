@@ -38,7 +38,7 @@ let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) =
   let parsed = Lexer.parse_mlw_file lexbuf in
   let mods = Typing.type_mlw_file env [] filename parsed in
   Wstdlib.Mstr.fold
-    (fun _ m acc -> List.rev_append (Task.split_theory (Pmodule.mod_theory m) None None) acc)
+    (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
     mods []
   |> List.rev
 
