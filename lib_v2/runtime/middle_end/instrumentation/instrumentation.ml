@@ -29,7 +29,6 @@ open Automata_spec
 open Automata_generation
 
 module Abs = Abstract_model
-
 type build_ctx = Automata_generation.automata_build
 
 let instrumentation_state_type : string = "aut_state"
@@ -678,28 +677,40 @@ let normalize_generated_contracts (trans : Abs.transition list) : Abs.transition
     trans
 
 let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
-    ~(grouped : Automaton_engine.transition list) ~(states : Automaton_engine.residual_state list)
-    ~(instrumentation_updates : stmt list) ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
+    ~(analysis : Product_build.analysis) ~(instrumentation_updates : stmt list)
+    ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
     ~(incoming_prev_fo_shifted : fo list) ~(compat_invariants : invariant_state_rel list)
     ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
   let trans = inject_instrumentation_code ~instrumentation_updates ~instrumentation_asserts n.trans in
-  let gen_hyp_ctx : Gen_hyp.context =
-    { grouped; states; incoming_prev_fo_shifted; compat_invariants; bad_state_fo_opt }
-  in
-  let gen_hyp_hooks : Gen_hyp.hooks =
-    {
-      add_not_bad_state_requires;
-      add_monitor_compatibility_requires;
-      add_assumption_state_aware_requires;
-      add_state_invariants_to_transitions;
-    }
+  let trans =
+    add_not_bad_state_requires
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/no_bad_state" ~t f))
+      ~bad_state_fo_opt trans
   in
   let trans =
-    Gen_hyp.apply ~build ~ctx:gen_hyp_ctx ~trans ~log_contract ~hooks:gen_hyp_hooks
+    add_monitor_compatibility_requires
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/monitor_pre" ~t f))
+      ~incoming_prev_fo_shifted trans
   in
-  let gen_obl_hooks : Gen_obl.hooks = { add_not_bad_state_ensures } in
   let trans =
-    Gen_obl.apply ~bad_state_fo_opt ~trans ~log_contract ~hooks:gen_obl_hooks
+    Product_contracts.add_assumption_projection_requires
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/assume_projection" ~t f))
+      ~build ~analysis trans
+  in
+  let trans =
+    add_state_invariants_to_transitions ~invariants_state_rel:compat_invariants
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/compat_invariant" ~t f))
+      ~add_to_ensures:false trans
+  in
+  let trans =
+    add_not_bad_state_ensures
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/no_bad_state_post" ~t f))
+      ~bad_state_fo_opt trans
+  in
+  let trans =
+    Product_contracts.add_bad_guarantee_projection_ensures
+      ~log:(Some (fun t f -> log_contract ~reason:"Product/bad_guarantee_projection" ~t f))
+      ~analysis trans
   in
   normalize_generated_contracts trans
 
@@ -844,15 +855,13 @@ let finalize_instrumented_abstract_node ~(ctx : node_context) ~(n : Abs.node)
 let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~(n : Abs.node)
     ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
-  let compat_invariants =
-    compute_compat_invariants ~n ~states:ctx.states ~transitions:ctx.transitions
-      ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo
-  in
+  let analysis = Product_build.analyze_node ~build ~node:n in
+  let compat_invariants = Product_contracts.compat_invariants ~node:n ~analysis in
   let processing_ctx =
     build_processing_context ~grouped:ctx.grouped ~states:ctx.states
       ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo ~is_input:ctx.is_input
   in
-  apply_contract_pipeline ~n ~build ~grouped:ctx.grouped ~states:ctx.states
+  apply_contract_pipeline ~n ~build ~analysis
     ~instrumentation_updates:processing_ctx.instrumentation_updates ~instrumentation_asserts:processing_ctx.instrumentation_asserts
     ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
     ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
@@ -868,9 +877,34 @@ let transform_abstract_node_with_info ~(build : build_ctx) (n : Abs.node) :
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_INCOMING" with Some "1" -> true | _ -> false
   in
   log_instrumentation_debug_info ~ctx ~build ~debug_incoming;
-  let trans = build_instrumented_transitions ~build ~ctx ~n ~log_contract in
+  let product_analysis = Product_build.analyze_node ~build ~node:n in
+  let trans =
+    let compat_invariants = Product_contracts.compat_invariants ~node:n ~analysis:product_analysis in
+    let processing_ctx =
+      build_processing_context ~grouped:ctx.grouped ~states:ctx.states
+        ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo ~is_input:ctx.is_input
+    in
+    apply_contract_pipeline ~n ~build ~analysis:product_analysis
+      ~instrumentation_updates:processing_ctx.instrumentation_updates
+      ~instrumentation_asserts:processing_ctx.instrumentation_asserts
+      ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
+      ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
+  in
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
-  let info = empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names in
+  let rendered = Product_debug.render ~node_name:n.nname ~analysis:product_analysis in
+  let info =
+    {
+      (empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names) with
+      Stage_info.guarantee_automaton_lines = rendered.guarantee_automaton_lines;
+      Stage_info.assume_automaton_lines = rendered.assume_automaton_lines;
+      Stage_info.product_lines = rendered.product_lines;
+      Stage_info.obligations_lines = rendered.obligations_lines;
+      Stage_info.prune_lines = rendered.prune_lines;
+      Stage_info.guarantee_automaton_dot = rendered.guarantee_automaton_dot;
+      Stage_info.assume_automaton_dot = rendered.assume_automaton_dot;
+      Stage_info.product_dot = rendered.product_dot;
+    }
+  in
   (node, info)
 
 let transform_node_with_info ~(build : build_ctx) (n : Ast.node) :

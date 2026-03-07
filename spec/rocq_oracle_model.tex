@@ -989,6 +989,128 @@ théorème trois couches
 
 \subsection{Ponts avec l'implémentation externe}
 
+\subsubsection{Produit explicite dans la preuve, instrumentation fragmentée dans le code}
+
+La formalisation Rocq prend comme sémantique de référence un produit explicite
+\[
+PS = S \times Q_A \times Q_G,
+\]
+avec un pas local qui transporte simultanément:
+\begin{itemize}[leftmargin=1.4em]
+\item la transition programme choisie au tick courant;
+\item l'arête d'hypothèse \(A\) effectivement lue sur l'observation d'entrée;
+\item l'arête de garantie \(G\) effectivement lue sur l'observation entrée/sortie.
+\end{itemize}
+
+La version actuelle de l'implémentation OCaml contient désormais un noyau produit
+explicite dans le middle-end. Ce noyau construit et explore des états
+\((s,q_A,q_G)\) atteignables, calcule les pas synchronisés du triplet, les classe
+(\emph{safe}, \emph{bad\_A}, \emph{bad\_G}, \emph{pruned}) et alimente:
+\begin{itemize}[leftmargin=1.4em]
+\item la vue texte du produit;
+\item les raisons de pruning;
+\item une carte locale des obligations issues des pas \emph{bad\_G};
+\item la génération des hypothèses de compatibilité et des obligations locales
+  projetées sur le backend instrumenté.
+\end{itemize}
+Concrètement, cette couche est portée par les modules
+\texttt{product\_types}, \texttt{product\_build}, \texttt{product\_debug} et
+\texttt{product\_contracts} du middle-end.
+
+L'exécution concrète du backend reste toutefois instrumentée via un état runtime
+\texttt{\_\_aut\_state}. Le produit explicite joue donc le rôle de noyau
+sémantique et de diagnostic, tandis que l'instrumentation OBC/Why3 reste le
+mécanisme de compilation exécutable.
+
+\subsubsection{Pourquoi un produit explicite serait meilleur}
+
+Cette évolution est préférable pour quatre raisons.
+
+\paragraph{1. Source unique de sémantique.}
+Au lieu de répartir entièrement la logique de correction entre génération
+d'automates, invariants de compatibilité, instrumentation OBC et encodage Why3,
+le produit explicite fait porter la sémantique sur un seul objet:
+états, pas, classification des cibles, raisons de pruning.
+
+\paragraph{2. Alignement direct avec Rocq.}
+La preuve Rocq parle déjà de \texttt{ProductState}, \texttt{ProductStep},
+\texttt{product\_select\_at}, \texttt{product\_progresses\_at\_each\_tick} et
+\texttt{GeneratedBy}. Le noyau produit côté OCaml crée une correspondance presque
+nom à nom entre preuve et implémentation, ce qui réduit le risque de dérive
+architecturale.
+
+\paragraph{3. Obligation generation plus locale et plus traçable.}
+Au lieu de reconstituer indirectement les obligations depuis plusieurs passes,
+on pourrait attacher chaque obligation à un pas produit dangereux précis, avec sa
+provenance \((s,q_A,q_G)\to(s',q'_A,q'_G)\), ses labels, et sa raison d'émission.
+
+Le gain n'est donc pas principalement ``faire plus de produit'' au sens combinatoire,
+mais \emph{rendre explicite le noyau sémantique déjà présent implicitement}.
+
+\paragraph{4. Unification de la génération de contrats.}
+La couche produit n'est plus seulement un outil de diagnostic: elle sert maintenant
+à dériver les invariants de compatibilité projetés sur \texttt{\_\_aut\_state},
+les préconditions liées aux hypothèses, et les obligations locales bloquant les
+pas \emph{bad\_G}. On supprime ainsi une partie de la duplication antérieure entre
+``produit implicite'' et génération de contrats.
+
+\subsubsection{Pourquoi c'est équivalent à l'implémentation actuelle}
+
+L'introduction du produit explicite ne change pas la sémantique visée; elle change
+la représentation intermédiaire principale.
+
+\paragraph{Vue actuelle.}
+Le pipeline concret courant:
+\begin{enumerate}[leftmargin=1.4em]
+\item compile les contrats en automates/résidus;
+\item explore le produit \(\text{programme}\times A\times G\) de manière finie et
+  \emph{on-the-fly} à partir de l'état initial;
+\item dérive depuis ce produit les diagnostics, les raisons de pruning, les
+  hypothèses de compatibilité projetées, et les obligations locales associées
+  aux pas \emph{bad\_G};
+\item projette ensuite ces informations vers le moniteur principal
+  \texttt{\_\_aut\_state};
+\item émet enfin le backend Why3/OBC et les tâches externes associées.
+\end{enumerate}
+
+\paragraph{Vue sémantique canonique.}
+Le point de vue canonique est désormais:
+\begin{enumerate}[leftmargin=1.4em]
+\item construire l'état courant \((s,q_A,q_G)\);
+\item calculer le pas réalisé
+  \[
+  (s,q_A,q_G)\xrightarrow{t,e_A,e_G}(s',q'_A,q'_G);
+  \]
+\item classer ce pas comme sûr, hypothèse-violée, garantie-violée ou pruné;
+\item projeter ce pas vers les diagnostics produit, les obligations locales,
+  puis l'instrumentation et le backend Why3/OBC.
+\end{enumerate}
+
+\paragraph{Équivalence sémantique attendue.}
+Les deux lectures sont équivalentes si elles préservent simultanément:
+\begin{itemize}[leftmargin=1.4em]
+\item les mêmes triples atteignables \((s,q_A,q_G)\);
+\item le même critère d'atteinte de \(bad_G\);
+\item les mêmes cas où \(A\) rend une combinaison non admissible;
+\item la même famille d'obligations générées, modulo traduction syntaxique vers OBC/Why3
+  et projection sur \texttt{\_\_aut\_state}.
+\end{itemize}
+
+Autrement dit, le produit explicite n'ajoute pas de nouveaux comportements: il
+rassemble en un IR unique les comportements auparavant encodés de manière plus
+dispersée dans le pipeline.
+La relation correcte à viser est donc une \emph{équivalence par projection/compilation}:
+\begin{itemize}[leftmargin=1.4em]
+\item tout pas instrumenté actuel correspond à un pas du produit explicite;
+\item tout pas réalisé du produit explicite se recompile en mise à jour de moniteur,
+  préconditions et obligations dans l'implémentation actuelle;
+\item la couche \(\text{A}\times \text{G}\) n'est plus un second noyau autonome,
+  mais une projection du produit complet.
+\end{itemize}
+
+Dans cette lecture, l'architecture actuelle devient effectivement le backend d'une
+représentation produit plus canonique, et non une sémantique concurrente.
+
 \begin{itemize}[leftmargin=1.4em]
 \item \texttt{obligations/ImplementationValidatorBridge.v}:
 pont ``validateur d'obligations'' \(\to\) \texttt{ORACLE\_SEM\_SIG}.

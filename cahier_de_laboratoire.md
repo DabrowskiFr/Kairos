@@ -501,3 +501,99 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
   - le projet OCaml et le projet Rocq recompilent tous deux dans cet environnement;
   - les corrections documentaires et de preuve peuvent desormais etre discutees sans
     ambiguite sur l'etat du build.
+
+### Mise a jour (2026-03-07, section technique sur le produit explicite vs implementation actuelle) - succes
+- Demande:
+  - ajouter au document mathematique une section qui explique:
+    - que l'implementation actuelle ne materialise pas un automate produit explicite,
+    - pourquoi un IR produit `programme x A x G` serait architecturalement meilleur,
+    - et en quel sens il reste equivalent au pipeline courant.
+- Analyse du code courant:
+  - le pipeline construit separement les automates de garantie et d'hypothese;
+  - il injecte un seul etat runtime `__aut_state` pour le moniteur principal;
+  - les calculs de type produit existent deja, mais localement et de maniere
+    fragmentee:
+    - reachability `programme x G`,
+    - compatibilite `G x A`,
+    - generation de `requires` et d'obligations.
+  - il n'y a donc pas aujourd'hui d'IR central explicite pour
+    `programme x A x G`.
+- Mise a jour documentaire:
+  - ajout dans `spec/rocq_oracle_model.tex` d'une section technique explicitant:
+    - la difference entre preuve a produit explicite et implementation instrumentee;
+    - les benefices architecturaux d'un produit explicite
+      (source semantique unique, alignement avec Rocq, tracabilite des obligations);
+    - l'argument d'equivalence semantique attendu
+      (memes triples atteignables, meme critere `bad_G`, memes obligations modulo compilation).
+- Validation:
+  - recompilation PDF apres modification de la section technique.
+
+### Mise a jour (2026-03-07, implantation du noyau produit `programme x A x G` dans le middle-end) - succes
+- Demande:
+  - passer du plan d'architecture a une implementation concrete;
+  - unifier le traitement de `A x G` et `programme x A x G` autour d'un noyau produit explicite;
+  - expliquer les principes et l'equivalence dans le document PDF.
+- Implantation realisee:
+  - ajout d'un sous-ensemble de modules `product/*` dans
+    `lib_v2/runtime/middle_end/`:
+    - `product_types.{ml,mli}`:
+      etats produit, pas produits, classes de pas, pruning;
+    - `product_build.{ml,mli}`:
+      construction/exploration du graphe atteignable
+      `programme x A x G` a partir:
+      - des transitions programme,
+      - de l'automate d'hypothese,
+      - de l'automate de garantie;
+    - `product_debug.{ml,mli}`:
+      rendu texte/DOT du produit, des obligations locales et des raisons de pruning.
+  - integration de ce noyau dans `instrumentation.ml`:
+    - les metadonnees `product_lines`, `prune_lines`, `obligations_lines`,
+      `product_dot`, `assume_automaton_*`, `guarantee_automaton_*`
+      sont maintenant peuplees depuis le produit explicite.
+- Choix d'architecture retenu:
+  - le produit explicite sert de noyau semantique partage;
+  - l'instrumentation executable existante (`__aut_state`, backend OBC/Why3)
+    est conservee comme couche de compilation/backend;
+  - on obtient donc une architecture intermediaire:
+    - IR produit explicite pour la semantique et les diagnostics,
+    - backend instrumente pour l'execution et l'emission externe.
+- Pourquoi cette etape est utile meme si toute la logique n'a pas encore migre:
+  - elle elimine le "produit implicite" eparpille dans plusieurs passes;
+  - elle donne une representation canonique des triples atteignables;
+  - elle prepare la migration future des obligations et de la compatibilite
+    vers le produit explicite, sans casser le pipeline courant.
+- Documentation:
+  - mise a jour de `spec/rocq_oracle_model.tex` pour decrire:
+    - le noyau produit explicite maintenant present dans le code,
+    - le caractere on-the-fly de l'exploration,
+    - la projection vers l'instrumentation `__aut_state`,
+    - l'argument d'equivalence semantique avec l'ancien pipeline.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build`: succes.
+  - recompilation PDF `spec/rocq_oracle_model.tex`: succes.
+
+### Mise a jour (2026-03-07, migration de la generation de contrats vers le produit explicite) - succes
+- Demande:
+  - poursuivre la migration pour que les hypotheses et obligations ne soient plus
+    reconstruites via une logique separee de type `G x A` / `programme x G`,
+    mais derivees du produit explicite `programme x A x G`.
+- Implantation realisee:
+  - ajout de `product_contracts.ml` dans la couche `product/*`;
+  - les invariants de compatibilite par etat programme sont maintenant projetes
+    depuis les etats atteignables du produit explicite;
+  - les preconditions reliees aux hypotheses sont derivees des pas du produit,
+    puis projetees sur l'etat runtime `__aut_state`;
+  - les obligations locales bloquant les pas `bad_G` sont derivees des pas du
+    produit, puis ajoutees comme `ensures` projetes.
+- Changement d'architecture:
+  - `Gen_hyp` / `Gen_obl` ne sont plus le centre logique de la generation;
+  - l'orchestration dans `instrumentation.ml` passe maintenant directement par:
+    - le produit explicite,
+    - ses projections de compatibilite,
+    - ses projections d'obligations.
+- Interpretation:
+  - l'implementation reste encore compilee vers un backend instrumente;
+  - mais la source de verite pour les contrats generes est desormais le produit
+    explicite plutot que des calculs locaux separes.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build`: succes.

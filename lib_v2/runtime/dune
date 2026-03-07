@@ -51,6 +51,10 @@
   automata_atoms
   automata_spec
   automata_generation
+  product_types
+  product_build
+  product_debug
+  product_contracts
   automata_pass
   gen_hyp
   gen_obl
