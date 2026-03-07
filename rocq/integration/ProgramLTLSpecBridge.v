@@ -30,7 +30,7 @@ Module MakeProgramLTLCorrectness
   Proof.
     intros u HA.
     apply (proj1 (Spec.avoidG_characterizes_phiG (P.run_trace u))).
-    apply Corr.oracle_conditional_correctness_three_layers.
+    apply Corr.validation_conditional_correctness_three_layers.
     exact HA.
   Qed.
 End MakeProgramLTLCorrectness.

@@ -37,8 +37,13 @@ and collect_atoms_fo (f : fo) (acc : fo list) : fo list =
   | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_atoms_fo b (collect_atoms_fo a acc)
 
 let collect_atoms_from_node (n : Ast.node) : fo list =
-  let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] (n.assumes @ n.guarantees) in
-  List.fold_left (fun acc inv -> collect_atoms_fo inv.formula acc) acc n.attrs.invariants_state_rel
+  let spec = Ast.specification_of_node n in
+  let acc =
+    List.fold_left
+      (fun acc f -> collect_atoms_ltl f acc)
+      [] (spec.spec_assumes @ spec.spec_guarantees)
+  in
+  List.fold_left (fun acc inv -> collect_atoms_fo inv.formula acc) acc spec.spec_invariants_state_rel
 
 let transition_fo (t : Ast.transition) : fo list =
   Ast_provenance.values t.requires @ Ast_provenance.values t.ensures

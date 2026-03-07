@@ -39,6 +39,7 @@ let instrumentation_state_expr (i : int) : iexpr = mk_var (state_ctor i)
 type bool_like = BoolInt | BoolBool
 
 let bool_like_vars ~(var_types : (ident * ty) list) (n : node) : (ident * bool_like) list =
+  let spec = Ast.specification_of_node n in
   let table = Hashtbl.create 16 in
   let invalid = Hashtbl.create 16 in
   let add var value =
@@ -80,8 +81,8 @@ let bool_like_vars ~(var_types : (ident * ty) list) (n : node) : (ident * bool_l
         collect_ltl a;
         collect_ltl b
   in
-  List.iter collect_ltl (n.assumes @ n.guarantees);
-  List.iter (fun inv -> collect_fo inv.formula) n.attrs.invariants_state_rel;
+  List.iter collect_ltl (spec.spec_assumes @ spec.spec_guarantees);
+  List.iter (fun inv -> collect_fo inv.formula) spec.spec_invariants_state_rel;
   let decide var values =
     if Hashtbl.mem invalid var then None
     else
@@ -100,6 +101,7 @@ let bool_like_vars ~(var_types : (ident * ty) list) (n : node) : (ident * bool_l
 
 (* NOTE: currently unused; kept for reference if we re-enable bool-like normalization. *)
 let normalize_bool_atoms ~(bool_vars : (ident * bool_like) list) (n : node) : node =
+  let spec = Ast.specification_of_node n in
   let bool_map = List.to_seq bool_vars |> Hashtbl.of_seq in
   let base_int x = FRel (HNow (mk_var x), REq, HNow (mk_int 1)) in
   let base_bool x = FRel (HNow (mk_var x), REq, HNow (mk_bool true)) in
@@ -159,10 +161,10 @@ let normalize_bool_atoms ~(bool_vars : (ident * bool_like) list) (n : node) : no
     | LW (a, b) -> LW (norm_ltl a, norm_ltl b)
   in
   let invariants_state_rel =
-    List.map (fun inv -> { inv with formula = norm_fo inv.formula }) n.attrs.invariants_state_rel
+    List.map (fun inv -> { inv with formula = norm_fo inv.formula }) spec.spec_invariants_state_rel
   in
   let n =
-    { n with assumes = List.map norm_ltl n.assumes; guarantees = List.map norm_ltl n.guarantees }
+    { n with assumes = List.map norm_ltl spec.spec_assumes; guarantees = List.map norm_ltl spec.spec_guarantees }
   in
   { n with attrs = { n.attrs with invariants_state_rel } }
 
@@ -292,8 +294,8 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
   let n =
     {
       n with
-      assumes = List.map inline_ltl n.assumes;
-      guarantees = List.map inline_ltl n.guarantees;
+      assumes = List.map inline_ltl (Ast.specification_of_node n).spec_assumes;
+      guarantees = List.map inline_ltl (Ast.specification_of_node n).spec_guarantees;
       trans = List.map inline_transition n.trans;
     }
   in
@@ -304,7 +306,8 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
       {
         n.attrs with
         invariants_user = List.map inline_invariant_user n.attrs.invariants_user;
-        invariants_state_rel = List.map inline_invariant_state_rel n.attrs.invariants_state_rel;
+        invariants_state_rel =
+          List.map inline_invariant_state_rel (Ast.specification_of_node n).spec_invariants_state_rel;
       };
   }
 
@@ -412,228 +415,6 @@ let add_monitor_compatibility_requires ?(log : (Abs.transition -> fo -> unit) op
         in
         { t with requires = t.requires @ incoming_prev_o })
       trans
-
-let terms_overlap (t1 : (string * bool option) list) (t2 : (string * bool option) list) : bool =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun (n, v) -> match v with Some b -> Hashtbl.replace tbl n b | None -> ())
-    t2;
-  List.for_all
-    (fun (n, v) ->
-      match (v, Hashtbl.find_opt tbl n) with Some b1, Some b2 -> b1 = b2 | _ -> true)
-    t1
-
-let guards_overlap (g1 : Automaton_types.guard) (g2 : Automaton_types.guard) : bool =
-  List.exists (fun t1 -> List.exists (fun t2 -> terms_overlap t1 t2) g2) g1
-
-type lit = { var : ident; cst : string; is_pos : bool }
-
-let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
-  let mk ?(is_pos = true) v c = Some { var = v; cst = c; is_pos } in
-  match (h1, r, h2) with
-  | HNow a, REq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk v (string_of_int i)
-      | ILitInt i, IVar v -> mk v (string_of_int i)
-      | IVar v, ILitBool b -> mk v (if b then "true" else "false")
-      | ILitBool b, IVar v -> mk v (if b then "true" else "false")
-      | _ -> None
-    end
-  | HNow a, RNeq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk ~is_pos:false v (string_of_int i)
-      | ILitInt i, IVar v -> mk ~is_pos:false v (string_of_int i)
-      | IVar v, ILitBool b -> mk ~is_pos:false v (if b then "true" else "false")
-      | ILitBool b, IVar v -> mk ~is_pos:false v (if b then "true" else "false")
-      | _ -> None
-    end
-  | _ -> None
-
-let rec conj_lits (f : fo) : lit list option =
-  match f with
-  | FTrue -> Some []
-  | FRel (h1, r, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
-  | FNot x -> begin
-      match x with
-      | FRel (h1, REq, h2) -> Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
-      | _ -> None
-    end
-  | FAnd (a, b) -> begin
-      match (conj_lits a, conj_lits b) with
-      | Some la, Some lb -> Some (la @ lb)
-      | _ -> None
-    end
-  | _ -> None
-
-let disj_conjs (f : fo) : lit list list option =
-  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
-  let xs = go f |> List.map conj_lits in
-  List.fold_right
-    (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
-    xs (Some [])
-
-let lits_consistent (a : lit list) (b : lit list) : bool =
-  let pos = Hashtbl.create 16 in
-  let neg = Hashtbl.create 16 in
-  let add_lit l =
-    if l.is_pos then (
-      let prev = Hashtbl.find_opt pos l.var |> Option.value ~default:[] in
-      if not (List.mem l.cst prev) then Hashtbl.replace pos l.var (l.cst :: prev))
-    else (
-      let prev = Hashtbl.find_opt neg l.var |> Option.value ~default:[] in
-      if not (List.mem l.cst prev) then Hashtbl.replace neg l.var (l.cst :: prev))
-  in
-  List.iter add_lit (a @ b);
-  let ok = ref true in
-  Hashtbl.iter
-    (fun v vals ->
-      match vals with
-      | [] | [ _ ] -> ()
-      | _ -> ok := false;
-      let neg_vals = Hashtbl.find_opt neg v |> Option.value ~default:[] in
-      if List.exists (fun c -> List.mem c neg_vals) vals then ok := false)
-    pos;
-  !ok
-
-let fo_overlap_conservative (a : fo) (b : fo) : bool =
-  match (disj_conjs a, disj_conjs b) with
-  | Some da, Some db ->
-      List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
-  | _ -> true
-
-let add_assumption_state_aware_requires ?(log : (Abs.transition -> fo -> unit) option = None)
-    ~(instrumentation_grouped : Automaton_engine.transition list) ~(instrumentation_states : Automaton_engine.residual_state list)
-    ~(assume_grouped : Automaton_engine.transition list) ~(assume_states : Automaton_engine.residual_state list)
-    ~(assume_bad_idx : int) ~(assume_atom_map_exprs : (ident * iexpr) list)
-    ~(assume_atom_name_to_fo : (ident * fo) list) (trans : Abs.transition list) : Abs.transition list =
-  if assume_states = [] || instrumentation_states = [] then trans
-  else
-    let n_m = List.length instrumentation_states in
-    let n_a = List.length assume_states in
-    let mon_out = Array.make n_m [] in
-    let asm_out = Array.make n_a [] in
-    List.iter (fun (i, g, j) -> mon_out.(i) <- (g, j) :: mon_out.(i)) instrumentation_grouped;
-    List.iter (fun (i, g, j) -> asm_out.(i) <- (g, j) :: asm_out.(i)) assume_grouped;
-    let reachable = Array.make_matrix n_m n_a false in
-    let q = Queue.create () in
-    reachable.(0).(0) <- true;
-    Queue.add (0, 0) q;
-    while not (Queue.is_empty q) do
-      let i_m, i_a = Queue.take q in
-      List.iter
-        (fun (g_m, j_m) ->
-          List.iter
-            (fun (g_a, j_a) ->
-              (* State-aware assumptions are conditioned by the hypothesis that assumptions
-                 held so far; we do not propagate product states where the assumption
-                 automaton is already in bad. *)
-              if
-                guards_overlap g_m g_a
-                && not (assume_bad_idx >= 0 && j_a = assume_bad_idx)
-                && not reachable.(j_m).(j_a)
-              then (
-                reachable.(j_m).(j_a) <- true;
-                Queue.add (j_m, j_a) q))
-            asm_out.(i_a))
-        mon_out.(i_m)
-    done;
-    let req_for_assume_state (qa : int) : fo =
-      let nonbad_guards =
-        List.filter_map
-          (fun (g, j) ->
-            if assume_bad_idx >= 0 && j = assume_bad_idx then None
-            else
-              let e = Automaton_guard.guard_to_iexpr g |> inline_atoms_iexpr assume_atom_map_exprs in
-              Some (iexpr_to_fo_with_atoms assume_atom_name_to_fo e |> inline_fo_atoms assume_atom_map_exprs))
-          asm_out.(qa)
-      in
-      match nonbad_guards with
-      | [] -> if assume_bad_idx >= 0 then FFalse else FTrue
-      | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
-    in
-    let mon_req_forms =
-      Array.init n_m (fun qm ->
-          let acc = ref [] in
-          for qa = 0 to n_a - 1 do
-            if reachable.(qm).(qa) then acc := req_for_assume_state qa :: !acc
-          done;
-          match !acc with [] -> FTrue | f :: rest -> List.fold_left (fun a b -> FAnd (a, b)) f rest)
-    in
-    let reqs =
-      Array.to_list
-        (Array.mapi
-           (fun qm req_body ->
-             let cond = FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr qm)) in
-             FImp (cond, req_body))
-           mon_req_forms)
-    in
-    List.map
-      (fun (t : Abs.transition) ->
-        List.iter (fun f -> Option.iter (fun l -> l t f) log) reqs;
-        {
-          t with
-          requires = t.requires @ List.map (Ast_provenance.with_origin AssumeAutomaton) reqs;
-        })
-      trans
-
-let compute_compat_invariants ~(n : Abs.node) ~(states : Automaton_engine.residual_state list)
-    ~(transitions : Automaton_engine.transition list) ~(atom_map_exprs : (ident * iexpr) list)
-    ~(atom_name_to_fo : (ident * fo) list) : invariant_state_rel list =
-  let n_states = List.length n.states in
-  let n_mon = List.length states in
-  if n_states = 0 || n_mon = 0 then []
-  else
-    let state_index = Hashtbl.create n_states in
-    List.iteri (fun i s -> Hashtbl.add state_index s i) n.states;
-    let prog_out = Array.make n_states [] in
-    List.iter
-      (fun (t : Abs.transition) ->
-        match (Hashtbl.find_opt state_index t.src, Hashtbl.find_opt state_index t.dst) with
-        | Some i, Some j ->
-            let g = Option.map (iexpr_to_fo_with_atoms []) t.guard in
-            prog_out.(i) <- (j, g) :: prog_out.(i)
-        | _ -> ())
-      n.trans;
-    let mon_out = Array.make n_mon [] in
-    List.iter (fun (i, guard, j) -> mon_out.(i) <- (guard, j) :: mon_out.(i)) transitions;
-    let visited = Array.make_matrix n_states n_mon false in
-    let q = Queue.create () in
-    begin match Hashtbl.find_opt state_index n.init_state with
-    | Some i0 ->
-        visited.(i0).(0) <- true;
-        Queue.add (i0, 0) q
-    | None -> ()
-    end;
-    while not (Queue.is_empty q) do
-      let i, j = Queue.take q in
-      List.iter
-        (fun (i', g_prog) ->
-          List.iter
-            (fun (g_mon, j') ->
-              let g_mon =
-                Automaton_guard.guard_to_iexpr g_mon |> inline_atoms_iexpr atom_map_exprs
-                |> iexpr_to_fo_with_atoms atom_name_to_fo |> inline_fo_atoms atom_map_exprs
-              in
-              let overlap = match g_prog with None -> true | Some gp -> fo_overlap_conservative gp g_mon in
-              if overlap && not visited.(i').(j') then (
-                visited.(i').(j') <- true;
-                Queue.add (i', j') q))
-            mon_out.(j))
-        prog_out.(i)
-    done;
-    let mk_or_fo acc f = match acc with None -> Some f | Some a -> Some (FOr (a, f)) in
-    let mon_eq i = FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr i)) in
-    List.mapi
-      (fun si st_name ->
-        let disj =
-          let acc = ref None in
-          for mi = 0 to n_mon - 1 do
-            if visited.(si).(mi) then acc := mk_or_fo !acc (mon_eq mi)
-          done;
-          match !acc with Some f -> f |> ltl_of_fo |> simplify_ltl |> fo_of_ltl | None -> FFalse
-        in
-        { is_eq = true; state = st_name; formula = disj })
-      n.states
 
 let compute_incoming_prev_fo_shifted ~(grouped : Automaton_engine.transition list)
     ~(atom_map_exprs : (ident * iexpr) list) ~(atom_name_to_fo : (ident * fo) list)
@@ -771,15 +552,15 @@ let build_processing_context ~(grouped : Automaton_engine.transition list)
   { bad_idx; bad_state_fo_opt; incoming_prev_fo_shifted; instrumentation_updates; instrumentation_asserts }
 
 let build_node_context ~(build : build_ctx) ~(n : Abs.node) : node_context =
-  let input_names = List.map (fun (v : vdecl) -> v.vname) n.inputs in
+  let input_names = List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs in
   let is_input (x : ident) = List.mem x input_names in
   let atom_map_exprs = build.atoms.atom_named_exprs in
   let atom_names = build.atom_names in
   let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) build.atoms.atom_map in
-  let user_assumes = n.assumes in
-  let user_guarantees = n.guarantees in
+  let user_assumes = n.specification.spec_assumes in
+  let user_guarantees = n.specification.spec_guarantees in
   let invariants_user = n.attrs.invariants_user in
-  let invariants_state_rel = n.attrs.invariants_state_rel in
+  let invariants_state_rel = n.specification.spec_invariants_state_rel in
   let automaton = build.automaton in
   let states = automaton.states in
   let transitions = automaton.transitions in
@@ -827,6 +608,15 @@ let make_contract_logger () : (reason:string -> t:Abs.transition -> fo -> unit) 
     if debug_contracts then
       prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_fo f))
 
+let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : Ast.node =
+  match ctx.states with
+  | [] -> n
+  | _first :: _ ->
+      let init_goal =
+        FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr 0))
+      in
+      Ast_utils.add_new_coherency_goals n [ init_goal ]
+
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
   let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in
   let n =
@@ -844,6 +634,7 @@ let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.t
       attrs = { n.attrs with invariants_user = ctx.invariants_user; invariants_state_rel = ctx.invariants_state_rel };
     }
   in
+  let n = add_initial_automaton_support_goal ~ctx n in
   inline_atoms_in_node ctx.atom_map_exprs n
 
 let finalize_instrumented_abstract_node ~(ctx : node_context) ~(n : Abs.node)
@@ -891,7 +682,7 @@ let transform_abstract_node_with_info ~(build : build_ctx) (n : Abs.node) :
       ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
   in
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
-  let rendered = Product_debug.render ~node_name:n.nname ~analysis:product_analysis in
+  let rendered = Product_debug.render ~node_name:n.semantics.sem_nname ~analysis:product_analysis in
   let info =
     {
       (empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names) with

@@ -28,6 +28,9 @@ let string_of_prune_reason = function
   | PT.Incompatible_program_guarantee -> "program/G incompatible"
   | PT.Incompatible_assumption_guarantee -> "A/G incompatible"
 
+let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
+  Printf.sprintf "%d->%d" src dst
+
 let obligation_formula (step : PT.product_step) : fo =
   FNot (FAnd (step.prog_guard, FAnd (step.assume_guard, step.guarantee_guard)))
 
@@ -42,10 +45,12 @@ let render_product_lines ~(node_name : ident) (analysis : Product_build.analysis
   let steps =
     analysis.exploration.steps
     |> List.map (fun (step : PT.product_step) ->
-           Printf.sprintf "[%s] %s -- %s / A:%s / G:%s --> %s [%s]" node_name
+           Printf.sprintf "[%s] %s -- %s / A[%s]:%s / G[%s]:%s --> %s [%s]" node_name
              (string_of_state step.src)
              step.prog_transition.src
+             (string_of_edge step.assume_edge)
              (string_of_fo step.assume_guard)
+             (string_of_edge step.guarantee_edge)
              (string_of_fo step.guarantee_guard)
              (string_of_state step.dst)
              (string_of_step_class step.step_class))
@@ -67,10 +72,12 @@ let render_obligation_lines ~(node_name : ident) (analysis : Product_build.analy
 let render_prune_lines ~(node_name : ident) (analysis : Product_build.analysis) =
   analysis.exploration.pruned_steps
   |> List.map (fun (step : PT.pruned_step) ->
-         Printf.sprintf "[%s] prune %s -- %s / A:%s / G:%s [%s]" node_name
+         Printf.sprintf "[%s] prune %s -- %s / A[%s]:%s / G[%s]:%s [%s]" node_name
            (string_of_state step.src)
            step.prog_transition.src
+           (string_of_edge step.assume_edge)
            (string_of_fo step.assume_guard)
+           (string_of_edge step.guarantee_edge)
            (string_of_fo step.guarantee_guard)
            (string_of_prune_reason step.reason))
 
@@ -103,7 +110,9 @@ let render_product_dot ~(node_name : ident) (analysis : Product_build.analysis) 
       Buffer.add_string buf
         (Printf.sprintf "  %s -> %s [color=%s,label=\"%s\"];\n"
            (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
-           (escape_dot_label (string_of_step_class step.step_class))))
+           (escape_dot_label
+              (Printf.sprintf "%s\\nA[%s]\\nG[%s]" (string_of_step_class step.step_class)
+                 (string_of_edge step.assume_edge) (string_of_edge step.guarantee_edge)))))
     analysis.exploration.steps;
   Buffer.add_string buf "}\n";
   Buffer.contents buf

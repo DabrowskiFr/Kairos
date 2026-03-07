@@ -46,12 +46,13 @@ let json_transition (t : Ast.transition) : string =
   "{" ^ String.concat "," base ^ "}"
 
 let json_node (n : Ast.node) : string =
+  let spec = Ast.specification_of_node n in
   let inputs = List.map json_vdecl n.inputs in
   let outputs = List.map json_vdecl n.outputs in
   let locals = List.map json_vdecl n.locals in
   let states = List.map json_str n.states in
-  let assumes = List.map (fun f -> json_str (Support.string_of_ltl f)) n.assumes in
-  let guarantees = List.map (fun f -> json_str (Support.string_of_ltl f)) n.guarantees in
+  let assumes = List.map (fun f -> json_str (Support.string_of_ltl f)) spec.spec_assumes in
+  let guarantees = List.map (fun f -> json_str (Support.string_of_ltl f)) spec.spec_guarantees in
   let instances =
     List.map (fun (inst, node) -> json_list [ json_str inst; json_str node ]) n.instances
   in

@@ -324,11 +324,12 @@ let replace_pre_k_transition ~(map : (hexpr * ident) list) (t : transition) : tr
 
 let replace_pre_k_node (n : node) : node =
   let map = pre_k_var_map n in
+  let spec = Ast.specification_of_node n in
   let n =
     {
       n with
-      assumes = List.map (replace_pre_k_ltl ~map) n.assumes;
-      guarantees = List.map (replace_pre_k_ltl ~map) n.guarantees;
+      assumes = List.map (replace_pre_k_ltl ~map) spec.spec_assumes;
+      guarantees = List.map (replace_pre_k_ltl ~map) spec.spec_guarantees;
       trans = List.map (replace_pre_k_transition ~map) n.trans;
     }
   in
@@ -339,7 +340,7 @@ let replace_pre_k_node (n : node) : node =
         n.attrs with
         invariants_user = List.map (replace_pre_k_invariant_user ~map) n.attrs.invariants_user;
         invariants_state_rel =
-          List.map (replace_pre_k_invariant_state_rel ~map) n.attrs.invariants_state_rel;
+          List.map (replace_pre_k_invariant_state_rel ~map) spec.spec_invariants_state_rel;
         coherency_goals = List.map (replace_pre_k_coherency_goal ~map) n.attrs.coherency_goals;
       };
   }
@@ -686,9 +687,10 @@ let node_lines (n : node) : string list =
     "node " ^ n.nname ^ " (" ^ params_of_vdecls n.inputs ^ ")" ^ " returns ("
     ^ params_of_vdecls n.outputs ^ ")"
   in
+  let spec = Ast.specification_of_node n in
   let contracts =
-    contract_lines 1 n.assumes n.guarantees ~invariants_user:n.attrs.invariants_user
-      ~invariants_state_rel:n.attrs.invariants_state_rel ~init_for_var ~vars
+    contract_lines 1 spec.spec_assumes spec.spec_guarantees ~invariants_user:n.attrs.invariants_user
+      ~invariants_state_rel:spec.spec_invariants_state_rel ~init_for_var ~vars
     @ coherency_goal_lines 1 ~goals:n.attrs.coherency_goals ~init_for_var ~vars
   in
   let instances =
@@ -906,9 +908,10 @@ let node_lines_with_vcid (n : node) : line_with_vcid list =
     in
     (Printf.sprintf "node %s%s%s" n.nname params returns, None)
   in
+  let spec = Ast.specification_of_node n in
   let contracts =
-    contract_lines 1 n.assumes n.guarantees ~invariants_user:n.attrs.invariants_user
-      ~invariants_state_rel:n.attrs.invariants_state_rel ~init_for_var ~vars
+    contract_lines 1 spec.spec_assumes spec.spec_guarantees ~invariants_user:n.attrs.invariants_user
+      ~invariants_state_rel:spec.spec_invariants_state_rel ~init_for_var ~vars
     |> List.map (fun line -> (line, None))
   in
   let coherency_goals =

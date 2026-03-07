@@ -8,25 +8,25 @@ Module Type IMPLEMENTATION_VALIDATOR_SIG
   (C : CORE_STEP_SIG)
   (E : OBLIGATION_GEN_SIG with Definition StepCtx := C.StepCtx).
 
-  Parameter Validator : E.Obligation -> bool.
-  Parameter ObligationValid : E.Obligation -> Prop.
+  Parameter Validator : E.Clause -> bool.
+  Parameter ClauseValid : E.Clause -> Prop.
 
   (* "Yes" is semantically sound. *)
   Axiom validator_sound_true :
-    forall obl, Validator obl = true -> ObligationValid obl.
+    forall cl, Validator cl = true -> ClauseValid cl.
 
   (* If semantically valid, validator answers yes. *)
   Axiom validator_complete_valid :
-    forall obl, ObligationValid obl -> Validator obl = true.
+    forall cl, ClauseValid cl -> Validator cl = true.
 
-  (* Generated obligations must be accepted by the validator. *)
+  (* Generated clauses must be accepted by the validator. *)
   Axiom validator_complete_generated :
-    forall obl, E.Generated obl -> Validator obl = true.
+    forall cl, E.Generated cl -> Validator cl = true.
 
-  Axiom obligation_valid_pointwise :
-    forall (obl : E.Obligation) u k,
-      ObligationValid obl ->
-      obl (C.ctx_at u k).
+  Axiom clause_valid_pointwise :
+    forall (cl : E.Clause) u k,
+      ClauseValid cl ->
+      cl (C.ctx_at u k).
 End IMPLEMENTATION_VALIDATOR_SIG.
 
 Module MakeOracleSemFromValidator
@@ -35,29 +35,29 @@ Module MakeOracleSemFromValidator
   (V : IMPLEMENTATION_VALIDATOR_SIG C E)
   <: ORACLE_SEM_SIG C E.
 
-  Definition Oracle : E.Obligation -> bool := V.Validator.
-  Definition ObligationValid : E.Obligation -> Prop := V.ObligationValid.
+  Definition Oracle : E.Clause -> bool := V.Validator.
+  Definition ClauseValid : E.Clause -> Prop := V.ClauseValid.
 
   Theorem Oracle_sound :
-    forall obl, Oracle obl = true -> ObligationValid obl.
+    forall cl, Oracle cl = true -> ClauseValid cl.
   Proof.
-    intros obl H.
-    exact (V.validator_sound_true (obl := obl) H).
+    intros cl H.
+    exact (V.validator_sound_true (cl := cl) H).
   Qed.
 
   Theorem Oracle_complete :
-    forall obl, E.Generated obl -> Oracle obl = true.
+    forall cl, E.Generated cl -> Oracle cl = true.
   Proof.
-    intros obl Hgen.
-    exact (V.validator_complete_generated (obl := obl) Hgen).
+    intros cl Hgen.
+    exact (V.validator_complete_generated (cl := cl) Hgen).
   Qed.
 
-  Theorem obligation_valid_pointwise :
-    forall (obl : E.Obligation) u k,
-      ObligationValid obl ->
-      obl (C.ctx_at u k).
+  Theorem clause_valid_pointwise :
+    forall (cl : E.Clause) u k,
+      ClauseValid cl ->
+      cl (C.ctx_at u k).
   Proof.
-    intros obl u k Hvalid.
-    exact (@V.obligation_valid_pointwise obl u k Hvalid).
+    intros cl u k Hvalid.
+    exact (@V.clause_valid_pointwise cl u k Hvalid).
   Qed.
 End MakeOracleSemFromValidator.

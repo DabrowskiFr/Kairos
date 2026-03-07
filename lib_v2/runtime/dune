@@ -56,8 +56,6 @@
   product_debug
   product_contracts
   automata_pass
-  gen_hyp
-  gen_obl
   instrumentation
   middle_end_pass
   contracts_pass

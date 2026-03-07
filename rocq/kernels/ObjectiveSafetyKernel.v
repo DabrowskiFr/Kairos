@@ -19,7 +19,7 @@ Module Type LOCAL_OBJECTIVE_COVERAGE_SIG
     forall u,
       AvoidA u ->
       ~ AvoidG (C.run_trace u) ->
-      exists k (obl : E.Obligation), T.GeneratedObjective obl /\ ~ obl (C.ctx_at u k).
+      exists k (cl : E.Clause), T.GeneratedObjective cl /\ ~ cl (C.ctx_at u k).
 End LOCAL_OBJECTIVE_COVERAGE_SIG.
 
 Module MakeObjectiveSafetyKernel
@@ -29,20 +29,32 @@ Module MakeObjectiveSafetyKernel
   (O : ORACLE_SEM_SIG C E)
   (Cov : LOCAL_OBJECTIVE_COVERAGE_SIG C E T).
 
-  Theorem coherency_obligations_hold_pointwise :
-    (forall obl, T.GeneratedCoherency obl -> O.Oracle obl = true) ->
-    forall u k (obl : E.Obligation),
-      T.GeneratedCoherency obl ->
-      obl (C.ctx_at u k).
+  Theorem user_invariant_obligations_hold_pointwise :
+    (forall cl, T.GeneratedUserInvariant cl -> O.Oracle cl = true) ->
+    forall u k (cl : E.Clause),
+      T.GeneratedUserInvariant cl ->
+      cl (C.ctx_at u k).
   Proof.
-    intros HallCoh u k obl Hcoh.
-    pose proof (HallCoh obl Hcoh) as Hor.
-    pose proof (O.Oracle_sound (obl := obl) Hor) as Hvalid.
-    exact (O.obligation_valid_pointwise u k Hvalid).
+    intros HallUser u k cl Huser.
+    pose proof (HallUser cl Huser) as Hor.
+    pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
+    exact (O.clause_valid_pointwise u k Hvalid).
   Qed.
 
-  Theorem oracle_conditional_correctness_from_objectives :
-    (forall obl, T.GeneratedObjective obl -> O.Oracle obl = true) ->
+  Theorem initial_goals_hold_at_tick0 :
+    (forall cl, T.GeneratedInitialGoal cl -> O.Oracle cl = true) ->
+    forall u (cl : E.Clause),
+      T.GeneratedInitialGoal cl ->
+      cl (C.ctx_at u 0).
+  Proof.
+    intros HallInit u cl Hinit.
+    pose proof (HallInit cl Hinit) as Hor.
+    pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
+    exact (O.clause_valid_pointwise u 0 Hvalid).
+  Qed.
+
+  Theorem validation_conditional_correctness_from_objectives :
+    (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
     forall u,
       Cov.AvoidA u ->
       Cov.AvoidG (C.run_trace u).
@@ -50,31 +62,56 @@ Module MakeObjectiveSafetyKernel
     intros HallObj u HA.
     destruct (classic (Cov.AvoidG (C.run_trace u))) as [HG | HnG].
     - exact HG.
-    - destruct (@Cov.objective_coverage_if_not_avoidG u HA HnG) as [k [obl [Hobj Hnot]]].
-      pose proof (HallObj obl Hobj) as Hor.
-      pose proof (O.Oracle_sound (obl := obl) Hor) as Hvalid.
+    - destruct (@Cov.objective_coverage_if_not_avoidG u HA HnG) as [k [cl [Hobj Hnot]]].
+      pose proof (HallObj cl Hobj) as Hor.
+      pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
       exfalso.
       apply Hnot.
-      exact (O.obligation_valid_pointwise u k Hvalid).
+      exact (O.clause_valid_pointwise u k Hvalid).
   Qed.
 
-  Theorem oracle_conditional_correctness_with_coherency :
-    (forall obl, T.GeneratedObjective obl -> O.Oracle obl = true) ->
-    (forall obl, T.GeneratedCoherency obl -> O.Oracle obl = true) ->
+  Theorem validation_conditional_correctness_with_supports :
+    (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
+    (forall cl, T.GeneratedInitialGoal cl -> O.Oracle cl = true) ->
+    (forall cl, T.GeneratedUserInvariant cl -> O.Oracle cl = true) ->
     forall u,
       Cov.AvoidA u ->
       Cov.AvoidG (C.run_trace u)
       /\
-      (forall k (obl : E.Obligation),
-         T.GeneratedCoherency obl ->
-         obl (C.ctx_at u k)).
+      (forall k (cl : E.Clause),
+         T.GeneratedUserInvariant cl ->
+         cl (C.ctx_at u k)).
   Proof.
-    intros HallObj HallCoh u HA.
+    intros HallObj _HallInit HallUser u HA.
     split.
-    - apply oracle_conditional_correctness_from_objectives; assumption.
-    - intros k obl Hcoh.
-      eapply coherency_obligations_hold_pointwise.
-      + exact HallCoh.
-      + exact Hcoh.
+    - apply validation_conditional_correctness_from_objectives; assumption.
+    - intros k cl Huser.
+      eapply user_invariant_obligations_hold_pointwise.
+      + exact HallUser.
+      + exact Huser.
+  Qed.
+
+  Theorem oracle_conditional_correctness_from_objectives :
+    (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
+    forall u,
+      Cov.AvoidA u ->
+      Cov.AvoidG (C.run_trace u).
+  Proof.
+    exact validation_conditional_correctness_from_objectives.
+  Qed.
+
+  Theorem oracle_conditional_correctness_with_supports :
+    (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
+    (forall cl, T.GeneratedInitialGoal cl -> O.Oracle cl = true) ->
+    (forall cl, T.GeneratedUserInvariant cl -> O.Oracle cl = true) ->
+    forall u,
+      Cov.AvoidA u ->
+      Cov.AvoidG (C.run_trace u)
+      /\
+      (forall k (cl : E.Clause),
+         T.GeneratedUserInvariant cl ->
+         cl (C.ctx_at u k)).
+  Proof.
+    exact validation_conditional_correctness_with_supports.
   Qed.
 End MakeObjectiveSafetyKernel.

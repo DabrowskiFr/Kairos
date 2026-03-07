@@ -116,4 +116,5 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.fo_ltl list) :
 
 let collect_atoms (n : Ast.node) : automata_atoms =
   (* Instrumentation construction is guarantee-only: do not collect atoms from assumptions. *)
-  collect_atoms_from_ltls n ~ltls:n.guarantees
+  let spec = Ast.specification_of_node n in
+  collect_atoms_from_ltls n ~ltls:spec.spec_guarantees

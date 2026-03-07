@@ -21,7 +21,7 @@ Module Type LOCAL_COVERAGE_SIG
     forall u,
       AvoidA u ->
       ~ AvoidG (C.run_trace u) ->
-      exists k (obl : E.Obligation), E.Generated obl /\ ~ obl (C.ctx_at u k).
+      exists k (cl : E.Clause), E.Generated cl /\ ~ cl (C.ctx_at u k).
 End LOCAL_COVERAGE_SIG.
 
 Module MakeSafetyKernel
@@ -30,7 +30,7 @@ Module MakeSafetyKernel
   (O : ORACLE_SEM_SIG C E)
   (Cov : LOCAL_COVERAGE_SIG C E).
 
-  Theorem oracle_conditional_correctness_modular :
+  Theorem validation_conditional_correctness_modular :
     forall u,
       Cov.AvoidA u ->
       Cov.AvoidG (C.run_trace u).
@@ -38,11 +38,19 @@ Module MakeSafetyKernel
     intros u HA.
     destruct (classic (Cov.AvoidG (C.run_trace u))) as [HG | HnG].
     - exact HG.
-    - destruct (@Cov.coverage_if_not_avoidG u HA HnG) as [k [obl [Hgen Hnot]]].
-      pose proof (O.Oracle_complete (obl := obl) Hgen) as Hor.
-      pose proof (O.Oracle_sound (obl := obl) Hor) as Hvalid.
+    - destruct (@Cov.coverage_if_not_avoidG u HA HnG) as [k [cl [Hgen Hnot]]].
+      pose proof (O.Oracle_complete (cl := cl) Hgen) as Hor.
+      pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
       exfalso.
       apply Hnot.
-      exact (O.obligation_valid_pointwise u k Hvalid).
+      exact (O.clause_valid_pointwise u k Hvalid).
+  Qed.
+
+  Theorem oracle_conditional_correctness_modular :
+    forall u,
+      Cov.AvoidA u ->
+      Cov.AvoidG (C.run_trace u).
+  Proof.
+    exact validation_conditional_correctness_modular.
   Qed.
 End MakeSafetyKernel.

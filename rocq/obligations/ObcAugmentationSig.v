@@ -20,10 +20,10 @@ Module Type OBC_AUGMENTATION_SIG
   (E : OBLIGATION_GEN_SIG)
   (T : OBLIGATION_TAXONOMY_SIG E).
 
-  Parameter family_of : E.Obligation -> obc_formula_family.
+  Parameter family_of : E.Clause -> obc_formula_family.
 
-  Definition GeneratedFamily (f : obc_formula_family) (obl : E.Obligation) : Prop :=
-    E.Generated obl /\ family_of obl = f.
+  Definition GeneratedFamily (f : obc_formula_family) (cl : E.Clause) : Prop :=
+    E.Generated cl /\ family_of cl = f.
 
   (* Every generated obligation in the augmented OBC belongs to one of the
      explicit formula families above. *)
@@ -36,12 +36,16 @@ Module Type OBC_AUGMENTATION_SIG
       GeneratedFamily FamNoBadRequires obl \/ GeneratedFamily FamNoBadEnsures obl ->
       T.GeneratedObjective obl.
 
-  Axiom coherency_families_are_coherency :
+  Axiom initial_family_is_initial_goal :
+    forall obl,
+      GeneratedFamily FamInitialCoherencyGoal obl ->
+      T.GeneratedInitialGoal obl.
+
+  Axiom coherency_families_are_user_invariant :
     forall obl,
       GeneratedFamily FamCoherencyRequires obl
-      \/ GeneratedFamily FamCoherencyEnsuresShifted obl
-      \/ GeneratedFamily FamInitialCoherencyGoal obl ->
-      T.GeneratedCoherency obl.
+      \/ GeneratedFamily FamCoherencyEnsuresShifted obl ->
+      T.GeneratedUserInvariant obl.
 
   Axiom support_automaton_families_are_support :
     forall obl,

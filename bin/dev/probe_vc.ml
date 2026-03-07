@@ -8,11 +8,11 @@ let build_formula_sources_abs (p_obc : Abs.node list) : (int * string) list =
     (fun (node : Abs.node) ->
       List.iter
         (fun (goal : Ast.fo_o) ->
-          acc := (goal.oid, Printf.sprintf "%s: <no transition>" node.nname) :: !acc)
+          acc := (goal.oid, Printf.sprintf "%s: <no transition>" node.semantics.sem_nname) :: !acc)
         node.attrs.coherency_goals;
       List.iter
         (fun (t : Abs.transition) ->
-          let src = Printf.sprintf "%s: %s -> %s" node.nname t.src t.dst in
+          let src = Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst in
           List.iter (fun (ens : Ast.fo_o) -> acc := (ens.oid, src) :: !acc) t.ensures)
         node.trans)
     p_obc;

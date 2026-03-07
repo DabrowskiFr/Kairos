@@ -145,12 +145,12 @@ let node_outgoing (n : Abs.node) : (ident, Abs.transition list) Hashtbl.t =
     n.trans;
   tbl
 
-let automaton_outgoing (view : automaton_view) : (int * (Automaton_types.guard * int) list) list =
+let automaton_outgoing (view : automaton_view) : (int * Automaton_engine.transition list) list =
   let tbl = Hashtbl.create 16 in
   List.iter
-    (fun (src, guard, dst) ->
+    (fun (((src, _guard, _dst) as edge) : Automaton_engine.transition) ->
       let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
-      Hashtbl.replace tbl src ((guard, dst) :: prev))
+      Hashtbl.replace tbl src (edge :: prev))
     view.grouped;
   Hashtbl.fold (fun src edges acc -> (src, edges) :: acc) tbl []
 
@@ -175,7 +175,7 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
   let assume_outgoing = automaton_outgoing assume in
   let guarantee_outgoing = automaton_outgoing guarantee in
   let initial_state =
-    { PT.prog_state = node.init_state; assume_state = 0; guarantee_state = 0 }
+    { PT.prog_state = node.semantics.sem_init_state; assume_state = 0; guarantee_state = 0 }
   in
   let seen = Hashtbl.create 64 in
   let q = Queue.create () in
@@ -188,15 +188,17 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
       states_rev := st :: !states_rev;
       Queue.add st q)
   in
-  let mk_pruned ~src ~prog_transition ~prog_guard ~assume_src ~assume_dst ~assume_guard
-      ~guarantee_src ~guarantee_dst ~guarantee_guard ~reason =
+  let mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge ~assume_src ~assume_dst ~assume_guard
+      ~guarantee_edge ~guarantee_src ~guarantee_dst ~guarantee_guard ~reason =
     {
       PT.src;
       prog_transition;
       prog_guard;
+      assume_edge;
       assume_src;
       assume_dst;
       assume_guard;
+      guarantee_edge;
       guarantee_src;
       guarantee_dst;
       guarantee_guard;
@@ -213,29 +215,33 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
       (fun (prog_transition : Abs.transition) ->
         let prog_guard = program_guard_fo prog_transition in
         List.iter
-          (fun (assume_guard_raw, assume_dst) ->
+          (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) : Automaton_engine.transition) ->
             let assume_guard = automaton_guard_fo ~atom_map_exprs:assume.atom_map_exprs assume_guard_raw in
             List.iter
-              (fun (guarantee_guard_raw, guarantee_dst) ->
+              (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
+                     Automaton_engine.transition) ->
                 let guarantee_guard =
                   automaton_guard_fo ~atom_map_exprs:guarantee.atom_map_exprs guarantee_guard_raw
                 in
                 if not (fo_overlap_conservative prog_guard assume_guard) then
                   pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_src:src.assume_state
-                      ~assume_dst ~assume_guard ~guarantee_src:src.guarantee_state ~guarantee_dst
+                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
+                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
+                      ~guarantee_src:src.guarantee_state ~guarantee_dst
                       ~guarantee_guard ~reason:PT.Incompatible_program_assumption
                     :: !pruned_rev
                 else if not (fo_overlap_conservative prog_guard guarantee_guard) then
                   pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_src:src.assume_state
-                      ~assume_dst ~assume_guard ~guarantee_src:src.guarantee_state ~guarantee_dst
+                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
+                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
+                      ~guarantee_src:src.guarantee_state ~guarantee_dst
                       ~guarantee_guard ~reason:PT.Incompatible_program_guarantee
                     :: !pruned_rev
                 else if not (fo_overlap_conservative assume_guard guarantee_guard) then
                   pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_src:src.assume_state
-                      ~assume_dst ~assume_guard ~guarantee_src:src.guarantee_state ~guarantee_dst
+                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
+                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
+                      ~guarantee_src:src.guarantee_state ~guarantee_dst
                       ~guarantee_guard ~reason:PT.Incompatible_assumption_guarantee
                     :: !pruned_rev
                 else
@@ -255,7 +261,9 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
                       dst;
                       prog_transition;
                       prog_guard;
+                      assume_edge;
                       assume_guard;
+                      guarantee_edge;
                       guarantee_guard;
                       step_class;
                     }

@@ -14,11 +14,19 @@ Module MakeEndToEnd
 
   Module SK := MakeSafetyKernel C E O Cov.
 
+  Theorem end_to_end_validation_conditional_correctness :
+    forall u,
+      Cov.AvoidA u ->
+      Cov.AvoidG (C.run_trace u).
+  Proof.
+    exact SK.validation_conditional_correctness_modular.
+  Qed.
+
   Theorem end_to_end_oracle_conditional_correctness :
     forall u,
       Cov.AvoidA u ->
       Cov.AvoidG (C.run_trace u).
   Proof.
-    exact SK.oracle_conditional_correctness_modular.
+    exact end_to_end_validation_conditional_correctness.
   Qed.
 End MakeEndToEnd.

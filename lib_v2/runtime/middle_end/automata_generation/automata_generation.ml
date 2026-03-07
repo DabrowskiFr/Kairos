@@ -39,14 +39,15 @@ type automata_build = {
 }
 
 let build_for_node (n : Ast.node) : automata_build =
+  let node_spec = Ast.specification_of_node n in
   let atoms = collect_atoms n in
   let atom_names = List.map snd atoms.atom_map in
   let spec = build_monitor_spec ~atom_map:atoms.atom_map n in
   let automaton = build_monitor_automaton ~atom_map:atoms.atom_map ~atom_names spec in
   let assume_atoms, assume_atom_names, assume_spec, assume_automaton =
-    if n.assumes = [] then (None, [], None, None)
+    if node_spec.spec_assumes = [] then (None, [], None, None)
     else
-      let atoms_a = collect_atoms_from_ltls n ~ltls:n.assumes in
+      let atoms_a = collect_atoms_from_ltls n ~ltls:node_spec.spec_assumes in
       let atom_names_a = List.map snd atoms_a.atom_map in
       let spec_a = build_assumption_spec ~atom_map:atoms_a.atom_map n in
       let automaton_a =

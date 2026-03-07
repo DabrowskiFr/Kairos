@@ -32,13 +32,13 @@ End SAFETY_SIG.
 
 Module Type OBLIGATION_ENGINE_SIG.
   Parameter StepCtx : Type.
-  Definition Obligation : Type := StepCtx -> Prop.
+  Definition Clause : Type := StepCtx -> Prop.
 
   Parameter origin : Type.
-  Parameter GeneratedBy : origin -> Obligation -> Prop.
+  Parameter GeneratedBy : origin -> Clause -> Prop.
 
-  Definition Generated (obl : Obligation) : Prop :=
-    exists o, GeneratedBy o obl.
+  Definition Generated (cl : Clause) : Prop :=
+    exists o, GeneratedBy o cl.
 End OBLIGATION_ENGINE_SIG.
 
 Module Type INPUT_OK_LINK_SIG.

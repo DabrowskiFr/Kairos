@@ -212,9 +212,10 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
     imports @ type_mon_state @ [ type_state; type_vars; step_decl ] @ coherency_goal_decls
   in
 
+  let spec = Ast.specification_of_node n in
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
     match comment_specs with
-    | None -> (n.assumes, n.guarantees, n.trans, [])
+    | None -> (spec.spec_assumes, spec.spec_guarantees, n.trans, [])
     | Some (a, g, t, m) -> (a, g, t, m)
   in
   let show_assume rel f =
@@ -324,7 +325,7 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
         List.map (show_assume false) comment_assumes
         @ List.map (show_guarantee false) comment_guarantees
         @ List.map (show_invariant_user false) n.attrs.invariants_user
-        @ List.map (show_invariant_state_rel false) n.attrs.invariants_state_rel
+        @ List.map (show_invariant_state_rel false) spec.spec_invariants_state_rel
       in
       let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in

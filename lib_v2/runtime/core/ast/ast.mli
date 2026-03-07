@@ -32,6 +32,12 @@
    Quick map (structural core): {v program -> node -> transition -> stmt \-> assumes/guarantees
    (fo_ltl) \-> requires/ensures (fo_o -> fo) v}
 
+   Conceptual split used by the formalization:
+   - a node carries a {i program part} (syntax + transition semantics),
+   - and a {i specification part} (assumptions, guarantees, state invariants).
+   The concrete AST still stores both on the same record for pipeline convenience,
+   but accessors below expose the split explicitly.
+
    Sections below follow the language structure: expressions, formulas, statements, program
    structure, and utilities. *)
 
@@ -183,10 +189,36 @@ type node = {
   attrs : node_attrs;
 }
 
+(* Program-only view of a node: syntax and transition semantics. *)
+type node_semantics = {
+  sem_nname : ident;
+  sem_inputs : vdecl list;
+  sem_outputs : vdecl list;
+  sem_instances : (ident * ident) list;
+  sem_locals : vdecl list;
+  sem_states : ident list;
+  sem_init_state : ident;
+  sem_trans : transition list;
+}
+
+(* Specification-only view of a node.
+   Semantically, these formulas are interpreted on a trace-local context:
+   the current tick together with the history made accessible through [HNow]/[HPreK].
+   They are therefore not restricted to predicates over the current memory alone.
+   The finite encoding through auxiliary [__pre_k...] variables is a later backend step. *)
+type node_specification = {
+  spec_assumes : fo_ltl list;
+  spec_guarantees : fo_ltl list;
+  spec_invariants_state_rel : invariant_state_rel list;
+}
+
 (* A program is a list of nodes. *)
 type program = node list
 
 (* {2 Utilities} Utilities live in [Ast_utils]. *)
+
+val semantics_of_node : node -> node_semantics
+val specification_of_node : node -> node_specification
 
 (* Debug string representation of a program (mainly for dumps). *)
 val show_program : program -> string

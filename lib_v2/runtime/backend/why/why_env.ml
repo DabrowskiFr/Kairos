@@ -83,10 +83,11 @@ let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
 
 let collect_mon_state_ctors (n : Ast.node) : ident list =
   let n = n in
+  let spec = Ast.specification_of_node n in
   let acc = ref [] in
-  List.iter (fun f -> acc := collect_ctor_ltl !acc f) (n.assumes @ n.guarantees);
+  List.iter (fun f -> acc := collect_ctor_ltl !acc f) (spec.spec_assumes @ spec.spec_guarantees);
   List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
-  List.iter (fun inv -> acc := collect_ctor_fo !acc inv.formula) n.attrs.invariants_state_rel;
+  List.iter (fun inv -> acc := collect_ctor_fo !acc inv.formula) spec.spec_invariants_state_rel;
   List.iter (fun g -> acc := collect_ctor_fo !acc g.value) n.attrs.coherency_goals;
   List.iter
     (fun (t : transition) ->
@@ -177,7 +178,10 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
   in
   let pre_k_map = Collect.build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
-  let has_initial_only_contracts = List.exists is_initial_only (n.assumes @ n.guarantees) in
+  let spec = Ast.specification_of_node n in
+  let has_initial_only_contracts =
+    List.exists is_initial_only (spec.spec_assumes @ spec.spec_guarantees)
+  in
   let needs_step_count = false in
   let needs_first_step = false in
   let inv_links = List.map (fun inv -> (inv.inv_expr, inv.inv_id)) n.attrs.invariants_user in

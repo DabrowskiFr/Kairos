@@ -126,6 +126,7 @@ let inline_atom_terms (env : env) (invs : invariant_user list) (terms : Ptree.te
 let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_types.contract_info =
   let nodes = nodes in
   let n = info.node in
+  let spec = Ast.specification_of_node n in
   let env = info.env in
   let pre_k_map = info.pre_k_map in
   let pre_k_infos = info.pre_k_infos in
@@ -162,7 +163,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
           let frag = ltl_spec env rel in
           let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
           guarded_k @ post)
-        [] n.guarantees
+        [] spec.spec_guarantees
   in
   let pre_invf = [] in
   let post_invf = [] in
@@ -304,7 +305,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
           let body = compile_fo_term env inv.formula in
           Some (inv.state, (cond, body))
         else None)
-      n.attrs.invariants_state_rel
+      spec.spec_invariants_state_rel
   in
   let state_rel_for name =
     List.find_map (fun (st, term) -> if st = name then Some term else None) state_rel_terms
@@ -329,7 +330,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
         (fun inv ->
           if inv.is_eq && inv.state = n.init_state then Some (compile_fo_term env inv.formula)
           else None)
-        n.attrs.invariants_state_rel
+        spec.spec_invariants_state_rel
     in
     let instance_terms =
       let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
@@ -389,7 +390,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
         let body = compile_fo_term env inv.formula in
         let t = term_implies cond body in
         (t :: pre, t :: post))
-      (pre, post) n.attrs.invariants_state_rel
+      (pre, post) spec.spec_invariants_state_rel
   in
   let pre_k_links = [] in
   let find_node (name : string) : node option = List.find_opt (fun nd -> nd.nname = name) nodes in

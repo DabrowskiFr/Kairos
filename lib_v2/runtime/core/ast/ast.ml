@@ -130,4 +130,42 @@ type node = {
 }
 [@@deriving show]
 
+type node_semantics = {
+  sem_nname : ident;
+  sem_inputs : vdecl list;
+  sem_outputs : vdecl list;
+  sem_instances : (ident * ident) list;
+  sem_locals : vdecl list;
+  sem_states : ident list;
+  sem_init_state : ident;
+  sem_trans : transition list;
+}
+[@@deriving show]
+
+type node_specification = {
+  spec_assumes : fo_ltl list;
+  spec_guarantees : fo_ltl list;
+  spec_invariants_state_rel : invariant_state_rel list;
+}
+[@@deriving show]
+
 type program = node list [@@deriving show]
+
+let semantics_of_node (n : node) : node_semantics =
+  {
+    sem_nname = n.nname;
+    sem_inputs = n.inputs;
+    sem_outputs = n.outputs;
+    sem_instances = n.instances;
+    sem_locals = n.locals;
+    sem_states = n.states;
+    sem_init_state = n.init_state;
+    sem_trans = n.trans;
+  }
+
+let specification_of_node (n : node) : node_specification =
+  {
+    spec_assumes = n.assumes;
+    spec_guarantees = n.guarantees;
+    spec_invariants_state_rel = n.attrs.invariants_state_rel;
+  }

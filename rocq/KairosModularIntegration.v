@@ -22,20 +22,24 @@ Module Type KAIROS_ORACLE_INSTANCE_SIG.
     KairosOracleModel.q G_aut ->
     (InputVal * OutputVal) ->
     KairosOracleModel.Edge G_aut_e.
-  Parameter node_inv : State -> Mem -> Prop.
-  Parameter classify_product_step :
-    KairosOracleModel.ProductStep Paut A_aut_e G_aut_e -> KairosOracleModel.origin.
+  Parameter node_inv :
+    State -> KairosOracleModel.StepCtx InputVal OutputVal Mem State -> Prop.
 
   Parameter FO : Type.
   Parameter eval_fo : KairosOracleModel.StepCtx InputVal OutputVal Mem State -> FO -> Prop.
   Parameter shift_fo : nat -> FO -> FO.
+  Parameter node_inv_fo : State -> FO.
+  Parameter support_automaton_fo :
+    KairosOracleModel.ProductState State A_aut G_aut -> FO.
+  Axiom node_inv_fo_correct :
+    forall s ctx, eval_fo ctx (node_inv_fo s) <-> node_inv s ctx.
 
   Axiom shift_fo_correct_if_input_ok :
     forall d u k phi,
       KairosOracleModel.InputOk A_aut_e select_A u k ->
-      eval_fo (KairosOracleModel.ctx_at Paut prog_select init_state init_mem u k) (shift_fo d phi)
+      eval_fo (KairosOracleModel.ctx_at Paut init_state init_mem prog_select u k) (shift_fo d phi)
       <->
-      eval_fo (KairosOracleModel.ctx_at Paut prog_select init_state init_mem u (k + d)) phi.
+      eval_fo (KairosOracleModel.ctx_at Paut init_state init_mem prog_select u (k + d)) phi.
 End KAIROS_ORACLE_INSTANCE_SIG.
 
 Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
@@ -48,8 +52,8 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
     Definition stream (A : Type) : Type := nat -> A.
 
     Definition StepCtx := KairosOracleModel.StepCtx InputVal OutputVal Mem State.
-    Definition ctx_at := KairosOracleModel.ctx_at X.Paut X.prog_select X.init_state X.init_mem.
-    Definition run_trace := KairosOracleModel.run_trace X.Paut X.prog_select X.init_state X.init_mem.
+    Definition ctx_at := KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select.
+    Definition run_trace := KairosOracleModel.run_trace X.Paut X.init_state X.init_mem X.prog_select.
   End PConcrete.
 
   Module AConcrete <: SAFETY_SIG with Definition Obs := PConcrete.InputVal.
@@ -119,18 +123,31 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
 
   Module EConcrete <: OBLIGATION_ENGINE_SIG with Definition StepCtx := PConcrete.StepCtx.
     Definition StepCtx := PConcrete.StepCtx.
-    Definition Obligation : Type := StepCtx -> Prop.
+    Definition Clause : Type := StepCtx -> Prop.
     Definition origin := KairosOracleModel.origin.
-    Definition GeneratedBy (o : origin) (obl : Obligation) : Prop :=
-      exists t,
-        KairosOracleModel.GeneratedBy
-          X.node_inv
-          X.select_A
-          X.select_G
-          X.classify_product_step
-          o t obl.
-    Definition Generated (obl : Obligation) : Prop :=
-      exists o, GeneratedBy o obl.
+    Definition GeneratedBy (o : origin) (cl : Clause) : Prop :=
+      @KairosOracleModel.GeneratedBy
+        X.InputVal
+        X.OutputVal
+        X.Mem
+        X.State
+        X.Paut
+        X.init_state
+        X.A_aut
+        X.G_aut
+        X.A_aut_e
+        X.G_aut_e
+        X.select_A
+        X.select_G
+        X.node_inv
+        X.FO
+        X.eval_fo
+        X.shift_fo
+        X.node_inv_fo
+        X.support_automaton_fo
+        o cl.
+    Definition Generated (cl : Clause) : Prop :=
+      exists o, GeneratedBy o cl.
   End EConcrete.
 
   Module RConcrete <: INPUT_OK_LINK_SIG
@@ -182,10 +199,10 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
     forall u phi,
       KairosOracleModel.avoids_bad_A X.A_aut_e X.select_A u ->
       forall k,
-        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.prog_select X.init_state X.init_mem u k)
-                  (X.shift_fo 1 phi) ->
-        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.prog_select X.init_state X.init_mem u (S k))
-                  phi.
+        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select u k)
+        (X.shift_fo 1 phi) ->
+        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select u (S k))
+        phi.
   Proof.
     intros u phi HA k Hk.
     pose proof (avoids_bad_A_to_CAvoidA (u := u) HA) as HA'.

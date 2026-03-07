@@ -22,6 +22,10 @@ let add_local_if_missing (locals : vdecl list) ~(inputs : vdecl list) ~(outputs 
 
 let pre_k_source_expr (e : iexpr) : iexpr = e
 
+(* Compile source-level history operators [pre_k]/[prev] into finite auxiliary
+   state carried by the backend. This is an implementation device: the source
+   specification remains interpreted over the execution trace, not over these
+   auxiliary variables directly. *)
 let transform_node_ghost_with_info (n : Ast.node) : Ast.node * Stage_info.obc_info =
   let n = n in
   let orig_locals = n.locals in
@@ -37,7 +41,10 @@ let transform_node_ghost_with_info (n : Ast.node) : Ast.node * Stage_info.obc_in
   let is_initial_only = function LG _ -> false | _ -> true in
   let pre_k_map = Collect.build_pre_k_infos n in
   let pre_k_infos = List.map snd pre_k_map in
-  let has_initial_only_contracts = List.exists is_initial_only (n.assumes @ n.guarantees) in
+  let spec = Ast.specification_of_node n in
+  let has_initial_only_contracts =
+    List.exists is_initial_only (spec.spec_assumes @ spec.spec_guarantees)
+  in
   let needs_step_count = false in
   let needs_first_step = false in
 

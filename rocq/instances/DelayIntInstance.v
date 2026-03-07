@@ -25,13 +25,13 @@ Module Program <: PROGRAM_LAYER_SIG.
       (KO.st_next r, KO.mem_next r, KO.out_cur r).
 
   Definition cfg_at : stream InputVal -> nat -> Ctrl * Mem :=
-    KO.cfg_at DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem.
+    KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.
 
   Definition ctx_at : stream InputVal -> nat -> StepCtx :=
-    KO.ctx_at DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem.
+    KO.ctx_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.
 
   Definition run_trace : stream InputVal -> stream (InputVal * OutputVal) :=
-    KO.run_trace DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem.
+    KO.run_trace DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.
 
   Definition cur_ctrl (ctx : StepCtx) : Ctrl := KO.cur_state ctx.
   Definition cur_mem (ctx : StepCtx) : Mem := KO.cur_mem ctx.
@@ -43,7 +43,7 @@ Module Program <: PROGRAM_LAYER_SIG.
   Proof.
     intros u k.
     unfold cur_input, ctx_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem u k) as [c m].
+    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m].
     reflexivity.
   Qed.
 
@@ -52,7 +52,7 @@ Module Program <: PROGRAM_LAYER_SIG.
   Proof.
     intros u k.
     unfold cur_ctrl, cur_mem, ctx_at, cfg_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem u k) as [c m].
+    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m].
     reflexivity.
   Qed.
 
@@ -62,7 +62,7 @@ Module Program <: PROGRAM_LAYER_SIG.
     intros u k.
     unfold run_trace, KO.run_trace.
     unfold cur_input, cur_output, ctx_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut DelayIntProof.pselect init_ctrl init_mem u k) as [c m] eqn:Hcfg.
+    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m] eqn:Hcfg.
     simpl.
     unfold KO.out_at, KO.step_at, KO.step.
     rewrite Hcfg.
@@ -90,17 +90,17 @@ End Program.
 
 Module Core <: KAIROS_CORE_LAYER_SIG Program.
   Definition StepCtx := Program.StepCtx.
-  Definition Obligation : Type := StepCtx -> Prop.
+  Definition Clause : Type := StepCtx -> Prop.
   Definition Origin := unit.
-  Definition GeneratedBy (_ : Origin) (_ : Obligation) : Prop := False.
-  Definition Generated (obl : Obligation) : Prop :=
-    exists o, GeneratedBy o obl.
+  Definition GeneratedBy (_ : Origin) (_ : Clause) : Prop := False.
+  Definition Generated (cl : Clause) : Prop :=
+    exists o, GeneratedBy o cl.
 
   Lemma coverage_if_not_avoidG :
     forall u,
       Program.AvoidA u ->
       ~ Program.AvoidG (Program.run_trace u) ->
-      exists k (obl : Obligation), Generated obl /\ ~ obl (Program.ctx_at u k).
+      exists k (cl : Clause), Generated cl /\ ~ cl (Program.ctx_at u k).
   Proof.
     intros u _HA HnG.
     exfalso.
@@ -110,30 +110,30 @@ Module Core <: KAIROS_CORE_LAYER_SIG Program.
 End Core.
 
 Module Validation <: VALIDATION_LAYER_SIG Program Core.
-  Definition Oracle (_ : Core.Obligation) : bool := false.
-  Definition ObligationValid (obl : Core.Obligation) : Prop :=
-    forall u k, obl (Program.ctx_at u k).
+  Definition Oracle (_ : Core.Clause) : bool := false.
+  Definition ClauseValid (cl : Core.Clause) : Prop :=
+    forall u k, cl (Program.ctx_at u k).
 
   Lemma Oracle_sound :
-    forall obl, Oracle obl = true -> ObligationValid obl.
+    forall cl, Oracle cl = true -> ClauseValid cl.
   Proof.
-    intros obl H.
+    intros cl H.
     discriminate H.
   Qed.
 
   Lemma Oracle_complete :
-    forall obl, Core.Generated obl -> Oracle obl = true.
+    forall cl, Core.Generated cl -> Oracle cl = true.
   Proof.
-    intros obl [o Hgen].
+    intros cl [o Hgen].
     contradiction.
   Qed.
 
-  Lemma obligation_valid_pointwise :
-    forall (obl : Core.Obligation) u k,
-      ObligationValid obl ->
-      obl (Program.ctx_at u k).
+  Lemma clause_valid_pointwise :
+    forall (cl : Core.Clause) u k,
+      ClauseValid cl ->
+      cl (Program.ctx_at u k).
   Proof.
-    intros obl u k Hvalid.
+    intros cl u k Hvalid.
     exact (Hvalid u k).
   Qed.
 End Validation.
@@ -145,7 +145,7 @@ Theorem delay_int_three_layer_correctness :
     Program.AvoidA u ->
     Program.AvoidG (Program.run_trace u).
 Proof.
-  apply Correctness.oracle_conditional_correctness_three_layers.
+  apply Correctness.validation_conditional_correctness_three_layers.
 Qed.
 
 Theorem delay_int_three_layer_unconditional :

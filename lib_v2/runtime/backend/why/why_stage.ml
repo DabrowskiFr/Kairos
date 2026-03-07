@@ -5,7 +5,8 @@ let build_ast ?(prefix_fields = true) (p : Ast.program) : Emit.program_ast =
     List.map
       (fun (n : A.node) ->
         let trans = n.trans in
-        (n.nname, (n.assumes, n.guarantees, trans, [])))
+        let spec = Ast.specification_of_node n in
+        (n.nname, (spec.spec_assumes, spec.spec_guarantees, trans, [])))
       p
   in
   Why_contracts.set_pure_translation true;

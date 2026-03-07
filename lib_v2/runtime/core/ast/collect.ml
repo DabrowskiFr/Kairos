@@ -73,6 +73,7 @@ let collect_pre_k_from_specs ~(fo : fo list) ~(ltl : fo_ltl list)
   List.fold_left (fun acc inv -> collect_pre_k_fo inv.formula acc) acc invariants_state_rel
 
 let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
+  let spec = specification_of_node n in
   let init_for_var =
     let table = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
     fun v ->
@@ -94,12 +95,12 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
   in
   let coherency_fo = Ast_provenance.values n.attrs.coherency_goals in
   let normalized_fo = List.map normalize_fo (transition_fo @ coherency_fo) in
-  let normalized_ltl = List.map normalize_ltl (n.assumes @ n.guarantees) in
+  let normalized_ltl = List.map normalize_ltl (spec.spec_assumes @ spec.spec_guarantees) in
   let normalized_invariants_user = n.attrs.invariants_user in
   let normalized_invariants_state_rel =
     List.map
       (fun inv -> { inv with formula = normalize_fo inv.formula })
-      n.attrs.invariants_state_rel
+      spec.spec_invariants_state_rel
   in
   let pre_k_exprs =
     collect_pre_k_from_specs ~fo:normalized_fo ~ltl:normalized_ltl

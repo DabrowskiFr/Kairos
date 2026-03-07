@@ -56,8 +56,9 @@ let rec simplify_temporal_idempotence (f : fo_ltl) : fo_ltl =
 
 let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
   let _ = atom_map in
-  let spec_assumes = n.assumes in
-  let spec_guarantees = n.guarantees in
+  let spec = Ast.specification_of_node n in
+  let spec_assumes = spec.spec_assumes in
+  let spec_guarantees = spec.spec_guarantees in
   List.iteri
     (fun i g ->
       validate_ltl_weak_until_positivity ~context:(Printf.sprintf "guarantee #%d of node %s" (i + 1) n.nname) g)
@@ -68,9 +69,10 @@ let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
 
 let build_assumption_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : fo_ltl =
   let _ = atom_map in
+  let spec = Ast.specification_of_node n in
   List.iteri
     (fun i a ->
       validate_ltl_weak_until_positivity ~context:(Printf.sprintf "require #%d of node %s" (i + 1) n.nname) a)
-    n.assumes;
+    spec.spec_assumes;
   let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
-  mk_and (List.rev n.assumes) |> simplify_temporal_idempotence |> simplify_ltl
+  mk_and (List.rev spec.spec_assumes) |> simplify_temporal_idempotence |> simplify_ltl

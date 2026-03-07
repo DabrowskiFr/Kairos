@@ -36,7 +36,7 @@ Module Type KAIROS_CORE_LAYER_SIG (P : PROGRAM_LAYER_SIG).
     forall u,
       P.AvoidA u ->
       ~ P.AvoidG (P.run_trace u) ->
-      exists k (obl : Obligation), Generated obl /\ ~ obl (P.ctx_at u k).
+      exists k (cl : Clause), Generated cl /\ ~ cl (P.ctx_at u k).
 End KAIROS_CORE_LAYER_SIG.
 
 Module Type VALIDATION_LAYER_SIG
@@ -50,7 +50,7 @@ Module MakeThreeLayerCorrectness
   (K : KAIROS_CORE_LAYER_SIG P)
   (S : VALIDATION_LAYER_SIG P K).
 
-  Theorem oracle_conditional_correctness_three_layers :
+  Theorem validation_conditional_correctness_three_layers :
     forall u,
       P.AvoidA u ->
       P.AvoidG (P.run_trace u).
@@ -58,11 +58,19 @@ Module MakeThreeLayerCorrectness
     intros u HA.
     destruct (classic (P.AvoidG (P.run_trace u))) as [HG | HnG].
     - exact HG.
-    - destruct (@K.coverage_if_not_avoidG u HA HnG) as [k [obl [Hgen Hnot]]].
-      pose proof (S.Oracle_complete (obl := obl) Hgen) as Hor.
-      pose proof (S.Oracle_sound (obl := obl) Hor) as Hvalid.
+    - destruct (@K.coverage_if_not_avoidG u HA HnG) as [k [cl [Hgen Hnot]]].
+      pose proof (S.Oracle_complete (cl := cl) Hgen) as Hor.
+      pose proof (S.Oracle_sound (cl := cl) Hor) as Hvalid.
       exfalso.
       apply Hnot.
-      exact (S.obligation_valid_pointwise u k Hvalid).
+      exact (S.clause_valid_pointwise u k Hvalid).
+  Qed.
+
+  Theorem oracle_conditional_correctness_three_layers :
+    forall u,
+      P.AvoidA u ->
+      P.AvoidG (P.run_trace u).
+  Proof.
+    exact validation_conditional_correctness_three_layers.
   Qed.
 End MakeThreeLayerCorrectness.

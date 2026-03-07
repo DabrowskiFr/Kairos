@@ -4,93 +4,97 @@ Require Import obligations.ObligationTaxonomySig.
 Set Implicit Arguments.
 
 Inductive obligation_phase : Type :=
-| PhaseObjective
-| PhaseCoherency
-| PhaseSupportAutomaton
-| PhaseSupportUserInvariant.
+| PhaseHelperInit
+| PhaseHelperPropagation
+| PhaseSafety.
 
 Definition phase_index (p : obligation_phase) : nat :=
   match p with
-  | PhaseObjective => 0
-  | PhaseCoherency => 1
-  | PhaseSupportAutomaton => 2
-  | PhaseSupportUserInvariant => 3
+  | PhaseHelperInit => 0
+  | PhaseHelperPropagation => 1
+  | PhaseSafety => 2
   end.
 
 Module Type OBLIGATION_STRATIFIED_SIG
   (E : OBLIGATION_GEN_SIG)
   (T : OBLIGATION_TAXONOMY_SIG E).
 
-  Parameter phase_of : E.Obligation -> obligation_phase.
+  Definition GeneratedPropagationUserInvariant (cl : E.Clause) : Prop :=
+    E.Generated cl /\ T.role_of cl = HelperClause Propagation HelperUserInvariant.
 
-  Axiom objective_phase :
-    forall obl,
-      T.GeneratedObjective obl ->
-      phase_of obl = PhaseObjective.
+  Definition GeneratedPropagationAutomatonSupport (cl : E.Clause) : Prop :=
+    E.Generated cl /\ T.role_of cl = HelperClause Propagation HelperAutomatonSupport.
 
-  Axiom support_automaton_phase :
-    forall obl,
-      T.GeneratedSupportAutomaton obl ->
-      phase_of obl = PhaseSupportAutomaton.
+  Parameter phase_of : E.Clause -> obligation_phase.
 
-  Axiom coherency_phase :
-    forall obl,
-      T.GeneratedCoherency obl ->
-      phase_of obl = PhaseCoherency.
+  Axiom helper_init_phase :
+    forall cl,
+      T.GeneratedInitialGoal cl ->
+      phase_of cl = PhaseHelperInit.
 
-  Axiom support_user_phase :
-    forall obl,
-      T.GeneratedSupportUserInvariant obl ->
-      phase_of obl = PhaseSupportUserInvariant.
+  Axiom helper_propagation_user_phase :
+    forall cl,
+      GeneratedPropagationUserInvariant cl ->
+      phase_of cl = PhaseHelperPropagation.
 
-  Theorem objective_before_coherency :
-    forall obl_obj obl_coh,
-      T.GeneratedObjective obl_obj ->
-      T.GeneratedCoherency obl_coh ->
-      phase_index (phase_of obl_obj) < phase_index (phase_of obl_coh).
+  Axiom helper_propagation_automaton_phase :
+    forall cl,
+      GeneratedPropagationAutomatonSupport cl ->
+      phase_of cl = PhaseHelperPropagation.
+
+  Axiom safety_phase :
+    forall cl,
+      T.GeneratedSafety cl ->
+      phase_of cl = PhaseSafety.
+
+  Theorem helper_init_before_helper_propagation_user :
+    forall cl_init cl_user,
+      T.GeneratedInitialGoal cl_init ->
+      GeneratedPropagationUserInvariant cl_user ->
+      phase_index (phase_of cl_init) < phase_index (phase_of cl_user).
   Proof.
-    intros obl_obj obl_coh Hobj Hcoh.
-    rewrite (objective_phase (obl := obl_obj) Hobj).
-    rewrite (coherency_phase (obl := obl_coh) Hcoh).
+    intros cl_init cl_user Hinit Huser.
+    rewrite (helper_init_phase (cl := cl_init) Hinit).
+    rewrite (helper_propagation_user_phase (cl := cl_user) Huser).
     simpl.
     auto.
   Qed.
 
-  Theorem coherency_before_support_automaton :
-    forall obl_coh obl_auto,
-      T.GeneratedCoherency obl_coh ->
-      T.GeneratedSupportAutomaton obl_auto ->
-      phase_index (phase_of obl_coh) < phase_index (phase_of obl_auto).
+  Theorem helper_init_before_helper_propagation_automaton :
+    forall cl_init cl_auto,
+      T.GeneratedInitialGoal cl_init ->
+      GeneratedPropagationAutomatonSupport cl_auto ->
+      phase_index (phase_of cl_init) < phase_index (phase_of cl_auto).
   Proof.
-    intros obl_coh obl_auto Hcoh Hauto.
-    rewrite (coherency_phase (obl := obl_coh) Hcoh).
-    rewrite (support_automaton_phase (obl := obl_auto) Hauto).
+    intros cl_init cl_auto Hinit Hauto.
+    rewrite (helper_init_phase (cl := cl_init) Hinit).
+    rewrite (helper_propagation_automaton_phase (cl := cl_auto) Hauto).
     simpl.
     auto.
   Qed.
 
-  Theorem objective_before_support_automaton :
-    forall obl_obj obl_auto,
-      T.GeneratedObjective obl_obj ->
-      T.GeneratedSupportAutomaton obl_auto ->
-      phase_index (phase_of obl_obj) < phase_index (phase_of obl_auto).
+  Theorem helper_propagation_before_safety_from_user :
+    forall cl_user cl_obj,
+      GeneratedPropagationUserInvariant cl_user ->
+      T.GeneratedSafety cl_obj ->
+      phase_index (phase_of cl_user) < phase_index (phase_of cl_obj).
   Proof.
-    intros obl_obj obl_auto Hobj Hauto.
-    rewrite (objective_phase (obl := obl_obj) Hobj).
-    rewrite (support_automaton_phase (obl := obl_auto) Hauto).
+    intros cl_user cl_obj Huser Hobj.
+    rewrite (helper_propagation_user_phase (cl := cl_user) Huser).
+    rewrite (safety_phase (cl := cl_obj) Hobj).
     simpl.
     auto.
   Qed.
 
-  Theorem support_automaton_before_support_user :
-    forall obl_auto obl_user,
-      T.GeneratedSupportAutomaton obl_auto ->
-      T.GeneratedSupportUserInvariant obl_user ->
-      phase_index (phase_of obl_auto) < phase_index (phase_of obl_user).
+  Theorem helper_propagation_before_safety_from_automaton :
+    forall cl_auto cl_obj,
+      GeneratedPropagationAutomatonSupport cl_auto ->
+      T.GeneratedSafety cl_obj ->
+      phase_index (phase_of cl_auto) < phase_index (phase_of cl_obj).
   Proof.
-    intros obl_auto obl_user Hauto Huser.
-    rewrite (support_automaton_phase (obl := obl_auto) Hauto).
-    rewrite (support_user_phase (obl := obl_user) Huser).
+    intros cl_auto cl_obj Hauto Hobj.
+    rewrite (helper_propagation_automaton_phase (cl := cl_auto) Hauto).
+    rewrite (safety_phase (cl := cl_obj) Hobj).
     simpl.
     auto.
   Qed.

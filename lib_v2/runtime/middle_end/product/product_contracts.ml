@@ -24,7 +24,7 @@ let compat_invariants ~(node : Abs.node) ~(analysis : Product_build.analysis) :
       if List.mem st.guarantee_state prev then ()
       else Hashtbl.replace by_prog st.prog_state (st.guarantee_state :: prev))
     analysis.exploration.states;
-  node.states
+  node.semantics.sem_states
   |> List.map (fun state ->
          let gs = Hashtbl.find_opt by_prog state |> Option.value ~default:[] |> List.sort_uniq compare in
          let formulas =

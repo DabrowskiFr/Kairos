@@ -14,8 +14,8 @@ Module KairosOracleModel.
 (* Ce module formalise une preuve conditionnelle de correction:
    - un programme synchrone (automate de contrôle + mémoire),
    - deux automates de sûreté (hypothèse A sur entrées, garantie G sur I/O),
-   - des obligations locales générées depuis des pas du produit,
-   - un oracle qui valide ces obligations.
+   - des clauses locales générées depuis des pas du produit,
+   - des triples de Hoare relationnels construits depuis ces clauses.
 
    Théorème final:
      avoids_bad_A u -> avoids_bad_G (run_trace u)
@@ -49,7 +49,22 @@ Section Model.
     out_of : Trans -> Mem -> InputVal -> OutputVal;
   }.
 
+  Record ProgramSemantics : Type := {
+    prog_aut : ProgramAutomaton;
+    prog_init_state : State;
+    prog_init_mem : Mem;
+  }.
+
   Variable Paut : ProgramAutomaton.
+  Variable init_state : State.
+  Variable init_mem : Mem.
+
+  Definition program_part : ProgramSemantics :=
+    {|
+      prog_aut := Paut;
+      prog_init_state := init_state;
+      prog_init_mem := init_mem;
+    |}.
 
   (* t est activée dans le contexte courant (s,m,i). *)
   Definition trans_enabled (t : Trans Paut) (s : State) (m : Mem) (i : InputVal) : Prop :=
@@ -71,16 +86,6 @@ Section Model.
   (* Sémantique "fonctionnelle" du pas programme, dérivée de prog_select. *)
   Definition step (s : State) (m : Mem) (i : InputVal) : StepResult :=
     trans_result (prog_select s m i) m i.
-  Variable init_state : State.
-  Variable init_mem : Mem.
-  Variable node_inv : State -> Mem -> Prop.
-  Hypothesis node_inv_init :
-    node_inv init_state init_mem.
-  Hypothesis node_inv_preserved :
-    forall s m i,
-      node_inv s m ->
-      let r := step s m i in
-      node_inv (st_next r) (mem_next r).
 
   (* Trace observable au tick k = entrée courante + sortie produite. *)
   Definition io_val : Type := InputVal * OutputVal.
@@ -94,21 +99,6 @@ Section Model.
         let r := step s m (u n) in
         (st_next r, mem_next r)
     end.
-
-  Lemma node_inv_cfg_at :
-    forall u k,
-      let '(s, m) := cfg_at u k in
-      node_inv s m.
-  Proof.
-    intros u k.
-    induction k as [|n IH].
-    - simpl. exact node_inv_init.
-    - simpl.
-      destruct (cfg_at u n) as [s m] eqn:Hcfg.
-      simpl in IH.
-      eapply node_inv_preserved.
-      exact IH.
-  Qed.
 
   (* Pas exécuté au tick k. *)
   Definition step_at (u : stream InputVal) (k : nat) : StepResult :=
@@ -170,9 +160,9 @@ Section Model.
       (obs : Obs) : Prop :=
     src_e AE e = qv /\ label_e AE e obs.
 
-  (* Automates d'hypothèse (entrées) et de garantie (I/O). *)
   Variable A_aut : SafetyAutomaton InputVal.
   Variable G_aut : SafetyAutomaton io_val.
+
   Variable A_aut_e : SafetyAutomatonEdges A_aut.
   Variable G_aut_e : SafetyAutomatonEdges G_aut.
 
@@ -315,11 +305,28 @@ Section Model.
       cur_output := out_cur r;
     |}.
 
-  (* Une obligation est un prédicat logique sur un contexte local.
-     ObligationValid = vraie pour tous les ticks de toutes les exécutions. *)
-  Definition Obligation : Type := StepCtx -> Prop.
-  Definition ObligationValid (obl : Obligation) : Prop :=
-    forall u k, obl (ctx_at u k).
+  (* Une clause est un prédicat logique sur un contexte local.
+     ClauseValid = vraie pour tous les ticks de toutes les exécutions. *)
+  Definition Clause : Type := StepCtx -> Prop.
+  Definition ClauseValid (cl : Clause) : Prop :=
+    forall u k, cl (ctx_at u k).
+
+  (* Automates d'hypothèse (entrées), de garantie (I/O) et invariants de nœud
+     interprétés sur un contexte de tick dérivé de la trace d'exécution. *)
+  Record NodeSpecification : Type := {
+    spec_A_aut : SafetyAutomaton InputVal;
+    spec_G_aut : SafetyAutomaton io_val;
+    spec_node_inv : State -> StepCtx -> Prop;
+  }.
+
+  Variable node_inv : State -> StepCtx -> Prop.
+
+  Definition specification_part : NodeSpecification :=
+    {|
+      spec_A_aut := A_aut;
+      spec_G_aut := G_aut;
+      spec_node_inv := node_inv;
+    |}.
 
   (* -------------------------------------------------------------------------- *)
   (* Décalage abstrait des formules FO                                          *)
@@ -330,6 +337,9 @@ Section Model.
   Variable FO : Type.
   Variable eval_fo : StepCtx -> FO -> Prop.
   Variable shift_fo : nat -> FO -> FO.
+  Variable node_inv_fo : State -> FO.
+  Hypothesis node_inv_fo_correct :
+    forall s ctx, eval_fo ctx (node_inv_fo s) <-> node_inv s ctx.
 
   (* Admissibilité d'entrée au tick k: l'automate d'hypothèse n'est pas en bad. *)
   Definition InputOk (u : stream InputVal) (k : nat) : Prop :=
@@ -378,18 +388,19 @@ Section Model.
 
   (* Origine/provenance d'une obligation générée. *)
   Inductive origin : Type :=
-  | UserContract
-  | Coherency
-  | Compatibility
-  | AssumeAutomaton
-  | Instrumentation
-  | NodeInvariant
-  | Internal.
+  | ObjectiveNoBad
+  | InitialGoal
+  | UserInvariant
+  | AutomatonSupport.
 
-  Definition generated_item : Type := origin * Obligation.
+  Definition generated_item : Type := origin * Clause.
 
-  (* Classification des obligations issues d'un pas produit (paramètre). *)
-  Variable classify_product_step : ProductStep -> origin.
+  Definition init_product_state : ProductState :=
+    {|
+      ps_prog := init_state;
+      ps_a := q0 A_aut;
+      ps_g := q0 G_aut;
+    |}.
 
   (* Le contexte concret "matche" un pas produit donné. *)
   Definition ctx_matches_ps (ctx : StepCtx) (ps : ProductStep) : Prop :=
@@ -398,35 +409,192 @@ Section Model.
     /\ cur_input ctx = pst_in ps
     /\ trans_enabled (pst_trans ps) (cur_state ctx) (cur_mem ctx) (cur_input ctx).
 
-  (* Obligation canonique issue d'un pas produit:
-     interdire que le contexte concret matche ce pas. *)
-  Definition prod_obligation (ps : ProductStep) : Obligation :=
-    fun ctx => ~ ctx_matches_ps ctx ps.
+  Variable support_automaton_fo : ProductState -> FO.
 
-  (* Obligation de cohérence d'invariant de nœud:
+  (* Clause canonique issue d'un pas produit:
+     interdire que le contexte concret matche ce pas. *)
+  Definition prod_obligation (ps : ProductStep) : Clause :=
+    fun ctx =>
+      node_inv (cur_state ctx) ctx ->
+      eval_fo ctx (support_automaton_fo (pst_from ps)) ->
+      ~ ctx_matches_ps ctx ps.
+
+  (* Clause de cohérence d'invariant de nœud:
      dès qu'un contexte matche ps, l'invariant de nœud courant doit tenir. *)
-  Definition node_inv_obligation (ps : ProductStep) : Obligation :=
-    fun ctx => ctx_matches_ps ctx ps -> node_inv (cur_state ctx) (cur_mem ctx).
+  Definition node_inv_obligation (ps : ProductStep) : Clause :=
+    fun ctx =>
+      ctx_matches_ps ctx ps ->
+      node_inv (cur_state ctx) ctx ->
+      eval_fo ctx (shift_fo 1 (node_inv_fo (ps_prog (product_step_target ps)))).
+
+  Definition support_automaton_obligation (ps : ProductStep) : Clause :=
+    fun ctx =>
+      ctx_matches_ps ctx ps ->
+      eval_fo ctx (support_automaton_fo (pst_from ps)) ->
+      eval_fo ctx (shift_fo 1 (support_automaton_fo (product_step_target ps))).
+
+  Definition init_node_inv_obligation : Clause :=
+    fun ctx => tick ctx = 0 -> node_inv init_state ctx.
+
+  Definition init_support_automaton_obligation : Clause :=
+    fun ctx => tick ctx = 0 -> eval_fo ctx (support_automaton_fo init_product_state).
+
+  Definition init_generated_items : list generated_item :=
+    [ (InitialGoal, init_node_inv_obligation);
+      (InitialGoal, init_support_automaton_obligation) ].
 
   (* Génération locale depuis un pas produit. *)
   Definition gen_from_product_step (ps : ProductStep) : list generated_item :=
-    [ (classify_product_step ps, prod_obligation ps);
-      (NodeInvariant, node_inv_obligation ps) ].
+    [ (ObjectiveNoBad, prod_obligation ps);
+      (AutomatonSupport, support_automaton_obligation ps);
+      (UserInvariant, node_inv_obligation ps) ].
 
   (* Relation de génération (niveau preuve):
      l'obligation est générée depuis un pas produit bien formé. *)
-  Inductive GeneratedBy : origin -> Trans Paut -> Obligation -> Prop :=
+  Inductive GeneratedBy : origin -> Clause -> Prop :=
+  | GeneratedBy_init :
+      forall o obl,
+        In (o, obl) init_generated_items ->
+        GeneratedBy o obl
   | GeneratedBy_product :
-      forall o t obl ps,
+      forall o obl ps,
         product_step_wf ps ->
-        pst_trans ps = t ->
         In (o, obl) (gen_from_product_step ps) ->
-        GeneratedBy o t obl
+        GeneratedBy o obl
   .
 
   (* Ensemble des obligations générées (oubliant origine/transition). *)
-  Definition Generated (obl : Obligation) : Prop :=
-    exists o t, GeneratedBy o t obl.
+  Definition Generated (cl : Clause) : Prop :=
+    exists o, GeneratedBy o cl.
+
+  (* -------------------------------------------------------------------------- *)
+  (* Triples de Hoare relationnels générés                                      *)
+  (* -------------------------------------------------------------------------- *)
+  Inductive triple_target : Type :=
+  | TripleInit
+  | TripleStep (t : Trans Paut).
+
+  Record RelHoareTriple : Type := {
+    ht_target : triple_target;
+    ht_pre : Clause;
+    ht_post : Clause;
+    ht_origin : origin;
+    ht_clause : Clause;
+  }.
+
+  Definition TrueClause : Clause := fun _ => True.
+  Definition FalseClause : Clause := fun _ => False.
+
+  Definition init_ctx (ctx : StepCtx) : Prop :=
+    exists u, ctx = ctx_at u 0.
+
+  Definition transition_realized_at (u : stream InputVal) (k : nat) (t : Trans Paut) : Prop :=
+    let '(s, m) := cfg_at u k in
+    prog_select s m (u k) = t.
+
+  Definition transition_rel (t : Trans Paut) (ctx ctx' : StepCtx) : Prop :=
+    exists u k,
+      ctx = ctx_at u k /\
+      ctx' = ctx_at u (S k) /\
+      transition_realized_at u k t.
+
+  Definition TripleValid (ht : RelHoareTriple) : Prop :=
+    match ht_target ht with
+    | TripleInit =>
+        forall ctx,
+          init_ctx ctx ->
+          ht_pre ht ctx ->
+          ht_post ht ctx
+    | TripleStep t =>
+        forall ctx ctx',
+          transition_rel t ctx ctx' ->
+          ht_pre ht ctx ->
+          ht_post ht ctx'
+    end.
+
+  Definition init_node_inv_triple : RelHoareTriple :=
+    {|
+      ht_target := TripleInit;
+      ht_pre := TrueClause;
+      ht_post := fun ctx => node_inv init_state ctx;
+      ht_origin := InitialGoal;
+      ht_clause := init_node_inv_obligation;
+    |}.
+
+  Definition init_support_automaton_triple : RelHoareTriple :=
+    {|
+      ht_target := TripleInit;
+      ht_pre := TrueClause;
+      ht_post := fun ctx => eval_fo ctx (support_automaton_fo init_product_state);
+      ht_origin := InitialGoal;
+      ht_clause := init_support_automaton_obligation;
+    |}.
+
+  Definition node_inv_pre (ps : ProductStep) : Clause :=
+    fun ctx => ctx_matches_ps ctx ps /\ node_inv (cur_state ctx) ctx.
+
+  Definition node_inv_post (ps : ProductStep) : Clause :=
+    fun ctx => node_inv (ps_prog (product_step_target ps)) ctx.
+
+  Definition node_inv_triple (ps : ProductStep) : RelHoareTriple :=
+    {|
+      ht_target := TripleStep (pst_trans ps);
+      ht_pre := node_inv_pre ps;
+      ht_post := node_inv_post ps;
+      ht_origin := UserInvariant;
+      ht_clause := node_inv_obligation ps;
+    |}.
+
+  Definition support_automaton_pre (ps : ProductStep) : Clause :=
+    fun ctx => ctx_matches_ps ctx ps /\ eval_fo ctx (support_automaton_fo (pst_from ps)).
+
+  Definition support_automaton_post (ps : ProductStep) : Clause :=
+    fun ctx => eval_fo ctx (support_automaton_fo (product_step_target ps)).
+
+  Definition support_automaton_triple (ps : ProductStep) : RelHoareTriple :=
+    {|
+      ht_target := TripleStep (pst_trans ps);
+      ht_pre := support_automaton_pre ps;
+      ht_post := support_automaton_post ps;
+      ht_origin := AutomatonSupport;
+      ht_clause := support_automaton_obligation ps;
+    |}.
+
+  Definition no_bad_pre (ps : ProductStep) : Clause :=
+    fun ctx =>
+      ctx_matches_ps ctx ps
+      /\ node_inv (cur_state ctx) ctx
+      /\ eval_fo ctx (support_automaton_fo (pst_from ps)).
+
+  Definition no_bad_triple (ps : ProductStep) : RelHoareTriple :=
+    {|
+      ht_target := TripleStep (pst_trans ps);
+      ht_pre := no_bad_pre ps;
+      ht_post := FalseClause;
+      ht_origin := ObjectiveNoBad;
+      ht_clause := prod_obligation ps;
+    |}.
+
+  Inductive GeneratedTripleBy : origin -> RelHoareTriple -> Prop :=
+  | GeneratedTriple_init_node_inv :
+      GeneratedTripleBy InitialGoal init_node_inv_triple
+  | GeneratedTriple_init_support :
+      GeneratedTripleBy InitialGoal init_support_automaton_triple
+  | GeneratedTriple_node_inv :
+      forall ps,
+        product_step_wf ps ->
+        GeneratedTripleBy UserInvariant (node_inv_triple ps)
+  | GeneratedTriple_support :
+      forall ps,
+        product_step_wf ps ->
+        GeneratedTripleBy AutomatonSupport (support_automaton_triple ps)
+  | GeneratedTriple_no_bad :
+      forall ps,
+        product_step_wf ps ->
+        GeneratedTripleBy ObjectiveNoBad (no_bad_triple ps).
+
+  Definition GeneratedTriple (ht : RelHoareTriple) : Prop :=
+    exists o, GeneratedTripleBy o ht.
 
   (* -------------------------------------------------------------------------- *)
   (* Exécution du produit le long d'un run programme                            *)
@@ -461,15 +629,10 @@ Section Model.
   Qed.
 
   (* -------------------------------------------------------------------------- *)
-  (* Oracle                                                                      *)
+  (* Validité des triples générés                                               *)
   (* -------------------------------------------------------------------------- *)
-  (* Soundness: si oracle dit true alors l'obligation est sémantiquement valide.
-     Complete: toutes les obligations générées sont validées par l'oracle. *)
-  Variable Oracle : Obligation -> bool.
-  Hypothesis Oracle_sound :
-    forall obl, Oracle obl = true -> ObligationValid obl.
-  Hypothesis Oracle_complete :
-    forall obl, Generated obl -> Oracle obl = true.
+  Hypothesis GeneratedTripleValid :
+    forall ht, GeneratedTriple ht -> TripleValid ht.
 
   (* Ce que signifie "le pas produit ps est celui effectivement réalisé au tick k". *)
   Definition product_step_realizes_at (u : stream InputVal) (k : nat) (ps : ProductStep) : Prop :=
@@ -483,6 +646,35 @@ Section Model.
   Hypothesis A_init_not_bad : q0 A_aut <> bad A_aut.
   Hypothesis G_init_not_bad : q0 G_aut <> bad G_aut.
 
+  Record WellFormedProgramModel : Prop := {
+    wf_prog_select_enabled :
+      forall s m i, trans_enabled (prog_select s m i) s m i;
+    wf_select_A_src :
+      forall qa i, src_e A_aut_e (select_A qa i) = qa;
+    wf_select_G_src :
+      forall qg io, src_e G_aut_e (select_G qg io) = qg;
+    wf_select_A_label :
+      forall qa i, label_e A_aut_e (select_A qa i) i;
+    wf_select_G_label :
+      forall qg io, label_e G_aut_e (select_G qg io) io;
+    wf_A_init_not_bad :
+      q0 A_aut <> bad A_aut;
+    wf_G_init_not_bad :
+      q0 G_aut <> bad G_aut;
+  }.
+
+  Proposition current_model_well_formed : WellFormedProgramModel.
+  Proof.
+    constructor.
+    - exact prog_select_enabled.
+    - exact select_A_src.
+    - exact select_G_src.
+    - exact select_A_label.
+    - exact select_G_label.
+    - exact A_init_not_bad.
+    - exact G_init_not_bad.
+  Qed.
+
   (* Pas local dangereux: il existe un pas produit réalisé, bien formé,
      dont la cible est bad_G et non bad_A. *)
   Definition bad_local_step (u : stream InputVal) (k : nat) : Prop :=
@@ -491,66 +683,97 @@ Section Model.
       /\ product_step_realizes_at u k ps
       /\ product_step_is_bad_target ps.
 
-  (* Existence d'un pas produit réalisé à tout tick (construction explicite). *)
-  Lemma realizable_product_step :
-    forall u k, exists ps, product_step_wf ps /\ product_step_realizes_at u k ps.
+  (* Sélecteur explicite du pas produit au tick k. *)
+  Definition product_select_at (u : stream InputVal) (k : nat) : ProductStep :=
+    let '(s, m) := cfg_at u k in
+    let t := prog_select s m (u k) in
+    let qa := aut_state_at_A u k in
+    let qg := aut_state_at_G (run_trace u) k in
+    let ea := select_A qa (u k) in
+    let obsg := product_obs_io t m (u k) in
+    let eg := select_G qg obsg in
+    {|
+      pst_from := run_product_state u k;
+      pst_trans := t;
+      pst_a_edge := ea;
+      pst_g_edge := eg;
+      pst_mem := m;
+      pst_in := u k;
+    |}.
+
+  Lemma product_select_at_wf :
+    forall u k, product_step_wf (product_select_at u k).
   Proof.
     intros u k.
+    unfold product_select_at.
     destruct (cfg_at u k) as [s m] eqn:Hcfg.
-    set (t := prog_select s m (u k)).
-    set (qa := aut_state_at_A u k).
-    set (qg := aut_state_at_G (run_trace u) k).
-    set (ea := select_A qa (u k)).
-    set (obsg := product_obs_io t m (u k)).
-    set (eg := select_G qg obsg).
-    exists
-      {|
-        pst_from := run_product_state u k;
-        pst_trans := t;
-        pst_a_edge := ea;
-        pst_g_edge := eg;
-        pst_mem := m;
-        pst_in := u k;
-      |}.
+    unfold product_step_wf.
+    simpl.
     split.
-    - unfold product_step_wf.
+    - unfold run_product_state.
+      rewrite Hcfg.
       simpl.
-      split.
+      apply prog_select_enabled.
+    - split.
       + unfold run_product_state.
         rewrite Hcfg.
         simpl.
-        apply prog_select_enabled.
+        unfold edge_enabled.
+        split.
+        * apply select_A_src.
+        * apply select_A_label.
       + split.
         * unfold run_product_state.
           rewrite Hcfg.
           simpl.
           unfold edge_enabled.
           split.
-          -- apply select_A_src.
-          -- apply select_A_label.
+          -- apply select_G_src.
+          -- apply select_G_label.
         * split.
           -- unfold run_product_state.
              rewrite Hcfg.
              simpl.
-             unfold edge_enabled.
-             split.
-             ++ apply select_G_src.
-             ++ apply select_G_label.
-          -- split.
-             ++ unfold run_product_state.
-                rewrite Hcfg.
-                simpl.
-                reflexivity.
-             ++ unfold run_product_state.
-                rewrite Hcfg.
-                simpl.
-                reflexivity.
-    - unfold product_step_realizes_at.
-      rewrite Hcfg.
-      split; [reflexivity |].
-      split; [reflexivity |].
-      split; [reflexivity |].
-      reflexivity.
+             reflexivity.
+          -- unfold run_product_state.
+             rewrite Hcfg.
+             simpl.
+             reflexivity.
+  Qed.
+
+  Lemma product_select_at_realizes :
+    forall u k, product_step_realizes_at u k (product_select_at u k).
+  Proof.
+    intros u k.
+    unfold product_step_realizes_at, product_select_at.
+    destruct (cfg_at u k) as [s m] eqn:Hcfg.
+    unfold run_product_state.
+    rewrite Hcfg.
+    simpl.
+    split; [reflexivity |].
+    split; [reflexivity |].
+    split; [reflexivity |].
+    reflexivity.
+  Qed.
+
+  Lemma product_select_at_from :
+    forall u k, pst_from (product_select_at u k) = run_product_state u k.
+  Proof.
+    intros u k.
+    unfold product_select_at.
+    destruct (cfg_at u k) as [s m].
+    reflexivity.
+  Qed.
+
+  (* Existence d'un pas produit réalisé à tout tick (construction explicite). *)
+  Lemma realizable_product_step :
+    forall u k, exists ps, product_step_wf ps /\ product_step_realizes_at u k ps.
+  Proof.
+    intros u k.
+    exists (product_select_at u k).
+    split.
+    - apply product_select_at_wf.
+    - apply product_select_at_realizes.
   Qed.
 
   (* Correction de projection cible:
@@ -596,6 +819,26 @@ Section Model.
       reflexivity.
   Qed.
 
+  (* Progression non bloquante explicite:
+     à chaque tick, un pas produit bien formé est réalisable, et sa cible
+     correspond exactement aux états des automates A/G au tick suivant. *)
+  Theorem product_progresses_at_each_tick :
+    forall u k,
+      exists ps,
+        product_step_wf ps
+        /\ product_step_realizes_at u k ps
+        /\ ps_a (product_step_target ps) = aut_state_at_A u (S k)
+        /\ ps_g (product_step_target ps) = aut_state_at_G (run_trace u) (S k).
+  Proof.
+    intros u k.
+    destruct (realizable_product_step u k) as [ps [Hwf Hreal]].
+    pose proof (@realized_step_target_correct u k ps Hwf Hreal) as [Ha Hg].
+    exists ps.
+    split; [exact Hwf |].
+    split; [exact Hreal |].
+    split; assumption.
+  Qed.
+
   (* Si G est violée globalement (sur run_trace), alors il existe un tick local dangereux. *)
   Theorem bad_local_step_if_G_violated :
     forall u, avoids_bad_A u -> ~ avoids_bad_G (run_trace u) -> exists k, bad_local_step u k.
@@ -626,7 +869,7 @@ Section Model.
   Qed.
 
   (* Un pas produit réalisé se reflète bien dans le contexte concret ctx_at. *)
-  Lemma ctx_at_matches_realized_ps :
+  Local Lemma ctx_at_matches_realized_ps :
     forall u k ps,
       product_step_wf ps ->
       product_step_realizes_at u k ps ->
@@ -648,109 +891,425 @@ Section Model.
     split; [symmetry; exact Hprog |].
     split; [symmetry; exact Hmem |].
     split; [symmetry; exact Hin |].
-    unfold trans_enabled.
-    split.
+      unfold trans_enabled.
+      split.
     - rewrite Hsrc. exact Hprog.
     - rewrite <- Hmem, <- Hin. exact Hguard.
   Qed.
 
-  Lemma ctx_at_satisfies_node_inv :
-    forall u k,
-      node_inv (cur_state (ctx_at u k)) (cur_mem (ctx_at u k)).
+  Local Lemma realized_step_prog_target_correct :
+    forall u k ps,
+      product_step_realizes_at u k ps ->
+      ps_prog (product_step_target ps) = cur_state (ctx_at u (S k)).
   Proof.
-    intros u k.
-    unfold ctx_at.
+    intros u k ps Hreal.
+    unfold product_step_realizes_at in Hreal.
     destruct (cfg_at u k) as [s m] eqn:Hcfg.
+    destruct Hreal as [_Hfrom [_Hmem [_Hin Htr]]].
+    unfold product_step_target.
     simpl.
-    pose proof (node_inv_cfg_at u k) as Hinv.
-    rewrite Hcfg in Hinv.
-    exact Hinv.
+    rewrite Htr.
+    unfold ctx_at.
+    simpl.
+    rewrite Hcfg.
+    unfold step.
+    reflexivity.
   Qed.
 
-  Lemma node_inv_obligation_valid :
-    forall ps, ObligationValid (node_inv_obligation ps).
+  Local Fact run_product_state_0 :
+    forall u, run_product_state u 0 = init_product_state.
   Proof.
-    intros ps u k.
-    unfold node_inv_obligation.
-    intro _Hmatch.
-    apply ctx_at_satisfies_node_inv.
+    intro u.
+    unfold run_product_state, init_product_state.
+    simpl.
+    reflexivity.
   Qed.
 
-  Lemma generated_node_inv_obligation :
+  Local Fact init_ctx_at_0 :
+    forall u, init_ctx (ctx_at u 0).
+  Proof.
+    intro u.
+    unfold init_ctx.
+    exists u.
+    reflexivity.
+  Qed.
+
+  Local Lemma transition_rel_of_realized_step :
+    forall u k ps,
+      product_step_realizes_at u k ps ->
+      transition_rel (pst_trans ps) (ctx_at u k) (ctx_at u (S k)).
+  Proof.
+    intros u k ps Hreal.
+    exists u, k.
+    split; [reflexivity |].
+    split; [reflexivity |].
+    unfold transition_realized_at.
+    unfold product_step_realizes_at in Hreal.
+    destruct (cfg_at u k) as [s m].
+    destruct Hreal as [_ [_ [_ Htr]]].
+    symmetry.
+    exact Htr.
+  Qed.
+
+  Local Lemma realized_step_target_matches_run_product_successor :
+    forall u k ps,
+      product_step_wf ps ->
+      product_step_realizes_at u k ps ->
+      product_step_target ps = run_product_state u (S k).
+  Proof.
+    intros u k ps Hwf Hreal.
+    destruct (@realized_step_target_correct u k ps Hwf Hreal) as [Ha Hg].
+    pose proof (@realized_step_prog_target_correct u k ps Hreal) as Hp.
+    destruct (product_step_target ps) as [sp sa sg].
+    unfold run_product_state.
+    destruct (cfg_at u (S k)) as [s m] eqn:Hcfg.
+    simpl in *.
+    assert (Hcur : cur_state (ctx_at u (S k)) = s).
+    { unfold ctx_at. simpl. rewrite Hcfg. reflexivity. }
+    rewrite Hcur in Hp.
+    subst sp sa sg.
+    reflexivity.
+  Qed.
+
+  Local Lemma generated_init_node_inv_obligation :
+    Generated init_node_inv_obligation.
+  Proof.
+    unfold Generated.
+    exists InitialGoal.
+    apply GeneratedBy_init.
+    unfold init_generated_items.
+    simpl.
+      left.
+      reflexivity.
+  Qed.
+
+  Local Lemma generated_init_support_automaton_obligation :
+    Generated init_support_automaton_obligation.
+  Proof.
+    unfold Generated.
+    exists InitialGoal.
+    apply GeneratedBy_init.
+    unfold init_generated_items.
+    simpl.
+    right.
+    left.
+    reflexivity.
+  Qed.
+
+  Local Lemma generated_node_inv_obligation :
     forall ps,
       product_step_wf ps ->
       Generated (node_inv_obligation ps).
   Proof.
     intros ps Hwf.
     unfold Generated.
-    exists NodeInvariant.
-    exists (pst_trans ps).
+    exists UserInvariant.
     eapply GeneratedBy_product with (ps := ps).
     - exact Hwf.
-    - reflexivity.
     - unfold gen_from_product_step.
       simpl.
-      right.
-      left.
+      right; right; left.
       reflexivity.
   Qed.
 
-  (* Couverture locale: de tout pas dangereux on extrait une obligation générée
+  Local Lemma generated_support_automaton_obligation :
+    forall ps,
+      product_step_wf ps ->
+      Generated (support_automaton_obligation ps).
+  Proof.
+    intros ps Hwf.
+    unfold Generated.
+    exists AutomatonSupport.
+    eapply GeneratedBy_product with (ps := ps).
+    - exact Hwf.
+    - unfold gen_from_product_step.
+      simpl.
+      right; left.
+      reflexivity.
+  Qed.
+
+  Local Lemma generated_init_node_inv_triple :
+    GeneratedTriple init_node_inv_triple.
+  Proof.
+    unfold GeneratedTriple.
+    exists InitialGoal.
+    constructor.
+  Qed.
+
+  Local Lemma generated_init_support_automaton_triple :
+    GeneratedTriple init_support_automaton_triple.
+  Proof.
+    unfold GeneratedTriple.
+    exists InitialGoal.
+    constructor.
+  Qed.
+
+  Local Lemma generated_node_inv_triple :
+    forall ps,
+      product_step_wf ps ->
+      GeneratedTriple (node_inv_triple ps).
+  Proof.
+    intros ps Hwf.
+    unfold GeneratedTriple.
+    exists UserInvariant.
+    constructor; exact Hwf.
+  Qed.
+
+  Local Lemma generated_support_automaton_triple :
+    forall ps,
+      product_step_wf ps ->
+      GeneratedTriple (support_automaton_triple ps).
+  Proof.
+    intros ps Hwf.
+    unfold GeneratedTriple.
+    exists AutomatonSupport.
+    constructor; exact Hwf.
+  Qed.
+
+  Local Lemma generated_no_bad_triple :
+    forall ps,
+      product_step_wf ps ->
+      GeneratedTriple (no_bad_triple ps).
+  Proof.
+    intros ps Hwf.
+    unfold GeneratedTriple.
+    exists ObjectiveNoBad.
+    constructor; exact Hwf.
+  Qed.
+
+  (* ---------------------------------------------------------------------- *)
+  (* Stage 3: helper facts hold along admissible runs                        *)
+  (* ---------------------------------------------------------------------- *)
+
+  Proposition init_node_inv_holds :
+    forall u, node_inv (cur_state (ctx_at u 0)) (ctx_at u 0).
+  Proof.
+    intro u.
+    pose proof generated_init_node_inv_triple as Hgen.
+    pose proof (GeneratedTripleValid (ht := init_node_inv_triple) Hgen) as Hvalid.
+    unfold TripleValid in Hvalid.
+    specialize (Hvalid (ctx_at u 0)).
+    unfold init_node_inv_triple, TrueClause in Hvalid.
+    simpl in Hvalid.
+    apply Hvalid.
+    - apply init_ctx_at_0.
+    - trivial.
+  Qed.
+
+  Proposition init_support_automaton_holds :
+    forall u, eval_fo (ctx_at u 0) (support_automaton_fo init_product_state).
+  Proof.
+    intro u.
+    pose proof generated_init_support_automaton_triple as Hgen.
+    pose proof (GeneratedTripleValid (ht := init_support_automaton_triple) Hgen) as Hvalid.
+    unfold TripleValid in Hvalid.
+    specialize (Hvalid (ctx_at u 0)).
+    unfold init_support_automaton_triple, TrueClause in Hvalid.
+    simpl in Hvalid.
+    apply Hvalid.
+    - apply init_ctx_at_0.
+    - trivial.
+  Qed.
+
+  Proposition support_automaton_holds_on_run :
+    forall u k,
+      avoids_bad_A u ->
+      eval_fo (ctx_at u k) (support_automaton_fo (run_product_state u k)).
+  Proof.
+    intros u k HA.
+    induction k as [|k IH].
+    - rewrite run_product_state_0.
+      apply init_support_automaton_holds.
+    - pose proof (product_select_at_wf u k) as Hwf.
+      pose proof (product_select_at_realizes u k) as Hreal.
+      pose proof (@ctx_at_matches_realized_ps u k (product_select_at u k) Hwf Hreal) as Hmatch.
+      pose proof (@generated_support_automaton_triple (product_select_at u k) Hwf) as Hgen.
+      pose proof (GeneratedTripleValid (ht := support_automaton_triple (product_select_at u k)) Hgen) as Hvalid.
+      pose proof (@product_select_at_from u k) as Hfrom.
+      assert (IHfrom : eval_fo (ctx_at u k) (support_automaton_fo (pst_from (product_select_at u k)))).
+      { rewrite Hfrom. exact IH. }
+      pose proof (@transition_rel_of_realized_step u k (product_select_at u k) Hreal) as Hrel.
+      unfold TripleValid in Hvalid.
+      simpl in Hvalid.
+      pose proof (Hvalid (ctx_at u k) (ctx_at u (S k)) Hrel (conj Hmatch IHfrom)) as Hnext.
+      pose proof (@realized_step_target_matches_run_product_successor u k (product_select_at u k) Hwf Hreal)
+        as Htarget.
+      rewrite <- Htarget.
+      exact Hnext.
+  Qed.
+
+  Proposition node_inv_holds_on_run :
+    forall u k,
+      avoids_bad_A u ->
+      node_inv (cur_state (ctx_at u k)) (ctx_at u k).
+  Proof.
+    intros u k HA.
+    induction k as [|k IH].
+    - apply init_node_inv_holds.
+    - pose proof (product_select_at_wf u k) as Hwf.
+      pose proof (product_select_at_realizes u k) as Hreal.
+      pose proof (@ctx_at_matches_realized_ps u k (product_select_at u k) Hwf Hreal) as Hmatch.
+      pose proof (@generated_node_inv_triple (product_select_at u k) Hwf) as Hgen.
+      pose proof (GeneratedTripleValid (ht := node_inv_triple (product_select_at u k)) Hgen) as Hvalid.
+      pose proof (@transition_rel_of_realized_step u k (product_select_at u k) Hreal) as Hrel.
+      unfold TripleValid in Hvalid.
+      simpl in Hvalid.
+      pose proof (Hvalid (ctx_at u k) (ctx_at u (S k)) Hrel (conj Hmatch IH)) as Hnext.
+      pose proof (@realized_step_prog_target_correct u k (product_select_at u k) Hreal) as Hprog.
+      rewrite <- Hprog.
+      exact Hnext.
+  Qed.
+
+  (* ---------------------------------------------------------------------- *)
+  (* Stage 4: a dangerous realized step falsifies a generated clause         *)
+  (* ---------------------------------------------------------------------- *)
+
+  (* Couverture locale: de tout pas dangereux on extrait une clause générée
      qui est fausse sur le contexte du pas dangereux. *)
   Theorem generation_coverage :
-    forall u k, bad_local_step u k -> exists obl, Generated obl /\ ~ obl (ctx_at u k).
+    forall u k,
+      avoids_bad_A u ->
+      bad_local_step u k ->
+      exists obl, Generated obl /\ ~ obl (ctx_at u k).
   Proof.
-    intros u k Hbad.
+    intros u k HA Hbad.
     destruct Hbad as [ps [Hwf [Hreal _Hbadps]]].
     exists (prod_obligation ps).
     split.
     unfold Generated.
-    exists (classify_product_step ps).
-    exists (pst_trans ps).
+    exists ObjectiveNoBad.
     eapply GeneratedBy_product with (ps := ps).
     - exact Hwf.
-    - reflexivity.
     - unfold gen_from_product_step.
       simpl.
       left.
       reflexivity.
     - unfold prod_obligation.
       intro Hobl.
-      apply Hobl.
-      apply ctx_at_matches_realized_ps; assumption.
+      pose proof (@ctx_at_matches_realized_ps u k ps Hwf Hreal) as Hmatch.
+      pose proof (@node_inv_holds_on_run u k HA) as Hinv.
+      pose proof (@support_automaton_holds_on_run u k HA) as Hsup.
+      unfold product_step_realizes_at in Hreal.
+      destruct (cfg_at u k) as [s m] eqn:Hcfg.
+      destruct Hreal as [Hfrom [_ [_ _]]].
+      rewrite <- Hfrom in Hsup.
+      apply (Hobl Hinv Hsup Hmatch).
   Qed.
 
-  (* -------------------------------------------------------------------------- *)
-  (* Théorème principal                                                          *)
-  (* -------------------------------------------------------------------------- *)
-  (* Sous avoids_bad_A et les hypothèses oracle, on obtient avoids_bad_G. *)
-  Theorem oracle_conditional_correctness :
+  (* ---------------------------------------------------------------------- *)
+  (* Stage 5: the same dangerous tick activates a generated NoBad triple     *)
+  (* ---------------------------------------------------------------------- *)
+
+  Theorem triple_generation_coverage :
+    forall u k,
+      avoids_bad_A u ->
+      bad_local_step u k ->
+      exists ht,
+        GeneratedTriple ht
+        /\ exists ps,
+             product_step_wf ps
+             /\ product_step_realizes_at u k ps
+             /\ ht = no_bad_triple ps
+        /\ ht_pre ht (ctx_at u k).
+  Proof.
+    intros u k HA Hbad.
+    destruct Hbad as [ps [Hwf [Hreal Hbadps]]].
+    exists (no_bad_triple ps).
+    split.
+    - apply generated_no_bad_triple.
+      exact Hwf.
+    - exists ps.
+      split; [exact Hwf |].
+      split; [exact Hreal |].
+      split; [reflexivity |].
+      unfold no_bad_pre.
+      split.
+      + apply ctx_at_matches_realized_ps.
+        * exact Hwf.
+        * exact Hreal.
+      + split.
+        * apply node_inv_holds_on_run; exact HA.
+        * pose proof (@support_automaton_holds_on_run u k HA) as Hsup.
+          unfold product_step_realizes_at in Hreal.
+          destruct (cfg_at u k) as [s m] eqn:Hcfg.
+          destruct Hreal as [Hfrom [_ [_ _]]].
+          rewrite Hfrom.
+          exact Hsup.
+  Qed.
+
+  (* ---------------------------------------------------------------------- *)
+  (* Stage 6: valid generated triples imply conditional correctness          *)
+  (* ---------------------------------------------------------------------- *)
+  (* Sous avoids_bad_A et la validité des triples générés, on obtient
+     avoids_bad_G. *)
+  Theorem triple_valid_conditional_correctness :
     forall u, avoids_bad_A u -> avoids_bad_G (run_trace u).
   Proof.
     intros u HA.
     destruct (classic (avoids_bad_G (run_trace u))) as [HG | HnG].
     - exact HG.
     - destruct (@bad_local_step_if_G_violated u HA HnG) as [k Hbad].
-      destruct (@generation_coverage u k Hbad) as [obl [Hgen Hnot_at_k]].
-      pose proof (@Oracle_complete obl Hgen) as Hor.
-      pose proof (@Oracle_sound obl Hor) as Hvalid.
+      destruct (@triple_generation_coverage u k HA Hbad)
+        as [ht [Hgen [ps [Hwf [Hreal [Heq Hepre]]]]]].
+      rewrite Heq in Hgen, Hepre.
+      pose proof (GeneratedTripleValid (ht := no_bad_triple ps) Hgen) as Hvalid.
       exfalso.
-      apply Hnot_at_k.
-      apply Hvalid.
+      unfold no_bad_triple, FalseClause in Hvalid.
+      simpl in Hvalid.
+      pose proof (@transition_rel_of_realized_step u k ps Hreal) as Hrel.
+      pose proof (Hvalid (ctx_at u k) (ctx_at u (S k)) Hrel Hepre) as Hfalse.
+      exact Hfalse.
   Qed.
 
-  Theorem oracle_conditional_correctness_with_node_inv :
+  Theorem triple_valid_conditional_correctness_under_wf :
+    WellFormedProgramModel ->
+    forall u, avoids_bad_A u -> avoids_bad_G (run_trace u).
+  Proof.
+    intros _wf u HA.
+    apply triple_valid_conditional_correctness.
+    exact HA.
+  Qed.
+
+  Theorem triple_valid_conditional_correctness_with_node_inv :
     forall u,
       avoids_bad_A u ->
-      (forall k, let '(s, m) := cfg_at u k in node_inv s m)
+      (forall k, node_inv (cur_state (ctx_at u k)) (ctx_at u k))
       /\ avoids_bad_G (run_trace u).
   Proof.
     intros u HA.
     split.
     - intro k.
-      apply node_inv_cfg_at.
-    - apply oracle_conditional_correctness.
+      apply node_inv_holds_on_run.
       exact HA.
+    - apply triple_valid_conditional_correctness.
+      exact HA.
+  Qed.
+
+  Theorem triple_valid_conditional_correctness_with_node_inv_under_wf :
+    WellFormedProgramModel ->
+    forall u,
+      avoids_bad_A u ->
+      (forall k, node_inv (cur_state (ctx_at u k)) (ctx_at u k))
+      /\ avoids_bad_G (run_trace u).
+  Proof.
+    intros _wf u HA.
+    apply triple_valid_conditional_correctness_with_node_inv.
+    exact HA.
+  Qed.
+
+  Theorem oracle_conditional_correctness :
+    forall u, avoids_bad_A u -> avoids_bad_G (run_trace u).
+  Proof.
+    exact triple_valid_conditional_correctness.
+  Qed.
+
+  Theorem oracle_conditional_correctness_with_node_inv :
+    forall u,
+      avoids_bad_A u ->
+      (forall k, node_inv (cur_state (ctx_at u k)) (ctx_at u k))
+      /\ avoids_bad_G (run_trace u).
+  Proof.
+    exact triple_valid_conditional_correctness_with_node_inv.
   Qed.
 
 End Model.

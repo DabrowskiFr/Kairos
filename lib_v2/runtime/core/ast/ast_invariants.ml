@@ -65,8 +65,9 @@ let check_program_contracts (p : Ast.program) : issue list =
   let acc = ref [] in
   List.iter
     (fun n ->
-      let assumes = n.assumes in
-      let guarantees = n.guarantees in
+      let spec = Ast.specification_of_node n in
+      let assumes = spec.spec_assumes in
+      let guarantees = spec.spec_guarantees in
       if assumes = [] && guarantees = [] then
         acc := issue "node '%s' has no contracts" n.nname :: !acc)
     p;

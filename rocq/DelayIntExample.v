@@ -61,9 +61,9 @@ Qed.
 Section RunFacts.
   Variable m0 : Mem.
 
-  Definition cfg_at2 := KO.cfg_at paut pselect SInit m0.
-  Definition out_at2 := KO.out_at paut pselect SInit m0.
-  Definition run_trace2 := KO.run_trace paut pselect SInit m0.
+  Definition cfg_at2 := KO.cfg_at paut SInit m0 pselect.
+  Definition out_at2 := KO.out_at paut SInit m0 pselect.
+  Definition run_trace2 := KO.run_trace paut SInit m0 pselect.
 
   Lemma cfg_at_succ_rf :
     forall u k, cfg_at2 u (S k) = (SRun, u k).
@@ -140,9 +140,9 @@ End RunFacts.
 Section AutomataProductFacts.
   Variable m0 : Mem.
 
-  Definition cfg_at := KO.cfg_at paut pselect SInit m0.
-  Definition out_at := KO.out_at paut pselect SInit m0.
-  Definition run_trace := KO.run_trace paut pselect SInit m0.
+  Definition cfg_at := KO.cfg_at paut SInit m0 pselect.
+  Definition out_at := KO.out_at paut SInit m0 pselect.
+  Definition run_trace := KO.run_trace paut SInit m0 pselect.
 
   Lemma cfg_at_succ :
     forall u k, cfg_at u (S k) = (SRun, u k).
@@ -176,14 +176,14 @@ Section AutomataProductFacts.
   Qed.
 
   Lemma out_at_ko_0 :
-    forall u, KO.out_at paut pselect SInit m0 u 0 = 0.
+    forall u, KO.out_at paut SInit m0 pselect u 0 = 0.
   Proof.
     intro u.
     reflexivity.
   Qed.
 
   Lemma out_at_ko_succ :
-    forall u k, KO.out_at paut pselect SInit m0 u (S k) = u k.
+    forall u k, KO.out_at paut SInit m0 pselect u (S k) = u k.
   Proof.
     intros u k.
     unfold KO.out_at, KO.step_at, KO.step.
@@ -292,10 +292,10 @@ Section AutomataProductFacts.
 
   Lemma aut_state_G_succ :
     forall (u : KO.stream Input) k,
-      KO.aut_state_at_G G_aut_e select_G (KO.run_trace paut pselect SInit m0 u) (S k) = GRun (u k).
+      KO.aut_state_at_G G_aut_e select_G (KO.run_trace paut SInit m0 pselect u) (S k) = GRun (u k).
   Proof.
     intros u k.
-    remember (KO.run_trace paut pselect SInit m0 u) as w eqn:Hw.
+    remember (KO.run_trace paut SInit m0 pselect u) as w eqn:Hw.
     revert u Hw.
     induction k as [|n IH]; intros u Hw.
     - simpl.
@@ -326,7 +326,7 @@ Section AutomataProductFacts.
   Qed.
 
   Theorem avoids_bad_G_delay :
-    forall (u : KO.stream Input), KO.avoids_bad_G G_aut_e select_G (KO.run_trace paut pselect SInit m0 u).
+    forall (u : KO.stream Input), KO.avoids_bad_G G_aut_e select_G (KO.run_trace paut SInit m0 pselect u).
   Proof.
     intros u k.
     destruct k as [|n].
@@ -336,7 +336,7 @@ Section AutomataProductFacts.
       discriminate.
   Qed.
 
-  Definition run_ps := KO.run_product_state paut pselect SInit m0 A_aut_e G_aut_e select_A select_G.
+  Definition run_ps := KO.run_product_state paut SInit m0 pselect A_aut_e G_aut_e select_A select_G.
 
   Theorem product_state_0 :
     forall u,

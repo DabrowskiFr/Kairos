@@ -16,3 +16,5 @@ jobs:
         run: python3 scripts/check_architecture_manifest.py
       - name: Verify layer dependency rules
         run: python3 scripts/check_layer_dependencies.py
+      - name: Verify Rocq axiom guard
+        run: python3 scripts/check_rocq_axiom_guard.py

@@ -2,11 +2,11 @@ Set Implicit Arguments.
 
 Module Type OBLIGATION_GEN_SIG.
   Parameter StepCtx : Type.
-  Definition Obligation : Type := StepCtx -> Prop.
+  Definition Clause : Type := StepCtx -> Prop.
 
   Parameter Origin : Type.
-  Parameter GeneratedBy : Origin -> Obligation -> Prop.
+  Parameter GeneratedBy : Origin -> Clause -> Prop.
 
-  Definition Generated (obl : Obligation) : Prop :=
-    exists o, GeneratedBy o obl.
+  Definition Generated (cl : Clause) : Prop :=
+    exists o, GeneratedBy o cl.
 End OBLIGATION_GEN_SIG.

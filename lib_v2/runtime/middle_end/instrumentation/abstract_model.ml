@@ -10,16 +10,12 @@ type transition = {
   attrs : transition_attrs;
 }
 
+type node_semantics = Ast.node_semantics
+type node_specification = Ast.node_specification
+
 type node = {
-  nname : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  assumes : fo_ltl list;
-  guarantees : fo_ltl list;
-  instances : (ident * ident) list;
-  locals : vdecl list;
-  states : ident list;
-  init_state : ident;
+  semantics : node_semantics;
+  specification : node_specification;
   trans : transition list;
   attrs : node_attrs;
 }
@@ -47,33 +43,32 @@ let to_ast_transition (t : transition) : Ast.transition =
   }
 
 let of_ast_node (n : Ast.node) : node =
+  let semantics = Ast.semantics_of_node n in
+  let spec = Ast.specification_of_node n in
   {
-    nname = n.nname;
-    inputs = n.inputs;
-    outputs = n.outputs;
-    assumes = n.assumes;
-    guarantees = n.guarantees;
-    instances = n.instances;
-    locals = n.locals;
-    states = n.states;
-    init_state = n.init_state;
+    semantics;
+    specification = spec;
     trans = List.map of_ast_transition n.trans;
     attrs = n.attrs;
   }
 
 let to_ast_node (n : node) : Ast.node =
   {
-    nname = n.nname;
-    inputs = n.inputs;
-    outputs = n.outputs;
-    assumes = n.assumes;
-    guarantees = n.guarantees;
-    instances = n.instances;
-    locals = n.locals;
-    states = n.states;
-    init_state = n.init_state;
+    nname = n.semantics.sem_nname;
+    inputs = n.semantics.sem_inputs;
+    outputs = n.semantics.sem_outputs;
+    assumes = n.specification.spec_assumes;
+    guarantees = n.specification.spec_guarantees;
+    instances = n.semantics.sem_instances;
+    locals = n.semantics.sem_locals;
+    states = n.semantics.sem_states;
+    init_state = n.semantics.sem_init_state;
     trans = List.map to_ast_transition n.trans;
-    attrs = n.attrs;
+    attrs =
+      {
+        n.attrs with
+        invariants_state_rel = n.specification.spec_invariants_state_rel;
+      };
   }
 
 let map_transitions (f : transition list -> transition list) (n : node) : node =
@@ -157,63 +152,41 @@ let render_vdecl (v : vdecl) : string =
   v.vname ^ ": " ^ ty_s
 
 let render_node (n : node) : string =
+  let sem = n.semantics in
+  let spec = n.specification in
   let line_params name vs =
     if vs = [] then None
     else Some (name ^ " " ^ String.concat ", " (List.map render_vdecl vs) ^ ";")
   in
   let line_states =
-    if n.states = [] then None else Some ("states " ^ String.concat ", " n.states ^ ";")
+    if sem.sem_states = [] then None else Some ("states " ^ String.concat ", " sem.sem_states ^ ";")
   in
-  let line_init = Some ("init " ^ n.init_state ^ ";") in
+  let line_init = Some ("init " ^ sem.sem_init_state ^ ";") in
   let line_assumes =
-    if n.assumes = [] then []
+    if spec.spec_assumes = [] then []
     else
-      List.map (fun a -> "assume " ^ Support.string_of_ltl a ^ ";") n.assumes
+      List.map (fun a -> "assume " ^ Support.string_of_ltl a ^ ";") spec.spec_assumes
   in
   let line_guarantees =
-    if n.guarantees = [] then []
+    if spec.spec_guarantees = [] then []
     else
-      List.map (fun g -> "guarantee " ^ Support.string_of_ltl g ^ ";") n.guarantees
+      List.map (fun g -> "guarantee " ^ Support.string_of_ltl g ^ ";") spec.spec_guarantees
   in
   let fields =
-    [ line_params "inputs" n.inputs; line_params "outputs" n.outputs; line_params "locals" n.locals; line_states; line_init ]
+    [
+      line_params "inputs" sem.sem_inputs;
+      line_params "outputs" sem.sem_outputs;
+      line_params "locals" sem.sem_locals;
+      line_states;
+      line_init;
+    ]
     |> List.filter_map (fun x -> x)
   in
   let trans = List.map (render_transition ~indent:1) n.trans in
-  let body =
+let body =
     List.map (fun l -> indent_str 1 ^ l) (fields @ line_assumes @ line_guarantees)
     @ trans
   in
-  String.concat "\n" ([ "node " ^ n.nname ^ " {" ] @ body @ [ "}" ])
+  String.concat "\n" ([ "node " ^ sem.sem_nname ^ " {" ] @ body @ [ "}" ])
 
 let render_program (p : node list) : string = String.concat "\n\n" (List.map render_node p)
-
-type product_triple = int * int * int
-
-let mk_triple i qa qg : product_triple = (i, qa, qg)
-let prog_idx (i, _, _) = i
-let assume_idx (_, qa, _) = qa
-let guarantee_idx (_, _, qg) = qg
-let is_bad_guarantee ~g_bad_idx t = g_bad_idx >= 0 && guarantee_idx t = g_bad_idx
-
-type local_combo = {
-  gp : fo;
-  fg : fo;
-  fa : fo;
-  qa_src : int;
-  qg_src : int;
-  qa_dst : int;
-  qg_dst : int;
-}
-
-let combo_formula (c : local_combo) : fo = FAnd (c.gp, FAnd (c.fg, c.fa))
-
-let is_safe_successor ~a_bad_idx ~g_bad_idx (c : local_combo) : bool =
-  not (a_bad_idx >= 0 && c.qa_dst = a_bad_idx) && not (g_bad_idx >= 0 && c.qg_dst = g_bad_idx)
-
-let is_badg_successor ~a_bad_idx ~g_bad_idx (c : local_combo) : bool =
-  not (a_bad_idx >= 0 && c.qa_dst = a_bad_idx) && g_bad_idx >= 0 && c.qg_dst = g_bad_idx
-
-type transition_annotation = { req_hyp : fo_o list; ens_obl : fo_o list }
-
-let empty_transition_annotation : transition_annotation = { req_hyp = []; ens_obl = [] }

@@ -597,3 +597,1505 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
     explicite plutot que des calculs locaux separes.
 - Validation:
   - `opam exec --switch=5.4.1+options -- dune build`: succes.
+
+### Mise a jour (2026-03-07, nettoyage du code redondant apres migration produit) - succes
+- Demande:
+  - retirer le code mort ou redondant issu de l'ancien raisonnement fragmente.
+- Nettoyage realise:
+  - suppression des anciens modules `gen_hyp.ml` et `gen_obl.ml`;
+  - retrait de leur enregistrement dans `lib_v2/runtime/dune`;
+  - suppression dans `abstract_model.{ml,mli}` des anciens types auxiliaires de
+    produit qui n'etaient plus utilises (`product_triple`, `local_combo`, etc.);
+  - suppression dans `instrumentation.ml` des anciens calculateurs redondants:
+    - compatibilite `programme x G`,
+    - propagation `G x A`,
+    - helpers logiques associes.
+- Resultat:
+  - la couche `product/*` devient la seule source de verite pour:
+    - l'exploration du produit,
+    - les raisons de pruning,
+    - la projection des compatibilites,
+    - la projection des obligations locales.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build`: succes.
+
+### Mise a jour (2026-03-07, clarification du PDF sur l'intuition du produit) - succes
+- Demande:
+  - mieux expliquer dans le document mathematique l'intuition du produit
+    `programme x A x G`, le role d'un tick `k`, la signification de `i(k)` et
+    `o(k)`, et supprimer l'ambiguite autour de l'ancienne notation `g_run`.
+- Modifications:
+  - ajout, dans `spec/rocq_oracle_model.tex`, d'une explication operationnelle
+    tick par tick:
+    - lecture de l'entree courante `i(k)`,
+    - calcul du pas programme,
+    - production de la sortie `o(k)`,
+    - avancement synchrone de `A` et `G`;
+  - explicitation du fait qu'un tick realise un unique pas produit
+    `rps(u,k) -> rps(u,k+1)` et non trois evolutions separees;
+  - remplacement d'une ancienne occurrence d'etat de garantie ecrit
+    `g_run(u_0)` par un etat fini nomme (`Mon_1`) pour rester coherent avec
+    l'exemple `delay_int`.
+- Pourquoi:
+  - l'ancienne presentation laissait croire que `G` embarquait des etats
+    parametres par des valeurs d'execution, alors que l'historique est porte
+    par la memoire programme ou le contexte d'evaluation.
+- Validation:
+  - recompilation PDF `spec/rocq_oracle_model.tex`: succes.
+
+### Mise a jour (2026-03-07, reecriture de la section sur les obligations locales) - succes
+- Demande:
+  - rendre comprehensible la section `Obligations locales par transition`, qui
+    etait trop compacte et ne definissait pas clairement ce qui est genere, ce
+    que signifie `match`, ni comment lire les exemples avec `k` et `k+1`.
+- Modifications:
+  - reecriture de l'etape 5 pour expliquer l'intuition: une obligation locale
+    interdit la realisation d'un pas produit dangereux au tick courant;
+  - extension de la section formelle `Obligations locales et oracle`:
+    - contexte local explicite avec etats programme et automates,
+    - definition complete de `match(c,p)`,
+    - definition formelle de `obl_p(c) := not match(c,p)`,
+    - explication du sous-ensemble de pas generateurs (ceux qui vont vers
+      `bad_G` sans passer par `bad_A`);
+  - ajout d'exemples developpes pour `delay_int` et `toggle`, avec:
+    - les transitions programme concernees,
+    - les aretes automates concernees,
+    - le matching concret,
+    - l'obligation generee,
+    - la forme simplifiee/projetee cote backend.
+- Pourquoi:
+  - la version precedente donnait la forme abstraite `obl_p := neg match`
+    sans permettre au lecteur de reconstruire ce que cela signifiait pour un
+    tick concret ou pour les exemples graphiques du document.
+- Validation:
+  - recompilation PDF `spec/rocq_oracle_model.tex`: succes.
+
+### Mise a jour (2026-03-07, restructuration pedagogique du document PDF) - succes
+- Demande:
+  - ameliorer la structure generale du document, jugee trop dispersee et peu
+    pedagogique.
+- Modifications:
+  - ajout d'une section `Plan du document` juste apres l'objectif;
+  - clarification du parcours de lecture en quatre niveaux:
+    - vue d'ensemble par exemples,
+    - modele formel,
+    - chaine de preuve,
+    - lien avec Rocq et l'implementation;
+  - renommage de plusieurs sections pour rendre leur role explicite:
+    - `Lecture par etapes...` -> `Vue d'ensemble par exemples`,
+    - `Notations et structures de base` -> `Modele formel`,
+    - `Automate produit et pas locaux` -> `Produit programme x A x G`,
+    - `Obligations locales et oracle` -> `Construction des obligations locales`,
+    - `Resultats` -> `Chaine de preuve`,
+    - `Tracabilite...` -> `Lien avec Rocq et l'implementation actuelle`;
+  - ajout de paragraphes de transition au debut des grandes sections pour mieux
+    signaler le changement de niveau entre intuition, definitions et preuve.
+- Pourquoi:
+  - le contenu etait deja riche, mais la progression de lecture etait peu
+    lisible: les memes objets reapparaissaient sous plusieurs angles sans que
+    leur statut intuitif ou formel soit toujours annonce.
+- Validation:
+  - recompilation PDF `spec/rocq_oracle_model.tex`: a relancer apres cette passe.
+
+### Mise a jour (2026-03-07, formalisation des extractions d'obligations dans le PDF) - succes
+- Demande:
+  - s'assurer que tout est defini, formalise et justifie dans le document, et
+    en particulier que les extractions d'obligations ne soient plus une simple
+    enumeration de familles.
+- Modifications:
+  - enrichissement de l'etape 6 avec:
+    - les quatre roles abstraits (`ObjectiveNoBad`, `CoherencyGoal`,
+      `SupportAutomaton`, `SupportUserInvariant`);
+    - une intuition explicite pour chacun;
+    - quatre operateurs d'extraction intuitifs:
+      `Extract_obj`, `Extract_coh`, `Extract_auto`, `Extract_user`;
+  - ajout, dans la partie formelle, d'une sous-section
+    `Classification et operateurs d'extraction` qui:
+    - raffine l'origine abstraite des obligations,
+    - formalise l'extraction objective depuis les pas dangereux,
+    - formalise l'extraction de coherence depuis les etats/pas atteignables,
+    - formalise l'extraction de support automate,
+    - formalise l'extraction de support utilisateur,
+    - explicite que `Generated` est l'union des images de ces operateurs;
+  - mise a jour de la section Rocq/implementation pour faire apparaitre plus
+    clairement le role de `ObligationGenSig`, `ObligationTaxonomySig` et
+    `ObcAugmentationSig`.
+- Pourquoi:
+  - la version precedente nommait correctement les familles, mais ne donnait ni
+    leur principe generateur, ni leur justification semantique.
+- Validation:
+  - recompilation PDF `spec/rocq_oracle_model.tex`: a relancer apres cette passe.
+
+### Mise a jour (2026-03-07, etude comparative article LTL / Kairos) - succes
+- Demande:
+  - produire une etude comparative poussee entre l'article
+    `Verification de proprietes LTL sur des programmes C par generation
+    d'annotations` et l'architecture actuelle de Kairos.
+- Travail realise:
+  - lecture des fichiers de reference du chantier Kairos:
+    - `rocq/README.md`,
+    - `rocq/PROOF_STATUS.md`,
+    - `spec/rocq_oracle_model.tex`;
+  - extraction partielle du PDF fourni:
+    - identification du titre, des auteurs et de la these centrale;
+    - reperage de notations lisibles autour d'un automate
+      `A = <Q, q0, R>`, de la synchronisation `sync(A, sigma, i)` et d'une
+      decomposition des annotations en `DeclA`, `TransA`, `SyncA`;
+  - redaction de deux fichiers a la racine du depot:
+    - `OBJECTIF_METHODOLOGIE_2026-03-07_ETUDE_COMPARATIVE_ARTICLE_LTL_KAIROS.md`,
+    - `ETUDE_COMPARATIVE_2026-03-07_LTL_ANNOTATIONS_ET_KAIROS.md`.
+- Resultat:
+  - l'etude montre une convergence forte de fond:
+    `propriete temporelle -> automate -> contraintes locales -> backend externe`;
+  - elle explicite aussi les points ou Kairos va plus loin:
+    - produit explicite `programme x A x G`,
+    - noyau interne prouve en Rocq,
+    - separation nette entre noyau prouve et hypotheses externes.
+- Limite:
+  - l'extraction texte du PDF est partiellement degradee par l'encodage des
+    fontes; l'etude s'appuie donc sur les parties lisibles et sur les objets
+    centraux effectivement recuperables.
+
+### Mise a jour (2026-03-07, correction de l'asymetrie article / Kairos dans l'etude comparative) - succes
+- Demande:
+  - rendre plus explicites deux differences sous-estimees dans la premiere
+    version de l'etude:
+    - l'article semble raisonner sur des traces de programme/appels plus pauvres
+      que les traces reactives de Kairos;
+    - Kairos gere explicitement une specification d'entree via l'automate `A`.
+- Modifications:
+  - renforcement du document comparatif pour distinguer:
+    - convergence de methode,
+    - divergence d'objet semantique;
+  - ajout d'une section claire sur:
+    - `traces de controle/programme` vs `traces reactives d'execution`,
+    - `une propriete` vs `specification d'entree + garantie`;
+  - reformulation de la conclusion pour eviter toute impression d'equivalence
+    trop forte entre l'article et Kairos.
+- Pourquoi:
+  - sans cette correction, le document pouvait laisser croire que l'article et
+    Kairos traitent essentiellement le meme probleme, alors que Kairos vise un
+    cadre assume/guarantee sur traces reactives plus riche.
+
+### Mise a jour (2026-03-07, approfondissement de la methode et des resultats de l'article) - succes
+- Demande:
+  - ajouter a l'etude comparative une section expliquant plus finement la
+    methode de l'article et les resultats obtenus.
+- Travail realise:
+  - nouvelle extraction ciblee des pages centrales et finales du PDF fourni via
+    `pypdf` dans un environnement virtuel temporaire;
+  - elements lisibles identifies:
+    - pipeline `LTL -> LTL2BA -> automate de Büchi simplifiee -> calcul des annotations -> Frama-C/Jessie/Why/proveurs`;
+    - type de synchronisation `sync : BUCHI x PATH x N -> 2^Q`;
+    - decomposition `AnnA = DeclA union TransA union SyncA`;
+    - exemples avec observables du type `Call(...)`, `Return(...)`, `status`, `cpt`.
+- Ajout dans l'etude:
+  - une section `Methode de l'article, reconstruite plus finement`;
+  - une section `Resultats obtenus par l'article`;
+  - une explication explicite du fait que l'article fait bien de la verification
+    deductive sur le programme annote, mais a travers un encodage de
+    synchronisation automate/programme.
+- Prudence maintenue:
+  - les formulations sont volontairement nuancees quand l'extraction du PDF ne
+    permet pas d'attribuer avec certitude un theoreme exact ou une propriete
+    trop precise.
+
+### Mise a jour (2026-03-07, extension de l'etude comparative aux outils voisins de Kairos) - succes
+- Demande:
+  - ajouter une comparaison poussee entre Kairos et plusieurs outils voisins:
+    `Aorai`, `CaFE`, `AGREE`, `Kind 2`, `CoCoSpec`, `Copilot`.
+- Travail realise:
+  - collecte de sources officielles ou primaires pour chaque outil:
+    - pages Frama-C pour `Aorai` et `CaFE`,
+    - rapport technique `AGREE`,
+    - site et papiers `Kind 2` / `CoCoSpec`,
+    - site officiel `Copilot`;
+  - ajout d'une section dediee dans
+    `ETUDE_COMPARATIVE_2026-03-07_LTL_ANNOTATIONS_ET_KAIROS.md` distinguant:
+    - outils de preuve de programme annote,
+    - outils de contrats pour systemes reactifs,
+    - outils de monitoring;
+  - pour chaque outil:
+    - objet traite,
+    - technique principale,
+    - proximite avec Kairos,
+    - difference structurante;
+  - ajout d'un tableau de positionnement et d'un bilan synthetique.
+- Point important:
+  - la comparaison ne cherche pas a lisser les differences; elle explicite au
+    contraire que Kairos se situe a l'intersection de trois dimensions rarement
+    reunies:
+    - preuve de programme/systeme reactif,
+    - hypothese d'entree explicite `A` et garantie `G`,
+    - produit semantique central `programme x A x G` avec reduction locale
+      mechanisee.
+
+### Mise a jour (2026-03-07, refonte structurelle du papier mathematique Rocq) - succes
+- Demande:
+  - reprendre `spec/rocq_oracle_model.tex` a partir des remarques accumulees dans
+    `spec/ROCQ_PAPER_REMARKS.md`, puis restructurer le document comme un article
+    de recherche plus coherent et plus complet.
+- Travail realise:
+  - abandon de l'ancienne structure separee ``intuitive puis formelle'';
+  - reecriture complete du document selon une progression unique:
+    - introduction et objectif,
+    - definition du programme reactif,
+    - semantique sur flux,
+    - automates de surete,
+    - produit `programme x A x G`,
+    - pas dangereux,
+    - generation pseudo-algorithmique des obligations,
+    - chaine de preuve,
+    - lien avec Rocq et l'implementation,
+    - discussion et conclusion;
+  - ajout d'une definition formelle du programme incluant:
+    - transitions relationnelles,
+    - invariants utilisateur d'etat,
+    - contrats utilisateur de transition;
+  - ajout d'une presentation explicite de la semantique sur flux comme equation
+    coinductive / copoint fixe;
+  - remplacement de la notation imperative dans les exemples par une notation
+    relationnelle (`m' = x`, `y = m`, etc.);
+  - reecriture des automates graphiques avec mise en page plus aeree;
+  - ajout d'une section de generation pseudo-algorithmique couvrant les cas:
+    - pas dangereux,
+    - pas sure,
+    - pas allant vers `bad_A`,
+    - obligations de coherence/support,
+    - reinjection des annotations utilisateur;
+  - recentrage de toute la presentation des obligations autour du produit et de
+    la notion de pas dangereux.
+- Validation:
+  - recompilation PDF reussie avec:
+    `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+  - fichier genere:
+    `spec/rocq_oracle_model.pdf`
+- Remarque:
+  - il reste seulement des warnings LaTeX mineurs sur le placement des floats,
+    sans erreur de compilation.
+
+### Mise a jour (2026-03-07, separation explicite programme / specification) - succes
+- Demande:
+  - corriger la presentation pour que `A`, `G` et les invariants de noeud ne
+    fassent pas partie de la definition primitive du programme;
+  - aligner dans ce sens le papier, l'implementation et Rocq.
+- Travail realise:
+  - dans le papier `spec/rocq_oracle_model.tex`:
+    - remplacement de la definition du programme par une definition purement
+      syntaxe/semantique;
+    - introduction explicite d'une specification associee
+      `Phi = (A, G, Inv)`;
+    - suppression de `UserStepInv` comme composante primitive;
+    - clarification du fait que les obligations de transition issues des
+      invariants de noeud sont derivees par projection backend;
+  - dans l'implementation OCaml:
+    - ajout d'une vue explicite `node_semantics` / `node_specification` dans
+      `lib_v2/runtime/core/ast/ast.mli` et `ast.ml`;
+    - ajout des accesseurs `semantics_of_node` et `specification_of_node`;
+    - adaptation de `automata_spec.ml` et `instrumentation.ml` pour consommer la
+      vue specification quand ils manipulent assumptions/guarantees/invariants;
+  - dans Rocq:
+    - ajout des records conceptuels `ProgramSemantics` et `NodeSpecification`
+      dans `rocq/KairosOracle.v`;
+    - conservation de l'API existante via `program_part` et
+      `specification_part`, pour ne pas casser les developments existants;
+    - ajustement des fichiers Rocq qui dependaient de l'ordre implicite des
+      parametres generalises (`cfg_at`, `ctx_at`, `run_trace`,
+      `run_product_state`).
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+  - recompilation Rocq complete OK
+  - recompilation PDF `spec/rocq_oracle_model.tex` OK
+
+### Mise a jour (2026-03-07, propagation de la vue `node_specification` dans les passes OCaml) - succes
+- Demande:
+  - pousser plus loin la separation `programme` / `specification` dans
+    l'implementation, au-dela du seul AST et du middle-end immediat.
+- Travail realise:
+  - remplacement d'acces directs a `n.assumes`, `n.guarantees` et
+    `n.attrs.invariants_state_rel` par `Ast.specification_of_node n` dans des
+    passes supplementaires:
+    - `lib_v2/runtime/core/ast/collect.ml`
+    - `lib_v2/runtime/core/ast/ast_invariants.ml`
+    - `lib_v2/runtime/core/logic/fo/fo_specs.ml`
+    - `lib_v2/runtime/middle_end/automata_generation/automata_generation.ml`
+    - `lib_v2/runtime/middle_end/automata_generation/automata_atoms.ml`
+    - `lib_v2/runtime/middle_end/instrumentation/instrumentation.ml`
+    - `lib_v2/runtime/backend/emit.ml`
+    - `lib_v2/runtime/backend/emit/dot_emit.ml`
+    - `lib_v2/runtime/backend/obc/obc_emit.ml`
+    - `lib_v2/runtime/backend/obc/obc_ghost_instrument.ml`
+    - `lib_v2/runtime/backend/why/why_contracts.ml`
+    - `lib_v2/runtime/backend/why/why_env.ml`
+    - `lib_v2/runtime/backend/why/why_stage.ml`
+    - `lib_v2/runtime/frontend/parse/ast_dump.ml`
+  - conservation volontaire de certains acces directs dans
+    `contract_coherency.ml`, ou l'on construit justement la partie
+    `invariants_state_rel` de la specification.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
+### Mise a jour (2026-03-07, separation explicite dans `abstract_model`) - succes
+- Demande:
+  - faire porter explicitement la decomposition `partie programme` /
+    `partie specification` jusque dans les types intermediaires de
+    l'instrumentation.
+- Travail realise:
+  - extension de `lib_v2/runtime/middle_end/instrumentation/abstract_model.mli`
+    et `.ml` avec:
+    - `node_semantics = Ast.node_semantics`
+    - `node_specification = Ast.node_specification`
+    - champs explicites `semantics` et `specification` dans `Abs.node`;
+  - mise a jour de `of_ast_node` / `to_ast_node` pour conserver cette
+    decomposition lors des conversions;
+  - adaptation de l'instrumentation pour lire directement
+    `n.specification.spec_assumes`,
+    `n.specification.spec_guarantees`,
+    `n.specification.spec_invariants_state_rel`
+    dans le contexte abstrait;
+  - adaptation du rendu texte de `abstract_model` pour utiliser les champs
+    `semantics` / `specification` au lieu des duplications plates.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
+### Mise a jour (2026-03-07, suppression des champs plats dans `Abs.node`) - succes
+- Demande:
+  - supprimer la redondance residuelle dans `Abs.node` pour imposer
+    effectivement l'usage de la decomposition
+    `semantics/specification`.
+- Travail realise:
+  - reduction du type `Abs.node` dans
+    `lib_v2/runtime/middle_end/instrumentation/abstract_model.mli`
+    et `.ml` aux seuls champs:
+    - `semantics`
+    - `specification`
+    - `trans`
+    - `attrs`;
+  - suppression des anciens doublons plats
+    (`nname`, `inputs`, `outputs`, `instances`, `locals`, `states`,
+    `init_state`, `assumes`, `guarantees`);
+  - reconstruction complete du `Ast.node` cible dans `to_ast_node`
+    a partir de `n.semantics` et `n.specification`;
+  - adaptation des consommateurs de `Abs.node`, notamment dans:
+    - `lib_v2/runtime/middle_end/instrumentation/instrumentation.ml`
+    - `lib_v2/runtime/middle_end/product/product_build.ml`
+    - `lib_v2/runtime/middle_end/product/product_contracts.ml`
+    - `lib_v2/runtime/pipeline/pipeline.ml`
+    - `bin/dev/probe_vc.ml`;
+  - verification par recherche que les acces restants du type
+    `.inputs`, `.locals`, `.states`, `.assumes`, etc. concernent
+    principalement `Ast.node`, ce qui est attendu.
+- Resultat:
+  - la separation `programme` / `specification` n'est plus seulement
+    conceptuelle dans `abstract_model`; elle est imposee par le type.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
+### Mise a jour (2026-03-07, invariants sur contexte de trace) - succes
+- Demande:
+  - faire refleter a tous les niveaux (Rocq, implementation, PDF) que:
+    - la semantique du programme reste locale;
+    - l'historique appartient a la trace d'execution;
+    - `A`, `G` et les invariants de noeud s'interpretent sur des contextes de
+      trace, puis sont compiles finiment dans les backends.
+- Travail realise:
+  - refactorisation de `rocq/KairosOracle.v`:
+    - `spec_node_inv` et `node_inv` ne portent plus sur `State -> Mem -> Prop`
+      mais sur `StepCtx -> Prop`;
+    - suppression du schema `node_inv_init/node_inv_preserved` au profit d'une
+      hypothese primitive `node_inv_valid_on_run : forall u k, node_inv (ctx_at u k)`;
+    - adaptation des obligations et du theoreme
+      `oracle_conditional_correctness_with_node_inv`;
+  - adaptation de `rocq/KairosModularIntegration.v` au nouveau type de
+    `node_inv` et au nouvel ordre des parametres implicites de `GeneratedBy`;
+  - clarification de l'implementation OCaml:
+    - commentaire de `node_specification` dans `lib_v2/runtime/core/ast/ast.mli`
+      pour expliciter que les invariants de specification vivent sur le contexte
+      de trace via `HNow/HPreK`;
+    - commentaire correspondant dans
+      `lib_v2/runtime/middle_end/instrumentation/abstract_model.mli`;
+    - commentaire dans
+      `lib_v2/runtime/backend/obc/obc_ghost_instrument.ml` pour marquer
+      `__pre_k...` comme artefacts de compilation backend;
+  - reecriture du papier `spec/rocq_oracle_model.tex`:
+    - definition explicite de `ctx_u(k)` comme contexte local derive de la
+      trace;
+    - invariants de noeud de type `S -> P(TickCtx -> Bool)` au lieu de
+      `S -> P(M -> Bool)`;
+    - explication que `prev/pre_k` sont interpretes sur la trace puis compiles
+      par memoires auxiliaires finies.
+- Resultat:
+  - le modele mathématique raconte maintenant la meme histoire que le code:
+    la specification parle du passe via la trace, pas via une extension
+    primitive de l'etat du programme.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+  - compilation Rocq complete OK via `rocq makefile` + `make -f rocq_build.mk -j2`
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+
+### Mise a jour (2026-03-07, passe editoriale sur le papier Rocq) - succes
+- Demande:
+  - reprendre le papier a partir des remarques accumulees, puis archiver les
+    remarques traitees dans un fichier d'historique.
+- Travail realise:
+  - simplification de la presentation du pas deterministe dans
+    `spec/rocq_oracle_model.tex`:
+    - suppression du doublon artificiel `select_P` / `step_P`;
+    - introduction de la notation lisible
+      `((s,m),i) ->_P^t ((s',m'),o)`;
+  - clarification de `TickCtx`:
+    - definition concrete comme n-uplet
+      `(k, cfg_courante, entree, sortie, cfg_suivante)`;
+    - explication explicite de `ctx_u(k)` comme contexte local extrait de
+      l'execution;
+  - simplification de la presentation coinductive:
+    - elimination des notations opaques `o_P` / `rho'` non introduites;
+    - remplacement par un enonce direct sur le premier pas et sur le suffixe
+      `u^(1)`;
+  - archivage du lot de remarques traitees dans
+    `spec/ROCQ_PAPER_REMARKS_HISTORY_2026-03-07.md`;
+  - reinitialisation du tampon courant
+    `spec/ROCQ_PAPER_REMARKS.md`.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+
+### Mise a jour (2026-03-07, passe de conformite Rocq du papier) - succes
+- Demande:
+  - reprendre une nouvelle fois le PDF mathematique pour integrer les remarques
+    recentes et supprimer les divergences restantes avec la formalisation Rocq.
+- Travail realise:
+  - clarification du debut du papier:
+    - `Inv` presente comme invariant agrege unique
+      `S -> TickCtx -> Bool`;
+    - introduction plus nette des automates de surete, de leur run et de la
+      condition de reconnaissance;
+    - explication des variables courantes et de `prev/pre_k` via une
+      interpretation abstraite sur `TickCtx`;
+  - la notation flechee `->` est maintenant la notation principale pour les pas
+    du programme;
+  - la section sur le produit a ete corrigee pour coller a Rocq:
+    - etat du produit fini `S × Q_A × Q_G`;
+    - memoire/entree/sortie deplacees au niveau du pas concret et du matching;
+  - reecriture des exemples `delay_int` et `toggle` pour enlever l'idee fausse
+    que la memoire ferait partie de l'etat du produit;
+  - archivage du lot de remarques traitees dans
+    `spec/ROCQ_PAPER_REMARKS_HISTORY_2026-03-07_B.md`;
+  - reinitialisation du tampon courant `spec/ROCQ_PAPER_REMARKS.md`.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+
+### Mise a jour (2026-03-07, reprise du tampon courant pour le papier mathematique) - succes
+- Demande:
+  - reprendre le tampon courant `spec/ROCQ_PAPER_REMARKS.md` et corriger le
+    papier mathematique en consequence.
+- Travail realise:
+  - reecriture du resume:
+    - suppression des formules symboliques dans l'abstract;
+    - recentrage sur le probleme, la difficulte et l'idee cle du produit
+      explicite;
+  - reecriture de l'introduction dans un style plus proche d'un article de
+    recherche:
+    - probleme vise;
+    - difficulte technique;
+    - idee de solution;
+    - role de la preuve Rocq;
+  - reecriture de `Contexte local et relation de matching`:
+    - motivation explicite de la distinction entre tick concret et pas abstrait;
+    - definition factorisee de `ctx(u,k)` en source / observation / cible;
+    - explication de `Match` comme pont entre generation statique et execution
+      concrete;
+    - mise en conformite de la presentation avec `StepCtx`,
+      `product_step_realizes_at` et `ctx_matches_ps`;
+  - reecriture des sections `delay_int` et `Generation pseudo-algorithmique`:
+    - obligation effectivement generee explicitee;
+    - instanciation immediate de la procedure generale sur `delay_int`;
+    - formes concretes d'obligations affichees dans l'algorithme conceptuel;
+    - `Origines abstraites` rederivees des regles de generation;
+  - reecriture de la `Chaine de preuve`:
+    - hypotheses explicites;
+    - enonces plus formels;
+    - esquisses de preuve alignees sur
+      `bad_local_step_if_G_violated` et `generation_coverage`;
+  - archivage du lot traite dans
+    `spec/ROCQ_PAPER_REMARKS_HISTORY_2026-03-07_C.md`;
+  - reinitialisation du tampon courant `spec/ROCQ_PAPER_REMARKS.md`.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - transformation de certains flottants `h` en `ht`
+
+### Mise a jour (2026-03-07, review critique POPL du papier mathematique) - succes
+- Demande:
+  - faire une review critique de niveau reviewer POPL sur la forme, le fond, la
+    rigueur mathematique, la credibilite des resultats, la coherence des
+    enonces et la qualite des preuves;
+  - produire une note d'amelioration;
+  - appliquer cette note au papier.
+- Travail realise:
+  - redaction d'une note critique dediee:
+    - `spec/POPL_REVIEW_NOTES_2026-03-07.md`;
+  - diagnostic principal consigne:
+    - sur-affirmation de la partie coinductive;
+    - glissement residuel entre `Bool` et predicats semantiques;
+    - decalage de signature sur `GeneratedBy`;
+    - chaine de preuve encore trop comprimee;
+    - traces editoriales de note technique;
+    - petit bug de duplication textuelle dans la section `StepCtx`;
+  - corrections appliquees dans `spec/rocq_oracle_model.tex`:
+    - remplacement de la pseudo-preuve coinductive par une definition primaire
+      point par point;
+    - lecture coinductive reloguee en remarque;
+    - passage des predicats semantiques de `Bool` vers `Prop`;
+    - alignement de `GeneratedBy` avec la formalisation Rocq;
+    - ajout d'une sous-section explicite separant hypotheses internes et
+      hypotheses externes dans la chaine de preuve;
+    - ajout d'un lemme de validite des obligations de support invariant;
+    - nettoyage editorial des duplications et formulations trop "note interne".
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - flottants `h` convertis en `ht`
+
+### Mise a jour (2026-03-07, traduction anglaise du papier mathematique) - succes
+- Demande:
+  - traduire en anglais le document mathematique dans `spec/`.
+- Travail realise:
+  - traduction du papier `spec/rocq_oracle_model.tex` du francais vers
+    l'anglais;
+  - passage de `babel` en anglais;
+  - traduction des environnements de theorematiques (`Definition`, `Theorem`,
+    `Lemma`, `Remark`);
+  - traduction du titre, du resume, de l'introduction, des sections
+    mathematiques et des figures/captions;
+  - nettoyage des derniers fragments francais residuels dans les exemples et
+    les definitions du produit et des obligations.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF regenere:
+    - `spec/rocq_oracle_model.pdf` (`Mar 7 18:53:25 2026`, `416024` octets)
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - flottants `h` convertis en `ht`
+
+### Mise a jour (2026-03-07, section technique implementation/Why3 dans le papier) - succes
+- Demande:
+  - ajouter au papier mathematique une section technique sur :
+    - le langage de programmation et de specification de l'implementation;
+    - la methode de passage des obligations detaillees vers Why3;
+    - ce qui est effectivement envoye a Why3;
+    - le resultat recupere et sa signification.
+- Travail realise:
+  - remplacement de l'ancienne section mixte `Rocq and the Implementation` par
+    une section `Implementation Language and Why3 Backend`;
+  - ajout d'une presentation de la separation source entre :
+    - couche programme (inputs, outputs, variables, etats, transitions);
+    - couche specification (assumes, guarantees, invariants de noeud);
+  - ajout d'une description du pipeline de projection :
+    - analyse du produit;
+    - projection backend via `__aut_state` et variables `__pre_k...`;
+    - generation OBC/Why3;
+    - extraction des taches VC/SMT;
+  - ajout d'une sous-section sur l'objet effectivement envoye a Why3;
+  - ajout d'une sous-section sur l'interpretation semantique des statuts
+    Why3 (`proved`, `invalid`, `unknown`, `timeout`, `failure`).
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF regenere:
+    - `spec/rocq_oracle_model.pdf` (`Mar 7 18:58:04 2026`, `422557` octets)
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - flottants `h` convertis en `ht`
+
+### Mise a jour (2026-03-07, section related work et bibliographie du papier) - succes
+- Demande:
+  - ajouter une section `Related Work` detaillee avec comparaison;
+  - ajouter la bibliographie associee;
+  - maintenir une conclusion coherente.
+- Travail realise:
+  - ajout d'une section `Related Work` dans `spec/rocq_oracle_model.tex`;
+  - structuration de la comparaison par familles:
+    - verification temporelle de programmes par annotations (`Aorai`, `CaFE`);
+    - verification synchrone assume/guarantee (`AGREE`, `Kind 2`, `CoCoSpec`,
+      `Lustre/PVS`);
+    - compilation de moniteurs (`Copilot`);
+  - ajout d'un paragraphe de positionnement specifique de Kairos;
+  - ajout d'une bibliographie integree via `thebibliography`;
+  - conservation et verification de la conclusion finale apres insertion des
+    nouvelles sections.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF regenere:
+    - `spec/rocq_oracle_model.pdf` (`Mar 7 19:02:08 2026`, `435265` octets)
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - un fallback de police monospace en gras dans certains passages;
+    - pas d'erreur de citations non resolues
+
+### Mise a jour (2026-03-07, hypotheses de totalite des ticks et statut abstrait de `prev`) - succes
+- Demande:
+  - signaler dans le papier que le modele abstrait suppose qu'un programme
+    calcule toujours un etat suivant, une memoire suivante et une sortie;
+  - expliciter qu'en pratique Kairos peut rencontrer blocage par operation
+    invalide ou absence d'emission sur une sortie, et que cela doit etre garanti
+    par des conditions additionnelles;
+  - presenter `prev` et constructions analogues comme de simples instanciations
+    possibles du cadre abstrait sur l'historique, pas comme partie primitive du
+    modele.
+- Travail realise:
+  - ajout d'une remarque de totalite juste apres la definition du pas
+    deterministe du programme;
+  - ajout d'une remarque `Abstract History Interface` et transformation de la
+    definition de `prev` en `Example Instantiation of History`;
+  - re-ecriture de la remarque semantique pour faire de `prev` une intuition de
+    niveau langage, non un constituant du noyau abstrait;
+  - ajout, dans la section Why3/backend, d'un paragraphe sur les obligations
+    backend supplementaires necessaires pour garantir :
+    - absence de blocage;
+    - definedness des operations;
+    - emission totale des sorties.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF regenere:
+    - `spec/rocq_oracle_model.pdf` (`Mar 7 19:02:40 2026`, `438775` octets)
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - flottants `h` convertis en `ht`
+
+### Mise a jour (2026-03-07, exhaustivite des transitions comme condition structurelle) - succes
+- Demande:
+  - traiter explicitement le cas ou aucun filtre de transition n'est actif pour
+    l'etat courant;
+  - ne pas presenter cela comme une propriete semantique globale a prouver,
+    jugée trop forte ou impraticable;
+  - clarifier qu'un etat puit avec sortie implicite n'est pas une bonne
+    solution dans le modele abstrait.
+- Travail realise:
+  - ajout d'une remarque `Exhaustiveness of Transition Filtering` dans la partie
+    semantique;
+  - position retenue dans le papier:
+    - l'exhaustivite du filtrage par etat/garde/memoire est une condition de
+      bien-formation structurelle des programmes concrets;
+    - cette condition peut etre obtenue, en pratique, par exhaustivite
+      syntaxique ou branche par defaut au niveau du langage source;
+    - on ne l'integre pas via un etat puit semantique, car cela demanderait de
+      fixer une sortie observable non neutre;
+  - re-ecriture de la section backend:
+    - remplacement de l'idee d'``obligations de totalite'' par celle de
+      `side conditions`/checks garantissant que le programme concret appartient
+      bien au fragment total suppose par le modele.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF regenere:
+    - `spec/rocq_oracle_model.pdf` (`Mar 7 19:27:42 2026`, `438819` octets)
+  - warnings residuels:
+    - quelques `Overfull \\hbox` mineurs;
+    - flottants `h` convertis en `ht`
+
+### Mise a jour (2026-03-07, temoins explicites d'aretes `A/G` dans le produit OCaml) - succes
+- Demande:
+  - rapprocher l'IR produit de l'implantation de la structure de `ProductStep`
+    cote Rocq;
+  - conserver explicitement, dans les pas du produit, les aretes d'automates
+    d'hypothese et de garantie, au lieu de ne garder que leurs gardes logiques;
+  - ne pas traiter dans cette passe les garanties de totalite/exhaustivite,
+    signalees comme non accessibles pour l'instant.
+- Travail realise:
+  - enrichissement de `lib_v2/runtime/middle_end/product/product_types.mli` et
+    `lib_v2/runtime/middle_end/product/product_types.ml`:
+    - ajout de `automaton_edge = Automaton_engine.transition`;
+    - ajout des champs `assume_edge` et `guarantee_edge` dans `product_step`;
+    - ajout des memes temoins dans `pruned_step`;
+  - adaptation de
+    `lib_v2/runtime/middle_end/product/product_build.ml`:
+    - conservation des triples complets `(src, guard, dst)` pour les automates;
+    - propagation de ces temoins dans tous les pas explores et tous les pas
+      elimines (`pruned`);
+  - adaptation de
+    `lib_v2/runtime/middle_end/product/product_debug.ml`:
+    - rendu texte des pas et des prunings avec affichage des aretes `A[src->dst]`
+      et `G[src->dst]`;
+    - enrichissement du `product_dot` avec les memes temoins, pour rendre le
+      graphe du produit plus interpretable.
+- Resultat:
+  - l'implantation conserve maintenant la provenance combinatoire exacte des pas
+    `A/G` sans perdre les gardes deja utilises pour la generation des
+    obligations;
+  - cette passe ameliore la tracabilite et rapproche l'IR OCaml du modele Rocq,
+    sans alourdir la logique de generation actuelle.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
+### Mise a jour (2026-03-07, simplification de la tracabilite Rocq des obligations) - succes
+- Demande:
+  - supprimer dans la formalisation Rocq les elements de tracabilite
+    `obligation -> source` qui ne sont pas necessaires aux preuves;
+  - conserver uniquement ce qui reste utile a la taxonomie et aux couches
+    modulaires.
+- Analyse:
+  - dans le noyau `KairosOracle`, la relation `GeneratedBy` transportait
+    `origin`, `Trans Paut` et `Obligation`;
+  - les preuves principales n'exploitent pas le temoin de transition
+    `Trans Paut`;
+  - en revanche, `origin` reste utile comme etiquetage logique des obligations
+    pour les signatures modulaires et la taxonomie.
+- Travail realise:
+  - simplification de `rocq/KairosOracle.v`:
+    - `GeneratedBy` passe de `origin -> Trans Paut -> Obligation -> Prop`
+      a `origin -> Obligation -> Prop`;
+    - `Generated` passe de `exists o t, ...` a `exists o, ...`;
+    - adaptation des preuves `generated_node_inv_obligation` et
+      `generation_coverage`;
+  - simplification coherente du pont modulaire dans
+    `rocq/KairosModularIntegration.v`, qui n'a plus a existentialiser un
+    temoin de transition.
+- Resultat:
+  - la formalisation conserve la provenance logique minimale des obligations
+    via `origin`;
+  - le temoin de transition, qui n'intervenait pas dans les preuves de
+    correction, a ete retire du noyau.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- rocq makefile -R rocq '' rocq/*.v rocq/*/*.v -o rocq_build.mk` OK
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+
+### Mise a jour (2026-03-07, derivation Rocq de `node_inv` par obligations) - succes
+- Demande:
+  - ne plus supposer `node_inv` valide sur toute execution;
+  - faire refleter dans Rocq le schema reel de l'implantation, ou la validite
+    des invariants de noeud vient d'une initialisation et d'une preservation
+    locale via obligations generees.
+- Probleme constate:
+  - `rocq/KairosOracle.v` postulait
+    `node_inv_valid_on_run : forall u k, node_inv ...`;
+  - cela court-circuitait exactement le raisonnement inductif backend
+    `requires Inv(src)` / `ensures Shift(Inv(dst))` present dans
+    l'implantation.
+- Travail realise:
+  - suppression de l'hypothese globale `node_inv_valid_on_run` dans
+    `rocq/KairosOracle.v`;
+  - introduction d'une formule FO representant l'invariant de noeud:
+    - `node_inv_fo : State -> FO`;
+    - `node_inv_fo_correct : eval_fo ctx (node_inv_fo s) <-> node_inv s ctx`;
+  - ajout d'une obligation initiale :
+    - `init_node_inv_obligation`;
+  - reinterpretation de l'obligation `NodeInvariant` comme obligation locale de
+    preservation:
+    - si un contexte matche un pas produit et si `node_inv` tient au tick
+      courant, alors `shift_fo 1 (node_inv_fo dst)` tient au tick courant;
+  - preuve nouvelle:
+    - `init_node_inv_holds`;
+    - `node_inv_holds_on_run`, par induction sur les ticks, en combinant:
+      - validite oracle des obligations generees;
+      - `ctx_matches_ps` pour le pas realise;
+      - `shifted_formula_transfers_to_successor`;
+      - correction `node_inv_fo_correct`.
+  - ajustement du pont modulaire dans `rocq/KairosModularIntegration.v` pour
+    exposer `node_inv_fo` et `node_inv_fo_correct`, et pour appeler
+    `GeneratedBy` avec ses nouveaux parametres.
+- Resultat:
+  - le noyau Rocq est maintenant plus proche de l'implantation sur ce point:
+    l'invariant n'est plus postule globalement, il est rederive a partir
+    d'obligations generees et validees par l'oracle;
+  - cela rapproche la formalisation du schema de coherence des invariants
+    utilise par le backend.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+
+### Mise a jour (2026-03-07, architecture des obligations en quatre categories) - succes
+- Demande:
+  - formaliser clairement l'architecture de preuve autour de quatre categories
+    d'obligations:
+    - `NoBad`;
+    - `InitialGoal`;
+    - `UserInvariant`;
+    - `AutomatonSupport`;
+  - documenter cette architecture dans un fichier dedie;
+  - mettre le papier mathematique en coherence avec cette decomposition;
+  - commencer le refactoring Rocq pour faire apparaitre explicitement ces
+    categories.
+- Analyse retenue:
+  - `NoBad` est l'objectif de surete proprement dit;
+  - `InitialGoal` est le cas de base de l'induction de coherence;
+  - `UserInvariant` propage les invariants utilisateur via
+    `requires Inv(src)` / `ensures Shift(Inv(dst))`;
+  - `AutomatonSupport` justifie les faits automates ajoutes aux preconditions
+    locales (compatibilite moniteur et projection `A/G` du produit);
+  - le solveur ne peut pas prouver un `NoBad` local en isolation: il faut
+    rendre explicite la validite des hypotheses locales qui l'aident.
+- Travail realise:
+  - ajout du document
+    `rocq/proof_architecture.md`, avec:
+    - les quatre categories;
+    - leur role exact;
+    - leur correspondance avec les familles fines du pipeline OCaml;
+    - le lien avec la taxonomie abstraite Rocq;
+  - mise a jour de `spec/rocq_oracle_model.tex`:
+    - reecriture de la section sur l'algorithme conceptuel;
+    - remplacement de l'ancienne taxonomie trop declarative par la decomposition
+      en quatre categories;
+    - explication detaillee du role inductif de `InitialGoal`,
+      `UserInvariant`, `AutomatonSupport` et `NoBad`;
+  - refactoring de `rocq/KairosOracle.v`:
+    - l'origine concrete des obligations devient:
+      `ObjectiveNoBad | InitialGoal | UserInvariant | AutomatonSupport`;
+    - suppression de `classify_product_step`;
+    - ajout de `support_automaton_fo : ProductStep -> FO`;
+    - ajout de `support_automaton_obligation`;
+    - `gen_from_product_step` genere maintenant explicitement:
+      - l'objectif `NoBad`;
+      - le support automate;
+      - la propagation d'invariant utilisateur;
+    - `init_generated_items` porte explicitement le cas `InitialGoal`;
+    - ajout du lemme `generated_support_automaton_obligation`;
+  - mise a jour de `rocq/KairosModularIntegration.v` pour exposer
+    `support_automaton_fo` et pour suivre la nouvelle signature de
+    `GeneratedBy`.
+- Resultat:
+  - l'architecture documentaire et le noyau Rocq parlent maintenant des memes
+    quatre categories;
+  - le support automate est explicite dans Rocq, meme si sa discipline de
+    propagation n'est pas encore reconstruite aussi finement que dans
+    l'implantation;
+  - l'ancienne originologie ad hoc (`Coherency`, `NodeInvariant`, etc.) a ete
+    remplacee, dans le noyau concret, par une taxonomie plus proche du vrai
+    schema de preuve.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+
+### Mise a jour (2026-03-07, propagation inductive du support automate en Rocq) - succes
+- Demande:
+  - aller au-dela de la simple introduction de la categorie
+    `AutomatonSupport`;
+  - reconstruire en Rocq une vraie discipline de propagation, analogue a celle
+    utilisee par l'implantation pour justifier les preconditions automates.
+- Travail realise:
+  - enrichissement de `rocq/KairosOracle.v`:
+    - `support_automaton_fo` n'est plus indexe par `ProductStep` mais par
+      `ProductState`, ce qui permet de raisonner par propagation d'etat produit;
+    - `prod_obligation` devient une obligation objective sous hypotheses
+      locales explicites:
+      - invariant utilisateur courant;
+      - support automate courant;
+    - ajout de `init_support_automaton_obligation`;
+    - `support_automaton_obligation` devient une vraie obligation de
+      preservation:
+      - si `ctx` matche un pas produit;
+      - et si le support courant vaut;
+      - alors la version decalee du support de l'etat cible vaut;
+    - ajout des lemmes:
+      - `product_select_at_from`;
+      - `run_product_state_0`;
+      - `realized_step_target_matches_run_product_successor`;
+      - `generated_init_support_automaton_obligation`;
+      - `init_support_automaton_holds`;
+      - `support_automaton_holds_on_run`.
+  - adaptation de `generation_coverage`:
+    - l'obligation `NoBad` n'est plus traitee comme formule nue;
+    - elle est maintenant montree fausse au tick dangereux en utilisant:
+      - `node_inv_holds_on_run`;
+      - `support_automaton_holds_on_run`;
+      - le `Match` du pas realise.
+  - mise a jour de `rocq/KairosModularIntegration.v`:
+    - `support_automaton_fo` expose maintenant une formule sur
+      `ProductState`, coherente avec le noyau.
+  - mise a jour documentaire:
+    - `rocq/proof_architecture.md`;
+    - `spec/rocq_oracle_model.tex`
+    pour refleter que Rocq reconstruit maintenant aussi la propagation
+    abstraite du support automate.
+- Resultat:
+  - le noyau Rocq ne se contente plus d'etiqueter `AutomatonSupport`;
+  - il prouve maintenant que ces faits de support se propagent le long de
+    l'execution, au meme niveau abstrait que les invariants utilisateur;
+  - la difference residuelle avec l'implantation est surtout une difference de
+    finesse interne (`monitor compatibility` vs `state-aware assumption
+    support`), pas une absence de schema inductif.
+- Validation:
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+## 2026-03-07
+
+### Unification de la taxonomie des obligations en quatre familles
+
+- Vérification de l’état courant :
+  - Rocq portait déjà les quatre origines `ObjectiveNoBad | InitialGoal | UserInvariant | AutomatonSupport` dans `KairosOracle.v`.
+  - L’interface Rocq `rocq/obligations/ObligationTaxonomySig.v` était restée sur une ancienne taxonomie (`CoherencyGoal`, `SupportUserInvariant`, etc.), donc il y avait un vrai décalage conceptuel.
+  - L’implémentation OCaml exposait seulement la taxonomie fine de backend (`FamNoBadRequires`, `FamCoherencyRequires`, etc.), sans projection explicite vers les quatre catégories conceptuelles.
+
+- Correction Rocq :
+  - refactorisation de `rocq/obligations/ObligationTaxonomySig.v` pour aligner la taxonomie abstraite sur les quatre catégories :
+    - `ObjectiveNoBad`
+    - `InitialGoal`
+    - `UserInvariant`
+    - `AutomatonSupport`
+  - mise à jour de `rocq/obligations/ObcAugmentationSig.v` pour relier les familles fines OBC à ces quatre catégories ;
+  - mise à jour de `rocq/obligations/ObligationStratifiedSig.v` pour refléter les nouvelles phases ;
+  - mise à jour des noyaux `rocq/kernels/ObjectiveSafetyKernel.v` et `rocq/kernels/SupportNonBlockingKernel.v` pour supprimer les références à l’ancienne notion de `Coherency`.
+
+- Correction implémentation :
+  - enrichissement de `lib_v2/runtime/pipeline/obligation_taxonomy.{ml,mli}` :
+    - ajout d’un type `category` à quatre cas (`CatNoBad`, `CatInitialGoal`, `CatUserInvariant`, `CatAutomatonSupport`) ;
+    - ajout d’une projection `category_of_family` depuis les familles fines du backend ;
+    - séparation dans les résumés entre :
+      - catégories générées conceptuelles,
+      - familles fines backend ;
+    - exclusion explicite de `transition_requires` / `transition_ensures` des quatre catégories générées.
+
+- Mise à jour documentation :
+  - `rocq/proof_architecture.md` réaligné sur la taxonomie à quatre catégories ;
+  - `spec/rocq_oracle_model.tex` mis à jour pour expliquer que :
+    - Rocq et le noyau conceptuel travaillent avec quatre catégories ;
+    - l’implémentation conserve en plus une taxonomie fine de backend ;
+    - les contrats utilisateur de transition ne font pas partie des obligations générées par l’architecture locale.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- dune build` OK ;
+  - recompilation LaTeX relancée après mise à jour du papier ;
+  - recompilation Rocq à relancer avec régénération du makefile pour éviter un faux positif `make: Nothing to be done`.
+
+### Synthèse architecture oracle / triplets de Hoare / obligations initiales
+
+- Analyse de deux points d’architecture :
+  1. le validateur externe ne devrait pas être modélisé comme vérifiant une obligation sémantique `StepCtx -> Prop`, mais plutôt des objets de preuve de type triplets de Hoare attachés au code des transitions ;
+  2. les obligations initiales doivent couvrir à la fois l’initialisation des invariants utilisateur et celle des faits de support automate.
+
+- Constat important :
+  - le dépôt contenait déjà une brique Rocq adaptée dans
+    `rocq/obligations/TransitionTriplesBridge.v` ;
+  - l’implémentation OCaml fonctionne déjà essentiellement comme un backend de contrats de transition / Why3, pas comme un simple validateur de formules ;
+  - Rocq possède déjà `init_node_inv_obligation` et `init_support_automaton_obligation`.
+
+- Résultat :
+  - rédaction d’une synthèse détaillée dans
+    `rocq/oracle_hoare_triplets_synthesis.md` ;
+  - position retenue :
+    - conserver les clauses sémantiques générées comme objets du noyau de preuve ;
+    - insérer entre elles et l’outil externe une couche de bundles de triplets de Hoare groupés par transition programme ;
+    - garder les quatre catégories conceptuelles ;
+    - expliciter que `InitialGoal` couvre deux sous-cas :
+      - initialisation de l’invariant utilisateur,
+      - initialisation du support automate.
+
+- Décalage relevé côté implémentation :
+  - l’initialisation de l’invariant utilisateur est déjà explicite via `coherency_goals` ;
+  - l’initialisation du support automate est aujourd’hui surtout implicite via l’état initial `__aut_state = Aut0` dans le backend Why3 ;
+  - il faudra la rendre explicite dans la prochaine passe de refactoring.
+
+- Nouveau point d’architecture intégré à la synthèse :
+  - la propagation des invariants utilisateur et celle des faits de support automate ne doivent pas être modélisées comme deux couches de preuve indépendantes ;
+  - elles doivent former un bloc unique de propagation de support, car chacune peut être nécessaire pour prouver l’autre au niveau des obligations de transition ;
+  - même chose au niveau initial : les clauses d’initialisation invariant/support automate doivent vivre dans les mêmes objets de preuve helper/init.
+
+- Synthèse consolidée :
+  - remplacement de la note précédente par une synthèse plus nette dans
+    `rocq/oracle_hoare_triplets_synthesis.md` ;
+  - découpage retenu :
+    - `Safety`
+      - `NoBad`
+    - `Helper`
+      - `InitGoal`
+      - `Propagation`
+  - les sous-familles `UserInvariant` et `AutomatonSupport` restent utiles pour classifier les clauses générées, mais ne doivent pas être séparées en bundles de preuve distincts ;
+  - le validateur externe doit viser des bundles de triplets de Hoare par transition programme, avec provenance fine des clauses pour ne pas perdre l’information des arêtes du produit.
+
+### Portage concret de l’architecture Safety/Helper et du bridge Hoare
+
+- Réalignement Rocq :
+  - `rocq/interfaces/ExternalValidationAssumptions.v` enrichi avec deux foncteurs :
+    - `MakeExternalValidationAssumptionsFromOracleSem`
+    - `MakeExternalValidationAssumptionsFromTransitionTriples`
+  - but :
+    - rendre explicite le chemin canonique
+      `clauses sémantiques générées -> bundles Hoare par transition -> tâches encodées -> checker externe -> hypothèses sémantiques du théorème final` ;
+    - conserver l’interface finale du théorème de correction inchangée.
+
+- Réalignement blueprint Rocq :
+  - `rocq/KairosRefactorBlueprint.v` mis à jour pour exposer aussi
+    `MakeExternalValidationAssumptionsFromOracleSem` et
+    `MakeExternalValidationAssumptionsFromTransitionTriples`.
+
+- Réécriture de la note d’architecture :
+  - `rocq/proof_architecture.md` réécrit pour refléter la position stabilisée :
+    - distinction `clauses sémantiques` / `objets de preuve externes` ;
+    - un bundle Hoare par transition programme ;
+    - découpage de preuve
+      `Safety/NoBad` et `Helper/{InitGoal,Propagation}` ;
+    - invariants utilisateur et support automate regroupés dans les mêmes bundles helper.
+
+- Réalignement implémentation :
+  - `lib_v2/runtime/pipeline/obligation_taxonomy.mli` documente maintenant explicitement que :
+    - les quatre labels conceptuels classifient les clauses générées ;
+    - la structure de preuve est `Safety` / `Helper` ;
+  - `lib_v2/runtime/pipeline/obligation_taxonomy.ml` renomme le bloc de résumé
+    `generated categories` en `generated clause families`.
+
+- Réalignement papier :
+  - `spec/rocq_oracle_model.tex` mis à jour pour :
+    - parler de clauses `NoBad` et de bundles Hoare de transition ;
+    - préciser que les clauses helper sont groupées dans les mêmes bundles ;
+    - reformuler les hypothèses externes en termes de complétude/soundness des bundles couvrant les clauses générées.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- rocq compile -Q rocq '' rocq/interfaces/ExternalValidationAssumptions.v` OK ;
+  - `opam exec --switch=5.4.1+options -- rocq compile -Q rocq '' rocq/integration/AutomataFinalCorrectness.v` OK ;
+  - `opam exec --switch=5.4.1+options -- rocq compile -Q rocq '' rocq/KairosRefactorBlueprint.v` OK ;
+  - `opam exec --switch=5.4.1+options -- dune build` OK ;
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK.
+
+### Renommage Rocq `Obligation` -> `Clause`
+
+- Motivation :
+  - éviter la confusion entre :
+    - les clauses sémantiques générées par le produit ;
+    - les vraies obligations externes, qui sont des bundles/triplets de Hoare.
+
+- Refactoring effectué dans les interfaces Rocq :
+  - `rocq/obligations/ObligationGenSig.v`
+    - `Obligation` renommé en `Clause` ;
+  - `rocq/obligations/OracleSig.v`
+    - `ObligationValid` renommé en `ClauseValid` ;
+  - `rocq/obligations/OracleSemSig.v`
+    - `obligation_valid_pointwise` renommé en `clause_valid_pointwise` ;
+  - propagation du renommage dans :
+    - `TransitionTriplesBridge.v`
+    - `HoareExternalBridge.v`
+    - `ImplementationValidatorBridge.v`
+    - `ObligationTaxonomySig.v`
+    - `ObligationStratifiedSig.v`
+    - `ObcAugmentationSig.v`
+    - `ThreeLayerArchitecture.v`
+    - `ThreeLayerFromCore.v`
+    - `ExternalValidationAssumptions.v`
+    - `AutomataFinalCorrectness.v`
+    - `SafetyKernel.v`
+    - `ObjectiveSafetyKernel.v`
+    - `SupportNonBlockingKernel.v`
+    - `KairosOracle.v`
+    - `KairosModularArchitecture.v`
+    - `KairosModularIntegration.v`
+    - `instances/DelayIntInstance.v`.
+
+- Effet architectural :
+  - le code Rocq visible parle maintenant de `Clause` pour les objets
+    sémantiques locaux ;
+  - le mot `obligation` est réservé conceptuellement aux objets externes de
+    validation de type Hoare.
+
+- Vérifications :
+  - recompilation Rocq complète via
+    `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK ;
+  - `opam exec --switch=5.4.1+options -- dune build` resté OK après le
+    renommage.
+
+### Audit de l’énoncé intentionnel
+
+- Ajout de `rocq/INTENDED_THEOREM_AUDIT.md` pour répondre à la question :
+  - “est-ce qu’on prouve encore le bon théorème, et pas seulement un système cohérent ?”
+
+- Structure de l’audit :
+  - énoncé intentionnel du projet, indépendamment de Rocq ;
+  - énoncé actuellement prouvé ;
+  - raffinements jugés conservatifs ;
+  - zones de dérive possibles ;
+  - liste de questions à trancher explicitement.
+
+- Position retenue dans l’audit :
+  - le théorème intentionnel doit être lu comme un théorème conditionnel :
+    - si les clauses générées par l’outil sont validées par l’oracle ;
+    - si l’entrée satisfait `A` ;
+    - alors l’exécution satisfait `G` ;
+  - le théorème de haut niveau interne reste
+    `AvoidA u -> AvoidG (run_trace u)`,
+    mais sous hypothèses externes explicites de validation ;
+  - les gros changements récents relèvent surtout du raffinement de la méthode
+    de preuve ;
+  - clarification importante :
+    - au niveau de l’outil, les obligations générées sont déjà des
+      triplets/bundles de Hoare ;
+    - ce qui reste abstrait dans l’audit est l’encodage exact de ces objets et
+      leur validation externe, pas leur nature Hoare elle-même ;
+  - les principaux risques de décalage portent maintenant sur :
+    - la totalité/déterminisme du tick programme ;
+    - l’expressivité réelle de l’historique ;
+    - le caractère conditionnel de la validation externe.
+
+### Refactoring du noyau Rocq vers des triples de Hoare relationnels
+
+- Motivation :
+  - le noyau clause-centric restait conceptuellement trop faible :
+    - les clauses sont les briques de `Pre/Post`,
+    - mais les vraies obligations externes doivent être des triples de Hoare
+      adaptés à la sémantique relationnelle des transitions.
+
+- Transformation effectuée dans `rocq/KairosOracle.v` :
+  - conservation de `Clause := StepCtx -> Prop` comme niveau sémantique local ;
+  - ajout de :
+    - `triple_target = TripleInit | TripleStep t`
+    - `RelHoareTriple`
+    - `transition_rel`
+    - `TripleValid`
+    - triples canoniques :
+      - `init_node_inv_triple`
+      - `init_support_automaton_triple`
+      - `node_inv_triple ps`
+      - `support_automaton_triple ps`
+      - `no_bad_triple ps`
+    - relation de génération :
+      - `GeneratedTripleBy`
+      - `GeneratedTriple`
+    - oracle externe primaire :
+      - `TripleOracle`
+      - `TripleOracle_sound`
+      - `TripleOracle_complete`
+
+- Point important :
+  - le noyau n’externalise plus directement les clauses ;
+  - il externalise des triples relationnels construits à partir des clauses ;
+  - les clauses restent présentes comme composants sémantiques et comme vue
+    héritée utilisée par certaines interfaces modulaires.
+
+- Réécriture des preuves principales :
+  - `init_node_inv_holds` et `init_support_automaton_holds` dérivés à partir
+    des triples initiaux ;
+  - `node_inv_holds_on_run` et `support_automaton_holds_on_run` dérivés à
+    partir des triples de propagation ;
+  - `oracle_conditional_correctness` réécrit pour utiliser un triple
+    `no_bad_triple ps` sur le pas dangereux réalisé, au lieu d’un oracle
+    direct sur clause.
+
+- Conservation de compatibilité :
+  - `generation_coverage` reste disponible comme vue clause-centric, utile pour
+    les couches modulaires existantes ;
+  - nouveau théorème interne :
+    - `triple_generation_coverage`.
+
+- Cohérence avec l’implémentation :
+  - le noyau Rocq est maintenant mieux aligné avec le pipeline OCaml, qui
+    fonctionne déjà comme générateur de contrats/triples de transition Why3 ;
+  - l’implémentation groupe encore ces obligations par transition programme
+    pour mutualiser le WP ;
+  - le noyau Rocq reste plus fin en générant des triples canoniques par clause
+    / pas produit, ce qui est acceptable comme décomposition sémantique
+    primitive ;
+  - le regroupement par transition est donc lu comme une optimisation/backend
+    d’implantation, pas comme une divergence sémantique.
+
+- Documentation mise à jour :
+  - `rocq/proof_architecture.md`
+  - `rocq/oracle_hoare_triplets_synthesis.md`
+  - `rocq/INTENDED_THEOREM_AUDIT.md`
+  - `rocq/PROOF_STATUS.md`
+  - `spec/rocq_oracle_model.tex`
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- rocq compile -Q rocq '' rocq/KairosOracle.v` OK ;
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK ;
+  - `opam exec --switch=5.4.1+options -- dune build` OK ;
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK.
+
+### 2026-03-07 — Audit: noyau centré sur la validité des triples
+
+- Demande :
+  - retirer l’oracle externe du noyau prouvé ;
+  - exprimer directement le théorème central en termes de validité Hoare des
+    triples générés ;
+  - réaligner l’audit d’intention et le papier sur cette décision.
+
+- Analyse :
+  - le noyau utilisait encore une couche `TripleOracle` artificielle ;
+  - cela masquait l’intention désormais retenue :
+    - les clauses locales servent à construire des triples relationnels ;
+    - l’hypothèse du noyau est simplement que tous les triples générés sont
+      valides ;
+    - la modélisation d’un validateur externe relève d’une couche ultérieure.
+
+- Modifications :
+  - dans `rocq/KairosOracle.v` :
+    - suppression de `TripleOracle`, `TripleOracle_sound`,
+      `TripleOracle_complete` ;
+    - introduction de :
+      - `GeneratedTripleValid :
+         forall ht, GeneratedTriple ht -> TripleValid ht` ;
+    - réécriture des lemmes de base et de propagation pour utiliser cette
+      hypothèse directe ;
+    - introduction du théorème central :
+      - `triple_valid_conditional_correctness` ;
+    - conservation d’alias de compatibilité :
+      - `oracle_conditional_correctness`,
+      - `oracle_conditional_correctness_with_node_inv`.
+  - dans `rocq/INTENDED_THEOREM_AUDIT.md` :
+    - remplacement systématique du récit ``oracle accepte / oracle valide'' par
+      ``les triples générés sont valides'' ;
+    - clarification que le pont externe est un raffinement futur.
+  - dans `spec/rocq_oracle_model.tex` :
+    - la section de preuve parle maintenant de validité des triples générés ;
+    - le théorème conditionnel ne dépend plus d’un oracle au niveau du noyau
+      mathématique.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- rocq compile -Q rocq '' rocq/KairosOracle.v` OK ;
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK ;
+  - `opam exec --switch=5.4.1+options -- dune build` OK ;
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK.
+
+- Point de vigilance :
+  - certaines couches d’intégration et de bridge parlent encore d’``oracle'' ;
+  - cela reste acceptable si on les lit comme raffinements externes et non
+    comme partie du noyau mathématique.
+
+### 2026-03-07 — Allègement du chemin principal Rocq
+
+- Demande :
+  - rendre la structure Rocq plus lisible ;
+  - faire apparaître un chemin principal court autour de `KairosOracle.v` ;
+  - reléguer les bridges externes au rang de raffinements optionnels.
+
+- Analyse :
+  - `KairosRefactorBlueprint.v` importait trop de couches à la fois, y compris
+    des bridges externes non nécessaires à la lecture du noyau ;
+  - `README.md` et `PROOF_STATUS.md` présentaient encore
+    `ExternalValidationAssumptions` et `AutomataFinalCorrectness` comme files
+    centraux, alors que le noyau est maintenant centré sur la validité des
+    triples générés ;
+  - il manquait un point d’entrée minimal dans l’arbre Rocq.
+
+- Modifications :
+  - ajout de `rocq/MainProofPath.v` :
+    - point d’entrée minimal exposant les faits centraux :
+      - `bad_local_step_if_G_violated`
+      - `generation_coverage`
+      - `triple_generation_coverage`
+      - `triple_valid_conditional_correctness`
+  - réécriture de `rocq/KairosRefactorBlueprint.v` :
+    - imports réduits au noyau, aux signatures utiles et aux vues légères ;
+    - retrait des imports de bridges externes ;
+    - commentaire explicite listant les raffinements optionnels exclus ;
+  - mise à jour de `rocq/README.md` :
+    - nouvelle section `Main Proof Path` ;
+    - nouvelle section `Optional Refinement Layers` ;
+    - retrait du statut central d’`ExternalValidationAssumptions` ;
+  - mise à jour de `rocq/PROOF_STATUS.md` :
+    - le théorème principal référencé est désormais
+      `triple_valid_conditional_correctness` ;
+    - les bridges externes sont explicitement marqués comme raffinements
+      optionnels.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK ;
+  - `opam exec --switch=5.4.1+options -- dune build` OK.
+
+### 2026-03-07 — Renommage des théorèmes d’intégration
+
+- Demande :
+  - éviter d’exposer partout des noms hérités de type
+    `oracle_conditional_correctness`.
+
+- Décision :
+  - renommage additif, pas cassant :
+    - nouveaux noms lisibles ;
+    - anciens noms conservés comme alias de compatibilité.
+
+- Modifications :
+  - `rocq/kernels/SafetyKernel.v`
+    - nouveau nom :
+      - `validation_conditional_correctness_modular`
+  - `rocq/kernels/ObjectiveSafetyKernel.v`
+    - nouveaux noms :
+      - `validation_conditional_correctness_from_objectives`
+      - `validation_conditional_correctness_with_supports`
+  - `rocq/integration/ThreeLayerArchitecture.v`
+    - nouveau nom :
+      - `validation_conditional_correctness_three_layers`
+  - `rocq/integration/EndToEndTheorem.v`
+    - nouveau nom :
+      - `end_to_end_validation_conditional_correctness`
+  - mises à jour des usages dans :
+    - `rocq/integration/ProgramLTLSpecBridge.v`
+    - `rocq/integration/AdmissibilityNonVacuity.v`
+    - `rocq/instances/DelayIntInstance.v`
+  - `rocq/PROOF_STATUS.md` mis à jour pour expliquer que les noms
+    `oracle_*` sont désormais seulement des alias de compatibilité.
+
+- Vérifications :
+  - recompilation Rocq complète à relancer après ce lot ;
+  - `dune build` à relancer après ce lot.
+
+## 2026-03-07 — Passe terminologique sur le papier mathématique
+
+- Objectif :
+  - supprimer l’ambiguïté persistante entre `obligation`, `clause` et `triple`
+    dans `spec/rocq_oracle_model.tex`.
+
+- Modifications :
+  - remplacement systématique, dans le papier, de `obligation(s)` par :
+    - `clause(s)` pour les objets sémantiques locaux générés depuis le produit ;
+    - `relational Hoare triple(s)` ou `proof object(s)` pour les objets de
+      validation ;
+    - `verification condition(s)` uniquement au niveau Why3.
+  - renommage du titre en `Safety Automata, Explicit Products, and Local Clauses
+    for Kairos`.
+  - renommage de la section en `Pseudo-Algorithmic Generation of Clauses and
+    Triples`.
+  - clarification explicite de la chaîne :
+    `product -> clauses -> triples -> Why3 verification conditions`.
+
+- Résultat :
+  - le papier est maintenant cohérent avec le noyau Rocq triple-centric et ne
+    laisse plus entendre que les clauses sont elles-mêmes les obligations
+    externes.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` OK
+  - PDF produit : `spec/rocq_oracle_model.pdf`
+
+## 2026-03-07 — Découpage Rocq en 7 étapes lisibles
+
+- Demande :
+  - faire suivre au développement Rocq le découpage conceptuel :
+    1. produit sémantique ;
+    2. extraction de clauses ;
+    3. construction de triples relationnels ;
+    4. regroupement par transition ;
+    5. validité des triples ;
+    6. récupération de la validité sémantique des clauses ;
+    7. réduction global-vers-local.
+
+- Modifications :
+  - ajout des façades de lecture :
+    - `rocq/path/Step1SemanticProduct.v`
+    - `rocq/path/Step2GeneratedClauses.v`
+    - `rocq/path/Step3RelationalTriples.v`
+    - `rocq/path/Step4TransitionBundles.v`
+    - `rocq/path/Step5TripleValidity.v`
+    - `rocq/path/Step6ClauseRecovery.v`
+    - `rocq/path/Step7GlobalToLocal.v`
+  - mise à jour de `rocq/MainProofPath.v` pour exposer explicitement ces
+    sept étapes comme chemin de lecture privilégié.
+  - mise à jour de `rocq/README.md` et `rocq/PROOF_STATUS.md` pour documenter
+    ce parcours.
+
+- Résultat :
+  - la structure mathématique du noyau n’est pas changée ;
+  - en revanche, la lecture du développement suit maintenant explicitement le
+    découpage conceptuel fixé pendant l’audit.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- rocq makefile -R rocq '' rocq/*.v rocq/*/*.v -o rocq_build.mk` OK
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
+## 2026-03-07 — Prédicat nommé de bonne formation du modèle Rocq
+
+- Demande :
+  - cesser de laisser la bonne formation du programme sous forme
+    d’hypothèses structurelles dispersées ;
+  - introduire un prédicat nommé regroupant ces conditions.
+
+- Modifications :
+  - ajout dans `rocq/KairosOracle.v` de :
+    - `WellFormedProgramModel : Prop`
+    - `current_model_well_formed : WellFormedProgramModel`
+  - ajout des wrappers :
+    - `triple_valid_conditional_correctness_under_wf`
+    - `triple_valid_conditional_correctness_with_node_inv_under_wf`
+  - exposition de `WellFormedProgramModel` dans
+    `rocq/path/Step1SemanticProduct.v`
+  - mise à jour de `rocq/MainProofPath.v` et
+    `rocq/INTENDED_THEOREM_AUDIT.md` pour utiliser cette notion nommée.
+
+- Résultat :
+  - la bonne formation du modèle est maintenant visible comme un bloc
+    conceptuel unique ;
+  - le noyau reste prouvé comme avant, mais l’audit et le chemin principal de
+    lecture peuvent désormais parler d’une hypothèse unique nommée.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+
+## 2026-03-07 — Structuration “humaine” directement dans le noyau
+
+- Demande :
+  - faire ressortir les grandes étapes de raisonnement pour préparer un papier
+    lisible, mais sans ajouter une façade Rocq artificielle dédiée.
+
+- Modifications :
+  - suppression de la couche `rocq/HumanProofStages.v`, jugée moins lisible
+    qu’une structuration directe du noyau ;
+  - suppression de `rocq/HUMAN_PROOF_OUTLINE.md` ;
+  - `rocq/KairosOracle.v` marque maintenant directement les étapes importantes
+    de la preuve par blocs de commentaires ;
+  - adoption d’une hiérarchie plus explicite :
+    - `Local Lemma` / `Local Fact` pour la plomberie interne ;
+    - `Proposition` pour les résultats intermédiaires importants ;
+    - `Theorem` pour les jalons globaux.
+
+- Découpage retenu dans `KairosOracle.v` :
+  1. progression du produit ;
+  2. violation globale -> tick dangereux ;
+  3. helper facts valides le long du run ;
+  4. tick dangereux -> clause générée falsifiée ;
+  5. tick dangereux -> triple NoBad applicable ;
+  6. validité des triples -> correction conditionnelle globale.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` à relancer
+    après suppression de la façade.
+
+### 2026-03-07 — Noms de signatures: `VALIDATION_*` plutôt que `ORACLE_*`
+
+- Demande :
+  - poursuivre la simplification des noms exposés ;
+  - réduire la présence du vocabulaire `oracle` dans les signatures et
+    interfaces visibles.
+
+- Décision :
+  - renommage additif, sans casser les fichiers ni les usages existants ;
+  - les noms historiques sont gardés comme alias de compatibilité.
+
+- Modifications :
+  - `rocq/obligations/OracleSig.v`
+    - ajout de `VALIDATION_SIG` comme alias lisible de `ORACLE_SIG`.
+  - `rocq/obligations/OracleSemSig.v`
+    - ajout de `VALIDATION_SEM_SIG` comme alias lisible de `ORACLE_SEM_SIG`.
+  - `rocq/interfaces/ExternalValidationAssumptions.v`
+    - ajout de `VALIDATION_ASSUMPTIONS` ;
+    - ajout de :
+      - `MakeValidationAssumptionsFromOracleSem`
+      - `MakeValidationAssumptionsFromTransitionTriples`
+  - `rocq/KairosRefactorBlueprint.v`
+    - expose maintenant `VALIDATION_SIG` et `VALIDATION_SEM_SIG` ;
+  - `rocq/README.md` et `rocq/PROOF_STATUS.md`
+    - expliquent que `VALIDATION_*` est le vocabulaire préféré ;
+    - `ORACLE_*` n’est plus qu’un alias de compatibilité.
+
+- Vérifications :
+  - recompilation Rocq complète à relancer après ce lot ;
+  - `dune build` à relancer après ce lot.
+
+### 2026-03-07 — Fichiers façades `Validation*.v`
+
+- Demande :
+  - aller au bout de la simplification pour les lecteurs ;
+  - ne plus dépendre uniquement de noms lisibles à l’intérieur de fichiers
+    historiquement nommés `Oracle*`.
+
+- Modifications :
+  - commentaires de tête ajoutés dans :
+    - `rocq/obligations/OracleSig.v`
+    - `rocq/obligations/OracleSemSig.v`
+    - `rocq/interfaces/ExternalValidationAssumptions.v`
+    pour signaler explicitement qu’il s’agit de noms historiques.
+  - ajout des fichiers façades :
+    - `rocq/obligations/ValidationSig.v`
+    - `rocq/obligations/ValidationSemSig.v`
+    - `rocq/interfaces/ValidationAssumptions.v`
+  - mise à jour de :
+    - `rocq/README.md`
+    - `rocq/PROOF_STATUS.md`
+    pour pointer vers ces fichiers comme entrées de lecture préférées.
+
+- Vérifications :
+  - recompilation Rocq complète à relancer après ce lot ;
+  - `dune build` à relancer après ce lot.

@@ -25,7 +25,7 @@ Module MakeThreeLayerCorrectnessWithWitness
     exists u, P.AvoidG (P.run_trace u).
   Proof.
     exists NV.witness_input.
-    apply Corr.oracle_conditional_correctness_three_layers.
+    apply Corr.validation_conditional_correctness_three_layers.
     exact NV.witness_is_admissible.
   Qed.
 End MakeThreeLayerCorrectnessWithWitness.

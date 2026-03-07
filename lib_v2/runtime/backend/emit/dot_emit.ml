@@ -86,7 +86,8 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
           Ast_provenance.values t.requires @ Ast_provenance.values t.ensures @ acc)
         [] n.trans
     in
-    let ltl_specs = n.assumes @ n.guarantees in
+    let spec = Ast.specification_of_node n in
+    let ltl_specs = spec.spec_assumes @ spec.spec_guarantees in
     let pre_k_map = Collect.build_pre_k_infos n in
     let inputs = Ast_utils.input_names_of_node n in
     let var_types = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
