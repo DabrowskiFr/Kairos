@@ -1,0 +1,1988 @@
+module Resettable_delay
+  use int.Int
+  use array.Array
+  
+  type aut_state = 
+      | Aut0
+      | Aut1
+      | Aut2
+  
+  type state = 
+      | Init
+      | Run
+  
+  type vars = mutable {
+             mutable st : state;
+             mutable m : int;
+             mutable ghost __aut_state : aut_state;
+             mutable ghost __pre_k1_x : int;
+             mutable ghost __pre_k1_reset : int;
+             mutable y : int
+             }
+  
+  let rec step (vars : vars) (reset : int) (x : int)
+    (* Compatibility *)
+    requires { [@origin:coherency]
+               [@rid:13]
+               (((vars.st = Init) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut0))
+    }
+    (* Assume automaton *)
+    requires { [@origin:assume_automaton]
+               [@rid:9]
+               (((vars.st = Init) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut0)
+                  ->
+                  (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                      \/
+                      (reset = 0)
+                      /\
+                      (not (reset = 1)))
+                     /\
+                     (((not (reset = 0)) /\ (not (reset = 1)))
+                        \/
+                        ((not (reset = 0)) /\ (reset = 1))
+                        /\
+                        (vars.y = 0))
+                     \/
+                     (reset = 0)
+                     /\
+                     (not (reset = 1)))
+                  \/
+                  ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                     \/
+                     (reset = 0)
+                     /\
+                     (not (reset = 1)))
+                  /\
+                  ((not (reset = 0)) /\ (reset = 1))
+                  /\
+                  (not (vars.y = 0)))
+    }
+    (* Compatibility *)
+    requires { [@origin:compatibility]
+               [@rid:14]
+               (((vars.st = Init) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut0))
+    }
+    (* Assume automaton *)
+    requires { [@origin:compatibility]
+               [@rid:10]
+               (((vars.st = Init) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut0)
+                  ->
+                  ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                     \/
+                     (reset = 0)
+                     /\
+                     (not (reset = 1)))
+                  /\
+                  (((not (reset = 0)) /\ (not (reset = 1)))
+                     \/
+                     ((not (reset = 0)) /\ (reset = 1))
+                     /\
+                     (vars.y = 0))
+                  \/
+                  (reset = 0)
+                  /\
+                  (not (reset = 1)))
+    }
+    (* Compatibility *)
+    requires { [@origin:compatibility]
+               [@rid:15]
+               (((vars.st = Run) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut1)
+                  \/
+                  (vars.__aut_state = Aut2))
+    }
+    requires { [@origin:coherency]
+               [@rid:5]
+               (((vars.st = Run) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut1)
+                  ->
+                  ((((not (vars.__pre_k1_reset = 0))
+                       /\
+                       (vars.__pre_k1_reset = 1))
+                      /\
+                      (not (vars.y = 0)))
+                     \/
+                     (not (vars.__pre_k1_reset = 0))
+                     \/
+                     (vars.__pre_k1_reset = 0)
+                     /\
+                     (not (vars.__pre_k1_reset = 1)))
+                  \/
+                  ((((((not (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__pre_k1_reset = 1))
+                        /\
+                        (not (vars.y = 0)))
+                       \/
+                       (((((vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (not (vars.__pre_k1_reset = 0)))
+                       /\
+                       (vars.__pre_k1_reset = 1))
+                      \/
+                      ((((vars.__pre_k1_reset = 0)
+                           /\
+                           (not (vars.__pre_k1_reset = 1)))
+                          /\
+                          (not (vars.y = 0)))
+                         /\
+                         (not (vars.y = vars.__pre_k1_x)))
+                      /\
+                      (vars.__pre_k1_reset = 0))
+                     \/
+                     ((((vars.__pre_k1_reset = 0)
+                          /\
+                          (not (vars.__pre_k1_reset = 1)))
+                         /\
+                         (not (vars.y = 0)))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                     /\
+                     (vars.__pre_k1_reset = 1))
+                  \/
+                  ((((vars.__pre_k1_reset = 0)
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      /\
+                      (vars.y = 0))
+                     /\
+                     (not (vars.y = vars.__pre_k1_x)))
+                  /\
+                  (vars.__pre_k1_reset = 0))
+    }
+    requires { [@origin:assume_automaton]
+               [@rid:6]
+               (((vars.st = Run) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut2)
+                  ->
+                  (((((((not (vars.__pre_k1_reset = 0))
+                          /\
+                          (not (vars.__pre_k1_reset = 1)))
+                         \/
+                         ((not (vars.__pre_k1_reset = 0))
+                            /\
+                            (vars.__pre_k1_reset = 1))
+                         /\
+                         (vars.y = 0))
+                        \/
+                        (((((vars.__pre_k1_reset = 0)
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             /\
+                             (not (vars.y = 0)))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        /\
+                        (not (vars.__pre_k1_reset = 1)))
+                       \/
+                       ((((vars.__pre_k1_reset = 0)
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           /\
+                           (not (vars.y = 0)))
+                          /\
+                          (vars.y = vars.__pre_k1_x))
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      \/
+                      ((((vars.__pre_k1_reset = 0)
+                           /\
+                           (not (vars.__pre_k1_reset = 1)))
+                          /\
+                          (vars.y = 0))
+                         /\
+                         (not (vars.y = vars.__pre_k1_x)))
+                      /\
+                      (not (vars.__pre_k1_reset = 0)))
+                     \/
+                     (((vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.y = 0))
+                     /\
+                     (vars.y = vars.__pre_k1_x))
+                  \/
+                  (((not (vars.__pre_k1_reset = 0))
+                      /\
+                      (not (vars.__pre_k1_reset = 1)))
+                     \/
+                     ((not (vars.__pre_k1_reset = 0))
+                        /\
+                        (vars.__pre_k1_reset = 1))
+                     /\
+                     (vars.y = 0))
+                  \/
+                  (vars.__pre_k1_reset = 0)
+                  /\
+                  (not (vars.__pre_k1_reset = 1)))
+    }
+    (* Assume automaton *)
+    requires { [@origin:compatibility]
+               [@rid:11]
+               (((vars.st = Run) /\ (reset = 1))
+                  ->
+                  (vars.__aut_state = Aut2)
+                  ->
+                  (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                      \/
+                      (reset = 0)
+                      /\
+                      (not (reset = 1)))
+                     /\
+                     ((((((not (reset = 0)) /\ (reset = 1))
+                           /\
+                           (not (vars.y = 0)))
+                          \/
+                          (((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (not (vars.y = 0)))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                          /\
+                          (vars.__pre_k1_reset = 1))
+                         \/
+                         ((((reset = 0) /\ (not (reset = 1)))
+                             /\
+                             (not (vars.y = 0)))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                         /\
+                         (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((reset = 0) /\ (not (reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (vars.y = vars.__pre_k1_x))
+                        /\
+                        (vars.__pre_k1_reset = 1))
+                     \/
+                     ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (not (vars.y = vars.__pre_k1_x)))
+                     /\
+                     (vars.__pre_k1_reset = 0))
+                  \/
+                  ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                     \/
+                     (reset = 0)
+                     /\
+                     (not (reset = 1)))
+                  /\
+                  ((((((not (reset = 0)) /\ (not (reset = 1)))
+                        \/
+                        ((not (reset = 0)) /\ (reset = 1))
+                        /\
+                        (vars.y = 0))
+                       \/
+                       (((((reset = 0) /\ (not (reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (not (vars.__pre_k1_reset = 0)))
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      \/
+                      ((((reset = 0) /\ (not (reset = 1)))
+                          /\
+                          (not (vars.y = 0)))
+                         /\
+                         (vars.y = vars.__pre_k1_x))
+                      /\
+                      (not (vars.__pre_k1_reset = 1)))
+                     \/
+                     ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (not (vars.y = vars.__pre_k1_x)))
+                     /\
+                     (not (vars.__pre_k1_reset = 0)))
+                  \/
+                  (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                  /\
+                  (vars.y = vars.__pre_k1_x))
+    }
+    (* User contracts coherency *)
+    requires { [@origin:compatibility]
+               [@rid:22]
+               (((vars.st = Run) /\ (reset = 1))
+                  ->
+                  ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                  /\
+                  (vars.__pre_k1_reset = 0)
+                  ->
+                  (vars.m = vars.__pre_k1_x))
+    }
+    (* Compatibility *)
+    requires { [@origin:compatibility]
+               [@rid:16]
+               (((vars.st = Run) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut1)
+                  \/
+                  (vars.__aut_state = Aut2))
+    }
+    requires { [@origin:assume_automaton]
+               [@rid:7]
+               (((vars.st = Run) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut1)
+                  ->
+                  ((((not (vars.__pre_k1_reset = 0))
+                       /\
+                       (vars.__pre_k1_reset = 1))
+                      /\
+                      (not (vars.y = 0)))
+                     \/
+                     (not (vars.__pre_k1_reset = 0))
+                     \/
+                     (vars.__pre_k1_reset = 0)
+                     /\
+                     (not (vars.__pre_k1_reset = 1)))
+                  \/
+                  ((((((not (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__pre_k1_reset = 1))
+                        /\
+                        (not (vars.y = 0)))
+                       \/
+                       (((((vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (not (vars.__pre_k1_reset = 0)))
+                       /\
+                       (vars.__pre_k1_reset = 1))
+                      \/
+                      ((((vars.__pre_k1_reset = 0)
+                           /\
+                           (not (vars.__pre_k1_reset = 1)))
+                          /\
+                          (not (vars.y = 0)))
+                         /\
+                         (not (vars.y = vars.__pre_k1_x)))
+                      /\
+                      (vars.__pre_k1_reset = 0))
+                     \/
+                     ((((vars.__pre_k1_reset = 0)
+                          /\
+                          (not (vars.__pre_k1_reset = 1)))
+                         /\
+                         (not (vars.y = 0)))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                     /\
+                     (vars.__pre_k1_reset = 1))
+                  \/
+                  ((((vars.__pre_k1_reset = 0)
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      /\
+                      (vars.y = 0))
+                     /\
+                     (not (vars.y = vars.__pre_k1_x)))
+                  /\
+                  (vars.__pre_k1_reset = 0))
+    }
+    requires { [@origin:compatibility]
+               [@rid:8]
+               (((vars.st = Run) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut2)
+                  ->
+                  (((((((not (vars.__pre_k1_reset = 0))
+                          /\
+                          (not (vars.__pre_k1_reset = 1)))
+                         \/
+                         ((not (vars.__pre_k1_reset = 0))
+                            /\
+                            (vars.__pre_k1_reset = 1))
+                         /\
+                         (vars.y = 0))
+                        \/
+                        (((((vars.__pre_k1_reset = 0)
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             /\
+                             (not (vars.y = 0)))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        /\
+                        (not (vars.__pre_k1_reset = 1)))
+                       \/
+                       ((((vars.__pre_k1_reset = 0)
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           /\
+                           (not (vars.y = 0)))
+                          /\
+                          (vars.y = vars.__pre_k1_x))
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      \/
+                      ((((vars.__pre_k1_reset = 0)
+                           /\
+                           (not (vars.__pre_k1_reset = 1)))
+                          /\
+                          (vars.y = 0))
+                         /\
+                         (not (vars.y = vars.__pre_k1_x)))
+                      /\
+                      (not (vars.__pre_k1_reset = 0)))
+                     \/
+                     (((vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.y = 0))
+                     /\
+                     (vars.y = vars.__pre_k1_x))
+                  \/
+                  (((not (vars.__pre_k1_reset = 0))
+                      /\
+                      (not (vars.__pre_k1_reset = 1)))
+                     \/
+                     ((not (vars.__pre_k1_reset = 0))
+                        /\
+                        (vars.__pre_k1_reset = 1))
+                     /\
+                     (vars.y = 0))
+                  \/
+                  (vars.__pre_k1_reset = 0)
+                  /\
+                  (not (vars.__pre_k1_reset = 1)))
+    }
+    (* Assume automaton *)
+    requires { [@origin:assume_automaton]
+               [@rid:12]
+               (((vars.st = Run) /\ (reset = 0))
+                  ->
+                  (vars.__aut_state = Aut2)
+                  ->
+                  (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                      \/
+                      (reset = 0)
+                      /\
+                      (not (reset = 1)))
+                     /\
+                     ((((((not (reset = 0)) /\ (reset = 1))
+                           /\
+                           (not (vars.y = 0)))
+                          \/
+                          (((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (not (vars.y = 0)))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                          /\
+                          (vars.__pre_k1_reset = 1))
+                         \/
+                         ((((reset = 0) /\ (not (reset = 1)))
+                             /\
+                             (not (vars.y = 0)))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                         /\
+                         (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((reset = 0) /\ (not (reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (vars.y = vars.__pre_k1_x))
+                        /\
+                        (vars.__pre_k1_reset = 1))
+                     \/
+                     ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (not (vars.y = vars.__pre_k1_x)))
+                     /\
+                     (vars.__pre_k1_reset = 0))
+                  \/
+                  ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                     \/
+                     (reset = 0)
+                     /\
+                     (not (reset = 1)))
+                  /\
+                  ((((((not (reset = 0)) /\ (not (reset = 1)))
+                        \/
+                        ((not (reset = 0)) /\ (reset = 1))
+                        /\
+                        (vars.y = 0))
+                       \/
+                       (((((reset = 0) /\ (not (reset = 1)))
+                            /\
+                            (not (vars.y = 0)))
+                           /\
+                           (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (not (vars.__pre_k1_reset = 0)))
+                       /\
+                       (not (vars.__pre_k1_reset = 1)))
+                      \/
+                      ((((reset = 0) /\ (not (reset = 1)))
+                          /\
+                          (not (vars.y = 0)))
+                         /\
+                         (vars.y = vars.__pre_k1_x))
+                      /\
+                      (not (vars.__pre_k1_reset = 1)))
+                     \/
+                     ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (not (vars.y = vars.__pre_k1_x)))
+                     /\
+                     (not (vars.__pre_k1_reset = 0)))
+                  \/
+                  (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                  /\
+                  (vars.y = vars.__pre_k1_x))
+    }
+    (* User contracts coherency *)
+    requires { [@origin:compatibility]
+               [@rid:24]
+               (((vars.st = Run) /\ (reset = 0))
+                  ->
+                  ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                  /\
+                  (vars.__pre_k1_reset = 0)
+                  ->
+                  (vars.m = vars.__pre_k1_x))
+    }
+    (* Other *)
+    ensures { [@origin:other]
+              [@wid:26]
+              (((old(vars.st) = Init) /\ (reset = 1))
+                 ->
+                 (old
+                    ((vars.__aut_state = Aut0)
+                       /\
+                       (vars.__aut_state = Aut0)
+                       ->
+                       (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                          /\
+                          (((not (reset = 0)) /\ (not (reset = 1)))
+                             \/
+                             ((not (reset = 0)) /\ (reset = 1))
+                             /\
+                             (vars.y = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                       \/
+                       ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                       /\
+                       ((not (reset = 0)) /\ (reset = 1))
+                       /\
+                       (not (vars.y = 0))))
+                 ->
+                 (vars.__aut_state = Aut0)
+                 ->
+                 (not (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                         /\
+                         ((not (reset = 0)) /\ (reset = 1))
+                         /\
+                         (not (vars.y = 0))))) }
+    
+    ensures { [@origin:other]
+              [@wid:27]
+              (((old(vars.st) = Init) /\ (reset = 1))
+                 ->
+                 (old
+                    ((vars.__aut_state = Aut0)
+                       /\
+                       (vars.__aut_state = Aut0)
+                       ->
+                       (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                          /\
+                          (((not (reset = 0)) /\ (not (reset = 1)))
+                             \/
+                             ((not (reset = 0)) /\ (reset = 1))
+                             /\
+                             (vars.y = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                       \/
+                       ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                       /\
+                       ((not (reset = 0)) /\ (reset = 1))
+                       /\
+                       (not (vars.y = 0))))
+                 ->
+                 ((reset = 1) -> (vars.m = 0))
+                 /\
+                 (reset = 0)
+                 ->
+                 (vars.m = x)) }
+    
+    ensures { [@origin:other]
+              [@wid:28]
+              (((old(vars.st) = Init) /\ (reset = 0))
+                 ->
+                 (old
+                    ((vars.__aut_state = Aut0)
+                       /\
+                       (vars.__aut_state = Aut0)
+                       ->
+                       ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                       /\
+                       (((not (reset = 0)) /\ (not (reset = 1)))
+                          \/
+                          ((not (reset = 0)) /\ (reset = 1))
+                          /\
+                          (vars.y = 0))
+                       \/
+                       (reset = 0)
+                       /\
+                       (not (reset = 1))))
+                 ->
+                 ((reset = 1) -> (vars.m = 0))
+                 /\
+                 (reset = 0)
+                 ->
+                 (vars.m = x)) }
+    
+    ensures { [@origin:other]
+              [@wid:29]
+              (((old(vars.st) = Run) /\ (reset = 1))
+                 ->
+                 (old
+                    ((((((vars.__aut_state = Aut1)
+                           \/
+                           (vars.__aut_state = Aut2))
+                          /\
+                          (vars.__aut_state = Aut1)
+                          ->
+                          ((((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              /\
+                              (not (vars.y = 0)))
+                             \/
+                             (not (vars.__pre_k1_reset = 0))
+                             \/
+                             (vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                          \/
+                          ((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (vars.__pre_k1_reset = 1))
+                                /\
+                                (not (vars.y = 0)))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                              /\
+                              (vars.__pre_k1_reset = 0))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (vars.y = vars.__pre_k1_x))
+                             /\
+                             (vars.__pre_k1_reset = 1))
+                          \/
+                          ((((vars.__pre_k1_reset = 0)
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              /\
+                              (vars.y = 0))
+                             /\
+                             (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__aut_state = Aut2)
+                         ->
+                         (((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 1)))
+                                \/
+                                ((not (vars.__pre_k1_reset = 0))
+                                   /\
+                                   (vars.__pre_k1_reset = 1))
+                                /\
+                                (vars.y = 0))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (vars.y = 0))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                            \/
+                            (((vars.__pre_k1_reset = 0)
+                                /\
+                                (not (vars.__pre_k1_reset = 1)))
+                               /\
+                               (vars.y = 0))
+                            /\
+                            (vars.y = vars.__pre_k1_x))
+                         \/
+                         (((not (vars.__pre_k1_reset = 0))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                            /\
+                            (vars.y = 0))
+                         \/
+                         (vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.__aut_state = Aut2)
+                        ->
+                        (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                            \/
+                            (reset = 0)
+                            /\
+                            (not (reset = 1)))
+                           /\
+                           ((((((not (reset = 0)) /\ (reset = 1))
+                                 /\
+                                 (not (vars.y = 0)))
+                                \/
+                                (((((reset = 0) /\ (not (reset = 1)))
+                                     /\
+                                     (not (vars.y = 0)))
+                                    /\
+                                    (not (vars.y = vars.__pre_k1_x)))
+                                   /\
+                                   (not (vars.__pre_k1_reset = 0)))
+                                /\
+                                (vars.__pre_k1_reset = 1))
+                               \/
+                               ((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                               /\
+                               (vars.__pre_k1_reset = 0))
+                              \/
+                              ((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                        /\
+                        ((((((not (reset = 0)) /\ (not (reset = 1)))
+                              \/
+                              ((not (reset = 0)) /\ (reset = 1))
+                              /\
+                              (vars.y = 0))
+                             \/
+                             (((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                                /\
+                                (not (vars.__pre_k1_reset = 0)))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        \/
+                        (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                       /\
+                       ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                       /\
+                       (vars.__pre_k1_reset = 0)
+                       ->
+                       (vars.m = vars.__pre_k1_x)))
+                 ->
+                 (vars.__aut_state = Aut2)
+                 ->
+                 (not (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                         /\
+                         ((((((not (reset = 0)) /\ (reset = 1))
+                               /\
+                               (not (vars.y = 0)))
+                              \/
+                              (((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 0)))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                             \/
+                             ((((reset = 0) /\ (not (reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (vars.__pre_k1_reset = 0))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (vars.__pre_k1_reset = 1))
+                         \/
+                         ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                         /\
+                         (vars.__pre_k1_reset = 0)))) }
+    
+    ensures { [@origin:other]
+              [@wid:30]
+              (((old(vars.st) = Run) /\ (reset = 1))
+                 ->
+                 (old
+                    ((((((vars.__aut_state = Aut1)
+                           \/
+                           (vars.__aut_state = Aut2))
+                          /\
+                          (vars.__aut_state = Aut1)
+                          ->
+                          ((((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              /\
+                              (not (vars.y = 0)))
+                             \/
+                             (not (vars.__pre_k1_reset = 0))
+                             \/
+                             (vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                          \/
+                          ((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (vars.__pre_k1_reset = 1))
+                                /\
+                                (not (vars.y = 0)))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                              /\
+                              (vars.__pre_k1_reset = 0))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (vars.y = vars.__pre_k1_x))
+                             /\
+                             (vars.__pre_k1_reset = 1))
+                          \/
+                          ((((vars.__pre_k1_reset = 0)
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              /\
+                              (vars.y = 0))
+                             /\
+                             (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__aut_state = Aut2)
+                         ->
+                         (((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 1)))
+                                \/
+                                ((not (vars.__pre_k1_reset = 0))
+                                   /\
+                                   (vars.__pre_k1_reset = 1))
+                                /\
+                                (vars.y = 0))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (vars.y = 0))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                            \/
+                            (((vars.__pre_k1_reset = 0)
+                                /\
+                                (not (vars.__pre_k1_reset = 1)))
+                               /\
+                               (vars.y = 0))
+                            /\
+                            (vars.y = vars.__pre_k1_x))
+                         \/
+                         (((not (vars.__pre_k1_reset = 0))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                            /\
+                            (vars.y = 0))
+                         \/
+                         (vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.__aut_state = Aut2)
+                        ->
+                        (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                            \/
+                            (reset = 0)
+                            /\
+                            (not (reset = 1)))
+                           /\
+                           ((((((not (reset = 0)) /\ (reset = 1))
+                                 /\
+                                 (not (vars.y = 0)))
+                                \/
+                                (((((reset = 0) /\ (not (reset = 1)))
+                                     /\
+                                     (not (vars.y = 0)))
+                                    /\
+                                    (not (vars.y = vars.__pre_k1_x)))
+                                   /\
+                                   (not (vars.__pre_k1_reset = 0)))
+                                /\
+                                (vars.__pre_k1_reset = 1))
+                               \/
+                               ((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                               /\
+                               (vars.__pre_k1_reset = 0))
+                              \/
+                              ((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                        /\
+                        ((((((not (reset = 0)) /\ (not (reset = 1)))
+                              \/
+                              ((not (reset = 0)) /\ (reset = 1))
+                              /\
+                              (vars.y = 0))
+                             \/
+                             (((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                                /\
+                                (not (vars.__pre_k1_reset = 0)))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        \/
+                        (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                       /\
+                       ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                       /\
+                       (vars.__pre_k1_reset = 0)
+                       ->
+                       (vars.m = vars.__pre_k1_x)))
+                 ->
+                 ((reset = 1) -> (vars.m = 0))
+                 /\
+                 (reset = 0)
+                 ->
+                 (vars.m = x)) }
+    
+    ensures { [@origin:other]
+              [@wid:31]
+              (((old(vars.st) = Run) /\ (reset = 0))
+                 ->
+                 (old
+                    ((((((vars.__aut_state = Aut1)
+                           \/
+                           (vars.__aut_state = Aut2))
+                          /\
+                          (vars.__aut_state = Aut1)
+                          ->
+                          ((((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              /\
+                              (not (vars.y = 0)))
+                             \/
+                             (not (vars.__pre_k1_reset = 0))
+                             \/
+                             (vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                          \/
+                          ((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (vars.__pre_k1_reset = 1))
+                                /\
+                                (not (vars.y = 0)))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                              /\
+                              (vars.__pre_k1_reset = 0))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (vars.y = vars.__pre_k1_x))
+                             /\
+                             (vars.__pre_k1_reset = 1))
+                          \/
+                          ((((vars.__pre_k1_reset = 0)
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              /\
+                              (vars.y = 0))
+                             /\
+                             (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__aut_state = Aut2)
+                         ->
+                         (((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 1)))
+                                \/
+                                ((not (vars.__pre_k1_reset = 0))
+                                   /\
+                                   (vars.__pre_k1_reset = 1))
+                                /\
+                                (vars.y = 0))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (vars.y = 0))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                            \/
+                            (((vars.__pre_k1_reset = 0)
+                                /\
+                                (not (vars.__pre_k1_reset = 1)))
+                               /\
+                               (vars.y = 0))
+                            /\
+                            (vars.y = vars.__pre_k1_x))
+                         \/
+                         (((not (vars.__pre_k1_reset = 0))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                            /\
+                            (vars.y = 0))
+                         \/
+                         (vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.__aut_state = Aut2)
+                        ->
+                        (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                            \/
+                            (reset = 0)
+                            /\
+                            (not (reset = 1)))
+                           /\
+                           ((((((not (reset = 0)) /\ (reset = 1))
+                                 /\
+                                 (not (vars.y = 0)))
+                                \/
+                                (((((reset = 0) /\ (not (reset = 1)))
+                                     /\
+                                     (not (vars.y = 0)))
+                                    /\
+                                    (not (vars.y = vars.__pre_k1_x)))
+                                   /\
+                                   (not (vars.__pre_k1_reset = 0)))
+                                /\
+                                (vars.__pre_k1_reset = 1))
+                               \/
+                               ((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                               /\
+                               (vars.__pre_k1_reset = 0))
+                              \/
+                              ((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                        /\
+                        ((((((not (reset = 0)) /\ (not (reset = 1)))
+                              \/
+                              ((not (reset = 0)) /\ (reset = 1))
+                              /\
+                              (vars.y = 0))
+                             \/
+                             (((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                                /\
+                                (not (vars.__pre_k1_reset = 0)))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        \/
+                        (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                       /\
+                       ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                       /\
+                       (vars.__pre_k1_reset = 0)
+                       ->
+                       (vars.m = vars.__pre_k1_x)))
+                 ->
+                 (vars.__aut_state = Aut2)
+                 ->
+                 (not (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                          \/
+                          (reset = 0)
+                          /\
+                          (not (reset = 1)))
+                         /\
+                         ((((((not (reset = 0)) /\ (reset = 1))
+                               /\
+                               (not (vars.y = 0)))
+                              \/
+                              (((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 0)))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                             \/
+                             ((((reset = 0) /\ (not (reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (vars.__pre_k1_reset = 0))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (vars.__pre_k1_reset = 1))
+                         \/
+                         ((((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                            /\
+                            (not (vars.y = vars.__pre_k1_x)))
+                         /\
+                         (vars.__pre_k1_reset = 0)))) }
+    
+    ensures { [@origin:other]
+              [@wid:32]
+              (((old(vars.st) = Run) /\ (reset = 0))
+                 ->
+                 (old
+                    ((((((vars.__aut_state = Aut1)
+                           \/
+                           (vars.__aut_state = Aut2))
+                          /\
+                          (vars.__aut_state = Aut1)
+                          ->
+                          ((((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              /\
+                              (not (vars.y = 0)))
+                             \/
+                             (not (vars.__pre_k1_reset = 0))
+                             \/
+                             (vars.__pre_k1_reset = 0)
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                          \/
+                          ((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (vars.__pre_k1_reset = 1))
+                                /\
+                                (not (vars.y = 0)))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                              /\
+                              (vars.__pre_k1_reset = 0))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (not (vars.y = 0)))
+                                /\
+                                (vars.y = vars.__pre_k1_x))
+                             /\
+                             (vars.__pre_k1_reset = 1))
+                          \/
+                          ((((vars.__pre_k1_reset = 0)
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              /\
+                              (vars.y = 0))
+                             /\
+                             (not (vars.y = vars.__pre_k1_x)))
+                          /\
+                          (vars.__pre_k1_reset = 0))
+                         /\
+                         (vars.__aut_state = Aut2)
+                         ->
+                         (((((((not (vars.__pre_k1_reset = 0))
+                                 /\
+                                 (not (vars.__pre_k1_reset = 1)))
+                                \/
+                                ((not (vars.__pre_k1_reset = 0))
+                                   /\
+                                   (vars.__pre_k1_reset = 1))
+                                /\
+                                (vars.y = 0))
+                               \/
+                               (((((vars.__pre_k1_reset = 0)
+                                     /\
+                                     (not (vars.__pre_k1_reset = 1)))
+                                    /\
+                                    (not (vars.y = 0)))
+                                   /\
+                                   (not (vars.y = vars.__pre_k1_x)))
+                                  /\
+                                  (not (vars.__pre_k1_reset = 0)))
+                               /\
+                               (not (vars.__pre_k1_reset = 1)))
+                              \/
+                              ((((vars.__pre_k1_reset = 0)
+                                   /\
+                                   (not (vars.__pre_k1_reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (not (vars.__pre_k1_reset = 1)))
+                             \/
+                             ((((vars.__pre_k1_reset = 0)
+                                  /\
+                                  (not (vars.__pre_k1_reset = 1)))
+                                 /\
+                                 (vars.y = 0))
+                                /\
+                                (not (vars.y = vars.__pre_k1_x)))
+                             /\
+                             (not (vars.__pre_k1_reset = 0)))
+                            \/
+                            (((vars.__pre_k1_reset = 0)
+                                /\
+                                (not (vars.__pre_k1_reset = 1)))
+                               /\
+                               (vars.y = 0))
+                            /\
+                            (vars.y = vars.__pre_k1_x))
+                         \/
+                         (((not (vars.__pre_k1_reset = 0))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((not (vars.__pre_k1_reset = 0))
+                               /\
+                               (vars.__pre_k1_reset = 1))
+                            /\
+                            (vars.y = 0))
+                         \/
+                         (vars.__pre_k1_reset = 0)
+                         /\
+                         (not (vars.__pre_k1_reset = 1)))
+                        /\
+                        (vars.__aut_state = Aut2)
+                        ->
+                        (((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                            \/
+                            (reset = 0)
+                            /\
+                            (not (reset = 1)))
+                           /\
+                           ((((((not (reset = 0)) /\ (reset = 1))
+                                 /\
+                                 (not (vars.y = 0)))
+                                \/
+                                (((((reset = 0) /\ (not (reset = 1)))
+                                     /\
+                                     (not (vars.y = 0)))
+                                    /\
+                                    (not (vars.y = vars.__pre_k1_x)))
+                                   /\
+                                   (not (vars.__pre_k1_reset = 0)))
+                                /\
+                                (vars.__pre_k1_reset = 1))
+                               \/
+                               ((((reset = 0) /\ (not (reset = 1)))
+                                   /\
+                                   (not (vars.y = 0)))
+                                  /\
+                                  (not (vars.y = vars.__pre_k1_x)))
+                               /\
+                               (vars.__pre_k1_reset = 0))
+                              \/
+                              ((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (vars.y = vars.__pre_k1_x))
+                              /\
+                              (vars.__pre_k1_reset = 1))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (vars.__pre_k1_reset = 0))
+                        \/
+                        ((((not (reset = 0)) /\ (reset = 1)) /\ (x = 0))
+                           \/
+                           (reset = 0)
+                           /\
+                           (not (reset = 1)))
+                        /\
+                        ((((((not (reset = 0)) /\ (not (reset = 1)))
+                              \/
+                              ((not (reset = 0)) /\ (reset = 1))
+                              /\
+                              (vars.y = 0))
+                             \/
+                             (((((reset = 0) /\ (not (reset = 1)))
+                                  /\
+                                  (not (vars.y = 0)))
+                                 /\
+                                 (not (vars.y = vars.__pre_k1_x)))
+                                /\
+                                (not (vars.__pre_k1_reset = 0)))
+                             /\
+                             (not (vars.__pre_k1_reset = 1)))
+                            \/
+                            ((((reset = 0) /\ (not (reset = 1)))
+                                /\
+                                (not (vars.y = 0)))
+                               /\
+                               (vars.y = vars.__pre_k1_x))
+                            /\
+                            (not (vars.__pre_k1_reset = 1)))
+                           \/
+                           ((((reset = 0) /\ (not (reset = 1)))
+                               /\
+                               (vars.y = 0))
+                              /\
+                              (not (vars.y = vars.__pre_k1_x)))
+                           /\
+                           (not (vars.__pre_k1_reset = 0)))
+                        \/
+                        (((reset = 0) /\ (not (reset = 1))) /\ (vars.y = 0))
+                        /\
+                        (vars.y = vars.__pre_k1_x))
+                       /\
+                       ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
+                       /\
+                       (vars.__pre_k1_reset = 0)
+                       ->
+                       (vars.m = vars.__pre_k1_x)))
+                 ->
+                 ((reset = 1) -> (vars.m = 0))
+                 /\
+                 (reset = 0)
+                 ->
+                 (vars.m = x)) } =
+  (* user code *)
+    (match vars.st with
+     | Run  ->
+         if (reset = 1) then
+           (((vars.y <- 0); (vars.m <- 0));
+            (match vars.__aut_state with
+             | Aut0  ->
+                 if (((not (reset = 0)) && (reset = 1))
+                       && (not (vars.y = 0))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 else
+                   (if ((((not (reset = 0)) && (not (reset = 1)))
+                           || (((not (reset = 0)) && (reset = 1))
+                                 && (vars.y = 0)))
+                          || ((reset = 0) && (not (reset = 1)))) then
+                      (ghost (vars.__aut_state <- Aut2 ))
+                    )
+             | Aut1  ->
+                 if ((not (reset = 0)) || ((reset = 0) && (not (reset = 1)))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 
+             | Aut2  ->
+                 if (((((((not (reset = 0)) && (reset = 1))
+                           && (not (vars.y = 0)))
+                          || ((((((reset = 0) && (not (reset = 1)))
+                                   && (not (vars.y = 0)))
+                                  && (not (vars.y = vars.__pre_k1_x)))
+                                 && (not (vars.__pre_k1_reset = 0)))
+                                && (vars.__pre_k1_reset = 1)))
+                         || (((((reset = 0) && (not (reset = 1)))
+                                 && (not (vars.y = 0)))
+                                && (not (vars.y = vars.__pre_k1_x)))
+                               && (vars.__pre_k1_reset = 0)))
+                        || (((((reset = 0) && (not (reset = 1)))
+                                && (not (vars.y = 0)))
+                               && (vars.y = vars.__pre_k1_x))
+                              && (vars.__pre_k1_reset = 1)))
+                       || (((((reset = 0) && (not (reset = 1)))
+                               && (vars.y = 0))
+                              && (not (vars.y = vars.__pre_k1_x)))
+                             && (vars.__pre_k1_reset = 0))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 else
+                   (if (((((((not (reset = 0)) && (not (reset = 1)))
+                              || (((not (reset = 0)) && (reset = 1))
+                                    && (vars.y = 0)))
+                             || ((((((reset = 0) && (not (reset = 1)))
+                                      && (not (vars.y = 0)))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0)))
+                                   && (not (vars.__pre_k1_reset = 1))))
+                            || (((((reset = 0) && (not (reset = 1)))
+                                    && (not (vars.y = 0)))
+                                   && (vars.y = vars.__pre_k1_x))
+                                  && (not (vars.__pre_k1_reset = 1))))
+                           || (((((reset = 0) && (not (reset = 1)))
+                                   && (vars.y = 0))
+                                  && (not (vars.y = vars.__pre_k1_x)))
+                                 && (not (vars.__pre_k1_reset = 0))))
+                          || ((((reset = 0) && (not (reset = 1)))
+                                 && (vars.y = 0))
+                                && (vars.y = vars.__pre_k1_x))) then
+                      (ghost (vars.__aut_state <- Aut2 ))
+                    )
+             end))
+         else
+           (if (reset = 0) then
+              (((vars.y <- vars.m); (vars.m <- x));
+               (match vars.__aut_state with
+                | Aut0  ->
+                    if (((not (reset = 0)) && (reset = 1))
+                          && (not (vars.y = 0))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    else
+                      (if ((((not (reset = 0)) && (not (reset = 1)))
+                              || (((not (reset = 0)) && (reset = 1))
+                                    && (vars.y = 0)))
+                             || ((reset = 0) && (not (reset = 1)))) then
+                         (ghost (vars.__aut_state <- Aut2 ))
+                       )
+                | Aut1  ->
+                    if ((not (reset = 0))
+                          || ((reset = 0) && (not (reset = 1)))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    
+                | Aut2  ->
+                    if (((((((not (reset = 0)) && (reset = 1))
+                              && (not (vars.y = 0)))
+                             || ((((((reset = 0) && (not (reset = 1)))
+                                      && (not (vars.y = 0)))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0)))
+                                   && (vars.__pre_k1_reset = 1)))
+                            || (((((reset = 0) && (not (reset = 1)))
+                                    && (not (vars.y = 0)))
+                                   && (not (vars.y = vars.__pre_k1_x)))
+                                  && (vars.__pre_k1_reset = 0)))
+                           || (((((reset = 0) && (not (reset = 1)))
+                                   && (not (vars.y = 0)))
+                                  && (vars.y = vars.__pre_k1_x))
+                                 && (vars.__pre_k1_reset = 1)))
+                          || (((((reset = 0) && (not (reset = 1)))
+                                  && (vars.y = 0))
+                                 && (not (vars.y = vars.__pre_k1_x)))
+                                && (vars.__pre_k1_reset = 0))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    else
+                      (if (((((((not (reset = 0)) && (not (reset = 1)))
+                                 || (((not (reset = 0)) && (reset = 1))
+                                       && (vars.y = 0)))
+                                || ((((((reset = 0) && (not (reset = 1)))
+                                         && (not (vars.y = 0)))
+                                        && (not (vars.y = vars.__pre_k1_x)))
+                                       && (not (vars.__pre_k1_reset = 0)))
+                                      && (not (vars.__pre_k1_reset = 1))))
+                               || (((((reset = 0) && (not (reset = 1)))
+                                       && (not (vars.y = 0)))
+                                      && (vars.y = vars.__pre_k1_x))
+                                     && (not (vars.__pre_k1_reset = 1))))
+                              || (((((reset = 0) && (not (reset = 1)))
+                                      && (vars.y = 0))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0))))
+                             || ((((reset = 0) && (not (reset = 1)))
+                                    && (vars.y = 0))
+                                   && (vars.y = vars.__pre_k1_x))) then
+                         (ghost (vars.__aut_state <- Aut2 ))
+                       )
+                end))
+            )
+     | Init  ->
+         if (reset = 1) then
+           (((vars.y <- 0); (vars.m <- 0));
+            (match vars.__aut_state with
+             | Aut0  ->
+                 if (((not (reset = 0)) && (reset = 1))
+                       && (not (vars.y = 0))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 else
+                   (if ((((not (reset = 0)) && (not (reset = 1)))
+                           || (((not (reset = 0)) && (reset = 1))
+                                 && (vars.y = 0)))
+                          || ((reset = 0) && (not (reset = 1)))) then
+                      (ghost (vars.__aut_state <- Aut2 ))
+                    )
+             | Aut1  ->
+                 if ((not (reset = 0)) || ((reset = 0) && (not (reset = 1)))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 
+             | Aut2  ->
+                 if (((((((not (reset = 0)) && (reset = 1))
+                           && (not (vars.y = 0)))
+                          || ((((((reset = 0) && (not (reset = 1)))
+                                   && (not (vars.y = 0)))
+                                  && (not (vars.y = vars.__pre_k1_x)))
+                                 && (not (vars.__pre_k1_reset = 0)))
+                                && (vars.__pre_k1_reset = 1)))
+                         || (((((reset = 0) && (not (reset = 1)))
+                                 && (not (vars.y = 0)))
+                                && (not (vars.y = vars.__pre_k1_x)))
+                               && (vars.__pre_k1_reset = 0)))
+                        || (((((reset = 0) && (not (reset = 1)))
+                                && (not (vars.y = 0)))
+                               && (vars.y = vars.__pre_k1_x))
+                              && (vars.__pre_k1_reset = 1)))
+                       || (((((reset = 0) && (not (reset = 1)))
+                               && (vars.y = 0))
+                              && (not (vars.y = vars.__pre_k1_x)))
+                             && (vars.__pre_k1_reset = 0))) then
+                   (ghost (vars.__aut_state <- Aut1 ))
+                 else
+                   (if (((((((not (reset = 0)) && (not (reset = 1)))
+                              || (((not (reset = 0)) && (reset = 1))
+                                    && (vars.y = 0)))
+                             || ((((((reset = 0) && (not (reset = 1)))
+                                      && (not (vars.y = 0)))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0)))
+                                   && (not (vars.__pre_k1_reset = 1))))
+                            || (((((reset = 0) && (not (reset = 1)))
+                                    && (not (vars.y = 0)))
+                                   && (vars.y = vars.__pre_k1_x))
+                                  && (not (vars.__pre_k1_reset = 1))))
+                           || (((((reset = 0) && (not (reset = 1)))
+                                   && (vars.y = 0))
+                                  && (not (vars.y = vars.__pre_k1_x)))
+                                 && (not (vars.__pre_k1_reset = 0))))
+                          || ((((reset = 0) && (not (reset = 1)))
+                                 && (vars.y = 0))
+                                && (vars.y = vars.__pre_k1_x))) then
+                      (ghost (vars.__aut_state <- Aut2 ))
+                    )
+             end))
+         else
+           (if (reset = 0) then
+              (((vars.y <- 0); (vars.m <- x));
+               (match vars.__aut_state with
+                | Aut0  ->
+                    if (((not (reset = 0)) && (reset = 1))
+                          && (not (vars.y = 0))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    else
+                      (if ((((not (reset = 0)) && (not (reset = 1)))
+                              || (((not (reset = 0)) && (reset = 1))
+                                    && (vars.y = 0)))
+                             || ((reset = 0) && (not (reset = 1)))) then
+                         (ghost (vars.__aut_state <- Aut2 ))
+                       )
+                | Aut1  ->
+                    if ((not (reset = 0))
+                          || ((reset = 0) && (not (reset = 1)))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    
+                | Aut2  ->
+                    if (((((((not (reset = 0)) && (reset = 1))
+                              && (not (vars.y = 0)))
+                             || ((((((reset = 0) && (not (reset = 1)))
+                                      && (not (vars.y = 0)))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0)))
+                                   && (vars.__pre_k1_reset = 1)))
+                            || (((((reset = 0) && (not (reset = 1)))
+                                    && (not (vars.y = 0)))
+                                   && (not (vars.y = vars.__pre_k1_x)))
+                                  && (vars.__pre_k1_reset = 0)))
+                           || (((((reset = 0) && (not (reset = 1)))
+                                   && (not (vars.y = 0)))
+                                  && (vars.y = vars.__pre_k1_x))
+                                 && (vars.__pre_k1_reset = 1)))
+                          || (((((reset = 0) && (not (reset = 1)))
+                                  && (vars.y = 0))
+                                 && (not (vars.y = vars.__pre_k1_x)))
+                                && (vars.__pre_k1_reset = 0))) then
+                      (ghost (vars.__aut_state <- Aut1 ))
+                    else
+                      (if (((((((not (reset = 0)) && (not (reset = 1)))
+                                 || (((not (reset = 0)) && (reset = 1))
+                                       && (vars.y = 0)))
+                                || ((((((reset = 0) && (not (reset = 1)))
+                                         && (not (vars.y = 0)))
+                                        && (not (vars.y = vars.__pre_k1_x)))
+                                       && (not (vars.__pre_k1_reset = 0)))
+                                      && (not (vars.__pre_k1_reset = 1))))
+                               || (((((reset = 0) && (not (reset = 1)))
+                                       && (not (vars.y = 0)))
+                                      && (vars.y = vars.__pre_k1_x))
+                                     && (not (vars.__pre_k1_reset = 1))))
+                              || (((((reset = 0) && (not (reset = 1)))
+                                      && (vars.y = 0))
+                                     && (not (vars.y = vars.__pre_k1_x)))
+                                    && (not (vars.__pre_k1_reset = 0))))
+                             || ((((reset = 0) && (not (reset = 1)))
+                                    && (vars.y = 0))
+                                   && (vars.y = vars.__pre_k1_x))) then
+                         (ghost (vars.__aut_state <- Aut2 ))
+                       )
+                end))
+            )
+     | _ -> ()
+     end);
+    ()
+end

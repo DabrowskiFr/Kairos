@@ -6,6 +6,10 @@ Set Implicit Arguments.
 Module DelayIntThreeLayerInstance.
 Module KO := DelayIntProof.KO.
 
+(* This instance is intentionally simple:
+   it serves as a small-scale witness that the modular layers can be instantiated,
+   not as the primary place to understand the proof idea itself. *)
+
 Definition m0 : DelayIntProof.Mem := 0.
 
 Module Program <: PROGRAM_LAYER_SIG.
@@ -145,6 +149,8 @@ Theorem delay_int_three_layer_correctness :
     Program.AvoidA u ->
     Program.AvoidG (Program.run_trace u).
 Proof.
+  (* The final modular theorem is obtained by plugging the simple core and
+     validation layers into the generic three-layer correctness functor. *)
   apply Correctness.validation_conditional_correctness_three_layers.
 Qed.
 

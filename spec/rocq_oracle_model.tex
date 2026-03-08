@@ -13,6 +13,21 @@
 \usetikzlibrary{automata,positioning,arrows.meta}
 \geometry{margin=2.5cm}
 
+\tikzset{
+  kairosstate/.style={
+    state,
+    minimum width=20mm,
+    minimum height=9mm,
+    inner sep=2pt,
+    font=\small
+  },
+  kairoslabel/.style={
+    font=\small,
+    align=center,
+    inner sep=1pt
+  }
+}
+
 \newtheorem{definition}{Definition}[section]
 \newtheorem{proposition}[definition]{Proposition}
 \newtheorem{theorem}[definition]{Theorem}
@@ -28,9 +43,12 @@
 \newcommand{\Obs}{\mathsf{Obs}}
 \newcommand{\TickCtx}{\mathsf{TickCtx}}
 \newcommand{\UserInv}{\mathsf{Inv}}
+\newcommand{\Support}{\mathsf{Support}}
 \newcommand{\Match}{\mathsf{Match}}
 \newcommand{\BadLocal}{\mathsf{BadLocal}}
 \newcommand{\GeneratedBy}{\mathsf{GeneratedBy}}
+\newcommand{\Generated}{\mathsf{Generated}}
+\newcommand{\GeneratedTriple}{\mathsf{GeneratedTriple}}
 \newcommand{\AvoidA}{\mathsf{AvoidA}}
 \newcommand{\AvoidG}{\mathsf{AvoidG}}
 \newcommand{\run}{\mathsf{run}}
@@ -38,8 +56,12 @@
 \newcommand{\ctx}{\mathsf{ctx}}
 \newcommand{\head}{\mathsf{hd}}
 \newcommand{\tail}{\mathsf{tl}}
+\newcommand{\ResetOk}{\mathsf{ResetOk}}
+\newcommand{\GuardReset}{\mathsf{GRst}}
+\newcommand{\GuardAfterReset}{\mathsf{GAfterRst}}
+\newcommand{\GuardDelay}{\mathsf{GDelay}}
 
-\title{Safety Automata, Explicit Products, and Local Clauses for Kairos}
+\title{Conditional Safety, Explicit Products, and Relational Hoare Triples for Kairos}
 \author{Kairos Project}
 \date{\today}
 
@@ -47,66 +69,116 @@
 \maketitle
 
 \begin{abstract}
-Kairos aims to prove that a reactive program satisfies a safety guarantee for
-all inputs admitted by an environment hypothesis. The difficulty is that the
-target property is global and ranges over infinite traces, whereas external
-proof tools ultimately validate transition-level Hoare triples built from local
-semantic clauses. This document presents the semantic object that connects
-these two levels: the
-explicit product of the program, the assumption automaton, and the guarantee
-automaton. We give a rigorous definition of the program, its stream semantics,
-safety automata, and node invariants over trace contexts. We then explain how a
-concrete tick realizes an abstract product step, why some steps are dangerous,
-and how local clause generation should be read as a static construction over
-such steps before being assembled into relational Hoare triples. Finally, we
-align this presentation with the Rocq formalization and with the current
-Kairos implementation.
+Kairos targets conditional safety properties of reactive programs over infinite
+streams: every admissible input stream should produce an execution satisfying a
+safety specification. The challenge is that the property is global in time,
+whereas the proof objects used in practice must remain local and compatible
+with deductive reasoning over programs with unbounded state. We present a
+semantic decomposition of this problem based on an explicit product between the
+program and two finite safety monitors representing assumptions and guarantees.
+From this product, we derive dangerous local steps, generated semantic clauses,
+and relational Hoare triples over reactive ticks. The main theorem states that,
+under explicit well-formedness hypotheses on the program model, validity of all
+generated triples suffices for conditional safety. The paper gives a rigorous
+account of the reactive semantics, the clause-to-triple discipline, and the
+proof structure that reduces a global safety violation to a contradiction with
+a valid local triple. Backend grouping, encoding, and solver interaction are
+treated separately as refinements of this mathematical core.
 \end{abstract}
 
 \section{Introduction}
-Reactive programs are naturally specified over traces. In the setting studied
-here, a program is executed under an environment hypothesis on input streams,
-and its correctness is expressed by a safety guarantee on the resulting
-input/output trace. The user may also supply node invariants that capture
-additional semantic facts about executions. The resulting specification is
-therefore not a simple assertion over isolated states, but a conditional
-property over infinite reactive behaviors.
+Synchronous verification has long relied on stream semantics, observers,
+contracts, and theorem proving. In Lustre-like settings, one reasons about
+reactive components that evolve in lockstep on infinite streams, either through
+observers and synchronous contracts or through proof-oriented semantic
+encodings~\cite{lustre-pvs,agree-techreport,agree-observers,kind2-realizability,cocospec}.
+In parallel, another line of work compiles temporal specifications into local
+program proof objects that can be discharged by deductive backends, as in
+Aorai or CaFE for C programs~\cite{aorai-manual,stouls-groslambert-2009,cafe-page}.
+Kairos lies at the intersection of these two traditions: it is synchronous and
+reactive in the sense of stream-based semantics, but it also seeks a reduction
+from global temporal safety to local Hoare-style reasoning over ticks. This
+combination immediately raises the methodological question that drives the
+paper: what is the right semantic interface between a stream-level safety
+property and transition-level deductive reasoning?
 
-The mathematical difficulty is that the specification lives at two different
-scales. On the one hand, assumptions and guarantees are properties of complete
-traces, usually presented through safety automata. On the other hand, the local
-reasoning principles used to justify the absence of bad executions are attached
-to individual ticks and finite transitions. A satisfactory mathematical account
-must therefore explain how one moves from infinite-word semantics to local
-clauses and transition triples without losing the meaning of the original conditional safety
+The setting considered here is conditional safety over reactive executions. A
+program runs under an environment hypothesis on input streams, and its
+correctness is expressed by a safety guarantee on the induced input/output
+trace. The user may also provide node invariants that capture additional facts
+about executions. The resulting statement is neither a plain state invariant nor
+a mere operational contract: it is a theorem of the form ``admissible inputs
+imply safe executions,'' where both admissibility and safety are understood as
+properties of infinite traces.
+
+The main obstacle is not merely temporal expressiveness. The programs of
+interest manipulate non-bounded data domains: memories, inputs, and outputs are
+not assumed finite-state. This rules out a direct explicit-state account of the
+whole verification problem. The core challenge is therefore to preserve the
+meaning of a global safety property while reducing its proof to local objects
+that remain compatible with deductive reasoning over an unbounded transition
+system.
+
+This question is easy to underestimate. If one reasons only with finite
+temporal monitors, one forgets the unbounded program state. If one reasons only
+with Hoare-style local contracts, one loses the global temporal meaning of the
+specification. A paper at the level expected by POPL or PLDI must therefore
+make explicit not only the final theorem, but also the exact semantic path from
+global temporal safety to local deductive proof objects. This is the role of
+the present development.
+
+The core proof objects of the paper are relational Hoare triples over reactive
+ticks. Each triple speaks about one program transition, a precondition on the
+current local tick context, and a postcondition on the successor context. The
+problem is then to generate the right preconditions and postconditions so that
+validity of these local triples really implies the original global safety
 statement.
 
-This paper develops that account around one central object: the explicit
+To solve this problem, we exploit the fact that standard safety specification
+formalisms can be compiled to finite safety automata; this includes, in
+particular, the safety fragment of linear temporal logic used by the current
+Kairos toolchain~\cite{kupferman-vardi-safety,gastin-oddoux}. The paper
+therefore presents the mathematics directly in terms of assumption and
+guarantee safety automata. This allows us to define an explicit semantic
 product \(program \times A \times G\), where \(A\) is the assumption automaton
-and \(G\) is the guarantee automaton. The product is the semantic object that
-synchronizes, at each tick, a program transition, the reading of the current
-input by \(A\), and the reading of the current observation by \(G\). Once this
-product is available, one can characterize dangerous steps, namely product
-steps that remain within the admissible input domain while taking the guarantee
-to its bad state. Local clauses are then understood as static formulas
-generated from these abstract steps. The purpose of the construction is to make
-precise a reduction of the following shape: if a complete execution violates
-the guarantee under admissible inputs, then some concrete tick realizes a
-dangerous product step, and the corresponding local safety clause is false.
+and \(G\) is the guarantee automaton. The product synchronizes, at each tick, a
+program transition, the reading of the current input by \(A\), and the reading
+of the current observation by \(G\). It provides the right semantic granularity
+for identifying dangerous local steps, extracting semantic clauses, and
+assembling the generated relational Hoare triples.
 
-The first contribution of the paper is a precise mathematical model of reactive
-programs, executions on streams, trace-derived local contexts, deterministic
-safety automata, and node invariants over such contexts. The second
-contribution is a formal presentation of the explicit product and of the local
-matching relation between abstract product steps and concrete ticks. The third
-contribution is a procedural and logical account of clause generation:
-which semantic clauses are produced, from which static ingredients, how they
-are assembled into relational Hoare triples, and how those triples
-participate in the global safety argument. Although the focus of the paper is
-mathematical, this model is also meant to clarify the structure later used by
-the implementation. In particular, the mathematical core developed here stops
-at validity of generated relational Hoare triples; actual external validation
-is a later refinement layer.
+\paragraph{Contributions.}
+The paper makes four contributions.
+\begin{enumerate}[leftmargin=1.4em]
+\item It defines a mathematical model of reactive programs over streams,
+  together with a separate specification layer made of an assumption automaton,
+  a guarantee automaton, and node invariants over local trace contexts.
+\item It introduces the explicit product \(program \times A \times G\) as the
+  central semantic object from which dangerous steps and generated clauses are
+  defined.
+\item It formalizes a clause-to-triple discipline: generated semantic clauses
+  are not the final proof objects; they are assembled into relational Hoare
+  triples whose validity suffices for the conditional safety theorem.
+\item It reconstructs a readable proof architecture, aligned with the Rocq
+  development, that derives the global theorem from product progression,
+  helper propagation, clause coverage, and triple coverage.
+\end{enumerate}
+
+\paragraph{What is non-standard here.}
+The novelty is not the mere use of automata, nor the mere use of deductive
+verification. The non-standard point is the way these two ingredients are tied
+together. The product \(program \times A \times G\) is not introduced as an
+implementation device, nor as a model-checking state space to be exhaustively
+explored. It is the semantic object that justifies clause extraction, triple
+generation, and the reduction from a global bad execution to a local
+contradiction.
+
+\paragraph{Scope of the result.}
+The core theorem developed in this paper stops at semantic validity of
+generated relational Hoare triples. It does not prove the correctness of the
+backend grouping strategy, of the Why3 encoding, or of external prover
+integration. These are refinement layers that matter for the tool, but they are
+intentionally kept outside the core mathematical statement.
 
 The remainder of the paper is organized as follows. Section~2 defines reactive
 programs, their stream semantics, and the local trace contexts on which
@@ -116,8 +188,9 @@ past. Section~4 presents the explicit product and its semantic role. Section~5
 defines dangerous steps, local contexts, and the matching relation. Section~6
 describes clause generation and triple assembly in a pseudo-algorithmic yet
 formal way. Section~7 reconstructs the proof chain from a global bad execution
-to the violation of a local safety clause. Section~8 discusses the connection between the
-mathematical presentation and the current implementation architecture.
+to the contradiction yielded by a valid generated triple. Section~8 discusses
+the connection between the mathematical presentation and the current
+implementation architecture.
 
 \section{Reactive Program and Stream Semantics}
 
@@ -430,89 +503,87 @@ by the state and then evaluated over a trace context. Semantically, this is
 cleaner than taking a primitive collection of distinct properties.
 \end{remark}
 
-\subsection{Example: \texttt{delay\_int}}
+\subsection{Example: \texttt{resettable\_delay}}
 
-The \texttt{delay\_int} example has two control states
+The running example is a resettable one-tick delay. It has two control states
 \[
 S = \{Init,Run\},
 \]
-with memory \(M = \mathbb{Z}\), input \(x \in I = \mathbb{Z}\), output
-\(y \in O = \mathbb{Z}\), and the following two relational transitions:
+with memory \(M = \mathbb{Z}\), input domain
+\[
+I = \mathbb{B} \times \mathbb{Z},
+\]
+where the two input components are written \(reset\) and \(x\), output
+\(y \in O = \mathbb{Z}\), and the following four relational transitions:
 \begin{align*}
-\StepRel(t_{init},Init,m,x,Run,m',y)
+\StepRel(t_{init}^{rst},Init,m,(true,x),Run,m',y)
 &:\Longleftrightarrow
-y = 0 \land m' = x,\\
-\StepRel(t_{run},Run,m,x,Run,m',y)
+y = 0 \land m' = 0,\\
+\StepRel(t_{init}^{keep},Init,m,(false,x),Run,m',y)
+&:\Longleftrightarrow
+y = 0 \land m' = x.
+\end{align*}
+and, in the steady state,
+\begin{align*}
+\StepRel(t_{run}^{rst},Run,m,(true,x),Run,m',y)
+&:\Longleftrightarrow
+y = 0 \land m' = 0,\\
+\StepRel(t_{run}^{keep},Run,m,(false,x),Run,m',y)
 &:\Longleftrightarrow
 y = m \land m' = x.
 \end{align*}
 
+Intuitively, the node behaves as follows. If \(reset\) is true, it outputs
+\(0\) and clears its memory. Otherwise, it behaves like an ordinary one-tick
+delay: it outputs the current memory and stores the current sample \(x\). We
+use this example as the running case study because it remains compact while
+exhibiting a genuine interaction between input assumptions, guarantee clauses,
+and user invariants.
+
 A natural user annotation is the aggregated node invariant
 \[
-\UserInv(Run)(\ctx_u(k)) :
-\Longleftrightarrow
-\mathsf{val}_{\mathit{now}}(\ctx_u(k),m)=\mathsf{eval}_{\ctx_u(k)}(prev(x)).
+\UserInv(Run)(\ctx_u(k)) :\Longleftrightarrow
+\bigl(prev(reset) \Rightarrow m = 0\bigr)
+\;\land\;
+\bigl(\neg prev(reset) \Rightarrow m = prev(x)\bigr),
 \]
-Since \(M=\mathbb{Z}\) in this example, memory is reduced to a single cell,
-written \(m\). The expression using \(prev(x)\) is therefore well-defined as a
-special case of the general semantics of predicates with past. Unfolded:
+where \(m\) denotes the unique memory cell. Since \(M=\mathbb{Z}\) in this
+example, memory is reduced to a single integer register. The invariant says
+that, in state \(Run\), the memory records either the reset value \(0\) or the
+previous sample, depending on whether the preceding tick asserted \(reset\).
+Unfolded on the execution:
 \[
-\psi_{delay}(k) :\Longleftrightarrow
-s_u(k)=Run \Rightarrow m_u(k)=u(k-1),
+\psi_{rdelay}(k) :\Longleftrightarrow
+s_u(k)=Run \Rightarrow
+\bigl(prev(reset) \Rightarrow m_u(k)=0\bigr)
+\land
+\bigl(\neg prev(reset) \Rightarrow m_u(k)=prev(x)\bigr),
 \qquad (k \ge 1).
 \]
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=4.4cm,semithick]
-  \node[state,initial] (init) {$Init$};
-  \node[state,right of=init] (run) {$Run$};
+\begin{tikzpicture}[>=Stealth,semithick]
+  \node[kairosstate,initial] (init) {$Init$};
+  \node[kairosstate,right=58mm of init] (run) {$Run$};
   \path[->]
-    (init) edge node[midway,above,align=center]
-      {$y = 0$\\$m' = x$} (run)
-    (run) edge[loop right] node[align=left]
-      {$y = m$\\$m' = x$} (run);
+    (init) edge[bend left=15] node[kairoslabel,midway,above]
+      {$reset$\\$y = 0$\\$m' = 0$} (run)
+    (init) edge[bend right=15] node[kairoslabel,midway,below]
+      {$\neg reset$\\$y = 0$\\$m' = x$} (run)
+    (run) edge[loop above] node[kairoslabel]
+      {$reset$\\$y = 0$\\$m' = 0$}
+      (run)
+    (run) edge[loop right] node[kairoslabel]
+      {$\neg reset$\\$y = m$\\$m' = x$}
+      (run);
 \end{tikzpicture}
-\caption{Program automaton for \texttt{delay\_int}.}
+\caption{Program automaton for \texttt{resettable\_delay}.}
 \end{figure}
 
-If \(u = (u_0,u_1,u_2,\dots)\), the stream semantics yields:
-\[
-y_0 = 0,
-\qquad
-y_{k+1} = u_k.
-\]
-That is,
-\[
-y = (0,u_0,u_1,u_2,\dots).
-\]
-
-\subsection{Example: \texttt{toggle}}
-
-The \texttt{toggle} example alternates the output between \(0\) and \(1\). It
-can be represented with a Boolean memory state \(m \in \{0,1\}\):
-\begin{align*}
-\StepRel(t_{init},Init,m,\star,Run,m',y)
-&:\Longleftrightarrow
-y = 0 \land m' = 1,\\
-\StepRel(t_{run},Run,m,\star,Run,m',y)
-&:\Longleftrightarrow
-y = m \land m' = 1 - m.
-\end{align*}
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=4.4cm,semithick]
-  \node[state,initial] (init) {$Init$};
-  \node[state,right of=init] (run) {$Run$};
-  \path[->]
-    (init) edge node[midway,above,align=center]
-      {$y = 0$\\$m' = 1$} (run)
-    (run) edge[loop right] node[align=left]
-      {$y = m$\\$m' = 1-m$} (run);
-\end{tikzpicture}
-\caption{Program automaton for \texttt{toggle}.}
-\end{figure}
+This program is simple enough to be understood operationally, but rich enough
+to require both assumption-side and invariant-side reasoning in the local proof
+objects.
 
 \section{Specification, Observations, and Guarantees}
 
@@ -539,53 +610,103 @@ implementation, this reading is then compiled through finite auxiliary
 variables; these variables are not part of the source semantics.
 \end{remark}
 
-\subsection{Guarantee Examples}
+\subsection{Running Example: Assumption and Guarantee Automata}
 
-For \texttt{delay\_int}, the guarantee is
+For the running \texttt{resettable\_delay} example, we consider the following
+conditional safety specification:
 \[
-X\,G(y = prev(x)).
+A := G(\ResetOk),
 \]
-The compiled automaton is a finite residual automaton, not an automaton
-parameterized by an implicit value. We therefore use three states:
+and
 \[
-Mon_0,\qquad Mon_1,\qquad Mon_{bad}.
+G :=
+G(\GuardReset)
+\;\land\;
+X\,G(\GuardAfterReset)
+\;\land\;
+X\,G(\GuardDelay).
+\]
+where the three local predicates are
+\[
+\ResetOk := (\neg reset \vee x = 0),
+\]
+\[
+\GuardReset := (reset \Rightarrow y = x),
+\]
+\[
+\GuardAfterReset := (\neg reset \land prev(reset) \Rightarrow y = 0),
+\]
+\[
+\GuardDelay := (\neg reset \land \neg prev(reset) \Rightarrow y = prev(x)).
+\]
+The assumption says that a reset command is only issued together with the value
+\(x=0\). The guarantee has three branches:
+\begin{itemize}[leftmargin=1.4em]
+\item on a reset tick, the output must agree with the reset value;
+\item on the first non-reset tick after a reset, the output must still be
+  \(0\);
+\item on ordinary non-reset operation, the output must equal the previous
+  sample.
+\end{itemize}
+
+The assumption automaton has only two states:
+\[
+Asm_{ok},\qquad Asm_{bad}.
 \]
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=4.0cm,semithick]
-  \node[state,initial] (m0) {$Mon_0$};
-  \node[state,right of=m0] (m1) {$Mon_1$};
-  \node[state,right of=m1] (mb) {$Mon_{bad}$};
+\begin{tikzpicture}[>=Stealth,semithick]
+  \node[kairosstate,initial] (a1) {$Asm_{ok}$};
+  \node[kairosstate,right=42mm of a1] (ab) {$Asm_{bad}$};
   \path[->]
-    (m0) edge node[midway,above] {$\top$} (m1)
-    (m1) edge[loop above] node {$y = prev(x)$} (m1)
-    (m1) edge[bend left=18] node[midway,above] {$y \neq prev(x)$} (mb)
-    (mb) edge[loop above] node {$\top$} (mb);
+    (a1) edge[loop above] node[kairoslabel] {$\ResetOk$} (a1)
+    (a1) edge[bend left=16] node[kairoslabel,midway,above] {$\neg \ResetOk$} (ab)
+    (ab) edge[loop above] node[kairoslabel] {$\top$} (ab);
 \end{tikzpicture}
-\caption{Guarantee automaton for \texttt{delay\_int}.}
+\caption{Assumption automaton for \texttt{resettable\_delay}.}
 \end{figure}
 
-For \texttt{toggle}, the guarantee expects alternation \(0,1,0,1,\dots\):
+The guarantee automaton keeps track of whether the previous tick was a reset:
+\[
+Mon_{init},\qquad Mon_{prevR},\qquad Mon_{prevN},\qquad Mon_{bad}.
+\]
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=4.0cm,semithick]
-  \node[state,initial] (q0) {$H_{init}$};
-  \node[state,above right=1.2cm and 3.2cm of q0] (qz) {$H_0$};
-  \node[state,below right=1.2cm and 3.2cm of q0] (qo) {$H_1$};
-  \node[state,right=7.0cm of q0] (qb) {$H_{bad}$};
+\begin{tikzpicture}[>=Stealth,semithick]
+  \node[kairosstate,initial] (m0) {$Mon_{init}$};
+  \node[kairosstate,right=42mm of m0] (mr) {$Mon_{prevR}$};
+  \node[kairosstate,below=22mm of mr] (mn) {$Mon_{prevN}$};
+  \node[kairosstate,right=45mm of mr] (mb) {$Mon_{bad}$};
   \path[->]
-    (q0) edge node[midway,above] {$y = 0$} (qz)
-    (q0) edge node[midway,below] {$y \neq 0$} (qb)
-    (qz) edge[bend left=18] node[midway,above] {$y = 1$} (qo)
-    (qo) edge[bend left=18] node[midway,below] {$y = 0$} (qz)
-    (qz) edge node[midway,above] {$y \neq 1$} (qb)
-    (qo) edge node[midway,below] {$y \neq 0$} (qb)
-    (qb) edge[loop right] node {$\top$} (qb);
+    (m0) edge[bend left=10] node[kairoslabel,midway,above] {$\GuardReset \land reset$} (mr)
+    (m0) edge[bend right=10] node[kairoslabel,midway,left] {$\neg reset$} (mn)
+    (m0) edge node[kairoslabel,midway,above] {$reset \land \neg \GuardReset$} (mb)
+    (mr) edge[loop above] node[kairoslabel] {$\GuardReset \land reset$} (mr)
+    (mr) edge[bend left=12] node[kairoslabel,midway,left] {$\GuardAfterReset \land \neg reset$} (mn)
+    (mr) edge node[kairoslabel,midway,above]
+      {$\neg\bigl((\GuardReset \land reset)\vee(\GuardAfterReset \land \neg reset)\bigr)$} (mb)
+    (mn) edge[bend left=12] node[kairoslabel,midway,left] {$\GuardReset \land reset$} (mr)
+    (mn) edge[loop below] node[kairoslabel] {$\GuardDelay \land \neg reset$} (mn)
+    (mn) edge node[kairoslabel,midway,below]
+      {$\neg\bigl((\GuardReset \land reset)\vee(\GuardDelay \land \neg reset)\bigr)$} (mb)
+    (mb) edge[loop above] node[kairoslabel] {$\top$} (mb);
 \end{tikzpicture}
-\caption{Guarantee automaton for \texttt{toggle}.}
+\caption{Guarantee automaton for \texttt{resettable\_delay}.}
 \end{figure}
+
+\paragraph{Pedagogical reading of the example.}
+This single example will be reused throughout the paper. At the program level,
+\texttt{resettable\_delay} is still small; at the specification level, it combines:
+\begin{itemize}[leftmargin=1.4em]
+\item a non-trivial input-side safety assumption;
+\item a guarantee with distinct reset and non-reset branches;
+\item a user invariant that explains the ordinary delayed-data behavior.
+\end{itemize}
+It is therefore complex enough to show the role of assumptions, guarantees,
+user invariants, dangerous steps, generated clauses, and generated triples in a
+single coherent running example.
 
 \section{Explicit Product \texorpdfstring{\(program \times A \times G\)}{program x A x G}}
 
@@ -627,6 +748,15 @@ For an input stream \(u\), we define:
 \]
 where \(q_A\) is the run of \(A\) on \(u\), and \(q_G\) is the run of \(G\) on
 \(\run(u)\).
+\end{definition}
+
+\begin{definition}[Initial Product State]
+The initial product state is
+\[
+\mathsf{init\_product\_state} := (s_0,q_{A,0},q_{G,0}),
+\]
+where \(q_{A,0}\) and \(q_{G,0}\) are the initial states of the automata
+\(A\) and \(G\).
 \end{definition}
 
 \begin{definition}[Product Step]
@@ -690,34 +820,50 @@ minimal quadruple of information:
 \text{product source},\qquad \text{input},\qquad \text{output},\qquad \text{product target}.
 \]
 
-\subsection{Example: Relevant Subgraph of \texttt{delay\_int}}
+\subsection{Example: Relevant Subgraph of \texttt{resettable\_delay}}
 
-In \texttt{delay\_int}, the relevant product states are:
+In \texttt{resettable\_delay}, the most relevant product states are:
 \[
-\bigl(Init,A_{ok},Mon_0\bigr),
+\bigl(Init,Asm_{ok},Mon_{init}\bigr),
 \qquad
-\bigl(Run,A_{ok},Mon_1\bigr),
+\bigl(Run,Asm_{ok},Mon_{prevR}\bigr),
 \qquad
-\bigl(Run,A_{ok},Mon_{bad}\bigr).
+\bigl(Run,Asm_{ok},Mon_{prevN}\bigr),
+\qquad
+\bigl(Run,Asm_{ok},Mon_{bad}\bigr).
 \]
-The first tick goes from \(Mon_0\) to \(Mon_1\). Afterwards, the only step that
-really matters for correctness is the one that would go to \(Mon_{bad}\).
+The initial tick leads either to \(Mon_{prevR}\) or to \(Mon_{prevN}\),
+depending on the value of \(reset\). Afterwards, two classes of dangerous
+transitions matter:
+\begin{itemize}[leftmargin=1.4em]
+\item reset-labeled dangerous steps, which should be excluded with the help of
+  the assumption predicate \(\ResetOk\);
+\item non-reset dangerous steps from \(Mon_{prevN}\), which should be excluded
+  with the help of the user invariant describing the delayed sample.
+\end{itemize}
 
 \begin{figure}[h]
 \centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=5.0cm,semithick]
-  \node[state,initial] (p0) {$(Init,A_{ok},Mon_0)$};
-  \node[state,right of=p0] (p1) {$(Run,A_{ok},Mon_1)$};
-  \node[state,right of=p1] (pb) {$(Run,A_{ok},Mon_{bad})$};
+\begin{tikzpicture}[>=Stealth,semithick]
+  \node[kairosstate,initial] (p0) {$(Init,Asm_{ok},Mon_{init})$};
+  \node[kairosstate,right=46mm of p0] (pr) {$(Run,Asm_{ok},Mon_{prevR})$};
+  \node[kairosstate,below=22mm of pr] (pn) {$(Run,Asm_{ok},Mon_{prevN})$};
+  \node[kairosstate,right=48mm of pr] (pb) {$(Run,Asm_{ok},Mon_{bad})$};
   \path[->]
-    (p0) edge node[midway,above,align=center]
-      {$y=0$\\$m'=x$\\$Mon_0 \to Mon_1$} (p1)
-    (p1) edge[loop above] node[align=center]
-      {$y=m$\\$m'=x$\\$y = prev(x)$} (p1)
-    (p1) edge[bend left=18] node[midway,above,align=center]
-      {$y=m$\\$m'=x$\\$y \neq prev(x)$} (pb);
+    (p0) edge[bend left=10] node[kairoslabel,midway,above]
+      {$\ResetOk \land reset$\\$y = 0$\\$m' = 0$} (pr)
+    (p0) edge[bend right=10] node[kairoslabel,midway,left]
+      {$\neg reset$\\$y = 0$\\$m' = x$} (pn)
+    (pr) edge[bend left=12] node[kairoslabel,midway,left]
+      {$\GuardAfterReset \land \neg reset$} (pn)
+    (pn) edge[loop below] node[kairoslabel]
+      {$\GuardDelay \land \neg reset$\\$y = m$\\$m' = x$} (pn)
+    (pr) edge node[kairoslabel,midway,above]
+      {$reset \land \neg \GuardReset$} (pb)
+    (pn) edge node[kairoslabel,midway,below]
+      {$\neg reset \land \neg \GuardDelay$} (pb);
 \end{tikzpicture}
-\caption{Relevant product subgraph for \texttt{delay\_int}.}
+\caption{Relevant product subgraph for \texttt{resettable\_delay}.}
 \end{figure}
 
 \section{Dangerous Steps and Local Obligations}
@@ -776,25 +922,20 @@ transition of the triple \(program \times A \times G\). Obligations are
 generated over abstract steps and then validated over all concrete ticks.
 
 \begin{definition}[Factored Local Context]
-The local context of tick \(k\) under input \(u\) is
+We continue to write \(\ctx(u,k)\) for the trace-derived local context
+\(\ctx_u(k)\) introduced earlier. Thus,
 \[
-\ctx(u,k):=
-\bigl(\mathsf{src}_{u,k},\mathsf{obs}_{u,k},\mathsf{dst}_{u,k}\bigr),
+\ctx(u,k)=\bigl(k,(s_u(k),m_u(k)),u(k),o_u(k),(s_u(k+1),m_u(k+1))\bigr).
 \]
-where
-\begin{align*}
-\mathsf{src}_{u,k} &:= \bigl(s_u(k),m_u(k),q_A(k),q_G(k)\bigr),\\
-\mathsf{obs}_{u,k} &:= \bigl(u(k),o_u(k)\bigr),\\
-\mathsf{dst}_{u,k} &:= \bigl(s_u(k+1),m_u(k+1),q_A(k+1),q_G(k+1)\bigr).
-\end{align*}
+The automaton components attached to the same tick are not stored inside
+\(\TickCtx\); they are recovered separately from the product run
+\(\rps(u,k)=(s_u(k),q_A(k),q_G(k))\) and \(\rps(u,k+1)\).
 \end{definition}
 
 \begin{remark}
-This factorization replaces a hard-to-read 10-tuple with three named blocks:
-local source, local observation, and local target. It also matches the right
-intuition of the underlying Rocq structure: \texttt{StepCtx} carries the
-concrete tick, and \texttt{product\_step\_realizes\_at} relates this tick to an
-abstract step.
+This matches the underlying Rocq structure exactly: \texttt{StepCtx} carries
+only the concrete program tick, while the product-state components are tracked
+separately by the product run and by the realized product step.
 \end{remark}
 
 \begin{definition}[Matching a Step]
@@ -802,30 +943,29 @@ Let
 \[
 p = \bigl((s,q_A,q_G),m,i,t,e_A,e_G\bigr)
 \]
-be an abstract product step. We say that
-\(\ctx=(\mathsf{src},\mathsf{obs},\mathsf{dst})\) \emph{realizes} \(p\), and we
-write \(\Match(\ctx,p)\), if:
+be an abstract product step. We say that a local context \(\ctx\)
+\emph{matches the program part of \(p\)}, and we write \(\Match(\ctx,p)\), if:
 \begin{enumerate}[leftmargin=1.4em]
-\item \(\mathsf{src} = (s,m,q_A,q_G)\);
-\item \(\mathsf{obs} = (i,o)\) for some output \(o\);
-\item the program step is indeed
-  \[
-  ((s,m),i)\xrightarrow{\,t\,}_P((s',m'),o);
-  \]
-\item edge \(e_A\) moves \(A\) from \(q_A\) to \(q_A'\) on \(i\);
-\item edge \(e_G\) moves \(G\) from \(q_G\) to \(q_G'\) on \((i,o)\);
-\item \(\mathsf{dst} = (s',m',q_A',q_G')\).
+\item the current program state stored in \(\ctx\) is \(s\);
+\item the current memory stored in \(\ctx\) is \(m\);
+\item the current input stored in \(\ctx\) is \(i\);
+\item the selected program transition at this tick is \(t\), equivalently
+  \(t\) is enabled from \((s,m)\) under \(i\).
 \end{enumerate}
 \end{definition}
 
 \begin{remark}
-In Rocq, the primitive relation \texttt{ctx\_matches\_ps} is intentionally more
-minimal: it only looks at the current state, the current memory, the current
-input, and the selected program transition. The well-formedness of the step
-(\texttt{product\_step\_wf}) and its realization
-(\texttt{product\_step\_realizes\_at}) then reconstruct the correct automaton
-target. The paper develops the full intuition of this matching while remaining
-faithful to that decomposition.
+This is the primitive matching relation of the Rocq kernel
+(\texttt{ctx\_matches\_ps}). The automaton components are handled separately:
+\begin{itemize}[leftmargin=1.4em]
+\item the source automaton states are recovered from the product run
+  \(\rps(u,k)\);
+\item the target automaton states are recovered from the well-formedness of
+  \(p\) and from the realized program transition.
+\end{itemize}
+This decomposition is important: the elementary \texttt{NoBad} clause is only a
+clause over \(\TickCtx\); the stronger automaton facts used to discharge it are
+supplied by helper triples.
 \end{remark}
 
 \subsection{Obligation Associated with a Dangerous Step}
@@ -844,92 +984,125 @@ program transition, the chosen assumption edge, and the guarantee edge leading
 to \(bad_G\)''.
 \end{quote}
 
-\subsection{Detailed Example: \texttt{delay\_int}}
+\subsection{Detailed Example: \texttt{resettable\_delay}}
 
-\paragraph{What Is Static.}
-The generator first explores a product subgraph. For \texttt{delay\_int}, it
-retains in particular the state
+\paragraph{What the generator sees.}
+The generator first explores the reachable part of the explicit product. In the
+steady phase of \texttt{resettable\_delay}, the two important source states are
 \[
-(Run,A_{ok},Mon_1),
+(Run,Asm_{ok},Mon_{prevR})
+\qquad\text{and}\qquad
+(Run,Asm_{ok},Mon_{prevN}).
 \]
-and then the abstract steps leaving this state. Among them, only one is
-dangerous: the one that keeps \(A\) in \(A_{ok}\) but takes \(G\) to
-\(Mon_{bad}\).
+This already indicates that the guarantee proof splits into two semantic
+regimes: the regime immediately following a reset, and the ordinary delayed
+data regime.
 
-In \texttt{delay\_int}, the dangerous step starts from
-\[
-(Run,A_{ok},Mon_1)
-\]
-and follows:
-\begin{itemize}[leftmargin=1.4em]
-\item the program transition \(t_{run}\), characterized by
+\paragraph{Two representative dangerous steps.}
+The running example has two representative dangerous families.
+
+\emph{Dangerous reset step.}
+From \((Run,Asm_{ok},Mon_{prevR})\), consider a step combining:
+\begin{enumerate}[leftmargin=1.4em]
+\item the reset program transition \(t_{run}^{rst}\), whose relation is
+  \[
+  y = 0 \land m' = 0;
+  \]
+\item the assumption edge
+  \[
+  Asm_{ok} \xrightarrow{\, \ResetOk \,} Asm_{ok};
+  \]
+\item the dangerous guarantee edge
+  \[
+  Mon_{prevR} \xrightarrow{\, reset \land \neg \GuardReset \,} Mon_{bad}.
+  \]
+\end{enumerate}
+This dangerous step is relevant because it remains admissible for \(A\), yet
+would violate the reset branch of the guarantee.
+
+\emph{Dangerous non-reset step.}
+From \((Run,Asm_{ok},Mon_{prevN})\), consider a step combining:
+\begin{enumerate}[leftmargin=1.4em]
+\item the non-reset program transition \(t_{run}^{keep}\), whose relation is
   \[
   y = m \land m' = x;
   \]
-\item the trivial edge of \(A\), always true;
-\item the guarantee edge
+\item the same assumption edge, still satisfied because \(reset\) is false;
+\item the dangerous guarantee edge
   \[
-  Mon_1 \xrightarrow{\, y \neq prev(x) \,} Mon_{bad}.
+  Mon_{prevN} \xrightarrow{\, \neg reset \land \neg \GuardDelay \,} Mon_{bad}.
   \]
-\end{itemize}
+\end{enumerate}
+This second dangerous family corresponds to the ordinary delayed-data branch of
+the specification.
 
-The clause generated from this step is
+\paragraph{The generated clauses.}
+Each dangerous step yields a local clause:
 \[
-\mathsf{obl}_{delay}(\ctx) := \neg \Match(\ctx,p_{delay}^{bad}).
+\mathsf{obl}_{rst}(\ctx) := \neg \Match(\ctx,p_{rst}^{bad}),
+\qquad
+\mathsf{obl}_{keep}(\ctx) := \neg \Match(\ctx,p_{keep}^{bad}).
 \]
-It is introduced because a concrete tick matching this step would move the
-guarantee to \(Mon_{bad}\) while remaining admissible for \(A\).
+These clauses only forbid the program part of the two dangerous matchings. The
+full contradiction is recovered one level higher, inside the generated
+\texttt{NoBad} triples.
 
-Unfolding the matching yields, at the core of the clause, the conjunction
+\paragraph{How the reset contradiction is obtained.}
+For \(p_{rst}^{bad}\), the \texttt{NoBad} triple combines:
+\begin{enumerate}[leftmargin=1.4em]
+\item the matching fact for the reset transition;
+\item the automaton-support fact attached to \((Run,Asm_{ok},Mon_{prevR})\);
+\item the assumption-side fact \(\ResetOk\).
+\end{enumerate}
+The program relation gives \(y=0\), while the assumption support gives
+\(x=0\) on reset ticks. The dangerous guarantee edge requires \(y \neq x\).
+Hence the triple precondition forces both
 \[
-o = m
-\;\land\;
-m' = x
-\;\land\;
-o \neq prev(x).
+y = x
+\qquad\text{and}\qquad
+y \neq x,
 \]
-Under the user invariant
-\[
-\UserInv(Run)(\ctx) : m = prev(x),
-\]
-this core becomes
-\[
-o = prev(x)
-\;\land\;
-o \neq prev(x),
-\]
-which is contradictory. The local clause therefore plays a very concrete
-role: it prevents exactly the transition from \((Run,A_{ok},Mon_1)\) to
-\((Run,A_{ok},Mon_{bad})\).
+which yields contradiction. This dangerous family is therefore ruled out
+primarily by the assumption side.
 
-\subsection{Detailed Example: \texttt{toggle}}
+\paragraph{How the non-reset contradiction is obtained.}
+For \(p_{keep}^{bad}\), the \texttt{NoBad} triple uses:
+\begin{enumerate}[leftmargin=1.4em]
+\item the matching fact for the non-reset transition;
+\item the user invariant at state \(Run\);
+\item the automaton-support fact attached to \((Run,Asm_{ok},Mon_{prevN})\).
+\end{enumerate}
+Here the program relation gives
+\[
+y = m
+\qquad\text{and}\qquad
+m' = x,
+\]
+while the invariant implies, in the \(Mon_{prevN}\) regime,
+\[
+m = prev(x).
+\]
+The dangerous guarantee edge requires
+\[
+\neg reset \land \neg \GuardDelay.
+\]
+Together, these facts force both
+\[
+y = prev(x)
+\qquad\text{and}\qquad
+y \neq prev(x),
+\]
+hence contradiction. This dangerous family is therefore ruled out primarily by
+the user-invariant side.
 
-In \texttt{toggle}, there are two families of dangerous steps:
+\paragraph{Why this example is better.}
+The two dangerous branches play different proof roles:
 \begin{itemize}[leftmargin=1.4em]
-\item from guarantee state \(H_0\), every step producing \(y \neq 1\);
-\item from guarantee state \(H_1\), every step producing \(y \neq 0\).
+\item one branch is excluded by assumption support;
+\item the other branch is excluded by user-invariant support.
 \end{itemize}
-
-\begin{figure}[h]
-\centering
-\begin{tikzpicture}[>=Stealth,auto,node distance=5.2cm,semithick]
-  \node[state,initial] (h0) {$(Run,A_{ok},H_0)$};
-  \node[state,right of=h0] (h1) {$(Run,A_{ok},H_1)$};
-  \node[state,below=2.4cm of h1] (hb) {$(Run,A_{ok},H_{bad})$};
-  \path[->]
-    (h0) edge[bend left=12] node[midway,above]
-      {$y = 1,\; m' = 0$} (h1)
-    (h1) edge[bend left=12] node[midway,below]
-      {$y = 0,\; m' = 1$} (h0)
-    (h0) edge node[midway,right] {$y \neq 1$} (hb)
-    (h1) edge node[midway,left] {$y \neq 0$} (hb);
-\end{tikzpicture}
-\caption{Safe and dangerous steps in the product of \texttt{toggle}.}
-\end{figure}
-
-Here again, the useful information does not come from a global temporal
-formula, but from a subgraph of the product. Each local safety clause expresses
-the negation of one of the matchings leading to \(H_{bad}\).
+This is exactly the kind of interaction that the paper needs to exhibit in a
+single running example.
 
 \section{Pseudo-Algorithmic Generation of Clauses and Triples}
 
@@ -945,25 +1118,30 @@ The right view is the following:
 \item generate, according to this class, the appropriate clauses.
 \end{enumerate}
 
-\paragraph{Immediate Instantiation on \texttt{delay\_int}.}
+\paragraph{Immediate Instantiation on \texttt{resettable\_delay}.}
 This procedure already yields something very concrete:
 \begin{enumerate}[leftmargin=1.4em]
 \item the relevant reachable states are
   \[
-  (Init,A_{ok},Mon_0)
+  (Init,Asm_{ok},Mon_{init})
   \quad\text{and}\quad
-  (Run,A_{ok},Mon_1);
+  (Run,Asm_{ok},Mon_{prevR}),
+  \quad
+  (Run,Asm_{ok},Mon_{prevN});
   \]
-\item from \((Run,A_{ok},Mon_1)\), one enumerates one safe step and one
-  dangerous step;
-\item the dangerous step is classified as ``objective no bad'';
+\item from these source states, one enumerates two representative dangerous
+  families:
+  a reset-dangerous one and a non-reset-dangerous one;
+\item both are classified as ``objective no bad'';
 \item one adds the local safety clause
   \[
-  \mathsf{obl}_{delay}(\ctx) = \neg \Match(\ctx,p_{delay}^{bad}).
+  \mathsf{obl}_{rst}(\ctx) = \neg \Match(\ctx,p_{rst}^{bad})
+  \qquad\text{or}\qquad
+  \mathsf{obl}_{keep}(\ctx) = \neg \Match(\ctx,p_{keep}^{bad}).
   \]
 \end{enumerate}
 The general procedural view is therefore not an extra layer: it describes
-exactly what the minimal \texttt{delay\_int} case already does.
+exactly what the running \texttt{resettable\_delay} case already does.
 
 \subsection{General Scheme}
 
@@ -981,6 +1159,147 @@ It produces a set of semantic clauses, each equipped with:
 \item a state or step of the product;
 \item a future backend projection.
 \end{itemize}
+
+\subsection{Relational Hoare Triples Built from Generated Clauses}
+
+The core proof does not validate isolated clauses. It validates relational
+Hoare triples built from them.
+
+\begin{definition}[Generated Automaton-Support Predicate]
+We write
+\[
+\Support : \mathsf{ProdState} \to (\TickCtx \to \mathsf{Prop})
+\]
+for the generated helper predicate attached to product states. Intuitively,
+\(\Support(x)\) collects the automaton-derived local facts that are later used
+to justify transition preconditions while the product is at state \(x\).
+\end{definition}
+
+\begin{definition}[Initial Context]
+We write
+\[
+\mathsf{InitCtx}(\ctx) :\Longleftrightarrow \exists u,\; \ctx = \ctx(u,0).
+\]
+\end{definition}
+
+\begin{definition}[Transition Relation on Local Contexts]
+Let \(t \in T\). We define the semantic relation of \(t\) on local contexts by
+\[
+\mathsf{TransRel}_t(\ctx,\ctx') :\Longleftrightarrow
+\exists u \in \Stream{I},\exists k \in \Nat,\;
+\ctx = \ctx(u,k)
+\land
+\ctx' = \ctx(u,k+1)
+\land
+((s_u(k),m_u(k)),u(k)) \xrightarrow{\,t\,}_P
+((s_u(k+1),m_u(k+1)),o_u(k)).
+\]
+\end{definition}
+
+\begin{definition}[Relational Hoare Triple]
+A relational Hoare triple is a tuple
+\[
+ht = (\mathsf{target},\mathsf{Pre},\mathsf{Post},\mathsf{origin},\mathsf{clause}),
+\]
+where:
+\begin{itemize}[leftmargin=1.4em]
+\item \(\mathsf{target}\) is either \(\mathsf{Init}\) or \(\mathsf{Step}(t)\)
+  for some \(t \in T\);
+\item \(\mathsf{Pre},\mathsf{Post} : \TickCtx \to \mathsf{Prop}\);
+\item \(\mathsf{origin}\) records the conceptual category of the triple;
+\item \(\mathsf{clause}\) is the semantic clause carried by the triple.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Validity of a Relational Hoare Triple]
+The triple \(ht\) is valid if:
+\begin{itemize}[leftmargin=1.4em]
+\item if \(\mathsf{target}=\mathsf{Init}\), then
+  \[
+  \forall \ctx,\; \mathsf{InitCtx}(\ctx) \land \mathsf{Pre}(\ctx)
+  \Rightarrow \mathsf{Post}(\ctx);
+  \]
+\item if \(\mathsf{target}=\mathsf{Step}(t)\), then
+  \[
+  \forall \ctx,\ctx',\;
+  \mathsf{TransRel}_t(\ctx,\ctx') \land \mathsf{Pre}(\ctx)
+  \Rightarrow \mathsf{Post}(\ctx').
+  \]
+\end{itemize}
+\end{definition}
+
+\begin{definition}[Canonical Generated Triples]
+For a product step \(p\), we write \(t_p\) for its underlying program
+transition, \(\mathsf{source}(p)\) for its source product state, and
+\(\mathsf{target}(p)\) for its target product state.
+If the program-state components of these two product states are \(s\) and
+\(s'\), we write them explicitly in the invariant clauses below.
+
+The core generation relation contains five canonical forms of triples:
+\begin{enumerate}[leftmargin=1.4em]
+\item an initial triple for the user invariant:
+  \[
+  \mathsf{InitInvTriple} :
+  \mathsf{Init} \;\{ \top \}\; \{ \UserInv(s_0) \};
+  \]
+\item an initial triple for automaton support:
+  \[
+  \mathsf{InitSuppTriple} :
+  \mathsf{Init} \;\{ \top \}\; \{ \Support(\mathsf{init\_product\_state}) \};
+  \]
+\item for each well-formed product step \(p\), a propagation triple for the
+  user invariant:
+  \[
+  \mathsf{InvTriple}_p :
+  \mathsf{Step}(t_p)\;
+  \{ \Match(\cdot,p) \land \UserInv(s) \}\;
+  \{ \UserInv(s') \};
+  \]
+\item for each well-formed product step \(p\), a propagation triple for
+  automaton support:
+  \[
+  \mathsf{SuppTriple}_p :
+  \mathsf{Step}(t_p)\;
+  \{ \Match(\cdot,p) \land \Support(\mathsf{source}(p)) \}\;
+  \{ \Support(\mathsf{target}(p)) \};
+  \]
+\item for each well-formed product step \(p\), a safety triple:
+  \[
+  \mathsf{NoBadTriple}_p :
+  \mathsf{Step}(t_p)\;
+  \{ \Match(\cdot,p) \land \UserInv(s) \land \Support(\mathsf{source}(p)) \}\;
+  \{ \False \}.
+  \]
+\end{enumerate}
+\noindent
+This last triple matters semantically when \(p\) is dangerous: in that case, a
+valid \(\mathsf{NoBadTriple}_p\) rules out the concrete realization of \(p\).
+\end{definition}
+
+\begin{remark}
+The paper writes these triples schematically. In Rocq, their exact definitions
+are \texttt{init\_node\_inv\_triple},
+\texttt{init\_support\_automaton\_triple},
+\texttt{node\_inv\_triple ps},
+\texttt{support\_automaton\_triple ps}, and
+\texttt{no\_bad\_triple ps}. The point of the present presentation is to make
+their logical role explicit before discussing backend grouping.
+\end{remark}
+
+\begin{definition}[Generated Clauses and Generated Triples]
+We write \(\GeneratedBy(o,c)\) when the semantic clause \(c\) is generated with
+origin \(o\), and \(\Generated(c)\) when such an origin exists. Concretely, the
+core generation relation contains:
+\begin{itemize}[leftmargin=1.4em]
+\item the two initial clauses, for node invariants and automaton support;
+\item for each well-formed product step \(p\), one user-invariant propagation
+  clause, one automaton-support propagation clause, and one objective clause
+  \(\mathsf{NoBad}_p(\ctx)=\neg \Match(\ctx,p)\).
+\end{itemize}
+Similarly, \(\GeneratedTriple(ht)\) means that \(ht\) is one of the five
+canonical triples listed above, generated either from the initial state or from
+a well-formed product step.
+\end{definition}
 
 \subsection{Conceptual Algorithm}
 
@@ -1062,7 +1381,7 @@ The finer families are projected onto the same four conceptual categories as
 the Rocq proof architecture. These four categories are a classification of
 \emph{generated clauses}, not four independent proof phases.
 
-\subsection{Four Obligation Categories}
+\subsection{Four Clause Categories}
 
 The generated semantic clauses fall into four conceptual categories.
 
@@ -1161,122 +1480,236 @@ and at propagation time.
 
 \section{Proof Structure}
 
-\subsection{Internal and External Hypotheses}
+\subsection{Global Assumptions of the Core Theorem}
 
-The proof structure mixes two levels that must be separated explicitly.
+The final theorem of the core does not model an external checker. It is stated
+directly under two groups of hypotheses.
 
-\paragraph{Internal hypotheses of the core.}
-They belong to the Rocq modeling of the system:
+\paragraph{Program-model well-formedness.}
+The program must satisfy the structural assumptions captured by the Rocq record
+\texttt{WellFormedProgramModel}:
 \begin{itemize}[leftmargin=1.4em]
-\item determinism of program steps and automaton selections;
-\item non-badness of the initial states of \(A\) and \(G\);
-\item well-formedness of realized product steps;
-\item correctness of the shift operator used to transport delayed facts from one
-  tick to the next.
+\item the selected program transition is enabled at every tick;
+\item the selected edges of \(A\) and \(G\) do start from the current automaton
+  states;
+\item the labels of these selected edges are true of the current input and
+  current observation;
+\item the initial states of \(A\) and \(G\) are not bad.
 \end{itemize}
+These assumptions express that the semantic model is total on the class of
+programs under consideration.
 
-\paragraph{External hypotheses.}
-They concern the external validator:
-\begin{itemize}[leftmargin=1.4em]
-\item completeness of the external checker over the generated relational Hoare
-  triples (or over the transition-level bundles obtained by grouping them);
-\item soundness of triple or bundle validation, that is, validity of the
-  generated semantic clauses covered by successful proof objects.
-\end{itemize}
+\paragraph{Validation hypothesis.}
+The second global hypothesis states that all generated relational Hoare triples
+are valid:
+\[
+\forall ht,\; GeneratedTriple(ht) \Rightarrow TripleValid(ht).
+\]
+Everything else is proved inside the core from this hypothesis.
 
-The final theorem uses the external hypotheses only at the last step of the
-proof; the rest of the reduction is proved inside the core.
+\subsection{Step 1: Product Progression}
 
-\subsection{From Global Violation to Dangerous Step}
+\begin{proposition}[Progress of the Explicit Product]
+For every input stream \(u\) and every tick \(k\), there exists a well-formed
+product step \(ps\) such that:
+\begin{enumerate}[leftmargin=1.4em]
+\item \(ps\) is the step realized at tick \(k\);
+\item the target of \(ps\) is exactly the product state reached at tick \(k+1\).
+\end{enumerate}
+\end{proposition}
 
-\begin{lemma}[First Violating Tick]
-For every input stream \(u\), if \(\neg \AvoidG(\run(u))\), then there exists an
-index \(j\) such that \(q_G(j)=bad_G\). Since the initial state of \(G\) is not
-bad, one must have \(j=S\,k\) for some \(k\).
-\end{lemma}
-
-\begin{proof}[Proof sketch]
-One unfolds the negation of \(\AvoidG\). The Rocq formalization uses a
-classical step to obtain the existence of a bad index, and then the hypothesis
-\texttt{G\_init\_not\_bad} to exclude the initial case.
+\begin{proof}
+This is theorem \texttt{product\_progresses\_at\_each\_tick} in the Rocq
+development. The proof is by explicit construction: the semantic selectors of
+the program, of \(A\), and of \(G\) define a canonical step
+\(\mathsf{product\_select\_at}(u,k)\). The well-formedness part follows from
+\texttt{WellFormedProgramModel}. The target computation is then checked by
+unfolding the definitions of the program step, of the automaton updates, and of
+the local observation sent to \(G\).
 \end{proof}
 
-\begin{lemma}[Global Violation Implies Dangerous Step]
+\begin{proposition}[A Realized Step Induces the Transition Relation]
+Let \(u\) be an input stream, \(k\) a tick, and \(p\) a product step realized
+at tick \(k\). Then the underlying program transition \(t_p\) satisfies
+\[
+\mathsf{TransRel}_{t_p}\bigl(\ctx(u,k),\ctx(u,k+1)\bigr).
+\]
+\end{proposition}
+
+\begin{proof}
+This is the content of the Rocq lemma
+\texttt{transition\_rel\_of\_realized\_step}. Once \(p\) is known to be the
+step realized at tick \(k\), the relation \(\mathsf{TransRel}_{t_p}\) follows
+immediately from its definition.
+\end{proof}
+
+\subsection{Step 2: From a Global Violation to a Dangerous Local Step}
+
+\begin{proposition}[Global Violation Implies a Dangerous Tick]
 For every input stream \(u\), if \(\AvoidA(u)\) and \(\neg \AvoidG(\run(u))\),
 then there exists a tick \(k\) such that \(bad\_local\_step(u,k)\).
-\end{lemma}
+\end{proposition}
 
-\begin{proof}[Proof sketch]
-This is exactly theorem \texttt{bad\_local\_step\_if\_G\_violated} in the Rocq
-formalization. The constructed dangerous step is a
-\texttt{product\_select\_at u k}, well-formed and realized at tick \(k\), whose
-target keeps \(A\) out of \(bad_A\) and places \(G\) in \(bad_G\).
+\begin{proof}
+This is theorem \texttt{bad\_local\_step\_if\_G\_violated}. Since
+\(\neg \AvoidG(\run(u))\), there exists a first index \(j\) such that
+\(q_G(j)=bad_G\). The initial state of \(G\) is not bad, hence \(j=S\,k\) for
+some \(k\). By Step~1, a concrete well-formed product step is realized at tick
+\(k\); its target is the product state reached at tick \(k+1\). The guarantee
+component of this target is therefore \(bad_G\). Because \(\AvoidA(u)\) holds,
+the assumption component of the same target is not \(bad_A\). This is exactly
+the definition of a dangerous local step.
 \end{proof}
 
-\subsection{From Dangerous Step to Local Obligation}
+\subsection{Step 3: Helper Facts Hold on Admissible Runs}
 
-\begin{lemma}[Validity of Helper Triples]
-For every well-formed product step \(ps\), the helper information needed for
-the successor tick is propagated by generated relational Hoare triples attached
-to the underlying program transition of \(ps\).
-\end{lemma}
+\begin{proposition}[Initial Helper Facts]
+For every admissible run, the two helper facts needed by the local proof are
+true at the initial tick:
+\begin{enumerate}[leftmargin=1.4em]
+\item the user invariant attached to the initial program state holds;
+\item the automaton-support fact attached to the initial product state holds.
+\end{enumerate}
+\end{proposition}
 
-\begin{proof}[Proof sketch]
-The current kernel proves two inductive propagation lemmas:
-\texttt{node\_inv\_holds\_on\_run} and
-\texttt{support\_automaton\_holds\_on\_run}. Their proofs no longer assume the
-invariant globally. Instead, they use:
-\begin{itemize}[leftmargin=1.4em]
-\item an initial helper triple for the base case;
-\item a propagation helper triple for each realized product step;
-\item validity of the generated helper triples.
-\end{itemize}
+\begin{proof}
+These are propositions \texttt{init\_node\_inv\_holds} and
+\texttt{init\_support\_automaton\_holds}. Each one is obtained by applying the
+validity hypothesis to a generated initial triple:
+\texttt{init\_node\_inv\_triple} or
+\texttt{init\_support\_automaton\_triple}. The precondition of these triples is
+the initial-context predicate \texttt{init\_ctx}, which holds by construction of
+\(\ctx(u,0)\). Their postconditions are precisely the helper facts to be
+established at tick \(0\).
 \end{proof}
 
-\begin{lemma}[Local Coverage]
+\begin{proposition}[Propagation of Helper Facts]
+Let \(u\) be an admissible input stream. Then for every tick \(k\):
+\begin{enumerate}[leftmargin=1.4em]
+\item the user invariant of the current program state holds on \(\ctx(u,k)\);
+\item the automaton-support fact of the current product state holds on
+  \(\ctx(u,k)\).
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+This is the content of propositions \texttt{node\_inv\_holds\_on\_run} and
+\texttt{support\_automaton\_holds\_on\_run}. Both proofs are inductions on
+\(k\).
+
+The base case is given by the previous proposition. For the induction step, the
+canonical realized product step at tick \(k\) yields the generated propagation
+triples \texttt{node\_inv\_triple ps} and
+\texttt{support\_automaton\_triple ps}. By the induction hypothesis, the
+corresponding preconditions hold on \(\ctx(u,k)\). By validity of generated
+triples, together with the transition-relation proposition of Step~1, their
+postconditions hold on \(\ctx(u,k+1)\). This establishes the two helper facts
+at the successor tick.
+\end{proof}
+
+\begin{proposition}[Combined Helper Context]
+Let \(u\) be admissible. If a well-formed product step \(ps\) is realized at
+tick \(k\), then the full helper context required by the safety triple attached
+to \(ps\) holds on \(\ctx(u,k)\).
+\end{proposition}
+
+\begin{proof}
+This is proposition \texttt{helper\_context\_holds\_on\_run}. It is an immediate
+combination of the two propagation results above, instantiated at the source
+program state and source product state of the realized step \(ps\).
+\end{proof}
+
+\subsection{Step 4: A Dangerous Tick Produces a Falsified Generated Clause}
+
+\begin{proposition}[Clause Coverage of Dangerous Steps]
 For every input stream \(u\) and every tick \(k\), if \(bad\_local\_step(u,k)\),
-then there exists a generated semantic clause \(obl\) such that:
+then there exists a generated semantic clause \(c\) such that:
 \[
-Generated(obl)
+Generated(c)
 \qquad\text{and}\qquad
-\neg obl(\ctx(u,k)).
+\neg c(\ctx(u,k)).
 \]
-\end{lemma}
+\end{proposition}
 
-\begin{proof}[Proof sketch]
-The theorem \texttt{generation\_coverage} selects the canonical clause
-\texttt{prod\_clause ps} produced from the realized dangerous step \(ps\).
-Since \texttt{ctx\_at\_matches\_realized\_ps} shows that the current context
-matches this step, the clause \(\neg \Match\) is indeed violated at the
-considered tick.
+\begin{proof}
+This is theorem \texttt{generation\_coverage}. By definition of
+\(bad\_local\_step\), a dangerous tick comes with a well-formed realized product
+step \(ps\). The core associates to \(ps\) the safety clause
+\texttt{prod\_clause ps}, whose meaning is that the current concrete tick does
+not match this dangerous step. But a local lemma
+\texttt{ctx\_at\_matches\_realized\_ps} proves that the concrete context
+\(\ctx(u,k)\) does match the realized step \(ps\). Therefore the clause
+\texttt{prod\_clause ps} is falsified at \(\ctx(u,k)\).
 \end{proof}
 
-\subsection{Conditional Correctness Theorem}
+\subsection{Step 5: A Dangerous Tick Produces an Applicable \texttt{NoBad} Triple}
+
+\begin{proposition}[Triple Coverage of Dangerous Steps]
+For every input stream \(u\) and every tick \(k\), if \(bad\_local\_step(u,k)\),
+then there exist a product step \(ps\) and a generated triple \(ht\) such that:
+\begin{enumerate}[leftmargin=1.4em]
+\item \(ht = \texttt{no\_bad\_triple}\;ps\);
+\item the precondition of \(ht\) holds on \(\ctx(u,k)\);
+\item the postcondition of \(ht\) is \(\False\).
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+This is theorem \texttt{triple\_generation\_coverage}. Again, a dangerous tick
+provides a realized dangerous product step \(ps\). The core generates from this
+step the triple \texttt{no\_bad\_triple ps}. Its postcondition is by
+construction the always-false clause \texttt{FalseClause}. Its precondition is
+the conjunction of three ingredients:
+\begin{enumerate}[leftmargin=1.4em]
+\item the matching condition saying that the current tick realizes \(ps\);
+\item the user-invariant fact required at the current source state;
+\item the automaton-support fact required at the current source product state.
+\end{enumerate}
+The first item comes from \texttt{ctx\_at\_matches\_realized\_ps}; the other two
+come from the combined helper-context corollary of Step~3. Hence the
+precondition of \texttt{no\_bad\_triple ps} does hold on the dangerous tick.
+\end{proof}
+
+\subsection{Step 6: Valid Triples Rule Out Global Violations}
 
 \begin{theorem}[Conditional Correctness]
-Assume the following validity hypothesis:
-\begin{enumerate}[leftmargin=1.4em]
-\item \emph{validity of generated triples}:
-  \[
-  \forall ht,\; GeneratedTriple(ht) \Rightarrow TripleValid(ht).
-  \]
-\end{enumerate}
-Then, for every input stream \(u\),
+Assume \texttt{WellFormedProgramModel} and assume that every generated triple is
+valid. Then, for every input stream \(u\),
 \[
 \AvoidA(u) \Rightarrow \AvoidG(\run(u)).
 \]
 \end{theorem}
 
 \begin{proof}
-Fix an input stream \(u\) and assume \(\AvoidA(u)\). Suppose, for contradiction,
-\(\neg \AvoidG(\run(u))\). The previous lemma then yields a tick \(k\) and a
-generated triple \(ht\) such that \texttt{GeneratedTriple(ht)}, the
-precondition of \(ht\) holds on \(\ctx(u,k)\), and \(ht\) is exactly the
-\texttt{no\_bad\_triple} attached to the realized dangerous step. By validity
-of generated triples, \(ht\) is valid. Applying this valid triple to the
-realized transition contradicts the fact that its postcondition is
-\(\False\).
+This is theorem \texttt{triple\_valid\_conditional\_correctness\_under\_wf} in
+the Rocq development. Fix an input stream \(u\) and assume \(\AvoidA(u)\).
+Suppose, for contradiction, that \(\neg \AvoidG(\run(u))\). By Step~2, there
+exists a dangerous tick \(k\). By Step~5, there exist a dangerous realized
+product step \(ps\) and a generated triple
+\(ht = \texttt{no\_bad\_triple}\;ps\) such that:
+\begin{enumerate}[leftmargin=1.4em]
+\item the precondition of \(ht\) holds on \(\ctx(u,k)\);
+\item the postcondition of \(ht\) is \(\False\);
+\item the transition of \(ps\) is exactly the transition realized at tick \(k\).
+\end{enumerate}
+Since \(ht\) is generated, the global validity hypothesis yields
+\(TripleValid(ht)\). Instantiating this validity statement with the concrete
+tick \(k\) and the concrete successor context \(\ctx(u,k+1)\), one obtains that
+the postcondition of \(ht\) must hold at the successor tick; Step~1 provides
+the required transition-relation premise. But that
+postcondition is \(\False\), a contradiction. Therefore no global violation of
+\(G\) can occur on an admissible input stream, and \(\AvoidG(\run(u))\) follows.
 \end{proof}
+
+\begin{remark}
+The clause-level theorem \texttt{generation\_coverage} and the triple-level
+theorem \texttt{triple\_generation\_coverage} play different roles. The former
+is the sharp semantic reduction from a dangerous local step to a falsified
+generated clause. The latter is the bridge actually used by the final proof: it
+shows that the same dangerous local step also yields a generated validatable
+object, namely a \texttt{NoBad} relational Hoare triple whose precondition is
+satisfied on the concrete tick.
+\end{remark}
 
 \section{Implementation Language and Why3 Backend}
 
@@ -1349,7 +1782,145 @@ From this instrumented intermediate form, Kairos produces:
 \end{itemize}
 At this stage, the triples of the paper have become Why3 verification
 conditions attached to functions, transitions, and auxiliary lemmas of the
-generated program.
+generated program~\cite{why3}.
+
+\subsection{Concrete Walkthrough on \texttt{resettable\_delay}}
+
+The current toolchain can already be exercised on a concrete Kairos source
+version of the running example. Since this section is also meant to illustrate
+the concrete syntax of the implementation language, we reproduce the full node:
+\begin{verbatim}
+node resettable_delay(reset: int, x: int) returns (y: int)
+contracts
+  requires: G((reset = 0 or reset = 1) and (reset = 1 => x = 0));
+  ensures: G((reset = 1) => (y = 0));
+  ensures: X G((reset = 0 and prev reset = 1) => y = 0);
+  ensures: X G((reset = 0 and prev reset = 0) => y = prev x);
+locals
+  m : int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    (prev reset = 1 => m = 0) and
+    (prev reset = 0 => m = prev x);
+transitions
+  Init:
+    to Run when reset = 1 {
+      y := 0;
+      m := 0;
+    }
+    to Run when reset = 0 {
+      y := 0;
+      m := x;
+    }
+  Run:
+    to Run when reset = 1 {
+      y := 0;
+      m := 0;
+    }
+    to Run when reset = 0 {
+      y := m;
+      m := x;
+    }
+end
+\end{verbatim}
+The actual source used in the implementation repository is
+\texttt{tests/ok/inputs/resettable\_delay.kairos}; the generated artifacts used
+below are produced directly from that file with the V2 CLI.
+
+\paragraph{Residual automata produced by the tool.}
+On this example, the current implementation prints the following residual
+states:
+\begin{itemize}[leftmargin=1.4em]
+\item assumption side: \(A0\) and \(A1\), where \(A1\) is the inconsistent
+  residual \(\False\);
+\item guarantee side: \(G0\), \(G1\), and \(G2\), where \(G1\) is the
+  inconsistent residual \(\False\) and \(G2\) is the steady-state residual
+  obtained after the first tick.
+\end{itemize}
+This is the concrete manifestation of the usual safety-monitoring workflow:
+state predicates are first propositionalized into tick-local atoms, then
+compiled into residual temporal states, and finally rendered as finite safety
+automata.
+
+\paragraph{Reachable product and generated clauses.}
+The current product exploration reports five reachable states:
+\[
+(Init,A0,G0),\quad
+(Run,A0,G1),\quad
+(Run,A0,G2),\quad
+(Run,A1,G1),\quad
+(Run,A1,G2).
+\]
+For this concrete node, Kairos also reports \(22\) generated clauses, split as
+follows:
+\begin{itemize}[leftmargin=1.4em]
+\item \(3\) safety clauses;
+\item \(19\) helper clauses;
+\item among helper clauses, \(1\) initial goal and \(18\) propagation clauses;
+\item among generated clause kinds, \(6\) come from user invariants and \(12\)
+  from automaton support.
+\end{itemize}
+This is already enough to illustrate the architecture of the paper on a real
+example: the source specification is compiled to residual automata, the product
+is explored, and the resulting dangerous or supportive situations are translated
+to local proof objects.
+
+\paragraph{Instrumented OBC and generated Why3 code.}
+The generated OBC-like form makes the backend projection explicit. For
+\texttt{resettable\_delay}, the tool introduces the ghost fields
+\texttt{\_\_aut\_state}, \texttt{\_\_pre\_k1\_x}, and
+\texttt{\_\_pre\_k1\_reset}. Transition contracts then mention:
+\begin{itemize}[leftmargin=1.4em]
+\item compatibility facts about the monitor state;
+\item assumption-side support formulas;
+\item coherence formulas carrying the user invariant;
+\item safety formulas excluding \texttt{NoBad} combinations.
+\end{itemize}
+For instance, the concrete extracted OBC-like transition for the initial reset
+case contains the expected combination of compatibility, assumption-side
+support, a \texttt{NoBad} postcondition, and the shifted coherence fact:
+\begin{verbatim}
+transition Init -> Run when reset = 1 {
+  require __aut_state = Aut0                          {Compatibility};
+  require __aut_state = Aut0 -> ...                   {AssumeAutomaton};
+  ensure  __aut_state = Aut0 -> not (...)             {Instrumentation};
+  ensure  (reset = 1 -> m = 0) and (reset = 0 -> m = x) {Coherency};
+  do
+    y := 0;
+    m := 0;
+}
+\end{verbatim}
+The corresponding Why3 file contains the same information in Why3 syntax: an
+enumerated type for monitor states, a record for program variables including
+ghost fields, a \texttt{step} procedure, and the projected preconditions and
+postconditions.
+
+\paragraph{Validation status on the current backend.}
+The extraction pipeline succeeds end-to-end on this example: automata,
+reachable product, clause map, OBC-like code, and Why3 source are all
+generated. On the current backend, the resulting Why3 development is discharged
+by Z3 when Why3 is run with the standard simplification and splitting
+transformations used for transition VCs:
+\begin{verbatim}
+tmpconf=$(mktemp /tmp/why3conf.XXXXXX)
+why3 config --config "$tmpconf" detect
+why3 -C "$tmpconf" prove \
+  -a simplify_formula \
+  -a eliminate_if_term \
+  -a remove_unused \
+  -a split_vc \
+  -P z3 -t 30 resettable_delay.mlw
+\end{verbatim}
+In our current environment, this command exits successfully on the generated
+file. This matters for the paper for two reasons:
+\begin{itemize}[leftmargin=1.4em]
+\item it confirms that the mathematical reduction can already be exercised on a
+  concrete Kairos example through the implementation path;
+\item it makes visible the exact boundary between the semantic proof objects of
+  the paper and the backend proof obligations actually discharged by Why3.
+\end{itemize}
 
 \subsection{What Is Actually Sent to Why3}
 
@@ -1429,14 +2000,38 @@ The methodological split is therefore the following:
 
 \section{Related Work}
 
-The closest related work falls into two broad families. The first one studies
-the verification of temporal properties of programs by compiling those
-properties into automata or annotations that are then discharged by a program
-verification backend. The second one studies synchronous or contract-based
-verification frameworks in which assumptions, guarantees, observers, or
-realizability checks play a central role. Kairos is closest to the first family
-from the viewpoint of proof objects, and to the second from the viewpoint
-of reactive assume/guarantee semantics.
+The closest related work falls into three technical families. The first one
+reduces temporal properties of programs to local proof material checked by a
+deductive backend. The second one studies synchronous contracts, observers, and
+assume/guarantee reasoning over reactive systems. The third one compiles
+temporal properties into executable monitoring artifacts. Kairos borrows an
+essential idea from each family, but differs from all of them in the semantic
+role assigned to the explicit product \(program \times A \times G\). This
+comparison matters because the contribution of Kairos is not merely another
+automata-based verifier: its main claim is that the explicit product is the
+right semantic object for transporting a global conditional safety property
+toward local deductive proof objects over a program that may manipulate
+unbounded data.
+
+For clarity, the comparison should be read along two axes. The first axis is
+\emph{what is proved}: a property of program traces, a contract over a
+synchronous transition system, or a runtime-monitoring obligation. The second
+axis is \emph{how the proof is mediated}: through annotations attached to
+program points, through invariants over a synchronous transition system, or
+through an explicit semantic product between a program and temporal automata.
+Kairos is best understood as occupying the corner ``reactive program theorem +
+explicit product + deductive local proof objects''.
+
+Another useful axis of comparison is finite-state versus unbounded-state
+reasoning. Classical temporal model checking is most natural when the system
+and the temporal monitor can be explored in one explicit transition system. The
+present setting is different: the automata are finite-state, but the program
+state space need not be. Kairos therefore combines finite safety automata with
+deductive transition reasoning instead of reducing the whole problem to
+explicit-state exploration. The contribution is thus not an explicit-state
+algorithm for a finite product, but a proof architecture in which the finite
+temporal component and the deductive program component meet at the level of
+product steps, generated clauses, and relational Hoare triples.
 
 \subsection{From Temporal Properties to Program Proof Objects}
 
@@ -1453,7 +2048,9 @@ centered on reactive traces with an explicit distinction between input
 assumptions and input/output guarantees. Kairos also makes the product
 \(program \times A \times G\) explicit as a semantic object, instead of keeping
 the automaton/program synchronization mostly implicit in the generated
-annotations.
+annotations. This explicit product is not cosmetic: it is what lets Kairos
+state and prove the reduction from a global guarantee violation to a dangerous
+local step, which is the central proof idea of the present work.
 
 \paragraph{CaFE.}
 CaFE~\cite{cafe-page} extends the same general ecosystem to CaRet properties,
@@ -1464,7 +2061,10 @@ be reduced to local proof objects checked by an existing backend. Its
 difference from Kairos lies in the observed semantic domain: CaFE is organized
 around call/return structure of C executions, whereas Kairos is organized
 around reactive ticks, stateful stream semantics, and assume/guarantee safety on
-input/output traces.
+input/output traces. In particular, Kairos is not merely ``Aorai for
+synchronous programs'': its target property is conditional safety under input
+admissibility, and its core semantic object already combines program and
+automata state.
 
 \subsection{Assume/Guarantee and Synchronous Verification}
 
@@ -1476,7 +2076,9 @@ This places it closer to Kairos than Aorai with respect to contract structure.
 However, AGREE works at an architectural and compositional level, not at the
 level of an explicit semantic product between a program automaton and two
 safety automata. Kairos differs by making the local product step itself the
-primary justification point for local clauses.
+primary justification point for local clauses. AGREE is therefore close to
+Kairos on the shape of specifications, but not on the proof-theoretic role
+played by explicit automata/program synchronization.
 
 \paragraph{Kind 2 and CoCoSpec.}
 Kind~2~\cite{kind2-realizability} and CoCoSpec~\cite{cocospec} are also strong
@@ -1489,7 +2091,10 @@ central semantic object. Kairos builds its local proof story around the product
 between a program, an assumption automaton, and a guarantee automaton. Kind~2
 and CoCoSpec are closer to invariant generation, model checking, and contract
 reasoning directly over synchronous transition systems than to an explicit local
-matching relation between concrete ticks and abstract product steps.
+matching relation between concrete ticks and abstract product steps. This is an
+important distinction: Kairos does not seek only an invariant-based proof over
+the source transition system, but a semantic bridge from stream-level safety to
+local product-step reasoning.
 
 \paragraph{Lustre and theorem proving.}
 Older work on Lustre and theorem proving~\cite{lustre-pvs} is also relevant as
@@ -1498,7 +2103,9 @@ machine-checked reasoning and therefore shares with Kairos the ambition of
 giving a mathematical semantics that supports actual proofs. Kairos differs by
 organizing the reduction around safety automata and locally generated
 clauses and triples, rather than around direct theorem proving over the source
-transition system alone.
+transition system alone. In that sense, Kairos is closer to a proof-oriented
+compilation pipeline than to a direct embedding of the source semantics into a
+proof assistant.
 
 \subsection{Monitoring and Observer Compilation}
 
@@ -1509,11 +2116,18 @@ into executable monitors, typically generating hard real-time C code. This is
 close to Kairos in the sense that both approaches turn temporal specifications
 into finite operational artifacts. The main difference is that Copilot is first
 and foremost a runtime verification framework, whereas Kairos uses its compiled
-artifacts to generate proof objects for deductive verification. Thus,
-artifacts to generate deductive proof objects. Thus,
+artifacts to generate proof objects for deductive verification.
 Copilot is particularly relevant as related work on monitor compilation, but it
 is further from Kairos than Aorai, AGREE, or Kind~2 on the proof-theoretic
 side.
+
+\paragraph{Summary of the comparison.}
+The literature already contains, separately, deductive encodings of temporal
+properties over programs, synchronous contract reasoning, and compilation of
+temporal monitors. What is rarer is a mathematically explicit account of how a
+global conditional safety theorem over reactive streams is reduced to local
+proof objects when the temporal layer is finite-state but the program itself is
+not. This is the niche filled by the present Kairos formulation.
 
 \subsection{Position of Kairos}
 
@@ -1526,12 +2140,20 @@ present together in a single framework:
 \item a semantic product \(program \times A \times G\) used as the source of
   local clauses;
 \item a proof-oriented reduction from global bad executions to falsified local
-  safety clauses and invalidated triples.
+  safety clauses and then to contradictory valid triples.
 \end{itemize}
 This makes Kairos simultaneously close to annotation-based temporal program
 verification, to assume/guarantee reasoning for synchronous systems, and to the
-observer-compilation tradition, while remaining distinct from each of these
-families in the role played by the explicit product.
+observer-compilation tradition. What distinguishes it is not simply the use of
+automata, nor simply the use of deductive verification, but the fact that the
+explicit product is the semantic source of generated clauses and triples, while
+the program itself is allowed to live over unbounded domains. Put differently,
+Kairos occupies a specific point in the design space: it inherits the temporal
+discipline of finite safety automata, the proof ambition of deductive program
+verification, and the contract structure of synchronous assume/guarantee
+reasoning, but it organizes them around an explicit product semantics rather
+than around a purely operational monitor or a purely invariant-oriented
+transition-system proof.
 
 \section{Discussion}
 
@@ -1577,12 +2199,27 @@ It makes the following simultaneously visible:
 \item and the bridge both to the Rocq proof and to the external backend.
 \end{itemize}
 
-This refocusing has a simple methodological consequence: in a high-quality
-article on Kairos, clauses must never be introduced as a mere list. They
-must always appear either as the negation of product-step matchings, or as
-coherence and support projections attached to the states and transitions of that
-same product; and the actual proof objects exported to the backend must be the
-relational Hoare triples assembled from those clauses.
+The main methodological lesson is therefore precise. In a high-quality account
+of Kairos, clauses should never be introduced as a mere list of local formulas.
+They must always appear as projections of the explicit product, and the actual
+proof objects exported to deductive verification must be relational Hoare
+triples assembled from those projections. This is what keeps the meaning of the
+final theorem stable while moving from stream-level safety to local proof
+objects.
+
+Just as importantly, the paper clarifies the scope of what has and has not been
+proved. The core theorem concerns reactive semantics, generated clauses,
+generated relational triples, and their validity. Backend grouping, Why3
+encoding, and solver integration remain refinement layers. This separation is
+not a weakness of the presentation; it is part of the scientific contribution,
+because it identifies exactly which part of the architecture carries the
+semantic content of the correctness argument.
+
+The remaining research directions are therefore well delimited: strengthen the
+mathematical account of backend refinement, characterize more precisely the
+well-formed program fragment accepted by the implementation, and study how far
+the present clause-and-triple discipline can be pushed beyond the current
+deterministic safety setting.
 
 \begin{thebibliography}{10}
 
@@ -1638,6 +2275,22 @@ Lee Pike, Alwyn Goodloe, Jeffrey Maddalon, and others.
 Copilot Language Project.
 \newblock \emph{Copilot: a stream-based runtime verification framework}.
 \newblock Project repository and documentation.
+
+\bibitem{kupferman-vardi-safety}
+Orna Kupferman and Moshe Y. Vardi.
+\newblock Model checking of safety properties.
+\newblock In \emph{Computer Aided Verification}, 1999.
+
+\bibitem{gastin-oddoux}
+Paul Gastin and Denis Oddoux.
+\newblock Fast LTL to B{\"u}chi automata translation.
+\newblock In \emph{Computer Aided Verification}, 2001.
+
+\bibitem{why3}
+Fran{\c c}ois Bobot, Jean-Christophe Filli{\^a}tre, Claude March{\'e}, and
+Andrei Paskevich.
+\newblock Why3: shepherd your herd of provers.
+\newblock In \emph{Boogie}, 2011.
 
 \end{thebibliography}
 

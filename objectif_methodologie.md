@@ -205,3 +205,35 @@ dans `lib_v2/` pour une structure explicitement v2.
 3. Mettre a jour la racine `dune` pour ne plus declarer `lib` dans les dossiers actifs.
 4. Recompiler et executer les commandes smoke CLI v2.
 5. Supprimer/neutraliser les entrees legacy (`runner`, `Pipeline.run*` et passes legacy).
+
+## Objectif courant (2026-03-08 - resettable_delay concret)
+Ancrer la formalisation et le papier dans un exemple Kairos reel:
+- ecrire `resettable_delay` dans le langage source Kairos;
+- le faire passer dans le pipeline pour obtenir automates residuels, produit,
+  clauses, OBC+ et code Why3;
+- reutiliser ces artefacts pour documenter concretement le passage
+  specification safety -> automates -> clauses/triples -> backend Why3.
+
+### Methodologie active
+1. Definir un exemple `resettable_delay` avec:
+   - une hypothese d'entree non triviale (`reset => x = 0`);
+   - une garantie en trois branches (`reset`, `post-reset`, `delay ordinaire`);
+   - un invariant utilisateur piecewise sur la memoire.
+2. Generer avec les executables du depot:
+   - exclusivement avec `_build/default/bin/cli/main_v2.exe`;
+   - automates (`--dump-automata`);
+   - produit (`--dump-product`);
+   - carte des clauses (`--dump-obligations-map`);
+   - OBC+ abstrait (`--dump-obc --dump-obc-abstract`);
+   - Why3 (`--dump-why`) et verification conditions (`--dump-why3-vc`).
+3. Evaluer honnetement la validation backend:
+   - succes d'extraction;
+   - statut de la preuve automatique Why3/Z3 sous budget borne.
+4. Integrer les resultats dans le papier et dans une note de reproduction locale.
+
+## Suite prevue
+- stabiliser la section technique du papier autour de l'exemple reel `resettable_delay`;
+- ameliorer si besoin l'automatisation Why3 sur cet exemple en analysant les
+  premiers goals bloquants.
+- maintenir un chemin outillage unique via `main_v2.exe` pour tous les artefacts
+  cites dans le papier et la documentation technique.

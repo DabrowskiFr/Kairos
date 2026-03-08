@@ -869,7 +869,7 @@ Section Model.
   Qed.
 
   (* Un pas produit réalisé se reflète bien dans le contexte concret ctx_at. *)
-  Local Lemma ctx_at_matches_realized_ps :
+  Proposition ctx_at_matches_realized_ps :
     forall u k ps,
       product_step_wf ps ->
       product_step_realizes_at u k ps ->
@@ -934,7 +934,7 @@ Section Model.
     reflexivity.
   Qed.
 
-  Local Lemma transition_rel_of_realized_step :
+  Proposition transition_rel_of_realized_step :
     forall u k ps,
       product_step_realizes_at u k ps ->
       transition_rel (pst_trans ps) (ctx_at u k) (ctx_at u (S k)).
@@ -1160,6 +1160,25 @@ Section Model.
       exact Hnext.
   Qed.
 
+  Local Proposition helper_context_holds_on_run :
+    forall u k ps,
+      avoids_bad_A u ->
+      product_step_realizes_at u k ps ->
+      node_inv (cur_state (ctx_at u k)) (ctx_at u k)
+      /\ eval_fo (ctx_at u k) (support_automaton_fo (pst_from ps)).
+  Proof.
+    intros u k ps HA Hreal.
+    split.
+    - apply node_inv_holds_on_run.
+      exact HA.
+    - pose proof (@support_automaton_holds_on_run u k HA) as Hsup.
+      unfold product_step_realizes_at in Hreal.
+      destruct (cfg_at u k) as [s m] eqn:Hcfg.
+      destruct Hreal as [Hfrom [_ [_ _]]].
+      rewrite Hfrom.
+      exact Hsup.
+  Qed.
+
   (* ---------------------------------------------------------------------- *)
   (* Stage 4: a dangerous realized step falsifies a generated clause         *)
   (* ---------------------------------------------------------------------- *)
@@ -1187,12 +1206,7 @@ Section Model.
     - unfold prod_obligation.
       intro Hobl.
       pose proof (@ctx_at_matches_realized_ps u k ps Hwf Hreal) as Hmatch.
-      pose proof (@node_inv_holds_on_run u k HA) as Hinv.
-      pose proof (@support_automaton_holds_on_run u k HA) as Hsup.
-      unfold product_step_realizes_at in Hreal.
-      destruct (cfg_at u k) as [s m] eqn:Hcfg.
-      destruct Hreal as [Hfrom [_ [_ _]]].
-      rewrite <- Hfrom in Hsup.
+      pose proof (@helper_context_holds_on_run u k ps HA Hreal) as [Hinv Hsup].
       apply (Hobl Hinv Hsup Hmatch).
   Qed.
 
@@ -1227,14 +1241,25 @@ Section Model.
       + apply ctx_at_matches_realized_ps.
         * exact Hwf.
         * exact Hreal.
-      + split.
-        * apply node_inv_holds_on_run; exact HA.
-        * pose proof (@support_automaton_holds_on_run u k HA) as Hsup.
-          unfold product_step_realizes_at in Hreal.
-          destruct (cfg_at u k) as [s m] eqn:Hcfg.
-          destruct Hreal as [Hfrom [_ [_ _]]].
-          rewrite Hfrom.
-          exact Hsup.
+      + apply helper_context_holds_on_run.
+        * exact HA.
+        * exact Hreal.
+  Qed.
+
+  Local Lemma generated_no_bad_triple_contradiction :
+    forall u k ps,
+      GeneratedTriple (no_bad_triple ps) ->
+      product_step_realizes_at u k ps ->
+      ht_pre (no_bad_triple ps) (ctx_at u k) ->
+      False.
+  Proof.
+    intros u k ps Hgen Hreal Hepre.
+    pose proof (GeneratedTripleValid (ht := no_bad_triple ps) Hgen) as Hvalid.
+    pose proof (@transition_rel_of_realized_step u k ps Hreal) as Hrel.
+    unfold TripleValid in Hvalid.
+    unfold no_bad_triple, FalseClause in Hvalid.
+    simpl in Hvalid.
+    exact (Hvalid (ctx_at u k) (ctx_at u (S k)) Hrel Hepre).
   Qed.
 
   (* ---------------------------------------------------------------------- *)
@@ -1250,15 +1275,13 @@ Section Model.
     - exact HG.
     - destruct (@bad_local_step_if_G_violated u HA HnG) as [k Hbad].
       destruct (@triple_generation_coverage u k HA Hbad)
-        as [ht [Hgen [ps [Hwf [Hreal [Heq Hepre]]]]]].
+        as [_ht [Hgen [ps [_Hwf [Hreal [Heq Hepre]]]]]].
       rewrite Heq in Hgen, Hepre.
-      pose proof (GeneratedTripleValid (ht := no_bad_triple ps) Hgen) as Hvalid.
       exfalso.
-      unfold no_bad_triple, FalseClause in Hvalid.
-      simpl in Hvalid.
-      pose proof (@transition_rel_of_realized_step u k ps Hreal) as Hrel.
-      pose proof (Hvalid (ctx_at u k) (ctx_at u (S k)) Hrel Hepre) as Hfalse.
-      exact Hfalse.
+      eapply generated_no_bad_triple_contradiction.
+      + exact Hgen.
+      + exact Hreal.
+      + exact Hepre.
   Qed.
 
   Theorem triple_valid_conditional_correctness_under_wf :

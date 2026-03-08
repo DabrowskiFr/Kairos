@@ -457,17 +457,22 @@ let normalize_generated_contracts (trans : Abs.transition list) : Abs.transition
       })
     trans
 
+let drop_exact_formula (target : fo option) (trans : Abs.transition list) : Abs.transition list =
+  match target with
+  | None -> trans
+  | Some target_fo ->
+      let keep (f : fo_o) = f.value <> target_fo in
+      List.map
+        (fun (t : Abs.transition) ->
+          { t with requires = List.filter keep t.requires; ensures = List.filter keep t.ensures })
+        trans
+
 let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     ~(analysis : Product_build.analysis) ~(instrumentation_updates : stmt list)
     ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
     ~(incoming_prev_fo_shifted : fo list) ~(compat_invariants : invariant_state_rel list)
     ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
   let trans = inject_instrumentation_code ~instrumentation_updates ~instrumentation_asserts n.trans in
-  let trans =
-    add_not_bad_state_requires
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/no_bad_state" ~t f))
-      ~bad_state_fo_opt trans
-  in
   let trans =
     add_monitor_compatibility_requires
       ~log:(Some (fun t f -> log_contract ~reason:"Product/monitor_pre" ~t f))
@@ -484,16 +489,11 @@ let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
       ~add_to_ensures:false trans
   in
   let trans =
-    add_not_bad_state_ensures
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/no_bad_state_post" ~t f))
-      ~bad_state_fo_opt trans
-  in
-  let trans =
     Product_contracts.add_bad_guarantee_projection_ensures
       ~log:(Some (fun t f -> log_contract ~reason:"Product/bad_guarantee_projection" ~t f))
       ~analysis trans
   in
-  normalize_generated_contracts trans
+  trans |> normalize_generated_contracts |> drop_exact_formula bad_state_fo_opt
 
 let empty_instrumentation_info ~(states : Automaton_engine.residual_state list) ~(atom_names : ident list)
     : Stage_info.instrumentation_info =
@@ -609,13 +609,13 @@ let make_contract_logger () : (reason:string -> t:Abs.transition -> fo -> unit) 
       prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_fo f))
 
 let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : Ast.node =
-  match ctx.states with
-  | [] -> n
-  | _first :: _ ->
-      let init_goal =
-        FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr 0))
-      in
-      Ast_utils.add_new_coherency_goals n [ init_goal ]
+  let _ = ctx in
+  (* The concrete Why3 backend quantifies coherency goals over arbitrary pre-state
+     valuations. A bare goal __aut_state = Aut0 is therefore not an initialization
+     theorem but an unsound universally quantified formula. Until initialization is
+     represented explicitly in the backend VC layer, we do not emit a separate
+     automaton-support init goal here. *)
+  n
 
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
   let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in

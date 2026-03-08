@@ -53,3 +53,7 @@ Definition triple_valid_conditional_correctness_with_node_inv :=
 
 Definition triple_valid_conditional_correctness_with_node_inv_under_wf :=
   @KairosOracleModel.triple_valid_conditional_correctness_with_node_inv_under_wf.
+
+(* Reading hint:
+   - [KairosOracle.v] contains the proof with the real dependency structure.
+   - this file only reexports the main waypoints of that proof path. *)

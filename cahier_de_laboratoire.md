@@ -2014,6 +2014,42 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 - Vérifications :
   - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
 
+## 2026-03-07 — Passe de proof engineering sur la chaîne principale Rocq
+
+- Demande :
+  - étendre la passe de proof engineering au-delà de `KairosOracle.v`,
+    mais seulement sur la chaîne principale :
+    `core -> kernels -> integration`,
+    plus un nettoyage léger des points d’entrée et exemples.
+
+- Modifications :
+  - `rocq/core/AutomataCorrectnessCore.v`
+    - exposition des trois grandes étapes du noyau avec alias mieux nommés ;
+  - `rocq/integration/ThreeLayerFromCore.v`
+    - facteur local `recover_falsified_clause_from_global_violation` ;
+  - `rocq/integration/AutomataFinalCorrectness.v`
+    - facteur local `validated_generated_clauses_hold` ;
+  - `rocq/kernels/SafetyKernel.v`
+    - facteur local `validated_generated_clause_holds` ;
+  - `rocq/kernels/ObjectiveSafetyKernel.v`
+    - facteurs locaux renommés en `...clauses...`
+    - facteur local `objective_clauses_rule_out_bad_ticks` ;
+  - `rocq/MainProofPath.v`, `rocq/KairosRefactorBlueprint.v`
+    - commentaires de lecture clarifiés ;
+  - `rocq/instances/DelayIntInstance.v`, `rocq/DelayIntExample.v`
+    - commentaires de rôle clarifiés pour éviter d’y reconstruire la preuve
+      principale.
+
+- Résultat :
+  - la chaîne principale Rocq reflète mieux les grandes étapes du raisonnement
+    sans multiplier les façades artificielles ;
+  - les modules dérivés réutilisent explicitement les étapes du noyau au lieu
+    d’écraser leur sens sous des preuves compactes.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
+  - `opam exec --switch=5.4.1+options -- dune build` OK
+
 ## 2026-03-07 — Structuration “humaine” directement dans le noyau
 
 - Demande :
@@ -2042,6 +2078,37 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 - Vérifications :
   - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` à relancer
     après suppression de la façade.
+
+## 2026-03-07 — Passe de proof engineering sur `KairosOracle.v`
+
+- Demande :
+  - rendre la structure des preuves plus lisible et plus proche des étapes de
+    raisonnement retenues pendant l’audit.
+
+- Modifications :
+  - ajout de `helper_context_holds_on_run` pour factoriser le contexte helper
+    utilisé par `generation_coverage` et `triple_generation_coverage` ;
+  - ajout de `generated_no_bad_triple_contradiction` pour isoler l’étape finale
+    “triple NoBad valide + précondition vraie => contradiction” ;
+  - simplification des preuves de :
+    - `generation_coverage`
+    - `triple_generation_coverage`
+    - `triple_valid_conditional_correctness`
+  - hiérarchie de visibilité stabilisée :
+    - `Local Lemma` / `Local Fact` pour la plomberie ;
+    - `Proposition` pour les résultats intermédiaires structurants ;
+    - `Theorem` pour les jalons globaux.
+
+- Résultat :
+  - les dépendances sont plus lisibles dans le fichier lui-même ;
+  - la preuve finale se lit davantage comme :
+    1. violation globale ;
+    2. tick dangereux ;
+    3. triple NoBad applicable ;
+    4. contradiction par validité du triple.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` OK
 
 ### 2026-03-07 — Noms de signatures: `VALIDATION_*` plutôt que `ORACLE_*`
 
@@ -2099,3 +2166,492 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 - Vérifications :
   - recompilation Rocq complète à relancer après ce lot ;
   - `dune build` à relancer après ce lot.
+
+### 2026-03-07 — Refonte de la section de preuve du papier mathématique
+
+- Demande :
+  - mettre à jour `spec/rocq_oracle_model.tex` en intégrant les dernières
+    modifications du noyau Rocq ;
+  - détailler le théorème final et les résultats intermédiaires importants ;
+  - relire la chaîne de preuve papier pour vérifier qu’il n’y a pas de trou
+    logique après la mise à jour.
+
+- Méthodologie :
+  - repartir de la structure effective de `rocq/KairosOracle.v` ;
+  - aligner la section de preuve du papier sur les jalons réellement stabilisés
+    dans le noyau :
+    1. hypothèses globales ;
+    2. progression du produit ;
+    3. violation globale vers tick dangereux ;
+    4. faits helper init/propagation ;
+    5. couverture par clause ;
+    6. couverture par triple ;
+    7. contradiction finale par validité du triple `NoBad`.
+  - recompiler le PDF après modification ;
+  - relire ensuite la preuve papier en continu pour vérifier que les résultats
+    s’enchaînent bien sans réintroduire d’hypothèse implicite externe.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - réécriture complète de `Proof Structure` ;
+    - suppression de la séparation ancienne entre hypothèses internes et
+      “externes” dans le cœur du raisonnement ;
+    - introduction explicite de `WellFormedProgramModel` et de l’hypothèse
+      `GeneratedTripleValid` comme seules hypothèses globales du théorème cœur ;
+    - ajout de preuves détaillées pour :
+      - la progression du produit ;
+      - la réduction d’une violation globale à un tick dangereux ;
+      - l’établissement initial et la propagation des faits helper ;
+      - la couverture clause-level ;
+      - la couverture triple-level ;
+      - le théorème final de correction conditionnelle ;
+    - clarification du rôle respectif de `generation_coverage` et
+      `triple_generation_coverage` ;
+    - correction d’un usage invalide de l’environnement LaTeX `corollary`
+      remplacé par `proposition`.
+
+- Résultat :
+  - le papier suit maintenant beaucoup plus fidèlement la structure de preuve
+    réelle du noyau Rocq ;
+  - la chaîne de raisonnement est présentée comme une suite de résultats
+    intermédiaires mathématiquement motivés, plutôt que comme un simple résumé
+    narratif ;
+  - le noyau mathématique du papier ne parle plus d’un validateur externe, mais
+    directement de validité des triples générés.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - restent uniquement des warnings LaTeX mineurs de mise en page
+      (`Overfull \\hbox`, flottants `h` transformés en `ht`).
+
+### 2026-03-07 — Relecture critique approfondie du papier comme reviewer
+
+- Demande :
+  - relire le papier comme un reviewer expérimenté ;
+  - vérifier qu’aucun résultat n’utilise de notion insuffisamment définie ;
+  - vérifier que les preuves ne sautent pas d’étape de raisonnement importante ;
+  - ajouter au besoin les résultats intermédiaires Rocq nécessaires pour rendre
+    ces étapes visibles et exportables vers le papier.
+
+- Problèmes conceptuels détectés :
+  - incohérence entre la définition de `TickCtx` et une redéfinition ultérieure
+    de `ctx(u,k)` qui y faisait entrer les états automates `A/G`, alors que la
+    formalisation Rocq sépare explicitement `StepCtx` (contexte programme) et
+    état du produit ;
+  - absence de définition formelle explicite des triples de Hoare relationnels
+    et de leur validité dans le papier, alors qu’ils sont maintenant les vrais
+    objets de validation du noyau ;
+  - absence de définition explicite des relations `Generated` et
+    `GeneratedTriple`, pourtant utilisées ensuite dans les énoncés ;
+  - léger trou de raisonnement dans les preuves papier : pour utiliser la
+    validité d’un triple, il faut aussi un lemme reliant un pas réalisé à la
+    relation de transition `TransRel_t`.
+
+- Modifications Rocq :
+  - `rocq/KairosOracle.v`
+    - promotion en résultats publics de :
+      - `ctx_at_matches_realized_ps`
+      - `transition_rel_of_realized_step`
+    afin que la lecture “papier” puisse citer explicitement ces étapes
+    intermédiaires au lieu de reposer sur de la plomberie locale implicite.
+
+- Modifications papier :
+  - `spec/rocq_oracle_model.tex`
+    - correction de la définition de `ctx(u,k)` pour qu’elle coïncide avec le
+      contexte local de programme, les états automates étant récupérés via le
+      run du produit ;
+    - redéfinition de `Match` comme matching minimal de la partie programme,
+      fidèle à `ctx_matches_ps` ;
+    - réécriture de l’exemple `delay_int` pour faire apparaître la vraie place
+      de la contradiction : dans le triple `NoBad`, via la relation de
+      transition et les faits helper, et non dans la clause brute seule ;
+    - ajout de définitions formelles pour :
+      - `InitCtx`,
+      - `TransRel_t`,
+      - les triples de Hoare relationnels,
+      - leur validité,
+      - les cinq formes canoniques de triples générés,
+      - `GeneratedBy`, `Generated`, `GeneratedTriple` ;
+    - ajout, dans la structure de preuve, d’un résultat intermédiaire explicite
+      affirmant qu’un pas réalisé induit bien la relation de transition utilisée
+      par les triples.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2`
+    - OK ;
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+  - après cette passe, les problèmes restants identifiés dans le PDF sont
+    typographiques (principalement des `Overfull \\hbox`), pas des trous
+    conceptuels du noyau de preuve.
+
+### 2026-03-08 — Rehaussement scientifique de l’introduction
+
+- Demande :
+  - améliorer nettement l’introduction ;
+  - situer Kairos dans le cadre du synchrone ;
+  - expliciter le lien avec les techniques de vérification existantes ;
+  - mettre en avant la difficulté particulière des programmes à domaines non
+    bornés ;
+  - renforcer l’appui bibliographique.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - réécriture substantielle de l’introduction ;
+    - positionnement explicite par rapport :
+      - aux cadres synchrones / contrats / observateurs
+        (`lustre-pvs`, `AGREE`, `Kind 2`, `CoCoSpec`) ;
+      - aux approches par compilation de propriétés temporelles en objets de
+        preuve locaux (`Aorai`, `CaFE`) ;
+    - ajout d’un paragraphe dédié à la difficulté des domaines non bornés,
+      pour expliquer pourquoi le cadre n’est pas celui d’un simple model
+      checking explicite ;
+    - clarification de la contribution propre de Kairos :
+      produit explicite `program × A × G`, extraction de clauses sémantiques,
+      assemblage en triples de Hoare relationnels, puis validation backend ;
+    - nettoyage d’une répétition résiduelle dans le paragraphe `Copilot` de la
+      section `Related Work`.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - restent uniquement des warnings LaTeX de mise en page (`Overfull \\hbox`).
+
+### 2026-03-08 — Passe critique type POPL/PLDI sur introduction et related work
+
+- Demande :
+  - relire le papier comme un reviewer POPL/PLDI exigeant ;
+  - hausser le niveau scientifique de l’introduction ;
+  - mieux situer Kairos par rapport au synchrone, aux approches déductives
+    sur propriétés temporelles, et au cas particulier des domaines non bornés.
+
+- Modifications :
+  - `spec/POPL_PLDI_REVIEW_2026-03-08.md`
+    - note de review structurée, avec critiques sur :
+      - abstract trop descriptif,
+      - introduction insuffisamment positionnée,
+      - related work trop énumératif,
+      - nouveauté encore insuffisamment articulée autour du cas non borné ;
+  - `spec/rocq_oracle_model.tex`
+    - réécriture de l’abstract dans un style plus théorème/contribution ;
+    - introduction recentrée sur :
+      - la vérification synchrone,
+      - la réduction de propriétés temporelles globales à des objets de preuve
+        locaux,
+      - la difficulté du cas non borné,
+      - la contribution spécifique de Kairos ;
+    - related work renforcé sur deux axes :
+      - compilation déductive de propriétés temporelles vers objets de preuve ;
+      - synchrones / contrats / assume-guarantee ;
+    - clarification de la nouveauté exacte :
+      - produit explicite `program × A × G`,
+      - clauses et triples comme point de jonction entre couche temporelle
+        finie et couche déductive sur programme non borné ;
+    - resserrement du paragraphe `Position of Kairos` pour en faire une vraie
+      synthèse de positionnement, et non une simple liste de différences.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - PDF produit : `spec/rocq_oracle_model.pdf` ;
+    - warnings résiduels limités à de la mise en page (`Overfull \\hbox`).
+
+### 2026-03-08 — Seconde passe reviewer POPL/PLDI (claims, gap, conclusion)
+
+- Demande :
+  - relire à nouveau le papier avec un niveau d’exigence de reviewer POPL/PLDI ;
+  - améliorer encore la rigueur de positionnement scientifique ;
+  - rendre plus explicite le gap exact par rapport aux travaux proches ;
+  - calibrer plus proprement les claims et la conclusion.
+
+- Diagnostic retenu :
+  - l’introduction était déjà meilleure, mais restait encore un peu
+    ``descriptive'' ;
+  - le gap scientifique n’était pas assez formulé comme un problème de jonction
+    entre automates finis et raisonnement déductif sur programme à domaines non
+    bornés ;
+  - `Related Work` restait encore trop proche d’une liste d’outils, avec une
+    comparaison pas assez organisée selon des axes conceptuels ;
+  - la conclusion restait trop proche d’un résumé documentaire, plutôt que de
+    rappeler nettement la portée théorique et les limites de la contribution.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - abstract durci sur :
+      - la présence explicite d’hypothèses de bonne formation ;
+      - la séparation entre cœur mathématique et raffinements backend ;
+    - introduction enrichie avec :
+      - une formulation plus explicite de la question méthodologique centrale ;
+      - un paragraphe sur le vrai risque scientifique : perdre soit la
+        temporalité globale, soit le programme non borné ;
+      - un paragraphe `What is non-standard here` pour nommer clairement la
+        nouveauté ;
+    - `Related Work` renforcé avec :
+      - un cadrage en deux axes de comparaison (`what is proved` / `how proof
+        is mediated`) ;
+      - une meilleure différenciation avec Aorai, AGREE, Kind 2/CoCoSpec,
+        Lustre/PVS ;
+      - un paragraphe de synthèse finale qui explicite la niche exacte de
+        Kairos ;
+    - conclusion réécrite pour :
+      - rappeler la leçon méthodologique centrale ;
+      - expliciter proprement la portée des résultats ;
+      - identifier des directions de recherche restantes sans survendre.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - PDF produit : `spec/rocq_oracle_model.pdf` ;
+    - warnings résiduels toujours limités à de la mise en page.
+
+### 2026-03-08 — Recentrage abstract/introduction sur safety et triples de Hoare
+
+- Demande :
+  - éviter d’ouvrir trop tôt sur les automates ;
+  - présenter d’abord la propriété de safety et les triplets de Hoare sur les
+    ticks ;
+  - introduire seulement ensuite les automates de sûreté comme compilation
+    standard des spécifications, avec référence ;
+  - reléguer Why3 au niveau backend, également avec référence.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - titre changé vers `Conditional Safety, Explicit Products, and Relational
+      Hoare Triples for Kairos` ;
+    - abstract recentré sur :
+      - propriété de safety conditionnelle,
+      - triples de Hoare relationnels,
+      - séparation cœur mathématique / backend ;
+    - introduction réécrite pour :
+      - parler d’abord de propriétés de safety sur traces et de raisonnement
+        local sur ticks ;
+      - introduire ensuite la compilation vers automates de sûreté comme un
+        choix mathématique standard adapté au fragment safety de LTL utilisé par
+        l’outil ;
+      - introduire Why3 seulement dans la section backend ;
+    - ajout des références :
+      - `kupferman-vardi-safety`
+      - `gastin-oddoux`
+      - `why3`
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - PDF produit : `spec/rocq_oracle_model.pdf` ;
+    - warnings résiduels inchangés et purement typographiques.
+
+### 2026-03-08 — Refonte pédagogique des exemples et des automates
+
+- Demande :
+  - ne garder qu’un seul exemple central ;
+  - le rendre plus pertinent, avec hypothèse d’entrée non triviale ;
+  - présenter systématiquement programme, automates, pas dangereux, clause et
+    triple de manière pédagogique ;
+  - améliorer la lisibilité graphique des automates.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - suppression du second exemple `toggle` du corps mathématique ;
+    - promotion de `delay_int` comme unique exemple fil rouge ;
+    - enrichissement de la spécification avec une hypothèse d’entrée
+      monotone non décroissante :
+      - `A := X G(x >= prev(x))`
+      - `G := X G(y = prev(x))`
+    - ajout d’un automate d’hypothèse dédié pour cet exemple ;
+    - réécriture de la présentation de l’exemple détaillé pour suivre le fil :
+      - état produit source,
+      - arête d’hypothèse,
+      - arête de garantie,
+      - clause générée,
+      - triple `NoBad`,
+      - contradiction ;
+    - amélioration des figures TikZ avec styles dédiés (`kairosstate`,
+      `kairoslabel`) et espacements plus grands pour éviter les recouvrements ;
+    - mise à jour du sous-graphe produit de l’exemple avec les états
+      `Asm_0`, `Asm_ok`, `Asm_bad`, `Mon_0`, `Mon_1`, `Mon_bad`.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - PDF produit : `spec/rocq_oracle_model.pdf` ;
+    - plus de second exemple dans le corps mathématique ; warnings résiduels
+      purement typographiques.
+
+### 2026-03-08 — Remplacement du fil rouge par resettable_delay
+
+- Demande :
+  - abandonner `delay_int` comme exemple central ;
+  - choisir un exemple où l’hypothèse d’entrée intervient réellement dans la preuve, sans être une simple conséquence du décalage ;
+  - présenter de manière pédagogique programme, automates, sous-graphe produit, clauses et triples associés.
+
+- Modifications :
+  - `spec/rocq_oracle_model.tex`
+    - remplacement du fil rouge `delay_int` par `resettable_delay` ;
+    - programme à deux modes (`Init`, `Run`) avec entrée `(reset, x)`, mémoire entière `m` et sortie `y` ;
+    - hypothèse d’entrée : `G(ResetOk)` avec `ResetOk := (not reset or x = 0)` ;
+    - garantie découpée en trois branches nommées :
+      - `GRst` pour les ticks de reset ;
+      - `GAfterRst` pour le premier tick non-reset après un reset ;
+      - `GDelay` pour le régime de délai ordinaire ;
+    - invariant utilisateur agrégé sur `Run` : mémoire égale à `0` après reset, sinon à `prev(x)` ;
+    - réécriture complète des figures d’automates et du sous-graphe produit pour montrer deux familles de pas dangereux :
+      - une famille exclue par le support d’hypothèse ;
+      - une famille exclue par le support invariant utilisateur ;
+    - réécriture de l’exemple détaillé pour faire apparaître explicitement :
+      - le pas dangereux abstrait ;
+      - la clause générée ;
+      - le triple `NoBad` correspondant ;
+      - la contradiction locale obtenue.
+
+- Vérifications :
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex`
+    - OK ;
+    - PDF produit : `spec/rocq_oracle_model.pdf` ;
+    - warnings résiduels purement typographiques.
+
+### 2026-03-08 — Instanciation Kairos concrete de `resettable_delay`
+
+- Demande :
+  - ecrire le nouvel exemple central en vrai Kairos ;
+  - le faire passer dans le pipeline pour obtenir des artefacts concrets ;
+  - reutiliser ces artefacts dans la section technique du papier.
+
+- Modifications :
+  - `tests/ok/inputs/resettable_delay.kairos`
+    - ajout du programme source Kairos avec :
+      - entrees `reset`, `x` ;
+      - hypothese `G((reset = 0 or reset = 1) and (reset = 1 => x = 0))` ;
+      - garanties `reset` / `post-reset` / `delay ordinaire` ;
+      - invariant utilisateur piecewise sur `m`.
+  - `spec/generated/resettable_delay/README.md`
+    - note de reproduction locale avec les commandes et le resume des sorties.
+  - `spec/rocq_oracle_model.tex`
+    - ajout d'une sous-section technique concrete sur `resettable_delay` dans la
+      partie implementation/backend.
+  - `objectif_methodologie.md`
+    - mise a jour de l'objectif courant et de la methodologie.
+
+- Artefacts generes :
+  - `spec/generated/resettable_delay/automata.txt`
+  - `spec/generated/resettable_delay/product.txt`
+  - `spec/generated/resettable_delay/obligations.txt`
+  - `spec/generated/resettable_delay/resettable_delay.obc+`
+  - `spec/generated/resettable_delay/resettable_delay.mlw`
+  - `spec/generated/resettable_delay/resettable_delay_vc.txt`
+
+- Resultats observes :
+  - l'extraction complete reussit ;
+  - automates residuels :
+    - hypothese : `A0`, `A1` ;
+    - garantie : `G0`, `G1`, `G2` ;
+  - produit atteignable : 5 etats ;
+  - clauses generees : 34
+    - safety : 13 ;
+    - helper : 21 ;
+    - init goal : 1 ;
+    - propagation : 20 ;
+    - user invariant : 6 ;
+    - automaton support : 14.
+
+- Validation backend :
+  - une tentative Why3/Z3 bornee (2 secondes par goal) sur le fichier `.mlw`
+    produit des timeouts sur les premiers goals (`step'vc`,
+    `coherency_goal_1`) ;
+  - conclusion : l'exemple est deja exploitable comme temoin d'architecture et
+    de generation d'artefacts, mais pas encore comme benchmark completement
+    decharge automatiquement sous ce budget.
+
+## 2026-03-08 — Unification du binaire V2 pour les artefacts concrets
+
+- Objectif :
+  - eliminer l'ambiguite entre `main.exe` et `main_v2.exe` pour les extractions
+    utilisees dans le papier et la documentation ;
+  - garantir que tous les artefacts de `resettable_delay` passent par le meme
+    frontend V2 que celui conforme a la formalisation et a l'architecture
+    courante.
+
+- Constat :
+  - les dumps `--dump-automata`, `--dump-product` et
+    `--dump-obligations-map` etaient deja routes vers `Pipeline_v2_indep`
+    depuis `cli.ml`, mais seulement exposes par `main.exe` ;
+  - `main_v2.exe` ne portait pas encore ces modes diagnostics, ce qui nuisait a
+    la lisibilite de la chaine de generation.
+
+- Modifications :
+  - `bin/cli/cli_v2.ml`
+    - ajout des options V2 :
+      - `--dump-dot`
+      - `--dump-dot-short`
+      - `--dump-automata`
+      - `--dump-product`
+      - `--dump-obligations-map`
+      - `--dump-prune-reasons`
+    - routage explicite via
+      `Engine_service.instrumentation_pass ~engine:Engine_service.V2`.
+  - `spec/generated/resettable_delay/README.md`
+    - commandes de reproduction mises a jour pour n'utiliser que
+      `_build/default/bin/cli/main_v2.exe`.
+
+- Validation :
+  - `opam exec --switch=5.4.1+options -- dune build` : OK ;
+  - `main_v2.exe --help` expose maintenant bien les dumps diagnostics V2 ;
+  - regeneration complete de `resettable_delay` avec `main_v2.exe` seulement :
+    - `automata.txt`
+    - `product.txt`
+    - `obligations.txt`
+    - `resettable_delay.obc+`
+    - `resettable_delay.mlw`
+    - `resettable_delay_vc.txt`
+  - les artefacts canoniques du repertoire `spec/generated/resettable_delay/`
+    ont ete remplaces par les sorties issues du binaire V2 unique.
+
+## 2026-03-08 — Backend Why3 de `resettable_delay`
+
+- Objectif :
+  - faire passer l'exemple `resettable_delay` jusqu'au backend Why3 a partir du
+    binaire V2 canonique.
+
+- Diagnostic :
+  - les premiers sous-buts `step'vc` etaient deja prouvables apres
+    simplification Why3 (`simplify_formula`, `eliminate_if_term`,
+    `remove_unused`, `split_vc`) ;
+  - le blocage principal restant venait d'un goal de coherence initiale
+    universellement faux :
+    - `forall vars, reset, x. vars.__aut_state = Aut0`
+  - ce goal etait produit par `add_initial_automaton_support_goal`, alors que
+    la couche Why3 concrete quantifie les goals de coherence sur un pre-etat
+    arbitraire et ne dispose pas encore d'une vraie semantique
+    d'initialisation.
+
+- Tentative abandonnee :
+  - normaliser trop tot les variables `{0,1}` comme des booleens dans la
+    generation des automates ;
+  - cette piste modifiait la semantique de l'exemple (des variables entieres
+    comme `x` et `y` etaient reconnues a tort comme bool-like) ;
+  - elle a ete revertie integralement.
+
+- Correction retenue :
+  - `lib_v2/runtime/middle_end/instrumentation/instrumentation.ml`
+    - suppression de l'emission de l'`initial automaton support goal` tant
+      qu'il n'est pas encode sous une forme initiale semantiquement correcte
+      dans les VCs Why3.
+
+- Resultat :
+  - regeneration correcte de `resettable_delay_v2.mlw` avec `main_v2.exe` ;
+  - les clauses generees reviennent a une repartition coherente :
+    - `safety = 3`
+    - `helper = 19`
+    - `initial_goal = 1`
+    - `user_invariant = 6`
+    - `automaton_support = 12`
+  - les sous-buts `step'vc` se dechargent avec :
+    - `why3 prove -a simplify_formula -a eliminate_if_term -a remove_unused -a split_vc -P z3 -t 30`
+  - le faux `coherency_goal_1` n'est plus genere ;
+  - la commande Why3 complete termine avec succes (`EXIT=0`) sur
+    `spec/generated/resettable_delay/resettable_delay.mlw`.
+
+## 2026-03-08 — Exemple Kairos complet dans le papier
+
+- `spec/rocq_oracle_model.tex`
+  - remplacement de l’extrait partiel de `resettable_delay` par le nœud Kairos complet afin de montrer explicitement la syntaxe du langage source.

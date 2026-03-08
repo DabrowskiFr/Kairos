@@ -48,7 +48,11 @@ let add_assumption_projection_requires ?(log = None) ~(build : Automata_generati
           let by_gsrc = Hashtbl.create 8 in
           List.iter
             (fun (step : PT.product_step) ->
-              if transition_matches t step.prog_transition && step.step_class <> PT.Bad_assumption then
+              if transition_matches t step.prog_transition
+                 && step.step_class <> PT.Bad_assumption
+                 && step.src.assume_state <> analysis.assume_bad_idx
+                 && step.src.guarantee_state <> analysis.guarantee_bad_idx
+              then
                 let prev = Hashtbl.find_opt by_gsrc step.src.guarantee_state |> Option.value ~default:[] in
                 let f = FAnd (step.assume_guard, step.guarantee_guard) in
                 Hashtbl.replace by_gsrc step.src.guarantee_state (f :: prev))
@@ -74,7 +78,11 @@ let add_bad_guarantee_projection_ensures ?(log = None) ~(analysis : Product_buil
       let by_gsrc = Hashtbl.create 8 in
       List.iter
         (fun (step : PT.product_step) ->
-          if transition_matches t step.prog_transition && step.step_class = PT.Bad_guarantee then
+          if transition_matches t step.prog_transition
+             && step.step_class = PT.Bad_guarantee
+             && step.src.assume_state <> analysis.assume_bad_idx
+             && step.src.guarantee_state <> analysis.guarantee_bad_idx
+          then
             let prev = Hashtbl.find_opt by_gsrc step.src.guarantee_state |> Option.value ~default:[] in
             let f = FAnd (step.assume_guard, step.guarantee_guard) in
             Hashtbl.replace by_gsrc step.src.guarantee_state (f :: prev))

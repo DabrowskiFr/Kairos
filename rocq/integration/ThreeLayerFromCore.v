@@ -5,10 +5,13 @@ Require Import integration.ThreeLayerArchitecture.
 Set Implicit Arguments.
 
 (*
-  Alternative core-layer interface: instead of postulating
-  [coverage_if_not_avoidG] directly, it is reconstructed from two
-  proved ingredients (global violation -> local bad step, and local bad
-  step -> generated violated obligation).
+  Alternative reconstruction layer:
+
+  instead of postulating [coverage_if_not_avoidG] directly, we reconstruct it
+  from the two semantically meaningful stages already proved in the core:
+
+  1. global guarantee violation -> dangerous local step;
+  2. dangerous local step -> falsified generated clause.
 *)
 Module Type KAIROS_CORE_FROM_PROVED_SIG (P : PROGRAM_LAYER_SIG).
   Include obligations.ObligationGenSig.OBLIGATION_GEN_SIG
@@ -33,7 +36,7 @@ Module MakeCoverageFromProvedCore
   (P : PROGRAM_LAYER_SIG)
   (K : KAIROS_CORE_FROM_PROVED_SIG P).
 
-  Theorem coverage_if_not_avoidG :
+  Local Lemma recover_falsified_clause_from_global_violation :
     forall u,
       P.AvoidA u ->
       ~ P.AvoidG (P.run_trace u) ->
@@ -46,5 +49,15 @@ Module MakeCoverageFromProvedCore
       as [cl [Hgen Hnot]].
     exists k, cl.
     split; assumption.
+  Qed.
+
+  Theorem coverage_if_not_avoidG :
+    forall u,
+      P.AvoidA u ->
+      ~ P.AvoidG (P.run_trace u) ->
+      exists k (cl : K.Clause),
+        K.Generated cl /\ ~ cl (P.ctx_at u k).
+  Proof.
+    apply recover_falsified_clause_from_global_violation.
   Qed.
 End MakeCoverageFromProvedCore.

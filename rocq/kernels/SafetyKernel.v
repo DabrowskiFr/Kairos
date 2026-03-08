@@ -30,6 +30,17 @@ Module MakeSafetyKernel
   (O : ORACLE_SEM_SIG C E)
   (Cov : LOCAL_COVERAGE_SIG C E).
 
+  Local Lemma validated_generated_clause_holds :
+    forall u k (cl : E.Clause),
+      E.Generated cl ->
+      cl (C.ctx_at u k).
+  Proof.
+    intros u k cl Hgen.
+    pose proof (O.Oracle_complete (cl := cl) Hgen) as Hor.
+    pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
+    exact (O.clause_valid_pointwise u k Hvalid).
+  Qed.
+
   Theorem validation_conditional_correctness_modular :
     forall u,
       Cov.AvoidA u ->
@@ -39,11 +50,9 @@ Module MakeSafetyKernel
     destruct (classic (Cov.AvoidG (C.run_trace u))) as [HG | HnG].
     - exact HG.
     - destruct (@Cov.coverage_if_not_avoidG u HA HnG) as [k [cl [Hgen Hnot]]].
-      pose proof (O.Oracle_complete (cl := cl) Hgen) as Hor.
-      pose proof (O.Oracle_sound (cl := cl) Hor) as Hvalid.
       exfalso.
       apply Hnot.
-      exact (O.clause_valid_pointwise u k Hvalid).
+      exact (@validated_generated_clause_holds u k cl Hgen).
   Qed.
 
   Theorem oracle_conditional_correctness_modular :

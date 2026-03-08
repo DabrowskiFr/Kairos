@@ -15,6 +15,8 @@ type automaton_view = {
 
 type analysis = {
   exploration : PT.exploration;
+  assume_bad_idx : int;
+  guarantee_bad_idx : int;
   guarantee_state_labels : string list;
   assume_state_labels : string list;
 }
@@ -282,6 +284,8 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
         steps = List.rev !steps_rev;
         pruned_steps = List.rev !pruned_rev;
       };
+    assume_bad_idx = assume.bad_idx;
+    guarantee_bad_idx = guarantee.bad_idx;
     guarantee_state_labels = List.mapi (fun i _ -> state_label i guarantee.states) guarantee.states;
     assume_state_labels = List.mapi (fun i _ -> state_label i assume.states) assume.states;
   }

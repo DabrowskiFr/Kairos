@@ -29,7 +29,7 @@ Module MakeObjectiveSafetyKernel
   (O : ORACLE_SEM_SIG C E)
   (Cov : LOCAL_OBJECTIVE_COVERAGE_SIG C E T).
 
-  Theorem user_invariant_obligations_hold_pointwise :
+  Local Proposition user_invariant_clauses_hold_pointwise :
     (forall cl, T.GeneratedUserInvariant cl -> O.Oracle cl = true) ->
     forall u k (cl : E.Clause),
       T.GeneratedUserInvariant cl ->
@@ -41,7 +41,7 @@ Module MakeObjectiveSafetyKernel
     exact (O.clause_valid_pointwise u k Hvalid).
   Qed.
 
-  Theorem initial_goals_hold_at_tick0 :
+  Local Proposition initial_goal_clauses_hold_at_tick0 :
     (forall cl, T.GeneratedInitialGoal cl -> O.Oracle cl = true) ->
     forall u (cl : E.Clause),
       T.GeneratedInitialGoal cl ->
@@ -53,7 +53,7 @@ Module MakeObjectiveSafetyKernel
     exact (O.clause_valid_pointwise u 0 Hvalid).
   Qed.
 
-  Theorem validation_conditional_correctness_from_objectives :
+  Local Proposition objective_clauses_rule_out_bad_ticks :
     (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
     forall u,
       Cov.AvoidA u ->
@@ -68,6 +68,15 @@ Module MakeObjectiveSafetyKernel
       exfalso.
       apply Hnot.
       exact (O.clause_valid_pointwise u k Hvalid).
+  Qed.
+
+  Theorem validation_conditional_correctness_from_objectives :
+    (forall cl, T.GeneratedObjective cl -> O.Oracle cl = true) ->
+    forall u,
+      Cov.AvoidA u ->
+      Cov.AvoidG (C.run_trace u).
+  Proof.
+    apply objective_clauses_rule_out_bad_ticks.
   Qed.
 
   Theorem validation_conditional_correctness_with_supports :
@@ -86,7 +95,7 @@ Module MakeObjectiveSafetyKernel
     split.
     - apply validation_conditional_correctness_from_objectives; assumption.
     - intros k cl Huser.
-      eapply user_invariant_obligations_hold_pointwise.
+      eapply user_invariant_clauses_hold_pointwise.
       + exact HallUser.
       + exact Huser.
   Qed.

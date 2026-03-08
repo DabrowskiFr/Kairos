@@ -5,6 +5,10 @@ Require Import KairosOracle.
 Module DelayIntProof.
 Module KO := KairosOracleModel.
 
+(* This file is an execution-level sanity check for the delay example.
+   It is useful as a concrete semantic companion to the main proof, but it is
+   not itself the place where the abstract proof architecture should be read. *)
+
 Definition Input : Type := nat.
 Definition Output : Type := nat.
 Definition Mem : Type := nat.

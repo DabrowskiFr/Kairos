@@ -40,6 +40,12 @@ Set Implicit Arguments.
    imported here. They are considered optional refinements and should not be
    mistaken for part of the main proof path. *)
 
+(* Reading discipline:
+   - read [KairosOracle] first for the actual proof structure;
+   - use [MainProofPath] only as a compact index;
+   - treat the functorized files below as derived interfaces, not as the
+     primary place where the proof idea should be reconstructed. *)
+
 Module Type CORE_STEP_SIG := CoreStepSig.CORE_STEP_SIG.
 Module Type CORE_REACTIVE_LAWS_SIG := CoreReactiveLaws.CORE_REACTIVE_LAWS_SIG.
 Module Type MONITOR_SIG := MonitorSig.MONITOR_SIG.

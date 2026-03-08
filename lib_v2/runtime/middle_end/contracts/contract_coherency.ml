@@ -241,7 +241,8 @@ let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> fo option) :
   | None -> n
   | Some inv ->
       let init_goal = shift_fo_backward_inputs ~is_input inv in
-      Ast_utils.add_new_coherency_goals n [ init_goal ]
+      if fo_mentions_var instrumentation_state_var init_goal then n
+      else Ast_utils.add_new_coherency_goals n [ init_goal ]
 
 let ensure_next_requires (n : Ast.node) : Ast.node =
   let inv_of_state = state_invariant_from_node n in
