@@ -265,3 +265,12 @@ eq q_{bad}` intégrée à la présentation de la spécification conditionnelle.
 - Validation :
   - `opam exec --switch=5.4.1+options -- dune build` OK
   - recompilation LaTeX du papier OK
+
+## 2026-03-08 — Review iteration 05 (alignment with mechanized soundness)
+- Produced `review_iteration_05.md` as a mini-review after correcting the soundness mismatch.
+- Verified that the paper now states soundness with both generated-triple validity and semantic truth of user invariants, in line with `specv2/rocq/Soundness.v`.
+- Verified that `GlobCorr` and `InvTrue` are defined before use in the Meta-Theory section.
+- Recompiled the paper successfully with `latexmk`; no new LaTeX issue introduced by this correction.
+
+
+- 2026-03-08: extraction des notations et macros de couleur dans definitions.tex pour centraliser les commandes du papier et fiabiliser les notations.
