@@ -2668,3 +2668,40 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
   - Why3/Z3 le prouve ;
   - `resettable_delay` reste entièrement validé.
 - Conclusion : le backend re-matérialise maintenant explicitement l'`InitialGoal` de support automate utilisé par le noyau Rocq, sans retomber sur le bug d'universalisation précédente.
+
+## 2026-03-08 — Généralisation Rocq aux mémoires initiales admissibles
+
+- Objectif :
+  - réaligner le noyau Rocq avec l’intuition Kairos selon laquelle la mémoire
+    initiale n’est pas une valeur totalement connue, mais appartient à une
+    classe d’états initiaux admissibles.
+
+- Refactoring du noyau :
+  - [`rocq/KairosOracle.v`](/Users/fredericdabrowski/Repos/kairos/rocq/KairosOracle.v)
+    - introduction de `prog_init_mem_ok : Mem -> Prop` dans `ProgramSemantics` ;
+    - ajout des variantes paramétrées par `m0` :
+      `cfg_at_from`, `step_at_from`, `out_at_from`, `run_trace_from`,
+      `ctx_at_from`, `run_product_state_from` ;
+    - reformulation des clauses, triples et théorèmes principaux sur tout
+      `m0` admissible ;
+    - conservation d’alias spécialisés sur `init_mem` pour compatibilité.
+
+- Réparations induites :
+  - [`rocq/DelayIntExample.v`](/Users/fredericdabrowski/Repos/kairos/rocq/DelayIntExample.v)
+    - réécriture des preuves trop dépendantes de l’ancienne présentation de
+      `cfg_at`, `out_at` et `run_trace` ;
+    - stabilisation sur `cfg_at_from` / `run_trace_from`.
+  - [`rocq/instances/DelayIntInstance.v`](/Users/fredericdabrowski/Repos/kairos/rocq/instances/DelayIntInstance.v)
+    - réalignement des preuves de cohérence de contexte sur `ctx_at_from` et
+      `run_trace_from`.
+
+- Alignement documentaire :
+  - [`rocq/INTENDED_THEOREM_AUDIT.md`](/Users/fredericdabrowski/Repos/kairos/rocq/INTENDED_THEOREM_AUDIT.md)
+    explicite maintenant que le théorème final quantifie sur une mémoire
+    initiale admissible.
+  - [`spec/rocq_oracle_model.tex`](/Users/fredericdabrowski/Repos/kairos/spec/rocq_oracle_model.tex)
+    introduit `InitMem`, l’idée de contexte initial partiellement contraint,
+    et reformule `InitCtx`, `TransRel`, puis le théorème final en conséquence.
+
+- Validation :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` : OK.

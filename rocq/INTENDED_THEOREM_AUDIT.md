@@ -40,6 +40,8 @@ Equivalently:
 
 - if the generated Hoare triples built from the generated clauses are valid,
 - if the program satisfies the accepted structural well-formedness conditions,
+- if the chosen initial memory belongs to the admissible initial-memory
+  predicate of the model,
 - if the input stream avoids `bad_A`,
 - then the program execution on this input avoids `bad_G`.
 
@@ -71,10 +73,13 @@ The current end theorem is still the expected one.
 At the final integration layer, we prove a conditional theorem of the form:
 
 - `AvoidA u -> AvoidG (run_trace u)`
+  (more explicitly: for every admissible initial memory `m0`,
+  `AvoidA u -> AvoidG (run_trace_from m0 u)`)
 
 under the following global proof assumptions:
 
 - the program satisfies the named well-formedness predicate of the model;
+- the chosen initial memory is admissible for the model;
 - every generated triple is semantically valid;
 
 See:
@@ -91,7 +96,8 @@ strictly weaker such as:
 
 The theorem still speaks about the program trace under admissible inputs, but
 it is explicitly conditional on both structural well-formedness of the modeled
-program and validity of the generated relational Hoare triples.
+program, admissibility of the initial memory, and validity of the generated
+relational Hoare triples.
 
 An intermediate proof step then derives, by triple coverage, that the
 generated clauses carried by these valid triples hold on the corresponding
@@ -233,6 +239,23 @@ Verdict:
 The right presentation in the kernel is therefore not a collection of
 scattered hypotheses, but a named predicate such as
 `WellFormedProgramModel`.
+
+### 5.1bis Initial memory admissibility
+
+The current kernel no longer fixes a single known initial memory. Instead, the
+theorem quantifies over an arbitrary initial memory `m0` satisfying the
+predicate `init_mem_ok`.
+
+This matches the intended Kairos reading much better:
+
+- the control state is fixed at initialization;
+- some ghost or monitor components may also be fixed;
+- the rest of the memory may remain unknown.
+
+Verdict:
+
+- aligned with the intended claim;
+- and strictly better than the earlier fixed-initial-memory model.
 
 ### 5.2 Deterministic transition selection
 

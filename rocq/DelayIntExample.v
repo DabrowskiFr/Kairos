@@ -75,10 +75,12 @@ Section RunFacts.
     intros u k.
     induction k as [|n IH].
     - reflexivity.
-    - simpl.
-      unfold cfg_at2 in IH |- *.
-      simpl in IH.
-      rewrite IH.
+    - unfold cfg_at2 in IH |- *.
+      simpl.
+      remember (KO.cfg_at paut SInit m0 pselect u (S n)) as cfg eqn:Hcfg.
+      destruct cfg as [s m].
+      rewrite IH in Hcfg.
+      inversion Hcfg; subst; clear Hcfg.
       reflexivity.
   Qed.
 
@@ -93,9 +95,9 @@ Section RunFacts.
     forall u k, out_at2 u (S k) = u k.
   Proof.
     intros u k.
-    unfold out_at2, KO.out_at, KO.step_at, KO.step.
+    unfold out_at2, KO.out_at, KO.out_at_from, KO.step_at, KO.step_at_from, KO.step.
     pose proof (cfg_at_succ_rf u k) as Hcfg.
-    unfold cfg_at2 in Hcfg.
+    unfold cfg_at2, KO.cfg_at in Hcfg.
     rewrite Hcfg.
     reflexivity.
   Qed.
@@ -154,10 +156,12 @@ Section AutomataProductFacts.
     intros u k.
     induction k as [|n IH].
     - reflexivity.
-    - simpl.
-      unfold cfg_at in IH |- *.
-      simpl in IH.
-      rewrite IH.
+    - unfold cfg_at in IH |- *.
+      simpl.
+      remember (KO.cfg_at paut SInit m0 pselect u (S n)) as cfg eqn:Hcfg.
+      destruct cfg as [s m].
+      rewrite IH in Hcfg.
+      inversion Hcfg; subst; clear Hcfg.
       reflexivity.
   Qed.
 
@@ -172,9 +176,9 @@ Section AutomataProductFacts.
     forall u k, out_at u (S k) = u k.
   Proof.
     intros u k.
-    unfold out_at, KO.out_at, KO.step_at, KO.step.
+    unfold out_at, KO.out_at, KO.out_at_from, KO.step_at, KO.step_at_from, KO.step.
     pose proof (cfg_at_succ u k) as Hcfg.
-    unfold cfg_at in Hcfg.
+    unfold cfg_at, KO.cfg_at in Hcfg.
     rewrite Hcfg.
     reflexivity.
   Qed.
@@ -190,9 +194,9 @@ Section AutomataProductFacts.
     forall u k, KO.out_at paut SInit m0 pselect u (S k) = u k.
   Proof.
     intros u k.
-    unfold KO.out_at, KO.step_at, KO.step.
+    unfold KO.out_at, KO.out_at_from, KO.step_at, KO.step_at_from, KO.step.
     pose proof (cfg_at_succ u k) as Hcfg.
-    unfold cfg_at in Hcfg.
+    unfold cfg_at, KO.cfg_at in Hcfg.
     rewrite Hcfg.
     reflexivity.
   Qed.
@@ -296,15 +300,15 @@ Section AutomataProductFacts.
 
   Lemma aut_state_G_succ :
     forall (u : KO.stream Input) k,
-      KO.aut_state_at_G G_aut_e select_G (KO.run_trace paut SInit m0 pselect u) (S k) = GRun (u k).
+      KO.aut_state_at_G G_aut_e select_G (KO.run_trace_from paut SInit pselect m0 u) (S k) = GRun (u k).
   Proof.
     intros u k.
-    remember (KO.run_trace paut SInit m0 pselect u) as w eqn:Hw.
+    remember (KO.run_trace_from paut SInit pselect m0 u) as w eqn:Hw.
     revert u Hw.
     induction k as [|n IH]; intros u Hw.
     - simpl.
       subst w.
-      unfold KO.run_trace.
+      unfold KO.run_trace_from.
       simpl.
       reflexivity.
     - change
@@ -314,8 +318,10 @@ Section AutomataProductFacts.
       specialize (IH u Hw).
       rewrite IH.
       subst w.
-      unfold KO.run_trace.
+      unfold KO.run_trace_from.
       simpl.
+      change (KO.out_at_from paut SInit pselect m0 u (S n))
+        with (KO.out_at paut SInit m0 pselect u (S n)).
       rewrite (out_at_ko_succ u n).
       rewrite Nat.eqb_refl.
       reflexivity.
@@ -336,7 +342,11 @@ Section AutomataProductFacts.
     destruct k as [|n].
     - simpl.
       discriminate.
-    - rewrite aut_state_G_succ.
+    - change
+        (KO.aut_state_at_G G_aut_e select_G (KO.run_trace paut SInit m0 pselect u) (S n))
+        with
+        (KO.aut_state_at_G G_aut_e select_G (KO.run_trace_from paut SInit pselect m0 u) (S n)).
+      rewrite aut_state_G_succ.
       discriminate.
   Qed.
 
@@ -357,10 +367,14 @@ Section AutomataProductFacts.
       {| KO.ps_prog := SRun; KO.ps_a := (AOk : KO.q A_aut); KO.ps_g := (GRun (u k) : KO.q G_aut) |}.
   Proof.
     intros u k.
-    unfold run_ps, KO.run_product_state.
+    unfold run_ps, KO.run_product_state, KO.run_product_state_from.
     pose proof (cfg_at_succ u k) as Hcfg.
-    unfold cfg_at in Hcfg.
-    rewrite Hcfg.
+    unfold cfg_at, KO.cfg_at in Hcfg.
+    remember (KO.cfg_at_from paut SInit pselect m0 u (S k)) as cfg eqn:Hcfg'.
+    destruct cfg as [s m].
+    rewrite Hcfg in Hcfg'.
+    inversion Hcfg'; subst; clear Hcfg'.
+    inversion Hcfg; subst; clear Hcfg.
     rewrite (aut_state_A_all_ok u (S k)).
     rewrite (aut_state_G_succ u k).
     reflexivity.

@@ -46,8 +46,8 @@ Module Program <: PROGRAM_LAYER_SIG.
     forall u k, cur_input (ctx_at u k) = u k.
   Proof.
     intros u k.
-    unfold cur_input, ctx_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m].
+    unfold cur_input, ctx_at, KO.ctx_at, KO.ctx_at_from.
+    destruct (KO.cfg_at_from DelayIntProof.paut init_ctrl DelayIntProof.pselect init_mem u k) as [c m].
     reflexivity.
   Qed.
 
@@ -55,8 +55,8 @@ Module Program <: PROGRAM_LAYER_SIG.
     forall u k, (cur_ctrl (ctx_at u k), cur_mem (ctx_at u k)) = cfg_at u k.
   Proof.
     intros u k.
-    unfold cur_ctrl, cur_mem, ctx_at, cfg_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m].
+    unfold cur_ctrl, cur_mem, ctx_at, cfg_at, KO.ctx_at, KO.ctx_at_from, KO.cfg_at.
+    destruct (KO.cfg_at_from DelayIntProof.paut init_ctrl DelayIntProof.pselect init_mem u k) as [c m].
     reflexivity.
   Qed.
 
@@ -64,11 +64,11 @@ Module Program <: PROGRAM_LAYER_SIG.
     forall u k, run_trace u k = (cur_input (ctx_at u k), cur_output (ctx_at u k)).
   Proof.
     intros u k.
-    unfold run_trace, KO.run_trace.
-    unfold cur_input, cur_output, ctx_at, KO.ctx_at.
-    destruct (KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect u k) as [c m] eqn:Hcfg.
+    unfold run_trace, KO.run_trace, KO.run_trace_from.
+    unfold cur_input, cur_output, ctx_at, KO.ctx_at, KO.ctx_at_from.
+    destruct (KO.cfg_at_from DelayIntProof.paut init_ctrl DelayIntProof.pselect init_mem u k) as [c m] eqn:Hcfg.
     simpl.
-    unfold KO.out_at, KO.step_at, KO.step.
+    unfold KO.out_at, KO.out_at_from, KO.step_at, KO.step_at_from, KO.step.
     rewrite Hcfg.
     reflexivity.
   Qed.
