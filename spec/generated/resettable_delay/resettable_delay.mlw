@@ -327,7 +327,7 @@ module Resettable_delay
     }
     (* User contracts coherency *)
     requires { [@origin:compatibility]
-               [@rid:22]
+               [@rid:23]
                (((vars.st = Run) /\ (reset = 1))
                   ->
                   ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
@@ -572,7 +572,7 @@ module Resettable_delay
     }
     (* User contracts coherency *)
     requires { [@origin:compatibility]
-               [@rid:24]
+               [@rid:25]
                (((vars.st = Run) /\ (reset = 0))
                   ->
                   ((vars.__pre_k1_reset = 1) -> (vars.m = 0))
@@ -583,7 +583,7 @@ module Resettable_delay
     }
     (* Other *)
     ensures { [@origin:other]
-              [@wid:26]
+              [@wid:27]
               (((old(vars.st) = Init) /\ (reset = 1))
                  ->
                  (old
@@ -630,7 +630,7 @@ module Resettable_delay
                          (not (vars.y = 0))))) }
     
     ensures { [@origin:other]
-              [@wid:27]
+              [@wid:28]
               (((old(vars.st) = Init) /\ (reset = 1))
                  ->
                  (old
@@ -671,7 +671,7 @@ module Resettable_delay
                  (vars.m = x)) }
     
     ensures { [@origin:other]
-              [@wid:28]
+              [@wid:29]
               (((old(vars.st) = Init) /\ (reset = 0))
                  ->
                  (old
@@ -702,7 +702,7 @@ module Resettable_delay
                  (vars.m = x)) }
     
     ensures { [@origin:other]
-              [@wid:29]
+              [@wid:30]
               (((old(vars.st) = Run) /\ (reset = 1))
                  ->
                  (old
@@ -977,7 +977,7 @@ module Resettable_delay
                          (vars.__pre_k1_reset = 0)))) }
     
     ensures { [@origin:other]
-              [@wid:30]
+              [@wid:31]
               (((old(vars.st) = Run) /\ (reset = 1))
                  ->
                  (old
@@ -1214,7 +1214,7 @@ module Resettable_delay
                  (vars.m = x)) }
     
     ensures { [@origin:other]
-              [@wid:31]
+              [@wid:32]
               (((old(vars.st) = Run) /\ (reset = 0))
                  ->
                  (old
@@ -1489,7 +1489,7 @@ module Resettable_delay
                          (vars.__pre_k1_reset = 0)))) }
     
     ensures { [@origin:other]
-              [@wid:32]
+              [@wid:33]
               (((old(vars.st) = Run) /\ (reset = 0))
                  ->
                  (old
@@ -1985,4 +1985,14 @@ module Resettable_delay
      | _ -> ()
      end);
     ()
+  
+  goal coherency_goal_1:
+    [@wid:34]
+    (forall vars : vars, reset : int, x : int.
+       [@origin:coherency]
+       (((vars.st = Init) /\ (vars.__aut_state = Aut0))
+          ->
+          true
+          ->
+          (vars.__aut_state = Aut0)))
 end

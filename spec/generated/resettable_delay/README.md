@@ -72,3 +72,17 @@ opam exec --switch=5.4.1+options -- why3 -C "$tmpconf" prove \
 ```
 
 - with this command, Why3 exits successfully on the example (`EXIT=0`).
+
+The generated Why3 file now contains an explicit initial automaton-support goal:
+
+```why3
+goal coherency_goal_1:
+  forall vars : vars, reset : int, x : int.
+    ((vars.st = Init) /\ (vars.__aut_state = Aut0)) ->
+    true ->
+    (vars.__aut_state = Aut0)
+```
+
+This is the sound backend counterpart of the Rocq `InitialGoal` for automaton
+support. The previous unsound shape `forall vars. __aut_state = Aut0` is no
+longer emitted.

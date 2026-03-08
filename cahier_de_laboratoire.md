@@ -2655,3 +2655,16 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 
 - `spec/rocq_oracle_model.tex`
   - remplacement de l’extrait partiel de `resettable_delay` par le nœud Kairos complet afin de montrer explicitement la syntaxe du langage source.
+## 2026-03-08 — Réintroduction saine de l'initialisation du support automate
+
+- Contexte : pour faire passer `resettable_delay`, l'émission du but initial de support automate avait été désactivée car la traduction Why3 précédente produisait un but universellement quantifié faux (`forall vars. __aut_state = Aut0`).
+- Diagnostic : le problème ne venait pas du besoin de preuve lui-même, mais du fait que les `coherency_goals` init étaient compilés comme buts universels nus, sans garde initiale.
+- Correction retenue :
+  - réémission du goal init de support automate dans [`lib_v2/runtime/middle_end/instrumentation/instrumentation.ml`](/Users/fredericdabrowski/Repos/kairos/lib_v2/runtime/middle_end/instrumentation/instrumentation.ml) comme fait `FImp(FTrue, __aut_state = Aut0)` ;
+  - modification de [`lib_v2/runtime/backend/emit.ml`](/Users/fredericdabrowski/Repos/kairos/lib_v2/runtime/backend/emit.ml) pour compiler les init goals sous une garde initiale explicite `st = Init /\ __aut_state = Aut0`.
+- Résultat :
+  - le but initial réapparaît dans le Why3 généré sous la forme saine
+    `((vars.st = Init) /\\ (vars.__aut_state = Aut0)) -> (vars.__aut_state = Aut0)` ;
+  - Why3/Z3 le prouve ;
+  - `resettable_delay` reste entièrement validé.
+- Conclusion : le backend re-matérialise maintenant explicitement l'`InitialGoal` de support automate utilisé par le noyau Rocq, sans retomber sur le bug d'universalisation précédente.

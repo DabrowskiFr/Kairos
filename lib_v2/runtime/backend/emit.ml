@@ -194,13 +194,32 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
     let goals = n.attrs.coherency_goals in
     if goals = [] then []
     else
+      let init_guard =
+        let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state))) in
+        let mon_init =
+          match mon_state_ctors with
+          | first :: _ -> [ term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 first))) ]
+          | [] -> []
+        in
+        let terms = st_init :: mon_init in
+        match terms with
+        | [] -> None
+        | [ t ] -> Some t
+        | t :: rest -> Some (List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest)
+      in
+      let is_init_goal = function FImp (FTrue, _) -> true | _ -> false in
       List.mapi
         (fun i (f : Ast.fo_o) ->
           let wid = Provenance.fresh_id () in
           Provenance.add_parents ~child:wid ~parents:[ f.oid ];
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
           let origin_attr = attr_for_label "User contracts coherency" in
-          let base = compile_fo_term env f.value in
+          let base =
+            let base = compile_fo_term env f.value in
+            if is_init_goal f.value then
+              match init_guard with Some g -> mk_term (Tbinop (g, Dterm.DTimplies, base)) | None -> base
+            else base
+          in
           let base = mk_term (Tattr (ATstr origin_attr, base)) in
           let quantified = mk_term (Tquant (Dterm.DTforall, inputs, [], base)) in
           let term = mk_term (Tattr (ATstr wid_attr, quantified)) in

@@ -609,13 +609,20 @@ let make_contract_logger () : (reason:string -> t:Abs.transition -> fo -> unit) 
       prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_fo f))
 
 let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : Ast.node =
-  let _ = ctx in
-  (* The concrete Why3 backend quantifies coherency goals over arbitrary pre-state
-     valuations. A bare goal __aut_state = Aut0 is therefore not an initialization
-     theorem but an unsound universally quantified formula. Until initialization is
-     represented explicitly in the backend VC layer, we do not emit a separate
-     automaton-support init goal here. *)
-  n
+  match ctx.states with
+  | [] -> n
+  | _ :: _ ->
+      (* This goal is marked as an init-only coherency fact (FTrue -> body).
+         The Why3 backend must interpret such goals under the concrete
+         initialization guard, not as universally quantified facts over
+         arbitrary pre-state valuations. *)
+      let body =
+        FRel
+          ( HNow (mk_var instrumentation_state_name),
+            REq,
+            HNow (instrumentation_state_expr 0) )
+      in
+      Ast_utils.add_new_coherency_goals n [ FImp (FTrue, body) ]
 
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
   let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in
