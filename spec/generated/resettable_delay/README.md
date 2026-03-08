@@ -47,7 +47,7 @@ Summary of the current outputs:
 - reachable product states: `5`
 - generated clauses: `22`
   - safety: `3`
-  - helper: `19`
+  - coherence: `19`
   - init goals: `1`
   - propagation: `18`
   - user invariant: `6`

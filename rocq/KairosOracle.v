@@ -462,12 +462,6 @@ Section Model.
     [ (InitialGoal, init_node_inv_obligation);
       (InitialGoal, init_support_automaton_obligation) ].
 
-  (* Génération locale depuis un pas produit. *)
-  Definition gen_from_product_step (ps : ProductStep) : list generated_item :=
-    [ (ObjectiveNoBad, prod_obligation ps);
-      (AutomatonSupport, support_automaton_obligation ps);
-      (UserInvariant, node_inv_obligation ps) ].
-
   (* Relation de génération (niveau preuve):
      l'obligation est générée depuis un pas produit bien formé. *)
   Inductive GeneratedBy : origin -> Clause -> Prop :=
@@ -475,11 +469,19 @@ Section Model.
       forall o obl,
         In (o, obl) init_generated_items ->
         GeneratedBy o obl
-  | GeneratedBy_product :
-      forall o obl ps,
+  | GeneratedBy_node_inv :
+      forall ps,
         product_step_wf ps ->
-        In (o, obl) (gen_from_product_step ps) ->
-        GeneratedBy o obl
+        GeneratedBy UserInvariant (node_inv_obligation ps)
+  | GeneratedBy_support :
+      forall ps,
+        product_step_wf ps ->
+        GeneratedBy AutomatonSupport (support_automaton_obligation ps)
+  | GeneratedBy_no_bad :
+      forall ps,
+        product_step_wf ps ->
+        product_step_is_bad_target ps ->
+        GeneratedBy ObjectiveNoBad (prod_obligation ps)
   .
 
   (* Ensemble des obligations générées (oubliant origine/transition). *)
@@ -529,6 +531,23 @@ Section Model.
           transition_rel t ctx ctx' ->
           ht_pre ht ctx ->
           ht_post ht ctx'
+    end.
+
+  Definition TripleValidOnAdmissibleRuns (ht : RelHoareTriple) : Prop :=
+    match ht_target ht with
+    | TripleInit =>
+        forall m0 u,
+          init_mem_ok m0 ->
+          avoids_bad_A u ->
+          ht_pre ht (ctx_at_from m0 u 0) ->
+          ht_post ht (ctx_at_from m0 u 0)
+    | TripleStep t =>
+        forall m0 u k,
+          init_mem_ok m0 ->
+          avoids_bad_A u ->
+          transition_realized_at m0 u k t ->
+          ht_pre ht (ctx_at_from m0 u k) ->
+          ht_post ht (ctx_at_from m0 u (S k))
     end.
 
   Definition init_node_inv_triple : RelHoareTriple :=
@@ -610,6 +629,7 @@ Section Model.
   | GeneratedTriple_no_bad :
       forall ps,
         product_step_wf ps ->
+        product_step_is_bad_target ps ->
         GeneratedTripleBy ObjectiveNoBad (no_bad_triple ps).
 
   Definition GeneratedTriple (ht : RelHoareTriple) : Prop :=
@@ -938,6 +958,27 @@ Section Model.
     reflexivity.
   Qed.
 
+  Local Lemma matched_step_prog_target_correct :
+    forall m0 u k ps,
+      transition_realized_at m0 u k (pst_trans ps) ->
+      ctx_matches_ps (ctx_at_from m0 u k) ps ->
+      ps_prog (product_step_target ps) = cur_state (ctx_at_from m0 u (S k)).
+  Proof.
+    intros m0 u k ps Htr Hmatch.
+    unfold transition_realized_at in Htr.
+    destruct (cfg_at_from m0 u k) as [s m] eqn:Hcfg.
+    simpl in Htr.
+    destruct Hmatch as [_Hstate [_Hmem [_Hin _Hen]]].
+    unfold product_step_target.
+    simpl.
+    rewrite <- Htr.
+    unfold ctx_at_from.
+    simpl.
+    rewrite Hcfg.
+    unfold step.
+    reflexivity.
+  Qed.
+
   Local Fact run_product_state_0 :
     forall m0 u, run_product_state_from m0 u 0 = init_product_state.
   Proof.
@@ -994,6 +1035,21 @@ Section Model.
     reflexivity.
   Qed.
 
+  Local Lemma bad_local_step_implies_not_avoids_bad_G :
+    forall m0 u k,
+      bad_local_step m0 u k ->
+      ~ avoids_bad_G (run_trace_from m0 u).
+  Proof.
+    intros m0 u k [ps [Hwf [Hreal Hbad]]].
+    intro HG.
+    destruct (@realized_step_target_correct m0 u k ps Hwf Hreal) as [_ Hg].
+    unfold product_step_is_bad_target in Hbad.
+    destruct Hbad as [_ Hgbad].
+    specialize (HG (S k)).
+    rewrite <- Hg in HG.
+    exact (HG Hgbad).
+  Qed.
+
   Local Lemma generated_init_node_inv_obligation :
     Generated init_node_inv_obligation.
   Proof.
@@ -1027,12 +1083,8 @@ Section Model.
     intros ps Hwf.
     unfold Generated.
     exists UserInvariant.
-    eapply GeneratedBy_product with (ps := ps).
-    - exact Hwf.
-    - unfold gen_from_product_step.
-      simpl.
-      right; right; left.
-      reflexivity.
+    apply GeneratedBy_node_inv.
+    exact Hwf.
   Qed.
 
   Local Lemma generated_support_automaton_obligation :
@@ -1043,12 +1095,8 @@ Section Model.
     intros ps Hwf.
     unfold Generated.
     exists AutomatonSupport.
-    eapply GeneratedBy_product with (ps := ps).
-    - exact Hwf.
-    - unfold gen_from_product_step.
-      simpl.
-      right; left.
-      reflexivity.
+    apply GeneratedBy_support.
+    exact Hwf.
   Qed.
 
   Local Lemma generated_init_node_inv_triple :
@@ -1092,12 +1140,13 @@ Section Model.
   Local Lemma generated_no_bad_triple :
     forall ps,
       product_step_wf ps ->
+      product_step_is_bad_target ps ->
       GeneratedTriple (no_bad_triple ps).
   Proof.
-    intros ps Hwf.
+    intros ps Hwf Hbad.
     unfold GeneratedTriple.
     exists ObjectiveNoBad.
-    constructor; exact Hwf.
+    constructor; assumption.
   Qed.
 
   (* ---------------------------------------------------------------------- *)
@@ -1185,7 +1234,7 @@ Section Model.
       exact Hnext.
   Qed.
 
-  Local Proposition helper_context_holds_on_run :
+  Local Proposition coherence_context_holds_on_run :
     forall m0 u k ps,
       init_mem_ok m0 ->
       avoids_bad_A u ->
@@ -1206,6 +1255,17 @@ Section Model.
       exact Hsup.
   Qed.
 
+  Local Proposition helper_context_holds_on_run :
+    forall m0 u k ps,
+      init_mem_ok m0 ->
+      avoids_bad_A u ->
+      product_step_realizes_at m0 u k ps ->
+      node_inv (cur_state (ctx_at_from m0 u k)) (ctx_at_from m0 u k)
+      /\ eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from ps)).
+  Proof.
+    exact coherence_context_holds_on_run.
+  Qed.
+
   (* ---------------------------------------------------------------------- *)
   (* Stage 4: a dangerous realized step falsifies a generated clause         *)
   (* ---------------------------------------------------------------------- *)
@@ -1220,21 +1280,18 @@ Section Model.
       exists obl, Generated obl /\ ~ obl (ctx_at_from m0 u k).
   Proof.
     intros m0 u k Hm0 HA Hbad.
-    destruct Hbad as [ps [Hwf [Hreal _Hbadps]]].
+    destruct Hbad as [ps [Hwf [Hreal Hbadps]]].
     exists (prod_obligation ps).
     split.
     unfold Generated.
     exists ObjectiveNoBad.
-    eapply GeneratedBy_product with (ps := ps).
+    eapply GeneratedBy_no_bad.
     - exact Hwf.
-    - unfold gen_from_product_step.
-      simpl.
-      left.
-      reflexivity.
+    - exact Hbadps.
     - unfold prod_obligation.
       intro Hobl.
       pose proof (@ctx_at_matches_realized_ps m0 u k ps Hwf Hreal) as Hmatch.
-      pose proof (@helper_context_holds_on_run m0 u k ps Hm0 HA Hreal) as [Hinv Hsup].
+    pose proof (@coherence_context_holds_on_run m0 u k ps Hm0 HA Hreal) as [Hinv Hsup].
       apply (Hobl Hinv Hsup Hmatch).
   Qed.
 
@@ -1261,6 +1318,7 @@ Section Model.
     split.
     - apply generated_no_bad_triple.
       exact Hwf.
+      exact Hbadps.
     - exists ps.
       split; [exact Hwf |].
       split; [exact Hreal |].
@@ -1354,6 +1412,179 @@ Section Model.
     apply triple_valid_conditional_correctness_with_node_inv.
     exact Hm0.
     exact HA.
+  Qed.
+
+  (* ---------------------------------------------------------------------- *)
+  (* Exposed theorems hiding the initial-memory witness                     *)
+  (* ---------------------------------------------------------------------- *)
+  Definition avoids_bad_G_from_admissible_init (u : stream InputVal) : Prop :=
+    forall m0, init_mem_ok m0 -> avoids_bad_G (run_trace_from m0 u).
+
+  Definition node_inv_holds_from_admissible_init (u : stream InputVal) : Prop :=
+    forall m0, init_mem_ok m0 ->
+      forall k, node_inv (cur_state (ctx_at_from m0 u k)) (ctx_at_from m0 u k).
+
+  Definition globally_correct : Prop :=
+    forall m0 u, init_mem_ok m0 -> avoids_bad_A u -> avoids_bad_G (run_trace_from m0 u).
+
+  Definition support_true_on_admissible_runs : Prop :=
+    forall m0 u k,
+      init_mem_ok m0 ->
+      avoids_bad_A u ->
+      eval_fo (ctx_at_from m0 u k) (support_automaton_fo (run_product_state_from m0 u k)).
+
+  Definition support_exact_on_admissible_runs : Prop :=
+    forall m0 u k ps,
+      init_mem_ok m0 ->
+      avoids_bad_A u ->
+      eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from ps)) ->
+      pst_from ps = run_product_state_from m0 u k.
+
+  Definition node_invariants_true_on_admissible_runs : Prop :=
+    forall m0 u k,
+      init_mem_ok m0 ->
+      avoids_bad_A u ->
+      node_inv (cur_state (ctx_at_from m0 u k)) (ctx_at_from m0 u k).
+
+  Theorem validation_conditional_correctness :
+    WellFormedProgramModel ->
+    forall u, avoids_bad_A u -> avoids_bad_G_from_admissible_init u.
+  Proof.
+    intros Hwf u HA m0 Hm0.
+    apply triple_valid_conditional_correctness_under_wf.
+    - exact Hwf.
+    - exact Hm0.
+    - exact HA.
+  Qed.
+
+  Theorem validation_conditional_correctness_with_node_inv :
+    WellFormedProgramModel ->
+    forall u,
+      avoids_bad_A u ->
+      node_inv_holds_from_admissible_init u
+      /\ avoids_bad_G_from_admissible_init u.
+  Proof.
+    intros Hwf u HA.
+    split.
+    - intros m0 Hm0 k.
+      pose proof (triple_valid_conditional_correctness_with_node_inv_under_wf
+                    Hwf (m0 := m0) (u := u) Hm0 HA)
+        as [Hinv _].
+      exact (Hinv k).
+    - intros m0 Hm0.
+      pose proof (triple_valid_conditional_correctness_with_node_inv_under_wf
+                    Hwf (m0 := m0) (u := u) Hm0 HA)
+        as [_ HG].
+      exact HG.
+  Qed.
+
+  Theorem relative_completeness_no_bad :
+    WellFormedProgramModel ->
+    globally_correct ->
+    support_exact_on_admissible_runs ->
+    forall ps,
+      product_step_wf ps ->
+      product_step_is_bad_target ps ->
+      TripleValidOnAdmissibleRuns (no_bad_triple ps).
+  Proof.
+    intros _wf Hglob Hsupport ps Hwf Hbadtgt.
+    unfold TripleValidOnAdmissibleRuns, no_bad_triple, FalseClause.
+    simpl.
+    intros m0 u k Hm0 HA Htr Hpre.
+    destruct Hpre as [Hmatch [_Hinv Hsup]].
+    assert (Hfrom : pst_from ps = run_product_state_from m0 u k).
+    { eapply Hsupport; eauto. }
+    assert (Hreal : product_step_realizes_at m0 u k ps).
+    { unfold product_step_realizes_at.
+      destruct (cfg_at_from m0 u k) as [s m] eqn:Hcfg.
+      destruct Hmatch as [_Hstate [Hmem [Hin _Hen]]].
+      unfold ctx_at_from in Hmem, Hin.
+      simpl in Hmem, Hin.
+      rewrite Hcfg in Hmem, Hin.
+      split; [exact Hfrom |].
+      split; [symmetry; exact Hmem |].
+      split; [symmetry; exact Hin |].
+      unfold transition_realized_at in Htr.
+      rewrite Hcfg in Htr.
+      symmetry; exact Htr. }
+    assert (Hbad : bad_local_step m0 u k).
+    { exists ps. split; [exact Hwf |]. split; [exact Hreal | exact Hbadtgt]. }
+    exfalso.
+    apply (@bad_local_step_implies_not_avoids_bad_G m0 u k Hbad).
+    apply Hglob; assumption.
+  Qed.
+
+  Theorem relative_completeness_automaton_support :
+    WellFormedProgramModel ->
+    support_true_on_admissible_runs ->
+    support_exact_on_admissible_runs ->
+    TripleValidOnAdmissibleRuns init_support_automaton_triple
+    /\
+    forall ps,
+      product_step_wf ps ->
+      TripleValidOnAdmissibleRuns (support_automaton_triple ps).
+  Proof.
+    intros _wf Htrue Hexact.
+    split.
+    - unfold TripleValidOnAdmissibleRuns, init_support_automaton_triple, TrueClause.
+      simpl.
+      intros m0 u Hm0 HA _.
+      change (eval_fo (ctx_at_from m0 u 0)
+                (support_automaton_fo (run_product_state_from m0 u 0))).
+      rewrite run_product_state_0.
+      apply Htrue; assumption.
+    - intros ps Hwf.
+      unfold TripleValidOnAdmissibleRuns, support_automaton_triple.
+      simpl.
+      intros m0 u k Hm0 HA Htr Hpre.
+      destruct Hpre as [Hmatch Hsup].
+      assert (Hfrom : pst_from ps = run_product_state_from m0 u k).
+      { eapply Hexact; eauto. }
+      assert (Hreal : product_step_realizes_at m0 u k ps).
+      { unfold product_step_realizes_at.
+        destruct (cfg_at_from m0 u k) as [s m] eqn:Hcfg.
+        destruct Hmatch as [_Hstate [Hmem [Hin _Hen]]].
+        unfold ctx_at_from in Hmem, Hin.
+        simpl in Hmem, Hin.
+        rewrite Hcfg in Hmem, Hin.
+        split; [exact Hfrom |].
+        split; [symmetry; exact Hmem |].
+        split; [symmetry; exact Hin |].
+        unfold transition_realized_at in Htr.
+        rewrite Hcfg in Htr.
+        symmetry; exact Htr. }
+      pose proof (@realized_step_target_matches_run_product_successor m0 u k ps Hwf Hreal) as Htgt.
+      pose proof (Htrue m0 u (S k) Hm0 HA) as Hnext.
+      rewrite <- Htgt in Hnext.
+      exact Hnext.
+    Qed.
+
+  Theorem relative_completeness_user_invariant :
+    WellFormedProgramModel ->
+    node_invariants_true_on_admissible_runs ->
+    TripleValidOnAdmissibleRuns init_node_inv_triple
+    /\
+    forall ps,
+      product_step_wf ps ->
+      TripleValidOnAdmissibleRuns (node_inv_triple ps).
+  Proof.
+    intros _wf Htrue.
+    split.
+    - unfold TripleValidOnAdmissibleRuns, init_node_inv_triple, TrueClause.
+      simpl.
+      intros m0 u Hm0 HA _.
+      change (node_inv init_state (ctx_at_from m0 u 0)).
+      exact (Htrue m0 u 0 Hm0 HA).
+    - intros ps Hwf.
+      unfold TripleValidOnAdmissibleRuns, node_inv_triple.
+      unfold node_inv_post.
+      simpl.
+      intros m0 u k Hm0 HA Htr Hpre.
+      change (node_inv (ps_prog (product_step_target ps)) (ctx_at_from m0 u (S k))).
+      destruct Hpre as [Hmatch _Hinv].
+      pose proof (@matched_step_prog_target_correct m0 u k ps Htr Hmatch) as Hp.
+      rewrite Hp.
+      exact (Htrue m0 u (S k) Hm0 HA).
   Qed.
 
   Theorem triple_valid_conditional_correctness_default :

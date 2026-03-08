@@ -2705,3 +2705,55 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 
 - Validation :
   - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` : OK.
+
+## 2026-03-08 — Théorèmes de complétude relative dans le noyau Rocq
+
+- Objectif :
+  - ajouter au noyau Rocq, en plus du théorème principal de correction, les
+    trois résultats complémentaires discutés pendant l’audit :
+    complétude relative de `NoBad`, validité relative des triples de support
+    automate, et validité relative des triples d’invariant utilisateur.
+
+- Refactoring du noyau :
+  - [`rocq/KairosOracle.v`](/Users/fredericdabrowski/Repos/kairos/rocq/KairosOracle.v)
+    - introduction de `TripleValidOnAdmissibleRuns` pour raisonner directement
+      sur les runs admissibles du modèle ;
+    - correction de `GeneratedBy` et `GeneratedTripleBy` pour que les clauses
+      et triples `NoBad` ne soient générés que pour les pas réellement
+      dangereux (`product_step_is_bad_target`) ;
+    - ajout des hypothèses structurées
+      `globally_correct`, `support_true_on_admissible_runs`,
+      `support_exact_on_admissible_runs`,
+      `node_invariants_true_on_admissible_runs` ;
+    - ajout des trois théorèmes :
+      - `relative_completeness_no_bad`,
+      - `relative_completeness_automaton_support`,
+      - `relative_completeness_user_invariant`.
+
+- Réparations de structure :
+  - [`rocq/path/Step2GeneratedClauses.v`](/Users/fredericdabrowski/Repos/kairos/rocq/path/Step2GeneratedClauses.v)
+    - suppression de la référence morte à `gen_from_product_step` ;
+    - exposition de `init_generated_items` à la place, pour rester cohérent
+      avec l’API clause-centric actuelle.
+
+- Observations :
+  - la mise au point a mis en évidence un décalage réel : l’ancienne
+    génération `NoBad` couvrait encore tous les pas bien formés, alors que
+    l’intention de preuve et l’implémentation ne visent que les pas dangereux ;
+  - ce point est maintenant corrigé dans le noyau.
+
+- Validation :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` : OK.
+  - `opam exec --switch=5.4.1+options -- dune build` : OK.
+
+- Retombée documentaire :
+  - [`spec/rocq_oracle_model.tex`](/Users/fredericdabrowski/Repos/kairos/spec/rocq_oracle_model.tex)
+    expose maintenant explicitement les trois résultats de complétude relative :
+    - `NoBad`,
+    - support automate,
+    - invariant utilisateur ;
+  - la présentation précise aussi que les clauses et triples `NoBad` ne sont
+    générés que pour les pas dangereux, alors que les helpers restent générés
+    sur les pas bien formés ;
+  - PDF recompilé avec
+    `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` : OK.

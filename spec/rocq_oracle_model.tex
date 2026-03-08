@@ -161,7 +161,7 @@ The paper makes four contributions.
   triples whose validity suffices for the conditional safety theorem.
 \item It reconstructs a readable proof architecture, aligned with the Rocq
   development, that derives the global theorem from product progression,
-  helper propagation, clause coverage, and triple coverage.
+  coherence propagation, clause coverage, and triple coverage.
 \end{enumerate}
 
 \paragraph{What is non-standard here.}
@@ -984,7 +984,7 @@ This is the primitive matching relation of the Rocq kernel
 \end{itemize}
 This decomposition is important: the elementary \texttt{NoBad} clause is only a
 clause over \(\TickCtx\); the stronger automaton facts used to discharge it are
-supplied by helper triples.
+supplied by coherence triples.
 \end{remark}
 
 \subsection{Obligation Associated with a Dangerous Step}
@@ -1189,7 +1189,7 @@ We write
 \[
 \Support : \mathsf{ProdState} \to (\TickCtx \to \mathsf{Prop})
 \]
-for the generated helper predicate attached to product states. Intuitively,
+for the generated coherence predicate attached to product states. Intuitively,
 \(\Support(x)\) collects the automaton-derived local facts that are later used
 to justify transition preconditions while the product is at state \(x\).
 \end{definition}
@@ -1283,7 +1283,7 @@ The core generation relation contains five canonical forms of triples:
   \{ \Match(\cdot,p) \land \Support(\mathsf{source}(p)) \}\;
   \{ \Support(\mathsf{target}(p)) \};
   \]
-\item for each well-formed product step \(p\), a safety triple:
+\item for each dangerous well-formed product step \(p\), a safety triple:
   \[
   \mathsf{NoBadTriple}_p :
   \mathsf{Step}(t_p)\;
@@ -1313,12 +1313,14 @@ core generation relation contains:
 \begin{itemize}[leftmargin=1.4em]
 \item the two initial clauses, for node invariants and automaton support;
 \item for each well-formed product step \(p\), one user-invariant propagation
-  clause, one automaton-support propagation clause, and one objective clause
+  clause and one automaton-support propagation clause;
+\item for each dangerous well-formed product step \(p\), one objective clause
   \(\mathsf{NoBad}_p(\ctx)=\neg \Match(\ctx,p)\).
 \end{itemize}
 Similarly, \(\GeneratedTriple(ht)\) means that \(ht\) is one of the five
 canonical triples listed above, generated either from the initial state or from
-a well-formed product step.
+a well-formed product step, with the restriction that \texttt{NoBad} triples
+are generated only for dangerous steps.
 \end{definition}
 
 \subsection{Conceptual Algorithm}
@@ -1358,15 +1360,15 @@ a well-formed product step.
 The point of this procedural presentation is that \emph{NoBad clauses are not
 expected to be discharged in isolation}. The backend proves them inside
 transition-level Hoare bundles, under extra local assumptions, and those
-assumptions are themselves justified by generated helper clauses. The local
-proof architecture therefore has one safety layer and one helper layer:
+assumptions are themselves justified by generated coherence clauses. The local
+proof architecture therefore has one safety layer and one coherence layer:
 \begin{enumerate}[leftmargin=1.4em]
-\item \(\mathsf{Helper/InitGoal}\): establish, at the initial tick, both the
+\item \(\mathsf{Coherence/InitGoal}\): establish, at the initial tick, both the
   user-invariant facts and the automaton-support facts;
-\item \(\mathsf{Helper/Propagation}\): propagate, from one tick to the next,
+\item \(\mathsf{Coherence/Propagation}\): propagate, from one tick to the next,
   both the user-invariant facts and the automaton-support facts;
 \item \(\mathsf{Safety/NoBad}\): exclude dangerous product steps under this
-  helper context.
+  coherence context.
 \end{enumerate}
 
 In the current Rocq core, this architecture is reconstructed in two steps.
@@ -1415,20 +1417,20 @@ The backend does not normally send this clause in isolation to the external
 tool. The kernel first turns it into a relational Hoare triple whose
 postcondition is \(\bot\) on the dangerous branch; the implementation then
 places that triple inside a transition-level proof bundle together with the
-helper preconditions and postconditions needed to make it provable.
+coherence preconditions and postconditions needed to make it provable.
 These clauses are sufficient to conclude that the product never reaches
-\(bad_G\), but they are not expected to be discharged without helper clauses.
+\(bad_G\), but they are not expected to be discharged without coherence clauses.
 
 \paragraph{InitialGoal.}
 These clauses provide the base case of the induction. They establish that
-the helper context already holds at tick \(0\). Concretely, this includes:
+the coherence context already holds at tick \(0\). Concretely, this includes:
 \begin{itemize}[leftmargin=1.4em]
 \item initialization of the user invariant attached to the initial node;
 \item initialization of the automaton-support facts attached to the initial
   product state.
 \end{itemize}
-In the implementation, they correspond to explicit initial helper triples grouped
-in the same initial helper bundle. They could equivalently be encoded by a
+In the implementation, they correspond to explicit initial coherence triples grouped
+in the same initial coherence bundle. They could equivalently be encoded by a
 ghost predecessor carrying \(\top\), but keeping them explicit is simpler and
 clearer.
 
@@ -1443,7 +1445,7 @@ implementation injects:
 So the predecessor proves the fact that the successor later consumes as
 its own precondition. In the Rocq kernel this is expressed by a relational
 Hoare triple whose postcondition talks about the successor context. This is one
-\emph{subfamily} of the common helper propagation layer. These clauses must be
+\emph{subfamily} of the common coherence propagation layer. These clauses must be
 bundled together with automaton
 support clauses for the same transition, because each side may help prove the
 other.
@@ -1459,11 +1461,11 @@ preconditions. There are two important subcases in the implementation:
   transition and current guarantee state, one of the locally compatible
   \((A\text{-guard} \land G\text{-guard})\) disjuncts must hold.
 \end{itemize}
-This is the second \emph{subfamily} of the common helper propagation layer.
+This is the second \emph{subfamily} of the common coherence propagation layer.
 Again, in the Rocq kernel these clauses feed relational Hoare triples whose
 postconditions speak about the successor context. They are not meant to live in
 proof objects separate from user
-invariants: they must be discharged in the same helper bundles.
+invariants: they must be discharged in the same coherence bundles.
 
 Transition-level user contracts remain visible in the backend as separate
 \texttt{transition\_requires} and \texttt{transition\_ensures} families, but
@@ -1471,7 +1473,7 @@ they do not belong to the four generated-proof categories above. They are part
 of the user specification surface, not clauses generated by the local
 product proof architecture itself.
 
-\paragraph{Why the helper/safety split is needed.}
+\paragraph{Why the coherence/safety split is needed.}
 The soundness point is the following:
 \begin{quote}
 it is valid to enrich a local dangerous-step proof with additional
@@ -1480,12 +1482,12 @@ preconditions do hold on concrete executions.
 \end{quote}
 Therefore:
 \begin{enumerate}[leftmargin=1.4em]
-\item \(\mathsf{Helper/InitGoal}\) provides the base case for both invariant
+\item \(\mathsf{Coherence/InitGoal}\) provides the base case for both invariant
   facts and automaton-support facts;
-\item \(\mathsf{Helper/Propagation}\) propagates both kinds of helper facts
+\item \(\mathsf{Coherence/Propagation}\) propagates both kinds of coherence facts
   through time, inside the same transition-level proof objects;
 \item \(\mathsf{Safety/NoBad}\) excludes the dangerous product steps under this
-  common helper context.
+  common coherence context.
 \end{enumerate}
 
 \begin{remark}
@@ -1494,7 +1496,7 @@ The four labels
 \(\mathsf{AutomatonSupport}\) are useful as a classification of generated
 clauses. However, the proof architecture is not a chain of four isolated
 layers: \(\mathsf{UserInvariant}\) and \(\mathsf{AutomatonSupport}\) must be
-bundled together inside the same helper proof objects, both at initialization
+bundled together inside the same coherence proof objects, both at initialization
 and at propagation time.
 \end{remark}
 
@@ -1585,11 +1587,11 @@ the assumption component of the same target is not \(bad_A\). This is exactly
 the definition of a dangerous local step.
 \end{proof}
 
-\subsection{Step 3: Helper Facts Hold on Admissible Runs}
+\subsection{Step 3: Coherence Facts Hold on Admissible Runs}
 
-\begin{proposition}[Initial Helper Facts]
+\begin{proposition}[Initial Coherence Facts]
 For every admissible initial memory \(m_0 \in \mathsf{InitMem}\) and every admissible
-run on \(u\), the two helper facts needed by the local proof are true at the
+run on \(u\), the two coherence facts needed by the local proof are true at the
 initial tick:
 \begin{enumerate}[leftmargin=1.4em]
 \item the user invariant attached to the initial program state holds;
@@ -1604,11 +1606,11 @@ validity hypothesis to a generated initial triple:
 \texttt{init\_node\_inv\_triple} or
 \texttt{init\_support\_automaton\_triple}. The precondition of these triples is
 the initial-context predicate \texttt{init\_ctx}, which holds by construction of
-\(\ctx_{m_0,u}(0)\). Their postconditions are precisely the helper facts to be
+\(\ctx_{m_0,u}(0)\). Their postconditions are precisely the coherence facts to be
 established at tick \(0\).
 \end{proof}
 
-\begin{proposition}[Propagation of Helper Facts]
+\begin{proposition}[Propagation of Coherence Facts]
 Let \(m_0 \in \mathsf{InitMem}\) and let \(u\) be an admissible input stream. Then for
 every tick \(k\):
 \begin{enumerate}[leftmargin=1.4em]
@@ -1629,18 +1631,18 @@ triples \texttt{node\_inv\_triple ps} and
 \texttt{support\_automaton\_triple ps}. By the induction hypothesis, the
 corresponding preconditions hold on \(\ctx(u,k)\). By validity of generated
 triples, together with the transition-relation proposition of Step~1, their
-postconditions hold on \(\ctx(u,k+1)\). This establishes the two helper facts
+postconditions hold on \(\ctx(u,k+1)\). This establishes the two coherence facts
 at the successor tick.
 \end{proof}
 
-\begin{proposition}[Combined Helper Context]
+\begin{proposition}[Combined Coherence Context]
 Let \(m_0 \in \mathsf{InitMem}\) and let \(u\) be admissible. If a well-formed product
-step \(ps\) is realized at tick \(k\), then the full helper context required by
+step \(ps\) is realized at tick \(k\), then the full coherence context required by
 the safety triple attached to \(ps\) holds on \(\ctx_{m_0,u}(k)\).
 \end{proposition}
 
 \begin{proof}
-This is proposition \texttt{helper\_context\_holds\_on\_run}. It is an immediate
+This is proposition \texttt{coherence\_context\_holds\_on\_run}. It is an immediate
 combination of the two propagation results above, instantiated at the source
 program state and source product state of the realized step \(ps\).
 \end{proof}
@@ -1694,7 +1696,7 @@ the conjunction of three ingredients:
 \item the automaton-support fact required at the current source product state.
 \end{enumerate}
 The first item comes from \texttt{ctx\_at\_matches\_realized\_ps}; the other two
-come from the combined helper-context corollary of Step~3. Hence the
+come from the combined coherence-context corollary of Step~3. Hence the
 precondition of \texttt{no\_bad\_triple ps} does hold on the dangerous tick.
 \end{proof}
 
@@ -1739,6 +1741,91 @@ generated clause. The latter is the bridge actually used by the final proof: it
 shows that the same dangerous local step also yields a generated validatable
 object, namely a \texttt{NoBad} relational Hoare triple whose precondition is
 satisfied on the concrete tick.
+\end{remark}
+
+\subsection{Relative Completeness Results}
+
+The main theorem above is a soundness result: validity of all generated triples
+implies conditional safety. The Rocq development also exposes three
+complementary \emph{relative completeness} results. Their role is not to claim
+that every coherence fact is forced by the global specification alone. Rather,
+they show that the generation discipline does not introduce spurious local
+proof goals once one assumes the semantic facts that these goals are supposed
+to encode.
+
+\begin{theorem}[Relative Completeness of \texttt{NoBad}]
+Assume \texttt{WellFormedProgramModel}. Assume furthermore that the program is
+globally correct in the following sense:
+\[
+\forall m_0 \in \mathsf{InitMem},\;\forall u,\qquad
+\AvoidA(u) \Rightarrow \AvoidG(\run_{m_0}(u)).
+\]
+Assume also that automaton-support formulas are \emph{exact} on admissible
+runs: whenever a support fact for a product source state holds on a concrete
+tick, that source state is exactly the current product state of the run. Then,
+for every dangerous well-formed product step \(p\), the generated triple
+\(\mathsf{NoBadTriple}_p\) is valid on admissible runs.
+\end{theorem}
+
+\begin{proof}
+This is theorem \texttt{relative\_completeness\_no\_bad}. Consider an
+admissible run and a tick satisfying the precondition of
+\(\mathsf{NoBadTriple}_p\). The support-exactness hypothesis identifies the
+source of \(p\) with the current concrete product state, so the matching fact
+in the precondition can be promoted to a realized dangerous step at that tick.
+But a realized dangerous step contradicts global correctness: by the local-to-
+global lemma of Step~2, it would force a violation of \(G\) on an admissible
+run. Hence the precondition of a dangerous \(\mathsf{NoBadTriple}_p\) can never
+hold on an admissible run, which is precisely the validity of the triple.
+\end{proof}
+
+\begin{theorem}[Relative Completeness of Automaton-Support Triples]
+Assume \texttt{WellFormedProgramModel}. Assume that automaton-support facts are
+true on all admissible runs, and exact in the sense above. Then:
+\begin{enumerate}[leftmargin=1.4em]
+\item the initial support triple is valid on admissible runs;
+\item for every well-formed product step \(p\), the generated support
+  propagation triple \(\mathsf{SuppTriple}_p\) is valid on admissible runs.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+This is theorem \texttt{relative\_completeness\_automaton\_support}. For the
+initial triple, validity is immediate from truth of the support fact at the
+initial product state. For a propagation triple, assume a concrete admissible
+run and a tick satisfying its precondition. Exactness identifies the source of
+\(p\) with the actual current product state, so \(p\) is the realized step at
+that tick. The postcondition then follows from the truth of support facts on
+admissible runs at the successor tick.
+\end{proof}
+
+\begin{theorem}[Relative Completeness of User-Invariant Triples]
+Assume \texttt{WellFormedProgramModel}. Assume that user invariants are true on
+all admissible runs. Then:
+\begin{enumerate}[leftmargin=1.4em]
+\item the initial user-invariant triple is valid on admissible runs;
+\item for every well-formed product step \(p\), the generated user-invariant
+  propagation triple \(\mathsf{InvTriple}_p\) is valid on admissible runs.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+This is theorem \texttt{relative\_completeness\_user\_invariant}. The initial
+case is immediate from the truth of user invariants at the initial tick. For a
+propagation triple, the matching part of the precondition identifies the
+control-state component of the target of \(p\) with the control state reached
+at the successor tick. The postcondition is therefore exactly the user
+invariant known to hold at that successor tick on admissible runs.
+\end{proof}
+
+\begin{remark}
+These relative-completeness statements should be read carefully. The
+\texttt{NoBad} result is a genuine completeness property for the safety
+reduction: if the program is globally correct, the generated dangerous-step
+triples are not spuriously false. By contrast, the coherence results are
+\emph{relative} to semantic assumptions about the truths they encode. This is
+unavoidable for user invariants, which come from the specification rather than
+from the temporal reduction alone.
 \end{remark}
 
 \section{Implementation Language and Why3 Backend}
