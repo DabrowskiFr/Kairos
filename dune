@@ -1,6 +1,6 @@
 (include_subdirs no)
 
-(dirs lib_v2 bin protocol rocq tests)
+(dirs lib_v2 bin protocol rocq specv2 tests)
 
 (documentation
  (package kairos))
