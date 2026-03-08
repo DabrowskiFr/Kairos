@@ -1,6 +1,6 @@
 From Stdlib Require Import Logic.Classical.
 
-Require Import integration.ThreeLayerArchitecture.
+From Kairos.integration Require Import ThreeLayerArchitecture.
 
 Set Implicit Arguments.
 

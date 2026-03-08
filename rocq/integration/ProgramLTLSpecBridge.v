@@ -1,5 +1,5 @@
-Require Import integration.ThreeLayerArchitecture.
-Require Import logic.LTLPredicate.
+From Kairos.integration Require Import ThreeLayerArchitecture.
+From Kairos.logic Require Import LTLPredicate.
 
 Set Implicit Arguments.
 

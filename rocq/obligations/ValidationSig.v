@@ -1,4 +1,4 @@
-Require Import obligations.OracleSig.
+From Kairos.obligations Require Import OracleSig.
 
 Set Implicit Arguments.
 

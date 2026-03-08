@@ -1,5 +1,5 @@
-Require Import monitor.MonitorSig.
-Require Import logic.LTLPredicate.
+From Kairos.monitor Require Import MonitorSig.
+From Kairos.logic Require Import LTLPredicate.
 
 Set Implicit Arguments.
 

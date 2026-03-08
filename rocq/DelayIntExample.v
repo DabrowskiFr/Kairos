@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith.Arith.
 From Stdlib Require Import Logic.FunctionalExtensionality.
-Require Import KairosOracle.
+From Kairos Require Import KairosOracle.
 
 Module DelayIntProof.
 Module KO := KairosOracleModel.

@@ -1,29 +1,29 @@
-Require Import KairosOracle.
-Require Import MainProofPath.
-Require Import core.CoreStepSig.
-Require Import core.CoreReactiveLaws.
-Require Import core.AutomataCorrectnessCore.
-Require Import logic.FOLanguageSig.
-Require Import logic.LTLPredicate.
-Require Import logic.ShiftSpecSig.
-Require Import monitor.MonitorSig.
-Require Import monitor.InputMonitor.
-Require Import monitor.GuaranteeMonitor.
-Require Import monitor.ProductMonitor.
-Require Import contracts.ContractCompilerSig.
-Require Import obligations.ObligationGenSig.
-Require Import obligations.ObligationTaxonomySig.
-Require Import obligations.ObligationStratifiedSig.
-Require Import obligations.ObcAugmentationSig.
-Require Import obligations.OracleSig.
-Require Import obligations.OracleSemSig.
-Require Import refinement.RefinementSig.
-Require Import refinement.ShiftRefinement.
-Require Import kernels.ShiftKernel.
-Require Import kernels.SafetyKernel.
-Require Import kernels.ObjectiveSafetyKernel.
-Require Import kernels.SupportNonBlockingKernel.
-Require Import integration.ThreeLayerFromCore.
+From Kairos Require Import KairosOracle.
+From Kairos Require Import MainProofPath.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.core Require Import CoreReactiveLaws.
+From Kairos.core Require Import AutomataCorrectnessCore.
+From Kairos.logic Require Import FOLanguageSig.
+From Kairos.logic Require Import LTLPredicate.
+From Kairos.logic Require Import ShiftSpecSig.
+From Kairos.monitor Require Import MonitorSig.
+From Kairos.monitor Require Import InputMonitor.
+From Kairos.monitor Require Import GuaranteeMonitor.
+From Kairos.monitor Require Import ProductMonitor.
+From Kairos.contracts Require Import ContractCompilerSig.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import ObligationTaxonomySig.
+From Kairos.obligations Require Import ObligationStratifiedSig.
+From Kairos.obligations Require Import ObcAugmentationSig.
+From Kairos.obligations Require Import OracleSig.
+From Kairos.obligations Require Import OracleSemSig.
+From Kairos.refinement Require Import RefinementSig.
+From Kairos.refinement Require Import ShiftRefinement.
+From Kairos.kernels Require Import ShiftKernel.
+From Kairos.kernels Require Import SafetyKernel.
+From Kairos.kernels Require Import ObjectiveSafetyKernel.
+From Kairos.kernels Require Import SupportNonBlockingKernel.
+From Kairos.integration Require Import ThreeLayerFromCore.
 
 Set Implicit Arguments.
 

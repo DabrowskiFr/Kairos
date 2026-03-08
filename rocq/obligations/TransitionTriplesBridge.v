@@ -2,9 +2,9 @@ From Stdlib Require Import Lists.List.
 From Stdlib Require Import Bool.Bool.
 Import ListNotations.
 
-Require Import core.CoreStepSig.
-Require Import obligations.ObligationGenSig.
-Require Import obligations.OracleSemSig.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import OracleSemSig.
 
 Set Implicit Arguments.
 

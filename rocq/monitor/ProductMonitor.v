@@ -1,5 +1,5 @@
-Require Import core.CoreStepSig.
-Require Import monitor.MonitorSig.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.monitor Require Import MonitorSig.
 
 Set Implicit Arguments.
 

@@ -300,9 +300,13 @@ Section Model.
   Record StepCtx : Type := {
     tick : nat;
     cur_state : State;
+    cur_assume_state : q A_aut;
+    cur_guarantee_state : q G_aut;
     cur_mem : Mem;
     cur_input : InputVal;
     next_state : State;
+    next_assume_state : q A_aut;
+    next_guarantee_state : q G_aut;
     next_mem : Mem;
     cur_output : OutputVal;
   }.
@@ -314,9 +318,13 @@ Section Model.
     {|
       tick := k;
       cur_state := s;
+      cur_assume_state := aut_state_at_A u k;
+      cur_guarantee_state := aut_state_at_G (run_trace_from m0 u) k;
       cur_mem := m;
       cur_input := u k;
       next_state := st_next r;
+      next_assume_state := aut_state_at_A u (S k);
+      next_guarantee_state := aut_state_at_G (run_trace_from m0 u) (S k);
       next_mem := mem_next r;
       cur_output := out_cur r;
     |}.
@@ -428,14 +436,22 @@ Section Model.
     /\ cur_input ctx = pst_in ps
     /\ trans_enabled (pst_trans ps) (cur_state ctx) (cur_mem ctx) (cur_input ctx).
 
-  Variable support_automaton_fo : ProductState -> FO.
+  Definition coherence_current (st : ProductState) (ctx : StepCtx) : Prop :=
+    cur_state ctx = ps_prog st
+    /\ cur_assume_state ctx = ps_a st
+    /\ cur_guarantee_state ctx = ps_g st.
+
+  Definition coherence_next (st : ProductState) (ctx : StepCtx) : Prop :=
+    next_state ctx = ps_prog st
+    /\ next_assume_state ctx = ps_a st
+    /\ next_guarantee_state ctx = ps_g st.
 
   (* Clause canonique issue d'un pas produit:
      interdire que le contexte concret matche ce pas. *)
   Definition prod_obligation (ps : ProductStep) : Clause :=
     fun ctx =>
       node_inv (cur_state ctx) ctx ->
-      eval_fo ctx (support_automaton_fo (pst_from ps)) ->
+      coherence_current (pst_from ps) ctx ->
       ~ ctx_matches_ps ctx ps.
 
   (* Clause de cohérence d'invariant de nœud:
@@ -449,14 +465,14 @@ Section Model.
   Definition support_automaton_obligation (ps : ProductStep) : Clause :=
     fun ctx =>
       ctx_matches_ps ctx ps ->
-      eval_fo ctx (support_automaton_fo (pst_from ps)) ->
-      eval_fo ctx (shift_fo 1 (support_automaton_fo (product_step_target ps))).
+      coherence_current (pst_from ps) ctx ->
+      coherence_next (product_step_target ps) ctx.
 
   Definition init_node_inv_obligation : Clause :=
     fun ctx => tick ctx = 0 -> node_inv init_state ctx.
 
   Definition init_support_automaton_obligation : Clause :=
-    fun ctx => tick ctx = 0 -> eval_fo ctx (support_automaton_fo init_product_state).
+    fun ctx => tick ctx = 0 -> coherence_current init_product_state ctx.
 
   Definition init_generated_items : list generated_item :=
     [ (InitialGoal, init_node_inv_obligation);
@@ -563,7 +579,7 @@ Section Model.
     {|
       ht_target := TripleInit;
       ht_pre := TrueClause;
-      ht_post := fun ctx => eval_fo ctx (support_automaton_fo init_product_state);
+      ht_post := fun ctx => coherence_current init_product_state ctx;
       ht_origin := InitialGoal;
       ht_clause := init_support_automaton_obligation;
     |}.
@@ -584,10 +600,10 @@ Section Model.
     |}.
 
   Definition support_automaton_pre (ps : ProductStep) : Clause :=
-    fun ctx => ctx_matches_ps ctx ps /\ eval_fo ctx (support_automaton_fo (pst_from ps)).
+    fun ctx => ctx_matches_ps ctx ps /\ coherence_current (pst_from ps) ctx.
 
   Definition support_automaton_post (ps : ProductStep) : Clause :=
-    fun ctx => eval_fo ctx (support_automaton_fo (product_step_target ps)).
+    fun ctx => coherence_current (product_step_target ps) ctx.
 
   Definition support_automaton_triple (ps : ProductStep) : RelHoareTriple :=
     {|
@@ -602,7 +618,7 @@ Section Model.
     fun ctx =>
       ctx_matches_ps ctx ps
       /\ node_inv (cur_state ctx) ctx
-      /\ eval_fo ctx (support_automaton_fo (pst_from ps)).
+      /\ coherence_current (pst_from ps) ctx.
 
   Definition no_bad_triple (ps : ProductStep) : RelHoareTriple :=
     {|
@@ -1169,46 +1185,25 @@ Section Model.
   Qed.
 
   Proposition init_support_automaton_holds :
-    forall m0 u, init_mem_ok m0 -> eval_fo (ctx_at_from m0 u 0) (support_automaton_fo init_product_state).
+    forall m0 u, init_mem_ok m0 -> coherence_current init_product_state (ctx_at_from m0 u 0).
   Proof.
-    intros m0 u Hm0.
-    pose proof generated_init_support_automaton_triple as Hgen.
-    pose proof (GeneratedTripleValid (ht := init_support_automaton_triple) Hgen) as Hvalid.
-    unfold TripleValid in Hvalid.
-    specialize (Hvalid (ctx_at_from m0 u 0)).
-    unfold init_support_automaton_triple, TrueClause in Hvalid.
-    simpl in Hvalid.
-    apply Hvalid.
-    - apply init_ctx_at_0; exact Hm0.
-    - trivial.
+    intros m0 u _Hm0.
+    unfold coherence_current, init_product_state, ctx_at_from, cfg_at_from.
+    simpl.
+    repeat split; reflexivity.
   Qed.
 
   Proposition support_automaton_holds_on_run :
     forall m0 u k,
       init_mem_ok m0 ->
       avoids_bad_A u ->
-      eval_fo (ctx_at_from m0 u k) (support_automaton_fo (run_product_state_from m0 u k)).
+      coherence_current (run_product_state_from m0 u k) (ctx_at_from m0 u k).
   Proof.
-    intros m0 u k Hm0 HA.
-    induction k as [|k IH].
-    - rewrite run_product_state_0.
-      apply init_support_automaton_holds; exact Hm0.
-    - pose proof (product_select_at_wf m0 u k) as Hwf.
-      pose proof (product_select_at_realizes m0 u k) as Hreal.
-      pose proof (@ctx_at_matches_realized_ps m0 u k (product_select_at m0 u k) Hwf Hreal) as Hmatch.
-      pose proof (@generated_support_automaton_triple (product_select_at m0 u k) Hwf) as Hgen.
-      pose proof (GeneratedTripleValid (ht := support_automaton_triple (product_select_at m0 u k)) Hgen) as Hvalid.
-      pose proof (@product_select_at_from m0 u k) as Hfrom.
-      assert (IHfrom : eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from (product_select_at m0 u k)))).
-      { rewrite Hfrom. exact IH. }
-      pose proof (@transition_rel_of_realized_step m0 u k (product_select_at m0 u k) Hreal) as Hrel.
-      unfold TripleValid in Hvalid.
-      simpl in Hvalid.
-      pose proof (Hvalid (ctx_at_from m0 u k) (ctx_at_from m0 u (S k)) Hrel (conj Hmatch IHfrom)) as Hnext.
-      pose proof (@realized_step_target_matches_run_product_successor m0 u k (product_select_at m0 u k) Hwf Hreal)
-        as Htarget.
-      rewrite <- Htarget.
-      exact Hnext.
+    intros m0 u k _Hm0 _HA.
+    unfold coherence_current, run_product_state_from, ctx_at_from.
+    destruct (cfg_at_from m0 u k) as [s m].
+    simpl.
+    repeat split; reflexivity.
   Qed.
 
   Proposition node_inv_holds_on_run :
@@ -1240,7 +1235,7 @@ Section Model.
       avoids_bad_A u ->
       product_step_realizes_at m0 u k ps ->
       node_inv (cur_state (ctx_at_from m0 u k)) (ctx_at_from m0 u k)
-      /\ eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from ps)).
+      /\ coherence_current (pst_from ps) (ctx_at_from m0 u k).
   Proof.
     intros m0 u k ps Hm0 HA Hreal.
     split.
@@ -1261,9 +1256,23 @@ Section Model.
       avoids_bad_A u ->
       product_step_realizes_at m0 u k ps ->
       node_inv (cur_state (ctx_at_from m0 u k)) (ctx_at_from m0 u k)
-      /\ eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from ps)).
+      /\ coherence_current (pst_from ps) (ctx_at_from m0 u k).
   Proof.
     exact coherence_context_holds_on_run.
+  Qed.
+
+  Local Lemma coherence_current_exact_on_run :
+    forall m0 u k st,
+      coherence_current st (ctx_at_from m0 u k) ->
+      st = run_product_state_from m0 u k.
+  Proof.
+    intros m0 u k [sp qa qg] Hcoh.
+    unfold coherence_current, ctx_at_from, run_product_state_from in Hcoh |- *.
+    destruct (cfg_at_from m0 u k) as [s m].
+    simpl in Hcoh |- *.
+    destruct Hcoh as [Hs [Ha Hg]].
+    subst.
+    reflexivity.
   Qed.
 
   (* ---------------------------------------------------------------------- *)
@@ -1427,19 +1436,6 @@ Section Model.
   Definition globally_correct : Prop :=
     forall m0 u, init_mem_ok m0 -> avoids_bad_A u -> avoids_bad_G (run_trace_from m0 u).
 
-  Definition support_true_on_admissible_runs : Prop :=
-    forall m0 u k,
-      init_mem_ok m0 ->
-      avoids_bad_A u ->
-      eval_fo (ctx_at_from m0 u k) (support_automaton_fo (run_product_state_from m0 u k)).
-
-  Definition support_exact_on_admissible_runs : Prop :=
-    forall m0 u k ps,
-      init_mem_ok m0 ->
-      avoids_bad_A u ->
-      eval_fo (ctx_at_from m0 u k) (support_automaton_fo (pst_from ps)) ->
-      pst_from ps = run_product_state_from m0 u k.
-
   Definition node_invariants_true_on_admissible_runs : Prop :=
     forall m0 u k,
       init_mem_ok m0 ->
@@ -1481,19 +1477,18 @@ Section Model.
   Theorem relative_completeness_no_bad :
     WellFormedProgramModel ->
     globally_correct ->
-    support_exact_on_admissible_runs ->
     forall ps,
       product_step_wf ps ->
       product_step_is_bad_target ps ->
       TripleValidOnAdmissibleRuns (no_bad_triple ps).
   Proof.
-    intros _wf Hglob Hsupport ps Hwf Hbadtgt.
+    intros _wf Hglob ps Hwf Hbadtgt.
     unfold TripleValidOnAdmissibleRuns, no_bad_triple, FalseClause.
     simpl.
     intros m0 u k Hm0 HA Htr Hpre.
     destruct Hpre as [Hmatch [_Hinv Hsup]].
     assert (Hfrom : pst_from ps = run_product_state_from m0 u k).
-    { eapply Hsupport; eauto. }
+    { eapply coherence_current_exact_on_run; exact Hsup. }
     assert (Hreal : product_step_realizes_at m0 u k ps).
     { unfold product_step_realizes_at.
       destruct (cfg_at_from m0 u k) as [s m] eqn:Hcfg.
@@ -1516,30 +1511,26 @@ Section Model.
 
   Theorem relative_completeness_automaton_support :
     WellFormedProgramModel ->
-    support_true_on_admissible_runs ->
-    support_exact_on_admissible_runs ->
     TripleValidOnAdmissibleRuns init_support_automaton_triple
     /\
     forall ps,
       product_step_wf ps ->
       TripleValidOnAdmissibleRuns (support_automaton_triple ps).
   Proof.
-    intros _wf Htrue Hexact.
+    intros _wf.
     split.
     - unfold TripleValidOnAdmissibleRuns, init_support_automaton_triple, TrueClause.
       simpl.
-      intros m0 u Hm0 HA _.
-      change (eval_fo (ctx_at_from m0 u 0)
-                (support_automaton_fo (run_product_state_from m0 u 0))).
-      rewrite run_product_state_0.
-      apply Htrue; assumption.
+      intros m0 u Hm0 _HA _.
+      apply init_support_automaton_holds; assumption.
     - intros ps Hwf.
       unfold TripleValidOnAdmissibleRuns, support_automaton_triple.
+      unfold support_automaton_post.
       simpl.
       intros m0 u k Hm0 HA Htr Hpre.
       destruct Hpre as [Hmatch Hsup].
       assert (Hfrom : pst_from ps = run_product_state_from m0 u k).
-      { eapply Hexact; eauto. }
+      { eapply coherence_current_exact_on_run; exact Hsup. }
       assert (Hreal : product_step_realizes_at m0 u k ps).
       { unfold product_step_realizes_at.
         destruct (cfg_at_from m0 u k) as [s m] eqn:Hcfg.
@@ -1553,10 +1544,21 @@ Section Model.
         unfold transition_realized_at in Htr.
         rewrite Hcfg in Htr.
         symmetry; exact Htr. }
-      pose proof (@realized_step_target_matches_run_product_successor m0 u k ps Hwf Hreal) as Htgt.
-      pose proof (Htrue m0 u (S k) Hm0 HA) as Hnext.
-      rewrite <- Htgt in Hnext.
-      exact Hnext.
+      change (coherence_current (product_step_target ps) (ctx_at_from m0 u (S k))).
+      unfold coherence_current.
+      pose proof (@realized_step_prog_target_correct m0 u k ps Hreal) as Hprog.
+      pose proof (@realized_step_target_correct m0 u k ps Hwf Hreal) as [Ha Hg].
+      split.
+      + symmetry; exact Hprog.
+      + split.
+        * replace (cur_assume_state (ctx_at_from m0 u (S k))) with (aut_state_at_A u (S k)).
+          symmetry; exact Ha.
+          unfold ctx_at_from.
+          destruct (cfg_at_from m0 u (S k)) as [s' m']; reflexivity.
+        * replace (cur_guarantee_state (ctx_at_from m0 u (S k))) with (aut_state_at_G (run_trace_from m0 u) (S k)).
+          symmetry; exact Hg.
+          unfold ctx_at_from.
+          destruct (cfg_at_from m0 u (S k)) as [s' m']; reflexivity.
     Qed.
 
   Theorem relative_completeness_user_invariant :
@@ -1585,6 +1587,28 @@ Section Model.
       pose proof (@matched_step_prog_target_correct m0 u k ps Htr Hmatch) as Hp.
       rewrite Hp.
       exact (Htrue m0 u (S k) Hm0 HA).
+  Qed.
+
+  Theorem relative_completeness_generated_triples :
+    WellFormedProgramModel ->
+    globally_correct ->
+    node_invariants_true_on_admissible_runs ->
+    forall ht,
+      GeneratedTriple ht ->
+      TripleValidOnAdmissibleRuns ht.
+  Proof.
+    intros Hwf Hglob Htrue ht Hgen.
+    destruct Hgen as [o Hgen].
+    inversion Hgen; subst; clear Hgen.
+    - destruct (relative_completeness_user_invariant Hwf Htrue) as [Hinit _].
+      exact Hinit.
+    - destruct (relative_completeness_automaton_support Hwf) as [Hinit _].
+      exact Hinit.
+    - destruct (relative_completeness_user_invariant Hwf Htrue) as [_ Hprop].
+      apply Hprop; assumption.
+    - destruct (relative_completeness_automaton_support Hwf) as [_ Hprop].
+      apply Hprop; assumption.
+    - eapply relative_completeness_no_bad; eauto.
   Qed.
 
   Theorem triple_valid_conditional_correctness_default :

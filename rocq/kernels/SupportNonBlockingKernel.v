@@ -1,8 +1,8 @@
-Require Import core.CoreStepSig.
-Require Import obligations.ObligationGenSig.
-Require Import obligations.ObligationTaxonomySig.
-Require Import obligations.OracleSemSig.
-Require Import kernels.ObjectiveSafetyKernel.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import ObligationTaxonomySig.
+From Kairos.obligations Require Import OracleSemSig.
+From Kairos.kernels Require Import ObjectiveSafetyKernel.
 
 Set Implicit Arguments.
 

@@ -2746,6 +2746,90 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
   - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` : OK.
   - `opam exec --switch=5.4.1+options -- dune build` : OK.
 
+## 2026-03-08 (suite) — Cohérence automate internalisée dans le noyau Rocq
+
+- Objectif :
+  - supprimer la formule abstraite `support_automaton_fo` du noyau Rocq ;
+  - utiliser directement une notion sémantique de cohérence automate fondée sur
+    l’état produit courant réel du run ;
+  - réaligner la complétude relative, l’audit d’intention et le papier.
+
+- Modifications principales :
+  - [`rocq/KairosOracle.v`](/Users/fredericdabrowski/Repos/kairos/rocq/KairosOracle.v)
+    - enrichissement de `StepCtx` avec les états courant/suivant des automates
+      `A` et `G` ;
+    - introduction de `coherence_current` et `coherence_next` comme propriétés
+      sémantiques directes du contexte ;
+    - suppression de `support_automaton_fo`,
+      `support_true_on_admissible_runs` et
+      `support_exact_on_admissible_runs` ;
+    - réécriture des clauses et triples de cohérence/sécurité pour utiliser
+      directement `coherence_current` ;
+    - théorème `relative_completeness_automaton_support` prouvé désormais sans
+      hypothèse additionnelle sur un support abstrait.
+  - [`rocq/KairosModularIntegration.v`](/Users/fredericdabrowski/Repos/kairos/rocq/KairosModularIntegration.v)
+    - réalignement des types et applications après le changement de signature
+      exportée de `StepCtx` et `ctx_at` ;
+    - suppression de la dépendance résiduelle à `support_automaton_fo`.
+  - [`rocq/instances/DelayIntInstance.v`](/Users/fredericdabrowski/Repos/kairos/rocq/instances/DelayIntInstance.v)
+    - mise à jour des usages de `StepCtx` et `ctx_at`.
+  - [`rocq/INTENDED_THEOREM_AUDIT.md`](/Users/fredericdabrowski/Repos/kairos/rocq/INTENDED_THEOREM_AUDIT.md)
+    et [`rocq/proof_architecture.md`](/Users/fredericdabrowski/Repos/kairos/rocq/proof_architecture.md)
+    - vocabulaire stabilisé autour de `coherence` ;
+    - retrait des formulations obsolètes faisant encore intervenir des helpers
+      ou un support automate abstrait.
+  - [`spec/rocq_oracle_model.tex`](/Users/fredericdabrowski/Repos/kairos/spec/rocq_oracle_model.tex)
+    - correction des théorèmes de complétude relative pour refléter la nouvelle
+      situation : la cohérence automate est maintenant interne au noyau ;
+    - remplacement des dernières occurrences de `helper` par `coherence`.
+
+- Observations :
+  - le point délicat du proof engineering était localisé dans la preuve de
+    `relative_completeness_automaton_support` ; le fond du raisonnement ne
+    change pas, seule l’orientation/réduction de quelques égalités Rocq
+    devait être ajustée ;
+  - le vrai écart conceptuel n’était pas Why3, mais l’abstraction laissée dans
+    `support_automaton_fo` ; il est désormais supprimé du noyau principal.
+
+- Validation :
+  - `opam exec --switch=5.4.1+options -- make -f rocq_build.mk -j2` : OK.
+  - `opam exec --switch=5.4.1+options -- dune build` : OK.
+  - `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` : OK.
+
+- Complétude relative globale :
+  - ajout dans [`rocq/KairosOracle.v`](/Users/fredericdabrowski/Repos/kairos/rocq/KairosOracle.v)
+    du théorème de synthèse
+    `relative_completeness_generated_triples` ;
+  - ce théorème assemble désormais les trois familles déjà prouvées
+    (`NoBad`, `AutomatonSupport`, `UserInvariant`) et donne enfin :
+    “tout triple généré est valide sur les runs admissibles” sous les bonnes
+    hypothèses ;
+  - le papier a été mis à jour avec un énoncé et une preuve de synthèse
+    correspondants.
+
+## 2026-03-08 (suite) — Intégration Rocq native dans Dune
+
+- Objectif :
+  - arrêter de compiler Rocq via `rocq makefile` + `make`;
+  - intégrer le développement dans le `dune-project`, sur le modèle de
+    `tempo-kernel`.
+
+- Réalisation :
+  - ajout de [`rocq/dune`](/Users/fredericdabrowski/Repos/kairos/rocq/dune)
+    avec une vraie théorie `rocq.theory` nommée `Kairos` ;
+  - correction du `dune` racine pour inclure `rocq/` dans les répertoires
+    pilotés par Dune ;
+  - ajout de `rocq` dans [`kairos.opam`](/Users/fredericdabrowski/Repos/kairos/kairos.opam) ;
+  - namespacing des `Require Import` Rocq vers `From Kairos ...` pour rendre la
+    théorie buildable nativement sous Dune ;
+  - nettoyage des anciens artefacts Rocq générés à la main (`.glob`, `.vo`,
+    `.aux`) qui bloquaient la génération Dune.
+
+- Validation :
+  - `opam exec --switch=5.4.1+options -- dune build` : OK, y compris la partie Rocq.
+  - le build manuel `rocq_build.mk` n’est plus nécessaire comme chemin
+    principal de compilation.
+
 - Retombée documentaire :
   - [`spec/rocq_oracle_model.tex`](/Users/fredericdabrowski/Repos/kairos/spec/rocq_oracle_model.tex)
     expose maintenant explicitement les trois résultats de complétude relative :

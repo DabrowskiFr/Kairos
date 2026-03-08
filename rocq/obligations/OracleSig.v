@@ -1,4 +1,4 @@
-Require Import obligations.ObligationGenSig.
+From Kairos.obligations Require Import ObligationGenSig.
 
 Set Implicit Arguments.
 

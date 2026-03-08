@@ -1,4 +1,4 @@
-Require Import KairosOracle.
+From Kairos Require Import KairosOracle.
 
 Set Implicit Arguments.
 

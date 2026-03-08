@@ -90,7 +90,7 @@ See:
 This is a good sign: the semantic conclusion has not changed into something
 strictly weaker such as:
 
-- correctness only for already-proved helper facts;
+- correctness only for already-proved coherence facts;
 - correctness only for a subset of traces;
 - correctness only for the product IR itself.
 
@@ -172,15 +172,15 @@ Verdict:
 - aligned in principle;
 - requires scrutiny of the bridge assumptions.
 
-### 4.4 Helper split
+### 4.4 Coherence split
 
 We now organize local reasoning into:
 
 - `Safety / NoBad`;
-- `Helper / InitGoal`;
-- `Helper / Propagation`.
+- `Coherence / InitGoal`;
+- `Coherence / Propagation`.
 
-And within the helper side:
+And within the coherence side:
 
 - user invariants;
 - automaton-support facts;
@@ -198,9 +198,9 @@ Verdict:
 Earlier, the Rocq core assumed node invariants globally true along the run.
 They are now derived from:
 
-- initial helper clauses;
-- propagation helper clauses;
-- validity of the generated helper triples.
+- initial coherence clauses;
+- propagation coherence clauses;
+- validity of the generated coherence triples.
 
 This makes the proof stronger, not weaker.
 

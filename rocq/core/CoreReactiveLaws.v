@@ -1,4 +1,4 @@
-Require Import core.CoreStepSig.
+From Kairos.core Require Import CoreStepSig.
 
 Set Implicit Arguments.
 

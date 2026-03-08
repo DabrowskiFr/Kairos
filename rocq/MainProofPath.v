@@ -1,12 +1,12 @@
-Require Import KairosOracle.
-Require Import core.AutomataCorrectnessCore.
-Require Import path.Step1SemanticProduct.
-Require Import path.Step2GeneratedClauses.
-Require Import path.Step3RelationalTriples.
-Require Import path.Step4TransitionBundles.
-Require Import path.Step5TripleValidity.
-Require Import path.Step6ClauseRecovery.
-Require Import path.Step7GlobalToLocal.
+From Kairos Require Import KairosOracle.
+From Kairos.core Require Import AutomataCorrectnessCore.
+From Kairos.path Require Import Step1SemanticProduct.
+From Kairos.path Require Import Step2GeneratedClauses.
+From Kairos.path Require Import Step3RelationalTriples.
+From Kairos.path Require Import Step4TransitionBundles.
+From Kairos.path Require Import Step5TripleValidity.
+From Kairos.path Require Import Step6ClauseRecovery.
+From Kairos.path Require Import Step7GlobalToLocal.
 
 Set Implicit Arguments.
 

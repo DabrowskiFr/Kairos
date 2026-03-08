@@ -3,6 +3,7 @@
 Quick commands
 --------------
 - Build the CLI: `dune build bin/cli/main.exe`
+- Build the Rocq development: `dune build`
 - Run lint checks: `scripts/lint.sh`
 - Run all tests: `dune runtest`
 

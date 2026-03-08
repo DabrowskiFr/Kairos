@@ -1,0 +1,11 @@
+(include_subdirs qualified)
+
+(rocq.theory
+ (name Kairos)
+ (package kairos)
+ (stdlib yes)
+ (theories Stdlib))
+
+(alias
+ (name build-all)
+ (deps (alias_rec all)))

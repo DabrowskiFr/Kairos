@@ -1,12 +1,12 @@
 From Stdlib Require Import Logic.Classical.
 
-Require Import core.CoreStepSig.
-Require Import monitor.MonitorSig.
-Require Import monitor.InputMonitor.
-Require Import monitor.GuaranteeMonitor.
-Require Import obligations.ObligationGenSig.
-Require Import obligations.OracleSig.
-Require Import obligations.OracleSemSig.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.monitor Require Import MonitorSig.
+From Kairos.monitor Require Import InputMonitor.
+From Kairos.monitor Require Import GuaranteeMonitor.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import OracleSig.
+From Kairos.obligations Require Import OracleSemSig.
 
 Set Implicit Arguments.
 

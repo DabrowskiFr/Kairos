@@ -1,5 +1,5 @@
-Require Import DelayIntExample.
-Require Import integration.ThreeLayerArchitecture.
+From Kairos Require Import DelayIntExample.
+From Kairos.integration Require Import ThreeLayerArchitecture.
 
 Set Implicit Arguments.
 
@@ -19,7 +19,7 @@ Module Program <: PROGRAM_LAYER_SIG.
   Definition Ctrl := DelayIntProof.PState.
   Definition stream (A : Type) : Type := nat -> A.
 
-  Definition StepCtx := KO.StepCtx InputVal OutputVal Mem Ctrl.
+  Definition StepCtx := KO.StepCtx Mem Ctrl DelayIntProof.A_aut DelayIntProof.G_aut.
   Definition init_ctrl : Ctrl := DelayIntProof.SInit.
   Definition init_mem : Mem := m0.
 
@@ -32,7 +32,9 @@ Module Program <: PROGRAM_LAYER_SIG.
     KO.cfg_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.
 
   Definition ctx_at : stream InputVal -> nat -> StepCtx :=
-    KO.ctx_at DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.
+    KO.ctx_at
+      DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect
+      DelayIntProof.A_aut_e DelayIntProof.G_aut_e DelayIntProof.select_A DelayIntProof.select_G.
 
   Definition run_trace : stream InputVal -> stream (InputVal * OutputVal) :=
     KO.run_trace DelayIntProof.paut init_ctrl init_mem DelayIntProof.pselect.

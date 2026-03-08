@@ -1,7 +1,7 @@
-Require Import integration.ThreeLayerArchitecture.
-Require Import integration.ThreeLayerFromCore.
-Require Import obligations.OracleSemSig.
-Require Import obligations.TransitionTriplesBridge.
+From Kairos.integration Require Import ThreeLayerArchitecture.
+From Kairos.integration Require Import ThreeLayerFromCore.
+From Kairos.obligations Require Import OracleSemSig.
+From Kairos.obligations Require Import TransitionTriplesBridge.
 
 Set Implicit Arguments.
 

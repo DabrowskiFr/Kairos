@@ -1,6 +1,6 @@
-Require Import monitor.MonitorSig.
-Require Import monitor.InputMonitor.
-Require Import logic.FOLanguageSig.
+From Kairos.monitor Require Import MonitorSig.
+From Kairos.monitor Require Import InputMonitor.
+From Kairos.logic Require Import FOLanguageSig.
 
 Set Implicit Arguments.
 

@@ -1,4 +1,4 @@
-Require Import interfaces.ExternalValidationAssumptions.
+From Kairos.interfaces Require Import ExternalValidationAssumptions.
 
 Set Implicit Arguments.
 

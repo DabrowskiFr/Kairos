@@ -1,4 +1,4 @@
-Require Import refinement.RefinementSig.
+From Kairos.refinement Require Import RefinementSig.
 
 Set Implicit Arguments.
 

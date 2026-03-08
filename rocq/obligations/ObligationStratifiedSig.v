@@ -1,5 +1,5 @@
-Require Import obligations.ObligationGenSig.
-Require Import obligations.ObligationTaxonomySig.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import ObligationTaxonomySig.
 
 Set Implicit Arguments.
 

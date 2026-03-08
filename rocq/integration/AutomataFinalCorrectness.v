@@ -1,8 +1,8 @@
 From Stdlib Require Import Logic.Classical.
 
-Require Import integration.ThreeLayerArchitecture.
-Require Import integration.ThreeLayerFromCore.
-Require Import interfaces.ExternalValidationAssumptions.
+From Kairos.integration Require Import ThreeLayerArchitecture.
+From Kairos.integration Require Import ThreeLayerFromCore.
+From Kairos.interfaces Require Import ExternalValidationAssumptions.
 
 Set Implicit Arguments.
 

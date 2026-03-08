@@ -1,6 +1,6 @@
 From Stdlib Require Import Arith.Arith.
-Require Import KairosOracle.
-Require Import KairosModularArchitecture.
+From Kairos Require Import KairosOracle.
+From Kairos Require Import KairosModularArchitecture.
 
 Set Implicit Arguments.
 
@@ -23,23 +23,29 @@ Module Type KAIROS_ORACLE_INSTANCE_SIG.
     (InputVal * OutputVal) ->
     KairosOracleModel.Edge G_aut_e.
   Parameter node_inv :
-    State -> KairosOracleModel.StepCtx InputVal OutputVal Mem State -> Prop.
+    State -> KairosOracleModel.StepCtx Mem State A_aut G_aut -> Prop.
 
   Parameter FO : Type.
-  Parameter eval_fo : KairosOracleModel.StepCtx InputVal OutputVal Mem State -> FO -> Prop.
+  Parameter eval_fo : KairosOracleModel.StepCtx Mem State A_aut G_aut -> FO -> Prop.
   Parameter shift_fo : nat -> FO -> FO.
   Parameter node_inv_fo : State -> FO.
-  Parameter support_automaton_fo :
-    KairosOracleModel.ProductState State A_aut G_aut -> FO.
   Axiom node_inv_fo_correct :
     forall s ctx, eval_fo ctx (node_inv_fo s) <-> node_inv s ctx.
 
   Axiom shift_fo_correct_if_input_ok :
     forall d u k phi,
       KairosOracleModel.InputOk A_aut_e select_A u k ->
-      eval_fo (KairosOracleModel.ctx_at Paut init_state init_mem prog_select u k) (shift_fo d phi)
+      eval_fo
+        (KairosOracleModel.ctx_at
+           Paut init_state init_mem prog_select
+           A_aut_e G_aut_e select_A select_G u k)
+        (shift_fo d phi)
       <->
-      eval_fo (KairosOracleModel.ctx_at Paut init_state init_mem prog_select u (k + d)) phi.
+      eval_fo
+        (KairosOracleModel.ctx_at
+           Paut init_state init_mem prog_select
+           A_aut_e G_aut_e select_A select_G u (k + d))
+        phi.
 End KAIROS_ORACLE_INSTANCE_SIG.
 
 Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
@@ -51,9 +57,14 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
     Definition State := X.State.
     Definition stream (A : Type) : Type := nat -> A.
 
-    Definition StepCtx := KairosOracleModel.StepCtx InputVal OutputVal Mem State.
-    Definition ctx_at := KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select.
-    Definition run_trace := KairosOracleModel.run_trace X.Paut X.init_state X.init_mem X.prog_select.
+    Definition StepCtx := KairosOracleModel.StepCtx Mem State X.A_aut X.G_aut.
+    Definition ctx_at :=
+      KairosOracleModel.ctx_at
+        X.Paut X.init_state X.init_mem X.prog_select
+        X.A_aut_e X.G_aut_e X.select_A X.select_G.
+    Definition run_trace :=
+      KairosOracleModel.run_trace
+        X.Paut X.init_state X.init_mem X.prog_select.
   End PConcrete.
 
   Module AConcrete <: SAFETY_SIG with Definition Obs := PConcrete.InputVal.
@@ -144,7 +155,6 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
         X.eval_fo
         X.shift_fo
         X.node_inv_fo
-        X.support_automaton_fo
         o cl.
     Definition Generated (cl : Clause) : Prop :=
       exists o, GeneratedBy o cl.
@@ -199,9 +209,15 @@ Module KairosModularBridge (X : KAIROS_ORACLE_INSTANCE_SIG).
     forall u phi,
       KairosOracleModel.avoids_bad_A X.A_aut_e X.select_A u ->
       forall k,
-        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select u k)
+        X.eval_fo
+          (KairosOracleModel.ctx_at
+             X.Paut X.init_state X.init_mem X.prog_select
+             X.A_aut_e X.G_aut_e X.select_A X.select_G u k)
         (X.shift_fo 1 phi) ->
-        X.eval_fo (KairosOracleModel.ctx_at X.Paut X.init_state X.init_mem X.prog_select u (S k))
+        X.eval_fo
+          (KairosOracleModel.ctx_at
+             X.Paut X.init_state X.init_mem X.prog_select
+             X.A_aut_e X.G_aut_e X.select_A X.select_G u (S k))
         phi.
   Proof.
     intros u phi HA k Hk.

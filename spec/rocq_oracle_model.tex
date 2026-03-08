@@ -1760,19 +1760,16 @@ globally correct in the following sense:
 \forall m_0 \in \mathsf{InitMem},\;\forall u,\qquad
 \AvoidA(u) \Rightarrow \AvoidG(\run_{m_0}(u)).
 \]
-Assume also that automaton-support formulas are \emph{exact} on admissible
-runs: whenever a support fact for a product source state holds on a concrete
-tick, that source state is exactly the current product state of the run. Then,
-for every dangerous well-formed product step \(p\), the generated triple
+Then, for every dangerous well-formed product step \(p\), the generated triple
 \(\mathsf{NoBadTriple}_p\) is valid on admissible runs.
 \end{theorem}
 
 \begin{proof}
 This is theorem \texttt{relative\_completeness\_no\_bad}. Consider an
 admissible run and a tick satisfying the precondition of
-\(\mathsf{NoBadTriple}_p\). The support-exactness hypothesis identifies the
-source of \(p\) with the current concrete product state, so the matching fact
-in the precondition can be promoted to a realized dangerous step at that tick.
+\(\mathsf{NoBadTriple}_p\). The coherence part of this precondition states
+directly that the source of \(p\) is the current concrete product state, so
+the matching fact can be promoted to a realized dangerous step at that tick.
 But a realized dangerous step contradicts global correctness: by the local-to-
 global lemma of Step~2, it would force a violation of \(G\) on an admissible
 run. Hence the precondition of a dangerous \(\mathsf{NoBadTriple}_p\) can never
@@ -1780,8 +1777,7 @@ hold on an admissible run, which is precisely the validity of the triple.
 \end{proof}
 
 \begin{theorem}[Relative Completeness of Automaton-Support Triples]
-Assume \texttt{WellFormedProgramModel}. Assume that automaton-support facts are
-true on all admissible runs, and exact in the sense above. Then:
+Assume \texttt{WellFormedProgramModel}. Then:
 \begin{enumerate}[leftmargin=1.4em]
 \item the initial support triple is valid on admissible runs;
 \item for every well-formed product step \(p\), the generated support
@@ -1791,12 +1787,14 @@ true on all admissible runs, and exact in the sense above. Then:
 
 \begin{proof}
 This is theorem \texttt{relative\_completeness\_automaton\_support}. For the
-initial triple, validity is immediate from truth of the support fact at the
-initial product state. For a propagation triple, assume a concrete admissible
-run and a tick satisfying its precondition. Exactness identifies the source of
-\(p\) with the actual current product state, so \(p\) is the realized step at
-that tick. The postcondition then follows from the truth of support facts on
-admissible runs at the successor tick.
+initial triple, validity is immediate from the definition of the initial
+product state and of the initial concrete context. For a propagation triple,
+assume a concrete admissible run and a tick satisfying its precondition. The
+coherence part of this precondition says directly that the source of \(p\) is
+the actual current product state, so \(p\) is the realized step at that tick.
+The postcondition is then exactly the coherence statement for the successor
+product state at tick \(k+1\), which follows from the semantics of
+\(\ctx(u,k+1)\).
 \end{proof}
 
 \begin{theorem}[Relative Completeness of User-Invariant Triples]
@@ -1818,14 +1816,40 @@ at the successor tick. The postcondition is therefore exactly the user
 invariant known to hold at that successor tick on admissible runs.
 \end{proof}
 
+\begin{theorem}[Relative Completeness of All Generated Triples]
+Assume \texttt{WellFormedProgramModel}. Assume furthermore that the program is
+globally correct and that user invariants are true on all admissible runs.
+Then every generated triple is valid on admissible runs.
+\end{theorem}
+
+\begin{proof}
+This is theorem \texttt{relative\_completeness\_generated\_triples}. The proof
+is a case analysis on the generation relation for triples. There are exactly
+five generated shapes:
+\begin{enumerate}[leftmargin=1.4em]
+\item the initial user-invariant triple;
+\item the initial automaton-support triple;
+\item a propagation user-invariant triple;
+\item a propagation automaton-support triple;
+\item a \texttt{NoBad} triple attached to a dangerous step.
+\end{enumerate}
+The first and third cases are discharged by the user-invariant completeness
+theorem above. The second and fourth cases are discharged by the automaton-
+support completeness theorem above. The fifth case is discharged by the
+\texttt{NoBad} completeness theorem. Since every generated triple falls into
+exactly one of these cases, all generated triples are valid on admissible
+runs.
+\end{proof}
+
 \begin{remark}
 These relative-completeness statements should be read carefully. The
 \texttt{NoBad} result is a genuine completeness property for the safety
 reduction: if the program is globally correct, the generated dangerous-step
-triples are not spuriously false. By contrast, the coherence results are
-\emph{relative} to semantic assumptions about the truths they encode. This is
-unavoidable for user invariants, which come from the specification rather than
-from the temporal reduction alone.
+triples are not spuriously false. The automaton-support part is now internal to
+the semantic product and therefore provable from the model itself. By contrast,
+the user-invariant part remains \emph{relative} to semantic assumptions about
+the truth of the supplied invariants, which come from the specification rather
+than from the temporal reduction alone.
 \end{remark}
 
 \section{Implementation Language and Why3 Backend}
@@ -1974,8 +1998,8 @@ For this concrete node, Kairos also reports \(22\) generated clauses, split as
 follows:
 \begin{itemize}[leftmargin=1.4em]
 \item \(3\) safety clauses;
-\item \(19\) helper clauses;
-\item among helper clauses, \(1\) initial goal and \(18\) propagation clauses;
+\item \(19\) coherence clauses;
+\item among coherence clauses, \(1\) initial goal and \(18\) propagation clauses;
 \item among generated clause kinds, \(6\) come from user invariants and \(12\)
   from automaton support.
 \end{itemize}

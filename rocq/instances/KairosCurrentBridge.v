@@ -1,4 +1,4 @@
-Require Import KairosModularIntegration.
+From Kairos Require Import KairosModularIntegration.
 
 Set Implicit Arguments.
 

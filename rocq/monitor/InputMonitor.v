@@ -1,4 +1,4 @@
-Require Import monitor.MonitorSig.
+From Kairos.monitor Require Import MonitorSig.
 
 Set Implicit Arguments.
 

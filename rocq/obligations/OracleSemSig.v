@@ -1,6 +1,6 @@
-Require Import core.CoreStepSig.
-Require Import obligations.ObligationGenSig.
-Require Import obligations.OracleSig.
+From Kairos.core Require Import CoreStepSig.
+From Kairos.obligations Require Import ObligationGenSig.
+From Kairos.obligations Require Import OracleSig.
 
 Set Implicit Arguments.
 

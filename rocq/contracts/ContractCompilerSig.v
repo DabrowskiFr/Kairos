@@ -1,6 +1,6 @@
-Require Import integration.ThreeLayerArchitecture.
-Require Import logic.LTLPredicate.
-Require Import monitor.MonitorSig.
+From Kairos.integration Require Import ThreeLayerArchitecture.
+From Kairos.logic Require Import LTLPredicate.
+From Kairos.monitor Require Import MonitorSig.
 
 Set Implicit Arguments.
 

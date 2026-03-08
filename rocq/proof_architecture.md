@@ -45,12 +45,12 @@ These are predicates on concrete tick contexts derived from:
 
 - dangerous product steps;
 - initial product/program configurations;
-- propagation of helper facts across product steps.
+- propagation of coherence facts across product steps.
 
 They are the right objects for:
 
 - the abstract safety argument;
-- the statement of helper facts;
+- the statement of coherence facts;
 - the bridge between global violations and local witnesses.
 
 ### External proof objects
@@ -84,8 +84,8 @@ The preferred implementation design is:
 
 Each bundle contains:
 
-- helper preconditions gathered for this transition;
-- helper postconditions gathered for this transition;
+- coherence preconditions gathered for this transition;
+- coherence postconditions gathered for this transition;
 - safety clauses attached to dangerous product edges compatible with this
   transition.
 
@@ -102,8 +102,8 @@ Each generated clause should still be traceable to:
 - the source product state;
 - the relevant `A`-edge witness;
 - the relevant `G`-edge witness;
-- the proof family (`Safety` or `Helper`);
-- the helper phase (`InitGoal` or `Propagation`) when relevant;
+- the proof family (`Safety` or `Coherence`);
+- the coherence phase (`InitGoal` or `Propagation`) when relevant;
 - the semantic subfamily (`UserInvariant` or `AutomatonSupport`) when relevant;
 - whether the clause contributes to `Pre` or `Post`.
 
@@ -121,13 +121,13 @@ The right top-level split is not a flat list of four independent phases.
 It is:
 
 1. `Safety`
-2. `Helper`
+2. `Coherence`
 
 with:
 
 - `Safety`
   - `NoBad`
-- `Helper`
+- `Coherence`
   - `InitGoal`
   - `Propagation`
 
@@ -154,16 +154,16 @@ This clause excludes local realizations of `p`, hence prevents transitions into
 `bad_G`.
 
 `NoBad` is not expected to be proved in isolation by the backend. It is proved
-under helper facts inserted into the same transition-level bundle.
+under coherence facts inserted into the same transition-level bundle.
 
-## Helper
+## Coherence
 
-The helper side justifies the additional facts used by the backend while
+The coherence side justifies the additional facts used by the backend while
 proving safety.
 
 It has two phases:
 
-### Helper / InitGoal
+### Coherence / InitGoal
 
 This establishes the base facts available at the initial tick.
 
@@ -177,9 +177,9 @@ Typical examples are:
 - the invariant attached to the initial control state;
 - the automaton-support fact attached to the initial product state.
 
-### Helper / Propagation
+### Coherence / Propagation
 
-This propagates helper facts from one tick to the next.
+This propagates coherence facts from one tick to the next.
 
 It must include both:
 
@@ -193,8 +193,8 @@ proof objects.
 
 For both:
 
-- `Helper / InitGoal`,
-- `Helper / Propagation`,
+- `Coherence / InitGoal`,
+- `Coherence / Propagation`,
 
 the clauses coming from user invariants and the clauses coming from automaton
 support must live in the same transition-level bundles.
@@ -208,11 +208,11 @@ Why:
 So the right rule is:
 
 - keep `UserInvariant` and `AutomatonSupport` as semantic subfamilies;
-- but discharge them together inside the same helper bundles.
+- but discharge them together inside the same coherence bundles.
 
 The same observation applies to initialization:
 
-- the initial helper bundle must contain both the initial invariant clauses and
+- the initial coherence bundle must contain both the initial invariant clauses and
   the initial automaton-support clauses.
 
 ## Four Semantic Subfamilies, Two Proof Layers
@@ -229,8 +229,8 @@ remain useful as **semantic clause families**,
 while:
 
 - `Safety`
-- `Helper / InitGoal`
-- `Helper / Propagation`
+- `Coherence / InitGoal`
+- `Coherence / Propagation`
 
 are the **proof layers** used by the backend and the proof story.
 
@@ -254,17 +254,17 @@ The OCaml pipeline still uses finer backend families such as:
 These finer families are projected onto the abstract architecture as follows:
 
 - `FamNoBad*` -> `Safety / NoBad`
-- `FamInitialCoherencyGoal` -> `Helper / InitGoal`
-- `FamCoherency*` -> `Helper / Propagation / UserInvariant`
+- `FamInitialCoherencyGoal` -> `Coherence / InitGoal`
+- `FamCoherency*` -> `Coherence / Propagation / UserInvariant`
 - `FamMonitorCompatibilityRequires`,
   `FamStateAwareAssumptionRequires`
-  -> `Helper / Propagation / AutomatonSupport`
+  -> `Coherence / Propagation / AutomatonSupport`
 
 The implementation taxonomy now also exposes:
 
-- major proof layers (`safety`, `helper`);
-- helper phases (`init_goal`, `propagation`);
-- helper kinds (`user_invariant`, `automaton_support`).
+- major proof layers (`safety`, `coherence`);
+- coherence phases (`init_goal`, `propagation`);
+- coherence kinds (`user_invariant`, `automaton_support`).
 
 ## Rocq Correspondence
 
@@ -296,8 +296,8 @@ validated context predicates.
 The architecture to maintain is:
 
 - semantic generation on the explicit product;
-- helper/safety split for proofs;
-- helper bundles shared between user invariants and automaton support;
+- coherence/safety split for proofs;
+- coherence bundles shared between user invariants and automaton support;
 - one external Hoare bundle per program transition;
 - fine provenance retained for clauses inside each bundle.
 
