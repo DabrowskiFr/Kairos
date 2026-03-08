@@ -2841,3 +2841,11 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
     sur les pas bien formés ;
   - PDF recompilé avec
     `opam exec --switch=5.4.1+options -- latexmk -pdf -interaction=nonstopmode -outdir=spec spec/rocq_oracle_model.tex` : OK.
+
+## 2026-03-08
+- Renforcement de l'introduction et du related work du papier Rocq : ancrage explicite aux notions classiques de safety sur traces infinies, logique temporelle lin'eaire, logique de Hoare et fondations du synchrone, avec ajout de r'ef'erences de fondation (Alpern/Schneider, Pnueli, Hoare, Cook, Halbwachs, Benveniste/Berry).
+## 2026-03-08
+- Abstract wording refined in `spec/rocq_oracle_model.tex`: removed an overly specific sentence about backend grouping/encoding/solver interaction and replaced it with a more abstract statement that concrete validation backends are later refinements of the mathematical core.
+## 2026-03-08
+- Figure layout pass on `spec/rocq_oracle_model.tex` after visual feedback: tightened label style, replaced long complement labels in the guarantee automaton with pedagogical `otherwise` labels explained in prose, and increased spacing in the relevant product subgraph to avoid node/label overlap.
+- Added `specv2/guide.md`: a dedicated guide for rewriting the current paper toward a POPL-oriented version, with a principle-centric positioning, section-by-section rewrite guidance, theorem focus, terminology constraints, and related-work strategy.
