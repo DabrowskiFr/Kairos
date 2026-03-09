@@ -1,1 +1,0 @@
-lib_v2/obligations/rocq_obligation_taxonomy_sig.mli:

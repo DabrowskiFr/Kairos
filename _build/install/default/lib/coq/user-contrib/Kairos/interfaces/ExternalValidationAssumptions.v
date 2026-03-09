@@ -1,1 +1,0 @@
-../../../../../../../default/rocq/interfaces/ExternalValidationAssumptions.v

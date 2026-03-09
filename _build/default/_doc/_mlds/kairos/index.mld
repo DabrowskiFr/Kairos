@@ -1,7 +1,0 @@
-{0 kairos index}
-{1 Library kairos}
-This library exposes the following toplevel modules:
-{!modules:Abstract_model Ast Ast_builders Ast_dump Ast_invariants Ast_provenance Ast_utils Automata_atoms Automata_default Automata_generation Automata_pass Automata_pass_sig Automata_spec Automaton_bdd Automaton_config Automaton_core Automaton_engine Automaton_guard Automaton_residual Automaton_types Automaton_util Backend Collect Contract_coherency Contracts_pass Dot_emit Emit Engine_service Fo_atoms Fo_specs Fo_time Frontend Instrumentation Instrumentation_pass Io Lexer Log Lsp_app Lsp_services Ltl_norm Ltl_progress Ltl_valuation Middle_end Middle_end_pass Middle_end_stages Obc_emit Obc_ghost_instrument Obc_stage Obligation_taxonomy Parse_file Parser Pipeline Pipeline_v2_indep Product_build Product_contracts Product_debug Product_types Provenance Stage_info Stage_names Stage_types Stages_info Support Why_compile_expr Why_contracts Why_core Why_diagnostics Why_emit Why_env Why_labels Why_prove Why_stage Why_types}
-{1 Library kairos.lsp_protocol}
-The entry point of this library is the module:
-{!module-Lsp_protocol}.
