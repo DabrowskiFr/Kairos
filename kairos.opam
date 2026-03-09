@@ -6,6 +6,10 @@ depends: [
   "rocq"
   "menhir"
   "ppx_deriving"
+  "ppx_deriving_yojson"
   "ocamllex"
   "ocaml"
+  "yojson"
+  "jsonrpc"
+  "lsp"
 ]

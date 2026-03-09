@@ -94,6 +94,12 @@ let instrumentation_diag_texts (infos : Pipeline.stage_infos) :
     i.assume_automaton_dot,
     i.product_dot )
 
+let program_automaton_texts (asts : Pipeline.ast_stages) : string * string =
+  match asts.automata_generation with
+  | [] -> ("", "")
+  | node :: _ ->
+      Product_debug.render_program_automaton ~node_name:node.nname ~node:(Abstract_model.of_ast_node node)
+
 let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos : Pipeline.stage_infos) :
     (Pipeline.outputs, Pipeline.error) result =
   try
@@ -113,6 +119,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       else ("", "")
     in
     let dot_png = if cfg.generate_dot_png && dot_text <> "" then Pipeline.dot_png_from_text dot_text else None in
+    let program_dot, program_automaton_text = program_automaton_texts asts in
     let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
         prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
       instrumentation_diag_texts infos
@@ -141,11 +148,13 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
         smt_text;
         dot_text;
         labels_text;
+        program_automaton_text;
         guarantee_automaton_text;
         assume_automaton_text;
         product_text;
         obligations_map_text;
         prune_reasons_text;
+        program_dot;
         guarantee_automaton_dot;
         assume_automaton_dot;
         product_dot;
@@ -192,16 +201,19 @@ let instrumentation_pass ~generate_png ~input_file =
       let dot_text, labels_text =
         Dot_emit.dot_monitor_program ~show_labels:false asts.automata_generation
       in
+      let program_dot, program_automaton_text = program_automaton_texts asts in
       let dot_png = if generate_png then Pipeline.dot_png_from_text dot_text else None in
       Ok
         {
           Pipeline.dot_text = dot_text;
           labels_text;
+          program_automaton_text;
           guarantee_automaton_text;
           assume_automaton_text;
           product_text;
           obligations_map_text;
           prune_reasons_text;
+          program_dot;
           guarantee_automaton_dot;
           assume_automaton_dot;
           product_dot;

@@ -1,5 +1,38 @@
 open Yojson.Safe
 
+module Lsp_types = Lsp.Types
+
+module Sync_io = struct
+  type 'a t = 'a
+
+  let return x = x
+  let raise exn = Stdlib.raise exn
+
+  module O = struct
+    let ( let+ ) x f = f x
+    let ( let* ) x f = f x
+  end
+end
+
+module Channels = struct
+  type input = in_channel
+  type output = out_channel
+
+  let read_line ic =
+    try Some (input_line ic)
+    with End_of_file -> None
+
+  let read_exactly ic len =
+    try Some (really_input_string ic len)
+    with End_of_file -> None
+
+  let write oc parts =
+    List.iter (output_string oc) parts;
+    flush oc
+end
+
+module Transport = Lsp.Io.Make (Sync_io) (Channels)
+
 let env_bool name =
   match Sys.getenv_opt name with
   | Some ("1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON") -> true
@@ -22,118 +55,87 @@ type t = {
   ec : in_channel;
   lock : Mutex.t;
   mutable next_id : int;
-  mutable active_request_id : Yojson.Safe.t option;
+  mutable active_request_id : Jsonrpc.Id.t option;
   mutable closed : bool;
 }
 
 let ( |>! ) r f = Result.bind r f
 
-let read_headers ic =
-  let rec loop acc =
-    let line = input_line ic in
-    if line = "" || line = "\r" then List.rev acc else loop (line :: acc)
+let send_packet t (packet : Jsonrpc.Packet.t) =
+  trace_line "ide-client -> lsp-server" (Jsonrpc.Packet.yojson_of_t packet |> Yojson.Safe.to_string);
+  Transport.write t.oc packet
+
+let send_result t ~(id : Jsonrpc.Id.t) ~(result_json : Yojson.Safe.t) =
+  send_packet t (Jsonrpc.Packet.Response (Jsonrpc.Response.ok id result_json))
+
+let send_error t ~(id : Jsonrpc.Id.t) ~(code : int) ~(message : string) =
+  let code =
+    match code with
+    | -32700 -> Jsonrpc.Response.Error.Code.ParseError
+    | -32600 -> Jsonrpc.Response.Error.Code.InvalidRequest
+    | -32601 -> Jsonrpc.Response.Error.Code.MethodNotFound
+    | -32602 -> Jsonrpc.Response.Error.Code.InvalidParams
+    | -32603 -> Jsonrpc.Response.Error.Code.InternalError
+    | -32002 -> Jsonrpc.Response.Error.Code.ServerNotInitialized
+    | -32800 -> Jsonrpc.Response.Error.Code.RequestCancelled
+    | n -> Jsonrpc.Response.Error.Code.Other n
   in
-  loop []
-
-let header_content_length headers =
-  List.find_map
-    (fun h ->
-      let lower = String.lowercase_ascii h in
-      if String.length lower >= 15 && String.sub lower 0 15 = "content-length:" then
-        Some (int_of_string (String.trim (String.sub h 15 (String.length h - 15))))
-      else None)
-    headers
-
-let read_message ic =
-  try
-    let headers = read_headers ic in
-    match header_content_length headers with
-    | None -> Error "Missing Content-Length"
-    | Some len ->
-        let body = really_input_string ic len in
-        trace_line "lsp-server -> ide-client" body;
-        Ok body
-  with End_of_file -> Error "LSP server closed stream"
-
-let send_json t (j : Yojson.Safe.t) =
-  let body = Yojson.Safe.to_string j in
-  trace_line "ide-client -> lsp-server" body;
-  output_string t.oc (Printf.sprintf "Content-Length: %d\r\n\r\n%s" (String.length body) body);
-  flush t.oc
-
-let send_result t ~(id : Yojson.Safe.t) ~(result_json : Yojson.Safe.t) =
-  send_json t (`Assoc [ ("jsonrpc", `String "2.0"); ("id", id); ("result", result_json) ])
-
-let send_error t ~(id : Yojson.Safe.t) ~(code : int) ~(message : string) =
-  send_json t
-    (`Assoc
-      [ ("jsonrpc", `String "2.0");
-        ("id", id);
-        ("error", `Assoc [ ("code", `Int code); ("message", `String message) ]) ])
+  let error = Jsonrpc.Response.Error.make ~code ~message () in
+  send_packet t (Jsonrpc.Packet.Response (Jsonrpc.Response.error id error))
 
 let with_lock t f =
   Mutex.lock t.lock;
   Fun.protect ~finally:(fun () -> Mutex.unlock t.lock) f
 
-let member k = function `Assoc xs -> List.assoc_opt k xs | _ -> None
-let as_string = function Some (`String s) -> Some s | _ -> None
-let id_key = function `Int n -> "i:" ^ string_of_int n | `String s -> "s:" ^ s | `Null -> "n:null" | j -> Yojson.Safe.to_string j
+let id_key (id : Jsonrpc.Id.t) = Jsonrpc.Id.yojson_of_t id |> Yojson.Safe.to_string
 
-let rec read_json_message t =
-  match read_message t.ic with
-  | Error e -> Error e
-  | Ok s -> ( try Ok (Yojson.Safe.from_string s) with _ -> read_json_message t )
+let rec read_packet t =
+  try
+    match Transport.read t.ic with
+    | Some packet ->
+        trace_line "lsp-server -> ide-client" (Jsonrpc.Packet.yojson_of_t packet |> Yojson.Safe.to_string);
+        Ok packet
+    | None -> Error "LSP server closed stream"
+  with _ -> read_packet t
 
-let is_response_for_id j id =
-  match member "id" j with
-  | Some rid -> id_key rid = id_key (`Int id)
-  | None -> false
-
-let error_message_of j =
-  member "error" j |> function
-  | Some (`Assoc e) -> (match List.assoc_opt "message" e with Some (`String s) -> Some s | _ -> None)
+let structured_params = function
+  | (`Assoc _ | `List _) as json -> Some (Jsonrpc.Structured.t_of_yojson json)
   | _ -> None
 
-let is_server_request (j : Yojson.Safe.t) =
-  match (member "method" j, member "id" j, member "result" j, member "error" j) with
-  | Some (`String _), Some _, None, None -> true
-  | _ -> false
-
-let handle_server_request t (j : Yojson.Safe.t) : unit =
-  match (member "method" j, member "id" j) with
-  | Some (`String "window/workDoneProgress/create"), Some id ->
-      send_result t ~id ~result_json:`Null
-  | Some (`String "workspace/configuration"), Some id ->
-      send_result t ~id ~result_json:(`List [])
-  | Some (`String _), Some id ->
-      send_error t ~id ~code:(-32601) ~message:"Method not found"
-  | _ -> ()
+let handle_server_request t (request : Jsonrpc.Request.t) : unit =
+  match request.method_ with
+  | "window/workDoneProgress/create" ->
+      send_result t ~id:request.id ~result_json:`Null
+  | "workspace/configuration" ->
+      send_result t ~id:request.id ~result_json:(`List [])
+  | _ ->
+      send_error t ~id:request.id ~code:(-32601) ~message:"Method not found"
 
 let call_request_with_notifications t ~(method_name : string) ~(params : Yojson.Safe.t)
-    ~(on_notification : Yojson.Safe.t -> unit) : (Yojson.Safe.t, string) result =
+    ~(on_notification : Jsonrpc.Notification.t -> unit) : (Yojson.Safe.t, string) result =
   with_lock t (fun () ->
       if t.closed then Error "Process client closed"
       else
-        let id = t.next_id in
+        let id : Jsonrpc.Id.t = `Int t.next_id in
         t.next_id <- t.next_id + 1;
-        t.active_request_id <- Some (`Int id);
-        send_json t
-          (`Assoc
-            [ ("jsonrpc", `String "2.0"); ("id", `Int id); ("method", `String method_name);
-              ("params", params) ]);
+        t.active_request_id <- Some id;
+        let params = structured_params params in
+        send_packet t (Jsonrpc.Packet.Request (Jsonrpc.Request.create ?params ~id ~method_:method_name ()));
         let rec loop () =
-          match read_json_message t with
+          match read_packet t with
           | Error e -> Error e
-          | Ok msg when is_response_for_id msg id -> (
+          | Ok (Jsonrpc.Packet.Response response) when id_key response.id = id_key id -> (
               t.active_request_id <- None;
-              match error_message_of msg with
-              | Some e -> Error e
-              | None -> Ok (Option.value (member "result" msg) ~default:`Null))
-          | Ok msg when is_server_request msg ->
-              handle_server_request t msg;
+              match response.result with
+              | Ok result -> Ok result
+              | Error error -> Error error.message)
+          | Ok (Jsonrpc.Packet.Request request) ->
+              handle_server_request t request;
               loop ()
-          | Ok msg ->
-              on_notification msg;
+          | Ok (Jsonrpc.Packet.Notification notif) ->
+              on_notification notif;
+              loop ()
+          | Ok _ ->
               loop ()
         in
         loop ())
@@ -145,9 +147,8 @@ let call_notification t ~method_name ~params : (unit, string) result =
   with_lock t (fun () ->
       if t.closed then Error "Process client closed"
       else (
-        send_json t
-          (`Assoc
-            [ ("jsonrpc", `String "2.0"); ("method", `String method_name); ("params", params) ]);
+        let params = structured_params params in
+        send_packet t (Jsonrpc.Packet.Notification (Jsonrpc.Notification.create ?params ~method_:method_name ()));
         Ok ()))
 
 let create () =
@@ -158,16 +159,16 @@ let create () =
   let t =
     { ic; oc; ec; lock = Mutex.create (); next_id = 1; active_request_id = None; closed = false }
   in
+  let capabilities =
+    let window = Lsp_types.WindowClientCapabilities.create ~workDoneProgress:true () in
+    Lsp_types.ClientCapabilities.create ~window ()
+  in
   ignore
     (call_request t ~method_name:"initialize"
        ~params:
-         (`Assoc
-           [
-             ("processId", `Null);
-             ("rootUri", `Null);
-             ("capabilities", `Assoc [ ("window", `Assoc [ ("workDoneProgress", `Bool true) ]) ]);
-             ("clientInfo", `Assoc [ ("name", `String "kairos-ide") ]);
-           ]));
+         (Lsp_types.InitializeParams.create ~capabilities
+            ~clientInfo:(Lsp_types.InitializeParams.create_clientInfo ~name:"kairos-ide" ()) ()
+         |> Lsp_types.InitializeParams.yojson_of_t));
   ignore (call_notification t ~method_name:"initialized" ~params:(`Assoc []));
   t
 
@@ -180,186 +181,124 @@ let close t =
     close_in_noerr t.ic;
     close_in_noerr t.ec)
 
+let lsp_position ~line ~character = Lsp_types.Position.create ~line ~character
+
+let text_document_identifier ~uri =
+  Lsp_types.TextDocumentIdentifier.create ~uri:(Lsp_types.DocumentUri.of_string uri)
+
 let text_document_position_params ~uri ~line ~character =
-  `Assoc
-    [
-      ("textDocument", `Assoc [ ("uri", `String uri) ]);
-      ("position", `Assoc [ ("line", `Int line); ("character", `Int character) ]);
-    ]
+  Lsp_types.HoverParams.create ~textDocument:(text_document_identifier ~uri)
+    ~position:(lsp_position ~line ~character) ()
+  |> Lsp_types.HoverParams.yojson_of_t
 
 let extract_hover_text (j : Yojson.Safe.t) : string option =
-  match j with
-  | `Null -> None
-  | `Assoc xs -> (
-      match List.assoc_opt "contents" xs with
-      | Some (`String s) -> Some s
-      | Some (`Assoc c) -> (
-          match List.assoc_opt "value" c with
-          | Some (`String s) -> Some s
-          | _ -> None)
-      | Some (`List (`String s :: _)) -> Some s
-      | _ -> None)
-  | _ -> None
+  if j = `Null then None
+  else
+    try
+      match Lsp_types.Hover.t_of_yojson j with
+      | { contents = `MarkupContent c; _ } -> Some c.value
+      | { contents = `MarkedString ms; _ } -> Some ms.value
+      | { contents = `List (ms :: _); _ } -> Some ms.value
+      | _ -> None
+    with _ -> None
+
+let line_char_of_location (loc : Lsp_types.Location.t) : int * int =
+  (loc.range.start.line, loc.range.start.character)
+
+let first_location_of_json (j : Yojson.Safe.t) : Lsp_types.Location.t option =
+  try
+    if j = `Null then None
+    else
+      match j with
+      | `List (x :: _) -> Some (Lsp_types.Location.t_of_yojson x)
+      | _ -> Some (Lsp_types.Location.t_of_yojson j)
+  with _ -> None
 
 let extract_line_char_from_location (j : Yojson.Safe.t) : (int * int) option =
-  let get_start = function
-    | `Assoc xs -> (
-        match List.assoc_opt "range" xs with
-        | Some (`Assoc r) -> (
-            match List.assoc_opt "start" r with
-            | Some (`Assoc s) -> (
-                match (List.assoc_opt "line" s, List.assoc_opt "character" s) with
-                | Some (`Int l), Some (`Int c) -> Some (l, c)
-                | _ -> None)
-            | _ -> None)
-        | _ -> None)
-    | _ -> None
-  in
-  match j with
-  | `Assoc _ -> get_start j
-  | `List (x :: _) -> get_start x
-  | _ -> None
+  Option.map line_char_of_location (first_location_of_json j)
 
 let extract_references (j : Yojson.Safe.t) : (int * int) list =
-  match j with
-  | `List xs ->
-      List.filter_map
-        (fun x ->
-          match extract_line_char_from_location x with Some lc -> Some lc | None -> None)
-        xs
-  | _ -> []
+  try
+    match j with
+    | `List xs ->
+        List.filter_map
+          (fun x ->
+            try
+              Some (line_char_of_location (Lsp_types.Location.t_of_yojson x))
+            with _ -> None)
+          xs
+    | _ -> []
+  with _ -> []
 
 let extract_completion_labels (j : Yojson.Safe.t) : string list =
-  let items =
+  try
     match j with
-    | `List xs -> xs
-    | `Assoc xs -> (
-        match List.assoc_opt "items" xs with Some (`List ys) -> ys | _ -> [])
-    | _ -> []
-  in
-  items
-  |> List.filter_map (function `Assoc kv -> (match List.assoc_opt "label" kv with Some (`String s) -> Some s | _ -> None) | _ -> None)
-
-let parse_outline_sections (j : Yojson.Safe.t) : (Ide_lsp_types.outline_sections, string) result =
-  let parse_name_line = function
-    | `Assoc kv -> (
-        match (List.assoc_opt "name" kv, List.assoc_opt "line" kv) with
-        | Some (`String name), Some (`Int line) -> Ok (name, line)
-        | _ -> Error "Invalid outline entry")
-    | _ -> Error "Invalid outline entry"
-  in
-  let parse_list = function
     | `List xs ->
-        List.fold_right
-          (fun x acc ->
-            acc |>! fun acc ->
-            parse_name_line x |>! fun e -> Ok (e :: acc))
-          xs (Ok [])
-    | _ -> Error "Invalid outline list"
-  in
-  match j with
-  | `Assoc kv ->
-      let open Ide_lsp_types in
-      (match (List.assoc_opt "nodes" kv, List.assoc_opt "transitions" kv, List.assoc_opt "contracts" kv) with
-      | Some n, Some t, Some c ->
-          parse_list n |>! fun nodes ->
-          parse_list t |>! fun transitions ->
-          parse_list c |>! fun contracts ->
-          Ok { Ide_lsp_types.nodes = nodes; transitions; contracts }
-      | _ -> Error "Invalid outline sections")
-  | _ -> Error "Invalid outline sections"
+        List.filter_map (fun x -> try Some (Lsp_types.CompletionItem.t_of_yojson x).label with _ -> None) xs
+    | _ ->
+        let list = Lsp_types.CompletionList.t_of_yojson j in
+        List.map (fun item -> item.Lsp_types.CompletionItem.label) list.items
+  with _ -> []
+
+let first_text_edit_new_text (j : Yojson.Safe.t) : string option =
+  try
+    match j with
+    | `List (edit_json :: _) -> Some (Lsp_types.TextEdit.t_of_yojson edit_json).newText
+    | `List [] -> None
+    | _ -> None
+  with _ -> None
+
+let ide_outline_sections_of_protocol (s : Lsp_protocol.outline_sections) : Ide_lsp_types.outline_sections =
+  { Ide_lsp_types.nodes = s.nodes; transitions = s.transitions; contracts = s.contracts }
+
+let ide_outline_payload_of_protocol (p : Lsp_protocol.outline_payload) : Ide_lsp_types.outline_payload =
+  {
+    Ide_lsp_types.source = ide_outline_sections_of_protocol p.source;
+    abstract_program = ide_outline_sections_of_protocol p.abstract_program;
+  }
+
+let rec ide_goal_tree_entry_of_protocol (e : Lsp_protocol.goal_tree_entry) : Ide_lsp_types.goal_tree_entry =
+  {
+    Ide_lsp_types.idx = e.idx;
+    display_no = e.display_no;
+    goal = e.goal;
+    status = e.status;
+    time_s = e.time_s;
+    dump_path = e.dump_path;
+    source = e.source;
+    vcid = e.vcid;
+  }
+
+and ide_goal_tree_transition_of_protocol
+    (t : Lsp_protocol.goal_tree_transition) : Ide_lsp_types.goal_tree_transition =
+  {
+    Ide_lsp_types.transition = t.transition;
+    source = t.source;
+    succeeded = t.succeeded;
+    total = t.total;
+    items = List.map ide_goal_tree_entry_of_protocol t.items;
+  }
+
+and ide_goal_tree_node_of_protocol (n : Lsp_protocol.goal_tree_node) : Ide_lsp_types.goal_tree_node =
+  {
+    Ide_lsp_types.node = n.node;
+    source = n.source;
+    succeeded = n.succeeded;
+    total = n.total;
+    transitions = List.map ide_goal_tree_transition_of_protocol n.transitions;
+  }
+
+let parse_outline_payload (j : Yojson.Safe.t) : (Ide_lsp_types.outline_payload, string) result =
+  Lsp_protocol.outline_payload_of_yojson j |> Result.map ide_outline_payload_of_protocol
 
 let parse_goal_tree (j : Yojson.Safe.t) : (Ide_lsp_types.goal_tree_node list, string) result =
-  let open Ide_lsp_types in
-  let parse_entry = function
-    | `Assoc kv ->
-        let pick_int k = match List.assoc_opt k kv with Some (`Int i) -> Ok i | _ -> Error ("Missing int " ^ k) in
-        let pick_float k = match List.assoc_opt k kv with Some (`Float f) -> Ok f | Some (`Int i) -> Ok (float_of_int i) | _ -> Error ("Missing float " ^ k) in
-        let pick_string k = match List.assoc_opt k kv with Some (`String s) -> Ok s | _ -> Error ("Missing string " ^ k) in
-        let pick_opt_string k = match List.assoc_opt k kv with Some (`String s) -> Ok (Some s) | Some `Null | None -> Ok None | _ -> Error ("Invalid optional string " ^ k) in
-        pick_int "idx" |>! fun idx ->
-        pick_int "display_no" |>! fun display_no ->
-        pick_string "goal" |>! fun goal ->
-        pick_string "status" |>! fun status ->
-        pick_float "time_s" |>! fun time_s ->
-        pick_opt_string "dump_path" |>! fun dump_path ->
-        pick_string "source" |>! fun source ->
-        pick_opt_string "vcid" |>! fun vcid ->
-        Ok
-          {
-            Ide_lsp_types.idx = idx;
-            display_no;
-            goal;
-            status;
-            time_s;
-            dump_path;
-            source;
-            vcid;
-          }
-    | _ -> Error "Invalid goal tree entry"
-  in
-  let parse_entries = function
-    | `List xs ->
-        List.fold_right
-          (fun x acc -> acc |>! fun acc -> parse_entry x |>! fun e -> Ok (e :: acc))
-          xs (Ok [])
-    | _ -> Error "Invalid goal tree items"
-  in
-  let parse_transition = function
-    | `Assoc kv ->
-        let pick_int k = match List.assoc_opt k kv with Some (`Int i) -> Ok i | _ -> Error ("Missing int " ^ k) in
-        let pick_string k = match List.assoc_opt k kv with Some (`String s) -> Ok s | _ -> Error ("Missing string " ^ k) in
-        pick_string "transition" |>! fun transition ->
-        pick_string "source" |>! fun source ->
-        pick_int "succeeded" |>! fun succeeded ->
-        pick_int "total" |>! fun total ->
-        (match List.assoc_opt "items" kv with
-        | Some items ->
-            parse_entries items |>! fun items ->
-            Ok
-              {
-                Ide_lsp_types.transition = transition;
-                source;
-                succeeded;
-                total;
-                items;
-              }
-        | None -> Error "Missing items")
-    | _ -> Error "Invalid goal tree transition"
-  in
-  let parse_transitions = function
-    | `List xs ->
-        List.fold_right
-          (fun x acc -> acc |>! fun acc -> parse_transition x |>! fun t -> Ok (t :: acc))
-          xs (Ok [])
-    | _ -> Error "Invalid goal tree transitions"
-  in
-  let parse_node = function
-    | `Assoc kv ->
-        let pick_int k = match List.assoc_opt k kv with Some (`Int i) -> Ok i | _ -> Error ("Missing int " ^ k) in
-        let pick_string k = match List.assoc_opt k kv with Some (`String s) -> Ok s | _ -> Error ("Missing string " ^ k) in
-        pick_string "node" |>! fun node ->
-        pick_string "source" |>! fun source ->
-        pick_int "succeeded" |>! fun succeeded ->
-        pick_int "total" |>! fun total ->
-        (match List.assoc_opt "transitions" kv with
-        | Some transitions ->
-            parse_transitions transitions |>! fun transitions ->
-            Ok
-              {
-                Ide_lsp_types.node = node;
-                source;
-                succeeded;
-                total;
-                transitions;
-              }
-        | None -> Error "Missing transitions")
-    | _ -> Error "Invalid goal tree node"
-  in
   match j with
   | `List xs ->
       List.fold_right
-        (fun x acc -> acc |>! fun acc -> parse_node x |>! fun n -> Ok (n :: acc))
+        (fun x acc ->
+          acc |>! fun acc ->
+          Lsp_protocol.goal_tree_node_of_yojson x |> Result.map ide_goal_tree_node_of_protocol
+          |>! fun node -> Ok (node :: acc))
         xs (Ok [])
   | _ -> Error "Invalid goal tree payload"
 
@@ -379,68 +318,48 @@ let definition t ~uri ~line ~character =
 let references t ~uri ~line ~character =
   call_request t ~method_name:"textDocument/references"
     ~params:
-      (`Assoc
-        [
-          ("textDocument", `Assoc [ ("uri", `String uri) ]);
-          ("position", `Assoc [ ("line", `Int line); ("character", `Int character) ]);
-          ("context", `Assoc [ ("includeDeclaration", `Bool true) ]);
-        ])
+      (Lsp_types.ReferenceParams.create
+         ~textDocument:(text_document_identifier ~uri)
+         ~position:(lsp_position ~line ~character)
+         ~context:(Lsp_types.ReferenceContext.create ~includeDeclaration:true) ()
+      |> Lsp_types.ReferenceParams.yojson_of_t)
   |>! fun j -> Ok (extract_references j)
 
 let completion t ~uri ~line ~character =
   call_request t ~method_name:"textDocument/completion"
-    ~params:(text_document_position_params ~uri ~line ~character)
+    ~params:
+      (Lsp_types.CompletionParams.create ~textDocument:(text_document_identifier ~uri)
+         ~position:(lsp_position ~line ~character) ()
+      |> Lsp_types.CompletionParams.yojson_of_t)
   |>! fun j -> Ok (extract_completion_labels j)
 
 let formatting t ~uri =
   call_request t ~method_name:"textDocument/formatting"
     ~params:
-      (`Assoc
-        [
-          ("textDocument", `Assoc [ ("uri", `String uri) ]);
-          ("options", `Assoc [ ("tabSize", `Int 2); ("insertSpaces", `Bool true) ]);
-        ])
-  |>! fun j ->
-  match j with
-  | `List (`Assoc e :: _) -> (
-      match List.assoc_opt "newText" e with Some (`String s) -> Ok (Some s) | _ -> Ok None)
-  | `List [] -> Ok None
-  | _ -> Ok None
+      (Lsp_types.DocumentFormattingParams.create ~textDocument:(text_document_identifier ~uri)
+         ~options:(Lsp_types.FormattingOptions.create ~tabSize:2 ~insertSpaces:true ()) ()
+      |> Lsp_types.DocumentFormattingParams.yojson_of_t)
+  |>! fun j -> Ok (first_text_edit_new_text j)
 
 let outline t ~uri ~abstract_text =
   call_request t ~method_name:"kairos/outline"
-    ~params:(`Assoc [ ("uri", `String uri); ("abstractText", `String abstract_text) ])
-  |>! fun j ->
-  match j with
-  | `Assoc kv -> (
-      match (List.assoc_opt "source" kv, List.assoc_opt "abstract" kv) with
-      | Some source_j, Some abstract_j ->
-          parse_outline_sections source_j |>! fun source ->
-          parse_outline_sections abstract_j |>! fun abstract_program ->
-          Ok { Ide_lsp_types.source; abstract_program }
-      | _ -> Error "Invalid outline payload")
-  | _ -> Error "Invalid outline payload"
+    ~params:
+      (Lsp_protocol.yojson_of_outline_request
+         { uri = Some uri; source_text = None; abstract_text = Some abstract_text })
+  |>! parse_outline_payload
 
 let goals_tree_final t ~goals ~vc_sources ~vc_text =
   call_request t ~method_name:"kairos/goalsTreeFinal"
     ~params:
-      (`Assoc
-        [
-          ("goals", `List (List.map Lsp_protocol.yojson_of_goal_info goals));
-          ("vcSources", `List (List.map (fun (k, v) -> `List [ `Int k; `String v ]) vc_sources));
-          ("vcText", `String vc_text);
-        ])
+      (Lsp_protocol.yojson_of_goals_tree_final_request
+         { goals; vc_sources; vc_text })
   |>! parse_goal_tree
 
 let goals_tree_pending t ~goal_names ~vc_ids ~vc_sources =
   call_request t ~method_name:"kairos/goalsTreePending"
     ~params:
-      (`Assoc
-        [
-          ("goalNames", `List (List.map (fun s -> `String s) goal_names));
-          ("vcIds", `List (List.map (fun i -> `Int i) vc_ids));
-          ("vcSources", `List (List.map (fun (k, v) -> `List [ `Int k; `String v ]) vc_sources));
-        ])
+      (Lsp_protocol.yojson_of_goals_tree_pending_request
+         { goal_names; vc_ids; vc_sources })
   |>! parse_goal_tree
 
 let cancel_active_request t =
@@ -448,39 +367,38 @@ let cancel_active_request t =
   | None -> Ok ()
   | Some id ->
       call_notification t ~method_name:"$/cancelRequest"
-        ~params:(`Assoc [ ("id", id) ])
+        ~params:(Lsp_types.CancelParams.create ~id |> Lsp_types.CancelParams.yojson_of_t)
 
 let did_open t ~uri ~text =
   call_notification t ~method_name:"textDocument/didOpen"
     ~params:
-      (`Assoc
-        [
-          ("textDocument",
-           `Assoc
-             [
-               ("uri", `String uri);
-               ("languageId", `String "kairos");
-               ("version", `Int 1);
-               ("text", `String text);
-             ]);
-        ])
+      (Lsp_types.DidOpenTextDocumentParams.create
+         ~textDocument:
+           (Lsp_types.TextDocumentItem.create ~uri:(Lsp_types.DocumentUri.of_string uri)
+              ~languageId:"kairos" ~version:1 ~text)
+      |> Lsp_types.DidOpenTextDocumentParams.yojson_of_t)
 
 let did_change t ~uri ~version ~text =
   call_notification t ~method_name:"textDocument/didChange"
     ~params:
-      (`Assoc
-        [
-          ("textDocument", `Assoc [ ("uri", `String uri); ("version", `Int version) ]);
-          ("contentChanges", `List [ `Assoc [ ("text", `String text) ] ]);
-        ])
+      (Lsp_types.DidChangeTextDocumentParams.create
+         ~textDocument:
+           (Lsp_types.VersionedTextDocumentIdentifier.create ~uri:(Lsp_types.DocumentUri.of_string uri)
+              ~version)
+         ~contentChanges:[ Lsp_types.TextDocumentContentChangeEvent.create ~text () ]
+      |> Lsp_types.DidChangeTextDocumentParams.yojson_of_t)
 
 let did_save t ~uri =
   call_notification t ~method_name:"textDocument/didSave"
-    ~params:(`Assoc [ ("textDocument", `Assoc [ ("uri", `String uri) ]) ])
+    ~params:
+      (Lsp_types.DidSaveTextDocumentParams.create ~textDocument:(text_document_identifier ~uri) ()
+      |> Lsp_types.DidSaveTextDocumentParams.yojson_of_t)
 
 let did_close t ~uri =
   call_notification t ~method_name:"textDocument/didClose"
-    ~params:(`Assoc [ ("textDocument", `Assoc [ ("uri", `String uri) ]) ])
+    ~params:
+      (Lsp_types.DidCloseTextDocumentParams.create ~textDocument:(text_document_identifier ~uri)
+      |> Lsp_types.DidCloseTextDocumentParams.yojson_of_t)
 
 let default_engine () =
   match Option.map String.lowercase_ascii (Sys.getenv_opt "KAIROS_IDE_ENGINE") with
@@ -490,123 +408,70 @@ let default_engine () =
 let instrumentation_pass t ~generate_png ~input_file =
   call_request t ~method_name:"kairos/instrumentationPass"
     ~params:
-      (`Assoc
-        [
-          ("inputFile", `String input_file);
-          ("generatePng", `Bool generate_png);
-          ("engine", `String (default_engine ()));
-        ])
+      (Lsp_protocol.yojson_of_instrumentation_pass_request
+         { input_file; generate_png; engine = default_engine () })
   |>!  Lsp_protocol.automata_outputs_of_yojson
 
 let obc_pass t ~input_file =
   call_request t ~method_name:"kairos/obcPass"
-    ~params:(`Assoc [ ("inputFile", `String input_file); ("engine", `String (default_engine ())) ])
+    ~params:(Lsp_protocol.yojson_of_obc_pass_request { input_file; engine = default_engine () })
   |>!  Lsp_protocol.obc_outputs_of_yojson
 
 let why_pass t ~prefix_fields ~input_file =
   call_request t ~method_name:"kairos/whyPass"
-    ~params:
-      (`Assoc
-        [
-          ("inputFile", `String input_file);
-          ("prefixFields", `Bool prefix_fields);
-          ("engine", `String (default_engine ()));
-        ])
+    ~params:(Lsp_protocol.yojson_of_why_pass_request { input_file; prefix_fields; engine = default_engine () })
   |>!  Lsp_protocol.why_outputs_of_yojson
 
 let obligations_pass t ~prefix_fields ~prover ~input_file =
   call_request t ~method_name:"kairos/obligationsPass"
     ~params:
-      (`Assoc
-        [
-          ("inputFile", `String input_file);
-          ("prover", `String prover);
-          ("prefixFields", `Bool prefix_fields);
-          ("engine", `String (default_engine ()));
-        ])
+      (Lsp_protocol.yojson_of_obligations_pass_request
+         { input_file; prover; prefix_fields; engine = default_engine () })
   |>!  Lsp_protocol.obligations_outputs_of_yojson
 
 let eval_pass t ~input_file ~trace_text ~with_state ~with_locals =
   call_request t ~method_name:"kairos/evalPass"
     ~params:
-      (`Assoc
-        [
-          ("inputFile", `String input_file);
-          ("traceText", `String trace_text);
-          ("withState", `Bool with_state);
-          ("withLocals", `Bool with_locals);
-          ("engine", `String (default_engine ()));
-        ])
+      (Lsp_protocol.yojson_of_eval_pass_request
+         { input_file; trace_text; with_state; with_locals; engine = default_engine () })
   |>!  (function `String s -> Ok s | _ -> Error "Invalid evalPass response")
 
 let dot_png_from_text t ~dot_text =
   call_request t ~method_name:"kairos/dotPngFromText"
-    ~params:(`Assoc [ ("dotText", `String dot_text) ])
+    ~params:(Lsp_protocol.yojson_of_dot_png_from_text_request { dot_text })
   |>!  (function `Null -> Ok None | `String s -> Ok (Some s) | _ -> Error "Invalid dotPngFromText response")
 
 let run t (cfg : Ide_lsp_types.config) =
   call_request t ~method_name:"kairos/run"
-    ~params:(
-      `Assoc
-        [ ("inputFile", `String cfg.Ide_lsp_types.input_file); ("prover", `String cfg.Ide_lsp_types.prover);
-          ("engine", `String cfg.Ide_lsp_types.engine);
-          ("proverCmd", match cfg.Ide_lsp_types.prover_cmd with None -> `Null | Some s -> `String s);
-          ("wpOnly", `Bool cfg.Ide_lsp_types.wp_only); ("smokeTests", `Bool cfg.Ide_lsp_types.smoke_tests);
-          ("timeoutS", `Int cfg.Ide_lsp_types.timeout_s); ("prefixFields", `Bool cfg.Ide_lsp_types.prefix_fields);
-          ("prove", `Bool cfg.Ide_lsp_types.prove); ("generateVcText", `Bool cfg.Ide_lsp_types.generate_vc_text);
-          ("generateSmtText", `Bool cfg.Ide_lsp_types.generate_smt_text);
-          ("generateMonitorText", `Bool cfg.Ide_lsp_types.generate_monitor_text);
-          ("generateDotPng", `Bool cfg.Ide_lsp_types.generate_dot_png) ])
+    ~params:(Lsp_protocol.yojson_of_config cfg)
   |>!  Lsp_protocol.outputs_of_yojson
 
+let decode_notification_params notif decode =
+  match notif.Jsonrpc.Notification.params with
+  | Some params -> decode (params :> Yojson.Safe.t)
+  | None -> Error "Missing notification params"
+
 let run_with_callbacks t (cfg : Ide_lsp_types.config) ~on_outputs_ready ~on_goals_ready ~on_goal_done =
-  let on_notification msg =
-    match as_string (member "method" msg) with
-    | Some "kairos/goalsReady" -> (
-        match member "params" msg |> function Some (`Assoc ps) -> List.assoc_opt "payload" ps | _ -> None with
-        | Some (`Assoc p) -> (
-            let names =
-              match List.assoc_opt "names" p with
-              | Some (`List xs) -> List.filter_map (function `String s -> Some s | _ -> None) xs
-              | _ -> []
-            in
-            let vc_ids =
-              match List.assoc_opt "vcIds" p with
-              | Some (`List xs) -> List.filter_map (function `Int i -> Some i | _ -> None) xs
-              | _ -> []
-            in
-            on_goals_ready (names, vc_ids))
-        | _ -> ())
-    | Some "kairos/goalDone" -> (
-        match member "params" msg |> function Some (`Assoc ps) -> List.assoc_opt "payload" ps | _ -> None with
-        | Some (`Assoc p) ->
-            let idx = match List.assoc_opt "idx" p with Some (`Int i) -> i | _ -> -1 in
-            let goal = match List.assoc_opt "goal" p with Some (`String s) -> s | _ -> "" in
-            let status = match List.assoc_opt "status" p with Some (`String s) -> s | _ -> "" in
-            let time_s = match List.assoc_opt "time_s" p with Some (`Float f) -> f | Some (`Int i) -> float_of_int i | _ -> 0.0 in
-            let dump_path = match List.assoc_opt "dump_path" p with Some (`String s) -> Some s | _ -> None in
-            let source = match List.assoc_opt "source" p with Some (`String s) -> s | _ -> "" in
-            let vcid = match List.assoc_opt "vcid" p with Some (`String s) -> Some s | _ -> None in
-            on_goal_done idx goal status time_s dump_path source vcid
-        | _ -> ())
-    | Some "kairos/outputsReady" -> (
-        match member "params" msg |> function Some (`Assoc ps) -> List.assoc_opt "payload" ps | _ -> None with
-        | Some payload -> (
-            match Lsp_protocol.outputs_of_yojson payload with Ok out -> on_outputs_ready out | Error _ -> ())
-        | None -> ())
+  let on_notification notif =
+    match notif.Jsonrpc.Notification.method_ with
+    | "kairos/goalsReady" -> (
+        match decode_notification_params notif Lsp_protocol.goals_ready_notification_of_yojson with
+        | Ok notification -> on_goals_ready (notification.payload.names, notification.payload.vc_ids)
+        | Error _ -> ())
+    | "kairos/goalDone" -> (
+        match decode_notification_params notif Lsp_protocol.goal_done_notification_of_yojson with
+        | Ok notification ->
+            let payload = notification.payload in
+            on_goal_done payload.idx payload.goal payload.status payload.time_s payload.dump_path
+              payload.source payload.vcid
+        | Error _ -> ())
+    | "kairos/outputsReady" -> (
+        match decode_notification_params notif Lsp_protocol.outputs_ready_notification_of_yojson with
+        | Ok notification -> on_outputs_ready notification.payload
+        | Error _ -> ())
     | _ -> ()
   in
   call_request_with_notifications t ~method_name:"kairos/run"
-    ~params:(
-      `Assoc
-        [ ("inputFile", `String cfg.Ide_lsp_types.input_file); ("prover", `String cfg.Ide_lsp_types.prover);
-          ("engine", `String cfg.Ide_lsp_types.engine);
-          ("proverCmd", match cfg.Ide_lsp_types.prover_cmd with None -> `Null | Some s -> `String s);
-          ("wpOnly", `Bool cfg.Ide_lsp_types.wp_only); ("smokeTests", `Bool cfg.Ide_lsp_types.smoke_tests);
-          ("timeoutS", `Int cfg.Ide_lsp_types.timeout_s); ("prefixFields", `Bool cfg.Ide_lsp_types.prefix_fields);
-          ("prove", `Bool cfg.Ide_lsp_types.prove); ("generateVcText", `Bool cfg.Ide_lsp_types.generate_vc_text);
-          ("generateSmtText", `Bool cfg.Ide_lsp_types.generate_smt_text);
-          ("generateMonitorText", `Bool cfg.Ide_lsp_types.generate_monitor_text);
-          ("generateDotPng", `Bool cfg.Ide_lsp_types.generate_dot_png) ])
+    ~params:(Lsp_protocol.yojson_of_config cfg)
     ~on_notification
   |>!  Lsp_protocol.outputs_of_yojson

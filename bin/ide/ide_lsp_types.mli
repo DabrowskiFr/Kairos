@@ -7,6 +7,11 @@ include
      and type obc_outputs = Lsp_protocol.obc_outputs
      and type why_outputs = Lsp_protocol.why_outputs
      and type obligations_outputs = Lsp_protocol.obligations_outputs
+     and type outline_sections = Lsp_protocol.outline_sections
+     and type outline_payload = Lsp_protocol.outline_payload
+     and type goal_tree_entry = Lsp_protocol.goal_tree_entry
+     and type goal_tree_transition = Lsp_protocol.goal_tree_transition
+     and type goal_tree_node = Lsp_protocol.goal_tree_node
      and type config = Lsp_protocol.config
 
 type request_id = int
@@ -76,41 +81,3 @@ type response =
   | Eval_out of string
   | Dot_png_out of string option
   | Run_out of outputs
-
-type outline_sections = {
-  nodes : (string * int) list;
-  transitions : (string * int) list;
-  contracts : (string * int) list;
-}
-
-type outline_payload = {
-  source : outline_sections;
-  abstract_program : outline_sections;
-}
-
-type goal_tree_entry = {
-  idx : int;
-  display_no : int;
-  goal : string;
-  status : string;
-  time_s : float;
-  dump_path : string option;
-  source : string;
-  vcid : string option;
-}
-
-type goal_tree_transition = {
-  transition : string;
-  source : string;
-  succeeded : int;
-  total : int;
-  items : goal_tree_entry list;
-}
-
-type goal_tree_node = {
-  node : string;
-  source : string;
-  succeeded : int;
-  total : int;
-  transitions : goal_tree_transition list;
-}

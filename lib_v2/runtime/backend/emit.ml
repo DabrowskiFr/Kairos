@@ -254,10 +254,10 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
     let f = if rel then rel_fo env inv.formula else inv.formula in
     "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_fo f
   in
-  let comment =
-    let is_monitor = List.exists (fun v -> v.vname = "__aut_state") n.locals in
-    if is_monitor then
-      let simplify = Automaton_core.simplify_ltl in
+    let comment =
+      let is_monitor = List.exists (fun v -> v.vname = "__aut_state") n.locals in
+      if is_monitor then
+      let simplify x = x in
       let prefixes = nodes_ast |> List.map (fun nd -> Support.prefix_for_node nd.nname) in
       let replace_all ~sub ~by s =
         if sub = "" then s

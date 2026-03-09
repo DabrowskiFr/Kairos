@@ -92,11 +92,13 @@ let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
     smt_text = o.smt_text;
     dot_text = o.dot_text;
     labels_text = o.labels_text;
+    program_automaton_text = o.program_automaton_text;
     guarantee_automaton_text = o.guarantee_automaton_text;
     assume_automaton_text = o.assume_automaton_text;
     product_text = o.product_text;
     obligations_map_text = o.obligations_map_text;
     prune_reasons_text = o.prune_reasons_text;
+    program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;
@@ -124,11 +126,13 @@ let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs
   {
     dot_text = o.dot_text;
     labels_text = o.labels_text;
+    program_automaton_text = o.program_automaton_text;
     guarantee_automaton_text = o.guarantee_automaton_text;
     assume_automaton_text = o.assume_automaton_text;
     product_text = o.product_text;
     obligations_map_text = o.obligations_map_text;
     prune_reasons_text = o.prune_reasons_text;
+    program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;

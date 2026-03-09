@@ -6,6 +6,7 @@ open Automata_atoms
 open Fo_specs
 
 module PT = Product_types
+module Abs = Abstract_model
 
 type rendered = {
   guarantee_automaton_lines : string list;
@@ -39,6 +40,74 @@ let obligation_formula (step : PT.product_step) : fo =
 
 let render_automaton_lines ~prefix labels =
   labels |> List.mapi (fun i lbl -> Printf.sprintf "%s%d = %s" prefix i lbl)
+
+let strip_braces_early (s : string) : string =
+  let len = String.length s in
+  let b = Buffer.create len in
+  let rec loop i =
+    if i >= len then ()
+    else (
+      let c = s.[i] in
+      if c <> '{' && c <> '}' then Buffer.add_char b c;
+      loop (i + 1))
+  in
+  loop 0;
+  Buffer.contents b
+
+let rewrite_history_vars_early (s : string) : string =
+  let len = String.length s in
+  let b = Buffer.create len in
+  let is_digit c = c >= '0' && c <= '9' in
+  let is_ident_char c =
+    (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c = '_'
+  in
+  let rec loop i =
+    if i >= len then ()
+    else if i + 7 <= len && String.sub s i 7 = "__pre_k" then
+      let j = i + 7 in
+      let rec read_digits k = if k < len && is_digit s.[k] then read_digits (k + 1) else k in
+      let k = read_digits j in
+      if k > j && k < len && s.[k] = '_' then
+        let var_start = k + 1 in
+        let rec read_ident m = if m < len && is_ident_char s.[m] then read_ident (m + 1) else m in
+        let var_end = read_ident var_start in
+        if var_end > var_start then (
+          let k_str = String.sub s j (k - j) in
+          let v = String.sub s var_start (var_end - var_start) in
+          if k_str = "1" then Buffer.add_string b ("pre(" ^ v ^ ")")
+          else Buffer.add_string b ("pre_k(" ^ v ^ ", " ^ k_str ^ ")");
+          loop var_end)
+        else (
+          Buffer.add_char b s.[i];
+          loop (i + 1))
+      else (
+        Buffer.add_char b s.[i];
+        loop (i + 1))
+    else (
+      Buffer.add_char b s.[i];
+      loop (i + 1))
+  in
+  loop 0;
+  Buffer.contents b
+
+let render_program_lines ~(node_name : ident) (node : Abs.node) =
+  let states =
+    node.semantics.sem_states
+    |> List.map (fun st -> Printf.sprintf "[%s] P[%s]" node_name st)
+  in
+  let transitions =
+    node.trans
+    |> List.map (fun (t : Abs.transition) ->
+           let guard =
+             match t.guard with
+             | None -> "⊤"
+             | Some g ->
+                 g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
+                 |> rewrite_history_vars_early
+           in
+           Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
+  in
+  states @ transitions
 
 let render_product_lines ~(node_name : ident) (analysis : Product_build.analysis) =
   let states =
@@ -87,21 +156,77 @@ let render_prune_lines ~(node_name : ident) (analysis : Product_build.analysis) 
 let node_id_of_state (s : PT.product_state) : string =
   Printf.sprintf "n_%s_a%d_g%d" s.prog_state s.assume_state s.guarantee_state
 
+let product_state_index_map (states : PT.product_state list) =
+  let tbl = Hashtbl.create 32 in
+  List.iteri (fun i st -> Hashtbl.replace tbl st i) states;
+  tbl
+
+let product_subscript_digits (n : int) : string =
+  let map = function
+    | '0' -> "₀"
+    | '1' -> "₁"
+    | '2' -> "₂"
+    | '3' -> "₃"
+    | '4' -> "₄"
+    | '5' -> "₅"
+    | '6' -> "₆"
+    | '7' -> "₇"
+    | '8' -> "₈"
+    | '9' -> "₉"
+    | c -> String.make 1 c
+  in
+  string_of_int n |> String.to_seq |> List.of_seq |> List.map map |> String.concat ""
+
+let pretty_aut_state ~prefix ~idx ~bad_idx =
+  if bad_idx >= 0 && idx = bad_idx then Printf.sprintf "%s_bad" prefix
+  else prefix ^ product_subscript_digits idx
+
+let pretty_product_state (s : PT.product_state) ~(analysis : Product_build.analysis) : string =
+  Printf.sprintf "(%s, %s, %s)" s.prog_state
+    (pretty_aut_state ~prefix:"A" ~idx:s.assume_state ~bad_idx:analysis.assume_bad_idx)
+    (pretty_aut_state ~prefix:"G" ~idx:s.guarantee_state ~bad_idx:analysis.guarantee_bad_idx)
+
+let product_node_fill (s : PT.product_state) ~(analysis : Product_build.analysis) =
+  if PT.compare_state s analysis.exploration.initial_state = 0 then ("#d9e8ff", "#3f6fb5")
+  else if analysis.guarantee_bad_idx >= 0 && s.guarantee_state = analysis.guarantee_bad_idx then
+    ("#f6d7d7", "#a53030")
+  else if analysis.assume_bad_idx >= 0 && s.assume_state = analysis.assume_bad_idx then
+    ("#f9ead7", "#b26a1f")
+  else ("white", "#6b7280")
+
+let pretty_step_class = function
+  | PT.Safe -> "safe"
+  | PT.Bad_assumption -> "bad_A"
+  | PT.Bad_guarantee -> "bad_G"
+
+let pretty_edge_ref ~prefix ~(edge : PT.automaton_edge) ~(bad_idx : int) =
+  let src, _guard, dst = edge in
+  Printf.sprintf "%s[%s → %s]" prefix
+    (pretty_aut_state ~prefix ~idx:src ~bad_idx)
+    (pretty_aut_state ~prefix ~idx:dst ~bad_idx)
+
 let render_product_dot ~(node_name : ident) (analysis : Product_build.analysis) =
   let buf = Buffer.create 4096 in
+  let state_indices = product_state_index_map analysis.exploration.states in
   Buffer.add_string buf "digraph Product {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
+  Buffer.add_string buf "  forcelabels=true;\n";
+  Buffer.add_string buf
+    "  node [shape=box,style=\"rounded,filled\",penwidth=1.4,fontname=\"Helvetica\",fontsize=11,margin=0.12];\n";
+  Buffer.add_string buf
+    "  edge [fontname=\"Helvetica\",fontsize=11,penwidth=1.25,arrowsize=0.75];\n";
   List.iter
     (fun st ->
-      let color =
-        if PT.compare_state st analysis.exploration.initial_state = 0 then "lightblue"
-        else "white"
-      in
+      let fill, border = product_node_fill st ~analysis in
+      let idx = Hashtbl.find state_indices st in
       Buffer.add_string buf
-        (Printf.sprintf "  %s [style=filled,fillcolor=%s,label=\"%s\"];\n"
-           (node_id_of_state st) color
-           (escape_dot_label (Printf.sprintf "%s\\n%s" node_name (string_of_state st)))))
+        (Printf.sprintf "  %s [fillcolor=\"%s\",color=\"%s\",label=\"%s\"];\n"
+           (node_id_of_state st) fill border
+           (escape_dot_label
+              (Printf.sprintf "P%s\\n%s" (product_subscript_digits idx)
+                 (pretty_product_state st ~analysis)))))
     analysis.exploration.states;
+  let seen_edges = Hashtbl.create 64 in
   List.iter
     (fun (step : PT.product_step) ->
       let edge_color =
@@ -110,13 +235,64 @@ let render_product_dot ~(node_name : ident) (analysis : Product_build.analysis) 
         | PT.Bad_assumption -> "orange"
         | PT.Bad_guarantee -> "red"
       in
-      Buffer.add_string buf
-        (Printf.sprintf "  %s -> %s [color=%s,label=\"%s\"];\n"
-           (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
-           (escape_dot_label
-              (Printf.sprintf "%s\\nA[%s]\\nG[%s]" (string_of_step_class step.step_class)
-                 (string_of_edge step.assume_edge) (string_of_edge step.guarantee_edge)))))
+      let edge_label =
+        Printf.sprintf "%s\\n%s\\n%s" (pretty_step_class step.step_class)
+          (pretty_edge_ref ~prefix:"A" ~edge:step.assume_edge ~bad_idx:analysis.assume_bad_idx)
+          (pretty_edge_ref ~prefix:"G" ~edge:step.guarantee_edge ~bad_idx:analysis.guarantee_bad_idx)
+      in
+      let key =
+        Printf.sprintf "%s|%s|%s|%s" (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
+          edge_label
+      in
+      if not (Hashtbl.mem seen_edges key) then (
+        Hashtbl.add seen_edges key ();
+        Buffer.add_string buf
+          (Printf.sprintf "  %s -> %s [color=%s,xlabel=\"%s\"];\n"
+             (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
+             (escape_dot_label edge_label))))
     analysis.exploration.steps;
+  Buffer.add_string buf "}\n";
+  Buffer.contents buf
+
+let render_program_dot ~(node_name : ident) (node : Abs.node) =
+  let buf = Buffer.create 4096 in
+  let transitions_from_state = Ast_utils.transitions_from_state_fn (Abs.to_ast_node node) in
+  Buffer.add_string buf "digraph ProgramAutomaton {\n";
+  Buffer.add_string buf "  rankdir=LR;\n";
+  Buffer.add_string buf "  forcelabels=true;\n";
+  Buffer.add_string buf "  labelloc=t;\n";
+  Buffer.add_string buf (Printf.sprintf "  label=\"%s program automaton\";\n" node_name);
+  Buffer.add_string buf "  fontsize=18;\n";
+  Buffer.add_string buf "  fontcolor=\"#275d38\";\n";
+  Buffer.add_string buf
+    "  node [shape=box,style=\"rounded,filled\",penwidth=1.6,fontname=\"Helvetica\",fontsize=12,margin=0.12];\n";
+  Buffer.add_string buf
+    "  edge [fontname=\"Helvetica\",fontsize=12,penwidth=1.3,arrowsize=0.8,labeldistance=2.0,labelangle=35];\n";
+  List.iter
+    (fun st ->
+      let fill, border =
+        if st = node.semantics.sem_init_state then ("#dff3e4", "#2f7a4c") else ("#eef8f0", "#5e8f6b")
+      in
+      Buffer.add_string buf
+        (Printf.sprintf "  p_%s [label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
+           (escape_dot_label st) (escape_dot_label st) fill border border))
+    node.semantics.sem_states;
+  List.iter
+    (fun st ->
+      transitions_from_state st
+      |> List.iter (fun (t : Ast.transition) ->
+             let guard =
+               match t.guard with
+               | None -> "⊤"
+               | Some g ->
+                   g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
+                   |> rewrite_history_vars_early
+             in
+             Buffer.add_string buf
+               (Printf.sprintf
+                  "  p_%s -> p_%s [xlabel=\"%s\",color=\"#5e8f6b\",fontcolor=\"#5e8f6b\"];\n"
+                  (escape_dot_label t.src) (escape_dot_label t.dst) (escape_dot_label guard))))
+    node.semantics.sem_states;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
@@ -252,6 +428,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
   in
   Buffer.add_string buf (Printf.sprintf "digraph %s {\n" graph_name);
   Buffer.add_string buf "  rankdir=LR;\n";
+  Buffer.add_string buf "  forcelabels=true;\n";
   Buffer.add_string buf "  labelloc=t;\n";
   Buffer.add_string buf
     (Printf.sprintf "  label=\"%s automaton\";\n" (String.uppercase_ascii state_prefix));
@@ -261,7 +438,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
   Buffer.add_string buf
     "  node [shape=circle,style=filled,penwidth=1.6,fontname=\"Helvetica\",fontsize=12];\n";
   Buffer.add_string buf
-    "  edge [fontname=\"Helvetica\",fontsize=12,penwidth=1.3,arrowsize=0.8,labeldistance=1.4,labelangle=28];\n";
+    "  edge [fontname=\"Helvetica\",fontsize=12,penwidth=1.3,arrowsize=0.8,labeldistance=2.0,labelangle=35];\n";
   List.iteri
     (fun i lbl ->
       let is_bad = compact_display_string lbl = "false" in
@@ -290,7 +467,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
       let this_edge_color = if dst_is_bad then bad_border else edge_color in
       Buffer.add_string buf
         (Printf.sprintf
-           "  %s%d -> %s%d [label=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
+           "  %s%d -> %s%d [xlabel=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
            prefix src prefix dst (escape_dot_label alias) this_edge_color this_edge_color))
     grouped;
   begin
@@ -348,3 +525,22 @@ let render ~(node_name : ident) ~(analysis : Product_build.analysis) : rendered 
         ~atom_map_exprs:analysis.assume_atom_map_exprs;
     product_dot = render_product_dot ~node_name analysis;
   }
+
+let render_guarantee_automaton ~(node_name : ident) ~(analysis : Product_build.analysis) :
+    string * string =
+  let dot =
+    render_automaton_dot ~graph_name:"GuaranteeAutomaton" ~prefix:"g" ~state_prefix:"G"
+      ~labels:analysis.guarantee_state_labels ~grouped:analysis.guarantee_grouped_edges
+      ~atom_map_exprs:analysis.guarantee_atom_map_exprs
+  in
+  let labels =
+    render_automaton_lines ~prefix:"G" analysis.guarantee_state_labels
+    |> List.map (fun line -> Printf.sprintf "[%s] %s" node_name line)
+    |> String.concat "\n"
+  in
+  (dot, labels)
+
+let render_program_automaton ~(node_name : ident) ~(node : Abs.node) : string * string =
+  let dot = render_program_dot ~node_name node in
+  let labels = render_program_lines ~node_name node |> String.concat "\n" in
+  (dot, labels)

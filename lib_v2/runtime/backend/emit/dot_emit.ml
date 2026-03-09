@@ -23,6 +23,7 @@ open Automaton_core
 open Fo_specs
 open Automata_generation
 open Instrumentation
+module Abs = Abstract_model
 
 let rewrite_history_vars (s : string) : string =
   let len = String.length s in
@@ -115,7 +116,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
         let fo_terms = List.map ltl_of_fo fo_specs in
         ltl_terms @ fo_terms
       in
-      let f0 = List.fold_left (fun acc f -> simplify_ltl (LAnd (acc, f))) LTrue f_list in
+      let f0 = List.fold_left (fun acc f -> LAnd (acc, f)) LTrue f_list in
       let automaton = Automaton_engine.build ~atom_map ~atom_names f0 in
       (automaton.states, automaton.grouped)
     in
@@ -250,106 +251,68 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
   (Buffer.contents buf, Buffer.contents label_buf)
 
 let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * string =
-  let p = p in
-  let buf = Buffer.create 4096 in
-  let label_buf = Buffer.create 4096 in
-  Buffer.add_string buf "digraph LTLResidual {\n";
-  Buffer.add_string buf "  rankdir=LR;\n";
-  let add_node_block n =
-    let n_ast = n in
-    let build = Automata_generation.build_for_node n in
-    let automaton = build.automaton in
-    let atom_named_exprs = build.atoms.atom_named_exprs in
-    let _atom_names = build.atom_names in
-    let states = automaton.states in
-    let grouped = automaton.grouped in
-    let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) build.atoms.atom_map in
-    let atom_expr_tbl = Hashtbl.create 16 in
-    let () = List.iter (fun (name, e) -> Hashtbl.replace atom_expr_tbl name e) atom_named_exprs in
-    let rec unwrap (e : iexpr) = match e.iexpr with IPar inner -> unwrap inner | _ -> e in
-    let rec string_of_fo_inline = function
-      | FRel (HNow e1, REq, HNow e2) -> begin
-          match (unwrap e1, unwrap e2) with
-          | { iexpr = IVar x; _ }, { iexpr = ILitBool true; _ }
-          | { iexpr = ILitBool true; _ }, { iexpr = IVar x; _ } -> begin
-              match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool true)))
-            end
-          | { iexpr = IVar x; _ }, { iexpr = ILitBool false; _ }
-          | { iexpr = ILitBool false; _ }, { iexpr = IVar x; _ } -> begin
-              match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> "not " ^ Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (mk_var x), REq, HNow (mk_bool false)))
-            end
-          | _ -> Support.string_of_fo (FRel (HNow e1, REq, HNow e2))
-        end
-      | FRel (HNow a, RNeq, HNow b) -> begin
-          match (as_var a, b.iexpr) with
-          | Some x, ILitBool true -> begin
-              match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> "not " ^ Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
-            end
-          | Some x, ILitBool false -> begin
-              match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> Support.string_of_iexpr e
-              | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
-            end
-          | _ -> begin
-              match (as_var b, a.iexpr) with
-              | Some x, ILitBool true -> begin
-                  match Hashtbl.find_opt atom_expr_tbl x with
-                  | Some e -> "not " ^ Support.string_of_iexpr e
-                  | None -> Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
-                end
-              | Some x, ILitBool false -> begin
-                  match Hashtbl.find_opt atom_expr_tbl x with
-                  | Some e -> Support.string_of_iexpr e
-                  | None ->
-                      Support.string_of_fo (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
-                end
-              | _ -> Support.string_of_fo (FRel (HNow a, RNeq, HNow b))
-            end
-        end
-      | f -> Support.string_of_fo f
-    in
-    let rec string_of_ltl_inline = function
-      | LTrue -> "true"
-      | LFalse -> "false"
-      | LAtom a -> string_of_fo_inline a
-      | LNot a -> "not " ^ string_of_ltl_inline a
-      | LX a -> "X(" ^ string_of_ltl_inline a ^ ")"
-      | LG a -> "G(" ^ string_of_ltl_inline a ^ ")"
-      | LW (a, b) -> "(" ^ string_of_ltl_inline a ^ " W " ^ string_of_ltl_inline b ^ ")"
-      | LAnd (a, b) -> string_of_ltl_inline a ^ " and " ^ string_of_ltl_inline b
-      | LOr (a, b) -> string_of_ltl_inline a ^ " or " ^ string_of_ltl_inline b
-      | LImp (a, b) -> string_of_ltl_inline a ^ " -> " ^ string_of_ltl_inline b
-    in
-    let _cluster = Support.module_name_of_node n_ast.nname in
-    List.iteri
-      (fun i f ->
-        let node_id = string_of_int i in
-        let node_label = if show_labels then strip_braces (string_of_ltl_inline f) else node_id in
-        let lbl = escape_dot_label node_label in
-        let shape = match f with LFalse -> "doublecircle" | _ -> "circle" in
-        Buffer.add_string buf (Printf.sprintf "    r%d [shape=%s,label=\"%s\"];\n" i shape lbl);
-        if not show_labels then
-          Buffer.add_string label_buf
-            (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n" node_id
-               (strip_braces (Support.string_of_ltl f))))
-      states;
-    List.iter
-      (fun (i, guard, j) ->
-        let formula =
-          Automaton_guard.guard_to_iexpr guard
-          |> iexpr_to_fo_with_atoms atom_name_to_fo
-          |> Support.string_of_fo |> strip_braces
-        in
-        let lbl = if show_labels then escape_dot_label formula else escape_dot_label formula in
-        Buffer.add_string buf (Printf.sprintf "    r%d -> r%d [label=\"%s\"];\n" i j lbl))
-      grouped
+  let _ = show_labels in
+  let rendered =
+    p
+    |> List.map (fun n ->
+           let build = Automata_generation.build_for_node n in
+           let analysis = Product_build.analyze_node ~build ~node:(Abs.of_ast_node n) in
+           let abs_node = Abs.of_ast_node n in
+           let program = Product_debug.render_program_automaton ~node_name:n.nname ~node:abs_node in
+           let full = Product_debug.render ~node_name:n.nname ~analysis in
+           (program, (full.assume_automaton_dot, String.concat "\n" full.assume_automaton_lines),
+            (full.guarantee_automaton_dot, String.concat "\n" full.guarantee_automaton_lines),
+            (full.product_dot, String.concat "\n" full.product_lines)))
   in
-  List.iter add_node_block p;
+  let strip_outer dot =
+    let lines = String.split_on_char '\n' dot |> List.filter (fun line -> String.trim line <> "") in
+    match lines with
+    | [] | [ _ ] -> []
+    | _ :: rest ->
+        let rest = List.rev rest in
+        (match rest with _last :: inner_rev -> List.rev inner_rev | [] -> [])
+  in
+  let buf = Buffer.create 8192 in
+  Buffer.add_string buf "digraph KairosAutomata {\n";
+  Buffer.add_string buf "  compound=true;\n";
+  Buffer.add_string buf "  rankdir=TB;\n";
+  let labels_buf = Buffer.create 4096 in
+  List.iteri
+    (fun i ((prog_dot, prog_labels), (assume_dot, assume_labels), (guarantee_dot, guarantee_labels), (product_dot, product_labels)) ->
+      let clusters =
+        [ ("assume", assume_dot); ("guarantee", guarantee_dot); ("program", prog_dot); ("product", product_dot) ]
+      in
+      List.iter
+        (fun (kind, dot) ->
+          Buffer.add_string buf (Printf.sprintf "  subgraph cluster_%d_%s {\n" i kind);
+          strip_outer dot |> List.iter (fun line -> Buffer.add_string buf ("    " ^ line ^ "\n"));
+          Buffer.add_string buf
+            (Printf.sprintf
+               "    anchor_%d_%s [shape=point,width=0,height=0,label=\"\",style=invis];\n"
+               i kind);
+          Buffer.add_string buf "  }\n")
+        clusters;
+      Buffer.add_string buf
+        (Printf.sprintf "  { rank=same; anchor_%d_assume; anchor_%d_guarantee; }\n" i i);
+      Buffer.add_string buf
+        (Printf.sprintf "  { rank=same; anchor_%d_program; anchor_%d_product; }\n" i i);
+      Buffer.add_string buf
+        (Printf.sprintf
+           "  anchor_%d_assume -> anchor_%d_guarantee [style=invis,weight=10];\n" i i);
+      Buffer.add_string buf
+        (Printf.sprintf
+           "  anchor_%d_program -> anchor_%d_product [style=invis,weight=10];\n" i i);
+      Buffer.add_string buf
+        (Printf.sprintf
+           "  anchor_%d_assume -> anchor_%d_program [style=invis,weight=20];\n" i i);
+      Buffer.add_string buf
+        (Printf.sprintf
+           "  anchor_%d_guarantee -> anchor_%d_product [style=invis,weight=20];\n" i i);
+      [ prog_labels; assume_labels; guarantee_labels; product_labels ]
+      |> List.filter (fun s -> String.trim s <> "")
+      |> List.iter (fun s ->
+             if Buffer.length labels_buf > 0 then Buffer.add_string labels_buf "\n\n";
+             Buffer.add_string labels_buf s))
+    rendered;
   Buffer.add_string buf "}\n";
-  (Buffer.contents buf, Buffer.contents label_buf)
+  (Buffer.contents buf, Buffer.contents labels_buf)

@@ -34,9 +34,7 @@ module type S = sig
     atom_map:(Ast.fo * Ast.ident) list -> atom_names:Ast.ident list -> Ast.fo_ltl -> automaton
 end
 
-(* Default engine implementation.
-   By default this delegates to the Spot CLI backend; set
-   KAIROS_AUTOMATON_BACKEND=legacy to compare with the residual compiler. *)
+(* Default engine implementation backed by the Spot CLI adapter. *)
 module Engine : S
 
 (* Re-export the default engine as a concrete module. *)

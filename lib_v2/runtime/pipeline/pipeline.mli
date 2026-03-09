@@ -9,11 +9,13 @@ type outputs = {
   smt_text : string;
   dot_text : string;
   labels_text : string;
+  program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
+  program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
@@ -41,11 +43,13 @@ type outputs = {
 type automata_outputs = {
   dot_text : string;
   labels_text : string;
+  program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
+  program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;

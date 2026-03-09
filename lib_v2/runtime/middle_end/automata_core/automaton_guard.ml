@@ -31,4 +31,4 @@ let guard_to_formula (g : guard) : string =
       let parts = List.map term_to_string g in
       match parts with [] -> "false" | [ p ] -> p | _ -> String.concat " || " parts)
 
-let guard_to_iexpr (g : guard) : Ast.iexpr = terms_to_iexpr g |> simplify_iexpr
+let guard_to_iexpr (g : guard) : Ast.iexpr = terms_to_iexpr g

@@ -3,7 +3,6 @@ val position_from_params : Yojson.Safe.t -> (int * int) option
 val get_param_string : Yojson.Safe.t -> string -> string option
 val get_param_bool : Yojson.Safe.t -> string -> bool -> bool
 val get_param_int : Yojson.Safe.t -> string -> int -> int
-val get_param_obj : Yojson.Safe.t -> string -> (string * Yojson.Safe.t) list option
 val get_param_list : Yojson.Safe.t -> string -> Yojson.Safe.t list option
 
 val get_text_document_uri : Yojson.Safe.t -> string option

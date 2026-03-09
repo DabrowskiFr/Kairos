@@ -19,7 +19,5 @@
 include Automaton_util
 include Automaton_config
 include Ltl_valuation
-include Ltl_norm
-include Ltl_progress
 include Automaton_types
 include Automaton_guard

@@ -3,6 +3,111 @@
 ## 2026-03-09
 
 ### Sujet
+Suppression du pipeline maison devenu mort apres la migration Spot/Z3.
+
+### Tentative 1 (nettoyage partiel)
+- Objectif: conserver les nouveaux backends Spot/Z3 mais laisser les anciens
+  modules hors du chemin principal pour eventuel fallback.
+- Resultat: ecarte.
+- Cause:
+  - la facade `Automaton_engine` gardait encore la structure de backend
+    interchangeable historique;
+  - `Automaton_core` reexportait toujours les API de normalisation/progression
+    LTL;
+  - plusieurs appels conservaient `simplify_iexpr` sur les gardes de programme
+    et de rendu, donc le code maison restait semantiquement actif.
+
+### Tentative 2 (succes)
+- Objectif: retirer effectivement du code et du build les briques legacy.
+- Resultat: succes.
+- Suppressions retenues:
+  - retrait du fallback `legacy` dans `automaton_engine`;
+  - retrait de `simplify_iexpr` des callsites encore actifs;
+  - suppression des modules:
+    - `automaton_bdd`,
+    - `automaton_residual`,
+    - `ltl_norm`,
+    - `ltl_progress`;
+  - simplification de la facade `Automaton_core` pour n'exposer que les outils
+    encore utiles au pipeline Spot.
+- Fichiers touches:
+  - `lib_v2/runtime/middle_end/automaton_engine.ml`
+  - `lib_v2/runtime/middle_end/automaton_engine.mli`
+  - `lib_v2/runtime/middle_end/automata_core/automaton_core.ml`
+  - `lib_v2/runtime/middle_end/automata_core/automaton_core.mli`
+  - `lib_v2/runtime/middle_end/automata_core/automaton_guard.ml`
+  - `lib_v2/runtime/middle_end/product/product_build.ml`
+  - `lib_v2/runtime/middle_end/product/product_debug.ml`
+  - `lib_v2/runtime/core/logic/ltl/ltl_valuation.ml`
+  - `lib_v2/runtime/core/logic/ltl/ltl_valuation.mli`
+  - `lib_v2/runtime/dune`
+
+### Validation
+- `opam exec -- dune build` : succes.
+- `rg` sur `lib_v2/runtime` ne trouve plus de references a:
+  - `Automaton_bdd`,
+  - `Automaton_residual`,
+  - `Ltl_norm`,
+  - `Ltl_progress`,
+  - `simplify_iexpr`,
+  - `KAIROS_AUTOMATON_BACKEND`,
+  - `Legacy_engine`.
+
+### Sujet
+Reduction de la plomberie maison JSON/LSP.
+
+### Tentative 1 (scope maximal ecarte)
+- Objectif: remplacer en une fois toute la serialisation JSON du protocole IDE et
+  l'ensemble des objets LSP maison par des deriveurs et `Lsp.Types`.
+- Resultat: ecarte pour cette iteration.
+- Cause:
+  - le protocole IDE interne a une forme legacy deja consommee cote client;
+  - un basculement complet en une seule passe augmentait trop le risque de
+    regressions de compatibilite.
+
+### Tentative 2 (succes)
+- Objectif: supprimer d'abord la plomberie la plus couteuse sans changer les
+  surfaces metier.
+- Resultat: succes.
+- Choix retenus:
+  - remplacement du JSON concatene a la main dans `ast_dump.ml` par une
+    construction `Yojson.Safe.t`;
+  - remplacement du transport JSON-RPC manuel de `kairos_lsp.ml` par
+    `Jsonrpc`/`Lsp.Io`;
+  - utilisation de `Lsp.Types` pour:
+    - `initialize`,
+    - `publishDiagnostics`,
+    - les `Range`,
+    - les `Location`/`SymbolInformation` utilises dans les reponses standard.
+- Fichiers touches:
+  - `lib_v2/runtime/frontend/parse/ast_dump.ml`
+  - `bin/lsp/kairos_lsp.ml`
+  - `bin/lsp/dune`
+  - `lib_v2/runtime/dune`
+  - `protocol/dune`
+  - `kairos.opam`
+
+### Validation
+- `opam exec -- dune build` : succes.
+- smoke test LSP:
+  - envoi de `initialize`, `shutdown`, `exit` au binaire `kairos_lsp`;
+  - reponses JSON-RPC valides recues;
+  - code de sortie `0`.
+
+### Nettoyage complementaire
+- Suppressions effectives apres verification des usages:
+  - fonction morte `path_of_uri` dans `bin/lsp/kairos_lsp.ml`;
+  - reexport inutile `get_param_obj` dans `bin/lsp/kairos_lsp.ml`;
+  - exposition publique inutile de `get_param_obj` dans `lib_v2/runtime/pipeline/lsp_app.mli`;
+  - dependance/preprocess `ppx_deriving_yojson` retirees de:
+    - `kairos.opam`,
+    - `protocol/dune`,
+    - `lib_v2/runtime/dune`.
+- Motif:
+  - le refactor retenu n'utilise finalement pas le deriveur JSON dans ces
+    cibles; le garder aurait laisse une dependance morte.
+
+### Sujet
 Migration du backend de generation d'automates de surete vers Spot dans
 `kairos-dev`, en preservant l'etat `bad` explicite attendu par le produit et
 l'instrumentation.
@@ -3324,3 +3429,170 @@ dans les labels de noeuds, au profit d'une numerotation courte `P_i`.
 Le graphe produit est plus compact et plus lisible: les noeuds sont identifies
 par une numerotation courte `P_i`, tout en conservant explicitement leur
 decomposition en etat programme et etats d'automates source.
+
+## 2026-03-09
+
+### Objectif
+
+Retirer la plomberie JSON manuelle restante autour du serveur LSP et du
+protocole IDE, sans casser les clients existants.
+
+### Tentatives et observations
+
+- Succes: le serveur LSP passe maintenant par `jsonrpc` et `lsp` pour le
+  framing JSON-RPC, les requetes/reponses standard et les types LSP usuels.
+- Succes: `ast_dump.ml` construit des valeurs `Yojson.Safe.t` au lieu de
+  concatener du JSON a la main.
+- Succes: `protocol/lsp_protocol.ml` utilise maintenant
+  `ppx_deriving_yojson` pour les payloads IDE (`outputs`, `automata_outputs`,
+  `goal_info`, etc.), avec des alias `yojson_of_*` conserves pour ne pas
+  casser les appelants existants.
+- Observation: le type `config` necessitait un decodeur manuel residuel pour
+  conserver la compatibilite sur le champ optionnel `engine`, qui doit encore
+  valoir `"v2"` par defaut quand il est absent.
+
+### Resultat
+
+Le transport LSP standard et les payloads IDE reposent maintenant sur des
+bibliotheques / deriveurs, ce qui retire l'essentiel de la serialisation
+manuelle fragile. Le reliquat volontaire est limite au comportement de
+compatibilite sur `config.engine`.
+
+## 2026-03-09
+
+### Objectif
+
+Poursuivre le nettoyage du serveur LSP en retirant les reponses standard et les
+notifications Kairos encore construites ad hoc dans `kairos_lsp.ml`.
+
+### Tentatives et observations
+
+- Succes: les reponses standard `hover`, `definition`, `references`,
+  `completion` et `formatting` passent maintenant par `Lsp.Types`.
+- Succes: ajout de types partages dans `Lsp_protocol` pour
+  `goalsReady`, `goalDone` et `outputsReady`, avec un identifiant JSON-RPC
+  transporte par un type dedie `rpc_request_id`.
+- Succes: le client IDE decode maintenant `goalsReady` et `goalDone` via
+  `Lsp_protocol` au lieu de reparser les champs a la main.
+- Observation: quelques morceaux restent volontairement en JSON brut dans
+  `kairos_lsp.ml`, en particulier les notifications `$/progress`, certains
+  payloads de requetes Kairos et les erreurs JSON-RPC atypiques, car le gain a
+  ce stade serait faible par rapport au churn.
+
+### Resultat
+
+Le chemin critique serveur LSP <-> IDE est maintenant typé de bout en bout pour
+les reponses standard les plus importantes et pour les notifications Kairos
+principales. Le JSON artisanal restant est residuel et concentre dans quelques
+helpers de glue.
+
+## 2026-03-09
+
+### Objectif
+
+Aligner aussi le client IDE sur `jsonrpc` et `lsp`, afin d'eviter d'avoir un
+ serveur modernise mais un client qui continue a reimplementer seul le
+ framing JSON-RPC et les messages LSP standard.
+
+### Tentatives et observations
+
+- Succes: `ide_lsp_process_client.ml` utilise maintenant `Lsp.Io` et
+  `Jsonrpc.Packet` pour lire/ecrire les paquets.
+- Succes: les messages standard `initialize`, `didOpen`, `didChange`,
+  `didSave`, `didClose`, `hover`, `references`, `completion`, `formatting` et
+  `$/cancelRequest` passent maintenant par `Lsp.Types`.
+- Succes: les reponses standard sont decodees via `Lsp.Types` pour `Hover`,
+  `Location`, `CompletionItem`, `CompletionList` et `TextEdit`.
+- Observation: il reste du JSON manuel dans le client pour les requetes Kairos
+  specifiques (`outline`, `goalsTree*`, `run`, passes backend), ce qui est
+  acceptable tant que leur schema n'est pas encore entierement decrit dans
+  `Lsp_protocol`.
+
+### Resultat
+
+Le client et le serveur partagent maintenant la meme base technique pour le
+transport JSON-RPC et pour une large partie des messages LSP standard. Le code
+manuel restant dans le client est essentiellement limite aux API Kairos
+specifiques et a quelques parseurs d'artefacts metier.
+
+## 2026-03-09
+
+### Objectif
+
+Eliminer aussi le JSON manuel residuel du client IDE pour les requetes et
+notifications Kairos specifiques.
+
+### Tentatives et observations
+
+- Succes: ajout dans `Lsp_protocol` des schemas partages pour:
+  `outline`, `goalsTreeFinal`, `goalsTreePending`, `instrumentationPass`,
+  `obcPass`, `whyPass`, `obligationsPass`, `evalPass`, `dotPngFromText`,
+  ainsi que pour `outline_payload` et `goal_tree_node`.
+- Succes: `ide_lsp_process_client.ml` utilise maintenant ces encodeurs pour les
+  requetes Kairos et ces decodeurs pour `outline`, `goal tree` et les
+  notifications `outputsReady`, `goalsReady`, `goalDone`.
+- Succes: `ide_lsp_types` a ete aligne sur les types `outline_*` et
+  `goal_tree_*` de `Lsp_protocol`, ce qui retire une duplication de schema.
+- Observation: il reste encore un peu de glue JSON dans le client pour router
+  les notifications par nom de methode et pour quelques resultats LSP sous
+  forme de listes, mais le schema metier lui-meme n'est plus duplique.
+
+### Resultat
+
+Les payloads Kairos critiques sont maintenant decrits une seule fois dans
+`Lsp_protocol` et reutilises des deux cotes. Le client IDE n'a plus de format
+JSON metier "prive" pour ces appels.
+
+## 2026-03-09
+
+### Objectif
+
+Corriger la regression introduite sur le chemin `prove` apres bascule des
+requetes IDE vers `Lsp_protocol`.
+
+### Tentatives et observations
+
+- Observation: le client IDE envoyait bien `kairos/run` avec le schema
+  `Lsp_protocol.config` (`input_file`, `timeout_s`, etc.), mais le serveur LSP
+  lisait encore majoritairement les anciens champs camelCase (`inputFile`,
+  `timeoutS`, ...).
+- Echec constate: le serveur repondait `Missing valid inputFile` alors que le
+  fichier existait, simplement parce que le decodeur legacy ne trouvait plus le
+  champ.
+- Succes: ajout d'un decodeur prioritaire via `Lsp_protocol` dans
+  `kairos_lsp.ml` pour `run` et pour les autres requetes Kairos deja migrees,
+  avec repli legacy seulement en fallback.
+
+### Resultat
+
+Le chemin `prove` redevient compatible avec le client IDE refactorise. Un smoke
+test JSON-RPC sur `kairos/run` avec payload `snake_case` passe de nouveau.
+
+## 2026-03-09
+
+### Objectif
+
+Simplifier la fenetre des automates de l'IDE: retirer l'onglet
+d'instrumentation/diagnostic, exposer l'automate du programme au meme niveau
+que `A`, `G` et le produit, et verifier que le theme par defaut reste clair.
+
+### Tentatives et observations
+
+- Observation: la fenetre `Automata` affichait deja les graphes `Guarantee`,
+  `Assume` et `Product`, mais le texte de diagnostic restait expose dans un
+  onglet separé alors qu'il ne sert plus comme vue principale.
+- Succes: ajout du graphe `Program` dans le pipeline de sorties (`outputs`,
+  `automata_outputs`, bridge LSP, backend IDE), puis branchement de cet automate
+  dans la fenetre dediee.
+- Succes: suppression de l'onglet de diagnostic dans `obcwhy3_ide.ml` tout en
+  conservant le buffer interne pour les obligations/prunes, afin de ne pas
+  perturber le reste du code UI pendant cette etape.
+- Observation: `Ide_config.default_prefs` et `load_prefs` etaient deja
+  correctement calibres sur le theme `light` par defaut; aucune surcouche ne
+  rebasculait vers `dark` a l'ouverture.
+
+### Resultat
+
+La fenetre des automates presente maintenant uniquement les vues graphiques
+`Program`, `Guarantee G`, `Assume A` et `Product`. Le theme par defaut reste
+`light`.

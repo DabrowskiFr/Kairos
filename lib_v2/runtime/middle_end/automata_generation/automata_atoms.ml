@@ -76,10 +76,10 @@ let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
     | IUn (op, inner) -> with_iexpr_desc e (IUn (op, go inner))
     | IBin (op, a, b) -> with_iexpr_desc e (IBin (op, go a, go b))
   in
-  go e |> simplify_iexpr
+  go e
 
 let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : iexpr =
-  (* Canonical recovery path for automaton guards: simplify propositionally, inline atoms, simplify again. *)
+  (* Canonical recovery path for automaton guards: convert DNF guards, then inline atom expressions. *)
   g |> Automaton_guard.guard_to_iexpr |> inline_atoms_iexpr atom_map
 
 let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : fo =

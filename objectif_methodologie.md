@@ -1,5 +1,32 @@
 # Objectif et methodologie
 
+## Objectif courant (mise a jour 2026-03-09)
+Finaliser la bascule du runtime sur le pipeline externe:
+- Spot pour la construction d'automates de surete;
+- Z3 pour la simplification FO modulo symboles non interpretes;
+- suppression des anciens modules maison devenus morts.
+
+## Methodologie (mise a jour 2026-03-09)
+1. Garder une seule entree pour la generation d'automates dans
+   `Automaton_engine`, branchee sur Spot.
+2. Conserver seulement les conversions et adaptateurs encore utilises par le
+   pipeline aval (gardes DNF, etat `bad`, rendu DOT).
+3. Retirer du build et du depot les modules legacy non references.
+4. Valider par compilation `dune build` avant toute autre extension.
+
+## Objectif courant (mise a jour 2026-03-09 - plomberie IDE/runtime)
+Reduire la maintenance du projet en externalisant la plomberie generique:
+- transport JSON-RPC sur `jsonrpc`;
+- objets LSP standard sur `lsp`;
+- emission JSON AST sur `Yojson.Safe.t` au lieu de concatenation de chaines.
+
+## Methodologie (mise a jour 2026-03-09 - plomberie IDE/runtime)
+1. Garder la logique metier et le dispatch Kairos, mais remplacer le transport
+   et les structures standard par les bibliotheques dediees.
+2. Limiter le changement de protocole aux objets standard LSP pour ne pas casser
+   le protocole IDE specifique Kairos en une seule passe.
+3. Verifier par `dune build` puis par un echange `initialize/shutdown` minimal.
+
 ## Objectif courant
 Fournir une instanciation Coq explicite du programme `delay_int` qui montre formellement:
 - la sortie de flux `y = (0, u0, u1, ...)`,
@@ -274,6 +301,46 @@ solver et sans destabiliser le pipeline existant.
    - `delay_int.kairos` via `--dump-obc`,
    - `resettable_delay.kairos` via `--dump-obc`,
    - `credit_balance_monitor.kairos` via `--dump-product`.
+
+## Objectif courant (2026-03-09 - reduction de la plomberie LSP/JSON)
+Remplacer la serialisation JSON artisanale et le framing JSON-RPC maison par
+des bibliotheques de l'ecosysteme OCaml, tout en gardant le protocole IDE
+Kairos compatible avec les clients existants.
+
+### Methodologie active
+1. Basculer le serveur LSP sur `jsonrpc` et `lsp` pour:
+   - le framing `Content-Length`,
+   - les paquets `request/response/notification`,
+   - les types standard (`InitializeResult`, diagnostics, locations, symboles).
+2. Remplacer la production JSON manuelle du dump AST par des valeurs
+   `Yojson.Safe.t`.
+3. Reimplementer `protocol/lsp_protocol.ml` via `ppx_deriving_yojson` pour les
+   payloads IDE, en conservant l'API historique `yojson_of_*` / `*_of_yojson`
+   afin de limiter le churn dans le reste du projet.
+4. Garder un decodeur manuel seulement la ou une contrainte de compatibilite
+   l'impose encore explicitement (`config.engine` par defaut).
+
+### Validation prevue
+1. `opam exec -- dune build`
+2. smoke test LSP minimal sur `initialize`, `shutdown`, `exit`
+3. verification des conversions IDE via les appels existants du client
+   `ide_lsp_process_client`.
+4. dans un second passage, typer aussi:
+   - les notifications Kairos `outputsReady`, `goalsReady`, `goalDone`,
+   - les reponses LSP standard encore construites a la main dans
+     `kairos_lsp.ml`.
+5. aligner enfin le client IDE sur le meme socle `jsonrpc` + `lsp`, au moins
+   pour:
+   - le transport,
+   - les notifications/documents standard,
+   - les principales reponses `hover`, `definition`, `references`,
+     `completion`, `formatting`.
+6. factoriser ensuite les payloads Kairos specifiques dans `Lsp_protocol` pour
+   eviter la duplication de schema entre serveur, client IDE et documentation:
+   - `outline`,
+   - `goalsTreeFinal` / `goalsTreePending`,
+   - passes backend,
+   - notifications de run.
    - un invariant utilisateur piecewise sur la memoire.
 2. Generer avec les executables du depot:
    - exclusivement avec `_build/default/bin/cli/main_v2.exe`;
@@ -288,6 +355,10 @@ solver et sans destabiliser le pipeline existant.
 4. Integrer les resultats dans le papier et dans une note de reproduction locale.
 
 ## Suite prevue
+- maintenir une UI automates unique et minimale:
+  - vues graphiques `Program`, `Assume`, `Guarantee`, `Product`;
+  - pas d'onglet de diagnostic/instrumentation dans cette fenetre;
+  - theme clair par defaut tant qu'aucune preference explicite n'est chargee.
 - stabiliser la section technique du papier autour de l'exemple reel `resettable_delay`;
 - ameliorer si besoin l'automatisation Why3 sur cet exemple en analysant les
   premiers goals bloquants.
