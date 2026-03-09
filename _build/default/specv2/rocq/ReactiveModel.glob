@@ -1,0 +1,271 @@
+DIGEST fa47f9e9e35d3eaa209aa3533229b8cd
+FSpecV2.ReactiveModel
+R27:31 Stdlib.Arith.Arith <> <> lib
+R33:35 Stdlib.micromega.Lia <> <> lib
+def 539:544 <> stream
+binder 547:547 <> A:1
+R563:566 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R560:562 Corelib.Init.Datatypes <> nat ind
+R567:567 SpecV2.ReactiveModel <> A:1 var
+rec 1106:1120 <> ReactiveProgram
+proj 1136:1144 <> ProgState
+proj 1156:1162 <> ProgMem
+proj 1174:1182 <> ProgInput
+proj 1194:1203 <> ProgOutput
+proj 1215:1228 <> ProgTransition
+proj 1241:1250 <> init_state
+proj 1268:1273 <> select
+proj 1332:1338 <> enabled
+proj 1405:1413 <> dst_state
+proj 1461:1467 <> upd_mem
+proj 1524:1530 <> out_val
+proj 1591:1604 <> select_enabled
+R1254:1262 SpecV2.ReactiveModel <> ProgState:3 meth
+R1286:1289 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1277:1285 SpecV2.ReactiveModel <> ProgState:3 meth
+R1297:1300 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1290:1296 SpecV2.ReactiveModel <> ProgMem:4 meth
+R1310:1313 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1301:1309 SpecV2.ReactiveModel <> ProgInput:5 meth
+R1314:1327 SpecV2.ReactiveModel <> ProgTransition:7 meth
+R1356:1359 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1342:1355 SpecV2.ReactiveModel <> ProgTransition:7 meth
+R1369:1372 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1360:1368 SpecV2.ReactiveModel <> ProgState:3 meth
+R1380:1383 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1373:1379 SpecV2.ReactiveModel <> ProgMem:4 meth
+R1393:1396 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1384:1392 SpecV2.ReactiveModel <> ProgInput:5 meth
+R1431:1434 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1417:1430 SpecV2.ReactiveModel <> ProgTransition:7 meth
+R1444:1447 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1435:1443 SpecV2.ReactiveModel <> ProgState:3 meth
+R1448:1456 SpecV2.ReactiveModel <> ProgState:3 meth
+R1485:1488 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1471:1484 SpecV2.ReactiveModel <> ProgTransition:7 meth
+R1496:1499 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1489:1495 SpecV2.ReactiveModel <> ProgMem:4 meth
+R1509:1512 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1500:1508 SpecV2.ReactiveModel <> ProgInput:5 meth
+R1513:1519 SpecV2.ReactiveModel <> ProgMem:4 meth
+R1548:1551 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1534:1547 SpecV2.ReactiveModel <> ProgTransition:7 meth
+R1559:1562 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1552:1558 SpecV2.ReactiveModel <> ProgMem:4 meth
+R1572:1575 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1563:1571 SpecV2.ReactiveModel <> ProgInput:5 meth
+R1576:1585 SpecV2.ReactiveModel <> ProgOutput:6 meth
+binder 1619:1619 <> s:14
+binder 1621:1621 <> m:15
+binder 1623:1623 <> i:16
+R1626:1632 SpecV2.ReactiveModel <> enabled:10 meth
+R1653:1653 SpecV2.ReactiveModel <> i:16 var
+R1651:1651 SpecV2.ReactiveModel <> m:15 var
+R1649:1649 SpecV2.ReactiveModel <> s:14 var
+R1635:1640 SpecV2.ReactiveModel <> select:9 meth
+R1646:1646 SpecV2.ReactiveModel <> i:16 var
+R1644:1644 SpecV2.ReactiveModel <> m:15 var
+R1642:1642 SpecV2.ReactiveModel <> s:14 var
+sec 1667:1670 <> Runs
+var  1684:1684 Runs P
+R1688:1702 SpecV2.ReactiveModel <> ReactiveProgram rec
+def 1954:1961 <> cfg_from
+R1975:1981 SpecV2.ReactiveModel <> ProgMem proj
+R1983:1983 SpecV2.ReactiveModel <> Runs.P var
+binder 1970:1971 <> m0:19
+R1997:2002 SpecV2.ReactiveModel <> stream def
+R2005:2013 SpecV2.ReactiveModel <> ProgInput proj
+R2015:2015 SpecV2.ReactiveModel <> Runs.P var
+binder 1993:1993 <> u:20
+R2030:2032 Corelib.Init.Datatypes <> nat ind
+binder 2026:2026 <> k:21
+R2054:2056 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R2043:2051 SpecV2.ReactiveModel <> ProgState proj
+R2053:2053 SpecV2.ReactiveModel <> Runs.P var
+R2057:2063 SpecV2.ReactiveModel <> ProgMem proj
+R2065:2065 SpecV2.ReactiveModel <> Runs.P var
+R2080:2080 SpecV2.ReactiveModel <> k:21 var
+R2098:2098 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2111:2112 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2115:2115 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2099:2108 SpecV2.ReactiveModel <> init_state proj
+R2110:2110 SpecV2.ReactiveModel <> Runs.P var
+R2113:2114 SpecV2.ReactiveModel <> m0:19 var
+R2123:2123 Corelib.Init.Datatypes <> S constr
+R2154:2161 SpecV2.ReactiveModel <> cfg_from:22 def
+R2166:2166 SpecV2.ReactiveModel <> u:20 var
+R2163:2164 SpecV2.ReactiveModel <> m0:19 var
+R2144:2144 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2146:2147 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2149:2149 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2191:2196 SpecV2.ReactiveModel <> select proj
+R2205:2205 SpecV2.ReactiveModel <> u:20 var
+R2198:2198 SpecV2.ReactiveModel <> Runs.P var
+binder 2186:2186 <> t:24
+R2222:2222 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2238:2239 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2260:2260 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2223:2231 SpecV2.ReactiveModel <> dst_state proj
+R2235:2235 SpecV2.ReactiveModel <> t:24 var
+R2233:2233 SpecV2.ReactiveModel <> Runs.P var
+R2240:2246 SpecV2.ReactiveModel <> upd_mem proj
+R2255:2255 SpecV2.ReactiveModel <> u:20 var
+R2250:2250 SpecV2.ReactiveModel <> t:24 var
+R2248:2248 SpecV2.ReactiveModel <> Runs.P var
+def 2359:2368 <> state_from
+R2382:2388 SpecV2.ReactiveModel <> ProgMem proj
+R2390:2390 SpecV2.ReactiveModel <> Runs.P var
+binder 2377:2378 <> m0:25
+R2404:2409 SpecV2.ReactiveModel <> stream def
+R2412:2420 SpecV2.ReactiveModel <> ProgInput proj
+R2422:2422 SpecV2.ReactiveModel <> Runs.P var
+binder 2400:2400 <> u:26
+R2437:2439 Corelib.Init.Datatypes <> nat ind
+binder 2433:2433 <> k:27
+R2450:2458 SpecV2.ReactiveModel <> ProgState proj
+R2460:2460 SpecV2.ReactiveModel <> Runs.P var
+R2469:2471 Corelib.Init.Datatypes <> fst def
+R2474:2481 SpecV2.ReactiveModel <> cfg_from def
+R2488:2488 SpecV2.ReactiveModel <> k:27 var
+R2486:2486 SpecV2.ReactiveModel <> u:26 var
+R2483:2484 SpecV2.ReactiveModel <> m0:25 var
+def 2573:2580 <> mem_from
+R2594:2600 SpecV2.ReactiveModel <> ProgMem proj
+R2602:2602 SpecV2.ReactiveModel <> Runs.P var
+binder 2589:2590 <> m0:28
+R2616:2621 SpecV2.ReactiveModel <> stream def
+R2624:2632 SpecV2.ReactiveModel <> ProgInput proj
+R2634:2634 SpecV2.ReactiveModel <> Runs.P var
+binder 2612:2612 <> u:29
+R2649:2651 Corelib.Init.Datatypes <> nat ind
+binder 2645:2645 <> k:30
+R2662:2668 SpecV2.ReactiveModel <> ProgMem proj
+R2670:2670 SpecV2.ReactiveModel <> Runs.P var
+R2679:2681 Corelib.Init.Datatypes <> snd def
+R2684:2691 SpecV2.ReactiveModel <> cfg_from def
+R2698:2698 SpecV2.ReactiveModel <> k:30 var
+R2696:2696 SpecV2.ReactiveModel <> u:29 var
+R2693:2694 SpecV2.ReactiveModel <> m0:28 var
+def 2798:2807 <> trans_from
+R2821:2827 SpecV2.ReactiveModel <> ProgMem proj
+R2829:2829 SpecV2.ReactiveModel <> Runs.P var
+binder 2816:2817 <> m0:31
+R2843:2848 SpecV2.ReactiveModel <> stream def
+R2851:2859 SpecV2.ReactiveModel <> ProgInput proj
+R2861:2861 SpecV2.ReactiveModel <> Runs.P var
+binder 2839:2839 <> u:32
+R2876:2878 Corelib.Init.Datatypes <> nat ind
+binder 2872:2872 <> k:33
+R2889:2902 SpecV2.ReactiveModel <> ProgTransition proj
+R2904:2904 SpecV2.ReactiveModel <> Runs.P var
+R2928:2935 SpecV2.ReactiveModel <> cfg_from def
+R2942:2942 SpecV2.ReactiveModel <> k:33 var
+R2940:2940 SpecV2.ReactiveModel <> u:32 var
+R2937:2938 SpecV2.ReactiveModel <> m0:31 var
+R2918:2918 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2920:2921 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2923:2923 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2951:2956 SpecV2.ReactiveModel <> select proj
+R2965:2965 SpecV2.ReactiveModel <> u:32 var
+R2967:2967 SpecV2.ReactiveModel <> k:33 var
+R2958:2958 SpecV2.ReactiveModel <> Runs.P var
+def 3022:3029 <> out_from
+R3043:3049 SpecV2.ReactiveModel <> ProgMem proj
+R3051:3051 SpecV2.ReactiveModel <> Runs.P var
+binder 3038:3039 <> m0:34
+R3065:3070 SpecV2.ReactiveModel <> stream def
+R3073:3081 SpecV2.ReactiveModel <> ProgInput proj
+R3083:3083 SpecV2.ReactiveModel <> Runs.P var
+binder 3061:3061 <> u:35
+R3098:3100 Corelib.Init.Datatypes <> nat ind
+binder 3094:3094 <> k:36
+R3111:3120 SpecV2.ReactiveModel <> ProgOutput proj
+R3122:3122 SpecV2.ReactiveModel <> Runs.P var
+R3146:3153 SpecV2.ReactiveModel <> cfg_from def
+R3160:3160 SpecV2.ReactiveModel <> k:36 var
+R3158:3158 SpecV2.ReactiveModel <> u:35 var
+R3155:3156 SpecV2.ReactiveModel <> m0:34 var
+R3136:3136 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3138:3139 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3141:3141 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3178:3183 SpecV2.ReactiveModel <> select proj
+R3192:3192 SpecV2.ReactiveModel <> u:35 var
+R3194:3194 SpecV2.ReactiveModel <> k:36 var
+R3185:3185 SpecV2.ReactiveModel <> Runs.P var
+binder 3173:3173 <> t:37
+R3204:3210 SpecV2.ReactiveModel <> out_val proj
+R3219:3219 SpecV2.ReactiveModel <> u:35 var
+R3221:3221 SpecV2.ReactiveModel <> k:36 var
+R3214:3214 SpecV2.ReactiveModel <> t:37 var
+R3212:3212 SpecV2.ReactiveModel <> Runs.P var
+prf 3357:3366 <> cfg_from_0
+binder 3381:3382 <> m0:38
+binder 3384:3384 <> u:39
+R3408:3410 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3393:3400 SpecV2.ReactiveModel <> cfg_from def
+R3405:3405 SpecV2.ReactiveModel <> u:39 var
+R3402:3403 SpecV2.ReactiveModel <> m0:38 var
+R3411:3411 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3424:3425 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3428:3428 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3412:3421 SpecV2.ReactiveModel <> init_state proj
+R3423:3423 SpecV2.ReactiveModel <> Runs.P var
+R3426:3427 SpecV2.ReactiveModel <> m0:38 var
+prf 3473:3482 <> cfg_from_S
+binder 3497:3498 <> m0:40
+binder 3500:3500 <> u:41
+binder 3502:3502 <> k:42
+R3530:3538 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3511:3518 SpecV2.ReactiveModel <> cfg_from def
+R3526:3526 Corelib.Init.Datatypes <> S constr
+R3528:3528 SpecV2.ReactiveModel <> k:42 var
+R3523:3523 SpecV2.ReactiveModel <> u:41 var
+R3520:3521 SpecV2.ReactiveModel <> m0:40 var
+R3554:3561 SpecV2.ReactiveModel <> cfg_from def
+R3568:3568 SpecV2.ReactiveModel <> k:42 var
+R3566:3566 SpecV2.ReactiveModel <> u:41 var
+R3563:3564 SpecV2.ReactiveModel <> m0:40 var
+R3544:3544 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3546:3547 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3549:3549 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3588:3593 SpecV2.ReactiveModel <> select proj
+R3602:3602 SpecV2.ReactiveModel <> u:41 var
+R3604:3604 SpecV2.ReactiveModel <> k:42 var
+R3595:3595 SpecV2.ReactiveModel <> Runs.P var
+binder 3583:3583 <> t:43
+R3616:3616 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3632:3633 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3653:3653 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3617:3625 SpecV2.ReactiveModel <> dst_state proj
+R3629:3629 SpecV2.ReactiveModel <> t:43 var
+R3627:3627 SpecV2.ReactiveModel <> Runs.P var
+R3634:3640 SpecV2.ReactiveModel <> upd_mem proj
+R3649:3649 SpecV2.ReactiveModel <> u:41 var
+R3651:3651 SpecV2.ReactiveModel <> k:42 var
+R3644:3644 SpecV2.ReactiveModel <> t:43 var
+R3642:3642 SpecV2.ReactiveModel <> Runs.P var
+prf 3698:3715 <> trans_enabled_from
+binder 3730:3731 <> m0:44
+binder 3733:3733 <> u:45
+binder 3735:3735 <> k:46
+R3759:3766 SpecV2.ReactiveModel <> cfg_from def
+R3773:3773 SpecV2.ReactiveModel <> k:46 var
+R3771:3771 SpecV2.ReactiveModel <> u:45 var
+R3768:3769 SpecV2.ReactiveModel <> m0:44 var
+R3749:3749 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3751:3752 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3754:3754 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3784:3790 SpecV2.ReactiveModel <> enabled proj
+R3819:3819 SpecV2.ReactiveModel <> u:45 var
+R3821:3821 SpecV2.ReactiveModel <> k:46 var
+R3795:3804 SpecV2.ReactiveModel <> trans_from def
+R3811:3811 SpecV2.ReactiveModel <> k:46 var
+R3809:3809 SpecV2.ReactiveModel <> u:45 var
+R3806:3807 SpecV2.ReactiveModel <> m0:44 var
+R3792:3792 SpecV2.ReactiveModel <> Runs.P var
+R3864:3873 SpecV2.ReactiveModel <> trans_from def
+R3890:3897 SpecV2.ReactiveModel <> cfg_from def
+R3890:3897 SpecV2.ReactiveModel <> cfg_from def
+R3927:3940 SpecV2.ReactiveModel <> select_enabled proj
+R3927:3940 SpecV2.ReactiveModel <> select_enabled proj
+R3954:3957 SpecV2.ReactiveModel Runs <> sec

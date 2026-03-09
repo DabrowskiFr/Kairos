@@ -1,0 +1,116 @@
+DIGEST 7accadd7a5393c7d659f2de0fed5b516
+FKairos.integration.ThreeLayerFromCore
+R27:41 Stdlib.Logic.Classical <> <> lib
+R84:105 Kairos.integration.ThreeLayerArchitecture <> <> lib
+R489:505 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+modtype 456:482 <> KAIROS_CORE_FROM_PROVED_SIG
+R519:565 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R598:606 Kairos.integration.ThreeLayerFromCore P StepCtx defax
+ax 622:635 KAIROS_CORE_FROM_PROVED_SIG bad_local_step
+R639:639 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R657:661 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R643:646 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R640:642 Corelib.Init.Datatypes <> nat ind
+R647:656 Kairos.integration.ThreeLayerFromCore P InputVal defax
+R665:668 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R662:664 Corelib.Init.Datatypes <> nat ind
+ax 688:715 KAIROS_CORE_FROM_PROVED_SIG bad_local_step_if_G_violated
+R738:741 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R735:737 Corelib.Init.Datatypes <> nat ind
+R742:751 Kairos.integration.ThreeLayerFromCore P InputVal defax
+binder 731:731 <> u:3
+R771:780 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R761:768 Kairos.integration.ThreeLayerFromCore P AvoidA defax
+R770:770 Kairos.integration.ThreeLayerFromCore <> u:3 var
+R807:816 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R781:782 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R783:790 Kairos.integration.ThreeLayerFromCore P AvoidG defax
+R793:803 Kairos.integration.ThreeLayerFromCore P run_trace defax
+R805:805 Kairos.integration.ThreeLayerFromCore <> u:3 var
+R817:823 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R825:826 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 824:824 <> k:4
+R827:840 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG bad_local_step defax
+R844:844 Kairos.integration.ThreeLayerFromCore <> k:4 var
+R842:842 Kairos.integration.ThreeLayerFromCore <> u:3 var
+ax 860:898 KAIROS_CORE_FROM_PROVED_SIG generation_coverage_from_bad_local_step
+R921:924 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R918:920 Corelib.Init.Datatypes <> nat ind
+R925:934 Kairos.integration.ThreeLayerFromCore P InputVal defax
+binder 914:914 <> u:7
+R942:944 Corelib.Init.Datatypes <> nat ind
+binder 938:938 <> k:8
+R972:981 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R954:967 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG bad_local_step defax
+R971:971 Kairos.integration.ThreeLayerFromCore <> k:8 var
+R969:969 Kairos.integration.ThreeLayerFromCore <> u:7 var
+R982:988 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1000:1009 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R994:999 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG Clause def
+binder 989:990 <> cl:9
+R1022:1025 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1010:1018 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG Generated def
+R1020:1021 Kairos.integration.ThreeLayerFromCore <> cl:9 var
+R1026:1027 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1028:1029 Kairos.integration.ThreeLayerFromCore <> cl:9 var
+R1032:1039 Kairos.integration.ThreeLayerFromCore P ctx_at defax
+R1043:1043 Kairos.integration.ThreeLayerFromCore <> k:8 var
+R1041:1041 Kairos.integration.ThreeLayerFromCore <> u:7 var
+R1051:1077 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG <> modtype
+R1122:1138 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+R1148:1174 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG <> modtype
+R1176:1176 Kairos.integration.ThreeLayerFromCore P <> mod
+mod 1088:1113 <> MakeCoverageFromProvedCore
+prf 1195:1240 MakeCoverageFromProvedCore recover_falsified_clause_from_global_violation
+binder 1255:1255 <> u:12
+R1274:1283 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1264:1271 Kairos.integration.ThreeLayerFromCore P AvoidA defax
+R1273:1273 Kairos.integration.ThreeLayerFromCore <> u:12 var
+R1310:1319 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1284:1285 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1286:1293 Kairos.integration.ThreeLayerFromCore P AvoidG defax
+R1296:1306 Kairos.integration.ThreeLayerFromCore P run_trace defax
+R1308:1308 Kairos.integration.ThreeLayerFromCore <> u:12 var
+R1320:1326 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1343:1353 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1327:1327 <> k:13
+R1335:1342 Kairos.integration.ThreeLayerFromCore K Clause def
+binder 1330:1331 <> cl:14
+R1368:1371 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1354:1364 Kairos.integration.ThreeLayerFromCore K Generated def
+R1366:1367 Kairos.integration.ThreeLayerFromCore <> cl:14 var
+R1372:1373 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1374:1375 Kairos.integration.ThreeLayerFromCore <> cl:14 var
+R1378:1385 Kairos.integration.ThreeLayerFromCore P ctx_at defax
+R1389:1389 Kairos.integration.ThreeLayerFromCore <> k:13 var
+R1387:1387 Kairos.integration.ThreeLayerFromCore <> u:12 var
+R1437:1466 Kairos.integration.ThreeLayerFromCore K bad_local_step_if_G_violated defax
+R1437:1466 Kairos.integration.ThreeLayerFromCore K bad_local_step_if_G_violated defax
+R1512:1552 Kairos.integration.ThreeLayerFromCore K generation_coverage_from_bad_local_step defax
+R1512:1552 Kairos.integration.ThreeLayerFromCore K generation_coverage_from_bad_local_step defax
+prf 1664:1685 MakeCoverageFromProvedCore coverage_if_not_avoidG
+binder 1700:1700 <> u:15
+R1719:1728 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1709:1716 Kairos.integration.ThreeLayerFromCore P AvoidA defax
+R1718:1718 Kairos.integration.ThreeLayerFromCore <> u:15 var
+R1755:1764 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1729:1730 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1731:1738 Kairos.integration.ThreeLayerFromCore P AvoidG defax
+R1741:1751 Kairos.integration.ThreeLayerFromCore P run_trace defax
+R1753:1753 Kairos.integration.ThreeLayerFromCore <> u:15 var
+R1765:1771 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1788:1798 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1772:1772 <> k:16
+R1780:1787 Kairos.integration.ThreeLayerFromCore K Clause def
+binder 1775:1776 <> cl:17
+R1813:1816 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1799:1809 Kairos.integration.ThreeLayerFromCore K Generated def
+R1811:1812 Kairos.integration.ThreeLayerFromCore <> cl:17 var
+R1817:1818 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R1819:1820 Kairos.integration.ThreeLayerFromCore <> cl:17 var
+R1823:1830 Kairos.integration.ThreeLayerFromCore P ctx_at defax
+R1834:1834 Kairos.integration.ThreeLayerFromCore <> k:16 var
+R1832:1832 Kairos.integration.ThreeLayerFromCore <> u:15 var
+R1857:1902 Kairos.integration.ThreeLayerFromCore MakeCoverageFromProvedCore recover_falsified_clause_from_global_violation thm
+R1857:1902 Kairos.integration.ThreeLayerFromCore MakeCoverageFromProvedCore recover_falsified_clause_from_global_violation thm
+R1916:1941 Kairos.integration.ThreeLayerFromCore MakeCoverageFromProvedCore <> mod

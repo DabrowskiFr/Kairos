@@ -4,3 +4,7 @@
  (name SpecV2)
  (stdlib yes)
  (theories Stdlib))
+
+(documentation
+ (package specv2)
+ (mld_files :standard))

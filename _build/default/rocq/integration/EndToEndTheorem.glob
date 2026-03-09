@@ -1,0 +1,44 @@
+DIGEST c4cea3444d077a31dd9566ed8a48b325
+FKairos.integration.EndToEndTheorem
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R84:99 Kairos.obligations.ObligationGenSig <> <> lib
+R141:149 Kairos.obligations.OracleSig <> <> lib
+R191:202 Kairos.obligations.OracleSemSig <> <> lib
+R240:251 Kairos.kernels.SafetyKernel <> <> lib
+R307:319 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R329:346 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R393:406 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R408:408 Kairos.integration.EndToEndTheorem C <> mod
+R410:410 Kairos.integration.EndToEndTheorem E <> mod
+R422:439 Kairos.kernels.SafetyKernel LOCAL_COVERAGE_SIG <> modtype
+R441:441 Kairos.integration.EndToEndTheorem C <> mod
+R443:443 Kairos.integration.EndToEndTheorem E <> mod
+R375:383 Kairos.integration.EndToEndTheorem C StepCtx defax
+mod 287:298 <> MakeEndToEnd
+R463:478 Kairos.kernels.SafetyKernel MakeSafetyKernel <> mod
+R480:480 Kairos.integration.EndToEndTheorem C <> mod
+R482:482 Kairos.integration.EndToEndTheorem E <> mod
+R484:484 Kairos.integration.EndToEndTheorem O <> mod
+R486:488 Kairos.integration.EndToEndTheorem Cov <> mod
+mod 457:458 <> MakeEndToEnd.SK
+prf 502:546 MakeEndToEnd end_to_end_validation_conditional_correctness
+binder 561:561 <> u:1
+R582:591 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R570:579 Kairos.integration.EndToEndTheorem Cov AvoidA defax
+R581:581 Kairos.integration.EndToEndTheorem <> u:1 var
+R592:601 Kairos.integration.EndToEndTheorem Cov AvoidG defax
+R604:614 Kairos.integration.EndToEndTheorem C run_trace defax
+R616:616 Kairos.integration.EndToEndTheorem <> u:1 var
+R639:683 Kairos.integration.EndToEndTheorem MakeEndToEnd validation_conditional_correctness_modular thm
+R639:683 Kairos.integration.EndToEndTheorem MakeEndToEnd validation_conditional_correctness_modular thm
+prf 704:744 MakeEndToEnd end_to_end_oracle_conditional_correctness
+binder 759:759 <> u:2
+R780:789 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R768:777 Kairos.integration.EndToEndTheorem Cov AvoidA defax
+R779:779 Kairos.integration.EndToEndTheorem <> u:2 var
+R790:799 Kairos.integration.EndToEndTheorem Cov AvoidG defax
+R802:812 Kairos.integration.EndToEndTheorem C run_trace defax
+R814:814 Kairos.integration.EndToEndTheorem <> u:2 var
+R837:881 Kairos.integration.EndToEndTheorem MakeEndToEnd end_to_end_validation_conditional_correctness thm
+R837:881 Kairos.integration.EndToEndTheorem MakeEndToEnd end_to_end_validation_conditional_correctness thm
+R895:906 Kairos.integration.EndToEndTheorem MakeEndToEnd <> mod

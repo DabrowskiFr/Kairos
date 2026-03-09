@@ -2849,3 +2849,300 @@ Instanciation Coq concrete du cas `delay_int.kairos` dans `rocq/DelayIntExample.
 ## 2026-03-08
 - Figure layout pass on `spec/rocq_oracle_model.tex` after visual feedback: tightened label style, replaced long complement labels in the guarantee automaton with pedagogical `otherwise` labels explained in prose, and increased spacing in the relevant product subgraph to avoid node/label overlap.
 - Added `specv2/guide.md`: a dedicated guide for rewriting the current paper toward a POPL-oriented version, with a principle-centric positioning, section-by-section rewrite guidance, theorem focus, terminology constraints, and related-work strategy.
+
+## 2026-03-08
+- Added a new positive Kairos example to [`tests/ok/inputs/credit_balance_monitor.kairos`](/Users/fredericdabrowski/Repos/kairos/tests/ok/inputs/credit_balance_monitor.kairos).
+- Purpose of the example:
+  - provide a more arithmetic and genuinely non-finite-state benchmark than `resettable_delay`;
+  - keep a small control-state structure while relying on an unbounded integer memory.
+- Retained formulation:
+  - node-level assumptions only constrain booleans and non-negativity;
+  - the balance-side admissibility condition is encoded in transition guards;
+  - the key invariant in state `Run` is `m >= 0 /\ m = prev bal`.
+- Reason for this formulation:
+  - a stronger contract written directly with arithmetic on `prev bal` does not fit the current accepted surface syntax cleanly;
+  - the guard-based version is accepted and proved by the current toolchain.
+- Validation command used:
+  - `DUNE_BUILD_DIR=/Users/fredericdabrowski/Repos/kairos/specv2/.kairos_build_credit_test opam exec -- dune exec -- kairos --log-level quiet --prove --prover-cmd /Users/fredericdabrowski/.opam/5.4.1+options/bin/z3 /Users/fredericdabrowski/Repos/kairos/tests/ok/inputs/credit_balance_monitor.kairos`
+- Validation result:
+  - command exits successfully;
+  - only benign generated-code warnings about unused variables were reported.
+## 2026-03-09
+
+### Objectif
+
+Rendre les exports DOT des automates `assume` et `guarantee` plus lisibles
+pour l'exemple `resettable_delay`, en evitant l'inlining integral des gardes
+sur les transitions.
+
+### Tentatives et observations
+
+- Observation: les exports separés `assume_automaton_dot` et
+  `guarantee_automaton_dot` montraient initialement les residus comme labels de
+  noeuds et des gardes completement inlines, ce qui rendait la lecture trop
+  lourde.
+- Succes: les noeuds des automates exportes sont maintenant etiquetes par des
+  identifiants courts (`A0`, `A1`, `G0`, etc.) au lieu des formules
+  residuelles.
+- Succes: les gardes des transitions sont maintenant rendus avec des alias
+  d'atomes `phi_i` au lieu des formules completement inlines.
+- Succes: chaque graphe exporte embarque une legende en bas de figure qui
+  rappelle la definition des `phi_i`.
+- Succes: la reécriture des variables d'historique affiche `pre(x)` et
+  `pre(reset)` dans la legende.
+
+### Resultat
+
+Les exports DOT/PDF `assume` et `guarantee` produits par Kairos sont maintenant
+beaucoup plus proches de la presentation souhaitee pour le papier: graphe
+compact, transitions nommees par atomes, definitions en legende.
+
+## 2026-03-09
+
+### Objectif
+
+Remplacer les alias anonymes `phi_i` par des noms semantiques intermediaires
+plus proches de l'usage papier pour l'exemple `resettable_delay`.
+
+### Tentatives et observations
+
+- Observation: la vue compacte precedente supprimait bien les residus et
+  dechargeait les transitions, mais `phi_1`, `phi_2`, etc. restaient trop
+  opaques.
+- Succes: introduction d'un choix d'alias semantiques stables pour les
+  predicats reconnus dans les gardes de l'exemple, par exemple
+  `phi_rst`, `phi_nrst`, `phi_y0`, `phi_delay`, `phi_prev_rst`,
+  `phi_prev_nrst`.
+- Succes: regeneration des DOT/PDF via `kairos_lsp.exe` pour verifier le rendu
+  final et la legende embarquee.
+
+### Resultat
+
+Les automates exportes affichent maintenant des noms de predicats
+intermediaires lisibles, sans revenir au niveau complet des clauses
+`A/G1/G2/G3`, ce qui correspond mieux a un usage de papier.
+
+## 2026-03-09
+
+### Objectif
+
+Rapprocher visuellement les exports DOT `assume/guarantee` du rendu du papier,
+avec une palette de couleurs, un etat initial mis en valeur, un etat `bad`
+rouge, et une legende plus lisible.
+
+### Tentatives et observations
+
+- Succes: ajout d'un style DOT dedie dans `product_debug.ml` pour les automates
+  separes, avec palettes distinctes `assumption/guarantee`.
+- Succes: l'etat initial est maintenant visuellement distingue, et l'etat
+  `false` est colore en rouge comme etat `bad`.
+- Succes: les arcs qui menent a l'etat `bad` sont eux aussi rouges.
+- Succes: la legende embarquee est maintenant stylisee avec un fond leger et
+  une bordure coherente avec la palette du graphe.
+
+### Resultat
+
+Les PDF `assume` et `guarantee` produits par Kairos sont maintenant beaucoup
+plus proches du rendu du papier et peuvent servir de base visuelle de
+reference.
+
+## 2026-03-09
+
+### Objectif
+
+Simplifier les gardes d'automates au niveau du pipeline Kairos lui-meme, pas
+seulement dans le rendu DOT, afin que les obligations et le produit explicite
+beneficient eux aussi de formules plus simples.
+
+### Tentatives et observations
+
+- Succes: extension de `simplify_iexpr` dans
+  `lib_v2/runtime/core/logic/ltl/ltl_valuation.ml` pour eliminer certaines
+  redondances simples sur les tests d'egalite/inegalite, par exemple
+  `x = c ∧ x ≠ d` lorsque `c` et `d` sont distincts.
+- Succes: branchement de cette simplification apres inlining des atomes dans
+  `lib_v2/runtime/middle_end/automata_generation/automata_atoms.ml`, ce qui
+  place la simplification au bon niveau de la chaine.
+- Observation: cette premiere passe supprime bien des redondances evidentes
+  comme `reset = 0 and not reset = 1`, mais elle ne fait pas encore de
+  simplification dependante d'un domaine fini explicite.
+
+### Resultat
+
+Les gardes recuperes depuis l'automate sont maintenant simplifies avant d'etre
+reutilises par le produit, les obligations et les vues DOT. Les sorties
+`resettable_delay` montrent deja une nette reduction des redondances.
+
+## 2026-03-09
+
+### Objectif
+
+Renforcer la simplification des gardes d'automates au niveau des clauses de
+comparaison, afin de reduire aussi certaines disjonctions redondantes dans les
+exports `assume/guarantee`.
+
+### Tentatives et observations
+
+- Echec partiel: une premiere passe locale sur les litteraux ne suffisait pas
+  pour eliminer des formes du type `reset <> 1 or y = 0 or reset = 0`, car le
+  probleme venait de l'implication entre clauses et non d'une contradiction
+  syntactique immediate.
+- Succes: ajout d'une normalisation des clauses de comparaisons dans
+  `lib_v2/runtime/core/logic/ltl/ltl_valuation.ml`, avec suppression des
+  inegalites rendues inutiles par une egalite deja presente dans la meme
+  clause.
+- Succes: ajout d'un test d'implication entre clauses normalisees pour
+  eliminer certains disjoints plus forts que d'autres dans une DNF.
+- Succes: la formule de garde `reset <> 1 or y = 0 or reset = 0` est maintenant
+  simplifiee en `y = 0 or reset = 0` dans l'automate de garantie genere pour
+  `resettable_delay`.
+- Observation: des gardes plus volumineux subsistent encore, notamment dans
+  `phi_1` et `phi_5` de l'automate de garantie; ils sont mieux simplifies
+  qu'avant mais pas encore minimaux.
+
+### Resultat
+
+La simplification appliquee au niveau du programme Kairos reduit maintenant
+non seulement des conjonctions redondantes, mais aussi une partie des
+redondances entre clauses d'une disjonction. Les PDF/DOT regeneres pour
+`resettable_delay` refletent cette amelioration.
+
+## 2026-03-09
+
+### Objectif
+
+Clarifier l'architecture de simplification des formules autour des automates,
+en fixant un point unique pour la recuperation des gardes apres
+propositionnalisation et apres reinjection des atomes.
+
+### Tentatives et observations
+
+- Observation: la simplification etait jusqu'ici repartie entre
+  `Automaton_guard.guard_to_iexpr`, `inline_atoms_iexpr`, puis plusieurs
+  reapparitions manuelles de la meme sequence dans le produit, le debug DOT et
+  l'instrumentation.
+- Succes: ajout dans `automata_atoms.ml` de deux fonctions canoniques,
+  `recover_guard_iexpr` et `recover_guard_fo`, qui incarnent explicitement
+  l'etape "automate propositionnel -> garde sur formules programme".
+- Succes: bascule des principaux consommateurs (`product_build.ml`,
+  `product_debug.ml`, `instrumentation.ml`) sur cette API commune.
+- Observation: cette centralisation ne change pas la separation
+  `programme/assume/guarantee` dans la construction du produit; elle ne fait
+  que fixer le bon niveau ou appliquer la simplification des gardes recuperes.
+
+### Resultat
+
+L'architecture de simplification est plus nette: la simplification
+propositionnelle reste au niveau des gardes d'automates, et la simplification
+apres reinjection des atomes se fait maintenant a un point unique reutilise par
+le produit, l'instrumentation et les exports DOT.
+
+## 2026-03-09
+
+### Objectif
+
+Aligner plus explicitement le niveau de normalisation utilise dans la
+construction du produit avec celui deja retenu pour la recuperation des gardes
+d'automates.
+
+### Tentatives et observations
+
+- Succes: `program_guard_fo` dans `product_build.ml` simplifie maintenant les
+  gardes programme avant conversion en formule du premier ordre.
+- Succes: la documentation locale de `fo_overlap_conservative` explicite que ce
+  test travaille sur des gardes deja normalises et qu'il ne fusionne pas les
+  composantes `programme/assume/guarantee`.
+- Observation: cette clarification d'architecture ne change pas le rendu de
+  `phi_1` et `phi_5` dans l'exemple `resettable_delay`; ces deux gardes
+  demanderaient une minimisation logique plus forte que la normalisation
+  actuellement en place.
+
+### Resultat
+
+Le pipeline est plus coherent: les gardes compares dans le produit sont
+normalises au meme niveau que les gardes recuperes depuis les automates, tout
+en conservant la separation conceptuelle entre les trois composantes du
+produit.
+
+## 2026-03-09
+
+### Objectif
+
+Renforcer la minimisation des DNF recuperees afin de simplifier davantage les
+gardes residuels encore lourds, en particulier `phi_1` et `phi_5` de l'exemple
+`resettable_delay`.
+
+### Tentatives et observations
+
+- Observation: les simplifications precedentes ne reconnaissaient comme
+  litteraux de clause que des comparaisons de la forme `var = constante` ou
+  `var <> constante`. Cela ne suffisait pas pour fusionner des clauses
+  impliquant `y = pre(x)` ou `pre(reset) = 0`.
+- Succes: generalisation de la fusion de clauses a des egalites/inegalites
+  arbitraires entre termes `iexpr`, en traitant `pre(...)` comme un symbole non
+  interprete.
+- Succes: cette passe permet maintenant de fusionner des clauses qui ne
+  differaient que par un litteral complementaire du type
+  `pre(reset) = 0` / `pre(reset) <> 0`.
+- Succes: `phi_1` de l'automate de garantie est plus court qu'avant; deux
+  clauses intermediaires ont ete absorbees en une clause plus generale.
+- Observation: `phi_5` reste essentiellement inchange. Sa reduction demanderait
+  soit une minimisation propositionnelle plus agressive, soit des hypotheses de
+  domaine supplementaires qui ne sont pas introduites ici.
+
+### Resultat
+
+La minimisation des gardes recuperes ne se limite plus aux comparaisons
+`variable/constante`. Elle sait maintenant raisonner sur des termes comme
+`pre(x)` de facon purement syntaxique, ce qui simplifie effectivement une
+partie du graphe de garantie tout en restant compatible avec le cadre abstrait
+de Kairos.
+
+## 2026-03-09
+
+### Objectif
+
+Ameliorer le rendu DOT des automates separes en evitant d'introduire un alias
+`phi_k` pour les gardes trivialement vraies, en particulier sur les boucles de
+l'etat `bad`.
+
+### Tentatives et observations
+
+- Succes: le rendu dans `product_debug.ml` affiche maintenant `⊤` directement
+  lorsqu'une transition a pour garde `true`.
+- Succes: ces gardes triviales sont exclues de la legende des `phi_k`, qui ne
+  conserve plus que les formules non triviales.
+- Observation: cela ne change pas l'automate lui-meme, seulement son rendu; les
+  boucles `bad -> bad` restent bien totalisees par `true`.
+
+### Resultat
+
+Les PDF `assume` et `guarantee` affichent maintenant `⊤` sur les boucles
+triviales de l'etat `bad`, ce qui est plus naturel et plus proche du niveau de
+lecture vise pour un papier.
+
+## 2026-03-09
+
+### Objectif
+
+Donner aux exports DOT `assume/guarantee` un rendu plus mathematique pour les
+labels de noeuds, les alias `phi_i`, et les formules de la legende.
+
+### Tentatives et observations
+
+- Succes: les noeuds des automates separes utilisent maintenant des labels de
+  type `A_i`, `G_i`, `A_bad`, `G_bad` avec vrais sous-indices via labels HTML
+  Graphviz.
+- Succes: les aliases de transition sont maintenant rendus en `φᵢ` plutot qu'en
+  `phi_i`.
+- Succes: la legende remplace les operateurs textuels par des notations
+  usuelles (`¬`, `∧`, `∨`, `≠`, `⊤`, `⊥`).
+- Observation: cette passe repose sur le rendu HTML/Unicode effectivement
+  supporte par Graphviz dans le backend PDF, plutot que sur une hypothese plus
+  fragile de support direct du LaTeX math.
+
+### Resultat
+
+Les PDF Kairos se rapprochent maintenant davantage du style d'un papier:
+notation des etats plus propre, `φᵢ` sur les arcs, et legende plus compacte et
+mathematique.

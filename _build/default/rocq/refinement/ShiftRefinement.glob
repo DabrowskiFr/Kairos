@@ -1,0 +1,43 @@
+DIGEST e4ae546b4f591b9f838ea3e2cf20b316
+FKairos.refinement.ShiftRefinement
+R38:50 Kairos.refinement.RefinementSig <> <> lib
+modtype 91:108 <> CONCRETE_SHIFT_SIG
+ax 123:129 CONCRETE_SHIFT_SIG ConcrFO
+ax 151:161 CONCRETE_SHIFT_SIG shift_concr
+R168:171 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R165:167 Corelib.Init.Datatypes <> nat ind
+R179:182 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R172:178 Kairos.refinement.ShiftRefinement CONCRETE_SHIFT_SIG ConcrFO defax
+R183:189 Kairos.refinement.ShiftRefinement CONCRETE_SHIFT_SIG ConcrFO defax
+R196:213 Kairos.refinement.ShiftRefinement CONCRETE_SHIFT_SIG <> modtype
+modtype 229:246 <> ABSTRACT_SHIFT_SIG
+ax 261:265 ABSTRACT_SHIFT_SIG AbsFO
+ax 287:295 ABSTRACT_SHIFT_SIG shift_abs
+R302:305 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R299:301 Corelib.Init.Datatypes <> nat ind
+R311:314 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R306:310 Kairos.refinement.ShiftRefinement ABSTRACT_SHIFT_SIG AbsFO defax
+R315:319 Kairos.refinement.ShiftRefinement ABSTRACT_SHIFT_SIG AbsFO defax
+R326:343 Kairos.refinement.ShiftRefinement ABSTRACT_SHIFT_SIG <> modtype
+R387:404 Kairos.refinement.ShiftRefinement CONCRETE_SHIFT_SIG <> modtype
+R414:431 Kairos.refinement.ShiftRefinement ABSTRACT_SHIFT_SIG <> modtype
+R441:454 Kairos.refinement.RefinementSig REFINEMENT_SIG <> modtype
+R488:496 Kairos.refinement.ShiftRefinement C ConcrFO defax
+R528:534 Kairos.refinement.ShiftRefinement A AbsFO defax
+modtype 359:378 <> SHIFT_REFINEMENT_SIG
+ax 547:559 SHIFT_REFINEMENT_SIG shift_refines
+binder 574:574 <> d:9
+binder 576:578 <> cfo:10
+binder 580:582 <> afo:11
+R611:620 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R591:602 Kairos.refinement.ShiftRefinement R refines_fo defax
+R608:610 Kairos.refinement.ShiftRefinement <> afo:11 var
+R604:606 Kairos.refinement.ShiftRefinement <> cfo:10 var
+R621:632 Kairos.refinement.ShiftRefinement R refines_fo defax
+R657:667 Kairos.refinement.ShiftRefinement A shift_abs defax
+R671:673 Kairos.refinement.ShiftRefinement <> afo:11 var
+R669:669 Kairos.refinement.ShiftRefinement <> d:9 var
+R635:647 Kairos.refinement.ShiftRefinement C shift_concr defax
+R651:653 Kairos.refinement.ShiftRefinement <> cfo:10 var
+R649:649 Kairos.refinement.ShiftRefinement <> d:9 var
+R681:700 Kairos.refinement.ShiftRefinement SHIFT_REFINEMENT_SIG <> modtype

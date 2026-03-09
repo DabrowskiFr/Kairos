@@ -1,0 +1,63 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.refinement.ShiftRefinement</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.refinement.ShiftRefinement</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.refinement</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.refinement.RefinementSig.html#"><span class="id" title="library">RefinementSig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CONCRETE_SHIFT_SIG" class="idref" href="#CONCRETE_SHIFT_SIG"><span class="id" title="module">CONCRETE_SHIFT_SIG</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONCRETE_SHIFT_SIG.ConcrFO" class="idref" href="#CONCRETE_SHIFT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONCRETE_SHIFT_SIG.shift_concr" class="idref" href="#CONCRETE_SHIFT_SIG.shift_concr"><span class="id" title="axiom">shift_concr</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#CONCRETE_SHIFT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#CONCRETE_SHIFT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#CONCRETE_SHIFT_SIG"><span class="id" title="module">CONCRETE_SHIFT_SIG</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="ABSTRACT_SHIFT_SIG" class="idref" href="#ABSTRACT_SHIFT_SIG"><span class="id" title="module">ABSTRACT_SHIFT_SIG</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="ABSTRACT_SHIFT_SIG.AbsFO" class="idref" href="#ABSTRACT_SHIFT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="ABSTRACT_SHIFT_SIG.shift_abs" class="idref" href="#ABSTRACT_SHIFT_SIG.shift_abs"><span class="id" title="axiom">shift_abs</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#ABSTRACT_SHIFT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#ABSTRACT_SHIFT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#ABSTRACT_SHIFT_SIG"><span class="id" title="module">ABSTRACT_SHIFT_SIG</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="SHIFT_REFINEMENT_SIG" class="idref" href="#SHIFT_REFINEMENT_SIG"><span class="id" title="module">SHIFT_REFINEMENT_SIG</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">C</span> : <a class="idref" href="Kairos.refinement.ShiftRefinement.html#CONCRETE_SHIFT_SIG"><span class="id" title="module">CONCRETE_SHIFT_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">A</span> : <a class="idref" href="Kairos.refinement.ShiftRefinement.html#ABSTRACT_SHIFT_SIG"><span class="id" title="module">ABSTRACT_SHIFT_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">R</span> : <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG"><span class="id" title="module">REFINEMENT_SIG</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">ConcrFO</span> := <a class="idref" href="Kairos.refinement.ShiftRefinement.html#C.ConcrFO"><span class="id" title="axiom">C.ConcrFO</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">AbsFO</span> := <a class="idref" href="Kairos.refinement.ShiftRefinement.html#A.AbsFO"><span class="id" title="axiom">A.AbsFO</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="SHIFT_REFINEMENT_SIG.shift_refines" class="idref" href="#SHIFT_REFINEMENT_SIG.shift_refines"><span class="id" title="axiom">shift_refines</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="d:9" class="idref" href="#d:9"><span class="id" title="binder">d</span></a> <a id="cfo:10" class="idref" href="#cfo:10"><span class="id" title="binder">cfo</span></a> <a id="afo:11" class="idref" href="#afo:11"><span class="id" title="binder">afo</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.ShiftRefinement.html#R.refines_fo"><span class="id" title="axiom">R.refines_fo</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#cfo:10"><span class="id" title="variable">cfo</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#afo:11"><span class="id" title="variable">afo</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.ShiftRefinement.html#R.refines_fo"><span class="id" title="axiom">R.refines_fo</span></a> (<a class="idref" href="Kairos.refinement.ShiftRefinement.html#C.shift_concr"><span class="id" title="axiom">C.shift_concr</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#d:9"><span class="id" title="variable">d</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#cfo:10"><span class="id" title="variable">cfo</span></a>) (<a class="idref" href="Kairos.refinement.ShiftRefinement.html#A.shift_abs"><span class="id" title="axiom">A.shift_abs</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#d:9"><span class="id" title="variable">d</span></a> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#afo:11"><span class="id" title="variable">afo</span></a>).<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#SHIFT_REFINEMENT_SIG"><span class="id" title="module">SHIFT_REFINEMENT_SIG</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

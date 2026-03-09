@@ -1,0 +1,15 @@
+{0 Meta-Theory}
+
+{1 Soundness}
+
+{!module-SpecV2.Soundness} proves that valid generated triples, together with
+true user invariants on admissible executions, imply conditional safety.
+
+{1 Relative Completeness}
+
+{!module-SpecV2.RelativeCompleteness} proves the converse admissible-run
+results:
+
+- global correctness implies admissible validity of generated safety triples;
+- under true invariants on admissible runs, global correctness implies
+  admissible validity of all generated triples.

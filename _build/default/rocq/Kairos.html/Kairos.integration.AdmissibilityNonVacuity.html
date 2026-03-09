@@ -1,0 +1,69 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.integration.AdmissibilityNonVacuity</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.integration.AdmissibilityNonVacuity</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.integration</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#"><span class="id" title="library">ThreeLayerArchitecture</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="NON_VACUITY_SIG" class="idref" href="#NON_VACUITY_SIG"><span class="id" title="module">NON_VACUITY_SIG</span></a> (<span class="id" title="var">P</span> : <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#PROGRAM_LAYER_SIG"><span class="id" title="module">PROGRAM_LAYER_SIG</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="NON_VACUITY_SIG.witness_input" class="idref" href="#NON_VACUITY_SIG.witness_input"><span class="id" title="axiom">witness_input</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P.InputVal"><span class="id" title="axiom">P.InputVal</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="NON_VACUITY_SIG.witness_is_admissible" class="idref" href="#NON_VACUITY_SIG.witness_is_admissible"><span class="id" title="axiom">witness_is_admissible</span></a> : <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P.AvoidA"><span class="id" title="axiom">P.AvoidA</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NON_VACUITY_SIG.witness_input"><span class="id" title="axiom">witness_input</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NON_VACUITY_SIG"><span class="id" title="module">NON_VACUITY_SIG</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeThreeLayerCorrectnessWithWitness" class="idref" href="#MakeThreeLayerCorrectnessWithWitness"><span class="id" title="module">MakeThreeLayerCorrectnessWithWitness</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">P</span> : <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#PROGRAM_LAYER_SIG"><span class="id" title="module">PROGRAM_LAYER_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">K</span> : <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#KAIROS_CORE_LAYER_SIG"><span class="id" title="module">KAIROS_CORE_LAYER_SIG</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P"><span class="id" title="module">P</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">S</span> : <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#VALIDATION_LAYER_SIG"><span class="id" title="module">VALIDATION_LAYER_SIG</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P"><span class="id" title="module">P</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#K"><span class="id" title="module">K</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">NV</span> : <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NON_VACUITY_SIG"><span class="id" title="module">NON_VACUITY_SIG</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P"><span class="id" title="module">P</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Module</span> <a id="MakeThreeLayerCorrectnessWithWitness.Corr" class="idref" href="#MakeThreeLayerCorrectnessWithWitness.Corr"><span class="id" title="module">Corr</span></a> := <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#MakeThreeLayerCorrectness"><span class="id" title="module">MakeThreeLayerCorrectness</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P"><span class="id" title="module">P</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#K"><span class="id" title="module">K</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#S"><span class="id" title="module">S</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="MakeThreeLayerCorrectnessWithWitness.exists_admissible_input" class="idref" href="#MakeThreeLayerCorrectnessWithWitness.exists_admissible_input"><span class="id" title="lemma">exists_admissible_input</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#a883bdd010993579f99d60b3775bcf54"><span class="id" title="notation">exists</span></a> <a id="u:5" class="idref" href="#u:5"><span class="id" title="binder">u</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#a883bdd010993579f99d60b3775bcf54"><span class="id" title="notation">,</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P.AvoidA"><span class="id" title="axiom">P.AvoidA</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#u:5"><span class="id" title="variable">u</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exists</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NV.witness_input"><span class="id" title="axiom">NV.witness_input</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NV.witness_is_admissible"><span class="id" title="axiom">NV.witness_is_admissible</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="MakeThreeLayerCorrectnessWithWitness.exists_trace_satisfying_guarantee" class="idref" href="#MakeThreeLayerCorrectnessWithWitness.exists_trace_satisfying_guarantee"><span class="id" title="lemma">exists_trace_satisfying_guarantee</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#a883bdd010993579f99d60b3775bcf54"><span class="id" title="notation">exists</span></a> <a id="u:6" class="idref" href="#u:6"><span class="id" title="binder">u</span></a><a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#a883bdd010993579f99d60b3775bcf54"><span class="id" title="notation">,</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P.AvoidG"><span class="id" title="axiom">P.AvoidG</span></a> (<a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#P.run_trace"><span class="id" title="axiom">P.run_trace</span></a> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#u:6"><span class="id" title="variable">u</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exists</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NV.witness_input"><span class="id" title="axiom">NV.witness_input</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#MakeThreeLayerCorrectnessWithWitness.validation_conditional_correctness_three_layers"><span class="id" title="lemma">Corr.validation_conditional_correctness_three_layers</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#NV.witness_is_admissible"><span class="id" title="axiom">NV.witness_is_admissible</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.integration.AdmissibilityNonVacuity.html#MakeThreeLayerCorrectnessWithWitness"><span class="id" title="module">MakeThreeLayerCorrectnessWithWitness</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

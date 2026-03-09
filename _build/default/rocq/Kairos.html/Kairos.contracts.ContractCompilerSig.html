@@ -1,0 +1,69 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.contracts.ContractCompilerSig</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.contracts.ContractCompilerSig</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.integration</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#"><span class="id" title="library">ThreeLayerArchitecture</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.LTLPredicate.html#"><span class="id" title="library">LTLPredicate</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.MonitorSig.html#"><span class="id" title="library">MonitorSig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CONTRACT_COMPILER_SIG" class="idref" href="#CONTRACT_COMPILER_SIG"><span class="id" title="module">CONTRACT_COMPILER_SIG</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">P</span> : <a class="idref" href="Kairos.integration.ThreeLayerArchitecture.html#PROGRAM_LAYER_SIG"><span class="id" title="module">PROGRAM_LAYER_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">Amon</span> : <a class="idref" href="Kairos.monitor.MonitorSig.html#MONITOR_SIG"><span class="id" title="module">MONITOR_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">Obs</span> := <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.InputVal"><span class="id" title="axiom">P.InputVal</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">Gmon</span> : <a class="idref" href="Kairos.monitor.MonitorSig.html#MONITOR_SIG"><span class="id" title="module">MONITOR_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">Obs</span> := (<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.InputVal"><span class="id" title="axiom">P.InputVal</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">*</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.OutputVal"><span class="id" title="axiom">P.OutputVal</span></a>)%<span class="id" title="keyword">type</span>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">LA</span> : <a class="idref" href="Kairos.logic.LTLPredicate.html#LTL_PREDICATE_SIG"><span class="id" title="module">LTL_PREDICATE_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">Obs</span> := <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.InputVal"><span class="id" title="axiom">P.InputVal</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">LG</span> : <a class="idref" href="Kairos.logic.LTLPredicate.html#LTL_PREDICATE_SIG"><span class="id" title="module">LTL_PREDICATE_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">Obs</span> := (<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.InputVal"><span class="id" title="axiom">P.InputVal</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#11c698c8685bb8ab1cf725545c085ac4"><span class="id" title="notation">*</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#P.OutputVal"><span class="id" title="axiom">P.OutputVal</span></a>)%<span class="id" title="keyword">type</span>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.ContractA" class="idref" href="#CONTRACT_COMPILER_SIG.ContractA"><span class="id" title="axiom">ContractA</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.ContractG" class="idref" href="#CONTRACT_COMPILER_SIG.ContractG"><span class="id" title="axiom">ContractG</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.contractA_of_program" class="idref" href="#CONTRACT_COMPILER_SIG.contractA_of_program"><span class="id" title="axiom">contractA_of_program</span></a> : <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.ContractA"><span class="id" title="axiom">ContractA</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.contractG_of_program" class="idref" href="#CONTRACT_COMPILER_SIG.contractG_of_program"><span class="id" title="axiom">contractG_of_program</span></a> : <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.ContractG"><span class="id" title="axiom">ContractG</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.compile_A" class="idref" href="#CONTRACT_COMPILER_SIG.compile_A"><span class="id" title="axiom">compile_A</span></a> : <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.ContractA"><span class="id" title="axiom">ContractA</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#LA.Formula"><span class="id" title="definition">LA.Formula</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CONTRACT_COMPILER_SIG.compile_G" class="idref" href="#CONTRACT_COMPILER_SIG.compile_G"><span class="id" title="axiom">compile_G</span></a> : <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.ContractG"><span class="id" title="axiom">ContractG</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#LG.Formula"><span class="id" title="definition">LG.Formula</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="CONTRACT_COMPILER_SIG.compile_A_sound_complete" class="idref" href="#CONTRACT_COMPILER_SIG.compile_A_sound_complete"><span class="id" title="axiom">compile_A_sound_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:13" class="idref" href="#u:13"><span class="id" title="binder">u</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#Amon.avoids_bad"><span class="id" title="definition">Amon.avoids_bad</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#u:13"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">&lt;-&gt;</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#LA.sat"><span class="id" title="definition">LA.sat</span></a> (<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.compile_A"><span class="id" title="axiom">compile_A</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.contractA_of_program"><span class="id" title="axiom">contractA_of_program</span></a>) <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#u:13"><span class="id" title="variable">u</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="CONTRACT_COMPILER_SIG.compile_G_sound_complete" class="idref" href="#CONTRACT_COMPILER_SIG.compile_G_sound_complete"><span class="id" title="axiom">compile_G_sound_complete</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="w:16" class="idref" href="#w:16"><span class="id" title="binder">w</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#Gmon.avoids_bad"><span class="id" title="definition">Gmon.avoids_bad</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#w:16"><span class="id" title="variable">w</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;-&gt;'_x"><span class="id" title="notation">&lt;-&gt;</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#LG.sat"><span class="id" title="definition">LG.sat</span></a> (<a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.compile_G"><span class="id" title="axiom">compile_G</span></a> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG.contractG_of_program"><span class="id" title="axiom">contractG_of_program</span></a>) <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#w:16"><span class="id" title="variable">w</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG"><span class="id" title="module">CONTRACT_COMPILER_SIG</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

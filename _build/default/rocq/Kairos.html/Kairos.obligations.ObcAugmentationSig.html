@@ -1,0 +1,99 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.obligations.ObcAugmentationSig</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.obligations.ObcAugmentationSig</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationGenSig.html#"><span class="id" title="library">ObligationGenSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationTaxonomySig.html#"><span class="id" title="library">ObligationTaxonomySig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Inductive</span> <a id="obc_formula_family" class="idref" href="#obc_formula_family"><span class="id" title="definition, inductive"><span id="obc_formula_family_rect" class="id"><span id="obc_formula_family_ind" class="id"><span id="obc_formula_family_rec" class="id"><span id="obc_formula_family_sind" class="id">obc_formula_family</span></span></span></span></span></a> : <span class="id" title="keyword">Type</span> :=<br/>
+| <a id="FamTransitionRequires" class="idref" href="#FamTransitionRequires"><span class="id" title="constructor">FamTransitionRequires</span></a><br/>
+| <a id="FamTransitionEnsures" class="idref" href="#FamTransitionEnsures"><span class="id" title="constructor">FamTransitionEnsures</span></a><br/>
+| <a id="FamCoherencyRequires" class="idref" href="#FamCoherencyRequires"><span class="id" title="constructor">FamCoherencyRequires</span></a><br/>
+| <a id="FamCoherencyEnsuresShifted" class="idref" href="#FamCoherencyEnsuresShifted"><span class="id" title="constructor">FamCoherencyEnsuresShifted</span></a><br/>
+| <a id="FamInitialCoherencyGoal" class="idref" href="#FamInitialCoherencyGoal"><span class="id" title="constructor">FamInitialCoherencyGoal</span></a><br/>
+| <a id="FamNoBadRequires" class="idref" href="#FamNoBadRequires"><span class="id" title="constructor">FamNoBadRequires</span></a><br/>
+| <a id="FamNoBadEnsures" class="idref" href="#FamNoBadEnsures"><span class="id" title="constructor">FamNoBadEnsures</span></a><br/>
+| <a id="FamMonitorCompatibilityRequires" class="idref" href="#FamMonitorCompatibilityRequires"><span class="id" title="constructor">FamMonitorCompatibilityRequires</span></a><br/>
+| <a id="FamStateAwareAssumptionRequires" class="idref" href="#FamStateAwareAssumptionRequires"><span class="id" title="constructor">FamStateAwareAssumptionRequires</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="OBC_AUGMENTATION_SIG" class="idref" href="#OBC_AUGMENTATION_SIG"><span class="id" title="module">OBC_AUGMENTATION_SIG</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">E</span> : <a class="idref" href="Kairos.obligations.ObligationGenSig.html#OBLIGATION_GEN_SIG"><span class="id" title="module">OBLIGATION_GEN_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">T</span> : <a class="idref" href="Kairos.obligations.ObligationTaxonomySig.html#OBLIGATION_TAXONOMY_SIG"><span class="id" title="module">OBLIGATION_TAXONOMY_SIG</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E"><span class="id" title="module">E</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="OBC_AUGMENTATION_SIG.family_of" class="idref" href="#OBC_AUGMENTATION_SIG.family_of"><span class="id" title="axiom">family_of</span></a> : <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E.Clause"><span class="id" title="definition">E.Clause</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obc_formula_family"><span class="id" title="inductive">obc_formula_family</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="OBC_AUGMENTATION_SIG.GeneratedFamily" class="idref" href="#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> (<a id="f:5" class="idref" href="#f:5"><span class="id" title="binder">f</span></a> : <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obc_formula_family"><span class="id" title="inductive">obc_formula_family</span></a>) (<a id="cl:6" class="idref" href="#cl:6"><span class="id" title="binder">cl</span></a> : <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E.Clause"><span class="id" title="definition">E.Clause</span></a>) : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E.Generated"><span class="id" title="definition">E.Generated</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#cl:6"><span class="id" title="variable">cl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#ba2b0e492d2b4675a0acf3ea92aabadd"><span class="id" title="notation">/\</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.family_of"><span class="id" title="axiom">family_of</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#cl:6"><span class="id" title="variable">cl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#f:5"><span class="id" title="variable">f</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.generated_has_family" class="idref" href="#OBC_AUGMENTATION_SIG.generated_has_family"><span class="id" title="axiom">generated_has_family</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:7" class="idref" href="#obl:7"><span class="id" title="binder">obl</span></a>, <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E.Generated"><span class="id" title="definition">E.Generated</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:7"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> (<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.family_of"><span class="id" title="axiom">family_of</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:7"><span class="id" title="variable">obl</span></a>) <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:7"><span class="id" title="variable">obl</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.no_bad_families_are_objective" class="idref" href="#OBC_AUGMENTATION_SIG.no_bad_families_are_objective"><span class="id" title="axiom">no_bad_families_are_objective</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:10" class="idref" href="#obl:10"><span class="id" title="binder">obl</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamNoBadRequires"><span class="id" title="constructor">FamNoBadRequires</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:10"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#f031fe1957c4a4a8e217aa46af2b4e25"><span class="id" title="notation">\/</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamNoBadEnsures"><span class="id" title="constructor">FamNoBadEnsures</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:10"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#T.GeneratedObjective"><span class="id" title="definition">T.GeneratedObjective</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:10"><span class="id" title="variable">obl</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.initial_family_is_initial_goal" class="idref" href="#OBC_AUGMENTATION_SIG.initial_family_is_initial_goal"><span class="id" title="axiom">initial_family_is_initial_goal</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:13" class="idref" href="#obl:13"><span class="id" title="binder">obl</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamInitialCoherencyGoal"><span class="id" title="constructor">FamInitialCoherencyGoal</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:13"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#T.GeneratedInitialGoal"><span class="id" title="definition">T.GeneratedInitialGoal</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:13"><span class="id" title="variable">obl</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.coherency_families_are_user_invariant" class="idref" href="#OBC_AUGMENTATION_SIG.coherency_families_are_user_invariant"><span class="id" title="axiom">coherency_families_are_user_invariant</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:16" class="idref" href="#obl:16"><span class="id" title="binder">obl</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamCoherencyRequires"><span class="id" title="constructor">FamCoherencyRequires</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:16"><span class="id" title="variable">obl</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#f031fe1957c4a4a8e217aa46af2b4e25"><span class="id" title="notation">\/</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamCoherencyEnsuresShifted"><span class="id" title="constructor">FamCoherencyEnsuresShifted</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:16"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#T.GeneratedUserInvariant"><span class="id" title="definition">T.GeneratedUserInvariant</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:16"><span class="id" title="variable">obl</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.support_automaton_families_are_support" class="idref" href="#OBC_AUGMENTATION_SIG.support_automaton_families_are_support"><span class="id" title="axiom">support_automaton_families_are_support</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:19" class="idref" href="#obl:19"><span class="id" title="binder">obl</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamMonitorCompatibilityRequires"><span class="id" title="constructor">FamMonitorCompatibilityRequires</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:19"><span class="id" title="variable">obl</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#f031fe1957c4a4a8e217aa46af2b4e25"><span class="id" title="notation">\/</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamStateAwareAssumptionRequires"><span class="id" title="constructor">FamStateAwareAssumptionRequires</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:19"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#T.GeneratedSupportAutomaton"><span class="id" title="definition">T.GeneratedSupportAutomaton</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:19"><span class="id" title="variable">obl</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="OBC_AUGMENTATION_SIG.transition_contract_families_are_generated" class="idref" href="#OBC_AUGMENTATION_SIG.transition_contract_families_are_generated"><span class="id" title="axiom">transition_contract_families_are_generated</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="obl:22" class="idref" href="#obl:22"><span class="id" title="binder">obl</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamTransitionRequires"><span class="id" title="constructor">FamTransitionRequires</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:22"><span class="id" title="variable">obl</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#f031fe1957c4a4a8e217aa46af2b4e25"><span class="id" title="notation">\/</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG.GeneratedFamily"><span class="id" title="definition">GeneratedFamily</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#FamTransitionEnsures"><span class="id" title="constructor">FamTransitionEnsures</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:22"><span class="id" title="variable">obl</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#E.Generated"><span class="id" title="definition">E.Generated</span></a> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#obl:22"><span class="id" title="variable">obl</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG"><span class="id" title="module">OBC_AUGMENTATION_SIG</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

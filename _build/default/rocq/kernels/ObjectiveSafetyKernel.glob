@@ -1,0 +1,287 @@
+DIGEST b165c34becef910689deb7a83513096b
+FKairos.kernels.ObjectiveSafetyKernel
+R27:41 Stdlib.Logic.Classical <> <> lib
+R77:87 Kairos.core.CoreStepSig <> <> lib
+R129:144 Kairos.obligations.ObligationGenSig <> <> lib
+R186:206 Kairos.obligations.ObligationTaxonomySig <> <> lib
+R248:259 Kairos.obligations.OracleSemSig <> <> lib
+R336:348 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R358:375 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R422:444 Kairos.obligations.ObligationTaxonomySig OBLIGATION_TAXONOMY_SIG <> modtype
+R446:446 Kairos.kernels.ObjectiveSafetyKernel E <> mod
+R404:412 Kairos.kernels.ObjectiveSafetyKernel C StepCtx defax
+modtype 300:327 <> LOCAL_OBJECTIVE_COVERAGE_SIG
+ax 463:468 LOCAL_OBJECTIVE_COVERAGE_SIG AvoidA
+R491:494 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R472:479 Kairos.kernels.ObjectiveSafetyKernel C stream def
+R481:490 Kairos.kernels.ObjectiveSafetyKernel C InputVal defax
+ax 513:518 LOCAL_OBJECTIVE_COVERAGE_SIG AvoidG
+R557:560 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R522:529 Kairos.kernels.ObjectiveSafetyKernel C stream def
+R542:544 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R532:541 Kairos.kernels.ObjectiveSafetyKernel C InputVal defax
+R545:555 Kairos.kernels.ObjectiveSafetyKernel C OutputVal defax
+ax 580:611 LOCAL_OBJECTIVE_COVERAGE_SIG objective_coverage_if_not_avoidG
+binder 626:626 <> u:5
+R643:652 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R635:640 Kairos.kernels.ObjectiveSafetyKernel LOCAL_OBJECTIVE_COVERAGE_SIG AvoidA defax
+R642:642 Kairos.kernels.ObjectiveSafetyKernel <> u:5 var
+R677:686 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R653:654 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R655:660 Kairos.kernels.ObjectiveSafetyKernel LOCAL_OBJECTIVE_COVERAGE_SIG AvoidG defax
+R663:673 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R675:675 Kairos.kernels.ObjectiveSafetyKernel <> u:5 var
+R687:693 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R710:712 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 694:694 <> k:6
+R702:709 Kairos.kernels.ObjectiveSafetyKernel E Clause def
+binder 697:698 <> cl:7
+R736:739 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R713:732 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R734:735 Kairos.kernels.ObjectiveSafetyKernel <> cl:7 var
+R740:741 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R742:743 Kairos.kernels.ObjectiveSafetyKernel <> cl:7 var
+R746:753 Kairos.kernels.ObjectiveSafetyKernel C ctx_at defax
+R757:757 Kairos.kernels.ObjectiveSafetyKernel <> k:6 var
+R755:755 Kairos.kernels.ObjectiveSafetyKernel <> u:5 var
+R765:792 Kairos.kernels.ObjectiveSafetyKernel LOCAL_OBJECTIVE_COVERAGE_SIG <> modtype
+R836:848 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R858:875 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R922:944 Kairos.obligations.ObligationTaxonomySig OBLIGATION_TAXONOMY_SIG <> modtype
+R946:946 Kairos.kernels.ObjectiveSafetyKernel E <> mod
+R956:969 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R971:971 Kairos.kernels.ObjectiveSafetyKernel C <> mod
+R973:973 Kairos.kernels.ObjectiveSafetyKernel E <> mod
+R985:1012 Kairos.kernels.ObjectiveSafetyKernel LOCAL_OBJECTIVE_COVERAGE_SIG <> modtype
+R1014:1014 Kairos.kernels.ObjectiveSafetyKernel C <> mod
+R1016:1016 Kairos.kernels.ObjectiveSafetyKernel E <> mod
+R1018:1018 Kairos.kernels.ObjectiveSafetyKernel T <> mod
+R904:912 Kairos.kernels.ObjectiveSafetyKernel C StepCtx defax
+mod 803:827 <> MakeObjectiveSafetyKernel
+prf 1043:1079 MakeObjectiveSafetyKernel user_invariant_clauses_hold_pointwise
+R1087:1087 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1148:1156 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 1095:1096 <> cl:10
+R1126:1129 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1099:1122 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R1124:1125 Kairos.kernels.ObjectiveSafetyKernel <> cl:10 var
+R1141:1143 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1130:1137 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R1139:1140 Kairos.kernels.ObjectiveSafetyKernel <> cl:10 var
+R1144:1147 Corelib.Init.Datatypes <> true constr
+binder 1164:1164 <> u:11
+binder 1166:1166 <> k:12
+R1174:1181 Kairos.kernels.ObjectiveSafetyKernel E Clause def
+binder 1169:1170 <> cl:13
+R1218:1227 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1191:1214 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R1216:1217 Kairos.kernels.ObjectiveSafetyKernel <> cl:13 var
+R1228:1229 Kairos.kernels.ObjectiveSafetyKernel <> cl:13 var
+R1232:1239 Kairos.kernels.ObjectiveSafetyKernel C ctx_at defax
+R1243:1243 Kairos.kernels.ObjectiveSafetyKernel <> k:12 var
+R1241:1241 Kairos.kernels.ObjectiveSafetyKernel <> u:11 var
+R1349:1362 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R1349:1362 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R1402:1425 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+R1402:1425 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+prf 1468:1501 MakeObjectiveSafetyKernel initial_goal_clauses_hold_at_tick0
+R1509:1509 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1568:1576 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 1517:1518 <> cl:14
+R1546:1549 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1521:1542 Kairos.kernels.ObjectiveSafetyKernel T GeneratedInitialGoal def
+R1544:1545 Kairos.kernels.ObjectiveSafetyKernel <> cl:14 var
+R1561:1563 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1550:1557 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R1559:1560 Kairos.kernels.ObjectiveSafetyKernel <> cl:14 var
+R1564:1567 Corelib.Init.Datatypes <> true constr
+binder 1584:1584 <> u:15
+R1592:1599 Kairos.kernels.ObjectiveSafetyKernel E Clause def
+binder 1587:1588 <> cl:16
+R1634:1643 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1609:1630 Kairos.kernels.ObjectiveSafetyKernel T GeneratedInitialGoal def
+R1632:1633 Kairos.kernels.ObjectiveSafetyKernel <> cl:16 var
+R1644:1645 Kairos.kernels.ObjectiveSafetyKernel <> cl:16 var
+R1648:1655 Kairos.kernels.ObjectiveSafetyKernel C ctx_at defax
+R1657:1657 Kairos.kernels.ObjectiveSafetyKernel <> u:15 var
+R1763:1776 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R1763:1776 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R1816:1839 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+R1816:1839 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+prf 1882:1917 MakeObjectiveSafetyKernel objective_clauses_rule_out_bad_ticks
+R1925:1925 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1982:1990 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 1933:1934 <> cl:17
+R1960:1963 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1937:1956 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R1958:1959 Kairos.kernels.ObjectiveSafetyKernel <> cl:17 var
+R1975:1977 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1964:1971 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R1973:1974 Kairos.kernels.ObjectiveSafetyKernel <> cl:17 var
+R1978:1981 Corelib.Init.Datatypes <> true constr
+binder 1998:1998 <> u:18
+R2019:2028 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2007:2016 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidA defax
+R2018:2018 Kairos.kernels.ObjectiveSafetyKernel <> u:18 var
+R2029:2038 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R2041:2051 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R2053:2053 Kairos.kernels.ObjectiveSafetyKernel <> u:18 var
+R2105:2111 Stdlib.Logic.Classical_Prop <> classic prfax
+R2114:2123 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R2126:2136 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R2105:2111 Stdlib.Logic.Classical_Prop <> classic prfax
+R2114:2123 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R2126:2136 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R2191:2226 Kairos.kernels.ObjectiveSafetyKernel Cov objective_coverage_if_not_avoidG defax
+R2191:2226 Kairos.kernels.ObjectiveSafetyKernel Cov objective_coverage_if_not_avoidG defax
+R2324:2337 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R2324:2337 Kairos.kernels.ObjectiveSafetyKernel O Oracle_sound prfax
+R2412:2435 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+R2412:2435 Kairos.kernels.ObjectiveSafetyKernel O clause_valid_pointwise prfax
+prf 2468:2517 MakeObjectiveSafetyKernel validation_conditional_correctness_from_objectives
+R2525:2525 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2582:2590 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 2533:2534 <> cl:19
+R2560:2563 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2537:2556 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R2558:2559 Kairos.kernels.ObjectiveSafetyKernel <> cl:19 var
+R2575:2577 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2564:2571 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R2573:2574 Kairos.kernels.ObjectiveSafetyKernel <> cl:19 var
+R2578:2581 Corelib.Init.Datatypes <> true constr
+binder 2598:2598 <> u:20
+R2619:2628 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2607:2616 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidA defax
+R2618:2618 Kairos.kernels.ObjectiveSafetyKernel <> u:20 var
+R2629:2638 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R2641:2651 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R2653:2653 Kairos.kernels.ObjectiveSafetyKernel <> u:20 var
+R2676:2711 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel objective_clauses_rule_out_bad_ticks thm
+R2676:2711 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel objective_clauses_rule_out_bad_ticks thm
+prf 2732:2779 MakeObjectiveSafetyKernel validation_conditional_correctness_with_supports
+R2787:2787 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2844:2852 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 2795:2796 <> cl:21
+R2822:2825 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2799:2818 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R2820:2821 Kairos.kernels.ObjectiveSafetyKernel <> cl:21 var
+R2837:2839 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2826:2833 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R2835:2836 Kairos.kernels.ObjectiveSafetyKernel <> cl:21 var
+R2840:2843 Corelib.Init.Datatypes <> true constr
+R2853:2853 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2912:2920 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 2861:2862 <> cl:22
+R2890:2893 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2865:2886 Kairos.kernels.ObjectiveSafetyKernel T GeneratedInitialGoal def
+R2888:2889 Kairos.kernels.ObjectiveSafetyKernel <> cl:22 var
+R2905:2907 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2894:2901 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R2903:2904 Kairos.kernels.ObjectiveSafetyKernel <> cl:22 var
+R2908:2911 Corelib.Init.Datatypes <> true constr
+R2921:2921 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2982:2990 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 2929:2930 <> cl:23
+R2960:2963 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2933:2956 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R2958:2959 Kairos.kernels.ObjectiveSafetyKernel <> cl:23 var
+R2975:2977 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2964:2971 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R2973:2974 Kairos.kernels.ObjectiveSafetyKernel <> cl:23 var
+R2978:2981 Corelib.Init.Datatypes <> true constr
+binder 2998:2998 <> u:24
+R3019:3028 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3007:3016 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidA defax
+R3018:3018 Kairos.kernels.ObjectiveSafetyKernel <> u:24 var
+R3055:3071 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R3164:3164 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R3029:3038 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R3041:3051 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R3053:3053 Kairos.kernels.ObjectiveSafetyKernel <> u:24 var
+binder 3079:3079 <> k:25
+R3087:3094 Kairos.kernels.ObjectiveSafetyKernel E Clause def
+binder 3082:3083 <> cl:26
+R3134:3146 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3107:3130 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R3132:3133 Kairos.kernels.ObjectiveSafetyKernel <> cl:26 var
+R3147:3148 Kairos.kernels.ObjectiveSafetyKernel <> cl:26 var
+R3151:3158 Kairos.kernels.ObjectiveSafetyKernel C ctx_at defax
+R3162:3162 Kairos.kernels.ObjectiveSafetyKernel <> k:25 var
+R3160:3160 Kairos.kernels.ObjectiveSafetyKernel <> u:24 var
+R3243:3292 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_from_objectives thm
+R3243:3292 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_from_objectives thm
+R3345:3381 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel user_invariant_clauses_hold_pointwise thm
+R3345:3381 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel user_invariant_clauses_hold_pointwise thm
+prf 3447:3492 MakeObjectiveSafetyKernel oracle_conditional_correctness_from_objectives
+R3500:3500 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3557:3565 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 3508:3509 <> cl:27
+R3535:3538 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3512:3531 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R3533:3534 Kairos.kernels.ObjectiveSafetyKernel <> cl:27 var
+R3550:3552 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3539:3546 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R3548:3549 Kairos.kernels.ObjectiveSafetyKernel <> cl:27 var
+R3553:3556 Corelib.Init.Datatypes <> true constr
+binder 3573:3573 <> u:28
+R3594:3603 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3582:3591 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidA defax
+R3593:3593 Kairos.kernels.ObjectiveSafetyKernel <> u:28 var
+R3604:3613 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R3616:3626 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R3628:3628 Kairos.kernels.ObjectiveSafetyKernel <> u:28 var
+R3651:3700 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_from_objectives thm
+R3651:3700 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_from_objectives thm
+prf 3721:3764 MakeObjectiveSafetyKernel oracle_conditional_correctness_with_supports
+R3772:3772 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3829:3837 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 3780:3781 <> cl:29
+R3807:3810 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3784:3803 Kairos.kernels.ObjectiveSafetyKernel T GeneratedObjective def
+R3805:3806 Kairos.kernels.ObjectiveSafetyKernel <> cl:29 var
+R3822:3824 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3811:3818 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R3820:3821 Kairos.kernels.ObjectiveSafetyKernel <> cl:29 var
+R3825:3828 Corelib.Init.Datatypes <> true constr
+R3838:3838 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3897:3905 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 3846:3847 <> cl:30
+R3875:3878 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3850:3871 Kairos.kernels.ObjectiveSafetyKernel T GeneratedInitialGoal def
+R3873:3874 Kairos.kernels.ObjectiveSafetyKernel <> cl:30 var
+R3890:3892 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3879:3886 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R3888:3889 Kairos.kernels.ObjectiveSafetyKernel <> cl:30 var
+R3893:3896 Corelib.Init.Datatypes <> true constr
+R3906:3906 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3967:3975 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+binder 3914:3915 <> cl:31
+R3945:3948 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3918:3941 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R3943:3944 Kairos.kernels.ObjectiveSafetyKernel <> cl:31 var
+R3960:3962 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3949:3956 Kairos.kernels.ObjectiveSafetyKernel O Oracle defax
+R3958:3959 Kairos.kernels.ObjectiveSafetyKernel <> cl:31 var
+R3963:3966 Corelib.Init.Datatypes <> true constr
+binder 3983:3983 <> u:32
+R4004:4013 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3992:4001 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidA defax
+R4003:4003 Kairos.kernels.ObjectiveSafetyKernel <> u:32 var
+R4040:4056 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R4149:4149 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R4014:4023 Kairos.kernels.ObjectiveSafetyKernel Cov AvoidG defax
+R4026:4036 Kairos.kernels.ObjectiveSafetyKernel C run_trace defax
+R4038:4038 Kairos.kernels.ObjectiveSafetyKernel <> u:32 var
+binder 4064:4064 <> k:33
+R4072:4079 Kairos.kernels.ObjectiveSafetyKernel E Clause def
+binder 4067:4068 <> cl:34
+R4119:4131 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R4092:4115 Kairos.kernels.ObjectiveSafetyKernel T GeneratedUserInvariant def
+R4117:4118 Kairos.kernels.ObjectiveSafetyKernel <> cl:34 var
+R4132:4133 Kairos.kernels.ObjectiveSafetyKernel <> cl:34 var
+R4136:4143 Kairos.kernels.ObjectiveSafetyKernel C ctx_at defax
+R4147:4147 Kairos.kernels.ObjectiveSafetyKernel <> k:33 var
+R4145:4145 Kairos.kernels.ObjectiveSafetyKernel <> u:32 var
+R4171:4218 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_with_supports thm
+R4171:4218 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel validation_conditional_correctness_with_supports thm
+R4232:4256 Kairos.kernels.ObjectiveSafetyKernel MakeObjectiveSafetyKernel <> mod

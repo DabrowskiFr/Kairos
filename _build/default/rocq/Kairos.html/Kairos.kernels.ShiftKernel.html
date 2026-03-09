@@ -1,0 +1,70 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.kernels.ShiftKernel</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.kernels.ShiftKernel</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Stdlib</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <span class="id" title="library">Arith.Arith</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.CoreStepSig.html#"><span class="id" title="library">CoreStepSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.MonitorSig.html#"><span class="id" title="library">MonitorSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.InputMonitor.html#"><span class="id" title="library">InputMonitor</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.FOLanguageSig.html#"><span class="id" title="library">FOLanguageSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.ShiftSpecSig.html#"><span class="id" title="library">ShiftSpecSig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeShiftKernel" class="idref" href="#MakeShiftKernel"><span class="id" title="module">MakeShiftKernel</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">C</span> : <a class="idref" href="Kairos.core.CoreStepSig.html#CORE_STEP_SIG"><span class="id" title="module">CORE_STEP_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">A</span> : <a class="idref" href="Kairos.monitor.MonitorSig.html#MONITOR_SIG"><span class="id" title="module">MONITOR_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">Obs</span> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#C.InputVal"><span class="id" title="axiom">C.InputVal</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">I</span> : <a class="idref" href="Kairos.monitor.InputMonitor.html#INPUT_ADMISSIBILITY_SIG"><span class="id" title="module">INPUT_ADMISSIBILITY_SIG</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#A"><span class="id" title="module">A</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">L</span> : <a class="idref" href="Kairos.logic.FOLanguageSig.html#FO_LOGIC_SIG"><span class="id" title="module">FO_LOGIC_SIG</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">InputVal</span> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#C.InputVal"><span class="id" title="axiom">C.InputVal</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">OutputVal</span> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#C.OutputVal"><span class="id" title="axiom">C.OutputVal</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">StepCtx</span> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">ctx_at</span> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">Sh</span> : <a class="idref" href="Kairos.logic.ShiftSpecSig.html#SHIFT_SPEC_SIG"><span class="id" title="module">SHIFT_SPEC_SIG</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#A"><span class="id" title="module">A</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#I"><span class="id" title="module">I</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#L"><span class="id" title="module">L</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="MakeShiftKernel.shift_one_step_under_A" class="idref" href="#MakeShiftKernel.shift_one_step_under_A"><span class="id" title="lemma">shift_one_step_under_A</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:1" class="idref" href="#u:1"><span class="id" title="binder">u</span></a> <a id="k:2" class="idref" href="#k:2"><span class="id" title="binder">k</span></a> <a id="phi:3" class="idref" href="#phi:3"><span class="id" title="binder">phi</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.kernels.ShiftKernel.html#I.AvoidA"><span class="id" title="definition">I.AvoidA</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#u:1"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.kernels.ShiftKernel.html#L.eval_fo"><span class="id" title="axiom">L.eval_fo</span></a> (<a class="idref" href="Kairos.kernels.ShiftKernel.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#u:1"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#k:2"><span class="id" title="variable">k</span></a>) (<a class="idref" href="Kairos.kernels.ShiftKernel.html#L.shift_fo"><span class="id" title="axiom">L.shift_fo</span></a> 1 <a class="idref" href="Kairos.kernels.ShiftKernel.html#phi:3"><span class="id" title="variable">phi</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.kernels.ShiftKernel.html#L.eval_fo"><span class="id" title="axiom">L.eval_fo</span></a> (<a class="idref" href="Kairos.kernels.ShiftKernel.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#u:1"><span class="id" title="variable">u</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <a class="idref" href="Kairos.kernels.ShiftKernel.html#k:2"><span class="id" title="variable">k</span></a>)) <a class="idref" href="Kairos.kernels.ShiftKernel.html#phi:3"><span class="id" title="variable">phi</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">phi</span> <span class="id" title="var">HA</span> <span class="id" title="var">Hshifted</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (@<a class="idref" href="Kairos.kernels.ShiftKernel.html#I.avoid_implies_input_ok"><span class="id" title="axiom">I.avoid_implies_input_ok</span></a> <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">HA</span>) <span class="id" title="keyword">as</span> <span class="id" title="var">Hok</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span> (@<a class="idref" href="Kairos.kernels.ShiftKernel.html#Sh.shift_fo_correct_if_input_ok"><span class="id" title="axiom">Sh.shift_fo_correct_if_input_ok</span></a> 1 <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">phi</span> <span class="id" title="var">Hok</span>) <span class="id" title="keyword">as</span> <span class="id" title="var">Heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="lemma">Nat.add_1_r</span> <span class="id" title="tactic">in</span> <span class="id" title="var">Heq</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> ((<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#proj1"><span class="id" title="lemma">proj1</span></a> <span class="id" title="var">Heq</span>) <span class="id" title="var">Hshifted</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.kernels.ShiftKernel.html#MakeShiftKernel"><span class="id" title="module">MakeShiftKernel</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

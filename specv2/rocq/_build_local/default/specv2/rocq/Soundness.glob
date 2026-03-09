@@ -1,0 +1,240 @@
+DIGEST ed04bbadf09b5744c700918ed1b0c948
+FSpecV2.Soundness
+R27:35 Stdlib.Logic.Classical <> <> lib
+R67:79 SpecV2.ReactiveModel <> <> lib
+R81:97 SpecV2.ConditionalSafety <> <> lib
+R99:113 SpecV2.ExplicitProduct <> <> lib
+R115:130 SpecV2.GeneratedClauses <> <> lib
+R132:148 SpecV2.RelationalTriples <> <> lib
+sec 514:522 <> Soundness
+var  536:536 Soundness P
+R540:554 SpecV2.ReactiveModel <> ReactiveProgram rec
+var  569:572 Soundness Spec
+R576:590 SpecV2.ConditionalSafety <> ConditionalSpec rec
+R592:592 SpecV2.Soundness <> Soundness.P var
+var 607:614 Soundness node_inv
+R629:632 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R618:626 SpecV2.ReactiveModel <> ProgState proj
+R628:628 SpecV2.Soundness <> Soundness.P var
+R648:651 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R634:640 SpecV2.ExplicitProduct <> TickCtx rec
+R642:642 SpecV2.Soundness <> Soundness.P var
+R644:647 SpecV2.Soundness <> Soundness.Spec var
+def 746:761 <> globally_correct
+binder 784:784 <> u:5
+R806:815 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R793:798 SpecV2.ConditionalSafety <> AvoidA def
+R805:805 SpecV2.Soundness <> u:5 var
+R800:803 SpecV2.Soundness <> Soundness.Spec var
+R816:821 SpecV2.ConditionalSafety <> AvoidG def
+R828:828 SpecV2.Soundness <> u:5 var
+R823:826 SpecV2.Soundness <> Soundness.Spec var
+var 927:946 Soundness GeneratedTripleValid
+R967:980 SpecV2.RelationalTriples <> RelHoareTriple rec
+R982:982 SpecV2.Soundness <> Soundness.P var
+R984:987 SpecV2.Soundness <> Soundness.Spec var
+binder 961:962 <> ht:6
+R1031:1040 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R997:1011 SpecV2.RelationalTriples <> GeneratedTriple def
+R1013:1013 SpecV2.Soundness <> Soundness.P var
+R1015:1018 SpecV2.Soundness <> Soundness.Spec var
+R1020:1027 SpecV2.Soundness <> Soundness.node_inv var
+R1029:1030 SpecV2.Soundness <> ht:6 var
+R1042:1052 SpecV2.RelationalTriples <> TripleValid def
+R1054:1054 SpecV2.Soundness <> Soundness.P var
+R1056:1059 SpecV2.Soundness <> Soundness.Spec var
+R1061:1062 SpecV2.Soundness <> ht:6 var
+var 1191:1213 Soundness node_invariants_on_runs
+binder 1228:1229 <> m0:9
+binder 1231:1231 <> u:10
+binder 1233:1233 <> k:11
+R1255:1264 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1242:1247 SpecV2.ConditionalSafety <> AvoidA def
+R1254:1254 SpecV2.Soundness <> u:10 var
+R1249:1252 SpecV2.Soundness <> Soundness.Spec var
+R1265:1272 SpecV2.Soundness <> Soundness.node_inv var
+R1298:1305 SpecV2.ExplicitProduct <> ctx_from def
+R1307:1307 SpecV2.Soundness <> Soundness.P var
+R1309:1312 SpecV2.Soundness <> Soundness.Spec var
+R1314:1315 SpecV2.Soundness <> m0:9 var
+R1317:1317 SpecV2.Soundness <> u:10 var
+R1319:1319 SpecV2.Soundness <> k:11 var
+R1275:1284 SpecV2.ReactiveModel <> state_from def
+R1293:1293 SpecV2.Soundness <> k:11 var
+R1291:1291 SpecV2.Soundness <> u:10 var
+R1288:1289 SpecV2.Soundness <> m0:9 var
+R1286:1286 SpecV2.Soundness <> Soundness.P var
+prf 1453:1473 <> coherence_now_on_runs
+binder 1488:1489 <> m0:14
+binder 1491:1491 <> u:15
+binder 1493:1493 <> k:16
+R1502:1514 SpecV2.GeneratedClauses <> coherence_now def
+R1554:1561 SpecV2.ExplicitProduct <> ctx_from def
+R1563:1563 SpecV2.Soundness <> Soundness.P var
+R1565:1568 SpecV2.Soundness <> Soundness.Spec var
+R1570:1571 SpecV2.Soundness <> m0:14 var
+R1573:1573 SpecV2.Soundness <> u:15 var
+R1575:1575 SpecV2.Soundness <> k:16 var
+R1518:1535 SpecV2.ExplicitProduct <> product_state_from def
+R1537:1537 SpecV2.Soundness <> Soundness.P var
+R1539:1542 SpecV2.Soundness <> Soundness.Spec var
+R1544:1545 SpecV2.Soundness <> m0:14 var
+R1547:1547 SpecV2.Soundness <> u:15 var
+R1549:1549 SpecV2.Soundness <> k:16 var
+R1619:1640 SpecV2.ExplicitProduct <> coherence_now_from_run thm
+R1642:1642 SpecV2.Soundness <> Soundness.P var
+R1644:1647 SpecV2.Soundness <> Soundness.Spec var
+R1619:1640 SpecV2.ExplicitProduct <> coherence_now_from_run thm
+R1642:1642 SpecV2.Soundness <> Soundness.P var
+R1644:1647 SpecV2.Soundness <> Soundness.Spec var
+prf 1788:1812 <> current_tick_matches_step
+binder 1827:1828 <> m0:17
+binder 1830:1830 <> u:18
+binder 1832:1832 <> k:19
+R1841:1854 SpecV2.GeneratedClauses <> ctx_matches_ps def
+R1884:1899 SpecV2.ExplicitProduct <> selected_step_at def
+R1901:1901 SpecV2.Soundness <> Soundness.P var
+R1903:1906 SpecV2.Soundness <> Soundness.Spec var
+R1908:1909 SpecV2.Soundness <> m0:17 var
+R1911:1911 SpecV2.Soundness <> u:18 var
+R1913:1913 SpecV2.Soundness <> k:19 var
+R1858:1865 SpecV2.ExplicitProduct <> ctx_from def
+R1867:1867 SpecV2.Soundness <> Soundness.P var
+R1869:1872 SpecV2.Soundness <> Soundness.Spec var
+R1874:1875 SpecV2.Soundness <> m0:17 var
+R1877:1877 SpecV2.Soundness <> u:18 var
+R1879:1879 SpecV2.Soundness <> k:19 var
+R1957:1981 SpecV2.ExplicitProduct <> selected_step_matches_ctx thm
+R1983:1983 SpecV2.Soundness <> Soundness.P var
+R1985:1988 SpecV2.Soundness <> Soundness.Spec var
+R1957:1981 SpecV2.ExplicitProduct <> selected_step_matches_ctx thm
+R1983:1983 SpecV2.Soundness <> Soundness.P var
+R1985:1988 SpecV2.Soundness <> Soundness.Spec var
+prf 2211:2247 <> generated_no_bad_triple_contradiction
+binder 2262:2263 <> m0:20
+binder 2265:2265 <> u:21
+binder 2267:2267 <> k:22
+R2289:2298 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2276:2281 SpecV2.ConditionalSafety <> AvoidA def
+R2288:2288 SpecV2.Soundness <> u:21 var
+R2283:2286 SpecV2.Soundness <> Soundness.Spec var
+R2359:2368 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2299:2324 SpecV2.ExplicitProduct <> product_step_is_bad_target def
+R2328:2343 SpecV2.ExplicitProduct <> selected_step_at def
+R2345:2345 SpecV2.Soundness <> Soundness.P var
+R2347:2350 SpecV2.Soundness <> Soundness.Spec var
+R2352:2353 SpecV2.Soundness <> m0:20 var
+R2355:2355 SpecV2.Soundness <> u:21 var
+R2357:2357 SpecV2.Soundness <> k:22 var
+R2369:2373 Corelib.Init.Logic <> False ind
+R2435:2443 SpecV2.RelationalTriples <> GT_no_bad constr
+R2454:2454 SpecV2.Soundness <> Soundness.P var
+R2456:2459 SpecV2.Soundness <> Soundness.Spec var
+R2461:2468 SpecV2.Soundness <> Soundness.node_inv var
+R2481:2496 SpecV2.ExplicitProduct <> selected_step_at def
+R2498:2498 SpecV2.Soundness <> Soundness.P var
+R2500:2503 SpecV2.Soundness <> Soundness.Spec var
+R2524:2542 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+R2544:2544 SpecV2.Soundness <> Soundness.P var
+R2546:2549 SpecV2.Soundness <> Soundness.Spec var
+R2435:2443 SpecV2.RelationalTriples <> GT_no_bad constr
+R2454:2454 SpecV2.Soundness <> Soundness.P var
+R2456:2459 SpecV2.Soundness <> Soundness.Spec var
+R2461:2468 SpecV2.Soundness <> Soundness.node_inv var
+R2481:2496 SpecV2.ExplicitProduct <> selected_step_at def
+R2498:2498 SpecV2.Soundness <> Soundness.P var
+R2500:2503 SpecV2.Soundness <> Soundness.Spec var
+R2524:2542 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+R2544:2544 SpecV2.Soundness <> Soundness.P var
+R2546:2549 SpecV2.Soundness <> Soundness.Spec var
+R2615:2629 SpecV2.RelationalTriples <> GeneratedTriple def
+R2631:2631 SpecV2.Soundness <> Soundness.P var
+R2633:2636 SpecV2.Soundness <> Soundness.Spec var
+R2638:2645 SpecV2.Soundness <> Soundness.node_inv var
+R2656:2668 SpecV2.RelationalTriples <> no_bad_triple def
+R2681:2696 SpecV2.ExplicitProduct <> selected_step_at def
+R2698:2698 SpecV2.Soundness <> Soundness.P var
+R2700:2703 SpecV2.Soundness <> Soundness.Spec var
+R2670:2677 SpecV2.Soundness <> Soundness.node_inv var
+R2615:2629 SpecV2.RelationalTriples <> GeneratedTriple def
+R2631:2631 SpecV2.Soundness <> Soundness.P var
+R2633:2636 SpecV2.Soundness <> Soundness.Spec var
+R2638:2645 SpecV2.Soundness <> Soundness.node_inv var
+R2656:2668 SpecV2.RelationalTriples <> no_bad_triple def
+R2681:2696 SpecV2.ExplicitProduct <> selected_step_at def
+R2698:2698 SpecV2.Soundness <> Soundness.P var
+R2700:2703 SpecV2.Soundness <> Soundness.Spec var
+R2670:2677 SpecV2.Soundness <> Soundness.node_inv var
+R2729:2740 SpecV2.GeneratedClauses <> OriginSafety constr
+R2729:2740 SpecV2.GeneratedClauses <> OriginSafety constr
+R2785:2795 SpecV2.RelationalTriples <> TripleValid def
+R2797:2797 SpecV2.Soundness <> Soundness.P var
+R2799:2802 SpecV2.Soundness <> Soundness.Spec var
+R2813:2825 SpecV2.RelationalTriples <> no_bad_triple def
+R2838:2853 SpecV2.ExplicitProduct <> selected_step_at def
+R2855:2855 SpecV2.Soundness <> Soundness.P var
+R2857:2860 SpecV2.Soundness <> Soundness.Spec var
+R2827:2834 SpecV2.Soundness <> Soundness.node_inv var
+R2785:2795 SpecV2.RelationalTriples <> TripleValid def
+R2797:2797 SpecV2.Soundness <> Soundness.P var
+R2799:2802 SpecV2.Soundness <> Soundness.Spec var
+R2813:2825 SpecV2.RelationalTriples <> no_bad_triple def
+R2838:2853 SpecV2.ExplicitProduct <> selected_step_at def
+R2855:2855 SpecV2.Soundness <> Soundness.P var
+R2857:2860 SpecV2.Soundness <> Soundness.Spec var
+R2827:2834 SpecV2.Soundness <> Soundness.node_inv var
+R2885:2904 SpecV2.Soundness <> Soundness.GeneratedTripleValid var
+R2885:2904 SpecV2.Soundness <> Soundness.GeneratedTripleValid var
+R2959:2985 SpecV2.RelationalTriples <> TripleValidOnAdmissibleRuns def
+R2987:2987 SpecV2.Soundness <> Soundness.P var
+R2989:2992 SpecV2.Soundness <> Soundness.Spec var
+R3003:3015 SpecV2.RelationalTriples <> no_bad_triple def
+R3028:3043 SpecV2.ExplicitProduct <> selected_step_at def
+R3045:3045 SpecV2.Soundness <> Soundness.P var
+R3047:3050 SpecV2.Soundness <> Soundness.Spec var
+R3017:3024 SpecV2.Soundness <> Soundness.node_inv var
+R2959:2985 SpecV2.RelationalTriples <> TripleValidOnAdmissibleRuns def
+R2987:2987 SpecV2.Soundness <> Soundness.P var
+R2989:2992 SpecV2.Soundness <> Soundness.Spec var
+R3003:3015 SpecV2.RelationalTriples <> no_bad_triple def
+R3028:3043 SpecV2.ExplicitProduct <> selected_step_at def
+R3045:3045 SpecV2.Soundness <> Soundness.P var
+R3047:3050 SpecV2.Soundness <> Soundness.Spec var
+R3017:3024 SpecV2.Soundness <> Soundness.node_inv var
+R3077:3123 SpecV2.RelationalTriples <> TripleValid_implies_TripleValidOnAdmissibleRuns thm
+R3125:3125 SpecV2.Soundness <> Soundness.P var
+R3127:3130 SpecV2.Soundness <> Soundness.Spec var
+R3077:3123 SpecV2.RelationalTriples <> TripleValid_implies_TripleValidOnAdmissibleRuns thm
+R3125:3125 SpecV2.Soundness <> Soundness.P var
+R3127:3130 SpecV2.Soundness <> Soundness.Spec var
+R3212:3218 Corelib.Init.Logic <> eq_refl constr
+R3212:3218 Corelib.Init.Logic <> eq_refl constr
+R3267:3291 SpecV2.Soundness <> current_tick_matches_step thm
+R3267:3291 SpecV2.Soundness <> current_tick_matches_step thm
+R3321:3343 SpecV2.Soundness <> Soundness.node_invariants_on_runs var
+R3321:3343 SpecV2.Soundness <> Soundness.node_invariants_on_runs var
+R3372:3392 SpecV2.Soundness <> coherence_now_on_runs thm
+R3372:3392 SpecV2.Soundness <> coherence_now_on_runs thm
+prf 3463:3496 <> validation_conditional_correctness
+R3504:3519 SpecV2.Soundness <> globally_correct def
+R3565:3571 Stdlib.Logic.Classical_Prop <> classic prfax
+R3574:3583 SpecV2.ConditionalSafety <> avoids_bad def
+R3607:3616 SpecV2.ConditionalSafety <> trace_from def
+R3618:3618 SpecV2.Soundness <> Soundness.P var
+R3586:3598 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3600:3603 SpecV2.Soundness <> Soundness.Spec var
+R3565:3571 Stdlib.Logic.Classical_Prop <> classic prfax
+R3574:3583 SpecV2.ConditionalSafety <> avoids_bad def
+R3607:3616 SpecV2.ConditionalSafety <> trace_from def
+R3618:3618 SpecV2.Soundness <> Soundness.P var
+R3586:3598 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3600:3603 SpecV2.Soundness <> Soundness.Spec var
+R3678:3711 SpecV2.ExplicitProduct <> dangerous_step_of_global_violation thm
+R3713:3713 SpecV2.Soundness <> Soundness.P var
+R3715:3718 SpecV2.Soundness <> Soundness.Spec var
+R3678:3711 SpecV2.ExplicitProduct <> dangerous_step_of_global_violation thm
+R3713:3713 SpecV2.Soundness <> Soundness.P var
+R3715:3718 SpecV2.Soundness <> Soundness.Spec var
+R3794:3830 SpecV2.Soundness <> generated_no_bad_triple_contradiction thm
+R3794:3830 SpecV2.Soundness <> generated_no_bad_triple_contradiction thm
+R3851:3859 SpecV2.Soundness Soundness <> sec

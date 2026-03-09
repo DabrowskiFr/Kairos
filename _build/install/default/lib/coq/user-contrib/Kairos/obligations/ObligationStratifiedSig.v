@@ -1,0 +1,1 @@
+../../../../../../../default/rocq/obligations/ObligationStratifiedSig.v

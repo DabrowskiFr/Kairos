@@ -2,6 +2,47 @@
 
 ## 2026-03-08
 
+- Ajout d'une instanciation Rocq concrète de `resettable_delay` dans `rocq/ResettableDelayExample.v`.
+- Choix de modélisation pour cette instance :
+  - programme réactif concret avec états `RDInit` / `RDRun` et quatre transitions explicites `TInitReset`, `TInitData`, `TRunReset`, `TRunData` ;
+  - automate d'hypothèse concret pour la discipline `reset -> x = 0` ;
+  - automate de garantie concret avec état infini `GAfterData z`, ce qui permet de mémoriser la dernière valeur pertinente de `x` dans l'automate lui-même ;
+  - invariant local concret reliant la mémoire du programme à l'état courant de l'automate de garantie (`cur_mem = 0` en `GAfterReset`, `cur_mem = z` en `GAfterData z`).
+- Résultats concrets obtenus dans `ResettableDelayExample.v` :
+  - `resettable_delay_correct`.
+- Compilation Rocq complète revalidée via `opam exec --switch=5.4.1+options -- dune build`.
+- Conclusion scientifique :
+  - `specv2` n'est pas "trop abstrait" pour récupérer une preuve concrète ;
+  - il faut en revanche ajouter explicitement une couche d'instanciation sémantique ;
+  - l'automate de garantie de cette instance peut être infini, ce qui est compatible avec le noyau abstrait et permet de traiter le cas `prev x` sans réintroduire une syntaxe Kairos dans la formalisation.
+- Passe de nettoyage ensuite appliquée à `ResettableDelayExample.v` :
+  - suppression de la couche devenue inutile pour les invariants et triples générés ;
+  - conservation du seul résultat final utile ici : `resettable_delay_correct`.
+- Réorientation méthodologique ensuite demandée :
+  - abandon de la preuve directe de `resettable_delay_correct` ;
+  - réintroduction d'un invariant concret, d'un lemme de vérité de cet invariant sur les runs, et d'un théorème `resettable_delay_generated_triples_valid` ;
+  - reformulation finale de `resettable_delay_correct` comme application explicite du théorème abstrait `validation_conditional_correctness`.
+
+- Nouvelle passe de review senior de niveau POPL/PLDI/LICS/FMCAD sur `conditional_safety_local_proofs.tex`.
+- Production de `review_iteration_06.md`.
+- Finding bloquant identifié pendant la review :
+  - le papier affirmait encore la complétude relative des triples générés au sens d'une validité sur toutes les exécutions, alors que la formalisation Rocq prouve cette partie seulement sur les exécutions admissibles (`TripleValidOnAdmissibleRuns`);
+  - même dérive pour la notion exposée d'invariants vrais, trop forte dans le papier par rapport à Rocq.
+- Corrections appliquées au papier :
+  - introduction resserrée pour réduire les redites sur la thèse centrale ;
+  - ajout de la notion explicite `\ValidAdm` pour la validité des triples sur exécutions admissibles ;
+  - réalignement des deux théorèmes de complétude relative et de leurs preuves sur cette notion admissible ;
+  - réalignement de `InvTrue` sur la version Rocq : invariants vrais sur exécutions admissibles ;
+  - clarification du statut de `\Ctx` dans la définition de clause sémantique ;
+  - correction de l'explication du lemme d'activation des triples `NoBad`.
+- Recompilation LaTeX complète via `latexmk -pdf -interaction=nonstopmode conditional_safety_local_proofs.tex` : OK.
+- Résultat de compilation :
+  - PDF régénéré dans `conditional_safety_local_proofs.pdf` ;
+  - plus de warning structurel bloquant ;
+  - un très léger overfull résiduel subsiste (`1.37907pt`) dans la méta-théorie ;
+  - PDF final à 26 pages, ce qui impose désormais une discipline stricte sur le budget de 25 pages de texte hors bibliographie.
+- Production d'une mini-review post-correction dans `review_iteration_07.md`.
+
 - Iteration de review stricte de niveau POPL/PLDI sur `conditional_safety_local_proofs.tex`.
 - Production de `review_iteration_01.md` avec findings classés par sévérité.
 - Corrections appliquées au papier :
@@ -274,3 +315,137 @@ eq q_{bad}` intégrée à la présentation de la spécification conditionnelle.
 
 
 - 2026-03-08: extraction des notations et macros de couleur dans definitions.tex pour centraliser les commandes du papier et fiabiliser les notations.
+## 2026-03-08 — Clarification of transition guards in the paper
+- Aligned the paper with the Rocq treatment of program guards.
+- Made explicit that guards are represented by `enabled`, enforced by `select`, and therefore exploited through realized steps (`Match`) and relational transition semantics (`TransRel_t`) rather than repeated as ad hoc conjuncts in local preconditions.
+- Recompiled `conditional_safety_local_proofs.tex` successfully after the clarification.
+
+## 2026-03-08 — Added Why3 solving time for the running example
+- Measured the concrete Why3/Z3 discharge time of the running example using the documented transformations (`simplify_formula`, `eliminate_if_term`, `remove_unused`, `split_vc`) and a 30s timeout per goal.
+- Recorded in the paper that the generated Why3 file is discharged in about 4.4s of wall-clock time on the local Apple M2 development machine.
+- Framed this measurement explicitly as a reproducibility indicator for the example, not as a performance claim.
+
+## 2026-03-08 — Expanded machine and tool configuration for the timing note
+- Enriched the Why3 timing note in the paper with the concrete local configuration used for the measurement.
+- Added the versions of Why3 (`1.8.2`) and Z3 (`4.15.2`).
+- Added the local machine characteristics relevant for reproducibility: Apple M2, 8 cores, 16 GB RAM, macOS 15.6 / Darwin 24.6.0.
+- Cleaned the surrounding prose so that the timing note reads as a reproducibility note rather than an experimental-performance claim.
+
+## 2026-03-08 — Mechanization section: concrete example and line counts
+- Updated the `Mechanization` section of the paper to mention the new Rocq file `ResettableDelayExample.v`.
+- Made explicit that this file instantiates the abstract development on the running `resettable_delay` example and concludes `resettable_delay_correct` by proving the generated triples valid and applying the abstract soundness theorem, rather than by a direct semantic proof.
+- Replaced the previous coarse file inventory with a table giving, for each Rocq file, the number of specification lines, proof lines, and total lines.
+- Refined the presentation choice afterwards: the table now gives only per-file specification and proof counts; the combined spec+proof total is stated only globally, not for each file.
+- Removed `rocq/Main.v`, which only reexported the development and was not used by the proofs or by the build.
+- Updated the mechanization counts accordingly:
+  - specification: 730
+  - proof: 487
+  - total spec+proof: 1217
+- Recorded the counting convention in the paper: non-empty, non-comment lines outside proof blocks count as specification; lines from `Proof.` to `Qed.` or `Defined.` count as proof.
+- Updated the global counts in the paper to:
+  - specification: 730
+  - proof: 487
+  - total spec+proof: 1217
+- Recompiled `conditional_safety_local_proofs.tex` successfully after the edit.
+- Outcome:
+  - the PDF still compiles cleanly;
+  - the document remains at 26 pages;
+  - the only residual layout issue is the previously existing tiny overfull box.
+
+## 2026-03-08 — Compactage des figures d'automates et de triples
+- Reduced the scale of the three main schematic figures in the paper to improve page density without changing their content.
+- `Safety automata for the running example`:
+  - reduced the global resize factor;
+  - tightened horizontal spacing between states;
+  - slightly reduced node sizes.
+- `Relevant fragment of the explicit product`:
+  - reduced the global resize factor from full width;
+  - tightened the spacing between source and target states;
+  - reduced box widths and heights.
+- `Initialization and propagation triples`:
+  - reduced the global resize factor;
+  - tightened horizontal and vertical spacing between nodes;
+  - slightly reduced box sizes.
+- Recompiled `conditional_safety_local_proofs.tex` after the compacting pass.
+- Outcome:
+  - the PDF still compiles cleanly;
+  - the document remains at 26 pages;
+  - the only residual warning is the previously existing tiny overfull box unrelated to these figures.
+
+## 2026-03-08 — Future work added to the conclusion
+- Expanded the conclusion with a dedicated `Future work` paragraph instead of leaving the outlook as a single closing sentence.
+- Structured the opening around three concrete directions:
+  - richer safety-specification fragments that still compile cleanly to automata and generated triples;
+  - tighter links between the abstract semantic clauses and proof-producing verification backends;
+  - more systematic embeddings for synchronous source languages with richer state structures.
+- Kept the framing aligned with the paper's current thesis: future work should refine the instantiation layers rather than complicate the abstract core.
+
+## 2026-03-08 — Rocq documentation hierarchy and in-file explanations
+- Added a documentation package declaration in `dune-project` and a `documentation` stanza in `rocq/dune`.
+- Added thematic `.mld` pages in `rocq/`:
+  - `index.mld`
+  - `model.mld`
+  - `reduction.mld`
+  - `metatheory.mld`
+  - `example.mld`
+- Chosen structure:
+  - one top-level landing page;
+  - four thematic pages matching the scientific decomposition of the development;
+  - explicit links from pages to the corresponding Rocq modules.
+- Added substantial documentation comments `(** ... *)` directly in the Rocq files to explain:
+  - the role of each module;
+  - the main semantic notions and records;
+  - the interpretation of the central definitions;
+  - the purpose of the key lemmas and theorems.
+- Files enriched with documentation comments:
+  - `ReactiveModel.v`
+  - `ConditionalSafety.v`
+  - `ExplicitProduct.v`
+  - `GeneratedClauses.v`
+  - `RelationalTriples.v`
+  - `Soundness.v`
+  - `RelativeCompleteness.v`
+  - `ResettableDelayExample.v`
+- Attempt that failed:
+  - first `dune build` from `rocq/` reused the repository-wide Dune build directory under `/Users/fredericdabrowski/Repos/kairos/_build` and hit a corrupted stale lock file (`_build/.lock` not containing a valid PID);
+  - rather than touching the parent repository outside `specv2/`, the build was rerun with local build directories inside `specv2/rocq`.
+- Validation:
+  - `DUNE_BUILD_DIR=/Users/fredericdabrowski/Repos/kairos/specv2/rocq/_build_local opam exec --switch=5.4.1+options -- dune build` succeeded;
+  - `DUNE_BUILD_DIR=/Users/fredericdabrowski/Repos/kairos/specv2/rocq/_build_local_doc opam exec --switch=5.4.1+options -- dune build @doc` succeeded;
+  - generated documentation entry point observed at:
+    `/Users/fredericdabrowski/Repos/kairos/specv2/rocq/_build_local_doc/default/specv2/rocq/SpecV2.html/index.html`.
+
+## 2026-03-08 — Front matter preprint label
+- Overrode the `acmart` journal bibstrip in the preamble so that the footer now displays `Preprint` instead of the PACMPL journal string.
+- Kept the rest of the ACM-style layout unchanged.
+
+## 2026-03-08 — Test Kairos d'un exemple `credit_balance_monitor`
+- Objective: check whether a more arithmetic, non-finite-state example than `resettable_delay` is actually provable by the current Kairos toolchain before proposing it as a secondary example.
+- First validated the command path against the existing `resettable_delay.kairos` test case.
+- Observed an environment issue: Why3 was configured to call an outdated `z3` binary under the old opam switch path.
+- Retained workaround for reliable testing:
+  - invoke Kairos with `--prover-cmd /Users/fredericdabrowski/.opam/5.4.1+options/bin/z3`.
+- First attempt:
+  - tried to express a stronger assumption involving `prev bal + credit` in a node-level contract;
+  - this failed at the parser level;
+  - reason: in the current Kairos grammar, history terms such as `prev x` / `pre(x)` are admitted as `hexpr` atoms, but not as arbitrary arithmetic subexpressions.
+- Successful variant:
+  - created `credit_balance_monitor_candidate_v2.kairos`;
+  - encoded the debit-balance side condition in transition guards instead of in a node-level temporal contract;
+  - kept the invariant `m >= 0 /\ m = prev bal` in state `Run`;
+  - verified the file successfully with:
+    `DUNE_BUILD_DIR=/Users/fredericdabrowski/Repos/kairos/specv2/.kairos_build_credit_v2proof opam exec -- dune exec -- kairos --log-level quiet --prove --prover-cmd /Users/fredericdabrowski/.opam/5.4.1+options/bin/z3 /Users/fredericdabrowski/Repos/kairos/specv2/credit_balance_monitor_candidate_v2.kairos`
+- Outcome:
+  - the example is provable by Kairos;
+  - the current syntax supports a good version of the example;
+  - but the strongest contract formulation one would naturally want is limited by the current grammar of history expressions.
+
+## 2026-03-08 — Added `credit_balance_monitor` to the paper
+- Added a new secondary example to the `Instantiation and backend refinements` section of `conditional_safety_local_proofs.tex`.
+- Positioning choice:
+  - keep `resettable_delay` as the main pedagogical running example;
+  - add `credit_balance_monitor` as a more data-intensive example that highlights the ability of the method to handle non-finite-state program semantics.
+- Added the concrete Kairos code of the validated example directly in the paper.
+- Added explanatory prose making the intended contrast explicit:
+  - explicit-state model checking would need a separate abstraction argument because the balance ranges over unbounded integers;
+  - the present reduction keeps the automaton side finite while leaving the program memory symbolic and relying on a local arithmetic invariant.

@@ -1,0 +1,39 @@
+DIGEST 0a50eabccd5ef6edc4650ab75f643ad2
+FKairos.MainProofPath
+R27:38 Kairos.KairosOracle <> <> lib
+R73:95 Kairos.core.AutomataCorrectnessCore <> <> lib
+R130:149 Kairos.path.Step1SemanticProduct <> <> lib
+R184:204 Kairos.path.Step2GeneratedClauses <> <> lib
+R239:260 Kairos.path.Step3RelationalTriples <> <> lib
+R295:316 Kairos.path.Step4TransitionBundles <> <> lib
+R351:369 Kairos.path.Step5TripleValidity <> <> lib
+R404:422 Kairos.path.Step6ClauseRecovery <> <> lib
+R457:474 Kairos.path.Step7GlobalToLocal <> <> lib
+R1128:1147 Kairos.path.Step1SemanticProduct Step1SemanticProduct <> mod
+mod 1119:1123 <> Step1
+R1166:1186 Kairos.path.Step2GeneratedClauses Step2GeneratedClauses <> mod
+mod 1157:1161 <> Step2
+R1205:1226 Kairos.path.Step3RelationalTriples Step3RelationalTriples <> mod
+mod 1196:1200 <> Step3
+R1245:1266 Kairos.path.Step4TransitionBundles Step4TransitionBundles <> mod
+mod 1236:1240 <> Step4
+R1285:1303 Kairos.path.Step5TripleValidity Step5TripleValidity <> mod
+mod 1276:1280 <> Step5
+R1322:1340 Kairos.path.Step6ClauseRecovery Step6ClauseRecovery <> mod
+mod 1313:1317 <> Step6
+R1359:1376 Kairos.path.Step7GlobalToLocal Step7GlobalToLocal <> mod
+mod 1350:1354 <> Step7
+def 1391:1418 <> bad_local_step_if_G_violated
+R1426:1471 Kairos.KairosOracle KairosOracleModel bad_local_step_if_G_violated thm
+def 1486:1504 <> generation_coverage
+R1512:1548 Kairos.KairosOracle KairosOracleModel generation_coverage thm
+def 1563:1588 <> triple_generation_coverage
+R1596:1639 Kairos.KairosOracle KairosOracleModel triple_generation_coverage thm
+def 1654:1689 <> triple_valid_conditional_correctness
+R1697:1750 Kairos.KairosOracle KairosOracleModel triple_valid_conditional_correctness thm
+def 1765:1809 <> triple_valid_conditional_correctness_under_wf
+R1817:1879 Kairos.KairosOracle KairosOracleModel triple_valid_conditional_correctness_under_wf thm
+def 1894:1943 <> triple_valid_conditional_correctness_with_node_inv
+R1951:2018 Kairos.KairosOracle KairosOracleModel triple_valid_conditional_correctness_with_node_inv thm
+def 2033:2091 <> triple_valid_conditional_correctness_with_node_inv_under_wf
+R2099:2175 Kairos.KairosOracle KairosOracleModel triple_valid_conditional_correctness_with_node_inv_under_wf thm

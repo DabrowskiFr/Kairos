@@ -1,6 +1,6 @@
-\documentclass[acmsmall,screen,nonacm]{acmart}
+\documentclass[acmsmall,screen]{acmart}
 \setcopyright{none}
-\settopmatter{printfolios=true,printccs=false,printacmref=false}
+\settopmatter{printfolios=true,printccs=true,printacmref=true}
 \renewcommand\footnotetextcopyrightpermission[1]{}
 \raggedbottom
 \usepackage{microtype}
@@ -19,6 +19,13 @@
   \country{France}
 }
 \email{frederic.dabrowski@univ-orleans.fr}
+\acmJournal{PACMPL}
+\acmYear{2026}
+\acmVolume{1}
+\acmNumber{}
+\acmArticle{1}
+\acmMonth{1}
+\acmDOI{}
 
 \newtheoremstyle{leftplain}%
   {0.6\baselineskip}%
@@ -87,9 +94,40 @@
   emphstyle=\color{guaranteec}\bfseries
 }
 
+\makeatletter
+\AtBeginDocument{%
+  \fancypagestyle{standardpagestyle}{%
+    \fancyhf{}%
+    \renewcommand{\headrulewidth}{\z@}%
+    \renewcommand{\footrulewidth}{\z@}%
+    \def\@acmArticlePage{%
+      \ifx\@acmArticle\empty%
+        \if@ACM@printfolios\thepage\fi%
+      \else%
+        \@acmArticle\if@ACM@printfolios:\thepage\fi%
+      \fi%
+    }%
+    \fancyhead[LE]{\ACM@linecountL\@headfootfont\@acmArticlePage}%
+    \fancyhead[RO]{\@headfootfont\@acmArticlePage}%
+    \fancyhead[RE]{\@headfootfont\@shortauthors}%
+    \fancyhead[LO]{\ACM@linecountL\@headfootfont\shorttitle}%
+    \fancyfoot[RO,LE]{\footnotesize Preprint}%
+  }%
+  \fancypagestyle{firstpagestyle}{%
+    \fancyhf{}%
+    \renewcommand{\headrulewidth}{\z@}%
+    \renewcommand{\footrulewidth}{\z@}%
+    \fancyfoot[RO,LE]{\footnotesize Preprint}%
+    \fancyhead[LE]{\ACM@linecountL\@folioblob}%
+    \fancyhead[LO]{\ACM@linecountL}%
+    \fancyhead[RO]{\@folioblob}%
+    \fancyheadoffset[RO,LE]{0.6\@folio@wd}%
+  }%
+}
+\makeatother
+
 \begin{document}
 \begin{abstract}
-\noindent\textbf{Abstract. }
 We study conditional safety of reactive programs over infinite input streams and
 unbounded semantic domains. The target property says that every input stream
 satisfying an assumption must produce only executions satisfying a safety
@@ -100,13 +138,38 @@ with assumption and guarantee safety automata, we localize global violations to
 dangerous product steps, extract semantic clauses from these steps, and package
 these clauses into relational Hoare triples over ticks. We prove that this
 reduction is sound: validity of all generated triples, together with semantic
-truth of the user invariants on executions, implies conditional safety. We
-also prove two relative-completeness results for the reduction itself: global
-correctness implies validity of all generated safety triples, and, under true
-user invariants, validity of all generated triples. The
+truth of the user invariants on admissible executions, implies conditional
+safety. We also prove two relative-completeness results for the reduction
+itself: global correctness implies admissible-run validity of all generated
+safety triples, and, under true user invariants on admissible executions,
+admissible-run validity of all generated triples. The
 development is formalized in Rocq. Concrete validation mechanisms are treated
 only as later instantiations of this abstract proof interface.
 \end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+<concept>
+<concept_id>10011007.10011006.10011039.10011688</concept_id>
+<concept_desc>Software and its engineering~Formal methods</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+<concept>
+<concept_id>10011007.10011006.10011039.10011693</concept_id>
+<concept_desc>Software and its engineering~Software verification</concept_desc>
+<concept_significance>300</concept_significance>
+</concept>
+<concept>
+<concept_id>10003752.10003790.10003793</concept_id>
+<concept_desc>Theory of computation~Logic and verification</concept_desc>
+<concept_significance>500</concept_significance>
+</concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Software and its engineering~Formal methods}
+\ccsdesc[500]{Theory of computation~Logic and verification}
+\ccsdesc[300]{Software and its engineering~Software verification}
 
 \keywords{reactive programs, conditional safety, local proofs, relational Hoare logic, safety automata}
 
@@ -144,35 +207,25 @@ properties, then it fails to explain why local proof obligations should suffice
 at all. A satisfactory account should therefore expose an intermediate layer
 that is simultaneously semantic, local, and backend-independent.
 
-The non-trivial point is therefore not the mere existence of safety automata, nor the
-observation that local verification conditions are useful in practice. The
-non-trivial point is to identify the semantic object that makes the local proof
-objects both inevitable and backend-independent. The thesis of this paper is
-that the explicit product between the program and the two safety automata is
+The non-trivial point is therefore not the mere existence of safety automata,
+nor the observation that local verification conditions are useful in practice.
+The non-trivial point is to identify the semantic object that makes the local
+proof layer both inevitable and backend-independent. The thesis of this paper
+is that the explicit product between the program and the two safety automata is
 exactly this object. Once the product has been fixed, dangerous steps,
 semantic clauses, and relational triples are no longer ad hoc proof artifacts:
 they become the canonical local interface of the global conditional-safety
 semantics.
 
-This paper isolates a semantic answer. We define a canonical explicit product
-between a reactive program and two safety automata, one for the assumption and
-one for the guarantee. This product is not introduced as an implementation
-artifact, but as the semantic device that localizes global violations. Once the
-product is available, a global violation of the guarantee can be reduced to the
-existence of a concrete tick that realizes a dangerous local product step. From
-such steps we extract local semantic clauses, and from these clauses we build
-relational Hoare triples over ticks. The resulting proof objects are local, but
-they still retain an explicit connection to the global safety semantics.
-
 The contribution is a small semantic theory organized around three central
 results. First, validity of all generated relational triples, together with
-semantic truth of the user invariants on executions, implies conditional
-safety. Second, global correctness implies validity of the generated
-$\NoBad$ triples. Third, under the additional assumption that user invariants
-are semantically true on executions, all generated triples are valid. The
-first theorem justifies the reduction as a sound proof method; the second and
-third explain why the reduction generates semantically legitimate local proof
-objects rather than arbitrary artifacts.
+semantic truth of the user invariants on admissible executions, implies
+conditional safety. Second, global correctness implies admissible-run validity
+of the generated $\NoBad$ triples. Third, under the additional assumption that
+user invariants are semantically true on admissible executions, all generated
+triples are admissibly valid. The first theorem justifies the reduction as a
+sound proof method; the second and third explain why the reduction generates
+semantically legitimate local proof objects rather than arbitrary artifacts.
 
 The core theory is independent of any particular tool. In practice, one may
 start from a specification language such as a safety fragment of LTL, compile
@@ -194,7 +247,7 @@ reappears only once the abstract triple layer has been fixed and justified.
 The paper proves a reduction theorem, not a complete verification pipeline. The
 core result stops at the validity of relational triples generated from the
 product semantics, together with the semantic truth of user-supplied
-invariants on executions. Concrete choices such as formula syntax, encoding
+invariants on admissible executions. Concrete choices such as formula syntax, encoding
 into a verification-condition language, proof search, or solver orchestration
 belong to later instantiation layers. This separation is deliberate: it keeps
 the semantic theorem stable while allowing multiple backends to refine it.
@@ -206,9 +259,9 @@ reactive programs over unbounded domains. It defines semantic clauses and
 relational Hoare triples as the local proof interface induced by this product.
 It proves soundness and relative-completeness theorems for the resulting
 reduction, making explicit that soundness relies only on generated-triple
-validity and on the semantic truth of user invariants. Finally, it provides a
-mechanized Rocq development whose public structure mirrors the mathematical
-argument.
+validity and on the semantic truth of user invariants on admissible
+executions. Finally, it provides a mechanized Rocq development whose public
+structure mirrors the mathematical argument.
 
 The point is not merely that a verifier can be organized around products and
 triples. The point is that, once the product has been fixed, the local proof
@@ -351,36 +404,36 @@ example as follows:
 
 \begin{figure}[t]
 \centering
-\resizebox{\linewidth}{!}{%
+\resizebox{0.89\linewidth}{!}{%
 \begin{tikzpicture}[
   every node/.style={font=\small},
-  autA/.style={draw,circle,minimum size=8mm,inner sep=1pt,fill=assumptionbg,draw=assumptionc!80!black},
-  autG/.style={draw,circle,minimum size=8mm,inner sep=1pt,fill=guaranteebg,draw=guaranteec!75!black},
-  bad/.style={draw,circle,minimum size=8mm,inner sep=1pt,fill=dangerbg,draw=dangerc},
+  autA/.style={draw,circle,minimum size=7.2mm,inner sep=0.8pt,fill=assumptionbg,draw=assumptionc!80!black},
+  autG/.style={draw,circle,minimum size=7.2mm,inner sep=0.8pt,fill=guaranteebg,draw=guaranteec!75!black},
+  bad/.style={draw,circle,minimum size=7.2mm,inner sep=0.8pt,fill=dangerbg,draw=dangerc},
   arr/.style={-Latex,thick},
   lab/.style={fill=white,inner sep=1pt,font=\scriptsize,align=center}
 ]
-  \node[align=center,font=\small\bfseries,text=assumptionc!80!black] at (1.5,1.6) {Assumption automaton $A$};
+  \node[align=center,font=\small\bfseries,text=assumptionc!80!black] at (1.3,1.45) {Assumption automaton $A$};
   \node[autA] (a0) at (0,0) {$A_0$};
-  \node[autA] (a1) at (3.2,0) {$A_1$};
-  \node[bad] (abad) at (6.2,0) {$A_{\mathsf{bad}}$};
+  \node[autA] (a1) at (2.7,0) {$A_1$};
+  \node[bad] (abad) at (5.1,0) {$A_{\mathsf{bad}}$};
   \draw[arr,draw=assumptionc!85!black] (a0) -- node[lab,above] {$\varphi_A$} (a1);
   \draw[arr,draw=assumptionc!85!black] (a1) edge[loop above] node[lab] {$\varphi_A$} (a1);
   \draw[arr,draw=dangerc] (a0) to[bend left=16] node[lab,below] {otherwise} (abad);
   \draw[arr,draw=dangerc] (a1) to[bend left=12] node[lab,above] {otherwise} (abad);
 
-  \node[align=center,font=\small\bfseries,text=guaranteec!75!black] at (2.8,-2.0) {Guarantee automaton $G$};
-  \node[autG] (g0) at (0,-3.5) {$G_0$};
-  \node[autG] (g1) at (2.7,-3.5) {$G_1$};
-  \node[autG] (g2) at (5.4,-3.5) {$G_2$};
-  \node[bad] (gbad) at (8.6,-3.5) {$G_{\mathsf{bad}}$};
+  \node[align=center,font=\small\bfseries,text=guaranteec!75!black] at (2.3,-1.8) {Guarantee automaton $G$};
+  \node[autG] (g0) at (0,-3.1) {$G_0$};
+  \node[autG] (g1) at (2.3,-3.1) {$G_1$};
+  \node[autG] (g2) at (4.6,-3.1) {$G_2$};
+  \node[bad] (gbad) at (7.2,-3.1) {$G_{\mathsf{bad}}$};
   \draw[arr,draw=guaranteec!80!black] (g0) -- node[lab,above] {$\psi_{\mathit{rst}}$} (g1);
   \draw[arr,draw=guaranteec!80!black] (g1) -- node[lab,above] {$\psi_{\mathit{first}}$} (g2);
   \draw[arr,draw=guaranteec!80!black] (g2) edge[loop below] node[lab] {$\psi_{\mathit{delay}}$} (g2);
   \draw[arr,draw=dangerc] (g0) to[bend right=14] node[lab,below] {otherwise} (gbad);
   \draw[arr,draw=dangerc] (g1) to[bend right=14] node[lab,below] {otherwise} (gbad);
   \draw[arr,draw=dangerc] (g2) to[bend right=10] node[lab,below] {otherwise} (gbad);
-\end{tikzpicture}
+\end{tikzpicture}}
 \caption{Safety automata for the running example. The assumption automaton
 tracks the reset discipline, while the guarantee automaton distinguishes three
 residual modes: reset ticks ($G_0$), the first non-reset tick after reset
@@ -440,21 +493,22 @@ automaton coherence fact that identifies the current abstract product state.
 
 \begin{figure}[t]
 \centering
+\resizebox{0.84\linewidth}{!}{%
 \begin{tikzpicture}[
   every node/.style={font=\small},
-  pstate/.style={draw,rounded corners,minimum width=3.2cm,minimum height=1cm,align=center,fill=coherencebg,draw=black!55},
-  badstate/.style={draw,rounded corners,minimum width=3.4cm,minimum height=1cm,align=center,fill=dangerbg,draw=dangerc},
-  fact/.style={draw,rounded corners,minimum width=3.3cm,minimum height=0.95cm,align=center,fill=coherencebg,draw=assumptionc!45!black},
-  clause/.style={draw,rounded corners,minimum width=3.8cm,minimum height=0.95cm,align=center,fill=clausebg,draw=guaranteec!45!black},
+  pstate/.style={draw,rounded corners,minimum width=2.85cm,minimum height=0.9cm,align=center,fill=coherencebg,draw=black!55},
+  badstate/.style={draw,rounded corners,minimum width=3.0cm,minimum height=0.9cm,align=center,fill=dangerbg,draw=dangerc},
+  fact/.style={draw,rounded corners,minimum width=2.95cm,minimum height=0.85cm,align=center,fill=coherencebg,draw=assumptionc!45!black},
+  clause/.style={draw,rounded corners,minimum width=3.35cm,minimum height=0.85cm,align=center,fill=clausebg,draw=guaranteec!45!black},
   darr/.style={-Latex,thick,draw=dangerc}
 ]
 \node[pstate] (src) at (0,0.6) {$p_{\mathrm{src}}$\\$(\mathsf{Run},q_A,q_G)$};
-\node[badstate] (dst) at (6.0,0.6) {$p_{\mathrm{dst}}$\\$(\mathsf{Run},q_A,q^G_{\mathsf{bad}})$};
+\node[badstate] (dst) at (5.2,0.6) {$p_{\mathrm{dst}}$\\$(\mathsf{Run},q_A,q^G_{\mathsf{bad}})$};
 \draw[darr] (src) -- node[above,align=center,fill=white,inner sep=1pt]
   {$r=0$ and $y \neq \mathsf{prev}(x)$} (dst);
-\node[fact] (pre) at (0,-1.5) {\textcolor{assumptionc!80!black}{precondition facts}\\$\CohCur_{p_{\mathrm{src}}} \land \NodeInv_{\mathsf{Run}}$};
-\node[clause] (post) at (6.0,-1.5) {\textcolor{guaranteec!75!black}{generated safety objects}\\$\Bad(p)$ and $\NoBad(p)$};
-\end{tikzpicture}
+\node[fact] (pre) at (0,-1.35) {\textcolor{assumptionc!80!black}{precondition facts}\\$\CohCur_{p_{\mathrm{src}}} \land \NodeInv_{\mathsf{Run}}$};
+\node[clause] (post) at (5.2,-1.35) {\textcolor{guaranteec!75!black}{generated safety objects}\\$\Bad(p)$ and $\NoBad(p)$};
+\end{tikzpicture}}
 \caption{Relevant fragment of the explicit product for the running example.
 The source state combines the current control state with the current assumption
 and guarantee automaton states. The red edge is dangerous because its
@@ -496,13 +550,13 @@ paper turns this informal picture into a general semantic reduction theorem:
 \]
 
 \begin{center}
-\begin{tabular}{@{}l@{}}
+\begin{tabular}{@{}p{0.94\linewidth}@{}}
 \textbf{Reduction at a glance} \\
 1. A global guarantee violation yields a dangerous product step. \\
 2. That step yields one local safety clause $\NoBad(p)$. \\
 3. The clause is packaged into one local safety triple $\triplesafe{h^{\NoBad}(p)}$. \\
 4. Coherence triples justify the local preconditions of $\triplesafe{h^{\NoBad}(p)}$. \\
-5. Valid generated triples, together with true user invariants, imply conditional safety. \\
+5. Valid generated triples, together with true user invariants on admissible executions, imply conditional safety. \\
 \end{tabular}
 \end{center}
 
@@ -510,7 +564,7 @@ The formal development below simply turns each line of this summary into a
 definition or theorem. The running example keeps reappearing so that the reader
 never has to reconstruct the intended local picture from the abstract
 definitions alone. The only semantic fact not reconstructed from generated
-triples themselves is the truth of user invariants on executions; this
+triples themselves is the truth of user invariants on admissible executions; this
 dependency will be isolated explicitly in the meta-theory.
 
 \section{Semantic Model}\label{sec:model}
@@ -560,6 +614,12 @@ semantic data needed to describe one reactive tick. By construction, programs
 in this model are total at the level of one tick: for every current control
 state, current memory, and current input, the model provides a selected
 transition, a successor control state, a successor memory, and an output.
+The transition guard is represented by $\mathsf{enabled}$. Since
+$\mathsf{select}(s,m,i)$ is required to return an enabled transition, every
+concrete tick already carries the fact that the guard of the selected
+transition holds. Later triples therefore do not need to repeat this guard as
+an extra ad hoc premise: it is already built into the semantic notion of a
+realized step.
 
 \begin{definition}[Execution from an initial memory]
 Fix a program $P$, an input stream $u : \mathbb{N} \to I$, and an initial
@@ -788,6 +848,10 @@ and
 
 The output component is essential: without it, the target guarantee state of
 the product step would not be determined by the local context.
+Matching also records the selected program transition itself. As a consequence,
+once $\Match(\Ctx_{m_0,u}(k),p)$ holds, the guard of the transition carried by
+$p$ is already known to hold at the current tick, because the matched
+transition is exactly the one returned by $\mathsf{select}$.
 
 \begin{definition}[Dangerous step]
 A product step
@@ -867,10 +931,11 @@ semantic information supplied by the specification. Coherence clauses say which
 abstract product state the current or next concrete tick corresponds to.
 
 \begin{definition}[Semantic clause]
-A semantic clause is a predicate
+A semantic clause is a predicate over tick contexts
 \[
   C : \Ctx \to \mathsf{Prop}.
 \]
+\noindent where $\Ctx$ denotes the ambient space of tick contexts.
 \end{definition}
 
 We use three canonical families of clauses.
@@ -966,6 +1031,26 @@ For a step triple with target transition $t \in T$, we define
 \]
 \end{definition}
 
+\begin{definition}[Admissible-run triple validity]
+\[
+  \begin{aligned}
+    \ValidAdm((\mathit{init},\pre,\post))
+    \triangleq{}& \forall m_0 \in M,\forall u : \mathbb{N} \to I.\\
+    &\bigl(\AvoidA(u) \wedge \pre(\Ctx_{m_0,u}(0))\bigr)
+      \rightarrow \post(\Ctx_{m_0,u}(0)).
+  \end{aligned}
+\]
+For a step triple with target transition $t \in T$, we define
+\[
+  \begin{aligned}
+    \ValidAdm((t,\pre,\post))
+    \triangleq{}& \forall m_0 \in M,\forall u : \mathbb{N} \to I,\forall k \in \mathbb{N}.\\
+    &\bigl(\AvoidA(u) \wedge t_u(k)=t \wedge \pre(\Ctx_{m_0,u}(k))\bigr)\\
+    &\Longrightarrow \post(\Ctx_{m_0,u}(k+1)).
+  \end{aligned}
+\]
+\end{definition}
+
 This is a relational form of Hoare reasoning rather than an imperative one. The
 triple does not interpret a command syntax. Instead, it constrains the semantic
 transition relation induced by one program tick. In set-theoretic terms, if
@@ -975,6 +1060,12 @@ postcondition. This distinction matters for readability as well as for theory:
 the paper is not proposing a new command language or a new
 verification-condition calculus, but identifying the semantic shape of the
 local proof obligations that any concrete backend will later refine.
+The guard of $t$ is therefore exploited implicitly through
+$\TransRel_t(\Ctx,\Ctx')$: a triple for $t$ is only required to hold on pairs
+of contexts linked by an actual semantic step labeled by $t$. In other words,
+the reduction reasons under the guard of $t$ by restricting attention to
+realized steps, rather than by repeating that guard as a separate conjunct in
+every precondition.
 
 \noindent\leadcolor{Running example.}
 For the dangerous non-reset \texttt{Run}-step of \textsc{resettable-delay}, the
@@ -1044,8 +1135,8 @@ The safety clause $\NoBad(p)$ is therefore not itself the postcondition of the
 safety triple. Rather, it is the semantic content enforced by the triple: if
 the precondition of $\triplesafe{h^{\NoBad}(p)}$ holds at a tick, then no successor context
 can exist, so the current context cannot realize the dangerous step $p$. The
-two propagation families are coherence triples. They establish the local facts
-needed by the safety triples, so user invariants and automaton coherence are
+two propagation families transport the two local facts needed by the safety
+triples: user invariants and automaton coherence. These facts are therefore
 transported in the same local proof contexts rather than in two independent
 proof phases.
 
@@ -1097,38 +1188,39 @@ Figure~\ref{fig:dangerous-fragment}.
 
 \begin{figure}[t]
 \centering
+\resizebox{0.9\linewidth}{!}{%
 \begin{tikzpicture}[
   every node/.style={font=\small},
   initbox/.style={draw=black!50, rounded corners=4pt, fill=coherencebg,
-    minimum width=3.15cm, minimum height=1.0cm, align=center},
+    minimum width=2.85cm, minimum height=0.92cm, align=center},
   propbox/.style={draw=black!50, rounded corners=4pt, fill=coherencebg,
-    minimum width=2.6cm, minimum height=0.95cm, align=center},
+    minimum width=2.35cm, minimum height=0.88cm, align=center},
   factbox/.style={draw=assumptionc!45!black, rounded corners=4pt, fill=assumptionbg,
-    minimum width=2.7cm, minimum height=0.95cm, align=center},
+    minimum width=2.45cm, minimum height=0.88cm, align=center},
   triplebox/.style={draw=guaranteec!55!black, rounded corners=4pt, fill=guaranteebg,
-    minimum width=2.95cm, minimum height=0.95cm, align=center},
+    minimum width=2.65cm, minimum height=0.88cm, align=center},
   arr/.style={-Latex, thick}
 ]
 \node[initbox] (init) {initial tick\\$(\mathsf{Init},A_0,G_0)$};
-\node[factbox, right=1.9cm of init, yshift=0.7cm] (initinv) {$\NodeInv_{\mathsf{Init}}$};
-\node[factbox, right=1.9cm of init, yshift=-0.7cm] (initcoh) {$\CohCur_{(\mathsf{Init},A_0,G_0)}$};
-\node[triplebox, right=1.9cm of initinv] (tinitinv) {$\tripleinv{h^{\mathsf{init}}_{\NodeInv}}$};
-\node[triplebox, right=1.9cm of initcoh] (tinitcoh) {$\triplecoh{h^{\mathsf{init}}_{\Coherence}}$};
+\node[factbox, right=1.55cm of init, yshift=0.62cm] (initinv) {$\NodeInv_{\mathsf{Init}}$};
+\node[factbox, right=1.55cm of init, yshift=-0.62cm] (initcoh) {$\CohCur_{(\mathsf{Init},A_0,G_0)}$};
+\node[triplebox, right=1.55cm of initinv] (tinitinv) {$\tripleinv{h^{\mathsf{init}}_{\NodeInv}}$};
+\node[triplebox, right=1.55cm of initcoh] (tinitcoh) {$\triplecoh{h^{\mathsf{init}}_{\Coherence}}$};
 \draw[arr] (init) -- (initinv);
 \draw[arr] (init) -- (initcoh);
 \draw[arr] (initinv) -- (tinitinv);
 \draw[arr] (initcoh) -- (tinitcoh);
 
-\node[propbox, below=2.0cm of init, xshift=-1.7cm] (src) {$p_{\mathrm{src}}$\\$(s,q_A,q_G)$};
-\node[propbox, right=2.4cm of src] (step) {product step $p$};
-\node[propbox, right=2.4cm of step] (dst) {$p_{\mathrm{dst}}$\\$(s',q'_A,q'_G)$};
+\node[propbox, below=1.7cm of init, xshift=-1.45cm] (src) {$p_{\mathrm{src}}$\\$(s,q_A,q_G)$};
+\node[propbox, right=2.0cm of src] (step) {product step $p$};
+\node[propbox, right=2.0cm of step] (dst) {$p_{\mathrm{dst}}$\\$(s',q'_A,q'_G)$};
 \draw[arr] (src) -- (step);
 \draw[arr] (step) -- (dst);
 
-\node[factbox, below=1.45cm of src, xshift=0.9cm] (srcfacts) {$\NodeInv_s \wedge \CohCur_{p_{\mathrm{src}}}$};
-\node[factbox, below=1.45cm of dst, xshift=-0.9cm] (dstfacts) {$\NodeInv_{s'} \wedge \CohCur_{p_{\mathrm{dst}}}$};
-\node[triplebox, below=1.45cm of step, yshift=0.55cm] (tpropinv) {$\tripleinv{h^{\mathsf{prop}}_{\NodeInv}(p)}$};
-\node[triplebox, below=1.45cm of step, yshift=-0.75cm] (tpropcoh) {$\triplecoh{h^{\mathsf{prop}}_{\Coherence}(p)}$};
+\node[factbox, below=1.28cm of src, xshift=0.75cm] (srcfacts) {$\NodeInv_s \wedge \CohCur_{p_{\mathrm{src}}}$};
+\node[factbox, below=1.28cm of dst, xshift=-0.75cm] (dstfacts) {$\NodeInv_{s'} \wedge \CohCur_{p_{\mathrm{dst}}}$};
+\node[triplebox, below=1.28cm of step, yshift=0.48cm] (tpropinv) {$\tripleinv{h^{\mathsf{prop}}_{\NodeInv}(p)}$};
+\node[triplebox, below=1.28cm of step, yshift=-0.62cm] (tpropcoh) {$\triplecoh{h^{\mathsf{prop}}_{\Coherence}(p)}$};
 \draw[arr] (srcfacts) -- (tpropinv);
 \draw[arr] (srcfacts) -- (tpropcoh);
 \draw[arr] (tpropinv) -- (dstfacts);
@@ -1162,17 +1254,19 @@ initialization-and-propagation discipline.
 
 The metatheory is organized around one main theorem and two adequacy
 theorems. The main theorem is soundness: validity of the generated local
-triples, together with semantic truth of the user invariants, implies
+triples, together with semantic truth of the user invariants on admissible
+executions, implies
 conditional safety. The adequacy theorems explain why the
 reduction is non-degenerate: under the appropriate semantic assumptions, the
-generated triples are themselves valid. The proof proceeds through a short
-chain of intermediate facts that correspond to the essential conceptual steps
-of the reduction.
+generated triples are themselves admissibly valid. The proof proceeds through
+a short chain of intermediate facts that correspond to the essential
+conceptual steps of the reduction.
 
 The proof boundary is also explicit. The semantic core assumes only the truth
-of the generated triples and of user invariants on executions when proving
-soundness, and only the truth of user invariants when proving full relative
-completeness. No statement in this
+of the generated triples and of user invariants on admissible executions when
+proving soundness. For relative completeness, the mechanized result is
+deliberately weaker: it establishes admissible-run validity, because global
+correctness constrains only inputs satisfying $\AvoidA$. No statement in this
 section depends on a concrete backend encoding, on a solver, or on a
 verification-condition language.
 
@@ -1208,13 +1302,13 @@ rest of the section as follows:
 \[
   \InvTrue \triangleq
   \forall m_0 \in M,\forall u,\forall k \in \mathbb{N}.\
-  \NodeInv_{s_u(k)}(\Ctx_{m_0,u}(k)).
+  \AvoidA(u) \rightarrow \NodeInv_{s_u(k)}(\Ctx_{m_0,u}(k)).
 \]
 
 The first predicate is an entirely semantic statement about the program and the
 conditional specification. The second isolates the only genuinely external
 ingredient of the soundness and completeness arguments: user invariants are
-supplied with the specification, so their truth on executions cannot be
+supplied with the specification, so their truth on admissible executions cannot be
 recovered from generated-triple validity alone.
 
 \begin{lemma}[Selected steps match the current context]
@@ -1319,17 +1413,19 @@ at tick $k$.
 \end{lemma}
 
 \begin{proof}[Proof idea]
-The precondition of the safety triple is the conjunction of three facts:
-matching of the current context with $p$, validity of the user invariant at the
-source program state, and coherence with the source product state. The first is
-given by the previous matching lemma, the second by the realized-step
-well-formedness lemma, and the remaining two by the coherence layers for user
-invariants and automaton state. Since $\Bad(p)$ and $\mathsf{WFStep}(p)$ hold,
-the safety triple $\triplesafe{h^{\NoBad}(p)}$ is indeed one of the generated triples.
+The precondition of $\triplesafe{h^{\NoBad}(p)}$ is exactly the conjunction of
+matching, the source-state user invariant, and source-state coherence. These
+three facts are hypotheses of the lemma. Moreover, realized steps are
+well formed by Lemma~\ref{lem:realized-wf}. Since $\Bad(p)$ also holds, the
+triple $\triplesafe{h^{\NoBad}(p)}$ is indeed one of the generated triples, and
+its precondition is satisfied at the current tick.
 \end{proof}
 
 \subsection{Soundness}
-The first result justifies the reduction. Automaton coherence is reconstructed from the product semantics itself, whereas user invariants belong to the specification and are therefore assumed semantically true on executions through $\InvTrue$.
+The first result justifies the reduction. Automaton coherence is reconstructed
+from the product semantics itself, whereas user invariants belong to the
+specification and are therefore assumed semantically true on admissible
+executions through $\InvTrue$.
 
 \begin{theorem}[Soundness of the reduction]
 \label{thm:soundness}
@@ -1380,7 +1476,8 @@ fact
   \CohCur_{p_{\mathrm{src}}}(\Ctx_{m_0,u}(k)).
 \]
 
-By $\InvTrue$, the corresponding user-invariant clause also holds at tick $k$:
+By $\InvTrue$ and the standing assumption $\AvoidA(u)$, the corresponding
+user-invariant clause also holds at tick $k$:
 \[
   \NodeInv_{\pi_S(p_{\mathrm{src}})}(\Ctx_{m_0,u}(k)).
 \]
@@ -1417,29 +1514,30 @@ completeness starts from semantic correctness of the program and asks whether
 the reduction generates semantically legitimate local proof obligations. For
 safety triples, this legitimacy follows directly from global correctness; for
 triples that transport user invariants, one must additionally assume that the
-user invariants are indeed true on executions. The resulting notion is weaker
+user invariants are indeed true on admissible executions. The resulting notion is weaker
 than classical relative completeness of Hoare logic
 \cite{cook-1978}: we do not claim that every semantically valid local triple is
 generated, nor that every valid generated triple is derivable in every
 backend. We only claim that the triples produced by the reduction are
-semantically valid under the natural hypotheses of the model.
+semantically valid on admissible runs under the natural hypotheses of the
+model.
 
 \begin{theorem}[Relative completeness of safety triples]
 \label{thm:rc-nobad}
 If the program is globally correct, then
-every generated safety triple $\NoBad$ is valid on executions.
+every generated safety triple $\NoBad$ is admissibly valid.
 \[
   \GlobCorr \Longrightarrow
-  \forall h.\ \Generated_{\NoBad}(h) \rightarrow \Valid(h).
+  \forall h.\ \Generated_{\NoBad}(h) \rightarrow \ValidAdm(h).
 \]
 \end{theorem}
 
 \noindent\leadcolor{Proof idea.}
-If one generated safety triple were invalid, then some concrete execution would
-realize the dangerous step from which this triple was extracted. But a
-dangerous realized step is exactly a local witness of global guarantee
-violation under an admissible input. Global correctness therefore rules out the
-failure of any generated safety triple.
+If one generated safety triple were not admissibly valid, then some admissible
+concrete execution would realize the dangerous step from which this triple was
+extracted. But a dangerous realized step is exactly a local witness of global
+guarantee violation under an admissible input. Global correctness therefore
+rules out the failure of any generated safety triple on admissible runs.
 
 \begin{proof}
 Assume $\GlobCorr$. Let $h$ be such that $\Generated_{\NoBad}(h)$ holds. By
@@ -1449,43 +1547,27 @@ definition of generated safety triples, there exists a product step
 \]
 such that $\mathsf{WFStep}(p)$, $\Bad(p)$, and $h = \triplesafe{h^{\NoBad}(p)}$.
 
-We show that $h$ is valid. Suppose on the contrary that it is not. Then, by
-definition of $\Valid$, there exist contexts $\Ctx,\Ctx'$ such that
+We show that $h$ is admissibly valid. Suppose on the contrary that it is not.
+Then, by definition of $\ValidAdm$, there exist $m_0 \in M$, an input stream
+$u$, and a tick $k$ such that
 \[
-  \TransRel_t(\Ctx,\Ctx')
-  \qquad\text{and}\qquad
-  \Match(\Ctx,p)
-  \wedge \NodeInv_{\pi_S(p_{\mathrm{src}})}(\Ctx)
-  \wedge \CohCur_{p_{\mathrm{src}}}(\Ctx)
+  \AvoidA(u),
+  \qquad
+  t_u(k)=t,
+  \qquad
+  \Match(\Ctx_{m_0,u}(k),p)
+  \wedge \NodeInv_{\pi_S(p_{\mathrm{src}})}(\Ctx_{m_0,u}(k))
+  \wedge \CohCur_{p_{\mathrm{src}}}(\Ctx_{m_0,u}(k))
 \]
 hold.
 
-Unfolding $\TransRel_t$, we obtain some $m_0 \in M$, some input stream $u$,
-and some tick $k$ such that
-\[
-  \Ctx=\Ctx_{m_0,u}(k), \qquad \Ctx'=\Ctx_{m_0,u}(k+1), \qquad t_u(k)=t.
-\]
-
-So the invalidity of the triple already gives us a genuine concrete tick and
-successor tick. The remaining task is to show that this concrete tick realizes
-exactly the dangerous local situation from which the triple was generated.
-
-Hence we obtain
-\[
-  \Match(\Ctx_{m_0,u}(k),p),
-  \qquad
-  \NodeInv_{\pi_S(p_{\mathrm{src}})}(\Ctx_{m_0,u}(k)),
-  \qquad
-  \CohCur_{p_{\mathrm{src}}}(\Ctx_{m_0,u}(k)).
-\]
-
-By Lemma~\ref{lem:realized-wf}, the matching fact implies
-$\mathsf{WFStep}(p)$, which is already known. More importantly, matching and
+Matching and
 coherence imply that the source and target of $p$ coincide with the actual
 current and next product states of the execution at tick $k$. Since $p$ is
 dangerous, its target guarantee component is bad while its target assumption
 component is not bad. Hence the execution on $u$ violates $G$ while preserving
-$A$, contradicting $\GlobCorr$. Therefore $h$ is valid.
+$A$, contradicting $\GlobCorr$ together with $\AvoidA(u)$. Therefore $h$ is
+admissibly valid.
 \end{proof}
 
 This theorem is the key non-degeneracy result for the safety part of the
@@ -1496,11 +1578,11 @@ triples that would make soundness trivially unusable.
 \begin{theorem}[Relative completeness of generated triples]
 \label{thm:rc-generated}
 Suppose that the program is globally
-correct and that the user invariants are semantically true on executions.
-Then every generated triple is valid on executions.
+correct and that the user invariants are semantically true on admissible
+executions. Then every generated triple is admissibly valid.
 \[
   \GlobCorr \wedge \InvTrue \Longrightarrow
-  \forall h.\ \Generated(h) \rightarrow \Valid(h).
+  \forall h.\ \Generated(h) \rightarrow \ValidAdm(h).
 \]
 \end{theorem}
 
@@ -1508,7 +1590,7 @@ Then every generated triple is valid on executions.
 This is a synthesis theorem over the five generated families. The two
 initialization triples are validated directly at the first tick. The two
 propagation families are validated by the coherence lemmas together with the
-truth of user invariants on executions. The safety family is handled by
+truth of user invariants on admissible executions. The safety family is handled by
 Theorem~\ref{thm:rc-nobad}. The complete result therefore follows by a simple
 case analysis on the generation relation.
 
@@ -1516,27 +1598,30 @@ case analysis on the generation relation.
 Assume $\GlobCorr \wedge \InvTrue$, and let $h$ be such that $\Generated(h)$
 holds. By definition of $\Generated$, there are five cases.
 
-If $h = \tripleinv{h^{\mathsf{init}}_{\NodeInv}}$, validity follows immediately from
-$\InvTrue$ at tick $0$.
+If $h = \tripleinv{h^{\mathsf{init}}_{\NodeInv}}$, admissible validity follows
+immediately from $\InvTrue$ at tick $0$.
 
-If $h = \triplecoh{h^{\mathsf{init}}_{\Coherence}}$, validity is immediate from the
-definition of the initial product state and of the initial tick context.
+If $h = \triplecoh{h^{\mathsf{init}}_{\Coherence}}$, admissible validity is
+immediate from the definition of the initial product state and of the initial
+tick context.
 
 If $h = \tripleinv{h^{\mathsf{prop}}_{\NodeInv}(p)}$ for some well-formed step $p$, then
-its validity follows from $\InvTrue$: whenever the precondition holds on a
-current context, the postcondition is exactly the invariant at the successor
-program state, which is true on the next tick of the execution.
+its admissible validity follows from $\InvTrue$: whenever the precondition
+holds on an admissible current context, the postcondition is exactly the
+invariant at the successor program state, which is true on the next tick of
+the execution.
 
 If $h = \triplecoh{h^{\mathsf{prop}}_{\Coherence}(p)}$ for some well-formed step $p$, then
-its validity follows from Lemmas~\ref{lem:matching}, \ref{lem:realized-wf},
-and \ref{lem:coherence}: matching and current coherence identify the current
-product state with $p_{\mathrm{src}}$, and structural well-formedness of $p$
-forces its target to coincide with the next product state, so the postcondition
-$\CohCur_{p_{\mathrm{dst}}}$ holds on the successor context.
+its admissible validity follows from Lemmas~\ref{lem:matching},
+\ref{lem:realized-wf}, and \ref{lem:coherence}: matching and current coherence
+identify the current product state with $p_{\mathrm{src}}$, and structural
+well-formedness of $p$ forces its target to coincide with the next product
+state, so the postcondition $\CohCur_{p_{\mathrm{dst}}}$ holds on the
+successor context.
 
 Finally, if $h = \triplesafe{h^{\NoBad}(p)}$ for some dangerous well-formed step $p$, then
-validity follows from Theorem~\ref{thm:rc-nobad}. Thus all cases covered by
-$\Generated(h)$ are valid, as claimed.
+admissible validity follows from Theorem~\ref{thm:rc-nobad}. Thus all cases
+covered by $\Generated(h)$ are admissibly valid, as claimed.
 \end{proof}
 
 \begin{remark}
@@ -1554,9 +1639,10 @@ it isolates precisely which part of the theory depends on external annotations.
 
 Taken together, the soundness and relative-completeness theorems justify the
 reduction itself. Soundness states that valid generated triples, together with
-true user invariants, are sufficient for global conditional safety. Relative
-completeness states that, under the appropriate semantic hypotheses, the
-reduction does not generate arbitrary false local proof objects. This is the
+true user invariants on admissible executions, are sufficient for global
+conditional safety. Relative completeness states that, under the appropriate
+semantic hypotheses, the reduction does not generate arbitrary false local
+proof objects on admissible runs. This is the
 mathematically relevant notion of adequacy for the reduction layer,
 independently of any later backend proof search.
 
@@ -1813,7 +1899,14 @@ propagation triples, and transition contracts with postcondition $\bot$
 corresponding to safety triples.
 
 For the running example, the generated Why3 file is successfully discharged by
-Z3 through Why3 transformations. This does not add anything to the abstract
+Z3 through Why3 transformations. Using Why3 with the
+\texttt{simplify\_formula}, \texttt{eliminate\_if\_term},
+\texttt{remove\_unused}, and \texttt{split\_vc} transformations, a
+\texttt{30s} timeout per goal, Why3~1.8.2, Z3~4.15.2, and the local development
+machine (Apple M2, 8 cores, 16~GB RAM, macOS 15.6 / Darwin~24.6.0), the full
+generated file is discharged in about \texttt{4.4s} of wall-clock time. This
+timing is only a reproducibility indicator for the running example, not a
+performance claim about the method. It does not strengthen the abstract
 soundness theorem, but it shows that the proof interface isolated in the paper
 is concrete enough to be realized by an existing deductive backend. It also
 illustrates the intended separation of concerns: the paper proves properties of
@@ -1825,6 +1918,70 @@ claim completeness of a concrete solver, completeness of Why3 encodings, or a
 backend-independent procedure for discharging every valid triple automatically.
 The abstract theory justifies the reduction; concrete automation remains a
 refinement problem.
+
+\subsection{A more data-intensive Kairos example}
+The running example remains intentionally small. This is useful for exposition,
+but it does not fully illustrate one practical strength of the reduction:
+the program state itself need not be finite. To make this point concrete, the
+current Kairos prototype also verifies the following \texttt{credit\_balance\_monitor}
+node, whose control structure is tiny but whose semantic state ranges over
+unbounded integers:
+
+\begin{lstlisting}[style=kairosstyle]
+node credit_balance_monitor(reset: int, credit: int, debit: int)
+returns (bal: int)
+contracts
+  requires: G((reset = 0 or reset = 1)
+           and (credit >= 0) and (debit >= 0));
+  requires: G((reset = 1) => (credit = 0 and debit = 0));
+  ensures: G((reset = 1) => (bal = 0));
+  ensures: G(bal >= 0);
+locals
+  m : int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    (m >= 0) and (m = prev bal);
+transitions
+  Init:
+    to Run when reset = 1 {
+      bal := 0;
+      m := 0;
+    }
+    to Run when reset = 0 and debit <= credit {
+      bal := credit - debit;
+      m := credit - debit;
+    }
+  Run:
+    to Run when reset = 1 {
+      bal := 0;
+      m := 0;
+    }
+    to Run when reset = 0 and debit <= m + credit {
+      bal := m + credit - debit;
+      m := m + credit - debit;
+    }
+end
+\end{lstlisting}
+
+This node is still a safety problem, but it is no longer naturally viewed as a
+finite-state verification instance. The balance evolves over the integer domain
+without any a priori bound, so explicit-state model checking would require a
+separate abstraction argument before it could even recover a finite state
+space. By contrast, the reduction of the present paper keeps the automaton side
+finite while leaving the program memory symbolic. The user invariant
+\lstinline|(m >= 0) and (m = prev bal)| provides the local arithmetic summary
+needed to show that every reachable non-reset transition preserves
+\lstinline|bal >= 0| under the transition guard.
+
+Conceptually, this second example does not change the proof architecture at
+all. The program still induces an explicit product with assumption and
+guarantee automata, dangerous steps still localize global guarantee violations,
+and the resulting obligations are still discharged as local transition proofs.
+What changes is only the character of the program state: the example stresses
+that the method is not tied to finite-state program semantics even though the
+specification side continues to use finite safety automata.
 
 \section{Related Work}\label{sec:related}
 The paper sits at the intersection of four well-established lines of work.
@@ -1903,9 +2060,10 @@ proofs.
 The metatheory of the paper is formalized in an independent Rocq development
 located in \texttt{specv2/rocq/}. The development is intentionally small and
 follows the conceptual structure of the paper rather than the architecture of a
-particular tool chain. In its current form it contains eight files and about
-832 non-comment lines, of which about 585 lines define the semantic objects and
-state the results, and about 247 lines are proof scripts.
+particular tool chain. In its current form it contains eight files and 1217
+non-comment, non-empty lines. Counting lines outside proof blocks as
+specification and lines from \texttt{Proof.} to \texttt{Qed.}/\texttt{Defined.}
+as proof, the development contains 730 specification lines and 487 proof lines.
 
 The structure of the development mirrors the mathematical decomposition used in
 the paper: \texttt{ReactiveModel.v} defines reactive ticks, \texttt{
@@ -1913,7 +2071,10 @@ ConditionalSafety.v} defines the specification layer, \texttt{ExplicitProduct.v}
 defines product states and product steps, \texttt{GeneratedClauses.v} defines
 semantic clauses, \texttt{RelationalTriples.v} defines the local proof objects,
 and \texttt{Soundness.v} and \texttt{RelativeCompleteness.v} formalize the main
-results. The file \texttt{Main.v} only reexports the development.
+results. The file \texttt{ResettableDelayExample.v} instantiates the abstract
+theory on the running example and concludes \texttt{resettable\_delay\_correct}
+by proving the generated triples valid and then applying the abstract soundness
+theorem.
 
 The purpose of the mechanization is to support the mathematical claims of the
 paper, not to introduce a second technical narrative. For this reason, the
@@ -1921,23 +2082,31 @@ paper keeps the proof ideas in the main text and only records the paper-to-Rocq
 correspondence here:
 
 \begin{center}
-\begin{tabular}{ll}
-\textbf{Paper notion} & \textbf{Rocq file} \\
+\begin{tabular}{lrr}
+\textbf{Rocq file} & \textbf{Spec} & \textbf{Proof} \\
 \hline
-Reactive programs and runs & \texttt{ReactiveModel.v} \\
-Conditional safety and safety automata & \texttt{ConditionalSafety.v} \\
-Explicit product and dangerous steps & \texttt{ExplicitProduct.v} \\
-Semantic clauses & \texttt{GeneratedClauses.v} \\
-Relational triples & \texttt{RelationalTriples.v} \\
-Soundness & \texttt{Soundness.v} \\
-Relative completeness & \texttt{RelativeCompleteness.v}
+\texttt{ReactiveModel.v} & 73 & 12 \\
+\texttt{ConditionalSafety.v} & 53 & 23 \\
+\texttt{ExplicitProduct.v} & 153 & 40 \\
+\texttt{GeneratedClauses.v} & 69 & 0 \\
+\texttt{RelationalTriples.v} & 115 & 13 \\
+\texttt{Soundness.v} & 34 & 46 \\
+\texttt{RelativeCompleteness.v} & 51 & 89 \\
+\texttt{ResettableDelayExample.v} & 182 & 264 \\
+\hline
+\textbf{Total} & \textbf{730} & \textbf{487}
 \end{tabular}
 \end{center}
+
+Overall, this yields 1217 non-comment, non-empty lines split into 730
+specification lines and 487 proof lines.
 
 This separation is intentionally close to the human proof structure. The Rocq
 development contains additional internal lemmas and explicitly parameterized
 semantics for arbitrary initial memories, but the public theorem layer follows
-the same organization as the paper.
+the same organization as the paper. The concrete example file is the only place
+where the abstract theory is instantiated on one fixed program; the remaining
+files stay fully parametric.
 
 \section{Conclusion}\label{sec:conclusion}
 We have presented a semantic reduction from conditional safety of reactive
@@ -1948,10 +2117,11 @@ steps. From these steps we extract semantic clauses and package them into
 relational Hoare triples over ticks.
 
 The resulting theory yields three central results: soundness, relative
-completeness of the safety reduction, and relative completeness of all
-generated triples under true user invariants. The theory is independent of any
-particular tool. Concrete compilers, encodings, and solver backends refine this
-core but do not define it.
+completeness of the safety reduction on admissible runs, and relative
+completeness of all generated triples on admissible runs under true user
+invariants. The theory is independent of any particular tool. Concrete
+compilers, encodings, and solver backends refine this core but do not define
+it.
 
 The conceptual point is that explicit products, dangerous steps, semantic
 clauses, and relational triples form a small but sufficient vocabulary for this
@@ -1959,9 +2129,17 @@ reduction. Once these objects are fixed, the main proofs become short and their
 hypotheses become transparent. This is the sense in which the paper aims at a
 general reduction theorem rather than a tool-specific account.
 
+\paragraph{Future work.}
 The next step is not to complicate the core theory, but to refine its
-instantiations: richer specification fragments, tighter links to concrete
-backends, and more systematic embeddings in synchronous programming languages.
+instantiations. A first direction is to widen the specification side while
+preserving the same local-proof interface, for instance by clarifying which
+larger safety fragments still compile to automata and generated triples in a
+principled way. A second direction is to tighten the bridge to proof-producing
+backends, so that the semantic clauses and generated triples of the paper map
+more directly to concrete verification conditions and proof certificates. A
+third direction is to systematize language-level embeddings, in particular for
+synchronous languages with richer state structure than the running example,
+while keeping the abstract reduction independent of any one source language.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{references}

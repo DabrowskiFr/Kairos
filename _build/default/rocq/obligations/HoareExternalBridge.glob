@@ -1,0 +1,132 @@
+DIGEST 2ccb097c5d8301a524b420c446d2cf87
+FKairos.obligations.HoareExternalBridge
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R84:99 Kairos.obligations.ObligationGenSig <> <> lib
+R141:152 Kairos.obligations.OracleSemSig <> <> lib
+R219:231 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R241:258 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R287:295 Kairos.obligations.HoareExternalBridge C StepCtx defax
+modtype 193:210 <> HOARE_TASK_GEN_SIG
+ax 312:322 HOARE_TASK_GEN_SIG HoareTriple
+ax 408:420 HOARE_TASK_GEN_SIG encode_clause
+R432:435 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R424:431 Kairos.obligations.HoareExternalBridge E Clause def
+R436:446 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG HoareTriple defax
+ax 462:471 HOARE_TASK_GEN_SIG HoareValid
+R486:489 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R475:485 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG HoareTriple defax
+ax 548:583 HOARE_TASK_GEN_SIG hoare_valid_implies_clause_pointwise
+R604:611 Kairos.obligations.HoareExternalBridge E Clause def
+binder 599:600 <> cl:7
+binder 614:614 <> u:8
+binder 616:616 <> k:9
+R654:663 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R625:634 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG HoareValid defax
+R637:649 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG encode_clause defax
+R651:652 Kairos.obligations.HoareExternalBridge <> cl:7 var
+R664:665 Kairos.obligations.HoareExternalBridge <> cl:7 var
+R668:675 Kairos.obligations.HoareExternalBridge C ctx_at defax
+R679:679 Kairos.obligations.HoareExternalBridge <> k:9 var
+R677:677 Kairos.obligations.HoareExternalBridge <> u:8 var
+R687:704 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG <> modtype
+R748:760 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R770:787 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R834:851 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG <> modtype
+R853:853 Kairos.obligations.HoareExternalBridge C <> mod
+R855:855 Kairos.obligations.HoareExternalBridge E <> mod
+R816:824 Kairos.obligations.HoareExternalBridge C StepCtx defax
+modtype 720:739 <> EXTERNAL_VC_TOOL_SIG
+ax 872:876 EXTERNAL_VC_TOOL_SIG check
+R893:896 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R880:892 Kairos.obligations.HoareExternalBridge H HoareTriple defax
+R897:900 Corelib.Init.Datatypes <> bool ind
+ax 960:970 EXTERNAL_VC_TOOL_SIG check_sound
+binder 985:985 <> t:14
+R1002:1005 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R995:997 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R988:992 Kairos.obligations.HoareExternalBridge EXTERNAL_VC_TOOL_SIG check defax
+R994:994 Kairos.obligations.HoareExternalBridge <> t:14 var
+R998:1001 Corelib.Init.Datatypes <> true constr
+R1006:1017 Kairos.obligations.HoareExternalBridge H HoareValid defax
+R1019:1019 Kairos.obligations.HoareExternalBridge <> t:14 var
+ax 1103:1126 EXTERNAL_VC_TOOL_SIG check_complete_generated
+binder 1141:1142 <> cl:17
+R1159:1162 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1145:1155 Kairos.obligations.HoareExternalBridge E Generated def
+R1157:1158 Kairos.obligations.HoareExternalBridge <> cl:17 var
+R1189:1191 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1163:1167 Kairos.obligations.HoareExternalBridge EXTERNAL_VC_TOOL_SIG check defax
+R1170:1184 Kairos.obligations.HoareExternalBridge H encode_clause defax
+R1186:1187 Kairos.obligations.HoareExternalBridge <> cl:17 var
+R1192:1195 Corelib.Init.Datatypes <> true constr
+R1202:1221 Kairos.obligations.HoareExternalBridge EXTERNAL_VC_TOOL_SIG <> modtype
+R1266:1278 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R1288:1305 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R1352:1369 Kairos.obligations.HoareExternalBridge HOARE_TASK_GEN_SIG <> modtype
+R1371:1371 Kairos.obligations.HoareExternalBridge C <> mod
+R1373:1373 Kairos.obligations.HoareExternalBridge E <> mod
+R1383:1402 Kairos.obligations.HoareExternalBridge EXTERNAL_VC_TOOL_SIG <> modtype
+R1404:1404 Kairos.obligations.HoareExternalBridge C <> mod
+R1406:1406 Kairos.obligations.HoareExternalBridge E <> mod
+R1408:1408 Kairos.obligations.HoareExternalBridge H <> mod
+R1416:1429 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R1431:1431 Kairos.obligations.HoareExternalBridge C <> mod
+R1433:1433 Kairos.obligations.HoareExternalBridge E <> mod
+R1334:1342 Kairos.obligations.HoareExternalBridge C StepCtx defax
+mod 1232:1257 <> MakeOracleSemFromHoareTool
+def 1450:1455 MakeOracleSemFromHoareTool Oracle
+R1463:1470 Kairos.obligations.HoareExternalBridge E Clause def
+binder 1458:1459 <> cl:20
+R1475:1478 Corelib.Init.Datatypes <> bool ind
+R1487:1493 Kairos.obligations.HoareExternalBridge X check defax
+R1496:1510 Kairos.obligations.HoareExternalBridge H encode_clause defax
+R1512:1513 Kairos.obligations.HoareExternalBridge <> cl:20 var
+def 1531:1541 MakeOracleSemFromHoareTool ClauseValid
+R1549:1556 Kairos.obligations.HoareExternalBridge E Clause def
+binder 1544:1545 <> cl:21
+R1573:1584 Kairos.obligations.HoareExternalBridge H HoareValid defax
+R1587:1601 Kairos.obligations.HoareExternalBridge H encode_clause defax
+R1603:1604 Kairos.obligations.HoareExternalBridge <> cl:21 var
+prf 1619:1630 MakeOracleSemFromHoareTool Oracle_sound
+binder 1645:1646 <> cl:22
+R1665:1668 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1658:1660 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1649:1654 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool Oracle def
+R1656:1657 Kairos.obligations.HoareExternalBridge <> cl:22 var
+R1661:1664 Corelib.Init.Datatypes <> true constr
+R1669:1679 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool ClauseValid def
+R1681:1682 Kairos.obligations.HoareExternalBridge <> cl:22 var
+R1725:1730 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool Oracle def
+R1733:1743 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool ClauseValid def
+R1757:1769 Kairos.obligations.HoareExternalBridge X check_sound prfax
+R1777:1791 Kairos.obligations.HoareExternalBridge H encode_clause defax
+R1757:1769 Kairos.obligations.HoareExternalBridge X check_sound prfax
+R1777:1791 Kairos.obligations.HoareExternalBridge H encode_clause defax
+prf 1822:1836 MakeOracleSemFromHoareTool Oracle_complete
+binder 1851:1852 <> cl:23
+R1869:1872 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1855:1865 Kairos.obligations.HoareExternalBridge E Generated def
+R1867:1868 Kairos.obligations.HoareExternalBridge <> cl:23 var
+R1882:1884 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1873:1878 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool Oracle def
+R1880:1881 Kairos.obligations.HoareExternalBridge <> cl:23 var
+R1885:1888 Corelib.Init.Datatypes <> true constr
+R1931:1936 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool Oracle def
+R1950:1975 Kairos.obligations.HoareExternalBridge X check_complete_generated prfax
+R1950:1975 Kairos.obligations.HoareExternalBridge X check_complete_generated prfax
+prf 2013:2034 MakeOracleSemFromHoareTool clause_valid_pointwise
+R2055:2062 Kairos.obligations.HoareExternalBridge E Clause def
+binder 2050:2051 <> cl:24
+binder 2065:2065 <> u:25
+binder 2067:2067 <> k:26
+R2090:2099 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2076:2086 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool ClauseValid def
+R2088:2089 Kairos.obligations.HoareExternalBridge <> cl:24 var
+R2100:2101 Kairos.obligations.HoareExternalBridge <> cl:24 var
+R2104:2111 Kairos.obligations.HoareExternalBridge C ctx_at defax
+R2115:2115 Kairos.obligations.HoareExternalBridge <> k:26 var
+R2113:2113 Kairos.obligations.HoareExternalBridge <> u:25 var
+R2165:2175 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool ClauseValid def
+R2200:2237 Kairos.obligations.HoareExternalBridge H hoare_valid_implies_clause_pointwise prfax
+R2200:2237 Kairos.obligations.HoareExternalBridge H hoare_valid_implies_clause_pointwise prfax
+R2266:2291 Kairos.obligations.HoareExternalBridge MakeOracleSemFromHoareTool <> mod

@@ -1,0 +1,36 @@
+DIGEST e9fd146892ee0c9b5b43e407b8bbfe99
+FKairos.obligations.OracleSig
+R39:54 Kairos.obligations.ObligationGenSig <> <> lib
+R285:302 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+modtype 269:278 <> ORACLE_SIG
+ax 318:323 ORACLE_SIG Oracle
+R335:338 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R327:334 Kairos.obligations.OracleSig E Clause def
+R339:342 Corelib.Init.Datatypes <> bool ind
+ax 357:367 ORACLE_SIG ClauseValid
+R379:382 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R371:378 Kairos.obligations.OracleSig E Clause def
+ax 398:409 ORACLE_SIG Oracle_sound
+binder 424:425 <> cl:5
+R444:447 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R437:439 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R428:433 Kairos.obligations.OracleSig ORACLE_SIG Oracle defax
+R435:436 Kairos.obligations.OracleSig <> cl:5 var
+R440:443 Corelib.Init.Datatypes <> true constr
+R448:458 Kairos.obligations.OracleSig ORACLE_SIG ClauseValid defax
+R460:461 Kairos.obligations.OracleSig <> cl:5 var
+ax 473:487 ORACLE_SIG Oracle_complete
+binder 502:503 <> cl:8
+R520:523 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R506:516 Kairos.obligations.OracleSig E Generated def
+R518:519 Kairos.obligations.OracleSig <> cl:8 var
+R533:535 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R524:529 Kairos.obligations.OracleSig ORACLE_SIG Oracle defax
+R531:532 Kairos.obligations.OracleSig <> cl:8 var
+R536:539 Corelib.Init.Datatypes <> true constr
+R546:555 Kairos.obligations.OracleSig ORACLE_SIG <> modtype
+R591:608 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+modtype 571:584 <> VALIDATION_SIG
+R622:631 Kairos.obligations.OracleSig ORACLE_SIG <> modtype
+R633:633 Kairos.obligations.OracleSig E <> mod
+R640:653 Kairos.obligations.OracleSig VALIDATION_SIG <> modtype

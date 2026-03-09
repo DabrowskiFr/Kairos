@@ -1,0 +1,10 @@
+DIGEST ac61d7e3576472ac3593103a20821c50
+FKairos.instances.KairosCurrentBridge
+R27:50 Kairos.KairosModularIntegration <> <> lib
+modtype 91:115 <> KAIROS_CURRENT_BRIDGE_SIG
+R139:164 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG <> modtype
+mod 135:135 <> KAIROS_CURRENT_BRIDGE_SIG.X
+R181:199 Kairos.KairosModularIntegration KairosModularBridge <> mod
+R201:201 Kairos.instances.KairosCurrentBridge KAIROS_CURRENT_BRIDGE_SIG.X <> mod
+mod 176:176 <> KAIROS_CURRENT_BRIDGE_SIG.B
+R208:232 Kairos.instances.KairosCurrentBridge KAIROS_CURRENT_BRIDGE_SIG <> modtype

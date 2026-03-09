@@ -1,0 +1,19 @@
+DIGEST 2b620d97462d6aa1c2e5a860548b584b
+FKairos.monitor.MonitorLTLLink
+R35:44 Kairos.monitor.MonitorSig <> <> lib
+R80:91 Kairos.logic.LTLPredicate <> <> lib
+R160:170 Kairos.monitor.MonitorSig MONITOR_SIG <> modtype
+R180:196 Kairos.logic.LTLPredicate LTL_PREDICATE_SIG <> modtype
+R221:225 Kairos.monitor.MonitorLTLLink M Obs defax
+modtype 132:151 <> MONITOR_LTL_LINK_SIG
+ax 242:244 MONITOR_LTL_LINK_SIG phi
+R248:256 Kairos.monitor.MonitorLTLLink L Formula def
+ax 268:289 MONITOR_LTL_LINK_SIG monitor_implements_phi
+binder 304:304 <> w:3
+R327:331 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R313:324 Kairos.monitor.MonitorLTLLink M avoids_bad def
+R326:326 Kairos.monitor.MonitorLTLLink <> w:3 var
+R332:336 Kairos.monitor.MonitorLTLLink L sat def
+R342:342 Kairos.monitor.MonitorLTLLink <> w:3 var
+R338:340 Kairos.monitor.MonitorLTLLink MONITOR_LTL_LINK_SIG phi defax
+R349:368 Kairos.monitor.MonitorLTLLink MONITOR_LTL_LINK_SIG <> modtype

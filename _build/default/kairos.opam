@@ -1,0 +1,11 @@
+opam-version: "2.1"
+name: "kairos"
+version: "dev"
+depends: [
+  "dune" {>= "3.10"}
+  "rocq"
+  "menhir"
+  "ppx_deriving"
+  "ocamllex"
+  "ocaml"
+]

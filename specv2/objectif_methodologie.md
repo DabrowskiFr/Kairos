@@ -39,7 +39,7 @@ Le dépôt `specv2/` doit rester autonome :
 5. `rocq/RelationalTriples.v`
 6. `rocq/Soundness.v`
 7. `rocq/RelativeCompleteness.v`
-8. `rocq/Main.v`
+8. `rocq/ResettableDelayExample.v`
 9. papier `conditional_safety_local_proofs.tex`
 
 ## État courant du noyau

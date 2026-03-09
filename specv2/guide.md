@@ -256,7 +256,7 @@ Recommended file decomposition:
 5. `RelationalTriples.v`
 6. `Soundness.v`
 7. `RelativeCompleteness.v`
-8. `Main.v`
+8. `ResettableDelayExample.v`
 
 The structure should mirror the human proof:
 

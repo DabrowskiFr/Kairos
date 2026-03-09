@@ -1,0 +1,23 @@
+DIGEST 19d2ab304958579309383757465b48b7
+FKairos.obligations.ObligationGenSig
+modtype 37:54 <> OBLIGATION_GEN_SIG
+ax 69:75 OBLIGATION_GEN_SIG StepCtx
+def 98:103 OBLIGATION_GEN_SIG Clause
+R122:125 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R115:121 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG StepCtx defax
+ax 145:150 OBLIGATION_GEN_SIG Origin
+ax 172:182 OBLIGATION_GEN_SIG GeneratedBy
+R192:195 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R186:191 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG Origin defax
+R202:205 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R196:201 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG Clause def
+def 226:234 OBLIGATION_GEN_SIG Generated
+R242:247 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG Clause def
+binder 237:238 <> cl:7
+R264:270 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R272:273 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 271:271 <> o:8
+R274:284 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG GeneratedBy defax
+R288:289 Kairos.obligations.ObligationGenSig <> cl:7 var
+R286:286 Kairos.obligations.ObligationGenSig <> o:8 var
+R296:313 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype

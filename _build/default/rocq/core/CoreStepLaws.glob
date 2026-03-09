@@ -1,0 +1,41 @@
+DIGEST 9699244451962d1de61e44a414ef5205
+FKairos.core.CoreStepLaws
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R107:119 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+modtype 83:100 <> CORE_STEP_LAWS_SIG
+ax 131:138 CORE_STEP_LAWS_SIG cfg_at_0
+binder 153:153 <> u:1
+R168:170 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R156:163 Kairos.core.CoreStepLaws C cfg_at defax
+R167:167 Corelib.Init.Datatypes <> O constr
+R165:165 Kairos.core.CoreStepLaws <> u:1 var
+R171:171 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R183:184 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R195:195 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R172:182 Kairos.core.CoreStepLaws C init_ctrl defax
+R185:194 Kairos.core.CoreStepLaws C init_mem defax
+ax 207:214 CORE_STEP_LAWS_SIG cfg_at_S
+binder 229:229 <> u:4
+binder 231:231 <> k:5
+R255:262 Kairos.core.CoreStepLaws C cfg_at defax
+R266:266 Kairos.core.CoreStepLaws <> k:5 var
+R264:264 Kairos.core.CoreStepLaws <> u:4 var
+R245:245 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R247:248 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R250:250 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R298:303 Kairos.core.CoreStepLaws C step defax
+R310:310 Kairos.core.CoreStepLaws <> u:4 var
+R312:312 Kairos.core.CoreStepLaws <> k:5 var
+R282:282 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R285:286 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R289:290 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R293:293 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R340:342 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R324:331 Kairos.core.CoreStepLaws C cfg_at defax
+R336:336 Corelib.Init.Datatypes <> S constr
+R338:338 Kairos.core.CoreStepLaws <> k:5 var
+R333:333 Kairos.core.CoreStepLaws <> u:4 var
+R343:343 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R346:347 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R350:350 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R357:374 Kairos.core.CoreStepLaws CORE_STEP_LAWS_SIG <> modtype

@@ -1,0 +1,627 @@
+DIGEST fb4d275086a2ae474e8206b1784c024c
+FSpecV2.ExplicitProduct
+R27:31 Stdlib.Arith.Arith <> <> lib
+R33:35 Stdlib.micromega.Lia <> <> lib
+R65:77 SpecV2.ReactiveModel <> <> lib
+R79:95 SpecV2.ConditionalSafety <> <> lib
+sec 440:446 <> Product
+var  460:460 Product P
+R464:478 SpecV2.ReactiveModel <> ReactiveProgram rec
+var  493:496 Product Spec
+R500:514 SpecV2.ConditionalSafety <> ConditionalSpec rec
+R516:516 SpecV2.ExplicitProduct <> Product.P var
+rec 638:649 <> ProductState
+proj 667:673 <> ps_prog
+proj 694:702 <> ps_assume
+proj 738:749 <> ps_guarantee
+R677:685 SpecV2.ReactiveModel <> ProgState proj
+R687:687 SpecV2.ExplicitProduct <> Product.P var
+R706:713 SpecV2.ConditionalSafety <> AutState proj
+R716:725 SpecV2.ConditionalSafety <> assume_aut proj
+R727:730 SpecV2.ExplicitProduct <> Product.Spec var
+R753:760 SpecV2.ConditionalSafety <> AutState proj
+R763:775 SpecV2.ConditionalSafety <> guarantee_aut proj
+R777:780 SpecV2.ExplicitProduct <> Product.Spec var
+def 863:868 <> io_obs
+R882:888 SpecV2.ReactiveModel <> ProgMem proj
+R890:890 SpecV2.ExplicitProduct <> Product.P var
+binder 877:878 <> m0:7
+R904:909 SpecV2.ReactiveModel <> stream def
+R912:920 SpecV2.ReactiveModel <> ProgInput proj
+R922:922 SpecV2.ExplicitProduct <> Product.P var
+binder 900:900 <> u:8
+R937:939 Corelib.Init.Datatypes <> nat ind
+binder 933:933 <> k:9
+R961:963 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R950:958 SpecV2.ReactiveModel <> ProgInput proj
+R960:960 SpecV2.ExplicitProduct <> Product.P var
+R964:973 SpecV2.ReactiveModel <> ProgOutput proj
+R975:975 SpecV2.ExplicitProduct <> Product.P var
+R984:984 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R988:989 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R1007:1007 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R985:985 SpecV2.ExplicitProduct <> u:8 var
+R987:987 SpecV2.ExplicitProduct <> k:9 var
+R990:997 SpecV2.ReactiveModel <> out_from def
+R1006:1006 SpecV2.ExplicitProduct <> k:9 var
+R1004:1004 SpecV2.ExplicitProduct <> u:8 var
+R1001:1002 SpecV2.ExplicitProduct <> m0:7 var
+R999:999 SpecV2.ExplicitProduct <> Product.P var
+def 1090:1107 <> product_state_from
+R1121:1127 SpecV2.ReactiveModel <> ProgMem proj
+R1129:1129 SpecV2.ExplicitProduct <> Product.P var
+binder 1116:1117 <> m0:10
+R1143:1148 SpecV2.ReactiveModel <> stream def
+R1151:1159 SpecV2.ReactiveModel <> ProgInput proj
+R1161:1161 SpecV2.ExplicitProduct <> Product.P var
+binder 1139:1139 <> u:11
+R1176:1178 Corelib.Init.Datatypes <> nat ind
+binder 1172:1172 <> k:12
+R1189:1200 SpecV2.ExplicitProduct <> ProductState rec
+R1218:1224 SpecV2.ExplicitProduct <> ps_prog proj
+R1218:1224 SpecV2.ExplicitProduct <> ps_prog proj
+R1218:1224 SpecV2.ExplicitProduct <> ps_prog proj
+R1256:1264 SpecV2.ExplicitProduct <> ps_assume proj
+R1256:1264 SpecV2.ExplicitProduct <> ps_assume proj
+R1301:1312 SpecV2.ExplicitProduct <> ps_guarantee proj
+R1301:1312 SpecV2.ExplicitProduct <> ps_guarantee proj
+R1229:1238 SpecV2.ReactiveModel <> state_from def
+R1247:1247 SpecV2.ExplicitProduct <> k:12 var
+R1245:1245 SpecV2.ExplicitProduct <> u:11 var
+R1242:1243 SpecV2.ExplicitProduct <> m0:10 var
+R1240:1240 SpecV2.ExplicitProduct <> Product.P var
+R1269:1283 SpecV2.ConditionalSafety <> assume_state_at def
+R1292:1292 SpecV2.ExplicitProduct <> k:12 var
+R1290:1290 SpecV2.ExplicitProduct <> u:11 var
+R1285:1288 SpecV2.ExplicitProduct <> Product.Spec var
+R1317:1334 SpecV2.ConditionalSafety <> guarantee_state_at def
+R1346:1346 SpecV2.ExplicitProduct <> k:12 var
+R1344:1344 SpecV2.ExplicitProduct <> u:11 var
+R1341:1342 SpecV2.ExplicitProduct <> m0:10 var
+R1336:1339 SpecV2.ExplicitProduct <> Product.Spec var
+rec 1416:1426 <> ProductStep
+proj 1444:1451 <> pst_from
+proj 1473:1481 <> pst_trans
+proj 1507:1513 <> pst_mem
+proj 1532:1540 <> pst_input
+proj 1561:1570 <> pst_output
+proj 1592:1601 <> pst_target
+R1455:1466 SpecV2.ExplicitProduct <> ProductState rec
+R1485:1498 SpecV2.ReactiveModel <> ProgTransition proj
+R1500:1500 SpecV2.ExplicitProduct <> Product.P var
+R1517:1523 SpecV2.ReactiveModel <> ProgMem proj
+R1525:1525 SpecV2.ExplicitProduct <> Product.P var
+R1544:1552 SpecV2.ReactiveModel <> ProgInput proj
+R1554:1554 SpecV2.ExplicitProduct <> Product.P var
+R1574:1583 SpecV2.ReactiveModel <> ProgOutput proj
+R1585:1585 SpecV2.ExplicitProduct <> Product.P var
+R1605:1616 SpecV2.ExplicitProduct <> ProductState rec
+def 1735:1756 <> product_step_target_of
+R1771:1782 SpecV2.ExplicitProduct <> ProductState rec
+binder 1765:1767 <> src:20
+R1796:1809 SpecV2.ReactiveModel <> ProgTransition proj
+R1811:1811 SpecV2.ExplicitProduct <> Product.P var
+binder 1792:1792 <> t:21
+R1825:1831 SpecV2.ReactiveModel <> ProgMem proj
+R1833:1833 SpecV2.ExplicitProduct <> Product.P var
+binder 1821:1821 <> m:22
+R1847:1855 SpecV2.ReactiveModel <> ProgInput proj
+R1857:1857 SpecV2.ExplicitProduct <> Product.P var
+binder 1843:1843 <> i:23
+R1871:1880 SpecV2.ReactiveModel <> ProgOutput proj
+R1882:1882 SpecV2.ExplicitProduct <> Product.P var
+binder 1867:1867 <> o:24
+R1893:1904 SpecV2.ExplicitProduct <> ProductState rec
+R1922:1928 SpecV2.ExplicitProduct <> ps_prog proj
+R1922:1928 SpecV2.ExplicitProduct <> ps_prog proj
+R1922:1928 SpecV2.ExplicitProduct <> ps_prog proj
+R1968:1976 SpecV2.ExplicitProduct <> ps_assume proj
+R1968:1976 SpecV2.ExplicitProduct <> ps_assume proj
+R2030:2041 SpecV2.ExplicitProduct <> ps_guarantee proj
+R2030:2041 SpecV2.ExplicitProduct <> ps_guarantee proj
+R1933:1941 SpecV2.ReactiveModel <> dst_state proj
+R1948:1954 SpecV2.ExplicitProduct <> ps_prog proj
+R1956:1958 SpecV2.ExplicitProduct <> src:20 var
+R1945:1945 SpecV2.ExplicitProduct <> t:21 var
+R1943:1943 SpecV2.ExplicitProduct <> Product.P var
+R1981:1985 SpecV2.ConditionalSafety <> qstep proj
+R2021:2021 SpecV2.ExplicitProduct <> i:23 var
+R2006:2014 SpecV2.ExplicitProduct <> ps_assume proj
+R2016:2018 SpecV2.ExplicitProduct <> src:20 var
+R1988:1997 SpecV2.ConditionalSafety <> assume_aut proj
+R1999:2002 SpecV2.ExplicitProduct <> Product.Spec var
+R2046:2050 SpecV2.ConditionalSafety <> qstep proj
+R2092:2092 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2094:2095 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2097:2097 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2093:2093 SpecV2.ExplicitProduct <> i:23 var
+R2096:2096 SpecV2.ExplicitProduct <> o:24 var
+R2074:2085 SpecV2.ExplicitProduct <> ps_guarantee proj
+R2087:2089 SpecV2.ExplicitProduct <> src:20 var
+R2053:2065 SpecV2.ConditionalSafety <> guarantee_aut proj
+R2067:2070 SpecV2.ExplicitProduct <> Product.Spec var
+def 2194:2209 <> selected_step_at
+R2223:2229 SpecV2.ReactiveModel <> ProgMem proj
+R2231:2231 SpecV2.ExplicitProduct <> Product.P var
+binder 2218:2219 <> m0:25
+R2245:2250 SpecV2.ReactiveModel <> stream def
+R2253:2261 SpecV2.ReactiveModel <> ProgInput proj
+R2263:2263 SpecV2.ExplicitProduct <> Product.P var
+binder 2241:2241 <> u:26
+R2278:2280 Corelib.Init.Datatypes <> nat ind
+binder 2274:2274 <> k:27
+R2291:2301 SpecV2.ExplicitProduct <> ProductStep rec
+R2321:2338 SpecV2.ExplicitProduct <> product_state_from def
+R2345:2345 SpecV2.ExplicitProduct <> k:27 var
+R2343:2343 SpecV2.ExplicitProduct <> u:26 var
+R2340:2341 SpecV2.ExplicitProduct <> m0:25 var
+binder 2314:2316 <> src:28
+R2363:2370 SpecV2.ReactiveModel <> mem_from def
+R2379:2379 SpecV2.ExplicitProduct <> k:27 var
+R2377:2377 SpecV2.ExplicitProduct <> u:26 var
+R2374:2375 SpecV2.ExplicitProduct <> m0:25 var
+R2372:2372 SpecV2.ExplicitProduct <> Product.P var
+binder 2358:2358 <> m:29
+R2397:2397 SpecV2.ExplicitProduct <> u:26 var
+R2399:2399 SpecV2.ExplicitProduct <> k:27 var
+binder 2392:2392 <> i:30
+R2417:2426 SpecV2.ReactiveModel <> trans_from def
+R2435:2435 SpecV2.ExplicitProduct <> k:27 var
+R2433:2433 SpecV2.ExplicitProduct <> u:26 var
+R2430:2431 SpecV2.ExplicitProduct <> m0:25 var
+R2428:2428 SpecV2.ExplicitProduct <> Product.P var
+binder 2412:2412 <> t:31
+R2453:2460 SpecV2.ReactiveModel <> out_from def
+R2469:2469 SpecV2.ExplicitProduct <> k:27 var
+R2467:2467 SpecV2.ExplicitProduct <> u:26 var
+R2464:2465 SpecV2.ExplicitProduct <> m0:25 var
+R2462:2462 SpecV2.ExplicitProduct <> Product.P var
+binder 2448:2448 <> o:32
+R2487:2494 SpecV2.ExplicitProduct <> pst_from proj
+R2487:2494 SpecV2.ExplicitProduct <> pst_from proj
+R2487:2494 SpecV2.ExplicitProduct <> pst_from proj
+R2510:2518 SpecV2.ExplicitProduct <> pst_trans proj
+R2510:2518 SpecV2.ExplicitProduct <> pst_trans proj
+R2532:2538 SpecV2.ExplicitProduct <> pst_mem proj
+R2532:2538 SpecV2.ExplicitProduct <> pst_mem proj
+R2552:2560 SpecV2.ExplicitProduct <> pst_input proj
+R2552:2560 SpecV2.ExplicitProduct <> pst_input proj
+R2574:2583 SpecV2.ExplicitProduct <> pst_output proj
+R2574:2583 SpecV2.ExplicitProduct <> pst_output proj
+R2597:2606 SpecV2.ExplicitProduct <> pst_target proj
+R2597:2606 SpecV2.ExplicitProduct <> pst_target proj
+R2499:2501 SpecV2.ExplicitProduct <> src:28 var
+R2523:2523 SpecV2.ExplicitProduct <> t:31 var
+R2543:2543 SpecV2.ExplicitProduct <> m:29 var
+R2565:2565 SpecV2.ExplicitProduct <> i:30 var
+R2588:2588 SpecV2.ExplicitProduct <> o:32 var
+R2611:2632 SpecV2.ExplicitProduct <> product_step_target_of def
+R2644:2644 SpecV2.ExplicitProduct <> o:32 var
+R2642:2642 SpecV2.ExplicitProduct <> i:30 var
+R2640:2640 SpecV2.ExplicitProduct <> m:29 var
+R2638:2638 SpecV2.ExplicitProduct <> t:31 var
+R2634:2636 SpecV2.ExplicitProduct <> src:28 var
+def 2823:2837 <> product_step_wf
+R2845:2855 SpecV2.ExplicitProduct <> ProductStep rec
+binder 2840:2841 <> ps:33
+R2885:2891 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2872:2881 SpecV2.ExplicitProduct <> pst_target proj
+R2883:2884 SpecV2.ExplicitProduct <> ps:33 var
+R2892:2913 SpecV2.ExplicitProduct <> product_step_target_of def
+R3003:3012 SpecV2.ExplicitProduct <> pst_output proj
+R3014:3015 SpecV2.ExplicitProduct <> ps:33 var
+R2982:2990 SpecV2.ExplicitProduct <> pst_input proj
+R2992:2993 SpecV2.ExplicitProduct <> ps:33 var
+R2963:2969 SpecV2.ExplicitProduct <> pst_mem proj
+R2971:2972 SpecV2.ExplicitProduct <> ps:33 var
+R2942:2950 SpecV2.ExplicitProduct <> pst_trans proj
+R2952:2953 SpecV2.ExplicitProduct <> ps:33 var
+R2922:2929 SpecV2.ExplicitProduct <> pst_from proj
+R2931:2932 SpecV2.ExplicitProduct <> ps:33 var
+def 3033:3056 <> product_step_realized_at
+R3070:3076 SpecV2.ReactiveModel <> ProgMem proj
+R3078:3078 SpecV2.ExplicitProduct <> Product.P var
+binder 3065:3066 <> m0:34
+R3092:3097 SpecV2.ReactiveModel <> stream def
+R3100:3108 SpecV2.ReactiveModel <> ProgInput proj
+R3110:3110 SpecV2.ExplicitProduct <> Product.P var
+binder 3088:3088 <> u:35
+R3125:3127 Corelib.Init.Datatypes <> nat ind
+binder 3121:3121 <> k:36
+R3142:3152 SpecV2.ExplicitProduct <> ProductStep rec
+binder 3137:3138 <> ps:37
+R3177:3179 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3175:3176 SpecV2.ExplicitProduct <> ps:37 var
+R3180:3195 SpecV2.ExplicitProduct <> selected_step_at def
+R3202:3202 SpecV2.ExplicitProduct <> k:36 var
+R3200:3200 SpecV2.ExplicitProduct <> u:35 var
+R3197:3198 SpecV2.ExplicitProduct <> m0:34 var
+def 3372:3397 <> product_step_is_bad_target
+R3405:3415 SpecV2.ExplicitProduct <> ProductStep rec
+binder 3400:3401 <> ps:38
+R3488:3495 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R3460:3462 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R3432:3443 SpecV2.ExplicitProduct <> ps_guarantee proj
+R3446:3455 SpecV2.ExplicitProduct <> pst_target proj
+R3457:3458 SpecV2.ExplicitProduct <> ps:38 var
+R3463:3466 SpecV2.ConditionalSafety <> qbad proj
+R3469:3481 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3483:3486 SpecV2.ExplicitProduct <> Product.Spec var
+R3521:3524 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R3496:3504 SpecV2.ExplicitProduct <> ps_assume proj
+R3507:3516 SpecV2.ExplicitProduct <> pst_target proj
+R3518:3519 SpecV2.ExplicitProduct <> ps:38 var
+R3525:3528 SpecV2.ConditionalSafety <> qbad proj
+R3531:3540 SpecV2.ConditionalSafety <> assume_aut proj
+R3542:3545 SpecV2.ExplicitProduct <> Product.Spec var
+rec 3559:3565 <> TickCtx
+proj 3583:3586 <> tick
+proj 3599:3607 <> cur_state
+proj 3628:3634 <> cur_mem
+proj 3653:3661 <> cur_input
+proj 3682:3691 <> cur_output
+proj 3713:3721 <> cur_trans
+proj 3747:3756 <> cur_assume
+proj 3792:3804 <> cur_guarantee
+proj 3843:3852 <> next_state
+proj 3873:3880 <> next_mem
+proj 3899:3909 <> next_assume
+proj 3945:3958 <> next_guarantee
+R3590:3592 Corelib.Init.Datatypes <> nat ind
+R3611:3619 SpecV2.ReactiveModel <> ProgState proj
+R3621:3621 SpecV2.ExplicitProduct <> Product.P var
+R3638:3644 SpecV2.ReactiveModel <> ProgMem proj
+R3646:3646 SpecV2.ExplicitProduct <> Product.P var
+R3665:3673 SpecV2.ReactiveModel <> ProgInput proj
+R3675:3675 SpecV2.ExplicitProduct <> Product.P var
+R3695:3704 SpecV2.ReactiveModel <> ProgOutput proj
+R3706:3706 SpecV2.ExplicitProduct <> Product.P var
+R3725:3738 SpecV2.ReactiveModel <> ProgTransition proj
+R3740:3740 SpecV2.ExplicitProduct <> Product.P var
+R3760:3767 SpecV2.ConditionalSafety <> AutState proj
+R3770:3779 SpecV2.ConditionalSafety <> assume_aut proj
+R3781:3784 SpecV2.ExplicitProduct <> Product.Spec var
+R3808:3815 SpecV2.ConditionalSafety <> AutState proj
+R3818:3830 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3832:3835 SpecV2.ExplicitProduct <> Product.Spec var
+R3856:3864 SpecV2.ReactiveModel <> ProgState proj
+R3866:3866 SpecV2.ExplicitProduct <> Product.P var
+R3884:3890 SpecV2.ReactiveModel <> ProgMem proj
+R3892:3892 SpecV2.ExplicitProduct <> Product.P var
+R3913:3920 SpecV2.ConditionalSafety <> AutState proj
+R3923:3932 SpecV2.ConditionalSafety <> assume_aut proj
+R3934:3937 SpecV2.ExplicitProduct <> Product.Spec var
+R3962:3969 SpecV2.ConditionalSafety <> AutState proj
+R3972:3984 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3986:3989 SpecV2.ExplicitProduct <> Product.Spec var
+def 4011:4018 <> ctx_from
+R4032:4038 SpecV2.ReactiveModel <> ProgMem proj
+R4040:4040 SpecV2.ExplicitProduct <> Product.P var
+binder 4027:4028 <> m0:52
+R4054:4059 SpecV2.ReactiveModel <> stream def
+R4062:4070 SpecV2.ReactiveModel <> ProgInput proj
+R4072:4072 SpecV2.ExplicitProduct <> Product.P var
+binder 4050:4050 <> u:53
+R4087:4089 Corelib.Init.Datatypes <> nat ind
+binder 4083:4083 <> k:54
+R4100:4106 SpecV2.ExplicitProduct <> TickCtx rec
+R4126:4143 SpecV2.ExplicitProduct <> product_state_from def
+R4150:4150 SpecV2.ExplicitProduct <> k:54 var
+R4148:4148 SpecV2.ExplicitProduct <> u:53 var
+R4145:4146 SpecV2.ExplicitProduct <> m0:52 var
+binder 4119:4121 <> src:55
+R4170:4187 SpecV2.ExplicitProduct <> product_state_from def
+R4195:4195 Corelib.Init.Datatypes <> S constr
+R4197:4197 SpecV2.ExplicitProduct <> k:54 var
+R4192:4192 SpecV2.ExplicitProduct <> u:53 var
+R4189:4190 SpecV2.ExplicitProduct <> m0:52 var
+binder 4163:4165 <> tgt:56
+R4216:4219 SpecV2.ExplicitProduct <> tick proj
+R4216:4219 SpecV2.ExplicitProduct <> tick proj
+R4216:4219 SpecV2.ExplicitProduct <> tick proj
+R4233:4241 SpecV2.ExplicitProduct <> cur_state proj
+R4233:4241 SpecV2.ExplicitProduct <> cur_state proj
+R4265:4271 SpecV2.ExplicitProduct <> cur_mem proj
+R4265:4271 SpecV2.ExplicitProduct <> cur_mem proj
+R4301:4309 SpecV2.ExplicitProduct <> cur_input proj
+R4301:4309 SpecV2.ExplicitProduct <> cur_input proj
+R4325:4334 SpecV2.ExplicitProduct <> cur_output proj
+R4325:4334 SpecV2.ExplicitProduct <> cur_output proj
+R4364:4372 SpecV2.ExplicitProduct <> cur_trans proj
+R4364:4372 SpecV2.ExplicitProduct <> cur_trans proj
+R4404:4413 SpecV2.ExplicitProduct <> cur_assume proj
+R4404:4413 SpecV2.ExplicitProduct <> cur_assume proj
+R4439:4451 SpecV2.ExplicitProduct <> cur_guarantee proj
+R4439:4451 SpecV2.ExplicitProduct <> cur_guarantee proj
+R4480:4489 SpecV2.ExplicitProduct <> next_state proj
+R4480:4489 SpecV2.ExplicitProduct <> next_state proj
+R4513:4520 SpecV2.ExplicitProduct <> next_mem proj
+R4513:4520 SpecV2.ExplicitProduct <> next_mem proj
+R4554:4564 SpecV2.ExplicitProduct <> next_assume proj
+R4554:4564 SpecV2.ExplicitProduct <> next_assume proj
+R4590:4603 SpecV2.ExplicitProduct <> next_guarantee proj
+R4590:4603 SpecV2.ExplicitProduct <> next_guarantee proj
+R4224:4224 SpecV2.ExplicitProduct <> k:54 var
+R4246:4252 SpecV2.ExplicitProduct <> ps_prog proj
+R4254:4256 SpecV2.ExplicitProduct <> src:55 var
+R4276:4283 SpecV2.ReactiveModel <> mem_from def
+R4292:4292 SpecV2.ExplicitProduct <> k:54 var
+R4290:4290 SpecV2.ExplicitProduct <> u:53 var
+R4287:4288 SpecV2.ExplicitProduct <> m0:52 var
+R4285:4285 SpecV2.ExplicitProduct <> Product.P var
+R4314:4314 SpecV2.ExplicitProduct <> u:53 var
+R4316:4316 SpecV2.ExplicitProduct <> k:54 var
+R4339:4346 SpecV2.ReactiveModel <> out_from def
+R4355:4355 SpecV2.ExplicitProduct <> k:54 var
+R4353:4353 SpecV2.ExplicitProduct <> u:53 var
+R4350:4351 SpecV2.ExplicitProduct <> m0:52 var
+R4348:4348 SpecV2.ExplicitProduct <> Product.P var
+R4377:4386 SpecV2.ReactiveModel <> trans_from def
+R4395:4395 SpecV2.ExplicitProduct <> k:54 var
+R4393:4393 SpecV2.ExplicitProduct <> u:53 var
+R4390:4391 SpecV2.ExplicitProduct <> m0:52 var
+R4388:4388 SpecV2.ExplicitProduct <> Product.P var
+R4418:4426 SpecV2.ExplicitProduct <> ps_assume proj
+R4428:4430 SpecV2.ExplicitProduct <> src:55 var
+R4456:4467 SpecV2.ExplicitProduct <> ps_guarantee proj
+R4469:4471 SpecV2.ExplicitProduct <> src:55 var
+R4494:4500 SpecV2.ExplicitProduct <> ps_prog proj
+R4502:4504 SpecV2.ExplicitProduct <> tgt:56 var
+R4525:4532 SpecV2.ReactiveModel <> mem_from def
+R4542:4542 Corelib.Init.Datatypes <> S constr
+R4544:4544 SpecV2.ExplicitProduct <> k:54 var
+R4539:4539 SpecV2.ExplicitProduct <> u:53 var
+R4536:4537 SpecV2.ExplicitProduct <> m0:52 var
+R4534:4534 SpecV2.ExplicitProduct <> Product.P var
+R4569:4577 SpecV2.ExplicitProduct <> ps_assume proj
+R4579:4581 SpecV2.ExplicitProduct <> tgt:56 var
+R4608:4619 SpecV2.ExplicitProduct <> ps_guarantee proj
+R4621:4623 SpecV2.ExplicitProduct <> tgt:56 var
+prf 4791:4809 <> selected_step_at_wf
+binder 4824:4825 <> m0:57
+binder 4827:4827 <> u:58
+binder 4829:4829 <> k:59
+R4832:4846 SpecV2.ExplicitProduct <> product_step_wf def
+R4849:4864 SpecV2.ExplicitProduct <> selected_step_at def
+R4871:4871 SpecV2.ExplicitProduct <> k:59 var
+R4869:4869 SpecV2.ExplicitProduct <> u:58 var
+R4866:4867 SpecV2.ExplicitProduct <> m0:57 var
+R4903:4917 SpecV2.ExplicitProduct <> product_step_wf def
+R4920:4935 SpecV2.ExplicitProduct <> selected_step_at def
+prf 4980:4999 <> selected_step_exists
+binder 5014:5015 <> m0:60
+binder 5017:5017 <> u:61
+binder 5019:5019 <> k:62
+R5028:5034 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R5037:5046 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 5035:5036 <> ps:63
+R5065:5068 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5047:5061 SpecV2.ExplicitProduct <> product_step_wf def
+R5063:5064 SpecV2.ExplicitProduct <> ps:63 var
+R5069:5092 SpecV2.ExplicitProduct <> product_step_realized_at def
+R5101:5102 SpecV2.ExplicitProduct <> ps:63 var
+R5099:5099 SpecV2.ExplicitProduct <> k:62 var
+R5097:5097 SpecV2.ExplicitProduct <> u:61 var
+R5094:5095 SpecV2.ExplicitProduct <> m0:60 var
+R5145:5160 SpecV2.ExplicitProduct <> selected_step_at def
+R5145:5160 SpecV2.ExplicitProduct <> selected_step_at def
+R5194:5212 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+R5194:5212 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+prf 5256:5277 <> coherence_now_from_run
+binder 5292:5293 <> m0:64
+binder 5295:5295 <> u:65
+binder 5297:5297 <> k:66
+R5316:5333 SpecV2.ExplicitProduct <> product_state_from def
+R5340:5340 SpecV2.ExplicitProduct <> k:66 var
+R5338:5338 SpecV2.ExplicitProduct <> u:65 var
+R5335:5336 SpecV2.ExplicitProduct <> m0:64 var
+binder 5310:5311 <> st:67
+R5391:5400 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5378:5380 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5351:5359 SpecV2.ExplicitProduct <> cur_state proj
+R5362:5369 SpecV2.ExplicitProduct <> ctx_from def
+R5376:5376 SpecV2.ExplicitProduct <> k:66 var
+R5374:5374 SpecV2.ExplicitProduct <> u:65 var
+R5371:5372 SpecV2.ExplicitProduct <> m0:64 var
+R5381:5387 SpecV2.ExplicitProduct <> ps_prog proj
+R5389:5390 SpecV2.ExplicitProduct <> st:67 var
+R5444:5453 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5429:5431 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5401:5410 SpecV2.ExplicitProduct <> cur_assume proj
+R5413:5420 SpecV2.ExplicitProduct <> ctx_from def
+R5427:5427 SpecV2.ExplicitProduct <> k:66 var
+R5425:5425 SpecV2.ExplicitProduct <> u:65 var
+R5422:5423 SpecV2.ExplicitProduct <> m0:64 var
+R5432:5440 SpecV2.ExplicitProduct <> ps_assume proj
+R5442:5443 SpecV2.ExplicitProduct <> st:67 var
+R5485:5487 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5454:5466 SpecV2.ExplicitProduct <> cur_guarantee proj
+R5469:5476 SpecV2.ExplicitProduct <> ctx_from def
+R5483:5483 SpecV2.ExplicitProduct <> k:66 var
+R5481:5481 SpecV2.ExplicitProduct <> u:65 var
+R5478:5479 SpecV2.ExplicitProduct <> m0:64 var
+R5488:5499 SpecV2.ExplicitProduct <> ps_guarantee proj
+R5501:5502 SpecV2.ExplicitProduct <> st:67 var
+prf 5571:5591 <> coherence_next_on_run
+binder 5606:5607 <> m0:68
+binder 5609:5609 <> u:69
+binder 5611:5611 <> k:70
+R5630:5647 SpecV2.ExplicitProduct <> product_state_from def
+R5655:5655 Corelib.Init.Datatypes <> S constr
+R5657:5657 SpecV2.ExplicitProduct <> k:70 var
+R5652:5652 SpecV2.ExplicitProduct <> u:69 var
+R5649:5650 SpecV2.ExplicitProduct <> m0:68 var
+binder 5624:5625 <> st:71
+R5710:5719 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5697:5699 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5669:5678 SpecV2.ExplicitProduct <> next_state proj
+R5681:5688 SpecV2.ExplicitProduct <> ctx_from def
+R5695:5695 SpecV2.ExplicitProduct <> k:70 var
+R5693:5693 SpecV2.ExplicitProduct <> u:69 var
+R5690:5691 SpecV2.ExplicitProduct <> m0:68 var
+R5700:5706 SpecV2.ExplicitProduct <> ps_prog proj
+R5708:5709 SpecV2.ExplicitProduct <> st:71 var
+R5764:5773 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5749:5751 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5720:5730 SpecV2.ExplicitProduct <> next_assume proj
+R5733:5740 SpecV2.ExplicitProduct <> ctx_from def
+R5747:5747 SpecV2.ExplicitProduct <> k:70 var
+R5745:5745 SpecV2.ExplicitProduct <> u:69 var
+R5742:5743 SpecV2.ExplicitProduct <> m0:68 var
+R5752:5760 SpecV2.ExplicitProduct <> ps_assume proj
+R5762:5763 SpecV2.ExplicitProduct <> st:71 var
+R5806:5808 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5774:5787 SpecV2.ExplicitProduct <> next_guarantee proj
+R5790:5797 SpecV2.ExplicitProduct <> ctx_from def
+R5804:5804 SpecV2.ExplicitProduct <> k:70 var
+R5802:5802 SpecV2.ExplicitProduct <> u:69 var
+R5799:5800 SpecV2.ExplicitProduct <> m0:68 var
+R5809:5820 SpecV2.ExplicitProduct <> ps_guarantee proj
+R5822:5823 SpecV2.ExplicitProduct <> st:71 var
+prf 5886:5910 <> selected_step_matches_ctx
+binder 5925:5926 <> m0:72
+binder 5928:5928 <> u:73
+binder 5930:5930 <> k:74
+R5949:5964 SpecV2.ExplicitProduct <> selected_step_at def
+R5971:5971 SpecV2.ExplicitProduct <> k:74 var
+R5969:5969 SpecV2.ExplicitProduct <> u:73 var
+R5966:5967 SpecV2.ExplicitProduct <> m0:72 var
+binder 5943:5944 <> ps:75
+R6033:6042 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6009:6011 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5982:5990 SpecV2.ExplicitProduct <> cur_state proj
+R5993:6000 SpecV2.ExplicitProduct <> ctx_from def
+R6007:6007 SpecV2.ExplicitProduct <> k:74 var
+R6005:6005 SpecV2.ExplicitProduct <> u:73 var
+R6002:6003 SpecV2.ExplicitProduct <> m0:72 var
+R6012:6018 SpecV2.ExplicitProduct <> ps_prog proj
+R6021:6028 SpecV2.ExplicitProduct <> pst_from proj
+R6030:6031 SpecV2.ExplicitProduct <> ps:75 var
+R6081:6090 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6068:6070 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6043:6049 SpecV2.ExplicitProduct <> cur_mem proj
+R6052:6059 SpecV2.ExplicitProduct <> ctx_from def
+R6066:6066 SpecV2.ExplicitProduct <> k:74 var
+R6064:6064 SpecV2.ExplicitProduct <> u:73 var
+R6061:6062 SpecV2.ExplicitProduct <> m0:72 var
+R6071:6077 SpecV2.ExplicitProduct <> pst_mem proj
+R6079:6080 SpecV2.ExplicitProduct <> ps:75 var
+R6133:6142 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6118:6120 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6091:6099 SpecV2.ExplicitProduct <> cur_input proj
+R6102:6109 SpecV2.ExplicitProduct <> ctx_from def
+R6116:6116 SpecV2.ExplicitProduct <> k:74 var
+R6114:6114 SpecV2.ExplicitProduct <> u:73 var
+R6111:6112 SpecV2.ExplicitProduct <> m0:72 var
+R6121:6129 SpecV2.ExplicitProduct <> pst_input proj
+R6131:6132 SpecV2.ExplicitProduct <> ps:75 var
+R6187:6196 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6171:6173 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6143:6152 SpecV2.ExplicitProduct <> cur_output proj
+R6155:6162 SpecV2.ExplicitProduct <> ctx_from def
+R6169:6169 SpecV2.ExplicitProduct <> k:74 var
+R6167:6167 SpecV2.ExplicitProduct <> u:73 var
+R6164:6165 SpecV2.ExplicitProduct <> m0:72 var
+R6174:6183 SpecV2.ExplicitProduct <> pst_output proj
+R6185:6186 SpecV2.ExplicitProduct <> ps:75 var
+R6224:6226 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6197:6205 SpecV2.ExplicitProduct <> cur_trans proj
+R6208:6215 SpecV2.ExplicitProduct <> ctx_from def
+R6222:6222 SpecV2.ExplicitProduct <> k:74 var
+R6220:6220 SpecV2.ExplicitProduct <> u:73 var
+R6217:6218 SpecV2.ExplicitProduct <> m0:72 var
+R6227:6235 SpecV2.ExplicitProduct <> pst_trans proj
+R6237:6238 SpecV2.ExplicitProduct <> ps:75 var
+R6287:6302 SpecV2.ExplicitProduct <> selected_step_at def
+prf 6348:6381 <> dangerous_step_of_global_violation
+R6402:6408 SpecV2.ReactiveModel <> ProgMem proj
+R6410:6410 SpecV2.ExplicitProduct <> Product.P var
+binder 6397:6398 <> m0:76
+R6418:6423 SpecV2.ReactiveModel <> stream def
+R6426:6434 SpecV2.ReactiveModel <> ProgInput proj
+R6436:6436 SpecV2.ExplicitProduct <> Product.P var
+binder 6414:6414 <> u:77
+R6460:6469 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6447:6452 SpecV2.ConditionalSafety <> AvoidA def
+R6459:6459 SpecV2.ExplicitProduct <> u:77 var
+R6454:6457 SpecV2.ExplicitProduct <> Product.Spec var
+R6523:6532 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6470:6471 Corelib.Init.Logic <> ::type_scope:'~'_x not
+R6472:6481 SpecV2.ConditionalSafety <> avoids_bad def
+R6505:6514 SpecV2.ConditionalSafety <> trace_from def
+R6521:6521 SpecV2.ExplicitProduct <> u:77 var
+R6518:6519 SpecV2.ExplicitProduct <> m0:76 var
+R6516:6516 SpecV2.ExplicitProduct <> Product.P var
+R6484:6496 SpecV2.ConditionalSafety <> guarantee_aut proj
+R6498:6501 SpecV2.ExplicitProduct <> Product.Spec var
+R6533:6539 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R6541:6550 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 6540:6540 <> k:78
+R6608:6619 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6551:6574 SpecV2.ExplicitProduct <> product_step_realized_at def
+R6584:6599 SpecV2.ExplicitProduct <> selected_step_at def
+R6606:6606 SpecV2.ExplicitProduct <> k:78 var
+R6604:6604 SpecV2.ExplicitProduct <> u:77 var
+R6601:6602 SpecV2.ExplicitProduct <> m0:76 var
+R6581:6581 SpecV2.ExplicitProduct <> k:78 var
+R6579:6579 SpecV2.ExplicitProduct <> u:77 var
+R6576:6577 SpecV2.ExplicitProduct <> m0:76 var
+R6661:6672 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R6620:6634 SpecV2.ExplicitProduct <> product_step_wf def
+R6637:6652 SpecV2.ExplicitProduct <> selected_step_at def
+R6659:6659 SpecV2.ExplicitProduct <> k:78 var
+R6657:6657 SpecV2.ExplicitProduct <> u:77 var
+R6654:6655 SpecV2.ExplicitProduct <> m0:76 var
+R6673:6698 SpecV2.ExplicitProduct <> product_step_is_bad_target def
+R6701:6716 SpecV2.ExplicitProduct <> selected_step_at def
+R6723:6723 SpecV2.ExplicitProduct <> k:78 var
+R6721:6721 SpecV2.ExplicitProduct <> u:77 var
+R6718:6719 SpecV2.ExplicitProduct <> m0:76 var
+R6774:6800 SpecV2.ConditionalSafety <> bad_successor_of_not_avoidG thm
+R6802:6802 SpecV2.ExplicitProduct <> Product.P var
+R6804:6807 SpecV2.ExplicitProduct <> Product.Spec var
+R6774:6800 SpecV2.ConditionalSafety <> bad_successor_of_not_avoidG thm
+R6802:6802 SpecV2.ExplicitProduct <> Product.P var
+R6804:6807 SpecV2.ExplicitProduct <> Product.Spec var
+R6900:6918 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+R6900:6918 SpecV2.ExplicitProduct <> selected_step_at_wf thm
+R6936:6961 SpecV2.ExplicitProduct <> product_step_is_bad_target def
+R6964:6979 SpecV2.ExplicitProduct <> selected_step_at def
+R6997:7014 SpecV2.ConditionalSafety <> guarantee_state_at def
+R7254:7269 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7104:7108 SpecV2.ConditionalSafety <> qstep proj
+R7230:7230 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7234:7235 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7253:7253 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7236:7243 SpecV2.ReactiveModel <> out_from def
+R7245:7245 SpecV2.ExplicitProduct <> Product.P var
+R7162:7168 SpecV2.ConditionalSafety <> run_aut def
+R7193:7202 SpecV2.ConditionalSafety <> trace_from def
+R7204:7204 SpecV2.ExplicitProduct <> Product.P var
+R7171:7183 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7185:7188 SpecV2.ExplicitProduct <> Product.Spec var
+R7126:7138 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7140:7143 SpecV2.ExplicitProduct <> Product.Spec var
+R7270:7273 SpecV2.ConditionalSafety <> qbad proj
+R7276:7288 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7290:7293 SpecV2.ExplicitProduct <> Product.Spec var
+R7254:7269 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7104:7108 SpecV2.ConditionalSafety <> qstep proj
+R7230:7230 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7234:7235 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7253:7253 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7236:7243 SpecV2.ReactiveModel <> out_from def
+R7245:7245 SpecV2.ExplicitProduct <> Product.P var
+R7162:7168 SpecV2.ConditionalSafety <> run_aut def
+R7193:7202 SpecV2.ConditionalSafety <> trace_from def
+R7204:7204 SpecV2.ExplicitProduct <> Product.P var
+R7171:7183 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7185:7188 SpecV2.ExplicitProduct <> Product.Spec var
+R7126:7138 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7140:7143 SpecV2.ExplicitProduct <> Product.Spec var
+R7270:7273 SpecV2.ConditionalSafety <> qbad proj
+R7276:7288 SpecV2.ConditionalSafety <> guarantee_aut proj
+R7290:7293 SpecV2.ExplicitProduct <> Product.Spec var
+R7339:7339 Corelib.Init.Datatypes <> S constr
+R7339:7339 Corelib.Init.Datatypes <> S constr
+R7357:7363 SpecV2.ExplicitProduct Product <> sec

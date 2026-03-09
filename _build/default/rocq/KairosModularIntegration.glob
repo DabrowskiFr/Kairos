@@ -1,0 +1,533 @@
+DIGEST 654254d21e08c0efa3be1edcea68f876
+FKairos.KairosModularIntegration
+R27:37 Stdlib.Arith.Arith <> <> lib
+R67:78 Kairos.KairosOracle <> <> lib
+R108:132 Kairos.KairosModularArchitecture <> <> lib
+modtype 173:198 <> KAIROS_ORACLE_INSTANCE_SIG
+ax 213:220 KAIROS_ORACLE_INSTANCE_SIG InputVal
+ax 222:230 KAIROS_ORACLE_INSTANCE_SIG OutputVal
+ax 232:234 KAIROS_ORACLE_INSTANCE_SIG Mem
+ax 236:240 KAIROS_ORACLE_INSTANCE_SIG State
+ax 263:266 KAIROS_ORACLE_INSTANCE_SIG Paut
+R270:303 Kairos.KairosOracle KairosOracleModel ProgramAutomaton rec
+R328:332 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R324:326 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Mem defax
+R314:322 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG OutputVal defax
+R305:312 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+ax 347:357 KAIROS_ORACLE_INSTANCE_SIG prog_select
+R366:369 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R361:365 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R373:376 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R370:372 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Mem defax
+R385:388 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R377:384 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+R389:411 Kairos.KairosOracle KairosOracleModel Trans proj
+R413:416 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Paut defax
+ax 431:440 KAIROS_ORACLE_INSTANCE_SIG init_state
+R444:448 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+ax 463:470 KAIROS_ORACLE_INSTANCE_SIG init_mem
+R474:476 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Mem defax
+ax 492:496 KAIROS_ORACLE_INSTANCE_SIG A_aut
+R500:532 Kairos.KairosOracle KairosOracleModel SafetyAutomaton rec
+R534:541 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+ax 556:560 KAIROS_ORACLE_INSTANCE_SIG G_aut
+R564:596 Kairos.KairosOracle KairosOracleModel SafetyAutomaton rec
+R607:609 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R599:606 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+R610:618 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG OutputVal defax
+ax 634:640 KAIROS_ORACLE_INSTANCE_SIG A_aut_e
+R644:681 Kairos.KairosOracle KairosOracleModel SafetyAutomatonEdges rec
+R683:687 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut defax
+ax 702:708 KAIROS_ORACLE_INSTANCE_SIG G_aut_e
+R712:749 Kairos.KairosOracle KairosOracleModel SafetyAutomatonEdges rec
+R751:755 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut defax
+ax 770:777 KAIROS_ORACLE_INSTANCE_SIG select_A
+R810:813 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R785:803 Kairos.KairosOracle KairosOracleModel q proj
+R805:809 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut defax
+R822:825 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R814:821 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+R826:847 Kairos.KairosOracle KairosOracleModel Edge proj
+R849:855 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut_e defax
+ax 870:877 KAIROS_ORACLE_INSTANCE_SIG select_G
+R910:917 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R885:903 Kairos.KairosOracle KairosOracleModel q proj
+R905:909 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut defax
+R918:918 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R939:947 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R927:929 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R919:926 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG InputVal defax
+R930:938 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG OutputVal defax
+R948:969 Kairos.KairosOracle KairosOracleModel Edge proj
+R971:977 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut_e defax
+ax 992:999 KAIROS_ORACLE_INSTANCE_SIG node_inv
+R1012:1015 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1007:1011 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R1063:1066 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1016:1040 Kairos.KairosOracle KairosOracleModel StepCtx rec
+R1058:1062 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut defax
+R1052:1056 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut defax
+R1046:1050 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R1042:1044 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Mem defax
+ax 1086:1087 KAIROS_ORACLE_INSTANCE_SIG FO
+ax 1109:1115 KAIROS_ORACLE_INSTANCE_SIG eval_fo
+R1166:1169 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1119:1143 Kairos.KairosOracle KairosOracleModel StepCtx rec
+R1161:1165 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut defax
+R1155:1159 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut defax
+R1149:1153 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R1145:1147 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Mem defax
+R1172:1175 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1170:1171 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG FO defax
+ax 1194:1201 KAIROS_ORACLE_INSTANCE_SIG shift_fo
+R1208:1211 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1205:1207 Corelib.Init.Datatypes <> nat ind
+R1214:1217 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1212:1213 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG FO defax
+R1218:1219 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG FO defax
+ax 1234:1244 KAIROS_ORACLE_INSTANCE_SIG node_inv_fo
+R1253:1256 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1248:1252 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG State defax
+R1257:1258 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG FO defax
+ax 1269:1287 KAIROS_ORACLE_INSTANCE_SIG node_inv_fo_correct
+binder 1302:1302 <> s:39
+binder 1304:1306 <> ctx:40
+R1336:1340 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R1309:1315 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG eval_fo defax
+R1322:1332 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG node_inv_fo defax
+R1334:1334 Kairos.KairosModularIntegration <> s:39 var
+R1317:1319 Kairos.KairosModularIntegration <> ctx:40 var
+R1341:1348 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG node_inv defax
+R1352:1354 Kairos.KairosModularIntegration <> ctx:40 var
+R1350:1350 Kairos.KairosModularIntegration <> s:39 var
+ax 1366:1393 KAIROS_ORACLE_INSTANCE_SIG shift_fo_correct_if_input_ok
+binder 1408:1408 <> d:43
+binder 1410:1410 <> u:44
+binder 1412:1412 <> k:45
+binder 1414:1416 <> phi:46
+R1471:1480 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1425:1449 Kairos.KairosOracle KairosOracleModel InputOk def
+R1470:1470 Kairos.KairosModularIntegration <> k:45 var
+R1468:1468 Kairos.KairosModularIntegration <> u:44 var
+R1459:1466 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG select_A defax
+R1451:1457 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut_e defax
+R1645:1661 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R1481:1487 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG eval_fo defax
+R1630:1637 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG shift_fo defax
+R1641:1643 Kairos.KairosModularIntegration <> phi:46 var
+R1639:1639 Kairos.KairosModularIntegration <> d:43 var
+R1498:1521 Kairos.KairosOracle KairosOracleModel ctx_at def
+R1618:1618 Kairos.KairosModularIntegration <> k:45 var
+R1616:1616 Kairos.KairosModularIntegration <> u:44 var
+R1607:1614 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG select_G defax
+R1598:1605 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG select_A defax
+R1590:1596 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut_e defax
+R1582:1588 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut_e defax
+R1559:1569 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG prog_select defax
+R1550:1557 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG init_mem defax
+R1539:1548 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG init_state defax
+R1534:1537 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Paut defax
+R1662:1668 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG eval_fo defax
+R1816:1818 Kairos.KairosModularIntegration <> phi:46 var
+R1679:1702 Kairos.KairosOracle KairosOracleModel ctx_at def
+R1801:1803 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R1800:1800 Kairos.KairosModularIntegration <> k:45 var
+R1804:1804 Kairos.KairosModularIntegration <> d:43 var
+R1797:1797 Kairos.KairosModularIntegration <> u:44 var
+R1788:1795 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG select_G defax
+R1779:1786 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG select_A defax
+R1771:1777 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG G_aut_e defax
+R1763:1769 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG A_aut_e defax
+R1740:1750 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG prog_select defax
+R1731:1738 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG init_mem defax
+R1720:1729 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG init_state defax
+R1715:1718 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG Paut defax
+R1825:1850 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG <> modtype
+R1886:1911 Kairos.KairosModularIntegration KAIROS_ORACLE_INSTANCE_SIG <> modtype
+mod 1861:1879 <> KairosModularBridge
+R1938:1952 Kairos.KairosModularArchitecture PROGRAM_SEM_SIG <> modtype
+mod 1925:1933 <> KairosModularBridge.PConcrete
+def 1970:1977 KairosModularBridge.PConcrete InputVal
+R1982:1991 Kairos.KairosModularIntegration X InputVal defax
+def 2009:2017 KairosModularBridge.PConcrete OutputVal
+R2022:2032 Kairos.KairosModularIntegration X OutputVal defax
+def 2050:2052 KairosModularBridge.PConcrete Mem
+R2057:2061 Kairos.KairosModularIntegration X Mem defax
+def 2079:2083 KairosModularBridge.PConcrete State
+R2088:2094 Kairos.KairosModularIntegration X State defax
+def 2112:2117 KairosModularBridge.PConcrete stream
+binder 2120:2120 <> A:49
+R2143:2146 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2140:2142 Corelib.Init.Datatypes <> nat ind
+R2147:2147 Kairos.KairosModularIntegration <> A:49 var
+def 2166:2172 KairosModularBridge.PConcrete StepCtx
+R2177:2201 Kairos.KairosOracle KairosOracleModel StepCtx rec
+R2221:2227 Kairos.KairosModularIntegration X G_aut defax
+R2213:2219 Kairos.KairosModularIntegration X A_aut defax
+R2207:2211 Kairos.KairosModularIntegration KairosModularBridge.PConcrete State def
+R2203:2205 Kairos.KairosModularIntegration KairosModularBridge.PConcrete Mem def
+def 2245:2250 KairosModularBridge.PConcrete ctx_at
+R2261:2284 Kairos.KairosOracle KairosOracleModel ctx_at def
+R2378:2387 Kairos.KairosModularIntegration X select_G defax
+R2367:2376 Kairos.KairosModularIntegration X select_A defax
+R2357:2365 Kairos.KairosModularIntegration X G_aut_e defax
+R2347:2355 Kairos.KairosModularIntegration X A_aut_e defax
+R2325:2337 Kairos.KairosModularIntegration X prog_select defax
+R2314:2323 Kairos.KairosModularIntegration X init_mem defax
+R2301:2312 Kairos.KairosModularIntegration X init_state defax
+R2294:2299 Kairos.KairosModularIntegration X Paut defax
+def 2405:2413 KairosModularBridge.PConcrete run_trace
+R2424:2450 Kairos.KairosOracle KairosOracleModel run_trace def
+R2491:2503 Kairos.KairosModularIntegration X prog_select defax
+R2480:2489 Kairos.KairosModularIntegration X init_mem defax
+R2467:2478 Kairos.KairosModularIntegration X init_state defax
+R2460:2465 Kairos.KairosModularIntegration X Paut defax
+R2512:2520 Kairos.KairosModularIntegration KairosModularBridge.PConcrete <> mod
+R2546:2555 Kairos.KairosModularArchitecture SAFETY_SIG <> modtype
+R2580:2597 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+mod 2533:2541 <> KairosModularBridge.AConcrete
+def 2615:2617 KairosModularBridge.AConcrete Obs
+R2622:2639 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+def 2657:2662 KairosModularBridge.AConcrete stream
+binder 2665:2665 <> A:50
+R2688:2691 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2685:2687 Corelib.Init.Datatypes <> nat ind
+R2692:2692 Kairos.KairosModularIntegration <> A:50 var
+def 2710:2710 KairosModularBridge.AConcrete Q
+R2715:2733 Kairos.KairosOracle KairosOracleModel q proj
+R2735:2741 Kairos.KairosModularIntegration X A_aut defax
+def 2759:2760 KairosModularBridge.AConcrete q0
+R2765:2784 Kairos.KairosOracle KairosOracleModel q0 proj
+R2786:2792 Kairos.KairosModularIntegration X A_aut defax
+def 2810:2812 KairosModularBridge.AConcrete bad
+R2817:2837 Kairos.KairosOracle KairosOracleModel bad proj
+R2839:2845 Kairos.KairosModularIntegration X A_aut defax
+def 2863:2867 KairosModularBridge.AConcrete delta
+R2875:2875 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Q def
+binder 2870:2871 <> qa:51
+R2883:2885 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Obs def
+binder 2879:2879 <> i:52
+R2890:2890 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Q def
+R2901:2925 Kairos.KairosOracle KairosOracleModel delta_A def
+R2951:2951 Kairos.KairosModularIntegration <> i:52 var
+R2948:2949 Kairos.KairosModularIntegration <> qa:51 var
+R2937:2946 Kairos.KairosModularIntegration X select_A defax
+R2927:2935 Kairos.KairosModularIntegration X A_aut_e defax
+def 2968:2979 KairosModularBridge.AConcrete aut_state_at
+R2986:2991 Kairos.KairosModularIntegration KairosModularBridge.AConcrete stream def
+R2993:2995 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Obs def
+binder 2982:2982 <> w:53
+R3003:3005 Corelib.Init.Datatypes <> nat ind
+binder 2999:2999 <> k:54
+R3010:3010 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Q def
+R3027:3027 Kairos.KairosModularIntegration <> k:54 var
+R3042:3042 Corelib.Init.Datatypes <> O constr
+R3047:3048 Kairos.KairosModularIntegration KairosModularBridge.AConcrete q0 def
+R3058:3058 Corelib.Init.Datatypes <> S constr
+R3065:3069 Kairos.KairosModularIntegration KairosModularBridge.AConcrete delta def
+R3091:3091 Kairos.KairosModularIntegration <> w:53 var
+R3072:3083 Kairos.KairosModularIntegration <> aut_state_at:55 def
+R3085:3085 Kairos.KairosModularIntegration <> w:53 var
+def 3123:3132 KairosModularBridge.AConcrete avoids_bad
+R3139:3144 Kairos.KairosModularIntegration KairosModularBridge.AConcrete stream def
+R3146:3148 Kairos.KairosModularIntegration KairosModularBridge.AConcrete Obs def
+binder 3135:3135 <> w:57
+binder 3174:3174 <> k:58
+R3193:3196 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R3177:3188 Kairos.KairosModularIntegration KairosModularBridge.AConcrete aut_state_at def
+R3192:3192 Kairos.KairosModularIntegration <> k:58 var
+R3190:3190 Kairos.KairosModularIntegration <> w:57 var
+R3197:3199 Kairos.KairosModularIntegration KairosModularBridge.AConcrete bad def
+R3208:3216 Kairos.KairosModularIntegration KairosModularBridge.AConcrete <> mod
+R3242:3251 Kairos.KairosModularArchitecture SAFETY_SIG <> modtype
+R3295:3297 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R3277:3294 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+R3298:3316 Kairos.KairosModularIntegration KairosModularBridge.PConcrete OutputVal def
+mod 3229:3237 <> KairosModularBridge.GConcrete
+def 3340:3342 KairosModularBridge.GConcrete Obs
+R3366:3368 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R3348:3365 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+R3369:3387 Kairos.KairosModularIntegration KairosModularBridge.PConcrete OutputVal def
+def 3411:3416 KairosModularBridge.GConcrete stream
+binder 3419:3419 <> A:59
+R3442:3445 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R3439:3441 Corelib.Init.Datatypes <> nat ind
+R3446:3446 Kairos.KairosModularIntegration <> A:59 var
+def 3464:3464 KairosModularBridge.GConcrete Q
+R3469:3487 Kairos.KairosOracle KairosOracleModel q proj
+R3489:3495 Kairos.KairosModularIntegration X G_aut defax
+def 3513:3514 KairosModularBridge.GConcrete q0
+R3519:3538 Kairos.KairosOracle KairosOracleModel q0 proj
+R3540:3546 Kairos.KairosModularIntegration X G_aut defax
+def 3564:3566 KairosModularBridge.GConcrete bad
+R3571:3591 Kairos.KairosOracle KairosOracleModel bad proj
+R3593:3599 Kairos.KairosModularIntegration X G_aut defax
+def 3617:3621 KairosModularBridge.GConcrete delta
+R3629:3629 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Q def
+binder 3624:3625 <> qg:60
+R3638:3640 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Obs def
+binder 3633:3634 <> io:61
+R3645:3645 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Q def
+R3656:3680 Kairos.KairosOracle KairosOracleModel delta_G def
+R3706:3707 Kairos.KairosModularIntegration <> io:61 var
+R3703:3704 Kairos.KairosModularIntegration <> qg:60 var
+R3692:3701 Kairos.KairosModularIntegration X select_G defax
+R3682:3690 Kairos.KairosModularIntegration X G_aut_e defax
+def 3724:3735 KairosModularBridge.GConcrete aut_state_at
+R3742:3747 Kairos.KairosModularIntegration KairosModularBridge.GConcrete stream def
+R3749:3751 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Obs def
+binder 3738:3738 <> w:62
+R3759:3761 Corelib.Init.Datatypes <> nat ind
+binder 3755:3755 <> k:63
+R3766:3766 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Q def
+R3783:3783 Kairos.KairosModularIntegration <> k:63 var
+R3798:3798 Corelib.Init.Datatypes <> O constr
+R3803:3804 Kairos.KairosModularIntegration KairosModularBridge.GConcrete q0 def
+R3814:3814 Corelib.Init.Datatypes <> S constr
+R3821:3825 Kairos.KairosModularIntegration KairosModularBridge.GConcrete delta def
+R3847:3847 Kairos.KairosModularIntegration <> w:62 var
+R3828:3839 Kairos.KairosModularIntegration <> aut_state_at:64 def
+R3841:3841 Kairos.KairosModularIntegration <> w:62 var
+def 3879:3888 KairosModularBridge.GConcrete avoids_bad
+R3895:3900 Kairos.KairosModularIntegration KairosModularBridge.GConcrete stream def
+R3902:3904 Kairos.KairosModularIntegration KairosModularBridge.GConcrete Obs def
+binder 3891:3891 <> w:66
+binder 3930:3930 <> k:67
+R3949:3952 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R3933:3944 Kairos.KairosModularIntegration KairosModularBridge.GConcrete aut_state_at def
+R3948:3948 Kairos.KairosModularIntegration <> k:67 var
+R3946:3946 Kairos.KairosModularIntegration <> w:66 var
+R3953:3955 Kairos.KairosModularIntegration KairosModularBridge.GConcrete bad def
+R3964:3972 Kairos.KairosModularIntegration KairosModularBridge.GConcrete <> mod
+R3998:4014 Kairos.KairosModularArchitecture HISTORY_LOGIC_SIG <> modtype
+R4050:4067 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+R4104:4122 Kairos.KairosModularIntegration KairosModularBridge.PConcrete OutputVal def
+R4157:4173 Kairos.KairosModularIntegration KairosModularBridge.PConcrete StepCtx def
+R4207:4222 Kairos.KairosModularIntegration KairosModularBridge.PConcrete ctx_at def
+mod 3985:3993 <> KairosModularBridge.LConcrete
+def 4240:4247 KairosModularBridge.LConcrete InputVal
+R4252:4269 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+def 4287:4295 KairosModularBridge.LConcrete OutputVal
+R4300:4318 Kairos.KairosModularIntegration KairosModularBridge.PConcrete OutputVal def
+def 4336:4342 KairosModularBridge.LConcrete StepCtx
+R4347:4363 Kairos.KairosModularIntegration KairosModularBridge.PConcrete StepCtx def
+def 4381:4386 KairosModularBridge.LConcrete ctx_at
+R4391:4406 Kairos.KairosModularIntegration KairosModularBridge.PConcrete ctx_at def
+def 4424:4430 KairosModularBridge.LConcrete InputOk
+R4440:4443 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R4437:4439 Corelib.Init.Datatypes <> nat ind
+R4444:4451 Kairos.KairosModularIntegration KairosModularBridge.LConcrete InputVal def
+binder 4433:4433 <> u:68
+R4459:4461 Corelib.Init.Datatypes <> nat ind
+binder 4455:4455 <> k:69
+R4480:4504 Kairos.KairosOracle KairosOracleModel InputOk def
+R4529:4529 Kairos.KairosModularIntegration <> k:69 var
+R4527:4527 Kairos.KairosModularIntegration <> u:68 var
+R4516:4525 Kairos.KairosModularIntegration X select_A defax
+R4506:4514 Kairos.KairosModularIntegration X A_aut_e defax
+def 4548:4549 KairosModularBridge.LConcrete FO
+R4554:4557 Kairos.KairosModularIntegration X FO defax
+def 4575:4581 KairosModularBridge.LConcrete eval_fo
+R4586:4594 Kairos.KairosModularIntegration X eval_fo defax
+def 4612:4619 KairosModularBridge.LConcrete shift_fo
+R4624:4633 Kairos.KairosModularIntegration X shift_fo defax
+prf 4649:4676 KairosModularBridge.LConcrete shift_fo_correct_if_input_ok
+binder 4693:4693 <> d:70
+binder 4695:4695 <> u:71
+binder 4697:4697 <> k:72
+binder 4699:4701 <> phi:73
+R4723:4734 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R4712:4718 Kairos.KairosModularIntegration KairosModularBridge.LConcrete InputOk def
+R4722:4722 Kairos.KairosModularIntegration <> k:72 var
+R4720:4720 Kairos.KairosModularIntegration <> u:71 var
+R4772:4776 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R4735:4741 Kairos.KairosModularIntegration KairosModularBridge.LConcrete eval_fo def
+R4757:4764 Kairos.KairosModularIntegration KairosModularBridge.LConcrete shift_fo def
+R4768:4770 Kairos.KairosModularIntegration <> phi:73 var
+R4766:4766 Kairos.KairosModularIntegration <> d:70 var
+R4744:4749 Kairos.KairosModularIntegration KairosModularBridge.LConcrete ctx_at def
+R4753:4753 Kairos.KairosModularIntegration <> k:72 var
+R4751:4751 Kairos.KairosModularIntegration <> u:71 var
+R4777:4783 Kairos.KairosModularIntegration KairosModularBridge.LConcrete eval_fo def
+R4804:4806 Kairos.KairosModularIntegration <> phi:73 var
+R4786:4791 Kairos.KairosModularIntegration KairosModularBridge.LConcrete ctx_at def
+R4797:4799 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R4796:4796 Kairos.KairosModularIntegration <> k:72 var
+R4800:4800 Kairos.KairosModularIntegration <> d:70 var
+R4793:4793 Kairos.KairosModularIntegration <> u:71 var
+R4860:4889 Kairos.KairosModularIntegration X shift_fo_correct_if_input_ok prfax
+R4860:4889 Kairos.KairosModularIntegration X shift_fo_correct_if_input_ok prfax
+R4924:4932 Kairos.KairosModularIntegration KairosModularBridge.LConcrete <> mod
+R4958:4978 Kairos.KairosModularArchitecture OBLIGATION_ENGINE_SIG <> modtype
+R5007:5023 Kairos.KairosModularIntegration KairosModularBridge.PConcrete StepCtx def
+mod 4945:4953 <> KairosModularBridge.EConcrete
+def 5041:5047 KairosModularBridge.EConcrete StepCtx
+R5052:5068 Kairos.KairosModularIntegration KairosModularBridge.PConcrete StepCtx def
+def 5086:5091 KairosModularBridge.EConcrete Clause
+R5110:5113 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R5103:5109 Kairos.KairosModularIntegration KairosModularBridge.EConcrete StepCtx def
+def 5135:5140 KairosModularBridge.EConcrete origin
+R5145:5168 Kairos.KairosOracle KairosOracleModel origin ind
+def 5186:5196 KairosModularBridge.EConcrete GeneratedBy
+R5203:5208 Kairos.KairosModularIntegration KairosModularBridge.EConcrete origin def
+binder 5199:5199 <> o:74
+R5217:5222 Kairos.KairosModularIntegration KairosModularBridge.EConcrete Clause def
+binder 5212:5213 <> cl:75
+R5242:5270 Kairos.KairosOracle KairosOracleModel GeneratedBy ind
+R5280:5289 Kairos.KairosModularIntegration X InputVal defax
+R5299:5309 Kairos.KairosModularIntegration X OutputVal defax
+R5319:5323 Kairos.KairosModularIntegration X Mem defax
+R5333:5339 Kairos.KairosModularIntegration X State defax
+R5349:5354 Kairos.KairosModularIntegration X Paut defax
+R5364:5375 Kairos.KairosModularIntegration X init_state defax
+R5385:5391 Kairos.KairosModularIntegration X A_aut defax
+R5401:5407 Kairos.KairosModularIntegration X G_aut defax
+R5417:5425 Kairos.KairosModularIntegration X A_aut_e defax
+R5435:5443 Kairos.KairosModularIntegration X G_aut_e defax
+R5453:5462 Kairos.KairosModularIntegration X select_A defax
+R5472:5481 Kairos.KairosModularIntegration X select_G defax
+R5491:5500 Kairos.KairosModularIntegration X node_inv defax
+R5510:5513 Kairos.KairosModularIntegration X FO defax
+R5523:5531 Kairos.KairosModularIntegration X eval_fo defax
+R5541:5550 Kairos.KairosModularIntegration X shift_fo defax
+R5560:5572 Kairos.KairosModularIntegration X node_inv_fo defax
+R5582:5582 Kairos.KairosModularIntegration <> o:74 var
+R5584:5585 Kairos.KairosModularIntegration <> cl:75 var
+def 5603:5611 KairosModularBridge.EConcrete Generated
+R5619:5624 Kairos.KairosModularIntegration KairosModularBridge.EConcrete Clause def
+binder 5614:5615 <> cl:76
+R5643:5649 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R5651:5652 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 5650:5650 <> o:77
+R5653:5663 Kairos.KairosModularIntegration KairosModularBridge.EConcrete GeneratedBy def
+R5667:5668 Kairos.KairosModularIntegration <> cl:76 var
+R5665:5665 Kairos.KairosModularIntegration <> o:77 var
+R5677:5685 Kairos.KairosModularIntegration KairosModularBridge.EConcrete <> mod
+R5711:5727 Kairos.KairosModularArchitecture INPUT_OK_LINK_SIG <> modtype
+R5763:5780 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+binder 5821:5821 <> u:78
+binder 5823:5823 <> k:79
+R5854:5857 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R5828:5849 Kairos.KairosModularIntegration KairosModularBridge.AConcrete aut_state_at def
+R5853:5853 Kairos.KairosModularIntegration <> k:79 var
+R5851:5851 Kairos.KairosModularIntegration <> u:78 var
+R5858:5870 Kairos.KairosModularIntegration KairosModularBridge.AConcrete bad def
+R5907:5923 Kairos.KairosModularIntegration KairosModularBridge.LConcrete InputOk def
+mod 5698:5706 <> KairosModularBridge.RConcrete
+def 5941:5948 KairosModularBridge.RConcrete InputVal
+R5953:5970 Kairos.KairosModularIntegration KairosModularBridge.PConcrete InputVal def
+def 5988:5993 KairosModularBridge.RConcrete stream
+binder 5996:5996 <> A:80
+R6019:6022 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6016:6018 Corelib.Init.Datatypes <> nat ind
+R6023:6023 Kairos.KairosModularIntegration <> A:80 var
+def 6041:6048 KairosModularBridge.RConcrete InputOkA
+R6058:6061 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6055:6057 Corelib.Init.Datatypes <> nat ind
+R6062:6069 Kairos.KairosModularIntegration KairosModularBridge.RConcrete InputVal def
+binder 6051:6051 <> u:81
+R6077:6079 Corelib.Init.Datatypes <> nat ind
+binder 6073:6073 <> k:82
+R6124:6127 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R6098:6119 Kairos.KairosModularIntegration KairosModularBridge.AConcrete aut_state_at def
+R6123:6123 Kairos.KairosModularIntegration <> k:82 var
+R6121:6121 Kairos.KairosModularIntegration <> u:81 var
+R6128:6140 Kairos.KairosModularIntegration KairosModularBridge.AConcrete bad def
+def 6158:6165 KairosModularBridge.RConcrete InputOkL
+R6175:6178 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6172:6174 Corelib.Init.Datatypes <> nat ind
+R6179:6186 Kairos.KairosModularIntegration KairosModularBridge.RConcrete InputVal def
+binder 6168:6168 <> u:83
+R6194:6196 Corelib.Init.Datatypes <> nat ind
+binder 6190:6190 <> k:84
+R6215:6231 Kairos.KairosModularIntegration KairosModularBridge.LConcrete InputOk def
+R6235:6235 Kairos.KairosModularIntegration <> k:84 var
+R6233:6233 Kairos.KairosModularIntegration <> u:83 var
+prf 6251:6277 KairosModularBridge.RConcrete input_okA_implies_input_okL
+binder 6294:6294 <> u:85
+binder 6296:6296 <> k:86
+R6311:6314 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6299:6306 Kairos.KairosModularIntegration KairosModularBridge.RConcrete InputOkA def
+R6310:6310 Kairos.KairosModularIntegration <> k:86 var
+R6308:6308 Kairos.KairosModularIntegration <> u:85 var
+R6315:6322 Kairos.KairosModularIntegration KairosModularBridge.RConcrete InputOkL def
+R6326:6326 Kairos.KairosModularIntegration <> k:86 var
+R6324:6324 Kairos.KairosModularIntegration <> u:85 var
+R6390:6398 Kairos.KairosModularIntegration KairosModularBridge.RConcrete <> mod
+R6416:6430 Kairos.KairosModularArchitecture MakeCorrectness <> mod
+R6432:6440 Kairos.KairosModularIntegration KairosModularBridge.PConcrete <> mod
+R6442:6450 Kairos.KairosModularIntegration KairosModularBridge.AConcrete <> mod
+R6452:6460 Kairos.KairosModularIntegration KairosModularBridge.GConcrete <> mod
+R6462:6470 Kairos.KairosModularIntegration KairosModularBridge.LConcrete <> mod
+R6472:6480 Kairos.KairosModularIntegration KairosModularBridge.EConcrete <> mod
+R6482:6490 Kairos.KairosModularIntegration KairosModularBridge.RConcrete <> mod
+mod 6411:6411 <> KairosModularBridge.C
+prf 6502:6518 KairosModularBridge A_aut_state_at_eq
+binder 6533:6533 <> u:87
+binder 6535:6535 <> k:88
+R6570:6578 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6544:6565 Kairos.KairosModularIntegration KairosModularBridge aut_state_at def
+R6569:6569 Kairos.KairosModularIntegration <> k:88 var
+R6567:6567 Kairos.KairosModularIntegration <> u:87 var
+R6579:6610 Kairos.KairosOracle KairosOracleModel aut_state_at_A def
+R6635:6635 Kairos.KairosModularIntegration <> k:88 var
+R6633:6633 Kairos.KairosModularIntegration <> u:87 var
+R6622:6631 Kairos.KairosModularIntegration X select_A defax
+R6612:6620 Kairos.KairosModularIntegration X A_aut_e defax
+prf 6776:6798 KairosModularBridge avoids_bad_A_to_CAvoidA
+binder 6813:6813 <> u:89
+R6875:6884 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6822:6851 Kairos.KairosOracle KairosOracleModel avoids_bad_A def
+R6874:6874 Kairos.KairosModularIntegration <> u:89 var
+R6863:6872 Kairos.KairosModularIntegration X select_A defax
+R6853:6861 Kairos.KairosModularIntegration X A_aut_e defax
+R6885:6892 Kairos.KairosModularIntegration KairosModularBridge AvoidA def
+R6894:6894 Kairos.KairosModularIntegration <> u:89 var
+R6936:6943 Kairos.KairosModularIntegration KairosModularBridge AvoidA def
+R6946:6965 Kairos.KairosModularIntegration KairosModularBridge avoids_bad def
+R6980:6996 Kairos.KairosModularIntegration KairosModularBridge A_aut_state_at_eq thm
+R6980:6996 Kairos.KairosModularIntegration KairosModularBridge A_aut_state_at_eq thm
+R6980:6996 Kairos.KairosModularIntegration KairosModularBridge A_aut_state_at_eq thm
+prf 7035:7088 KairosModularBridge modular_shifted_formula_transfers_to_successor_under_A
+binder 7103:7103 <> u:90
+binder 7105:7107 <> phi:91
+R7169:7178 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R7116:7145 Kairos.KairosOracle KairosOracleModel avoids_bad_A def
+R7168:7168 Kairos.KairosModularIntegration <> u:90 var
+R7157:7166 Kairos.KairosModularIntegration X select_A defax
+R7147:7155 Kairos.KairosModularIntegration X A_aut_e defax
+binder 7186:7186 <> k:92
+R7387:7398 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R7197:7205 Kairos.KairosModularIntegration X eval_fo defax
+R7370:7379 Kairos.KairosModularIntegration X shift_fo defax
+R7383:7385 Kairos.KairosModularIntegration <> phi:91 var
+R7218:7241 Kairos.KairosOracle KairosOracleModel ctx_at def
+R7358:7358 Kairos.KairosModularIntegration <> k:92 var
+R7356:7356 Kairos.KairosModularIntegration <> u:90 var
+R7345:7354 Kairos.KairosModularIntegration X select_G defax
+R7334:7343 Kairos.KairosModularIntegration X select_A defax
+R7324:7332 Kairos.KairosModularIntegration X G_aut_e defax
+R7314:7322 Kairos.KairosModularIntegration X A_aut_e defax
+R7287:7299 Kairos.KairosModularIntegration X prog_select defax
+R7276:7285 Kairos.KairosModularIntegration X init_mem defax
+R7263:7274 Kairos.KairosModularIntegration X init_state defax
+R7256:7261 Kairos.KairosModularIntegration X Paut defax
+R7399:7407 Kairos.KairosModularIntegration X eval_fo defax
+R7575:7577 Kairos.KairosModularIntegration <> phi:91 var
+R7420:7443 Kairos.KairosOracle KairosOracleModel ctx_at def
+R7561:7561 Corelib.Init.Datatypes <> S constr
+R7563:7563 Kairos.KairosModularIntegration <> k:92 var
+R7558:7558 Kairos.KairosModularIntegration <> u:90 var
+R7547:7556 Kairos.KairosModularIntegration X select_G defax
+R7536:7545 Kairos.KairosModularIntegration X select_A defax
+R7526:7534 Kairos.KairosModularIntegration X G_aut_e defax
+R7516:7524 Kairos.KairosModularIntegration X A_aut_e defax
+R7489:7501 Kairos.KairosModularIntegration X prog_select defax
+R7478:7487 Kairos.KairosModularIntegration X init_mem defax
+R7465:7476 Kairos.KairosModularIntegration X init_state defax
+R7458:7463 Kairos.KairosModularIntegration X Paut defax
+R7631:7653 Kairos.KairosModularIntegration KairosModularBridge avoids_bad_A_to_CAvoidA thm
+R7631:7653 Kairos.KairosModularIntegration KairosModularBridge avoids_bad_A_to_CAvoidA thm
+R7688:7735 Kairos.KairosModularIntegration KairosModularBridge shifted_formula_transfers_to_successor_under_A thm
+R7688:7735 Kairos.KairosModularIntegration KairosModularBridge shifted_formula_transfers_to_successor_under_A thm
+R7783:7801 Kairos.KairosModularIntegration KairosModularBridge <> mod

@@ -1,0 +1,13 @@
+DIGEST 9c5b8da47daaa3985958307db2516179
+FKairos.path.Step5TripleValidity
+R27:38 Kairos.KairosOracle <> <> lib
+mod 74:92 <> Step5TripleValidity
+def 108:126 Step5TripleValidity init_node_inv_holds
+R132:168 Kairos.KairosOracle KairosOracleModel init_node_inv_holds thm
+def 184:211 Step5TripleValidity init_support_automaton_holds
+R217:262 Kairos.KairosOracle KairosOracleModel init_support_automaton_holds thm
+def 278:298 Step5TripleValidity node_inv_holds_on_run
+R304:342 Kairos.KairosOracle KairosOracleModel node_inv_holds_on_run thm
+def 358:387 Step5TripleValidity support_automaton_holds_on_run
+R393:440 Kairos.KairosOracle KairosOracleModel support_automaton_holds_on_run thm
+R447:465 Kairos.path.Step5TripleValidity Step5TripleValidity <> mod

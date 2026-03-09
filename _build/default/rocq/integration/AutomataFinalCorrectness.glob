@@ -1,0 +1,50 @@
+DIGEST 7055396255ecdb6aa83361015cd6b27c
+FKairos.integration.AutomataFinalCorrectness
+R27:41 Stdlib.Logic.Classical <> <> lib
+R84:105 Kairos.integration.ThreeLayerArchitecture <> <> lib
+R147:164 Kairos.integration.ThreeLayerFromCore <> <> lib
+R205:233 Kairos.interfaces.ExternalValidationAssumptions <> <> lib
+R305:321 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+R331:357 Kairos.integration.ThreeLayerFromCore KAIROS_CORE_FROM_PROVED_SIG <> modtype
+R359:359 Kairos.integration.AutomataFinalCorrectness P <> mod
+R369:399 Kairos.interfaces.ExternalValidationAssumptions EXTERNAL_VALIDATION_ASSUMPTIONS <> modtype
+R401:401 Kairos.integration.AutomataFinalCorrectness P <> mod
+R403:403 Kairos.integration.AutomataFinalCorrectness K <> mod
+mod 269:296 <> MakeAutomataFinalCorrectness
+prf 422:453 MakeAutomataFinalCorrectness validated_generated_clauses_hold
+binder 468:468 <> u:1
+binder 470:470 <> k:2
+R478:485 Kairos.integration.AutomataFinalCorrectness K Clause def
+binder 473:474 <> cl:3
+R509:518 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R495:505 Kairos.integration.AutomataFinalCorrectness K Generated def
+R507:508 Kairos.integration.AutomataFinalCorrectness <> cl:3 var
+R519:520 Kairos.integration.AutomataFinalCorrectness <> cl:3 var
+R523:530 Kairos.integration.AutomataFinalCorrectness P ctx_at defax
+R534:534 Kairos.integration.AutomataFinalCorrectness <> k:2 var
+R532:532 Kairos.integration.AutomataFinalCorrectness <> u:1 var
+R587:613 Kairos.integration.AutomataFinalCorrectness X oracle_complete_generated prfax
+R587:613 Kairos.integration.AutomataFinalCorrectness X oracle_complete_generated prfax
+R656:674 Kairos.integration.AutomataFinalCorrectness X oracle_sound_true prfax
+R656:674 Kairos.integration.AutomataFinalCorrectness X oracle_sound_true prfax
+prf 743:770 MakeAutomataFinalCorrectness automata_program_correctness
+binder 785:785 <> u:4
+R804:813 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R794:801 Kairos.integration.AutomataFinalCorrectness P AvoidA defax
+R803:803 Kairos.integration.AutomataFinalCorrectness <> u:4 var
+R814:821 Kairos.integration.AutomataFinalCorrectness P AvoidG defax
+R824:834 Kairos.integration.AutomataFinalCorrectness P run_trace defax
+R836:836 Kairos.integration.AutomataFinalCorrectness <> u:4 var
+R880:886 Stdlib.Logic.Classical_Prop <> classic prfax
+R889:896 Kairos.integration.AutomataFinalCorrectness P AvoidG defax
+R899:909 Kairos.integration.AutomataFinalCorrectness P run_trace defax
+R880:886 Stdlib.Logic.Classical_Prop <> classic prfax
+R889:896 Kairos.integration.AutomataFinalCorrectness P AvoidG defax
+R899:909 Kairos.integration.AutomataFinalCorrectness P run_trace defax
+R963:992 Kairos.integration.AutomataFinalCorrectness K bad_local_step_if_G_violated defax
+R963:992 Kairos.integration.AutomataFinalCorrectness K bad_local_step_if_G_violated defax
+R1040:1080 Kairos.integration.AutomataFinalCorrectness K generation_coverage_from_bad_local_step defax
+R1040:1080 Kairos.integration.AutomataFinalCorrectness K generation_coverage_from_bad_local_step defax
+R1182:1213 Kairos.integration.AutomataFinalCorrectness MakeAutomataFinalCorrectness validated_generated_clauses_hold thm
+R1182:1213 Kairos.integration.AutomataFinalCorrectness MakeAutomataFinalCorrectness validated_generated_clauses_hold thm
+R1240:1267 Kairos.integration.AutomataFinalCorrectness MakeAutomataFinalCorrectness <> mod

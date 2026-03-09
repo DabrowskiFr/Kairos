@@ -1,0 +1,976 @@
+DIGEST 7978e75de8ad52ba3a558dcad8fcb498
+FSpecV2.ResettableDelayExample
+R27:32 Stdlib.ZArith.ZArith <> <> lib
+R34:36 Stdlib.micromega.Lia <> <> lib
+R68:80 SpecV2.ReactiveModel <> <> lib
+R84:100 SpecV2.ConditionalSafety <> <> lib
+R104:118 SpecV2.ExplicitProduct <> <> lib
+R122:137 SpecV2.GeneratedClauses <> <> lib
+R141:157 SpecV2.RelationalTriples <> <> lib
+R161:169 SpecV2.Soundness <> <> lib
+ind 776:782 <> RDState
+constr 796:801 <> RDInit
+constr 805:809 <> RDRun
+scheme 776:782 <> RDState_rect
+scheme 776:782 <> RDState_ind
+scheme 776:782 <> RDState_rec
+scheme 776:782 <> RDState_sind
+ind 894:900 <> RDTrans
+constr 914:923 <> TInitReset
+constr 927:935 <> TInitData
+constr 939:947 <> TRunReset
+constr 951:958 <> TRunData
+scheme 894:900 <> RDTrans_rect
+scheme 894:900 <> RDTrans_ind
+scheme 894:900 <> RDTrans_rec
+scheme 894:900 <> RDTrans_sind
+def 1011:1017 <> RDInput
+R1033:1035 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R1029:1032 Corelib.Init.Datatypes <> bool ind
+R1036:1036 Corelib.Numbers.BinNums <> Z ind
+def 1101:1108 <> rd_reset
+R1115:1121 SpecV2.ResettableDelayExample <> RDInput def
+binder 1111:1111 <> i:5
+R1126:1129 Corelib.Init.Datatypes <> bool ind
+R1134:1136 Corelib.Init.Datatypes <> fst def
+R1138:1138 SpecV2.ResettableDelayExample <> i:5 var
+def 1152:1155 <> rd_x
+R1162:1168 SpecV2.ResettableDelayExample <> RDInput def
+binder 1158:1158 <> i:6
+R1173:1173 Corelib.Numbers.BinNums <> Z ind
+R1178:1180 Corelib.Init.Datatypes <> snd def
+R1182:1182 SpecV2.ResettableDelayExample <> i:6 var
+def 1426:1449 <> resettable_delay_program
+R1453:1467 SpecV2.ReactiveModel <> ReactiveProgram rec
+R1481:1489 SpecV2.ReactiveModel <> ProgState proj
+R1481:1489 SpecV2.ReactiveModel <> ProgState proj
+R1481:1489 SpecV2.ReactiveModel <> ProgState proj
+R1507:1513 SpecV2.ReactiveModel <> ProgMem proj
+R1507:1513 SpecV2.ReactiveModel <> ProgMem proj
+R1525:1533 SpecV2.ReactiveModel <> ProgInput proj
+R1525:1533 SpecV2.ReactiveModel <> ProgInput proj
+R1551:1560 SpecV2.ReactiveModel <> ProgOutput proj
+R1551:1560 SpecV2.ReactiveModel <> ProgOutput proj
+R1572:1585 SpecV2.ReactiveModel <> ProgTransition proj
+R1572:1585 SpecV2.ReactiveModel <> ProgTransition proj
+R1603:1612 SpecV2.ReactiveModel <> init_state proj
+R1603:1612 SpecV2.ReactiveModel <> init_state proj
+R1629:1634 SpecV2.ReactiveModel <> select proj
+R1629:1634 SpecV2.ReactiveModel <> select proj
+R1834:1840 SpecV2.ReactiveModel <> enabled proj
+R1834:1840 SpecV2.ReactiveModel <> enabled proj
+R2094:2102 SpecV2.ReactiveModel <> dst_state proj
+R2094:2102 SpecV2.ReactiveModel <> dst_state proj
+R2129:2135 SpecV2.ReactiveModel <> upd_mem proj
+R2129:2135 SpecV2.ReactiveModel <> upd_mem proj
+R2262:2268 SpecV2.ReactiveModel <> out_val proj
+R2262:2268 SpecV2.ReactiveModel <> out_val proj
+R2357:2370 SpecV2.ReactiveModel <> select_enabled proj
+R2357:2370 SpecV2.ReactiveModel <> select_enabled proj
+R1494:1500 SpecV2.ResettableDelayExample <> RDState ind
+R1518:1518 Corelib.Numbers.BinNums <> Z ind
+R1538:1544 SpecV2.ResettableDelayExample <> RDInput def
+R1565:1565 Corelib.Numbers.BinNums <> Z ind
+R1590:1596 SpecV2.ResettableDelayExample <> RDTrans ind
+R1617:1622 SpecV2.ResettableDelayExample <> RDInit constr
+binder 1643:1643 <> s:7
+binder 1647:1647 <> i:8
+R1667:1674 SpecV2.ResettableDelayExample <> rd_reset def
+R1676:1676 SpecV2.ResettableDelayExample <> i:8 var
+R1664:1664 SpecV2.ResettableDelayExample <> s:7 var
+R1691:1696 SpecV2.ResettableDelayExample <> RDInit constr
+R1699:1702 Corelib.Init.Datatypes <> true constr
+R1707:1716 SpecV2.ResettableDelayExample <> TInitReset constr
+R1726:1731 SpecV2.ResettableDelayExample <> RDInit constr
+R1734:1738 Corelib.Init.Datatypes <> false constr
+R1743:1751 SpecV2.ResettableDelayExample <> TInitData constr
+R1761:1765 SpecV2.ResettableDelayExample <> RDRun constr
+R1768:1771 Corelib.Init.Datatypes <> true constr
+R1776:1784 SpecV2.ResettableDelayExample <> TRunReset constr
+R1794:1798 SpecV2.ResettableDelayExample <> RDRun constr
+R1801:1805 Corelib.Init.Datatypes <> false constr
+R1810:1817 SpecV2.ResettableDelayExample <> TRunData constr
+binder 1849:1849 <> t:10
+binder 1851:1851 <> s:11
+binder 1855:1855 <> i:12
+R1878:1885 SpecV2.ResettableDelayExample <> rd_reset def
+R1887:1887 SpecV2.ResettableDelayExample <> i:12 var
+R1875:1875 SpecV2.ResettableDelayExample <> s:11 var
+R1872:1872 SpecV2.ResettableDelayExample <> t:10 var
+R1902:1911 SpecV2.ResettableDelayExample <> TInitReset constr
+R1914:1919 SpecV2.ResettableDelayExample <> RDInit constr
+R1922:1925 Corelib.Init.Datatypes <> true constr
+R1930:1933 Corelib.Init.Logic <> True ind
+R1943:1951 SpecV2.ResettableDelayExample <> TInitData constr
+R1954:1959 SpecV2.ResettableDelayExample <> RDInit constr
+R1962:1966 Corelib.Init.Datatypes <> false constr
+R1971:1974 Corelib.Init.Logic <> True ind
+R1984:1992 SpecV2.ResettableDelayExample <> TRunReset constr
+R1995:1999 SpecV2.ResettableDelayExample <> RDRun constr
+R2002:2005 Corelib.Init.Datatypes <> true constr
+R2010:2013 Corelib.Init.Logic <> True ind
+R2023:2030 SpecV2.ResettableDelayExample <> TRunData constr
+R2033:2037 SpecV2.ResettableDelayExample <> RDRun constr
+R2040:2044 Corelib.Init.Datatypes <> false constr
+R2049:2052 Corelib.Init.Logic <> True ind
+R2073:2077 Corelib.Init.Logic <> False ind
+R2118:2122 SpecV2.ResettableDelayExample <> RDRun constr
+binder 2144:2144 <> t:15
+binder 2148:2148 <> i:16
+R2165:2165 SpecV2.ResettableDelayExample <> t:15 var
+R2180:2189 SpecV2.ResettableDelayExample <> TInitReset constr
+R2193:2201 SpecV2.ResettableDelayExample <> TRunReset constr
+R2216:2224 SpecV2.ResettableDelayExample <> TInitData constr
+R2228:2235 SpecV2.ResettableDelayExample <> TRunData constr
+R2240:2243 SpecV2.ResettableDelayExample <> rd_x def
+R2245:2245 SpecV2.ResettableDelayExample <> i:16 var
+R2240:2243 SpecV2.ResettableDelayExample <> rd_x def
+R2245:2245 SpecV2.ResettableDelayExample <> i:16 var
+binder 2277:2277 <> t:18
+binder 2279:2279 <> m:19
+R2298:2298 SpecV2.ResettableDelayExample <> t:18 var
+R2313:2320 SpecV2.ResettableDelayExample <> TRunData constr
+R2325:2325 SpecV2.ResettableDelayExample <> m:19 var
+binder 2379:2379 <> s:21
+binder 2381:2381 <> m:22
+binder 2383:2383 <> i:23
+R2403:2403 SpecV2.ResettableDelayExample <> i:23 var
+R2400:2400 SpecV2.ResettableDelayExample <> s:21 var
+R2418:2423 SpecV2.ResettableDelayExample <> RDInit constr
+R2426:2426 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2431:2432 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2434:2434 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2427:2430 Corelib.Init.Datatypes <> true constr
+R2439:2439 Corelib.Init.Logic <> I constr
+R2449:2454 SpecV2.ResettableDelayExample <> RDInit constr
+R2457:2457 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2463:2464 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2466:2466 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2458:2462 Corelib.Init.Datatypes <> false constr
+R2471:2471 Corelib.Init.Logic <> I constr
+R2481:2485 SpecV2.ResettableDelayExample <> RDRun constr
+R2488:2488 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2493:2494 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2496:2496 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2489:2492 Corelib.Init.Datatypes <> true constr
+R2501:2501 Corelib.Init.Logic <> I constr
+R2511:2515 SpecV2.ResettableDelayExample <> RDRun constr
+R2518:2518 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2524:2525 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2527:2527 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R2519:2523 Corelib.Init.Datatypes <> false constr
+R2532:2532 Corelib.Init.Logic <> I constr
+ind 2666:2678 <> RDAssumeState
+constr 2692:2694 <> AOk
+constr 2698:2701 <> ABad
+scheme 2666:2678 <> RDAssumeState_rect
+scheme 2666:2678 <> RDAssumeState_ind
+scheme 2666:2678 <> RDAssumeState_rec
+scheme 2666:2678 <> RDAssumeState_sind
+def 2798:2811 <> rd_assume_step
+R2818:2830 SpecV2.ResettableDelayExample <> RDAssumeState ind
+binder 2814:2814 <> q:28
+R2838:2844 SpecV2.ResettableDelayExample <> RDInput def
+binder 2834:2834 <> i:29
+R2849:2861 SpecV2.ResettableDelayExample <> RDAssumeState ind
+R2874:2874 SpecV2.ResettableDelayExample <> q:28 var
+R2885:2888 SpecV2.ResettableDelayExample <> ABad constr
+R2893:2896 SpecV2.ResettableDelayExample <> ABad constr
+R2902:2904 SpecV2.ResettableDelayExample <> AOk constr
+R2918:2925 SpecV2.ResettableDelayExample <> rd_reset def
+R2927:2927 SpecV2.ResettableDelayExample <> i:29 var
+R2993:2995 SpecV2.ResettableDelayExample <> AOk constr
+R2943:2950 Stdlib.ZArith.BinInt Z eq_dec def
+R2953:2956 SpecV2.ResettableDelayExample <> rd_x def
+R2958:2958 SpecV2.ResettableDelayExample <> i:29 var
+R2977:2980 SpecV2.ResettableDelayExample <> ABad constr
+R2968:2970 SpecV2.ResettableDelayExample <> AOk constr
+def 3016:3034 <> rd_assume_automaton
+R3038:3052 SpecV2.ConditionalSafety <> SafetyAutomaton rec
+R3055:3063 SpecV2.ReactiveModel <> ProgInput proj
+R3065:3088 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3146:3147 SpecV2.ConditionalSafety <> q0 proj
+R3146:3147 SpecV2.ConditionalSafety <> q0 proj
+R3161:3164 SpecV2.ConditionalSafety <> qbad proj
+R3161:3164 SpecV2.ConditionalSafety <> qbad proj
+R3179:3183 SpecV2.ConditionalSafety <> qstep proj
+R3179:3183 SpecV2.ConditionalSafety <> qstep proj
+R3208:3214 SpecV2.ConditionalSafety <> qeq_dec proj
+R3208:3214 SpecV2.ConditionalSafety <> qeq_dec proj
+R3127:3139 SpecV2.ResettableDelayExample <> RDAssumeState ind
+R3152:3154 SpecV2.ResettableDelayExample <> AOk constr
+R3169:3172 SpecV2.ResettableDelayExample <> ABad constr
+R3188:3201 SpecV2.ResettableDelayExample <> rd_assume_step def
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3115:3122 SpecV2.ConditionalSafety <> AutState proj
+R3146:3147 SpecV2.ConditionalSafety <> q0 proj
+R3146:3147 SpecV2.ConditionalSafety <> q0 proj
+R3161:3164 SpecV2.ConditionalSafety <> qbad proj
+R3161:3164 SpecV2.ConditionalSafety <> qbad proj
+R3179:3183 SpecV2.ConditionalSafety <> qstep proj
+R3179:3183 SpecV2.ConditionalSafety <> qstep proj
+R3208:3214 SpecV2.ConditionalSafety <> qeq_dec proj
+R3208:3214 SpecV2.ConditionalSafety <> qeq_dec proj
+R3127:3139 SpecV2.ResettableDelayExample <> RDAssumeState ind
+R3152:3154 SpecV2.ResettableDelayExample <> AOk constr
+R3169:3172 SpecV2.ResettableDelayExample <> ABad constr
+R3188:3201 SpecV2.ResettableDelayExample <> rd_assume_step def
+ind 3405:3420 <> RDGuaranteeState
+constr 3434:3438 <> GInit
+constr 3442:3452 <> GAfterReset
+constr 3456:3465 <> GAfterData
+constr 3482:3485 <> GBad
+R3477:3477 Corelib.Numbers.BinNums <> Z ind
+binder 3468:3473 <> prev_x:33
+scheme 3405:3420 <> RDGuaranteeState_rect
+scheme 3405:3420 <> RDGuaranteeState_ind
+scheme 3405:3420 <> RDGuaranteeState_rec
+scheme 3405:3420 <> RDGuaranteeState_sind
+def 3638:3654 <> rd_guarantee_step
+R3665:3680 SpecV2.ResettableDelayExample <> RDGuaranteeState ind
+binder 3661:3661 <> q:34
+R3728:3730 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R3694:3702 SpecV2.ReactiveModel <> ProgInput proj
+R3704:3727 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R3731:3740 SpecV2.ReactiveModel <> ProgOutput proj
+R3742:3765 SpecV2.ResettableDelayExample <> resettable_delay_program def
+binder 3688:3690 <> obs:35
+R3774:3789 SpecV2.ResettableDelayExample <> RDGuaranteeState ind
+R3811:3813 SpecV2.ResettableDelayExample <> obs:35 var
+R3801:3801 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3803:3804 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3806:3806 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R3826:3826 SpecV2.ResettableDelayExample <> q:34 var
+R3837:3840 SpecV2.ResettableDelayExample <> GBad constr
+R3845:3848 SpecV2.ResettableDelayExample <> GBad constr
+R3854:3858 SpecV2.ResettableDelayExample <> GInit constr
+R3872:3879 SpecV2.ResettableDelayExample <> rd_reset def
+R3948:3957 SpecV2.ResettableDelayExample <> GAfterData constr
+R3960:3963 SpecV2.ResettableDelayExample <> rd_x def
+R3897:3904 Stdlib.ZArith.BinInt Z eq_dec def
+R3932:3935 SpecV2.ResettableDelayExample <> GBad constr
+R3915:3925 SpecV2.ResettableDelayExample <> GAfterReset constr
+R3972:3982 SpecV2.ResettableDelayExample <> GAfterReset constr
+R3996:4003 SpecV2.ResettableDelayExample <> rd_reset def
+R4075:4082 Stdlib.ZArith.BinInt Z eq_dec def
+R4118:4121 SpecV2.ResettableDelayExample <> GBad constr
+R4093:4102 SpecV2.ResettableDelayExample <> GAfterData constr
+R4105:4108 SpecV2.ResettableDelayExample <> rd_x def
+R4021:4028 Stdlib.ZArith.BinInt Z eq_dec def
+R4056:4059 SpecV2.ResettableDelayExample <> GBad constr
+R4039:4049 SpecV2.ResettableDelayExample <> GAfterReset constr
+R4127:4136 SpecV2.ResettableDelayExample <> GAfterData constr
+R4152:4159 SpecV2.ResettableDelayExample <> rd_reset def
+R4231:4238 Stdlib.ZArith.BinInt Z eq_dec def
+R4274:4277 SpecV2.ResettableDelayExample <> GBad constr
+R4249:4258 SpecV2.ResettableDelayExample <> GAfterData constr
+R4261:4264 SpecV2.ResettableDelayExample <> rd_x def
+R4177:4184 Stdlib.ZArith.BinInt Z eq_dec def
+R4212:4215 SpecV2.ResettableDelayExample <> GBad constr
+R4195:4205 SpecV2.ResettableDelayExample <> GAfterReset constr
+def 4298:4319 <> rd_guarantee_automaton
+R4325:4339 SpecV2.ConditionalSafety <> SafetyAutomaton rec
+R4382:4384 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R4348:4356 SpecV2.ReactiveModel <> ProgInput proj
+R4358:4381 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R4385:4394 SpecV2.ReactiveModel <> ProgOutput proj
+R4396:4419 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4480:4481 SpecV2.ConditionalSafety <> q0 proj
+R4480:4481 SpecV2.ConditionalSafety <> q0 proj
+R4497:4500 SpecV2.ConditionalSafety <> qbad proj
+R4497:4500 SpecV2.ConditionalSafety <> qbad proj
+R4515:4519 SpecV2.ConditionalSafety <> qstep proj
+R4515:4519 SpecV2.ConditionalSafety <> qstep proj
+R4547:4553 SpecV2.ConditionalSafety <> qeq_dec proj
+R4547:4553 SpecV2.ConditionalSafety <> qeq_dec proj
+R4458:4473 SpecV2.ResettableDelayExample <> RDGuaranteeState ind
+R4486:4490 SpecV2.ResettableDelayExample <> GInit constr
+R4505:4508 SpecV2.ResettableDelayExample <> GBad constr
+R4524:4540 SpecV2.ResettableDelayExample <> rd_guarantee_step def
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4446:4453 SpecV2.ConditionalSafety <> AutState proj
+R4480:4481 SpecV2.ConditionalSafety <> q0 proj
+R4480:4481 SpecV2.ConditionalSafety <> q0 proj
+R4497:4500 SpecV2.ConditionalSafety <> qbad proj
+R4497:4500 SpecV2.ConditionalSafety <> qbad proj
+R4515:4519 SpecV2.ConditionalSafety <> qstep proj
+R4515:4519 SpecV2.ConditionalSafety <> qstep proj
+R4547:4553 SpecV2.ConditionalSafety <> qeq_dec proj
+R4547:4553 SpecV2.ConditionalSafety <> qeq_dec proj
+R4458:4473 SpecV2.ResettableDelayExample <> RDGuaranteeState ind
+R4486:4490 SpecV2.ResettableDelayExample <> GInit constr
+R4505:4508 SpecV2.ResettableDelayExample <> GBad constr
+R4524:4540 SpecV2.ResettableDelayExample <> rd_guarantee_step def
+R4591:4598 Stdlib.ZArith.BinInt Z eq_dec def
+R4591:4598 Stdlib.ZArith.BinInt Z eq_dec def
+prf 4789:4814 <> rd_guarantee_step_not_init
+binder 4827:4827 <> q:38
+binder 4829:4831 <> obs:39
+R4861:4864 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R4838:4854 SpecV2.ResettableDelayExample <> rd_guarantee_step def
+R4858:4860 SpecV2.ResettableDelayExample <> obs:39 var
+R4856:4856 SpecV2.ResettableDelayExample <> q:38 var
+R4865:4869 SpecV2.ResettableDelayExample <> GInit constr
+R4984:4991 Stdlib.ZArith.BinInt Z eq_dec def
+R4984:4991 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+R5018:5025 Stdlib.ZArith.BinInt Z eq_dec def
+def 5137:5157 <> resettable_delay_spec
+R5161:5175 SpecV2.ConditionalSafety <> ConditionalSpec rec
+R5177:5200 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5265:5277 SpecV2.ConditionalSafety <> guarantee_aut proj
+R5265:5277 SpecV2.ConditionalSafety <> guarantee_aut proj
+R5310:5328 SpecV2.ConditionalSafety <> assume_init_not_bad proj
+R5310:5328 SpecV2.ConditionalSafety <> assume_init_not_bad proj
+R5340:5361 SpecV2.ConditionalSafety <> guarantee_init_not_bad proj
+R5340:5361 SpecV2.ConditionalSafety <> guarantee_init_not_bad proj
+R5240:5258 SpecV2.ResettableDelayExample <> rd_assume_automaton def
+R5282:5303 SpecV2.ResettableDelayExample <> rd_guarantee_automaton def
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5226:5235 SpecV2.ConditionalSafety <> assume_aut proj
+R5265:5277 SpecV2.ConditionalSafety <> guarantee_aut proj
+R5265:5277 SpecV2.ConditionalSafety <> guarantee_aut proj
+R5310:5328 SpecV2.ConditionalSafety <> assume_init_not_bad proj
+R5310:5328 SpecV2.ConditionalSafety <> assume_init_not_bad proj
+R5340:5361 SpecV2.ConditionalSafety <> guarantee_init_not_bad proj
+R5340:5361 SpecV2.ConditionalSafety <> guarantee_init_not_bad proj
+R5240:5258 SpecV2.ResettableDelayExample <> rd_assume_automaton def
+R5282:5303 SpecV2.ResettableDelayExample <> rd_guarantee_automaton def
+def 5543:5567 <> resettable_delay_node_inv
+R5578:5586 SpecV2.ReactiveModel <> ProgState proj
+R5588:5611 SpecV2.ResettableDelayExample <> resettable_delay_program def
+binder 5574:5574 <> s:40
+R5626:5632 SpecV2.ExplicitProduct <> TickCtx rec
+R5634:5657 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R5659:5679 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+binder 5619:5621 <> ctx:41
+R5704:5704 SpecV2.ResettableDelayExample <> s:40 var
+R5715:5720 SpecV2.ResettableDelayExample <> RDInit constr
+R5725:5728 Corelib.Init.Logic <> True ind
+R5734:5738 SpecV2.ResettableDelayExample <> RDRun constr
+R5755:5767 SpecV2.ExplicitProduct <> cur_guarantee proj
+R5769:5771 SpecV2.ResettableDelayExample <> ctx:41 var
+R5786:5796 SpecV2.ResettableDelayExample <> GAfterReset constr
+R5812:5814 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5801:5807 SpecV2.ExplicitProduct <> cur_mem proj
+R5809:5811 SpecV2.ResettableDelayExample <> ctx:41 var
+R5825:5834 SpecV2.ResettableDelayExample <> GAfterData constr
+R5852:5854 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R5841:5847 SpecV2.ExplicitProduct <> cur_mem proj
+R5849:5851 SpecV2.ResettableDelayExample <> ctx:41 var
+R5870:5873 Corelib.Init.Logic <> True ind
+prf 5964:5988 <> rd_state_after_first_tick
+binder 6001:6002 <> m0:43
+binder 6004:6004 <> u:44
+binder 6006:6006 <> k:45
+R6059:6061 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6013:6022 SpecV2.ReactiveModel <> state_from def
+R6055:6055 Corelib.Init.Datatypes <> S constr
+R6057:6057 SpecV2.ResettableDelayExample <> k:45 var
+R6052:6052 SpecV2.ResettableDelayExample <> u:44 var
+R6049:6050 SpecV2.ResettableDelayExample <> m0:43 var
+R6024:6047 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6062:6066 SpecV2.ResettableDelayExample <> RDRun constr
+R6102:6111 SpecV2.ReactiveModel <> state_from def
+R6124:6133 SpecV2.ReactiveModel <> cfg_from_S thm
+R6124:6133 SpecV2.ReactiveModel <> cfg_from_S thm
+R6124:6133 SpecV2.ReactiveModel <> cfg_from_S thm
+R6148:6155 SpecV2.ReactiveModel <> cfg_from def
+R6157:6180 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6148:6155 SpecV2.ReactiveModel <> cfg_from def
+R6157:6180 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 6297:6311 <> rd_out_on_reset
+binder 6324:6325 <> m0:46
+binder 6327:6327 <> u:47
+binder 6329:6329 <> k:48
+binder 6331:6331 <> x:49
+R6353:6360 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6341:6343 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6338:6338 SpecV2.ResettableDelayExample <> u:47 var
+R6340:6340 SpecV2.ResettableDelayExample <> k:48 var
+R6344:6344 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6349:6350 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6352:6352 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6345:6348 Corelib.Init.Datatypes <> true constr
+R6351:6351 SpecV2.ResettableDelayExample <> x:49 var
+R6401:6403 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6361:6368 SpecV2.ReactiveModel <> out_from def
+R6400:6400 SpecV2.ResettableDelayExample <> k:48 var
+R6398:6398 SpecV2.ResettableDelayExample <> u:47 var
+R6395:6396 SpecV2.ResettableDelayExample <> m0:46 var
+R6370:6393 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6445:6452 SpecV2.ReactiveModel <> out_from def
+R6455:6464 SpecV2.ReactiveModel <> trans_from def
+R6479:6486 SpecV2.ReactiveModel <> cfg_from def
+R6488:6511 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6479:6486 SpecV2.ReactiveModel <> cfg_from def
+R6488:6511 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 6639:6656 <> rd_mem_after_reset
+binder 6669:6670 <> m0:50
+binder 6672:6672 <> u:51
+binder 6674:6674 <> k:52
+binder 6676:6676 <> x:53
+R6698:6705 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6686:6688 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6683:6683 SpecV2.ResettableDelayExample <> u:51 var
+R6685:6685 SpecV2.ResettableDelayExample <> k:52 var
+R6689:6689 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6694:6695 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6697:6697 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R6690:6693 Corelib.Init.Datatypes <> true constr
+R6696:6696 SpecV2.ResettableDelayExample <> x:53 var
+R6750:6752 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R6706:6713 SpecV2.ReactiveModel <> mem_from def
+R6746:6746 Corelib.Init.Datatypes <> S constr
+R6748:6748 SpecV2.ResettableDelayExample <> k:52 var
+R6743:6743 SpecV2.ResettableDelayExample <> u:51 var
+R6740:6741 SpecV2.ResettableDelayExample <> m0:50 var
+R6715:6738 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6794:6801 SpecV2.ReactiveModel <> mem_from def
+R6814:6823 SpecV2.ReactiveModel <> cfg_from_S thm
+R6814:6823 SpecV2.ReactiveModel <> cfg_from_S thm
+R6814:6823 SpecV2.ReactiveModel <> cfg_from_S thm
+R6838:6845 SpecV2.ReactiveModel <> cfg_from def
+R6847:6870 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R6838:6845 SpecV2.ReactiveModel <> cfg_from def
+R6847:6870 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 7025:7045 <> rd_mem_after_nonreset
+binder 7058:7059 <> m0:54
+binder 7061:7061 <> u:55
+binder 7063:7063 <> k:56
+binder 7065:7065 <> x:57
+R7088:7095 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R7075:7077 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7072:7072 SpecV2.ResettableDelayExample <> u:55 var
+R7074:7074 SpecV2.ResettableDelayExample <> k:56 var
+R7078:7078 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7084:7085 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7087:7087 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7079:7083 Corelib.Init.Datatypes <> false constr
+R7086:7086 SpecV2.ResettableDelayExample <> x:57 var
+R7140:7142 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7096:7103 SpecV2.ReactiveModel <> mem_from def
+R7136:7136 Corelib.Init.Datatypes <> S constr
+R7138:7138 SpecV2.ResettableDelayExample <> k:56 var
+R7133:7133 SpecV2.ResettableDelayExample <> u:55 var
+R7130:7131 SpecV2.ResettableDelayExample <> m0:54 var
+R7105:7128 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7143:7143 SpecV2.ResettableDelayExample <> x:57 var
+R7184:7191 SpecV2.ReactiveModel <> mem_from def
+R7204:7213 SpecV2.ReactiveModel <> cfg_from_S thm
+R7204:7213 SpecV2.ReactiveModel <> cfg_from_S thm
+R7204:7213 SpecV2.ReactiveModel <> cfg_from_S thm
+R7228:7235 SpecV2.ReactiveModel <> cfg_from def
+R7237:7260 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7228:7235 SpecV2.ReactiveModel <> cfg_from def
+R7237:7260 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 7467:7488 <> rd_out_on_nonreset_run
+binder 7501:7502 <> m0:58
+binder 7504:7504 <> u:59
+binder 7506:7506 <> k:60
+binder 7508:7508 <> x:61
+R7565:7572 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R7557:7559 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7515:7524 SpecV2.ReactiveModel <> state_from def
+R7556:7556 SpecV2.ResettableDelayExample <> k:60 var
+R7554:7554 SpecV2.ResettableDelayExample <> u:59 var
+R7551:7552 SpecV2.ResettableDelayExample <> m0:58 var
+R7526:7549 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7560:7564 SpecV2.ResettableDelayExample <> RDRun constr
+R7589:7596 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R7576:7578 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7573:7573 SpecV2.ResettableDelayExample <> u:59 var
+R7575:7575 SpecV2.ResettableDelayExample <> k:60 var
+R7579:7579 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7585:7586 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7588:7588 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R7580:7584 Corelib.Init.Datatypes <> false constr
+R7587:7587 SpecV2.ResettableDelayExample <> x:61 var
+R7637:7643 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R7597:7604 SpecV2.ReactiveModel <> out_from def
+R7636:7636 SpecV2.ResettableDelayExample <> k:60 var
+R7634:7634 SpecV2.ResettableDelayExample <> u:59 var
+R7631:7632 SpecV2.ResettableDelayExample <> m0:58 var
+R7606:7629 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7644:7651 SpecV2.ReactiveModel <> mem_from def
+R7683:7683 SpecV2.ResettableDelayExample <> k:60 var
+R7681:7681 SpecV2.ResettableDelayExample <> u:59 var
+R7678:7679 SpecV2.ResettableDelayExample <> m0:58 var
+R7653:7676 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7731:7740 SpecV2.ReactiveModel <> state_from def
+R7743:7750 SpecV2.ReactiveModel <> out_from def
+R7753:7762 SpecV2.ReactiveModel <> trans_from def
+R7765:7772 SpecV2.ReactiveModel <> mem_from def
+R7792:7799 SpecV2.ReactiveModel <> cfg_from def
+R7801:7824 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R7792:7799 SpecV2.ReactiveModel <> cfg_from def
+R7801:7824 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 8164:8190 <> rd_memory_matches_guarantee
+binder 8203:8204 <> m0:62
+binder 8206:8206 <> u:63
+binder 8208:8208 <> k:64
+R8221:8238 SpecV2.ConditionalSafety <> guarantee_state_at def
+R8267:8267 SpecV2.ResettableDelayExample <> k:64 var
+R8265:8265 SpecV2.ResettableDelayExample <> u:63 var
+R8262:8263 SpecV2.ResettableDelayExample <> m0:62 var
+R8240:8260 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R8280:8290 SpecV2.ResettableDelayExample <> GAfterReset constr
+R8335:8337 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R8295:8302 SpecV2.ReactiveModel <> mem_from def
+R8334:8334 SpecV2.ResettableDelayExample <> k:64 var
+R8332:8332 SpecV2.ResettableDelayExample <> u:63 var
+R8329:8330 SpecV2.ResettableDelayExample <> m0:62 var
+R8304:8327 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R8346:8355 SpecV2.ResettableDelayExample <> GAfterData constr
+R8402:8404 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R8362:8369 SpecV2.ReactiveModel <> mem_from def
+R8401:8401 SpecV2.ResettableDelayExample <> k:64 var
+R8399:8399 SpecV2.ResettableDelayExample <> u:63 var
+R8396:8397 SpecV2.ResettableDelayExample <> m0:62 var
+R8371:8394 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R8418:8421 Corelib.Init.Logic <> True ind
+R8499:8499 Corelib.Init.Logic <> I constr
+R8499:8499 Corelib.Init.Logic <> I constr
+R8516:8533 SpecV2.ConditionalSafety <> guarantee_state_at def
+R8535:8555 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R8516:8533 SpecV2.ConditionalSafety <> guarantee_state_at def
+R8535:8555 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R8622:8639 SpecV2.ConditionalSafety <> guarantee_state_at def
+R8749:8756 Stdlib.ZArith.BinInt Z eq_dec def
+R8759:8766 SpecV2.ReactiveModel <> out_from def
+R8768:8791 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R8749:8756 Stdlib.ZArith.BinInt Z eq_dec def
+R8759:8766 SpecV2.ReactiveModel <> out_from def
+R8768:8791 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R8834:8851 SpecV2.ConditionalSafety <> guarantee_state_at def
+R8913:8920 Stdlib.ZArith.BinInt Z eq_dec def
+R8913:8920 Stdlib.ZArith.BinInt Z eq_dec def
+R8975:8992 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R8975:8992 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R9037:9054 SpecV2.ConditionalSafety <> guarantee_state_at def
+R9112:9119 Stdlib.ZArith.BinInt Z eq_dec def
+R9122:9129 SpecV2.ReactiveModel <> out_from def
+R9131:9154 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9189:9189 Corelib.Init.Logic <> I constr
+R9112:9119 Stdlib.ZArith.BinInt Z eq_dec def
+R9122:9129 SpecV2.ReactiveModel <> out_from def
+R9131:9154 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9189:9189 Corelib.Init.Logic <> I constr
+R9208:9225 SpecV2.ConditionalSafety <> guarantee_state_at def
+R9276:9296 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R9276:9296 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R9336:9353 SpecV2.ConditionalSafety <> guarantee_state_at def
+R9463:9470 Stdlib.ZArith.BinInt Z eq_dec def
+R9473:9480 SpecV2.ReactiveModel <> out_from def
+R9482:9505 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9463:9470 Stdlib.ZArith.BinInt Z eq_dec def
+R9473:9480 SpecV2.ReactiveModel <> out_from def
+R9482:9505 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9548:9565 SpecV2.ConditionalSafety <> guarantee_state_at def
+R9627:9634 Stdlib.ZArith.BinInt Z eq_dec def
+R9627:9634 Stdlib.ZArith.BinInt Z eq_dec def
+R9689:9706 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R9689:9706 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R9751:9768 SpecV2.ConditionalSafety <> guarantee_state_at def
+R9826:9833 Stdlib.ZArith.BinInt Z eq_dec def
+R9836:9843 SpecV2.ReactiveModel <> out_from def
+R9845:9868 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9903:9903 Corelib.Init.Logic <> I constr
+R9826:9833 Stdlib.ZArith.BinInt Z eq_dec def
+R9836:9843 SpecV2.ReactiveModel <> out_from def
+R9845:9868 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9903:9903 Corelib.Init.Logic <> I constr
+R9925:9932 Stdlib.ZArith.BinInt Z eq_dec def
+R9935:9942 SpecV2.ReactiveModel <> out_from def
+R9944:9967 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R9925:9932 Stdlib.ZArith.BinInt Z eq_dec def
+R9935:9942 SpecV2.ReactiveModel <> out_from def
+R9944:9967 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10010:10027 SpecV2.ConditionalSafety <> guarantee_state_at def
+R10089:10096 Stdlib.ZArith.BinInt Z eq_dec def
+R10089:10096 Stdlib.ZArith.BinInt Z eq_dec def
+R10151:10171 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R10151:10171 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R10216:10233 SpecV2.ConditionalSafety <> guarantee_state_at def
+R10291:10298 Stdlib.ZArith.BinInt Z eq_dec def
+R10301:10308 SpecV2.ReactiveModel <> out_from def
+R10310:10333 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10368:10368 Corelib.Init.Logic <> I constr
+R10291:10298 Stdlib.ZArith.BinInt Z eq_dec def
+R10301:10308 SpecV2.ReactiveModel <> out_from def
+R10310:10333 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10368:10368 Corelib.Init.Logic <> I constr
+R10385:10402 SpecV2.ConditionalSafety <> guarantee_state_at def
+R10512:10519 Stdlib.ZArith.BinInt Z eq_dec def
+R10522:10529 SpecV2.ReactiveModel <> out_from def
+R10531:10554 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10512:10519 Stdlib.ZArith.BinInt Z eq_dec def
+R10522:10529 SpecV2.ReactiveModel <> out_from def
+R10531:10554 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10597:10614 SpecV2.ConditionalSafety <> guarantee_state_at def
+R10676:10683 Stdlib.ZArith.BinInt Z eq_dec def
+R10676:10683 Stdlib.ZArith.BinInt Z eq_dec def
+R10738:10755 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R10738:10755 SpecV2.ResettableDelayExample <> rd_mem_after_reset thm
+R10800:10817 SpecV2.ConditionalSafety <> guarantee_state_at def
+R10875:10882 Stdlib.ZArith.BinInt Z eq_dec def
+R10885:10892 SpecV2.ReactiveModel <> out_from def
+R10894:10917 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10952:10952 Corelib.Init.Logic <> I constr
+R10875:10882 Stdlib.ZArith.BinInt Z eq_dec def
+R10885:10892 SpecV2.ReactiveModel <> out_from def
+R10894:10917 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10952:10952 Corelib.Init.Logic <> I constr
+R10974:10981 Stdlib.ZArith.BinInt Z eq_dec def
+R10984:10991 SpecV2.ReactiveModel <> out_from def
+R10993:11016 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R10974:10981 Stdlib.ZArith.BinInt Z eq_dec def
+R10984:10991 SpecV2.ReactiveModel <> out_from def
+R10993:11016 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11059:11076 SpecV2.ConditionalSafety <> guarantee_state_at def
+R11138:11145 Stdlib.ZArith.BinInt Z eq_dec def
+R11138:11145 Stdlib.ZArith.BinInt Z eq_dec def
+R11200:11220 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R11200:11220 SpecV2.ResettableDelayExample <> rd_mem_after_nonreset thm
+R11265:11282 SpecV2.ConditionalSafety <> guarantee_state_at def
+R11340:11347 Stdlib.ZArith.BinInt Z eq_dec def
+R11350:11357 SpecV2.ReactiveModel <> out_from def
+R11359:11382 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11417:11417 Corelib.Init.Logic <> I constr
+R11340:11347 Stdlib.ZArith.BinInt Z eq_dec def
+R11350:11357 SpecV2.ReactiveModel <> out_from def
+R11359:11382 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11417:11417 Corelib.Init.Logic <> I constr
+R11434:11451 SpecV2.ConditionalSafety <> guarantee_state_at def
+R11520:11520 Corelib.Init.Logic <> I constr
+R11520:11520 Corelib.Init.Logic <> I constr
+prf 11599:11631 <> resettable_delay_node_inv_on_runs
+binder 11644:11645 <> m0:65
+binder 11647:11647 <> u:66
+binder 11649:11649 <> k:67
+R11656:11680 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R11741:11748 SpecV2.ExplicitProduct <> ctx_from def
+R11750:11773 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11775:11795 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R11797:11798 SpecV2.ResettableDelayExample <> m0:65 var
+R11800:11800 SpecV2.ResettableDelayExample <> u:66 var
+R11802:11802 SpecV2.ResettableDelayExample <> k:67 var
+R11689:11698 SpecV2.ReactiveModel <> state_from def
+R11730:11730 SpecV2.ResettableDelayExample <> k:67 var
+R11728:11728 SpecV2.ResettableDelayExample <> u:66 var
+R11725:11726 SpecV2.ResettableDelayExample <> m0:65 var
+R11700:11723 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11839:11863 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R11866:11873 SpecV2.ExplicitProduct <> ctx_from def
+R11897:11906 SpecV2.ReactiveModel <> state_from def
+R11908:11931 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11897:11906 SpecV2.ReactiveModel <> state_from def
+R11908:11931 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R11952:11952 Corelib.Init.Logic <> I constr
+R11952:11952 Corelib.Init.Logic <> I constr
+R11969:11986 SpecV2.ConditionalSafety <> guarantee_state_at def
+R11988:12008 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R11969:11986 SpecV2.ConditionalSafety <> guarantee_state_at def
+R11988:12008 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R12069:12095 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R12069:12095 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R12170:12196 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R12170:12196 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+prf 12480:12496 <> rd_guarantee_safe
+binder 12509:12510 <> m0:68
+binder 12512:12512 <> u:69
+binder 12514:12514 <> k:70
+R12568:12571 Corelib.Init.Logic <> ::type_scope:x_'<>'_x not
+R12521:12538 SpecV2.ConditionalSafety <> guarantee_state_at def
+R12567:12567 SpecV2.ResettableDelayExample <> k:70 var
+R12565:12565 SpecV2.ResettableDelayExample <> u:69 var
+R12562:12563 SpecV2.ResettableDelayExample <> m0:68 var
+R12540:12560 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R12572:12575 SpecV2.ResettableDelayExample <> GBad constr
+R12667:12684 SpecV2.ConditionalSafety <> guarantee_state_at def
+R12686:12706 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R12667:12684 SpecV2.ConditionalSafety <> guarantee_state_at def
+R12686:12706 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R12773:12790 SpecV2.ConditionalSafety <> guarantee_state_at def
+R12933:12935 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12893:12900 SpecV2.ReactiveModel <> out_from def
+R12902:12925 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R12933:12935 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R12893:12900 SpecV2.ReactiveModel <> out_from def
+R12902:12925 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R12956:12970 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R12956:12970 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R13014:13031 SpecV2.ConditionalSafety <> guarantee_state_at def
+R13092:13099 Stdlib.ZArith.BinInt Z eq_dec def
+R13092:13099 Stdlib.ZArith.BinInt Z eq_dec def
+R13164:13181 SpecV2.ConditionalSafety <> guarantee_state_at def
+R13245:13262 SpecV2.ConditionalSafety <> guarantee_state_at def
+R13405:13407 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13365:13372 SpecV2.ReactiveModel <> out_from def
+R13374:13397 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13405:13407 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13365:13372 SpecV2.ReactiveModel <> out_from def
+R13374:13397 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13428:13442 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R13428:13442 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R13486:13503 SpecV2.ConditionalSafety <> guarantee_state_at def
+R13564:13571 Stdlib.ZArith.BinInt Z eq_dec def
+R13564:13571 Stdlib.ZArith.BinInt Z eq_dec def
+R13688:13690 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13646:13655 SpecV2.ReactiveModel <> state_from def
+R13657:13680 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13691:13695 SpecV2.ResettableDelayExample <> RDRun constr
+R13688:13690 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13646:13655 SpecV2.ReactiveModel <> state_from def
+R13657:13680 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13691:13695 SpecV2.ResettableDelayExample <> RDRun constr
+R13788:13812 SpecV2.ResettableDelayExample <> rd_state_after_first_tick thm
+R13788:13812 SpecV2.ResettableDelayExample <> rd_state_after_first_tick thm
+R13890:13902 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13850:13857 SpecV2.ReactiveModel <> out_from def
+R13859:13882 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13903:13910 SpecV2.ReactiveModel <> mem_from def
+R13912:13935 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13890:13902 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R13850:13857 SpecV2.ReactiveModel <> out_from def
+R13859:13882 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13903:13910 SpecV2.ReactiveModel <> mem_from def
+R13912:13935 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R13962:13983 SpecV2.ResettableDelayExample <> rd_out_on_nonreset_run thm
+R13962:13983 SpecV2.ResettableDelayExample <> rd_out_on_nonreset_run thm
+R14034:14060 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R14034:14060 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R14094:14111 SpecV2.ConditionalSafety <> guarantee_state_at def
+R14229:14246 SpecV2.ConditionalSafety <> guarantee_state_at def
+R14307:14314 Stdlib.ZArith.BinInt Z eq_dec def
+R14307:14314 Stdlib.ZArith.BinInt Z eq_dec def
+R14377:14394 SpecV2.ConditionalSafety <> guarantee_state_at def
+R14537:14539 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14497:14504 SpecV2.ReactiveModel <> out_from def
+R14506:14529 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R14537:14539 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14497:14504 SpecV2.ReactiveModel <> out_from def
+R14506:14529 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R14560:14574 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R14560:14574 SpecV2.ResettableDelayExample <> rd_out_on_reset thm
+R14618:14635 SpecV2.ConditionalSafety <> guarantee_state_at def
+R14696:14703 Stdlib.ZArith.BinInt Z eq_dec def
+R14696:14703 Stdlib.ZArith.BinInt Z eq_dec def
+R14820:14822 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14778:14787 SpecV2.ReactiveModel <> state_from def
+R14789:14812 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R14823:14827 SpecV2.ResettableDelayExample <> RDRun constr
+R14820:14822 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14778:14787 SpecV2.ReactiveModel <> state_from def
+R14789:14812 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R14823:14827 SpecV2.ResettableDelayExample <> RDRun constr
+R14920:14944 SpecV2.ResettableDelayExample <> rd_state_after_first_tick thm
+R14920:14944 SpecV2.ResettableDelayExample <> rd_state_after_first_tick thm
+R15022:15034 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14982:14989 SpecV2.ReactiveModel <> out_from def
+R14991:15014 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15035:15042 SpecV2.ReactiveModel <> mem_from def
+R15044:15067 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15022:15034 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R14982:14989 SpecV2.ReactiveModel <> out_from def
+R14991:15014 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15035:15042 SpecV2.ReactiveModel <> mem_from def
+R15044:15067 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15094:15115 SpecV2.ResettableDelayExample <> rd_out_on_nonreset_run thm
+R15094:15115 SpecV2.ResettableDelayExample <> rd_out_on_nonreset_run thm
+R15166:15192 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R15166:15192 SpecV2.ResettableDelayExample <> rd_memory_matches_guarantee thm
+R15226:15243 SpecV2.ConditionalSafety <> guarantee_state_at def
+R15361:15378 SpecV2.ConditionalSafety <> guarantee_state_at def
+R15439:15446 Stdlib.ZArith.BinInt Z eq_dec def
+R15439:15446 Stdlib.ZArith.BinInt Z eq_dec def
+prf 15608:15629 <> rd_coherence_now_exact
+binder 15642:15643 <> m0:71
+binder 15645:15645 <> u:72
+binder 15647:15647 <> k:73
+binder 15649:15650 <> st:74
+R15739:15746 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R15657:15669 SpecV2.GeneratedClauses <> coherence_now def
+R15676:15683 SpecV2.ExplicitProduct <> ctx_from def
+R15685:15708 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15710:15730 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R15732:15733 SpecV2.ResettableDelayExample <> m0:71 var
+R15735:15735 SpecV2.ResettableDelayExample <> u:72 var
+R15737:15737 SpecV2.ResettableDelayExample <> k:73 var
+R15671:15672 SpecV2.ResettableDelayExample <> st:74 var
+R15749:15757 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R15747:15748 SpecV2.ResettableDelayExample <> st:74 var
+R15759:15776 SpecV2.ExplicitProduct <> product_state_from def
+R15786:15809 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R15811:15831 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R15833:15834 SpecV2.ResettableDelayExample <> m0:71 var
+R15836:15836 SpecV2.ResettableDelayExample <> u:72 var
+R15838:15838 SpecV2.ResettableDelayExample <> k:73 var
+prf 16084:16106 <> rd_target_is_next_state
+binder 16119:16120 <> m0:75
+binder 16122:16122 <> u:76
+binder 16124:16124 <> k:77
+binder 16126:16127 <> ps:78
+R16152:16159 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R16134:16148 SpecV2.ExplicitProduct <> product_step_wf def
+R16150:16151 SpecV2.ResettableDelayExample <> ps:78 var
+R16243:16250 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R16160:16173 SpecV2.GeneratedClauses <> ctx_matches_ps def
+R16241:16242 SpecV2.ResettableDelayExample <> ps:78 var
+R16177:16184 SpecV2.ExplicitProduct <> ctx_from def
+R16186:16209 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R16211:16231 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R16233:16234 SpecV2.ResettableDelayExample <> m0:75 var
+R16236:16236 SpecV2.ResettableDelayExample <> u:76 var
+R16238:16238 SpecV2.ResettableDelayExample <> k:77 var
+R16344:16351 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R16251:16263 SpecV2.GeneratedClauses <> coherence_now def
+R16281:16288 SpecV2.ExplicitProduct <> ctx_from def
+R16290:16313 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R16315:16335 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R16337:16338 SpecV2.ResettableDelayExample <> m0:75 var
+R16340:16340 SpecV2.ResettableDelayExample <> u:76 var
+R16342:16342 SpecV2.ResettableDelayExample <> k:77 var
+R16266:16273 SpecV2.ExplicitProduct <> pst_from proj
+R16275:16276 SpecV2.ResettableDelayExample <> ps:78 var
+R16365:16373 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R16352:16361 SpecV2.ExplicitProduct <> pst_target proj
+R16363:16364 SpecV2.ResettableDelayExample <> ps:78 var
+R16375:16392 SpecV2.ExplicitProduct <> product_state_from def
+R16402:16425 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R16427:16447 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R16449:16450 SpecV2.ResettableDelayExample <> m0:75 var
+R16452:16452 SpecV2.ResettableDelayExample <> u:76 var
+R16455:16455 Corelib.Init.Datatypes <> S constr
+R16457:16457 SpecV2.ResettableDelayExample <> k:77 var
+R16722:16736 SpecV2.ExplicitProduct <> product_step_wf def
+R16786:16807 SpecV2.ExplicitProduct <> product_step_target_of def
+R16828:16845 SpecV2.ExplicitProduct <> product_state_from def
+R16848:16857 SpecV2.ReactiveModel <> state_from def
+R16860:16869 SpecV2.ReactiveModel <> trans_from def
+R16876:16890 SpecV2.ConditionalSafety <> assume_state_at def
+R16893:16910 SpecV2.ConditionalSafety <> guarantee_state_at def
+R16913:16922 SpecV2.ConditionalSafety <> trace_from def
+R16935:16944 SpecV2.ReactiveModel <> cfg_from_S thm
+R16935:16944 SpecV2.ReactiveModel <> cfg_from_S thm
+R16935:16944 SpecV2.ReactiveModel <> cfg_from_S thm
+R16959:16966 SpecV2.ReactiveModel <> cfg_from def
+R16968:16991 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R16959:16966 SpecV2.ReactiveModel <> cfg_from def
+R16968:16991 SpecV2.ResettableDelayExample <> resettable_delay_program def
+prf 17218:17257 <> resettable_delay_generated_triples_valid
+R17276:17289 SpecV2.RelationalTriples <> RelHoareTriple rec
+R17291:17314 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R17316:17336 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+binder 17270:17271 <> ht:79
+R17459:17466 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R17344:17358 SpecV2.RelationalTriples <> GeneratedTriple def
+R17366:17389 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R17397:17417 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R17425:17449 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R17457:17458 SpecV2.ResettableDelayExample <> ht:79 var
+R17468:17478 SpecV2.RelationalTriples <> TripleValid def
+R17480:17503 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R17505:17525 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R17527:17528 SpecV2.ResettableDelayExample <> ht:79 var
+R17637:17637 Corelib.Init.Logic <> I constr
+R17637:17637 Corelib.Init.Logic <> I constr
+R17843:17867 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R17915:17922 SpecV2.ExplicitProduct <> ctx_from def
+R17924:17947 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R17949:17969 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R17977:17977 Corelib.Init.Datatypes <> S constr
+R17879:17885 SpecV2.ExplicitProduct <> ps_prog proj
+R17888:17897 SpecV2.ExplicitProduct <> pst_target proj
+R17843:17867 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R17915:17922 SpecV2.ExplicitProduct <> ctx_from def
+R17924:17947 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R17949:17969 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R17977:17977 Corelib.Init.Datatypes <> S constr
+R17879:17885 SpecV2.ExplicitProduct <> ps_prog proj
+R17888:17897 SpecV2.ExplicitProduct <> pst_target proj
+R18004:18026 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18004:18026 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18004:18026 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18103:18135 SpecV2.ResettableDelayExample <> resettable_delay_node_inv_on_runs thm
+R18103:18135 SpecV2.ResettableDelayExample <> resettable_delay_node_inv_on_runs thm
+R18246:18271 SpecV2.GeneratedClauses <> automaton_coherence_clause def
+R18292:18304 SpecV2.GeneratedClauses <> coherence_now def
+R18342:18349 SpecV2.ExplicitProduct <> ctx_from def
+R18351:18374 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R18376:18396 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R18404:18404 Corelib.Init.Datatypes <> S constr
+R18316:18325 SpecV2.ExplicitProduct <> pst_target proj
+R18292:18304 SpecV2.GeneratedClauses <> coherence_now def
+R18342:18349 SpecV2.ExplicitProduct <> ctx_from def
+R18351:18374 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R18376:18396 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R18404:18404 Corelib.Init.Datatypes <> S constr
+R18316:18325 SpecV2.ExplicitProduct <> pst_target proj
+R18431:18453 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18431:18453 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18431:18453 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18538:18559 SpecV2.ExplicitProduct <> coherence_now_from_run thm
+R18570:18593 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R18595:18615 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R18623:18623 Corelib.Init.Datatypes <> S constr
+R18538:18559 SpecV2.ExplicitProduct <> coherence_now_from_run thm
+R18570:18593 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R18595:18615 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R18623:18623 Corelib.Init.Datatypes <> S constr
+R18783:18805 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18783:18805 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18783:18805 SpecV2.ResettableDelayExample <> rd_target_is_next_state thm
+R18898:18914 SpecV2.ResettableDelayExample <> rd_guarantee_safe thm
+R18922:18922 Corelib.Init.Datatypes <> S constr
+R18898:18914 SpecV2.ResettableDelayExample <> rd_guarantee_safe thm
+R18922:18922 Corelib.Init.Datatypes <> S constr
+prf 19107:19130 <> resettable_delay_correct
+binder 19143:19143 <> u:80
+R19180:19187 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R19150:19155 SpecV2.ConditionalSafety <> AvoidA def
+R19179:19179 SpecV2.ResettableDelayExample <> u:80 var
+R19157:19177 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R19188:19193 SpecV2.ConditionalSafety <> AvoidG def
+R19217:19217 SpecV2.ResettableDelayExample <> u:80 var
+R19195:19215 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R19241:19274 SpecV2.Soundness <> validation_conditional_correctness thm
+R19283:19306 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R19315:19335 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R19344:19368 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R19377:19416 SpecV2.ResettableDelayExample <> resettable_delay_generated_triples_valid thm
+binder 19430:19431 <> m0:81
+binder 19433:19433 <> u:82
+binder 19435:19435 <> k:83
+R19442:19474 SpecV2.ResettableDelayExample <> resettable_delay_node_inv_on_runs thm
+R19481:19481 SpecV2.ResettableDelayExample <> k:83 var
+R19479:19479 SpecV2.ResettableDelayExample <> u:82 var
+R19476:19477 SpecV2.ResettableDelayExample <> m0:81 var
+R19241:19274 SpecV2.Soundness <> validation_conditional_correctness thm
+R19283:19306 SpecV2.ResettableDelayExample <> resettable_delay_program def
+R19315:19335 SpecV2.ResettableDelayExample <> resettable_delay_spec def
+R19344:19368 SpecV2.ResettableDelayExample <> resettable_delay_node_inv def
+R19377:19416 SpecV2.ResettableDelayExample <> resettable_delay_generated_triples_valid thm
+binder 19430:19431 <> m0:84
+binder 19433:19433 <> u:85
+binder 19435:19435 <> k:86
+R19442:19474 SpecV2.ResettableDelayExample <> resettable_delay_node_inv_on_runs thm
+R19481:19481 SpecV2.ResettableDelayExample <> k:86 var
+R19479:19479 SpecV2.ResettableDelayExample <> u:85 var
+R19476:19477 SpecV2.ResettableDelayExample <> m0:84 var
