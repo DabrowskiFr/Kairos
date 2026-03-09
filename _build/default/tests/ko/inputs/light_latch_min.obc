@@ -1,0 +1,24 @@
+node light_latch_min(on: int) returns (light: int)
+contracts
+  requires: G(on = 0 or on = 1);
+  ensures: G(light = 0 or light = 1);
+  ensures: X G(on = 1 => light = 1);
+  ensures: X G(on = 0 => light = prev light);
+states
+  Init(init), Hold;
+invariants
+  in Hold:
+    light = 0 or light = 1;
+transitions
+  Init:
+    to Hold {
+      light := 0;
+    }
+  Hold:
+    to Hold when on = 1 {
+      light := 1;
+    }
+    to Hold when on = 0 {
+      skip;
+    }
+end

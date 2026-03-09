@@ -1,0 +1,104 @@
+DIGEST 13d5ea007c7f65e6ca214183cc0b777a
+FKairos.obligations.ObcAugmentationSig
+R39:54 Kairos.obligations.ObligationGenSig <> <> lib
+R96:116 Kairos.obligations.ObligationTaxonomySig <> <> lib
+ind 270:287 <> obc_formula_family
+constr 301:321 <> FamTransitionRequires
+constr 325:344 <> FamTransitionEnsures
+constr 348:367 <> FamCoherencyRequires
+constr 371:396 <> FamCoherencyEnsuresShifted
+constr 400:422 <> FamInitialCoherencyGoal
+constr 426:441 <> FamNoBadRequires
+constr 445:459 <> FamNoBadEnsures
+constr 463:493 <> FamMonitorCompatibilityRequires
+constr 497:527 <> FamStateAwareAssumptionRequires
+scheme 270:287 <> obc_formula_family_rect
+scheme 270:287 <> obc_formula_family_ind
+scheme 270:287 <> obc_formula_family_rec
+scheme 270:287 <> obc_formula_family_sind
+R571:588 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R598:620 Kairos.obligations.ObligationTaxonomySig OBLIGATION_TAXONOMY_SIG <> modtype
+R622:622 Kairos.obligations.ObcAugmentationSig E <> mod
+modtype 543:562 <> OBC_AUGMENTATION_SIG
+ax 639:647 OBC_AUGMENTATION_SIG family_of
+R659:662 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R651:658 Kairos.obligations.ObcAugmentationSig E Clause def
+R663:680 Kairos.obligations.ObcAugmentationSig <> obc_formula_family ind
+def 697:711 OBC_AUGMENTATION_SIG GeneratedFamily
+R718:735 Kairos.obligations.ObcAugmentationSig <> obc_formula_family ind
+binder 714:714 <> f:5
+R744:751 Kairos.obligations.ObcAugmentationSig E Clause def
+binder 739:740 <> cl:6
+R782:785 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R768:778 Kairos.obligations.ObcAugmentationSig E Generated def
+R780:781 Kairos.obligations.ObcAugmentationSig <> cl:6 var
+R798:800 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R786:794 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG family_of defax
+R796:797 Kairos.obligations.ObcAugmentationSig <> cl:6 var
+R801:801 Kairos.obligations.ObcAugmentationSig <> f:5 var
+ax 929:948 OBC_AUGMENTATION_SIG generated_has_family
+binder 963:965 <> obl:7
+R983:986 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R968:978 Kairos.obligations.ObcAugmentationSig E Generated def
+R980:982 Kairos.obligations.ObcAugmentationSig <> obl:7 var
+R987:1001 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1019:1021 Kairos.obligations.ObcAugmentationSig <> obl:7 var
+R1004:1012 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG family_of defax
+R1014:1016 Kairos.obligations.ObcAugmentationSig <> obl:7 var
+ax 1107:1135 OBC_AUGMENTATION_SIG no_bad_families_are_objective
+binder 1150:1152 <> obl:10
+R1236:1245 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1197:1200 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R1161:1175 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1194:1196 Kairos.obligations.ObcAugmentationSig <> obl:10 var
+R1177:1192 Kairos.obligations.ObcAugmentationSig <> FamNoBadRequires constr
+R1201:1215 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1233:1235 Kairos.obligations.ObcAugmentationSig <> obl:10 var
+R1217:1231 Kairos.obligations.ObcAugmentationSig <> FamNoBadEnsures constr
+R1246:1265 Kairos.obligations.ObcAugmentationSig T GeneratedObjective def
+R1267:1269 Kairos.obligations.ObcAugmentationSig <> obl:10 var
+ax 1281:1310 OBC_AUGMENTATION_SIG initial_family_is_initial_goal
+binder 1325:1327 <> obl:13
+R1379:1388 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1336:1350 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1376:1378 Kairos.obligations.ObcAugmentationSig <> obl:13 var
+R1352:1374 Kairos.obligations.ObcAugmentationSig <> FamInitialCoherencyGoal constr
+R1389:1410 Kairos.obligations.ObcAugmentationSig T GeneratedInitialGoal def
+R1412:1414 Kairos.obligations.ObcAugmentationSig <> obl:13 var
+ax 1426:1462 OBC_AUGMENTATION_SIG coherency_families_are_user_invariant
+binder 1477:1479 <> obl:16
+R1584:1593 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1528:1537 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R1488:1502 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1525:1527 Kairos.obligations.ObcAugmentationSig <> obl:16 var
+R1504:1523 Kairos.obligations.ObcAugmentationSig <> FamCoherencyRequires constr
+R1538:1552 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1581:1583 Kairos.obligations.ObcAugmentationSig <> obl:16 var
+R1554:1579 Kairos.obligations.ObcAugmentationSig <> FamCoherencyEnsuresShifted constr
+R1594:1617 Kairos.obligations.ObcAugmentationSig T GeneratedUserInvariant def
+R1619:1621 Kairos.obligations.ObcAugmentationSig <> obl:16 var
+ax 1633:1670 OBC_AUGMENTATION_SIG support_automaton_families_are_support
+binder 1685:1687 <> obl:19
+R1808:1817 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1747:1756 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R1696:1710 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1744:1746 Kairos.obligations.ObcAugmentationSig <> obl:19 var
+R1712:1742 Kairos.obligations.ObcAugmentationSig <> FamMonitorCompatibilityRequires constr
+R1757:1771 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1805:1807 Kairos.obligations.ObcAugmentationSig <> obl:19 var
+R1773:1803 Kairos.obligations.ObcAugmentationSig <> FamStateAwareAssumptionRequires constr
+R1818:1844 Kairos.obligations.ObcAugmentationSig T GeneratedSupportAutomaton def
+R1846:1848 Kairos.obligations.ObcAugmentationSig <> obl:19 var
+ax 1860:1901 OBC_AUGMENTATION_SIG transition_contract_families_are_generated
+binder 1916:1918 <> obl:22
+R2018:2027 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1968:1977 Corelib.Init.Logic <> ::type_scope:x_'\/'_x not
+R1927:1941 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R1965:1967 Kairos.obligations.ObcAugmentationSig <> obl:22 var
+R1943:1963 Kairos.obligations.ObcAugmentationSig <> FamTransitionRequires constr
+R1978:1992 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG GeneratedFamily def
+R2015:2017 Kairos.obligations.ObcAugmentationSig <> obl:22 var
+R1994:2013 Kairos.obligations.ObcAugmentationSig <> FamTransitionEnsures constr
+R2028:2038 Kairos.obligations.ObcAugmentationSig E Generated def
+R2040:2042 Kairos.obligations.ObcAugmentationSig <> obl:22 var
+R2049:2068 Kairos.obligations.ObcAugmentationSig OBC_AUGMENTATION_SIG <> modtype

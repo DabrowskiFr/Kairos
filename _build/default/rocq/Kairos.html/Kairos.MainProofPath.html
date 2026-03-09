@@ -1,0 +1,83 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.MainProofPath</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.MainProofPath</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.KairosOracle.html#"><span class="id" title="library">KairosOracle</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.AutomataCorrectnessCore.html#"><span class="id" title="library">AutomataCorrectnessCore</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step1SemanticProduct.html#"><span class="id" title="library">Step1SemanticProduct</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step2GeneratedClauses.html#"><span class="id" title="library">Step2GeneratedClauses</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step3RelationalTriples.html#"><span class="id" title="library">Step3RelationalTriples</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step4TransitionBundles.html#"><span class="id" title="library">Step4TransitionBundles</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step5TripleValidity.html#"><span class="id" title="library">Step5TripleValidity</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step6ClauseRecovery.html#"><span class="id" title="library">Step6ClauseRecovery</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.path</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.path.Step7GlobalToLocal.html#"><span class="id" title="library">Step7GlobalToLocal</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <a id="Step1" class="idref" href="#Step1"><span class="id" title="module">Step1</span></a> := <a class="idref" href="Kairos.path.Step1SemanticProduct.html#Step1SemanticProduct"><span class="id" title="module">Step1SemanticProduct</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step2" class="idref" href="#Step2"><span class="id" title="module">Step2</span></a> := <a class="idref" href="Kairos.path.Step2GeneratedClauses.html#Step2GeneratedClauses"><span class="id" title="module">Step2GeneratedClauses</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step3" class="idref" href="#Step3"><span class="id" title="module">Step3</span></a> := <a class="idref" href="Kairos.path.Step3RelationalTriples.html#Step3RelationalTriples"><span class="id" title="module">Step3RelationalTriples</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step4" class="idref" href="#Step4"><span class="id" title="module">Step4</span></a> := <a class="idref" href="Kairos.path.Step4TransitionBundles.html#Step4TransitionBundles"><span class="id" title="module">Step4TransitionBundles</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step5" class="idref" href="#Step5"><span class="id" title="module">Step5</span></a> := <a class="idref" href="Kairos.path.Step5TripleValidity.html#Step5TripleValidity"><span class="id" title="module">Step5TripleValidity</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step6" class="idref" href="#Step6"><span class="id" title="module">Step6</span></a> := <a class="idref" href="Kairos.path.Step6ClauseRecovery.html#Step6ClauseRecovery"><span class="id" title="module">Step6ClauseRecovery</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="Step7" class="idref" href="#Step7"><span class="id" title="module">Step7</span></a> := <a class="idref" href="Kairos.path.Step7GlobalToLocal.html#Step7GlobalToLocal"><span class="id" title="module">Step7GlobalToLocal</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="bad_local_step_if_G_violated" class="idref" href="#bad_local_step_if_G_violated"><span class="id" title="definition">bad_local_step_if_G_violated</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.bad_local_step_if_G_violated"><span class="id" title="lemma">KairosOracleModel.bad_local_step_if_G_violated</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="generation_coverage" class="idref" href="#generation_coverage"><span class="id" title="definition">generation_coverage</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.generation_coverage"><span class="id" title="lemma">KairosOracleModel.generation_coverage</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="triple_generation_coverage" class="idref" href="#triple_generation_coverage"><span class="id" title="definition">triple_generation_coverage</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.triple_generation_coverage"><span class="id" title="lemma">KairosOracleModel.triple_generation_coverage</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="triple_valid_conditional_correctness" class="idref" href="#triple_valid_conditional_correctness"><span class="id" title="definition">triple_valid_conditional_correctness</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.triple_valid_conditional_correctness"><span class="id" title="lemma">KairosOracleModel.triple_valid_conditional_correctness</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="triple_valid_conditional_correctness_under_wf" class="idref" href="#triple_valid_conditional_correctness_under_wf"><span class="id" title="definition">triple_valid_conditional_correctness_under_wf</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.triple_valid_conditional_correctness_under_wf"><span class="id" title="lemma">KairosOracleModel.triple_valid_conditional_correctness_under_wf</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="triple_valid_conditional_correctness_with_node_inv" class="idref" href="#triple_valid_conditional_correctness_with_node_inv"><span class="id" title="definition">triple_valid_conditional_correctness_with_node_inv</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.triple_valid_conditional_correctness_with_node_inv"><span class="id" title="lemma">KairosOracleModel.triple_valid_conditional_correctness_with_node_inv</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Definition</span> <a id="triple_valid_conditional_correctness_with_node_inv_under_wf" class="idref" href="#triple_valid_conditional_correctness_with_node_inv_under_wf"><span class="id" title="definition">triple_valid_conditional_correctness_with_node_inv_under_wf</span></a> :=<br/>
+&nbsp;&nbsp;@<a class="idref" href="Kairos.KairosOracle.html#KairosOracleModel.triple_valid_conditional_correctness_with_node_inv_under_wf"><span class="id" title="lemma">KairosOracleModel.triple_valid_conditional_correctness_with_node_inv_under_wf</span></a>.<br/>
+
+<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

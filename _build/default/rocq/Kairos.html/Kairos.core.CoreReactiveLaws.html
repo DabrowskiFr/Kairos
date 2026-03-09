@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.core.CoreReactiveLaws</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.core.CoreReactiveLaws</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.CoreStepSig.html#"><span class="id" title="library">CoreStepSig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CORE_REACTIVE_LAWS_SIG" class="idref" href="#CORE_REACTIVE_LAWS_SIG"><span class="id" title="module">CORE_REACTIVE_LAWS_SIG</span></a> (<span class="id" title="var">C</span> : <a class="idref" href="Kairos.core.CoreStepSig.html#CORE_STEP_SIG"><span class="id" title="module">CORE_STEP_SIG</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CORE_REACTIVE_LAWS_SIG.cur_ctrl" class="idref" href="#CORE_REACTIVE_LAWS_SIG.cur_ctrl"><span class="id" title="axiom">cur_ctrl</span></a> : <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.Ctrl"><span class="id" title="axiom">C.Ctrl</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CORE_REACTIVE_LAWS_SIG.cur_mem" class="idref" href="#CORE_REACTIVE_LAWS_SIG.cur_mem"><span class="id" title="axiom">cur_mem</span></a> : <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.Mem"><span class="id" title="axiom">C.Mem</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CORE_REACTIVE_LAWS_SIG.cur_input" class="idref" href="#CORE_REACTIVE_LAWS_SIG.cur_input"><span class="id" title="axiom">cur_input</span></a> : <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.InputVal"><span class="id" title="axiom">C.InputVal</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="CORE_REACTIVE_LAWS_SIG.cur_output" class="idref" href="#CORE_REACTIVE_LAWS_SIG.cur_output"><span class="id" title="axiom">cur_output</span></a> : <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.OutputVal"><span class="id" title="axiom">C.OutputVal</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="CORE_REACTIVE_LAWS_SIG.ctx_input_is_stream" class="idref" href="#CORE_REACTIVE_LAWS_SIG.ctx_input_is_stream"><span class="id" title="axiom">ctx_input_is_stream</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:9" class="idref" href="#u:9"><span class="id" title="binder">u</span></a> <a id="k:10" class="idref" href="#k:10"><span class="id" title="binder">k</span></a>, <a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG.cur_input"><span class="id" title="axiom">cur_input</span></a> (<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:9"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:10"><span class="id" title="variable">k</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:9"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:10"><span class="id" title="variable">k</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="CORE_REACTIVE_LAWS_SIG.cfg_ctx_coherent" class="idref" href="#CORE_REACTIVE_LAWS_SIG.cfg_ctx_coherent"><span class="id" title="axiom">cfg_ctx_coherent</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:13" class="idref" href="#u:13"><span class="id" title="binder">u</span></a> <a id="k:14" class="idref" href="#k:14"><span class="id" title="binder">k</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG.cur_ctrl"><span class="id" title="axiom">cur_ctrl</span></a> (<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:13"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:14"><span class="id" title="variable">k</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG.cur_mem"><span class="id" title="axiom">cur_mem</span></a> (<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:13"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:14"><span class="id" title="variable">k</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.cfg_at"><span class="id" title="axiom">C.cfg_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:13"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:14"><span class="id" title="variable">k</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="CORE_REACTIVE_LAWS_SIG.trace_ctx_coherent" class="idref" href="#CORE_REACTIVE_LAWS_SIG.trace_ctx_coherent"><span class="id" title="axiom">trace_ctx_coherent</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:17" class="idref" href="#u:17"><span class="id" title="binder">u</span></a> <a id="k:18" class="idref" href="#k:18"><span class="id" title="binder">k</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.run_trace"><span class="id" title="axiom">C.run_trace</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:17"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:18"><span class="id" title="variable">k</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">(</span></a><a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG.cur_input"><span class="id" title="axiom">cur_input</span></a> (<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:17"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:18"><span class="id" title="variable">k</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">,</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG.cur_output"><span class="id" title="axiom">cur_output</span></a> (<a class="idref" href="Kairos.core.CoreReactiveLaws.html#C.ctx_at"><span class="id" title="axiom">C.ctx_at</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#u:17"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#k:18"><span class="id" title="variable">k</span></a>)<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#e6756e10c36f149b18b4a8741ed83079"><span class="id" title="notation">)</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG"><span class="id" title="module">CORE_REACTIVE_LAWS_SIG</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,222 @@
+{
+  "name": "kairos-vscode",
+  "displayName": "Kairos",
+  "description": "Kairos language support via the Kairos LSP server",
+  "version": "0.1.0",
+  "publisher": "kairos",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:kairos",
+    "onCommand:kairos.fetchOutline",
+    "onCommand:kairos.run",
+    "onCommand:kairos.build",
+    "onCommand:kairos.prove",
+    "onCommand:kairos.instrumentation",
+    "onCommand:kairos.eval",
+    "onCommand:kairos.openObc",
+    "onCommand:kairos.openWhy",
+    "onCommand:kairos.openVc",
+    "onCommand:kairos.openSmt",
+    "onCommand:kairos.openDot",
+    "onCommand:kairos.openLabels",
+    "onCommand:kairos.openAssumeText",
+    "onCommand:kairos.openGuaranteeText",
+    "onCommand:kairos.openProductText",
+    "onCommand:kairos.openObligationsMap",
+    "onCommand:kairos.openPruneReasons",
+    "onCommand:kairos.showAssumePng",
+    "onCommand:kairos.showGuaranteePng",
+    "onCommand:kairos.showProductPng",
+    "onView:kairosOutline",
+    "onView:kairosGoals",
+    "onView:kairosArtifacts"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kairos.fetchOutline",
+        "title": "Kairos: Fetch Outline (LSP)"
+      },
+      {
+        "command": "kairos.openOutlineLocation",
+        "title": "Kairos: Open Outline Location"
+      },
+      {
+        "command": "kairos.openWhyForVc",
+        "title": "Kairos: Open Why at VC"
+      },
+      {
+        "command": "kairos.run",
+        "title": "Kairos: Run (LSP)"
+      },
+      {
+        "command": "kairos.build",
+        "title": "Kairos: Build (Generate OBC/Why/VC)"
+      },
+      {
+        "command": "kairos.prove",
+        "title": "Kairos: Prove (Run VCs)"
+      },
+      {
+        "command": "kairos.instrumentation",
+        "title": "Kairos: Automata (Instrumentation Pass)"
+      },
+      {
+        "command": "kairos.eval",
+        "title": "Kairos: Eval Trace"
+      },
+      {
+        "command": "kairos.openObc",
+        "title": "Kairos: Open OBC+"
+      },
+      {
+        "command": "kairos.openWhy",
+        "title": "Kairos: Open Why"
+      },
+      {
+        "command": "kairos.openVc",
+        "title": "Kairos: Open VC"
+      },
+      {
+        "command": "kairos.openSmt",
+        "title": "Kairos: Open SMT"
+      },
+      {
+        "command": "kairos.openDot",
+        "title": "Kairos: Open DOT"
+      },
+      {
+        "command": "kairos.openLabels",
+        "title": "Kairos: Open Labels"
+      },
+      {
+        "command": "kairos.openAssumeText",
+        "title": "Kairos: Open Assume Automaton"
+      },
+      {
+        "command": "kairos.openGuaranteeText",
+        "title": "Kairos: Open Guarantee Automaton"
+      },
+      {
+        "command": "kairos.openProductText",
+        "title": "Kairos: Open Product Automaton"
+      },
+      {
+        "command": "kairos.openObligationsMap",
+        "title": "Kairos: Open Obligations Map"
+      },
+      {
+        "command": "kairos.openPruneReasons",
+        "title": "Kairos: Open Prune Reasons"
+      },
+      {
+        "command": "kairos.showAssumePng",
+        "title": "Kairos: Show Assume Automaton (PNG)"
+      },
+      {
+        "command": "kairos.showGuaranteePng",
+        "title": "Kairos: Show Guarantee Automaton (PNG)"
+      },
+      {
+        "command": "kairos.showProductPng",
+        "title": "Kairos: Show Product Automaton (PNG)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "kairos",
+          "title": "Kairos",
+          "icon": "resources/kairos.svg"
+        }
+      ]
+    },
+    "views": {
+      "kairos": [
+        {
+          "id": "kairosOutline",
+          "name": "Outline"
+        },
+        {
+          "id": "kairosGoals",
+          "name": "Goals"
+        },
+        {
+          "id": "kairosArtifacts",
+          "name": "Artifacts"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "kairos.openWhyForVc",
+          "when": "view == kairosGoals && viewItem == kairosGoalVc"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "kairos",
+        "aliases": [
+          "Kairos",
+          "kairos"
+        ],
+        "extensions": [
+          ".kairos",
+          ".obc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Kairos",
+      "properties": {
+        "kairos.lsp.serverPath": {
+          "type": "string",
+          "default": "kairos-lsp",
+          "description": "Path to the Kairos LSP server executable."
+        },
+        "kairos.lsp.serverArgs": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Extra arguments for the Kairos LSP server."
+        },
+        "kairos.lsp.trace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable LSP server tracing (KAIROS_LSP_TRACE=1)."
+        },
+        "kairos.lsp.traceFile": {
+          "type": "string",
+          "default": "",
+          "description": "Trace log file path (KAIROS_LSP_TRACE_FILE)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "prepublishOnly": "npm run compile"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,1 @@
+; Layered build: each subdirectory declares its own library.

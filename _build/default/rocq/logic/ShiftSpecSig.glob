@@ -1,0 +1,36 @@
+DIGEST 735e448438966f28be32e0a349ee1eca
+FKairos.logic.ShiftSpecSig
+R35:44 Kairos.monitor.MonitorSig <> <> lib
+R82:93 Kairos.monitor.InputMonitor <> <> lib
+R129:141 Kairos.logic.FOLanguageSig <> <> lib
+R204:214 Kairos.monitor.MonitorSig MONITOR_SIG <> modtype
+R224:246 Kairos.monitor.InputMonitor INPUT_ADMISSIBILITY_SIG <> modtype
+R248:248 Kairos.logic.ShiftSpecSig A <> mod
+R258:269 Kairos.logic.FOLanguageSig FO_LOGIC_SIG <> modtype
+R299:303 Kairos.logic.ShiftSpecSig A Obs defax
+modtype 182:195 <> SHIFT_SPEC_SIG
+ax 316:343 SHIFT_SPEC_SIG shift_fo_correct_if_input_ok
+binder 358:358 <> d:1
+binder 360:360 <> u:2
+binder 362:362 <> k:3
+binder 364:366 <> phi:4
+R388:397 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R375:383 Kairos.logic.ShiftSpecSig I InputOk def
+R387:387 Kairos.logic.ShiftSpecSig <> k:3 var
+R385:385 Kairos.logic.ShiftSpecSig <> u:2 var
+R441:451 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R398:406 Kairos.logic.ShiftSpecSig L eval_fo defax
+R424:433 Kairos.logic.ShiftSpecSig L shift_fo defax
+R437:439 Kairos.logic.ShiftSpecSig <> phi:4 var
+R435:435 Kairos.logic.ShiftSpecSig <> d:1 var
+R409:416 Kairos.logic.ShiftSpecSig L ctx_at defax
+R420:420 Kairos.logic.ShiftSpecSig <> k:3 var
+R418:418 Kairos.logic.ShiftSpecSig <> u:2 var
+R452:460 Kairos.logic.ShiftSpecSig L eval_fo defax
+R483:485 Kairos.logic.ShiftSpecSig <> phi:4 var
+R463:470 Kairos.logic.ShiftSpecSig L ctx_at defax
+R476:478 Corelib.Init.Peano <> ::nat_scope:x_'+'_x not
+R475:475 Kairos.logic.ShiftSpecSig <> k:3 var
+R479:479 Kairos.logic.ShiftSpecSig <> d:1 var
+R472:472 Kairos.logic.ShiftSpecSig <> u:2 var
+R492:505 Kairos.logic.ShiftSpecSig SHIFT_SPEC_SIG <> modtype

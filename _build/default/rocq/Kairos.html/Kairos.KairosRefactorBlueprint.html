@@ -1,0 +1,95 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.KairosRefactorBlueprint</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.KairosRefactorBlueprint</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.KairosOracle.html#"><span class="id" title="library">KairosOracle</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.MainProofPath.html#"><span class="id" title="library">MainProofPath</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.CoreStepSig.html#"><span class="id" title="library">CoreStepSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.CoreReactiveLaws.html#"><span class="id" title="library">CoreReactiveLaws</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.AutomataCorrectnessCore.html#"><span class="id" title="library">AutomataCorrectnessCore</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.FOLanguageSig.html#"><span class="id" title="library">FOLanguageSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.LTLPredicate.html#"><span class="id" title="library">LTLPredicate</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.logic</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.logic.ShiftSpecSig.html#"><span class="id" title="library">ShiftSpecSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.MonitorSig.html#"><span class="id" title="library">MonitorSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.InputMonitor.html#"><span class="id" title="library">InputMonitor</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.GuaranteeMonitor.html#"><span class="id" title="library">GuaranteeMonitor</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.ProductMonitor.html#"><span class="id" title="library">ProductMonitor</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.contracts</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#"><span class="id" title="library">ContractCompilerSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationGenSig.html#"><span class="id" title="library">ObligationGenSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationTaxonomySig.html#"><span class="id" title="library">ObligationTaxonomySig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationStratifiedSig.html#"><span class="id" title="library">ObligationStratifiedSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#"><span class="id" title="library">ObcAugmentationSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.OracleSig.html#"><span class="id" title="library">OracleSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.OracleSemSig.html#"><span class="id" title="library">OracleSemSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.refinement</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.refinement.RefinementSig.html#"><span class="id" title="library">RefinementSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.refinement</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.refinement.ShiftRefinement.html#"><span class="id" title="library">ShiftRefinement</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.kernels</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.kernels.ShiftKernel.html#"><span class="id" title="library">ShiftKernel</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.kernels</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.kernels.SafetyKernel.html#"><span class="id" title="library">SafetyKernel</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.kernels</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.kernels.ObjectiveSafetyKernel.html#"><span class="id" title="library">ObjectiveSafetyKernel</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.kernels</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.kernels.SupportNonBlockingKernel.html#"><span class="id" title="library">SupportNonBlockingKernel</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.integration</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.integration.ThreeLayerFromCore.html#"><span class="id" title="library">ThreeLayerFromCore</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+
+<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CORE_STEP_SIG" class="idref" href="#CORE_STEP_SIG"><span class="id" title="module">CORE_STEP_SIG</span></a> := <a class="idref" href="Kairos.core.CoreStepSig.html#CORE_STEP_SIG"><span class="id" title="module">CoreStepSig.CORE_STEP_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CORE_REACTIVE_LAWS_SIG" class="idref" href="#CORE_REACTIVE_LAWS_SIG"><span class="id" title="module">CORE_REACTIVE_LAWS_SIG</span></a> := <a class="idref" href="Kairos.core.CoreReactiveLaws.html#CORE_REACTIVE_LAWS_SIG"><span class="id" title="module">CoreReactiveLaws.CORE_REACTIVE_LAWS_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="MONITOR_SIG" class="idref" href="#MONITOR_SIG"><span class="id" title="module">MONITOR_SIG</span></a> := <a class="idref" href="Kairos.monitor.MonitorSig.html#MONITOR_SIG"><span class="id" title="module">MonitorSig.MONITOR_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="INPUT_ADMISSIBILITY_SIG" class="idref" href="#INPUT_ADMISSIBILITY_SIG"><span class="id" title="module">INPUT_ADMISSIBILITY_SIG</span></a> := <a class="idref" href="Kairos.monitor.InputMonitor.html#INPUT_ADMISSIBILITY_SIG"><span class="id" title="module">InputMonitor.INPUT_ADMISSIBILITY_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="GUARANTEE_MONITOR_SIG" class="idref" href="#GUARANTEE_MONITOR_SIG"><span class="id" title="module">GUARANTEE_MONITOR_SIG</span></a> := <a class="idref" href="Kairos.monitor.GuaranteeMonitor.html#GUARANTEE_MONITOR_SIG"><span class="id" title="module">GuaranteeMonitor.GUARANTEE_MONITOR_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="PRODUCT_MONITOR_SIG" class="idref" href="#PRODUCT_MONITOR_SIG"><span class="id" title="module">PRODUCT_MONITOR_SIG</span></a> := <a class="idref" href="Kairos.monitor.ProductMonitor.html#PRODUCT_MONITOR_SIG"><span class="id" title="module">ProductMonitor.PRODUCT_MONITOR_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="FO_LOGIC_SIG" class="idref" href="#FO_LOGIC_SIG"><span class="id" title="module">FO_LOGIC_SIG</span></a> := <a class="idref" href="Kairos.logic.FOLanguageSig.html#FO_LOGIC_SIG"><span class="id" title="module">FOLanguageSig.FO_LOGIC_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="LTL_PREDICATE_SIG" class="idref" href="#LTL_PREDICATE_SIG"><span class="id" title="module">LTL_PREDICATE_SIG</span></a> := <a class="idref" href="Kairos.logic.LTLPredicate.html#LTL_PREDICATE_SIG"><span class="id" title="module">LTLPredicate.LTL_PREDICATE_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="SHIFT_SPEC_SIG" class="idref" href="#SHIFT_SPEC_SIG"><span class="id" title="module">SHIFT_SPEC_SIG</span></a> := <a class="idref" href="Kairos.logic.ShiftSpecSig.html#SHIFT_SPEC_SIG"><span class="id" title="module">ShiftSpecSig.SHIFT_SPEC_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="CONTRACT_COMPILER_SIG" class="idref" href="#CONTRACT_COMPILER_SIG"><span class="id" title="module">CONTRACT_COMPILER_SIG</span></a> := <a class="idref" href="Kairos.contracts.ContractCompilerSig.html#CONTRACT_COMPILER_SIG"><span class="id" title="module">ContractCompilerSig.CONTRACT_COMPILER_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="OBLIGATION_GEN_SIG" class="idref" href="#OBLIGATION_GEN_SIG"><span class="id" title="module">OBLIGATION_GEN_SIG</span></a> := <a class="idref" href="Kairos.obligations.ObligationGenSig.html#OBLIGATION_GEN_SIG"><span class="id" title="module">ObligationGenSig.OBLIGATION_GEN_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="OBLIGATION_TAXONOMY_SIG" class="idref" href="#OBLIGATION_TAXONOMY_SIG"><span class="id" title="module">OBLIGATION_TAXONOMY_SIG</span></a> := <a class="idref" href="Kairos.obligations.ObligationTaxonomySig.html#OBLIGATION_TAXONOMY_SIG"><span class="id" title="module">ObligationTaxonomySig.OBLIGATION_TAXONOMY_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="OBLIGATION_STRATIFIED_SIG" class="idref" href="#OBLIGATION_STRATIFIED_SIG"><span class="id" title="module">OBLIGATION_STRATIFIED_SIG</span></a> := <a class="idref" href="Kairos.obligations.ObligationStratifiedSig.html#OBLIGATION_STRATIFIED_SIG"><span class="id" title="module">ObligationStratifiedSig.OBLIGATION_STRATIFIED_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="OBC_AUGMENTATION_SIG" class="idref" href="#OBC_AUGMENTATION_SIG"><span class="id" title="module">OBC_AUGMENTATION_SIG</span></a> := <a class="idref" href="Kairos.obligations.ObcAugmentationSig.html#OBC_AUGMENTATION_SIG"><span class="id" title="module">ObcAugmentationSig.OBC_AUGMENTATION_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="VALIDATION_SIG" class="idref" href="#VALIDATION_SIG"><span class="id" title="module">VALIDATION_SIG</span></a> := <a class="idref" href="Kairos.obligations.OracleSig.html#VALIDATION_SIG"><span class="id" title="module">OracleSig.VALIDATION_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="VALIDATION_SEM_SIG" class="idref" href="#VALIDATION_SEM_SIG"><span class="id" title="module">VALIDATION_SEM_SIG</span></a> := <a class="idref" href="Kairos.obligations.OracleSemSig.html#VALIDATION_SEM_SIG"><span class="id" title="module">OracleSemSig.VALIDATION_SEM_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="REFINEMENT_SIG" class="idref" href="#REFINEMENT_SIG"><span class="id" title="module">REFINEMENT_SIG</span></a> := <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG"><span class="id" title="module">RefinementSig.REFINEMENT_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="SHIFT_REFINEMENT_SIG" class="idref" href="#SHIFT_REFINEMENT_SIG"><span class="id" title="module">SHIFT_REFINEMENT_SIG</span></a> := <a class="idref" href="Kairos.refinement.ShiftRefinement.html#SHIFT_REFINEMENT_SIG"><span class="id" title="module">ShiftRefinement.SHIFT_REFINEMENT_SIG</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="KAIROS_CORE_FROM_PROVED_SIG" class="idref" href="#KAIROS_CORE_FROM_PROVED_SIG"><span class="id" title="module">KAIROS_CORE_FROM_PROVED_SIG</span></a> := <a class="idref" href="Kairos.integration.ThreeLayerFromCore.html#KAIROS_CORE_FROM_PROVED_SIG"><span class="id" title="module">ThreeLayerFromCore.KAIROS_CORE_FROM_PROVED_SIG</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeShiftKernel" class="idref" href="#MakeShiftKernel"><span class="id" title="module">MakeShiftKernel</span></a> := <a class="idref" href="Kairos.kernels.ShiftKernel.html#MakeShiftKernel"><span class="id" title="module">ShiftKernel.MakeShiftKernel</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeSafetyKernel" class="idref" href="#MakeSafetyKernel"><span class="id" title="module">MakeSafetyKernel</span></a> := <a class="idref" href="Kairos.kernels.SafetyKernel.html#MakeSafetyKernel"><span class="id" title="module">SafetyKernel.MakeSafetyKernel</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeObjectiveSafetyKernel" class="idref" href="#MakeObjectiveSafetyKernel"><span class="id" title="module">MakeObjectiveSafetyKernel</span></a> := <a class="idref" href="Kairos.kernels.ObjectiveSafetyKernel.html#MakeObjectiveSafetyKernel"><span class="id" title="module">ObjectiveSafetyKernel.MakeObjectiveSafetyKernel</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeSupportNonBlockingKernel" class="idref" href="#MakeSupportNonBlockingKernel"><span class="id" title="module">MakeSupportNonBlockingKernel</span></a> := <a class="idref" href="Kairos.kernels.SupportNonBlockingKernel.html#MakeSupportNonBlockingKernel"><span class="id" title="module">SupportNonBlockingKernel.MakeSupportNonBlockingKernel</span></a>.<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeCoverageFromProvedCore" class="idref" href="#MakeCoverageFromProvedCore"><span class="id" title="module">MakeCoverageFromProvedCore</span></a> := <a class="idref" href="Kairos.integration.ThreeLayerFromCore.html#MakeCoverageFromProvedCore"><span class="id" title="module">ThreeLayerFromCore.MakeCoverageFromProvedCore</span></a>.<br/>
+
+<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

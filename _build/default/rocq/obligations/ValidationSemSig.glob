@@ -1,0 +1,7 @@
+DIGEST 8c89a9a937c3fcd3f7c9bb060947d369
+FKairos.obligations.ValidationSemSig
+R39:50 Kairos.obligations.OracleSemSig <> <> lib
+R342:372 Kairos.obligations.OracleSemSig VALIDATION_SEM_SIG <> modtype
+modtype 320:337 <> VALIDATION_SEM_SIG
+R405:431 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+modtype 387:400 <> ORACLE_SEM_SIG

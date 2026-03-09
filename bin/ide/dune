@@ -1,6 +1,7 @@
 (executable
  (name obcwhy3_ide)
  (public_name kairos-ide)
- (modules obcwhy3_ide ide_text_utils ide_tasks ide_highlight)
- (libraries obcwhy3_lib lablgtk3 threads)
+ (modules obcwhy3_ide ide_config ide_icons ide_ui_utils ide_text_utils ide_highlight ide_goals ide_goal_tree ide_goal_metrics ide_run_state ide_status_text ide_recent_files ide_outline_tree ide_ui_palette ide_menu_actions ide_pass_runner ide_selection_sync ide_main_layout ide_preferences_ui ide_preferences_dialog ide_highlight_controller ide_goals_view ide_outline_view ide_lsp_types ide_lsp_bridge ide_lsp_process_client ide_protocol_controller)
+ (flags :standard -w +a-4-9-33-34-39-40-41-42-44-45-48-58-66-67-70-72 -warn-error -A)
+ (libraries str lablgtk3 threads unix yojson kairos_lsp_protocol)
  (link_flags :standard -cclib -Wl,-no_warn_duplicate_libraries))

@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.monitor.InputMonitor</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.monitor.InputMonitor</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.monitor</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.monitor.MonitorSig.html#"><span class="id" title="library">MonitorSig</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="INPUT_ADMISSIBILITY_SIG" class="idref" href="#INPUT_ADMISSIBILITY_SIG"><span class="id" title="module">INPUT_ADMISSIBILITY_SIG</span></a> (<span class="id" title="var">A</span> : <a class="idref" href="Kairos.monitor.MonitorSig.html#MONITOR_SIG"><span class="id" title="module">MONITOR_SIG</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="INPUT_ADMISSIBILITY_SIG.InputOk" class="idref" href="#INPUT_ADMISSIBILITY_SIG.InputOk"><span class="id" title="definition">InputOk</span></a> (<a id="u:1" class="idref" href="#u:1"><span class="id" title="binder">u</span></a> : <a class="idref" href="Kairos.monitor.InputMonitor.html#A.stream"><span class="id" title="definition">A.stream</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#A.Obs"><span class="id" title="axiom">A.Obs</span></a>) (<a id="k:2" class="idref" href="#k:2"><span class="id" title="binder">k</span></a> : <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#nat"><span class="id" title="inductive">nat</span></a>) : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.monitor.InputMonitor.html#A.state_at"><span class="id" title="definition">A.state_at</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#u:1"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#k:2"><span class="id" title="variable">k</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'&lt;&gt;'_x"><span class="id" title="notation">&lt;&gt;</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#A.bad"><span class="id" title="axiom">A.bad</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="INPUT_ADMISSIBILITY_SIG.AvoidA" class="idref" href="#INPUT_ADMISSIBILITY_SIG.AvoidA"><span class="id" title="definition">AvoidA</span></a> (<a id="u:3" class="idref" href="#u:3"><span class="id" title="binder">u</span></a> : <a class="idref" href="Kairos.monitor.InputMonitor.html#A.stream"><span class="id" title="definition">A.stream</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#A.Obs"><span class="id" title="axiom">A.Obs</span></a>) : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.monitor.InputMonitor.html#A.avoids_bad"><span class="id" title="definition">A.avoids_bad</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#u:3"><span class="id" title="variable">u</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="INPUT_ADMISSIBILITY_SIG.avoid_implies_input_ok" class="idref" href="#INPUT_ADMISSIBILITY_SIG.avoid_implies_input_ok"><span class="id" title="axiom">avoid_implies_input_ok</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:4" class="idref" href="#u:4"><span class="id" title="binder">u</span></a> <a id="k:5" class="idref" href="#k:5"><span class="id" title="binder">k</span></a>, <a class="idref" href="Kairos.monitor.InputMonitor.html#INPUT_ADMISSIBILITY_SIG.AvoidA"><span class="id" title="definition">AvoidA</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#u:4"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#INPUT_ADMISSIBILITY_SIG.InputOk"><span class="id" title="definition">InputOk</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#u:4"><span class="id" title="variable">u</span></a> <a class="idref" href="Kairos.monitor.InputMonitor.html#k:5"><span class="id" title="variable">k</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.monitor.InputMonitor.html#INPUT_ADMISSIBILITY_SIG"><span class="id" title="module">INPUT_ADMISSIBILITY_SIG</span></a>.<br/>
+
+<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

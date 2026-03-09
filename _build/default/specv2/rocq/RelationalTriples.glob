@@ -1,0 +1,448 @@
+DIGEST b411ce760cb3207379e4c82558edba7e
+FSpecV2.RelationalTriples
+R27:39 SpecV2.ReactiveModel <> <> lib
+R41:57 SpecV2.ConditionalSafety <> <> lib
+R59:73 SpecV2.ExplicitProduct <> <> lib
+R75:90 SpecV2.GeneratedClauses <> <> lib
+sec 371:377 <> Triples
+var  391:391 Triples P
+R395:409 SpecV2.ReactiveModel <> ReactiveProgram rec
+var  424:427 Triples Spec
+R431:445 SpecV2.ConditionalSafety <> ConditionalSpec rec
+R447:447 SpecV2.RelationalTriples <> Triples.P var
+var 462:469 Triples node_inv
+R484:487 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R473:481 SpecV2.ReactiveModel <> ProgState proj
+R483:483 SpecV2.RelationalTriples <> Triples.P var
+R503:506 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R489:495 SpecV2.ExplicitProduct <> TickCtx rec
+R497:497 SpecV2.RelationalTriples <> Triples.P var
+R499:502 SpecV2.RelationalTriples <> Triples.Spec var
+def 603:616 <> SemanticClause
+R622:627 SpecV2.GeneratedClauses <> Clause def
+R629:629 SpecV2.RelationalTriples <> Triples.P var
+R631:634 SpecV2.RelationalTriples <> Triples.Spec var
+ind 741:753 <> triple_target
+constr 769:778 <> TripleInit
+constr 784:793 <> TripleStep
+R800:813 SpecV2.ReactiveModel <> ProgTransition proj
+R815:815 SpecV2.RelationalTriples <> Triples.P var
+binder 796:796 <> t:7
+scheme 741:753 <> triple_target_rect
+scheme 741:753 <> triple_target_ind
+scheme 741:753 <> triple_target_rec
+scheme 741:753 <> triple_target_sind
+rec 1023:1036 <> RelHoareTriple
+proj 1054:1062 <> ht_target
+proj 1085:1090 <> ht_pre
+proj 1114:1120 <> ht_post
+proj 1144:1152 <> ht_origin
+proj 1175:1183 <> ht_clause
+R1066:1078 SpecV2.RelationalTriples <> triple_target ind
+R1094:1107 SpecV2.RelationalTriples <> SemanticClause def
+R1124:1137 SpecV2.RelationalTriples <> SemanticClause def
+R1156:1168 SpecV2.GeneratedClauses <> clause_origin ind
+R1187:1200 SpecV2.RelationalTriples <> SemanticClause def
+def 1302:1309 <> init_ctx
+R1319:1325 SpecV2.ExplicitProduct <> TickCtx rec
+R1327:1327 SpecV2.RelationalTriples <> Triples.P var
+R1329:1332 SpecV2.RelationalTriples <> Triples.Spec var
+binder 1312:1314 <> ctx:14
+R1349:1355 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1360:1367 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1356:1357 <> m0:15
+binder 1359:1359 <> u:16
+R1371:1373 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1368:1370 SpecV2.RelationalTriples <> ctx:14 var
+R1375:1382 SpecV2.ExplicitProduct <> ctx_from def
+R1384:1384 SpecV2.RelationalTriples <> Triples.P var
+R1386:1389 SpecV2.RelationalTriples <> Triples.Spec var
+R1391:1392 SpecV2.RelationalTriples <> m0:15 var
+R1394:1394 SpecV2.RelationalTriples <> u:16 var
+def 1560:1573 <> transition_rel
+R1586:1599 SpecV2.ReactiveModel <> ProgTransition proj
+R1601:1601 SpecV2.RelationalTriples <> Triples.P var
+binder 1582:1582 <> t:17
+R1623:1629 SpecV2.ExplicitProduct <> TickCtx rec
+R1631:1631 SpecV2.RelationalTriples <> Triples.P var
+R1633:1636 SpecV2.RelationalTriples <> Triples.Spec var
+binder 1611:1613 <> ctx:18
+binder 1615:1618 <> ctx':19
+R1659:1665 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R1672:1679 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 1666:1667 <> m0:20
+binder 1669:1669 <> u:21
+binder 1671:1671 <> k:22
+R1709:1718 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1683:1685 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1680:1682 SpecV2.RelationalTriples <> ctx:18 var
+R1687:1694 SpecV2.ExplicitProduct <> ctx_from def
+R1696:1696 SpecV2.RelationalTriples <> Triples.P var
+R1698:1701 SpecV2.RelationalTriples <> Triples.Spec var
+R1703:1704 SpecV2.RelationalTriples <> m0:20 var
+R1706:1706 SpecV2.RelationalTriples <> u:21 var
+R1708:1708 SpecV2.RelationalTriples <> k:22 var
+R1753:1762 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R1723:1725 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1719:1722 SpecV2.RelationalTriples <> ctx':19 var
+R1727:1734 SpecV2.ExplicitProduct <> ctx_from def
+R1736:1736 SpecV2.RelationalTriples <> Triples.P var
+R1738:1741 SpecV2.RelationalTriples <> Triples.Spec var
+R1743:1744 SpecV2.RelationalTriples <> m0:20 var
+R1746:1746 SpecV2.RelationalTriples <> u:21 var
+R1749:1749 Corelib.Init.Datatypes <> S constr
+R1751:1751 SpecV2.RelationalTriples <> k:22 var
+R1782:1784 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1763:1772 SpecV2.ReactiveModel <> trans_from def
+R1781:1781 SpecV2.RelationalTriples <> k:22 var
+R1779:1779 SpecV2.RelationalTriples <> u:21 var
+R1776:1777 SpecV2.RelationalTriples <> m0:20 var
+R1774:1774 SpecV2.RelationalTriples <> Triples.P var
+R1785:1785 SpecV2.RelationalTriples <> t:17 var
+def 1847:1857 <> TripleValid
+R1865:1878 SpecV2.RelationalTriples <> RelHoareTriple rec
+binder 1860:1861 <> ht:23
+R1901:1909 SpecV2.RelationalTriples <> ht_target proj
+R1911:1912 SpecV2.RelationalTriples <> ht:23 var
+R1925:1934 SpecV2.RelationalTriples <> TripleInit constr
+binder 1954:1956 <> ctx:24
+R1971:1974 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1959:1966 SpecV2.RelationalTriples <> init_ctx def
+R1968:1970 SpecV2.RelationalTriples <> ctx:24 var
+R1988:1991 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1975:1980 SpecV2.RelationalTriples <> ht_pre proj
+R1985:1987 SpecV2.RelationalTriples <> ctx:24 var
+R1982:1983 SpecV2.RelationalTriples <> ht:23 var
+R1992:1998 SpecV2.RelationalTriples <> ht_post proj
+R2003:2005 SpecV2.RelationalTriples <> ctx:24 var
+R2000:2001 SpecV2.RelationalTriples <> ht:23 var
+R2013:2022 SpecV2.RelationalTriples <> TripleStep constr
+binder 2044:2046 <> ctx:25
+binder 2048:2051 <> ctx':26
+R2079:2082 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2054:2067 SpecV2.RelationalTriples <> transition_rel def
+R2075:2078 SpecV2.RelationalTriples <> ctx':26 var
+R2071:2073 SpecV2.RelationalTriples <> ctx:25 var
+R2096:2099 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2083:2088 SpecV2.RelationalTriples <> ht_pre proj
+R2093:2095 SpecV2.RelationalTriples <> ctx:25 var
+R2090:2091 SpecV2.RelationalTriples <> ht:23 var
+R2100:2106 SpecV2.RelationalTriples <> ht_post proj
+R2111:2114 SpecV2.RelationalTriples <> ctx':26 var
+R2108:2109 SpecV2.RelationalTriples <> ht:23 var
+def 2193:2219 <> TripleValidOnAdmissibleRuns
+R2227:2240 SpecV2.RelationalTriples <> RelHoareTriple rec
+binder 2222:2223 <> ht:27
+R2263:2271 SpecV2.RelationalTriples <> ht_target proj
+R2273:2274 SpecV2.RelationalTriples <> ht:27 var
+R2287:2296 SpecV2.RelationalTriples <> TripleInit constr
+binder 2316:2317 <> m0:28
+binder 2319:2319 <> u:29
+R2345:2358 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2332:2337 SpecV2.ConditionalSafety <> AvoidA def
+R2344:2344 SpecV2.RelationalTriples <> u:29 var
+R2339:2342 SpecV2.RelationalTriples <> Triples.Spec var
+R2394:2407 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2359:2364 SpecV2.RelationalTriples <> ht_pre proj
+R2371:2378 SpecV2.ExplicitProduct <> ctx_from def
+R2380:2380 SpecV2.RelationalTriples <> Triples.P var
+R2382:2385 SpecV2.RelationalTriples <> Triples.Spec var
+R2387:2388 SpecV2.RelationalTriples <> m0:28 var
+R2390:2390 SpecV2.RelationalTriples <> u:29 var
+R2366:2367 SpecV2.RelationalTriples <> ht:27 var
+R2408:2414 SpecV2.RelationalTriples <> ht_post proj
+R2421:2428 SpecV2.ExplicitProduct <> ctx_from def
+R2430:2430 SpecV2.RelationalTriples <> Triples.P var
+R2432:2435 SpecV2.RelationalTriples <> Triples.Spec var
+R2437:2438 SpecV2.RelationalTriples <> m0:28 var
+R2440:2440 SpecV2.RelationalTriples <> u:29 var
+R2416:2417 SpecV2.RelationalTriples <> ht:27 var
+R2451:2460 SpecV2.RelationalTriples <> TripleStep constr
+binder 2482:2483 <> m0:30
+binder 2485:2485 <> u:31
+binder 2487:2487 <> k:32
+R2513:2526 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2500:2505 SpecV2.ConditionalSafety <> AvoidA def
+R2512:2512 SpecV2.RelationalTriples <> u:31 var
+R2507:2510 SpecV2.RelationalTriples <> Triples.Spec var
+R2550:2563 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2546:2548 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R2527:2536 SpecV2.ReactiveModel <> trans_from def
+R2545:2545 SpecV2.RelationalTriples <> k:32 var
+R2543:2543 SpecV2.RelationalTriples <> u:31 var
+R2540:2541 SpecV2.RelationalTriples <> m0:30 var
+R2538:2538 SpecV2.RelationalTriples <> Triples.P var
+R2599:2612 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2564:2569 SpecV2.RelationalTriples <> ht_pre proj
+R2576:2583 SpecV2.ExplicitProduct <> ctx_from def
+R2585:2585 SpecV2.RelationalTriples <> Triples.P var
+R2587:2590 SpecV2.RelationalTriples <> Triples.Spec var
+R2592:2593 SpecV2.RelationalTriples <> m0:30 var
+R2595:2595 SpecV2.RelationalTriples <> u:31 var
+R2597:2597 SpecV2.RelationalTriples <> k:32 var
+R2571:2572 SpecV2.RelationalTriples <> ht:27 var
+R2613:2619 SpecV2.RelationalTriples <> ht_post proj
+R2626:2633 SpecV2.ExplicitProduct <> ctx_from def
+R2635:2635 SpecV2.RelationalTriples <> Triples.P var
+R2637:2640 SpecV2.RelationalTriples <> Triples.Spec var
+R2642:2643 SpecV2.RelationalTriples <> m0:30 var
+R2645:2645 SpecV2.RelationalTriples <> u:31 var
+R2648:2648 Corelib.Init.Datatypes <> S constr
+R2650:2650 SpecV2.RelationalTriples <> k:32 var
+R2621:2622 SpecV2.RelationalTriples <> ht:27 var
+prf 2747:2793 <> TripleValid_implies_TripleValidOnAdmissibleRuns
+binder 2808:2809 <> ht:33
+R2826:2829 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2812:2822 SpecV2.RelationalTriples <> TripleValid def
+R2824:2825 SpecV2.RelationalTriples <> ht:33 var
+R2830:2856 SpecV2.RelationalTriples <> TripleValidOnAdmissibleRuns def
+R2858:2859 SpecV2.RelationalTriples <> ht:33 var
+def 3334:3343 <> TrueClause
+R3347:3360 SpecV2.RelationalTriples <> SemanticClause def
+R3374:3377 Corelib.Init.Logic <> True ind
+def 3393:3403 <> FalseClause
+R3407:3420 SpecV2.RelationalTriples <> SemanticClause def
+R3434:3438 Corelib.Init.Logic <> False ind
+def 3597:3614 <> init_product_state
+R3619:3630 SpecV2.ExplicitProduct <> ProductState rec
+R3632:3632 SpecV2.RelationalTriples <> Triples.P var
+R3634:3637 SpecV2.RelationalTriples <> Triples.Spec var
+R3649:3655 SpecV2.ExplicitProduct <> ps_prog proj
+R3649:3655 SpecV2.ExplicitProduct <> ps_prog proj
+R3649:3655 SpecV2.ExplicitProduct <> ps_prog proj
+R3681:3689 SpecV2.ExplicitProduct <> ps_assume proj
+R3681:3689 SpecV2.ExplicitProduct <> ps_assume proj
+R3723:3734 SpecV2.ExplicitProduct <> ps_guarantee proj
+R3723:3734 SpecV2.ExplicitProduct <> ps_guarantee proj
+R3660:3669 SpecV2.ReactiveModel <> init_state proj
+R3671:3671 SpecV2.RelationalTriples <> Triples.P var
+R3694:3695 SpecV2.ConditionalSafety <> q0 proj
+R3698:3707 SpecV2.ConditionalSafety <> assume_aut proj
+R3709:3712 SpecV2.RelationalTriples <> Triples.Spec var
+R3739:3740 SpecV2.ConditionalSafety <> q0 proj
+R3743:3755 SpecV2.ConditionalSafety <> guarantee_aut proj
+R3757:3760 SpecV2.RelationalTriples <> Triples.Spec var
+def 3781:3800 <> init_node_inv_triple
+R3804:3817 SpecV2.RelationalTriples <> RelHoareTriple rec
+R3829:3837 SpecV2.RelationalTriples <> ht_target proj
+R3829:3837 SpecV2.RelationalTriples <> ht_target proj
+R3829:3837 SpecV2.RelationalTriples <> ht_target proj
+R3861:3866 SpecV2.RelationalTriples <> ht_pre proj
+R3861:3866 SpecV2.RelationalTriples <> ht_pre proj
+R3890:3896 SpecV2.RelationalTriples <> ht_post proj
+R3890:3896 SpecV2.RelationalTriples <> ht_post proj
+R3933:3941 SpecV2.RelationalTriples <> ht_origin proj
+R3933:3941 SpecV2.RelationalTriples <> ht_origin proj
+R3981:3989 SpecV2.RelationalTriples <> ht_clause proj
+R3981:3989 SpecV2.RelationalTriples <> ht_clause proj
+R3842:3851 SpecV2.RelationalTriples <> TripleInit constr
+R3871:3880 SpecV2.RelationalTriples <> TrueClause def
+R3901:3908 SpecV2.RelationalTriples <> Triples.node_inv var
+R3911:3920 SpecV2.ReactiveModel <> init_state proj
+R3922:3922 SpecV2.RelationalTriples <> Triples.P var
+R3946:3955 SpecV2.GeneratedClauses <> OriginInit constr
+R3957:3971 SpecV2.GeneratedClauses <> CKNodeInvariant constr
+R3994:4008 SpecV2.GeneratedClauses <> node_inv_clause def
+R4019:4036 SpecV2.RelationalTriples <> init_product_state def
+R4010:4017 SpecV2.RelationalTriples <> Triples.node_inv var
+def 4056:4076 <> init_coherence_triple
+R4080:4093 SpecV2.RelationalTriples <> RelHoareTriple rec
+R4105:4113 SpecV2.RelationalTriples <> ht_target proj
+R4105:4113 SpecV2.RelationalTriples <> ht_target proj
+R4105:4113 SpecV2.RelationalTriples <> ht_target proj
+R4137:4142 SpecV2.RelationalTriples <> ht_pre proj
+R4137:4142 SpecV2.RelationalTriples <> ht_pre proj
+R4166:4172 SpecV2.RelationalTriples <> ht_post proj
+R4166:4172 SpecV2.RelationalTriples <> ht_post proj
+R4231:4239 SpecV2.RelationalTriples <> ht_origin proj
+R4231:4239 SpecV2.RelationalTriples <> ht_origin proj
+R4275:4283 SpecV2.RelationalTriples <> ht_clause proj
+R4275:4283 SpecV2.RelationalTriples <> ht_clause proj
+R4118:4127 SpecV2.RelationalTriples <> TripleInit constr
+R4147:4156 SpecV2.RelationalTriples <> TrueClause def
+R4177:4202 SpecV2.GeneratedClauses <> automaton_coherence_clause def
+R4204:4221 SpecV2.RelationalTriples <> init_product_state def
+R4244:4253 SpecV2.GeneratedClauses <> OriginInit constr
+R4255:4265 SpecV2.GeneratedClauses <> CKAutomaton constr
+R4288:4313 SpecV2.GeneratedClauses <> automaton_coherence_clause def
+R4315:4332 SpecV2.RelationalTriples <> init_product_state def
+def 4352:4366 <> node_inv_triple
+R4375:4385 SpecV2.ExplicitProduct <> ProductStep rec
+R4387:4387 SpecV2.RelationalTriples <> Triples.P var
+R4389:4392 SpecV2.RelationalTriples <> Triples.Spec var
+binder 4369:4370 <> ps:34
+R4397:4410 SpecV2.RelationalTriples <> RelHoareTriple rec
+R4422:4430 SpecV2.RelationalTriples <> ht_target proj
+R4422:4430 SpecV2.RelationalTriples <> ht_target proj
+R4422:4430 SpecV2.RelationalTriples <> ht_target proj
+R4469:4474 SpecV2.RelationalTriples <> ht_pre proj
+R4469:4474 SpecV2.RelationalTriples <> ht_pre proj
+R4622:4628 SpecV2.RelationalTriples <> ht_post proj
+R4622:4628 SpecV2.RelationalTriples <> ht_post proj
+R4676:4684 SpecV2.RelationalTriples <> ht_origin proj
+R4676:4684 SpecV2.RelationalTriples <> ht_origin proj
+R4731:4739 SpecV2.RelationalTriples <> ht_clause proj
+R4731:4739 SpecV2.RelationalTriples <> ht_clause proj
+R4435:4444 SpecV2.RelationalTriples <> TripleStep constr
+R4447:4455 SpecV2.ExplicitProduct <> pst_trans proj
+R4457:4458 SpecV2.RelationalTriples <> ps:34 var
+binder 4483:4485 <> ctx:35
+R4520:4532 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R4499:4512 SpecV2.GeneratedClauses <> ctx_matches_ps def
+R4518:4519 SpecV2.RelationalTriples <> ps:34 var
+R4514:4516 SpecV2.RelationalTriples <> ctx:35 var
+R4569:4581 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R4533:4540 SpecV2.RelationalTriples <> Triples.node_inv var
+R4566:4568 SpecV2.RelationalTriples <> ctx:35 var
+R4543:4549 SpecV2.ExplicitProduct <> ps_prog proj
+R4552:4559 SpecV2.ExplicitProduct <> pst_from proj
+R4561:4562 SpecV2.RelationalTriples <> ps:34 var
+R4582:4594 SpecV2.GeneratedClauses <> coherence_now def
+R4610:4612 SpecV2.RelationalTriples <> ctx:35 var
+R4597:4604 SpecV2.ExplicitProduct <> pst_from proj
+R4606:4607 SpecV2.RelationalTriples <> ps:34 var
+R4633:4640 SpecV2.RelationalTriples <> Triples.node_inv var
+R4643:4649 SpecV2.ExplicitProduct <> ps_prog proj
+R4652:4661 SpecV2.ExplicitProduct <> pst_target proj
+R4663:4664 SpecV2.RelationalTriples <> ps:34 var
+R4689:4705 SpecV2.GeneratedClauses <> OriginPropagation constr
+R4707:4721 SpecV2.GeneratedClauses <> CKNodeInvariant constr
+R4744:4758 SpecV2.GeneratedClauses <> node_inv_clause def
+R4770:4779 SpecV2.ExplicitProduct <> pst_target proj
+R4781:4782 SpecV2.RelationalTriples <> ps:34 var
+R4760:4767 SpecV2.RelationalTriples <> Triples.node_inv var
+def 4803:4818 <> coherence_triple
+R4827:4837 SpecV2.ExplicitProduct <> ProductStep rec
+R4839:4839 SpecV2.RelationalTriples <> Triples.P var
+R4841:4844 SpecV2.RelationalTriples <> Triples.Spec var
+binder 4821:4822 <> ps:36
+R4849:4862 SpecV2.RelationalTriples <> RelHoareTriple rec
+R4874:4882 SpecV2.RelationalTriples <> ht_target proj
+R4874:4882 SpecV2.RelationalTriples <> ht_target proj
+R4874:4882 SpecV2.RelationalTriples <> ht_target proj
+R4921:4926 SpecV2.RelationalTriples <> ht_pre proj
+R4921:4926 SpecV2.RelationalTriples <> ht_pre proj
+R5016:5022 SpecV2.RelationalTriples <> ht_post proj
+R5016:5022 SpecV2.RelationalTriples <> ht_post proj
+R5078:5086 SpecV2.RelationalTriples <> ht_origin proj
+R5078:5086 SpecV2.RelationalTriples <> ht_origin proj
+R5129:5137 SpecV2.RelationalTriples <> ht_clause proj
+R5129:5137 SpecV2.RelationalTriples <> ht_clause proj
+R4887:4896 SpecV2.RelationalTriples <> TripleStep constr
+R4899:4907 SpecV2.ExplicitProduct <> pst_trans proj
+R4909:4910 SpecV2.RelationalTriples <> ps:36 var
+binder 4935:4937 <> ctx:37
+R4972:4975 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R4951:4964 SpecV2.GeneratedClauses <> ctx_matches_ps def
+R4970:4971 SpecV2.RelationalTriples <> ps:36 var
+R4966:4968 SpecV2.RelationalTriples <> ctx:37 var
+R4976:4988 SpecV2.GeneratedClauses <> coherence_now def
+R5004:5006 SpecV2.RelationalTriples <> ctx:37 var
+R4991:4998 SpecV2.ExplicitProduct <> pst_from proj
+R5000:5001 SpecV2.RelationalTriples <> ps:36 var
+R5027:5052 SpecV2.GeneratedClauses <> automaton_coherence_clause def
+R5055:5064 SpecV2.ExplicitProduct <> pst_target proj
+R5066:5067 SpecV2.RelationalTriples <> ps:36 var
+R5091:5107 SpecV2.GeneratedClauses <> OriginPropagation constr
+R5109:5119 SpecV2.GeneratedClauses <> CKAutomaton constr
+R5142:5167 SpecV2.GeneratedClauses <> automaton_coherence_clause def
+R5170:5179 SpecV2.ExplicitProduct <> pst_target proj
+R5181:5182 SpecV2.RelationalTriples <> ps:36 var
+def 5203:5215 <> no_bad_triple
+R5224:5234 SpecV2.ExplicitProduct <> ProductStep rec
+R5236:5236 SpecV2.RelationalTriples <> Triples.P var
+R5238:5241 SpecV2.RelationalTriples <> Triples.Spec var
+binder 5218:5219 <> ps:38
+R5246:5259 SpecV2.RelationalTriples <> RelHoareTriple rec
+R5271:5279 SpecV2.RelationalTriples <> ht_target proj
+R5271:5279 SpecV2.RelationalTriples <> ht_target proj
+R5271:5279 SpecV2.RelationalTriples <> ht_target proj
+R5318:5323 SpecV2.RelationalTriples <> ht_pre proj
+R5318:5323 SpecV2.RelationalTriples <> ht_pre proj
+R5471:5477 SpecV2.RelationalTriples <> ht_post proj
+R5471:5477 SpecV2.RelationalTriples <> ht_post proj
+R5502:5510 SpecV2.RelationalTriples <> ht_origin proj
+R5502:5510 SpecV2.RelationalTriples <> ht_origin proj
+R5536:5544 SpecV2.RelationalTriples <> ht_clause proj
+R5536:5544 SpecV2.RelationalTriples <> ht_clause proj
+R5284:5293 SpecV2.RelationalTriples <> TripleStep constr
+R5296:5304 SpecV2.ExplicitProduct <> pst_trans proj
+R5306:5307 SpecV2.RelationalTriples <> ps:38 var
+binder 5332:5334 <> ctx:39
+R5369:5381 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5348:5361 SpecV2.GeneratedClauses <> ctx_matches_ps def
+R5367:5368 SpecV2.RelationalTriples <> ps:38 var
+R5363:5365 SpecV2.RelationalTriples <> ctx:39 var
+R5418:5430 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R5382:5389 SpecV2.RelationalTriples <> Triples.node_inv var
+R5415:5417 SpecV2.RelationalTriples <> ctx:39 var
+R5392:5398 SpecV2.ExplicitProduct <> ps_prog proj
+R5401:5408 SpecV2.ExplicitProduct <> pst_from proj
+R5410:5411 SpecV2.RelationalTriples <> ps:38 var
+R5431:5443 SpecV2.GeneratedClauses <> coherence_now def
+R5459:5461 SpecV2.RelationalTriples <> ctx:39 var
+R5446:5453 SpecV2.ExplicitProduct <> pst_from proj
+R5455:5456 SpecV2.RelationalTriples <> ps:38 var
+R5482:5492 SpecV2.RelationalTriples <> FalseClause def
+R5515:5526 SpecV2.GeneratedClauses <> OriginSafety constr
+R5549:5561 SpecV2.GeneratedClauses <> no_bad_clause def
+R5563:5564 SpecV2.RelationalTriples <> ps:38 var
+ind 5583:5599 <> GeneratedTripleBy
+constr 5650:5665 <> GT_init_node_inv
+constr 5747:5763 <> GT_init_automaton
+constr 5842:5852 <> GT_node_inv
+constr 5990:6001 <> GT_automaton
+constr 6136:6144 <> GT_no_bad
+R5616:5619 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R5603:5615 SpecV2.GeneratedClauses <> clause_origin ind
+R5634:5637 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R5620:5633 SpecV2.RelationalTriples <> RelHoareTriple rec
+R5675:5691 SpecV2.RelationalTriples <> GeneratedTripleBy:40 ind
+R5722:5741 SpecV2.RelationalTriples <> init_node_inv_triple def
+R5694:5703 SpecV2.GeneratedClauses <> OriginInit constr
+R5705:5719 SpecV2.GeneratedClauses <> CKNodeInvariant constr
+R5773:5789 SpecV2.RelationalTriples <> GeneratedTripleBy:40 ind
+R5816:5836 SpecV2.RelationalTriples <> init_coherence_triple def
+R5792:5801 SpecV2.GeneratedClauses <> OriginInit constr
+R5803:5813 SpecV2.GeneratedClauses <> CKAutomaton constr
+binder 5869:5870 <> ps:42
+R5899:5910 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R5881:5895 SpecV2.ExplicitProduct <> product_step_wf def
+R5897:5898 SpecV2.RelationalTriples <> ps:42 var
+R5911:5927 SpecV2.RelationalTriples <> GeneratedTripleBy:40 ind
+R5966:5980 SpecV2.RelationalTriples <> node_inv_triple def
+R5982:5983 SpecV2.RelationalTriples <> ps:42 var
+R5930:5946 SpecV2.GeneratedClauses <> OriginPropagation constr
+R5948:5962 SpecV2.GeneratedClauses <> CKNodeInvariant constr
+binder 6018:6019 <> ps:43
+R6048:6059 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6030:6044 SpecV2.ExplicitProduct <> product_step_wf def
+R6046:6047 SpecV2.RelationalTriples <> ps:43 var
+R6060:6076 SpecV2.RelationalTriples <> GeneratedTripleBy:40 ind
+R6111:6126 SpecV2.RelationalTriples <> coherence_triple def
+R6128:6129 SpecV2.RelationalTriples <> ps:43 var
+R6079:6095 SpecV2.GeneratedClauses <> OriginPropagation constr
+R6097:6107 SpecV2.GeneratedClauses <> CKAutomaton constr
+binder 6161:6162 <> ps:44
+R6191:6202 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6173:6187 SpecV2.ExplicitProduct <> product_step_wf def
+R6189:6190 SpecV2.RelationalTriples <> ps:44 var
+R6232:6243 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R6203:6228 SpecV2.ExplicitProduct <> product_step_is_bad_target def
+R6230:6231 SpecV2.RelationalTriples <> ps:44 var
+R6244:6260 SpecV2.RelationalTriples <> GeneratedTripleBy:40 ind
+R6276:6288 SpecV2.RelationalTriples <> no_bad_triple def
+R6290:6291 SpecV2.RelationalTriples <> ps:44 var
+R6262:6273 SpecV2.GeneratedClauses <> OriginSafety constr
+scheme 5583:5599 <> GeneratedTripleBy_ind
+scheme 5583:5599 <> GeneratedTripleBy_sind
+def 6309:6323 <> GeneratedTriple
+R6331:6344 SpecV2.RelationalTriples <> RelHoareTriple rec
+binder 6326:6327 <> ht:45
+R6361:6367 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R6369:6370 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 6368:6368 <> o:46
+R6371:6387 SpecV2.RelationalTriples <> GeneratedTripleBy ind
+R6391:6392 SpecV2.RelationalTriples <> ht:45 var
+R6389:6389 SpecV2.RelationalTriples <> o:46 var
+R6399:6405 SpecV2.RelationalTriples Triples <> sec

@@ -1,0 +1,32 @@
+DIGEST 4b00e155919a9a7d2672ed585b3abe8f
+FKairos.obligations.OracleSemSig
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R84:99 Kairos.obligations.ObligationGenSig <> <> lib
+R141:149 Kairos.obligations.OracleSig <> <> lib
+R394:406 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R416:433 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R462:470 Kairos.obligations.OracleSemSig C StepCtx defax
+modtype 372:385 <> ORACLE_SEM_SIG
+R485:494 Kairos.obligations.OracleSig ORACLE_SIG <> modtype
+R496:496 Kairos.obligations.OracleSemSig E <> mod
+ax 508:529 ORACLE_SEM_SIG clause_valid_pointwise
+R550:557 Kairos.obligations.OracleSemSig E Clause def
+binder 545:546 <> cl:1
+binder 560:560 <> u:2
+binder 562:562 <> k:3
+R585:594 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R571:581 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG ClauseValid defax
+R583:584 Kairos.obligations.OracleSemSig <> cl:1 var
+R595:596 Kairos.obligations.OracleSemSig <> cl:1 var
+R599:606 Kairos.obligations.OracleSemSig C ctx_at defax
+R610:610 Kairos.obligations.OracleSemSig <> k:3 var
+R608:608 Kairos.obligations.OracleSemSig <> u:2 var
+R618:631 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R673:685 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R695:712 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R741:749 Kairos.obligations.OracleSemSig C StepCtx defax
+modtype 647:664 <> VALIDATION_SEM_SIG
+R763:776 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R778:778 Kairos.obligations.OracleSemSig C <> mod
+R780:780 Kairos.obligations.OracleSemSig E <> mod
+R787:804 Kairos.obligations.OracleSemSig VALIDATION_SEM_SIG <> modtype

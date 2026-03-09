@@ -1,0 +1,68 @@
+DIGEST 2f5d7b1e0891e81ee9d12f290d8cb5c2
+FKairos.core.CoreReactiveLaws
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R111:123 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+modtype 83:104 <> CORE_REACTIVE_LAWS_SIG
+ax 139:146 CORE_REACTIVE_LAWS_SIG cur_ctrl
+R159:162 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R150:158 Kairos.core.CoreReactiveLaws C StepCtx defax
+R163:168 Kairos.core.CoreReactiveLaws C Ctrl defax
+ax 183:189 CORE_REACTIVE_LAWS_SIG cur_mem
+R202:205 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R193:201 Kairos.core.CoreReactiveLaws C StepCtx defax
+R206:210 Kairos.core.CoreReactiveLaws C Mem defax
+ax 225:233 CORE_REACTIVE_LAWS_SIG cur_input
+R246:249 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R237:245 Kairos.core.CoreReactiveLaws C StepCtx defax
+R250:259 Kairos.core.CoreReactiveLaws C InputVal defax
+ax 274:283 CORE_REACTIVE_LAWS_SIG cur_output
+R296:299 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R287:295 Kairos.core.CoreReactiveLaws C StepCtx defax
+R300:310 Kairos.core.CoreReactiveLaws C OutputVal defax
+ax 322:340 CORE_REACTIVE_LAWS_SIG ctx_input_is_stream
+binder 355:355 <> u:9
+binder 357:357 <> k:10
+R384:386 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R360:368 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG cur_input defax
+R371:378 Kairos.core.CoreReactiveLaws C ctx_at defax
+R382:382 Kairos.core.CoreReactiveLaws <> k:10 var
+R380:380 Kairos.core.CoreReactiveLaws <> u:9 var
+R387:387 Kairos.core.CoreReactiveLaws <> u:9 var
+R389:389 Kairos.core.CoreReactiveLaws <> k:10 var
+ax 401:416 CORE_REACTIVE_LAWS_SIG cfg_ctx_coherent
+binder 431:431 <> u:13
+binder 433:433 <> k:14
+R491:493 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R442:442 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R466:467 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R490:490 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R443:450 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG cur_ctrl defax
+R453:460 Kairos.core.CoreReactiveLaws C ctx_at defax
+R464:464 Kairos.core.CoreReactiveLaws <> k:14 var
+R462:462 Kairos.core.CoreReactiveLaws <> u:13 var
+R468:474 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG cur_mem defax
+R477:484 Kairos.core.CoreReactiveLaws C ctx_at defax
+R488:488 Kairos.core.CoreReactiveLaws <> k:14 var
+R486:486 Kairos.core.CoreReactiveLaws <> u:13 var
+R494:501 Kairos.core.CoreReactiveLaws C cfg_at defax
+R505:505 Kairos.core.CoreReactiveLaws <> k:14 var
+R503:503 Kairos.core.CoreReactiveLaws <> u:13 var
+ax 517:534 CORE_REACTIVE_LAWS_SIG trace_ctx_coherent
+binder 549:549 <> u:17
+binder 551:551 <> k:18
+R575:577 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R560:570 Kairos.core.CoreReactiveLaws C run_trace defax
+R574:574 Kairos.core.CoreReactiveLaws <> k:18 var
+R572:572 Kairos.core.CoreReactiveLaws <> u:17 var
+R578:578 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R603:604 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R630:630 Corelib.Init.Datatypes <> ::core_scope:'('_x_','_x_','_'..'_','_x_')' not
+R579:587 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG cur_input defax
+R590:597 Kairos.core.CoreReactiveLaws C ctx_at defax
+R601:601 Kairos.core.CoreReactiveLaws <> k:18 var
+R599:599 Kairos.core.CoreReactiveLaws <> u:17 var
+R605:614 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG cur_output defax
+R617:624 Kairos.core.CoreReactiveLaws C ctx_at defax
+R628:628 Kairos.core.CoreReactiveLaws <> k:18 var
+R626:626 Kairos.core.CoreReactiveLaws <> u:17 var
+R637:658 Kairos.core.CoreReactiveLaws CORE_REACTIVE_LAWS_SIG <> modtype

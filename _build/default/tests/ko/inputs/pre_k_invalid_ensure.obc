@@ -1,0 +1,16 @@
+node pre_k_invalid_ensure(x: int) returns (y: int)
+locals
+states
+  Init, Run;
+init Init
+transitions
+  Init:
+    to Run  {
+    ensures pre_k(x, 2) = {0};
+    y := x;
+  }
+  Run:
+    to Run  {
+    y := x;
+  }
+end

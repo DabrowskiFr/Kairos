@@ -1,0 +1,164 @@
+type token =
+    X
+  | WITH
+  | WHEN
+  | W
+  | TRUE
+  | TREAL
+  | TRANS
+  | TO
+  | TINT
+  | THEN
+  | TBOOL
+  | STATES
+  | STAR
+  | SLASH
+  | SKIP
+  | SEMI
+  | RPAREN
+  | RETURNS
+  | REQUIRES
+  | RBRACK
+  | RBRACE
+  | R
+  | PREK
+  | PRE
+  | PLUS
+  | OR
+  | NOT
+  | NODE
+  | NEQ
+  | MINUS
+  | MATCH
+  | LT
+  | LPAREN
+  | LOCALS
+  | LET
+  | LE
+  | LBRACK
+  | LBRACE
+  | INVARIANTS
+  | INVARIANT
+  | INT of int
+  | INSTANCES
+  | INSTANCE
+  | INIT
+  | IN
+  | IMPL
+  | IF
+  | IDENT of string
+  | GUARANTEE
+  | GT
+  | GE
+  | G
+  | FROM
+  | FALSE
+  | EQ
+  | EOF
+  | ENSURES
+  | END
+  | ELSE
+  | CONTRACTS
+  | COMMA
+  | COLON
+  | CALL
+  | BAR
+  | ASSUME
+  | ASSIGN
+  | ARROW
+  | AND
+val expect_now : Ast.hexpr -> Ast.iexpr
+val loc_of_positions : Lexing.position -> Lexing.position -> Ast.loc
+val with_origin_loc : Ast.origin -> Ast.loc -> Ast.fo -> Ast.fo_o
+val mk_iexpr_loc :
+  Lexing.position -> Lexing.position -> Ast.iexpr_desc -> Ast.iexpr
+val mk_stmt_loc :
+  Lexing.position -> Lexing.position -> Ast.stmt_desc -> Ast.stmt
+val resolve_init_state : inline_init:string option -> string
+val history_aliases : (string, string * int) Hashtbl.t
+val reset_history_aliases : unit -> unit
+val register_history_alias :
+  alias:string -> param:string -> rhs_param:string -> k:int -> unit
+val implicit_history_alias_k : string -> int option
+val expand_history_alias : string -> Ast.iexpr -> Ast.hexpr
+val mk_var_iexpr_loc :
+  Lexing.position -> Lexing.position -> string -> Ast.iexpr
+val is_reserved_history_alias_name : string -> bool
+val forbid_reserved_identifier : context:string -> string -> unit
+val menhir_begin_marker : int
+val xv_vdecls_opt : Ast.vdecl list
+val xv_vdecls : Ast.vdecl list
+val xv_vdecl_group : Ast.vdecl list
+val xv_ty : Ast.ty
+val xv_transitions : Ast.transition list
+val xv_transition_group : Ast.transition list
+val xv_trans_contracts_opt : Ast.fo_o list * Ast.fo_o list
+val xv_trans_contracts : Ast.fo_o list * Ast.fo_o list
+val xv_to_transitions :
+  (string * Ast.iexpr option * Ast.fo_o list * Ast.fo_o list * Ast.stmt list)
+  list
+val xv_to_transition :
+  string * Ast.iexpr option * Ast.fo_o list * Ast.fo_o list * Ast.stmt list
+val xv_stmt_list_opt : Ast.stmt list
+val xv_stmt_list : Ast.stmt list
+val xv_stmt : Ast.stmt
+val xv_state_invariants_opt : Ast.invariant_state_rel list
+val xv_state_invariants : Ast.invariant_state_rel list
+val xv_state_invariant : Ast.invariant_state_rel list
+val xv_state_decls : string list * string option
+val xv_state_decl : string * string option
+val xv_relop : Ast.relop
+val xv_program : Ast.program
+val xv_params_opt : Ast.vdecl list
+val xv_params : Ast.vdecl list
+val xv_param : Ast.vdecl
+val xv_nodes : Ast.program
+val xv_node_contracts_block : Ast.fo_ltl list * Ast.fo_ltl list
+val xv_node_contracts : Ast.fo_ltl list * Ast.fo_ltl list
+val xv_node : Ast.node
+val xv_match_transitions : Ast.transition list
+val xv_match_transition : Ast.transition
+val xv_ltl_w : Ast.fo_ltl
+val xv_ltl_un : Ast.fo_ltl
+val xv_ltl_or : Ast.fo_ltl
+val xv_ltl_imp : Ast.fo_ltl
+val xv_ltl_atom : Ast.fo_ltl
+val xv_ltl_and : Ast.fo_ltl
+val xv_ltl : Ast.fo_ltl
+val xv_locals_opt : Ast.vdecl list
+val xv_invariant_formula_list : Ast.fo list
+val xv_invariant_entry : Ast.invariant_state_rel list
+val xv_invariant_entries : Ast.invariant_state_rel list
+val xv_instances_opt : (string * string) list
+val xv_instance_list : (string * string) list
+val xv_instance_decl : string * string
+val xv_iexpr_or : Ast.iexpr
+val xv_iexpr_not : Ast.iexpr
+val xv_iexpr_list_opt : Ast.iexpr list
+val xv_iexpr_list : Ast.iexpr list
+val xv_iexpr_atom : Ast.iexpr
+val xv_iexpr_and : Ast.iexpr
+val xv_iexpr : Ast.iexpr
+val xv_ident_list : string list
+val xv_id_list_opt : string list
+val xv_id_list : string list
+val xv_hexpr_list_opt : Ast.hexpr list
+val xv_hexpr_list : Ast.hexpr list
+val xv_hexpr : Ast.hexpr
+val xv_guard_opt : Ast.iexpr option
+val xv_fo_un : Ast.fo
+val xv_fo_or : Ast.fo
+val xv_fo_imp : Ast.fo
+val xv_fo_formula : Ast.fo
+val xv_fo_atom_noparen : Ast.fo
+val xv_fo_atom : Ast.fo
+val xv_fo_and : Ast.fo
+val xv_arith_unary : Ast.iexpr
+val xv_arith_mul : Ast.iexpr
+val xv_arith_atom : Ast.iexpr
+val xv_arith : Ast.iexpr
+val xv_alias_scope_start : unit
+val xv_alias_decls_opt : unit
+val xv_alias_decls : unit
+val xv_alias_decl : unit
+val menhir_end_marker : int

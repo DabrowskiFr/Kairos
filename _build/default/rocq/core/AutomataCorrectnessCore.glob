@@ -1,0 +1,17 @@
+DIGEST e7058470cfa12c49ba01d51bbf05ef5a
+FKairos.core.AutomataCorrectnessCore
+R27:38 Kairos.KairosOracle <> <> lib
+mod 434:456 <> AutomataCorrectnessCore
+def 472:515 AutomataCorrectnessCore stage_global_violation_yields_dangerous_step
+R525:570 Kairos.KairosOracle KairosOracleModel bad_local_step_if_G_violated thm
+def 587:630 AutomataCorrectnessCore stage_dangerous_step_yields_falsified_clause
+R640:676 Kairos.KairosOracle KairosOracleModel generation_coverage thm
+def 693:741 AutomataCorrectnessCore stage_valid_triples_imply_conditional_correctness
+R751:798 Kairos.KairosOracle KairosOracleModel oracle_conditional_correctness thm
+def 815:842 AutomataCorrectnessCore bad_local_step_if_G_violated
+R851:894 Kairos.core.AutomataCorrectnessCore AutomataCorrectnessCore stage_global_violation_yields_dangerous_step def
+def 911:929 AutomataCorrectnessCore generation_coverage
+R938:981 Kairos.core.AutomataCorrectnessCore AutomataCorrectnessCore stage_dangerous_step_yields_falsified_clause def
+def 998:1027 AutomataCorrectnessCore oracle_conditional_correctness
+R1036:1084 Kairos.core.AutomataCorrectnessCore AutomataCorrectnessCore stage_valid_triples_imply_conditional_correctness def
+R1091:1113 Kairos.core.AutomataCorrectnessCore AutomataCorrectnessCore <> mod

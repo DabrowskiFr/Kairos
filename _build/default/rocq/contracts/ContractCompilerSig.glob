@@ -1,0 +1,52 @@
+DIGEST 38420a176e9c33742367c6e25b00319e
+FKairos.contracts.ContractCompilerSig
+R39:60 Kairos.integration.ThreeLayerArchitecture <> <> lib
+R96:107 Kairos.logic.LTLPredicate <> <> lib
+R145:154 Kairos.monitor.MonitorSig <> <> lib
+R224:240 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+R253:263 Kairos.monitor.MonitorSig MONITOR_SIG <> modtype
+R310:320 Kairos.monitor.MonitorSig MONITOR_SIG <> modtype
+R386:402 Kairos.logic.LTLPredicate LTL_PREDICATE_SIG <> modtype
+R447:463 Kairos.logic.LTLPredicate LTL_PREDICATE_SIG <> modtype
+R288:297 Kairos.contracts.ContractCompilerSig P InputVal defax
+R356:358 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R346:355 Kairos.contracts.ContractCompilerSig P InputVal defax
+R359:369 Kairos.contracts.ContractCompilerSig P OutputVal defax
+R427:436 Kairos.contracts.ContractCompilerSig P InputVal defax
+R499:501 Corelib.Init.Datatypes <> ::type_scope:x_'*'_x not
+R489:498 Kairos.contracts.ContractCompilerSig P InputVal defax
+R502:512 Kairos.contracts.ContractCompilerSig P OutputVal defax
+modtype 195:215 <> CONTRACT_COMPILER_SIG
+ax 535:543 CONTRACT_COMPILER_SIG ContractA
+ax 565:573 CONTRACT_COMPILER_SIG ContractG
+ax 596:615 CONTRACT_COMPILER_SIG contractA_of_program
+R619:627 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG ContractA defax
+ax 642:661 CONTRACT_COMPILER_SIG contractG_of_program
+R665:673 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG ContractG defax
+ax 689:697 CONTRACT_COMPILER_SIG compile_A
+R710:713 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R701:709 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG ContractA defax
+R714:723 Kairos.contracts.ContractCompilerSig LA Formula def
+ax 738:746 CONTRACT_COMPILER_SIG compile_G
+R759:762 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R750:758 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG ContractG defax
+R763:772 Kairos.contracts.ContractCompilerSig LG Formula def
+ax 784:807 CONTRACT_COMPILER_SIG compile_A_sound_complete
+binder 822:822 <> u:13
+R848:852 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R831:845 Kairos.contracts.ContractCompilerSig Amon avoids_bad def
+R847:847 Kairos.contracts.ContractCompilerSig <> u:13 var
+R853:858 Kairos.contracts.ContractCompilerSig LA sat def
+R893:893 Kairos.contracts.ContractCompilerSig <> u:13 var
+R861:869 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG compile_A defax
+R871:890 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG contractA_of_program defax
+ax 905:928 CONTRACT_COMPILER_SIG compile_G_sound_complete
+binder 943:943 <> w:16
+R969:973 Corelib.Init.Logic <> ::type_scope:x_'<->'_x not
+R952:966 Kairos.contracts.ContractCompilerSig Gmon avoids_bad def
+R968:968 Kairos.contracts.ContractCompilerSig <> w:16 var
+R974:979 Kairos.contracts.ContractCompilerSig LG sat def
+R1014:1014 Kairos.contracts.ContractCompilerSig <> w:16 var
+R982:990 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG compile_G defax
+R992:1011 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG contractG_of_program defax
+R1021:1041 Kairos.contracts.ContractCompilerSig CONTRACT_COMPILER_SIG <> modtype

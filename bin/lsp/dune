@@ -1,0 +1,4 @@
+(executable
+ (name kairos_lsp)
+ (public_name kairos-lsp)
+ (libraries obcwhy3_lib kairos_lsp_protocol yojson unix str))

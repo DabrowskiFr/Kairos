@@ -1,0 +1,4 @@
+(library
+ (name kairos_v2_logic_layer)
+ (wrapped false)
+ (modules rocq_fo_language_sig rocq_shift_spec_sig rocq_ltl_predicate_sig))

@@ -1,0 +1,263 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>SpecV2.RelativeCompleteness</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library SpecV2.RelativeCompleteness</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">SpecV2</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span><br/>
+&nbsp;&nbsp;<a class="idref" href="SpecV2.ReactiveModel.html#"><span class="id" title="library">ReactiveModel</span></a> <a class="idref" href="SpecV2.ConditionalSafety.html#"><span class="id" title="library">ConditionalSafety</span></a> <a class="idref" href="SpecV2.ExplicitProduct.html#"><span class="id" title="library">ExplicitProduct</span></a> <a class="idref" href="SpecV2.GeneratedClauses.html#"><span class="id" title="library">GeneratedClauses</span></a> <a class="idref" href="SpecV2.RelationalTriples.html#"><span class="id" title="library">RelationalTriples</span></a> <a class="idref" href="SpecV2.Soundness.html#"><span class="id" title="library">Soundness</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+<a id="lab6"></a><h1 class="section">Relative Completeness</h1>
+
+
+<div class="paragraph"> </div>
+
+    This module proves the converse admissible-run results stated in the paper.
+    They are relative because they only speak about admissible runs and because
+    invariant-related triples additionally rely on the semantic truth of the
+    user invariants. 
+</div>
+<div class="code">
+
+<br/>
+<span class="id" title="keyword">Section</span> <a id="RelativeCompleteness" class="idref" href="#RelativeCompleteness"><span class="id" title="section">RelativeCompleteness</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span> (<a id="RelativeCompleteness.P" class="idref" href="#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> : <a class="idref" href="SpecV2.ReactiveModel.html#ReactiveProgram"><span class="id" title="record">ReactiveProgram</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Context</span> (<a id="RelativeCompleteness.Spec" class="idref" href="#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> : <a class="idref" href="SpecV2.ConditionalSafety.html#ConditionalSpec"><span class="id" title="record">ConditionalSpec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Variable</span> <a id="RelativeCompleteness.node_inv" class="idref" href="#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> : <a class="idref" href="SpecV2.ReactiveModel.html#ProgState"><span class="id" title="projection">ProgState</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> @<a class="idref" href="SpecV2.ExplicitProduct.html#TickCtx"><span class="id" title="record">TickCtx</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <span class="id" title="keyword">Prop</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Global conditional correctness. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="globally_correct" class="idref" href="#globally_correct"><span class="id" title="definition">globally_correct</span></a> : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:5" class="idref" href="#u:5"><span class="id" title="binder">u</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ConditionalSafety.html#AvoidA"><span class="id" title="definition">AvoidA</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:5"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ConditionalSafety.html#AvoidG"><span class="id" title="definition">AvoidG</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:5"><span class="id" title="variable">u</span></a>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Truth of the user invariant family on admissible runs. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Definition</span> <a id="node_invariants_on_runs" class="idref" href="#node_invariants_on_runs"><span class="id" title="definition">node_invariants_on_runs</span></a> : <span class="id" title="keyword">Prop</span> :=<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="m0:6" class="idref" href="#m0:6"><span class="id" title="binder">m0</span></a> <a id="u:7" class="idref" href="#u:7"><span class="id" title="binder">u</span></a> <a id="k:8" class="idref" href="#k:8"><span class="id" title="binder">k</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ConditionalSafety.html#AvoidA"><span class="id" title="definition">AvoidA</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:7"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> (<a class="idref" href="SpecV2.ReactiveModel.html#state_from"><span class="id" title="definition">state_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:6"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:7"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:8"><span class="id" title="variable">k</span></a>) (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:6"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:7"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:8"><span class="id" title="variable">k</span></a>).<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+A coherent abstract state is uniquely determined by the current concrete
+      run context. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Local Lemma</span> <a id="coherence_now_exact" class="idref" href="#coherence_now_exact"><span class="id" title="lemma">coherence_now_exact</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="m0:9" class="idref" href="#m0:9"><span class="id" title="binder">m0</span></a> <a id="u:10" class="idref" href="#u:10"><span class="id" title="binder">u</span></a> <a id="k:11" class="idref" href="#k:11"><span class="id" title="binder">k</span></a> <a id="st:12" class="idref" href="#st:12"><span class="id" title="binder">st</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.GeneratedClauses.html#coherence_now"><span class="id" title="definition">coherence_now</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#st:12"><span class="id" title="variable">st</span></a> (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:9"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:10"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:11"><span class="id" title="variable">k</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#st:12"><span class="id" title="variable">st</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> @<a class="idref" href="SpecV2.ExplicitProduct.html#product_state_from"><span class="id" title="definition">product_state_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:9"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:10"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:11"><span class="id" title="variable">k</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> [<span class="id" title="var">sp</span> <span class="id" title="var">sa</span> <span class="id" title="var">sg</span>] [<span class="id" title="var">Hs</span> [<span class="id" title="var">Ha</span> <span class="id" title="var">Hg</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span> <span class="id" title="tactic">in</span> *.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Matching plus coherence determine the next concrete product state of a
+      well-formed step. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Local Lemma</span> <a id="target_is_next_state" class="idref" href="#target_is_next_state"><span class="id" title="lemma">target_is_next_state</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="m0:13" class="idref" href="#m0:13"><span class="id" title="binder">m0</span></a> <a id="u:14" class="idref" href="#u:14"><span class="id" title="binder">u</span></a> <a id="k:15" class="idref" href="#k:15"><span class="id" title="binder">k</span></a> <a id="ps:16" class="idref" href="#ps:16"><span class="id" title="binder">ps</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#product_step_wf"><span class="id" title="definition">product_step_wf</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:16"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.GeneratedClauses.html#ctx_matches_ps"><span class="id" title="definition">ctx_matches_ps</span></a> (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:13"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:14"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:15"><span class="id" title="variable">k</span></a>) <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:16"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.GeneratedClauses.html#coherence_now"><span class="id" title="definition">coherence_now</span></a> (<a class="idref" href="SpecV2.ExplicitProduct.html#pst_from"><span class="id" title="projection">pst_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:16"><span class="id" title="variable">ps</span></a>) (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:13"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:14"><span class="id" title="variable">u</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:15"><span class="id" title="variable">k</span></a>) <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#pst_target"><span class="id" title="projection">pst_target</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:16"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#6cd0f7b28b6092304087c7049437bb1a"><span class="id" title="notation">=</span></a> @<a class="idref" href="SpecV2.ExplicitProduct.html#product_state_from"><span class="id" title="definition">product_state_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#m0:13"><span class="id" title="variable">m0</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#u:14"><span class="id" title="variable">u</span></a> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#k:15"><span class="id" title="variable">k</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> [<span class="id" title="var">src</span> <span class="id" title="var">t</span> <span class="id" title="var">m</span> <span class="id" title="var">i</span> <span class="id" title="var">o</span> <span class="id" title="var">tgt</span>] <span class="id" title="var">Hwf</span> <span class="id" title="var">Hmatch</span> <span class="id" title="var">Hcoh</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span> <span class="id" title="tactic">in</span> *.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">src</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">sp</span> <span class="id" title="var">sa</span> <span class="id" title="var">sg</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span> <span class="id" title="tactic">in</span> *.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">Hmatch</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">Hs</span> [<span class="id" title="var">Hm</span> [<span class="id" title="var">Hi</span> [<span class="id" title="var">Ho</span> <span class="id" title="var">Ht</span>]]]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">Hcoh</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">Hsp</span> [<span class="id" title="var">Hsa</span> <span class="id" title="var">Hsg</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span> <span class="id" title="tactic">in</span> <span class="id" title="var">Hs</span>, <span class="id" title="var">Hm</span>, <span class="id" title="var">Hi</span>, <span class="id" title="var">Ho</span>, <span class="id" title="var">Ht</span>, <span class="id" title="var">Hsp</span>, <span class="id" title="var">Hsa</span>, <span class="id" title="var">Hsg</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">subst</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="SpecV2.ExplicitProduct.html#product_step_wf"><span class="id" title="definition">product_step_wf</span></a> <span class="id" title="tactic">in</span> <span class="id" title="var">Hwf</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span> <span class="id" title="tactic">in</span> <span class="id" title="var">Hwf</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">Hwf</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="SpecV2.ExplicitProduct.html#product_step_target_of"><span class="id" title="definition">product_step_target_of</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="SpecV2.ExplicitProduct.html#product_state_from"><span class="id" title="definition">product_state_from</span></a>, <a class="idref" href="SpecV2.ReactiveModel.html#state_from"><span class="id" title="definition">state_from</span></a>, <a class="idref" href="SpecV2.ReactiveModel.html#trans_from"><span class="id" title="definition">trans_from</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ConditionalSafety.html#assume_state_at"><span class="id" title="definition">assume_state_at</span></a>, <a class="idref" href="SpecV2.ConditionalSafety.html#guarantee_state_at"><span class="id" title="definition">guarantee_state_at</span></a>, <a class="idref" href="SpecV2.ConditionalSafety.html#trace_from"><span class="id" title="definition">trace_from</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <a class="idref" href="SpecV2.ReactiveModel.html#cfg_from_S"><span class="id" title="lemma">cfg_from_S</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">remember</span> (<a class="idref" href="SpecV2.ReactiveModel.html#cfg_from"><span class="id" title="definition">cfg_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span>) <span class="id" title="keyword">as</span> <span class="id" title="var">cfg</span> <span class="id" title="var">eqn</span>:<span class="id" title="var">Hcfg</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">cfg</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">s</span> <span class="id" title="var">mcur</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+First relative-completeness result: global correctness validates all
+      generated <span class="inlinecode"><span class="id" title="var">NoBad</span></span> triples on admissible runs. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="relative_completeness_no_bad" class="idref" href="#relative_completeness_no_bad"><span class="id" title="lemma">relative_completeness_no_bad</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#globally_correct"><span class="id" title="definition">globally_correct</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="ps:17" class="idref" href="#ps:17"><span class="id" title="binder">ps</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#product_step_wf"><span class="id" title="definition">product_step_wf</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:17"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#product_step_is_bad_target"><span class="id" title="definition">product_step_is_bad_target</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:17"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> (<a class="idref" href="SpecV2.RelationalTriples.html#no_bad_triple"><span class="id" title="definition">no_bad_triple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:17"><span class="id" title="variable">ps</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">Hglob</span> <span class="id" title="var">ps</span> <span class="id" title="var">Hwf</span> <span class="id" title="var">Hbad</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">HA</span> <span class="id" title="var">Ht</span> [<span class="id" title="var">Hmatch</span> [<span class="id" title="var">Hinv</span> <span class="id" title="var">Hcoh</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="SpecV2.RelativeCompleteness.html#target_is_next_state"><span class="id" title="lemma">target_is_next_state</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="var">m0</span> := <span class="id" title="var">m0</span>) (<span class="id" title="var">u</span> := <span class="id" title="var">u</span>) (<span class="id" title="var">k</span> := <span class="id" title="var">k</span>) (<span class="id" title="var">ps</span> := <span class="id" title="var">ps</span>) <span class="id" title="var">Hwf</span> <span class="id" title="var">Hmatch</span> <span class="id" title="var">Hcoh</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">as</span> <span class="id" title="var">Htgt</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">Hbad</span> <span class="id" title="keyword">as</span> [<span class="id" title="var">Hgbad</span> <span class="id" title="var">_</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">Htgt</span> <span class="id" title="tactic">in</span> <span class="id" title="var">Hgbad</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">assert</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#63a68285c81db8f9bc456233bb9ed181"><span class="id" title="notation">~</span></a> <a class="idref" href="SpecV2.ConditionalSafety.html#avoids_bad"><span class="id" title="definition">avoids_bad</span></a> (<a class="idref" href="SpecV2.ConditionalSafety.html#guarantee_aut"><span class="id" title="projection">guarantee_aut</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a>) (<a class="idref" href="SpecV2.ConditionalSafety.html#trace_from"><span class="id" title="definition">trace_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <span class="id" title="var">m0</span> <span class="id" title="var">u</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;{ <span class="id" title="tactic">intro</span> <span class="id" title="var">Havoid</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">specialize</span> (<span class="id" title="var">Havoid</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">k</span>)).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> (<span class="id" title="var">Havoid</span> <span class="id" title="var">Hgbad</span>). }<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="var">exfalso</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="var">H</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">specialize</span> (<span class="id" title="var">Hglob</span> <span class="id" title="var">u</span> <span class="id" title="var">HA</span> <span class="id" title="var">m0</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">Hglob</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Automaton-coherence propagation triples are also semantically justified on
+      admissible runs by global correctness. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="relative_completeness_automaton_coherence" class="idref" href="#relative_completeness_automaton_coherence"><span class="id" title="lemma">relative_completeness_automaton_coherence</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> (@<a class="idref" href="SpecV2.RelationalTriples.html#init_coherence_triple"><span class="id" title="definition">init_coherence_triple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#ba2b0e492d2b4675a0acf3ea92aabadd"><span class="id" title="notation">/\</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="ps:18" class="idref" href="#ps:18"><span class="id" title="binder">ps</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#product_step_wf"><span class="id" title="definition">product_step_wf</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:18"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> (<a class="idref" href="SpecV2.RelationalTriples.html#coherence_triple"><span class="id" title="definition">coherence_triple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:18"><span class="id" title="variable">ps</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">repeat</span> <span class="id" title="tactic">split</span>; <span class="id" title="tactic">reflexivity</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">intros</span> <span class="id" title="var">ps</span> <span class="id" title="var">Hwf</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">_</span> <span class="id" title="var">_</span> [<span class="id" title="var">Hmatch</span> <span class="id" title="var">Hcoh</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">unfold</span> <a class="idref" href="SpecV2.GeneratedClauses.html#automaton_coherence_clause"><span class="id" title="definition">automaton_coherence_clause</span></a>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">change</span> (<a class="idref" href="SpecV2.GeneratedClauses.html#coherence_now"><span class="id" title="definition">coherence_now</span></a> (<a class="idref" href="SpecV2.ExplicitProduct.html#pst_target"><span class="id" title="projection">pst_target</span></a> <span class="id" title="var">ps</span>) (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">k</span>))).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> (<a class="idref" href="SpecV2.RelativeCompleteness.html#target_is_next_state"><span class="id" title="lemma">target_is_next_state</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="var">m0</span> := <span class="id" title="var">m0</span>) (<span class="id" title="var">u</span> := <span class="id" title="var">u</span>) (<span class="id" title="var">k</span> := <span class="id" title="var">k</span>) (<span class="id" title="var">ps</span> := <span class="id" title="var">ps</span>) <span class="id" title="var">Hwf</span> <span class="id" title="var">Hmatch</span> <span class="id" title="var">Hcoh</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> (@<a class="idref" href="SpecV2.ExplicitProduct.html#coherence_now_from_run"><span class="id" title="lemma">coherence_now_from_run</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">k</span>)).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+User-invariant triples require the additional semantic hypothesis that the
+      invariant family is actually true on admissible runs. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="relative_completeness_user_invariant" class="idref" href="#relative_completeness_user_invariant"><span class="id" title="lemma">relative_completeness_user_invariant</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#node_invariants_on_runs"><span class="id" title="definition">node_invariants_on_runs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> (@<a class="idref" href="SpecV2.RelationalTriples.html#init_node_inv_triple"><span class="id" title="definition">init_node_inv_triple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#ba2b0e492d2b4675a0acf3ea92aabadd"><span class="id" title="notation">/\</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="ps:19" class="idref" href="#ps:19"><span class="id" title="binder">ps</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.ExplicitProduct.html#product_step_wf"><span class="id" title="definition">product_step_wf</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:19"><span class="id" title="variable">ps</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> (<a class="idref" href="SpecV2.RelationalTriples.html#node_inv_triple"><span class="id" title="definition">node_inv_triple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ps:19"><span class="id" title="variable">ps</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">Htrue</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">split</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">HA</span> <span class="id" title="var">_</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> (<span class="id" title="var">Htrue</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> 0 <span class="id" title="var">HA</span>).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">intros</span> <span class="id" title="var">ps</span> <span class="id" title="var">Hwf</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">simpl</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> <span class="id" title="var">k</span> <span class="id" title="var">HA</span> <span class="id" title="var">_</span> [<span class="id" title="var">Hmatch</span> [<span class="id" title="var">Hinv</span> <span class="id" title="var">Hcoh</span>]].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">change</span> (<a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> (<a class="idref" href="SpecV2.ExplicitProduct.html#ps_prog"><span class="id" title="projection">ps_prog</span></a> (<a class="idref" href="SpecV2.ExplicitProduct.html#pst_target"><span class="id" title="projection">pst_target</span></a> <span class="id" title="var">ps</span>)) (@<a class="idref" href="SpecV2.ExplicitProduct.html#ctx_from"><span class="id" title="definition">ctx_from</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">k</span>))).<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">pose</span> <span class="id" title="var">proof</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<a class="idref" href="SpecV2.RelativeCompleteness.html#target_is_next_state"><span class="id" title="lemma">target_is_next_state</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(<span class="id" title="var">m0</span> := <span class="id" title="var">m0</span>) (<span class="id" title="var">u</span> := <span class="id" title="var">u</span>) (<span class="id" title="var">k</span> := <span class="id" title="var">k</span>) (<span class="id" title="var">ps</span> := <span class="id" title="var">ps</span>) <span class="id" title="var">Hwf</span> <span class="id" title="var">Hmatch</span> <span class="id" title="var">Hcoh</span>) <span class="id" title="keyword">as</span> <span class="id" title="var">Htgt</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">rewrite</span> <span class="id" title="var">Htgt</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> (<span class="id" title="var">Htrue</span> <span class="id" title="var">m0</span> <span class="id" title="var">u</span> (<a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Datatypes.html#S"><span class="id" title="constructor">S</span></a> <span class="id" title="var">k</span>) <span class="id" title="var">HA</span>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+</div>
+
+<div class="doc">
+Combined relative-completeness statement for all generated triples. 
+</div>
+<div class="code">
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="relative_completeness_generated_triples" class="idref" href="#relative_completeness_generated_triples"><span class="id" title="lemma">relative_completeness_generated_triples</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#globally_correct"><span class="id" title="definition">globally_correct</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="SpecV2.RelativeCompleteness.html#node_invariants_on_runs"><span class="id" title="definition">node_invariants_on_runs</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="ht:20" class="idref" href="#ht:20"><span class="id" title="binder">ht</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#GeneratedTriple"><span class="id" title="definition">GeneratedTriple</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.node_inv"><span class="id" title="variable">node_inv</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ht:20"><span class="id" title="variable">ht</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;@<a class="idref" href="SpecV2.RelationalTriples.html#TripleValidOnAdmissibleRuns"><span class="id" title="definition">TripleValidOnAdmissibleRuns</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.P"><span class="id" title="variable">P</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness.Spec"><span class="id" title="variable">Spec</span></a> <a class="idref" href="SpecV2.RelativeCompleteness.html#ht:20"><span class="id" title="variable">ht</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">intros</span> <span class="id" title="var">Hglob</span> <span class="id" title="var">Hnode</span> <span class="id" title="var">ht</span> [<span class="id" title="var">o</span> <span class="id" title="var">Hgen</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">destruct</span> <span class="id" title="var">Hgen</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">destruct</span> (<a class="idref" href="SpecV2.RelativeCompleteness.html#relative_completeness_user_invariant"><span class="id" title="lemma">relative_completeness_user_invariant</span></a> <span class="id" title="var">Hnode</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">Hinit</span> <span class="id" title="var">_</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">Hinit</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">destruct</span> <a class="idref" href="SpecV2.RelativeCompleteness.html#relative_completeness_automaton_coherence"><span class="id" title="lemma">relative_completeness_automaton_coherence</span></a> <span class="id" title="keyword">as</span> [<span class="id" title="var">Hinit</span> <span class="id" title="var">_</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <span class="id" title="var">Hinit</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">destruct</span> (<a class="idref" href="SpecV2.RelativeCompleteness.html#relative_completeness_user_invariant"><span class="id" title="lemma">relative_completeness_user_invariant</span></a> <span class="id" title="var">Hnode</span>) <span class="id" title="keyword">as</span> [<span class="id" title="var">_</span> <span class="id" title="var">Hstep</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="var">Hstep</span>; <span class="id" title="tactic">assumption</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">destruct</span> <a class="idref" href="SpecV2.RelativeCompleteness.html#relative_completeness_automaton_coherence"><span class="id" title="lemma">relative_completeness_automaton_coherence</span></a> <span class="id" title="keyword">as</span> [<span class="id" title="var">_</span> <span class="id" title="var">Hstep</span>].<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">apply</span> <span class="id" title="var">Hstep</span>; <span class="id" title="tactic">assumption</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="id" title="tactic">eapply</span> <a class="idref" href="SpecV2.RelativeCompleteness.html#relative_completeness_no_bad"><span class="id" title="lemma">relative_completeness_no_bad</span></a>; <span class="id" title="tactic">eauto</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="SpecV2.RelativeCompleteness.html#RelativeCompleteness"><span class="id" title="section">RelativeCompleteness</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

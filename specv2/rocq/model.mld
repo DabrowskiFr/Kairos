@@ -1,0 +1,22 @@
+{0 Semantic Model}
+
+The semantic model is split into three modules.
+
+{1 Reactive Programs}
+
+{!module-SpecV2.ReactiveModel} defines the extensional notion of reactive
+program used in the development. One synchronous tick is total by construction
+through the fields [select] and [select_enabled].
+
+{1 Conditional Safety}
+
+{!module-SpecV2.ConditionalSafety} adds the specification layer:
+
+- an assumption automaton over inputs;
+- a guarantee automaton over input/output observations;
+- the semantic predicates [AvoidA] and [AvoidG].
+
+{1 Explicit Product}
+
+{!module-SpecV2.ExplicitProduct} synchronizes the program and both automata.
+This is the level where global violations become local dangerous steps.

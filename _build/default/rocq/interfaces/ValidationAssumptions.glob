@@ -1,0 +1,15 @@
+DIGEST 59dda41eee4b67c462f0c8ffd99b8b75
+FKairos.interfaces.ValidationAssumptions
+R38:66 Kairos.interfaces.ExternalValidationAssumptions <> <> lib
+R380:431 Kairos.interfaces.ExternalValidationAssumptions VALIDATION_ASSUMPTIONS <> modtype
+modtype 352:373 <> VALIDATION_ASSUMPTIONS
+R484:544 Kairos.interfaces.ExternalValidationAssumptions EXTERNAL_VALIDATION_ASSUMPTIONS <> modtype
+modtype 447:477 <> EXTERNAL_VALIDATION_ASSUMPTIONS
+R599:666 Kairos.interfaces.ExternalValidationAssumptions MakeValidationAssumptionsFromOracleSem <> mod
+mod 555:592 <> MakeValidationAssumptionsFromOracleSem
+R729:804 Kairos.interfaces.ExternalValidationAssumptions MakeValidationAssumptionsFromTransitionTriples <> mod
+mod 677:722 <> MakeValidationAssumptionsFromTransitionTriples
+R867:942 Kairos.interfaces.ExternalValidationAssumptions MakeExternalValidationAssumptionsFromOracleSem <> mod
+mod 815:860 <> MakeExternalValidationAssumptionsFromOracleSem
+R1013:1096 Kairos.interfaces.ExternalValidationAssumptions MakeExternalValidationAssumptionsFromTransitionTriples <> mod
+mod 953:1006 <> MakeExternalValidationAssumptionsFromTransitionTriples

@@ -1,0 +1,112 @@
+DIGEST cc499e400681023bc11210bade36d48e
+FKairos.obligations.ImplementationValidatorBridge
+R32:42 Kairos.core.CoreStepSig <> <> lib
+R84:99 Kairos.obligations.ObligationGenSig <> <> lib
+R141:152 Kairos.obligations.OracleSemSig <> <> lib
+R229:241 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R251:268 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R297:305 Kairos.obligations.ImplementationValidatorBridge C StepCtx defax
+modtype 193:220 <> IMPLEMENTATION_VALIDATOR_SIG
+ax 322:330 IMPLEMENTATION_VALIDATOR_SIG Validator
+R342:345 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R334:341 Kairos.obligations.ImplementationValidatorBridge E Clause def
+R346:349 Corelib.Init.Datatypes <> bool ind
+ax 364:374 IMPLEMENTATION_VALIDATOR_SIG ClauseValid
+R386:389 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R378:385 Kairos.obligations.ImplementationValidatorBridge E Clause def
+ax 442:461 IMPLEMENTATION_VALIDATOR_SIG validator_sound_true
+binder 476:477 <> cl:5
+R499:502 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R492:494 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R480:488 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG Validator defax
+R490:491 Kairos.obligations.ImplementationValidatorBridge <> cl:5 var
+R495:498 Corelib.Init.Datatypes <> true constr
+R503:513 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG ClauseValid defax
+R515:516 Kairos.obligations.ImplementationValidatorBridge <> cl:5 var
+ax 582:605 IMPLEMENTATION_VALIDATOR_SIG validator_complete_valid
+binder 620:621 <> cl:8
+R638:641 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R624:634 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG ClauseValid defax
+R636:637 Kairos.obligations.ImplementationValidatorBridge <> cl:8 var
+R654:656 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R642:650 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG Validator defax
+R652:653 Kairos.obligations.ImplementationValidatorBridge <> cl:8 var
+R657:660 Corelib.Init.Datatypes <> true constr
+ax 733:760 IMPLEMENTATION_VALIDATOR_SIG validator_complete_generated
+binder 775:776 <> cl:11
+R793:796 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R779:789 Kairos.obligations.ImplementationValidatorBridge E Generated def
+R791:792 Kairos.obligations.ImplementationValidatorBridge <> cl:11 var
+R809:811 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R797:805 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG Validator defax
+R807:808 Kairos.obligations.ImplementationValidatorBridge <> cl:11 var
+R812:815 Corelib.Init.Datatypes <> true constr
+ax 827:848 IMPLEMENTATION_VALIDATOR_SIG clause_valid_pointwise
+R869:876 Kairos.obligations.ImplementationValidatorBridge E Clause def
+binder 864:865 <> cl:14
+binder 879:879 <> u:15
+binder 881:881 <> k:16
+R904:913 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R890:900 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG ClauseValid defax
+R902:903 Kairos.obligations.ImplementationValidatorBridge <> cl:14 var
+R914:915 Kairos.obligations.ImplementationValidatorBridge <> cl:14 var
+R918:925 Kairos.obligations.ImplementationValidatorBridge C ctx_at defax
+R929:929 Kairos.obligations.ImplementationValidatorBridge <> k:16 var
+R927:927 Kairos.obligations.ImplementationValidatorBridge <> u:15 var
+R937:964 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG <> modtype
+R1009:1021 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R1031:1048 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R1095:1122 Kairos.obligations.ImplementationValidatorBridge IMPLEMENTATION_VALIDATOR_SIG <> modtype
+R1124:1124 Kairos.obligations.ImplementationValidatorBridge C <> mod
+R1126:1126 Kairos.obligations.ImplementationValidatorBridge E <> mod
+R1134:1147 Kairos.obligations.OracleSemSig ORACLE_SEM_SIG <> modtype
+R1149:1149 Kairos.obligations.ImplementationValidatorBridge C <> mod
+R1151:1151 Kairos.obligations.ImplementationValidatorBridge E <> mod
+R1077:1085 Kairos.obligations.ImplementationValidatorBridge C StepCtx defax
+mod 975:1000 <> MakeOracleSemFromValidator
+def 1168:1173 MakeOracleSemFromValidator Oracle
+R1185:1188 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1177:1184 Kairos.obligations.ImplementationValidatorBridge E Clause def
+R1189:1192 Corelib.Init.Datatypes <> bool ind
+R1197:1207 Kairos.obligations.ImplementationValidatorBridge V Validator defax
+def 1223:1233 MakeOracleSemFromValidator ClauseValid
+R1245:1248 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1237:1244 Kairos.obligations.ImplementationValidatorBridge E Clause def
+R1257:1269 Kairos.obligations.ImplementationValidatorBridge V ClauseValid defax
+prf 1283:1294 MakeOracleSemFromValidator Oracle_sound
+binder 1309:1310 <> cl:19
+R1329:1332 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1322:1324 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1313:1318 Kairos.obligations.ImplementationValidatorBridge MakeOracleSemFromValidator Oracle def
+R1320:1321 Kairos.obligations.ImplementationValidatorBridge <> cl:19 var
+R1325:1328 Corelib.Init.Datatypes <> true constr
+R1333:1343 Kairos.obligations.ImplementationValidatorBridge MakeOracleSemFromValidator ClauseValid def
+R1345:1346 Kairos.obligations.ImplementationValidatorBridge <> cl:19 var
+R1386:1407 Kairos.obligations.ImplementationValidatorBridge V validator_sound_true prfax
+R1386:1407 Kairos.obligations.ImplementationValidatorBridge V validator_sound_true prfax
+prf 1442:1456 MakeOracleSemFromValidator Oracle_complete
+binder 1471:1472 <> cl:20
+R1489:1492 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1475:1485 Kairos.obligations.ImplementationValidatorBridge E Generated def
+R1487:1488 Kairos.obligations.ImplementationValidatorBridge <> cl:20 var
+R1502:1504 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1493:1498 Kairos.obligations.ImplementationValidatorBridge MakeOracleSemFromValidator Oracle def
+R1500:1501 Kairos.obligations.ImplementationValidatorBridge <> cl:20 var
+R1505:1508 Corelib.Init.Datatypes <> true constr
+R1551:1580 Kairos.obligations.ImplementationValidatorBridge V validator_complete_generated prfax
+R1551:1580 Kairos.obligations.ImplementationValidatorBridge V validator_complete_generated prfax
+prf 1618:1639 MakeOracleSemFromValidator clause_valid_pointwise
+R1660:1667 Kairos.obligations.ImplementationValidatorBridge E Clause def
+binder 1655:1656 <> cl:21
+binder 1670:1670 <> u:22
+binder 1672:1672 <> k:23
+R1695:1704 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1681:1691 Kairos.obligations.ImplementationValidatorBridge MakeOracleSemFromValidator ClauseValid def
+R1693:1694 Kairos.obligations.ImplementationValidatorBridge <> cl:21 var
+R1705:1706 Kairos.obligations.ImplementationValidatorBridge <> cl:21 var
+R1709:1716 Kairos.obligations.ImplementationValidatorBridge C ctx_at defax
+R1720:1720 Kairos.obligations.ImplementationValidatorBridge <> k:23 var
+R1718:1718 Kairos.obligations.ImplementationValidatorBridge <> u:22 var
+R1771:1794 Kairos.obligations.ImplementationValidatorBridge V clause_valid_pointwise prfax
+R1771:1794 Kairos.obligations.ImplementationValidatorBridge V clause_valid_pointwise prfax
+R1823:1848 Kairos.obligations.ImplementationValidatorBridge MakeOracleSemFromValidator <> mod

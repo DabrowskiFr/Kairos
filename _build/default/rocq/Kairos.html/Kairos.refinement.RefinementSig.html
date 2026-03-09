@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.refinement.RefinementSig</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.refinement.RefinementSig</h1>
+
+<div class="code">
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <span class="id" title="keyword">Type</span> <a id="REFINEMENT_SIG" class="idref" href="#REFINEMENT_SIG"><span class="id" title="module">REFINEMENT_SIG</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.AbsCtx" class="idref" href="#REFINEMENT_SIG.AbsCtx"><span class="id" title="axiom">AbsCtx</span></a> <a id="REFINEMENT_SIG.ConcrCtx" class="idref" href="#REFINEMENT_SIG.ConcrCtx"><span class="id" title="axiom">ConcrCtx</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.AbsFO" class="idref" href="#REFINEMENT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a> <a id="REFINEMENT_SIG.ConcrFO" class="idref" href="#REFINEMENT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a> : <span class="id" title="keyword">Type</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.refines_ctx" class="idref" href="#REFINEMENT_SIG.refines_ctx"><span class="id" title="axiom">refines_ctx</span></a> : <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.ConcrCtx"><span class="id" title="axiom">ConcrCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.AbsCtx"><span class="id" title="axiom">AbsCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <span class="id" title="keyword">Prop</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.refines_fo" class="idref" href="#REFINEMENT_SIG.refines_fo"><span class="id" title="axiom">refines_fo</span></a> : <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <span class="id" title="keyword">Prop</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.eval_abs" class="idref" href="#REFINEMENT_SIG.eval_abs"><span class="id" title="axiom">eval_abs</span></a> : <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.AbsCtx"><span class="id" title="axiom">AbsCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.AbsFO"><span class="id" title="axiom">AbsFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <span class="id" title="keyword">Prop</span>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Parameter</span> <a id="REFINEMENT_SIG.eval_concr" class="idref" href="#REFINEMENT_SIG.eval_concr"><span class="id" title="axiom">eval_concr</span></a> : <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.ConcrCtx"><span class="id" title="axiom">ConcrCtx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.ConcrFO"><span class="id" title="axiom">ConcrFO</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a> <span class="id" title="keyword">Prop</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Axiom</span> <a id="REFINEMENT_SIG.refinement_sound" class="idref" href="#REFINEMENT_SIG.refinement_sound"><span class="id" title="axiom">refinement_sound</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="cctx:17" class="idref" href="#cctx:17"><span class="id" title="binder">cctx</span></a> <a id="actx:18" class="idref" href="#actx:18"><span class="id" title="binder">actx</span></a> <a id="cfo:19" class="idref" href="#cfo:19"><span class="id" title="binder">cfo</span></a> <a id="afo:20" class="idref" href="#afo:20"><span class="id" title="binder">afo</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.refines_ctx"><span class="id" title="axiom">refines_ctx</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#cctx:17"><span class="id" title="variable">cctx</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#actx:18"><span class="id" title="variable">actx</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.refines_fo"><span class="id" title="axiom">refines_fo</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#cfo:19"><span class="id" title="variable">cfo</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#afo:20"><span class="id" title="variable">afo</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.eval_concr"><span class="id" title="axiom">eval_concr</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#cctx:17"><span class="id" title="variable">cctx</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#cfo:19"><span class="id" title="variable">cfo</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG.eval_abs"><span class="id" title="axiom">eval_abs</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#actx:18"><span class="id" title="variable">actx</span></a> <a class="idref" href="Kairos.refinement.RefinementSig.html#afo:20"><span class="id" title="variable">afo</span></a>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.refinement.RefinementSig.html#REFINEMENT_SIG"><span class="id" title="module">REFINEMENT_SIG</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

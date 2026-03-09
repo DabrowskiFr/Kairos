@@ -1,0 +1,53 @@
+DIGEST c188b75fa159cf551b814fd83053d279
+FKairos.kernels.ShiftKernel
+R27:37 Stdlib.Arith.Arith <> <> lib
+R73:83 Kairos.core.CoreStepSig <> <> lib
+R121:130 Kairos.monitor.MonitorSig <> <> lib
+R168:179 Kairos.monitor.InputMonitor <> <> lib
+R215:227 Kairos.logic.FOLanguageSig <> <> lib
+R263:274 Kairos.logic.ShiftSpecSig <> <> lib
+R333:345 Kairos.core.CoreStepSig CORE_STEP_SIG <> modtype
+R355:365 Kairos.monitor.MonitorSig MONITOR_SIG <> modtype
+R409:431 Kairos.monitor.InputMonitor INPUT_ADMISSIBILITY_SIG <> modtype
+R433:433 Kairos.kernels.ShiftKernel A <> mod
+R443:454 Kairos.logic.FOLanguageSig FO_LOGIC_SIG <> modtype
+R645:658 Kairos.logic.ShiftSpecSig SHIFT_SPEC_SIG <> modtype
+R660:660 Kairos.kernels.ShiftKernel A <> mod
+R662:662 Kairos.kernels.ShiftKernel I <> mod
+R664:664 Kairos.kernels.ShiftKernel L <> mod
+R390:399 Kairos.kernels.ShiftKernel C InputVal defax
+R491:500 Kairos.kernels.ShiftKernel C InputVal defax
+R538:548 Kairos.kernels.ShiftKernel C OutputVal defax
+R584:592 Kairos.kernels.ShiftKernel C StepCtx defax
+R627:634 Kairos.kernels.ShiftKernel C ctx_at defax
+mod 310:324 <> MakeShiftKernel
+prf 679:700 MakeShiftKernel shift_one_step_under_A
+binder 715:715 <> u:1
+binder 717:717 <> k:2
+binder 719:721 <> phi:3
+R740:749 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R730:737 Kairos.kernels.ShiftKernel I AvoidA def
+R739:739 Kairos.kernels.ShiftKernel <> u:1 var
+R793:802 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R750:758 Kairos.kernels.ShiftKernel L eval_fo defax
+R776:785 Kairos.kernels.ShiftKernel L shift_fo defax
+R789:791 Kairos.kernels.ShiftKernel <> phi:3 var
+R761:768 Kairos.kernels.ShiftKernel C ctx_at defax
+R772:772 Kairos.kernels.ShiftKernel <> k:2 var
+R770:770 Kairos.kernels.ShiftKernel <> u:1 var
+R803:811 Kairos.kernels.ShiftKernel L eval_fo defax
+R832:834 Kairos.kernels.ShiftKernel <> phi:3 var
+R814:821 Kairos.kernels.ShiftKernel C ctx_at defax
+R826:826 Corelib.Init.Datatypes <> S constr
+R828:828 Kairos.kernels.ShiftKernel <> k:2 var
+R823:823 Kairos.kernels.ShiftKernel <> u:1 var
+R895:918 Kairos.kernels.ShiftKernel I avoid_implies_input_ok prfax
+R895:918 Kairos.kernels.ShiftKernel I avoid_implies_input_ok prfax
+R953:983 Kairos.kernels.ShiftKernel Sh shift_fo_correct_if_input_ok prfax
+R953:983 Kairos.kernels.ShiftKernel Sh shift_fo_correct_if_input_ok prfax
+R1020:1030 Stdlib.Arith.PeanoNat Nat add_1_r thm
+R1020:1030 Stdlib.Arith.PeanoNat Nat add_1_r thm
+R1020:1030 Stdlib.Arith.PeanoNat Nat add_1_r thm
+R1052:1056 Corelib.Init.Logic <> proj1 thm
+R1052:1056 Corelib.Init.Logic <> proj1 thm
+R1085:1099 Kairos.kernels.ShiftKernel MakeShiftKernel <> mod

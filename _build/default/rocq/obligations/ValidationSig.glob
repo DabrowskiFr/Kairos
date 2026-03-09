@@ -1,0 +1,7 @@
+DIGEST 38b6acedca4084b75feeb9315b658c8d
+FKairos.obligations.ValidationSig
+R39:47 Kairos.obligations.OracleSig <> <> lib
+R331:354 Kairos.obligations.OracleSig VALIDATION_SIG <> modtype
+modtype 313:326 <> VALIDATION_SIG
+R383:402 Kairos.obligations.OracleSig ORACLE_SIG <> modtype
+modtype 369:378 <> ORACLE_SIG

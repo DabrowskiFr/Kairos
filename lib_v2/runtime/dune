@@ -1,0 +1,83 @@
+(library
+ (name obcwhy3_lib)
+ (public_name kairos)
+ (wrapped false)
+ (modules
+  abstract_model
+  ast
+  ast_builders
+  ast_provenance
+  ast_utils
+  ast_dump
+  ast_invariants
+  frontend
+  lexer
+  parser
+  parse_file
+  support
+  provenance
+  collect
+  stage_types
+  stage_names
+  stage_info
+  stages_info
+  log
+  io
+  obligation_taxonomy
+  engine_service
+  pipeline_v2_indep
+  lsp_app
+  lsp_services
+  pipeline
+  contract_coherency
+  middle_end_stages
+  middle_end
+  automata_pass_sig
+  automata_default
+  why_compile_expr
+  obc_stage
+  obc_emit
+  obc_ghost_instrument
+  why_types
+  why_labels
+  why_prove
+  why_env
+  why_contracts
+  why_diagnostics
+  why_core
+  why_emit
+  emit
+  backend
+  automata_atoms
+  automata_spec
+  automata_generation
+  product_types
+  product_build
+  product_debug
+  product_contracts
+  automata_pass
+  instrumentation
+  middle_end_pass
+  contracts_pass
+  instrumentation_pass
+  dot_emit
+  why_stage
+  fo_specs
+  fo_time
+  automaton_util
+  automaton_config
+  automaton_engine
+  fo_atoms
+  ltl_valuation
+  automaton_bdd
+  ltl_norm
+  ltl_progress
+  automaton_types
+  automaton_guard
+  automaton_residual
+  automaton_core)
+ (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult yojson kairos_lsp_protocol)
+ (preprocess
+  (pps ppx_deriving.show sedlex.ppx)))
+
+(include_subdirs unqualified)

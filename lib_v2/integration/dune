@@ -1,0 +1,5 @@
+(library
+ (name kairos_v2_integration_layer)
+ (wrapped false)
+ (modules rocq_end_to_end)
+ (libraries obcwhy3_lib))

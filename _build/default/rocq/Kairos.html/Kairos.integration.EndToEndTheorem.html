@@ -1,0 +1,69 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+<link href="coqdoc.css" rel="stylesheet" type="text/css" />
+<title>Kairos.integration.EndToEndTheorem</title>
+</head>
+
+<body>
+
+<div id="page">
+
+<div id="header">
+</div>
+
+<div id="main">
+
+<h1 class="libtitle">Library Kairos.integration.EndToEndTheorem</h1>
+
+<div class="code">
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.core</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.core.CoreStepSig.html#"><span class="id" title="library">CoreStepSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.ObligationGenSig.html#"><span class="id" title="library">ObligationGenSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.OracleSig.html#"><span class="id" title="library">OracleSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.obligations</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.obligations.OracleSemSig.html#"><span class="id" title="library">OracleSemSig</span></a>.<br/>
+<span class="id" title="keyword">From</span> <span class="id" title="var">Kairos.kernels</span> <span class="id" title="keyword">Require</span> <span class="id" title="keyword">Import</span> <a class="idref" href="Kairos.kernels.SafetyKernel.html#"><span class="id" title="library">SafetyKernel</span></a>.<br/>
+
+<br/>
+<span class="id" title="keyword">Set Implicit Arguments</span>.<br/>
+
+<br/>
+<span class="id" title="keyword">Module</span> <a id="MakeEndToEnd" class="idref" href="#MakeEndToEnd"><span class="id" title="module">MakeEndToEnd</span></a><br/>
+&nbsp;&nbsp;(<span class="id" title="var">C</span> : <a class="idref" href="Kairos.core.CoreStepSig.html#CORE_STEP_SIG"><span class="id" title="module">CORE_STEP_SIG</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">E</span> : <a class="idref" href="Kairos.obligations.ObligationGenSig.html#OBLIGATION_GEN_SIG"><span class="id" title="module">OBLIGATION_GEN_SIG</span></a> <span class="id" title="keyword">with</span> <span class="id" title="keyword">Definition</span> <span class="id" title="var">StepCtx</span> := <a class="idref" href="Kairos.integration.EndToEndTheorem.html#C.StepCtx"><span class="id" title="axiom">C.StepCtx</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">O</span> : <a class="idref" href="Kairos.obligations.OracleSemSig.html#ORACLE_SEM_SIG"><span class="id" title="module">ORACLE_SEM_SIG</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#C"><span class="id" title="module">C</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#E"><span class="id" title="module">E</span></a>)<br/>
+&nbsp;&nbsp;(<span class="id" title="var">Cov</span> : <a class="idref" href="Kairos.kernels.SafetyKernel.html#LOCAL_COVERAGE_SIG"><span class="id" title="module">LOCAL_COVERAGE_SIG</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#C"><span class="id" title="module">C</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#E"><span class="id" title="module">E</span></a>).<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Module</span> <a id="MakeEndToEnd.SK" class="idref" href="#MakeEndToEnd.SK"><span class="id" title="module">SK</span></a> := <a class="idref" href="Kairos.kernels.SafetyKernel.html#MakeSafetyKernel"><span class="id" title="module">MakeSafetyKernel</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#C"><span class="id" title="module">C</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#E"><span class="id" title="module">E</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#O"><span class="id" title="module">O</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#Cov"><span class="id" title="module">Cov</span></a>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="MakeEndToEnd.end_to_end_validation_conditional_correctness" class="idref" href="#MakeEndToEnd.end_to_end_validation_conditional_correctness"><span class="id" title="lemma">end_to_end_validation_conditional_correctness</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:1" class="idref" href="#u:1"><span class="id" title="binder">u</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.integration.EndToEndTheorem.html#Cov.AvoidA"><span class="id" title="axiom">Cov.AvoidA</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#u:1"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.integration.EndToEndTheorem.html#Cov.AvoidG"><span class="id" title="axiom">Cov.AvoidG</span></a> (<a class="idref" href="Kairos.integration.EndToEndTheorem.html#C.run_trace"><span class="id" title="axiom">C.run_trace</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#u:1"><span class="id" title="variable">u</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#MakeEndToEnd.validation_conditional_correctness_modular"><span class="id" title="lemma">SK.validation_conditional_correctness_modular</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+
+<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Theorem</span> <a id="MakeEndToEnd.end_to_end_oracle_conditional_correctness" class="idref" href="#MakeEndToEnd.end_to_end_oracle_conditional_correctness"><span class="id" title="lemma">end_to_end_oracle_conditional_correctness</span></a> :<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="keyword">forall</span> <a id="u:2" class="idref" href="#u:2"><span class="id" title="binder">u</span></a>,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.integration.EndToEndTheorem.html#Cov.AvoidA"><span class="id" title="axiom">Cov.AvoidA</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#u:2"><span class="id" title="variable">u</span></a> <a class="idref" href="http://rocq-prover.org/doc/V9.1.1/stdlib//Corelib.Init.Logic.html#::type_scope:x_'-&gt;'_x"><span class="id" title="notation">-&gt;</span></a><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a class="idref" href="Kairos.integration.EndToEndTheorem.html#Cov.AvoidG"><span class="id" title="axiom">Cov.AvoidG</span></a> (<a class="idref" href="Kairos.integration.EndToEndTheorem.html#C.run_trace"><span class="id" title="axiom">C.run_trace</span></a> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#u:2"><span class="id" title="variable">u</span></a>).<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Proof</span>.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="id" title="tactic">exact</span> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#MakeEndToEnd.end_to_end_validation_conditional_correctness"><span class="id" title="lemma">end_to_end_validation_conditional_correctness</span></a>.<br/>
+&nbsp;&nbsp;<span class="id" title="keyword">Qed</span>.<br/>
+<span class="id" title="keyword">End</span> <a class="idref" href="Kairos.integration.EndToEndTheorem.html#MakeEndToEnd"><span class="id" title="module">MakeEndToEnd</span></a>.<br/>
+</div>
+</div>
+
+<div id="footer">
+<hr/><a href="index.html">Index</a><hr/>This page has been generated by <a href="http://rocq-prover.org/">coqdoc</a>
+</div>
+
+</div>
+
+</body>
+</html>

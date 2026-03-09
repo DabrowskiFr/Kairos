@@ -1,0 +1,51 @@
+DIGEST 630b2ae554f42af81f440657ced914e0
+FKairos.integration.AdmissibilityNonVacuity
+R39:60 Kairos.integration.ThreeLayerArchitecture <> <> lib
+R122:138 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+modtype 101:115 <> NON_VACUITY_SIG
+ax 154:166 NON_VACUITY_SIG witness_input
+R173:176 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R170:172 Corelib.Init.Datatypes <> nat ind
+R177:186 Kairos.integration.AdmissibilityNonVacuity P InputVal defax
+ax 197:217 NON_VACUITY_SIG witness_is_admissible
+R221:228 Kairos.integration.AdmissibilityNonVacuity P AvoidA defax
+R230:242 Kairos.integration.AdmissibilityNonVacuity NON_VACUITY_SIG witness_input defax
+R249:263 Kairos.integration.AdmissibilityNonVacuity NON_VACUITY_SIG <> modtype
+R318:334 Kairos.integration.ThreeLayerArchitecture PROGRAM_LAYER_SIG <> modtype
+R344:364 Kairos.integration.ThreeLayerArchitecture KAIROS_CORE_LAYER_SIG <> modtype
+R366:366 Kairos.integration.AdmissibilityNonVacuity P <> mod
+R376:395 Kairos.integration.ThreeLayerArchitecture VALIDATION_LAYER_SIG <> modtype
+R397:397 Kairos.integration.AdmissibilityNonVacuity P <> mod
+R399:399 Kairos.integration.AdmissibilityNonVacuity K <> mod
+R410:424 Kairos.integration.AdmissibilityNonVacuity NON_VACUITY_SIG <> modtype
+R426:426 Kairos.integration.AdmissibilityNonVacuity P <> mod
+mod 274:309 <> MakeThreeLayerCorrectnessWithWitness
+R448:472 Kairos.integration.ThreeLayerArchitecture MakeThreeLayerCorrectness <> mod
+R474:474 Kairos.integration.AdmissibilityNonVacuity P <> mod
+R476:476 Kairos.integration.AdmissibilityNonVacuity K <> mod
+R478:478 Kairos.integration.AdmissibilityNonVacuity S <> mod
+mod 440:443 <> MakeThreeLayerCorrectnessWithWitness.Corr
+prf 492:514 MakeThreeLayerCorrectnessWithWitness exists_admissible_input
+R518:524 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R526:527 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 525:525 <> u:5
+R528:535 Kairos.integration.AdmissibilityNonVacuity P AvoidA defax
+R537:537 Kairos.integration.AdmissibilityNonVacuity <> u:5 var
+R560:575 Kairos.integration.AdmissibilityNonVacuity NV witness_input defax
+R560:575 Kairos.integration.AdmissibilityNonVacuity NV witness_input defax
+R588:611 Kairos.integration.AdmissibilityNonVacuity NV witness_is_admissible prfax
+R588:611 Kairos.integration.AdmissibilityNonVacuity NV witness_is_admissible prfax
+prf 632:664 MakeThreeLayerCorrectnessWithWitness exists_trace_satisfying_guarantee
+R672:678 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+R680:681 Corelib.Init.Logic <> ::type_scope:'exists'_x_'..'_x_','_x not
+binder 679:679 <> u:6
+R682:689 Kairos.integration.AdmissibilityNonVacuity P AvoidG defax
+R692:702 Kairos.integration.AdmissibilityNonVacuity P run_trace defax
+R704:704 Kairos.integration.AdmissibilityNonVacuity <> u:6 var
+R728:743 Kairos.integration.AdmissibilityNonVacuity NV witness_input defax
+R728:743 Kairos.integration.AdmissibilityNonVacuity NV witness_input defax
+R756:807 Kairos.integration.AdmissibilityNonVacuity MakeThreeLayerCorrectnessWithWitness validation_conditional_correctness_three_layers thm
+R756:807 Kairos.integration.AdmissibilityNonVacuity MakeThreeLayerCorrectnessWithWitness validation_conditional_correctness_three_layers thm
+R820:843 Kairos.integration.AdmissibilityNonVacuity NV witness_is_admissible prfax
+R820:843 Kairos.integration.AdmissibilityNonVacuity NV witness_is_admissible prfax
+R857:892 Kairos.integration.AdmissibilityNonVacuity MakeThreeLayerCorrectnessWithWitness <> mod

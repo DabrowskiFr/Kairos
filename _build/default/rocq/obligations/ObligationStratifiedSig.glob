@@ -1,0 +1,177 @@
+DIGEST e1ea48108acfe60cd223f96eef0a982b
+FKairos.obligations.ObligationStratifiedSig
+R39:54 Kairos.obligations.ObligationGenSig <> <> lib
+R96:116 Kairos.obligations.ObligationTaxonomySig <> <> lib
+ind 155:170 <> obligation_phase
+constr 184:198 <> PhaseHelperInit
+constr 202:223 <> PhaseHelperPropagation
+constr 227:237 <> PhaseSafety
+scheme 155:170 <> obligation_phase_rect
+scheme 155:170 <> obligation_phase_ind
+scheme 155:170 <> obligation_phase_rec
+scheme 155:170 <> obligation_phase_sind
+def 252:262 <> phase_index
+R269:284 Kairos.obligations.ObligationStratifiedSig <> obligation_phase ind
+binder 265:265 <> p:3
+R289:291 Corelib.Init.Datatypes <> nat ind
+R304:304 Kairos.obligations.ObligationStratifiedSig <> p:3 var
+R315:329 Kairos.obligations.ObligationStratifiedSig <> PhaseHelperInit constr
+R340:361 Kairos.obligations.ObligationStratifiedSig <> PhaseHelperPropagation constr
+R372:382 Kairos.obligations.ObligationStratifiedSig <> PhaseSafety constr
+R442:459 Kairos.obligations.ObligationGenSig OBLIGATION_GEN_SIG <> modtype
+R469:491 Kairos.obligations.ObligationTaxonomySig OBLIGATION_TAXONOMY_SIG <> modtype
+R493:493 Kairos.obligations.ObligationStratifiedSig E <> mod
+modtype 409:433 <> OBLIGATION_STRATIFIED_SIG
+def 511:543 OBLIGATION_STRATIFIED_SIG GeneratedPropagationUserInvariant
+R551:558 Kairos.obligations.ObligationStratifiedSig E Clause def
+binder 546:547 <> cl:5
+R589:592 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R575:585 Kairos.obligations.ObligationStratifiedSig E Generated def
+R587:588 Kairos.obligations.ObligationStratifiedSig <> cl:5 var
+R605:607 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R593:601 Kairos.obligations.ObligationStratifiedSig T role_of defax
+R603:604 Kairos.obligations.ObligationStratifiedSig <> cl:5 var
+R608:619 Kairos.obligations.ObligationTaxonomySig <> HelperClause constr
+R633:651 Kairos.obligations.ObligationTaxonomySig <> HelperUserInvariant constr
+R621:631 Kairos.obligations.ObligationTaxonomySig <> Propagation constr
+def 668:703 OBLIGATION_STRATIFIED_SIG GeneratedPropagationAutomatonSupport
+R711:718 Kairos.obligations.ObligationStratifiedSig E Clause def
+binder 706:707 <> cl:6
+R749:752 Corelib.Init.Logic <> ::type_scope:x_'/\'_x not
+R735:745 Kairos.obligations.ObligationStratifiedSig E Generated def
+R747:748 Kairos.obligations.ObligationStratifiedSig <> cl:6 var
+R765:767 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R753:761 Kairos.obligations.ObligationStratifiedSig T role_of defax
+R763:764 Kairos.obligations.ObligationStratifiedSig <> cl:6 var
+R768:779 Kairos.obligations.ObligationTaxonomySig <> HelperClause constr
+R793:814 Kairos.obligations.ObligationTaxonomySig <> HelperAutomatonSupport constr
+R781:791 Kairos.obligations.ObligationTaxonomySig <> Propagation constr
+ax 830:837 OBLIGATION_STRATIFIED_SIG phase_of
+R849:852 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R841:848 Kairos.obligations.ObligationStratifiedSig E Clause def
+R853:868 Kairos.obligations.ObligationStratifiedSig <> obligation_phase ind
+ax 880:896 OBLIGATION_STRATIFIED_SIG helper_init_phase
+binder 911:912 <> cl:9
+R946:955 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R921:942 Kairos.obligations.ObligationStratifiedSig T GeneratedInitialGoal def
+R944:945 Kairos.obligations.ObligationStratifiedSig <> cl:9 var
+R967:969 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R956:963 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R965:966 Kairos.obligations.ObligationStratifiedSig <> cl:9 var
+R970:984 Kairos.obligations.ObligationStratifiedSig <> PhaseHelperInit constr
+ax 996:1024 OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase
+binder 1039:1040 <> cl:12
+R1085:1094 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1049:1081 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationUserInvariant def
+R1083:1084 Kairos.obligations.ObligationStratifiedSig <> cl:12 var
+R1106:1108 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1095:1102 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R1104:1105 Kairos.obligations.ObligationStratifiedSig <> cl:12 var
+R1109:1130 Kairos.obligations.ObligationStratifiedSig <> PhaseHelperPropagation constr
+ax 1142:1175 OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase
+binder 1190:1191 <> cl:15
+R1239:1248 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1200:1235 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationAutomatonSupport def
+R1237:1238 Kairos.obligations.ObligationStratifiedSig <> cl:15 var
+R1260:1262 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1249:1256 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R1258:1259 Kairos.obligations.ObligationStratifiedSig <> cl:15 var
+R1263:1284 Kairos.obligations.ObligationStratifiedSig <> PhaseHelperPropagation constr
+ax 1296:1307 OBLIGATION_STRATIFIED_SIG safety_phase
+binder 1322:1323 <> cl:18
+R1352:1361 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1332:1348 Kairos.obligations.ObligationStratifiedSig T GeneratedSafety def
+R1350:1351 Kairos.obligations.ObligationStratifiedSig <> cl:18 var
+R1373:1375 Corelib.Init.Logic <> ::type_scope:x_'='_x not
+R1362:1369 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R1371:1372 Kairos.obligations.ObligationStratifiedSig <> cl:18 var
+R1376:1386 Kairos.obligations.ObligationStratifiedSig <> PhaseSafety constr
+prf 1400:1441 OBLIGATION_STRATIFIED_SIG helper_init_before_helper_propagation_user
+binder 1456:1462 <> cl_init:21
+binder 1464:1470 <> cl_user:22
+R1509:1518 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1479:1500 Kairos.obligations.ObligationStratifiedSig T GeneratedInitialGoal def
+R1502:1508 Kairos.obligations.ObligationStratifiedSig <> cl_init:21 var
+R1560:1569 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1519:1551 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationUserInvariant def
+R1553:1559 Kairos.obligations.ObligationStratifiedSig <> cl_user:22 var
+R1600:1602 Corelib.Init.Peano <> ::nat_scope:x_'<'_x not
+R1570:1580 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R1583:1590 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R1592:1598 Kairos.obligations.ObligationStratifiedSig <> cl_init:21 var
+R1603:1613 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R1616:1623 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R1625:1631 Kairos.obligations.ObligationStratifiedSig <> cl_user:22 var
+R1697:1713 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R1697:1713 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R1697:1713 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R1752:1780 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+R1752:1780 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+R1752:1780 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+prf 1845:1891 OBLIGATION_STRATIFIED_SIG helper_init_before_helper_propagation_automaton
+binder 1906:1912 <> cl_init:23
+binder 1914:1920 <> cl_auto:24
+R1959:1968 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1929:1950 Kairos.obligations.ObligationStratifiedSig T GeneratedInitialGoal def
+R1952:1958 Kairos.obligations.ObligationStratifiedSig <> cl_init:23 var
+R2013:2022 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R1969:2004 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationAutomatonSupport def
+R2006:2012 Kairos.obligations.ObligationStratifiedSig <> cl_auto:24 var
+R2053:2055 Corelib.Init.Peano <> ::nat_scope:x_'<'_x not
+R2023:2033 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2036:2043 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2045:2051 Kairos.obligations.ObligationStratifiedSig <> cl_init:23 var
+R2056:2066 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2069:2076 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2078:2084 Kairos.obligations.ObligationStratifiedSig <> cl_auto:24 var
+R2150:2166 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R2150:2166 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R2150:2166 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_init_phase prfax
+R2205:2238 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+R2205:2238 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+R2205:2238 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+prf 2303:2344 OBLIGATION_STRATIFIED_SIG helper_propagation_before_safety_from_user
+binder 2359:2365 <> cl_user:25
+binder 2367:2372 <> cl_obj:26
+R2422:2431 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2381:2413 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationUserInvariant def
+R2415:2421 Kairos.obligations.ObligationStratifiedSig <> cl_user:25 var
+R2456:2465 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2432:2448 Kairos.obligations.ObligationStratifiedSig T GeneratedSafety def
+R2450:2455 Kairos.obligations.ObligationStratifiedSig <> cl_obj:26 var
+R2496:2498 Corelib.Init.Peano <> ::nat_scope:x_'<'_x not
+R2466:2476 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2479:2486 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2488:2494 Kairos.obligations.ObligationStratifiedSig <> cl_user:25 var
+R2499:2509 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2512:2519 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2521:2526 Kairos.obligations.ObligationStratifiedSig <> cl_obj:26 var
+R2590:2618 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+R2590:2618 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+R2590:2618 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_user_phase prfax
+R2657:2668 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+R2657:2668 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+R2657:2668 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+prf 2731:2777 OBLIGATION_STRATIFIED_SIG helper_propagation_before_safety_from_automaton
+binder 2792:2798 <> cl_auto:27
+binder 2800:2805 <> cl_obj:28
+R2858:2867 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2814:2849 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG GeneratedPropagationAutomatonSupport def
+R2851:2857 Kairos.obligations.ObligationStratifiedSig <> cl_auto:27 var
+R2892:2901 Corelib.Init.Logic <> ::type_scope:x_'->'_x not
+R2868:2884 Kairos.obligations.ObligationStratifiedSig T GeneratedSafety def
+R2886:2891 Kairos.obligations.ObligationStratifiedSig <> cl_obj:28 var
+R2932:2934 Corelib.Init.Peano <> ::nat_scope:x_'<'_x not
+R2902:2912 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2915:2922 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2924:2930 Kairos.obligations.ObligationStratifiedSig <> cl_auto:27 var
+R2935:2945 Kairos.obligations.ObligationStratifiedSig <> phase_index def
+R2948:2955 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG phase_of defax
+R2957:2962 Kairos.obligations.ObligationStratifiedSig <> cl_obj:28 var
+R3026:3059 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+R3026:3059 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+R3026:3059 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG helper_propagation_automaton_phase prfax
+R3098:3109 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+R3098:3109 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+R3098:3109 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG safety_phase prfax
+R3165:3189 Kairos.obligations.ObligationStratifiedSig OBLIGATION_STRATIFIED_SIG <> modtype
