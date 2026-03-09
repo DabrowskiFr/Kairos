@@ -29,12 +29,12 @@ type analysis = {
 let fo_of_iexpr (e : iexpr) : fo = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo =
-  recover_guard_fo atom_map_exprs g
+  recover_guard_fo atom_map_exprs g |> Fo_simplifier.simplify_fo
 
 let program_guard_fo (t : Abs.transition) : fo =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard with None -> FTrue | Some g -> fo_of_iexpr (simplify_iexpr g)
+  match t.guard with None -> FTrue | Some g -> fo_of_iexpr (simplify_iexpr g) |> Fo_simplifier.simplify_fo
 
 type lit = { var : ident; cst : string; is_pos : bool }
 

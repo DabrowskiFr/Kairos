@@ -568,8 +568,8 @@ let simplify_assume_dnf_bool_domain (f : fo) : fo =
 
 let simplify_for_display (f : fo) : fo =
   match f with
-  | FImp (cond, body) -> FImp (cond, simplify_assume_dnf_bool_domain body)
-  | _ -> simplify_assume_dnf_bool_domain f
+  | FImp (cond, body) -> FImp (cond, simplify_assume_dnf_bool_domain body) |> Fo_simplifier.simplify_fo
+  | _ -> simplify_assume_dnf_bool_domain f |> Fo_simplifier.simplify_fo
 
 let string_of_fo_display (f : fo) : string = string_of_fo (simplify_for_display f)
 

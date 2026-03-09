@@ -218,6 +218,62 @@ Ancrer la formalisation et le papier dans un exemple Kairos reel:
 1. Definir un exemple `resettable_delay` avec:
    - une hypothese d'entree non triviale (`reset => x = 0`);
    - une garantie en trois branches (`reset`, `post-reset`, `delay ordinaire`);
+
+## Objectif courant (2026-03-09 - migration Spot)
+Remplacer le compilateur d'automates de surete maison par Spot sans casser le
+reste du pipeline Kairos, qui attend encore:
+- des automates deterministes complets;
+- des gardes sous forme DNF sur les atomes Kairos;
+- un etat `bad` explicite detecte via `LFalse`.
+
+### Methodologie active
+1. Garder l'interface publique `Automaton_engine` stable pour ne pas toucher au
+   produit, a l'instrumentation et aux obligations.
+2. Ajouter un backend Spot CLI:
+   - verification explicite du caractere safety via `ltlfilt --safety`,
+   - generation HOA via `ltl2tgba -M -D -C -H`,
+   - import des labels HOA vers des gardes DNF Kairos.
+3. Normaliser la sortie Spot pour recreer la convention interne Kairos:
+   - etats acceptants conserves comme etats "sains",
+   - region rejetante repliee sur un unique etat `bad`,
+   - boucle `true` sur `bad` pour conserver la semantique absorbante attendue.
+4. Conserver un chemin `legacy` activable par variable d'environnement pour
+   comparer les comportements pendant la transition.
+
+### Validation prevue
+1. `opam exec -- dune build`
+2. smoke tests CLI sur:
+   - `delay_int.kairos` via `--dump-dot`,
+   - `resettable_delay.kairos` via `--dump-obc`,
+   - `credit_balance_monitor.kairos` via `--dump-product`.
+
+## Objectif courant (2026-03-09 - simplification FO via Z3)
+Ajouter un backend de simplification de formules de premier ordre qui exploite
+Z3 pour les symboles non interpretes, sans exiger de nouvelle API OCaml liee au
+solver et sans destabiliser le pipeline existant.
+
+### Methodologie active
+1. Conserver les simplifications syntaxiques locales deja presentes.
+2. Ajouter un module `Fo_simplifier` qui:
+   - traduit les formules Kairos en SMT-LIB,
+   - encode les `FPred` et `pre_k` comme symboles non interpretes,
+   - interroge Z3 seulement pour des questions boolennes stables:
+     validite, contradiction, implication.
+3. Restreindre les remplacements a:
+   - `true` / `false`,
+   - elimination de sous-formules redondantes,
+   - repli sur des sous-formules existantes.
+4. Brancher cette simplification:
+   - dans l'affichage OBC/Why3 pour des formules plus lisibles,
+   - dans les gardes du produit pour reduire les formules evidemment
+     redondantes avant les tests de recouvrement.
+
+### Validation prevue
+1. `opam exec -- dune build`
+2. smoke tests CLI sur:
+   - `delay_int.kairos` via `--dump-obc`,
+   - `resettable_delay.kairos` via `--dump-obc`,
+   - `credit_balance_monitor.kairos` via `--dump-product`.
    - un invariant utilisateur piecewise sur la memoire.
 2. Generer avec les executables du depot:
    - exclusivement avec `_build/default/bin/cli/main_v2.exe`;

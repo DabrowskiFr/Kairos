@@ -63,10 +63,12 @@
   dot_emit
   why_stage
   fo_specs
+  fo_simplifier
   fo_time
   automaton_util
   automaton_config
   automaton_engine
+  spot_automaton
   fo_atoms
   ltl_valuation
   automaton_bdd

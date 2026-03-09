@@ -1,5 +1,98 @@
 # Cahier de laboratoire
 
+## 2026-03-09
+
+### Sujet
+Migration du backend de generation d'automates de surete vers Spot dans
+`kairos-dev`, en preservant l'etat `bad` explicite attendu par le produit et
+l'instrumentation.
+
+### Tentative 1 (echec conceptuel)
+- Objectif: utiliser directement la sortie moniteur deterministe de Spot
+  (`ltl2tgba -M -D`) comme remplacement du compilateur residuel.
+- Resultat: echec conceptuel.
+- Cause:
+  - la sortie moniteur peut rester incomplete;
+  - en cas de violation, Spot signale surtout une absence de continuation,
+    alors que Kairos attend un etat `bad` explicite detecte par `LFalse`.
+
+### Tentative 2 (succes)
+- Objectif: adapter la sortie Spot sans modifier le reste du pipeline.
+- Resultat: succes.
+- Choix retenus:
+  - verification explicite du fragment safety via `ltlfilt --safety`;
+  - generation HOA via `ltl2tgba -M -D -C -H`;
+  - import HOA vers les gardes DNF de Kairos;
+  - repli de toute region rejetante Spot vers un unique etat `bad` interne avec
+    boucle `true`, afin de conserver la convention `first_false_idx`.
+- Fichiers touches:
+  - `lib_v2/runtime/middle_end/spot_automaton.ml`
+  - `lib_v2/runtime/middle_end/automaton_engine.ml`
+  - `lib_v2/runtime/middle_end/automaton_engine.mli`
+  - `lib_v2/runtime/dune`
+
+### Compatibilite / risques residuels
+- Le moteur public `Automaton_engine` reste stable.
+- Un mode de comparaison subsiste via `KAIROS_AUTOMATON_BACKEND=legacy`.
+- Les etats acceptants importes depuis Spot sont volontairement abstraits
+  (`LTrue`) : le pipeline n'utilise semantiquement que la detection de `bad`,
+  mais les etiquettes DOT deviennent moins informatives qu'avec les formules
+  residuelles maison.
+
+### Validation
+- `opam exec -- dune build` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-obc=- tests/ok/inputs/resettable_delay.kairos` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-product=- tests/ok/inputs/credit_balance_monitor.kairos` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-dot=- tests/ok/inputs/delay_int.kairos` : succes hors sandbox
+  (le chemin DOT cree un fichier temporaire via `bos`).
+
+### Sujet
+Ajout d'un backend de simplification FO appuye sur Z3 pour les formules avec
+symboles non interpretes.
+
+### Tentative 1 (idee ecartee)
+- Objectif: demander a Z3 une formule "simplifiee" complete et la reparser dans
+  l'AST Kairos.
+- Resultat: ecarte.
+- Cause:
+  - cout de reconstruction d'AST non justifie;
+  - risque de produire des formes moins stables que les formes attendues par les
+    passes Kairos;
+  - complexite supplementaire pour typer et reparser proprement les termes.
+
+### Tentative 2 (succes)
+- Objectif: utiliser Z3 uniquement comme oracle de decision pour simplifier les
+  formules sans changer le vocabulaire AST.
+- Resultat: succes.
+- Choix retenus:
+  - nouveau module `lib_v2/runtime/core/logic/fo/fo_simplifier.ml`;
+  - traduction SMT-LIB de `fo`, `iexpr`, `FPred` et `pre_k`;
+  - requetes limitees a:
+    - validite,
+    - contradiction,
+    - implication entre sous-formules;
+  - simplification restreinte a des replis stables:
+    - `true` / `false`,
+    - suppression de conjuncts/disjuncts redondants,
+    - repli d'une implication triviale.
+- Integration:
+  - affichage OBC via `obc_emit.ml`;
+  - gardes du produit via `product_build.ml`.
+
+### Compatibilite / risques residuels
+- Si Z3 n'est pas trouvable, le module retombe sur les simplifications locales
+  seulement.
+- Les declarations SMT de predicates non interpretes supposent actuellement des
+  arguments `Int` lorsqu'aucune information de type n'est recoverable dans la
+  formule. C'est acceptable pour les usages actuels, mais a raffiner si des
+  predicates booleens plus riches apparaissent.
+
+### Validation
+- `opam exec -- dune build` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-obc=- tests/ok/inputs/delay_int.kairos` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-obc=- tests/ok/inputs/resettable_delay.kairos` : succes.
+- `_build/default/bin/cli/main.exe --log-level=quiet --dump-product=- tests/ok/inputs/credit_balance_monitor.kairos` : succes.
+
 ## 2026-03-06
 
 ### Sujet
@@ -3146,3 +3239,88 @@ labels de noeuds, les alias `phi_i`, et les formules de la legende.
 Les PDF Kairos se rapprochent maintenant davantage du style d'un papier:
 notation des etats plus propre, `φᵢ` sur les arcs, et legende plus compacte et
 mathematique.
+
+## 2026-03-09
+
+### Objectif
+
+Ameliorer la lisibilite des aliases `φᵢ` sur les arcs, en les eloignant
+davantage des segments pour que les sous-indices restent visibles.
+
+### Tentatives et observations
+
+- Succes: augmentation de `labeldistance` et `labelangle` dans le style `edge`
+  du DOT genere par `product_debug.ml`.
+- Observation: cette retouche ne modifie pas le contenu du graphe, seulement la
+  mise en page des labels d'arcs dans le PDF Graphviz.
+
+### Resultat
+
+Les labels `φᵢ` sont maintenant places plus loin des arcs, ce qui ameliore la
+lecture des sous-indices dans les PDF exportes.
+
+## 2026-03-09
+
+### Objectif
+
+Supprimer le recouvrement residuel entre labels d'arcs et arêtes dans les PDF
+Graphviz, et produire egalement le PDF de l'automate produit.
+
+### Tentatives et observations
+
+- Observation: augmenter seulement `labeldistance` et `labelangle` ne suffisait
+  pas toujours; Graphviz laissait encore certains labels trop proches du trace
+  de l'arête.
+- Succes: passage des labels d'arcs du mode `label=` au mode `xlabel=` dans les
+  automates separes et dans le graphe produit, avec `forcelabels=true`.
+- Succes: generation explicite du DOT/PDF du produit pour `resettable_delay`.
+
+### Resultat
+
+Les labels d'arcs sont maintenant confies au placement externe de Graphviz,
+ce qui reduit fortement le recouvrement avec les arêtes. Les trois PDF
+`assume`, `guarantee` et `product` sont maintenant exportes.
+
+## 2026-03-09
+
+### Objectif
+
+Appliquer au graphe produit le meme niveau d'amelioration visuelle que celui
+obtenu sur les automates separes.
+
+### Tentatives et observations
+
+- Succes: les etats du produit utilisent maintenant une notation plus lisible,
+  avec `A₀`, `G₂`, `A_bad`, `G_bad` dans les tuples d'etat.
+- Succes: la coloration des noeuds distingue l'etat initial, les etats avec
+  garantie violee, et les etats avec hypothese violee.
+- Succes: les labels d'arcs du produit passent eux aussi par `xlabel`, avec
+  references lisibles du type `A[A₀ → A_bad]` et `G[G₂ → G_bad]`.
+- Succes: suppression des doublons strictement identiques au niveau du rendu
+  DOT, pour alleger le graphe produit sans changer son contenu semantique.
+
+### Resultat
+
+Le PDF du produit est maintenant coheremment stylise avec les automates
+`assume/guarantee`: meme logique de notation, meilleure separation visuelle des
+classes d'etats, et rendu plus propre des transitions.
+
+## 2026-03-09
+
+### Objectif
+
+Simplifier le nommage des noeuds du produit en supprimant le nom du programme
+dans les labels de noeuds, au profit d'une numerotation courte `P_i`.
+
+### Tentatives et observations
+
+- Succes: les noeuds du produit sont maintenant etiquetes `P₀`, `P₁`, ... en
+  premiere ligne, avec le triple d'etats source conserve en seconde ligne.
+- Observation: cela allege le rendu sans perdre l'information structurante,
+  puisque le triple `(prog, A_j, G_k)` reste visible dans chaque noeud.
+
+### Resultat
+
+Le graphe produit est plus compact et plus lisible: les noeuds sont identifies
+par une numerotation courte `P_i`, tout en conservant explicitement leur
+decomposition en etat programme et etats d'automates source.
