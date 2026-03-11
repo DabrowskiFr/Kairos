@@ -18,5 +18,5 @@ fi
 npm run compile
 
 if [[ "${1:-}" == "--package" ]]; then
-  npx vsce package --no-dependencies
+  npx vsce package
 fi

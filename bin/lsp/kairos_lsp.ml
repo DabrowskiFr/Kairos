@@ -246,6 +246,9 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
     wp_only = cfg.wp_only;
     smoke_tests = cfg.smoke_tests;
     timeout_s = cfg.timeout_s;
+    max_proof_goals = cfg.max_proof_goals;
+    selected_goal_index = cfg.selected_goal_index;
+    compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prefix_fields = cfg.prefix_fields;
     prove = cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
@@ -837,6 +840,16 @@ let () =
                             wp_only = get_param_bool params "wpOnly" false;
                             smoke_tests = get_param_bool params "smokeTests" false;
                             timeout_s = get_param_int params "timeoutS" 5;
+                            max_proof_goals =
+                              (match get_param_int params "maxProofGoals" (-1) with
+                              | n when n >= 0 -> Some n
+                              | _ -> None);
+                            selected_goal_index =
+                              (match get_param_int params "selectedGoalIndex" (-1) with
+                              | n when n >= 0 -> Some n
+                              | _ -> None);
+                            compute_proof_diagnostics =
+                              get_param_bool params "computeProofDiagnostics" false;
                             prefix_fields = get_param_bool params "prefixFields" false;
                             prove = get_param_bool params "prove" true;
                             generate_vc_text = get_param_bool params "generateVcText" true;
@@ -850,9 +863,20 @@ let () =
                       | Some cfg -> Option.value (Engine_service.engine_of_string cfg.engine) ~default:Engine_service.V2
                       | None -> get_engine params
                     in
+                    if !supports_work_done_progress then
+                      send_work_done_report stdout ~token:progress_token
+                        ~message:
+                          (if cfg.prove then "Building proof artifacts (OBC+/Why/VC) ..."
+                           else "Building Kairos artifacts ...");
+                    let completed_goals = ref 0 in
+                    let total_goals = ref 0 in
                     let on_outputs_ready out =
                       if !supports_work_done_progress then
-                        send_work_done_report stdout ~token:progress_token ~message:"Outputs ready";
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if cfg.prove then
+                               "Artifacts ready; publishing proof goals and solver results ..."
+                             else "Artifacts ready");
                       let payload : Lsp_protocol.outputs_ready_notification =
                         {
                           request_id = protocol_request_id id;
@@ -863,6 +887,13 @@ let () =
                         ~params_json:(Lsp_protocol.yojson_of_outputs_ready_notification payload)
                     in
                     let on_goals_ready (names, vc_ids) =
+                      total_goals := max (List.length names) (List.length vc_ids);
+                      if !supports_work_done_progress then
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if !total_goals > 0 then
+                               Printf.sprintf "Publishing %d proof goals ..." !total_goals
+                             else "Publishing proof goals ...");
                       let payload : Lsp_protocol.goals_ready_notification =
                         {
                           request_id = protocol_request_id id;
@@ -873,6 +904,13 @@ let () =
                         ~params_json:(Lsp_protocol.yojson_of_goals_ready_notification payload)
                     in
                     let on_goal_done idx goal status time_s dump_path source vcid =
+                      incr completed_goals;
+                      if !supports_work_done_progress then
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if !total_goals > 0 then
+                               Printf.sprintf "Goal %d/%d: %s" !completed_goals !total_goals status
+                             else Printf.sprintf "Goal %d: %s" (idx + 1) status);
                       let payload : Lsp_protocol.goal_done_notification =
                         {
                           request_id = protocol_request_id id;

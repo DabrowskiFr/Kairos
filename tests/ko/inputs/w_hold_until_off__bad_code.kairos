@@ -1,0 +1,31 @@
+node w_hold_until_off(on: int, off: int) returns (light: int)
+contracts
+  requires: G((on = 0 or on = 1) and (off = 0 or off = 1));
+  ensures: X G((on = 1 and off = 0) => ((light = 1) W (off = 1)));
+states
+  Init(init), Off, On;
+invariants
+  in Off:
+    light = 0;
+  in On:
+    light = 1;
+transitions
+  Init:
+    to Off {
+      light := 0;
+    }
+  Off:
+    to On when on = 1 and off = 0 {
+      light := undefined_code_symbol;
+    }
+    to Off when not (on = 1 and off = 0) {
+      skip;
+    }
+  On:
+    to Off when off = 1 {
+      light := 0;
+    }
+    to On when off = 0 {
+      skip;
+    }
+end

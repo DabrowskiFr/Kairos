@@ -1,0 +1,12 @@
+node ack_cycle(req : int) returns (ack: int)
+contracts
+  ensures: G (req = 1 => G (ack = 1));
+states
+  Init(init);
+transitions
+  Init:
+    to Init  {
+      ack := undefined_code_symbol;
+      else skip; end;
+    }
+end

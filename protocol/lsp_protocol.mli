@@ -2,6 +2,57 @@ type loc = { line : int; col : int; line_end : int; col_end : int }
 
 type goal_info = string * string * float * string option * string * string option
 
+type text_span = {
+  start_offset : int;
+  end_offset : int;
+}
+
+type proof_diagnostic = {
+  category : string;
+  summary : string;
+  detail : string;
+  probable_cause : string option;
+  missing_elements : string list;
+  goal_symbols : string list;
+  analysis_method : string;
+  solver_detail : string option;
+  native_unsat_core_solver : string option;
+  native_unsat_core_hypothesis_ids : int list;
+  native_counterexample_solver : string option;
+  native_counterexample_model : string option;
+  kairos_core_hypotheses : string list;
+  why3_noise_hypotheses : string list;
+  relevant_hypotheses : string list;
+  context_hypotheses : string list;
+  unused_hypotheses : string list;
+  suggestions : string list;
+  limitations : string list;
+}
+
+type proof_trace = {
+  goal_index : int;
+  stable_id : string;
+  goal_name : string;
+  status : string;
+  solver_status : string;
+  time_s : float;
+  source : string;
+  node : string option;
+  transition : string option;
+  obligation_kind : string;
+  obligation_family : string option;
+  obligation_category : string option;
+  origin_ids : int list;
+  vc_id : string option;
+  source_span : loc option;
+  obc_span : text_span option;
+  why_span : text_span option;
+  vc_span : text_span option;
+  smt_span : text_span option;
+  dump_path : string option;
+  diagnostic : proof_diagnostic;
+}
+
 type outputs = {
   obc_text : string;
   why_text : string;
@@ -21,6 +72,7 @@ type outputs = {
   product_dot : string;
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
+  proof_traces : proof_trace list;
   obcplus_sequents : (int * string) list;
   vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
@@ -37,6 +89,15 @@ type outputs = {
   automata_build_time_s : float;
   why3_prep_time_s : float;
   dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
 }
 
 type automata_outputs = {
@@ -53,6 +114,15 @@ type automata_outputs = {
   assume_automaton_dot : string;
   product_dot : string;
   dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
   stage_meta : (string * (string * string) list) list;
 }
 
@@ -173,6 +243,9 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
+  max_proof_goals : int option;
+  selected_goal_index : int option;
+  compute_proof_diagnostics : bool;
   prefix_fields : bool;
   prove : bool;
   generate_vc_text : bool;
@@ -186,6 +259,15 @@ val loc_of_yojson : Yojson.Safe.t -> (loc, string) result
 
 val yojson_of_goal_info : goal_info -> Yojson.Safe.t
 val goal_info_of_yojson : Yojson.Safe.t -> (goal_info, string) result
+
+val yojson_of_text_span : text_span -> Yojson.Safe.t
+val text_span_of_yojson : Yojson.Safe.t -> (text_span, string) result
+
+val yojson_of_proof_diagnostic : proof_diagnostic -> Yojson.Safe.t
+val proof_diagnostic_of_yojson : Yojson.Safe.t -> (proof_diagnostic, string) result
+
+val yojson_of_proof_trace : proof_trace -> Yojson.Safe.t
+val proof_trace_of_yojson : Yojson.Safe.t -> (proof_trace, string) result
 
 val yojson_of_outputs : outputs -> Yojson.Safe.t
 val outputs_of_yojson : Yojson.Safe.t -> (outputs, string) result

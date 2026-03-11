@@ -3891,6 +3891,15 @@ treeview.outline row:selected * {
                      assume_automaton_dot = out.assume_automaton_dot;
                      product_dot = out.product_dot;
                      dot_png = out.dot_png;
+                     dot_png_error = out.dot_png_error;
+                     program_png = out.program_png;
+                     program_png_error = out.program_png_error;
+                     guarantee_automaton_png = out.guarantee_automaton_png;
+                     guarantee_automaton_png_error = out.guarantee_automaton_png_error;
+                     assume_automaton_png = out.assume_automaton_png;
+                     assume_automaton_png_error = out.assume_automaton_png_error;
+                     product_png = out.product_png;
+                     product_png_error = out.product_png_error;
                      stage_meta = out.stage_meta;
                    } );
              !update_instrumentation_button_state_ref ())
@@ -3990,6 +3999,9 @@ treeview.outline row:selected * {
                   wp_only = !prefs.Ide_config.wp_only;
                   smoke_tests;
                   timeout_s;
+                  max_proof_goals = None;
+                  selected_goal_index = None;
+                  compute_proof_diagnostics = false;
                   prefix_fields = false;
                   prove = true;
                   generate_vc_text = false;

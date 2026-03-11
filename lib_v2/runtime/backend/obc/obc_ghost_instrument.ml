@@ -72,14 +72,14 @@ let transform_node_ghost_with_info (n : Ast.node) : Ast.node * Stage_info.obc_in
       (fun info ->
         let names = info.names in
         let shifts =
-          let rec loop acc i =
+          let rec loop i acc =
             if i <= 1 then acc
             else
               let tgt = List.nth names (i - 1) in
               let src = List.nth names (i - 2) in
-              loop (s (SAssign (tgt, mk_var src)) :: acc) (i - 1)
+              loop (i - 1) (acc @ [ s (SAssign (tgt, mk_var src)) ])
           in
-          loop [] (List.length names)
+          loop (List.length names) []
         in
         let first =
           match names with
@@ -97,8 +97,17 @@ let transform_node_ghost_with_info (n : Ast.node) : Ast.node * Stage_info.obc_in
       (fun (t : transition) ->
         let _ghost = ghost_base in
         let _reset = reset_flags in
-        let t = t in
-        { t with ensures = t.ensures @ pre_k_links })
+        {
+          t with
+          attrs =
+            {
+              t.attrs with
+              (* History variables must be updated after user code so post-state
+                 obligations interpret [prev]/[pre_k] over the new step. *)
+              instrumentation = t.attrs.instrumentation @ pre_k_updates;
+            };
+          ensures = t.ensures @ pre_k_links;
+        })
       n.trans
   in
   let info =

@@ -368,6 +368,40 @@ let simplify_mon_state_implications (fs : fo_o list) : fo_o list =
         fs
   | _ -> fs
 
+let filter_monitor_state_formulas ~(reachable_states : string list) (fs : fo_o list) : fo_o list =
+  let mon = instrumentation_state_name in
+  let reachable_states = List.sort_uniq String.compare reachable_states in
+  let is_reachable st = List.mem st reachable_states in
+  let mon_state_of_var v =
+    if String.length v >= 3 && String.sub v 0 3 = "Aut" then Some v else None
+  in
+  let mon_state_eq = function
+    | FRel (HNow a, REq, HNow b) -> begin
+        match (as_var a, as_var b) with
+        | Some va, Some vb ->
+            if va = mon then mon_state_of_var vb else if vb = mon then mon_state_of_var va else None
+        | _ -> None
+      end
+    | _ -> None
+  in
+  let rec referenced_mon_states = function
+    | (FTrue | FFalse | FPred _) -> []
+    | FNot f -> referenced_mon_states f
+    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+        let direct =
+          match mon_state_eq a with Some st -> [ st ] | None -> []
+        in
+        direct @ referenced_mon_states a @ referenced_mon_states b
+    | f -> (
+        match mon_state_eq f with Some st -> [ st ] | None -> [])
+  in
+  List.filter
+    (fun f ->
+      match referenced_mon_states f.value |> List.sort_uniq String.compare with
+      | [] -> true
+      | sts -> List.exists is_reachable sts)
+    fs
+
 (* Sub-pass 1: inject executable monitor code into transitions. *)
 let inject_instrumentation_code ~(instrumentation_updates : stmt list) ~(instrumentation_asserts : stmt list)
     (trans : Abs.transition list) : Abs.transition list =
@@ -469,6 +503,21 @@ let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
     ~(incoming_prev_fo_shifted : fo list) ~(compat_invariants : invariant_state_rel list)
     ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
+  let has_live_product_coverage =
+    List.exists
+      (fun (st : Product_types.product_state) ->
+        st.assume_state <> analysis.assume_bad_idx
+        && st.guarantee_state <> analysis.guarantee_bad_idx)
+      analysis.exploration.states
+  in
+  let reachable_monitor_states =
+    analysis.exploration.states
+    |> List.filter (fun (st : Product_types.product_state) ->
+           st.assume_state <> analysis.assume_bad_idx
+           && st.guarantee_state <> analysis.guarantee_bad_idx)
+    |> List.map (fun (st : Product_types.product_state) -> state_ctor st.guarantee_state)
+    |> List.sort_uniq String.compare
+  in
   let trans = inject_instrumentation_code ~instrumentation_updates ~instrumentation_asserts n.trans in
   let trans =
     add_monitor_compatibility_requires
@@ -486,17 +535,29 @@ let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
       ~add_to_ensures:false trans
   in
   let trans =
-    Product_contracts.add_bad_guarantee_projection_ensures
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/bad_guarantee_projection" ~t f))
-      ~analysis trans
+    if has_live_product_coverage then trans
+    else
+      Product_contracts.add_bad_guarantee_projection_ensures
+        ~log:(Some (fun t f -> log_contract ~reason:"Product/bad_guarantee_projection" ~t f))
+        ~analysis trans
   in
-  trans |> normalize_generated_contracts |> drop_exact_formula bad_state_fo_opt
+  trans
+  |> normalize_generated_contracts
+  |> List.map (fun (t : Abs.transition) ->
+         {
+           t with
+           requires = filter_monitor_state_formulas ~reachable_states:reachable_monitor_states t.requires;
+           ensures = filter_monitor_state_formulas ~reachable_states:reachable_monitor_states t.ensures;
+         })
+  |> drop_exact_formula bad_state_fo_opt
 
 let empty_instrumentation_info ~(states : Automaton_engine.residual_state list) ~(atom_names : ident list)
     : Stage_info.instrumentation_info =
   {
     Stage_info.state_ctors = List.mapi (fun i _ -> state_ctor i) states;
     Stage_info.atom_count = List.length atom_names;
+    Stage_info.kernel_ir_nodes = [];
+    Stage_info.kernel_pipeline_lines = [];
     Stage_info.warnings = [];
     Stage_info.guarantee_automaton_lines = [];
     Stage_info.assume_automaton_lines = [];
@@ -661,8 +722,9 @@ let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
     ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
 
-let transform_abstract_node_with_info ~(build : build_ctx) (n : Abs.node) :
+let transform_abstract_node_with_info ~(build : build_ctx) ?nodes (n : Abs.node) :
     Abs.node * Stage_info.instrumentation_info =
+  let nodes = Option.value nodes ~default:[ n ] in
   let n_ast = Abs.to_ast_node n in
   let ctx = build_node_context ~build ~n in
   let log_contract = make_contract_logger () in
@@ -687,9 +749,15 @@ let transform_abstract_node_with_info ~(build : build_ctx) (n : Abs.node) :
   in
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
   let rendered = Product_debug.render ~node_name:n.semantics.sem_nname ~analysis:product_analysis in
+  let kernel_ir =
+    Product_kernel_ir.of_node_analysis ~node_name:n.semantics.sem_nname ~nodes ~node:n
+      ~analysis:product_analysis
+  in
   let info =
     {
       (empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names) with
+      Stage_info.kernel_ir_nodes = [ kernel_ir ];
+      Stage_info.kernel_pipeline_lines = Product_kernel_ir.render_node_ir kernel_ir;
       Stage_info.guarantee_automaton_lines = rendered.guarantee_automaton_lines;
       Stage_info.assume_automaton_lines = rendered.assume_automaton_lines;
       Stage_info.product_lines = rendered.product_lines;
@@ -702,9 +770,10 @@ let transform_abstract_node_with_info ~(build : build_ctx) (n : Abs.node) :
   in
   (node, info)
 
-let transform_node_with_info ~(build : build_ctx) (n : Ast.node) :
+let transform_node_with_info ~(build : build_ctx) ?nodes (n : Ast.node) :
     Ast.node * Stage_info.instrumentation_info =
-  let node_abs, info = transform_abstract_node_with_info ~build (Abs.of_ast_node n) in
+  let abs_nodes = Option.map (List.map Abs.of_ast_node) nodes in
+  let node_abs, info = transform_abstract_node_with_info ~build ?nodes:abs_nodes (Abs.of_ast_node n) in
   (Abs.to_ast_node node_abs, info)
 
 let transform_node ~(build : build_ctx) (n : Ast.node) : Ast.node =

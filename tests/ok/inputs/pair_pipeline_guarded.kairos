@@ -1,0 +1,60 @@
+node pair_pipeline_core(x: int) returns (t: int)
+contracts
+  ensures: X G (t = prev x);
+locals
+  z: int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    z = prev x;
+transitions
+  Init:
+    to Run {
+      t := 0;
+      z := x;
+    }
+  Run:
+    to Run {
+      t := z;
+      z := x;
+    }
+end
+
+node pair_pipeline_guarded(enable: int, x: int) returns (a: int, b: int)
+contracts
+  ensures: G (enable = 1 => X G ((a = prev x) and (b = a)));
+instances
+  instance d: pair_pipeline_core;
+locals
+  midv: int;
+states
+  Init(init), Idle, Run;
+transitions
+  Init:
+    to Run when enable = 1 {
+      call d(x) returns (midv);
+      a := midv;
+      b := midv;
+    }
+    to Idle when enable = 0 {
+      a := 0;
+      b := 0;
+    }
+  Idle:
+    to Run when enable = 1 {
+      call d(x) returns (midv);
+      a := midv;
+      b := midv;
+    }
+    to Idle when enable = 0 {
+      a := 0;
+      b := 0;
+    }
+  Run:
+    to Run {
+      call d(x) returns (midv);
+      a := midv;
+      b := midv;
+    }
+end

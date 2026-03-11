@@ -1,0 +1,40 @@
+node delay_core(x: int) returns (outv: int)
+contracts
+  ensures: X ( G (outv = prev x) );
+locals
+  z : int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    z = prev x;
+transitions
+  Init:
+    to Run {
+    outv := 0;
+    z := x;
+  }
+  Run:
+    to Run {
+    outv := z;
+    z := x;
+  }
+end
+
+node delay_int_instance(x: int) returns (y: int)
+contracts
+  ensures: X ( G (y = prev x) );
+instances
+  instance d: delay_core;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+    call d(x) returns (y);
+  }
+  Run:
+    to Run {
+    call d(x) returns (y);
+  }
+end

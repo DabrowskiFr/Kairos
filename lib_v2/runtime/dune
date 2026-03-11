@@ -39,7 +39,10 @@
   obc_emit
   obc_ghost_instrument
   why_types
+  why_runtime_view
   why_labels
+  why_call_plan
+  why_contract_plan
   why_prove
   why_env
   why_contracts
@@ -53,6 +56,7 @@
   automata_generation
   product_types
   product_build
+  product_kernel_ir
   product_debug
   product_contracts
   automata_pass

@@ -31,5 +31,17 @@ val set_pure_translation : bool -> unit
 
    - [build_contracts] expects [env_info] produced by [prepare_node]. *)
 
-val build_contracts : nodes:Ast.node list -> Why_env.env_info -> contract_info
+val build_contracts :
+  nodes:Ast.node list ->
+  ?kernel_ir:Product_kernel_ir.node_ir ->
+  Why_env.env_info ->
+  contract_info
 (* Build full contract terms (pre/post) and their labels. *)
+
+val build_contracts_runtime_view :
+  nodes:Ast.node list ->
+  ?kernel_ir:Product_kernel_ir.node_ir ->
+  Why_env.env_info ->
+  Why_runtime_view.t ->
+  contract_info
+(* Same as [build_contracts], but driven explicitly by the abstract Why runtime view. *)

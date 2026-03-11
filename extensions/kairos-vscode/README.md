@@ -1,25 +1,52 @@
 # Kairos VS Code Extension
 
-This extension connects VS Code to the Kairos LSP server.
+The Kairos extension turns VS Code into a full Kairos workstation backed by the
+Kairos LSP server.
+
+## Core features
+
+- Build, Prove, Automata, Eval, Reset and Cancel Run commands
+- Outline, Goals, Artifacts and Runs side views
+- Proof dashboard with live goal grouping and quick navigation to Why
+- Automata studio for Program, Assume, Guarantee and Product image renders
+- Eval playground with reusable traces and options
+- Artifact workspace with quick preview and OBC diff support
+- Pipeline view and HTML report export
+- Current vs previous automata comparison
+- Workspace session restore and open-recent workflow
+- Code lenses, status bar, command palette integration and local run history
 
 ## Prerequisites
 
-- `kairos-lsp` available in `PATH`, or set `kairos.lsp.serverPath` to its full path.
-- Open source files with extension `.kairos` or `.obc`.
+- `kairos-lsp` in `PATH`, or configure `kairos.lsp.serverPath`
+- Graphviz `dot` reachable from the Kairos backend for SVG/PNG/PDF export, or
+  configure `kairos.graphviz.dotPath`
+- Open `.kairos` or `.obc` source files
 
-If `kairos-lsp` is not available in the VS Code environment `PATH`, you can set:
+If `kairos-lsp` is not available in the VS Code environment `PATH`, a common
+development setup is:
 
 - `kairos.lsp.serverPath`: `dune`
 - `kairos.lsp.serverArgs`: `["exec", "--", "kairos-lsp"]`
 
-## Configuration
+## Main commands
 
-Open VS Code settings and set:
+- `Kairos: Build`
+- `Kairos: Prove`
+- `Kairos: Open Automata Studio`
+- `Kairos: Open Proof Dashboard`
+- `Kairos: Open Artifacts Workspace`
+- `Kairos: Open Eval Playground`
+- `Kairos: Open Pipeline View`
+- `Kairos: Compare Current and Previous Automata`
+- `Kairos: Export HTML Report`
+- `Kairos: Open Recent File`
+- `Kairos: Cancel Run`
+- `Kairos: Reset State`
+- `Kairos: Show Run History`
 
-- `kairos.lsp.serverPath`: path to `kairos-lsp` (default: `kairos-lsp`)
-- `kairos.lsp.serverArgs`: extra CLI args for the server
-- `kairos.lsp.trace`: enable server tracing (`KAIROS_LSP_TRACE=1`)
-- `kairos.lsp.traceFile`: trace log file path
+The VS Code UI is image-first for automata: DOT is not exposed as a VS Code
+command or reading surface in the extension.
 
 ## Development
 
@@ -30,4 +57,5 @@ npm install
 npm run compile
 ```
 
-Then run the extension via VS Code "Run Extension" (F5).
+Launch the extension with the VS Code extension host (`F5` in a VS Code
+development window).

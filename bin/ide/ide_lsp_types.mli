@@ -2,6 +2,9 @@ include
   module type of Lsp_protocol
     with type loc = Lsp_protocol.loc
      and type goal_info = Lsp_protocol.goal_info
+     and type text_span = Lsp_protocol.text_span
+     and type proof_diagnostic = Lsp_protocol.proof_diagnostic
+     and type proof_trace = Lsp_protocol.proof_trace
      and type outputs = Lsp_protocol.outputs
      and type automata_outputs = Lsp_protocol.automata_outputs
      and type obc_outputs = Lsp_protocol.obc_outputs

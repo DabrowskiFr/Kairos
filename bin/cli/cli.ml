@@ -31,9 +31,11 @@ let log_level_conv =
 
 let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_product
     dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 dump_json dump_json_stable
-    dump_ast dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd wp_only
-    smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids
-    log_level log_file file =
+    dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
+    proof_traces_failed_only max_proof_traces proof_traces_fast proof_trace_goal_index dump_ast
+    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s wp_only
+    smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
+    log_file file =
   Log.setup ~level:log_level ~log_file;
   let read_all_stdin () =
     let b = Buffer.create 4096 in
@@ -64,6 +66,9 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
           dump_product <> None;
           dump_obligations_map <> None;
           dump_prune_reasons <> None;
+          dump_proof_traces_json <> None;
+          dump_native_unsat_core_json <> None;
+          dump_native_counterexample_json <> None;
         ]
     in
     if dump_ast <> None && dump_json <> None then
@@ -80,6 +85,16 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
         || dump_obligations_map <> None || dump_prune_reasons <> None)
       && (prove || wp_only || output_file <> None)
     then Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
+    else if
+      (dump_proof_traces_json <> None || dump_native_unsat_core_json <> None
+      || dump_native_counterexample_json <> None)
+      && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
+        || dump_ast_all <> None || dump_automata <> None || dump_product <> None
+        || dump_obligations_map <> None || dump_prune_reasons <> None || dump_why3_vc <> None
+        || dump_smt2 <> None || output_file <> None)
+    then
+      Error
+        "--dump-proof-traces-json/--dump-native-unsat-core-json/--dump-native-counterexample-json cannot be combined with other dump modes"
     else if
       dump_obc <> None
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
@@ -106,10 +121,23 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
     else if
       dump_dot = None && dump_dot_short = None && dump_obc = None && dump_automata = None
       && dump_product = None && dump_obligations_map = None && dump_prune_reasons = None
-      && dump_why3_vc = None && dump_smt2 = None && output_file = None && (not prove)
+      && dump_why3_vc = None && dump_smt2 = None && dump_proof_traces_json = None
+      && dump_native_unsat_core_json = None && dump_native_counterexample_json = None
+      && output_file = None && (not prove)
       && not wp_only
       && eval_trace = None
     then Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
+    else if dump_proof_traces_json = None && dump_native_unsat_core_json = None
+            && dump_native_counterexample_json = None
+            && (proof_traces_failed_only || max_proof_traces <> None || proof_traces_fast
+               || proof_trace_goal_index <> None)
+    then
+      Error
+        "--proof-traces-failed-only/--max-proof-traces/--proof-traces-fast/--proof-trace-goal-index require --dump-proof-traces-json, --dump-native-unsat-core-json or --dump-native-counterexample-json"
+    else if dump_native_unsat_core_json <> None && proof_trace_goal_index = None then
+      Error "--dump-native-unsat-core-json requires --proof-trace-goal-index"
+    else if dump_native_counterexample_json <> None && proof_trace_goal_index = None then
+      Error "--dump-native-counterexample-json requires --proof-trace-goal-index"
     else Ok ()
   in
   match validate () with
@@ -225,6 +253,157 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
                   | Ok o ->
                       write_target out o.prune_reasons_text;
                       `Ok ())
+              | _ when dump_proof_traces_json <> None -> (
+                  let cfg : Pipeline.config =
+                    {
+                      input_file = file;
+                      prover;
+                      prover_cmd;
+                      wp_only = false;
+                      smoke_tests = false;
+                      timeout_s;
+                      max_proof_goals = max_proof_traces;
+                      selected_goal_index = proof_trace_goal_index;
+                      compute_proof_diagnostics = true;
+                      prefix_fields = false;
+                      prove = true;
+                      generate_vc_text = not proof_traces_fast;
+                      generate_smt_text = not proof_traces_fast;
+                      generate_monitor_text = not proof_traces_fast;
+                      generate_dot_png = false;
+                    }
+                  in
+                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok outputs ->
+                      let mapped = Lsp_app.map_outputs outputs in
+                      let selected =
+                        mapped.proof_traces
+                        |> List.filter (fun (trace : Lsp_protocol.proof_trace) ->
+                               if proof_traces_failed_only then
+                                 trace.status <> "valid" && trace.status <> "pending"
+                               else true)
+                        |> (fun traces ->
+                             match max_proof_traces with
+                             | None -> traces
+                             | Some n when n <= 0 -> []
+                             | Some n ->
+                                 let rec take acc remaining = function
+                                   | _ when remaining <= 0 -> List.rev acc
+                                   | [] -> List.rev acc
+                                   | x :: rest -> take (x :: acc) (remaining - 1) rest
+                                 in
+                                 take [] n traces)
+                      in
+                      let out = Option.get dump_proof_traces_json in
+                      let emit_json oc =
+                        output_string oc "[\n";
+                        List.iteri
+                          (fun idx trace ->
+                            if idx > 0 then output_string oc ",\n";
+                            Yojson.Safe.pretty_to_channel oc (Lsp_protocol.yojson_of_proof_trace trace))
+                          selected;
+                        output_string oc "\n]\n"
+                      in
+                      (if out = "-" then emit_json stdout
+                       else
+                         let oc = open_out out in
+                         Fun.protect
+                           ~finally:(fun () -> close_out_noerr oc)
+                           (fun () -> emit_json oc));
+                      `Ok ())
+              | _ when dump_native_unsat_core_json <> None -> (
+                  let cfg : Pipeline.config =
+                    {
+                      input_file = file;
+                      prover;
+                      prover_cmd;
+                      wp_only = false;
+                      smoke_tests = false;
+                      timeout_s;
+                      max_proof_goals = None;
+                      selected_goal_index = proof_trace_goal_index;
+                      compute_proof_diagnostics = false;
+                      prefix_fields = false;
+                      prove = false;
+                      generate_vc_text = false;
+                      generate_smt_text = false;
+                      generate_monitor_text = false;
+                      generate_dot_png = false;
+                    }
+                  in
+                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok outputs ->
+                      let goal_index = Option.get proof_trace_goal_index in
+                      let payload =
+                        match
+                          Why_prove.native_unsat_core_for_goal ~timeout:timeout_s ~prover
+                            ~text:outputs.why_text ~goal_index ()
+                        with
+                        | None -> `Null
+                        | Some core ->
+                            `Assoc
+                              [
+                                ("solver", `String core.solver);
+                                ("goal_index", `Int goal_index);
+                                ("hypothesis_ids", `List (List.map (fun hid -> `Int hid) core.hypothesis_ids));
+                                ("smt_text", `String core.smt_text);
+                              ]
+                      in
+                      let out = Option.get dump_native_unsat_core_json in
+                      (match out with
+                      | "-" -> Yojson.Safe.pretty_to_channel stdout payload; print_newline ()
+                      | path -> Yojson.Safe.to_file path payload);
+                      `Ok ())
+              | _ when dump_native_counterexample_json <> None -> (
+                  let cfg : Pipeline.config =
+                    {
+                      input_file = file;
+                      prover;
+                      prover_cmd;
+                      wp_only = false;
+                      smoke_tests = false;
+                      timeout_s;
+                      max_proof_goals = None;
+                      selected_goal_index = proof_trace_goal_index;
+                      compute_proof_diagnostics = false;
+                      prefix_fields = false;
+                      prove = false;
+                      generate_vc_text = false;
+                      generate_smt_text = false;
+                      generate_monitor_text = false;
+                      generate_dot_png = false;
+                    }
+                  in
+                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Ok outputs ->
+                      let goal_index = Option.get proof_trace_goal_index in
+                      let payload =
+                        match
+                          Why_prove.native_solver_probe_for_goal ~timeout:timeout_s ~prover
+                            ~text:outputs.why_text ~goal_index ()
+                        with
+                        | None -> `Null
+                        | Some probe ->
+                            `Assoc
+                              [
+                                ("solver", `String probe.solver);
+                                ("goal_index", `Int goal_index);
+                                ("status", `String probe.status);
+                                ( "detail",
+                                  match probe.detail with Some d -> `String d | None -> `Null );
+                                ( "model_text",
+                                  match probe.model_text with Some d -> `String d | None -> `Null );
+                                ("smt_text", `String probe.smt_text);
+                              ]
+                      in
+                      let out = Option.get dump_native_counterexample_json in
+                      (match out with
+                      | "-" -> Yojson.Safe.pretty_to_channel stdout payload; print_newline ()
+                      | path -> Yojson.Safe.to_file path payload);
+                      `Ok ())
               | _ ->
                   let cfg : V2_pipeline.config =
                     {
@@ -316,6 +495,53 @@ let cmd =
     & info [ "dump-json-stable" ] ~docv:"FILE"
         ~doc:"Dump stable AST JSON (contracts stage) to file or '-' for stdout."
   in
+  let dump_proof_traces_json =
+    value
+    & opt (some string) None
+    & info [ "dump-proof-traces-json" ] ~docv:"FILE"
+        ~doc:
+          "Run proof and dump structured proof traces/explanations as JSON to FILE or '-' for stdout."
+  in
+  let dump_native_unsat_core_json =
+    value
+    & opt (some string) None
+    & info [ "dump-native-unsat-core-json" ] ~docv:"FILE"
+        ~doc:
+          "On one focused goal, dump the native solver unsat core as JSON to FILE or '-' for stdout (null if unavailable)."
+  in
+  let dump_native_counterexample_json =
+    value
+    & opt (some string) None
+    & info [ "dump-native-counterexample-json" ] ~docv:"FILE"
+        ~doc:
+          "On one focused goal, dump the native solver status/model probe as JSON to FILE or '-' for stdout (null if unavailable)."
+  in
+  let proof_traces_failed_only =
+    value
+    & flag
+    & info [ "proof-traces-failed-only" ]
+        ~doc:"With --dump-proof-traces-json, keep only non-proved goals."
+  in
+  let max_proof_traces =
+    value
+    & opt (some int) None
+    & info [ "max-proof-traces" ] ~docv:"N"
+        ~doc:"With --dump-proof-traces-json, emit at most N traces after filtering."
+  in
+  let proof_traces_fast =
+    value
+    & flag
+    & info [ "proof-traces-fast" ]
+        ~doc:
+          "With --dump-proof-traces-json, skip VC/SMT/monitor text materialization to bound heavy cases (trace spans to VC/SMT may be absent)."
+  in
+  let proof_trace_goal_index =
+    value
+    & opt (some int) None
+    & info [ "proof-trace-goal-index" ] ~docv:"N"
+        ~doc:
+          "With --dump-proof-traces-json, focus diagnosis on one split goal index N (0-based)."
+  in
   let dump_ast =
     value
     & opt (some dump_ast_conv) None
@@ -348,6 +574,11 @@ let cmd =
     value
     & opt (some string) None
     & info [ "prover-cmd" ] ~docv:"CMD" ~doc:"Override prover command used by Why3 (advanced)."
+  in
+  let timeout_s =
+    value
+    & opt int 5
+    & info [ "timeout-s" ] ~docv:"SECONDS" ~doc:"Timeout per proof goal in seconds (default: 5)."
   in
   let wp_only =
     value & flag
@@ -401,11 +632,13 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_obc_abstract $ dump_automata
+       (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_obc_abstract $ dump_automata
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2
-       $ dump_json $ dump_json_stable $ dump_ast $ dump_ast_all $ dump_ast_stable $ check_ast
-       $ output_file $ prove $ prover $ prover_cmd $ wp_only $ smoke_tests $ eval_trace
-       $ eval_out $ eval_with_state $ eval_with_locals $ debug_contract_ids $ log_level $ log_file
-       $ file))
+       $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
+       $ dump_native_counterexample_json $ proof_traces_failed_only $ max_proof_traces
+       $ proof_traces_fast $ proof_trace_goal_index $ dump_ast $ dump_ast_all $ dump_ast_stable
+       $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ wp_only
+       $ smoke_tests $ eval_trace $ eval_out $ eval_with_state $ eval_with_locals
+       $ debug_contract_ids $ log_level $ log_file $ file))
 
 let run () = exit (Cmd.eval cmd)

@@ -1,0 +1,31 @@
+node reset_zero_sink(reset: int, x: int) returns (y: int, z: int)
+contracts
+  ensures: G ((y = y) and not (y = y));
+  requires: G (reset = 0 or reset = 1);
+states
+  Init(init), Live, Zero;
+transitions
+  Init:
+    to Zero when reset = 1 {
+      y := 0;
+      z := 0;
+    }
+    to Live when reset = 0 {
+      y := x;
+      z := x;
+    }
+  Live:
+    to Zero when reset = 1 {
+      y := 0;
+      z := 0;
+    }
+    to Live when reset = 0 {
+      y := x;
+      z := x;
+    }
+  Zero:
+    to Zero {
+      y := 0;
+      z := 0;
+    }
+end

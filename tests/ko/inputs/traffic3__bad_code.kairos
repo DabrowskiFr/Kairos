@@ -1,0 +1,33 @@
+node traffic3() returns (color: int)
+contracts
+  ensures: G( color = 0 => X( color = 1 ) );
+  ensures: G( color = 1 => X( color = 2 ) );
+  ensures: G( color = 2 => X( color = 0 ) );
+locals
+states
+  Init(init), Green, Yellow, Red;
+invariants
+  in Green:
+    color = 0;
+  in Yellow:
+    color = 1;
+  in Red:
+    color = 2;
+transitions
+  Init:
+    to Green {
+      color := 0;
+    }
+  Green:
+    to Yellow  {
+    color := undefined_code_symbol;
+  }
+  Yellow:
+    to Red  {
+    color := 2;
+  }
+  Red:
+    to Green  {
+    color := 0;
+  }
+end

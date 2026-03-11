@@ -1,0 +1,16 @@
+node wr_input_output(x: int) returns (y: int)
+contracts
+  ensures: G ((y = y) and not (y = y));
+  requires: G(x = 0 or x = 1);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      y := x;
+    }
+  Run:
+    to Run {
+      y := x;
+    }
+end

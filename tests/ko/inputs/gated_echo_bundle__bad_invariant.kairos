@@ -1,0 +1,40 @@
+node gated_echo_bundle(gate: int, x: int) returns (y: int, z: int)
+contracts
+  ensures: G (gate = 1 => X G ((y = prev x) and (z = y)));
+locals
+  hold: int;
+states
+  Init(init), Wait, Hold;
+invariants
+  in Hold:
+    undefined_invariant_symbol = 0;
+transitions
+  Init:
+    to Hold when gate = 1 {
+      y := 0;
+      z := 0;
+      hold := x;
+    }
+    to Wait when gate = 0 {
+      y := 0;
+      z := 0;
+      hold := x;
+    }
+  Wait:
+    to Hold when gate = 1 {
+      y := 0;
+      z := 0;
+      hold := x;
+    }
+    to Wait when gate = 0 {
+      y := 0;
+      z := 0;
+      hold := x;
+    }
+  Hold:
+    to Hold {
+      y := hold;
+      z := hold;
+      hold := hold;
+    }
+end

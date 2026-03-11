@@ -46,6 +46,8 @@ type contracts_info = {
 type instrumentation_info = {
   state_ctors : string list;
   atom_count : int;
+  kernel_ir_nodes : Product_kernel_ir.node_ir list;
+  kernel_pipeline_lines : string list;
   warnings : string list;
   guarantee_automaton_lines : string list;
   assume_automaton_lines : string list;

@@ -1,0 +1,60 @@
+node guarded_dd_core(x: int) returns (outv: int)
+contracts
+  ensures: X G (outv = prev x);
+locals
+  z: int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    z = prev x;
+transitions
+  Init:
+    to Run {
+      outv := 0;
+      z := x;
+    }
+  Run:
+    to Run {
+      outv := z;
+      z := x;
+    }
+end
+
+node guarded_double_delay_instance(enable: int, x: int) returns (mid: int, y: int)
+contracts
+  ensures: G (enable = 1 => X G (mid = prev x));
+  ensures: G (enable = 1 => X X G ((y = prev2 x) and (mid = prev x)));
+instances
+  instance d1: guarded_dd_core;
+  instance d2: guarded_dd_core;
+states
+  Init(init), Idle, Run;
+invariants
+  in Init:
+    undefined_invariant_symbol = 0;
+transitions
+  Init:
+    to Run when enable = 1 {
+      call d1(x) returns (mid);
+      call d2(mid) returns (y);
+    }
+    to Idle when enable = 0 {
+      mid := 0;
+      y := 0;
+    }
+  Idle:
+    to Run when enable = 1 {
+      call d1(x) returns (mid);
+      call d2(mid) returns (y);
+    }
+    to Idle when enable = 0 {
+      mid := 0;
+      y := 0;
+    }
+  Run:
+    to Run {
+      call d1(x) returns (mid);
+      call d2(mid) returns (y);
+    }
+end

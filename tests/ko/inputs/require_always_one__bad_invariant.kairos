@@ -1,0 +1,15 @@
+node require_always_one(inp: int) returns (out: int)
+contracts
+  requires: G (inp = 1);
+  ensures: G (out = 1);
+states
+  S(init);
+invariants
+  in S:
+    undefined_invariant_symbol = 0;
+transitions
+  S:
+    to S {
+      out := inp;
+    }
+end

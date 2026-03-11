@@ -134,11 +134,18 @@ let render_obligation_lines ~(node_name : ident) (analysis : Product_build.analy
   |> List.filter_map (fun (step : PT.product_step) ->
          match step.step_class with
          | PT.Bad_guarantee ->
-             Some
-               (Printf.sprintf "[%s] obligation %s -> %s: %s" node_name
-                  (string_of_state step.src)
-                  (string_of_state step.dst)
-                  (string_of_fo (obligation_formula step)))
+             let src_live =
+               step.src.assume_state <> analysis.assume_bad_idx
+               && step.src.guarantee_state <> analysis.guarantee_bad_idx
+             in
+             let simplified = Fo_simplifier.simplify_fo (obligation_formula step) in
+             if (not src_live) || simplified = FTrue || simplified = FFalse then None
+             else
+               Some
+                 (Printf.sprintf "[%s] obligation %s -> %s: %s" node_name
+                    (string_of_state step.src)
+                    (string_of_state step.dst)
+                    (string_of_fo simplified))
          | _ -> None)
 
 let render_prune_lines ~(node_name : ident) (analysis : Product_build.analysis) =

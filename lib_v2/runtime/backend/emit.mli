@@ -21,27 +21,35 @@
 (* Compile a sequence of statements to a Why3 expression. *)
 val compile_seq :
   Support.env ->
-  (Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.stmt list ->
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_runtime_view.runtime_action_view list ->
   Why3.Ptree.expr
 
 (* {1 Transition Compilation} *)
 (* Compile a branch for a single state (pattern match arm). *)
 val compile_state_branch :
   Support.env ->
-  (Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
   Ast.ident ->
-  Ast.transition list ->
+  Why_runtime_view.runtime_transition_view list ->
   Why3.Ptree.reg_branch
 
 (* Compile a set of transitions into a Why3 expression. *)
 val compile_transitions :
   Support.env ->
-  (Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list) ->
-  Ast.transition list ->
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_runtime_view.state_branch_view list ->
+  Why3.Ptree.expr
+
+(* Compile the runtime view into the body of `step`. *)
+val compile_runtime_view :
+  Support.env ->
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
+  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_runtime_view.t ->
   Why3.Ptree.expr
 (* {1 Node Compilation} *)
 
@@ -59,6 +67,7 @@ type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_gro
 val compile_node :
   prefix_fields:bool ->
   ?comment_specs:comment_specs ->
+  ?kernel_ir:Product_kernel_ir.node_ir ->
   Ast.node list ->
   Ast.node ->
   Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list * string * spec_groups
@@ -69,7 +78,11 @@ val compile_program :
 
 (* Compile a full program to an in‑memory Why3 AST. *)
 val compile_program_ast :
-  ?prefix_fields:bool -> ?comment_map:(Ast.ident * comment_specs) list -> Ast.program -> program_ast
+  ?prefix_fields:bool ->
+  ?comment_map:(Ast.ident * comment_specs) list ->
+  ?kernel_ir_map:(Ast.ident * Product_kernel_ir.node_ir) list ->
+  Ast.program ->
+  program_ast
 
 (* Render a Why3 AST to text. *)
 val emit_program_ast : program_ast -> string

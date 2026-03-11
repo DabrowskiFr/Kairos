@@ -19,23 +19,17 @@
 (* {1 Contract Diagnostics} *)
 
 type label_context = {
+  kernel_first : bool;
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
   transition_requires_pre : Why3.Ptree.term list;
   transition_requires_pre_terms : (Why3.Ptree.term * string) list;
   transition_post_terms : (Why3.Ptree.term * string) list;
-  pre_contract_user : Why3.Ptree.term list;
   link_terms_pre : Why3.Ptree.term list;
   link_terms_post : Why3.Ptree.term list;
-  instance_input_links_pre : Why3.Ptree.term list;
-  pre_invf : Why3.Ptree.term list;
-  first_step_init_link_pre : Why3.Ptree.term list;
   link_invariants : Why3.Ptree.term list;
   post_contract_user : Why3.Ptree.term list;
-  instance_input_links_post : Why3.Ptree.term list;
   instance_invariants : Why3.Ptree.term list;
-  post_invf : Why3.Ptree.term list;
-  pre_k_links : Why3.Ptree.term list;
   result_term_opt : Why3.Ptree.term option;
 }
 (* Context used to generate diagnostic labels from contract terms. *)

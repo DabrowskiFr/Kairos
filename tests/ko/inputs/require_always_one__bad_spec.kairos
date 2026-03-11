@@ -1,0 +1,12 @@
+node require_always_one(inp: int) returns (out: int)
+contracts
+  ensures: G ((out = out) and not (out = out));
+  requires: G (inp = 1);
+states
+  S(init);
+transitions
+  S:
+    to S {
+      out := inp;
+    }
+end

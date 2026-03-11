@@ -104,11 +104,9 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
-let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node) :
-    Why_types.env_info =
+let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) : Why_types.env_info =
+  let n = Why_runtime_view.to_ast_node runtime in
   let n_obc = n in
-  let nodes = nodes in
-  let n = n in
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function LG _ -> false | _ -> true in
   let instance_imports =
@@ -124,7 +122,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
     ]
     @ instance_imports
   in
-  let mon_state_ctors = collect_mon_state_ctors n_obc in
+  let mon_state_ctors = runtime.monitor_state_ctors in
   let type_mon_state =
     match mon_state_ctors with
     | [] -> []
@@ -312,6 +310,7 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
     let should_init = vname = "st" || vname = "__aut_state" || vname = "acc" in
     if should_init then default_expr_for_type vty else any_expr_for_type vty
   in
+  let output_exprs = List.map (fun v -> field env v.vname) n.outputs in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
   let inputs =
     match n.inputs with
@@ -322,10 +321,15 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
   in
   let has_ghost_updates = false in
   let ghost_updates = mk_expr (Etuple []) in
-  let ret_expr = mk_expr (Etuple []) in
+  let ret_expr =
+    match output_exprs with
+    | [] -> mk_expr (Etuple [])
+    | [ e ] -> e
+    | es -> mk_expr (Etuple es)
+  in
   let node = n in
   {
-    node;
+    runtime_view = runtime;
     module_name;
     imports;
     type_mon_state;
@@ -346,3 +350,8 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node)
     mon_state_ctors;
     init_for_var;
   }
+
+let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node) :
+    Why_types.env_info =
+  let runtime = Why_runtime_view.of_node ~nodes n in
+  prepare_runtime_view ~prefix_fields runtime

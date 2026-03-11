@@ -22,23 +22,17 @@ open Why3
 open Ptree
 
 type label_context = {
+  kernel_first : bool;
   pre : Ptree.term list;
   post : Ptree.term list;
   transition_requires_pre : Ptree.term list;
   transition_requires_pre_terms : (Ptree.term * string) list;
   transition_post_terms : (Ptree.term * string) list;
-  pre_contract_user : Ptree.term list;
   link_terms_pre : Ptree.term list;
   link_terms_post : Ptree.term list;
-  instance_input_links_pre : Ptree.term list;
-  pre_invf : Ptree.term list;
-  first_step_init_link_pre : Ptree.term list;
   link_invariants : Ptree.term list;
   post_contract_user : Ptree.term list;
-  instance_input_links_post : Ptree.term list;
   instance_invariants : Ptree.term list;
-  post_invf : Ptree.term list;
-  pre_k_links : Ptree.term list;
   result_term_opt : Ptree.term option;
 }
 
@@ -69,31 +63,33 @@ let build_labels (ctx : label_context) : string list * string list =
   let compat_pre, atom_pre, user_pre = split_link_terms ctx.link_terms_pre in
   let compat_post, atom_post, user_post = split_link_terms ctx.link_terms_post in
   let pre_groups =
-    [
-      ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
-      ("User contract requires", group_terms_by_pre ctx.pre_contract_user);
-      ("Atoms", group_terms_by_pre atom_pre);
-      ("Compatibility", group_terms_by_pre compat_pre);
-      ("User invariants", group_terms_by_pre user_pre);
-      ("Instance links (pre)", group_terms_by_pre ctx.instance_input_links_pre);
-      ("Instrumentation", group_terms_by_pre ctx.pre_invf);
-      ("Initialization/first_step", group_terms_by_pre ctx.first_step_init_link_pre);
-      ("Internal links", group_terms_by_pre ctx.link_invariants);
-    ]
+    if ctx.kernel_first then
+      [
+        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
+        ("Internal links", group_terms_by_pre ctx.link_invariants);
+      ]
+    else
+      [
+        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
+        ("Atoms", group_terms_by_pre atom_pre);
+        ("Compatibility", group_terms_by_pre compat_pre);
+        ("User invariants", group_terms_by_pre user_pre);
+        ("Internal links", group_terms_by_pre ctx.link_invariants);
+      ]
   in
   let post_groups =
     let base =
-      [
-        ("User contract ensures", group_terms_by_post ctx.post_contract_user);
-        ("Atoms", group_terms_by_post atom_post);
-        ("Compatibility", group_terms_by_post compat_post);
-        ("User invariants", group_terms_by_post user_post);
-        ("Instance links (post)", group_terms_by_post ctx.instance_input_links_post);
-        ("Instance invariants", group_terms_by_post ctx.instance_invariants);
-        ("Instrumentation", group_terms_by_post ctx.post_invf);
-        ("pre_k history", group_terms_by_post ctx.pre_k_links);
-        ("Internal links", group_terms_by_post ctx.link_invariants);
-      ]
+      if ctx.kernel_first then
+        [ ("Internal links", group_terms_by_post ctx.link_invariants) ]
+      else
+        [
+          ("User contract ensures", group_terms_by_post ctx.post_contract_user);
+          ("Atoms", group_terms_by_post atom_post);
+          ("Compatibility", group_terms_by_post compat_post);
+          ("User invariants", group_terms_by_post user_post);
+          ("Instance invariants", group_terms_by_post ctx.instance_invariants);
+          ("Internal links", group_terms_by_post ctx.link_invariants);
+        ]
     in
     match ctx.result_term_opt with
     | None -> base

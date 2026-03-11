@@ -20,8 +20,8 @@
 
 (* Environment snapshot used while emitting Why3 for a node. *)
 type env_info = {
-  (* Source AST node. *)
-  node : Ast.node;
+  (* Runtime view used by the Why backend. *)
+  runtime_view : Why_runtime_view.t;
   (* Name of the generated Why3 module. *)
   module_name : string;
   (* Extra imports required by this module. *)

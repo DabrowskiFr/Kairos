@@ -19,6 +19,8 @@ module Pass :
   type info_acc = {
     mutable state_ctors_rev : ident list;
     mutable atom_count : int;
+    mutable kernel_ir_nodes_rev : Product_kernel_ir.node_ir list;
+    mutable kernel_pipeline_lines_rev : string list;
     mutable warnings_rev : string list;
     mutable guarantee_automaton_lines_rev : string list;
     mutable assume_automaton_lines_rev : string list;
@@ -34,6 +36,8 @@ module Pass :
     {
       state_ctors_rev = [];
       atom_count = 0;
+      kernel_ir_nodes_rev = [];
+      kernel_pipeline_lines_rev = [];
       warnings_rev = [];
       guarantee_automaton_lines_rev = [];
       assume_automaton_lines_rev = [];
@@ -48,6 +52,9 @@ module Pass :
   let add_node_info (acc : info_acc) (node_info : info) : unit =
     acc.state_ctors_rev <- node_info.state_ctors @ acc.state_ctors_rev;
     acc.atom_count <- acc.atom_count + node_info.atom_count;
+    acc.kernel_ir_nodes_rev <- List.rev_append node_info.kernel_ir_nodes acc.kernel_ir_nodes_rev;
+    acc.kernel_pipeline_lines_rev <-
+      List.rev_append node_info.kernel_pipeline_lines acc.kernel_pipeline_lines_rev;
     acc.warnings_rev <- List.rev_append node_info.warnings acc.warnings_rev;
     acc.guarantee_automaton_lines_rev <-
       List.rev_append node_info.guarantee_automaton_lines acc.guarantee_automaton_lines_rev;
@@ -66,6 +73,8 @@ module Pass :
     {
       Stage_info.state_ctors = List.rev acc.state_ctors_rev;
       Stage_info.atom_count = acc.atom_count;
+      Stage_info.kernel_ir_nodes = List.rev acc.kernel_ir_nodes_rev;
+      Stage_info.kernel_pipeline_lines = List.rev acc.kernel_pipeline_lines_rev;
       Stage_info.warnings = List.rev acc.warnings_rev;
       Stage_info.guarantee_automaton_lines = List.rev acc.guarantee_automaton_lines_rev;
       Stage_info.assume_automaton_lines = List.rev acc.assume_automaton_lines_rev;
@@ -77,11 +86,14 @@ module Pass :
       Stage_info.product_dot = acc.product_dot;
     }
 
-  let instrument_node ~(automata : stage_in) (n : node) : node * info =
+  let instrument_node ~(program : ast_in) ~(automata : stage_in) (n : node) : node * info =
     match List.assoc_opt n.nname automata with
     | Some build ->
         let n_abs = Abs.of_ast_node n in
-        let node_abs, info = Instrumentation.transform_abstract_node_with_info ~build n_abs in
+        let all_nodes_abs = List.map Abs.of_ast_node program in
+        let node_abs, info =
+          Instrumentation.transform_abstract_node_with_info ~build ~nodes:all_nodes_abs n_abs
+        in
         (Abs.to_ast_node node_abs, info)
     | None -> failwith (Printf.sprintf "Missing monitor generation build for node %s" n.nname)
 
@@ -90,7 +102,7 @@ module Pass :
     let ast =
       List.map
         (fun n ->
-          let node, node_info = instrument_node ~automata n in
+          let node, node_info = instrument_node ~program:p ~automata n in
           add_node_info acc node_info;
           node)
         p

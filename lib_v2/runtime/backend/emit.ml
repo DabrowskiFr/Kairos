@@ -29,6 +29,7 @@ open Why_labels
 let compile_seq = Why_core.compile_seq
 let compile_state_branch = Why_core.compile_state_branch
 let compile_transitions = Why_core.compile_transitions
+let compile_runtime_view = Why_core.compile_runtime_view
 
 type spec_groups = { pre_labels : string list; post_labels : string list }
 
@@ -37,11 +38,47 @@ type comment_specs =
 
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
-let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.node) :
+let kernel_clause_origin_label = function
+  | Product_kernel_ir.OriginSafety -> "Kernel safety"
+  | Product_kernel_ir.OriginInitNodeInvariant -> "Kernel init node invariant"
+  | Product_kernel_ir.OriginInitAutomatonCoherence -> "Kernel init automaton coherence"
+  | Product_kernel_ir.OriginPropagationNodeInvariant -> "Kernel propagation node invariant"
+  | Product_kernel_ir.OriginPropagationAutomatonCoherence -> "Kernel propagation automaton coherence"
+
+let compile_kernel_fact_term ~(env : Support.env) ~(mon_state_ctors : Ast.ident list)
+    (fact : Product_kernel_ir.clause_fact_ir) : Ptree.term option =
+  let mon_ctor_for_index idx =
+    match List.nth_opt mon_state_ctors idx with Some ctor -> Some ctor | None -> None
+  in
+  let compile_desc time = function
+    | Product_kernel_ir.FactProgramState state_name ->
+        let base = term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name))) in
+        Some
+          (match time with
+          | Product_kernel_ir.CurrentTick -> base
+          | Product_kernel_ir.PreviousTick -> term_old base)
+    | Product_kernel_ir.FactGuaranteeState idx -> (
+        match mon_ctor_for_index idx with
+        | None -> None
+        | Some ctor ->
+            let base =
+              term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 ctor)))
+            in
+            Some
+              (match time with
+              | Product_kernel_ir.CurrentTick -> base
+              | Product_kernel_ir.PreviousTick -> term_old base))
+    | Product_kernel_ir.FactFormula fo -> Some (Why_compile_expr.compile_fo_term env fo)
+    | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse)
+  in
+  compile_desc fact.time fact.desc
+
+let compile_node ~prefix_fields ?comment_specs ?kernel_ir (nodes : Ast.node list) (n : Ast.node) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let nodes_ast = nodes in
   let info = Why_env.prepare_node ~prefix_fields ~nodes n in
-  let n = info.node in
+  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
+  let info = { info with runtime_view } in
   let comment_specs =
     match comment_specs with None -> None | Some (a, g, t, m) -> Some (a, g, t, m)
   in
@@ -55,92 +92,10 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
   let ret_expr = info.ret_expr in
   let mon_state_ctors = info.mon_state_ctors in
 
-  let find_node (name : string) : node option =
-    List.find_opt (fun nd -> nd.nname = name) nodes_ast
-  in
-  let instance_invariant_terms ?(in_post = false) (env : env) (inst_name : string)
-      (node_name : string) (inst_node : node) =
-    let input_names = Ast_utils.input_names_of_node inst_node in
-    let pre_k_map = build_pre_k_infos inst_node in
-    let from_user =
-      List.filter_map
-        (fun inv ->
-          let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
-          let rhs =
-            compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map
-              inv.inv_expr
-          in
-          Some (term_eq lhs rhs))
-        inst_node.attrs.invariants_user
-    in
-    let from_state_rel =
-      List.filter_map
-        (fun inv ->
-          let st = term_of_instance_var env inst_name node_name "st" in
-          let rhs = mk_term (Tident (qid1 inv.state)) in
-          let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
-          let body =
-            compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map
-              inv.formula
-          in
-          Some (term_implies cond body))
-        inst_node.attrs.invariants_state_rel
-    in
-    from_user @ from_state_rel
-  in
-  let call_asserts =
-    let index_of name lst =
-      let rec loop i = function
-        | [] -> None
-        | x :: xs -> if x = name then Some i else loop (i + 1) xs
-      in
-      loop 0 lst
-    in
-    fun (inst_name, _args, outs) ->
-      match List.assoc_opt inst_name n.instances with
-      | None -> ([], [])
-      | Some node_name -> (
-          match find_node node_name with
-          | None -> ([], [])
-          | Some inst_node -> (
-              let inv_terms = instance_invariant_terms env inst_name node_name inst_node in
-              match extract_delay_spec inst_node.guarantees with
-              | None -> ([], inv_terms)
-              | Some (out_name, in_name) ->
-                  let output_names = Ast_utils.output_names_of_node inst_node in
-                  begin match index_of out_name output_names with
-                  | None -> ([], inv_terms)
-                  | Some out_idx ->
-                      if out_idx >= List.length outs then ([], inv_terms)
-                      else
-                        let out_var = List.nth outs out_idx in
-                        let pre_id = ident (Printf.sprintf "__call_pre_%s_%s" inst_name in_name) in
-                        let pre_k_map = build_pre_k_infos inst_node in
-                        let pre_name =
-                          List.find_map
-                            (fun (_, info) ->
-                              match (info.expr.iexpr, info.names) with
-                              | IVar x, name :: _ when x = in_name -> Some name
-                              | _ -> None)
-                            pre_k_map
-                        in
-                        let pre_expr =
-                          match pre_name with
-                          | None -> expr_of_instance_var env inst_name node_name in_name
-                          | Some name -> expr_of_instance_var env inst_name node_name name
-                        in
-                        let lhs = term_of_var env out_var in
-                        let rhs = mk_term (Tident (qid1 pre_id.id_str)) in
-                        ([ (pre_id, pre_expr) ], term_eq lhs rhs :: inv_terms)
-                  end))
-  in
-  let body =
-    let trans = n.trans in
-    let main = compile_transitions env call_asserts trans in
-    main
-  in
+  let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:info.runtime_view in
+  let body = compile_runtime_view env call_asserts info.runtime_view in
 
-  let contracts = Why_contracts.build_contracts ~nodes info in
+  let contracts = Why_contracts.build_contracts ~nodes ?kernel_ir info in
   let pre = contracts.pre in
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
@@ -148,9 +103,22 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
   let pre_origin_labels = contracts.pre_origin_labels in
   let post_origin_labels = contracts.post_origin_labels in
   let post_vcids = contracts.post_vcids in
+  let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
+    let hid = Provenance.fresh_id () in
+    let origin_attr = attr_for_label origin_label in
+    let kind_attr = hyp_kind_attr kind in
+    let hid_attr = hyp_id_attr hid in
+    let term = mk_term (Tattr (ATstr origin_attr, term)) in
+    let term = mk_term (Tattr (ATstr kind_attr, term)) in
+    mk_term (Tattr (ATstr hid_attr, term))
+  in
   let add_origin_attr label term = mk_term (Tattr (ATstr (attr_for_label label), term)) in
-  let pre = List.map2 add_origin_attr pre_origin_labels pre in
-  let post = List.map2 add_origin_attr post_origin_labels post in
+  let pre =
+    List.map2 (fun label term -> add_trace_attrs ~kind:"pre" ~origin_label:label term) pre_origin_labels pre
+  in
+  let post =
+    List.map2 (fun label term -> add_trace_attrs ~kind:"post" ~origin_label:label term) post_origin_labels post
+  in
   let add_vcid_attr vcid_opt term =
     match vcid_opt with
     | None -> term
@@ -226,9 +194,76 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
           Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "coherency_goal_%d" (i + 1)), term))
         goals
   in
+  let kernel_init_goal_decls =
+    let conj_terms_opt = function
+      | [] -> None
+      | [ t ] -> Some t
+      | t :: rest ->
+          Some (List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest)
+    in
+    let vars_only_inputs =
+      List.filter
+        (fun (_loc, id_opt, _ghost, _ty) ->
+          match id_opt with Some id -> id.id_str = "vars" | None -> false)
+        inputs
+    in
+    let should_emit_kernel_init_goals (ir : Product_kernel_ir.node_ir) =
+      Product_kernel_ir.has_effective_product_coverage ir
+      &&
+      (* For a degenerate one-state safe product, the dedicated init goals only
+         restate the already-fixed runtime initialization and create brittle
+         prover noise on tiny examples such as [require_always_one]. *)
+      (List.length ir.product_states > 1 || List.length ir.product_steps > 1)
+    in
+    match kernel_ir with
+    | None -> []
+    | Some ir when not (should_emit_kernel_init_goals ir) -> []
+    | Some ir ->
+        ir.generated_clauses
+        |> List.filter_map (fun clause ->
+               match clause.Product_kernel_ir.origin with
+               | Product_kernel_ir.OriginInitNodeInvariant ->
+                   let hypotheses =
+                     clause.hypotheses
+                     |> List.filter_map
+                          (compile_kernel_fact_term ~env ~mon_state_ctors)
+                   in
+                   let conclusions =
+                     clause.conclusions
+                     |> List.filter_map
+                          (compile_kernel_fact_term ~env ~mon_state_ctors)
+                   in
+                   begin
+                     match (conj_terms_opt hypotheses, conj_terms_opt conclusions) with
+                     | Some premise, Some body ->
+                         Some (kernel_clause_origin_label clause.origin, premise, body)
+                     | None, Some body ->
+                         Some (kernel_clause_origin_label clause.origin, mk_term Ttrue, body)
+                     | _ -> None
+                   end
+               | _ -> None)
+        |> List.mapi (fun i (origin_label, premise, body) ->
+               let wid = Provenance.fresh_id () in
+               let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
+               let origin_attr = attr_for_label origin_label in
+               let base = mk_term (Tbinop (premise, Dterm.DTimplies, body)) in
+               let base = mk_term (Tattr (ATstr origin_attr, base)) in
+               (* Kernel init clauses characterize the initial runtime state and
+                  the initial monitor/product coherence. They do not need step
+                  inputs, and Why rejects an empty quantifier binder, so keep
+                  the body unquantified here. *)
+               let quantified =
+                 match vars_only_inputs with
+                 | [] -> base
+                 | _ -> mk_term (Tquant (Dterm.DTforall, vars_only_inputs, [], base))
+               in
+               let term = mk_term (Tattr (ATstr wid_attr, quantified)) in
+               Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "kernel_init_goal_%d" (i + 1)), term))
+  in
 
   let decls =
     imports @ type_mon_state @ [ type_state; type_vars; step_decl ] @ coherency_goal_decls
+    @ kernel_init_goal_decls
   in
 
   let spec = Ast.specification_of_node n in
@@ -349,6 +384,14 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
       let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
       let post_txt = String.concat "\n    " (List.map string_of_term post) in
+      let kernel_summary =
+        match kernel_ir with
+        | None -> ""
+        | Some ir ->
+            "\n  Kernel-compatible product clauses:\n  "
+            ^ String.concat "\n  " (Product_kernel_ir.render_node_ir ir)
+            ^ "\n"
+      in
       Printf.sprintf
         "Module %s\n\
         \  LTL (compact):\n\
@@ -357,12 +400,13 @@ let compile_node ~prefix_fields ?comment_specs (nodes : Ast.node list) (n : Ast.
         \    pre:\n\
         \    %s\n\
         \    post:\n\
-        \    %s\n"
-        module_name contracts_txt pre_txt post_txt
+        \    %s%s"
+        module_name contracts_txt pre_txt post_txt kernel_summary
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_program_ast ?(prefix_fields = true) ?(comment_map = []) (p : Ast.program) : program_ast
+let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
+    ?(kernel_ir_map = []) (p : Ast.program) : program_ast
     =
   let p = p in
   let nodes_obc = p in
@@ -374,7 +418,8 @@ let compile_program_ast ?(prefix_fields = true) ?(comment_map = []) (p : Ast.pro
         List.map
           (fun n ->
             let name = n.nname in
-            compile_node ~prefix_fields ?comment_specs:(lookup_comment name) nodes n)
+            compile_node ~prefix_fields ?comment_specs:(lookup_comment name)
+              ?kernel_ir:(List.assoc_opt name kernel_ir_map) nodes n)
           nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
@@ -653,7 +698,7 @@ let emit_program_ast (ast : program_ast) : string =
 let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int)) list =
   let out = emit_program_ast ast in
   let spans = ref [] in
-  let re = Str.regexp "wid:[0-9]+" in
+  let re = Str.regexp "\\(wid\\|rid\\):[0-9]+" in
   let len = String.length out in
   let rec loop pos =
     if pos >= len then ()
@@ -661,7 +706,11 @@ let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int
       try
         let _ = Str.search_forward re out pos in
         let wid_s = Str.matched_string out in
-        let wid = try int_of_string (String.sub wid_s 4 (String.length wid_s - 4)) with _ -> -1 in
+        let sep = try String.index wid_s ':' with Not_found -> -1 in
+        let wid =
+          if sep < 0 then -1
+          else try int_of_string (String.sub wid_s (sep + 1) (String.length wid_s - sep - 1)) with _ -> -1
+        in
         let line_start =
           try String.rindex_from out (Str.match_beginning ()) '\n' + 1 with Not_found -> 0
         in

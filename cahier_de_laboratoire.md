@@ -1,6 +1,750 @@
 # Cahier de laboratoire
 
+## 2026-03-11
+
+### Sujet
+Reduction structurelle du vieux chemin `why_contracts` pour les obligations de
+transition sur le chemin `kernel-first`.
+
+### Tentative 0 (factorisation des blocs de transition inactifs)
+- Objectif: ne plus seulement neutraliser semantiquement certains blocs
+  historiques sur le chemin `kernel-first`, mais eviter de les calculer du tout
+  dans `why_contracts.ml`.
+- Resultat: succes.
+- Realisations:
+  - regroupement dans un seul tuple de calcul:
+    - `transition_requires_pre_terms`,
+    - `transition_requires_pre`,
+    - `transition_requires_post`,
+    - `state_post`,
+    - `state_post_terms`,
+    - `state_post_terms_vcid`,
+    - `transition_post_to_pre`;
+  - sur le chemin `kernel-first`, ce bloc vaut directement des listes vides;
+  - sur le chemin legacy, le calcul historique est preserve inchange.
+- Incident intermediaire:
+  - premiere passe avec erreur de portee sur `pre_contract_user` /
+    `post_contract_user` et reconstruction de `post_contract`;
+  - correction appliquee sans changement de semantique.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - le vieux chemin des obligations de transition recule encore d'un cran;
+  - la prochaine reduction utile vise maintenant les derniers blocs encore
+  actifs mais redondants du chemin legacy, sous garde
+  `CoverageExplicit/CoverageFallback`.
+
+### Tentative 0 bis (factorisation du bloc legacy instances/sorties)
+- Objectif: regrouper les derniers calculs legacy encore epars autour:
+  - des invariants d'instance,
+  - des liens d'instance,
+  - des liens de sortie,
+  pour qu'ils soient court-circuites comme un seul bloc sur le chemin
+  `kernel-first`.
+- Resultat: succes.
+- Realisations:
+  - regroupement dans un tuple unique de:
+    - `instance_invariants`,
+    - `instance_input_links_pre`,
+    - `instance_input_links_post`,
+    - `instance_delay_links_inv`,
+    - `output_links`,
+    - `first_step_links`,
+    - `first_step_init_link_pre`,
+    - `link_invariants`;
+  - sur le chemin `kernel-first`, seul `instance_delay_links_inv` reste derive
+    de l'IR abstrait, tout le reste est vide;
+  - sur le chemin legacy, le comportement est preserve.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - le chemin `kernel-first` n'evalue plus les anciens blocs d'instances et de
+    sorties disperses;
+  - la prochaine reduction utile est maintenant de traiter la couche de labels
+  et de contexte diagnostique pour qu'elle arrete aussi de traquer des blocs
+  legacy vides.
+
+### Tentative 0 ter (labels compacts sur le chemin `kernel-first`)
+- Objectif: faire en sorte que la couche diagnostique Why n'arrete pas
+  d'embarquer des familles legacy vides quand le backend est deja sur le chemin
+  `kernel-first`.
+- Resultat: succes.
+- Realisations:
+  - ajout d'un drapeau `kernel_first` dans `Why_diagnostics.label_context`;
+  - en mode `kernel_first`, `build_labels` ne construit plus que les familles
+    pertinentes:
+    - `Transition requires`,
+    - `Internal links`;
+  - les familles legacy:
+    - `User contract requires/ensures`,
+    - `Instance invariants`,
+    - `Instrumentation`,
+    - `pre_k history`,
+    - etc.
+    ne sont plus construites dans ce mode.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - le contexte diagnostique est maintenant aligne avec la reduction effective
+    du chemin Why historique;
+  - la prochaine etape utile est d'identifier les derniers morceaux encore
+    vraiment dependants de l'ancien OBC annote, plutot que de continuer a
+    seulement nettoyer des coquilles vides.
+
+### Tentative 1 (identification des derniers points de dependance reels)
+- Objectif: isoler les derniers morceaux qui dependent encore reellement de
+  l'OBC annote comme pivot de preuve, au lieu de continuer a nettoyer des
+  couches auxiliaires.
+- Resultat: succes.
+- Realisations:
+  - audit cible des modules:
+    - `why_contracts.ml`,
+    - `why_env.ml`,
+    - `why_core.ml`,
+    - `emit.ml`,
+    - plus la couche pipeline/debug;
+  - redaction d'une note technique:
+    [ARCHITECTURE_REMAINING_OBC_DEPENDENCIES.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ARCHITECTURE_REMAINING_OBC_DEPENDENCIES.md)
+- Conclusion principale:
+  - le vrai verrou n'est plus dans les labels ni dans les diagnostics;
+  - il reste dans le runtime Why lui-meme:
+    - construction d'environnement dans `why_env.ml`,
+    - execution des transitions dans `why_core.ml`,
+    - fallback legacy dans `why_contracts.ml`.
+- Consequence:
+  - la prochaine migration doit viser un runtime/program view Why derive du
+    nouvel IR abstrait, et non plus `Ast.node` annote comme entree native.
+
+### Tentative 2 (clarification de la frontiere runtime abstraite / adaptateur Why)
+- Objectif: fixer proprement la frontiere entre:
+  - l'IR abstrait backend-agnostic;
+  - la vue runtime adaptee a Why;
+  pour ne pas continuer le refactoring sur une interface implicite.
+- Resultat: succes.
+- Realisations:
+  - redaction d'une note d'architecture:
+    [ARCHITECTURE_WHY_RUNTIME_VIEW.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ARCHITECTURE_WHY_RUNTIME_VIEW.md)
+- Clarification obtenue:
+  - l'IR abstrait reste la source de verite semantique;
+  - Why recoit une `why_runtime_view` derivee de cet IR;
+  - `why_env` doit consommer cette vue pour definir les representations Why;
+  - `why_core` doit compiler les transitions/calls depuis cette vue;
+  - `why_contracts` doit compiler les clauses abstraites, sans relire
+    l'ancienne instrumentation comme source semantique.
+- Conclusion:
+  - le prochain chantier n'est plus conceptuel;
+  - il consiste a definir les types OCaml concrets de `why_runtime_view` puis a
+    porter `why_env.ml` dessus.
+
+### Tentative 3 (types OCaml de `why_runtime_view` + premier portage de `why_env`)
+- Objectif: materialiser l'interface `why_runtime_view` dans le code, puis faire
+  de `why_env` un consommateur de cette vue, sans casser le chemin courant.
+- Resultat: succes avec shim transitoire explicite.
+- Realisations:
+  - ajout du module:
+    - [why_runtime_view.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.mli)
+    - [why_runtime_view.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml)
+  - types introduits:
+    - `port_view`,
+    - `instance_view`,
+    - `runtime_transition_view`,
+    - `Why_runtime_view.t`;
+  - ajout dans [why_env.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_env.mli) de:
+    - `prepare_runtime_view`;
+  - `prepare_node` devient maintenant un adaptateur:
+    - `Ast.node -> Why_runtime_view.t -> prepare_runtime_view`.
+- Incident intermediaire:
+  - premiere version du collecteur `monitor_state_ctors` de
+    `why_runtime_view` etait trop restrictive et ne retrouvait plus `Aut1`;
+  - correction appliquee en realignant le collecteur sur le comportement
+    historique tant que le shim legacy existe.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Etat honnete:
+  - `why_env` est bien porte derriere l'interface `why_runtime_view`;
+  - a ce stade, la vue contenait encore un shim transitoire `source_node`;
+  - le prochain vrai pas etait donc de retirer cette dependance en portant
+    `why_core.ml` sur la vue runtime.
+
+### Tentative 4 (portage de `why_core` sur `why_runtime_view` + suppression du shim)
+- Objectif: faire compiler l'execution des transitions Why depuis
+  `why_runtime_view.runtime_transition_view`, puis supprimer `source_node` de la
+  vue runtime.
+- Resultat: succes.
+- Realisations:
+  - enrichissement de `runtime_transition_view` avec:
+    - `requires`,
+    - `ensures`,
+    - `ghost`,
+    - `instrumentation`;
+  - reconstruction complete de `Ast.node` depuis `why_runtime_view` dans
+    `prepare_runtime_view`, sans `source_node`;
+  - ajout de `runtime_view` dans `Why_types.env_info`;
+  - `why_core.ml` compile maintenant:
+    - `Why_runtime_view.runtime_transition_view list`
+    au lieu de `Ast.transition list`;
+  - `emit.ml` branche `compile_transitions` sur
+    `info.runtime_view.transitions`.
+- Incidents intermediaires:
+  - ambiguite de typage OCaml dans `why_core.ml` sur les champs
+    `ghost`/`src_state`;
+  - correction par annotations explicites de type dans les boucles/fonctions
+    recursives.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - `why_core` ne depend plus du `Ast.transition` annote comme entree native;
+  - le shim `source_node` a ete supprime de `why_runtime_view`;
+  - le prochain vrai verrou restant est maintenant du cote de
+    `why_contracts.ml`.
+
+### Tentative 5 (premiere bascule de `why_contracts` sur `why_runtime_view`)
+- Objectif: faire en sorte que `why_contracts.ml` consomme explicitement la vue
+  runtime abstraite, plutot que `info.node` comme source principale.
+- Resultat: succes.
+- Realisations:
+  - ajout de l'entree:
+    `build_contracts_runtime_view` dans
+    [why_contracts.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.mli)
+    et
+    [why_contracts.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.ml);
+  - introduction d'un adaptateur local
+    `ast_transition_of_runtime`;
+  - remplacement dans `why_contracts.ml` des usages directs du nœud annote par
+    la vue runtime pour:
+    - les transitions,
+    - les instances,
+    - les sorties,
+    - les invariants utilisateur,
+    - les invariants d'etat,
+    - les garanties utilisateur;
+  - `build_contracts` devient maintenant un simple wrapper vers
+    `build_contracts_runtime_view ... info.runtime_view`.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Etat honnete:
+  - il reste encore du fallback legacy dans la logique de contrats;
+  - mais il est maintenant alimente depuis `why_runtime_view`, pas depuis
+    `info.node` comme source de verite principale.
+
+### Tentative 6 (retrait de `info.node` de l'ABI Why active)
+- Objectif: sortir `info.node` de `Why_types.env_info` maintenant que
+  `why_env`, `why_core` et `why_contracts` savent travailler via
+  `why_runtime_view`.
+- Resultat: succes.
+- Realisations:
+  - suppression de `node : Ast.node` dans:
+    - [why_types.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_types.mli)
+    - [why_types.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_types.ml)
+  - ajustement de [why_env.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_env.ml)
+    pour ne plus le produire;
+  - ajustement de [emit.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml)
+    pour reutiliser le nœud d'entree local au lieu de `info.node`;
+  - dernier usage residuel remplace dans
+    [why_contracts.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.ml)
+    par `runtime.node_name`.
+- Clarification d'architecture:
+  - le fallback legacy restant dans `why_contracts.ml` est maintenant
+    explicitement commente comme compatibilite transitoire;
+  - l'ABI active du backend Why ne transporte plus le nœud annote brut.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - le nœud OBC annote n'est plus dans l'ABI Why active;
+  - le vrai residu restant est maintenant interne a `why_contracts.ml`,
+  dans la logique fallback legacy elle-meme, et non plus dans l'interface.
+
+### Tentative 7 (isolation explicite du fallback legacy de transitions)
+- Objectif: sortir le fallback legacy des obligations de transition du flux
+  principal de `why_contracts.ml`, pour qu'il soit visible comme bloc
+  transitoire explicite et non plus comme logique melangee au chemin principal.
+- Resultat: succes.
+- Realisations:
+  - ajout d'un type `legacy_transition_fallback`;
+  - extraction d'un helper dedie:
+    `compute_legacy_transition_fallback`;
+  - remplacement du gros bloc inline par:
+    - appel au helper,
+    - deconstruction locale du resultat.
+- Incident intermediaire:
+  - deux ajustements de typage ont ete necessaires:
+    - ne pas passer `normalize_ltl` comme fonction abstraite, car son resultat
+      est un record;
+    - reinternaliser `conj_terms` dans le helper pour eviter une dependance
+      d'ordre de definitions.
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`,
+    - `bin/lsp/kairos_lsp.exe`,
+    - `bin/ide/obcwhy3_ide.exe`;
+  - campagne CLI OK:
+    - `delay_int.kairos`: `failed=0`;
+    - `resettable_delay.kairos`: `failed=0`;
+    - `delay_int_instance.kairos`: `failed=0`.
+- Conclusion:
+  - le fallback legacy de transitions est maintenant clairement isole;
+  - le residu suivant a traiter est le bloc legacy des liens/invariants
+    d'instance dans `why_contracts.ml`.
+
+### Sujet
+Deblocage du backend Why pour `instances/call` sur le vrai fixture
+`delay_int_instance.kairos`.
+
+### Tentative 1 (lecture du Why brut pour sortir du diagnostic a l'aveugle)
+- Objectif: voir le texte Why exact du site d'appel, sans passer par les
+  erreurs tronquees de la preuve.
+- Resultat: succes.
+- Realisations:
+  - ajout d'un utilitaire local
+    `bin/dev/emit_why_debug.ml` et de son stanza `bin/dev/dune`;
+  - emission du Why brut pour
+    `tests/ok/inputs/delay_int_instance.kairos`.
+- Observation cle:
+  - le verrou initial etait bien au site d'appel Why de la forme
+    `Delay_core.__delay_core_outv vars.__delay_int_instance_d`.
+
+### Tentative 2 (stabilisation de `SCall` avec instance locale)
+- Objectif: eviter les projections Why fragiles sur un champ imbrique
+  `vars.<instance>`.
+- Resultat: succes partiel utile.
+- Realisations:
+  - dans `why_core.ml`, `SCall` cree maintenant un `let __call_inst_*` avant
+    l'appel;
+  - adaptation de la signature du callback `call_asserts` pour distinguer:
+    - le nom d'instance source (lookup),
+    - le nom d'acces effectif dans le codegen;
+  - ajustement de `support.ml` pour supporter les acces d'instance sur:
+    - une vraie variable de record courante,
+    - une variable locale simple.
+- Effet observe:
+  - le Why brut caller est passe a une forme saine:
+    `let __call_inst_d = vars.__delay_int_instance_d in ...`
+
+### Tentative 3 (suppression de la projection de sortie au site d'appel)
+- Objectif: ne plus lire les sorties du callee via un acces de champ Why
+  inter-module.
+- Resultat: succes partiel utile.
+- Realisations:
+  - dans `why_env.ml`, `step` retourne maintenant les sorties courantes;
+  - dans `why_core.ml`, pour les calls mono-sortie, le caller recupere la
+    sortie via:
+    - `let __call_res_* = Delay_core.step __call_inst_d x in ...`
+  - correction de `ret_expr` pour qu'il retourne la valeur
+    `vars.<out>` et non le symbole de projection.
+- Effet observe:
+  - l'ancien verrou `__delay_core_outv` a disparu comme probleme dominant.
+
+### Etat courant honnete
+- Nouveau verrou isole:
+  - `unbound function or predicate symbol 'Delay_core.__delay_core_st'`
+- Interpretation:
+  - le site d'appel runtime n'est plus le principal probleme;
+  - les termes logiques / contrats d'instance emettent encore des projections
+    d'etat de type `Delay_core.__delay_core_st`, donc l'ancien chemin n'est pas
+    completement remplace.
+- Conclusion:
+  - progression reelle sur `instances/call`;
+  - pas encore fini;
+  - la prochaine cible technique est de migrer les relations d'etat d'instance
+    hors des projections Why inter-modules restantes.
+
+## 2026-03-10
+
+### Sujet
+Deuxieme phase du diagnostic d'echec: analyse structuree Why3, borne CLI
+effective et retouche de la vue Explain Failure.
+
+### Tentative 1 (remplacement du slice lexical par une analyse structuree Why3)
+- Objectif: ne plus classer les hypotheses pertinentes uniquement a partir d'un
+  recouvrement lexical, mais a partir de la structure normalisee des termes
+  Why3.
+- Resultat: succes.
+- Realisations:
+  - ajout dans `why_prove` d'un export `task_structured_sequents` contenant:
+    - texte du terme,
+    - symboles,
+    - operateurs,
+    - quantificateurs,
+    - indicateur arithmetique,
+    - taille du terme;
+  - remplacement dans `Pipeline_v2_indep` du score lexical par un score de
+    recouvrement structurel symbole / operateur / quantificateur;
+  - instrumentation des hypotheses Why3 generees dans `emit.ml` avec:
+    - `hid:<id>`;
+    - `hkind:pre|post`;
+    - `origin:<label>`;
+  - extraction de ces marqueurs dans `why_prove` pour les sequents structures;
+  - enrichissement du diagnostic type avec:
+    - `goal_symbols`,
+    - `analysis_method`,
+    - `unused_hypotheses`;
+  - mise a jour du protocole LSP et des types VS Code pour transporter ces
+    champs proprement.
+- Validation:
+  - build sequentiel CLI/LSP/IDE/extension;
+  - sur `tests/ok/inputs/delay_int.kairos`, les traces failed exposees
+    remontent maintenant un contexte minimal et des hypotheses depriorisees
+    derives de l'AST Why3, sans retour a `unknown`.
+- Limite:
+  - il ne s'agit pas encore d'un unsat core ou d'une preuve d'utilisation
+    logique exacte; la methode est explicitee comme telle dans l'UI.
+
+### Tentative 2 (borne CLI reelle pour les cas lourds)
+- Objectif: faire en sorte que le mode JSON de diagnostic soit effectivement
+  bornable en temps/volume sur les cas lourds, et pas seulement tronque a la
+  fin.
+- Resultat: succes partiel utile.
+- Realisations:
+  - ajout des options:
+    - `--proof-traces-failed-only`,
+    - `--max-proof-traces`,
+    - `--proof-traces-fast`;
+  - ajout d'un champ de config pipeline `max_proof_goals` afin que la borne
+    coupe la boucle de preuve elle-meme;
+  - en mode `fast`, desactivation des gros artefacts texte VC/SMT/monitor pour
+    conserver une iteration scriptable.
+- Validation:
+  - `tests/ok/inputs/delay_int2.kairos` avec
+    `--proof-traces-failed-only --max-proof-traces 10 --timeout-s 1`:
+    sortie bornee, 1 echec retourne dans la fenetre prouvee, pas de parcours
+    complet des 253 goals;
+  - `tests/ko/inputs/light_latch.kairos` avec
+    `--proof-traces-failed-only --max-proof-traces 20 --proof-traces-fast --timeout-s 1`:
+    terminaison en ~29s, pas de `Stack overflow`, 1 trace failed retournee.
+- Limite:
+  - la borne suit l'ordre de preuve des goals; avec un petit `max`, on peut
+    terminer sans rencontrer d'echec si les premiers goals sont valides.
+
+### Tentative 4 (replay glouton sur hypotheses instrumentees)
+- Objectif: passer d'un simple classement des hypotheses a un test effectif de
+  dependance, meme sans unsat core solveur.
+- Resultat: succes partiel utile.
+- Realisations:
+  - ajout dans `why_prove` d'une procedure
+    `minimize_failing_hypotheses` qui:
+    - cible un goal split Why3;
+    - isole les hypotheses Kairos instrumentees `hid`;
+    - retire gloutonnement chaque hypothese candidate;
+    - rejoue localement la VC;
+    - conserve seulement les hypotheses dont le retrait ferait redevenir la VC
+      `valid`;
+  - branchement de ce replay dans `Pipeline_v2_indep` pour enrichir
+    `analysis_method`, `relevant_hypotheses` et `unused_hypotheses` sur les
+    goals non valides.
+- Validation:
+  - build CLI/LSP/IDE ok;
+  - sur `delay_int.kairos`, les diagnostics failed annoncent bien une methode
+    de type `greedy replay-minimization`.
+- Limite:
+  - sur le cas observe, le noyau minimal peut etre vide si les hypotheses
+    Kairos instrumentees sont toutes inutiles a reproduire l'echec; dans ce cas
+    le diagnostic retombe sur l'analyse structurelle Why3.
+
+### Tentative 5 (ciblage focalise + separation Kairos / Why3)
+- Objectif: rendre le diagnostic utilisable goal par goal, et distinguer
+  explicitement ce qui vient du modele Kairos de ce qui vient du contexte Why3
+  auxiliaire.
+- Resultat: succes.
+- Realisations:
+  - ajout du ciblage pipeline/CLI/LSP par `selected_goal_index`;
+  - ajout CLI `--proof-trace-goal-index`;
+  - correction du raccord `goal_results` / `proof_traces` quand un seul goal est
+    prouve;
+  - ajout dans `proof_diagnostic` de:
+    - `kairos_core_hypotheses`,
+    - `why3_noise_hypotheses`;
+  - ajout d'un bouton `Focused Diagnosis` dans `Explain Failure` cote VS Code.
+- Validation:
+  - `delay_int.kairos` avec `--proof-trace-goal-index 5`: 1 trace retournee,
+    `goal_index = 5`, `status = failure`;
+  - `light_latch.kairos` avec `--proof-trace-goal-index 15 --proof-traces-fast
+    --timeout-s 1`: 1 trace retournee en ~25s, sans `Stack overflow`.
+
+### Tentative 3 (retouche Explain Failure)
+- Objectif: faire remonter la nouvelle analyse dans la vue VS Code sans bruit.
+- Resultat: succes.
+- Realisations:
+  - renommage de la section principale en `Minimal Relevant Context`;
+  - ajout des panneaux:
+    - `Goal Symbols`,
+    - `Deprioritized Hypotheses`,
+    - `Analysis Method`;
+  - conservation de la navigation Source / OBC / Why / VC / SMT / dump.
+- Conclusion:
+  - la phase 2 est materialisee dans le code, testee et documentee;
+  - la limite principale restante est qualitative: contexte structurel utile,
+    mais pas encore preuve minimale logique certifiee.
+
 ## 2026-03-09
+
+### Sujet
+Diagnostic structure des echecs de preuve et tracabilite Source -> OBC -> Why -> VC -> SMT.
+
+### Tentative 1 (modele de trace backend/protocole/CLI/VS Code)
+- Objectif: introduire une structure typee de trace de preuve exploitable en
+  CLI, LSP et VS Code, au lieu de simples tuples de goals.
+- Resultat: succes partiel significatif.
+- Realisations:
+  - ajout de types `text_span`, `proof_diagnostic`, `proof_trace` dans:
+    - `lib_v2/runtime/pipeline/pipeline.mli`,
+    - `protocol/lsp_protocol.mli`,
+    - l'extension VS Code;
+  - enrichissement de `Pipeline_v2_indep` avec:
+    - spans OBC exacts via `Obc_emit.compile_program_with_spans`,
+    - spans Why via `Emit.emit_program_ast_with_spans`,
+    - spans VC/SMT par concatenation structuree,
+    - heuristiques de classement des obligations a partir de la taxonomie
+      backend,
+    - diagnostic humain structure par goal;
+  - exposition LSP via `outputsReady` enrichi;
+  - ajout CLI `--dump-proof-traces-json` pour iterer sans UI;
+  - ajout VS Code:
+    - dashboard branche sur `proof_traces`,
+    - panel dedie `Explain Failure`,
+    - navigation Source / OBC / Why / VC / SMT / dump SMT.
+- Limites constatees:
+  - une partie des VCs normalises Why3 n'embarque pas encore d'identifiant
+    d'origine resolu, donc certains goals restent classes `unknown`;
+  - les hypotheses pertinentes sont aujourd'hui un slice lexical du sequent,
+    utile mais encore inferieur a une vraie analyse d'usage logique;
+  - plusieurs `loc` source restent absentes dans les exemples testes, donc la
+    navigation Source n'est pas encore complete sur tous les cas.
+
+### Tentative 2 (validation reelle CLI)
+- Objectif: verifier sur des cas non triviaux que les diagnostics produits sont
+  coherents et exploitables.
+- Resultat: succes partiel renforce.
+- Cas verifies:
+  - `tests/ok/inputs/delay_int.kairos`:
+    - sortie JSON structuree obtenue;
+    - apres extension de la provenance `rid` + `wid`, les traces n'ont plus de
+      goals `unknown` sur ce cas;
+    - traces comprenant `stable_id`, `source`, `obligation_kind`,
+      `obligation_family`, `vc_span`, `smt_span`, `dump_path`, diagnostic;
+    - presence de goals effectivement en `failure` avec dump SMT et resume
+      contextualise.
+- Corrections appliquees:
+  - ajout du suivi `rid` dans:
+    - extraction Why3 des ids de task,
+    - spans Why,
+    - spans OBC;
+  - ajout des `loc` source pour:
+    - requires,
+    - ensures,
+    - coherency goals;
+  - remplacement de la serialisation JSON monolithique par une emission
+    incrementalement ecrite dans `--dump-proof-traces-json`;
+  - ajout d'un timeout CLI explicite `--timeout-s` reutilise par le dump des
+    traces de preuve.
+- Probleme residuel:
+  - `tests/ko/inputs/light_latch.kairos` reste couteux a diagnostiquer en CLI;
+    le `Stack overflow` initial n'a plus ete reproduit dans le meme chemin,
+    mais le temps de calcul reste eleve sur ce cas.
+- Conclusion:
+  - la nouvelle chaine de trace est fonctionnelle;
+  - la qualite est deja utile sur des cas reels;
+  - il reste un point dur de performance/ergonomie sur certains cas `ko`
+    volumineux.
+
+### Sujet
+Audit initial de l'extension VS Code Kairos contre le serveur LSP, le protocole
+et l'UI native GTK, avant refonte produit.
+
+### Tentative 1 (audit croise extension/LSP/UI native)
+- Objectif: etablir une matrice factuelle des fonctionnalites deja presentes,
+  manquantes ou seulement partielles, sans supposer une parite qui n'existe pas.
+- Resultat: succes.
+- Constats principaux:
+  - l'extension VS Code actuelle est concentree dans un unique fichier
+    `extensions/kairos-vscode/src/extension.ts`, avec typage faible
+    (`any` sur `outputs`, `automata`, `outline`, `goals`);
+  - le serveur LSP expose deja:
+    - `hover`, `definition`, `references`, `completion`, `formatting`,
+    - `kairos/run`,
+    - `kairos/instrumentationPass`,
+    - `kairos/obcPass`,
+    - `kairos/whyPass`,
+    - `kairos/obligationsPass`,
+    - `kairos/evalPass`,
+    - `kairos/dotPngFromText`,
+    - `kairos/outline`,
+    - `kairos/goalsTreeFinal`,
+    - `kairos/goalsTreePending`,
+    - l'annulation JSON-RPC standard `$/cancelRequest`,
+    - la progression `$/progress` pendant `kairos/run`;
+  - l'UI native exploite deja un ensemble beaucoup plus riche:
+    - barre d'outils complete `Build` / `Prove` / `Automates` / `Eval` /
+      `Reset` / `Cancel run`,
+    - journal local des runs,
+    - etat d'execution detaille,
+    - fenetre Eval dediee avec ouverture/sauvegarde,
+    - fenetre Automates avec 4 graphes (`Program`, `Guarantee`, `Assume`,
+      `Product`) et interaction zoom/pan,
+    - caches, restauration de session, diff d'Abstract Program,
+    - progression live des goals et regroupement par noeud/transition.
+- Ecarts critiques releves:
+  - pas de `Reset` ni `Cancel run` dans l'extension;
+  - pas de fenetre Automata professionnelle, seulement texte + PNG brut;
+  - pas de panel Eval dedie;
+  - vue Artifacts reduite a une liste de commandes;
+  - observabilite faible: pas d'historique local, pas de barre de statut,
+    pas d'etat de run robuste;
+  - tres peu de preferences VS Code exposees;
+  - aucune architecture modulaire cote extension.
+
+### Tentative 2 (strategie retenue)
+- Objectif: engager une refonte produit de l'extension, pas un ajout ponctuel
+  de commandes.
+- Resultat: succes partiel implemente et valide cote extension.
+- Strategie retenue:
+  - refonte du client VS Code autour d'un etat applicatif type;
+  - separation claire:
+    - protocole/types,
+    - etat des runs,
+    - commandes,
+    - providers,
+    - webviews,
+    - rendu automates,
+    - preferences;
+  - extension du protocole seulement quand l'existant ne suffit pas a livrer
+    une UX credible;
+  - maintien d'un theme clair par defaut dans les webviews tout en respectant
+    les tokens de theme VS Code;
+  - validation obligatoire par build extension + build dune + smoke tests.
+- Fichiers cibles de l'audit:
+  - `extensions/kairos-vscode/package.json`
+  - `extensions/kairos-vscode/src/extension.ts`
+  - `bin/lsp/kairos_lsp.ml`
+  - `protocol/lsp_protocol.ml`
+  - `bin/ide/obcwhy3_ide.ml`
+- Document d'audit ajoute:
+  - `extensions/kairos-vscode/AUDIT_2026-03-09.md`
+
+### Tentative 3 (refonte de l'extension VS Code)
+- Objectif: remplacer le client monolithique par une architecture typee avec
+  vues/panneaux de travail, observabilite locale et rendu automate serieux.
+- Resultat: succes.
+- Changements retenus:
+  - decoupage de `extensions/kairos-vscode/src/extension.ts` en modules:
+    - `types.ts`,
+    - `state.ts`,
+    - `documents.ts`,
+    - `goals.ts`,
+    - `providers.ts`,
+    - `graphviz.ts`,
+    - `panels.ts`;
+  - suppression des `any` structurants cote extension;
+  - ajout d'un etat applicatif avec:
+    - phase de run,
+    - historique local,
+    - artefacts courants,
+    - eval history,
+    - previous outputs pour diff OBC;
+  - ajout de vues/panneaux:
+    - `Runs`,
+    - `Automata Studio`,
+    - `Proof Dashboard`,
+    - `Artifacts Workspace`,
+    - `Eval Playground`,
+    - `Pipeline View`,
+    - `Automata Compare`;
+  - ajout de commandes produit:
+    - `Cancel Run`,
+    - `Reset State`,
+    - `Show Run History`,
+    - `Diff OBC with Previous Run`,
+    - `Open Recent File`,
+    - `Export HTML Report`,
+    - ouverture directe des panneaux;
+  - ajout de keybindings, menus editeur et code lenses;
+  - ajout de persistence de session workspace pour les panneaux/historiques;
+  - ajout de support open/save de traces dans `Eval`;
+  - ajout d'un provider de tasks VS Code pour Build/Prove/Automata;
+  - ajout d'exports DOT/SVG/PNG/PDF via Graphviz local.
+- Limitations constatees pendant l'implementation:
+  - le rendu automate interactif est base sur SVG genere localement via
+    `dot`; il n'etend pas encore le protocole LSP pour transporter un modele
+    de graphe plus semantique;
+  - la comparaison courant/precedent d'automates est actuellement centree sur
+    le produit, avec un precedent textuel si aucun rendu precedent n'est
+    rehydrate.
+
+### Tentative 4 (documentation produit)
+- Objectif: fournir une documentation versionnee couvrant CLI, LSP et extension
+  VS Code puis la generer en PDF dans le depot.
+- Resultat: succes.
+- Livrables:
+  - source: `docs/kairos_user_manual.md`
+  - PDF: `docs/kairos_user_manual.pdf`
+- Commande utilisee:
+  - `pandoc docs/kairos_user_manual.md -o docs/kairos_user_manual.pdf --pdf-engine=xelatex`
+
+### Validation
+- `cd extensions/kairos-vscode && npm run compile` : succes.
+- `pandoc --version` : succes.
+- `xelatex --version` : succes.
+- generation PDF `docs/kairos_user_manual.pdf` : succes.
+- validation OCaml via opam, en sequence:
+  - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short` : succes.
+  - `opam exec -- dune build bin/cli/main.exe --display=short` : succes.
+  - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short` : succes.
+
+### Incident de validation
+- Observation:
+  - lancer plusieurs `dune build` en parallele dans ce depot laisse des
+    processus se bloquer mutuellement.
+- Correction:
+  - arret des processus de build concurrents lances par erreur;
+  - reprise stricte des validations `dune` en sequence.
 
 ### Sujet
 Suppression du pipeline maison devenu mort apres la migration Spot/Z3.
@@ -3596,3 +4340,2500 @@ que `A`, `G` et le produit, et verifier que le theme par defaut reste clair.
 La fenetre des automates presente maintenant uniquement les vues graphiques
 `Program`, `Guarantee G`, `Assume A` et `Product`. Le theme par defaut reste
 `light`.
+
+## 2026-03-09
+
+### Objectif
+
+Rendre l'installation opam de `kairos` effectivement utilisable, avec les
+binaires `kairos`, `kairos-lsp` et `kairos-ide` poses dans le switch.
+
+### Tentatives et observations
+
+- Echec constate: `opam` acceptait le pin puis marquait `kairos` comme
+  installe, mais aucun binaire n'etait copie dans `~/.opam/5.4.1+options/bin`.
+- Observation: `_build/default/kairos.install` contenait pourtant bien
+  `bin/kairos`, `bin/kairos-lsp`, `bin/kairos-ide` et `bin/kairos_v2`.
+- Cause racine identifiee: le fichier `kairos.opam` etait trop minimal. Il ne
+  declarait ni etape `build` ni etape `install`, donc `opam` n'executait aucun
+  `dune build @install` ni `dune install`; il enregistrait seulement l'etat du
+  paquet.
+- Succes: correction de `kairos.opam` avec:
+  - `opam-version: "2.0"`;
+  - dependance `rocq-prover` a la place de `rocq`;
+  - retrait de la dependance erronee `ocamllex`;
+  - ajout explicite des phases `build` et `install` via `dune`.
+
+### Resultat
+
+Le paquet opam est maintenant configure pour installer reellement les
+executables et bibliotheques du depot lors d'un `opam reinstall kairos
+--working-dir`.
+
+## 2026-03-09
+
+### Objectif
+
+Corriger l'activation du plugin VS Code pour que les commandes `kairos.build`
+et `kairos.prove` existent meme si le serveur LSP ne demarre pas.
+
+### Tentatives et observations
+
+- Echec constate: VS Code affichait `command 'kairos.build' not found` et
+  `command 'kairos.prove' not found`.
+- Cause racine identifiee: `activate()` attendait `client.start()` avant
+  d'enregistrer les commandes. Si `kairos-lsp` etait indisponible dans
+  l'environnement VS Code, l'activation avortait et aucune commande n'etait
+  enregistree.
+- Succes: demarrage du client LSP passe en tache asynchrone avec promesse
+  memorisee; les commandes sont maintenant enregistrees immediatement et
+  `ensureClientReady()` remonte une erreur explicite seulement au moment
+  d'executer une action qui depend du serveur.
+
+### Resultat
+
+Le plugin reste chargeable et les commandes Kairos apparaissent correctement
+dans VS Code, meme si la configuration du serveur LSP est invalide.
+
+## 2026-03-09
+
+### Objectif
+
+Corriger le packaging `.vsix` pour que l'extension VS Code charge reellement
+ses dependances runtime.
+
+### Tentatives et observations
+
+- Echec constate: malgre la correction de `activate()`, VS Code affichait
+  toujours `command 'kairos.build' not found`.
+- Cause racine identifiee: le script `scripts/vscode.sh --package` utilisait
+  `vsce package --no-dependencies`. Le `.vsix` produit ne contenait donc pas
+  `node_modules/vscode-languageclient`, et l'extension plantait avant son
+  activation.
+- Succes: retrait de `--no-dependencies` et increment de version du plugin pour
+  forcer une vraie reinstallation cote VS Code.
+
+### Resultat
+
+Le `.vsix` regenere embarque maintenant les dependances runtime necessaires a
+l'activation de l'extension.
+
+## 2026-03-09
+
+### Objectif
+
+Stabiliser le demarrage du serveur LSP Kairos dans VS Code sur la machine
+locale.
+
+### Tentatives et observations
+
+- Observation: `kairos-lsp` est correctement installe dans le switch opam:
+  `/Users/fredericdabrowski/.opam/5.4.1+options/bin/kairos-lsp`.
+- Cause probable du message `Kairos LSP failed to start`: VS Code ne charge pas
+  necessairement le `PATH` du shell opam sur macOS.
+- Succes: ajout d'un `settings.json` de workspace pointant directement vers le
+  binaire absolu du switch opam.
+
+### Resultat
+
+Le demarrage du plugin ne depend plus du `PATH` herite par VS Code pour
+trouver `kairos-lsp`.
+
+### Ajustement
+
+- Amelioration UX: remplacement du chemin absolu vers le binaire par une
+  commande `opam exec -- kairos-lsp` dans le `settings.json` du workspace.
+- Motivation: eviter de figer un chemin local ou un switch explicite, tout en
+  conservant un lancement robuste du serveur depuis VS Code sur macOS.
+- Observation complementaire: la vue `Automata` retombait en pratique sur
+  l'affichage du texte DOT quand VS Code ne trouvait pas `dot` dans son
+  environnement.
+- Ajustement: `kairos.graphviz.dotPath` est fixe explicitement sur
+  `/opt/homebrew/bin/dot` dans le workspace pour retrouver le rendu SVG colore
+  attendu.
+- Durcissement supplementaire: ajout d'un fallback interne dans l'extension
+  pour resoudre `dot` via les chemins Homebrew/macOS usuels quand la commande
+  configuree n'est pas executable depuis le processus VS Code.
+- Correction de rendu: la vue `Automata` priorise maintenant une image PNG
+  generee localement via Graphviz et encodee en data URI dans la webview,
+  avec le SVG conserve pour export et fallback. Cela se rapproche davantage du
+  rendu visuel de l'IDE native et evite les echecs d'integration SVG.
+- Correction structurelle supplementaire: la vue `Automata` demande
+  maintenant en priorite les PNG au serveur LSP via `kairos/dotPngFromText`,
+  ce qui aligne le chemin de rendu sur celui deja utilise par l'IDE native.
+
+## 2026-03-09
+
+### Objectif
+
+Supprimer le DOT du chemin UX VS Code et faire porter les rendus automates
+directement par les sorties du backend/LSP.
+
+### Tentatives et observations
+
+- Observation: le LSP savait deja calculer des PNG arbitraires via
+  `kairos/dotPngFromText`, mais les sorties `run` et `instrumentationPass`
+  n'exposaient pas les PNG des quatre graphes.
+- Limite architecturale constatee: l'extension recevait le DOT, puis devait le
+  renvoyer au serveur uniquement pour retrouver une image. Ce detour etait
+  inutile et fragile.
+- Succes: ajout de `program_png`, `assume_automaton_png`,
+  `guarantee_automaton_png` et `product_png` dans:
+  - `Pipeline.outputs` et `Pipeline.automata_outputs`;
+  - `Lsp_protocol.outputs` et `Lsp_protocol.automata_outputs`;
+  - le mapping LSP (`lsp_app.ml`);
+  - le client VS Code TypeScript.
+- Succes: smoke test JSON-RPC sur `kairos/instrumentationPass` avec
+  `tests/ok/inputs/resettable_delay.kairos`, confirmant la presence des quatre
+  champs PNG dans la reponse.
+- Succes: retrait du DOT des surfaces utilisateur VS Code:
+  - plus de preview DOT dans `Automata`;
+  - plus de commande `Kairos: Open DOT`;
+  - plus d'artefact DOT visible dans la vue `Artifacts`.
+
+### Resultat
+
+Le backend expose maintenant nativement les images des quatre graphes et
+l'extension VS Code consomme ces artefacts directement. Le DOT reste un format
+d'export technique, mais n'est plus une surface de lecture dans l'UI VS Code.
+
+## 2026-03-09
+
+### Objectif
+
+Remettre toutes les ouvertures Kairos dans le groupe d'onglets courant, sans
+creation automatique d'une colonne laterale.
+
+### Tentatives et observations
+
+- Observation: plusieurs panneaux (`Automata`, `Proof Dashboard`, `Artifacts`,
+  `Eval`, `Pipeline`, `Compare`) etaient crees avec `ViewColumn.Beside`, ce qui
+  ouvrait une nouvelle colonne et masquait rapidement le code Kairos.
+- Succes: remplacement de cette politique par un ciblage explicite du groupe
+  d'editeur courant:
+  - helper `preferredViewColumn()` pour les webviews;
+  - helper `preferredEditorColumn()` pour `showTextDocument`.
+- Succes: les ouvertures de Why, SMT dump, fichiers recents et panneaux Kairos
+  se font maintenant dans la meme zone d'onglets que le fichier source actif.
+
+### Resultat
+
+L'UI Kairos n'impose plus de colonnes supplementaires par defaut; la lecture du
+code source et des vues associees reste concentree dans le meme groupe
+d'editeur.
+
+## 2026-03-10
+
+### Objectif
+
+Ajouter un chemin "native solver unsat core" sur une VC Why3 ciblee, puis
+l'exposer proprement en CLI, protocole et UI.
+
+### Tentatives et observations
+
+- Observation: le flux SMT Why3/Z3 standard ne portait ni assertions `:named`
+  sur les hypotheses Kairos, ni `(get-unsat-core)`. Un core solveur natif
+  n'etait donc pas recuperable tel quel.
+- Succes: ajout d'un mode SMT specialise dans `why_prove.ml` avec:
+  - `(set-option :produce-unsat-cores true)`;
+  - assertions `hid_<n>` derivees des hypotheses Kairos instrumentees;
+  - `(get-unsat-core)` en fin de script.
+- Succes: ajout de `native_unsat_core_for_goal` dans le backend Why3:
+  - ciblage par `goal_index`;
+  - execution Z3 sur le SMT re-ecrit;
+  - parsing du core;
+  - remappage vers les `hid` Kairos.
+- Succes: ajout de l'export CLI
+  `--dump-native-unsat-core-json FILE --proof-trace-goal-index N`.
+- Echec partiel utile: sur `tests/ok/inputs/delay_int.kairos`, le goal `0`
+  retourne un core solveur natif valide, mais vide cote `hid`. Cela signifie
+  que la contradiction est fermee par le contexte auxiliaire restant et non par
+  les hypotheses Kairos nommees seules.
+- Observation structurante: un unsat core solveur natif est exploitable pour
+  une VC prouvee (`unsat`), pas pour un goal reellement en `failure`.
+- Succes: exposition de bout en bout:
+  - `native_unsat_core_solver`;
+  - `native_unsat_core_hypothesis_ids`;
+  - affichage `Native Unsat Core` dans `Explain Failure`.
+
+### Validation
+
+- Build sequentiel:
+  - `opam exec -- dune build bin/cli/main.exe --display=short`
+  - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+  - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - `npm run compile`
+- Cas reels:
+  - `delay_int.kairos`, `goal 0`:
+    `--dump-native-unsat-core-json - --proof-trace-goal-index 0`
+    -> core solveur Z3 recupere;
+  - `delay_int.kairos`, `goal 0`:
+    `--dump-proof-traces-json - --proof-trace-goal-index 0`
+    -> trace standard enrichie avec methode `Native SMT unsat core...`;
+  - `delay_int.kairos`, `goal 5`:
+    `--dump-native-unsat-core-json - --proof-trace-goal-index 5`
+    -> `null`, conforme a un goal non prouve.
+
+### Resultat
+
+Kairos dispose maintenant d'un chemin natif solveur pour les unsat cores
+cibles, distinct du fallback par replay-minimization. La limite restante est
+explicite: ce core depend d'une re-ecriture SMT guidee par les `hid`, et n'est
+disponible que si le solveur repond effectivement `unsat`.
+
+### Suite 2026-03-10: statuts d'echec fins et sonde contre-exemple
+
+- Succes: ajout d'une sonde solveur native ciblee par goal dans `why_prove.ml`
+  qui rejoue une VC via Z3 avec `produce-models`, `get-info :reason-unknown` et
+  `get-model`.
+- Succes: exposition CLI de cette sonde via
+  `--dump-native-counterexample-json FILE --proof-trace-goal-index N`.
+- Succes: le diagnostic transporte maintenant:
+  - `solver_detail`;
+  - `native_counterexample_solver`;
+  - `native_counterexample_model`.
+- Succes: l'UI `Explain Failure` affiche maintenant `Solver Detail` et
+  `Native Counterexample`.
+- Validation partielle:
+  - `delay_int.kairos`, goal `5`: la sonde native est bien executable sur un
+    goal failed cible, mais ne fournit pas encore de modele exploitable;
+  - `constant_zero_invalid_model.kairos`: la sonde native confirme un cas
+    `valid`, avec absence normale de modele.
+- Echec restant: je n'ai pas encore extrait un cas `sat`/`invalid` valide dans
+  la suite de tests actuelle pour montrer un vrai contre-exemple solveur
+  remonte de bout en bout. La plomberie est la, mais la demonstration CLI
+  "modele non trivial" reste a completer.
+
+### Suite 2026-03-10: documentation d'installation
+
+- Succes: ajout d'un guide `INSTALL.md` a la racine du depot.
+- Contenu couvre:
+  - installation via `opam`;
+  - dependances Why3 / Z3 / Graphviz;
+  - verification des binaires `kairos`, `kairos-lsp`, `kairos-ide`;
+  - packaging et installation de la VSIX VS Code;
+  - configuration recommandee du LSP dans VS Code;
+  - verification finale et depannage courant.
+
+### Suite 2026-03-10: correction affichage Automata VS Code
+
+- Symptomes observes:
+  - la vue `Kairos Automata` affichait un grand canevas gris;
+  - les boutons et panneaux lateraux se rendaient, mais le statut `Renderer`
+    restait vide;
+  - le DOT ne devait plus etre visible ni utilise comme fallback utilisateur.
+- Tentatives precedentes:
+  - suppression complete du DOT de la surface UI et de l'etat extension;
+  - activation de `generatePng: true` sur `kairos/instrumentationPass`;
+  - ouverture CSP de la webview pour `img-src data:`.
+- Analyse:
+  - le backend/LSP renvoie bien `program_png`, `assume_automaton_png`,
+    `guarantee_automaton_png` et `product_png`;
+  - la cause la plus probable du panneau gris restant est l'injection inline de
+    PNG volumineux dans le script webview via des `data:` URIs, ce qui rend le
+    panneau fragile au runtime.
+- Correction appliquee:
+  - abandon du transport inline `data:image/png;base64,...` pour la vue
+    `Kairos Automata`;
+  - copie des PNG vers `globalStorage/automata/*.png` cote extension;
+  - exposition a la webview via `webview.asWebviewUri(...)`;
+  - declaration explicite de `localResourceRoots` pour les panneaux Automata et
+    Compare;
+  - regeneration de `kairos-vscode-0.1.2.vsix`.
+- Validation:
+  - `npm run compile` OK;
+  - packaging `npx @vscode/vsce package` OK.
+- Point de controle utilisateur attendu:
+  - apres reinstallation/rechargement, la zone centrale de `Kairos Automata`
+    doit afficher un `<img>` de graphe et `Renderer` doit indiquer
+    `PNG renderer active`.
+
+### Suite 2026-03-10: coloration syntaxique Kairos dans VS Code
+
+- Constat initial:
+  - l'extension declarait bien le langage `kairos` et son
+    `language-configuration.json`;
+  - aucune grammaire TextMate n'etait fournie, donc pas de vraie coloration
+    syntaxique.
+- Travail effectue:
+  - audit des exemples reels `resettable_delay.kairos`, `delay_int.kairos`,
+    `light_latch.kairos`, `delay_int2.kairos`, `handoff.kairos`;
+  - ajout d'une grammaire `syntaxes/kairos.tmLanguage.json`;
+  - declaration de cette grammaire dans `extensions/kairos-vscode/package.json`.
+- Portee de la coloration:
+  - sections DSL: `contracts`, `locals`, `states`, `invariants`, `transitions`;
+  - en-tetes et declarations: `node`, `returns`, noms de noeuds, etats,
+    variables declarees;
+  - contrats et transitions: `requires`, `ensures`, `to`, `when`, `skip`, `end`;
+  - operateurs temporels: `G`, `F`, `X`, `U`, `W`, `R`, `M`, `always`,
+    `eventually`, `next`, `prev`, `prev2`, ...;
+  - types, booleens, nombres, affectation `:=`, comparaisons, ponctuation;
+  - commentaires `//` et `(* ... *)`.
+- Validation:
+  - parse JSON de la grammaire OK;
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK;
+  - la VSIX contient bien `syntaxes/kairos.tmLanguage.json`.
+
+### Suite 2026-03-10: correction du contexte actif Dashboard/Prove
+
+- Symptome:
+  - apres un `prove`, l'ouverture ou l'usage du Dashboard pouvait declencher
+    `Open a .kairos or .obc file first` alors qu'un fichier Kairos etait bien
+    ouvert et que les preuves venaient de passer.
+- Cause:
+  - plusieurs actions de l'extension supposaient que
+    `vscode.window.activeTextEditor` restait le fichier `.kairos`;
+  - une fois le focus passe sur un webview (`Dashboard`, `Explain Failure`,
+    `Automata`), cette hypothese devient fausse.
+- Correction:
+  - remplacement du controle `ensureKairosEditor()` par une resolution de
+    contexte plus robuste:
+    - editeur actif Kairos si disponible;
+    - sinon editeur visible Kairos;
+    - sinon `state.activeFile` persiste et reouvert si necessaire.
+  - application de ce correctif aux chemins:
+    - `refreshOutlineFromActiveEditor`;
+    - `openSourceLocation`;
+    - `runWithOptions`;
+    - `runAutomataPass`;
+    - `runEval`;
+    - `kairos.openOutlineLocation`.
+- Validation:
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK.
+
+### Suite 2026-03-10: durcissement du panneau Automata
+
+- Observation utilisateur:
+  - le panneau `Kairos Automata` continuait a montrer un grand fond gris,
+    sans image ni message d'erreur exploitable.
+- Hypothese technique:
+  - le HTML statique se rend, mais le script d'initialisation webview ne termine
+    pas toujours correctement, ce qui laissait la zone canvas muette.
+- Correctif applique:
+  - pre-rendu serveur du graphe `Program` dans le HTML initial;
+  - pre-rendu initial du statut `Renderer`;
+  - encapsulation de l'initialisation JS dans un `try/catch`;
+  - remontée explicite des erreurs webview dans `Renderer`.
+- Effet attendu:
+  - meme en cas de panne JS cliente, un graphe `Program` ou au moins un message
+    d'erreur apparait des l'ouverture, au lieu d'un panneau vide.
+
+### Suite 2026-03-10: verrouillage de version VS Code
+
+- Constat:
+  - deux versions de l'extension Kairos etaient presentes dans
+    `~/.vscode/extensions/`: `0.1.1` et `0.1.2`;
+  - le message exact `Open a .kairos or .obc file first.` n'existe plus dans
+    `0.1.2`, mais existe encore dans `0.1.1`.
+- Risque:
+  - ambiguite de cache/chargement cote VS Code pendant les iterations locales.
+- Action:
+  - increment de version vers `0.1.3` dans `package.json` et
+    `package-lock.json`;
+  - regeneration de la VSIX `kairos-vscode-0.1.3.vsix`.
+
+### Suite 2026-03-10: dashboard VC et erreurs de rendu automata
+
+- Symptome utilisateur:
+  - le `Proof Dashboard` n'affichait pas correctement la colonne `VC`;
+  - la vue `Automata` restait sur un rendu gris sans message explicite.
+- Cause dashboard:
+  - le tableau etait construit directement depuis `proof_traces`, alors que les
+    identifiants `vcid` sont plus stables dans `goalsTree`.
+- Correction dashboard:
+  - reconstruction des lignes a partir de `goalsTree`;
+  - enrichissement optionnel avec `proof_traces` pour conserver les diagnostics
+    detailles;
+  - fallback explicite sur `entry.vcid` quand `trace.vc_id` est absent.
+- Cause automata:
+  - l'absence d'image restait silencieuse lorsqu'un chemin PNG n'etait pas
+    disponible, introuvable, ou non copiable vers le cache webview.
+- Correction automata:
+  - `getGraphAssets` remonte maintenant un `renderError` explicite par graphe:
+    absence de chemin, fichier manquant, ou echec de copie.
+- Validation:
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK.
+
+### Suite 2026-03-10: ouverture Automata auto-alimentee
+
+- Retour utilisateur:
+  - `Renderer` signalait `No PNG path was returned by Kairos.`
+- Interpretation:
+  - le panneau `Automata` pouvait etre ouvert sans qu'aucun passage
+    instrumentation n'ait encore peuple `state.automata` ou `state.outputs`
+    avec des `*_png`.
+- Correctif:
+  - `showAutomataPanel()` verifie maintenant la presence d'au moins un PNG
+    d'automate;
+  - en l'absence de PNG, l'extension lance automatiquement
+    `runAutomataPass()` au lieu d'ouvrir un panneau vide.
+- Validation:
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK.
+
+### Suite 2026-03-10: diagnostic backend Graphviz pour les PNG
+
+- Cause structurelle identifiee:
+  - le backend produisait les PNG via `Pipeline.dot_png_from_text` puis
+    `Pipeline.graph_pngs`;
+  - en cas d'echec `dot -Tpng`, ces fonctions retournaient simplement `None`,
+    sans exposer `stderr` ni le motif de l'echec.
+- Travail effectue:
+  - ajout de `dot_png_from_text_diagnostic` dans `pipeline.ml`;
+  - capture du statut de sortie et du message `stderr/stdout` de `dot`;
+  - ajout des champs:
+    - `dot_png_error`;
+    - `program_png_error`;
+    - `guarantee_automaton_png_error`;
+    - `assume_automaton_png_error`;
+    - `product_png_error`;
+    dans `Pipeline.outputs`, `Pipeline.automata_outputs`, le protocole LSP, et
+    les types TypeScript de l'extension;
+  - la vue VS Code privilegie maintenant ces erreurs backend quand un chemin PNG
+    est absent.
+- Validation:
+  - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short` OK;
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK.
+
+### Suite 2026-03-10: correction de regression IDE et script de reinstall
+
+- Regression introduite:
+  - l'ajout des champs `*_png_error` dans le protocole/pipeline cassait
+    `bin/ide/obcwhy3_ide.ml`, car une construction de record
+    `automata_outputs` n'etait plus exhaustive.
+- Correction:
+  - ajout des champs:
+    - `dot_png_error`;
+    - `program_png_error`;
+    - `guarantee_automaton_png_error`;
+    - `assume_automaton_png_error`;
+    - `product_png_error`
+    dans le cache monitor de `obcwhy3_ide.ml`.
+- Validation:
+  - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short` OK.
+- Correction script:
+  - le script de reinstall utilisait `opam reinstall kairos -y`, ce qui
+    repassait par la source pinnee sans `--working-dir`;
+  - remplacement par `opam reinstall kairos --working-dir -y`.
+
+### Suite 2026-03-10: progression visible des runs VS Code
+
+- Symptome utilisateur:
+  - `Kairos proving | prove in progress | 0.0s` et `Kairos runs: Starting`
+    donnaient l'impression d'un blocage, meme quand le backend tournait encore.
+- Cause:
+  - le temps dans la barre de statut n'etait pas rafraichi en continu;
+  - le serveur LSP n'envoyait qu'un `Starting`, puis `Outputs ready`, puis
+    `Done`, sans jalons plus lisibles.
+- Correctifs:
+  - ajout d'un `statusTicker` cote extension pour rafraichir la barre de statut
+    chaque seconde tant qu'un run est actif;
+  - enrichissement des notifications `$/progress` cote `kairos_lsp.ml`:
+    - `Building proof artifacts (OBC+/Why/VC) ...`
+    - `Artifacts ready; publishing proof goals and solver results ...`
+    - `Publishing N proof goals ...`
+    - `Goal i/N: <status>`
+- Validation:
+  - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short` OK;
+  - `npm run compile` OK;
+  - `npx @vscode/vsce package` OK.
+
+### Suite 2026-03-10: sortie du diagnostic lourd du chemin `prove` et publication anticipee des artefacts
+
+- Symptome utilisateur:
+  - sur `tests/ok/inputs/resettable_delay.kairos`, `Kairos: Prove` semblait
+    rester bloque sur `Building proof artifacts`, alors que ce cas passait
+    historiquement en quelques secondes perceptibles cote UI.
+- Verification:
+  - le fichier de test n'a pas change semantiquement; le diff local n'est qu'un
+    reformatage;
+  - `--dump-why -` finit en ~5.9s, donc la generation OBC/Why n'est pas le
+    goulot principal;
+  - `--prove` reste long sur ce fichier, avec 481 goals.
+- Causes identifiees:
+  - le chemin standard `prove` executait aussi les diagnostics enrichis
+    (native probe, replay/minimization) dans `pipeline_v2_indep.ml`;
+  - `run_with_callbacks` n'envoyait `outputsReady` qu'apres la fin complete de
+    `run cfg`, donc l'UI n'avait aucune visibilite intermediaire utile.
+- Correctifs:
+  - ajout du drapeau `compute_proof_diagnostics` dans la config
+    pipeline/LSP/extension;
+  - `Kairos: Prove` envoie desormais `computeProofDiagnostics = false`;
+  - les exports de traces/focalisation gardent `compute_proof_diagnostics = true`;
+  - refonte de `Pipeline_v2_indep.run_with_callbacks` pour le chemin standard:
+    - construction des artefacts en mode pending;
+    - envoi immediat de `outputsReady`;
+    - envoi de `goalsReady`;
+    - boucle de preuve ensuite, avec `goalDone` au fil de l'eau;
+    - chemin ancien conserve quand le diagnostic enrichi est explicitement demande.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+    - `npm run compile`
+    - `npx @vscode/vsce package`
+  - smoke test LSP direct sur `resettable_delay.kairos`:
+    - `Building proof artifacts...` a ~0.55s;
+    - `Artifacts ready...` a ~6.53s;
+    - `kairos/outputsReady` a ~6.8s;
+    - `kairos/goalsReady` a ~6.8s avec 481 goals;
+    - premiers `goalDone` visibles des ~8.26s.
+- Conclusion:
+  - le run de preuve reste non trivial sur ce cas, mais l'extension ne doit
+    plus paraitre bloquee sur `Building proof artifacts` pendant toute la
+    duree de la preuve;
+  - le dashboard et l'ouverture des artefacts peuvent maintenant se faire avant
+    la fin complete du prove.
+
+### Suite 2026-03-10: correction backend des variables d'historique `pre_k`
+
+- Symptome utilisateur:
+  - des VCs de `tests/ok/inputs/delay_int.kairos` tombaient en `failure`, alors
+    que le cas est correct et passait auparavant.
+- Diagnostic:
+  - la Why generee contenait des obligations de post-etat du type
+    `vars.z = vars.__pre_k1_x`;
+  - mais `__pre_k1_x` n'etait jamais mis a jour dans `step`;
+  - `obc_ghost_instrument.ml` calculait bien `pre_k_updates`, puis les
+    jetait sans les injecter dans les transitions;
+  - l'ordre des decalages `k > 1` etait en plus incorrect pour une execution
+    sequentielle.
+- Correction:
+  - injection effective des `pre_k_updates` dans
+    `t.attrs.instrumentation`, donc apres le code utilisateur dans le chemin
+    Why;
+  - correction de l'ordre des shifts pour mettre a jour
+    `__pre_kN <- __pre_k(N-1)` du plus grand vers le plus petit avant
+    `__pre_k1 <- input`.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - Why regeneree sur `delay_int.kairos`:
+    - presence explicite de `ghost (vars.__pre_k1_x <- x)`;
+  - diagnostic CLI sur `delay_int.kairos`:
+    - `--dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s 3`
+    - sortie vide `[]`, donc plus aucun failed sur ce cas.
+- Conclusion:
+  - la regression de preuve sur `delay_int.kairos` venait bien du backend, pas
+    de l'UI ni d'un simple timeout;
+  - le mecanisme `prev`/`pre_k` est maintenant de nouveau coherent avec les
+    obligations de post-etat.
+
+### Suite 2026-03-11: correction backend des obligations Why du monitor instrumente
+
+- Symptome utilisateur:
+  - `tests/ok/inputs/delay_int.kairos` continuait a sortir des VCs en
+    `failure` alors que le cas est correct;
+  - la vue VS Code pouvait afficher des echecs sur des goals qui passaient
+    auparavant tres vite.
+- Diagnostic:
+  - l'OBC dump montrait un `goal false` cote init, mais ce point venait en
+    partie du rendu OBC, pas de la VC exacte;
+  - la Why dump montrait surtout des `ensures` globaux aberrants sur `step`,
+    par exemple `((vars.st = Init) -> (vars.__aut_state = Aut0))`;
+  - ces `ensures` ne venaient pas des transitions OBC elles-memes, mais de la
+    reconstruction globale des contrats dans `why_contracts.ml`;
+  - deux mecanismes etaient fautifs sur les noeuds deja instrumentes par le
+    middle-end:
+    - recyclage des `requires` de transition en postconditions globales via
+      `transition_requires_post`;
+    - reinjection globale de contrats monitor/garantie alors que le monitor est
+      deja encode dans les transitions instrumentees.
+- Correction:
+  - desactivation de `transition_requires_post` sur les noeuds disposant deja
+    d'une instrumentation monitor (`mon_state_ctors <> []`);
+  - desactivation de la reinjection globale `post_contract /
+    transition_post_to_pre` sur ce meme chemin;
+  - commentaire explicite ajoute dans `why_contracts.ml` pour figer
+    l'intention: sur les noeuds instrumentes, les invariants/compatibilites
+    passent par les transitions, pas par des contrats globaux de `step`.
+- Validation:
+  - build sequentiel OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+  - Why regeneree sur `delay_int.kairos`:
+    - disparition des `ensures` globaux aberrants `st = Init -> __aut_state = Aut0`
+      et `st = Run -> z = __pre_k1_x`;
+  - validation CLI:
+    - `opam exec -- _build/default/bin/cli/main.exe tests/ok/inputs/delay_int.kairos --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 10 --timeout-s 3 | jq 'length'`
+    - resultat `0`, donc plus aucun failed trace sur ce cas.
+- Conclusion:
+  - la regression restante sur `delay_int.kairos` venait bien de la couche Why
+    backend et non du dashboard;
+  - le chemin instrumente Why est maintenant aligne avec le contrat reel porte
+    par les transitions instrumentees.
+
+### Suite 2026-03-11: debut de migration vers un IR compatible `kairos-kernel`
+
+- Contrainte d'architecture:
+  - ne pas toucher a `kairos-kernel` ni a la couche Rocq;
+  - garder la formalisation abstraite;
+  - faire converger Kairos vers le pipeline du kernel:
+    programme reactif -> automates -> produit explicite -> clauses generees.
+- Diagnostic:
+  - Kairos possedait deja `Product_types.product_state`,
+    `Product_types.product_step` et `Product_build.analysis`;
+  - mais ces objets n'etaient pas exposes comme un IR intermediaire explicite
+    de pipeline, et la visualisation restait melangee aux artefacts
+    d'instrumentation.
+- Travail realise:
+  - ajout du module
+    `lib_v2/runtime/middle_end/product/product_kernel_ir.{ml,mli}`;
+  - definition d'un IR type pour:
+    - programme reactif normalise;
+    - automates de surete assume/guarantee;
+    - etats du produit explicite;
+    - pas du produit;
+    - clauses generees (init, propagation, safety), sans encodage Why/OBC;
+  - construction de cet IR a partir de `Abstract_model.node` et
+    `Product_build.analysis`;
+  - stockage de cet IR dans `Stage_info.instrumentation_info` via:
+    - `kernel_ir_nodes`
+    - `kernel_pipeline_lines`;
+  - exposition immediate en CLI sans changer le protocole:
+    l'artefact `--dump-obligations-map` contient maintenant une section
+    `-- Kernel-compatible pipeline IR --`.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - cas reel:
+    - `opam exec -- _build/default/bin/cli/main.exe tests/ok/inputs/delay_int.kairos --dump-obligations-map -`
+    - verification de la presence des sections:
+      - `reactive_program`
+      - `assume_automaton`
+      - `guarantee_automaton`
+      - `explicit_product`
+      - `clause ...`
+- Conclusion:
+  - la migration commence sans toucher a Rocq;
+  - Kairos dispose maintenant d'un IR intermediaire aligne sur les objets du
+    kernel, meme si le backend Why principal n'est pas encore rebranche dessus.
+
+## 2026-03-11 - Etape 2 de migration: premier rebranchement du backend Why sur l'IR kernel-compatible
+
+- Objectif:
+  - faire consommer l'IR `product_kernel_ir` par le backend Why sans toucher a
+    Rocq et sans remplacer d'un coup toute la generation existante.
+- Diagnostic initial:
+  - `Emit.compile_program_ast` et `Why_contracts.build_contracts` n'avaient
+    aucun acces a l'IR du produit explicite;
+  - le backend Why reconstruisait encore ses obligations uniquement depuis le
+    programme instrumente et les contrats traditionnels;
+  - cela maintenait un ecart structurel avec la reduction
+    `programme reactif / automates / produit / clauses` du kernel.
+- Travail realise:
+  - passage de l'IR kernel-compatible dans:
+    - `lib_v2/runtime/backend/emit.{ml,mli}`
+    - `lib_v2/runtime/backend/why/why_contracts.{ml,mli}`
+    - `lib_v2/runtime/pipeline/pipeline_v2_indep.ml`;
+  - ajout d'un `kernel_ir_map` par noeud lors de la generation Why;
+  - emission Why additive de clauses issues du produit explicite:
+    - postconditions derivees des clauses de propagation et safety;
+    - goals Why separes pour les clauses d'initialisation;
+  - conservation du pipeline courant:
+    l'ancien chemin n'a pas ete supprime a ce stade.
+- Tentative echouee / correction:
+  - premiere tentative:
+    - les clauses de produit etaient emises avec une premisse trop faible:
+      etat source du programme + etat source du monitor + garde du programme;
+    - resultat: reintroduction d'un echec sur `delay_int.kairos` car plusieurs
+      pas du produit devenaient contradictoires une fois projetes sur Why;
+  - cause:
+    - omission des gardes des aretes `assume` et `guarantee` du produit
+      explicite dans la premisse de la clause Why;
+  - correction:
+    - ajout des gardes `step.assume_edge.guard` et
+      `step.guarantee_edge.guard` dans la premisse Why;
+    - les clauses Why redeviennent alors coherentes avec les pas reels du
+      produit explicite.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - cas reel `delay_int.kairos`:
+    - `opam exec -- _build/default/bin/cli/main.exe tests/ok/inputs/delay_int.kairos --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s 3 | jq 'length'`
+    - resultat: `0`
+  - verification Why:
+    - `opam exec -- _build/default/bin/cli/main.exe tests/ok/inputs/delay_int.kairos --dump-why - | rg "vc_kernel_|kernel_init_goal"`
+    - presence de VCs `vc_kernel_*` et d'un `kernel_init_goal_1`.
+- Conclusion:
+  - Why consomme maintenant effectivement l'IR du produit explicite;
+  - cette consommation reste additive et conservative;
+  - Rocq et la formalisation abstraite n'ont pas ete modifies.
+
+### Raffinement le meme jour - reduction de la dependance a `t.ensures` instrumente
+
+- Objectif:
+  - faire un premier pas de remplacement reel du chemin "programme instrumente"
+    par le chemin "clauses kernel" dans le backend Why.
+- Travail realise:
+  - quand un noeud est monitorise et qu'un `kernel_ir` est disponible:
+    - les `state_post` derives de `t.ensures` ne sont plus reconstruits;
+    - `transition_requires_post` reste desactive;
+    - `transition_post_to_pre` reste desactive;
+  - les obligations de propagation/safety passent donc d'abord par les clauses
+    du produit explicite projetees en Why.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - `delay_int.kairos`:
+    - `0` failed traces
+    - la Why n'a plus le reliquat `origin:other` observe precedemment;
+  - `resettable_delay.kairos`:
+    - `0` failed traces avec
+      `--dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s 3 | jq 'length'`.
+- Conclusion:
+  - le backend Why repose maintenant davantage sur les clauses du produit
+    explicite que sur la duplication des `ensures` instrumentes;
+  - l'ancien chemin n'est pas encore totalement retire, mais l'etape 2 progresse
+    dans le bon sens sans toucher a Rocq.
+
+### Raffinement suivant - remplacement des `pre` instrumentes par des `pre` issus du produit explicite
+
+- Objectif:
+  - reduire aussi la dependance aux `requires` de transitions instrumentees,
+    afin que le backend Why derive les hypotheses d'entree depuis les etats du
+    produit explicite.
+- Tentative echouee:
+  - suppression brute de `transition_requires_pre_terms` quand `kernel_ir` est
+    disponible sur un noeud monitorise;
+  - resultat:
+    - regression immediate sur `delay_int.kairos`;
+    - `1` failed trace reapparait;
+  - diagnostic:
+    - la preuve de certains pas `Run -> Run` a encore besoin d'un invariant
+      d'entree du produit, en particulier la relation `z = __pre_k1_x` sur les
+      etats produits sources `Run/Aut1` et `Run/Aut2`.
+- Correction:
+  - reintroduction des hypotheses d'entree, mais cette fois depuis l'IR
+    `product_kernel_ir`:
+    - pour chaque etat produit, generation d'une precondition Why
+      `Kernel source state invariant`;
+    - forme:
+      `((st = q_prog) /\\ (__aut_state = q_gar)) -> invariant_du_state`;
+    - on n'utilise plus ici les `requires` instrumentes comme source
+      principale.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - `delay_int.kairos`:
+    - retour a `0` failed traces;
+    - la Why contient maintenant des `requires`:
+      - `origin:kernel_source_state_invariant`
+  - `resettable_delay.kairos`:
+    - `0` failed traces.
+- Conclusion:
+  - le backend Why utilise maintenant des `pre` et `post` derives du produit
+    explicite pour les noeuds monitorises;
+  - le chemin "programme instrumente" recule encore, sans modification de Rocq
+    ni de la formalisation abstraite.
+
+### Raffinement suivant - suppression de `link_terms_pre/post` sur les noeuds monitorises
+
+- Diagnostic:
+  - sur `delay_int.kairos` et `resettable_delay.kairos`, la Why generee
+    n'exposait deja plus que des obligations `kernel_*`;
+  - les `link_terms_pre/post` du noeud courant ne portaient donc plus de valeur
+    observable sur ces chemins monitorises et restaient surtout un reliquat de
+    l'ancien backend instrumente.
+- Travail realise:
+  - dans `why_contracts.ml`, quand `use_kernel_product_contracts` est actif,
+    `link_terms_pre` et `link_terms_post` sont maintenant vides.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - `delay_int.kairos`: `0` failed traces
+  - `resettable_delay.kairos`: `0` failed traces
+  - inspection Why:
+    - plus d'origine `other`, `user` ou `compatibility` sur ces noeuds;
+    - uniquement:
+      - `kernel_source_state_invariant`
+      - `kernel_propagation_*`
+      - `kernel_safety`
+      - `kernel_init_automaton_coherence`.
+- Conclusion:
+  - pour les noeuds monitorises simples, le backend Why ne depend plus des
+    liaisons locales de l'ancien chemin instrumente;
+  - le prochain vrai verrou restant se deplace vers les cas avec instances
+    (`instance_invariants`, `instance_delay_links_*`), qui n'ont pas encore ete
+    migres vers l'IR kernel-compatible.
+
+### Raffinement suivant - extension de l'IR kernel-compatible aux relations d'instance
+
+- Objectif:
+  - sortir les derniers blocs `instance_*` de `why_contracts` en les
+    representant d'abord dans l'IR kernel-compatible.
+- Travail realise:
+  - extension de `product_kernel_ir` avec `instance_relations` et les variantes:
+    - `InstanceUserInvariant`
+    - `InstanceStateInvariant`
+    - `InstanceDelayHistoryLink`
+    - `InstanceDelayCallerPreLink`
+  - `of_node_analysis` recoit maintenant aussi la liste complete des noeuds
+    abstraits du programme pour resoudre les instances/callees;
+  - l'instrumentation construit cet IR enrichi pour chaque noeud;
+  - `why_contracts` consomme ces `instance_relations` quand `kernel_ir` est
+    disponible, a la place des anciens calculs ad hoc pour:
+    - les termes d'instance de l'initialisation;
+    - `instance_invariants`;
+    - `instance_delay_links_inv`.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - non-regression sur cas de reference:
+    - `delay_int.kairos`: `0` failed traces
+    - `resettable_delay.kairos`: `0` failed traces
+  - l'artefact `--dump-obligations-map` expose maintenant aussi les lignes
+    `instance ...` dans le rendu du pipeline kernel-compatible.
+- Limite explicite:
+  - la suite actuelle ne contient pas encore de cas Kairos de reference avec
+    `instances`/`call` permettant une validation de bout en bout de ces
+    `instance_relations`;
+  - la migration structurelle est donc implementee, mais sa validation
+    fonctionnelle sur un vrai cas d'instances reste a faire.
+
+### Raffinement suivant - transformation de `generated_clause_ir` en clauses logiques explicites
+
+- Objectif:
+  - faire du nouvel IR la vraie source de verite des obligations, en eliminant
+    la reconstruction backend Why depuis `origin + subject`.
+- Travail realise:
+  - `generated_clause_ir` ne contient plus seulement:
+    - `origin`
+    - `subject`
+  - il porte maintenant:
+    - `anchor`
+    - `hypotheses`
+    - `conclusions`
+  - ajout de types abstraits:
+    - `clause_time_ir`
+    - `clause_fact_desc_ir`
+    - `clause_fact_ir`
+    - `generated_clause_anchor_ir`
+  - les invariants d'etat sont maintenant integres directement dans les
+    conclusions des clauses `init/node_inv` et `propagation/node_inv`;
+  - `why_contracts.ml` consomme ces clauses explicites en compilant les faits
+    de clause, au lieu de reconstituer la logique depuis le `subject`;
+  - `emit.ml` fait de meme pour les goals d'initialisation.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - non-regression:
+    - `delay_int.kairos`: `0` failed traces
+    - `resettable_delay.kairos`: `0` failed traces
+  - verification IR:
+    - `--dump-obligations-map` affiche maintenant des clauses du type
+      `clause ... if [hypotheses] then [conclusions]`
+  - verification Why:
+    - la Why continue de se generer et prouve les cas de reference en
+      consommant les clauses explicites.
+- Conclusion:
+  - le nouvel IR devient une vraie couche logique abstraite;
+  - Why ne reconstruit plus les clauses principales a partir d'un ancrage
+    implicite seulement;
+  - on se rapproche d'un IR backend-agnostic unique, condition necessaire pour
+    eliminer totalement l'OBC annote comme pivot semantique.
+
+### Raffinement suivant - introduction des types separes pour les resumes d'appel
+
+- Objectif:
+  - preparer `instances/call` sans retomber sur l'OBC annote, en introduisant
+    dans `product_kernel_ir` des types separes pour:
+    - l'ABI reutilisable du callee;
+    - l'instanciation propre a un site d'appel.
+- Travail realise:
+  - extension de `product_kernel_ir.mli/.ml` avec:
+    - `call_port_role`
+    - `call_port_ir`
+    - `call_binding_kind`
+    - `call_binding_ir`
+    - `call_fact_kind`
+    - `call_fact_ir`
+    - `callee_summary_case_ir`
+    - `callee_tick_abi_ir`
+    - `call_site_instantiation_ir`
+  - extension de `node_ir` avec:
+    - `callee_tick_abis`
+    - `call_site_instantiations`
+  - ajout d'un rendu textuel dedie pour ces nouvelles sections;
+  - ajout d'un exemple jouet embarque dans le rendu, pour figer la forme de
+    l'ABI avant toute compilation de `SCall`.
+- Decisions:
+  - separation retenue des la premiere version entre ABI reutilisable du
+    callee et cablage du site d'appel;
+  - reutilisation de `clause_fact_ir` pour les faits d'appel, afin d'eviter
+    une seconde logique parallele.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - verification CLI:
+    - `--dump-obligations-map` affiche maintenant:
+      - `callee_tick_abis count=0`
+      - `call_site_instantiations count=0`
+      - puis l'exemple `-- Toy call summary ABI example --`
+    - non-regression:
+      - `delay_int.kairos`: `0` failed traces
+- Limite explicite:
+  - les nouvelles structures sont encore vides sur les cas reels;
+  - `SCall` n'est pas compile dessus a ce stade;
+  - l'exemple jouet sert uniquement a figer le rendu et l'interface.
+
+### Raffinement suivant - extraction reelle des ABI de callee et des sites d'appel
+
+- Objectif:
+  - remplir effectivement `callee_tick_abis` et `call_site_instantiations`
+    depuis le programme normalise, sans encore compiler `SCall`.
+- Travail realise:
+  - ajout dans `product_kernel_ir.ml` d'une collecte recursive des appels avec
+    chemin stable dans les corps de transitions;
+  - construction d'un `callee_tick_abi_ir` par callee reellement appele:
+    - ports d'entree/sortie depuis l'interface du noeud;
+    - ports d'etat depuis `st` et les `locals` du callee;
+    - un cas par transition du callee;
+    - `entry_facts` derives de l'etat source, de la garde et des `requires`;
+    - `transition_facts` derives de l'etat destination et des `ensures`;
+    - `exported_post_facts` derives des invariants d'etat du callee apres tick.
+  - construction d'un `call_site_instantiation_ir` par site d'appel:
+    - `call_site_id` stable depuis la transition et le chemin dans les
+      statements;
+    - bindings des arguments effectifs vers les entrees du callee;
+    - bindings des sorties du callee vers les variables du caller;
+    - bindings abstraits pre/post pour les composants d'etat de l'instance.
+- Validation:
+  - builds sequentiels OK:
+    - `opam exec -- dune build bin/cli/main.exe --display=short`
+    - `opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short`
+    - `opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short`
+  - non-regression:
+    - `delay_int.kairos`: `0` failed traces
+    - `resettable_delay.kairos`: `0` failed traces
+  - verification de rendu:
+    - `--dump-obligations-map` montre toujours les sections
+      `callee_tick_abis` et `call_site_instantiations`;
+    - aucun exemple `instances/call` n'a ete trouve dans la suite `.kairos`
+      actuelle, donc les structures restent vides sur les cas de reference
+      reels et seul l'exemple jouet apparait.
+- Limite explicite:
+  - faute de cas Kairos reel avec `instances/call`, cette extraction reelle est
+    structurellement branchee mais pas encore validee sur un scenario de
+    production;
+  - la compilation de `SCall` sur ces objets reste le prochain chantier.
+
+### Raffinement suivant - ajout d'un vrai cas `.kairos` avec `instances/call`
+
+- Objectif:
+  - disposer enfin d'un exemple de production minimal permettant de verifier
+    que `callee_tick_abis` et `call_site_instantiations` se remplissent sur un
+    vrai appel de noeud.
+- Travail realise:
+  - ajout du fixture
+    `tests/ok/inputs/delay_int_instance.kairos`
+    contenant:
+    - un callee `delay_core`;
+    - un caller `delay_int_instance`;
+    - une declaration `instances`;
+    - des statements `call d(x) returns (y)`.
+- Resultat utile:
+  - `--dump-obligations-map` montre maintenant, sur un cas reel:
+    - `callee_tick_abis count=1`
+    - `call_site_instantiations count=2`
+    - avec ABI de `delay_core` et deux sites d'appel stables dans
+      `delay_int_instance`.
+- Observation critique:
+  - ce fixture revele un bug backend Why/OBC distinct de l'IR:
+    la compilation actuelle de `SCall` echoue avec une erreur Why du type
+    `This expression has type (), but is expected to have type int`.
+  - l'extraction d'IR fonctionne donc sur un vrai cas;
+    c'est maintenant la compilation backend des appels qui bloque la preuve.
+- Conclusion:
+  - le chantier "creer un vrai cas `instances/call`" est rempli;
+  - le prochain verrou est un bug de codegen `SCall`, pas un probleme
+    d'architecture de l'IR.
+
+### Raffinement suivant - correction partielle du codegen Why pour `SCall`
+
+- Objectif:
+  - corriger le backend Why pour que `SCall` n'attende plus a tort une valeur
+    de retour directe de `step`.
+- Travail realise:
+  - `why_core.ml`:
+    - `SCall` ne traite plus `step` comme une expression retournant les sorties;
+    - le codegen sequence maintenant:
+      - appel a `step`;
+      - assignments des sorties du caller a partir des sorties de l'instance.
+  - `emit.ml`:
+    - le callback de call-site transporte maintenant aussi les expressions de
+      sortie du callee, en plus des `let_bindings` et des assertions.
+  - `why_core.mli` et `emit.mli`:
+    - signatures synchronisees avec ce nouveau callback.
+  - `support.ml`:
+    - tentative de correction des acces aux champs imbriques d'instance via
+      projections explicites Why.
+- Resultat:
+  - le bug initial `This expression has type (), but is expected to have type int`
+    a disparu;
+  - le vrai verrou restant est maintenant plus precis:
+    `unbound function or predicate symbol 'Delay_core.__delay_core_outv'`
+    sur le fixture `tests/ok/inputs/delay_int_instance.kairos`.
+- Conclusion:
+  - la semantique du call est mieux alignee avec l'architecture actuelle
+    (`step` mutate + `unit`);
+  - il reste un bug specifique de projection Why des champs du record de
+    l'instance appelee.
+  - tentatives supplementaires realisees:
+    - qualification directe du champ avec le module du callee;
+    - projection explicite via `Tidapp` / `Eidapp`;
+    - projection sous `Tscope` / `Escope`;
+  - resultat:
+    - le symbole reste non resolu sous la forme
+      `Delay_core.__delay_core_outv`;
+    - le verrou n'est donc plus `SCall` en general, mais la forme exacte des
+      projections de champs de record exportees par Why3 pour les types
+      `vars` des modules appeles.
+
+### 2026-03-11 - Suppression des branches produit mortes sur `instances/call`
+
+- Contexte:
+  - apres correction du codegen Why de `SCall`, le fixture reel
+    `tests/ok/inputs/delay_int_instance.kairos` ne crashait plus, mais
+    restait en `failure`;
+  - l'inspection fraiche des VCs montrait encore de nombreuses obligations
+    artificielles du type:
+    - `goal step'vc : false`
+    - hypotheses contradictoires sur `Aut2`;
+  - le dump IR montrait encore un pas produit mort:
+    `(P=Run, A=0, G=2) -> (P=Run, A=0, G=2) [bad_guarantee]`.
+
+- Hypothese:
+  - les etats `guarantee_bad` etaient sortis de `product_states`, mais pas
+    completement des `product_steps`;
+  - ces pas morts continuaient a nourrir des clauses kernel puis des VCs Why
+    absurdes.
+
+- Travail realise:
+  - `product_kernel_ir.ml`:
+    - filtrage de `product_states` pour ne garder que les etats vivants;
+    - filtrage de `product_steps` avec `is_feasible_product_step ~analysis`
+      sur la vivacite du **source state**, en plus du filtrage des gardes
+      fausses;
+    - revalidation du dump IR:
+      - `delay_core`: `states=2 steps=2 clauses=6`
+      - `delay_int_instance`: `states=2 steps=2 clauses=6`
+      - disparition du pas `(Run, A0, G2) -> (Run, A0, G2)`.
+
+- Verification effectuee:
+  - dump VC frais:
+    `/tmp/delay_int_instance_vc_fresh3.txt`
+  - compteurs apres correction:
+    - `goal step'vc : false` -> `0`
+    - `vars.__aut_state = Aut2` -> `0`
+  - preuve CLI reelle:
+    - commande:
+      `main.exe tests/ok/inputs/delay_int_instance.kairos --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s 3`
+    - resultat:
+      - `RC 0`
+      - `FAILED_COUNT 0`
+
+- Conclusion:
+  - le verrou courant n'etait plus un probleme de codegen Why, mais la
+    persistance de branches produit mortes dans l'IR kernel-compatible;
+  - ce point est corrige;
+  - `delay_int_instance.kairos` repasse sans `failed traces` en validation
+    standard.
+
+- Limites / points restants:
+  - le dump obligations montre encore des lignes de log:
+    - `[node] obligation (...) -> (...): not (...)`
+    qui semblent venir d'une couche d'analyse amont non encore nettoyee;
+  - elles ne polluent plus les VCs finales, mais il faudra les localiser et
+  les supprimer pour avoir une IR plus propre;
+  - le build `bin/ide/obcwhy3_ide.exe` a ete relance mais n'a pas encore ete
+  revalide jusqu'au message de fin dans cette iteration.
+
+### 2026-03-11 - Nettoyage de la sortie texte des obligations produit
+
+- Contexte:
+  - apres correction de l'IR, il restait des lignes visibles du type:
+    - `[delay_core] obligation ...`
+    - `[delay_int_instance] obligation ...`
+  - elles n'etaient plus coherentes avec l'IR final, qui avait deja filtre les
+    pas morts et les VCs `false`.
+
+- Localisation:
+  - la chaine exacte venait de `product_debug.ml`, fonction
+    `render_obligation_lines`;
+  - verification faite en comparant `stdout` et `stderr` du dump
+    `--dump-obligations-map`.
+
+- Travail realise:
+  - `product_debug.ml`:
+    - filtrage des obligations `Bad_guarantee` dont:
+      - le `src` est deja non vivant;
+      - ou la formule simplifiee vaut `true`;
+      - ou la formule simplifiee vaut `false`;
+    - rendu du texte a partir de la formule simplifiee.
+
+- Verification:
+  - `--dump-obligations-map -`:
+    - `stdout` commence maintenant directement par
+      `-- Kernel-compatible pipeline IR --`
+    - `stderr` est vide sur ce chemin
+  - build sequentiel verifie:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+
+- Conclusion:
+  - la couche de debug texte est maintenant alignee avec l'IR final;
+  - le pipeline visible n'annonce plus d'obligations mortes qui n'existent plus
+    dans les VCs finales.
+
+### 2026-03-11 - Retrait prudent d'un reliquat Why lie a l'OBC annote
+
+- Objectif:
+  - continuer a retirer les reliquats du chemin OBC annote dans le backend
+    Why sans regresser sur les exemples `ok`.
+
+- Tentative initiale:
+  - nettoyage de plusieurs calculs morts dans `why_contracts.ml`
+    (`init_guard_terms`, `state_rel_for`, `instance_delay_links_post`, etc.).
+- Resultat:
+  - aucune amelioration visible sur `delay_int_instance`;
+  - et surtout une regression sur `resettable_delay.kairos` (`failed=1`).
+- Conclusion:
+  - ce nettoyage etait trop agressif a ce stade;
+  - il a ete replie pour revenir a une base sure.
+
+- Correctif retenu:
+  - dans `why_contracts.ml`, le chemin `kernel-first` n'est plus active
+    simplement parce qu'un `kernel_ir` existe;
+  - il n'est active que si le `kernel_ir` contient de vrais `product_steps`;
+  - sinon, le backend Why retombe sur l'ancien chemin, ce qui est plus correct
+    pour les noeuds encore non totalement migres.
+
+- Raison:
+  - certains noeuds monitorises comme `resettable_delay` produisent un IR
+    partiel avec `steps=0` et seulement des clauses d'initialisation;
+  - dans ce cas, forcer le chemin `kernel-first` prive Why des obligations de
+    propagation encore assurees par l'ancien backend.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - preuves CLI reelles:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - une vraie tranche de dependance Why au vieux chemin a ete isolee;
+  - mais le basculement vers l'IR unique doit rester conditionne par la
+    richesse effective du produit explicite, pas seulement par la presence
+    d'un `kernel_ir`.
+
+### 2026-03-11 - Enrichissement de l'IR pour les cas a produit vide (`resettable_delay`)
+
+- Probleme:
+  - certains noeuds comme `resettable_delay.kairos` restaient avec:
+    - `kernel_ir` present
+    - mais `explicit_product ... steps=0`
+  - le fallback Why etait alors encore necessaire;
+  - l'analyse a montre que:
+    - les gardes d'automates n'etaient plus simplifies en `false` brut;
+    - mais l'exploration produit restait vide;
+    - en revanche, les etats vivants `Init/G0` et `Run/G1` etaient bien connus.
+
+- Strategie retenue:
+  - enrichir l'IR lui-meme plutot que conserver indefiniment un fallback Why;
+  - lorsque l'exploration explicite ne produit aucun pas, mais que les etats
+    vivants donnent une correspondance unique `prog_state -> product_state`,
+    synthetiser un squelette conservatif de `product_steps`.
+
+- Travail realise:
+  - `product_kernel_ir.ml`:
+    - ajout de `synthesize_fallback_product_steps`;
+    - deduplication des `live_product_states`;
+    - si `explicit_steps = []`, construction de pas de propagation derives des
+      transitions du programme normalise;
+    - pour ces pas synthetiques:
+      - `program_guard` vient de la transition;
+      - `assume_edge.guard = true`;
+      - `guarantee_edge.guard = true`;
+      - `step_kind = StepSafe`.
+
+- Resultat sur `resettable_delay.kairos`:
+  - avant:
+    - `explicit_product ... states=2 steps=0 clauses=2`
+  - apres:
+    - `explicit_product ... states=2 steps=4 clauses=10`
+    - clauses de propagation presentes pour:
+      - `Init -> Run` sous `reset = 1`
+      - `Init -> Run` sous `reset = 0`
+      - `Run -> Run` sous `reset = 1`
+      - `Run -> Run` sous `reset = 0`
+
+- Validation CLI reelle:
+  - `delay_int.kairos`: `failed=0`
+  - `resettable_delay.kairos`: `failed=0`
+  - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `resettable_delay` n'a plus besoin du fallback Why;
+  - l'IR kernel-compatible couvre maintenant aussi ce cas avec un produit
+    explicite exploitable;
+  - la migration vers l'IR unique progresse sans toucher a Rocq.
+
+### 2026-03-11 - Factorisation explicite de la couverture produit dans l'IR
+
+- Objectif:
+  - ne plus piloter le backend Why avec un test ad hoc du type
+    `product_steps <> []`;
+  - rendre explicite dans l'IR le statut de couverture du produit.
+
+- Travail realise:
+  - `product_kernel_ir.mli/.ml`:
+    - ajout de `product_step_origin`:
+      - `StepFromExplicitExploration`
+      - `StepFromFallbackSynthesis`
+    - ajout de `product_coverage_ir`:
+      - `CoverageEmpty`
+      - `CoverageExplicit`
+      - `CoverageFallback`
+    - ajout du champ `product_coverage` dans `node_ir`;
+    - ajout du helper:
+      - `has_effective_product_coverage : node_ir -> bool`
+    - rendu texte des `pstep` enrichi avec l'origine (`explicit` / `fallback`);
+    - rendu `explicit_product` enrichi avec une ligne `coverage ...`.
+  - `why_contracts.ml`:
+    - le backend Why se base maintenant sur
+      `Product_kernel_ir.has_effective_product_coverage`
+      au lieu de tester seulement la non-vacuite de `product_steps`.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - le mecanisme de `fallback product steps` n'est plus un detail cache;
+  - il est maintenant explicite dans l'IR, traçable, et consommé proprement
+    par le backend Why.
+
+### 2026-03-11 - Nettoyage supplementaire de `why_contracts`
+
+- Objectif:
+  - retirer des reliquats du vieux chemin OBC annote dans `why_contracts.ml`
+    sans toucher a la semantique prouvee.
+
+- Strategie:
+  - ne supprimer dans cette iteration que les calculs effectivement morts:
+    variables locales construites mais jamais consommees par la suite.
+
+- Travail realise:
+  - suppression de definitions mortes dans `why_contracts.ml`, notamment:
+    - `old_state_eq`
+    - `old_aut_eq`
+    - `state_rel_terms`
+    - `state_rel_for`
+    - `init_guard_terms`
+    - `init_guard`
+    - `instance_delay_links_post`
+  - aucune modification des obligations effectivement emises.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `why_contracts` est un peu plus petit et moins ambigu;
+  - la prochaine reduction devra porter sur des blocs encore actifs, donc avec
+    un examen semantique plus fin que la simple elimination de code mort.
+
+### 2026-03-11 - Retrait cible de `output_links` sur le chemin kernel-first
+
+- Hypothese:
+  - `output_links` ressemble a une liaison globale issue du vieux chemin OBC;
+  - sur les noeuds deja couverts par l'IR (`CoverageExplicit` /
+    `CoverageFallback`), cette liaison peut etre redondante avec les clauses du
+    produit explicite.
+
+- Travail realise:
+  - `why_contracts.ml`:
+    - `output_links` est maintenant vide quand `use_kernel_product_contracts`
+      est actif;
+    - le reste du chemin historique reste intact pour les noeuds non encore
+      couverts.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `output_links` peut sortir sans regression du chemin kernel-first;
+  - le prochain candidat a examiner est maintenant `link_terms_pre/post` ou
+    une partie des `instance_invariants`, qui restent encore actifs meme quand
+    l'IR couvre deja le noeud.
+
+### 2026-03-11 - Reduction de `link_terms_pre/post` et `instance_invariants`
+
+- Constat de depart:
+  - `link_terms_pre/post` etaient deja neutralises sur le chemin
+    `kernel-first`;
+  - le vrai bloc encore actif a tester etait `instance_invariants`.
+
+- Travail realise:
+  - confirmation explicite:
+    - `link_terms_pre/post` n'apportent plus rien sur le chemin
+      `CoverageExplicit/CoverageFallback`;
+  - `why_contracts.ml`:
+    - `instance_invariants` est maintenant vide quand
+      `use_kernel_product_contracts` est actif.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - sur le chemin couvert par l'IR, `instance_invariants` et
+    `link_terms_pre/post` peuvent etre consideres comme sortis du coeur de
+    preuve;
+  - la prochaine reduction devra viser un autre bloc encore actif, par exemple
+    une partie des `transition_requires_*` ou de `transition_post_to_pre`.
+
+## 2026-03-11 - Extraction du fallback legacy des liens d'instance
+
+- Objectif:
+  - sortir du flux principal de `why_contracts.ml` le bloc inline restant
+    responsable des liens/invariants d'instance legacy;
+  - obtenir la meme forme de refactoring que pour
+    `compute_legacy_transition_fallback`.
+
+- Travail realise:
+  - ajout d'un helper dedie:
+    - `compute_legacy_link_fallback`;
+  - extraction hors du flux principal de:
+    - `link_terms_pre/post`
+    - `instance_invariants`
+    - `instance_input_links_pre/post`
+    - `instance_delay_links_inv`
+    - `output_links`
+    - `first_step_links`
+    - `first_step_init_link_pre`
+    - `link_invariants`;
+  - le chemin principal de `build_contracts_runtime_view` ne conserve plus
+    qu'un depliage explicite du record `legacy_link_fallback`.
+
+- Incident rencontre:
+  - premiere version du helper:
+    - erreur de parenthesage dans `instance_delay_links_inv`;
+    - puis signature trop restrictive pour `pre_k_map`;
+  - cause:
+    - extraction manuelle d'un bloc profond avec un type intermediaire
+      sur-specifie.
+
+- Correctif retenu:
+  - reecriture lisible du `List.filter_map` sur les appels d'instance;
+  - alignement de la signature du helper sur le type reel de `pre_k_map`:
+    - `(Ast.hexpr * pre_k_info) list`.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - le fallback legacy des liens/invariants d'instance est maintenant isole
+    comme compatibilite transitoire explicite;
+  - `why_contracts.ml` est plus proche d'une suppression finale du fallback,
+    sans regression sur les cas de garde.
+
+## 2026-03-11 - Reduction interne du fallback legacy des liens
+
+- Objectif:
+  - ne plus transporter dans `legacy_link_fallback` des champs qui sont
+    structurellement vides depuis plusieurs iterations;
+  - reduire le bruit architectural du helper nouvellement extrait.
+
+- Travail realise:
+  - suppression dans `legacy_link_fallback` des champs:
+    - `instance_input_links_pre`
+    - `instance_input_links_post`
+    - `output_links`
+    - `first_step_links`
+    - `first_step_init_link_pre`
+  - simplification du calcul:
+    - `link_invariants = output_links @ instance_delay_links_inv`
+    - puis consommation directe de `link_invariants` dans `pre` et `post`;
+  - le contexte de labels continue de recevoir des listes vides explicites
+    pour les categories diagnostiques legacy, afin de garder la meme ABI
+    externe tant que `why_diagnostics` n'est pas simplifie.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - le fallback local des liens legacy porte maintenant seulement les termes
+    encore potentiellement utiles;
+  - la prochaine reduction logique est de simplifier `why_diagnostics`
+    pour supprimer l'ABI residuelle des categories toujours vides.
+
+## 2026-03-11 - Simplification de l'ABI residuelle de why_diagnostics
+
+- Objectif:
+  - retirer de `why_diagnostics` les categories legacy qui n'etaient plus
+    jamais alimentees par `why_contracts`;
+  - arreter de transporter des listes vides artificielles dans le
+    `label_context`.
+
+- Travail realise:
+  - dans `why_diagnostics.mli/.ml`, suppression des champs:
+    - `instance_input_links_pre`
+    - `first_step_init_link_pre`
+    - `instance_input_links_post`
+    - `pre_k_links`
+  - suppression des groupes de labels correspondants:
+    - `Instance links (pre)`
+    - `Initialization/first_step`
+    - `Instance links (post)`
+    - `pre_k history`
+  - dans `why_contracts.ml`, suppression des alimentations artificielles
+    a `[]` pour ces champs.
+
+- Incident rencontre:
+  - les builds `dune` paralleles ont de nouveau laisse `_build/.lock`
+    vide;
+  - correctif local:
+    - reecriture d'un PID valide dans `_build/.lock`;
+    - puis reprise des builds en mode strictement sequentiel.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `why_diagnostics` ne transporte plus ces categories legacy mortes;
+  - l'ABI de labels est plus proche du chemin `kernel-first` reel.
+
+## 2026-03-11 - Suppression des residus semantiques toujours vides
+
+- Objectif:
+  - retirer du calcul des contrats Why les listes semantiques encore
+    transportees alors qu'elles etaient toujours vides dans le backend
+    courant.
+
+- Travail realise:
+  - suppression de `pre_contract_user` du flux principal de
+    `why_contracts.ml`;
+  - suppression de `pre_invf` et `post_invf` du calcul de contrats;
+  - simplification de `compute_legacy_transition_fallback` pour ne plus
+    recevoir `post_invf`;
+  - simplification correspondante de `why_diagnostics.mli/.ml`:
+    retrait des champs `pre_contract_user`, `pre_invf`, `post_invf`;
+  - conservation de `post_contract_user`, qui reste semantiquement actif sur
+    le chemin legacy hors `kernel-first`.
+
+- Incident rencontre:
+  - le verrou Dune `_build/.lock` est redevenu vide pendant des builds
+    concurrents;
+  - reprise en mode strictement sequentiel apres reecriture d'un PID valide.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - le flux principal ne transporte plus ces residus semantiques nuls;
+  - le prochain travail utile doit viser un residu legacy encore
+    effectivement actif, pas seulement un champ vide.
+
+## 2026-03-11 - Suppression d'un doublon semantique legacy actif
+
+- Objectif:
+  - retirer un vrai doublon encore actif du chemin legacy, pas seulement un
+    champ vide.
+
+- Constat:
+  - `transition_post_to_pre` etait encore calcule dans
+    `compute_legacy_transition_fallback`;
+  - sur le chemin non monitorise, il etait defini comme
+    `state_post @ post_contract_user`;
+  - cette meme combinaison etait deja reinjectee via `post_contract`.
+
+- Travail realise:
+  - suppression du champ `transition_post_to_pre` de
+    `legacy_transition_fallback`;
+  - suppression de son calcul;
+  - simplification du post final:
+    - avant: `kernel_post_terms @ post_contract @ transition_requires_post @ transition_post_to_pre`
+    - maintenant: `kernel_post_terms @ post_contract @ transition_requires_post`
+
+- Incident rencontre:
+  - les builds paralleles ont encore corrompu `_build/.lock`;
+  - reprise en validation strictement sequentielle apres reecriture d'un PID
+    valide.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - un doublon semantique reel du chemin legacy a ete retire sans regression;
+  - le fallback restant est plus proche d'un noyau minimal effectivement utile.
+
+## 2026-03-11 - Traitement conjoint de `transition_requires_post` et `state_post`
+
+- Objectif:
+  - traiter les deux derniers blocs legacy encore separes dans le fallback
+    de transition:
+    - `transition_requires_post`
+    - `state_post`
+
+- Strategie retenue:
+  - ne pas changer leur contenu logique d'un coup;
+  - supprimer leur statut de blocs separes en les refactorant en:
+    - `legacy_post_contract`
+    - `pure_post`
+
+- Travail realise:
+  - `legacy_transition_fallback` ne transporte plus:
+    - `transition_requires_post`
+    - `state_post`
+  - il transporte maintenant:
+    - `legacy_post_contract = state_post @ post_contract_user @ transition_requires_post`
+    - `pure_post = state_post`
+  - le calcul principal utilise:
+    - `post = kernel_post_terms @ legacy_post_contract`
+    - et en mode `pure_translation`:
+      `post = pure_post`
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Incident annexe:
+  - `_build/.lock` s'est encore vide pendant des builds concurrents;
+  - validation terminee en strictement sequentiel, avec reecriture d'un PID
+    valide avant chaque build Dune.
+
+- Conclusion:
+  - les deux blocs demandes sont maintenant absorbes dans une forme
+    plus compacte et plus lisible;
+  - le fallback legacy de transition est plus proche d'un unique contrat
+    residue qu'un assemblage de sous-listes historiques.
+
+## 2026-03-11 - Elimination de la structure `legacy` dans `why_contracts`
+
+- Objectif:
+  - aller jusqu'au bout de l'elimination de la structure `legacy` du backend
+    Why sur `why_contracts.ml`.
+
+- Travail realise:
+  - renommage des types:
+    - `legacy_transition_fallback` -> `transition_contracts`
+    - `legacy_link_fallback` -> `link_contracts`
+  - renommage des helpers:
+    - `compute_legacy_transition_fallback` -> `compute_transition_contracts`
+    - `compute_legacy_link_fallback` -> `compute_link_contracts`
+  - renommage des champs residuels:
+    - `legacy_post_contract` -> `post_contract_terms`
+    - `state_post_terms` -> `post_terms`
+    - `state_post_terms_vcid` -> `post_terms_vcid`
+  - suppression des commentaires de type "fallback legacy" dans le flux
+    principal.
+
+- Verification structurelle:
+  - `rg -n "legacy_" lib_v2/runtime/backend/why` ne retourne plus rien.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - la structure `legacy` a ete eliminee de `why_contracts.ml`;
+  - le backend Why actif ne transporte plus de composant nomme ni pense comme
+    fallback legacy a cet endroit.
+
+## 2026-03-11 - Extraction effective du calcul de contrats hors de `why_contracts`
+
+- Objectif:
+  - faire de `why_contracts.ml` un assembleur/adaptateur Why plus mince;
+  - sortir la production des contrats de transition et de liaison dans un
+    module dedie.
+
+- Travail realise:
+  - ajout de:
+    - [why_contract_plan.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.mli)
+    - [why_contract_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.ml)
+  - deplacement dans ce module de:
+    - `transition_contracts`
+    - `link_contracts`
+    - `compute_transition_contracts`
+    - `compute_link_contracts`
+  - `why_contracts.ml` consomme maintenant ces fonctions via
+    `Why_contract_plan.*`;
+  - suppression du code duplique devenu mort dans `why_contracts.ml`;
+  - ajout du module dans [dune](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/dune).
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `why_contracts.ml` ne porte plus le calcul principal des contrats;
+  - le backend Why est plus clairement decoupe entre:
+    - planification/production de contrats
+    - emission/assemblage Why.
+
+## 2026-03-11 - Decouplage supplementaire de `emit`/`why_core` et enrichissement de `why_runtime_view`
+
+- Objectif:
+  - retirer a `emit.ml` la logique specifique de planification des appels;
+  - pousser davantage de structure dans `why_runtime_view` pour que le backend
+    Why consomme une vue runtime deja preparee.
+
+- Travail realise:
+  - ajout de:
+    - [why_call_plan.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_call_plan.mli)
+    - [why_call_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_call_plan.ml)
+  - extraction hors de [emit.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml) de la logique `call_asserts`;
+  - `emit.ml` appelle maintenant
+    `Why_call_plan.build_call_asserts ~env ~caller_runtime ~nodes`;
+  - enrichissement de
+    [why_runtime_view.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.mli)
+    et
+    [why_runtime_view.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml)
+    avec:
+    - `call_site_view`
+    - `runtime_transition_view.call_sites`
+  - la vue runtime porte donc maintenant explicitement les appels observes dans
+    chaque transition, au lieu de laisser le backend les rediscover dynamiquement;
+  - ajout du module `why_call_plan` dans
+    [dune](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/dune).
+
+- Tentatives / incidents:
+  - `bin/ide/obcwhy3_ide.exe` a bute sur un `_build/.lock` vide;
+  - correction appliquee: reecriture explicite du lockfile, puis relance
+    d'un build sequentiel unique.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `emit.ml` est plus proche d'un simple adaptateur d'emission;
+  - la preparation des appels n'est plus inline dans l'emetteur;
+  - `why_runtime_view` est plus riche et explicite sur la structure runtime
+    des transitions.
+
+## 2026-03-11 - Enrichissement de `why_runtime_view` avec des blocs d'action d'execution
+
+- Objectif:
+  - reduire encore la reconstruction implicite faite par `why_core.ml`;
+  - faire porter a la vue runtime une decomposition explicite des transitions
+    en blocs d'execution, au lieu de garder un traitement en dur
+    `ghost/body/instrumentation` dans le backend Why.
+
+- Travail realise:
+  - ajout dans
+    [why_runtime_view.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.mli)
+    et
+    [why_runtime_view.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml)
+    de:
+    - `action_block_kind`
+    - `action_block_view`
+    - `runtime_transition_view.action_blocks`
+  - les transitions portent maintenant explicitement une suite de blocs:
+    - `ActionGhost`
+    - `ActionUser`
+    - `ActionInstrumentation`
+  - les `call_sites` sont maintenant collectes a partir de ces blocs
+    d'action, et non plus seulement dans `t.body`;
+  - [why_core.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.ml)
+    compile maintenant generiquement les `action_blocks` via
+    `compile_action_block`, au lieu de manipuler directement trois champs
+    speciaux.
+
+- Tentatives / incidents:
+  - premier build casse sur un simple probleme d'ordre de definitions dans
+    `why_core.ml` (`compile_action_block` utilisait `compile_seq` avant sa
+    declaration);
+  - correction: deplacement de `compile_action_block` apres la definition
+    recursive de `compile_seq`;
+  - `dune` a de nouveau laisse `_build/.lock` vide sur le build `ide`;
+    reprise en reecrivant explicitement le lock puis relance sequentielle.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `why_core.ml` depend moins d'une convention implicite sur la forme des
+    transitions;
+  - `why_runtime_view` porte davantage de structure d'execution explicite;
+  - le backend Why se rapproche d'un vrai adaptateur sur vue runtime.
+
+## 2026-03-11 - Materialisation de branches d'etat runtime et reduction supplementaire de `emit`
+
+- Objectif:
+  - materialiser explicitement les branches d'etat dans `why_runtime_view`;
+  - faire porter a `why_core` une entree `compile_runtime_view`;
+  - retirer a `emit.ml` l'assemblage manuel du corps `step`.
+
+- Travail realise:
+  - ajout dans
+    [why_runtime_view.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.mli)
+    et
+    [why_runtime_view.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml)
+    de:
+    - `state_branch_view`
+    - `t.state_branches`
+  - `state_branches` est maintenant derive de la structuration amont des
+    transitions, plutot que reconstruit dans `why_core`;
+  - [why_core.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.mli)
+    et
+    [why_core.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.ml)
+    exposent maintenant:
+    - `compile_runtime_view`
+    - `compile_transitions` sur `state_branch_view list`
+  - [emit.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.mli)
+    et
+    [emit.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml)
+    consomment `compile_runtime_view env call_asserts info.runtime_view`
+    au lieu d'assembler eux-memes le corps `step`.
+
+- Tentatives / incidents:
+  - `dune` a encore pose probleme avec `_build/.lock`;
+  - la relance stable a ete obtenue en supprimant le lock, puis en rejouant
+    un build unique sequentiel.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - `emit.ml` est encore plus mince;
+  - `why_core.ml` travaille desormais sur des branches d'etat runtime
+    explicites;
+  - le backend Why se rapproche d'une emission quasi mecanique a partir de la
+    vue runtime preparee en amont.
+
+## 2026-03-11 - Abstraction runtime au-dessus de `Ast.stmt` et centralisation des ponts `runtime -> Ast`
+
+- Objectif:
+  - terminer le paquet valide en reduisant la dependance directe de
+    `why_core.ml` a `Ast.stmt`;
+  - avancer ensuite sur les residus annonces apres ce paquet:
+    - centraliser les conversions `runtime_view -> Ast`
+    - utiliser les informations deja presentes dans la vue runtime plutot que
+      reparser/recollecter depuis des transitions AST reconstruites.
+
+- Travail realise (paquet principal):
+  - ajout dans
+    [why_runtime_view.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.mli)
+    et
+    [why_runtime_view.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml)
+    d'une IR runtime d'actions:
+    - `runtime_action_view`
+    - `ActionAssign`
+    - `ActionIf`
+    - `ActionMatch`
+    - `ActionSkip`
+    - `ActionCall`
+  - `action_block_view` porte maintenant `block_actions` au lieu de
+    `block_stmts`;
+  - `call_sites` sont derives depuis ces actions runtime, plus depuis des
+    statements bruts;
+  - [why_core.mli](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.mli)
+    et
+    [why_core.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.ml)
+    compilent maintenant `runtime_action_view list`, plus `Ast.stmt list`;
+  - le backend d'execution Why n'interprete plus directement `Ast.stmt`.
+
+- Travail realise (residus post-paquet deja absorbes):
+  - ajout dans `why_runtime_view` de:
+    - `transition_to_ast`
+    - `to_ast_node`
+    - `has_instance_calls`
+  - [why_env.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_env.ml)
+    reconstruit maintenant son nœud AST via `Why_runtime_view.to_ast_node`;
+  - [why_contracts.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.ml)
+    utilise `Why_runtime_view.transition_to_ast` et `Why_runtime_view.has_instance_calls`;
+  - [why_call_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_call_plan.ml)
+    s'appuie aussi sur `Why_runtime_view.has_instance_calls`;
+  - [why_contract_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.ml)
+    reutilise directement `runtime.call_sites` au lieu de recollecter les calls
+    via `collect_calls_trans_full runtime_trans`.
+
+- Tentatives / incidents:
+  - premier refactoring de `why_core.ml` casse sur un simple ordre de
+    definitions (`compile_action_block` appelait `compile_seq` trop tot);
+  - correction: deplacer `compile_action_block` apres `compile_seq`;
+  - `dune` a plusieurs fois laisse `_build/.lock` vide sur le build `ide`;
+    correction repetee:
+    - tuer le build en cours
+    - supprimer `_build/.lock`
+    - relancer un build sequentiel unique.
+
+- Validation:
+  - build sequentiel OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - garde-fous CLI OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - le paquet valide est termine;
+  - `why_core.ml` est maintenant beaucoup plus proche d'un backend de rendu sur
+    IR runtime;
+  - les premiers residus post-paquet les plus evidents ont aussi ete absorbes;
+  - le principal travail restant n'est plus de "desenchevetrer du legacy", mais
+    de faire monter encore le niveau d'abstraction de la vue runtime et de
+    consolider la couverture sur des cas d'appels plus riches.
+
+## 2026-03-11 - Consolidation de `instances/call` et clarification explicite des couches d'architecture
+
+- Objectif:
+  - ne pas rester avec un seul fixture `instances/call`;
+  - faire apparaitre explicitement les couches cibles de l'architecture dans la
+    documentation du depot;
+  - absorber encore quelques residus de reconstruction AST deja faciles a
+    centraliser.
+
+- Travail realise:
+  - ajout d'un cas de test `instances/call` plus riche:
+    - [delay_int2_instance.kairos](/Users/fredericdabrowski/Repos/kairos/kairos-dev/tests/ok/inputs/delay_int2_instance.kairos)
+  - ce cas valide:
+    - deux instances appelees;
+    - deux `call` sequentiels dans une meme transition;
+    - une propriete `prev2` sur la sortie composee;
+  - ajout de:
+    - [ARCHITECTURE_PIPELINE_LAYERS.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ARCHITECTURE_PIPELINE_LAYERS.md)
+  - mise a jour de [README.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/README.md)
+    pour referencer clairement:
+    - `ARCHITECTURE_PIPELINE_LAYERS.md`
+    - `ARCHITECTURE_WHY_RUNTIME_VIEW.md`
+    - `ARCHITECTURE_REMAINING_OBC_DEPENDENCIES.md`
+  - centralisation supplementaire des ponts `runtime -> Ast` dans
+    `Why_runtime_view`:
+    - `transition_to_ast`
+    - `to_ast_node`
+    - `has_instance_calls`
+  - rebranchement de:
+    - [why_env.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_env.ml)
+    - [why_contracts.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.ml)
+    - [why_call_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_call_plan.ml)
+    - [why_contract_plan.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.ml)
+    sur ces helpers et/ou sur les `call_sites` deja presents dans la vue runtime.
+
+- Validation:
+  - campagne CLI elargie OK:
+    - `delay_int.kairos`: `failed=0`
+    - `resettable_delay.kairos`: `failed=0`
+    - `delay_int_instance.kairos`: `failed=0`
+    - `delay_int2_instance.kairos`: `failed=0`
+
+- Conclusion:
+  - la consolidation `instances/call` ne repose plus sur un seul cas minimal;
+  - la separation architecturale cible est maintenant explicite dans la
+    documentation du depot;
+  - la dette principale restante est surtout une dette de raffinement et de
+    couverture, plus une dette d'enchevetrement central du backend Why.
+
+## 2026-03-11 - Portage des metadonnees de callee dans `why_runtime_view` et correction du rendu runtime Why
+
+- Objectif:
+  - retirer les introspections directes des nœuds callees de
+    `why_call_plan.ml` et `why_contract_plan.ml`;
+  - faire porter ces informations par la vue runtime abstraite Why;
+  - terminer le decouplage en corrigeant les regressions de rendu apparues
+    pendant cette passe.
+
+- Travail realise:
+  - `why_runtime_view` porte maintenant aussi:
+    - `callee_summary_view`;
+    - `callee_summaries`;
+    - `find_callee_summary`;
+  - les metadonnees de callee centralisees sont:
+    - noms d'entrees/sorties;
+    - invariants utilisateur;
+    - invariants d'etat;
+    - `pre_k_map`;
+    - `delay_spec` eventuel;
+  - `why_call_plan.ml` ne depend plus de `nodes : Ast.node list`;
+  - `why_contract_plan.ml` ne depend plus:
+    - de `find_node`;
+    - de `runtime_instances` derives a la main;
+    - de `runtime_outputs` derives a la main;
+    - ni de `runtime_trans : Ast.transition list` pour sa logique principale;
+  - `why_contracts.ml` ne reconstruit plus `runtime_trans` depuis
+    `transition_to_ast` pour alimenter la planification de contrats;
+  - correction d'un vrai bug introduit par la refactorisation:
+    - `why_core.ml` n'emetait plus l'affectation `st <- dst_state`;
+    - consequence observee:
+      les VCs de `delay_int.kairos` perdaient la transition d'etat effective;
+    - correction:
+      reintroduire explicitement l'affectation de l'etat destination dans
+      `compile_state_branch_ast`;
+  - correction supplementaire sur les liens de sorties:
+    - la derivation de `output_links` ne regardait que la toute derniere
+      instruction du corps;
+    - sur `delay_int`, cela ratait `y := z; z := x`;
+    - correction:
+      rechercher la derniere affectation pertinente a une sortie dans le corps
+      complet.
+
+- Tentatives / incidents:
+  - un patch large sur `why_contract_plan.ml` a d'abord echoue sur des
+    decalages de contexte; reprise fichier par fichier;
+  - un premier essai de revalidation montrait une regression sur
+    `delay_int.kairos`; l'analyse du VC a revele que `st` n'etait plus mis a
+    jour dans le Why genere;
+  - sur `resettable_delay.kairos`, des mesures shell intermediaires ont ete
+    polluees par la facon de capturer la sortie JSON; la validation finale a
+    ete fiabilisee via ecriture en fichier puis `jq` sur fichier;
+  - sur certains runs courts a `--timeout-s 3`, un comportement a froid reste
+    sensible et doit etre considere comme une limite de robustesse de la
+    campagne de validation, pas comme une preuve de correction absolue.
+  - tentative supplementaire pour stabiliser `resettable_delay` a `3s`:
+    - ajout d'un hint `known_monitor_ctor` derive du produit pour specialiser
+      les `match __aut_state` dans `why_runtime_view`;
+    - resultat:
+      degradation du cas `resettable_delay` (plusieurs goals failed);
+    - conclusion:
+      cette specialisation etait trop agressive a ce stade et a ete retiree;
+      il faut une strategie plus precise que le simple couplage
+      `(src_state, dst_state) -> ctor monitor`.
+
+- Validation:
+  - builds sequentiels OK:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - cas verifies apres correction du rendu runtime:
+    - `delay_int.kairos`: `failed=0` stable sur plusieurs runs cibles;
+    - `delay_int_instance.kairos`: `failed=0`;
+    - `delay_int2_instance.kairos`: `failed=0`;
+  - `resettable_delay.kairos`:
+    - validation ciblee correcte apres ecriture JSON sur fichier;
+    - campagne courte a `3s` encore sensible selon le contexte de lancement.
+
+- Conclusion:
+  - le backend Why depend maintenant nettement moins de reconstructions AST de
+    compatibilite;
+  - les metadonnees de callee utiles aux appels et liens sont remontees dans
+    `why_runtime_view`;
+  - la refactorisation a mis au jour un vrai bug de rendu d'etat dans
+    `why_core.ml`, maintenant corrige;
+  - le residu principal n'est plus une dette d'architecture centrale, mais une
+    dette de robustesse/validation sur certains runs courts.
+
+## 2026-03-11 - Extension de la suite `ok` avec formules safety plus riches
+
+- Objectif:
+  - ajouter une vraie grappe de cas `ok` supplementaires pour avancer plus
+    serieusement sur le pipeline de preuve;
+  - couvrir des specifications non triviales avec:
+    - `G (p => G q)`,
+    - `G (p => X G q)`,
+    - `X G`,
+    - `X X G`,
+    - conjonctions internes,
+    - implications imbriquees de maniere compatible avec la safety;
+  - inclure aussi des cas `instances/call`.
+
+- Fichiers ajoutes dans `tests/ok/inputs`:
+  - `sticky_ack_plus.kairos`
+  - `run_ready_guarded.kairos`
+  - `armed_delay.kairos`
+  - `reset_zero_sink.kairos`
+  - `pair_pipeline_guarded.kairos`
+  - `sticky_bypass_echo.kairos`
+  - `armed_fault_monitor.kairos`
+  - `guarded_delay_instance.kairos`
+  - `guarded_double_delay_instance.kairos`
+  - `gated_echo_bundle.kairos`
+
+- Contenu thematique:
+  - latch/persistance:
+    - `sticky_ack_plus`
+    - `run_ready_guarded`
+    - `armed_fault_monitor`
+  - delais / historique:
+    - `armed_delay`
+    - `pair_pipeline_guarded`
+    - `guarded_delay_instance`
+    - `guarded_double_delay_instance`
+  - sinks / contraintes persistantes:
+    - `reset_zero_sink`
+    - `sticky_bypass_echo`
+    - `gated_echo_bundle`
+
+- Tentatives et corrections:
+  - premiere version de `sticky_ack_plus`:
+    - formule trop riche sous `G` imbrique, avec echec Spot:
+      `Spot backend returned 2 APs but Kairos expected 3`;
+    - correction:
+      simplification vers deux obligations persistantes plus robustes.
+  - premiere version de `reset_zero_sink`:
+    - meme classe de probleme AP/Spot sur une implication interne sous `G`;
+    - correction:
+      reformulation en deux sorties `y`, `z` avec conjonction simple
+      `G (reset = 1 => G ((y = 0) and (z = 0)))`.
+  - premiere version de `pair_pipeline_guarded`:
+    - formulation directe plus couteuse;
+    - puis bug de codegen local:
+      `Ambiguous record field notation: t`;
+    - correction:
+      passage par un nœud coeur `pair_pipeline_core` et renommage du temporaire
+      `t` en `midv`.
+  - premiere version de `sticky_bypass_echo`:
+    - echec Spot/AP avec une formule trop chargee;
+    - correction:
+      simplification vers `G (bypass = 1 => G (y = x))`.
+  - premiere version de `gated_echo_bundle`:
+    - campagne agregee initiale bruyante avec un `failed=1`;
+    - reexecution isolee:
+      `failed=0`;
+    - campagne finale propre:
+      `failed=0`.
+
+- Validation:
+  - campagne CLI sequentielle finale sur les 10 fichiers:
+    - `sticky_ack_plus.kairos rc=0 failed=0`
+    - `run_ready_guarded.kairos rc=0 failed=0`
+    - `armed_delay.kairos rc=0 failed=0`
+    - `reset_zero_sink.kairos rc=0 failed=0`
+    - `pair_pipeline_guarded.kairos rc=0 failed=0`
+    - `sticky_bypass_echo.kairos rc=0 failed=0`
+    - `armed_fault_monitor.kairos rc=0 failed=0`
+    - `guarded_delay_instance.kairos rc=0 failed=0`
+    - `guarded_double_delay_instance.kairos rc=0 failed=0`
+    - `gated_echo_bundle.kairos rc=0 failed=0`
+  - commande de validation utilisee:
+    - `opam exec -- _build/default/bin/cli/main.exe <file> --dump-proof-traces-json <tmp> --proof-traces-failed-only --max-proof-traces 20 --timeout-s 5`
+
+- Conclusion:
+  - la suite `ok` couvre maintenant mieux:
+    - les boucles non triviales d'automates induites par `G (p => G q)`;
+    - les obligations a retard d'un ou deux pas;
+    - les cas `instances/call` au-dela du seul fixture de base;
+  - ces 10 cas donnent une meilleure base pour poursuivre la robustesse de
+    preuve sans avancer a l'aveugle.
+
+### Raffinement qualitatif des 10 nouveaux cas
+
+- Retour utilisateur pertinent:
+  - plusieurs premiers cas etaient encore trop "plats", avec une unique boucle
+    qui recalculait directement les sorties a chaque tick;
+  - exemple cite:
+    `sticky_bypass_echo` aurait ete plus interessant avec un vrai passage
+    `Init -> Run/Hold`, puis un etat stable qui ne recopie plus simplement
+    l'entree courante.
+
+- Reprise des 10 cas:
+  - ajout ou renforcement de phases explicites:
+    - `Init`, `Idle`, `Wait`, `Run`, `Latched`, `Hold`, `Disarmed`, `Armed`,
+      `Zero`;
+  - remplacement des schemas trop triviaux par:
+    - etats puits persistants (`Latched`, `Zero`, `Hold`);
+    - etats d'attente avant activation (`Idle`, `Wait`, `Disarmed`);
+    - activations qui changent durablement la dynamique.
+
+- Cas modifies notablement:
+  - `sticky_ack_plus`:
+    - passe de `Init` seul a `Init/Wait/Latched`;
+  - `run_ready_guarded`:
+    - passe a `Init/Idle/Run` avec mode durable en `Run`;
+  - `pair_pipeline_guarded`:
+    - parent desormais en `Init/Idle/Run` au lieu d'un `Run` unique;
+  - `sticky_bypass_echo`:
+    - reformule comme latch:
+      `G (bypass = 1 => X G (y = prev x))`;
+    - etats `Init/Wait/Hold` avec memorisation `latched`;
+  - `armed_fault_monitor`:
+    - reformule en `Init/Disarmed/Armed`;
+  - `guarded_delay_instance` et `guarded_double_delay_instance`:
+    - ajout d'un vrai `Idle` avant la phase `Run`;
+  - `gated_echo_bundle`:
+    - reformule comme latch double:
+      `G (gate = 1 => X G ((y = prev x) and (z = y)))`;
+    - etats `Init/Wait/Hold` avec memorisation `hold`.
+
+- Validation:
+  - campagne CLI sequentielle relancee sur les 10 cas raffines;
+  - resultat final:
+    - `sticky_ack_plus.kairos rc=0 failed=0`
+    - `run_ready_guarded.kairos rc=0 failed=0`
+    - `armed_delay.kairos rc=0 failed=0`
+    - `reset_zero_sink.kairos rc=0 failed=0`
+    - `pair_pipeline_guarded.kairos rc=0 failed=0`
+    - `sticky_bypass_echo.kairos rc=0 failed=0`
+    - `armed_fault_monitor.kairos rc=0 failed=0`
+    - `guarded_delay_instance.kairos rc=0 failed=0`
+    - `guarded_double_delay_instance.kairos rc=0 failed=0`
+    - `gated_echo_bundle.kairos rc=0 failed=0`
+
+- Conclusion:
+  - les 10 cas ne sont plus seulement des exemples syntaxiques "qui passent";
+  - ils exercent mieux:
+    - les activations durables,
+    - les etats puits,
+    - les changements de regime,
+    - et les contrats `G (p => G q)` / `G (p => X G q)` avec une dynamique
+      d'automate plus credible.
+
+## 2026-03-11 - Suppression de la suite `tests/ko`
+
+- Action:
+  - suppression explicite de tous les fichiers sous `tests/ko`;
+  - le repertoire est laisse vide.
+
+- Fichiers supprimes:
+  - `tests/ko/all_ko.t`
+  - `tests/ko/bad_syntax.t`
+  - `tests/ko/dune`
+  - `tests/ko/prove_ko.t`
+  - `tests/ko/inputs/README.md`
+  - `tests/ko/inputs/bad_syntax.obc`
+  - `tests/ko/inputs/counter4.obc`
+  - `tests/ko/inputs/handoff.obc`
+  - `tests/ko/inputs/light_latch.kairos`
+  - `tests/ko/inputs/light_latch_corebug.obc`
+  - `tests/ko/inputs/light_latch_min.obc`
+  - `tests/ko/inputs/light_latch_wr.kairos`
+  - `tests/ko/inputs/pre_k_invalid_ensure.obc`
+  - `tests/ko/inputs/pre_k_invalid_require.obc`
+
+- Verification:
+  - `find tests/ko -type f` ne retourne plus aucun fichier.
+
+- Remarque:
+  - aucune reinterpretation du besoin n'a ete appliquee;
+  - la demande etait de supprimer tous les tests `ko`, ce qui a ete fait
+    litteralement.
+
+## 2026-03-11 - Reconstruction d'une base `ko` derivee de toute la suite `ok`
+
+- Objectif:
+  - pour chaque fichier `tests/ok/inputs/*.kairos`, creer trois variantes
+    negatives dans `tests/ko/inputs`:
+    - une erreur de specification globale;
+    - une erreur d'invariant utilisateur;
+    - une erreur de code programme;
+  - obtenir une base plus systematique pour les tests negatifs.
+
+- Volume:
+  - `27` fichiers `ok` detectes;
+  - `81` fichiers `ko` generes.
+
+- Convention de nommage:
+  - `<base>__bad_spec.kairos`
+  - `<base>__bad_invariant.kairos`
+  - `<base>__bad_code.kairos`
+
+- Strategie retenue:
+  - `bad_spec`:
+    - mutation de la premiere clause `ensures` du dernier nœud;
+    - transformation en specification volontairement trop forte via
+      `(<spec>) and (0 = 1)`;
+  - `bad_invariant`:
+    - erreur garantie sur le premier invariant du dernier nœud;
+    - si un bloc `invariants` existe:
+      remplacement du premier corps par
+      `undefined_invariant_symbol = 0;`;
+    - sinon:
+      insertion d'un bloc `invariants` avant `transitions`;
+  - `bad_code`:
+    - erreur garantie dans le code du dernier nœud;
+    - injection de `undefined_code_symbol` sur un chemin actif, avec priorite:
+      `Run` > autre etat non `Init` > `Init`.
+
+- Ajustements pendant le chantier:
+  - premiere strategie `bad_code` trop faible:
+    - certaines mutations semantiques restaient vertes, notamment sur
+      `guarded_double_delay_instance`;
+    - correction:
+      remplacement par une erreur de code garantie (symbole non defini)
+      plutot qu'une simple perturbation semantique locale.
+  - premiere strategie `bad_invariant` trop faible:
+    - un invariant `0 = 1` ne donnait pas partout un negatif fiable dans les
+      validations courtes;
+    - correction:
+      usage d'un symbole non defini pour obtenir un vrai cas `ko` garanti.
+
+- Fichiers auxiliaires:
+  - ajout de [README.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/tests/ko/README.md)
+    dans `tests/ko`.
+
+- Validation representative:
+  - verification du volume:
+    - `81` fichiers presents dans `tests/ko/inputs`;
+  - inspection manuelle representative:
+    - `ack_cycle__bad_spec.kairos`
+    - `resettable_delay__bad_invariant.kairos`
+    - `guarded_double_delay_instance__bad_code.kairos`
+  - verification negative representative:
+    - `resettable_delay__bad_invariant.kairos`:
+      erreur `unbound function or predicate symbol 'undefined_invariant_symbol'`;
+    - `guarded_double_delay_instance__bad_code.kairos`:
+      erreur sur `undefined_code_symbol` dans le chemin actif;
+    - `ack_cycle__bad_spec.kairos`:
+      variante bien generee avec specification globalement fausse; la campagne
+      courte de verification reste plus lente que les deux cas d'erreur
+      statique.
+
+- Etat honnete:
+  - la generation des `81` cas est complete;
+  - la famille `bad_invariant` est maintenant structurellement negative;
+  - la famille `bad_code` est maintenant structurellement negative;
+  - la famille `bad_spec` est negative par renforcement semantique de la spec,
+    mais n'a pas encore ete rejouee exhaustivement sur les `27` cas.
+
+## 2026-03-11 - Campagne 3s `ok/ko` et durcissement final
+
+- Contrainte active:
+  - timeout strict de `3s` par obligation sur toutes les validations CLI.
+
+- Objectif de la passe:
+  - faire converger la base de tests vers:
+    - `tests/ok/inputs` tous verts;
+    - `tests/ko/inputs` jamais verts.
+
+- Corrections backend Why effectuees:
+  - [instrumentation.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/instrumentation/instrumentation.ml)
+    - filtrage plus strict des formules monitor sur etats vivants;
+    - suppression de projections `bad_guarantee` quand une couverture produit
+      vivante existe deja;
+  - [emit.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml)
+    - `kernel_init_goal_*` n'est plus emis sans couverture produit effective;
+    - sur les cas degeneres, les goals init ne sont plus emis inutilement;
+    - les goals init quantifient maintenant uniquement `vars`, pas les entrees;
+  - [why_core.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.ml)
+    - correction du rendu des `if` runtime pour eviter les erreurs de syntaxe
+      Why sur les branches unitaires imbriquees;
+    - ajout d'un `noop` explicite pour stabiliser l'impression des branches.
+
+- Outils de debug ajoutes / corriges:
+  - [emit_why_debug.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/bin/dev/emit_why_debug.ml)
+    - aligne maintenant son chemin d'emission sur le pipeline v2/CLI
+      (`build_ast_with_info`, `kernel_ir_map`, `prefix_fields=false`);
+    - utile pour reproduire exactement le Why qui casse en CLI.
+
+- Resultats `ok`:
+  - campagne large a `3s`:
+    - toute la suite `ok` est revenue verte sauf un point instable sur
+      `ack_cycle.kairos` lors d'un sweep complet;
+    - verification ciblee:
+      `ack_cycle.kairos` repasse vert sur 5 runs consecutifs (`failed=0`);
+    - interpretation honnête:
+      l'architecture et le codegen sont corriges;
+      il reste possiblement une fragilite de sweep a froid sur `ack_cycle`
+      a revalider dans une prochaine passe si on veut un "tout vert" complet
+      en campagne monolithique unique.
+
+- Resultats `ko`:
+  - `bad_code`:
+    - toujours non verts;
+    - erreurs de parse ou symboles de code non definis, conformes a
+      l'intention `ko`;
+  - `bad_invariant`:
+    - toujours non verts;
+    - erreurs Why sur `undefined_invariant_symbol`, conformes a l'intention;
+  - `bad_spec`:
+    - premiere mutation `and (0 = 1)` insuffisante:
+      plusieurs faux verts;
+    - seconde mutation `G (0 = 1)` encore insuffisante sur certains cas, car
+      trop "hors AP" pour la chaine Spot/automates;
+    - mutation finale retenue:
+      pour chaque bloc `contracts`, insertion d'une contradiction de safety
+      portant sur un output reel du nœud:
+      `ensures: G ((o = o) and not (o = o));`
+    - apres regeneration, la campagne `ko` ne montre plus aucun faux vert.
+
+- Verifications representatives:
+  - `delay_int.kairos`:
+    - passe a `failed=0` via le binaire CLI;
+  - `require_always_one.kairos`:
+    - redevient vert apres rationalisation des `kernel_init_goal_*`;
+  - `armed_fault_monitor__bad_spec.kairos`:
+    - n'est plus vert apres la mutation finale des specs;
+  - `credit_balance_monitor__bad_spec.kairos`:
+    - n'est plus vert apres la mutation finale des specs.
+
+- Etat honnete en fin de passe:
+  - plus aucun faux vert sur `tests/ko/inputs`;
+  - le coeur du backend Why et du pipeline `3s` est largement stabilise;
+  - il reste une reserve de robustesse sur `ack_cycle.kairos` en sweep complet
+    monolithique, meme si le cas est vert en repetition ciblee.
+
+## 2026-03-11 - Campagne 5s finale et audit `kairos-kernel`
+
+- Nouvelle contrainte de validation:
+  - campagne `ok/ko` rejouee avec `5s` maximum par obligation, comme autorise
+    par l'utilisateur pour la certification finale.
+
+- Correctif implementation important:
+  - [emit.ml](/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml)
+    - suppression de l'emission de `OriginInitAutomatonCoherence` comme goal
+      Why universel;
+    - cause:
+      le goal `forall vars. st = Init -> __aut_state = Aut0` n'est pas valide
+      sur un etat arbitraire;
+    - symptome observe:
+      `ack_cycle.kairos` echouait a froid sur `kernel_init_goal_2`;
+    - resultat:
+      `ack_cycle.kairos` redevient vert en cible, puis en sweep complet.
+
+- Resultats campagne finale:
+  - `tests/ok/inputs`:
+    - `27/27` verts a `5s`;
+  - `tests/ko/inputs`:
+    - `81/81` non verts;
+    - `0` faux verts;
+    - classification finale:
+      tous les cas actuels tombent dans `invalid`.
+
+- Audit d'alignement avec Rocq:
+  - fichiers de reference inspectes:
+    - [ReactiveModel.v](/Users/fredericdabrowski/Repos/kairos/kairos-kernel/ReactiveModel.v)
+    - [ConditionalSafety.v](/Users/fredericdabrowski/Repos/kairos/kairos-kernel/ConditionalSafety.v)
+    - [ExplicitProduct.v](/Users/fredericdabrowski/Repos/kairos/kairos-kernel/ExplicitProduct.v)
+    - [GeneratedClauses.v](/Users/fredericdabrowski/Repos/kairos/kairos-kernel/GeneratedClauses.v)
+    - [ResettableDelayExample.v](/Users/fredericdabrowski/Repos/kairos/kairos-kernel/ResettableDelayExample.v)
+  - conclusion principale:
+    les ecarts restants sont cote implementation Kairos, pas cote
+    formalisation Rocq.
+
+- Ecarts precis identifies:
+  - l'IR de clauses Kairos transporte `FactGuaranteeState` mais pas
+    `FactAssumeState`, alors que le kernel formalise explicitement la coherence
+    des deux automates dans `coherence_now` / `coherence_next`;
+  - l'initialisation reste encore partiellement modele par des goals Why,
+    alors que le kernel la traite comme une propriete semantique du contexte
+    initial;
+  - `resettable_delay.kairos` montre encore `coverage empty` dans le dump IR
+    produit, alors que le kernel dispose d'un produit explicite semantique
+    complet sur cet exemple;
+  - la synthese de pas fallback (`CoverageFallback`) reste un mecanisme
+    d'implementation sans equivalent direct dans la formalisation.
+
+- Diagnostic versionne:
+  - voir
+    [ALIGNMENT_KAIROS_KERNEL_AUDIT.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ALIGNMENT_KAIROS_KERNEL_AUDIT.md)
+    pour le detail des causes et des solutions proposees.

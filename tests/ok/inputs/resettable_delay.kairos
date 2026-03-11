@@ -1,9 +1,9 @@
 node resettable_delay(reset: int, x: int) returns (y: int)
 contracts
-  requires: G((reset = 0 or reset = 1) and (reset = 1 => x = 0));
-  ensures: G((reset = 1) => (y = 0));
-  ensures: X G((reset = 0 and prev reset = 1) => y = 0);
-  ensures: X G((reset = 0 and prev reset = 0) => y = prev x);
+  requires : G ((reset = 0 or reset = 1) and (reset = 1 => x = 0));
+  ensures  : G ((reset = 1) => (y = 0));
+  ensures  : X G ((reset = 0 and prev reset = 1) => y = 0);
+  ensures  : X G ((reset = 0 and prev reset = 0) => y = prev x);
 locals
   m : int;
 states
@@ -32,3 +32,4 @@ transitions
       m := x;
     }
 end
+  

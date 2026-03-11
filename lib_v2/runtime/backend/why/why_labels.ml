@@ -38,6 +38,10 @@ let sanitize_label (label : string) : string =
 
 let attr_string (label : string) : string = "origin:" ^ sanitize_label (normalize_label label)
 let attr_for_label (label : string) : Ident.attribute = Ident.create_attribute (attr_string label)
+let hyp_id_attr_string (id : int) : string = Printf.sprintf "hid:%d" id
+let hyp_id_attr (id : int) : Ident.attribute = Ident.create_attribute (hyp_id_attr_string id)
+let hyp_kind_attr_string (kind : string) : string = "hkind:" ^ sanitize_label kind
+let hyp_kind_attr (kind : string) : Ident.attribute = Ident.create_attribute (hyp_kind_attr_string kind)
 
 let known_labels : string list =
   [
@@ -69,3 +73,23 @@ let label_of_attrs (attrs : Ident.Sattr.t) : string option =
   List.find_map
     (fun (label, attr) -> if Ident.Sattr.mem attr attrs then Some label else None)
     label_attrs
+
+let origin_labels_of_attrs (attrs : Ident.Sattr.t) : string list =
+  Ident.Sattr.elements attrs
+  |> List.filter_map (fun attr ->
+         let s = attr.Ident.attr_string in
+         let prefix = "origin:" in
+         let plen = String.length prefix in
+         if String.length s >= plen && String.sub s 0 plen = prefix then
+           Some (String.sub s plen (String.length s - plen))
+         else None)
+
+let hyp_kind_of_attrs (attrs : Ident.Sattr.t) : string option =
+  Ident.Sattr.elements attrs
+  |> List.find_map (fun attr ->
+         let s = attr.Ident.attr_string in
+         let prefix = "hkind:" in
+         let plen = String.length prefix in
+         if String.length s >= plen && String.sub s 0 plen = prefix then
+           Some (String.sub s plen (String.length s - plen))
+         else None)

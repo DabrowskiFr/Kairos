@@ -2,7 +2,7 @@
   "name": "kairos-vscode",
   "displayName": "Kairos",
   "description": "Kairos language support via the Kairos LSP server",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "publisher": "kairos",
   "engines": {
     "vscode": "^1.85.0"
@@ -19,23 +19,34 @@
     "onCommand:kairos.prove",
     "onCommand:kairos.instrumentation",
     "onCommand:kairos.eval",
+    "onCommand:kairos.cancelRun",
+    "onCommand:kairos.resetState",
+    "onCommand:kairos.automataPanel",
+    "onCommand:kairos.dashboardPanel",
+    "onCommand:kairos.explainFailure",
+    "onCommand:kairos.artifactsPanel",
+    "onCommand:kairos.evalPanel",
+    "onCommand:kairos.pipelinePanel",
+    "onCommand:kairos.compareAutomata",
+    "onCommand:kairos.exportHtmlReport",
+    "onCommand:kairos.openRecentFile",
+    "onCommand:kairos.diffObc",
+    "onCommand:kairos.showRunHistory",
+    "onCommand:kairos.openTraceLogs",
     "onCommand:kairos.openObc",
     "onCommand:kairos.openWhy",
     "onCommand:kairos.openVc",
     "onCommand:kairos.openSmt",
-    "onCommand:kairos.openDot",
     "onCommand:kairos.openLabels",
     "onCommand:kairos.openAssumeText",
     "onCommand:kairos.openGuaranteeText",
     "onCommand:kairos.openProductText",
     "onCommand:kairos.openObligationsMap",
     "onCommand:kairos.openPruneReasons",
-    "onCommand:kairos.showAssumePng",
-    "onCommand:kairos.showGuaranteePng",
-    "onCommand:kairos.showProductPng",
     "onView:kairosOutline",
     "onView:kairosGoals",
-    "onView:kairosArtifacts"
+    "onView:kairosArtifacts",
+    "onView:kairosRuns"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -73,6 +84,70 @@
         "title": "Kairos: Eval Trace"
       },
       {
+        "command": "kairos.cancelRun",
+        "title": "Kairos: Cancel Run"
+      },
+      {
+        "command": "kairos.resetState",
+        "title": "Kairos: Reset State"
+      },
+      {
+        "command": "kairos.automataPanel",
+        "title": "Kairos: Open Automata Studio"
+      },
+      {
+        "command": "kairos.dashboardPanel",
+        "title": "Kairos: Open Proof Dashboard"
+      },
+      {
+        "command": "kairos.explainFailure",
+        "title": "Kairos: Open Explain Failure"
+      },
+      {
+        "command": "kairos.artifactsPanel",
+        "title": "Kairos: Open Artifacts Workspace"
+      },
+      {
+        "command": "kairos.evalPanel",
+        "title": "Kairos: Open Eval Playground"
+      },
+      {
+        "command": "kairos.pipelinePanel",
+        "title": "Kairos: Open Pipeline View"
+      },
+      {
+        "command": "kairos.compareAutomata",
+        "title": "Kairos: Compare Current and Previous Automata"
+      },
+      {
+        "command": "kairos.exportHtmlReport",
+        "title": "Kairos: Export HTML Report"
+      },
+      {
+        "command": "kairos.openRecentFile",
+        "title": "Kairos: Open Recent File"
+      },
+      {
+        "command": "kairos.diffObc",
+        "title": "Kairos: Diff OBC with Previous Run"
+      },
+      {
+        "command": "kairos.showRunHistory",
+        "title": "Kairos: Show Run History"
+      },
+      {
+        "command": "kairos.openTraceLogs",
+        "title": "Kairos: Open Kairos Logs"
+      },
+      {
+        "command": "kairos.openArtifact",
+        "title": "Kairos: Open Artifact"
+      },
+      {
+        "command": "kairos.openDumpPath",
+        "title": "Kairos: Open SMT Dump"
+      },
+      {
         "command": "kairos.openObc",
         "title": "Kairos: Open OBC+"
       },
@@ -87,10 +162,6 @@
       {
         "command": "kairos.openSmt",
         "title": "Kairos: Open SMT"
-      },
-      {
-        "command": "kairos.openDot",
-        "title": "Kairos: Open DOT"
       },
       {
         "command": "kairos.openLabels",
@@ -115,18 +186,6 @@
       {
         "command": "kairos.openPruneReasons",
         "title": "Kairos: Open Prune Reasons"
-      },
-      {
-        "command": "kairos.showAssumePng",
-        "title": "Kairos: Show Assume Automaton (PNG)"
-      },
-      {
-        "command": "kairos.showGuaranteePng",
-        "title": "Kairos: Show Guarantee Automaton (PNG)"
-      },
-      {
-        "command": "kairos.showProductPng",
-        "title": "Kairos: Show Product Automaton (PNG)"
       }
     ],
     "viewsContainers": {
@@ -151,10 +210,31 @@
         {
           "id": "kairosArtifacts",
           "name": "Artifacts"
+        },
+        {
+          "id": "kairosRuns",
+          "name": "Runs"
         }
       ]
     },
     "menus": {
+      "editor/context": [
+        {
+          "command": "kairos.evalPanel",
+          "when": "resourceLangId == kairos",
+          "group": "navigation"
+        },
+        {
+          "command": "kairos.artifactsPanel",
+          "when": "resourceLangId == kairos",
+          "group": "navigation"
+        },
+        {
+          "command": "kairos.openRecentFile",
+          "when": "resourceLangId == kairos",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "kairos.openWhyForVc",
@@ -162,6 +242,32 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "kairos.build",
+        "key": "ctrl+alt+b",
+        "mac": "cmd+alt+b",
+        "when": "editorTextFocus && resourceLangId == kairos"
+      },
+      {
+        "command": "kairos.prove",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p",
+        "when": "editorTextFocus && resourceLangId == kairos"
+      },
+      {
+        "command": "kairos.evalPanel",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorTextFocus && resourceLangId == kairos"
+      },
+      {
+        "command": "kairos.cancelRun",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "when": "editorTextFocus && resourceLangId == kairos"
+      }
+    ],
     "languages": [
       {
         "id": "kairos",
@@ -174,6 +280,13 @@
           ".obc"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kairos",
+        "scopeName": "source.kairos",
+        "path": "./syntaxes/kairos.tmLanguage.json"
       }
     ],
     "configuration": {
@@ -201,6 +314,78 @@
           "type": "string",
           "default": "",
           "description": "Trace log file path (KAIROS_LSP_TRACE_FILE)."
+        },
+        "kairos.run.engine": {
+          "type": "string",
+          "default": "v2",
+          "enum": ["v2"],
+          "description": "Kairos engine to use for runs."
+        },
+        "kairos.run.prover": {
+          "type": "string",
+          "default": "z3",
+          "description": "Default prover used for Build and Prove."
+        },
+        "kairos.run.proverCmd": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit prover command."
+        },
+        "kairos.run.timeoutS": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "description": "Prover timeout in seconds."
+        },
+        "kairos.run.wpOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate weakest-precondition obligations only."
+        },
+        "kairos.run.smokeTests": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable smoke obligations during prove runs."
+        },
+        "kairos.run.prefixFields": {
+          "type": "boolean",
+          "default": false,
+          "description": "Prefix fields during Why generation."
+        },
+        "kairos.run.generateVcText": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep VC text in run outputs."
+        },
+        "kairos.run.generateSmtText": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep SMT text in run outputs."
+        },
+        "kairos.run.generateMonitorText": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep automata and product textual outputs in run outputs."
+        },
+        "kairos.run.generateDotPng": {
+          "type": "boolean",
+          "default": false,
+          "description": "Request PNG generation from the backend during runs."
+        },
+        "kairos.ui.openDashboardAfterProve": {
+          "type": "boolean",
+          "default": true,
+        "description": "Open the proof dashboard automatically after a prove run."
+        },
+        "kairos.ui.restoreSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Refresh outline and restore Kairos context when reopening the workspace."
+        },
+        "kairos.ui.exportReportOnDemand": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable HTML proof report export commands."
         }
       }
     }

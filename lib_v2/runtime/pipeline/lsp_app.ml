@@ -84,6 +84,57 @@ let client_supports_work_done_progress (params : Yojson.Safe.t) : bool =
 let loc_of_ast (l : Ast.loc) : Lsp_protocol.loc =
   { line = l.line; col = l.col; line_end = l.line_end; col_end = l.col_end }
 
+let text_span_of_pipeline (span : Pipeline.text_span) : Lsp_protocol.text_span =
+  { start_offset = span.start_offset; end_offset = span.end_offset }
+
+let proof_diagnostic_of_pipeline (diag : Pipeline.proof_diagnostic) : Lsp_protocol.proof_diagnostic =
+  {
+    category = diag.category;
+    summary = diag.summary;
+    detail = diag.detail;
+    probable_cause = diag.probable_cause;
+    missing_elements = diag.missing_elements;
+    goal_symbols = diag.goal_symbols;
+    analysis_method = diag.analysis_method;
+    solver_detail = diag.solver_detail;
+    native_unsat_core_solver = diag.native_unsat_core_solver;
+    native_unsat_core_hypothesis_ids = diag.native_unsat_core_hypothesis_ids;
+    native_counterexample_solver = diag.native_counterexample_solver;
+    native_counterexample_model = diag.native_counterexample_model;
+    kairos_core_hypotheses = diag.kairos_core_hypotheses;
+    why3_noise_hypotheses = diag.why3_noise_hypotheses;
+    relevant_hypotheses = diag.relevant_hypotheses;
+    context_hypotheses = diag.context_hypotheses;
+    unused_hypotheses = diag.unused_hypotheses;
+    suggestions = diag.suggestions;
+    limitations = diag.limitations;
+  }
+
+let proof_trace_of_pipeline (trace : Pipeline.proof_trace) : Lsp_protocol.proof_trace =
+  {
+    goal_index = trace.goal_index;
+    stable_id = trace.stable_id;
+    goal_name = trace.goal_name;
+    status = trace.status;
+    solver_status = trace.solver_status;
+    time_s = trace.time_s;
+    source = trace.source;
+    node = trace.node;
+    transition = trace.transition;
+    obligation_kind = trace.obligation_kind;
+    obligation_family = trace.obligation_family;
+    obligation_category = trace.obligation_category;
+    origin_ids = trace.origin_ids;
+    vc_id = trace.vc_id;
+    source_span = Option.map loc_of_ast trace.source_span;
+    obc_span = Option.map text_span_of_pipeline trace.obc_span;
+    why_span = Option.map text_span_of_pipeline trace.why_span;
+    vc_span = Option.map text_span_of_pipeline trace.vc_span;
+    smt_span = Option.map text_span_of_pipeline trace.smt_span;
+    dump_path = trace.dump_path;
+    diagnostic = proof_diagnostic_of_pipeline trace.diagnostic;
+  }
+
 let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
   {
     obc_text = o.obc_text;
@@ -104,6 +155,7 @@ let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
     product_dot = o.product_dot;
     stage_meta = o.stage_meta;
     goals = o.goals;
+    proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
     obcplus_sequents = o.obcplus_sequents;
     vc_sources = o.vc_sources;
     task_sequents = o.task_sequents;
@@ -120,6 +172,15 @@ let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
     automata_build_time_s = o.automata_build_time_s;
     why3_prep_time_s = o.why3_prep_time_s;
     dot_png = o.dot_png;
+    dot_png_error = o.dot_png_error;
+    program_png = o.program_png;
+    program_png_error = o.program_png_error;
+    guarantee_automaton_png = o.guarantee_automaton_png;
+    guarantee_automaton_png_error = o.guarantee_automaton_png_error;
+    assume_automaton_png = o.assume_automaton_png;
+    assume_automaton_png_error = o.assume_automaton_png_error;
+    product_png = o.product_png;
+    product_png_error = o.product_png_error;
   }
 
 let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs =
@@ -137,6 +198,15 @@ let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;
     dot_png = o.dot_png;
+    dot_png_error = o.dot_png_error;
+    program_png = o.program_png;
+    program_png_error = o.program_png_error;
+    guarantee_automaton_png = o.guarantee_automaton_png;
+    guarantee_automaton_png_error = o.guarantee_automaton_png_error;
+    assume_automaton_png = o.assume_automaton_png;
+    assume_automaton_png_error = o.assume_automaton_png_error;
+    product_png = o.product_png;
+    product_png_error = o.product_png_error;
     stage_meta = o.stage_meta;
   }
 
