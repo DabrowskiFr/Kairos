@@ -1,12 +1,14 @@
 type automaton_role =
   | Assume
   | Guarantee
+[@@deriving yojson]
 
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.fo;
 }
+[@@deriving yojson]
 
 type reactive_program_ir = {
   node_name : Ast.ident;
@@ -14,12 +16,14 @@ type reactive_program_ir = {
   states : Ast.ident list;
   transitions : reactive_transition_ir list;
 }
+[@@deriving yojson]
 
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
   guard : Ast.fo;
 }
+[@@deriving yojson]
 
 type safety_automaton_ir = {
   role : automaton_role;
@@ -28,21 +32,25 @@ type safety_automaton_ir = {
   state_labels : (int * string) list;
   edges : automaton_edge_ir list;
 }
+[@@deriving yojson]
 
 type product_state_ir = {
   prog_state : Ast.ident;
   assume_state_index : int;
   guarantee_state_index : int;
 }
+[@@deriving yojson]
 
 type product_step_kind =
   | StepSafe
   | StepBadAssumption
   | StepBadGuarantee
+[@@deriving yojson]
 
 type product_step_origin =
   | StepFromExplicitExploration
   | StepFromFallbackSynthesis
+[@@deriving yojson]
 
 type product_step_ir = {
   src : product_state_ir;
@@ -54,11 +62,13 @@ type product_step_ir = {
   step_kind : product_step_kind;
   step_origin : product_step_origin;
 }
+[@@deriving yojson]
 
 type product_coverage_ir =
   | CoverageEmpty
   | CoverageExplicit
   | CoverageFallback
+[@@deriving yojson]
 
 type generated_clause_origin =
   | OriginSafety
@@ -66,25 +76,30 @@ type generated_clause_origin =
   | OriginInitAutomatonCoherence
   | OriginPropagationNodeInvariant
   | OriginPropagationAutomatonCoherence
+[@@deriving yojson]
 
 type clause_time_ir =
   | CurrentTick
   | PreviousTick
+[@@deriving yojson]
 
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
   | FactFormula of Ast.fo
   | FactFalse
+[@@deriving yojson]
 
 type clause_fact_ir = {
   time : clause_time_ir;
   desc : clause_fact_desc_ir;
 }
+[@@deriving yojson]
 
 type generated_clause_anchor_ir =
   | ClauseAnchorProductState of product_state_ir
   | ClauseAnchorProductStep of product_step_ir
+[@@deriving yojson]
 
 type generated_clause_ir = {
   origin : generated_clause_origin;
@@ -92,6 +107,7 @@ type generated_clause_ir = {
   hypotheses : clause_fact_ir list;
   conclusions : clause_fact_ir list;
 }
+[@@deriving yojson]
 
 type instance_relation_ir =
   | InstanceUserInvariant of {
@@ -118,38 +134,45 @@ type instance_relation_ir =
       caller_output : Ast.ident;
       caller_pre_name : Ast.ident;
     }
+[@@deriving yojson]
 
 type call_port_role =
   | CallInputPort
   | CallOutputPort
   | CallStatePort
+[@@deriving yojson]
 
 type call_port_ir = {
   port_name : Ast.ident;
   role : call_port_role;
 }
+[@@deriving yojson]
 
 type call_binding_kind =
   | BindActualInput
   | BindActualOutput
   | BindInstancePreState
   | BindInstancePostState
+[@@deriving yojson]
 
 type call_binding_ir = {
   binding_kind : call_binding_kind;
   local_name : Ast.ident;
   remote_name : Ast.ident;
 }
+[@@deriving yojson]
 
 type call_fact_kind =
   | CallEntryFact
   | CallTransitionFact
   | CallExportedPostFact
+[@@deriving yojson]
 
 type call_fact_ir = {
   fact_kind : call_fact_kind;
   fact : clause_fact_ir;
 }
+[@@deriving yojson]
 
 type callee_summary_case_ir = {
   case_name : string;
@@ -157,6 +180,7 @@ type callee_summary_case_ir = {
   transition_facts : call_fact_ir list;
   exported_post_facts : call_fact_ir list;
 }
+[@@deriving yojson]
 
 type callee_tick_abi_ir = {
   callee_node_name : Ast.ident;
@@ -165,6 +189,18 @@ type callee_tick_abi_ir = {
   state_ports : call_port_ir list;
   cases : callee_summary_case_ir list;
 }
+[@@deriving yojson]
+
+type node_signature_ir = {
+  node_name : Ast.ident;
+  inputs : Ast.vdecl list;
+  outputs : Ast.vdecl list;
+  locals : Ast.vdecl list;
+  instances : (Ast.ident * Ast.ident) list;
+  states : Ast.ident list;
+  init_state : Ast.ident;
+}
+[@@deriving yojson]
 
 type call_site_instantiation_ir = {
   instance_name : Ast.ident;
@@ -172,6 +208,7 @@ type call_site_instantiation_ir = {
   callee_node_name : Ast.ident;
   bindings : call_binding_ir list;
 }
+[@@deriving yojson]
 
 type node_ir = {
   reactive_program : reactive_program_ir;
@@ -186,15 +223,38 @@ type node_ir = {
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
 }
+[@@deriving yojson]
+
+type exported_node_summary_ir = {
+  signature : node_signature_ir;
+  normalized_ir : node_ir;
+  tick_summary : callee_tick_abi_ir;
+  user_invariants : Ast.invariant_user list;
+  state_invariants : Ast.invariant_state_rel list;
+  coherency_goals : Ast.fo_o list;
+  pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
+  delay_spec : (Ast.ident * Ast.ident) option;
+}
+[@@deriving yojson]
 
 val has_effective_product_coverage : node_ir -> bool
 
 val of_node_analysis :
   node_name:Ast.ident ->
   nodes:Abstract_model.node list ->
+  external_summaries:exported_node_summary_ir list ->
   node:Abstract_model.node ->
   analysis:Product_build.analysis ->
   node_ir
+
+val node_signature_of_ast : Ast.node -> node_signature_ir
+
+val callee_tick_abi_of_node : node:Abstract_model.node -> callee_tick_abi_ir
+
+val export_node_summary :
+  node:Ast.node ->
+  normalized_ir:node_ir ->
+  exported_node_summary_ir
 
 val render_call_summary_toy_example : string list
 

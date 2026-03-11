@@ -53,12 +53,35 @@ let build_ast_with_info ~input_file () :
     (Pipeline.ast_stages * Pipeline.stage_infos, Pipeline.error) result =
   Provenance.reset ();
   try
-    let p_parsed, parse_info = Parse_file.parse_file_with_info input_file in
+    let source, parse_info = Parse_file.parse_source_file_with_info input_file in
+    let p_parsed = source.nodes in
+    let imported =
+      match Modular_imports.load_for_source ~source_path:input_file ~source with
+      | Ok imported -> imported
+      | Error msg -> raise (Failure msg)
+    in
+    let local_node_names = List.map (fun (n : Ast.node) -> n.nname) p_parsed in
+    let duplicate_import =
+      List.find_opt
+        (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
+          List.mem summary.signature.node_name local_node_names)
+        imported.summaries
+    in
+    let () =
+      match duplicate_import with
+      | None -> ()
+      | Some summary ->
+          failwith
+            (Printf.sprintf
+               "Imported node '%s' conflicts with a local node in %s"
+               summary.signature.node_name input_file)
+    in
     let p_automaton, automata, automata_info =
       Middle_end.stage_automata_generation_with_info p_parsed
     in
     let p_monitor, automata, instrumentation_info =
-      Middle_end.stage_instrumentation_with_info (p_automaton, automata)
+      Middle_end.stage_instrumentation_with_info ~external_summaries:imported.summaries
+        (p_automaton, automata)
     in
     let p_contracts, _automata, contracts_info =
       Middle_end.stage_contracts_with_info (p_monitor, automata)
@@ -77,12 +100,14 @@ let build_ast_with_info ~input_file () :
     in
     let asts : Pipeline.ast_stages =
       {
+        source;
         parsed = p_parsed;
         automata_generation = p_automaton;
         automata;
         contracts = p_contracts;
         instrumentation = p_monitor;
         obc = p_obc_clean;
+        imported_summaries = imported.summaries;
         obc_abstract = p_obc_abstract;
       }
     in
@@ -97,6 +122,20 @@ let build_ast_with_info ~input_file () :
     in
     Ok (asts, infos)
   with exn -> Error (Pipeline.Stage_error (Printexc.to_string exn))
+
+let compile_object ~input_file : (Kairos_object.t, Pipeline.error) result =
+  match build_ast_with_info ~input_file () with
+  | Error _ as err -> err
+  | Ok (asts, infos) ->
+      let parse_info = Option.value infos.parse ~default:Stage_info.empty_parse_info in
+      let instrumentation_info =
+        Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
+      in
+      Kairos_object.build ~source_path:input_file ~source_hash:parse_info.text_hash
+        ~imports:(Source_file.imported_paths asts.source) ~program:asts.parsed
+        ~runtime_program:asts.instrumentation
+        ~kernel_ir_nodes:instrumentation_info.kernel_ir_nodes
+      |> Result.map_error (fun msg -> Pipeline.Stage_error msg)
 
 let instrumentation_diag_texts (infos : Pipeline.stage_infos) :
     string * string * string * string * string * string * string * string =
@@ -745,8 +784,15 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
+    let external_summaries =
+      List.map
+        (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
+          (summary.signature.node_name, summary))
+        asts.imported_summaries
+    in
     let why_ast =
-      Emit.compile_program_ast ~prefix_fields:cfg.prefix_fields ~kernel_ir_map p_obc_backend
+      Emit.compile_program_ast ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
+        ~external_summaries p_obc_backend
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in

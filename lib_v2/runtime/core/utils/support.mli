@@ -20,6 +20,7 @@
 
 (* Metadata describing a single pre‑k expression and its generated names. *)
 type pre_k_info = { h : Ast.hexpr; expr : Ast.iexpr; names : string list; vty : Ast.ty }
+[@@deriving yojson]
 
 (* Accumulated environment for a node during emission. *)
 type env = {

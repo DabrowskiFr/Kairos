@@ -24,6 +24,10 @@ let obligations_pass ~engine ~prefix_fields ~prover ~input_file =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.obligations_pass ~prefix_fields ~prover ~input_file
 
+let compile_object ~engine ~input_file =
+  match normalize engine with
+  | V2 -> Pipeline_v2_indep.compile_object ~input_file
+
 let eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.eval_pass ~input_file ~trace_text ~with_state ~with_locals

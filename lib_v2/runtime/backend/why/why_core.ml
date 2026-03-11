@@ -47,10 +47,23 @@ let seq_exprs (es : Ptree.expr list) : Ptree.expr =
   | [] -> mk_expr (Etuple [])
   | e :: rest -> List.fold_left (fun acc x -> mk_expr (Esequence (acc, x))) e rest
 
+let empty_spec () : Ptree.spec =
+  {
+    Ptree.sp_pre = [];
+    sp_post = [];
+    sp_xpost = [];
+    sp_reads = [];
+    sp_writes = [];
+    sp_alias = [];
+    sp_variant = [];
+    sp_checkrw = false;
+    sp_diverge = false;
+    sp_partial = false;
+  }
+
 let rec compile_seq (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (lst : Why_runtime_view.runtime_action_view list) : Ptree.expr =
   let compile_action (a : Why_runtime_view.runtime_action_view) : Ptree.expr =
     match a with
@@ -93,38 +106,79 @@ let rec compile_seq (env : env)
           | Some n -> n
           | None -> failwith ("unknown instance: " ^ inst)
         in
-        let module_name = module_name_of_node node_name in
         let inst_var = field env inst in
         let inst_tmp = ident (Printf.sprintf "__call_inst_%s" inst) in
-        let inst_tmp_expr = mk_expr (Eident (qid1 inst_tmp.id_str)) in
-        let call_args = inst_tmp_expr :: List.map (compile_iexpr env) args in
-        let call_expr = apply_expr (mk_expr (Eident (qdot (qid1 module_name) "step"))) call_args in
-        let let_bindings, _asserts, output_exprs = call_asserts (inst, inst_tmp.id_str, args, outs) in
-        let call_with_asserts =
-          match outs with
-          | [] -> call_expr
-          | [ out_var ] ->
-              let call_res = ident (Printf.sprintf "__call_res_%s" inst) in
-              let tgt =
-                if is_rec_var env out_var then field env out_var else mk_expr (Eident (qid1 out_var))
+        let call_plan = call_asserts (inst, inst_tmp.id_str, args, outs) in
+        let with_tmp_body =
+          match call_plan with
+          | None -> mk_expr (Etuple [])
+          | Some plan ->
+              let any_spec = { (empty_spec ()) with sp_post = plan.any_post } in
+              let any_expr =
+                mk_expr
+                  (Eany
+                     ( [],
+                       Expr.RKnone,
+                       plan.any_return_pty,
+                       plan.any_pattern,
+                       Ity.MaskVisible,
+                       any_spec ))
               in
-              let assign = mk_expr (Eassign [ (tgt, None, mk_expr (Eident (qid1 call_res.id_str))) ]) in
-              mk_expr (Elet (call_res, false, Expr.RKnone, call_expr, assign))
-          | _ ->
-              let output_assigns =
-                List.map2
-                  (fun x rhs ->
-                    let tgt =
-                      if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+              let pre_assert_exprs =
+                List.map (fun term -> mk_expr (Eassert (Expr.Assert, term))) plan.pre_asserts
+              in
+              let bind_outputs body =
+                List.fold_right
+                  (fun (out_id, (port : Why_runtime_view.port_view)) acc ->
+                    let out_pty =
+                      Some (default_pty port.port_type)
                     in
-                    mk_expr (Eassign [ (tgt, None, rhs) ]))
-                  outs output_exprs
+                    let any_out =
+                      mk_expr
+                        (Eany
+                           ( [],
+                             Expr.RKnone,
+                             out_pty,
+                             { pat_desc = Pvar out_id; pat_loc = loc },
+                             Ity.MaskVisible,
+                             empty_spec () ))
+                    in
+                    mk_expr (Elet (out_id, false, Expr.RKnone, any_out, acc)))
+                  (List.combine plan.output_ids plan.callee_outputs)
+                  body
               in
-              seq_exprs (call_expr :: output_assigns)
+              let inst_assign =
+                mk_expr
+                  (Eassign
+                     [
+                       ( field env inst,
+                         None,
+                         mk_expr (Eident (qid1 plan.next_instance_id.id_str)) );
+                     ])
+              in
+              let output_assigns =
+                let rec build_with_ids acc caller_outs output_ids =
+                  match (caller_outs, output_ids) with
+                  | out_var :: caller_outs, out_id :: output_ids ->
+                      let tgt =
+                        if is_rec_var env out_var then field env out_var else mk_expr (Eident (qid1 out_var))
+                      in
+                      let assign =
+                        mk_expr (Eassign [ (tgt, None, mk_expr (Eident (qid1 out_id.id_str))) ])
+                      in
+                      build_with_ids (assign :: acc) caller_outs output_ids
+                  | _, _ -> List.rev acc
+                in
+                build_with_ids [] outs plan.output_ids
+              in
+              let assigns = seq_exprs (pre_assert_exprs @ (inst_assign :: output_assigns)) in
+              bind_outputs (mk_expr (Elet (plan.next_instance_id, false, Expr.RKnone, any_expr, assigns)))
         in
         let wrap_let (id, pre_expr) acc = mk_expr (Elet (id, false, Expr.RKnone, pre_expr, acc)) in
-        let with_tmp = mk_expr (Elet (inst_tmp, false, Expr.RKnone, inst_var, call_with_asserts)) in
-        List.fold_right wrap_let let_bindings with_tmp
+        let with_tmp = mk_expr (Elet (inst_tmp, false, Expr.RKnone, inst_var, with_tmp_body)) in
+        match call_plan with
+        | None -> with_tmp
+        | Some plan -> List.fold_right wrap_let plan.let_bindings with_tmp
   in
   match lst with
   | [] -> mk_expr (Etuple [])
@@ -133,8 +187,7 @@ let rec compile_seq (env : env)
 
 let compile_action_block (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (block : Why_runtime_view.action_block_view) : Ptree.expr =
   match block.block_kind with
   | Why_runtime_view.ActionGhost -> mk_expr (Eghost (compile_seq env call_asserts block.block_actions))
@@ -143,8 +196,7 @@ let compile_action_block (env : env)
 
 let compile_state_branch_ast (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
   let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
   let rec chain (trs : Why_runtime_view.runtime_transition_view list) =
@@ -173,15 +225,13 @@ let compile_state_branch_ast (env : env)
 
 let compile_state_branch (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
   compile_state_branch_ast env call_asserts st trs
 
 let compile_transitions (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branches_view : Why_runtime_view.state_branch_view list) : Ptree.expr =
   let branches =
     List.map
@@ -197,7 +247,6 @@ let compile_transitions (env : env)
 
 let compile_runtime_view (env : env)
     (call_asserts :
-      ident * ident * iexpr list * ident list ->
-      (Ptree.ident * Ptree.expr) list * Ptree.term list * Ptree.expr list)
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (runtime_view : Why_runtime_view.t) : Ptree.expr =
   compile_transitions env call_asserts runtime_view.state_branches

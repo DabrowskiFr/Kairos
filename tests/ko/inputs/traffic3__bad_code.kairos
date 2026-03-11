@@ -20,11 +20,11 @@ transitions
     }
   Green:
     to Yellow  {
-    color := undefined_code_symbol;
+    color := 0;
   }
   Yellow:
     to Red  {
-    color := 2;
+    color := 0;
   }
   Red:
     to Green  {

@@ -1,25 +1,4 @@
-node guarded_dd_core(x: int) returns (outv: int)
-contracts
-  ensures: X G (outv = prev x);
-locals
-  z: int;
-states
-  Init(init), Run;
-invariants
-  in Run:
-    z = prev x;
-transitions
-  Init:
-    to Run {
-      outv := 0;
-      z := x;
-    }
-  Run:
-    to Run {
-      outv := z;
-      z := x;
-    }
-end
+import "./guarded_dd_core.kobj";
 
 node guarded_double_delay_instance(enable: int, x: int) returns (mid: int, y: int)
 contracts

@@ -132,12 +132,14 @@ type why_outputs = { why_text : string; stage_meta : (string * (string * string)
 type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_stages = {
+  source : Source_file.t;
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
   instrumentation : Ast.program;
   obc : Ast.program;
+  imported_summaries : Product_kernel_ir.exported_node_summary_ir list;
   (* Clean diagnostic AST view (generated contracts removed). *)
   obc_abstract : Abs.node list;
   (* Canonical abstract OBC program for backend/proof materialization. *)
@@ -434,12 +436,14 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
         let p_obc_clean = strip_contracts_in_program p_obc in
         let asts =
           {
+            source = { Source_file.imports = []; nodes = p_parsed };
             parsed = p_parsed;
             automata_generation = p_automaton;
             automata;
             contracts = p_contracts;
             instrumentation = p_monitor;
             obc = p_obc_clean;
+            imported_summaries = [];
             obc_abstract = p_obc_abstract;
           }
         in

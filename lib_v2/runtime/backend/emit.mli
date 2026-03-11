@@ -22,7 +22,7 @@
 val compile_seq :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.runtime_action_view list ->
   Why3.Ptree.expr
 
@@ -31,7 +31,7 @@ val compile_seq :
 val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Ast.ident ->
   Why_runtime_view.runtime_transition_view list ->
   Why3.Ptree.reg_branch
@@ -40,7 +40,7 @@ val compile_state_branch :
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.state_branch_view list ->
   Why3.Ptree.expr
 
@@ -48,7 +48,7 @@ val compile_transitions :
 val compile_runtime_view :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.t ->
   Why3.Ptree.expr
 (* {1 Node Compilation} *)
@@ -68,6 +68,7 @@ val compile_node :
   prefix_fields:bool ->
   ?comment_specs:comment_specs ->
   ?kernel_ir:Product_kernel_ir.node_ir ->
+  external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Ast.node list ->
   Ast.node ->
   Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list * string * spec_groups
@@ -81,6 +82,7 @@ val compile_program_ast :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
   ?kernel_ir_map:(Ast.ident * Product_kernel_ir.node_ir) list ->
+  ?external_summaries:(Ast.ident * Product_kernel_ir.exported_node_summary_ir) list ->
   Ast.program ->
   program_ast
 

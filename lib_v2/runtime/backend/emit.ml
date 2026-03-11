@@ -38,6 +38,42 @@ type comment_specs =
 
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
+let empty_spec () : Ptree.spec =
+  {
+    Ptree.sp_pre = [];
+    sp_post = [];
+    sp_xpost = [];
+    sp_reads = [];
+    sp_writes = [];
+    sp_alias = [];
+    sp_variant = [];
+    sp_checkrw = false;
+    sp_diverge = false;
+    sp_partial = false;
+  }
+
+let is_ghost_field_name (name : string) : bool =
+  (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+  || (String.length name >= 5 && String.sub name 0 5 = "atom_")
+  || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
+  || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
+
+let logic_getter_decl ~(env : Support.env) (vname : Ast.ident) (vty : Ast.ty) : Ptree.decl =
+  let field_name = rec_var_name env vname in
+  let getter_name = ident ("logic_" ^ field_name) in
+  let param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
+  let body = mk_term (Tident (qdot (qid1 "self") field_name)) in
+  Ptree.Dlogic
+    [
+      {
+        ld_loc = loc;
+        ld_ident = getter_name;
+        ld_params = [ param ];
+        ld_type = Some (default_pty vty);
+        ld_def = Some body;
+      };
+    ]
+
 let kernel_clause_origin_label = function
   | Product_kernel_ir.OriginSafety -> "Kernel safety"
   | Product_kernel_ir.OriginInitNodeInvariant -> "Kernel init node invariant"
@@ -73,10 +109,65 @@ let compile_kernel_fact_term ~(env : Support.env) ~(mon_state_ctors : Ast.ident 
   in
   compile_desc fact.time fact.desc
 
-let compile_node ~prefix_fields ?comment_specs ?kernel_ir (nodes : Ast.node list) (n : Ast.node) :
+let compile_external_summary_module ~prefix_fields
+    (summary : Product_kernel_ir.exported_node_summary_ir) :
+    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
+  let synthetic =
+    Ast_builders.mk_node ~nname:summary.signature.node_name ~inputs:summary.signature.inputs
+      ~outputs:summary.signature.outputs ~assumes:[] ~guarantees:[]
+      ~instances:summary.signature.instances ~locals:summary.signature.locals
+      ~states:summary.signature.states ~init_state:summary.signature.init_state ~trans:[]
+    |> fun n ->
+    {
+      n with
+      attrs =
+        {
+          n.attrs with
+          invariants_user = summary.user_invariants;
+          invariants_state_rel = summary.state_invariants;
+          coherency_goals = summary.coherency_goals;
+        };
+    }
+  in
+  let info = Why_env.prepare_node ~prefix_fields ~nodes:[] synthetic in
+  let getter_decls =
+    let mk_getter (v : Ast.vdecl) =
+      let field_name = rec_var_name info.env v.vname in
+      let getter_name = ident ("get_" ^ field_name) in
+      let is_ghost = is_ghost_field_name v.vname in
+      let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
+      let body = mk_expr (Eident (qdot (qid1 "self") field_name)) in
+      let fn =
+        mk_expr
+          (Efun
+             ( [ arg ],
+               Some (default_pty v.vty),
+               { pat_desc = Pwild; pat_loc = loc },
+               Ity.MaskVisible,
+               empty_spec (),
+               body ))
+      in
+      Ptree.Dlet (getter_name, is_ghost, Expr.RKnone, fn)
+    in
+    List.map mk_getter (summary.signature.locals @ summary.signature.outputs)
+  in
+  let logic_getter_decls =
+    let mk (v : Ast.vdecl) = logic_getter_decl ~env:info.env v.vname v.vty in
+    logic_getter_decl ~env:info.env "st" (TCustom "state")
+    :: List.map mk (summary.signature.locals @ summary.signature.outputs)
+  in
+  let decls =
+    info.imports @ info.type_mon_state @ [ info.type_state; info.type_vars ] @ getter_decls
+    @ logic_getter_decls
+  in
+  (ident info.module_name, None, decls, "imported summary module", { pre_labels = []; post_labels = [] })
+
+let compile_node ~prefix_fields ?comment_specs ?kernel_ir
+    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    (nodes : Ast.node list) (n : Ast.node) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let nodes_ast = nodes in
-  let info = Why_env.prepare_node ~prefix_fields ~nodes n in
+  let info = Why_env.prepare_node ~prefix_fields ~nodes ~external_summaries n in
   let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
   let info = { info with runtime_view } in
   let comment_specs =
@@ -91,6 +182,31 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir (nodes : Ast.node list
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
   let mon_state_ctors = info.mon_state_ctors in
+  let getter_decls =
+    let mk_getter (v : Ast.vdecl) =
+      let field_name = rec_var_name env v.vname in
+      let getter_name = ident ("get_" ^ field_name) in
+      let is_ghost = is_ghost_field_name v.vname in
+      let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
+      let body = mk_expr (Eident (qdot (qid1 "self") field_name)) in
+      let fn =
+        mk_expr
+          (Efun
+             ( [ arg ],
+               Some (default_pty v.vty),
+               { pat_desc = Pwild; pat_loc = loc },
+               Ity.MaskVisible,
+               empty_spec (),
+               body ))
+      in
+      Ptree.Dlet (getter_name, is_ghost, Expr.RKnone, fn)
+    in
+    List.map mk_getter (n.locals @ n.outputs)
+  in
+  let logic_getter_decls =
+    let mk (v : Ast.vdecl) = logic_getter_decl ~env v.vname v.vty in
+    logic_getter_decl ~env "st" (TCustom "state") :: List.map mk (n.locals @ n.outputs)
+  in
 
   let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:info.runtime_view in
   let body = compile_runtime_view env call_asserts info.runtime_view in
@@ -195,74 +311,12 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir (nodes : Ast.node list
         goals
   in
   let kernel_init_goal_decls =
-    let conj_terms_opt = function
-      | [] -> None
-      | [ t ] -> Some t
-      | t :: rest ->
-          Some (List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest)
-    in
-    let vars_only_inputs =
-      List.filter
-        (fun (_loc, id_opt, _ghost, _ty) ->
-          match id_opt with Some id -> id.id_str = "vars" | None -> false)
-        inputs
-    in
-    let should_emit_kernel_init_goals (ir : Product_kernel_ir.node_ir) =
-      Product_kernel_ir.has_effective_product_coverage ir
-      &&
-      (* For a degenerate one-state safe product, the dedicated init goals only
-         restate the already-fixed runtime initialization and create brittle
-         prover noise on tiny examples such as [require_always_one]. *)
-      (List.length ir.product_states > 1 || List.length ir.product_steps > 1)
-    in
-    match kernel_ir with
-    | None -> []
-    | Some ir when not (should_emit_kernel_init_goals ir) -> []
-    | Some ir ->
-        ir.generated_clauses
-        |> List.filter_map (fun clause ->
-               match clause.Product_kernel_ir.origin with
-               | Product_kernel_ir.OriginInitNodeInvariant ->
-                   let hypotheses =
-                     clause.hypotheses
-                     |> List.filter_map
-                          (compile_kernel_fact_term ~env ~mon_state_ctors)
-                   in
-                   let conclusions =
-                     clause.conclusions
-                     |> List.filter_map
-                          (compile_kernel_fact_term ~env ~mon_state_ctors)
-                   in
-                   begin
-                     match (conj_terms_opt hypotheses, conj_terms_opt conclusions) with
-                     | Some premise, Some body ->
-                         Some (kernel_clause_origin_label clause.origin, premise, body)
-                     | None, Some body ->
-                         Some (kernel_clause_origin_label clause.origin, mk_term Ttrue, body)
-                     | _ -> None
-                   end
-               | _ -> None)
-        |> List.mapi (fun i (origin_label, premise, body) ->
-               let wid = Provenance.fresh_id () in
-               let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
-               let origin_attr = attr_for_label origin_label in
-               let base = mk_term (Tbinop (premise, Dterm.DTimplies, body)) in
-               let base = mk_term (Tattr (ATstr origin_attr, base)) in
-               (* Kernel init clauses characterize the initial runtime state and
-                  the initial monitor/product coherence. They do not need step
-                  inputs, and Why rejects an empty quantifier binder, so keep
-                  the body unquantified here. *)
-               let quantified =
-                 match vars_only_inputs with
-                 | [] -> base
-                 | _ -> mk_term (Tquant (Dterm.DTforall, vars_only_inputs, [], base))
-               in
-               let term = mk_term (Tattr (ATstr wid_attr, quantified)) in
-               Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "kernel_init_goal_%d" (i + 1)), term))
+    []
   in
 
   let decls =
-    imports @ type_mon_state @ [ type_state; type_vars; step_decl ] @ coherency_goal_decls
+    imports @ type_mon_state @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    @ [ step_decl ] @ coherency_goal_decls
     @ kernel_init_goal_decls
   in
 
@@ -406,12 +460,20 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir (nodes : Ast.node list
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
 let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
-    ?(kernel_ir_map = []) (p : Ast.program) : program_ast
+    ?(kernel_ir_map = []) ?(external_summaries = []) (p : Ast.program) : program_ast
     =
   let p = p in
   let nodes_obc = p in
   let lookup_comment name = List.assoc_opt name comment_map in
-  let modules =
+  let imported_modules =
+    external_summaries
+    |> List.map snd
+    |> List.sort_uniq (fun (a : Product_kernel_ir.exported_node_summary_ir)
+                            (b : Product_kernel_ir.exported_node_summary_ir) ->
+           String.compare a.signature.node_name b.signature.node_name)
+    |> List.map (compile_external_summary_module ~prefix_fields)
+  in
+  let local_modules =
     match nodes_obc with
     | [] -> []
     | nodes ->
@@ -419,9 +481,11 @@ let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
           (fun n ->
             let name = n.nname in
             compile_node ~prefix_fields ?comment_specs:(lookup_comment name)
-              ?kernel_ir:(List.assoc_opt name kernel_ir_map) nodes n)
+              ?kernel_ir:(List.assoc_opt name kernel_ir_map)
+              ~external_summaries:(List.map snd external_summaries) nodes n)
           nodes
   in
+  let modules = imported_modules @ local_modules in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
   let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
   { mlw; module_info }

@@ -28,12 +28,15 @@ type instance_view = {
 
 type callee_summary_view = {
   callee_node_name : Ast.ident;
+  callee_inputs : port_view list;
+  callee_outputs : port_view list;
   callee_input_names : Ast.ident list;
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
   callee_pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   callee_delay_spec : (Ast.ident * Ast.ident) option;
+  callee_tick_summary : Product_kernel_ir.callee_tick_abi_ir option;
 }
 
 type call_site_view = {
@@ -103,7 +106,11 @@ type t = {
   monitor_state_ctors : Ast.ident list;
 }
 
-val of_node : nodes:Ast.node list -> Ast.node -> t
+val of_node :
+  nodes:Ast.node list ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  Ast.node ->
+  t
 val with_kernel_product_hints : ?kernel_ir:Product_kernel_ir.node_ir -> t -> t
 val find_callee_summary : t -> Ast.ident -> callee_summary_view option
 val transition_to_ast : runtime_transition_view -> Ast.transition

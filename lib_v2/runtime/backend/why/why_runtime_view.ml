@@ -33,12 +33,15 @@ type instance_view = {
 
 type callee_summary_view = {
   callee_node_name : Ast.ident;
+  callee_inputs : port_view list;
+  callee_outputs : port_view list;
   callee_input_names : Ast.ident list;
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
   callee_pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   callee_delay_spec : (Ast.ident * Ast.ident) option;
+  callee_tick_summary : Product_kernel_ir.callee_tick_abi_ir option;
 }
 
 type call_site_view = {
@@ -197,12 +200,30 @@ let instance_of_pair ((instance_name, callee_node_name) : Ast.ident * Ast.ident)
 let callee_summary_of_node (n : Ast.node) : callee_summary_view =
   {
     callee_node_name = n.nname;
+    callee_inputs = List.map port_of_vdecl n.inputs;
+    callee_outputs = List.map port_of_vdecl n.outputs;
     callee_input_names = Ast_utils.input_names_of_node n;
     callee_output_names = Ast_utils.output_names_of_node n;
     callee_user_invariants = n.attrs.invariants_user;
     callee_state_invariants = n.attrs.invariants_state_rel;
     callee_pre_k_map = build_pre_k_infos n;
     callee_delay_spec = extract_delay_spec n.guarantees;
+    callee_tick_summary = None;
+  }
+
+let callee_summary_of_exported_summary
+    (summary : Product_kernel_ir.exported_node_summary_ir) : callee_summary_view =
+  {
+    callee_node_name = summary.signature.node_name;
+    callee_inputs = List.map port_of_vdecl summary.signature.inputs;
+    callee_outputs = List.map port_of_vdecl summary.signature.outputs;
+    callee_input_names = List.map (fun v -> v.vname) summary.signature.inputs;
+    callee_output_names = List.map (fun v -> v.vname) summary.signature.outputs;
+    callee_user_invariants = summary.user_invariants;
+    callee_state_invariants = summary.state_invariants;
+    callee_pre_k_map = summary.pre_k_map;
+    callee_delay_spec = summary.delay_spec;
+    callee_tick_summary = Some summary.tick_summary;
   }
 
 let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
@@ -483,13 +504,30 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
       { branch_state = group.group_state; branch_transitions = group.group_transitions })
     groups
 
-let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
+let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) : t =
   let callee_names = List.map snd n.instances |> List.sort_uniq String.compare in
-  let callee_summaries =
+  let local_summaries =
     nodes
     |> List.filter_map (fun candidate ->
            if List.mem candidate.nname callee_names then Some (callee_summary_of_node candidate)
            else None)
+  in
+  let imported_summaries =
+    external_summaries
+    |> List.filter_map (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
+           if List.mem summary.signature.node_name callee_names then
+             Some (callee_summary_of_exported_summary summary)
+           else None)
+  in
+  let callee_summaries =
+    let seen = Hashtbl.create 16 in
+    let add acc summary =
+      if Hashtbl.mem seen summary.callee_node_name then acc
+      else (
+        Hashtbl.replace seen summary.callee_node_name ();
+        summary :: acc)
+    in
+    List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
   in
   let transitions = List.map transition_of_ast n.trans in
   let transition_groups = group_transitions transitions in
@@ -513,7 +551,27 @@ let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
     monitor_state_ctors = collect_mon_state_ctors n;
   }
 
-let with_kernel_product_hints ?kernel_ir:_ (runtime : t) : t = runtime
+let with_kernel_product_hints ?kernel_ir (runtime : t) : t =
+  match kernel_ir with
+  | None -> runtime
+  | Some ir ->
+      let tick_map : (Ast.ident * Product_kernel_ir.callee_tick_abi_ir) list =
+        ir.Product_kernel_ir.callee_tick_abis
+        |> List.map
+             (fun (abi : Product_kernel_ir.callee_tick_abi_ir) -> (abi.callee_node_name, abi))
+      in
+      let callee_summaries =
+        List.map
+          (fun (summary : callee_summary_view) ->
+            let callee_tick_summary =
+              match summary.callee_tick_summary with
+              | Some _ as existing -> existing
+              | None -> List.assoc_opt summary.callee_node_name tick_map
+            in
+            { summary with callee_tick_summary })
+          runtime.callee_summaries
+      in
+      { runtime with callee_summaries }
 
 let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_view option =
   List.find_opt
@@ -544,8 +602,7 @@ let to_ast_node (runtime : t) : Ast.node =
       List.map
         (fun (i : instance_view) -> (i.instance_name, i.callee_node_name))
         runtime.instances;
-    locals =
-      List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
+    locals = List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
     states = runtime.control_states;
     init_state = runtime.init_control_state;
     trans = List.map transition_to_ast runtime.transitions;

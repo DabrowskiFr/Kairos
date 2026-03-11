@@ -22,6 +22,9 @@ val obligations_pass :
   engine:engine -> prefix_fields:bool -> prover:string -> input_file:string ->
   (Pipeline.obligations_outputs, Pipeline.error) result
 
+val compile_object :
+  engine:engine -> input_file:string -> (Kairos_object.t, Pipeline.error) result
+
 val eval_pass :
   engine:engine -> input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->
   (string, Pipeline.error) result

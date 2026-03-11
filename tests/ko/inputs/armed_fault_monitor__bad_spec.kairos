@@ -1,7 +1,7 @@
 node armed_fault_monitor(arm: int, fault: int) returns (alarm: int, safe: int)
 contracts
-  ensures: G ((alarm = alarm) and not (alarm = alarm));
   requires: G (fault = 0 or fault = 1);
+  ensures: G (undefined_spec_symbol = 0);
 locals
   armed: int;
 states

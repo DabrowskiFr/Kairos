@@ -12,6 +12,8 @@ val obligations_pass :
   prefix_fields:bool -> prover:string -> input_file:string ->
   (Pipeline.obligations_outputs, Pipeline.error) result
 
+val compile_object : input_file:string -> (Kairos_object.t, Pipeline.error) result
+
 val eval_pass :
   input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->
   (string, Pipeline.error) result

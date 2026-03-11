@@ -31,6 +31,12 @@ Must not:
 - encode proof artifacts;
 - construct Why-specific structures.
 
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/frontend/parse/lexer.mll`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/frontend/parse/parser.mly`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/frontend/parse/parse_file.ml`
+
 ## Layer 2. Frontend normalization and semantic analysis
 
 Responsibility:
@@ -49,6 +55,12 @@ Must not:
 - compile LTL to automata yet;
 - inject backend proof artifacts.
 
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/frontend/frontend.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/core/ast/ast_utils.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/instrumentation/abstract_model.ml`
+
 ## Layer 3. LTL to automata
 
 Responsibility:
@@ -60,6 +72,12 @@ Responsibility:
 Output:
 
 - safety automata and associated product-ready information.
+
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/automata_generation/automata_generation.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/spot_automaton.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_build.ml`
 
 ## Layer 4. Semantic IR construction
 
@@ -78,6 +96,11 @@ Current center of gravity:
 
 This layer is the semantic source of truth.
 
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_kernel_ir.mli`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_kernel_ir.ml`
+
 ## Layer 5. Explicit product construction
 
 Responsibility:
@@ -90,6 +113,12 @@ Responsibility:
 
 This layer should be explicit because the product is not a minor detail of
 proof generation: it is a central semantic object.
+
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_build.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_types.mli`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_debug.ml`
 
 ## Layer 6. Obligation and clause generation
 
@@ -105,6 +134,11 @@ Responsibility:
 Output:
 
 - backend-agnostic clauses and proof-relevant semantic facts.
+
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/middle_end/product/product_kernel_ir.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.ml`
 
 ## Layer 7. Backend-agnostic proof preparation
 
@@ -125,6 +159,12 @@ This layer must remain:
 - independent from SMT concerns;
 - independent from Why3 syntax.
 
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_runtime_view.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contract_plan.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_call_plan.ml`
+
 ## Layer 8. Why3 compilation
 
 Responsibility:
@@ -140,6 +180,13 @@ This is where Why-specific representation belongs:
 - pre/post placement;
 - Why attributes.
 
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_env.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_core.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_contracts.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/emit.ml`
+
 ## Layer 9. Proof execution
 
 Responsibility:
@@ -150,6 +197,11 @@ Responsibility:
 - collect statuses and timings.
 
 This layer must be distinct from Why source generation.
+
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/backend/why/why_prove.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/pipeline/pipeline_v2_indep.ml`
 
 ## Layer 10. Diagnostics, traceability, and UI exposure
 
@@ -164,6 +216,13 @@ Responsibility:
 
 This layer must consume proof results and semantic provenance.
 It must not define proof semantics.
+
+Main files today:
+
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/pipeline/pipeline_v2_indep.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/lib_v2/runtime/pipeline/lsp_app.ml`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/protocol/lsp_protocol.mli`
+- `/Users/fredericdabrowski/Repos/kairos/kairos-dev/extensions/kairos-vscode/src/extension.ts`
 
 ## Cross-cutting concerns
 
@@ -215,5 +274,7 @@ Still partial:
 
 - some compatibility bridges still exist between runtime views and the
   historical AST representation;
-- validation robustness on very short CLI proof budgets is not fully closed on
-  all examples.
+- the implementation is still weaker than the Rocq model on explicit
+  assumption-state coherence;
+- `resettable_delay` still relies on the historical/fallback path rather than
+  a semantically complete explicit product.

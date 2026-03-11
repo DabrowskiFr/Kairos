@@ -16,13 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type ident = string [@@deriving show]
-type ty = TInt | TBool | TReal | TCustom of string [@@deriving show]
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving show]
-type unop = Neg | Not [@@deriving show]
+type ident = string [@@deriving show, yojson]
+type ty = TInt | TBool | TReal | TCustom of string [@@deriving show, yojson]
+type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving show, yojson]
+type unop = Neg | Not [@@deriving show, yojson]
 (* fold removed: op type no longer used *)
 
-type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving show]
+type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving show, yojson]
 
 type iexpr = { iexpr : iexpr_desc; loc : loc option }
 
@@ -33,10 +33,10 @@ and iexpr_desc =
   | IBin of binop * iexpr * iexpr
   | IUn of unop * iexpr
   | IPar of iexpr
-[@@deriving show]
+[@@deriving show, yojson]
 
-type hexpr = HNow of iexpr | HPreK of iexpr * int (* pre_k(e, k) *) [@@deriving show]
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show]
+type hexpr = HNow of iexpr | HPreK of iexpr * int (* pre_k(e, k) *) [@@deriving show, yojson]
+type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show, yojson]
 
 type fo =
   | FTrue
@@ -47,7 +47,7 @@ type fo =
   | FAnd of fo * fo
   | FOr of fo * fo
   | FImp of fo * fo
-[@@deriving show]
+[@@deriving show, yojson]
 
 type 'a ltl =
   | LTrue
@@ -60,7 +60,7 @@ type 'a ltl =
   | LX of 'a ltl (* Next *)
   | LG of 'a ltl (* Globally *)
   | LW of 'a ltl * 'a ltl (* Weak Until *)
-[@@deriving show]
+[@@deriving show, yojson]
 
 type fo_ltl = fo ltl [@@deriving show]
 type atom_ltl = ident ltl [@@deriving show]
@@ -71,9 +71,9 @@ type origin =
   | Compatibility
   | AssumeAutomaton
   | Internal
-[@@deriving show]
-type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving show]
-type vdecl = { vname : ident; vty : ty } [@@deriving show]
+[@@deriving show, yojson]
+type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
+type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
 
@@ -83,10 +83,10 @@ and stmt_desc =
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
-[@@deriving show]
+[@@deriving show, yojson]
 
-type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show]
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show]
+type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show, yojson]
 
 type node_attrs = {
   uid : int option;

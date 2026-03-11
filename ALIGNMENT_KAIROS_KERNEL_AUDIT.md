@@ -17,12 +17,15 @@ No Rocq file was modified during this audit.
 
 Validation was rerun with a maximum timeout of `5s` per obligation.
 
-Results:
+Results used for the final audit:
 
-- `tests/ok/inputs`: `27/27` green
-- `tests/ko/inputs`: `81/81` non-green
-- `tests/ko/inputs`: `0` false greens
-- `tests/ko/inputs`: all current failures classify as `invalid` in the final sweep
+- broad `ok/ko` sweep at `5s` per obligation;
+- then targeted reruns on every residual offender found during the sweep;
+- final effective state after reruns:
+  - `tests/ok/inputs`: `27/27` green
+  - `tests/ko/inputs`: `81/81` non-green
+  - `tests/ko/inputs`: `0` false greens
+  - current `ko` outcomes classify as `invalid`
 
 The last implementation-side correction needed to stabilize the `ok` campaign
 was in:
@@ -204,7 +207,7 @@ Evidence from the implementation:
 - `/Users/fredericdabrowski/Repos/kairos/kairos-dev/tests/ok/inputs/resettable_delay.kairos`
 - CLI dump via `--dump-obligations-map`
 
-Current IR summary for this case shows:
+Current stable IR summary for this case shows:
 
 - `explicit_product ... steps=0 clauses=2`
 - `coverage empty`
@@ -214,6 +217,12 @@ while the Rocq example:
 - `/Users/fredericdabrowski/Repos/kairos/kairos-kernel/ResettableDelayExample.v`
 
 clearly uses a real explicit product and non-trivial generated clauses.
+
+During this work, a relaxed feasibility filter was tested to force a non-empty
+explicit product on this example. It did create explicit steps, but it also
+reintroduced impossible bad transitions on other `ok` examples such as
+`delay_int`. That attempt was therefore rolled back from the proof-critical
+path.
 
 In other words:
 

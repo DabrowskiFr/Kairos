@@ -1,25 +1,4 @@
-node pair_pipeline_core(x: int) returns (t: int)
-contracts
-  ensures: X G (t = prev x);
-locals
-  z: int;
-states
-  Init(init), Run;
-invariants
-  in Run:
-    z = prev x;
-transitions
-  Init:
-    to Run {
-      t := 0;
-      z := x;
-    }
-  Run:
-    to Run {
-      t := z;
-      z := x;
-    }
-end
+import "./pair_pipeline_core.kobj";
 
 node pair_pipeline_guarded(enable: int, x: int) returns (a: int, b: int)
 contracts
@@ -44,8 +23,8 @@ transitions
   Idle:
     to Run when enable = 1 {
       call d(x) returns (midv);
-      a := midv;
-      b := midv;
+      a := 0;
+      b := 0;
     }
     to Idle when enable = 0 {
       a := 0;
@@ -53,8 +32,8 @@ transitions
     }
   Run:
     to Run {
-      a := undefined_code_symbol;
-      a := midv;
-      b := midv;
+      call d(x) returns (midv);
+      a := 0;
+      b := 0;
     }
 end

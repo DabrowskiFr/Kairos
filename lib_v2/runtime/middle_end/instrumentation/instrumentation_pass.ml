@@ -3,13 +3,7 @@ open Support
 
 module Abs = Abstract_model
 
-module Pass :
-  Middle_end_pass.S
-    with type ast_in = Stage_types.contracts_stage
-     and type ast_out = Stage_types.instrumentation_stage
-     and type stage_in = Automata_pass_sig.stage
-     and type stage_out = Automata_pass_sig.stage
-     and type info = Stage_info.instrumentation_info = struct
+module Pass = struct
   type ast_in = Stage_types.contracts_stage
   type ast_out = Stage_types.instrumentation_stage
   type stage_in = Automata_pass_sig.stage
@@ -86,23 +80,27 @@ module Pass :
       Stage_info.product_dot = acc.product_dot;
     }
 
-  let instrument_node ~(program : ast_in) ~(automata : stage_in) (n : node) : node * info =
+  let instrument_node ~(program : ast_in) ~(automata : stage_in)
+      ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list) (n : node) :
+      node * info =
     match List.assoc_opt n.nname automata with
     | Some build ->
         let n_abs = Abs.of_ast_node n in
         let all_nodes_abs = List.map Abs.of_ast_node program in
         let node_abs, info =
-          Instrumentation.transform_abstract_node_with_info ~build ~nodes:all_nodes_abs n_abs
+          Instrumentation.transform_abstract_node_with_info ~build ~nodes:all_nodes_abs
+            ~external_summaries n_abs
         in
         (Abs.to_ast_node node_abs, info)
     | None -> failwith (Printf.sprintf "Missing monitor generation build for node %s" n.nname)
 
-  let run_with_info (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
+  let run_with_external_summaries ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
+      (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
     let acc = empty_info_acc () in
     let ast =
       List.map
         (fun n ->
-          let node, node_info = instrument_node ~program:p ~automata n in
+          let node, node_info = instrument_node ~program:p ~automata ~external_summaries n in
           add_node_info acc node_info;
           node)
         p
@@ -110,7 +108,14 @@ module Pass :
     let info = freeze_info_acc acc in
     (ast, automata, info)
 
+  let run_with_info (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
+    run_with_external_summaries ~external_summaries:[] p automata
+
   let run (p : ast_in) (automata : stage_in) : ast_out * stage_out =
     let ast, automata, _info = run_with_info p automata in
     (ast, automata)
 end
+
+let run_with_info_external ?(external_summaries = []) (p : Pass.ast_in) (automata : Pass.stage_in) :
+    Pass.ast_out * Pass.stage_out * Pass.info =
+  Pass.run_with_external_summaries ~external_summaries p automata

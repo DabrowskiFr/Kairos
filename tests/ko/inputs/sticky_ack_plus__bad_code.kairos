@@ -14,13 +14,13 @@ transitions
     }
   Wait:
     to Latched when req = 1 {
-      ack := undefined_code_symbol;
+      ack := 0;
     }
     to Wait when req = 0 {
       ack := 0;
     }
   Latched:
     to Latched {
-      ack := 1;
+      ack := 0;
     }
 end

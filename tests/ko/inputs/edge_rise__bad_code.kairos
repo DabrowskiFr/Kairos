@@ -19,7 +19,7 @@ transitions
   Run:
     to Run  {
     if x = 1 and s = 0 then
-      y := undefined_code_symbol;
+      y := 0;
     else
       y := 0;
     end;

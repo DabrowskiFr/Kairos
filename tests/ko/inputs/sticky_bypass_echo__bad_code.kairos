@@ -20,7 +20,7 @@ transitions
     }
   Wait:
     to Hold when bypass = 1 {
-      y := undefined_code_symbol;
+      y := 0;
       latched := x;
     }
     to Wait when bypass = 0 {
@@ -29,7 +29,7 @@ transitions
     }
   Hold:
     to Hold {
-      y := latched;
+      y := 0;
       latched := latched;
     }
 end

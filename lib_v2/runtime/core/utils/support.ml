@@ -23,7 +23,7 @@ open Ptree
 open Ast
 open Ast_builders
 
-type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty }
+type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty } [@@deriving yojson]
 
 type env = {
   rec_name : string;
@@ -370,20 +370,19 @@ let term_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (va
     Ptree.term =
   let inst_prefix = prefix_for_node node_name in
   let inner_field = inst_prefix ^ var_name in
-  if List.mem inst_name env.rec_vars then
-    let inst_term = term_of_var env inst_name in
-    mk_term
-      (Tidapp (qdot (qid1 (module_name_of_node node_name)) inner_field, [ inst_term ]))
-  else
-    mk_term (Tident (qdot (qid1 inst_name) inner_field))
+  let inst_term =
+    if List.mem inst_name env.rec_vars then term_of_var env inst_name
+    else mk_term (Tident (qid1 inst_name))
+  in
+  mk_term (Tidapp (qid1 ("logic_" ^ inner_field), [ inst_term ]))
 
 let expr_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (var_name : ident) :
     Ptree.expr =
   let inst_prefix = prefix_for_node node_name in
   let inner_field = inst_prefix ^ var_name in
-  if List.mem inst_name env.rec_vars then
-    let inst_expr = field env inst_name in
-    mk_expr
-      (Eidapp (qdot (qid1 (module_name_of_node node_name)) inner_field, [ inst_expr ]))
-  else
-    mk_expr (Eident (qdot (qid1 inst_name) inner_field))
+  let inst_expr =
+    if List.mem inst_name env.rec_vars then field env inst_name else mk_expr (Eident (qid1 inst_name))
+  in
+  apply_expr
+    (mk_expr (Eident (qdot (qid1 (module_name_of_node node_name)) ("get_" ^ inner_field))))
+    [ inst_expr ]

@@ -1,25 +1,4 @@
-node delay_core(x: int) returns (outv: int)
-contracts
-  ensures: X ( G (outv = prev x) );
-locals
-  z : int;
-states
-  Init(init), Run;
-invariants
-  in Run:
-    z = prev x;
-transitions
-  Init:
-    to Run {
-    outv := 0;
-    z := x;
-  }
-  Run:
-    to Run {
-    outv := z;
-    z := x;
-  }
-end
+import "./delay_core.kobj";
 
 node delay_int2_instance(x: int) returns (y: int)
 contracts

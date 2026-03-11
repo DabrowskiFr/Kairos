@@ -11,6 +11,6 @@ transitions
     }
   Run:
     to Run {
-      ack := undefined_code_symbol;
+      ack := 0;
     }
 end

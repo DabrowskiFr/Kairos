@@ -138,12 +138,14 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 
 (* AST snapshots per stage (used by IDE/diagnostics). *)
 type ast_stages = {
+  source : Source_file.t;
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
   instrumentation : Ast.program;
   obc : Ast.program;
+  imported_summaries : Product_kernel_ir.exported_node_summary_ir list;
   (* Clean OBC-stage AST view for diagnostics/dumps (no generated contract payload). *)
   obc_abstract : Abstract_model.node list;
   (* Canonical abstract OBC program used for backend materialization/proofs. *)

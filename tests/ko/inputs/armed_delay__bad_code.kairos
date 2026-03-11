@@ -20,7 +20,7 @@ transitions
     }
   Idle:
     to Track when arm = 1 {
-      y := undefined_code_symbol;
+      y := 0;
       z := x;
     }
     to Idle when arm = 0 {
@@ -29,7 +29,7 @@ transitions
     }
   Track:
     to Track {
-      y := z;
+      y := 0;
       z := x;
     }
 end

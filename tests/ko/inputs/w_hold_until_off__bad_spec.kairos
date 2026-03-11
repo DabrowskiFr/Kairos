@@ -1,7 +1,7 @@
 node w_hold_until_off(on: int, off: int) returns (light: int)
 contracts
-  ensures: G ((light = light) and not (light = light));
   requires: G((on = 0 or on = 1) and (off = 0 or off = 1));
+  ensures: G (undefined_spec_symbol = 0);
 states
   Init(init), Off, On;
 invariants

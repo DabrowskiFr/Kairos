@@ -31,13 +31,13 @@ transitions
     }
   Disarmed:
     to Armed when arm = 1 {
-      alarm := undefined_code_symbol;
+      armed := 1;
       if fault = 1 then
-        alarm := 1;
+        alarm := 0;
         safe := 0;
       else
         alarm := 0;
-        safe := 1;
+        safe := 0;
       end;
     }
     to Disarmed when arm = 0 {
@@ -49,11 +49,11 @@ transitions
     to Armed {
       armed := 1;
       if fault = 1 then
-        alarm := 1;
+        alarm := 0;
         safe := 0;
       else
         alarm := 0;
-        safe := 1;
+        safe := 0;
       end;
     }
 end

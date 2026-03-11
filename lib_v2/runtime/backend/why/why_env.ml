@@ -113,12 +113,12 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     n.instances
     |> List.map (fun (_, node_name) -> module_name_of_node node_name)
     |> List.sort_uniq String.compare
-    |> List.map (fun name -> Ptree.Duseimport (loc, false, [ (qid1 name, None) ]))
+    |> List.map (fun name -> Ptree.Duseimport (loc, true, [ (qid1 name, None) ]))
   in
   let imports =
     [
-      Ptree.Duseimport (loc, false, [ (qid1 "int.Int", None) ]);
-      Ptree.Duseimport (loc, false, [ (qid1 "array.Array", None) ]);
+      Ptree.Duseimport (loc, true, [ (qid1 "int.Int", None) ]);
+      Ptree.Duseimport (loc, true, [ (qid1 "array.Array", None) ]);
     ]
     @ instance_imports
   in
@@ -351,7 +351,8 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     init_for_var;
   }
 
-let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node) :
+let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list)
+    ?(external_summaries = []) (n : Ast.node) :
     Why_types.env_info =
-  let runtime = Why_runtime_view.of_node ~nodes n in
+  let runtime = Why_runtime_view.of_node ~nodes ~external_summaries n in
   prepare_runtime_view ~prefix_fields runtime

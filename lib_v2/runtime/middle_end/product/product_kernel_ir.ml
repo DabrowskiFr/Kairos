@@ -9,12 +9,14 @@ module PT = Product_types
 type automaton_role =
   | Assume
   | Guarantee
+[@@deriving yojson]
 
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.fo;
 }
+[@@deriving yojson]
 
 type reactive_program_ir = {
   node_name : Ast.ident;
@@ -22,12 +24,14 @@ type reactive_program_ir = {
   states : Ast.ident list;
   transitions : reactive_transition_ir list;
 }
+[@@deriving yojson]
 
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
   guard : Ast.fo;
 }
+[@@deriving yojson]
 
 type safety_automaton_ir = {
   role : automaton_role;
@@ -36,21 +40,25 @@ type safety_automaton_ir = {
   state_labels : (int * string) list;
   edges : automaton_edge_ir list;
 }
+[@@deriving yojson]
 
 type product_state_ir = {
   prog_state : Ast.ident;
   assume_state_index : int;
   guarantee_state_index : int;
 }
+[@@deriving yojson]
 
 type product_step_kind =
   | StepSafe
   | StepBadAssumption
   | StepBadGuarantee
+[@@deriving yojson]
 
 type product_step_origin =
   | StepFromExplicitExploration
   | StepFromFallbackSynthesis
+[@@deriving yojson]
 
 type product_step_ir = {
   src : product_state_ir;
@@ -62,11 +70,13 @@ type product_step_ir = {
   step_kind : product_step_kind;
   step_origin : product_step_origin;
 }
+[@@deriving yojson]
 
 type product_coverage_ir =
   | CoverageEmpty
   | CoverageExplicit
   | CoverageFallback
+[@@deriving yojson]
 
 type generated_clause_origin =
   | OriginSafety
@@ -74,25 +84,30 @@ type generated_clause_origin =
   | OriginInitAutomatonCoherence
   | OriginPropagationNodeInvariant
   | OriginPropagationAutomatonCoherence
+[@@deriving yojson]
 
 type clause_time_ir =
   | CurrentTick
   | PreviousTick
+[@@deriving yojson]
 
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
   | FactFormula of Ast.fo
   | FactFalse
+[@@deriving yojson]
 
 type clause_fact_ir = {
   time : clause_time_ir;
   desc : clause_fact_desc_ir;
 }
+[@@deriving yojson]
 
 type generated_clause_anchor_ir =
   | ClauseAnchorProductState of product_state_ir
   | ClauseAnchorProductStep of product_step_ir
+[@@deriving yojson]
 
 type generated_clause_ir = {
   origin : generated_clause_origin;
@@ -100,6 +115,7 @@ type generated_clause_ir = {
   hypotheses : clause_fact_ir list;
   conclusions : clause_fact_ir list;
 }
+[@@deriving yojson]
 
 type instance_relation_ir =
   | InstanceUserInvariant of {
@@ -126,38 +142,45 @@ type instance_relation_ir =
       caller_output : Ast.ident;
       caller_pre_name : Ast.ident;
     }
+[@@deriving yojson]
 
 type call_port_role =
   | CallInputPort
   | CallOutputPort
   | CallStatePort
+[@@deriving yojson]
 
 type call_port_ir = {
   port_name : Ast.ident;
   role : call_port_role;
 }
+[@@deriving yojson]
 
 type call_binding_kind =
   | BindActualInput
   | BindActualOutput
   | BindInstancePreState
   | BindInstancePostState
+[@@deriving yojson]
 
 type call_binding_ir = {
   binding_kind : call_binding_kind;
   local_name : Ast.ident;
   remote_name : Ast.ident;
 }
+[@@deriving yojson]
 
 type call_fact_kind =
   | CallEntryFact
   | CallTransitionFact
   | CallExportedPostFact
+[@@deriving yojson]
 
 type call_fact_ir = {
   fact_kind : call_fact_kind;
   fact : clause_fact_ir;
 }
+[@@deriving yojson]
 
 type callee_summary_case_ir = {
   case_name : string;
@@ -165,6 +188,7 @@ type callee_summary_case_ir = {
   transition_facts : call_fact_ir list;
   exported_post_facts : call_fact_ir list;
 }
+[@@deriving yojson]
 
 type callee_tick_abi_ir = {
   callee_node_name : Ast.ident;
@@ -173,6 +197,18 @@ type callee_tick_abi_ir = {
   state_ports : call_port_ir list;
   cases : callee_summary_case_ir list;
 }
+[@@deriving yojson]
+
+type node_signature_ir = {
+  node_name : Ast.ident;
+  inputs : Ast.vdecl list;
+  outputs : Ast.vdecl list;
+  locals : Ast.vdecl list;
+  instances : (Ast.ident * Ast.ident) list;
+  states : Ast.ident list;
+  init_state : Ast.ident;
+}
+[@@deriving yojson]
 
 type call_site_instantiation_ir = {
   instance_name : Ast.ident;
@@ -180,6 +216,7 @@ type call_site_instantiation_ir = {
   callee_node_name : Ast.ident;
   bindings : call_binding_ir list;
 }
+[@@deriving yojson]
 
 type node_ir = {
   reactive_program : reactive_program_ir;
@@ -194,6 +231,19 @@ type node_ir = {
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
 }
+[@@deriving yojson]
+
+type exported_node_summary_ir = {
+  signature : node_signature_ir;
+  normalized_ir : node_ir;
+  tick_summary : callee_tick_abi_ir;
+  user_invariants : Ast.invariant_user list;
+  state_invariants : Ast.invariant_state_rel list;
+  coherency_goals : Ast.fo_o list;
+  pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
+  delay_spec : (Ast.ident * Ast.ident) option;
+}
+[@@deriving yojson]
 
 let fo_of_iexpr (e : iexpr) : fo = iexpr_to_fo_with_atoms [] e
 
@@ -237,6 +287,26 @@ let string_of_product_coverage = function
   | CoverageFallback -> "fallback"
 
 let has_effective_product_coverage (ir : node_ir) : bool = ir.product_coverage <> CoverageEmpty
+
+let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
+  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.locals in
+  build_pre_k_infos n
+  |> List.concat_map (fun (_, info) ->
+         List.filter_map
+           (fun name ->
+             if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
+           info.names)
+
+let node_signature_of_ast (n : Ast.node) : node_signature_ir =
+  {
+    node_name = n.nname;
+    inputs = n.inputs;
+    outputs = n.outputs;
+    locals = n.locals @ pre_k_locals_of_ast n;
+    instances = n.instances;
+    states = n.states;
+    init_state = n.init_state;
+  }
 
 let string_of_clause_origin = function
   | OriginSafety -> "safety"
@@ -548,6 +618,20 @@ let invariants_for_state ~(node : Abs.node) ~(time : clause_time_ir) (state_name
 let find_node (nodes : Abs.node list) (name : Ast.ident) : Abs.node option =
   List.find_opt (fun (nd : Abs.node) -> nd.semantics.sem_nname = name) nodes
 
+let find_external_summary (summaries : exported_node_summary_ir list) (name : Ast.ident) :
+    exported_node_summary_ir option =
+  List.find_opt (fun summary -> summary.signature.node_name = name) summaries
+
+type resolved_callee =
+  | Local of Abs.node
+  | External of exported_node_summary_ir
+
+let resolve_callee ~(nodes : Abs.node list) ~(external_summaries : exported_node_summary_ir list)
+    (name : Ast.ident) : resolved_callee option =
+  match find_node nodes name with
+  | Some node -> Some (Local node)
+  | None -> Option.map (fun summary -> External summary) (find_external_summary external_summaries name)
+
 let fold_lefti f acc xs =
   let rec loop i acc = function
     | [] -> acc
@@ -609,8 +693,8 @@ let collect_call_sites_with_paths (ts : Abs.transition list) :
     [] ts
   |> List.rev
 
-let build_callee_tick_abi ~(callee_node : Abs.node) : callee_tick_abi_ir =
-  let callee_ast = Abs.to_ast_node callee_node in
+let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
+  let callee_ast = Abs.to_ast_node node in
   let input_ports =
     List.map (fun name -> { port_name = name; role = CallInputPort }) (Ast_utils.input_names_of_node callee_ast)
   in
@@ -621,7 +705,7 @@ let build_callee_tick_abi ~(callee_node : Abs.node) : callee_tick_abi_ir =
     { port_name = "st"; role = CallStatePort }
     :: List.map
          (fun v -> { port_name = v.vname; role = CallStatePort })
-         callee_node.semantics.sem_locals
+         node.semantics.sem_locals
   in
   let cases =
     List.mapi
@@ -644,7 +728,7 @@ let build_callee_tick_abi ~(callee_node : Abs.node) : callee_tick_abi_ir =
         let exported_post_facts =
           List.map
             (fun fact -> { fact_kind = CallExportedPostFact; fact })
-            (invariants_for_state ~node:callee_node ~time:CurrentTick t.dst)
+            (invariants_for_state ~node ~time:CurrentTick t.dst)
         in
         {
           case_name = Printf.sprintf "%s_to_%s_%d" t.src t.dst idx;
@@ -655,20 +739,33 @@ let build_callee_tick_abi ~(callee_node : Abs.node) : callee_tick_abi_ir =
           transition_facts;
           exported_post_facts;
         })
-      callee_node.trans
+      node.trans
   in
   {
-    callee_node_name = callee_node.semantics.sem_nname;
+    callee_node_name = node.semantics.sem_nname;
     input_ports;
     output_ports;
     state_ports;
     cases;
   }
 
+let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported_node_summary_ir =
+  {
+    signature = node_signature_of_ast node;
+    normalized_ir;
+    tick_summary = callee_tick_abi_of_node ~node:(Abs.of_ast_node node);
+    user_invariants = node.attrs.invariants_user;
+    state_invariants = node.attrs.invariants_state_rel;
+    coherency_goals = node.attrs.coherency_goals;
+    pre_k_map = build_pre_k_infos node;
+    delay_spec = extract_delay_spec node.guarantees;
+  }
+
 let build_call_binding_pairs kind locals remotes =
   List.map2 (fun local_name remote_name -> { binding_kind = kind; local_name; remote_name }) locals remotes
 
-let build_call_site_instantiations ~(nodes : Abs.node list) ~(node : Abs.node) :
+let build_call_site_instantiations ~(nodes : Abs.node list)
+    ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node) :
     call_site_instantiation_ir list =
   let call_sites = collect_call_sites_with_paths node.trans in
   List.filter_map
@@ -676,15 +773,17 @@ let build_call_site_instantiations ~(nodes : Abs.node list) ~(node : Abs.node) :
       match List.assoc_opt inst_name node.semantics.sem_instances with
       | None -> None
       | Some callee_node_name -> (
-          match find_node nodes callee_node_name with
+          match resolve_callee ~nodes ~external_summaries callee_node_name with
           | None -> None
-          | Some callee_node ->
-              let callee_ast = Abs.to_ast_node callee_node in
-              let input_names = Ast_utils.input_names_of_node callee_ast in
-              let output_names = Ast_utils.output_names_of_node callee_ast in
-              let state_names =
-                "st" :: List.map (fun v -> v.vname) callee_node.semantics.sem_locals
+          | Some callee ->
+              let signature =
+                match callee with
+                | Local callee_node -> node_signature_of_ast (Abs.to_ast_node callee_node)
+                | External summary -> summary.signature
               in
+              let input_names = List.map (fun v -> v.vname) signature.inputs in
+              let output_names = List.map (fun v -> v.vname) signature.outputs in
+              let state_names = "st" :: List.map (fun v -> v.vname) signature.locals in
               let input_bindings =
                 build_call_binding_pairs BindActualInput (List.map string_of_iexpr args) input_names
               in
@@ -715,7 +814,9 @@ let build_call_site_instantiations ~(nodes : Abs.node list) ~(node : Abs.node) :
                 }))
     call_sites
 
-let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : instance_relation_ir list =
+let build_instance_relations ~(nodes : Abs.node list)
+    ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node) :
+    instance_relation_ir list =
   let n_ast = Abs.to_ast_node node in
   let pre_k_map = build_pre_k_infos n_ast in
   let pre_k_first_name_for v =
@@ -729,9 +830,14 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
   let invariant_relations =
     List.concat_map
       (fun (inst_name, node_name) ->
-        match find_node nodes node_name with
+        match resolve_callee ~nodes ~external_summaries node_name with
         | None -> []
-        | Some inst_node ->
+        | Some callee ->
+            let user_invariants, state_invariants =
+              match callee with
+              | Local inst_node -> (inst_node.attrs.invariants_user, inst_node.attrs.invariants_state_rel)
+              | External summary -> (summary.user_invariants, summary.state_invariants)
+            in
             let user =
               List.map
                 (fun inv ->
@@ -742,7 +848,7 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
                       invariant_id = inv.inv_id;
                       invariant_expr = inv.inv_expr;
                     })
-                inst_node.attrs.invariants_user
+                user_invariants
             in
             let state_rel =
               List.map
@@ -755,7 +861,7 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
                       is_eq = inv.is_eq;
                       formula = inv.formula;
                     })
-                inst_node.attrs.invariants_state_rel
+                state_invariants
             in
             user @ state_rel)
       node.semantics.sem_instances
@@ -766,21 +872,31 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
            match List.assoc_opt inst_name node.semantics.sem_instances with
            | None -> []
            | Some callee_node_name -> (
-               match find_node nodes callee_node_name with
+               match resolve_callee ~nodes ~external_summaries callee_node_name with
                | None -> []
-               | Some callee_node ->
-                   let callee_ast = Abs.to_ast_node callee_node in
-                   match extract_delay_spec callee_ast.guarantees with
+               | Some callee ->
+                   let input_names, output_names, delay_spec, pre_k_map_inst =
+                     match callee with
+                     | Local callee_node ->
+                         let callee_ast = Abs.to_ast_node callee_node in
+                         ( Ast_utils.input_names_of_node callee_ast,
+                           Ast_utils.output_names_of_node callee_ast,
+                           extract_delay_spec callee_ast.guarantees,
+                           build_pre_k_infos callee_ast )
+                     | External summary ->
+                         ( List.map (fun v -> v.vname) summary.signature.inputs,
+                           List.map (fun v -> v.vname) summary.signature.outputs,
+                           summary.delay_spec,
+                           summary.pre_k_map )
+                   in
+                   match delay_spec with
                    | None -> []
                    | Some (out_name, in_name) ->
-                       let output_names = Ast_utils.output_names_of_node callee_ast in
-                       let input_names = Ast_utils.input_names_of_node callee_ast in
                        begin
                          match List.find_opt (( = ) in_name) input_names with
                          | None -> []
                          | Some _ ->
                              let callee_pre_name =
-                               let pre_k_map_inst = build_pre_k_infos callee_ast in
                                List.find_map
                                  (fun (_, info) ->
                                    match (info.expr.iexpr, info.names) with
@@ -809,8 +925,7 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
                              in
                              let caller_pre_links =
                                match
-                                 List.assoc_opt in_name
-                                   (List.combine (Ast_utils.input_names_of_node callee_ast) args)
+                                 List.assoc_opt in_name (List.combine input_names args)
                                with
                                | Some e -> (
                                    match e.iexpr with
@@ -840,7 +955,8 @@ let build_instance_relations ~(nodes : Abs.node list) ~(node : Abs.node) : insta
   in
   invariant_relations @ delay_relations
 
-let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list) ~(node : Abs.node)
+let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
+    ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node)
     ~(analysis : Product_build.analysis)
     : node_ir =
   let reactive_program = build_reactive_program ~node_name ~node in
@@ -875,7 +991,7 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list) ~(node : 
   let generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
-  let instance_relations = build_instance_relations ~nodes ~node in
+  let instance_relations = build_instance_relations ~nodes ~external_summaries ~node in
   let called_callee_names =
     collect_call_sites_with_paths node.trans
     |> List.filter_map (fun (_t, _path, inst_name, _args, _outs) ->
@@ -884,10 +1000,14 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list) ~(node : 
   in
   let callee_tick_abis =
     List.filter_map
-      (fun callee_name -> Option.map (fun callee_node -> build_callee_tick_abi ~callee_node) (find_node nodes callee_name))
+      (fun callee_name ->
+        match resolve_callee ~nodes ~external_summaries callee_name with
+        | Some (Local callee_node) -> Some (callee_tick_abi_of_node ~node:callee_node)
+        | Some (External summary) -> Some summary.tick_summary
+        | None -> None)
       called_callee_names
   in
-  let call_site_instantiations = build_call_site_instantiations ~nodes ~node in
+  let call_site_instantiations = build_call_site_instantiations ~nodes ~external_summaries ~node in
   {
     reactive_program;
     assume_automaton;

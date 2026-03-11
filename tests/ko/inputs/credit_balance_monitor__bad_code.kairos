@@ -24,11 +24,11 @@ transitions
     }
   Run:
     to Run when reset = 1 {
-      bal := undefined_code_symbol;
+      bal := 0;
       m := 0;
     }
     to Run when reset = 0 and debit <= m + credit {
-      bal := m + credit - debit;
+      bal := 0;
       m := m + credit - debit;
     }
 end

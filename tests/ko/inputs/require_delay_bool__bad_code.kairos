@@ -17,7 +17,7 @@ transitions
     }
   Run:
     to Run {
-      y := undefined_code_symbol;
+      y := 0;
       m := u;
     }
 end

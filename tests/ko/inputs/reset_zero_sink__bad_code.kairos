@@ -17,12 +17,12 @@ transitions
     }
   Live:
     to Zero when reset = 1 {
-      y := undefined_code_symbol;
+      y := 0;
       z := 0;
     }
     to Live when reset = 0 {
-      y := x;
-      z := x;
+      y := 0;
+      z := 0;
     }
   Zero:
     to Zero {

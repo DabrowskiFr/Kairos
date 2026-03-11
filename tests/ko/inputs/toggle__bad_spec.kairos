@@ -1,6 +1,6 @@
 node toggle() returns (y: int)
 contracts
-  ensures: G ((y = y) and not (y = y));
+  ensures: G (undefined_spec_symbol = 0);
 states
   Init(init), Run;
 transitions

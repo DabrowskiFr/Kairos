@@ -22,7 +22,7 @@
 val compile_seq :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.runtime_action_view list ->
   Why3.Ptree.expr
 
@@ -32,7 +32,7 @@ val compile_seq :
 val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Ast.ident ->
   Why_runtime_view.runtime_transition_view list ->
   Why3.Ptree.reg_branch
@@ -41,7 +41,7 @@ val compile_state_branch :
 val compile_transitions :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.state_branch_view list ->
   Why3.Ptree.expr
 
@@ -49,6 +49,6 @@ val compile_transitions :
 val compile_runtime_view :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list) ->
+  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.t ->
   Why3.Ptree.expr

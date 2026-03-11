@@ -24,11 +24,11 @@ transitions
     }
   Run:
     to Run when reset = 1 {
-      y := undefined_code_symbol;
+      y := 0;
       m := 0;
     }
     to Run when reset = 0 {
-      y := m;
+      y := 0;
       m := x;
     }
 end

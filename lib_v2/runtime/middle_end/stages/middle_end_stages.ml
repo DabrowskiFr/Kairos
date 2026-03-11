@@ -21,13 +21,18 @@ let stage_contracts ((p, automata) : Stage_types.instrumentation_stage * automat
     Stage_types.contracts_stage * automata_stage =
   Contracts.run p automata
 
-let stage_instrumentation_with_info ((p, automata) : Stage_types.parsed * automata_stage) :
+let stage_instrumentation_with_info ?(external_summaries = [])
+    ((p, automata) : Stage_types.parsed * automata_stage) :
     Stage_types.instrumentation_stage * automata_stage * Stage_info.instrumentation_info =
-  Instrumentation.run_with_info p automata
+  Instrumentation_pass.run_with_info_external ~external_summaries p automata
 
-let stage_instrumentation ((p, automata) : Stage_types.parsed * automata_stage) :
+let stage_instrumentation ?(external_summaries = [])
+    ((p, automata) : Stage_types.parsed * automata_stage) :
     Stage_types.instrumentation_stage * automata_stage =
-  Instrumentation.run p automata
+  let ast, automata, _info =
+    stage_instrumentation_with_info ~external_summaries (p, automata)
+  in
+  (ast, automata)
 
 let run (p : Stage_types.parsed) : Stage_types.contracts_stage * automata_stage =
   let p, automata = stage_automata_generation p in

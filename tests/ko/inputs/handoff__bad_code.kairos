@@ -20,12 +20,12 @@ transitions
     }
   A:
     to B  {
-    modeA := undefined_code_symbol;
-    modeB := 1;
+    modeA := 0;
+    modeB := 0;
   }
   B:
     to A  {
-    modeA := 1;
+    modeA := 0;
     modeB := 0;
   }
 end

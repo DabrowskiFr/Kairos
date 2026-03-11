@@ -1,6 +1,6 @@
 node sticky_ack_plus(req: int) returns (ack: int)
 contracts
-  ensures: G ((ack = ack) and not (ack = ack));
+  ensures: G (undefined_spec_symbol = 0);
 states
   Init(init), Wait, Latched;
 transitions

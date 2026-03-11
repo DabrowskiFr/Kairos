@@ -1,7 +1,7 @@
 node require_always_one(inp: int) returns (out: int)
 contracts
-  ensures: G ((out = out) and not (out = out));
   requires: G (inp = 1);
+  ensures: G (undefined_spec_symbol = 0);
 states
   S(init);
 transitions

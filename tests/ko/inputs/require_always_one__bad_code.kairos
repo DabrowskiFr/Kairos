@@ -7,6 +7,6 @@ states
 transitions
   S:
     to S {
-      out := undefined_code_symbol;
+      out := 0;
     }
 end

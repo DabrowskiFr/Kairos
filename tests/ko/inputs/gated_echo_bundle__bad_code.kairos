@@ -23,7 +23,7 @@ transitions
     }
   Wait:
     to Hold when gate = 1 {
-      y := undefined_code_symbol;
+      y := 0;
       z := 0;
       hold := x;
     }
@@ -34,8 +34,8 @@ transitions
     }
   Hold:
     to Hold {
-      y := hold;
-      z := hold;
+      y := 0;
+      z := 0;
       hold := hold;
     }
 end

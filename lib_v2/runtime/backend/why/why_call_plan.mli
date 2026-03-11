@@ -16,8 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+type compiled_call_plan = {
+  let_bindings : (Why3.Ptree.ident * Why3.Ptree.expr) list;
+  pre_asserts : Why3.Ptree.term list;
+  any_pattern : Why3.Ptree.pattern;
+  any_return_pty : Why3.Ptree.pty option;
+  any_post : (Why3.Loc.position * (Why3.Ptree.pattern * Why3.Ptree.term) list) list;
+  next_instance_id : Why3.Ptree.ident;
+  output_ids : Why3.Ptree.ident list;
+  callee_outputs : Why_runtime_view.port_view list;
+  callee_output_names : Ast.ident list;
+}
+
 val build_call_asserts :
   env:Support.env ->
   caller_runtime:Why_runtime_view.t ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  (Why3.Ptree.ident * Why3.Ptree.expr) list * Why3.Ptree.term list * Why3.Ptree.expr list)
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list -> compiled_call_plan option)

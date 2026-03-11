@@ -1,5 +1,66 @@
 # Objectif et methodologie
 
+## Objectif courant (mise a jour 2026-03-11 - modularite reelle des `call`)
+Mettre en place une compilation modulaire reelle des `call`, avec:
+- objets compiles `.kobj` reutilisables;
+- syntaxe source `import`;
+- resolution explicite des callees par objets importes;
+- preuve locale du caller sur resume compile, sans recompilation implicite du
+  callee.
+
+Livrables vises:
+- format objet stable et documente;
+- pipeline de compilation separe:
+  - parsing,
+  - chargement/import,
+  - normalisation/analyse,
+  - IR produit,
+  - backend agnostique,
+  - Why/prove;
+- campagne `ok/ko` integralement revalidee dans le nouveau modele.
+
+## Methodologie (mise a jour 2026-03-11 - modularite reelle des `call`)
+1. Stabiliser d'abord l'ABI modulaire:
+   - signature exportee,
+   - etat persistant exporte,
+   - resume de tick,
+   - invariants exportables.
+2. Faire ensuite transiter ces objets par tout le pipeline:
+   - parser `import`,
+   - resolveur d'objets,
+   - middle-end,
+   - backend.
+3. N'autoriser au site d'appel que des hypotheses provenant du resume compile.
+4. Refuser toute solution ad hoc specifique a Why3 si elle court-circuite le
+   modele modulaire.
+5. Valider progressivement:
+   - build CLI/LSP/IDE;
+   - cas minimaux `call` importes;
+   - campagne `ok`;
+   - campagne `ko`.
+
+## Etat courant (mise a jour 2026-03-11 - modularite reelle des `call`)
+- Fait:
+  - format `.kobj` introduit;
+  - syntaxe `import` introduite;
+  - objets importes charges explicitement dans le pipeline;
+  - propagation des resumes importes jusqu'au backend;
+  - exemples multi-noeuds separes en fichiers distincts avec imports explicites;
+  - emission Why des appels rebranchee sur un `any` local contraint par le
+    resume, au lieu d'un faux `step` importe.
+- Blocage critique restant:
+  - Why3 refuse encore la representation actuelle des acces a l'etat/sorties
+    du callee importe dans les termes/programmes generes;
+  - plusieurs tentatives ont ete essayees:
+    - projections directes sur record importe,
+    - getters programmes,
+    - getters logiques;
+  - aucune n'est encore stable sur le type-checking Why.
+- Consequence:
+  - la modularite structurelle est en grande partie implantee;
+  - la preuve modulaire importee n'est pas encore assez stable pour lancer une
+    revalidation complete `ok/ko`.
+
 ## Objectif courant (mise a jour 2026-03-11 - reduction du vieux chemin Why)
 Continuer l'elimination de l'OBC annote comme pivot semantique, en retirant
 progressivement de `why_contracts.ml` les blocs historiques encore presents sur
@@ -1134,3 +1195,60 @@ Kairos compatible avec les clients existants.
       - presence d'un mecanisme de fallback sans equivalent direct dans Rocq;
     - document de reference:
       [ALIGNMENT_KAIROS_KERNEL_AUDIT.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ALIGNMENT_KAIROS_KERNEL_AUDIT.md)
+
+  - mise a jour 2026-03-11 (suite 25):
+    - objectif immediat:
+      revenir a un backend Why stable apres une tentative trop precoce
+      d'introduire l'etat explicite de l'automate d'assumption;
+    - regle methodologique retenue:
+      ne conserver dans le chemin critique de preuve que les changements
+      effectivement robustes a `5s`, et documenter les chantiers d'alignement
+      restants plutot que de laisser des demi-correctifs regressifs;
+    - consequence:
+      rollback du support partiel `FactAssumeState` / `__assume_state` dans le
+      backend Why;
+    - conservation du correctif general deja valide:
+      suppression de l'emission des goals Why universels d'init d'automate;
+    - validation finale retenue:
+      - sweep `ok/ko` a `5s`;
+      - puis rerun cible de tous les residus identifies jusqu'a stabilisation;
+      - correction du generateur `bad_spec` pour tolerer l'alignement
+        `ensures  :`.
+    - resultat methodologique:
+      architecture plus claire et base `ok/ko` a nouveau exploitable, sans
+      confondre un objectif d'alignement futur avec une correction prematuree
+      du chemin critique.
+
+## Mise au point sur les variantes `__bad_code`
+
+- Regle retenue:
+  - une variante `__bad_code` doit rester un programme Kairos bien forme et
+    executable;
+  - l'erreur doit etre semantique: mauvaise mise a jour, mauvaise sortie,
+    comportement divergent, mais pas symbole inconnu ou programme irrecevable.
+
+- Strategie actuellement appliquee:
+  - preferer une mutation sur une transition non `init`;
+  - remplacer les affectations de sorties pertinentes par une valeur constante
+    fausse et bien typee;
+  - pour les `call`, surcharger la sortie du noeud appelant juste apres l'appel;
+  - traiter les fichiers multi-noeuds noeud par noeud pour respecter les
+    interfaces locales.
+
+- Limite a garder en tete:
+  - si une variante `__bad_code` bien formee reste prouvee `valid`, cela ne
+    doit plus etre interprete comme un probleme de generation de fixture mais
+    comme un signal sur la couverture reelle des obligations ou sur la
+    compilation de la specification.
+
+## Extension de la base `ok/ko` sur `next` + `weak until`
+
+- Ajouter explicitement des exemples de la forme:
+  - `next always (phi => (psi W chi))`
+- Viser des cas avec:
+  - latch / fenetre active
+  - sortie maintenue
+  - bundle de sorties
+- Si une formule se revele trop forte au premier tick d'entree dans la
+  fenetre, preferer raffiner sa premisse (`prev ... = 1`) plutot que
+  d'introduire un programme artificiellement plus complique.

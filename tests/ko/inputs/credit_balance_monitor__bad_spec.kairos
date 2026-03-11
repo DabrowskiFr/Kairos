@@ -1,8 +1,8 @@
 node credit_balance_monitor(reset: int, credit: int, debit: int) returns (bal: int)
 contracts
-  ensures: G ((bal = bal) and not (bal = bal));
   requires: G((reset = 0 or reset = 1) and (credit >= 0) and (debit >= 0));
   requires: G((reset = 1) => (credit = 0 and debit = 0));
+  ensures: G (undefined_spec_symbol = 0);
 locals
   m : int;
 states

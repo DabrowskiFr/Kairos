@@ -44,23 +44,24 @@
 (* {1 Core Types} *)
 
 (* Identifier used for variables, nodes, states, etc. *)
-type ident = string
+type ident = string [@@deriving yojson]
 
 (* Simple types for variables and expressions. *)
-type ty = TInt | TBool | TReal | TCustom of string
+type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
 
 (* Binary operators for expressions. Includes arithmetic, comparisons, and boolean connectives used
    at the expression level. *)
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or
+type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson]
 
 (* Unary operators for expressions. *)
-type unop = Neg | Not
+type unop = Neg | Not [@@deriving yojson]
 
 (* Source location (1‑based lines/columns). *)
-type loc = { line : int; col : int; line_end : int; col_end : int }
+type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
 
 (* {2 Expressions} Immediate expressions (current instant). *)
 type iexpr = { iexpr : iexpr_desc; loc : loc option }
+[@@deriving yojson]
 
 and iexpr_desc =
   | ILitInt of int
@@ -69,12 +70,13 @@ and iexpr_desc =
   | IBin of binop * iexpr * iexpr
   | IUn of unop * iexpr
   | IPar of iexpr
+[@@deriving yojson]
 
 (* {2 Historical expressions} Expressions with temporal operators (pre‑k). *)
-type hexpr = HNow of iexpr | HPreK of iexpr * int
+type hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving yojson]
 
 (* Relational operators for FO formulas (over [hexpr]). *)
-type relop = REq | RNeq | RLt | RLe | RGt | RGe
+type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
 
 (* {1 Logical Formulas & Provenance} *)
 (* First‑order formulas used in requires/ensures and VC generation. *)
@@ -87,6 +89,7 @@ type fo =
   | FAnd of fo * fo
   | FOr of fo * fo
   | FImp of fo * fo
+[@@deriving yojson]
 
 (* Generic LTL (linear‑time temporal logic) formula over atoms of type ['a]. *)
 type 'a ltl =
@@ -100,6 +103,7 @@ type 'a ltl =
   | LX of 'a ltl
   | LG of 'a ltl
   | LW of 'a ltl * 'a ltl
+[@@deriving yojson]
 
 (* LTL over first‑order formulas. Used for assumes/guarantees. *)
 type fo_ltl = fo ltl
@@ -112,16 +116,18 @@ type origin =
   | Compatibility
   | AssumeAutomaton
   | Internal
+[@@deriving yojson]
 
 (* First‑order formula annotated with provenance and optional location. Rationale: this is the
    primary traceability hook in the pipeline. *)
-type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option }
+type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
 
 (* {1 Statements & Invariants}
     Rationale: statements are the executable core, while invariants are the
     proof‑oriented facts injected by the monitor/contract passes. *)
 (* Executable statements. *)
 type stmt = { stmt : stmt_desc; loc : loc option }
+[@@deriving yojson]
 
 and stmt_desc =
   | SAssign of ident * iexpr
@@ -129,12 +135,13 @@ and stmt_desc =
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
+[@@deriving yojson]
 
 (* User‑level monitor invariants (named expressions). *)
-type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show]
+type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
 
 (* Instrumentation state‑relation invariants. *)
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show, yojson]
 
 (* {1 Per‑pass Metadata} Moved to [Stage_info] (kept separate from the AST). *)
 
@@ -145,7 +152,7 @@ type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deri
 type atom_ltl = ident ltl
 
 (* Variable declaration (name + type). *)
-type vdecl = { vname : ident; vty : ty }
+type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
 
 (* Node‑level attributes and annotations populated by passes. *)
 type node_attrs = {

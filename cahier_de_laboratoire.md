@@ -2,6 +2,92 @@
 
 ## 2026-03-11
 
+### Tentative 5 (objets `.kobj`, `import`, modularite des `call`)
+- Objectif:
+  - introduire un vrai chemin modulaire pour les `call`:
+    - format objet `.kobj`,
+    - syntaxe `import`,
+    - resolution des callees via objets compiles,
+    - preuve locale du caller sur resume compile.
+- Resultat:
+  - progression substantielle, mais blocage restant cote emission/type-checking
+    Why3 des projections de champs sur records importes.
+- Realisations:
+  - syntaxe source:
+    - ajout de `import "…";` dans le lexer/parser/frontend;
+  - pipeline:
+    - chargement explicite des `.kobj` via `modular_imports`;
+    - propagation des `imported_summaries` jusqu'au middle-end et au backend;
+    - nouveau chemin `compile_object` et option CLI `--emit-kobj`;
+  - format objet:
+    - ajout de `kairos_object.{ml,mli}`;
+    - serialisation JSON versionnee backend-agnostic;
+    - contenu:
+      - metadonnees,
+      - signature,
+      - IR normalise,
+      - resume modulaire de tick,
+      - invariants exportes,
+      - `pre_k_map`,
+      - `delay_spec`;
+  - resume modulaire:
+    - `product_kernel_ir` enrichi avec:
+      - `node_signature_ir`,
+      - `exported_node_summary_ir`,
+      - `callee_tick_abi_ir`,
+      - export/import des resumes de callees;
+  - backend Why:
+    - abandon du faux `step` importe;
+    - `ActionCall` rebranche sur un `any` local contraint par le resume de
+      tick compile;
+    - debut d'introduction de getters explicites pour eviter les projections
+      fragiles sur records importes.
+- Tentatives infructueuses documentees:
+  - tentative A:
+    - modeliser l'appel importe par un faux module externe avec un `step`
+      abstrait Why;
+    - echec avec erreur Why "this expression should not produce side effects";
+    - cause:
+      - ce chemin restait ad hoc backend-specific et ne modelisait pas
+        proprement l'appel local au point d'usage.
+  - tentative B:
+    - ne faire retourner par le `any` local que le record `vars` du callee,
+      puis relire les sorties via projections sur ce record importe;
+    - echec avec symboles Why non resolus sur les champs importes
+      (`__delay_core_outv`, `__delay_core_st`, etc.);
+    - cause:
+      - les projections de records importes ne se laissent pas reutiliser
+        simplement dans les termes/programmes generes via l'API Ptree.
+  - tentative C:
+    - introduire des getters programmes puis des getters logiques explicites
+      dans les modules importes;
+    - echec persistant de resolution Why sur ces symboles depuis le module
+      caller;
+    - conclusion provisoire:
+      - la couture correcte doit probablement eviter de dependre des projections
+        de records importes dans les obligations locales, ou produire une ABI
+        Why encore plus explicite.
+- Corrections deja acquises malgre le blocage:
+  - les exemples multi-noeuds `ok`/`ko` ont ete separes en plusieurs fichiers
+    avec imports explicites;
+  - les `.kobj` exportent maintenant:
+    - les memoires `pre_k`,
+    - une signature runtime plus proche de l'etat persistant reel;
+  - les faits de moniteur interne (`__aut_state`, `FactGuaranteeState`) ont ete
+    commences a etre filtres hors de l'ABI exportee, pour ne pas faire fuiter
+    un etat interne non expose.
+- Validation partielle:
+  - `dune build bin/cli/main.exe` : OK a plusieurs reprises pendant le travail;
+  - emission `.kobj` : OK;
+  - parsing `import` : OK;
+  - preuve modulaire importee:
+    - encore bloquee sur le type-checking Why des acces au state resume.
+- Conclusion honnete:
+  - la structure modulaire est largement en place;
+  - le dernier verrou critique est dans la representation Why des valeurs
+    d'etat/sortie du callee importe au point d'appel;
+  - la campagne `ok/ko` complete n'est pas encore revalidee.
+
 ### Sujet
 Reduction structurelle du vieux chemin `why_contracts` pour les obligations de
 transition sur le chemin `kernel-first`.
@@ -6837,3 +6923,182 @@ disponible que si le solveur repond effectivement `unsat`.
   - voir
     [ALIGNMENT_KAIROS_KERNEL_AUDIT.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/ALIGNMENT_KAIROS_KERNEL_AUDIT.md)
     pour le detail des causes et des solutions proposees.
+
+## 2026-03-11 - Stabilisation finale du backend Why et lecture d'architecture
+
+- Objectif de cette passe:
+  - revenir a un backend Why stable apres une tentative inachevee
+    d'introduire explicitement l'etat d'assumption dans le chemin de preuve;
+  - conserver les correctifs robustes:
+    - suppression des faux goals d'init universels;
+    - base `ko` robuste;
+    - documentation d'architecture plus lisible depuis Rocq.
+
+- Constat de depart:
+  - les ajouts `FactAssumeState` / `__assume_state` n'etaient pas encore
+    complets de bout en bout;
+  - ils regressaient des cas `ok` stables comme:
+    - `delay_int`
+    - `resettable_delay`
+    - `ack_cycle`
+  - un filtre "relaxe" sur les pas du produit explicitait mieux
+    `resettable_delay`, mais reintroduisait des transitions bad impossibles sur
+    `delay_int`.
+
+- Decision technique retenue:
+  - retrait du support partiel de l'etat d'assumption dans le backend Why;
+  - retour au chemin stable pour:
+    - `why_runtime_view`
+    - `why_env`
+    - `why_types`
+    - `why_core`
+    - `why_contracts`
+    - `emit`
+  - rollback du filtre relache du produit explicite hors du chemin critique de
+    preuve;
+  - conservation du correctif general deja valide:
+    ne plus emettre `OriginInitAutomatonCoherence` comme goal Why universel.
+
+- Validations effectivement refaites:
+  - rebuild sequentiel de:
+    - `bin/cli/main.exe`
+    - `bin/lsp/kairos_lsp.exe`
+    - `bin/ide/obcwhy3_ide.exe`
+  - reruns cibles de stabilisation:
+    - `delay_int.kairos`
+    - `resettable_delay.kairos`
+    - `ack_cycle.kairos`
+    - `delay_int_instance.kairos`
+    - `delay_int2_instance.kairos`
+    - `guarded_delay_instance.kairos`
+    - `guarded_double_delay_instance.kairos`
+    - `gated_echo_bundle.kairos`
+    - `sticky_ack_plus.kairos`
+    - `sticky_bypass_echo.kairos`
+  - tous ces cas reviennent a `failed=0` avec `--timeout-s 5`.
+
+- Base `ko`:
+  - correction du generateur
+    [regenerate_bad_spec_suite.sh](/Users/fredericdabrowski/Repos/kairos/kairos-dev/scripts/regenerate_bad_spec_suite.sh)
+    pour reconnaitre `ensures  :` et pas seulement `ensures:`;
+  - regeneration des `__bad_spec`;
+  - verification representative:
+    `resettable_delay__bad_spec.kairos` tombe maintenant bien en `invalid`
+    via `undefined_spec_symbol`.
+
+- Bilan honnete de validation:
+  - un sweep large `ok/ko` a `5s` a servi a reperer les residus;
+  - certains rapports intermediaires etaient stale pendant que la campagne
+    tournait encore;
+  - apres rerun cible de tous les residus identifies:
+    - `27/27` cas `ok` verifies verts;
+    - `81/81` cas `ko` verifies non verts;
+    - le dernier faux vert (`resettable_delay__bad_spec`) a ete elimine par
+      correction du generateur de `bad_spec`.
+
+- Interpretation architecturale:
+  - le backend Why est revenu a un etat stable;
+  - l'architecture est plus lisible qu'au depart grace a:
+    - `why_runtime_view`
+    - `why_contract_plan`
+    - `why_call_plan`
+    - la documentation par couches et la lecture depuis Rocq;
+  - en revanche, l'introduction explicite de l'etat d'assumption dans les
+    clauses et le runtime Why est repoussee a une passe future, car la
+    tentative de cette passe n'etait pas encore assez solide.
+
+## 2026-03-11 - Regeneration des `ko` par erreur de programme en gardant des programmes bien formes
+
+- Demande precise:
+  - les variantes `__bad_code` ne doivent plus etre des programmes mal formes
+    reposant sur des symboles inconnus;
+  - elles doivent rester executables et exprimer un comportement semantiquement
+    faux.
+
+- Travail realise:
+  - reecriture du generateur
+    [scripts/regenerate_bad_code_suite.py](/Users/fredericdabrowski/Repos/kairos/kairos-dev/scripts/regenerate_bad_code_suite.py)
+    pour:
+    - muter les sorties vers des valeurs constantes fausses plutot que des
+      symboles inconnus;
+    - raisonner corps de transition par corps de transition;
+    - preferer les transitions non `init`;
+    - traiter les fichiers multi-noeuds bloc `node` par bloc `node`, afin
+      d'eviter de reutiliser les sorties du premier noeud dans les suivants.
+  - mise a jour de
+    [tests/ko/README.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/tests/ko/README.md)
+    pour documenter cette nouvelle politique.
+
+- Verification:
+  - les anciens `undefined_code_symbol` ont bien disparu de `tests/ko/inputs`;
+  - les wrappers avec `instances/call` ne generent plus de faux programmes
+    mal formes comme `outv := 0` dans le noeud appelant;
+  - des cas auparavant verts comme
+    `delay_int_instance__bad_code.kairos` ou
+    `gated_echo_bundle__bad_code.kairos`
+    deviennent maintenant effectivement negatifs.
+
+- Reserve honnete:
+  - certains cas comme
+    `ack_cycle__bad_code.kairos` et
+    `resettable_delay__bad_code.kairos`
+    restent encore prouves `valid` malgre une mutation executable clairement
+    divergente;
+  - cela signale plutot une faiblesse de couverture des obligations ou une
+    limite du pipeline de preuve sur ces formes, pas un retour a des programmes
+    mal formes.
+
+## 2026-03-11 - Ajout de nouveaux cas `next` + `weak until`
+
+- Ajout de trois nouveaux cas `ok` combinant explicitement `next always` et
+  `W`:
+  - `w_sticky_ack_latch.kairos`
+  - `w_guarded_prev_hold.kairos`
+  - `w_bundle_prev_window.kairos`
+
+- Ajout de leurs triplets `ko` associes:
+  - `__bad_spec`
+  - `__bad_invariant`
+  - `__bad_code`
+
+- Tentative initiale:
+  - deux cas formulaient la fenetre `W` trop tot, au premier tick d'entree
+    dans la phase active;
+  - resultat: faux `ok` rouges sur `w_guarded_prev_hold` et
+    `w_bundle_prev_window`.
+
+- Correction retenue:
+  - conserver l'idee `next always ... W ...`, mais ne declencher
+    l'obligation que lorsque la fenetre est deja etablie (`prev gate = 1`,
+    `prev open = 1`);
+  - cela garde des automates non triviaux tout en restant coherent avec la
+    semantique du programme.
+
+- Validation:
+  - les trois nouveaux `ok` reviennent a `failed=0` a `5s` par obligation.
+
+## 2026-03-11 - Exemple avec deux appels successifs a deux instances de `delay_int`
+
+- Ajout du nouveau cas:
+  - `tests/ok/inputs/delay_int_via_two_calls.kairos`
+  - et de ses variantes:
+    - `delay_int_via_two_calls__bad_spec.kairos`
+    - `delay_int_via_two_calls__bad_invariant.kairos`
+    - `delay_int_via_two_calls__bad_code.kairos`
+
+- Intention:
+  - avoir un exemple ou un noeud realise un delai de deux instants en
+    combinant deux appels successifs a deux instances de `delay_int`.
+
+- Incident rencontre:
+  - avec un callee `delay_int` retournant lui aussi un champ `y`, le backend
+    Why echoue sur une ambiguite de projection de champ record.
+
+- Correction retenue:
+  - conserver le nom du noeud `delay_int`;
+  - renommer seulement sa sortie locale en `outv`, comme dans les autres cas
+    avec `instances/call`, pour eviter une collision purement backend.
+
+- Validation:
+  - `delay_int_via_two_calls.kairos`: `failed=0`
+  - `delay_int_via_two_calls__bad_code.kairos`: non vert (`failed=1`)

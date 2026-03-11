@@ -12,8 +12,9 @@ transitions
   Run:
     to Run when start = 0{
       skip;
+      mode := 0;
     }
     to Run when start = 1{
-      mode := undefined_code_symbol;
+      mode := 0;
     }
 end

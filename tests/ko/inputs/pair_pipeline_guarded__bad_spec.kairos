@@ -1,29 +1,8 @@
-node pair_pipeline_core(x: int) returns (t: int)
-contracts
-  ensures: G ((t = t) and not (t = t));
-locals
-  z: int;
-states
-  Init(init), Run;
-invariants
-  in Run:
-    z = prev x;
-transitions
-  Init:
-    to Run {
-      t := 0;
-      z := x;
-    }
-  Run:
-    to Run {
-      t := z;
-      z := x;
-    }
-end
+import "./pair_pipeline_core.kobj";
 
 node pair_pipeline_guarded(enable: int, x: int) returns (a: int, b: int)
 contracts
-  ensures: G ((a = a) and not (a = a));
+  ensures: G (undefined_spec_symbol = 0);
 instances
   instance d: pair_pipeline_core;
 locals

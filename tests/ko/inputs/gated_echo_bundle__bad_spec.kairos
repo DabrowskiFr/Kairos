@@ -1,6 +1,6 @@
 node gated_echo_bundle(gate: int, x: int) returns (y: int, z: int)
 contracts
-  ensures: G ((y = y) and not (y = y));
+  ensures: G (undefined_spec_symbol = 0);
 locals
   hold: int;
 states
