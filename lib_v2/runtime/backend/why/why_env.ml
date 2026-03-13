@@ -109,18 +109,11 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
   let n_obc = n in
   let module_name = module_name_of_node n.nname in
   let is_initial_only = function LG _ -> false | _ -> true in
-  let instance_imports =
-    n.instances
-    |> List.map (fun (_, node_name) -> module_name_of_node node_name)
-    |> List.sort_uniq String.compare
-    |> List.map (fun name -> Ptree.Duseimport (loc, true, [ (qid1 name, None) ]))
-  in
   let imports =
     [
       Ptree.Duseimport (loc, true, [ (qid1 "int.Int", None) ]);
       Ptree.Duseimport (loc, true, [ (qid1 "array.Array", None) ]);
     ]
-    @ instance_imports
   in
   let mon_state_ctors = runtime.monitor_state_ctors in
   let type_mon_state =
@@ -157,6 +150,96 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
           td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.states);
         };
       ]
+  in
+  let summary_by_name =
+    runtime.callee_summaries
+    |> List.map (fun (summary : Why_runtime_view.callee_summary_view) -> (summary.callee_node_name, summary))
+  in
+  let used_callee_summaries =
+    n.instances
+    |> List.filter_map (fun (_, node_name) -> List.assoc_opt node_name summary_by_name)
+    |> List.sort_uniq
+         (fun (a : Why_runtime_view.callee_summary_view) (b : Why_runtime_view.callee_summary_view) ->
+           String.compare a.callee_node_name b.callee_node_name)
+  in
+  let instance_type_decls =
+    let is_ghost_local name =
+      (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+      || (String.length name >= 5 && String.sub name 0 5 = "atom_")
+      || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
+      || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
+    in
+    used_callee_summaries
+    |> List.concat_map (fun (summary : Why_runtime_view.callee_summary_view) ->
+           let state_decl =
+             Ptree.Dtype
+               [
+                 {
+                   td_loc = loc;
+                   td_ident = ident (instance_state_type_name summary.callee_node_name);
+                   td_params = [];
+                   td_vis = Public;
+                   td_mut = false;
+                   td_inv = [];
+                   td_wit = None;
+                   td_def =
+                     TDalgebraic
+                       (List.map
+                          (fun state_name ->
+                            (loc, ident (instance_state_ctor_name summary.callee_node_name state_name), []))
+                          summary.callee_states);
+                 };
+               ]
+           in
+           let state_field =
+             {
+               f_loc = loc;
+               f_ident = ident (prefix_for_node summary.callee_node_name ^ "st");
+               f_pty = Ptree.PTtyapp (qid1 (instance_state_type_name summary.callee_node_name), []);
+               f_mutable = true;
+               f_ghost = false;
+             }
+           in
+           let local_fields =
+             List.map
+               (fun (port : Why_runtime_view.port_view) ->
+                 {
+                   f_loc = loc;
+                   f_ident = ident (prefix_for_node summary.callee_node_name ^ port.port_name);
+                   f_pty = default_pty port.port_type;
+                   f_mutable = true;
+                   f_ghost = is_ghost_local port.port_name;
+                 })
+               summary.callee_locals
+           in
+           let output_fields =
+             List.map
+               (fun (port : Why_runtime_view.port_view) ->
+                 {
+                   f_loc = loc;
+                   f_ident = ident (prefix_for_node summary.callee_node_name ^ port.port_name);
+                   f_pty = default_pty port.port_type;
+                   f_mutable = true;
+                   f_ghost = false;
+                 })
+               summary.callee_outputs
+           in
+           let vars_decl =
+             Ptree.Dtype
+               [
+                 {
+                   td_loc = loc;
+                   td_ident = ident (instance_vars_type_name summary.callee_node_name);
+                   td_params = [];
+                   td_vis = Public;
+                   td_mut = true;
+                   td_inv = [];
+                   td_wit = None;
+                   td_def = TDrecord (state_field :: (local_fields @ output_fields));
+                 };
+               ]
+           in
+           [ state_decl; vars_decl ])
   in
   let default_custom_init = function
     | "aut_state" -> begin
@@ -204,11 +287,10 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
   let instance_fields =
     List.map
       (fun (inst_name, node_name) ->
-        let mod_name = module_name_of_node node_name in
         {
           f_loc = loc;
           f_ident = ident (rec_var_name env inst_name);
-          f_pty = Ptree.PTtyapp (qdot (qid1 mod_name) "vars", []);
+          f_pty = Ptree.PTtyapp (qid1 (instance_vars_type_name node_name), []);
           f_mutable = true;
           f_ghost = false;
         })
@@ -333,6 +415,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     module_name;
     imports;
     type_mon_state;
+    instance_type_decls;
     type_state;
     type_vars;
     env;

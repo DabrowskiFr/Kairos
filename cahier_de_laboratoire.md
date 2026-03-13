@@ -1,5 +1,315 @@
 # Cahier de laboratoire
 
+## 2026-03-13
+
+### Tentative 1 (enrichissement visuel du document IR sur `delay_int`)
+- Objectif:
+  - produire une version beaucoup plus detaillee du document sur les
+    obligations IR;
+  - ajouter des supports visuels exploitables dans le Markdown et dans le PDF;
+  - montrer, pour `delay_int`, ce qui est genere a chaque etape du pipeline.
+- Demarche suivie:
+  - relecture du document source
+    `docs/ir_obligations_etude_delay_int_2026-03-13.md`;
+  - reutilisation des artefacts deja extraits pour `delay_int`:
+    - produit explicite;
+    - Why genere;
+    - graphe DOT existant du programme/produit;
+  - ajout de trois vues graphiques nouvelles en Graphviz:
+    - pipeline des artefacts de preuve;
+    - carte clauses-transitions;
+    - vue temporelle de `pre(x,1)` et de `__pre_k1_x`;
+  - reorganisation du document pour rendre explicite:
+    - la progression source -> OBC -> produit -> clauses -> clauses
+      relationnelles -> Why;
+    - le role de chaque famille de clauses;
+    - l'exemple `delay_int` etape par etape;
+    - un tableau de synthese transition -> obligations.
+- Resultat:
+  - succes;
+  - le document a ete fortement detaille et structure;
+  - les figures SVG suivantes ont ete ajoutees:
+    - `docs/assets/delay_int_pipeline.svg`;
+    - `docs/assets/delay_int_clause_map.svg`;
+    - `docs/assets/delay_int_temporal_view.svg`;
+  - le PDF associe a ete regenere:
+    - `docs/ir_obligations_etude_delay_int_2026-03-13.pdf`.
+- Realisations:
+  - nouveaux fichiers source Graphviz:
+    - `docs/assets/delay_int_pipeline.dot`;
+    - `docs/assets/delay_int_clause_map.dot`;
+    - `docs/assets/delay_int_temporal_view.dot`;
+  - regeneration des SVG via `dot`;
+  - regeneration du PDF via `pandoc` + `xelatex`.
+- Point architectural consigne dans le document:
+  - `product_steps` et `generated_clauses` restent des artefacts de
+    construction;
+  - `relational_generated_clauses` est le bon chemin cible pour la preuve;
+  - `pre(x,k)` doit etre visible comme variable symbolique avant Why sur ce
+    chemin.
+
+### Tentative 2 (renforcement pedagogique du document IR)
+- Objectif:
+  - rendre le document plus pedagogique pour un lecteur qui ne connait pas
+    encore le pipeline;
+  - mieux faire voir les types d'obligation et leur reduction successive.
+- Demarche suivie:
+  - ajout d'une legende rapide des objets manipules;
+  - ajout d'une typologie des obligations (`INIT`, `SOURCE SUMMARY`,
+    `PROPAGATION`, `SAFETY`, `TICK SUMMARY EXPORT`);
+  - ajout d'une section anti-confusions;
+  - ajout d'une vue "un tick, une obligation locale" pour `delay_int`;
+  - ajout d'une table de reduction complete:
+    - produit explicite;
+    - clause brute;
+    - clause relationnelle;
+    - forme Why observable;
+  - ajout d'une carte de lecture du Why et d'une vue "gains/pertes" par
+    niveau.
+- Resultat:
+  - succes;
+  - le document couvre maintenant a la fois:
+    - la structure des artefacts;
+    - la lecture des obligations;
+    - la reduction progressive d'un meme contenu semantique.
+- Realisations:
+  - ajout d'une nouvelle figure:
+  - `docs/assets/delay_int_single_tick.dot`;
+  - `docs/assets/delay_int_single_tick.svg`;
+  - regeneration du PDF:
+    - `docs/ir_obligations_etude_delay_int_2026-03-13.pdf`.
+
+### Tentative 3 (ouverture d'un support de clarification `Resume.md`)
+- Objectif:
+  - disposer d'un fichier court et stable pour consigner au fil des echanges
+    les points a tirer au clair sur Kairos.
+- Realisation:
+  - creation de `Resume.md` a la racine du depot.
+- Intention:
+  - y ajouter progressivement les points fixes explicitement par la discussion,
+    sans melanger ce support avec le cahier de laboratoire.
+
+### Tentative 4 (premier point stabilise dans `Resume.md`)
+- Point ajoute:
+  - toute execution concrete du programme induit un chemin dans l'automate
+    produit, sous hypothese de construction correcte et de semantique de tick
+    coherente;
+  - la reciproque n'est vraie que pour les chemins realisables du produit.
+
+## 2026-03-12
+
+### Tentative 3 (abaissement explicite de `pre_k` avant Why et premiere IR relationnelle)
+- Objectif:
+  - regler une dette d'architecture identifiee explicitement:
+    - `pre(x,k)` ne devait plus etre interprete dans le backend Why,
+      mais etre deja abaisse vers des variables symboliques explicites avant
+      la traduction Why3;
+  - appliquer le plan de transition:
+    - inventaire des dependances `__aut_state` / `Aut*`,
+    - definition d'une premiere IR relationnelle,
+    - choix d'un cas pilote minimal.
+- Demarche suivie:
+  - lecture du point de bascule reel `HPreK -> __pre_k...`:
+    - `Collect.build_pre_k_infos`,
+    - `product_kernel_ir`,
+    - `why_env`,
+    - `why_compile_expr`;
+  - ajout dans `Fo_specs` de fonctions d'abaissement:
+    - `lower_hexpr_pre_k`,
+    - `lower_fo_pre_k`,
+    - `lower_ltl_pre_k`;
+  - rebranchement de `product_kernel_ir` pour:
+    - abaisser les `FactFormula` des clauses kernel avant export backend;
+    - abaisser les resumes de tick exportes;
+    - introduire `relational_generated_clauses`, premiere IR de preuve sans
+      `FactGuaranteeState`;
+  - documentation separee:
+    - inventaire des dependances residuelles;
+    - note de cadrage du cas pilote `toggle`.
+- Resultat:
+  - succes partiel mais important;
+  - le build `bin/cli/main.exe` repasse apres les changements;
+  - les clauses kernel exportees et les resumes exportes ne laissent plus Why
+    interpreter directement `HPreK` sur ce chemin.
+- Realisations code:
+  - `lib_v2/runtime/core/logic/fo/fo_specs.{ml,mli}`:
+    - nouvelles fonctions d'abaissement explicite des `pre_k`;
+  - `lib_v2/runtime/middle_end/product/product_kernel_ir.{ml,mli}`:
+    - clauses kernel abaissees avant export;
+    - ajout de `relational_generated_clauses`;
+    - resumes `callee_tick_abi` abaisses avant export;
+  - documentation:
+    - `docs/architecture_transition_inventory_2026-03-12.md`;
+    - `docs/relational_proof_pilot_toggle_2026-03-12.md`.
+- Inventaire residuel retenu:
+  - dette encore presente dans:
+    - instrumentation/contracts produit,
+    - `generated_clause_ir` legacy avec `FactGuaranteeState`,
+    - backend Why (`why_contracts`, `emit`, `why_env`, `why_call_plan`),
+    - ABI modulaire des `call`.
+- Cas pilote retenu:
+  - `tests/without_calls/ok/inputs/toggle.kairos`
+  - justification:
+    - pas de `call`,
+    - pas de `pre`,
+    - petit residu logique,
+    - bon support pour reconstruire un encodage de preuve sans `Aut*`.
+- Conclusion:
+  - la dette "Why interprete encore `pre_k`" a commence a etre reglee
+    correctement;
+  - l'architecture active reste transitoire tant que
+    `relational_generated_clauses` n'est pas devenue l'entree principale du
+    backend Why.
+
+### Tentative 4 (activation du chemin Why relationnel sans repli legacy)
+- Objectif:
+  - faire consommer par le backend Why l'IR relationnelle active au lieu du
+    vieux chemin centre sur `FactGuaranteeState`;
+  - valider le cas pilote `toggle`, puis etendre a `without_calls`.
+- Resultat:
+  - succes partiel substantiel;
+  - echec residuel sur `credit_balance_monitor`.
+- Realisations:
+  - `why_contracts.ml` consomme maintenant le chemin
+    `relational_generated_clauses` pour les resumes kernel actifs;
+  - les invariants de programme ont ete reintroduits en precondition helper
+    uniquement sous la forme:
+    - `st = <State> -> invariant_de_programme`,
+    sans indexation par `Aut*`;
+  - les disjonctions de premisses relationnelles sont eclatees en plusieurs
+    clauses plus petites dans `product_kernel_ir.ml`.
+- Verifications ciblees obtenues:
+  - `toggle.kairos` : `OK`;
+  - `require_delay_bool.kairos` : `OK`;
+  - `armed_delay.kairos` : `OK`;
+  - `armed_fault_monitor.kairos` : `OK`;
+  - `armed_delay__bad_code.kairos` : `INVALID` apres retrait d'une
+    simplification trop agressive.
+- Echec/limite restante:
+  - `credit_balance_monitor.kairos` reste `FAILED` a `5s`;
+  - le noyau restant se situe sur plusieurs buts `step_from_run'vc`;
+  - une tentative de simplification generique des formules relationnelles a
+    introduit une vraie regression de correction:
+    - une clause `OriginSafety` de `armed_delay` devenait vacuement vraie par
+      simplification de sa garde en `FFalse`;
+    - cette tentative a ete retiree immediatement.
+- Conclusion:
+  - le chemin relationnel actif est maintenant assez solide pour plusieurs cas
+    directeurs et garde-fous;
+  - `credit_balance_monitor` est le verrou principal restant sur
+    `without_calls/ok` avant une campagne complete propre.
+
+### Tentative 2 (requalification architecturale du pipeline de preuve)
+- Objectif:
+  - requalifier explicitement l'architecture courante apres clarification du
+    point cible:
+    - pas de monitoring execute,
+    - pas de structuration des preuves par etats `Aut*`,
+    - utilisation du produit uniquement comme outil de derivation de clauses
+      relationnelles.
+- Demarche suivie:
+  - relecture critique des residus Why en cours (`toggle`, `reset_zero_sink`);
+  - comparaison avec l'intention de l'utilisateur et avec la lecture
+    relationnelle du noyau Rocq;
+  - correction des regles du depot dans `AGENTS.md`;
+  - mise a jour du cadre methodologique pour figer la branche actuelle comme
+    branche de transition.
+- Resultat:
+  - succes sur la clarification architecturale;
+  - aucune nouvelle tentative locale de "raffinage" du pipeline moniteur n'est
+    retenue comme direction cible.
+- Constats:
+  - l'etat courant de `codex/spot-automata-migration` reste utile comme
+    branche de transition:
+    - format `.kobj`,
+    - `import`,
+    - separation des suites `with_calls` / `without_calls`,
+    - clauses `OriginSourceProductSummary`,
+    - nettoyage partiel du backend Why;
+  - en revanche, cette branche ne doit plus etre consideree comme la forme
+    finale du pipeline de preuve tant qu'elle reste semantiquement structuree
+    autour de `__aut_state` / `Aut*`;
+  - les derniers residus sur `toggle` et `reset_zero_sink` ne doivent plus
+    servir de pretexte a raffiner cette architecture transitoire.
+- Decision:
+  - figer l'etat courant comme branche de transition;
+  - ne plus investir dans le "monitoring execute" comme support de preuve;
+  - preparer un retrait explicite de `__aut_state` / `Aut*` du pipeline actif.
+- Plan de retrait retenu:
+  - etape 1:
+    - inventaire des points ou `__aut_state` / `Aut*` restent visibles dans:
+      - IR produit,
+      - clauses generees,
+      - backend Why,
+      - resumes modulaires;
+  - etape 2:
+    - definir une IR relationnelle cible qui n'encode plus les resumes de
+      preuve par etat automate, mais par faits explicites:
+      - preconditions locales,
+      - relation source/cible,
+      - faits exportables sur sorties et memoires;
+  - etape 3:
+    - choisir un cas pilote minimal et le reconstruire sans etat moniteur;
+  - etape 4:
+    - etendre ensuite au reste de `without_calls`, puis a `with_calls`.
+- Cas pilote choisi:
+  - `tests/without_calls/ok/inputs/toggle.kairos`
+  - raison:
+    - produit simple,
+    - peu d'etats programme,
+    - residu actuel assez local,
+    - bon candidat pour reconstruire une preuve purement relationnelle sans
+      support `Aut*`.
+
+### Tentative 1 (rapport PDF detaille d'architecture et d'implementation)
+- Objectif:
+  - produire un rapport PDF tres detaille sur l'architecture du programme et
+    sur les details d'implementation du depot `kairos-dev`.
+- Demarche suivie:
+  - inspection des notes d'architecture deja presentes a la racine;
+  - lecture des points d'entree publics:
+    - `bin/cli/cli_v2.ml`,
+    - `bin/lsp/kairos_lsp.ml`,
+    - `pipeline.mli`,
+    - `pipeline_v2_indep.mli`;
+  - lecture des modules pivots de l'orchestration:
+    - `pipeline_v2_indep.ml`,
+    - `engine_service.ml`,
+    - `frontend.ml`;
+  - lecture des modules semantiques:
+    - `product_build.ml`,
+    - `product_kernel_ir.mli`;
+  - lecture des modules backend/proof:
+    - `why_runtime_view.ml`,
+    - `why_env.ml`,
+    - `why_core.ml`,
+    - `why_call_plan.ml`,
+    - `why_contracts.ml`,
+    - `emit.ml`,
+    - `why_prove.ml`;
+  - lecture des modules de modularite:
+    - `kairos_object.ml`,
+    - `modular_imports.ml`.
+- Resultat:
+  - succes;
+  - redaction d'un rapport source:
+    - `docs/rapport_architecture_kairos_2026-03-12.md`;
+  - generation attendue d'un PDF associe a partir de ce rapport.
+- Constats architecturaux principaux:
+  - le centre de gravite du systeme est bien le pipeline semantique et non
+    l'emission Why3 seule;
+  - `product_kernel_ir` joue le role de source de verite backend-agnostic;
+  - `why_runtime_view` sert d'interface d'adaptation entre IR semantique et
+    backend Why;
+  - le backend Why reste la zone la plus complexe, surtout autour des contrats
+    et des appels d'instance;
+  - le support `.kobj` formalise correctement une modularite par artefacts
+    compiles.
+- Limites reconnues:
+  - rapport fonde sur l'inspection du code et des interfaces;
+  - pas de relecture exhaustive de tous les modules du depot;
+  - pas de validation formelle complete de toutes les preuves Rocq.
+
 ## 2026-03-11
 
 ### Tentative 5 (objets `.kobj`, `import`, modularite des `call`)
@@ -7102,3 +7412,988 @@ disponible que si le solveur repond effectivement `unsat`.
 - Validation:
   - `delay_int_via_two_calls.kairos`: `failed=0`
   - `delay_int_via_two_calls__bad_code.kairos`: non vert (`failed=1`)
+
+## 2026-03-12 - Blocage Why3 des appels modulaires et split de campagne
+
+- Contexte:
+  - la couche `import` + `.kobj` est en place, mais la preuve modulaire des
+    `call` reste bloquee dans le backend Why3;
+  - le symptome courant n'est plus la projection de records importes, mais un
+    residu de liaison/portee sur des symboles intermediaires du type
+    `__call_next_d`.
+
+- Tentatives menees aujourd'hui:
+  - introduction de types miroir locaux pour les instances importees, afin de
+    ne plus dependre de projections inter-modules Why;
+  - generation locale de getters programmes et logiques pour ces types miroir;
+  - rebranchement du plan `ActionCall` sur un `any` local avec variables
+    fraiches pour l'etat post et les sorties;
+  - correction de la transmission des `output_bindings` dans la compilation
+    des faits post-appel;
+  - correction de la construction des `ensures` du `any` pour tenter de lier
+    explicitement la valeur retour.
+
+- Resultat honnete:
+  - le build `opam exec -- dune build bin/cli/main.exe` reste vert;
+  - les cas minimaux modularises restent rouges:
+    - `delay_int_instance.kairos`
+    - `guarded_delay_instance.kairos`
+    - `delay_int2_instance.kairos`
+    - `delay_int_via_two_calls.kairos`
+  - Why3 continue a signaler un symbole non lie de la forme
+    `__call_next_*`.
+
+- Observation utile mise au jour:
+  - le chemin `Pipeline_v2_indep.why_pass` n'expose pas aujourd'hui le meme
+    Why que le chemin complet `run/build_outputs`, car il passe encore par
+    `Io.emit_why` sans injecter les resumes importes;
+  - cela ne casse pas le build general, mais complique fortement l'inspection
+    du Why reel des cas modularises.
+
+- Decision de travail retenue:
+  - ne pas interrompre le chantier general sur ce verrou Why3;
+  - split non destructif de la campagne de tests pour separer:
+    - le socle general sans `call`;
+    - le sous-ensemble `instances/call` actuellement en chantier.
+
+- Changements de campagne:
+  - creation des sous-suites:
+    - `tests/without_calls/ok/inputs`
+    - `tests/without_calls/ko/inputs`
+    - `tests/with_calls/ok/inputs`
+    - `tests/with_calls/ko/inputs`
+  - les fichiers ont ete copies, pas deplaces, pour conserver les chemins
+    historiques `tests/ok/inputs` et `tests/ko/inputs`;
+  - `with_calls` contient les callers modularises et les noeuds support qu'ils
+    importent;
+  - `without_calls` contient le reste de la regression.
+
+- Outillage:
+  - extension de `scripts/validate_ok_ko.sh` avec un troisieme argument:
+    - `legacy`
+    - `with_calls`
+    - `without_calls`
+    - `split`
+  - ajout de `tests/README.md` pour documenter ce decoupage.
+
+- Raison de cette decision:
+  - permettre de continuer a stabiliser et valider la chaine generale sans
+    attendre la resolution complete du dernier verrou Why3 sur les appels
+    modulaires;
+  - conserver un sous-ensemble `with_calls` focalise pour reprendre ensuite la
+    preuve modulaire sans bruit parasite.
+
+- Reverification ciblee `without_calls` par preuve:
+  - le sous-ensemble sans appels ne conserve pas encore partout les statuts
+    attendus;
+  - constats confirmes par lancement de preuve:
+    - `tests/without_calls/ok/inputs/gated_echo_bundle.kairos`: encore rouge;
+    - `tests/without_calls/ok/inputs/sticky_bypass_echo.kairos`: encore rouge;
+    - `tests/without_calls/ko/inputs/ack_cycle__bad_code.kairos`: faux vert
+      confirme (`[]` dans les traces echec, donc aucune obligation en echec).
+  - conclusion:
+    - le split isole bien `call`, mais il ne faut pas presenter `without_calls`
+      comme integralement restabilise a ce stade.
+
+- Suite du travail sur `without_calls`:
+  - revalidation sequentielle plus propre du sous-ensemble sans appels;
+  - constat plus large qu'attendu:
+    plusieurs variantes `__bad_code` restent `valid` sans faire intervenir
+    `call`;
+  - decision retenue pour avancer proprement:
+    - quarantaine explicite des cas historiquement non discriminants:
+      - `tests/quarantine/ack_cycle/`
+      - `tests/quarantine/non_discriminant_bad_code/`
+    - retrait de ces fichiers des suites actives `tests/ko/inputs` et
+      `tests/without_calls/ko/inputs`.
+
+- Outillage:
+  - optimisation de `scripts/validate_ok_ko.sh`:
+    - ne plus generer de `.kobj` pour les variantes `__bad_*`, ce qui evitait
+      un surcout inutile pendant la campagne.
+
+- Etat honnete apres ces changements:
+  - la campagne `without_calls` reste a revalider proprement de bout en bout;
+  - les rapports intermediaires montrent que la precision backend sur certains
+    `bad_code` sans appels est encore insuffisante;
+  - la quarantaine permet toutefois de continuer le travail de stabilisation
+    sans melanger ces faux verts connus avec la regression active.
+
+- Diagnostic plus precis obtenu par comparaison git:
+  - comparaison avec le commit `2d0c906` sur un cas simple sans appels:
+    - `gated_echo_bundle.kairos` donne deja `[]` en
+      `--dump-proof-traces-json --proof-traces-failed-only`;
+    - le faux rouge observe en campagne ne vient donc pas du coeur de preuve
+      sur ce cas, mais de l'orchestration/lecture des rapports de validation.
+  - cause identifiee cote campagne:
+    - `scripts/validate_ok_ko.sh` exposait des rapports partiels pendant
+      l'execution;
+    - en presence de reruns / lectures concurrentes, cela faisait lire des TSV
+      intermediaires ou obsoletes.
+  - correction appliquee:
+    - ecriture atomique des rapports `ok`, `ko`, `summary` via fichiers
+      temporaires puis `mv`.
+
+- Diagnostic precis sur les faux verts `__bad_code`:
+  - la situation "avant modular calls" etait en partie trompeuse:
+    - plusieurs `__bad_code` etaient alors invalides pour de mauvaises raisons
+      (`undefined_code_symbol`, parse errors), pas parce que la preuve savait
+      vraiment refuter un programme faux;
+  - le tournant se situe dans l'introduction de
+    `scripts/regenerate_bad_code_suite.py`, qui a rendu les `bad_code`
+    executables et bien formes;
+  - les faux verts restants sans appels pointent donc d'abord vers une limite
+    de discrimination de la preuve sur ces mutations semantiques, pas vers une
+    simple regression cosmetique du validateur.
+
+- Tri systematique des faux verts `without_calls`:
+  - categorie A, mutation non discriminante vis-a-vis de la spec:
+    - `r_mode_gate__bad_code.kairos`
+    - `reset_zero_sink__bad_code.kairos`
+  - categorie B, mutation pertinente qui devrait etre refutee:
+    - `armed_fault_monitor__bad_code.kairos`
+    - `edge_rise__bad_code.kairos`
+    - `require_delay_bool__bad_code.kairos`
+    - `resettable_delay__bad_code.kairos`
+    - `toggle__bad_code.kairos`
+    - `traffic3__bad_code.kairos`
+    - `w_ack_window__bad_code.kairos`
+    - `wr_input_output__bad_code.kairos`
+  - document de synthese:
+    - `tests/quarantine/FALSE_GREEN_TRIAGE.md`
+
+- Rejeu systematique des cas quarantaines `__bad_code` (timeout 5s, traces
+  JSON, fichiers rejoues individuellement):
+  - `ack_cycle__bad_code.kairos` n'est plus faux vert sur le replay courant:
+    `INVALID` avec 3 obligations en echec;
+  - les faux verts quarantaines encore reproductibles sont maintenant:
+    - `armed_fault_monitor__bad_code.kairos`
+    - `edge_rise__bad_code.kairos`
+    - `r_mode_gate__bad_code.kairos`
+    - `require_delay_bool__bad_code.kairos`
+    - `reset_zero_sink__bad_code.kairos`
+    - `resettable_delay__bad_code.kairos`
+    - `toggle__bad_code.kairos`
+    - `traffic3__bad_code.kairos`
+    - `w_ack_window__bad_code.kairos`
+    - `wr_input_output__bad_code.kairos`
+  - bilan sur la campagne active `without_calls`:
+    - `ko_false_green=0` dans le dernier rapport complet disponible;
+    - il reste en revanche 3 `ok` rouges:
+      - `gated_echo_bundle.kairos`
+      - `sticky_ack_plus.kairos`
+      - `sticky_bypass_echo.kairos`
+  - interpretation:
+    - le risque de correction sans appels ne se lit plus dans la suite active
+      `ko`, mais dans la quarantaine documentee;
+    - la suite active `without_calls` souffre actuellement davantage de faux
+      rouges `ok` que de faux verts `ko`.
+
+- Verification croisee avec `kairos-kernel` / formalisation Rocq:
+  - relecture des contraintes locales explicites de
+    `ExplicitProduct.v`, `GeneratedClauses.v`, `RelationalTriples.v`;
+  - contraintes a ne pas perdre cote implementation:
+    - `product_step_wf`
+    - `product_step_has_live_source`
+    - `product_step_is_bad_target`
+  - consequence methodologique:
+    - toute analyse de faux vert de categorie B doit verifier si l'encodage
+      Why courant oublie une contrainte de pas local bien forme, une
+      condition de source vivante, ou une clause de securite sur cible
+      mauvaise.
+
+- Reprise ciblee sur le premier faux vert sans appels encore pertinent:
+  - cas minimal choisi:
+    - `tests/quarantine/non_discriminant_bad_code/require_delay_bool__bad_code.kairos`
+  - diagnostic obtenu:
+    - `--dump-product` montrait encore les pas explicites et un pas
+      `bad_G`;
+    - mais `--dump-obligations-map` montrait `coverage empty`, `steps=0`,
+      `clauses=2`;
+    - conclusion: les pas du produit explicite etaient perdus entre
+      l'exploration et l'IR kernel, donc la clause locale de securite
+      n'etait jamais emise vers Why3.
+  - correction appliquee:
+    - dans `lib_v2/runtime/middle_end/product/product_kernel_ir.ml`,
+      `is_feasible_product_step` ne resimplifie plus les gardes recuperes pour
+      jeter les pas explicites;
+    - on conserve desormais les pas explores tant que leur source est live.
+  - effet confirme:
+    - `require_delay_bool__bad_code.kairos` n'est plus faux vert:
+      un replay cible a `5s` donne maintenant un goal `kernel_safety`
+      en echec.
+
+- Effet secondaire observe sur les `ok`:
+  - la reintroduction des clauses kernel rend certaines preuves `ok` plus
+    couteuses pour Z3;
+  - cas observe:
+    - `tests/without_calls/ok/inputs/armed_delay.kairos`
+  - constat:
+    - a `5s`, le cas peut echouer sur une obligation `step'vc`;
+    - a `10s`, le replay cible retombe sur `[]`;
+    - cela pointe plutot vers un probleme de cout solver qu'un probleme de
+      correction semantique, car les clauses kernel sont bien presentes.
+
+- Tentatives intermediaires abandonnees:
+  - j'ai essaye de re-filtrer les pas explicites via des heuristiques
+    d'overlap entre gardes pour supprimer les branches manifestement
+    incoherentes;
+  - ces variantes retombaient dans le probleme initial:
+    `coverage empty` et perte complete des clauses kernel sur
+    `require_delay_bool`;
+  - decision: conserver le correctif simple qui retablit la correction des
+    obligations, et traiter separement ensuite la maitrise du cout solver.
+
+- Tentative suivante pour faire repasser `armed_delay` a `5s`:
+  - hypothese:
+    - garder les pas explicites pour la correction, mais ne plus emettre les
+      clauses kernel dont la conjonction locale de gardes est deja impossible;
+  - resultat:
+    - cette variante retombe elle aussi dans la perte de clauses kernel:
+      `require_delay_bool__bad_code` revient a `coverage empty`, `clauses=2`;
+    - elle est donc abandonnee et revertie.
+  - conclusion mise a jour:
+    - le verrou restant n'est plus un oubli de clauses kernel sur le cas
+      minimal `require_delay_bool`;
+    - le verrou restant est la maitrise du cout Why3/Z3 sur certains `ok`
+      renforces, notamment `armed_delay`, sans reintroduire un filtre
+      semantiquement trop agressif au niveau du produit.
+
+- Correction robuste conservee dans cette passe:
+  - bug identifie dans `lits_consistent` dans:
+    - `lib_v2/runtime/middle_end/product/product_build.ml`
+    - `lib_v2/runtime/middle_end/product/product_kernel_ir.ml`
+  - symptome:
+    - le test d'overlap ne detectait pas correctement les contradictions
+      entre un litteral positif et le meme litteral en negatif;
+    - il laissait donc survivre des pas explicitement impossibles dans
+      l'exploration produit.
+  - correction:
+    - comparaison sur valeurs uniques positives / negatives pour detecter:
+      - plusieurs valeurs positives incompatibles;
+      - une intersection positive/negative sur la meme variable.
+  - effet confirme:
+    - `armed_delay` perd des branches impossibles dans `--dump-product`;
+    - `require_delay_bool__bad_code` conserve ses pas `bad_G` utiles.
+
+- Tentative non conservee:
+  - j'ai ensuite essaye de compacter les trois gardes
+    programme/assume/guarantee en une seule hypothese FO simplifiee par
+    clause kernel;
+  - cette optimisation faisait a nouveau tomber les clauses kernel a `2`
+    seulement sur des cas ou elles doivent exister;
+  - elle a ete revertie.
+
+## 2026-03-12 09:45 CET - compression backend des clauses kernel Why
+
+- Objectif de cette passe:
+  - reduire le cout des `step'vc` sur `without_calls`, en priorite sur
+    `armed_delay`, sans perdre le correctif de correction qui maintient
+    `require_delay_bool__bad_code` en `INVALID`.
+
+- Diagnostic confirme avant modification:
+  - `--dump-product` et `--dump-obligations-map` de
+    `tests/without_calls/ok/inputs/armed_delay.kairos` sont propres:
+    pas de pas explicite impossible, `coverage explicit`, `clauses=15`;
+  - le residu etait donc bien cote backend Why et non plus dans
+    l'exploration produit.
+
+- Modification retenue:
+  - fichier modifie:
+    - `lib_v2/runtime/backend/why/why_contracts.ml`
+  - principe:
+    - regrouper au niveau backend les clauses kernel consecutives d'un meme
+      pas du produit;
+    - pour un pas `safe`, fusionner:
+      - propagation invariant de noeud;
+      - propagation coherence automate;
+    - pour un pas `bad_G`, n'emettre que la clause `safety`, qui est plus
+      forte que les deux clauses de propagation du meme pas;
+    - dedupliquer hypotheses et conclusions exactes avant emission Why.
+  - justification de correction:
+    - le backend ne modifie pas l'IR kernel compatible;
+    - il n'affaiblit pas la reduction:
+      - `premise -> (A /\ B)` implique `premise -> A` et `premise -> B`;
+      - `premise -> false` rend redondantes les propagations du meme pas;
+    - l'alignement avec Rocq reste du cote des clauses IR
+      (`product_step_wf`, `product_step_has_live_source`,
+      `product_step_is_bad_target`), la contraction n'etant qu'une
+      optimisation Why.
+
+- Effet mesure sur `armed_delay`:
+  - le Why genere passe de `13` `ensures` a `6`;
+  - les resumes kernel visibles deviennent compacts:
+    - `Kernel propagation summary`
+    - `Kernel safety`
+  - le nombre de goals descend de `391` a `181`;
+  - le cas n'est toutefois pas encore vert a `5s`:
+    - il reste un echec solver sur un `step'vc` relie au resume
+      `Track -> Track`.
+
+- Effet mesure sur la correction:
+  - `tests/quarantine/non_discriminant_bad_code/require_delay_bool__bad_code.kairos`
+    reste non vert apres cette passe;
+  - le correctif de correction n'a donc pas ete reperdu.
+
+- Reverifications utiles:
+  - `tests/without_calls/ok/inputs/gated_echo_bundle.kairos` retombe sur
+    `[]` a `5s`;
+  - `tests/without_calls/ok/inputs/sticky_bypass_echo.kairos` retombe sur
+    `[]` a `5s`;
+  - `tests/without_calls/ok/inputs/sticky_ack_plus.kairos` retombe sur `[]`
+    a `5s`.
+
+- Limite restante:
+  - `armed_delay` reste le dernier bon contre-exemple de cout solver dans le
+    sous-ensemble `without_calls`;
+  - la suite utile n'est plus cote produit, mais cote generation locale des
+    VCs Why du cas `Track -> Track`.
+
+## 2026-03-12 10:00 CET - reverification ciblee de `armed_delay`
+
+- Travail tente:
+  - ajout d'une plomberie pour pouvoir injecter des assertions locales de
+    branche issues des invariants kernel deja exiges par `step`:
+    - `lib_v2/runtime/backend/why/why_core.ml`
+    - `lib_v2/runtime/backend/why/why_core.mli`
+    - `lib_v2/runtime/backend/emit.ml`
+    - `lib_v2/runtime/backend/emit.mli`
+
+- Observation importante:
+  - sur `armed_delay`, le Why imprime ne montre pas encore d'`assert { ... }`
+    explicite dans la branche `Track`;
+  - en revanche, apres rebuild propre et reruns cibles isoles, le cas
+    `tests/without_calls/ok/inputs/armed_delay.kairos` retombe maintenant
+    stablement sur `[]` a `5s` (plusieurs replays consecutifs).
+
+- Statut de correction reverifie:
+  - `tests/quarantine/non_discriminant_bad_code/require_delay_bool__bad_code.kairos`
+    continue de produire des goals en echec;
+  - on n'a donc pas reintroduit de faux vert evident en obtenant ce retour au
+    vert sur `armed_delay`.
+
+- Interpretation honnête:
+  - le point bloquant `armed_delay` n'est plus reproduit en replay cible a
+    `5s`;
+  - je n'attribue pas encore avec certitude cette amelioration a
+    l'injection d'assertions locales, puisque le Why imprime ne les expose
+    pas encore visiblement pour ce cas;
+  - l'etape utile suivante n'est plus `armed_delay` seul, mais le rerun
+    complet de `without_calls`.
+
+## 2026-03-12 10:15 CET - campagne `without_calls` relancee
+
+- Action:
+  - relance de `scripts/validate_ok_ko.sh ... 5 without_calls`.
+
+- Resultat pratique:
+  - la campagne n'a pas ete menee jusqu'au resume final de cette relance;
+  - elle a du etre interrompue apres plusieurs minutes car
+    `credit_balance_monitor.kairos` restait en cours d'analyse a lui seul;
+  - la contrainte `5s` par obligation etait bien respectee, mais pas de borne
+    globale par fichier, donc la campagne peut rester longue malgre tout.
+
+- Information utile extraite avant interruption:
+  - dans `without_calls_ok_report.tsv.tmp`, les deux premiers cas etaient:
+    - `armed_delay.kairos    FAILED    1`
+    - `armed_fault_monitor.kairos    FAILED    4`
+  - dans `without_calls_ko_report.tsv.tmp`, les cas deja executes etaient tous
+    `INVALID`; aucun faux vert observe dans ce prefixe de campagne.
+
+- Conclusion honnete:
+  - les reverifications ciblees isolees montraient `armed_delay` vert a `5s`,
+    mais la campagne sequentielle complete ne reproduit pas encore cette
+    stabilite;
+  - il reste donc une variabilite de performance solver en contexte de
+    campagne, et `without_calls` ne peut pas encore etre declare propre.
+
+## 2026-03-12 17:40 CET - timeout global par fichier dans le validateur
+
+- Changement implemente:
+  - `scripts/validate_ok_ko.sh` accepte maintenant un budget global
+    supplementaire par fichier (`timeout_per_file`, par defaut `60s`);
+  - execution encapsulee via `perl` + `alarm` pour tuer proprement un
+    `cli/main.exe` trop long;
+  - ajout des modes:
+    - `single_ok`
+    - `single_ko`
+    afin de classifier un fichier unique avec exactement la meme logique que
+    la campagne.
+
+- Motivation:
+  - sans borne par fichier, `credit_balance_monitor.kairos` pouvait occuper la
+    campagne pendant plusieurs minutes malgre `5s` par obligation;
+  - cela rendait la suite `without_calls` inexploitable comme outil de
+    diagnostic iteratif.
+
+- Verification ciblee avec le nouveau chemin:
+  - `tests/without_calls/ok/inputs/armed_delay.kairos`
+    - resultat: `FAILED 1`
+  - `tests/without_calls/ok/inputs/armed_fault_monitor.kairos`
+    - resultat: `TIMEOUT file_timeout_60s`
+  - `tests/without_calls/ok/inputs/credit_balance_monitor.kairos`
+    - resultat: `TIMEOUT file_timeout_60s`
+
+- Conclusion mise a jour:
+  - `armed_delay` n'est pas stabilise, meme avec le chemin campagne borne;
+  - `armed_fault_monitor` et `credit_balance_monitor` ne bloquent plus la
+    campagne, mais restent des cas de cout solver excessif;
+  - la prochaine passe doit se concentrer sur ces trois cas avant toute
+    relance complete de `without_calls`.
+
+## 2026-03-12 18:05 CET - simplification booléenne backend Why
+
+- Objectif:
+  - reduire la masse logique envoyee a Why/Z3 sur les trois cas directeurs
+    `without_calls`:
+    - `armed_delay`
+    - `armed_fault_monitor`
+    - `credit_balance_monitor`
+
+- Changements implementes:
+  - nouveau helper:
+    - `simplify_term_bool` dans
+      `lib_v2/runtime/core/utils/support.ml`
+      et expose dans
+      `lib_v2/runtime/core/utils/support.mli`
+  - cette simplification est branchee dans:
+    - `lib_v2/runtime/backend/why/why_contracts.ml`
+      pour les clauses kernel et la normalisation finale des `pre/post`;
+    - `lib_v2/runtime/backend/emit.ml`
+      pour les assertions locales de branche.
+
+- Effet confirme sur le Why genere:
+  - `armed_delay`:
+    - la branche `Track` contient maintenant explicitement:
+      `assert { (vars.__aut_state = Aut1) -> (vars.z = vars.__pre_k1_x) }`
+    - la clause de surete `Track -> Track` est emise comme une negation simple,
+      plus compacte.
+  - `credit_balance_monitor`:
+    - les antecedents contenant auparavant `... /\\ false` ne sont plus emis
+      tels quels; on observe une simplification partielle des VCs.
+
+- Verification finale sur le chemin de validation borne:
+  - `armed_delay.kairos`
+    - `FAILED 1`
+  - `armed_fault_monitor.kairos`
+    - `TIMEOUT file_timeout_60s`
+  - `credit_balance_monitor.kairos`
+    - `TIMEOUT file_timeout_60s`
+
+- Conclusion honnete:
+  - la simplification backend ameliore nettement la lisibilite du Why et
+    supprime une partie de la masse vacue;
+  - elle ne suffit pas encore a faire retomber les trois cas directeurs dans
+    le vert;
+  - le residu semble maintenant relever moins d'un oubli de simplification
+    globale que de la structure meme des obligations de certains automates /
+    produits.
+
+## 2026-03-12 - Filtrage structurel des contrats helper par etat source
+
+- Objectif:
+  - rendre le decoupage `step -> step_from_<state>` reellement utile pour
+    Why3, en evitant qu'un helper de source `Track` porte encore les contrats
+    `Init` et `Idle`.
+
+- Correctifs gardes:
+  - `lib_v2/runtime/backend/why/why_types.ml`
+  - `lib_v2/runtime/backend/why/why_types.mli`
+  - `lib_v2/runtime/backend/why/why_contracts.ml`
+  - `lib_v2/runtime/backend/emit.ml`
+
+- Changements implementes:
+  - ajout de metadonnees `pre_source_states` / `post_source_states` dans
+    `contract_info`;
+  - extraction du `prog_state` source directement depuis les hypotheses de
+    clauses kernel `PreviousTick`;
+  - alignement corrige entre:
+    - l'ordre retourne par `build_contracts`;
+    - les labels;
+    - les `vcid`;
+    - les tags d'etat source;
+  - ajout d'une precondition structurelle `vars.st = <State>` sur chaque
+    helper `step_from_<state>`.
+
+- Effet constate sur `armed_delay`:
+  - avant:
+    - `step_from_track` portait encore des `ensures` issues de `Init` et
+      `Idle`;
+    - classification borne:
+      `TIMEOUT file_timeout_60s`, puis `FAILED 3` selon les etats intermediaires.
+  - apres correction du filtrage et de l'alignement:
+    - `step_from_track` ne porte plus que les deux obligations `Track`;
+    - `armed_delay.kairos` retombe a `FAILED 2` au lieu d'un timeout;
+    - `armed_fault_monitor.kairos` reste `TIMEOUT file_timeout_60s`;
+    - `credit_balance_monitor.kairos` reste `TIMEOUT file_timeout_60s`.
+
+- Tentative rejetee:
+  - ajout d'une precondition helper supplementaire deduite du produit:
+    `vars.__aut_state = <Aut>` quand l'etat programme n'a qu'un seul etat
+    automate possible;
+  - effet mesure sur `armed_delay`:
+    - regression de `FAILED 2` vers `FAILED 5`;
+  - decision:
+    - revert immediat;
+    - conserver seulement la precondition structurelle `vars.st = <State>`.
+
+- Diagnostic courant:
+  - le timeout structurel a bien ete remplace par un noyau de VCs localise sur
+    `step_from_track`;
+  - la suite utile n'est plus de decouper davantage "a l'aveugle", mais
+    d'inspecter la ou les obligations `step_from_track'vc` restantes
+    (`FAILED 2`) et leur SMT dump.
+
+- Tentative supplementaire 2026-03-12:
+  - ajout dans `lib_v2/runtime/backend/why/why_core.ml` d'une re-injection
+    des assertions de branche apres chaque affectation qui ne modifie pas les
+    symboles mentionnes par l'assertion;
+  - motivation:
+    - faire reapparaitre explicitement, apres `y <- z`, le fait
+      `(aut = Aut1) -> (z = pre)` pour aider Z3 a deduire localement
+      `y = pre` dans `armed_delay`.
+
+- Resultat:
+  - build `cli` OK apres mise a jour des interfaces
+    `why_core.mli` et `emit.mli`;
+  - statut de `armed_delay.kairos` inchangé:
+    - `FAILED 2`;
+  - inspection du Why genere:
+    - la reassertion attendue n'apparait pas encore dans `step_from_track`,
+      donc cette instrumentation ne touche pas la forme effective du corps
+      genere pour ce cas.
+
+- Conclusion locale:
+  - l'idee reste structurellement correcte, mais l'accroche courante est trop
+    haute dans le pipeline (ou les actions du bloc ne passent pas par le chemin
+    ou la reassertion devrait s'inserer);
+  - prochain diagnostic utile:
+    - inspecter la forme exacte des `action_blocks` / `runtime_action_view`
+      de `Track` dans `armed_delay` pour comprendre pourquoi la reassertion ne
+      s'imprime pas.
+
+## 2026-03-12 - Diagnostic temporalite des gardes moniteur (`armed_delay`)
+
+- Fait cle obtenu via `--dump-product`:
+  - le produit de `armed_delay` contient:
+    - `(Init, A0, G0) -- arm=1 --> (Track, A0, G1) [safe]`
+    - `(Track, A0, G1) -- y = __pre_k1_x --> (Track, A0, G1) [safe]`
+    - `(Track, A0, G1) -- not(y = __pre_k1_x) --> (Track, A0, G2) [bad_G]`
+  - le noyau du probleme n'etait donc pas un simple echec solver: la clause
+    de surete dependait d'une garde moniteur sur `y`, mais cette garde etait
+    compilee comme `PreviousTick`, ce qui donnait a tort `old(y = pre)`.
+
+- Alignement Rocq verifie:
+  - dans `kairos-kernel/GeneratedClauses.v` et
+    `kairos-kernel/RelationalTriples.v`, `no_bad_clause` / `ctx_matches_ps`
+    parlent du `TickCtx` courant du pas, donc des sorties courantes du tick;
+  - il faut donc compiler les gardes moniteur comme observations mixtes du
+    tick:
+    - sorties courantes;
+    - memoire / `pre_k` de source.
+
+- Correctif implemente:
+  - dans `lib_v2/runtime/backend/why/why_contracts.ml`:
+    - ajout d'un compilateur local `compile_tick_ctx_fo`;
+    - application a `step.program_guard`, `step.assume_edge.guard`,
+      `step.guarantee_edge.guard` quand ces faits etaient jusque-la marques
+      `PreviousTick`;
+    - correction d'un sur-enveloppement en `old(...)` qui annulait l'effet.
+
+- Effet confirme sur le Why genere:
+  - la surete `Track` n'est plus emise comme
+    `old(not (y = __pre_k1_x))`;
+  - elle devient:
+    `not ((old(st = Track) /\ old(aut = Aut1)) /\ not (y = old(__pre_k1_x)))`
+  - ce qui est conforme a la lecture "sortie courante / pre-histoire source".
+
+- Effet mesure:
+  - `armed_delay.kairos` passe de `FAILED 2` a `FAILED 1` dans
+    `single_ok`;
+  - le replay direct
+    `--dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 10 --timeout-s 5`
+    retourne maintenant `[]`, ce qui indique un residu d'incoherence entre:
+    - le chemin `single_ok` du validateur;
+    - et le replay direct CLI.
+
+- Conclusion honnete:
+  - le verrou principal de correction sur `armed_delay` etait bien un probleme
+    d'encodage temporel des gardes moniteur, pas un manque de force de Why3;
+  - il reste un point d'orchestration / reproductibilite a eclaircir avant de
+    declarer `armed_delay` vraiment vert.
+
+- Mise en conformite `AGENTS.md` dans la foulee:
+  - le premier correctif avait ete branche directement dans
+    `lib_v2/runtime/backend/why/why_contracts.ml` via un traitement special
+    des gardes de pas;
+  - ce point a ete remonte dans l'IR avec un nouveau temps de clause
+    `StepTickContext` dans:
+    - `lib_v2/runtime/middle_end/product/product_kernel_ir.ml`
+    - `lib_v2/runtime/middle_end/product/product_kernel_ir.mli`
+  - l'emetteur Why ne fait plus qu'implementer cette temporalite explicite,
+    au lieu de deduire localement un cas special a partir des gardes
+    d'automate.
+
+- Effet confirme apres cette remontee dans l'IR:
+  - le Why genere pour `armed_delay` reste semantiquement corrige:
+    `vars.y = old(vars.__pre_k1_x)` au lieu de `old(vars.y = vars.__pre_k1_x)`;
+  - `armed_delay.kairos` reste a `FAILED 1` en `single_ok`;
+  - on preserve donc le gain de correction tout en respectant mieux la regle
+    du depot: temporalite explicite dans l'IR, pas bricolage cache dans Why.
+
+## 2026-03-12 - Ajout d'un `AGENTS.md` de depot
+
+- Fichier ajoute:
+  - [AGENTS.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/AGENTS.md)
+
+- Motivation:
+  - verrouiller explicitement une contrainte d'architecture qui etait jusqu'ici
+    seulement implicite dans les echanges;
+  - eviter de retomber, dans les prochaines passes backend, sur une preuve des
+    faits de tick courant / variables decalees via des gardes de moniteur.
+
+- Regle gravee dans le depot:
+  - `__aut_state` est une vraie variable d'etat Kairos, et son usage reste
+    autorise;
+  - en revanche, les faits temporels sur:
+    - tick courant,
+    - `prev`,
+    - `pre_k`,
+    - relations source/cible,
+    ne doivent pas etre reconstitues dans Why3 par reexecution des gardes
+    d'automate / moniteur;
+  - ces faits doivent etre exprimes directement comme relations logiques sur
+    variables Kairos et variables decalees.
+
+- Effet attendu:
+  - rendre cette contrainte systematique pour les prochaines modifications;
+  - servir de garde-fou avant tout changement dans:
+    - `lib_v2/runtime/backend/why/`
+    - `lib_v2/runtime/middle_end/product/`
+    - les resumes modulaires de `call`.
+
+- Enrichissement du fichier dans la meme passe:
+  - ajout de regles compactes supplementaires sur:
+    - l'appartenance des faits semantiques a l'IR / clauses kernel plutot
+      qu'au backend Why;
+    - l'explicitation obligatoire du temps (`courant`, `source`, `cible`,
+      `pre_k`);
+    - la discipline de validation quand le replay direct et le validateur ne
+      sont pas d'accord;
+    - la discipline sur les `bad_code`;
+    - la preuve modulaire obligatoire via `.kobj`;
+    - la necessite d'un mini-diagnostic avant/apres pour les changements
+      backend / produit.
+## 2026-03-12 - Conformite AGENTS sur les projections moniteur
+
+### Objectif
+- remettre le pipeline de preuve en conformite avec `AGENTS.md` :
+  - `__aut_state` reste une vraie variable d'etat Kairos ;
+  - les faits de tick courant et de decalage ne doivent plus etre reconstruits via les gardes du moniteur.
+
+### Changement
+- suppression, dans `lib_v2/runtime/middle_end/instrumentation/instrumentation.ml`, de l'injection active :
+  - `Product_contracts.add_assumption_projection_requires`
+  - `Product_contracts.add_bad_guarantee_projection_ensures`
+- conservation de :
+  - la simulation de `__aut_state`,
+  - les contraintes de compatibilite moniteur/programme,
+  - les invariants d'etat.
+
+### Motivation
+- ces projections reconstruisaient des obligations de preuve a partir de `assume_guard` / `guarantee_guard`, ce qui viole la regle d'architecture documentee dans `AGENTS.md`.
+- les faits temporels doivent venir des clauses kernel explicites et de l'IR, pas d'une reinterpretation des gardes du moniteur dans Why.
+
+### Etat
+- changement de pipeline effectue ;
+- build `bin/cli/main.exe` repasse ;
+- replay direct `armed_delay` (`--dump-proof-traces-json ... --timeout-s 5`) retourne `[]` ;
+- `scripts/validate_ok_ko.sh ... single_ok ... armed_delay.kairos` reste a `FAILED 1`.
+
+### Conclusion intermediaire
+- la mise en conformite `AGENTS.md` est effective sur le pipeline actif ;
+- la divergence restante sur `armed_delay` n'est plus un effet des projections de gardes moniteur ;
+- le prochain diagnostic doit viser l'orchestration du validateur / le chemin CLI exact qu'il utilise.
+
+### Verification de regression ciblee
+- `single_ok` apres ce changement :
+  - `armed_delay.kairos` -> `FAILED 1`
+  - `gated_echo_bundle.kairos` -> `FAILED 4`
+  - `sticky_ack_plus.kairos` -> `FAILED 1`
+  - `sticky_bypass_echo.kairos` -> `FAILED 4`
+- `single_ko` apres ce changement :
+  - `armed_delay__bad_spec.kairos` -> `TIMEOUT file_timeout_60s`
+  - `armed_delay__bad_invariant.kairos` -> `TIMEOUT file_timeout_60s`
+  - `armed_delay__bad_code.kairos` -> `INVALID 2`
+
+### Lecture
+- pas de regression immediate en faux vert sur l'echantillon `ko` ;
+- l'instabilite `ok` dans le chemin `single_ok` reste reelle et doit etre traitee avant toute campagne large.
+
+### Tentatives suivantes sur les faux rouges `ok`
+- tentative 1 :
+  - reassertion locale des postconditions filtrees a la fin de chaque `step_from_<state>` ;
+  - resultat : aucun gain sur `gated_echo_bundle` / `sticky_bypass_echo`, pas de stabilisation de `armed_delay`.
+- tentative 2 :
+  - promotion des clauses `OriginSafety` comme preconditions source des helpers ;
+  - resultat : pas d'amelioration sur les cas `Hold`, et degradation de `armed_delay` (`FAILED 2`).
+- action :
+  - ces deux tentatives ont ete retirees pour ne pas laisser le depot dans un etat plus mauvais.
+
+### Tentative IR/source summary depuis le produit
+- ajout d'un nouvel origin IR `OriginSourceProductSummary` dans `product_kernel_ir` pour resumer, depuis un etat produit source, la negation des cas `bad_guarantee` sortants ;
+- ajout en parallele d'une lecture directe equivalente depuis `ir.product_steps` dans `why_contracts`, pour ne pas dependre d'un passage backend opaque ;
+- objectif : fournir explicitement les faits courants manquants dans `Hold` sans rejouer les gardes du moniteur.
+
+### Resultat
+- build `cli` et `emit_why_debug` repasse ;
+- mais les cas directeurs restent rouges en `single_ok` :
+  - `gated_echo_bundle.kairos` -> `FAILED 4`
+  - `sticky_bypass_echo.kairos` -> `FAILED 4`
+  - `sticky_ack_plus.kairos` -> `FAILED 1`
+  - `armed_delay.kairos` -> `FAILED 1`
+
+### Lecture
+- le diagnostic "il manque un fait source courant" etait partiellement juste, mais pas suffisant ;
+- le verrou residuel n'est pas encore traite par un simple resume source derive du produit.
+
+### Diagnostic de tuyauterie precise
+- instrumentation temporaire de `emit.ml` et `why_contracts.ml` sur `gated_echo_bundle` :
+  - `contracts.pre` ne contient qu'un seul terme, l'invariant source d'etat ;
+  - `helper_pre(Hold)` ne contient que `st = Hold` et cet invariant ;
+  - le resume source attendu n'arrive donc pas jusqu'aux helpers.
+- l'instrumentation `why_contracts` montre :
+  - le produit contient bien `Hold/Aut1 safe` et `Hold/Aut1 badG` ;
+  - `src_states = 1` pour les resumes source ;
+  - mais `bad_cases` retombe a `0` dans le calcul de resume source.
+- hypothese de travail confirmee :
+  - le cas `badG` se perd dans la reconstruction du resume source avant emission Why ;
+  - la derniere tentative consistant a ne plus resimplifier ce cas n'a pas suffi a faire repasser les cas directeurs.
+
+### Etat apres nettoyage
+- instrumentation temporaire retiree ;
+- build `cli` repasse ;
+- resultats cibles les plus recents apres cette passe :
+  - `gated_echo_bundle` -> `FAILED 4`
+  - `sticky_bypass_echo` -> `FAILED 4`
+  - `sticky_ack_plus` -> `TIMEOUT file_timeout_60s`
+  - `armed_delay` -> `FAILED 2`
+
+### Diagnostic courant
+- les faux rouges `Hold` (`gated_echo_bundle`, `sticky_bypass_echo`) semblent manquer d'un resume/source invariant reliant la memoire locale (`hold`, `latched`) au `pre_k` correspondant ;
+- ce lien ne doit pas etre reintroduit via des gardes moniteur ;
+- il faut le produire proprement depuis l'IR / une relation source-etat explicite.
+
+## Mise a jour 2026-03-12 - Resume source explicite et verrou courant
+
+### Actions menees
+- tentative de simplification locale dans `why_contracts.ml` pour normaliser `FNot disj` avant compilation Why ;
+- tentative de bascule vers une source de verite plus propre :
+  - produire `OriginSourceProductSummary` depuis `product_kernel_ir.ml`,
+  - puis consommer directement ces clauses IR dans `why_contracts.ml` ;
+- ajout temporaire d'assertions locales de branche dans `emit.ml` en reutilisant les preconditions kernel deja calculees.
+
+### Constats confirmes
+- le vrai bug local etait dans `build_source_summary_clauses` :
+  - la reconstruction depuis les `bad_G` passait par une simplification qui ecrasait le resume utile ;
+  - et le controle JSON fait plus tot etait trompeur parce que `@@deriving yojson` encode les variants comme listes (`["OriginSourceProductSummary"]`) et non comme chaines simples.
+- apres correction :
+  - `/tmp/gated_echo_bundle.kobj` contient bien une clause `OriginSourceProductSummary` ancree sur `Hold/A0/G1` ;
+  - cette clause n'est plus `FactFormula FTrue`, elle porte bien la negation du cas `bad_G`.
+
+### Effet observe
+- les replays directs suivants retombent maintenant sur `0` goal en echec :
+  - `gated_echo_bundle.kairos`
+  - `sticky_bypass_echo.kairos`
+- `armed_delay.kairos` s'ameliore mais reste rouge en replay cible (`FAILED 1` ou voisin selon le chemin).
+
+### Nouveau verrou
+- le validateur `scripts/validate_ok_ko.sh` reste divergent :
+  - en replay direct CLI, `gated_echo_bundle` et `sticky_bypass_echo` donnent `0` ;
+  - en `single_ok`, ils retombent encore en `TIMEOUT file_timeout_60s`.
+- la reduction de `--max-proof-traces` et la suppression de `opam exec` dans le validateur n'ont pas suffi a faire disparaitre ce timeout de campagne.
+
+### Etat laisse dans le depot
+- la correction IR sur `OriginSourceProductSummary` est conservee ;
+- le fallback Why depuis `product_steps` est toujours present comme filet temporaire ;
+- l'instrumentation de debug a ete retiree, sauf le strict minimum deja nettoye.
+
+## Mise a jour 2026-03-12 - Rebranchement Why sur les clauses IR
+
+### Ce qui a ete fait
+- `why_contracts.ml` a ete rebranche sur la consommation directe de `OriginSourceProductSummary` depuis `ir.generated_clauses` ;
+- la consommation directe normalise maintenant localement les clauses de la forme `not (not A or not B)` en `A /\ B` avant compilation Why.
+
+### Verification
+- le Why genere pour `gated_echo_bundle` contient maintenant explicitement :
+  - `[@origin:kernel_source_product_summary]`
+  - avec la forme utile `y = __pre_k1_x /\ z = y`.
+
+### Resolution locale sur `Hold`
+- le residu `step_from_hold'vc` venait du fait que `emit.ml` reinjectait comme assertions locales de branche des preconditions qui ne sont pas stables apres affectation ;
+- en particulier, `kernel_source_product_summary` etait reaffirme a tort apres `y <- hold` / `z <- hold`.
+- correction appliquee :
+  - les `branch_asserts` ne reutilisent plus les preconditions contractuelles ;
+  - elles ne gardent que les vraies invariants d'etat locales.
+
+### Resultat cible
+- replay direct `gated_echo_bundle.kairos` -> `0`
+- replay direct `sticky_bypass_echo.kairos` -> `0`
+- `single_ok` :
+  - `gated_echo_bundle.kairos` -> `OK`
+  - `sticky_bypass_echo.kairos` -> `OK`
+  - `sticky_ack_plus.kairos` -> `OK`
+  - `armed_delay.kairos` -> `OK`
+
+### Orchestration
+- le validateur `single_ok` a ete remis sur `opam exec -- "$cli"` pour retrouver la configuration Why3 correcte ;
+- le chemin sans `opam exec` pouvait perdre la configuration prover (`No prover ... "z3"`).
+
+## Mise a jour 2026-03-12 - Hypotheses globales et filtrage moniteur residuel
+
+### Correctifs conserves
+- `why_contract_plan.ml` conserve maintenant les `transition_requires_pre` meme lorsque `use_kernel_product_contracts = true` :
+  - les obligations kernel remplacent des resumes de preuve, pas les hypotheses globales d'admissibilite utilisateur ;
+  - effet direct confirme sur des cas comme `require_delay_bool`, ou les hypotheses `u = 0 \/ u = 1` reapparaissent bien dans `step_from_run`.
+- en mode kernel, les `requires` d'origine `Compatibility` ne sont plus reinjectes dans le backend Why via `transition_requires_pre` ;
+  - cela aligne mieux le pipeline avec `AGENTS.md` : ne pas rejouer la semantique du moniteur pour parler du tick courant / des delais.
+- `instrumentation.ml` ne reinjecte plus `add_monitor_compatibility_requires` dans le pipeline actif.
+
+### Effets verifies
+- `single_ok` revenus au vert apres rebuild stabilise :
+  - `require_delay_bool.kairos`
+  - `traffic3.kairos`
+- controle `ko` maintenu :
+  - `armed_delay__bad_code.kairos` reste `INVALID`.
+
+### Tentative revertie
+- tentative d'ajout d'assertions locales apres affectation non auto-referencee dans `why_core.ml` :
+  - idee : exposer explicitement des faits du type `z = 0` apres `z := 0` ;
+  - resultat : pas de gain sur `reset_zero_sink`, et regression sur `toggle` ;
+  - decision : revert complet de cette tentative.
+
+### Etat honnete en fin de passe
+- les correctifs utiles conserves sont :
+  - maintien des `transition_requires_pre` sous kernel ;
+  - filtrage des `Compatibility` moniteur en mode kernel ;
+  - suppression des `monitor_compatibility_requires` actifs dans l'instrumentation ;
+  - separation entree/sticky deja mise en place pour les assertions de helper.
+- verrous encore ouverts dans `without_calls/ok` :
+  - `reset_zero_sink.kairos` reste `FAILED 1` ;
+  - `toggle.kairos` est redevenu rouge a la fin de cette passe et doit etre re-isole proprement sur l'etat courant.
+
+### Lecture technique du residu `reset_zero_sink`
+- le residu n'est plus pollue par les anciennes hypotheses moniteur les plus fautives ;
+- le but restant est un `step_from_zero'vc` pilote par une clause `kernel_propagation_summary` sur l'etat `Zero` ;
+- les hypotheses minimales encore visibles sont des resumes source de type :
+  - `Zero/Aut0 -> not ((not reset=1 /\ z=0) \/ (not y=0 /\ z=0))`
+  - `Zero/Aut1 -> reset=1 /\ y=0`
+- cela suggere que la forme actuelle des `OriginSourceProductSummary` pour `reset_zero_sink` reste trop faible ou trop indirecte pour fermer le cas `Zero -> Zero` a `5s`.
+
+## Mise a jour 2026-03-12 - Diagnostic comparatif approfondi `toggle` / `reset_zero_sink`
+
+### `toggle`
+- IR observe :
+  - les `product_steps` sont semantiquement simples et propres ;
+  - les `OriginSourceProductSummary` exportes sont elementaires :
+    - `Init/A0/G0 -> y = 0`
+    - `Run/A0/G0 -> y = 0`
+    - `Run/A0/G1 -> y = 1`
+- lecture Why :
+  - `step_from_run` porte encore un `requires` d'origine `compatibility` ;
+  - il porte aussi les deux resumes source `kernel_source_product_summary` attendus.
+- deduction :
+  - le probleme residuel ne vient pas d'un resume source mal calcule ;
+  - il vient probablement d'un reliquat de precondition `Compatibility` encore injecte ailleurs que dans `transition_requires_pre`.
+
+### `reset_zero_sink`
+- IR observe :
+  - le produit explicite est beaucoup plus riche ;
+  - pour `Zero`, on a des pas `safe`, `bad_guarantee` et `bad_assumption` concurrents ;
+  - les `guarantee_edge.guard` des `bad_guarantee` sont de grosses disjonctions sur `reset`, `y`, `z`.
+- trace Why actuelle :
+  - le residu est toujours `step_from_zero'vc` ;
+  - le noyau minimal ne depend plus des anciennes hypotheses moniteur les plus fortes ;
+  - mais le Why genere contient encore un `requires` d'origine `compatibility` sur `step_from_zero`.
+- deduction :
+  - comme pour `toggle`, il reste une fuite de `Compatibility` dans la generation des helpers ;
+  - en plus, meme sans cette fuite, la forme actuelle des resumes source pour `Zero` est tres indirecte et peu solver-friendly.
+
+### Recoupement Rocq
+- la formalisation Rocq (`GeneratedClauses.v`, `RelationalTriples.v`) ne genere pas de preconditions moniteur de cette forme pour prouver les pas ;
+- elle raisonne sur :
+  - `ctx_matches_ps`
+  - `coherence_now`
+  - les clauses de securite / propagation
+- conclusion :
+  - tout residu `origin:compatibility` dans les helpers Why du mode kernel doit etre considere comme suspect jusqu'a preuve du contraire.
+
+## Mise a jour 2026-03-12 - Suppression effective de la fuite `Compatibility` dans les helpers
+
+### Correctif applique
+- `why_contract_plan.ml` filtre maintenant, en mode kernel :
+  - les `Compatibility`,
+  - et les `Coherency` qui mentionnent explicitement `__aut_state`.
+- `emit.ml` filtre aussi les preconditions de helper dont le label d'origine reste `Compatibility` quand le mode kernel est actif.
+
+### Verification directe
+- `emit_why_debug` sur `toggle.kairos` :
+  - `step_from_run` ne contient plus le `requires` parasite de forme
+    `Run /\ Aut0 -> y = 1` ;
+  - il ne garde plus que :
+    - `Run /\ Aut0 -> y = 0`
+    - `Run /\ Aut1 -> y = 1`
+- les controles lateraux restent bons :
+  - `require_delay_bool.kairos` -> `OK 0`
+  - `armed_delay__bad_code.kairos` -> `INVALID 1`
+
+### Resultat honnete
+- malgre cette suppression effective de la fuite `Compatibility` :
+  - `toggle.kairos` reste `FAILED 1`
+  - `reset_zero_sink.kairos` reste `FAILED 1`
+
+### Deduction
+- le prochain verrou n'est plus la provenance moniteur ;
+- on a maintenant isole des residus qui sont bien des residus kernel / solver sur les resumes source et/ou la structuration locale des VCs.
+
+## Mise a jour 2026-03-13 - Synthese documentaire IR et cas file `delay_int`
+
+### But
+- produire une documentation stable de ce qui est genere au niveau IR pour la preuve ;
+- expliciter la forme et le role des obligations ;
+- illustrer chaque niveau sur un exemple minimal.
+
+### Cas retenu
+- `tests/ok/inputs/delay_int.kairos`
+
+### Niveau observes
+1. source Kairos ;
+2. produit explicite (`--dump-product`) ;
+3. OBC instrumente (`--dump-obc`) ;
+4. objet compile `.kobj` (`--emit-kobj`) ;
+5. Why genere (`--dump-why`).
+
+### Points documentes
+- familles d'obligations `generated_clauses` :
+  - `OriginInitNodeInvariant`
+  - `OriginInitAutomatonCoherence`
+  - `OriginSourceProductSummary`
+  - `OriginPropagationNodeInvariant`
+  - `OriginPropagationAutomatonCoherence`
+  - `OriginSafety`
+- familles d'obligations `relational_generated_clauses` ;
+- temporalite :
+  - `CurrentTick`
+  - `PreviousTick`
+  - `StepTickContext`
+- abaissement de `pre(x,k)` vers `__pre_k...` ;
+- structure du `tick_summary` exporte.
+
+### Sortie produite
+- `docs/ir_obligations_etude_delay_int_2026-03-13.md`
+- PDF associe prevu via `pandoc` + `xelatex`.
+
+### Observation architecturale importante
+- le chemin cible de preuve est bien `relational_generated_clauses` ;
+- `product_steps` et `generated_clauses` restent utiles comme niveaux de construction/traçabilite ;
+- le `tick_summary` exporte conserve encore des occurrences de `HPreK`, ce qui est note comme dette d'alignement residuelle.

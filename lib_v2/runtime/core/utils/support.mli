@@ -51,6 +51,9 @@ val qdot : Why3.Ptree.qualid -> string -> Why3.Ptree.qualid
 
 (* Canonical module name for a node. *)
 val module_name_of_node : Ast.ident -> string
+val instance_state_type_name : Ast.ident -> string
+val instance_vars_type_name : Ast.ident -> string
+val instance_state_ctor_name : Ast.ident -> Ast.ident -> string
 
 (* Field prefix for a node instance. *)
 val prefix_for_node : Ast.ident -> string
@@ -165,6 +168,9 @@ val string_of_term : Why3.Ptree.term -> string
 
 (* Remove duplicates while preserving order. *)
 val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list
+
+(* Simplify a boolean Why3 term structurally. *)
+val simplify_term_bool : Why3.Ptree.term -> Why3.Ptree.term
 
 (* Build a term from var. *)
 val term_of_var : env -> Ast.ident -> Why3.Ptree.term

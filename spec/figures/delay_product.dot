@@ -1,8 +1,0 @@
-digraph G {
-  rankdir=LR;
-  node [shape=circle];
-  D0 [shape=doublecircle,label="Init, ok_A, qG_init"];
-  D1 [shape=doublecircle,label="Run, ok_A, qG_run"];
-  D0 -> D1;
-  D1 -> D1;
-}

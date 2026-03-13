@@ -135,18 +135,15 @@ let rec compile_call_fo_term lookup (pre_k_map : (Ast.hexpr * pre_k_info) list) 
 
 let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summary_view)
     ~(phase : call_fact_phase) ~(access_name : Ast.ident) ~(next_instance_name : Ast.ident)
-    ~(input_bindings : (Ast.ident * Ast.iexpr) list) (fact : Product_kernel_ir.call_fact_ir) :
+    ~(input_bindings : (Ast.ident * Ast.iexpr) list)
+    ~(output_bindings : (Ast.ident * Ast.ident) list) (fact : Product_kernel_ir.call_fact_ir) :
     Ptree.term option =
   let current_instance_name =
     match phase with
     | EntryPhase -> access_name
     | PostPhase -> next_instance_name
   in
-  let output_bindings =
-    match phase with
-    | EntryPhase -> []
-    | PostPhase -> []
-  in
+  let output_bindings = if phase = EntryPhase then [] else output_bindings in
   let current_lookup =
     current_call_lookup ~env ~node_name:summary.callee_node_name ~access_name
       ~next_instance_name:current_instance_name
@@ -162,7 +159,10 @@ let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summ
   in
   match fact.fact.desc with
   | Product_kernel_ir.FactProgramState state_name ->
-      Some (term_eq (lookup "st") (mk_term (Tident (qid1 state_name))))
+      Some
+        (term_eq
+           (lookup "st")
+           (mk_term (Tident (qid1 (instance_state_ctor_name summary.callee_node_name state_name)))))
   | Product_kernel_ir.FactFormula fo ->
       Some (compile_call_fo_term lookup summary.callee_pre_k_map fo)
   | Product_kernel_ir.FactGuaranteeState _ -> None
@@ -192,7 +192,7 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
         List.filter_map
           (fun inv ->
             let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 inv.state)) in
+            let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
               compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map
@@ -256,7 +256,7 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
                         ([ (pre_id, pre_expr) ], term_eq lhs rhs :: inv_terms))
             in
             let any_return_pty =
-              Some (Ptree.PTtyapp (qdot (qid1 (module_name_of_node node_name)) "vars", []))
+              Some (Ptree.PTtyapp (qid1 (instance_vars_type_name node_name), []))
             in
             let any_pattern = { pat_desc = Pvar next_instance_id; pat_loc = loc } in
             let any_post =
@@ -269,33 +269,15 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
                            case.entry_facts
                            |> List.filter_map
                                 (compile_call_fact_term ~env ~summary ~phase:EntryPhase ~access_name
-                                   ~next_instance_name:next_instance_id.id_str ~input_bindings)
+                                   ~next_instance_name:next_instance_id.id_str ~input_bindings
+                                   ~output_bindings)
                          in
                          let conclusion =
                            (case.transition_facts @ case.exported_post_facts)
                            |> List.filter_map
-                                (fun (fact : Product_kernel_ir.call_fact_ir) ->
-                                  let current_lookup =
-                                    current_call_lookup ~env ~node_name:summary.callee_node_name
-                                      ~access_name ~next_instance_name:next_instance_id.id_str
-                                      ~input_bindings ~output_bindings
-                                  in
-                                  let previous_lookup =
-                                    previous_call_lookup ~env ~node_name:summary.callee_node_name
-                                      ~access_name ~input_bindings
-                                  in
-                                  let lookup =
-                                    match fact.fact.time with
-                                    | Product_kernel_ir.CurrentTick -> current_lookup
-                                    | Product_kernel_ir.PreviousTick -> previous_lookup
-                                  in
-                                  match fact.fact.desc with
-                                  | Product_kernel_ir.FactProgramState state_name ->
-                                      Some (term_eq (lookup "st") (mk_term (Tident (qid1 state_name))))
-                                  | Product_kernel_ir.FactFormula fo ->
-                                      Some (compile_call_fo_term lookup summary.callee_pre_k_map fo)
-                                  | Product_kernel_ir.FactGuaranteeState _ -> None
-                                  | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse))
+                                (compile_call_fact_term ~env ~summary ~phase:PostPhase ~access_name
+                                   ~next_instance_name:next_instance_id.id_str ~input_bindings
+                                   ~output_bindings)
                          in
                          match conclusion with
                          | [] -> None
@@ -307,7 +289,12 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
                                | first_pre :: rest_pre ->
                                    term_implies (List.fold_left term_and first_pre rest_pre) concl
                              in
-                             Some (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, body) ]))
+                             Some
+                               ( loc,
+                                 [
+                                   ( { pat_desc = Pvar next_instance_id; pat_loc = loc },
+                                     body );
+                                 ] ))
             in
             Some
               {

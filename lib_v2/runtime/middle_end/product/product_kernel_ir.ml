@@ -79,6 +79,7 @@ type product_coverage_ir =
 [@@deriving yojson]
 
 type generated_clause_origin =
+  | OriginSourceProductSummary
   | OriginSafety
   | OriginInitNodeInvariant
   | OriginInitAutomatonCoherence
@@ -89,6 +90,7 @@ type generated_clause_origin =
 type clause_time_ir =
   | CurrentTick
   | PreviousTick
+  | StepTickContext
 [@@deriving yojson]
 
 type clause_fact_desc_ir =
@@ -114,6 +116,26 @@ type generated_clause_ir = {
   anchor : generated_clause_anchor_ir;
   hypotheses : clause_fact_ir list;
   conclusions : clause_fact_ir list;
+}
+[@@deriving yojson]
+
+type relational_clause_fact_desc_ir =
+  | RelFactProgramState of Ast.ident
+  | RelFactFormula of Ast.fo
+  | RelFactFalse
+[@@deriving yojson]
+
+type relational_clause_fact_ir = {
+  time : clause_time_ir;
+  desc : relational_clause_fact_desc_ir;
+}
+[@@deriving yojson]
+
+type relational_generated_clause_ir = {
+  origin : generated_clause_origin;
+  anchor : generated_clause_anchor_ir;
+  hypotheses : relational_clause_fact_ir list;
+  conclusions : relational_clause_fact_ir list;
 }
 [@@deriving yojson]
 
@@ -227,6 +249,7 @@ type node_ir = {
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
   generated_clauses : generated_clause_ir list;
+  relational_generated_clauses : relational_generated_clause_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
@@ -254,6 +277,93 @@ let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_t
   | [], _ -> FFalse
   | _ :: _, FFalse -> recovered
   | _ -> simplified
+
+type lit = { var : ident; cst : string; is_pos : bool }
+
+let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
+  let mk ?(is_pos = true) v c = Some { var = v; cst = c; is_pos } in
+  match (h1, r, h2) with
+  | HNow a, REq, HNow b -> begin
+      match (a.iexpr, b.iexpr) with
+      | IVar v, ILitInt i -> mk v (string_of_int i)
+      | ILitInt i, IVar v -> mk v (string_of_int i)
+      | IVar v, ILitBool bb -> mk v (if bb then "true" else "false")
+      | ILitBool bb, IVar v -> mk v (if bb then "true" else "false")
+      | ILitBool bb, _ -> mk (Support.string_of_iexpr b) (if bb then "true" else "false")
+      | _, ILitBool bb -> mk (Support.string_of_iexpr a) (if bb then "true" else "false")
+      | _ -> None
+    end
+  | HNow a, RNeq, HNow b -> begin
+      match (a.iexpr, b.iexpr) with
+      | IVar v, ILitInt i -> mk ~is_pos:false v (string_of_int i)
+      | ILitInt i, IVar v -> mk ~is_pos:false v (string_of_int i)
+      | IVar v, ILitBool bb -> mk ~is_pos:false v (if bb then "true" else "false")
+      | ILitBool bb, IVar v -> mk ~is_pos:false v (if bb then "true" else "false")
+      | ILitBool bb, _ ->
+          mk ~is_pos:false (Support.string_of_iexpr b) (if bb then "true" else "false")
+      | _, ILitBool bb -> mk ~is_pos:false (Support.string_of_iexpr a) (if bb then "true" else "false")
+      | _ -> None
+    end
+  | _ -> None
+
+let rec conj_lits (f : fo) : lit list option =
+  match f with
+  | FTrue -> Some []
+  | FRel (h1, r, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
+  | FNot x -> begin
+      match x with
+      | FRel (h1, REq, h2) ->
+          Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
+      | _ -> None
+    end
+  | FAnd (a, b) -> begin
+      match (conj_lits a, conj_lits b) with
+      | Some la, Some lb -> Some (la @ lb)
+      | _ -> None
+    end
+  | _ -> None
+
+let disj_conjs (f : fo) : lit list list option =
+  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
+  let xs = go f |> List.map conj_lits in
+  List.fold_right
+    (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
+    xs (Some [])
+
+let lits_consistent (a : lit list) (b : lit list) : bool =
+  let pos = Hashtbl.create 16 in
+  let neg = Hashtbl.create 16 in
+  let add_lit l =
+    if l.is_pos then (
+      let prev = Hashtbl.find_opt pos l.var |> Option.value ~default:[] in
+      if not (List.mem l.cst prev) then Hashtbl.replace pos l.var (l.cst :: prev))
+    else (
+      let prev = Hashtbl.find_opt neg l.var |> Option.value ~default:[] in
+      if not (List.mem l.cst prev) then Hashtbl.replace neg l.var (l.cst :: prev))
+  in
+  List.iter add_lit (a @ b);
+  let ok = ref true in
+  Hashtbl.iter
+    (fun v vals ->
+      let unique_vals = List.sort_uniq String.compare vals in
+      let neg_vals =
+        Hashtbl.find_opt neg v |> Option.value ~default:[] |> List.sort_uniq String.compare
+      in
+      if List.length unique_vals > 1 then ok := false;
+      if List.exists (fun c -> List.mem c neg_vals) unique_vals then ok := false)
+    pos;
+  !ok
+
+let fo_overlap_conservative (a : fo) (b : fo) : bool =
+  match (disj_conjs a, disj_conjs b) with
+  | Some da, Some db ->
+      List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
+  | _ -> true
+
+let guards_may_overlap (a : fo) (b : fo) : bool =
+  match Fo_simplifier.simplify_fo (FAnd (a, b)) with
+  | FFalse -> false
+  | _ -> fo_overlap_conservative a b
 
 let product_state_of_pt (st : PT.product_state) : product_state_ir =
   {
@@ -309,13 +419,17 @@ let node_signature_of_ast (n : Ast.node) : node_signature_ir =
   }
 
 let string_of_clause_origin = function
+  | OriginSourceProductSummary -> "source/product_summary"
   | OriginSafety -> "safety"
   | OriginInitNodeInvariant -> "init/node_inv"
   | OriginInitAutomatonCoherence -> "init/automaton"
   | OriginPropagationNodeInvariant -> "propagation/node_inv"
   | OriginPropagationAutomatonCoherence -> "propagation/automaton"
 
-let string_of_clause_time = function CurrentTick -> "current" | PreviousTick -> "previous"
+let string_of_clause_time = function
+  | CurrentTick -> "current"
+  | PreviousTick -> "previous"
+  | StepTickContext -> "step_ctx"
 
 let string_of_call_port_role = function
   | CallInputPort -> "input"
@@ -339,6 +453,11 @@ let string_of_clause_fact_desc = function
   | FactFormula f -> string_of_fo f
   | FactFalse -> "false"
 
+let string_of_relational_clause_fact_desc = function
+  | RelFactProgramState st -> "st = " ^ st
+  | RelFactFormula f -> string_of_fo f
+  | RelFactFalse -> "false"
+
 let string_of_clause_fact (fact : clause_fact_ir) =
   Printf.sprintf "%s:%s" (string_of_clause_time fact.time) (string_of_clause_fact_desc fact.desc)
 
@@ -348,6 +467,89 @@ let string_of_call_fact (fact : call_fact_ir) =
 let string_of_product_state (st : product_state_ir) =
   Printf.sprintf "(P=%s, A=%d, G=%d)" st.prog_state st.assume_state_index
     st.guarantee_state_index
+
+let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis) ~(steps : product_step_ir list) :
+    generated_clause_ir list =
+  let _analysis = analysis in
+  let ast_node = Abs.to_ast_node node in
+  let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
+  let input_names =
+    ast_node.inputs |> List.map (fun (v : Ast.vdecl) -> v.vname) |> List.sort_uniq String.compare
+  in
+  let rec iexpr_mentions_current_input (e : Ast.iexpr) =
+    match e.iexpr with
+    | IVar name -> List.mem name input_names
+    | ILitInt _ | ILitBool _ -> false
+    | IPar inner | IUn (_, inner) -> iexpr_mentions_current_input inner
+    | IBin (_, a, b) -> iexpr_mentions_current_input a || iexpr_mentions_current_input b
+  in
+  let hexpr_mentions_current_input = function
+    | HNow e -> iexpr_mentions_current_input e
+    | HPreK _ -> false
+  in
+  let rec fo_mentions_current_input (f : Ast.fo) =
+    match f with
+    | FTrue | FFalse -> false
+    | FRel (a, _, b) -> hexpr_mentions_current_input a || hexpr_mentions_current_input b
+    | FPred (_, hs) -> List.exists hexpr_mentions_current_input hs
+    | FNot inner -> fo_mentions_current_input inner
+    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+        fo_mentions_current_input a || fo_mentions_current_input b
+  in
+  let rec normalize_source_summary (f : fo) : fo =
+    match f with
+    | FNot (FOr (FNot a, FNot b)) -> FAnd (normalize_source_summary a, normalize_source_summary b)
+    | FNot inner -> FNot (normalize_source_summary inner)
+    | FAnd (a, b) -> FAnd (normalize_source_summary a, normalize_source_summary b)
+    | FOr (a, b) -> FOr (normalize_source_summary a, normalize_source_summary b)
+    | FImp (a, b) -> FImp (normalize_source_summary a, normalize_source_summary b)
+    | FTrue | FFalse | FRel _ | FPred _ -> f
+  in
+  let same_product_state (a : product_state_ir) (b : product_state_ir) =
+    a.prog_state = b.prog_state
+    && a.assume_state_index = b.assume_state_index
+    && a.guarantee_state_index = b.guarantee_state_index
+  in
+  let bad_case_for_step (step : product_step_ir) =
+    step.guarantee_edge.guard
+  in
+  let src_states =
+    steps
+    |> List.filter_map (fun (step : product_step_ir) ->
+           match step.step_kind with
+           | StepBadGuarantee -> Some step.src
+           | StepSafe | StepBadAssumption -> None)
+    |> List.sort_uniq Stdlib.compare
+  in
+  src_states
+  |> List.filter_map (fun (src : product_state_ir) ->
+         let bad_cases =
+           steps
+           |> List.filter (fun step ->
+                  same_product_state step.src src && step.step_kind = StepBadGuarantee)
+           |> List.map bad_case_for_step
+           |> List.filter (fun fo -> not (fo_mentions_current_input fo))
+           |> List.sort_uniq Stdlib.compare
+         in
+         match bad_cases with
+         | [] -> None
+         | bad_case :: rest ->
+             let safe_summary =
+               List.fold_left (fun acc fo -> FOr (acc, fo)) bad_case rest
+               |> fun disj -> FNot disj
+               |> normalize_source_summary
+             in
+             Some
+               ({
+                 origin = OriginSourceProductSummary;
+                 anchor = ClauseAnchorProductState src;
+                 hypotheses =
+                   [
+                     current (FactProgramState src.prog_state);
+                     current (FactGuaranteeState src.guarantee_state_index);
+                   ];
+                 conclusions = [ current (FactFormula safe_summary) ];
+               } : generated_clause_ir))
 
 let string_of_edge (edge : automaton_edge_ir) =
   Printf.sprintf "%d -> %d : %s" edge.src_index edge.dst_index (string_of_fo edge.guard)
@@ -410,21 +612,20 @@ let build_product_step (step : PT.product_step) : product_step_ir =
     step_origin = StepFromExplicitExploration;
   }
 
-let is_false_formula (fo : Ast.fo) : bool =
-  match Fo_simplifier.simplify_fo fo with FFalse -> true | _ -> false
-
 let is_feasible_product_step ~(analysis : Product_build.analysis) (step : product_step_ir) : bool =
-  not
-    ((not
-        (is_live_state ~analysis
-           {
-             PT.prog_state = step.src.prog_state;
-             assume_state = step.src.assume_state_index;
-             guarantee_state = step.src.guarantee_state_index;
-           }))
-    || is_false_formula step.program_guard
-    || is_false_formula step.assume_edge.guard
-    || is_false_formula step.guarantee_edge.guard)
+  (* The explicit exploration has already applied conservative overlap checks
+     on program/assumption/guarantee guards. Re-simplifying the recovered FO
+     guards here is unsound for kernel-clause generation: some temporal guards
+     collapse to [false] after atom recovery even though the original product
+     step was kept as potentially live. Keep the explicit step whenever its
+     source is live and let the recovered hypotheses appear in the emitted
+     clause. *)
+  is_live_state ~analysis
+    {
+      PT.prog_state = step.src.prog_state;
+      assume_state = step.src.assume_state_index;
+      guarantee_state = step.src.guarantee_state_index;
+    }
 
 let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
     ~(live_states : PT.product_state list) : product_step_ir list =
@@ -505,8 +706,9 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
 
 let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis)
     ~(initial_state : product_state_ir) ~(steps : product_step_ir list) : generated_clause_ir list =
-  let current desc = { time = CurrentTick; desc } in
-  let previous desc = { time = PreviousTick; desc } in
+  let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
+  let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
+  let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
   let invariants_for_state state_name =
     List.filter_map
       (fun inv ->
@@ -517,22 +719,23 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   in
   let init_clauses =
     [
-      {
+      ({
         origin = OriginInitNodeInvariant;
         anchor = ClauseAnchorProductState initial_state;
         hypotheses = [ current (FactProgramState initial_state.prog_state) ];
         conclusions =
           current (FactProgramState initial_state.prog_state)
           :: invariants_for_state initial_state.prog_state;
-      };
-      {
+      } : generated_clause_ir);
+      ({
         origin = OriginInitAutomatonCoherence;
         anchor = ClauseAnchorProductState initial_state;
         hypotheses = [ current (FactProgramState initial_state.prog_state) ];
         conclusions = [ current (FactGuaranteeState initial_state.guarantee_state_index) ];
-      };
+      } : generated_clause_ir);
     ]
   in
+  let source_summary_clauses = build_source_summary_clauses ~node ~analysis ~steps in
   let step_clauses =
     List.concat_map
       (fun step ->
@@ -547,34 +750,32 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
         let propagation =
           if src_live then
             [
-              {
+              ({
                 origin = OriginPropagationNodeInvariant;
                 anchor = ClauseAnchorProductStep step;
                 hypotheses =
                   [
                     previous (FactProgramState step.src.prog_state);
                     previous (FactGuaranteeState step.src.guarantee_state_index);
-                    previous (FactFormula step.program_guard);
-                    previous (FactFormula step.assume_edge.guard);
-                    previous (FactFormula step.guarantee_edge.guard);
+                    step_ctx (FactFormula step.program_guard);
+                    step_ctx (FactFormula step.assume_edge.guard);
+                    step_ctx (FactFormula step.guarantee_edge.guard);
                   ];
-                conclusions =
-                  current (FactProgramState step.dst.prog_state)
-                  :: invariants_for_state step.dst.prog_state;
-              };
-              {
+                conclusions = [ current (FactProgramState step.dst.prog_state) ];
+              } : generated_clause_ir);
+              ({
                 origin = OriginPropagationAutomatonCoherence;
                 anchor = ClauseAnchorProductStep step;
                 hypotheses =
                   [
                     previous (FactProgramState step.src.prog_state);
                     previous (FactGuaranteeState step.src.guarantee_state_index);
-                    previous (FactFormula step.program_guard);
-                    previous (FactFormula step.assume_edge.guard);
-                    previous (FactFormula step.guarantee_edge.guard);
+                    step_ctx (FactFormula step.program_guard);
+                    step_ctx (FactFormula step.assume_edge.guard);
+                    step_ctx (FactFormula step.guarantee_edge.guard);
                   ];
                 conclusions = [ current (FactGuaranteeState step.dst.guarantee_state_index) ];
-              };
+              } : generated_clause_ir);
             ]
           else []
         in
@@ -582,36 +783,119 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
           match step.step_kind with
           | StepBadGuarantee ->
               [
-                {
+                ({
                   origin = OriginSafety;
                   anchor = ClauseAnchorProductStep step;
                   hypotheses =
                     [
                       previous (FactProgramState step.src.prog_state);
                       previous (FactGuaranteeState step.src.guarantee_state_index);
-                      previous (FactFormula step.program_guard);
-                      previous (FactFormula step.assume_edge.guard);
-                      previous (FactFormula step.guarantee_edge.guard);
+                      step_ctx (FactFormula step.program_guard);
+                      step_ctx (FactFormula step.assume_edge.guard);
+                      step_ctx (FactFormula step.guarantee_edge.guard);
                     ];
                   conclusions = [ current FactFalse ];
-                };
+                } : generated_clause_ir);
               ]
           | StepSafe | StepBadAssumption -> []
         in
         propagation @ safety)
       steps
   in
-  init_clauses @ step_clauses
+  init_clauses @ source_summary_clauses @ step_clauses
 
-let current_fact desc = { time = CurrentTick; desc }
-let previous_fact desc = { time = PreviousTick; desc }
+let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : clause_fact_ir) :
+    clause_fact_ir option =
+  let lower_desc = function
+    | FactProgramState _ as desc -> Some desc
+    | FactGuaranteeState _ as desc -> Some desc
+    | FactFalse -> Some FactFalse
+    | FactFormula fo -> Option.map (fun fo' -> FactFormula fo') (lower_fo_pre_k ~pre_k_map fo)
+  in
+  Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
+
+let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    (clause : generated_clause_ir) : generated_clause_ir option =
+  let rec lower_all acc = function
+    | [] -> Some (List.rev acc)
+    | fact :: tl -> (
+        match lower_clause_fact ~pre_k_map fact with
+        | None -> None
+        | Some fact' -> lower_all (fact' :: acc) tl)
+  in
+  match (lower_all [] clause.hypotheses, lower_all [] clause.conclusions) with
+  | Some hypotheses, Some conclusions ->
+      if List.exists (fun (fact : clause_fact_ir) -> fact.desc = FactFormula FFalse || fact.desc = FactFalse) hypotheses
+      then None
+      else Some { clause with hypotheses; conclusions }
+  | _ -> None
+
+let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    (fact : clause_fact_ir) : relational_clause_fact_ir option =
+  let rel_desc = function
+    | FactProgramState st -> Some (RelFactProgramState st)
+    | FactFormula fo -> Option.map (fun fo' -> RelFactFormula fo') (lower_fo_pre_k ~pre_k_map fo)
+    | FactFalse -> Some RelFactFalse
+    | FactGuaranteeState _ -> None
+  in
+  Option.map (fun desc -> { time = fact.time; desc }) (rel_desc fact.desc)
+
+let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
+    relational_clause_fact_ir list list =
+  let rec expand_one acc = function
+    | [] -> [ List.rev acc ]
+    | ({ desc = RelFactFormula (FOr (a, b)); _ } as fact) :: tl ->
+        let left = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo a) } in
+        let right = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo b) } in
+        (expand_one (left :: acc) tl) @ expand_one (right :: acc) tl
+    | fact :: tl -> expand_one (fact :: acc) tl
+  in
+  expand_one [] facts
+
+let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    (clause : generated_clause_ir) : relational_generated_clause_ir list =
+  let lower_all facts =
+    List.filter_map (relationalize_clause_fact ~pre_k_map) facts
+  in
+  let hypotheses = lower_all clause.hypotheses in
+  let conclusions = lower_all clause.conclusions in
+  if conclusions = [] then []
+  else
+    expand_relational_hypotheses hypotheses
+    |> List.filter (fun hypotheses ->
+           not
+             (List.exists
+                (fun (fact : relational_clause_fact_ir) ->
+                  fact.desc = RelFactFormula FFalse || fact.desc = RelFactFalse)
+                hypotheses))
+    |> List.map (fun hypotheses -> { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
+
+let lower_call_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : call_fact_ir) : call_fact_ir option =
+  Option.map (fun lowered -> { fact with fact = lowered }) (lower_clause_fact ~pre_k_map fact.fact)
+
+let lower_callee_summary_case ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    (case : callee_summary_case_ir) : callee_summary_case_ir =
+  let lower facts = List.filter_map (lower_call_fact ~pre_k_map) facts in
+  {
+    case with
+    entry_facts = lower case.entry_facts;
+    transition_facts = lower case.transition_facts;
+    exported_post_facts = lower case.exported_post_facts;
+  }
+
+let lower_callee_tick_abi ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (abi : callee_tick_abi_ir) :
+    callee_tick_abi_ir =
+  { abi with cases = List.map (lower_callee_summary_case ~pre_k_map) abi.cases }
+
+let current_fact (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc }
+let previous_fact (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc }
 
 let invariants_for_state ~(node : Abs.node) ~(time : clause_time_ir) (state_name : Ast.ident) :
     clause_fact_ir list =
   List.filter_map
     (fun inv ->
       if (inv.is_eq && inv.state = state_name) || ((not inv.is_eq) && inv.state <> state_name) then
-        Some { time; desc = FactFormula inv.formula }
+        Some ({ time; desc = FactFormula inv.formula } : clause_fact_ir)
       else None)
     node.specification.spec_invariants_state_rel
 
@@ -750,14 +1034,15 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
   }
 
 let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported_node_summary_ir =
+  let pre_k_map = build_pre_k_infos node in
   {
     signature = node_signature_of_ast node;
     normalized_ir;
-    tick_summary = callee_tick_abi_of_node ~node:(Abs.of_ast_node node);
+    tick_summary = lower_callee_tick_abi ~pre_k_map (callee_tick_abi_of_node ~node:(Abs.of_ast_node node));
     user_invariants = node.attrs.invariants_user;
     state_invariants = node.attrs.invariants_state_rel;
     coherency_goals = node.attrs.coherency_goals;
-    pre_k_map = build_pre_k_infos node;
+    pre_k_map;
     delay_spec = extract_delay_spec node.guarantees;
   }
 
@@ -991,6 +1276,11 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   let generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
+  let pre_k_map = build_pre_k_infos (Abs.to_ast_node node) in
+  let generated_clauses = List.filter_map (lower_generated_clause ~pre_k_map) generated_clauses in
+  let relational_generated_clauses =
+    List.concat_map (relationalize_generated_clause ~pre_k_map) generated_clauses
+  in
   let instance_relations = build_instance_relations ~nodes ~external_summaries ~node in
   let called_callee_names =
     collect_call_sites_with_paths node.trans
@@ -1002,7 +1292,10 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     List.filter_map
       (fun callee_name ->
         match resolve_callee ~nodes ~external_summaries callee_name with
-        | Some (Local callee_node) -> Some (callee_tick_abi_of_node ~node:callee_node)
+        | Some (Local callee_node) ->
+            let callee_ast = Abs.to_ast_node callee_node in
+            let callee_pre_k_map = build_pre_k_infos callee_ast in
+            Some (lower_callee_tick_abi ~pre_k_map:callee_pre_k_map (callee_tick_abi_of_node ~node:callee_node))
         | Some (External summary) -> Some summary.tick_summary
         | None -> None)
       called_callee_names
@@ -1017,6 +1310,7 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     product_steps;
     product_coverage;
     generated_clauses;
+    relational_generated_clauses;
     instance_relations;
     callee_tick_abis;
     call_site_instantiations;
@@ -1074,7 +1368,7 @@ let render_product (ir : node_ir) : string list =
   in
   let clauses =
     List.map
-      (fun clause ->
+      (fun (clause : generated_clause_ir) ->
         let subject =
           match clause.anchor with
           | ClauseAnchorProductState st -> string_of_product_state st
@@ -1218,6 +1512,7 @@ let render_call_summary_toy_example =
       product_steps = [];
       product_coverage = CoverageEmpty;
       generated_clauses = [];
+      relational_generated_clauses = [];
       instance_relations = [];
       callee_tick_abis = [ abi ];
       call_site_instantiations = [ inst ];

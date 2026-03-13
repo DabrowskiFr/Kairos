@@ -30,6 +30,8 @@ type callee_summary_view = {
   callee_node_name : Ast.ident;
   callee_inputs : port_view list;
   callee_outputs : port_view list;
+  callee_locals : port_view list;
+  callee_states : Ast.ident list;
   callee_input_names : Ast.ident list;
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;

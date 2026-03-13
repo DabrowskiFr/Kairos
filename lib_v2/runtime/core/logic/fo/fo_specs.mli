@@ -46,6 +46,18 @@ val hexpr_to_iexpr :
   Ast.hexpr ->
   Ast.iexpr option
 
+(* Lower [pre_k] occurrences to explicit symbolic history variables. *)
+val lower_hexpr_pre_k :
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
+
+(* Lower [pre_k] occurrences inside a first-order formula. *)
+val lower_fo_pre_k :
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo -> Ast.fo option
+
+(* Lower [pre_k] occurrences inside an LTL formula when possible. *)
+val lower_ltl_pre_k :
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo_ltl -> Ast.fo_ltl option
+
 (* Infer a simple type for an iexpr from variable types. *)
 val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
 

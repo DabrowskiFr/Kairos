@@ -73,6 +73,22 @@ let old_if_needed (env : env) (t : Ptree.term) : Ptree.term =
 let guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_view) : Ptree.term option =
   Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
+let rec fo_mentions_var (name : Ast.ident) (f : Ast.fo) : bool =
+  let hexpr_mentions_var = function
+    | Ast.HNow e | Ast.HPreK (e, _) -> begin
+        match e.iexpr with
+        | Ast.IVar v -> String.equal v name
+        | _ -> false
+      end
+  in
+  match f with
+  | Ast.FTrue | Ast.FFalse -> false
+  | Ast.FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
+  | Ast.FPred (_, hs) -> List.exists hexpr_mentions_var hs
+  | Ast.FNot a -> fo_mentions_var name a
+  | Ast.FAnd (a, b) | Ast.FOr (a, b) | Ast.FImp (a, b) ->
+      fo_mentions_var name a || fo_mentions_var name b
+
 let compute_transition_contracts ~(env : env)
     ~(runtime_transitions : Why_runtime_view.runtime_transition_view list)
     ~(labeled_trans :
@@ -88,58 +104,67 @@ let compute_transition_contracts ~(env : env)
     | [ t ] -> t
     | t :: rest -> List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest
   in
+  let transition_requires_pre_terms =
+    List.fold_left
+      (fun acc ((t : Why_runtime_view.runtime_transition_view), reqs, _ens) ->
+        let cond_pre =
+          term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+        in
+        let cond_pre = with_guard cond_pre (guard_term_pre env t) in
+        List.fold_left
+          (fun acc (f, label) ->
+            let keep_req =
+              match f.origin with
+              | Some Compatibility when use_kernel_product_contracts -> false
+              | Some Coherency when use_kernel_product_contracts -> false
+              | _ -> true
+            in
+            if not keep_req then acc
+            else
+            let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f.value) in
+            let rel = ltl_relational env norm.ltl in
+            let frag = ltl_spec env rel in
+            let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+            let terms = List.map (term_implies cond_pre) guarded_k in
+            let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
+            let terms = List.map (fun t -> mk_term (Tattr (rid_attr, t))) terms in
+            let labeled = List.map (fun t -> (t, label)) terms in
+            labeled @ acc)
+          acc reqs)
+      [] labeled_trans
+  in
+  let transition_requires_pre = List.map fst transition_requires_pre_terms in
   if use_kernel_product_contracts then
     {
-      transition_requires_pre_terms = [];
-      transition_requires_pre = [];
+      transition_requires_pre_terms;
+      transition_requires_pre;
       post_contract_terms = [];
       pure_post = [];
       post_terms = [];
       post_terms_vcid = [];
     }
   else
-    let transition_requires_pre_terms =
-      List.fold_left
-        (fun acc ((t : Why_runtime_view.runtime_transition_view), reqs, _ens) ->
-          let cond_pre =
-            term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-          in
-          let cond_pre = with_guard cond_pre (guard_term_pre env t) in
-          List.fold_left
-            (fun acc (f, label) ->
-              let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f.value) in
-              let rel = ltl_relational env norm.ltl in
-              let frag = ltl_spec env rel in
-              let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-              let terms = List.map (term_implies cond_pre) guarded_k in
-              let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
-              let terms = List.map (fun t -> mk_term (Tattr (rid_attr, t))) terms in
-              let labeled = List.map (fun t -> (t, label)) terms in
-              labeled @ acc)
-            acc reqs)
-        [] labeled_trans
-    in
-    let transition_requires_pre = List.map fst transition_requires_pre_terms in
     let transition_requires_post =
-      if has_monitor_instrumentation then []
-      else
+      List.fold_left
+      (fun acc (t : Why_runtime_view.runtime_transition_view) ->
+        let cond_post =
+          term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+        in
+        let cond_post = with_guard cond_post (guard_term_pre env t) in
         List.fold_left
-          (fun acc (t : Why_runtime_view.runtime_transition_view) ->
-            let cond_post =
-              term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-            in
-            let cond_post = with_guard cond_post (guard_term_pre env t) in
-            List.fold_left
-              (fun acc f ->
-                let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
-                let rel = ltl_relational env norm.ltl in
-                let frag = ltl_spec env rel in
-                let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-                let terms = List.map (term_implies cond_post) guarded_k in
-                terms @ acc)
-              acc
-              (Ast_provenance.values t.requires))
-          [] runtime_transitions
+          (fun acc f ->
+            let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
+            let rel = ltl_relational env norm.ltl in
+            let frag = ltl_spec env rel in
+            let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
+            let terms = List.map (term_implies cond_post) guarded_k in
+            terms @ acc)
+          acc
+          (Ast_provenance.values t.requires))
+      [] runtime_transitions
+    in
+    let transition_requires_post =
+      if has_monitor_instrumentation then [] else transition_requires_post
     in
     let state_post, post_terms, post_terms_vcid =
       let st = term_of_var env "st" in
@@ -250,7 +275,7 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
         List.map
           (fun inv ->
             let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 inv.state)) in
+            let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
               compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map

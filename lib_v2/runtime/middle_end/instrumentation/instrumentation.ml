@@ -503,13 +503,7 @@ let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
     ~(incoming_prev_fo_shifted : fo list) ~(compat_invariants : invariant_state_rel list)
     ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
-  let has_live_product_coverage =
-    List.exists
-      (fun (st : Product_types.product_state) ->
-        st.assume_state <> analysis.assume_bad_idx
-        && st.guarantee_state <> analysis.guarantee_bad_idx)
-      analysis.exploration.states
-  in
+  let _ = build in
   let reachable_monitor_states =
     analysis.exploration.states
     |> List.filter (fun (st : Product_types.product_state) ->
@@ -519,27 +513,14 @@ let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     |> List.sort_uniq String.compare
   in
   let trans = inject_instrumentation_code ~instrumentation_updates ~instrumentation_asserts n.trans in
-  let trans =
-    add_monitor_compatibility_requires
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/monitor_pre" ~t f))
-      ~incoming_prev_fo_shifted trans
-  in
-  let trans =
-    Product_contracts.add_assumption_projection_requires
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/assume_projection" ~t f))
-      ~build ~analysis trans
-  in
+  (* Proof obligations for the current tick and delayed variables must come
+     from explicit kernel clauses, not from replaying monitor guards on
+     transitions. Keep monitor/state simulation, but do not project
+     assume/guarantee guards back into transition contracts. *)
   let trans =
     add_state_invariants_to_transitions ~invariants_state_rel:compat_invariants
       ~log:(Some (fun t f -> log_contract ~reason:"Product/compat_invariant" ~t f))
       ~add_to_ensures:false trans
-  in
-  let trans =
-    if has_live_product_coverage then trans
-    else
-      Product_contracts.add_bad_guarantee_projection_ensures
-        ~log:(Some (fun t f -> log_contract ~reason:"Product/bad_guarantee_projection" ~t f))
-        ~analysis trans
   in
   trans
   |> normalize_generated_contracts

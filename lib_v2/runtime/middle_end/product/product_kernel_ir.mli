@@ -71,6 +71,7 @@ type product_coverage_ir =
 [@@deriving yojson]
 
 type generated_clause_origin =
+  | OriginSourceProductSummary
   | OriginSafety
   | OriginInitNodeInvariant
   | OriginInitAutomatonCoherence
@@ -81,6 +82,7 @@ type generated_clause_origin =
 type clause_time_ir =
   | CurrentTick
   | PreviousTick
+  | StepTickContext
 [@@deriving yojson]
 
 type clause_fact_desc_ir =
@@ -106,6 +108,26 @@ type generated_clause_ir = {
   anchor : generated_clause_anchor_ir;
   hypotheses : clause_fact_ir list;
   conclusions : clause_fact_ir list;
+}
+[@@deriving yojson]
+
+type relational_clause_fact_desc_ir =
+  | RelFactProgramState of Ast.ident
+  | RelFactFormula of Ast.fo
+  | RelFactFalse
+[@@deriving yojson]
+
+type relational_clause_fact_ir = {
+  time : clause_time_ir;
+  desc : relational_clause_fact_desc_ir;
+}
+[@@deriving yojson]
+
+type relational_generated_clause_ir = {
+  origin : generated_clause_origin;
+  anchor : generated_clause_anchor_ir;
+  hypotheses : relational_clause_fact_ir list;
+  conclusions : relational_clause_fact_ir list;
 }
 [@@deriving yojson]
 
@@ -219,6 +241,7 @@ type node_ir = {
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
   generated_clauses : generated_clause_ir list;
+  relational_generated_clauses : relational_generated_clause_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;

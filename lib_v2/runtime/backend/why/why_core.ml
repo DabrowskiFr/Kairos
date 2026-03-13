@@ -61,10 +61,39 @@ let empty_spec () : Ptree.spec =
     sp_partial = false;
   }
 
+let rec strip_term_attrs (term : Ptree.term) : Ptree.term =
+  match term.term_desc with Tattr (_, inner) -> strip_term_attrs inner | _ -> term
+
+let rec term_mentions_qid_name (name : string) (term : Ptree.term) : bool =
+  let term = strip_term_attrs term in
+  match term.term_desc with
+  | Tident q -> String.equal (string_of_qid q) name
+  | Tapply (fn, arg) -> term_mentions_qid_name name fn || term_mentions_qid_name name arg
+  | Tbinop (lhs, _, rhs) | Tinnfix (lhs, _, rhs) ->
+      term_mentions_qid_name name lhs || term_mentions_qid_name name rhs
+  | Tnot inner -> term_mentions_qid_name name inner
+  | Tidapp (_q, args) -> List.exists (term_mentions_qid_name name) args
+  | Tif (c, t_then, t_else) ->
+      term_mentions_qid_name name c || term_mentions_qid_name name t_then
+      || term_mentions_qid_name name t_else
+  | Ttuple terms -> List.exists (term_mentions_qid_name name) terms
+  | Tattr (_attr, inner) -> term_mentions_qid_name name inner
+  | Tconst _ | Ttrue | Tfalse -> false
+  | _ -> false
+
 let rec compile_seq (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (sticky_asserts : Ptree.term list)
     (lst : Why_runtime_view.runtime_action_view list) : Ptree.expr =
+  let assert_terms terms = List.map (fun term -> mk_expr (Eassert (Expr.Assert, term))) terms in
+  let qid_name_for_var x =
+    if is_rec_var env x then string_of_qid (qdot (qid1 env.rec_name) (rec_var_name env x)) else x
+  in
+  let preserved_asserts_after_assign x =
+    let qid_name = qid_name_for_var x in
+    List.filter (fun term -> not (term_mentions_qid_name qid_name term)) sticky_asserts
+  in
   let compile_action (a : Why_runtime_view.runtime_action_view) : Ptree.expr =
     match a with
     | Why_runtime_view.ActionSkip -> mk_expr (Etuple [])
@@ -77,27 +106,29 @@ let rec compile_seq (env : env)
         in
         let tgt = if is_rec_var env x then field env x else mk_expr (Eident (qid1 x)) in
         let assign = mk_expr (Eassign [ (tgt, None, compile_iexpr env e) ]) in
-        if is_ghost_local x then mk_expr (Eghost assign) else assign
+        let assign = if is_ghost_local x then mk_expr (Eghost assign) else assign in
+        let reassert = preserved_asserts_after_assign x |> assert_terms |> seq_exprs in
+        seq_exprs [ assign; reassert ]
     | Why_runtime_view.ActionIf (c, tbr, fbr) ->
         let cond = compile_iexpr env c in
         let else_branch =
-          if fbr = [] then explicit_noop () else compile_seq env call_asserts fbr
+          if fbr = [] then explicit_noop () else compile_seq env call_asserts sticky_asserts fbr
         in
-        mk_expr (Eif (cond, compile_seq env call_asserts tbr, else_branch))
+        mk_expr (Eif (cond, compile_seq env call_asserts sticky_asserts tbr, else_branch))
     | Why_runtime_view.ActionMatch (e, branches, default) ->
         let scrut = compile_iexpr env e in
         let branches =
           List.map
             (fun (ctor, body) ->
               let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
-              (pat, compile_seq env call_asserts body))
+              (pat, compile_seq env call_asserts sticky_asserts body))
             branches
         in
         let branches =
           if default = [] then branches
           else
             branches
-            @ [ ({ pat_desc = Pwild; pat_loc = loc }, compile_seq env call_asserts default) ]
+            @ [ ({ pat_desc = Pwild; pat_loc = loc }, compile_seq env call_asserts sticky_asserts default) ]
         in
         mk_expr (Ematch (scrut, branches, []))
     | Why_runtime_view.ActionCall { call_instance = inst; call_args = args; call_outputs = outs } ->
@@ -183,22 +214,40 @@ let rec compile_seq (env : env)
   match lst with
   | [] -> mk_expr (Etuple [])
   | [ s ] -> compile_action s
-  | s :: rest -> mk_expr (Esequence (compile_action s, compile_seq env call_asserts rest))
+  | s :: rest -> mk_expr (Esequence (compile_action s, compile_seq env call_asserts sticky_asserts rest))
 
 let compile_action_block (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (sticky_asserts : Ptree.term list)
     (block : Why_runtime_view.action_block_view) : Ptree.expr =
   match block.block_kind with
-  | Why_runtime_view.ActionGhost -> mk_expr (Eghost (compile_seq env call_asserts block.block_actions))
+  | Why_runtime_view.ActionGhost ->
+      mk_expr (Eghost (compile_seq env call_asserts sticky_asserts block.block_actions))
   | Why_runtime_view.ActionUser | Why_runtime_view.ActionInstrumentation ->
-      compile_seq env call_asserts block.block_actions
+      compile_seq env call_asserts sticky_asserts block.block_actions
 
-let compile_state_branch_ast (env : env)
+let compile_state_body (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
-    (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
-  let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
+    (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
+    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.expr =
+  let entry_asserts =
+    match List.assoc_opt st branch_entry_asserts with
+    | None -> []
+    | Some terms -> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term))) terms
+  in
+  let sticky_asserts =
+    match List.assoc_opt st branch_sticky_asserts with
+    | None -> []
+    | Some terms -> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term))) terms
+  in
+  let local_assert_terms =
+    List.map
+      (function { expr_desc = Eassert (_, term); _ } -> term | _ -> assert false)
+      sticky_asserts
+  in
   let rec chain (trs : Why_runtime_view.runtime_transition_view list) =
     match trs with
     | [] -> mk_expr (Etuple [])
@@ -214,29 +263,44 @@ let compile_state_branch_ast (env : env)
                ])
         in
         let block_exprs =
-          List.map (compile_action_block env call_asserts) t.action_blocks
+          List.map (compile_action_block env call_asserts local_assert_terms) t.action_blocks
         in
         let body = seq_exprs (block_exprs @ [ assign_dst ]) in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
   in
-  let body = chain trs in
+  seq_exprs (entry_asserts @ sticky_asserts @ [ chain trs ])
+
+let compile_state_branch_ast (env : env)
+    (call_asserts :
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
+    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
+  let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
+  let body = compile_state_body env call_asserts branch_entry_asserts branch_sticky_asserts st trs in
   (pat, body)
 
 let compile_state_branch (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
+    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
-  compile_state_branch_ast env call_asserts st trs
+  compile_state_branch_ast env call_asserts branch_entry_asserts branch_sticky_asserts st trs
 
 let compile_transitions (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
+    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
     (branches_view : Why_runtime_view.state_branch_view list) : Ptree.expr =
   let branches =
     List.map
       (fun (branch : Why_runtime_view.state_branch_view) ->
-        compile_state_branch_ast env call_asserts branch.branch_state branch.branch_transitions)
+        compile_state_branch_ast env call_asserts branch_entry_asserts branch_sticky_asserts
+          branch.branch_state
+          branch.branch_transitions)
       branches_view
   in
   mk_expr
@@ -248,5 +312,8 @@ let compile_transitions (env : env)
 let compile_runtime_view (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
+    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
     (runtime_view : Why_runtime_view.t) : Ptree.expr =
-  compile_transitions env call_asserts runtime_view.state_branches
+  compile_transitions env call_asserts branch_entry_asserts branch_sticky_asserts
+    runtime_view.state_branches

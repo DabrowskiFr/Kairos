@@ -108,12 +108,12 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
   let ok = ref true in
   Hashtbl.iter
     (fun v vals ->
-      match vals with
-      | [] | [ _ ] -> ()
-      | _ ->
-          ok := false;
-          let neg_vals = Hashtbl.find_opt neg v |> Option.value ~default:[] in
-          if List.exists (fun c -> List.mem c neg_vals) vals then ok := false)
+      let unique_vals = List.sort_uniq String.compare vals in
+      let neg_vals =
+        Hashtbl.find_opt neg v |> Option.value ~default:[] |> List.sort_uniq String.compare
+      in
+      if List.length unique_vals > 1 then ok := false;
+      if List.exists (fun c -> List.mem c neg_vals) unique_vals then ok := false)
     pos;
   !ok
 

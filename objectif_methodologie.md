@@ -1,5 +1,187 @@
 # Objectif et methodologie
 
+## Objectif courant (mise a jour 2026-03-13 - documentation visuelle IR)
+Rendre la documentation IR suffisamment explicite pour servir de base de
+travail fiable pour la refonte relationnelle de la preuve:
+- expliquer la forme exacte des obligations a chaque niveau;
+- montrer visuellement ce qui est produit par chaque etape;
+- documenter sur un cas minimal (`delay_int`) la chaine complete:
+  - source;
+  - programme reactive instrumente;
+  - produit explicite;
+  - `generated_clauses`;
+  - `relational_generated_clauses`;
+  - emission Why.
+
+Livrables vises:
+- document Markdown detaille dans `docs/`;
+- PDF regenere;
+- figures explicites pour:
+  - pipeline;
+  - automates/produit;
+  - relation transitions -> clauses;
+  - temporalite de `pre_k`.
+
+## Methodologie (mise a jour 2026-03-13 - documentation visuelle IR)
+1. Partir d'un cas minimal mais non trivial:
+   - `delay_int`.
+2. Reutiliser les artefacts reels extraits du pipeline:
+   - produit explicite;
+   - OBC;
+   - `.kobj`;
+   - Why genere.
+3. Distinguer a chaque fois:
+   - ce qui est artefact de construction;
+   - ce qui est deja une obligation de preuve utile;
+   - ce qui est encore une dette d'architecture.
+4. Preferer des figures derivant directement des artefacts reels:
+   - DOT/Graphviz pour les vues structurelles;
+   - tableaux explicites pour les correspondances
+     transition -> clauses -> role.
+5. Garder cette documentation alignee avec l'orientation architecturale retenue:
+   - preuve relationnelle;
+   - abaissement explicite des `pre_k` avant Why;
+   - pas de monitoring execute comme support principal de preuve.
+6. Ajouter une couche pedagogique explicite:
+   - legende des objets manipules;
+   - typologie stable des obligations;
+   - anti-confusions;
+   - reduction produit -> clause brute -> clause relationnelle -> Why.
+
+## Objectif courant (mise a jour 2026-03-12 - retrait du monitoring execute)
+Faire converger Kairos vers un pipeline de preuve sans monitoring execute de
+la specification:
+- pas de `__aut_state` comme etat de programme ou support principal de preuve;
+- pas de structuration des obligations par etats `Aut*`;
+- produit/automates utilises uniquement pour deriver des clauses
+  relationnelles backend-agnostic;
+- backend Why reduit au role de compilateur de ces clauses relationnelles.
+
+Livrables vises:
+- `AGENTS.md` corrige avec cette contrainte explicite;
+- branche actuelle documentee comme branche de transition;
+- plan de retrait de `__aut_state` / `Aut*` du pipeline actif;
+- cas pilote minimal reconstruit sans etat moniteur;
+- criteres d'extension vers `without_calls`, puis `with_calls`.
+
+## Methodologie (mise a jour 2026-03-12 - retrait du monitoring execute)
+1. Geler l'architecture courante comme etat transitoire:
+   - ne plus raffiner localement les VCs qui restent encore structurees par
+     `Aut*`;
+   - conserver seulement les pieces backend-agnostic reutilisables.
+2. Faire un inventaire explicite des dependances residuelles a
+   `__aut_state` / `Aut*` dans:
+   - IR produit,
+   - clauses generees,
+   - emission Why,
+   - resumes modulaires.
+3. Definir une IR cible purement relationnelle pour la preuve:
+   - preconditions locales du tick,
+   - relation source/cible,
+   - faits exportables sur sorties et memoires,
+   - resumes d'appel modulaires,
+   sans etat moniteur execute.
+4. Repartir d'un cas pilote minimal:
+   - `tests/without_calls/ok/inputs/toggle.kairos`
+   - avec reconstruction complete de son encodage sans `Aut*`.
+5. Etendre ensuite progressivement:
+   - reste de `without_calls`,
+   - puis `with_calls`,
+   - puis revalidation complete `ok/ko`.
+
+## Etat courant (mise a jour 2026-03-12 - branche de transition)
+- La branche `codex/spot-automata-migration` doit maintenant etre consideree
+  comme une branche de transition.
+- Elle contient des progres reutilisables:
+  - `.kobj`,
+  - `import`,
+  - separation `with_calls` / `without_calls`,
+  - resumes `OriginSourceProductSummary`,
+  - nettoyage partiel du backend Why;
+- mais elle ne constitue pas encore l'architecture cible tant que des preuves
+  restent structurees autour de `__aut_state` / `Aut*`.
+- Les prochains travaux ne doivent donc plus viser a "raffiner" cette forme,
+  mais a organiser son depassement vers une preuve relationnelle pure.
+
+## Etat courant (mise a jour 2026-03-12 - abaissement `pre_k` avant Why)
+- Fait:
+  - le pipeline exporte maintenant une partie des faits de preuve avec les
+    `pre_k` deja abaisses en variables symboliques explicites `__pre_k...`,
+    avant traduction Why;
+  - cela vaut deja pour:
+    - les clauses kernel exportees;
+    - les resumes de tick exportes;
+  - une premiere IR de preuve relationnelle existe maintenant:
+    - `relational_generated_clauses`.
+- Consequence:
+  - Why ne doit plus etre le premier endroit qui "interprete" `pre(x,k)` sur
+    ces chemins;
+  - le prochain basculement consiste a faire de cette IR relationnelle
+    l'entree principale du backend de preuve.
+- Cas pilote retenu:
+  - `tests/without_calls/ok/inputs/toggle.kairos`
+- Documents de cadrage:
+  - `docs/architecture_transition_inventory_2026-03-12.md`
+  - `docs/relational_proof_pilot_toggle_2026-03-12.md`
+
+## Etat courant (mise a jour 2026-03-12 - bascule active sur l'IR relationnelle)
+- Fait:
+  - le backend Why consomme maintenant le chemin
+    `relational_generated_clauses` sur le noyau kernel actif;
+  - les invariants de programme sont reintroduits seulement sous forme
+    relationnelle indexee par l'etat du programme, sans `Aut*`;
+  - `toggle`, `require_delay_bool`, `armed_delay` et `armed_fault_monitor`
+    passent dans ce modele;
+  - `armed_delay__bad_code` reste `INVALID`.
+- Blocage restant:
+  - `credit_balance_monitor` reste rouge a `5s`;
+  - une simplification relationnelle trop agressive a ete essayee puis retiree
+    car elle cassait la correction (`armed_delay__bad_code` devenait vert).
+- Consequence methodologique:
+  - ne pas reintroduire de simplification logique agressive non justifiee;
+  - traiter `credit_balance_monitor` comme cas directeur final de
+    `without_calls/ok` avant relance complete des suites.
+
+## Objectif courant (mise a jour 2026-03-12 - rapport detaille d'architecture)
+Produire un rapport PDF tres detaille sur l'architecture du programme et sur
+les details d'implementation du depot `kairos-dev`, fonde sur le code reel
+inspecte et non sur une description hypothetique.
+
+Livrables vises:
+- un document source en Markdown dans `docs/`;
+- un PDF genere a partir de ce document;
+- une analyse structuree couvrant:
+  - points d'entree,
+  - pipeline,
+  - middle-end semantique,
+  - backend Why3,
+  - modularite `.kobj`,
+  - execution de preuve,
+  - diagnostics,
+  - forces et dette technique visibles.
+
+## Methodologie (mise a jour 2026-03-12 - rapport detaille d'architecture)
+1. Partir des interfaces et points d'entree publics:
+   - `README`,
+   - notes d'architecture,
+   - `pipeline.mli`,
+   - executables CLI/LSP.
+2. Descendre ensuite dans les modules pivots:
+   - `pipeline_v2_indep`,
+   - `product_build`,
+   - `product_kernel_ir`,
+   - backend Why3,
+   - preuve Why3,
+   - objets `.kobj`.
+3. Faire apparaitre explicitement les frontieres architecturales:
+   - semantique vs backend,
+   - runtime view vs syntaxe Why,
+   - artefacts compiles vs recompilation implicite.
+4. Documenter honnetement les limites:
+   - rapport base sur l'inspection du code,
+   - sans pretendre a une validation formelle exhaustive.
+5. Generer ensuite un PDF partageable depuis la version Markdown source.
+
 ## Objectif courant (mise a jour 2026-03-11 - modularite reelle des `call`)
 Mettre en place une compilation modulaire reelle des `call`, avec:
 - objets compiles `.kobj` reutilisables;
@@ -1252,3 +1434,423 @@ Kairos compatible avec les clients existants.
 - Si une formule se revele trop forte au premier tick d'entree dans la
   fenetre, preferer raffiner sa premisse (`prev ... = 1`) plutot que
   d'introduire un programme artificiellement plus complique.
+
+## Decouplage de la campagne generale et de la campagne `instances/call`
+
+- Objectif pratique immediat:
+  - continuer a progresser sur la robustesse generale du pipeline tout en
+    isolant clairement le chantier encore instable de la preuve modulaire des
+    appels.
+
+- Strategie retenue:
+  - maintenir les suites historiques `tests/ok/inputs` et `tests/ko/inputs`
+    pour compatibilite;
+  - introduire en parallele deux sous-suites de travail:
+    - `tests/without_calls/{ok,ko}/inputs`
+    - `tests/with_calls/{ok,ko}/inputs`
+
+- Regle de classement:
+  - `with_calls`:
+    - tout exemple utilisant `call` ou `import`;
+    - ainsi que les noeuds support qu'un caller modularise doit compiler en
+      `.kobj`;
+  - `without_calls`:
+    - tout le reste de la regression.
+
+- Usage de validation:
+  - valider le socle general avec:
+    - `scripts/validate_ok_ko.sh <repo> 5 without_calls`
+  - valider le sous-systeme modular calls avec:
+    - `scripts/validate_ok_ko.sh <repo> 5 with_calls`
+  - obtenir les deux rapports separes avec:
+    - `scripts/validate_ok_ko.sh <repo> 5 split`
+
+- Interpretation methodologique:
+  - un vert `without_calls` ne valide pas encore la modularite des appels;
+  - un rouge `with_calls` ne doit plus bloquer l'evaluation du reste de la
+    chaine;
+  - la cloture finale du chantier global exigera malgre tout de rerun aussi la
+    campagne `legacy`, une fois le backend Why3 des `call` stabilise.
+  - inversement, `without_calls` doit lui aussi etre reverifie honnetement par
+    preuve apres chaque split: le decouplage des campagnes ne doit pas masquer
+    d'anciens faux verts / faux rouges sans appels.
+
+- Gestion des faux verts persistants hors appels:
+  - lorsqu'une famille `__bad_code` reste `valid` malgre plusieurs mutations
+    semantiquement fausses, ne pas la laisser dans la regression active;
+  - la deplacer dans `tests/quarantine/` avec une note expliquant pourquoi elle
+    n'est plus discriminante aujourd'hui;
+  - ne reintroduire ces cas dans `ok/ko` qu'apres correction backend ou
+    regeneration fiable des variantes.
+  - maintenir un tableau de verite explicite:
+    - faux verts encore reproductibles;
+    - cas redevenus `INVALID`;
+    - mutations finalement non discriminantes au regard de la spec.
+
+- Discipline de validation:
+  - considerer les rapports de campagne comme valides seulement une fois les
+    fichiers de sortie ecrits atomiquement et la campagne terminee;
+  - ne pas inferrer une regression backend a partir d'un TSV partiel ou ecrase
+    par un rerun;
+  - pour un doute sur un `ok`, rejouer le cas unitairement avec
+    `--dump-proof-traces-json --proof-traces-failed-only` avant toute
+    conclusion.
+
+- Garde-fous issus de la formalisation Rocq (`kairos-kernel`):
+  - comparer regulierement les obligations implementees avec les ingredients
+    locaux explicites de la reduction:
+    - `product_step_wf`
+    - `product_step_has_live_source`
+    - `product_step_is_bad_target`
+  - lorsqu'un `__bad_code` bien forme passe au vert, verifier en priorite si
+    l'encodage Why oublie:
+    - la coherence structurelle du pas selectionne;
+    - le fait que la propagation n'est pertinente que depuis une source live;
+    - la clause locale interdisant une cible garantie mauvaise sous hypothese
+      encore vivante.
+
+- Priorite de correction pour `without_calls`:
+  - preferer d'abord retablir la presence des clauses kernel pertinentes,
+    meme si cela augmente temporairement le cout solver;
+  - ne pas "gagner du vert" en re-eliminant des pas explicites si cela
+    supprime la clause `safety` ou la propagation necessaire a la reduction.
+
+- Traitement des regressions apres retablissement des clauses kernel:
+  - distinguer strictement:
+    - faux vert de correction (mauvaise clause manquante);
+    - faux rouge de performance solver (clause presente mais trop couteuse a
+      `5s`);
+  - pour un `ok` qui casse apres renforcement kernel:
+    - verifier d'abord que `--dump-obligations-map` montre bien une couverture
+      explicite non vide;
+    - puis rejouer le cas avec un timeout plus large pour savoir si le
+      probleme est semantique ou seulement budgetaire.
+  - ne pas essayer de gagner du temps solver en supprimant des pas/clauses au
+    niveau du produit tant que cela risque de refaire tomber `coverage` a
+    `empty` sur un contre-exemple minimal de correction.
+  - lorsqu'un test d'overlap local est utilise pour ecremer des branches:
+    - verifier explicitement qu'il detecte bien:
+      - plusieurs valeurs positives incompatibles pour une meme variable;
+      - un meme litteral a la fois positif et negatif;
+    - preferer corriger ce predicate a la source dans l'exploration produit
+      plutot que post-filtrer plus tard les clauses kernel.
+
+- Optimisation backend Why autorisee apres retablissement de la correction:
+  - si le produit explicite et les clauses IR sont corrects mais qu'un `ok`
+    reste trop couteux a `5s`, preferer une contraction backend
+    implication-preservante des clauses kernel:
+    - fusion des clauses de propagation d'un meme pas en un resume
+      conjonctif unique;
+    - elimination backend des clauses de propagation d'un pas `bad_G` si la
+      clause `safety` du meme pas est deja emise;
+    - deduplication exacte des hypotheses / conclusions Why avant emission.
+  - ne jamais faire cette contraction dans l'IR si cela brouille
+    l'alignement avec la formalisation Rocq; la reduction de reference doit
+    rester lisible et comparee a `kairos-kernel`, l'optimisation ne devant
+    exister qu'au niveau emission Why.
+
+- Priorite immediate `without_calls`:
+  - considerer `armed_delay` comme cas directeur de performance solver;
+  - une fois les autres `ok` repasses verts a `5s`, concentrer le diagnostic
+    sur le reliquat `Track -> Track` de `armed_delay`;
+  - n'ouvrir a nouveau le chantier `with_calls` qu'apres stabilisation de ce
+    socle.
+
+- Mise a jour de la suite immediate:
+  - `armed_delay` ne doit plus etre traite comme blocage principal tant qu'il
+    retombe vert en replay cible a `5s`;
+  - la prochaine validation pertinente devient:
+    - rerun complet `without_calls`;
+    - verification que les `ok` restent verts a `5s`;
+    - verification que les `ko` actifs restent `invalid` ou `timeout`, jamais
+      `valid`;
+    - seulement ensuite reprise du chantier `with_calls`.
+
+- Ajustement apres relance reelle de campagne:
+  - ne pas conclure a la stabilite d'un cas seulement sur des replays isoles;
+  - verifier aussi son comportement dans la campagne sequentielle complete,
+    car la pression solver peut differer;
+  - tant que `armed_delay` ou `armed_fault_monitor` retombent rouges dans
+    `without_calls_ok_report.tsv.tmp`, considerer `without_calls` comme
+    encore instable.
+
+- Regle de validation outillee:
+  - toute campagne `ok/ko` doit maintenant etre lancee avec:
+    - un timeout par obligation;
+    - un timeout global par fichier;
+  - si un fichier depasse le budget global, le classer explicitement
+    `TIMEOUT` plutot que laisser la campagne se bloquer.
+
+- Priorite immediate actualisee pour `without_calls`:
+  - traiter comme cas directeurs:
+    - `armed_delay`
+    - `armed_fault_monitor`
+    - `credit_balance_monitor`
+  - objectifs:
+    - faire tomber `armed_delay` de `FAILED 1` a `OK`;
+    - faire tomber `armed_fault_monitor` et `credit_balance_monitor` de
+      `TIMEOUT file_timeout_60s` a `OK` ou au minimum a un echec borne et
+      localise qui se laisse diagnostiquer.
+
+- Apres simplification booléenne backend:
+  - ne plus investir d'abord dans des simplifications globales
+    `true/false/and/or/implies`, car le gain principal est deja capture;
+  - concentrer la suite sur la structure des obligations des cas directeurs:
+    - factorisation eventuelle des clauses kernel par famille de source;
+    - reduction du nombre de pas explicites non utiles cote Why, uniquement si
+      cela n'affaiblit pas l'IR kernel aligne Rocq;
+    - ou decoupage des VCs monolithiques `step'vc` en sous-obligations plus
+      locales si Why3 le permet proprement.
+
+- Mise a jour methodologique 2026-03-12:
+  - le decoupage `step -> step_from_<state>` doit etre soutenu par un
+    rattachement explicite des contrats a leur etat source;
+  - la bonne technique n'est pas une simplification de domaine, mais une
+    propagation de metadonnees structurelles depuis l'IR kernel / les clauses
+    compilees jusqu'a l'emission Why;
+  - chaque helper doit au minimum assumer:
+    - son etat programme source `vars.st = <State>`;
+  - en revanche, l'ajout automatique d'une coherence forte
+    `vars.__aut_state = <Aut>` deduite du produit a ete teste puis rejete,
+    car il aggrave `armed_delay` (`FAILED 2` -> `FAILED 5`) dans l'etat
+    courant du backend;
+  - priorite immediate:
+    - diagnostiquer les `FAILED 2` restants sur `armed_delay`
+      (`step_from_track'vc`);
+    - ne revenir a `armed_fault_monitor` et `credit_balance_monitor`
+      qu'apres avoir transforme ce cas en `OK` ou en echec pleinement
+      explique.
+
+- Affinage 2026-03-12:
+  - une tentative de reassertion automatique des invariants de branche apres
+    les affectations preservees a ete branchee dans `why_core`;
+  - elle ne modifie pas encore le Why effectif de `armed_delay`;
+  - la priorite immediate devient donc plus precise:
+    - inspecter la representation `runtime_action_view` / `action_blocks`
+      de la branche `Track`;
+    - verifier a quel niveau exact inserer les reassertions pour qu'elles
+      apparaissent reellement dans le corps Why genere.
+
+- Rectification methodologique 2026-03-12:
+  - le vrai point de correction pour `armed_delay` n'est pas d'ajouter des
+    assertions locales supplementaires, mais de respecter la temporalite du
+    `TickCtx` Rocq lors de la compilation des gardes de pas du produit;
+  - en particulier, les gardes moniteur doivent etre compilees avec une
+    semantique mixte:
+    - sorties courantes du tick;
+    - memoire / `pre_k` de source;
+  - ce principe est backend-agnostic dans son contenu semantique, meme si la
+    correction immediate a ete implementee dans le backend Why.
+
+- Priorite immediate mise a jour:
+  - expliquer et corriger l'ecart entre:
+    - le replay direct `--dump-proof-traces-json ...` qui donne `[]`
+      sur `armed_delay`;
+    - et `scripts/validate_ok_ko.sh ... single_ok` qui le classe encore
+      `FAILED 1`;
+  - seulement apres, reprendre `armed_fault_monitor` et
+    `credit_balance_monitor`.
+
+- Mise en conformite complementaire:
+  - la temporalite mixte necessaire a certaines clauses kernel ne doit pas
+    rester un traitement special cache dans `why_contracts`;
+  - elle doit etre portee par l'IR lui-meme;
+  - un temps de clause explicite `StepTickContext` a donc ete introduit pour
+    encoder les faits lus sur le `TickCtx` du pas;
+  - le backend Why n'a plus qu'a respecter cette temporalite explicite.
+
+## Regle de depot explicite
+
+- Un [AGENTS.md](/Users/fredericdabrowski/Repos/kairos/kairos-dev/AGENTS.md) a ete ajoute a la racine du depot Kairos.
+- Cette regle devient une contrainte d'architecture permanente:
+  - `__aut_state` peut rester une vraie variable d'etat Kairos;
+  - les faits du tick courant et des decalages temporels ne doivent pas etre
+    prouves par reexecution de gardes moniteur dans Why3;
+  - ils doivent etre exprimes directement sur les variables Kairos courantes
+    et les variables decalees.
+
+- Consequence pratique pour la suite:
+  - toute correction future sur le backend Why / IR produit / resumes de `call`
+    doit d'abord etre evaluee contre cette regle;
+  - si une solution repose sur des gardes d'automate pour etablir un fait sur
+    le tick courant ou `pre_k`, elle doit etre rejetee.
+
+- Le `AGENTS.md` a aussi ete enrichi pour rendre la discipline plus operationnelle:
+  - les faits necessaires a la preuve doivent exister d'abord dans l'IR /
+    clauses kernel, pas seulement dans l'emetteur Why;
+  - toute formule doit rendre son point temporel explicite;
+  - un desaccord replay direct / validateur est un bug a traiter, pas du bruit;
+  - les `bad_code` doivent etre classes explicitement si un faux vert subsiste;
+  - les `call` modulaires doivent rester fondes sur `.kobj`;
+  - chaque changement backend / produit doit etre accompagne d'un
+    avant/apres minimal.
+
+## Verrou technique restant sur les appels modulaires
+
+- Diagnostic courant:
+  - le backend Why3 reste bloque sur la representation des resultats de `call`
+    dans les obligations locales du caller;
+  - apres elimination des projections de records importes, il reste un
+    probleme de liaison/portee autour des symboles intermediaires
+    `__call_next_*`.
+
+- Direction retenue pour la suite:
+  - conserver l'ABI logique explicite pre/post/sorties/entrees introduite
+    via les resumes `.kobj`;
+  - reprendre le plan `ActionCall` jusqu'a obtenir un `any` Why local dont
+    toutes les variables de resultat sont liees dans les `ensures`;
+  - une fois ce point stable, rebrancher la campagne finale complete:
+    - build `cli`
+    - build `lsp`
+    - build `ide`
+    - `ok`
+    - `ko`
+    - puis `legacy`.
+## Mise a jour 2026-03-12 - Discipline moniteur / temporalite
+
+### Regle durcie
+- `__aut_state` est autorise comme etat Kairos execute.
+- les faits sur le tick courant, `prev`, `pre_k`, source/cible ne doivent pas etre derives de `assume_guard` / `guarantee_guard` dans le backend Why.
+
+### Consequence methodologique
+- les projections de gardes moniteur sur les contrats de transition ne doivent plus etre utilisees dans le pipeline actif ;
+- les obligations doivent provenir des clauses kernel explicites ou de relations IR explicites ;
+- tout correctif futur doit d'abord verifier qu'il n'introduit pas a nouveau une semantique de moniteur hors simulation de `__aut_state`.
+
+### Etat apres mise en conformite
+- le pipeline actif n'injecte plus les projections `assume/guarantee` basees sur les gardes moniteur ;
+- le prochain travail doit porter sur la divergence entre replay direct et validateur, pas sur la semantique moniteur elle-meme.
+
+### Verification minimale attendue apres chaque changement backend
+- echantillon `ok` en `single_ok` ;
+- echantillon `ko` en `single_ko` ;
+- si les `ko` restent non verts mais que plusieurs `ok` tombent en `FAILED`, traiter d'abord le chemin validateur / l'orchestration avant de conclure a une regression semantique.
+
+### Precaution supplementaire
+- ne pas promouvoir directement une clause de securite post-etat en precondition de helper sans justification explicite cote IR ;
+- si un cas `ok` exige un lien du type `local = pre_k(input)`, le produire comme fait source-etat explicite, pas comme consequence ad hoc du backend Why.
+
+### Retour d'experience 2026-03-12
+- un resume source "negation des cas `bad_guarantee`" est une bonne direction architecturale ;
+- mais, sur les cas `Hold` actuels, ce resume ne suffit pas a lui seul a faire tomber les VCs ;
+- avant d'aller plus loin, il faut identifier plus precisement quel fragment du `step_from_hold'vc` reste non prouve apres introduction de ce resume.
+
+### Resultat du diagnostic de tuyauterie
+- la perte du resume source intervient avant l'emission Why utile des helpers ;
+- il faut maintenant auditer le calcul `bad_cases` / `src_states` dans `why_contracts` ou, mieux, faire remonter ce resume sous forme de clause IR deja materialisee et testable avant backend ;
+- eviter les injections directes dans `emit.ml`, qui ont degrade les cas directeurs.
+
+## Mise a jour 2026-03-12 - Priorite immediate sur l'IR des resumes source
+
+### Ce qui est maintenant clair
+- les resumes source des helpers ne doivent pas etre derives du moniteur ;
+- `OriginSourceProductSummary` est maintenant bien materialise dans l'IR exporte et dans les `.kobj` ;
+- la prochaine transition propre reste de faire consommer directement ces clauses IR par `why_contracts`, puis de retirer le fallback `product_steps`.
+
+### Priorite immediate
+1. relancer un echantillon plus large `without_calls/ok` et `without_calls/ko` maintenant que les cas directeurs repassent en `single_ok` ;
+2. ensuite relancer la suite `without_calls` complete ;
+3. seulement apres, reprendre `with_calls`.
+
+### Regle de conduite
+- ne pas empiler de nouveaux hints Why tant que l'IR ne porte pas lui-meme la clause source attendue ;
+- maintenant que `OriginSourceProductSummary` est rebranche jusqu'au Why, reduire progressivement le fallback `product_steps` une fois le residu `step_from_hold'vc` traite ;
+- verifier apres chaque tentative :
+  - presence et contenu utile de `OriginSourceProductSummary` dans le `.kobj`,
+  - forme des `requires` de `step_from_<state>`,
+  - statut cible `single_ok`.
+
+### Etat courant
+- `OriginSourceProductSummary` est present dans les `.kobj` ;
+- `why_contracts` le consomme directement ;
+- les cas directeurs `gated_echo_bundle`, `sticky_bypass_echo`, `sticky_ack_plus`, `armed_delay` sont revenus au vert en `single_ok`.
+
+## Mise a jour 2026-03-12 - Suite immediate apres le retablissement partiel
+
+### Ce qui est maintenant acte
+- en mode kernel, les hypotheses globales utilisateur (`transition_requires_pre`) doivent rester actives ;
+- les hypotheses d'origine `Compatibility` issues du moniteur ne doivent plus etre reutilisees comme preconditions Why quand le kernel produit deja les clauses semantiques ;
+- les tentatives d'aide solver locales doivent rester minimales et etre retirees immediatement si elles degradent un cas deja vert.
+
+### Priorite suivante
+1. re-isoler proprement `toggle.kairos` sur l'etat courant pour confirmer s'il s'agit d'une regression stable ou d'un effet de campagne ;
+2. traiter `reset_zero_sink.kairos` comme dernier cas directeur `without_calls/ok` encore clairement rouge ;
+3. seulement apres ces deux points, relancer `without_calls` complet et reevaluer l'etat global des `ok/ko`.
+
+### Ligne directrice pour `reset_zero_sink`
+- ne pas reintroduire de compatibilite moniteur ad hoc ;
+- ne pas bricoler Why avec des assertions post-affectation generales si elles ne montrent pas un gain mesure ;
+- travailler soit :
+  - sur la forme IR des resumes source `OriginSourceProductSummary` pour l'etat `Zero`,
+  - soit sur la structuration locale des VCs `step_from_zero`,
+  mais toujours a partir de faits explicites de l'IR et non d'une reinterpretation du moniteur.
+
+### Resultat du diagnostic comparatif approfondi
+- `toggle` :
+  - les resumes source IR sont simples et corrects ;
+  - le residu vient plutot d'une fuite `Compatibility` encore visible dans `step_from_run`.
+- `reset_zero_sink` :
+  - les resumes source IR existent, mais sont encore trop indirects pour `Zero` ;
+  - le helper `step_from_zero` montre lui aussi une fuite `Compatibility`.
+
+### Consequence methodologique immediate
+1. identifier la source precise de `origin:compatibility` encore presente dans `step_from_run` / `step_from_zero` malgre les filtrages deja ajoutes ;
+2. l'eliminer proprement si elle n'est pas alignee avec le mode kernel ;
+3. seulement ensuite reevaluer si `reset_zero_sink` demande un raffinement IR de `OriginSourceProductSummary`.
+
+### Etat apres suppression de cette fuite
+- la fuite `Compatibility` a bien ete retiree de `step_from_run` sur `toggle` ;
+- `require_delay_bool` reste vert et `armed_delay__bad_code` reste invalide ;
+- mais `toggle` et `reset_zero_sink` restent chacun avec un residu `FAILED 1`.
+
+### Prochaine etape maintenant legitimement justifiee
+- reprendre le residu logique local de ces deux cas comme un vrai probleme kernel / VC :
+  - pour `toggle`, analyser le `step_from_run'vc` avec seulement les resumes source `Run/Aut0 -> y=0` et `Run/Aut1 -> y=1` ;
+  - pour `reset_zero_sink`, analyser si le resume source `Zero` doit etre reformule en IR de facon plus directe.
+
+## Ajout 2026-03-13 - Documentation structurante des obligations IR
+
+### Objectif
+- disposer d'un document de reference court mais exact sur :
+  - les obligations generees au niveau IR ;
+  - leur role ;
+  - leur forme temporelle ;
+  - le chemin actif `generated_clauses` -> `relational_generated_clauses` -> Why.
+
+### Methode
+1. partir d'un cas simple et stable (`delay_int`) ;
+2. extraire les artefacts reels a chaque etape ;
+3. decrire seulement les niveaux utiles pour la preuve ;
+4. distinguer explicitement :
+   - niveaux de construction ;
+   - niveaux cibles de preuve ;
+5. noter les dettes residuelles sans les masquer.
+
+### Livrable
+- `docs/ir_obligations_etude_delay_int_2026-03-13.md`
+- PDF correspondant.
+
+### Point methodologique ajoute
+- pour toute refonte du pipeline de preuve, maintenir un cas file minimal documente de bout en bout ;
+- le cas `delay_int` sert maintenant de reference minimale pour :
+  - le produit explicite ;
+  - les clauses brutes ;
+  - les clauses relationnelles ;
+  - l'abaissement des `pre_k` ;
+  - la lecture du Why genere.
+
+## Ajout 2026-03-13 - Support de clarification
+
+### Objectif
+- maintenir un fichier `Resume.md` a la racine pour consigner, au fil des
+  echanges, les points a clarifier puis stabiliser sur l'architecture et la
+  semantique de Kairos.
+
+### Methode
+1. ne mettre dans `Resume.md` que des points explicitement demandes ou
+   tranches pendant la discussion ;
+2. garder ce fichier court, stable et lisible ;
+3. reserver le `cahier_de_laboratoire` au suivi des tentatives et
+   `objectif_methodologie` au cadre de travail.
+4. lorsqu'un point semantique est ajoute, noter aussi explicitement ses
+   hypotheses et la nuance inverse eventuelle.

@@ -71,6 +71,75 @@ let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
       match pre_k_var_of_hexpr ~pre_k_map h with Some name -> Some (mk_var name) | None -> None
     end
 
+let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : hexpr option =
+  match hexpr_to_iexpr ~inputs:[] ~var_types:[] ~pre_k_map h with
+  | Some e -> Some (HNow e)
+  | None -> None
+
+let rec lower_fo_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : fo option =
+  match f with
+  | FTrue | FFalse -> Some f
+  | FRel (h1, r, h2) -> begin
+      match
+        (lower_hexpr_pre_k ~pre_k_map h1, lower_hexpr_pre_k ~pre_k_map h2)
+      with
+      | Some h1', Some h2' -> Some (FRel (h1', r, h2'))
+      | _ -> None
+    end
+  | FPred (id, hs) ->
+      let rec lower_args acc = function
+        | [] -> Some (List.rev acc)
+        | h :: tl -> (
+            match lower_hexpr_pre_k ~pre_k_map h with
+            | None -> None
+            | Some h' -> lower_args (h' :: acc) tl)
+      in
+      Option.map (fun hs' -> FPred (id, hs')) (lower_args [] hs)
+  | FNot a -> Option.map (fun a' -> FNot a') (lower_fo_pre_k ~pre_k_map a)
+  | FAnd (a, b) -> begin
+      match (lower_fo_pre_k ~pre_k_map a, lower_fo_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (FAnd (a', b'))
+      | _ -> None
+    end
+  | FOr (a, b) -> begin
+      match (lower_fo_pre_k ~pre_k_map a, lower_fo_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (FOr (a', b'))
+      | _ -> None
+    end
+  | FImp (a, b) -> begin
+      match (lower_fo_pre_k ~pre_k_map a, lower_fo_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (FImp (a', b'))
+      | _ -> None
+    end
+
+let rec lower_ltl_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo_ltl) : fo_ltl option =
+  match f with
+  | LTrue | LFalse -> Some f
+  | LAtom a -> Option.map (fun a' -> LAtom a') (lower_fo_pre_k ~pre_k_map a)
+  | LNot a -> Option.map (fun a' -> LNot a') (lower_ltl_pre_k ~pre_k_map a)
+  | LX a -> Option.map (fun a' -> LX a') (lower_ltl_pre_k ~pre_k_map a)
+  | LG a -> Option.map (fun a' -> LG a') (lower_ltl_pre_k ~pre_k_map a)
+  | LAnd (a, b) -> begin
+      match (lower_ltl_pre_k ~pre_k_map a, lower_ltl_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (LAnd (a', b'))
+      | _ -> None
+    end
+  | LOr (a, b) -> begin
+      match (lower_ltl_pre_k ~pre_k_map a, lower_ltl_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (LOr (a', b'))
+      | _ -> None
+    end
+  | LImp (a, b) -> begin
+      match (lower_ltl_pre_k ~pre_k_map a, lower_ltl_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (LImp (a', b'))
+      | _ -> None
+    end
+  | LW (a, b) -> begin
+      match (lower_ltl_pre_k ~pre_k_map a, lower_ltl_pre_k ~pre_k_map b) with
+      | Some a', Some b' -> Some (LW (a', b'))
+      | _ -> None
+    end
+
 let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
   let rec go = function
     | ILitBool _ -> Some TBool

@@ -35,6 +35,8 @@ type callee_summary_view = {
   callee_node_name : Ast.ident;
   callee_inputs : port_view list;
   callee_outputs : port_view list;
+  callee_locals : port_view list;
+  callee_states : Ast.ident list;
   callee_input_names : Ast.ident list;
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;
@@ -202,6 +204,8 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_node_name = n.nname;
     callee_inputs = List.map port_of_vdecl n.inputs;
     callee_outputs = List.map port_of_vdecl n.outputs;
+    callee_locals = List.map port_of_vdecl n.locals;
+    callee_states = n.states;
     callee_input_names = Ast_utils.input_names_of_node n;
     callee_output_names = Ast_utils.output_names_of_node n;
     callee_user_invariants = n.attrs.invariants_user;
@@ -217,6 +221,8 @@ let callee_summary_of_exported_summary
     callee_node_name = summary.signature.node_name;
     callee_inputs = List.map port_of_vdecl summary.signature.inputs;
     callee_outputs = List.map port_of_vdecl summary.signature.outputs;
+    callee_locals = List.map port_of_vdecl summary.signature.locals;
+    callee_states = summary.signature.states;
     callee_input_names = List.map (fun v -> v.vname) summary.signature.inputs;
     callee_output_names = List.map (fun v -> v.vname) summary.signature.outputs;
     callee_user_invariants = summary.user_invariants;

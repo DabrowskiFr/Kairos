@@ -28,6 +28,8 @@ type env_info = {
   imports : Why3.Ptree.decl list;
   (* Instrumentation state type declarations (if any). *)
   type_mon_state : Why3.Ptree.decl list;
+  (* Local mirror types synthesized for callee instances. *)
+  instance_type_decls : Why3.Ptree.decl list;
   (* Node state type declaration. *)
   type_state : Why3.Ptree.decl;
   (* Variable tuple type declaration. *)
@@ -76,6 +78,10 @@ type contract_info = {
   pre_origin_labels : string list;
   (* Origin labels for postconditions. *)
   post_origin_labels : string list;
+  (* Optional source-state tags aligned with preconditions. *)
+  pre_source_states : string option list;
+  (* Optional source-state tags aligned with postconditions. *)
+  post_source_states : string option list;
   (* Optional VC ids associated to postconditions. *)
   post_vcids : string option list;
 }
