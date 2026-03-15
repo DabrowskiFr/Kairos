@@ -8397,3 +8397,107 @@ disponible que si le solveur repond effectivement `unsat`.
 - le chemin cible de preuve est bien `relational_generated_clauses` ;
 - `product_steps` et `generated_clauses` restent utiles comme niveaux de construction/traçabilite ;
 - le `tick_summary` exporte conserve encore des occurrences de `HPreK`, ce qui est note comme dette d'alignement residuelle.
+
+### 2026-03-15 - Debut du refactoring guide par `kairos-kernel`
+
+- ajout d'une couche `kernel_guided_contract` dans
+  `lib_v2/runtime/middle_end/product/`;
+- cette couche derive depuis `product_kernel_ir` et les resumes exportes :
+  - clauses symboliques relationnelles,
+  - relations d'instance,
+  - ABI de tick,
+  - materialisation des slots temporels pour `pre_k`;
+- `why_runtime_view` transporte maintenant :
+  - un `callee_contract` pour chaque resume de callee ;
+  - un `kernel_contract` au niveau du noeud courant ;
+- `why_call_plan` et `why_contract_plan` commencent a consommer ce contrat au
+  lieu de rescanner localement `pre_k_map` et `instance_relations` ;
+- `why_contracts` derive maintenant ce contrat une seule fois, puis l'injecte
+  dans la generation des liens et obligations.
+
+Point cle :
+
+- la refonte n'elimine pas encore tous les usages directs de `pre_k_map` ;
+- mais elle cree enfin un seam explicite entre l'IR semantique et la
+  generation backend, qui pourra etre aligne progressivement sur
+  `kairos-kernel`.
+
+### 2026-03-15 - Contrat backend pousse et split `without_calls` rehydrate
+
+- prolongement du refactoring guide par `kairos-kernel` dans le backend Why :
+  - ajout de `compile_hexpr_instance_contract` et
+    `compile_fo_term_instance_contract` dans
+    `lib_v2/runtime/backend/why/why_compile_expr.ml` ;
+  - migration de la compilation des invariants d'instance vers
+    `summary.callee_contract` dans :
+    - `why_call_plan.ml`
+    - `why_contract_plan.ml`
+    - `why_contracts.ml`
+- effet recherche :
+  - la generation locale Why des invariants d'instance ne depend plus du
+    `pre_k_map` brut lorsqu'un contrat resume kernel-guide est disponible ;
+  - la zone residuelle `pre_k`-centrique se concentre maintenant davantage dans
+    `fo_specs` et dans la materialisation amont, pas dans la couture backend
+    locale.
+
+- rehydratation effective des suites de tests attendues par la methodologie :
+  - `tests/without_calls/{ok,ko}/inputs`
+  - `tests/with_calls/{ok,ko}/inputs`
+  - ajout de `tests/README.md` pour documenter le split.
+
+- validation reelle :
+  - installation de Spot CLI (`ltlfilt`, `ltl2tgba`) via Homebrew, car la
+    branche `spot-automata-migration` ne peut pas executer la campagne sans cet
+    outillage ;
+  - `opam exec -- dune build --display short` repasse ;
+  - `scripts/validate_ok_ko.sh ... without_calls` peut maintenant tourner sur
+    la suite split.
+
+- etat honnete observe sur `without_calls` :
+  - `ok` qui passent deja :
+    - `armed_fault_monitor.kairos`
+    - `credit_balance_monitor.kairos`
+    - `edge_rise.kairos`
+    - `gated_echo_bundle.kairos`
+  - `ok` encore rouges sous Z3 a 5 secondes :
+    - `armed_delay.kairos`
+    - `delay_core.kairos`
+    - `delay_int.kairos`
+    - `delay_int2.kairos`
+    - `guarded_dd_core.kairos`
+    - `guarded_delay_core.kairos`
+    - `handoff.kairos`
+  - echantillon `ko` :
+    - pas de faux vert detecte dans l'echantillon teste ;
+    - mais plusieurs cas restent en `TIMEOUT` a 60 s, par exemple :
+      - `resettable_delay__bad_spec.kairos`
+      - `toggle__bad_spec.kairos`
+      - `gated_echo_bundle__bad_spec.kairos`
+
+- deduction :
+  - la partie "forme du contrat backend" est mieux verrouillee ;
+  - le prochain verrou principal n'est plus l'absence de seam architecturale,
+    mais la stabilisation des VCs et des performances de preuve sur la campagne
+    `without_calls`.
+
+### 2026-03-15 - Triage apres realignement
+
+- verification d'un cas `with_calls` apres preparation du `.kobj` support :
+  - `tests/with_calls/ok/inputs/delay_int_instance.kairos`
+  - vu depuis son repertoire de travail, le fichier se charge correctement ;
+  - le diagnostic de preuve retombe ensuite sur un unique
+    `step_from_run'vc` en `solver_failure`, donc pas sur une absence de
+    contrat ou un mauvais aiguillage des obligations.
+
+- lecture de ce signal :
+  - apres realignement de structure, le residu principal est coherent avec ce
+    qui apparait deja dans `without_calls` :
+    - forme d'obligation davantage stabilisee ;
+    - mais fermeture automatique Why3/Z3 encore insuffisante sur certains
+      `step_from_run'vc`.
+
+- conclusion de travail :
+  - a ce stade, pas de blocage conceptuel nouveau identifie dans la
+    formalisation Rocq elle-meme ;
+  - le verrou residuel est surtout un verrou de generation fine de VCs et/ou
+    d'automatisation solver.

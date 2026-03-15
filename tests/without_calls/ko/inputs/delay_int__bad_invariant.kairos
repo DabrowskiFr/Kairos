@@ -1,0 +1,21 @@
+node delay_int(x: int) returns (y: int)
+contracts
+  ensures: X ( G (y =  prev x) );
+locals
+  z : int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    undefined_invariant_symbol = 0;
+transitions
+  Init:
+    to Run  {
+    z := x;
+  }
+  Run:
+    to Run  {
+    y := z;
+    z := x;
+  }
+end

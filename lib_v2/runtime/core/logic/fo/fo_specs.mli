@@ -38,7 +38,22 @@ val conj_fo : Ast.fo list -> Ast.fo option
 (* Map a relational operator to its boolean binary operator. *)
 val relop_to_binop : Ast.relop -> Ast.binop
 
+type temporal_binding = {
+  source_hexpr : Ast.hexpr;
+  slot_names : Ast.ident list;
+}
+
+val temporal_bindings_of_pre_k_map :
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> temporal_binding list
+
 (* Convert a hexpr to an iexpr when representable (using pre‑k bindings). *)
+val hexpr_to_iexpr_with_temporal_bindings :
+  inputs:Ast.ident list ->
+  var_types:(Ast.ident * Ast.ty) list ->
+  temporal_bindings:temporal_binding list ->
+  Ast.hexpr ->
+  Ast.iexpr option
+
 val hexpr_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
@@ -47,14 +62,23 @@ val hexpr_to_iexpr :
   Ast.iexpr option
 
 (* Lower [pre_k] occurrences to explicit symbolic history variables. *)
+val lower_hexpr_temporal_bindings :
+  temporal_bindings:temporal_binding list -> Ast.hexpr -> Ast.hexpr option
+
 val lower_hexpr_pre_k :
   pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
 
 (* Lower [pre_k] occurrences inside a first-order formula. *)
+val lower_fo_temporal_bindings :
+  temporal_bindings:temporal_binding list -> Ast.fo -> Ast.fo option
+
 val lower_fo_pre_k :
   pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo -> Ast.fo option
 
 (* Lower [pre_k] occurrences inside an LTL formula when possible. *)
+val lower_ltl_temporal_bindings :
+  temporal_bindings:temporal_binding list -> Ast.fo_ltl -> Ast.fo_ltl option
+
 val lower_ltl_pre_k :
   pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo_ltl -> Ast.fo_ltl option
 

@@ -59,6 +59,7 @@
   automata_generation
   product_types
   product_build
+  kernel_guided_contract
   product_kernel_ir
   product_debug
   product_contracts

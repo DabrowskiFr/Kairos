@@ -19,6 +19,7 @@
 type compiled_call_plan = {
   let_bindings : (Why3.Ptree.ident * Why3.Ptree.expr) list;
   pre_asserts : Why3.Ptree.term list;
+  output_post_terms : (Why3.Ptree.ident * Why3.Ptree.term list) list;
   any_pattern : Why3.Ptree.pattern;
   any_return_pty : Why3.Ptree.pty option;
   any_post : (Why3.Loc.position * (Why3.Ptree.pattern * Why3.Ptree.term) list) list;

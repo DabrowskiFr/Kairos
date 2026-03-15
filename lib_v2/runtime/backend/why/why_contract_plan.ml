@@ -235,9 +235,9 @@ let compute_transition_contracts ~(env : env)
     }
 
 let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
-    ~(kernel_ir : Product_kernel_ir.node_ir option)
+    ~(kernel_contract : Kernel_guided_contract.node_contract option)
+    ~(current_temporal_contract : Kernel_guided_contract.exported_summary_contract)
     ~(use_kernel_product_contracts : bool) ~(has_instance_calls : bool)
-    ~(pre_k_map : (Ast.hexpr * pre_k_info) list)
     ~(hexpr_needs_old : Ast.hexpr -> bool)
     ~(instance_relation_term :
        ?in_post:bool -> Product_kernel_ir.instance_relation_ir -> Ptree.term option) :
@@ -257,13 +257,13 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
       (summary : Why_runtime_view.callee_summary_view) =
     let node_name = summary.callee_node_name in
     let input_names = summary.callee_input_names in
-    let pre_k_map = summary.callee_pre_k_map in
+    let contract = summary.callee_contract in
     let from_user =
       List.map
         (fun inv ->
           let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
           let rhs =
-            compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map
+            compile_hexpr_instance_contract ~in_post env inst_name node_name input_names contract
               inv.inv_expr
           in
           term_eq lhs rhs)
@@ -278,7 +278,8 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
             let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
-              compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map
+              compile_fo_term_instance_contract ~in_post env inst_name node_name input_names
+                contract
                 inv.formula
             in
             term_implies cond body)
@@ -318,10 +319,10 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
   in
   if use_kernel_product_contracts then
     let instance_delay_links_inv =
-      match kernel_ir with
+      match kernel_contract with
       | None -> []
-      | Some ir ->
-          ir.instance_relations
+      | Some contract ->
+          contract.instance_relations
           |> List.filter_map (function
                | Product_kernel_ir.InstanceDelayCallerPreLink _ as rel -> instance_relation_term rel
                | _ -> None)
@@ -343,71 +344,13 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
         runtime.instances
     in
     let instance_delay_links_inv =
-      let calls =
-        runtime.transitions
-        |> List.concat_map (fun (t : Why_runtime_view.runtime_transition_view) ->
-               List.map
-                 (fun (c : Why_runtime_view.call_site_view) ->
-                   (c.call_instance, c.call_args, c.call_outputs))
-                 t.call_sites)
-      in
-      let index_of name lst =
-        let rec loop i = function
-          | [] -> None
-          | x :: xs -> if x = name then Some i else loop (i + 1) xs
-        in
-        loop 0 lst
-      in
-      let pre_k_first_name_for v =
-        List.find_map
-          (fun (_, info) ->
-            match (info.expr.iexpr, info.names) with
-            | IVar x, name :: _ when x = v -> Some name
-            | _ -> None)
-          pre_k_map
-      in
-      List.filter_map
-        (fun (inst_name, args, outs) ->
-          match
-            List.find_opt
-              (fun (inst : Why_runtime_view.instance_view) -> inst.instance_name = inst_name)
-              runtime.instances
-          with
-          | None -> None
-          | Some inst -> begin
-              match Why_runtime_view.find_callee_summary runtime inst.callee_node_name with
-              | None -> None
-              | Some summary -> begin
-                  match summary.callee_delay_spec with
-                  | None -> None
-                  | Some (out_name, in_name) ->
-                      let output_names = summary.callee_output_names in
-                      begin
-                        match index_of out_name output_names with
-                        | None -> None
-                        | Some out_idx ->
-                            if out_idx >= List.length outs then None
-                            else
-                              let out_var = List.nth outs out_idx in
-                              match
-                                List.assoc_opt in_name
-                                  (List.combine summary.callee_input_names args)
-                              with
-                              | Some e -> begin
-                                  match e.iexpr with
-                                  | IVar v -> begin
-                                      match pre_k_first_name_for v with
-                                      | None -> None
-                                      | Some name ->
-                                          Some (term_eq (term_of_var env out_var) (term_of_var env name))
-                                    end
-                                  | _ -> None
-                                end
-                              | _ -> None
-                      end
-                end
-            end)
-        calls
+      match kernel_contract with
+      | None -> []
+      | Some contract ->
+          contract.instance_relations
+          |> List.filter_map (function
+               | Product_kernel_ir.InstanceDelayCallerPreLink _ as rel -> instance_relation_term rel
+               | _ -> None)
     in
     {
       link_terms_pre;

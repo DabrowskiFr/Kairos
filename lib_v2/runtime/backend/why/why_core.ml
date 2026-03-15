@@ -24,6 +24,9 @@ open Ast
 open Support
 open Why_compile_expr
 
+let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinop (a, Dterm.DTand, b))
+
 let is_unit_expr (e : Ptree.expr) : bool = match e.expr_desc with Etuple [] -> true | _ -> false
 let fresh_if_id =
   let c = ref 0 in
@@ -164,6 +167,13 @@ let rec compile_seq (env : env)
                     let out_pty =
                       Some (default_pty port.port_type)
                     in
+                    let out_post_terms =
+                      match List.assoc_opt out_id plan.output_post_terms with
+                      | None | Some [] -> []
+                      | Some (first :: rest) ->
+                          let body = List.fold_left term_and first rest in
+                          [ (loc, [ ({ pat_desc = Pvar out_id; pat_loc = loc }, body) ]) ]
+                    in
                     let any_out =
                       mk_expr
                         (Eany
@@ -172,7 +182,7 @@ let rec compile_seq (env : env)
                              out_pty,
                              { pat_desc = Pvar out_id; pat_loc = loc },
                              Ity.MaskVisible,
-                             empty_spec () ))
+                             { (empty_spec ()) with sp_post = out_post_terms } ))
                     in
                     mk_expr (Elet (out_id, false, Expr.RKnone, any_out, acc)))
                   (List.combine plan.output_ids plan.callee_outputs)

@@ -41,8 +41,7 @@ type callee_summary_view = {
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
-  callee_pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
-  callee_delay_spec : (Ast.ident * Ast.ident) option;
+  callee_contract : Kernel_guided_contract.exported_summary_contract;
   callee_tick_summary : Product_kernel_ir.callee_tick_abi_ir option;
 }
 
@@ -111,6 +110,7 @@ type t = {
   state_invariants : Ast.invariant_state_rel list;
   coherency_goals : Ast.fo_o list;
   monitor_state_ctors : Ast.ident list;
+  kernel_contract : Kernel_guided_contract.node_contract option;
 }
 
 type known_value =
@@ -200,6 +200,7 @@ let instance_of_pair ((instance_name, callee_node_name) : Ast.ident * Ast.ident)
   { instance_name; callee_node_name }
 
 let callee_summary_of_node (n : Ast.node) : callee_summary_view =
+  let callee_contract = Kernel_guided_contract.exported_summary_of_ast_node n in
   {
     callee_node_name = n.nname;
     callee_inputs = List.map port_of_vdecl n.inputs;
@@ -210,13 +211,13 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_output_names = Ast_utils.output_names_of_node n;
     callee_user_invariants = n.attrs.invariants_user;
     callee_state_invariants = n.attrs.invariants_state_rel;
-    callee_pre_k_map = build_pre_k_infos n;
-    callee_delay_spec = extract_delay_spec n.guarantees;
+    callee_contract;
     callee_tick_summary = None;
   }
 
 let callee_summary_of_exported_summary
     (summary : Product_kernel_ir.exported_node_summary_ir) : callee_summary_view =
+  let callee_contract = Kernel_guided_contract.exported_summary_of_exported_ir summary in
   {
     callee_node_name = summary.signature.node_name;
     callee_inputs = List.map port_of_vdecl summary.signature.inputs;
@@ -227,8 +228,7 @@ let callee_summary_of_exported_summary
     callee_output_names = List.map (fun v -> v.vname) summary.signature.outputs;
     callee_user_invariants = summary.user_invariants;
     callee_state_invariants = summary.state_invariants;
-    callee_pre_k_map = summary.pre_k_map;
-    callee_delay_spec = summary.delay_spec;
+    callee_contract;
     callee_tick_summary = Some summary.tick_summary;
   }
 
@@ -555,12 +555,14 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
     state_invariants = n.attrs.invariants_state_rel;
     coherency_goals = n.attrs.coherency_goals;
     monitor_state_ctors = collect_mon_state_ctors n;
+    kernel_contract = None;
   }
 
 let with_kernel_product_hints ?kernel_ir (runtime : t) : t =
   match kernel_ir with
   | None -> runtime
   | Some ir ->
+      let kernel_contract = Some (Kernel_guided_contract.node_contract_of_ir ir) in
       let tick_map : (Ast.ident * Product_kernel_ir.callee_tick_abi_ir) list =
         ir.Product_kernel_ir.callee_tick_abis
         |> List.map
@@ -574,10 +576,13 @@ let with_kernel_product_hints ?kernel_ir (runtime : t) : t =
               | Some _ as existing -> existing
               | None -> List.assoc_opt summary.callee_node_name tick_map
             in
-            { summary with callee_tick_summary })
+            let callee_contract =
+              Kernel_guided_contract.with_tick_summary callee_tick_summary summary.callee_contract
+            in
+            { summary with callee_tick_summary; callee_contract })
           runtime.callee_summaries
       in
-      { runtime with callee_summaries }
+      { runtime with callee_summaries; kernel_contract }
 
 let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_view option =
   List.find_opt

@@ -1,0 +1,34 @@
+node w_sticky_ack_latch(arm: int, drop: int) returns (ack: int)
+contracts
+  requires: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
+  ensures: next always ((arm = 1) => ((ack = 1) W (drop = 1)));
+states
+  Init(init), Idle, Latched;
+invariants
+  in Idle:
+    undefined_invariant_symbol = 0;
+  in Latched:
+    ack = 1;
+transitions
+  Init:
+    to Latched when arm = 1 and drop = 0 {
+      ack := 1;
+    }
+    to Idle when not (arm = 1 and drop = 0) {
+      ack := 0;
+    }
+  Idle:
+    to Latched when arm = 1 and drop = 0 {
+      ack := 1;
+    }
+    to Idle when not (arm = 1 and drop = 0) {
+      ack := 0;
+    }
+  Latched:
+    to Idle when drop = 1 {
+      ack := 0;
+    }
+    to Latched when drop = 0 {
+      skip;
+    }
+end

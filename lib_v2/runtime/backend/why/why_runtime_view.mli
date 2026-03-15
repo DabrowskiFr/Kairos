@@ -36,8 +36,7 @@ type callee_summary_view = {
   callee_output_names : Ast.ident list;
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
-  callee_pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
-  callee_delay_spec : (Ast.ident * Ast.ident) option;
+  callee_contract : Kernel_guided_contract.exported_summary_contract;
   callee_tick_summary : Product_kernel_ir.callee_tick_abi_ir option;
 }
 
@@ -106,6 +105,7 @@ type t = {
   state_invariants : Ast.invariant_state_rel list;
   coherency_goals : Ast.fo_o list;
   monitor_state_ctors : Ast.ident list;
+  kernel_contract : Kernel_guided_contract.node_contract option;
 }
 
 val of_node :

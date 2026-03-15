@@ -92,56 +92,60 @@ let rec compile_term_instance (env : env) (inst_name : ident) (node_name : ident
              infix_ident (binop_id op),
              compile_term_instance env inst_name node_name inputs b ))
 
-let compile_hexpr_instance ?(in_post = false) (env : env) (inst_name : ident) (node_name : ident)
-    (inputs : ident list) (pre_k_map : (hexpr * pre_k_info) list) (h : hexpr) : Ptree.term =
+let compile_hexpr_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
+    (node_name : ident) (inputs : ident list)
+    (contract : Kernel_guided_contract.exported_summary_contract) (h : hexpr) : Ptree.term =
   match h with
   | HNow e -> compile_term_instance env inst_name node_name inputs e
-  | HPreK (e, _) -> begin
-      match List.find_map (fun (h', info) -> if h' = h then Some info else None) pre_k_map with
-      | None -> failwith "pre_k not registered (instance)"
-      | Some info ->
-          let name = List.nth info.names (List.length info.names - 1) in
-          term_of_instance_var env inst_name node_name name
+  | HPreK (_e, _) -> begin
+      match Kernel_guided_contract.latest_slot_name_for_hexpr contract h with
+      | None -> failwith "pre_k not registered in kernel-guided contract (instance)"
+      | Some name -> term_of_instance_var env inst_name node_name name
     end
 
-let rec compile_fo_term_instance ?(in_post = false) (env : env) (inst_name : ident)
-    (node_name : ident) (inputs : ident list) (pre_k_map : (hexpr * pre_k_info) list) (f : fo) :
-    Ptree.term =
+let rec compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
+    (node_name : ident) (inputs : ident list)
+    (contract : Kernel_guided_contract.exported_summary_contract) (f : fo) : Ptree.term =
   match f with
   | FTrue -> mk_term Ttrue
   | FFalse -> mk_term Tfalse
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
-           ( compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map h1,
+           ( compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract h1,
              infix_ident (relop_id r),
-             compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map h2 ))
+             compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract h2 ))
   | FPred (id, hs) ->
       mk_term
         (Tidapp
            ( qid1 id,
-             List.map (compile_hexpr_instance ~in_post env inst_name node_name inputs pre_k_map) hs
-           ))
+             List.map
+               (compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract)
+               hs ))
   | FNot a ->
-      mk_term (Tnot (compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a))
+      mk_term
+        (Tnot (compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a))
   | FAnd (a, b) ->
       mk_term
         (Tbinop
-           ( compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
              Dterm.DTand,
-             compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b ))
+             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
+           ))
   | FOr (a, b) ->
       mk_term
         (Tbinop
-           ( compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
              Dterm.DTor,
-             compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b ))
+             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
+           ))
   | FImp (a, b) ->
       mk_term
         (Tbinop
-           ( compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map a,
+           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
              Dterm.DTimplies,
-             compile_fo_term_instance ~in_post env inst_name node_name inputs pre_k_map b ))
+             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
+           ))
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
   match outputs with

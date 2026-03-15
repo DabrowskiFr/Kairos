@@ -248,8 +248,9 @@ type node_ir = {
   product_states : product_state_ir list;
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
-  generated_clauses : generated_clause_ir list;
-  relational_generated_clauses : relational_generated_clause_ir list;
+  historical_generated_clauses : generated_clause_ir list;
+  eliminated_generated_clauses : generated_clause_ir list;
+  symbolic_generated_clauses : relational_generated_clause_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
@@ -460,6 +461,10 @@ let string_of_relational_clause_fact_desc = function
 
 let string_of_clause_fact (fact : clause_fact_ir) =
   Printf.sprintf "%s:%s" (string_of_clause_time fact.time) (string_of_clause_fact_desc fact.desc)
+
+let string_of_relational_clause_fact (fact : relational_clause_fact_ir) =
+  Printf.sprintf "%s:%s" (string_of_clause_time fact.time)
+    (string_of_relational_clause_fact_desc fact.desc)
 
 let string_of_call_fact (fact : call_fact_ir) =
   Printf.sprintf "%s:%s" (string_of_call_fact_kind fact.fact_kind) (string_of_clause_fact fact.fact)
@@ -806,11 +811,13 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
 
 let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : clause_fact_ir) :
     clause_fact_ir option =
+  let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let lower_desc = function
     | FactProgramState _ as desc -> Some desc
     | FactGuaranteeState _ as desc -> Some desc
     | FactFalse -> Some FactFalse
-    | FactFormula fo -> Option.map (fun fo' -> FactFormula fo') (lower_fo_pre_k ~pre_k_map fo)
+    | FactFormula fo ->
+        Option.map (fun fo' -> FactFormula fo') (lower_fo_temporal_bindings ~temporal_bindings fo)
   in
   Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
 
@@ -832,9 +839,11 @@ let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
 
 let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
     (fact : clause_fact_ir) : relational_clause_fact_ir option =
+  let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
-    | FactFormula fo -> Option.map (fun fo' -> RelFactFormula fo') (lower_fo_pre_k ~pre_k_map fo)
+    | FactFormula fo ->
+        Option.map (fun fo' -> RelFactFormula fo') (lower_fo_temporal_bindings ~temporal_bindings fo)
     | FactFalse -> Some RelFactFalse
     | FactGuaranteeState _ -> None
   in
@@ -1049,6 +1058,54 @@ let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported
 let build_call_binding_pairs kind locals remotes =
   List.map2 (fun local_name remote_name -> { binding_kind = kind; local_name; remote_name }) locals remotes
 
+let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    (input_name : Ast.ident) : Ast.ident option =
+  List.find_map
+    (fun (_, info) ->
+      match (info.expr.iexpr, info.names) with
+      | IVar x, name :: _ when x = input_name -> Some name
+      | _ -> None)
+    pre_k_map
+
+let simple_relational_eq_vars (fo : Ast.fo) : (Ast.ident * Ast.ident) option =
+  match fo with
+  | FRel (HNow { iexpr = IVar lhs; _ }, REq, HNow { iexpr = IVar rhs; _ }) -> Some (lhs, rhs)
+  | _ -> None
+
+let infer_output_history_links ~(output_names : Ast.ident list)
+    ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    ~(symbolic_clauses : relational_generated_clause_ir list) :
+    (Ast.ident * Ast.ident * Ast.ident option) list =
+  let first_slot_to_input =
+    pre_k_map
+    |> List.filter_map (fun (_, info) ->
+           match (info.expr.iexpr, info.names) with
+           | IVar input_name, first_slot :: _ -> Some (first_slot, input_name)
+           | _ -> None)
+  in
+  symbolic_clauses
+  |> List.filter (fun clause -> clause.origin = OriginSourceProductSummary)
+  |> List.concat_map (fun clause ->
+         clause.conclusions
+         |> List.filter_map (fun fact ->
+                match fact.desc with
+                | RelFactFormula fo -> begin
+                    match simple_relational_eq_vars fo with
+                    | Some (lhs, rhs) when List.mem lhs output_names -> begin
+                        match List.assoc_opt rhs first_slot_to_input with
+                        | Some input_name -> Some (lhs, input_name, Some rhs)
+                        | None -> None
+                      end
+                    | Some (lhs, rhs) when List.mem rhs output_names -> begin
+                        match List.assoc_opt lhs first_slot_to_input with
+                        | Some input_name -> Some (rhs, input_name, Some lhs)
+                        | None -> None
+                      end
+                    | _ -> None
+                  end
+                | _ -> None))
+  |> List.sort_uniq Stdlib.compare
+
 let build_call_site_instantiations ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node) :
     call_site_instantiation_ir list =
@@ -1099,7 +1156,7 @@ let build_call_site_instantiations ~(nodes : Abs.node list)
                 }))
     call_sites
 
-let build_instance_relations ~(nodes : Abs.node list)
+let rec build_instance_relations ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node) :
     instance_relation_ir list =
   let n_ast = Abs.to_ast_node node in
@@ -1160,87 +1217,86 @@ let build_instance_relations ~(nodes : Abs.node list)
                match resolve_callee ~nodes ~external_summaries callee_node_name with
                | None -> []
                | Some callee ->
-                   let input_names, output_names, delay_spec, pre_k_map_inst =
+                   let input_names, output_names, output_history_links =
                      match callee with
                      | Local callee_node ->
                          let callee_ast = Abs.to_ast_node callee_node in
+                         let callee_pre_k_map = build_pre_k_infos callee_ast in
+                         let analysis =
+                           Product_build.analyze_node
+                             ~build:(Automata_generation.build_for_node callee_ast)
+                             ~node:callee_node
+                         in
+                         let normalized_ir =
+                           of_node_analysis ~node_name:callee_ast.nname ~nodes ~external_summaries
+                             ~node:callee_node ~analysis
+                         in
                          ( Ast_utils.input_names_of_node callee_ast,
                            Ast_utils.output_names_of_node callee_ast,
-                           extract_delay_spec callee_ast.guarantees,
-                           build_pre_k_infos callee_ast )
+                           infer_output_history_links
+                             ~output_names:(Ast_utils.output_names_of_node callee_ast)
+                             ~pre_k_map:callee_pre_k_map
+                             ~symbolic_clauses:normalized_ir.symbolic_generated_clauses )
                      | External summary ->
+                         let summary_output_names =
+                           List.map (fun v -> v.vname) summary.signature.outputs
+                         in
                          ( List.map (fun v -> v.vname) summary.signature.inputs,
-                           List.map (fun v -> v.vname) summary.signature.outputs,
-                           summary.delay_spec,
-                           summary.pre_k_map )
+                           summary_output_names,
+                           infer_output_history_links ~output_names:summary_output_names
+                             ~pre_k_map:summary.pre_k_map
+                             ~symbolic_clauses:summary.normalized_ir.symbolic_generated_clauses )
                    in
-                   match delay_spec with
-                   | None -> []
-                   | Some (out_name, in_name) ->
-                       begin
-                         match List.find_opt (( = ) in_name) input_names with
-                         | None -> []
-                         | Some _ ->
-                             let callee_pre_name =
-                               List.find_map
-                                 (fun (_, info) ->
-                                   match (info.expr.iexpr, info.names) with
-                                   | IVar x, name :: _ when x = in_name -> Some name
-                                   | _ -> None)
-                                 pre_k_map_inst
-                             in
-                             let history_links =
-                               match
-                                 List.find_index (fun name -> name = out_name) output_names
-                               with
-                               | None -> []
-                               | Some out_idx ->
-                                   if out_idx >= List.length outs then []
-                                   else
-                                     [
-                                       InstanceDelayHistoryLink
-                                         {
-                                           instance_name = inst_name;
-                                           callee_node_name;
-                                           caller_output = List.nth outs out_idx;
-                                           callee_input = in_name;
-                                           callee_pre_name;
-                                         };
-                                     ]
-                             in
-                             let caller_pre_links =
-                               match
-                                 List.assoc_opt in_name (List.combine input_names args)
-                               with
-                               | Some e -> (
-                                   match e.iexpr with
-                                   | IVar v -> (
-                                       match pre_k_first_name_for v with
-                                       | None -> []
-                                       | Some caller_pre_name -> (
-                                           match
-                                             List.find_index (fun name -> name = out_name) output_names
-                                           with
-                                           | None -> []
-                                           | Some out_idx ->
-                                               if out_idx >= List.length outs then []
-                                               else
-                                                 [
-                                                   InstanceDelayCallerPreLink
-                                                     {
-                                                       caller_output = List.nth outs out_idx;
-                                                       caller_pre_name;
-                                                     };
-                                                 ]))
-                                   | _ -> [])
-                               | None -> []
-                             in
-                             history_links @ caller_pre_links
-                       end))
+                   output_history_links
+                   |> List.concat_map (fun (out_name, in_name, callee_pre_name) ->
+                          match List.find_opt (( = ) in_name) input_names with
+                          | None -> []
+                          | Some _ ->
+                              let history_links =
+                                match List.find_index (fun name -> name = out_name) output_names with
+                                | None -> []
+                                | Some out_idx ->
+                                    if out_idx >= List.length outs then []
+                                    else
+                                      [
+                                        InstanceDelayHistoryLink
+                                          {
+                                            instance_name = inst_name;
+                                            callee_node_name;
+                                            caller_output = List.nth outs out_idx;
+                                            callee_input = in_name;
+                                            callee_pre_name;
+                                          };
+                                      ]
+                              in
+                              let caller_pre_links =
+                                match List.assoc_opt in_name (List.combine input_names args) with
+                                | Some e -> (
+                                    match e.iexpr with
+                                    | IVar v -> (
+                                        match pre_k_first_name_for v with
+                                        | None -> []
+                                        | Some caller_pre_name -> (
+                                            match List.find_index (fun name -> name = out_name) output_names with
+                                            | None -> []
+                                            | Some out_idx ->
+                                                if out_idx >= List.length outs then []
+                                                else
+                                                  [
+                                                    InstanceDelayCallerPreLink
+                                                      {
+                                                        caller_output = List.nth outs out_idx;
+                                                        caller_pre_name;
+                                                      };
+                                                  ]))
+                                    | _ -> [])
+                                | None -> []
+                              in
+                              history_links @ caller_pre_links)))
   in
   invariant_relations @ delay_relations
 
-let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
+and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node)
     ~(analysis : Product_build.analysis)
     : node_ir =
@@ -1273,13 +1329,15 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     else if product_steps <> [] then CoverageFallback
     else CoverageEmpty
   in
-  let generated_clauses =
+  let historical_generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
   let pre_k_map = build_pre_k_infos (Abs.to_ast_node node) in
-  let generated_clauses = List.filter_map (lower_generated_clause ~pre_k_map) generated_clauses in
-  let relational_generated_clauses =
-    List.concat_map (relationalize_generated_clause ~pre_k_map) generated_clauses
+  let eliminated_generated_clauses =
+    List.filter_map (lower_generated_clause ~pre_k_map) historical_generated_clauses
+  in
+  let symbolic_generated_clauses =
+    List.concat_map (relationalize_generated_clause ~pre_k_map) eliminated_generated_clauses
   in
   let instance_relations = build_instance_relations ~nodes ~external_summaries ~node in
   let called_callee_names =
@@ -1309,8 +1367,9 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     product_states;
     product_steps;
     product_coverage;
-    generated_clauses;
-    relational_generated_clauses;
+    historical_generated_clauses;
+    eliminated_generated_clauses;
+    symbolic_generated_clauses;
     instance_relations;
     callee_tick_abis;
     call_site_instantiations;
@@ -1346,9 +1405,11 @@ let render_automaton (a : safety_automaton_ir) : string list =
 
 let render_product (ir : node_ir) : string list =
   let header =
-    Printf.sprintf "explicit_product initial=%s states=%d steps=%d clauses=%d"
+    Printf.sprintf "explicit_product initial=%s states=%d steps=%d historical=%d eliminated=%d symbolic=%d"
       (string_of_product_state ir.initial_product_state) (List.length ir.product_states)
-      (List.length ir.product_steps) (List.length ir.generated_clauses)
+      (List.length ir.product_steps) (List.length ir.historical_generated_clauses)
+      (List.length ir.eliminated_generated_clauses)
+      (List.length ir.symbolic_generated_clauses)
   in
   let coverage = Printf.sprintf "  coverage %s" (string_of_product_coverage ir.product_coverage) in
   let states =
@@ -1366,7 +1427,7 @@ let render_product (ir : node_ir) : string list =
           (string_of_step_origin step.step_origin))
       ir.product_steps
   in
-  let clauses =
+  let historical_clauses =
     List.map
       (fun (clause : generated_clause_ir) ->
         let subject =
@@ -1378,9 +1439,41 @@ let render_product (ir : node_ir) : string list =
         in
         let hyps = String.concat ", " (List.map string_of_clause_fact clause.hypotheses) in
         let concls = String.concat ", " (List.map string_of_clause_fact clause.conclusions) in
-        Printf.sprintf "  clause %s on %s if [%s] then [%s]" (string_of_clause_origin clause.origin)
-          subject hyps concls)
-      ir.generated_clauses
+        Printf.sprintf "  historical_clause %s on %s if [%s] then [%s]"
+          (string_of_clause_origin clause.origin) subject hyps concls)
+      ir.historical_generated_clauses
+  in
+  let eliminated_clauses =
+    List.map
+      (fun (clause : generated_clause_ir) ->
+        let subject =
+          match clause.anchor with
+          | ClauseAnchorProductState st -> string_of_product_state st
+          | ClauseAnchorProductStep step ->
+              Printf.sprintf "%s -> %s" (string_of_product_state step.src)
+                (string_of_product_state step.dst)
+        in
+        let hyps = String.concat ", " (List.map string_of_clause_fact clause.hypotheses) in
+        let concls = String.concat ", " (List.map string_of_clause_fact clause.conclusions) in
+        Printf.sprintf "  eliminated_clause %s on %s if [%s] then [%s]"
+          (string_of_clause_origin clause.origin) subject hyps concls)
+      ir.eliminated_generated_clauses
+  in
+  let symbolic_clauses =
+    List.map
+      (fun (clause : relational_generated_clause_ir) ->
+        let subject =
+          match clause.anchor with
+          | ClauseAnchorProductState st -> string_of_product_state st
+          | ClauseAnchorProductStep step ->
+              Printf.sprintf "%s -> %s" (string_of_product_state step.src)
+                (string_of_product_state step.dst)
+        in
+        let hyps = String.concat ", " (List.map string_of_relational_clause_fact clause.hypotheses) in
+        let concls = String.concat ", " (List.map string_of_relational_clause_fact clause.conclusions) in
+        Printf.sprintf "  symbolic_clause %s on %s if [%s] then [%s]"
+          (string_of_clause_origin clause.origin) subject hyps concls)
+      ir.symbolic_generated_clauses
   in
   let instance_relations =
     List.map
@@ -1400,7 +1493,7 @@ let render_product (ir : node_ir) : string list =
             Printf.sprintf "  instance delay_caller_pre %s <- %s" caller_output caller_pre_name)
       ir.instance_relations
   in
-  header :: (coverage :: (states @ steps @ clauses @ instance_relations))
+  header :: (coverage :: (states @ steps @ historical_clauses @ eliminated_clauses @ symbolic_clauses @ instance_relations))
 
 let render_call_summary_section (ir : node_ir) : string list =
   let abi_header =
@@ -1511,8 +1604,9 @@ let render_call_summary_toy_example =
       product_states = [];
       product_steps = [];
       product_coverage = CoverageEmpty;
-      generated_clauses = [];
-      relational_generated_clauses = [];
+      historical_generated_clauses = [];
+      eliminated_generated_clauses = [];
+      symbolic_generated_clauses = [];
       instance_relations = [];
       callee_tick_abis = [ abi ];
       call_site_instantiations = [ inst ];

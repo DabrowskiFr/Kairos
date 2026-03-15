@@ -48,10 +48,10 @@ val compute_transition_contracts :
 val compute_link_contracts :
   env:Support.env ->
   runtime:Why_runtime_view.t ->
-  kernel_ir:Product_kernel_ir.node_ir option ->
+  kernel_contract:Kernel_guided_contract.node_contract option ->
+  current_temporal_contract:Kernel_guided_contract.exported_summary_contract ->
   use_kernel_product_contracts:bool ->
   has_instance_calls:bool ->
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
   hexpr_needs_old:(Ast.hexpr -> bool) ->
   instance_relation_term:
     (?in_post:bool -> Product_kernel_ir.instance_relation_ir -> Why3.Ptree.term option) ->

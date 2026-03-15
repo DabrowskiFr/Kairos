@@ -240,8 +240,9 @@ type node_ir = {
   product_states : product_state_ir list;
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
-  generated_clauses : generated_clause_ir list;
-  relational_generated_clauses : relational_generated_clause_ir list;
+  historical_generated_clauses : generated_clause_ir list;
+  eliminated_generated_clauses : generated_clause_ir list;
+  symbolic_generated_clauses : relational_generated_clause_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;

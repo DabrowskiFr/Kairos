@@ -27,6 +27,7 @@ open Why_compile_expr
 type compiled_call_plan = {
   let_bindings : (Why3.Ptree.ident * Why3.Ptree.expr) list;
   pre_asserts : Why3.Ptree.term list;
+  output_post_terms : (Why3.Ptree.ident * Why3.Ptree.term list) list;
   any_pattern : Why3.Ptree.pattern;
   any_return_pty : Why3.Ptree.pty option;
   any_post : (Why3.Loc.position * (Why3.Ptree.pattern * Why3.Ptree.term) list) list;
@@ -91,47 +92,43 @@ let rec compile_call_iexpr_term lookup (e : Ast.iexpr) : Ptree.term =
         (Tinnfix
            (compile_call_iexpr_term lookup a, infix_ident (binop_id op), compile_call_iexpr_term lookup b))
 
-let compile_call_hexpr_term lookup (pre_k_map : (Ast.hexpr * pre_k_info) list) (h : Ast.hexpr) : Ptree.term
-    =
+let compile_call_hexpr_term lookup (summary : Why_runtime_view.callee_summary_view) (h : Ast.hexpr) :
+    Ptree.term =
   match h with
   | HNow e -> compile_call_iexpr_term lookup e
   | HPreK (_, _) -> (
-      match
-        List.find_map (fun (h', info) -> if h' = h then Some info else None) pre_k_map
-      with
-      | None -> failwith "pre_k not registered (call summary)"
-      | Some info ->
-          let name = List.nth info.names (List.length info.names - 1) in
-          lookup name)
+      match Kernel_guided_contract.latest_slot_name_for_hexpr summary.callee_contract h with
+      | None -> failwith "pre_k not registered (call summary contract)"
+      | Some name -> lookup name)
 
-let rec compile_call_fo_term lookup (pre_k_map : (Ast.hexpr * pre_k_info) list) (f : Ast.fo) : Ptree.term =
+let rec compile_call_fo_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo) :
+    Ptree.term =
   match f with
   | FTrue -> mk_term Ttrue
   | FFalse -> mk_term Tfalse
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
-           ( compile_call_hexpr_term lookup pre_k_map h1,
+           ( compile_call_hexpr_term lookup summary h1,
              infix_ident (relop_id r),
-             compile_call_hexpr_term lookup pre_k_map h2 ))
+             compile_call_hexpr_term lookup summary h2 ))
   | FPred (id, hs) ->
-      mk_term
-        (Tidapp (qid1 id, List.map (compile_call_hexpr_term lookup pre_k_map) hs))
-  | FNot a -> mk_term (Tnot (compile_call_fo_term lookup pre_k_map a))
+      mk_term (Tidapp (qid1 id, List.map (compile_call_hexpr_term lookup summary) hs))
+  | FNot a -> mk_term (Tnot (compile_call_fo_term lookup summary a))
   | FAnd (a, b) ->
       mk_term
         (Tbinop
-           (compile_call_fo_term lookup pre_k_map a, Dterm.DTand, compile_call_fo_term lookup pre_k_map b))
+           (compile_call_fo_term lookup summary a, Dterm.DTand, compile_call_fo_term lookup summary b))
   | FOr (a, b) ->
       mk_term
         (Tbinop
-           (compile_call_fo_term lookup pre_k_map a, Dterm.DTor, compile_call_fo_term lookup pre_k_map b))
+           (compile_call_fo_term lookup summary a, Dterm.DTor, compile_call_fo_term lookup summary b))
   | FImp (a, b) ->
       mk_term
         (Tbinop
-           ( compile_call_fo_term lookup pre_k_map a,
+           ( compile_call_fo_term lookup summary a,
              Dterm.DTimplies,
-             compile_call_fo_term lookup pre_k_map b ))
+             compile_call_fo_term lookup summary b ))
 
 let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summary_view)
     ~(phase : call_fact_phase) ~(access_name : Ast.ident) ~(next_instance_name : Ast.ident)
@@ -163,24 +160,28 @@ let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summ
         (term_eq
            (lookup "st")
            (mk_term (Tident (qid1 (instance_state_ctor_name summary.callee_node_name state_name)))))
-  | Product_kernel_ir.FactFormula fo ->
-      Some (compile_call_fo_term lookup summary.callee_pre_k_map fo)
+  | Product_kernel_ir.FactFormula fo -> Some (compile_call_fo_term lookup summary fo)
   | Product_kernel_ir.FactGuaranteeState _ -> None
   | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse)
 
 let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
   let has_instance_calls = Why_runtime_view.has_instance_calls caller_runtime in
+  let caller_kernel_relations =
+    match caller_runtime.kernel_contract with
+    | Some contract -> contract.instance_relations
+    | None -> []
+  in
   let instance_invariant_terms ?(in_post = false) (inst_name : string)
       (summary : Why_runtime_view.callee_summary_view) =
     let node_name = summary.callee_node_name in
     let input_names = summary.callee_input_names in
-    let pre_k_map = summary.callee_pre_k_map in
+    let contract = summary.callee_contract in
     let from_user =
       List.filter_map
         (fun inv ->
           let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
           let rhs =
-            compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map
+            compile_hexpr_instance_contract ~in_post env inst_name node_name input_names contract
               inv.inv_expr
           in
           Some (term_eq lhs rhs))
@@ -195,7 +196,8 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
             let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
-              compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map
+              compile_fo_term_instance_contract ~in_post env inst_name node_name input_names
+                contract
                 inv.formula
             in
             Some (term_implies cond body))
@@ -225,81 +227,81 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
             let output_bindings =
               combine_prefix summary.callee_output_names (List.map (fun id -> id.id_str) output_ids)
             in
-            let let_bindings, pre_asserts =
-              match summary.callee_delay_spec with
-              | None -> ([], inv_terms)
-              | Some (out_name, in_name) -> (
-                  let output_names = summary.callee_output_names in
-                  match index_of out_name output_names with
-                  | None -> ([], inv_terms)
-                  | Some out_idx ->
-                      if out_idx >= List.length outs then ([], inv_terms)
-                      else
-                        let out_var = List.nth outs out_idx in
-                        let pre_id = ident (Printf.sprintf "__call_pre_%s_%s" inst_name in_name) in
-                        let pre_k_map = summary.callee_pre_k_map in
-                        let pre_name =
-                          List.find_map
-                            (fun (_, info) ->
-                              match (info.expr.iexpr, info.names) with
-                              | IVar x, name :: _ when x = in_name -> Some name
-                              | _ -> None)
-                            pre_k_map
-                        in
-                        let pre_expr =
-                          match pre_name with
-                          | None -> expr_of_instance_var env access_name node_name in_name
-                          | Some name -> expr_of_instance_var env access_name node_name name
-                        in
-                        let lhs = term_of_var env out_var in
-                        let rhs = mk_term (Tident (qid1 pre_id.id_str)) in
-                        ([ (pre_id, pre_expr) ], term_eq lhs rhs :: inv_terms))
+            let delay_output_post_terms =
+              caller_kernel_relations
+              |> List.filter_map (function
+                   | Product_kernel_ir.InstanceDelayCallerPreLink
+                       { caller_output; caller_pre_name }
+                     when List.mem caller_output outs ->
+                       begin
+                         match index_of caller_output outs with
+                         | None -> None
+                         | Some out_idx ->
+                             if out_idx >= List.length output_ids then None
+                             else
+                               let out_id = List.nth output_ids out_idx in
+                               Some
+                                 ( out_id,
+                                   term_eq
+                                     (mk_term (Tident (qid1 out_id.id_str)))
+                                     (term_of_var env caller_pre_name) )
+                       end
+                   | _ -> None)
+            in
+            let let_bindings, pre_asserts = ([], inv_terms) in
+            let output_post_terms =
+              delay_output_post_terms
+              |> List.map (fun (out_id, term) -> (out_id, [ term ]))
             in
             let any_return_pty =
               Some (Ptree.PTtyapp (qid1 (instance_vars_type_name node_name), []))
             in
             let any_pattern = { pat_desc = Pvar next_instance_id; pat_loc = loc } in
             let any_post =
-              match summary.callee_tick_summary with
-              | None -> []
-              | Some tick_summary ->
-                  tick_summary.cases
-                  |> List.filter_map (fun (case : Product_kernel_ir.callee_summary_case_ir) ->
-                         let premise =
-                           case.entry_facts
-                           |> List.filter_map
-                                (compile_call_fact_term ~env ~summary ~phase:EntryPhase ~access_name
-                                   ~next_instance_name:next_instance_id.id_str ~input_bindings
-                                   ~output_bindings)
-                         in
-                         let conclusion =
-                           (case.transition_facts @ case.exported_post_facts)
-                           |> List.filter_map
-                                (compile_call_fact_term ~env ~summary ~phase:PostPhase ~access_name
-                                   ~next_instance_name:next_instance_id.id_str ~input_bindings
-                                   ~output_bindings)
-                         in
-                         match conclusion with
-                         | [] -> None
-                         | first :: rest ->
-                             let concl = List.fold_left term_and first rest in
-                             let body =
-                               match premise with
-                               | [] -> concl
-                               | first_pre :: rest_pre ->
-                                   term_implies (List.fold_left term_and first_pre rest_pre) concl
-                             in
-                             Some
-                               ( loc,
-                                 [
-                                   ( { pat_desc = Pvar next_instance_id; pat_loc = loc },
-                                     body );
-                                 ] ))
+              let tick_posts =
+                match summary.callee_tick_summary with
+                | None -> []
+                | Some tick_summary ->
+                    tick_summary.cases
+                    |> List.filter_map (fun (case : Product_kernel_ir.callee_summary_case_ir) ->
+                           let premise =
+                             case.entry_facts
+                             |> List.filter_map
+                                  (compile_call_fact_term ~env ~summary ~phase:EntryPhase ~access_name
+                                     ~next_instance_name:next_instance_id.id_str ~input_bindings
+                                     ~output_bindings)
+                           in
+                           let conclusion =
+                             (case.transition_facts @ case.exported_post_facts)
+                             |> List.filter_map
+                                  (compile_call_fact_term ~env ~summary ~phase:PostPhase ~access_name
+                                     ~next_instance_name:next_instance_id.id_str ~input_bindings
+                                     ~output_bindings)
+                           in
+                           match conclusion with
+                           | [] -> None
+                           | first :: rest ->
+                               let concl = List.fold_left term_and first rest in
+                               let body =
+                                 match premise with
+                                 | [] -> concl
+                                 | first_pre :: rest_pre ->
+                                     term_implies (List.fold_left term_and first_pre rest_pre) concl
+                               in
+                               Some
+                                 ( loc,
+                                   [
+                                     ( { pat_desc = Pvar next_instance_id; pat_loc = loc },
+                                       body );
+                                   ] ))
+              in
+              tick_posts
             in
             Some
               {
                 let_bindings;
                 pre_asserts;
+                output_post_terms;
                 any_pattern;
                 any_return_pty;
                 any_post;

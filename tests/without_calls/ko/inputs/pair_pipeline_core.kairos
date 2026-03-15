@@ -1,0 +1,22 @@
+node pair_pipeline_core(x: int) returns (t: int)
+contracts
+  ensures: X G (t = prev x);
+locals
+  z: int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    z = prev x;
+transitions
+  Init:
+    to Run {
+      t := 0;
+      z := x;
+    }
+  Run:
+    to Run {
+      t := z;
+      z := x;
+    }
+end

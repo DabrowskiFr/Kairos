@@ -31,25 +31,27 @@ val compile_term : Support.env -> Ast.iexpr -> Why3.Ptree.term
 val compile_term_instance :
   Support.env -> Ast.ident -> Ast.ident -> Ast.ident list -> Ast.iexpr -> Why3.Ptree.term
 
-(* Compile a historical expression for an instance. *)
-val compile_hexpr_instance :
+(* Compile a historical expression for an instance using the kernel-guided
+   temporal contract instead of a raw pre_k materialization map. *)
+val compile_hexpr_instance_contract :
   ?in_post:bool ->
   Support.env ->
   Ast.ident ->
   Ast.ident ->
   Ast.ident list ->
-  (Ast.hexpr * Support.pre_k_info) list ->
+  Kernel_guided_contract.exported_summary_contract ->
   Ast.hexpr ->
   Why3.Ptree.term
 
-(* Compile a FO formula for an instance. *)
-val compile_fo_term_instance :
+(* Compile a FO formula for an instance using the kernel-guided temporal
+   contract instead of a raw pre_k materialization map. *)
+val compile_fo_term_instance_contract :
   ?in_post:bool ->
   Support.env ->
   Ast.ident ->
   Ast.ident ->
   Ast.ident list ->
-  (Ast.hexpr * Support.pre_k_info) list ->
+  Kernel_guided_contract.exported_summary_contract ->
   Ast.fo ->
   Why3.Ptree.term
 
