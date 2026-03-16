@@ -69,7 +69,7 @@
   contracts_pass
   instrumentation_pass
   dot_emit
- why_stage
+  why_stage
   fo_specs
   fo_simplifier
   fo_time
@@ -81,7 +81,7 @@
   ltl_valuation
   automaton_types
   automaton_guard
- automaton_core)
+  automaton_core)
  (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult yojson kairos_lsp_protocol)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson sedlex.ppx)))
