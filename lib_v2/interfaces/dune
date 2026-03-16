@@ -1,4 +1,0 @@
-(library
- (name kairos_v2_interfaces)
- (wrapped false)
- (modules v2_core_intf v2_external_intf v2_obc_augmentation_intf))
