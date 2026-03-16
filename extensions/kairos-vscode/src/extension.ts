@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
@@ -48,6 +49,37 @@ function resolveServerCommand(serverPath: string): string {
     return serverPath;
   }
   return serverPath;
+}
+
+function injectOpamEnv(env: NodeJS.ProcessEnv): void {
+  if (env.OPAM_SWITCH_PREFIX) {
+    return; // already set (VS Code launched from a terminal with opam env)
+  }
+  // Try common opam binary locations on macOS/Linux
+  const home = env.HOME ?? "";
+  const rawCandidates: string[] = [
+    "/opt/homebrew/bin/opam",
+    "/usr/local/bin/opam",
+    "/usr/bin/opam",
+    ...(home ? [`${home}/.local/bin/opam`] : [])
+  ];
+  const candidates = rawCandidates.filter((p) => fs.existsSync(p));
+  const opamBin = candidates[0];
+  if (!opamBin) {
+    return;
+  }
+  try {
+    const raw = execSync(`"${opamBin}" env`, { encoding: "utf8", timeout: 8000 });
+    for (const line of raw.split("\n")) {
+      // Parse lines like: VARNAME='value'; export VARNAME;
+      const m = line.match(/^([A-Z_][A-Z_0-9]*)='([^']*)'; export/);
+      if (m) {
+        env[m[1]] = m[2];
+      }
+    }
+  } catch (_) {
+    // ignore; provers may not be available but basic LSP features still work
+  }
 }
 
 function getRunSettings() {
@@ -186,6 +218,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const traceFile = lspConfig.get<string>("traceFile", "");
 
   const env = { ...process.env };
+  injectOpamEnv(env);
   if (traceEnabled) {
     env.KAIROS_LSP_TRACE = "1";
     if (traceFile) {
