@@ -753,6 +753,39 @@ let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
     info
 
 
+(* Verified-node path: build runtime view from a Pass-5 verified_node, then
+   compile it using the shared [compile_node_with_info] core. *)
+let compile_node_from_verified_node ~prefix_fields ?kernel_ir
+    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    ~(program_verified_nodes : Kairos_ir.verified_node list)
+    (vn : Kairos_ir.verified_node) :
+    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
+  let info =
+    Why_env.prepare_verified_node ~prefix_fields ~external_summaries ~program_verified_nodes vn
+  in
+  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
+  let info = { info with runtime_view } in
+  compile_node_with_info ?kernel_ir
+    ~node_names:(List.map (fun (vn : Kairos_ir.verified_node) -> vn.node_name) program_verified_nodes)
+    info
+
+(* Verified-node path: compile a list of verified nodes to a Why3 program AST.
+   This is the emission counterpart of compile_program_ast_from_summaries. *)
+let compile_program_ast_from_verified_nodes ?(prefix_fields = true)
+    ?(kernel_ir_map = []) ?(external_summaries = [])
+    (program_verified_nodes : Kairos_ir.verified_node list) : program_ast =
+  let modules =
+    List.map
+      (fun (vn : Kairos_ir.verified_node) ->
+        compile_node_from_verified_node ~prefix_fields
+          ?kernel_ir:(List.assoc_opt vn.node_name kernel_ir_map)
+          ~external_summaries ~program_verified_nodes vn)
+      program_verified_nodes
+  in
+  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
+  let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
+  { mlw; module_info }
+
 (* IR path: compile a full list of summaries to a Why3 program AST. *)
 let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [])
     ?(kernel_ir_map = []) ?(external_summaries = [])

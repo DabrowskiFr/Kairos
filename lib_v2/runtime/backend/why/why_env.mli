@@ -51,3 +51,11 @@ val prepare_summary :
   program_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Product_kernel_ir.exported_node_summary_ir ->
   env_info
+
+(** Build environment data from a [Kairos_ir.verified_node] (Pass 5 output). *)
+val prepare_verified_node :
+  prefix_fields:bool ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  program_verified_nodes:Kairos_ir.verified_node list ->
+  Kairos_ir.verified_node ->
+  env_info

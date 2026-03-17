@@ -14,6 +14,8 @@ module Pass = struct
     mutable state_ctors_rev : ident list;
     mutable atom_count : int;
     mutable kernel_ir_nodes_rev : Product_kernel_ir.node_ir list;
+    mutable raw_ir_nodes_rev : Kairos_ir.raw_node list;
+    mutable verified_ir_nodes_rev : Kairos_ir.verified_node list;
     mutable kernel_pipeline_lines_rev : string list;
     mutable warnings_rev : string list;
     mutable guarantee_automaton_lines_rev : string list;
@@ -31,6 +33,8 @@ module Pass = struct
       state_ctors_rev = [];
       atom_count = 0;
       kernel_ir_nodes_rev = [];
+      raw_ir_nodes_rev = [];
+      verified_ir_nodes_rev = [];
       kernel_pipeline_lines_rev = [];
       warnings_rev = [];
       guarantee_automaton_lines_rev = [];
@@ -47,6 +51,8 @@ module Pass = struct
     acc.state_ctors_rev <- node_info.state_ctors @ acc.state_ctors_rev;
     acc.atom_count <- acc.atom_count + node_info.atom_count;
     acc.kernel_ir_nodes_rev <- List.rev_append node_info.kernel_ir_nodes acc.kernel_ir_nodes_rev;
+    acc.raw_ir_nodes_rev <- List.rev_append node_info.raw_ir_nodes acc.raw_ir_nodes_rev;
+    acc.verified_ir_nodes_rev <- List.rev_append node_info.verified_ir_nodes acc.verified_ir_nodes_rev;
     acc.kernel_pipeline_lines_rev <-
       List.rev_append node_info.kernel_pipeline_lines acc.kernel_pipeline_lines_rev;
     acc.warnings_rev <- List.rev_append node_info.warnings acc.warnings_rev;
@@ -68,6 +74,8 @@ module Pass = struct
       Stage_info.state_ctors = List.rev acc.state_ctors_rev;
       Stage_info.atom_count = acc.atom_count;
       Stage_info.kernel_ir_nodes = List.rev acc.kernel_ir_nodes_rev;
+      Stage_info.raw_ir_nodes = List.rev acc.raw_ir_nodes_rev;
+      Stage_info.verified_ir_nodes = List.rev acc.verified_ir_nodes_rev;
       Stage_info.kernel_pipeline_lines = List.rev acc.kernel_pipeline_lines_rev;
       Stage_info.warnings = List.rev acc.warnings_rev;
       Stage_info.guarantee_automaton_lines = List.rev acc.guarantee_automaton_lines_rev;

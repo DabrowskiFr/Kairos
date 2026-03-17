@@ -676,6 +676,67 @@ let synthetic_transition_of_ir ~(pre_k_updates : Ast.stmt list)
       };
   }
 
+(* ---------------------------------------------------------------------------
+   Verified-node construction (Pass 5 output → runtime view)
+   --------------------------------------------------------------------------- *)
+
+(** Convert a [verified_transition] to an [Ast.transition] suitable for
+    [transition_of_ast].  The [pre_k_updates] are appended to the
+    instrumentation block, mirroring what [synthetic_transition_of_ir] does for
+    the IR path. *)
+let ast_of_verified_transition (t : Kairos_ir.verified_transition) : Ast.transition =
+  {
+    Ast.src = t.src_state;
+    dst = t.dst_state;
+    guard = t.guard_iexpr;
+    requires = t.requires;
+    ensures = t.ensures;
+    body = t.body_stmts;
+    attrs =
+      {
+        uid = None;
+        ghost = t.ghost_stmts;
+        instrumentation = t.instrumentation_stmts @ t.pre_k_updates;
+        warnings = [];
+      };
+  }
+
+(** Build a synthetic [Ast.node] from a [verified_node] for use with
+    [of_node] and [collect_mon_state_ctors]. *)
+let ast_node_of_verified_node (vn : Kairos_ir.verified_node) : Ast.node =
+  {
+    Ast.nname = vn.node_name;
+    inputs = vn.inputs;
+    outputs = vn.outputs;
+    assumes = vn.assumes;
+    guarantees = vn.guarantees;
+    instances = vn.instances;
+    locals = vn.locals;
+    states = vn.control_states;
+    init_state = vn.init_state;
+    trans = List.map ast_of_verified_transition vn.transitions;
+    attrs =
+      {
+        uid = None;
+        invariants_user = vn.user_invariants;
+        invariants_state_rel = vn.state_invariants;
+        coherency_goals = vn.coherency_goals;
+      };
+  }
+
+(** Build a full [Why_runtime_view.t] from a [verified_node].
+
+    Local callee summaries are resolved from [program_verified_nodes] by
+    converting them to synthetic [Ast.node]s.  External callee summaries are
+    resolved from [external_summaries] as usual.  This replaces
+    [of_exported_summary] for the new pipeline path. *)
+let of_verified_node ?(external_summaries = [])
+    ~(program_verified_nodes : Kairos_ir.verified_node list)
+    (vn : Kairos_ir.verified_node) : t =
+  let synthetic_node = ast_node_of_verified_node vn in
+  let callee_nodes = List.map ast_node_of_verified_node program_verified_nodes in
+  of_node ~nodes:callee_nodes ~external_summaries synthetic_node
+
 let of_exported_summary ?(external_summaries = [])
     ~(program_summaries : Product_kernel_ir.exported_node_summary_ir list)
     (summary : Product_kernel_ir.exported_node_summary_ir) : t =

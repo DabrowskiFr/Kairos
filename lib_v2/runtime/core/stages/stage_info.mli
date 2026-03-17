@@ -47,6 +47,10 @@ type instrumentation_info = {
   state_ctors : string list;
   atom_count : int;
   kernel_ir_nodes : Product_kernel_ir.node_ir list;
+  (** Pass 3 output: raw IR nodes (no Hoare triples). *)
+  raw_ir_nodes : Kairos_ir.raw_node list;
+  (** Pass 5 output: verified IR nodes (history eliminated, ready for Why3). *)
+  verified_ir_nodes : Kairos_ir.verified_node list;
   kernel_pipeline_lines : string list;
   warnings : string list;
   guarantee_automaton_lines : string list;
@@ -57,13 +61,6 @@ type instrumentation_info = {
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-}
-
-(* Metadata produced by the OBC+ generation pass. *)
-type obc_info = {
-  ghost_locals_added : string list;
-  pre_k_infos : string list list;
-  warnings : string list;
 }
 
 (* Default (empty) parse metadata. *)
@@ -77,6 +74,3 @@ val empty_contracts_info : contracts_info
 
 (* Default (empty) monitor injection metadata. *)
 val empty_instrumentation_info : instrumentation_info
-
-(* Default (empty) OBC+ metadata. *)
-val empty_obc_info : obc_info
