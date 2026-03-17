@@ -1,5 +1,38 @@
 open Yojson.Safe
 
+module Lsp_types = Lsp.Types
+
+module Sync_io = struct
+  type 'a t = 'a
+
+  let return x = x
+  let raise exn = Stdlib.raise exn
+
+  module O = struct
+    let ( let+ ) x f = f x
+    let ( let* ) x f = f x
+  end
+end
+
+module Channels = struct
+  type input = in_channel
+  type output = out_channel
+
+  let read_line ic =
+    try Some (input_line ic)
+    with End_of_file -> None
+
+  let read_exactly ic len =
+    try Some (really_input_string ic len)
+    with End_of_file -> None
+
+  let write oc parts =
+    List.iter (output_string oc) parts;
+    flush oc
+end
+
+module Transport = Lsp.Io.Make (Sync_io) (Channels)
+
 let env_bool name =
   match Sys.getenv_opt name with
   | Some ("1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON") -> true
@@ -20,72 +53,143 @@ let send_raw (oc : out_channel) (body : string) : unit =
   output_string oc (Printf.sprintf "Content-Length: %d\r\n\r\n%s" (String.length body) body);
   flush oc
 
-let send_json oc (j : Yojson.Safe.t) =
-  let s = Yojson.Safe.to_string j in
-  trace_line "lsp-server -> client" s;
-  send_raw oc s
+let send_packet (oc : out_channel) (packet : Jsonrpc.Packet.t) : unit =
+  trace_line "lsp-server -> client" (Jsonrpc.Packet.yojson_of_t packet |> Yojson.Safe.to_string);
+  Transport.write oc packet
 
-let send_result (oc : out_channel) ~(id_json : Yojson.Safe.t) ~(result_json : Yojson.Safe.t) : unit =
-  send_json oc (`Assoc [ ("jsonrpc", `String "2.0"); ("id", id_json); ("result", result_json) ])
+let error_code_of_int = function
+  | -32700 -> Jsonrpc.Response.Error.Code.ParseError
+  | -32600 -> Jsonrpc.Response.Error.Code.InvalidRequest
+  | -32601 -> Jsonrpc.Response.Error.Code.MethodNotFound
+  | -32602 -> Jsonrpc.Response.Error.Code.InvalidParams
+  | -32603 -> Jsonrpc.Response.Error.Code.InternalError
+  | -32002 -> Jsonrpc.Response.Error.Code.ServerNotInitialized
+  | -32800 -> Jsonrpc.Response.Error.Code.RequestCancelled
+  | n -> Jsonrpc.Response.Error.Code.Other n
 
-let send_error (oc : out_channel) ~(id_json : Yojson.Safe.t option) ~(code : int) ~(message : string) : unit =
-  send_json oc
-    (`Assoc
-      [ ("jsonrpc", `String "2.0");
-        ("id", Option.value id_json ~default:`Null);
-        ("error", `Assoc [ ("code", `Int code); ("message", `String message) ]) ])
+let send_result (oc : out_channel) ~(id_json : Jsonrpc.Id.t) ~(result_json : Yojson.Safe.t) : unit =
+  send_packet oc (Jsonrpc.Packet.Response (Jsonrpc.Response.ok id_json result_json))
 
-let send_notification (oc : out_channel) ~(method_name : string) ~(params_json : Yojson.Safe.t) : unit =
-  send_json oc
-    (`Assoc [ ("jsonrpc", `String "2.0"); ("method", `String method_name); ("params", params_json) ])
-
-let send_request (oc : out_channel) ~(id_json : Yojson.Safe.t) ~(method_name : string)
-    ~(params_json : Yojson.Safe.t) : unit =
-  send_json oc
-    (`Assoc
+let send_error_raw (oc : out_channel) ~(id_json : Yojson.Safe.t option) ~(code : int) ~(message : string) :
+    unit =
+  let payload =
+    `Assoc
       [
         ("jsonrpc", `String "2.0");
-        ("id", id_json);
-        ("method", `String method_name);
-        ("params", params_json);
-      ])
+        ("id", Option.value id_json ~default:`Null);
+        ("error", `Assoc [ ("code", `Int code); ("message", `String message) ]);
+      ]
+  in
+  trace_line "lsp-server -> client" (Yojson.Safe.to_string payload);
+  send_raw oc (Yojson.Safe.to_string payload)
 
-let send_publish_diagnostics (oc : out_channel) ~(uri : string) ~(diagnostics : Yojson.Safe.t list)
-    : unit =
-  send_notification oc ~method_name:"textDocument/publishDiagnostics"
-    ~params_json:(`Assoc [ ("uri", `String uri); ("diagnostics", `List diagnostics) ])
+let send_error (oc : out_channel) ~(id_json : Jsonrpc.Id.t option) ~(code : int) ~(message : string) : unit =
+  match id_json with
+  | Some id ->
+      let error =
+        Jsonrpc.Response.Error.make ~code:(error_code_of_int code) ~message ()
+      in
+      send_packet oc (Jsonrpc.Packet.Response (Jsonrpc.Response.error id error))
+  | None -> send_error_raw oc ~id_json:None ~code ~message
 
-let path_of_uri (uri : string) : string option =
-  let prefix = "file://" in
-  if String.length uri >= String.length prefix
-     && String.sub uri 0 (String.length prefix) = prefix
-  then Some (String.sub uri (String.length prefix) (String.length uri - String.length prefix))
-  else if Filename.is_relative uri then None
-  else Some uri
+let structured_of_json = function
+  | (`Assoc _ | `List _) as json -> Some (Jsonrpc.Structured.t_of_yojson json)
+  | _ -> None
+
+let send_notification (oc : out_channel) ~(method_name : string) ~(params_json : Yojson.Safe.t) : unit =
+  let params = structured_of_json params_json in
+  send_packet oc
+    (Jsonrpc.Packet.Notification (Jsonrpc.Notification.create ?params ~method_:method_name ()))
+
+let send_request (oc : out_channel) ~(id_json : Jsonrpc.Id.t) ~(method_name : string)
+    ~(params_json : Yojson.Safe.t) : unit =
+  let params = structured_of_json params_json in
+  send_packet oc
+    (Jsonrpc.Packet.Request (Jsonrpc.Request.create ?params ~id:id_json ~method_:method_name ()))
+
+let lsp_position ~line ~character = Lsp_types.Position.create ~line ~character
+
+let lsp_range ~line ~c1 ~c2 =
+  let start = lsp_position ~line ~character:c1 in
+  let end_ = lsp_position ~line ~character:c2 in
+  Lsp_types.Range.create ~start ~end_
+
+let range_json ~line ~c1 ~c2 : Yojson.Safe.t =
+  lsp_range ~line ~c1 ~c2 |> Lsp_types.Range.yojson_of_t
+
+let lsp_location_json ~uri ~line ~c1 ~c2 : Yojson.Safe.t =
+  Lsp_types.Location.create ~uri:(Lsp_types.DocumentUri.of_string uri) ~range:(lsp_range ~line ~c1 ~c2)
+  |> Lsp_types.Location.yojson_of_t
+
+let hover_json ~ident ~kind ~occurrences : Yojson.Safe.t =
+  let value = Printf.sprintf "`%s` (%s)\n\nOccurrences in file: %d" ident kind occurrences in
+  Lsp_types.Hover.create
+    ~contents:(`MarkupContent (Lsp_types.MarkupContent.create ~kind:Lsp_types.MarkupKind.Markdown ~value))
+    ()
+  |> Lsp_types.Hover.yojson_of_t
+
+let completion_item_json (label : string) : Yojson.Safe.t =
+  Lsp_types.CompletionItem.create ~label ~kind:Lsp_types.CompletionItemKind.Function ~insertText:label ()
+  |> Lsp_types.CompletionItem.yojson_of_t
+
+let completion_list_json (items : Yojson.Safe.t list) : Yojson.Safe.t =
+  let items =
+    List.filter_map
+      (fun json ->
+        try Some (Lsp_types.CompletionItem.t_of_yojson json)
+        with _ -> None)
+      items
+  in
+  Lsp_types.CompletionList.create ~isIncomplete:false ~items () |> Lsp_types.CompletionList.yojson_of_t
+
+let full_document_text_edit_json ~line_count ~new_text : Yojson.Safe.t =
+  Lsp_types.TextEdit.create ~newText:new_text ~range:(lsp_range ~line:0 ~c1:0 ~c2:0)
+  |> fun edit ->
+  let range =
+    let start = lsp_position ~line:0 ~character:0 in
+    let end_ = lsp_position ~line:line_count ~character:0 in
+    Lsp_types.Range.create ~start ~end_
+  in
+  { edit with range } |> Lsp_types.TextEdit.yojson_of_t
+
+let protocol_request_id (id : Jsonrpc.Id.t) : Lsp_protocol.rpc_request_id =
+  match Lsp_protocol.rpc_request_id_of_yojson (Jsonrpc.Id.yojson_of_t id) with
+  | Ok request_id -> request_id
+  | Error _ -> Lsp_protocol.Rpc_string_id (Jsonrpc.Id.yojson_of_t id |> Yojson.Safe.to_string)
 
 let diagnostic_to_json (d : Lsp_services.diagnostic) : Yojson.Safe.t =
-  `Assoc
-    [
-      ( "range",
-        `Assoc
-          [
-            ("start", `Assoc [ ("line", `Int d.line); ("character", `Int d.col) ]);
-            ("end", `Assoc [ ("line", `Int d.line); ("character", `Int (d.col + 1)) ]);
-          ] );
-      ("severity", `Int d.severity);
-      ("source", `String d.source);
-      ("message", `String d.message);
-    ]
+  let severity =
+    match d.severity with
+    | 1 -> Some Lsp_types.DiagnosticSeverity.Error
+    | 2 -> Some Lsp_types.DiagnosticSeverity.Warning
+    | 3 -> Some Lsp_types.DiagnosticSeverity.Information
+    | 4 -> Some Lsp_types.DiagnosticSeverity.Hint
+    | _ -> None
+  in
+  let range =
+    let start = lsp_position ~line:d.line ~character:d.col in
+    let end_ = lsp_position ~line:d.line ~character:(d.col + 1) in
+    Lsp_types.Range.create ~start ~end_
+  in
+  Lsp_types.Diagnostic.create ~message:(`String d.message) ~range ?severity ~source:d.source ()
+  |> Lsp_types.Diagnostic.yojson_of_t
+
+let send_publish_diagnostics (oc : out_channel) ~(uri : string) ~(diagnostics : Yojson.Safe.t list) : unit =
+  let diagnostics =
+    List.filter_map
+      (fun json ->
+        try Some (Lsp_types.Diagnostic.t_of_yojson json)
+        with _ -> None)
+      diagnostics
+  in
+  let params =
+    Lsp_types.PublishDiagnosticsParams.create ~uri:(Lsp_types.DocumentUri.of_string uri) ~diagnostics ()
+  in
+  send_notification oc ~method_name:"textDocument/publishDiagnostics"
+    ~params_json:(Lsp_types.PublishDiagnosticsParams.yojson_of_t params)
 
 let parse_diagnostics_for_text ~(uri : string) ~(text : string) : Yojson.Safe.t list =
   Lsp_services.diagnostics_for_text ~uri ~text |> List.map diagnostic_to_json
-
-let range_json ~line ~c1 ~c2 : Yojson.Safe.t =
-  `Assoc
-    [
-      ("start", `Assoc [ ("line", `Int line); ("character", `Int c1) ]);
-      ("end", `Assoc [ ("line", `Int line); ("character", `Int c2) ]);
-    ]
 
 let find_identifier_occurrences = Lsp_services.identifier_occurrences
 type semantic_symbols = Lsp_services.semantic_symbols
@@ -101,7 +205,6 @@ let map_oblig = Lsp_app.map_oblig
 let get_param_string = Lsp_app.get_param_string
 let get_param_bool = Lsp_app.get_param_bool
 let get_param_int = Lsp_app.get_param_int
-let get_param_obj = Lsp_app.get_param_obj
 let get_param_list = Lsp_app.get_param_list
 let get_text_document_uri = Lsp_app.get_text_document_uri
 let get_did_open_text = Lsp_app.get_did_open_text
@@ -114,22 +217,14 @@ let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   | None -> Engine_service.V2
 
 let symbol_info ~(uri : string) ~(name : string) ~(line : int) ~(character : int) : Yojson.Safe.t =
-  `Assoc
-    [
-      ("name", `String name);
-      ("kind", `Int 12);
-      ( "location",
-        `Assoc
-          [
-            ("uri", `String uri);
-            ( "range",
-              `Assoc
-                [
-                  ("start", `Assoc [ ("line", `Int line); ("character", `Int character) ]);
-                  ("end", `Assoc [ ("line", `Int line); ("character", `Int (character + 1)) ]);
-                ] );
-          ] );
-    ]
+  let range =
+    let start = lsp_position ~line ~character in
+    let end_ = lsp_position ~line ~character:(character + 1) in
+    Lsp_types.Range.create ~start ~end_
+  in
+  let location = Lsp_types.Location.create ~uri:(Lsp_types.DocumentUri.of_string uri) ~range in
+  Lsp_types.SymbolInformation.create ~name ~kind:Lsp_types.SymbolKind.Function ~location ()
+  |> Lsp_types.SymbolInformation.yojson_of_t
 
 type outline_sections = Lsp_services.outline_sections
 let outline_sections_of_text = Lsp_services.outline_sections_of_text
@@ -137,6 +232,30 @@ let outline_sections_of_text = Lsp_services.outline_sections_of_text
 let yojson_of_outline_sections = Lsp_services.yojson_of_outline_sections
 
 let goals_tree_json_of_nodes = Lsp_services.yojson_of_goals_tree
+
+let decode_or_none decode json =
+  match decode json with
+  | Ok value -> Some value
+  | Error _ -> None
+
+let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
+  {
+    input_file = cfg.input_file;
+    prover = cfg.prover;
+    prover_cmd = cfg.prover_cmd;
+    wp_only = cfg.wp_only;
+    smoke_tests = cfg.smoke_tests;
+    timeout_s = cfg.timeout_s;
+    max_proof_goals = cfg.max_proof_goals;
+    selected_goal_index = cfg.selected_goal_index;
+    compute_proof_diagnostics = cfg.compute_proof_diagnostics;
+    prefix_fields = cfg.prefix_fields;
+    prove = cfg.prove;
+    generate_vc_text = cfg.generate_vc_text;
+    generate_smt_text = cfg.generate_smt_text;
+    generate_monitor_text = cfg.generate_monitor_text;
+    generate_dot_png = cfg.generate_dot_png;
+  }
 
 let send_work_done_begin (oc : out_channel) ~(token : string) ~(title : string) ~(message : string) : unit =
   send_notification oc ~method_name:"$/progress"
@@ -167,53 +286,10 @@ let send_work_done_end (oc : out_channel) ~(token : string) ~(message : string) 
           ("value", `Assoc [ ("kind", `String "end"); ("message", `String message) ]);
         ])
 
-let read_message (ic : in_channel) : string option =
-  let rec read_headers acc =
-    try
-      let line = input_line ic in
-      if line = "" || line = "\r" then List.rev acc else read_headers (line :: acc)
-    with End_of_file -> List.rev acc
-  in
-  let headers = read_headers [] in
-  if headers = [] then None
-  else
-    let len_opt =
-      List.find_map
-        (fun h ->
-          try
-            if String.lowercase_ascii (String.sub h 0 14) = "content-length" then
-              Some (int_of_string (String.trim (String.sub h 15 (String.length h - 15))))
-            else None
-          with _ -> None)
-        headers
-    in
-    match len_opt with
-    | None -> None
-    | Some len ->
-        let body = really_input_string ic len in
-        trace_line "client -> lsp-server" body;
-        Some body
-
 let member k = function `Assoc xs -> List.assoc_opt k xs | _ -> None
 let as_string = function Some (`String s) -> Some s | _ -> None
-let as_assoc = function Some (`Assoc xs) -> Some xs | _ -> None
-let as_list = function Some (`List xs) -> Some xs | _ -> None
-
-let method_of_msg j = member "method" j |> as_string
-let id_of_msg j = member "id" j
-let params_of_msg j = member "params" j
 let is_request id_json = Option.is_some id_json
-let id_key (id : Yojson.Safe.t) = Yojson.Safe.to_string id
-
-let is_response_message (j : Yojson.Safe.t) : bool =
-  match (member "method" j, member "id" j) with
-  | None, Some _ -> true
-  | _ -> false
-
-let has_valid_jsonrpc (j : Yojson.Safe.t) : bool =
-  match member "jsonrpc" j with
-  | Some (`String "2.0") -> true
-  | _ -> false
+let id_key (id : Jsonrpc.Id.t) = Jsonrpc.Id.yojson_of_t id |> Yojson.Safe.to_string
 
 let () =
   let docs : (string, string) Hashtbl.t = Hashtbl.create 32 in
@@ -224,26 +300,34 @@ let () =
   let supports_work_done_progress = ref false in
   let running = ref true in
   while !running do
-    match read_message stdin with
+    let packet =
+      try Transport.read stdin
+      with _ ->
+        send_error_raw stdout ~id_json:None ~code:(-32700) ~message:"Parse error";
+        None
+    in
+    match packet with
     | None -> running := false
-    | Some body -> (
-        let j =
-          try Ok (Yojson.Safe.from_string body)
-          with _ ->
-            send_error stdout ~id_json:None ~code:(-32700) ~message:"Parse error";
-            Error ()
+    | Some (Jsonrpc.Packet.Response _) | Some (Jsonrpc.Packet.Batch_response _) -> ()
+    | Some (Jsonrpc.Packet.Batch_call _) ->
+        send_error_raw stdout ~id_json:None ~code:(-32600) ~message:"Batch requests are not supported"
+    | Some packet -> (
+        let method_name, id_json, params =
+          match packet with
+          | Jsonrpc.Packet.Request req ->
+              trace_line "client -> lsp-server"
+                (Jsonrpc.Packet.yojson_of_t packet |> Yojson.Safe.to_string);
+              ( Some req.method_,
+                Some req.id,
+                match req.params with None -> `Assoc [] | Some p -> (p :> Yojson.Safe.t) )
+          | Jsonrpc.Packet.Notification notif ->
+              trace_line "client -> lsp-server"
+                (Jsonrpc.Packet.yojson_of_t packet |> Yojson.Safe.to_string);
+              ( Some notif.method_,
+                None,
+                match notif.params with None -> `Assoc [] | Some p -> (p :> Yojson.Safe.t) )
+          | _ -> (None, None, `Assoc [])
         in
-        match j with
-        | Error () -> ()
-        | Ok j when not (has_valid_jsonrpc j) ->
-            if is_request (id_of_msg j) then
-              send_error stdout ~id_json:(id_of_msg j) ~code:(-32600)
-                ~message:"Invalid Request"
-        | Ok j when is_response_message j -> ()
-        | Ok j ->
-        let method_name = method_of_msg j in
-        let id_json = id_of_msg j in
-        let params = Option.value (params_of_msg j) ~default:(`Assoc []) in
         match method_name with
         | Some "initialize" when !initialized ->
             if is_request id_json then
@@ -252,26 +336,26 @@ let () =
             initialized := true;
             supports_work_done_progress := client_supports_work_done_progress params;
             let result =
-              `Assoc
-                [ ("serverInfo", `Assoc [ ("name", `String "kairos-lsp"); ("version", `String "1.0") ]);
-                  ("capabilities",
-                   `Assoc
-                     [ ("textDocumentSync",
-                        `Assoc
-                          [
-                            ("openClose", `Bool true);
-                            ("change", `Int 1);
-                            ("save", `Assoc [ ("includeText", `Bool false) ]);
-                          ]);
-                       ("workDoneProgress", `Bool true);
-                       ("hoverProvider", `Bool true);
-                       ("definitionProvider", `Bool true);
-                       ("referencesProvider", `Bool true);
-                       ("documentSymbolProvider", `Bool true);
-                       ("completionProvider", `Assoc [ ("triggerCharacters", `List []) ]);
-                       ("workspaceSymbolProvider", `Bool true);
-                       ("documentFormattingProvider", `Bool true);
-                     ]) ]
+              let capabilities =
+                Lsp_types.ServerCapabilities.create
+                  ~textDocumentSync:
+                    (`TextDocumentSyncOptions
+                      (Lsp_types.TextDocumentSyncOptions.create ~openClose:true
+                         ~change:Lsp_types.TextDocumentSyncKind.Full
+                         ~save:(`SaveOptions (Lsp_types.SaveOptions.create ~includeText:false ()))
+                         ()))
+                  ~hoverProvider:(`Bool true)
+                  ~definitionProvider:(`Bool true)
+                  ~referencesProvider:(`Bool true)
+                  ~documentSymbolProvider:(`Bool true)
+                  ~completionProvider:(Lsp_types.CompletionOptions.create ~triggerCharacters:[] ())
+                  ~workspaceSymbolProvider:(`Bool true)
+                  ~documentFormattingProvider:(`Bool true) ()
+              in
+              Lsp_types.InitializeResult.create ~capabilities
+                ~serverInfo:(Lsp_types.InitializeResult.create_serverInfo ~name:"kairos-lsp" ~version:"1.0" ())
+                ()
+              |> Lsp_types.InitializeResult.yojson_of_t
             in
             Option.iter (fun id -> send_result stdout ~id_json:id ~result_json:result) id_json
         | Some "initialized" when not !initialized -> ()
@@ -280,7 +364,9 @@ let () =
             match params with
             | `Assoc xs -> (
                 match List.assoc_opt "id" xs with
-                | Some cid -> Hashtbl.replace canceled (id_key cid) ()
+                | Some cid -> (
+                    try Hashtbl.replace canceled (id_key (Jsonrpc.Id.t_of_yojson cid)) ()
+                    with _ -> ())
                 | None -> ())
             | _ -> ())
         | Some "shutdown" when not !initialized ->
@@ -345,18 +431,7 @@ let () =
                               | None -> `Null
                               | Some kind ->
                                   let occ = List.length (find_identifier_occurrences text ident) in
-                                  `Assoc
-                                    [
-                                      ( "contents",
-                                        `Assoc
-                                          [
-                                            ("kind", `String "markdown");
-                                            ( "value",
-                                              `String
-                                                (Printf.sprintf "`%s` (%s)\n\nOccurrences in file: %d"
-                                                   ident kind occ) );
-                                          ] );
-                                    ])
+                                  hover_json ~ident ~kind ~occurrences:occ)
                           | _ -> `Null)
                       | None -> `Null)
                   | _ -> `Null
@@ -379,11 +454,7 @@ let () =
                               | Some _ ->
                                   (match first_definition_position ~text ~ident ~symbols:syms with
                                   | Some (dl, dc1, dc2) ->
-                                      `Assoc
-                                        [
-                                          ("uri", `String u);
-                                          ("range", range_json ~line:dl ~c1:dc1 ~c2:dc2);
-                                        ]
+                                      lsp_location_json ~uri:u ~line:dl ~c1:dc1 ~c2:dc2
                                   | None -> `Null))
                           | _ -> `Null)
                       | None -> `Null)
@@ -407,11 +478,7 @@ let () =
                               | Some _ ->
                                   find_identifier_occurrences text ident
                                   |> List.map (fun (rl, rc1, rc2) ->
-                                         `Assoc
-                                           [
-                                             ("uri", `String u);
-                                             ("range", range_json ~line:rl ~c1:rc1 ~c2:rc2);
-                                           ]))
+                                         lsp_location_json ~uri:u ~line:rl ~c1:rc1 ~c2:rc2))
                           | _ -> [])
                       | None -> [])
                   | _ -> []
@@ -428,17 +495,10 @@ let () =
                       | None -> []
                       | Some text ->
                           Lsp_services.completion_items_for_text text
-                          |> List.map (fun s ->
-                                 `Assoc
-                                   [
-                                     ("label", `String s);
-                                     ("kind", `Int 6);
-                                     ("insertText", `String s);
-                                   ]))
+                          |> List.map completion_item_json)
                   | None -> []
                 in
-                send_result stdout ~id_json:id
-                  ~result_json:(`Assoc [ ("isIncomplete", `Bool false); ("items", `List items) ]))
+                send_result stdout ~id_json:id ~result_json:(completion_list_json items))
               id_json
         | Some "textDocument/documentSymbol" ->
             Option.iter
@@ -471,18 +531,7 @@ let () =
                           let line_count = max 1 (List.length lines) in
                           let new_text = Lsp_services.format_text text in
                           if new_text = text then [] else
-                            [
-                              `Assoc
-                                [
-                                  ( "range",
-                                    `Assoc
-                                      [
-                                        ("start", `Assoc [ ("line", `Int 0); ("character", `Int 0) ]);
-                                        ("end", `Assoc [ ("line", `Int line_count); ("character", `Int 0) ]);
-                                      ] );
-                                  ("newText", `String new_text);
-                                ];
-                            ]
+                            [ full_document_text_edit_json ~line_count ~new_text ]
                       | None -> [])
                   | None -> []
                 in
@@ -491,77 +540,127 @@ let () =
         | Some "kairos/outline" ->
             Option.iter
               (fun id ->
-                let uri = get_param_string params "uri" in
+                let req = decode_or_none Lsp_protocol.outline_request_of_yojson params in
+                let uri =
+                  match req with
+                  | Some req -> req.uri
+                  | None -> get_param_string params "uri"
+                in
                 let source_text =
-                  match uri with
-                  | Some u -> Option.value (Hashtbl.find_opt docs u) ~default:""
-                  | None -> Option.value (get_param_string params "sourceText") ~default:""
+                  match (req, uri) with
+                  | Some req, _ -> Option.value req.source_text ~default:""
+                  | None, Some u -> Option.value (Hashtbl.find_opt docs u) ~default:""
+                  | None, None -> Option.value (get_param_string params "sourceText") ~default:""
                 in
                 let abstract_text =
-                  Option.value (get_param_string params "abstractText") ~default:""
+                  match req with
+                  | Some req -> Option.value req.abstract_text ~default:""
+                  | None -> Option.value (get_param_string params "abstractText") ~default:""
                 in
                 let res =
-                  `Assoc
-                    [
-                      ("source", yojson_of_outline_sections (outline_sections_of_text source_text));
-                      ( "abstract",
-                        yojson_of_outline_sections (outline_sections_of_text abstract_text) );
-                    ]
+                  Lsp_protocol.yojson_of_outline_payload
+                    {
+                      source =
+                        {
+                          nodes = (outline_sections_of_text source_text).nodes;
+                          transitions = (outline_sections_of_text source_text).transitions;
+                          contracts = (outline_sections_of_text source_text).contracts;
+                        };
+                      abstract_program =
+                        {
+                          nodes = (outline_sections_of_text abstract_text).nodes;
+                          transitions = (outline_sections_of_text abstract_text).transitions;
+                          contracts = (outline_sections_of_text abstract_text).contracts;
+                        };
+                    }
                 in
                 send_result stdout ~id_json:id ~result_json:res)
               id_json
         | Some "kairos/goalsTreeFinal" ->
             Option.iter
               (fun id ->
-                let goals_json = Option.value (get_param_list params "goals") ~default:[] in
-                let vc_sources_json =
-                  Option.value (get_param_list params "vcSources") ~default:[]
-                in
-                let vc_text = Option.value (get_param_string params "vcText") ~default:"" in
-                let goals =
-                  List.filter_map (fun g -> match Lsp_protocol.goal_info_of_yojson g with Ok v -> Some v | Error _ -> None) goals_json
-                in
-                let vc_sources =
-                  List.filter_map
-                    (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
-                    vc_sources_json
-                in
-                let nodes = Lsp_services.goals_tree_final ~goals ~vc_sources ~vc_text in
-                send_result stdout ~id_json:id
-                  ~result_json:(goals_tree_json_of_nodes nodes))
+                match decode_or_none Lsp_protocol.goals_tree_final_request_of_yojson params with
+                | Some req ->
+                    let nodes =
+                      Lsp_services.goals_tree_final ~goals:req.goals ~vc_sources:req.vc_sources
+                        ~vc_text:req.vc_text
+                    in
+                    send_result stdout ~id_json:id
+                      ~result_json:(goals_tree_json_of_nodes nodes)
+                | None ->
+                    let goals_json = Option.value (get_param_list params "goals") ~default:[] in
+                    let vc_sources_json =
+                      Option.value (get_param_list params "vcSources") ~default:[]
+                    in
+                    let vc_text = Option.value (get_param_string params "vcText") ~default:"" in
+                    let goals =
+                      List.filter_map (fun g -> match Lsp_protocol.goal_info_of_yojson g with Ok v -> Some v | Error _ -> None) goals_json
+                    in
+                    let vc_sources =
+                      List.filter_map
+                        (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
+                        vc_sources_json
+                    in
+                    let nodes = Lsp_services.goals_tree_final ~goals ~vc_sources ~vc_text in
+                    send_result stdout ~id_json:id
+                      ~result_json:(goals_tree_json_of_nodes nodes))
               id_json
         | Some "kairos/goalsTreePending" ->
             Option.iter
               (fun id ->
-                let goal_names =
-                  Option.value (get_param_list params "goalNames") ~default:[]
-                  |> List.filter_map (function `String s -> Some s | _ -> None)
-                in
-                let vc_ids =
-                  Option.value (get_param_list params "vcIds") ~default:[]
-                  |> List.filter_map (function `Int i -> Some i | _ -> None)
-                in
-                let vc_sources_json =
-                  Option.value (get_param_list params "vcSources") ~default:[]
-                in
-                let vc_sources =
-                  List.filter_map
-                    (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
-                    vc_sources_json
-                in
-                let nodes =
-                  Lsp_services.goals_tree_pending ~goal_names ~vc_ids ~vc_sources
-                in
-                send_result stdout ~id_json:id
-                  ~result_json:(goals_tree_json_of_nodes nodes))
+                match decode_or_none Lsp_protocol.goals_tree_pending_request_of_yojson params with
+                | Some req ->
+                    let nodes =
+                      Lsp_services.goals_tree_pending ~goal_names:req.goal_names ~vc_ids:req.vc_ids
+                        ~vc_sources:req.vc_sources
+                    in
+                    send_result stdout ~id_json:id
+                      ~result_json:(goals_tree_json_of_nodes nodes)
+                | None ->
+                    let goal_names =
+                      Option.value (get_param_list params "goalNames") ~default:[]
+                      |> List.filter_map (function `String s -> Some s | _ -> None)
+                    in
+                    let vc_ids =
+                      Option.value (get_param_list params "vcIds") ~default:[]
+                      |> List.filter_map (function `Int i -> Some i | _ -> None)
+                    in
+                    let vc_sources_json =
+                      Option.value (get_param_list params "vcSources") ~default:[]
+                    in
+                    let vc_sources =
+                      List.filter_map
+                        (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
+                        vc_sources_json
+                    in
+                    let nodes =
+                      Lsp_services.goals_tree_pending ~goal_names ~vc_ids ~vc_sources
+                    in
+                    send_result stdout ~id_json:id
+                      ~result_json:(goals_tree_json_of_nodes nodes))
               id_json
         | Some "kairos/instrumentationPass" ->
             Option.iter
               (fun id ->
-                match get_param_string params "inputFile" with
+                let req = decode_or_none Lsp_protocol.instrumentation_pass_request_of_yojson params in
+                let input_file =
+                  match req with
+                  | Some req -> Some req.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                let generate_png =
+                  match req with
+                  | Some req -> req.generate_png
+                  | None -> get_param_bool params "generatePng" true
+                in
+                let engine =
+                  match req with
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | None -> get_engine params
+                in
+                match input_file with
                 | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.instrumentation_pass ~engine:(get_engine params)
-                            ~generate_png:(get_param_bool params "generatePng" true) ~input_file
+                    match Engine_service.instrumentation_pass ~engine ~generate_png ~input_file
                     with
                     | Ok out ->
                         send_result stdout ~id_json:id
@@ -575,9 +674,20 @@ let () =
         | Some "kairos/obcPass" ->
             Option.iter
               (fun id ->
-                match get_param_string params "inputFile" with
+                let req = decode_or_none Lsp_protocol.obc_pass_request_of_yojson params in
+                let input_file =
+                  match req with
+                  | Some req -> Some req.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                let engine =
+                  match req with
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | None -> get_engine params
+                in
+                match input_file with
                 | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.obc_pass ~engine:(get_engine params) ~input_file with
+                    match Engine_service.obc_pass ~engine ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_obc_outputs (map_obc out))
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
@@ -586,12 +696,25 @@ let () =
         | Some "kairos/whyPass" ->
             Option.iter
               (fun id ->
-                match get_param_string params "inputFile" with
+                let req = decode_or_none Lsp_protocol.why_pass_request_of_yojson params in
+                let input_file =
+                  match req with
+                  | Some req -> Some req.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                let prefix_fields =
+                  match req with
+                  | Some req -> req.prefix_fields
+                  | None -> get_param_bool params "prefixFields" false
+                in
+                let engine =
+                  match req with
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | None -> get_engine params
+                in
+                match input_file with
                 | Some input_file when Sys.file_exists input_file -> (
-                    match
-                      Engine_service.why_pass ~engine:(get_engine params)
-                        ~prefix_fields:(get_param_bool params "prefixFields" false) ~input_file
-                    with
+                    match Engine_service.why_pass ~engine ~prefix_fields ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_why_outputs (map_why out))
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
@@ -600,12 +723,30 @@ let () =
         | Some "kairos/obligationsPass" ->
             Option.iter
               (fun id ->
-                match (get_param_string params "inputFile", get_param_string params "prover") with
+                let req = decode_or_none Lsp_protocol.obligations_pass_request_of_yojson params in
+                let input_file =
+                  match req with
+                  | Some req -> Some req.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                let prover =
+                  match req with
+                  | Some req -> Some req.prover
+                  | None -> get_param_string params "prover"
+                in
+                let prefix_fields =
+                  match req with
+                  | Some req -> req.prefix_fields
+                  | None -> get_param_bool params "prefixFields" false
+                in
+                let engine =
+                  match req with
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | None -> get_engine params
+                in
+                match (input_file, prover) with
                 | Some input_file, Some prover when Sys.file_exists input_file -> (
-                    match
-                      Engine_service.obligations_pass ~engine:(get_engine params)
-                        ~prefix_fields:(get_param_bool params "prefixFields" false) ~prover ~input_file
-                    with
+                    match Engine_service.obligations_pass ~engine ~prefix_fields ~prover ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id
                           ~result_json:(Lsp_protocol.yojson_of_obligations_outputs (map_oblig out))
@@ -615,13 +756,35 @@ let () =
         | Some "kairos/evalPass" ->
             Option.iter
               (fun id ->
-                match (get_param_string params "inputFile", get_param_string params "traceText") with
+                let req = decode_or_none Lsp_protocol.eval_pass_request_of_yojson params in
+                let input_file =
+                  match req with
+                  | Some req -> Some req.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                let trace_text =
+                  match req with
+                  | Some req -> Some req.trace_text
+                  | None -> get_param_string params "traceText"
+                in
+                let with_state =
+                  match req with
+                  | Some req -> req.with_state
+                  | None -> get_param_bool params "withState" false
+                in
+                let with_locals =
+                  match req with
+                  | Some req -> req.with_locals
+                  | None -> get_param_bool params "withLocals" false
+                in
+                let engine =
+                  match req with
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | None -> get_engine params
+                in
+                match (input_file, trace_text) with
                 | Some input_file, Some trace_text when Sys.file_exists input_file -> (
-                    match
-                      Engine_service.eval_pass ~engine:(get_engine params) ~input_file ~trace_text
-                        ~with_state:(get_param_bool params "withState" false)
-                        ~with_locals:(get_param_bool params "withLocals" false)
-                    with
+                    match Engine_service.eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals with
                     | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/traceText")
@@ -629,7 +792,12 @@ let () =
         | Some "kairos/dotPngFromText" ->
             Option.iter
               (fun id ->
-                match get_param_string params "dotText" with
+                let dot =
+                  match decode_or_none Lsp_protocol.dot_png_from_text_request_of_yojson params with
+                  | Some req -> Some req.dot_text
+                  | None -> get_param_string params "dotText"
+                in
+                match dot with
                 | Some dot ->
                     let out = Pipeline.dot_png_from_text dot in
                     send_result stdout ~id_json:id
@@ -643,7 +811,13 @@ let () =
                 if Hashtbl.mem canceled req_key then
                   send_error stdout ~id_json:(Some id) ~code:(-32800) ~message:"Request cancelled"
                 else
-                match get_param_string params "inputFile" with
+                let cfg_from_protocol = decode_or_none Lsp_protocol.config_of_yojson params in
+                let input_file =
+                  match cfg_from_protocol with
+                  | Some cfg -> Some cfg.input_file
+                  | None -> get_param_string params "inputFile"
+                in
+                match input_file with
                 | Some input_file when Sys.file_exists input_file ->
                     let progress_token = "kairos-run-" ^ string_of_int !next_server_req_id in
                     if !supports_work_done_progress then (
@@ -654,48 +828,97 @@ let () =
                       send_work_done_begin stdout ~token:progress_token ~title:"Kairos run"
                         ~message:"Starting");
                     let cfg : Pipeline.config =
-                      {
-                        input_file;
-                        prover = Option.value (get_param_string params "prover") ~default:"z3";
-                        prover_cmd = get_param_string params "proverCmd";
-                        wp_only = get_param_bool params "wpOnly" false;
-                        smoke_tests = get_param_bool params "smokeTests" false;
-                        timeout_s = get_param_int params "timeoutS" 5;
-                        prefix_fields = get_param_bool params "prefixFields" false;
-                        prove = get_param_bool params "prove" true;
-                        generate_vc_text = get_param_bool params "generateVcText" true;
-                        generate_smt_text = get_param_bool params "generateSmtText" true;
-                        generate_monitor_text = get_param_bool params "generateMonitorText" true;
-                        generate_dot_png = get_param_bool params "generateDotPng" true;
-                      }
+                      match cfg_from_protocol with
+                      | Some cfg ->
+                          let cfg = pipeline_config_of_protocol cfg in
+                          { cfg with input_file }
+                      | None ->
+                          {
+                            input_file;
+                            prover = Option.value (get_param_string params "prover") ~default:"z3";
+                            prover_cmd = get_param_string params "proverCmd";
+                            wp_only = get_param_bool params "wpOnly" false;
+                            smoke_tests = get_param_bool params "smokeTests" false;
+                            timeout_s = get_param_int params "timeoutS" 5;
+                            max_proof_goals =
+                              (match get_param_int params "maxProofGoals" (-1) with
+                              | n when n >= 0 -> Some n
+                              | _ -> None);
+                            selected_goal_index =
+                              (match get_param_int params "selectedGoalIndex" (-1) with
+                              | n when n >= 0 -> Some n
+                              | _ -> None);
+                            compute_proof_diagnostics =
+                              get_param_bool params "computeProofDiagnostics" false;
+                            prefix_fields = get_param_bool params "prefixFields" false;
+                            prove = get_param_bool params "prove" true;
+                            generate_vc_text = get_param_bool params "generateVcText" true;
+                            generate_smt_text = get_param_bool params "generateSmtText" true;
+                            generate_monitor_text = get_param_bool params "generateMonitorText" true;
+                            generate_dot_png = get_param_bool params "generateDotPng" true;
+                          }
                     in
-                    let engine = get_engine params in
+                    let engine =
+                      match cfg_from_protocol with
+                      | Some cfg -> Option.value (Engine_service.engine_of_string cfg.engine) ~default:Engine_service.V2
+                      | None -> get_engine params
+                    in
+                    if !supports_work_done_progress then
+                      send_work_done_report stdout ~token:progress_token
+                        ~message:
+                          (if cfg.prove then "Building proof artifacts (OBC+/Why/VC) ..."
+                           else "Building Kairos artifacts ...");
+                    let completed_goals = ref 0 in
+                    let total_goals = ref 0 in
                     let on_outputs_ready out =
                       if !supports_work_done_progress then
-                        send_work_done_report stdout ~token:progress_token ~message:"Outputs ready";
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if cfg.prove then
+                               "Artifacts ready; publishing proof goals and solver results ..."
+                             else "Artifacts ready");
+                      let payload : Lsp_protocol.outputs_ready_notification =
+                        {
+                          request_id = protocol_request_id id;
+                          payload = map_outputs out;
+                        }
+                      in
                       send_notification stdout ~method_name:"kairos/outputsReady"
-                        ~params_json:
-                          (`Assoc [ ("requestId", id); ("payload", Lsp_protocol.yojson_of_outputs (map_outputs out)) ])
+                        ~params_json:(Lsp_protocol.yojson_of_outputs_ready_notification payload)
                     in
                     let on_goals_ready (names, vc_ids) =
+                      total_goals := max (List.length names) (List.length vc_ids);
+                      if !supports_work_done_progress then
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if !total_goals > 0 then
+                               Printf.sprintf "Publishing %d proof goals ..." !total_goals
+                             else "Publishing proof goals ...");
+                      let payload : Lsp_protocol.goals_ready_notification =
+                        {
+                          request_id = protocol_request_id id;
+                          payload = { names; vc_ids };
+                        }
+                      in
                       send_notification stdout ~method_name:"kairos/goalsReady"
-                        ~params_json:
-                          (`Assoc
-                            [ ("requestId", id);
-                              ("payload", `Assoc [ ("names", `List (List.map (fun s -> `String s) names)); ("vcIds", `List (List.map (fun i -> `Int i) vc_ids)) ]) ])
+                        ~params_json:(Lsp_protocol.yojson_of_goals_ready_notification payload)
                     in
                     let on_goal_done idx goal status time_s dump_path source vcid =
+                      incr completed_goals;
+                      if !supports_work_done_progress then
+                        send_work_done_report stdout ~token:progress_token
+                          ~message:
+                            (if !total_goals > 0 then
+                               Printf.sprintf "Goal %d/%d: %s" !completed_goals !total_goals status
+                             else Printf.sprintf "Goal %d: %s" (idx + 1) status);
+                      let payload : Lsp_protocol.goal_done_notification =
+                        {
+                          request_id = protocol_request_id id;
+                          payload = { idx; goal; status; time_s; dump_path; source; vcid };
+                        }
+                      in
                       send_notification stdout ~method_name:"kairos/goalDone"
-                        ~params_json:
-                          (`Assoc
-                            [ ("requestId", id);
-                              ("payload",
-                               `Assoc
-                                 [ ("idx", `Int idx); ("goal", `String goal); ("status", `String status);
-                                   ("time_s", `Float time_s);
-                                   ("dump_path", Option.value (Option.map (fun s -> `String s) dump_path) ~default:`Null);
-                                   ("source", `String source);
-                                   ("vcid", Option.value (Option.map (fun s -> `String s) vcid) ~default:`Null) ]) ])
+                        ~params_json:(Lsp_protocol.yojson_of_goal_done_notification payload)
                     in
                     (match
                        Engine_service.run_with_callbacks ~engine

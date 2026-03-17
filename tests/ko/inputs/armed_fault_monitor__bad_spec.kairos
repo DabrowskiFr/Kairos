@@ -1,0 +1,58 @@
+node armed_fault_monitor(arm: int, fault: int) returns (alarm: int, safe: int)
+contracts
+  requires: G (fault = 0 or fault = 1);
+  ensures: G (undefined_spec_symbol = 0);
+locals
+  armed: int;
+states
+  Init(init), Disarmed, Armed;
+invariants
+  in Disarmed:
+    armed = 0;
+  in Armed:
+    armed = 1;
+transitions
+  Init:
+    to Armed when arm = 1 {
+      armed := 1;
+      if fault = 1 then
+        alarm := 1;
+        safe := 0;
+      else
+        alarm := 0;
+        safe := 1;
+      end;
+    }
+    to Disarmed when arm = 0 {
+      armed := 0;
+      alarm := 0;
+      safe := 0;
+    }
+  Disarmed:
+    to Armed when arm = 1 {
+      armed := 1;
+      if fault = 1 then
+        alarm := 1;
+        safe := 0;
+      else
+        alarm := 0;
+        safe := 1;
+      end;
+    }
+    to Disarmed when arm = 0 {
+      armed := 0;
+      alarm := 0;
+      safe := 0;
+    }
+  Armed:
+    to Armed {
+      armed := 1;
+      if fault = 1 then
+        alarm := 1;
+        safe := 0;
+      else
+        alarm := 0;
+        safe := 1;
+      end;
+    }
+end

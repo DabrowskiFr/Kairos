@@ -23,7 +23,7 @@ open Ptree
 open Ast
 open Ast_builders
 
-type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty }
+type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty } [@@deriving yojson]
 
 type env = {
   rec_name : string;
@@ -44,6 +44,10 @@ let infix_ident (s : string) : Ptree.ident =
 let qid1 (s : string) : Ptree.qualid = Ptree.Qident (ident s)
 let qdot (q : Ptree.qualid) (s : string) : Ptree.qualid = Ptree.Qdot (q, ident s)
 let module_name_of_node (name : ident) : string = String.capitalize_ascii name
+let instance_state_type_name (name : ident) : string = String.lowercase_ascii name ^ "_state"
+let instance_vars_type_name (name : ident) : string = String.lowercase_ascii name ^ "_vars"
+let instance_state_ctor_name (node_name : ident) (state_name : ident) : string =
+  module_name_of_node node_name ^ "_" ^ state_name
 let prefix_for_node (name : ident) : string = "__" ^ String.lowercase_ascii name ^ "_"
 let pre_input_name (name : ident) : string = "__pre_in_" ^ name
 let pre_input_old_name (name : ident) : string = "__pre_old_" ^ name
@@ -361,6 +365,79 @@ let uniq_terms (terms : Ptree.term list) : Ptree.term list =
   in
   aux [] [] terms
 
+let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
+  let rebuild_with_attrs attrs body =
+    List.fold_right (fun attr acc -> mk_term (Tattr (attr, acc))) attrs body
+  in
+  let rec strip_attrs acc (term : Ptree.term) =
+    match term.term_desc with
+    | Tattr (attr, inner) -> strip_attrs (attr :: acc) inner
+    | _ -> (List.rev acc, term)
+  in
+  let attrs, core = strip_attrs [] t in
+  let simplified_core =
+    match core.term_desc with
+    | Tattr _ -> assert false
+    | Tnot a -> begin
+        match (simplify_term_bool a).term_desc with
+        | Ttrue -> mk_term Tfalse
+        | Tfalse -> mk_term Ttrue
+        | Tnot inner -> inner
+        | _ -> mk_term (Tnot (simplify_term_bool a))
+      end
+    | Tbinop (a, Dterm.DTand, b) ->
+        let a = simplify_term_bool a in
+        let b = simplify_term_bool b in
+        begin
+          match (a.term_desc, b.term_desc) with
+          | Tfalse, _ | _, Tfalse -> mk_term Tfalse
+          | Ttrue, _ -> b
+          | _, Ttrue -> a
+          | _ when string_of_term a = string_of_term b -> a
+          | _ -> mk_term (Tbinop (a, Dterm.DTand, b))
+        end
+    | Tbinop (a, Dterm.DTor, b) ->
+        let a = simplify_term_bool a in
+        let b = simplify_term_bool b in
+        begin
+          match (a.term_desc, b.term_desc) with
+          | Ttrue, _ | _, Ttrue -> mk_term Ttrue
+          | Tfalse, _ -> b
+          | _, Tfalse -> a
+          | _ when string_of_term a = string_of_term b -> a
+          | _ -> mk_term (Tbinop (a, Dterm.DTor, b))
+        end
+    | Tbinop (a, Dterm.DTimplies, b) ->
+        let a = simplify_term_bool a in
+        let b = simplify_term_bool b in
+        begin
+          match (a.term_desc, b.term_desc) with
+          | Tfalse, _ | _, Ttrue -> mk_term Ttrue
+          | Ttrue, _ -> b
+          | _, Tfalse -> mk_term (Tnot a) |> simplify_term_bool
+          | _ when string_of_term a = string_of_term b -> mk_term Ttrue
+          | _ -> mk_term (Tbinop (a, Dterm.DTimplies, b))
+        end
+    | Tbinop (a, op, b) -> mk_term (Tbinop (simplify_term_bool a, op, simplify_term_bool b))
+    | Tinnfix (a, op, b) -> mk_term (Tinnfix (simplify_term_bool a, op, simplify_term_bool b))
+    | Tapply (f, a) -> mk_term (Tapply (simplify_term_bool f, simplify_term_bool a))
+    | Tidapp (q, args) -> mk_term (Tidapp (q, List.map simplify_term_bool args))
+    | Tif (c, t1, t2) ->
+        let c = simplify_term_bool c in
+        let t1 = simplify_term_bool t1 in
+        let t2 = simplify_term_bool t2 in
+        begin
+          match c.term_desc with
+          | Ttrue -> t1
+          | Tfalse -> t2
+          | _ when string_of_term t1 = string_of_term t2 -> t1
+          | _ -> mk_term (Tif (c, t1, t2))
+        end
+    | Ttuple ts -> mk_term (Ttuple (List.map simplify_term_bool ts))
+    | _ -> core
+  in
+  rebuild_with_attrs attrs simplified_core
+
 let term_of_var (env : env) (name : ident) : Ptree.term = mk_term (term_var env name)
 
 let relop_id (r : relop) : string =
@@ -368,16 +445,19 @@ let relop_id (r : relop) : string =
 
 let term_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (var_name : ident) :
     Ptree.term =
-  let inst_field = rec_var_name env inst_name in
   let inst_prefix = prefix_for_node node_name in
   let inner_field = inst_prefix ^ var_name in
-  let base = qdot (qid1 env.rec_name) inst_field in
-  mk_term (Tident (qdot base inner_field))
+  let inst_term =
+    if List.mem inst_name env.rec_vars then term_of_var env inst_name
+    else mk_term (Tident (qid1 inst_name))
+  in
+  mk_term (Tapply (mk_term (Tident (qid1 ("logic_" ^ inner_field))), inst_term))
 
 let expr_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (var_name : ident) :
     Ptree.expr =
-  let inst_field = rec_var_name env inst_name in
   let inst_prefix = prefix_for_node node_name in
   let inner_field = inst_prefix ^ var_name in
-  let base = qdot (qid1 env.rec_name) inst_field in
-  mk_expr (Eident (qdot base inner_field))
+  let inst_expr =
+    if List.mem inst_name env.rec_vars then field env inst_name else mk_expr (Eident (qid1 inst_name))
+  in
+  apply_expr (mk_expr (Eident (qid1 ("get_" ^ inner_field)))) [ inst_expr ]

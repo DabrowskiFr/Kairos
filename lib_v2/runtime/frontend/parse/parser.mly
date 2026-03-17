@@ -1,5 +1,6 @@
 %{
 open Ast
+open Source_file
 
 let expect_now h =
   match h with
@@ -87,6 +88,7 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %token INVARIANTS
 %token CONTRACTS
 %token LET
+%token IMPORT
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP
 %token WHEN
@@ -104,17 +106,37 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %token EQ NEQ LT LE GT GE
 %token <int> INT
 %token <string> IDENT
+%token <string> STRING
 %token EOF
 
 %nonassoc IEXPR_ARITH
 %nonassoc RPAREN
 
 %start <Ast.program> program
+%start <Source_file.t> source_file
 
 %%
 
+source_file:
+  | imports_opt nodes EOF { { imports = $1; nodes = $2 } }
+
 program:
-  | nodes EOF { $1 }
+  | imports_opt nodes EOF { $2 }
+
+imports_opt:
+  | /* empty */ { [] }
+  | import_decls { $1 }
+
+import_decls:
+  | import_decl import_decls { $1 :: $2 }
+  | import_decl { [ $1 ] }
+
+import_decl:
+  | IMPORT STRING SEMI
+      {
+        { import_path = $2;
+          import_loc = Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)) }
+      }
 
 nodes:
   | node nodes { $1 :: $2 }

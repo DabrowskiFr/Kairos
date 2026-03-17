@@ -13,6 +13,42 @@ type summary = {
 
 type result = { status : int; summary : summary }
 
+type sequent_term = {
+  text : string;
+  symbols : string list;
+  operators : string list;
+  quantifiers : string list;
+  has_arithmetic : bool;
+  term_size : int;
+  hypothesis_ids : int list;
+  origin_labels : string list;
+  hypothesis_kind : string option;
+}
+
+type structured_sequent = {
+  hypotheses : sequent_term list;
+  goal : sequent_term;
+}
+
+type failing_hypothesis_core = {
+  kept_hypothesis_ids : int list;
+  removed_hypothesis_ids : int list;
+}
+
+type native_unsat_core = {
+  solver : string;
+  hypothesis_ids : int list;
+  smt_text : string;
+}
+
+type native_solver_probe = {
+  solver : string;
+  status : string;
+  detail : string option;
+  model_text : string option;
+  smt_text : string;
+}
+
 let empty_summary = { total = 0; valid = 0; invalid = 0; unknown = 0; timeout = 0; failure = 0 }
 
 let finalize_summary summary =
@@ -51,18 +87,121 @@ let normalize_tasks ~(env : Env.env) ~(text : string) : Task.task list =
 let split_vc_tasks ~(env : Env.env) ~(text : string) : Task.task list =
   tasks_of_text ~env ~filename:"<generated>" ~text |> apply_transform "split_vc" env
 
-let extract_wids_from_attrs (attrs : Ident.Sattr.t) : int list =
+let extract_trace_ids_from_attrs (attrs : Ident.Sattr.t) : int list =
   Ident.Sattr.elements attrs
   |> List.filter_map (fun attr ->
          let s = attr.Ident.attr_string in
-         if String.length s >= 4 && String.sub s 0 4 = "wid:" then
-           try Some (int_of_string (String.sub s 4 (String.length s - 4))) with _ -> None
+         let parse_with_prefix prefix =
+           let plen = String.length prefix in
+           if String.length s >= plen && String.sub s 0 plen = prefix then
+             try Some (int_of_string (String.sub s plen (String.length s - plen))) with _ -> None
+           else None
+         in
+         match parse_with_prefix "wid:" with
+         | Some _ as id -> id
+         | None -> parse_with_prefix "rid:")
+
+let extract_hypothesis_ids_from_attrs (attrs : Ident.Sattr.t) : int list =
+  Ident.Sattr.elements attrs
+  |> List.filter_map (fun attr ->
+         let s = attr.Ident.attr_string in
+         let prefix = "hid:" in
+         let plen = String.length prefix in
+         if String.length s >= plen && String.sub s 0 plen = prefix then
+           int_of_string_opt (String.sub s plen (String.length s - plen))
          else None)
+
+let unique_preserve_order_strings xs =
+  let seen = Hashtbl.create 16 in
+  List.filter
+    (fun x ->
+      if x = "" || Hashtbl.mem seen x then false
+      else (
+        Hashtbl.replace seen x ();
+        true))
+    xs
+
+let unique_preserve_order_ints xs =
+  let seen = Hashtbl.create 16 in
+  List.filter
+    (fun x ->
+      if Hashtbl.mem seen x then false
+      else (
+        Hashtbl.replace seen x ();
+        true))
+    xs
+
+let take n xs =
+  let rec loop acc remaining = function
+    | _ when remaining <= 0 -> List.rev acc
+    | [] -> List.rev acc
+    | x :: rest -> loop (x :: acc) (remaining - 1) rest
+  in
+  loop [] n xs
+
+let status_of_answer = function
+  | Call_provers.Valid -> "valid"
+  | Call_provers.Invalid -> "invalid"
+  | Call_provers.Timeout -> "timeout"
+  | Call_provers.StepLimitExceeded -> "timeout"
+  | Call_provers.Unknown _ -> "unknown"
+  | Call_provers.OutOfMemory -> "oom"
+  | Call_provers.Failure _ -> "failure"
+  | Call_provers.HighFailure _ -> "failure"
+
+let slurp_process_output (ic : in_channel) : string list =
+  let rec loop acc =
+    match input_line ic with
+    | line -> loop (line :: acc)
+    | exception End_of_file -> List.rev acc
+  in
+  loop []
+
+let classify_z3_lines (lines : string list) : Call_provers.prover_answer =
+  let normalize s = String.lowercase_ascii (String.trim s) in
+  let rec pick = function
+    | [] -> None
+    | line :: rest ->
+        let s = normalize line in
+        if s = "unsat" || s = "sat" || s = "unknown" then Some s else pick rest
+  in
+  match pick (List.rev lines) with
+  | Some "unsat" -> Call_provers.Valid
+  | Some "sat" -> Call_provers.Invalid
+  | Some "unknown" -> Call_provers.Unknown "unknown"
+  | Some other -> Call_provers.Failure other
+  | None -> Call_provers.Failure (String.concat "\n" lines)
+
+let prove_single_task_status ~(driver : Driver.driver) ~(main : Whyconf.main)
+    ~(limits : Call_provers.resource_limits) ~(command : string) ~(use_direct_z3 : bool)
+    ~(prove_with_z3_direct : Buffer.t -> Call_provers.prover_answer) (task : Task.task) : string =
+  let prepared = Driver.prepare_task driver task in
+  let buffer = Buffer.create 4096 in
+  let fmt = Format.formatter_of_buffer buffer in
+  let printing_info = Driver.print_task_prepared driver fmt prepared in
+  Format.pp_print_flush fmt ();
+  let goal_name =
+    try
+      let pr = Task.task_goal prepared in
+      pr.Decl.pr_name.Ident.id_string
+    with _ -> "goal"
+  in
+  let answer =
+    if use_direct_z3 then prove_with_z3_direct buffer
+    else
+      let call =
+        Driver.prove_buffer_prepared ~command ~config:main ~limits ~theory_name:"generated"
+          ~goal_name ~get_model:printing_info driver buffer
+      in
+      let result = Call_provers.wait_on_call call in
+      result.Call_provers.pr_answer
+  in
+  status_of_answer answer
 
 let task_wids_deep (task : Task.task) : int list =
   let wids = ref [] in
   let add_wids attrs =
-    extract_wids_from_attrs attrs
+    extract_trace_ids_from_attrs attrs
     |> List.iter (fun w -> if List.mem w !wids then () else wids := w :: !wids)
   in
   let add_wids_from_term (t : Term.term) =
@@ -222,7 +361,10 @@ let rec prove_text ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : strin
     | Some cmd -> cmd
     | None -> Whyconf.get_complete_command prover_cfg ~with_steps:false
   in
-  let use_direct_z3 = if override_cmd <> None then false else use_direct_z3 in
+  let use_direct_z3 =
+    if override_cmd <> None then false
+    else use_direct_z3 || String.equal (String.lowercase_ascii prover) "z3"
+  in
   let prove_with_z3_direct buffer =
     let tmp = Filename.temp_file "why3_task_" ".smt2" in
     let oc = open_out tmp in
@@ -230,14 +372,10 @@ let rec prove_text ?(timeout = 30) ?prover_cmd ~(prover : string) ~(text : strin
     close_out oc;
     let cmd = Printf.sprintf "z3 -smt2 -T:%d %s" timeout (Filename.quote tmp) in
     let ic = Unix.open_process_in cmd in
-    let output = try input_line ic with End_of_file -> "" in
+    let output_lines = slurp_process_output ic in
     ignore (Unix.close_process_in ic);
     Sys.remove tmp;
-    let out = String.lowercase_ascii output in
-    if String.equal out "unsat" then Call_provers.Valid
-    else if String.equal out "sat" then Call_provers.Invalid
-    else if String.equal out "unknown" then Call_provers.Unknown "unknown"
-    else Call_provers.Failure output
+    classify_z3_lines output_lines
   in
   let summary, _details =
     prove_tasks_with_details ~write_text ~driver ~main ~limits ~command ~use_direct_z3
@@ -540,6 +678,276 @@ let task_sequents ~(text : string) : (string list * string) list =
   in
   List.map task_to_sequent tasks
 
+let task_structured_sequents ~(text : string) : structured_sequent list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  let tasks = normalize_tasks ~env ~text in
+  let term_to_string (t : Term.term) =
+    let buf = Buffer.create 256 in
+    let fmt = Format.formatter_of_buffer buf in
+    Pretty.print_term fmt t;
+    Format.pp_print_flush fmt ();
+    Buffer.contents buf
+  in
+  let is_arithmetic_name name =
+    match name with
+    | "+" | "-" | "*" | "/" | "<" | "<=" | ">" | ">=" -> true
+    | _ -> String.equal name "infix +" || String.equal name "infix -" || String.equal name "infix *"
+  in
+  let analyze_term (t : Term.term) : sequent_term =
+    let symbols = ref [] in
+    let operators = ref [] in
+    let quantifiers = ref [] in
+    let has_arithmetic = ref false in
+    let term_size = ref 0 in
+    let hypothesis_ids = ref [] in
+    let origin_labels = ref [] in
+    let hypothesis_kind = ref None in
+    let push acc value = acc := value :: !acc in
+    let add_attrs (attrs : Ident.Sattr.t) =
+      hypothesis_ids := extract_hypothesis_ids_from_attrs attrs @ !hypothesis_ids;
+      origin_labels := origin_labels_of_attrs attrs @ !origin_labels;
+      match (!hypothesis_kind, hyp_kind_of_attrs attrs) with
+      | None, Some kind -> hypothesis_kind := Some kind
+      | _ -> ()
+    in
+    add_attrs t.Term.t_attrs;
+    let record_ls (ls : Term.lsymbol) =
+      let name = ls.Term.ls_name.Ident.id_string in
+      if name <> "" then (
+        push symbols name;
+        if ls.Term.ls_value <> None then push operators name;
+        if is_arithmetic_name name then has_arithmetic := true)
+    in
+    let record_vs (vs : Term.vsymbol) =
+      let name = vs.Term.vs_name.Ident.id_string in
+      if name <> "" then push symbols name
+    in
+    ignore
+      (Term.t_fold
+         (fun () tm ->
+           incr term_size;
+           add_attrs tm.Term.t_attrs;
+           begin
+             match tm.Term.t_node with
+             | Term.Tvar vs -> record_vs vs
+             | Term.Tapp (ls, args) ->
+                 record_ls ls;
+                 if args = [] && String.length ls.Term.ls_name.Ident.id_string > 0 then
+                   push operators ls.Term.ls_name.Ident.id_string
+             | Term.Tquant (q, tq) ->
+                 let qname =
+                   match q with
+                   | Term.Tforall -> "forall"
+                   | Term.Texists -> "exists"
+                 in
+                 push quantifiers qname;
+                 ignore tq
+             | Term.Tlet (_tb, _body) -> push operators "let"
+             | Term.Tcase (_head, branches) ->
+                 if branches <> [] then push operators "case"
+             | Term.Tif (_c, _t1, _t2) -> push operators "if"
+             | Term.Teps _tb -> push quantifiers "eps"
+             | _ -> ()
+           end;
+           ())
+         () t);
+    {
+      text = term_to_string t;
+      symbols = unique_preserve_order_strings (List.rev !symbols);
+      operators = unique_preserve_order_strings (List.rev !operators);
+      quantifiers = unique_preserve_order_strings (List.rev !quantifiers);
+      has_arithmetic = !has_arithmetic;
+      term_size = !term_size;
+      hypothesis_ids = unique_preserve_order_ints (List.rev !hypothesis_ids);
+      origin_labels = unique_preserve_order_strings (List.rev !origin_labels);
+      hypothesis_kind = !hypothesis_kind;
+    }
+  in
+  let task_to_structured task =
+    let goal_pr = Task.task_goal task in
+    let goal_term = Task.task_goal_fmla task in
+    let hypotheses =
+      Task.task_decls task
+      |> List.filter_map (fun decl ->
+             match decl.Decl.d_node with
+             | Decl.Dprop (_kind, pr, t) ->
+                 if Decl.pr_equal pr goal_pr then None
+                 else
+                   let has_local_news = not (Ident.Sid.is_empty decl.Decl.d_news) in
+                   if has_local_news then Some (analyze_term t) else None
+             | _ -> None)
+    in
+    { hypotheses; goal = analyze_term goal_term }
+  in
+  List.map task_to_structured tasks
+
+let minimize_failing_hypotheses ?(timeout = 5) ?prover_cmd ~(prover : string) ~(text : string)
+    ~(goal_index : int) () : failing_hypothesis_core option =
+  let config, main, env, datadir_opt = setup_env () in
+  let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
+  match List.nth_opt tasks_with_wids goal_index with
+  | None -> None
+  | Some (task, _wids) ->
+      let filter = Whyconf.parse_filter_prover prover |> Whyconf.filter_prover_with_shortcut config in
+      let fallback_z3 () =
+        let is_z3 = String.equal (String.lowercase_ascii prover) "z3" in
+        if not is_z3 then None
+        else
+          match datadir_opt with
+          | None -> None
+          | Some datadir ->
+              let driver_file = Filename.concat datadir "drivers/z3.drv" in
+              if not (Sys.file_exists driver_file) then None
+              else
+                let z3_ok = Sys.command "z3 -version > /dev/null 2>&1" = 0 in
+                if not z3_ok then None
+                else
+                  Some
+                    {
+                      Whyconf.prover = { prover_name = "Z3"; prover_version = ""; prover_altern = "" };
+                      command = "z3 -smt2 -T:%t %f";
+                      command_steps = None;
+                      driver = (None, driver_file);
+                      in_place = false;
+                      editor = "";
+                      interactive = false;
+                      extra_options = [];
+                      extra_drivers = [];
+                    }
+      in
+      let prover_cfg, use_direct_z3 =
+        try (Whyconf.filter_one_prover config filter, false)
+        with Whyconf.ProverNotFound _ ->
+          begin match fallback_z3 () with
+          | Some prover_cfg -> (prover_cfg, true)
+          | None ->
+              let _ = Sys.command "why3 config detect > /dev/null 2>&1" in
+              let cfg = load_config () in
+              (Whyconf.filter_one_prover cfg filter, false)
+          end
+      in
+      let driver = Driver.load_driver_for_prover main env prover_cfg in
+      let limits =
+        {
+          Call_provers.empty_limits with
+          limit_time = float_of_int timeout;
+          limit_mem = Whyconf.memlimit main;
+        }
+      in
+      let override_cmd =
+        match prover_cmd with Some s when String.trim s <> "" -> Some s | _ -> None
+      in
+      let command =
+        match override_cmd with
+        | Some cmd -> cmd
+        | None -> Whyconf.get_complete_command prover_cfg ~with_steps:false
+      in
+      let use_direct_z3 = if override_cmd <> None then false else use_direct_z3 in
+      let prove_with_z3_direct buffer =
+        let tmp = Filename.temp_file "why3_task_" ".smt2" in
+        let oc = open_out tmp in
+        output_string oc (Buffer.contents buffer);
+        close_out oc;
+        let cmd = Printf.sprintf "z3 -smt2 -T:%d %s" timeout (Filename.quote tmp) in
+        let ic = Unix.open_process_in cmd in
+        let output = try input_line ic with End_of_file -> "" in
+        ignore (Unix.close_process_in ic);
+        Sys.remove tmp;
+        let out = String.lowercase_ascii output in
+        if String.equal out "unsat" then Call_provers.Valid
+        else if String.equal out "sat" then Call_provers.Invalid
+        else if String.equal out "unknown" then Call_provers.Unknown "unknown"
+        else Call_provers.Failure output
+      in
+      let original_status =
+        prove_single_task_status ~driver ~main ~limits ~command ~use_direct_z3 ~prove_with_z3_direct
+          task
+      in
+      if original_status = "valid" then None
+      else
+        let decl_hids (decl : Decl.decl) =
+          match decl.Decl.d_node with
+          | Decl.Dprop (_kind, _pr, t) -> extract_hypothesis_ids_from_attrs t.Term.t_attrs
+          | _ -> []
+        in
+        let tdecl_hids (td : Theory.tdecl) =
+          match td.Theory.td_node with
+          | Theory.Decl decl -> decl_hids decl
+          | _ -> []
+        in
+        let goal_td, prefix = Task.task_separate_goal task in
+        let prefix_tdecls = Task.task_tdecls prefix in
+        let candidate_hids =
+          prefix_tdecls
+          |> List.concat_map tdecl_hids
+          |> unique_preserve_order_ints
+          |> take 10
+        in
+        if candidate_hids = [] then
+          Some { kept_hypothesis_ids = []; removed_hypothesis_ids = [] }
+        else
+          let rebuild_task active_hids =
+            let active_tbl = Hashtbl.create 16 in
+            List.iter (fun id -> Hashtbl.replace active_tbl id ()) active_hids;
+            let keep_tdecl td =
+              let hids = tdecl_hids td in
+              hids = [] || List.exists (fun id -> Hashtbl.mem active_tbl id) hids
+            in
+            let rebuilt_prefix =
+              List.fold_left
+                (fun acc td -> if keep_tdecl td then Task.add_tdecl acc td else acc)
+                None prefix_tdecls
+            in
+            Task.add_tdecl rebuilt_prefix goal_td
+          in
+          let keeps_failure active_hids =
+            let rebuilt = rebuild_task active_hids in
+            let status =
+              prove_single_task_status ~driver ~main ~limits ~command ~use_direct_z3
+                ~prove_with_z3_direct rebuilt
+            in
+            status <> "valid"
+          in
+          let split_in_halves xs =
+            let len = List.length xs in
+            let half = max 1 (len / 2) in
+            let rec take_drop acc n ys =
+              if n <= 0 then (List.rev acc, ys)
+              else
+                match ys with
+                | [] -> (List.rev acc, [])
+                | y :: rest -> take_drop (y :: acc) (n - 1) rest
+            in
+            take_drop [] half xs
+          in
+          let rec eliminate_groups active removed =
+            if List.length active <= 1 then (active, removed)
+            else
+              let left, right = split_in_halves active in
+              let try_remove group =
+                let remaining = List.filter (fun id -> not (List.mem id group)) active in
+                if remaining <> [] && keeps_failure remaining then Some (remaining, List.rev_append group removed)
+                else None
+              in
+              match try_remove left with
+              | Some (active', removed') -> eliminate_groups active' removed'
+              | None -> begin
+                  match try_remove right with
+                  | Some (active', removed') -> eliminate_groups active' removed'
+                  | None -> (active, removed)
+                end
+          in
+          let rec greedy active removed = function
+            | [] -> { kept_hypothesis_ids = active; removed_hypothesis_ids = List.rev removed }
+            | hid :: rest ->
+                let active_without = List.filter (fun id -> id <> hid) active in
+                if active_without <> [] && keeps_failure active_without then
+                  greedy active_without (hid :: removed) rest
+                else greedy active removed rest
+          in
+          let grouped_active, grouped_removed = eliminate_groups candidate_hids [] in
+          Some (greedy grouped_active grouped_removed grouped_active)
+
 let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
   let config, main, env, datadir_opt = setup_env () in
   let filter = Whyconf.parse_filter_prover prover |> Whyconf.filter_prover_with_shortcut config in
@@ -591,6 +999,197 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
     Buffer.contents buffer
   in
   List.map (fun (t, _wids) -> task_to_smt2 t) tasks_with_wids
+
+let top_level_asserts (text : string) : (int * int) list =
+  let len = String.length text in
+  let rec loop i depth start acc =
+    if i >= len then List.rev acc
+    else
+      match text.[i] with
+      | '(' ->
+          if depth = 0 && i + 7 <= len && String.sub text i 7 = "(assert" then
+            loop (i + 1) 1 i acc
+          else loop (i + 1) (depth + 1) start acc
+      | ')' ->
+          if depth = 1 && start >= 0 then loop (i + 1) 0 (-1) ((start, i + 1) :: acc)
+          else loop (i + 1) (max 0 (depth - 1)) start acc
+      | _ -> loop (i + 1) depth start acc
+  in
+  loop 0 0 (-1) []
+
+let hypothesis_ids_of_task (task : Task.task) : int option list =
+  let goal_pr = Task.task_goal task in
+  Task.task_decls task
+  |> List.filter_map (fun decl ->
+         match decl.Decl.d_node with
+         | Decl.Dprop (_kind, pr, t) ->
+             if Decl.pr_equal pr goal_pr then None
+             else
+               let has_local_news = not (Ident.Sid.is_empty decl.Decl.d_news) in
+               if not has_local_news then None
+               else
+                 let ids = extract_hypothesis_ids_from_attrs t.Term.t_attrs |> unique_preserve_order_ints in
+                 Some (match ids with id :: _ -> Some id | [] -> None)
+         | _ -> None)
+
+let build_named_unsat_core_smt ~(task : Task.task) ~(smt_text : string) : string option =
+  let hypothesis_ids = hypothesis_ids_of_task task in
+  let assert_spans = top_level_asserts smt_text in
+  let assert_count = List.length assert_spans in
+  let hypothesis_count = List.length hypothesis_ids in
+  if hypothesis_count = 0 || assert_count < hypothesis_count + 1 then None
+  else
+    let named_start = assert_count - (hypothesis_count + 1) in
+    let named_hyp_asserts =
+      assert_spans |> List.filteri (fun idx _ -> idx >= named_start && idx < named_start + hypothesis_count)
+    in
+    if List.length named_hyp_asserts <> hypothesis_count then None
+    else
+      let b = Buffer.create (String.length smt_text + 512) in
+      Buffer.add_string b "(set-option :produce-unsat-cores true)\n";
+      let cursor = ref 0 in
+      List.iteri
+        (fun idx (start_pos, end_pos) ->
+          Buffer.add_substring b smt_text !cursor (start_pos - !cursor);
+          let original = String.sub smt_text start_pos (end_pos - start_pos) in
+          (match List.nth_opt hypothesis_ids idx with
+          | Some (Some hid) ->
+              let prefix = "(assert " in
+              let plen = String.length prefix in
+              if String.length original > plen && String.sub original 0 plen = prefix then (
+                let body = String.sub original plen (String.length original - plen - 1) in
+                Buffer.add_string b
+                  (Printf.sprintf "(assert (! %s :named hid_%d))" body hid))
+              else Buffer.add_string b original
+          | _ -> Buffer.add_string b original);
+          cursor := end_pos)
+        named_hyp_asserts;
+      Buffer.add_substring b smt_text !cursor (String.length smt_text - !cursor);
+      Buffer.add_string b "\n(get-unsat-core)\n";
+      Some (Buffer.contents b)
+
+let rewrite_smt_for_model ~(smt_text : string) : string =
+  let lines = String.split_on_char '\n' smt_text in
+  let filtered =
+    List.filter
+      (fun line ->
+        let trimmed = String.trim line in
+        trimmed <> "(get-model)" && trimmed <> "(get-info :reason-unknown)")
+      lines
+  in
+  let b = Buffer.create (String.length smt_text + 128) in
+  Buffer.add_string b "(set-option :produce-models true)\n";
+  List.iter (fun line -> Buffer.add_string b line; Buffer.add_char b '\n') filtered;
+  Buffer.add_string b "(get-info :reason-unknown)\n";
+  Buffer.add_string b "(get-model)\n";
+  Buffer.contents b
+
+let run_z3_script ?(timeout = 5) ~(smt_text : string) () : string list =
+  let tmp = Filename.temp_file "kairos_native_solver_" ".smt2" in
+  let oc = open_out tmp in
+  output_string oc smt_text;
+  close_out oc;
+  let cmd = Printf.sprintf "z3 -smt2 -T:%d %s 2>&1" timeout (Filename.quote tmp) in
+  let ic = Unix.open_process_in cmd in
+  let rec read_lines acc =
+    match input_line ic with
+    | line -> read_lines (line :: acc)
+    | exception End_of_file -> List.rev acc
+  in
+  let lines = read_lines [] in
+  ignore (Unix.close_process_in ic);
+  Sys.remove tmp;
+  lines
+
+let classify_native_solver_output (lines : string list) : string * string option * string option =
+  let status =
+    match lines with
+    | first :: _ ->
+        let s = String.lowercase_ascii (String.trim first) in
+        if s = "sat" then "invalid"
+        else if s = "unsat" then "valid"
+        else if s = "unknown" then "unknown"
+        else if String.length s >= 5 && String.sub s 0 5 = "error" then "solver_error"
+        else "failure"
+    | [] -> "failure"
+  in
+  let rest =
+    match lines with
+    | _ :: xs ->
+        let joined = String.concat "\n" xs |> String.trim in
+        if joined = "" then None else Some joined
+    | [] -> None
+  in
+  let detail, model_text =
+    match status with
+    | "invalid" ->
+        let model =
+          match rest with
+          | Some txt when String.contains txt '(' -> Some txt
+          | _ -> None
+        in
+        (Some "The native solver produced a satisfying model for the negated VC.", model)
+    | "unknown" -> (rest, None)
+    | "solver_error" | "failure" -> (rest, None)
+    | _ -> (rest, None)
+  in
+  (status, detail, model_text)
+
+let native_unsat_core_for_goal ?(timeout = 5) ~(prover : string) ~(text : string) ~(goal_index : int)
+    () : native_unsat_core option =
+  if String.lowercase_ascii prover <> "z3" then None
+  else
+    let _config, _main, env, _datadir_opt = setup_env () in
+    let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
+    match (List.nth_opt tasks_with_wids goal_index, List.nth_opt (dump_smt2_tasks ~prover ~text) goal_index) with
+    | Some (task, _), Some smt_text -> (
+        match build_named_unsat_core_smt ~task ~smt_text with
+        | None -> None
+        | Some named_smt ->
+            let tmp = Filename.temp_file "kairos_unsat_core_" ".smt2" in
+            let oc = open_out tmp in
+            output_string oc named_smt;
+            close_out oc;
+            let cmd = Printf.sprintf "z3 -smt2 -T:%d %s" timeout (Filename.quote tmp) in
+            let ic = Unix.open_process_in cmd in
+            let rec read_lines acc =
+              match input_line ic with
+              | line -> read_lines (line :: acc)
+              | exception End_of_file -> List.rev acc
+            in
+            let lines = read_lines [] in
+            ignore (Unix.close_process_in ic);
+            Sys.remove tmp;
+            match lines with
+            | status :: core_line :: _ when String.lowercase_ascii (String.trim status) = "unsat" ->
+                let ids =
+                  Str.global_substitute (Str.regexp "[()]+") (fun _ -> " ") core_line
+                    |> String.split_on_char ' '
+                    |> List.filter_map (fun tok ->
+                           let tok = String.trim tok in
+                           let prefix = "hid_" in
+                           let plen = String.length prefix in
+                           if String.length tok > plen && String.sub tok 0 plen = prefix then
+                             int_of_string_opt (String.sub tok plen (String.length tok - plen))
+                           else None)
+                  |> unique_preserve_order_ints
+                in
+                Some { solver = "z3"; hypothesis_ids = ids; smt_text = named_smt }
+            | _ -> None)
+    | _ -> None
+
+let native_solver_probe_for_goal ?(timeout = 5) ~(prover : string) ~(text : string)
+    ~(goal_index : int) () : native_solver_probe option =
+  if String.lowercase_ascii prover <> "z3" then None
+  else
+    match List.nth_opt (dump_smt2_tasks ~prover ~text) goal_index with
+    | None -> None
+    | Some smt_text ->
+        let rewritten = rewrite_smt_for_model ~smt_text in
+        let status, detail, model_text =
+          run_z3_script ~timeout ~smt_text:rewritten () |> classify_native_solver_output
+        in
+        Some { solver = "z3"; status; detail; model_text; smt_text = rewritten }
 
 let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goal_index
     ?(should_cancel = fun () -> false) ~(prover : string)
@@ -687,7 +1286,10 @@ let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goa
     | Some cmd -> cmd
     | None -> Whyconf.get_complete_command prover_cfg ~with_steps:false
   in
-  let use_direct_z3 = if override_cmd <> None then false else use_direct_z3 in
+  let use_direct_z3 =
+    if override_cmd <> None then false
+    else use_direct_z3 || String.equal (String.lowercase_ascii prover) "z3"
+  in
   let prove_with_z3_direct buffer =
     let tmp = Filename.temp_file "why3_task_" ".smt2" in
     let oc = open_out tmp in
@@ -695,14 +1297,10 @@ let prove_text_detailed_with_callbacks ?(timeout = 30) ?prover_cmd ?selected_goa
     close_out oc;
     let cmd = Printf.sprintf "z3 -smt2 -T:%d %s" timeout (Filename.quote tmp) in
     let ic = Unix.open_process_in cmd in
-    let output = try input_line ic with End_of_file -> "" in
+    let output_lines = slurp_process_output ic in
     ignore (Unix.close_process_in ic);
     Sys.remove tmp;
-    let out = String.lowercase_ascii output in
-    if String.equal out "unsat" then Call_provers.Valid
-    else if String.equal out "sat" then Call_provers.Invalid
-    else if String.equal out "unknown" then Call_provers.Unknown "unknown"
-    else Call_provers.Failure output
+    classify_z3_lines output_lines
   in
   let goal_labels =
     let tasks = dump_why3_tasks ~text in

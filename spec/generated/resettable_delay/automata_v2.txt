@@ -1,6 +1,0 @@
-[resettable_delay] G0 = G(not {reset} = {1} or {y} = {0}) and X(G(not pre(reset) = {0} or not {reset} = {0} or {y} = pre(x))) and X(G(not pre(reset) = {1} or not {reset} = {0} or {y} = {0}))
-[resettable_delay] G1 = false
-[resettable_delay] G2 = G(not pre(reset) = {0} or not {reset} = {0} or {y} = pre(x)) and G(not pre(reset) = {1} or not {reset} = {0} or {y} = {0}) and G(not {reset} = {1} or {y} = {0})
-
-[resettable_delay] A0 = G((not {reset} = {1} or {x} = {0}) and ({reset} = {0} or {reset} = {1}))
-[resettable_delay] A1 = false

@@ -50,11 +50,13 @@ val stage_contracts_with_info :
 
 (* Run instrumentation pass (code injection -> no-bad-state -> compatibility). *)
 val stage_instrumentation :
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Stage_types.parsed * automata_stage ->
   Stage_types.instrumentation_stage * automata_stage
 
 (* Run instrumentation pass + metadata. *)
 val stage_instrumentation_with_info :
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Stage_types.parsed * automata_stage ->
   Stage_types.instrumentation_stage * automata_stage * Stage_info.instrumentation_info
 

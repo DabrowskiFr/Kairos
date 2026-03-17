@@ -29,6 +29,23 @@ open Why_labels
 
 type contract_info = Why_types.contract_info
 
+type transition_contracts = {
+  transition_requires_pre_terms : (Ptree.term * string) list;
+  transition_requires_pre : Ptree.term list;
+  post_contract_terms : Ptree.term list;
+  pure_post : Ptree.term list;
+  post_terms : (Ptree.term * string) list;
+  post_terms_vcid : (Ptree.term * string) list;
+}
+
+type link_contracts = {
+  link_terms_pre : Ptree.term list;
+  link_terms_post : Ptree.term list;
+  instance_invariants : Ptree.term list;
+  instance_delay_links_inv : Ptree.term list;
+  link_invariants : Ptree.term list;
+}
+
 let pure_translation = ref false
 let set_pure_translation (b : bool) : unit = pure_translation := b
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinop (a, Dterm.DTand, b))
@@ -123,17 +140,41 @@ let inline_atom_terms (env : env) (invs : invariant_user list) (terms : Ptree.te
   let go = inline_atom_terms_map env invs in
   List.map go terms
 
-let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_types.contract_info =
-  let nodes = nodes in
-  let n = info.node in
-  let spec = Ast.specification_of_node n in
+let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why_env.env_info)
+    (runtime : Why_runtime_view.t) :
+    Why_types.contract_info =
+  let _nodes = nodes in
   let env = info.env in
   let pre_k_map = info.pre_k_map in
+  let current_temporal_contract : Kernel_guided_contract.exported_summary_contract =
+    {
+      callee_node_name = runtime.node_name;
+      input_names = runtime.inputs |> List.map (fun (p : Why_runtime_view.port_view) -> p.port_name);
+      output_names = runtime.outputs |> List.map (fun (p : Why_runtime_view.port_view) -> p.port_name);
+      user_invariants = runtime.user_invariants;
+      state_invariants = runtime.state_invariants;
+      temporal_bindings = Kernel_guided_contract.temporal_bindings_of_pre_k_map pre_k_map;
+      tick_summary = None;
+    }
+  in
+  let kernel_contract =
+    match runtime.kernel_contract with
+    | Some contract -> Some contract
+    | None -> Option.map Kernel_guided_contract.node_contract_of_ir kernel_ir
+  in
   let pre_k_infos = info.pre_k_infos in
   let needs_step_count = info.needs_step_count in
   let has_initial_only_contracts = info.has_initial_only_contracts in
   let hexpr_needs_old = info.hexpr_needs_old in
   let init_for_var = info.init_for_var in
+  let has_monitor_instrumentation = info.mon_state_ctors <> [] in
+  let use_kernel_product_contracts =
+    has_monitor_instrumentation
+    &&
+    match kernel_ir with
+    | Some ir -> Product_kernel_ir.has_effective_product_coverage ir && not !pure_translation
+    | None -> false
+  in
   let conj_terms = function
     | [] -> mk_term Ttrue
     | [ t ] -> t
@@ -150,11 +191,369 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
     | Some Internal -> "Internal"
     | None -> "Unknown"
   in
+  let kernel_clause_origin_label = function
+    | Product_kernel_ir.OriginSourceProductSummary -> "Kernel source product summary"
+    | Product_kernel_ir.OriginSafety -> "Kernel safety"
+    | Product_kernel_ir.OriginInitNodeInvariant -> "Kernel init node invariant"
+    | Product_kernel_ir.OriginInitAutomatonCoherence -> "Kernel init automaton coherence"
+    | Product_kernel_ir.OriginPropagationNodeInvariant -> "Kernel propagation node invariant"
+    | Product_kernel_ir.OriginPropagationAutomatonCoherence -> "Kernel propagation automaton coherence"
+  in
+  let state_invariant_terms_for_state state_name =
+    List.filter_map
+      (fun inv ->
+        if (inv.is_eq && inv.state = state_name) || ((not inv.is_eq) && inv.state <> state_name) then
+          Some (compile_fo_term env inv.formula)
+        else None)
+      runtime.state_invariants
+  in
+  let mon_ctor_for_index idx =
+    match List.nth_opt info.mon_state_ctors idx with Some ctor -> Some ctor | None -> None
+  in
+  let output_names = runtime.outputs |> List.map (fun (port : Why_runtime_view.port_view) -> port.port_name) in
+  let rec compile_tick_ctx_iexpr (e : Ast.iexpr) : Ptree.term =
+    match e.iexpr with
+    | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
+    | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
+    | IVar x ->
+        if is_rec_var env x then
+          let t = term_of_var env x in
+          if List.mem x output_names then t else term_old t
+        else mk_term (Tident (qid1 x))
+    | IPar inner -> compile_tick_ctx_iexpr inner
+    | IUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_tick_ctx_iexpr a ]))
+    | IUn (Not, a) -> mk_term (Tnot (compile_tick_ctx_iexpr a))
+    | IBin (op, a, b) ->
+        mk_term
+          (Tinnfix (compile_tick_ctx_iexpr a, infix_ident (binop_id op), compile_tick_ctx_iexpr b))
+  in
+  let compile_tick_ctx_hexpr (h : Ast.hexpr) : Ptree.term =
+    match h with
+    | HNow e -> compile_tick_ctx_iexpr e
+    | HPreK (_e, _) -> begin
+        match find_pre_k env h with
+        | None -> failwith "pre_k not registered"
+        | Some info ->
+            let name = List.nth info.names (List.length info.names - 1) in
+            term_old (term_of_var env name)
+      end
+  in
+  let rec compile_tick_ctx_fo (f : Ast.fo) : Ptree.term =
+    match f with
+    | FTrue -> mk_term Ttrue
+    | FFalse -> mk_term Tfalse
+    | FRel (h1, r, h2) ->
+        mk_term
+          (Tinnfix
+             ( compile_tick_ctx_hexpr h1,
+               infix_ident (relop_id r),
+               compile_tick_ctx_hexpr h2 ))
+    | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map compile_tick_ctx_hexpr hs))
+    | FNot a -> mk_term (Tnot (compile_tick_ctx_fo a))
+    | FAnd (a, b) -> mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTand, compile_tick_ctx_fo b))
+    | FOr (a, b) -> mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTor, compile_tick_ctx_fo b))
+    | FImp (a, b) ->
+        mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTimplies, compile_tick_ctx_fo b))
+  in
+  let current_state_eq state_name =
+    term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name)))
+  in
+  let rec normalize_source_summary_fo (f : Ast.fo) : Ast.fo =
+    match f with
+    | FNot (FOr (FNot a, FNot b)) ->
+        FAnd (normalize_source_summary_fo a, normalize_source_summary_fo b)
+    | FNot inner -> FNot (normalize_source_summary_fo inner)
+    | FAnd (a, b) -> FAnd (normalize_source_summary_fo a, normalize_source_summary_fo b)
+    | FOr (a, b) -> FOr (normalize_source_summary_fo a, normalize_source_summary_fo b)
+    | FImp (a, b) -> FImp (normalize_source_summary_fo a, normalize_source_summary_fo b)
+    | FTrue | FFalse | FRel _ | FPred _ -> f
+  in
+  let conj_opt terms =
+    let terms =
+      List.filter
+        (fun t ->
+          match t.term_desc with
+          | Ttrue -> false
+          | _ -> true)
+        terms
+    in
+    match terms with
+    | [] -> None
+    | [ t ] -> Some t
+    | t :: rest -> Some (List.fold_left term_and t rest)
+  in
+  let compile_relational_kernel_fact
+      (fact : Product_kernel_ir.relational_clause_fact_ir) : Ptree.term option =
+    let compile_desc time = function
+      | Product_kernel_ir.RelFactProgramState state_name ->
+          let base = term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name))) in
+          Some
+            (match time with
+            | Product_kernel_ir.CurrentTick -> base
+            | Product_kernel_ir.PreviousTick -> term_old base
+            | Product_kernel_ir.StepTickContext -> base)
+      | Product_kernel_ir.RelFactFormula fo ->
+          let base = compile_fo_term env fo in
+          Some
+            (match time with
+            | Product_kernel_ir.CurrentTick -> base
+            | Product_kernel_ir.PreviousTick -> old_if_needed env base
+            | Product_kernel_ir.StepTickContext -> compile_tick_ctx_fo fo)
+      | Product_kernel_ir.RelFactFalse -> Some (mk_term Tfalse)
+    in
+    compile_desc fact.time fact.desc
+  in
+  let compile_relational_kernel_clause_summary
+      ~(idx : int) ~(label : string) (clause : Product_kernel_ir.relational_generated_clause_ir) :
+      (Ptree.term * string * string * Ast.ident option) option =
+    let clause_source_state =
+      clause.hypotheses
+      |> List.find_map (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
+             match (fact.time, fact.desc) with
+             | Product_kernel_ir.PreviousTick, Product_kernel_ir.RelFactProgramState state_name ->
+                 Some state_name
+             | Product_kernel_ir.CurrentTick, Product_kernel_ir.RelFactProgramState state_name ->
+                 Some state_name
+             | _ -> None)
+    in
+    let premise =
+      clause.hypotheses |> List.filter_map compile_relational_kernel_fact |> uniq_terms |> conj_opt
+    in
+    let conclusion =
+      clause.conclusions |> List.filter_map compile_relational_kernel_fact |> uniq_terms |> conj_opt
+    in
+    Option.map
+      (fun c ->
+        let body = match premise with None -> c | Some p -> term_implies p c in
+        let body = simplify_term_bool body in
+        (body, label, Printf.sprintf "vc_rel_kernel_%s_%d" runtime.node_name idx, clause_source_state))
+      conclusion
+  in
+  let compile_merged_relational_kernel_clause_summary ~(idx : int) ~(label : string)
+      (clauses : Product_kernel_ir.relational_generated_clause_ir list) :
+      (Ptree.term * string * string * Ast.ident option) option =
+    match clauses with
+    | [] -> None
+    | first_clause :: _ ->
+        let clause_source_state =
+          first_clause.hypotheses
+          |> List.find_map (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
+                 match (fact.time, fact.desc) with
+                 | Product_kernel_ir.PreviousTick, Product_kernel_ir.RelFactProgramState state_name ->
+                     Some state_name
+                 | Product_kernel_ir.CurrentTick, Product_kernel_ir.RelFactProgramState state_name ->
+                     Some state_name
+                 | _ -> None)
+        in
+        let premise =
+          first_clause.hypotheses
+          |> List.filter_map compile_relational_kernel_fact |> uniq_terms |> conj_opt
+        in
+        let conclusion =
+          clauses
+          |> List.concat_map
+               (fun (clause : Product_kernel_ir.relational_generated_clause_ir) -> clause.conclusions)
+          |> List.filter_map compile_relational_kernel_fact
+          |> uniq_terms |> conj_opt
+        in
+        Option.map
+          (fun c ->
+            let body = match premise with None -> c | Some p -> term_implies p c in
+            let body = simplify_term_bool body in
+            (body, label, Printf.sprintf "vc_rel_kernel_%s_%d" runtime.node_name idx, clause_source_state))
+          conclusion
+  in
+  let same_rel_step_clause_shape (a : Product_kernel_ir.relational_generated_clause_ir)
+      (b : Product_kernel_ir.relational_generated_clause_ir) : bool =
+    a.anchor = b.anchor && a.hypotheses = b.hypotheses
+  in
+  let kernel_post_terms, kernel_post_labeled_terms, kernel_post_vcids, kernel_post_states =
+    match kernel_contract with
+    | None -> ([], [], [], [])
+    | Some contract ->
+        if contract.obligations.symbolic = [] then
+          failwith "kernel-first Why path requires symbolic eliminated clauses"
+        else
+          let propagation_and_safety =
+            contract.symbolic_groups.propagation @ contract.symbolic_groups.safety
+          in
+          let rec consume_rel acc = function
+            | [] -> acc
+            | (idx_node, (node_clause : Product_kernel_ir.relational_generated_clause_ir))
+              :: (_, (safety_clause : Product_kernel_ir.relational_generated_clause_ir))
+              :: rest
+              when node_clause.origin = Product_kernel_ir.OriginPropagationNodeInvariant
+                   && safety_clause.origin = Product_kernel_ir.OriginSafety
+                   && same_rel_step_clause_shape node_clause safety_clause ->
+                let acc =
+                  match
+                    compile_relational_kernel_clause_summary ~idx:idx_node
+                      ~label:(kernel_clause_origin_label Product_kernel_ir.OriginSafety)
+                      safety_clause
+                  with
+                  | None -> acc
+                  | Some (body, label, vcid, src_state) ->
+                      let terms, labeled, vcids, states = acc in
+                      (body :: terms, (body, label) :: labeled, (body, vcid) :: vcids, (body, src_state) :: states)
+                in
+                consume_rel acc rest
+            | (idx_node, (node_clause : Product_kernel_ir.relational_generated_clause_ir)) :: rest
+              when node_clause.origin = Product_kernel_ir.OriginPropagationNodeInvariant ->
+                let acc =
+                  match
+                    compile_merged_relational_kernel_clause_summary ~idx:idx_node
+                      ~label:"Kernel propagation summary"
+                      [ node_clause ]
+                  with
+                  | None -> acc
+                  | Some (body, label, vcid, src_state) ->
+                      let terms, labeled, vcids, states = acc in
+                      (body :: terms, (body, label) :: labeled, (body, vcid) :: vcids, (body, src_state) :: states)
+                in
+                consume_rel acc rest
+            | (idx, (clause : Product_kernel_ir.relational_generated_clause_ir)) :: rest ->
+                let compiled =
+                  match clause.origin with
+                  | Product_kernel_ir.OriginPropagationNodeInvariant
+                  | Product_kernel_ir.OriginSafety ->
+                      compile_relational_kernel_clause_summary ~idx
+                        ~label:(kernel_clause_origin_label clause.origin)
+                        clause
+                  | Product_kernel_ir.OriginSourceProductSummary
+                  | Product_kernel_ir.OriginInitNodeInvariant
+                  | Product_kernel_ir.OriginInitAutomatonCoherence
+                  | Product_kernel_ir.OriginPropagationAutomatonCoherence -> None
+                in
+                let acc =
+                  match compiled with
+                  | None -> acc
+                  | Some (body, label, vcid, src_state) ->
+                      let terms, labeled, vcids, states = acc in
+                      (body :: terms, (body, label) :: labeled, (body, vcid) :: vcids, (body, src_state) :: states)
+                in
+                consume_rel acc rest
+          in
+          consume_rel ([], [], [], [])
+            (List.mapi (fun idx clause -> (idx, clause)) propagation_and_safety)
+  in
+  let kernel_pre_terms, kernel_pre_labeled_terms, kernel_pre_states =
+    match kernel_contract with
+    | None -> ([], [], [])
+    | Some contract ->
+        let from_state_invariants =
+          runtime.control_states
+          |> List.sort_uniq String.compare
+          |> List.fold_left
+               (fun (terms, labeled, states) state_name ->
+                 let invariants = state_invariant_terms_for_state state_name |> uniq_terms in
+                 match invariants with
+                 | [] -> (terms, labeled, states)
+                 | inv :: invs ->
+                     let premise = current_state_eq state_name in
+                     let body = List.fold_left term_and inv invs |> simplify_term_bool in
+                     let term = simplify_term_bool (term_implies premise body) in
+                     let label = "Kernel source state invariant" in
+                     (term :: terms, (term, label) :: labeled, (term, Some state_name) :: states))
+               ([], [], [])
+        in
+        let from_source_product_summaries =
+          if contract.obligations.symbolic = [] then
+            failwith "kernel-first Why path requires symbolic eliminated clauses"
+          else
+            contract.symbolic_groups.source_product_summaries
+            |> List.fold_left
+                 (fun (terms, labeled, states) (clause : Product_kernel_ir.relational_generated_clause_ir) ->
+                   let premise =
+                     clause.hypotheses
+                     |> List.filter_map compile_relational_kernel_fact |> uniq_terms |> conj_opt
+                   in
+                   let conclusion =
+                     clause.conclusions
+                     |> List.filter_map (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
+                            match fact.desc with
+                            | Product_kernel_ir.RelFactFormula fo ->
+                                let normalized = normalize_source_summary_fo fo in
+                                let fact =
+                                  { fact with desc = Product_kernel_ir.RelFactFormula normalized }
+                                in
+                                compile_relational_kernel_fact fact
+                            | _ -> compile_relational_kernel_fact fact)
+                     |> uniq_terms |> conj_opt
+                   in
+                   begin
+                     match (premise, conclusion) with
+                     | Some p, Some c ->
+                         let term = simplify_term_bool (term_implies p c) in
+                         let src_state =
+                           match clause.anchor with
+                           | Product_kernel_ir.ClauseAnchorProductState st -> Some st.prog_state
+                           | Product_kernel_ir.ClauseAnchorProductStep step -> Some step.src.prog_state
+                         in
+                         let label = "Kernel source product summary" in
+                         (term :: terms, (term, label) :: labeled, (term, src_state) :: states)
+                     | _ -> (terms, labeled, states)
+                   end)
+                 ([], [], [])
+        in
+        let terms_a, labeled_a, states_a = from_state_invariants in
+        let terms_b, labeled_b, states_b = from_source_product_summaries in
+        (terms_a @ terms_b, labeled_a @ labeled_b, states_a @ states_b)
+  in
+  let has_instance_calls = Why_runtime_view.has_instance_calls runtime in
+  let instance_relation_term ?(in_post = false) (rel : Product_kernel_ir.instance_relation_ir) :
+      Ptree.term option =
+    let compile_instance_user instance_name callee_node_name invariant_expr =
+      match Why_runtime_view.find_callee_summary runtime callee_node_name with
+      | None -> None
+      | Some summary ->
+          let input_names = summary.callee_input_names in
+          let contract = summary.callee_contract in
+          let lhs =
+            match rel with
+            | Product_kernel_ir.InstanceUserInvariant { invariant_id; _ } ->
+                term_of_instance_var env instance_name callee_node_name invariant_id
+            | _ -> assert false
+          in
+          let rhs =
+            compile_hexpr_instance_contract ~in_post env instance_name callee_node_name input_names
+              contract invariant_expr
+          in
+          Some (term_eq lhs rhs)
+    in
+    match rel with
+    | Product_kernel_ir.InstanceUserInvariant
+        { instance_name; callee_node_name; invariant_expr; _ } ->
+        compile_instance_user instance_name callee_node_name invariant_expr
+    | Product_kernel_ir.InstanceStateInvariant
+        { instance_name; callee_node_name; state_name; is_eq; formula } -> (
+        if has_instance_calls then None
+        else match Why_runtime_view.find_callee_summary runtime callee_node_name with
+        | None -> None
+        | Some summary ->
+            let input_names = summary.callee_input_names in
+            let contract = summary.callee_contract in
+            let st = term_of_instance_var env instance_name callee_node_name "st" in
+            let rhs =
+              mk_term (Tident (qid1 (instance_state_ctor_name callee_node_name state_name)))
+            in
+            let cond = (if is_eq then term_eq else term_neq) st rhs in
+            let body =
+              compile_fo_term_instance_contract ~in_post env instance_name callee_node_name
+                input_names contract formula
+            in
+            Some (term_implies cond body))
+    | Product_kernel_ir.InstanceDelayHistoryLink
+        { instance_name; callee_node_name; caller_output; callee_input; callee_pre_name } ->
+        let lhs = term_of_var env caller_output in
+        let rhs_name = Option.value ~default:callee_input callee_pre_name in
+        Some (term_eq lhs (term_old (term_of_instance_var env instance_name callee_node_name rhs_name)))
+    | Product_kernel_ir.InstanceDelayCallerPreLink { caller_output; caller_pre_name } ->
+        Some (term_eq (term_of_var env caller_output) (term_of_var env caller_pre_name))
+  in
   (* Assumption LTL formulas are handled state-aware by middle-end injection on transitions.
      Do not also inject them globally as step preconditions. *)
-  let pre_contract = [] in
-  let post_contract =
-    if !pure_translation then []
+  let post_contract_user =
+    if !pure_translation || has_monitor_instrumentation then []
     else
       List.fold_left
         (fun post f ->
@@ -163,10 +562,8 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
           let frag = ltl_spec env rel in
           let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
           guarded_k @ post)
-        [] spec.spec_guarantees
+        [] runtime.guarantees
   in
-  let pre_invf = [] in
-  let post_invf = [] in
   let req_counter = ref 0 in
   let ens_counter = ref 0 in
   let next_h () =
@@ -179,7 +576,7 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
   in
   let labeled_trans =
     List.map
-      (fun (t : transition) ->
+      (fun (t : Why_runtime_view.runtime_transition_view) ->
         let reqs = List.map (fun f -> (f, origin_label f.origin)) t.requires in
         let ens =
           List.map
@@ -191,432 +588,93 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
             t.ensures
         in
         (t, reqs, ens))
-      n.trans
+      runtime.transitions
   in
-  let transition_requires_pre_terms =
-    List.fold_left
-      (fun acc (t, reqs, _ens) ->
-        let cond_pre = term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src))) in
-        let cond_pre = with_guard cond_pre (guard_term_pre env t) in
-        List.fold_left
-          (fun acc (f, label) ->
-            let norm = normalize_ltl (ltl_of_fo f.value) in
-            let rel = ltl_relational env norm.ltl in
-            let frag = ltl_spec env rel in
-            let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-            let terms = List.map (term_implies cond_pre) guarded_k in
-            let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
-            let terms = List.map (fun t -> mk_term (Tattr (rid_attr, t))) terms in
-            let labeled = List.map (fun t -> (t, label)) terms in
-            labeled @ acc)
-          acc reqs)
-      [] labeled_trans
+  let transition_contracts =
+    Why_contract_plan.compute_transition_contracts ~env ~runtime_transitions:runtime.transitions
+      ~labeled_trans
+      ~has_monitor_instrumentation ~post_contract_user
+      ~use_kernel_product_contracts ~init_for_var ~apply_k_guard
   in
-  let transition_requires_pre = List.map fst transition_requires_pre_terms in
-  let transition_requires_post =
-    List.fold_left
-      (fun acc (t : transition) ->
-        let cond_post = term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src))) in
-        let cond_post = with_guard cond_post (guard_term_pre env t) in
-        List.fold_left
-          (fun acc f ->
-            let norm = normalize_ltl (ltl_of_fo f) in
-            let rel = ltl_relational env norm.ltl in
-            let frag = ltl_spec env rel in
-            let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
-            let terms = List.map (term_implies cond_post) guarded_k in
-            terms @ acc)
-          acc
-          (Ast_provenance.values t.requires))
-      [] n.trans
+  let transition_requires_pre_terms = transition_contracts.transition_requires_pre_terms in
+  let transition_requires_pre = transition_contracts.transition_requires_pre in
+  let post_contract_terms = transition_contracts.post_contract_terms in
+  let pure_post = transition_contracts.pure_post in
+  let post_terms = transition_contracts.post_terms in
+  let post_terms_vcid = transition_contracts.post_terms_vcid in
+  let pre_contract = kernel_pre_terms @ transition_requires_pre in
+  let link_contracts =
+    Why_contract_plan.compute_link_contracts ~env ~runtime ~kernel_contract
+      ~current_temporal_contract
+      ~use_kernel_product_contracts ~has_instance_calls
+      ~hexpr_needs_old ~instance_relation_term
   in
-  let pre_contract_user = pre_contract in
-  (* Do not inject user LTL guarantees as postconditions here; they are enforced via the
-     monitor/post-to-pre rules. Transition ensures are handled separately. *)
-  let post_contract_user = [] in
-  let pre_contract = transition_requires_pre @ pre_contract_user @ pre_invf in
-  let post_contract = post_contract_user @ post_invf in
-  let state_post, state_post_terms, state_post_terms_vcid =
-    let st = term_of_var env "st" in
-    let st_old = term_old st in
-    List.fold_left
-      (fun (post, post_terms, post_terms_vcid) (t, _reqs, ens) ->
-        let cond_post = term_eq st_old (mk_term (Tident (qid1 t.src))) in
-        let cond_post = with_guard cond_post (guard_term_old env t) in
-        let guard_terms =
-          List.concat_map
-            (fun f ->
-              let norm = normalize_ltl (ltl_of_fo f) in
-              let rel = ltl_relational env norm.ltl in
-              let frag = ltl_spec env rel in
-              apply_k_guard ~in_post:false norm.k_guard frag.pre)
-            (Ast_provenance.values t.requires)
-        in
-        let guard =
-          if guard_terms = [] then None else Some (old_if_needed env (conj_terms guard_terms))
-        in
-        let apply_post_terms post post_terms post_terms_vcid fo_list =
-          List.fold_left
-            (fun (post, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
-              let norm = normalize_ltl (ltl_of_fo f) in
-              let rel = ltl_relational env norm.ltl in
-              let frag = ltl_spec env rel in
-              let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
-              let guarded =
-                match guard with
-                | None -> guarded_k
-                | Some g -> List.map (fun p -> term_implies g p) guarded_k
-              in
-              let terms = List.map (term_implies cond_post) guarded in
-              let terms =
-                match vcid_opt with
-                | None -> terms
-                | Some vcid ->
-                    List.map
-                      (fun t -> mk_term (Tattr (ATstr (Ident.create_attribute vcid), t)))
-                      terms
-              in
-              let post_terms =
-                match label_opt with
-                | None -> post_terms
-                | Some label -> List.map (fun t -> (t, label)) terms @ post_terms
-              in
-              let post_terms_vcid =
-                match vcid_opt with
-                | None -> post_terms_vcid
-                | Some vcid -> List.map (fun t -> (t, vcid)) terms @ post_terms_vcid
-              in
-              (terms @ post, post_terms, post_terms_vcid))
-            (post, post_terms, post_terms_vcid)
-            fo_list
-        in
-        let ens_terms = List.map (fun (f, label, vcid) -> (f, Some label, Some vcid)) ens in
-        apply_post_terms post post_terms post_terms_vcid ens_terms)
-      ([], [], []) labeled_trans
-  in
-  let post_contract = state_post @ post_contract in
-  let state_rel_terms =
-    List.filter_map
-      (fun inv ->
-        if inv.is_eq then
-          let st = term_of_var env "st" in
-          let rhs = mk_term (Tident (qid1 inv.state)) in
-          let cond = term_eq st rhs in
-          let body = compile_fo_term env inv.formula in
-          Some (inv.state, (cond, body))
-        else None)
-      spec.spec_invariants_state_rel
-  in
-  let state_rel_for name =
-    List.find_map (fun (st, term) -> if st = name then Some term else None) state_rel_terms
-  in
-  let init_guard_terms =
-    let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state))) in
-    let mon_init =
-      match info.mon_state_ctors with
-      | first :: _ -> [ term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 first))) ]
-      | [] -> []
-    in
-    let inv_terms_user =
-      List.map
-        (fun inv ->
-          let lhs = term_of_var env inv.inv_id in
-          let rhs = compile_hexpr ~prefer_link:false ~in_post:false env inv.inv_expr in
-          term_eq lhs rhs)
-        n.attrs.invariants_user
-    in
-    let inv_terms_state =
-      List.filter_map
-        (fun inv ->
-          if inv.is_eq && inv.state = n.init_state then Some (compile_fo_term env inv.formula)
-          else None)
-        spec.spec_invariants_state_rel
-    in
-    let instance_terms =
-      let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
-      List.concat_map
-        (fun (inst_name, node_name) ->
-          match find_node node_name with
-          | None -> []
-          | Some inst_node ->
-              let input_names = Ast_utils.input_names_of_node inst_node in
-              let pre_k_map = build_pre_k_infos inst_node in
-              let from_user =
-                List.map
-                  (fun inv ->
-                    let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
-                    let rhs =
-                      compile_hexpr_instance ~in_post:false env inst_name node_name input_names
-                        pre_k_map inv.inv_expr
-                    in
-                    term_eq lhs rhs)
-                  inst_node.attrs.invariants_user
-              in
-              let from_state_rel =
-                List.map
-                  (fun inv ->
-                    let st = term_of_instance_var env inst_name node_name "st" in
-                    let rhs = mk_term (Tident (qid1 inv.state)) in
-                    let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
-                    let body =
-                      compile_fo_term_instance ~in_post:false env inst_name node_name input_names
-                        pre_k_map inv.formula
-                    in
-                    term_implies cond body)
-                  inst_node.attrs.invariants_state_rel
-              in
-              from_user @ from_state_rel)
-        n.instances
-    in
-    st_init :: (mon_init @ inv_terms_user @ inv_terms_state @ instance_terms)
-  in
-  let init_guard = match init_guard_terms with [] -> None | terms -> Some (conj_terms terms) in
-  let transition_post_to_pre = [] in
-  let link_terms_pre, link_terms_post =
-    let pre, post =
-      List.fold_left
-        (fun (pre, post) inv ->
-          let lhs = term_of_var env inv.inv_id in
-          let rhs = compile_hexpr ~prefer_link:false ~in_post:true env inv.inv_expr in
-          let t = term_eq lhs rhs in
-          if hexpr_needs_old inv.inv_expr then (pre, t :: post) else (t :: pre, t :: post))
-        ([], []) n.attrs.invariants_user
-    in
-    List.fold_left
-      (fun (pre, post) inv ->
-        let st = term_of_var env "st" in
-        let rhs = mk_term (Tident (qid1 inv.state)) in
-        let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
-        let body = compile_fo_term env inv.formula in
-        let t = term_implies cond body in
-        (t :: pre, t :: post))
-      (pre, post) spec.spec_invariants_state_rel
-  in
-  let pre_k_links = [] in
-  let find_node (name : string) : node option = List.find_opt (fun nd -> nd.nname = name) nodes in
-  let instance_invariant_terms ?(in_post = false) (inst_name : string) (node_name : string)
-      (inst_node : node) =
-    let input_names = Ast_utils.input_names_of_node inst_node in
-    let pre_k_map = build_pre_k_infos inst_node in
-    let from_user =
-      List.map
-        (fun inv ->
-          let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
-          let rhs =
-            compile_hexpr_instance ~in_post env inst_name node_name input_names pre_k_map
-              inv.inv_expr
-          in
-          term_eq lhs rhs)
-        inst_node.attrs.invariants_user
-    in
-    let from_state_rel =
-      List.map
-        (fun inv ->
-          let st = term_of_instance_var env inst_name node_name "st" in
-          let rhs = mk_term (Tident (qid1 inv.state)) in
-          let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
-          let body =
-            compile_fo_term_instance ~in_post env inst_name node_name input_names pre_k_map
-              inv.formula
-          in
-          term_implies cond body)
-        inst_node.attrs.invariants_state_rel
-    in
-    from_user @ from_state_rel
-  in
-  let instance_invariants =
-    List.concat_map
-      (fun (inst_name, node_name) ->
-        match find_node node_name with
-        | None -> []
-        | Some inst_node -> instance_invariant_terms ~in_post:false inst_name node_name inst_node)
-      n.instances
-  in
-  let instance_input_links_pre, instance_input_links_post = ([], []) in
-  let instance_delay_links_post =
-    let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
-    let calls = collect_calls_trans_full n.trans in
-    let index_of name lst =
-      let rec loop i = function
-        | [] -> None
-        | x :: xs -> if x = name then Some i else loop (i + 1) xs
-      in
-      loop 0 lst
-    in
-    List.filter_map
-      (fun (inst_name, _args, outs) ->
-        match List.assoc_opt inst_name n.instances with
-        | None -> None
-        | Some node_name -> (
-            match find_node node_name with
-            | None -> None
-            | Some inst_node -> (
-                match extract_delay_spec inst_node.guarantees with
-                | None -> None
-                | Some (out_name, in_name) ->
-                    let output_names = Ast_utils.output_names_of_node inst_node in
-                    let input_names = Ast_utils.input_names_of_node inst_node in
-                    begin match index_of out_name output_names with
-                    | None -> None
-                    | Some out_idx ->
-                        if out_idx >= List.length outs then None
-                        else if not (List.mem in_name input_names) then None
-                        else
-                          let out_var = List.nth outs out_idx in
-                          let lhs = term_of_var env out_var in
-                          let pre_k_map_inst = build_pre_k_infos inst_node in
-                          let pre_name =
-                            List.find_map
-                              (fun (_, info) ->
-                                match (info.expr.iexpr, info.names) with
-                                | IVar x, name :: _ when x = in_name -> Some name
-                                | _ -> None)
-                              pre_k_map_inst
-                          in
-                          let rhs =
-                            match pre_name with
-                            | None ->
-                                term_old (term_of_instance_var env inst_name node_name in_name)
-                            | Some name ->
-                                term_old (term_of_instance_var env inst_name node_name name)
-                          in
-                          Some (term_eq lhs rhs)
-                    end)))
-      calls
-  in
-  let instance_delay_links_inv =
-    let find_node name = List.find_opt (fun nd -> nd.nname = name) nodes in
-    let calls = collect_calls_trans_full n.trans in
-    let index_of name lst =
-      let rec loop i = function
-        | [] -> None
-        | x :: xs -> if x = name then Some i else loop (i + 1) xs
-      in
-      loop 0 lst
-    in
-    let pre_k_first_name_for v =
-      List.find_map
-        (fun (_, info) ->
-          match (info.expr.iexpr, info.names) with
-          | IVar x, name :: _ when x = v -> Some name
-          | _ -> None)
-        pre_k_map
-    in
-    List.filter_map
-      (fun (inst_name, args, outs) ->
-        match List.assoc_opt inst_name n.instances with
-        | None -> None
-        | Some node_name -> (
-            match find_node node_name with
-            | None -> None
-            | Some inst_node -> (
-                match extract_delay_spec inst_node.guarantees with
-                | None -> None
-                | Some (out_name, in_name) ->
-                    let output_names = Ast_utils.output_names_of_node inst_node in
-                    begin match index_of out_name output_names with
-                    | None -> None
-                    | Some out_idx -> (
-                        if out_idx >= List.length outs then None
-                        else
-                          let out_var = List.nth outs out_idx in
-                          match
-                            List.assoc_opt in_name
-                              (List.combine (Ast_utils.input_names_of_node inst_node) args)
-                          with
-                          | Some e -> begin
-                              match e.iexpr with
-                              | IVar v -> begin
-                                  match pre_k_first_name_for v with
-                                  | None -> None
-                                  | Some name ->
-                                      Some
-                                        (term_eq (term_of_var env out_var) (term_of_var env name))
-                                end
-                              | _ -> None
-                            end
-                          | _ -> None)
-                    end)))
-      calls
-  in
-  let post = post_contract @ transition_requires_post @ transition_post_to_pre in
-  let output_links =
-    let outputs = Ast_utils.output_names_of_node n in
-    List.filter_map
-      (fun out ->
-        let assigns =
-          List.filter_map
-            (fun (t : Ast.transition) ->
-              match List.rev t.body with
-              | s :: _ -> begin
-                  match s.stmt with
-                  | SAssign (x, e) when x = out -> begin
-                      match e.iexpr with IVar v -> Some v | _ -> None
-                    end
-                  | _ -> None
-                end
-              | _ -> None)
-            n.trans
-        in
-        match assigns with
-        | [] -> None
-        | v :: _ ->
-            if List.length assigns = List.length n.trans && List.for_all (( = ) v) assigns then
-              Some (term_eq (term_of_var env out) (term_of_var env v))
-            else None)
-      outputs
-  in
-  let first_step_links = [] in
-  let link_invariants = output_links @ first_step_links @ instance_delay_links_inv in
-  let first_step_init_link_pre = [] in
+  let link_terms_pre = link_contracts.link_terms_pre in
+  let link_terms_post = link_contracts.link_terms_post in
+  let instance_invariants = link_contracts.instance_invariants in
+  let instance_delay_links_inv = link_contracts.instance_delay_links_inv in
+  let link_invariants = link_contracts.link_invariants in
+  let post = kernel_post_terms @ post_contract_terms in
   let pre =
-    link_invariants @ first_step_init_link_pre @ instance_input_links_pre @ link_terms_pre
-    @ pre_contract
+    link_invariants @ link_terms_pre @ pre_contract
     |> uniq_terms
   in
   let post =
-    link_invariants @ instance_invariants @ instance_input_links_post @ link_terms_post @ post
+    link_invariants @ instance_invariants @ link_terms_post @ post
     |> uniq_terms
   in
   let pre, post =
-    if !pure_translation then (transition_requires_pre, state_post) else (pre, post)
+    if !pure_translation then (transition_requires_pre, pure_post) else (pre, post)
   in
   let result_term_opt = None in
   let is_true_term t = match t.term_desc with Ttrue -> true | _ -> false in
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
 
-  let inline_term = inline_atom_terms_map env n.attrs.invariants_user in
-  let pre = List.map inline_term pre in
-  let post = List.map inline_term post in
-  let transition_requires_pre = List.map inline_term transition_requires_pre in
-  let transition_requires_pre_terms =
-    List.map (fun (t, lbl) -> (inline_term t, lbl)) transition_requires_pre_terms
+  let inline_term = inline_atom_terms_map env runtime.user_invariants in
+  let pre = List.map (fun t -> simplify_term_bool (inline_term t)) pre in
+  let post = List.map (fun t -> simplify_term_bool (inline_term t)) post in
+  let transition_requires_pre =
+    List.map (fun t -> simplify_term_bool (inline_term t)) transition_requires_pre
   in
-  let state_post_terms = List.map (fun (t, lbl) -> (inline_term t, lbl)) state_post_terms in
-  let state_post_terms_vcid =
-    List.map (fun (t, vcid) -> (inline_term t, vcid)) state_post_terms_vcid
+  let transition_requires_pre_terms =
+    List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) transition_requires_pre_terms
+  in
+  let kernel_pre_labeled_terms =
+    List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) kernel_pre_labeled_terms
+  in
+  let post_terms =
+    List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) post_terms
+  in
+  let post_terms_vcid =
+    List.map (fun (t, vcid) -> (simplify_term_bool (inline_term t), vcid)) post_terms_vcid
+  in
+  let kernel_post_labeled_terms =
+    List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) kernel_post_labeled_terms
+  in
+  let kernel_post_vcids =
+    List.map (fun (t, vcid) -> (simplify_term_bool (inline_term t), vcid)) kernel_post_vcids
+  in
+  let kernel_post_states =
+    List.map (fun (t, state) -> (simplify_term_bool (inline_term t), state)) kernel_post_states
+  in
+  let kernel_pre_states =
+    List.map (fun (t, state) -> (simplify_term_bool (inline_term t), state)) kernel_pre_states
   in
 
   let label_context : Why_diagnostics.label_context =
     {
+      kernel_first = use_kernel_product_contracts;
       pre;
       post;
       transition_requires_pre;
       transition_requires_pre_terms;
       transition_post_terms = [];
-      pre_contract_user;
       link_terms_pre;
       link_terms_post;
-      instance_input_links_pre;
-      pre_invf;
-      first_step_init_link_pre;
       link_invariants;
       post_contract_user;
-      instance_input_links_post;
       instance_invariants;
-      post_invf;
-      pre_k_links;
       result_term_opt;
     }
   in
@@ -669,14 +727,47 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
           | _ -> None)
       terms
   in
+  let build_state_opts (tagged : (Ptree.term * Ast.ident option) list) (terms : Ptree.term list)
+      ~(is_candidate : Ptree.term -> bool) =
+    let buckets = Hashtbl.create 64 in
+    List.iter
+      (fun (term, state_opt) ->
+        let q =
+          match Hashtbl.find_opt buckets term with
+          | Some q -> q
+          | None ->
+              let q = Queue.create () in
+              Hashtbl.add buckets term q;
+              q
+        in
+        Queue.add state_opt q)
+      tagged;
+    List.map
+      (fun term ->
+        if not (is_candidate term) then None
+        else
+          match Hashtbl.find_opt buckets term with
+          | Some q when not (Queue.is_empty q) -> Queue.take q
+          | _ -> None)
+      terms
+  in
   let pre_out = List.rev pre in
   let post_out = List.rev post in
   let pre_label_opts =
-    build_label_opts transition_requires_pre_terms pre_out ~is_candidate:(fun _ -> true)
+    build_label_opts (kernel_pre_labeled_terms @ transition_requires_pre_terms) pre_out
+      ~is_candidate:(fun _ -> true)
   in
-  let post_label_opts = build_label_opts state_post_terms post_out ~is_candidate:term_has_old in
+  let post_label_opts =
+    build_label_opts (kernel_post_labeled_terms @ post_terms) post_out ~is_candidate:term_has_old
+  in
   let post_vcid_opts =
-    build_vcid_opts state_post_terms_vcid post_out ~is_candidate:term_has_old
+    build_vcid_opts (kernel_post_vcids @ post_terms_vcid) post_out ~is_candidate:term_has_old
+  in
+  let pre_state_opts =
+    build_state_opts kernel_pre_states pre_out ~is_candidate:(fun _ -> true)
+  in
+  let post_state_opts =
+    build_state_opts kernel_post_states post_out ~is_candidate:term_has_old
   in
   let merge_labels opts groups =
     List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
@@ -686,4 +777,18 @@ let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_typ
   let post_vcids = post_vcid_opts in
   let pre_origin_labels = List.map normalize_label pre_labels in
   let post_origin_labels = List.map normalize_label post_labels in
-  { pre; post; pre_labels; post_labels; pre_origin_labels; post_origin_labels; post_vcids }
+  {
+    pre = pre_out;
+    post = post_out;
+    pre_labels;
+    post_labels;
+    pre_origin_labels;
+    post_origin_labels;
+    pre_source_states = pre_state_opts;
+    post_source_states = post_state_opts;
+    post_vcids;
+  }
+
+let build_contracts ~(nodes : Ast.node list) ?kernel_ir (info : Why_env.env_info) :
+    Why_types.contract_info =
+  build_contracts_runtime_view ~nodes ?kernel_ir info info.runtime_view

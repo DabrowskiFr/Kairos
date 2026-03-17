@@ -1,0 +1,35 @@
+node armed_delay(arm: int, x: int) returns (y: int)
+contracts
+  ensures: G (arm = 1 => X G (y = prev x));
+locals
+  z: int;
+states
+  Init(init), Idle, Track;
+invariants
+  in Track:
+    undefined_invariant_symbol = 0;
+transitions
+  Init:
+    to Track when arm = 1 {
+      y := 0;
+      z := x;
+    }
+    to Idle when arm = 0 {
+      y := 0;
+      z := x;
+    }
+  Idle:
+    to Track when arm = 1 {
+      y := 0;
+      z := x;
+    }
+    to Idle when arm = 0 {
+      y := 0;
+      z := x;
+    }
+  Track:
+    to Track {
+      y := z;
+      z := x;
+    }
+end

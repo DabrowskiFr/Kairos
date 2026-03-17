@@ -60,8 +60,5 @@ val term_to_iexpr : term -> Ast.iexpr
 val terms_to_iexpr : term list -> Ast.iexpr
 
 (* Convert a disjunction of implicants into an iexpr. *)
-val simplify_iexpr : Ast.iexpr -> Ast.iexpr
-
-(* Simplify iexpr formulas via boolean rewrites. *)
 val valuations_to_iexpr : string list -> (string * bool) list list -> Ast.iexpr
 (* Build an iexpr formula covering valuations. *)

@@ -1,4 +1,8 @@
-module Native = V2_native_external_bridge
+let write_optional_output (out : string option) (text : string) : unit =
+  match out with
+  | None -> ()
+  | Some "-" -> print_string text
+  | Some file -> Io.write_text file text
 
 type config = {
   input_file : string;
@@ -13,17 +17,31 @@ type config = {
 }
 
 let run (cfg : config) : (unit, string) result =
-  let external_cfg : Native.run_config =
+  ignore cfg.dump_obc_abstract; (* not yet implemented: obc_text used for both modes *)
+  let p_cfg : Pipeline.config =
     {
       input_file = cfg.input_file;
-      dump_obc = cfg.dump_obc;
-      dump_obc_abstract = cfg.dump_obc_abstract;
-      dump_why = cfg.dump_why;
-      dump_why3_vc = cfg.dump_why3_vc;
-      dump_smt2 = cfg.dump_smt2;
-      prove = cfg.prove;
       prover = cfg.prover;
       prover_cmd = cfg.prover_cmd;
+      wp_only = false;
+      smoke_tests = false;
+      timeout_s = 10;
+      max_proof_goals = None;
+      selected_goal_index = None;
+      compute_proof_diagnostics = false;
+      prefix_fields = false;
+      prove = cfg.prove;
+      generate_vc_text = cfg.dump_why3_vc <> None;
+      generate_smt_text = cfg.dump_smt2 <> None;
+      generate_monitor_text = false;
+      generate_dot_png = false;
     }
   in
-  Native.run_with_native_pipeline external_cfg
+  match Pipeline_v2_indep.run p_cfg with
+  | Error e -> Error (Pipeline.error_to_string e)
+  | Ok out ->
+      write_optional_output cfg.dump_obc out.obc_text;
+      write_optional_output cfg.dump_why out.why_text;
+      write_optional_output cfg.dump_why3_vc out.vc_text;
+      write_optional_output cfg.dump_smt2 out.smt_text;
+      Ok ()

@@ -568,8 +568,8 @@ let simplify_assume_dnf_bool_domain (f : fo) : fo =
 
 let simplify_for_display (f : fo) : fo =
   match f with
-  | FImp (cond, body) -> FImp (cond, simplify_assume_dnf_bool_domain body)
-  | _ -> simplify_assume_dnf_bool_domain f
+  | FImp (cond, body) -> FImp (cond, simplify_assume_dnf_bool_domain body) |> Fo_simplifier.simplify_fo
+  | _ -> simplify_assume_dnf_bool_domain f |> Fo_simplifier.simplify_fo
 
 let string_of_fo_display (f : fo) : string = string_of_fo (simplify_for_display f)
 
@@ -803,7 +803,7 @@ let transition_lines_with_vcid (indent : int) (t : transition) ~(init_for_var : 
     let items =
       List.map
         (fun (f, label) ->
-          let vcid = if is_require then None else Some f.oid in
+          let vcid = Some f.oid in
           (source_of_fo ~is_require f, f, label, vcid))
         items
       |> List.sort (fun (s1, _, _, _) (s2, _, _, _) ->

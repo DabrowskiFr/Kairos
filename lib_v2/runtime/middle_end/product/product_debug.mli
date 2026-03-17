@@ -13,3 +13,13 @@ val render :
   node_name:Ast.ident ->
   analysis:Product_build.analysis ->
   rendered
+
+val render_guarantee_automaton :
+  node_name:Ast.ident ->
+  analysis:Product_build.analysis ->
+  string * string
+
+val render_program_automaton :
+  node_name:Ast.ident ->
+  node:Abstract_model.node ->
+  string * string

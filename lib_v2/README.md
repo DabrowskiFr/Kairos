@@ -1,24 +1,15 @@
-# Kairos v2 Architecture
+# lib_v2
 
-This directory hosts the refactoring-oriented architecture aligned with Rocq modules.
+Runtime and CLI pipeline for Kairos v2.
 
-## Layout
+## Structure
 
-- `runtime/`: concrete runtime implementation used by executables (`obcwhy3_lib`).
-- `core/`, `monitor/`, `logic/`, `obligations/`, `integration/`, `refinement/`, `instances/`:
-  Rocq-mirrored architectural layer signatures and composition points.
-- `adapters/`: explicit external boundary adapters.
-- `pipeline/`: public v2 pipeline entry points.
-- `architecture_manifest.toml`: machine-readable mapping `Rocq module -> OCaml module`.
-- each layer has its own `dune` library so dependencies are explicit in build rules.
+- `runtime/` — main library (`obcwhy3_lib`): parser, middle-end, automata, Why3/SMT backend, LSP app layer.
+- `pipeline/` — `kairos_v2_pipeline`: thin CLI entry point that wraps `Pipeline_v2_indep.run`.
 
-## Current status
+## Binaries
 
-- `V2_pipeline` delegates execution to the native v2 bridge
-  (`v2_native_external_bridge`) and does not call the legacy v1 runner path.
-- `bin/cli` provides a dedicated executable target `kairos_v2`.
-- `integration/rocq_end_to_end.ml` is the architecture-level orchestrator for the
-  end-to-end v2 flow.
-- CI checks mapping and layer dependency rules:
-  - `scripts/check_architecture_manifest.py`
-  - `scripts/check_layer_dependencies.py`
+- `bin/cli/main` (`kairos`) — full-featured CLI via `cli.ml`
+- `bin/cli/main_v2` (`kairos_v2`) — simplified CLI via `cli_v2.ml`
+- `bin/lsp/kairos_lsp` — LSP server for VS Code
+- `bin/ide/obcwhy3_ide` (`kairos-ide`) — GTK3 IDE

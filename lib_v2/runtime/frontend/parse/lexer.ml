@@ -26,6 +26,7 @@ let () =
       ("invariants", INVARIANTS);
       ("in", IN);
       ("contracts", CONTRACTS);
+      ("import", IMPORT);
       ("let", LET);
       ("instance", INSTANCE);
       ("instances", INSTANCES);
@@ -91,6 +92,7 @@ let expected_tokens : (string * Parser.token) list =
     ("invariants", INVARIANTS);
     ("in", IN);
     ("contracts", CONTRACTS);
+    ("import", IMPORT);
     ("let", LET);
     ("instance", INSTANCE);
     ("instances", INSTANCES);
@@ -146,8 +148,43 @@ let expected_tokens : (string * Parser.token) list =
     (":", COLON);
     ("int-literal", INT 0);
     ("identifier", IDENT "");
+    ("string-literal", STRING "");
     ("<eof>", EOF);
   ]
+
+let read_string_literal lexbuf =
+  let buf = Buffer.create 32 in
+  let rec loop () =
+    match%sedlex lexbuf with
+    | '"' ->
+        last_lexeme_ref := "\"" ^ Buffer.contents buf ^ "\"";
+        STRING (Buffer.contents buf)
+    | '\\', '"' ->
+        Buffer.add_char buf '"';
+        loop ()
+    | '\\', '\\' ->
+        Buffer.add_char buf '\\';
+        loop ()
+    | '\\', 'n' ->
+        Buffer.add_char buf '\n';
+        loop ()
+    | '\\', 't' ->
+        Buffer.add_char buf '\t';
+        loop ()
+    | '\\', any ->
+        raise (Lexing_error "Unsupported string escape")
+    | eof -> raise (Lexing_error "Unterminated string literal")
+    | '\n' ->
+        Sedlexing.new_line lexbuf;
+        Buffer.add_char buf '\n';
+        loop ()
+    | any ->
+        Buffer.add_string buf (Sedlexing.Utf8.lexeme lexbuf);
+        loop ()
+    | _ ->
+        raise (Lexing_error "Invalid string literal")
+  in
+  loop ()
 
 let rec token lexbuf =
   match%sedlex lexbuf with
@@ -187,6 +224,9 @@ let rec token lexbuf =
   | Plus '0' .. '9' ->
       let s = set_lexeme lexbuf in
       INT (int_of_string s)
+  | '"' ->
+      ignore (set_lexeme lexbuf);
+      read_string_literal lexbuf
   | ('A' .. 'Z' | 'a' .. 'z' | '_'), Star ('A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '\'') -> (
       let s = set_lexeme lexbuf in
       match Hashtbl.find_opt kw_table s with

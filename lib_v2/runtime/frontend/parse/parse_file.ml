@@ -8,7 +8,7 @@ let read_all (fn : string) : string =
   close_in ic;
   s
 
-let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
+let parse_source_file_with_info (fn : string) : Source_file.t * Stage_info.parse_info =
   let file_text = read_all fn in
   let file_hash = Digest.to_hex (Digest.string file_text) in
   let ic = open_in fn in
@@ -56,10 +56,10 @@ let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
            (Printf.sprintf "Parse error at %s:%d:%d near '%s'%s.%s" pos.pos_fname pos.pos_lnum col
               lexeme context expected))
     in
-    let checkpoint = Parser.Incremental.program start_pos in
+    let checkpoint = Parser.Incremental.source_file start_pos in
     let p = I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint in
     close_in ic;
-    let program = p in
+    let source = p in
     let info =
       {
         Stage_info.source_path = Some fn;
@@ -68,7 +68,7 @@ let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
         Stage_info.warnings = [];
       }
     in
-    (program, info)
+    (source, info)
   with
   | Lexer.Lexing_error msg ->
       let pos, _ = Sedlexing.lexing_positions lb in
@@ -83,6 +83,14 @@ let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
       close_in_noerr ic;
       raise e
 
+let parse_source_file (fn : string) : Source_file.t =
+  let source, _info = parse_source_file_with_info fn in
+  source
+
+let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
+  let source, info = parse_source_file_with_info fn in
+  (source.nodes, info)
+
 let parse_file (fn : string) : Ast.program =
-  let program, _info = parse_file_with_info fn in
-  program
+  let source, _info = parse_source_file_with_info fn in
+  source.nodes

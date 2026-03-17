@@ -56,20 +56,136 @@ let conj_fo (fs : fo list) : fo option =
 let relop_to_binop (r : relop) : binop =
   match r with REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge
 
-let pre_k_var_of_hexpr ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : ident option =
-  match List.find_opt (fun (h', _) -> h' = h) pre_k_map with
-  | None -> None
-  | Some (_h, info) ->
-      let names = info.Support.names in
-      if names = [] then None else Some (List.nth names (List.length names - 1))
+type temporal_binding = {
+  source_hexpr : Ast.hexpr;
+  slot_names : Ast.ident list;
+}
 
-let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : iexpr option =
+let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Support.pre_k_info) list) :
+    temporal_binding list =
+  List.map
+    (fun (source_hexpr, info) -> { source_hexpr; slot_names = info.Support.names })
+    pre_k_map
+
+let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr) : ident option =
+  temporal_bindings
+  |> List.find_map (fun binding ->
+         if binding.source_hexpr = h then
+           match List.rev binding.slot_names with
+           | name :: _ -> Some name
+           | [] -> None
+         else None)
+
+let pre_k_var_of_hexpr ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : ident option =
+  latest_temporal_slot ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
+
+let hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
+    ~(temporal_bindings : temporal_binding list) (h : hexpr) : iexpr option =
+  let _ = (inputs, var_types) in
   match h with
   | HNow e -> Some e
   | HPreK _ as h -> begin
-      match pre_k_var_of_hexpr ~pre_k_map h with Some name -> Some (mk_var name) | None -> None
+      match latest_temporal_slot ~temporal_bindings h with
+      | Some name -> Some (mk_var name)
+      | None -> None
     end
+
+let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
+    ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : iexpr option =
+  hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types
+    ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
+
+let lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (h : hexpr) :
+    hexpr option =
+  match hexpr_to_iexpr_with_temporal_bindings ~inputs:[] ~var_types:[] ~temporal_bindings h with
+  | Some e -> Some (HNow e)
+  | None -> None
+
+let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : hexpr option =
+  lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
+
+let rec lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo) : fo option =
+  match f with
+  | FTrue | FFalse -> Some f
+  | FRel (h1, r, h2) -> begin
+      match (lower_hexpr_temporal_bindings ~temporal_bindings h1, lower_hexpr_temporal_bindings ~temporal_bindings h2) with
+      | Some h1', Some h2' -> Some (FRel (h1', r, h2'))
+      | _ -> None
+    end
+  | FPred (id, hs) ->
+      let rec lower_args acc = function
+        | [] -> Some (List.rev acc)
+        | h :: tl -> (
+            match lower_hexpr_temporal_bindings ~temporal_bindings h with
+            | None -> None
+            | Some h' -> lower_args (h' :: acc) tl)
+      in
+      Option.map (fun hs' -> FPred (id, hs')) (lower_args [] hs)
+  | FNot a -> Option.map (fun a' -> FNot a') (lower_fo_temporal_bindings ~temporal_bindings a)
+  | FAnd (a, b) -> begin
+      match
+        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (FAnd (a', b'))
+      | _ -> None
+    end
+  | FOr (a, b) -> begin
+      match
+        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (FOr (a', b'))
+      | _ -> None
+    end
+  | FImp (a, b) -> begin
+      match
+        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (FImp (a', b'))
+      | _ -> None
+    end
+
+let lower_fo_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : fo option =
+  lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
+
+let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo_ltl) :
+    fo_ltl option =
+  match f with
+  | LTrue | LFalse -> Some f
+  | LAtom a -> Option.map (fun a' -> LAtom a') (lower_fo_temporal_bindings ~temporal_bindings a)
+  | LNot a -> Option.map (fun a' -> LNot a') (lower_ltl_temporal_bindings ~temporal_bindings a)
+  | LX a -> Option.map (fun a' -> LX a') (lower_ltl_temporal_bindings ~temporal_bindings a)
+  | LG a -> Option.map (fun a' -> LG a') (lower_ltl_temporal_bindings ~temporal_bindings a)
+  | LAnd (a, b) -> begin
+      match
+        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (LAnd (a', b'))
+      | _ -> None
+    end
+  | LOr (a, b) -> begin
+      match
+        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (LOr (a', b'))
+      | _ -> None
+    end
+  | LImp (a, b) -> begin
+      match
+        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (LImp (a', b'))
+      | _ -> None
+    end
+  | LW (a, b) -> begin
+      match
+        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
+      with
+      | Some a', Some b' -> Some (LW (a', b'))
+      | _ -> None
+    end
+
+let lower_ltl_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo_ltl) : fo_ltl option =
+  lower_ltl_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
 let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
   let rec go = function

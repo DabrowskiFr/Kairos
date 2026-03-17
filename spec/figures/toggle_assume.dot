@@ -1,6 +1,0 @@
-digraph G {
-  rankdir=LR;
-  node [shape=circle];
-  ok_A [shape=doublecircle,label="ok_A"];
-  ok_A -> ok_A [label="true"];
-}

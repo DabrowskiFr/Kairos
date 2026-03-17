@@ -3,6 +3,57 @@ module Abs = Abstract_model
 
 type goal_info = string * string * float * string option * string * string option
 
+type text_span = {
+  start_offset : int;
+  end_offset : int;
+}
+
+type proof_diagnostic = {
+  category : string;
+  summary : string;
+  detail : string;
+  probable_cause : string option;
+  missing_elements : string list;
+  goal_symbols : string list;
+  analysis_method : string;
+  solver_detail : string option;
+  native_unsat_core_solver : string option;
+  native_unsat_core_hypothesis_ids : int list;
+  native_counterexample_solver : string option;
+  native_counterexample_model : string option;
+  kairos_core_hypotheses : string list;
+  why3_noise_hypotheses : string list;
+  relevant_hypotheses : string list;
+  context_hypotheses : string list;
+  unused_hypotheses : string list;
+  suggestions : string list;
+  limitations : string list;
+}
+
+type proof_trace = {
+  goal_index : int;
+  stable_id : string;
+  goal_name : string;
+  status : string;
+  solver_status : string;
+  time_s : float;
+  source : string;
+  node : string option;
+  transition : string option;
+  obligation_kind : string;
+  obligation_family : string option;
+  obligation_category : string option;
+  origin_ids : int list;
+  vc_id : string option;
+  source_span : Ast.loc option;
+  obc_span : text_span option;
+  why_span : text_span option;
+  vc_span : text_span option;
+  smt_span : text_span option;
+  dump_path : string option;
+  diagnostic : proof_diagnostic;
+}
+
 type outputs = {
   obc_text : string;
   why_text : string;
@@ -10,16 +61,19 @@ type outputs = {
   smt_text : string;
   dot_text : string;
   labels_text : string;
+  program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
+  program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
+  proof_traces : proof_trace list;
   obcplus_sequents : (int * string) list;
   vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
@@ -36,20 +90,40 @@ type outputs = {
   automata_build_time_s : float;
   why3_prep_time_s : float;
   dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
 }
 
 type automata_outputs = {
   dot_text : string;
   labels_text : string;
+  program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
+  program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
   dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
   stage_meta : (string * (string * string) list) list;
 }
 
@@ -58,12 +132,14 @@ type why_outputs = { why_text : string; stage_meta : (string * (string * string)
 type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_stages = {
+  source : Source_file.t;
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
   instrumentation : Ast.program;
   obc : Ast.program;
+  imported_summaries : Product_kernel_ir.exported_node_summary_ir list;
   (* Clean diagnostic AST view (generated contracts removed). *)
   obc_abstract : Abs.node list;
   (* Canonical abstract OBC program for backend/proof materialization. *)
@@ -84,6 +160,9 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
+  max_proof_goals : int option;
+  selected_goal_index : int option;
+  compute_proof_diagnostics : bool;
   prefix_fields : bool;
   prove : bool;
   generate_vc_text : bool;
@@ -225,10 +304,19 @@ let instrumentation_diag_texts (infos : stage_infos) :
     string * string * string * string * string * string * string * string =
   let instrumentation_info = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
   let join = String.concat "\n" in
+  let obligations_text =
+    let base = join instrumentation_info.obligations_lines in
+    let kernel = join instrumentation_info.kernel_pipeline_lines in
+    match (String.trim base, String.trim kernel) with
+    | "", "" -> ""
+    | _, "" -> base
+    | "", _ -> kernel
+    | _ -> base ^ "\n\n" ^ kernel
+  in
   ( join instrumentation_info.guarantee_automaton_lines,
     join instrumentation_info.assume_automaton_lines,
     join instrumentation_info.product_lines,
-    join instrumentation_info.obligations_lines,
+    obligations_text,
     join instrumentation_info.prune_lines,
     instrumentation_info.guarantee_automaton_dot,
     instrumentation_info.assume_automaton_dot,
@@ -348,12 +436,14 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
         let p_obc_clean = strip_contracts_in_program p_obc in
         let asts =
           {
+            source = { Source_file.imports = []; nodes = p_parsed };
             parsed = p_parsed;
             automata_generation = p_automaton;
             automata;
             contracts = p_contracts;
             instrumentation = p_monitor;
             obc = p_obc_clean;
+            imported_summaries = [];
             obc_abstract = p_obc_abstract;
           }
         in
@@ -499,43 +589,83 @@ let build_vcid_locs (p_parsed : Ast.program) : (int * Ast.loc) list * Ast.loc li
   let p_parsed = p_parsed in
   let acc = ref [] in
   let ordered = ref [] in
+  let add_formula (f : Ast.fo_o) =
+    match f.loc with
+    | None -> ()
+    | Some loc ->
+        acc := (f.oid, loc) :: !acc;
+        ordered := loc :: !ordered
+  in
   let add_node (node : Ast.node) =
+    List.iter add_formula node.attrs.coherency_goals;
     List.iter
       (fun (t : Ast.transition) ->
+        List.iter add_formula t.requires;
         List.iter
-          (fun (ens : Ast.fo_o) ->
-            match ens.loc with
-            | None -> ()
-            | Some loc ->
-                acc := (ens.oid, loc) :: !acc;
-                ordered := loc :: !ordered)
+          (fun (ens : Ast.fo_o) -> add_formula ens)
           t.ensures)
       node.trans
   in
   List.iter add_node p_parsed;
   (List.rev !acc, List.rev !ordered)
 
-let dot_png_from_text (dot_text : string) : string option =
+let dot_png_from_text_diagnostic (dot_text : string) : string option * string option =
   let open Bos in
   match OS.File.tmp "kairos_ide_%s.dot" with
-  | Error _ -> None
+  | Error (`Msg msg) -> (None, Some ("Unable to allocate DOT temp file: " ^ msg))
   | Ok dot_file ->
       let png_file = Fpath.set_ext "png" dot_file in
       begin match OS.File.write dot_file dot_text with
-      | Error _ ->
+      | Error (`Msg msg) ->
           ignore (OS.File.delete dot_file);
-          None
-      | Ok () -> (
-          let cmd = Cmd.(v "dot" % "-Tpng" % p dot_file % "-o" % p png_file) in
-          match OS.Cmd.run cmd with
-          | Ok () ->
-              ignore (OS.File.delete dot_file);
-              Some (Fpath.to_string png_file)
-          | Error _ ->
-              ignore (OS.File.delete dot_file);
-              ignore (OS.File.delete png_file);
-              None)
+          (None, Some ("Unable to write DOT temp file: " ^ msg))
+      | Ok () ->
+          let command =
+            String.concat " "
+              [
+                "dot";
+                "-Tpng";
+                Filename.quote (Fpath.to_string dot_file);
+                "-o";
+                Filename.quote (Fpath.to_string png_file);
+              ]
+          in
+          let env = Unix.environment () in
+          let in_chan, out_chan, err_chan = Unix.open_process_full command env in
+          close_out_noerr out_chan;
+          let stdout_text = In_channel.input_all in_chan |> String.trim in
+          let stderr_text = In_channel.input_all err_chan |> String.trim in
+          let status = Unix.close_process_full (in_chan, out_chan, err_chan) in
+          ignore (OS.File.delete dot_file);
+          begin
+            match status with
+            | Unix.WEXITED 0 -> (Some (Fpath.to_string png_file), None)
+            | Unix.WEXITED code ->
+                ignore (OS.File.delete png_file);
+                let detail =
+                  if stderr_text <> "" then stderr_text
+                  else if stdout_text <> "" then stdout_text
+                  else Printf.sprintf "dot exited with status %d" code
+                in
+                (None, Some detail)
+            | Unix.WSIGNALED signal ->
+                ignore (OS.File.delete png_file);
+                (None, Some (Printf.sprintf "dot terminated by signal %d" signal))
+            | Unix.WSTOPPED signal ->
+                ignore (OS.File.delete png_file);
+                (None, Some (Printf.sprintf "dot stopped by signal %d" signal))
+          end
       end
+
+let dot_png_from_text (dot_text : string) : string option =
+  fst (dot_png_from_text_diagnostic dot_text)
+
+let graph_pngs ~program_dot ~guarantee_automaton_dot ~assume_automaton_dot ~product_dot =
+  let render_if_non_empty dot = if String.trim dot = "" then None else dot_png_from_text dot in
+  ( render_if_non_empty program_dot,
+    render_if_non_empty guarantee_automaton_dot,
+    render_if_non_empty assume_automaton_dot,
+    render_if_non_empty product_dot )
 
 let instrumentation_pass ~generate_png ~input_file : (automata_outputs, error) result =
   let _ = (generate_png, input_file) in

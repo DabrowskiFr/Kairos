@@ -1,0 +1,35 @@
+node sticky_bypass_echo(bypass: int, x: int) returns (y: int)
+contracts
+  ensures: G (undefined_spec_symbol = 0);
+locals
+  latched: int;
+states
+  Init(init), Wait, Hold;
+invariants
+  in Hold:
+    y = latched;
+transitions
+  Init:
+    to Hold when bypass = 1 {
+      y := 0;
+      latched := x;
+    }
+    to Wait when bypass = 0 {
+      y := 0;
+      latched := x;
+    }
+  Wait:
+    to Hold when bypass = 1 {
+      y := 0;
+      latched := x;
+    }
+    to Wait when bypass = 0 {
+      y := 0;
+      latched := x;
+    }
+  Hold:
+    to Hold {
+      y := latched;
+      latched := latched;
+    }
+end

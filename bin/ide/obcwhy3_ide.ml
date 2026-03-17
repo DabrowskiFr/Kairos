@@ -1034,8 +1034,8 @@ treeview.outline row:selected * {
   |> ignore;
   let g_tab = GMisc.label ~text:"Guarantee G" () in
   let a_tab = GMisc.label ~text:"Assume A" () in
+  let prog_tab = GMisc.label ~text:"Program" () in
   let p_tab = GMisc.label ~text:"Product" () in
-  let ap_diag_tab = GMisc.label ~text:"Auto Diag" () in
   let make_ap_graph_view () =
     let sc = GBin.scrolled_window ~hpolicy:`AUTOMATIC ~vpolicy:`AUTOMATIC () in
     let ev = GBin.event_box () in
@@ -1045,8 +1045,9 @@ treeview.outline row:selected * {
   in
   let g_sc, g_img = make_ap_graph_view () in
   let a_sc, a_img = make_ap_graph_view () in
+  let prog_sc, prog_img = make_ap_graph_view () in
   let p_sc, p_img = make_ap_graph_view () in
-  let _ap_view, ap_buf, ap_diag_page =
+  let _ap_view, ap_buf, _ap_diag_page =
     make_text_panel ~label:"Obligations / Prunes" ~packing:(fun _ -> ()) ~editable:false ()
   in
   let automata_window_ref : GWindow.window option ref = ref None in
@@ -1058,12 +1059,10 @@ treeview.outline row:selected * {
     | None ->
         let w = GWindow.window ~title:"Automata" ~width:1000 ~height:720 () in
         let nb = GPack.notebook ~tab_pos:`TOP ~packing:w#add () in
-        let dot_tab = GMisc.label ~text:"Instrumentation" () in
-        ignore (nb#append_page ~tab_label:dot_tab#coerce dot_page#coerce);
+        ignore (nb#append_page ~tab_label:prog_tab#coerce prog_sc#coerce);
         ignore (nb#append_page ~tab_label:g_tab#coerce g_sc#coerce);
         ignore (nb#append_page ~tab_label:a_tab#coerce a_sc#coerce);
         ignore (nb#append_page ~tab_label:p_tab#coerce p_sc#coerce);
-        ignore (nb#append_page ~tab_label:ap_diag_tab#coerce ap_diag_page);
         ignore
           (w#event#connect#delete ~callback:(fun _ ->
                w#misc#hide ();
@@ -2301,6 +2300,7 @@ treeview.outline row:selected * {
       w#show ()
   in
   action_diff_abstract_ref := show_abstract_diff;
+  let ap_program_dot = ref "" in
   let ap_guarantee_dot = ref "" in
   let ap_assume_dot = ref "" in
   let ap_product_dot = ref "" in
@@ -2365,6 +2365,9 @@ treeview.outline row:selected * {
   let file_export_a_auto_png =
     GMenu.menu_item ~label:"Export Assume Automaton" ~packing:file_menu#append ()
   in
+  let file_export_program_png =
+    GMenu.menu_item ~label:"Export Program Automaton" ~packing:file_menu#append ()
+  in
   let file_export_product_png =
     GMenu.menu_item ~label:"Export Product" ~packing:file_menu#append ()
   in
@@ -2372,6 +2375,9 @@ treeview.outline row:selected * {
     if String.trim !dot_ref = "" then set_status ("No " ^ label ^ " graph to export")
     else export_png_with_dpi ~dot_text:!dot_ref
   in
+  file_export_program_png#connect#activate
+    ~callback:(fun () -> export_ap_dot "Program automaton" ap_program_dot)
+  |> ignore;
   file_export_g_auto_png#connect#activate
     ~callback:(fun () -> export_ap_dot "Guarantee automaton" ap_guarantee_dot)
   |> ignore;
@@ -2596,6 +2602,7 @@ treeview.outline row:selected * {
     why_cache := None;
     obligations_cache := None;
     prove_cache := None;
+    ap_program_dot := "";
     ap_guarantee_dot := "";
     ap_assume_dot := "";
     ap_product_dot := "";
@@ -2621,8 +2628,8 @@ treeview.outline row:selected * {
         dot_img#clear ()
     end
   in
-  let set_automata_product_buffers ~guarantee ~assume ~product ~obligations ~prune ~guarantee_dot
-      ~assume_dot ~product_dot =
+  let set_automata_product_buffers ~program ~guarantee ~assume ~product ~obligations ~prune
+      ~program_dot ~guarantee_dot ~assume_dot ~product_dot =
     let set_img_from_dot img dot =
       if String.trim dot = "" then img#clear ()
       else
@@ -2634,9 +2641,11 @@ treeview.outline row:selected * {
               img#set_pixbuf pb
             with _ -> img#clear ())
     in
+    set_img_from_dot prog_img program_dot;
     set_img_from_dot g_img guarantee_dot;
     set_img_from_dot a_img assume_dot;
     set_img_from_dot p_img product_dot;
+    ap_program_dot := program_dot;
     ap_guarantee_dot := guarantee_dot;
     ap_assume_dot := assume_dot;
     ap_product_dot := product_dot;
@@ -2646,6 +2655,7 @@ treeview.outline row:selected * {
     let text =
       String.concat "\n"
         [
+          block "Program automaton" program;
           block "Guarantee automaton" guarantee;
           block "Assume automaton" assume;
           block "Reachable product" product;
@@ -2657,10 +2667,11 @@ treeview.outline row:selected * {
   in
   let set_automata_buffers_from_out (out : Ide_backend.automata_outputs) =
     set_monitor_buffers ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png;
-    set_automata_product_buffers ~guarantee:out.guarantee_automaton_text
+    set_automata_product_buffers ~program:out.program_automaton_text ~guarantee:out.guarantee_automaton_text
       ~assume:out.assume_automaton_text ~product:out.product_text
       ~obligations:out.obligations_map_text ~prune:out.prune_reasons_text
-      ~guarantee_dot:out.guarantee_automaton_dot ~assume_dot:out.assume_automaton_dot
+      ~program_dot:out.program_dot ~guarantee_dot:out.guarantee_automaton_dot
+      ~assume_dot:out.assume_automaton_dot
       ~product_dot:out.product_dot
   in
   file_export_png#connect#activate ~callback:(fun () ->
@@ -3289,9 +3300,10 @@ treeview.outline row:selected * {
                 None)
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~guarantee_automaton
-      ~assume_automaton ~product ~obligations_map ~prune_reasons ~guarantee_automaton_dot
-      ~assume_automaton_dot ~product_dot ~obcplus_seqs ~vc_sources ~task_seqs
+  let set_all_buffers ~obcplus ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~program_automaton
+      ~guarantee_automaton ~assume_automaton ~product ~obligations_map ~prune_reasons
+      ~program_dot ~guarantee_automaton_dot ~assume_automaton_dot ~product_dot ~obcplus_seqs
+      ~vc_sources ~task_seqs
       ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list
       ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans ~why_spans =
     (let _ = vc_spans in
@@ -3299,9 +3311,10 @@ treeview.outline row:selected * {
      set_obcplus_buffer obcplus;
      set_why_buffer why;
      set_obligations_buffers ~vc;
-     set_automata_product_buffers ~guarantee:guarantee_automaton ~assume:assume_automaton
-       ~product ~obligations:obligations_map ~prune:prune_reasons ~guarantee_dot:guarantee_automaton_dot
-       ~assume_dot:assume_automaton_dot ~product_dot);
+     set_automata_product_buffers ~program:program_automaton ~guarantee:guarantee_automaton
+       ~assume:assume_automaton ~product ~obligations:obligations_map ~prune:prune_reasons
+       ~program_dot ~guarantee_dot:guarantee_automaton_dot ~assume_dot:assume_automaton_dot
+       ~product_dot);
     let tbl = Hashtbl.create (List.length obcplus_seqs * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace tbl k v) obcplus_seqs;
     obcplus_sequents := tbl;
@@ -3867,15 +3880,26 @@ treeview.outline row:selected * {
                   {
                      dot_text = out.dot_text;
                      labels_text = out.labels_text;
+                     program_automaton_text = out.program_automaton_text;
                      guarantee_automaton_text = out.guarantee_automaton_text;
                      assume_automaton_text = out.assume_automaton_text;
                      product_text = out.product_text;
                      obligations_map_text = out.obligations_map_text;
                      prune_reasons_text = out.prune_reasons_text;
+                     program_dot = out.program_dot;
                      guarantee_automaton_dot = out.guarantee_automaton_dot;
                      assume_automaton_dot = out.assume_automaton_dot;
                      product_dot = out.product_dot;
                      dot_png = out.dot_png;
+                     dot_png_error = out.dot_png_error;
+                     program_png = out.program_png;
+                     program_png_error = out.program_png_error;
+                     guarantee_automaton_png = out.guarantee_automaton_png;
+                     guarantee_automaton_png_error = out.guarantee_automaton_png_error;
+                     assume_automaton_png = out.assume_automaton_png;
+                     assume_automaton_png_error = out.assume_automaton_png_error;
+                     product_png = out.product_png;
+                     product_png_error = out.product_png_error;
                      stage_meta = out.stage_meta;
                    } );
              !update_instrumentation_button_state_ref ())
@@ -3886,9 +3910,11 @@ treeview.outline row:selected * {
             cache_monitor_from_outputs out;
             set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
               ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+              ~program_automaton:out.program_automaton_text
               ~guarantee_automaton:out.guarantee_automaton_text
               ~assume_automaton:out.assume_automaton_text ~product:out.product_text
               ~obligations_map:out.obligations_map_text ~prune_reasons:out.prune_reasons_text
+              ~program_dot:out.program_dot
               ~guarantee_automaton_dot:out.guarantee_automaton_dot
               ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
               ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
@@ -3911,10 +3937,12 @@ treeview.outline row:selected * {
                   (Glib.Idle.add (fun () ->
                        set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
                          ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+                         ~program_automaton:out.program_automaton_text
                          ~guarantee_automaton:out.guarantee_automaton_text
                          ~assume_automaton:out.assume_automaton_text ~product:out.product_text
                          ~obligations_map:out.obligations_map_text
-                         ~prune_reasons:out.prune_reasons_text
+                          ~prune_reasons:out.prune_reasons_text
+                         ~program_dot:out.program_dot
                          ~guarantee_automaton_dot:out.guarantee_automaton_dot
                          ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
                          ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
@@ -3971,6 +3999,9 @@ treeview.outline row:selected * {
                   wp_only = !prefs.Ide_config.wp_only;
                   smoke_tests;
                   timeout_s;
+                  max_proof_goals = None;
+                  selected_goal_index = None;
+                  compute_proof_diagnostics = false;
                   prefix_fields = false;
                   prove = true;
                   generate_vc_text = false;
@@ -3991,9 +4022,11 @@ treeview.outline row:selected * {
                 cache_monitor_from_outputs out;
                 set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
                   ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
+                  ~program_automaton:out.program_automaton_text
                   ~guarantee_automaton:out.guarantee_automaton_text
                   ~assume_automaton:out.assume_automaton_text ~product:out.product_text
                   ~obligations_map:out.obligations_map_text ~prune_reasons:out.prune_reasons_text
+                  ~program_dot:out.program_dot
                   ~guarantee_automaton_dot:out.guarantee_automaton_dot
                   ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
                   ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources

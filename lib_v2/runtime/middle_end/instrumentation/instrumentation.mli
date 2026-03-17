@@ -25,11 +25,15 @@ val transform_node : build:Automata_generation.automata_build -> Ast.node -> Ast
 (* Primary API: instrument an abstract node and return detailed metadata. *)
 val transform_abstract_node_with_info :
   build:Automata_generation.automata_build ->
+  ?nodes:Abstract_model.node list ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Abstract_model.node ->
   Abstract_model.node * Stage_info.instrumentation_info
 
 (* AST compatibility wrapper around the primary abstract API. *)
 val transform_node_with_info :
   build:Automata_generation.automata_build ->
+  ?nodes:Ast.program ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Ast.node ->
   Ast.node * Stage_info.instrumentation_info

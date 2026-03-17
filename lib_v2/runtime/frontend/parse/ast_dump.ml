@@ -1,24 +1,4 @@
-module A = Ast
-
-let json_escape (s : string) : string =
-  let b = Buffer.create (String.length s) in
-  String.iter
-    (function
-      | '\"' -> Buffer.add_string b "\\\""
-      | '\\' -> Buffer.add_string b "\\\\"
-      | '\n' -> Buffer.add_string b "\\n"
-      | '\r' -> Buffer.add_string b "\\r"
-      | '\t' -> Buffer.add_string b "\\t"
-      | c when Char.code c < 0x20 -> Buffer.add_string b (Printf.sprintf "\\u%04x" (Char.code c))
-      | c -> Buffer.add_char b c)
-    s;
-  Buffer.contents b
-
-let json_kv k v = Printf.sprintf "\"%s\":%s" k v
-let json_str s = Printf.sprintf "\"%s\"" (json_escape s)
-let json_list items = "[" ^ String.concat "," items ^ "]"
-
-let json_vdecl (v : Ast.vdecl) : string =
+let json_vdecl_of_ast (v : Ast.vdecl) : Yojson.Safe.t =
   let ty =
     match v.vty with
     | Ast.TInt -> "int"
@@ -26,73 +6,50 @@ let json_vdecl (v : Ast.vdecl) : string =
     | Ast.TReal -> "real"
     | Ast.TCustom s -> s
   in
-  "{" ^ String.concat "," [ json_kv "name" (json_str v.vname); json_kv "type" (json_str ty) ] ^ "}"
+  `Assoc [ ("name", `String v.vname); ("type", `String ty) ]
 
-let json_transition (t : Ast.transition) : string =
-  let reqs = List.map (fun f -> json_str (Support.string_of_fo f.Ast.value)) t.requires in
-  let enss = List.map (fun f -> json_str (Support.string_of_fo f.Ast.value)) t.ensures in
-  let guard =
-    match t.guard with None -> "null" | Some g -> json_str (Support.string_of_iexpr g)
-  in
-  let base =
+let json_transition_of_ast (t : Ast.transition) : Yojson.Safe.t =
+  `Assoc
     [
-      json_kv "src" (json_str t.src);
-      json_kv "dst" (json_str t.dst);
-      json_kv "guard" guard;
-      json_kv "requires" (json_list reqs);
-      json_kv "ensures" (json_list enss);
+      ("src", `String t.src);
+      ("dst", `String t.dst);
+      ( "guard",
+        match t.guard with
+        | None -> `Null
+        | Some g -> `String (Support.string_of_iexpr g) );
+      ("requires", `List (List.map (fun f -> `String (Support.string_of_fo f.Ast.value)) t.requires));
+      ("ensures", `List (List.map (fun f -> `String (Support.string_of_fo f.Ast.value)) t.ensures));
     ]
-  in
-  "{" ^ String.concat "," base ^ "}"
 
-let json_node (n : Ast.node) : string =
+let json_node_of_ast (n : Ast.node) : Yojson.Safe.t =
   let spec = Ast.specification_of_node n in
-  let inputs = List.map json_vdecl n.inputs in
-  let outputs = List.map json_vdecl n.outputs in
-  let locals = List.map json_vdecl n.locals in
-  let states = List.map json_str n.states in
-  let assumes = List.map (fun f -> json_str (Support.string_of_ltl f)) spec.spec_assumes in
-  let guarantees = List.map (fun f -> json_str (Support.string_of_ltl f)) spec.spec_guarantees in
-  let instances =
-    List.map (fun (inst, node) -> json_list [ json_str inst; json_str node ]) n.instances
-  in
-  let trans = List.map json_transition n.trans in
-  let base =
+  `Assoc
     [
-      json_kv "name" (json_str n.nname);
-      json_kv "inputs" (json_list inputs);
-      json_kv "outputs" (json_list outputs);
-      json_kv "locals" (json_list locals);
-      json_kv "states" (json_list states);
-      json_kv "init_state" (json_str n.init_state);
-      json_kv "instances" (json_list instances);
-      json_kv "assumes" (json_list assumes);
-      json_kv "guarantees" (json_list guarantees);
-      json_kv "transitions" (json_list trans);
+      ("name", `String n.nname);
+      ("inputs", `List (List.map json_vdecl_of_ast n.inputs));
+      ("outputs", `List (List.map json_vdecl_of_ast n.outputs));
+      ("locals", `List (List.map json_vdecl_of_ast n.locals));
+      ("states", `List (List.map (fun s -> `String s) n.states));
+      ("init_state", `String n.init_state);
+      ( "instances",
+        `List (List.map (fun (inst, node) -> `List [ `String inst; `String node ]) n.instances) );
+      ("assumes", `List (List.map (fun f -> `String (Support.string_of_ltl f)) spec.spec_assumes));
+      ("guarantees", `List (List.map (fun f -> `String (Support.string_of_ltl f)) spec.spec_guarantees));
+      ("transitions", `List (List.map json_transition_of_ast n.trans));
     ]
-  in
-  "{" ^ String.concat "," base ^ "}"
 
-let program_to_json (p : Ast.program) : string =
-  let nodes = List.map json_node p in
-  "{" ^ json_kv "nodes" (json_list nodes) ^ "}"
-
-let write_json ~(out : string option) (json : string) : unit =
+let write_json ~(out : string option) (json : Yojson.Safe.t) : unit =
+  let payload = Yojson.Safe.to_string json in
   match out with
-  | None -> print_endline json
+  | None -> print_endline payload
   | Some path ->
       let oc = open_out path in
-      output_string oc json;
+      output_string oc payload;
       output_char oc '\n';
       close_out oc
 
 let dump_program_json ~(out : string option) (p : Ast.program) : unit =
-  let p = p in
-  let payload = Ast_utils.show_program p |> json_escape in
-  let json = Printf.sprintf "{\"program\":\"%s\"}" payload in
-  write_json ~out json
+  write_json ~out (`Assoc [ ("program", `String (Ast_utils.show_program p)) ])
 
 let dump_program_json_stable ~(out : string option) (p : Ast.program) : unit =
-  let p = p in
-  let json = program_to_json p in
-  write_json ~out json
+  write_json ~out (`Assoc [ ("nodes", `List (List.map json_node_of_ast p)) ])

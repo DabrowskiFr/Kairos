@@ -19,10 +19,11 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 type env_info = {
-  node : Ast.node;
+  runtime_view : Why_runtime_view.t;
   module_name : string;
   imports : Why3.Ptree.decl list;
   type_mon_state : Why3.Ptree.decl list;
+  instance_type_decls : Why3.Ptree.decl list;
   type_state : Why3.Ptree.decl;
   type_vars : Why3.Ptree.decl;
   env : Support.env;
@@ -48,5 +49,7 @@ type contract_info = {
   post_labels : string list;
   pre_origin_labels : string list;
   post_origin_labels : string list;
+  pre_source_states : string option list;
+  post_source_states : string option list;
   post_vcids : string option list;
 }

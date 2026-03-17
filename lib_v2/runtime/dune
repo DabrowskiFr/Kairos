@@ -10,6 +10,7 @@
   ast_utils
   ast_dump
   ast_invariants
+  source_file
   frontend
   lexer
   parser
@@ -23,6 +24,8 @@
   stages_info
   log
   io
+  kairos_object
+  modular_imports
   obligation_taxonomy
   engine_service
   pipeline_v2_indep
@@ -39,7 +42,10 @@
   obc_emit
   obc_ghost_instrument
   why_types
+  why_runtime_view
   why_labels
+  why_call_plan
+  why_contract_plan
   why_prove
   why_env
   why_contracts
@@ -53,6 +59,8 @@
   automata_generation
   product_types
   product_build
+  kernel_guided_contract
+  product_kernel_ir
   product_debug
   product_contracts
   automata_pass
@@ -63,21 +71,19 @@
   dot_emit
   why_stage
   fo_specs
+  fo_simplifier
   fo_time
   automaton_util
   automaton_config
   automaton_engine
+  spot_automaton
   fo_atoms
   ltl_valuation
-  automaton_bdd
-  ltl_norm
-  ltl_progress
   automaton_types
   automaton_guard
-  automaton_residual
   automaton_core)
  (libraries str re why3 cmdliner logs logs.fmt bos fpath sedlex fmt rresult yojson kairos_lsp_protocol)
  (preprocess
-  (pps ppx_deriving.show sedlex.ppx)))
+  (pps ppx_deriving.show ppx_deriving_yojson sedlex.ppx)))
 
 (include_subdirs unqualified)

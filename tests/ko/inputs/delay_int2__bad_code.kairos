@@ -1,0 +1,32 @@
+node delay_int2(x: int) returns (y: int)
+contracts
+  ensures: next next always ( y = prev2 x );
+locals
+  s1, s2: int;
+states
+  Init1(init), Init2, Run;
+invariants
+  in Init2:
+    s1 = prev x;
+  in Run:
+    s1 = prev x;
+    s2 = prev2 x;
+transitions
+  Init1:
+    to Init2 {
+      s1 := x;
+      s2 := 0;
+    }
+  Init2:
+    to Run {
+      s2 := s1;
+      s1 := x;
+      y := 0;
+    }
+  Run:
+    to Run {
+      y := 0;
+      s2 := s1;
+      s1 := x;
+    }
+end

@@ -35,4 +35,12 @@ type env_info = Why_types.env_info
    (and inputs if any). - [env] records links/pre_k derived from [node] and collection passes. *)
 
 (* Build environment data needed by the Why3 emission stages. *)
-val prepare_node : prefix_fields:bool -> nodes:Ast.node list -> Ast.node -> env_info
+val prepare_runtime_view : prefix_fields:bool -> Why_runtime_view.t -> env_info
+
+(* Backward-compatible adapter from the current normalized node. *)
+val prepare_node :
+  prefix_fields:bool ->
+  nodes:Ast.node list ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  Ast.node ->
+  env_info

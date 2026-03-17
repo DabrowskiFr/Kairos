@@ -2,4 +2,4 @@
  (name kairos_v2_pipeline)
  (wrapped false)
  (modules v2_pipeline)
- (libraries kairos_v2_adapters))
+ (libraries obcwhy3_lib))

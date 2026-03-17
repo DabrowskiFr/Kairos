@@ -1,0 +1,24 @@
+import "./delay_core.kobj";
+
+node delay_int2_instance(x: int) returns (y: int)
+contracts
+  ensures: G (undefined_spec_symbol = 0);
+instances
+  instance d1: delay_core;
+  instance d2: delay_core;
+locals
+  t : int;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+    call d1(x) returns (t);
+    call d2(t) returns (y);
+  }
+  Run:
+    to Run {
+    call d1(x) returns (t);
+    call d2(t) returns (y);
+  }
+end

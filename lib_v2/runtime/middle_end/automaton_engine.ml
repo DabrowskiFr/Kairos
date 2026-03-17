@@ -1,6 +1,4 @@
 open Automaton_core
-open Automaton_residual
-open Automaton_bdd
 
 module type S = sig
   type residual_state = Ast.fo_ltl
@@ -34,14 +32,19 @@ module Engine : S = struct
     grouped : transition list;
   }
 
+  let of_spot (a : Spot_automaton.automaton) : automaton =
+    {
+      atom_names = a.atom_names;
+      states_raw = a.states_raw;
+      transitions_raw = a.transitions_raw;
+      states = a.states;
+      transitions = a.transitions;
+      grouped = a.grouped;
+    }
+
   let build ~(atom_map : (Ast.fo * Ast.ident) list) ~(atom_names : Ast.ident list)
       (spec : Ast.fo_ltl) : automaton =
-    let states_raw, transitions_raw_bdd = build_residual_graph_bdd ~atom_map ~atom_names spec in
-    let states, transitions_bdd = minimize_residual_graph_bdd states_raw transitions_raw_bdd in
-    let to_guard (i, guard, j) = (i, bdd_to_guard atom_names guard, j) in
-    let transitions_raw = List.map to_guard transitions_raw_bdd in
-    let transitions = List.map to_guard transitions_bdd in
-    { atom_names; states_raw; transitions_raw; states; transitions; grouped = transitions }
+    of_spot (Spot_automaton.build ~atom_map ~atom_names spec)
 end
 
 include Engine

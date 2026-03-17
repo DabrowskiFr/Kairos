@@ -1,404 +1,48 @@
-import * as path from "path";
+import { execSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
+import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
+import { KairosDocProvider, kairosDocUri } from "./documents";
+import { buildGoalsTreeFinalFallback, buildGoalsTreeFromEntries, buildGoalsTreePendingFallback } from "./goals";
 import {
-  LanguageClient,
-  LanguageClientOptions,
-  ServerOptions,
-} from "vscode-languageclient/node";
-
-type Outputs = any;
-type AutomataOutputs = any;
+  ArtifactsPanel,
+  AutomataPanel,
+  ComparePanel,
+  DashboardPanel,
+  ExplainFailurePanel,
+  EvalPanel,
+  PanelHost,
+  PipelinePanel
+} from "./panels";
+import {
+  ArtifactsProvider,
+  GoalsProvider,
+  KairosCodeLensProvider,
+  OutlineProvider,
+  RunsProvider
+} from "./providers";
+import { KairosState } from "./state";
+import {
+  ArtifactId,
+  AutomataOutputs,
+  GoalDoneNotification,
+  GoalDonePayload,
+  GoalTreeEntry,
+  GoalTreeNode,
+  GoalsReadyNotification,
+  GraphId,
+  Loc,
+  OutlinePayload,
+  Outputs,
+  OutputsReadyNotification,
+  PanelId,
+  ProofTrace,
+  SessionSnapshot
+} from "./types";
 
 let client: LanguageClient | null = null;
-let output: vscode.OutputChannel | null = null;
-
-class KairosState {
-  outputs: Outputs | null = null;
-  automata: AutomataOutputs | null = null;
-  goalsTree: any[] = [];
-  outline: any | null = null;
-  goalNames: string[] = [];
-  vcIds: number[] = [];
-  readonly onDidChange = new vscode.EventEmitter<void>();
-
-  setOutputs(out: Outputs | null) {
-    this.outputs = out;
-    this.onDidChange.fire();
-  }
-
-  setAutomata(out: AutomataOutputs | null) {
-    this.automata = out;
-    this.onDidChange.fire();
-  }
-
-  setGoalsTree(tree: any[]) {
-    this.goalsTree = tree;
-    this.onDidChange.fire();
-  }
-
-  setOutline(outline: any | null) {
-    this.outline = outline;
-    this.onDidChange.fire();
-  }
-
-  setPendingGoals(names: string[], vcIds: number[]) {
-    this.goalNames = names;
-    this.vcIds = vcIds;
-    this.onDidChange.fire();
-  }
-}
-
-class KairosDocProvider implements vscode.TextDocumentContentProvider {
-  private readonly onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
-  onDidChange = this.onDidChangeEmitter.event;
-  constructor(private state: KairosState) {}
-
-  refresh(uri: vscode.Uri) {
-    this.onDidChangeEmitter.fire(uri);
-  }
-
-  provideTextDocumentContent(uri: vscode.Uri): string {
-    const kind = uri.path.replace(/^\//, "");
-    const out = this.state.outputs;
-    const auto = this.state.automata;
-    if (!out && !auto) return "No data yet. Run Kairos first.";
-    switch (kind) {
-      case "obc":
-        return out?.obc_text ?? "";
-      case "why":
-        return out?.why_text ?? "";
-      case "vc":
-        return out?.vc_text ?? "";
-      case "smt":
-        return out?.smt_text ?? "";
-      case "dot":
-        return out?.dot_text ?? "";
-      case "labels":
-        return out?.labels_text ?? "";
-      case "assume":
-        return auto?.assume_automaton_text ?? out?.assume_automaton_text ?? "";
-      case "guarantee":
-        return auto?.guarantee_automaton_text ?? out?.guarantee_automaton_text ?? "";
-      case "product":
-        return auto?.product_text ?? out?.product_text ?? "";
-      case "obligations_map":
-        return auto?.obligations_map_text ?? out?.obligations_map_text ?? "";
-      case "prune_reasons":
-        return auto?.prune_reasons_text ?? out?.prune_reasons_text ?? "";
-      case "eval":
-        return (out as any)?.eval_text ?? "";
-      default:
-        return "";
-    }
-  }
-}
-
-type OutlineItemKind = "root" | "section" | "leaf";
-class OutlineItem extends vscode.TreeItem {
-  constructor(
-    public readonly labelText: string,
-    public readonly kind: OutlineItemKind,
-    public readonly line?: number,
-    public readonly target?: "source" | "abstract",
-    public readonly group?: "nodes" | "transitions" | "contracts"
-  ) {
-    super(labelText, kind === "leaf" ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Expanded);
-    if (kind === "leaf" && line && target) {
-      this.command = {
-        command: "kairos.openOutlineLocation",
-        title: "Open",
-        arguments: [line, target],
-      };
-    }
-  }
-}
-
-class OutlineProvider implements vscode.TreeDataProvider<OutlineItem> {
-  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
-  onDidChangeTreeData = this.onDidChangeEmitter.event;
-
-  constructor(private state: KairosState) {
-    this.state.onDidChange.event(() => this.refresh());
-  }
-
-  refresh() {
-    this.onDidChangeEmitter.fire();
-  }
-
-  getTreeItem(element: OutlineItem): vscode.TreeItem {
-    return element;
-  }
-
-  getChildren(element?: OutlineItem): Thenable<OutlineItem[]> {
-    const outline = this.state.outline;
-    if (!outline) {
-      return Promise.resolve([new OutlineItem("No outline (run or save a file)", "section")]);
-    }
-    if (!element) {
-      return Promise.resolve([
-        new OutlineItem("Source", "section"),
-        new OutlineItem("Abstract Program", "section"),
-      ]);
-    }
-    if (element.label === "Source") {
-      return Promise.resolve([
-        new OutlineItem("Nodes", "section", undefined, "source", "nodes"),
-        new OutlineItem("Transitions", "section", undefined, "source", "transitions"),
-        new OutlineItem("Contracts", "section", undefined, "source", "contracts"),
-      ]);
-    }
-    if (element.label === "Abstract Program") {
-      return Promise.resolve([
-        new OutlineItem("Nodes", "section", undefined, "abstract", "nodes"),
-        new OutlineItem("Transitions", "section", undefined, "abstract", "transitions"),
-        new OutlineItem("Contracts", "section", undefined, "abstract", "contracts"),
-      ]);
-    }
-    if (element.group && element.target) {
-      return Promise.resolve(this.buildOutlineChildren(outline, element.target, element.group));
-    }
-    return Promise.resolve([]);
-  }
-
-  private buildOutlineChildren(outline: any, target: "source" | "abstract", group: "nodes" | "transitions" | "contracts"): OutlineItem[] {
-    const section = target === "source" ? outline.source : outline.abstract;
-    const entries = section?.[group] ?? [];
-    return entries.map((e: any) => new OutlineItem(e.name, "leaf", e.line, target));
-  }
-}
-
-class GoalsItem extends vscode.TreeItem {
-  constructor(
-    public readonly labelText: string,
-    public readonly kind: "node" | "transition" | "vc",
-    public readonly payload?: any
-  ) {
-    super(labelText, kind === "vc" ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Collapsed);
-    if (kind === "vc") {
-      this.command = { command: "kairos.openWhyForVc", title: "Open Why at VC", arguments: [payload] };
-      this.contextValue = "kairosGoalVc";
-    }
-  }
-}
-
-class GoalsProvider implements vscode.TreeDataProvider<GoalsItem> {
-  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
-  onDidChangeTreeData = this.onDidChangeEmitter.event;
-
-  constructor(private state: KairosState) {
-    this.state.onDidChange.event(() => this.refresh());
-  }
-
-  refresh() {
-    this.onDidChangeEmitter.fire();
-  }
-
-  getTreeItem(element: GoalsItem): vscode.TreeItem {
-    return element;
-  }
-
-  getChildren(element?: GoalsItem): Thenable<GoalsItem[]> {
-    const tree = this.state.goalsTree;
-    if (!tree || tree.length === 0) {
-      return Promise.resolve([new GoalsItem("No goals (run prove)", "node")]);
-    }
-    if (!element) {
-      return Promise.resolve(
-        tree.map((n: any) => {
-          const item = new GoalsItem(`${n.node} (${n.succeeded}/${n.total})`, "node", n);
-          item.description = `${n.succeeded}/${n.total}`;
-          item.iconPath = n.total > 0 && n.succeeded === n.total
-            ? new vscode.ThemeIcon("check")
-            : new vscode.ThemeIcon("error");
-          item.collapsibleState = n.total > 0 && n.succeeded === n.total
-            ? vscode.TreeItemCollapsibleState.Collapsed
-            : vscode.TreeItemCollapsibleState.Expanded;
-          return item;
-        })
-      );
-    }
-    if (element.kind === "node") {
-      const transitions = element.payload?.transitions ?? [];
-      return Promise.resolve(
-        transitions.map(
-          (t: any) => {
-            const item = new GoalsItem(`${t.transition} (${t.succeeded}/${t.total})`, "transition", t);
-            item.description = `${t.succeeded}/${t.total}`;
-            item.iconPath = t.total > 0 && t.succeeded === t.total
-              ? new vscode.ThemeIcon("check")
-              : new vscode.ThemeIcon("error");
-            item.collapsibleState = t.total > 0 && t.succeeded === t.total
-              ? vscode.TreeItemCollapsibleState.Collapsed
-              : vscode.TreeItemCollapsibleState.Expanded;
-            return item;
-          }
-        )
-      );
-    }
-    if (element.kind === "transition") {
-      const items = element.payload?.items ?? [];
-      return Promise.resolve(
-        items.map((g: any, idx: number) => {
-          const status = (g?.status ?? "").toLowerCase();
-          const item = new GoalsItem(`VC ${idx + 1}`, "vc", g);
-          item.description = status;
-          item.tooltip = g?.source ? `${g.source}` : undefined;
-          item.iconPath =
-            status === "valid" || status === "proved"
-              ? new vscode.ThemeIcon("check")
-              : status === "unknown"
-              ? new vscode.ThemeIcon("question")
-              : new vscode.ThemeIcon("error");
-          return item;
-        })
-      );
-    }
-    return Promise.resolve([]);
-  }
-}
-
-class ArtifactsProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-  private readonly onDidChangeEmitter = new vscode.EventEmitter<void>();
-  onDidChangeTreeData = this.onDidChangeEmitter.event;
-
-  constructor(private state: KairosState) {
-    this.state.onDidChange.event(() => this.refresh());
-  }
-
-  refresh() {
-    this.onDidChangeEmitter.fire();
-  }
-
-  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
-    return element;
-  }
-
-  getChildren(): Thenable<vscode.TreeItem[]> {
-    const items: vscode.TreeItem[] = [];
-    const mk = (label: string, command: string) => {
-      const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
-      item.command = { command, title: label };
-      return item;
-    };
-    items.push(mk("OBC+", "kairos.openObc"));
-    items.push(mk("Why", "kairos.openWhy"));
-    items.push(mk("VC", "kairos.openVc"));
-    items.push(mk("SMT", "kairos.openSmt"));
-    items.push(mk("DOT", "kairos.openDot"));
-    items.push(mk("Labels", "kairos.openLabels"));
-    items.push(mk("Assume Automaton", "kairos.openAssumeText"));
-    items.push(mk("Guarantee Automaton", "kairos.openGuaranteeText"));
-    items.push(mk("Product Automaton", "kairos.openProductText"));
-    items.push(mk("Obligations Map", "kairos.openObligationsMap"));
-    items.push(mk("Prune Reasons", "kairos.openPruneReasons"));
-    items.push(mk("Assume PNG", "kairos.showAssumePng"));
-    items.push(mk("Guarantee PNG", "kairos.showGuaranteePng"));
-    items.push(mk("Product PNG", "kairos.showProductPng"));
-    return Promise.resolve(items);
-  }
-}
-
-type GoalTreeEntry = {
-  idx: number;
-  goal: string;
-  status: string;
-  time_s: number;
-  dump_path?: string | null;
-  source: string;
-  vcid?: string | null;
-};
-
-function normalizeGoalStatus(status: string): string {
-  return (status ?? "").trim().toLowerCase();
-}
-
-function parseSourceScope(sourceRaw: string): { node: string; transition: string } {
-  const source = (sourceRaw ?? "").trim();
-  if (!source) return { node: "Global", transition: "default" };
-  const sep = source.indexOf(":");
-  if (sep <= 0) return { node: source, transition: "default" };
-  return {
-    node: source.slice(0, sep).trim() || "Global",
-    transition: source.slice(sep + 1).trim() || "default",
-  };
-}
-
-function groupGoalEntries(entries: GoalTreeEntry[]): any[] {
-  const byNode = new Map<string, { order: number; byTransition: Map<string, GoalTreeEntry[]> }>();
-  entries.forEach((entry, order) => {
-    const { node, transition } = parseSourceScope(entry.source);
-    let n = byNode.get(node);
-    if (!n) {
-      n = { order, byTransition: new Map<string, GoalTreeEntry[]>() };
-      byNode.set(node, n);
-    }
-    const bucket = n.byTransition.get(transition) ?? [];
-    bucket.push(entry);
-    n.byTransition.set(transition, bucket);
-  });
-
-  return [...byNode.entries()]
-    .sort((a, b) => a[1].order - b[1].order)
-    .map(([node, nodeInfo]) => {
-      const transitions = [...nodeInfo.byTransition.entries()].map(([transition, items]) => {
-        const total = items.length;
-        const succeeded = items.filter((g) => {
-          const st = normalizeGoalStatus(g.status);
-          return st === "valid" || st === "proved";
-        }).length;
-        return {
-          transition,
-          source: `${node}: ${transition}`,
-          succeeded,
-          total,
-          items,
-        };
-      });
-      const total = transitions.reduce((acc, t) => acc + t.total, 0);
-      const succeeded = transitions.reduce((acc, t) => acc + t.succeeded, 0);
-      return { node, source: node, succeeded, total, transitions };
-    });
-}
-
-function buildGoalsTreeFinalFallback(outputs: any): any[] {
-  const goals = Array.isArray(outputs?.goals) ? outputs.goals : [];
-  const entries: GoalTreeEntry[] = goals.map((g: any, idx: number) => ({
-    idx,
-    goal: String(g?.goal ?? ""),
-    status: String(g?.status ?? ""),
-    time_s: typeof g?.time_s === "number" ? g.time_s : 0,
-    dump_path: g?.dump_path ?? null,
-    source: String(g?.source ?? ""),
-    vcid: g?.vcid ?? null,
-  }));
-  return groupGoalEntries(entries);
-}
-
-function buildGoalsTreePendingFallback(goalNames: string[], vcIds: number[], vcSources: any[]): any[] {
-  const vcSourceById = new Map<number, string>();
-  if (Array.isArray(vcSources)) {
-    vcSources.forEach((p: any) => {
-      if (Array.isArray(p) && p.length >= 2 && typeof p[0] === "number" && typeof p[1] === "string") {
-        vcSourceById.set(p[0], p[1]);
-      }
-    });
-  }
-
-  const entries: GoalTreeEntry[] = goalNames.map((goal, idx) => {
-    const vcid = typeof vcIds[idx] === "number" ? vcIds[idx] : null;
-    return {
-      idx,
-      goal: String(goal ?? ""),
-      status: "pending",
-      time_s: 0,
-      dump_path: null,
-      source: vcid !== null ? vcSourceById.get(vcid) ?? "" : "",
-      vcid: vcid !== null ? String(vcid) : null,
-    };
-  });
-  return groupGoalEntries(entries);
-}
+let clientStartPromise: Promise<void> | null = null;
 
 function resolveServerCommand(serverPath: string): string {
   if (path.isAbsolute(serverPath) && fs.existsSync(serverPath)) {
@@ -407,415 +51,1054 @@ function resolveServerCommand(serverPath: string): string {
   return serverPath;
 }
 
-async function ensureClientReady(): Promise<void> {
-  const c: any = client as any;
-  if (c && typeof c.onReady === "function") {
-    await c.onReady();
+function injectOpamEnv(env: NodeJS.ProcessEnv): void {
+  if (env.OPAM_SWITCH_PREFIX) {
+    return; // already set (VS Code launched from a terminal with opam env)
+  }
+  // Try common opam binary locations on macOS/Linux
+  const home = env.HOME ?? "";
+  const rawCandidates: string[] = [
+    "/opt/homebrew/bin/opam",
+    "/usr/local/bin/opam",
+    "/usr/bin/opam",
+    ...(home ? [`${home}/.local/bin/opam`] : [])
+  ];
+  const candidates = rawCandidates.filter((p) => fs.existsSync(p));
+  const opamBin = candidates[0];
+  if (!opamBin) {
+    return;
+  }
+  try {
+    const raw = execSync(`"${opamBin}" env`, { encoding: "utf8", timeout: 8000 });
+    for (const line of raw.split("\n")) {
+      // Parse lines like: VARNAME='value'; export VARNAME;
+      const m = line.match(/^([A-Z_][A-Z_0-9]*)='([^']*)'; export/);
+      if (m) {
+        env[m[1]] = m[2];
+      }
+    }
+  } catch (_) {
+    // ignore; provers may not be available but basic LSP features still work
   }
 }
 
-function ensureKairosEditor(): vscode.TextEditor | null {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor || editor.document.languageId !== "kairos") {
-    vscode.window.showWarningMessage("Open a .kairos or .obc file first.");
+function getRunSettings() {
+  const cfg = vscode.workspace.getConfiguration("kairos");
+  return {
+    engine: cfg.get<string>("run.engine", "v2"),
+    prover: cfg.get<string>("run.prover", "z3"),
+    proverCmd: cfg.get<string>("run.proverCmd", ""),
+    timeoutS: cfg.get<number>("run.timeoutS", 5),
+    maxProofGoals: cfg.get<number | undefined>("run.maxProofGoals"),
+    wpOnly: cfg.get<boolean>("run.wpOnly", false),
+    smokeTests: cfg.get<boolean>("run.smokeTests", false),
+    prefixFields: cfg.get<boolean>("run.prefixFields", false),
+    generateVcText: cfg.get<boolean>("run.generateVcText", true),
+    generateSmtText: cfg.get<boolean>("run.generateSmtText", true),
+    generateMonitorText: cfg.get<boolean>("run.generateMonitorText", true),
+    generateDotPng: cfg.get<boolean>("run.generateDotPng", false),
+    openPanelsAfterProve: cfg.get<boolean>("ui.openDashboardAfterProve", true),
+    restoreSession: cfg.get<boolean>("ui.restoreSession", true)
+  };
+}
+
+function stripDotFieldsFromOutputs(outputs: Outputs): Outputs {
+  return {
+    ...outputs,
+    dot_text: "",
+    program_dot: "",
+    guarantee_automaton_dot: "",
+    assume_automaton_dot: "",
+    product_dot: ""
+  };
+}
+
+function stripDotFieldsFromAutomata(outputs: AutomataOutputs): AutomataOutputs {
+  return {
+    ...outputs,
+    dot_text: "",
+    program_dot: "",
+    guarantee_automaton_dot: "",
+    assume_automaton_dot: "",
+    product_dot: ""
+  };
+}
+
+function preferredEditorColumn(): vscode.ViewColumn {
+  return (
+    vscode.window.activeTextEditor?.viewColumn ??
+    vscode.window.visibleTextEditors[0]?.viewColumn ??
+    vscode.ViewColumn.One
+  );
+}
+
+async function openKairosDoc(kind: ArtifactId): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(kairosDocUri(kind));
+  await vscode.window.showTextDocument(document, { preview: true, viewColumn: preferredEditorColumn() });
+}
+
+async function revealOffsetSpan(kind: ArtifactId, startOffset: number, endOffset: number): Promise<void> {
+  const document = await vscode.workspace.openTextDocument(kairosDocUri(kind));
+  const editor = await vscode.window.showTextDocument(document, {
+    preview: true,
+    viewColumn: preferredEditorColumn()
+  });
+  const start = document.positionAt(startOffset);
+  const end = document.positionAt(endOffset);
+  const range = new vscode.Range(start, end);
+  editor.selection = new vscode.Selection(start, end);
+  editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+}
+
+function formatStageSummary(outputs: Outputs | null): string {
+  if (!outputs) {
+    return "";
+  }
+  const pieces: string[] = [];
+  if (outputs.automata_generation_time_s > 0) {
+    pieces.push(`automata ${outputs.automata_generation_time_s.toFixed(2)}s`);
+  }
+  if (outputs.obcplus_time_s > 0) {
+    pieces.push(`obc ${outputs.obcplus_time_s.toFixed(2)}s`);
+  }
+  if (outputs.why_time_s > 0) {
+    pieces.push(`why ${outputs.why_time_s.toFixed(2)}s`);
+  }
+  if (outputs.why3_prep_time_s > 0) {
+    pieces.push(`prep ${outputs.why3_prep_time_s.toFixed(2)}s`);
+  }
+  if (outputs.automata_build_time_s > 0) {
+    pieces.push(`prove ${outputs.automata_build_time_s.toFixed(2)}s`);
+  }
+  return pieces.join(" | ");
+}
+
+function statusLabel(state: KairosState): string {
+  const elapsed =
+    state.startedAtMs !== null ? `${((Date.now() - state.startedAtMs) / 1000).toFixed(1)}s` : null;
+  const prefix = `Kairos ${state.runPhase}`;
+  return [prefix, state.statusMessage, state.stageSummary, elapsed].filter(Boolean).join(" | ");
+}
+
+function defaultSessionSnapshot(): SessionSnapshot {
+  return {
+    activeFile: null,
+    currentArtifact: "obc",
+    runHistory: [],
+    evalHistory: [],
+    openPanels: []
+  };
+}
+
+function escapeHtmlForReport(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function copyGraphPngToCache(
+  context: vscode.ExtensionContext,
+  graphId: GraphId,
+  sourcePath: string | null | undefined
+): Promise<vscode.Uri | null> {
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
     return null;
   }
-  return editor;
-}
-
-function kairosDocUri(kind: string): vscode.Uri {
-  return vscode.Uri.parse(`kairos:/${kind}`);
-}
-
-async function openKairosDoc(kind: string): Promise<void> {
-  const doc = await vscode.workspace.openTextDocument(kairosDocUri(kind));
-  await vscode.window.showTextDocument(doc, { preview: true });
-}
-
-async function showPng(title: string, base64: string): Promise<void> {
-  const panel = vscode.window.createWebviewPanel(
-    "kairosPng",
-    title,
-    vscode.ViewColumn.Active,
-    {}
-  );
-  panel.webview.html = `<html><body style="margin:0;background:#1e1e1e"><img style="display:block;max-width:100%;height:auto;margin:0 auto" src="data:image/png;base64,${base64}"/></body></html>`;
+  await vscode.workspace.fs.createDirectory(context.globalStorageUri);
+  const automataDir = vscode.Uri.joinPath(context.globalStorageUri, "automata");
+  await vscode.workspace.fs.createDirectory(automataDir);
+  const target = vscode.Uri.joinPath(automataDir, `${graphId}.png`);
+  await vscode.workspace.fs.copy(vscode.Uri.file(sourcePath), target, { overwrite: true });
+  return target;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const cfg = vscode.workspace.getConfiguration("kairos.lsp");
-  const serverPath = cfg.get<string>("serverPath", "kairos-lsp");
-  const serverArgs = cfg.get<string[]>("serverArgs", []);
-  const traceEnabled = cfg.get<boolean>("trace", false);
-  const traceFile = cfg.get<string>("traceFile", "");
+  const lspConfig = vscode.workspace.getConfiguration("kairos.lsp");
+  const serverPath = lspConfig.get<string>("serverPath", "kairos-lsp");
+  const serverArgs = lspConfig.get<string[]>("serverArgs", []);
+  const traceEnabled = lspConfig.get<boolean>("trace", false);
+  const traceFile = lspConfig.get<string>("traceFile", "");
 
   const env = { ...process.env };
+  injectOpamEnv(env);
   if (traceEnabled) {
     env.KAIROS_LSP_TRACE = "1";
-    if (traceFile) env.KAIROS_LSP_TRACE_FILE = traceFile;
+    if (traceFile) {
+      env.KAIROS_LSP_TRACE_FILE = traceFile;
+    }
   }
+
+  const output = vscode.window.createOutputChannel("Kairos");
+  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  const statusCommand = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49);
+  statusCommand.command = "kairos.showRunHistory";
+  statusCommand.text = "$(history) Kairos runs";
+  statusCommand.tooltip = "Show local Kairos run history";
+  statusCommand.show();
+  statusBar.show();
+  context.subscriptions.push(output, statusBar, statusCommand);
 
   const serverOptions: ServerOptions = {
     command: resolveServerCommand(serverPath),
     args: serverArgs,
-    options: { env },
+    options: { env }
   };
 
-  output = vscode.window.createOutputChannel("Kairos LSP");
   const clientOptions: LanguageClientOptions = {
     documentSelector: [{ scheme: "file", language: "kairos" }],
-    outputChannel: output,
+    outputChannel: output
   };
 
-  client = new LanguageClient(
-    "kairosLsp",
-    "Kairos LSP",
-    serverOptions,
-    clientOptions
-  );
+  client = new LanguageClient("kairosLsp", "Kairos LSP", serverOptions, clientOptions);
 
   const state = new KairosState();
+  const session = context.workspaceState.get<SessionSnapshot>("kairos.session", defaultSessionSnapshot());
+  state.activeFile = session.activeFile;
+  state.currentArtifact = session.currentArtifact;
+  state.runHistory = session.runHistory;
+  state.evalHistory = session.evalHistory;
   const docProvider = new KairosDocProvider(state);
-
-  context.subscriptions.push(
-    vscode.workspace.registerTextDocumentContentProvider("kairos", docProvider)
-  );
-
   const outlineProvider = new OutlineProvider(state);
   const goalsProvider = new GoalsProvider(state);
   const artifactsProvider = new ArtifactsProvider(state);
+  const runsProvider = new RunsProvider(state);
+  const codeLensProvider = new KairosCodeLensProvider(state);
+
+  const updateStatusBar = () => {
+    statusBar.text = statusLabel(state);
+    statusBar.tooltip = state.activeFile ?? "No active file";
+    if (state.runPhase === "failed") {
+      statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
+    } else if (state.runPhase === "proving" || state.runPhase === "building" || state.runPhase === "eval") {
+      statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+    } else {
+      statusBar.backgroundColor = undefined;
+    }
+  };
+  state.onDidChange(updateStatusBar);
+  updateStatusBar();
+  const statusTicker = setInterval(() => {
+    if (state.startedAtMs !== null) {
+      updateStatusBar();
+    }
+  }, 1000);
+  context.subscriptions.push({ dispose: () => clearInterval(statusTicker) });
+
   context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider("kairos", docProvider),
     vscode.window.registerTreeDataProvider("kairosOutline", outlineProvider),
     vscode.window.registerTreeDataProvider("kairosGoals", goalsProvider),
-    vscode.window.registerTreeDataProvider("kairosArtifacts", artifactsProvider)
+    vscode.window.registerTreeDataProvider("kairosArtifacts", artifactsProvider),
+    vscode.window.registerTreeDataProvider("kairosRuns", runsProvider),
+    vscode.languages.registerCodeLensProvider({ language: "kairos" }, codeLensProvider)
   );
 
-  const started = client.start() as any;
-  if (started && typeof started.dispose === "function") {
-    context.subscriptions.push(started as vscode.Disposable);
-  } else {
-    context.subscriptions.push({ dispose: () => client?.stop() });
+  const automataPanel = new AutomataPanel(state);
+  const evalPanel = new EvalPanel(state);
+  const dashboardPanel = new DashboardPanel(state);
+  const explainFailurePanel = new ExplainFailurePanel(state);
+  const artifactsPanel = new ArtifactsPanel(state);
+  const pipelinePanel = new PipelinePanel(state);
+  const comparePanel = new ComparePanel(state);
+  const openPanels = new Set<PanelId>(session.openPanels);
+
+  async function resolveKairosContext(
+    options: { reveal?: boolean; showWarning?: boolean } = {}
+  ): Promise<{ editor: vscode.TextEditor | null; inputFile: string } | null> {
+    const showWarning = options.showWarning ?? true;
+    const activeEditor = vscode.window.activeTextEditor;
+    if (activeEditor && activeEditor.document.languageId === "kairos") {
+      state.activeFile = activeEditor.document.uri.fsPath;
+      return { editor: activeEditor, inputFile: activeEditor.document.uri.fsPath };
+    }
+
+    const visibleEditor =
+      vscode.window.visibleTextEditors.find((editor) => editor.document.languageId === "kairos") ?? null;
+    if (visibleEditor) {
+      state.activeFile = visibleEditor.document.uri.fsPath;
+      if (options.reveal) {
+        await vscode.window.showTextDocument(visibleEditor.document, {
+          preview: true,
+          viewColumn: visibleEditor.viewColumn ?? preferredEditorColumn()
+        });
+      }
+      return { editor: visibleEditor, inputFile: visibleEditor.document.uri.fsPath };
+    }
+
+    if (state.activeFile && fs.existsSync(state.activeFile)) {
+      const document = await vscode.workspace.openTextDocument(state.activeFile);
+      const editor = options.reveal
+        ? await vscode.window.showTextDocument(document, {
+            preview: true,
+            viewColumn: preferredEditorColumn()
+          })
+        : null;
+      return { editor, inputFile: document.uri.fsPath };
+    }
+
+    if (showWarning) {
+      vscode.window.showWarningMessage("Open a .kairos file first, or rerun Kairos on the current source.");
+    }
+    return null;
   }
 
-  const refreshAllDocs = () => {
-    [
-      "obc",
-      "why",
-      "vc",
-      "smt",
-      "dot",
-      "labels",
-      "assume",
-      "guarantee",
-      "product",
-      "obligations_map",
-      "prune_reasons",
-      "eval",
-    ].forEach((k) => docProvider.refresh(kairosDocUri(k)));
-  };
+  let activeRunCancellation: vscode.CancellationTokenSource | null = null;
+  clientStartPromise = client
+    .start()
+    .then(() => undefined)
+    .catch((error) => {
+      const message = `Kairos LSP failed to start: ${String(error)}`;
+      output.appendLine(message);
+      void vscode.window.showErrorMessage(
+        `${message}. Check 'kairos.lsp.serverPath' and your opam environment.`
+      );
+      throw error;
+    });
+  context.subscriptions.push({ dispose: () => void client?.stop() });
 
-  client.onNotification("kairos/outputsReady", async (p: any) => {
-    state.setOutputs(p?.payload ?? null);
-    refreshAllDocs();
-    await computeGoalsTreeFinal();
+  const persistSession = async (): Promise<void> => {
+    await context.workspaceState.update("kairos.session", {
+      activeFile: state.activeFile,
+      currentArtifact: state.currentArtifact,
+      runHistory: state.runHistory,
+      evalHistory: state.evalHistory,
+      openPanels: [...openPanels]
+    } satisfies SessionSnapshot);
+  };
+  state.onDidChange(() => void persistSession());
+  state.onDidChangeHistory(() => void persistSession());
+
+  async function ensureClientReady(): Promise<void> {
+    if (!client || !clientStartPromise) {
+      throw new Error("Kairos LSP client is not available.");
+    }
+    await clientStartPromise;
+  }
+
+  async function refreshOutlineFromActiveEditor(): Promise<void> {
+    if (!client) {
+      return;
+    }
+    const context = await resolveKairosContext({ showWarning: false });
+    if (!context) {
+      return;
+    }
+    try {
+      await ensureClientReady();
+      const result = (await client.sendRequest("kairos/outline", {
+        uri: vscode.Uri.file(context.inputFile).toString()
+      })) as OutlinePayload;
+      state.setOutline(result);
+    } catch (error) {
+      output.appendLine(`kairos/outline failed: ${String(error)}`);
+    }
+  }
+
+  async function computeGoalsTreeFinal(outputs: Outputs): Promise<void> {
+    const entries =
+      outputs.goals?.map((goal, idx) => ({
+        idx,
+        display_no: idx + 1,
+        goal: String(goal?.[0] ?? ""),
+        status: String(goal?.[1] ?? ""),
+        time_s: typeof goal?.[2] === "number" ? goal[2] : 0,
+        dump_path: goal?.[3] ?? null,
+        source: String(goal?.[4] ?? ""),
+        vcid: goal?.[5] ?? null
+      })) ?? [];
+    state.setGoalEntries(entries);
+    state.setGoalsTree(buildGoalsTreeFinalFallback(outputs.goals ?? []));
+  }
+
+  async function computeGoalsTreePending(): Promise<void> {
+    const tree = buildGoalsTreePendingFallback(state.goalNames, state.vcIds, state.outputs?.vc_sources ?? []);
+    const entries = tree.flatMap((node) => node.transitions.flatMap((transition) => transition.items));
+    state.setGoalEntries(entries);
+    state.setGoalsTree(tree);
+  }
+
+  function updateGoalsTreeIncrementally(payload: GoalDonePayload): void {
+    state.updateGoalEntry(payload);
+    state.setGoalsTree(buildGoalsTreeFromEntries(state.goalEntries.filter(Boolean)));
+  }
+
+  async function openWhyForGoal(goal: GoalTreeEntry): Promise<void> {
+    const outputs = state.outputs;
+    if (!outputs) {
+      return;
+    }
+    await openKairosDoc("why");
+    const span = outputs.why_spans.find(([idx]) => idx === goal.idx);
+    if (!span) {
+      return;
+    }
+    const document = await vscode.workspace.openTextDocument(kairosDocUri("why"));
+    const editor = await vscode.window.showTextDocument(document, {
+      preview: true,
+      viewColumn: preferredEditorColumn()
+    });
+    const start = document.positionAt(span[1][0]);
+    const end = document.positionAt(span[1][1]);
+    const range = new vscode.Range(start, end);
+    editor.selection = new vscode.Selection(start, end);
+    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+  }
+
+  async function openArtifactSpan(kind: ArtifactId, span: { start_offset: number; end_offset: number } | null): Promise<void> {
+    state.setCurrentArtifact(kind);
+    if (!span) {
+      await openKairosDoc(kind);
+      return;
+    }
+    await revealOffsetSpan(kind, span.start_offset, span.end_offset);
+  }
+
+  async function openSourceLocation(loc: Loc | null): Promise<void> {
+    const context = await resolveKairosContext({ reveal: true });
+    if (!context?.editor || !loc) {
+      return;
+    }
+    const start = new vscode.Position(Math.max(0, loc.line - 1), Math.max(0, loc.col - 1));
+    const end = new vscode.Position(Math.max(0, loc.line_end - 1), Math.max(0, loc.col_end - 1));
+    const range = new vscode.Range(start, end);
+    context.editor.selection = new vscode.Selection(start, end);
+    context.editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+  }
+
+  async function openDumpPath(filePath: string | null): Promise<void> {
+    if (!filePath) {
+      vscode.window.showInformationMessage("No SMT dump available for this goal.");
+      return;
+    }
+    const uri = vscode.Uri.file(filePath);
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document, { preview: true, viewColumn: preferredEditorColumn() });
+  }
+
+  async function diffCurrentObcWithPrevious(): Promise<void> {
+    if (!state.outputs?.obc_text || !state.previousOutputs?.obc_text) {
+      vscode.window.showInformationMessage("A previous OBC artifact is required before a diff is available.");
+      return;
+    }
+    const right = kairosDocUri("obc");
+    const previousProvider = {
+      provideTextDocumentContent: () => state.previousOutputs?.obc_text ?? ""
+    };
+    const registration = vscode.workspace.registerTextDocumentContentProvider("kairos-prev", previousProvider);
+    context.subscriptions.push(registration);
+    const previousUri = vscode.Uri.parse("kairos-prev:/obc");
+    await vscode.commands.executeCommand("vscode.diff", previousUri, right, "Kairos OBC diff");
+  }
+
+  async function getGraphAssets(
+    webview: vscode.Webview
+  ): Promise<Record<GraphId, { svg: string; pngSrc: string; renderError?: string }>
+  > {
+    const pngByGraph: Record<GraphId, string | null | undefined> = {
+      program: state.automata?.program_png ?? state.outputs?.program_png,
+      assume: state.automata?.assume_automaton_png ?? state.outputs?.assume_automaton_png,
+      guarantee: state.automata?.guarantee_automaton_png ?? state.outputs?.guarantee_automaton_png,
+      product: state.automata?.product_png ?? state.outputs?.product_png
+    };
+    output.appendLine(`[Kairos] getGraphAssets: paths=${JSON.stringify(pngByGraph)}`);
+    const pngErrorByGraph: Record<GraphId, string | null | undefined> = {
+      program: state.automata?.program_png_error ?? state.outputs?.program_png_error,
+      assume: state.automata?.assume_automaton_png_error ?? state.outputs?.assume_automaton_png_error,
+      guarantee:
+        state.automata?.guarantee_automaton_png_error ?? state.outputs?.guarantee_automaton_png_error,
+      product: state.automata?.product_png_error ?? state.outputs?.product_png_error
+    };
+    const entries = await Promise.all(
+      (Object.keys(pngByGraph) as GraphId[]).map(async (graphId) => {
+        const sourcePath = pngByGraph[graphId];
+        if (!sourcePath) {
+          return [
+            graphId,
+            {
+              svg: "",
+              pngSrc: "",
+              renderError: pngErrorByGraph[graphId] ?? "No PNG path was returned by Kairos."
+            }
+          ] as const;
+        }
+        if (!fs.existsSync(sourcePath)) {
+          return [
+            graphId,
+            { svg: "", pngSrc: "", renderError: `PNG file does not exist: ${sourcePath}` }
+          ] as const;
+        }
+        try {
+          const cacheUri = await copyGraphPngToCache(context, graphId, sourcePath);
+          if (!cacheUri) {
+            return [graphId, { svg: "", pngSrc: "", renderError: `Unable to cache PNG: ${sourcePath}` }] as const;
+          }
+          const b64 = fs.readFileSync(cacheUri.fsPath).toString("base64");
+          const dataUri = `data:image/png;base64,${b64}`;
+          output.appendLine(`[Kairos] getGraphAssets: ${graphId} → data URI (${b64.length} chars)`);
+          return [graphId, { svg: "", pngSrc: dataUri }] as const;
+        } catch (error) {
+          return [
+            graphId,
+            {
+              svg: "",
+              pngSrc: "",
+              renderError: `PNG cache failed: ${error instanceof Error ? error.message : String(error)}`
+            }
+          ] as const;
+        }
+      })
+    );
+    return Object.fromEntries(entries) as Record<
+      GraphId,
+      { svg: string; pngSrc: string; renderError?: string }
+    >;
+  }
+
+  async function openTraceFile(): Promise<string | null> {
+    const selection = await vscode.window.showOpenDialog({
+      canSelectMany: false,
+      filters: { Trace: ["txt", "trace", "jsonl", "csv"] }
+    });
+    if (!selection?.[0]) {
+      return null;
+    }
+    const bytes = await vscode.workspace.fs.readFile(selection[0]);
+    return Buffer.from(bytes).toString("utf8");
+  }
+
+  async function saveTraceFile(contents: string): Promise<string | null> {
+    const target = await vscode.window.showSaveDialog({
+      filters: { Trace: ["txt", "trace", "jsonl", "csv"] }
+    });
+    if (!target) {
+      return null;
+    }
+    await vscode.workspace.fs.writeFile(target, Buffer.from(contents, "utf8"));
+    return target.fsPath;
+  }
+
+  function renderHtmlReport(): string {
+    const outputs = state.outputs;
+    const rows = state.goalsTree.flatMap((node) =>
+      node.transitions.flatMap((transition) =>
+        transition.items.map((item) => ({ node: node.node, transition: transition.transition, item }))
+      )
+    );
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Kairos Report</title>
+<style>
+body{font-family:Arial,sans-serif;margin:32px;color:#222;background:#fff}
+h1,h2{margin-top:0}.cards{display:flex;gap:12px;margin-bottom:20px}.card{border:1px solid #ddd;border-radius:10px;padding:12px 16px;min-width:140px}
+pre{white-space:pre-wrap;border:1px solid #ddd;border-radius:10px;padding:12px;background:#fafafa}
+table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left}
+</style></head><body>
+<h1>Kairos Report</h1>
+<div class="cards">
+<div class="card"><strong>File</strong><div>${escapeHtmlForReport(state.activeFile ?? "No file")}</div></div>
+<div class="card"><strong>Status</strong><div>${escapeHtmlForReport(state.runPhase)}</div></div>
+<div class="card"><strong>Summary</strong><div>${escapeHtmlForReport(state.stageSummary || state.statusMessage)}</div></div>
+</div>
+<h2>Pipeline Metadata</h2>
+<pre>${escapeHtmlForReport(
+  (outputs?.stage_meta ?? [])
+    .map(([stage, entries]) => `${stage}\n${entries.map(([k, v]) => `  - ${k}: ${v}`).join("\n")}`)
+    .join("\n\n")
+)}</pre>
+<h2>Goals</h2>
+<table><thead><tr><th>Node</th><th>Transition</th><th>Status</th><th>Time</th><th>Source</th><th>VC</th></tr></thead><tbody>
+${rows
+  .map(
+    ({ node, transition, item }) =>
+      `<tr><td>${escapeHtmlForReport(node)}</td><td>${escapeHtmlForReport(transition)}</td><td>${escapeHtmlForReport(
+        item.status
+      )}</td><td>${item.time_s.toFixed(3)}s</td><td>${escapeHtmlForReport(item.source)}</td><td>${escapeHtmlForReport(
+        item.vcid ?? ""
+      )}</td></tr>`
+  )
+  .join("")}
+</tbody></table>
+<h2>OBC+</h2><pre>${escapeHtmlForReport(outputs?.obc_text ?? "")}</pre>
+<h2>Why</h2><pre>${escapeHtmlForReport(outputs?.why_text ?? "")}</pre>
+<h2>Obligations Map</h2><pre>${escapeHtmlForReport(outputs?.obligations_map_text ?? state.automata?.obligations_map_text ?? "")}</pre>
+</body></html>`;
+  }
+
+  async function exportHtmlReport(): Promise<void> {
+    const target = await vscode.window.showSaveDialog({
+      filters: { HTML: ["html"] },
+      defaultUri: vscode.Uri.file(path.join(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "", "kairos-report.html"))
+    });
+    if (!target) {
+      return;
+    }
+    await vscode.workspace.fs.writeFile(target, Buffer.from(renderHtmlReport(), "utf8"));
+    vscode.window.showInformationMessage(`Kairos report exported to ${target.fsPath}`);
+  }
+
+  async function openPipelinePanel(): Promise<void> {
+    openPanels.add("pipeline");
+    await pipelinePanel.show();
+  }
+
+  async function openComparePanel(): Promise<void> {
+    openPanels.add("compare");
+    await comparePanel.show();
+  }
+
+  async function openRecentFile(): Promise<void> {
+    const recent = [...new Set(state.runHistory.map((entry) => entry.file))];
+    if (!recent.length) {
+      vscode.window.showInformationMessage("No recent Kairos file recorded yet.");
+      return;
+    }
+    const pick = await vscode.window.showQuickPick(
+      recent.map((file) => ({ label: path.basename(file), description: file })),
+      { title: "Open recent Kairos file" }
+    );
+    if (!pick?.description) {
+      return;
+    }
+    const document = await vscode.workspace.openTextDocument(pick.description);
+    await vscode.window.showTextDocument(document, { viewColumn: preferredEditorColumn(), preview: false });
+  }
+
+  function hasAutomataPngs(): boolean {
+    const paths = [
+      state.automata?.program_png ?? state.outputs?.program_png,
+      state.automata?.assume_automaton_png ?? state.outputs?.assume_automaton_png,
+      state.automata?.guarantee_automaton_png ?? state.outputs?.guarantee_automaton_png,
+      state.automata?.product_png ?? state.outputs?.product_png,
+    ];
+    return paths.some(p => p != null && fs.existsSync(p));
+  }
+
+  async function showAutomataPanel(): Promise<void> {
+    const hasPngs = hasAutomataPngs();
+    output.appendLine(`[Kairos] showAutomataPanel: hasAutomataPngs=${hasPngs}`);
+    if (!hasPngs) {
+      output.appendLine("[Kairos] showAutomataPanel: no valid PNGs on disk, triggering runAutomataPass.");
+      await runAutomataPass();
+      return;
+    }
+    output.appendLine("[Kairos] showAutomataPanel: PNGs found, showing panel.");
+    openPanels.add("automata");
+    await automataPanel.show();
+  }
+
+  async function showDashboardPanel(): Promise<void> {
+    openPanels.add("dashboard");
+    await dashboardPanel.show();
+  }
+
+  async function showExplainFailurePanel(trace?: ProofTrace | null): Promise<void> {
+    openPanels.add("explain");
+    const selectedTrace =
+      trace ??
+      state.activeProofTrace ??
+      state.outputs?.proof_traces.find((item) => {
+        const normalized = (item.status ?? "").toLowerCase();
+        return normalized !== "valid" && normalized !== "proved" && normalized !== "pending";
+      }) ??
+      null;
+    await explainFailurePanel.show(selectedTrace);
+  }
+
+  async function showArtifactsPanel(): Promise<void> {
+    openPanels.add("artifacts");
+    await artifactsPanel.show();
+  }
+
+  async function showEvalPanel(): Promise<void> {
+    openPanels.add("eval");
+    await evalPanel.show();
+  }
+
+  const panelHost: PanelHost = {
+    openArtifact: async (kind) => {
+      if (kind === "program" || kind === "assume" || kind === "guarantee" || kind === "product") {
+        await showAutomataPanel();
+        return;
+      }
+      state.setCurrentArtifact(kind);
+      await openKairosDoc(kind);
+    },
+    openArtifactSpan,
+    openGraphPanel: showAutomataPanel,
+    openDashboardPanel: showDashboardPanel,
+    openExplainFailurePanel: showExplainFailurePanel,
+    rerunFocusedDiagnosis: async (trace) => {
+      await runWithOptions("prove", { selectedGoalIndex: trace.goal_index });
+      const refreshed =
+        state.outputs?.proof_traces.find((item) => item.goal_index === trace.goal_index) ?? trace;
+      await showExplainFailurePanel(refreshed);
+    },
+    openEvalPanel: showEvalPanel,
+    openPipelinePanel,
+    openComparePanel,
+    runEval: async (traceText, withState, withLocals) => runEval(traceText, withState, withLocals),
+    getGraphAssets,
+    getGraphLocalResourceRoots: () => [context.globalStorageUri],
+    openWhyForGoal,
+    openSourceLocation,
+    openDumpPath,
+    diffCurrentObcWithPrevious,
+    showRunHistory: async () => showRunHistory(),
+    openTraceFile,
+    saveTraceFile,
+    exportHtmlReport
+  };
+  automataPanel.setHost(panelHost);
+  evalPanel.setHost(panelHost);
+  dashboardPanel.setHost(panelHost);
+  explainFailurePanel.setHost(panelHost);
+  artifactsPanel.setHost(panelHost);
+  pipelinePanel.setHost(panelHost);
+  comparePanel.setHost(panelHost);
+
+  client.onNotification("kairos/outputsReady", async (notification: OutputsReadyNotification) => {
+    const previousTraceId = state.activeProofTrace?.stable_id;
+    const sanitized = stripDotFieldsFromOutputs(notification.payload);
+    state.setOutputs(sanitized);
+    if (previousTraceId) {
+      state.setActiveProofTrace(
+        sanitized.proof_traces.find((trace) => trace.stable_id === previousTraceId) ?? null
+      );
+    }
+    state.setStageSummary(formatStageSummary(sanitized));
+    docProvider.refreshAll();
+    await computeGoalsTreeFinal(sanitized);
   });
-  client.onNotification("kairos/goalsReady", async (p: any) => {
-    const names = p?.payload?.names ?? [];
-    const vcIds = p?.payload?.vcIds ?? [];
-    state.setPendingGoals(names, vcIds);
+  client.onNotification("kairos/goalsReady", async (notification: GoalsReadyNotification) => {
+    state.setPendingGoals(notification.payload.names ?? [], notification.payload.vcIds ?? []);
     await computeGoalsTreePending();
   });
-  client.onNotification("kairos/goalDone", async () => {
-    if (state.outputs) {
-      await computeGoalsTreeFinal();
-    }
+  client.onNotification("kairos/goalDone", async (notification: GoalDoneNotification) => {
+    state.activeGoal = notification.payload;
+    updateGoalsTreeIncrementally(notification.payload);
   });
 
-  async function refreshOutlineFromActiveEditor() {
-    if (!client) return;
-    const editor = ensureKairosEditor();
-    if (!editor) return;
-    try {
-      await ensureClientReady();
-      const uri = editor.document.uri.toString();
-      const res = await client.sendRequest("kairos/outline", { uri });
-      state.setOutline(res as any);
-    } catch (e: any) {
-      output?.appendLine(`kairos/outline failed: ${e?.message ?? String(e)}`);
-    }
+  async function runWith(command: "build" | "prove" | "run"): Promise<void> {
+    return runWithOptions(command, {});
   }
 
-  async function computeGoalsTreeFinal() {
-    if (!client || !state.outputs) return;
+  async function runWithOptions(
+    command: "build" | "prove" | "run",
+    options: { selectedGoalIndex?: number }
+  ): Promise<void> {
+    if (!client) {
+      return;
+    }
+    const context = await resolveKairosContext();
+    if (!context) {
+      return;
+    }
+    const settings = getRunSettings();
+    const inputFile = context.inputFile;
+    state.activeFile = inputFile;
+    const runId = state.beginRun(command, inputFile, command === "prove" ? "proving" : "building", `${command} started`);
+    state.setPhase(command === "prove" ? "proving" : "building", `${command} in progress`, command);
+    activeRunCancellation?.dispose();
+    activeRunCancellation = new vscode.CancellationTokenSource();
     try {
       await ensureClientReady();
-      const res = await client.sendRequest("kairos/goalsTreeFinal", {
-        goals: state.outputs.goals ?? [],
-        vcSources: state.outputs.vc_sources ?? [],
-        vcText: state.outputs.vc_text ?? "",
-      });
-      if (Array.isArray(res)) {
-        state.setGoalsTree(res as any[]);
-        return;
-      }
-    } catch (e: any) {
-      output?.appendLine(`kairos/goalsTreeFinal failed: ${e?.message ?? String(e)}`);
-    }
-    state.setGoalsTree(buildGoalsTreeFinalFallback(state.outputs));
-  }
-
-  async function computeGoalsTreePending() {
-    if (!client) return;
-    const vcSources = state.outputs?.vc_sources ?? [];
-    try {
-      await ensureClientReady();
-      const res = await client.sendRequest("kairos/goalsTreePending", {
-        goalNames: state.goalNames ?? [],
-        vcIds: state.vcIds ?? [],
-        vcSources,
-      });
-      if (Array.isArray(res)) {
-        state.setGoalsTree(res as any[]);
-        return;
-      }
-    } catch (e: any) {
-      output?.appendLine(`kairos/goalsTreePending failed: ${e?.message ?? String(e)}`);
-    }
-    state.setGoalsTree(
-      buildGoalsTreePendingFallback(state.goalNames ?? [], state.vcIds ?? [], vcSources)
-    );
-  }
-
-  const fetchOutlineCmd = vscode.commands.registerCommand(
-    "kairos.fetchOutline",
-    async () => {
+      const result = (await client.sendRequest(
+        "kairos/run",
+        {
+          inputFile,
+          engine: settings.engine,
+          prover: settings.prover,
+          proverCmd: settings.proverCmd || undefined,
+          wpOnly: settings.wpOnly,
+          smokeTests: settings.smokeTests,
+          timeoutS: settings.timeoutS,
+          maxProofGoals: settings.maxProofGoals,
+          selectedGoalIndex: options.selectedGoalIndex,
+          computeProofDiagnostics: options.selectedGoalIndex !== undefined,
+          prefixFields: settings.prefixFields,
+          prove: command !== "build",
+          generateVcText: settings.generateVcText,
+          generateSmtText: settings.generateSmtText,
+          generateMonitorText: settings.generateMonitorText,
+          generateDotPng: settings.generateDotPng
+        },
+        activeRunCancellation.token
+      )) as Outputs;
+      const sanitized = stripDotFieldsFromOutputs(result);
+      state.setOutputs(sanitized);
+      state.setStageSummary(formatStageSummary(sanitized));
+      state.setPhase("completed", `${command} completed`, command);
+      state.finishRun(runId, true, "completed", `${command} completed`);
+      docProvider.refreshAll();
+      await computeGoalsTreeFinal(sanitized);
       await refreshOutlineFromActiveEditor();
-      output?.appendLine("kairos/outline: updated");
-      output?.show(true);
+      if (command === "prove" && settings.openPanelsAfterProve) {
+        await showDashboardPanel();
+      }
+    } catch (error) {
+      const message = String(error);
+      const cancelled = message.toLowerCase().includes("cancel");
+      state.setPhase(cancelled ? "cancelled" : "failed", cancelled ? `${command} cancelled` : message, command);
+      state.finishRun(runId, false, cancelled ? "cancelled" : "failed", cancelled ? `${command} cancelled` : message);
+      if (!cancelled) {
+        vscode.window.showErrorMessage(`Kairos ${command} failed: ${message}`);
+      }
+    } finally {
+      activeRunCancellation?.dispose();
+      activeRunCancellation = null;
     }
-  );
+  }
 
-  const openOutlineLocationCmd = vscode.commands.registerCommand(
-    "kairos.openOutlineLocation",
-    async (line: number, target: "source" | "abstract") => {
+  async function runAutomataPass(): Promise<void> {
+    output.appendLine("[Kairos] runAutomataPass: called.");
+    output.show(true);
+    if (!client) {
+      output.appendLine("[Kairos] runAutomataPass: LSP client is null, aborting.");
+      vscode.window.showWarningMessage("Kairos: LSP not started. Open a .kairos file first.");
+      return;
+    }
+    const context = await resolveKairosContext();
+    if (!context) {
+      output.appendLine("[Kairos] runAutomataPass: no Kairos context (no active .obc file?), aborting.");
+      vscode.window.showWarningMessage("Kairos: no active .obc file found.");
+      return;
+    }
+    const settings = getRunSettings();
+    const inputFile = context.inputFile;
+    output.appendLine(`[Kairos] runAutomataPass: inputFile=${inputFile}`);
+    state.activeFile = inputFile;
+    const runId = state.beginRun("automata", inputFile, "building", "Automata generation");
+    state.setPhase("building", "Automata generation", "automata");
+    activeRunCancellation?.dispose();
+    activeRunCancellation = new vscode.CancellationTokenSource();
+    try {
+      await ensureClientReady();
+      output.appendLine("[Kairos] runAutomataPass: sending kairos/instrumentationPass...");
+      const result = await client.sendRequest(
+        "kairos/instrumentationPass",
+        {
+          inputFile,
+          generatePng: true,
+          engine: settings.engine
+        },
+        activeRunCancellation.token
+      );
+      output.appendLine("[Kairos] runAutomataPass: response received.");
+      const automata = stripDotFieldsFromAutomata(result as AutomataOutputs);
+      output.appendLine(`[Kairos] runAutomataPass: PNGs — program=${automata.program_png ?? "null"}, assume=${automata.assume_automaton_png ?? "null"}, guarantee=${automata.guarantee_automaton_png ?? "null"}, product=${automata.product_png ?? "null"}`);
+      state.setAutomata(automata);
+      state.setPhase("completed", "Automata ready", "automata");
+      state.finishRun(runId, true, "completed", "Automata ready");
+      docProvider.refreshAll();
+      openPanels.add("automata");
+      await automataPanel.show();
+    } catch (error) {
+      const message = String(error);
+      output.appendLine(`[Kairos] runAutomataPass: error — ${message}`);
+      const cancelled = message.toLowerCase().includes("cancel");
+      state.setPhase(cancelled ? "cancelled" : "failed", cancelled ? "Automata cancelled" : message, "automata");
+      state.finishRun(runId, false, cancelled ? "cancelled" : "failed", message);
+      if (!cancelled) {
+        vscode.window.showErrorMessage(`Automata generation failed: ${message}`);
+      }
+    } finally {
+      activeRunCancellation?.dispose();
+      activeRunCancellation = null;
+    }
+  }
+
+  async function runEval(traceText: string, withState: boolean, withLocals: boolean): Promise<string> {
+    if (!client) {
+      return "LSP client is not available.";
+    }
+    const context = await resolveKairosContext();
+    if (!context) {
+      return "No Kairos file is active.";
+    }
+    const settings = getRunSettings();
+    const inputFile = context.inputFile;
+    state.activeFile = inputFile;
+    const runId = state.beginRun("eval", inputFile, "eval", "Eval run");
+    state.setPhase("eval", "Eval running", "eval");
+    try {
+      await ensureClientReady();
+      const result = (await client.sendRequest(
+        "kairos/evalPass",
+        {
+          inputFile,
+          traceText,
+          withState,
+          withLocals,
+          engine: settings.engine
+        }
+      )) as string;
+      state.setOutputs({ ...(state.outputs ?? ({} as Outputs)), eval_text: result } as Outputs);
+      state.addEvalHistory({ traceText, withState, withLocals, createdAt: new Date().toISOString(), file: inputFile });
+      state.setPhase("completed", "Eval completed", "eval");
+      state.finishRun(runId, true, "completed", "Eval completed");
+      docProvider.refresh("eval");
+      return result;
+    } catch (error) {
+      const message = String(error);
+      state.setPhase("failed", message, "eval");
+      state.finishRun(runId, false, "failed", message);
+      return `Eval failed: ${message}`;
+    }
+  }
+
+  async function cancelRun(): Promise<void> {
+    if (!activeRunCancellation) {
+      vscode.window.showInformationMessage("No active Kairos run to cancel.");
+      return;
+    }
+    activeRunCancellation.cancel();
+    state.setPhase("cancelled", "Cancellation requested", state.activeCommand ?? undefined);
+  }
+
+  async function resetState(): Promise<void> {
+    state.reset();
+    docProvider.refreshAll();
+    output.appendLine("Kairos state reset.");
+  }
+
+  async function showRunHistory(): Promise<void> {
+    if (!state.runHistory.length) {
+      vscode.window.showInformationMessage("No Kairos run history is available yet.");
+      return;
+    }
+    const pick = await vscode.window.showQuickPick(
+      state.runHistory.map((entry) => ({
+        label: `${entry.command}: ${entry.summary}`,
+        description: entry.durationMs ? `${(entry.durationMs / 1000).toFixed(2)}s` : entry.phase,
+        detail: entry.file
+      })),
+      { title: "Kairos local run history" }
+    );
+    if (pick) {
+      output.show(true);
+    }
+  }
+
+  const taskProvider = vscode.tasks.registerTaskProvider("kairos", {
+    provideTasks: () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || editor.document.languageId !== "kairos") {
+        return [];
+      }
+      const taskFile = editor.document.uri.fsPath;
+      const makeTask = (name: string, command: string) => {
+        const task = new vscode.Task(
+          { type: "kairos", task: name },
+          vscode.TaskScope.Workspace,
+          `Kairos ${name}`,
+          "kairos",
+          new vscode.ShellExecution(command)
+        );
+        task.detail = taskFile;
+        return task;
+      };
+      return [
+        makeTask("Build", "code --command kairos.build"),
+        makeTask("Prove", "code --command kairos.prove"),
+        makeTask("Automata", "code --command kairos.instrumentation")
+      ];
+    },
+    resolveTask: () => undefined
+  });
+  context.subscriptions.push(taskProvider);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("kairos.fetchOutline", refreshOutlineFromActiveEditor),
+    vscode.commands.registerCommand("kairos.openOutlineLocation", async (line: number, target: "source" | "abstract") => {
       if (target === "source") {
-        const editor = ensureKairosEditor();
-        if (!editor) return;
-        const pos = new vscode.Position(Math.max(0, line - 1), 0);
-        editor.selection = new vscode.Selection(pos, pos);
-        editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+        const context = await resolveKairosContext({ reveal: true });
+        if (!context?.editor) {
+          return;
+        }
+        const position = new vscode.Position(Math.max(0, line - 1), 0);
+        context.editor.selection = new vscode.Selection(position, position);
+        context.editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
       } else {
         await openKairosDoc("obc");
       }
-    }
+    }),
+    vscode.commands.registerCommand("kairos.openWhyForVc", openWhyForGoal),
+    vscode.commands.registerCommand("kairos.openArtifact", async (kind: ArtifactId) => {
+      state.setCurrentArtifact(kind);
+      await panelHost.openArtifact(kind);
+    }),
+    vscode.commands.registerCommand("kairos.openObc", async () => openKairosDoc("obc")),
+    vscode.commands.registerCommand("kairos.openWhy", async () => openKairosDoc("why")),
+    vscode.commands.registerCommand("kairos.openVc", async () => openKairosDoc("vc")),
+    vscode.commands.registerCommand("kairos.openSmt", async () => openKairosDoc("smt")),
+    vscode.commands.registerCommand("kairos.openLabels", async () => openKairosDoc("labels")),
+    vscode.commands.registerCommand("kairos.openAssumeText", async () => openKairosDoc("assume")),
+    vscode.commands.registerCommand("kairos.openGuaranteeText", async () => openKairosDoc("guarantee")),
+    vscode.commands.registerCommand("kairos.openProductText", async () => openKairosDoc("product")),
+    vscode.commands.registerCommand("kairos.openObligationsMap", async () => openKairosDoc("obligations_map")),
+    vscode.commands.registerCommand("kairos.openPruneReasons", async () => openKairosDoc("prune_reasons")),
+    vscode.commands.registerCommand("kairos.run", async () => runWith("run")),
+    vscode.commands.registerCommand("kairos.build", async () => runWith("build")),
+    vscode.commands.registerCommand("kairos.prove", async () => runWith("prove")),
+    vscode.commands.registerCommand("kairos.instrumentation", runAutomataPass),
+    vscode.commands.registerCommand("kairos.cancelRun", cancelRun),
+    vscode.commands.registerCommand("kairos.resetState", resetState),
+    vscode.commands.registerCommand("kairos.automataPanel", showAutomataPanel),
+    vscode.commands.registerCommand("kairos.dashboardPanel", showDashboardPanel),
+    vscode.commands.registerCommand("kairos.explainFailure", async (trace?: ProofTrace | null) => showExplainFailurePanel(trace)),
+    vscode.commands.registerCommand("kairos.artifactsPanel", showArtifactsPanel),
+    vscode.commands.registerCommand("kairos.evalPanel", showEvalPanel),
+    vscode.commands.registerCommand("kairos.pipelinePanel", openPipelinePanel),
+    vscode.commands.registerCommand("kairos.compareAutomata", openComparePanel),
+    vscode.commands.registerCommand("kairos.exportHtmlReport", exportHtmlReport),
+    vscode.commands.registerCommand("kairos.openRecentFile", openRecentFile),
+    vscode.commands.registerCommand("kairos.eval", showEvalPanel),
+    vscode.commands.registerCommand("kairos.diffObc", diffCurrentObcWithPrevious),
+    vscode.commands.registerCommand("kairos.showRunHistory", showRunHistory),
+    vscode.commands.registerCommand("kairos.openTraceLogs", async () => {
+      output.show(true);
+    }),
+    vscode.commands.registerCommand("kairos.openDumpPath", openDumpPath)
   );
-
-  const openWhyForVcCmd = vscode.commands.registerCommand(
-    "kairos.openWhyForVc",
-    async (goal: any) => {
-      const out = state.outputs;
-      if (!out) {
-        vscode.window.showWarningMessage("No outputs yet. Run Kairos first.");
-        return;
-      }
-      const vcId = typeof goal?.idx === "number" ? goal.idx : null;
-      const span = Array.isArray(out.why_spans)
-        ? out.why_spans.find((s: any) => Array.isArray(s) && s[0] === vcId)
-        : null;
-      await openKairosDoc("why");
-      if (!span) return;
-      const doc = await vscode.workspace.openTextDocument(kairosDocUri("why"));
-      const editor = await vscode.window.showTextDocument(doc, { preview: true });
-      const start = doc.positionAt(span[1][0]);
-      const end = doc.positionAt(span[1][1]);
-      const range = new vscode.Range(start, end);
-      editor.selection = new vscode.Selection(start, end);
-      editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-    }
-  );
-
-  async function runWith(params: any) {
-    if (!client) return;
-    const editor = ensureKairosEditor();
-    if (!editor) return;
-    await ensureClientReady();
-    const inputFile = editor.document.uri.fsPath;
-    const res = await client.sendRequest("kairos/run", { inputFile, ...params });
-    state.setOutputs(res as any);
-    await computeGoalsTreeFinal();
-    output?.appendLine("kairos/run done");
-    output?.show(true);
-  }
-
-  const runCmd = vscode.commands.registerCommand("kairos.run", async () => {
-    await runWith({
-      prover: "z3",
-      wpOnly: false,
-      smokeTests: false,
-      timeoutS: 5,
-      prefixFields: false,
-      prove: true,
-      generateVcText: true,
-      generateSmtText: true,
-      generateMonitorText: true,
-      generateDotPng: true,
-    });
-  });
-
-  const buildCmd = vscode.commands.registerCommand("kairos.build", async () => {
-    await runWith({
-      prover: "z3",
-      prove: false,
-      generateVcText: true,
-      generateSmtText: true,
-      generateMonitorText: true,
-      generateDotPng: true,
-    });
-  });
-
-  const proveCmd = vscode.commands.registerCommand("kairos.prove", async () => {
-    await runWith({ prover: "z3", prove: true });
-  });
-
-  const instrumentationCmd = vscode.commands.registerCommand(
-    "kairos.instrumentation",
-    async () => {
-      if (!client) return;
-      const editor = ensureKairosEditor();
-      if (!editor) return;
-      await ensureClientReady();
-      const inputFile = editor.document.uri.fsPath;
-      const res = await client.sendRequest("kairos/instrumentationPass", {
-        inputFile,
-        generatePng: true,
-      });
-      state.setAutomata(res as any);
-      output?.appendLine("kairos/instrumentationPass done");
-      output?.show(true);
-    }
-  );
-
-  const evalCmd = vscode.commands.registerCommand("kairos.eval", async () => {
-    if (!client) return;
-    const editor = ensureKairosEditor();
-    if (!editor) return;
-    const traceText = await vscode.window.showInputBox({
-      prompt: "Paste trace text for eval",
-      placeHolder: "trace ...",
-    });
-    if (!traceText) return;
-    await ensureClientReady();
-    const inputFile = editor.document.uri.fsPath;
-    const res = await client.sendRequest("kairos/evalPass", {
-      inputFile,
-      traceText,
-      withState: true,
-      withLocals: true,
-    });
-    const evalUri = kairosDocUri("eval");
-    state.setOutputs({ ...(state.outputs ?? {}), eval_text: res });
-    docProvider.refresh(evalUri);
-    await openKairosDoc("eval");
-  });
-
-  const openObcCmd = vscode.commands.registerCommand("kairos.openObc", async () =>
-    openKairosDoc("obc")
-  );
-  const openWhyCmd = vscode.commands.registerCommand("kairos.openWhy", async () =>
-    openKairosDoc("why")
-  );
-  const openVcCmd = vscode.commands.registerCommand("kairos.openVc", async () =>
-    openKairosDoc("vc")
-  );
-  const openSmtCmd = vscode.commands.registerCommand("kairos.openSmt", async () =>
-    openKairosDoc("smt")
-  );
-  const openDotCmd = vscode.commands.registerCommand("kairos.openDot", async () =>
-    openKairosDoc("dot")
-  );
-  const openLabelsCmd = vscode.commands.registerCommand("kairos.openLabels", async () =>
-    openKairosDoc("labels")
-  );
-  const openAssumeCmd = vscode.commands.registerCommand("kairos.openAssumeText", async () =>
-    openKairosDoc("assume")
-  );
-  const openGuaranteeCmd = vscode.commands.registerCommand(
-    "kairos.openGuaranteeText",
-    async () => openKairosDoc("guarantee")
-  );
-  const openProductCmd = vscode.commands.registerCommand("kairos.openProductText", async () =>
-    openKairosDoc("product")
-  );
-  const openObligationsCmd = vscode.commands.registerCommand(
-    "kairos.openObligationsMap",
-    async () => openKairosDoc("obligations_map")
-  );
-  const openPruneCmd = vscode.commands.registerCommand("kairos.openPruneReasons", async () =>
-    openKairosDoc("prune_reasons")
-  );
-
-  const showPngCmd = (kind: "assume" | "guarantee" | "product") =>
-    vscode.commands.registerCommand(`kairos.show${kind[0].toUpperCase()}${kind.slice(1)}Png`, async () => {
-      if (!client) return;
-      const out = state.automata ?? state.outputs;
-      let dot = "";
-      if (kind === "assume") dot = out?.assume_automaton_dot ?? "";
-      if (kind === "guarantee") dot = out?.guarantee_automaton_dot ?? "";
-      if (kind === "product") dot = out?.product_dot ?? "";
-      if (!dot) {
-        vscode.window.showWarningMessage("No DOT text available.");
-        return;
-      }
-      await ensureClientReady();
-      const res = await client.sendRequest("kairos/dotPngFromText", { dotText: dot });
-      const png = res as string | null;
-      if (!png) {
-        vscode.window.showWarningMessage("PNG generation failed.");
-        return;
-      }
-      await showPng(`Kairos ${kind}`, png);
-    });
 
   context.subscriptions.push(
-    fetchOutlineCmd,
-    openOutlineLocationCmd,
-    openWhyForVcCmd,
-    runCmd,
-    buildCmd,
-    proveCmd,
-    instrumentationCmd,
-    evalCmd,
-    openObcCmd,
-    openWhyCmd,
-    openVcCmd,
-    openSmtCmd,
-    openDotCmd,
-    openLabelsCmd,
-    openAssumeCmd,
-    openGuaranteeCmd,
-    openProductCmd,
-    openObligationsCmd,
-    openPruneCmd,
-    showPngCmd("assume"),
-    showPngCmd("guarantee"),
-    showPngCmd("product")
+    vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+      if (editor?.document.languageId === "kairos") {
+        state.activeFile = editor.document.uri.fsPath;
+        await refreshOutlineFromActiveEditor();
+      }
+    }),
+    vscode.workspace.onDidSaveTextDocument(async (document) => {
+      if (document.languageId === "kairos") {
+        state.activeFile = document.uri.fsPath;
+        await refreshOutlineFromActiveEditor();
+      }
+    })
   );
 
-  vscode.window.onDidChangeActiveTextEditor(async (ed) => {
-    if (ed && ed.document.languageId === "kairos") {
-      await refreshOutlineFromActiveEditor();
+  if (getRunSettings().restoreSession && vscode.window.activeTextEditor?.document.languageId === "kairos") {
+    state.activeFile = vscode.window.activeTextEditor.document.uri.fsPath;
+    await refreshOutlineFromActiveEditor();
+  }
+  if (getRunSettings().restoreSession) {
+    for (const panelId of session.openPanels) {
+      if (panelId === "automata") {
+        await automataPanel.show();
+      } else if (panelId === "dashboard") {
+        await dashboardPanel.show();
+      } else if (panelId === "explain" && state.activeProofTrace) {
+        await explainFailurePanel.show(state.activeProofTrace);
+      } else if (panelId === "artifacts") {
+        await artifactsPanel.show();
+      } else if (panelId === "eval") {
+        await evalPanel.show();
+      } else if (panelId === "pipeline") {
+        await pipelinePanel.show();
+      } else if (panelId === "compare") {
+        await comparePanel.show();
+      }
     }
-  });
-  vscode.workspace.onDidSaveTextDocument(async (doc) => {
-    if (doc.languageId === "kairos") {
-      await refreshOutlineFromActiveEditor();
-    }
-  });
-
+  }
 }
 
 export async function deactivate(): Promise<void> {
-  if (!client) return;
-  await client.stop();
+  clientStartPromise = null;
+  await client?.stop();
   client = null;
 }

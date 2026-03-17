@@ -78,19 +78,4 @@ val guard_to_formula : Automaton_types.guard -> string
 (* Render a DNF guard as a boolean formula string. *)
 val guard_to_iexpr : Automaton_types.guard -> Ast.iexpr
 (* Convert a DNF guard into an iexpr formula. *)
-(* {1 LTL Normalization} *)
-
-val nnf_ltl : ?neg:bool -> Ast.fo_ltl -> Ast.fo_ltl
-
-(* Convert an LTL formula into negation normal form. *)
-val simplify_ltl : Ast.fo_ltl -> Ast.fo_ltl
-
-(* Simplify LTL formulas via boolean rewrites. *)
-val eval_atom : (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo -> bool
-(* Evaluate an atom against a valuation. *)
-(* {1 Residual Automaton} *)
-
-val progress_ltl : (Ast.fo * Ast.ident) list -> (string * bool) list -> Ast.fo_ltl -> Ast.fo_ltl
-
-(* Progress an LTL formula through one valuation. *)
 type residual_state = Ast.fo_ltl
