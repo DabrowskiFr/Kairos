@@ -59,6 +59,7 @@
   product_build
   kernel_guided_contract
   kairos_ir
+  ir_production
   product_kernel_ir
   product_debug
   product_contracts

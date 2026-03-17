@@ -40,6 +40,7 @@ type instrumentation_info = {
   state_ctors : string list;
   atom_count : int;
   kernel_ir_nodes : Product_kernel_ir.node_ir list;
+  raw_ir_nodes : Kairos_ir.raw_node list;
   kernel_pipeline_lines : string list;
   warnings : string list;
   guarantee_automaton_lines : string list;
@@ -52,12 +53,6 @@ type instrumentation_info = {
   product_dot : string;
 }
 
-type obc_info = {
-  ghost_locals_added : string list;
-  pre_k_infos : string list list;
-  warnings : string list;
-}
-
 let empty_parse_info : parse_info =
   { source_path = None; text_hash = None; parse_errors = []; warnings = [] }
 
@@ -65,11 +60,13 @@ let empty_automata_info : automata_info =
   { residual_state_count = 0; residual_edge_count = 0; warnings = [] }
 
 let empty_contracts_info : contracts_info = { contract_origin_map = []; warnings = [] }
+
 let empty_instrumentation_info : instrumentation_info =
   {
     state_ctors = [];
     atom_count = 0;
     kernel_ir_nodes = [];
+    raw_ir_nodes = [];
     kernel_pipeline_lines = [];
     warnings = [];
     guarantee_automaton_lines = [];
@@ -81,4 +78,3 @@ let empty_instrumentation_info : instrumentation_info =
     assume_automaton_dot = "";
     product_dot = "";
   }
-let empty_obc_info : obc_info = { ghost_locals_added = []; pre_k_infos = []; warnings = [] }
