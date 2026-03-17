@@ -7,6 +7,13 @@ type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.fo;
+  (* Execution-level transition body — needed to generate Why3 without OBC+. *)
+  guard_iexpr : Ast.iexpr option;
+  requires : Ast.fo_o list;
+  ensures : Ast.fo_o list;
+  ghost_stmts : Ast.stmt list;
+  body_stmts : Ast.stmt list;
+  instrumentation_stmts : Ast.stmt list;
 }
 [@@deriving yojson]
 
@@ -246,6 +253,8 @@ type node_ir = {
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
+  (* Ghost locals added by the pre_k instrumentation pass. *)
+  ghost_locals : Ast.vdecl list;
 }
 [@@deriving yojson]
 
@@ -258,6 +267,9 @@ type exported_node_summary_ir = {
   coherency_goals : Ast.fo_o list;
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
+  (* LTL specifications — needed to reconstruct the runtime view without OBC+. *)
+  assumes : Ast.fo_ltl list;
+  guarantees : Ast.fo_ltl list;
 }
 [@@deriving yojson]
 

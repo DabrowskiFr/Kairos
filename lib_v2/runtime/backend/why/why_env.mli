@@ -44,3 +44,10 @@ val prepare_node :
   ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   Ast.node ->
   env_info
+
+val prepare_summary :
+  prefix_fields:bool ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  program_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  Product_kernel_ir.exported_node_summary_ir ->
+  env_info

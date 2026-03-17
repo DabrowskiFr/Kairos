@@ -62,7 +62,7 @@ type 'a ltl =
   | LW of 'a ltl * 'a ltl (* Weak Until *)
 [@@deriving show, yojson]
 
-type fo_ltl = fo ltl [@@deriving show]
+type fo_ltl = fo ltl [@@deriving show, yojson]
 type atom_ltl = ident ltl [@@deriving show]
 type origin =
   | UserContract

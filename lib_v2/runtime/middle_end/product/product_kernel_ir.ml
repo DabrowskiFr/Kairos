@@ -15,6 +15,13 @@ type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.fo;
+  (* Execution-level transition body — needed to generate Why3 without OBC+. *)
+  guard_iexpr : Ast.iexpr option;
+  requires : Ast.fo_o list;
+  ensures : Ast.fo_o list;
+  ghost_stmts : Ast.stmt list;
+  body_stmts : Ast.stmt list;
+  instrumentation_stmts : Ast.stmt list;
 }
 [@@deriving yojson]
 
@@ -254,6 +261,8 @@ type node_ir = {
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
+  (* Ghost locals added by the pre_k instrumentation pass. *)
+  ghost_locals : Ast.vdecl list;
 }
 [@@deriving yojson]
 
@@ -266,6 +275,9 @@ type exported_node_summary_ir = {
   coherency_goals : Ast.fo_o list;
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
+  (* LTL specifications — needed to reconstruct the runtime view without OBC+. *)
+  assumes : Ast.fo_ltl list;
+  guarantees : Ast.fo_ltl list;
 }
 [@@deriving yojson]
 
@@ -570,6 +582,12 @@ let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactiv
             (match t.guard with
             | None -> FTrue
             | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo);
+          guard_iexpr = t.guard;
+          requires = t.requires;
+          ensures = t.ensures;
+          ghost_stmts = t.attrs.ghost;
+          body_stmts = t.body;
+          instrumentation_stmts = t.attrs.instrumentation;
         })
       node.trans
   in
@@ -1053,6 +1071,8 @@ let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported
     coherency_goals = node.attrs.coherency_goals;
     pre_k_map;
     delay_spec = extract_delay_spec node.guarantees;
+    assumes = node.assumes;
+    guarantees = node.guarantees;
   }
 
 let build_call_binding_pairs kind locals remotes =
@@ -1359,6 +1379,7 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
       called_callee_names
   in
   let call_site_instantiations = build_call_site_instantiations ~nodes ~external_summaries ~node in
+  let ghost_locals = pre_k_locals_of_ast (Abs.to_ast_node node) in
   {
     reactive_program;
     assume_automaton;
@@ -1373,6 +1394,7 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     instance_relations;
     callee_tick_abis;
     call_site_instantiations;
+    ghost_locals;
   }
 
 let render_reactive_program (p : reactive_program_ir) : string list =
@@ -1610,6 +1632,7 @@ let render_call_summary_toy_example =
       instance_relations = [];
       callee_tick_abis = [ abi ];
       call_site_instantiations = [ inst ];
+      ghost_locals = [];
     }
   in
   ("-- Toy call summary ABI example --" :: render_call_summary_section ir)

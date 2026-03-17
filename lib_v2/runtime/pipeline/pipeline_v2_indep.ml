@@ -748,6 +748,19 @@ let apply_goal_results_to_outputs ~(out : Pipeline.outputs)
   in
   { out with proof_traces; goals }
 
+(* Build exported summaries from the instrumented AST nodes and the kernel IR map.
+   This is the bridge between the instrumented Ast.node and the IR-only emission path. *)
+let build_program_summaries (p_instrumented : Ast.program)
+    (kernel_ir_map : (Ast.ident * Product_kernel_ir.node_ir) list) :
+    Product_kernel_ir.exported_node_summary_ir list =
+  List.filter_map
+    (fun (node : Ast.node) ->
+      match List.assoc_opt node.nname kernel_ir_map with
+      | None -> None
+      | Some normalized_ir ->
+          Some (Product_kernel_ir.export_node_summary ~node ~normalized_ir))
+    p_instrumented
+
 let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos : Pipeline.stage_infos) :
     (Pipeline.outputs, Pipeline.error) result =
   try
@@ -759,15 +772,10 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
-    let external_summaries =
-      List.map
-        (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
-          (summary.signature.node_name, summary))
-        asts.imported_summaries
-    in
+    let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
     let why_ast =
-      Emit.compile_program_ast ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-        ~external_summaries asts.instrumentation
+      Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
+        ~external_summaries:asts.imported_summaries program_summaries
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
@@ -1097,14 +1105,38 @@ let why_pass ~prefix_fields ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
-      let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.instrumentation in
+      let instrumentation_info =
+        Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
+      in
+      let kernel_ir_map =
+        List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
+          instrumentation_info.kernel_ir_nodes
+      in
+      let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+      let why_ast =
+        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
+          ~external_summaries:asts.imported_summaries program_summaries
+      in
+      let why_text = Emit.emit_program_ast why_ast in
       Ok { Pipeline.why_text = why_text; stage_meta = stage_meta infos }
 
 let obligations_pass ~prefix_fields ~prover ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
-  | Ok (asts, _infos) ->
-      let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.instrumentation in
+  | Ok (asts, infos) ->
+      let instrumentation_info =
+        Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
+      in
+      let kernel_ir_map =
+        List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
+          instrumentation_info.kernel_ir_nodes
+      in
+      let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+      let why_ast =
+        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
+          ~external_summaries:asts.imported_summaries program_summaries
+      in
+      let why_text = Emit.emit_program_ast why_ast in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" (Why_prove.dump_why3_tasks_with_attrs ~text:why_text) in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" (Why_prove.dump_smt2_tasks ~prover ~text:why_text) in
       Ok { Pipeline.vc_text = vc_text; smt_text }

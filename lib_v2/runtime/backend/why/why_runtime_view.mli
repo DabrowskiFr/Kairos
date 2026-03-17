@@ -118,3 +118,11 @@ val find_callee_summary : t -> Ast.ident -> callee_summary_view option
 val transition_to_ast : runtime_transition_view -> Ast.transition
 val to_ast_node : t -> Ast.node
 val has_instance_calls : t -> bool
+
+val pre_k_updates_of_map : (Ast.hexpr * Support.pre_k_info) list -> Ast.stmt list
+
+val of_exported_summary :
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  program_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  Product_kernel_ir.exported_node_summary_ir ->
+  t
