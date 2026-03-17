@@ -9,8 +9,5 @@ type contracts_stage = Ast.program
 (* AST after monitor injection. *)
 type instrumentation_stage = Ast.program
 
-(* AST after OBC+ normalization/instrumentation. *)
-type obc_stage = Ast.program
-
 (* AST ready for Why3 emission (currently same representation). *)
 type why_stage = Ast.program

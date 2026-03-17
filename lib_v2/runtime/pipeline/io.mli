@@ -30,8 +30,6 @@ val emit_why3_vc : out_file:string -> why_text:string -> unit
 val emit_smt2 : out_file:string -> prover:string -> why_text:string -> unit
 (* Emit SMT2 tasks to a file using a prover driver. *)
 
-val emit_why : prefix_fields:bool -> output_file:string option -> Ast.program -> string
-(* Emit Why3 source to a file or return it as a string. *)
 
 val prove_why : prover:string -> prover_cmd:string option -> why_text:string -> unit
 (* Prove Why3 text using a prover driver. *)

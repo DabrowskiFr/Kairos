@@ -93,21 +93,6 @@ let emit_smt2 ~(out_file : string) ~(prover : string) ~(why_text : string) : uni
     write_text out_file out;
     Log.output_written "smt2" out_file (file_size out_file))
 
-let emit_why ~(prefix_fields : bool) ~(output_file : string option) (program : Ast.program) : string
-    =
-  let why_ast = Why_stage.build_ast ~prefix_fields program in
-  let out = Why_stage.emit_ast why_ast in
-  begin match output_file with
-  | Some "-" -> print_string out
-  | Some path -> write_text path out
-  | None -> ()
-  end;
-  begin match output_file with
-  | Some "-" -> ()
-  | Some path -> Log.output_written "why" path (file_size path)
-  | None -> ()
-  end;
-  out
 
 let prove_why ~(prover : string) ~(prover_cmd : string option) ~(why_text : string) : unit =
   let t_prove = Unix.gettimeofday () in

@@ -1,5 +1,5 @@
 (* Logical identifiers for pipeline stages (used in logs/UI). *)
-type stage_id = Parsed | Automaton | Contracts | Instrumentation | Obc | Why | Prove
+type stage_id = Parsed | Automaton | Contracts | Instrumentation | Why | Prove
 
 (* All stages, in pipeline order (including backend). *)
 val all : stage_id list
