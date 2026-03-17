@@ -61,6 +61,7 @@
   kairos_ir
   ir_production
   triple_computation
+  history_elimination
   product_kernel_ir
   product_debug
   product_contracts
