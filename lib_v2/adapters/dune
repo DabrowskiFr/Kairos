@@ -1,5 +1,0 @@
-(library
- (name kairos_v2_adapters)
- (wrapped false)
- (modules v2_native_external_bridge)
- (libraries kairos_v2_integration_layer))
