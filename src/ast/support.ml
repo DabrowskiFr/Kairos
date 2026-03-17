@@ -127,26 +127,12 @@ let rec max_x_depth (f : fo_ltl) : int =
   | LNot a | LG a -> max_x_depth a
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> max (max_x_depth a) (max_x_depth b)
 
-let rec ltl_of_fo (f : fo) : fo_ltl =
-  match f with
-  | FTrue -> LTrue
-  | FFalse -> LFalse
-  | FRel _ | FPred _ -> LAtom f
-  | FNot a -> LNot (ltl_of_fo a)
-  | FAnd (a, b) -> LAnd (ltl_of_fo a, ltl_of_fo b)
-  | FOr (a, b) -> LOr (ltl_of_fo a, ltl_of_fo b)
-  | FImp (a, b) -> LImp (ltl_of_fo a, ltl_of_fo b)
+let ltl_of_fo (f : fo) : fo_ltl = LAtom f
 
-let rec fo_of_ltl (f : fo_ltl) : fo =
+let fo_of_ltl (f : fo_ltl) : fo =
   match f with
-  | LTrue -> FTrue
-  | LFalse -> FFalse
   | LAtom a -> a
-  | LNot a -> FNot (fo_of_ltl a)
-  | LAnd (a, b) -> FAnd (fo_of_ltl a, fo_of_ltl b)
-  | LOr (a, b) -> FOr (fo_of_ltl a, fo_of_ltl b)
-  | LImp (a, b) -> FImp (fo_of_ltl a, fo_of_ltl b)
-  | LX _ | LG _ | LW _ -> failwith "fo_of_ltl: LTL operator in FO formula"
+  | _ -> failwith "fo_of_ltl: not an atom"
 
 let is_const_iexpr (e : iexpr) : bool =
   match e.iexpr with
@@ -298,17 +284,11 @@ let string_of_hexpr (h : hexpr) : string =
       if k = 1 then "pre(" ^ string_of_iexpr e ^ ")"
       else "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_int k ^ ")"
 
-let rec string_of_fo ?(ctx = 0) (f : fo) : string =
-  let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
+let string_of_fo ?(ctx = 0) (f : fo) : string =
+  ignore ctx;
   match f with
-  | FTrue -> "true"
-  | FFalse -> "false"
   | FRel (h1, r, h2) -> string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
   | FPred (id, hs) -> id ^ "(" ^ String.concat ", " (List.map string_of_hexpr hs) ^ ")"
-  | FNot a -> wrap 5 ("not " ^ string_of_fo ~ctx:5 a)
-  | FAnd (a, b) -> wrap 3 (string_of_fo ~ctx:3 a ^ " and " ^ string_of_fo ~ctx:3 b)
-  | FOr (a, b) -> wrap 2 (string_of_fo ~ctx:2 a ^ " or " ^ string_of_fo ~ctx:2 b)
-  | FImp (a, b) -> wrap 1 (string_of_fo ~ctx:1 a ^ " -> " ^ string_of_fo ~ctx:1 b)
 
 let rec string_of_ltl ?(ctx = 0) (f : fo_ltl) : string =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in

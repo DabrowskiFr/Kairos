@@ -6,7 +6,7 @@ type automaton_role =
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
-  guard : Ast.fo;
+  guard : Ast.fo_ltl;
   (* Execution-level transition body — needed to generate Why3 without OBC+. *)
   guard_iexpr : Ast.iexpr option;
   requires : Ast.fo_o list;
@@ -28,7 +28,7 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Ast.fo;
+  guard : Ast.fo_ltl;
 }
 [@@deriving yojson]
 
@@ -63,7 +63,7 @@ type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
   program_transition : Ast.ident * Ast.ident;
-  program_guard : Ast.fo;
+  program_guard : Ast.fo_ltl;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -95,7 +95,7 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
-  | FactFormula of Ast.fo
+  | FactFormula of Ast.fo_ltl
   | FactFalse
 [@@deriving yojson]
 
@@ -120,7 +120,7 @@ type generated_clause_ir = {
 
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
-  | RelFactFormula of Ast.fo
+  | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]
 
@@ -150,7 +150,7 @@ type instance_relation_ir =
       callee_node_name : Ast.ident;
       state_name : Ast.ident;
       is_eq : bool;
-      formula : Ast.fo;
+      formula : Ast.fo_ltl;
     }
   | InstanceDelayHistoryLink of {
       instance_name : Ast.ident;

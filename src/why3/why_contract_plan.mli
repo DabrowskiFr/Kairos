@@ -37,7 +37,7 @@ val compute_transition_contracts :
   env:Support.env ->
   runtime_transitions:Why_runtime_view.runtime_transition_view list ->
   labeled_trans:
-    (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo * string * string) list) list ->
+    (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo_ltl * string * string) list) list ->
   has_monitor_instrumentation:bool ->
   post_contract_user:Why3.Ptree.term list ->
   use_kernel_product_contracts:bool ->

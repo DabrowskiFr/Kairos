@@ -32,7 +32,7 @@ val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
 
 (* Extract all pre‑k expressions from a set of specs/invariants. *)
 val collect_pre_k_from_specs :
-  fo:Ast.fo list ->
+  fo:Ast.fo_ltl list ->
   ltl:Ast.fo_ltl list ->
   invariants_user:Ast.invariant_user list ->
   invariants_state_rel:Ast.invariant_state_rel list ->

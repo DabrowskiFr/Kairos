@@ -35,8 +35,8 @@ let string_of_prune_reason = function
 let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
   Printf.sprintf "%d->%d" src dst
 
-let obligation_formula (step : PT.product_step) : fo =
-  FNot (FAnd (step.prog_guard, FAnd (step.assume_guard, step.guarantee_guard)))
+let obligation_formula (step : PT.product_step) : fo_ltl =
+  LNot (LAnd (step.prog_guard, LAnd (step.assume_guard, step.guarantee_guard)))
 
 let render_automaton_lines ~prefix labels =
   labels |> List.mapi (fun i lbl -> Printf.sprintf "%s%d = %s" prefix i lbl)
@@ -102,7 +102,7 @@ let render_program_lines ~(node_name : ident) (node : Abs.node) =
              match t.guard with
              | None -> "⊤"
              | Some g ->
-                 g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
+                 g |> iexpr_to_fo_with_atoms [] |> string_of_ltl |> strip_braces_early
                  |> rewrite_history_vars_early
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
@@ -121,9 +121,9 @@ let render_product_lines ~(node_name : ident) (analysis : Product_build.analysis
              (string_of_state step.src)
              step.prog_transition.src
              (string_of_edge step.assume_edge)
-             (string_of_fo step.assume_guard)
+             (string_of_ltl step.assume_guard)
              (string_of_edge step.guarantee_edge)
-             (string_of_fo step.guarantee_guard)
+             (string_of_ltl step.guarantee_guard)
              (string_of_state step.dst)
              (string_of_step_class step.step_class))
   in
@@ -139,13 +139,13 @@ let render_obligation_lines ~(node_name : ident) (analysis : Product_build.analy
                && step.src.guarantee_state <> analysis.guarantee_bad_idx
              in
              let simplified = Fo_simplifier.simplify_fo (obligation_formula step) in
-             if (not src_live) || simplified = FTrue || simplified = FFalse then None
+             if (not src_live) || simplified = LTrue || simplified = LFalse then None
              else
                Some
                  (Printf.sprintf "[%s] obligation %s -> %s: %s" node_name
                     (string_of_state step.src)
                     (string_of_state step.dst)
-                    (string_of_fo simplified))
+                    (string_of_ltl simplified))
          | _ -> None)
 
 let render_prune_lines ~(node_name : ident) (analysis : Product_build.analysis) =
@@ -155,9 +155,9 @@ let render_prune_lines ~(node_name : ident) (analysis : Product_build.analysis) 
            (string_of_state step.src)
            step.prog_transition.src
            (string_of_edge step.assume_edge)
-           (string_of_fo step.assume_guard)
+           (string_of_ltl step.assume_guard)
            (string_of_edge step.guarantee_edge)
-           (string_of_fo step.guarantee_guard)
+           (string_of_ltl step.guarantee_guard)
            (string_of_prune_reason step.reason))
 
 let node_id_of_state (s : PT.product_state) : string =
@@ -292,7 +292,7 @@ let render_program_dot ~(node_name : ident) (node : Abs.node) =
                match t.guard with
                | None -> "⊤"
                | Some g ->
-                   g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
+                   g |> iexpr_to_fo_with_atoms [] |> string_of_ltl |> strip_braces_early
                    |> rewrite_history_vars_early
              in
              Buffer.add_string buf
@@ -418,7 +418,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
            guard
            |> recover_guard_iexpr atom_map_exprs
            |> iexpr_to_fo_with_atoms []
-           |> string_of_fo
+           |> string_of_ltl
            |> compact_display_string)
   in
   let alias_of_guard =
@@ -462,7 +462,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
         guard
         |> recover_guard_iexpr atom_map_exprs
         |> iexpr_to_fo_with_atoms []
-        |> string_of_fo
+        |> string_of_ltl
         |> compact_display_string
       in
       let alias = if formula = "true" then "⊤" else alias_of_guard formula in

@@ -14,7 +14,7 @@ type automaton_role =
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
-  guard : Ast.fo;
+  guard : Ast.fo_ltl;
   (* Execution-level transition body — needed to generate Why3 without OBC+. *)
   guard_iexpr : Ast.iexpr option;
   requires : Ast.fo_o list;
@@ -36,7 +36,7 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Ast.fo;
+  guard : Ast.fo_ltl;
 }
 [@@deriving yojson]
 
@@ -71,7 +71,7 @@ type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
   program_transition : Ast.ident * Ast.ident;
-  program_guard : Ast.fo;
+  program_guard : Ast.fo_ltl;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -103,7 +103,7 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
-  | FactFormula of Ast.fo
+  | FactFormula of Ast.fo_ltl
   | FactFalse
 [@@deriving yojson]
 
@@ -128,7 +128,7 @@ type generated_clause_ir = {
 
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
-  | RelFactFormula of Ast.fo
+  | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]
 
@@ -158,7 +158,7 @@ type instance_relation_ir =
       callee_node_name : Ast.ident;
       state_name : Ast.ident;
       is_eq : bool;
-      formula : Ast.fo;
+      formula : Ast.fo_ltl;
     }
   | InstanceDelayHistoryLink of {
       instance_name : Ast.ident;
@@ -281,14 +281,14 @@ type exported_node_summary_ir = {
 }
 [@@deriving yojson]
 
-let fo_of_iexpr (e : iexpr) : fo = iexpr_to_fo_with_atoms [] e
+let fo_of_iexpr (e : iexpr) : fo_ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
   let recovered = Automata_atoms.recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
-  | [], _ -> FFalse
-  | _ :: _, FFalse -> recovered
+  | [], _ -> LFalse
+  | _ :: _, LFalse -> recovered
   | _ -> simplified
 
 type lit = { var : ident; cst : string; is_pos : bool }
@@ -319,25 +319,21 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     end
   | _ -> None
 
-let rec conj_lits (f : fo) : lit list option =
+let rec conj_lits (f : fo_ltl) : lit list option =
   match f with
-  | FTrue -> Some []
-  | FRel (h1, r, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
-  | FNot x -> begin
-      match x with
-      | FRel (h1, REq, h2) ->
-          Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
-      | _ -> None
-    end
-  | FAnd (a, b) -> begin
+  | LTrue -> Some []
+  | LAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
+  | LNot (LAtom (FRel (h1, REq, h2))) ->
+      Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
+  | LAnd (a, b) -> begin
       match (conj_lits a, conj_lits b) with
       | Some la, Some lb -> Some (la @ lb)
       | _ -> None
     end
   | _ -> None
 
-let disj_conjs (f : fo) : lit list list option =
-  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
+let disj_conjs (f : fo_ltl) : lit list list option =
+  let rec go = function LOr (a, b) -> go a @ go b | x -> [ x ] in
   let xs = go f |> List.map conj_lits in
   List.fold_right
     (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
@@ -367,15 +363,15 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
     pos;
   !ok
 
-let fo_overlap_conservative (a : fo) (b : fo) : bool =
+let fo_overlap_conservative (a : fo_ltl) (b : fo_ltl) : bool =
   match (disj_conjs a, disj_conjs b) with
   | Some da, Some db ->
       List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
   | _ -> true
 
-let guards_may_overlap (a : fo) (b : fo) : bool =
-  match Fo_simplifier.simplify_fo (FAnd (a, b)) with
-  | FFalse -> false
+let guards_may_overlap (a : fo_ltl) (b : fo_ltl) : bool =
+  match Fo_simplifier.simplify_fo (LAnd (a, b)) with
+  | LFalse -> false
   | _ -> fo_overlap_conservative a b
 
 let product_state_of_pt (st : PT.product_state) : product_state_ir =
@@ -463,12 +459,12 @@ let string_of_call_fact_kind = function
 let string_of_clause_fact_desc = function
   | FactProgramState st -> "st = " ^ st
   | FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
-  | FactFormula f -> string_of_fo f
+  | FactFormula f -> string_of_ltl f
   | FactFalse -> "false"
 
 let string_of_relational_clause_fact_desc = function
   | RelFactProgramState st -> "st = " ^ st
-  | RelFactFormula f -> string_of_fo f
+  | RelFactFormula f -> string_of_ltl f
   | RelFactFalse -> "false"
 
 let string_of_clause_fact (fact : clause_fact_ir) =
@@ -504,23 +500,23 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     | HNow e -> iexpr_mentions_current_input e
     | HPreK _ -> false
   in
-  let rec fo_mentions_current_input (f : Ast.fo) =
+  let rec fo_mentions_current_input (f : Ast.fo_ltl) =
     match f with
-    | FTrue | FFalse -> false
-    | FRel (a, _, b) -> hexpr_mentions_current_input a || hexpr_mentions_current_input b
-    | FPred (_, hs) -> List.exists hexpr_mentions_current_input hs
-    | FNot inner -> fo_mentions_current_input inner
-    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+    | LTrue | LFalse -> false
+    | LAtom (FRel (a, _, b)) -> hexpr_mentions_current_input a || hexpr_mentions_current_input b
+    | LAtom (FPred (_, hs)) -> List.exists hexpr_mentions_current_input hs
+    | LNot inner | LX inner | LG inner -> fo_mentions_current_input inner
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         fo_mentions_current_input a || fo_mentions_current_input b
   in
-  let rec normalize_source_summary (f : fo) : fo =
+  let rec normalize_source_summary (f : fo_ltl) : fo_ltl =
     match f with
-    | FNot (FOr (FNot a, FNot b)) -> FAnd (normalize_source_summary a, normalize_source_summary b)
-    | FNot inner -> FNot (normalize_source_summary inner)
-    | FAnd (a, b) -> FAnd (normalize_source_summary a, normalize_source_summary b)
-    | FOr (a, b) -> FOr (normalize_source_summary a, normalize_source_summary b)
-    | FImp (a, b) -> FImp (normalize_source_summary a, normalize_source_summary b)
-    | FTrue | FFalse | FRel _ | FPred _ -> f
+    | LNot (LOr (LNot a, LNot b)) -> LAnd (normalize_source_summary a, normalize_source_summary b)
+    | LNot inner -> LNot (normalize_source_summary inner)
+    | LAnd (a, b) -> LAnd (normalize_source_summary a, normalize_source_summary b)
+    | LOr (a, b) -> LOr (normalize_source_summary a, normalize_source_summary b)
+    | LImp (a, b) -> LImp (normalize_source_summary a, normalize_source_summary b)
+    | LTrue | LFalse | LAtom _ | LX _ | LG _ | LW _ -> f
   in
   let same_product_state (a : product_state_ir) (b : product_state_ir) =
     a.prog_state = b.prog_state
@@ -552,8 +548,8 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
          | [] -> None
          | bad_case :: rest ->
              let safe_summary =
-               List.fold_left (fun acc fo -> FOr (acc, fo)) bad_case rest
-               |> fun disj -> FNot disj
+               List.fold_left (fun acc fo -> LOr (acc, fo)) bad_case rest
+               |> fun disj -> LNot disj
                |> normalize_source_summary
              in
              Some
@@ -569,7 +565,7 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
                } : generated_clause_ir))
 
 let string_of_edge (edge : automaton_edge_ir) =
-  Printf.sprintf "%d -> %d : %s" edge.src_index edge.dst_index (string_of_fo edge.guard)
+  Printf.sprintf "%d -> %d : %s" edge.src_index edge.dst_index (string_of_ltl edge.guard)
 
 let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactive_program_ir =
   let transitions =
@@ -580,7 +576,7 @@ let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactiv
           dst_state = t.dst;
           guard =
             (match t.guard with
-            | None -> FTrue
+            | None -> LTrue
             | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo);
           guard_iexpr = t.guard;
           requires = t.requires;
@@ -674,7 +670,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
   |> List.concat_map (fun (t : Abs.transition) ->
          let program_guard =
            match t.guard with
-           | None -> FTrue
+           | None -> LTrue
            | Some g -> Fo_simplifier.simplify_fo (fo_of_iexpr g)
          in
          live_states
@@ -693,20 +689,20 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
                          match assume_guards with
                          | [] -> None
                          | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left (fun acc x -> FOr (acc, x)) g gs)
+                         | g :: gs -> Some (List.fold_left (fun acc x -> LOr (acc, x)) g gs)
                        in
                        let guarantee_guard =
                          match guarantee_guards with
                          | [] -> None
                          | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left (fun acc x -> FOr (acc, x)) g gs)
+                         | g :: gs -> Some (List.fold_left (fun acc x -> LOr (acc, x)) g gs)
                        in
                        match (assume_guard, guarantee_guard) with
                        | Some ag, Some gg ->
                            let combined =
-                             Fo_simplifier.simplify_fo (FAnd (program_guard, FAnd (ag, gg)))
+                             Fo_simplifier.simplify_fo (LAnd (program_guard, LAnd (ag, gg)))
                            in
-                           if combined = FFalse then None
+                           if combined = LFalse then None
                            else
                              Some
                                {
@@ -835,7 +831,7 @@ let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact
     | FactGuaranteeState _ as desc -> Some desc
     | FactFalse -> Some FactFalse
     | FactFormula fo ->
-        Option.map (fun fo' -> FactFormula fo') (lower_fo_temporal_bindings ~temporal_bindings fo)
+        Option.map (fun fo' -> FactFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
   in
   Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
 
@@ -850,7 +846,7 @@ let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
   in
   match (lower_all [] clause.hypotheses, lower_all [] clause.conclusions) with
   | Some hypotheses, Some conclusions ->
-      if List.exists (fun (fact : clause_fact_ir) -> fact.desc = FactFormula FFalse || fact.desc = FactFalse) hypotheses
+      if List.exists (fun (fact : clause_fact_ir) -> fact.desc = FactFormula LFalse || fact.desc = FactFalse) hypotheses
       then None
       else Some { clause with hypotheses; conclusions }
   | _ -> None
@@ -861,7 +857,7 @@ let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) lis
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
     | FactFormula fo ->
-        Option.map (fun fo' -> RelFactFormula fo') (lower_fo_temporal_bindings ~temporal_bindings fo)
+        Option.map (fun fo' -> RelFactFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
     | FactFalse -> Some RelFactFalse
     | FactGuaranteeState _ -> None
   in
@@ -871,7 +867,7 @@ let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
     relational_clause_fact_ir list list =
   let rec expand_one acc = function
     | [] -> [ List.rev acc ]
-    | ({ desc = RelFactFormula (FOr (a, b)); _ } as fact) :: tl ->
+    | ({ desc = RelFactFormula (LOr (a, b)); _ } as fact) :: tl ->
         let left = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo a) } in
         let right = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo b) } in
         (expand_one (left :: acc) tl) @ expand_one (right :: acc) tl
@@ -893,7 +889,7 @@ let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info
            not
              (List.exists
                 (fun (fact : relational_clause_fact_ir) ->
-                  fact.desc = RelFactFormula FFalse || fact.desc = RelFactFalse)
+                  fact.desc = RelFactFormula LFalse || fact.desc = RelFactFalse)
                 hypotheses))
     |> List.map (fun hypotheses -> { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
 
@@ -1087,9 +1083,9 @@ let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Support.pre_k_info) 
       | _ -> None)
     pre_k_map
 
-let simple_relational_eq_vars (fo : Ast.fo) : (Ast.ident * Ast.ident) option =
+let simple_relational_eq_vars (fo : Ast.fo_ltl) : (Ast.ident * Ast.ident) option =
   match fo with
-  | FRel (HNow { iexpr = IVar lhs; _ }, REq, HNow { iexpr = IVar rhs; _ }) -> Some (lhs, rhs)
+  | LAtom (FRel (HNow { iexpr = IVar lhs; _ }, REq, HNow { iexpr = IVar rhs; _ })) -> Some (lhs, rhs)
   | _ -> None
 
 let infer_output_history_links ~(output_names : Ast.ident list)
@@ -1406,7 +1402,7 @@ let render_reactive_program (p : reactive_program_ir) : string list =
   let transitions =
     List.map
       (fun t ->
-        Printf.sprintf "  trans %s -> %s guard=%s" t.src_state t.dst_state (string_of_fo t.guard))
+        Printf.sprintf "  trans %s -> %s guard=%s" t.src_state t.dst_state (string_of_ltl t.guard))
       p.transitions
   in
   header :: (states @ transitions)
@@ -1565,7 +1561,7 @@ let render_call_summary_section (ir : node_ir) : string list =
 let render_call_summary_toy_example =
   let mk_fact fact_kind time desc = { fact_kind; fact = { time; desc } } in
   let mk_eq lhs rhs =
-    FRel (HNow (Ast_builders.mk_var lhs), REq, HNow (Ast_builders.mk_var rhs))
+    LAtom (FRel (HNow (Ast_builders.mk_var lhs), REq, HNow (Ast_builders.mk_var rhs)))
   in
   let abi =
     {

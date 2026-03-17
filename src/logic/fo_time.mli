@@ -35,3 +35,6 @@ val shift_fo_forward_all : Ast.fo -> Ast.fo
 val shift_fo_backward_all : Ast.fo -> Ast.fo
 (* Shift all references inside an FO formula one step backward in time:
    [pre_k(x,1)] -> [now(x)] and [pre_k(x,k)] -> [pre_k(x,k-1)] for [k>1]. *)
+
+val shift_ltl_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_ltl -> Ast.fo_ltl
+(* Shift input references inside an fo_ltl formula one step forward in time. *)

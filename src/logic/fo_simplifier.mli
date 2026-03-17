@@ -20,4 +20,4 @@
    The simplifier preserves the existing AST vocabulary and only folds formulas
    to constants or existing subformulas. *)
 
-val simplify_fo : Ast.fo -> Ast.fo
+val simplify_fo : Ast.fo_ltl -> Ast.fo_ltl

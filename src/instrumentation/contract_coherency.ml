@@ -24,10 +24,10 @@ let is_user_contract (f : fo_o) : bool =
   match f.origin with Some UserContract -> true | _ -> false
 
 let user_formulas (fs : fo_o list) : fo_o list = List.filter is_user_contract fs
-let dedup_fo (xs : fo list) : fo list = List.sort_uniq compare xs
+let dedup_fo (xs : fo_ltl list) : fo_ltl list = List.sort_uniq compare xs
 let instrumentation_state_var = "__aut_state"
 
-let rec fo_mentions_var (v : ident) (f : fo) : bool =
+let fo_atom_mentions_var (v : ident) (f : fo) : bool =
   let hexpr_mentions_var = function
     | HNow e | HPreK (e, _) -> begin
         match e.iexpr with
@@ -36,23 +36,35 @@ let rec fo_mentions_var (v : ident) (f : fo) : bool =
       end
   in
   match f with
-  | FTrue | FFalse -> false
   | FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
   | FPred (_, hs) -> List.exists hexpr_mentions_var hs
-  | FNot a -> fo_mentions_var v a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> fo_mentions_var v a || fo_mentions_var v b
 
-let rec collect_pre_k_fo (f : fo) : (ident * int) list =
+let rec fo_ltl_mentions_var (v : ident) (f : fo_ltl) : bool =
+  match f with
+  | LTrue | LFalse -> false
+  | LAtom a -> fo_atom_mentions_var v a
+  | LNot a | LX a | LG a -> fo_ltl_mentions_var v a
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      fo_ltl_mentions_var v a || fo_ltl_mentions_var v b
+
+let fo_mentions_var = fo_ltl_mentions_var
+
+let collect_pre_k_fo (f : fo) : (ident * int) list =
   let from_hexpr = function
     | HNow _ -> []
     | HPreK (e, k) -> begin match e.iexpr with IVar v -> [ (v, k) ] | _ -> [] end
   in
   match f with
-  | FTrue | FFalse -> []
   | FRel (h1, _, h2) -> from_hexpr h1 @ from_hexpr h2
   | FPred (_id, hs) -> List.concat_map from_hexpr hs
-  | FNot a -> collect_pre_k_fo a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_pre_k_fo a @ collect_pre_k_fo b
+
+let rec collect_pre_k_ltl (f : fo_ltl) : (ident * int) list =
+  match f with
+  | LTrue | LFalse -> []
+  | LAtom a -> collect_pre_k_fo a
+  | LNot a | LX a | LG a -> collect_pre_k_ltl a
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      collect_pre_k_ltl a @ collect_pre_k_ltl b
 
 let min_step_by_state (n : node) : (ident, int) Hashtbl.t =
   let by_src = Hashtbl.create 16 in
@@ -125,7 +137,7 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
     | Some a -> min_step_by_state_monitor_aware n a
   in
   let check_formula ~phase ~bound ~tr (foo : fo_o) : string list =
-    let pre_ks = collect_pre_k_fo foo.value in
+    let pre_ks = collect_pre_k_ltl foo.value in
     pre_ks
     |> List.filter_map (fun (v, k) ->
         if k <= bound then None
@@ -163,7 +175,12 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
       in
       failwith (header ^ "\n" ^ String.concat "\n" errors)
 
-let user_ensures_by_target_state (n : node) : (ident, fo list) Hashtbl.t =
+let shift_ltl_backward_inputs ~(is_input : ident -> bool) (f : fo_ltl) : fo_ltl =
+  match f with
+  | LAtom a -> LAtom (shift_fo_backward_inputs ~is_input a)
+  | _ -> f
+
+let user_ensures_by_target_state (n : node) : (ident, fo_ltl list) Hashtbl.t =
   let by_dst = Hashtbl.create 16 in
   List.iter
     (fun (t : transition) ->
@@ -174,7 +191,7 @@ let user_ensures_by_target_state (n : node) : (ident, fo list) Hashtbl.t =
     n.trans;
   by_dst
 
-let declared_state_invariants (n : node) : (ident, fo list) Hashtbl.t =
+let declared_state_invariants (n : node) : (ident, fo_ltl list) Hashtbl.t =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : invariant_state_rel) ->
@@ -185,7 +202,7 @@ let declared_state_invariants (n : node) : (ident, fo list) Hashtbl.t =
     n.attrs.invariants_state_rel;
   by_state
 
-let state_invariant_from_node (n : node) : ident -> fo option =
+let state_invariant_from_node (n : node) : ident -> fo_ltl option =
   let from_declared = declared_state_invariants n in
   let by_dst = user_ensures_by_target_state n in
   fun st ->
@@ -194,7 +211,7 @@ let state_invariant_from_node (n : node) : ident -> fo option =
     let all = dedup_fo (from_declared @ from_ensures) in
     conj_fo all
 
-let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo option) : node =
+let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
   let existing = n.attrs.invariants_state_rel in
   let has_inv st f =
     List.exists (fun inv -> inv.is_eq && inv.state = st && inv.formula = f) existing
@@ -210,10 +227,10 @@ let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo option
   if extra = [] then n
   else { n with attrs = { n.attrs with invariants_state_rel = existing @ extra } }
 
-let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo option) : node =
+let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
   let is_input = Ast_utils.is_input_of_node n in
-  let shift_inv inv = shift_fo_backward_inputs ~is_input inv in
-  let add_unique_formula (origin : origin) (f : fo) (xs : fo_o list) : fo_o list =
+  let shift_inv inv = shift_ltl_backward_inputs ~is_input inv in
+  let add_unique_formula (origin : origin) (f : fo_ltl) (xs : fo_o list) : fo_o list =
     if List.exists (fun (x : fo_o) -> x.value = f) xs then xs
     else xs @ [ Ast_provenance.with_origin origin f ]
   in
@@ -235,12 +252,12 @@ let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo opt
   in
   { n with trans }
 
-let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> fo option) : node =
+let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
   let is_input = Ast_utils.is_input_of_node n in
   match inv_of_state n.init_state with
   | None -> n
   | Some inv ->
-      let init_goal = shift_fo_backward_inputs ~is_input inv in
+      let init_goal = shift_ltl_backward_inputs ~is_input inv in
       if fo_mentions_var instrumentation_state_var init_goal then n
       else Ast_utils.add_new_coherency_goals n [ init_goal ]
 

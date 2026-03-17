@@ -94,7 +94,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     let var_types = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
     let atoms =
       let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltl_specs in
-      List.fold_left (fun acc f -> collect_atoms_fo f acc) acc fo_specs
+      List.fold_left (fun acc f -> collect_atoms_ltl f acc) acc fo_specs
       |> List.filter (fun a -> atom_to_iexpr ~inputs ~var_types ~pre_k_map a <> None)
       |> List.sort_uniq compare
     in
@@ -113,7 +113,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     let states, grouped =
       let f_list =
         let ltl_terms = ltl_specs in
-        let fo_terms = List.map ltl_of_fo fo_specs in
+        let fo_terms = fo_specs in
         ltl_terms @ fo_terms
       in
       let f0 = List.fold_left (fun acc f -> LAnd (acc, f)) LTrue f_list in
@@ -240,7 +240,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
         let formula =
           Automaton_guard.guard_to_iexpr guard
           |> iexpr_to_fo_with_atoms atom_name_to_fo
-          |> Support.string_of_fo |> strip_braces
+          |> Support.string_of_ltl |> strip_braces
         in
         let lbl = if show_labels then escape_dot_label formula else escape_dot_label formula in
         Buffer.add_string buf (Printf.sprintf "  r%d -> r%d [label=\"%s\"];\n" i j lbl))

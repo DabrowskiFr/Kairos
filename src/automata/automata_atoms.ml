@@ -82,7 +82,7 @@ let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Automaton_types.g
   (* Canonical recovery path for automaton guards: convert DNF guards, then inline atom expressions. *)
   g |> Automaton_guard.guard_to_iexpr |> inline_atoms_iexpr atom_map
 
-let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : fo =
+let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
   recover_guard_iexpr atom_map g |> iexpr_to_fo_with_atoms []
 
 type automata_atoms = {

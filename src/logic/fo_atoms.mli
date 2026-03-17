@@ -23,5 +23,5 @@ type eq_value = VInt of int | VBool of bool
 type eq_atom = { name : string; var : string; value : eq_value }
 (* Normalized equality atom: [var = value] with a generated name. *)
 
-val extract_eq_atom : Ast.fo * Ast.ident -> eq_atom option
+val extract_eq_atom : Ast.fo_ltl * Ast.ident -> eq_atom option
 (* Extract equality atoms like [x = 0] and [x = true]. *)

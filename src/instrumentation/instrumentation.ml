@@ -64,14 +64,9 @@ let bool_like_vars ~(var_types : (ident * ty) list) (n : node) : (ident * bool_l
       end
     | _ -> ()
   in
-  let rec collect_fo = function
-    | FTrue | FFalse -> ()
+  let collect_fo = function
     | FRel _ as f -> record_atom f
     | FPred _ -> ()
-    | FNot a -> collect_fo a
-    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
-        collect_fo a;
-        collect_fo b
   in
   let rec collect_ltl = function
     | LTrue | LFalse -> ()
@@ -82,7 +77,7 @@ let bool_like_vars ~(var_types : (ident * ty) list) (n : node) : (ident * bool_l
         collect_ltl b
   in
   List.iter collect_ltl (spec.spec_assumes @ spec.spec_guarantees);
-  List.iter (fun inv -> collect_fo inv.formula) spec.spec_invariants_state_rel;
+  List.iter (fun inv -> collect_ltl inv.formula) spec.spec_invariants_state_rel;
   let decide var values =
     if Hashtbl.mem invalid var then None
     else
@@ -117,41 +112,34 @@ let normalize_bool_atoms ~(bool_vars : (ident * bool_like) list) (n : node) : no
       end
     | _ -> None
   in
-  let rec norm_fo f =
+  let norm_fo_atom (f : fo) : fo_ltl =
     match var_lit f with
     | Some (x, `Int i, REq, _) -> begin
         match Hashtbl.find_opt bool_map x with
-        | Some BoolInt -> if i = 0 then FNot (base_int x) else if i = 1 then base_int x else f
-        | _ -> f
+        | Some BoolInt -> if i = 0 then LNot (LAtom (base_int x)) else if i = 1 then LAtom (base_int x) else LAtom f
+        | _ -> LAtom f
       end
     | Some (x, `Int i, RNeq, _) -> begin
         match Hashtbl.find_opt bool_map x with
-        | Some BoolInt -> if i = 0 then base_int x else if i = 1 then FNot (base_int x) else f
-        | _ -> f
+        | Some BoolInt -> if i = 0 then LAtom (base_int x) else if i = 1 then LNot (LAtom (base_int x)) else LAtom f
+        | _ -> LAtom f
       end
     | Some (x, `Bool b, REq, _) -> begin
         match Hashtbl.find_opt bool_map x with
-        | Some BoolBool -> if b then base_bool x else FNot (base_bool x)
-        | _ -> f
+        | Some BoolBool -> if b then LAtom (base_bool x) else LNot (LAtom (base_bool x))
+        | _ -> LAtom f
       end
     | Some (x, `Bool b, RNeq, _) -> begin
         match Hashtbl.find_opt bool_map x with
-        | Some BoolBool -> if b then FNot (base_bool x) else base_bool x
-        | _ -> f
+        | Some BoolBool -> if b then LNot (LAtom (base_bool x)) else LAtom (base_bool x)
+        | _ -> LAtom f
       end
-    | _ -> begin
-        match f with
-        | FNot a -> FNot (norm_fo a)
-        | FAnd (a, b) -> FAnd (norm_fo a, norm_fo b)
-        | FOr (a, b) -> FOr (norm_fo a, norm_fo b)
-        | FImp (a, b) -> FImp (norm_fo a, norm_fo b)
-        | _ -> f
-      end
+    | _ -> LAtom f
   in
   let rec norm_ltl f =
     match f with
     | LTrue | LFalse -> f
-    | LAtom a -> LAtom (norm_fo a)
+    | LAtom a -> norm_fo_atom a
     | LNot a -> LNot (norm_ltl a)
     | LAnd (a, b) -> LAnd (norm_ltl a, norm_ltl b)
     | LOr (a, b) -> LOr (norm_ltl a, norm_ltl b)
@@ -161,7 +149,7 @@ let normalize_bool_atoms ~(bool_vars : (ident * bool_like) list) (n : node) : no
     | LW (a, b) -> LW (norm_ltl a, norm_ltl b)
   in
   let invariants_state_rel =
-    List.map (fun inv -> { inv with formula = norm_fo inv.formula }) spec.spec_invariants_state_rel
+    List.map (fun inv -> { inv with formula = norm_ltl inv.formula }) spec.spec_invariants_state_rel
   in
   let n =
     { n with assumes = List.map norm_ltl spec.spec_assumes; guarantees = List.map norm_ltl spec.spec_guarantees }
@@ -224,14 +212,9 @@ let inline_fo_atoms (atom_map : (ident * iexpr) list) (f : fo) : fo =
     | HNow e -> HNow (inline_iexpr e)
     | HPreK (e, k) -> HPreK (inline_iexpr e, k)
   in
-  let rec go = function
-    | (FTrue | FFalse) as f -> f
+  let go = function
     | FRel (h1, r, h2) -> FRel (inline_hexpr h1, r, inline_hexpr h2)
     | FPred (id, hs) -> FPred (id, List.map inline_hexpr hs)
-    | FNot a -> FNot (go a)
-    | FAnd (a, b) -> FAnd (go a, go b)
-    | FOr (a, b) -> FOr (go a, go b)
-    | FImp (a, b) -> FImp (go a, go b)
   in
   go f
 
@@ -268,7 +251,7 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
     { inv with inv_expr = inline_hexpr inv.inv_expr }
   in
   let inline_invariant_state_rel (inv : invariant_state_rel) : invariant_state_rel =
-    { inv with formula = inline_fo inv.formula }
+    { inv with formula = inline_ltl inv.formula }
   in
   let inline_transition (t : transition) : transition =
     let t =
@@ -285,8 +268,8 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
     {
       t with
       guard = Option.map inline_iexpr t.guard;
-      requires = List.map (Ast_provenance.map_with_origin inline_fo) t.requires;
-      ensures = List.map (Ast_provenance.map_with_origin inline_fo) t.ensures;
+      requires = List.map (Ast_provenance.map_with_origin inline_ltl) t.requires;
+      ensures = List.map (Ast_provenance.map_with_origin inline_ltl) t.ensures;
       body = List.map inline_stmt t.body;
     }
   in
@@ -311,7 +294,7 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
   }
 
 let add_state_invariants_to_transitions ~(invariants_state_rel : invariant_state_rel list)
-    ?(log : (Abs.transition -> fo -> unit) option = None) ?(add_to_ensures : bool = true)
+    ?(log : (Abs.transition -> fo_ltl -> unit) option = None) ?(add_to_ensures : bool = true)
     (trans : Abs.transition list) : Abs.transition list =
   let add_unique f lst =
     if List.exists (fun fo -> fo.value = f) lst then lst
@@ -349,7 +332,7 @@ let simplify_mon_state_implications (fs : fo_o list) : fo_o list =
     if String.length v >= 3 && String.sub v 0 3 = "Aut" then Some v else None
   in
   let mon_state_eq = function
-    | FRel (HNow a, REq, HNow b) -> begin
+    | LAtom (FRel (HNow a, REq, HNow b)) -> begin
         match (as_var a, as_var b) with
         | Some va, Some vb ->
             if va = mon then mon_state_of_var vb else if vb = mon then mon_state_of_var va else None
@@ -357,7 +340,7 @@ let simplify_mon_state_implications (fs : fo_o list) : fo_o list =
       end
     | _ -> None
   in
-  let mon_state_cond = function FImp (cond, _body) -> mon_state_eq cond | _ -> None in
+  let mon_state_cond = function LImp (cond, _body) -> mon_state_eq cond | _ -> None in
   let eqs =
     fs |> List.filter_map (fun f -> mon_state_eq f.value) |> List.sort_uniq String.compare
   in
@@ -376,7 +359,7 @@ let filter_monitor_state_formulas ~(reachable_states : string list) (fs : fo_o l
     if String.length v >= 3 && String.sub v 0 3 = "Aut" then Some v else None
   in
   let mon_state_eq = function
-    | FRel (HNow a, REq, HNow b) -> begin
+    | LAtom (FRel (HNow a, REq, HNow b)) -> begin
         match (as_var a, as_var b) with
         | Some va, Some vb ->
             if va = mon then mon_state_of_var vb else if vb = mon then mon_state_of_var va else None
@@ -385,13 +368,15 @@ let filter_monitor_state_formulas ~(reachable_states : string list) (fs : fo_o l
     | _ -> None
   in
   let rec referenced_mon_states = function
-    | (FTrue | FFalse | FPred _) -> []
-    | FNot f -> referenced_mon_states f
-    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+    | LTrue | LFalse | LAtom (FPred _) -> []
+    | LNot f -> referenced_mon_states f
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) ->
         let direct =
           match mon_state_eq a with Some st -> [ st ] | None -> []
         in
         direct @ referenced_mon_states a @ referenced_mon_states b
+    | LX f | LG f -> referenced_mon_states f
+    | LW (a, b) -> referenced_mon_states a @ referenced_mon_states b
     | f -> (
         match mon_state_eq f with Some st -> [ st ] | None -> [])
   in
@@ -412,8 +397,8 @@ let inject_instrumentation_code ~(instrumentation_updates : stmt list) ~(instrum
     trans
 
 (* Sub-pass 2a: add no-bad-state requirements on transitions. *)
-let add_not_bad_state_requires ?(log : (Abs.transition -> fo -> unit) option = None)
-    ~(bad_state_fo_opt : fo option) (trans : Abs.transition list) : Abs.transition list =
+let add_not_bad_state_requires ?(log : (Abs.transition -> fo_ltl -> unit) option = None)
+    ~(bad_state_fo_opt : fo_ltl option) (trans : Abs.transition list) : Abs.transition list =
   match bad_state_fo_opt with
   | None -> trans
   | Some bad_fo ->
@@ -424,8 +409,8 @@ let add_not_bad_state_requires ?(log : (Abs.transition -> fo -> unit) option = N
         trans
 
 (* Sub-pass 2b: add no-bad-state obligations on transitions. *)
-let add_not_bad_state_ensures ?(log : (Abs.transition -> fo -> unit) option = None)
-    ~(bad_state_fo_opt : fo option) (trans : Abs.transition list) : Abs.transition list =
+let add_not_bad_state_ensures ?(log : (Abs.transition -> fo_ltl -> unit) option = None)
+    ~(bad_state_fo_opt : fo_ltl option) (trans : Abs.transition list) : Abs.transition list =
   match bad_state_fo_opt with
   | None -> trans
   | Some bad_fo ->
@@ -436,8 +421,8 @@ let add_not_bad_state_ensures ?(log : (Abs.transition -> fo -> unit) option = No
         trans
 
 (* Sub-pass 3: add monitor/program compatibility requirements. *)
-let add_monitor_compatibility_requires ?(log : (Abs.transition -> fo -> unit) option = None)
-    ~(incoming_prev_fo_shifted : fo list) (trans : Abs.transition list) : Abs.transition list =
+let add_monitor_compatibility_requires ?(log : (Abs.transition -> fo_ltl -> unit) option = None)
+    ~(incoming_prev_fo_shifted : fo_ltl list) (trans : Abs.transition list) : Abs.transition list =
   if incoming_prev_fo_shifted = [] then trans
   else
     List.map
@@ -451,7 +436,7 @@ let add_monitor_compatibility_requires ?(log : (Abs.transition -> fo -> unit) op
 
 let compute_incoming_prev_fo_shifted ~(grouped : Automaton_engine.transition list)
     ~(atom_map_exprs : (ident * iexpr) list) ~(atom_name_to_fo : (ident * fo) list)
-    ~(is_input : ident -> bool) : fo list =
+    ~(is_input : ident -> bool) : fo_ltl list =
   let mon = instrumentation_state_name in
   let by_dst = Hashtbl.create 16 in
   List.iter
@@ -462,21 +447,31 @@ let compute_incoming_prev_fo_shifted ~(grouped : Automaton_engine.transition lis
   let unshifted_in =
     Hashtbl.fold
       (fun j guards acc ->
-        let cond = FRel (HNow (mk_var mon), REq, HNow (instrumentation_state_expr j)) in
+        let cond = LAtom (FRel (HNow (mk_var mon), REq, HNow (instrumentation_state_expr j))) in
         let guard_exprs = List.map (recover_guard_iexpr atom_map_exprs) guards in
         let guard_fos =
           List.map (iexpr_to_fo_with_atoms atom_name_to_fo) guard_exprs
-          |> List.map (inline_fo_atoms atom_map_exprs)
+          |> List.map (fun f ->
+               let map_atom a = inline_fo_atoms atom_map_exprs a in
+               let rec map_ltl = function
+                 | LAtom a -> LAtom (map_atom a)
+                 | LNot a -> LNot (map_ltl a)
+                 | LAnd (a, b) -> LAnd (map_ltl a, map_ltl b)
+                 | LOr (a, b) -> LOr (map_ltl a, map_ltl b)
+                 | LImp (a, b) -> LImp (map_ltl a, map_ltl b)
+                 | x -> x
+               in
+               Fo_simplifier.simplify_fo (map_ltl f))
         in
         let guard =
           match guard_fos with
-          | [] -> FFalse
-          | f :: rest -> List.fold_left (fun acc v -> FOr (acc, v)) f rest
+          | [] -> LFalse
+          | f :: rest -> List.fold_left (fun acc v -> LOr (acc, v)) f rest
         in
-        FImp (cond, guard) :: acc)
+        LImp (cond, guard) :: acc)
       by_dst []
   in
-  List.map (shift_fo_forward_inputs ~is_input) unshifted_in
+  List.map (Fo_time.shift_ltl_forward_inputs ~is_input) unshifted_in
 
 let normalize_generated_contracts (trans : Abs.transition list) : Abs.transition list =
   List.map
@@ -488,7 +483,7 @@ let normalize_generated_contracts (trans : Abs.transition list) : Abs.transition
       })
     trans
 
-let drop_exact_formula (target : fo option) (trans : Abs.transition list) : Abs.transition list =
+let drop_exact_formula (target : fo_ltl option) (trans : Abs.transition list) : Abs.transition list =
   match target with
   | None -> trans
   | Some target_fo ->
@@ -500,9 +495,9 @@ let drop_exact_formula (target : fo option) (trans : Abs.transition list) : Abs.
 
 let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     ~(analysis : Product_build.analysis) ~(instrumentation_updates : stmt list)
-    ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo option)
-    ~(incoming_prev_fo_shifted : fo list) ~(compat_invariants : invariant_state_rel list)
-    ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
+    ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : fo_ltl option)
+    ~(incoming_prev_fo_shifted : fo_ltl list) ~(compat_invariants : invariant_state_rel list)
+    ~(log_contract : reason:string -> t:Abs.transition -> fo_ltl -> unit) : Abs.transition list =
   let _ = build in
   let reachable_monitor_states =
     analysis.exploration.states
@@ -554,8 +549,8 @@ let empty_instrumentation_info ~(states : Automaton_engine.residual_state list) 
 
 type processing_context = {
   bad_idx : int;
-  bad_state_fo_opt : fo option;
-  incoming_prev_fo_shifted : fo list;
+  bad_state_fo_opt : fo_ltl option;
+  incoming_prev_fo_shifted : fo_ltl list;
   instrumentation_updates : stmt list;
   instrumentation_asserts : stmt list;
 }
@@ -583,7 +578,7 @@ let build_processing_context ~(grouped : Automaton_engine.transition list)
   in
   let bad_state_fo_opt =
     if bad_idx < 0 then None
-    else Some (FRel (HNow (mk_var instrumentation_state_name), RNeq, HNow (instrumentation_state_expr bad_idx)))
+    else Some (LAtom (FRel (HNow (mk_var instrumentation_state_name), RNeq, HNow (instrumentation_state_expr bad_idx))))
   in
   let incoming_prev_fo_shifted =
     compute_incoming_prev_fo_shifted ~grouped ~atom_map_exprs ~atom_name_to_fo ~is_input
@@ -641,13 +636,13 @@ let log_instrumentation_debug_info ~(ctx : node_context) ~(build : build_ctx)
   if Automaton_core.automata_log_enabled then
     prerr_endline (Printf.sprintf "[automata] grouped edges=%d" (List.length automaton.grouped))
 
-let make_contract_logger () : (reason:string -> t:Abs.transition -> fo -> unit) =
+let make_contract_logger () : (reason:string -> t:Abs.transition -> fo_ltl -> unit) =
   let debug_contracts =
     match Sys.getenv_opt "OBC2WHY3_DEBUG_MONITOR_CONTRACTS" with Some "1" -> true | _ -> false
   in
-  fun ~(reason : string) ~(t : Abs.transition) (f : fo) ->
+  fun ~(reason : string) ~(t : Abs.transition) (f : fo_ltl) ->
     if debug_contracts then
-      prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_fo f))
+      prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_ltl f))
 
 let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : Ast.node =
   match ctx.states with
@@ -658,12 +653,12 @@ let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : As
          initialization guard, not as universally quantified facts over
          arbitrary pre-state valuations. *)
       let body =
-        FRel
+        LAtom (FRel
           ( HNow (mk_var instrumentation_state_name),
             REq,
-            HNow (instrumentation_state_expr 0) )
+            HNow (instrumentation_state_expr 0) ))
       in
-      Ast_utils.add_new_coherency_goals n [ FImp (FTrue, body) ]
+      Ast_utils.add_new_coherency_goals n [ LImp (LTrue, body) ]
 
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
   let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in
@@ -693,7 +688,7 @@ let finalize_instrumented_abstract_node ~(ctx : node_context) ~(n : Abs.node)
 
 let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~(n : Abs.node)
-    ~(log_contract : reason:string -> t:Abs.transition -> fo -> unit) : Abs.transition list =
+    ~(log_contract : reason:string -> t:Abs.transition -> fo_ltl -> unit) : Abs.transition list =
   let analysis = Product_build.analyze_node ~build ~node:n in
   let compat_invariants = Product_contracts.compat_invariants ~node:n ~analysis in
   let processing_ctx =

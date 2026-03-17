@@ -96,43 +96,47 @@ let rec infer_iexpr_sort (vars : (ident, smt_sort) Hashtbl.t) (e : iexpr) : smt_
 let infer_hexpr_sort vars = function
   | HNow e | HPreK (e, _) -> infer_iexpr_sort vars e
 
-let infer_formula_sorts (f : fo) : (ident, smt_sort) Hashtbl.t =
+let infer_atom_sorts (f : fo) (vars : (ident, smt_sort) Hashtbl.t) : unit =
+  match f with
+  | FRel (h1, r, h2) -> begin
+      match r with
+      | RLt | RLe | RGt | RGe ->
+          let _ = infer_hexpr_sort vars h1 in
+          let _ = infer_hexpr_sort vars h2 in
+          ()
+      | REq | RNeq ->
+          let s1 = infer_hexpr_sort vars h1 in
+          let s2 = infer_hexpr_sort vars h2 in
+          let s =
+            match (s1, s2) with Some s, _ | _, Some s -> s | None, None -> SInt
+          in
+          begin
+            match h1 with HNow { iexpr = IVar v; _ } | HPreK ({ iexpr = IVar v; _ }, _) ->
+              Hashtbl.replace vars v s
+            | _ -> ()
+          end;
+          begin
+            match h2 with HNow { iexpr = IVar v; _ } | HPreK ({ iexpr = IVar v; _ }, _) ->
+              Hashtbl.replace vars v s
+            | _ -> ()
+          end
+    end
+  | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
+
+let infer_formula_sorts (f : fo_ltl) : (ident, smt_sort) Hashtbl.t =
   let vars = Hashtbl.create 32 in
   let rec go = function
-    | FTrue | FFalse -> ()
-    | FRel (h1, r, h2) -> begin
-        match r with
-        | RLt | RLe | RGt | RGe ->
-            let _ = infer_hexpr_sort vars h1 in
-            let _ = infer_hexpr_sort vars h2 in
-            ()
-        | REq | RNeq ->
-            let s1 = infer_hexpr_sort vars h1 in
-            let s2 = infer_hexpr_sort vars h2 in
-            let s =
-              match (s1, s2) with Some s, _ | _, Some s -> s | None, None -> SInt
-            in
-            begin
-              match h1 with HNow { iexpr = IVar v; _ } | HPreK ({ iexpr = IVar v; _ }, _) ->
-                Hashtbl.replace vars v s
-              | _ -> ()
-            end;
-            begin
-              match h2 with HNow { iexpr = IVar v; _ } | HPreK ({ iexpr = IVar v; _ }, _) ->
-                Hashtbl.replace vars v s
-              | _ -> ()
-            end
-      end
-    | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
-    | FNot a -> go a
-    | FAnd (a, b) | FOr (a, b) | FImp (a, b) ->
+    | LTrue | LFalse -> ()
+    | LAtom a -> infer_atom_sorts a vars
+    | LNot a | LX a | LG a -> go a
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         go a;
         go b
   in
   go f;
   vars
 
-let make_env (f : fo) : smt_env =
+let make_env (f : fo_ltl) : smt_env =
   { vars = infer_formula_sorts f; preds = Hashtbl.create 16; preks = Hashtbl.create 16 }
 
 let smt_var_name (v : ident) : string = "__v_" ^ sanitize_ident v
@@ -214,9 +218,7 @@ let smt_of_hexpr (env : smt_env) = function
       Hashtbl.replace env.preks fname ();
       ("(" ^ fname ^ " " ^ se ^ ")", sort)
 
-let rec smt_of_fo (env : smt_env) = function
-  | FTrue -> "true"
-  | FFalse -> "false"
+let smt_of_fo_atom (env : smt_env) = function
   | FRel (h1, REq, h2) ->
       let s1, _ = smt_of_hexpr env h1 in
       let s2, _ = smt_of_hexpr env h2 in
@@ -246,10 +248,16 @@ let rec smt_of_fo (env : smt_env) = function
       let name = smt_pred_name id (List.length hs) in
       Hashtbl.replace env.preds name ();
       "(" ^ name ^ (if args = [] then "" else " " ^ String.concat " " (List.map fst args)) ^ ")"
-  | FNot a -> "(not " ^ smt_of_fo env a ^ ")"
-  | FAnd (a, b) -> "(and " ^ smt_of_fo env a ^ " " ^ smt_of_fo env b ^ ")"
-  | FOr (a, b) -> "(or " ^ smt_of_fo env a ^ " " ^ smt_of_fo env b ^ ")"
-  | FImp (a, b) -> "(=> " ^ smt_of_fo env a ^ " " ^ smt_of_fo env b ^ ")"
+
+let rec smt_of_ltl (env : smt_env) = function
+  | LTrue -> "true"
+  | LFalse -> "false"
+  | LAtom a -> smt_of_fo_atom env a
+  | LNot a -> "(not " ^ smt_of_ltl env a ^ ")"
+  | LAnd (a, b) -> "(and " ^ smt_of_ltl env a ^ " " ^ smt_of_ltl env b ^ ")"
+  | LOr (a, b) -> "(or " ^ smt_of_ltl env a ^ " " ^ smt_of_ltl env b ^ ")"
+  | LImp (a, b) -> "(=> " ^ smt_of_ltl env a ^ " " ^ smt_of_ltl env b ^ ")"
+  | LX _ | LG _ | LW _ -> "true" (* LTL operators not handled by SMT *)
 
 let declarations_of_env (env : smt_env) : string list =
   let decls = ref [] in
@@ -338,66 +346,66 @@ let run_z3_query (query_key : string) (script : string) : bool option =
         Hashtbl.replace z3_status_cache query_key result;
         result
 
-let prove_formula (f : fo) : bool option =
+let prove_formula (f : fo_ltl) : bool option =
   let env = make_env f in
-  let body = smt_of_fo env f in
+  let body = smt_of_ltl env f in
   let script =
     String.concat "\n"
       (["(set-logic ALL)"] @ declarations_of_env env @ [ "(assert (not " ^ body ^ "))"; "(check-sat)" ])
     ^ "\n"
   in
-  run_z3_query ("valid:" ^ string_of_fo f) script
+  run_z3_query ("valid:" ^ string_of_ltl f) script
 
-let unsat_formula (f : fo) : bool option =
+let unsat_formula (f : fo_ltl) : bool option =
   let env = make_env f in
-  let body = smt_of_fo env f in
+  let body = smt_of_ltl env f in
   let script =
     String.concat "\n" (["(set-logic ALL)"] @ declarations_of_env env @ [ "(assert " ^ body ^ ")"; "(check-sat)" ])
     ^ "\n"
   in
-  match run_z3_query ("unsat:" ^ string_of_fo f) script with
+  match run_z3_query ("unsat:" ^ string_of_ltl f) script with
   | Some true -> Some false
   | Some false -> Some true
   | None -> None
 
-let implies_formula (a : fo) (b : fo) : bool option =
-  let key = string_of_fo a ^ " => " ^ string_of_fo b in
+let implies_formula (a : fo_ltl) (b : fo_ltl) : bool option =
+  let key = string_of_ltl a ^ " => " ^ string_of_ltl b in
   match Hashtbl.find_opt z3_implies_cache key with
   | Some cached -> cached
   | None ->
-      let f = FImp (a, b) in
+      let f = LImp (a, b) in
       let result = prove_formula f in
       Hashtbl.replace z3_implies_cache key result;
       result
 
 let rec flatten_and acc = function
-  | FAnd (a, b) -> flatten_and (flatten_and acc a) b
+  | LAnd (a, b) -> flatten_and (flatten_and acc a) b
   | x -> x :: acc
 
 let rec flatten_or acc = function
-  | FOr (a, b) -> flatten_or (flatten_or acc a) b
+  | LOr (a, b) -> flatten_or (flatten_or acc a) b
   | x -> x :: acc
 
 let rebuild_and = function
-  | [] -> FTrue
+  | [] -> LTrue
   | [ x ] -> x
-  | x :: xs -> List.fold_left (fun acc y -> FAnd (acc, y)) x xs
+  | x :: xs -> List.fold_left (fun acc y -> LAnd (acc, y)) x xs
 
 let rebuild_or = function
-  | [] -> FFalse
+  | [] -> LFalse
   | [ x ] -> x
-  | x :: xs -> List.fold_left (fun acc y -> FOr (acc, y)) x xs
+  | x :: xs -> List.fold_left (fun acc y -> LOr (acc, y)) x xs
 
 let syntactic_rel_simplify = function
-  | FRel (h1, REq, h2) when h1 = h2 -> Some FTrue
-  | FRel (h1, RNeq, h2) when h1 = h2 -> Some FFalse
+  | LAtom (FRel (h1, REq, h2)) when h1 = h2 -> Some LTrue
+  | LAtom (FRel (h1, RNeq, h2)) when h1 = h2 -> Some LFalse
   | _ -> None
 
-let simplify_and_parts (parts : fo list) : fo =
+let simplify_and_parts (parts : fo_ltl list) : fo_ltl =
   let rec loop acc = function
     | [] -> rebuild_and (List.rev acc)
-    | x :: xs when x = FTrue -> loop acc xs
-    | x :: _ when x = FFalse -> FFalse
+    | x :: xs when x = LTrue -> loop acc xs
+    | x :: _ when x = LFalse -> LFalse
     | x :: xs when List.exists (( = ) x) acc -> loop acc xs
     | x :: xs ->
         if List.exists (fun y -> implies_formula y x = Some true) acc then loop acc xs
@@ -407,11 +415,11 @@ let simplify_and_parts (parts : fo list) : fo =
   in
   loop [] parts
 
-let simplify_or_parts (parts : fo list) : fo =
+let simplify_or_parts (parts : fo_ltl list) : fo_ltl =
   let rec loop acc = function
     | [] -> rebuild_or (List.rev acc)
-    | x :: xs when x = FFalse -> loop acc xs
-    | x :: _ when x = FTrue -> FTrue
+    | x :: xs when x = LFalse -> loop acc xs
+    | x :: _ when x = LTrue -> LTrue
     | x :: xs when List.exists (( = ) x) acc -> loop acc xs
     | x :: xs ->
         if List.exists (fun y -> implies_formula x y = Some true) acc then loop acc xs
@@ -426,59 +434,60 @@ let solver_enabled () =
   | Some "off" -> false
   | _ -> z3_command () <> ""
 
-let rec simplify_fo (f : fo) : fo =
+let rec simplify_fo (f : fo_ltl) : fo_ltl =
   let rec go = function
-    | FTrue | FFalse | FPred _ as f -> f
-    | FRel _ as f -> begin match syntactic_rel_simplify f with Some g -> g | None -> f end
-    | FNot a -> begin
+    | LTrue | LFalse as f -> f
+    | LAtom _ as f -> begin match syntactic_rel_simplify f with Some g -> g | None -> f end
+    | LNot a -> begin
         match go a with
-        | FTrue -> FFalse
-        | FFalse -> FTrue
-        | FNot b -> b
+        | LTrue -> LFalse
+        | LFalse -> LTrue
+        | LNot b -> b
         | a' ->
-            let f' = FNot a' in
+            let f' = LNot a' in
             if solver_enabled () then
               match (prove_formula f', unsat_formula f') with
-              | Some true, _ -> FTrue
-              | _, Some true -> FFalse
+              | Some true, _ -> LTrue
+              | _, Some true -> LFalse
               | _ -> f'
             else f'
       end
-    | FAnd _ as f ->
+    | LAnd _ as f ->
         let parts = flatten_and [] f |> List.map go in
         let f' = simplify_and_parts parts in
         if solver_enabled () then
           match (prove_formula f', unsat_formula f') with
-          | Some true, _ -> FTrue
-          | _, Some true -> FFalse
+          | Some true, _ -> LTrue
+          | _, Some true -> LFalse
           | _ -> f'
         else f'
-    | FOr _ as f ->
+    | LOr _ as f ->
         let parts = flatten_or [] f |> List.map go in
         let f' = simplify_or_parts parts in
         if solver_enabled () then
           match (prove_formula f', unsat_formula f') with
-          | Some true, _ -> FTrue
-          | _, Some true -> FFalse
+          | Some true, _ -> LTrue
+          | _, Some true -> LFalse
           | _ -> f'
         else f'
-    | FImp (a, b) ->
+    | LImp (a, b) ->
         let a = go a in
         let b = go b in
         let f' =
           match (a, b) with
-          | FFalse, _ | _, FTrue -> FTrue
-          | FTrue, x -> x
-          | x, FFalse -> go (FNot x)
-          | _ when a = b -> FTrue
+          | LFalse, _ | _, LTrue -> LTrue
+          | LTrue, x -> x
+          | x, LFalse -> go (LNot x)
+          | _ when a = b -> LTrue
           | _ ->
-              if solver_enabled () && implies_formula a b = Some true then FTrue else FImp (a, b)
+              if solver_enabled () && implies_formula a b = Some true then LTrue else LImp (a, b)
         in
         if solver_enabled () then
           match (prove_formula f', unsat_formula f') with
-          | Some true, _ -> FTrue
-          | _, Some true -> FFalse
+          | Some true, _ -> LTrue
+          | _, Some true -> LFalse
           | _ -> f'
         else f'
+    | (LX _ | LG _ | LW _) as f -> f
   in
   go f

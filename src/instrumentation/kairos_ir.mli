@@ -15,7 +15,7 @@
 type raw_transition = {
   src_state            : Ast.ident;
   dst_state            : Ast.ident;
-  guard                : Ast.fo;
+  guard                : Ast.fo_ltl;
   (** Executable guard (imperative form), used to generate the Why3 match. *)
   guard_iexpr          : Ast.iexpr option;
   ghost_stmts          : Ast.stmt list;
@@ -71,7 +71,7 @@ type annotated_node = {
 type verified_transition = {
   src_state            : Ast.ident;
   dst_state            : Ast.ident;
-  guard                : Ast.fo;
+  guard                : Ast.fo_ltl;
   guard_iexpr          : Ast.iexpr option;
   ghost_stmts          : Ast.stmt list;
   body_stmts           : Ast.stmt list;

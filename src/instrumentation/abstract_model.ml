@@ -91,7 +91,7 @@ let render_origin = function
       " {" ^ s ^ "}"
 
 let render_fo_o (kw : string) (f : fo_o) (indent_level : int) : string =
-  indent_str indent_level ^ kw ^ " " ^ Support.string_of_fo f.value ^ render_origin f.origin ^ ";"
+  indent_str indent_level ^ kw ^ " " ^ Support.string_of_ltl f.value ^ render_origin f.origin ^ ";"
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with

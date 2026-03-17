@@ -12,8 +12,8 @@ let add_unique origin f lst =
   else lst @ [ Ast_provenance.with_origin origin f ]
 
 let mk_or = function
-  | [] -> FFalse
-  | f :: rest -> List.fold_left (fun acc x -> FOr (acc, x)) f rest
+  | [] -> LFalse
+  | f :: rest -> List.fold_left (fun acc x -> LOr (acc, x)) f rest
 
 let compat_invariants ~(node : Abs.node) ~(analysis : Product_build.analysis) :
     invariant_state_rel list =
@@ -30,7 +30,7 @@ let compat_invariants ~(node : Abs.node) ~(analysis : Product_build.analysis) :
          let formulas =
            gs
            |> List.map (fun g ->
-                  FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr g)))
+                  LAtom (FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr g))))
          in
          let formula = mk_or formulas in
          { is_eq = true; state; formula })
@@ -54,7 +54,7 @@ let add_assumption_projection_requires ?(log = None) ~(build : Automata_generati
                  && step.src.guarantee_state <> analysis.guarantee_bad_idx
               then
                 let prev = Hashtbl.find_opt by_gsrc step.src.guarantee_state |> Option.value ~default:[] in
-                let f = FAnd (step.assume_guard, step.guarantee_guard) in
+                let f = LAnd (step.assume_guard, step.guarantee_guard) in
                 Hashtbl.replace by_gsrc step.src.guarantee_state (f :: prev))
             analysis.exploration.steps;
           let reqs =
@@ -62,9 +62,9 @@ let add_assumption_projection_requires ?(log = None) ~(build : Automata_generati
               (fun gsrc formulas acc ->
                 let body = mk_or formulas in
                 let cond =
-                  FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr gsrc))
+                  LAtom (FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr gsrc)))
                 in
-                FImp (cond, body) :: acc)
+                LImp (cond, body) :: acc)
               by_gsrc []
           in
           List.iter (fun f -> Option.iter (fun l -> l t f) log) reqs;
@@ -84,17 +84,17 @@ let add_bad_guarantee_projection_ensures ?(log = None) ~(analysis : Product_buil
              && step.src.guarantee_state <> analysis.guarantee_bad_idx
           then
             let prev = Hashtbl.find_opt by_gsrc step.src.guarantee_state |> Option.value ~default:[] in
-            let f = FAnd (step.assume_guard, step.guarantee_guard) in
+            let f = LAnd (step.assume_guard, step.guarantee_guard) in
             Hashtbl.replace by_gsrc step.src.guarantee_state (f :: prev))
         analysis.exploration.steps;
       let enss =
         Hashtbl.fold
           (fun gsrc formulas acc ->
             let cond =
-              FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr gsrc))
+              LAtom (FRel (HNow (mk_var instrumentation_state_name), REq, HNow (instrumentation_state_expr gsrc)))
             in
             let bad_case = mk_or formulas in
-            FImp (cond, FNot bad_case) :: acc)
+            LImp (cond, LNot bad_case) :: acc)
           by_gsrc []
       in
       List.iter (fun f -> Option.iter (fun l -> l t f) log) enss;

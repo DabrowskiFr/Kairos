@@ -81,14 +81,8 @@ type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
 (* {1 Logical Formulas & Provenance} *)
 (* First‑order formulas used in requires/ensures and VC generation. *)
 type fo =
-  | FTrue
-  | FFalse
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
-  | FNot of fo
-  | FAnd of fo * fo
-  | FOr of fo * fo
-  | FImp of fo * fo
 [@@deriving yojson]
 
 (* Generic LTL (linear‑time temporal logic) formula over atoms of type ['a]. *)
@@ -120,7 +114,7 @@ type origin =
 
 (* First‑order formula annotated with provenance and optional location. Rationale: this is the
    primary traceability hook in the pipeline. *)
-type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
+type fo_o = { value : fo ltl; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
 
 (* {1 Statements & Invariants}
     Rationale: statements are the executable core, while invariants are the
@@ -141,7 +135,7 @@ and stmt_desc =
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
 
 (* Instrumentation state‑relation invariants. *)
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show, yojson]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : fo ltl } [@@deriving show, yojson]
 
 (* {1 Per‑pass Metadata} Moved to [Stage_info] (kept separate from the AST). *)
 

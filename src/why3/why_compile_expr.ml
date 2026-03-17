@@ -103,12 +103,10 @@ let compile_hexpr_instance_contract ?(in_post = false) (env : env) (inst_name : 
       | Some name -> term_of_instance_var env inst_name node_name name
     end
 
-let rec compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
+let compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
     (node_name : ident) (inputs : ident list)
     (contract : Kernel_guided_contract.exported_summary_contract) (f : fo) : Ptree.term =
   match f with
-  | FTrue -> mk_term Ttrue
-  | FFalse -> mk_term Tfalse
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
@@ -122,30 +120,21 @@ let rec compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_n
              List.map
                (compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract)
                hs ))
-  | FNot a ->
-      mk_term
-        (Tnot (compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a))
-  | FAnd (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
-             Dterm.DTand,
-             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
-           ))
-  | FOr (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
-             Dterm.DTor,
-             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
-           ))
-  | FImp (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a,
-             Dterm.DTimplies,
-             compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract b
-           ))
+
+let rec compile_ltl_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
+    (node_name : ident) (inputs : ident list)
+    (contract : Kernel_guided_contract.exported_summary_contract) (f : fo_ltl) : Ptree.term =
+  let go = compile_ltl_term_instance_contract ~in_post env inst_name node_name inputs contract in
+  match f with
+  | LTrue -> mk_term Ttrue
+  | LFalse -> mk_term Tfalse
+  | LAtom a ->
+      compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a
+  | LNot a -> mk_term (Tnot (go a))
+  | LAnd (a, b) -> mk_term (Tbinop (go a, Dterm.DTand, go b))
+  | LOr (a, b) -> mk_term (Tbinop (go a, Dterm.DTor, go b))
+  | LImp (a, b) -> mk_term (Tbinop (go a, Dterm.DTimplies, go b))
+  | LX _ | LG _ | LW _ -> mk_term Ttrue
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
   match outputs with
@@ -183,10 +172,8 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
         end
     end
 
-let rec compile_fo_term ?(prefer_link = false) (env : env) (f : fo) : Ptree.term =
+let compile_fo_term ?(prefer_link = false) (env : env) (f : fo) : Ptree.term =
   match f with
-  | FTrue -> mk_term Ttrue
-  | FFalse -> mk_term Tfalse
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
@@ -194,17 +181,6 @@ let rec compile_fo_term ?(prefer_link = false) (env : env) (f : fo) : Ptree.term
              infix_ident (relop_id r),
              compile_hexpr ~prefer_link env h2 ))
   | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~prefer_link env) hs))
-  | FNot a -> mk_term (Tnot (compile_fo_term ~prefer_link env a))
-  | FAnd (a, b) ->
-      mk_term
-        (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTand, compile_fo_term ~prefer_link env b))
-  | FOr (a, b) ->
-      mk_term
-        (Tbinop (compile_fo_term ~prefer_link env a, Dterm.DTor, compile_fo_term ~prefer_link env b))
-  | FImp (a, b) ->
-      mk_term
-        (Tbinop
-           (compile_fo_term ~prefer_link env a, Dterm.DTimplies, compile_fo_term ~prefer_link env b))
 
 let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (shift : int)
     (f : fo_ltl) : Ptree.term =
@@ -243,8 +219,6 @@ let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : 
 and compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (old : bool)
     (f : fo) : Ptree.term =
   match f with
-  | FTrue -> mk_term Ttrue
-  | FFalse -> mk_term Tfalse
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
@@ -253,25 +227,6 @@ and compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) 
              compile_hexpr ~old ~prefer_link ~in_post env h2 ))
   | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
-  | FNot a -> mk_term (Tnot (compile_fo_term_shift ~prefer_link ~in_post env old a))
-  | FAnd (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_shift ~prefer_link ~in_post env old a,
-             Dterm.DTand,
-             compile_fo_term_shift ~prefer_link ~in_post env old b ))
-  | FOr (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_shift ~prefer_link ~in_post env old a,
-             Dterm.DTor,
-             compile_fo_term_shift ~prefer_link ~in_post env old b ))
-  | FImp (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_fo_term_shift ~prefer_link ~in_post env old a,
-             Dterm.DTimplies,
-             compile_fo_term_shift ~prefer_link ~in_post env old b ))
 
 let rel_hexpr (env : env) (h : hexpr) : hexpr =
   match h with HNow e -> HNow e | HPreK (e, k) -> HPreK (e, k)
@@ -290,13 +245,8 @@ let rec ltl_relational (env : env) (f : fo_ltl) : fo_ltl =
 
 and rel_fo (env : env) (f : fo) : fo =
   match f with
-  | FTrue | FFalse -> f
   | FRel (h1, r, h2) -> FRel (rel_hexpr env h1, r, rel_hexpr env h2)
   | FPred (id, hs) -> FPred (id, List.map (rel_hexpr env) hs)
-  | FNot a -> FNot (rel_fo env a)
-  | FAnd (a, b) -> FAnd (rel_fo env a, rel_fo env b)
-  | FOr (a, b) -> FOr (rel_fo env a, rel_fo env b)
-  | FImp (a, b) -> FImp (rel_fo env a, rel_fo env b)
 
 type spec_frag = { pre : Ptree.term list; post : Ptree.term list }
 

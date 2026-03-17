@@ -25,10 +25,10 @@ val output_names_of_node : Ast.node -> Ast.ident list
 val transitions_from_state_fn : Ast.node -> Ast.ident -> Ast.transition list
 
 (* Build an efficient require lookup function by source state. *)
-val requires_from_state_fn : Ast.node -> Ast.ident -> Ast.fo list
+val requires_from_state_fn : Ast.node -> Ast.ident -> Ast.fo_ltl list
 
 (* Add (deduplicated) coherency goals to [node.attrs.coherency_goals]. *)
-val add_new_coherency_goals : Ast.node -> Ast.fo list -> Ast.node
+val add_new_coherency_goals : Ast.node -> Ast.fo_ltl list -> Ast.node
 
 (* Debug string representation of a program (mainly for dumps). *)
 val show_program : Ast.program -> string

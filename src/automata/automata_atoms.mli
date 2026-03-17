@@ -33,7 +33,7 @@ val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 val recover_guard_iexpr : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.iexpr
 (* Recover an automaton guard as a program-level boolean expression after atom inlining. *)
 
-val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.fo
+val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.fo_ltl
 (* Recover an automaton guard as a first-order formula after atom inlining. *)
 
 val collect_atoms : Ast.node -> automata_atoms

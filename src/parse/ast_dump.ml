@@ -17,8 +17,8 @@ let json_transition_of_ast (t : Ast.transition) : Yojson.Safe.t =
         match t.guard with
         | None -> `Null
         | Some g -> `String (Support.string_of_iexpr g) );
-      ("requires", `List (List.map (fun f -> `String (Support.string_of_fo f.Ast.value)) t.requires));
-      ("ensures", `List (List.map (fun f -> `String (Support.string_of_fo f.Ast.value)) t.ensures));
+      ("requires", `List (List.map (fun f -> `String (Support.string_of_ltl f.Ast.value)) t.requires));
+      ("ensures", `List (List.map (fun f -> `String (Support.string_of_ltl f.Ast.value)) t.ensures));
     ]
 
 let json_node_of_ast (n : Ast.node) : Yojson.Safe.t =

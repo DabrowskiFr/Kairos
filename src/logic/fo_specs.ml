@@ -23,18 +23,13 @@ open Support
 let rec collect_atoms_ltl (f : fo_ltl) (acc : fo list) : fo list =
   match f with
   | LTrue | LFalse -> acc
-  | LAtom a -> collect_atoms_fo a acc
+  | LAtom a -> if List.exists (( = ) a) acc then acc else a :: acc
   | LNot a | LX a | LG a -> collect_atoms_ltl a acc
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
       collect_atoms_ltl b (collect_atoms_ltl a acc)
 
 and collect_atoms_fo (f : fo) (acc : fo list) : fo list =
-  let add a acc = if List.exists (( = ) a) acc then acc else a :: acc in
-  match f with
-  | FTrue | FFalse -> acc
-  | FRel _ | FPred _ -> add f acc
-  | FNot a -> collect_atoms_fo a acc
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_atoms_fo b (collect_atoms_fo a acc)
+  if List.exists (( = ) f) acc then acc else f :: acc
 
 let collect_atoms_from_node (n : Ast.node) : fo list =
   let spec = Ast.specification_of_node n in
@@ -43,15 +38,15 @@ let collect_atoms_from_node (n : Ast.node) : fo list =
       (fun acc f -> collect_atoms_ltl f acc)
       [] (spec.spec_assumes @ spec.spec_guarantees)
   in
-  List.fold_left (fun acc inv -> collect_atoms_fo inv.formula acc) acc spec.spec_invariants_state_rel
+  List.fold_left (fun acc inv -> collect_atoms_ltl inv.formula acc) acc spec.spec_invariants_state_rel
 
-let transition_fo (t : Ast.transition) : fo list =
+let transition_fo (t : Ast.transition) : fo_ltl list =
   Ast_provenance.values t.requires @ Ast_provenance.values t.ensures
 
-let conj_fo (fs : fo list) : fo option =
+let conj_fo (fs : fo_ltl list) : fo_ltl option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
+  | f :: rest -> Some (List.fold_left (fun acc x -> LAnd (acc, x)) f rest)
 
 let relop_to_binop (r : relop) : binop =
   match r with REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge
@@ -104,9 +99,8 @@ let lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (
 let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
-let rec lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo) : fo option =
+let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo) : fo option =
   match f with
-  | FTrue | FFalse -> Some f
   | FRel (h1, r, h2) -> begin
       match (lower_hexpr_temporal_bindings ~temporal_bindings h1, lower_hexpr_temporal_bindings ~temporal_bindings h2) with
       | Some h1', Some h2' -> Some (FRel (h1', r, h2'))
@@ -121,28 +115,6 @@ let rec lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) 
             | Some h' -> lower_args (h' :: acc) tl)
       in
       Option.map (fun hs' -> FPred (id, hs')) (lower_args [] hs)
-  | FNot a -> Option.map (fun a' -> FNot a') (lower_fo_temporal_bindings ~temporal_bindings a)
-  | FAnd (a, b) -> begin
-      match
-        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (FAnd (a', b'))
-      | _ -> None
-    end
-  | FOr (a, b) -> begin
-      match
-        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (FOr (a', b'))
-      | _ -> None
-    end
-  | FImp (a, b) -> begin
-      match
-        (lower_fo_temporal_bindings ~temporal_bindings a, lower_fo_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (FImp (a', b'))
-      | _ -> None
-    end
 
 let lower_fo_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : fo option =
   lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
@@ -235,32 +207,31 @@ let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
       | _ -> None
     end
   | FPred _ -> None
-  | FTrue | FFalse | FNot _ | FAnd _ | FOr _ | FImp _ -> None
 
 let atom_to_var_rel (name : ident) : fo = FRel (HNow (mk_var name), REq, HNow (mk_bool true))
 
-let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo) list) (e : iexpr) : fo =
+let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo) list) (e : iexpr) : fo_ltl =
   match e.iexpr with
-  | ILitBool true -> FTrue
-  | ILitBool false -> FFalse
-  | ILitInt i -> FRel (HNow (mk_int i), REq, HNow (mk_bool true))
+  | ILitBool true -> LTrue
+  | ILitBool false -> LFalse
+  | ILitInt i -> LAtom (FRel (HNow (mk_int i), REq, HNow (mk_bool true)))
   | IVar v -> begin
       match List.assoc_opt v atom_map with
-      | Some f -> f
-      | None -> FRel (HNow (mk_var v), REq, HNow (mk_bool true))
+      | Some f -> LAtom f
+      | None -> LAtom (FRel (HNow (mk_var v), REq, HNow (mk_bool true)))
     end
   | IPar e -> iexpr_to_fo_with_atoms atom_map e
-  | IUn (Not, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
-  | IBin (And, a, b) -> FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Or, a, b) -> FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Eq, a, b) -> FRel (HNow a, REq, HNow b)
-  | IBin (Neq, a, b) -> FRel (HNow a, RNeq, HNow b)
-  | IBin (Lt, a, b) -> FRel (HNow a, RLt, HNow b)
-  | IBin (Le, a, b) -> FRel (HNow a, RLe, HNow b)
-  | IBin (Gt, a, b) -> FRel (HNow a, RGt, HNow b)
-  | IBin (Ge, a, b) -> FRel (HNow a, RGe, HNow b)
-  | IBin (_, a, b) -> FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true))
-  | IUn (_, a) -> FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true))
+  | IUn (Not, a) -> LNot (iexpr_to_fo_with_atoms atom_map a)
+  | IBin (And, a, b) -> LAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | IBin (Or, a, b) -> LOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | IBin (Eq, a, b) -> LAtom (FRel (HNow a, REq, HNow b))
+  | IBin (Neq, a, b) -> LAtom (FRel (HNow a, RNeq, HNow b))
+  | IBin (Lt, a, b) -> LAtom (FRel (HNow a, RLt, HNow b))
+  | IBin (Le, a, b) -> LAtom (FRel (HNow a, RLe, HNow b))
+  | IBin (Gt, a, b) -> LAtom (FRel (HNow a, RGt, HNow b))
+  | IBin (Ge, a, b) -> LAtom (FRel (HNow a, RGe, HNow b))
+  | IBin (_, a, b) -> LAtom (FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true)))
+  | IUn (_, a) -> LAtom (FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true)))
 
 let rec replace_atoms_ltl (atom_map : (fo * ident) list) (f : fo_ltl) : fo_ltl =
   match f with
@@ -276,24 +247,19 @@ let rec replace_atoms_ltl (atom_map : (fo * ident) list) (f : fo_ltl) : fo_ltl =
 
 and replace_atoms_fo (atom_map : (fo * ident) list) (f : fo) : fo =
   match f with
-  | FTrue | FFalse -> f
   | FRel _ | FPred _ -> begin
       match List.assoc_opt f atom_map with Some name -> atom_to_var_rel name | None -> f
     end
-  | FNot a -> FNot (replace_atoms_fo atom_map a)
-  | FAnd (a, b) -> FAnd (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
-  | FOr (a, b) -> FOr (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
-  | FImp (a, b) -> FImp (replace_atoms_fo atom_map a, replace_atoms_fo atom_map b)
 
 let replace_atoms_invariants_state_rel (atom_map : (fo * ident) list)
     (invs : invariant_state_rel list) : invariant_state_rel list =
-  List.map (fun inv -> { inv with formula = replace_atoms_fo atom_map inv.formula }) invs
+  List.map (fun inv -> { inv with formula = replace_atoms_ltl atom_map inv.formula }) invs
 
 let replace_atoms_transition (atom_map : (fo * ident) list) (t : Ast.transition) : Ast.transition =
   {
     t with
-    requires = List.map (Ast_provenance.map_with_origin (replace_atoms_fo atom_map)) t.requires;
-    ensures = List.map (Ast_provenance.map_with_origin (replace_atoms_fo atom_map)) t.ensures;
+    requires = List.map (Ast_provenance.map_with_origin (replace_atoms_ltl atom_map)) t.requires;
+    ensures = List.map (Ast_provenance.map_with_origin (replace_atoms_ltl atom_map)) t.ensures;
   }
   |> fun t -> t
 

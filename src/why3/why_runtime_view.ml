@@ -142,13 +142,10 @@ let collect_ctor_iexpr (acc : ident list) (e : iexpr) : ident list =
 let collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
   match h with HNow e -> collect_ctor_iexpr acc e | HPreK (e, _) -> collect_ctor_iexpr acc e
 
-let rec collect_ctor_fo (acc : ident list) (f : fo) : ident list =
+let collect_ctor_fo (acc : ident list) (f : fo) : ident list =
   match f with
-  | FTrue | FFalse -> acc
   | FRel (h1, _, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
   | FPred (_, hs) -> List.fold_left collect_ctor_hexpr acc hs
-  | FNot a -> collect_ctor_fo acc a
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_ctor_fo (collect_ctor_fo acc a) b
 
 let rec collect_ctor_ltl (acc : ident list) (f : fo_ltl) : ident list =
   match f with
@@ -179,12 +176,12 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
   let acc = ref [] in
   List.iter (fun f -> acc := collect_ctor_ltl !acc f) (spec.spec_assumes @ spec.spec_guarantees);
   List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
-  List.iter (fun inv -> acc := collect_ctor_fo !acc inv.formula) spec.spec_invariants_state_rel;
-  List.iter (fun g -> acc := collect_ctor_fo !acc g.value) n.attrs.coherency_goals;
+  List.iter (fun inv -> acc := collect_ctor_ltl !acc inv.formula) spec.spec_invariants_state_rel;
+  List.iter (fun g -> acc := collect_ctor_ltl !acc g.value) n.attrs.coherency_goals;
   List.iter
     (fun (t : transition) ->
       List.iter
-        (fun f -> acc := collect_ctor_fo !acc f)
+        (fun f -> acc := collect_ctor_ltl !acc f)
         (Ast_provenance.values t.requires @ Ast_provenance.values t.ensures))
     n.trans;
   List.iter

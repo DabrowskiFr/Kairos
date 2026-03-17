@@ -101,11 +101,31 @@ let compile_call_hexpr_term lookup (summary : Why_runtime_view.callee_summary_vi
       | None -> failwith "pre_k not registered (call summary contract)"
       | Some name -> lookup name)
 
-let rec compile_call_fo_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo) :
+let rec compile_call_fo_ltl_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo_ltl) :
     Ptree.term =
   match f with
-  | FTrue -> mk_term Ttrue
-  | FFalse -> mk_term Tfalse
+  | LTrue -> mk_term Ttrue
+  | LFalse -> mk_term Tfalse
+  | LAtom (FRel (h1, r, h2)) ->
+      mk_term
+        (Tinnfix
+           ( compile_call_hexpr_term lookup summary h1,
+             infix_ident (relop_id r),
+             compile_call_hexpr_term lookup summary h2 ))
+  | LAtom (FPred (id, hs)) ->
+      mk_term (Tidapp (qid1 id, List.map (compile_call_hexpr_term lookup summary) hs))
+  | LNot a -> mk_term (Tnot (compile_call_fo_ltl_term lookup summary a))
+  | LAnd (a, b) ->
+      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTand, compile_call_fo_ltl_term lookup summary b))
+  | LOr (a, b) ->
+      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTor, compile_call_fo_ltl_term lookup summary b))
+  | LImp (a, b) ->
+      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTimplies, compile_call_fo_ltl_term lookup summary b))
+  | LX _ | LG _ | LW _ -> mk_term Ttrue
+
+let compile_call_fo_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo) :
+    Ptree.term =
+  match f with
   | FRel (h1, r, h2) ->
       mk_term
         (Tinnfix
@@ -114,21 +134,6 @@ let rec compile_call_fo_term lookup (summary : Why_runtime_view.callee_summary_v
              compile_call_hexpr_term lookup summary h2 ))
   | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_call_hexpr_term lookup summary) hs))
-  | FNot a -> mk_term (Tnot (compile_call_fo_term lookup summary a))
-  | FAnd (a, b) ->
-      mk_term
-        (Tbinop
-           (compile_call_fo_term lookup summary a, Dterm.DTand, compile_call_fo_term lookup summary b))
-  | FOr (a, b) ->
-      mk_term
-        (Tbinop
-           (compile_call_fo_term lookup summary a, Dterm.DTor, compile_call_fo_term lookup summary b))
-  | FImp (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_call_fo_term lookup summary a,
-             Dterm.DTimplies,
-             compile_call_fo_term lookup summary b ))
 
 let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summary_view)
     ~(phase : call_fact_phase) ~(access_name : Ast.ident) ~(next_instance_name : Ast.ident)
@@ -160,7 +165,7 @@ let compile_call_fact_term ~(env : env) ~(summary : Why_runtime_view.callee_summ
         (term_eq
            (lookup "st")
            (mk_term (Tident (qid1 (instance_state_ctor_name summary.callee_node_name state_name)))))
-  | Product_kernel_ir.FactFormula fo -> Some (compile_call_fo_term lookup summary fo)
+  | Product_kernel_ir.FactFormula fo -> Some (compile_call_fo_ltl_term lookup summary fo)
   | Product_kernel_ir.FactGuaranteeState _ -> None
   | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse)
 
@@ -196,7 +201,7 @@ let build_call_asserts ~(env : env) ~(caller_runtime : Why_runtime_view.t) =
             let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
-              compile_fo_term_instance_contract ~in_post env inst_name node_name input_names
+              compile_ltl_term_instance_contract ~in_post env inst_name node_name input_names
                 contract
                 inv.formula
             in

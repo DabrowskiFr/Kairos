@@ -22,10 +22,10 @@ open Ast_builders
 type eq_value = VInt of int | VBool of bool
 type eq_atom = { name : string; var : string; value : eq_value }
 
-let extract_eq_atom ((f, name) : fo * ident) : eq_atom option =
+let extract_eq_atom ((f, name) : fo_ltl * ident) : eq_atom option =
   let mk var value = Some { name; var; value } in
   match f with
-  | FRel (HNow a, REq, HNow b) -> begin
+  | LAtom (FRel (HNow a, REq, HNow b)) -> begin
       match (as_var a, b.iexpr) with
       | Some x, ILitInt i -> mk x (VInt i)
       | Some x, ILitBool v -> mk x (VBool v)

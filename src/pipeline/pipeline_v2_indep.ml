@@ -27,11 +27,11 @@ let join_blocks_with_spans ~sep blocks =
 
 let with_smoke_tests (p : Ast.program) : Ast.program =
   let has_false_ensure (t : Ast.transition) =
-    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.FFalse) t.ensures
+    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.LFalse) t.ensures
   in
   let add_transition_smoke (t : Ast.transition) : Ast.transition =
     if has_false_ensure t then t
-    else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.FFalse ] }
+    else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.LFalse ] }
   in
   List.map (fun (n : Ast.node) -> { n with trans = List.map add_transition_smoke n.trans }) p
 

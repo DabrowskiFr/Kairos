@@ -55,13 +55,13 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt lis
     Uses [Fo_specs.lower_fo_pre_k] which returns [None] when a [HPreK] is not
     found in the map; in that case we keep the formula verbatim. *)
 let lower_fo_o (pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo_o) : fo_o =
-  match Fo_specs.lower_fo_pre_k ~pre_k_map f.value with
+  match Fo_specs.lower_ltl_pre_k ~pre_k_map f.value with
   | Some fo' -> { f with value = fo' }
   | None -> f
 
 let lower_state_inv (pre_k_map : (hexpr * Support.pre_k_info) list)
     (inv : invariant_state_rel) : invariant_state_rel =
-  match Fo_specs.lower_fo_pre_k ~pre_k_map inv.formula with
+  match Fo_specs.lower_ltl_pre_k ~pre_k_map inv.formula with
   | Some f -> { inv with formula = f }
   | None -> inv
 

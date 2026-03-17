@@ -126,17 +126,17 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   let mentions_monitor_hexpr = function
     | Ast.HNow e | Ast.HPreK (e, _) -> mentions_monitor_iexpr e
   in
-  let rec mentions_monitor_fo = function
-    | Ast.FTrue | Ast.FFalse -> false
-    | Ast.FRel (h1, _, h2) -> mentions_monitor_hexpr h1 || mentions_monitor_hexpr h2
-    | Ast.FPred (_, hs) -> List.exists mentions_monitor_hexpr hs
-    | Ast.FNot f -> mentions_monitor_fo f
-    | Ast.FAnd (a, b) | Ast.FOr (a, b) | Ast.FImp (a, b) ->
-        mentions_monitor_fo a || mentions_monitor_fo b
+  let rec mentions_monitor_ltl = function
+    | Ast.LTrue | Ast.LFalse -> false
+    | Ast.LAtom (Ast.FRel (h1, _, h2)) -> mentions_monitor_hexpr h1 || mentions_monitor_hexpr h2
+    | Ast.LAtom (Ast.FPred (_, hs)) -> List.exists mentions_monitor_hexpr hs
+    | Ast.LNot a | Ast.LX a | Ast.LG a -> mentions_monitor_ltl a
+    | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
+        mentions_monitor_ltl a || mentions_monitor_ltl b
   in
   let keep_call_fact (fact : Product_kernel_ir.call_fact_ir) =
     match fact.fact.desc with
-    | Product_kernel_ir.FactFormula fo -> not (mentions_monitor_fo fo)
+    | Product_kernel_ir.FactFormula fo -> not (mentions_monitor_ltl fo)
     | Product_kernel_ir.FactGuaranteeState _ -> false
     | Product_kernel_ir.FactProgramState _ | Product_kernel_ir.FactFalse -> true
   in

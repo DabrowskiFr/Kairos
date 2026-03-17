@@ -1,7 +1,7 @@
 open Ast
 
 module FoSet = Set.Make (struct
-  type t = fo
+  type t = fo_ltl
 
   let compare = compare
 end)
@@ -52,12 +52,12 @@ let transitions_from_state_fn (n : node) : ident -> transition list =
     n.trans;
   fun src -> Hashtbl.find_opt by_src src |> Option.value ~default:[]
 
-let requires_from_state_fn (n : node) : ident -> fo list =
+let requires_from_state_fn (n : node) : ident -> fo_ltl list =
   let transitions_from_state = transitions_from_state_fn n in
   let transition_requires (t : transition) = Ast_provenance.values t.requires in
   fun src -> transitions_from_state src |> List.rev |> List.concat_map transition_requires
 
-let add_new_coherency_goals (n : node) (new_goals : fo list) : node =
+let add_new_coherency_goals (n : node) (new_goals : fo_ltl list) : node =
   let existing_values = List.map (fun (f : fo_o) -> f.value) n.attrs.coherency_goals in
   let existing_set = FoSet.of_list existing_values in
   let new_set = FoSet.of_list new_goals in

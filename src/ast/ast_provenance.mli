@@ -2,13 +2,13 @@
    VC tracing. *)
 
 (* Wrap a FO formula with origin + optional location, allocating a fresh id. *)
-val with_origin : ?loc:Ast.loc -> Ast.origin -> Ast.fo -> Ast.fo_o
+val with_origin : ?loc:Ast.loc -> Ast.origin -> Ast.fo_ltl -> Ast.fo_o
 
 (* Map the underlying FO formula while preserving origin/id/loc. *)
-val map_with_origin : (Ast.fo -> Ast.fo) -> Ast.fo_o -> Ast.fo_o
+val map_with_origin : (Ast.fo_ltl -> Ast.fo_ltl) -> Ast.fo_o -> Ast.fo_o
 
 (* Extract raw FO formulas from a list of annotated formulas. *)
-val values : Ast.fo_o list -> Ast.fo list
+val values : Ast.fo_o list -> Ast.fo_ltl list
 
 (* Extract origin tags from a list of annotated formulas. *)
 val origins : Ast.fo_o list -> Ast.origin option list

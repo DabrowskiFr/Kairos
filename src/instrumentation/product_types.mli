@@ -15,11 +15,11 @@ type product_step = {
   src : product_state;
   dst : product_state;
   prog_transition : Abstract_model.transition;
-  prog_guard : Ast.fo;
+  prog_guard : Ast.fo_ltl;
   assume_edge : automaton_edge;
-  assume_guard : Ast.fo;
+  assume_guard : Ast.fo_ltl;
   guarantee_edge : automaton_edge;
-  guarantee_guard : Ast.fo;
+  guarantee_guard : Ast.fo_ltl;
   step_class : step_class;
 }
 
@@ -31,15 +31,15 @@ type prune_reason =
 type pruned_step = {
   src : product_state;
   prog_transition : Abstract_model.transition;
-  prog_guard : Ast.fo;
+  prog_guard : Ast.fo_ltl;
   assume_edge : automaton_edge;
   assume_src : int;
   assume_dst : int;
-  assume_guard : Ast.fo;
+  assume_guard : Ast.fo_ltl;
   guarantee_edge : automaton_edge;
   guarantee_src : int;
   guarantee_dst : int;
-  guarantee_guard : Ast.fo;
+  guarantee_guard : Ast.fo_ltl;
   reason : prune_reason;
 }
 

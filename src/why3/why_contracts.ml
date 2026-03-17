@@ -203,7 +203,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
     List.filter_map
       (fun inv ->
         if (inv.is_eq && inv.state = state_name) || ((not inv.is_eq) && inv.state <> state_name) then
-          Some (compile_fo_term env inv.formula)
+          Some (compile_ltl_term_shift env 1 inv.formula)
         else None)
       runtime.state_invariants
   in
@@ -238,10 +238,8 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
             term_old (term_of_var env name)
       end
   in
-  let rec compile_tick_ctx_fo (f : Ast.fo) : Ptree.term =
+  let compile_tick_ctx_fo (f : Ast.fo) : Ptree.term =
     match f with
-    | FTrue -> mk_term Ttrue
-    | FFalse -> mk_term Tfalse
     | FRel (h1, r, h2) ->
         mk_term
           (Tinnfix
@@ -249,25 +247,11 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
                infix_ident (relop_id r),
                compile_tick_ctx_hexpr h2 ))
     | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map compile_tick_ctx_hexpr hs))
-    | FNot a -> mk_term (Tnot (compile_tick_ctx_fo a))
-    | FAnd (a, b) -> mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTand, compile_tick_ctx_fo b))
-    | FOr (a, b) -> mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTor, compile_tick_ctx_fo b))
-    | FImp (a, b) ->
-        mk_term (Tbinop (compile_tick_ctx_fo a, Dterm.DTimplies, compile_tick_ctx_fo b))
   in
   let current_state_eq state_name =
     term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name)))
   in
-  let rec normalize_source_summary_fo (f : Ast.fo) : Ast.fo =
-    match f with
-    | FNot (FOr (FNot a, FNot b)) ->
-        FAnd (normalize_source_summary_fo a, normalize_source_summary_fo b)
-    | FNot inner -> FNot (normalize_source_summary_fo inner)
-    | FAnd (a, b) -> FAnd (normalize_source_summary_fo a, normalize_source_summary_fo b)
-    | FOr (a, b) -> FOr (normalize_source_summary_fo a, normalize_source_summary_fo b)
-    | FImp (a, b) -> FImp (normalize_source_summary_fo a, normalize_source_summary_fo b)
-    | FTrue | FFalse | FRel _ | FPred _ -> f
-  in
+  let normalize_source_summary_fo (f : Ast.fo_ltl) : Ast.fo_ltl = f in
   let conj_opt terms =
     let terms =
       List.filter
@@ -293,12 +277,12 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
             | Product_kernel_ir.PreviousTick -> term_old base
             | Product_kernel_ir.StepTickContext -> base)
       | Product_kernel_ir.RelFactFormula fo ->
-          let base = compile_fo_term env fo in
+          let base = compile_ltl_term_shift env 1 fo in
           Some
             (match time with
             | Product_kernel_ir.CurrentTick -> base
             | Product_kernel_ir.PreviousTick -> old_if_needed env base
-            | Product_kernel_ir.StepTickContext -> compile_tick_ctx_fo fo)
+            | Product_kernel_ir.StepTickContext -> compile_ltl_term_shift ~in_post:true env 0 fo)
       | Product_kernel_ir.RelFactFalse -> Some (mk_term Tfalse)
     in
     compile_desc fact.time fact.desc
@@ -538,7 +522,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
             in
             let cond = (if is_eq then term_eq else term_neq) st rhs in
             let body =
-              compile_fo_term_instance_contract ~in_post env instance_name callee_node_name
+              compile_ltl_term_instance_contract ~in_post env instance_name callee_node_name
                 input_names contract formula
             in
             Some (term_implies cond body))

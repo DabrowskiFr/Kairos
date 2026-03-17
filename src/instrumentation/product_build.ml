@@ -26,14 +26,14 @@ type analysis = {
   assume_atom_map_exprs : (ident * iexpr) list;
 }
 
-let fo_of_iexpr (e : iexpr) : fo = iexpr_to_fo_with_atoms [] e
+let fo_of_iexpr (e : iexpr) : fo_ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
   let recovered = recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
-  | [], _ -> FFalse
-  | _ :: _, FFalse ->
+  | [], _ -> LFalse
+  | _ :: _, LFalse ->
       (* Some temporal guards are conservatively recovered through atom
          expressions and may collapse to [false] even though the original DNF
          guard is not empty. Keep the unsimplified formula so the product
@@ -42,10 +42,10 @@ let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_t
       recovered
   | _ -> simplified
 
-let program_guard_fo (t : Abs.transition) : fo =
+let program_guard_fo (t : Abs.transition) : fo_ltl =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard with None -> FTrue | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo
+  match t.guard with None -> LTrue | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo
 
 type lit = { var : ident; cst : string; is_pos : bool }
 
@@ -70,24 +70,24 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     end
   | _ -> None
 
-let rec conj_lits (f : fo) : lit list option =
+let rec conj_lits (f : fo_ltl) : lit list option =
   match f with
-  | FTrue -> Some []
-  | FRel (h1, r, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
-  | FNot x -> begin
+  | LTrue -> Some []
+  | LAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
+  | LNot x -> begin
       match x with
-      | FRel (h1, REq, h2) -> Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
+      | LAtom (FRel (h1, REq, h2)) -> Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
       | _ -> None
     end
-  | FAnd (a, b) -> begin
+  | LAnd (a, b) -> begin
       match (conj_lits a, conj_lits b) with
       | Some la, Some lb -> Some (la @ lb)
       | _ -> None
     end
   | _ -> None
 
-let disj_conjs (f : fo) : lit list list option =
-  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
+let disj_conjs (f : fo_ltl) : lit list list option =
+  let rec go = function LOr (a, b) -> go a @ go b | x -> [ x ] in
   let xs = go f |> List.map conj_lits in
   List.fold_right
     (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
@@ -117,7 +117,7 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
     pos;
   !ok
 
-let fo_overlap_conservative (a : fo) (b : fo) : bool =
+let fo_overlap_conservative (a : fo_ltl) (b : fo_ltl) : bool =
   (* Conservative satisfiability check on already-normalized guards.
      This intentionally keeps program, assumption, and guarantee guards separate:
      it only decides whether two guards may overlap, it does not merge them. *)

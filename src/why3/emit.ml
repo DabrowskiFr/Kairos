@@ -144,7 +144,7 @@ let compile_kernel_fact_term ~(env : Support.env) ~(mon_state_ctors : Ast.ident 
               (match time with
               | Product_kernel_ir.CurrentTick -> base
               | Product_kernel_ir.PreviousTick -> term_old base))
-    | Product_kernel_ir.FactFormula fo -> Some (Why_compile_expr.compile_fo_term env fo)
+    | Product_kernel_ir.FactFormula fo -> Some (Why_compile_expr.compile_ltl_term_shift env 1 fo)
     | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse)
   in
   compile_desc fact.time fact.desc
@@ -559,7 +559,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         | [ t ] -> Some t
         | t :: rest -> Some (List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest)
       in
-      let is_init_goal = function FImp (FTrue, _) -> true | _ -> false in
+      let is_init_goal = function LImp (LTrue, _) -> true | _ -> false in
       List.mapi
         (fun i (f : Ast.fo_o) ->
           let wid = Provenance.fresh_id () in
@@ -567,7 +567,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
           let origin_attr = attr_for_label "User contracts coherency" in
           let base =
-            let base = compile_fo_term env f.value in
+            let base = compile_ltl_term_shift env 1 f.value in
             if is_init_goal f.value then
               match init_guard with Some g -> mk_term (Tbinop (g, Dterm.DTimplies, base)) | None -> base
             else base
@@ -612,8 +612,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
   let show_invariant_state_rel rel (inv : invariant_state_rel) =
     let op = if inv.is_eq then "=" else "!=" in
-    let f = if rel then rel_fo env inv.formula else inv.formula in
-    "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_fo f
+    let f = if rel then ltl_relational env inv.formula else inv.formula in
+    "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_ltl f
   in
   let comment =
     let is_monitor =
@@ -671,7 +671,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       in
       let transition_contracts =
         let line_for (t : transition) =
-          let show_fo f = string_of_fo f |> strip_vars in
+          let show_fo f = string_of_ltl f |> strip_vars in
           let reqs =
             match t.requires with
             | [] -> [ "(none)" ]

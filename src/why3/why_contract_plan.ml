@@ -73,7 +73,7 @@ let old_if_needed (env : env) (t : Ptree.term) : Ptree.term =
 let guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_view) : Ptree.term option =
   Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
-let rec fo_mentions_var (name : Ast.ident) (f : Ast.fo) : bool =
+let fo_mentions_var (name : Ast.ident) (f : Ast.fo) : bool =
   let hexpr_mentions_var = function
     | Ast.HNow e | Ast.HPreK (e, _) -> begin
         match e.iexpr with
@@ -82,17 +82,13 @@ let rec fo_mentions_var (name : Ast.ident) (f : Ast.fo) : bool =
       end
   in
   match f with
-  | Ast.FTrue | Ast.FFalse -> false
   | Ast.FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
   | Ast.FPred (_, hs) -> List.exists hexpr_mentions_var hs
-  | Ast.FNot a -> fo_mentions_var name a
-  | Ast.FAnd (a, b) | Ast.FOr (a, b) | Ast.FImp (a, b) ->
-      fo_mentions_var name a || fo_mentions_var name b
 
 let compute_transition_contracts ~(env : env)
     ~(runtime_transitions : Why_runtime_view.runtime_transition_view list)
     ~(labeled_trans :
-       (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo * string * string) list)
+       (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo_ltl * string * string) list)
        list)
     ~(has_monitor_instrumentation : bool) ~(post_contract_user : Ptree.term list)
     ~(use_kernel_product_contracts : bool)
@@ -121,7 +117,7 @@ let compute_transition_contracts ~(env : env)
             in
             if not keep_req then acc
             else
-            let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f.value) in
+            let norm = normalize_ltl_for_k ~init_for_var f.value in
             let rel = ltl_relational env norm.ltl in
             let frag = ltl_spec env rel in
             let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
@@ -153,7 +149,7 @@ let compute_transition_contracts ~(env : env)
         let cond_post = with_guard cond_post (guard_term_pre env t) in
         List.fold_left
           (fun acc f ->
-            let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
+            let norm = normalize_ltl_for_k ~init_for_var f in
             let rel = ltl_relational env norm.ltl in
             let frag = ltl_spec env rel in
             let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
@@ -177,7 +173,7 @@ let compute_transition_contracts ~(env : env)
           let guard_terms =
             List.concat_map
               (fun f ->
-                let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
+                let norm = normalize_ltl_for_k ~init_for_var f in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
@@ -189,7 +185,7 @@ let compute_transition_contracts ~(env : env)
           let apply_post_terms post post_terms post_terms_vcid fo_list =
             List.fold_left
               (fun (post, post_terms, post_terms_vcid) (f, label_opt, vcid_opt) ->
-                let norm = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
+                let norm = normalize_ltl_for_k ~init_for_var f in
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 let guarded_k = apply_k_guard ~in_post:true norm.k_guard frag.post in
@@ -278,7 +274,7 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
             let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
             let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
             let body =
-              compile_fo_term_instance_contract ~in_post env inst_name node_name input_names
+              compile_ltl_term_instance_contract ~in_post env inst_name node_name input_names
                 contract
                 inv.formula
             in

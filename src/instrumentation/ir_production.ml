@@ -1,9 +1,9 @@
 module Abs = Abstract_model
 
 (** Convert an optional imperative guard to a first-order formula. *)
-let guard_fo (g : Ast.iexpr option) : Ast.fo =
+let guard_fo (g : Ast.iexpr option) : Ast.fo_ltl =
   match g with
-  | None -> Ast.FTrue
+  | None -> Ast.LTrue
   | Some e ->
       Fo_specs.iexpr_to_fo_with_atoms [] e |> Fo_simplifier.simplify_fo
 

@@ -29,10 +29,10 @@ val collect_atoms_from_node : Ast.node -> Ast.fo list
 (* {1 Transition Helpers} *)
 
 (* Flatten transition requires/ensures into a single list. *)
-val transition_fo : Ast.transition -> Ast.fo list
+val transition_fo : Ast.transition -> Ast.fo_ltl list
 
 (* Conjoin a list of FO formulas, or [None] for empty. *)
-val conj_fo : Ast.fo list -> Ast.fo option
+val conj_fo : Ast.fo_ltl list -> Ast.fo_ltl option
 (* {1 Expression Conversion} *)
 
 (* Map a relational operator to its boolean binary operator. *)
@@ -102,8 +102,8 @@ val atom_to_iexpr :
 (* Encode an atom variable as a FO relation (var = true). *)
 val atom_to_var_rel : Ast.ident -> Ast.fo
 
-(* Reconstruct FO by inlining atom variables from a name->atom map. *)
-val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.fo
+(* Reconstruct FO LTL by inlining atom variables from a name->atom map. *)
+val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.fo_ltl
 (* {1 Atom Replacement} *)
 
 (* Replace atom formulas by their variable representation in LTL. *)

@@ -39,14 +39,8 @@ type hexpr = HNow of iexpr | HPreK of iexpr * int (* pre_k(e, k) *) [@@deriving 
 type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show, yojson]
 
 type fo =
-  | FTrue
-  | FFalse
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
-  | FNot of fo
-  | FAnd of fo * fo
-  | FOr of fo * fo
-  | FImp of fo * fo
 [@@deriving show, yojson]
 
 type 'a ltl =
@@ -72,7 +66,7 @@ type origin =
   | AssumeAutomaton
   | Internal
 [@@deriving show, yojson]
-type fo_o = { value : fo; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
+type fo_o = { value : fo ltl; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
 type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
@@ -86,7 +80,7 @@ and stmt_desc =
 [@@deriving show, yojson]
 
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo } [@@deriving show, yojson]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : fo ltl } [@@deriving show, yojson]
 
 type node_attrs = {
   uid : int option;

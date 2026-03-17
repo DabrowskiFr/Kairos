@@ -55,6 +55,16 @@ val compile_fo_term_instance_contract :
   Ast.fo ->
   Why3.Ptree.term
 
+val compile_ltl_term_instance_contract :
+  ?in_post:bool ->
+  Support.env ->
+  Ast.ident ->
+  Ast.ident ->
+  Ast.ident list ->
+  Kernel_guided_contract.exported_summary_contract ->
+  Ast.fo_ltl ->
+  Why3.Ptree.term
+
 (* Build a tuple term from output variables (if any). *)
 val term_of_outputs : Support.env -> Ast.vdecl list -> Why3.Ptree.term option
 

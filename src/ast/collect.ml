@@ -36,13 +36,10 @@ let rec collect_ltl (f : fo_ltl) (acc : hexpr list) : hexpr list =
 
 and collect_fo (f : fo) (acc : hexpr list) : hexpr list =
   match f with
-  | FTrue | FFalse -> acc
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
-  | FNot a -> collect_fo a acc
-  | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_fo b (collect_fo a acc)
 
-let collect_pre_k_from_specs ~(fo : fo list) ~(ltl : fo_ltl list)
+let collect_pre_k_from_specs ~(fo : fo_ltl list) ~(ltl : fo_ltl list)
     ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list) :
     hexpr list =
   let collect_pre_k_hexpr h acc =
@@ -60,17 +57,14 @@ let collect_pre_k_from_specs ~(fo : fo list) ~(ltl : fo_ltl list)
     | LAtom f -> collect_pre_k_fo f acc
   and collect_pre_k_fo f acc =
     match f with
-    | FTrue | FFalse -> acc
     | FRel (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
     | FPred (_id, hs) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
-    | FNot a -> collect_pre_k_fo a acc
-    | FAnd (a, b) | FOr (a, b) | FImp (a, b) -> collect_pre_k_fo b (collect_pre_k_fo a acc)
   in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_fo f acc) [] fo in
+  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) [] fo in
   let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
   List.fold_left (fun acc inv -> collect_pre_k_hexpr inv.inv_expr acc) acc invariants_user
   |> fun acc ->
-  List.fold_left (fun acc inv -> collect_pre_k_fo inv.formula acc) acc invariants_state_rel
+  List.fold_left (fun acc inv -> collect_pre_k_ltl inv.formula acc) acc invariants_state_rel
 
 let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
   let spec = specification_of_node n in
@@ -83,10 +77,6 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
       | Some TReal -> mk_int 0
       | Some (TCustom _) | None -> mk_int 0
   in
-  let normalize_fo f =
-    let normalized = normalize_ltl_for_k ~init_for_var (ltl_of_fo f) in
-    fo_of_ltl normalized.ltl
-  in
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
   let transition_fo =
     List.concat_map
@@ -94,12 +84,12 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
       n.trans
   in
   let coherency_fo = Ast_provenance.values n.attrs.coherency_goals in
-  let normalized_fo = List.map normalize_fo (transition_fo @ coherency_fo) in
+  let normalized_fo = List.map normalize_ltl (transition_fo @ coherency_fo) in
   let normalized_ltl = List.map normalize_ltl (spec.spec_assumes @ spec.spec_guarantees) in
   let normalized_invariants_user = n.attrs.invariants_user in
   let normalized_invariants_state_rel =
     List.map
-      (fun inv -> { inv with formula = normalize_fo inv.formula })
+      (fun inv -> { inv with formula = normalize_ltl inv.formula })
       spec.spec_invariants_state_rel
   in
   let pre_k_exprs =
