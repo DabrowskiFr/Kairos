@@ -412,11 +412,6 @@ let instrumentation_pass t ~generate_png ~input_file =
          { input_file; generate_png; engine = default_engine () })
   |>!  Lsp_protocol.automata_outputs_of_yojson
 
-let obc_pass t ~input_file =
-  call_request t ~method_name:"kairos/obcPass"
-    ~params:(Lsp_protocol.yojson_of_obc_pass_request { input_file; engine = default_engine () })
-  |>!  Lsp_protocol.obc_outputs_of_yojson
-
 let why_pass t ~prefix_fields ~input_file =
   call_request t ~method_name:"kairos/whyPass"
     ~params:(Lsp_protocol.yojson_of_why_pass_request { input_file; prefix_fields; engine = default_engine () })

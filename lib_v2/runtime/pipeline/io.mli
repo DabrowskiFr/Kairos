@@ -17,16 +17,12 @@ val dump_ast_all :
   automaton:Ast.program ->
   contracts:Ast.program ->
   instrumentation:Ast.program ->
-  obc:Ast.program ->
   stable:bool ->
   (unit, string) result
 (* Dump all AST stages to a directory (one file per stage). *)
 
 val emit_dot_files : show_labels:bool -> out_file:string -> Ast.program -> unit
 (* Emit DOT graph files for a program. *)
-
-val emit_obc_file : out_file:string -> use_abstract:bool -> Ast.program -> unit
-(* Emit OBC+ source to a file. *)
 
 val emit_why3_vc : out_file:string -> why_text:string -> unit
 (* Emit Why3 VCs to a file (text is already generated). *)

@@ -40,13 +40,11 @@ let stage_meta (infos : Pipeline.stage_infos) : (string * (string * string) list
   let a = Option.value ~default:Stage_info.empty_automata_info infos.automata_generation in
   let c = Option.value ~default:Stage_info.empty_contracts_info infos.contracts in
   let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
-  let o = Option.value ~default:Stage_info.empty_obc_info infos.obc in
   [
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
     ("contracts", [ ("origins", string_of_int (List.length c.contract_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
     ("instrumentation", [ ("atoms", string_of_int i.atom_count); ("obligations_lines", string_of_int (List.length i.obligations_lines)) ]);
-    ("obc", [ ("ghost_locals", string_of_int (List.length o.ghost_locals_added)); ("warnings", string_of_int (List.length o.warnings)) ]);
   ]
 
 let build_ast_with_info ~input_file () :
@@ -86,18 +84,6 @@ let build_ast_with_info ~input_file () :
     let p_contracts, _automata, contracts_info =
       Middle_end.stage_contracts_with_info (p_monitor, automata)
     in
-    let p_obc, obc_info = Obc_stage.run_with_info p_contracts in
-    let p_obc_abstract = List.map Abstract_model.of_ast_node p_obc in
-    let p_obc_clean =
-      List.map
-        (fun (n : Ast.node) ->
-          {
-            n with
-            trans = List.map (fun (t : Ast.transition) -> { t with requires = []; ensures = [] }) n.trans;
-            attrs = { n.attrs with coherency_goals = [] };
-          })
-        p_obc
-    in
     let asts : Pipeline.ast_stages =
       {
         source;
@@ -106,9 +92,7 @@ let build_ast_with_info ~input_file () :
         automata;
         contracts = p_contracts;
         instrumentation = p_monitor;
-        obc = p_obc_clean;
         imported_summaries = imported.summaries;
-        obc_abstract = p_obc_abstract;
       }
     in
     let infos : Pipeline.stage_infos =
@@ -117,7 +101,6 @@ let build_ast_with_info ~input_file () :
         automata_generation = Some automata_info;
         contracts = Some contracts_info;
         instrumentation = Some instrumentation_info;
-        obc = Some obc_info;
       }
     in
     Ok (asts, infos)
@@ -206,12 +189,12 @@ let classify_formula ~(is_require : bool) (f : Ast.fo_o) :
   in
   (obligation_kind, family_name, category_name)
 
-let build_formula_records (p_obc : Abstract_model.node list) : formula_record list =
+let build_formula_records (p_obc : Ast.program) : formula_record list =
   let records = ref [] in
   let add record = records := record :: !records in
   List.iter
-    (fun (node : Abstract_model.node) ->
-      let node_name = node.semantics.sem_nname in
+    (fun (node : Ast.node) ->
+      let node_name = node.nname in
       List.iter
         (fun (goal : Ast.fo_o) ->
           add
@@ -227,7 +210,7 @@ let build_formula_records (p_obc : Abstract_model.node list) : formula_record li
             })
         node.attrs.coherency_goals;
       List.iter
-        (fun (t : Abstract_model.transition) ->
+        (fun (t : Ast.transition) ->
           let source = Printf.sprintf "%s: %s -> %s" node_name t.src t.dst in
           List.iter
             (fun (req : Ast.fo_o) ->
@@ -660,7 +643,7 @@ let resolve_formula_record ~(records : (int, formula_record) Hashtbl.t) ~(why_id
   List.find_map (fun id -> Hashtbl.find_opt records id) origin_ids
 
 let source_from_record_or_state ~(record : formula_record option)
-    ~(state_pair : (string * string) option) ~(obc_abs : Abstract_model.node list) =
+    ~(state_pair : (string * string) option) ~(obc_program : Ast.program) =
   match record with
   | Some record -> record.source
   | None -> (
@@ -668,14 +651,14 @@ let source_from_record_or_state ~(record : formula_record option)
       | None -> ""
       | Some (src_state, dst_state) ->
           List.find_map
-            (fun (node : Abstract_model.node) ->
+            (fun (node : Ast.node) ->
               List.find_map
-                (fun (t : Abstract_model.transition) ->
+                (fun (t : Ast.transition) ->
                   if t.src = src_state && t.dst = dst_state then
-                    Some (Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst)
+                    Some (Printf.sprintf "%s: %s -> %s" node.nname t.src t.dst)
                   else None)
                 node.trans)
-            obc_abs
+            obc_program
           |> Option.value ~default:(Printf.sprintf "%s -> %s" src_state dst_state))
 
 let lookup_span table id = Hashtbl.find_opt table id
@@ -768,15 +751,7 @@ let apply_goal_results_to_outputs ~(out : Pipeline.outputs)
 let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos : Pipeline.stage_infos) :
     (Pipeline.outputs, Pipeline.error) result =
   try
-    let p_obc_backend =
-      let p = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      if cfg.smoke_tests then with_smoke_tests p else p
-    in
-    let obc_text, obcplus_spans = Obc_emit.compile_program_with_spans p_obc_backend in
-    let obcplus_spans_ordered =
-      List.map snd obcplus_spans
-    in
-    let obligation_summary = Obligation_taxonomy.summarize_program p_obc_backend in
+    let obligation_summary = Obligation_taxonomy.summarize_program asts.contracts in
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
@@ -792,7 +767,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
     in
     let why_ast =
       Emit.compile_program_ast ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-        ~external_summaries p_obc_backend
+        ~external_summaries asts.instrumentation
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
@@ -816,7 +791,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
     let vc_locs, vc_locs_ordered = Pipeline.build_vcid_locs asts.parsed in
     let vc_loc_tbl = Hashtbl.create (List.length vc_locs * 2 + 1) in
     List.iter (fun (id, loc) -> Hashtbl.replace vc_loc_tbl id loc) vc_locs;
-    let formula_records = build_formula_records asts.obc_abstract in
+    let formula_records = build_formula_records asts.contracts in
     let formula_record_tbl = formula_record_table formula_records in
     let vc_sources =
       List.mapi
@@ -826,7 +801,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
           let source =
             source_from_record_or_state ~record
               ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-              ~obc_abs:asts.obc_abstract
+              ~obc_program:asts.contracts
           in
           (vcid, source))
         task_goal_wids
@@ -899,12 +874,6 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
           task_goal_wids
         |> List.filter (fun (idx, _, _, _, _, _, _) -> matches_selected_goal ~cfg idx)
     in
-    let obc_span_tbl = Hashtbl.create (List.length obcplus_spans * 2 + 1) in
-    List.iter
-      (fun (id, span) ->
-        Hashtbl.replace obc_span_tbl id
-          { Pipeline.start_offset = fst span; end_offset = snd span })
-      obcplus_spans;
     let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
     List.iter
       (fun ((idx, _, _, _, _, _, _) as goal_result) -> Hashtbl.replace goal_result_tbl idx goal_result)
@@ -919,7 +888,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
           let source =
             source_from_record_or_state ~record
               ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-              ~obc_abs:asts.obc_abstract
+              ~obc_program:asts.contracts
           in
           let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
             match Hashtbl.find_opt goal_result_tbl idx with
@@ -986,8 +955,6 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
             origin_ids;
             vc_id = raw_vcid;
             source_span;
-            obc_span =
-              List.find_map (fun id -> lookup_span obc_span_tbl id) origin_ids;
             why_span =
               List.find_map (fun id -> lookup_span why_span_tbl id) origin_ids;
             vc_span = List.nth_opt vc_spans_ordered idx;
@@ -1009,8 +976,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
     in
     Ok
       {
-        Pipeline.obc_text = obc_text;
-        why_text;
+        Pipeline.why_text;
         vc_text;
         smt_text;
         dot_text;
@@ -1030,20 +996,16 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
           @ [ ("obligations_taxonomy", Obligation_taxonomy.to_stage_meta obligation_summary) ];
         goals;
         proof_traces;
-        obcplus_sequents = [];
         vc_sources;
         task_sequents;
         vc_locs;
-        obcplus_spans;
         vc_locs_ordered;
-        obcplus_spans_ordered;
         vc_spans_ordered =
           List.map
             (fun (span : Pipeline.text_span) -> (span.start_offset, span.end_offset))
             vc_spans_ordered;
         why_spans;
         vc_ids_ordered;
-        obcplus_time_s = 0.0;
         why_time_s = 0.0;
         automata_generation_time_s = 0.0;
         automata_build_time_s = 0.0;
@@ -1065,8 +1027,7 @@ let instrumentation_pass ~generate_png ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
-      let p_obc_backend = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      let obligation_summary = Obligation_taxonomy.summarize_program p_obc_backend in
+      let obligation_summary = Obligation_taxonomy.summarize_program asts.contracts in
       let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
           prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
         instrumentation_diag_texts infos
@@ -1132,28 +1093,18 @@ let instrumentation_pass ~generate_png ~input_file =
             @ [ ("obligations_taxonomy", Obligation_taxonomy.to_stage_meta obligation_summary) ];
         }
 
-let obc_pass ~input_file =
-  match build_ast_with_info ~input_file () with
-  | Error _ as e -> e
-  | Ok (asts, infos) ->
-      let p_obc = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      let obc_text = List.map Abstract_model.of_ast_node p_obc |> Abstract_model.render_program in
-      Ok { Pipeline.obc_text = obc_text; stage_meta = stage_meta infos }
-
 let why_pass ~prefix_fields ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
-      let p_obc = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      let why_text = Io.emit_why ~prefix_fields ~output_file:None p_obc in
+      let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.instrumentation in
       Ok { Pipeline.why_text = why_text; stage_meta = stage_meta infos }
 
 let obligations_pass ~prefix_fields ~prover ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, _infos) ->
-      let p_obc = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      let why_text = Io.emit_why ~prefix_fields ~output_file:None p_obc in
+      let why_text = Io.emit_why ~prefix_fields ~output_file:None asts.instrumentation in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" (Why_prove.dump_why3_tasks_with_attrs ~text:why_text) in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" (Why_prove.dump_smt2_tasks ~prover ~text:why_text) in
       Ok { Pipeline.vc_text = vc_text; smt_text }

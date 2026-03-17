@@ -14,7 +14,7 @@ let dump_ast_stage ~(stage : Stage_names.stage_id) ~(out : string option) ~(stab
   Ok ()
 
 let dump_ast_all ~(dir : string) ~(parsed : Ast.program) ~(automaton : Ast.program)
-    ~(contracts : Ast.program) ~(instrumentation : Ast.program) ~(obc : Ast.program) ~(stable : bool) :
+    ~(contracts : Ast.program) ~(instrumentation : Ast.program) ~(stable : bool) :
     (unit, string) result =
   if dir = "-" then Error "--dump-ast-all expects a directory, not '-'"
   else
@@ -41,7 +41,6 @@ let dump_ast_all ~(dir : string) ~(parsed : Ast.program) ~(automaton : Ast.progr
         write_stage Stage_names.Automaton automaton;
         write_stage Stage_names.Instrumentation instrumentation;
         write_stage Stage_names.Contracts contracts;
-        write_stage Stage_names.Obc obc;
         Ok ()
 
 let emit_dot_files ~(show_labels : bool) ~(out_file : string) (program : Ast.program) : unit =
@@ -65,23 +64,6 @@ let emit_dot_files ~(show_labels : bool) ~(out_file : string) (program : Ast.pro
       let label_path = Fpath.to_string label_file in
       write_text label_path labels;
       Log.output_written "dot_labels" label_path (file_size label_path))
-
-let emit_obc_file ~(out_file : string) ~(use_abstract : bool) (program : Ast.program) : unit =
-  let out =
-    if use_abstract then
-      program |> List.map Abstract_model.of_ast_node |> Abstract_model.render_program
-    else Obc_emit.compile_program program
-  in
-  if out_file = "-" then print_string out
-  else
-    let ensure_ext path =
-      if Filename.check_suffix path ".obc+" then path
-      else if Filename.check_suffix path ".obc" then path ^ "+"
-      else path ^ ".obc+"
-    in
-    let path = ensure_ext out_file in
-    write_text path out;
-    Log.output_written "obc" path (file_size path)
 
 let emit_why3_vc ~(out_file : string) ~(why_text : string) : unit =
   let tasks = Why_prove.dump_why3_tasks ~text:why_text in

@@ -4,8 +4,6 @@ type outputs = Ide_lsp_types.outputs
 
 type automata_outputs = Ide_lsp_types.automata_outputs
 
-type obc_outputs = Ide_lsp_types.obc_outputs
-
 type why_outputs = Ide_lsp_types.why_outputs
 
 type obligations_outputs = Ide_lsp_types.obligations_outputs
@@ -26,7 +24,6 @@ val did_save : uri:string -> (unit, error) result
 val did_close : uri:string -> (unit, error) result
 
 val instrumentation_pass : generate_png:bool -> input_file:string -> (automata_outputs, error) result
-val obc_pass : input_file:string -> (obc_outputs, error) result
 val why_pass : prefix_fields:bool -> input_file:string -> (why_outputs, error) result
 val obligations_pass : prefix_fields:bool -> prover:string -> input_file:string -> (obligations_outputs, error) result
 val eval_pass : input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool -> (string, error) result

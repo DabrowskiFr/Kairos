@@ -10,10 +10,6 @@ val instrumentation_pass :
   engine:engine -> generate_png:bool -> input_file:string ->
   (Pipeline.automata_outputs, Pipeline.error) result
 
-val obc_pass :
-  engine:engine -> input_file:string ->
-  (Pipeline.obc_outputs, Pipeline.error) result
-
 val why_pass :
   engine:engine -> prefix_fields:bool -> input_file:string ->
   (Pipeline.why_outputs, Pipeline.error) result

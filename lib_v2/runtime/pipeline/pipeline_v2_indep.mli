@@ -3,8 +3,6 @@
 val instrumentation_pass :
   generate_png:bool -> input_file:string -> (Pipeline.automata_outputs, Pipeline.error) result
 
-val obc_pass : input_file:string -> (Pipeline.obc_outputs, Pipeline.error) result
-
 val why_pass :
   prefix_fields:bool -> input_file:string -> (Pipeline.why_outputs, Pipeline.error) result
 

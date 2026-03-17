@@ -1,21 +1,20 @@
 open Pipeline
 open Why_prove
-module Abs = Abstract_model
 
-let build_formula_sources_abs (p_obc : Abs.node list) : (int * string) list =
+let build_formula_sources (nodes : Ast.node list) : (int * string) list =
   let acc = ref [] in
   List.iter
-    (fun (node : Abs.node) ->
+    (fun (node : Ast.node) ->
       List.iter
         (fun (goal : Ast.fo_o) ->
-          acc := (goal.oid, Printf.sprintf "%s: <no transition>" node.semantics.sem_nname) :: !acc)
+          acc := (goal.oid, Printf.sprintf "%s: <no transition>" node.nname) :: !acc)
         node.attrs.coherency_goals;
       List.iter
-        (fun (t : Abs.transition) ->
-          let src = Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst in
+        (fun (t : Ast.transition) ->
+          let src = Printf.sprintf "%s: %s -> %s" node.nname t.src t.dst in
           List.iter (fun (ens : Ast.fo_o) -> acc := (ens.oid, src) :: !acc) t.ensures)
         node.trans)
-    p_obc;
+    nodes;
   List.rev !acc
 
 let build_vc_sources_from_formula_sources ~(formula_sources : (int * string) list)
@@ -39,9 +38,8 @@ let () =
   match Pipeline.build_ast ~input_file:file () with
   | Error e -> Printf.printf "AST ERROR: %s\n" (Pipeline.error_to_string e)
   | Ok asts ->
-      let p_obc = List.map Abstract_model.to_ast_node asts.obc_abstract in
-      let obc_abs = List.map Abs.of_ast_node p_obc in
-      let why_text = Io.emit_why ~prefix_fields:false ~output_file:None p_obc in
+      let nodes = asts.contracts in
+      let why_text = Io.emit_why ~prefix_fields:false ~output_file:None nodes in
       let pairs = Why_prove.task_state_pairs ~text:why_text in
       Printf.printf "pairs=%d\n" (List.length pairs);
       List.iteri (fun i p -> if i<30 then match p with None->Printf.printf "%d: none\n" i | Some (a,b)->Printf.printf "%d: %s -> %s\n" i a b) pairs;
@@ -94,7 +92,7 @@ let () =
               lines)
         tasks
       ;
-      let formula_sources = build_formula_sources_abs obc_abs in
+      let formula_sources = build_formula_sources nodes in
       let vc_ids_ordered =
         List.map
           (fun ws ->

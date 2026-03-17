@@ -666,10 +666,6 @@ let show
     export_auto_open_check#set_active !prefs_ref.Ide_config.export_auto_open;
     export_auto_open_check#connect#toggled ~callback:mark_dirty |> ignore;
     outputs_grid#attach ~left:0 ~top:2 ~right:2 export_auto_open_check#coerce;
-    let export_obcplus_entry = GEdit.entry ~text:!prefs_ref.Ide_config.export_name_obcplus () in
-    export_obcplus_entry#connect#changed ~callback:mark_dirty |> ignore;
-    outputs_label 3 "Default Abstract Program name";
-    outputs_grid#attach ~left:1 ~top:3 export_obcplus_entry#coerce;
     let export_why_entry = GEdit.entry ~text:!prefs_ref.Ide_config.export_name_why3 () in
     export_why_entry#connect#changed ~callback:mark_dirty |> ignore;
     outputs_label 4 "Default Why3 name";
@@ -885,7 +881,6 @@ let show
         export_dir_entry#set_text defaults.Ide_config.export_dir;
         export_encoding_entry#set_text defaults.Ide_config.export_encoding;
         export_auto_open_check#set_active defaults.Ide_config.export_auto_open;
-        export_obcplus_entry#set_text defaults.Ide_config.export_name_obcplus;
         export_why_entry#set_text defaults.Ide_config.export_name_why3;
         export_theory_entry#set_text defaults.Ide_config.export_name_theory;
         export_smt_entry#set_text defaults.Ide_config.export_name_smt;
@@ -1039,7 +1034,6 @@ let show
               parse_underline = parse_underline_check#active;
               export_dir = export_dir_entry#text;
               export_auto_open = export_auto_open_check#active;
-              export_name_obcplus = export_obcplus_entry#text;
               export_name_why3 = export_why_entry#text;
               export_name_theory = export_theory_entry#text;
               export_name_smt = export_smt_entry#text;

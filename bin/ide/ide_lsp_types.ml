@@ -50,7 +50,6 @@ type request =
   | Did_change of { uri : string; version : int; text : string }
   | Did_save of { uri : string }
   | Instrumentation_pass of { generate_png : bool; input_file : string }
-  | Obc_pass of { input_file : string }
   | Why_pass of { prefix_fields : bool; input_file : string }
   | Obligations_pass of { prefix_fields : bool; prover : string; input_file : string }
   | Eval_pass of {
@@ -66,7 +65,6 @@ type response =
   | Initialized of init_result
   | Acknowledged
   | Instrumentation_out of automata_outputs
-  | Obc_out of obc_outputs
   | Why_out of why_outputs
   | Obligations_out of obligations_outputs
   | Eval_out of string

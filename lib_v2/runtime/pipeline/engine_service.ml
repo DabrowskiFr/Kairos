@@ -12,10 +12,6 @@ let instrumentation_pass ~engine ~generate_png ~input_file =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.instrumentation_pass ~generate_png ~input_file
 
-let obc_pass ~engine ~input_file =
-  match normalize engine with
-  | V2 -> Pipeline_v2_indep.obc_pass ~input_file
-
 let why_pass ~engine ~prefix_fields ~input_file =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.why_pass ~prefix_fields ~input_file

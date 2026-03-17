@@ -2305,14 +2305,6 @@ treeview.outline row:selected * {
   let ap_assume_dot = ref "" in
   let ap_product_dot = ref "" in
 
-  let file_export_obcplus =
-    GMenu.menu_item ~label:"Export Abstract Program" ~packing:file_menu#append ()
-  in
-  file_export_obcplus#connect#activate ~callback:(fun () ->
-      export_text ~title:"Export Abstract Program"
-        ~default_name:!prefs.Ide_config.export_name_obcplus
-        ~text:(obcplus_buf#get_text ~start:obcplus_buf#start_iter ~stop:obcplus_buf#end_iter ()))
-  |> ignore;
   let file_export_why = GMenu.menu_item ~label:"Export Why3" ~packing:file_menu#append () in
   file_export_why#connect#activate ~callback:(fun () ->
       export_text ~title:"Export Why3" ~default_name:!prefs.Ide_config.export_name_why3
@@ -2579,7 +2571,6 @@ treeview.outline row:selected * {
   in
 
   let automata_cache : (int * Ide_backend.automata_outputs) option ref = ref None in
-  let obc_cache : (int * Ide_backend.obc_outputs) option ref = ref None in
   let why_cache : (int * Ide_backend.why_outputs) option ref = ref None in
   let obligations_cache : (int * string * Ide_backend.obligations_outputs) option ref = ref None in
   let prove_cache : (int * string * int * bool * Ide_backend.outputs) option ref = ref None in
@@ -2598,7 +2589,6 @@ treeview.outline row:selected * {
   update_instrumentation_button_state ();
   let clear_caches () =
     automata_cache := None;
-    obc_cache := None;
     why_cache := None;
     obligations_cache := None;
     prove_cache := None;
@@ -2707,7 +2697,6 @@ treeview.outline row:selected * {
     if confirm_save_if_dirty () then (
       last_action := None;
       automata_cache := None;
-      obc_cache := None;
       why_cache := None;
       obligations_cache := None;
       prove_cache := None;
@@ -2894,7 +2883,6 @@ treeview.outline row:selected * {
       file_open_item;
       file_save_item;
       recent_item;
-      file_export_obcplus;
       file_export_why;
       file_export_vc;
       file_export_smt;
@@ -2910,7 +2898,6 @@ treeview.outline row:selected * {
   List.iter
     (fun item -> file_menu#append item)
     [
-      file_export_obcplus;
       file_export_why;
       file_export_vc;
       file_export_smt;
@@ -3177,19 +3164,6 @@ treeview.outline row:selected * {
   |> ignore;
   refresh_outline ();
 
-  let set_obcplus_buffer obc_text =
-    let obc_text = sanitize_utf8_text obc_text in
-    if !current_obcplus_text <> "" && !current_obcplus_text <> obc_text then
-      previous_obcplus_text := !current_obcplus_text;
-    current_obcplus_text := obc_text;
-    obcplus_buf#set_text obc_text;
-    highlight_obcplus obc_text;
-    obcplus_utf8_map := build_utf8_map obc_text;
-    set_tab_sensitive obcplus_page obcplus_tab true;
-    refresh_outline ();
-    apply_current_goal_highlight ()
-  in
-
   let set_why_buffer why =
     let why = sanitize_utf8_text why in
     why_buf#set_text why;
@@ -3227,29 +3201,6 @@ treeview.outline row:selected * {
                 set_status ("Error: " ^ msg);
                 apply_parse_error msg;
                 add_history ("Instrumentation: error (" ^ msg ^ ")");
-                None)
-  in
-
-  let _ensure_obc ~file =
-    match if cache_enabled () then !obc_cache else None with
-    | Some (v, out) when v = !content_version ->
-        time_pass ~name:"obc+" ~cached:true (fun () -> set_obcplus_buffer out.obc_text);
-        set_stage_meta out.stage_meta;
-        Some out
-    | _ ->
-        set_status "Running Abstract Program...";
-        time_pass ~name:"obc+" ~cached:false (fun () ->
-            match Ide_backend.obc_pass ~input_file:file with
-            | Ok out ->
-                obc_cache := Some (!content_version, out);
-                set_obcplus_buffer out.obc_text;
-                set_stage_meta out.stage_meta;
-                Some out
-            | Error err ->
-                let msg = Ide_backend.error_to_string err in
-                set_status ("Error: " ^ msg);
-                apply_parse_error msg;
-                add_history ("Abstract Program: error (" ^ msg ^ ")");
                 None)
   in
 
@@ -3300,31 +3251,23 @@ treeview.outline row:selected * {
                 None)
   in
 
-  let set_all_buffers ~obcplus ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~program_automaton
+  let set_all_buffers ~why ~vc ~dot:_ ~labels:_ ~dot_png:_ ~program_automaton
       ~guarantee_automaton ~assume_automaton ~product ~obligations_map ~prune_reasons
-      ~program_dot ~guarantee_automaton_dot ~assume_automaton_dot ~product_dot ~obcplus_seqs
+      ~program_dot ~guarantee_automaton_dot ~assume_automaton_dot ~product_dot
       ~vc_sources ~task_seqs
-      ~vc_locs ~obcplus_spans ~vc_locs_ordered:vc_locs_ordered_list
-      ~obcplus_spans_ordered:obcplus_spans_ordered_list ~vc_spans_ordered:vc_spans ~why_spans =
+      ~vc_locs ~vc_locs_ordered:vc_locs_ordered_list
+      ~vc_spans_ordered:vc_spans ~why_spans =
     (let _ = vc_spans in
      latest_vc_text := vc;
-     set_obcplus_buffer obcplus;
      set_why_buffer why;
      set_obligations_buffers ~vc;
      set_automata_product_buffers ~program:program_automaton ~guarantee:guarantee_automaton
        ~assume:assume_automaton ~product ~obligations:obligations_map ~prune:prune_reasons
        ~program_dot ~guarantee_dot:guarantee_automaton_dot ~assume_dot:assume_automaton_dot
        ~product_dot);
-    let tbl = Hashtbl.create (List.length obcplus_seqs * 2) in
-    List.iter (fun (k, v) -> Hashtbl.replace tbl k v) obcplus_seqs;
-    obcplus_sequents := tbl;
     let src_tbl = Hashtbl.create (List.length vc_sources * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace src_tbl k v) vc_sources;
     vc_source_map := src_tbl;
-    let span_tbl = Hashtbl.create (List.length obcplus_spans * 2) in
-    List.iter (fun (k, v) -> Hashtbl.replace span_tbl k v) obcplus_spans;
-    obcplus_span_map := span_tbl;
-    obcplus_spans_ordered := obcplus_spans_ordered_list;
     let why_tbl = Hashtbl.create (List.length why_spans * 2) in
     List.iter (fun (k, v) -> Hashtbl.replace why_tbl k v) why_spans;
     why_span_map := why_tbl;
@@ -3493,106 +3436,6 @@ treeview.outline row:selected * {
       run_monitor ())
   |> ignore;
 
-  let _run_obcplus () =
-    match !current_file with
-    | None ->
-        set_run_state Idle;
-        set_status "No file selected"
-    | Some file ->
-        if not (ensure_saved_or_cancel ()) then () else clear_obc_error ();
-        add_history "Abstract Program: running";
-        let cached_monitor =
-          match if cache_enabled () then !automata_cache else None with
-          | Some (v, out) when v = !content_version -> Some out
-          | _ -> None
-        in
-        let cached_obc =
-          match if cache_enabled () then !obc_cache else None with
-          | Some (v, out) when v = !content_version -> Some out
-          | _ -> None
-        in
-        begin match cached_monitor with
-        | Some out ->
-            record_pass_time ~name:"instrumentation-gen" ~elapsed:0.0 ~cached:true;
-            set_automata_buffers_from_out out;
-            set_stage_meta out.stage_meta
-        | None -> ()
-        end;
-        begin match cached_obc with
-        | Some out ->
-            record_pass_time ~name:"obc+" ~elapsed:0.0 ~cached:true;
-            set_obcplus_buffer out.obc_text;
-            set_stage_meta out.stage_meta
-        | None -> ()
-        end;
-        if cached_monitor <> None && cached_obc <> None then (
-          set_run_state Building;
-          set_status_cached "Done";
-          set_run_state Completed;
-          add_history "Abstract Program: done (cached)")
-        else (
-          set_run_state Building;
-          set_status "Running Abstract Program...";
-          run_async
-            ~compute:(fun () ->
-              let mon_res =
-                match cached_monitor with
-                | Some out -> Ok (Some out, None)
-                | None -> (
-                    let t0 = Unix.gettimeofday () in
-                    match Ide_backend.instrumentation_pass ~generate_png:true ~input_file:file with
-                    | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
-                    | Error err -> Error err)
-              in
-              match mon_res with
-              | Error err -> Error err
-              | Ok (mon_opt, mon_elapsed) ->
-                  let obc_res =
-                    match cached_obc with
-                    | Some out -> Ok (Some out, None)
-                    | None -> (
-                        let t0 = Unix.gettimeofday () in
-                        match Ide_backend.obc_pass ~input_file:file with
-                        | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
-                        | Error err -> Error err)
-                  in
-                  begin match obc_res with
-                  | Ok (obc_opt, obc_elapsed) -> Ok (mon_opt, mon_elapsed, obc_opt, obc_elapsed)
-                  | Error err -> Error err
-                  end)
-            ~on_ok:(fun (mon_opt, mon_elapsed, obc_opt, obc_elapsed) ->
-              begin match mon_opt with
-              | Some out when cached_monitor = None ->
-                  automata_cache := Some (!content_version, out);
-                  !update_instrumentation_button_state_ref ();
-                  record_pass_time ~name:"instrumentation-gen"
-                    ~elapsed:(Option.value mon_elapsed ~default:0.0)
-                    ~cached:false;
-                  set_automata_buffers_from_out out;
-                  set_stage_meta out.stage_meta
-              | _ -> ()
-              end;
-              begin match obc_opt with
-              | Some out when cached_obc = None ->
-                  obc_cache := Some (!content_version, out);
-                  record_pass_time ~name:"obc+"
-                    ~elapsed:(Option.value obc_elapsed ~default:0.0)
-                    ~cached:false;
-                  set_obcplus_buffer out.obc_text;
-                  set_stage_meta out.stage_meta
-              | _ -> ()
-              end;
-              set_run_state Completed;
-              set_status "Done";
-              add_history "Abstract Program: done")
-            ~on_error:(fun err ->
-              let msg = Ide_backend.error_to_string err in
-              set_run_state Failed;
-              set_status ("Error: " ^ msg);
-              add_error_diagnostic ~stage:"Abstract Program" msg;
-              apply_parse_error msg;
-              add_history ("Abstract Program: error (" ^ msg ^ ")")))
-  in
   let run_why () =
     match !current_file with
     | None ->
@@ -3603,11 +3446,6 @@ treeview.outline row:selected * {
         add_history "Build: running";
         let cached_monitor =
           match if cache_enabled () then !automata_cache else None with
-          | Some (v, out) when v = !content_version -> Some out
-          | _ -> None
-        in
-        let cached_obc =
-          match if cache_enabled () then !obc_cache else None with
           | Some (v, out) when v = !content_version -> Some out
           | _ -> None
         in
@@ -3623,13 +3461,6 @@ treeview.outline row:selected * {
             set_stage_meta out.stage_meta
         | None -> ()
         end;
-        begin match cached_obc with
-        | Some out ->
-            record_pass_time ~name:"obc+" ~elapsed:0.0 ~cached:true;
-            set_obcplus_buffer out.obc_text;
-            set_stage_meta out.stage_meta
-        | None -> ()
-        end;
         begin match cached_why with
         | Some out ->
             record_pass_time ~name:"why3" ~elapsed:0.0 ~cached:true;
@@ -3637,7 +3468,7 @@ treeview.outline row:selected * {
             set_stage_meta out.stage_meta
         | None -> ()
         end;
-        if cached_monitor <> None && cached_obc <> None && cached_why <> None then (
+        if cached_monitor <> None && cached_why <> None then (
           set_run_state Building;
           set_status_cached "Done";
           set_run_state Completed;
@@ -3659,34 +3490,21 @@ treeview.outline row:selected * {
               match mon_res with
               | Error err -> Error err
               | Ok (mon_opt, mon_elapsed) ->
-                  let obc_res =
-                    match cached_obc with
+                  let why_res =
+                    match cached_why with
                     | Some out -> Ok (Some out, None)
                     | None -> (
                         let t0 = Unix.gettimeofday () in
-                        match Ide_backend.obc_pass ~input_file:file with
+                        match Ide_backend.why_pass ~prefix_fields:false ~input_file:file with
                         | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
                         | Error err -> Error err)
                   in
-                  begin match obc_res with
+                  begin match why_res with
+                  | Ok (why_opt, why_elapsed) ->
+                      Ok (mon_opt, mon_elapsed, why_opt, why_elapsed)
                   | Error err -> Error err
-                  | Ok (obc_opt, obc_elapsed) ->
-                      let why_res =
-                        match cached_why with
-                        | Some out -> Ok (Some out, None)
-                        | None -> (
-                            let t0 = Unix.gettimeofday () in
-                            match Ide_backend.why_pass ~prefix_fields:false ~input_file:file with
-                            | Ok out -> Ok (Some out, Some (Unix.gettimeofday () -. t0))
-                            | Error err -> Error err)
-                      in
-                      begin match why_res with
-                      | Ok (why_opt, why_elapsed) ->
-                          Ok (mon_opt, mon_elapsed, obc_opt, obc_elapsed, why_opt, why_elapsed)
-                      | Error err -> Error err
-                      end
                   end)
-            ~on_ok:(fun (mon_opt, mon_elapsed, obc_opt, obc_elapsed, why_opt, why_elapsed) ->
+            ~on_ok:(fun (mon_opt, mon_elapsed, why_opt, why_elapsed) ->
               begin match mon_opt with
               | Some out when cached_monitor = None ->
                   automata_cache := Some (!content_version, out);
@@ -3695,16 +3513,6 @@ treeview.outline row:selected * {
                     ~elapsed:(Option.value mon_elapsed ~default:0.0)
                     ~cached:false;
                   set_automata_buffers_from_out out;
-                  set_stage_meta out.stage_meta
-              | _ -> ()
-              end;
-              begin match obc_opt with
-              | Some out when cached_obc = None ->
-                  obc_cache := Some (!content_version, out);
-                  record_pass_time ~name:"obc+"
-                    ~elapsed:(Option.value obc_elapsed ~default:0.0)
-                    ~cached:false;
-                  set_obcplus_buffer out.obc_text;
                   set_stage_meta out.stage_meta
               | _ -> ()
               end;
@@ -3864,8 +3672,6 @@ treeview.outline row:selected * {
           if out.automata_build_time_s > 0.0 then
             record_pass_time ~name:"instrumentation-build" ~elapsed:out.automata_build_time_s
               ~cached;
-          if out.obcplus_time_s > 0.0 then
-            record_pass_time ~name:"obc+" ~elapsed:out.obcplus_time_s ~cached;
           if out.why_time_s > 0.0 then record_pass_time ~name:"why3" ~elapsed:out.why_time_s ~cached;
           if out.why3_prep_time_s > 0.0 then
             record_pass_time ~name:"why3-prep" ~elapsed:out.why3_prep_time_s ~cached;
@@ -3908,7 +3714,7 @@ treeview.outline row:selected * {
         | Some out ->
             record_stage_times ~cached:true out;
             cache_monitor_from_outputs out;
-            set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
+            set_all_buffers ~why:out.why_text ~vc:out.vc_text
               ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
               ~program_automaton:out.program_automaton_text
               ~guarantee_automaton:out.guarantee_automaton_text
@@ -3917,10 +3723,9 @@ treeview.outline row:selected * {
               ~program_dot:out.program_dot
               ~guarantee_automaton_dot:out.guarantee_automaton_dot
               ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
-              ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+              ~vc_sources:out.vc_sources
               ~task_seqs:out.task_sequents ~vc_locs:out.vc_locs
-              ~obcplus_spans:out.obcplus_spans ~vc_locs_ordered:out.vc_locs_ordered
-              ~obcplus_spans_ordered:out.obcplus_spans_ordered
+              ~vc_locs_ordered:out.vc_locs_ordered
               ~vc_spans_ordered:out.vc_spans_ordered ~why_spans:out.why_spans;
             set_stage_meta out.stage_meta;
             set_goals out.goals;
@@ -3935,7 +3740,7 @@ treeview.outline row:selected * {
                 cache_monitor_from_outputs out;
                 ignore
                   (Glib.Idle.add (fun () ->
-                       set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
+                       set_all_buffers ~why:out.why_text ~vc:out.vc_text
                          ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
                          ~program_automaton:out.program_automaton_text
                          ~guarantee_automaton:out.guarantee_automaton_text
@@ -3945,11 +3750,10 @@ treeview.outline row:selected * {
                          ~program_dot:out.program_dot
                          ~guarantee_automaton_dot:out.guarantee_automaton_dot
                          ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
-                         ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+                         ~vc_sources:out.vc_sources
                          ~task_seqs:out.task_sequents
-                         ~vc_locs:out.vc_locs ~obcplus_spans:out.obcplus_spans
+                         ~vc_locs:out.vc_locs
                          ~vc_locs_ordered:out.vc_locs_ordered
-                         ~obcplus_spans_ordered:out.obcplus_spans_ordered
                          ~vc_spans_ordered:out.vc_spans_ordered ~why_spans:out.why_spans;
                        set_stage_meta out.stage_meta;
                        false))
@@ -4020,7 +3824,7 @@ treeview.outline row:selected * {
                 prove_cache := Some (!content_version, prover, timeout_s, smoke_tests, out);
                 record_stage_times ~cached:false out;
                 cache_monitor_from_outputs out;
-                set_all_buffers ~obcplus:out.obc_text ~why:out.why_text ~vc:out.vc_text
+                set_all_buffers ~why:out.why_text ~vc:out.vc_text
                   ~dot:out.dot_text ~labels:out.labels_text ~dot_png:out.dot_png
                   ~program_automaton:out.program_automaton_text
                   ~guarantee_automaton:out.guarantee_automaton_text
@@ -4029,11 +3833,10 @@ treeview.outline row:selected * {
                   ~program_dot:out.program_dot
                   ~guarantee_automaton_dot:out.guarantee_automaton_dot
                   ~assume_automaton_dot:out.assume_automaton_dot ~product_dot:out.product_dot
-                  ~obcplus_seqs:out.obcplus_sequents ~vc_sources:out.vc_sources
+                  ~vc_sources:out.vc_sources
                   ~task_seqs:out.task_sequents
-                  ~vc_locs:out.vc_locs ~obcplus_spans:out.obcplus_spans
+                  ~vc_locs:out.vc_locs
                   ~vc_locs_ordered:out.vc_locs_ordered
-                  ~obcplus_spans_ordered:out.obcplus_spans_ordered
                   ~vc_spans_ordered:out.vc_spans_ordered ~why_spans:out.why_spans;
                 set_stage_meta out.stage_meta;
                 set_goals out.goals;

@@ -53,7 +53,6 @@ type prefs = {
     parse_underline : bool;
     export_dir : string;
     export_auto_open : bool;
-    export_name_obcplus : string;
     export_name_why3 : string;
     export_name_theory : string;
     export_name_smt : string;
@@ -356,7 +355,6 @@ type session_state = {
         parse_underline = true;
         export_dir = "";
         export_auto_open = false;
-        export_name_obcplus = "{base}.abstract";
         export_name_why3 = "{base}.why";
         export_name_theory = "{base}.theory";
         export_name_smt = "{base}.smt2";
@@ -552,7 +550,6 @@ type session_state = {
           parse_underline;
           export_dir = get_or "export_dir" base.export_dir;
           export_auto_open;
-          export_name_obcplus = get_or "export_name_obcplus" base.export_name_obcplus;
           export_name_why3 = get_or "export_name_why3" base.export_name_why3;
           export_name_theory = get_or "export_name_theory" base.export_name_theory;
           export_name_smt = get_or "export_name_smt" base.export_name_smt;
@@ -593,7 +590,6 @@ type session_state = {
     write "parse_underline" (if prefs.parse_underline then "true" else "false");
     write "export_dir" prefs.export_dir;
     write "export_auto_open" (if prefs.export_auto_open then "true" else "false");
-    write "export_name_obcplus" prefs.export_name_obcplus;
     write "export_name_why3" prefs.export_name_why3;
     write "export_name_theory" prefs.export_name_theory;
     write "export_name_smt" prefs.export_name_smt;

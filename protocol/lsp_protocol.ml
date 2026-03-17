@@ -47,7 +47,6 @@ type proof_trace = {
   origin_ids : int list;
   vc_id : string option;
   source_span : loc option;
-  obc_span : text_span option;
   why_span : text_span option;
   vc_span : text_span option;
   smt_span : text_span option;
@@ -57,7 +56,6 @@ type proof_trace = {
 [@@deriving yojson]
 
 type outputs = {
-  obc_text : string;
   why_text : string;
   vc_text : string;
   smt_text : string;
@@ -76,17 +74,13 @@ type outputs = {
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
-  obcplus_sequents : (int * string) list;
   vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
   vc_locs : (int * loc) list;
-  obcplus_spans : (int * (int * int)) list;
   vc_locs_ordered : loc list;
-  obcplus_spans_ordered : (int * int) list;
   vc_spans_ordered : (int * int) list;
   why_spans : (int * (int * int)) list;
   vc_ids_ordered : int list;
-  obcplus_time_s : float;
   why_time_s : float;
   automata_generation_time_s : float;
   automata_build_time_s : float;
@@ -129,9 +123,6 @@ type automata_outputs = {
   product_png_error : string option;
   stage_meta : (string * (string * string) list) list;
 }
-[@@deriving yojson]
-
-type obc_outputs = { obc_text : string; stage_meta : (string * (string * string) list) list }
 [@@deriving yojson]
 
 type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
@@ -255,8 +246,6 @@ type instrumentation_pass_request = {
   engine : string;
 }
 [@@deriving yojson]
-
-type obc_pass_request = { input_file : string [@key "inputFile"]; engine : string } [@@deriving yojson]
 
 type why_pass_request = {
   input_file : string [@key "inputFile"];
@@ -391,9 +380,6 @@ let outputs_of_yojson = outputs_of_yojson
 let yojson_of_automata_outputs = automata_outputs_to_yojson
 let automata_outputs_of_yojson = automata_outputs_of_yojson
 
-let yojson_of_obc_outputs = obc_outputs_to_yojson
-let obc_outputs_of_yojson = obc_outputs_of_yojson
-
 let yojson_of_why_outputs = why_outputs_to_yojson
 let why_outputs_of_yojson = why_outputs_of_yojson
 
@@ -441,9 +427,6 @@ let goals_tree_pending_request_of_yojson = goals_tree_pending_request_of_yojson
 
 let yojson_of_instrumentation_pass_request = instrumentation_pass_request_to_yojson
 let instrumentation_pass_request_of_yojson = instrumentation_pass_request_of_yojson
-
-let yojson_of_obc_pass_request = obc_pass_request_to_yojson
-let obc_pass_request_of_yojson = obc_pass_request_of_yojson
 
 let yojson_of_why_pass_request = why_pass_request_to_yojson
 let why_pass_request_of_yojson = why_pass_request_of_yojson

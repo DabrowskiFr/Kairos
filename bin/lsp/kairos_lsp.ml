@@ -199,7 +199,6 @@ let first_definition_position = Lsp_services.first_definition_position
 let position_from_params = Lsp_app.position_from_params
 let map_outputs = Lsp_app.map_outputs
 let map_automata = Lsp_app.map_automata
-let map_obc = Lsp_app.map_obc
 let map_why = Lsp_app.map_why
 let map_oblig = Lsp_app.map_oblig
 let get_param_string = Lsp_app.get_param_string
@@ -670,28 +669,6 @@ let () =
                 | _ ->
                     send_error stdout ~id_json:(Some id) ~code:(-32602)
                       ~message:"Missing valid inputFile for kairos/instrumentationPass")
-              id_json
-        | Some "kairos/obcPass" ->
-            Option.iter
-              (fun id ->
-                let req = decode_or_none Lsp_protocol.obc_pass_request_of_yojson params in
-                let input_file =
-                  match req with
-                  | Some req -> Some req.input_file
-                  | None -> get_param_string params "inputFile"
-                in
-                let engine =
-                  match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
-                  | None -> get_engine params
-                in
-                match input_file with
-                | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.obc_pass ~engine ~input_file with
-                    | Ok out ->
-                        send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_obc_outputs (map_obc out))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
-                | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/whyPass" ->
             Option.iter

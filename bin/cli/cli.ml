@@ -29,7 +29,7 @@ let log_level_conv =
   in
   Arg.conv (parse, print)
 
-let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_product
+let run dump_dot dump_dot_short dump_automata dump_product
     dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_json dump_json_stable
     dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
     proof_traces_failed_only max_proof_traces proof_traces_fast proof_trace_goal_index dump_ast
@@ -61,7 +61,6 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
         [
           dump_dot <> None;
           dump_dot_short <> None;
-          dump_obc <> None;
           dump_automata <> None;
           dump_product <> None;
           dump_obligations_map <> None;
@@ -81,15 +80,15 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
     else if (dump_json <> None || dump_json_stable <> None) && dump_ast_all <> None then
       Error "--dump-json and --dump-ast-all are mutually exclusive"
     else if
-      (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
+      (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
      || dump_ast_all <> None || dump_automata <> None || dump_product <> None
         || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
       && (prove || wp_only || output_file <> None)
-    then Error "--dump-dot/--dump-obc/--dump-ast cannot be combined with --prove or --dump-why"
+    then Error "--dump-dot/--dump-ast cannot be combined with --prove or --dump-why"
     else if
       (dump_proof_traces_json <> None || dump_native_unsat_core_json <> None
       || dump_native_counterexample_json <> None)
-      && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
+      && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
         || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None
         || dump_smt2 <> None || output_file <> None)
@@ -97,30 +96,23 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
       Error
         "--dump-proof-traces-json/--dump-native-unsat-core-json/--dump-native-counterexample-json cannot be combined with other dump modes"
     else if
-      dump_obc <> None
-      && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
-        || dump_ast_all <> None || dump_why3_vc <> None || dump_smt2 <> None
-        || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
-        || dump_prune_reasons <> None || emit_kobj <> None)
-    then Error "--dump-obc cannot be combined with --dump-dot/--dump-dot-short or --dump-ast"
-    else if
       (dump_why3_vc <> None || dump_smt2 <> None)
-      && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None || dump_ast_stage <> None
+      && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
         || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
-    then Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-obc/--dump-ast"
+    then Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-ast"
     else if dump_mode_count > 1 then
       Error
-        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-obc/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons"
+        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons"
     else if eval_trace <> None
-            && (dump_dot <> None || dump_dot_short <> None || dump_obc <> None
+            && (dump_dot <> None || dump_dot_short <> None
                || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
                || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None || dump_smt2 <> None
                || dump_ast_stage <> None || dump_ast_all <> None || output_file <> None || prove
                || wp_only)
     then Error "--eval-trace cannot be combined with dump/prove options"
     else if
-      dump_dot = None && dump_dot_short = None && dump_obc = None && dump_automata = None
+      dump_dot = None && dump_dot_short = None && dump_automata = None
       && dump_product = None && dump_obligations_map = None && dump_prune_reasons = None
       && emit_kobj = None
       && dump_why3_vc = None && dump_smt2 = None && dump_proof_traces_json = None
@@ -418,8 +410,6 @@ let run dump_dot dump_dot_short dump_obc dump_obc_abstract dump_automata dump_pr
                   let cfg : V2_pipeline.config =
                     {
                       input_file = file;
-                      dump_obc;
-                      dump_obc_abstract;
                       dump_why = output_file;
                       dump_why3_vc;
                       dump_smt2;
@@ -446,18 +436,6 @@ let cmd =
     value
     & opt (some string) None
     & info [ "dump-dot-short" ] ~docv:"FILE" ~doc:"Alias of --dump-dot."
-  in
-  let dump_obc =
-    value
-    & opt (some string) None
-    & info [ "dump-obc" ] ~docv:"FILE" ~doc:"Dump augmented OBC (monitor-instrumented)."
-  in
-  let dump_obc_abstract =
-    value
-    & flag
-    & info [ "dump-obc-abstract" ]
-        ~doc:
-          "With --dump-obc, render from Abstract Kairos IR (OBC+-like text) instead of legacy OBC emitter."
   in
   let dump_automata =
     value
@@ -648,7 +626,7 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-       (const run $ dump_dot $ dump_dot_short $ dump_obc $ dump_obc_abstract $ dump_automata
+       (const run $ dump_dot $ dump_dot_short $ dump_automata
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2 $ emit_kobj
        $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
        $ dump_native_counterexample_json $ proof_traces_failed_only $ max_proof_traces

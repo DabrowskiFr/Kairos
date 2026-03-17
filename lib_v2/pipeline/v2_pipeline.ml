@@ -6,8 +6,6 @@ let write_optional_output (out : string option) (text : string) : unit =
 
 type config = {
   input_file : string;
-  dump_obc : string option;
-  dump_obc_abstract : bool;
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
@@ -17,7 +15,6 @@ type config = {
 }
 
 let run (cfg : config) : (unit, string) result =
-  ignore cfg.dump_obc_abstract; (* not yet implemented: obc_text used for both modes *)
   let p_cfg : Pipeline.config =
     {
       input_file = cfg.input_file;
@@ -40,7 +37,6 @@ let run (cfg : config) : (unit, string) result =
   match Pipeline_v2_indep.run p_cfg with
   | Error e -> Error (Pipeline.error_to_string e)
   | Ok out ->
-      write_optional_output cfg.dump_obc out.obc_text;
       write_optional_output cfg.dump_why out.why_text;
       write_optional_output cfg.dump_why3_vc out.vc_text;
       write_optional_output cfg.dump_smt2 out.smt_text;

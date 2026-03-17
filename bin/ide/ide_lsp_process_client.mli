@@ -11,7 +11,6 @@ val did_close : t -> uri:string -> (unit, string) result
 val instrumentation_pass :
   t -> generate_png:bool -> input_file:string -> (Ide_lsp_types.automata_outputs, string) result
 
-val obc_pass : t -> input_file:string -> (Ide_lsp_types.obc_outputs, string) result
 val why_pass : t -> prefix_fields:bool -> input_file:string -> (Ide_lsp_types.why_outputs, string) result
 
 val obligations_pass :
