@@ -1403,6 +1403,25 @@ let render_automaton (a : safety_automaton_ir) : string list =
   let edges = List.map (fun edge -> "  edge " ^ string_of_edge edge) a.edges in
   header :: (states @ edges)
 
+let render_generated_clause kind (clause : generated_clause_ir) : string =
+  let subject =
+    match clause.anchor with
+    | ClauseAnchorProductState st -> string_of_product_state st
+    | ClauseAnchorProductStep step ->
+        Printf.sprintf "%s -> %s" (string_of_product_state step.src)
+          (string_of_product_state step.dst)
+  in
+  let hyps = String.concat ", " (List.map string_of_clause_fact clause.hypotheses) in
+  let concls = String.concat ", " (List.map string_of_clause_fact clause.conclusions) in
+  Printf.sprintf "  %s %s on %s if [%s] then [%s]" kind
+    (string_of_clause_origin clause.origin) subject hyps concls
+
+let render_historical_clauses (ir : node_ir) : string list =
+  List.map (render_generated_clause "historical_clause") ir.historical_generated_clauses
+
+let render_eliminated_clauses (ir : node_ir) : string list =
+  List.map (render_generated_clause "eliminated_clause") ir.eliminated_generated_clauses
+
 let render_product (ir : node_ir) : string list =
   let header =
     Printf.sprintf "explicit_product initial=%s states=%d steps=%d historical=%d eliminated=%d symbolic=%d"
@@ -1427,38 +1446,8 @@ let render_product (ir : node_ir) : string list =
           (string_of_step_origin step.step_origin))
       ir.product_steps
   in
-  let historical_clauses =
-    List.map
-      (fun (clause : generated_clause_ir) ->
-        let subject =
-          match clause.anchor with
-          | ClauseAnchorProductState st -> string_of_product_state st
-          | ClauseAnchorProductStep step ->
-              Printf.sprintf "%s -> %s" (string_of_product_state step.src)
-                (string_of_product_state step.dst)
-        in
-        let hyps = String.concat ", " (List.map string_of_clause_fact clause.hypotheses) in
-        let concls = String.concat ", " (List.map string_of_clause_fact clause.conclusions) in
-        Printf.sprintf "  historical_clause %s on %s if [%s] then [%s]"
-          (string_of_clause_origin clause.origin) subject hyps concls)
-      ir.historical_generated_clauses
-  in
-  let eliminated_clauses =
-    List.map
-      (fun (clause : generated_clause_ir) ->
-        let subject =
-          match clause.anchor with
-          | ClauseAnchorProductState st -> string_of_product_state st
-          | ClauseAnchorProductStep step ->
-              Printf.sprintf "%s -> %s" (string_of_product_state step.src)
-                (string_of_product_state step.dst)
-        in
-        let hyps = String.concat ", " (List.map string_of_clause_fact clause.hypotheses) in
-        let concls = String.concat ", " (List.map string_of_clause_fact clause.conclusions) in
-        Printf.sprintf "  eliminated_clause %s on %s if [%s] then [%s]"
-          (string_of_clause_origin clause.origin) subject hyps concls)
-      ir.eliminated_generated_clauses
-  in
+  let historical_clauses = render_historical_clauses ir in
+  let eliminated_clauses = render_eliminated_clauses ir in
   let symbolic_clauses =
     List.map
       (fun (clause : relational_generated_clause_ir) ->

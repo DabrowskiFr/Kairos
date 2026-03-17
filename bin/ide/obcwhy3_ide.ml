@@ -3901,6 +3901,8 @@ treeview.outline row:selected * {
                      product_png = out.product_png;
                      product_png_error = out.product_png_error;
                      stage_meta = out.stage_meta;
+                     historical_clauses_text = out.historical_clauses_text;
+                     eliminated_clauses_text = out.eliminated_clauses_text;
                    } );
              !update_instrumentation_button_state_ref ())
         in

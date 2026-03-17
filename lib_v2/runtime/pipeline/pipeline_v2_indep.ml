@@ -1058,6 +1058,14 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
         assume_automaton_png_error;
         product_png;
         product_png_error;
+        historical_clauses_text =
+          instrumentation_info.kernel_ir_nodes
+          |> List.concat_map Product_kernel_ir.render_historical_clauses
+          |> String.concat "\n";
+        eliminated_clauses_text =
+          instrumentation_info.kernel_ir_nodes
+          |> List.concat_map Product_kernel_ir.render_eliminated_clauses
+          |> String.concat "\n";
       }
   with exn -> Error (Pipeline.Stage_error (Printexc.to_string exn))
 
@@ -1067,6 +1075,9 @@ let instrumentation_pass ~generate_png ~input_file =
   | Ok (asts, infos) ->
       let p_obc_backend = List.map Abstract_model.to_ast_node asts.obc_abstract in
       let obligation_summary = Obligation_taxonomy.summarize_program p_obc_backend in
+      let instrumentation_info =
+        Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
+      in
       let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
           prune_reasons_text, guarantee_automaton_dot, assume_automaton_dot, product_dot =
         instrumentation_diag_texts infos
@@ -1130,6 +1141,14 @@ let instrumentation_pass ~generate_png ~input_file =
           stage_meta =
             stage_meta infos
             @ [ ("obligations_taxonomy", Obligation_taxonomy.to_stage_meta obligation_summary) ];
+          historical_clauses_text =
+            instrumentation_info.kernel_ir_nodes
+            |> List.concat_map Product_kernel_ir.render_historical_clauses
+            |> String.concat "\n";
+          eliminated_clauses_text =
+            instrumentation_info.kernel_ir_nodes
+            |> List.concat_map Product_kernel_ir.render_eliminated_clauses
+            |> String.concat "\n";
         }
 
 let obc_pass ~input_file =

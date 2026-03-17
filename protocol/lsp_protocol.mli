@@ -98,6 +98,8 @@ type outputs = {
   assume_automaton_png_error : string option;
   product_png : string option;
   product_png_error : string option;
+  historical_clauses_text : string;
+  eliminated_clauses_text : string;
 }
 
 type automata_outputs = {
@@ -124,6 +126,8 @@ type automata_outputs = {
   product_png : string option;
   product_png_error : string option;
   stage_meta : (string * (string * string) list) list;
+  historical_clauses_text : string;
+  eliminated_clauses_text : string;
 }
 
 type obc_outputs = { obc_text : string; stage_meta : (string * (string * string) list) list }
