@@ -734,18 +734,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-(* OBC+ path: builds runtime view from an instrumented Ast.node. *)
-let compile_node ~prefix_fields ?comment_specs ?kernel_ir
-    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
-    (nodes : Ast.node list) (n : Ast.node) :
-    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_node ~prefix_fields ~nodes ~external_summaries n in
-  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
-  let info = { info with runtime_view } in
-  compile_node_with_info ?comment_specs ?kernel_ir
-    ~node_names:(List.map (fun nd -> nd.nname) nodes)
-    info
-
 (* IR path: builds runtime view directly from an exported_node_summary_ir. *)
 let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
     ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
@@ -764,29 +752,6 @@ let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
          program_summaries)
     info
 
-let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
-    ?(kernel_ir_map = []) ?(external_summaries = []) (p : Ast.program) : program_ast
-    =
-  let p = p in
-  let nodes_obc = p in
-  let lookup_comment name = List.assoc_opt name comment_map in
-  let imported_modules = [] in
-  let local_modules =
-    match nodes_obc with
-    | [] -> []
-    | nodes ->
-        List.map
-          (fun n ->
-            let name = n.nname in
-            compile_node ~prefix_fields ?comment_specs:(lookup_comment name)
-              ?kernel_ir:(List.assoc_opt name kernel_ir_map)
-              ~external_summaries:(List.map snd external_summaries) nodes n)
-          nodes
-  in
-  let modules = imported_modules @ local_modules in
-  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
-  let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
-  { mlw; module_info }
 
 (* IR path: compile a full list of summaries to a Why3 program AST. *)
 let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [])
@@ -1104,6 +1069,4 @@ let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int
   loop 0;
   (out, List.rev !spans)
 
-let compile_program ?(prefix_fields = true) ?(comment_map = []) (p : Ast.program) : string =
-  let ast = compile_program_ast ~prefix_fields ~comment_map p in
-  emit_program_ast ast
+

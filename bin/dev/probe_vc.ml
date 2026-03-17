@@ -35,11 +35,22 @@ let build_vc_sources_from_formula_sources ~(formula_sources : (int * string) lis
 let () =
   if Array.length Sys.argv < 2 then (prerr_endline "usage"; exit 2);
   let file = Sys.argv.(1) in
+  let cfg : Pipeline.config =
+    { input_file = file; prover = "z3"; prover_cmd = None; wp_only = false; smoke_tests = false;
+      timeout_s = 5; max_proof_goals = None; selected_goal_index = None;
+      compute_proof_diagnostics = false; prefix_fields = false; prove = false;
+      generate_vc_text = false; generate_smt_text = false; generate_monitor_text = false;
+      generate_dot_png = false }
+  in
   match Pipeline.build_ast ~input_file:file () with
   | Error e -> Printf.printf "AST ERROR: %s\n" (Pipeline.error_to_string e)
   | Ok asts ->
       let nodes = asts.contracts in
-      let why_text = Io.emit_why ~prefix_fields:false ~output_file:None nodes in
+      let why_text =
+        match Pipeline_v2_indep.run cfg with
+        | Error e -> Printf.printf "IR ERROR: %s\n" (Pipeline.error_to_string e); exit 1
+        | Ok out -> out.Pipeline.why_text
+      in
       let pairs = Why_prove.task_state_pairs ~text:why_text in
       Printf.printf "pairs=%d\n" (List.length pairs);
       List.iteri (fun i p -> if i<30 then match p with None->Printf.printf "%d: none\n" i | Some (a,b)->Printf.printf "%d: %s -> %s\n" i a b) pairs;

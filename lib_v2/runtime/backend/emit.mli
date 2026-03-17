@@ -70,29 +70,6 @@ type comment_specs =
 (* In‑memory Why3 representation of a full program. *)
 type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }
 
-(* Compile a single node into Why3 declarations. *)
-val compile_node :
-  prefix_fields:bool ->
-  ?comment_specs:comment_specs ->
-  ?kernel_ir:Product_kernel_ir.node_ir ->
-  external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
-  Ast.node list ->
-  Ast.node ->
-  Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list * string * spec_groups
-
-(* Compile a full program to textual Why3. *)
-val compile_program :
-  ?prefix_fields:bool -> ?comment_map:(Ast.ident * comment_specs) list -> Ast.program -> string
-
-(* Compile a full program to an in‑memory Why3 AST. *)
-val compile_program_ast :
-  ?prefix_fields:bool ->
-  ?comment_map:(Ast.ident * comment_specs) list ->
-  ?kernel_ir_map:(Ast.ident * Product_kernel_ir.node_ir) list ->
-  ?external_summaries:(Ast.ident * Product_kernel_ir.exported_node_summary_ir) list ->
-  Ast.program ->
-  program_ast
-
 (* IR path: compile a full list of summaries to a Why3 program AST. *)
 val compile_program_ast_from_summaries :
   ?prefix_fields:bool ->

@@ -38,9 +38,7 @@
   automata_pass_sig
   automata_default
   why_compile_expr
-  obc_stage
-  obc_emit
-  obc_ghost_instrument
+
   why_types
   why_runtime_view
   why_labels
