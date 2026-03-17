@@ -124,6 +124,24 @@ function stripDotFieldsFromAutomata(outputs: AutomataOutputs): AutomataOutputs {
   };
 }
 
+function writeKirFiles(
+  inputFile: string,
+  productText: string,
+  historicalClausesText: string,
+  eliminatedClausesText: string
+): void {
+  try {
+    const dir = path.dirname(inputFile);
+    const base = path.basename(inputFile, path.extname(inputFile));
+    fs.writeFileSync(path.join(dir, `${base}.kir`), productText, "utf8");
+    fs.writeFileSync(path.join(dir, `${base}.hist.kir`), historicalClausesText, "utf8");
+    fs.writeFileSync(path.join(dir, `${base}.plain.kir`), eliminatedClausesText, "utf8");
+  } catch (err) {
+    // Non-fatal: log but don't interrupt the run
+    console.error("[Kairos] Failed to write .kir files:", err);
+  }
+}
+
 function preferredEditorColumn(): vscode.ViewColumn {
   return (
     vscode.window.activeTextEditor?.viewColumn ??
@@ -639,7 +657,7 @@ ${rows
 
   async function openComparePanel(): Promise<void> {
     openPanels.add("compare");
-    await comparePanel.show();
+    comparePanel.show();
   }
 
   async function openRecentFile(): Promise<void> {
@@ -679,7 +697,7 @@ ${rows
     }
     output.appendLine("[Kairos] showAutomataPanel: PNGs found, showing panel.");
     openPanels.add("automata");
-    await automataPanel.show();
+    automataPanel.show();
   }
 
   async function showDashboardPanel(): Promise<void> {
@@ -733,8 +751,6 @@ ${rows
     openPipelinePanel,
     openComparePanel,
     runEval: async (traceText, withState, withLocals) => runEval(traceText, withState, withLocals),
-    getGraphAssets,
-    getGraphLocalResourceRoots: () => [context.globalStorageUri],
     openWhyForGoal,
     openSourceLocation,
     openDumpPath,
@@ -822,6 +838,7 @@ ${rows
       )) as Outputs;
       const sanitized = stripDotFieldsFromOutputs(result);
       state.setOutputs(sanitized);
+      writeKirFiles(inputFile, result.product_text, result.historical_clauses_text, result.eliminated_clauses_text);
       state.setStageSummary(formatStageSummary(sanitized));
       state.setPhase("completed", `${command} completed`, command);
       state.finishRun(runId, true, "completed", `${command} completed`);
@@ -880,14 +897,16 @@ ${rows
         activeRunCancellation.token
       );
       output.appendLine("[Kairos] runAutomataPass: response received.");
-      const automata = stripDotFieldsFromAutomata(result as AutomataOutputs);
+      const rawAutomata = result as AutomataOutputs;
+      const automata = stripDotFieldsFromAutomata(rawAutomata);
       output.appendLine(`[Kairos] runAutomataPass: PNGs — program=${automata.program_png ?? "null"}, assume=${automata.assume_automaton_png ?? "null"}, guarantee=${automata.guarantee_automaton_png ?? "null"}, product=${automata.product_png ?? "null"}`);
+      writeKirFiles(inputFile, rawAutomata.product_text, rawAutomata.historical_clauses_text, rawAutomata.eliminated_clauses_text);
       state.setAutomata(automata);
       state.setPhase("completed", "Automata ready", "automata");
       state.finishRun(runId, true, "completed", "Automata ready");
       docProvider.refreshAll();
       openPanels.add("automata");
-      await automataPanel.show();
+      automataPanel.show();
     } catch (error) {
       const message = String(error);
       output.appendLine(`[Kairos] runAutomataPass: error — ${message}`);
@@ -1079,7 +1098,7 @@ ${rows
   if (getRunSettings().restoreSession) {
     for (const panelId of session.openPanels) {
       if (panelId === "automata") {
-        await automataPanel.show();
+        automataPanel.show();
       } else if (panelId === "dashboard") {
         await dashboardPanel.show();
       } else if (panelId === "explain" && state.activeProofTrace) {
@@ -1091,7 +1110,7 @@ ${rows
       } else if (panelId === "pipeline") {
         await pipelinePanel.show();
       } else if (panelId === "compare") {
-        await comparePanel.show();
+        comparePanel.show();
       }
     }
   }

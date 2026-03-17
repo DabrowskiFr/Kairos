@@ -181,6 +181,8 @@ let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
     assume_automaton_png_error = o.assume_automaton_png_error;
     product_png = o.product_png;
     product_png_error = o.product_png_error;
+    historical_clauses_text = o.historical_clauses_text;
+    eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
 let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs =
@@ -208,6 +210,8 @@ let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs
     product_png = o.product_png;
     product_png_error = o.product_png_error;
     stage_meta = o.stage_meta;
+    historical_clauses_text = o.historical_clauses_text;
+    eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
 let map_obc (o : Pipeline.obc_outputs) : Lsp_protocol.obc_outputs =
