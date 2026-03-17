@@ -1,0 +1,5 @@
+(library
+ (name kairos_obc)
+ (wrapped false)
+ (modules)
+ (libraries kairos_ast kairos_stages kairos_instrumentation))
