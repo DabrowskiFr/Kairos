@@ -44,7 +44,6 @@ type proof_trace = {
   origin_ids : int list;
   vc_id : string option;
   source_span : Ast.loc option;
-  obc_span : text_span option;
   why_span : text_span option;
   vc_span : text_span option;
   smt_span : text_span option;
@@ -54,7 +53,6 @@ type proof_trace = {
 
 (* Aggregated outputs returned by [run]. *)
 type outputs = {
-  obc_text : string;
   why_text : string;
   vc_text : string;
   smt_text : string;
@@ -73,17 +71,13 @@ type outputs = {
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
-  obcplus_sequents : (int * string) list;
   vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
   vc_locs : (int * Ast.loc) list;
-  obcplus_spans : (int * (int * int)) list;
   vc_locs_ordered : Ast.loc list;
-  obcplus_spans_ordered : (int * int) list;
   vc_spans_ordered : (int * int) list;
   why_spans : (int * (int * int)) list;
   vc_ids_ordered : int list;
-  obcplus_time_s : float;
   why_time_s : float;
   automata_generation_time_s : float;
   automata_build_time_s : float;
@@ -127,9 +121,6 @@ type automata_outputs = {
   stage_meta : (string * (string * string) list) list;
 }
 
-(* Outputs of the OBC pass (text + stage meta). *)
-type obc_outputs = { obc_text : string; stage_meta : (string * (string * string) list) list }
-
 (* Outputs of the Why3 pass (text + stage meta). *)
 type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
 
@@ -144,11 +135,7 @@ type ast_stages = {
   automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
   instrumentation : Ast.program;
-  obc : Ast.program;
   imported_summaries : Product_kernel_ir.exported_node_summary_ir list;
-  (* Clean OBC-stage AST view for diagnostics/dumps (no generated contract payload). *)
-  obc_abstract : Abstract_model.node list;
-  (* Canonical abstract OBC program used for backend materialization/proofs. *)
 }
 
 (* Stage metadata aggregated from passes. *)
@@ -157,7 +144,6 @@ type stage_infos = {
   automata_generation : Stage_info.automata_info option;
   contracts : Stage_info.contracts_info option;
   instrumentation : Stage_info.instrumentation_info option;
-  obc : Stage_info.obc_info option;
 }
 
 (* Pipeline configuration flags. *)
@@ -209,9 +195,6 @@ val build_vcid_locs : Ast.program -> (int * Ast.loc) list * Ast.loc list
 
 (* Run the instrumentation‑only pass (dot + labels). *)
 val instrumentation_pass : generate_png:bool -> input_file:string -> (automata_outputs, error) result
-
-(* Run the OBC text pass. *)
-val obc_pass : input_file:string -> (obc_outputs, error) result
 
 (* Run the Why3 text pass. *)
 val why_pass : prefix_fields:bool -> input_file:string -> (why_outputs, error) result

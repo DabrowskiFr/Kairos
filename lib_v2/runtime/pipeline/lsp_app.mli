@@ -12,6 +12,5 @@ val client_supports_work_done_progress : Yojson.Safe.t -> bool
 
 val map_outputs : Pipeline.outputs -> Lsp_protocol.outputs
 val map_automata : Pipeline.automata_outputs -> Lsp_protocol.automata_outputs
-val map_obc : Pipeline.obc_outputs -> Lsp_protocol.obc_outputs
 val map_why : Pipeline.why_outputs -> Lsp_protocol.why_outputs
 val map_oblig : Pipeline.obligations_outputs -> Lsp_protocol.obligations_outputs

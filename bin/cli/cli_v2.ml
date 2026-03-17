@@ -6,7 +6,7 @@ let write_target out text =
   | path -> Io.write_text path text
 
 let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
-    dump_prune_reasons dump_obc dump_obc_abstract dump_why dump_why3_vc dump_smt2 prove prover
+    dump_prune_reasons dump_why dump_why3_vc dump_smt2 prove prover
     prover_cmd file =
   let dump_mode_count =
     List.fold_left (fun acc b -> if b then acc + 1 else acc) 0
@@ -17,22 +17,21 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
         dump_product <> None;
         dump_obligations_map <> None;
         dump_prune_reasons <> None;
-        dump_obc <> None;
       ]
   in
   if
     (dump_dot <> None || dump_dot_short <> None || dump_automata <> None || dump_product <> None
-   || dump_obligations_map <> None || dump_prune_reasons <> None || dump_obc <> None)
+   || dump_obligations_map <> None || dump_prune_reasons <> None)
     && (prove || dump_why <> None || dump_why3_vc <> None || dump_smt2 <> None)
   then
     `Error
       ( false,
-        "--dump-dot/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons/--dump-obc cannot be combined with --prove or Why3 dump options"
+        "--dump-dot/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons cannot be combined with --prove or Why3 dump options"
       )
   else if dump_mode_count > 1 then
     `Error
       ( false,
-        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons/--dump-obc"
+        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons"
       )
   else
     match
@@ -95,8 +94,6 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
         let cfg : V2_pipeline.config =
           {
             input_file = file;
-            dump_obc;
-            dump_obc_abstract;
             dump_why;
             dump_why3_vc;
             dump_smt2;
@@ -151,19 +148,6 @@ let cmd =
       & info [ "dump-prune-reasons" ] ~docv:"FILE"
           ~doc:"Dump prune reason counters used while exploring product compatibility.")
   in
-  let dump_obc =
-    Arg.(
-      value
-      & opt (some string) None
-      & info [ "dump-obc" ] ~docv:"FILE" ~doc:"Dump augmented OBC to FILE (or '-' for stdout).")
-  in
-  let dump_obc_abstract =
-    Arg.(
-      value
-      & flag
-      & info [ "dump-obc-abstract" ]
-          ~doc:"With --dump-obc, use abstract OBC rendering instead of legacy emitter.")
-  in
   let dump_why =
     Arg.(
       value
@@ -199,7 +183,7 @@ let cmd =
     Term.(
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_automata $ dump_product $ dump_obligations_map
-       $ dump_prune_reasons $ dump_obc $ dump_obc_abstract $ dump_why $ dump_why3_vc $ dump_smt2
+       $ dump_prune_reasons $ dump_why $ dump_why3_vc $ dump_smt2
        $ prove $ prover $ prover_cmd $ file))
   in
   Cmd.v

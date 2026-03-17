@@ -1,5 +1,4 @@
 open Ast
-module Abs = Abstract_model
 
 type goal_info = string * string * float * string option * string * string option
 
@@ -46,7 +45,6 @@ type proof_trace = {
   origin_ids : int list;
   vc_id : string option;
   source_span : Ast.loc option;
-  obc_span : text_span option;
   why_span : text_span option;
   vc_span : text_span option;
   smt_span : text_span option;
@@ -55,7 +53,6 @@ type proof_trace = {
 }
 
 type outputs = {
-  obc_text : string;
   why_text : string;
   vc_text : string;
   smt_text : string;
@@ -74,17 +71,13 @@ type outputs = {
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
-  obcplus_sequents : (int * string) list;
   vc_sources : (int * string) list;
   task_sequents : (string list * string) list;
   vc_locs : (int * Ast.loc) list;
-  obcplus_spans : (int * (int * int)) list;
   vc_locs_ordered : Ast.loc list;
-  obcplus_spans_ordered : (int * int) list;
   vc_spans_ordered : (int * int) list;
   why_spans : (int * (int * int)) list;
   vc_ids_ordered : int list;
-  obcplus_time_s : float;
   why_time_s : float;
   automata_generation_time_s : float;
   automata_build_time_s : float;
@@ -127,7 +120,6 @@ type automata_outputs = {
   stage_meta : (string * (string * string) list) list;
 }
 
-type obc_outputs = { obc_text : string; stage_meta : (string * (string * string) list) list }
 type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
 type obligations_outputs = { vc_text : string; smt_text : string }
 
@@ -138,11 +130,7 @@ type ast_stages = {
   automata : Middle_end_stages.automata_stage;
   contracts : Ast.program;
   instrumentation : Ast.program;
-  obc : Ast.program;
   imported_summaries : Product_kernel_ir.exported_node_summary_ir list;
-  (* Clean diagnostic AST view (generated contracts removed). *)
-  obc_abstract : Abs.node list;
-  (* Canonical abstract OBC program for backend/proof materialization. *)
 }
 
 type stage_infos = {
@@ -150,7 +138,6 @@ type stage_infos = {
   automata_generation : Stage_info.automata_info option;
   contracts : Stage_info.contracts_info option;
   instrumentation : Stage_info.instrumentation_info option;
-  obc : Stage_info.obc_info option;
 }
 
 type config = {
@@ -252,7 +239,6 @@ let stage_meta (infos : stage_infos) : (string * (string * string) list) list =
   in
   let contracts_info = Option.value ~default:Stage_info.empty_contracts_info infos.contracts in
   let instrumentation_info = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
-  let obc_info = Option.value ~default:Stage_info.empty_obc_info infos.obc in
   let user =
     ( "parse",
       [
@@ -290,15 +276,7 @@ let stage_meta (infos : stage_infos) : (string * (string * string) list) list =
         ("warnings", string_of_int (List.length instrumentation_info.warnings));
       ] )
   in
-  let obc =
-    ( "obc",
-      [
-        ("ghost_locals", string_of_int (List.length obc_info.ghost_locals_added));
-        ("pre_k_infos", string_of_int (List.length obc_info.pre_k_infos));
-        ("warnings", string_of_int (List.length obc_info.warnings));
-      ] )
-  in
-  [ user; automata_generation; contracts; instrumentation; obc ]
+  [ user; automata_generation; contracts; instrumentation ]
 
 let instrumentation_diag_texts (infos : stage_infos) :
     string * string * string * string * string * string * string * string =
@@ -368,13 +346,6 @@ let strip_contracts_in_program (p : Ast.program) : Ast.program =
       })
     p
 
-let materialize_obc_ast (asts : ast_stages) : Ast.program =
-  List.map Abs.to_ast_node asts.obc_abstract
-
-let backend_obc_program ~(smoke_tests : bool) (asts : ast_stages) : Ast.program =
-  let p = materialize_obc_ast asts in
-  if smoke_tests then with_smoke_tests p else p
-
 let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_infos, error) result =
   let parse () =
     try
@@ -423,17 +394,6 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
           Log.stage_end Stage_names.Contracts
             (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
             (program_stats p_contracts);
-        let t4 = Unix.gettimeofday () in
-        if log then Log.stage_start Stage_names.Obc;
-        let p_obc, obc_info =
-          p_contracts |> Obc_stage.run_with_info |> fun (p, info) -> (reid_program p, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Obc
-            (int_of_float ((Unix.gettimeofday () -. t4) *. 1000.))
-            (program_stats p_obc);
-        let p_obc_abstract = List.map Abs.of_ast_node p_obc in
-        let p_obc_clean = strip_contracts_in_program p_obc in
         let asts =
           {
             source = { Source_file.imports = []; nodes = p_parsed };
@@ -442,9 +402,7 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
             automata;
             contracts = p_contracts;
             instrumentation = p_monitor;
-            obc = p_obc_clean;
             imported_summaries = [];
-            obc_abstract = p_obc_abstract;
           }
         in
         let infos =
@@ -453,7 +411,6 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
             automata_generation = Some automata_info;
             contracts = Some contracts_info;
             instrumentation = Some instrumentation_info;
-            obc = Some obc_info;
           }
         in
         Ok (asts, infos)
@@ -463,52 +420,6 @@ let build_ast ?(log = false) ~input_file () : (ast_stages, error) result =
   match build_ast_with_info ~log ~input_file () with
   | Ok (asts, _infos) -> Ok asts
   | Error _ as err -> err
-
-let build_obcplus_sequents_abs (p_obc : Abs.node list) : (int * string) list =
-  let acc = ref [] in
-  let add_node (node : Abs.node) =
-    List.iter
-      (fun (goal : Ast.fo_o) ->
-        let vcid = goal.oid in
-        let ensure = Support.string_of_fo goal.value in
-        let buf = Buffer.create 128 in
-        Buffer.add_string buf "--------------------\n";
-        Buffer.add_string buf ensure;
-        acc := (vcid, Buffer.contents buf) :: !acc)
-      node.attrs.coherency_goals;
-    List.iter
-      (fun (t : Abs.transition) ->
-        List.iter
-          (fun (ens : Ast.fo_o) ->
-            let vcid = ens.oid in
-            let reqs = List.map (fun (r : Ast.fo_o) -> Support.string_of_fo r.value) t.requires in
-            let ensure = Support.string_of_fo ens.value in
-            let buf = Buffer.create 256 in
-            List.iter (fun r -> Buffer.add_string buf (r ^ "\n")) reqs;
-            Buffer.add_string buf "--------------------\n";
-            Buffer.add_string buf ensure;
-            acc := (vcid, Buffer.contents buf) :: !acc)
-          t.ensures)
-      node.trans
-  in
-  List.iter add_node p_obc;
-  List.rev !acc
-
-let build_formula_sources_abs (p_obc : Abs.node list) : (int * string) list =
-  let acc = ref [] in
-  List.iter
-    (fun (node : Abs.node) ->
-      List.iter
-        (fun (goal : Ast.fo_o) ->
-          acc := (goal.oid, Printf.sprintf "%s: <no transition>" node.semantics.sem_nname) :: !acc)
-        node.attrs.coherency_goals;
-      List.iter
-        (fun (t : Abs.transition) ->
-          let src = Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst in
-          List.iter (fun (ens : Ast.fo_o) -> acc := (ens.oid, src) :: !acc) t.ensures)
-        node.trans)
-    p_obc;
-  List.rev !acc
 
 let build_vc_sources_from_formula_sources ~(formula_sources : (int * string) list)
     ~(vc_ids_ordered : int list) : (int * string) list =
@@ -540,50 +451,6 @@ let build_vc_sources_from_formula_sources ~(formula_sources : (int * string) lis
       in
       (vcid, source))
     vc_ids_ordered
-
-let enrich_vc_sources_from_task_states ~(vc_sources : (int * string) list)
-    ~(vc_ids_ordered : int list) ~(obc_abs : Abs.node list) ~(task_state_pairs : (string * string) option list)
-    : (int * string) list =
-  let tbl = Hashtbl.create (List.length vc_sources * 2) in
-  List.iter (fun (id, src) -> Hashtbl.replace tbl id src) vc_sources;
-  let find_transition_source (src_state : string) (dst_state : string) : string option =
-    let exact =
-      List.find_map
-        (fun (n : Abs.node) ->
-          List.find_map
-            (fun (t : Abs.transition) ->
-              if t.src = src_state && t.dst = dst_state then
-                Some (Printf.sprintf "%s: %s -> %s" n.semantics.sem_nname t.src t.dst)
-              else None)
-            n.trans)
-        obc_abs
-    in
-    match exact with
-    | Some _ as x -> x
-    | None ->
-        List.find_map
-          (fun (n : Abs.node) ->
-            List.find_map
-              (fun (t : Abs.transition) ->
-                if t.src = src_state then
-                  Some (Printf.sprintf "%s: %s -> %s" n.semantics.sem_nname t.src t.dst)
-                else None)
-              n.trans)
-          obc_abs
-  in
-  List.iteri
-    (fun i pair_opt ->
-      match (List.nth_opt vc_ids_ordered i, pair_opt) with
-      | Some vcid, Some (src_state, dst_state) ->
-          let cur = Hashtbl.find_opt tbl vcid |> Option.value ~default:"" in
-          if String.trim cur = "" then (
-            match find_transition_source src_state dst_state with
-            | Some src -> Hashtbl.replace tbl vcid src
-            | None -> ())
-      | Some _, None -> ()
-      | None, _ -> ())
-    task_state_pairs;
-  Hashtbl.to_seq tbl |> List.of_seq
 
 let build_vcid_locs (p_parsed : Ast.program) : (int * Ast.loc) list * Ast.loc list =
   let p_parsed = p_parsed in
@@ -672,10 +539,6 @@ let instrumentation_pass ~generate_png ~input_file : (automata_outputs, error) r
   Error
     (Stage_error
        "Legacy Pipeline.instrumentation_pass is removed. Use Pipeline_v2_indep.instrumentation_pass.")
-
-let obc_pass ~input_file : (obc_outputs, error) result =
-  let _ = input_file in
-  Error (Stage_error "Legacy Pipeline.obc_pass is removed. Use Pipeline_v2_indep.obc_pass.")
 
 let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
   let _ = (prefix_fields, input_file) in

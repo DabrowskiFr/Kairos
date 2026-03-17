@@ -127,7 +127,6 @@ let proof_trace_of_pipeline (trace : Pipeline.proof_trace) : Lsp_protocol.proof_
     origin_ids = trace.origin_ids;
     vc_id = trace.vc_id;
     source_span = Option.map loc_of_ast trace.source_span;
-    obc_span = Option.map text_span_of_pipeline trace.obc_span;
     why_span = Option.map text_span_of_pipeline trace.why_span;
     vc_span = Option.map text_span_of_pipeline trace.vc_span;
     smt_span = Option.map text_span_of_pipeline trace.smt_span;
@@ -137,7 +136,6 @@ let proof_trace_of_pipeline (trace : Pipeline.proof_trace) : Lsp_protocol.proof_
 
 let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
   {
-    obc_text = o.obc_text;
     why_text = o.why_text;
     vc_text = o.vc_text;
     smt_text = o.smt_text;
@@ -156,17 +154,13 @@ let map_outputs (o : Pipeline.outputs) : Lsp_protocol.outputs =
     stage_meta = o.stage_meta;
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
-    obcplus_sequents = o.obcplus_sequents;
     vc_sources = o.vc_sources;
     task_sequents = o.task_sequents;
     vc_locs = List.map (fun (i, l) -> (i, loc_of_ast l)) o.vc_locs;
-    obcplus_spans = o.obcplus_spans;
     vc_locs_ordered = List.map loc_of_ast o.vc_locs_ordered;
-    obcplus_spans_ordered = o.obcplus_spans_ordered;
     vc_spans_ordered = o.vc_spans_ordered;
     why_spans = o.why_spans;
     vc_ids_ordered = o.vc_ids_ordered;
-    obcplus_time_s = o.obcplus_time_s;
     why_time_s = o.why_time_s;
     automata_generation_time_s = o.automata_generation_time_s;
     automata_build_time_s = o.automata_build_time_s;
@@ -209,9 +203,6 @@ let map_automata (o : Pipeline.automata_outputs) : Lsp_protocol.automata_outputs
     product_png_error = o.product_png_error;
     stage_meta = o.stage_meta;
   }
-
-let map_obc (o : Pipeline.obc_outputs) : Lsp_protocol.obc_outputs =
-  { obc_text = o.obc_text; stage_meta = o.stage_meta }
 
 let map_why (o : Pipeline.why_outputs) : Lsp_protocol.why_outputs =
   { why_text = o.why_text; stage_meta = o.stage_meta }

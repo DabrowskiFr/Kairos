@@ -52,7 +52,6 @@ let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
           begin match infos.automata_generation with Some i -> add_warnings "kairos-automata" i.Stage_info.warnings | None -> () end;
           begin match infos.contracts with Some i -> add_warnings "kairos-contracts" i.Stage_info.warnings | None -> () end;
           begin match infos.instrumentation with Some i -> add_warnings "kairos-instrumentation" i.Stage_info.warnings | None -> () end;
-          begin match infos.obc with Some i -> add_warnings "kairos-obc" i.Stage_info.warnings | None -> () end;
           List.rev !diags
       | Error (Pipeline.Stage_error msg) ->
           [ mk_diag ~severity:1 ~source:"kairos-stage" ~message:msg ]

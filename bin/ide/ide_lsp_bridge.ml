@@ -4,8 +4,6 @@ type outputs = Ide_lsp_types.outputs
 
 type automata_outputs = Ide_lsp_types.automata_outputs
 
-type obc_outputs = Ide_lsp_types.obc_outputs
-
 type why_outputs = Ide_lsp_types.why_outputs
 
 type obligations_outputs = Ide_lsp_types.obligations_outputs
@@ -49,9 +47,6 @@ let did_close ~uri =
 let instrumentation_pass ~generate_png ~input_file =
   Ide_lsp_process_client.instrumentation_pass (process_or_create ()) ~generate_png ~input_file
   |> Result.map_error map_error_msg
-
-let obc_pass ~input_file =
-  Ide_lsp_process_client.obc_pass (process_or_create ()) ~input_file |> Result.map_error map_error_msg
 
 let why_pass ~prefix_fields ~input_file =
   Ide_lsp_process_client.why_pass (process_or_create ()) ~prefix_fields ~input_file
