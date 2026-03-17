@@ -1,0 +1,11 @@
+(library
+ (name kairos_parse)
+ (wrapped false)
+ (modules source_file lexer parser ast_dump)
+ (libraries kairos_ast kairos_utils sedlex)
+ (preprocess
+  (pps sedlex.ppx)))
+
+(menhir
+ (modules parser)
+ (flags --table --inspection))
