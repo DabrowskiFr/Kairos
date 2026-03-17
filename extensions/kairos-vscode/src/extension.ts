@@ -639,7 +639,7 @@ ${rows
 
   async function openComparePanel(): Promise<void> {
     openPanels.add("compare");
-    await comparePanel.show();
+    comparePanel.show();
   }
 
   async function openRecentFile(): Promise<void> {
@@ -679,7 +679,7 @@ ${rows
     }
     output.appendLine("[Kairos] showAutomataPanel: PNGs found, showing panel.");
     openPanels.add("automata");
-    await automataPanel.show();
+    automataPanel.show();
   }
 
   async function showDashboardPanel(): Promise<void> {
@@ -733,8 +733,6 @@ ${rows
     openPipelinePanel,
     openComparePanel,
     runEval: async (traceText, withState, withLocals) => runEval(traceText, withState, withLocals),
-    getGraphAssets,
-    getGraphLocalResourceRoots: () => [context.globalStorageUri],
     openWhyForGoal,
     openSourceLocation,
     openDumpPath,
@@ -887,7 +885,7 @@ ${rows
       state.finishRun(runId, true, "completed", "Automata ready");
       docProvider.refreshAll();
       openPanels.add("automata");
-      await automataPanel.show();
+      automataPanel.show();
     } catch (error) {
       const message = String(error);
       output.appendLine(`[Kairos] runAutomataPass: error — ${message}`);
@@ -1079,7 +1077,7 @@ ${rows
   if (getRunSettings().restoreSession) {
     for (const panelId of session.openPanels) {
       if (panelId === "automata") {
-        await automataPanel.show();
+        automataPanel.show();
       } else if (panelId === "dashboard") {
         await dashboardPanel.show();
       } else if (panelId === "explain" && state.activeProofTrace) {
@@ -1091,7 +1089,7 @@ ${rows
       } else if (panelId === "pipeline") {
         await pipelinePanel.show();
       } else if (panelId === "compare") {
-        await comparePanel.show();
+        comparePanel.show();
       }
     }
   }

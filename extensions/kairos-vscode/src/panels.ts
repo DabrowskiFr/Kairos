@@ -38,8 +38,6 @@ export interface PanelHost {
   openPipelinePanel(): Promise<void>;
   openComparePanel(): Promise<void>;
   runEval(traceText: string, withState: boolean, withLocals: boolean): Promise<string>;
-  getGraphAssets(webview: vscode.Webview): Promise<Record<GraphId, { svg: string; pngSrc: string; renderError?: string }>>;
-  getGraphLocalResourceRoots(): vscode.Uri[];
   openWhyForGoal(goal: GoalTreeEntry): Promise<void>;
   openSourceLocation(loc: Loc | null): Promise<void>;
   openDumpPath(path: string | null): Promise<void>;
@@ -54,11 +52,12 @@ export class AutomataPanel {
   private panel: vscode.WebviewPanel | null = null;
   private host: PanelHost | null = null;
   private renderTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingGraphs: Record<string, { svg: string; pngSrc: string; renderError?: string | null }> | null = null;
 
   constructor(private readonly state: KairosState) {
     this.state.onDidChange(() => {
       if (this.renderTimer) clearTimeout(this.renderTimer);
-      this.renderTimer = setTimeout(() => void this.render(), 150);
+      this.renderTimer = setTimeout(() => this.render(), 150);
     });
   }
 
@@ -66,8 +65,8 @@ export class AutomataPanel {
     this.host = host;
   }
 
-  async show(): Promise<void> {
-    // Cancel any pending debounced render so it doesn't overwrite the html we're about to set.
+  show(): void {
+    // Cancel any pending debounced render so it doesn't race with the one we trigger now.
     if (this.renderTimer) {
       clearTimeout(this.renderTimer);
       this.renderTimer = null;
@@ -77,51 +76,62 @@ export class AutomataPanel {
       this.panel = vscode.window.createWebviewPanel("kairosAutomata", "Kairos Automata", column, {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: this.host?.getGraphLocalResourceRoots() ?? []
+        localResourceRoots: []
       });
       this.panel.onDidDispose(() => {
         this.panel = null;
       });
       this.panel.webview.onDidReceiveMessage(async (message) => {
-        if (message?.type === "openArtifact") {
+        if (message?.type === "ready") {
+          // Webview script is loaded — send pending image data now.
+          if (this.pendingGraphs && this.panel) {
+            void this.panel.webview.postMessage({ type: "update", graphs: this.pendingGraphs });
+          }
+        } else if (message?.type === "openArtifact") {
           await this.host?.openArtifact(message.artifact as ArtifactId);
         }
       });
     }
     this.panel.reveal(column);
-    await this.render();
+    this.render();
   }
 
-  private async render(): Promise<void> {
+  private render(): void {
     if (!this.panel) {
       return;
     }
     const webview = this.panel.webview;
-    const graphData =
-      (await this.host?.getGraphAssets(webview)) ?? {
-        program: { svg: "", pngSrc: "" },
-        assume: { svg: "", pngSrc: "" },
-        guarantee: { svg: "", pngSrc: "" },
-        product: { svg: "", pngSrc: "" }
-      };
-    const textData = {
-      labels: this.state.automata?.labels_text ?? this.state.outputs?.labels_text ?? "",
-      obligations: this.state.automata?.obligations_map_text ?? this.state.outputs?.obligations_map_text ?? "",
-      prune: this.state.automata?.prune_reasons_text ?? this.state.outputs?.prune_reasons_text ?? ""
+    const a = this.state.automata ?? this.state.outputs;
+    const graphs: Record<string, { pngSrc: string; error: string }> = {
+      program:   { pngSrc: pngPathToDataUri(a?.program_png),             error: a?.program_png_error ?? "" },
+      assume:    { pngSrc: pngPathToDataUri(a?.assume_automaton_png),    error: a?.assume_automaton_png_error ?? "" },
+      guarantee: { pngSrc: pngPathToDataUri(a?.guarantee_automaton_png), error: a?.guarantee_automaton_png_error ?? "" },
+      product:   { pngSrc: pngPathToDataUri(a?.product_png),             error: a?.product_png_error ?? "" },
     };
-    const initialGraph = graphData.program ?? { svg: "", pngSrc: "", renderError: "" };
-    const initialRenderStatus =
-      initialGraph.renderError ||
-      (initialGraph.pngSrc ? "PNG renderer active" : initialGraph.svg ? "SVG renderer active" : "No renderer output");
-    const initialCanvasHtml = initialGraph.pngSrc
-      ? `<img alt="Kairos automaton" src="${escapeHtml(initialGraph.pngSrc)}" onerror="document.getElementById('renderStatus').textContent='IMG ERROR: '+this.src.substring(0,120)">`
-      : initialGraph.svg || `<div class="muted">No graph image available yet. Run Build, Prove or Automata first.</div>`;
+    const textData = {
+      labels: a?.labels_text ?? "",
+      obligations: a?.obligations_map_text ?? "",
+      prune: a?.prune_reasons_text ?? ""
+    };
+
+    const graphIds = ["program", "assume", "guarantee", "product"] as const;
+    // Each graph pane is pre-rendered in HTML — no JS needed to show the image.
+    const panes = graphIds.map(id => {
+      const g = graphs[id];
+      const content = g.pngSrc
+        ? `<img alt="${id} automaton" src="${escapeHtml(g.pngSrc)}">`
+        : g.error
+          ? `<div class="muted error">${escapeHtml(g.error)}</div>`
+          : `<div class="muted">No image for ${id}.</div>`;
+      return `<div class="pane" id="pane-${id}" style="display:none">${content}</div>`;
+    }).join("\n");
+
     const scriptNonce = nonce();
     webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
@@ -135,146 +145,56 @@ export class AutomataPanel {
       --soft: color-mix(in srgb, var(--accent) 10%, var(--bg) 90%);
     }
     body { margin: 0; font-family: var(--vscode-font-family); background: var(--bg); color: var(--fg); }
-    .shell { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
-    .toolbar, .subbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
-    button, input { font: inherit; }
-    button { border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--fg); padding: 6px 10px; cursor: pointer; }
-    .tabs { display: flex; gap: 6px; }
+    .shell { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+    .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+    button { font: inherit; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--fg); padding: 6px 10px; cursor: pointer; }
     .tab.active { background: var(--soft); border-color: var(--accent); }
-    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0; }
-    .canvasWrap { min-height: 0; overflow: auto; background: linear-gradient(180deg, color-mix(in srgb, white 82%, var(--bg) 18%), var(--bg)); }
-    .canvas { min-height: 100%; padding: 24px; transform-origin: top left; }
-    .canvas svg, .canvas img { max-width: none; background: white; border-radius: 12px; box-shadow: 0 18px 48px rgba(0,0,0,0.08); display:block; }
-    .side { border-left: 1px solid var(--border); padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 92%, white 8%); }
-    pre { white-space: pre-wrap; word-break: break-word; background: white; border: 1px solid var(--border); border-radius: 10px; padding: 10px; }
-    .muted { color: var(--muted); }
-    .split { display: grid; gap: 12px; }
-    .search { flex: 1; min-width: 180px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); }
-    .section h3 { margin: 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 0; }
+    .canvasWrap { min-height: 0; overflow: auto; padding: 24px; background: var(--bg); }
+    .canvasWrap img { max-width: 100%; background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); display: block; }
+    .side { border-left: 1px solid var(--border); padding: 12px; overflow: auto; }
+    pre { white-space: pre-wrap; word-break: break-word; background: white; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 12px; }
+    .muted { color: var(--muted); font-style: italic; }
+    .error { color: #c00; }
+    h3 { margin: 12px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <div class="toolbar">
-      <div class="tabs">
-        <button class="tab active" data-graph="program">Program</button>
-        <button class="tab" data-graph="assume">Assume</button>
-        <button class="tab" data-graph="guarantee">Guarantee</button>
-        <button class="tab" data-graph="product">Product</button>
-      </div>
-      <input id="search" class="search" placeholder="Search states, labels, transitions">
-      <button id="fit">Fit</button>
-      <button id="zoomIn">Zoom +</button>
-      <button id="zoomOut">Zoom -</button>
-      <button id="refresh">Refresh</button>
+<div class="shell">
+  <div class="toolbar">
+    <button class="tab" data-graph="program">Program</button>
+    <button class="tab" data-graph="assume">Assume</button>
+    <button class="tab" data-graph="guarantee">Guarantee</button>
+    <button class="tab" data-graph="product">Product</button>
+  </div>
+  <div class="layout">
+    <div class="canvasWrap" id="canvas">
+${panes}
     </div>
-    <div class="subbar">
-      <button data-open="labels">Labels</button>
-      <button data-open="obligations_map">Obligations</button>
-      <button data-open="prune_reasons">Prune reasons</button>
-      <span class="muted">Rendered automata view with linked debug artifacts.</span>
-    </div>
-    <div class="layout">
-      <div class="canvasWrap"><div id="canvas" class="canvas"></div></div>
-      <div class="side">
-        <div class="split">
-          <div class="section">
-            <h3>Renderer</h3>
-            <pre id="renderStatus">${escapeHtml(initialRenderStatus)}</pre>
-          </div>
-          <div class="section">
-            <h3>Labels</h3>
-            <pre>${escapeHtml(textData.labels.slice(0, 4000))}</pre>
-          </div>
-          <div class="section">
-            <h3>Obligations</h3>
-            <pre>${escapeHtml(textData.obligations.slice(0, 4000))}</pre>
-          </div>
-          <div class="section">
-            <h3>Prune Reasons</h3>
-            <pre>${escapeHtml(textData.prune.slice(0, 4000))}</pre>
-          </div>
-        </div>
-      </div>
+    <div class="side">
+      <h3>Labels</h3><pre>${escapeHtml(textData.labels.slice(0, 4000))}</pre>
+      <h3>Obligations</h3><pre>${escapeHtml(textData.obligations.slice(0, 4000))}</pre>
+      <h3>Prune Reasons</h3><pre>${escapeHtml(textData.prune.slice(0, 4000))}</pre>
     </div>
   </div>
-  <script nonce="${scriptNonce}">
-    const vscode = acquireVsCodeApi();
-    const graphs = ${JSON.stringify(graphData)};
-    const saved = vscode.getState() || { graph: "program", zoom: 1, search: "" };
-    const canvas = document.getElementById("canvas");
-    const search = document.getElementById("search");
-    search.value = saved.search || "";
-    let active = saved.graph || "program";
-    let zoom = saved.zoom || 1;
-    function applySearch(query) {
-      canvas.querySelectorAll("g.node, g.edge, text").forEach((el) => {
-        const text = (el.textContent || "").toLowerCase();
-        const hit = query && text.includes(query);
-        const shapes = el.querySelectorAll ? el.querySelectorAll("ellipse, polygon, path") : [];
-        shapes.forEach((shape) => {
-          shape.style.stroke = hit ? "#0f6cbd" : "";
-          shape.style.strokeWidth = hit ? "3px" : "";
-          if (hit && shape.style.fill && shape.style.fill !== "none") {
-            shape.style.fill = "#eef6ff";
-          }
-        });
-      });
-    }
-    function render() {
-      const current = graphs[active] || { svg: "", pngSrc: "", renderError: "" };
-      const renderStatus = document.getElementById("renderStatus");
-      canvas.style.transform = "scale(" + zoom + ")";
-      renderStatus.textContent = current.renderError || (current.pngSrc ? "PNG renderer active" : current.svg ? "SVG renderer active" : "No renderer output");
-      if (current.pngSrc) {
-        const img = document.createElement("img");
-        img.alt = "Kairos automaton";
-        img.src = current.pngSrc;
-        img.addEventListener("load", function() {
-          renderStatus.textContent = "PNG loaded (" + img.naturalWidth + "×" + img.naturalHeight + ")";
-        });
-        img.addEventListener("error", function() {
-          renderStatus.textContent = "IMG LOAD ERROR — src: " + img.src.substring(0, 100);
-        });
-        canvas.innerHTML = "";
-        canvas.appendChild(img);
-      } else {
-        canvas.innerHTML = current.svg || "<div class=\"muted\">No graph image available yet. Run Build, Prove or Automata first.</div>";
-      }
-      applySearch((search.value || "").toLowerCase().trim());
-      document.querySelectorAll(".tab").forEach((tab) => {
-        tab.classList.toggle("active", tab.dataset.graph === active);
-      });
-      vscode.setState({ graph: active, zoom, search: search.value });
-    }
-    try {
-      canvas.innerHTML = ${JSON.stringify(initialCanvasHtml)};
-      document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => {
-        active = button.dataset.graph;
-        render();
-      }));
-      document.getElementById("fit").addEventListener("click", () => { zoom = 1; render(); });
-      document.getElementById("zoomIn").addEventListener("click", () => { zoom = Math.min(2.5, zoom + 0.1); render(); });
-      document.getElementById("zoomOut").addEventListener("click", () => { zoom = Math.max(0.5, zoom - 0.1); render(); });
-      document.getElementById("refresh").addEventListener("click", render);
-      search.addEventListener("input", render);
-      document.querySelectorAll("[data-open]").forEach((button) => button.addEventListener("click", () => {
-        vscode.postMessage({ type: "openArtifact", artifact: button.dataset.open });
-      }));
-      window.addEventListener("error", (event) => {
-        const renderStatus = document.getElementById("renderStatus");
-        if (renderStatus) {
-          renderStatus.textContent = "Webview error: " + event.message;
-        }
-      });
-      render();
-    } catch (error) {
-      const renderStatus = document.getElementById("renderStatus");
-      if (renderStatus) {
-        renderStatus.textContent = "Webview init failed: " + (error && error.message ? error.message : String(error));
-      }
-    }
-  </script>
+</div>
+<script nonce="${scriptNonce}">
+  var active = "program";
+  function show(id) {
+    active = id;
+    ["program","assume","guarantee","product"].forEach(function(g) {
+      var el = document.getElementById("pane-" + g);
+      if (el) el.style.display = (g === id) ? "block" : "none";
+    });
+    document.querySelectorAll(".tab").forEach(function(t) {
+      t.classList.toggle("active", t.dataset.graph === id);
+    });
+  }
+  document.querySelectorAll(".tab").forEach(function(btn) {
+    btn.addEventListener("click", function() { show(btn.dataset.graph); });
+  });
+  show("program");
+</script>
 </body>
 </html>`;
   }
@@ -1081,7 +1001,7 @@ export class ComparePanel {
       this.panel = vscode.window.createWebviewPanel("kairosCompare", "Kairos Automata Compare", column, {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: this.host?.getGraphLocalResourceRoots() ?? []
+        localResourceRoots: []
       });
       this.panel.onDidDispose(() => {
         this.panel = null;
@@ -1091,14 +1011,15 @@ export class ComparePanel {
     await this.render();
   }
 
-  private async render(): Promise<void> {
+  private render(): void {
     if (!this.panel) {
       return;
     }
-    const assets = this.host ? await this.host.getGraphAssets(this.panel.webview) : undefined;
-    const current = assets?.product?.pngSrc
-      ? `<img alt="Current product automaton" src="${assets.product.pngSrc}" />`
-      : assets?.product?.svg || "<div>No current product automaton.</div>";
+    const a = this.state.automata ?? this.state.outputs;
+    const currentPng = pngPathToDataUri(a?.product_png);
+    const current = currentPng
+      ? `<img alt="Current product automaton" src="${currentPng}" />`
+      : "<div>No current product automaton.</div>";
     const previousPng = pngPathToDataUri(this.state.previousOutputs?.product_png);
     const previous =
       previousPng !== ""
