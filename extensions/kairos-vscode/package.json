@@ -318,7 +318,9 @@
         "kairos.run.engine": {
           "type": "string",
           "default": "v2",
-          "enum": ["v2"],
+          "enum": [
+            "v2"
+          ],
           "description": "Kairos engine to use for runs."
         },
         "kairos.run.prover": {
@@ -375,7 +377,7 @@
         "kairos.ui.openDashboardAfterProve": {
           "type": "boolean",
           "default": true,
-        "description": "Open the proof dashboard automatically after a prove run."
+          "description": "Open the proof dashboard automatically after a prove run."
         },
         "kairos.ui.restoreSession": {
           "type": "boolean",
@@ -402,6 +404,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
     "typescript": "^5.3.3"
   }
 }

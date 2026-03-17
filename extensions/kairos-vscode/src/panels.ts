@@ -53,9 +53,13 @@ export interface PanelHost {
 export class AutomataPanel {
   private panel: vscode.WebviewPanel | null = null;
   private host: PanelHost | null = null;
+  private renderTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly state: KairosState) {
-    this.state.onDidChange(() => void this.render());
+    this.state.onDidChange(() => {
+      if (this.renderTimer) clearTimeout(this.renderTimer);
+      this.renderTimer = setTimeout(() => void this.render(), 150);
+    });
   }
 
   setHost(host: PanelHost): void {
@@ -63,6 +67,11 @@ export class AutomataPanel {
   }
 
   async show(): Promise<void> {
+    // Cancel any pending debounced render so it doesn't overwrite the html we're about to set.
+    if (this.renderTimer) {
+      clearTimeout(this.renderTimer);
+      this.renderTimer = null;
+    }
     const column = preferredViewColumn();
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel("kairosAutomata", "Kairos Automata", column, {
@@ -105,14 +114,14 @@ export class AutomataPanel {
       initialGraph.renderError ||
       (initialGraph.pngSrc ? "PNG renderer active" : initialGraph.svg ? "SVG renderer active" : "No renderer output");
     const initialCanvasHtml = initialGraph.pngSrc
-      ? `<img alt="Kairos automaton" src="${escapeHtml(initialGraph.pngSrc)}">`
+      ? `<img alt="Kairos automaton" src="${escapeHtml(initialGraph.pngSrc)}" onerror="document.getElementById('renderStatus').textContent='IMG ERROR: '+this.src.substring(0,120)">`
       : initialGraph.svg || `<div class="muted">No graph image available yet. Run Build, Prove or Automata first.</div>`;
     const scriptNonce = nonce();
     webview.html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
@@ -217,9 +226,21 @@ export class AutomataPanel {
       const renderStatus = document.getElementById("renderStatus");
       canvas.style.transform = "scale(" + zoom + ")";
       renderStatus.textContent = current.renderError || (current.pngSrc ? "PNG renderer active" : current.svg ? "SVG renderer active" : "No renderer output");
-      canvas.innerHTML = current.pngSrc
-        ? '<img alt="Kairos automaton" src="' + current.pngSrc + '">'
-        : current.svg || "<div class=\"muted\">No graph image available yet. Run Build, Prove or Automata first.</div>";
+      if (current.pngSrc) {
+        const img = document.createElement("img");
+        img.alt = "Kairos automaton";
+        img.src = current.pngSrc;
+        img.addEventListener("load", function() {
+          renderStatus.textContent = "PNG loaded (" + img.naturalWidth + "×" + img.naturalHeight + ")";
+        });
+        img.addEventListener("error", function() {
+          renderStatus.textContent = "IMG LOAD ERROR — src: " + img.src.substring(0, 100);
+        });
+        canvas.innerHTML = "";
+        canvas.appendChild(img);
+      } else {
+        canvas.innerHTML = current.svg || "<div class=\"muted\">No graph image available yet. Run Build, Prove or Automata first.</div>";
+      }
       applySearch((search.value || "").toLowerCase().trim());
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.graph === active);

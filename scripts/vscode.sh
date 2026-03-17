@@ -6,9 +6,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The worktree (or repo) where this script lives — used for TS sources.
+WORKTREE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Resolve the canonical kairos repo root (handles worktrees: follow the main
-# worktree entry reported by git so that dune builds from its project root).
+# Resolve the canonical repo root for dune (must run from main worktree).
 REPO_ROOT="$(git -C "$SCRIPT_DIR" worktree list --porcelain \
               | awk '/^worktree /{print $2; exit}')"
 
@@ -17,7 +18,8 @@ if [[ -z "$REPO_ROOT" || ! -d "$REPO_ROOT" ]]; then
   exit 1
 fi
 
-EXT_DIR="$REPO_ROOT/extensions/kairos-vscode"
+# TS sources come from the current worktree; built artifacts go there too.
+EXT_DIR="$WORKTREE_ROOT/extensions/kairos-vscode"
 OPEN_VSCODE=true
 
 for arg in "$@"; do
@@ -52,7 +54,7 @@ if [[ ! -x node_modules/.bin/vsce ]]; then
   npm install --save-dev @vscode/vsce
 fi
 
-node_modules/.bin/vsce package --no-dependencies
+node_modules/.bin/vsce package --allow-missing-repository --skip-license
 
 VSIX_FILE="$(ls -t "$EXT_DIR"/*.vsix 2>/dev/null | head -1)"
 if [[ -z "$VSIX_FILE" || ! -f "$VSIX_FILE" ]]; then

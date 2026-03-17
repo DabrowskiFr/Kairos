@@ -498,6 +498,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       guarantee: state.automata?.guarantee_automaton_png ?? state.outputs?.guarantee_automaton_png,
       product: state.automata?.product_png ?? state.outputs?.product_png
     };
+    output.appendLine(`[Kairos] getGraphAssets: paths=${JSON.stringify(pngByGraph)}`);
     const pngErrorByGraph: Record<GraphId, string | null | undefined> = {
       program: state.automata?.program_png_error ?? state.outputs?.program_png_error,
       assume: state.automata?.assume_automaton_png_error ?? state.outputs?.assume_automaton_png_error,
@@ -529,14 +530,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           if (!cacheUri) {
             return [graphId, { svg: "", pngSrc: "", renderError: `Unable to cache PNG: ${sourcePath}` }] as const;
           }
-          return [graphId, { svg: "", pngSrc: webview.asWebviewUri(cacheUri).toString() }] as const;
+          const b64 = fs.readFileSync(cacheUri.fsPath).toString("base64");
+          const dataUri = `data:image/png;base64,${b64}`;
+          output.appendLine(`[Kairos] getGraphAssets: ${graphId} → data URI (${b64.length} chars)`);
+          return [graphId, { svg: "", pngSrc: dataUri }] as const;
         } catch (error) {
           return [
             graphId,
             {
               svg: "",
               pngSrc: "",
-              renderError: `PNG copy failed: ${error instanceof Error ? error.message : String(error)}`
+              renderError: `PNG cache failed: ${error instanceof Error ? error.message : String(error)}`
             }
           ] as const;
         }
@@ -656,23 +660,24 @@ ${rows
   }
 
   function hasAutomataPngs(): boolean {
-    return Boolean(
-      state.automata?.program_png ||
-        state.automata?.assume_automaton_png ||
-        state.automata?.guarantee_automaton_png ||
-        state.automata?.product_png ||
-        state.outputs?.program_png ||
-        state.outputs?.assume_automaton_png ||
-        state.outputs?.guarantee_automaton_png ||
-        state.outputs?.product_png
-    );
+    const paths = [
+      state.automata?.program_png ?? state.outputs?.program_png,
+      state.automata?.assume_automaton_png ?? state.outputs?.assume_automaton_png,
+      state.automata?.guarantee_automaton_png ?? state.outputs?.guarantee_automaton_png,
+      state.automata?.product_png ?? state.outputs?.product_png,
+    ];
+    return paths.some(p => p != null && fs.existsSync(p));
   }
 
   async function showAutomataPanel(): Promise<void> {
-    if (!hasAutomataPngs()) {
+    const hasPngs = hasAutomataPngs();
+    output.appendLine(`[Kairos] showAutomataPanel: hasAutomataPngs=${hasPngs}`);
+    if (!hasPngs) {
+      output.appendLine("[Kairos] showAutomataPanel: no valid PNGs on disk, triggering runAutomataPass.");
       await runAutomataPass();
       return;
     }
+    output.appendLine("[Kairos] showAutomataPanel: PNGs found, showing panel.");
     openPanels.add("automata");
     await automataPanel.show();
   }
@@ -841,15 +846,22 @@ ${rows
   }
 
   async function runAutomataPass(): Promise<void> {
+    output.appendLine("[Kairos] runAutomataPass: called.");
+    output.show(true);
     if (!client) {
+      output.appendLine("[Kairos] runAutomataPass: LSP client is null, aborting.");
+      vscode.window.showWarningMessage("Kairos: LSP not started. Open a .kairos file first.");
       return;
     }
     const context = await resolveKairosContext();
     if (!context) {
+      output.appendLine("[Kairos] runAutomataPass: no Kairos context (no active .obc file?), aborting.");
+      vscode.window.showWarningMessage("Kairos: no active .obc file found.");
       return;
     }
     const settings = getRunSettings();
     const inputFile = context.inputFile;
+    output.appendLine(`[Kairos] runAutomataPass: inputFile=${inputFile}`);
     state.activeFile = inputFile;
     const runId = state.beginRun("automata", inputFile, "building", "Automata generation");
     state.setPhase("building", "Automata generation", "automata");
@@ -857,6 +869,7 @@ ${rows
     activeRunCancellation = new vscode.CancellationTokenSource();
     try {
       await ensureClientReady();
+      output.appendLine("[Kairos] runAutomataPass: sending kairos/instrumentationPass...");
       const result = await client.sendRequest(
         "kairos/instrumentationPass",
         {
@@ -866,13 +879,18 @@ ${rows
         },
         activeRunCancellation.token
       );
-      state.setAutomata(stripDotFieldsFromAutomata(result as AutomataOutputs));
+      output.appendLine("[Kairos] runAutomataPass: response received.");
+      const automata = stripDotFieldsFromAutomata(result as AutomataOutputs);
+      output.appendLine(`[Kairos] runAutomataPass: PNGs — program=${automata.program_png ?? "null"}, assume=${automata.assume_automaton_png ?? "null"}, guarantee=${automata.guarantee_automaton_png ?? "null"}, product=${automata.product_png ?? "null"}`);
+      state.setAutomata(automata);
       state.setPhase("completed", "Automata ready", "automata");
       state.finishRun(runId, true, "completed", "Automata ready");
       docProvider.refreshAll();
-      await showAutomataPanel();
+      openPanels.add("automata");
+      await automataPanel.show();
     } catch (error) {
       const message = String(error);
+      output.appendLine(`[Kairos] runAutomataPass: error — ${message}`);
       const cancelled = message.toLowerCase().includes("cancel");
       state.setPhase(cancelled ? "cancelled" : "failed", cancelled ? "Automata cancelled" : message, "automata");
       state.finishRun(runId, false, cancelled ? "cancelled" : "failed", message);
