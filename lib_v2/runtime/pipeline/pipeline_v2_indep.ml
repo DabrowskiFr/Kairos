@@ -772,10 +772,16 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
-    let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
     let why_ast =
-      Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-        ~external_summaries:asts.imported_summaries program_summaries
+      match instrumentation_info.verified_ir_nodes with
+      | [] ->
+          (* Fallback: no verified IR nodes, use the summary-based path. *)
+          let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+          Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
+            ~external_summaries:asts.imported_summaries program_summaries
+      | verified_nodes ->
+          Emit.compile_program_ast_from_verified_nodes ~prefix_fields:cfg.prefix_fields
+            ~kernel_ir_map ~external_summaries:asts.imported_summaries verified_nodes
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in

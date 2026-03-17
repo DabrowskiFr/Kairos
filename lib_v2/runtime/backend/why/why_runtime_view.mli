@@ -121,6 +121,15 @@ val has_instance_calls : t -> bool
 
 val pre_k_updates_of_map : (Ast.hexpr * Support.pre_k_info) list -> Ast.stmt list
 
+(** Build a runtime view directly from a [Kairos_ir.verified_node] (Pass 5
+    output).  Callee summaries for local nodes are resolved from
+    [program_verified_nodes]; external ones come from [external_summaries]. *)
+val of_verified_node :
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  program_verified_nodes:Kairos_ir.verified_node list ->
+  Kairos_ir.verified_node ->
+  t
+
 val of_exported_summary :
   ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
   program_summaries:Product_kernel_ir.exported_node_summary_ir list ->

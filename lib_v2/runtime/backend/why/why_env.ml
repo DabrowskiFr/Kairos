@@ -448,3 +448,11 @@ let prepare_summary ~(prefix_fields : bool) ?(external_summaries = [])
     Why_runtime_view.of_exported_summary ~external_summaries ~program_summaries summary
   in
   prepare_runtime_view ~prefix_fields runtime
+
+let prepare_verified_node ~(prefix_fields : bool) ?(external_summaries = [])
+    ~(program_verified_nodes : Kairos_ir.verified_node list)
+    (vn : Kairos_ir.verified_node) : Why_types.env_info =
+  let runtime =
+    Why_runtime_view.of_verified_node ~external_summaries ~program_verified_nodes vn
+  in
+  prepare_runtime_view ~prefix_fields runtime

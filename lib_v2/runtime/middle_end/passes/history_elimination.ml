@@ -98,6 +98,7 @@ let eliminate (annotated : Kairos_ir.annotated_node) : Kairos_ir.verified_node =
     locals                     = raw.locals @ extra_locals;
     control_states             = raw.control_states;
     init_state                 = raw.init_state;
+    instances                  = raw.instances;
     transitions;
     assumes                    = raw.assumes;
     guarantees                 = raw.guarantees;

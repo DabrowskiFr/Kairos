@@ -39,6 +39,7 @@ let build_raw_node (node : Abs.node) : Kairos_ir.raw_node =
     locals                   = node.semantics.sem_locals;
     control_states           = node.semantics.sem_states;
     init_state               = node.semantics.sem_init_state;
+    instances                = node.semantics.sem_instances;
     pre_k_map;
     transitions;
     assumes                  = node.specification.spec_assumes;

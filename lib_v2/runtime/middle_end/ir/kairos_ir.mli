@@ -31,6 +31,8 @@ type raw_node = {
   locals        : Ast.vdecl list;
   control_states: Ast.ident list;
   init_state    : Ast.ident;
+  (** Callee instances: [(instance_name, callee_node_name)]. *)
+  instances     : (Ast.ident * Ast.ident) list;
   (** Map from history expressions (prev^k x) to their shift info. *)
   pre_k_map     : (Ast.hexpr * Support.pre_k_info) list;
   transitions   : raw_transition list;
@@ -89,6 +91,8 @@ type verified_node = {
   locals           : Ast.vdecl list;
   control_states   : Ast.ident list;
   init_state       : Ast.ident;
+  (** Callee instances: [(instance_name, callee_node_name)]. *)
+  instances        : (Ast.ident * Ast.ident) list;
   transitions      : verified_transition list;
   assumes          : Ast.fo_ltl list;
   guarantees       : Ast.fo_ltl list;
