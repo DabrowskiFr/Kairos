@@ -58,6 +58,7 @@
   product_types
   product_build
   kernel_guided_contract
+  kairos_ir
   product_kernel_ir
   product_debug
   product_contracts
