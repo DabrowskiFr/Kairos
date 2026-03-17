@@ -149,6 +149,9 @@ let compile_kernel_fact_term ~(env : Support.env) ~(mon_state_ctors : Ast.ident 
   in
   compile_desc fact.time fact.desc
 
+let port_view_to_vdecl (p : Why_runtime_view.port_view) : Ast.vdecl =
+  { Ast.vname = p.port_name; vty = p.port_type }
+
 let compile_external_summary_module ~prefix_fields
     (summary : Product_kernel_ir.exported_node_summary_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
@@ -202,14 +205,14 @@ let compile_external_summary_module ~prefix_fields
   in
   (ident info.module_name, None, decls, "imported summary module", { pre_labels = []; post_labels = [] })
 
-let compile_node ~prefix_fields ?comment_specs ?kernel_ir
-    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
-    (nodes : Ast.node list) (n : Ast.node) :
+(* Shared compilation core: all node-specific data is read from [info.runtime_view].
+   Both the OBC+ path (compile_node) and the IR path (compile_node_from_summary) call
+   this after building [info] with their respective prepare_* function.
+   [node_names] is the list of peer-program node names used only for comment stripping. *)
+let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident list)
+    (info : Why_types.env_info) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let nodes_ast = nodes in
-  let info = Why_env.prepare_node ~prefix_fields ~nodes ~external_summaries n in
-  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
-  let info = { info with runtime_view } in
+  let runtime_view = info.runtime_view in
   let comment_specs =
     match comment_specs with None -> None | Some (a, g, t, m) -> Some (a, g, t, m)
   in
@@ -222,6 +225,10 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
   let mon_state_ctors = info.mon_state_ctors in
+  (* Locals and outputs as vdecl list (needed for getter generation). *)
+  let locals_and_outputs =
+    List.map port_view_to_vdecl (runtime_view.locals @ runtime_view.outputs)
+  in
   let getter_decls =
     let mk_getter (v : Ast.vdecl) =
       let field_name = rec_var_name env v.vname in
@@ -241,17 +248,17 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
       in
       Ptree.Dlet (getter_name, is_ghost, Expr.RKnone, fn)
     in
-    List.map mk_getter (n.locals @ n.outputs)
+    List.map mk_getter locals_and_outputs
   in
   let logic_getter_decls =
     let mk (v : Ast.vdecl) = logic_getter_decl ~env v.vname v.vty in
-    logic_getter_decl ~env "st" (TCustom "state") :: List.map mk (n.locals @ n.outputs)
+    logic_getter_decl ~env "st" (TCustom "state") :: List.map mk locals_and_outputs
   in
   let instance_mirror_getter_decls =
     let used_summaries =
-      info.runtime_view.instances
+      runtime_view.instances
       |> List.filter_map (fun (inst : Why_runtime_view.instance_view) ->
-             Why_runtime_view.find_callee_summary info.runtime_view inst.callee_node_name)
+             Why_runtime_view.find_callee_summary runtime_view inst.callee_node_name)
       |> List.sort_uniq
            (fun (a : Why_runtime_view.callee_summary_view) (b : Why_runtime_view.callee_summary_view) ->
              String.compare a.callee_node_name b.callee_node_name)
@@ -275,7 +282,7 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
              fields)
   in
 
-  let contracts = Why_contracts.build_contracts ~nodes ?kernel_ir info in
+  let contracts = Why_contracts.build_contracts ~nodes:[] ?kernel_ir info in
   let pre = contracts.pre in
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
@@ -309,10 +316,10 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
          []
     |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
-  let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:info.runtime_view in
+  let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:runtime_view in
   let body =
     compile_runtime_view env call_asserts branch_entry_asserts branch_sticky_asserts
-      info.runtime_view
+      runtime_view
   in
   let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
     let hid = Provenance.fresh_id () in
@@ -338,7 +345,7 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
   let post = List.map2 add_vcid_attr post_vcids post in
   let helper_args = List.map binder_expr inputs in
 
-  let state_names = n.states in
+  let state_names = runtime_view.control_states in
   let rec strip_term_attrs (term : Ptree.term) : Ptree.term =
     match term.term_desc with Tattr (_, inner) -> strip_term_attrs inner | _ -> term
   in
@@ -478,7 +485,7 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
                  helper_body ))
         in
         Ptree.Dlet (helper_name, false, Expr.RKnone, fn))
-      info.runtime_view.state_branches
+      runtime_view.state_branches
   in
   let wrapper_body =
     let branches =
@@ -489,14 +496,14 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
           in
           ( { pat_desc = Papp (qid1 branch.branch_state, []); pat_loc = loc },
             apply_expr (mk_expr (Eident (qid1 helper_name))) helper_args ))
-        info.runtime_view.state_branches
+        runtime_view.state_branches
     in
     let covered_states =
-      info.runtime_view.state_branches
+      runtime_view.state_branches
       |> List.map (fun (branch : Why_runtime_view.state_branch_view) -> branch.branch_state)
       |> List.sort_uniq String.compare
     in
-    let all_states = List.sort_uniq String.compare info.runtime_view.control_states in
+    let all_states = List.sort_uniq String.compare runtime_view.control_states in
     let exhaustive = covered_states = all_states in
     mk_expr
       (Ematch
@@ -536,11 +543,11 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
   in
 
   let coherency_goal_decls =
-    let goals = n.attrs.coherency_goals in
+    let goals = runtime_view.coherency_goals in
     if goals = [] then []
     else
       let init_guard =
-        let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 n.init_state))) in
+        let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 runtime_view.init_control_state))) in
         let mon_init =
           match mon_state_ctors with
           | first :: _ -> [ term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 first))) ]
@@ -582,10 +589,13 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
     @ kernel_init_goal_decls
   in
 
-  let spec = Ast.specification_of_node n in
   let comment_assumes, comment_guarantees, comment_trans, comment_mon_trans =
     match comment_specs with
-    | None -> (spec.spec_assumes, spec.spec_guarantees, n.trans, [])
+    | None ->
+        ( runtime_view.assumes,
+          runtime_view.guarantees,
+          List.map Why_runtime_view.transition_to_ast runtime_view.transitions,
+          [] )
     | Some (a, g, t, m) -> (a, g, t, m)
   in
   let show_assume rel f =
@@ -605,11 +615,14 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
     let f = if rel then rel_fo env inv.formula else inv.formula in
     "invariant state " ^ op ^ " " ^ inv.state ^ " -> " ^ string_of_fo f
   in
-    let comment =
-      let is_monitor = List.exists (fun v -> v.vname = "__aut_state") n.locals in
-      if is_monitor then
+  let comment =
+    let is_monitor =
+      List.exists (fun (p : Why_runtime_view.port_view) -> p.port_name = "__aut_state")
+        runtime_view.locals
+    in
+    if is_monitor then
       let simplify x = x in
-      let prefixes = nodes_ast |> List.map (fun nd -> Support.prefix_for_node nd.nname) in
+      let prefixes = List.map Support.prefix_for_node node_names in
       let replace_all ~sub ~by s =
         if sub = "" then s
         else
@@ -642,7 +655,7 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
             if is_prefix "atom_" inv.inv_id then
               Some (Printf.sprintf "%s | %s" (strip_vars inv.inv_id) (string_of_hexpr inv.inv_expr))
             else None)
-          n.attrs.invariants_user
+          runtime_view.user_invariants
       in
       let atom_table = "" in
       let assumes = List.map simplify comment_assumes in
@@ -694,8 +707,8 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
       let contract_lines =
         List.map (show_assume false) comment_assumes
         @ List.map (show_guarantee false) comment_guarantees
-        @ List.map (show_invariant_user false) n.attrs.invariants_user
-        @ List.map (show_invariant_state_rel false) spec.spec_invariants_state_rel
+        @ List.map (show_invariant_user false) runtime_view.user_invariants
+        @ List.map (show_invariant_state_rel false) runtime_view.state_invariants
       in
       let contracts_txt = String.concat "\n  " contract_lines in
       let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
@@ -721,6 +734,36 @@ let compile_node ~prefix_fields ?comment_specs ?kernel_ir
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
+(* OBC+ path: builds runtime view from an instrumented Ast.node. *)
+let compile_node ~prefix_fields ?comment_specs ?kernel_ir
+    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    (nodes : Ast.node list) (n : Ast.node) :
+    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
+  let info = Why_env.prepare_node ~prefix_fields ~nodes ~external_summaries n in
+  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
+  let info = { info with runtime_view } in
+  compile_node_with_info ?comment_specs ?kernel_ir
+    ~node_names:(List.map (fun nd -> nd.nname) nodes)
+    info
+
+(* IR path: builds runtime view directly from an exported_node_summary_ir. *)
+let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
+    ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    ~(program_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    (summary : Product_kernel_ir.exported_node_summary_ir) :
+    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
+  let info =
+    Why_env.prepare_summary ~prefix_fields ~external_summaries ~program_summaries summary
+  in
+  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
+  let info = { info with runtime_view } in
+  compile_node_with_info ?comment_specs ?kernel_ir
+    ~node_names:
+      (List.map
+         (fun (s : Product_kernel_ir.exported_node_summary_ir) -> s.signature.node_name)
+         program_summaries)
+    info
+
 let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
     ?(kernel_ir_map = []) ?(external_summaries = []) (p : Ast.program) : program_ast
     =
@@ -741,6 +784,26 @@ let compile_program_ast ?(prefix_fields = true) ?(comment_map = [])
           nodes
   in
   let modules = imported_modules @ local_modules in
+  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
+  let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
+  { mlw; module_info }
+
+(* IR path: compile a full list of summaries to a Why3 program AST. *)
+let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [])
+    ?(kernel_ir_map = []) ?(external_summaries = [])
+    (program_summaries : Product_kernel_ir.exported_node_summary_ir list) : program_ast =
+  let lookup_comment name = List.assoc_opt name comment_map in
+  let modules =
+    List.map
+      (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
+        let name = summary.signature.node_name in
+        compile_node_from_summary ~prefix_fields ?comment_specs:(lookup_comment name)
+          ?kernel_ir:(List.assoc_opt name kernel_ir_map)
+          ~external_summaries
+          ~program_summaries
+          summary)
+      program_summaries
+  in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
   let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
   { mlw; module_info }

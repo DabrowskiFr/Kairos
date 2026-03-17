@@ -93,6 +93,15 @@ val compile_program_ast :
   Ast.program ->
   program_ast
 
+(* IR path: compile a full list of summaries to a Why3 program AST. *)
+val compile_program_ast_from_summaries :
+  ?prefix_fields:bool ->
+  ?comment_map:(Ast.ident * comment_specs) list ->
+  ?kernel_ir_map:(Ast.ident * Product_kernel_ir.node_ir) list ->
+  ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->
+  Product_kernel_ir.exported_node_summary_ir list ->
+  program_ast
+
 (* Render a Why3 AST to text. *)
 val emit_program_ast : program_ast -> string
 

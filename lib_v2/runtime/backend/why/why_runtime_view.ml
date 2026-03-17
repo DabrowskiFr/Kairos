@@ -628,3 +628,136 @@ let to_ast_node (runtime : t) : Ast.node =
 
 let has_instance_calls (runtime : t) : bool =
   List.exists (fun (t : runtime_transition_view) -> t.call_sites <> []) runtime.transitions
+
+(* ---------------------------------------------------------------------------
+   IR-based construction (no OBC+ AST required)
+   --------------------------------------------------------------------------- *)
+
+let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : Ast.stmt list =
+  let s desc = { Ast.stmt = desc; loc = None } in
+  let mk_var name = { Ast.iexpr = IVar name; loc = None } in
+  let pre_k_infos = List.map snd pre_k_map in
+  List.concat_map
+    (fun (info : Support.pre_k_info) ->
+      let names = info.names in
+      let shifts =
+        let rec loop i acc =
+          if i <= 1 then acc
+          else
+            let tgt = List.nth names (i - 1) in
+            let src = List.nth names (i - 2) in
+            loop (i - 1) (acc @ [ s (SAssign (tgt, mk_var src)) ])
+        in
+        loop (List.length names) []
+      in
+      let first =
+        match names with
+        | [] -> []
+        | name :: _ -> [ s (SAssign (name, info.expr)) ]
+      in
+      shifts @ first)
+    pre_k_infos
+
+let synthetic_transition_of_ir ~(pre_k_updates : Ast.stmt list)
+    (t : Product_kernel_ir.reactive_transition_ir) : Ast.transition =
+  {
+    Ast.src = t.src_state;
+    dst = t.dst_state;
+    guard = t.guard_iexpr;
+    requires = t.requires;
+    ensures = t.ensures;
+    body = t.body_stmts;
+    attrs =
+      {
+        uid = None;
+        ghost = t.ghost_stmts;
+        instrumentation = t.instrumentation_stmts @ pre_k_updates;
+        warnings = [];
+      };
+  }
+
+let of_exported_summary ?(external_summaries = [])
+    ~(program_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    (summary : Product_kernel_ir.exported_node_summary_ir) : t =
+  let pre_k_updates = pre_k_updates_of_map summary.pre_k_map in
+  let synthetic_trans =
+    List.map
+      (synthetic_transition_of_ir ~pre_k_updates)
+      summary.normalized_ir.reactive_program.transitions
+  in
+  let aut_state_local = { Ast.vname = "__aut_state"; vty = TCustom "aut_state" } in
+  let all_vdecls =
+    let existing_names = List.map (fun (v : vdecl) -> v.vname) summary.signature.locals in
+    if List.mem "__aut_state" existing_names then summary.signature.locals
+    else summary.signature.locals @ [ aut_state_local ]
+  in
+  let callee_names =
+    List.map snd summary.signature.instances |> List.sort_uniq String.compare
+  in
+  let local_summaries =
+    program_summaries
+    |> List.filter_map (fun (s : Product_kernel_ir.exported_node_summary_ir) ->
+           if List.mem s.signature.node_name callee_names
+           then Some (callee_summary_of_exported_summary s)
+           else None)
+  in
+  let imported_summaries =
+    external_summaries
+    |> List.filter_map (fun (s : Product_kernel_ir.exported_node_summary_ir) ->
+           if List.mem s.signature.node_name callee_names
+           then Some (callee_summary_of_exported_summary s)
+           else None)
+  in
+  let callee_summaries =
+    let seen = Hashtbl.create 16 in
+    let add acc (s : callee_summary_view) =
+      if Hashtbl.mem seen s.callee_node_name then acc
+      else (
+        Hashtbl.replace seen s.callee_node_name ();
+        s :: acc)
+    in
+    List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
+  in
+  let synthetic_node : Ast.node =
+    {
+      nname = summary.signature.node_name;
+      inputs = summary.signature.inputs;
+      outputs = summary.signature.outputs;
+      assumes = summary.assumes;
+      guarantees = summary.guarantees;
+      instances = summary.signature.instances;
+      locals = all_vdecls;
+      states = summary.signature.states;
+      init_state = summary.signature.init_state;
+      trans = synthetic_trans;
+      attrs =
+        {
+          uid = None;
+          invariants_user = summary.user_invariants;
+          invariants_state_rel = summary.state_invariants;
+          coherency_goals = summary.coherency_goals;
+        };
+    }
+  in
+  let transitions = List.map transition_of_ast synthetic_trans in
+  let transition_groups = group_transitions transitions in
+  {
+    node_name = summary.signature.node_name;
+    inputs = List.map port_of_vdecl summary.signature.inputs;
+    outputs = List.map port_of_vdecl summary.signature.outputs;
+    locals = List.map port_of_vdecl all_vdecls;
+    instances = List.map instance_of_pair summary.signature.instances;
+    callee_summaries;
+    control_states = summary.signature.states;
+    init_control_state = summary.signature.init_state;
+    transitions;
+    transition_groups;
+    state_branches = state_branches_of_groups transition_groups;
+    assumes = summary.assumes;
+    guarantees = summary.guarantees;
+    user_invariants = summary.user_invariants;
+    state_invariants = summary.state_invariants;
+    coherency_goals = summary.coherency_goals;
+    monitor_state_ctors = collect_mon_state_ctors synthetic_node;
+    kernel_contract = Some (Kernel_guided_contract.node_contract_of_ir summary.normalized_ir);
+  }

@@ -439,3 +439,12 @@ let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list)
     Why_types.env_info =
   let runtime = Why_runtime_view.of_node ~nodes ~external_summaries n in
   prepare_runtime_view ~prefix_fields runtime
+
+let prepare_summary ~(prefix_fields : bool) ?(external_summaries = [])
+    ~(program_summaries : Product_kernel_ir.exported_node_summary_ir list)
+    (summary : Product_kernel_ir.exported_node_summary_ir) :
+    Why_types.env_info =
+  let runtime =
+    Why_runtime_view.of_exported_summary ~external_summaries ~program_summaries summary
+  in
+  prepare_runtime_view ~prefix_fields runtime

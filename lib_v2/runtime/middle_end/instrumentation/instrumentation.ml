@@ -731,7 +731,7 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
   let rendered = Product_debug.render ~node_name:n.semantics.sem_nname ~analysis:product_analysis in
   let kernel_ir =
-    Product_kernel_ir.of_node_analysis ~node_name:n.semantics.sem_nname ~nodes ~external_summaries ~node:n
+    Product_kernel_ir.of_node_analysis ~node_name:n.semantics.sem_nname ~nodes ~external_summaries ~node:node
       ~analysis:product_analysis
   in
   let info =

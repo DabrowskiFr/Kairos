@@ -199,6 +199,8 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 coherency_goals = node.attrs.coherency_goals;
                 pre_k_map = source_pre_k_map;
                 delay_spec = Collect.extract_delay_spec node.guarantees;
+                assumes = node.assumes;
+                guarantees = node.guarantees;
               }
             in
             collect (summary :: acc) rest)

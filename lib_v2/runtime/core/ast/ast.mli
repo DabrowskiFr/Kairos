@@ -106,7 +106,7 @@ type 'a ltl =
 [@@deriving yojson]
 
 (* LTL over first‑order formulas. Used for assumes/guarantees. *)
-type fo_ltl = fo ltl
+type fo_ltl = fo ltl [@@deriving yojson]
 
 (* {2 Provenance} Provenance categories allow tracing a VC back to its source. *)
 type origin =
