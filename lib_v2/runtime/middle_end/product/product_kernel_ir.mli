@@ -282,4 +282,8 @@ val export_node_summary :
 
 val render_call_summary_toy_example : string list
 
+val render_historical_clauses : node_ir -> string list
+
+val render_eliminated_clauses : node_ir -> string list
+
 val render_node_ir : node_ir -> string list

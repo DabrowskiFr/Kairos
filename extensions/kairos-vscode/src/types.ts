@@ -119,6 +119,8 @@ export interface Outputs {
   assume_automaton_png_error: string | null;
   product_png: string | null;
   product_png_error: string | null;
+  historical_clauses_text: string;
+  eliminated_clauses_text: string;
   eval_text?: string;
 }
 
@@ -146,6 +148,8 @@ export interface AutomataOutputs {
   product_png: string | null;
   product_png_error: string | null;
   stage_meta: Array<[string, Array<[string, string]>]>;
+  historical_clauses_text: string;
+  eliminated_clauses_text: string;
 }
 
 export interface GoalsReadyPayload {

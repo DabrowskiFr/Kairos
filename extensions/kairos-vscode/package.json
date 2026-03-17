@@ -280,6 +280,16 @@
           ".obc"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "kir",
+        "aliases": [
+          "Kairos IR",
+          "kir"
+        ],
+        "extensions": [
+          ".kir"
+        ]
       }
     ],
     "grammars": [
@@ -287,6 +297,11 @@
         "language": "kairos",
         "scopeName": "source.kairos",
         "path": "./syntaxes/kairos.tmLanguage.json"
+      },
+      {
+        "language": "kir",
+        "scopeName": "source.kir",
+        "path": "./syntaxes/kir.tmLanguage.json"
       }
     ],
     "configuration": {
