@@ -1,0 +1,5 @@
+(library
+ (name kairos_obc)
+ (wrapped false)
+ (modules obc_emit obc_ghost_instrument obc_stage)
+ (libraries kairos_ast kairos_stages kairos_instrumentation))

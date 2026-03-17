@@ -1,9 +1,0 @@
-(executable
- (name probe_vc)
- (modules probe_vc)
- (libraries obcwhy3_lib))
-
-(executable
- (name emit_why_debug)
- (modules emit_why_debug)
- (libraries obcwhy3_lib))

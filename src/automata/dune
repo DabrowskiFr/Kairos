@@ -1,0 +1,8 @@
+(library
+ (name kairos_automata)
+ (wrapped false)
+ (modules
+  automaton_types automaton_config automaton_util automaton_guard automaton_core
+  automaton_engine spot_automaton
+  automata_atoms automata_spec automata_generation)
+ (libraries kairos_ast kairos_logic kairos_stages kairos_utils why3 re))

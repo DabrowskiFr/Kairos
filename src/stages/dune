@@ -1,0 +1,5 @@
+(library
+ (name kairos_stages)
+ (wrapped false)
+ (modules stage_types stage_names stages_info)
+ (libraries kairos_ast))
