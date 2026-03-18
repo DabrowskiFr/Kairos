@@ -4,106 +4,127 @@ Ce document donne une vue rapide de l'architecture, des passes, et des conventio
 
 ## 1. Structure du projet
 
-- `lib/frontend/`
-  Analyse lexicale/syntaxique et construction de l'AST parsé.
-- `lib/core/`
-  Types partagés (AST, logique FO/LTL, provenance, stages, utilitaires).
-- `lib/middle_end/`
-  Passes AST -> AST (génération d'automates, instrumentation, cohérence des contrats).
-- `lib/backend/`
-  Émission OBC+/Why3/DOT, diagnostics et mapping des obligations.
-- `lib/pipeline/`
-  Orchestration de bout en bout, exports, callbacks IDE/CLI.
-- `bin/`
-  Entrées utilisateur (`cli`, IDE).
-- `tests/`
-  Cas de test `ok` / `ko`.
-- `spec/`
-  Notes de formalisation et documents d'architecture.
+```
+kairos-dev/
+├── bin/
+│   ├── cli/          # Exécutables kairos (v1) et kairos_v2
+│   └── lsp/          # Serveur LSP kairos-lsp
+├── lib/
+│   ├── ast/          # Types partagés : AST, fo/fo_ltl, provenance, support
+│   ├── automata/     # Génération d'automates depuis les contrats LTL
+│   ├── instrumentation/  # Passes IR : production, triplets Hoare, élimination
+│   │                     # d'historique, kernel, rendu et visualisation DOT
+│   ├── logic/        # Logique FO/LTL : atomes, simplification, temporel
+│   ├── lsp_protocol/ # Types du protocole LSP Kairos (sérialisés en JSON)
+│   ├── parse/        # Lexer, parser Menhir, dump AST
+│   ├── pipeline/     # Orchestration bout-en-bout, engine_service, I/O
+│   ├── stages/       # Noms et types de stages de pipeline
+│   ├── utils/        # Utilitaires transverses (logging)
+│   └── why3/         # Émission Why3, obligations de preuve, diagnostics
+├── tests/
+│   ├── ok/           # Programmes devant vérifier (*.kairos + *.kobj pré-compilés)
+│   └── ko/           # Programmes devant échouer (*__bad_*.kairos + cores *.kobj)
+├── vscode/           # Extension VS Code (TypeScript)
+└── scripts/
+    ├── validate_ok_ko.sh          # Campagne de validation ok/ko
+    ├── regenerate_bad_code_suite.py   # Génération des variantes __bad_code
+    ├── regenerate_bad_spec_suite.sh   # Génération des variantes __bad_spec
+    └── vscode.sh                  # Build + packaging + installation du plugin
+```
 
-## 2. Pipeline et passes
+## 2. Types principaux
 
-Ordre conceptuel (AST principal):
+- **`fo`** — formule atomique (`FRel`, `FPred`), sans connecteurs booléens.
+- **`fo ltl`** — formule LTL+booléenne (`LAtom fo`, `LTrue`, `LFalse`, `LNot`, `LAnd`, `LOr`, `LImp`, `LX`, `LG`, `LW`).
+- **`fo_o`** — formule annotée avec provenance et localisation (`value : fo ltl`, `origin`, `oid`, `loc`).
 
-1. **Parse** (`frontend`)
-2. **Automata generation** (`middle_end/automata_generation`)
-   Construit les automates de sûreté à partir des contrats temporels.
-3. **Instrumentation** (`middle_end/instrumentation`)
-   Injecte obligations/hypothèses locales par transition (GenHyp / GenObl).
-4. **Contracts** (`middle_end/contracts`)
-   Vérifie et complète la cohérence des contrats utilisateur.
-5. **OBC stage** (`backend/obc`)
-   Normalisation/émission OBC+.
-6. **Why stage** (`backend/why`)
-   Génération Why3 et obligations de preuve.
-7. **Prove**
-   Exécution du prouveur via la couche pipeline/runner.
+## 3. Pipeline et passes
 
-Notes:
+```
+.kairos ──► Parse ──► Pass 3: raw_node
+                  ──► Pass 4: annotated_node  (triplets Hoare)
+                  ──► Pass 5: verified_node   (élimination d'historique)
+                  ──► kernel node_ir          (produit automate × IR)
+                  ──► Why3                    (obligations de preuve)
+                  ──► Prouveurs (Alt-Ergo, Z3, CVC5...)
+```
 
-- L'AST de parsing reste une représentation source.
-- Les enrichissements de preuve sont portés par les passes middle-end et backend.
-- Le mode legacy runtime monitor a été retiré: une seule méthode est supportée.
+| Passe | Module | Rôle |
+|---|---|---|
+| Parse | `lib/parse/` | Lexer + parser Menhir → AST |
+| Automata | `lib/automata/` | Automates de sûreté depuis contrats LTL |
+| Instrumentation | `lib/instrumentation/frontend.ml` | Dispatch des passes IR |
+| IR Production (Pass 4) | `lib/instrumentation/ir_production.ml` | Calcul des triplets Hoare |
+| History Elimination (Pass 5) | `lib/instrumentation/history_elimination.ml` | Élimination des variables d'historique |
+| Kernel | `lib/instrumentation/product_kernel_ir.ml` | Produit automate × IR vérifié |
+| Why3 | `lib/why3/` | Génération des obligations et appels prouveurs |
 
-## 3. Conventions de nommage
+## 4. Tests
 
-### 3.1 Dossiers et fichiers
+Les tests se trouvent dans `tests/ok/` (programmes corrects) et `tests/ko/` (programmes incorrects).
 
-- Utiliser `snake_case`.
-- Préférer des noms orientés intention:
-  - `automata_generation`, `instrumentation`, `contracts`, `pipeline`.
-- Éviter les tirets dans les chemins (`middle_end`, pas `middle-end`).
+**Convention de nommage des fichiers ko :**
+- `*__bad_code.kairos` — bug dans l'implémentation
+- `*__bad_invariant.kairos` — invariant incorrect
+- `*__bad_spec.kairos` — spécification incorrecte
 
-### 3.2 Modules / types / fonctions
+**Script de validation :**
+```bash
+./scripts/validate_ok_ko.sh [repo_root] [timeout_par_goal_s] [mode]
+```
+Modes disponibles : `legacy` | `with_calls` | `without_calls` | `split`
 
-- Types: noms explicites (ex: `automata_info`, `instrumentation_info`).
-- Fonctions: verbe + objet (`build_for_node`, `transform_node_with_info`).
-- Variables: privilégier le domaine métier (`instrumentation_updates`, `automata_stage`).
-- Éviter les noms historiques ambigus (`monitor_*`) pour tout nouveau code.
+La partition `with_calls` / `without_calls` est calculée dynamiquement : un fichier est `with_calls` s'il contient une déclaration `import`.
 
-### 3.3 Stages et labels
+## 5. Visualisation IR (VSCode)
 
-- Stage AST: `parsed`, `automaton`, `instrumentation`, `contracts`, `obc`.
-- `monitor` peut rester accepté comme alias d'entrée si nécessaire pour compatibilité CLI, mais ne doit plus être utilisé comme nom canonique en interne.
+Le plugin expose la commande **"Kairos: Open IR Visualization"** qui génère via `kairos_v2 --dump-ir-dir` et affiche trois graphes DOT par nœud :
+- **Annotated** — après calcul des triplets (requires en rouge, ensures en vert)
+- **Verified** — après élimination de l'historique
+- **Kernel** — produit final envoyé à Why3
 
-## 4. Règles de contribution
+## 6. Conventions de nommage
 
-- Ne pas mélanger refactor de nommage et changement fonctionnel dans un même commit, sauf demande explicite.
+- Dossiers et fichiers : `snake_case`.
+- Types : noms explicites (`annotated_node`, `fo_o`, `instrumentation_info`).
+- Fonctions : verbe + objet (`build_for_node`, `dump_ir_nodes`).
+- Ne jamais réintroduire `FTrue`/`FFalse`/`FNot`/`FAnd`/`FOr`/`FImp` dans le type `fo` — ces constructeurs vivent désormais dans `fo ltl` (`LTrue`, `LFalse`, `LNot`, `LAnd`, `LOr`, `LImp`).
+
+## 7. Règles de contribution
+
+- Ne pas mélanger refactor de nommage et changement fonctionnel dans un même commit.
 - Préserver les invariants de traçabilité (origines, IDs d'obligations, spans).
 - Ajouter/adapter les tests `tests/ok` et `tests/ko` pour toute évolution de comportement.
-- Mettre à jour `spec/` quand une transformation de pipeline est modifiée.
+- Mettre à jour les `.kobj` pré-compilés si la sérialisation change.
 
-## 5. Validation minimale avant PR
-
-Exécuter au minimum:
+## 8. Validation avant PR
 
 ```bash
-dune build
+# 1. Build OCaml
+eval $(opam env) && dune build
+
+# 2. Campagne de validation complète
+./scripts/validate_ok_ko.sh . 5 legacy
 ```
 
-Puis vérifier les programmes de référence:
+## 9. Installation du plugin VSCode
 
 ```bash
-for f in tests/ok/inputs/*.kairos; do
-  dune exec -- kairos --log-level quiet --prove "$f"
-done
+./scripts/vscode.sh            # build + compile TS + package + install
+./scripts/vscode.sh --no-open  # même sans ouvrir VS Code
 ```
 
-Optionnel (quand pertinent):
+Puis dans VS Code : `Cmd+Shift+P` → **Developer: Reload Window**.
 
-```bash
-dune runtest
-```
+## 10. Où commencer selon le type de changement
 
-## 6. Où commencer selon le type de changement
-
-- Changement syntaxe/AST: `lib/frontend`, `lib/core/ast`.
-- Changement logique de passes: `lib/middle_end/*`.
-- Changement obligations Why3: `lib/backend/why`.
-- Changement exports/CLI/IDE: `lib/pipeline`, `bin/cli`, `bin/ide`.
-
-## 7. Documentation à maintenir
-
-- `README.md` pour la vue utilisateur.
-- `spec/formalization_pure_automate.md` pour la sémantique/formalisation.
-- `spec/ARCHITECTURE.md` pour la vue composants et pipeline.
+| Type de changement | Fichiers concernés |
+|---|---|
+| Syntaxe / AST | `lib/parse/`, `lib/ast/` |
+| Logique FO/LTL | `lib/logic/`, `lib/ast/ast.ml` |
+| Passes IR | `lib/instrumentation/` |
+| Émission Why3 | `lib/why3/` |
+| Orchestration pipeline | `lib/pipeline/` |
+| CLI | `bin/cli/` |
+| LSP / VSCode | `bin/lsp/`, `lib/lsp_protocol/`, `vscode/src/` |
+| Tests | `tests/ok/`, `tests/ko/`, `scripts/validate_ok_ko.sh` |
