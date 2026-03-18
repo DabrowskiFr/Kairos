@@ -242,6 +242,7 @@ let compile_state_body (env : env)
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
     (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (dst_inv_asserts : (Ast.ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.expr =
   let entry_asserts =
     match List.assoc_opt st branch_entry_asserts with
@@ -275,7 +276,14 @@ let compile_state_body (env : env)
         let block_exprs =
           List.map (compile_action_block env call_asserts local_assert_terms) t.action_blocks
         in
-        let body = seq_exprs (block_exprs @ [ assign_dst ]) in
+        let dst_inv_assert_exprs =
+          match List.assoc_opt t.dst_state dst_inv_asserts with
+          | None | Some [] -> []
+          | Some (first :: rest_terms) ->
+              let conj = List.fold_left term_and first rest_terms in
+              [ mk_expr (Eassert (Expr.Assert, conj)) ]
+        in
+        let body = seq_exprs (block_exprs @ [ assign_dst ] @ dst_inv_assert_exprs) in
         let trans_body = body in
         mk_expr (Eif (guard, trans_body, chain rest))
   in
@@ -286,9 +294,10 @@ let compile_state_branch_ast (env : env)
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
     (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (dst_inv_asserts : (Ast.ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
   let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
-  let body = compile_state_body env call_asserts branch_entry_asserts branch_sticky_asserts st trs in
+  let body = compile_state_body env call_asserts branch_entry_asserts branch_sticky_asserts dst_inv_asserts st trs in
   (pat, body)
 
 let compile_state_branch (env : env)
@@ -296,19 +305,22 @@ let compile_state_branch (env : env)
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
     (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (dst_inv_asserts : (Ast.ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
-  compile_state_branch_ast env call_asserts branch_entry_asserts branch_sticky_asserts st trs
+  compile_state_branch_ast env call_asserts branch_entry_asserts branch_sticky_asserts dst_inv_asserts st trs
 
 let compile_transitions (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
     (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (dst_inv_asserts : (Ast.ident * Ptree.term list) list)
     (branches_view : Why_runtime_view.state_branch_view list) : Ptree.expr =
   let branches =
     List.map
       (fun (branch : Why_runtime_view.state_branch_view) ->
         compile_state_branch_ast env call_asserts branch_entry_asserts branch_sticky_asserts
+          dst_inv_asserts
           branch.branch_state
           branch.branch_transitions)
       branches_view
@@ -324,6 +336,7 @@ let compile_runtime_view (env : env)
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
     (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
     (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+    (dst_inv_asserts : (Ast.ident * Ptree.term list) list)
     (runtime_view : Why_runtime_view.t) : Ptree.expr =
-  compile_transitions env call_asserts branch_entry_asserts branch_sticky_asserts
+  compile_transitions env call_asserts branch_entry_asserts branch_sticky_asserts dst_inv_asserts
     runtime_view.state_branches

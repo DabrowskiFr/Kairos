@@ -780,7 +780,9 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
                     step_ctx (FactFormula step.assume_edge.guard);
                     step_ctx (FactFormula step.guarantee_edge.guard);
                   ];
-                conclusions = [ current (FactProgramState step.dst.prog_state) ];
+                conclusions =
+                  current (FactProgramState step.dst.prog_state)
+                  :: invariants_for_state step.dst.prog_state;
               } : generated_clause_ir);
               ({
                 origin = OriginPropagationAutomatonCoherence;

@@ -316,10 +316,34 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
          []
     |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
+  (* Destination-state invariant asserts: after each assign_dst inside a transition
+     branch, assert the invariant of the destination state. This generates early VCs
+     (low index) in step_from_X functions, ensuring they are reached even when using
+     --max-proof-traces N with small N. *)
+  let dst_inv_asserts =
+    match runtime_view.kernel_contract with
+    | None -> []
+    | Some _ ->
+        let state_inv_terms_for state_name =
+          List.filter_map
+            (fun (inv : Ast.invariant_state_rel) ->
+              if (inv.is_eq && inv.state = state_name)
+                 || ((not inv.is_eq) && inv.state <> state_name)
+              then Some (compile_ltl_term_shift env 1 inv.formula)
+              else None)
+            runtime_view.state_invariants
+        in
+        List.filter_map
+          (fun state_name ->
+            match state_inv_terms_for state_name with
+            | [] -> None
+            | terms -> Some (state_name, terms))
+          (List.sort_uniq String.compare runtime_view.control_states)
+  in
   let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:runtime_view in
   let body =
     compile_runtime_view env call_asserts branch_entry_asserts branch_sticky_asserts
-      runtime_view
+      dst_inv_asserts runtime_view
   in
   let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
     let hid = Provenance.fresh_id () in
@@ -471,7 +495,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         in
         let helper_body =
           compile_state_body env call_asserts branch_entry_asserts branch_sticky_asserts
-            branch.branch_state branch.branch_transitions
+            dst_inv_asserts branch.branch_state branch.branch_transitions
         in
         let helper_body = mk_expr (Esequence (helper_body, ret_expr)) in
         let fn =

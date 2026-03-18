@@ -483,6 +483,24 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
         let terms_b, labeled_b, states_b = from_source_product_summaries in
         (terms_a @ terms_b, labeled_a @ labeled_b, states_a @ states_b)
   in
+  let dst_state_inv_post_terms =
+    match kernel_contract with
+    | None -> []
+    | Some _ ->
+        runtime.control_states
+        |> List.sort_uniq String.compare
+        |> List.fold_left
+             (fun terms state_name ->
+               let invariants = state_invariant_terms_for_state state_name |> uniq_terms in
+               match invariants with
+               | [] -> terms
+               | inv :: invs ->
+                   let premise = current_state_eq state_name in
+                   let body = List.fold_left term_and inv invs |> simplify_term_bool in
+                   let term = simplify_term_bool (term_implies premise body) in
+                   term :: terms)
+             []
+  in
   let has_instance_calls = Why_runtime_view.has_instance_calls runtime in
   let instance_relation_term ?(in_post = false) (rel : Product_kernel_ir.instance_relation_ir) :
       Ptree.term option =
@@ -598,7 +616,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
   let instance_invariants = link_contracts.instance_invariants in
   let instance_delay_links_inv = link_contracts.instance_delay_links_inv in
   let link_invariants = link_contracts.link_invariants in
-  let post = kernel_post_terms @ post_contract_terms in
+  let post = kernel_post_terms @ dst_state_inv_post_terms @ post_contract_terms in
   let pre =
     link_invariants @ link_terms_pre @ pre_contract
     |> uniq_terms
