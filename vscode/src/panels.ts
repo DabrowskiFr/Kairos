@@ -200,6 +200,148 @@ ${panes}
   }
 }
 
+// ---------------------------------------------------------------------------
+// IR Panel — visualizes the annotated, verified and kernel IR graphs
+// ---------------------------------------------------------------------------
+
+export interface IrNodeGraphs {
+  name: string;
+  annotatedPng: string; // base64 data URI, or "" if unavailable
+  annotatedError: string;
+  verifiedPng: string;
+  verifiedError: string;
+  kernelPng: string;
+  kernelError: string;
+}
+
+export class IrPanel {
+  private panel: vscode.WebviewPanel | null = null;
+
+  show(nodes: IrNodeGraphs[]): void {
+    const column = preferredViewColumn();
+    if (!this.panel) {
+      this.panel = vscode.window.createWebviewPanel("kairosIr", "Kairos IR", column, {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: []
+      });
+      this.panel.onDidDispose(() => {
+        this.panel = null;
+      });
+    }
+    this.panel.reveal(column);
+    this.renderNodes(nodes);
+  }
+
+  private renderNodes(nodes: IrNodeGraphs[]): void {
+    if (!this.panel) {
+      return;
+    }
+    const webview = this.panel.webview;
+    const stages = ["annotated", "verified", "kernel"] as const;
+    const stageLabels: Record<string, string> = {
+      annotated: "Annotated",
+      verified: "Verified",
+      kernel: "Kernel"
+    };
+
+    const panes = nodes
+      .flatMap((n) =>
+        stages.map((s) => {
+          const pngSrc = s === "annotated" ? n.annotatedPng : s === "verified" ? n.verifiedPng : n.kernelPng;
+          const err = s === "annotated" ? n.annotatedError : s === "verified" ? n.verifiedError : n.kernelError;
+          const content = pngSrc
+            ? `<img alt="${escapeHtml(n.name)} ${s}" src="${escapeHtml(pngSrc)}">`
+            : err
+              ? `<div class="muted error">${escapeHtml(err)}</div>`
+              : `<div class="muted">No ${s} IR graph for ${escapeHtml(n.name)}.</div>`;
+          return `<div class="pane" id="pane-${escapeHtml(n.name)}-${s}" style="display:none">${content}</div>`;
+        })
+      )
+      .join("\n");
+
+    const nodeOptions =
+      nodes.length > 1
+        ? nodes
+            .map((n) => `<option value="${escapeHtml(n.name)}">${escapeHtml(n.name)}</option>`)
+            .join("")
+        : "";
+
+    const firstNode = nodes[0]?.name ?? "";
+    const scriptNonce = nonce();
+
+    webview.html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: var(--vscode-editor-background, #fbfbf9);
+      --panel: color-mix(in srgb, var(--bg) 96%, #ffffff 4%);
+      --fg: var(--vscode-editor-foreground, #202020);
+      --muted: var(--vscode-descriptionForeground, #666);
+      --accent: var(--vscode-focusBorder, #0f6cbd);
+      --border: var(--vscode-panel-border, #d9d9d9);
+      --soft: color-mix(in srgb, var(--accent) 10%, var(--bg) 90%);
+    }
+    body { margin: 0; font-family: var(--vscode-font-family); background: var(--bg); color: var(--fg); }
+    .shell { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+    .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+    select, button { font: inherit; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--fg); padding: 6px 10px; cursor: pointer; }
+    .tab.active { background: var(--soft); border-color: var(--accent); }
+    .canvasWrap { min-height: 0; overflow: auto; padding: 24px; background: var(--bg); }
+    .canvasWrap img { max-width: 100%; background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.10); display: block; }
+    .muted { color: var(--muted); font-style: italic; padding: 16px; }
+    .error { color: #c00; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="toolbar">
+    ${nodeOptions ? `<select id="nodeSelect">${nodeOptions}</select>` : ""}
+    ${stages.map((s) => `<button class="tab" data-stage="${s}">${stageLabels[s]}</button>`).join("\n    ")}
+  </div>
+  <div class="canvasWrap" id="canvas">
+${panes}
+  </div>
+</div>
+<script nonce="${scriptNonce}">
+  var nodes = ${JSON.stringify(nodes.map((n) => n.name))};
+  var stages = ["annotated","verified","kernel"];
+  var currentNode = ${JSON.stringify(firstNode)};
+  var currentStage = "annotated";
+
+  function show() {
+    nodes.forEach(function(n) {
+      stages.forEach(function(s) {
+        var el = document.getElementById("pane-" + n + "-" + s);
+        if (el) el.style.display = (n === currentNode && s === currentStage) ? "block" : "none";
+      });
+    });
+    document.querySelectorAll(".tab").forEach(function(t) {
+      t.classList.toggle("active", t.dataset.stage === currentStage);
+    });
+  }
+
+  document.querySelectorAll(".tab").forEach(function(btn) {
+    btn.addEventListener("click", function() { currentStage = btn.dataset.stage; show(); });
+  });
+
+  var sel = document.getElementById("nodeSelect");
+  if (sel) {
+    sel.addEventListener("change", function() { currentNode = sel.value; show(); });
+  }
+
+  show();
+</script>
+</body>
+</html>`;
+  }
+}
+
 export class EvalPanel {
   private panel: vscode.WebviewPanel | null = null;
   private host: PanelHost | null = null;

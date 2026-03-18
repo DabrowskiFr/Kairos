@@ -1,5 +1,6 @@
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
 import { LanguageClient, LanguageClientOptions, ServerOptions } from "vscode-languageclient/node";
@@ -12,6 +13,8 @@ import {
   DashboardPanel,
   ExplainFailurePanel,
   EvalPanel,
+  IrPanel,
+  IrNodeGraphs,
   PanelHost,
   PipelinePanel
 } from "./panels";
@@ -316,6 +319,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const artifactsPanel = new ArtifactsPanel(state);
   const pipelinePanel = new PipelinePanel(state);
   const comparePanel = new ComparePanel(state);
+  const irPanel = new IrPanel();
   const openPanels = new Set<PanelId>(session.openPanels);
 
   async function resolveKairosContext(
@@ -700,6 +704,109 @@ ${rows
     automataPanel.show();
   }
 
+  async function showIrPanel(): Promise<void> {
+    const ctx = await resolveKairosContext({ showWarning: true });
+    if (!ctx) {
+      return;
+    }
+    const inputFile = ctx.inputFile;
+    const lspCfg = vscode.workspace.getConfiguration("kairos.lsp");
+    const lspPath = lspCfg.get<string>("serverPath", "kairos-lsp");
+    // Derive CLI binary: replace 'kairos-lsp' with 'kairos_v2' in the path.
+    const cliPath = path.isAbsolute(lspPath)
+      ? path.join(path.dirname(lspPath), "kairos_v2")
+      : "kairos_v2";
+    const dotCfg = vscode.workspace.getConfiguration("kairos");
+    const dotBin = dotCfg.get<string>("graphviz.dotPath", "dot");
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kairos-ir-"));
+    try {
+      try {
+        execFileSync(cliPath, ["--dump-ir-dir", tmpDir, inputFile], {
+          encoding: "utf8",
+          timeout: 30_000,
+          maxBuffer: 32 * 1024 * 1024
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Kairos IR generation failed: ${msg}`);
+        return;
+      }
+
+      // Collect node names from generated files.
+      const files = fs.readdirSync(tmpDir);
+      const nodeNames = [
+        ...new Set(
+          files
+            .filter((f) => f.endsWith(".annotated.dot") || f.endsWith(".verified.dot") || f.endsWith(".kernel.dot"))
+            .map((f) => f.replace(/\.(annotated|verified|kernel)\.dot$/, ""))
+        )
+      ].sort();
+
+      if (nodeNames.length === 0) {
+        vscode.window.showWarningMessage("No IR graphs were generated. The file may not have any nodes.");
+        return;
+      }
+
+      function renderDotToPng(dotText: string): { png: string; error: string } {
+        const dotCandidates = path.isAbsolute(dotBin)
+          ? [dotBin]
+          : [dotBin, "/opt/homebrew/bin/dot", "/usr/local/bin/dot", "/opt/local/bin/dot"];
+        for (const candidate of dotCandidates) {
+          if (path.isAbsolute(candidate) && !fs.existsSync(candidate)) {
+            continue;
+          }
+          try {
+            const buf = execFileSync(candidate, ["-Tpng"], {
+              encoding: null,
+              input: dotText,
+              timeout: 15_000,
+              maxBuffer: 32 * 1024 * 1024
+            });
+            return { png: `data:image/png;base64,${buf.toString("base64")}`, error: "" };
+          } catch (e) {
+            return { png: "", error: e instanceof Error ? e.message : String(e) };
+          }
+        }
+        return { png: "", error: "Graphviz dot not found." };
+      }
+
+      function readDot(nodeName: string, suffix: string): string {
+        const p = path.join(tmpDir, `${nodeName}.${suffix}.dot`);
+        return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
+      }
+
+      const nodes: IrNodeGraphs[] = nodeNames.map((name) => {
+        const aDot = readDot(name, "annotated");
+        const vDot = readDot(name, "verified");
+        const kDot = readDot(name, "kernel");
+        const aResult = aDot ? renderDotToPng(aDot) : { png: "", error: "Not available." };
+        const vResult = vDot ? renderDotToPng(vDot) : { png: "", error: "Not available." };
+        const kResult = kDot ? renderDotToPng(kDot) : { png: "", error: "Not available." };
+        return {
+          name,
+          annotatedPng: aResult.png,
+          annotatedError: aResult.error,
+          verifiedPng: vResult.png,
+          verifiedError: vResult.error,
+          kernelPng: kResult.png,
+          kernelError: kResult.error
+        };
+      });
+
+      irPanel.show(nodes);
+    } finally {
+      // Clean up tmp directory asynchronously (best effort)
+      setTimeout(() => {
+        try {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+        } catch (_) {
+          /* ignore */
+        }
+      }, 5000);
+    }
+  }
+
   async function showDashboardPanel(): Promise<void> {
     openPanels.add("dashboard");
     await dashboardPanel.show();
@@ -1065,6 +1172,7 @@ ${rows
     vscode.commands.registerCommand("kairos.evalPanel", showEvalPanel),
     vscode.commands.registerCommand("kairos.pipelinePanel", openPipelinePanel),
     vscode.commands.registerCommand("kairos.compareAutomata", openComparePanel),
+    vscode.commands.registerCommand("kairos.irPanel", showIrPanel),
     vscode.commands.registerCommand("kairos.exportHtmlReport", exportHtmlReport),
     vscode.commands.registerCommand("kairos.openRecentFile", openRecentFile),
     vscode.commands.registerCommand("kairos.eval", showEvalPanel),

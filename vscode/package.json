@@ -28,6 +28,7 @@
     "onCommand:kairos.evalPanel",
     "onCommand:kairos.pipelinePanel",
     "onCommand:kairos.compareAutomata",
+    "onCommand:kairos.irPanel",
     "onCommand:kairos.exportHtmlReport",
     "onCommand:kairos.openRecentFile",
     "onCommand:kairos.diffObc",
@@ -118,6 +119,10 @@
       {
         "command": "kairos.compareAutomata",
         "title": "Kairos: Compare Current and Previous Automata"
+      },
+      {
+        "command": "kairos.irPanel",
+        "title": "Kairos: Open IR Visualization"
       },
       {
         "command": "kairos.exportHtmlReport",
