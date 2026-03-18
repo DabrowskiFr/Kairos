@@ -15,6 +15,7 @@ transitions
     to Run {
       call d1(x) returns (t);
       call d2(t) returns (y);
+      y := 0;
     }
   Run:
     to Run {
