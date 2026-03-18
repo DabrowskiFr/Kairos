@@ -19,7 +19,7 @@ if [[ -z "$REPO_ROOT" || ! -d "$REPO_ROOT" ]]; then
 fi
 
 # TS sources come from the current worktree; built artifacts go there too.
-EXT_DIR="$WORKTREE_ROOT/extensions/kairos-vscode"
+EXT_DIR="$WORKTREE_ROOT/vscode"
 OPEN_VSCODE=true
 
 for arg in "$@"; do
