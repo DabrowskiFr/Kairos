@@ -5,9 +5,54 @@ let write_target out text =
   | "-" -> print_string text
   | path -> Io.write_text path text
 
+let write_file dir name text =
+  let path = Filename.concat dir name in
+  Io.write_text path text
+
+let ensure_dir dir =
+  if not (Sys.file_exists dir) then
+    ignore (Sys.command (Printf.sprintf "mkdir -p %s" (Filename.quote dir)))
+
 let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
-    dump_prune_reasons dump_why dump_why3_vc dump_smt2 prove prover
+    dump_prune_reasons dump_why dump_why3_vc dump_smt2 dump_ir_dir prove prover
     prover_cmd file =
+  let () =
+    match dump_ir_dir with
+    | None -> ()
+    | Some dir -> (
+        ensure_dir dir;
+        match Engine_service.dump_ir_nodes ~engine:Engine_service.V2 ~input_file:file with
+        | Error err ->
+            Printf.eprintf "dump-ir-dir error: %s\n" (Pipeline.error_to_string err)
+        | Ok ir ->
+            List.iter
+              (fun (raw : Kairos_ir.raw_node) ->
+                let name = raw.node_name in
+                write_file dir (name ^ ".raw.kir") (Kairos_ir_render.render_raw_node raw))
+              ir.raw_ir_nodes;
+            List.iter
+              (fun (ann : Kairos_ir.annotated_node) ->
+                let name = ann.raw.node_name in
+                write_file dir (name ^ ".annotated.kir")
+                  (Kairos_ir_render.render_annotated_node ann);
+                write_file dir (name ^ ".annotated.dot")
+                  (Kairos_ir_dot.dot_of_annotated_node ann))
+              ir.annotated_ir_nodes;
+            List.iter
+              (fun (ver : Kairos_ir.verified_node) ->
+                let name = ver.node_name in
+                write_file dir (name ^ ".verified.kir")
+                  (Kairos_ir_render.render_verified_node ver);
+                write_file dir (name ^ ".verified.dot")
+                  (Kairos_ir_dot.dot_of_verified_node ver))
+              ir.verified_ir_nodes;
+            List.iter
+              (fun (ker : Product_kernel_ir.node_ir) ->
+                let name = ker.reactive_program.node_name in
+                write_file dir (name ^ ".kernel.dot")
+                  (Kairos_ir_dot.dot_of_kernel_node_ir ker))
+              ir.kernel_ir_nodes)
+  in
   let dump_mode_count =
     List.fold_left (fun acc b -> if b then acc + 1 else acc) 0
       [
@@ -166,6 +211,15 @@ let cmd =
       & opt (some string) None
       & info [ "dump-smt2" ] ~docv:"FILE" ~doc:"Dump SMT-LIB tasks to FILE.")
   in
+  let dump_ir_dir =
+    Arg.(
+      value
+      & opt (some string) None
+      & info [ "dump-ir-dir" ] ~docv:"DIR"
+          ~doc:
+            "Dump raw/annotated/verified IR (.kir) and DOT graphs (.dot) to DIR. \
+             Compatible with --prove and Why3 options.")
+  in
   let prove = Arg.(value & flag & info [ "prove" ] ~doc:"Run prover on generated Why3 obligations.") in
   let prover =
     Arg.(
@@ -183,7 +237,7 @@ let cmd =
     Term.(
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_automata $ dump_product $ dump_obligations_map
-       $ dump_prune_reasons $ dump_why $ dump_why3_vc $ dump_smt2
+       $ dump_prune_reasons $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_ir_dir
        $ prove $ prover $ prover_cmd $ file))
   in
   Cmd.v

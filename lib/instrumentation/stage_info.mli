@@ -49,6 +49,8 @@ type instrumentation_info = {
   kernel_ir_nodes : Product_kernel_ir.node_ir list;
   (** Pass 3 output: raw IR nodes (no Hoare triples). *)
   raw_ir_nodes : Kairos_ir.raw_node list;
+  (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)
+  annotated_ir_nodes : Kairos_ir.annotated_node list;
   (** Pass 5 output: verified IR nodes (history eliminated, ready for Why3). *)
   verified_ir_nodes : Kairos_ir.verified_node list;
   kernel_pipeline_lines : string list;

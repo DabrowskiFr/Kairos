@@ -41,6 +41,7 @@ type instrumentation_info = {
   atom_count : int;
   kernel_ir_nodes : Product_kernel_ir.node_ir list;
   raw_ir_nodes : Kairos_ir.raw_node list;
+  annotated_ir_nodes : Kairos_ir.annotated_node list;
   verified_ir_nodes : Kairos_ir.verified_node list;
   kernel_pipeline_lines : string list;
   warnings : string list;
@@ -68,6 +69,7 @@ let empty_instrumentation_info : instrumentation_info =
     atom_count = 0;
     kernel_ir_nodes = [];
     raw_ir_nodes = [];
+    annotated_ir_nodes = [];
     verified_ir_nodes = [];
     kernel_pipeline_lines = [];
     warnings = [];

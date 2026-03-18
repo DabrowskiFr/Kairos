@@ -21,6 +21,16 @@ val obligations_pass :
 val compile_object :
   engine:engine -> input_file:string -> (Kairos_object.t, Pipeline.error) result
 
+type ir_nodes = Pipeline_v2_indep.ir_nodes = {
+  raw_ir_nodes : Kairos_ir.raw_node list;
+  annotated_ir_nodes : Kairos_ir.annotated_node list;
+  verified_ir_nodes : Kairos_ir.verified_node list;
+  kernel_ir_nodes : Product_kernel_ir.node_ir list;
+}
+
+val dump_ir_nodes :
+  engine:engine -> input_file:string -> (ir_nodes, Pipeline.error) result
+
 val eval_pass :
   engine:engine -> input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->
   (string, Pipeline.error) result

@@ -24,6 +24,17 @@ let compile_object ~engine ~input_file =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.compile_object ~input_file
 
+type ir_nodes = Pipeline_v2_indep.ir_nodes = {
+  raw_ir_nodes : Kairos_ir.raw_node list;
+  annotated_ir_nodes : Kairos_ir.annotated_node list;
+  verified_ir_nodes : Kairos_ir.verified_node list;
+  kernel_ir_nodes : Product_kernel_ir.node_ir list;
+}
+
+let dump_ir_nodes ~engine ~input_file =
+  match normalize engine with
+  | V2 -> Pipeline_v2_indep.dump_ir_nodes ~input_file
+
 let eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.eval_pass ~input_file ~trace_text ~with_state ~with_locals

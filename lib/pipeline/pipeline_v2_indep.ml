@@ -106,6 +106,25 @@ let build_ast_with_info ~input_file () :
     Ok (asts, infos)
   with exn -> Error (Pipeline.Stage_error (Printexc.to_string exn))
 
+type ir_nodes = {
+  raw_ir_nodes : Kairos_ir.raw_node list;
+  annotated_ir_nodes : Kairos_ir.annotated_node list;
+  verified_ir_nodes : Kairos_ir.verified_node list;
+  kernel_ir_nodes : Product_kernel_ir.node_ir list;
+}
+
+let dump_ir_nodes ~input_file : (ir_nodes, Pipeline.error) result =
+  match build_ast_with_info ~input_file () with
+  | Error _ as e -> e
+  | Ok (_asts, infos) ->
+      let i = Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info in
+      Ok {
+        raw_ir_nodes = i.raw_ir_nodes;
+        annotated_ir_nodes = i.annotated_ir_nodes;
+        verified_ir_nodes = i.verified_ir_nodes;
+        kernel_ir_nodes = i.kernel_ir_nodes;
+      }
+
 let compile_object ~input_file : (Kairos_object.t, Pipeline.error) result =
   match build_ast_with_info ~input_file () with
   | Error _ as err -> err

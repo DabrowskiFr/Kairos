@@ -534,6 +534,7 @@ let empty_instrumentation_info ~(states : Automaton_engine.residual_state list) 
     Stage_info.atom_count = List.length atom_names;
     Stage_info.kernel_ir_nodes = [];
     Stage_info.raw_ir_nodes = [];
+    Stage_info.annotated_ir_nodes = [];
     Stage_info.verified_ir_nodes = [];
     Stage_info.kernel_pipeline_lines = [];
     Stage_info.warnings = [];
@@ -739,6 +740,7 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
       (empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names) with
       Stage_info.kernel_ir_nodes = [ kernel_ir ];
       Stage_info.raw_ir_nodes = [ raw_ir ];
+      Stage_info.annotated_ir_nodes = [ annotated_ir ];
       Stage_info.verified_ir_nodes = [ verified_ir ];
       Stage_info.kernel_pipeline_lines = Product_kernel_ir.render_node_ir kernel_ir;
       Stage_info.guarantee_automaton_lines = rendered.guarantee_automaton_lines;
