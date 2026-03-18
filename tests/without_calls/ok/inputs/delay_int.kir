@@ -1,7 +1,0 @@
-[delay_int] state (Init, A0, G0)
-[delay_int] state (Run, A0, G1)
-[delay_int] state (Run, A0, G2)
-[delay_int] (Init, A0, G0) -- Init / A[0->0]:true / G[0->1]:true --> (Run, A0, G1) [safe]
-[delay_int] (Run, A0, G1) -- Run / A[0->0]:true / G[1->1]:{y} = pre(x) --> (Run, A0, G1) [safe]
-[delay_int] (Run, A0, G1) -- Run / A[0->0]:true / G[1->2]:not {y} = pre(x) --> (Run, A0, G2) [bad_G]
-[delay_int] (Run, A0, G2) -- Run / A[0->0]:true / G[2->2]:true --> (Run, A0, G2) [bad_G]

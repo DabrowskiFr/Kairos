@@ -12,6 +12,11 @@ report_dir="$repo_root/_build/validation"
 
 mkdir -p "$report_dir"
 
+# Returns 0 if the file uses import (with_calls), 1 otherwise (without_calls)
+has_import() {
+  rg -q '^import ' "$1"
+}
+
 run_with_file_timeout() {
   local stdout_file="$1"
   local stderr_file="$2"
@@ -128,10 +133,13 @@ classify_ko() {
   rm -f "$tmp" "$tmp.stderr"
 }
 
+# run_suite NAME OK_DIR KO_DIR [FILTER]
+# FILTER: "all" (default) | "with_calls" | "without_calls"
 run_suite() {
   local suite_name="$1"
   local ok_dir="$2"
   local ko_dir="$3"
+  local filter="${4:-all}"
   local ok_report="$report_dir/${suite_name}_ok_report.tsv"
   local ko_report="$report_dir/${suite_name}_ko_report.tsv"
   local summary_report="$report_dir/${suite_name}_summary.txt"
@@ -143,6 +151,10 @@ run_suite() {
     compile_kobjs_for_dir "$ok_dir"
     for file in "$ok_dir"/*.kairos; do
       [ -e "$file" ] || continue
+      case "$filter" in
+        with_calls)    has_import "$file" || continue ;;
+        without_calls) has_import "$file" && continue ;;
+      esac
       classify_ok "$file"
     done
   } > "$ok_report_tmp"
@@ -152,6 +164,10 @@ run_suite() {
     compile_kobjs_for_dir "$ko_dir"
     for file in "$ko_dir"/*__bad_*.kairos; do
       [ -e "$file" ] || continue
+      case "$filter" in
+        with_calls)    has_import "$file" || continue ;;
+        without_calls) has_import "$file" && continue ;;
+      esac
       classify_ko "$file"
     done
   } > "$ko_report_tmp"
@@ -186,20 +202,23 @@ run_suite() {
   cat "$summary_report"
 }
 
+ok_dir="$repo_root/tests/ok/inputs"
+ko_dir="$repo_root/tests/ko/inputs"
+
 case "$suite_mode" in
   legacy)
-    run_suite "legacy" "$repo_root/tests/ok/inputs" "$repo_root/tests/ko/inputs"
+    run_suite "legacy" "$ok_dir" "$ko_dir"
     ;;
   with_calls)
-    run_suite "with_calls" "$repo_root/tests/with_calls/ok/inputs" "$repo_root/tests/with_calls/ko/inputs"
+    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls"
     ;;
   without_calls)
-    run_suite "without_calls" "$repo_root/tests/without_calls/ok/inputs" "$repo_root/tests/without_calls/ko/inputs"
+    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls"
     ;;
   split)
-    run_suite "with_calls" "$repo_root/tests/with_calls/ok/inputs" "$repo_root/tests/with_calls/ko/inputs"
+    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls"
     echo
-    run_suite "without_calls" "$repo_root/tests/without_calls/ok/inputs" "$repo_root/tests/without_calls/ko/inputs"
+    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls"
     ;;
   single_ok)
     if [[ -z "$single_file" ]]; then
