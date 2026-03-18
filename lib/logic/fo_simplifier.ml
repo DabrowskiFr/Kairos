@@ -363,10 +363,7 @@ let unsat_formula (f : fo_ltl) : bool option =
     String.concat "\n" (["(set-logic ALL)"] @ declarations_of_env env @ [ "(assert " ^ body ^ ")"; "(check-sat)" ])
     ^ "\n"
   in
-  match run_z3_query ("unsat:" ^ string_of_ltl f) script with
-  | Some true -> Some false
-  | Some false -> Some true
-  | None -> None
+  run_z3_query ("unsat:" ^ string_of_ltl f) script
 
 let implies_formula (a : fo_ltl) (b : fo_ltl) : bool option =
   let key = string_of_ltl a ^ " => " ^ string_of_ltl b in

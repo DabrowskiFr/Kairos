@@ -58,6 +58,7 @@ type acceptance =
 type hoa_automaton = {
   start : int;
   ap_count : int;
+  ap_names : string list;
   acceptance : acceptance;
   states : hoa_state list;
 }
@@ -158,6 +159,22 @@ let parse_ap_count (line : string) : int =
   in
   parse_int body
 
+let parse_ap_names (line : string) : string list =
+  (* Parse AP names from a line like: AP: 4 "name0" "name1" ... *)
+  let rec extract_quoted acc s =
+    match String.index_opt s '"' with
+    | None -> List.rev acc
+    | Some i ->
+        let s' = String.sub s (i + 1) (String.length s - i - 1) in
+        (match String.index_opt s' '"' with
+        | None -> List.rev acc
+        | Some j ->
+            let name = String.sub s' 0 j in
+            let rest = String.sub s' (j + 1) (String.length s' - j - 1) in
+            extract_quoted (name :: acc) rest)
+  in
+  extract_quoted [] line
+
 let parse_state_line (line : string) : int * bool =
   let body = String.sub line 6 (String.length line - 6) |> String.trim in
   let id_part =
@@ -239,31 +256,34 @@ let parse_label (text : string) : label_expr =
 
 let parse_hoa (text : string) : hoa_automaton =
   let lines = String.split_on_char '\n' text |> List.map String.trim |> List.filter (( <> ) "") in
-  let rec loop start ap_count acceptance states current in_body = function
+  let rec loop start ap_count ap_names acceptance states current in_body = function
     | [] ->
         let states = match current with None -> states | Some st -> st :: states in
         let start = match start with Some s -> s | None -> failwith "HOA output missing Start" in
         let ap_count =
           match ap_count with Some n -> n | None -> failwith "HOA output missing AP header"
         in
+        let ap_names = match ap_names with Some ns -> ns | None -> [] in
         let acceptance =
           match acceptance with Some a -> a | None -> failwith "HOA output missing Acceptance"
         in
-        { start; ap_count; acceptance; states = List.rev states }
+        { start; ap_count; ap_names; acceptance; states = List.rev states }
     | line :: rest when line = "--BODY--" ->
-        loop start ap_count acceptance states current true rest
+        loop start ap_count ap_names acceptance states current true rest
     | line :: rest when line = "--END--" ->
-        loop start ap_count acceptance states current in_body []
+        loop start ap_count ap_names acceptance states current in_body []
     | line :: rest when not in_body && starts_with ~prefix:"Start:" line ->
-        loop (Some (parse_int_after_prefix ~prefix:"Start:" line)) ap_count acceptance states current
+        loop (Some (parse_int_after_prefix ~prefix:"Start:" line)) ap_count ap_names acceptance states current
           in_body rest
     | line :: rest when not in_body && starts_with ~prefix:"AP:" line ->
-        loop start (Some (parse_ap_count line)) acceptance states current in_body rest
+        let count = parse_ap_count line in
+        let names = parse_ap_names line in
+        loop start (Some count) (Some names) acceptance states current in_body rest
     | line :: rest when not in_body && starts_with ~prefix:"Acceptance:" line ->
         let acc =
           if String.equal line "Acceptance: 0 t" then Acceptance_all else Acceptance_buchi
         in
-        loop start ap_count (Some acc) states current in_body rest
+        loop start ap_count ap_names (Some acc) states current in_body rest
     | line :: rest when in_body && starts_with ~prefix:"State:" line ->
         let states = match current with None -> states | Some st -> st :: states in
         let id, accepting =
@@ -273,7 +293,7 @@ let parse_hoa (text : string) : hoa_automaton =
           | _ -> (id, accepting)
         in
         let current = Some { id; accepting; transitions = [] } in
-        loop start ap_count acceptance states current in_body rest
+        loop start ap_count ap_names acceptance states current in_body rest
     | line :: rest when in_body && starts_with ~prefix:"[" line ->
         let current =
           match current with
@@ -283,10 +303,10 @@ let parse_hoa (text : string) : hoa_automaton =
               let label = parse_label label_text in
               Some { st with transitions = st.transitions @ [ (label, dst) ] }
         in
-        loop start ap_count acceptance states current in_body rest
-    | _ :: rest -> loop start ap_count acceptance states current in_body rest
+        loop start ap_count ap_names acceptance states current in_body rest
+    | _ :: rest -> loop start ap_count ap_names acceptance states current in_body rest
   in
-  loop None None None [] None false lines
+  loop None None None None [] None false lines
 
 let rec label_to_dnf = function
   | Label_true -> [ [] ]
@@ -320,11 +340,40 @@ let normalize_cube (cube : (int * bool) list) : (int * bool) list option =
     Some
       (Hashtbl.fold (fun idx value acc -> (idx, value) :: acc) tbl [] |> List.sort compare)
 
-let guard_of_label ~(atom_names : string list) (label : label_expr) : guard =
+let kairos_idx_of_hoa_ap_name (name : string) : int =
+  (* AP names are always "__kairos_ap_N"; extract N as the Kairos atom index. *)
+  let prefix = "__kairos_ap_" in
+  let plen = String.length prefix in
+  if String.length name > plen && String.sub name 0 plen = prefix then
+    int_of_string (String.sub name plen (String.length name - plen))
+  else
+    failwith (Printf.sprintf "Unexpected HOA AP name %S (expected __kairos_ap_N)" name)
+
+let guard_of_label ~(atom_names : string list) ~(hoa_ap_names : string list) (label : label_expr) : guard =
+  (* HOA bit index i corresponds to hoa_ap_names[i] = "__kairos_ap_k".
+     k is the Kairos atom index (position in atom_names). *)
+  let hoa_to_kairos_idx =
+    if hoa_ap_names = [] then
+      (* No AP names from HOA: assume identity mapping (legacy / no-reorder case) *)
+      (fun i -> i)
+    else
+      (fun hoa_i ->
+        let hoa_name = List.nth hoa_ap_names hoa_i in
+        kairos_idx_of_hoa_ap_name hoa_name)
+  in
   let term_of_cube (cube : (int * bool) list) : term =
+    (* cube maps HOA bit indices to bool values.
+       Convert to a cube indexed by Kairos atom indices. *)
+    let kairos_cube =
+      List.filter_map
+        (fun (hoa_i, v) ->
+          let k_i = hoa_to_kairos_idx hoa_i in
+          if k_i < List.length atom_names then Some (k_i, v) else None)
+        cube
+    in
     List.mapi
       (fun idx name ->
-        let value = List.assoc_opt idx cube in
+        let value = List.assoc_opt idx kairos_cube in
         (name, value))
       atom_names
   in
@@ -381,7 +430,7 @@ let normalize_spot_automaton ~(atom_names : string list) (hoa : hoa_automaton) :
         List.iter
           (fun (label, dst_old) ->
             let dst = Hashtbl.find id_map dst_old in
-            let guard = guard_of_label ~atom_names label in
+            let guard = guard_of_label ~atom_names ~hoa_ap_names:hoa.ap_names label in
             if guard <> [] then add_transition src guard dst)
           st.transitions)
     hoa.states;

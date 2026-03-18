@@ -162,13 +162,40 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
       match h with
       | HNow e ->
           let t = compile_term env e in
-          if old && not (is_const_iexpr e) then term_old t else t
+          (* in_post=true signals StepTickContext (shift=0, old=true):
+             - Ghost pre-k register variables (e.g. __pre_k1_x) are updated AFTER the
+               automaton check in the step body, so they must use the PRE-STATE value
+               (i.e. old()), otherwise the post-state value would reflect the ghost
+               update and make the safety obligation trivially true.
+             - User-visible output/local variables (e.g. y, z) are updated BEFORE the
+               automaton check, so they must use the POST-STATE value (no old()), which
+               equals the value at automaton-check time.
+             For all other contexts (in_post=false), preserve the original old/current
+             distinction driven by `shift`. *)
+          let use_old =
+            if in_post then
+              (* For StepTickContext: only pre-k register variables need old(). *)
+              not (is_const_iexpr e)
+              &&
+              (match e.iexpr with
+              | IVar name ->
+                  List.exists
+                    (fun (_, (info : pre_k_info)) -> List.mem name info.names)
+                    env.pre_k
+              | _ -> false)
+            else old && not (is_const_iexpr e)
+          in
+          if use_old then term_old t else t
       | HPreK (_e, _) -> begin
           match find_pre_k env h with
           | None -> failwith "pre_k not registered"
           | Some info ->
               let name = List.nth info.names (List.length info.names - 1) in
-              term_of_var env name
+              let t = term_of_var env name in
+              (* in_post=true with old=true means StepTickContext: the pre-k register
+                 (__pre_k1_x) must be read BEFORE the ghost update at the end of the
+                 step, i.e. its pre-state value, so wrap in old(). *)
+              if in_post && old then term_old t else t
         end
     end
 
