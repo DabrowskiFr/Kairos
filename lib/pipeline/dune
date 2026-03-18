@@ -4,5 +4,5 @@
  (modules io kairos_object modular_imports obligation_taxonomy engine_service pipeline_v2_indep pipeline lsp_app lsp_services v2_pipeline backend)
  (libraries
   kairos_ast kairos_logic kairos_parse kairos_stages kairos_automata
-  kairos_instrumentation kairos_obc kairos_why3
+  kairos_instrumentation kairos_why3
   kairos_lsp_protocol yojson why3 bos fpath rresult cmdliner str))
