@@ -1,6 +1,6 @@
 (include_subdirs no)
 
-(dirs src bin protocol tests)
+(dirs lib bin protocol tests)
 
 (documentation
  (package kairos))
