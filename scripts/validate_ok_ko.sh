@@ -202,8 +202,8 @@ run_suite() {
   cat "$summary_report"
 }
 
-ok_dir="$repo_root/tests/ok/inputs"
-ko_dir="$repo_root/tests/ko/inputs"
+ok_dir="$repo_root/tests/ok"
+ko_dir="$repo_root/tests/ko"
 
 case "$suite_mode" in
   legacy)

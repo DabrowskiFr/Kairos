@@ -165,8 +165,8 @@ def mutate_bad_code(src: str) -> str:
 
 
 def main(repo_root: str) -> int:
-    ok_dir = Path(repo_root) / "tests/ok/inputs"
-    ko_dir = Path(repo_root) / "tests/ko/inputs"
+    ok_dir = Path(repo_root) / "tests/ok"
+    ko_dir = Path(repo_root) / "tests/ko"
     for ok_file in sorted(glob.glob(str(ok_dir / "*.kairos"))):
         base = Path(ok_file).stem
         ko_file = ko_dir / f"{base}__bad_code.kairos"

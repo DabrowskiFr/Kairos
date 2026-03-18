@@ -2,8 +2,8 @@
 
 This repository keeps the historical regression suites:
 
-- `tests/ok/inputs`
-- `tests/ko/inputs`
+- `tests/ok`
+- `tests/ko`
 
 and also maintains a split view used by the current methodology:
 
@@ -18,8 +18,8 @@ and also maintains a split view used by the current methodology:
   nodes that must still be compiled into `.kobj` objects for those examples.
 - `without_calls` contains the rest of the regression corpus.
 
-The split suites are copied from the historical `tests/ok/inputs` and
-`tests/ko/inputs` trees so that older scripts and paths remain valid.
+The split suites are copied from the historical `tests/ok` and
+`tests/ko` trees so that older scripts and paths remain valid.
 
 ## Validation Commands
 

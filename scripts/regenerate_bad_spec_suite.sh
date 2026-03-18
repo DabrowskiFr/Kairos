@@ -3,8 +3,8 @@
 set -euo pipefail
 
 repo_root="${1:-/Users/fredericdabrowski/Repos/kairos/kairos-dev}"
-ok_dir="$repo_root/tests/ok/inputs"
-ko_dir="$repo_root/tests/ko/inputs"
+ok_dir="$repo_root/tests/ok"
+ko_dir="$repo_root/tests/ko"
 
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
