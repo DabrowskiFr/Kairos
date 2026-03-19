@@ -561,8 +561,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
         let lhs = term_of_var env caller_output in
         let rhs_name = Option.value ~default:callee_input callee_pre_name in
         Some (term_eq lhs (term_old (term_of_instance_var env instance_name callee_node_name rhs_name)))
-    | Product_kernel_ir.InstanceDelayCallerPreLink { caller_output; caller_pre_name } ->
-        Some (term_eq (term_of_var env caller_output) (term_of_var env caller_pre_name))
+    | Product_kernel_ir.InstanceDelayCallerPreLink _ -> None
   in
   (* Assumption LTL formulas are handled state-aware by middle-end injection on transitions.
      Do not also inject them globally as step preconditions. *)

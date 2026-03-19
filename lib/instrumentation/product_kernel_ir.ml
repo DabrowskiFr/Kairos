@@ -1089,9 +1089,14 @@ let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Support.pre_k_info) 
       | _ -> None)
     pre_k_map
 
-let simple_relational_eq_vars (fo : Ast.fo_ltl) : (Ast.ident * Ast.ident) option =
+let rec simple_relational_eq_vars (fo : Ast.fo_ltl) : (Ast.ident * Ast.ident) option =
   match fo with
   | LAtom (FRel (HNow { iexpr = IVar lhs; _ }, REq, HNow { iexpr = IVar rhs; _ })) -> Some (lhs, rhs)
+  | LNot (LNot inner) -> simple_relational_eq_vars inner
+  (* LOr(LTrue, eq) arises from OriginSourceProductSummary when an unconditional predecessor
+     (e.g. the initial Aut0->Aut1 edge) is combined with the self-loop equation guard.
+     The self-loop guard is the useful part for output-history inference. *)
+  | LOr (LTrue, inner) | LOr (inner, LTrue) -> simple_relational_eq_vars inner
   | _ -> None
 
 let infer_output_history_links ~(output_names : Ast.ident list)

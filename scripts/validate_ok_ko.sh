@@ -79,7 +79,7 @@ classify_ok() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s "$timeout_s"; then
+  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --timeout-s "$timeout_s"; then
     local failed_count
     failed_count="$(jq 'length' < "$tmp")"
     if [[ "$failed_count" == "0" ]]; then
@@ -104,7 +104,7 @@ classify_ko() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --timeout-s "$timeout_s"; then
+  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --timeout-s "$timeout_s"; then
     local failed_count
     failed_count="$(jq 'length' < "$tmp")"
     if [[ "$failed_count" == "0" ]]; then
@@ -112,7 +112,9 @@ classify_ko() {
     else
       local status
       status="$(jq -r '
-        if any(.[]; (.status == "timeout") or (.solver_status == "timeout") or (.solver_detail == "solver_timeout")) then
+        if any(.[]; .status == "failure") then
+          "INVALID"
+        elif any(.[]; (.status == "timeout") or (.solver_status == "timeout") or (.solver_detail == "solver_timeout")) then
           "TIMEOUT"
         else
           "INVALID"
