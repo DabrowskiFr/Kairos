@@ -1,3 +1,11 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/require_always_one.kairos:
+     S -> S sets  out := 0  instead of  out := inp.
+   Why it must be rejected:
+     The contract guarantees  G(inp = 1), so inp is always 1.  The ensures
+       G(out = 1)
+     requires out to be 1 at every tick.  Hardcoding out := 0 violates this
+     ensures on every single step. *)
 node require_always_one(inp: int) returns (out: int)
 contracts
   requires: G (inp = 1);
@@ -7,6 +15,6 @@ states
 transitions
   S:
     to S {
-      out := 0;
+      out := 0; // BUG: should be  out := inp  (inp = 1 by requires, so out must be 1)
     }
 end

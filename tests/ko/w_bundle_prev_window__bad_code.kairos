@@ -1,3 +1,11 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/w_bundle_prev_window.kairos:
+     Live -> Live (close = 0) sets  out := 1  instead of  out := 0.
+   Why it must be rejected:
+     The Live-state invariant requires  flag = 1 and out = 0.  Setting out := 1
+     in the self-loop violates this invariant on the very next tick.
+     The contract  next always ((open=1 and prev open=1) => ((flag=1 and out=0) W close=1))
+     is broken because out = 1 while the window is still open. *)
 node w_bundle_prev_window(open: int, close: int, x: int) returns (flag: int, out: int)
 contracts
   requires: G((open = 0 or open = 1) and (close = 0 or close = 1));
@@ -42,7 +50,7 @@ transitions
     }
     to Live when close = 0 {
       flag := 1;
-      out := 1;
+      out := 1; // BUG: should be  out := 0  (violates Live invariant  out = 0)
       hold := x;
     }
 end

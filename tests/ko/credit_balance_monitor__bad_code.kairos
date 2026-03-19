@@ -1,3 +1,11 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/credit_balance_monitor.kairos:
+     Run -> Run (reset = 0) sets  bal := 0  instead of  bal := m + credit - debit.
+   Why it must be rejected:
+     The Run-state invariant requires  m = prev bal.  With bal := 0, after this
+     transition m = m + credit - debit  but  bal = 0, so on the next tick the
+     invariant becomes  (m + credit - debit) = 0, which is false in general.
+     The ensures  G(bal >= 0)  also fails whenever the actual balance is > 0. *)
 node credit_balance_monitor(reset: int, credit: int, debit: int) returns (bal: int)
 contracts
   requires: G((reset = 0 or reset = 1) and (credit >= 0) and (debit >= 0));
@@ -28,7 +36,7 @@ transitions
       m := 0;
     }
     to Run when reset = 0 and debit <= m + credit {
-      bal := 0;
+      bal := 0; // BUG: should be  bal := m + credit - debit
       m := m + credit - debit;
     }
 end

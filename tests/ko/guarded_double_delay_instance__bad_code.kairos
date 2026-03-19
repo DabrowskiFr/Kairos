@@ -1,3 +1,15 @@
+(* BAD CODE — should be rejected by the verifier.
+   Differences from ok/guarded_double_delay_instance.kairos:
+     Idle -> Run and Run -> Run both overwrite mid after d1 with  mid := 0,
+     then pass 0 to d2, then overwrite y with  y := 0.
+   Why it must be rejected:
+     d1 returns the one-cycle delayed value into mid; d2 chains it to produce a
+     two-cycle delay in y.  Overwriting mid := 0 before calling d2 passes a wrong
+     argument, and overwriting y := 0 after discards d2's result.
+     Both contracts
+       G(enable=1 => X G(mid = prev x))
+       G(enable=1 => X X G((y = prev2 x) and (mid = prev x)))
+     are broken in every non-Init transition. *)
 import "./guarded_dd_core.kobj";
 
 node guarded_double_delay_instance(enable: int, x: int) returns (mid: int, y: int)
@@ -22,9 +34,9 @@ transitions
   Idle:
     to Run when enable = 1 {
       call d1(x) returns (mid);
-      mid := 0;
+      mid := 0; // BUG: overwrites d1 result — should be removed
       call d2(mid) returns (y);
-      y := 0;
+      y := 0; // BUG: overwrites d2 result — should be removed
     }
     to Idle when enable = 0 {
       mid := 0;
@@ -33,8 +45,8 @@ transitions
   Run:
     to Run {
       call d1(x) returns (mid);
-      mid := 0;
+      mid := 0; // BUG: overwrites d1 result — should be removed
       call d2(mid) returns (y);
-      y := 0;
+      y := 0; // BUG: overwrites d2 result — should be removed
     }
 end

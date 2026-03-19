@@ -1,3 +1,12 @@
+(* BAD CODE — should be rejected by the verifier.
+   Differences from ok/w_hold_until_off.kairos:
+     Off -> On sets  light := 0  instead of  light := 1.
+     On -> On (self-loop) adds  light := 0  which should be absent (just skip).
+   Why it must be rejected:
+     The On-state invariant requires  light = 1.  Both transitions arrive in / stay
+     in On with light = 0, violating the invariant.
+     The contract  X G((on=1 and off=0) => ((light=1) W off=1))  is broken
+     because light is always 0 in state On. *)
 node w_hold_until_off(on: int, off: int) returns (light: int)
 contracts
   requires: G((on = 0 or on = 1) and (off = 0 or off = 1));
@@ -16,7 +25,7 @@ transitions
     }
   Off:
     to On when on = 1 and off = 0 {
-      light := 0;
+      light := 0; // BUG: should be  light := 1  (violates On invariant  light = 1)
     }
     to Off when not (on = 1 and off = 0) {
       skip;
@@ -28,6 +37,6 @@ transitions
     }
     to On when off = 0 {
       skip;
-      light := 0;
+      light := 0; // BUG: should be removed — On invariant requires  light = 1
     }
 end

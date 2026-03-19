@@ -1,3 +1,11 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/w_sticky_ack_latch.kairos:
+     Latched -> Latched (drop = 0) sets  ack := 0  instead of  skip.
+   Why it must be rejected:
+     The Latched-state invariant requires  ack = 1.  Setting ack := 0 in the
+     self-loop resets the latch on every tick, violating the invariant.
+     The contract  next always ((arm=1) => ((ack=1) W drop=1))  is broken
+     because ack drops to 0 immediately after the first latched tick. *)
 node w_sticky_ack_latch(arm: int, drop: int) returns (ack: int)
 contracts
   requires: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
@@ -29,6 +37,6 @@ transitions
       ack := 0;
     }
     to Latched when drop = 0 {
-      ack := 0;
+      ack := 0; // BUG: should be  skip  (violates Latched invariant  ack = 1)
     }
 end

@@ -1,3 +1,11 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/delay_int2_instance.kairos:
+     Run -> Run overwrites the second-instance result with  y := 0  after the call.
+   Why it must be rejected:
+     Instances d1 then d2 chain two one-cycle delays, producing a two-cycle delay
+     in y.  Setting y := 0 after d2 discards this result.
+     The contract  next next always(y = prev2 x)  is broken because y is always 0
+     from the third step onward instead of reflecting x delayed by two cycles. *)
 import "./delay_core.kobj";
 
 node delay_int2_instance(x: int) returns (y: int)
@@ -20,6 +28,6 @@ transitions
     to Run {
     call d1(x) returns (t);
     call d2(t) returns (y);
-    y := 0;
+    y := 0; // BUG: overwrites instance result — should be removed
   }
 end
