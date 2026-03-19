@@ -242,10 +242,9 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
     input_file = cfg.input_file;
     prover = cfg.prover;
     prover_cmd = cfg.prover_cmd;
-    wp_only = cfg.wp_only;
+   wp_only = cfg.wp_only;
     smoke_tests = cfg.smoke_tests;
     timeout_s = cfg.timeout_s;
-    max_proof_goals = cfg.max_proof_goals;
     selected_goal_index = cfg.selected_goal_index;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prefix_fields = cfg.prefix_fields;
@@ -817,10 +816,6 @@ let () =
                             wp_only = get_param_bool params "wpOnly" false;
                             smoke_tests = get_param_bool params "smokeTests" false;
                             timeout_s = get_param_int params "timeoutS" 5;
-                            max_proof_goals =
-                              (match get_param_int params "maxProofGoals" (-1) with
-                              | n when n >= 0 -> Some n
-                              | _ -> None);
                             selected_goal_index =
                               (match get_param_int params "selectedGoalIndex" (-1) with
                               | n when n >= 0 -> Some n

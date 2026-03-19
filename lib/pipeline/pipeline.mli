@@ -158,7 +158,6 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;

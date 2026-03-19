@@ -78,6 +78,9 @@ val term_eq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 (* Compute term neq. *)
 val term_neq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 
+(* Compute a boolean binary term with non-associative printing. *)
+val term_bool_binop : Why3.Dterm.dbinop -> Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+
 (* Compute term implies. *)
 val term_implies : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 

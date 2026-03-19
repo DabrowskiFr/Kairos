@@ -109,6 +109,17 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
     in
     loop [] 1
   in
+  let max_k_by_var =
+    List.fold_left
+      (fun acc h ->
+        match h with
+        | HPreK ({ iexpr = IVar vname; _ }, k) ->
+            let current = Option.value (List.assoc_opt vname acc) ~default:0 in
+            if k > current then (vname, k) :: List.remove_assoc vname acc else acc
+        | HPreK _ -> failwith "pre_k expects a variable as first argument"
+        | _ -> acc)
+      [] pre_k_exprs
+  in
   pre_k_exprs
   |> List.mapi (fun i h ->
       match h with
@@ -120,7 +131,11 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
             | _ -> failwith "pre_k expects a variable as first argument"
           in
           let vty = find_vty vname in
-          let names = make_names vname k in
+          let names =
+            match List.assoc_opt vname max_k_by_var with
+            | Some max_k -> make_names vname max_k
+            | None -> failwith ("pre_k missing max depth for variable: " ^ vname)
+          in
           (h, { h; expr = e; names; vty })
       | _ -> failwith "expected pre_k hexpr")
 

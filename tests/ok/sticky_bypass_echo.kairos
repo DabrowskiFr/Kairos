@@ -11,7 +11,7 @@ invariants
 transitions
   Init:
     to Hold when bypass = 1 {
-      y := 0;
+      y := x;
       latched := x;
     }
     to Wait when bypass = 0 {
@@ -20,7 +20,7 @@ transitions
     }
   Wait:
     to Hold when bypass = 1 {
-      y := 0;
+      y := x;
       latched := x;
     }
     to Wait when bypass = 0 {

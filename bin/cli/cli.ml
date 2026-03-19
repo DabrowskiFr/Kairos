@@ -32,7 +32,7 @@ let log_level_conv =
 let run dump_dot dump_dot_short dump_automata dump_product
     dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_json dump_json_stable
     dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
-    proof_traces_failed_only max_proof_traces proof_traces_fast proof_trace_goal_index dump_ast
+    proof_traces_failed_only proof_traces_fast proof_trace_goal_index dump_ast
     dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s wp_only
     smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
     log_file file =
@@ -123,11 +123,11 @@ let run dump_dot dump_dot_short dump_automata dump_product
     then Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
     else if dump_proof_traces_json = None && dump_native_unsat_core_json = None
             && dump_native_counterexample_json = None
-            && (proof_traces_failed_only || max_proof_traces <> None || proof_traces_fast
+            && (proof_traces_failed_only || proof_traces_fast
                || proof_trace_goal_index <> None)
     then
       Error
-        "--proof-traces-failed-only/--max-proof-traces/--proof-traces-fast/--proof-trace-goal-index require --dump-proof-traces-json, --dump-native-unsat-core-json or --dump-native-counterexample-json"
+        "--proof-traces-failed-only/--proof-traces-fast/--proof-trace-goal-index require --dump-proof-traces-json, --dump-native-unsat-core-json or --dump-native-counterexample-json"
     else if dump_native_unsat_core_json <> None && proof_trace_goal_index = None then
       Error "--dump-native-unsat-core-json requires --proof-trace-goal-index"
     else if dump_native_counterexample_json <> None && proof_trace_goal_index = None then
@@ -264,7 +264,6 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = max_proof_traces;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = true;
                       prefix_fields = false;
@@ -285,17 +284,6 @@ let run dump_dot dump_dot_short dump_automata dump_product
                                if proof_traces_failed_only then
                                  trace.status <> "valid" && trace.status <> "pending"
                                else true)
-                        |> (fun traces ->
-                             match max_proof_traces with
-                             | None -> traces
-                             | Some n when n <= 0 -> []
-                             | Some n ->
-                                 let rec take acc remaining = function
-                                   | _ when remaining <= 0 -> List.rev acc
-                                   | [] -> List.rev acc
-                                   | x :: rest -> take (x :: acc) (remaining - 1) rest
-                                 in
-                                 take [] n traces)
                       in
                       let out = Option.get dump_proof_traces_json in
                       let emit_json oc =
@@ -323,7 +311,6 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = None;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
@@ -367,7 +354,6 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = None;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
@@ -516,12 +502,6 @@ let cmd =
     & info [ "proof-traces-failed-only" ]
         ~doc:"With --dump-proof-traces-json, keep only non-proved goals."
   in
-  let max_proof_traces =
-    value
-    & opt (some int) None
-    & info [ "max-proof-traces" ] ~docv:"N"
-        ~doc:"With --dump-proof-traces-json, emit at most N traces after filtering."
-  in
   let proof_traces_fast =
     value
     & flag
@@ -629,7 +609,7 @@ let cmd =
        (const run $ dump_dot $ dump_dot_short $ dump_automata
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2 $ emit_kobj
        $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
-       $ dump_native_counterexample_json $ proof_traces_failed_only $ max_proof_traces
+       $ dump_native_counterexample_json $ proof_traces_failed_only
        $ proof_traces_fast $ proof_trace_goal_index $ dump_ast $ dump_ast_all $ dump_ast_stable
        $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ wp_only
        $ smoke_tests $ eval_trace $ eval_out $ eval_with_state $ eval_with_locals

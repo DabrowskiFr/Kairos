@@ -633,7 +633,20 @@ let has_instance_calls (runtime : t) : bool =
 let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : Ast.stmt list =
   let s desc = { Ast.stmt = desc; loc = None } in
   let mk_var name = { Ast.iexpr = IVar name; loc = None } in
-  let pre_k_infos = List.map snd pre_k_map in
+  let pre_k_infos =
+    pre_k_map
+    |> List.fold_left
+         (fun acc (_, info) ->
+           if List.exists
+                (fun (existing : Support.pre_k_info) ->
+                  existing.Support.expr = info.Support.expr
+                  && existing.Support.names = info.Support.names)
+                acc
+           then
+             acc
+           else acc @ [ info ])
+         []
+  in
   List.concat_map
     (fun (info : Support.pre_k_info) ->
       let names = info.names in

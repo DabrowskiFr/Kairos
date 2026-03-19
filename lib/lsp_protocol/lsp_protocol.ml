@@ -285,7 +285,6 @@ type config_repr = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
@@ -305,7 +304,6 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
@@ -326,7 +324,6 @@ let yojson_of_config (c : config) =
       wp_only = c.wp_only;
       smoke_tests = c.smoke_tests;
       timeout_s = c.timeout_s;
-      max_proof_goals = c.max_proof_goals;
       selected_goal_index = c.selected_goal_index;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prefix_fields = c.prefix_fields;
@@ -352,7 +349,6 @@ let config_of_yojson json =
           wp_only = repr.wp_only;
           smoke_tests = repr.smoke_tests;
           timeout_s = repr.timeout_s;
-          max_proof_goals = repr.max_proof_goals;
           selected_goal_index = repr.selected_goal_index;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prefix_fields = repr.prefix_fields;

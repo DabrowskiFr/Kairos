@@ -59,7 +59,14 @@ type temporal_binding = {
 let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Support.pre_k_info) list) :
     temporal_binding list =
   List.map
-    (fun (source_hexpr, info) -> { source_hexpr; slot_names = info.Support.names })
+    (fun (source_hexpr, info) ->
+      let slot_names =
+        match source_hexpr with
+        | HPreK (_, k) when k > 0 && k <= List.length info.Support.names -> [ List.nth info.Support.names (k - 1) ]
+        | HPreK _ -> []
+        | HNow _ -> info.Support.names
+      in
+      { source_hexpr; slot_names })
     pre_k_map
 
 let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr) : ident option =

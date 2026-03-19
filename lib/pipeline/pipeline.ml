@@ -151,7 +151,6 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
@@ -379,25 +378,25 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
-        if log then Log.stage_start Stage_names.Instrumentation;
-        let p_monitor, automata, instrumentation_info =
-          (p_automaton, automata) |> Middle_end.stage_instrumentation_with_info
-          |> fun (p, stage, info) -> (reid_program p, stage, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Instrumentation
-            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-            (program_stats p_monitor);
-        let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Contracts;
         let p_contracts, automata, contracts_info =
-          (p_monitor, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
+          (p_automaton, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
           (reid_program p, stage, info)
         in
         if log then
           Log.stage_end Stage_names.Contracts
-            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
             (program_stats p_contracts);
+        let t3 = Unix.gettimeofday () in
+        if log then Log.stage_start Stage_names.Instrumentation;
+        let p_monitor, automata, instrumentation_info =
+          (p_contracts, automata) |> Middle_end.stage_instrumentation_with_info
+          |> fun (p, stage, info) -> (reid_program p, stage, info)
+        in
+        if log then
+          Log.stage_end Stage_names.Instrumentation
+            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (program_stats p_monitor);
         let asts =
           {
             source = { Source_file.imports = []; nodes = p_parsed };

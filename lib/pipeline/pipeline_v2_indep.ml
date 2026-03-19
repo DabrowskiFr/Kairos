@@ -186,12 +186,14 @@ let classify_formula ~(is_require : bool) (f : Ast.fo_o) :
       | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadRequires
       | Some Compatibility -> Some Obligation_taxonomy.FamMonitorCompatibilityRequires
       | Some AssumeAutomaton -> Some Obligation_taxonomy.FamStateAwareAssumptionRequires
-      | Some UserContract | Some Internal | None -> Some Obligation_taxonomy.FamTransitionRequires
+      | Some UserContract | Some Internal | None ->
+          Some Obligation_taxonomy.FamTransitionRequires
     else
       match f.origin with
       | Some Coherency -> Some Obligation_taxonomy.FamCoherencyEnsuresShifted
       | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadEnsures
-      | Some UserContract | Some Internal | Some Compatibility | Some AssumeAutomaton | None ->
+      | Some UserContract | Some Internal | Some Compatibility
+      | Some AssumeAutomaton | None ->
           Some Obligation_taxonomy.FamTransitionEnsures
   in
   let family_name = Option.map Obligation_taxonomy.family_name family in
@@ -888,10 +890,7 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
           Why_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s ~prover:cfg.prover
             ?prover_cmd:cfg.prover_cmd ?selected_goal_index:cfg.selected_goal_index ~text:why_text
             ~vc_ids_ordered:(Some vc_ids_ordered)
-            ~should_cancel:(fun () ->
-              match cfg.max_proof_goals with
-              | Some n when n >= 0 -> List.length !finished >= n
-              | _ -> false)
+            ~should_cancel:(fun () -> false)
             ~on_goal_start:(fun _ _ -> ())
             ~on_goal_done:(fun idx goal status time_s dump_path source vcid ->
               finished := (idx, goal, status, time_s, dump_path, source, vcid) :: !finished)

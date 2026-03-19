@@ -131,9 +131,9 @@ let rec compile_ltl_term_instance_contract ?(in_post = false) (env : env) (inst_
   | LAtom a ->
       compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a
   | LNot a -> mk_term (Tnot (go a))
-  | LAnd (a, b) -> mk_term (Tbinop (go a, Dterm.DTand, go b))
-  | LOr (a, b) -> mk_term (Tbinop (go a, Dterm.DTor, go b))
-  | LImp (a, b) -> mk_term (Tbinop (go a, Dterm.DTimplies, go b))
+  | LAnd (a, b) -> term_bool_binop Dterm.DTand (go a) (go b)
+  | LOr (a, b) -> term_bool_binop Dterm.DTor (go a) (go b)
+  | LImp (a, b) -> term_bool_binop Dterm.DTimplies (go a) (go b)
   | LX _ | LG _ | LW _ -> mk_term Ttrue
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
@@ -217,23 +217,17 @@ let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : 
   | LFalse -> mk_term Tfalse
   | LNot a -> mk_term (Tnot (compile_ltl_term_shift ~prefer_link ~in_post env shift a))
   | LAnd (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_ltl_term_shift ~prefer_link ~in_post env shift a,
-             Dterm.DTand,
-             compile_ltl_term_shift ~prefer_link ~in_post env shift b ))
+      term_bool_binop Dterm.DTand
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
   | LOr (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_ltl_term_shift ~prefer_link ~in_post env shift a,
-             Dterm.DTor,
-             compile_ltl_term_shift ~prefer_link ~in_post env shift b ))
+      term_bool_binop Dterm.DTor
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
   | LImp (a, b) ->
-      mk_term
-        (Tbinop
-           ( compile_ltl_term_shift ~prefer_link ~in_post env shift a,
-             Dterm.DTimplies,
-             compile_ltl_term_shift ~prefer_link ~in_post env shift b ))
+      term_bool_binop Dterm.DTimplies
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
+        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
   | LX a -> compile_ltl_term_shift ~prefer_link ~in_post env 1 a
   | LG a -> compile_ltl_term_shift ~prefer_link ~in_post env shift a
   | LW (a, b) ->

@@ -23,7 +23,6 @@ let run (cfg : config) : (unit, string) result =
       wp_only = false;
       smoke_tests = false;
       timeout_s = 10;
-      max_proof_goals = None;
       selected_goal_index = None;
       compute_proof_diagnostics = false;
       prefix_fields = false;

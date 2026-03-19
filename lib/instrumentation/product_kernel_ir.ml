@@ -411,7 +411,18 @@ let has_effective_product_coverage (ir : node_ir) : bool = ir.product_coverage <
 let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
   let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.locals in
   build_pre_k_infos n
-  |> List.concat_map (fun (_, info) ->
+  |> List.fold_left
+       (fun acc (_, info) ->
+         if List.exists
+              (fun (existing_info : Support.pre_k_info) ->
+                existing_info.Support.expr = info.Support.expr
+                && existing_info.Support.names = info.Support.names)
+              acc
+         then
+           acc
+         else acc @ [ info ])
+       []
+  |> List.concat_map (fun info ->
          List.filter_map
            (fun name ->
              if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
@@ -784,10 +795,10 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
                     step_ctx (FactFormula step.assume_edge.guard);
                     step_ctx (FactFormula step.guarantee_edge.guard);
                   ];
-                conclusions =
-                  current (FactProgramState step.dst.prog_state)
-                  :: invariants_for_state step.dst.prog_state;
-              } : generated_clause_ir);
+                    conclusions =
+                      current (FactProgramState step.dst.prog_state)
+                      :: invariants_for_state step.dst.prog_state;
+	              } : generated_clause_ir);
               ({
                 origin = OriginPropagationAutomatonCoherence;
                 anchor = ClauseAnchorProductStep step;
@@ -881,6 +892,40 @@ let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   expand_one [] facts
 
+let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
+    relational_clause_fact_ir list option =
+  let combine_formula left right =
+    match (left, right) with
+    | RelFactFormula a, RelFactFormula b -> Some (RelFactFormula (Fo_simplifier.simplify_fo (LAnd (a, b))))
+    | _ -> None
+  in
+  let rec insert acc fact =
+    match acc with
+    | [] -> Some [ fact ]
+    | hd :: tl ->
+        if hd.time = fact.time then
+          match combine_formula hd.desc fact.desc with
+          | Some (RelFactFormula LFalse) -> None
+          | Some desc -> Some ({ hd with desc } :: tl)
+          | None -> Option.map (fun tl' -> hd :: tl') (insert tl fact)
+        else
+          Option.map (fun tl' -> hd :: tl') (insert tl fact)
+  in
+  let rec fold acc = function
+    | [] ->
+        Some
+          (List.filter
+             (fun (fact : relational_clause_fact_ir) -> fact.desc <> RelFactFormula LTrue)
+             acc)
+    | ({ desc = RelFactFormula LFalse; _ } : relational_clause_fact_ir) :: _ -> None
+    | ({ desc = RelFactFalse; _ } : relational_clause_fact_ir) :: _ -> None
+    | fact :: tl -> (
+        match insert acc fact with
+        | None -> None
+        | Some acc' -> fold acc' tl)
+  in
+  fold [] facts
+
 let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
     (clause : generated_clause_ir) : relational_generated_clause_ir list =
   let lower_all facts =
@@ -891,13 +936,10 @@ let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info
   if conclusions = [] then []
   else
     expand_relational_hypotheses hypotheses
-    |> List.filter (fun hypotheses ->
-           not
-             (List.exists
-                (fun (fact : relational_clause_fact_ir) ->
-                  fact.desc = RelFactFormula LFalse || fact.desc = RelFactFalse)
-                hypotheses))
-    |> List.map (fun hypotheses -> { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
+    |> List.filter_map (fun hypotheses ->
+           match normalize_relational_hypotheses hypotheses with
+           | None -> None
+           | Some hypotheses -> Some { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
 
 let lower_call_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : call_fact_ir) : call_fact_ir option =
   Option.map (fun lowered -> { fact with fact = lowered }) (lower_clause_fact ~pre_k_map fact.fact)
@@ -1020,6 +1062,13 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
          (fun v -> { port_name = v.vname; role = CallStatePort })
          node.semantics.sem_locals
   in
+  let exported_post_facts_for_transition (t : Abs.transition) =
+    let state_facts = invariants_for_state ~node ~time:CurrentTick t.dst in
+    let ensure_facts =
+      List.map (fun (fo_o : Ast.fo_o) -> current_fact (FactFormula fo_o.value)) t.ensures
+    in
+    (state_facts @ ensure_facts) |> List.sort_uniq Stdlib.compare
+  in
   let cases =
     List.mapi
       (fun idx (t : Abs.transition) ->
@@ -1041,7 +1090,7 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
         let exported_post_facts =
           List.map
             (fun fact -> { fact_kind = CallExportedPostFact; fact })
-            (invariants_for_state ~node ~time:CurrentTick t.dst)
+            (exported_post_facts_for_transition t)
         in
         {
           case_name = Printf.sprintf "%s_to_%s_%d" t.src t.dst idx;

@@ -3,17 +3,24 @@ contracts
   requires: G(start = 0 or start = 1);
   ensures: (mode = 0) W (start = 1);
 states
-  Init(init), Run;
+  Init(init), BeforeStart, AfterStart;
+invariants
+  in BeforeStart:
+    mode = 0;
 transitions
   Init:
-    to Run {
+    to BeforeStart {
       mode := 0;
     }
-  Run:
-    to Run when start = 0{
+  BeforeStart:
+    to BeforeStart when start = 0{
       skip;
     }
-    to Run when start = 1{
+    to AfterStart when start = 1{
       mode := 1;
+    }
+  AfterStart:
+    to AfterStart{
+      skip;
     }
 end

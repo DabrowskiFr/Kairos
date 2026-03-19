@@ -44,7 +44,13 @@ let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Support.pre_k_info)
     temporal_binding_ir list =
   List.map
     (fun (source_hexpr, (info : Support.pre_k_info)) ->
-      { source_hexpr; source_expr = info.expr; slot_names = info.names })
+      let slot_names =
+        match source_hexpr with
+        | HPreK (_, k) when k > 0 && k <= List.length info.names -> [ List.nth info.names (k - 1) ]
+        | HPreK _ -> []
+        | HNow _ -> info.names
+      in
+      { source_hexpr; source_expr = info.expr; slot_names })
     pre_k_map
 
 let exported_summary_of_exported_ir

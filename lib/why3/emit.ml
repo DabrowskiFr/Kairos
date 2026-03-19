@@ -775,8 +775,6 @@ let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
          (fun (s : Product_kernel_ir.exported_node_summary_ir) -> s.signature.node_name)
          program_summaries)
     info
-
-
 (* Verified-node path: build runtime view from a Pass-5 verified_node, then
    compile it using the shared [compile_node_with_info] core. *)
 let compile_node_from_verified_node ~prefix_fields ?kernel_ir
@@ -1125,5 +1123,3 @@ let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int
   in
   loop 0;
   (out, List.rev !spans)
-
-
