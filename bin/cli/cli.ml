@@ -30,7 +30,8 @@ let log_level_conv =
   Arg.conv (parse, print)
 
 let run dump_dot dump_dot_short dump_automata dump_product
-    dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_json dump_json_stable
+    dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_kobj_summary
+    dump_kobj_clauses dump_kobj_product dump_json dump_json_stable
     dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
     proof_traces_failed_only proof_traces_fast proof_trace_goal_index dump_ast
     dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s wp_only
@@ -66,6 +67,9 @@ let run dump_dot dump_dot_short dump_automata dump_product
           dump_obligations_map <> None;
           dump_prune_reasons <> None;
           emit_kobj <> None;
+          dump_kobj_summary <> None;
+          dump_kobj_clauses <> None;
+          dump_kobj_product <> None;
           dump_proof_traces_json <> None;
           dump_native_unsat_core_json <> None;
           dump_native_counterexample_json <> None;
@@ -80,9 +84,10 @@ let run dump_dot dump_dot_short dump_automata dump_product
     else if (dump_json <> None || dump_json_stable <> None) && dump_ast_all <> None then
       Error "--dump-json and --dump-ast-all are mutually exclusive"
     else if
-      (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
+     (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
      || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None)
       && (prove || wp_only || output_file <> None)
     then Error "--dump-dot/--dump-ast cannot be combined with --prove or --dump-why"
     else if
@@ -90,7 +95,9 @@ let run dump_dot dump_dot_short dump_automata dump_product
       || dump_native_counterexample_json <> None)
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None
+        || dump_why3_vc <> None
         || dump_smt2 <> None || output_file <> None)
     then
       Error
@@ -99,7 +106,8 @@ let run dump_dot dump_dot_short dump_automata dump_product
       (dump_why3_vc <> None || dump_smt2 <> None)
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None)
     then Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-ast"
     else if dump_mode_count > 1 then
       Error
@@ -107,14 +115,17 @@ let run dump_dot dump_dot_short dump_automata dump_product
     else if eval_trace <> None
             && (dump_dot <> None || dump_dot_short <> None
                || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
-               || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None || dump_smt2 <> None
+               || dump_prune_reasons <> None || emit_kobj <> None || dump_kobj_summary <> None
+               || dump_kobj_clauses <> None || dump_kobj_product <> None
+               || dump_why3_vc <> None || dump_smt2 <> None
                || dump_ast_stage <> None || dump_ast_all <> None || output_file <> None || prove
                || wp_only)
     then Error "--eval-trace cannot be combined with dump/prove options"
     else if
       dump_dot = None && dump_dot_short = None && dump_automata = None
       && dump_product = None && dump_obligations_map = None && dump_prune_reasons = None
-      && emit_kobj = None
+      && emit_kobj = None && dump_kobj_summary = None && dump_kobj_clauses = None
+      && dump_kobj_product = None
       && dump_why3_vc = None && dump_smt2 = None && dump_proof_traces_json = None
       && dump_native_unsat_core_json = None && dump_native_counterexample_json = None
       && output_file = None && (not prove)
@@ -194,6 +205,27 @@ let run dump_dot dump_dot_short dump_automata dump_product
               match
                 (dump_dot, dump_dot_short, dump_automata, dump_product, dump_obligations_map, dump_prune_reasons)
               with
+              | _ when dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None -> (
+                  let out, render =
+                    match (dump_kobj_summary, dump_kobj_clauses, dump_kobj_product) with
+                    | Some out, None, None -> (out, Kairos_object.render_summary)
+                    | None, Some out, None -> (out, Kairos_object.render_clauses)
+                    | None, None, Some out -> (out, Kairos_object.render_product)
+                    | _ -> failwith "unreachable kobj dump selection"
+                  in
+                  let obj_result =
+                    if Filename.check_suffix file ".kobj" then
+                      Kairos_object.read_file ~path:file
+                    else
+                      match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
+                      | Ok obj -> Ok obj
+                      | Error e -> Error (Pipeline.error_to_string e)
+                  in
+                  match obj_result with
+                  | Error msg -> `Error (false, msg)
+                  | Ok obj ->
+                      write_target out (render obj ^ "\n");
+                      `Ok ())
               | _ when emit_kobj <> None -> (
                   match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -463,6 +495,27 @@ let cmd =
     & info [ "emit-kobj" ] ~docv:"FILE"
         ~doc:"Compile the input source into a backend-agnostic .kobj object file."
   in
+  let dump_kobj_summary =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-summary" ] ~docv:"FILE"
+        ~doc:
+          "Dump a human-readable summary of a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
+  let dump_kobj_clauses =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-clauses" ] ~docv:"FILE"
+        ~doc:
+          "Dump all kernel clauses from a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
+  let dump_kobj_product =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-product" ] ~docv:"FILE"
+        ~doc:
+          "Dump product states/steps from a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
   let dump_json =
     value
     & opt (some string) None
@@ -608,6 +661,7 @@ let cmd =
       ret
        (const run $ dump_dot $ dump_dot_short $ dump_automata
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2 $ emit_kobj
+       $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
        $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
        $ dump_native_counterexample_json $ proof_traces_failed_only
        $ proof_traces_fast $ proof_trace_goal_index $ dump_ast $ dump_ast_all $ dump_ast_stable

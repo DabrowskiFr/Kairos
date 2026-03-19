@@ -237,6 +237,29 @@ let decode_or_none decode json =
   | Ok value -> Some value
   | Error _ -> None
 
+let kobj_request_input_and_engine (params : Yojson.Safe.t) :
+    (string option * Engine_service.engine) =
+  let req = decode_or_none Lsp_protocol.kobj_summary_request_of_yojson params in
+  let input_file =
+    match req with
+    | Some req -> Some req.input_file
+    | None -> get_param_string params "inputFile"
+  in
+  let engine =
+    match req with
+    | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+    | None -> get_engine params
+  in
+  (input_file, engine)
+
+let read_or_compile_kobj ~(engine : Engine_service.engine) ~(input_file : string) =
+  if Filename.check_suffix input_file ".kobj" then
+    Kairos_object.read_file ~path:input_file
+  else
+    match Engine_service.compile_object ~engine ~input_file with
+    | Ok obj -> Ok obj
+    | Error e -> Error (Pipeline.error_to_string e)
+
 let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
   {
     input_file = cfg.input_file;
@@ -764,6 +787,57 @@ let () =
                     | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/traceText")
+              id_json
+        | Some "kairos/kobjSummary" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_summary obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
+              id_json
+        | Some "kairos/kobjClauses" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_clauses obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
+              id_json
+        | Some "kairos/kobjProduct" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_product obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/dotPngFromText" ->
             Option.iter

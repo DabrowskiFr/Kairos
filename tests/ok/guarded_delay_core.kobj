@@ -1,1 +1,3488 @@
-{"metadata":{"format":"kairos-kobj","format_version":1,"backend_agnostic":true,"source_path":"./tests/ok/guarded_delay_core.kairos","source_hash":"d35f362e276310a74e8b7be3d53f963b","imports":[]},"nodes":[{"signature":{"node_name":"guarded_delay_core","inputs":[{"vname":"x","vty":["TInt"]}],"outputs":[{"vname":"outv","vty":["TInt"]}],"locals":[{"vname":"z","vty":["TInt"]},{"vname":"__pre_k1_x","vty":["TInt"]}],"instances":[],"states":["Init","Run"],"init_state":"Init"},"normalized_ir":{"reactive_program":{"node_name":"guarded_delay_core","init_state":"Init","states":["Init","Run"],"transitions":[{"src_state":"Init","dst_state":"Run","guard":["LTrue"],"guard_iexpr":null,"requires":[{"value":["LAtom",["FRel",["HNow",{"iexpr":["IVar","__aut_state"],"loc":null}],["REq"],["HNow",{"iexpr":["IVar","Aut0"],"loc":null}]]],"origin":["Compatibility"],"oid":1,"loc":null}],"ensures":[],"ghost_stmts":[],"body_stmts":[{"stmt":["SAssign","outv",{"iexpr":["ILitInt",0],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"stmt":["SAssign","z",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"instrumentation_stmts":[{"stmt":["SMatch",{"iexpr":["IVar","__aut_state"],"loc":null},[["Aut0",[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut1"],"loc":null}],"loc":null}]],["Aut1",[{"stmt":["SIf",{"iexpr":["IBin",["Eq"],{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"iexpr":["IVar","__pre_k1_x"],"loc":null}],"loc":null},[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut1"],"loc":null}],"loc":null}],[{"stmt":["SIf",{"iexpr":["IUn",["Not"],{"iexpr":["IBin",["Eq"],{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"iexpr":["IVar","__pre_k1_x"],"loc":null}],"loc":null}],"loc":null},[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut2"],"loc":null}],"loc":null}],[{"stmt":["SSkip"],"loc":null}]],"loc":null}]],"loc":null}]],["Aut2",[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut2"],"loc":null}],"loc":null}]]],[]],"loc":null}]},{"src_state":"Run","dst_state":"Run","guard":["LTrue"],"guard_iexpr":null,"requires":[{"value":["LOr",["LAtom",["FRel",["HNow",{"iexpr":["IVar","__aut_state"],"loc":null}],["REq"],["HNow",{"iexpr":["IVar","Aut1"],"loc":null}]]],["LAtom",["FRel",["HNow",{"iexpr":["IVar","__aut_state"],"loc":null}],["REq"],["HNow",{"iexpr":["IVar","Aut2"],"loc":null}]]]],"origin":["Compatibility"],"oid":2,"loc":null}],"ensures":[],"ghost_stmts":[],"body_stmts":[{"stmt":["SAssign","outv",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"stmt":["SAssign","z",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],"instrumentation_stmts":[{"stmt":["SMatch",{"iexpr":["IVar","__aut_state"],"loc":null},[["Aut0",[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut1"],"loc":null}],"loc":null}]],["Aut1",[{"stmt":["SIf",{"iexpr":["IBin",["Eq"],{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"iexpr":["IVar","__pre_k1_x"],"loc":null}],"loc":null},[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut1"],"loc":null}],"loc":null}],[{"stmt":["SIf",{"iexpr":["IUn",["Not"],{"iexpr":["IBin",["Eq"],{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},{"iexpr":["IVar","__pre_k1_x"],"loc":null}],"loc":null}],"loc":null},[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut2"],"loc":null}],"loc":null}],[{"stmt":["SSkip"],"loc":null}]],"loc":null}]],"loc":null}]],["Aut2",[{"stmt":["SAssign","__aut_state",{"iexpr":["IVar","Aut2"],"loc":null}],"loc":null}]]],[]],"loc":null}]}]},"assume_automaton":{"role":["Assume"],"initial_state_index":0,"bad_state_index":null,"state_labels":[[0,"true"]],"edges":[{"src_index":0,"dst_index":0,"guard":["LTrue"]}]},"guarantee_automaton":{"role":["Guarantee"],"initial_state_index":0,"bad_state_index":2,"state_labels":[[0,"true"],[1,"true"],[2,"false"]],"edges":[{"src_index":0,"dst_index":1,"guard":["LTrue"]},{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},{"src_index":2,"dst_index":2,"guard":["LTrue"]}]},"initial_product_state":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"product_states":[{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1}],"product_steps":[{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]},{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]},{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"product_coverage":["CoverageExplicit"],"historical_generated_clauses":[{"origin":["OriginInitNodeInvariant"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}]},{"origin":["OriginInitAutomatonCoherence"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",0]}]},{"origin":["OriginSourceProductSummary"],"anchor":["ClauseAnchorProductState",{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactFormula",["LOr",["LTrue"],["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Init"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Init"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",2]}]},{"origin":["OriginSafety"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactFalse"]}]}],"eliminated_generated_clauses":[{"origin":["OriginInitNodeInvariant"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}]},{"origin":["OriginInitAutomatonCoherence"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",0]}]},{"origin":["OriginSourceProductSummary"],"anchor":["ClauseAnchorProductState",{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1}],"hypotheses":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactFormula",["LOr",["LTrue"],["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Init"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Init"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactProgramState","Run"]},{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactGuaranteeState",2]}]},{"origin":["OriginSafety"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["FactProgramState","Run"]},{"time":["PreviousTick"],"desc":["FactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["FactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["FactFalse"]}]}],"symbolic_generated_clauses":[{"origin":["OriginInitNodeInvariant"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Init"]}]},{"origin":["OriginInitAutomatonCoherence"],"anchor":["ClauseAnchorProductState",{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0}],"hypotheses":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Init"]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactGuaranteeState",0]}]},{"origin":["OriginSourceProductSummary"],"anchor":["ClauseAnchorProductState",{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1}],"hypotheses":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Run"]},{"time":["CurrentTick"],"desc":["RelFactGuaranteeState",1]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactFormula",["LOr",["LTrue"],["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Init"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Run"]},{"time":["CurrentTick"],"desc":["RelFactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Init","assume_state_index":0,"guarantee_state_index":0},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Init","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":0,"dst_index":1,"guard":["LTrue"]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Init"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",0]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Run"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Run"]},{"time":["CurrentTick"],"desc":["RelFactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":1,"guard":["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]},"step_kind":["StepSafe"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Run"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactGuaranteeState",1]}]},{"origin":["OriginPropagationNodeInvariant"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Run"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactProgramState","Run"]},{"time":["CurrentTick"],"desc":["RelFactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]}]},{"origin":["OriginPropagationAutomatonCoherence"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Run"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactGuaranteeState",2]}]},{"origin":["OriginSafety"],"anchor":["ClauseAnchorProductStep",{"src":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":1},"dst":{"prog_state":"Run","assume_state_index":0,"guarantee_state_index":2},"program_transition":["Run","Run"],"program_guard":["LTrue"],"assume_edge":{"src_index":0,"dst_index":0,"guard":["LTrue"]},"guarantee_edge":{"src_index":1,"dst_index":2,"guard":["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]},"step_kind":["StepBadGuarantee"],"step_origin":["StepFromExplicitExploration"]}],"hypotheses":[{"time":["PreviousTick"],"desc":["RelFactProgramState","Run"]},{"time":["PreviousTick"],"desc":["RelFactGuaranteeState",1]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LTrue"]]},{"time":["StepTickContext"],"desc":["RelFactFormula",["LNot",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HNow",{"iexpr":["IVar","__pre_k1_x"],"loc":null}]]]]]}],"conclusions":[{"time":["CurrentTick"],"desc":["RelFactFalse"]}]}],"instance_relations":[],"callee_tick_abis":[],"call_site_instantiations":[],"ghost_locals":[{"vname":"__pre_k1_x","vty":["TInt"]}]},"tick_summary":{"callee_node_name":"guarded_delay_core","input_ports":[{"port_name":"x","role":["CallInputPort"]}],"output_ports":[{"port_name":"outv","role":["CallOutputPort"]}],"state_ports":[{"port_name":"st","role":["CallStatePort"]},{"port_name":"z","role":["CallStatePort"]}],"cases":[{"case_name":"Init_to_Run_0","entry_facts":[{"fact_kind":["CallEntryFact"],"fact":{"time":["CurrentTick"],"desc":["FactProgramState","Init"]}}],"transition_facts":[{"fact_kind":["CallTransitionFact"],"fact":{"time":["CurrentTick"],"desc":["FactProgramState","Run"]}}],"exported_post_facts":[{"fact_kind":["CallExportedPostFact"],"fact":{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]}}]},{"case_name":"Run_to_Run_1","entry_facts":[{"fact_kind":["CallEntryFact"],"fact":{"time":["CurrentTick"],"desc":["FactProgramState","Run"]}}],"transition_facts":[{"fact_kind":["CallTransitionFact"],"fact":{"time":["CurrentTick"],"desc":["FactProgramState","Run"]}}],"exported_post_facts":[{"fact_kind":["CallExportedPostFact"],"fact":{"time":["CurrentTick"],"desc":["FactFormula",["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]}}]}]},"user_invariants":[],"state_invariants":[{"is_eq":true,"state":"Run","formula":["LAtom",["FRel",["HNow",{"iexpr":["IVar","z"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]}],"coherency_goals":[],"pre_k_map":[[["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1],{"h":["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1],"expr":{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},"names":["__pre_k1_x"],"vty":["TInt"]}]],"delay_spec":null,"assumes":[],"guarantees":[["LX",["LG",["LAtom",["FRel",["HNow",{"iexpr":["IVar","outv"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}}],["REq"],["HPreK",{"iexpr":["IVar","x"],"loc":{"line":0,"col":-1,"line_end":0,"col_end":-1}},1]]]]]]}]}
+{
+  "metadata": {
+    "format": "kairos-kobj",
+    "format_version": 1,
+    "backend_agnostic": true,
+    "source_path": "tests/ok/guarded_delay_core.kairos",
+    "source_hash": "d35f362e276310a74e8b7be3d53f963b",
+    "imports": []
+  },
+  "nodes": [
+    {
+      "signature": {
+        "node_name": "guarded_delay_core",
+        "inputs": [ { "vname": "x", "vty": [ "TInt" ] } ],
+        "outputs": [ { "vname": "outv", "vty": [ "TInt" ] } ],
+        "locals": [
+          { "vname": "z", "vty": [ "TInt" ] },
+          { "vname": "__pre_k1_x", "vty": [ "TInt" ] }
+        ],
+        "instances": [],
+        "states": [ "Init", "Run" ],
+        "init_state": "Init"
+      },
+      "normalized_ir": {
+        "reactive_program": {
+          "node_name": "guarded_delay_core",
+          "init_state": "Init",
+          "states": [ "Init", "Run" ],
+          "transitions": [
+            {
+              "src_state": "Init",
+              "dst_state": "Run",
+              "guard": [ "LTrue" ],
+              "guard_iexpr": null,
+              "requires": [
+                {
+                  "value": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__aut_state" ], "loc": null }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow", { "iexpr": [ "IVar", "Aut0" ], "loc": null }
+                      ]
+                    ]
+                  ],
+                  "origin": [ "Compatibility" ],
+                  "oid": 1,
+                  "loc": null
+                }
+              ],
+              "ensures": [],
+              "ghost_stmts": [],
+              "body_stmts": [
+                {
+                  "stmt": [
+                    "SAssign",
+                    "outv",
+                    {
+                      "iexpr": [ "ILitInt", 0 ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                },
+                {
+                  "stmt": [
+                    "SAssign",
+                    "z",
+                    {
+                      "iexpr": [ "IVar", "x" ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                }
+              ],
+              "instrumentation_stmts": [
+                {
+                  "stmt": [
+                    "SMatch",
+                    { "iexpr": [ "IVar", "__aut_state" ], "loc": null },
+                    [
+                      [
+                        "Aut0",
+                        [
+                          {
+                            "stmt": [
+                              "SAssign",
+                              "__aut_state",
+                              { "iexpr": [ "IVar", "Aut1" ], "loc": null }
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ],
+                      [
+                        "Aut1",
+                        [
+                          {
+                            "stmt": [
+                              "SIf",
+                              {
+                                "iexpr": [
+                                  "IBin",
+                                  [ "Eq" ],
+                                  {
+                                    "iexpr": [ "IVar", "outv" ],
+                                    "loc": {
+                                      "line": 0,
+                                      "col": -1,
+                                      "line_end": 0,
+                                      "col_end": -1
+                                    }
+                                  },
+                                  {
+                                    "iexpr": [ "IVar", "__pre_k1_x" ],
+                                    "loc": null
+                                  }
+                                ],
+                                "loc": null
+                              },
+                              [
+                                {
+                                  "stmt": [
+                                    "SAssign",
+                                    "__aut_state",
+                                    {
+                                      "iexpr": [ "IVar", "Aut1" ],
+                                      "loc": null
+                                    }
+                                  ],
+                                  "loc": null
+                                }
+                              ],
+                              [
+                                {
+                                  "stmt": [
+                                    "SIf",
+                                    {
+                                      "iexpr": [
+                                        "IUn",
+                                        [ "Not" ],
+                                        {
+                                          "iexpr": [
+                                            "IBin",
+                                            [ "Eq" ],
+                                            {
+                                              "iexpr": [ "IVar", "outv" ],
+                                              "loc": {
+                                                "line": 0,
+                                                "col": -1,
+                                                "line_end": 0,
+                                                "col_end": -1
+                                              }
+                                            },
+                                            {
+                                              "iexpr": [
+                                                "IVar", "__pre_k1_x"
+                                              ],
+                                              "loc": null
+                                            }
+                                          ],
+                                          "loc": null
+                                        }
+                                      ],
+                                      "loc": null
+                                    },
+                                    [
+                                      {
+                                        "stmt": [
+                                          "SAssign",
+                                          "__aut_state",
+                                          {
+                                            "iexpr": [ "IVar", "Aut2" ],
+                                            "loc": null
+                                          }
+                                        ],
+                                        "loc": null
+                                      }
+                                    ],
+                                    [ { "stmt": [ "SSkip" ], "loc": null } ]
+                                  ],
+                                  "loc": null
+                                }
+                              ]
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ],
+                      [
+                        "Aut2",
+                        [
+                          {
+                            "stmt": [
+                              "SAssign",
+                              "__aut_state",
+                              { "iexpr": [ "IVar", "Aut2" ], "loc": null }
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ]
+                    ],
+                    []
+                  ],
+                  "loc": null
+                }
+              ]
+            },
+            {
+              "src_state": "Run",
+              "dst_state": "Run",
+              "guard": [ "LTrue" ],
+              "guard_iexpr": null,
+              "requires": [
+                {
+                  "value": [
+                    "LOr",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__aut_state" ], "loc": null }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "Aut1" ], "loc": null }
+                        ]
+                      ]
+                    ],
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__aut_state" ], "loc": null }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "Aut2" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ],
+                  "origin": [ "Compatibility" ],
+                  "oid": 2,
+                  "loc": null
+                }
+              ],
+              "ensures": [],
+              "ghost_stmts": [],
+              "body_stmts": [
+                {
+                  "stmt": [
+                    "SAssign",
+                    "outv",
+                    {
+                      "iexpr": [ "IVar", "z" ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                },
+                {
+                  "stmt": [
+                    "SAssign",
+                    "z",
+                    {
+                      "iexpr": [ "IVar", "x" ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                }
+              ],
+              "instrumentation_stmts": [
+                {
+                  "stmt": [
+                    "SMatch",
+                    { "iexpr": [ "IVar", "__aut_state" ], "loc": null },
+                    [
+                      [
+                        "Aut0",
+                        [
+                          {
+                            "stmt": [
+                              "SAssign",
+                              "__aut_state",
+                              { "iexpr": [ "IVar", "Aut1" ], "loc": null }
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ],
+                      [
+                        "Aut1",
+                        [
+                          {
+                            "stmt": [
+                              "SIf",
+                              {
+                                "iexpr": [
+                                  "IBin",
+                                  [ "Eq" ],
+                                  {
+                                    "iexpr": [ "IVar", "outv" ],
+                                    "loc": {
+                                      "line": 0,
+                                      "col": -1,
+                                      "line_end": 0,
+                                      "col_end": -1
+                                    }
+                                  },
+                                  {
+                                    "iexpr": [ "IVar", "__pre_k1_x" ],
+                                    "loc": null
+                                  }
+                                ],
+                                "loc": null
+                              },
+                              [
+                                {
+                                  "stmt": [
+                                    "SAssign",
+                                    "__aut_state",
+                                    {
+                                      "iexpr": [ "IVar", "Aut1" ],
+                                      "loc": null
+                                    }
+                                  ],
+                                  "loc": null
+                                }
+                              ],
+                              [
+                                {
+                                  "stmt": [
+                                    "SIf",
+                                    {
+                                      "iexpr": [
+                                        "IUn",
+                                        [ "Not" ],
+                                        {
+                                          "iexpr": [
+                                            "IBin",
+                                            [ "Eq" ],
+                                            {
+                                              "iexpr": [ "IVar", "outv" ],
+                                              "loc": {
+                                                "line": 0,
+                                                "col": -1,
+                                                "line_end": 0,
+                                                "col_end": -1
+                                              }
+                                            },
+                                            {
+                                              "iexpr": [
+                                                "IVar", "__pre_k1_x"
+                                              ],
+                                              "loc": null
+                                            }
+                                          ],
+                                          "loc": null
+                                        }
+                                      ],
+                                      "loc": null
+                                    },
+                                    [
+                                      {
+                                        "stmt": [
+                                          "SAssign",
+                                          "__aut_state",
+                                          {
+                                            "iexpr": [ "IVar", "Aut2" ],
+                                            "loc": null
+                                          }
+                                        ],
+                                        "loc": null
+                                      }
+                                    ],
+                                    [ { "stmt": [ "SSkip" ], "loc": null } ]
+                                  ],
+                                  "loc": null
+                                }
+                              ]
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ],
+                      [
+                        "Aut2",
+                        [
+                          {
+                            "stmt": [
+                              "SAssign",
+                              "__aut_state",
+                              { "iexpr": [ "IVar", "Aut2" ], "loc": null }
+                            ],
+                            "loc": null
+                          }
+                        ]
+                      ]
+                    ],
+                    []
+                  ],
+                  "loc": null
+                }
+              ]
+            }
+          ]
+        },
+        "assume_automaton": {
+          "role": [ "Assume" ],
+          "initial_state_index": 0,
+          "bad_state_index": null,
+          "state_labels": [ [ 0, "true" ] ],
+          "edges": [
+            { "src_index": 0, "dst_index": 0, "guard": [ "LTrue" ] }
+          ]
+        },
+        "guarantee_automaton": {
+          "role": [ "Guarantee" ],
+          "initial_state_index": 0,
+          "bad_state_index": 2,
+          "state_labels": [ [ 0, "true" ], [ 1, "true" ], [ 2, "false" ] ],
+          "edges": [
+            { "src_index": 0, "dst_index": 1, "guard": [ "LTrue" ] },
+            {
+              "src_index": 1,
+              "dst_index": 2,
+              "guard": [
+                "LNot",
+                [
+                  "LAtom",
+                  [
+                    "FRel",
+                    [
+                      "HNow",
+                      {
+                        "iexpr": [ "IVar", "outv" ],
+                        "loc": {
+                          "line": 0,
+                          "col": -1,
+                          "line_end": 0,
+                          "col_end": -1
+                        }
+                      }
+                    ],
+                    [ "REq" ],
+                    [
+                      "HNow",
+                      { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                    ]
+                  ]
+                ]
+              ]
+            },
+            {
+              "src_index": 1,
+              "dst_index": 1,
+              "guard": [
+                "LAtom",
+                [
+                  "FRel",
+                  [
+                    "HNow",
+                    {
+                      "iexpr": [ "IVar", "outv" ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  [ "REq" ],
+                  [
+                    "HNow",
+                    { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                  ]
+                ]
+              ]
+            },
+            { "src_index": 2, "dst_index": 2, "guard": [ "LTrue" ] }
+          ]
+        },
+        "initial_product_state": {
+          "prog_state": "Init",
+          "assume_state_index": 0,
+          "guarantee_state_index": 0
+        },
+        "product_states": [
+          {
+            "prog_state": "Init",
+            "assume_state_index": 0,
+            "guarantee_state_index": 0
+          },
+          {
+            "prog_state": "Run",
+            "assume_state_index": 0,
+            "guarantee_state_index": 1
+          }
+        ],
+        "product_steps": [
+          {
+            "src": {
+              "prog_state": "Init",
+              "assume_state_index": 0,
+              "guarantee_state_index": 0
+            },
+            "dst": {
+              "prog_state": "Run",
+              "assume_state_index": 0,
+              "guarantee_state_index": 1
+            },
+            "program_transition": [ "Init", "Run" ],
+            "program_guard": [ "LTrue" ],
+            "assume_edge": {
+              "src_index": 0,
+              "dst_index": 0,
+              "guard": [ "LTrue" ]
+            },
+            "guarantee_edge": {
+              "src_index": 0,
+              "dst_index": 1,
+              "guard": [ "LTrue" ]
+            },
+            "step_kind": [ "StepSafe" ],
+            "step_origin": [ "StepFromExplicitExploration" ]
+          },
+          {
+            "src": {
+              "prog_state": "Run",
+              "assume_state_index": 0,
+              "guarantee_state_index": 1
+            },
+            "dst": {
+              "prog_state": "Run",
+              "assume_state_index": 0,
+              "guarantee_state_index": 1
+            },
+            "program_transition": [ "Run", "Run" ],
+            "program_guard": [ "LTrue" ],
+            "assume_edge": {
+              "src_index": 0,
+              "dst_index": 0,
+              "guard": [ "LTrue" ]
+            },
+            "guarantee_edge": {
+              "src_index": 1,
+              "dst_index": 1,
+              "guard": [
+                "LAtom",
+                [
+                  "FRel",
+                  [
+                    "HNow",
+                    {
+                      "iexpr": [ "IVar", "outv" ],
+                      "loc": {
+                        "line": 0,
+                        "col": -1,
+                        "line_end": 0,
+                        "col_end": -1
+                      }
+                    }
+                  ],
+                  [ "REq" ],
+                  [
+                    "HNow",
+                    { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                  ]
+                ]
+              ]
+            },
+            "step_kind": [ "StepSafe" ],
+            "step_origin": [ "StepFromExplicitExploration" ]
+          },
+          {
+            "src": {
+              "prog_state": "Run",
+              "assume_state_index": 0,
+              "guarantee_state_index": 1
+            },
+            "dst": {
+              "prog_state": "Run",
+              "assume_state_index": 0,
+              "guarantee_state_index": 2
+            },
+            "program_transition": [ "Run", "Run" ],
+            "program_guard": [ "LTrue" ],
+            "assume_edge": {
+              "src_index": 0,
+              "dst_index": 0,
+              "guard": [ "LTrue" ]
+            },
+            "guarantee_edge": {
+              "src_index": 1,
+              "dst_index": 2,
+              "guard": [
+                "LNot",
+                [
+                  "LAtom",
+                  [
+                    "FRel",
+                    [
+                      "HNow",
+                      {
+                        "iexpr": [ "IVar", "outv" ],
+                        "loc": {
+                          "line": 0,
+                          "col": -1,
+                          "line_end": 0,
+                          "col_end": -1
+                        }
+                      }
+                    ],
+                    [ "REq" ],
+                    [
+                      "HNow",
+                      { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                    ]
+                  ]
+                ]
+              ]
+            },
+            "step_kind": [ "StepBadGuarantee" ],
+            "step_origin": [ "StepFromExplicitExploration" ]
+          }
+        ],
+        "product_coverage": [ "CoverageExplicit" ],
+        "historical_generated_clauses": [
+          {
+            "origin": [ "OriginInitNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginInitAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSourceProductSummary" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Run",
+                "assume_state_index": 0,
+                "guarantee_state_index": 1
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LOr",
+                    [ "LTrue" ],
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HPreK",
+                        {
+                          "iexpr": [ "IVar", "x" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        },
+                        1
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HPreK",
+                        {
+                          "iexpr": [ "IVar", "x" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        },
+                        1
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HPreK",
+                        {
+                          "iexpr": [ "IVar", "x" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        },
+                        1
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 2 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSafety" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              { "time": [ "CurrentTick" ], "desc": [ "FactFalse" ] }
+            ]
+          }
+        ],
+        "eliminated_generated_clauses": [
+          {
+            "origin": [ "OriginInitNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginInitAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSourceProductSummary" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Run",
+                "assume_state_index": 0,
+                "guarantee_state_index": 1
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LOr",
+                    [ "LTrue" ],
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 0 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "FactGuaranteeState", 2 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSafety" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "FactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [ "FactFormula", [ "LTrue" ] ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "FactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              { "time": [ "CurrentTick" ], "desc": [ "FactFalse" ] }
+            ]
+          }
+        ],
+        "symbolic_generated_clauses": [
+          {
+            "origin": [ "OriginInitNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Init" ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginInitAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Init",
+                "assume_state_index": 0,
+                "guarantee_state_index": 0
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Init" ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactGuaranteeState", 0 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSourceProductSummary" ],
+            "anchor": [
+              "ClauseAnchorProductState",
+              {
+                "prog_state": "Run",
+                "assume_state_index": 0,
+                "guarantee_state_index": 1
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LOr",
+                    [ "LTrue" ],
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 0 ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Init",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 0
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Init", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 0,
+                  "dst_index": 1,
+                  "guard": [ "LTrue" ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Init" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 0 ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 1,
+                  "guard": [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepSafe" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "outv" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationNodeInvariant" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LAtom",
+                    [
+                      "FRel",
+                      [
+                        "HNow",
+                        {
+                          "iexpr": [ "IVar", "z" ],
+                          "loc": {
+                            "line": 0,
+                            "col": -1,
+                            "line_end": 0,
+                            "col_end": -1
+                          }
+                        }
+                      ],
+                      [ "REq" ],
+                      [
+                        "HNow",
+                        { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginPropagationAutomatonCoherence" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              {
+                "time": [ "CurrentTick" ],
+                "desc": [ "RelFactGuaranteeState", 2 ]
+              }
+            ]
+          },
+          {
+            "origin": [ "OriginSafety" ],
+            "anchor": [
+              "ClauseAnchorProductStep",
+              {
+                "src": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 1
+                },
+                "dst": {
+                  "prog_state": "Run",
+                  "assume_state_index": 0,
+                  "guarantee_state_index": 2
+                },
+                "program_transition": [ "Run", "Run" ],
+                "program_guard": [ "LTrue" ],
+                "assume_edge": {
+                  "src_index": 0,
+                  "dst_index": 0,
+                  "guard": [ "LTrue" ]
+                },
+                "guarantee_edge": {
+                  "src_index": 1,
+                  "dst_index": 2,
+                  "guard": [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                },
+                "step_kind": [ "StepBadGuarantee" ],
+                "step_origin": [ "StepFromExplicitExploration" ]
+              }
+            ],
+            "hypotheses": [
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactProgramState", "Run" ]
+              },
+              {
+                "time": [ "PreviousTick" ],
+                "desc": [ "RelFactGuaranteeState", 1 ]
+              },
+              {
+                "time": [ "StepTickContext" ],
+                "desc": [
+                  "RelFactFormula",
+                  [
+                    "LNot",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "outv" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HNow",
+                          { "iexpr": [ "IVar", "__pre_k1_x" ], "loc": null }
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              }
+            ],
+            "conclusions": [
+              { "time": [ "CurrentTick" ], "desc": [ "RelFactFalse" ] }
+            ]
+          }
+        ],
+        "instance_relations": [],
+        "callee_tick_abis": [],
+        "call_site_instantiations": [],
+        "ghost_locals": [ { "vname": "__pre_k1_x", "vty": [ "TInt" ] } ]
+      },
+      "tick_summary": {
+        "callee_node_name": "guarded_delay_core",
+        "input_ports": [ { "port_name": "x", "role": [ "CallInputPort" ] } ],
+        "output_ports": [
+          { "port_name": "outv", "role": [ "CallOutputPort" ] }
+        ],
+        "state_ports": [
+          { "port_name": "st", "role": [ "CallStatePort" ] },
+          { "port_name": "z", "role": [ "CallStatePort" ] }
+        ],
+        "cases": [
+          {
+            "case_name": "Init_to_Run_0",
+            "entry_facts": [
+              {
+                "fact_kind": [ "CallEntryFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [ "FactProgramState", "Init" ]
+                }
+              }
+            ],
+            "transition_facts": [
+              {
+                "fact_kind": [ "CallTransitionFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [ "FactProgramState", "Run" ]
+                }
+              }
+            ],
+            "exported_post_facts": [
+              {
+                "fact_kind": [ "CallExportedPostFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [
+                    "FactFormula",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "z" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HPreK",
+                          {
+                            "iexpr": [ "IVar", "x" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          },
+                          1
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "case_name": "Run_to_Run_1",
+            "entry_facts": [
+              {
+                "fact_kind": [ "CallEntryFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [ "FactProgramState", "Run" ]
+                }
+              }
+            ],
+            "transition_facts": [
+              {
+                "fact_kind": [ "CallTransitionFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [ "FactProgramState", "Run" ]
+                }
+              }
+            ],
+            "exported_post_facts": [
+              {
+                "fact_kind": [ "CallExportedPostFact" ],
+                "fact": {
+                  "time": [ "CurrentTick" ],
+                  "desc": [
+                    "FactFormula",
+                    [
+                      "LAtom",
+                      [
+                        "FRel",
+                        [
+                          "HNow",
+                          {
+                            "iexpr": [ "IVar", "z" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          }
+                        ],
+                        [ "REq" ],
+                        [
+                          "HPreK",
+                          {
+                            "iexpr": [ "IVar", "x" ],
+                            "loc": {
+                              "line": 0,
+                              "col": -1,
+                              "line_end": 0,
+                              "col_end": -1
+                            }
+                          },
+                          1
+                        ]
+                      ]
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "user_invariants": [],
+      "state_invariants": [
+        {
+          "is_eq": true,
+          "state": "Run",
+          "formula": [
+            "LAtom",
+            [
+              "FRel",
+              [
+                "HNow",
+                {
+                  "iexpr": [ "IVar", "z" ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                }
+              ],
+              [ "REq" ],
+              [
+                "HPreK",
+                {
+                  "iexpr": [ "IVar", "x" ],
+                  "loc": {
+                    "line": 0,
+                    "col": -1,
+                    "line_end": 0,
+                    "col_end": -1
+                  }
+                },
+                1
+              ]
+            ]
+          ]
+        }
+      ],
+      "coherency_goals": [],
+      "pre_k_map": [
+        [
+          [
+            "HPreK",
+            {
+              "iexpr": [ "IVar", "x" ],
+              "loc": { "line": 0, "col": -1, "line_end": 0, "col_end": -1 }
+            },
+            1
+          ],
+          {
+            "h": [
+              "HPreK",
+              {
+                "iexpr": [ "IVar", "x" ],
+                "loc": { "line": 0, "col": -1, "line_end": 0, "col_end": -1 }
+              },
+              1
+            ],
+            "expr": {
+              "iexpr": [ "IVar", "x" ],
+              "loc": { "line": 0, "col": -1, "line_end": 0, "col_end": -1 }
+            },
+            "names": [ "__pre_k1_x" ],
+            "vty": [ "TInt" ]
+          }
+        ]
+      ],
+      "delay_spec": null,
+      "assumes": [],
+      "guarantees": [
+        [
+          "LX",
+          [
+            "LG",
+            [
+              "LAtom",
+              [
+                "FRel",
+                [
+                  "HNow",
+                  {
+                    "iexpr": [ "IVar", "outv" ],
+                    "loc": {
+                      "line": 0,
+                      "col": -1,
+                      "line_end": 0,
+                      "col_end": -1
+                    }
+                  }
+                ],
+                [ "REq" ],
+                [
+                  "HPreK",
+                  {
+                    "iexpr": [ "IVar", "x" ],
+                    "loc": {
+                      "line": 0,
+                      "col": -1,
+                      "line_end": 0,
+                      "col_end": -1
+                    }
+                  },
+                  1
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    }
+  ]
+}

@@ -275,6 +275,12 @@ type eval_pass_request = {
 }
 [@@deriving yojson]
 
+type kobj_summary_request = {
+  input_file : string [@key "inputFile"];
+  engine : string;
+}
+[@@deriving yojson]
+
 type dot_png_from_text_request = { dot_text : string [@key "dotText"] } [@@deriving yojson]
 
 type config_repr = {
@@ -436,6 +442,9 @@ let obligations_pass_request_of_yojson = obligations_pass_request_of_yojson
 
 let yojson_of_eval_pass_request = eval_pass_request_to_yojson
 let eval_pass_request_of_yojson = eval_pass_request_of_yojson
+
+let yojson_of_kobj_summary_request = kobj_summary_request_to_yojson
+let kobj_summary_request_of_yojson = kobj_summary_request_of_yojson
 
 let yojson_of_dot_png_from_text_request = dot_png_from_text_request_to_yojson
 let dot_png_from_text_request_of_yojson = dot_png_from_text_request_of_yojson

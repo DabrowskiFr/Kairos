@@ -227,6 +227,11 @@ type eval_pass_request = {
   engine : string;
 }
 
+type kobj_summary_request = {
+  input_file : string;
+  engine : string;
+}
+
 type dot_png_from_text_request = { dot_text : string }
 
 type config = {
@@ -327,6 +332,9 @@ val obligations_pass_request_of_yojson : Yojson.Safe.t -> (obligations_pass_requ
 
 val yojson_of_eval_pass_request : eval_pass_request -> Yojson.Safe.t
 val eval_pass_request_of_yojson : Yojson.Safe.t -> (eval_pass_request, string) result
+
+val yojson_of_kobj_summary_request : kobj_summary_request -> Yojson.Safe.t
+val kobj_summary_request_of_yojson : Yojson.Safe.t -> (kobj_summary_request, string) result
 
 val yojson_of_dot_png_from_text_request : dot_png_from_text_request -> Yojson.Safe.t
 val dot_png_from_text_request_of_yojson : Yojson.Safe.t -> (dot_png_from_text_request, string) result

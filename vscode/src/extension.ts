@@ -414,6 +414,48 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
 
+  async function showKobjTextView(
+    method: "kairos/kobjSummary" | "kairos/kobjClauses" | "kairos/kobjProduct",
+    title: string
+  ): Promise<void> {
+    if (!client) {
+      return;
+    }
+    const resolved = await resolveKairosContext({ reveal: false, showWarning: true });
+    if (!resolved) {
+      return;
+    }
+    try {
+      await ensureClientReady();
+      const text = (await client.sendRequest(method, {
+        inputFile: resolved.inputFile,
+        engine: getRunSettings().engine
+      })) as string;
+      const fileBase = path.basename(resolved.inputFile, path.extname(resolved.inputFile));
+      const untitled = vscode.Uri.parse(
+        `untitled:${title.replace(/\s+/g, "_")}_${fileBase}.txt`
+      );
+      const document = await vscode.workspace.openTextDocument(untitled);
+      const editor = await vscode.window.showTextDocument(document, {
+        preview: true,
+        viewColumn: preferredEditorColumn()
+      });
+      await editor.edit((edit) => {
+        edit.replace(
+          new vscode.Range(
+            document.positionAt(0),
+            document.positionAt(document.getText().length)
+          ),
+          text
+        );
+      });
+      await vscode.languages.setTextDocumentLanguage(document, "plaintext");
+    } catch (error) {
+      output.appendLine(`${method} failed: ${String(error)}`);
+      vscode.window.showErrorMessage(`${title} failed: ${String(error)}`);
+    }
+  }
+
   async function computeGoalsTreeFinal(outputs: Outputs): Promise<void> {
     const entries =
       outputs.goals?.map((goal, idx) => ({
@@ -1159,6 +1201,15 @@ ${rows
     vscode.commands.registerCommand("kairos.openProductText", async () => openKairosDoc("product")),
     vscode.commands.registerCommand("kairos.openObligationsMap", async () => openKairosDoc("obligations_map")),
     vscode.commands.registerCommand("kairos.openPruneReasons", async () => openKairosDoc("prune_reasons")),
+    vscode.commands.registerCommand("kairos.openKobjSummary", async () =>
+      showKobjTextView("kairos/kobjSummary", "Kairos Kobj Summary")
+    ),
+    vscode.commands.registerCommand("kairos.openKobjClauses", async () =>
+      showKobjTextView("kairos/kobjClauses", "Kairos Kobj Clauses")
+    ),
+    vscode.commands.registerCommand("kairos.openKobjProduct", async () =>
+      showKobjTextView("kairos/kobjProduct", "Kairos Kobj Product")
+    ),
     vscode.commands.registerCommand("kairos.run", async () => runWith("run")),
     vscode.commands.registerCommand("kairos.build", async () => runWith("build")),
     vscode.commands.registerCommand("kairos.prove", async () => runWith("prove")),
