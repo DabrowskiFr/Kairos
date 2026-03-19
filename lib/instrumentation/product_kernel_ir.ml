@@ -128,6 +128,7 @@ type generated_clause_ir = {
 
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
+  | RelFactGuaranteeState of int
   | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]
@@ -464,6 +465,7 @@ let string_of_clause_fact_desc = function
 
 let string_of_relational_clause_fact_desc = function
   | RelFactProgramState st -> "st = " ^ st
+  | RelFactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
   | RelFactFormula f -> string_of_ltl f
   | RelFactFalse -> "false"
 
@@ -523,45 +525,47 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     && a.assume_state_index = b.assume_state_index
     && a.guarantee_state_index = b.guarantee_state_index
   in
-  let bad_case_for_step (step : product_step_ir) =
-    step.guarantee_edge.guard
-  in
-  let src_states =
+  (* Collect destination states reachable via safe steps.
+     For each such destination state, the guard on the incoming safe automaton edge
+     is the exact condition that y_NEW satisfied in the previous step to reach this state.
+     Since y is a state variable, y_OLD in the current step equals that y_NEW.
+     Therefore the disjunction of incoming safe-edge guards is a valid pre-state invariant
+     for y when the automaton is in this destination state. *)
+  let dst_states =
     steps
     |> List.filter_map (fun (step : product_step_ir) ->
            match step.step_kind with
-           | StepBadGuarantee -> Some step.src
-           | StepSafe | StepBadAssumption -> None)
+           | StepSafe -> Some step.dst
+           | StepBadGuarantee | StepBadAssumption -> None)
     |> List.sort_uniq Stdlib.compare
   in
-  src_states
-  |> List.filter_map (fun (src : product_state_ir) ->
-         let bad_cases =
+  dst_states
+  |> List.filter_map (fun (dst : product_state_ir) ->
+         let safe_cases =
            steps
            |> List.filter (fun step ->
-                  same_product_state step.src src && step.step_kind = StepBadGuarantee)
-           |> List.map bad_case_for_step
+                  same_product_state step.dst dst && step.step_kind = StepSafe)
+           |> List.map (fun step -> step.guarantee_edge.guard)
            |> List.filter (fun fo -> not (fo_mentions_current_input fo))
            |> List.sort_uniq Stdlib.compare
          in
-         match bad_cases with
+         match safe_cases with
          | [] -> None
-         | bad_case :: rest ->
-             let safe_summary =
-               List.fold_left (fun acc fo -> LOr (acc, fo)) bad_case rest
-               |> fun disj -> LNot disj
+         | safe_case :: rest ->
+             let pre_invariant =
+               List.fold_left (fun acc fo -> LOr (acc, fo)) safe_case rest
                |> normalize_source_summary
              in
              Some
                ({
                  origin = OriginSourceProductSummary;
-                 anchor = ClauseAnchorProductState src;
+                 anchor = ClauseAnchorProductState dst;
                  hypotheses =
                    [
-                     current (FactProgramState src.prog_state);
-                     current (FactGuaranteeState src.guarantee_state_index);
+                     current (FactProgramState dst.prog_state);
+                     current (FactGuaranteeState dst.guarantee_state_index);
                    ];
-                 conclusions = [ current (FactFormula safe_summary) ];
+                 conclusions = [ current (FactFormula pre_invariant) ];
                } : generated_clause_ir))
 
 let string_of_edge (edge : automaton_edge_ir) =
@@ -858,10 +862,10 @@ let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) lis
   let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
+    | FactGuaranteeState idx -> Some (RelFactGuaranteeState idx)
     | FactFormula fo ->
         Option.map (fun fo' -> RelFactFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
     | FactFalse -> Some RelFactFalse
-    | FactGuaranteeState _ -> None
   in
   Option.map (fun desc -> { time = fact.time; desc }) (rel_desc fact.desc)
 

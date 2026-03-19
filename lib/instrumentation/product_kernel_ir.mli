@@ -120,6 +120,7 @@ type generated_clause_ir = {
 
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
+  | RelFactGuaranteeState of int
   | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]

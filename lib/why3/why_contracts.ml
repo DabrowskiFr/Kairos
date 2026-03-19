@@ -276,6 +276,18 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
             | Product_kernel_ir.CurrentTick -> base
             | Product_kernel_ir.PreviousTick -> term_old base
             | Product_kernel_ir.StepTickContext -> base)
+      | Product_kernel_ir.RelFactGuaranteeState idx -> (
+          match mon_ctor_for_index idx with
+          | None -> None
+          | Some ctor ->
+              let base =
+                term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 ctor)))
+              in
+              Some
+                (match time with
+                | Product_kernel_ir.CurrentTick -> base
+                | Product_kernel_ir.PreviousTick -> term_old base
+                | Product_kernel_ir.StepTickContext -> base))
       | Product_kernel_ir.RelFactFormula fo ->
           let base = compile_ltl_term_shift env 1 fo in
           Some
@@ -616,7 +628,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
   let instance_invariants = link_contracts.instance_invariants in
   let instance_delay_links_inv = link_contracts.instance_delay_links_inv in
   let link_invariants = link_contracts.link_invariants in
-  let post = kernel_post_terms @ dst_state_inv_post_terms @ post_contract_terms in
+  let post = dst_state_inv_post_terms @ kernel_post_terms @ post_contract_terms in
   let pre =
     link_invariants @ link_terms_pre @ pre_contract
     |> uniq_terms
