@@ -299,34 +299,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                             ~guarantee_state:st.guarantee_state_index)
                          fo
                  end
-               | Product_kernel_ir.OriginPhaseStepPreSummary, ClauseAnchorProductStep step -> begin
-                   let phase_formula =
-                     clause.conclusions
-                     |> List.find_map (fun (fact : Product_kernel_ir.clause_fact_ir) ->
-                            match (fact.time, fact.desc) with
-                            | Product_kernel_ir.PreviousTick, Product_kernel_ir.FactPhaseFormula fo ->
-                                Some fo
-                            | _ -> None)
-                   in
-                   match phase_formula with
-                   | None -> acc
-                   | Some fo ->
-                       add_decl acc (Product_kernel_ir.phase_step_pre_case_name step) fo
-                 end
-               | Product_kernel_ir.OriginPhaseStepSummary, ClauseAnchorProductStep step -> begin
-                   let phase_formula =
-                     clause.conclusions
-                     |> List.find_map (fun (fact : Product_kernel_ir.clause_fact_ir) ->
-                            match (fact.time, fact.desc) with
-                            | Product_kernel_ir.CurrentTick, Product_kernel_ir.FactPhaseFormula fo ->
-                                Some fo
-                            | _ -> None)
-                   in
-                   match phase_formula with
-                   | None -> acc
-                   | Some fo ->
-                       add_decl acc (Product_kernel_ir.phase_step_post_case_name step) fo
-                 end
                | _ -> acc)
              []
         |> List.rev
