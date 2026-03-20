@@ -533,6 +533,7 @@ let empty_instrumentation_info ~(states : Automaton_engine.residual_state list) 
     Stage_info.state_ctors = List.mapi (fun i _ -> state_ctor i) states;
     Stage_info.atom_count = List.length atom_names;
     Stage_info.kernel_ir_nodes = [];
+    Stage_info.exported_node_summaries = [];
     Stage_info.raw_ir_nodes = [];
     Stage_info.annotated_ir_nodes = [];
     Stage_info.verified_ir_nodes = [];
@@ -723,10 +724,14 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
     Product_kernel_ir.of_node_analysis ~node_name:n.semantics.sem_nname ~nodes ~external_summaries ~node:node
       ~analysis:product_analysis
   in
+  let exported_summary =
+    Product_kernel_ir.export_node_summary ~node:(Abs.to_ast_node node) ~normalized_ir:kernel_ir
+  in
   let info =
     {
       (empty_instrumentation_info ~states:ctx.states ~atom_names:ctx.atom_names) with
       Stage_info.kernel_ir_nodes = [ kernel_ir ];
+      Stage_info.exported_node_summaries = [ exported_summary ];
       Stage_info.raw_ir_nodes = [ raw_ir ];
       Stage_info.annotated_ir_nodes = [ annotated_ir ];
       Stage_info.verified_ir_nodes = [ verified_ir ];

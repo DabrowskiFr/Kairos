@@ -788,19 +788,6 @@ let apply_goal_results_to_outputs ~(out : Pipeline.outputs)
   in
   { out with proof_traces; goals }
 
-(* Build exported summaries from the instrumented AST nodes and the kernel IR map.
-   This is the bridge between the instrumented Ast.node and the IR-only emission path. *)
-let build_program_summaries (p_instrumented : Ast.program)
-    (kernel_ir_map : (Ast.ident * Product_kernel_ir.node_ir) list) :
-    Product_kernel_ir.exported_node_summary_ir list =
-  List.filter_map
-    (fun (node : Ast.node) ->
-      match List.assoc_opt node.nname kernel_ir_map with
-      | None -> None
-      | Some normalized_ir ->
-          Some (Product_kernel_ir.export_node_summary ~node ~normalized_ir))
-    p_instrumented
-
 let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos : Pipeline.stage_infos) :
     (Pipeline.outputs, Pipeline.error) result =
   try
@@ -812,17 +799,12 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
+    let program_summaries = instrumentation_info.exported_node_summaries in
     let _why_ast, why_text, why_spans =
       with_why_translation_mode cfg.why_translation_mode (fun () ->
           let why_ast =
-            match instrumentation_info.verified_ir_nodes with
-            | [] ->
-                let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
-                Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-                  ~external_summaries:asts.imported_summaries program_summaries
-            | verified_nodes ->
-                Emit.compile_program_ast_from_verified_nodes ~prefix_fields:cfg.prefix_fields
-                  ~kernel_ir_map ~external_summaries:asts.imported_summaries verified_nodes
+            Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
+              ~external_summaries:asts.imported_summaries program_summaries
           in
           let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
           (why_ast, why_text, why_spans))
@@ -1177,7 +1159,7 @@ let why_pass ~prefix_fields ~why_translation_mode ~input_file =
         List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
           instrumentation_info.kernel_ir_nodes
       in
-      let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+      let program_summaries = instrumentation_info.exported_node_summaries in
       let why_text =
         with_why_translation_mode why_translation_mode (fun () ->
             let why_ast =
@@ -1199,7 +1181,7 @@ let obligations_pass ~prefix_fields ~why_translation_mode ~prover ~input_file =
         List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
           instrumentation_info.kernel_ir_nodes
       in
-      let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+      let program_summaries = instrumentation_info.exported_node_summaries in
       let why_text =
         with_why_translation_mode why_translation_mode (fun () ->
             let why_ast =
