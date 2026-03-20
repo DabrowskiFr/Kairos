@@ -56,6 +56,7 @@ type link_contracts = {
 
 let pure_translation = ref false
 let set_pure_translation (b : bool) : unit = pure_translation := b
+let get_pure_translation () : bool = !pure_translation
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = term_bool_binop Dterm.DTand a b
 
 let contains_sub (s : string) (sub : string) : bool =
@@ -450,38 +451,12 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
                            (Product_kernel_ir.phase_state_case_name ~prog_state ~guarantee_state:idx))
                   | None -> None
                 in
-                let named_step_phase =
-                  match anchor_step with
-                  | Some (step : Product_kernel_ir.product_step_ir)
-                    when time = Product_kernel_ir.PreviousTick
-                         && String.equal prog_state step.src.prog_state
-                         && idx = step.src.guarantee_state_index
-                         && Option.is_some step_phase_formula
-                         && Option.is_none named_source_summary ->
-                      Some
-                        (phase_case_named_term ~time
-                           (Product_kernel_ir.phase_step_pre_case_name step))
-                  | Some (step : Product_kernel_ir.product_step_ir)
-                    when time = Product_kernel_ir.CurrentTick
-                         && String.equal prog_state step.dst.prog_state
-                         && idx = step.dst.guarantee_state_index
-                         && Option.is_some step_phase_formula
-                         && Option.is_none named_source_summary ->
-                      Some
-                        (phase_case_named_term ~time
-                           (Product_kernel_ir.phase_step_post_case_name step))
-                  | _ -> None
-                in
                 match named_source_summary with
                 | Some t -> Some t
                 | None -> begin
-                    match named_step_phase with
-                    | Some t -> Some t
-                    | None -> begin
-                        match source_summary_formula_for ~prog_state ~guarantee_state:idx with
-                        | Some _ -> None
-                        | None -> Option.map compile_phase_formula step_phase_formula
-                      end
+                    match source_summary_formula_for ~prog_state ~guarantee_state:idx with
+                    | Some _ -> None
+                    | None -> Option.map compile_phase_formula step_phase_formula
                   end
               end
           end

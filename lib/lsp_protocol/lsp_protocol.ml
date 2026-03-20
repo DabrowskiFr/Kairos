@@ -255,6 +255,7 @@ type why_pass_request = {
   input_file : string [@key "inputFile"];
   prefix_fields : bool [@key "prefixFields"];
   engine : string;
+  why_mode : string option [@key "whyMode"];
 }
 [@@deriving yojson]
 
@@ -263,6 +264,7 @@ type obligations_pass_request = {
   prover : string;
   prefix_fields : bool [@key "prefixFields"];
   engine : string;
+  why_mode : string option [@key "whyMode"];
 }
 [@@deriving yojson]
 
@@ -294,6 +296,7 @@ type config_repr = {
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string option [@key "whyMode"];
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -313,6 +316,7 @@ type config = {
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -333,6 +337,7 @@ let yojson_of_config (c : config) =
       selected_goal_index = c.selected_goal_index;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prefix_fields = c.prefix_fields;
+      why_mode = Some c.why_mode;
       prove = c.prove;
       generate_vc_text = c.generate_vc_text;
       generate_smt_text = c.generate_smt_text;
@@ -358,6 +363,7 @@ let config_of_yojson json =
           selected_goal_index = repr.selected_goal_index;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prefix_fields = repr.prefix_fields;
+          why_mode = Option.value repr.why_mode ~default:"no-automata";
           prove = repr.prove;
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;

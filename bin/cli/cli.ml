@@ -29,12 +29,23 @@ let log_level_conv =
   in
   Arg.conv (parse, print)
 
+let why_mode_conv =
+  let parse s =
+    match Pipeline.why_translation_mode_of_string s with
+    | Some mode -> Ok mode
+    | None -> Error (`Msg "Unknown why mode: expected no-automata or monitor")
+  in
+  let print fmt mode =
+    Format.pp_print_string fmt (Pipeline.string_of_why_translation_mode mode)
+  in
+  Arg.conv (parse, print)
+
 let run dump_dot dump_dot_short dump_automata dump_product
     dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_kobj_summary
     dump_kobj_clauses dump_kobj_product dump_json dump_json_stable
     dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
     proof_traces_failed_only proof_traces_fast proof_trace_goal_index dump_ast
-    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s wp_only
+    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s why_mode wp_only
     smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
     log_file file =
   Log.setup ~level:log_level ~log_file;
@@ -299,6 +310,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = true;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = true;
                       generate_vc_text = not proof_traces_fast;
                       generate_smt_text = not proof_traces_fast;
@@ -346,6 +358,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = false;
                       generate_vc_text = false;
                       generate_smt_text = false;
@@ -389,6 +402,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = false;
                       generate_vc_text = false;
                       generate_smt_text = false;
@@ -431,6 +445,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       dump_why = output_file;
                       dump_why3_vc;
                       dump_smt2;
+                      why_translation_mode = why_mode;
                       prove;
                       prover;
                       prover_cmd;
@@ -607,6 +622,12 @@ let cmd =
     & opt int 5
     & info [ "timeout-s" ] ~docv:"SECONDS" ~doc:"Timeout per proof goal in seconds (default: 5)."
   in
+  let why_mode =
+    value
+    & opt why_mode_conv Pipeline.Why_mode_no_automata
+    & info [ "why-mode" ] ~docv:"MODE"
+        ~doc:"Why translation mode: no-automata (default) or monitor."
+  in
   let wp_only =
     value & flag
     & info [ "wp-only" ] ~doc:"Compute verification conditions but do not call a prover."
@@ -665,7 +686,7 @@ let cmd =
        $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
        $ dump_native_counterexample_json $ proof_traces_failed_only
        $ proof_traces_fast $ proof_trace_goal_index $ dump_ast $ dump_ast_all $ dump_ast_stable
-       $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ wp_only
+       $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ why_mode $ wp_only
        $ smoke_tests $ eval_trace $ eval_out $ eval_with_state $ eval_with_locals
        $ debug_contract_ids $ log_level $ log_file $ file))
 

@@ -9,6 +9,7 @@ type config = {
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
+  why_translation_mode : Pipeline.why_translation_mode;
   prove : bool;
   prover : string;
   prover_cmd : string option;
@@ -26,6 +27,7 @@ let run (cfg : config) : (unit, string) result =
       selected_goal_index = None;
       compute_proof_diagnostics = false;
       prefix_fields = false;
+      why_translation_mode = cfg.why_translation_mode;
       prove = cfg.prove;
       generate_vc_text = cfg.dump_why3_vc <> None;
       generate_smt_text = cfg.dump_smt2 <> None;

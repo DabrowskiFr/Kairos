@@ -215,6 +215,12 @@ let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.V2
   | None -> Engine_service.V2
 
+let get_why_mode (params : Yojson.Safe.t) : Pipeline.why_translation_mode =
+  match get_param_string params "whyMode" with
+  | Some s ->
+      Option.value (Pipeline.why_translation_mode_of_string s) ~default:Pipeline.Why_mode_no_automata
+  | None -> Pipeline.Why_mode_no_automata
+
 let symbol_info ~(uri : string) ~(name : string) ~(line : int) ~(character : int) : Yojson.Safe.t =
   let range =
     let start = lsp_position ~line ~character in
@@ -271,6 +277,10 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
     selected_goal_index = cfg.selected_goal_index;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prefix_fields = cfg.prefix_fields;
+    why_translation_mode =
+      Option.value
+        (Pipeline.why_translation_mode_of_string cfg.why_mode)
+        ~default:Pipeline.Why_mode_no_automata;
     prove = cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
@@ -711,9 +721,16 @@ let () =
                   | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
                   | None -> get_engine params
                 in
+                let why_translation_mode =
+                  match req with
+                  | Some req ->
+                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                  | None -> get_why_mode params
+                in
                 match input_file with
                 | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.why_pass ~engine ~prefix_fields ~input_file with
+                    match Engine_service.why_pass ~engine ~prefix_fields ~why_translation_mode ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_why_outputs (map_why out))
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
@@ -743,9 +760,16 @@ let () =
                   | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
                   | None -> get_engine params
                 in
+                let why_translation_mode =
+                  match req with
+                  | Some req ->
+                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                  | None -> get_why_mode params
+                in
                 match (input_file, prover) with
                 | Some input_file, Some prover when Sys.file_exists input_file -> (
-                    match Engine_service.obligations_pass ~engine ~prefix_fields ~prover ~input_file with
+                    match Engine_service.obligations_pass ~engine ~prefix_fields ~why_translation_mode ~prover ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id
                           ~result_json:(Lsp_protocol.yojson_of_obligations_outputs (map_oblig out))
@@ -897,6 +921,7 @@ let () =
                             compute_proof_diagnostics =
                               get_param_bool params "computeProofDiagnostics" false;
                             prefix_fields = get_param_bool params "prefixFields" false;
+                            why_translation_mode = get_why_mode params;
                             prove = get_param_bool params "prove" true;
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;

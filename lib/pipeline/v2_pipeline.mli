@@ -7,6 +7,7 @@ type config = {
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
+  why_translation_mode : Pipeline.why_translation_mode;
   prove : bool;
   prover : string;
   prover_cmd : string option;

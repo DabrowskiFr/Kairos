@@ -1,5 +1,24 @@
 open Ast
 
+let with_why_translation_mode (mode : Pipeline.why_translation_mode) f =
+  let keep_monitor =
+    match mode with
+    | Pipeline.Why_mode_monitor -> true
+    | Pipeline.Why_mode_no_automata -> false
+  in
+  let pure_translation =
+    match mode with
+    | Pipeline.Why_mode_monitor -> false
+    | Pipeline.Why_mode_no_automata -> false
+  in
+  let prev_keep = Why_runtime_view.get_keep_monitor_translation () in
+  let prev_pure = Why_contracts.get_pure_translation () in
+  Why_runtime_view.set_keep_monitor_translation keep_monitor;
+  Why_contracts.set_pure_translation pure_translation;
+  Fun.protect f ~finally:(fun () ->
+      Why_runtime_view.set_keep_monitor_translation prev_keep;
+      Why_contracts.set_pure_translation prev_pure)
+
 let join_blocks ~sep blocks =
   let b = Buffer.create 4096 in
   List.iteri
@@ -793,18 +812,21 @@ let build_outputs ~(cfg : Pipeline.config) ~(asts : Pipeline.ast_stages) ~(infos
       List.map (fun (ir : Product_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
-    let why_ast =
-      match instrumentation_info.verified_ir_nodes with
-      | [] ->
-          (* Fallback: no verified IR nodes, use the summary-based path. *)
-          let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
-          Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-            ~external_summaries:asts.imported_summaries program_summaries
-      | verified_nodes ->
-          Emit.compile_program_ast_from_verified_nodes ~prefix_fields:cfg.prefix_fields
-            ~kernel_ir_map ~external_summaries:asts.imported_summaries verified_nodes
+    let _why_ast, why_text, why_spans =
+      with_why_translation_mode cfg.why_translation_mode (fun () ->
+          let why_ast =
+            match instrumentation_info.verified_ir_nodes with
+            | [] ->
+                let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
+                Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
+                  ~external_summaries:asts.imported_summaries program_summaries
+            | verified_nodes ->
+                Emit.compile_program_ast_from_verified_nodes ~prefix_fields:cfg.prefix_fields
+                  ~kernel_ir_map ~external_summaries:asts.imported_summaries verified_nodes
+          in
+          let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
+          (why_ast, why_text, why_spans))
     in
-    let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
     List.iter
       (fun (wid, (start_offset, end_offset)) ->
@@ -1144,7 +1166,7 @@ let instrumentation_pass ~generate_png ~input_file =
             |> String.concat "\n";
         }
 
-let why_pass ~prefix_fields ~input_file =
+let why_pass ~prefix_fields ~why_translation_mode ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
@@ -1156,14 +1178,17 @@ let why_pass ~prefix_fields ~input_file =
           instrumentation_info.kernel_ir_nodes
       in
       let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
-      let why_ast =
-        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
-          ~external_summaries:asts.imported_summaries program_summaries
+      let why_text =
+        with_why_translation_mode why_translation_mode (fun () ->
+            let why_ast =
+              Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
+                ~external_summaries:asts.imported_summaries program_summaries
+            in
+            Emit.emit_program_ast why_ast)
       in
-      let why_text = Emit.emit_program_ast why_ast in
       Ok { Pipeline.why_text = why_text; stage_meta = stage_meta infos }
 
-let obligations_pass ~prefix_fields ~prover ~input_file =
+let obligations_pass ~prefix_fields ~why_translation_mode ~prover ~input_file =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
@@ -1175,11 +1200,14 @@ let obligations_pass ~prefix_fields ~prover ~input_file =
           instrumentation_info.kernel_ir_nodes
       in
       let program_summaries = build_program_summaries asts.instrumentation kernel_ir_map in
-      let why_ast =
-        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
-          ~external_summaries:asts.imported_summaries program_summaries
+      let why_text =
+        with_why_translation_mode why_translation_mode (fun () ->
+            let why_ast =
+              Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
+                ~external_summaries:asts.imported_summaries program_summaries
+            in
+            Emit.emit_program_ast why_ast)
       in
-      let why_text = Emit.emit_program_ast why_ast in
       let vc_text = join_blocks ~sep:"\n(* ---- goal ---- *)\n" (Why_prove.dump_why3_tasks_with_attrs ~text:why_text) in
       let smt_text = join_blocks ~sep:"\n; ---- goal ----\n" (Why_prove.dump_smt2_tasks ~prover ~text:why_text) in
       Ok { Pipeline.vc_text = vc_text; smt_text }

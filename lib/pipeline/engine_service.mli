@@ -11,11 +11,18 @@ val instrumentation_pass :
   (Pipeline.automata_outputs, Pipeline.error) result
 
 val why_pass :
-  engine:engine -> prefix_fields:bool -> input_file:string ->
+  engine:engine ->
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline.why_translation_mode ->
+  input_file:string ->
   (Pipeline.why_outputs, Pipeline.error) result
 
 val obligations_pass :
-  engine:engine -> prefix_fields:bool -> prover:string -> input_file:string ->
+  engine:engine ->
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline.why_translation_mode ->
+  prover:string ->
+  input_file:string ->
   (Pipeline.obligations_outputs, Pipeline.error) result
 
 val compile_object :

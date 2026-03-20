@@ -210,13 +210,19 @@ type instrumentation_pass_request = {
   engine : string;
 }
 
-type why_pass_request = { input_file : string; prefix_fields : bool; engine : string }
+type why_pass_request = {
+  input_file : string;
+  prefix_fields : bool;
+  engine : string;
+  why_mode : string option;
+}
 
 type obligations_pass_request = {
   input_file : string;
   prover : string;
   prefix_fields : bool;
   engine : string;
+  why_mode : string option;
 }
 
 type eval_pass_request = {
@@ -245,6 +251,7 @@ type config = {
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;

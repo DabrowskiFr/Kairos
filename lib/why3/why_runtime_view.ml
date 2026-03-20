@@ -21,6 +21,10 @@
 open Ast
 open Collect
 
+let keep_monitor_translation = ref false
+let set_keep_monitor_translation (b : bool) : unit = keep_monitor_translation := b
+let get_keep_monitor_translation () : bool = !keep_monitor_translation
+
 type port_view = {
   port_name : Ast.ident;
   port_type : Ast.ty;
@@ -655,7 +659,8 @@ let rec mentions_monitor_ltl = function
       mentions_monitor_ltl a || mentions_monitor_ltl b
 
 let strip_monitor_contracts (contracts : Ast.fo_o list) : Ast.fo_o list =
-  List.filter (fun (f : Ast.fo_o) -> not (mentions_monitor_ltl f.value)) contracts
+  if !keep_monitor_translation then contracts
+  else List.filter (fun (f : Ast.fo_o) -> not (mentions_monitor_ltl f.value)) contracts
 
 let rec mentions_monitor_stmt (s : Ast.stmt) =
   match s.stmt with
@@ -674,7 +679,8 @@ let rec mentions_monitor_stmt (s : Ast.stmt) =
   | Ast.SSkip -> false
 
 let strip_monitor_stmts (stmts : Ast.stmt list) : Ast.stmt list =
-  List.filter (fun stmt -> not (mentions_monitor_stmt stmt)) stmts
+  if !keep_monitor_translation then stmts
+  else List.filter (fun stmt -> not (mentions_monitor_stmt stmt)) stmts
 
 let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : Ast.stmt list =
   let s desc = { Ast.stmt = desc; loc = None } in
@@ -767,7 +773,9 @@ let ast_node_of_verified_node (vn : Kairos_ir.verified_node) : Ast.node =
     assumes = vn.assumes;
     guarantees = vn.guarantees;
     instances = vn.instances;
-    locals = List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") vn.locals;
+    locals =
+      if !keep_monitor_translation then vn.locals
+      else List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") vn.locals;
     states = vn.control_states;
     init_state = vn.init_state;
     trans = List.map ast_of_verified_transition vn.transitions;
@@ -802,7 +810,10 @@ let of_exported_summary ?(external_summaries = [])
       (synthetic_transition_of_ir ~pre_k_updates)
       summary.normalized_ir.reactive_program.transitions
   in
-  let all_vdecls = List.filter (fun (v : vdecl) -> v.vname <> "__aut_state") summary.signature.locals in
+  let all_vdecls =
+    if !keep_monitor_translation then summary.signature.locals
+    else List.filter (fun (v : vdecl) -> v.vname <> "__aut_state") summary.signature.locals
+  in
   let callee_names =
     List.map snd summary.signature.instances |> List.sort_uniq String.compare
   in
