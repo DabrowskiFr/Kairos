@@ -24,6 +24,7 @@ type obligation_layers = {
 
 type symbolic_obligation_groups = {
   source_product_summaries : Product_kernel_ir.relational_generated_clause_ir list;
+  phase_steps : Product_kernel_ir.relational_generated_clause_ir list;
   propagation : Product_kernel_ir.relational_generated_clause_ir list;
   safety : Product_kernel_ir.relational_generated_clause_ir list;
 }
@@ -89,6 +90,10 @@ let node_contract_of_ir (ir : Product_kernel_ir.node_ir) : node_contract =
       source_product_summaries =
         List.filter
           (fun clause -> clause.Product_kernel_ir.origin = Product_kernel_ir.OriginSourceProductSummary)
+          obligations.symbolic;
+      phase_steps =
+        List.filter
+          (fun clause -> clause.Product_kernel_ir.origin = Product_kernel_ir.OriginPhaseStepSummary)
           obligations.symbolic;
       propagation =
         List.filter

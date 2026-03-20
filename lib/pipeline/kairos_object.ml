@@ -137,6 +137,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   let keep_call_fact (fact : Product_kernel_ir.call_fact_ir) =
     match fact.fact.desc with
     | Product_kernel_ir.FactFormula fo -> not (mentions_monitor_ltl fo)
+    | Product_kernel_ir.FactPhaseFormula fo -> not (mentions_monitor_ltl fo)
     | Product_kernel_ir.FactGuaranteeState _ -> false
     | Product_kernel_ir.FactProgramState _ | Product_kernel_ir.FactFalse -> true
   in
@@ -249,6 +250,8 @@ let rec string_of_stmt (s : Ast.stmt) =
 
 let string_of_clause_origin = function
   | Product_kernel_ir.OriginSourceProductSummary -> "SourceProductSummary"
+  | Product_kernel_ir.OriginPhaseStepPreSummary -> "PhaseStepPreSummary"
+  | Product_kernel_ir.OriginPhaseStepSummary -> "PhaseStepSummary"
   | Product_kernel_ir.OriginSafety -> "Safety"
   | Product_kernel_ir.OriginInitNodeInvariant -> "InitNodeInvariant"
   | Product_kernel_ir.OriginInitAutomatonCoherence -> "InitAutomatonCoherence"
@@ -263,6 +266,7 @@ let string_of_clause_time = function
 let string_of_clause_desc = function
   | Product_kernel_ir.FactProgramState st -> "ProgramState = " ^ st
   | Product_kernel_ir.FactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
+  | Product_kernel_ir.FactPhaseFormula f -> "Phase = " ^ Support.string_of_ltl f
   | Product_kernel_ir.FactFormula f -> Support.string_of_ltl f
   | Product_kernel_ir.FactFalse -> "false"
 

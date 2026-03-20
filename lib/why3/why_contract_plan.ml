@@ -85,6 +85,33 @@ let fo_mentions_var (name : Ast.ident) (f : Ast.fo) : bool =
   | Ast.FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
   | Ast.FPred (_, hs) -> List.exists hexpr_mentions_var hs
 
+let is_monitor_ctor (name : Ast.ident) : bool =
+  let len = String.length name in
+  len >= 4
+  && String.sub name 0 3 = "Aut"
+  && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
+
+let rec iexpr_mentions_monitor (e : Ast.iexpr) =
+  match e.iexpr with
+  | Ast.IVar v -> String.equal v "__aut_state" || is_monitor_ctor v
+  | Ast.ILitInt _ | Ast.ILitBool _ -> false
+  | Ast.IPar inner | Ast.IUn (_, inner) -> iexpr_mentions_monitor inner
+  | Ast.IBin (_, a, b) -> iexpr_mentions_monitor a || iexpr_mentions_monitor b
+
+let hexpr_mentions_monitor = function
+  | Ast.HNow e | Ast.HPreK (e, _) -> iexpr_mentions_monitor e
+
+let fo_mentions_monitor = function
+  | Ast.FRel (h1, _, h2) -> hexpr_mentions_monitor h1 || hexpr_mentions_monitor h2
+  | Ast.FPred (_, hs) -> List.exists hexpr_mentions_monitor hs
+
+let rec ltl_mentions_monitor = function
+  | Ast.LTrue | Ast.LFalse -> false
+  | Ast.LAtom f -> fo_mentions_monitor f
+  | Ast.LNot a | Ast.LX a | Ast.LG a -> ltl_mentions_monitor a
+  | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
+      ltl_mentions_monitor a || ltl_mentions_monitor b
+
 let compute_transition_contracts ~(env : env)
     ~(runtime_transitions : Why_runtime_view.runtime_transition_view list)
     ~(labeled_trans :
@@ -109,6 +136,8 @@ let compute_transition_contracts ~(env : env)
         let cond_pre = with_guard cond_pre (guard_term_pre env t) in
         List.fold_left
           (fun acc (f, label) ->
+            if ltl_mentions_monitor f.value then acc
+            else
             let keep_req =
               match f.origin with
               | Some Compatibility when use_kernel_product_contracts -> false
@@ -149,14 +178,16 @@ let compute_transition_contracts ~(env : env)
         let cond_post = with_guard cond_post (guard_term_pre env t) in
         List.fold_left
           (fun acc f ->
-            let norm = normalize_ltl_for_k ~init_for_var f in
+            if ltl_mentions_monitor f.value then acc
+            else
+            let norm = normalize_ltl_for_k ~init_for_var f.value in
             let rel = ltl_relational env norm.ltl in
             let frag = ltl_spec env rel in
             let guarded_k = apply_k_guard ~in_post:false norm.k_guard frag.pre in
             let terms = List.map (term_implies cond_post) guarded_k in
             terms @ acc)
           acc
-          (Ast_provenance.values t.requires))
+          t.requires)
       [] runtime_transitions
     in
     let transition_requires_post =
@@ -177,7 +208,10 @@ let compute_transition_contracts ~(env : env)
                 let rel = ltl_relational env norm.ltl in
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
-              (Ast_provenance.values t.requires)
+              (List.filter_map
+                 (fun (f : Ast.fo_o) ->
+                   if ltl_mentions_monitor f.value then None else Some f.value)
+                 t.requires)
           in
           let guard =
             if guard_terms = [] then None else Some (old_if_needed env (conj_terms guard_terms))
@@ -218,6 +252,9 @@ let compute_transition_contracts ~(env : env)
               fo_list
           in
           let ens_terms = List.map (fun (f, label, vcid) -> (f, Some label, Some vcid)) ens in
+          let ens_terms =
+            List.filter (fun (f, _, _) -> not (ltl_mentions_monitor f)) ens_terms
+          in
           apply_post_terms post post_terms post_terms_vcid ens_terms)
         ([], [], []) labeled_trans
     in

@@ -646,20 +646,8 @@ let make_contract_logger () : (reason:string -> t:Abs.transition -> fo_ltl -> un
       prerr_endline (Printf.sprintf "[automata] %s %s->%s: %s" reason t.src t.dst (string_of_ltl f))
 
 let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : Ast.node =
-  match ctx.states with
-  | [] -> n
-  | _ :: _ ->
-      (* This goal is marked as an init-only coherency fact (FTrue -> body).
-         The Why3 backend must interpret such goals under the concrete
-         initialization guard, not as universally quantified facts over
-         arbitrary pre-state valuations. *)
-      let body =
-        LAtom (FRel
-          ( HNow (mk_var instrumentation_state_name),
-            REq,
-            HNow (instrumentation_state_expr 0) ))
-      in
-      Ast_utils.add_new_coherency_goals n [ LImp (LTrue, body) ]
+  ignore ctx;
+  n
 
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
   let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in

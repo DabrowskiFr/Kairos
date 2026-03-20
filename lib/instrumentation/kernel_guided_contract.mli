@@ -22,6 +22,7 @@ type obligation_layers = {
 
 type symbolic_obligation_groups = {
   source_product_summaries : Product_kernel_ir.relational_generated_clause_ir list;
+  phase_steps : Product_kernel_ir.relational_generated_clause_ir list;
   propagation : Product_kernel_ir.relational_generated_clause_ir list;
   safety : Product_kernel_ir.relational_generated_clause_ir list;
 }

@@ -79,6 +79,8 @@ type product_coverage_ir =
 
 type generated_clause_origin =
   | OriginSourceProductSummary
+  | OriginPhaseStepPreSummary
+  | OriginPhaseStepSummary
   | OriginSafety
   | OriginInitNodeInvariant
   | OriginInitAutomatonCoherence
@@ -95,6 +97,7 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
+  | FactPhaseFormula of Ast.fo_ltl
   | FactFormula of Ast.fo_ltl
   | FactFalse
 [@@deriving yojson]
@@ -121,6 +124,7 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
   | RelFactGuaranteeState of int
+  | RelFactPhaseFormula of Ast.fo_ltl
   | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]
@@ -273,6 +277,10 @@ type exported_node_summary_ir = {
   guarantees : Ast.fo_ltl list;
 }
 [@@deriving yojson]
+
+val phase_state_case_name : prog_state:Ast.ident -> guarantee_state:int -> string
+val phase_step_pre_case_name : product_step_ir -> string
+val phase_step_post_case_name : product_step_ir -> string
 
 val has_effective_product_coverage : node_ir -> bool
 
