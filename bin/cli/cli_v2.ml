@@ -1,5 +1,16 @@
 open Cmdliner
 
+let why_mode_conv =
+  let parse s =
+    match Pipeline.why_translation_mode_of_string s with
+    | Some mode -> Ok mode
+    | None -> Error (`Msg "Unknown why mode: expected no-automata or monitor")
+  in
+  let print fmt mode =
+    Format.pp_print_string fmt (Pipeline.string_of_why_translation_mode mode)
+  in
+  Arg.conv (parse, print)
+
 let write_target out text =
   match out with
   | "-" -> print_string text
@@ -14,7 +25,7 @@ let ensure_dir dir =
     ignore (Sys.command (Printf.sprintf "mkdir -p %s" (Filename.quote dir)))
 
 let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
-    dump_prune_reasons dump_why dump_why3_vc dump_smt2 dump_ir_dir prove prover
+    dump_prune_reasons dump_why dump_why3_vc dump_smt2 dump_ir_dir prove prover why_mode
     prover_cmd file =
   let () =
     match dump_ir_dir with
@@ -142,6 +153,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
             dump_why;
             dump_why3_vc;
             dump_smt2;
+            why_translation_mode = why_mode;
             prove;
             prover;
             prover_cmd;
@@ -227,6 +239,13 @@ let cmd =
       & opt string "z3"
       & info [ "prover" ] ~docv:"NAME" ~doc:"Prover for --prove (default: z3).")
   in
+  let why_mode =
+    Arg.(
+      value
+      & opt why_mode_conv Pipeline.Why_mode_no_automata
+      & info [ "why-mode" ] ~docv:"MODE"
+          ~doc:"Why translation mode: no-automata (default) or monitor.")
+  in
   let prover_cmd =
     Arg.(
       value
@@ -238,7 +257,7 @@ let cmd =
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_automata $ dump_product $ dump_obligations_map
        $ dump_prune_reasons $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_ir_dir
-       $ prove $ prover $ prover_cmd $ file))
+       $ prove $ prover $ why_mode $ prover_cmd $ file))
   in
   Cmd.v
     (Cmd.info "kairos_v2" ~version:"0.1" ~doc:"Kairos refactoring pipeline (v2, architecture-driven)")

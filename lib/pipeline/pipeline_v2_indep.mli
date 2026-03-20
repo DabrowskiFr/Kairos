@@ -4,10 +4,16 @@ val instrumentation_pass :
   generate_png:bool -> input_file:string -> (Pipeline.automata_outputs, Pipeline.error) result
 
 val why_pass :
-  prefix_fields:bool -> input_file:string -> (Pipeline.why_outputs, Pipeline.error) result
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline.why_translation_mode ->
+  input_file:string ->
+  (Pipeline.why_outputs, Pipeline.error) result
 
 val obligations_pass :
-  prefix_fields:bool -> prover:string -> input_file:string ->
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline.why_translation_mode ->
+  prover:string ->
+  input_file:string ->
   (Pipeline.obligations_outputs, Pipeline.error) result
 
 val compile_object : input_file:string -> (Kairos_object.t, Pipeline.error) result

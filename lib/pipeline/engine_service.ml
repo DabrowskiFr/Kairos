@@ -12,13 +12,13 @@ let instrumentation_pass ~engine ~generate_png ~input_file =
   match normalize engine with
   | V2 -> Pipeline_v2_indep.instrumentation_pass ~generate_png ~input_file
 
-let why_pass ~engine ~prefix_fields ~input_file =
+let why_pass ~engine ~prefix_fields ~why_translation_mode ~input_file =
   match normalize engine with
-  | V2 -> Pipeline_v2_indep.why_pass ~prefix_fields ~input_file
+  | V2 -> Pipeline_v2_indep.why_pass ~prefix_fields ~why_translation_mode ~input_file
 
-let obligations_pass ~engine ~prefix_fields ~prover ~input_file =
+let obligations_pass ~engine ~prefix_fields ~why_translation_mode ~prover ~input_file =
   match normalize engine with
-  | V2 -> Pipeline_v2_indep.obligations_pass ~prefix_fields ~prover ~input_file
+  | V2 -> Pipeline_v2_indep.obligations_pass ~prefix_fields ~why_translation_mode ~prover ~input_file
 
 let compile_object ~engine ~input_file =
   match normalize engine with

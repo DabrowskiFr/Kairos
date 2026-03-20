@@ -14,6 +14,7 @@ module Pass = struct
     mutable state_ctors_rev : ident list;
     mutable atom_count : int;
     mutable kernel_ir_nodes_rev : Product_kernel_ir.node_ir list;
+    mutable exported_node_summaries_rev : Product_kernel_ir.exported_node_summary_ir list;
     mutable raw_ir_nodes_rev : Kairos_ir.raw_node list;
     mutable annotated_ir_nodes_rev : Kairos_ir.annotated_node list;
     mutable verified_ir_nodes_rev : Kairos_ir.verified_node list;
@@ -34,6 +35,7 @@ module Pass = struct
       state_ctors_rev = [];
       atom_count = 0;
       kernel_ir_nodes_rev = [];
+      exported_node_summaries_rev = [];
       raw_ir_nodes_rev = [];
       annotated_ir_nodes_rev = [];
       verified_ir_nodes_rev = [];
@@ -53,6 +55,8 @@ module Pass = struct
     acc.state_ctors_rev <- node_info.state_ctors @ acc.state_ctors_rev;
     acc.atom_count <- acc.atom_count + node_info.atom_count;
     acc.kernel_ir_nodes_rev <- List.rev_append node_info.kernel_ir_nodes acc.kernel_ir_nodes_rev;
+    acc.exported_node_summaries_rev <-
+      List.rev_append node_info.exported_node_summaries acc.exported_node_summaries_rev;
     acc.raw_ir_nodes_rev <- List.rev_append node_info.raw_ir_nodes acc.raw_ir_nodes_rev;
     acc.annotated_ir_nodes_rev <- List.rev_append node_info.annotated_ir_nodes acc.annotated_ir_nodes_rev;
     acc.verified_ir_nodes_rev <- List.rev_append node_info.verified_ir_nodes acc.verified_ir_nodes_rev;
@@ -77,6 +81,7 @@ module Pass = struct
       Stage_info.state_ctors = List.rev acc.state_ctors_rev;
       Stage_info.atom_count = acc.atom_count;
       Stage_info.kernel_ir_nodes = List.rev acc.kernel_ir_nodes_rev;
+      Stage_info.exported_node_summaries = List.rev acc.exported_node_summaries_rev;
       Stage_info.raw_ir_nodes = List.rev acc.raw_ir_nodes_rev;
       Stage_info.annotated_ir_nodes = List.rev acc.annotated_ir_nodes_rev;
       Stage_info.verified_ir_nodes = List.rev acc.verified_ir_nodes_rev;

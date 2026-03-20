@@ -137,6 +137,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   let keep_call_fact (fact : Product_kernel_ir.call_fact_ir) =
     match fact.fact.desc with
     | Product_kernel_ir.FactFormula fo -> not (mentions_monitor_ltl fo)
+    | Product_kernel_ir.FactPhaseFormula fo -> not (mentions_monitor_ltl fo)
     | Product_kernel_ir.FactGuaranteeState _ -> false
     | Product_kernel_ir.FactProgramState _ | Product_kernel_ir.FactFalse -> true
   in
@@ -224,9 +225,325 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
 
 let summaries (obj : t) : Product_kernel_ir.exported_node_summary_ir list = obj.nodes
 
+let indent n = String.make (2 * max 0 n) ' '
+
+let string_of_vdecl (v : Ast.vdecl) =
+  let ty =
+    match v.vty with
+    | Ast.TInt -> "int"
+    | Ast.TBool -> "bool"
+    | Ast.TReal -> "real"
+    | Ast.TCustom s -> s
+  in
+  v.vname ^ ":" ^ ty
+
+let rec string_of_stmt (s : Ast.stmt) =
+  match s.stmt with
+  | Ast.SAssign (id, e) -> id ^ " := " ^ Support.string_of_iexpr e
+  | Ast.SSkip -> "skip"
+  | Ast.SCall (inst, args, outs) ->
+      let args_s = String.concat ", " (List.map Support.string_of_iexpr args) in
+      let outs_s = String.concat ", " outs in
+      "call " ^ inst ^ "(" ^ args_s ^ ") returns (" ^ outs_s ^ ")"
+  | Ast.SIf (c, _t, _e) -> "if " ^ Support.string_of_iexpr c ^ " then ..."
+  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Support.string_of_iexpr e ^ " with ..."
+
+let string_of_clause_origin = function
+  | Product_kernel_ir.OriginSourceProductSummary -> "SourceProductSummary"
+  | Product_kernel_ir.OriginPhaseStepPreSummary -> "PhaseStepPreSummary"
+  | Product_kernel_ir.OriginPhaseStepSummary -> "PhaseStepSummary"
+  | Product_kernel_ir.OriginSafety -> "Safety"
+  | Product_kernel_ir.OriginInitNodeInvariant -> "InitNodeInvariant"
+  | Product_kernel_ir.OriginInitAutomatonCoherence -> "InitAutomatonCoherence"
+  | Product_kernel_ir.OriginPropagationNodeInvariant -> "PropagationNodeInvariant"
+  | Product_kernel_ir.OriginPropagationAutomatonCoherence -> "PropagationAutomatonCoherence"
+
+let string_of_clause_time = function
+  | Product_kernel_ir.CurrentTick -> "CUR"
+  | Product_kernel_ir.PreviousTick -> "PRE"
+  | Product_kernel_ir.StepTickContext -> "STEP"
+
+let string_of_clause_desc = function
+  | Product_kernel_ir.FactProgramState st -> "ProgramState = " ^ st
+  | Product_kernel_ir.FactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
+  | Product_kernel_ir.FactPhaseFormula f -> "Phase = " ^ Support.string_of_ltl f
+  | Product_kernel_ir.FactFormula f -> Support.string_of_ltl f
+  | Product_kernel_ir.FactFalse -> "false"
+
+let string_of_clause_fact (fact : Product_kernel_ir.clause_fact_ir) =
+  string_of_clause_time fact.time ^ " " ^ string_of_clause_desc fact.desc
+
+let string_of_anchor = function
+  | Product_kernel_ir.ClauseAnchorProductState st ->
+      Printf.sprintf "state (P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index
+        st.guarantee_state_index
+  | Product_kernel_ir.ClauseAnchorProductStep step ->
+      Printf.sprintf "step (P=%s,A=%d,G=%d) -> (P=%s,A=%d,G=%d)"
+        step.src.prog_state step.src.assume_state_index step.src.guarantee_state_index
+        step.dst.prog_state step.dst.assume_state_index step.dst.guarantee_state_index
+
+let render_transition_summary indent_level (t : Product_kernel_ir.reactive_transition_ir) =
+  let guard =
+    match t.guard_iexpr with
+    | None -> "true"
+    | Some g -> Support.string_of_iexpr g
+  in
+  let render_fo_os label fs =
+    match fs with
+    | [] -> [ indent indent_level ^ label ^ ": none" ]
+    | _ ->
+        (indent indent_level ^ label ^ ":")
+        :: List.map
+             (fun (f : Ast.fo_o) -> indent (indent_level + 1) ^ Support.string_of_ltl f.value)
+             fs
+  in
+  let body_lines =
+    match t.body_stmts with
+    | [] -> [ indent indent_level ^ "body: none" ]
+    | xs ->
+        (indent indent_level ^ "body:")
+        :: List.map (fun s -> indent (indent_level + 1) ^ string_of_stmt s) xs
+  in
+  [ indent indent_level ^ Printf.sprintf "%s -> %s when %s" t.src_state t.dst_state guard ]
+  @ render_fo_os "requires" t.requires
+  @ render_fo_os "ensures" t.ensures
+  @ body_lines
+
+let render_clause_preview indent_level (clauses : Product_kernel_ir.generated_clause_ir list) =
+  let by_origin =
+    List.fold_left
+      (fun acc (clause : Product_kernel_ir.generated_clause_ir) ->
+        let key = string_of_clause_origin clause.origin in
+        let prev = List.assoc_opt key acc |> Option.value ~default:[] in
+        (key, prev @ [ clause ]) :: List.remove_assoc key acc)
+      [] clauses
+  in
+  by_origin
+  |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+  |> List.concat_map (fun (origin, xs) ->
+         let header = indent indent_level ^ origin ^ ": " ^ string_of_int (List.length xs) in
+         match xs with
+         | [] -> [ header ]
+         | (clause : Product_kernel_ir.generated_clause_ir) :: _ ->
+             let hyps =
+               clause.hypotheses |> List.map string_of_clause_fact |> String.concat "; "
+             in
+             let concs =
+               clause.conclusions |> List.map string_of_clause_fact |> String.concat "; "
+             in
+             [
+               header;
+               indent (indent_level + 1) ^ "anchor: " ^ string_of_anchor clause.anchor;
+               indent (indent_level + 1) ^ "hypotheses: " ^ hyps;
+               indent (indent_level + 1) ^ "conclusions: " ^ concs;
+             ])
+
+let render_all_clauses indent_level (clauses : Product_kernel_ir.generated_clause_ir list) =
+  match clauses with
+  | [] -> [ indent indent_level ^ "none" ]
+  | xs ->
+      List.concat_map
+        (fun (clause : Product_kernel_ir.generated_clause_ir) ->
+          let hyps =
+            match clause.hypotheses with
+            | [] -> [ indent (indent_level + 2) ^ "none" ]
+            | hs -> List.map (fun h -> indent (indent_level + 2) ^ string_of_clause_fact h) hs
+          in
+          let concs =
+            match clause.conclusions with
+            | [] -> [ indent (indent_level + 2) ^ "none" ]
+            | cs -> List.map (fun c -> indent (indent_level + 2) ^ string_of_clause_fact c) cs
+          in
+          [
+            indent indent_level ^ string_of_clause_origin clause.origin;
+            indent (indent_level + 1) ^ "anchor: " ^ string_of_anchor clause.anchor;
+            indent (indent_level + 1) ^ "hypotheses:";
+          ]
+          @ hyps
+          @ [ indent (indent_level + 1) ^ "conclusions:" ]
+          @ concs
+          @ [ "" ])
+        xs
+
+let string_of_step_kind = function
+  | Product_kernel_ir.StepSafe -> "Safe"
+  | Product_kernel_ir.StepBadAssumption -> "BadAssumption"
+  | Product_kernel_ir.StepBadGuarantee -> "BadGuarantee"
+
+let string_of_step_origin = function
+  | Product_kernel_ir.StepFromExplicitExploration -> "ExplicitExploration"
+  | Product_kernel_ir.StepFromFallbackSynthesis -> "FallbackSynthesis"
+
+let render_product_steps indent_level (steps : Product_kernel_ir.product_step_ir list) =
+  match steps with
+  | [] -> [ indent indent_level ^ "none" ]
+  | xs ->
+      List.concat_map
+        (fun (step : Product_kernel_ir.product_step_ir) ->
+          let src =
+            Printf.sprintf "(P=%s,A=%d,G=%d)" step.src.prog_state step.src.assume_state_index
+              step.src.guarantee_state_index
+          in
+          let dst =
+            Printf.sprintf "(P=%s,A=%d,G=%d)" step.dst.prog_state step.dst.assume_state_index
+              step.dst.guarantee_state_index
+          in
+          [
+            indent indent_level ^ (src ^ " -> " ^ dst);
+            indent (indent_level + 1) ^ "program transition: "
+            ^ fst step.program_transition ^ " -> " ^ snd step.program_transition;
+            indent (indent_level + 1) ^ "kind: " ^ string_of_step_kind step.step_kind;
+            indent (indent_level + 1) ^ "origin: " ^ string_of_step_origin step.step_origin;
+            indent (indent_level + 1) ^ "program guard: " ^ Support.string_of_ltl step.program_guard;
+            indent (indent_level + 1) ^ "assume guard: " ^ Support.string_of_ltl step.assume_edge.guard;
+            indent (indent_level + 1) ^ "guarantee guard: " ^ Support.string_of_ltl step.guarantee_edge.guard;
+            "";
+          ])
+        xs
+
+let render_node_summary (node : Product_kernel_ir.exported_node_summary_ir) =
+  let sig_ = node.signature in
+  let ir = node.normalized_ir in
+  let header = [ "Node " ^ sig_.node_name ] in
+  let signature_lines =
+    [
+      indent 1 ^ "signature";
+      indent 2 ^ "inputs: "
+      ^ (match sig_.inputs with [] -> "none" | xs -> String.concat ", " (List.map string_of_vdecl xs));
+      indent 2 ^ "outputs: "
+      ^ (match sig_.outputs with [] -> "none" | xs -> String.concat ", " (List.map string_of_vdecl xs));
+      indent 2 ^ "locals: "
+      ^ (match sig_.locals with [] -> "none" | xs -> String.concat ", " (List.map string_of_vdecl xs));
+      indent 2 ^ "states: " ^ String.concat ", " sig_.states;
+      indent 2 ^ "init: " ^ sig_.init_state;
+    ]
+  in
+  let source_contracts =
+    [
+      indent 1 ^ "source contracts";
+      (if node.assumes = [] then indent 2 ^ "requires: none" else indent 2 ^ "requires:");
+    ]
+    @ List.map (fun f -> indent 3 ^ Support.string_of_ltl f) node.assumes
+    @
+    [
+      (if node.guarantees = [] then indent 2 ^ "ensures: none" else indent 2 ^ "ensures:");
+    ]
+    @ List.map (fun f -> indent 3 ^ Support.string_of_ltl f) node.guarantees
+  in
+  let state_invariants =
+    [ indent 1 ^ "state invariants" ]
+    @
+    (match node.state_invariants with
+    | [] -> [ indent 2 ^ "none" ]
+    | xs ->
+        List.map
+          (fun inv ->
+            let kw = if inv.Ast.is_eq then "in " else "unless " in
+            indent 2 ^ kw ^ inv.state ^ ": " ^ Support.string_of_ltl inv.formula)
+          xs)
+  in
+  let transition_lines =
+    [ indent 1 ^ "transition contracts" ]
+    @ (match ir.reactive_program.transitions with
+      | [] -> [ indent 2 ^ "none" ]
+      | xs -> List.concat_map (render_transition_summary 2) xs)
+  in
+  let pre_k_lines =
+    [ indent 1 ^ "temporal memory" ]
+    @
+    (match node.pre_k_map with
+    | [] -> [ indent 2 ^ "pre_k: none" ]
+    | xs ->
+        [ indent 2 ^ "pre_k:" ]
+        @ List.map
+            (fun (h, info) ->
+              indent 3 ^ Support.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Support.names)
+            xs)
+  in
+  let step_counts =
+    let safe, bad_a, bad_g =
+      List.fold_left
+        (fun (s, a, g) step ->
+          match step.Product_kernel_ir.step_kind with
+          | Product_kernel_ir.StepSafe -> (s + 1, a, g)
+          | Product_kernel_ir.StepBadAssumption -> (s, a + 1, g)
+          | Product_kernel_ir.StepBadGuarantee -> (s, a, g + 1))
+        (0, 0, 0) ir.product_steps
+    in
+    [ indent 1 ^ "product";
+      indent 2 ^ "coverage: "
+      ^
+      (match ir.product_coverage with
+      | Product_kernel_ir.CoverageEmpty -> "empty"
+      | Product_kernel_ir.CoverageExplicit -> "explicit"
+      | Product_kernel_ir.CoverageFallback -> "fallback");
+      indent 2 ^ "states: " ^ string_of_int (List.length ir.product_states);
+      indent 2 ^ "steps: " ^ string_of_int (List.length ir.product_steps);
+      indent 2 ^ "safe: " ^ string_of_int safe;
+      indent 2 ^ "bad assumption: " ^ string_of_int bad_a;
+      indent 2 ^ "bad guarantee: " ^ string_of_int bad_g;
+    ]
+  in
+  let clause_lines =
+    [ indent 1 ^ "kernel clauses" ]
+    @ render_clause_preview 2 ir.historical_generated_clauses
+  in
+  String.concat "\n"
+    (header @ signature_lines @ source_contracts @ state_invariants @ transition_lines @ pre_k_lines
+   @ step_counts @ clause_lines)
+
+let render_summary (obj : t) : string =
+  let metadata_lines =
+    [
+      "KOBJ Summary";
+      indent 1 ^ "source: "
+      ^
+      (match obj.metadata.source_path with Some s -> s | None -> "<unknown>");
+      indent 1
+      ^ Printf.sprintf "format: %s v%d" obj.metadata.format obj.metadata.format_version;
+      indent 1 ^ "imports: "
+      ^
+      (match obj.metadata.imports with [] -> "none" | xs -> String.concat ", " xs);
+    ]
+  in
+  String.concat "\n\n" (String.concat "\n" metadata_lines :: List.map render_node_summary obj.nodes)
+
+let render_clauses (obj : t) : string =
+  let render_node (node : Product_kernel_ir.exported_node_summary_ir) =
+    let header = [ "Node " ^ node.signature.node_name; indent 1 ^ "kernel clauses" ] in
+    String.concat "\n" (header @ render_all_clauses 2 node.normalized_ir.historical_generated_clauses)
+  in
+  String.concat "\n\n" (List.map render_node obj.nodes)
+
+let render_product (obj : t) : string =
+  let render_node (node : Product_kernel_ir.exported_node_summary_ir) =
+    let ir = node.normalized_ir in
+    let header =
+      [
+        "Node " ^ node.signature.node_name;
+        indent 1 ^ "coverage: "
+        ^
+        (match ir.product_coverage with
+        | Product_kernel_ir.CoverageEmpty -> "empty"
+        | Product_kernel_ir.CoverageExplicit -> "explicit"
+        | Product_kernel_ir.CoverageFallback -> "fallback");
+        indent 1 ^ "states: " ^ string_of_int (List.length ir.product_states);
+        indent 1 ^ "steps: " ^ string_of_int (List.length ir.product_steps);
+        indent 1 ^ "product steps";
+      ]
+    in
+    String.concat "\n" (header @ render_product_steps 2 ir.product_steps)
+  in
+  String.concat "\n\n" (List.map render_node obj.nodes)
+
 let write_file ~path (obj : t) : (unit, string) result =
   try
-    Yojson.Safe.to_file path (yojson_of_t obj);
+    let oc = open_out path in
+    Fun.protect
+      ~finally:(fun () -> close_out oc)
+      (fun () ->
+        Yojson.Safe.pretty_to_channel oc (yojson_of_t obj);
+        output_char oc '\n');
     Ok ()
   with exn -> Error (Printexc.to_string exn)
 

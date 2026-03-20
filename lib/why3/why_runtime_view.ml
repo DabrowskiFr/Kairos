@@ -21,6 +21,10 @@
 open Ast
 open Collect
 
+let keep_monitor_translation = ref false
+let set_keep_monitor_translation (b : bool) : unit = keep_monitor_translation := b
+let get_keep_monitor_translation () : bool = !keep_monitor_translation
+
 type port_view = {
   port_name : Ast.ident;
   port_type : Ast.ty;
@@ -630,10 +634,71 @@ let has_instance_calls (runtime : t) : bool =
    IR-based construction (no OBC+ AST required)
    --------------------------------------------------------------------------- *)
 
+let is_monitor_ctor (name : Ast.ident) : bool =
+  let len = String.length name in
+  len >= 4
+  && String.sub name 0 3 = "Aut"
+  && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
+
+let rec mentions_monitor_iexpr (e : Ast.iexpr) =
+  match e.iexpr with
+  | Ast.IVar name -> name = "__aut_state" || is_monitor_ctor name
+  | Ast.ILitInt _ | Ast.ILitBool _ -> false
+  | Ast.IPar inner | Ast.IUn (_, inner) -> mentions_monitor_iexpr inner
+  | Ast.IBin (_, a, b) -> mentions_monitor_iexpr a || mentions_monitor_iexpr b
+
+let mentions_monitor_hexpr = function
+  | Ast.HNow e | Ast.HPreK (e, _) -> mentions_monitor_iexpr e
+
+let rec mentions_monitor_ltl = function
+  | Ast.LTrue | Ast.LFalse -> false
+  | Ast.LAtom (Ast.FRel (h1, _, h2)) -> mentions_monitor_hexpr h1 || mentions_monitor_hexpr h2
+  | Ast.LAtom (Ast.FPred (_, hs)) -> List.exists mentions_monitor_hexpr hs
+  | Ast.LNot a | Ast.LX a | Ast.LG a -> mentions_monitor_ltl a
+  | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
+      mentions_monitor_ltl a || mentions_monitor_ltl b
+
+let strip_monitor_contracts (contracts : Ast.fo_o list) : Ast.fo_o list =
+  if !keep_monitor_translation then contracts
+  else List.filter (fun (f : Ast.fo_o) -> not (mentions_monitor_ltl f.value)) contracts
+
+let rec mentions_monitor_stmt (s : Ast.stmt) =
+  match s.stmt with
+  | Ast.SAssign (name, expr) -> String.equal name "__aut_state" || mentions_monitor_iexpr expr
+  | Ast.SIf (cond, then_branch, else_branch) ->
+      mentions_monitor_iexpr cond
+      || List.exists mentions_monitor_stmt then_branch
+      || List.exists mentions_monitor_stmt else_branch
+  | Ast.SMatch (scrutinee, branches, default_branch) ->
+      mentions_monitor_iexpr scrutinee
+      || List.exists
+           (fun (_ctor, body) -> List.exists mentions_monitor_stmt body)
+           branches
+      || List.exists mentions_monitor_stmt default_branch
+  | Ast.SCall (_inst, args, _outs) -> List.exists mentions_monitor_iexpr args
+  | Ast.SSkip -> false
+
+let strip_monitor_stmts (stmts : Ast.stmt list) : Ast.stmt list =
+  if !keep_monitor_translation then stmts
+  else List.filter (fun stmt -> not (mentions_monitor_stmt stmt)) stmts
+
 let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : Ast.stmt list =
   let s desc = { Ast.stmt = desc; loc = None } in
   let mk_var name = { Ast.iexpr = IVar name; loc = None } in
-  let pre_k_infos = List.map snd pre_k_map in
+  let pre_k_infos =
+    pre_k_map
+    |> List.fold_left
+         (fun acc (_, info) ->
+           if List.exists
+                (fun (existing : Support.pre_k_info) ->
+                  existing.Support.expr = info.Support.expr
+                  && existing.Support.names = info.Support.names)
+                acc
+           then
+             acc
+           else acc @ [ info ])
+         []
+  in
   List.concat_map
     (fun (info : Support.pre_k_info) ->
       let names = info.names in
@@ -661,14 +726,14 @@ let synthetic_transition_of_ir ~(pre_k_updates : Ast.stmt list)
     Ast.src = t.src_state;
     dst = t.dst_state;
     guard = t.guard_iexpr;
-    requires = t.requires;
-    ensures = t.ensures;
+    requires = strip_monitor_contracts t.requires;
+    ensures = strip_monitor_contracts t.ensures;
     body = t.body_stmts;
     attrs =
       {
         uid = None;
-        ghost = t.ghost_stmts;
-        instrumentation = t.instrumentation_stmts @ pre_k_updates;
+        ghost = strip_monitor_stmts t.ghost_stmts;
+        instrumentation = strip_monitor_stmts t.instrumentation_stmts @ pre_k_updates;
         warnings = [];
       };
   }
@@ -686,14 +751,14 @@ let ast_of_verified_transition (t : Kairos_ir.verified_transition) : Ast.transit
     Ast.src = t.src_state;
     dst = t.dst_state;
     guard = t.guard_iexpr;
-    requires = t.requires;
-    ensures = t.ensures;
+    requires = strip_monitor_contracts t.requires;
+    ensures = strip_monitor_contracts t.ensures;
     body = t.body_stmts;
     attrs =
       {
         uid = None;
-        ghost = t.ghost_stmts;
-        instrumentation = t.instrumentation_stmts @ t.pre_k_updates;
+        ghost = strip_monitor_stmts t.ghost_stmts;
+        instrumentation = strip_monitor_stmts t.instrumentation_stmts @ t.pre_k_updates;
         warnings = [];
       };
   }
@@ -708,7 +773,9 @@ let ast_node_of_verified_node (vn : Kairos_ir.verified_node) : Ast.node =
     assumes = vn.assumes;
     guarantees = vn.guarantees;
     instances = vn.instances;
-    locals = vn.locals;
+    locals =
+      if !keep_monitor_translation then vn.locals
+      else List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") vn.locals;
     states = vn.control_states;
     init_state = vn.init_state;
     trans = List.map ast_of_verified_transition vn.transitions;
@@ -743,11 +810,9 @@ let of_exported_summary ?(external_summaries = [])
       (synthetic_transition_of_ir ~pre_k_updates)
       summary.normalized_ir.reactive_program.transitions
   in
-  let aut_state_local = { Ast.vname = "__aut_state"; vty = TCustom "aut_state" } in
   let all_vdecls =
-    let existing_names = List.map (fun (v : vdecl) -> v.vname) summary.signature.locals in
-    if List.mem "__aut_state" existing_names then summary.signature.locals
-    else summary.signature.locals @ [ aut_state_local ]
+    if !keep_monitor_translation then summary.signature.locals
+    else List.filter (fun (v : vdecl) -> v.vname <> "__aut_state") summary.signature.locals
   in
   let callee_names =
     List.map snd summary.signature.instances |> List.sort_uniq String.compare

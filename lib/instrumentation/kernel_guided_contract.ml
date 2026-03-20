@@ -24,6 +24,7 @@ type obligation_layers = {
 
 type symbolic_obligation_groups = {
   source_product_summaries : Product_kernel_ir.relational_generated_clause_ir list;
+  phase_steps : Product_kernel_ir.relational_generated_clause_ir list;
   propagation : Product_kernel_ir.relational_generated_clause_ir list;
   safety : Product_kernel_ir.relational_generated_clause_ir list;
 }
@@ -44,7 +45,13 @@ let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Support.pre_k_info)
     temporal_binding_ir list =
   List.map
     (fun (source_hexpr, (info : Support.pre_k_info)) ->
-      { source_hexpr; source_expr = info.expr; slot_names = info.names })
+      let slot_names =
+        match source_hexpr with
+        | HPreK (_, k) when k > 0 && k <= List.length info.names -> [ List.nth info.names (k - 1) ]
+        | HPreK _ -> []
+        | HNow _ -> info.names
+      in
+      { source_hexpr; source_expr = info.expr; slot_names })
     pre_k_map
 
 let exported_summary_of_exported_ir
@@ -83,6 +90,10 @@ let node_contract_of_ir (ir : Product_kernel_ir.node_ir) : node_contract =
       source_product_summaries =
         List.filter
           (fun clause -> clause.Product_kernel_ir.origin = Product_kernel_ir.OriginSourceProductSummary)
+          obligations.symbolic;
+      phase_steps =
+        List.filter
+          (fun clause -> clause.Product_kernel_ir.origin = Product_kernel_ir.OriginPhaseStepSummary)
           obligations.symbolic;
       propagation =
         List.filter

@@ -108,6 +108,9 @@ type t = {
   kernel_contract : Kernel_guided_contract.node_contract option;
 }
 
+val set_keep_monitor_translation : bool -> unit
+val get_keep_monitor_translation : unit -> bool
+
 val of_node :
   nodes:Ast.node list ->
   ?external_summaries:Product_kernel_ir.exported_node_summary_ir list ->

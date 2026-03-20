@@ -255,6 +255,7 @@ type why_pass_request = {
   input_file : string [@key "inputFile"];
   prefix_fields : bool [@key "prefixFields"];
   engine : string;
+  why_mode : string option [@key "whyMode"];
 }
 [@@deriving yojson]
 
@@ -263,6 +264,7 @@ type obligations_pass_request = {
   prover : string;
   prefix_fields : bool [@key "prefixFields"];
   engine : string;
+  why_mode : string option [@key "whyMode"];
 }
 [@@deriving yojson]
 
@@ -271,6 +273,12 @@ type eval_pass_request = {
   trace_text : string [@key "traceText"];
   with_state : bool [@key "withState"];
   with_locals : bool [@key "withLocals"];
+  engine : string;
+}
+[@@deriving yojson]
+
+type kobj_summary_request = {
+  input_file : string [@key "inputFile"];
   engine : string;
 }
 [@@deriving yojson]
@@ -285,10 +293,10 @@ type config_repr = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string option [@key "whyMode"];
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -305,10 +313,10 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -326,10 +334,10 @@ let yojson_of_config (c : config) =
       wp_only = c.wp_only;
       smoke_tests = c.smoke_tests;
       timeout_s = c.timeout_s;
-      max_proof_goals = c.max_proof_goals;
       selected_goal_index = c.selected_goal_index;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prefix_fields = c.prefix_fields;
+      why_mode = Some c.why_mode;
       prove = c.prove;
       generate_vc_text = c.generate_vc_text;
       generate_smt_text = c.generate_smt_text;
@@ -352,10 +360,10 @@ let config_of_yojson json =
           wp_only = repr.wp_only;
           smoke_tests = repr.smoke_tests;
           timeout_s = repr.timeout_s;
-          max_proof_goals = repr.max_proof_goals;
           selected_goal_index = repr.selected_goal_index;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prefix_fields = repr.prefix_fields;
+          why_mode = Option.value repr.why_mode ~default:"no-automata";
           prove = repr.prove;
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;
@@ -440,6 +448,9 @@ let obligations_pass_request_of_yojson = obligations_pass_request_of_yojson
 
 let yojson_of_eval_pass_request = eval_pass_request_to_yojson
 let eval_pass_request_of_yojson = eval_pass_request_of_yojson
+
+let yojson_of_kobj_summary_request = kobj_summary_request_to_yojson
+let kobj_summary_request_of_yojson = kobj_summary_request_of_yojson
 
 let yojson_of_dot_png_from_text_request = dot_png_from_text_request_to_yojson
 let dot_png_from_text_request_of_yojson = dot_png_from_text_request_of_yojson

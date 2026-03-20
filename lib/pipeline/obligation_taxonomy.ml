@@ -100,13 +100,15 @@ let classify_require (f : fo_o) : family =
   | Some Instrumentation -> FamNoBadRequires
   | Some Compatibility -> FamMonitorCompatibilityRequires
   | Some AssumeAutomaton -> FamStateAwareAssumptionRequires
-  | Some UserContract | Some Internal | None -> FamTransitionRequires
+  | Some UserContract | Some Internal | None ->
+      FamTransitionRequires
 
 let classify_ensure (f : fo_o) : family =
   match f.origin with
   | Some Coherency -> FamCoherencyEnsuresShifted
   | Some Instrumentation -> FamNoBadEnsures
-  | Some UserContract | Some Internal | Some Compatibility | Some AssumeAutomaton | None ->
+  | Some UserContract | Some Internal | Some Compatibility
+  | Some AssumeAutomaton | None ->
       FamTransitionEnsures
 
 let summarize_program (p : program) : summary =

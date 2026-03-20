@@ -215,6 +215,12 @@ let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.V2
   | None -> Engine_service.V2
 
+let get_why_mode (params : Yojson.Safe.t) : Pipeline.why_translation_mode =
+  match get_param_string params "whyMode" with
+  | Some s ->
+      Option.value (Pipeline.why_translation_mode_of_string s) ~default:Pipeline.Why_mode_no_automata
+  | None -> Pipeline.Why_mode_no_automata
+
 let symbol_info ~(uri : string) ~(name : string) ~(line : int) ~(character : int) : Yojson.Safe.t =
   let range =
     let start = lsp_position ~line ~character in
@@ -237,18 +243,44 @@ let decode_or_none decode json =
   | Ok value -> Some value
   | Error _ -> None
 
+let kobj_request_input_and_engine (params : Yojson.Safe.t) :
+    (string option * Engine_service.engine) =
+  let req = decode_or_none Lsp_protocol.kobj_summary_request_of_yojson params in
+  let input_file =
+    match req with
+    | Some req -> Some req.input_file
+    | None -> get_param_string params "inputFile"
+  in
+  let engine =
+    match req with
+    | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+    | None -> get_engine params
+  in
+  (input_file, engine)
+
+let read_or_compile_kobj ~(engine : Engine_service.engine) ~(input_file : string) =
+  if Filename.check_suffix input_file ".kobj" then
+    Kairos_object.read_file ~path:input_file
+  else
+    match Engine_service.compile_object ~engine ~input_file with
+    | Ok obj -> Ok obj
+    | Error e -> Error (Pipeline.error_to_string e)
+
 let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
   {
     input_file = cfg.input_file;
     prover = cfg.prover;
     prover_cmd = cfg.prover_cmd;
-    wp_only = cfg.wp_only;
+   wp_only = cfg.wp_only;
     smoke_tests = cfg.smoke_tests;
     timeout_s = cfg.timeout_s;
-    max_proof_goals = cfg.max_proof_goals;
     selected_goal_index = cfg.selected_goal_index;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prefix_fields = cfg.prefix_fields;
+    why_translation_mode =
+      Option.value
+        (Pipeline.why_translation_mode_of_string cfg.why_mode)
+        ~default:Pipeline.Why_mode_no_automata;
     prove = cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
@@ -689,9 +721,16 @@ let () =
                   | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
                   | None -> get_engine params
                 in
+                let why_translation_mode =
+                  match req with
+                  | Some req ->
+                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                  | None -> get_why_mode params
+                in
                 match input_file with
                 | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.why_pass ~engine ~prefix_fields ~input_file with
+                    match Engine_service.why_pass ~engine ~prefix_fields ~why_translation_mode ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_why_outputs (map_why out))
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
@@ -721,9 +760,16 @@ let () =
                   | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
                   | None -> get_engine params
                 in
+                let why_translation_mode =
+                  match req with
+                  | Some req ->
+                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                  | None -> get_why_mode params
+                in
                 match (input_file, prover) with
                 | Some input_file, Some prover when Sys.file_exists input_file -> (
-                    match Engine_service.obligations_pass ~engine ~prefix_fields ~prover ~input_file with
+                    match Engine_service.obligations_pass ~engine ~prefix_fields ~why_translation_mode ~prover ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id
                           ~result_json:(Lsp_protocol.yojson_of_obligations_outputs (map_oblig out))
@@ -765,6 +811,57 @@ let () =
                     | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/traceText")
+              id_json
+        | Some "kairos/kobjSummary" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_summary obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
+              id_json
+        | Some "kairos/kobjClauses" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_clauses obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
+              id_json
+        | Some "kairos/kobjProduct" ->
+            Option.iter
+              (fun id ->
+                let input_file, engine = kobj_request_input_and_engine params in
+                match input_file with
+                | Some input_file when Sys.file_exists input_file ->
+                    let obj_result = read_or_compile_kobj ~engine ~input_file in
+                    (match obj_result with
+                    | Ok obj ->
+                        send_result stdout ~id_json:id
+                          ~result_json:(`String (Kairos_object.render_product obj))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/dotPngFromText" ->
             Option.iter
@@ -817,10 +914,6 @@ let () =
                             wp_only = get_param_bool params "wpOnly" false;
                             smoke_tests = get_param_bool params "smokeTests" false;
                             timeout_s = get_param_int params "timeoutS" 5;
-                            max_proof_goals =
-                              (match get_param_int params "maxProofGoals" (-1) with
-                              | n when n >= 0 -> Some n
-                              | _ -> None);
                             selected_goal_index =
                               (match get_param_int params "selectedGoalIndex" (-1) with
                               | n when n >= 0 -> Some n
@@ -828,6 +921,7 @@ let () =
                             compute_proof_diagnostics =
                               get_param_bool params "computeProofDiagnostics" false;
                             prefix_fields = get_param_bool params "prefixFields" false;
+                            why_translation_mode = get_why_mode params;
                             prove = get_param_bool params "prove" true;
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;

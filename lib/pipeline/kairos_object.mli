@@ -27,5 +27,8 @@ val build :
   (t, string) result
 
 val summaries : t -> Product_kernel_ir.exported_node_summary_ir list
+val render_summary : t -> string
+val render_clauses : t -> string
+val render_product : t -> string
 val write_file : path:string -> t -> (unit, string) result
 val read_file : path:string -> (t, string) result

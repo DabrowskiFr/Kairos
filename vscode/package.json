@@ -44,6 +44,9 @@
     "onCommand:kairos.openProductText",
     "onCommand:kairos.openObligationsMap",
     "onCommand:kairos.openPruneReasons",
+    "onCommand:kairos.openKobjSummary",
+    "onCommand:kairos.openKobjClauses",
+    "onCommand:kairos.openKobjProduct",
     "onView:kairosOutline",
     "onView:kairosGoals",
     "onView:kairosArtifacts",
@@ -191,6 +194,18 @@
       {
         "command": "kairos.openPruneReasons",
         "title": "Kairos: Open Prune Reasons"
+      },
+      {
+        "command": "kairos.openKobjSummary",
+        "title": "Kairos: Open Kobj Summary"
+      },
+      {
+        "command": "kairos.openKobjClauses",
+        "title": "Kairos: Open Kobj Clauses"
+      },
+      {
+        "command": "kairos.openKobjProduct",
+        "title": "Kairos: Open Kobj Product"
       }
     ],
     "viewsContainers": {

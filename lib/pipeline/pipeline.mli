@@ -150,6 +150,13 @@ type stage_infos = {
   instrumentation : Stage_info.instrumentation_info option;
 }
 
+type why_translation_mode =
+  | Why_mode_no_automata
+  | Why_mode_monitor
+
+val string_of_why_translation_mode : why_translation_mode -> string
+val why_translation_mode_of_string : string -> why_translation_mode option
+
 (* Pipeline configuration flags. *)
 type config = {
   input_file : string;
@@ -158,10 +165,10 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_translation_mode : why_translation_mode;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -201,11 +208,19 @@ val build_vcid_locs : Ast.program -> (int * Ast.loc) list * Ast.loc list
 val instrumentation_pass : generate_png:bool -> input_file:string -> (automata_outputs, error) result
 
 (* Run the Why3 text pass. *)
-val why_pass : prefix_fields:bool -> input_file:string -> (why_outputs, error) result
+val why_pass :
+  prefix_fields:bool ->
+  why_translation_mode:why_translation_mode ->
+  input_file:string ->
+  (why_outputs, error) result
 
 (* Run VC/SMT exports. *)
 val obligations_pass :
-  prefix_fields:bool -> prover:string -> input_file:string -> (obligations_outputs, error) result
+  prefix_fields:bool ->
+  why_translation_mode:why_translation_mode ->
+  prover:string ->
+  input_file:string ->
+  (obligations_outputs, error) result
 
 (* Evaluate one top-level Kairos node on an input trace.
    Supported trace formats (auto-detected):

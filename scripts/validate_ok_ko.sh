@@ -17,6 +17,24 @@ has_import() {
   rg -q '^import ' "$1"
 }
 
+stderr_has_fatal_error() {
+  local stderr_file="$1"
+  rg -q '(^| )kairos: |Field [^[:space:]]+ is used more than once in a record|Fatal error:|exception' "$stderr_file"
+}
+
+stderr_summary() {
+  local stderr_file="$1"
+  awk '
+    /^[[:space:]]*$/ { next }
+    /^Warning([,:]|[[:space:]])/ { next }
+    { print }
+  ' "$stderr_file" \
+    | tr '\n' ' ' \
+    | sed 's/[[:space:]]\+/ /g' \
+    | sed 's/^[[:space:]]*//' \
+    | sed 's/[[:space:]]*$//'
+}
+
 run_with_file_timeout() {
   local stdout_file="$1"
   local stderr_file="$2"
@@ -90,9 +108,13 @@ classify_ok() {
   else
     local status=$?
     local err
-    err="$(tr '\n' ' ' < "$tmp.stderr" | sed 's/[[:space:]]\+/ /g' | sed 's/[[:space:]]*$//')"
+    err="$(stderr_summary "$tmp.stderr")"
     if [[ "$status" == "124" ]]; then
-      printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
+      if [[ -n "$err" ]] && stderr_has_fatal_error "$tmp.stderr"; then
+        printf '%s\tERROR\t%s\n' "$file" "$err"
+      else
+        printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
+      fi
     else
       printf '%s\tERROR\t%s\n' "$file" "$err"
     fi
@@ -125,9 +147,13 @@ classify_ko() {
   else
     local status=$?
     local err
-    err="$(tr '\n' ' ' < "$tmp.stderr" | sed 's/[[:space:]]\+/ /g' | sed 's/[[:space:]]*$//')"
+    err="$(stderr_summary "$tmp.stderr")"
     if [[ "$status" == "124" ]]; then
-      printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
+      if [[ -n "$err" ]] && stderr_has_fatal_error "$tmp.stderr"; then
+        printf '%s\tINVALID\t%s\n' "$file" "$err"
+      else
+        printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
+      fi
     else
       printf '%s\tINVALID\t%s\n' "$file" "$err"
     fi

@@ -47,6 +47,7 @@ type instrumentation_info = {
   state_ctors : string list;
   atom_count : int;
   kernel_ir_nodes : Product_kernel_ir.node_ir list;
+  exported_node_summaries : Product_kernel_ir.exported_node_summary_ir list;
   (** Pass 3 output: raw IR nodes (no Hoare triples). *)
   raw_ir_nodes : Kairos_ir.raw_node list;
   (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)

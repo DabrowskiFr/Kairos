@@ -114,6 +114,28 @@ let logic_getter_decl_for_type ~(vars_type_name : string) ~(field_name : string)
       };
     ]
 
+let logic_bool_pred_decl ~(env : Support.env) ~(input_ports : Why_runtime_view.port_view list)
+    ~(name : string) ~(formula : Ast.fo_ltl) : Ptree.decl =
+  let env = { env with rec_name = "self" } in
+  let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
+  let input_params =
+    List.map
+      (fun (p : Why_runtime_view.port_view) ->
+        (loc, Some (ident p.port_name), false, default_pty p.port_type))
+      input_ports
+  in
+  let body = Why_compile_expr.compile_ltl_term_shift env 1 formula in
+  Ptree.Dlogic
+    [
+      {
+        ld_loc = loc;
+        ld_ident = ident name;
+        ld_params = self_param :: input_params;
+        ld_type = Some (Ptree.PTtyapp (qid1 "bool", []));
+        ld_def = Some body;
+      };
+    ]
+
 let kernel_clause_origin_label = function
   | Product_kernel_ir.OriginSafety -> "Kernel safety"
   | Product_kernel_ir.OriginInitNodeInvariant -> "Kernel init node invariant"
@@ -133,17 +155,8 @@ let compile_kernel_fact_term ~(env : Support.env) ~(mon_state_ctors : Ast.ident 
           (match time with
           | Product_kernel_ir.CurrentTick -> base
           | Product_kernel_ir.PreviousTick -> term_old base)
-    | Product_kernel_ir.FactGuaranteeState idx -> (
-        match mon_ctor_for_index idx with
-        | None -> None
-        | Some ctor ->
-            let base =
-              term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 ctor)))
-            in
-            Some
-              (match time with
-              | Product_kernel_ir.CurrentTick -> base
-              | Product_kernel_ir.PreviousTick -> term_old base))
+    | Product_kernel_ir.FactGuaranteeState _idx ->
+        None
     | Product_kernel_ir.FactFormula fo -> Some (Why_compile_expr.compile_ltl_term_shift env 1 fo)
     | Product_kernel_ir.FactFalse -> Some (mk_term Tfalse)
   in
@@ -253,6 +266,42 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   let logic_getter_decls =
     let mk (v : Ast.vdecl) = logic_getter_decl ~env v.vname v.vty in
     logic_getter_decl ~env "st" (TCustom "state") :: List.map mk locals_and_outputs
+  in
+  let phase_case_logic_decls =
+    match kernel_ir with
+    | None -> []
+    | Some (ir : Product_kernel_ir.node_ir) ->
+        let seen = Hashtbl.create 32 in
+        let add_decl acc name formula =
+          if Hashtbl.mem seen name then acc
+          else (
+            Hashtbl.add seen name ();
+            logic_bool_pred_decl ~env ~input_ports:runtime_view.inputs ~name ~formula :: acc)
+        in
+        ir.eliminated_generated_clauses
+        |> List.fold_left
+             (fun acc (clause : Product_kernel_ir.generated_clause_ir) ->
+               match (clause.origin, clause.anchor) with
+               | Product_kernel_ir.OriginSourceProductSummary, ClauseAnchorProductState st -> begin
+                   let phase_formula =
+                     clause.conclusions
+                     |> List.find_map (fun (fact : Product_kernel_ir.clause_fact_ir) ->
+                            match (fact.time, fact.desc) with
+                            | Product_kernel_ir.CurrentTick, Product_kernel_ir.FactPhaseFormula fo ->
+                                Some fo
+                            | _ -> None)
+                   in
+                   match phase_formula with
+                   | None -> acc
+                   | Some fo ->
+                       add_decl acc
+                         (Product_kernel_ir.phase_state_case_name ~prog_state:st.prog_state
+                            ~guarantee_state:st.guarantee_state_index)
+                         fo
+                 end
+               | _ -> acc)
+             []
+        |> List.rev
   in
   let instance_mirror_getter_decls =
     let used_summaries =
@@ -571,13 +620,10 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     if goals = [] then []
     else
       let init_guard =
-        let st_init = term_eq (term_of_var env "st") (mk_term (Tident (qid1 runtime_view.init_control_state))) in
-        let mon_init =
-          match mon_state_ctors with
-          | first :: _ -> [ term_eq (term_of_var env "__aut_state") (mk_term (Tident (qid1 first))) ]
-          | [] -> []
+        let st_init =
+          term_eq (term_of_var env "st") (mk_term (Tident (qid1 runtime_view.init_control_state)))
         in
-        let terms = st_init :: mon_init in
+        let terms = [ st_init ] in
         match terms with
         | [] -> None
         | [ t ] -> Some t
@@ -608,6 +654,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
 
   let decls =
     imports @ type_mon_state @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    @ phase_case_logic_decls
     @ instance_mirror_getter_decls
     @ helper_decls @ [ step_decl ] @ coherency_goal_decls
     @ kernel_init_goal_decls
@@ -775,8 +822,6 @@ let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
          (fun (s : Product_kernel_ir.exported_node_summary_ir) -> s.signature.node_name)
          program_summaries)
     info
-
-
 (* Verified-node path: build runtime view from a Pass-5 verified_node, then
    compile it using the shared [compile_node_with_info] core. *)
 let compile_node_from_verified_node ~prefix_fields ?kernel_ir
@@ -1125,5 +1170,3 @@ let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int
   in
   loop 0;
   (out, List.rev !spans)
-
-

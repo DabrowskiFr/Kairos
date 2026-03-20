@@ -25,6 +25,7 @@ type contract_info = Why_types.contract_info
 (* Pre/post conditions with label groups for UI diagnostics. *)
 
 val set_pure_translation : bool -> unit
+val get_pure_translation : unit -> bool
 (* Enable/disable pure translation mode (no extra contract generation). *)
 
 (* {2 Invariants}

@@ -210,13 +210,19 @@ type instrumentation_pass_request = {
   engine : string;
 }
 
-type why_pass_request = { input_file : string; prefix_fields : bool; engine : string }
+type why_pass_request = {
+  input_file : string;
+  prefix_fields : bool;
+  engine : string;
+  why_mode : string option;
+}
 
 type obligations_pass_request = {
   input_file : string;
   prover : string;
   prefix_fields : bool;
   engine : string;
+  why_mode : string option;
 }
 
 type eval_pass_request = {
@@ -224,6 +230,11 @@ type eval_pass_request = {
   trace_text : string;
   with_state : bool;
   with_locals : bool;
+  engine : string;
+}
+
+type kobj_summary_request = {
+  input_file : string;
   engine : string;
 }
 
@@ -237,10 +248,10 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_mode : string;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -328,6 +339,9 @@ val obligations_pass_request_of_yojson : Yojson.Safe.t -> (obligations_pass_requ
 
 val yojson_of_eval_pass_request : eval_pass_request -> Yojson.Safe.t
 val eval_pass_request_of_yojson : Yojson.Safe.t -> (eval_pass_request, string) result
+
+val yojson_of_kobj_summary_request : kobj_summary_request -> Yojson.Safe.t
+val kobj_summary_request_of_yojson : Yojson.Safe.t -> (kobj_summary_request, string) result
 
 val yojson_of_dot_png_from_text_request : dot_png_from_text_request -> Yojson.Safe.t
 val dot_png_from_text_request_of_yojson : Yojson.Safe.t -> (dot_png_from_text_request, string) result

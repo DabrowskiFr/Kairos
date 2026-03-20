@@ -60,8 +60,11 @@ let term_eq (a : Ptree.term) (b : Ptree.term) : Ptree.term =
 let term_neq (a : Ptree.term) (b : Ptree.term) : Ptree.term =
   mk_term (Tinnfix (a, infix_ident "<>", b))
 
+let term_bool_binop (op : Dterm.dbinop) (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinnop (a, op, b))
+
 let term_implies (a : Ptree.term) (b : Ptree.term) : Ptree.term =
-  mk_term (Tbinop (a, Dterm.DTimplies, b))
+  term_bool_binop Dterm.DTimplies a b
 
 let term_old (t : Ptree.term) : Ptree.term = mk_term (Tapply (mk_term (Tident (qid1 "old")), t))
 
@@ -321,7 +324,7 @@ let rec string_of_term (t : Ptree.term) : string =
   | Tinnfix (a, op, b) ->
       let op_str = normalize_infix op.id_str in
       "(" ^ aux a ^ " " ^ op_str ^ " " ^ aux b ^ ")"
-  | Tbinop (a, d, b) ->
+  | Tbinop (a, d, b) | Tbinnop (a, d, b) ->
       let op =
         match d with Dterm.DTand -> "/\\" | Dterm.DTor -> "\\/" | Dterm.DTimplies -> "->"
       in
@@ -365,7 +368,7 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
         | Tnot inner -> inner
         | _ -> mk_term (Tnot (simplify_term_bool a))
       end
-    | Tbinop (a, Dterm.DTand, b) ->
+    | Tbinop (a, Dterm.DTand, b) | Tbinnop (a, Dterm.DTand, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -374,9 +377,9 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | Ttrue, _ -> b
           | _, Ttrue -> a
           | _ when string_of_term a = string_of_term b -> a
-          | _ -> mk_term (Tbinop (a, Dterm.DTand, b))
+          | _ -> term_bool_binop Dterm.DTand a b
         end
-    | Tbinop (a, Dterm.DTor, b) ->
+    | Tbinop (a, Dterm.DTor, b) | Tbinnop (a, Dterm.DTor, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -385,9 +388,9 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | Tfalse, _ -> b
           | _, Tfalse -> a
           | _ when string_of_term a = string_of_term b -> a
-          | _ -> mk_term (Tbinop (a, Dterm.DTor, b))
+          | _ -> term_bool_binop Dterm.DTor a b
         end
-    | Tbinop (a, Dterm.DTimplies, b) ->
+    | Tbinop (a, Dterm.DTimplies, b) | Tbinnop (a, Dterm.DTimplies, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -396,9 +399,10 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | Ttrue, _ -> b
           | _, Tfalse -> mk_term (Tnot a) |> simplify_term_bool
           | _ when string_of_term a = string_of_term b -> mk_term Ttrue
-          | _ -> mk_term (Tbinop (a, Dterm.DTimplies, b))
+          | _ -> term_bool_binop Dterm.DTimplies a b
         end
     | Tbinop (a, op, b) -> mk_term (Tbinop (simplify_term_bool a, op, simplify_term_bool b))
+    | Tbinnop (a, op, b) -> mk_term (Tbinnop (simplify_term_bool a, op, simplify_term_bool b))
     | Tinnfix (a, op, b) -> mk_term (Tinnfix (simplify_term_bool a, op, simplify_term_bool b))
     | Tapply (f, a) -> mk_term (Tapply (simplify_term_bool f, simplify_term_bool a))
     | Tidapp (q, args) -> mk_term (Tidapp (q, List.map simplify_term_bool args))

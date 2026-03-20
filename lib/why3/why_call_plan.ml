@@ -49,7 +49,7 @@ let index_of name lst =
   loop 0 lst
 
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =
-  mk_term (Tbinop (a, Dterm.DTand, b))
+  term_bool_binop Dterm.DTand a b
 
 let port_names (ports : Why_runtime_view.port_view list) =
   List.map (fun (port : Why_runtime_view.port_view) -> port.port_name) ports
@@ -116,11 +116,14 @@ let rec compile_call_fo_ltl_term lookup (summary : Why_runtime_view.callee_summa
       mk_term (Tidapp (qid1 id, List.map (compile_call_hexpr_term lookup summary) hs))
   | LNot a -> mk_term (Tnot (compile_call_fo_ltl_term lookup summary a))
   | LAnd (a, b) ->
-      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTand, compile_call_fo_ltl_term lookup summary b))
+      term_bool_binop Dterm.DTand (compile_call_fo_ltl_term lookup summary a)
+        (compile_call_fo_ltl_term lookup summary b)
   | LOr (a, b) ->
-      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTor, compile_call_fo_ltl_term lookup summary b))
+      term_bool_binop Dterm.DTor (compile_call_fo_ltl_term lookup summary a)
+        (compile_call_fo_ltl_term lookup summary b)
   | LImp (a, b) ->
-      mk_term (Tbinop (compile_call_fo_ltl_term lookup summary a, Dterm.DTimplies, compile_call_fo_ltl_term lookup summary b))
+      term_bool_binop Dterm.DTimplies (compile_call_fo_ltl_term lookup summary a)
+        (compile_call_fo_ltl_term lookup summary b)
   | LX _ | LG _ | LW _ -> mk_term Ttrue
 
 let compile_call_fo_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo) :

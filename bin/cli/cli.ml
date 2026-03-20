@@ -29,11 +29,23 @@ let log_level_conv =
   in
   Arg.conv (parse, print)
 
+let why_mode_conv =
+  let parse s =
+    match Pipeline.why_translation_mode_of_string s with
+    | Some mode -> Ok mode
+    | None -> Error (`Msg "Unknown why mode: expected no-automata or monitor")
+  in
+  let print fmt mode =
+    Format.pp_print_string fmt (Pipeline.string_of_why_translation_mode mode)
+  in
+  Arg.conv (parse, print)
+
 let run dump_dot dump_dot_short dump_automata dump_product
-    dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_json dump_json_stable
+    dump_obligations_map dump_prune_reasons dump_why3_vc dump_smt2 emit_kobj dump_kobj_summary
+    dump_kobj_clauses dump_kobj_product dump_json dump_json_stable
     dump_proof_traces_json dump_native_unsat_core_json dump_native_counterexample_json
-    proof_traces_failed_only max_proof_traces proof_traces_fast proof_trace_goal_index dump_ast
-    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s wp_only
+    proof_traces_failed_only proof_traces_fast proof_trace_goal_index dump_ast
+    dump_ast_all dump_ast_stable check_ast output_file prove prover prover_cmd timeout_s why_mode wp_only
     smoke_tests eval_trace eval_out eval_with_state eval_with_locals debug_contract_ids log_level
     log_file file =
   Log.setup ~level:log_level ~log_file;
@@ -66,6 +78,9 @@ let run dump_dot dump_dot_short dump_automata dump_product
           dump_obligations_map <> None;
           dump_prune_reasons <> None;
           emit_kobj <> None;
+          dump_kobj_summary <> None;
+          dump_kobj_clauses <> None;
+          dump_kobj_product <> None;
           dump_proof_traces_json <> None;
           dump_native_unsat_core_json <> None;
           dump_native_counterexample_json <> None;
@@ -80,9 +95,10 @@ let run dump_dot dump_dot_short dump_automata dump_product
     else if (dump_json <> None || dump_json_stable <> None) && dump_ast_all <> None then
       Error "--dump-json and --dump-ast-all are mutually exclusive"
     else if
-      (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
+     (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
      || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None)
       && (prove || wp_only || output_file <> None)
     then Error "--dump-dot/--dump-ast cannot be combined with --prove or --dump-why"
     else if
@@ -90,7 +106,9 @@ let run dump_dot dump_dot_short dump_automata dump_product
       || dump_native_counterexample_json <> None)
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None
+        || dump_why3_vc <> None
         || dump_smt2 <> None || output_file <> None)
     then
       Error
@@ -99,7 +117,8 @@ let run dump_dot dump_dot_short dump_automata dump_product
       (dump_why3_vc <> None || dump_smt2 <> None)
       && (dump_dot <> None || dump_dot_short <> None || dump_ast_stage <> None
         || dump_ast_all <> None || dump_automata <> None || dump_product <> None
-        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None)
+        || dump_obligations_map <> None || dump_prune_reasons <> None || emit_kobj <> None
+        || dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None)
     then Error "--dump-why3-vc/--dump-smt2 cannot be combined with --dump-dot/--dump-ast"
     else if dump_mode_count > 1 then
       Error
@@ -107,14 +126,17 @@ let run dump_dot dump_dot_short dump_automata dump_product
     else if eval_trace <> None
             && (dump_dot <> None || dump_dot_short <> None
                || dump_automata <> None || dump_product <> None || dump_obligations_map <> None
-               || dump_prune_reasons <> None || emit_kobj <> None || dump_why3_vc <> None || dump_smt2 <> None
+               || dump_prune_reasons <> None || emit_kobj <> None || dump_kobj_summary <> None
+               || dump_kobj_clauses <> None || dump_kobj_product <> None
+               || dump_why3_vc <> None || dump_smt2 <> None
                || dump_ast_stage <> None || dump_ast_all <> None || output_file <> None || prove
                || wp_only)
     then Error "--eval-trace cannot be combined with dump/prove options"
     else if
       dump_dot = None && dump_dot_short = None && dump_automata = None
       && dump_product = None && dump_obligations_map = None && dump_prune_reasons = None
-      && emit_kobj = None
+      && emit_kobj = None && dump_kobj_summary = None && dump_kobj_clauses = None
+      && dump_kobj_product = None
       && dump_why3_vc = None && dump_smt2 = None && dump_proof_traces_json = None
       && dump_native_unsat_core_json = None && dump_native_counterexample_json = None
       && output_file = None && (not prove)
@@ -123,11 +145,11 @@ let run dump_dot dump_dot_short dump_automata dump_product
     then Error "Why3 output requires --dump-why <file.why|-> (or use --prove)"
     else if dump_proof_traces_json = None && dump_native_unsat_core_json = None
             && dump_native_counterexample_json = None
-            && (proof_traces_failed_only || max_proof_traces <> None || proof_traces_fast
+            && (proof_traces_failed_only || proof_traces_fast
                || proof_trace_goal_index <> None)
     then
       Error
-        "--proof-traces-failed-only/--max-proof-traces/--proof-traces-fast/--proof-trace-goal-index require --dump-proof-traces-json, --dump-native-unsat-core-json or --dump-native-counterexample-json"
+        "--proof-traces-failed-only/--proof-traces-fast/--proof-trace-goal-index require --dump-proof-traces-json, --dump-native-unsat-core-json or --dump-native-counterexample-json"
     else if dump_native_unsat_core_json <> None && proof_trace_goal_index = None then
       Error "--dump-native-unsat-core-json requires --proof-trace-goal-index"
     else if dump_native_counterexample_json <> None && proof_trace_goal_index = None then
@@ -194,6 +216,27 @@ let run dump_dot dump_dot_short dump_automata dump_product
               match
                 (dump_dot, dump_dot_short, dump_automata, dump_product, dump_obligations_map, dump_prune_reasons)
               with
+              | _ when dump_kobj_summary <> None || dump_kobj_clauses <> None || dump_kobj_product <> None -> (
+                  let out, render =
+                    match (dump_kobj_summary, dump_kobj_clauses, dump_kobj_product) with
+                    | Some out, None, None -> (out, Kairos_object.render_summary)
+                    | None, Some out, None -> (out, Kairos_object.render_clauses)
+                    | None, None, Some out -> (out, Kairos_object.render_product)
+                    | _ -> failwith "unreachable kobj dump selection"
+                  in
+                  let obj_result =
+                    if Filename.check_suffix file ".kobj" then
+                      Kairos_object.read_file ~path:file
+                    else
+                      match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
+                      | Ok obj -> Ok obj
+                      | Error e -> Error (Pipeline.error_to_string e)
+                  in
+                  match obj_result with
+                  | Error msg -> `Error (false, msg)
+                  | Ok obj ->
+                      write_target out (render obj ^ "\n");
+                      `Ok ())
               | _ when emit_kobj <> None -> (
                   match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -264,10 +307,10 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = max_proof_traces;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = true;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = true;
                       generate_vc_text = not proof_traces_fast;
                       generate_smt_text = not proof_traces_fast;
@@ -285,17 +328,6 @@ let run dump_dot dump_dot_short dump_automata dump_product
                                if proof_traces_failed_only then
                                  trace.status <> "valid" && trace.status <> "pending"
                                else true)
-                        |> (fun traces ->
-                             match max_proof_traces with
-                             | None -> traces
-                             | Some n when n <= 0 -> []
-                             | Some n ->
-                                 let rec take acc remaining = function
-                                   | _ when remaining <= 0 -> List.rev acc
-                                   | [] -> List.rev acc
-                                   | x :: rest -> take (x :: acc) (remaining - 1) rest
-                                 in
-                                 take [] n traces)
                       in
                       let out = Option.get dump_proof_traces_json in
                       let emit_json oc =
@@ -323,10 +355,10 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = None;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = false;
                       generate_vc_text = false;
                       generate_smt_text = false;
@@ -367,10 +399,10 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       wp_only = false;
                       smoke_tests = false;
                       timeout_s;
-                      max_proof_goals = None;
                       selected_goal_index = proof_trace_goal_index;
                       compute_proof_diagnostics = false;
                       prefix_fields = false;
+                      why_translation_mode = why_mode;
                       prove = false;
                       generate_vc_text = false;
                       generate_smt_text = false;
@@ -413,6 +445,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       dump_why = output_file;
                       dump_why3_vc;
                       dump_smt2;
+                      why_translation_mode = why_mode;
                       prove;
                       prover;
                       prover_cmd;
@@ -477,6 +510,27 @@ let cmd =
     & info [ "emit-kobj" ] ~docv:"FILE"
         ~doc:"Compile the input source into a backend-agnostic .kobj object file."
   in
+  let dump_kobj_summary =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-summary" ] ~docv:"FILE"
+        ~doc:
+          "Dump a human-readable summary of a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
+  let dump_kobj_clauses =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-clauses" ] ~docv:"FILE"
+        ~doc:
+          "Dump all kernel clauses from a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
+  let dump_kobj_product =
+    value
+    & opt (some string) None
+    & info [ "dump-kobj-product" ] ~docv:"FILE"
+        ~doc:
+          "Dump product states/steps from a .kobj object to FILE (or '-' for stdout). If INPUT is a .kairos file, compile it first."
+  in
   let dump_json =
     value
     & opt (some string) None
@@ -515,12 +569,6 @@ let cmd =
     & flag
     & info [ "proof-traces-failed-only" ]
         ~doc:"With --dump-proof-traces-json, keep only non-proved goals."
-  in
-  let max_proof_traces =
-    value
-    & opt (some int) None
-    & info [ "max-proof-traces" ] ~docv:"N"
-        ~doc:"With --dump-proof-traces-json, emit at most N traces after filtering."
   in
   let proof_traces_fast =
     value
@@ -573,6 +621,12 @@ let cmd =
     value
     & opt int 5
     & info [ "timeout-s" ] ~docv:"SECONDS" ~doc:"Timeout per proof goal in seconds (default: 5)."
+  in
+  let why_mode =
+    value
+    & opt why_mode_conv Pipeline.Why_mode_no_automata
+    & info [ "why-mode" ] ~docv:"MODE"
+        ~doc:"Why translation mode: no-automata (default) or monitor."
   in
   let wp_only =
     value & flag
@@ -628,10 +682,11 @@ let cmd =
       ret
        (const run $ dump_dot $ dump_dot_short $ dump_automata
        $ dump_product $ dump_obligations_map $ dump_prune_reasons $ dump_why3_vc $ dump_smt2 $ emit_kobj
+       $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
        $ dump_json $ dump_json_stable $ dump_proof_traces_json $ dump_native_unsat_core_json
-       $ dump_native_counterexample_json $ proof_traces_failed_only $ max_proof_traces
+       $ dump_native_counterexample_json $ proof_traces_failed_only
        $ proof_traces_fast $ proof_trace_goal_index $ dump_ast $ dump_ast_all $ dump_ast_stable
-       $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ wp_only
+       $ check_ast $ output_file $ prove $ prover $ prover_cmd $ timeout_s $ why_mode $ wp_only
        $ smoke_tests $ eval_trace $ eval_out $ eval_with_state $ eval_with_locals
        $ debug_contract_ids $ log_level $ log_file $ file))
 

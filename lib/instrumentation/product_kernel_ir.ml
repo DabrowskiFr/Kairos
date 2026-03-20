@@ -87,6 +87,8 @@ type product_coverage_ir =
 
 type generated_clause_origin =
   | OriginSourceProductSummary
+  | OriginPhaseStepPreSummary
+  | OriginPhaseStepSummary
   | OriginSafety
   | OriginInitNodeInvariant
   | OriginInitAutomatonCoherence
@@ -103,6 +105,7 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
+  | FactPhaseFormula of Ast.fo_ltl
   | FactFormula of Ast.fo_ltl
   | FactFalse
 [@@deriving yojson]
@@ -129,6 +132,7 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
   | RelFactGuaranteeState of int
+  | RelFactPhaseFormula of Ast.fo_ltl
   | RelFactFormula of Ast.fo_ltl
   | RelFactFalse
 [@@deriving yojson]
@@ -282,6 +286,22 @@ type exported_node_summary_ir = {
 }
 [@@deriving yojson]
 
+let phase_state_case_name ~(prog_state : Ast.ident) ~(guarantee_state : int) : string =
+  Printf.sprintf "phase_case_%s_g%d" (String.lowercase_ascii prog_state) guarantee_state
+
+let phase_step_case_stem (step : product_step_ir) : string =
+  Printf.sprintf "%s_to_%s_a%d_%d_g%d_%d"
+    (String.lowercase_ascii step.src.prog_state)
+    (String.lowercase_ascii step.dst.prog_state)
+    step.src.assume_state_index step.dst.assume_state_index
+    step.src.guarantee_state_index step.dst.guarantee_state_index
+
+let phase_step_pre_case_name (step : product_step_ir) : string =
+  "phase_pre_" ^ phase_step_case_stem step
+
+let phase_step_post_case_name (step : product_step_ir) : string =
+  "phase_post_" ^ phase_step_case_stem step
+
 let fo_of_iexpr (e : iexpr) : fo_ltl = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
@@ -411,7 +431,18 @@ let has_effective_product_coverage (ir : node_ir) : bool = ir.product_coverage <
 let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
   let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.locals in
   build_pre_k_infos n
-  |> List.concat_map (fun (_, info) ->
+  |> List.fold_left
+       (fun acc (_, info) ->
+         if List.exists
+              (fun (existing_info : Support.pre_k_info) ->
+                existing_info.Support.expr = info.Support.expr
+                && existing_info.Support.names = info.Support.names)
+              acc
+         then
+           acc
+         else acc @ [ info ])
+       []
+  |> List.concat_map (fun info ->
          List.filter_map
            (fun name ->
              if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
@@ -430,6 +461,8 @@ let node_signature_of_ast (n : Ast.node) : node_signature_ir =
 
 let string_of_clause_origin = function
   | OriginSourceProductSummary -> "source/product_summary"
+  | OriginPhaseStepPreSummary -> "phase/step_pre_summary"
+  | OriginPhaseStepSummary -> "phase/step_summary"
   | OriginSafety -> "safety"
   | OriginInitNodeInvariant -> "init/node_inv"
   | OriginInitAutomatonCoherence -> "init/automaton"
@@ -460,12 +493,14 @@ let string_of_call_fact_kind = function
 let string_of_clause_fact_desc = function
   | FactProgramState st -> "st = " ^ st
   | FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
+  | FactPhaseFormula f -> "phase(" ^ string_of_ltl f ^ ")"
   | FactFormula f -> string_of_ltl f
   | FactFalse -> "false"
 
 let string_of_relational_clause_fact_desc = function
   | RelFactProgramState st -> "st = " ^ st
   | RelFactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
+  | RelFactPhaseFormula f -> "phase(" ^ string_of_ltl f ^ ")"
   | RelFactFormula f -> string_of_ltl f
   | RelFactFalse -> "false"
 
@@ -486,10 +521,9 @@ let string_of_product_state (st : product_state_ir) =
 let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis) ~(steps : product_step_ir list) :
     generated_clause_ir list =
   let _analysis = analysis in
-  let ast_node = Abs.to_ast_node node in
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let input_names =
-    ast_node.inputs |> List.map (fun (v : Ast.vdecl) -> v.vname) |> List.sort_uniq String.compare
+    node.semantics.sem_inputs |> List.map (fun (v : Ast.vdecl) -> v.vname) |> List.sort_uniq String.compare
   in
   let rec iexpr_mentions_current_input (e : Ast.iexpr) =
     match e.iexpr with
@@ -520,6 +554,9 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     | LImp (a, b) -> LImp (normalize_source_summary a, normalize_source_summary b)
     | LTrue | LFalse | LAtom _ | LX _ | LG _ | LW _ -> f
   in
+  let term_or a b = normalize_source_summary (LOr (a, b)) in
+  let term_and a b = normalize_source_summary (LAnd (a, b)) in
+  let term_not a = normalize_source_summary (LNot a) in
   let same_product_state (a : product_state_ir) (b : product_state_ir) =
     a.prog_state = b.prog_state
     && a.assume_state_index = b.assume_state_index
@@ -539,8 +576,9 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
            | StepBadGuarantee | StepBadAssumption -> None)
     |> List.sort_uniq Stdlib.compare
   in
-  dst_states
-  |> List.filter_map (fun (dst : product_state_ir) ->
+  let incoming_summaries =
+    dst_states
+    |> List.filter_map (fun (dst : product_state_ir) ->
          let safe_cases =
            steps
            |> List.filter (fun step ->
@@ -565,8 +603,140 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
                      current (FactProgramState dst.prog_state);
                      current (FactGuaranteeState dst.guarantee_state_index);
                    ];
-                 conclusions = [ current (FactFormula pre_invariant) ];
+                 conclusions =
+                   [
+                     current (FactPhaseFormula pre_invariant);
+                     current (FactFormula pre_invariant);
+                   ];
                } : generated_clause_ir))
+  in
+  let summarized_states =
+    incoming_summaries
+    |> List.filter_map (fun (clause : generated_clause_ir) ->
+           match clause.anchor with
+           | ClauseAnchorProductState st -> Some st
+           | ClauseAnchorProductStep _ -> None)
+    |> List.sort_uniq Stdlib.compare
+  in
+  let all_states =
+    steps
+    |> List.concat_map (fun (step : product_step_ir) -> [ step.src; step.dst ])
+    |> List.sort_uniq Stdlib.compare
+  in
+  let outgoing_safe_summary_for_gstate gidx =
+    analysis.guarantee_grouped_edges
+    |> List.filter_map (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
+           if src = gidx && (analysis.guarantee_bad_idx < 0 || dst <> analysis.guarantee_bad_idx)
+           then Some (automaton_guard_fo ~atom_map_exprs:analysis.guarantee_atom_map_exprs guard_raw)
+           else None)
+    |> List.sort_uniq Stdlib.compare
+    |> function
+    | [] -> None
+    | guard :: guards ->
+        Some
+          (List.fold_left (fun acc fo -> LOr (acc, fo)) guard guards
+          |> normalize_source_summary)
+  in
+  let fallback_summaries =
+    all_states
+    |> List.filter (fun st -> not (List.mem st summarized_states))
+    |> List.filter_map (fun (st : product_state_ir) ->
+           match outgoing_safe_summary_for_gstate st.guarantee_state_index with
+           | None -> None
+           | Some phase_formula ->
+               Some
+                 ({
+                   origin = OriginSourceProductSummary;
+                   anchor = ClauseAnchorProductState st;
+                   hypotheses =
+                     [
+                       current (FactProgramState st.prog_state);
+                       current (FactGuaranteeState st.guarantee_state_index);
+                     ];
+                   conclusions =
+                     [
+                       current (FactPhaseFormula phase_formula);
+                       current (FactFormula phase_formula);
+                     ];
+                 } : generated_clause_ir))
+  in
+  let raw_summaries = incoming_summaries @ fallback_summaries in
+  let phase_formula_of_clause (clause : generated_clause_ir) =
+    clause.conclusions
+    |> List.find_map (fun (fact : clause_fact_ir) ->
+           match (fact.time, fact.desc) with
+           | CurrentTick, FactPhaseFormula fo -> Some fo
+           | _ -> None)
+  in
+  let anchor_state_of_clause (clause : generated_clause_ir) =
+    match clause.anchor with
+    | ClauseAnchorProductState st -> Some st
+    | ClauseAnchorProductStep _ -> None
+  in
+  let raw_formula_table = Hashtbl.create 16 in
+  List.iter
+    (fun (clause : generated_clause_ir) ->
+      match (anchor_state_of_clause clause, phase_formula_of_clause clause) with
+      | Some st, Some fo ->
+          let key = (st.prog_state, st.guarantee_state_index) in
+          let merged =
+            match Hashtbl.find_opt raw_formula_table key with
+            | None -> fo
+            | Some prev -> term_or prev fo
+          in
+          Hashtbl.replace raw_formula_table key merged
+      | _ -> ())
+    raw_summaries;
+  let by_prog_state = Hashtbl.create 16 in
+  Hashtbl.iter
+    (fun ((prog_state, gidx) as key) fo ->
+      let prev = Hashtbl.find_opt by_prog_state prog_state |> Option.value ~default:[] in
+      Hashtbl.replace by_prog_state prog_state ((gidx, fo, key) :: prev))
+    raw_formula_table;
+  let exclusive_formula_table = Hashtbl.create 16 in
+  Hashtbl.iter
+    (fun prog_state entries ->
+      let entries = List.sort (fun (g1, _, _) (g2, _, _) -> Int.compare g1 g2) entries in
+      let _prog_state = prog_state in
+      let _covered, () =
+        List.fold_left
+          (fun (covered_opt, ()) (gidx, raw_fo, key) ->
+            let exclusive =
+              match covered_opt with
+              | None -> raw_fo
+              | Some covered -> term_and raw_fo (term_not covered)
+            in
+            Hashtbl.replace exclusive_formula_table key (normalize_source_summary exclusive);
+            let covered_opt =
+              match covered_opt with
+              | None -> Some raw_fo
+              | Some covered -> Some (term_or covered raw_fo)
+            in
+            let _gidx = gidx in
+            (covered_opt, ()))
+          (None, ()) entries
+      in
+      ())
+    by_prog_state;
+  raw_summaries
+  |> List.map (fun (clause : generated_clause_ir) ->
+         match anchor_state_of_clause clause with
+         | None -> clause
+         | Some st ->
+             let key = (st.prog_state, st.guarantee_state_index) in
+             begin
+               match Hashtbl.find_opt exclusive_formula_table key with
+               | None -> clause
+               | Some phase_formula ->
+                   {
+                     clause with
+                     conclusions =
+                       [
+                         current (FactPhaseFormula phase_formula);
+                         current (FactFormula phase_formula);
+                       ];
+                   }
+             end)
 
 let string_of_edge (edge : automaton_edge_ir) =
   Printf.sprintf "%d -> %d : %s" edge.src_index edge.dst_index (string_of_ltl edge.guard)
@@ -635,20 +805,207 @@ let build_product_step (step : PT.product_step) : product_step_ir =
     step_origin = StepFromExplicitExploration;
   }
 
-let is_feasible_product_step ~(analysis : Product_build.analysis) (step : product_step_ir) : bool =
+let invariant_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.fo_ltl option =
+  let formulas =
+    node.specification.spec_invariants_state_rel
+    |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
+           if (inv.is_eq && inv.state = state_name) || ((not inv.is_eq) && inv.state <> state_name)
+           then Some inv.formula
+           else None)
+  in
+  match formulas with
+  | [] -> None
+  | hd :: tl -> Some (List.fold_left (fun acc fo -> Ast.LAnd (acc, fo)) hd tl)
+
+type current_const =
+  | CInt of int
+  | CBool of bool
+
+type current_constraint_env = {
+  parent : (Ast.ident, Ast.ident) Hashtbl.t;
+  const_of_root : (Ast.ident, current_const) Hashtbl.t;
+  forbids_of_root : (Ast.ident, current_const list) Hashtbl.t;
+}
+
+let empty_current_constraint_env () =
+  {
+    parent = Hashtbl.create 16;
+    const_of_root = Hashtbl.create 16;
+    forbids_of_root = Hashtbl.create 16;
+  }
+
+let rec find_root env v =
+  match Hashtbl.find_opt env.parent v with
+  | None ->
+      Hashtbl.replace env.parent v v;
+      v
+  | Some p when p = v -> v
+  | Some p ->
+      let root = find_root env p in
+      Hashtbl.replace env.parent v root;
+      root
+
+let const_equal a b =
+  match (a, b) with
+  | CInt x, CInt y -> x = y
+  | CBool x, CBool y -> Bool.equal x y
+  | _ -> false
+
+let add_forbid env root c =
+  let prev = Hashtbl.find_opt env.forbids_of_root root |> Option.value ~default:[] in
+  if List.exists (const_equal c) prev then ()
+  else Hashtbl.replace env.forbids_of_root root (c :: prev)
+
+let root_forbids env root c =
+  Hashtbl.find_opt env.forbids_of_root root
+  |> Option.value ~default:[]
+  |> List.exists (const_equal c)
+
+let assign_const env root c =
+  match Hashtbl.find_opt env.const_of_root root with
+  | Some existing when not (const_equal existing c) -> false
+  | Some _ -> not (root_forbids env root c)
+  | None ->
+      if root_forbids env root c then false
+      else (
+        Hashtbl.replace env.const_of_root root c;
+        true)
+
+let merge_roots env r1 r2 =
+  if r1 = r2 then true
+  else
+    let c1 = Hashtbl.find_opt env.const_of_root r1 in
+    let c2 = Hashtbl.find_opt env.const_of_root r2 in
+    match (c1, c2) with
+    | Some a, Some b when not (const_equal a b) -> false
+    | _ ->
+        Hashtbl.replace env.parent r2 r1;
+        begin
+          match c1 with
+          | Some _ -> ()
+          | None -> Option.iter (fun c -> Hashtbl.replace env.const_of_root r1 c) c2
+        end;
+        let forbids =
+          (Hashtbl.find_opt env.forbids_of_root r1 |> Option.value ~default:[])
+          @ (Hashtbl.find_opt env.forbids_of_root r2 |> Option.value ~default:[])
+        in
+        Hashtbl.replace env.forbids_of_root r1 forbids;
+        begin
+          match Hashtbl.find_opt env.const_of_root r1 with
+          | Some c when root_forbids env r1 c -> false
+          | _ -> true
+        end
+
+let clone_constraint_env env =
+  let copy_tbl tbl =
+    let out = Hashtbl.create (Hashtbl.length tbl * 2 + 1) in
+    Hashtbl.iter (fun k v -> Hashtbl.replace out k v) tbl;
+    out
+  in
+  {
+    parent = copy_tbl env.parent;
+    const_of_root = copy_tbl env.const_of_root;
+    forbids_of_root = copy_tbl env.forbids_of_root;
+  }
+
+let current_const_of_iexpr (e : Ast.iexpr) : current_const option =
+  match e.iexpr with
+  | Ast.ILitInt n -> Some (CInt n)
+  | Ast.ILitBool b -> Some (CBool b)
+  | _ -> None
+
+let current_var_of_hexpr = function
+  | Ast.HNow { iexpr = Ast.IVar v; _ } -> Some v
+  | _ -> None
+
+let current_const_of_hexpr = function
+  | Ast.HNow e -> current_const_of_iexpr e
+  | _ -> None
+
+let add_current_atom env ~(negated : bool) (fo : Ast.fo) : bool option =
+  match fo with
+  | Ast.FRel (h1, Ast.REq, h2) -> begin
+      match
+        ( current_var_of_hexpr h1,
+          current_var_of_hexpr h2,
+          current_const_of_hexpr h1,
+          current_const_of_hexpr h2 )
+      with
+      | Some v, _, _, Some c ->
+          let root = find_root env v in
+          if negated then (
+            add_forbid env root c;
+            match Hashtbl.find_opt env.const_of_root root with
+            | Some assigned when const_equal assigned c -> Some false
+            | _ -> Some true)
+          else Some (assign_const env root c)
+      | _, Some v, Some c, _ ->
+          let root = find_root env v in
+          if negated then (
+            add_forbid env root c;
+            match Hashtbl.find_opt env.const_of_root root with
+            | Some assigned when const_equal assigned c -> Some false
+            | _ -> Some true)
+          else Some (assign_const env root c)
+      | Some v1, Some v2, _, _ when not negated ->
+          Some (merge_roots env (find_root env v1) (find_root env v2))
+      | _ -> None
+    end
+  | _ -> None
+
+let rec current_formula_maybe_satisfiable env (fo : Ast.fo_ltl) : bool =
+  match fo with
+  | Ast.LTrue -> true
+  | Ast.LFalse -> false
+  | Ast.LAtom atom -> begin
+      match add_current_atom env ~negated:false atom with
+      | Some b -> b
+      | None -> true
+    end
+  | Ast.LNot (Ast.LAtom atom) -> begin
+      match add_current_atom env ~negated:true atom with
+      | Some b -> b
+      | None -> true
+    end
+  | Ast.LNot inner -> not (current_formula_maybe_satisfiable env inner)
+  | Ast.LAnd (a, b) ->
+      current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
+  | Ast.LOr (a, b) ->
+      let env_left = clone_constraint_env env in
+      current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
+  | Ast.LImp _ | Ast.LX _ | Ast.LG _ | Ast.LW _ -> true
+
+let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analysis)
+    (step : product_step_ir) : bool =
   (* The explicit exploration has already applied conservative overlap checks
      on program/assumption/guarantee guards. Re-simplifying the recovered FO
      guards here is unsound for kernel-clause generation: some temporal guards
      collapse to [false] after atom recovery even though the original product
      step was kept as potentially live. Keep the explicit step whenever its
      source is live and let the recovered hypotheses appear in the emitted
-     clause. *)
-  is_live_state ~analysis
+     clause.
+
+     One additional structural filter is safe and useful: if the destination
+     state's declared invariants already contradict the recovered guarantee
+     guard, the product step cannot describe a realizable post-state phase and
+     only pollutes downstream proof obligations. This uses only exported
+     state invariants, not execution-level instrumentation. *)
+  let src_live =
+    is_live_state ~analysis
     {
       PT.prog_state = step.src.prog_state;
       assume_state = step.src.assume_state_index;
       guarantee_state = step.src.guarantee_state_index;
     }
+  in
+  src_live
+  &&
+  match invariant_formula_for_state ~node step.dst.prog_state with
+  | None -> true
+  | Some dst_inv ->
+      current_formula_maybe_satisfiable
+        (empty_current_constraint_env ())
+        (Ast.LAnd (step.guarantee_edge.guard, dst_inv))
 
 let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
     ~(live_states : PT.product_state list) : product_step_ir list =
@@ -732,6 +1089,39 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
+  let rec split_top_level_or (f : fo_ltl) : fo_ltl list =
+    match f with
+    | LOr (a, b) -> split_top_level_or a @ split_top_level_or b
+    | _ -> [ f ]
+  in
+  let rec normalize_phase_summary (f : fo_ltl) : fo_ltl =
+    match f with
+    | LNot (LOr (LNot a, LNot b)) -> LAnd (normalize_phase_summary a, normalize_phase_summary b)
+    | LNot inner -> LNot (normalize_phase_summary inner)
+    | LAnd (a, b) -> LAnd (normalize_phase_summary a, normalize_phase_summary b)
+    | LOr (a, b) -> LOr (normalize_phase_summary a, normalize_phase_summary b)
+    | LImp (a, b) -> LImp (normalize_phase_summary a, normalize_phase_summary b)
+    | LTrue | LFalse | LAtom _ | LX _ | LG _ | LW _ -> f
+  in
+  let same_product_state (a : product_state_ir) (b : product_state_ir) =
+    a.prog_state = b.prog_state
+    && a.assume_state_index = b.assume_state_index
+    && a.guarantee_state_index = b.guarantee_state_index
+  in
+  let phase_formula_for_dst (dst : product_state_ir) =
+    let safe_cases =
+      steps
+      |> List.filter (fun step -> same_product_state step.dst dst && step.step_kind = StepSafe)
+      |> List.map (fun step -> step.guarantee_edge.guard)
+      |> List.sort_uniq Stdlib.compare
+    in
+    match safe_cases with
+    | [] -> None
+    | safe_case :: rest ->
+        Some
+          (List.fold_left (fun acc fo -> LOr (acc, fo)) safe_case rest
+          |> normalize_phase_summary)
+  in
   let invariants_for_state state_name =
     List.filter_map
       (fun inv ->
@@ -772,18 +1162,48 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
         in
         let propagation =
           if src_live then
+            let base_hypotheses =
+              [
+                previous (FactProgramState step.src.prog_state);
+                previous (FactGuaranteeState step.src.guarantee_state_index);
+              ]
+              @ [
+                  step_ctx (FactFormula step.program_guard);
+                  step_ctx (FactFormula step.assume_edge.guard);
+                ]
+            in
+            let phase_clause =
+              [
+                ({
+                  origin = OriginPhaseStepSummary;
+                  anchor = ClauseAnchorProductStep step;
+                  hypotheses = base_hypotheses;
+                  conclusions = [ current (FactPhaseFormula step.guarantee_edge.guard) ];
+                } : generated_clause_ir);
+              ]
+            in
+            let phase_pre_clause =
+              match phase_formula_for_dst step.src with
+              | None -> []
+              | Some phase_formula ->
+                  [
+                    ({
+                      origin = OriginPhaseStepPreSummary;
+                      anchor = ClauseAnchorProductStep step;
+                      hypotheses =
+                        [
+                          previous (FactProgramState step.src.prog_state);
+                          previous (FactGuaranteeState step.src.guarantee_state_index);
+                        ];
+                      conclusions = [ previous (FactPhaseFormula phase_formula) ];
+                    } : generated_clause_ir);
+                  ]
+            in
             [
               ({
                 origin = OriginPropagationNodeInvariant;
                 anchor = ClauseAnchorProductStep step;
-                hypotheses =
-                  [
-                    previous (FactProgramState step.src.prog_state);
-                    previous (FactGuaranteeState step.src.guarantee_state_index);
-                    step_ctx (FactFormula step.program_guard);
-                    step_ctx (FactFormula step.assume_edge.guard);
-                    step_ctx (FactFormula step.guarantee_edge.guard);
-                  ];
+                hypotheses = base_hypotheses;
                 conclusions =
                   current (FactProgramState step.dst.prog_state)
                   :: invariants_for_state step.dst.prog_state;
@@ -791,37 +1211,34 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
               ({
                 origin = OriginPropagationAutomatonCoherence;
                 anchor = ClauseAnchorProductStep step;
-                hypotheses =
-                  [
-                    previous (FactProgramState step.src.prog_state);
-                    previous (FactGuaranteeState step.src.guarantee_state_index);
-                    step_ctx (FactFormula step.program_guard);
-                    step_ctx (FactFormula step.assume_edge.guard);
-                    step_ctx (FactFormula step.guarantee_edge.guard);
-                  ];
+                hypotheses = base_hypotheses;
                 conclusions = [ current (FactGuaranteeState step.dst.guarantee_state_index) ];
               } : generated_clause_ir);
             ]
+            @ phase_pre_clause
+            @ phase_clause
           else []
         in
         let safety =
           match step.step_kind with
           | StepBadGuarantee ->
-              [
-                ({
-                  origin = OriginSafety;
-                  anchor = ClauseAnchorProductStep step;
-                  hypotheses =
-                    [
-                      previous (FactProgramState step.src.prog_state);
-                      previous (FactGuaranteeState step.src.guarantee_state_index);
-                      step_ctx (FactFormula step.program_guard);
-                      step_ctx (FactFormula step.assume_edge.guard);
-                      step_ctx (FactFormula step.guarantee_edge.guard);
-                    ];
-                  conclusions = [ current FactFalse ];
-                } : generated_clause_ir);
-              ]
+              split_top_level_or step.guarantee_edge.guard
+              |> List.map (fun bad_case ->
+                     ({
+                       origin = OriginSafety;
+                       anchor = ClauseAnchorProductStep step;
+                       hypotheses =
+                         [
+                           previous (FactProgramState step.src.prog_state);
+                           previous (FactGuaranteeState step.src.guarantee_state_index);
+                         ]
+                         @ [
+                             step_ctx (FactFormula step.program_guard);
+                             step_ctx (FactFormula step.assume_edge.guard);
+                             step_ctx (FactFormula bad_case);
+                           ];
+                       conclusions = [ current FactFalse ];
+                     } : generated_clause_ir))
           | StepSafe | StepBadAssumption -> []
         in
         propagation @ safety)
@@ -835,6 +1252,8 @@ let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact
   let lower_desc = function
     | FactProgramState _ as desc -> Some desc
     | FactGuaranteeState _ as desc -> Some desc
+    | FactPhaseFormula fo ->
+        Option.map (fun fo' -> FactPhaseFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
     | FactFalse -> Some FactFalse
     | FactFormula fo ->
         Option.map (fun fo' -> FactFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
@@ -863,6 +1282,8 @@ let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) lis
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
     | FactGuaranteeState idx -> Some (RelFactGuaranteeState idx)
+    | FactPhaseFormula fo ->
+        Option.map (fun fo' -> RelFactPhaseFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
     | FactFormula fo ->
         Option.map (fun fo' -> RelFactFormula fo') (lower_ltl_temporal_bindings ~temporal_bindings fo)
     | FactFalse -> Some RelFactFalse
@@ -881,6 +1302,40 @@ let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   expand_one [] facts
 
+let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
+    relational_clause_fact_ir list option =
+  let combine_formula left right =
+    match (left, right) with
+    | RelFactFormula a, RelFactFormula b -> Some (RelFactFormula (Fo_simplifier.simplify_fo (LAnd (a, b))))
+    | _ -> None
+  in
+  let rec insert acc fact =
+    match acc with
+    | [] -> Some [ fact ]
+    | hd :: tl ->
+        if hd.time = fact.time then
+          match combine_formula hd.desc fact.desc with
+          | Some (RelFactFormula LFalse) -> None
+          | Some desc -> Some ({ hd with desc } :: tl)
+          | None -> Option.map (fun tl' -> hd :: tl') (insert tl fact)
+        else
+          Option.map (fun tl' -> hd :: tl') (insert tl fact)
+  in
+  let rec fold acc = function
+    | [] ->
+        Some
+          (List.filter
+             (fun (fact : relational_clause_fact_ir) -> fact.desc <> RelFactFormula LTrue)
+             acc)
+    | ({ desc = RelFactFormula LFalse; _ } : relational_clause_fact_ir) :: _ -> None
+    | ({ desc = RelFactFalse; _ } : relational_clause_fact_ir) :: _ -> None
+    | fact :: tl -> (
+        match insert acc fact with
+        | None -> None
+        | Some acc' -> fold acc' tl)
+  in
+  fold [] facts
+
 let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
     (clause : generated_clause_ir) : relational_generated_clause_ir list =
   let lower_all facts =
@@ -891,13 +1346,10 @@ let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info
   if conclusions = [] then []
   else
     expand_relational_hypotheses hypotheses
-    |> List.filter (fun hypotheses ->
-           not
-             (List.exists
-                (fun (fact : relational_clause_fact_ir) ->
-                  fact.desc = RelFactFormula LFalse || fact.desc = RelFactFalse)
-                hypotheses))
-    |> List.map (fun hypotheses -> { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
+    |> List.filter_map (fun hypotheses ->
+           match normalize_relational_hypotheses hypotheses with
+           | None -> None
+           | Some hypotheses -> Some { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
 
 let lower_call_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : call_fact_ir) : call_fact_ir option =
   Option.map (fun lowered -> { fact with fact = lowered }) (lower_clause_fact ~pre_k_map fact.fact)
@@ -1020,6 +1472,13 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
          (fun v -> { port_name = v.vname; role = CallStatePort })
          node.semantics.sem_locals
   in
+  let exported_post_facts_for_transition (t : Abs.transition) =
+    let state_facts = invariants_for_state ~node ~time:CurrentTick t.dst in
+    let ensure_facts =
+      List.map (fun (fo_o : Ast.fo_o) -> current_fact (FactFormula fo_o.value)) t.ensures
+    in
+    (state_facts @ ensure_facts) |> List.sort_uniq Stdlib.compare
+  in
   let cases =
     List.mapi
       (fun idx (t : Abs.transition) ->
@@ -1041,7 +1500,7 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
         let exported_post_facts =
           List.map
             (fun fact -> { fact_kind = CallExportedPostFact; fact })
-            (invariants_for_state ~node ~time:CurrentTick t.dst)
+            (exported_post_facts_for_transition t)
         in
         {
           case_name = Printf.sprintf "%s_to_%s_%d" t.src t.dst idx;
@@ -1345,7 +1804,7 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   let product_states = List.map product_state_of_pt live_product_states in
   let explicit_steps =
     List.map build_product_step analysis.exploration.steps
-    |> List.filter (is_feasible_product_step ~analysis)
+    |> List.filter (is_feasible_product_step ~node ~analysis)
   in
   let product_steps =
     if explicit_steps <> [] then explicit_steps

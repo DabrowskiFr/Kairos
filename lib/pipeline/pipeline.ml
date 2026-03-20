@@ -144,6 +144,19 @@ type stage_infos = {
   instrumentation : Stage_info.instrumentation_info option;
 }
 
+type why_translation_mode =
+  | Why_mode_no_automata
+  | Why_mode_monitor
+
+let string_of_why_translation_mode = function
+  | Why_mode_no_automata -> "no-automata"
+  | Why_mode_monitor -> "monitor"
+
+let why_translation_mode_of_string = function
+  | "no-automata" -> Some Why_mode_no_automata
+  | "monitor" -> Some Why_mode_monitor
+  | _ -> None
+
 type config = {
   input_file : string;
   prover : string;
@@ -151,10 +164,10 @@ type config = {
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  max_proof_goals : int option;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
+  why_translation_mode : why_translation_mode;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
@@ -379,25 +392,25 @@ let build_ast_with_info ?(log = false) ~input_file () : (ast_stages * stage_info
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
-        if log then Log.stage_start Stage_names.Instrumentation;
-        let p_monitor, automata, instrumentation_info =
-          (p_automaton, automata) |> Middle_end.stage_instrumentation_with_info
-          |> fun (p, stage, info) -> (reid_program p, stage, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Instrumentation
-            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-            (program_stats p_monitor);
-        let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Contracts;
         let p_contracts, automata, contracts_info =
-          (p_monitor, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
+          (p_automaton, automata) |> Middle_end.stage_contracts_with_info |> fun (p, stage, info) ->
           (reid_program p, stage, info)
         in
         if log then
           Log.stage_end Stage_names.Contracts
-            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
             (program_stats p_contracts);
+        let t3 = Unix.gettimeofday () in
+        if log then Log.stage_start Stage_names.Instrumentation;
+        let p_monitor, automata, instrumentation_info =
+          (p_contracts, automata) |> Middle_end.stage_instrumentation_with_info
+          |> fun (p, stage, info) -> (reid_program p, stage, info)
+        in
+        if log then
+          Log.stage_end Stage_names.Instrumentation
+            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+            (program_stats p_monitor);
         let asts =
           {
             source = { Source_file.imports = []; nodes = p_parsed };
@@ -544,12 +557,13 @@ let instrumentation_pass ~generate_png ~input_file : (automata_outputs, error) r
     (Stage_error
        "Legacy Pipeline.instrumentation_pass is removed. Use Pipeline_v2_indep.instrumentation_pass.")
 
-let why_pass ~prefix_fields ~input_file : (why_outputs, error) result =
-  let _ = (prefix_fields, input_file) in
+let why_pass ~prefix_fields ~why_translation_mode ~input_file : (why_outputs, error) result =
+  let _ = (prefix_fields, why_translation_mode, input_file) in
   Error (Stage_error "Legacy Pipeline.why_pass is removed. Use Pipeline_v2_indep.why_pass.")
 
-let obligations_pass ~prefix_fields ~prover ~input_file : (obligations_outputs, error) result =
-  let _ = (prefix_fields, prover, input_file) in
+let obligations_pass ~prefix_fields ~why_translation_mode ~prover ~input_file :
+    (obligations_outputs, error) result =
+  let _ = (prefix_fields, why_translation_mode, prover, input_file) in
   Error
     (Stage_error
        "Legacy Pipeline.obligations_pass is removed. Use Pipeline_v2_indep.obligations_pass.")

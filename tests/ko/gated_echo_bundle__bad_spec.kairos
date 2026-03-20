@@ -12,8 +12,8 @@ invariants
 transitions
   Init:
     to Hold when gate = 1 {
-      y := 0;
-      z := 0;
+      y := x;
+      z := x;
       hold := x;
     }
     to Wait when gate = 0 {
@@ -23,8 +23,8 @@ transitions
     }
   Wait:
     to Hold when gate = 1 {
-      y := 0;
-      z := 0;
+      y := x;
+      z := x;
       hold := x;
     }
     to Wait when gate = 0 {

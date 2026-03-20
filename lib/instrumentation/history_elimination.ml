@@ -1,5 +1,14 @@
 open Ast
 
+let unique_pre_k_infos (pre_k_map : (hexpr * Support.pre_k_info) list) : Support.pre_k_info list =
+  pre_k_map
+  |> List.fold_left
+       (fun acc (_, info) ->
+         if List.exists (fun existing -> existing.Support.expr = info.Support.expr && existing.Support.names = info.Support.names) acc then
+           acc
+         else acc @ [ info ])
+       []
+
 (** {2 Pre-k locals}
 
     Compute the [__pre_k{k}_x] vdecls that must be added to the node locals.
@@ -8,8 +17,8 @@ open Ast
     AST). *)
 let pre_k_extra_locals ~(existing_names : ident list)
     (pre_k_map : (hexpr * Support.pre_k_info) list) : vdecl list =
-  pre_k_map
-  |> List.concat_map (fun (_, info) ->
+  unique_pre_k_infos pre_k_map
+  |> List.concat_map (fun info ->
          List.filter_map
            (fun name ->
              if List.mem name existing_names then None
@@ -26,8 +35,8 @@ let pre_k_extra_locals ~(existing_names : ident list)
 let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt list =
   let s desc = { stmt = desc; loc = None } in
   let mk_ivar name = { iexpr = IVar name; loc = None } in
-  List.concat_map
-    (fun (_, info) ->
+  unique_pre_k_infos pre_k_map
+  |> List.concat_map (fun info ->
       let names = info.Support.names in
       (* Shift deeper slots first: __pre_k{n}_x := __pre_k{n-1}_x, …  *)
       let shifts =
@@ -47,7 +56,6 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt lis
         | name :: _ -> [ s (SAssign (name, info.Support.expr)) ]
       in
       shifts @ first)
-    pre_k_map
 
 (** {2 Formula substitution}
 
