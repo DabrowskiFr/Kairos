@@ -1,4 +1,4 @@
-(* Constructors and utility helpers for the AST.
+(** Constructors and utility helpers for the AST.
 
    These helpers centralize defaults (locations, attributes) and make parser/transform code more
    compact. *)
@@ -47,8 +47,8 @@ val mk_transition :
   src:Ast.ident ->
   dst:Ast.ident ->
   guard:Ast.iexpr option ->
-  requires:Ast.fo_o list ->
-  ensures:Ast.fo_o list ->
+  requires:Ast.ltl_o list ->
+  ensures:Ast.ltl_o list ->
   body:Ast.stmt list ->
   Ast.transition
 
@@ -57,8 +57,8 @@ val mk_node :
   nname:Ast.ident ->
   inputs:Ast.vdecl list ->
   outputs:Ast.vdecl list ->
-  assumes:Ast.fo_ltl list ->
-  guarantees:Ast.fo_ltl list ->
+  assumes:Ast.ltl list ->
+  guarantees:Ast.ltl list ->
   instances:(Ast.ident * Ast.ident) list ->
   locals:Ast.vdecl list ->
   states:Ast.ident list ->

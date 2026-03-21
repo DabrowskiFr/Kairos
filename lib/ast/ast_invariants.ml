@@ -25,12 +25,14 @@ let issue fmt = Printf.sprintf fmt
 let check_program_info ~(label : string) ~(get_info : Ast.node -> 'a option) (p : Ast.program) :
     issue list =
   let check n =
-    if get_info n = None then Some (issue "node '%s' missing %s info" n.nname label) else None
+    if get_info n = None then
+      Some (issue "node '%s' missing %s info" n.semantics.sem_nname label)
+    else None
   in
   List.filter_map check p
 
 let check_transition_basic (n : Ast.node) (t : Ast.transition) : issue list =
-  let states = n.states in
+  let states = n.semantics.sem_states in
   let src = t.src in
   let dst = t.dst in
   let acc = ref [] in
@@ -42,20 +44,21 @@ let check_transition_basic (n : Ast.node) (t : Ast.transition) : issue list =
 
 let check_node_basic (n : Ast.node) : issue list =
   let acc = ref [] in
-  let states = n.states in
-  let init_state = n.init_state in
+  let sem = n.semantics in
+  let states = sem.sem_states in
+  let init_state = sem.sem_init_state in
   let uniq l = List.sort_uniq String.compare l in
   if List.length (uniq states) <> List.length states then
-    acc := issue "node '%s' has duplicate states" n.nname :: !acc;
+    acc := issue "node '%s' has duplicate states" sem.sem_nname :: !acc;
   if not (List.mem init_state states) then
-    acc := issue "node '%s' init_state '%s' not in states" n.nname init_state :: !acc;
-  let trans_issues = List.concat_map (check_transition_basic n) n.trans in
+    acc := issue "node '%s' init_state '%s' not in states" sem.sem_nname init_state :: !acc;
+  let trans_issues = List.concat_map (check_transition_basic n) sem.sem_trans in
   acc := List.rev_append trans_issues !acc;
   List.rev !acc
 
 let check_program_basic (p : Ast.program) : issue list =
   let acc = ref [] in
-  let names = List.map (fun n -> n.nname) p in
+  let names = List.map (fun n -> n.semantics.sem_nname) p in
   let uniq = List.sort_uniq String.compare names in
   if List.length uniq <> List.length names then acc := "duplicate node names detected" :: !acc;
   List.iter (fun n -> List.iter (fun i -> acc := i :: !acc) (check_node_basic n)) p;
@@ -69,7 +72,7 @@ let check_program_contracts (p : Ast.program) : issue list =
       let assumes = spec.spec_assumes in
       let guarantees = spec.spec_guarantees in
       if assumes = [] && guarantees = [] then
-        acc := issue "node '%s' has no contracts" n.nname :: !acc)
+        acc := issue "node '%s' has no contracts" n.semantics.sem_nname :: !acc)
     p;
   List.rev !acc
 

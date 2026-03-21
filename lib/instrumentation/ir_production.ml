@@ -1,7 +1,7 @@
 module Abs = Abstract_model
 
 (** Convert an optional imperative guard to a first-order formula. *)
-let guard_fo (g : Ast.iexpr option) : Ast.fo_ltl =
+let guard_fo (g : Ast.iexpr option) : Ast.ltl =
   match g with
   | None -> Ast.LTrue
   | Some e ->

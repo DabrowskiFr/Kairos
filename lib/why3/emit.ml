@@ -35,7 +35,7 @@ let compile_runtime_view = Why_core.compile_runtime_view
 type spec_groups = { pre_labels : string list; post_labels : string list }
 
 type comment_specs =
-  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
+  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
 
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
@@ -115,7 +115,7 @@ let logic_getter_decl_for_type ~(vars_type_name : string) ~(field_name : string)
     ]
 
 let logic_bool_pred_decl ~(env : Support.env) ~(input_ports : Why_runtime_view.port_view list)
-    ~(name : string) ~(formula : Ast.fo_ltl) : Ptree.decl =
+    ~(name : string) ~(formula : Ast.ltl) : Ptree.decl =
   let env = { env with rec_name = "self" } in
   let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
   let input_params =
@@ -176,11 +176,15 @@ let compile_external_summary_module ~prefix_fields
     |> fun n ->
     {
       n with
+      specification =
+        {
+          n.specification with
+          spec_invariants_state_rel = summary.state_invariants;
+        };
       attrs =
         {
           n.attrs with
           invariants_user = summary.user_invariants;
-          invariants_state_rel = summary.state_invariants;
           coherency_goals = summary.coherency_goals;
         };
     }
@@ -631,7 +635,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       in
       let is_init_goal = function LImp (LTrue, _) -> true | _ -> false in
       List.mapi
-        (fun i (f : Ast.fo_o) ->
+        (fun i (f : Ast.ltl_o) ->
           let wid = Provenance.fresh_id () in
           Provenance.add_parents ~child:wid ~parents:[ f.oid ];
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in

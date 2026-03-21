@@ -1,5 +1,7 @@
 (*---------------------------------------------------------------------------*)
 
+(** Normalization helpers for stable Why3 labels and attributes. *)
+
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 (* Normalize a human label into a stable Why3‑friendly form. *)

@@ -19,11 +19,20 @@
 open Ast
 open Ast_builders
 open Support
-open Automaton_core
 open Fo_specs
 open Automata_generation
 open Instrumentation
 module Abs = Abstract_model
+
+let escape_dot_label (s : string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '"' -> Buffer.add_string b "\\\""
+      | '\n' -> Buffer.add_string b "\\n"
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
 
 let rewrite_history_vars (s : string) : string =
   let len = String.length s in
@@ -81,17 +90,20 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
   Buffer.add_string buf "digraph LTLResidual {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
+    let sem = n.semantics in
     let fo_specs =
       List.fold_left
         (fun acc (t : transition) ->
           Ast_provenance.values t.requires @ Ast_provenance.values t.ensures @ acc)
-        [] n.trans
+        [] sem.sem_trans
     in
     let spec = Ast.specification_of_node n in
     let ltl_specs = spec.spec_assumes @ spec.spec_guarantees in
     let pre_k_map = Collect.build_pre_k_infos n in
     let inputs = Ast_utils.input_names_of_node n in
-    let var_types = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
+    let var_types =
+      List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
+    in
     let atoms =
       let acc = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltl_specs in
       List.fold_left (fun acc f -> collect_atoms_ltl f acc) acc fo_specs
@@ -117,7 +129,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
         ltl_terms @ fo_terms
       in
       let f0 = List.fold_left (fun acc f -> LAnd (acc, f)) LTrue f_list in
-      let automaton = Automaton_engine.build ~atom_map ~atom_names f0 in
+      let automaton = Spot_automaton.build ~atom_map ~atom_names f0 in
       (automaton.states, automaton.grouped)
     in
     let atom_expr_tbl = Hashtbl.create 16 in
@@ -211,7 +223,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
           acc)
         s atom_named_exprs
     in
-    let _cluster = Support.module_name_of_node n.nname in
+    let _cluster = Support.module_name_of_node sem.sem_nname in
     let debug_inline =
       match Sys.getenv_opt "OBC2WHY3_DEBUG_DOT_INLINE" with Some "1" -> true | _ -> false
     in
@@ -238,7 +250,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     List.iter
       (fun (i, guard, j) ->
         let formula =
-          Automaton_guard.guard_to_iexpr guard
+          Automata_atoms.guard_to_iexpr guard
           |> iexpr_to_fo_with_atoms atom_name_to_fo
           |> Support.string_of_ltl |> strip_braces
         in
@@ -255,11 +267,14 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
   let rendered =
     p
     |> List.map (fun n ->
+           let sem = n.semantics in
            let build = Automata_generation.build_for_node n in
            let analysis = Product_build.analyze_node ~build ~node:(Abs.of_ast_node n) in
            let abs_node = Abs.of_ast_node n in
-           let program = Product_debug.render_program_automaton ~node_name:n.nname ~node:abs_node in
-           let full = Product_debug.render ~node_name:n.nname ~analysis in
+           let program =
+             Product_debug.render_program_automaton ~node_name:sem.sem_nname ~node:abs_node
+           in
+           let full = Product_debug.render ~node_name:sem.sem_nname ~analysis in
            (program, (full.assume_automaton_dot, String.concat "\n" full.assume_automaton_lines),
             (full.guarantee_automaton_dot, String.concat "\n" full.guarantee_automaton_lines),
             (full.product_dot, String.concat "\n" full.product_lines)))

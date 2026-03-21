@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Evaluation support for LTL-style formulas over finite valuation contexts. *)
+
 (* {1 Valuation Helpers} *)
 
 val valuation_label : (string * bool) list -> string

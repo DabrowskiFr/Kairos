@@ -1,3 +1,5 @@
+(** Loads imported [.kobj] objects and their exported node summaries. *)
+
 type loaded_imports = {
   objects : Kairos_object.t list;
   summaries : Product_kernel_ir.exported_node_summary_ir list;

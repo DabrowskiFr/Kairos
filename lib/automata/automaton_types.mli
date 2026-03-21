@@ -16,25 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(* {1 Residual Automaton Types} *)
+(** Shared types for automata guards. *)
 
-type residual_state = Ast.fo_ltl
-
-(* Residual automaton state as an LTL formula. *)
-type residual_transition = int * (string * bool) list * int
-
-(* Residual transition (src, valuation, dst). *)
-type grouped_transition = int * (string * bool) list list * int
-
-(* Residual transition grouped by destination (src, valuations, dst). *)
-type bdd_guard = int
-
-(* BDD guard identifier. *)
-type bdd_transition = int * bdd_guard * int
-
-(* Residual transition grouped with a BDD guard (src, guard, dst). *)
+(* {1 Guard Types} *)
 type guard = (string * bool option) list list
 
 (* DNF guard as a list of implicants (each implicant lists literals). *)
-type guarded_transition = int * guard * int
-(* Residual transition grouped with a DNF guard (src, guard, dst). *)

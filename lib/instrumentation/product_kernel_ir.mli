@@ -1,3 +1,6 @@
+(** Kernel IR exported by the product/instrumentation pipeline and consumed by
+    Why generation, modular imports, and debug tooling. *)
+
 type automaton_role =
   | Assume
   | Guarantee
@@ -6,11 +9,11 @@ type automaton_role =
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
-  guard : Ast.fo_ltl;
+  guard : Ast.ltl;
   (* Execution-level transition body — needed to generate Why3 without OBC+. *)
   guard_iexpr : Ast.iexpr option;
-  requires : Ast.fo_o list;
-  ensures : Ast.fo_o list;
+  requires : Ast.ltl_o list;
+  ensures : Ast.ltl_o list;
   ghost_stmts : Ast.stmt list;
   body_stmts : Ast.stmt list;
   instrumentation_stmts : Ast.stmt list;
@@ -28,7 +31,7 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Ast.fo_ltl;
+  guard : Ast.ltl;
 }
 [@@deriving yojson]
 
@@ -63,7 +66,7 @@ type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
   program_transition : Ast.ident * Ast.ident;
-  program_guard : Ast.fo_ltl;
+  program_guard : Ast.ltl;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -97,8 +100,8 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of Ast.fo_ltl
-  | FactFormula of Ast.fo_ltl
+  | FactPhaseFormula of Ast.ltl
+  | FactFormula of Ast.ltl
   | FactFalse
 [@@deriving yojson]
 
@@ -124,8 +127,8 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
   | RelFactGuaranteeState of int
-  | RelFactPhaseFormula of Ast.fo_ltl
-  | RelFactFormula of Ast.fo_ltl
+  | RelFactPhaseFormula of Ast.ltl
+  | RelFactFormula of Ast.ltl
   | RelFactFalse
 [@@deriving yojson]
 
@@ -155,7 +158,7 @@ type instance_relation_ir =
       callee_node_name : Ast.ident;
       state_name : Ast.ident;
       is_eq : bool;
-      formula : Ast.fo_ltl;
+      formula : Ast.ltl;
     }
   | InstanceDelayHistoryLink of {
       instance_name : Ast.ident;
@@ -269,12 +272,12 @@ type exported_node_summary_ir = {
   tick_summary : callee_tick_abi_ir;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.fo_o list;
+  coherency_goals : Ast.ltl_o list;
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
   (* LTL specifications — needed to reconstruct the runtime view without OBC+. *)
-  assumes : Ast.fo_ltl list;
-  guarantees : Ast.fo_ltl list;
+  assumes : Ast.ltl list;
+  guarantees : Ast.ltl list;
 }
 [@@deriving yojson]
 

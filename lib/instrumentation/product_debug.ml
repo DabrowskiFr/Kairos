@@ -1,12 +1,21 @@
 open Ast
 open Ast_builders
 open Support
-open Automaton_core
 open Automata_atoms
 open Fo_specs
 
 module PT = Product_types
 module Abs = Abstract_model
+
+let escape_dot_label (s : string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '"' -> Buffer.add_string b "\\\""
+      | '\n' -> Buffer.add_string b "\\n"
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
 
 type rendered = {
   guarantee_automaton_lines : string list;
@@ -35,7 +44,7 @@ let string_of_prune_reason = function
 let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
   Printf.sprintf "%d->%d" src dst
 
-let obligation_formula (step : PT.product_step) : fo_ltl =
+let obligation_formula (step : PT.product_step) : ltl =
   LNot (LAnd (step.prog_guard, LAnd (step.assume_guard, step.guarantee_guard)))
 
 let render_automaton_lines ~prefix labels =

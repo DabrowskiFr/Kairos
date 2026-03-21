@@ -168,7 +168,7 @@ node:
       ~init_state
       ~trans:$20
     |> fun n ->
-      { n with attrs = { n.attrs with invariants_state_rel = $18 } }
+      { n with specification = { n.specification with spec_invariants_state_rel = $18 } }
   }
 
 params_opt:

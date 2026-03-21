@@ -77,8 +77,8 @@ type runtime_transition_view = {
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
   known_monitor_ctor : Ast.ident option;
-  requires : Ast.fo_o list;
-  ensures : Ast.fo_o list;
+  requires : Ast.ltl_o list;
+  ensures : Ast.ltl_o list;
   ghost : Ast.stmt list;
   body : Ast.stmt list;
   instrumentation : Ast.stmt list;
@@ -108,11 +108,11 @@ type t = {
   transitions : runtime_transition_view list;
   transition_groups : transition_group_view list;
   state_branches : state_branch_view list;
-  assumes : Ast.fo_ltl list;
-  guarantees : Ast.fo_ltl list;
+  assumes : Ast.ltl list;
+  guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.fo_o list;
+  coherency_goals : Ast.ltl_o list;
   monitor_state_ctors : Ast.ident list;
   kernel_contract : Kernel_guided_contract.node_contract option;
 }
@@ -151,7 +151,7 @@ let collect_ctor_fo (acc : ident list) (f : fo) : ident list =
   | FRel (h1, _, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
   | FPred (_, hs) -> List.fold_left collect_ctor_hexpr acc hs
 
-let rec collect_ctor_ltl (acc : ident list) (f : fo_ltl) : ident list =
+let rec collect_ctor_ltl (acc : ident list) (f : ltl) : ident list =
   match f with
   | LTrue | LFalse -> acc
   | LAtom a -> collect_ctor_fo acc a
@@ -182,18 +182,19 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
   List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
   List.iter (fun inv -> acc := collect_ctor_ltl !acc inv.formula) spec.spec_invariants_state_rel;
   List.iter (fun g -> acc := collect_ctor_ltl !acc g.value) n.attrs.coherency_goals;
+  let sem = n.semantics in
   List.iter
     (fun (t : transition) ->
       List.iter
         (fun f -> acc := collect_ctor_ltl !acc f)
         (Ast_provenance.values t.requires @ Ast_provenance.values t.ensures))
-    n.trans;
+    sem.sem_trans;
   List.iter
     (fun (t : transition) ->
       acc := List.fold_left collect_ctor_stmt !acc t.attrs.ghost;
       acc := List.fold_left collect_ctor_stmt !acc t.body;
       acc := List.fold_left collect_ctor_stmt !acc t.attrs.instrumentation)
-    n.trans;
+    sem.sem_trans;
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
@@ -202,16 +203,17 @@ let instance_of_pair ((instance_name, callee_node_name) : Ast.ident * Ast.ident)
 
 let callee_summary_of_node (n : Ast.node) : callee_summary_view =
   let callee_contract = Kernel_guided_contract.exported_summary_of_ast_node n in
+  let sem = n.semantics in
   {
-    callee_node_name = n.nname;
-    callee_inputs = List.map port_of_vdecl n.inputs;
-    callee_outputs = List.map port_of_vdecl n.outputs;
-    callee_locals = List.map port_of_vdecl n.locals;
-    callee_states = n.states;
+    callee_node_name = sem.sem_nname;
+    callee_inputs = List.map port_of_vdecl sem.sem_inputs;
+    callee_outputs = List.map port_of_vdecl sem.sem_outputs;
+    callee_locals = List.map port_of_vdecl sem.sem_locals;
+    callee_states = sem.sem_states;
     callee_input_names = Ast_utils.input_names_of_node n;
     callee_output_names = Ast_utils.output_names_of_node n;
     callee_user_invariants = n.attrs.invariants_user;
-    callee_state_invariants = n.attrs.invariants_state_rel;
+    callee_state_invariants = n.specification.spec_invariants_state_rel;
     callee_contract;
     callee_tick_summary = None;
   }
@@ -512,11 +514,14 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
     groups
 
 let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) : t =
-  let callee_names = List.map snd n.instances |> List.sort_uniq String.compare in
+  let sem = n.semantics in
+  let spec = n.specification in
+  let callee_names = List.map snd sem.sem_instances |> List.sort_uniq String.compare in
   let local_summaries =
     nodes
     |> List.filter_map (fun candidate ->
-           if List.mem candidate.nname callee_names then Some (callee_summary_of_node candidate)
+           if List.mem candidate.semantics.sem_nname callee_names then
+             Some (callee_summary_of_node candidate)
            else None)
   in
   let imported_summaries =
@@ -536,24 +541,24 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
     in
     List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
   in
-  let transitions = List.map transition_of_ast n.trans in
+  let transitions = List.map transition_of_ast sem.sem_trans in
   let transition_groups = group_transitions transitions in
   {
-    node_name = n.nname;
-    inputs = List.map port_of_vdecl n.inputs;
-    outputs = List.map port_of_vdecl n.outputs;
-    locals = List.map port_of_vdecl n.locals;
-    instances = List.map instance_of_pair n.instances;
+    node_name = sem.sem_nname;
+    inputs = List.map port_of_vdecl sem.sem_inputs;
+    outputs = List.map port_of_vdecl sem.sem_outputs;
+    locals = List.map port_of_vdecl sem.sem_locals;
+    instances = List.map instance_of_pair sem.sem_instances;
     callee_summaries;
-    control_states = n.states;
-    init_control_state = n.init_state;
+    control_states = sem.sem_states;
+    init_control_state = sem.sem_init_state;
     transitions;
     transition_groups;
     state_branches = state_branches_of_groups transition_groups;
-    assumes = n.assumes;
-    guarantees = n.guarantees;
+    assumes = spec.spec_assumes;
+    guarantees = spec.spec_guarantees;
     user_invariants = n.attrs.invariants_user;
-    state_invariants = n.attrs.invariants_state_rel;
+    state_invariants = spec.spec_invariants_state_rel;
     coherency_goals = n.attrs.coherency_goals;
     monitor_state_ctors = collect_mon_state_ctors n;
     kernel_contract = None;
@@ -603,26 +608,33 @@ let transition_to_ast (t : runtime_transition_view) : Ast.transition =
 
 let to_ast_node (runtime : t) : Ast.node =
   {
-    Ast.nname = runtime.node_name;
-    inputs =
-      List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.inputs;
-    outputs =
-      List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.outputs;
-    assumes = runtime.assumes;
-    guarantees = runtime.guarantees;
-    instances =
-      List.map
-        (fun (i : instance_view) -> (i.instance_name, i.callee_node_name))
-        runtime.instances;
-    locals = List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
-    states = runtime.control_states;
-    init_state = runtime.init_control_state;
-    trans = List.map transition_to_ast runtime.transitions;
+    semantics =
+      {
+        Ast.sem_nname = runtime.node_name;
+        sem_inputs =
+          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.inputs;
+        sem_outputs =
+          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.outputs;
+        sem_instances =
+          List.map
+            (fun (i : instance_view) -> (i.instance_name, i.callee_node_name))
+            runtime.instances;
+        sem_locals =
+          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
+        sem_states = runtime.control_states;
+        sem_init_state = runtime.init_control_state;
+        sem_trans = List.map transition_to_ast runtime.transitions;
+      };
+    specification =
+      {
+        Ast.spec_assumes = runtime.assumes;
+        spec_guarantees = runtime.guarantees;
+        spec_invariants_state_rel = runtime.state_invariants;
+      };
     attrs =
       {
         uid = None;
         invariants_user = runtime.user_invariants;
-        invariants_state_rel = runtime.state_invariants;
         coherency_goals = runtime.coherency_goals;
       };
   }
@@ -658,9 +670,9 @@ let rec mentions_monitor_ltl = function
   | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
       mentions_monitor_ltl a || mentions_monitor_ltl b
 
-let strip_monitor_contracts (contracts : Ast.fo_o list) : Ast.fo_o list =
+let strip_monitor_contracts (contracts : Ast.ltl_o list) : Ast.ltl_o list =
   if !keep_monitor_translation then contracts
-  else List.filter (fun (f : Ast.fo_o) -> not (mentions_monitor_ltl f.value)) contracts
+  else List.filter (fun (f : Ast.ltl_o) -> not (mentions_monitor_ltl f.value)) contracts
 
 let rec mentions_monitor_stmt (s : Ast.stmt) =
   match s.stmt with
@@ -767,23 +779,29 @@ let ast_of_verified_transition (t : Kairos_ir.verified_transition) : Ast.transit
     [of_node] and [collect_mon_state_ctors]. *)
 let ast_node_of_verified_node (vn : Kairos_ir.verified_node) : Ast.node =
   {
-    Ast.nname = vn.node_name;
-    inputs = vn.inputs;
-    outputs = vn.outputs;
-    assumes = vn.assumes;
-    guarantees = vn.guarantees;
-    instances = vn.instances;
-    locals =
-      if !keep_monitor_translation then vn.locals
-      else List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") vn.locals;
-    states = vn.control_states;
-    init_state = vn.init_state;
-    trans = List.map ast_of_verified_transition vn.transitions;
+    semantics =
+      {
+        Ast.sem_nname = vn.node_name;
+        sem_inputs = vn.inputs;
+        sem_outputs = vn.outputs;
+        sem_instances = vn.instances;
+        sem_locals =
+          if !keep_monitor_translation then vn.locals
+          else List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") vn.locals;
+        sem_states = vn.control_states;
+        sem_init_state = vn.init_state;
+        sem_trans = List.map ast_of_verified_transition vn.transitions;
+      };
+    specification =
+      {
+        Ast.spec_assumes = vn.assumes;
+        spec_guarantees = vn.guarantees;
+        spec_invariants_state_rel = vn.state_invariants;
+      };
     attrs =
       {
         uid = None;
         invariants_user = vn.user_invariants;
-        invariants_state_rel = vn.state_invariants;
         coherency_goals = vn.coherency_goals;
       };
   }
@@ -843,21 +861,27 @@ let of_exported_summary ?(external_summaries = [])
   in
   let synthetic_node : Ast.node =
     {
-      nname = summary.signature.node_name;
-      inputs = summary.signature.inputs;
-      outputs = summary.signature.outputs;
-      assumes = summary.assumes;
-      guarantees = summary.guarantees;
-      instances = summary.signature.instances;
-      locals = all_vdecls;
-      states = summary.signature.states;
-      init_state = summary.signature.init_state;
-      trans = synthetic_trans;
+      semantics =
+        {
+          Ast.sem_nname = summary.signature.node_name;
+          sem_inputs = summary.signature.inputs;
+          sem_outputs = summary.signature.outputs;
+          sem_instances = summary.signature.instances;
+          sem_locals = all_vdecls;
+          sem_states = summary.signature.states;
+          sem_init_state = summary.signature.init_state;
+          sem_trans = synthetic_trans;
+        };
+      specification =
+        {
+          Ast.spec_assumes = summary.assumes;
+          spec_guarantees = summary.guarantees;
+          spec_invariants_state_rel = summary.state_invariants;
+        };
       attrs =
         {
           uid = None;
           invariants_user = summary.user_invariants;
-          invariants_state_rel = summary.state_invariants;
           coherency_goals = summary.coherency_goals;
         };
     }

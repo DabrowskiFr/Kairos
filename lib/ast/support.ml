@@ -121,18 +121,18 @@ let string_of_const (c : Constant.constant) : string = Format.asprintf "%a" Cons
 let string_of_relop (op : relop) : string =
   match op with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
 
-type ltl_norm = { ltl : fo_ltl; k_guard : int option }
+type ltl_norm = { ltl : ltl; k_guard : int option }
 
-let rec max_x_depth (f : fo_ltl) : int =
+let rec max_x_depth (f : ltl) : int =
   match f with
   | LX a -> 1 + max_x_depth a
   | LTrue | LFalse | LAtom _ -> 0
   | LNot a | LG a -> max_x_depth a
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> max (max_x_depth a) (max_x_depth b)
 
-let ltl_of_fo (f : fo) : fo_ltl = LAtom f
+let ltl_of_fo (f : fo) : ltl = LAtom f
 
-let fo_of_ltl (f : fo_ltl) : fo =
+let fo_of_ltl (f : ltl) : fo =
   match f with
   | LAtom a -> a
   | _ -> failwith "fo_of_ltl: not an atom"
@@ -157,7 +157,7 @@ let shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr) : 
         match as_var e with Some v -> Some (HPreK (mk_var v, k + shift)) | None -> None
       end
 
-let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : fo_ltl) : ltl_norm =
+let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : ltl) : ltl_norm =
   let rec shift_ltl_with_depth k depth f =
     match f with
     | LX a -> shift_ltl_with_depth k (depth + 1) a
@@ -211,7 +211,7 @@ let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : fo_ltl) : ltl_norm
   let k = max_x_depth f in
   if k = 0 then { ltl = f; k_guard = None } else { ltl = f; k_guard = Some k }
 
-let rec shift_ltl_by ~(init_for_var : ident -> iexpr) (shift : int) (f : fo_ltl) : fo_ltl option =
+let rec shift_ltl_by ~(init_for_var : ident -> iexpr) (shift : int) (f : ltl) : ltl option =
   if shift <= 0 then Some f
   else
     match f with
@@ -293,7 +293,7 @@ let string_of_fo ?(ctx = 0) (f : fo) : string =
   | FRel (h1, r, h2) -> string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
   | FPred (id, hs) -> id ^ "(" ^ String.concat ", " (List.map string_of_hexpr hs) ^ ")"
 
-let rec string_of_ltl ?(ctx = 0) (f : fo_ltl) : string =
+let rec string_of_ltl ?(ctx = 0) (f : ltl) : string =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
   match f with
   | LTrue -> "true"

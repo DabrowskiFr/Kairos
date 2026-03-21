@@ -100,7 +100,7 @@ module Pass = struct
   let instrument_node ~(program : ast_in) ~(automata : stage_in)
       ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list) (n : node) :
       node * info =
-    match List.assoc_opt n.nname automata with
+    match List.assoc_opt n.semantics.sem_nname automata with
     | Some build ->
         let n_abs = Abs.of_ast_node n in
         let all_nodes_abs = List.map Abs.of_ast_node program in
@@ -109,7 +109,9 @@ module Pass = struct
             ~external_summaries n_abs
         in
         (Abs.to_ast_node node_abs, info)
-    | None -> failwith (Printf.sprintf "Missing monitor generation build for node %s" n.nname)
+    | None ->
+        failwith
+          (Printf.sprintf "Missing monitor generation build for node %s" n.semantics.sem_nname)
 
   let run_with_external_summaries ~(external_summaries : Product_kernel_ir.exported_node_summary_ir list)
       (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =

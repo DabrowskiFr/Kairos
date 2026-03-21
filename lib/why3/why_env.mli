@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Environment threaded through Why3 expression and contract compilation. *)
+
 (* {1 Instrumentation Constructor Discovery} *)
 
 (* Detect if an identifier is a monitor state constructor. *)

@@ -62,7 +62,7 @@ let shift_fo_backward_all (f : fo) : fo =
   | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
   | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)
 
-let rec shift_ltl_forward_inputs ~(is_input : ident -> bool) (f : fo_ltl) : fo_ltl =
+let rec shift_ltl_forward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
   let go = shift_ltl_forward_inputs ~is_input in
   match f with
   | LTrue | LFalse -> f

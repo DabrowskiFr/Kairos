@@ -1,4 +1,5 @@
-(* Logical identifiers for pipeline stages (used in logs/UI). *)
+(** Logical identifiers for pipeline stages, mainly used in logs and UI
+    diagnostics. *)
 type stage_id = Parsed | Automaton | Contracts | Instrumentation | Why | Prove
 
 (* All stages, in pipeline order (including backend). *)

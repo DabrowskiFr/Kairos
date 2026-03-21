@@ -1,4 +1,4 @@
-(* Why3 proof execution and task extraction. *)
+(** Why3 proof execution and task extraction. *)
 
 (* Aggregate counts for VC results. *)
 type summary = {

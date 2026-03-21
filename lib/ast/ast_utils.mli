@@ -1,4 +1,4 @@
-(* Small utilities for AST-related types. *)
+(** Small utilities for AST-related types, names, and locations. *)
 
 (* Render an origin as a stable, human‑readable string. *)
 val origin_to_string : Ast.origin -> string
@@ -25,10 +25,10 @@ val output_names_of_node : Ast.node -> Ast.ident list
 val transitions_from_state_fn : Ast.node -> Ast.ident -> Ast.transition list
 
 (* Build an efficient require lookup function by source state. *)
-val requires_from_state_fn : Ast.node -> Ast.ident -> Ast.fo_ltl list
+val requires_from_state_fn : Ast.node -> Ast.ident -> Ast.ltl list
 
 (* Add (deduplicated) coherency goals to [node.attrs.coherency_goals]. *)
-val add_new_coherency_goals : Ast.node -> Ast.fo_ltl list -> Ast.node
+val add_new_coherency_goals : Ast.node -> Ast.ltl list -> Ast.node
 
 (* Debug string representation of a program (mainly for dumps). *)
 val show_program : Ast.program -> string

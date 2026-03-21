@@ -1,3 +1,5 @@
+(** Serialized backend-agnostic Kairos object representation ([.kobj]). *)
+
 type metadata = {
   format : string;
   format_version : int;

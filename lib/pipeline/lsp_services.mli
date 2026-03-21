@@ -1,3 +1,5 @@
+(** High-level LSP services built on top of the Kairos pipeline. *)
+
 type diagnostic = {
   line : int;
   col : int;

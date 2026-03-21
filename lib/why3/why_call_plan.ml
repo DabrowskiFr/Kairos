@@ -101,7 +101,7 @@ let compile_call_hexpr_term lookup (summary : Why_runtime_view.callee_summary_vi
       | None -> failwith "pre_k not registered (call summary contract)"
       | Some name -> lookup name)
 
-let rec compile_call_fo_ltl_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.fo_ltl) :
+let rec compile_call_fo_ltl_term lookup (summary : Why_runtime_view.callee_summary_view) (f : Ast.ltl) :
     Ptree.term =
   match f with
   | LTrue -> mk_term Ttrue

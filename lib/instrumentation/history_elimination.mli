@@ -1,3 +1,5 @@
+(** Pass 5: history elimination over the Kairos IR. *)
+
 (*---------------------------------------------------------------------------
  * Kairos — Pass 5: History elimination.
  *

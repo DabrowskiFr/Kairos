@@ -8,8 +8,8 @@ module Abs = Abstract_model
 module PT = Product_types
 
 type automaton_view = {
-  states : Automaton_engine.residual_state list;
-  grouped : Automaton_engine.transition list;
+  states : Ast.ltl list;
+  grouped : Spot_automaton.transition list;
   atom_map_exprs : (ident * iexpr) list;
   bad_idx : int;
 }
@@ -20,15 +20,15 @@ type analysis = {
   guarantee_bad_idx : int;
   guarantee_state_labels : string list;
   assume_state_labels : string list;
-  guarantee_grouped_edges : Automaton_engine.transition list;
-  assume_grouped_edges : Automaton_engine.transition list;
+  guarantee_grouped_edges : Spot_automaton.transition list;
+  assume_grouped_edges : Spot_automaton.transition list;
   guarantee_atom_map_exprs : (ident * iexpr) list;
   assume_atom_map_exprs : (ident * iexpr) list;
 }
 
-let fo_of_iexpr (e : iexpr) : fo_ltl = iexpr_to_fo_with_atoms [] e
+let fo_of_iexpr (e : iexpr) : ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
   let recovered = recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
@@ -42,7 +42,7 @@ let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_t
       recovered
   | _ -> simplified
 
-let program_guard_fo (t : Abs.transition) : fo_ltl =
+let program_guard_fo (t : Abs.transition) : ltl =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
   match t.guard with None -> LTrue | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo
@@ -70,7 +70,7 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     end
   | _ -> None
 
-let rec conj_lits (f : fo_ltl) : lit list option =
+let rec conj_lits (f : ltl) : lit list option =
   match f with
   | LTrue -> Some []
   | LAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
@@ -86,7 +86,7 @@ let rec conj_lits (f : fo_ltl) : lit list option =
     end
   | _ -> None
 
-let disj_conjs (f : fo_ltl) : lit list list option =
+let disj_conjs (f : ltl) : lit list list option =
   let rec go = function LOr (a, b) -> go a @ go b | x -> [ x ] in
   let xs = go f |> List.map conj_lits in
   List.fold_right
@@ -117,7 +117,7 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
     pos;
   !ok
 
-let fo_overlap_conservative (a : fo_ltl) (b : fo_ltl) : bool =
+let fo_overlap_conservative (a : ltl) (b : ltl) : bool =
   (* Conservative satisfiability check on already-normalized guards.
      This intentionally keeps program, assumption, and guarantee guards separate:
      it only decides whether two guards may overlap, it does not merge them. *)
@@ -126,7 +126,7 @@ let fo_overlap_conservative (a : fo_ltl) (b : fo_ltl) : bool =
       List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
   | _ -> true
 
-let first_false_idx (states : Automaton_engine.residual_state list) : int =
+let first_false_idx (states : Ast.ltl list) : int =
   let rec loop i = function
     | [] -> -1
     | LFalse :: _ -> i
@@ -168,10 +168,10 @@ let node_outgoing (n : Abs.node) : (ident, Abs.transition list) Hashtbl.t =
     n.trans;
   tbl
 
-let automaton_outgoing (view : automaton_view) : (int * Automaton_engine.transition list) list =
+let automaton_outgoing (view : automaton_view) : (int * Spot_automaton.transition list) list =
   let tbl = Hashtbl.create 16 in
   List.iter
-    (fun (((src, _guard, _dst) as edge) : Automaton_engine.transition) ->
+    (fun (((src, _guard, _dst) as edge) : Spot_automaton.transition) ->
       let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
       Hashtbl.replace tbl src (edge :: prev))
     view.grouped;
@@ -238,11 +238,11 @@ let analyze_node ~(build : Automata_generation.automata_build) ~(node : Abs.node
       (fun (prog_transition : Abs.transition) ->
         let prog_guard = program_guard_fo prog_transition in
         List.iter
-          (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) : Automaton_engine.transition) ->
+          (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) : Spot_automaton.transition) ->
             let assume_guard = automaton_guard_fo ~atom_map_exprs:assume.atom_map_exprs assume_guard_raw in
             List.iter
               (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
-                     Automaton_engine.transition) ->
+                     Spot_automaton.transition) ->
                 let guarantee_guard =
                   automaton_guard_fo ~atom_map_exprs:guarantee.atom_map_exprs guarantee_guard_raw
                 in

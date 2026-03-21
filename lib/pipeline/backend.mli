@@ -1,4 +1,4 @@
-(* Backend entry points for Why3/DOT emission. *)
+(** Backend entry points for Why3 and DOT emission. *)
 
 (* Render a Why3 AST to textual Why3. *)
 val emit_why_ast : Emit.program_ast -> string

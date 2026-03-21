@@ -59,10 +59,10 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt lis
 
 (** {2 Formula substitution}
 
-    Substitute [HPreK(x, k)] → [HNow (IVar "__pre_k{k}_x")] in an [fo_o].
+    Substitute [HPreK(x, k)] → [HNow (IVar "__pre_k{k}_x")] in an [ltl_o].
     Uses [Fo_specs.lower_fo_pre_k] which returns [None] when a [HPreK] is not
     found in the map; in that case we keep the formula verbatim. *)
-let lower_fo_o (pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo_o) : fo_o =
+let lower_fo_o (pre_k_map : (hexpr * Support.pre_k_info) list) (f : ltl_o) : ltl_o =
   match Fo_specs.lower_ltl_pre_k ~pre_k_map f.value with
   | Some fo' -> { f with value = fo' }
   | None -> f

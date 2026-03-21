@@ -99,7 +99,9 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
     (fun (ir : Product_kernel_ir.node_ir) ->
       Hashtbl.replace ir_by_name ir.reactive_program.node_name ir)
     kernel_ir_nodes;
-  List.iter (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.nname node) runtime_program;
+  List.iter
+    (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.semantics.sem_nname node)
+    runtime_program;
   let pre_k_locals_of_source (node : Ast.node) : Ast.vdecl list =
     Collect.build_pre_k_infos node
     |> List.concat_map (fun (_, (info : Support.pre_k_info)) ->
@@ -161,20 +163,21 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
     | (node : Ast.node) :: rest -> (
-        match Hashtbl.find_opt ir_by_name node.nname with
+        match Hashtbl.find_opt ir_by_name node.semantics.sem_nname with
         | None ->
             Error
-              (Printf.sprintf "Missing normalized IR for local node '%s' while building .kobj" node.nname)
+              (Printf.sprintf "Missing normalized IR for local node '%s' while building .kobj"
+                 node.semantics.sem_nname)
         | Some normalized_ir ->
             let runtime_node =
-              match Hashtbl.find_opt runtime_by_name node.nname with
+              match Hashtbl.find_opt runtime_by_name node.semantics.sem_nname with
               | Some runtime_node -> runtime_node
               | None ->
                   raise
                     (Failure
                        (Printf.sprintf
                           "Missing runtime node '%s' while building .kobj"
-                          node.nname))
+                          node.semantics.sem_nname))
             in
             let source_pre_k_map = Collect.build_pre_k_infos node in
             let runtime_signature = Product_kernel_ir.node_signature_of_ast runtime_node in
@@ -196,12 +199,12 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                   sanitize_tick_summary
                     (Product_kernel_ir.callee_tick_abi_of_node ~node:(Abstract_model.of_ast_node runtime_node));
                 user_invariants = node.attrs.invariants_user;
-                state_invariants = node.attrs.invariants_state_rel;
+                state_invariants = node.specification.spec_invariants_state_rel;
                 coherency_goals = node.attrs.coherency_goals;
                 pre_k_map = source_pre_k_map;
-                delay_spec = Collect.extract_delay_spec node.guarantees;
-                assumes = node.assumes;
-                guarantees = node.guarantees;
+                delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
+                assumes = node.specification.spec_assumes;
+                guarantees = node.specification.spec_guarantees;
               }
             in
             collect (summary :: acc) rest)
@@ -294,7 +297,7 @@ let render_transition_summary indent_level (t : Product_kernel_ir.reactive_trans
     | _ ->
         (indent indent_level ^ label ^ ":")
         :: List.map
-             (fun (f : Ast.fo_o) -> indent (indent_level + 1) ^ Support.string_of_ltl f.value)
+             (fun (f : Ast.ltl_o) -> indent (indent_level + 1) ^ Support.string_of_ltl f.value)
              fs
   in
   let body_lines =

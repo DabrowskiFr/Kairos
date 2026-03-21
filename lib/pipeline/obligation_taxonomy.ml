@@ -94,7 +94,7 @@ let category_of_family = function
   | FamMonitorCompatibilityRequires | FamStateAwareAssumptionRequires -> Some CatAutomatonSupport
   | FamTransitionRequires | FamTransitionEnsures -> None
 
-let classify_require (f : fo_o) : family =
+let classify_require (f : ltl_o) : family =
   match f.origin with
   | Some Coherency -> FamCoherencyRequires
   | Some Instrumentation -> FamNoBadRequires
@@ -103,7 +103,7 @@ let classify_require (f : fo_o) : family =
   | Some UserContract | Some Internal | None ->
       FamTransitionRequires
 
-let classify_ensure (f : fo_o) : family =
+let classify_ensure (f : ltl_o) : family =
   match f.origin with
   | Some Coherency -> FamCoherencyEnsuresShifted
   | Some Instrumentation -> FamNoBadEnsures
@@ -141,12 +141,12 @@ let summarize_program (p : program) : summary =
   in
   List.iter
     (fun (n : node) ->
-      List.iter (fun (_ : fo_o) -> bump FamInitialCoherencyGoal) n.attrs.coherency_goals;
+      List.iter (fun (_ : ltl_o) -> bump FamInitialCoherencyGoal) n.attrs.coherency_goals;
       List.iter
         (fun (t : transition) ->
           List.iter (fun r -> bump (classify_require r)) t.requires;
           List.iter (fun e -> bump (classify_ensure e)) t.ensures)
-        n.trans)
+        n.semantics.sem_trans)
     p;
   let counts =
     List.filter_map

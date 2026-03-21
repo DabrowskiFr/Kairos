@@ -116,7 +116,7 @@ let runtime_guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_
     Ptree.term option =
   Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
-let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) : Ast.fo_ltl =
+let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) : Ast.ltl =
   match t.guard with
   | None -> LTrue
   | Some g -> Fo_simplifier.simplify_fo (Fo_specs.iexpr_to_fo_with_atoms [] g)
@@ -277,7 +277,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
   let current_state_eq state_name =
     term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name)))
   in
-  let normalize_source_summary_fo (f : Ast.fo_ltl) : Ast.fo_ltl = f in
+  let normalize_source_summary_fo (f : Ast.ltl) : Ast.ltl = f in
   let source_summary_formula_for =
     match kernel_contract with
     | None -> fun ~prog_state:_ ~guarantee_state:_ -> None

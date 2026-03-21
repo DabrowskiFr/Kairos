@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Compiles Kairos expressions and formulas into Why3 terms. *)
+
 (* {1 Term Compilation} *)
 
 (* Predicate for monitor state constructor identifiers. *)
@@ -62,7 +64,7 @@ val compile_ltl_term_instance_contract :
   Ast.ident ->
   Ast.ident list ->
   Kernel_guided_contract.exported_summary_contract ->
-  Ast.fo_ltl ->
+  Ast.ltl ->
   Why3.Ptree.term
 
 (* Build a tuple term from output variables (if any). *)
@@ -77,7 +79,7 @@ val compile_fo_term : ?prefer_link:bool -> Support.env -> Ast.fo -> Why3.Ptree.t
 
 (* Compile an LTL formula shifted by k (temporal unrolling). *)
 val compile_ltl_term_shift :
-  ?prefer_link:bool -> ?in_post:bool -> Support.env -> int -> Ast.fo_ltl -> Why3.Ptree.term
+  ?prefer_link:bool -> ?in_post:bool -> Support.env -> int -> Ast.ltl -> Why3.Ptree.term
 
 (* Compile a FO formula shifted by k (temporal unrolling). *)
 val compile_fo_term_shift :
@@ -88,7 +90,7 @@ val compile_fo_term_shift :
 val rel_hexpr : Support.env -> Ast.hexpr -> Ast.hexpr
 
 (* Replace variables by relational forms inside an LTL formula. *)
-val ltl_relational : Support.env -> Ast.fo_ltl -> Ast.fo_ltl
+val ltl_relational : Support.env -> Ast.ltl -> Ast.ltl
 
 (* Replace variables by relational forms inside a FO formula. *)
 val rel_fo : Support.env -> Ast.fo -> Ast.fo
@@ -100,7 +102,7 @@ type spec_frag = { pre : Why3.Ptree.term list; post : Why3.Ptree.term list }
 val empty_frag : spec_frag
 
 (* Translate an LTL formula into pre/post fragments. *)
-val ltl_spec : Support.env -> Ast.fo_ltl -> spec_frag
+val ltl_spec : Support.env -> Ast.ltl -> spec_frag
 (* {1 Pre_k Helpers} *)
 
 (* Build source expr for a pre‑k variable. *)

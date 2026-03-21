@@ -1,3 +1,5 @@
+(** Taxonomy used to classify generated proof obligations and helper goals. *)
+
 open Ast
 
 (** Fine-grained backend families emitted by the implementation.

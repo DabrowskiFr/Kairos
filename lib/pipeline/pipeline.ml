@@ -217,17 +217,25 @@ let join_blocks_with_spans ~sep blocks =
 
 let program_stats (p : Ast.program) : (string * string) list =
   let nodes = List.length p in
-  let transitions = List.fold_left (fun acc (n : Ast.node) -> acc + List.length n.trans) 0 p in
+  let transitions =
+    List.fold_left (fun acc (n : Ast.node) -> acc + List.length n.semantics.sem_trans) 0 p
+  in
   let requires =
     List.fold_left
       (fun acc (n : Ast.node) ->
-        acc + List.fold_left (fun a (t : Ast.transition) -> a + List.length t.requires) 0 n.trans)
+        acc
+        + List.fold_left
+            (fun a (t : Ast.transition) -> a + List.length t.requires)
+            0 n.semantics.sem_trans)
       0 p
   in
   let ensures =
     List.fold_left
       (fun acc (n : Ast.node) ->
-        acc + List.fold_left (fun a (t : Ast.transition) -> a + List.length t.ensures) 0 n.trans)
+        acc
+        + List.fold_left
+            (fun a (t : Ast.transition) -> a + List.length t.ensures)
+            0 n.semantics.sem_trans)
       0 p
   in
   let guards =
@@ -236,10 +244,10 @@ let program_stats (p : Ast.program) : (string * string) list =
         acc
         + List.fold_left
             (fun a (t : Ast.transition) -> if t.guard = None then a else a + 1)
-            0 n.trans)
+            0 n.semantics.sem_trans)
       0 p
   in
-  let locals = List.fold_left (fun acc n -> acc + List.length n.locals) 0 p in
+  let locals = List.fold_left (fun acc n -> acc + List.length n.semantics.sem_locals) 0 p in
   [
     ("nodes", string_of_int nodes);
     ("transitions", string_of_int transitions);
@@ -319,11 +327,11 @@ let instrumentation_diag_texts (infos : stage_infos) :
 
 let emit_monitor_generation_debug_stats (p : Ast.program) =
   let nodes = List.length p in
-  let edges = List.fold_left (fun acc n -> acc + List.length n.trans) 0 p in
+  let edges = List.fold_left (fun acc n -> acc + List.length n.semantics.sem_trans) 0 p in
   Log.stage_info (Some Stage_names.Automaton) "instrumentation generation stats"
     [ ("nodes", string_of_int nodes); ("edges", string_of_int edges) ]
 
-let reid_with_origin (x : Ast.fo_o) : Ast.fo_o =
+let reid_with_origin (x : Ast.ltl_o) : Ast.ltl_o =
   let new_id = Provenance.fresh_id () in
   Provenance.add_parents ~child:new_id ~parents:[ x.oid ];
   { x with oid = new_id }
@@ -337,20 +345,27 @@ let reid_program (p : Ast.program) : Ast.program =
     {
       n with
       attrs = { n.attrs with coherency_goals = List.map reid_fo n.attrs.coherency_goals };
-      trans = List.map reid_trans n.trans;
+      semantics = { n.semantics with sem_trans = List.map reid_trans n.semantics.sem_trans };
     }
   in
   List.map reid_node p |> Ast_builders.ensure_program_uids
 
 let with_smoke_tests (p : Ast.program) : Ast.program =
   let has_false_ensure (t : Ast.transition) =
-    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.LFalse) t.ensures
+    List.exists (fun (f : Ast.ltl_o) -> f.value = Ast.LFalse) t.ensures
   in
   let add_transition_smoke (t : Ast.transition) : Ast.transition =
     if has_false_ensure t then t
     else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.LFalse ] }
   in
-  List.map (fun (n : Ast.node) -> { n with trans = List.map add_transition_smoke n.trans }) p
+  List.map
+    (fun (n : Ast.node) ->
+      {
+        n with
+        semantics =
+          { n.semantics with sem_trans = List.map add_transition_smoke n.semantics.sem_trans };
+      })
+    p
 
 let strip_contracts_in_program (p : Ast.program) : Ast.program =
   let strip_t (t : Ast.transition) = { t with requires = []; ensures = [] } in
@@ -358,7 +373,7 @@ let strip_contracts_in_program (p : Ast.program) : Ast.program =
     (fun (n : Ast.node) ->
       {
         n with
-        trans = List.map strip_t n.trans;
+        semantics = { n.semantics with sem_trans = List.map strip_t n.semantics.sem_trans };
         attrs = { n.attrs with coherency_goals = [] };
       })
     p
@@ -473,7 +488,7 @@ let build_vcid_locs (p_parsed : Ast.program) : (int * Ast.loc) list * Ast.loc li
   let p_parsed = p_parsed in
   let acc = ref [] in
   let ordered = ref [] in
-  let add_formula (f : Ast.fo_o) =
+  let add_formula (f : Ast.ltl_o) =
     match f.loc with
     | None -> ()
     | Some loc ->
@@ -486,9 +501,9 @@ let build_vcid_locs (p_parsed : Ast.program) : (int * Ast.loc) list * Ast.loc li
       (fun (t : Ast.transition) ->
         List.iter add_formula t.requires;
         List.iter
-          (fun (ens : Ast.fo_o) -> add_formula ens)
+          (fun (ens : Ast.ltl_o) -> add_formula ens)
           t.ensures)
-      node.trans
+      node.semantics.sem_trans
   in
   List.iter add_node p_parsed;
   (List.rev !acc, List.rev !ordered)
@@ -749,7 +764,11 @@ let rec eval_stmt_list (env : (string, eval_value) Hashtbl.t) (stmts : Ast.stmt 
 let parse_trace_for_node ~(n : Ast.node) (trace_text : string) :
     ((string * eval_value) list list, error) result =
   let input_types =
-    List.fold_left (fun m vd -> Hashtbl.replace m vd.vname vd.vty; m) (Hashtbl.create 16) n.inputs
+    List.fold_left
+      (fun m vd ->
+        Hashtbl.replace m vd.vname vd.vty;
+        m)
+      (Hashtbl.create 16) n.semantics.sem_inputs
   in
   let lines =
     String.split_on_char '\n' trace_text
@@ -781,7 +800,7 @@ let parse_trace_for_node ~(n : Ast.node) (trace_text : string) :
     | Error _ as err -> err
     | Ok assigns ->
         let missing =
-          n.inputs
+          n.semantics.sem_inputs
           |> List.filter_map (fun vd ->
                  if List.exists (fun (k, _) -> k = vd.vname) assigns then None else Some vd.vname)
         in
@@ -908,11 +927,18 @@ let eval_pass ~input_file ~trace_text ~with_state ~with_locals : (string, error)
         match parse_trace_for_node ~n trace_text with
         | Error _ as err -> err
         | Ok steps ->
+            let sem = n.semantics in
             let env : (string, eval_value) Hashtbl.t = Hashtbl.create 128 in
-            List.iter (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty)) n.locals;
-            List.iter (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty)) n.outputs;
-            List.iter (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty)) n.inputs;
-            let current_state = ref n.init_state in
+            List.iter
+              (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty))
+              sem.sem_locals;
+            List.iter
+              (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty))
+              sem.sem_outputs;
+            List.iter
+              (fun vd -> Hashtbl.replace env vd.vname (default_value_of_ty vd.vty))
+              sem.sem_inputs;
+            let current_state = ref sem.sem_init_state in
             let transitions_from_state = Ast_utils.transitions_from_state_fn n in
             let lines = ref [] in
             let append_line parts = lines := (String.concat ", " parts) :: !lines in
@@ -946,7 +972,7 @@ let eval_pass ~input_file ~trace_text ~with_state ~with_locals : (string, error)
                               |> Option.value ~default:(default_value_of_ty vd.vty)
                             in
                             vd.vname ^ "=" ^ string_of_eval_value v)
-                          n.inputs
+                          sem.sem_inputs
                       in
                       let outputs =
                         List.map
@@ -956,7 +982,7 @@ let eval_pass ~input_file ~trace_text ~with_state ~with_locals : (string, error)
                               |> Option.value ~default:(default_value_of_ty vd.vty)
                             in
                             vd.vname ^ "=" ^ string_of_eval_value v)
-                          n.outputs
+                          sem.sem_outputs
                       in
                       let state = if with_state then [ "state=" ^ !current_state ] else [] in
                       let locals =
@@ -968,7 +994,7 @@ let eval_pass ~input_file ~trace_text ~with_state ~with_locals : (string, error)
                                 |> Option.value ~default:(default_value_of_ty vd.vty)
                               in
                               vd.vname ^ "=" ^ string_of_eval_value v)
-                            n.locals
+                            sem.sem_locals
                         else []
                       in
                       append_line (("step=" ^ string_of_int idx) :: state @ inputs @ outputs @ locals);

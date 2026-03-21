@@ -1,3 +1,5 @@
+(** JSON payloads exchanged by the Kairos LSP server and clients. *)
+
 type loc = { line : int; col : int; line_end : int; col_end : int }
 
 type goal_info = string * string * float * string option * string * string option

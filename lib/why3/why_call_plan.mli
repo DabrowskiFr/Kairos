@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Plans helper calls and call-site-specific proof obligations in Why3. *)
+
 type compiled_call_plan = {
   let_bindings : (Why3.Ptree.ident * Why3.Ptree.expr) list;
   pre_asserts : Why3.Ptree.term list;

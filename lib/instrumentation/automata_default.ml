@@ -17,7 +17,7 @@ let run_with_info (p : ast_in) () : ast_out * stage_out * info =
         let automaton = build.automaton in
         state_count := !state_count + List.length automaton.states;
         edge_count := !edge_count + List.length automaton.grouped;
-        (n.nname, build))
+        (n.semantics.sem_nname, build))
       p
   in
   let info =

@@ -123,7 +123,7 @@ let infer_atom_sorts (f : fo) (vars : (ident, smt_sort) Hashtbl.t) : unit =
     end
   | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
 
-let infer_formula_sorts (f : fo_ltl) : (ident, smt_sort) Hashtbl.t =
+let infer_formula_sorts (f : ltl) : (ident, smt_sort) Hashtbl.t =
   let vars = Hashtbl.create 32 in
   let rec go = function
     | LTrue | LFalse -> ()
@@ -136,7 +136,7 @@ let infer_formula_sorts (f : fo_ltl) : (ident, smt_sort) Hashtbl.t =
   go f;
   vars
 
-let make_env (f : fo_ltl) : smt_env =
+let make_env (f : ltl) : smt_env =
   { vars = infer_formula_sorts f; preds = Hashtbl.create 16; preks = Hashtbl.create 16 }
 
 let smt_var_name (v : ident) : string = "__v_" ^ sanitize_ident v
@@ -346,7 +346,7 @@ let run_z3_query (query_key : string) (script : string) : bool option =
         Hashtbl.replace z3_status_cache query_key result;
         result
 
-let prove_formula (f : fo_ltl) : bool option =
+let prove_formula (f : ltl) : bool option =
   let env = make_env f in
   let body = smt_of_ltl env f in
   let script =
@@ -356,7 +356,7 @@ let prove_formula (f : fo_ltl) : bool option =
   in
   run_z3_query ("valid:" ^ string_of_ltl f) script
 
-let unsat_formula (f : fo_ltl) : bool option =
+let unsat_formula (f : ltl) : bool option =
   let env = make_env f in
   let body = smt_of_ltl env f in
   let script =
@@ -365,7 +365,7 @@ let unsat_formula (f : fo_ltl) : bool option =
   in
   run_z3_query ("unsat:" ^ string_of_ltl f) script
 
-let implies_formula (a : fo_ltl) (b : fo_ltl) : bool option =
+let implies_formula (a : ltl) (b : ltl) : bool option =
   let key = string_of_ltl a ^ " => " ^ string_of_ltl b in
   match Hashtbl.find_opt z3_implies_cache key with
   | Some cached -> cached
@@ -398,7 +398,7 @@ let syntactic_rel_simplify = function
   | LAtom (FRel (h1, RNeq, h2)) when h1 = h2 -> Some LFalse
   | _ -> None
 
-let simplify_and_parts (parts : fo_ltl list) : fo_ltl =
+let simplify_and_parts (parts : ltl list) : ltl =
   let rec loop acc = function
     | [] -> rebuild_and (List.rev acc)
     | x :: xs when x = LTrue -> loop acc xs
@@ -412,7 +412,7 @@ let simplify_and_parts (parts : fo_ltl list) : fo_ltl =
   in
   loop [] parts
 
-let simplify_or_parts (parts : fo_ltl list) : fo_ltl =
+let simplify_or_parts (parts : ltl list) : ltl =
   let rec loop acc = function
     | [] -> rebuild_or (List.rev acc)
     | x :: xs when x = LFalse -> loop acc xs
@@ -431,7 +431,7 @@ let solver_enabled () =
   | Some "off" -> false
   | _ -> z3_command () <> ""
 
-let rec simplify_fo (f : fo_ltl) : fo_ltl =
+let rec simplify_fo (f : ltl) : ltl =
   let rec go = function
     | LTrue | LFalse as f -> f
     | LAtom _ as f -> begin match syntactic_rel_simplify f with Some g -> g | None -> f end

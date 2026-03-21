@@ -24,9 +24,9 @@ type transition = int * guard * int
 
 type automaton = {
   atom_names : Ast.ident list;
-  states_raw : Ast.fo_ltl list;
+  states_raw : Ast.ltl list;
   transitions_raw : transition list;
-  states : Ast.fo_ltl list;
+  states : Ast.ltl list;
   transitions : transition list;
   grouped : transition list;
 }
@@ -62,6 +62,9 @@ type hoa_automaton = {
   acceptance : acceptance;
   states : hoa_state list;
 }
+
+let automata_log_enabled : bool =
+  match Sys.getenv_opt "OBCWHY3_LOG_MONITOR" with Some ("1" | "true" | "yes") -> true | _ -> false
 
 let read_all (ic : in_channel) : string =
   let buf = Buffer.create 4096 in
@@ -99,7 +102,7 @@ let command_summary (r : process_result) : string =
 
 let spot_ap_name (i : int) : string = Printf.sprintf "__kairos_ap_%d" i
 
-let string_of_spot_ltl ~(atom_map : (fo * ident) list) (f : fo_ltl) : string =
+let string_of_spot_ltl ~(atom_map : (fo * ident) list) (f : ltl) : string =
   let atom_name (a : fo) : string =
     let rec find i = function
       | [] -> failwith ("Spot backend: unmapped atom " ^ Support.string_of_fo a)
@@ -441,7 +444,7 @@ let normalize_spot_automaton ~(atom_names : string list) (hoa : hoa_automaton) :
   in
   { atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
 
-let build ~(atom_map : (fo * ident) list) ~(atom_names : ident list) (spec : fo_ltl) : automaton =
+let build ~(atom_map : (fo * ident) list) ~(atom_names : ident list) (spec : ltl) : automaton =
   let formula = string_of_spot_ltl ~atom_map spec in
   let () = ensure_safety formula in
   let hoa_text = call_spot formula in

@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Checks and derives coherence information for transition-level contracts. *)
+
 (** {1 Contract Coherency} *)
 
 val ensure_next_requires : Ast.node -> Ast.node
@@ -26,7 +28,7 @@ val ensure_next_requires : Ast.node -> Ast.node
 *)
 
 val validate_user_pre_k_definedness :
-  ?monitor_automaton:Automaton_engine.automaton -> Ast.node -> unit
+  ?monitor_automaton:Spot_automaton.automaton -> Ast.node -> unit
 (** Reject contracts that reference [pre_k] before it can be defined from [init_state]. If a monitor
     automaton is provided, reachability is computed on the product (program states, monitor states).
 *)

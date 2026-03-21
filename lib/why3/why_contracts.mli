@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Low-level translation of exported kernel clauses into Why3 contracts. *)
+
 (* {1 Contract Assembly} Translate node contracts (assumes/guarantees and transition
    requires/ensures) into Why3 pre/post terms with labels for UI/VC tracing. *)
 

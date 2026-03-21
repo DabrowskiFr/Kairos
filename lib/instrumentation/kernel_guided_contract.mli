@@ -1,3 +1,6 @@
+(** Grouped contract view extracted from kernel IR for Why generation and
+    summary export. *)
+
 type temporal_binding_ir = {
   source_hexpr : Ast.hexpr;
   source_expr : Ast.iexpr;

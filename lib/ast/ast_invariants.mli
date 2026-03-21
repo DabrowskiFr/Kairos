@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Invariant-oriented traversals and helper operations over Kairos AST nodes
+    and formulas. *)
+
 type issue = string
 
 (* {1 Validation helpers} Lightweight checks for structural invariants. These are intended for

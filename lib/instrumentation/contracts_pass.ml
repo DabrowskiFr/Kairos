@@ -13,7 +13,7 @@ module Pass :
   type stage_out = Automata_pass_sig.stage
   type info = Stage_info.contracts_info
 
-  let is_user_contract (f : Ast.fo_o) : bool =
+  let is_user_contract (f : Ast.ltl_o) : bool =
     match f.origin with Some UserContract -> true | _ -> false
 
   let drop_user_transition_contracts (t : Ast.transition) : Ast.transition * int * int =
@@ -26,14 +26,14 @@ module Pass :
     ({ t with requires; ensures }, req_dropped, ens_dropped)
 
   let run_with_info (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
-    let collect_origins acc fo_o = (fo_o.oid, fo_o.origin) :: acc in
+    let collect_origins acc ltl_o = (ltl_o.oid, ltl_o.origin) :: acc in
     let acc = ref [] in
     let warnings = ref [] in
     let ast =
       List.map
         (fun n ->
           let monitor_automaton =
-            List.assoc_opt n.nname automata
+            List.assoc_opt n.semantics.sem_nname automata
             |> Option.map (fun build -> build.Automata_generation.automaton)
           in
           let trans, req_dropped, ens_dropped =
@@ -41,16 +41,17 @@ module Pass :
               (fun t (ts, req_n, ens_n) ->
                 let t, req_d, ens_d = drop_user_transition_contracts t in
                 (t :: ts, req_n + req_d, ens_n + ens_d))
-              n.trans
+              n.semantics.sem_trans
               ([], 0, 0)
           in
-          let n = if trans == n.trans then n else { n with trans } in
+          let sem = n.semantics in
+          let n = if trans == sem.sem_trans then n else { n with semantics = { sem with sem_trans = trans } } in
           if req_dropped + ens_dropped > 0 then (
             let msg =
               Printf.sprintf
                 "node %s: transition assumes/guarantees (requires/ensures too) are \
                  currently disabled; ignored %d assumes and %d guarantees"
-                n.nname req_dropped ens_dropped
+                n.semantics.sem_nname req_dropped ens_dropped
             in
             warnings := msg :: !warnings;
             Log.warning ~stage:Stage_names.Contracts msg);
@@ -62,7 +63,7 @@ module Pass :
                 let acc = List.fold_left collect_origins acc t.requires in
                 let acc = List.fold_left collect_origins acc t.ensures in
                 acc)
-              [] n.trans
+              [] n.semantics.sem_trans
           in
           acc := List.rev_append acc' !acc;
           n)

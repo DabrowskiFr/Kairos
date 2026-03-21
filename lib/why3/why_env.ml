@@ -54,7 +54,7 @@ let collect_ctor_fo (acc : ident list) (f : fo) : ident list =
   | FRel (h1, _, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
   | FPred (_, hs) -> List.fold_left collect_ctor_hexpr acc hs
 
-let rec collect_ctor_ltl (acc : ident list) (f : fo_ltl) : ident list =
+let rec collect_ctor_ltl (acc : ident list) (f : ltl) : ident list =
   match f with
   | LTrue | LFalse -> acc
   | LAtom a -> collect_ctor_fo acc a
@@ -81,6 +81,7 @@ let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
 let collect_mon_state_ctors (n : Ast.node) : ident list =
   let n = n in
   let spec = Ast.specification_of_node n in
+  let sem = Ast.semantics_of_node n in
   let acc = ref [] in
   List.iter (fun f -> acc := collect_ctor_ltl !acc f) (spec.spec_assumes @ spec.spec_guarantees);
   List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
@@ -91,20 +92,20 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
       List.iter
         (fun f -> acc := collect_ctor_ltl !acc f)
         (Ast_provenance.values t.requires @ Ast_provenance.values t.ensures))
-    n.trans;
+    sem.sem_trans;
   List.iter
     (fun (t : transition) ->
       acc := List.fold_left collect_ctor_stmt !acc t.attrs.ghost;
       acc := List.fold_left collect_ctor_stmt !acc t.body;
       acc := List.fold_left collect_ctor_stmt !acc t.attrs.instrumentation)
-    n.trans;
+    sem.sem_trans;
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
 
 let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) : Why_types.env_info =
   let n = Why_runtime_view.to_ast_node runtime in
   let n_obc = n in
-  let module_name = module_name_of_node n.nname in
+  let module_name = module_name_of_node n.semantics.sem_nname in
   let is_initial_only = function LG _ -> false | _ -> true in
   let imports =
     [
@@ -144,7 +145,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
           td_mut = false;
           td_inv = [];
           td_wit = None;
-          td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.states);
+          td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.semantics.sem_states);
         };
       ]
   in
@@ -153,7 +154,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     |> List.map (fun (summary : Why_runtime_view.callee_summary_view) -> (summary.callee_node_name, summary))
   in
   let used_callee_summaries =
-    n.instances
+    n.semantics.sem_instances
     |> List.filter_map (fun (_, node_name) -> List.assoc_opt node_name summary_by_name)
     |> List.sort_uniq
          (fun (a : Why_runtime_view.callee_summary_view) (b : Why_runtime_view.callee_summary_view) ->
@@ -245,7 +246,10 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     | _ -> None
   in
   let init_for_var =
-    let table = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
+    let sem = n.semantics in
+    let table =
+      List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
+    in
     fun v ->
       match List.assoc_opt v table with
       | Some TBool -> mk_bool false
@@ -263,10 +267,11 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
   let needs_step_count = false in
   let needs_first_step = false in
   let inv_links = List.map (fun inv -> (inv.inv_expr, inv.inv_id)) n.attrs.invariants_user in
-  let field_prefix = if prefix_fields then prefix_for_node n.nname else "" in
+  let field_prefix = if prefix_fields then prefix_for_node n.semantics.sem_nname else "" in
   let input_names = Ast_utils.input_names_of_node n in
   let base_vars =
-    ("st" :: List.map (fun v -> v.vname) (n.locals @ n.outputs)) @ List.map fst n.instances
+    ("st" :: List.map (fun v -> v.vname) (n.semantics.sem_locals @ n.semantics.sem_outputs))
+    @ List.map fst n.semantics.sem_instances
   in
   let hexpr_needs_old (_h : hexpr) : bool = false in
   let var_map = List.map (fun name -> (name, field_prefix ^ name)) base_vars in
@@ -277,7 +282,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
       var_map;
       links = inv_links;
       pre_k = pre_k_map;
-      inst_map = n.instances;
+      inst_map = n.semantics.sem_instances;
       inputs = input_names;
     }
   in
@@ -291,7 +296,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
           f_mutable = true;
           f_ghost = false;
         })
-      n.instances
+      n.semantics.sem_instances
   in
   let is_ghost_local name =
     (String.length name >= 7 && String.sub name 0 7 = "__atom_")
@@ -309,7 +314,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
           f_mutable = true;
           f_ghost = is_ghost_local v.vname;
         })
-      n.locals
+      n.semantics.sem_locals
   in
   let output_fields =
     List.map
@@ -321,7 +326,7 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
           f_mutable = true;
           f_ghost = false;
         })
-      n.outputs
+      n.semantics.sem_outputs
   in
   let fields : Ptree.field list =
     {
@@ -389,14 +394,16 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     let should_init = vname = "st" || vname = "__aut_state" || vname = "acc" in
     if should_init then default_expr_for_type vty else any_expr_for_type vty
   in
-  let output_exprs = List.map (fun v -> field env v.vname) n.outputs in
+  let output_exprs = List.map (fun v -> field env v.vname) n.semantics.sem_outputs in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
   let inputs =
-    match n.inputs with
+    match n.semantics.sem_inputs with
     | [] -> [ vars_param ]
     | _ ->
         vars_param
-        :: List.map (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty))) n.inputs
+        :: List.map
+             (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
+             n.semantics.sem_inputs
   in
   let has_ghost_updates = false in
   let ghost_updates = mk_expr (Etuple []) in

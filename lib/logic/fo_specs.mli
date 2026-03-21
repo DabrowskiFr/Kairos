@@ -16,10 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Construction and normalization helpers for first-order temporal
+    specifications. *)
+
 (* {1 Atom Collection} Utilities to extract atomic FO formulas from LTL/FO specs. *)
 
 (* Collect atomic FO formulas referenced by an LTL formula. *)
-val collect_atoms_ltl : Ast.fo_ltl -> Ast.fo list -> Ast.fo list
+val collect_atoms_ltl : Ast.ltl -> Ast.fo list -> Ast.fo list
 
 (* Collect atomic FO formulas referenced by a FO formula. *)
 val collect_atoms_fo : Ast.fo -> Ast.fo list -> Ast.fo list
@@ -29,10 +32,10 @@ val collect_atoms_from_node : Ast.node -> Ast.fo list
 (* {1 Transition Helpers} *)
 
 (* Flatten transition requires/ensures into a single list. *)
-val transition_fo : Ast.transition -> Ast.fo_ltl list
+val transition_fo : Ast.transition -> Ast.ltl list
 
 (* Conjoin a list of FO formulas, or [None] for empty. *)
-val conj_fo : Ast.fo_ltl list -> Ast.fo_ltl option
+val conj_fo : Ast.ltl list -> Ast.ltl option
 (* {1 Expression Conversion} *)
 
 (* Map a relational operator to its boolean binary operator. *)
@@ -77,10 +80,10 @@ val lower_fo_pre_k :
 
 (* Lower [pre_k] occurrences inside an LTL formula when possible. *)
 val lower_ltl_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Ast.fo_ltl -> Ast.fo_ltl option
+  temporal_bindings:temporal_binding list -> Ast.ltl -> Ast.ltl option
 
 val lower_ltl_pre_k :
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo_ltl -> Ast.fo_ltl option
+  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.ltl -> Ast.ltl option
 
 (* Infer a simple type for an iexpr from variable types. *)
 val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
@@ -103,11 +106,11 @@ val atom_to_iexpr :
 val atom_to_var_rel : Ast.ident -> Ast.fo
 
 (* Reconstruct FO LTL by inlining atom variables from a name->atom map. *)
-val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.fo_ltl
+val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.ltl
 (* {1 Atom Replacement} *)
 
 (* Replace atom formulas by their variable representation in LTL. *)
-val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.fo_ltl -> Ast.fo_ltl
+val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.ltl -> Ast.ltl
 
 (* Replace atom formulas by their variable representation in FO. *)
 val replace_atoms_fo : (Ast.fo * Ast.ident) list -> Ast.fo -> Ast.fo
@@ -126,4 +129,4 @@ val replace_atoms_transition : (Ast.fo * Ast.ident) list -> Ast.transition -> As
 (* Build the monitorized temporal spec.
    Current policy: only guarantees are monitorized; assumptions are handled as proof hypotheses. *)
 val combine_contracts_for_monitor :
-  assumes:Ast.fo_ltl list -> guarantees:Ast.fo_ltl list -> Ast.fo_ltl
+  assumes:Ast.ltl list -> guarantees:Ast.ltl list -> Ast.ltl

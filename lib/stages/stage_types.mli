@@ -1,4 +1,4 @@
-(* Stage-specific AST aliases used to make pipeline intent explicit. *)
+(** Stage-specific type aliases used to make pipeline intent explicit. *)
 
 (* Parsed AST, directly from the frontend. *)
 type parsed = Ast.program

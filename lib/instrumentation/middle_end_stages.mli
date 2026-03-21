@@ -1,4 +1,4 @@
-(* Middle‑end stage implementations wired into the pipeline. *)
+(** Concrete middle-end stage modules wired into the main pipeline. *)
 
 (* Automata generation stage implementation (swappable). *)
 module Automata_generation :

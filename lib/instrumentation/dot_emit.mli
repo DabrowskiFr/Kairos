@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Emits DOT renderings for intermediate Kairos structures. *)
+
 (* {1 Dot Output} *)
 
 (* Render a residual automaton graph (dot_text, labels_text). *)

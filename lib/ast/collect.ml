@@ -26,7 +26,7 @@ let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
   match h with HNow _ -> acc | HPreK (e, _) -> collect_hexpr (HNow e) acc
 
-let rec collect_ltl (f : fo_ltl) (acc : hexpr list) : hexpr list =
+let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =
   match f with
   | LTrue | LFalse -> acc
   | LNot a -> collect_ltl a acc
@@ -39,7 +39,7 @@ and collect_fo (f : fo) (acc : hexpr list) : hexpr list =
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
 
-let collect_pre_k_from_specs ~(fo : fo_ltl list) ~(ltl : fo_ltl list)
+let collect_pre_k_from_specs ~(fo : ltl list) ~(ltl : ltl list)
     ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list) :
     hexpr list =
   let collect_pre_k_hexpr h acc =
@@ -68,8 +68,11 @@ let collect_pre_k_from_specs ~(fo : fo_ltl list) ~(ltl : fo_ltl list)
 
 let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
   let spec = specification_of_node n in
+  let sem = semantics_of_node n in
   let init_for_var =
-    let table = List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs) in
+    let table =
+      List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
+    in
     fun v ->
       match List.assoc_opt v table with
       | Some TBool -> mk_bool false
@@ -81,7 +84,7 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
   let transition_fo =
     List.concat_map
       (fun (t : transition) -> Ast_provenance.values t.requires @ Ast_provenance.values t.ensures)
-      n.trans
+      sem.sem_trans
   in
   let coherency_fo = Ast_provenance.values n.attrs.coherency_goals in
   let normalized_fo = List.map normalize_ltl (transition_fo @ coherency_fo) in
@@ -97,7 +100,7 @@ let build_pre_k_infos (n : node) : (hexpr * pre_k_info) list =
       ~invariants_user:normalized_invariants_user
       ~invariants_state_rel:normalized_invariants_state_rel
   in
-  let vars = n.inputs @ n.locals @ n.outputs in
+  let vars = sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
     | Some v -> v.vty
@@ -187,7 +190,7 @@ let collect_calls_trans_full (ts : transition list) : (ident * iexpr list * iden
       List.fold_left collect_calls_stmt_full acc t.attrs.instrumentation)
     [] ts
 
-let extract_delay_spec (guarantees : fo_ltl list) : (ident * ident) option =
+let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LAtom (FRel (HNow a, REq, HPreK (b, 1))) | LAtom (FRel (HPreK (b, 1), REq, HNow a)) -> begin

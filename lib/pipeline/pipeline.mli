@@ -1,3 +1,5 @@
+(** Main pipeline result types and entry points shared across frontends. *)
+
 (* Per‑goal status tuple for UI: (name, status, time, prover, source, message). *)
 type goal_info = string * string * float * string option * string * string option
 

@@ -43,21 +43,19 @@ type fo =
   | FPred of ident * hexpr list
 [@@deriving show, yojson]
 
-type 'a ltl =
+type ltl =
   | LTrue
   | LFalse
-  | LAtom of 'a
-  | LNot of 'a ltl
-  | LAnd of 'a ltl * 'a ltl
-  | LOr of 'a ltl * 'a ltl
-  | LImp of 'a ltl * 'a ltl
-  | LX of 'a ltl (* Next *)
-  | LG of 'a ltl (* Globally *)
-  | LW of 'a ltl * 'a ltl (* Weak Until *)
+  | LAtom of fo
+  | LNot of ltl
+  | LAnd of ltl * ltl
+  | LOr of ltl * ltl
+  | LImp of ltl * ltl
+  | LX of ltl (* Next *)
+  | LG of ltl (* Globally *)
+  | LW of ltl * ltl (* Weak Until *)
 [@@deriving show, yojson]
 
-type fo_ltl = fo ltl [@@deriving show, yojson]
-type atom_ltl = ident ltl [@@deriving show]
 type origin =
   | UserContract
   | Instrumentation
@@ -66,7 +64,7 @@ type origin =
   | AssumeAutomaton
   | Internal
 [@@deriving show, yojson]
-type fo_o = { value : fo ltl; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
+type ltl_o = { value : ltl; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
 type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
@@ -80,13 +78,12 @@ and stmt_desc =
 [@@deriving show, yojson]
 
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo ltl } [@@deriving show, yojson]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : ltl } [@@deriving show, yojson]
 
 type node_attrs = {
   uid : int option;
   invariants_user : invariant_user list;
-  invariants_state_rel : invariant_state_rel list;
-  coherency_goals : fo_o list;
+  coherency_goals : ltl_o list;
 }
 [@@deriving show]
 
@@ -102,25 +99,10 @@ type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : fo_o list;
-  ensures : fo_o list;
+  requires : ltl_o list;
+  ensures : ltl_o list;
   body : stmt list;
   attrs : transition_attrs;
-}
-[@@deriving show]
-
-type node = {
-  nname : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  assumes : fo_ltl list;
-  guarantees : fo_ltl list;
-  instances : (ident * ident) list;
-  locals : vdecl list;
-  states : ident list;
-  init_state : ident;
-  trans : transition list;
-  attrs : node_attrs;
 }
 [@@deriving show]
 
@@ -137,29 +119,23 @@ type node_semantics = {
 [@@deriving show]
 
 type node_specification = {
-  spec_assumes : fo_ltl list;
-  spec_guarantees : fo_ltl list;
+  spec_assumes : ltl list;
+  spec_guarantees : ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
+}
+[@@deriving show]
+
+type node = {
+  semantics : node_semantics;
+  specification : node_specification;
+  attrs : node_attrs;
 }
 [@@deriving show]
 
 type program = node list [@@deriving show]
 
 let semantics_of_node (n : node) : node_semantics =
-  {
-    sem_nname = n.nname;
-    sem_inputs = n.inputs;
-    sem_outputs = n.outputs;
-    sem_instances = n.instances;
-    sem_locals = n.locals;
-    sem_states = n.states;
-    sem_init_state = n.init_state;
-    sem_trans = n.trans;
-  }
+  n.semantics
 
 let specification_of_node (n : node) : node_specification =
-  {
-    spec_assumes = n.assumes;
-    spec_guarantees = n.guarantees;
-    spec_invariants_state_rel = n.attrs.invariants_state_rel;
-  }
+  n.specification

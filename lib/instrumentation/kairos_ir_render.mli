@@ -1,3 +1,5 @@
+(** Text renderers for raw, annotated, and verified Kairos IR nodes. *)
+
 (*---------------------------------------------------------------------------
  * Kairos — Text renderer for the three IR layers.
  *

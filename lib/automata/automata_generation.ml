@@ -17,24 +17,85 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Automaton_engine
 open Automata_atoms
-open Automata_spec
+open Fo_specs
 
-type automata_automaton = Automaton_engine.automaton
+let validate_ltl_weak_until_positivity ~(context : string) (f : ltl) : unit =
+  let rec go ~(positive : bool) (g : ltl) : unit =
+    match g with
+    | LTrue | LFalse | LAtom _ -> ()
+    | LNot a -> go ~positive:(not positive) a
+    | LAnd (a, b) | LOr (a, b) ->
+        go ~positive a;
+        go ~positive b
+    | LImp (a, b) ->
+        go ~positive:(not positive) a;
+        go ~positive b
+    | LX a | LG a -> go ~positive a
+    | LW (a, b) ->
+        if not positive then
+          failwith
+            (Printf.sprintf
+               "Unsupported LTL formula in %s: weak-until W appears in negative position: %s" context
+               (Support.string_of_ltl f));
+        go ~positive a;
+        go ~positive b
+  in
+  go ~positive:true f
+
+let rec simplify_temporal_idempotence (f : ltl) : ltl =
+  match f with
+  | LTrue | LFalse | LAtom _ -> f
+  | LNot a -> LNot (simplify_temporal_idempotence a)
+  | LX a -> LX (simplify_temporal_idempotence a)
+  | LG a -> begin match simplify_temporal_idempotence a with LG b -> LG b | a' -> LG a' end
+  | LW (a, b) -> LW (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+  | LAnd (a, b) -> LAnd (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+  | LOr (a, b) -> LOr (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+  | LImp (a, b) -> LImp (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
+
+let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : ltl =
+  let _ = atom_map in
+  let spec = Ast.specification_of_node n in
+  let spec_assumes = spec.spec_assumes in
+  let spec_guarantees = spec.spec_guarantees in
+  List.iteri
+    (fun i g ->
+      validate_ltl_weak_until_positivity
+        ~context:
+          (Printf.sprintf "guarantee #%d of node %s" (i + 1) n.semantics.sem_nname)
+        g)
+    spec_guarantees;
+  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
+  |> simplify_temporal_idempotence
+
+let build_assumption_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : ltl =
+  let _ = atom_map in
+  let spec = Ast.specification_of_node n in
+  List.iteri
+    (fun i a ->
+      validate_ltl_weak_until_positivity
+        ~context:
+          (Printf.sprintf "require #%d of node %s" (i + 1) n.semantics.sem_nname)
+        a)
+    spec.spec_assumes;
+  let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
+  mk_and (List.rev spec.spec_assumes) |> simplify_temporal_idempotence
+
+type automata_automaton = Spot_automaton.automaton
 
 let build_monitor_automaton ~(atom_map : (fo * ident) list) ~(atom_names : ident list)
-    (spec : fo_ltl) : automata_automaton =
-  Automaton_engine.build ~atom_map ~atom_names spec
+    (spec : ltl) : automata_automaton =
+  Spot_automaton.build ~atom_map ~atom_names spec
 
 type automata_build = {
   atoms : Automata_atoms.automata_atoms;
   atom_names : ident list;
-  spec : fo_ltl;
+  spec : ltl;
   automaton : automata_automaton;
   assume_atoms : Automata_atoms.automata_atoms option;
   assume_atom_names : ident list;
-  assume_spec : fo_ltl option;
+  assume_spec : ltl option;
   assume_automaton : automata_automaton option;
 }
 

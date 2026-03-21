@@ -1,4 +1,5 @@
-(* Low-level parser entry points. *)
+(** Low-level parser entry points used by the instrumentation and pipeline
+    layers. *)
 
 (* Parse an input file into a source file (imports + AST nodes). *)
 val parse_source_file : string -> Source_file.t

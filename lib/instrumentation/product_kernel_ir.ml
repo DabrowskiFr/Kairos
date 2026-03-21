@@ -14,11 +14,11 @@ type automaton_role =
 type reactive_transition_ir = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
-  guard : Ast.fo_ltl;
+  guard : Ast.ltl;
   (* Execution-level transition body — needed to generate Why3 without OBC+. *)
   guard_iexpr : Ast.iexpr option;
-  requires : Ast.fo_o list;
-  ensures : Ast.fo_o list;
+  requires : Ast.ltl_o list;
+  ensures : Ast.ltl_o list;
   ghost_stmts : Ast.stmt list;
   body_stmts : Ast.stmt list;
   instrumentation_stmts : Ast.stmt list;
@@ -36,7 +36,7 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Ast.fo_ltl;
+  guard : Ast.ltl;
 }
 [@@deriving yojson]
 
@@ -71,7 +71,7 @@ type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
   program_transition : Ast.ident * Ast.ident;
-  program_guard : Ast.fo_ltl;
+  program_guard : Ast.ltl;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -105,8 +105,8 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of Ast.fo_ltl
-  | FactFormula of Ast.fo_ltl
+  | FactPhaseFormula of Ast.ltl
+  | FactFormula of Ast.ltl
   | FactFalse
 [@@deriving yojson]
 
@@ -132,8 +132,8 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
   | RelFactGuaranteeState of int
-  | RelFactPhaseFormula of Ast.fo_ltl
-  | RelFactFormula of Ast.fo_ltl
+  | RelFactPhaseFormula of Ast.ltl
+  | RelFactFormula of Ast.ltl
   | RelFactFalse
 [@@deriving yojson]
 
@@ -163,7 +163,7 @@ type instance_relation_ir =
       callee_node_name : Ast.ident;
       state_name : Ast.ident;
       is_eq : bool;
-      formula : Ast.fo_ltl;
+      formula : Ast.ltl;
     }
   | InstanceDelayHistoryLink of {
       instance_name : Ast.ident;
@@ -277,12 +277,12 @@ type exported_node_summary_ir = {
   tick_summary : callee_tick_abi_ir;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.fo_o list;
+  coherency_goals : Ast.ltl_o list;
   pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
   (* LTL specifications — needed to reconstruct the runtime view without OBC+. *)
-  assumes : Ast.fo_ltl list;
-  guarantees : Ast.fo_ltl list;
+  assumes : Ast.ltl list;
+  guarantees : Ast.ltl list;
 }
 [@@deriving yojson]
 
@@ -302,9 +302,9 @@ let phase_step_pre_case_name (step : product_step_ir) : string =
 let phase_step_post_case_name (step : product_step_ir) : string =
   "phase_post_" ^ phase_step_case_stem step
 
-let fo_of_iexpr (e : iexpr) : fo_ltl = iexpr_to_fo_with_atoms [] e
+let fo_of_iexpr (e : iexpr) : ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
   let recovered = Automata_atoms.recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
@@ -340,7 +340,7 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     end
   | _ -> None
 
-let rec conj_lits (f : fo_ltl) : lit list option =
+let rec conj_lits (f : ltl) : lit list option =
   match f with
   | LTrue -> Some []
   | LAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
@@ -353,7 +353,7 @@ let rec conj_lits (f : fo_ltl) : lit list option =
     end
   | _ -> None
 
-let disj_conjs (f : fo_ltl) : lit list list option =
+let disj_conjs (f : ltl) : lit list list option =
   let rec go = function LOr (a, b) -> go a @ go b | x -> [ x ] in
   let xs = go f |> List.map conj_lits in
   List.fold_right
@@ -384,13 +384,13 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
     pos;
   !ok
 
-let fo_overlap_conservative (a : fo_ltl) (b : fo_ltl) : bool =
+let fo_overlap_conservative (a : ltl) (b : ltl) : bool =
   match (disj_conjs a, disj_conjs b) with
   | Some da, Some db ->
       List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
   | _ -> true
 
-let guards_may_overlap (a : fo_ltl) (b : fo_ltl) : bool =
+let guards_may_overlap (a : ltl) (b : ltl) : bool =
   match Fo_simplifier.simplify_fo (LAnd (a, b)) with
   | LFalse -> false
   | _ -> fo_overlap_conservative a b
@@ -429,7 +429,7 @@ let string_of_product_coverage = function
 let has_effective_product_coverage (ir : node_ir) : bool = ir.product_coverage <> CoverageEmpty
 
 let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
-  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.locals in
+  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.semantics.sem_locals in
   build_pre_k_infos n
   |> List.fold_left
        (fun acc (_, info) ->
@@ -449,14 +449,15 @@ let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
            info.names)
 
 let node_signature_of_ast (n : Ast.node) : node_signature_ir =
+  let sem = n.semantics in
   {
-    node_name = n.nname;
-    inputs = n.inputs;
-    outputs = n.outputs;
-    locals = n.locals @ pre_k_locals_of_ast n;
-    instances = n.instances;
-    states = n.states;
-    init_state = n.init_state;
+    node_name = sem.sem_nname;
+    inputs = sem.sem_inputs;
+    outputs = sem.sem_outputs;
+    locals = sem.sem_locals @ pre_k_locals_of_ast n;
+    instances = sem.sem_instances;
+    states = sem.sem_states;
+    init_state = sem.sem_init_state;
   }
 
 let string_of_clause_origin = function
@@ -536,7 +537,7 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     | HNow e -> iexpr_mentions_current_input e
     | HPreK _ -> false
   in
-  let rec fo_mentions_current_input (f : Ast.fo_ltl) =
+  let rec fo_mentions_current_input (f : Ast.ltl) =
     match f with
     | LTrue | LFalse -> false
     | LAtom (FRel (a, _, b)) -> hexpr_mentions_current_input a || hexpr_mentions_current_input b
@@ -545,7 +546,7 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         fo_mentions_current_input a || fo_mentions_current_input b
   in
-  let rec normalize_source_summary (f : fo_ltl) : fo_ltl =
+  let rec normalize_source_summary (f : ltl) : ltl =
     match f with
     | LNot (LOr (LNot a, LNot b)) -> LAnd (normalize_source_summary a, normalize_source_summary b)
     | LNot inner -> LNot (normalize_source_summary inner)
@@ -805,7 +806,7 @@ let build_product_step (step : PT.product_step) : product_step_ir =
     step_origin = StepFromExplicitExploration;
   }
 
-let invariant_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.fo_ltl option =
+let invariant_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.ltl option =
   let formulas =
     node.specification.spec_invariants_state_rel
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
@@ -953,7 +954,7 @@ let add_current_atom env ~(negated : bool) (fo : Ast.fo) : bool option =
     end
   | _ -> None
 
-let rec current_formula_maybe_satisfiable env (fo : Ast.fo_ltl) : bool =
+let rec current_formula_maybe_satisfiable env (fo : Ast.ltl) : bool =
   match fo with
   | Ast.LTrue -> true
   | Ast.LFalse -> false
@@ -1089,12 +1090,12 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
-  let rec split_top_level_or (f : fo_ltl) : fo_ltl list =
+  let rec split_top_level_or (f : ltl) : ltl list =
     match f with
     | LOr (a, b) -> split_top_level_or a @ split_top_level_or b
     | _ -> [ f ]
   in
-  let rec normalize_phase_summary (f : fo_ltl) : fo_ltl =
+  let rec normalize_phase_summary (f : ltl) : ltl =
     match f with
     | LNot (LOr (LNot a, LNot b)) -> LAnd (normalize_phase_summary a, normalize_phase_summary b)
     | LNot inner -> LNot (normalize_phase_summary inner)
@@ -1475,7 +1476,7 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
   let exported_post_facts_for_transition (t : Abs.transition) =
     let state_facts = invariants_for_state ~node ~time:CurrentTick t.dst in
     let ensure_facts =
-      List.map (fun (fo_o : Ast.fo_o) -> current_fact (FactFormula fo_o.value)) t.ensures
+      List.map (fun (ltl_o : Ast.ltl_o) -> current_fact (FactFormula ltl_o.value)) t.ensures
     in
     (state_facts @ ensure_facts) |> List.sort_uniq Stdlib.compare
   in
@@ -1487,14 +1488,14 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
         in
         let requires =
           List.map
-            (fun fo_o -> { fact_kind = CallEntryFact; fact = current_fact (FactFormula fo_o.value) })
+            (fun ltl_o -> { fact_kind = CallEntryFact; fact = current_fact (FactFormula ltl_o.value) })
             t.requires
         in
         let transition_facts =
           { fact_kind = CallTransitionFact; fact = current_fact (FactProgramState t.dst) }
           :: List.map
-               (fun fo_o ->
-                 { fact_kind = CallTransitionFact; fact = current_fact (FactFormula fo_o.value) })
+               (fun ltl_o ->
+                 { fact_kind = CallTransitionFact; fact = current_fact (FactFormula ltl_o.value) })
                t.ensures
         in
         let exported_post_facts =
@@ -1528,12 +1529,12 @@ let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported
     normalized_ir;
     tick_summary = lower_callee_tick_abi ~pre_k_map (callee_tick_abi_of_node ~node:(Abs.of_ast_node node));
     user_invariants = node.attrs.invariants_user;
-    state_invariants = node.attrs.invariants_state_rel;
+    state_invariants = node.specification.spec_invariants_state_rel;
     coherency_goals = node.attrs.coherency_goals;
     pre_k_map;
-    delay_spec = extract_delay_spec node.guarantees;
-    assumes = node.assumes;
-    guarantees = node.guarantees;
+    delay_spec = extract_delay_spec node.specification.spec_guarantees;
+    assumes = node.specification.spec_assumes;
+    guarantees = node.specification.spec_guarantees;
   }
 
 let build_call_binding_pairs kind locals remotes =
@@ -1548,7 +1549,7 @@ let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Support.pre_k_info) 
       | _ -> None)
     pre_k_map
 
-let rec simple_relational_eq_vars (fo : Ast.fo_ltl) : (Ast.ident * Ast.ident) option =
+let rec simple_relational_eq_vars (fo : Ast.ltl) : (Ast.ident * Ast.ident) option =
   match fo with
   | LAtom (FRel (HNow { iexpr = IVar lhs; _ }, REq, HNow { iexpr = IVar rhs; _ })) -> Some (lhs, rhs)
   | LNot (LNot inner) -> simple_relational_eq_vars inner
@@ -1663,7 +1664,8 @@ let rec build_instance_relations ~(nodes : Abs.node list)
         | Some callee ->
             let user_invariants, state_invariants =
               match callee with
-              | Local inst_node -> (inst_node.attrs.invariants_user, inst_node.attrs.invariants_state_rel)
+              | Local inst_node ->
+                  (inst_node.attrs.invariants_user, inst_node.specification.spec_invariants_state_rel)
               | External summary -> (summary.user_invariants, summary.state_invariants)
             in
             let user =
@@ -1695,7 +1697,7 @@ let rec build_instance_relations ~(nodes : Abs.node list)
       node.semantics.sem_instances
   in
   let delay_relations =
-    collect_calls_trans_full n_ast.trans
+    collect_calls_trans_full n_ast.semantics.sem_trans
     |> List.concat_map (fun (inst_name, args, outs) ->
            match List.assoc_opt inst_name node.semantics.sem_instances with
            | None -> []
@@ -1714,7 +1716,8 @@ let rec build_instance_relations ~(nodes : Abs.node list)
                              ~node:callee_node
                          in
                          let normalized_ir =
-                           of_node_analysis ~node_name:callee_ast.nname ~nodes ~external_summaries
+                           of_node_analysis ~node_name:callee_ast.semantics.sem_nname ~nodes
+                             ~external_summaries
                              ~node:callee_node ~analysis
                          in
                          ( Ast_utils.input_names_of_node callee_ast,

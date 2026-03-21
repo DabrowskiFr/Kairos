@@ -1,4 +1,5 @@
-(* UI‑oriented metadata for stages (labels, descriptions, stats keys). *)
+(** UI-oriented metadata for stages, including labels, descriptions, and stats
+    keys. *)
 
 (* Short UI label for a stage. *)
 val stage_label : Stage_names.stage_id -> string

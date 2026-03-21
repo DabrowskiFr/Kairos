@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Reconstructs the executable runtime view consumed by Why generation. *)
+
 type port_view = {
   port_name : Ast.ident;
   port_type : Ast.ty;
@@ -68,8 +70,8 @@ type runtime_transition_view = {
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
   known_monitor_ctor : Ast.ident option;
-  requires : Ast.fo_o list;
-  ensures : Ast.fo_o list;
+  requires : Ast.ltl_o list;
+  ensures : Ast.ltl_o list;
   ghost : Ast.stmt list;
   body : Ast.stmt list;
   instrumentation : Ast.stmt list;
@@ -99,11 +101,11 @@ type t = {
   transitions : runtime_transition_view list;
   transition_groups : transition_group_view list;
   state_branches : state_branch_view list;
-  assumes : Ast.fo_ltl list;
-  guarantees : Ast.fo_ltl list;
+  assumes : Ast.ltl list;
+  guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.fo_o list;
+  coherency_goals : Ast.ltl_o list;
   monitor_state_ctors : Ast.ident list;
   kernel_contract : Kernel_guided_contract.node_contract option;
 }

@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Core abstract syntax tree for Kairos programs, expressions, temporal
+    formulas, and contract annotations. *)
+
 (* {1 AST Overview}
 
    This module defines the core AST used across all passes. The design is: {ul {- immutable records
@@ -25,12 +28,12 @@
    [Ast_builders] / [Ast_provenance];} {- small utilities live in [Ast_utils].} {- a single program
    type (list of nodes) shared by all stages.}}
 
-   Post‑parse modifications: {ul {- FO contracts are wrapped with provenance and ids ([fo_o]);} {-
+   Post‑parse modifications: {ul {- FO contracts are wrapped with provenance and ids ([ltl_o]);} {-
    attributes are filled/updated by passes (uids, invariants, ghost/monitor).} {- LTL contracts
-   (assumes/guarantees) remain plain [fo_ltl] in the pipeline.}}
+   (assumes/guarantees) remain plain [ltl] in the pipeline.}}
 
    Quick map (structural core): {v program -> node -> transition -> stmt \-> assumes/guarantees
-   (fo_ltl) \-> requires/ensures (fo_o -> fo) v}
+   (ltl) \-> requires/ensures (ltl_o -> fo) v}
 
    Conceptual split used by the formalization:
    - a node carries a {i program part} (syntax + transition semantics),
@@ -85,22 +88,19 @@ type fo =
   | FPred of ident * hexpr list
 [@@deriving yojson]
 
-(* Generic LTL (linear‑time temporal logic) formula over atoms of type ['a]. *)
-type 'a ltl =
+(* LTL (linear‑time temporal logic) over first‑order atoms. *)
+type ltl =
   | LTrue
   | LFalse
-  | LAtom of 'a
-  | LNot of 'a ltl
-  | LAnd of 'a ltl * 'a ltl
-  | LOr of 'a ltl * 'a ltl
-  | LImp of 'a ltl * 'a ltl
-  | LX of 'a ltl
-  | LG of 'a ltl
-  | LW of 'a ltl * 'a ltl
+  | LAtom of fo
+  | LNot of ltl
+  | LAnd of ltl * ltl
+  | LOr of ltl * ltl
+  | LImp of ltl * ltl
+  | LX of ltl
+  | LG of ltl
+  | LW of ltl * ltl
 [@@deriving yojson]
-
-(* LTL over first‑order formulas. Used for assumes/guarantees. *)
-type fo_ltl = fo ltl [@@deriving yojson]
 
 (* {2 Provenance} Provenance categories allow tracing a VC back to its source. *)
 type origin =
@@ -112,9 +112,9 @@ type origin =
   | Internal
 [@@deriving yojson]
 
-(* First‑order formula annotated with provenance and optional location. Rationale: this is the
+(* LTL formula annotated with provenance and optional location. Rationale: this is the
    primary traceability hook in the pipeline. *)
-type fo_o = { value : fo ltl; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
+type ltl_o = { value : ltl; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
 
 (* {1 Statements & Invariants}
     Rationale: statements are the executable core, while invariants are the
@@ -135,15 +135,12 @@ and stmt_desc =
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
 
 (* Instrumentation state‑relation invariants. *)
-type invariant_state_rel = { is_eq : bool; state : ident; formula : fo ltl } [@@deriving show, yojson]
+type invariant_state_rel = { is_eq : bool; state : ident; formula : ltl } [@@deriving show, yojson]
 
 (* {1 Per‑pass Metadata} Moved to [Stage_info] (kept separate from the AST). *)
 
 (* {1 Program Structure} Rationale: a program is a list of normalized nodes; nodes and transitions
    are the stable backbone that later passes enrich via attributes. *)
-
-(* Atomic LTL proposition (identifier). *)
-type atom_ltl = ident ltl
 
 (* Variable declaration (name + type). *)
 type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
@@ -152,8 +149,7 @@ type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
 type node_attrs = {
   uid : int option;
   invariants_user : invariant_user list;
-  invariants_state_rel : invariant_state_rel list;
-  coherency_goals : fo_o list;
+  coherency_goals : ltl_o list;
 }
 
 (* Transition‑level attributes and annotations populated by passes. *)
@@ -169,25 +165,10 @@ type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : fo_o list;
-  ensures : fo_o list;
+  requires : ltl_o list;
+  ensures : ltl_o list;
   body : stmt list;
   attrs : transition_attrs;
-}
-
-(* Normalized node (post‑parse, used across passes). *)
-type node = {
-  nname : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  assumes : fo_ltl list;
-  guarantees : fo_ltl list;
-  instances : (ident * ident) list;
-  locals : vdecl list;
-  states : ident list;
-  init_state : ident;
-  trans : transition list;
-  attrs : node_attrs;
 }
 
 (* Program-only view of a node: syntax and transition semantics. *)
@@ -208,9 +189,16 @@ type node_semantics = {
    They are therefore not restricted to predicates over the current memory alone.
    The finite encoding through auxiliary [__pre_k...] variables is a later backend step. *)
 type node_specification = {
-  spec_assumes : fo_ltl list;
-  spec_guarantees : fo_ltl list;
+  spec_assumes : ltl list;
+  spec_guarantees : ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
+}
+
+(* Normalized node (post‑parse, used across passes). *)
+type node = {
+  semantics : node_semantics;
+  specification : node_specification;
+  attrs : node_attrs;
 }
 
 (* A program is a list of nodes. *)

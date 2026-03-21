@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Time-shifting utilities for formulas and history expressions. *)
+
 val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo -> Ast.fo
 (* Shift input references inside an FO formula one step forward in time. Parameters: - [is_input]:
    predicate to decide which identifiers are inputs. Effect: - [HNow(x)] where [x] is an input
@@ -36,5 +38,5 @@ val shift_fo_backward_all : Ast.fo -> Ast.fo
 (* Shift all references inside an FO formula one step backward in time:
    [pre_k(x,1)] -> [now(x)] and [pre_k(x,k)] -> [pre_k(x,k-1)] for [k>1]. *)
 
-val shift_ltl_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_ltl -> Ast.fo_ltl
-(* Shift input references inside an fo_ltl formula one step forward in time. *)
+val shift_ltl_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.ltl -> Ast.ltl
+(* Shift input references inside an ltl formula one step forward in time. *)

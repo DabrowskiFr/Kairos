@@ -42,7 +42,7 @@ let dot_of_annotated_transition (t : Kairos_ir.annotated_transition) : string =
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   List.iter
-    (fun (f : Ast.fo_o) ->
+    (fun (f : Ast.ltl_o) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -50,7 +50,7 @@ let dot_of_annotated_transition (t : Kairos_ir.annotated_transition) : string =
            s))
     t.requires;
   List.iter
-    (fun (f : Ast.fo_o) ->
+    (fun (f : Ast.ltl_o) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -110,7 +110,7 @@ let dot_of_verified_transition (t : Kairos_ir.verified_transition) : string =
       upd_strs
   end;
   List.iter
-    (fun (f : Ast.fo_o) ->
+    (fun (f : Ast.ltl_o) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -118,7 +118,7 @@ let dot_of_verified_transition (t : Kairos_ir.verified_transition) : string =
            s))
     t.requires;
   List.iter
-    (fun (f : Ast.fo_o) ->
+    (fun (f : Ast.ltl_o) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf

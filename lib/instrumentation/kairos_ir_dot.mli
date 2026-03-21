@@ -1,3 +1,5 @@
+(** DOT renderers for the annotated, verified, and kernel IR layers. *)
+
 (*---------------------------------------------------------------------------
  * Kairos — DOT graph renderer for the three IR layers.
  *

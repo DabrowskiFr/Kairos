@@ -67,15 +67,15 @@ let render_stmt_list (stmts : Ast.stmt list) : string =
   | [] -> "(none)"
   | _ -> String.concat "\n    " (List.map render_stmt stmts)
 
-let render_ltl_list (fs : Ast.fo_ltl list) : string =
+let render_ltl_list (fs : Ast.ltl list) : string =
   match fs with
   | [] -> "(none)"
   | _ -> String.concat "\n    " (List.map Support.string_of_ltl fs)
 
-let render_fo_o_list (fs : Ast.fo_o list) : string =
+let render_fo_o_list (fs : Ast.ltl_o list) : string =
   match fs with
   | [] -> "(none)"
-  | _ -> String.concat "\n    " (List.map (fun (f : Ast.fo_o) -> Support.string_of_ltl f.value) fs)
+  | _ -> String.concat "\n    " (List.map (fun (f : Ast.ltl_o) -> Support.string_of_ltl f.value) fs)
 
 (* ------------------------------------------------------------------ *)
 (* raw_node                                                             *)

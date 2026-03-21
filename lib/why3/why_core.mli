@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Shared core datatypes and helpers for Why3 code generation. *)
+
 (* {1 Statement Compilation} *)
 
 (* Compile a sequence of statements to a Why3 expression. *)

@@ -447,12 +447,13 @@ let semantic_symbols_of_program (p : Ast.program) : semantic_symbols =
   let add tbl s = if s <> "" then Hashtbl.replace tbl s () in
   List.iter
     (fun (n : Ast.node) ->
-      add tbl_nodes n.nname;
-      add tbl_all n.nname;
-      List.iter (fun st -> add tbl_states st; add tbl_all st) n.states;
-      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) n.inputs;
-      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) n.outputs;
-      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) n.locals)
+      let sem = n.semantics in
+      add tbl_nodes sem.sem_nname;
+      add tbl_all sem.sem_nname;
+      List.iter (fun st -> add tbl_states st; add tbl_all st) sem.sem_states;
+      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) sem.sem_inputs;
+      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) sem.sem_outputs;
+      List.iter (fun v -> add tbl_vars v.Ast.vname; add tbl_all v.Ast.vname) sem.sem_locals)
     p;
   let to_list tbl = Hashtbl.to_seq_keys tbl |> List.of_seq |> List.sort_uniq String.compare in
   { all = to_list tbl_all; nodes = to_list tbl_nodes; states = to_list tbl_states; vars = to_list tbl_vars }

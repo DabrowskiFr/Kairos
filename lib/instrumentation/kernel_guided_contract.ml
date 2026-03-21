@@ -68,11 +68,11 @@ let exported_summary_of_exported_ir
 
 let exported_summary_of_ast_node (node : Ast.node) : exported_summary_contract =
   {
-    callee_node_name = node.nname;
+    callee_node_name = node.semantics.sem_nname;
     input_names = Ast_utils.input_names_of_node node;
     output_names = Ast_utils.output_names_of_node node;
     user_invariants = node.attrs.invariants_user;
-    state_invariants = node.attrs.invariants_state_rel;
+    state_invariants = node.specification.spec_invariants_state_rel;
     temporal_bindings = temporal_bindings_of_pre_k_map (Collect.build_pre_k_infos node);
     tick_summary = None;
   }

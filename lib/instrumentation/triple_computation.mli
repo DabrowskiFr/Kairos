@@ -8,6 +8,8 @@
  * history elimination is performed in pass 5 ([History_elimination]).
  *---------------------------------------------------------------------------*)
 
+(** Computes Hoare-style preconditions and postconditions for raw IR nodes. *)
+
 (** Annotate a raw node with Hoare triples.
 
     [raw] is the output of pass 3 ([Ir_production.build_raw_node]).

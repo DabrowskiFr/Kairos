@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Public Why3-side datatypes shared across emission and proof passes. *)
+
 (* {1 Shared Emission Types} *)
 
 (* Environment snapshot used while emitting Why3 for a node. *)

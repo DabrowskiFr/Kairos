@@ -1,4 +1,4 @@
-(* Helpers to dump/emit intermediate pipeline artifacts. *)
+(** Helpers to dump and emit intermediate pipeline artifacts. *)
 
 val write_text : string -> string -> unit
 (* Write raw text content to a file path. *)

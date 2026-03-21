@@ -16,8 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Simplification routines for first-order and temporal formulas used across
+    automata, kernel IR, and Why generation. *)
+
 (* Simplify first-order formulas using local rewrites plus optional Z3 checks.
    The simplifier preserves the existing AST vocabulary and only folds formulas
    to constants or existing subformulas. *)
 
-val simplify_fo : Ast.fo_ltl -> Ast.fo_ltl
+val simplify_fo : Ast.ltl -> Ast.ltl

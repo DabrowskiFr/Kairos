@@ -1,4 +1,4 @@
-(* Frontend entry points (parsing + AST dumps). *)
+(** Frontend entry points combining parsing and AST dump helpers. *)
 
 (* Parse an input file into a source file (imports + nodes). *)
 val parse_source_file : string -> Source_file.t

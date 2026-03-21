@@ -13,7 +13,7 @@ let with_stmt_desc s stmt = { s with stmt }
 let fresh_oid () = Provenance.fresh_id ()
 
 let empty_node_attrs : node_attrs =
-  { uid = None; invariants_user = []; invariants_state_rel = []; coherency_goals = [] }
+  { uid = None; invariants_user = []; coherency_goals = [] }
 
 let empty_transition_attrs : transition_attrs =
   { uid = None; ghost = []; instrumentation = []; warnings = [] }
@@ -32,8 +32,9 @@ let ensure_program_uids (p : program) : program =
   List.map
     (fun n ->
       let n = ensure_node_uid n in
-      let trans = List.map ensure_transition_uid n.trans in
-      if trans == n.trans then n else { n with trans })
+      let sem = n.semantics in
+      let trans = List.map ensure_transition_uid sem.sem_trans in
+      if trans == sem.sem_trans then n else { n with semantics = { sem with sem_trans = trans } })
     p
 
 let mk_transition ~src ~dst ~guard ~requires ~ensures ~body : transition =
@@ -42,15 +43,22 @@ let mk_transition ~src ~dst ~guard ~requires ~ensures ~body : transition =
 let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~states ~init_state
     ~trans : node =
   {
-    nname;
-    inputs;
-    outputs;
-    assumes;
-    guarantees;
-    instances;
-    locals;
-    states;
-    init_state;
-    trans;
+    semantics =
+      {
+        sem_nname = nname;
+        sem_inputs = inputs;
+        sem_outputs = outputs;
+        sem_instances = instances;
+        sem_locals = locals;
+        sem_states = states;
+        sem_init_state = init_state;
+        sem_trans = trans;
+      };
+    specification =
+      {
+        spec_assumes = assumes;
+        spec_guarantees = guarantees;
+        spec_invariants_state_rel = [];
+      };
     attrs = empty_node_attrs;
   }

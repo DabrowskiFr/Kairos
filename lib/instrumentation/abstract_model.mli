@@ -1,11 +1,14 @@
+(** Abstract program model used internally by instrumentation and product
+    construction. *)
+
 open Ast
 
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : fo_o list;
-  ensures : fo_o list;
+  requires : ltl_o list;
+  ensures : ltl_o list;
   body : stmt list;
   attrs : transition_attrs;
 }

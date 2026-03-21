@@ -8,7 +8,7 @@ let instrumentation_state_name = "__aut_state"
 let instrumentation_state_expr i = mk_var (Printf.sprintf "Aut%d" i)
 
 let add_unique origin f lst =
-  if List.exists (fun (fo : fo_o) -> fo.value = f) lst then lst
+  if List.exists (fun (fo : ltl_o) -> fo.value = f) lst then lst
   else lst @ [ Ast_provenance.with_origin origin f ]
 
 let mk_or = function

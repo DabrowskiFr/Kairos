@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Organizes exported kernel clauses into Why3 contract fragments. *)
+
 type transition_contracts = {
   transition_requires_pre_terms : (Why3.Ptree.term * string) list;
   transition_requires_pre : Why3.Ptree.term list;
@@ -37,7 +39,7 @@ val compute_transition_contracts :
   env:Support.env ->
   runtime_transitions:Why_runtime_view.runtime_transition_view list ->
   labeled_trans:
-    (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo_ltl * string * string) list) list ->
+    (Why_runtime_view.runtime_transition_view * (Ast.ltl_o * string) list * (Ast.ltl * string * string) list) list ->
   has_monitor_instrumentation:bool ->
   post_contract_user:Why3.Ptree.term list ->
   use_kernel_product_contracts:bool ->

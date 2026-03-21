@@ -9,17 +9,17 @@ type step_class =
   | Bad_assumption
   | Bad_guarantee
 
-type automaton_edge = Automaton_engine.transition
+type automaton_edge = Spot_automaton.transition
 
 type product_step = {
   src : product_state;
   dst : product_state;
   prog_transition : Abstract_model.transition;
-  prog_guard : Ast.fo_ltl;
+  prog_guard : Ast.ltl;
   assume_edge : automaton_edge;
-  assume_guard : Ast.fo_ltl;
+  assume_guard : Ast.ltl;
   guarantee_edge : automaton_edge;
-  guarantee_guard : Ast.fo_ltl;
+  guarantee_guard : Ast.ltl;
   step_class : step_class;
 }
 
@@ -31,15 +31,15 @@ type prune_reason =
 type pruned_step = {
   src : product_state;
   prog_transition : Abstract_model.transition;
-  prog_guard : Ast.fo_ltl;
+  prog_guard : Ast.ltl;
   assume_edge : automaton_edge;
   assume_src : int;
   assume_dst : int;
-  assume_guard : Ast.fo_ltl;
+  assume_guard : Ast.ltl;
   guarantee_edge : automaton_edge;
   guarantee_src : int;
   guarantee_dst : int;
-  guarantee_guard : Ast.fo_ltl;
+  guarantee_guard : Ast.ltl;
   reason : prune_reason;
 }
 

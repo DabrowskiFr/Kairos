@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Collection helpers for extracting temporal history, calls, and structural
+    facts from AST programs. *)
+
 (* {1 Expression Collection} Collectors traverse expressions/formulas and accumulate referenced
    historical expressions ([hexpr]) or call sites. These helpers are used by monitor generation and
    OBC+ instrumentation. *)
@@ -24,7 +27,7 @@
 val collect_hexpr : Ast.hexpr -> Ast.hexpr list -> Ast.hexpr list
 
 (* Collect hexprs referenced by an LTL formula. *)
-val collect_ltl : Ast.fo_ltl -> Ast.hexpr list -> Ast.hexpr list
+val collect_ltl : Ast.ltl -> Ast.hexpr list -> Ast.hexpr list
 
 (* Collect hexprs referenced by a FO formula. *)
 val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
@@ -32,8 +35,8 @@ val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
 
 (* Extract all pre‑k expressions from a set of specs/invariants. *)
 val collect_pre_k_from_specs :
-  fo:Ast.fo_ltl list ->
-  ltl:Ast.fo_ltl list ->
+  fo:Ast.ltl list ->
+  ltl:Ast.ltl list ->
   invariants_user:Ast.invariant_user list ->
   invariants_state_rel:Ast.invariant_state_rel list ->
   Ast.hexpr list
@@ -61,4 +64,4 @@ val collect_calls_trans_full :
 (* {1 Spec Heuristics} *)
 
 (* Detect a delay‑spec pattern and return (out, in) if present. *)
-val extract_delay_spec : Ast.fo_ltl list -> (Ast.ident * Ast.ident) option
+val extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option

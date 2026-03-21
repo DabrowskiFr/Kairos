@@ -1,3 +1,5 @@
+(** Small helpers to decode JSON-RPC/LSP request payloads. *)
+
 val position_from_params : Yojson.Safe.t -> (int * int) option
 
 val get_param_string : Yojson.Safe.t -> string -> string option

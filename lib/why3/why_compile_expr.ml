@@ -123,7 +123,7 @@ let compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name 
 
 let rec compile_ltl_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
     (node_name : ident) (inputs : ident list)
-    (contract : Kernel_guided_contract.exported_summary_contract) (f : fo_ltl) : Ptree.term =
+    (contract : Kernel_guided_contract.exported_summary_contract) (f : ltl) : Ptree.term =
   let go = compile_ltl_term_instance_contract ~in_post env inst_name node_name inputs contract in
   match f with
   | LTrue -> mk_term Ttrue
@@ -210,7 +210,7 @@ let compile_fo_term ?(prefer_link = false) (env : env) (f : fo) : Ptree.term =
   | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~prefer_link env) hs))
 
 let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (shift : int)
-    (f : fo_ltl) : Ptree.term =
+    (f : ltl) : Ptree.term =
   let shift = if shift <= 0 then 0 else 1 in
   match f with
   | LTrue -> mk_term Ttrue
@@ -252,7 +252,7 @@ and compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) 
 let rel_hexpr (env : env) (h : hexpr) : hexpr =
   match h with HNow e -> HNow e | HPreK (e, k) -> HPreK (e, k)
 
-let rec ltl_relational (env : env) (f : fo_ltl) : fo_ltl =
+let rec ltl_relational (env : env) (f : ltl) : ltl =
   match f with
   | LTrue | LFalse -> f
   | LNot a -> LNot (ltl_relational env a)
@@ -273,7 +273,7 @@ type spec_frag = { pre : Ptree.term list; post : Ptree.term list }
 
 let empty_frag : spec_frag = { pre = []; post = [] }
 
-let ltl_spec (env : env) (f : fo_ltl) : spec_frag =
+let ltl_spec (env : env) (f : ltl) : spec_frag =
   let rec has_x = function
     | LX _ -> true
     | LTrue | LFalse | LAtom _ -> false

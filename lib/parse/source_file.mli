@@ -1,3 +1,6 @@
+(** Source-file level representation combining explicit imports and the parsed
+    node program. *)
+
 type import_decl = {
   import_path : string;
   import_loc : Ast.loc option;

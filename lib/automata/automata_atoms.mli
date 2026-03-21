@@ -16,6 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Atom-table support for generated automata and guard recovery. *)
+
+type guard = Automaton_types.guard
+(* DNF guard (list of implicants). *)
+
+val guard_to_formula : guard -> string
+(* Render a guard as a boolean formula string. *)
+
+val guard_to_iexpr : guard -> Ast.iexpr
+(* Convert a guard into an iexpr formula. *)
+
 (* Collected atom data for a node. *)
 type automata_atoms = {
   (* Mapping from atom formula to generated variable name. *)
@@ -33,12 +44,12 @@ val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 val recover_guard_iexpr : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.iexpr
 (* Recover an automaton guard as a program-level boolean expression after atom inlining. *)
 
-val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.fo_ltl
+val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.ltl
 (* Recover an automaton guard as a first-order formula after atom inlining. *)
 
 val collect_atoms : Ast.node -> automata_atoms
 (* Collect and validate atoms used by the monitor construction. *)
 
 val collect_atoms_from_ltls :
-  Ast.node -> ltls:Ast.fo_ltl list -> automata_atoms
+  Ast.node -> ltls:Ast.ltl list -> automata_atoms
 (* Collect and validate atoms for an explicit list of LTL formulas. *)

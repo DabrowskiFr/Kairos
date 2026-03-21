@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Maps Why3 proof feedback back to source-oriented diagnostics. *)
+
 (* {1 Contract Diagnostics} *)
 
 type label_context = {

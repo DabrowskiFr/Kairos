@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Builds the Why3 AST emitted by the Kairos backend. *)
+
 (* {1 Statement Compilation} *)
 
 (* Compile a sequence of statements to a Why3 expression. *)
@@ -68,7 +70,7 @@ type spec_groups = { pre_labels : string list; post_labels : string list }
 
 (* Raw comment payloads used to emit VC/goal comments. *)
 type comment_specs =
-  Ast.fo_ltl list * Ast.fo_ltl list * Ast.transition list * (string * string * string) list
+  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
 
 (* In‑memory Why3 representation of a full program. *)
 type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }

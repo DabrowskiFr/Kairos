@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Orchestrates the instrumentation pipeline from source AST to exported IR. *)
+
 (* State constructor name for a given index (e.g. Aut0, Aut1). *)
 val state_ctor : int -> string
 

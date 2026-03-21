@@ -20,7 +20,7 @@ open Ast
 open Ast_builders
 open Support
 
-let rec collect_atoms_ltl (f : fo_ltl) (acc : fo list) : fo list =
+let rec collect_atoms_ltl (f : ltl) (acc : fo list) : fo list =
   match f with
   | LTrue | LFalse -> acc
   | LAtom a -> if List.exists (( = ) a) acc then acc else a :: acc
@@ -40,10 +40,10 @@ let collect_atoms_from_node (n : Ast.node) : fo list =
   in
   List.fold_left (fun acc inv -> collect_atoms_ltl inv.formula acc) acc spec.spec_invariants_state_rel
 
-let transition_fo (t : Ast.transition) : fo_ltl list =
+let transition_fo (t : Ast.transition) : ltl list =
   Ast_provenance.values t.requires @ Ast_provenance.values t.ensures
 
-let conj_fo (fs : fo_ltl list) : fo_ltl option =
+let conj_fo (fs : ltl list) : ltl option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> LAnd (acc, x)) f rest)
@@ -126,8 +126,8 @@ let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f :
 let lower_fo_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : fo option =
   lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
-let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo_ltl) :
-    fo_ltl option =
+let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : ltl) :
+    ltl option =
   match f with
   | LTrue | LFalse -> Some f
   | LAtom a -> Option.map (fun a' -> LAtom a') (lower_fo_temporal_bindings ~temporal_bindings a)
@@ -163,7 +163,7 @@ let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list)
       | _ -> None
     end
 
-let lower_ltl_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo_ltl) : fo_ltl option =
+let lower_ltl_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : ltl) : ltl option =
   lower_ltl_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
 let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
@@ -217,7 +217,7 @@ let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
 
 let atom_to_var_rel (name : ident) : fo = FRel (HNow (mk_var name), REq, HNow (mk_bool true))
 
-let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo) list) (e : iexpr) : fo_ltl =
+let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo) list) (e : iexpr) : ltl =
   match e.iexpr with
   | ILitBool true -> LTrue
   | ILitBool false -> LFalse
@@ -240,7 +240,7 @@ let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo) list) (e : iexpr) : fo_l
   | IBin (_, a, b) -> LAtom (FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true)))
   | IUn (_, a) -> LAtom (FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true)))
 
-let rec replace_atoms_ltl (atom_map : (fo * ident) list) (f : fo_ltl) : fo_ltl =
+let rec replace_atoms_ltl (atom_map : (fo * ident) list) (f : ltl) : ltl =
   match f with
   | LTrue | LFalse -> f
   | LAtom a -> LAtom (replace_atoms_fo atom_map a)
@@ -272,7 +272,7 @@ let replace_atoms_transition (atom_map : (fo * ident) list) (t : Ast.transition)
 
 (* Fold-specific helpers removed. *)
 
-let combine_contracts_for_monitor ~(assumes : fo_ltl list) ~(guarantees : fo_ltl list) : fo_ltl =
+let combine_contracts_for_monitor ~(assumes : ltl list) ~(guarantees : ltl list) : ltl =
   let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
   let g = mk_and (List.rev guarantees) in
   let _ = assumes in

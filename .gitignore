@@ -2,3 +2,5 @@ _build/
 .DS_Store
 .claude/
 .vscode/
+docs/PROJECT_STRUCTURE.local.md
+docs/PIPELINE_QUICK_GUIDE.local.md

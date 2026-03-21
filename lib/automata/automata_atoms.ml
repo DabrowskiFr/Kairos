@@ -22,6 +22,21 @@ open Support
 open Fo_specs
 open Ltl_valuation
 
+type guard = Automaton_types.guard
+
+let guard_is_true (g : guard) : bool =
+  List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) g
+
+let guard_to_formula (g : guard) : string =
+  match g with
+  | [] -> "false"
+  | _ when guard_is_true g -> "true"
+  | _ -> (
+      let parts = List.map term_to_string g in
+      match parts with [] -> "false" | [ p ] -> p | _ -> String.concat " || " parts)
+
+let guard_to_iexpr (g : guard) : Ast.iexpr = terms_to_iexpr g
+
 let sanitize_ident (s : string) : string =
   (* Normalize an arbitrary string into a safe, lowercase identifier. *)
   let buf = Buffer.create (String.length s) in
@@ -80,9 +95,9 @@ let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
 
 let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : iexpr =
   (* Canonical recovery path for automaton guards: convert DNF guards, then inline atom expressions. *)
-  g |> Automaton_guard.guard_to_iexpr |> inline_atoms_iexpr atom_map
+  g |> guard_to_iexpr |> inline_atoms_iexpr atom_map
 
-let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : fo_ltl =
+let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
   recover_guard_iexpr atom_map g |> iexpr_to_fo_with_atoms []
 
 type automata_atoms = {
@@ -92,14 +107,15 @@ type automata_atoms = {
       (* Cache of atom names mapped to their boolean iexpr (FO -> iexpr conversion). *)
 }
 
-let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.fo_ltl list) :
+let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.ltl list) :
     automata_atoms =
   let n_ast = n in
+  let sem = n_ast.semantics in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n_ast.inputs @ n_ast.locals @ n_ast.outputs)
+    List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
   in
   let pre_k_map = Collect.build_pre_k_infos n_ast in
-  let inputs = List.map (fun v -> v.vname) n_ast.inputs in
+  let inputs = List.map (fun v -> v.vname) sem.sem_inputs in
   let atoms_all = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltls |> List.sort_uniq compare in
   let atom_exprs, skipped =
     List.fold_left

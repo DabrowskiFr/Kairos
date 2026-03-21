@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Shared support functions for naming, pretty-printing, history variables,
+    and low-level AST manipulation. *)
+
 (* {1 Environment Types} Internal environment used by Why3 emission and normalization helpers. *)
 
 (* Metadata describing a single pre‑k expression and its generated names. *)
@@ -125,17 +128,17 @@ val string_of_const : Why3.Constant.constant -> string
 (* Render relop as a string. *)
 val string_of_relop : Ast.relop -> string
 
-type ltl_norm = { ltl : Ast.fo_ltl; k_guard : int option }
+type ltl_norm = { ltl : Ast.ltl; k_guard : int option }
 
 (* {1 Logical Helpers} *)
 (* Compute max x depth. *)
-val max_x_depth : Ast.fo_ltl -> int
+val max_x_depth : Ast.ltl -> int
 
 (* Lift a FO formula to LTL. *)
-val ltl_of_fo : Ast.fo -> Ast.fo_ltl
+val ltl_of_fo : Ast.fo -> Ast.ltl
 
 (* Project an LTL formula to FO when possible. *)
-val fo_of_ltl : Ast.fo_ltl -> Ast.fo
+val fo_of_ltl : Ast.ltl -> Ast.fo
 
 (* Predicate for const iexpr. *)
 val is_const_iexpr : Ast.iexpr -> bool
@@ -145,10 +148,10 @@ val is_const_iexpr : Ast.iexpr -> bool
 val shift_hexpr_by : init_for_var:(Ast.ident -> Ast.iexpr) -> int -> Ast.hexpr -> Ast.hexpr option
 
 (* Normalize ltl for k. *)
-val normalize_ltl_for_k : init_for_var:(Ast.ident -> Ast.iexpr) -> Ast.fo_ltl -> ltl_norm
+val normalize_ltl_for_k : init_for_var:(Ast.ident -> Ast.iexpr) -> Ast.ltl -> ltl_norm
 
 (* Shift ltl by. *)
-val shift_ltl_by : init_for_var:(Ast.ident -> Ast.iexpr) -> int -> Ast.fo_ltl -> Ast.fo_ltl option
+val shift_ltl_by : init_for_var:(Ast.ident -> Ast.iexpr) -> int -> Ast.ltl -> Ast.ltl option
 
 (* {1 String Rendering} *)
 (* Render iexpr as a string. *)
@@ -161,7 +164,7 @@ val string_of_hexpr : Ast.hexpr -> string
 val string_of_fo : ?ctx:int -> Ast.fo -> string
 
 (* Render ltl as a string. *)
-val string_of_ltl : ?ctx:int -> Ast.fo_ltl -> string
+val string_of_ltl : ?ctx:int -> Ast.ltl -> string
 
 (* Normalize infix. *)
 val normalize_infix : string -> string

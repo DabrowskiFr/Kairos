@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Bundles the intermediate artifacts produced by instrumentation stages. *)
+
 (* {1 Per‑pass Metadata} *)
 
 (* Parser error payload. *)

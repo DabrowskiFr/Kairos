@@ -1,4 +1,5 @@
-(* Middle‑end stage combinators (automata generation -> instrumentation -> contracts). *)
+(** Middle-end stage combinators wiring automata generation, instrumentation,
+    and contracts passes. *)
 
 (* Run automata generation without extra metadata. *)
 val stage_automata_generation :

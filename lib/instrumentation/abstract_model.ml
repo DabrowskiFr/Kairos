@@ -4,8 +4,8 @@ type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : fo_o list;
-  ensures : fo_o list;
+  requires : ltl_o list;
+  ensures : ltl_o list;
   body : stmt list;
   attrs : transition_attrs;
 }
@@ -48,27 +48,19 @@ let of_ast_node (n : Ast.node) : node =
   {
     semantics;
     specification = spec;
-    trans = List.map of_ast_transition n.trans;
+    trans = List.map of_ast_transition n.semantics.sem_trans;
     attrs = n.attrs;
   }
 
 let to_ast_node (n : node) : Ast.node =
   {
-    nname = n.semantics.sem_nname;
-    inputs = n.semantics.sem_inputs;
-    outputs = n.semantics.sem_outputs;
-    assumes = n.specification.spec_assumes;
-    guarantees = n.specification.spec_guarantees;
-    instances = n.semantics.sem_instances;
-    locals = n.semantics.sem_locals;
-    states = n.semantics.sem_states;
-    init_state = n.semantics.sem_init_state;
-    trans = List.map to_ast_transition n.trans;
-    attrs =
+    semantics =
       {
-        n.attrs with
-        invariants_state_rel = n.specification.spec_invariants_state_rel;
+        n.semantics with
+        sem_trans = List.map to_ast_transition n.trans;
       };
+    specification = n.specification;
+    attrs = n.attrs;
   }
 
 let map_transitions (f : transition list -> transition list) (n : node) : node =
@@ -90,7 +82,7 @@ let render_origin = function
       in
       " {" ^ s ^ "}"
 
-let render_fo_o (kw : string) (f : fo_o) (indent_level : int) : string =
+let render_fo_o (kw : string) (f : ltl_o) (indent_level : int) : string =
   indent_str indent_level ^ kw ^ " " ^ Support.string_of_ltl f.value ^ render_origin f.origin ^ ";"
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =

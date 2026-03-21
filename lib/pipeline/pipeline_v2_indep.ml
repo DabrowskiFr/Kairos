@@ -46,13 +46,20 @@ let join_blocks_with_spans ~sep blocks =
 
 let with_smoke_tests (p : Ast.program) : Ast.program =
   let has_false_ensure (t : Ast.transition) =
-    List.exists (fun (f : Ast.fo_o) -> f.value = Ast.LFalse) t.ensures
+    List.exists (fun (f : Ast.ltl_o) -> f.value = Ast.LFalse) t.ensures
   in
   let add_transition_smoke (t : Ast.transition) : Ast.transition =
     if has_false_ensure t then t
     else { t with ensures = t.ensures @ [ Ast_provenance.with_origin Ast.Internal Ast.LFalse ] }
   in
-  List.map (fun (n : Ast.node) -> { n with trans = List.map add_transition_smoke n.trans }) p
+  List.map
+    (fun (n : Ast.node) ->
+      {
+        n with
+        semantics =
+          { n.semantics with sem_trans = List.map add_transition_smoke n.semantics.sem_trans };
+      })
+    p
 
 let stage_meta (infos : Pipeline.stage_infos) : (string * (string * string) list) list =
   let p = Option.value ~default:Stage_info.empty_parse_info infos.parse in
@@ -77,7 +84,7 @@ let build_ast_with_info ~input_file () :
       | Ok imported -> imported
       | Error msg -> raise (Failure msg)
     in
-    let local_node_names = List.map (fun (n : Ast.node) -> n.nname) p_parsed in
+    let local_node_names = List.map (fun (n : Ast.node) -> n.semantics.sem_nname) p_parsed in
     let duplicate_import =
       List.find_opt
         (fun (summary : Product_kernel_ir.exported_node_summary_ir) ->
@@ -183,7 +190,8 @@ let program_automaton_texts (asts : Pipeline.ast_stages) : string * string =
   match asts.automata_generation with
   | [] -> ("", "")
   | node :: _ ->
-      Product_debug.render_program_automaton ~node_name:node.nname ~node:(Abstract_model.of_ast_node node)
+      Product_debug.render_program_automaton ~node_name:node.semantics.sem_nname
+        ~node:(Abstract_model.of_ast_node node)
 
 type formula_record = {
   oid : int;
@@ -196,7 +204,7 @@ type formula_record = {
   loc : Ast.loc option;
 }
 
-let classify_formula ~(is_require : bool) (f : Ast.fo_o) :
+let classify_formula ~(is_require : bool) (f : Ast.ltl_o) :
     string * string option * string option =
   let family =
     if is_require then
@@ -234,9 +242,9 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
   let add record = records := record :: !records in
   List.iter
     (fun (node : Ast.node) ->
-      let node_name = node.nname in
+      let node_name = node.semantics.sem_nname in
       List.iter
-        (fun (goal : Ast.fo_o) ->
+        (fun (goal : Ast.ltl_o) ->
           add
             {
               oid = goal.oid;
@@ -253,7 +261,7 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
         (fun (t : Ast.transition) ->
           let source = Printf.sprintf "%s: %s -> %s" node_name t.src t.dst in
           List.iter
-            (fun (req : Ast.fo_o) ->
+            (fun (req : Ast.ltl_o) ->
               let obligation_kind, obligation_family, obligation_category =
                 classify_formula ~is_require:true req
               in
@@ -270,7 +278,7 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
                 })
             t.requires;
           List.iter
-            (fun (ens : Ast.fo_o) ->
+            (fun (ens : Ast.ltl_o) ->
               let obligation_kind, obligation_family, obligation_category =
                 classify_formula ~is_require:false ens
               in
@@ -286,7 +294,7 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
                   loc = ens.loc;
                 })
             t.ensures)
-        node.trans)
+        node.semantics.sem_trans)
     p_obc;
   List.rev !records
 
@@ -695,9 +703,9 @@ let source_from_record_or_state ~(record : formula_record option)
               List.find_map
                 (fun (t : Ast.transition) ->
                   if t.src = src_state && t.dst = dst_state then
-                    Some (Printf.sprintf "%s: %s -> %s" node.nname t.src t.dst)
+                    Some (Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst)
                   else None)
-                node.trans)
+                node.semantics.sem_trans)
             obc_program
           |> Option.value ~default:(Printf.sprintf "%s -> %s" src_state dst_state))
 

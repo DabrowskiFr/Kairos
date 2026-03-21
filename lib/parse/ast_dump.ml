@@ -22,20 +22,24 @@ let json_transition_of_ast (t : Ast.transition) : Yojson.Safe.t =
     ]
 
 let json_node_of_ast (n : Ast.node) : Yojson.Safe.t =
+  let sem = n.semantics in
   let spec = Ast.specification_of_node n in
   `Assoc
     [
-      ("name", `String n.nname);
-      ("inputs", `List (List.map json_vdecl_of_ast n.inputs));
-      ("outputs", `List (List.map json_vdecl_of_ast n.outputs));
-      ("locals", `List (List.map json_vdecl_of_ast n.locals));
-      ("states", `List (List.map (fun s -> `String s) n.states));
-      ("init_state", `String n.init_state);
+      ("name", `String sem.sem_nname);
+      ("inputs", `List (List.map json_vdecl_of_ast sem.sem_inputs));
+      ("outputs", `List (List.map json_vdecl_of_ast sem.sem_outputs));
+      ("locals", `List (List.map json_vdecl_of_ast sem.sem_locals));
+      ("states", `List (List.map (fun s -> `String s) sem.sem_states));
+      ("init_state", `String sem.sem_init_state);
       ( "instances",
-        `List (List.map (fun (inst, node) -> `List [ `String inst; `String node ]) n.instances) );
+        `List
+          (List.map
+             (fun (inst, node) -> `List [ `String inst; `String node ])
+             sem.sem_instances) );
       ("assumes", `List (List.map (fun f -> `String (Support.string_of_ltl f)) spec.spec_assumes));
       ("guarantees", `List (List.map (fun f -> `String (Support.string_of_ltl f)) spec.spec_guarantees));
-      ("transitions", `List (List.map json_transition_of_ast n.trans));
+      ("transitions", `List (List.map json_transition_of_ast sem.sem_trans));
     ]
 
 let write_json ~(out : string option) (json : Yojson.Safe.t) : unit =

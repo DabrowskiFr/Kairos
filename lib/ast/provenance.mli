@@ -1,3 +1,6 @@
+(** Provenance graph primitives used to link generated proof obligations back to
+    source-level formulas. *)
+
 (* Unique identifier used to link derived formulas to their sources. *)
 type id = int
 

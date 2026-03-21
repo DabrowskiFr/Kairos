@@ -20,11 +20,11 @@ open Ast
 open Fo_specs
 open Fo_time
 
-let is_user_contract (f : fo_o) : bool =
+let is_user_contract (f : ltl_o) : bool =
   match f.origin with Some UserContract -> true | _ -> false
 
-let user_formulas (fs : fo_o list) : fo_o list = List.filter is_user_contract fs
-let dedup_fo (xs : fo_ltl list) : fo_ltl list = List.sort_uniq compare xs
+let user_formulas (fs : ltl_o list) : ltl_o list = List.filter is_user_contract fs
+let dedup_fo (xs : ltl list) : ltl list = List.sort_uniq compare xs
 let instrumentation_state_var = "__aut_state"
 
 let fo_atom_mentions_var (v : ident) (f : fo) : bool =
@@ -39,7 +39,7 @@ let fo_atom_mentions_var (v : ident) (f : fo) : bool =
   | FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
   | FPred (_, hs) -> List.exists hexpr_mentions_var hs
 
-let rec fo_ltl_mentions_var (v : ident) (f : fo_ltl) : bool =
+let rec fo_ltl_mentions_var (v : ident) (f : ltl) : bool =
   match f with
   | LTrue | LFalse -> false
   | LAtom a -> fo_atom_mentions_var v a
@@ -58,7 +58,7 @@ let collect_pre_k_fo (f : fo) : (ident * int) list =
   | FRel (h1, _, h2) -> from_hexpr h1 @ from_hexpr h2
   | FPred (_id, hs) -> List.concat_map from_hexpr hs
 
-let rec collect_pre_k_ltl (f : fo_ltl) : (ident * int) list =
+let rec collect_pre_k_ltl (f : ltl) : (ident * int) list =
   match f with
   | LTrue | LFalse -> []
   | LAtom a -> collect_pre_k_fo a
@@ -67,16 +67,17 @@ let rec collect_pre_k_ltl (f : fo_ltl) : (ident * int) list =
       collect_pre_k_ltl a @ collect_pre_k_ltl b
 
 let min_step_by_state (n : node) : (ident, int) Hashtbl.t =
+  let sem = n.semantics in
   let by_src = Hashtbl.create 16 in
   List.iter
     (fun (t : transition) ->
       let succ = Hashtbl.find_opt by_src t.src |> Option.value ~default:[] in
       Hashtbl.replace by_src t.src (t.dst :: succ))
-    n.trans;
+    sem.sem_trans;
   let dist : (ident, int) Hashtbl.t = Hashtbl.create 16 in
   let q = Queue.create () in
-  Hashtbl.replace dist n.init_state 0;
-  Queue.add n.init_state q;
+  Hashtbl.replace dist sem.sem_init_state 0;
+  Queue.add sem.sem_init_state q;
   while not (Queue.is_empty q) do
     let s = Queue.take q in
     let d = Hashtbl.find dist s in
@@ -90,8 +91,9 @@ let min_step_by_state (n : node) : (ident, int) Hashtbl.t =
   done;
   dist
 
-let min_step_by_state_monitor_aware (n : node) (automaton : Automaton_engine.automaton) :
+let min_step_by_state_monitor_aware (n : node) (automaton : Spot_automaton.automaton) :
     (ident, int) Hashtbl.t =
+  let sem = n.semantics in
   let prog_succ = Ast_utils.transitions_from_state_fn n in
   let mon_count = List.length automaton.states in
   let mon_succ : int list array = Array.make mon_count [] in
@@ -104,9 +106,9 @@ let min_step_by_state_monitor_aware (n : node) (automaton : Automaton_engine.aut
   let dist_state : (ident, int) Hashtbl.t = Hashtbl.create 16 in
   let q = Queue.create () in
   if mon_count > 0 then (
-    Hashtbl.replace dist_pair (n.init_state, 0) 0;
-    Hashtbl.replace dist_state n.init_state 0;
-    Queue.add (n.init_state, 0) q);
+    Hashtbl.replace dist_pair (sem.sem_init_state, 0) 0;
+    Hashtbl.replace dist_state sem.sem_init_state 0;
+    Queue.add (sem.sem_init_state, 0) q);
   while not (Queue.is_empty q) do
     let s, ms = Queue.take q in
     let d = Hashtbl.find dist_pair (s, ms) in
@@ -136,7 +138,7 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
     | None -> min_step_by_state n
     | Some a -> min_step_by_state_monitor_aware n a
   in
-  let check_formula ~phase ~bound ~tr (foo : fo_o) : string list =
+  let check_formula ~phase ~bound ~tr (foo : ltl_o) : string list =
     let pre_ks = collect_pre_k_ltl foo.value in
     pre_ks
     |> List.filter_map (fun (v, k) ->
@@ -145,7 +147,7 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
           Some
             (Printf.sprintf
                "node %s, transition %s->%s, %s at %s: pre_k(%s,%d) is not defined before step %d"
-               n.nname tr.src tr.dst phase (format_loc foo.loc) v k bound))
+               n.semantics.sem_nname tr.src tr.dst phase (format_loc foo.loc) v k bound))
   in
   let errors =
     List.concat_map
@@ -164,7 +166,7 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
             in
             req_errs @ ens_errs
         | _ -> [])
-      n.trans
+      n.semantics.sem_trans
   in
   match errors with
   | [] -> ()
@@ -175,12 +177,12 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : node) : unit =
       in
       failwith (header ^ "\n" ^ String.concat "\n" errors)
 
-let shift_ltl_backward_inputs ~(is_input : ident -> bool) (f : fo_ltl) : fo_ltl =
+let shift_ltl_backward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
   match f with
   | LAtom a -> LAtom (shift_fo_backward_inputs ~is_input a)
   | _ -> f
 
-let user_ensures_by_target_state (n : node) : (ident, fo_ltl list) Hashtbl.t =
+let user_ensures_by_target_state (n : node) : (ident, ltl list) Hashtbl.t =
   let by_dst = Hashtbl.create 16 in
   List.iter
     (fun (t : transition) ->
@@ -188,21 +190,23 @@ let user_ensures_by_target_state (n : node) : (ident, fo_ltl list) Hashtbl.t =
       if user_ens <> [] then
         let existing = Hashtbl.find_opt by_dst t.dst |> Option.value ~default:[] in
         Hashtbl.replace by_dst t.dst (dedup_fo (user_ens @ existing)))
-    n.trans;
+      n.semantics.sem_trans;
   by_dst
 
-let declared_state_invariants (n : node) : (ident, fo_ltl list) Hashtbl.t =
+let declared_state_invariants (n : node) : (ident, ltl list) Hashtbl.t =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : invariant_state_rel) ->
-      if inv.is_eq && List.mem inv.state n.states && not (fo_mentions_var instrumentation_state_var inv.formula)
+      if inv.is_eq
+         && List.mem inv.state n.semantics.sem_states
+         && not (fo_mentions_var instrumentation_state_var inv.formula)
       then
         let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
         Hashtbl.replace by_state inv.state (dedup_fo (inv.formula :: existing)))
-    n.attrs.invariants_state_rel;
+    n.specification.spec_invariants_state_rel;
   by_state
 
-let state_invariant_from_node (n : node) : ident -> fo_ltl option =
+let state_invariant_from_node (n : node) : ident -> ltl option =
   let from_declared = declared_state_invariants n in
   let by_dst = user_ensures_by_target_state n in
   fun st ->
@@ -211,13 +215,13 @@ let state_invariant_from_node (n : node) : ident -> fo_ltl option =
     let all = dedup_fo (from_declared @ from_ensures) in
     conj_fo all
 
-let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
-  let existing = n.attrs.invariants_state_rel in
+let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> ltl option) : node =
+  let existing = n.specification.spec_invariants_state_rel in
   let has_inv st f =
     List.exists (fun inv -> inv.is_eq && inv.state = st && inv.formula = f) existing
   in
   let extra =
-    n.states
+    n.semantics.sem_states
     |> List.filter_map (fun st ->
         match inv_of_state st with
         | None -> None
@@ -225,13 +229,17 @@ let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> fo_ltl op
         | Some f -> Some { is_eq = true; state = st; formula = f })
   in
   if extra = [] then n
-  else { n with attrs = { n.attrs with invariants_state_rel = existing @ extra } }
+  else
+    {
+      n with
+      specification = { n.specification with spec_invariants_state_rel = existing @ extra };
+    }
 
-let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
+let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> ltl option) : node =
   let is_input = Ast_utils.is_input_of_node n in
   let shift_inv inv = shift_ltl_backward_inputs ~is_input inv in
-  let add_unique_formula (origin : origin) (f : fo_ltl) (xs : fo_o list) : fo_o list =
-    if List.exists (fun (x : fo_o) -> x.value = f) xs then xs
+  let add_unique_formula (origin : origin) (f : ltl) (xs : ltl_o list) : ltl_o list =
+    if List.exists (fun (x : ltl_o) -> x.value = f) xs then xs
     else xs @ [ Ast_provenance.with_origin origin f ]
   in
   let trans =
@@ -248,13 +256,13 @@ let inject_state_invariant_contracts (n : node) ~(inv_of_state : ident -> fo_ltl
           | Some inv -> add_unique_formula Coherency (shift_inv inv) t.ensures
         in
         if requires == t.requires && ensures == t.ensures then t else { t with requires; ensures })
-      n.trans
+      n.semantics.sem_trans
   in
-  { n with trans }
+  { n with semantics = { n.semantics with sem_trans = trans } }
 
-let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> fo_ltl option) : node =
+let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> ltl option) : node =
   let is_input = Ast_utils.is_input_of_node n in
-  match inv_of_state n.init_state with
+  match inv_of_state n.semantics.sem_init_state with
   | None -> n
   | Some inv ->
       let init_goal = shift_ltl_backward_inputs ~is_input inv in

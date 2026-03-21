@@ -1,3 +1,5 @@
+(** Human-readable renderers for product exploration diagnostics. *)
+
 type rendered = {
   guarantee_automaton_lines : string list;
   assume_automaton_lines : string list;

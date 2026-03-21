@@ -115,7 +115,7 @@ let rec ltl_mentions_monitor = function
 let compute_transition_contracts ~(env : env)
     ~(runtime_transitions : Why_runtime_view.runtime_transition_view list)
     ~(labeled_trans :
-       (Why_runtime_view.runtime_transition_view * (Ast.fo_o * string) list * (Ast.fo_ltl * string * string) list)
+       (Why_runtime_view.runtime_transition_view * (Ast.ltl_o * string) list * (Ast.ltl * string * string) list)
        list)
     ~(has_monitor_instrumentation : bool) ~(post_contract_user : Ptree.term list)
     ~(use_kernel_product_contracts : bool)
@@ -209,7 +209,7 @@ let compute_transition_contracts ~(env : env)
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
               (List.filter_map
-                 (fun (f : Ast.fo_o) ->
+                 (fun (f : Ast.ltl_o) ->
                    if ltl_mentions_monitor f.value then None else Some f.value)
                  t.requires)
           in

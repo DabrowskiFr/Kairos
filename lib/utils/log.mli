@@ -1,4 +1,4 @@
-(* Logging helpers used by CLI/IDE. *)
+(** Logging helpers shared by the CLI and editor integrations. *)
 
 (* Configure logging level and optional file output. *)
 val setup : level:Logs.level option -> log_file:string option -> unit
