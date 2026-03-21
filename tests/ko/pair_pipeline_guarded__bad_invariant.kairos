@@ -11,7 +11,7 @@ states
   Init(init), Idle, Run;
 invariants
   in Init:
-    undefined_invariant_symbol = 0;
+    0 = 1;
 transitions
   Init:
     to Run when enable = 1 {

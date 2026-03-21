@@ -1,6 +1,6 @@
 node delay_int2(x: int) returns (y: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: next next always ( y = prev x );
 locals
   s1, s2: int;
 states

@@ -2,7 +2,7 @@ import "./guarded_dd_core.kobj";
 
 node guarded_double_delay_instance(enable: int, x: int) returns (mid: int, y: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G (enable = 1 => X G (mid = x));
 instances
   instance d1: guarded_dd_core;
   instance d2: guarded_dd_core;

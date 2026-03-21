@@ -8,7 +8,7 @@ states
   Init(init), Green, Yellow, Red;
 invariants
   in Green:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Yellow:
     color = 1;
   in Red:

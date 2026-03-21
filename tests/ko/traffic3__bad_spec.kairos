@@ -1,6 +1,6 @@
 node traffic3() returns (color: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G( color = 0 => X( color = 2 ) );
 locals
 states
   Init(init), Green, Yellow, Red;

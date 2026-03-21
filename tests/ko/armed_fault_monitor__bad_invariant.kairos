@@ -9,7 +9,7 @@ states
   Init(init), Disarmed, Armed;
 invariants
   in Disarmed:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Armed:
     armed = 1;
 transitions

@@ -6,7 +6,7 @@ states
   Init(init), Wait, Latched;
 invariants
   in Init:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Wait:
     ack = 0;
   in Latched:

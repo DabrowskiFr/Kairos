@@ -2,7 +2,7 @@ import "./pair_pipeline_core.kobj";
 
 node pair_pipeline_guarded(enable: int, x: int) returns (a: int, b: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G (enable = 1 => X G ((a = x) and (b = a)));
 instances
   instance d: pair_pipeline_core;
 locals

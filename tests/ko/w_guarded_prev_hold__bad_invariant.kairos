@@ -8,7 +8,7 @@ states
   Init(init), Wait, Hold;
 invariants
   in Hold:
-    undefined_invariant_symbol = 0;
+    0 = 1;
 transitions
   Init:
     to Hold when gate = 1 {

@@ -1,7 +1,7 @@
 node run_ready_guarded(go: int, err: int) returns (mode: int, ready: int)
 contracts
   requires: G (err = 0 or err = 1);
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G (go = 1 => G (mode = 2));
 locals
   armed: int;
 states

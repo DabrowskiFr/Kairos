@@ -9,7 +9,7 @@ states
   Init(init), Run;
 invariants
   in Run:
-    undefined_invariant_symbol = 0;
+    0 = 1;
 transitions
   Init:
     to Run  {

@@ -1,7 +1,7 @@
 node w_bundle_prev_window(open: int, close: int, x: int) returns (flag: int, out: int)
 contracts
   requires: G((open = 0 or open = 1) and (close = 0 or close = 1));
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: next always ((open = 1 and open = 1) => (((flag = 1) and (out = 0)) W (close = 1)));
 locals
   hold: int;
 states
@@ -10,7 +10,7 @@ invariants
   in Idle:
     flag = 0;
   in Live:
-    flag = 1 and out = hold;
+    flag = 1 and out = 0;
 transitions
   Init:
     to Live when open = 1 and close = 0 {
@@ -42,7 +42,7 @@ transitions
     }
     to Live when close = 0 {
       flag := 1;
-      out := hold;
+      out := 0;
       hold := x;
     }
 end

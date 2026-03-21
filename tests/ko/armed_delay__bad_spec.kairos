@@ -1,6 +1,6 @@
 node armed_delay(arm: int, x: int) returns (y: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G (arm = 1 => X G (y = x));
 locals
   z: int;
 states

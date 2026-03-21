@@ -1,6 +1,6 @@
 node edge_rise(x: int) returns (y: int)
 contracts
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: G ( {y} = {2} => {x} = {1} );
 locals
   s : int;
 states

@@ -8,7 +8,7 @@ states
   Init(init), Idle, Live;
 invariants
   in Idle:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Live:
     flag = 1 and out = 0;
 transitions

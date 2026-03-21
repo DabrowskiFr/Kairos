@@ -10,7 +10,7 @@ states
   Init(init), Idle, Run;
 invariants
   in Idle:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Run:
     mode = armed and
     armed = 1;

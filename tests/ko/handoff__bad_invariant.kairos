@@ -7,7 +7,7 @@ states
   Init(init), A, B;
 invariants
   in A:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in B:
       modeA = 0;
       modeB = 1;

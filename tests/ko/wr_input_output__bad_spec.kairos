@@ -1,7 +1,7 @@
 node wr_input_output(x: int) returns (y: int)
 contracts
   requires: G(x = 0 or x = 1);
-  ensures: G (undefined_spec_symbol = 0);
+  ensures: X G((x = 1) => ((y = 2) W (x = 0)));
 states
   Init(init), Run;
 transitions

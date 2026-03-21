@@ -7,7 +7,7 @@ states
   Init1(init), Init2, Run;
 invariants
   in Init2:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in Run:
     s1 = prev x;
     s2 = prev2 x;

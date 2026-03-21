@@ -7,7 +7,7 @@ states
   Init(init), Idle, Track;
 invariants
   in Track:
-    undefined_invariant_symbol = 0;
+    0 = 1;
 transitions
   Init:
     to Track when arm = 1 {

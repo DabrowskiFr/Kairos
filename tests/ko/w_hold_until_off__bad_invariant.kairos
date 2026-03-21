@@ -6,7 +6,7 @@ states
   Init(init), Off, On;
 invariants
   in Off:
-    undefined_invariant_symbol = 0;
+    0 = 1;
   in On:
     light = 1;
 transitions

@@ -6,7 +6,7 @@ states
   S(init);
 invariants
   in S:
-    undefined_invariant_symbol = 0;
+    0 = 1;
 transitions
   S:
     to S {
