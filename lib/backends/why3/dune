@@ -1,0 +1,9 @@
+(library
+ (name kairos_why3)
+ (wrapped false)
+ (modules
+  emit
+  why_types why_core why_compile_expr why_env why_runtime_view
+  why_labels why_call_plan why_contract_plan why_contracts
+  why_diagnostics why_prove)
+ (libraries kairos_ast kairos_logic kairos_stages kairos_utils kairos_instrumentation why3))

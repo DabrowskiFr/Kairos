@@ -1,0 +1,199 @@
+(*---------------------------------------------------------------------------
+ * Kairos — Text renderer for the three IR layers.
+ *
+ * Produces a human-readable `.kir` representation of:
+ *   raw_node       (Pass 3 output)
+ *   annotated_node (Pass 4 output)
+ *   verified_node  (Pass 5 output)
+ *---------------------------------------------------------------------------*)
+
+let separator = "# " ^ String.make 48 '='
+
+(* ------------------------------------------------------------------ *)
+(* Helpers                                                              *)
+(* ------------------------------------------------------------------ *)
+
+let render_ty (t : Ast.ty) : string =
+  match t with
+  | TInt -> "int"
+  | TBool -> "bool"
+  | TReal -> "real"
+  | TCustom s -> s
+
+let render_vdecl (d : Ast.vdecl) : string =
+  d.vname ^ " : " ^ render_ty d.vty
+
+let render_vdecl_list (ds : Ast.vdecl list) : string =
+  match ds with
+  | [] -> "(none)"
+  | _ -> String.concat ", " (List.map render_vdecl ds)
+
+let render_ident_list (ids : Ast.ident list) : string =
+  match ids with
+  | [] -> "(none)"
+  | _ -> String.concat " | " ids
+
+let render_instances (insts : (Ast.ident * Ast.ident) list) : string =
+  match insts with
+  | [] -> "(none)"
+  | _ -> String.concat ", " (List.map (fun (i, n) -> i ^ " : " ^ n) insts)
+
+let render_pre_k_map (m : (Ast.hexpr * Support.pre_k_info) list) : string =
+  match m with
+  | [] -> "(none)"
+  | _ ->
+      String.concat "\n    "
+        (List.map
+           (fun (h, (info : Support.pre_k_info)) ->
+             let names_str = String.concat ", " info.names in
+             let ty_str = render_ty info.vty in
+             Support.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
+           m)
+
+let render_stmt (s : Ast.stmt) : string =
+  match s.stmt with
+  | SAssign (v, e) -> v ^ " := " ^ Support.string_of_iexpr e
+  | SIf (c, _t, []) -> "if " ^ Support.string_of_iexpr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Support.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SCall (inst, args, rets) ->
+      "(" ^ String.concat ", " rets ^ ") := " ^ inst
+      ^ "(" ^ String.concat ", " (List.map Support.string_of_iexpr args) ^ ")"
+  | SSkip -> "skip"
+  | SMatch (e, _branches, _default) ->
+      "match " ^ Support.string_of_iexpr e ^ " { ... }"
+
+let render_stmt_list (stmts : Ast.stmt list) : string =
+  match stmts with
+  | [] -> "(none)"
+  | _ -> String.concat "\n    " (List.map render_stmt stmts)
+
+let render_ltl_list (fs : Ast.ltl list) : string =
+  match fs with
+  | [] -> "(none)"
+  | _ -> String.concat "\n    " (List.map Support.string_of_ltl fs)
+
+let render_fo_o_list (fs : Ast.ltl_o list) : string =
+  match fs with
+  | [] -> "(none)"
+  | _ -> String.concat "\n    " (List.map (fun (f : Ast.ltl_o) -> Support.string_of_ltl f.value) fs)
+
+(* ------------------------------------------------------------------ *)
+(* raw_node                                                             *)
+(* ------------------------------------------------------------------ *)
+
+let render_raw_node_header (n : Kairos_ir.raw_node) : string =
+  Printf.sprintf
+    "# [raw] %s\n%s\n\n[node %s]\n  inputs      : %s\n  outputs     : %s\n  locals      : %s\n  states      : %s\n  init        : %s\n  instances   : %s\n  pre_k       : %s\n\n  assumes     : %s\n  guarantees  : %s"
+    n.node_name separator n.node_name
+    (render_vdecl_list n.inputs)
+    (render_vdecl_list n.outputs)
+    (render_vdecl_list n.locals)
+    (render_ident_list n.control_states)
+    n.init_state
+    (render_instances n.instances)
+    (render_pre_k_map n.pre_k_map)
+    (render_ltl_list n.assumes)
+    (render_ltl_list n.guarantees)
+
+let render_raw_transition (t : Kairos_ir.raw_transition) : string =
+  let guard_str = Support.string_of_ltl t.guard in
+  let guard_iexpr_str =
+    match t.guard_iexpr with
+    | None -> ""
+    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+  in
+  Printf.sprintf
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s"
+    t.src_state t.dst_state
+    guard_str
+    guard_iexpr_str
+    (render_stmt_list t.ghost_stmts)
+    (render_stmt_list t.body_stmts)
+    (render_stmt_list t.instrumentation_stmts)
+
+let render_raw_node (n : Kairos_ir.raw_node) : string =
+  let header = render_raw_node_header n in
+  let transitions = List.map render_raw_transition n.transitions in
+  header ^ "\n" ^ String.concat "\n" transitions ^ "\n"
+
+(* ------------------------------------------------------------------ *)
+(* annotated_node                                                       *)
+(* ------------------------------------------------------------------ *)
+
+let render_annotated_transition (t : Kairos_ir.annotated_transition) : string =
+  let raw = t.raw in
+  let guard_str = Support.string_of_ltl raw.guard in
+  let guard_iexpr_str =
+    match raw.guard_iexpr with
+    | None -> ""
+    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+  in
+  Printf.sprintf
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
+    raw.src_state raw.dst_state
+    guard_str
+    guard_iexpr_str
+    (render_stmt_list raw.ghost_stmts)
+    (render_stmt_list raw.body_stmts)
+    (render_stmt_list raw.instrumentation_stmts)
+    (render_fo_o_list t.requires)
+    (render_fo_o_list t.ensures)
+
+let render_annotated_node (n : Kairos_ir.annotated_node) : string =
+  let raw = n.raw in
+  let header =
+    Printf.sprintf
+      "# [annotated] %s\n%s\n\n[node %s]\n  inputs      : %s\n  outputs     : %s\n  locals      : %s\n  states      : %s\n  init        : %s\n  instances   : %s\n  pre_k       : %s\n\n  assumes     : %s\n  guarantees  : %s"
+      raw.node_name separator raw.node_name
+      (render_vdecl_list raw.inputs)
+      (render_vdecl_list raw.outputs)
+      (render_vdecl_list raw.locals)
+      (render_ident_list raw.control_states)
+      raw.init_state
+      (render_instances raw.instances)
+      (render_pre_k_map raw.pre_k_map)
+      (render_ltl_list raw.assumes)
+      (render_ltl_list raw.guarantees)
+  in
+  let transitions = List.map render_annotated_transition n.transitions in
+  header ^ "\n" ^ String.concat "\n" transitions ^ "\n"
+
+(* ------------------------------------------------------------------ *)
+(* verified_node                                                        *)
+(* ------------------------------------------------------------------ *)
+
+let render_verified_transition (t : Kairos_ir.verified_transition) : string =
+  let guard_str = Support.string_of_ltl t.guard in
+  let guard_iexpr_str =
+    match t.guard_iexpr with
+    | None -> ""
+    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+  in
+  Printf.sprintf
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s\n  pre_k_upd   :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
+    t.src_state t.dst_state
+    guard_str
+    guard_iexpr_str
+    (render_stmt_list t.ghost_stmts)
+    (render_stmt_list t.body_stmts)
+    (render_stmt_list t.instrumentation_stmts)
+    (render_stmt_list t.pre_k_updates)
+    (render_fo_o_list t.requires)
+    (render_fo_o_list t.ensures)
+
+let render_verified_node (n : Kairos_ir.verified_node) : string =
+  let header =
+    Printf.sprintf
+      "# [verified] %s\n%s\n\n[node %s]\n  inputs      : %s\n  outputs     : %s\n  locals      : %s\n  states      : %s\n  init        : %s\n  instances   : %s\n\n  assumes     : %s\n  guarantees  : %s"
+      n.node_name separator n.node_name
+      (render_vdecl_list n.inputs)
+      (render_vdecl_list n.outputs)
+      (render_vdecl_list n.locals)
+      (render_ident_list n.control_states)
+      n.init_state
+      (render_instances n.instances)
+      (render_ltl_list n.assumes)
+      (render_ltl_list n.guarantees)
+  in
+  let transitions = List.map render_verified_transition n.transitions in
+  header ^ "\n" ^ String.concat "\n" transitions ^ "\n"

@@ -1,0 +1,7 @@
+(library
+ (name kairos_lsp_protocol)
+ (public_name kairos.lsp_protocol)
+ (wrapped false)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))

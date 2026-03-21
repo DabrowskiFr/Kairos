@@ -1,0 +1,13 @@
+(** Stage-specific type aliases used to make pipeline intent explicit. *)
+
+(* Parsed AST, directly from the frontend. *)
+type parsed = Ast.program
+
+(* AST after contract coherency/compatibility pass. *)
+type contracts_stage = Ast.program
+
+(* AST after monitor injection. *)
+type instrumentation_stage = Ast.program
+
+(* AST ready for Why3 emission (currently same representation). *)
+type why_stage = Ast.program

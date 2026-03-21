@@ -1,0 +1,16 @@
+(library
+ (name kairos_instrumentation)
+ (wrapped false)
+ (modules
+  stage_info abstract_model
+  product_types product_build product_kernel_ir product_debug product_contracts
+  kernel_guided_contract contract_coherency contracts_pass dot_emit
+  parse_file frontend
+  instrumentation instrumentation_pass middle_end middle_end_pass
+  automata_pass_sig automata_pass automata_default
+  middle_end_stages
+  kairos_ir ir_production triple_computation history_elimination
+  kairos_ir_render kairos_ir_dot)
+ (libraries kairos_ast kairos_logic kairos_parse kairos_stages kairos_automata kairos_utils why3 yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))
