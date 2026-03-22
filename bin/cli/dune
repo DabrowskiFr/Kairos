@@ -2,10 +2,10 @@
  (name main)
  (public_name kairos)
  (modules main cli)
- (libraries kairos_pipeline cmdliner))
+ (libraries kairos_pipeline kairos_services kairos_artifacts kairos_kobj kairos_lsp_protocol kairos_lsp_app cmdliner))
 
 (executable
- (name main_v2)
- (public_name kairos_v2)
- (modules main_v2 cli_v2)
- (libraries kairos_pipeline cmdliner))
+ (name main_pipeline)
+ (public_name kairos-pipeline)
+ (modules main_pipeline cli_pipeline)
+ (libraries kairos_pipeline kairos_services kairos_artifacts kairos_kobj cmdliner))

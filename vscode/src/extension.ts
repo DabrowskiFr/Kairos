@@ -754,10 +754,10 @@ ${rows
     const inputFile = ctx.inputFile;
     const lspCfg = vscode.workspace.getConfiguration("kairos.lsp");
     const lspPath = lspCfg.get<string>("serverPath", "kairos-lsp");
-    // Derive CLI binary: replace 'kairos-lsp' with 'kairos_v2' in the path.
+    // Derive CLI binary: replace 'kairos-lsp' with 'kairos-pipeline' in the path.
     const cliPath = path.isAbsolute(lspPath)
-      ? path.join(path.dirname(lspPath), "kairos_v2")
-      : "kairos_v2";
+      ? path.join(path.dirname(lspPath), "kairos-pipeline")
+      : "kairos-pipeline";
     const dotCfg = vscode.workspace.getConfiguration("kairos");
     const dotBin = dotCfg.get<string>("graphviz.dotPath", "dot");
 

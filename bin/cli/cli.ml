@@ -192,14 +192,14 @@ let run dump_dot dump_dot_short dump_automata dump_product
             | Error msg -> `Error (false, msg)
             | Ok trace_text -> (
                 match
-                  Engine_service.eval_pass ~engine:Engine_service.V2 ~input_file:file ~trace_text
+                  Engine_service.eval_pass ~engine:Engine_service.Default ~input_file:file ~trace_text
                     ~with_state:eval_with_state ~with_locals:eval_with_locals
                 with
                 | Error err -> `Error (false, Pipeline.error_to_string err)
                 | Ok out ->
                     (match eval_out with
                     | None | Some "-" -> print_endline out
-                    | Some path -> Io.write_text path out);
+                    | Some path -> Artifact_io.write_text path out);
                     `Ok ()))
           else
             let v2_supported =
@@ -216,7 +216,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
               let write_target out text =
                 match out with
                 | "-" -> print_string text
-                | path -> Io.write_text path text
+                | path -> Artifact_io.write_text path text
               in
               match
                 (dump_dot, dump_dot_short, dump_automata, dump_product, dump_obligations_map, dump_prune_reasons)
@@ -234,7 +234,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     if Filename.check_suffix file ".kobj" then
                       Kairos_object.read_file ~path:file
                     else
-                      match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
+                      match Engine_service.compile_object ~engine:Engine_service.Default ~input_file:file with
                       | Ok obj -> Ok obj
                       | Error e -> Error (Pipeline.error_to_string e)
                   in
@@ -244,7 +244,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       write_target out (render obj ^ "\n");
                       `Ok ())
               | _ when emit_kobj <> None -> (
-                  match Engine_service.compile_object ~engine:Engine_service.V2 ~input_file:file with
+                  match Engine_service.compile_object ~engine:Engine_service.Default ~input_file:file with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
                   | Ok obj ->
                       let out = Option.get emit_kobj in
@@ -254,7 +254,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
               | Some out, None, None, None, None, None
               | None, Some out, None, None, None, None -> (
                   match
-                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                    Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -270,7 +270,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       `Ok ())
               | None, None, Some out, None, None, None -> (
                   match
-                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                    Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -279,7 +279,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       `Ok ())
               | None, None, None, Some out, None, None -> (
                   match
-                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                    Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -288,7 +288,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       `Ok ())
               | None, None, None, None, Some out, None -> (
                   match
-                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                    Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -297,7 +297,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       `Ok ())
               | None, None, None, None, None, Some out -> (
                   match
-                    Engine_service.instrumentation_pass ~engine:Engine_service.V2 ~generate_png:false
+                    Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
@@ -324,7 +324,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       generate_dot_png = false;
                     }
                   in
-                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  match Engine_service.run ~engine:Engine_service.Default cfg with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
                   | Ok outputs ->
                       let mapped = Lsp_app.map_outputs outputs in
@@ -372,13 +372,13 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       generate_dot_png = false;
                     }
                   in
-                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  match Engine_service.run ~engine:Engine_service.Default cfg with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
                   | Ok outputs ->
                       let goal_index = Option.get proof_trace_goal_index in
                       let payload =
                         match
-                          Why_prove.native_unsat_core_for_goal ~timeout:timeout_s ~prover
+                          Why_contract_prove.native_unsat_core_for_goal ~timeout:timeout_s ~prover
                             ~text:outputs.why_text ~goal_index ()
                         with
                         | None -> `Null
@@ -416,13 +416,13 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       generate_dot_png = false;
                     }
                   in
-                  match Engine_service.run ~engine:Engine_service.V2 cfg with
+                  match Engine_service.run ~engine:Engine_service.Default cfg with
                   | Error e -> `Error (false, Pipeline.error_to_string e)
                   | Ok outputs ->
                       let goal_index = Option.get proof_trace_goal_index in
                       let payload =
                         match
-                          Why_prove.native_solver_probe_for_goal ~timeout:timeout_s ~prover
+                          Why_contract_prove.native_solver_probe_for_goal ~timeout:timeout_s ~prover
                             ~text:outputs.why_text ~goal_index ()
                         with
                         | None -> `Null
@@ -445,7 +445,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       | path -> Yojson.Safe.to_file path payload);
                       `Ok ())
               | _ ->
-                  let cfg : V2_pipeline.config =
+                  let cfg : Pipeline_cli_service.config =
                     {
                       input_file = file;
                       dump_why = output_file;
@@ -457,7 +457,9 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       prover_cmd;
                     }
                   in
-                  (match V2_pipeline.run cfg with Ok () -> `Ok () | Error msg -> `Error (false, msg)))
+                  (match Pipeline_cli_service.run cfg with
+                  | Ok () -> `Ok ()
+                  | Error msg -> `Error (false, msg)))
       end
 
 let cmd =

@@ -212,8 +212,8 @@ let client_supports_work_done_progress = Lsp_app.client_supports_work_done_progr
 
 let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   match get_param_string params "engine" with
-  | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.V2
-  | None -> Engine_service.V2
+  | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.Default
+  | None -> Engine_service.Default
 
 let get_why_mode (params : Yojson.Safe.t) : Pipeline.why_translation_mode =
   match get_param_string params "whyMode" with
@@ -253,7 +253,7 @@ let kobj_request_input_and_engine (params : Yojson.Safe.t) :
   in
   let engine =
     match req with
-    | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+    | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
     | None -> get_engine params
   in
   (input_file, engine)
@@ -686,7 +686,7 @@ let () =
                 in
                 let engine =
                   match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
                   | None -> get_engine params
                 in
                 match input_file with
@@ -718,7 +718,7 @@ let () =
                 in
                 let engine =
                   match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
                   | None -> get_engine params
                 in
                 let why_translation_mode =
@@ -757,7 +757,7 @@ let () =
                 in
                 let engine =
                   match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
                   | None -> get_engine params
                 in
                 let why_translation_mode =
@@ -802,7 +802,7 @@ let () =
                 in
                 let engine =
                   match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.V2
+                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
                   | None -> get_engine params
                 in
                 match (input_file, trace_text) with
@@ -873,7 +873,7 @@ let () =
                 in
                 match dot with
                 | Some dot ->
-                    let out = Pipeline.dot_png_from_text dot in
+                    let out = Graphviz_render.dot_png_from_text dot in
                     send_result stdout ~id_json:id
                       ~result_json:(match out with None -> `Null | Some s -> `String s)
                 | None -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing dotText")
@@ -931,7 +931,7 @@ let () =
                     in
                     let engine =
                       match cfg_from_protocol with
-                      | Some cfg -> Option.value (Engine_service.engine_of_string cfg.engine) ~default:Engine_service.V2
+                      | Some cfg -> Option.value (Engine_service.engine_of_string cfg.engine) ~default:Engine_service.Default
                       | None -> get_engine params
                     in
                     if !supports_work_done_progress then

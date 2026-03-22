@@ -1,8 +1,0 @@
-let stage_automata_generation = Middle_end_stages.stage_automata_generation
-let stage_automata_generation_with_info = Middle_end_stages.stage_automata_generation_with_info
-let stage_contracts = Middle_end_stages.stage_contracts
-let stage_contracts_with_info = Middle_end_stages.stage_contracts_with_info
-let stage_instrumentation ?external_summaries = Middle_end_stages.stage_instrumentation ?external_summaries
-let stage_instrumentation_with_info ?external_summaries =
-  Middle_end_stages.stage_instrumentation_with_info ?external_summaries
-let run = Middle_end_stages.run

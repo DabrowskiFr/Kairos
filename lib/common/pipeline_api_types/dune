@@ -1,0 +1,7 @@
+(library
+ (name kairos_pipeline_api_types)
+ (wrapped false)
+ (modules pipeline_api_types)
+ (libraries
+  kairos_ast kairos_parse kairos_stages kairos_stage_metadata kairos_common_ir
+  kairos_middle_end))

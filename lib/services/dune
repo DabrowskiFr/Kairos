@@ -1,0 +1,5 @@
+(library
+ (name kairos_services)
+ (wrapped false)
+ (modules engine_service pipeline_service pipeline_cli_service)
+ (libraries kairos_pipeline kairos_kobj))
