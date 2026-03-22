@@ -474,35 +474,15 @@ let drop_exact_formula (target : ltl option) (trans : Abs.transition list) : Abs
 let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
     ~(analysis : Product_build.analysis) ~(instrumentation_updates : stmt list)
     ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : ltl option)
-    ~(incoming_prev_fo_shifted : ltl list) ~(compat_invariants : invariant_state_rel list)
+    ~(incoming_prev_fo_shifted : ltl list)
     ~(log_contract : reason:string -> t:Abs.transition -> ltl -> unit) : Abs.transition list =
   let _ = build in
-  let reachable_monitor_states =
-    analysis.exploration.states
-    |> List.filter (fun (st : Product_types.product_state) ->
-           st.assume_state <> analysis.assume_bad_idx
-           && st.guarantee_state <> analysis.guarantee_bad_idx)
-    |> List.map (fun (st : Product_types.product_state) -> state_ctor st.guarantee_state)
-    |> List.sort_uniq String.compare
-  in
-  let trans = inject_instrumentation_code ~instrumentation_updates ~instrumentation_asserts n.trans in
-  (* Proof obligations for the current tick and delayed variables must come
-     from explicit kernel clauses, not from replaying monitor guards on
-     transitions. Keep monitor/state simulation, but do not project
-     assume/guarantee guards back into transition contracts. *)
-  let trans =
-    add_state_invariants_to_transitions ~invariants_state_rel:compat_invariants
-      ~log:(Some (fun t f -> log_contract ~reason:"Product/compat_invariant" ~t f))
-      ~add_to_ensures:false trans
-  in
-  trans
-  |> List.map (fun (t : Abs.transition) ->
-         {
-           t with
-           requires = filter_monitor_state_formulas ~reachable_states:reachable_monitor_states t.requires;
-           ensures = filter_monitor_state_formulas ~reachable_states:reachable_monitor_states t.ensures;
-         })
-  |> drop_exact_formula bad_state_fo_opt
+  let _ = analysis in
+  let _ = instrumentation_updates in
+  let _ = instrumentation_asserts in
+  let _ = incoming_prev_fo_shifted in
+  let _ = log_contract in
+  n.trans |> drop_exact_formula bad_state_fo_opt
 
 let empty_instrumentation_info ~(states : Ast.ltl list) ~(atom_names : ident list)
     : Stage_info.instrumentation_info =
@@ -628,14 +608,13 @@ let add_initial_automaton_support_goal ~(ctx : node_context) (n : Ast.node) : As
   n
 
 let finalize_instrumented_node ~(ctx : node_context) ~(n : node) ~(trans : Abs.transition list) : node =
-  let instrumentation_local = { vname = instrumentation_state_name; vty = TCustom instrumentation_state_type } in
   let n =
     {
       n with
       semantics =
         {
           n.semantics with
-          sem_locals = n.semantics.sem_locals @ [ instrumentation_local ];
+          sem_locals = n.semantics.sem_locals;
           sem_trans = List.map Abs.to_ast_transition trans;
         };
       specification =
@@ -670,7 +649,6 @@ let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~(n : Abs.node)
     ~(log_contract : reason:string -> t:Abs.transition -> ltl -> unit) : Abs.transition list =
   let analysis = Product_build.analyze_node ~build ~node:n in
-  let compat_invariants = Product_contracts.compat_invariants ~node:n ~analysis in
   let processing_ctx =
     build_processing_context ~grouped:ctx.grouped ~states:ctx.states
       ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo ~is_input:ctx.is_input
@@ -678,7 +656,7 @@ let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
   apply_contract_pipeline ~n ~build ~analysis
     ~instrumentation_updates:processing_ctx.instrumentation_updates ~instrumentation_asserts:processing_ctx.instrumentation_asserts
     ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
-    ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
+    ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~log_contract
 
 let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_summaries = []) (n : Abs.node) :
     Abs.node * Stage_info.instrumentation_info =
@@ -697,7 +675,6 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
   log_instrumentation_debug_info ~ctx ~build ~debug_incoming;
   let product_analysis = Product_build.analyze_node ~build ~node:n in
   let trans =
-    let compat_invariants = Product_contracts.compat_invariants ~node:n ~analysis:product_analysis in
     let processing_ctx =
       build_processing_context ~grouped:ctx.grouped ~states:ctx.states
         ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo ~is_input:ctx.is_input
@@ -706,7 +683,7 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
       ~instrumentation_updates:processing_ctx.instrumentation_updates
       ~instrumentation_asserts:processing_ctx.instrumentation_asserts
       ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
-      ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~compat_invariants ~log_contract
+      ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~log_contract
   in
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
   let raw_ir = Ir_production.build_raw_node node in

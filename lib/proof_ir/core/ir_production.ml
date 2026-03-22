@@ -20,11 +20,10 @@ let raw_transition_of_abs (t : Abs.transition) : Kairos_ir.raw_transition =
     instrumentation_stmts           = t.attrs.instrumentation;
   }
 
-(** Build a [Kairos_ir.raw_node] from a finalized instrumented abstract node.
+(** Build a [Kairos_ir.raw_node] from a finalized abstract node.
 
-    The node must already have:
-    - monitor update stmts in each transition's [attrs.instrumentation]
-    - [__aut_state] in [semantics.sem_locals]
+    The node carries:
+    - the executable transition body exported by the middle-end
     - [specification.spec_assumes/guarantees] set to the user LTL contracts
 
     No requires/ensures are copied — those are the responsibility of pass 4. *)
