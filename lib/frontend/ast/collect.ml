@@ -193,6 +193,7 @@ let collect_calls_trans_full (ts : transition list) : (ident * iexpr list * iden
 let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
+    | LX a -> find_in_ltl a
     | LAtom (FRel (HNow a, REq, HPreK (b, 1))) | LAtom (FRel (HPreK (b, 1), REq, HNow a)) -> begin
         match (as_var a, as_var b) with Some out, Some inp -> Some (out, inp) | _ -> None
       end

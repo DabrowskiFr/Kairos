@@ -27,6 +27,7 @@ open Why_compile_expr
 open Why_labels
 
 let compile_seq = Why_core.compile_seq
+let compile_transition_body = Why_core.compile_transition_body
 let compile_state_body = Why_core.compile_state_body
 let compile_state_branch = Why_core.compile_state_branch
 let compile_transitions = Why_core.compile_transitions
@@ -54,6 +55,41 @@ let empty_spec () : Ptree.spec =
   }
 
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinop (a, Dterm.DTand, b))
+
+let rec iexpr_of_selector_ltl (f : Ast.ltl) : Ast.iexpr option =
+  let rec hexpr_to_iexpr = function
+    | HNow e -> Some e
+    | HPreK _ -> None
+  in
+  match f with
+  | LTrue -> Some (Ast_builders.mk_bool true)
+  | LFalse -> Some (Ast_builders.mk_bool false)
+  | LAtom (FRel (h1, r, h2)) -> begin
+      match (hexpr_to_iexpr h1, hexpr_to_iexpr h2) with
+      | Some e1, Some e2 -> Some { iexpr = IBin (relop_to_binop r, e1, e2); loc = None }
+      | _ -> None
+    end
+  | LNot a -> Option.map (fun e -> { iexpr = IUn (Not, e); loc = None }) (iexpr_of_selector_ltl a)
+  | LAnd (a, b) ->
+      Option.bind (iexpr_of_selector_ltl a) (fun ea ->
+          Option.map (fun eb -> { iexpr = IBin (And, ea, eb); loc = None }) (iexpr_of_selector_ltl b))
+  | LOr (a, b) ->
+      Option.bind (iexpr_of_selector_ltl a) (fun ea ->
+          Option.map (fun eb -> { iexpr = IBin (Or, ea, eb); loc = None }) (iexpr_of_selector_ltl b))
+  | LImp (a, b) ->
+      Option.bind (iexpr_of_selector_ltl a) (fun ea ->
+          Option.map
+            (fun eb -> { iexpr = IBin (Or, { iexpr = IUn (Not, ea); loc = None }, eb); loc = None })
+            (iexpr_of_selector_ltl b))
+  | LX _ | LG _ | LW _ | LAtom (FPred _) -> None
+
+and relop_to_binop = function
+  | REq -> Eq
+  | RNeq -> Neq
+  | RLt -> Lt
+  | RLe -> Le
+  | RGt -> Gt
+  | RGe -> Ge
 
 let binder_expr ((_, id_opt, _, _) : Ptree.binder) : Ptree.expr =
   match id_opt with Some id -> mk_expr (Eident (qid1 id.id_str)) | None -> mk_expr (Etuple [])
@@ -345,6 +381,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   let pre_source_states = contracts.pre_source_states in
   let post_source_states = contracts.post_source_states in
   let post_vcids = contracts.post_vcids in
+  let step_contracts = contracts.step_contracts in
   let use_kernel_helper_contracts =
     match kernel_ir with
     | Some ir -> Product_kernel_ir.has_effective_product_coverage ir
@@ -355,19 +392,21 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
      relational preconditions, not from re-executing product/monitor states. *)
   let branch_sticky_asserts = [] in
   let branch_entry_asserts =
-    let add_assert acc state_name term =
-      let prev = Option.value ~default:[] (List.assoc_opt state_name acc) in
-      (state_name, term :: prev) :: List.remove_assoc state_name acc
-    in
-    pre
-    |> List.mapi (fun idx term -> (idx, term))
-    |> List.fold_left
-         (fun acc (idx, term) ->
-           match List.nth_opt pre_source_states idx with
-           | Some (Some state_name) -> add_assert acc state_name term
-           | _ -> acc)
-         []
-    |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
+    if use_kernel_helper_contracts then []
+    else
+      let add_assert acc state_name term =
+        let prev = Option.value ~default:[] (List.assoc_opt state_name acc) in
+        (state_name, term :: prev) :: List.remove_assoc state_name acc
+      in
+      pre
+      |> List.mapi (fun idx term -> (idx, term))
+      |> List.fold_left
+           (fun acc (idx, term) ->
+             match List.nth_opt pre_source_states idx with
+             | Some (Some state_name) -> add_assert acc state_name term
+             | _ -> acc)
+           []
+      |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
   (* Destination-state invariant asserts: after each assign_dst inside a transition
      branch, assert the invariant of the destination state. This generates early VCs
@@ -522,7 +561,73 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     in
     (helper_pre, helper_post)
   in
+  let same_runtime_transition_as_step (step : Product_kernel_ir.product_step_ir)
+      (t : Why_runtime_view.runtime_transition_view) : bool =
+    String.equal step.program_transition_id t.transition_id
+  in
+  let step_contracts_for_transition (t : Why_runtime_view.runtime_transition_view) =
+    step_contracts
+    |> List.filter (fun (sc : Why_types.step_contract_info) ->
+           same_runtime_transition_as_step sc.step t)
+  in
+  let step_helper_name (sc : Why_types.step_contract_info) =
+    let step = sc.step in
+    Printf.sprintf "step_ps_%s_to_%s_a%d_%d_g%d_%d"
+      (String.lowercase_ascii step.src.prog_state)
+      (String.lowercase_ascii step.dst.prog_state)
+      step.src.assume_state_index step.dst.assume_state_index
+      step.src.guarantee_state_index step.dst.guarantee_state_index
+  in
+  let kernel_step_helper_decls =
+    if not use_kernel_helper_contracts then []
+    else
+      step_contracts
+      |> List.filter_map (fun (sc : Why_types.step_contract_info) ->
+             let matching_transition =
+               runtime_view.transitions
+               |> List.find_opt (fun (t : Why_runtime_view.runtime_transition_view) ->
+                      String.equal sc.step.program_transition_id t.transition_id)
+             in
+             match matching_transition with
+             | None -> None
+             | Some t ->
+                 let helper_name = ident (step_helper_name sc) in
+                 let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
+                 let spc =
+                   {
+                     Ptree.sp_pre =
+                       term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+                       :: sc.pre;
+                     sp_post = List.rev_map mk_post sc.post;
+                     sp_xpost = [];
+                     sp_reads = [];
+                     sp_writes = [];
+                     sp_alias = [];
+                     sp_variant = [];
+                     sp_checkrw = false;
+                     sp_diverge = false;
+                     sp_partial = false;
+                   }
+                 in
+                 let helper_body =
+                   let body = compile_transition_body env call_asserts [] t in
+                   mk_expr (Esequence (body, ret_expr))
+                 in
+                 let fn =
+                   mk_expr
+                     (Efun
+                        ( inputs,
+                          None,
+                          { pat_desc = Pwild; pat_loc = loc },
+                          Ity.MaskVisible,
+                          spc,
+                          helper_body ))
+                 in
+                 Some (Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
+  in
   let helper_decls =
+    if use_kernel_helper_contracts then []
+    else
     let mk_post t = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, t) ]) in
     List.map
       (fun (branch : Why_runtime_view.state_branch_view) ->
@@ -565,35 +670,52 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       runtime_view.state_branches
   in
   let wrapper_body =
-    let branches =
-      List.map
-        (fun (branch : Why_runtime_view.state_branch_view) ->
-          let helper_name =
-            Printf.sprintf "step_from_%s" (String.lowercase_ascii branch.branch_state)
-          in
-          ( { pat_desc = Papp (qid1 branch.branch_state, []); pat_loc = loc },
-            apply_expr (mk_expr (Eident (qid1 helper_name))) helper_args ))
+    if use_kernel_helper_contracts then mk_expr (Esequence (body, ret_expr))
+    else
+      let branches =
+        List.map
+          (fun (branch : Why_runtime_view.state_branch_view) ->
+            let helper_name =
+              Printf.sprintf "step_from_%s" (String.lowercase_ascii branch.branch_state)
+            in
+            let fallback_call =
+              apply_expr (mk_expr (Eident (qid1 helper_name))) helper_args
+            in
+            ( { pat_desc = Papp (qid1 branch.branch_state, []); pat_loc = loc },
+              fallback_call ))
+          runtime_view.state_branches
+      in
+      let covered_states =
         runtime_view.state_branches
-    in
-    let covered_states =
-      runtime_view.state_branches
-      |> List.map (fun (branch : Why_runtime_view.state_branch_view) -> branch.branch_state)
-      |> List.sort_uniq String.compare
-    in
-    let all_states = List.sort_uniq String.compare runtime_view.control_states in
-    let exhaustive = covered_states = all_states in
-    mk_expr
-      (Ematch
-         ( field env "st",
-           (if exhaustive then branches
-            else branches @ [ ({ pat_desc = Pwild; pat_loc = loc }, mk_expr (Esequence (body, ret_expr))) ]),
-           [] ))
+        |> List.map (fun (branch : Why_runtime_view.state_branch_view) -> branch.branch_state)
+        |> List.sort_uniq String.compare
+      in
+      let all_states = List.sort_uniq String.compare runtime_view.control_states in
+      let exhaustive = covered_states = all_states in
+      mk_expr
+        (Ematch
+           ( field env "st",
+             (if exhaustive then branches
+              else
+                branches
+                @ [ ({ pat_desc = Pwild; pat_loc = loc }, mk_expr (Esequence (body, ret_expr))) ]),
+             [] ))
   in
 
   let step_decl =
+    let wrapper_pre =
+      if not use_kernel_helper_contracts then pre
+      else
+        List.filteri
+          (fun idx _ ->
+            match List.nth_opt pre_origin_labels idx with
+            | Some "Kernel proof-step entry" -> false
+            | _ -> true)
+          pre
+    in
     let spc =
       {
-        Ptree.sp_pre = pre;
+        Ptree.sp_pre = wrapper_pre;
         sp_post = [];
         sp_xpost = [];
         sp_reads = [];
@@ -660,7 +782,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     imports @ type_mon_state @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
     @ phase_case_logic_decls
     @ instance_mirror_getter_decls
-    @ helper_decls @ [ step_decl ] @ coherency_goal_decls
+    @ kernel_step_helper_decls @ helper_decls @ [ step_decl ] @ coherency_goal_decls
     @ kernel_init_goal_decls
   in
 

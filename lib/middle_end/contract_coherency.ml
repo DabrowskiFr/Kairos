@@ -215,6 +215,12 @@ let state_invariant_from_node (n : node) : ident -> ltl option =
     let all = dedup_fo (from_declared @ from_ensures) in
     conj_fo all
 
+let state_invariant_from_ensures (n : node) : ident -> ltl option =
+  let by_dst = user_ensures_by_target_state n in
+  fun st ->
+    let from_ensures = Hashtbl.find_opt by_dst st |> Option.value ~default:[] in
+    conj_fo (dedup_fo from_ensures)
+
 let add_state_invariants_in_attrs (n : node) ~(inv_of_state : ident -> ltl option) : node =
   let existing = n.specification.spec_invariants_state_rel in
   let has_inv st f =
@@ -271,8 +277,9 @@ let add_initial_invariant_goal (n : node) ~(inv_of_state : ident -> ltl option) 
 
 let ensure_next_requires (n : Ast.node) : Ast.node =
   let inv_of_state = state_invariant_from_node n in
+  let inv_from_ensures = state_invariant_from_ensures n in
   n
-  |> inject_state_invariant_contracts ~inv_of_state
+  |> inject_state_invariant_contracts ~inv_of_state:inv_from_ensures
   |> add_state_invariants_in_attrs ~inv_of_state
   |> add_initial_invariant_goal ~inv_of_state
 

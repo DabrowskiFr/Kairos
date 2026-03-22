@@ -73,6 +73,7 @@ type action_block_view = {
 }
 
 type runtime_transition_view = {
+  transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
@@ -450,12 +451,14 @@ let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
       if block_actions = [] then None else Some { block_kind; block_actions })
     blocks
 
-let transition_of_ast (t : Ast.transition) : runtime_transition_view =
+let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_view =
   let action_blocks = action_blocks_of_transition t in
   let call_sites =
     List.concat_map (fun (block : action_block_view) -> collect_call_sites block.block_actions) action_blocks
   in
   {
+    transition_id =
+      Option.value ~default:(Printf.sprintf "%s__%s" t.src t.dst) transition_id;
     src_state = t.src;
     dst_state = t.dst;
     guard = t.guard;
@@ -541,7 +544,11 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
     in
     List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
   in
-  let transitions = List.map transition_of_ast sem.sem_trans in
+  let transitions =
+    List.mapi
+      (fun idx t -> transition_of_ast ~transition_id:(Printf.sprintf "tr_%d" idx) t)
+      sem.sem_trans
+  in
   let transition_groups = group_transitions transitions in
   {
     node_name = sem.sem_nname;
@@ -886,7 +893,12 @@ let of_exported_summary ?(external_summaries = [])
         };
     }
   in
-  let transitions = List.map transition_of_ast synthetic_trans in
+  let transitions =
+    List.map2
+      (fun (tr_ir : Product_kernel_ir.reactive_transition_ir) t ->
+        transition_of_ast ~transition_id:tr_ir.transition_id t)
+      summary.normalized_ir.reactive_program.transitions synthetic_trans
+  in
   let transition_groups = group_transitions transitions in
   {
     node_name = summary.signature.node_name;

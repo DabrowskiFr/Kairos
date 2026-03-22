@@ -34,6 +34,7 @@ type node_contract = {
   product_coverage : Product_kernel_ir.product_coverage_ir;
   obligations : obligation_layers;
   symbolic_groups : symbolic_obligation_groups;
+  proof_step_contracts : Product_kernel_ir.proof_step_contract_ir list;
   historical_clauses : Product_kernel_ir.generated_clause_ir list;
   eliminated_clauses : Product_kernel_ir.generated_clause_ir list;
   symbolic_clauses : Product_kernel_ir.relational_generated_clause_ir list;
@@ -112,6 +113,7 @@ let node_contract_of_ir (ir : Product_kernel_ir.node_ir) : node_contract =
     product_coverage = ir.product_coverage;
     obligations;
     symbolic_groups;
+    proof_step_contracts = ir.proof_step_contracts;
     historical_clauses = obligations.historical;
     eliminated_clauses = obligations.eliminated;
     symbolic_clauses = obligations.symbolic;

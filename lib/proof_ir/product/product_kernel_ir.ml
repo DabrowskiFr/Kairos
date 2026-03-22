@@ -12,6 +12,7 @@ type automaton_role =
 [@@deriving yojson]
 
 type reactive_transition_ir = {
+  transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.ltl;
@@ -70,6 +71,7 @@ type product_step_origin =
 type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
+  program_transition_id : string;
   program_transition : Ast.ident * Ast.ident;
   program_guard : Ast.ltl;
   assume_edge : automaton_edge_ir;
@@ -252,6 +254,14 @@ type call_site_instantiation_ir = {
 }
 [@@deriving yojson]
 
+type proof_step_contract_ir = {
+  step : product_step_ir;
+  entry_selector : Ast.ltl option;
+  entry_clauses : relational_generated_clause_ir list;
+  clauses : relational_generated_clause_ir list;
+}
+[@@deriving yojson]
+
 type node_ir = {
   reactive_program : reactive_program_ir;
   assume_automaton : safety_automaton_ir;
@@ -263,6 +273,7 @@ type node_ir = {
   historical_generated_clauses : generated_clause_ir list;
   eliminated_generated_clauses : generated_clause_ir list;
   symbolic_generated_clauses : relational_generated_clause_ir list;
+  proof_step_contracts : proof_step_contract_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;
@@ -549,15 +560,55 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
   let rec normalize_source_summary (f : ltl) : ltl =
     match f with
     | LNot (LOr (LNot a, LNot b)) -> LAnd (normalize_source_summary a, normalize_source_summary b)
-    | LNot inner -> LNot (normalize_source_summary inner)
-    | LAnd (a, b) -> LAnd (normalize_source_summary a, normalize_source_summary b)
-    | LOr (a, b) -> LOr (normalize_source_summary a, normalize_source_summary b)
+    | LNot inner -> begin
+        match normalize_source_summary inner with
+        | LTrue -> LFalse
+        | LFalse -> LTrue
+        | inner -> LNot inner
+      end
+    | LAnd (a, b) -> begin
+        match (normalize_source_summary a, normalize_source_summary b) with
+        | LFalse, _ | _, LFalse -> LFalse
+        | LTrue, rhs -> rhs
+        | lhs, LTrue -> lhs
+        | lhs, rhs -> LAnd (lhs, rhs)
+      end
+    | LOr (a, b) -> begin
+        match (normalize_source_summary a, normalize_source_summary b) with
+        | LTrue, _ | _, LTrue -> LTrue
+        | LFalse, rhs -> rhs
+        | lhs, LFalse -> lhs
+        | lhs, rhs -> LOr (lhs, rhs)
+      end
     | LImp (a, b) -> LImp (normalize_source_summary a, normalize_source_summary b)
     | LTrue | LFalse | LAtom _ | LX _ | LG _ | LW _ -> f
   in
   let term_or a b = normalize_source_summary (LOr (a, b)) in
   let term_and a b = normalize_source_summary (LAnd (a, b)) in
   let term_not a = normalize_source_summary (LNot a) in
+  let rec phase_summary_obviously_inconsistent (f : ltl) : bool =
+    match normalize_source_summary f with
+    | LFalse -> true
+    | LAtom
+        (FRel
+          ( HNow { iexpr = IVar x; _ },
+            RNeq,
+            HNow { iexpr = IVar y; _ } ))
+      when String.equal x y ->
+        true
+    | LNot
+        (LAtom
+          (FRel
+            ( HNow { iexpr = IVar x; _ },
+              REq,
+              HNow { iexpr = IVar y; _ } )))
+      when String.equal x y ->
+        true
+    | LNot LTrue -> true
+    | LAnd (a, b) ->
+        phase_summary_obviously_inconsistent a || phase_summary_obviously_inconsistent b
+    | _ -> false
+  in
   let same_product_state (a : product_state_ir) (b : product_state_ir) =
     a.prog_state = b.prog_state
     && a.assume_state_index = b.assume_state_index
@@ -588,6 +639,11 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
            |> List.filter (fun fo -> not (fo_mentions_current_input fo))
            |> List.sort_uniq Stdlib.compare
          in
+         let safe_cases =
+           if String.equal dst.prog_state node.semantics.sem_init_state then
+             LTrue :: safe_cases |> List.sort_uniq Stdlib.compare
+           else safe_cases
+         in
          match safe_cases with
          | [] -> None
          | safe_case :: rest ->
@@ -595,21 +651,23 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
                List.fold_left (fun acc fo -> LOr (acc, fo)) safe_case rest
                |> normalize_source_summary
              in
-             Some
-               ({
-                 origin = OriginSourceProductSummary;
-                 anchor = ClauseAnchorProductState dst;
-                 hypotheses =
-                   [
-                     current (FactProgramState dst.prog_state);
-                     current (FactGuaranteeState dst.guarantee_state_index);
+             if phase_summary_obviously_inconsistent pre_invariant then None
+             else
+               Some
+                 ({
+                   origin = OriginSourceProductSummary;
+                   anchor = ClauseAnchorProductState dst;
+                   hypotheses =
+                     [
+                       current (FactProgramState dst.prog_state);
+                       current (FactGuaranteeState dst.guarantee_state_index);
+                     ];
+                   conclusions =
+                     [
+                       current (FactPhaseFormula pre_invariant);
+                       current (FactFormula pre_invariant);
                    ];
-                 conclusions =
-                   [
-                     current (FactPhaseFormula pre_invariant);
-                     current (FactFormula pre_invariant);
-                   ];
-               } : generated_clause_ir))
+                 } : generated_clause_ir))
   in
   let summarized_states =
     incoming_summaries
@@ -645,21 +703,23 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
            match outgoing_safe_summary_for_gstate st.guarantee_state_index with
            | None -> None
            | Some phase_formula ->
-               Some
-                 ({
-                   origin = OriginSourceProductSummary;
-                   anchor = ClauseAnchorProductState st;
-                   hypotheses =
-                     [
-                       current (FactProgramState st.prog_state);
-                       current (FactGuaranteeState st.guarantee_state_index);
+               if phase_summary_obviously_inconsistent phase_formula then None
+               else
+                 Some
+                   ({
+                     origin = OriginSourceProductSummary;
+                     anchor = ClauseAnchorProductState st;
+                     hypotheses =
+                       [
+                         current (FactProgramState st.prog_state);
+                         current (FactGuaranteeState st.guarantee_state_index);
+                       ];
+                     conclusions =
+                       [
+                         current (FactPhaseFormula phase_formula);
+                         current (FactFormula phase_formula);
                      ];
-                   conclusions =
-                     [
-                       current (FactPhaseFormula phase_formula);
-                       current (FactFormula phase_formula);
-                     ];
-                 } : generated_clause_ir))
+                   } : generated_clause_ir))
   in
   let raw_summaries = incoming_summaries @ fallback_summaries in
   let phase_formula_of_clause (clause : generated_clause_ir) =
@@ -728,7 +788,7 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
              begin
                match Hashtbl.find_opt exclusive_formula_table key with
                | None -> clause
-               | Some phase_formula ->
+               | Some phase_formula when not (phase_summary_obviously_inconsistent phase_formula) ->
                    {
                      clause with
                      conclusions =
@@ -737,6 +797,7 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
                          current (FactFormula phase_formula);
                        ];
                    }
+               | Some _ -> clause
              end)
 
 let string_of_edge (edge : automaton_edge_ir) =
@@ -744,9 +805,10 @@ let string_of_edge (edge : automaton_edge_ir) =
 
 let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactive_program_ir =
   let transitions =
-    List.map
-      (fun (t : Abs.transition) ->
+    List.mapi
+      (fun idx (t : Abs.transition) ->
         {
+          transition_id = Printf.sprintf "tr_%d" idx;
           src_state = t.src;
           dst_state = t.dst;
           guard =
@@ -790,10 +852,26 @@ let build_automaton ~(role : automaton_role) ~(labels : string list) ~(bad_idx :
     edges;
   }
 
-let build_product_step (step : PT.product_step) : product_step_ir =
+let program_transition_id_of_step ~(reactive_program : reactive_program_ir) (step : PT.product_step) :
+    string =
+  let matches (tr : reactive_transition_ir) =
+    String.equal tr.src_state step.prog_transition.src
+    && String.equal tr.dst_state step.prog_transition.dst
+    && Fo_simplifier.simplify_fo tr.guard = Fo_simplifier.simplify_fo step.prog_guard
+  in
+  match List.find_opt matches reactive_program.transitions with
+  | Some tr -> tr.transition_id
+  | None ->
+      failwith
+        (Printf.sprintf
+           "Unable to associate product step %s->%s with a reactive transition in node %s"
+           step.prog_transition.src step.prog_transition.dst reactive_program.node_name)
+
+let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.product_step) : product_step_ir =
   {
     src = product_state_of_pt step.src;
     dst = product_state_of_pt step.dst;
+    program_transition_id = program_transition_id_of_step ~reactive_program step;
     program_transition = (step.prog_transition.src, step.prog_transition.dst);
     program_guard = step.prog_guard;
     assume_edge =
@@ -1009,7 +1087,8 @@ let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analy
         (Ast.LAnd (step.guarantee_edge.guard, dst_inv))
 
 let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
-    ~(live_states : PT.product_state list) : product_step_ir list =
+    ~(reactive_program : reactive_program_ir) ~(live_states : PT.product_state list) :
+    product_step_ir list =
   let live_states = List.sort_uniq PT.compare_state live_states in
   let assume_edges =
     List.map
@@ -1027,6 +1106,22 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
     edges
     |> List.filter_map (fun (s, d, g) -> if s = src && d = dst then Some g else None)
     |> List.sort_uniq Stdlib.compare
+  in
+  let transition_id_for ~(src : Ast.ident) ~(dst : Ast.ident) ~(guard : Ast.ltl) =
+    match
+      List.find_opt
+        (fun (tr : reactive_transition_ir) ->
+          String.equal tr.src_state src
+          && String.equal tr.dst_state dst
+          && Fo_simplifier.simplify_fo tr.guard = Fo_simplifier.simplify_fo guard)
+        reactive_program.transitions
+    with
+    | Some tr -> tr.transition_id
+    | None ->
+        failwith
+          (Printf.sprintf
+             "Unable to associate fallback product step %s->%s with a reactive transition in node %s"
+             src dst reactive_program.node_name)
   in
   node.trans
   |> List.concat_map (fun (t : Abs.transition) ->
@@ -1070,6 +1165,8 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
                                {
                                  src = product_state_of_pt src;
                                  dst = product_state_of_pt dst;
+                                 program_transition_id =
+                                   transition_id_for ~src:t.src ~dst:t.dst ~guard:program_guard;
                                  program_transition = (t.src, t.dst);
                                  program_guard;
                                  assume_edge =
@@ -1540,6 +1637,48 @@ let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported
 let build_call_binding_pairs kind locals remotes =
   List.map2 (fun local_name remote_name -> { binding_kind = kind; local_name; remote_name }) locals remotes
 
+let build_proof_step_contracts ~(product_steps : product_step_ir list)
+    ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
+    proof_step_contract_ir list =
+  let entry_clauses_for (step : product_step_ir) =
+    symbolic_generated_clauses
+    |> List.filter (fun (clause : relational_generated_clause_ir) ->
+           match (clause.origin, clause.anchor) with
+           | OriginSourceProductSummary, ClauseAnchorProductState st ->
+               st.prog_state = step.src.prog_state
+               && st.guarantee_state_index = step.src.guarantee_state_index
+           | OriginPhaseStepPreSummary, ClauseAnchorProductStep anchored_step ->
+               anchored_step = step
+           | _ -> false)
+  in
+  let clauses_for_step (step : product_step_ir) =
+    symbolic_generated_clauses
+    |> List.filter (fun (clause : relational_generated_clause_ir) ->
+           match (clause.origin, clause.anchor) with
+           | OriginPhaseStepPreSummary, _ -> false
+           | _, ClauseAnchorProductStep anchored_step -> anchored_step = step
+           | _, ClauseAnchorProductState _ -> false)
+  in
+  let entry_selector_for (entry_clauses : relational_generated_clause_ir list) =
+    let selector_of_clause (clause : relational_generated_clause_ir) =
+      clause.conclusions
+      |> List.find_map (fun (fact : relational_clause_fact_ir) ->
+             match (fact.time, fact.desc) with
+             | CurrentTick, RelFactPhaseFormula fo -> Some fo
+             | _ -> None)
+    in
+    List.find_map selector_of_clause entry_clauses
+  in
+  product_steps
+  |> List.map (fun step ->
+         let entry_clauses = entry_clauses_for step in
+         {
+           step;
+           entry_selector = entry_selector_for entry_clauses;
+           entry_clauses;
+           clauses = clauses_for_step step;
+         })
+
 type temporal_origin = {
   base_var : Ast.ident;
   depth : int;
@@ -1760,6 +1899,13 @@ and output_history_links_of_resolved_callee ~(nodes : Abs.node list)
   | Local callee_node ->
       let callee_ast = Abs.to_ast_node callee_node in
       let callee_pre_k_map = build_pre_k_infos callee_ast in
+      let explicit_delay_spec_links =
+        match extract_delay_spec callee_ast.specification.spec_guarantees with
+        | Some (output_name, input_name) ->
+            let caller_pre_name = first_temporal_slot_for_input callee_pre_k_map input_name in
+            [ (output_name, input_name, caller_pre_name) ]
+        | None -> []
+      in
       let analysis =
         Product_build.analyze_node ~build:(Automata_generation.build_for_node callee_ast)
           ~node:callee_node
@@ -1770,14 +1916,26 @@ and output_history_links_of_resolved_callee ~(nodes : Abs.node list)
       in
       ( Ast_utils.input_names_of_node callee_ast,
         Ast_utils.output_names_of_node callee_ast,
-        infer_output_history_links ~output_names:(Ast_utils.output_names_of_node callee_ast)
-          ~pre_k_map:callee_pre_k_map ~symbolic_clauses:normalized_ir.symbolic_generated_clauses )
+        (explicit_delay_spec_links
+        @ infer_output_history_links ~output_names:(Ast_utils.output_names_of_node callee_ast)
+            ~pre_k_map:callee_pre_k_map ~symbolic_clauses:normalized_ir.symbolic_generated_clauses)
+        |> List.sort_uniq Stdlib.compare )
   | External summary ->
       let summary_output_names = List.map (fun v -> v.vname) summary.signature.outputs in
+      let explicit_delay_spec_links =
+        match extract_delay_spec summary.guarantees with
+        | Some (output_name, input_name) ->
+            let caller_pre_name = first_temporal_slot_for_input summary.pre_k_map input_name in
+            [ (output_name, input_name, caller_pre_name) ]
+        | None -> []
+      in
       ( List.map (fun v -> v.vname) summary.signature.inputs,
         summary_output_names,
-        infer_output_history_links ~output_names:summary_output_names ~pre_k_map:summary.pre_k_map
-          ~symbolic_clauses:summary.normalized_ir.symbolic_generated_clauses )
+        (explicit_delay_spec_links
+        @ infer_output_history_links ~output_names:summary_output_names
+            ~pre_k_map:summary.pre_k_map
+            ~symbolic_clauses:summary.normalized_ir.symbolic_generated_clauses)
+        |> List.sort_uniq Stdlib.compare )
 
 and build_call_site_instantiations ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node) :
@@ -1911,12 +2069,14 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   in
   let product_states = List.map product_state_of_pt live_product_states in
   let explicit_steps =
-    List.map build_product_step analysis.exploration.steps
+    List.map (build_product_step ~reactive_program) analysis.exploration.steps
     |> List.filter (is_feasible_product_step ~node ~analysis)
   in
   let product_steps =
     if explicit_steps <> [] then explicit_steps
-    else synthesize_fallback_product_steps ~node ~analysis ~live_states:live_product_states
+    else
+      synthesize_fallback_product_steps ~node ~analysis ~reactive_program
+        ~live_states:live_product_states
   in
   let product_coverage =
     if explicit_steps <> [] then CoverageExplicit
@@ -1932,6 +2092,9 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   in
   let symbolic_generated_clauses =
     List.concat_map (relationalize_generated_clause ~pre_k_map) eliminated_generated_clauses
+  in
+  let proof_step_contracts =
+    build_proof_step_contracts ~product_steps ~symbolic_generated_clauses
   in
   let instance_relations = build_instance_relations ~nodes ~external_summaries ~node in
   let called_callee_names =
@@ -1965,6 +2128,7 @@ and of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     historical_generated_clauses;
     eliminated_generated_clauses;
     symbolic_generated_clauses;
+    proof_step_contracts;
     instance_relations;
     callee_tick_abis;
     call_site_instantiations;
@@ -2192,6 +2356,7 @@ let render_call_summary_toy_example =
       historical_generated_clauses = [];
       eliminated_generated_clauses = [];
       symbolic_generated_clauses = [];
+      proof_step_contracts = [];
       instance_relations = [];
       callee_tick_abis = [ abi ];
       call_site_instantiations = [ inst ];

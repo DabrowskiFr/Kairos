@@ -37,6 +37,8 @@ type compiled_kernel_clause = {
   anchor_step : Product_kernel_ir.product_step_ir option;
 }
 
+type step_contract_info = Why_types.step_contract_info
+
 type transition_contracts = {
   transition_requires_pre_terms : (Ptree.term * string) list;
   transition_requires_pre : Ptree.term list;
@@ -123,9 +125,7 @@ let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) :
 
 let same_runtime_transition_as_step (step : Product_kernel_ir.product_step_ir)
     (t : Why_runtime_view.runtime_transition_view) : bool =
-  String.equal step.src.prog_state t.src_state
-  && String.equal step.dst.prog_state t.dst_state
-  && Fo_simplifier.simplify_fo step.program_guard = runtime_transition_guard_fo t
+  String.equal step.program_transition_id t.transition_id
 
 let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
@@ -619,11 +619,13 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
     match kernel_contract with
     | None -> ([], [], [], [], [])
     | Some contract ->
-        if contract.obligations.symbolic = [] then
+        if contract.obligations.symbolic = [] && contract.proof_step_contracts = [] then
           failwith "kernel-first Why path requires symbolic eliminated clauses"
         else
           let propagation_safety_and_phase =
-            contract.symbolic_groups.propagation @ contract.symbolic_groups.safety
+            contract.proof_step_contracts
+            |> List.concat_map (fun (proof_step : Product_kernel_ir.proof_step_contract_ir) ->
+                   proof_step.clauses)
           in
           let rec consume_rel acc = function
             | [] -> acc
@@ -712,68 +714,57 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
     match kernel_contract with
     | None -> ([], [], [])
     | Some contract ->
-        let from_state_invariants =
-          runtime.control_states
-          |> List.sort_uniq String.compare
-          |> List.fold_left
-               (fun (terms, labeled, states) state_name ->
-                 let invariants = state_invariant_terms_for_state state_name |> uniq_terms in
-                 match invariants with
-                 | [] -> (terms, labeled, states)
-                 | inv :: invs ->
-                     let premise = current_state_eq state_name in
-                     let body = List.fold_left term_and inv invs |> simplify_term_bool in
-                     let term = simplify_term_bool (term_implies premise body) in
-                     let label = "Kernel source state invariant" in
-                     (term :: terms, (term, label) :: labeled, (term, Some state_name) :: states))
-               ([], [], [])
-        in
-        let from_source_product_summaries =
-          if contract.obligations.symbolic = [] then
+        let from_step_entry_clauses =
+          if contract.obligations.symbolic = [] && contract.proof_step_contracts = [] then
             failwith "kernel-first Why path requires symbolic eliminated clauses"
           else
-            contract.symbolic_groups.source_product_summaries
+            contract.proof_step_contracts
             |> List.fold_left
-                 (fun (terms, labeled, states) (clause : Product_kernel_ir.relational_generated_clause_ir) ->
-                   let premise =
-                     clause.hypotheses
-                     |> List.filter_map
-                          (compile_relational_kernel_fact ~clause_facts:clause.hypotheses)
-                     |> uniq_terms |> conj_opt
-                   in
-                   let conclusion =
-                     clause.conclusions
-                     |> List.filter_map (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
-                            match fact.desc with
-                            | Product_kernel_ir.RelFactFormula fo ->
-                                let normalized = normalize_source_summary_fo fo in
-                                let fact =
-                                  { fact with desc = Product_kernel_ir.RelFactFormula normalized }
-                                in
-                                compile_relational_kernel_fact ~clause_facts:clause.conclusions fact
-                            | Product_kernel_ir.RelFactPhaseFormula _ -> None
-                            | _ ->
-                                compile_relational_kernel_fact ~clause_facts:clause.conclusions fact)
-                     |> uniq_terms |> conj_opt
-                   in
-                   begin
-                     match (premise, conclusion) with
-                     | Some p, Some c ->
-                         let term = simplify_term_bool (term_implies p c) in
-                         let src_state =
-                           match clause.anchor with
-                           | Product_kernel_ir.ClauseAnchorProductState st -> Some st.prog_state
-                           | Product_kernel_ir.ClauseAnchorProductStep step -> Some step.src.prog_state
-                         in
-                         let label = "Kernel source product summary" in
-                         (term :: terms, (term, label) :: labeled, (term, src_state) :: states)
-                     | _ -> (terms, labeled, states)
-                   end)
+                 (fun (terms, labeled, states) (proof_step : Product_kernel_ir.proof_step_contract_ir) ->
+                   proof_step.entry_clauses
+                   |> List.fold_left
+                        (fun (terms, labeled, states)
+                             (clause : Product_kernel_ir.relational_generated_clause_ir) ->
+                          let premise =
+                            clause.hypotheses
+                            |> List.filter_map
+                                 (compile_relational_kernel_fact ~clause_facts:clause.hypotheses)
+                            |> uniq_terms |> conj_opt
+                          in
+                          let conclusion =
+                            clause.conclusions
+                            |> List.filter_map (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
+                                   match fact.desc with
+                                   | Product_kernel_ir.RelFactFormula fo ->
+                                       let normalized = normalize_source_summary_fo fo in
+                                       let fact =
+                                         {
+                                           fact with
+                                           desc = Product_kernel_ir.RelFactFormula normalized;
+                                         }
+                                       in
+                                       compile_relational_kernel_fact
+                                         ~clause_facts:clause.conclusions fact
+                                   | Product_kernel_ir.RelFactPhaseFormula _ ->
+                                       compile_relational_kernel_fact
+                                         ~clause_facts:clause.conclusions fact
+                                   | _ ->
+                                       compile_relational_kernel_fact
+                                         ~clause_facts:clause.conclusions fact)
+                            |> uniq_terms |> conj_opt
+                          in
+                          match (premise, conclusion) with
+                          | Some p, Some c ->
+                              let term = simplify_term_bool (term_implies p c) in
+                              let src_state = Some proof_step.step.src.prog_state in
+                              let label = "Kernel proof-step entry" in
+                              (term :: terms, (term, label) :: labeled, (term, src_state) :: states)
+                          | _ -> (terms, labeled, states))
+                        (terms, labeled, states))
                  ([], [], [])
         in
-        let terms_a, labeled_a, states_a = from_state_invariants in
-        let terms_b, labeled_b, states_b = from_source_product_summaries in
-        (terms_a @ terms_b, labeled_a @ labeled_b, states_a @ states_b)
+        let terms_b, labeled_b, states_b = from_step_entry_clauses in
+        (terms_b, labeled_b, states_b)
   in
   let dst_state_inv_post_terms =
     match kernel_contract with
@@ -792,6 +783,62 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
                    let term = simplify_term_bool (term_implies premise body) in
                    term :: terms)
              []
+  in
+  let compiled_step_contracts : step_contract_info list =
+    match kernel_contract with
+    | None -> []
+    | Some contract ->
+        let compile_entry_clause (clause : Product_kernel_ir.relational_generated_clause_ir) =
+          let has_previous_tick =
+            List.exists
+              (fun (fact : Product_kernel_ir.relational_clause_fact_ir) ->
+                fact.time = Product_kernel_ir.PreviousTick)
+              (clause.hypotheses @ clause.conclusions)
+          in
+          if has_previous_tick then None
+          else
+          let premise =
+            clause.hypotheses
+            |> List.filter_map
+                 (compile_relational_kernel_fact ~clause_facts:clause.hypotheses)
+            |> uniq_terms |> conj_opt
+          in
+          let conclusion =
+            clause.conclusions
+            |> List.filter_map
+                 (compile_relational_kernel_fact ~clause_facts:clause.conclusions)
+            |> uniq_terms |> conj_opt
+          in
+          match (premise, conclusion) with
+          | Some p, Some c -> Some (simplify_term_bool (term_implies p c))
+          | _ -> None
+        in
+        contract.proof_step_contracts
+        |> List.map (fun (proof_step : Product_kernel_ir.proof_step_contract_ir) ->
+               let post =
+                 proof_step.clauses
+                 |> List.filter_map (fun (clause : Product_kernel_ir.relational_generated_clause_ir) ->
+                        match clause.origin with
+                        | Product_kernel_ir.OriginPropagationNodeInvariant
+                        | Product_kernel_ir.OriginPropagationAutomatonCoherence
+                        | Product_kernel_ir.OriginSafety ->
+                            Option.map (fun compiled -> compiled.body)
+                              (compile_relational_kernel_clause_summary ~idx:0
+                                 ~label:(kernel_clause_origin_label clause.origin)
+                                 clause)
+                        | _ -> None)
+                 |> uniq_terms
+               in
+               ({
+                  step = proof_step.step;
+                  entry_selector =
+                    Option.map
+                      (fun fo -> compile_ltl_term_shift env 1 (normalize_source_summary_fo fo))
+                      proof_step.entry_selector;
+                  pre = proof_step.entry_clauses |> List.filter_map compile_entry_clause |> uniq_terms;
+                  post;
+                }
+                 : step_contract_info))
   in
   let has_instance_calls = Why_runtime_view.has_instance_calls runtime in
   let instance_relation_term ?(in_post = false) (rel : Product_kernel_ir.instance_relation_ir) :
@@ -1117,6 +1164,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
     pre_source_states = pre_state_opts;
     post_source_states = post_state_opts;
     post_vcids;
+    step_contracts = compiled_step_contracts;
   }
 
 let build_contracts ~(nodes : Ast.node list) ?kernel_ir (info : Why_env.env_info) :

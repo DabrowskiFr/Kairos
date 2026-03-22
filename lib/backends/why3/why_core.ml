@@ -237,6 +237,23 @@ let compile_action_block (env : env)
   | Why_runtime_view.ActionUser | Why_runtime_view.ActionInstrumentation ->
       compile_seq env call_asserts sticky_asserts block.block_actions
 
+let compile_transition_body (env : env)
+    (call_asserts :
+      ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
+    (sticky_asserts : Ptree.term list)
+    (t : Why_runtime_view.runtime_transition_view) : Ptree.expr =
+  let assign_dst =
+    mk_expr
+      (Eassign
+         [
+           (field env "st", None, mk_expr (Eident (qid1 t.dst_state)));
+         ])
+  in
+  let block_exprs =
+    List.map (compile_action_block env call_asserts sticky_asserts) t.action_blocks
+  in
+  seq_exprs (block_exprs @ [ assign_dst ])
+
 let compile_state_body (env : env)
     (call_asserts :
       ident * ident * iexpr list * ident list -> Why_call_plan.compiled_call_plan option)
@@ -264,20 +281,7 @@ let compile_state_body (env : env)
     | [] -> mk_expr (Etuple [])
     | (t : Why_runtime_view.runtime_transition_view) :: rest ->
         let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
-        let assign_dst =
-          mk_expr
-            (Eassign
-               [
-                 ( field env "st",
-                   None,
-                   mk_expr (Eident (qid1 t.dst_state)) );
-               ])
-        in
-        let block_exprs =
-          List.map (compile_action_block env call_asserts local_assert_terms) t.action_blocks
-        in
-        let body = seq_exprs (block_exprs @ [ assign_dst ]) in
-        let trans_body = body in
+        let trans_body = compile_transition_body env call_asserts local_assert_terms t in
         mk_expr (Eif (guard, trans_body, chain rest))
   in
   seq_exprs (entry_asserts @ sticky_asserts @ [ chain trs ])

@@ -67,6 +67,13 @@ type env_info = {
 }
 
 (* Pre/post contract payload ready for Why3 emission. *)
+type step_contract_info = {
+  step : Product_kernel_ir.product_step_ir;
+  entry_selector : Why3.Ptree.term option;
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+}
+
 type contract_info = {
   (* Preconditions. *)
   pre : Why3.Ptree.term list;
@@ -86,4 +93,6 @@ type contract_info = {
   post_source_states : string option list;
   (* Optional VC ids associated to postconditions. *)
   post_vcids : string option list;
+  (* Kernel contracts compiled per product step. *)
+  step_contracts : step_contract_info list;
 }

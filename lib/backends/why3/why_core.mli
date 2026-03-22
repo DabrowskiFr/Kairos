@@ -43,6 +43,14 @@ val compile_state_body :
   Why_runtime_view.runtime_transition_view list ->
   Why3.Ptree.expr
 
+val compile_transition_body :
+  Support.env ->
+  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
+  Why_call_plan.compiled_call_plan option) ->
+  Why3.Ptree.term list ->
+  Why_runtime_view.runtime_transition_view ->
+  Why3.Ptree.expr
+
 val compile_state_branch :
   Support.env ->
   (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->

@@ -7,6 +7,7 @@ type automaton_role =
 [@@deriving yojson]
 
 type reactive_transition_ir = {
+  transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.ltl;
@@ -65,6 +66,7 @@ type product_step_origin =
 type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
+  program_transition_id : string;
   program_transition : Ast.ident * Ast.ident;
   program_guard : Ast.ltl;
   assume_edge : automaton_edge_ir;
@@ -247,6 +249,14 @@ type call_site_instantiation_ir = {
 }
 [@@deriving yojson]
 
+type proof_step_contract_ir = {
+  step : product_step_ir;
+  entry_selector : Ast.ltl option;
+  entry_clauses : relational_generated_clause_ir list;
+  clauses : relational_generated_clause_ir list;
+}
+[@@deriving yojson]
+
 type node_ir = {
   reactive_program : reactive_program_ir;
   assume_automaton : safety_automaton_ir;
@@ -258,6 +268,7 @@ type node_ir = {
   historical_generated_clauses : generated_clause_ir list;
   eliminated_generated_clauses : generated_clause_ir list;
   symbolic_generated_clauses : relational_generated_clause_ir list;
+  proof_step_contracts : proof_step_contract_ir list;
   instance_relations : instance_relation_ir list;
   callee_tick_abis : callee_tick_abi_ir list;
   call_site_instantiations : call_site_instantiation_ir list;

@@ -42,6 +42,13 @@ type env_info = {
   init_for_var : Ast.ident -> Ast.iexpr;
 }
 
+type step_contract_info = {
+  step : Product_kernel_ir.product_step_ir;
+  entry_selector : Why3.Ptree.term option;
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+}
+
 type contract_info = {
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
@@ -52,4 +59,5 @@ type contract_info = {
   pre_source_states : string option list;
   post_source_states : string option list;
   post_vcids : string option list;
+  step_contracts : step_contract_info list;
 }

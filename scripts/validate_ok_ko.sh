@@ -9,6 +9,8 @@ file_timeout_s="${4:-60}"
 single_file="${5:-}"
 cli="$repo_root/_build/default/bin/cli/main.exe"
 report_dir="$repo_root/_build/validation"
+parallel_jobs="${VALIDATE_JOBS:-4}"
+scale_parallel_timeouts="${VALIDATE_SCALE_TIMEOUTS:-1}"
 
 mkdir -p "$report_dir"
 
@@ -73,6 +75,44 @@ run_with_file_timeout() {
   ' "$file_timeout_s" "$stdout_file" "$stderr_file" "$@"
 }
 
+effective_goal_timeout_s() {
+  local jobs="$parallel_jobs"
+  if ! [[ "$jobs" =~ ^[0-9]+$ ]] || (( jobs < 1 )); then
+    jobs=1
+  fi
+  if [[ "$scale_parallel_timeouts" == "0" ]] || (( jobs <= 1 )); then
+    printf '%s\n' "$timeout_s"
+  else
+    printf '%s\n' $((timeout_s * jobs))
+  fi
+}
+
+run_cli_dump_with_isolation() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  shift 2
+
+  local task_root
+  task_root="$(mktemp -d)"
+  mkdir -p "$task_root/tmp" "$task_root/xdg-cache"
+
+  local goal_timeout
+  goal_timeout="$(effective_goal_timeout_s)"
+
+  if run_with_file_timeout "$stdout_file" "$stderr_file" \
+    env TMPDIR="$task_root/tmp" XDG_CACHE_HOME="$task_root/xdg-cache" \
+    opam exec -- "$cli" "$@" --dump-proof-traces-json - --proof-traces-failed-only --timeout-s "$goal_timeout"
+  then
+    local status=0
+    rm -rf "$task_root"
+    return "$status"
+  else
+    local status=$?
+    rm -rf "$task_root"
+    return "$status"
+  fi
+}
+
 compile_kobjs_for_dir() {
   local dir="$1"
   local file
@@ -93,13 +133,132 @@ compile_kobjs_for_dir() {
   done
 }
 
+collect_suite_files() {
+  local dir="$1"
+  local filter="$2"
+  local mode="$3"
+  local file
+  case "$mode" in
+    ok)
+      for file in "$dir"/*.kairos; do
+        [ -e "$file" ] || continue
+        case "$filter" in
+          with_calls)    has_import "$file" || continue ;;
+          without_calls) has_import "$file" && continue ;;
+        esac
+        printf '%s\n' "$file"
+      done
+      ;;
+    ko)
+      for file in "$dir"/*__bad_*.kairos; do
+        [ -e "$file" ] || continue
+        case "$filter" in
+          with_calls)    has_import "$file" || continue ;;
+          without_calls) has_import "$file" && continue ;;
+        esac
+        printf '%s\n' "$file"
+      done
+      ;;
+    *)
+      echo "Unknown collection mode: $mode" >&2
+      exit 2
+      ;;
+  esac
+}
+
+run_classifications_parallel() {
+  local classify_fn="$1"
+  local report_file="$2"
+  shift 2
+  local files=("$@")
+  local jobs="$parallel_jobs"
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  local -a pids=()
+  local idx=0
+  local failed=0
+  local file
+
+  if [[ "${#files[@]}" -eq 0 ]]; then
+    : > "$report_file"
+    rmdir "$tmpdir"
+    return 0
+  fi
+
+  if ! [[ "$jobs" =~ ^[0-9]+$ ]] || (( jobs < 1 )); then
+    jobs=1
+  fi
+
+  for file in "${files[@]}"; do
+    local slot
+    slot="$(printf '%06d' "$idx")"
+    (
+      "$classify_fn" "$file" > "$tmpdir/$slot.tsv"
+    ) &
+    pids+=("$!")
+    idx=$((idx + 1))
+
+    if (( ${#pids[@]:-0} >= jobs )); then
+      local pid
+      for pid in "${pids[@]:-}"; do
+        [[ -n "$pid" ]] || continue
+        if ! wait "$pid"; then
+          failed=1
+        fi
+      done
+      pids=()
+    fi
+  done
+
+  local pid
+  for pid in "${pids[@]:-}"; do
+    [[ -n "$pid" ]] || continue
+    if ! wait "$pid"; then
+      failed=1
+    fi
+  done
+
+  if (( failed != 0 )); then
+    rm -rf "$tmpdir"
+    echo "Parallel classification failed" >&2
+    exit 1
+  fi
+
+  local part
+  : > "$report_file"
+  for part in "$tmpdir"/*.tsv; do
+    [ -e "$part" ] || continue
+    cat "$part" >> "$report_file"
+  done
+  rm -rf "$tmpdir"
+}
+
+read_files_into_array() {
+  local __var_name="$1"
+  shift
+  local -a __items=()
+  while IFS= read -r line; do
+    __items+=("$line")
+  done < <("$@")
+  eval "$__var_name=(\"\${__items[@]}\")"
+}
+
 classify_ok() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --timeout-s "$timeout_s"; then
+  if run_cli_dump_with_isolation "$tmp" "$tmp.stderr" "$file"; then
     local failed_count
-    failed_count="$(jq 'length' < "$tmp")"
+    if ! failed_count="$(jq 'length' < "$tmp" 2>/dev/null)"; then
+      local err
+      err="$(stderr_summary "$tmp.stderr")"
+      if [[ -z "$err" ]]; then
+        err="invalid_or_empty_proof_trace_json"
+      fi
+      printf '%s\tERROR\t%s\n' "$file" "$err"
+      rm -f "$tmp" "$tmp.stderr"
+      return 0
+    fi
     if [[ "$failed_count" == "0" ]]; then
       printf '%s\tOK\t0\n' "$file"
     else
@@ -126,14 +285,23 @@ classify_ko() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_with_file_timeout "$tmp" "$tmp.stderr" opam exec -- "$cli" "$file" --dump-proof-traces-json - --proof-traces-failed-only --timeout-s "$timeout_s"; then
+  if run_cli_dump_with_isolation "$tmp" "$tmp.stderr" "$file"; then
     local failed_count
-    failed_count="$(jq 'length' < "$tmp")"
+    if ! failed_count="$(jq 'length' < "$tmp" 2>/dev/null)"; then
+      local err
+      err="$(stderr_summary "$tmp.stderr")"
+      if [[ -z "$err" ]]; then
+        err="invalid_or_empty_proof_trace_json"
+      fi
+      printf '%s\tINVALID\t%s\n' "$file" "$err"
+      rm -f "$tmp" "$tmp.stderr"
+      return 0
+    fi
     if [[ "$failed_count" == "0" ]]; then
       printf '%s\tUNEXPECTED_GREEN\t0\n' "$file"
     else
       local status
-      status="$(jq -r '
+      if ! status="$(jq -r '
         if any(.[]; .status == "failure") then
           "INVALID"
         elif any(.[]; (.status == "timeout") or (.solver_status == "timeout") or (.solver_detail == "solver_timeout")) then
@@ -141,7 +309,9 @@ classify_ko() {
         else
           "INVALID"
         end
-      ' < "$tmp")"
+      ' < "$tmp" 2>/dev/null)"; then
+        status="INVALID"
+      fi
       printf '%s\t%s\t%s\n' "$file" "$status" "$failed_count"
     fi
   else
@@ -175,30 +345,14 @@ run_suite() {
   local ko_report_tmp="$ko_report.tmp"
   local summary_report_tmp="$summary_report.tmp"
 
-  {
-    compile_kobjs_for_dir "$ok_dir"
-    for file in "$ok_dir"/*.kairos; do
-      [ -e "$file" ] || continue
-      case "$filter" in
-        with_calls)    has_import "$file" || continue ;;
-        without_calls) has_import "$file" && continue ;;
-      esac
-      classify_ok "$file"
-    done
-  } > "$ok_report_tmp"
+  compile_kobjs_for_dir "$ok_dir"
+  read_files_into_array ok_files collect_suite_files "$ok_dir" "$filter" ok
+  run_classifications_parallel classify_ok "$ok_report_tmp" "${ok_files[@]}"
   mv "$ok_report_tmp" "$ok_report"
 
-  {
-    compile_kobjs_for_dir "$ko_dir"
-    for file in "$ko_dir"/*__bad_*.kairos; do
-      [ -e "$file" ] || continue
-      case "$filter" in
-        with_calls)    has_import "$file" || continue ;;
-        without_calls) has_import "$file" && continue ;;
-      esac
-      classify_ko "$file"
-    done
-  } > "$ko_report_tmp"
+  compile_kobjs_for_dir "$ko_dir"
+  read_files_into_array ko_files collect_suite_files "$ko_dir" "$filter" ko
+  run_classifications_parallel classify_ko "$ko_report_tmp" "${ko_files[@]}"
   mv "$ko_report_tmp" "$ko_report"
 
   local ok_total ok_green ok_non_green ko_total ko_invalid ko_timeout ko_false_green

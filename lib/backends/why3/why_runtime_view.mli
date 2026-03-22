@@ -66,6 +66,7 @@ type action_block_view = {
 }
 
 type runtime_transition_view = {
+  transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
