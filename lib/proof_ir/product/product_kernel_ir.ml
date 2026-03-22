@@ -256,7 +256,6 @@ type call_site_instantiation_ir = {
 
 type proof_step_contract_ir = {
   step : product_step_ir;
-  entry_selector : Ast.ltl option;
   entry_clauses : relational_generated_clause_ir list;
   clauses : relational_generated_clause_ir list;
 }
@@ -1642,6 +1641,7 @@ let build_proof_step_contracts ~(product_steps : product_step_ir list)
     ~(initial_product_state : product_state_ir)
     ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
     proof_step_contract_ir list =
+  let module String_set = Set.Make (String) in
   let slot_to_current_expr =
     let add acc (_h, info) =
       info.Support.names
@@ -1868,25 +1868,48 @@ let build_proof_step_contracts ~(product_steps : product_step_ir list)
       };
     ]
   in
-  let entry_selector_for (entry_clauses : relational_generated_clause_ir list) =
-    let selector_of_clause (clause : relational_generated_clause_ir) =
-      clause.conclusions
-      |> List.find_map (fun (fact : relational_clause_fact_ir) ->
-             match (fact.time, fact.desc) with
-             | CurrentTick, RelFactPhaseFormula fo -> Some fo
-             | _ -> None)
-    in
-    List.find_map selector_of_clause entry_clauses
+  let key_of_formula (fo : Ast.ltl) = Support.string_of_ltl fo in
+  let key_of_step_contract ~(entry_formula : Ast.ltl) ~(post_formula : Ast.ltl) (step : product_step_ir) =
+    String.concat "|"
+      [
+        step.program_transition_id;
+        step.src.prog_state;
+        string_of_int step.src.assume_state_index;
+        string_of_int step.src.guarantee_state_index;
+        step.dst.prog_state;
+        string_of_int step.dst.assume_state_index;
+        string_of_int step.dst.guarantee_state_index;
+        key_of_formula entry_formula;
+        key_of_formula post_formula;
+      ]
   in
-  product_steps
-  |> List.map (fun step ->
-         let entry_clauses = entry_clauses_for step in
-         {
-           step;
-           entry_selector = entry_selector_for entry_clauses;
-           entry_clauses;
-           clauses = clauses_for_step step;
-         })
+  let add_step_contract (seen, acc) (step : product_step_ir) =
+    let entry_clauses = entry_clauses_for step in
+    let entry_formula =
+      entry_clauses
+      |> List.filter_map clause_to_post_formula
+      |> function
+      | [] -> LTrue
+      | f :: fs -> List.fold_left (fun a b -> LAnd (a, b)) f fs |> Fo_simplifier.simplify_fo
+    in
+    let post_clauses = clauses_for_step step in
+    let post_formula =
+      post_clauses
+      |> List.filter_map clause_to_post_formula
+      |> function
+      | [] -> LTrue
+      | f :: fs -> List.fold_left (fun a b -> LAnd (a, b)) f fs |> Fo_simplifier.simplify_fo
+    in
+    match entry_formula with
+    | LFalse -> (seen, acc)
+    | _ ->
+        let key = key_of_step_contract ~entry_formula ~post_formula step in
+        if String_set.mem key seen then (seen, acc)
+        else
+          ( String_set.add key seen,
+            { step; entry_clauses; clauses = post_clauses } :: acc )
+  in
+  product_steps |> List.fold_left add_step_contract (String_set.empty, []) |> snd |> List.rev
 
 type temporal_origin = {
   base_var : Ast.ident;

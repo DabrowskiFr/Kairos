@@ -832,10 +832,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
                in
                ({
                   step = proof_step.step;
-                  entry_selector =
-                    Option.map
-                      (fun fo -> compile_ltl_term_shift env 1 (normalize_source_summary_fo fo))
-                      proof_step.entry_selector;
                   pre = proof_step.entry_clauses |> List.filter_map compile_entry_clause |> uniq_terms;
                   post;
                 }

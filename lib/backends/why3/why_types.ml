@@ -44,7 +44,6 @@ type env_info = {
 
 type step_contract_info = {
   step : Product_kernel_ir.product_step_ir;
-  entry_selector : Why3.Ptree.term option;
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
 }

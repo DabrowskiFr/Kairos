@@ -251,7 +251,6 @@ type call_site_instantiation_ir = {
 
 type proof_step_contract_ir = {
   step : product_step_ir;
-  entry_selector : Ast.ltl option;
   entry_clauses : relational_generated_clause_ir list;
   clauses : relational_generated_clause_ir list;
 }
