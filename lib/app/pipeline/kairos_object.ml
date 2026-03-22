@@ -276,6 +276,73 @@ let string_of_clause_desc = function
 let string_of_clause_fact (fact : Product_kernel_ir.clause_fact_ir) =
   string_of_clause_time fact.time ^ " " ^ string_of_clause_desc fact.desc
 
+let string_of_rel_clause_desc = function
+  | Product_kernel_ir.RelFactProgramState st -> "ProgramState = " ^ st
+  | Product_kernel_ir.RelFactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
+  | Product_kernel_ir.RelFactPhaseFormula f -> "Phase = " ^ Support.string_of_ltl f
+  | Product_kernel_ir.RelFactFormula f -> Support.string_of_ltl f
+  | Product_kernel_ir.RelFactFalse -> "false"
+
+let string_of_rel_clause_fact (fact : Product_kernel_ir.relational_clause_fact_ir) =
+  string_of_clause_time fact.time ^ " " ^ string_of_rel_clause_desc fact.desc
+
+let rec simplify_display_ltl (f : Ast.ltl) : Ast.ltl =
+  match f with
+  | Ast.LTrue | Ast.LFalse | Ast.LAtom _ -> f
+  | Ast.LNot a -> (
+      match simplify_display_ltl a with
+      | Ast.LTrue -> Ast.LFalse
+      | Ast.LFalse -> Ast.LTrue
+      | a' -> Ast.LNot a')
+  | Ast.LAnd (a, b) -> (
+      match (simplify_display_ltl a, simplify_display_ltl b) with
+      | Ast.LFalse, _ | _, Ast.LFalse -> Ast.LFalse
+      | Ast.LTrue, x | x, Ast.LTrue -> x
+      | a', b' -> Ast.LAnd (a', b'))
+  | Ast.LOr (a, b) -> (
+      match (simplify_display_ltl a, simplify_display_ltl b) with
+      | Ast.LTrue, _ | _, Ast.LTrue -> Ast.LTrue
+      | Ast.LFalse, x | x, Ast.LFalse -> x
+      | a', b' -> Ast.LOr (a', b'))
+  | Ast.LImp (a, b) -> (
+      match (simplify_display_ltl a, simplify_display_ltl b) with
+      | Ast.LFalse, _ -> Ast.LTrue
+      | Ast.LTrue, x -> x
+      | _, Ast.LTrue -> Ast.LTrue
+      | a', b' -> Ast.LImp (a', b'))
+  | Ast.LX a -> Ast.LX (simplify_display_ltl a)
+  | Ast.LG a -> Ast.LG (simplify_display_ltl a)
+  | Ast.LW (a, b) -> Ast.LW (simplify_display_ltl a, simplify_display_ltl b)
+
+let string_of_display_rel_desc = function
+  | Product_kernel_ir.RelFactProgramState _ | Product_kernel_ir.RelFactGuaranteeState _ -> None
+  | Product_kernel_ir.RelFactPhaseFormula f ->
+      let f = simplify_display_ltl f in
+      Some (Support.string_of_ltl f)
+  | Product_kernel_ir.RelFactFormula f ->
+      let f = simplify_display_ltl f in
+      Some (Support.string_of_ltl f)
+  | Product_kernel_ir.RelFactFalse -> Some "false"
+
+let simplify_formula_list (xs : string list) : string list =
+  let xs = List.filter (fun s -> String.trim s <> "" && String.trim s <> "true") xs in
+  if List.exists (fun s -> String.trim s = "false") xs then [ "false" ] else xs
+
+let normalize_formula_lines (xs : string list) : string list =
+  let xs = simplify_formula_list xs |> List.sort_uniq String.compare in
+  match xs with [] -> [ "true" ] | _ -> xs
+
+let formula_of_parts hyps concs =
+  let hyps = simplify_formula_list hyps in
+  let concs = simplify_formula_list concs in
+  match (hyps, concs) with
+  | [], [] -> "true"
+  | [], xs -> String.concat " /\\ " xs
+  | xs, [] -> String.concat " /\\ " xs
+  | [ "false" ], _ -> "true"
+  | xs, [ "false" ] -> "(" ^ String.concat " /\\ " xs ^ ") -> false"
+  | xs, ys -> "(" ^ String.concat " /\\ " xs ^ ") -> (" ^ String.concat " /\\ " ys ^ ")"
+
 let string_of_anchor = function
   | Product_kernel_ir.ClauseAnchorProductState st ->
       Printf.sprintf "state (P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index
@@ -536,6 +603,120 @@ let render_product (obj : t) : string =
       ]
     in
     String.concat "\n" (header @ render_product_steps 2 ir.product_steps)
+  in
+  String.concat "\n\n" (List.map render_node obj.nodes)
+
+let render_product_contracts (obj : t) : string =
+  let string_of_product_state (st : Product_kernel_ir.product_state_ir) =
+    Printf.sprintf "(P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index st.guarantee_state_index
+  in
+  let entry_clause_to_formula (clause : Product_kernel_ir.relational_generated_clause_ir) =
+    let select fact =
+      match fact.Product_kernel_ir.time with
+      | Product_kernel_ir.PreviousTick | Product_kernel_ir.StepTickContext ->
+          string_of_display_rel_desc fact.desc
+      | Product_kernel_ir.CurrentTick -> None
+    in
+    formula_of_parts (List.filter_map select clause.hypotheses) (List.filter_map select clause.conclusions)
+  in
+  let post_clause_to_formula (clause : Product_kernel_ir.relational_generated_clause_ir) =
+    let hyp fact =
+      match fact.Product_kernel_ir.time with
+      | Product_kernel_ir.StepTickContext ->
+          string_of_display_rel_desc fact.desc
+      | Product_kernel_ir.PreviousTick | Product_kernel_ir.CurrentTick -> None
+    in
+    let concl fact =
+      match fact.Product_kernel_ir.time with
+      | Product_kernel_ir.CurrentTick ->
+          string_of_display_rel_desc fact.desc
+      | Product_kernel_ir.PreviousTick | Product_kernel_ir.StepTickContext -> None
+    in
+    formula_of_parts (List.filter_map hyp clause.hypotheses) (List.filter_map concl clause.conclusions)
+  in
+  let render_code indent_level (transition : Product_kernel_ir.reactive_transition_ir) =
+    let guard =
+      match transition.guard_iexpr with
+      | None -> "true"
+      | Some g -> Support.string_of_iexpr g
+    in
+    let body_lines =
+      match transition.body_stmts with
+      | [] -> [ indent (indent_level + 1) ^ "skip" ]
+      | xs -> List.map (fun s -> indent (indent_level + 1) ^ string_of_stmt s) xs
+    in
+    [ indent indent_level ^ ("code:");
+      indent (indent_level + 1)
+      ^ Printf.sprintf "%s -> %s when %s" transition.src_state transition.dst_state guard;
+    ]
+    @ body_lines
+  in
+  let render_contract indent_level
+      (transitions_by_id : (string, Product_kernel_ir.reactive_transition_ir) Hashtbl.t)
+      (contract : Product_kernel_ir.proof_step_contract_ir) =
+    let step = contract.step in
+    let transition =
+      match Hashtbl.find_opt transitions_by_id step.program_transition_id with
+      | Some t -> t
+      | None ->
+          failwith
+            (Printf.sprintf "Missing reactive transition '%s' for proof-step contract"
+               step.program_transition_id)
+    in
+    let pre_formulas =
+      match contract.entry_clauses with
+      | [] -> [ "true" ]
+      | xs -> normalize_formula_lines (List.map entry_clause_to_formula xs)
+    in
+    let post_formulas =
+      match contract.clauses with
+      | [] -> [ "true" ]
+      | xs -> normalize_formula_lines (List.map post_clause_to_formula xs)
+    in
+    [
+      indent indent_level ^ "contract";
+      indent (indent_level + 1)
+      ^ (string_of_product_state step.src ^ " -> " ^ string_of_product_state step.dst);
+      indent (indent_level + 1) ^ "kind: " ^ string_of_step_kind step.step_kind;
+      indent (indent_level + 1) ^ "program transition id: " ^ step.program_transition_id;
+      indent (indent_level + 1) ^ "{pre}";
+    ]
+    @ List.map (fun s -> indent (indent_level + 2) ^ s) pre_formulas
+    @ render_code (indent_level + 1) transition
+    @ [ indent (indent_level + 1) ^ "{post}" ]
+    @ List.map (fun s -> indent (indent_level + 2) ^ s) post_formulas
+    @ [ "" ]
+  in
+  let render_node (node : Product_kernel_ir.exported_node_summary_ir) =
+    let ir = node.normalized_ir in
+    let transitions_by_id = Hashtbl.create 16 in
+    List.iter
+      (fun (t : Product_kernel_ir.reactive_transition_ir) ->
+        Hashtbl.replace transitions_by_id t.transition_id t)
+      ir.reactive_program.transitions;
+    let header =
+      [
+        "Node " ^ node.signature.node_name;
+        indent 1 ^ "product automaton";
+        indent 2 ^ "coverage: "
+        ^
+        (match ir.product_coverage with
+        | Product_kernel_ir.CoverageEmpty -> "empty"
+        | Product_kernel_ir.CoverageExplicit -> "explicit"
+        | Product_kernel_ir.CoverageFallback -> "fallback");
+        indent 2 ^ "states: " ^ string_of_int (List.length ir.product_states);
+        indent 2 ^ "steps: " ^ string_of_int (List.length ir.product_steps);
+        indent 2 ^ "product steps";
+      ]
+    in
+    let contracts =
+      [ indent 1 ^ "proof step contracts" ]
+      @
+      (match ir.proof_step_contracts with
+      | [] -> [ indent 2 ^ "none" ]
+      | xs -> List.concat_map (render_contract 2 transitions_by_id) xs)
+    in
+    String.concat "\n" (header @ render_product_steps 3 ir.product_steps @ [ "" ] @ contracts)
   in
   String.concat "\n\n" (List.map render_node obj.nodes)
 

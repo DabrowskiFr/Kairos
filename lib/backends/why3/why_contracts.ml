@@ -811,6 +811,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
           in
           match (premise, conclusion) with
           | Some p, Some c -> Some (simplify_term_bool (term_implies p c))
+          | None, Some c -> Some (simplify_term_bool c)
           | _ -> None
         in
         contract.proof_step_contracts
