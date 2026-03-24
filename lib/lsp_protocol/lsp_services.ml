@@ -463,7 +463,7 @@ let parse_program_from_text (text : string) : Ast.program option =
   let oc = open_out_bin tmp in
   output_string oc text;
   close_out_noerr oc;
-  let res = try Some (Frontend.parse_file tmp) with _ -> None in
+  let res = try Some (Parse_api.parse_file tmp) with _ -> None in
   (try Sys.remove tmp with _ -> ());
   res
 

@@ -1,5 +1,0 @@
-(library
- (name kairos_frontend_driver)
- (wrapped false)
- (modules frontend parse_file)
- (libraries kairos_ast kairos_parse kairos_stages kairos_stage_metadata kairos_utils sedlex))

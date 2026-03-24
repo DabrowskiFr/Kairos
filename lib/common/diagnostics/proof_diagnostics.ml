@@ -1,4 +1,7 @@
 open Ast
+open Formula_origin
+
+module Abs = Normalized_program
 
 module Types = Pipeline_api_types
 
@@ -13,7 +16,7 @@ type formula_record = {
   loc : Ast.loc option;
 }
 
-let classify_formula ~(is_require : bool) (f : Ast.ltl_o) :
+let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
     string * string option * string option =
   let family =
     if is_require then
@@ -46,14 +49,14 @@ let classify_formula ~(is_require : bool) (f : Ast.ltl_o) :
   in
   (obligation_kind, family_name, category_name)
 
-let build_formula_records (p_obc : Ast.program) : formula_record list =
+let build_formula_records (p_obc : Abs.node list) : formula_record list =
   let records = ref [] in
   let add record = records := record :: !records in
   List.iter
-    (fun (node : Ast.node) ->
+    (fun (node : Abs.node) ->
       let node_name = node.semantics.sem_nname in
       List.iter
-        (fun (goal : Ast.ltl_o) ->
+        (fun (goal : Abs.contract_formula) ->
           add
             {
               oid = goal.oid;
@@ -69,12 +72,12 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
                 Some (Obligation_taxonomy.category_name Obligation_taxonomy.CatInitialGoal);
               loc = goal.loc;
             })
-        node.attrs.coherency_goals;
+        node.coherency_goals;
       List.iter
-        (fun (t : Ast.transition) ->
+        (fun (t : Abs.transition) ->
           let source = Printf.sprintf "%s: %s -> %s" node_name t.src t.dst in
           List.iter
-            (fun (req : Ast.ltl_o) ->
+            (fun (req : Abs.contract_formula) ->
               let obligation_kind, obligation_family, obligation_category =
                 classify_formula ~is_require:true req
               in
@@ -91,7 +94,7 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
                 })
             t.requires;
           List.iter
-            (fun (ens : Ast.ltl_o) ->
+            (fun (ens : Abs.contract_formula) ->
               let obligation_kind, obligation_family, obligation_category =
                 classify_formula ~is_require:false ens
               in
@@ -107,7 +110,7 @@ let build_formula_records (p_obc : Ast.program) : formula_record list =
                   loc = ens.loc;
                 })
             t.ensures)
-        node.semantics.sem_trans)
+        node.trans)
     p_obc;
   List.rev !records
 

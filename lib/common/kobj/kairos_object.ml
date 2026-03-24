@@ -104,7 +104,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
     runtime_program;
   let pre_k_locals_of_source (node : Ast.node) : Ast.vdecl list =
     Collect.build_pre_k_infos node
-    |> List.concat_map (fun (_, (info : Support.pre_k_info)) ->
+    |> List.concat_map (fun (_, (info : Temporal_support.pre_k_info)) ->
            List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
   in
   let append_missing_locals (locals : Ast.vdecl list) (extra : Ast.vdecl list) : Ast.vdecl list =
@@ -198,9 +198,9 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 tick_summary =
                   sanitize_tick_summary
                     (Proof_kernel_ir.callee_tick_abi_of_node ~node:(Normalized_program.of_ast_node runtime_node));
-                user_invariants = node.attrs.invariants_user;
+                user_invariants = [];
                 state_invariants = node.specification.spec_invariants_state_rel;
-                coherency_goals = node.attrs.coherency_goals;
+                coherency_goals = (Normalized_program.of_ast_node node).coherency_goals;
                 pre_k_map = source_pre_k_map;
                 delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;
@@ -364,7 +364,8 @@ let render_transition_summary indent_level (t : Proof_kernel_ir.reactive_transit
     | _ ->
         (indent indent_level ^ label ^ ":")
         :: List.map
-             (fun (f : Ast.ltl_o) -> indent (indent_level + 1) ^ Support.string_of_ltl f.value)
+             (fun (f : Normalized_program.contract_formula) ->
+               indent (indent_level + 1) ^ Support.string_of_ltl f.value)
              fs
   in
   let body_lines =

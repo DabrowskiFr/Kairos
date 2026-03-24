@@ -91,16 +91,11 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
   Buffer.add_string buf "  rankdir=LR;\n";
   let add_node_block n =
     let sem = n.semantics in
-    let fo_specs =
-      List.fold_left
-        (fun acc (t : transition) ->
-          Ast_provenance.values t.requires @ Ast_provenance.values t.ensures @ acc)
-        [] sem.sem_trans
-    in
+    let fo_specs = [] in
     let spec = Ast.specification_of_node n in
     let ltl_specs = spec.spec_assumes @ spec.spec_guarantees in
     let pre_k_map = Collect.build_pre_k_infos n in
-    let inputs = Ast_utils.input_names_of_node n in
+    let inputs = Ast_queries.input_names_of_node n in
     let var_types =
       List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
     in

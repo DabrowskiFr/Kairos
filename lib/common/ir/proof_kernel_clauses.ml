@@ -397,7 +397,7 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   in
   init_clauses @ source_summary_clauses @ step_clauses
 
-let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact : clause_fact_ir) :
+let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) (fact : clause_fact_ir) :
     clause_fact_ir option =
   let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let lower_desc = function
@@ -411,7 +411,7 @@ let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) (fact
   in
   Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
 
-let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     (clause : generated_clause_ir) : generated_clause_ir option =
   let rec lower_all acc = function
     | [] -> Some (List.rev acc)
@@ -427,7 +427,7 @@ let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
       else Some { clause with hypotheses; conclusions }
   | _ -> None
 
-let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     (fact : clause_fact_ir) : relational_clause_fact_ir option =
   let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let rel_desc = function
@@ -485,7 +485,7 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   fold [] facts
 
-let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     (clause : generated_clause_ir) : relational_generated_clause_ir list =
   let lower_all facts = List.filter_map (relationalize_clause_fact ~pre_k_map) facts in
   let hypotheses = lower_all clause.hypotheses in

@@ -4,8 +4,8 @@
  (name kairos_middle_end)
  (wrapped false)
  (libraries
-  kairos_ast kairos_logic kairos_parse kairos_stages kairos_automata
+  kairos_ast kairos_logic kairos_parse kairos_stages kairos_stage_names kairos_automata
   kairos_stage_metadata kairos_instrumentation kairos_common_ir
-  kairos_utils proof_obligation_ir_render why3 yojson)
+  kairos_utils proof_obligation_ir_render kairos_pipeline_api_types why3 yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

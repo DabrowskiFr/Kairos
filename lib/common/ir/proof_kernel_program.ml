@@ -23,9 +23,7 @@ let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactiv
           guard_iexpr = t.guard;
           requires = t.requires;
           ensures = t.ensures;
-          ghost_stmts = t.attrs.ghost;
           body_stmts = t.body;
-          instrumentation_stmts = t.attrs.instrumentation;
         })
       node.trans
   in

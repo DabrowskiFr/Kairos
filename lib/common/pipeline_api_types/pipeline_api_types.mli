@@ -131,9 +131,9 @@ type ast_stages = {
   source : Source_file.t;
   parsed : Ast.program;
   automata_generation : Ast.program;
-  automata : Automata_builds.t;
-  contracts : Ast.program;
-  instrumentation : Ast.program;
+  automata : Automata_generation.node_builds;
+  contracts : Normalized_program.node list;
+  instrumentation : Normalized_program.node list;
   imported_summaries : Proof_kernel_ir.exported_node_summary_ir list;
 }
 

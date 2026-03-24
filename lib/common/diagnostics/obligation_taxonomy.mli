@@ -1,7 +1,5 @@
 (** Taxonomy used to classify generated proof obligations and helper goals. *)
 
-open Ast
-
 (** Fine-grained backend families emitted by the implementation.
 
     They are later projected onto:
@@ -59,6 +57,6 @@ val helper_phase_name : helper_phase -> string
 val helper_phase_of_category : category -> helper_phase option
 val helper_kind_name : helper_kind -> string
 val helper_kind_of_category : category -> helper_kind option
-val summarize_program : program -> summary
+val summarize_program : Normalized_program.node list -> summary
 val render_summary : summary -> string
 val to_stage_meta : summary -> (string * string) list

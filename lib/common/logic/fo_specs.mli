@@ -47,7 +47,7 @@ type temporal_binding = {
 }
 
 val temporal_bindings_of_pre_k_map :
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> temporal_binding list
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> temporal_binding list
 
 (* Convert a hexpr to an iexpr when representable (using pre‑k bindings). *)
 val hexpr_to_iexpr_with_temporal_bindings :
@@ -60,7 +60,7 @@ val hexpr_to_iexpr_with_temporal_bindings :
 val hexpr_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
   Ast.hexpr ->
   Ast.iexpr option
 
@@ -69,21 +69,21 @@ val lower_hexpr_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.hexpr -> Ast.hexpr option
 
 val lower_hexpr_pre_k :
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
 
 (* Lower [pre_k] occurrences inside a first-order formula. *)
 val lower_fo_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.fo -> Ast.fo option
 
 val lower_fo_pre_k :
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.fo -> Ast.fo option
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.fo -> Ast.fo option
 
 (* Lower [pre_k] occurrences inside an LTL formula when possible. *)
 val lower_ltl_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.ltl -> Ast.ltl option
 
 val lower_ltl_pre_k :
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list -> Ast.ltl -> Ast.ltl option
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.ltl -> Ast.ltl option
 
 (* Infer a simple type for an iexpr from variable types. *)
 val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
@@ -98,7 +98,7 @@ val mk_bool_neq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
 val atom_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
-  pre_k_map:(Ast.hexpr * Support.pre_k_info) list ->
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
   Ast.fo ->
   Ast.iexpr option
 

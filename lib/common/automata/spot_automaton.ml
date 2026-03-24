@@ -17,9 +17,9 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Automaton_types
 open Ltl_valuation
 
+type guard = (string * bool option) list list
 type transition = int * guard * int
 
 type automaton = {

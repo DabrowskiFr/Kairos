@@ -12,11 +12,9 @@ type reactive_transition_ir = {
   dst_state : Ast.ident;
   guard : Ast.ltl;
   guard_iexpr : Ast.iexpr option;
-  requires : Ast.ltl_o list;
-  ensures : Ast.ltl_o list;
-  ghost_stmts : Ast.stmt list;
+  requires : Normalized_program.contract_formula list;
+  ensures : Normalized_program.contract_formula list;
   body_stmts : Ast.stmt list;
-  instrumentation_stmts : Ast.stmt list;
 }
 [@@deriving yojson]
 
@@ -280,8 +278,8 @@ type exported_node_summary_ir = {
   tick_summary : callee_tick_abi_ir;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.ltl_o list;
-  pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
+  coherency_goals : Normalized_program.contract_formula list;
+  pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;

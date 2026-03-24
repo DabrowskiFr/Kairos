@@ -1,11 +1,12 @@
 open Ast
+open Formula_origin
 
 module Abs = Normalized_program
 
-let is_user_contract (f : ltl_o) : bool =
+let is_user_contract (f : Abs.contract_formula) : bool =
   match f.origin with Some UserContract -> true | _ -> false
 
-let user_formulas (fs : ltl_o list) : ltl_o list = List.filter is_user_contract fs
+let user_formulas (fs : Abs.contract_formula list) : Abs.contract_formula list = List.filter is_user_contract fs
 let collect_pre_k_fo (f : fo) : (ident * int) list =
   let from_hexpr = function
     | HNow _ -> []
@@ -101,7 +102,7 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : Abs.node) : unit =
     | None -> min_step_by_state n
     | Some a -> min_step_by_state_monitor_aware n a
   in
-  let check_formula ~phase ~bound ~(tr : Abs.transition) (foo : ltl_o) : string list =
+  let check_formula ~phase ~bound ~(tr : Abs.transition) (foo : Abs.contract_formula) : string list =
     let pre_ks = collect_pre_k_ltl foo.value in
     pre_ks
     |> List.filter_map (fun (v, k) ->
@@ -137,23 +138,6 @@ let validate_user_pre_k_definedness ?monitor_automaton (n : Abs.node) : unit =
       failwith
         ("invalid use of pre_k in transition contracts: history not yet defined on some phases\n"
         ^ String.concat "\n" errors)
-
-let drop_user_transition_contracts (n : Abs.node) : Abs.node * int * int =
-  let req_dropped = ref 0 in
-  let ens_dropped = ref 0 in
-  let trans =
-    List.map
-      (fun (t : Abs.transition) ->
-        let req_before = List.length t.requires in
-        let ens_before = List.length t.ensures in
-        let requires = List.filter (fun f -> not (is_user_contract f)) t.requires in
-        let ensures = List.filter (fun f -> not (is_user_contract f)) t.ensures in
-        req_dropped := !req_dropped + (req_before - List.length requires);
-        ens_dropped := !ens_dropped + (ens_before - List.length ensures);
-        if requires == t.requires && ensures == t.ensures then t else { t with requires; ensures })
-      n.trans
-  in
-  ({ n with trans }, !req_dropped, !ens_dropped)
 
 let generate_transition_contracts (n : Abs.node) : Abs.node =
   let post_generation = Post_generation.build n in

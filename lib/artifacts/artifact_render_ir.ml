@@ -38,13 +38,13 @@ let render_instances (insts : (Ast.ident * Ast.ident) list) : string =
   | [] -> "(none)"
   | _ -> String.concat ", " (List.map (fun (i, n) -> i ^ " : " ^ n) insts)
 
-let render_pre_k_map (m : (Ast.hexpr * Support.pre_k_info) list) : string =
+let render_pre_k_map (m : (Ast.hexpr * Temporal_support.pre_k_info) list) : string =
   match m with
   | [] -> "(none)"
   | _ ->
       String.concat "\n    "
         (List.map
-           (fun (h, (info : Support.pre_k_info)) ->
+           (fun (h, (info : Temporal_support.pre_k_info)) ->
              let names_str = String.concat ", " info.names in
              let ty_str = render_ty info.vty in
              Support.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
@@ -72,10 +72,12 @@ let render_ltl_list (fs : Ast.ltl list) : string =
   | [] -> "(none)"
   | _ -> String.concat "\n    " (List.map Support.string_of_ltl fs)
 
-let render_fo_o_list (fs : Ast.ltl_o list) : string =
+let render_fo_o_list (fs : Normalized_program.contract_formula list) : string =
   match fs with
   | [] -> "(none)"
-  | _ -> String.concat "\n    " (List.map (fun (f : Ast.ltl_o) -> Support.string_of_ltl f.value) fs)
+  | _ ->
+      String.concat "\n    "
+        (List.map (fun (f : Normalized_program.contract_formula) -> Support.string_of_ltl f.value) fs)
 
 (* ------------------------------------------------------------------ *)
 (* raw_node                                                             *)
@@ -103,13 +105,11 @@ let render_raw_transition (t : Proof_obligation_ir.raw_transition) : string =
     | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
   in
   Printf.sprintf
-    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s"
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s"
     t.src_state t.dst_state
     guard_str
     guard_iexpr_str
-    (render_stmt_list t.ghost_stmts)
     (render_stmt_list t.body_stmts)
-    (render_stmt_list t.instrumentation_stmts)
 
 let render_raw_node (n : Proof_obligation_ir.raw_node) : string =
   let header = render_raw_node_header n in
@@ -129,13 +129,11 @@ let render_annotated_transition (t : Proof_obligation_ir.annotated_transition) :
     | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
   in
   Printf.sprintf
-    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
     raw.src_state raw.dst_state
     guard_str
     guard_iexpr_str
-    (render_stmt_list raw.ghost_stmts)
     (render_stmt_list raw.body_stmts)
-    (render_stmt_list raw.instrumentation_stmts)
     (render_fo_o_list t.requires)
     (render_fo_o_list t.ensures)
 
@@ -170,13 +168,11 @@ let render_verified_transition (t : Proof_obligation_ir.verified_transition) : s
     | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
   in
   Printf.sprintf
-    "\n[transition %s -> %s]\n  guard       : %s%s\n  ghost       :\n    %s\n  body        :\n    %s\n  instrument  :\n    %s\n  pre_k_upd   :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
+    "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  pre_k_upd   :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
     t.src_state t.dst_state
     guard_str
     guard_iexpr_str
-    (render_stmt_list t.ghost_stmts)
     (render_stmt_list t.body_stmts)
-    (render_stmt_list t.instrumentation_stmts)
     (render_stmt_list t.pre_k_updates)
     (render_fo_o_list t.requires)
     (render_fo_o_list t.ensures)

@@ -1,7 +1,7 @@
 (library
  (name kairos_ast)
  (wrapped false)
- (modules ast ast_builders ast_utils ast_invariants ast_provenance collect provenance support)
- (libraries yojson why3)
+ (modules ast ast_builders ast_queries)
+ (libraries yojson why3 kairos_formula_origin)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

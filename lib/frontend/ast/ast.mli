@@ -21,19 +21,14 @@
 
 (* {1 AST Overview}
 
-   This module defines the core AST used across all passes. The design is: {ul {- immutable records
-   with small, predictable helpers;} {- explicit provenance on FO formulas (requires/ensures);} {-
-   node/transition attributes carry uids + invariants + injected stmts;} {- per‑pass metadata is
-   kept in [Stage_info], not inside the AST;} {- constructors and provenance helpers live in
-   [Ast_builders] / [Ast_provenance];} {- small utilities live in [Ast_utils].} {- a single program
-   type (list of nodes) shared by all stages.}}
-
-   Post‑parse modifications: {ul {- FO contracts are wrapped with provenance and ids ([ltl_o]);} {-
-   attributes are filled/updated by passes (uids, invariants, ghost/monitor).} {- LTL contracts
-   (assumes/guarantees) remain plain [ltl] in the pipeline.}}
+   This module defines the source AST shared across the frontend. The design is: {ul {- immutable
+   records with small, predictable helpers;} {- source contracts keep stable ids + source locations
+   ([ltl_o]);} {- per‑pass metadata is kept outside the AST;} {- constructors live in
+   [Ast_builders];} {- provenance/helpers/collectors live outside the AST library;} {- a single
+   program type (list of nodes) shared by all stages.}}
 
    Quick map (structural core): {v program -> node -> transition -> stmt \-> assumes/guarantees
-   (ltl) \-> requires/ensures (ltl_o -> fo) v}
+   (ltl) v}
 
    Conceptual split used by the formalization:
    - a node carries a {i program part} (syntax + transition semantics),
@@ -82,7 +77,7 @@ type hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving yojson]
 type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
 
 (* {1 Logical Formulas & Provenance} *)
-(* First‑order formulas used in requires/ensures and VC generation. *)
+(* First‑order formulas used in contracts and VC generation. *)
 type fo =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
@@ -102,19 +97,9 @@ type ltl =
   | LW of ltl * ltl
 [@@deriving yojson]
 
-(* {2 Provenance} Provenance categories allow tracing a VC back to its source. *)
-type origin =
-  | UserContract
-  | Instrumentation
-  | Coherency
-  | Compatibility
-  | AssumeAutomaton
-  | Internal
-[@@deriving yojson]
-
 (* LTL formula annotated with provenance and optional location. Rationale: this is the
    primary traceability hook in the pipeline. *)
-type ltl_o = { value : ltl; origin : origin option; oid : int; loc : loc option } [@@deriving yojson]
+type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
 
 (* {1 Statements & Invariants}
     Rationale: statements are the executable core, while invariants are the
@@ -145,30 +130,12 @@ type invariant_state_rel = { is_eq : bool; state : ident; formula : ltl } [@@der
 (* Variable declaration (name + type). *)
 type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
 
-(* Node‑level attributes and annotations populated by passes. *)
-type node_attrs = {
-  uid : int option;
-  invariants_user : invariant_user list;
-  coherency_goals : ltl_o list;
-}
-
-(* Transition‑level attributes and annotations populated by passes. *)
-type transition_attrs = {
-  uid : int option;
-  ghost : stmt list;
-  instrumentation : stmt list;
-  warnings : string list;
-}
-
-(* Normalized transition (post‑parse, used across passes). *)
+(* Source transition. *)
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : ltl_o list;
-  ensures : ltl_o list;
   body : stmt list;
-  attrs : transition_attrs;
 }
 
 (* Program-only view of a node: syntax and transition semantics. *)
@@ -194,17 +161,16 @@ type node_specification = {
   spec_invariants_state_rel : invariant_state_rel list;
 }
 
-(* Normalized node (post‑parse, used across passes). *)
+(* Source node. *)
 type node = {
   semantics : node_semantics;
   specification : node_specification;
-  attrs : node_attrs;
 }
 
 (* A program is a list of nodes. *)
 type program = node list
 
-(* {2 Utilities} Utilities live in [Ast_utils]. *)
+(* {2 Utilities} Structural queries live in [Ast_queries]. *)
 
 val semantics_of_node : node -> node_semantics
 val specification_of_node : node -> node_specification

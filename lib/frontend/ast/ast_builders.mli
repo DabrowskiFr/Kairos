@@ -1,7 +1,6 @@
 (** Constructors and utility helpers for the AST.
 
-   These helpers centralize defaults (locations, attributes) and make parser/transform code more
-   compact. *)
+   These helpers centralize defaults (locations) and make parser/transform code more compact. *)
 
 (* Build an immediate expression with optional location. *)
 val mk_iexpr : ?loc:Ast.loc -> Ast.iexpr_desc -> Ast.iexpr
@@ -33,22 +32,11 @@ val stmt_desc : Ast.stmt -> Ast.stmt_desc
 (* Replace the descriptor while preserving location. *)
 val with_stmt_desc : Ast.stmt -> Ast.stmt_desc -> Ast.stmt
 
-(* Default node attributes (no uids, no invariants). *)
-val empty_node_attrs : Ast.node_attrs
-
-(* Default transition attributes (no uids, no injected statements). *)
-val empty_transition_attrs : Ast.transition_attrs
-
-(* Ensure missing uids are filled for all nodes/transitions. *)
-val ensure_program_uids : Ast.program -> Ast.program
-
 (* Build a normalized transition. *)
 val mk_transition :
   src:Ast.ident ->
   dst:Ast.ident ->
   guard:Ast.iexpr option ->
-  requires:Ast.ltl_o list ->
-  ensures:Ast.ltl_o list ->
   body:Ast.stmt list ->
   Ast.transition
 

@@ -18,7 +18,7 @@
 
 (** Atom-table support for generated automata and guard recovery. *)
 
-type guard = Automaton_types.guard
+type guard = Spot_automaton.guard
 (* DNF guard (list of implicants). *)
 
 val guard_to_formula : guard -> string
@@ -41,10 +41,10 @@ val make_atom_names : (Ast.fo * Ast.iexpr) list -> string list
 val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 (* Inline atom variables inside a boolean expression using a name->expr map. *)
 
-val recover_guard_iexpr : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.iexpr
+val recover_guard_iexpr : (Ast.ident * Ast.iexpr) list -> Spot_automaton.guard -> Ast.iexpr
 (* Recover an automaton guard as a program-level boolean expression after atom inlining. *)
 
-val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.ltl
+val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Spot_automaton.guard -> Ast.ltl
 (* Recover an automaton guard as a first-order formula after atom inlining. *)
 
 val collect_atoms : Ast.node -> automata_atoms

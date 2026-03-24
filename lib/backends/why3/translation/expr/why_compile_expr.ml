@@ -180,7 +180,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
               (match e.iexpr with
               | IVar name ->
                   List.exists
-                    (fun (_, (info : pre_k_info)) -> List.mem name info.names)
+                    (fun (_, (info : Temporal_support.pre_k_info)) -> List.mem name info.names)
                     env.pre_k
               | _ -> false)
             else old && not (is_const_iexpr e)

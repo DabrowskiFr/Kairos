@@ -4,4 +4,4 @@
  (modules pipeline_api_types)
  (libraries
   kairos_ast kairos_parse kairos_stages kairos_stage_metadata kairos_common_ir
-  kairos_middle_end))
+  kairos_automata))

@@ -3,7 +3,7 @@
  (wrapped false)
  (modules kairos_object kairos_imports)
  (libraries
-  kairos_ast kairos_logic kairos_parse kairos_stages kairos_automata
+  kairos_ast kairos_provenance kairos_logic kairos_parse kairos_stages kairos_stage_names kairos_automata
   kairos_middle_end kairos_common_ir yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

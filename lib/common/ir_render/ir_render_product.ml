@@ -272,7 +272,7 @@ let render_product_dot ~(node_name : ident) (analysis : Product_build.analysis) 
 
 let render_program_dot ~(node_name : ident) (node : Abs.node) =
   let buf = Buffer.create 4096 in
-  let transitions_from_state = Ast_utils.transitions_from_state_fn (Abs.to_ast_node node) in
+  let transitions_from_state = Ast_queries.transitions_from_state_fn (Abs.to_ast_node node) in
   Buffer.add_string buf "digraph ProgramAutomaton {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   Buffer.add_string buf "  forcelabels=true;\n";

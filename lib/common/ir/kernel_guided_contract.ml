@@ -42,10 +42,10 @@ type node_contract = {
   callee_tick_abis : Proof_kernel_ir.callee_tick_abi_ir list;
 }
 
-let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) :
+let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) :
     temporal_binding_ir list =
   List.map
-    (fun (source_hexpr, (info : Support.pre_k_info)) ->
+    (fun (source_hexpr, (info : Temporal_support.pre_k_info)) ->
       let slot_names =
         match source_hexpr with
         | HPreK (_, k) when k > 0 && k <= List.length info.names -> [ List.nth info.names (k - 1) ]
@@ -70,9 +70,9 @@ let exported_summary_of_exported_ir
 let exported_summary_of_ast_node (node : Ast.node) : exported_summary_contract =
   {
     callee_node_name = node.semantics.sem_nname;
-    input_names = Ast_utils.input_names_of_node node;
-    output_names = Ast_utils.output_names_of_node node;
-    user_invariants = node.attrs.invariants_user;
+    input_names = Ast_queries.input_names_of_node node;
+    output_names = Ast_queries.output_names_of_node node;
+    user_invariants = [];
     state_invariants = node.specification.spec_invariants_state_rel;
     temporal_bindings = temporal_bindings_of_pre_k_map (Collect.build_pre_k_infos node);
     tick_summary = None;

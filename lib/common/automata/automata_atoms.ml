@@ -22,7 +22,7 @@ open Support
 open Fo_specs
 open Ltl_valuation
 
-type guard = Automaton_types.guard
+type guard = Spot_automaton.guard
 
 let guard_is_true (g : guard) : bool =
   List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) g
@@ -93,11 +93,11 @@ let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
   in
   go e
 
-let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : iexpr =
+let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Spot_automaton.guard) : iexpr =
   (* Canonical recovery path for automaton guards: convert DNF guards, then inline atom expressions. *)
   g |> guard_to_iexpr |> inline_atoms_iexpr atom_map
 
-let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
+let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Spot_automaton.guard) : ltl =
   recover_guard_iexpr atom_map g |> iexpr_to_fo_with_atoms []
 
 type automata_atoms = {

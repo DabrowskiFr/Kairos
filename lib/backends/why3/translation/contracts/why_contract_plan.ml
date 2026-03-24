@@ -22,6 +22,7 @@ open Why3
 open Ptree
 open Support
 open Ast
+open Formula_origin
 open Why_compile_expr
 
 type transition_contracts = {
@@ -115,8 +116,10 @@ let rec ltl_mentions_monitor = function
 let compute_transition_contracts ~(env : env)
     ~(runtime_transitions : Why_runtime_view.runtime_transition_view list)
     ~(labeled_trans :
-       (Why_runtime_view.runtime_transition_view * (Ast.ltl_o * string) list * (Ast.ltl * string * string) list)
-       list)
+       ( Why_runtime_view.runtime_transition_view
+       * (Normalized_program.contract_formula * string) list
+       * (Ast.ltl * string * string) list )
+         list)
     ~(has_monitor_instrumentation : bool) ~(post_contract_user : Ptree.term list)
     ~(use_kernel_product_contracts : bool)
     ~(init_for_var : Ast.ident -> Ast.iexpr)
@@ -135,7 +138,7 @@ let compute_transition_contracts ~(env : env)
         in
         let cond_pre = with_guard cond_pre (guard_term_pre env t) in
         List.fold_left
-          (fun acc (f, label) ->
+          (fun acc ((f : Normalized_program.contract_formula), label) ->
             if ltl_mentions_monitor f.value then acc
             else
             let keep_req =
@@ -177,7 +180,7 @@ let compute_transition_contracts ~(env : env)
         in
         let cond_post = with_guard cond_post (guard_term_pre env t) in
         List.fold_left
-          (fun acc f ->
+          (fun acc (f : Normalized_program.contract_formula) ->
             if ltl_mentions_monitor f.value then acc
             else
             let norm = normalize_ltl_for_k ~init_for_var f.value in
@@ -209,7 +212,7 @@ let compute_transition_contracts ~(env : env)
                 let frag = ltl_spec env rel in
                 apply_k_guard ~in_post:false norm.k_guard frag.pre)
               (List.filter_map
-                 (fun (f : Ast.ltl_o) ->
+                 (fun (f : Normalized_program.contract_formula) ->
                    if ltl_mentions_monitor f.value then None else Some f.value)
                  t.requires)
           in

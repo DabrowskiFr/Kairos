@@ -3,9 +3,9 @@
  (wrapped false)
  (modules
   normalized_program proof_obligation_ir product_types product_build proof_kernel_types proof_kernel_naming
-  proof_kernel_program proof_kernel_clauses proof_kernel_calls proof_kernel_ir
-  kernel_guided_contract)
+ proof_kernel_program proof_kernel_clauses proof_kernel_step_contracts proof_kernel_calls proof_kernel_ir
+ kernel_guided_contract)
  (libraries
-  kairos_ast kairos_logic kairos_automata yojson)
+  kairos_ast kairos_provenance kairos_logic kairos_automata kairos_utils yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

@@ -56,15 +56,7 @@ type ltl =
   | LW of ltl * ltl (* Weak Until *)
 [@@deriving show, yojson]
 
-type origin =
-  | UserContract
-  | Instrumentation
-  | Coherency
-  | Compatibility
-  | AssumeAutomaton
-  | Internal
-[@@deriving show, yojson]
-type ltl_o = { value : ltl; origin : origin option; oid : int; loc : loc option } [@@deriving show, yojson]
+type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving show, yojson]
 type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
@@ -80,29 +72,11 @@ and stmt_desc =
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
 type invariant_state_rel = { is_eq : bool; state : ident; formula : ltl } [@@deriving show, yojson]
 
-type node_attrs = {
-  uid : int option;
-  invariants_user : invariant_user list;
-  coherency_goals : ltl_o list;
-}
-[@@deriving show]
-
-type transition_attrs = {
-  uid : int option;
-  ghost : stmt list;
-  instrumentation : stmt list;
-  warnings : string list;
-}
-[@@deriving show]
-
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : ltl_o list;
-  ensures : ltl_o list;
   body : stmt list;
-  attrs : transition_attrs;
 }
 [@@deriving show]
 
@@ -128,7 +102,6 @@ type node_specification = {
 type node = {
   semantics : node_semantics;
   specification : node_specification;
-  attrs : node_attrs;
 }
 [@@deriving show]
 

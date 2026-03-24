@@ -24,6 +24,6 @@ val node_signature_of_ast : Ast.node -> node_signature_ir
 val callee_tick_abi_of_node : node:Normalized_program.node -> callee_tick_abi_ir
 
 val export_node_summary :
-  node:Ast.node ->
+  node:Normalized_program.node ->
   normalized_ir:node_ir ->
   exported_node_summary_ir

@@ -23,6 +23,7 @@ open Ast_builders
 open Support
 open Fo_specs
 open Fo_time
+open Formula_origin
 open Automata_atoms
 open Automata_generation
 
@@ -173,9 +174,9 @@ let transform_node ~build:(_build : build_ctx) (n : Ast.node) : Ast.node =
 let add_state_invariants_to_transitions ~(invariants_state_rel : invariant_state_rel list)
     ?(log : (Abs.transition -> ltl -> unit) option = None) ?(add_to_ensures : bool = true)
     (trans : Abs.transition list) : Abs.transition list =
-  let add_unique f lst =
-    if List.exists (fun fo -> fo.value = f) lst then lst
-    else Ast_provenance.with_origin Compatibility f :: lst
+  let add_unique (f : ltl) (lst : Abs.contract_formula list) =
+    if List.exists (fun (fo : Abs.contract_formula) -> fo.value = f) lst then lst
+    else Abs.with_origin Compatibility f :: lst
   in
   let invs = invariants_state_rel in
   List.map
@@ -203,7 +204,8 @@ let add_state_invariants_to_transitions ~(invariants_state_rel : invariant_state
       { t with requires = reqs; ensures = ens })
     trans
 
-let filter_monitor_state_formulas ~(reachable_states : string list) (fs : ltl_o list) : ltl_o list =
+let filter_monitor_state_formulas ~(reachable_states : string list) (fs : Abs.contract_formula list) :
+    Abs.contract_formula list =
   let mon = instrumentation_state_name in
   let reachable_states = List.sort_uniq String.compare reachable_states in
   let is_reachable st = List.mem st reachable_states in
@@ -233,20 +235,11 @@ let filter_monitor_state_formulas ~(reachable_states : string list) (fs : ltl_o 
         match mon_state_eq f with Some st -> [ st ] | None -> [])
   in
   List.filter
-    (fun f ->
+    (fun (f : Abs.contract_formula) ->
       match referenced_mon_states f.value |> List.sort_uniq String.compare with
       | [] -> true
       | sts -> List.exists is_reachable sts)
     fs
-
-(* Sub-pass 1: inject executable monitor code into transitions. *)
-let inject_instrumentation_code ~(instrumentation_updates : stmt list) ~(instrumentation_asserts : stmt list)
-    (trans : Abs.transition list) : Abs.transition list =
-  List.map
-    (fun (t : Abs.transition) ->
-      let instrumentation = t.attrs.instrumentation @ instrumentation_updates @ instrumentation_asserts in
-      { t with attrs = { t.attrs with instrumentation } })
-    trans
 
 (* Sub-pass 2a: add no-bad-state requirements on transitions. *)
 let add_not_bad_state_requires ?(log : (Abs.transition -> ltl -> unit) option = None)
@@ -257,7 +250,7 @@ let add_not_bad_state_requires ?(log : (Abs.transition -> ltl -> unit) option = 
       List.map
         (fun (t : Abs.transition) ->
           Option.iter (fun l -> l t bad_fo) log;
-          { t with requires = t.requires @ [ Ast_provenance.with_origin Instrumentation bad_fo ] })
+          { t with requires = t.requires @ [ Abs.with_origin Instrumentation bad_fo ] })
         trans
 
 (* Sub-pass 2b: add no-bad-state obligations on transitions. *)
@@ -269,7 +262,7 @@ let add_not_bad_state_ensures ?(log : (Abs.transition -> ltl -> unit) option = N
       List.map
         (fun (t : Abs.transition) ->
           Option.iter (fun l -> l t bad_fo) log;
-          { t with ensures = t.ensures @ [ Ast_provenance.with_origin Instrumentation bad_fo ] })
+          { t with ensures = t.ensures @ [ Abs.with_origin Instrumentation bad_fo ] })
         trans
 
 (* Sub-pass 3: add monitor/program compatibility requirements. *)
@@ -281,7 +274,7 @@ let add_monitor_compatibility_requires ?(log : (Abs.transition -> ltl -> unit) o
       (fun (t : Abs.transition) ->
         List.iter (fun f -> Option.iter (fun l -> l t f) log) incoming_prev_fo_shifted;
         let incoming_prev_o =
-          List.map (Ast_provenance.with_origin Compatibility) incoming_prev_fo_shifted
+          List.map (Abs.with_origin Compatibility) incoming_prev_fo_shifted
         in
         { t with requires = t.requires @ incoming_prev_o })
       trans
@@ -329,21 +322,18 @@ let drop_exact_formula (target : ltl option) (trans : Abs.transition list) : Abs
   match target with
   | None -> trans
   | Some target_fo ->
-      let keep (f : ltl_o) = f.value <> target_fo in
+      let keep (f : Abs.contract_formula) = f.value <> target_fo in
       List.map
         (fun (t : Abs.transition) ->
           { t with requires = List.filter keep t.requires; ensures = List.filter keep t.ensures })
         trans
 
 let apply_contract_pipeline ~(n : Abs.node) ~(build : build_ctx)
-    ~(analysis : Product_build.analysis) ~(instrumentation_updates : stmt list)
-    ~(instrumentation_asserts : stmt list) ~(bad_state_fo_opt : ltl option)
+    ~(analysis : Product_build.analysis) ~(bad_state_fo_opt : ltl option)
     ~(incoming_prev_fo_shifted : ltl list)
     ~(log_contract : reason:string -> t:Abs.transition -> ltl -> unit) : Abs.transition list =
   let _ = build in
   let _ = analysis in
-  let _ = instrumentation_updates in
-  let _ = instrumentation_asserts in
   let _ = incoming_prev_fo_shifted in
   let _ = log_contract in
   n.trans |> drop_exact_formula bad_state_fo_opt
@@ -352,8 +342,6 @@ type processing_context = {
   bad_idx : int;
   bad_state_fo_opt : ltl option;
   incoming_prev_fo_shifted : ltl list;
-  instrumentation_updates : stmt list;
-  instrumentation_asserts : stmt list;
 }
 
 type node_context = {
@@ -384,23 +372,19 @@ let build_processing_context ~(grouped : Spot_automaton.transition list)
   let incoming_prev_fo_shifted =
     compute_incoming_prev_fo_shifted ~grouped ~atom_map_exprs ~atom_name_to_fo ~is_input
   in
-  let instrumentation_updates =
-    Source_instrumentation.instrumentation_update_stmts atom_map_exprs states grouped
-  in
-  let instrumentation_asserts = Source_instrumentation.instrumentation_assert bad_idx in
-  { bad_idx; bad_state_fo_opt; incoming_prev_fo_shifted; instrumentation_updates; instrumentation_asserts }
+  { bad_idx; bad_state_fo_opt; incoming_prev_fo_shifted }
 
 let build_node_context ~(build : build_ctx) ~(n : Abs.node) : node_context =
   let input_names = List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs in
   let is_input (x : ident) = List.mem x input_names in
   let atom_map_exprs = build.atoms.atom_named_exprs in
-  let atom_names = build.atom_names in
+  let atom_names = build.guarantee_atom_names in
   let atom_name_to_fo = List.map (fun (a, name) -> (name, a)) build.atoms.atom_map in
   let user_assumes = n.specification.spec_assumes in
   let user_guarantees = n.specification.spec_guarantees in
-  let invariants_user = n.attrs.invariants_user in
+  let invariants_user = n.user_invariants in
   let invariants_state_rel = n.specification.spec_invariants_state_rel in
-  let automaton = build.automaton in
+  let automaton = build.guarantee_automaton in
   let states = automaton.states in
   let transitions = automaton.transitions in
   let grouped = automaton.grouped in
@@ -420,7 +404,7 @@ let build_node_context ~(build : build_ctx) ~(n : Abs.node) : node_context =
 
 let log_instrumentation_debug_info ~(ctx : node_context) ~(build : build_ctx)
     ~(debug_incoming : bool) : unit =
-  let automaton = build.automaton in
+  let automaton = build.guarantee_automaton in
   if Spot_automaton.automata_log_enabled || debug_incoming then
     prerr_endline (Printf.sprintf "[automata] atoms=%d" (List.length ctx.atom_names));
   if Spot_automaton.automata_log_enabled || debug_incoming then (
@@ -449,14 +433,9 @@ let make_contract_logger () : (reason:string -> t:Abs.transition -> ltl -> unit)
 
 let finalize_instrumented_abstract_node ~(ctx : node_context) ~(n : Abs.node)
     ~(trans : Abs.transition list) : Abs.node =
-  let n_ast = Abs.to_ast_node n in
-  let node_ast =
-    Source_instrumentation.finalize_instrumented_node ~atom_map_exprs:ctx.atom_map_exprs
-      ~user_assumes:ctx.user_assumes ~user_guarantees:ctx.user_guarantees
-      ~invariants_user:ctx.invariants_user ~invariants_state_rel:ctx.invariants_state_rel n_ast
-      ~trans
-  in
-  Abs.of_ast_node node_ast
+  Source_instrumentation.finalize_instrumented_node ~atom_map_exprs:ctx.atom_map_exprs
+    ~user_assumes:ctx.user_assumes ~user_guarantees:ctx.user_guarantees
+    ~invariants_user:ctx.invariants_user ~invariants_state_rel:ctx.invariants_state_rel n ~trans
 
 let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~(n : Abs.node)
@@ -467,7 +446,6 @@ let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
       ~atom_map_exprs:ctx.atom_map_exprs ~atom_name_to_fo:ctx.atom_name_to_fo ~is_input:ctx.is_input
   in
   apply_contract_pipeline ~n ~build ~analysis
-    ~instrumentation_updates:processing_ctx.instrumentation_updates ~instrumentation_asserts:processing_ctx.instrumentation_asserts
     ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
     ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~log_contract
 
@@ -493,8 +471,6 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
     in
     let product_analysis = Product_build.analyze_node ~build ~node:n in
     apply_contract_pipeline ~n ~build ~analysis:product_analysis
-      ~instrumentation_updates:processing_ctx.instrumentation_updates
-      ~instrumentation_asserts:processing_ctx.instrumentation_asserts
       ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
       ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~log_contract
   in

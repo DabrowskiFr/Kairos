@@ -42,7 +42,7 @@ let dot_of_annotated_transition (t : Proof_obligation_ir.annotated_transition) :
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   List.iter
-    (fun (f : Ast.ltl_o) ->
+    (fun (f : Normalized_program.contract_formula) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -50,7 +50,7 @@ let dot_of_annotated_transition (t : Proof_obligation_ir.annotated_transition) :
            s))
     t.requires;
   List.iter
-    (fun (f : Ast.ltl_o) ->
+    (fun (f : Normalized_program.contract_formula) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -110,7 +110,7 @@ let dot_of_verified_transition (t : Proof_obligation_ir.verified_transition) : s
       upd_strs
   end;
   List.iter
-    (fun (f : Ast.ltl_o) ->
+    (fun (f : Normalized_program.contract_formula) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
@@ -118,7 +118,7 @@ let dot_of_verified_transition (t : Proof_obligation_ir.verified_transition) : s
            s))
     t.requires;
   List.iter
-    (fun (f : Ast.ltl_o) ->
+    (fun (f : Normalized_program.contract_formula) ->
       let s = truncate (Support.string_of_ltl f.value) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf

@@ -1,13 +1,22 @@
 open Ast
 
+type contract_formula = {
+  value : ltl;
+  origin : Formula_origin.t option;
+  oid : int;
+  loc : loc option;
+}
+[@@deriving yojson]
+
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : ltl_o list;
-  ensures : ltl_o list;
+  requires : contract_formula list;
+  ensures : contract_formula list;
   body : stmt list;
-  attrs : transition_attrs;
+  uid : int option;
+  warnings : string list;
 }
 
 type node_semantics = Ast.node_semantics
@@ -17,30 +26,31 @@ type node = {
   semantics : node_semantics;
   specification : node_specification;
   trans : transition list;
-  attrs : node_attrs;
+  uid : int option;
+  user_invariants : invariant_user list;
+  coherency_goals : contract_formula list;
 }
+
+let of_ast_contract_formula ?origin (f : Ast.ltl_o) : contract_formula =
+  { value = f.value; origin; oid = f.oid; loc = f.loc }
+
+let to_ast_contract_formula (f : contract_formula) : Ast.ltl_o =
+  { value = f.value; oid = f.oid; loc = f.loc }
 
 let of_ast_transition (t : Ast.transition) : transition =
   {
     src = t.src;
     dst = t.dst;
     guard = t.guard;
-    requires = t.requires;
-    ensures = t.ensures;
+    requires = [];
+    ensures = [];
     body = t.body;
-    attrs = t.attrs;
+    uid = None;
+    warnings = [];
   }
 
 let to_ast_transition (t : transition) : Ast.transition =
-  {
-    src = t.src;
-    dst = t.dst;
-    guard = t.guard;
-    requires = t.requires;
-    ensures = t.ensures;
-    body = t.body;
-    attrs = t.attrs;
-  }
+  { src = t.src; dst = t.dst; guard = t.guard; body = t.body }
 
 let of_ast_node (n : Ast.node) : node =
   let semantics = Ast.semantics_of_node n in
@@ -49,7 +59,9 @@ let of_ast_node (n : Ast.node) : node =
     semantics;
     specification = spec;
     trans = List.map of_ast_transition n.semantics.sem_trans;
-    attrs = n.attrs;
+    uid = None;
+    user_invariants = [];
+    coherency_goals = [];
   }
 
 let to_ast_node (n : node) : Ast.node =
@@ -60,11 +72,16 @@ let to_ast_node (n : node) : Ast.node =
         sem_trans = List.map to_ast_transition n.trans;
       };
     specification = n.specification;
-    attrs = n.attrs;
   }
 
 let map_transitions (f : transition list -> transition list) (n : node) : node =
   { n with trans = f n.trans }
+
+let with_origin ?loc origin value : contract_formula =
+  { value; origin = Some origin; oid = Provenance.fresh_id (); loc }
+
+let map_formula f (x : contract_formula) : contract_formula = { x with value = f x.value }
+let values xs = List.map (fun x -> x.value) xs
 
 let indent_str (n : int) : string = String.make (2 * max 0 n) ' '
 
@@ -73,16 +90,16 @@ let render_origin = function
   | Some o ->
       let s =
         match o with
-        | UserContract -> "UserContract"
-        | Instrumentation -> "Instrumentation"
-        | Coherency -> "Coherency"
-        | Compatibility -> "Compatibility"
-        | AssumeAutomaton -> "AssumeAutomaton"
-        | Internal -> "Internal"
+        | Formula_origin.UserContract -> "UserContract"
+        | Formula_origin.Instrumentation -> "Instrumentation"
+        | Formula_origin.Coherency -> "Coherency"
+        | Formula_origin.Compatibility -> "Compatibility"
+        | Formula_origin.AssumeAutomaton -> "AssumeAutomaton"
+        | Formula_origin.Internal -> "Internal"
       in
       " {" ^ s ^ "}"
 
-let render_fo_o (kw : string) (f : ltl_o) (indent_level : int) : string =
+let render_fo_o (kw : string) (f : contract_formula) (indent_level : int) : string =
   indent_str indent_level ^ kw ^ " " ^ Support.string_of_ltl f.value ^ render_origin f.origin ^ ";"
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
@@ -121,15 +138,12 @@ let render_transition ?(indent : int = 0) (t : transition) : string =
   let reqs = List.map (fun f -> render_fo_o "require" f (indent + 1)) t.requires in
   let ens = List.map (fun f -> render_fo_o "ensure" f (indent + 1)) t.ensures in
   let body = List.concat_map (fun s -> render_stmt s (indent + 1)) t.body in
-  let ghost = List.concat_map (fun s -> render_stmt s (indent + 1)) t.attrs.ghost in
   (* Keep the abstract OBC+ view focused on contracts + transition code.
      Internal instrumentation statements are intentionally hidden here. *)
   let sections =
     reqs @ ens
     @
     if body = [] then [] else (indent_str (indent + 1) ^ "do") :: body
-    @
-    if ghost = [] then [] else (indent_str (indent + 1) ^ "ghost") :: ghost
   in
   String.concat "\n" (header :: sections @ [ indent_str indent ^ "}" ])
 

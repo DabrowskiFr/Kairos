@@ -3,11 +3,11 @@
 (* Parsed AST, directly from the frontend. *)
 type parsed = Ast.program
 
-(* AST after contract coherency/compatibility pass. *)
-type contracts_stage = Ast.program
+(* Enriched normalized program after contract generation/coherency. *)
+type contracts_stage = Normalized_program.node list
 
-(* AST after monitor injection. *)
-type instrumentation_stage = Ast.program
+(* Enriched normalized program after instrumentation. *)
+type instrumentation_stage = Normalized_program.node list
 
-(* AST ready for Why3 emission (currently same representation). *)
-type why_stage = Ast.program
+(* Enriched normalized program ready for Why3-side compilation. *)
+type why_stage = Normalized_program.node list

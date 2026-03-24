@@ -3,9 +3,7 @@ type raw_transition = {
   dst_state            : Ast.ident;
   guard                : Ast.ltl;
   guard_iexpr          : Ast.iexpr option;
-  ghost_stmts          : Ast.stmt list;
   body_stmts           : Ast.stmt list;
-  instrumentation_stmts: Ast.stmt list;
 }
 
 type raw_node = {
@@ -16,7 +14,7 @@ type raw_node = {
   control_states: Ast.ident list;
   init_state    : Ast.ident;
   instances     : (Ast.ident * Ast.ident) list;
-  pre_k_map     : (Ast.hexpr * Support.pre_k_info) list;
+  pre_k_map     : (Ast.hexpr * Temporal_support.pre_k_info) list;
   transitions   : raw_transition list;
   assumes       : Ast.ltl list;
   guarantees    : Ast.ltl list;
@@ -24,14 +22,14 @@ type raw_node = {
 
 type annotated_transition = {
   raw     : raw_transition;
-  requires: Ast.ltl_o list;
-  ensures : Ast.ltl_o list;
+  requires: Normalized_program.contract_formula list;
+  ensures : Normalized_program.contract_formula list;
 }
 
 type annotated_node = {
   raw              : raw_node;
   transitions      : annotated_transition list;
-  coherency_goals  : Ast.ltl_o list;
+  coherency_goals  : Normalized_program.contract_formula list;
   user_invariants  : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
 }
@@ -41,12 +39,10 @@ type verified_transition = {
   dst_state            : Ast.ident;
   guard                : Ast.ltl;
   guard_iexpr          : Ast.iexpr option;
-  ghost_stmts          : Ast.stmt list;
   body_stmts           : Ast.stmt list;
-  instrumentation_stmts: Ast.stmt list;
   pre_k_updates        : Ast.stmt list;
-  requires             : Ast.ltl_o list;
-  ensures              : Ast.ltl_o list;
+  requires             : Normalized_program.contract_formula list;
+  ensures              : Normalized_program.contract_formula list;
 }
 
 type verified_node = {
@@ -60,7 +56,7 @@ type verified_node = {
   transitions      : verified_transition list;
   assumes          : Ast.ltl list;
   guarantees       : Ast.ltl list;
-  coherency_goals  : Ast.ltl_o list;
+  coherency_goals  : Normalized_program.contract_formula list;
   user_invariants  : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
 }

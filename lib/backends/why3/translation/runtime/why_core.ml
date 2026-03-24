@@ -232,10 +232,7 @@ let compile_action_block (env : env)
     (sticky_asserts : Ptree.term list)
     (block : Why_runtime_view.action_block_view) : Ptree.expr =
   match block.block_kind with
-  | Why_runtime_view.ActionGhost ->
-      mk_expr (Eghost (compile_seq env call_asserts sticky_asserts block.block_actions))
-  | Why_runtime_view.ActionUser | Why_runtime_view.ActionInstrumentation ->
-      compile_seq env call_asserts sticky_asserts block.block_actions
+  | Why_runtime_view.ActionUser -> compile_seq env call_asserts sticky_asserts block.block_actions
 
 let compile_transition_body (env : env)
     (call_asserts :

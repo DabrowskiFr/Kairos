@@ -15,9 +15,7 @@ let raw_transition_of_abs (t : Abs.transition) : Proof_obligation_ir.raw_transit
     dst_state                       = t.dst;
     guard                           = guard_fo t.guard;
     guard_iexpr                     = t.guard;
-    ghost_stmts                     = t.attrs.ghost;
     body_stmts                      = t.body;
-    instrumentation_stmts           = t.attrs.instrumentation;
   }
 
 (** Build a [Proof_obligation_ir.raw_node] from a finalized abstract node.

@@ -4,10 +4,10 @@
  (name kairos_why3)
  (wrapped false)
  (modules
-  emit
+ emit pipeline_why
   why_types why_core why_compile_expr why_env why_runtime_view
   why_labels why_call_plan why_contract_plan why_contracts
   why_contract_labels why_contract_prove)
  (libraries
-  kairos_ast kairos_logic kairos_stages kairos_utils kairos_common_ir
-  proof_obligation_ir_render why3))
+  kairos_ast kairos_provenance kairos_logic kairos_stages kairos_stage_names kairos_utils kairos_common_ir
+  proof_obligation_ir_render kairos_pipeline_api_types why3))

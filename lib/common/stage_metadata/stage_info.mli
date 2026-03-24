@@ -40,7 +40,7 @@ type automata_info = {
 
 (* Metadata produced by the contracts pass. *)
 type contracts_info = {
-  contract_origin_map : (int * Ast.origin option) list;
+  contract_origin_map : (int * Formula_origin.t option) list;
   warnings : string list;
 }
 

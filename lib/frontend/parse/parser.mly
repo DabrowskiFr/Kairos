@@ -350,25 +350,21 @@ transitions:
 transition_group:
   | FROM IDENT COLON to_transitions {
       List.map
-        (fun (dst, guard, reqs, enss, body) ->
+        (fun (dst, guard, body) ->
           Ast_builders.mk_transition
             ~src:$2
             ~dst
             ~guard
-            ~requires:reqs
-            ~ensures:enss
             ~body)
         $4
     }
   | IDENT COLON to_transitions {
       List.map
-        (fun (dst, guard, reqs, enss, body) ->
+        (fun (dst, guard, body) ->
           Ast_builders.mk_transition
             ~src:$1
             ~dst
             ~guard
-            ~requires:reqs
-            ~ensures:enss
             ~body)
         $3
     }
@@ -380,7 +376,7 @@ to_transitions:
 to_transition:
   | TO IDENT guard_opt LBRACE stmt_list_opt RBRACE
       {
-        ($2, $3, [], [], $5)
+        ($2, $3, $5)
       }
 
 match_transitions:
@@ -394,8 +390,6 @@ match_transition:
           ~src:$2
           ~dst:$4
           ~guard:$5
-          ~requires:[]
-          ~ensures:[]
           ~body:$7
       }
 

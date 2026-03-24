@@ -10,35 +10,8 @@ let as_var e = match e.iexpr with IVar v -> Some v | _ -> None
 let mk_stmt ?loc stmt = { stmt; loc }
 let stmt_desc s = s.stmt
 let with_stmt_desc s stmt = { s with stmt }
-let fresh_oid () = Provenance.fresh_id ()
 
-let empty_node_attrs : node_attrs =
-  { uid = None; invariants_user = []; coherency_goals = [] }
-
-let empty_transition_attrs : transition_attrs =
-  { uid = None; ghost = []; instrumentation = []; warnings = [] }
-
-let ensure_node_uid (n : node) : node =
-  match n.attrs.uid with
-  | Some _ -> n
-  | None -> { n with attrs = { n.attrs with uid = Some (fresh_oid ()) } }
-
-let ensure_transition_uid (t : transition) : transition =
-  match t.attrs.uid with
-  | Some _ -> t
-  | None -> { t with attrs = { t.attrs with uid = Some (fresh_oid ()) } }
-
-let ensure_program_uids (p : program) : program =
-  List.map
-    (fun n ->
-      let n = ensure_node_uid n in
-      let sem = n.semantics in
-      let trans = List.map ensure_transition_uid sem.sem_trans in
-      if trans == sem.sem_trans then n else { n with semantics = { sem with sem_trans = trans } })
-    p
-
-let mk_transition ~src ~dst ~guard ~requires ~ensures ~body : transition =
-  { src; dst; guard; requires; ensures; body; attrs = empty_transition_attrs }
+let mk_transition ~src ~dst ~guard ~body : transition = { src; dst; guard; body }
 
 let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~states ~init_state
     ~trans : node =
@@ -60,5 +33,4 @@ let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~sta
         spec_guarantees = guarantees;
         spec_invariants_state_rel = [];
       };
-    attrs = empty_node_attrs;
   }

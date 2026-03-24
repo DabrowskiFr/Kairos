@@ -1,5 +1,7 @@
 (library
  (name kairos_utils)
  (wrapped false)
- (modules log)
- (libraries kairos_ast kairos_stages logs logs.fmt fmt))
+ (modules generated_names temporal_support why_term_support ast_pretty support log)
+ (libraries kairos_ast kairos_stage_names why3 yojson logs logs.fmt fmt)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

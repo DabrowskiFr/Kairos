@@ -31,8 +31,8 @@ type env_info = {
   ret_expr : Why3.Ptree.expr;
   ghost_updates : Why3.Ptree.expr;
   has_ghost_updates : bool;
-  pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
-  pre_k_infos : Support.pre_k_info list;
+  pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
+  pre_k_infos : Temporal_support.pre_k_info list;
   needs_step_count : bool;
   needs_first_step : bool;
   has_initial_only_contracts : bool;

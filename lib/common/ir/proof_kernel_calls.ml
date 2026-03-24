@@ -17,11 +17,11 @@ let invariants_for_state ~(node : Abs.node) ~(time : clause_time_ir) (state_name
       else None)
     node.specification.spec_invariants_state_rel
 
-let lower_call_fact ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list) ~lower_clause_fact
+let lower_call_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) ~lower_clause_fact
     (fact : call_fact_ir) : call_fact_ir option =
   Option.map (fun lowered -> { fact with fact = lowered }) (lower_clause_fact ~pre_k_map fact.fact)
 
-let lower_callee_summary_case ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let lower_callee_summary_case ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~lower_clause_fact (case : callee_summary_case_ir) : callee_summary_case_ir =
   let lower facts = List.filter_map (lower_call_fact ~pre_k_map ~lower_clause_fact) facts in
   {
@@ -31,7 +31,7 @@ let lower_callee_summary_case ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) lis
     exported_post_facts = lower case.exported_post_facts;
   }
 
-let lower_callee_tick_abi ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let lower_callee_tick_abi ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~lower_clause_fact (abi : callee_tick_abi_ir) : callee_tick_abi_ir =
   { abi with cases = List.map (lower_callee_summary_case ~pre_k_map ~lower_clause_fact) abi.cases }
 
@@ -60,19 +60,19 @@ let fold_lefti f acc xs =
   loop 0 acc xs
 
 let collect_call_sites_with_paths (ts : Abs.transition list) :
-    (Ast.transition * string * Ast.ident * Ast.iexpr list * Ast.ident list) list =
-  let rec collect_stmt acc (t_ast : Ast.transition) path (s : Ast.stmt) =
+    (Ast.transition * int option * string * Ast.ident * Ast.iexpr list * Ast.ident list) list =
+  let rec collect_stmt acc (t_ast : Ast.transition) uid path (s : Ast.stmt) =
     match s.stmt with
     | SCall (inst, args, outs) ->
-        (t_ast, path, inst, args, outs) :: acc
+        (t_ast, uid, path, inst, args, outs) :: acc
     | SIf (_c, tbr, fbr) ->
         let acc =
           fold_lefti
-            (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.t%d" path idx) stmt)
+            (fun acc idx stmt -> collect_stmt acc t_ast uid (Printf.sprintf "%s.t%d" path idx) stmt)
             acc tbr
         in
         fold_lefti
-          (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.f%d" path idx) stmt)
+          (fun acc idx stmt -> collect_stmt acc t_ast uid (Printf.sprintf "%s.f%d" path idx) stmt)
           acc fbr
     | SMatch (_e, branches, def) ->
         let acc =
@@ -80,12 +80,12 @@ let collect_call_sites_with_paths (ts : Abs.transition list) :
             (fun acc bidx (_ctor, body) ->
               fold_lefti
                 (fun acc sidx stmt ->
-                  collect_stmt acc t_ast (Printf.sprintf "%s.m%d.%d" path bidx sidx) stmt)
+                  collect_stmt acc t_ast uid (Printf.sprintf "%s.m%d.%d" path bidx sidx) stmt)
                 acc body)
             acc branches
         in
         fold_lefti
-          (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.d%d" path idx) stmt)
+          (fun acc idx stmt -> collect_stmt acc t_ast uid (Printf.sprintf "%s.d%d" path idx) stmt)
           acc def
     | SAssign _ | SSkip -> acc
   in
@@ -93,33 +93,26 @@ let collect_call_sites_with_paths (ts : Abs.transition list) :
     (fun acc (t : Abs.transition) ->
       let t_ast = Abs.to_ast_transition t in
       let seed =
-        match t_ast.attrs.uid with
+        match t.uid with
         | Some uid -> Printf.sprintf "uid%d" uid
         | None -> Printf.sprintf "%s_to_%s" t_ast.src t_ast.dst
       in
       let acc =
         fold_lefti
-          (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.g%d" seed idx) stmt)
-          acc t_ast.attrs.ghost
-      in
-      let acc =
-        fold_lefti
-          (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.b%d" seed idx) stmt)
+          (fun acc idx stmt -> collect_stmt acc t_ast t.uid (Printf.sprintf "%s.b%d" seed idx) stmt)
           acc t_ast.body
       in
-      fold_lefti
-        (fun acc idx stmt -> collect_stmt acc t_ast (Printf.sprintf "%s.i%d" seed idx) stmt)
-        acc t_ast.attrs.instrumentation)
+      acc)
     [] ts
   |> List.rev
 
 let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
   let callee_ast = Abs.to_ast_node node in
   let input_ports =
-    List.map (fun name -> { port_name = name; role = CallInputPort }) (Ast_utils.input_names_of_node callee_ast)
+    List.map (fun name -> { port_name = name; role = CallInputPort }) (Ast_queries.input_names_of_node callee_ast)
   in
   let output_ports =
-    List.map (fun name -> { port_name = name; role = CallOutputPort }) (Ast_utils.output_names_of_node callee_ast)
+    List.map (fun name -> { port_name = name; role = CallOutputPort }) (Ast_queries.output_names_of_node callee_ast)
   in
   let state_ports =
     { port_name = "st"; role = CallStatePort }
@@ -130,7 +123,9 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
   let exported_post_facts_for_transition (t : Abs.transition) =
     let state_facts = invariants_for_state ~node ~time:CurrentTick t.dst in
     let ensure_facts =
-      List.map (fun (ltl_o : Ast.ltl_o) -> current_fact (FactFormula ltl_o.value)) t.ensures
+      List.map
+        (fun (ltl_o : Abs.contract_formula) -> current_fact (FactFormula ltl_o.value))
+        t.ensures
     in
     (state_facts @ ensure_facts) |> List.sort_uniq Stdlib.compare
   in
@@ -144,13 +139,14 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
         in
         let requires =
           List.map
-            (fun ltl_o -> { fact_kind = CallEntryFact; fact = current_fact (FactFormula ltl_o.value) })
+            (fun (ltl_o : Abs.contract_formula) ->
+              { fact_kind = CallEntryFact; fact = current_fact (FactFormula ltl_o.value) })
             t.requires
         in
         let transition_facts =
           { fact_kind = CallTransitionFact; fact = current_fact (FactProgramState t.dst) }
           :: List.map
-               (fun ltl_o ->
+               (fun (ltl_o : Abs.contract_formula) ->
                  { fact_kind = CallTransitionFact; fact = current_fact (FactFormula ltl_o.value) })
                t.ensures
         in
@@ -180,287 +176,12 @@ let callee_tick_abi_of_node ~(node : Abs.node) : callee_tick_abi_ir =
 let build_call_binding_pairs kind locals remotes =
   List.map2 (fun local_name remote_name -> { binding_kind = kind; local_name; remote_name }) locals remotes
 
-let build_proof_step_contracts ~(product_steps : product_step_ir list)
-    ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
-    ~(initial_product_state : product_state_ir)
-    ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
-    proof_step_contract_ir list =
-  let module String_set = Set.Make (String) in
-  let slot_to_current_expr =
-    let add acc (_h, info) =
-      info.Support.names
-      |> List.mapi (fun idx name ->
-             let lowered =
-               if idx = 0 then Ast.HNow info.Support.expr else Ast.HPreK (info.Support.expr, idx)
-             in
-             (name, lowered))
-      |> List.rev_append acc
-    in
-    List.fold_left add [] pre_k_map
-  in
-  let current_expr_to_next_slot =
-    let add acc (_h, info) =
-      match info.Support.expr.iexpr with
-      | IVar base_var -> (base_var, info.Support.names) :: acc
-      | _ -> acc
-    in
-    List.fold_left add [] pre_k_map
-  in
-  let rec rewrite_iexpr_post (e : Ast.iexpr) : Ast.iexpr =
-    let iexpr =
-      match e.iexpr with
-      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
-      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_post inner)
-      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_post inner)
-      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_post a, rewrite_iexpr_post b)
-    in
-    { e with iexpr }
-  in
-  let rec rewrite_hexpr_post (h : Ast.hexpr) : Ast.hexpr =
-    match h with
-    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ } as e) -> (
-        match List.assoc_opt name slot_to_current_expr with
-        | Some lowered -> lowered
-        | None -> Ast.HNow (rewrite_iexpr_post e))
-    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_post e)
-    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_post e, k)
-  in
-  let rewrite_fo_post (f : Ast.fo) : Ast.fo =
-    match f with
-    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
-    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_post hs)
-  in
-  let rec rewrite_ltl_post (f : Ast.ltl) : Ast.ltl =
-    match f with
-    | Ast.LTrue | Ast.LFalse -> f
-    | Ast.LAtom fo -> Ast.LAtom (rewrite_fo_post fo)
-    | Ast.LNot a -> Ast.LNot (rewrite_ltl_post a)
-    | Ast.LAnd (a, b) -> Ast.LAnd (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LOr (a, b) -> Ast.LOr (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LImp (a, b) -> Ast.LImp (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LX a -> Ast.LX (rewrite_ltl_post a)
-    | Ast.LG a -> Ast.LG (rewrite_ltl_post a)
-    | Ast.LW (a, b) -> Ast.LW (rewrite_ltl_post a, rewrite_ltl_post b)
-  in
-  let rec rewrite_iexpr_pre (e : Ast.iexpr) : Ast.iexpr =
-    let iexpr =
-      match e.iexpr with
-      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
-      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_pre inner)
-      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_pre inner)
-      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_pre a, rewrite_iexpr_pre b)
-    in
-    { e with iexpr }
-  in
-  let slot_name_for_depth base_var depth =
-    match List.assoc_opt base_var current_expr_to_next_slot with
-    | None -> None
-    | Some names ->
-        let idx = depth - 1 in
-        if idx < 0 || idx >= List.length names then None else Some (List.nth names idx)
-  in
-  let rec rewrite_hexpr_pre (h : Ast.hexpr) : Ast.hexpr =
-    match h with
-    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ }) -> (
-        match slot_name_for_depth name 1 with
-        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
-        | None -> h)
-    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_pre e)
-    | Ast.HPreK (({ Ast.iexpr = Ast.IVar name; _ } as e), k) -> (
-        match slot_name_for_depth name (k + 1) with
-        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
-        | None -> Ast.HPreK (rewrite_iexpr_pre e, k))
-    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_pre e, k)
-  in
-  let rewrite_fo_pre (f : Ast.fo) : Ast.fo =
-    match f with
-    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
-    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_pre hs)
-  in
-  let rec rewrite_ltl_pre (f : Ast.ltl) : Ast.ltl =
-    match f with
-    | Ast.LTrue | Ast.LFalse -> f
-    | Ast.LAtom fo -> Ast.LAtom (rewrite_fo_pre fo)
-    | Ast.LNot a -> Ast.LNot (rewrite_ltl_pre a)
-    | Ast.LAnd (a, b) -> Ast.LAnd (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LOr (a, b) -> Ast.LOr (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LImp (a, b) -> Ast.LImp (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LX a -> Ast.LX (rewrite_ltl_pre a)
-    | Ast.LG a -> Ast.LG (rewrite_ltl_pre a)
-    | Ast.LW (a, b) -> Ast.LW (rewrite_ltl_pre a, rewrite_ltl_pre b)
-  in
-  let relational_fact_to_plain_formula (fact : relational_clause_fact_ir) : Ast.ltl option =
-    match fact.desc with
-    | RelFactPhaseFormula fo | RelFactFormula fo -> Some fo
-    | RelFactFalse -> Some LFalse
-    | RelFactProgramState _ | RelFactGuaranteeState _ -> None
-  in
-  let clause_to_post_formula (clause : relational_generated_clause_ir) : Ast.ltl option =
-    let hyps =
-      clause.hypotheses
-      |> List.filter_map (fun fact ->
-             match fact.time with
-             | StepTickContext | CurrentTick -> relational_fact_to_plain_formula fact
-             | PreviousTick -> None)
-    in
-    let concs =
-      clause.conclusions
-      |> List.filter_map (fun fact ->
-             match fact.time with
-             | CurrentTick -> relational_fact_to_plain_formula fact
-             | PreviousTick | StepTickContext -> None)
-    in
-    let conj = function
-      | [] -> None
-      | f :: fs -> Some (List.fold_left (fun acc x -> LAnd (acc, x)) f fs)
-    in
-    match (conj hyps, conj concs) with
-    | None, None -> None
-    | None, Some c -> Some c
-    | Some h, None -> Some h
-    | Some h, Some c -> Some (LImp (h, c))
-  in
-  let is_structural_step_fact (fact : relational_clause_fact_ir) =
-    match fact.desc with
-    | RelFactProgramState _ | RelFactGuaranteeState _ -> true
-    | _ -> false
-  in
-  let strip_structural_step_facts (clause : relational_generated_clause_ir) :
-      relational_generated_clause_ir =
-    {
-      clause with
-      hypotheses = List.filter (fun fact -> not (is_structural_step_fact fact)) clause.hypotheses;
-      conclusions = List.filter (fun fact -> not (is_structural_step_fact fact)) clause.conclusions;
-    }
-  in
-  let raw_clauses_for_step (step : product_step_ir) =
-    symbolic_generated_clauses
-    |> List.filter (fun (clause : relational_generated_clause_ir) ->
-           match (clause.origin, clause.anchor) with
-           | OriginPhaseStepPreSummary, _ -> false
-           | _, ClauseAnchorProductStep anchored_step -> anchored_step = step
-           | _, ClauseAnchorProductState _ -> false)
-    |> List.map strip_structural_step_facts
-  in
-  let shift_post_fact (fact : relational_clause_fact_ir) =
-    let desc =
-      match fact.desc with
-      | RelFactPhaseFormula fo -> RelFactPhaseFormula (rewrite_ltl_post fo)
-      | RelFactFormula fo -> RelFactFormula (rewrite_ltl_post fo)
-      | _ -> fact.desc
-    in
-    { fact with desc }
-  in
-  let clauses_for_step (step : product_step_ir) =
-    raw_clauses_for_step step
-    |> List.map (fun clause ->
-           match clause.origin with
-           | OriginPropagationNodeInvariant ->
-               {
-                 clause with
-                 hypotheses = List.map shift_post_fact clause.hypotheses;
-                 conclusions = List.map shift_post_fact clause.conclusions;
-               }
-           | OriginPropagationAutomatonCoherence
-           | OriginPhaseStepSummary
-           | OriginSafety
-           | OriginSourceProductSummary
-           | OriginPhaseStepPreSummary
-           | OriginInitNodeInvariant
-           | OriginInitAutomatonCoherence ->
-               clause)
-  in
-  let same_product_state a b =
-    a.prog_state = b.prog_state
-    && a.assume_state_index = b.assume_state_index
-    && a.guarantee_state_index = b.guarantee_state_index
-  in
-  let post_formula_for_step (step : product_step_ir) =
-    clauses_for_step step
-    |> List.filter_map clause_to_post_formula
-    |> function
-    | [] -> LTrue
-    | f :: fs -> List.fold_left (fun acc x -> LAnd (acc, x)) f fs |> Fo_simplifier.simplify_fo
-  in
-  let entry_clauses_for (step : product_step_ir) =
-    let predecessor_posts =
-      product_steps
-      |> List.filter (fun pred -> same_product_state pred.dst step.src)
-      |> List.map post_formula_for_step
-    in
-    let disjuncts =
-      if same_product_state step.src initial_product_state then LTrue :: predecessor_posts
-      else predecessor_posts
-    in
-    let entry_formula =
-      match disjuncts with
-      | [] -> LTrue
-      | f :: fs -> List.fold_left (fun acc x -> LOr (acc, x)) f fs |> Fo_simplifier.simplify_fo
-    in
-    [
-      {
-        origin = OriginPhaseStepPreSummary;
-        anchor = ClauseAnchorProductStep step;
-        hypotheses = [];
-        conclusions =
-          [
-            {
-              time = CurrentTick;
-              desc = RelFactFormula (Fo_simplifier.simplify_fo (rewrite_ltl_pre entry_formula));
-            };
-          ];
-      };
-    ]
-  in
-  let key_of_formula (fo : Ast.ltl) = Support.string_of_ltl fo in
-  let key_of_step_contract ~(entry_formula : Ast.ltl) ~(post_formula : Ast.ltl) (step : product_step_ir) =
-    String.concat "|"
-      [
-        step.program_transition_id;
-        step.src.prog_state;
-        string_of_int step.src.assume_state_index;
-        string_of_int step.src.guarantee_state_index;
-        step.dst.prog_state;
-        string_of_int step.dst.assume_state_index;
-        string_of_int step.dst.guarantee_state_index;
-        key_of_formula entry_formula;
-        key_of_formula post_formula;
-      ]
-  in
-  let add_step_contract (seen, acc) (step : product_step_ir) =
-    let entry_clauses = entry_clauses_for step in
-    let entry_formula =
-      entry_clauses
-      |> List.filter_map clause_to_post_formula
-      |> function
-      | [] -> LTrue
-      | f :: fs -> List.fold_left (fun a b -> LAnd (a, b)) f fs |> Fo_simplifier.simplify_fo
-    in
-    let post_clauses = clauses_for_step step in
-    let post_formula =
-      post_clauses
-      |> List.filter_map clause_to_post_formula
-      |> function
-      | [] -> LTrue
-      | f :: fs -> List.fold_left (fun a b -> LAnd (a, b)) f fs |> Fo_simplifier.simplify_fo
-    in
-    match entry_formula with
-    | LFalse -> (seen, acc)
-    | _ ->
-        let key = key_of_step_contract ~entry_formula ~post_formula step in
-        if String_set.mem key seen then (seen, acc)
-        else
-          ( String_set.add key seen,
-            { step; entry_clauses; clauses = post_clauses } :: acc )
-  in
-  product_steps |> List.fold_left add_step_contract (String_set.empty, []) |> snd |> List.rev
-
 type temporal_origin = {
   base_var : Ast.ident;
   depth : int;
 }
 
-let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+let first_temporal_slot_for_input (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     (input_name : Ast.ident) : Ast.ident option =
   List.find_map
     (fun (_, info) ->
@@ -477,7 +198,7 @@ let rec simple_relational_eq_vars (fo : Ast.ltl) : (Ast.ident * Ast.ident) optio
   | _ -> None
 
 let infer_output_history_links ~(output_names : Ast.ident list)
-    ~(pre_k_map : (Ast.hexpr * Support.pre_k_info) list)
+    ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(symbolic_clauses : relational_generated_clause_ir list) :
     (Ast.ident * Ast.ident * Ast.ident option) list =
   let first_slot_to_input =
@@ -510,7 +231,7 @@ let infer_output_history_links ~(output_names : Ast.ident list)
                 | _ -> None))
   |> List.sort_uniq Stdlib.compare
 
-let temporal_slots_by_var (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) :
+let temporal_slots_by_var (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) :
     (Ast.ident * Ast.ident list) list =
   pre_k_map
   |> List.filter_map (fun (_, info) ->
@@ -558,7 +279,7 @@ let rec compose_delay_relations_in_stmts ~(nodes : Abs.node list)
     ~(instance_map : (Ast.ident * Ast.ident) list)
     ~(slots_by_var : (Ast.ident * Ast.ident list) list)
     ~(node_signature_of_ast : Ast.node -> node_signature_ir)
-    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Support.pre_k_info) list)
+    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option)
     ~(of_node_analysis :
        node_name:Ast.ident ->
@@ -681,7 +402,7 @@ let rec compose_delay_relations_in_stmts ~(nodes : Abs.node list)
 and output_history_links_of_resolved_callee ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list)
     ~(node_signature_of_ast : Ast.node -> node_signature_ir)
-    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Support.pre_k_info) list)
+    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option)
     ~(of_node_analysis :
        node_name:Ast.ident ->
@@ -711,10 +432,10 @@ and output_history_links_of_resolved_callee ~(nodes : Abs.node list)
         of_node_analysis ~node_name:callee_ast.semantics.sem_nname ~nodes ~external_summaries
           ~node:callee_node ~analysis
       in
-      ( Ast_utils.input_names_of_node callee_ast,
-        Ast_utils.output_names_of_node callee_ast,
+      ( Ast_queries.input_names_of_node callee_ast,
+        Ast_queries.output_names_of_node callee_ast,
         (explicit_delay_spec_links
-        @ infer_output_history_links ~output_names:(Ast_utils.output_names_of_node callee_ast)
+        @ infer_output_history_links ~output_names:(Ast_queries.output_names_of_node callee_ast)
             ~pre_k_map:callee_pre_k_map ~symbolic_clauses:normalized_ir.symbolic_generated_clauses)
         |> List.sort_uniq Stdlib.compare )
   | External summary ->
@@ -737,7 +458,7 @@ and output_history_links_of_resolved_callee ~(nodes : Abs.node list)
 let build_call_site_instantiations ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node)
     ~(node_signature_of_ast : Ast.node -> node_signature_ir)
-    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Support.pre_k_info) list)
+    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option)
     ~(of_node_analysis :
        node_name:Ast.ident ->
@@ -748,7 +469,7 @@ let build_call_site_instantiations ~(nodes : Abs.node list)
        node_ir) : call_site_instantiation_ir list =
   let call_sites = collect_call_sites_with_paths node.trans in
   List.filter_map
-    (fun ((t_ast : Ast.transition), path, inst_name, args, outs) ->
+    (fun ((t_ast : Ast.transition), t_uid, path, inst_name, args, outs) ->
       match List.assoc_opt inst_name node.semantics.sem_instances with
       | None -> None
       | Some callee_node_name -> (
@@ -778,7 +499,7 @@ let build_call_site_instantiations ~(nodes : Abs.node list)
                   state_names
               in
               let call_site_id =
-                match t_ast.attrs.uid with
+                match t_uid with
                 | Some uid -> Printf.sprintf "%s.call.%s" (string_of_int uid) path
                 | None -> Printf.sprintf "%s.%s_to_%s.call.%s" node.semantics.sem_nname t_ast.src t_ast.dst path
               in
@@ -795,7 +516,7 @@ let build_call_site_instantiations ~(nodes : Abs.node list)
 let build_instance_relations ~(nodes : Abs.node list)
     ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node)
     ~(node_signature_of_ast : Ast.node -> node_signature_ir)
-    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Support.pre_k_info) list)
+    ~(build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option)
     ~(of_node_analysis :
        node_name:Ast.ident ->
@@ -816,7 +537,7 @@ let build_instance_relations ~(nodes : Abs.node list)
             let user_invariants, state_invariants =
               match callee with
               | Local inst_node ->
-                  (inst_node.attrs.invariants_user, inst_node.specification.spec_invariants_state_rel)
+                  (inst_node.user_invariants, inst_node.specification.spec_invariants_state_rel)
               | External summary -> (summary.user_invariants, summary.state_invariants)
             in
             let user =

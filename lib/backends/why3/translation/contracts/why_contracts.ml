@@ -23,6 +23,7 @@ open Provenance
 open Ptree
 open Support
 open Ast
+open Formula_origin
 open Collect
 open Why_compile_expr
 open Why_labels
@@ -914,10 +915,14 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
   let labeled_trans =
     List.map
       (fun (t : Why_runtime_view.runtime_transition_view) ->
-        let reqs = List.map (fun f -> (f, origin_label f.origin)) t.requires in
+        let reqs =
+          List.map
+            (fun (f : Normalized_program.contract_formula) -> (f, origin_label f.origin))
+            t.requires
+        in
         let ens =
           List.map
-            (fun f ->
+            (fun (f : Normalized_program.contract_formula) ->
               let wid = fresh_id () in
               add_parents ~child:wid ~parents:[ f.oid ];
               let wid_attr = Printf.sprintf "wid:%d" wid in

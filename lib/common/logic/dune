@@ -1,5 +1,5 @@
 (library
  (name kairos_logic)
  (wrapped false)
- (modules fo_atoms fo_time fo_simplifier fo_specs ltl_valuation)
- (libraries kairos_ast why3 str re))
+ (modules collect fo_atoms fo_time fo_simplifier fo_specs ltl_valuation)
+ (libraries kairos_ast kairos_provenance kairos_utils why3 str re))

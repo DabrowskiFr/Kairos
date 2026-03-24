@@ -6,8 +6,8 @@ module Abs = Normalized_program
 module RawPass = struct
   type ast_in = Stage_types.contracts_stage
   type ast_out = Stage_types.instrumentation_stage
-  type stage_in = Automata_builds.t
-  type stage_out = Automata_builds.t
+  type stage_in = Automata_generation.node_builds
+  type stage_out = Automata_generation.node_builds
   type info = Stage_info.instrumentation_info
 
   type info_acc = {
@@ -98,20 +98,18 @@ module RawPass = struct
     }
 
   let instrument_node ~(program : ast_in) ~(automata : stage_in)
-      ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list) (n : node) :
-      node * info =
-    match List.assoc_opt n.semantics.sem_nname automata with
+      ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list) (n : Abs.node) :
+      Abs.node * info =
+    match List.assoc_opt n.Abs.semantics.sem_nname automata with
     | Some build ->
-        let n_abs = Abs.of_ast_node n in
-        let all_nodes_abs = List.map Abs.of_ast_node program in
         let node_abs, info =
-          Normalized_instrumentation.transform_abstract_node_with_info ~build ~nodes:all_nodes_abs
-            ~external_summaries n_abs
+          Normalized_instrumentation.transform_abstract_node_with_info ~build ~nodes:program
+            ~external_summaries n
         in
-        (Abs.to_ast_node node_abs, info)
+        (node_abs, info)
     | None ->
         failwith
-          (Printf.sprintf "Missing monitor generation build for node %s" n.semantics.sem_nname)
+          (Printf.sprintf "Missing monitor generation build for node %s" n.Abs.semantics.sem_nname)
 
   let run_with_external_summaries ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list)
       (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
@@ -139,8 +137,8 @@ module Pass :
   Middle_end_pass.S
     with type ast_in = Stage_types.contracts_stage
      and type ast_out = Stage_types.instrumentation_stage
-     and type stage_in = Automata_builds.t
-     and type stage_out = Automata_builds.t
+     and type stage_in = Automata_generation.node_builds
+     and type stage_out = Automata_generation.node_builds
      and type info = Stage_info.instrumentation_info = RawPass
 
 let run_with_info_external ?(external_summaries = []) (p : Pass.ast_in) (automata : Pass.stage_in) :

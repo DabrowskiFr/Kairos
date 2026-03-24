@@ -216,12 +216,6 @@ let compile_external_summary_module ~prefix_fields
           n.specification with
           spec_invariants_state_rel = summary.state_invariants;
         };
-      attrs =
-        {
-          n.attrs with
-          invariants_user = summary.user_invariants;
-          coherency_goals = summary.coherency_goals;
-        };
     }
   in
   let info = Why_env.prepare_node ~prefix_fields ~nodes:[] synthetic in
@@ -544,7 +538,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
   let step_helper_name (sc : Why_types.step_contract_info) =
     let step = sc.step in
-    Printf.sprintf "step_ps_%s_to_%s_a%d_%d_g%d_%d"
+    Printf.sprintf "step_%s_ps_%s_to_%s_a%d_%d_g%d_%d"
+      (String.lowercase_ascii step.program_transition_id)
       (String.lowercase_ascii step.src.prog_state)
       (String.lowercase_ascii step.dst.prog_state)
       step.src.assume_state_index step.dst.assume_state_index
@@ -729,7 +724,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       in
       let is_init_goal = function LImp (LTrue, _) -> true | _ -> false in
       List.mapi
-        (fun i (f : Ast.ltl_o) ->
+        (fun i (f : Normalized_program.contract_formula) ->
           let wid = Provenance.fresh_id () in
           Provenance.add_parents ~child:wid ~parents:[ f.oid ];
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
@@ -840,19 +835,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       in
       let transition_contracts =
         let line_for (t : transition) =
-          let show_fo f = string_of_ltl f |> strip_vars in
-          let reqs =
-            match t.requires with
-            | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast_provenance.values t.requires)
-          in
-          let enss =
-            match t.ensures with
-            | [] -> [ "(none)" ]
-            | _ -> List.map show_fo (Ast_provenance.values t.ensures)
-          in
-          Printf.sprintf "  Transition %s -> %s\n    requires:\n      %s\n    ensures:\n      %s\n"
-            t.src t.dst (String.concat "\n      " reqs) (String.concat "\n      " enss)
+          Printf.sprintf "  Transition %s -> %s\n" t.src t.dst
         in
         String.concat "" (List.map line_for comment_trans)
       in

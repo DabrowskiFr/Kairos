@@ -10,42 +10,6 @@ let instrumentation_state_name : string = "__aut_state"
 let state_ctor (i : int) : string = Printf.sprintf "Aut%d" i
 let instrumentation_state_expr (i : int) : iexpr = mk_var (state_ctor i)
 
-let instrumentation_update_stmts (atom_map : (ident * iexpr) list)
-    (states : Ast.ltl list) (transitions : Spot_automaton.transition list)
-    : stmt list =
-  let mon = instrumentation_state_name in
-  let is_true e = match e.iexpr with ILitBool true -> true | _ -> false in
-  let is_false e = match e.iexpr with ILitBool false -> true | _ -> false in
-  let rec chain = function
-    | [] -> mk_stmt SSkip
-    | (dst, cond) :: rest ->
-        if is_true cond then mk_stmt (SAssign (mon, instrumentation_state_expr dst))
-        else if is_false cond then chain rest
-        else
-          mk_stmt
-            (SIf
-               (cond, [ mk_stmt (SAssign (mon, instrumentation_state_expr dst)) ], [ chain rest ]))
-  in
-  let per_state =
-    List.init (List.length states) (fun i -> i)
-    |> List.map (fun i ->
-           let dests =
-             List.filter_map
-               (fun (src, guard, dst) ->
-                 if src = i then
-                   let cond = recover_guard_iexpr atom_map guard in
-                   Some (dst, cond)
-                 else None)
-               transitions
-           in
-           let dests = List.sort_uniq compare dests in
-           if dests = [] then (i, mk_stmt SSkip) else (i, chain dests))
-  in
-  let branches = List.map (fun (i, body) -> (state_ctor i, [ body ])) per_state in
-  match branches with [] -> [] | _ -> [ mk_stmt (SMatch (mk_var mon, branches, [])) ]
-
-let instrumentation_assert (bad_idx : int) : stmt list = if bad_idx < 0 then [] else []
-
 let inline_fo_atoms (atom_map : (ident * iexpr) list) (f : fo) : fo =
   let tbl = Hashtbl.create 16 in
   List.iter (fun (id, ex) -> Hashtbl.replace tbl id ex) atom_map;
@@ -67,7 +31,7 @@ let inline_fo_atoms (atom_map : (ident * iexpr) list) (f : fo) : fo =
   | FRel (h1, r, h2) -> FRel (inline_hexpr h1, r, inline_hexpr h2)
   | FPred (id, hs) -> FPred (id, List.map inline_hexpr hs)
 
-let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
+let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : Abs.node) : Abs.node =
   let inline_iexpr = inline_atoms_iexpr atom_map in
   let inline_hexpr = function
     | HNow e -> HNow (inline_iexpr e)
@@ -102,69 +66,53 @@ let inline_atoms_in_node (atom_map : (ident * iexpr) list) (n : node) : node =
   let inline_invariant_state_rel (inv : invariant_state_rel) : invariant_state_rel =
     { inv with formula = inline_ltl inv.formula }
   in
-  let inline_transition (t : transition) : transition =
-    let t =
-      {
-        t with
-        attrs =
-          {
-            t.attrs with
-            ghost = List.map inline_stmt t.attrs.ghost;
-            instrumentation = List.map inline_stmt t.attrs.instrumentation;
-          };
-      }
-    in
+  let inline_transition (t : Abs.transition) : Abs.transition =
     {
       t with
       guard = Option.map inline_iexpr t.guard;
-      requires = List.map (Ast_provenance.map_with_origin inline_ltl) t.requires;
-      ensures = List.map (Ast_provenance.map_with_origin inline_ltl) t.ensures;
+      requires = List.map (Abs.map_formula inline_ltl) t.requires;
+      ensures = List.map (Abs.map_formula inline_ltl) t.ensures;
       body = List.map inline_stmt t.body;
     }
   in
   let n =
     {
       n with
-      semantics = { n.semantics with sem_trans = List.map inline_transition n.semantics.sem_trans };
+      trans = List.map inline_transition n.trans;
       specification =
         {
           n.specification with
-          spec_assumes = List.map inline_ltl (Ast.specification_of_node n).spec_assumes;
-          spec_guarantees = List.map inline_ltl (Ast.specification_of_node n).spec_guarantees;
+          spec_assumes = List.map inline_ltl n.specification.spec_assumes;
+          spec_guarantees = List.map inline_ltl n.specification.spec_guarantees;
         };
     }
   in
   {
     n with
-    attrs = { n.attrs with invariants_user = List.map inline_invariant_user n.attrs.invariants_user };
+    user_invariants = List.map inline_invariant_user n.user_invariants;
     specification =
       {
         n.specification with
         spec_invariants_state_rel =
-          List.map inline_invariant_state_rel (Ast.specification_of_node n).spec_invariants_state_rel;
+          List.map inline_invariant_state_rel n.specification.spec_invariants_state_rel;
       };
   }
 
-let add_initial_automaton_support_goal (n : Ast.node) : Ast.node = n
+let add_initial_automaton_support_goal (n : Abs.node) : Abs.node = n
 
 let finalize_instrumented_node ~atom_map_exprs ~user_assumes ~user_guarantees
-    ~invariants_user ~invariants_state_rel (n : node) ~(trans : Abs.transition list) : node =
+    ~invariants_user ~invariants_state_rel (n : Abs.node) ~(trans : Abs.transition list) : Abs.node =
   let n =
     {
       n with
-      semantics =
-        {
-          n.semantics with
-          sem_locals = n.semantics.sem_locals;
-          sem_trans = List.map Abs.to_ast_transition trans;
-        };
+      trans;
       specification = { n.specification with spec_assumes = user_assumes; spec_guarantees = user_guarantees };
     }
   in
   let n =
     {
       n with
-      attrs = { n.attrs with invariants_user };
+      user_invariants = invariants_user;
       specification = { n.specification with spec_invariants_state_rel = invariants_state_rel };
     }
   in

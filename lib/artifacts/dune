@@ -2,8 +2,10 @@
  (name kairos_artifacts)
  (wrapped false)
  (modules
-  artifact_io graphviz_render artifact_render_ir artifact_render_ir_dot
-  artifact_render_monitor)
+ ast_dump artifact_io graphviz_render artifact_render_ir artifact_render_ir_dot
+  artifact_render_monitor pipeline_build pipeline_outputs
+  pipeline_instrumentation)
  (libraries
-  kairos_ast kairos_stages kairos_middle_end kairos_common_ir kairos_utils kairos_why3
-  proof_obligation_ir_render bos fpath))
+  kairos_ast kairos_provenance kairos_stages kairos_stage_names kairos_middle_end kairos_common_ir kairos_utils kairos_why3
+  kairos_kobj proof_obligation_ir_render kairos_diagnostics kairos_pipeline_api_types
+  bos fpath))

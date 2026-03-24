@@ -1,4 +1,4 @@
 type parsed = Ast.program
-type contracts_stage = Ast.program
-type instrumentation_stage = Ast.program
-type why_stage = Ast.program
+type contracts_stage = Normalized_program.node list
+type instrumentation_stage = Normalized_program.node list
+type why_stage = Normalized_program.node list

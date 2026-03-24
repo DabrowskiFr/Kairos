@@ -54,7 +54,7 @@ let rec simplify_temporal_idempotence (f : ltl) : ltl =
   | LOr (a, b) -> LOr (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
   | LImp (a, b) -> LImp (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
 
-let build_monitor_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : ltl =
+let build_guarantee_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : ltl =
   let _ = atom_map in
   let spec = Ast.specification_of_node n in
   let spec_assumes = spec.spec_assumes in
@@ -84,27 +84,32 @@ let build_assumption_spec ~(atom_map : (fo * ident) list) (n : Ast.node) : ltl =
 
 type automata_automaton = Spot_automaton.automaton
 
-let build_monitor_automaton ~(atom_map : (fo * ident) list) ~(atom_names : ident list)
+let build_guarantee_automaton ~(atom_map : (fo * ident) list) ~(atom_names : ident list)
     (spec : ltl) : automata_automaton =
   Spot_automaton.build ~atom_map ~atom_names spec
 
 type automata_build = {
   atoms : Automata_atoms.automata_atoms;
-  atom_names : ident list;
-  spec : ltl;
-  automaton : automata_automaton;
+  guarantee_atom_names : ident list;
+  guarantee_spec : ltl;
+  guarantee_automaton : automata_automaton;
   assume_atoms : Automata_atoms.automata_atoms option;
   assume_atom_names : ident list;
   assume_spec : ltl option;
   assume_automaton : automata_automaton option;
 }
 
+type node_builds = (Ast.ident * automata_build) list
+
 let build_for_node (n : Ast.node) : automata_build =
   let node_spec = Ast.specification_of_node n in
   let atoms = collect_atoms n in
-  let atom_names = List.map snd atoms.atom_map in
-  let spec = build_monitor_spec ~atom_map:atoms.atom_map n in
-  let automaton = build_monitor_automaton ~atom_map:atoms.atom_map ~atom_names spec in
+  let guarantee_atom_names = List.map snd atoms.atom_map in
+  let guarantee_spec = build_guarantee_spec ~atom_map:atoms.atom_map n in
+  let guarantee_automaton =
+    build_guarantee_automaton ~atom_map:atoms.atom_map ~atom_names:guarantee_atom_names
+      guarantee_spec
+  in
   let assume_atoms, assume_atom_names, assume_spec, assume_automaton =
     if node_spec.spec_assumes = [] then (None, [], None, None)
     else
@@ -112,15 +117,15 @@ let build_for_node (n : Ast.node) : automata_build =
       let atom_names_a = List.map snd atoms_a.atom_map in
       let spec_a = build_assumption_spec ~atom_map:atoms_a.atom_map n in
       let automaton_a =
-        build_monitor_automaton ~atom_map:atoms_a.atom_map ~atom_names:atom_names_a spec_a
+        build_guarantee_automaton ~atom_map:atoms_a.atom_map ~atom_names:atom_names_a spec_a
       in
       (Some atoms_a, atom_names_a, Some spec_a, Some automaton_a)
   in
   {
     atoms;
-    atom_names;
-    spec;
-    automaton;
+    guarantee_atom_names;
+    guarantee_spec;
+    guarantee_automaton;
     assume_atoms;
     assume_atom_names;
     assume_spec;

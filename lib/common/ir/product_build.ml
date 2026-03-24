@@ -28,7 +28,7 @@ type analysis = {
 
 let fo_of_iexpr (e : iexpr) : ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Spot_automaton.guard) : ltl =
   let recovered = recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
@@ -153,10 +153,10 @@ let make_assume_view (build : Automata_generation.automata_build) : automaton_vi
 
 let make_guarantee_view (build : Automata_generation.automata_build) : automaton_view =
   {
-    states = build.automaton.states;
-    grouped = build.automaton.grouped;
+    states = build.guarantee_automaton.states;
+    grouped = build.guarantee_automaton.grouped;
     atom_map_exprs = build.atoms.atom_named_exprs;
-    bad_idx = first_false_idx build.automaton.states;
+    bad_idx = first_false_idx build.guarantee_automaton.states;
   }
 
 let node_outgoing (n : Abs.node) : (ident, Abs.transition list) Hashtbl.t =

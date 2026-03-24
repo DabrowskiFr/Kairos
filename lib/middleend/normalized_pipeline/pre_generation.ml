@@ -49,9 +49,10 @@ let inject_state_invariant_contracts (n : Abs.node) ~(inv_of_state : ident -> lt
   let input_names = List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs in
   let is_input x = List.mem x input_names in
   let shift_inv inv = shift_ltl_backward_inputs ~is_input inv in
-  let add_unique_formula (origin : origin) (f : ltl) (xs : ltl_o list) : ltl_o list =
-    if List.exists (fun (x : ltl_o) -> x.value = f) xs then xs
-    else xs @ [ Ast_provenance.with_origin origin f ]
+  let add_unique_formula (origin : Formula_origin.t) (f : ltl) (xs : Abs.contract_formula list) :
+      Abs.contract_formula list =
+    if List.exists (fun (x : Abs.contract_formula) -> x.value = f) xs then xs
+    else xs @ [ Abs.with_origin origin f ]
   in
   let trans =
     List.map
@@ -59,12 +60,12 @@ let inject_state_invariant_contracts (n : Abs.node) ~(inv_of_state : ident -> lt
         let requires =
           match inv_of_state t.src with
           | None -> t.requires
-          | Some inv -> add_unique_formula Coherency inv t.requires
+          | Some inv -> add_unique_formula Formula_origin.Coherency inv t.requires
         in
         let ensures =
           match inv_of_state t.dst with
           | None -> t.ensures
-          | Some inv -> add_unique_formula Coherency (shift_inv inv) t.ensures
+          | Some inv -> add_unique_formula Formula_origin.Coherency (shift_inv inv) t.ensures
         in
         if requires == t.requires && ensures == t.ensures then t else { t with requires; ensures })
       n.trans
@@ -80,17 +81,13 @@ let add_initial_invariant_goal (n : Abs.node) ~(inv_of_state : ident -> ltl opti
       let init_goal = shift_ltl_backward_inputs ~is_input inv in
       if fo_ltl_mentions_var instrumentation_state_var init_goal then n
       else
-        let existing_values = List.map (fun (f : ltl_o) -> f.value) n.attrs.coherency_goals in
+        let existing_values = List.map (fun (f : Abs.contract_formula) -> f.value) n.coherency_goals in
         if List.mem init_goal existing_values then n
         else
           {
             n with
-            attrs =
-              {
-                n.attrs with
-                coherency_goals =
-                  n.attrs.coherency_goals @ [ Ast_provenance.with_origin Coherency init_goal ];
-              };
+            coherency_goals =
+              n.coherency_goals @ [ Abs.with_origin Formula_origin.Coherency init_goal ];
           }
 
 let apply ~(post_generation : Post_generation.t) (n : Abs.node) : Abs.node =

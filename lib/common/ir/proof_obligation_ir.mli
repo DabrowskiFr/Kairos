@@ -21,10 +21,7 @@ type raw_transition = {
   guard                : Ast.ltl;
   (** Executable guard (imperative form), used to generate the Why3 match. *)
   guard_iexpr          : Ast.iexpr option;
-  ghost_stmts          : Ast.stmt list;
   body_stmts           : Ast.stmt list;
-  (** Instrumentation code (monitor state updates, assertions). *)
-  instrumentation_stmts: Ast.stmt list;
 }
 
 type raw_node = {
@@ -37,7 +34,7 @@ type raw_node = {
   (** Callee instances: [(instance_name, callee_node_name)]. *)
   instances     : (Ast.ident * Ast.ident) list;
   (** Map from history expressions (prev^k x) to their shift info. *)
-  pre_k_map     : (Ast.hexpr * Support.pre_k_info) list;
+  pre_k_map     : (Ast.hexpr * Temporal_support.pre_k_info) list;
   transitions   : raw_transition list;
   (** LTL specifications (used for contract generation in pass 4). *)
   assumes       : Ast.ltl list;
@@ -52,14 +49,14 @@ type raw_node = {
 
 type annotated_transition = {
   raw     : raw_transition;
-  requires: Ast.ltl_o list;
-  ensures : Ast.ltl_o list;
+  requires: Normalized_program.contract_formula list;
+  ensures : Normalized_program.contract_formula list;
 }
 
 type annotated_node = {
   raw              : raw_node;
   transitions      : annotated_transition list;
-  coherency_goals  : Ast.ltl_o list;
+  coherency_goals  : Normalized_program.contract_formula list;
   user_invariants  : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
 }
@@ -76,14 +73,12 @@ type verified_transition = {
   dst_state            : Ast.ident;
   guard                : Ast.ltl;
   guard_iexpr          : Ast.iexpr option;
-  ghost_stmts          : Ast.stmt list;
   body_stmts           : Ast.stmt list;
-  instrumentation_stmts: Ast.stmt list;
   (** Shift + capture statements: [__pre_k2_x := __pre_k1_x; __pre_k1_x := x]. *)
   pre_k_updates        : Ast.stmt list;
   (** Hoare triples, history-free. *)
-  requires             : Ast.ltl_o list;
-  ensures              : Ast.ltl_o list;
+  requires             : Normalized_program.contract_formula list;
+  ensures              : Normalized_program.contract_formula list;
 }
 
 type verified_node = {
@@ -99,7 +94,7 @@ type verified_node = {
   transitions      : verified_transition list;
   assumes          : Ast.ltl list;
   guarantees       : Ast.ltl list;
-  coherency_goals  : Ast.ltl_o list;
+  coherency_goals  : Normalized_program.contract_formula list;
   user_invariants  : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
 }

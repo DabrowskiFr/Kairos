@@ -1,8 +1,8 @@
 (library
  (name kairos_parse)
  (wrapped false)
- (modules source_file lexer parser ast_dump)
- (libraries kairos_ast kairos_utils sedlex)
+ (modules source_file parse_file parse_api lexer parser)
+ (libraries kairos_ast kairos_provenance kairos_utils kairos_stages kairos_stage_metadata sedlex)
  (preprocess
   (pps sedlex.ppx)))
 

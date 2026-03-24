@@ -47,9 +47,9 @@ type env_info = {
   (* Whether ghost updates are present. *)
   has_ghost_updates : bool;
   (* Mapping from pre‑k expressions to generated info. *)
-  pre_k_map : (Ast.hexpr * Support.pre_k_info) list;
+  pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
   (* Flat list of pre‑k infos. *)
-  pre_k_infos : Support.pre_k_info list;
+  pre_k_infos : Temporal_support.pre_k_info list;
   (* Whether a step counter is required. *)
   needs_step_count : bool;
   (* Whether a first‑step flag is required. *)

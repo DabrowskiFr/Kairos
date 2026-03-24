@@ -5,12 +5,12 @@ module Pass :
     with type ast_in = Stage_types.parsed
      and type ast_out = Stage_types.parsed
      and type stage_in = unit
-     and type stage_out = Automata_builds.t
+     and type stage_out = Automata_generation.node_builds
      and type info = Stage_info.automata_info = struct
   type ast_in = Stage_types.parsed
   type ast_out = Stage_types.parsed
   type stage_in = unit
-  type stage_out = Automata_builds.t
+  type stage_out = Automata_generation.node_builds
   type info = Stage_info.automata_info
 
   let run_with_info (p : ast_in) () : ast_out * stage_out * info =
@@ -21,7 +21,7 @@ module Pass :
       List.map
         (fun n ->
           let build = Automata_generation.build_for_node n in
-          let automaton = build.automaton in
+          let automaton = build.guarantee_automaton in
           state_count := !state_count + List.length automaton.states;
           edge_count := !edge_count + List.length automaton.grouped;
           (n.semantics.sem_nname, build))

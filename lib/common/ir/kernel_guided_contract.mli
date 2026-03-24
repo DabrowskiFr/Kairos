@@ -44,7 +44,7 @@ type node_contract = {
 }
 
 val temporal_bindings_of_pre_k_map :
-  (Ast.hexpr * Support.pre_k_info) list -> temporal_binding_ir list
+  (Ast.hexpr * Temporal_support.pre_k_info) list -> temporal_binding_ir list
 
 val exported_summary_of_exported_ir :
   Proof_kernel_ir.exported_node_summary_ir -> exported_summary_contract

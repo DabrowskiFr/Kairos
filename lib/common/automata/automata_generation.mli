@@ -16,36 +16,41 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Front-facing API for generating monitor automata from Kairos temporal
-    contracts. *)
+(** Front-facing API for generating guarantee/assumption automata from Kairos
+    temporal contracts. *)
 
 type automata_automaton = Spot_automaton.automaton
 (* Concrete automaton type returned by the engine. *)
 
 type automata_build = {
   atoms : Automata_atoms.automata_atoms;
-  atom_names : Ast.ident list;
-  spec : Ast.ltl;
-  automaton : automata_automaton;
+  guarantee_atom_names : Ast.ident list;
+  guarantee_spec : Ast.ltl;
+  guarantee_automaton : automata_automaton;
   assume_atoms : Automata_atoms.automata_atoms option;
   assume_atom_names : Ast.ident list;
   assume_spec : Ast.ltl option;
   assume_automaton : automata_automaton option;
 }
-(* Full build artifact for a node: atoms, spec, and automaton. *)
+(* Full build artifact for a node: guarantee automaton plus optional assumption
+   automaton. *)
 
-val build_monitor_automaton :
+type node_builds = (Ast.ident * automata_build) list
+(* Per-node automata builds reused across middle-end stages. *)
+
+val build_guarantee_automaton :
   atom_map:(Ast.fo * Ast.ident) list ->
   atom_names:Ast.ident list ->
   Ast.ltl ->
   automata_automaton
-(* Build, minimize, and group the monitor residual automaton. *)
+(* Build, minimize, and group a guarantee automaton. *)
 
-val build_monitor_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.ltl
-(* Build LTL monitor specification from a node (assumes/guarantees). *)
+val build_guarantee_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.ltl
+(* Build the LTL specification made of node guarantees. *)
 
 val build_assumption_spec : atom_map:(Ast.fo * Ast.ident) list -> Ast.node -> Ast.ltl
 (* Build LTL spec made of node assumptions only. *)
 
 val build_for_node : Ast.node -> automata_build
-(* Collect monitor atoms, build the monitor spec, and construct the automaton. *)
+(* Collect atoms, build guarantee/assumption specs, and construct the
+   corresponding automata. *)

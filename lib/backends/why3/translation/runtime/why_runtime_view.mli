@@ -56,9 +56,7 @@ type runtime_action_view =
   | ActionCall of call_site_view
 
 type action_block_kind =
-  | ActionGhost
   | ActionUser
-  | ActionInstrumentation
 
 type action_block_view = {
   block_kind : action_block_kind;
@@ -71,11 +69,9 @@ type runtime_transition_view = {
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
   known_monitor_ctor : Ast.ident option;
-  requires : Ast.ltl_o list;
-  ensures : Ast.ltl_o list;
-  ghost : Ast.stmt list;
+  requires : Normalized_program.contract_formula list;
+  ensures : Normalized_program.contract_formula list;
   body : Ast.stmt list;
-  instrumentation : Ast.stmt list;
   action_blocks : action_block_view list;
   call_sites : call_site_view list;
 }
@@ -106,7 +102,7 @@ type t = {
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.ltl_o list;
+  coherency_goals : Normalized_program.contract_formula list;
   monitor_state_ctors : Ast.ident list;
   kernel_contract : Kernel_guided_contract.node_contract option;
 }
@@ -125,7 +121,7 @@ val transition_to_ast : runtime_transition_view -> Ast.transition
 val to_ast_node : t -> Ast.node
 val has_instance_calls : t -> bool
 
-val pre_k_updates_of_map : (Ast.hexpr * Support.pre_k_info) list -> Ast.stmt list
+val pre_k_updates_of_map : (Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.stmt list
 
 (** Build a runtime view directly from a [Proof_obligation_ir.verified_node] (Pass 5
     output).  Callee summaries for local nodes are resolved from

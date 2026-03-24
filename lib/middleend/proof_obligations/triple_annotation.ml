@@ -37,7 +37,7 @@ let annotate ~(raw : Proof_obligation_ir.raw_node) ~(node : Abs.node)
   {
     Proof_obligation_ir.raw;
     transitions;
-    coherency_goals    = node.attrs.coherency_goals;
-    user_invariants    = node.attrs.invariants_user;
+    coherency_goals    = node.coherency_goals;
+    user_invariants    = node.user_invariants;
     state_invariants   = node.specification.spec_invariants_state_rel;
   }

@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-repo_root="${1:-/Users/fredericdabrowski/Repos/kairos/kairos-dev}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+default_repo_root="$(cd "$script_dir/.." && pwd)"
+
+repo_root="${1:-$default_repo_root}"
 timeout_s="${2:-5}"
 suite_mode="${3:-legacy}"
 file_timeout_s="${4:-60}"

@@ -4,7 +4,6 @@
  (name kairos_automata)
  (wrapped false)
  (modules
- automaton_types
-  spot_automaton
-  automata_atoms automata_generation automata_builds)
- (libraries kairos_ast kairos_logic kairos_stages kairos_utils why3 re))
+ spot_automaton
+  automata_atoms automata_generation)
+ (libraries kairos_ast kairos_logic kairos_utils why3 re))

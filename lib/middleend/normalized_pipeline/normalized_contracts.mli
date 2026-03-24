@@ -1,8 +1,5 @@
 (** Contract normalization on the abstract middle-end model. *)
 
-val drop_user_transition_contracts :
-  Normalized_program.node -> Normalized_program.node * int * int
-
 val validate_user_pre_k_definedness :
   ?monitor_automaton:Spot_automaton.automaton -> Normalized_program.node -> unit
 

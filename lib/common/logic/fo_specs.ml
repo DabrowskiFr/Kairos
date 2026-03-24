@@ -40,8 +40,7 @@ let collect_atoms_from_node (n : Ast.node) : fo list =
   in
   List.fold_left (fun acc inv -> collect_atoms_ltl inv.formula acc) acc spec.spec_invariants_state_rel
 
-let transition_fo (t : Ast.transition) : ltl list =
-  Ast_provenance.values t.requires @ Ast_provenance.values t.ensures
+let transition_fo (_t : Ast.transition) : ltl list = []
 
 let conj_fo (fs : ltl list) : ltl option =
   match fs with
@@ -56,7 +55,7 @@ type temporal_binding = {
   slot_names : Ast.ident list;
 }
 
-let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Support.pre_k_info) list) :
+let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
     temporal_binding list =
   List.map
     (fun (source_hexpr, info) ->
@@ -78,7 +77,7 @@ let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr
            | [] -> None
          else None)
 
-let pre_k_var_of_hexpr ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : ident option =
+let pre_k_var_of_hexpr ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : ident option =
   latest_temporal_slot ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
 let hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
@@ -93,7 +92,7 @@ let hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (
     end
 
 let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : iexpr option =
+    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : iexpr option =
   hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types
     ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
@@ -103,7 +102,7 @@ let lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (
   | Some e -> Some (HNow e)
   | None -> None
 
-let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (h : hexpr) : hexpr option =
+let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
 let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo) : fo option =
@@ -123,7 +122,7 @@ let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f :
       in
       Option.map (fun hs' -> FPred (id, hs')) (lower_args [] hs)
 
-let lower_fo_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : fo option =
+let lower_fo_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo) : fo option =
   lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
 let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : ltl) :
@@ -163,7 +162,7 @@ let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list)
       | _ -> None
     end
 
-let lower_ltl_pre_k ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : ltl) : ltl option =
+let lower_ltl_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : ltl) : ltl option =
   lower_ltl_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
 let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
@@ -196,7 +195,7 @@ let mk_bool_neq (a : iexpr) (b : iexpr) : iexpr =
          mk_iexpr (IBin (And, mk_iexpr (IUn (Not, a)), b)) ))
 
 let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Support.pre_k_info) list) (f : fo) : iexpr option =
+    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo) : iexpr option =
   match f with
   | FRel (h1, r, h2) -> begin
       match
@@ -262,13 +261,8 @@ let replace_atoms_invariants_state_rel (atom_map : (fo * ident) list)
     (invs : invariant_state_rel list) : invariant_state_rel list =
   List.map (fun inv -> { inv with formula = replace_atoms_ltl atom_map inv.formula }) invs
 
-let replace_atoms_transition (atom_map : (fo * ident) list) (t : Ast.transition) : Ast.transition =
-  {
-    t with
-    requires = List.map (Ast_provenance.map_with_origin (replace_atoms_ltl atom_map)) t.requires;
-    ensures = List.map (Ast_provenance.map_with_origin (replace_atoms_ltl atom_map)) t.ensures;
-  }
-  |> fun t -> t
+let replace_atoms_transition (_atom_map : (fo * ident) list) (t : Ast.transition) : Ast.transition =
+  t
 
 (* Fold-specific helpers removed. *)
 

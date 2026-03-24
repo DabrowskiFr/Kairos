@@ -1,0 +1,53 @@
+[traffic3] state (Green, A0, G0)
+[traffic3] state (Green, A0, G1)
+[traffic3] state (Green, A0, G4)
+[traffic3] state (Green, A0, G5)
+[traffic3] state (Green, A0, G8)
+[traffic3] state (Init, A0, G0)
+[traffic3] state (Red, A0, G0)
+[traffic3] state (Red, A0, G1)
+[traffic3] state (Red, A0, G4)
+[traffic3] state (Red, A0, G5)
+[traffic3] state (Red, A0, G8)
+[traffic3] state (Yellow, A0, G0)
+[traffic3] state (Yellow, A0, G1)
+[traffic3] state (Yellow, A0, G4)
+[traffic3] state (Yellow, A0, G5)
+[traffic3] state (Yellow, A0, G8)
+[traffic3] (Init, A0, G0) -- Init / A[0->0]:true / G[0->4]:{color} = {0} --> (Green, A0, G4) [safe]
+[traffic3] (Init, A0, G0) -- Init / A[0->0]:true / G[0->5]:{color} = {1} --> (Green, A0, G5) [safe]
+[traffic3] (Init, A0, G0) -- Init / A[0->0]:true / G[0->1]:{color} = {2} --> (Green, A0, G1) [safe]
+[traffic3] (Init, A0, G0) -- Init / A[0->0]:true / G[0->0]:not {color} = {2} and not {color} = {1} and not {color} = {0} --> (Green, A0, G0) [safe]
+[traffic3] (Green, A0, G4) -- Green / A[0->0]:true / G[4->5]:{color} = {1} --> (Yellow, A0, G5) [safe]
+[traffic3] (Green, A0, G4) -- Green / A[0->0]:true / G[4->8]:not {color} = {1} --> (Yellow, A0, G8) [bad_G]
+[traffic3] (Green, A0, G5) -- Green / A[0->0]:true / G[5->1]:{color} = {2} --> (Yellow, A0, G1) [safe]
+[traffic3] (Green, A0, G5) -- Green / A[0->0]:true / G[5->8]:not {color} = {2} --> (Yellow, A0, G8) [bad_G]
+[traffic3] (Green, A0, G1) -- Green / A[0->0]:true / G[1->4]:{color} = {0} --> (Yellow, A0, G4) [safe]
+[traffic3] (Green, A0, G1) -- Green / A[0->0]:true / G[1->8]:not {color} = {0} --> (Yellow, A0, G8) [bad_G]
+[traffic3] (Green, A0, G0) -- Green / A[0->0]:true / G[0->4]:{color} = {0} --> (Yellow, A0, G4) [safe]
+[traffic3] (Green, A0, G0) -- Green / A[0->0]:true / G[0->5]:{color} = {1} --> (Yellow, A0, G5) [safe]
+[traffic3] (Green, A0, G0) -- Green / A[0->0]:true / G[0->1]:{color} = {2} --> (Yellow, A0, G1) [safe]
+[traffic3] (Green, A0, G0) -- Green / A[0->0]:true / G[0->0]:not {color} = {2} and not {color} = {1} and not {color} = {0} --> (Yellow, A0, G0) [safe]
+[traffic3] (Yellow, A0, G5) -- Yellow / A[0->0]:true / G[5->1]:{color} = {2} --> (Red, A0, G1) [safe]
+[traffic3] (Yellow, A0, G5) -- Yellow / A[0->0]:true / G[5->8]:not {color} = {2} --> (Red, A0, G8) [bad_G]
+[traffic3] (Yellow, A0, G8) -- Yellow / A[0->0]:true / G[8->8]:true --> (Red, A0, G8) [bad_G]
+[traffic3] (Yellow, A0, G1) -- Yellow / A[0->0]:true / G[1->4]:{color} = {0} --> (Red, A0, G4) [safe]
+[traffic3] (Yellow, A0, G1) -- Yellow / A[0->0]:true / G[1->8]:not {color} = {0} --> (Red, A0, G8) [bad_G]
+[traffic3] (Yellow, A0, G4) -- Yellow / A[0->0]:true / G[4->5]:{color} = {1} --> (Red, A0, G5) [safe]
+[traffic3] (Yellow, A0, G4) -- Yellow / A[0->0]:true / G[4->8]:not {color} = {1} --> (Red, A0, G8) [bad_G]
+[traffic3] (Yellow, A0, G0) -- Yellow / A[0->0]:true / G[0->4]:{color} = {0} --> (Red, A0, G4) [safe]
+[traffic3] (Yellow, A0, G0) -- Yellow / A[0->0]:true / G[0->5]:{color} = {1} --> (Red, A0, G5) [safe]
+[traffic3] (Yellow, A0, G0) -- Yellow / A[0->0]:true / G[0->1]:{color} = {2} --> (Red, A0, G1) [safe]
+[traffic3] (Yellow, A0, G0) -- Yellow / A[0->0]:true / G[0->0]:not {color} = {2} and not {color} = {1} and not {color} = {0} --> (Red, A0, G0) [safe]
+[traffic3] (Red, A0, G1) -- Red / A[0->0]:true / G[1->4]:{color} = {0} --> (Green, A0, G4) [safe]
+[traffic3] (Red, A0, G1) -- Red / A[0->0]:true / G[1->8]:not {color} = {0} --> (Green, A0, G8) [bad_G]
+[traffic3] (Red, A0, G8) -- Red / A[0->0]:true / G[8->8]:true --> (Green, A0, G8) [bad_G]
+[traffic3] (Red, A0, G4) -- Red / A[0->0]:true / G[4->5]:{color} = {1} --> (Green, A0, G5) [safe]
+[traffic3] (Red, A0, G4) -- Red / A[0->0]:true / G[4->8]:not {color} = {1} --> (Green, A0, G8) [bad_G]
+[traffic3] (Red, A0, G5) -- Red / A[0->0]:true / G[5->1]:{color} = {2} --> (Green, A0, G1) [safe]
+[traffic3] (Red, A0, G5) -- Red / A[0->0]:true / G[5->8]:not {color} = {2} --> (Green, A0, G8) [bad_G]
+[traffic3] (Red, A0, G0) -- Red / A[0->0]:true / G[0->4]:{color} = {0} --> (Green, A0, G4) [safe]
+[traffic3] (Red, A0, G0) -- Red / A[0->0]:true / G[0->5]:{color} = {1} --> (Green, A0, G5) [safe]
+[traffic3] (Red, A0, G0) -- Red / A[0->0]:true / G[0->1]:{color} = {2} --> (Green, A0, G1) [safe]
+[traffic3] (Red, A0, G0) -- Red / A[0->0]:true / G[0->0]:not {color} = {2} and not {color} = {1} and not {color} = {0} --> (Green, A0, G0) [safe]
+[traffic3] (Green, A0, G8) -- Green / A[0->0]:true / G[8->8]:true --> (Yellow, A0, G8) [bad_G]

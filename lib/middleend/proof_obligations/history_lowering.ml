@@ -1,6 +1,6 @@
 open Ast
 
-let unique_pre_k_infos (pre_k_map : (hexpr * Support.pre_k_info) list) : Support.pre_k_info list =
+let unique_pre_k_infos (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) : Temporal_support.pre_k_info list =
   pre_k_map
   |> List.fold_left
        (fun acc (_, info) ->
@@ -16,7 +16,7 @@ let unique_pre_k_infos (pre_k_map : (hexpr * Support.pre_k_info) list) : Support
     the [pre_k_map] stored in the [raw_node] (avoids a round-trip through the
     AST). *)
 let pre_k_extra_locals ~(existing_names : ident list)
-    (pre_k_map : (hexpr * Support.pre_k_info) list) : vdecl list =
+    (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) : vdecl list =
   unique_pre_k_infos pre_k_map
   |> List.concat_map (fun info ->
          List.filter_map
@@ -32,7 +32,7 @@ let pre_k_extra_locals ~(existing_names : ident list)
 
     Replicates [Why_runtime_view.pre_k_updates_of_map] to avoid a dependency
     from a middle-end pass on a backend/why module. *)
-let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt list =
+let pre_k_shift_stmts (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) : stmt list =
   let s desc = { stmt = desc; loc = None } in
   let mk_ivar name = { iexpr = IVar name; loc = None } in
   unique_pre_k_infos pre_k_map
@@ -62,12 +62,13 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Support.pre_k_info) list) : stmt lis
     Substitute [HPreK(x, k)] → [HNow (IVar "__pre_k{k}_x")] in an [ltl_o].
     Uses [Fo_specs.lower_fo_pre_k] which returns [None] when a [HPreK] is not
     found in the map; in that case we keep the formula verbatim. *)
-let lower_fo_o (pre_k_map : (hexpr * Support.pre_k_info) list) (f : ltl_o) : ltl_o =
+let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+    (f : Normalized_program.contract_formula) : Normalized_program.contract_formula =
   match Fo_specs.lower_ltl_pre_k ~pre_k_map f.value with
   | Some fo' -> { f with value = fo' }
   | None -> f
 
-let lower_state_inv (pre_k_map : (hexpr * Support.pre_k_info) list)
+let lower_state_inv (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
     (inv : invariant_state_rel) : invariant_state_rel =
   match Fo_specs.lower_ltl_pre_k ~pre_k_map inv.formula with
   | Some f -> { inv with formula = f }
@@ -90,9 +91,7 @@ let eliminate (annotated : Proof_obligation_ir.annotated_node) : Proof_obligatio
           dst_state                       = t.raw.dst_state;
           guard                           = t.raw.guard;
           guard_iexpr                     = t.raw.guard_iexpr;
-          ghost_stmts                     = t.raw.ghost_stmts;
           body_stmts                      = t.raw.body_stmts;
-          instrumentation_stmts           = t.raw.instrumentation_stmts;
           pre_k_updates                   = updates;
           requires                        = List.map lower t.requires;
           ensures                         = List.map lower t.ensures;

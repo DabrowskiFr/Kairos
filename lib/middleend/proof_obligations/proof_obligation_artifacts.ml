@@ -40,8 +40,7 @@ let build_instrumentation_info ~(build : Automata_generation.automata_build) ~(s
       ~external_summaries ~node ~analysis:product_analysis
   in
   let exported_summary =
-    Proof_kernel_ir.export_node_summary ~node:(Normalized_program.to_ast_node node)
-      ~normalized_ir:kernel_ir
+    Proof_kernel_ir.export_node_summary ~node ~normalized_ir:kernel_ir
   in
   {
     (empty_instrumentation_info ~states ~atom_names) with

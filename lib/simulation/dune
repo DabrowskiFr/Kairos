@@ -1,0 +1,6 @@
+(library
+ (name kairos_simulation)
+ (wrapped false)
+ (modules simulation_eval)
+ (libraries
+  kairos_ast kairos_parse kairos_pipeline_api_types kairos_common_ir))

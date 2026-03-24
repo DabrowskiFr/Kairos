@@ -19,6 +19,8 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 open Ast
+
+module Abs = Normalized_program
 open Collect
 
 let keep_monitor_translation = ref false
@@ -63,9 +65,7 @@ type runtime_action_view =
   | ActionCall of call_site_view
 
 type action_block_kind =
-  | ActionGhost
   | ActionUser
-  | ActionInstrumentation
 
 type action_block_view = {
   block_kind : action_block_kind;
@@ -78,11 +78,9 @@ type runtime_transition_view = {
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
   known_monitor_ctor : Ast.ident option;
-  requires : Ast.ltl_o list;
-  ensures : Ast.ltl_o list;
-  ghost : Ast.stmt list;
+  requires : Abs.contract_formula list;
+  ensures : Abs.contract_formula list;
   body : Ast.stmt list;
-  instrumentation : Ast.stmt list;
   action_blocks : action_block_view list;
   call_sites : call_site_view list;
 }
@@ -113,7 +111,7 @@ type t = {
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
-  coherency_goals : Ast.ltl_o list;
+  coherency_goals : Abs.contract_formula list;
   monitor_state_ctors : Ast.ident list;
   kernel_contract : Kernel_guided_contract.node_contract option;
 }
@@ -180,21 +178,12 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
   let spec = Ast.specification_of_node n in
   let acc = ref [] in
   List.iter (fun f -> acc := collect_ctor_ltl !acc f) (spec.spec_assumes @ spec.spec_guarantees);
-  List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
   List.iter (fun inv -> acc := collect_ctor_ltl !acc inv.formula) spec.spec_invariants_state_rel;
-  List.iter (fun g -> acc := collect_ctor_ltl !acc g.value) n.attrs.coherency_goals;
   let sem = n.semantics in
   List.iter
     (fun (t : transition) ->
-      List.iter
-        (fun f -> acc := collect_ctor_ltl !acc f)
-        (Ast_provenance.values t.requires @ Ast_provenance.values t.ensures))
-    sem.sem_trans;
-  List.iter
-    (fun (t : transition) ->
-      acc := List.fold_left collect_ctor_stmt !acc t.attrs.ghost;
       acc := List.fold_left collect_ctor_stmt !acc t.body;
-      acc := List.fold_left collect_ctor_stmt !acc t.attrs.instrumentation)
+      ())
     sem.sem_trans;
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
@@ -211,9 +200,9 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_outputs = List.map port_of_vdecl sem.sem_outputs;
     callee_locals = List.map port_of_vdecl sem.sem_locals;
     callee_states = sem.sem_states;
-    callee_input_names = Ast_utils.input_names_of_node n;
-    callee_output_names = Ast_utils.output_names_of_node n;
-    callee_user_invariants = n.attrs.invariants_user;
+    callee_input_names = Ast_queries.input_names_of_node n;
+    callee_output_names = Ast_queries.output_names_of_node n;
+    callee_user_invariants = [];
     callee_state_invariants = n.specification.spec_invariants_state_rel;
     callee_contract;
     callee_tick_summary = None;
@@ -432,11 +421,7 @@ let collect_call_sites (actions : runtime_action_view list) : call_site_view lis
 let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
   let known = known_context_of_transition_guard t.guard in
   let raw_blocks =
-    [
-      (ActionGhost, actions_of_stmts t.attrs.ghost);
-      (ActionUser, actions_of_stmts t.body);
-      (ActionInstrumentation, actions_of_stmts t.attrs.instrumentation);
-    ]
+    [ (ActionUser, actions_of_stmts t.body) ]
   in
   let blocks, _ =
     List.fold_left
@@ -463,11 +448,9 @@ let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_v
     dst_state = t.dst;
     guard = t.guard;
     known_monitor_ctor = None;
-    requires = t.requires;
-    ensures = t.ensures;
-    ghost = t.attrs.ghost;
+    requires = [];
+    ensures = [];
     body = t.body;
-    instrumentation = t.attrs.instrumentation;
     action_blocks;
     call_sites;
   }
@@ -475,11 +458,7 @@ let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_v
 let respecialize_transition_actions (t : runtime_transition_view) : runtime_transition_view =
   let known = known_context_of_transition_guard ?known_monitor_ctor:t.known_monitor_ctor t.guard in
   let raw_blocks =
-    [
-      (ActionGhost, actions_of_stmts t.ghost);
-      (ActionUser, actions_of_stmts t.body);
-      (ActionInstrumentation, actions_of_stmts t.instrumentation);
-    ]
+    [ (ActionUser, actions_of_stmts t.body) ]
   in
   let blocks, _ =
     List.fold_left
@@ -564,9 +543,9 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
     state_branches = state_branches_of_groups transition_groups;
     assumes = spec.spec_assumes;
     guarantees = spec.spec_guarantees;
-    user_invariants = n.attrs.invariants_user;
+    user_invariants = [];
     state_invariants = spec.spec_invariants_state_rel;
-    coherency_goals = n.attrs.coherency_goals;
+    coherency_goals = [];
     monitor_state_ctors = collect_mon_state_ctors n;
     kernel_contract = None;
   }
@@ -603,15 +582,7 @@ let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_v
     runtime.callee_summaries
 
 let transition_to_ast (t : runtime_transition_view) : Ast.transition =
-  {
-    Ast.src = t.src_state;
-    dst = t.dst_state;
-    guard = t.guard;
-    requires = t.requires;
-    ensures = t.ensures;
-    body = t.body;
-    attrs = { uid = None; ghost = t.ghost; instrumentation = t.instrumentation; warnings = [] };
-  }
+  { Ast.src = t.src_state; dst = t.dst_state; guard = t.guard; body = t.body }
 
 let to_ast_node (runtime : t) : Ast.node =
   {
@@ -637,12 +608,6 @@ let to_ast_node (runtime : t) : Ast.node =
         Ast.spec_assumes = runtime.assumes;
         spec_guarantees = runtime.guarantees;
         spec_invariants_state_rel = runtime.state_invariants;
-      };
-    attrs =
-      {
-        uid = None;
-        invariants_user = runtime.user_invariants;
-        coherency_goals = runtime.coherency_goals;
       };
   }
 
@@ -677,9 +642,9 @@ let rec mentions_monitor_ltl = function
   | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
       mentions_monitor_ltl a || mentions_monitor_ltl b
 
-let strip_monitor_contracts (contracts : Ast.ltl_o list) : Ast.ltl_o list =
+let strip_monitor_contracts (contracts : Abs.contract_formula list) : Abs.contract_formula list =
   if !keep_monitor_translation then contracts
-  else List.filter (fun (f : Ast.ltl_o) -> not (mentions_monitor_ltl f.value)) contracts
+  else List.filter (fun (f : Abs.contract_formula) -> not (mentions_monitor_ltl f.value)) contracts
 
 let rec mentions_monitor_stmt (s : Ast.stmt) =
   match s.stmt with
@@ -701,7 +666,7 @@ let strip_monitor_stmts (stmts : Ast.stmt list) : Ast.stmt list =
   if !keep_monitor_translation then stmts
   else List.filter (fun stmt -> not (mentions_monitor_stmt stmt)) stmts
 
-let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : Ast.stmt list =
+let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) : Ast.stmt list =
   let s desc = { Ast.stmt = desc; loc = None } in
   let mk_var name = { Ast.iexpr = IVar name; loc = None } in
   let pre_k_infos =
@@ -709,7 +674,7 @@ let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : A
     |> List.fold_left
          (fun acc (_, info) ->
            if List.exists
-                (fun (existing : Support.pre_k_info) ->
+                (fun (existing : Temporal_support.pre_k_info) ->
                   existing.Support.expr = info.Support.expr
                   && existing.Support.names = info.Support.names)
                 acc
@@ -719,7 +684,7 @@ let pre_k_updates_of_map (pre_k_map : (Ast.hexpr * Support.pre_k_info) list) : A
          []
   in
   List.concat_map
-    (fun (info : Support.pre_k_info) ->
+    (fun (info : Temporal_support.pre_k_info) ->
       let names = info.names in
       let shifts =
         let rec loop i acc =
@@ -745,16 +710,7 @@ let synthetic_transition_of_ir ~(pre_k_updates : Ast.stmt list)
     Ast.src = t.src_state;
     dst = t.dst_state;
     guard = t.guard_iexpr;
-    requires = strip_monitor_contracts t.requires;
-    ensures = strip_monitor_contracts t.ensures;
-    body = t.body_stmts;
-    attrs =
-      {
-        uid = None;
-        ghost = strip_monitor_stmts t.ghost_stmts;
-        instrumentation = strip_monitor_stmts t.instrumentation_stmts @ pre_k_updates;
-        warnings = [];
-      };
+    body = t.body_stmts @ pre_k_updates;
   }
 
 (* ---------------------------------------------------------------------------
@@ -770,16 +726,7 @@ let ast_of_verified_transition (t : Proof_obligation_ir.verified_transition) : A
     Ast.src = t.src_state;
     dst = t.dst_state;
     guard = t.guard_iexpr;
-    requires = strip_monitor_contracts t.requires;
-    ensures = strip_monitor_contracts t.ensures;
-    body = t.body_stmts;
-    attrs =
-      {
-        uid = None;
-        ghost = strip_monitor_stmts t.ghost_stmts;
-        instrumentation = strip_monitor_stmts t.instrumentation_stmts @ t.pre_k_updates;
-        warnings = [];
-      };
+    body = t.body_stmts @ t.pre_k_updates;
   }
 
 (** Build a synthetic [Ast.node] from a [verified_node] for use with
@@ -804,12 +751,6 @@ let ast_node_of_verified_node (vn : Proof_obligation_ir.verified_node) : Ast.nod
         Ast.spec_assumes = vn.assumes;
         spec_guarantees = vn.guarantees;
         spec_invariants_state_rel = vn.state_invariants;
-      };
-    attrs =
-      {
-        uid = None;
-        invariants_user = vn.user_invariants;
-        coherency_goals = vn.coherency_goals;
       };
   }
 
@@ -884,12 +825,6 @@ let of_exported_summary ?(external_summaries = [])
           Ast.spec_assumes = summary.assumes;
           spec_guarantees = summary.guarantees;
           spec_invariants_state_rel = summary.state_invariants;
-        };
-      attrs =
-        {
-          uid = None;
-          invariants_user = summary.user_invariants;
-          coherency_goals = summary.coherency_goals;
         };
     }
   in

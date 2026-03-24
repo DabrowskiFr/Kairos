@@ -2,14 +2,13 @@
  (name kairos_pipeline)
  (wrapped false)
  (modules
-  pipeline_types pipeline_ast pipeline_eval pipeline_build
-  pipeline_outputs pipeline_run pipeline_why pipeline_instrumentation
-  pipeline)
+ pipeline_run pipeline)
  (libraries
-  kairos_ast kairos_logic kairos_parse kairos_stages kairos_automata
+  kairos_ast kairos_provenance kairos_logic kairos_parse kairos_stages kairos_stage_names kairos_automata
   kairos_stage_metadata
-  kairos_frontend_driver kairos_middle_end kairos_instrumentation
+  kairos_middle_end kairos_instrumentation
   kairos_common_ir kairos_why3
   kairos_kobj kairos_artifacts proof_obligation_ir_render kairos_diagnostics
+  kairos_simulation
   kairos_pipeline_api_types
   yojson why3 bos fpath rresult cmdliner str))

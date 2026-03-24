@@ -11,7 +11,7 @@ type formula_record = {
   loc : Ast.loc option;
 }
 
-val build_formula_records : Ast.program -> formula_record list
+val build_formula_records : Normalized_program.node list -> formula_record list
 val formula_record_table : formula_record list -> (int, formula_record) Hashtbl.t
 val stable_goal_id : int -> int list -> string
 val collect_origin_ids : int list -> int list

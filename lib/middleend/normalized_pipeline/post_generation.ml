@@ -1,12 +1,13 @@
 open Ast
 open Fo_specs
+open Formula_origin
 
 module Abs = Normalized_program
 
-let is_user_contract (f : ltl_o) : bool =
+let is_user_contract (f : Abs.contract_formula) : bool =
   match f.origin with Some UserContract -> true | _ -> false
 
-let user_formulas (fs : ltl_o list) : ltl_o list = List.filter is_user_contract fs
+let user_formulas (fs : Abs.contract_formula list) : Abs.contract_formula list = List.filter is_user_contract fs
 let dedup_fo (xs : ltl list) : ltl list = List.sort_uniq compare xs
 let instrumentation_state_var = "__aut_state"
 
@@ -37,7 +38,7 @@ let state_invariant_from_node (n : Abs.node) : ident -> ltl option =
     n.specification.spec_invariants_state_rel;
   List.iter
     (fun (t : Abs.transition) ->
-      let user_ens = Ast_provenance.values (user_formulas t.ensures) in
+      let user_ens = Abs.values (user_formulas t.ensures) in
       if user_ens <> [] then
         let existing = Hashtbl.find_opt by_state t.dst |> Option.value ~default:[] in
         Hashtbl.replace by_state t.dst (dedup_fo (user_ens @ existing)))
@@ -50,7 +51,7 @@ let state_invariant_from_ensures (n : Abs.node) : ident -> ltl option =
   let by_dst = Hashtbl.create 16 in
   List.iter
     (fun (t : Abs.transition) ->
-      let user_ens = Ast_provenance.values (user_formulas t.ensures) in
+      let user_ens = Abs.values (user_formulas t.ensures) in
       if user_ens <> [] then
         let existing = Hashtbl.find_opt by_dst t.dst |> Option.value ~default:[] in
         Hashtbl.replace by_dst t.dst (dedup_fo (user_ens @ existing)))

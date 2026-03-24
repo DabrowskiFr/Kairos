@@ -14,7 +14,7 @@ let phase_step_post_case_name = Proof_kernel_naming.phase_step_post_case_name
 
 let fo_of_iexpr (e : iexpr) : ltl = iexpr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : ltl =
+let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Spot_automaton.guard) : ltl =
   let recovered = Automata_atoms.recover_guard_fo atom_map_exprs g in
   let simplified = Fo_simplifier.simplify_fo recovered in
   match (g, simplified) with
@@ -128,7 +128,7 @@ let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
   |> List.fold_left
        (fun acc (_, info) ->
          if List.exists
-              (fun (existing_info : Support.pre_k_info) ->
+              (fun (existing_info : Temporal_support.pre_k_info) ->
                 existing_info.Support.expr = info.Support.expr
                 && existing_info.Support.names = info.Support.names)
               acc
@@ -195,17 +195,18 @@ let expand_relational_hypotheses = Proof_kernel_clauses.expand_relational_hypoth
 let normalize_relational_hypotheses = Proof_kernel_clauses.normalize_relational_hypotheses
 let relationalize_generated_clause = Proof_kernel_clauses.relationalize_generated_clause
 
-let export_node_summary ~(node : Ast.node) ~(normalized_ir : node_ir) : exported_node_summary_ir =
-  let pre_k_map = build_pre_k_infos node in
+let export_node_summary ~(node : Abs.node) ~(normalized_ir : node_ir) : exported_node_summary_ir =
+  let node_ast = Abs.to_ast_node node in
+  let pre_k_map = build_pre_k_infos node_ast in
   {
-    signature = node_signature_of_ast node;
+    signature = node_signature_of_ast node_ast;
     normalized_ir;
     tick_summary =
       Proof_kernel_calls.lower_callee_tick_abi ~pre_k_map ~lower_clause_fact
-        (callee_tick_abi_of_node ~node:(Abs.of_ast_node node));
-    user_invariants = node.attrs.invariants_user;
+        (callee_tick_abi_of_node ~node);
+    user_invariants = node.user_invariants;
     state_invariants = node.specification.spec_invariants_state_rel;
-    coherency_goals = node.attrs.coherency_goals;
+    coherency_goals = node.coherency_goals;
     pre_k_map;
     delay_spec = extract_delay_spec node.specification.spec_guarantees;
     assumes = node.specification.spec_assumes;
@@ -258,7 +259,7 @@ let rec of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     List.concat_map (relationalize_generated_clause ~pre_k_map) eliminated_generated_clauses
   in
   let proof_step_contracts =
-    Proof_kernel_calls.build_proof_step_contracts ~product_steps ~pre_k_map
+    Proof_kernel_step_contracts.build_proof_step_contracts ~product_steps ~pre_k_map
       ~initial_product_state ~symbolic_generated_clauses
   in
   let instance_relations =

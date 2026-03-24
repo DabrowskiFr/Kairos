@@ -1,0 +1,7 @@
+(library
+ (name kairos_formula_origin)
+ (wrapped false)
+ (modules formula_origin)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

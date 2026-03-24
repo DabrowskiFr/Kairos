@@ -1,4 +1,7 @@
 open Ast
+open Formula_origin
+
+module Abs = Normalized_program
 
 type family =
   | FamTransitionRequires
@@ -94,7 +97,7 @@ let category_of_family = function
   | FamMonitorCompatibilityRequires | FamStateAwareAssumptionRequires -> Some CatAutomatonSupport
   | FamTransitionRequires | FamTransitionEnsures -> None
 
-let classify_require (f : ltl_o) : family =
+let classify_require (f : Abs.contract_formula) : family =
   match f.origin with
   | Some Coherency -> FamCoherencyRequires
   | Some Instrumentation -> FamNoBadRequires
@@ -103,7 +106,7 @@ let classify_require (f : ltl_o) : family =
   | Some UserContract | Some Internal | None ->
       FamTransitionRequires
 
-let classify_ensure (f : ltl_o) : family =
+let classify_ensure (f : Abs.contract_formula) : family =
   match f.origin with
   | Some Coherency -> FamCoherencyEnsuresShifted
   | Some Instrumentation -> FamNoBadEnsures
@@ -111,7 +114,7 @@ let classify_ensure (f : ltl_o) : family =
   | Some AssumeAutomaton | None ->
       FamTransitionEnsures
 
-let summarize_program (p : program) : summary =
+let summarize_program (p : Abs.node list) : summary =
   let table = Hashtbl.create 16 in
   let category_table = Hashtbl.create 8 in
   let major_table = Hashtbl.create 4 in
@@ -140,13 +143,13 @@ let summarize_program (p : program) : summary =
           (helper_kind_of_category cat)
   in
   List.iter
-    (fun (n : node) ->
-      List.iter (fun (_ : ltl_o) -> bump FamInitialCoherencyGoal) n.attrs.coherency_goals;
+    (fun (n : Abs.node) ->
+      List.iter (fun (_ : Abs.contract_formula) -> bump FamInitialCoherencyGoal) n.coherency_goals;
       List.iter
-        (fun (t : transition) ->
+        (fun (t : Abs.transition) ->
           List.iter (fun r -> bump (classify_require r)) t.requires;
           List.iter (fun e -> bump (classify_ensure e)) t.ensures)
-        n.semantics.sem_trans)
+        n.trans)
     p;
   let counts =
     List.filter_map

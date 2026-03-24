@@ -84,20 +84,11 @@ let collect_mon_state_ctors (n : Ast.node) : ident list =
   let sem = Ast.semantics_of_node n in
   let acc = ref [] in
   List.iter (fun f -> acc := collect_ctor_ltl !acc f) (spec.spec_assumes @ spec.spec_guarantees);
-  List.iter (fun inv -> acc := collect_ctor_hexpr !acc inv.inv_expr) n.attrs.invariants_user;
   List.iter (fun inv -> acc := collect_ctor_ltl !acc inv.formula) spec.spec_invariants_state_rel;
-  List.iter (fun g -> acc := collect_ctor_ltl !acc g.value) n.attrs.coherency_goals;
   List.iter
     (fun (t : transition) ->
-      List.iter
-        (fun f -> acc := collect_ctor_ltl !acc f)
-        (Ast_provenance.values t.requires @ Ast_provenance.values t.ensures))
-    sem.sem_trans;
-  List.iter
-    (fun (t : transition) ->
-      acc := List.fold_left collect_ctor_stmt !acc t.attrs.ghost;
       acc := List.fold_left collect_ctor_stmt !acc t.body;
-      acc := List.fold_left collect_ctor_stmt !acc t.attrs.instrumentation)
+      ())
     sem.sem_trans;
   let ctor_index s = try int_of_string (String.sub s 3 (String.length s - 3)) with _ -> 0 in
   List.sort (fun a b -> compare (ctor_index a) (ctor_index b)) !acc
@@ -266,9 +257,9 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
   in
   let needs_step_count = false in
   let needs_first_step = false in
-  let inv_links = List.map (fun inv -> (inv.inv_expr, inv.inv_id)) n.attrs.invariants_user in
+  let inv_links = runtime.user_invariants |> List.map (fun inv -> (inv.inv_expr, inv.inv_id)) in
   let field_prefix = if prefix_fields then prefix_for_node n.semantics.sem_nname else "" in
-  let input_names = Ast_utils.input_names_of_node n in
+  let input_names = Ast_queries.input_names_of_node n in
   let base_vars =
     ("st" :: List.map (fun v -> v.vname) (n.semantics.sem_locals @ n.semantics.sem_outputs))
     @ List.map fst n.semantics.sem_instances
