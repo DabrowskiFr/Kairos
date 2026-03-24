@@ -429,25 +429,20 @@ let prepare_runtime_view ~(prefix_fields : bool) (runtime : Why_runtime_view.t) 
     init_for_var;
   }
 
-let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list)
-    ?(external_summaries = []) (n : Ast.node) :
+let prepare_node ~(prefix_fields : bool) ~(nodes : Ast.node list) (n : Ast.node) :
     Why_types.env_info =
-  let runtime = Why_runtime_view.of_node ~nodes ~external_summaries n in
+  let runtime = Why_runtime_view.of_node ~nodes n in
   prepare_runtime_view ~prefix_fields runtime
 
-let prepare_summary ~(prefix_fields : bool) ?(external_summaries = [])
+let prepare_summary ~(prefix_fields : bool)
     ~(program_summaries : Proof_kernel_ir.exported_node_summary_ir list)
     (summary : Proof_kernel_ir.exported_node_summary_ir) :
     Why_types.env_info =
-  let runtime =
-    Why_runtime_view.of_exported_summary ~external_summaries ~program_summaries summary
-  in
+  let runtime = Why_runtime_view.of_exported_summary ~program_summaries summary in
   prepare_runtime_view ~prefix_fields runtime
 
-let prepare_verified_node ~(prefix_fields : bool) ?(external_summaries = [])
+let prepare_verified_node ~(prefix_fields : bool)
     ~(program_verified_nodes : Proof_obligation_ir.verified_node list)
     (vn : Proof_obligation_ir.verified_node) : Why_types.env_info =
-  let runtime =
-    Why_runtime_view.of_verified_node ~external_summaries ~program_verified_nodes vn
-  in
+  let runtime = Why_runtime_view.of_verified_node ~program_verified_nodes vn in
   prepare_runtime_view ~prefix_fields runtime

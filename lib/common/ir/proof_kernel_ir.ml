@@ -154,7 +154,6 @@ let node_signature_of_ast (n : Ast.node) : node_signature_ir =
     init_state = sem.sem_init_state;
   }
 
-let callee_tick_abi_of_node = Proof_kernel_calls.callee_tick_abi_of_node
 let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactive_program_ir =
   Proof_kernel_program.build_reactive_program ~node_name ~node
 
@@ -197,26 +196,20 @@ let relationalize_generated_clause = Proof_kernel_clauses.relationalize_generate
 
 let export_node_summary ~(node : Abs.node) ~(normalized_ir : node_ir) : exported_node_summary_ir =
   let node_ast = Abs.to_ast_node node in
-  let pre_k_map = build_pre_k_infos node_ast in
   {
     signature = node_signature_of_ast node_ast;
     normalized_ir;
-    tick_summary =
-      Proof_kernel_calls.lower_callee_tick_abi ~pre_k_map ~lower_clause_fact
-        (callee_tick_abi_of_node ~node);
     user_invariants = node.user_invariants;
     state_invariants = node.specification.spec_invariants_state_rel;
     coherency_goals = node.coherency_goals;
-    pre_k_map;
+    pre_k_map = build_pre_k_infos node_ast;
     delay_spec = extract_delay_spec node.specification.spec_guarantees;
     assumes = node.specification.spec_assumes;
     guarantees = node.specification.spec_guarantees;
   }
 
 let rec of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
-    ~(external_summaries : exported_node_summary_ir list) ~(node : Abs.node)
-    ~(analysis : Product_build.analysis)
-    : node_ir =
+    ~(node : Abs.node) ~(analysis : Product_build.analysis) : node_ir =
   let reactive_program = build_reactive_program ~node_name ~node in
   let assume_automaton =
     build_automaton ~role:Assume ~labels:analysis.assume_state_labels
@@ -262,40 +255,6 @@ let rec of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     Proof_kernel_step_contracts.build_proof_step_contracts ~product_steps ~pre_k_map
       ~initial_product_state ~symbolic_generated_clauses
   in
-  let instance_relations =
-    Proof_kernel_calls.build_instance_relations ~nodes ~external_summaries ~node
-      ~node_signature_of_ast ~build_pre_k_infos ~extract_delay_spec ~of_node_analysis
-  in
-  let called_callee_names =
-    Proof_kernel_calls.build_call_site_instantiations ~nodes ~external_summaries ~node
-      ~node_signature_of_ast ~build_pre_k_infos ~extract_delay_spec ~of_node_analysis
-    |> List.map (fun inst -> inst.callee_node_name)
-    |> List.sort_uniq String.compare
-  in
-  let callee_tick_abis =
-    List.filter_map
-      (fun callee_name ->
-        let local_node =
-          List.find_opt (fun (nd : Abs.node) -> nd.semantics.sem_nname = callee_name) nodes
-        in
-        match local_node with
-        | Some callee_node ->
-            let callee_ast = Abs.to_ast_node callee_node in
-            let callee_pre_k_map = build_pre_k_infos callee_ast in
-            Some
-              (Proof_kernel_calls.lower_callee_tick_abi ~pre_k_map:callee_pre_k_map
-                 ~lower_clause_fact
-                 (Proof_kernel_calls.callee_tick_abi_of_node ~node:callee_node))
-        | None -> (
-            match List.find_opt (fun summary -> summary.signature.node_name = callee_name) external_summaries with
-            | Some summary -> Some summary.tick_summary
-            | None -> None))
-      called_callee_names
-  in
-  let call_site_instantiations =
-    Proof_kernel_calls.build_call_site_instantiations ~nodes ~external_summaries ~node
-      ~node_signature_of_ast ~build_pre_k_infos ~extract_delay_spec ~of_node_analysis
-  in
   let ghost_locals = pre_k_locals_of_ast (Abs.to_ast_node node) in
   {
     reactive_program;
@@ -309,8 +268,5 @@ let rec of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     eliminated_generated_clauses;
     symbolic_generated_clauses;
     proof_step_contracts;
-    instance_relations;
-    callee_tick_abis;
-    call_site_instantiations;
     ghost_locals;
   }

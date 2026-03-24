@@ -48,7 +48,6 @@ type callee_summary_view = {
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
   callee_contract : Kernel_guided_contract.exported_summary_contract;
-  callee_tick_summary : Proof_kernel_ir.callee_tick_abi_ir option;
 }
 
 type call_site_view = {
@@ -205,7 +204,6 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_user_invariants = [];
     callee_state_invariants = n.specification.spec_invariants_state_rel;
     callee_contract;
-    callee_tick_summary = None;
   }
 
 let callee_summary_of_exported_summary
@@ -222,7 +220,6 @@ let callee_summary_of_exported_summary
     callee_user_invariants = summary.user_invariants;
     callee_state_invariants = summary.state_invariants;
     callee_contract;
-    callee_tick_summary = Some summary.tick_summary;
   }
 
 let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
@@ -495,7 +492,7 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
       { branch_state = group.group_state; branch_transitions = group.group_transitions })
     groups
 
-let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) : t =
+let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
   let sem = n.semantics in
   let spec = n.specification in
   let callee_names = List.map snd sem.sem_instances |> List.sort_uniq String.compare in
@@ -506,13 +503,6 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
              Some (callee_summary_of_node candidate)
            else None)
   in
-  let imported_summaries =
-    external_summaries
-    |> List.filter_map (fun (summary : Proof_kernel_ir.exported_node_summary_ir) ->
-           if List.mem summary.signature.node_name callee_names then
-             Some (callee_summary_of_exported_summary summary)
-           else None)
-  in
   let callee_summaries =
     let seen = Hashtbl.create 16 in
     let add acc summary =
@@ -521,7 +511,7 @@ let of_node ~(nodes : Ast.node list) ?(external_summaries = []) (n : Ast.node) :
         Hashtbl.replace seen summary.callee_node_name ();
         summary :: acc)
     in
-    List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
+    List.rev (List.fold_left add [] local_summaries)
   in
   let transitions =
     List.mapi
@@ -555,26 +545,7 @@ let with_kernel_product_hints ?kernel_ir (runtime : t) : t =
   | None -> runtime
   | Some ir ->
       let kernel_contract = Some (Kernel_guided_contract.node_contract_of_ir ir) in
-      let tick_map : (Ast.ident * Proof_kernel_ir.callee_tick_abi_ir) list =
-        ir.Proof_kernel_ir.callee_tick_abis
-        |> List.map
-             (fun (abi : Proof_kernel_ir.callee_tick_abi_ir) -> (abi.callee_node_name, abi))
-      in
-      let callee_summaries =
-        List.map
-          (fun (summary : callee_summary_view) ->
-            let callee_tick_summary =
-              match summary.callee_tick_summary with
-              | Some _ as existing -> existing
-              | None -> List.assoc_opt summary.callee_node_name tick_map
-            in
-            let callee_contract =
-              Kernel_guided_contract.with_tick_summary callee_tick_summary summary.callee_contract
-            in
-            { summary with callee_tick_summary; callee_contract })
-          runtime.callee_summaries
-      in
-      { runtime with callee_summaries; kernel_contract }
+      { runtime with kernel_contract }
 
 let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_view option =
   List.find_opt
@@ -757,18 +728,14 @@ let ast_node_of_verified_node (vn : Proof_obligation_ir.verified_node) : Ast.nod
 (** Build a full [Why_runtime_view.t] from a [verified_node].
 
     Local callee summaries are resolved from [program_verified_nodes] by
-    converting them to synthetic [Ast.node]s.  External callee summaries are
-    resolved from [external_summaries] as usual.  This replaces
-    [of_exported_summary] for the new pipeline path. *)
-let of_verified_node ?(external_summaries = [])
-    ~(program_verified_nodes : Proof_obligation_ir.verified_node list)
+    converting them to synthetic [Ast.node]s. *)
+let of_verified_node ~(program_verified_nodes : Proof_obligation_ir.verified_node list)
     (vn : Proof_obligation_ir.verified_node) : t =
   let synthetic_node = ast_node_of_verified_node vn in
   let callee_nodes = List.map ast_node_of_verified_node program_verified_nodes in
-  of_node ~nodes:callee_nodes ~external_summaries synthetic_node
+  of_node ~nodes:callee_nodes synthetic_node
 
-let of_exported_summary ?(external_summaries = [])
-    ~(program_summaries : Proof_kernel_ir.exported_node_summary_ir list)
+let of_exported_summary ~(program_summaries : Proof_kernel_ir.exported_node_summary_ir list)
     (summary : Proof_kernel_ir.exported_node_summary_ir) : t =
   let pre_k_updates = pre_k_updates_of_map summary.pre_k_map in
   let synthetic_trans =
@@ -790,13 +757,6 @@ let of_exported_summary ?(external_summaries = [])
            then Some (callee_summary_of_exported_summary s)
            else None)
   in
-  let imported_summaries =
-    external_summaries
-    |> List.filter_map (fun (s : Proof_kernel_ir.exported_node_summary_ir) ->
-           if List.mem s.signature.node_name callee_names
-           then Some (callee_summary_of_exported_summary s)
-           else None)
-  in
   let callee_summaries =
     let seen = Hashtbl.create 16 in
     let add acc (s : callee_summary_view) =
@@ -805,7 +765,7 @@ let of_exported_summary ?(external_summaries = [])
         Hashtbl.replace seen s.callee_node_name ();
         s :: acc)
     in
-    List.rev (List.fold_left add [] (local_summaries @ imported_summaries))
+    List.rev (List.fold_left add [] local_summaries)
   in
   let synthetic_node : Ast.node =
     {

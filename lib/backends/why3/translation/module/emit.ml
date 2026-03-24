@@ -401,8 +401,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
            []
       |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
-  let call_asserts = Why_call_plan.build_call_asserts ~env ~caller_runtime:runtime_view in
-  let body = compile_runtime_view env call_asserts runtime_view in
+  let body = compile_runtime_view env runtime_view in
   let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
     let hid = Provenance.fresh_id () in
     let origin_attr = attr_for_label origin_label in
@@ -577,7 +576,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                    }
                  in
                  let helper_body =
-                   let body = compile_transition_body env call_asserts [] t in
+                   let body = compile_transition_body env [] t in
                    mk_expr (Esequence (body, ret_expr))
                  in
                  let fn =
@@ -619,8 +618,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           }
         in
         let helper_body =
-          compile_state_body env call_asserts branch_entry_asserts branch_sticky_asserts
-            branch.branch_state branch.branch_transitions
+          compile_state_body env branch_entry_asserts branch_sticky_asserts branch.branch_state
+            branch.branch_transitions
         in
         let helper_body = mk_expr (Esequence (helper_body, ret_expr)) in
         let fn =
@@ -888,13 +887,10 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
 
 (* IR path: builds runtime view directly from an exported_node_summary_ir. *)
 let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
-    ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list)
     ~(program_summaries : Proof_kernel_ir.exported_node_summary_ir list)
     (summary : Proof_kernel_ir.exported_node_summary_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info =
-    Why_env.prepare_summary ~prefix_fields ~external_summaries ~program_summaries summary
-  in
+  let info = Why_env.prepare_summary ~prefix_fields ~program_summaries summary in
   let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
   let info = { info with runtime_view } in
   compile_node_with_info ?comment_specs ?kernel_ir
@@ -906,13 +902,10 @@ let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
 (* Verified-node path: build runtime view from a Pass-5 verified_node, then
    compile it using the shared [compile_node_with_info] core. *)
 let compile_node_from_verified_node ~prefix_fields ?kernel_ir
-    ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list)
     ~(program_verified_nodes : Proof_obligation_ir.verified_node list)
     (vn : Proof_obligation_ir.verified_node) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info =
-    Why_env.prepare_verified_node ~prefix_fields ~external_summaries ~program_verified_nodes vn
-  in
+  let info = Why_env.prepare_verified_node ~prefix_fields ~program_verified_nodes vn in
   let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
   let info = { info with runtime_view } in
   compile_node_with_info ?kernel_ir
@@ -922,14 +915,14 @@ let compile_node_from_verified_node ~prefix_fields ?kernel_ir
 (* Verified-node path: compile a list of verified nodes to a Why3 program AST.
    This is the emission counterpart of compile_program_ast_from_summaries. *)
 let compile_program_ast_from_verified_nodes ?(prefix_fields = true)
-    ?(kernel_ir_map = []) ?(external_summaries = [])
-    (program_verified_nodes : Proof_obligation_ir.verified_node list) : program_ast =
+    ?(kernel_ir_map = []) (program_verified_nodes : Proof_obligation_ir.verified_node list) :
+    program_ast =
   let modules =
     List.map
       (fun (vn : Proof_obligation_ir.verified_node) ->
         compile_node_from_verified_node ~prefix_fields
           ?kernel_ir:(List.assoc_opt vn.node_name kernel_ir_map)
-          ~external_summaries ~program_verified_nodes vn)
+          ~program_verified_nodes vn)
       program_verified_nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
@@ -938,8 +931,8 @@ let compile_program_ast_from_verified_nodes ?(prefix_fields = true)
 
 (* IR path: compile a full list of summaries to a Why3 program AST. *)
 let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [])
-    ?(kernel_ir_map = []) ?(external_summaries = [])
-    (program_summaries : Proof_kernel_ir.exported_node_summary_ir list) : program_ast =
+    ?(kernel_ir_map = []) (program_summaries : Proof_kernel_ir.exported_node_summary_ir list) :
+    program_ast =
   let lookup_comment name = List.assoc_opt name comment_map in
   let modules =
     List.map
@@ -947,7 +940,6 @@ let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [
         let name = summary.signature.node_name in
         compile_node_from_summary ~prefix_fields ?comment_specs:(lookup_comment name)
           ?kernel_ir:(List.assoc_opt name kernel_ir_map)
-          ~external_summaries
           ~program_summaries
           summary)
       program_summaries

@@ -14,14 +14,11 @@ val has_effective_product_coverage : node_ir -> bool
 val of_node_analysis :
   node_name:Ast.ident ->
   nodes:Normalized_program.node list ->
-  external_summaries:exported_node_summary_ir list ->
   node:Normalized_program.node ->
   analysis:Product_build.analysis ->
   node_ir
 
 val node_signature_of_ast : Ast.node -> node_signature_ir
-
-val callee_tick_abi_of_node : node:Normalized_program.node -> callee_tick_abi_ir
 
 val export_node_summary :
   node:Normalized_program.node ->

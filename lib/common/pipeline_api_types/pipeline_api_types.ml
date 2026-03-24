@@ -135,7 +135,6 @@ include struct
     automata : Automata_generation.node_builds;
     contracts : Normalized_program.node list;
     instrumentation : Normalized_program.node list;
-    imported_summaries : Proof_kernel_ir.exported_node_summary_ir list;
   }
 
   type stage_infos = {

@@ -23,8 +23,6 @@
 (* Compile a sequence of statements to a Why3 expression. *)
 val compile_seq :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why3.Ptree.term list ->
   Why_runtime_view.runtime_action_view list ->
   Why3.Ptree.expr
@@ -33,16 +31,12 @@ val compile_seq :
 (* Compile a set of transitions into a Why3 expression. *)
 val compile_transitions :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.state_branch_view list ->
   Why3.Ptree.expr
 
 (* Compile the runtime view into the body of `step`. *)
 val compile_runtime_view :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.t ->
   Why3.Ptree.expr
 (* {1 Node Compilation} *)
@@ -63,7 +57,6 @@ type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_gro
 val compile_program_ast_from_verified_nodes :
   ?prefix_fields:bool ->
   ?kernel_ir_map:(Ast.ident * Proof_kernel_ir.node_ir) list ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Proof_obligation_ir.verified_node list ->
   program_ast
 
@@ -72,7 +65,6 @@ val compile_program_ast_from_summaries :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
   ?kernel_ir_map:(Ast.ident * Proof_kernel_ir.node_ir) list ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Proof_kernel_ir.exported_node_summary_ir list ->
   program_ast
 

@@ -273,10 +273,7 @@ let compute_transition_contracts ~(env : env)
 let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
     ~(kernel_contract : Kernel_guided_contract.node_contract option)
     ~(current_temporal_contract : Kernel_guided_contract.exported_summary_contract)
-    ~(use_kernel_product_contracts : bool) ~(has_instance_calls : bool)
-    ~(hexpr_needs_old : Ast.hexpr -> bool)
-    ~(instance_relation_term :
-       ?in_post:bool -> Proof_kernel_ir.instance_relation_ir -> Ptree.term option) :
+    ~(use_kernel_product_contracts : bool) ~(hexpr_needs_old : Ast.hexpr -> bool) :
     link_contracts =
   let link_terms_pre, link_terms_post =
     if use_kernel_product_contracts then ([], [])
@@ -306,20 +303,18 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
         summary.callee_user_invariants
     in
     let from_state_rel =
-      if has_instance_calls then []
-      else
-        List.map
-          (fun inv ->
-            let st = term_of_instance_var env inst_name node_name "st" in
-            let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
-            let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
-            let body =
-              compile_ltl_term_instance_contract ~in_post env inst_name node_name input_names
-                contract
-                inv.formula
-            in
-            term_implies cond body)
-          summary.callee_state_invariants
+      List.map
+        (fun inv ->
+          let st = term_of_instance_var env inst_name node_name "st" in
+          let rhs = mk_term (Tident (qid1 (instance_state_ctor_name node_name inv.state))) in
+          let cond = (if inv.is_eq then term_eq else term_neq) st rhs in
+          let body =
+            compile_ltl_term_instance_contract ~in_post env inst_name node_name input_names
+              contract
+              inv.formula
+          in
+          term_implies cond body)
+        summary.callee_state_invariants
     in
     from_user @ from_state_rel
   in
@@ -354,21 +349,12 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
       (List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.outputs)
   in
   if use_kernel_product_contracts then
-    let instance_delay_links_inv =
-      match kernel_contract with
-      | None -> []
-      | Some contract ->
-          contract.instance_relations
-          |> List.filter_map (function
-               | Proof_kernel_ir.InstanceDelayCallerPreLink _ as rel -> instance_relation_term rel
-               | _ -> None)
-    in
     {
       link_terms_pre = [];
       link_terms_post = [];
       instance_invariants = [];
-      instance_delay_links_inv;
-      link_invariants = output_links @ instance_delay_links_inv;
+      instance_delay_links_inv = [];
+      link_invariants = output_links;
     }
   else
     let instance_invariants =
@@ -379,19 +365,10 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
           | Some summary -> instance_invariant_terms ~in_post:false inst.instance_name summary)
         runtime.instances
     in
-    let instance_delay_links_inv =
-      match kernel_contract with
-      | None -> []
-      | Some contract ->
-          contract.instance_relations
-          |> List.filter_map (function
-               | Proof_kernel_ir.InstanceDelayCallerPreLink _ as rel -> instance_relation_term rel
-               | _ -> None)
-    in
     {
       link_terms_pre;
       link_terms_post;
       instance_invariants;
-      instance_delay_links_inv;
-      link_invariants = output_links @ instance_delay_links_inv;
+      instance_delay_links_inv = [];
+      link_invariants = output_links;
     }

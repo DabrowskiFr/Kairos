@@ -112,54 +112,6 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
     locals
     @ List.filter (fun (v : Ast.vdecl) -> not (List.mem v.vname existing)) extra
   in
-  let is_monitor_ctor (name : Ast.ident) : bool =
-    let len = String.length name in
-    len >= 4
-    && String.sub name 0 3 = "Aut"
-    && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
-  in
-  let rec mentions_monitor_iexpr (e : Ast.iexpr) =
-    match e.iexpr with
-    | Ast.IVar name -> name = "__aut_state" || is_monitor_ctor name
-    | Ast.ILitInt _ | Ast.ILitBool _ -> false
-    | Ast.IPar inner | Ast.IUn (_, inner) -> mentions_monitor_iexpr inner
-    | Ast.IBin (_, a, b) -> mentions_monitor_iexpr a || mentions_monitor_iexpr b
-  in
-  let mentions_monitor_hexpr = function
-    | Ast.HNow e | Ast.HPreK (e, _) -> mentions_monitor_iexpr e
-  in
-  let rec mentions_monitor_ltl = function
-    | Ast.LTrue | Ast.LFalse -> false
-    | Ast.LAtom (Ast.FRel (h1, _, h2)) -> mentions_monitor_hexpr h1 || mentions_monitor_hexpr h2
-    | Ast.LAtom (Ast.FPred (_, hs)) -> List.exists mentions_monitor_hexpr hs
-    | Ast.LNot a | Ast.LX a | Ast.LG a -> mentions_monitor_ltl a
-    | Ast.LAnd (a, b) | Ast.LOr (a, b) | Ast.LImp (a, b) | Ast.LW (a, b) ->
-        mentions_monitor_ltl a || mentions_monitor_ltl b
-  in
-  let keep_call_fact (fact : Proof_kernel_ir.call_fact_ir) =
-    match fact.fact.desc with
-    | Proof_kernel_ir.FactFormula fo -> not (mentions_monitor_ltl fo)
-    | Proof_kernel_ir.FactPhaseFormula fo -> not (mentions_monitor_ltl fo)
-    | Proof_kernel_ir.FactGuaranteeState _ -> false
-    | Proof_kernel_ir.FactProgramState _ | Proof_kernel_ir.FactFalse -> true
-  in
-  let sanitize_tick_summary (tick_summary : Proof_kernel_ir.callee_tick_abi_ir) =
-    let sanitize_case (case : Proof_kernel_ir.callee_summary_case_ir) =
-      {
-        case with
-        entry_facts = List.filter keep_call_fact case.entry_facts;
-        transition_facts = List.filter keep_call_fact case.transition_facts;
-        exported_post_facts = List.filter keep_call_fact case.exported_post_facts;
-      }
-    in
-    {
-      tick_summary with
-      state_ports =
-        List.filter (fun (port : Proof_kernel_ir.call_port_ir) -> port.port_name <> "__aut_state")
-          tick_summary.state_ports;
-      cases = List.map sanitize_case tick_summary.cases;
-    }
-  in
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
     | (node : Ast.node) :: rest -> (
@@ -195,9 +147,6 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
               {
                 signature;
                 normalized_ir;
-                tick_summary =
-                  sanitize_tick_summary
-                    (Proof_kernel_ir.callee_tick_abi_of_node ~node:(Normalized_program.of_ast_node runtime_node));
                 user_invariants = [];
                 state_invariants = node.specification.spec_invariants_state_rel;
                 coherency_goals = (Normalized_program.of_ast_node node).coherency_goals;

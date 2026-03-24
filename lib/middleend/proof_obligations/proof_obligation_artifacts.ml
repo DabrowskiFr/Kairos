@@ -25,7 +25,7 @@ let empty_instrumentation_info ~(states : Ast.ltl list) ~(atom_names : ident lis
   }
 
 let build_instrumentation_info ~(build : Automata_generation.automata_build) ~(states : Ast.ltl list)
-    ~(atom_names : ident list) ?nodes ?(external_summaries = []) (node : Normalized_program.node) :
+    ~(atom_names : ident list) ?nodes (node : Normalized_program.node) :
     Stage_info.instrumentation_info =
   let nodes = Option.value nodes ~default:[ node ] in
   let product_analysis = Product_build.analyze_node ~build ~node in
@@ -36,8 +36,8 @@ let build_instrumentation_info ~(build : Automata_generation.automata_build) ~(s
     Ir_render_product.render ~node_name:node.semantics.sem_nname ~analysis:product_analysis
   in
   let kernel_ir =
-    Proof_kernel_ir.of_node_analysis ~node_name:node.semantics.sem_nname ~nodes
-      ~external_summaries ~node ~analysis:product_analysis
+    Proof_kernel_ir.of_node_analysis ~node_name:node.semantics.sem_nname ~nodes ~node
+      ~analysis:product_analysis
   in
   let exported_summary =
     Proof_kernel_ir.export_node_summary ~node ~normalized_ir:kernel_ir

@@ -39,7 +39,6 @@ type callee_summary_view = {
   callee_user_invariants : Ast.invariant_user list;
   callee_state_invariants : Ast.invariant_state_rel list;
   callee_contract : Kernel_guided_contract.exported_summary_contract;
-  callee_tick_summary : Proof_kernel_ir.callee_tick_abi_ir option;
 }
 
 type call_site_view = {
@@ -112,7 +111,6 @@ val get_keep_monitor_translation : unit -> bool
 
 val of_node :
   nodes:Ast.node list ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Ast.node ->
   t
 val with_kernel_product_hints : ?kernel_ir:Proof_kernel_ir.node_ir -> t -> t
@@ -125,15 +123,13 @@ val pre_k_updates_of_map : (Ast.hexpr * Temporal_support.pre_k_info) list -> Ast
 
 (** Build a runtime view directly from a [Proof_obligation_ir.verified_node] (Pass 5
     output).  Callee summaries for local nodes are resolved from
-    [program_verified_nodes]; external ones come from [external_summaries]. *)
+    [program_verified_nodes]. *)
 val of_verified_node :
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   program_verified_nodes:Proof_obligation_ir.verified_node list ->
   Proof_obligation_ir.verified_node ->
   t
 
 val of_exported_summary :
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   program_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Proof_kernel_ir.exported_node_summary_ir ->
   t

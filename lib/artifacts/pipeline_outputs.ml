@@ -104,7 +104,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
       with_why_translation_mode cfg.why_translation_mode (fun () ->
           let why_ast =
             Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-              ~external_summaries:asts.imported_summaries program_summaries
+              program_summaries
           in
           let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
           (why_ast, why_text, why_spans))

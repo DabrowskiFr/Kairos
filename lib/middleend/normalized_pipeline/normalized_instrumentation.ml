@@ -449,7 +449,7 @@ let build_instrumented_transitions ~(build : build_ctx) ~(ctx : node_context)
     ~bad_state_fo_opt:processing_ctx.bad_state_fo_opt
     ~incoming_prev_fo_shifted:processing_ctx.incoming_prev_fo_shifted ~log_contract
 
-let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_summaries = []) (n : Abs.node) :
+let transform_abstract_node_with_info ~(build : build_ctx) ?nodes (n : Abs.node) :
     Abs.node * Stage_info.instrumentation_info =
   let nodes = Option.value nodes ~default:[ n ] in
   let n_ast = Abs.to_ast_node n in
@@ -477,15 +477,15 @@ let transform_abstract_node_with_info ~(build : build_ctx) ?nodes ?(external_sum
   let node = finalize_instrumented_abstract_node ~ctx ~n ~trans in
   let info =
     Proof_obligation_artifacts.build_instrumentation_info ~build ~states:ctx.states
-      ~atom_names:ctx.atom_names ~nodes ~external_summaries node
+      ~atom_names:ctx.atom_names ~nodes node
   in
   (node, info)
 
-let transform_node_with_info ~(build : build_ctx) ?nodes ?(external_summaries = []) (n : Ast.node) :
+let transform_node_with_info ~(build : build_ctx) ?nodes (n : Ast.node) :
     Ast.node * Stage_info.instrumentation_info =
   let abs_nodes = Option.map (List.map Abs.of_ast_node) nodes in
   let node_abs, info =
-    transform_abstract_node_with_info ~build ?nodes:abs_nodes ~external_summaries (Abs.of_ast_node n)
+    transform_abstract_node_with_info ~build ?nodes:abs_nodes (Abs.of_ast_node n)
   in
   (Abs.to_ast_node node_abs, info)
 

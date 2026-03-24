@@ -21,8 +21,7 @@ let compile_why_text ~with_why_translation_mode ~prefix_fields ~why_translation_
   let program_summaries = instrumentation_info.exported_node_summaries in
   with_why_translation_mode why_translation_mode (fun () ->
       let why_ast =
-        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map
-          ~external_summaries:asts.imported_summaries program_summaries
+        Emit.compile_program_ast_from_summaries ~prefix_fields ~kernel_ir_map program_summaries
       in
       Emit.emit_program_ast why_ast)
 

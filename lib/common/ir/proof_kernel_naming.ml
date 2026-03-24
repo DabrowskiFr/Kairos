@@ -49,22 +49,6 @@ let string_of_clause_time = function
   | PreviousTick -> "previous"
   | StepTickContext -> "step_ctx"
 
-let string_of_call_port_role = function
-  | CallInputPort -> "input"
-  | CallOutputPort -> "output"
-  | CallStatePort -> "state"
-
-let string_of_call_binding_kind = function
-  | BindActualInput -> "actual_input"
-  | BindActualOutput -> "actual_output"
-  | BindInstancePreState -> "instance_pre"
-  | BindInstancePostState -> "instance_post"
-
-let string_of_call_fact_kind = function
-  | CallEntryFact -> "entry"
-  | CallTransitionFact -> "transition"
-  | CallExportedPostFact -> "exported_post"
-
 let string_of_clause_fact_desc = function
   | FactProgramState st -> "st = " ^ st
   | FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
@@ -85,9 +69,6 @@ let string_of_clause_fact (fact : clause_fact_ir) =
 let string_of_relational_clause_fact (fact : relational_clause_fact_ir) =
   Printf.sprintf "%s:%s" (string_of_clause_time fact.time)
     (string_of_relational_clause_fact_desc fact.desc)
-
-let string_of_call_fact (fact : call_fact_ir) =
-  Printf.sprintf "%s:%s" (string_of_call_fact_kind fact.fact_kind) (string_of_clause_fact fact.fact)
 
 let string_of_product_state (st : product_state_ir) =
   Printf.sprintf "(P=%s, A=%d, G=%d)" st.prog_state st.assume_state_index

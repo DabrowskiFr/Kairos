@@ -104,8 +104,8 @@ let build_ast_with_info ?(log = false) ~input_file () :
         let t3 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Instrumentation;
         let p_monitor, automata, instrumentation_info =
-          Instrumentation_pass.run_with_info_external p_contracts automata |> fun (p, stage, info) ->
-          (reid_normalized_program p, stage, info)
+          Instrumentation_pass.Pass.run_with_info p_contracts automata
+          |> fun (p, stage, info) -> (reid_normalized_program p, stage, info)
         in
         if log then
           Log.stage_end Stage_names.Instrumentation
@@ -119,7 +119,6 @@ let build_ast_with_info ?(log = false) ~input_file () :
             automata;
             contracts = p_contracts;
             instrumentation = p_monitor;
-            imported_summaries = [];
           }
         in
         let infos : Pipeline_api_types.stage_infos =

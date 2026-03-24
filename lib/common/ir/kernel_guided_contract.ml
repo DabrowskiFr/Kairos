@@ -13,7 +13,6 @@ type exported_summary_contract = {
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
   temporal_bindings : temporal_binding_ir list;
-  tick_summary : Proof_kernel_ir.callee_tick_abi_ir option;
 }
 
 type obligation_layers = {
@@ -38,8 +37,6 @@ type node_contract = {
   historical_clauses : Proof_kernel_ir.generated_clause_ir list;
   eliminated_clauses : Proof_kernel_ir.generated_clause_ir list;
   symbolic_clauses : Proof_kernel_ir.relational_generated_clause_ir list;
-  instance_relations : Proof_kernel_ir.instance_relation_ir list;
-  callee_tick_abis : Proof_kernel_ir.callee_tick_abi_ir list;
 }
 
 let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) :
@@ -64,7 +61,6 @@ let exported_summary_of_exported_ir
     user_invariants = summary.user_invariants;
     state_invariants = summary.state_invariants;
     temporal_bindings = temporal_bindings_of_pre_k_map summary.pre_k_map;
-    tick_summary = Some summary.tick_summary;
   }
 
 let exported_summary_of_ast_node (node : Ast.node) : exported_summary_contract =
@@ -75,7 +71,6 @@ let exported_summary_of_ast_node (node : Ast.node) : exported_summary_contract =
     user_invariants = [];
     state_invariants = node.specification.spec_invariants_state_rel;
     temporal_bindings = temporal_bindings_of_pre_k_map (Collect.build_pre_k_infos node);
-    tick_summary = None;
   }
 
 let node_contract_of_ir (ir : Proof_kernel_ir.node_ir) : node_contract =
@@ -117,14 +112,7 @@ let node_contract_of_ir (ir : Proof_kernel_ir.node_ir) : node_contract =
     historical_clauses = obligations.historical;
     eliminated_clauses = obligations.eliminated;
     symbolic_clauses = obligations.symbolic;
-    instance_relations = ir.instance_relations;
-    callee_tick_abis = ir.callee_tick_abis;
   }
-
-let with_tick_summary
-    (tick_summary : Proof_kernel_ir.callee_tick_abi_ir option)
-    (summary : exported_summary_contract) : exported_summary_contract =
-  { summary with tick_summary }
 
 let latest_slot_name_for_hexpr (summary : exported_summary_contract) (h : Ast.hexpr) :
     Ast.ident option =

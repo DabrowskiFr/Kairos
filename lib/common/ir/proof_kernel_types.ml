@@ -145,88 +145,6 @@ type relational_generated_clause_ir = {
 }
 [@@deriving yojson]
 
-type instance_relation_ir =
-  | InstanceUserInvariant of {
-      instance_name : Ast.ident;
-      callee_node_name : Ast.ident;
-      invariant_id : Ast.ident;
-      invariant_expr : Ast.hexpr;
-    }
-  | InstanceStateInvariant of {
-      instance_name : Ast.ident;
-      callee_node_name : Ast.ident;
-      state_name : Ast.ident;
-      is_eq : bool;
-      formula : Ast.ltl;
-    }
-  | InstanceDelayHistoryLink of {
-      instance_name : Ast.ident;
-      callee_node_name : Ast.ident;
-      caller_output : Ast.ident;
-      callee_input : Ast.ident;
-      callee_pre_name : Ast.ident option;
-    }
-  | InstanceDelayCallerPreLink of {
-      caller_output : Ast.ident;
-      caller_pre_name : Ast.ident;
-    }
-[@@deriving yojson]
-
-type call_port_role =
-  | CallInputPort
-  | CallOutputPort
-  | CallStatePort
-[@@deriving yojson]
-
-type call_port_ir = {
-  port_name : Ast.ident;
-  role : call_port_role;
-}
-[@@deriving yojson]
-
-type call_binding_kind =
-  | BindActualInput
-  | BindActualOutput
-  | BindInstancePreState
-  | BindInstancePostState
-[@@deriving yojson]
-
-type call_binding_ir = {
-  binding_kind : call_binding_kind;
-  local_name : Ast.ident;
-  remote_name : Ast.ident;
-}
-[@@deriving yojson]
-
-type call_fact_kind =
-  | CallEntryFact
-  | CallTransitionFact
-  | CallExportedPostFact
-[@@deriving yojson]
-
-type call_fact_ir = {
-  fact_kind : call_fact_kind;
-  fact : clause_fact_ir;
-}
-[@@deriving yojson]
-
-type callee_summary_case_ir = {
-  case_name : string;
-  entry_facts : call_fact_ir list;
-  transition_facts : call_fact_ir list;
-  exported_post_facts : call_fact_ir list;
-}
-[@@deriving yojson]
-
-type callee_tick_abi_ir = {
-  callee_node_name : Ast.ident;
-  input_ports : call_port_ir list;
-  output_ports : call_port_ir list;
-  state_ports : call_port_ir list;
-  cases : callee_summary_case_ir list;
-}
-[@@deriving yojson]
-
 type node_signature_ir = {
   node_name : Ast.ident;
   inputs : Ast.vdecl list;
@@ -235,14 +153,6 @@ type node_signature_ir = {
   instances : (Ast.ident * Ast.ident) list;
   states : Ast.ident list;
   init_state : Ast.ident;
-}
-[@@deriving yojson]
-
-type call_site_instantiation_ir = {
-  instance_name : Ast.ident;
-  call_site_id : string;
-  callee_node_name : Ast.ident;
-  bindings : call_binding_ir list;
 }
 [@@deriving yojson]
 
@@ -265,9 +175,6 @@ type node_ir = {
   eliminated_generated_clauses : generated_clause_ir list;
   symbolic_generated_clauses : relational_generated_clause_ir list;
   proof_step_contracts : proof_step_contract_ir list;
-  instance_relations : instance_relation_ir list;
-  callee_tick_abis : callee_tick_abi_ir list;
-  call_site_instantiations : call_site_instantiation_ir list;
   ghost_locals : Ast.vdecl list;
 }
 [@@deriving yojson]
@@ -275,7 +182,6 @@ type node_ir = {
 type exported_node_summary_ir = {
   signature : node_signature_ir;
   normalized_ir : node_ir;
-  tick_summary : callee_tick_abi_ir;
   user_invariants : Ast.invariant_user list;
   state_invariants : Ast.invariant_state_rel list;
   coherency_goals : Normalized_program.contract_formula list;

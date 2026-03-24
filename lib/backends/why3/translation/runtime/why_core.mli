@@ -23,8 +23,6 @@
 (* Compile a sequence of statements to a Why3 expression. *)
 val compile_seq :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why3.Ptree.term list ->
   Why_runtime_view.runtime_action_view list ->
   Why3.Ptree.expr
@@ -34,8 +32,6 @@ val compile_seq :
 (* Compile a state branch (pattern match arm) for transitions. *)
 val compile_state_body :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   (Ast.ident * Why3.Ptree.term list) list ->
   (Ast.ident * Why3.Ptree.term list) list ->
   Ast.ident ->
@@ -44,8 +40,6 @@ val compile_state_body :
 
 val compile_transition_body :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why3.Ptree.term list ->
   Why_runtime_view.runtime_transition_view ->
   Why3.Ptree.expr
@@ -53,15 +47,11 @@ val compile_transition_body :
 (* Compile all transitions into a Why3 expression. *)
 val compile_transitions :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.state_branch_view list ->
   Why3.Ptree.expr
 
 (* Compile a full runtime view into the body of `step`. *)
 val compile_runtime_view :
   Support.env ->
-  (Ast.ident * Ast.ident * Ast.iexpr list * Ast.ident list ->
-  Why_call_plan.compiled_call_plan option) ->
   Why_runtime_view.t ->
   Why3.Ptree.expr

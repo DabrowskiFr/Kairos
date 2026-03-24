@@ -97,36 +97,29 @@ module RawPass = struct
       Stage_info.product_dot = acc.product_dot;
     }
 
-  let instrument_node ~(program : ast_in) ~(automata : stage_in)
-      ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list) (n : Abs.node) :
-      Abs.node * info =
+  let instrument_node ~(program : ast_in) ~(automata : stage_in) (n : Abs.node) : Abs.node * info =
     match List.assoc_opt n.Abs.semantics.sem_nname automata with
     | Some build ->
         let node_abs, info =
-          Normalized_instrumentation.transform_abstract_node_with_info ~build ~nodes:program
-            ~external_summaries n
+          Normalized_instrumentation.transform_abstract_node_with_info ~build ~nodes:program n
         in
         (node_abs, info)
     | None ->
         failwith
           (Printf.sprintf "Missing monitor generation build for node %s" n.Abs.semantics.sem_nname)
 
-  let run_with_external_summaries ~(external_summaries : Proof_kernel_ir.exported_node_summary_ir list)
-      (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
+  let run_with_info (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
     let acc = empty_info_acc () in
     let ast =
       List.map
         (fun n ->
-          let node, node_info = instrument_node ~program:p ~automata ~external_summaries n in
+          let node, node_info = instrument_node ~program:p ~automata n in
           add_node_info acc node_info;
           node)
         p
     in
     let info = freeze_info_acc acc in
     (ast, automata, info)
-
-  let run_with_info (p : ast_in) (automata : stage_in) : ast_out * stage_out * info =
-    run_with_external_summaries ~external_summaries:[] p automata
 
   let run (p : ast_in) (automata : stage_in) : ast_out * stage_out =
     let ast, automata, _info = run_with_info p automata in
@@ -140,7 +133,3 @@ module Pass :
      and type stage_in = Automata_generation.node_builds
      and type stage_out = Automata_generation.node_builds
      and type info = Stage_info.instrumentation_info = RawPass
-
-let run_with_info_external ?(external_summaries = []) (p : Pass.ast_in) (automata : Pass.stage_in) :
-    Pass.ast_out * Pass.stage_out * Pass.info =
-  RawPass.run_with_external_summaries ~external_summaries p automata

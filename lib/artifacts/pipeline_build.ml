@@ -16,26 +16,6 @@ let build_ast_with_info ~input_file () :
   try
     let source, parse_info = Parse_file.parse_source_file_with_info input_file in
     let p_parsed = source.nodes in
-    let imported =
-      match Kairos_imports.load_for_source ~source_path:input_file ~source with
-      | Ok imported -> imported
-      | Error msg -> raise (Failure msg)
-    in
-    let local_node_names = List.map (fun (n : Ast.node) -> n.semantics.sem_nname) p_parsed in
-    let duplicate_import =
-      List.find_opt
-        (fun (summary : Proof_kernel_ir.exported_node_summary_ir) ->
-          List.mem summary.signature.node_name local_node_names)
-        imported.summaries
-    in
-    let () =
-      match duplicate_import with
-      | None -> ()
-      | Some summary ->
-          failwith
-            (Printf.sprintf "Imported node '%s' conflicts with a local node in %s"
-               summary.signature.node_name input_file)
-    in
     let p_automaton, automata, automata_info =
       Automata_pass.Pass.run_with_info p_parsed ()
     in
@@ -43,8 +23,7 @@ let build_ast_with_info ~input_file () :
       Contracts_pass.Pass.run_with_info p_automaton automata
     in
     let p_monitor, automata, instrumentation_info =
-      Instrumentation_pass.run_with_info_external ~external_summaries:imported.summaries
-        p_contracts automata
+      Instrumentation_pass.Pass.run_with_info p_contracts automata
     in
     let asts : Pipeline_api_types.ast_stages =
       {
@@ -54,7 +33,6 @@ let build_ast_with_info ~input_file () :
         automata;
         contracts = p_contracts;
         instrumentation = p_monitor;
-        imported_summaries = imported.summaries;
       }
     in
     let infos : Pipeline_api_types.stage_infos =

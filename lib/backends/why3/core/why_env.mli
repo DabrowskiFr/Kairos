@@ -43,13 +43,11 @@ val prepare_runtime_view : prefix_fields:bool -> Why_runtime_view.t -> env_info
 val prepare_node :
   prefix_fields:bool ->
   nodes:Ast.node list ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Ast.node ->
   env_info
 
 val prepare_summary :
   prefix_fields:bool ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   program_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   Proof_kernel_ir.exported_node_summary_ir ->
   env_info
@@ -57,7 +55,6 @@ val prepare_summary :
 (** Build environment data from a [Proof_obligation_ir.verified_node] (Pass 5 output). *)
 val prepare_verified_node :
   prefix_fields:bool ->
-  ?external_summaries:Proof_kernel_ir.exported_node_summary_ir list ->
   program_verified_nodes:Proof_obligation_ir.verified_node list ->
   Proof_obligation_ir.verified_node ->
   env_info

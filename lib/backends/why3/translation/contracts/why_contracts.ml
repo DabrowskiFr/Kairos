@@ -180,7 +180,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
       user_invariants = runtime.user_invariants;
       state_invariants = runtime.state_invariants;
       temporal_bindings = Kernel_guided_contract.temporal_bindings_of_pre_k_map pre_k_map;
-      tick_summary = None;
     }
   in
   let kernel_contract =
@@ -838,56 +837,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
                 }
                  : step_contract_info))
   in
-  let has_instance_calls = Why_runtime_view.has_instance_calls runtime in
-  let instance_relation_term ?(in_post = false) (rel : Proof_kernel_ir.instance_relation_ir) :
-      Ptree.term option =
-    let compile_instance_user instance_name callee_node_name invariant_expr =
-      match Why_runtime_view.find_callee_summary runtime callee_node_name with
-      | None -> None
-      | Some summary ->
-          let input_names = summary.callee_input_names in
-          let contract = summary.callee_contract in
-          let lhs =
-            match rel with
-            | Proof_kernel_ir.InstanceUserInvariant { invariant_id; _ } ->
-                term_of_instance_var env instance_name callee_node_name invariant_id
-            | _ -> assert false
-          in
-          let rhs =
-            compile_hexpr_instance_contract ~in_post env instance_name callee_node_name input_names
-              contract invariant_expr
-          in
-          Some (term_eq lhs rhs)
-    in
-    match rel with
-    | Proof_kernel_ir.InstanceUserInvariant
-        { instance_name; callee_node_name; invariant_expr; _ } ->
-        compile_instance_user instance_name callee_node_name invariant_expr
-    | Proof_kernel_ir.InstanceStateInvariant
-        { instance_name; callee_node_name; state_name; is_eq; formula } -> (
-        if has_instance_calls then None
-        else match Why_runtime_view.find_callee_summary runtime callee_node_name with
-        | None -> None
-        | Some summary ->
-            let input_names = summary.callee_input_names in
-            let contract = summary.callee_contract in
-            let st = term_of_instance_var env instance_name callee_node_name "st" in
-            let rhs =
-              mk_term (Tident (qid1 (instance_state_ctor_name callee_node_name state_name)))
-            in
-            let cond = (if is_eq then term_eq else term_neq) st rhs in
-            let body =
-              compile_ltl_term_instance_contract ~in_post env instance_name callee_node_name
-                input_names contract formula
-            in
-            Some (term_implies cond body))
-    | Proof_kernel_ir.InstanceDelayHistoryLink
-        { instance_name; callee_node_name; caller_output; callee_input; callee_pre_name } ->
-        let lhs = term_of_var env caller_output in
-        let rhs_name = Option.value ~default:callee_input callee_pre_name in
-        Some (term_eq lhs (term_old (term_of_instance_var env instance_name callee_node_name rhs_name)))
-    | Proof_kernel_ir.InstanceDelayCallerPreLink _ -> None
-  in
   (* Assumption LTL formulas are handled state-aware by middle-end injection on transitions.
      Do not also inject them globally as step preconditions. *)
   let post_contract_user =
@@ -977,8 +926,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) ?kernel_ir (info : Why
   let link_contracts =
     Why_contract_plan.compute_link_contracts ~env ~runtime ~kernel_contract
       ~current_temporal_contract
-      ~use_kernel_product_contracts ~has_instance_calls
-      ~hexpr_needs_old ~instance_relation_term
+      ~use_kernel_product_contracts ~hexpr_needs_old
   in
   let link_terms_pre = link_contracts.link_terms_pre in
   let link_terms_post = link_contracts.link_terms_post in
