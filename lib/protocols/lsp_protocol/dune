@@ -1,0 +1,15 @@
+(library
+ (name kairos_lsp_protocol)
+ (public_name kairos.lsp_protocol)
+ (wrapped false)
+ (modules lsp_protocol)
+ (preprocess
+  (pps ppx_deriving_yojson)))
+
+(library
+ (name kairos_lsp_app)
+ (wrapped false)
+ (modules lsp_app lsp_services)
+ (libraries
+  kairos_pipeline_types kairos_artifacts kairos_diagnostics kairos_lsp_protocol
+  kairos_stage_metadata yojson str))

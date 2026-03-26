@@ -83,10 +83,6 @@ let parse_source_file_with_info (fn : string) : Source_file.t * Stage_info.parse
       close_in_noerr ic;
       raise e
 
-let parse_source_file (fn : string) : Source_file.t =
-  let source, _info = parse_source_file_with_info fn in
-  source
-
 let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
   let source, info = parse_source_file_with_info fn in
   (source.nodes, info)

@@ -37,10 +37,8 @@ type contracts_info = {
 }
 
 type instrumentation_info = {
-  state_ctors : string list;
-  atom_count : int;
-  kernel_ir_nodes : Proof_kernel_ir.node_ir list;
-  exported_node_summaries : Proof_kernel_ir.exported_node_summary_ir list;
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
+  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
   raw_ir_nodes : Proof_obligation_ir.raw_node list;
   annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
   verified_ir_nodes : Proof_obligation_ir.verified_node list;
@@ -66,8 +64,6 @@ let empty_contracts_info : contracts_info = { contract_origin_map = []; warnings
 
 let empty_instrumentation_info : instrumentation_info =
   {
-    state_ctors = [];
-    atom_count = 0;
     kernel_ir_nodes = [];
     exported_node_summaries = [];
     raw_ir_nodes = [];

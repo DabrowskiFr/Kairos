@@ -8,4 +8,4 @@
 
 val dot_of_annotated_node : Proof_obligation_ir.annotated_node -> string
 val dot_of_verified_node : Proof_obligation_ir.verified_node -> string
-val dot_of_kernel_node_ir : Proof_kernel_ir.node_ir -> string
+val dot_of_kernel_node_ir : Proof_kernel_types.node_ir -> string

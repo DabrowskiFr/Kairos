@@ -1,0 +1,100 @@
+{0 Common}
+
+The common layer groups shared data and logic used by several parts of the
+pipeline.
+
+{1 Mental Model}
+
+{[
+common
+  -> shared formula/provenance utilities
+  -> shared semantic program data
+  -> shared proof IR data
+  -> shared metadata exchanged across stages
+]}
+
+{1 Main modules}
+
+- {!module-Automaton_types}
+  Shared semantic automata data.
+
+- {!module-Formula_origin}
+  Origin tags attached to generated contract formulas.
+
+- {!module-Collect}
+  Shared collectors for history expressions, calls, and lightweight spec
+  extraction.
+
+- {!module-Fo_simplifier}
+  Formula simplification.
+
+- {!module-Fo_specs}
+  Helpers for first-order temporal specifications.
+
+- {!module-Fo_time}
+  Time-shifting helpers for formulas.
+
+- {!module-Ltl_valuation}
+  Finite valuation helpers used by the automata pipeline.
+
+- {!module-Ir}
+  Normalized program representation used by the middle-end.
+
+- {!module-Proof_obligation_ir}
+  Shared proof-obligation IR types.
+
+- {!module-Proof_kernel_types}
+  Shared proof-kernel IR types.
+
+- {!module-Ast_provenance}
+  Source-formula wrapper helpers with stable identifiers and locations.
+
+- {!module-Provenance}
+  Provenance graph primitives.
+
+- {!module-Stage_info}
+  Per-stage metadata exported by the pipeline.
+
+- {!module-Stage_names}
+  Stable identifiers for pipeline stages.
+
+- {!module-Temporal_support}
+  Shared bounded-history helpers.
+
+{1 Representative Types}
+
+{[
+type contract_formula = {
+  value : Ast.ltl;
+  origin : Formula_origin.t option;
+  oid : int;
+  loc : Ast.loc option;
+}
+]}
+
+{[
+type product_state_ir = {
+  program_state : Ast.ident;
+  assume_state_index : int;
+  guarantee_state_index : int;
+}
+]}
+
+{1 Reading order}
+
+A useful reading order is:
+
+1. `Formula_origin`
+2. `Provenance`
+3. `Temporal_support`
+4. `Ir`
+5. `Proof_obligation_ir`
+6. `Proof_kernel_types`
+7. `Collect`, `Fo_specs`, `Fo_simplifier`, `Fo_time`, `Ltl_valuation`
+8. `Automaton_types`
+
+{1 Scope}
+
+These modules define shared concepts and data.
+Construction passes, external tool adapters, artifact rendering, and Why3
+compilation are documented elsewhere.

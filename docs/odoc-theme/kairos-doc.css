@@ -1,0 +1,233 @@
+:root {
+  --kairos-paper: #fcfbf7;
+  --kairos-surface: #ffffff;
+  --kairos-surface-alt: #f4efe5;
+  --kairos-ink: #1d2433;
+  --kairos-muted: #5a6478;
+  --kairos-line: #ddd4c2;
+  --kairos-accent: #0f766e;
+  --kairos-accent-strong: #115e59;
+  --kairos-warm: #a16207;
+  --kairos-shadow: 0 18px 40px rgba(29, 36, 51, 0.08);
+  --kairos-radius: 18px;
+  --kairos-code-bg: #f7f7fb;
+}
+
+body.odoc {
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(161, 98, 7, 0.08), transparent 24%),
+    linear-gradient(180deg, #fffefb 0%, var(--kairos-paper) 100%);
+  color: var(--kairos-ink);
+}
+
+.odoc-nav {
+  backdrop-filter: blur(10px);
+  background: rgba(252, 251, 247, 0.84);
+  border-bottom: 1px solid rgba(221, 212, 194, 0.9);
+  color: var(--kairos-muted);
+}
+
+.odoc-nav a,
+.odoc-toc a,
+.odoc-content a,
+.odoc-preamble a {
+  color: var(--kairos-accent-strong);
+}
+
+.odoc-nav a:hover,
+.odoc-toc a:hover,
+.odoc-content a:hover,
+.odoc-preamble a:hover {
+  color: var(--kairos-accent);
+}
+
+.odoc-preamble,
+.odoc-content,
+.odoc-tocs {
+  max-width: 1120px;
+}
+
+.odoc-preamble {
+  margin-top: 2rem;
+  padding: 2.4rem 2.6rem;
+  border: 1px solid rgba(221, 212, 194, 0.95);
+  border-radius: calc(var(--kairos-radius) + 2px);
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.08), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 252, 246, 0.98));
+  box-shadow: var(--kairos-shadow);
+}
+
+.odoc-preamble h1,
+.odoc-content h1,
+.odoc-content h2,
+.odoc-content h3 {
+  color: var(--kairos-ink);
+  letter-spacing: -0.02em;
+}
+
+.odoc-preamble h1 {
+  font-size: 2.7rem;
+  margin-bottom: 0.8rem;
+}
+
+.odoc-preamble p,
+.odoc-content p,
+.odoc-content li {
+  color: var(--kairos-ink);
+}
+
+.odoc-toc {
+  border: 1px solid rgba(221, 212, 194, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 10px 24px rgba(29, 36, 51, 0.05);
+}
+
+.odoc-content {
+  margin-top: 2rem;
+}
+
+.odoc-content h2,
+.odoc-content h3 {
+  margin-top: 2.5rem;
+}
+
+.odoc-content pre,
+.odoc-content code,
+.odoc-content tt {
+  font-family: "Fira Mono", monospace;
+}
+
+.odoc-content code,
+.odoc-content tt {
+  padding: 0.15rem 0.42rem;
+  border-radius: 0.45rem;
+  background: var(--kairos-code-bg);
+  color: var(--kairos-accent-strong);
+}
+
+.odoc-content .odoc-spec code,
+.odoc-content .odoc-spec tt,
+.odoc-content .spec code,
+.odoc-content .spec tt {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.odoc-content pre {
+  padding: 1.1rem 1.2rem;
+  border: 1px solid rgba(221, 212, 194, 0.95);
+  border-radius: 14px;
+  background: #fbfbfd;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.odoc-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.odoc-content table {
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--kairos-surface);
+  box-shadow: var(--kairos-shadow);
+}
+
+.odoc-content th,
+.odoc-content td {
+  border-color: var(--kairos-line);
+}
+
+.odoc-content th {
+  background: var(--kairos-surface-alt);
+}
+
+ul.modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  padding-left: 0;
+  list-style: none;
+}
+
+ul.modules li {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(221, 212, 194, 0.98);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 245, 236, 0.94));
+  box-shadow: 0 12px 24px rgba(29, 36, 51, 0.05);
+}
+
+ul.modules li .synopsis {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--kairos-muted);
+  line-height: 1.5;
+}
+
+.spec {
+  border: 1px solid rgba(221, 212, 194, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(29, 36, 51, 0.05);
+}
+
+.spec .def {
+  border-color: rgba(221, 212, 194, 0.95);
+}
+
+.spec:hover {
+  border-color: rgba(15, 118, 110, 0.3);
+}
+
+.hljs {
+  background: #fbfbfd !important;
+  color: #243044 !important;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-title {
+  color: #0f766e !important;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #9a3412 !important;
+}
+
+.hljs-type,
+.hljs-section,
+.hljs-selector-id {
+  color: #7c3aed !important;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6b7280 !important;
+  font-style: italic;
+}
+
+@media (max-width: 900px) {
+  .odoc-preamble {
+    padding: 1.5rem 1.2rem;
+  }
+
+  .odoc-preamble h1 {
+    font-size: 2.1rem;
+  }
+
+  ul.modules {
+    grid-template-columns: 1fr;
+  }
+}

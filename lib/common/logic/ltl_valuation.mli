@@ -18,49 +18,49 @@
 
 (** Evaluation support for LTL-style formulas over finite valuation contexts. *)
 
-(* {1 Valuation Helpers} *)
+(** {1 Valuation Helpers} *)
 
+(** Compact label for a valuation, using assignments such as [x=0,y=1]. *)
 val valuation_label : (string * bool) list -> string
-(* Compact label for a valuation (name=0/1). *)
 
+(** Implicant representation used by boolean minimization. *)
 type term = (string * bool option) list
-(* Implicant representation for boolean minimization. *)
 
+(** Lookup a boolean value in a valuation, defaulting to [false]. *)
 val lookup_val : (string * bool) list -> string -> bool
 
-(* Lookup a boolean value in a valuation (default false). *)
+(** Build a minterm from a valuation. *)
 val term_of_vals : string list -> (string * bool) list -> term
 
-(* Build a minterm from a valuation. *)
+(** Decide whether two minterms can be merged. *)
 val can_merge_terms : term -> term -> bool
 
-(* Check if two minterms can be merged (differ in one literal). *)
+(** Merge two minterms into a more general implicant. *)
 val merge_terms : term -> term -> term
 
-(* Merge two minterms into a more general implicant. *)
+(** Remove duplicate implicants. *)
 val uniq_terms : term list -> term list
 
-(* Remove duplicate implicants. *)
+(** Compute prime implicants by repeated merging. *)
 val prime_implicants : term list -> term list
 
-(* Compute prime implicants by merging minterms. *)
+(** Decide whether an implicant covers a valuation. *)
 val term_covers : term -> (string * bool) list -> bool
 
-(* True if an implicant covers a valuation. *)
+(** Choose implicants that cover all valuations. *)
 val choose_implicants : string list -> (string * bool) list list -> term list
 
-(* Choose implicants that cover all valuations. *)
+(** Render an implicant as a boolean formula string. *)
 val term_to_string : term -> string
 
-(* Render an implicant as a boolean formula string. *)
+(** Build a simplified boolean formula string covering the given valuations. *)
 val valuations_to_formula : string list -> (string * bool) list list -> string
-(* Build a simplified boolean formula string for valuations. *)
 
+(** Convert an implicant into an immediate expression. *)
 val term_to_iexpr : term -> Ast.iexpr
 
-(* Convert an implicant into an iexpr. *)
+(** Convert a disjunction of implicants into an immediate expression. *)
 val terms_to_iexpr : term list -> Ast.iexpr
 
-(* Convert a disjunction of implicants into an iexpr. *)
+(** Build an immediate-expression formula covering the given valuations. *)
 val valuations_to_iexpr : string list -> (string * bool) list list -> Ast.iexpr
-(* Build an iexpr formula covering valuations. *)

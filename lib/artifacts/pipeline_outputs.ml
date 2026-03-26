@@ -1,10 +1,10 @@
 open Ast
 
-let with_why_translation_mode (mode : Pipeline_api_types.why_translation_mode) f =
+let with_why_translation_mode (mode : Pipeline_types.why_translation_mode) f =
   let keep_monitor =
     match mode with
-    | Pipeline_api_types.Why_mode_monitor -> true
-    | Pipeline_api_types.Why_mode_no_automata -> false
+    | Pipeline_types.Why_mode_monitor -> true
+    | Pipeline_types.Why_mode_no_automata -> false
   in
   let pure_translation = false in
   let prev_keep = Why_runtime_view.get_keep_monitor_translation () in
@@ -28,11 +28,11 @@ let join_blocks_with_spans ~sep blocks =
       Buffer.add_string b s;
       offset := !offset + String.length s;
       spans :=
-        { Pipeline_api_types.start_offset = start_offset; end_offset = !offset } :: !spans)
+        { Pipeline_types.start_offset = start_offset; end_offset = !offset } :: !spans)
     blocks;
   (Buffer.contents b, List.rev !spans)
 
-let stage_meta (infos : Pipeline_api_types.stage_infos) : (string * (string * string) list) list =
+let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string) list) list =
   let p = Option.value ~default:Stage_info.empty_parse_info infos.parse in
   let a = Option.value ~default:Stage_info.empty_automata_info infos.automata_generation in
   let c = Option.value ~default:Stage_info.empty_contracts_info infos.contracts in
@@ -41,10 +41,10 @@ let stage_meta (infos : Pipeline_api_types.stage_infos) : (string * (string * st
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
     ("contracts", [ ("origins", string_of_int (List.length c.contract_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
-    ("instrumentation", [ ("atoms", string_of_int i.atom_count); ("obligations_lines", string_of_int (List.length i.obligations_lines)) ]);
+    ("instrumentation", [ ("obligations_lines", string_of_int (List.length i.obligations_lines)) ]);
   ]
 
-let instrumentation_diag_texts (infos : Pipeline_api_types.stage_infos) :
+let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
     string * string * string * string * string * string * string * string =
   let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
   let obligations_text =
@@ -65,12 +65,12 @@ let instrumentation_diag_texts (infos : Pipeline_api_types.stage_infos) :
     i.assume_automaton_dot,
     i.product_dot )
 
-let program_automaton_texts (asts : Pipeline_api_types.ast_stages) : string * string =
+let program_automaton_texts (asts : Pipeline_types.ast_stages) : string * string =
   match asts.automata_generation with
   | [] -> ("", "")
   | node :: _ ->
       Ir_render_product.render_program_automaton ~node_name:node.semantics.sem_nname
-        ~node:(Normalized_program.of_ast_node node)
+        ~node:(From_ast.of_ast_node node)
 
 let unique_preserve_order xs =
   let seen = Hashtbl.create 16 in
@@ -84,19 +84,19 @@ let unique_preserve_order xs =
 
 let option_join = function Some x -> x | None -> None
 
-let matches_selected_goal ~(cfg : Pipeline_api_types.config) idx =
+let matches_selected_goal ~(cfg : Pipeline_types.config) idx =
   match cfg.selected_goal_index with None -> true | Some selected -> idx = selected
 
-let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types.ast_stages)
-    ~(infos : Pipeline_api_types.stage_infos) :
-    (Pipeline_api_types.outputs, Pipeline_api_types.error) result =
+let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_stages)
+    ~(infos : Pipeline_types.stage_infos) :
+    (Pipeline_types.outputs, Pipeline_types.error) result =
   try
     let obligation_summary = Obligation_taxonomy.summarize_program asts.contracts in
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
     let kernel_ir_map =
-      List.map (fun (ir : Proof_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
+      List.map (fun (ir : Proof_kernel_types.node_ir) -> (ir.reactive_program.node_name, ir))
         instrumentation_info.kernel_ir_nodes
     in
     let program_summaries = instrumentation_info.exported_node_summaries in
@@ -113,7 +113,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
     List.iter
       (fun (wid, (start_offset, end_offset)) ->
         Hashtbl.replace why_span_tbl wid
-          { Pipeline_api_types.start_offset = start_offset; end_offset })
+          { Pipeline_types.start_offset = start_offset; end_offset })
       why_spans;
     let vc_tasks = Why_contract_prove.dump_why3_tasks_with_attrs ~text:why_text in
     let vc_text, vc_spans_ordered =
@@ -143,7 +143,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
           let source =
             Proof_diagnostics.source_from_record_or_state ~record
               ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-              ~obc_program:(List.map Normalized_program.to_ast_node asts.contracts)
+              ~obc_program:(List.map Ir.to_ast_node asts.contracts)
           in
           (vcid, source))
         task_goal_wids
@@ -228,7 +228,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
                let source =
                  Proof_diagnostics.source_from_record_or_state ~record
                    ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-                   ~obc_program:(List.map Normalized_program.to_ast_node asts.contracts)
+                   ~obc_program:(List.map Ir.to_ast_node asts.contracts)
                in
                let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
                  match Hashtbl.find_opt goal_result_tbl idx with
@@ -275,7 +275,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
                  | None -> Option.bind record (fun r -> r.loc)
                in
                Some {
-                 Pipeline_api_types.goal_index = idx;
+                 Pipeline_types.goal_index = idx;
                  stable_id;
                  goal_name;
                  status;
@@ -299,12 +299,12 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
     in
     let goals =
       List.map
-        (fun (trace : Pipeline_api_types.proof_trace) ->
+        (fun (trace : Pipeline_types.proof_trace) ->
           (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.source, trace.vc_id))
         proof_traces
     in
     Ok {
-      Pipeline_api_types.why_text;
+      Pipeline_types.why_text;
       vc_text;
       smt_text;
       dot_text;
@@ -328,7 +328,7 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
       vc_locs_ordered;
       vc_spans_ordered =
         List.map
-          (fun (span : Pipeline_api_types.text_span) -> (span.start_offset, span.end_offset))
+          (fun (span : Pipeline_types.text_span) -> (span.start_offset, span.end_offset))
           vc_spans_ordered;
       why_spans;
       vc_ids_ordered;
@@ -355,4 +355,4 @@ let build_outputs ~(cfg : Pipeline_api_types.config) ~(asts : Pipeline_api_types
         |> List.concat_map Ir_render_kernel.render_eliminated_clauses
         |> String.concat "\n";
     }
-  with exn -> Error (Pipeline_api_types.Stage_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))

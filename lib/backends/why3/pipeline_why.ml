@@ -10,12 +10,12 @@ let join_blocks ~sep blocks =
   Buffer.contents b
 
 let compile_why_text ~with_why_translation_mode ~prefix_fields ~why_translation_mode
-    ~(asts : Pipeline_api_types.ast_stages) ~(infos : Pipeline_api_types.stage_infos) =
+    ~(asts : Pipeline_types.ast_stages) ~(infos : Pipeline_types.stage_infos) =
   let instrumentation_info =
     Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
   in
   let kernel_ir_map =
-    List.map (fun (ir : Proof_kernel_ir.node_ir) -> (ir.reactive_program.node_name, ir))
+    List.map (fun (ir : Proof_kernel_types.node_ir) -> (ir.reactive_program.node_name, ir))
       instrumentation_info.kernel_ir_nodes
   in
   let program_summaries = instrumentation_info.exported_node_summaries in
@@ -34,7 +34,7 @@ let why_pass ~build_ast_with_info ~stage_meta ~with_why_translation_mode ~prefix
         compile_why_text ~with_why_translation_mode ~prefix_fields ~why_translation_mode
           ~asts ~infos
       in
-      Ok { Pipeline_api_types.why_text = why_text; stage_meta = stage_meta infos }
+      Ok { Pipeline_types.why_text = why_text; stage_meta = stage_meta infos }
 
 let obligations_pass ~build_ast_with_info ~with_why_translation_mode ~prefix_fields
     ~why_translation_mode ~prover ~input_file =
@@ -53,4 +53,4 @@ let obligations_pass ~build_ast_with_info ~with_why_translation_mode ~prefix_fie
         join_blocks ~sep:"\n; ---- goal ----\n"
           (Why_contract_prove.dump_smt2_tasks ~prover ~text:why_text)
       in
-      Ok { Pipeline_api_types.vc_text = vc_text; smt_text }
+      Ok { Pipeline_types.vc_text = vc_text; smt_text }

@@ -33,12 +33,12 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
       | _ -> h
     end
 
-let shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo) : fo =
+let shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
   match f with
   | FRel (h1, r, h2) -> FRel (shift_hexpr_forward ~is_input h1, r, shift_hexpr_forward ~is_input h2)
   | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_forward ~is_input) hs)
 
-let shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo) : fo =
+let shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
   match f with
   | FRel (h1, r, h2) ->
       FRel (shift_hexpr_backward ~is_input h1, r, shift_hexpr_backward ~is_input h2)
@@ -52,12 +52,12 @@ let shift_hexpr_forward_all (h : hexpr) : hexpr =
 let shift_hexpr_backward_all (h : hexpr) : hexpr =
   match h with HNow e -> HNow e | HPreK (e, k) -> if k <= 1 then HNow e else HPreK (e, k - 1)
 
-let shift_fo_forward_all (f : fo) : fo =
+let shift_fo_forward_all (f : fo_atom) : fo_atom =
   match f with
   | FRel (h1, r, h2) -> FRel (shift_hexpr_forward_all h1, r, shift_hexpr_forward_all h2)
   | FPred (id, hs) -> FPred (id, List.map shift_hexpr_forward_all hs)
 
-let shift_fo_backward_all (f : fo) : fo =
+let shift_fo_backward_all (f : fo_atom) : fo_atom =
   match f with
   | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
   | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)
@@ -67,6 +67,19 @@ let rec shift_ltl_forward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
   match f with
   | LTrue | LFalse -> f
   | LAtom a -> LAtom (shift_fo_forward_inputs ~is_input a)
+  | LNot a -> LNot (go a)
+  | LAnd (a, b) -> LAnd (go a, go b)
+  | LOr (a, b) -> LOr (go a, go b)
+  | LImp (a, b) -> LImp (go a, go b)
+  | LX a -> LX (go a)
+  | LG a -> LG (go a)
+  | LW (a, b) -> LW (go a, go b)
+
+let rec shift_ltl_backward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
+  let go = shift_ltl_backward_inputs ~is_input in
+  match f with
+  | LTrue | LFalse -> f
+  | LAtom a -> LAtom (shift_fo_backward_inputs ~is_input a)
   | LNot a -> LNot (go a)
   | LAnd (a, b) -> LAnd (go a, go b)
   | LOr (a, b) -> LOr (go a, go b)

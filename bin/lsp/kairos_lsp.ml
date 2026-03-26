@@ -215,11 +215,11 @@ let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.Default
   | None -> Engine_service.Default
 
-let get_why_mode (params : Yojson.Safe.t) : Pipeline.why_translation_mode =
+let get_why_mode (params : Yojson.Safe.t) : Pipeline_types.why_translation_mode =
   match get_param_string params "whyMode" with
   | Some s ->
-      Option.value (Pipeline.why_translation_mode_of_string s) ~default:Pipeline.Why_mode_no_automata
-  | None -> Pipeline.Why_mode_no_automata
+      Option.value (Pipeline_types.why_translation_mode_of_string s) ~default:Pipeline_types.Why_mode_no_automata
+  | None -> Pipeline_types.Why_mode_no_automata
 
 let symbol_info ~(uri : string) ~(name : string) ~(line : int) ~(character : int) : Yojson.Safe.t =
   let range =
@@ -264,9 +264,9 @@ let read_or_compile_kobj ~(engine : Engine_service.engine) ~(input_file : string
   else
     match Engine_service.compile_object ~engine ~input_file with
     | Ok obj -> Ok obj
-    | Error e -> Error (Pipeline.error_to_string e)
+    | Error e -> Error (Pipeline_types.error_to_string e)
 
-let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
+let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.config =
   {
     input_file = cfg.input_file;
     prover = cfg.prover;
@@ -279,8 +279,8 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline.config =
     prefix_fields = cfg.prefix_fields;
     why_translation_mode =
       Option.value
-        (Pipeline.why_translation_mode_of_string cfg.why_mode)
-        ~default:Pipeline.Why_mode_no_automata;
+        (Pipeline_types.why_translation_mode_of_string cfg.why_mode)
+        ~default:Pipeline_types.Why_mode_no_automata;
     prove = cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
@@ -697,7 +697,7 @@ let () =
                         send_result stdout ~id_json:id
                           ~result_json:(Lsp_protocol.yojson_of_automata_outputs (map_automata out))
                     | Error e ->
-                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
                 | _ ->
                     send_error stdout ~id_json:(Some id) ~code:(-32602)
                       ~message:"Missing valid inputFile for kairos/instrumentationPass")
@@ -724,8 +724,8 @@ let () =
                 let why_translation_mode =
                   match req with
                   | Some req ->
-                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
-                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                      Option.bind req.why_mode Pipeline_types.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline_types.Why_mode_no_automata
                   | None -> get_why_mode params
                 in
                 match input_file with
@@ -733,7 +733,7 @@ let () =
                     match Engine_service.why_pass ~engine ~prefix_fields ~why_translation_mode ~input_file with
                     | Ok out ->
                         send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_why_outputs (map_why out))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
+                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/obligationsPass" ->
@@ -763,8 +763,8 @@ let () =
                 let why_translation_mode =
                   match req with
                   | Some req ->
-                      Option.bind req.why_mode Pipeline.why_translation_mode_of_string
-                      |> Option.value ~default:Pipeline.Why_mode_no_automata
+                      Option.bind req.why_mode Pipeline_types.why_translation_mode_of_string
+                      |> Option.value ~default:Pipeline_types.Why_mode_no_automata
                   | None -> get_why_mode params
                 in
                 match (input_file, prover) with
@@ -773,7 +773,7 @@ let () =
                     | Ok out ->
                         send_result stdout ~id_json:id
                           ~result_json:(Lsp_protocol.yojson_of_obligations_outputs (map_oblig out))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
+                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/prover")
               id_json
         | Some "kairos/evalPass" ->
@@ -809,7 +809,7 @@ let () =
                 | Some input_file, Some trace_text when Sys.file_exists input_file -> (
                     match Engine_service.eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals with
                     | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
+                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/traceText")
               id_json
         | Some "kairos/kobjSummary" ->
@@ -901,7 +901,7 @@ let () =
                       incr next_server_req_id;
                       send_work_done_begin stdout ~token:progress_token ~title:"Kairos run"
                         ~message:"Starting");
-                    let cfg : Pipeline.config =
+                    let cfg : Pipeline_types.config =
                       match cfg_from_protocol with
                       | Some cfg ->
                           let cfg = pipeline_config_of_protocol cfg in
@@ -1004,7 +1004,7 @@ let () =
                           if !supports_work_done_progress then
                             send_work_done_end stdout ~token:progress_token ~message:"Done";
                           send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_outputs (map_outputs out)))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline.error_to_string e))
+                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile")
               id_json
         | Some _ ->

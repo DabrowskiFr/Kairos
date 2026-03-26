@@ -38,7 +38,7 @@ and iexpr_desc =
 type hexpr = HNow of iexpr | HPreK of iexpr * int (* pre_k(e, k) *) [@@deriving show, yojson]
 type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show, yojson]
 
-type fo =
+type fo_atom =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
 [@@deriving show, yojson]
@@ -46,7 +46,7 @@ type fo =
 type ltl =
   | LTrue
   | LFalse
-  | LAtom of fo
+  | LAtom of fo_atom
   | LNot of ltl
   | LAnd of ltl * ltl
   | LOr of ltl * ltl
@@ -70,7 +70,7 @@ and stmt_desc =
 [@@deriving show, yojson]
 
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = { is_eq : bool; state : ident; formula : ltl } [@@deriving show, yojson]
+type invariant_state_rel = { state : ident; formula : ltl } [@@deriving show, yojson]
 
 type transition = {
   src : ident;

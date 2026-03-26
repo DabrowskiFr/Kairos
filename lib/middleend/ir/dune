@@ -1,0 +1,29 @@
+(library
+ (name kairos_ir_passes)
+ (wrapped false)
+ (modules from_ast post pre invariant initial)
+ (libraries
+  kairos_ast kairos_fo_formula kairos_logic kairos_automata kairos_automata_generation kairos_generated_names
+  kairos_ast_pretty kairos_temporal_support kairos_ir
+  kairos_product_build))
+
+(library
+ (name kairos_ir_proof_obligations)
+ (wrapped false)
+ (modules
+  proof_obligation_raw proof_obligation_annotate proof_obligation_lowering
+  proof_obligation_pipeline)
+ (libraries
+  kairos_ast kairos_fo_formula kairos_logic kairos_parse kairos_stage_types kairos_stage_metadata
+  kairos_ir kairos_proof_obligation_ir kairos_proof_kernel_types kairos_automata kairos_product_build
+  kairos_proof_kernel_build kairos_temporal_support proof_obligation_ir_render why3 yojson))
+
+(library
+ (name kairos_ir_stage_passes)
+ (wrapped false)
+ (modules contracts_pass instrumentation_pass)
+ (libraries
+  kairos_ast kairos_generated_names kairos_temporal_support kairos_ast_pretty
+  kairos_passes kairos_stage_types kairos_stage_metadata kairos_automata_generation
+  kairos_ir kairos_ir_passes kairos_ir_proof_obligations
+  kairos_proof_obligation_ir kairos_proof_kernel_types))

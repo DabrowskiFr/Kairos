@@ -1,5 +1,6 @@
 (library
  (name kairos_formula_origin)
+ (public_name kairos.formula_origin)
  (wrapped false)
  (modules formula_origin)
  (libraries yojson)

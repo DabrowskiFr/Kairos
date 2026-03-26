@@ -1,0 +1,56 @@
+(** Unified engine selector used by CLI, LSP, and IDE. *)
+
+type engine = Default
+
+val engine_of_string : string -> engine option
+val string_of_engine : engine -> string
+val normalize : engine -> engine
+
+val instrumentation_pass :
+  engine:engine -> generate_png:bool -> input_file:string ->
+  (Pipeline_types.automata_outputs, Pipeline_types.error) result
+
+val why_pass :
+  engine:engine ->
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline_types.why_translation_mode ->
+  input_file:string ->
+  (Pipeline_types.why_outputs, Pipeline_types.error) result
+
+val obligations_pass :
+  engine:engine ->
+  prefix_fields:bool ->
+  why_translation_mode:Pipeline_types.why_translation_mode ->
+  prover:string ->
+  input_file:string ->
+  (Pipeline_types.obligations_outputs, Pipeline_types.error) result
+
+val compile_object :
+  engine:engine -> input_file:string -> (Kairos_object.t, Pipeline_types.error) result
+
+type ir_nodes = Pipeline_service.ir_nodes = {
+  raw_ir_nodes : Proof_obligation_ir.raw_node list;
+  annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
+  verified_ir_nodes : Proof_obligation_ir.verified_node list;
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
+}
+
+val dump_ir_nodes :
+  engine:engine -> input_file:string -> (ir_nodes, Pipeline_types.error) result
+
+val eval_pass :
+  engine:engine -> input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->
+  (string, Pipeline_types.error) result
+
+val run :
+  engine:engine -> Pipeline_types.config ->
+  (Pipeline_types.outputs, Pipeline_types.error) result
+
+val run_with_callbacks :
+  engine:engine ->
+  should_cancel:(unit -> bool) ->
+  Pipeline_types.config ->
+  on_outputs_ready:(Pipeline_types.outputs -> unit) ->
+  on_goals_ready:(string list * int list -> unit) ->
+  on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
+  (Pipeline_types.outputs, Pipeline_types.error) result

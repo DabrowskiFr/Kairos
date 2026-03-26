@@ -4,15 +4,15 @@ type ir_nodes = {
   raw_ir_nodes : Proof_obligation_ir.raw_node list;
   annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
   verified_ir_nodes : Proof_obligation_ir.verified_node list;
-  kernel_ir_nodes : Proof_kernel_ir.node_ir list;
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 
 val build_ast_with_info :
   input_file:string ->
   unit ->
-  (Pipeline_api_types.ast_stages * Pipeline_api_types.stage_infos, Pipeline_api_types.error) result
+  (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error) result
 
-val dump_ir_nodes : input_file:string -> (ir_nodes, Pipeline_api_types.error) result
+val dump_ir_nodes : input_file:string -> (ir_nodes, Pipeline_types.error) result
 
 val compile_object :
-  input_file:string -> (Kairos_object.t, Pipeline_api_types.error) result
+  input_file:string -> (Kairos_object.t, Pipeline_types.error) result

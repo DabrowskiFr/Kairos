@@ -2,37 +2,37 @@
 
    These helpers centralize defaults (locations) and make parser/transform code more compact. *)
 
-(* Build an immediate expression with optional location. *)
+(** Build an immediate expression with an optional source location. *)
 val mk_iexpr : ?loc:Ast.loc -> Ast.iexpr_desc -> Ast.iexpr
 
-(* Extract the underlying descriptor from an immediate expression. *)
+(** Extract the underlying descriptor from an immediate expression. *)
 val iexpr_desc : Ast.iexpr -> Ast.iexpr_desc
 
-(* Replace the descriptor while preserving location. *)
+(** Replace the descriptor while preserving the source location. *)
 val with_iexpr_desc : Ast.iexpr -> Ast.iexpr_desc -> Ast.iexpr
 
-(* Convenience: variable expression. *)
+(** Convenience constructor for a variable expression. *)
 val mk_var : Ast.ident -> Ast.iexpr
 
-(* Convenience: integer literal. *)
+(** Convenience constructor for an integer literal. *)
 val mk_int : int -> Ast.iexpr
 
-(* Convenience: boolean literal. *)
+(** Convenience constructor for a boolean literal. *)
 val mk_bool : bool -> Ast.iexpr
 
-(* If the expression is a variable, return its identifier. *)
+(** Return the identifier when the expression is a variable. *)
 val as_var : Ast.iexpr -> Ast.ident option
 
-(* Build a statement with optional location. *)
+(** Build a statement with an optional source location. *)
 val mk_stmt : ?loc:Ast.loc -> Ast.stmt_desc -> Ast.stmt
 
-(* Extract the underlying descriptor from a statement. *)
+(** Extract the underlying descriptor from a statement. *)
 val stmt_desc : Ast.stmt -> Ast.stmt_desc
 
-(* Replace the descriptor while preserving location. *)
+(** Replace the descriptor while preserving the source location. *)
 val with_stmt_desc : Ast.stmt -> Ast.stmt_desc -> Ast.stmt
 
-(* Build a normalized transition. *)
+(** Build a source transition. *)
 val mk_transition :
   src:Ast.ident ->
   dst:Ast.ident ->
@@ -40,7 +40,7 @@ val mk_transition :
   body:Ast.stmt list ->
   Ast.transition
 
-(* Build a normalized node. *)
+(** Build a source node. *)
 val mk_node :
   nname:Ast.ident ->
   inputs:Ast.vdecl list ->

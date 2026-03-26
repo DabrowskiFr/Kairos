@@ -18,12 +18,12 @@
 
 (** Bundles the intermediate artifacts produced by instrumentation stages. *)
 
-(* {1 Per‑pass Metadata} *)
+(** {1 Per-pass Metadata} *)
 
-(* Parser error payload. *)
+(** Parser error payload. *)
 type parse_error = { loc : Ast.loc option; message : string }
 
-(* Parsing metadata reported by the frontend. *)
+(** Parsing metadata reported by the frontend. *)
 type parse_info = {
   source_path : string option;
   text_hash : string option;
@@ -31,25 +31,23 @@ type parse_info = {
   warnings : string list;
 }
 
-(* Metadata produced by the monitor generation pass. *)
+(** Metadata produced by the automata generation pass. *)
 type automata_info = {
   residual_state_count : int;
   residual_edge_count : int;
   warnings : string list;
 }
 
-(* Metadata produced by the contracts pass. *)
+(** Metadata produced by the contracts pass. *)
 type contracts_info = {
   contract_origin_map : (int * Formula_origin.t option) list;
   warnings : string list;
 }
 
-(* Metadata produced by the monitor instrumentation pass. *)
+(** Metadata produced by the instrumentation and IR-construction passes. *)
 type instrumentation_info = {
-  state_ctors : string list;
-  atom_count : int;
-  kernel_ir_nodes : Proof_kernel_ir.node_ir list;
-  exported_node_summaries : Proof_kernel_ir.exported_node_summary_ir list;
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
+  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
   (** Pass 3 output: raw IR nodes (no Hoare triples). *)
   raw_ir_nodes : Proof_obligation_ir.raw_node list;
   (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)
@@ -68,14 +66,14 @@ type instrumentation_info = {
   product_dot : string;
 }
 
-(* Default (empty) parse metadata. *)
+(** Default empty parsing metadata. *)
 val empty_parse_info : parse_info
 
-(* Default (empty) monitor generation metadata. *)
+(** Default empty automata-generation metadata. *)
 val empty_automata_info : automata_info
 
-(* Default (empty) contracts metadata. *)
+(** Default empty contracts metadata. *)
 val empty_contracts_info : contracts_info
 
-(* Default (empty) monitor injection metadata. *)
+(** Default empty instrumentation metadata. *)
 val empty_instrumentation_info : instrumentation_info

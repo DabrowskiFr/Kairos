@@ -1,0 +1,5 @@
+(library
+ (name kairos_proof_kernel_naming)
+ (wrapped false)
+ (modules proof_kernel_naming)
+ (libraries kairos_ast kairos_ast_pretty kairos_proof_kernel_types))

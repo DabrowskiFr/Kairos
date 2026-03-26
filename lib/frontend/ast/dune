@@ -1,5 +1,6 @@
 (library
  (name kairos_ast)
+ (public_name kairos.ast)
  (wrapped false)
  (modules ast ast_builders ast_queries)
  (libraries yojson why3 kairos_formula_origin)

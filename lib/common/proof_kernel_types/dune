@@ -1,0 +1,8 @@
+(library
+ (name kairos_proof_kernel_types)
+ (public_name kairos.proof_kernel_types)
+ (wrapped false)
+ (modules proof_kernel_types)
+ (libraries kairos_ast kairos_fo_formula kairos_ir kairos_temporal_support yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

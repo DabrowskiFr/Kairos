@@ -1,0 +1,8 @@
+(library
+ (name kairos_fo_formula)
+ (public_name kairos.fo_formula)
+ (wrapped false)
+ (modules fo_formula)
+ (libraries kairos_ast yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairos Frontend Guide</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">K</span>
+          <span class="brand-copy">
+            <strong>Kairos</strong>
+            <span>Documentation portal</span>
+          </span>
+        </a>
+        <nav class="nav">
+          <a href="./index.html">Home</a>
+          <a class="active" href="./frontend.html">Frontend</a>
+          <a href="./common.html">Common</a>
+          <a href="./api/kairos/index.html">API</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="eyebrow">Guide</div>
+            <h1>Frontend</h1>
+            <p class="lede">
+              The frontend owns source parsing and the source-level AST. It is
+              the place to start when you want to understand what the user can
+              write and how that syntax is represented.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="./api/kairos/Ast/index.html">Open Ast</a>
+              <a class="button secondary" href="./api/kairos/Parse_api/index.html">Open Parse_api</a>
+            </div>
+          </article>
+
+          <section class="panel">
+            <div class="kicker">Shape</div>
+            <pre class="code-block">text file
+  <span class="token-arrow">-&gt;</span> lexer / parser
+  <span class="token-arrow">-&gt;</span> Source_file
+  <span class="token-arrow">-&gt;</span> Ast.program</pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="grid">
+          <article class="card">
+            <div class="kicker">Read first</div>
+            <h3>Ast</h3>
+            <p>Core source syntax: expressions, formulas, statements, nodes, and programs.</p>
+            <p><a href="./api/kairos/Ast/index.html">Browse module</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Helpers</div>
+            <h3>Ast_builders / Ast_queries</h3>
+            <p>Small structural constructors and source-level queries over the AST.</p>
+            <p><a href="./api/kairos/Ast_builders/index.html">Builders</a> · <a href="./api/kairos/Ast_queries/index.html">Queries</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Parsing</div>
+            <h3>Source_file / Parse_file / Parse_api</h3>
+            <p>File-oriented parsing entry points and source-file packaging.</p>
+            <p><a href="./api/kairos/Parse_api/index.html">Open parsing API</a></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="panel">
+          <div class="kicker">Reading order</div>
+          <pre class="code-block"><span class="token-type">Ast</span>
+<span class="token-arrow">-&gt;</span> <span class="token-type">Ast_builders</span>
+<span class="token-arrow">-&gt;</span> <span class="token-type">Source_file</span>
+<span class="token-arrow">-&gt;</span> <span class="token-type">Parse_file</span>
+<span class="token-arrow">-&gt;</span> <span class="token-type">Parse_api</span></pre>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

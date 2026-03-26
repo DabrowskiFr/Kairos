@@ -15,7 +15,7 @@ let description = function
   | Parsed -> "after parsing"
   | Automaton -> "after automata generation"
   | Instrumentation -> "after instrumentation pass"
-  | Contracts -> "after user contract coherency"
+  | Contracts -> "after user contract initialization"
   | Why -> "after Why3 generation"
   | Prove -> "after Why3 proof"
 

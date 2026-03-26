@@ -19,26 +19,34 @@
 (** Construction and normalization helpers for first-order temporal
     specifications. *)
 
-(* {1 Atom Collection} Utilities to extract atomic FO formulas from LTL/FO specs. *)
+(** {1 Atom Collection}
 
-(* Collect atomic FO formulas referenced by an LTL formula. *)
-val collect_atoms_ltl : Ast.ltl -> Ast.fo list -> Ast.fo list
+    Utilities to extract atomic first-order formulas from specifications. *)
 
-(* Collect atomic FO formulas referenced by a FO formula. *)
-val collect_atoms_fo : Ast.fo -> Ast.fo list -> Ast.fo list
+(** Collect atomic first-order formulas referenced by an LTL formula. *)
+val collect_atoms_ltl : Ast.ltl -> Ast.fo_atom list -> Ast.fo_atom list
 
-(* Collect atom formulas from node-level specs and invariants. *)
-val collect_atoms_from_node : Ast.node -> Ast.fo list
-(* {1 Transition Helpers} *)
+(** Collect atomic first-order formulas referenced by a first-order formula. *)
+val collect_atoms_fo : Ast.fo_atom -> Ast.fo_atom list -> Ast.fo_atom list
 
-(* Flatten transition requires/ensures into a single list. *)
+(** Collect atom formulas from node-level specifications and invariants. *)
+val collect_atoms_from_node : Ast.node -> Ast.fo_atom list
+
+(** {1 Transition Helpers} *)
+
+(** Flatten transition formulas into a single list. *)
 val transition_fo : Ast.transition -> Ast.ltl list
 
-(* Conjoin a list of FO formulas, or [None] for empty. *)
-val conj_fo : Ast.ltl list -> Ast.ltl option
-(* {1 Expression Conversion} *)
+(** Conjoin a list of first-order formulas, or return [None] for an empty
+    list. *)
+val conj_fo : Fo_formula.t list -> Fo_formula.t option
 
-(* Map a relational operator to its boolean binary operator. *)
+(** Conjoin a list of LTL formulas, or return [None] for an empty list. *)
+val conj_ltl : Ast.ltl list -> Ast.ltl option
+
+(** {1 Expression Conversion} *)
+
+(** Map a relational operator to its boolean binary counterpart. *)
 val relop_to_binop : Ast.relop -> Ast.binop
 
 type temporal_binding = {
@@ -49,7 +57,8 @@ type temporal_binding = {
 val temporal_bindings_of_pre_k_map :
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> temporal_binding list
 
-(* Convert a hexpr to an iexpr when representable (using pre‑k bindings). *)
+(** Convert a history expression to an immediate expression when representable,
+    using temporal bindings. *)
 val hexpr_to_iexpr_with_temporal_bindings :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
@@ -64,69 +73,73 @@ val hexpr_to_iexpr :
   Ast.hexpr ->
   Ast.iexpr option
 
-(* Lower [pre_k] occurrences to explicit symbolic history variables. *)
+(** Lower [pre_k] occurrences to explicit symbolic history variables. *)
 val lower_hexpr_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.hexpr -> Ast.hexpr option
 
 val lower_hexpr_pre_k :
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
 
-(* Lower [pre_k] occurrences inside a first-order formula. *)
+(** Lower [pre_k] occurrences inside a first-order formula. *)
 val lower_fo_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Ast.fo -> Ast.fo option
+  temporal_bindings:temporal_binding list -> Ast.fo_atom -> Ast.fo_atom option
 
 val lower_fo_pre_k :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.fo -> Ast.fo option
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.fo_atom -> Ast.fo_atom option
 
-(* Lower [pre_k] occurrences inside an LTL formula when possible. *)
+(** Lower [pre_k] occurrences inside an LTL formula when possible. *)
 val lower_ltl_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.ltl -> Ast.ltl option
 
 val lower_ltl_pre_k :
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.ltl -> Ast.ltl option
 
-(* Infer a simple type for an iexpr from variable types. *)
+(** Infer a simple type for an immediate expression from variable types. *)
 val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
 
-(* Boolean equality encoded as a pure boolean expression. *)
+(** Boolean equality encoded as a pure boolean expression. *)
 val mk_bool_eq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
 
-(* Boolean inequality encoded as a pure boolean expression. *)
+(** Boolean inequality encoded as a pure boolean expression. *)
 val mk_bool_neq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
 
-(* Convert an atomic FO predicate to an iexpr when possible. *)
+(** Convert an atomic first-order predicate to an immediate expression when
+    possible. *)
 val atom_to_iexpr :
   inputs:Ast.ident list ->
   var_types:(Ast.ident * Ast.ty) list ->
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
-  Ast.fo ->
+  Ast.fo_atom ->
   Ast.iexpr option
 
-(* Encode an atom variable as a FO relation (var = true). *)
-val atom_to_var_rel : Ast.ident -> Ast.fo
+(** Encode an atom variable as a first-order relation [var = true]. *)
+val atom_to_var_rel : Ast.ident -> Ast.fo_atom
 
-(* Reconstruct FO LTL by inlining atom variables from a name->atom map. *)
-val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo) list -> Ast.iexpr -> Ast.ltl
-(* {1 Atom Replacement} *)
+(** Reconstruct a non-temporal formula by inlining atom variables from a
+    name-to-atom map. *)
+val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo_atom) list -> Ast.iexpr -> Fo_formula.t
 
-(* Replace atom formulas by their variable representation in LTL. *)
-val replace_atoms_ltl : (Ast.fo * Ast.ident) list -> Ast.ltl -> Ast.ltl
+(** {1 Atom Replacement} *)
 
-(* Replace atom formulas by their variable representation in FO. *)
-val replace_atoms_fo : (Ast.fo * Ast.ident) list -> Ast.fo -> Ast.fo
+(** Replace atom formulas by their variable representation in LTL. *)
+val replace_atoms_ltl : (Ast.fo_atom * Ast.ident) list -> Ast.ltl -> Ast.ltl
 
-(* Replace atom formulas inside monitor state-relation invariants. *)
+(** Replace atom formulas by their variable representation in first-order
+    formulas. *)
+val replace_atoms_fo : (Ast.fo_atom * Ast.ident) list -> Ast.fo_atom -> Ast.fo_atom
+
+(** Replace atom formulas inside state invariants. *)
 val replace_atoms_invariants_state_rel :
-  (Ast.fo * Ast.ident) list -> Ast.invariant_state_rel list -> Ast.invariant_state_rel list
+  (Ast.fo_atom * Ast.ident) list -> Ast.invariant_state_rel list -> Ast.invariant_state_rel list
 
-(* Replace atom formulas inside a transition. *)
-val replace_atoms_transition : (Ast.fo * Ast.ident) list -> Ast.transition -> Ast.transition
+(** Replace atom formulas inside a transition. *)
+val replace_atoms_transition : (Ast.fo_atom * Ast.ident) list -> Ast.transition -> Ast.transition
 
-(* {1 Fold Diagnostics} *)
-(* Fold-specific diagnostics removed. *)
-(* {1 Instrumentation Specs} *)
+(** {1 Instrumentation Specs} *)
 
-(* Build the monitorized temporal spec.
-   Current policy: only guarantees are monitorized; assumptions are handled as proof hypotheses. *)
+(** Build the temporal specification used for guarantee automata.
+
+    Current policy: only guarantees are turned into an automaton;
+    assumptions are handled as proof hypotheses. *)
 val combine_contracts_for_monitor :
   assumes:Ast.ltl list -> guarantees:Ast.ltl list -> Ast.ltl

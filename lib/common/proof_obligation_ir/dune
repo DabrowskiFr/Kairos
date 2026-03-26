@@ -1,0 +1,6 @@
+(library
+ (name kairos_proof_obligation_ir)
+ (public_name kairos.proof_obligation_ir)
+ (wrapped false)
+ (modules proof_obligation_ir)
+ (libraries kairos_ast kairos_fo_formula kairos_ir kairos_temporal_support))

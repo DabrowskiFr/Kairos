@@ -19,8 +19,9 @@
 (** Simplification routines for first-order and temporal formulas used across
     automata, kernel IR, and Why generation. *)
 
-(* Simplify first-order formulas using local rewrites plus optional Z3 checks.
-   The simplifier preserves the existing AST vocabulary and only folds formulas
-   to constants or existing subformulas. *)
+(** Simplify a non-temporal boolean formula using local rewrites plus optional
+    Z3 checks. *)
+val simplify_fo : Fo_formula.t -> Fo_formula.t
 
-val simplify_fo : Ast.ltl -> Ast.ltl
+(** Simplify an LTL formula while preserving temporal operators. *)
+val simplify_ltl : Ast.ltl -> Ast.ltl

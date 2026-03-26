@@ -47,20 +47,20 @@ let render_pre_k_map (m : (Ast.hexpr * Temporal_support.pre_k_info) list) : stri
            (fun (h, (info : Temporal_support.pre_k_info)) ->
              let names_str = String.concat ", " info.names in
              let ty_str = render_ty info.vty in
-             Support.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
+             Ast_pretty.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
            m)
 
 let render_stmt (s : Ast.stmt) : string =
   match s.stmt with
-  | SAssign (v, e) -> v ^ " := " ^ Support.string_of_iexpr e
-  | SIf (c, _t, []) -> "if " ^ Support.string_of_iexpr c ^ " then { ... }"
-  | SIf (c, _t, _e) -> "if " ^ Support.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
+  | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
   | SCall (inst, args, rets) ->
       "(" ^ String.concat ", " rets ^ ") := " ^ inst
-      ^ "(" ^ String.concat ", " (List.map Support.string_of_iexpr args) ^ ")"
+      ^ "(" ^ String.concat ", " (List.map Ast_pretty.string_of_iexpr args) ^ ")"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->
-      "match " ^ Support.string_of_iexpr e ^ " { ... }"
+      "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
 
 let render_stmt_list (stmts : Ast.stmt list) : string =
   match stmts with
@@ -70,14 +70,14 @@ let render_stmt_list (stmts : Ast.stmt list) : string =
 let render_ltl_list (fs : Ast.ltl list) : string =
   match fs with
   | [] -> "(none)"
-  | _ -> String.concat "\n    " (List.map Support.string_of_ltl fs)
+  | _ -> String.concat "\n    " (List.map Ast_pretty.string_of_ltl fs)
 
-let render_fo_o_list (fs : Normalized_program.contract_formula list) : string =
+let render_fo_o_list (fs : Ir.contract_formula list) : string =
   match fs with
   | [] -> "(none)"
   | _ ->
       String.concat "\n    "
-        (List.map (fun (f : Normalized_program.contract_formula) -> Support.string_of_ltl f.value) fs)
+        (List.map (fun (f : Ir.contract_formula) -> Ast_pretty.string_of_ltl f.value) fs)
 
 (* ------------------------------------------------------------------ *)
 (* raw_node                                                             *)
@@ -98,11 +98,11 @@ let render_raw_node_header (n : Proof_obligation_ir.raw_node) : string =
     (render_ltl_list n.guarantees)
 
 let render_raw_transition (t : Proof_obligation_ir.raw_transition) : string =
-  let guard_str = Support.string_of_ltl t.guard in
+  let guard_str = Ast_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
   in
   Printf.sprintf
     "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s"
@@ -122,11 +122,11 @@ let render_raw_node (n : Proof_obligation_ir.raw_node) : string =
 
 let render_annotated_transition (t : Proof_obligation_ir.annotated_transition) : string =
   let raw = t.raw in
-  let guard_str = Support.string_of_ltl raw.guard in
+  let guard_str = Ast_pretty.string_of_fo raw.guard in
   let guard_iexpr_str =
     match raw.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
   in
   Printf.sprintf
     "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
@@ -161,11 +161,11 @@ let render_annotated_node (n : Proof_obligation_ir.annotated_node) : string =
 (* ------------------------------------------------------------------ *)
 
 let render_verified_transition (t : Proof_obligation_ir.verified_transition) : string =
-  let guard_str = Support.string_of_ltl t.guard in
+  let guard_str = Ast_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Support.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
   in
   Printf.sprintf
     "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  pre_k_upd   :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"

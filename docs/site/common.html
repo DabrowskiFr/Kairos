@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairos Common Guide</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">K</span>
+          <span class="brand-copy">
+            <strong>Kairos</strong>
+            <span>Documentation portal</span>
+          </span>
+        </a>
+        <nav class="nav">
+          <a href="./index.html">Home</a>
+          <a href="./frontend.html">Frontend</a>
+          <a class="active" href="./common.html">Common</a>
+          <a href="./api/kairos/index.html">API</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="eyebrow">Guide</div>
+            <h1>Common</h1>
+            <p class="lede">
+              The common layer groups the semantic data and helper modules that
+              are shared across the frontend, middle-end, artifact generation,
+              and backend translation.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="./api/kairos/Ir/index.html">Open Ir</a>
+              <a class="button secondary" href="./api/kairos/Proof_obligation_ir/index.html">Open Proof_obligation_ir</a>
+            </div>
+          </article>
+
+          <section class="panel">
+            <div class="kicker">Shared strata</div>
+            <pre class="code-block">common
+  <span class="token-arrow">-&gt;</span> formula / provenance helpers
+  <span class="token-arrow">-&gt;</span> semantic program data
+  <span class="token-arrow">-&gt;</span> proof IR data
+  <span class="token-arrow">-&gt;</span> stage metadata</pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="grid">
+          <article class="card">
+            <div class="kicker">Semantic data</div>
+            <h3>Ir</h3>
+            <p>The normalized source-level program used by the middle-end.</p>
+            <p><a href="./api/kairos/Ir/index.html">Browse module</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Proof IR</div>
+            <h3>Proof_obligation_ir / Proof_kernel_types</h3>
+            <p>Shared proof structures before and after kernel shaping.</p>
+            <p><a href="./api/kairos/Proof_obligation_ir/index.html">Proof obligations</a> · <a href="./api/kairos/Proof_kernel_types/index.html">Kernel types</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Support</div>
+            <h3>Formula_origin / Provenance / Temporal_support</h3>
+            <p>Tracing, stable ids, and bounded-history helpers used across layers.</p>
+            <p><a href="./api/kairos/Formula_origin/index.html">Origins</a> · <a href="./api/kairos/Provenance/index.html">Provenance</a></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="panel">
+          <div class="kicker">Representative shape</div>
+          <pre class="code-block soft"><span class="token-key">type</span> <span class="token-type">contract_formula</span> = {
+  value  : <span class="token-type">Ast.ltl</span>;
+  origin : <span class="token-type">Formula_origin.t option</span>;
+  oid    : int;
+  loc    : <span class="token-type">Ast.loc option</span>;
+}</pre>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,150 @@
+open Ast
+open Ast_builders
+open Fo_formula
+
+type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty } [@@deriving yojson]
+
+type ltl_norm = { ltl : ltl; k_guard : int option }
+
+let rec max_x_depth (f : ltl) : int =
+  match f with
+  | LX a -> 1 + max_x_depth a
+  | LTrue | LFalse | LAtom _ -> 0
+  | LNot a | LG a -> max_x_depth a
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> max (max_x_depth a) (max_x_depth b)
+
+let rec ltl_of_fo (f : Fo_formula.t) : ltl =
+  match f with
+  | FTrue -> LTrue
+  | FFalse -> LFalse
+  | FAtom a -> LAtom a
+  | FNot a -> LNot (ltl_of_fo a)
+  | FAnd (a, b) -> LAnd (ltl_of_fo a, ltl_of_fo b)
+  | FOr (a, b) -> LOr (ltl_of_fo a, ltl_of_fo b)
+  | FImp (a, b) -> LImp (ltl_of_fo a, ltl_of_fo b)
+
+let rec fo_of_ltl (f : ltl) : Fo_formula.t =
+  match f with
+  | LTrue -> FTrue
+  | LFalse -> FFalse
+  | LAtom a -> FAtom a
+  | LNot a -> FNot (fo_of_ltl a)
+  | LAnd (a, b) -> FAnd (fo_of_ltl a, fo_of_ltl b)
+  | LOr (a, b) -> FOr (fo_of_ltl a, fo_of_ltl b)
+  | LImp (a, b) -> FImp (fo_of_ltl a, fo_of_ltl b)
+  | LX _ | LG _ | LW _ -> failwith "fo_of_ltl: temporal operator"
+
+let is_const_iexpr (e : iexpr) : bool =
+  match e.iexpr with
+  | ILitInt _ | ILitBool _ -> true
+  | IVar name ->
+      let len = String.length name in
+      len >= 4
+      && String.sub name 0 3 = "Aut"
+      && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
+  | _ -> false
+
+let shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr) : hexpr option =
+  let _ = init_for_var in
+  if shift <= 0 then Some h
+  else
+    match h with
+    | HNow e when is_const_iexpr e -> Some (HNow e)
+    | HNow e -> begin match as_var e with Some v -> Some (HPreK (mk_var v, 1)) | None -> None end
+    | HPreK (e, k) -> begin
+        match as_var e with Some v -> Some (HPreK (mk_var v, k + shift)) | None -> None
+      end
+
+let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : ltl) : ltl_norm =
+  let rec shift_ltl_with_depth k depth f =
+    match f with
+    | LX a -> shift_ltl_with_depth k (depth + 1) a
+    | LTrue | LFalse -> Some f
+    | LNot a -> Option.map (fun a' -> LNot a') (shift_ltl_with_depth k depth a)
+    | LAnd (a, b) -> begin
+        match (shift_ltl_with_depth k depth a, shift_ltl_with_depth k depth b) with
+        | Some a', Some b' -> Some (LAnd (a', b'))
+        | _ -> None
+      end
+    | LOr (a, b) -> begin
+        match (shift_ltl_with_depth k depth a, shift_ltl_with_depth k depth b) with
+        | Some a', Some b' -> Some (LOr (a', b'))
+        | _ -> None
+      end
+    | LImp (a, b) -> begin
+        match (shift_ltl_with_depth k depth a, shift_ltl_with_depth k depth b) with
+        | Some a', Some b' -> Some (LImp (a', b'))
+        | _ -> None
+      end
+    | LW (a, b) -> begin
+        match (shift_ltl_with_depth k depth a, shift_ltl_with_depth k depth b) with
+        | Some a', Some b' -> Some (LW (a', b'))
+        | _ -> None
+      end
+    | LG a -> Option.map (fun a' -> LG a') (shift_ltl_with_depth k depth a)
+    | LAtom (FRel (h1, r, h2)) ->
+        let shift = k - depth in
+        begin match (shift_hexpr_by ~init_for_var shift h1, shift_hexpr_by ~init_for_var shift h2) with
+        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
+        | _ -> None
+        end
+    | LAtom (FPred (id, hs)) ->
+        let shift = k - depth in
+        let rec map acc = function
+          | [] -> Some (List.rev acc)
+          | h :: rest -> (
+              match shift_hexpr_by ~init_for_var shift h with
+              | Some h' -> map (h' :: acc) rest
+              | None -> None)
+        in
+        Option.map (fun hs' -> LAtom (FPred (id, hs'))) (map [] hs)
+  in
+  let k = max_x_depth f in
+  if k = 0 then { ltl = f; k_guard = None }
+  else
+    match shift_ltl_with_depth k 0 f with
+    | Some ltl -> { ltl; k_guard = Some k }
+    | None -> { ltl = f; k_guard = Some k }
+
+let rec shift_ltl_by ~(init_for_var : ident -> iexpr) (shift : int) (f : ltl) : ltl option =
+  if shift <= 0 then Some f
+  else
+    match f with
+    | LX a -> shift_ltl_by ~init_for_var (shift + 1) a
+    | LTrue | LFalse -> Some f
+    | LNot a -> Option.map (fun a' -> LNot a') (shift_ltl_by ~init_for_var shift a)
+    | LAnd (a, b) -> begin
+        match (shift_ltl_by ~init_for_var shift a, shift_ltl_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (LAnd (a', b'))
+        | _ -> None
+      end
+    | LOr (a, b) -> begin
+        match (shift_ltl_by ~init_for_var shift a, shift_ltl_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (LOr (a', b'))
+        | _ -> None
+      end
+    | LImp (a, b) -> begin
+        match (shift_ltl_by ~init_for_var shift a, shift_ltl_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (LImp (a', b'))
+        | _ -> None
+      end
+    | LW (a, b) -> begin
+        match (shift_ltl_by ~init_for_var shift a, shift_ltl_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (LW (a', b'))
+        | _ -> None
+      end
+    | LG a -> Option.map (fun a' -> LG a') (shift_ltl_by ~init_for_var shift a)
+    | LAtom (FRel (h1, r, h2)) -> begin
+        match (shift_hexpr_by ~init_for_var shift h1, shift_hexpr_by ~init_for_var shift h2) with
+        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
+        | _ -> None
+      end
+    | LAtom (FPred (id, hs)) ->
+        let rec map acc = function
+          | [] -> Some (List.rev acc)
+          | h :: rest -> (
+              match shift_hexpr_by ~init_for_var shift h with
+              | Some h' -> map (h' :: acc) rest
+              | None -> None)
+        in
+        Option.map (fun hs' -> LAtom (FPred (id, hs'))) (map [] hs)

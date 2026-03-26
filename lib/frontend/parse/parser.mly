@@ -321,7 +321,7 @@ state_invariants:
 
 state_invariant:
   | INVARIANT IN IDENT COLON invariant_formula_list
-      { List.map (fun f -> { is_eq = true; state = $3; formula = f }) $5 }
+      { List.map (fun f -> { state = $3; formula = f }) $5 }
 
 invariant_entries:
   | invariant_entry invariant_entries { $1 @ $2 }
@@ -329,7 +329,7 @@ invariant_entries:
 
 invariant_entry:
   | IN IDENT COLON invariant_formula_list
-      { List.map (fun f -> { is_eq = true; state = $2; formula = f }) $4 }
+      { List.map (fun f -> { state = $2; formula = f }) $4 }
 
 invariant_formula_list:
   | fo_formula SEMI invariant_formula_list { $1 :: $3 }

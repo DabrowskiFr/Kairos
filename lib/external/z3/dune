@@ -1,0 +1,6 @@
+(library
+ (name kairos_external_z3)
+ (public_name kairos.external_z3)
+ (wrapped false)
+ (modules fo_z3_solver)
+ (libraries kairos_ast kairos_ast_pretty unix))

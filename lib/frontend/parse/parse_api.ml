@@ -1,5 +1,3 @@
-let parse_source_file : string -> Source_file.t = Parse_file.parse_source_file
-
 let parse_source_file_with_info : string -> Source_file.t * Stage_info.parse_info =
   Parse_file.parse_source_file_with_info
 

@@ -1,5 +1,6 @@
 (library
  (name kairos_stage_metadata)
+ (public_name kairos.stage_metadata)
  (wrapped false)
  (modules stage_info)
- (libraries kairos_ast kairos_common_ir))
+ (libraries kairos_ast kairos_ir kairos_proof_obligation_ir kairos_proof_kernel_types))

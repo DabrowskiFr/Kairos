@@ -1,0 +1,5 @@
+(library
+ (name kairos_external_why3)
+ (wrapped false)
+ (modules why_labels why_contract_prove)
+ (libraries kairos_ast kairos_provenance kairos_logging kairos_stage_names why3))

@@ -1,16 +1,16 @@
 open Ast
 
-module Abs = Normalized_program
+module Abs = Ir
 
 type ir_nodes = {
   raw_ir_nodes : Proof_obligation_ir.raw_node list;
   annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
   verified_ir_nodes : Proof_obligation_ir.verified_node list;
-  kernel_ir_nodes : Proof_kernel_ir.node_ir list;
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 
 let build_ast_with_info ~input_file () :
-    (Pipeline_api_types.ast_stages * Pipeline_api_types.stage_infos, Pipeline_api_types.error)
+    (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error)
     result =
   Provenance.reset ();
   try
@@ -25,7 +25,7 @@ let build_ast_with_info ~input_file () :
     let p_monitor, automata, instrumentation_info =
       Instrumentation_pass.Pass.run_with_info p_contracts automata
     in
-    let asts : Pipeline_api_types.ast_stages =
+    let asts : Pipeline_types.ast_stages =
       {
         source;
         parsed = p_parsed;
@@ -35,7 +35,7 @@ let build_ast_with_info ~input_file () :
         instrumentation = p_monitor;
       }
     in
-    let infos : Pipeline_api_types.stage_infos =
+    let infos : Pipeline_types.stage_infos =
       {
         parse = Some parse_info;
         automata_generation = Some automata_info;
@@ -44,9 +44,9 @@ let build_ast_with_info ~input_file () :
       }
     in
     Ok (asts, infos)
-  with exn -> Error (Pipeline_api_types.Stage_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))
 
-let dump_ir_nodes ~input_file : (ir_nodes, Pipeline_api_types.error) result =
+let dump_ir_nodes ~input_file : (ir_nodes, Pipeline_types.error) result =
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (_asts, infos) ->
@@ -59,7 +59,7 @@ let dump_ir_nodes ~input_file : (ir_nodes, Pipeline_api_types.error) result =
           kernel_ir_nodes = i.kernel_ir_nodes;
         }
 
-let compile_object ~input_file : (Kairos_object.t, Pipeline_api_types.error) result =
+let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
   match build_ast_with_info ~input_file () with
   | Error _ as err -> err
   | Ok (asts, infos) ->
@@ -71,4 +71,4 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_api_types.error) res
         ~imports:(Source_file.imported_paths asts.source) ~program:asts.parsed
         ~runtime_program:(List.map Abs.to_ast_node asts.instrumentation)
         ~kernel_ir_nodes:instrumentation_info.kernel_ir_nodes
-      |> Result.map_error (fun msg -> Pipeline_api_types.Stage_error msg)
+      |> Result.map_error (fun msg -> Pipeline_types.Stage_error msg)

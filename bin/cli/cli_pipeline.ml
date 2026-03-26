@@ -2,12 +2,12 @@ open Cmdliner
 
 let why_mode_conv =
   let parse s =
-    match Pipeline.why_translation_mode_of_string s with
+    match Pipeline_types.why_translation_mode_of_string s with
     | Some mode -> Ok mode
     | None -> Error (`Msg "Unknown why mode: expected no-automata or monitor")
   in
   let print fmt mode =
-    Format.pp_print_string fmt (Pipeline.string_of_why_translation_mode mode)
+    Format.pp_print_string fmt (Pipeline_types.string_of_why_translation_mode mode)
   in
   Arg.conv (parse, print)
 
@@ -34,7 +34,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
         ensure_dir dir;
         match Engine_service.dump_ir_nodes ~engine:Engine_service.Default ~input_file:file with
         | Error err ->
-            Printf.eprintf "dump-ir-dir error: %s\n" (Pipeline.error_to_string err)
+            Printf.eprintf "dump-ir-dir error: %s\n" (Pipeline_types.error_to_string err)
         | Ok ir ->
             List.iter
               (fun (raw : Proof_obligation_ir.raw_node) ->
@@ -58,7 +58,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
                   (Artifact_render_ir_dot.dot_of_verified_node ver))
               ir.verified_ir_nodes;
             List.iter
-              (fun (ker : Proof_kernel_ir.node_ir) ->
+              (fun (ker : Proof_kernel_types.node_ir) ->
                 let name = ker.reactive_program.node_name in
                 write_file dir (name ^ ".kernel.dot")
                   (Artifact_render_ir_dot.dot_of_kernel_node_ir ker))
@@ -99,7 +99,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
           Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
             ~input_file:file
         with
-        | Error err -> `Error (false, Pipeline.error_to_string err)
+        | Error err -> `Error (false, Pipeline_types.error_to_string err)
         | Ok o ->
             let dot_path = if Filename.check_suffix out ".dot" then out else out ^ ".dot" in
             write_target dot_path o.dot_text;
@@ -115,7 +115,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
           Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
             ~input_file:file
         with
-        | Error err -> `Error (false, Pipeline.error_to_string err)
+        | Error err -> `Error (false, Pipeline_types.error_to_string err)
         | Ok o ->
             write_target out (o.guarantee_automaton_text ^ "\n\n" ^ o.assume_automaton_text);
             `Ok ())
@@ -124,7 +124,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
           Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
             ~input_file:file
         with
-        | Error err -> `Error (false, Pipeline.error_to_string err)
+        | Error err -> `Error (false, Pipeline_types.error_to_string err)
         | Ok o ->
             write_target out o.product_text;
             `Ok ())
@@ -133,7 +133,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
           Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
             ~input_file:file
         with
-        | Error err -> `Error (false, Pipeline.error_to_string err)
+        | Error err -> `Error (false, Pipeline_types.error_to_string err)
         | Ok o ->
             write_target out o.obligations_map_text;
             `Ok ())
@@ -142,7 +142,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
           Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
             ~input_file:file
         with
-        | Error err -> `Error (false, Pipeline.error_to_string err)
+        | Error err -> `Error (false, Pipeline_types.error_to_string err)
         | Ok o ->
             write_target out o.prune_reasons_text;
             `Ok ())
@@ -242,7 +242,7 @@ let cmd =
   let why_mode =
     Arg.(
       value
-      & opt why_mode_conv Pipeline.Why_mode_no_automata
+      & opt why_mode_conv Pipeline_types.Why_mode_no_automata
       & info [ "why-mode" ] ~docv:"MODE"
           ~doc:"Why translation mode: no-automata (default) or monitor.")
   in

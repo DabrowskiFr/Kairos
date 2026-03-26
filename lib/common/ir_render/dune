@@ -1,5 +1,0 @@
-(library
- (name proof_obligation_ir_render)
- (wrapped false)
- (modules ir_render_kernel ir_render_product)
- (libraries kairos_ast kairos_common_ir kairos_utils))

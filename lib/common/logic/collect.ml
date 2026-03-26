@@ -20,7 +20,9 @@
 
 open Ast
 open Ast_builders
-open Support
+open Generated_names
+open Temporal_support
+open Ast_pretty
 
 let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
@@ -34,12 +36,12 @@ let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =
   | LX a | LG a -> collect_ltl a acc
   | LAtom f -> collect_fo f acc
 
-and collect_fo (f : fo) (acc : hexpr list) : hexpr list =
+and collect_fo (f : fo_atom) (acc : hexpr list) : hexpr list =
   match f with
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
 
-let collect_pre_k_from_specs ~(fo : ltl list) ~(ltl : ltl list)
+let collect_pre_k_from_specs ~(fo_atom : ltl list) ~(ltl : ltl list)
     ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list) :
     hexpr list =
   let collect_pre_k_hexpr h acc =
@@ -60,7 +62,7 @@ let collect_pre_k_from_specs ~(fo : ltl list) ~(ltl : ltl list)
     | FRel (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
     | FPred (_id, hs) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
   in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) [] fo in
+  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) [] fo_atom in
   let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
   List.fold_left (fun acc inv -> collect_pre_k_hexpr inv.inv_expr acc) acc invariants_user
   |> fun acc ->
@@ -91,7 +93,7 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
       spec.spec_invariants_state_rel
   in
   let pre_k_exprs =
-    collect_pre_k_from_specs ~fo:normalized_fo ~ltl:normalized_ltl
+    collect_pre_k_from_specs ~fo_atom:normalized_fo ~ltl:normalized_ltl
       ~invariants_user:normalized_invariants_user
       ~invariants_state_rel:normalized_invariants_state_rel
   in

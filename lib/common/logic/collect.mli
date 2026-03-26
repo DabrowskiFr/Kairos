@@ -21,10 +21,10 @@
 
 val collect_hexpr : Ast.hexpr -> Ast.hexpr list -> Ast.hexpr list
 val collect_ltl : Ast.ltl -> Ast.hexpr list -> Ast.hexpr list
-val collect_fo : Ast.fo -> Ast.hexpr list -> Ast.hexpr list
+val collect_fo : Ast.fo_atom -> Ast.hexpr list -> Ast.hexpr list
 
 val collect_pre_k_from_specs :
-  fo:Ast.ltl list ->
+  fo_atom:Ast.ltl list ->
   ltl:Ast.ltl list ->
   invariants_user:Ast.invariant_user list ->
   invariants_state_rel:Ast.invariant_state_rel list ->

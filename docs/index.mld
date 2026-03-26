@@ -1,0 +1,54 @@
+{0 Kairos}
+
+Kairos is organized around four layers:
+
+- a source-language frontend;
+- shared semantic data and intermediate representations;
+- middle-end construction passes;
+- artifact generation and Why3 backend layers.
+
+{1 Pipeline At A Glance}
+
+{[
+source file
+  -> frontend
+  -> common semantic data
+  -> middle-end construction passes
+  -> artifacts / Why3 backend
+]}
+
+{1 Where To Start}
+
+If you are reading the codebase for the first time:
+
+1. start with {!page-frontend};
+2. continue with {!page-common};
+3. then read the middle-end and backend directories in the repository.
+
+{1 Guides}
+
+- {!page-frontend}
+- {!page-common}
+
+{1 Frontend API}
+
+- {!modules:Ast Ast_builders Ast_queries}
+- {!modules:Parse_api Parse_file Source_file}
+
+{1 Common API}
+
+- {!modules:Automaton_types Formula_origin}
+- {!modules:Collect Fo_simplifier Fo_specs Fo_time Ltl_valuation}
+- {!modules:Ir Proof_obligation_ir Proof_kernel_types}
+- {!modules:Ast_provenance Provenance Stage_info Stage_names Temporal_support}
+
+{1 Example Shapes}
+
+{[
+type program = node list
+
+type node = {
+  semantics : node_semantics;
+  specification : node_specification;
+}
+]}

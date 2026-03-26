@@ -18,25 +18,24 @@
 
 (** Time-shifting utilities for formulas and history expressions. *)
 
-val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo -> Ast.fo
-(* Shift input references inside an FO formula one step forward in time. Parameters: - [is_input]:
-   predicate to decide which identifiers are inputs. Effect: - [HNow(x)] where [x] is an input
-   becomes [pre_k(x, 1)]. - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k+1)]. Non-inputs
-   and non-history expressions are left unchanged. *)
+(** Shift input references inside a first-order formula one step forward in
+    time. *)
+val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
 
-val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo -> Ast.fo
-(* Shift input references inside an FO formula one step backward in time. Parameters: - [is_input]:
-   predicate to decide which identifiers are inputs. Effect: - [pre_k(x, 1)] where [x] is an input
-   becomes [HNow(x)]. - [pre_k(x, k)] where [x] is an input becomes [pre_k(x, k-1)]. Non-inputs and
-   non-history expressions are left unchanged. *)
+(** Shift input references inside a first-order formula one step backward in
+    time. *)
+val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
 
-val shift_fo_forward_all : Ast.fo -> Ast.fo
-(* Shift all references inside an FO formula one step forward in time:
-   [now(x)] -> [pre_k(x,1)] and [pre_k(x,k)] -> [pre_k(x,k+1)]. *)
+(** Shift all references inside a first-order formula one step forward in
+    time. *)
+val shift_fo_forward_all : Ast.fo_atom -> Ast.fo_atom
 
-val shift_fo_backward_all : Ast.fo -> Ast.fo
-(* Shift all references inside an FO formula one step backward in time:
-   [pre_k(x,1)] -> [now(x)] and [pre_k(x,k)] -> [pre_k(x,k-1)] for [k>1]. *)
+(** Shift all references inside a first-order formula one step backward in
+    time. *)
+val shift_fo_backward_all : Ast.fo_atom -> Ast.fo_atom
 
+(** Shift input references inside an LTL formula one step forward in time. *)
 val shift_ltl_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.ltl -> Ast.ltl
-(* Shift input references inside an ltl formula one step forward in time. *)
+
+(** Shift input references inside an LTL formula one step backward in time. *)
+val shift_ltl_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.ltl -> Ast.ltl

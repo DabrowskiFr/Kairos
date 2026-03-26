@@ -1,0 +1,8 @@
+(library
+ (name kairos_temporal_support)
+ (public_name kairos.temporal_support)
+ (wrapped false)
+ (modules temporal_support)
+ (libraries kairos_ast kairos_fo_formula yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

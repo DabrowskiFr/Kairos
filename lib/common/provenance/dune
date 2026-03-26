@@ -1,5 +1,6 @@
 (library
  (name kairos_provenance)
+ (public_name kairos.provenance)
  (wrapped false)
  (modules provenance ast_provenance)
  (libraries kairos_ast kairos_formula_origin))

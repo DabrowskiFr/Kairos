@@ -1,9 +1,6 @@
-(include_subdirs no)
-
 (library
  (name kairos_automata)
+ (public_name kairos.automata)
  (wrapped false)
- (modules
- spot_automaton
-  automata_atoms automata_generation)
- (libraries kairos_ast kairos_logic kairos_utils why3 re))
+ (modules automaton_types)
+ (libraries kairos_ast kairos_logic why3 re))

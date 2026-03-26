@@ -31,12 +31,12 @@ let log_level_conv =
 
 let why_mode_conv =
   let parse s =
-    match Pipeline.why_translation_mode_of_string s with
+    match Pipeline_types.why_translation_mode_of_string s with
     | Some mode -> Ok mode
     | None -> Error (`Msg "Unknown why mode: expected no-automata or monitor")
   in
   let print fmt mode =
-    Format.pp_print_string fmt (Pipeline.string_of_why_translation_mode mode)
+    Format.pp_print_string fmt (Pipeline_types.string_of_why_translation_mode mode)
   in
   Arg.conv (parse, print)
 
@@ -195,7 +195,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                   Engine_service.eval_pass ~engine:Engine_service.Default ~input_file:file ~trace_text
                     ~with_state:eval_with_state ~with_locals:eval_with_locals
                 with
-                | Error err -> `Error (false, Pipeline.error_to_string err)
+                | Error err -> `Error (false, Pipeline_types.error_to_string err)
                 | Ok out ->
                     (match eval_out with
                     | None | Some "-" -> print_endline out
@@ -236,7 +236,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     else
                       match Engine_service.compile_object ~engine:Engine_service.Default ~input_file:file with
                       | Ok obj -> Ok obj
-                      | Error e -> Error (Pipeline.error_to_string e)
+                      | Error e -> Error (Pipeline_types.error_to_string e)
                   in
                   match obj_result with
                   | Error msg -> `Error (false, msg)
@@ -245,7 +245,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       `Ok ())
               | _ when emit_kobj <> None -> (
                   match Engine_service.compile_object ~engine:Engine_service.Default ~input_file:file with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok obj ->
                       let out = Option.get emit_kobj in
                       (match Kairos_object.write_file ~path:out obj with
@@ -257,7 +257,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok o ->
                       let dot_path = if Filename.check_suffix out ".dot" then out else out ^ ".dot" in
                       write_target dot_path o.dot_text;
@@ -273,7 +273,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok o ->
                       write_target out (o.guarantee_automaton_text ^ "\n\n" ^ o.assume_automaton_text);
                       `Ok ())
@@ -282,7 +282,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok o ->
                       write_target out o.product_text;
                       `Ok ())
@@ -291,7 +291,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok o ->
                       write_target out o.obligations_map_text;
                       `Ok ())
@@ -300,12 +300,12 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     Engine_service.instrumentation_pass ~engine:Engine_service.Default ~generate_png:false
                       ~input_file:file
                   with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok o ->
                       write_target out o.prune_reasons_text;
                       `Ok ())
               | _ when dump_proof_traces_json <> None -> (
-                  let cfg : Pipeline.config =
+                  let cfg : Pipeline_types.config =
                     {
                       input_file = file;
                       prover;
@@ -325,7 +325,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     }
                   in
                   match Engine_service.run ~engine:Engine_service.Default cfg with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok outputs ->
                       let mapped = Lsp_app.map_outputs outputs in
                       let selected =
@@ -353,7 +353,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                            (fun () -> emit_json oc));
                       `Ok ())
               | _ when dump_native_unsat_core_json <> None -> (
-                  let cfg : Pipeline.config =
+                  let cfg : Pipeline_types.config =
                     {
                       input_file = file;
                       prover;
@@ -373,7 +373,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     }
                   in
                   match Engine_service.run ~engine:Engine_service.Default cfg with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok outputs ->
                       let goal_index = Option.get proof_trace_goal_index in
                       let payload =
@@ -397,7 +397,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                       | path -> Yojson.Safe.to_file path payload);
                       `Ok ())
               | _ when dump_native_counterexample_json <> None -> (
-                  let cfg : Pipeline.config =
+                  let cfg : Pipeline_types.config =
                     {
                       input_file = file;
                       prover;
@@ -417,7 +417,7 @@ let run dump_dot dump_dot_short dump_automata dump_product
                     }
                   in
                   match Engine_service.run ~engine:Engine_service.Default cfg with
-                  | Error e -> `Error (false, Pipeline.error_to_string e)
+                  | Error e -> `Error (false, Pipeline_types.error_to_string e)
                   | Ok outputs ->
                       let goal_index = Option.get proof_trace_goal_index in
                       let payload =
@@ -639,7 +639,7 @@ let cmd =
   in
   let why_mode =
     value
-    & opt why_mode_conv Pipeline.Why_mode_no_automata
+    & opt why_mode_conv Pipeline_types.Why_mode_no_automata
     & info [ "why-mode" ] ~docv:"MODE"
         ~doc:"Why translation mode: no-automata (default) or monitor."
   in
