@@ -162,7 +162,7 @@ let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runti
         (loc, Some (ident p.port_name), false, default_pty p.port_type))
       input_ports
   in
-  let body = Why_compile_expr.compile_ltl_term_shift env 1 formula in
+  let body = Why_compile_expr.compile_local_ltl_term env formula in
   Ptree.Dlogic
     [
       {
@@ -181,82 +181,11 @@ let kernel_clause_origin_label = function
   | Proof_kernel_types.OriginPropagationNodeInvariant -> "Kernel propagation node invariant"
   | Proof_kernel_types.OriginPropagationAutomatonCoherence -> "Kernel propagation automaton coherence"
 
-let compile_kernel_fact_term ~(env : Why_term_support.env) ~(mon_state_ctors : Ast.ident list)
-    (fact : Proof_kernel_types.clause_fact_ir) : Ptree.term option =
-  let mon_ctor_for_index idx =
-    match List.nth_opt mon_state_ctors idx with Some ctor -> Some ctor | None -> None
-  in
-  let compile_desc time = function
-    | Proof_kernel_types.FactProgramState state_name ->
-        let base = term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name))) in
-        Some
-          (match time with
-          | Proof_kernel_types.CurrentTick -> base
-          | Proof_kernel_types.PreviousTick -> term_old base)
-    | Proof_kernel_types.FactGuaranteeState _idx ->
-        None
-    | Proof_kernel_types.FactFormula fo_atom -> Some (Why_compile_expr.compile_ltl_term_shift env 1 fo_atom)
-    | Proof_kernel_types.FactFalse -> Some (mk_term Tfalse)
-  in
-  compile_desc fact.time fact.desc
-
 let port_view_to_vdecl (p : Why_runtime_view.port_view) : Ast.vdecl =
   { Ast.vname = p.port_name; vty = p.port_type }
 
-let compile_external_summary_module ~prefix_fields
-    (summary : Proof_kernel_types.exported_node_summary_ir) :
-    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let synthetic =
-    Ast_builders.mk_node ~nname:summary.signature.node_name ~inputs:summary.signature.inputs
-      ~outputs:summary.signature.outputs ~assumes:[] ~guarantees:[]
-      ~instances:summary.signature.instances ~locals:summary.signature.locals
-      ~states:summary.signature.states ~init_state:summary.signature.init_state ~trans:[]
-    |> fun n ->
-    {
-      n with
-      specification =
-        {
-          n.specification with
-          spec_invariants_state_rel = [];
-        };
-    }
-  in
-  let info = Why_env.prepare_node ~prefix_fields ~nodes:[] synthetic in
-  let getter_decls =
-    let mk_getter (v : Ast.vdecl) =
-      let field_name = rec_var_name info.env v.vname in
-      let getter_name = ident ("get_" ^ field_name) in
-      let is_ghost = is_ghost_field_name v.vname in
-      let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
-      let body = mk_expr (Eident (qdot (qid1 "self") field_name)) in
-      let fn =
-        mk_expr
-          (Efun
-             ( [ arg ],
-               Some (default_pty v.vty),
-               { pat_desc = Pwild; pat_loc = loc },
-               Ity.MaskVisible,
-               empty_spec (),
-               body ))
-      in
-      Ptree.Dlet (getter_name, is_ghost, Expr.RKnone, fn)
-    in
-    List.map mk_getter (summary.signature.locals @ summary.signature.outputs)
-  in
-  let logic_getter_decls =
-    let mk (v : Ast.vdecl) = logic_getter_decl ~env:info.env v.vname v.vty in
-    logic_getter_decl ~env:info.env "st" (TCustom "state")
-    :: List.map mk (summary.signature.locals @ summary.signature.outputs)
-  in
-  let decls =
-    info.imports @ info.type_mon_state @ info.instance_type_decls @ [ info.type_state; info.type_vars ] @ getter_decls
-    @ logic_getter_decls
-  in
-  (ident info.module_name, None, decls, "imported summary module", { pre_labels = []; post_labels = [] })
-
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
-   Both the OBC+ path (compile_node) and the IR path (compile_node_from_summary) call
-   this after building [info] with their respective prepare_* function.
+   The active path builds [info] from the IR via [prepare_ir_node].
    [node_names] is the list of peer-program node names used only for comment stripping. *)
 let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident list)
     (info : Why_types.env_info) :
@@ -267,13 +196,11 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
   let module_name = info.module_name in
   let imports = info.imports in
-  let type_mon_state = info.type_mon_state in
   let type_state = info.type_state in
   let type_vars = info.type_vars in
   let env = info.env in
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
-  let mon_state_ctors = info.mon_state_ctors in
   (* Locals and outputs as vdecl list (needed for getter generation). *)
   let locals_and_outputs =
     List.map port_view_to_vdecl (runtime_view.locals @ runtime_view.outputs)
@@ -367,7 +294,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
              fields)
   in
 
-  let contracts = Why_contracts.build_contracts ~nodes:[] ?kernel_ir info in
+  let contracts = Why_contracts.build_contracts ~nodes:[] info in
   let pre = contracts.pre in
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
@@ -378,17 +305,13 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   let post_source_states = contracts.post_source_states in
   let post_vcids = contracts.post_vcids in
   let step_contracts = contracts.step_contracts in
-  let use_kernel_helper_contracts =
-    match kernel_ir with
-    | Some ir -> ir.product_coverage <> Proof_kernel_types.CoverageEmpty
-    | None -> false
-  in
+  let use_product_helper_contracts = step_contracts <> [] in
 
   (* In kernel-first relational mode, helper-local proof facts must come from
      relational preconditions, not from re-executing product/monitor states. *)
   let branch_sticky_asserts = [] in
   let branch_entry_asserts =
-    if use_kernel_helper_contracts then []
+    if use_product_helper_contracts then []
     else
       let add_assert acc state_name term =
         let prev = Option.value ~default:[] (List.assoc_opt state_name acc) in
@@ -509,7 +432,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           (fun idx term ->
             let keep_origin =
               match List.nth_opt pre_origin_labels idx with
-              | Some "Guarantee propagation" when use_kernel_helper_contracts -> false
+              | Some "Guarantee propagation" when use_product_helper_contracts -> false
               | _ -> true
             in
             keep_origin
@@ -529,9 +452,9 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     in
     (helper_pre, helper_post)
   in
-  let same_runtime_transition_as_step (step : Proof_kernel_types.product_step_ir)
+  let same_runtime_transition_as_step (step : Why_runtime_view.runtime_product_transition_view)
       (t : Why_runtime_view.runtime_transition_view) : bool =
-    String.equal step.program_transition_id t.transition_id
+    String.equal step.transition_id t.transition_id
   in
   let step_contracts_for_transition (t : Why_runtime_view.runtime_transition_view) =
     step_contracts
@@ -541,21 +464,21 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   let step_helper_name (sc : Why_types.step_contract_info) =
     let step = sc.step in
     Printf.sprintf "step_%s_ps_%s_to_%s_a%d_%d_g%d_%d"
-      (String.lowercase_ascii step.program_transition_id)
-      (String.lowercase_ascii step.src.prog_state)
-      (String.lowercase_ascii step.dst.prog_state)
-      step.src.assume_state_index step.dst.assume_state_index
-      step.src.guarantee_state_index step.dst.guarantee_state_index
+      (String.lowercase_ascii step.transition_id)
+      (String.lowercase_ascii step.product_src.prog_state)
+      (String.lowercase_ascii step.product_dst.prog_state)
+      step.product_src.assume_state_index step.product_dst.assume_state_index
+      step.product_src.guarantee_state_index step.product_dst.guarantee_state_index
   in
   let kernel_step_helper_decls =
-    if not use_kernel_helper_contracts then []
+    if not use_product_helper_contracts then []
     else
       step_contracts
       |> List.filter_map (fun (sc : Why_types.step_contract_info) ->
              let matching_transition =
                runtime_view.transitions
                |> List.find_opt (fun (t : Why_runtime_view.runtime_transition_view) ->
-                      String.equal sc.step.program_transition_id t.transition_id)
+                      String.equal sc.step.transition_id t.transition_id)
              in
              match matching_transition with
              | None -> None
@@ -567,7 +490,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                      Ptree.sp_pre =
                        term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
                        :: sc.pre;
-                     sp_post = List.rev_map mk_post sc.post;
+                     sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
                      sp_xpost = [];
                      sp_reads = [];
                      sp_writes = [];
@@ -577,11 +500,10 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                      sp_diverge = false;
                      sp_partial = false;
                    }
-                 in
-                 let helper_body =
-                   let body = compile_transition_body env [] t in
-                   mk_expr (Esequence (body, ret_expr))
-                 in
+                in
+                let helper_body =
+                  compile_transition_body env [] t
+                in
                  let fn =
                    mk_expr
                      (Efun
@@ -595,7 +517,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                  Some (Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
   in
   let helper_decls =
-    if use_kernel_helper_contracts then []
+    if use_product_helper_contracts then []
     else
     let mk_post t = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, t) ]) in
     List.map
@@ -624,7 +546,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           compile_state_body env branch_entry_asserts branch_sticky_asserts branch.branch_state
             branch.branch_transitions
         in
-        let helper_body = mk_expr (Esequence (helper_body, ret_expr)) in
         let fn =
           mk_expr
             (Efun
@@ -639,7 +560,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       runtime_view.state_branches
   in
   let wrapper_body =
-    if use_kernel_helper_contracts then mk_expr (Esequence (body, ret_expr))
+    if use_product_helper_contracts then mk_expr (Esequence (body, ret_expr))
     else
       let branches =
         List.map
@@ -673,7 +594,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
 
   let step_decl =
     let wrapper_pre =
-      if not use_kernel_helper_contracts then pre
+      if not use_product_helper_contracts then pre
       else
         List.filteri
           (fun idx _ ->
@@ -732,7 +653,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
           let origin_attr = attr_for_label "User contracts coherency" in
           let base =
-            let base = compile_ltl_term_shift env 1 f.value in
+            let base = compile_local_ltl_term env f.value in
             if is_init_goal f.value then
               match init_guard with Some g -> mk_term (Tbinop (g, Dterm.DTimplies, base)) | None -> base
             else base
@@ -748,7 +669,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
 
   let decls =
-    imports @ type_mon_state @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    imports @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
     @ phase_case_logic_decls
     @ instance_mirror_getter_decls
     @ kernel_step_helper_decls @ helper_decls @ [ step_decl ] @ coherency_goal_decls
@@ -764,186 +685,61 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           [] )
     | Some (a, g, t, m) -> (a, g, t, m)
   in
-  let show_assume rel f =
-    let f = if rel then ltl_relational env f else f in
-    "assume " ^ string_of_ltl f
-  in
-  let show_guarantee rel f =
-    let f = if rel then ltl_relational env f else f in
-    "guarantee " ^ string_of_ltl f
-  in
+  let show_assume f = "assume " ^ string_of_ltl f in
+  let show_guarantee f = "guarantee " ^ string_of_ltl f in
   let show_invariant_user rel (inv : invariant_user) =
     ignore rel;
     "invariant " ^ inv.inv_id ^ " = " ^ string_of_hexpr inv.inv_expr
   in
-  let show_invariant_state_rel rel (inv : invariant_state_rel) =
-    let f = if rel then ltl_relational env inv.formula else inv.formula in
-    "invariant in " ^ inv.state ^ " -> " ^ string_of_ltl f
-  in
   let comment =
-    let is_monitor =
-      List.exists (fun (p : Why_runtime_view.port_view) -> p.port_name = "__aut_state")
-        runtime_view.locals
+    let contract_lines =
+      List.map show_assume comment_assumes
+      @ List.map show_guarantee comment_guarantees
+      @ List.map (show_invariant_user false) runtime_view.user_invariants
     in
-    if is_monitor then
-      let simplify x = x in
-      let prefixes = List.map Generated_names.prefix_for_node node_names in
-      let replace_all ~sub ~by s =
-        if sub = "" then s
-        else
-          let sub_len = String.length sub in
-          let len = String.length s in
-          let b = Buffer.create len in
-          let rec loop i =
-            if i >= len then ()
-            else if i + sub_len <= len && String.sub s i sub_len = sub then (
-              Buffer.add_string b by;
-              loop (i + sub_len))
-            else (
-              Buffer.add_char b s.[i];
-              loop (i + 1))
-          in
-          loop 0;
-          Buffer.contents b
-      in
-      let strip_vars s =
-        let s = replace_all ~sub:"vars." ~by:"" s in
-        List.fold_left (fun acc pref -> replace_all ~sub:pref ~by:"" acc) s prefixes
-      in
-      let is_prefix p s =
-        let lp = String.length p in
-        String.length s >= lp && String.sub s 0 lp = p
-      in
-      let atom_eqs =
-        List.filter_map
-          (fun inv ->
-            if is_prefix "atom_" inv.inv_id then
-              Some (Printf.sprintf "%s | %s" (strip_vars inv.inv_id) (string_of_hexpr inv.inv_expr))
-            else None)
-          runtime_view.user_invariants
-      in
-      let atom_table = "" in
-      let assumes = List.map simplify comment_assumes in
-      let guarantees = List.map simplify comment_guarantees in
-      let fmt_list label items =
-        let lines = match items with [] -> [ "(none)" ] | _ -> List.map string_of_ltl items in
-        Printf.sprintf "  %s:\n    %s\n" label (String.concat "\n    " lines)
-      in
-      let mon_states =
-        match mon_state_ctors with
-        | [] -> "  Instrumentation states: (none)\n"
-        | _ -> "  Instrumentation states: " ^ String.concat ", " mon_state_ctors ^ "\n"
-      in
-      let transition_contracts =
-        let line_for (t : transition) =
-          Printf.sprintf "  Transition %s -> %s\n" t.src t.dst
-        in
-        String.concat "" (List.map line_for comment_trans)
-      in
-      let monitor_transitions =
-        let line_for (src, dst, guard) =
-          Printf.sprintf "  %s -> %s : %s\n" src dst (strip_vars guard)
-        in
-        let lines =
-          match comment_mon_trans with
-          | [] -> [ "  (none)\n" ]
-          | _ -> List.map line_for comment_mon_trans
-        in
-        "  Instrumentation transitions:\n" ^ String.concat "" lines
-      in
-      Printf.sprintf "Module %s\n%s%s%s%s%s" module_name atom_table
-        (fmt_list "Assume (simplified LTL)" assumes)
-        (fmt_list "Guarantee (simplified LTL)" guarantees)
-        transition_contracts
-        (mon_states ^ monitor_transitions)
-    else
-      let contract_lines =
-        List.map (show_assume false) comment_assumes
-        @ List.map (show_guarantee false) comment_guarantees
-        @ List.map (show_invariant_user false) runtime_view.user_invariants
-      in
-      let contracts_txt = String.concat "\n  " contract_lines in
-      let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
-      let post_txt = String.concat "\n    " (List.map string_of_term post) in
-      let kernel_summary =
-        match kernel_ir with
-        | None -> ""
-        | Some ir ->
-            "\n  Kernel-compatible product clauses:\n  "
-            ^ String.concat "\n  " (Ir_render_kernel.render_node_ir ir)
-            ^ "\n"
-      in
-      Printf.sprintf
-        "Module %s\n\
-        \  LTL (compact):\n\
-        \  %s\n\
-        \  Relational (pre/post):\n\
-        \    pre:\n\
-        \    %s\n\
-        \    post:\n\
-        \    %s%s"
-        module_name contracts_txt pre_txt post_txt kernel_summary
+    let contracts_txt = String.concat "\n  " contract_lines in
+    let pre_txt = String.concat "\n    " (List.map string_of_term pre) in
+    let post_txt = String.concat "\n    " (List.map string_of_term post) in
+    let kernel_summary =
+      match kernel_ir with
+      | None -> ""
+      | Some ir ->
+          "\n  Kernel-compatible product clauses:\n  "
+          ^ String.concat "\n  " (Ir_render_kernel.render_node_ir ir)
+          ^ "\n"
+    in
+    Printf.sprintf
+      "Module %s\n\
+      \  LTL (compact):\n\
+      \  %s\n\
+      \  Relational (pre/post):\n\
+      \    pre:\n\
+      \    %s\n\
+      \    post:\n\
+      \    %s%s"
+      module_name contracts_txt pre_txt post_txt kernel_summary
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-(* IR path: builds runtime view directly from an exported_node_summary_ir. *)
-let compile_node_from_summary ~prefix_fields ?comment_specs ?kernel_ir
-    ~(program_summaries : Proof_kernel_types.exported_node_summary_ir list)
-    (summary : Proof_kernel_types.exported_node_summary_ir) :
+let compile_node_from_ir_node ~prefix_fields ?comment_specs ~(program_nodes : Ir.node list)
+    (node : Ir.node) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_summary ~prefix_fields ~program_summaries summary in
-  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
-  let info = { info with runtime_view } in
-  compile_node_with_info ?comment_specs ?kernel_ir
-    ~node_names:
-      (List.map
-         (fun (s : Proof_kernel_types.exported_node_summary_ir) -> s.signature.node_name)
-         program_summaries)
-    info
-(* Verified-node path: build runtime view from a Pass-5 verified_node, then
-   compile it using the shared [compile_node_with_info] core. *)
-let compile_node_from_verified_node ~prefix_fields ?kernel_ir
-    ~(program_verified_nodes : Proof_obligation_ir.verified_node list)
-    (vn : Proof_obligation_ir.verified_node) :
-    Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_verified_node ~prefix_fields ~program_verified_nodes vn in
-  let runtime_view = Why_runtime_view.with_kernel_product_hints ?kernel_ir info.runtime_view in
-  let info = { info with runtime_view } in
-  compile_node_with_info ?kernel_ir
-    ~node_names:(List.map (fun (vn : Proof_obligation_ir.verified_node) -> vn.node_name) program_verified_nodes)
+  let info = Why_env.prepare_ir_node ~prefix_fields ~program_nodes node in
+  compile_node_with_info ?comment_specs
+    ~node_names:(List.map (fun (n : Ir.node) -> n.semantics.sem_nname) program_nodes)
     info
 
-(* Verified-node path: compile a list of verified nodes to a Why3 program AST.
-   This is the emission counterpart of compile_program_ast_from_summaries. *)
-let compile_program_ast_from_verified_nodes ?(prefix_fields = true)
-    ?(kernel_ir_map = []) (program_verified_nodes : Proof_obligation_ir.verified_node list) :
-    program_ast =
-  let modules =
-    List.map
-      (fun (vn : Proof_obligation_ir.verified_node) ->
-        compile_node_from_verified_node ~prefix_fields
-          ?kernel_ir:(List.assoc_opt vn.node_name kernel_ir_map)
-          ~program_verified_nodes vn)
-      program_verified_nodes
-  in
-  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
-  let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
-  { mlw; module_info }
-
-(* IR path: compile a full list of summaries to a Why3 program AST. *)
-let compile_program_ast_from_summaries ?(prefix_fields = true) ?(comment_map = [])
-    ?(kernel_ir_map = []) (program_summaries : Proof_kernel_types.exported_node_summary_ir list) :
+let compile_program_ast_from_ir_nodes ?(prefix_fields = true) ?(comment_map = [])
+    (program_nodes : Ir.node list) :
     program_ast =
   let lookup_comment name = List.assoc_opt name comment_map in
   let modules =
     List.map
-      (fun (summary : Proof_kernel_types.exported_node_summary_ir) ->
-        let name = summary.signature.node_name in
-        compile_node_from_summary ~prefix_fields ?comment_specs:(lookup_comment name)
-          ?kernel_ir:(List.assoc_opt name kernel_ir_map)
-          ~program_summaries
-          summary)
-      program_summaries
+      (fun (node : Ir.node) ->
+        let name = node.semantics.sem_nname in
+        compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name) ~program_nodes
+          node)
+      program_nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
   let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
@@ -1170,8 +966,7 @@ let emit_program_ast (ast : program_ast) : string =
       String.length name >= String.length p && String.sub name 0 (String.length p) = p
     in
     let field_comment name =
-      if name = "__aut_state" then Some "automata state"
-      else if has_prefix name "__pre_k" then Some "k-step history"
+      if has_prefix name "__pre_k" then Some "k-step history"
       else if name = "st" then None
       else Some "user local"
     in

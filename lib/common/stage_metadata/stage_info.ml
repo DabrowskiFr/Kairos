@@ -39,9 +39,9 @@ type contracts_info = {
 type instrumentation_info = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
   exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
-  raw_ir_nodes : Proof_obligation_ir.raw_node list;
-  annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
-  verified_ir_nodes : Proof_obligation_ir.verified_node list;
+  raw_ir_nodes : Ir.raw_node list;
+  annotated_ir_nodes : Ir.annotated_node list;
+  verified_ir_nodes : Ir.verified_node list;
   kernel_pipeline_lines : string list;
   warnings : string list;
   guarantee_automaton_lines : string list;

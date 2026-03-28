@@ -26,8 +26,11 @@ let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
       | Some GuaranteePropagation ->
           Some Obligation_taxonomy.FamGuaranteePropagationRequires
       | Some AssumeAutomaton -> Some Obligation_taxonomy.FamStateAwareAssumptionRequires
+      | Some ProgramGuard -> Some Obligation_taxonomy.FamTransitionRequires
       | Some GuaranteeAutomaton ->
           Some Obligation_taxonomy.FamTransitionRequires
+      | Some GuaranteeViolation ->
+          Some Obligation_taxonomy.FamNoBadRequires
       | Some UserContract | Some Internal | None ->
           Some Obligation_taxonomy.FamTransitionRequires
     else
@@ -35,8 +38,9 @@ let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
       | Some Invariant -> Some Obligation_taxonomy.FamInvariantEnsuresShifted
       | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadEnsures
       | Some GuaranteeAutomaton -> Some Obligation_taxonomy.FamGuaranteeAutomatonEnsures
+      | Some GuaranteeViolation -> Some Obligation_taxonomy.FamGuaranteeViolationForbidden
       | Some UserContract | Some Internal | Some GuaranteePropagation
-      | Some AssumeAutomaton | None ->
+      | Some AssumeAutomaton | Some ProgramGuard | None ->
           Some Obligation_taxonomy.FamTransitionEnsures
   in
   let family_name = Option.map Obligation_taxonomy.family_name family in

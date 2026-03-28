@@ -16,14 +16,21 @@ type product_state = {
   guarantee_state_index : int;
 }
 
+type product_step_class =
+  | Safe
+  | Bad_assumption
+  | Bad_guarantee
+
 type product_contract = {
   program_transition_index : int;
+  step_class : product_step_class;
   product_src : product_state;
   product_dst : product_state;
   assume_guard : Fo_formula.t;
   guarantee_guard : Fo_formula.t;
   requires : contract_formula list;
   ensures : contract_formula list;
+  forbidden : contract_formula list;
 }
 
 (** Normalized transition.
@@ -54,6 +61,79 @@ type source_info = {
   state_invariants : invariant_state_rel list;
 }
 
+type raw_transition = {
+  src_state : ident;
+  dst_state : ident;
+  guard : Fo_formula.t;
+  guard_iexpr : iexpr option;
+  body_stmts : stmt list;
+}
+
+type raw_node = {
+  node_name : ident;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  locals : vdecl list;
+  control_states : ident list;
+  init_state : ident;
+  instances : (ident * ident) list;
+  pre_k_map : (hexpr * Temporal_support.pre_k_info) list;
+  transitions : raw_transition list;
+  assumes : ltl list;
+  guarantees : ltl list;
+}
+
+type annotated_transition = {
+  raw : raw_transition;
+  requires : contract_formula list;
+  ensures : contract_formula list;
+}
+
+type annotated_node = {
+  raw : raw_node;
+  transitions : annotated_transition list;
+  coherency_goals : contract_formula list;
+  user_invariants : invariant_user list;
+}
+
+type verified_transition = {
+  src_state : ident;
+  dst_state : ident;
+  guard : Fo_formula.t;
+  guard_iexpr : iexpr option;
+  body_stmts : stmt list;
+  pre_k_updates : stmt list;
+  requires : contract_formula list;
+  ensures : contract_formula list;
+}
+
+type verified_node = {
+  node_name : ident;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  locals : vdecl list;
+  control_states : ident list;
+  init_state : ident;
+  instances : (ident * ident) list;
+  transitions : verified_transition list;
+  product_transitions : product_contract list;
+  assumes : ltl list;
+  guarantees : ltl list;
+  coherency_goals : contract_formula list;
+  user_invariants : invariant_user list;
+}
+
+type proof_views = {
+  raw : raw_node option;
+  annotated : annotated_node option;
+  verified : verified_node option;
+}
+
+type contracts_info = {
+  contract_origin_map : (int * Formula_origin.t option) list;
+  warnings : string list;
+}
+
 (** Normalized node consumed by the middle-end.
 
     The record keeps:
@@ -70,6 +150,12 @@ type node = {
   uid : int option;
   source_info : source_info;
   coherency_goals : contract_formula list;
+  proof_views : proof_views;
+}
+
+type program = {
+  nodes : node list;
+  contracts_info : contracts_info;
 }
 
 (** Forget normalized contract metadata and recover a plain source
@@ -102,3 +188,5 @@ val map_product_contract_formulas :
 
 (** Rewrite the transition list of a node while preserving the other fields. *)
 val map_transitions : (transition list -> transition list) -> node -> node
+
+val empty_proof_views : proof_views

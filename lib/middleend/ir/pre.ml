@@ -13,6 +13,14 @@ let disj_fo (fs : ltl list) : ltl option =
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> LOr (acc, x)) f rest)
 
+let guard_ltl_of_transition (t : Abs.transition) : ltl =
+  match t.guard with
+  | None -> LTrue
+  | Some guard ->
+      Fo_specs.iexpr_to_fo_with_atoms [] guard
+      |> Fo_simplifier.simplify_fo
+      |> ltl_of_fo
+
 let input_names (n : Abs.node) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
@@ -45,7 +53,7 @@ let guarantee_pre_of_product_state ~(node : Abs.node) ~(analysis : Product_build
         |> List.filter (fun (f : Abs.contract_formula) ->
                f.origin = Some GuaranteeAutomaton)
         |> Abs.values
-        |> List.map (shift_ltl_backward_inputs ~is_input)
+        |> List.map (shift_ltl_forward_inputs ~is_input)
       in
       if ensures <> [] then add pc.product_dst ensures)
     node.product_transitions;
@@ -80,15 +88,25 @@ let add_unique_formula (origin : Formula_origin.t) (f : ltl)
   else xs @ [ Abs.with_origin origin f ]
 
 let apply ~(pre_generation : t) (n : Abs.node) : Abs.node =
+  let transition_by_index = Array.of_list n.trans in
   let product_transitions =
     List.map
       (fun (pc : Abs.product_contract) ->
+        let program_guard =
+          if pc.program_transition_index >= 0
+             && pc.program_transition_index < Array.length transition_by_index
+          then guard_ltl_of_transition transition_by_index.(pc.program_transition_index)
+          else LTrue
+        in
         let requires =
           match pre_generation.guarantee_pre_of_product_state pc.product_src with
           | None -> pc.requires
           | Some inv -> add_unique_formula GuaranteePropagation inv pc.requires
         in
-        let requires = add_unique_formula AssumeAutomaton (ltl_of_fo pc.assume_guard) requires in
+        let requires =
+          add_unique_formula AssumeAutomaton (ltl_of_fo pc.assume_guard) requires
+        in
+        let requires = add_unique_formula ProgramGuard program_guard requires in
         if requires == pc.requires then pc else { pc with requires })
       n.product_transitions
   in

@@ -37,24 +37,13 @@ type link_contracts = {
 
 val compute_transition_contracts :
   env:Why_term_support.env ->
-  runtime_transitions:Why_runtime_view.runtime_transition_view list ->
-  labeled_trans:
-    ( Why_runtime_view.runtime_transition_view
-    * (Ir.contract_formula * string) list
-    * (Ast.ltl * string * string) list )
-    list ->
-  has_monitor_instrumentation:bool ->
+  product_transitions:Why_runtime_view.runtime_product_transition_view list ->
   post_contract_user:Why3.Ptree.term list ->
-  use_kernel_product_contracts:bool ->
-  init_for_var:(Ast.ident -> Ast.iexpr) ->
-  apply_k_guard:(in_post:bool -> int option -> Why3.Ptree.term list -> Why3.Ptree.term list) ->
   transition_contracts
 
 val compute_link_contracts :
   env:Why_term_support.env ->
   runtime:Why_runtime_view.t ->
-  kernel_contract:Kernel_guided_contract.node_contract option ->
   current_temporal_contract:Kernel_guided_contract.exported_summary_contract ->
-  use_kernel_product_contracts:bool ->
   hexpr_needs_old:(Ast.hexpr -> bool) ->
   link_contracts

@@ -117,7 +117,6 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     let atom_names = Automata_atoms.make_atom_names atom_exprs in
     let atom_named_exprs = List.map2 (fun (_, e) name -> (name, e)) atom_exprs atom_names in
     let atom_map = List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names in
-    let atom_name_to_fo = List.map2 (fun (a, _) name -> (name, a)) atom_exprs atom_names in
     let states, grouped =
       let f_list =
         let ltl_terms = ltl_specs in
@@ -246,9 +245,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     List.iter
       (fun (i, guard, j) ->
         let formula =
-          Automata_atoms.guard_to_iexpr guard
-          |> iexpr_to_fo_with_atoms atom_name_to_fo
-          |> Ast_pretty.string_of_fo |> strip_braces
+          Automata_atoms.guard_to_formula guard |> strip_braces
         in
         let lbl = if show_labels then escape_dot_label formula else escape_dot_label formula in
         Buffer.add_string buf (Printf.sprintf "  r%d -> r%d [label=\"%s\"];\n" i j lbl))

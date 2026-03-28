@@ -22,30 +22,23 @@ type env_info = {
   runtime_view : Why_runtime_view.t;
   module_name : string;
   imports : Why3.Ptree.decl list;
-  type_mon_state : Why3.Ptree.decl list;
   instance_type_decls : Why3.Ptree.decl list;
   type_state : Why3.Ptree.decl;
   type_vars : Why3.Ptree.decl;
   env : Why_term_support.env;
   inputs : Why3.Ptree.binder list;
   ret_expr : Why3.Ptree.expr;
-  ghost_updates : Why3.Ptree.expr;
-  has_ghost_updates : bool;
   pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
   pre_k_infos : Temporal_support.pre_k_info list;
-  needs_step_count : bool;
-  needs_first_step : bool;
-  has_initial_only_contracts : bool;
   hexpr_needs_old : Ast.hexpr -> bool;
   input_names : Ast.ident list;
-  mon_state_ctors : Ast.ident list;
-  init_for_var : Ast.ident -> Ast.iexpr;
 }
 
 type step_contract_info = {
-  step : Proof_kernel_types.product_step_ir;
+  step : Why_runtime_view.runtime_product_transition_view;
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
+  forbidden : Why3.Ptree.term list;
 }
 
 type contract_info = {

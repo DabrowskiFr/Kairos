@@ -144,19 +144,6 @@ type ast_stages = {
     instrumentation : Stage_info.instrumentation_info option;
   }
 
-  type why_translation_mode =
-    | Why_mode_no_automata
-    | Why_mode_monitor
-
-  let string_of_why_translation_mode = function
-    | Why_mode_no_automata -> "no-automata"
-    | Why_mode_monitor -> "monitor"
-
-  let why_translation_mode_of_string = function
-    | "no-automata" -> Some Why_mode_no_automata
-    | "monitor" -> Some Why_mode_monitor
-    | _ -> None
-
   type config = {
     input_file : string;
     prover : string;
@@ -167,11 +154,9 @@ type ast_stages = {
     selected_goal_index : int option;
     compute_proof_diagnostics : bool;
     prefix_fields : bool;
-    why_translation_mode : why_translation_mode;
     prove : bool;
     generate_vc_text : bool;
     generate_smt_text : bool;
-    generate_monitor_text : bool;
     generate_dot_png : bool;
   }
 

@@ -26,12 +26,23 @@ let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
 
 let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   match h with
-  | HNow e -> begin match as_var e with Some v when is_input v -> HNow e | _ -> h end
-  | HPreK (e, k) -> begin
+  (* Going backward from the beginning of tick t+1 to the end of tick t can
+     only invert formulas that actually come from a previous forward shift.
+     A current input [HNow x] at t+1 denotes the freshly sampled environment
+     value for tick t+1; it has no counterpart at the end of tick t.
+     Encountering it here means the caller is trying to backward-shift a
+     formula that is not in the image of [shift_hexpr_forward]. *)
+  | HNow e -> begin
       match as_var e with
-      | Some v when is_input v -> if k <= 1 then HNow e else HPreK (e, k - 1)
+      | Some v when is_input v ->
+          failwith
+            (Printf.sprintf
+               "shift_hexpr_backward: cannot backward-shift current input %s; \
+                HNow on inputs has no predecessor-time counterpart"
+               v)
       | _ -> h
     end
+  | HPreK (e, k) -> if k <= 1 then HNow e else HPreK (e, k - 1)
 
 let shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
   match f with
@@ -46,7 +57,7 @@ let shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom
 
 let shift_hexpr_forward_all (h : hexpr) : hexpr =
   match h with
-  | HNow e -> begin match as_var e with Some _ -> HPreK (e, 1) | None -> h end
+  | HNow e -> HPreK (e, 1)
   | HPreK (e, k) -> HPreK (e, k + 1)
 
 let shift_hexpr_backward_all (h : hexpr) : hexpr =

@@ -5,7 +5,7 @@
  *
  * Substitutes all [Ast.hexpr] references of the form [prev^k x] (i.e.
  * [HPreK(x, k)]) with the corresponding ghost local variable
- * [IVar "__pre_k{k}_x"], producing a [Proof_obligation_ir.verified_node] that is
+ * [IVar "__pre_k{k}_x"], producing a [Ir.verified_node] that is
  * ready for trivial structural Why3 emission.
  *
  * The pass also:
@@ -14,15 +14,7 @@
  *   [pre_k_updates] field.
  *---------------------------------------------------------------------------*)
 
-(** Eliminate history references from an annotated node.
+(** Eliminate history references from the annotated view stored inside the IR. *)
 
-    Every occurrence of [HPreK(x, k)] in requires, ensures, and coherency_goals
-    is replaced by [HNow (IVar "__pre_k{k}_x")].
-    The shift statements (e.g. [__pre_k2_x := __pre_k1_x; __pre_k1_x := x])
-    are stored in [verified_transition.pre_k_updates].
-    The extra locals ([__pre_k{k}_x] variables) are appended to
-    [verified_node.locals].
-
-    Formulas whose [HPreK] references are NOT found in [raw.pre_k_map] are
-    kept verbatim (the substitution is applied on a best-effort basis). *)
-val eliminate : Proof_obligation_ir.annotated_node -> Proof_obligation_ir.verified_node
+val apply_node : Ir.node -> Ir.node
+val apply_program : Ir.node list -> Ir.node list

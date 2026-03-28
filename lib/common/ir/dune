@@ -3,6 +3,6 @@
  (public_name kairos.ir)
  (wrapped false)
  (modules ir)
- (libraries kairos_ast kairos_fo_formula kairos_provenance yojson)
+ (libraries kairos_ast kairos_fo_formula kairos_provenance kairos_temporal_support yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

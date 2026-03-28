@@ -14,6 +14,7 @@
 type family =
   | FamTransitionRequires
   | FamTransitionEnsures
+  | FamGuaranteeViolationForbidden
   | FamInvariantRequires
   | FamInvariantEnsuresShifted
   | FamInitialInvariantGoal

@@ -39,7 +39,7 @@ If you are reading the codebase for the first time:
 
 - {!modules:Automaton_types Formula_origin}
 - {!modules:Collect Fo_simplifier Fo_specs Fo_time Ltl_valuation}
-- {!modules:Ir Proof_obligation_ir Proof_kernel_types}
+- {!modules:Ir Proof_kernel_types}
 - {!modules:Ast_provenance Provenance Stage_info Stage_names Temporal_support}
 
 {1 Example Shapes}

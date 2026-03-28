@@ -1,4 +1,6 @@
 open Ast
+open Fo_specs
+open Fo_formula
 
 let inline_atom_names (atom_named_exprs : (Ast.ident * Ast.iexpr) list) (e : Ast.iexpr) : Ast.iexpr =
   let map = Hashtbl.create 16 in
@@ -13,7 +15,7 @@ let inline_atom_names (atom_named_exprs : (Ast.ident * Ast.iexpr) list) (e : Ast
   in
   go e
 
-let normalize_spot_automaton ~(atom_names : string list)
+let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (Ast.fo_atom * Ast.ident) list)
     ~(atom_named_exprs : (Ast.ident * Ast.iexpr) list) (hoa : Automaton_spot.hoa_automaton) :
     Automaton_types.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
@@ -71,11 +73,13 @@ let normalize_spot_automaton ~(atom_names : string list)
     Hashtbl.fold (fun (src, dst) guard acc -> (src, guard, dst) :: acc) table []
     |> List.sort compare
   in
-  let guard_to_iexpr (g : Automaton_spot.raw_guard) : Ast.iexpr =
-    inline_atom_names atom_named_exprs (Ltl_valuation.terms_to_iexpr g)
+  let atom_name_to_fo = List.map (fun (atom, name) -> (name, atom)) atom_map in
+  let guard_to_fo (g : Automaton_spot.raw_guard) : Fo_formula.t =
+    let _ = atom_named_exprs in
+    Ltl_valuation.terms_to_iexpr g |> iexpr_to_fo_with_atoms atom_name_to_fo |> Fo_simplifier.simplify_fo
   in
   let transitions =
-    List.map (fun (src, guard_raw, dst) -> (src, guard_to_iexpr guard_raw, dst)) transitions_raw
+    List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw
   in
   { Automaton_types.atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
 
@@ -89,4 +93,4 @@ let build ~(atom_map : (fo_atom * ident) list) ~(atom_names : ident list)
     failwith
       (Printf.sprintf "Spot backend returned %d APs but Kairos expected %d" hoa.ap_count
          (List.length atom_names));
-  normalize_spot_automaton ~atom_names ~atom_named_exprs hoa
+  normalize_spot_automaton ~atom_names ~atom_map ~atom_named_exprs hoa

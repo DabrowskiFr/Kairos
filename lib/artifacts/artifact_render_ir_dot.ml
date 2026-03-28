@@ -31,7 +31,7 @@ let truncate (s : string) : string =
 (* annotated_node                                                       *)
 (* ------------------------------------------------------------------ *)
 
-let dot_of_annotated_transition (t : Proof_obligation_ir.annotated_transition) : string =
+let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
   let raw = t.raw in
   let guard_str = truncate (Ast_pretty.string_of_fo raw.guard) |> html_escape in
   let buf = Buffer.create 256 in
@@ -60,7 +60,7 @@ let dot_of_annotated_transition (t : Proof_obligation_ir.annotated_transition) :
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
-let dot_of_annotated_node (n : Proof_obligation_ir.annotated_node) : string =
+let dot_of_annotated_node (n : Ir.annotated_node) : string =
   let raw = n.raw in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf
@@ -83,7 +83,7 @@ let dot_of_annotated_node (n : Proof_obligation_ir.annotated_node) : string =
 (* verified_node                                                        *)
 (* ------------------------------------------------------------------ *)
 
-let dot_of_verified_transition (t : Proof_obligation_ir.verified_transition) : string =
+let dot_of_verified_transition (t : Ir.verified_transition) : string =
   let guard_str = truncate (Ast_pretty.string_of_fo t.guard) |> html_escape in
   let buf = Buffer.create 256 in
   Buffer.add_string buf
@@ -128,7 +128,7 @@ let dot_of_verified_transition (t : Proof_obligation_ir.verified_transition) : s
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
-let dot_of_verified_node (n : Proof_obligation_ir.verified_node) : string =
+let dot_of_verified_node (n : Ir.verified_node) : string =
   let buf = Buffer.create 1024 in
   Buffer.add_string buf
     (Printf.sprintf

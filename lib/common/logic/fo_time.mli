@@ -18,12 +18,12 @@
 
 (** Time-shifting utilities for formulas and history expressions. *)
 
-(** Shift input references inside a first-order formula one step forward in
-    time. *)
+(** Shift one step forward every historical occurrence whose underlying
+    expression depends on an input. *)
 val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
 
-(** Shift input references inside a first-order formula one step backward in
-    time. *)
+(** Shift one step backward every historical occurrence whose underlying
+    expression depends on an input. *)
 val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
 
 (** Shift all references inside a first-order formula one step forward in
@@ -34,8 +34,15 @@ val shift_fo_forward_all : Ast.fo_atom -> Ast.fo_atom
     time. *)
 val shift_fo_backward_all : Ast.fo_atom -> Ast.fo_atom
 
-(** Shift input references inside an LTL formula one step forward in time. *)
+(** Shift one step forward every historical occurrence whose underlying
+    expression depends on an input. *)
 val shift_ltl_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.ltl -> Ast.ltl
 
-(** Shift input references inside an LTL formula one step backward in time. *)
+(** Shift one step backward every historical occurrence whose underlying
+    expression depends on an input.
+
+    This is only a partial inverse of {!val-shift_ltl_forward_inputs}: a
+    current input [HNow x] has no predecessor-time counterpart when moving
+    from the beginning of tick [t+1] back to the end of tick [t], so such
+    occurrences are rejected explicitly. *)
 val shift_ltl_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.ltl -> Ast.ltl

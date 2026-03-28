@@ -3,4 +3,4 @@
  (public_name kairos.external_z3)
  (wrapped false)
  (modules fo_z3_solver)
- (libraries kairos_ast kairos_ast_pretty unix))
+ (libraries kairos_ast kairos_ast_pretty kairos_fo_formula kairos_temporal_support unix z3))

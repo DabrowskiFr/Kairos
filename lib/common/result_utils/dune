@@ -1,0 +1,5 @@
+(library
+ (name kairos_result_utils)
+ (public_name kairos.result_utils)
+ (wrapped false)
+ (modules result_utils))

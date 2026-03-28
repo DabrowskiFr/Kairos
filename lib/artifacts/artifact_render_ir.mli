@@ -7,6 +7,6 @@
  * annotated_node, and verified_node.
  *---------------------------------------------------------------------------*)
 
-val render_raw_node : Proof_obligation_ir.raw_node -> string
-val render_annotated_node : Proof_obligation_ir.annotated_node -> string
-val render_verified_node : Proof_obligation_ir.verified_node -> string
+val render_raw_node : Ir.raw_node -> string
+val render_annotated_node : Ir.annotated_node -> string
+val render_verified_node : Ir.verified_node -> string

@@ -8,9 +8,10 @@
 
 (** Boolean guard carried by an automaton transition.
 
-    Guards are stored directly as Kairos expressions, not as atom names or HOA
-    labels. *)
-type guard = Ast.iexpr
+    Guards are stored as first-order formulas over history expressions. This
+    preserves temporal structure such as [pre_k] through automata construction;
+    lowering to materialized history variables happens later in the pipeline. *)
+type guard = Fo_formula.t
 
 (** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int

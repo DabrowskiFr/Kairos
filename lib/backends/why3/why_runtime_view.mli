@@ -66,12 +66,24 @@ type runtime_transition_view = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
-  known_monitor_ctor : Ast.ident option;
   requires : Ir.contract_formula list;
   ensures : Ir.contract_formula list;
   body : Ast.stmt list;
   action_blocks : action_block_view list;
   call_sites : call_site_view list;
+}
+
+type runtime_product_transition_view = {
+  transition_id : string;
+  src_state : Ast.ident;
+  dst_state : Ast.ident;
+  guard : Ast.iexpr option;
+  step_class : Ir.product_step_class;
+  product_src : Ir.product_state;
+  product_dst : Ir.product_state;
+  requires : Ir.contract_formula list;
+  ensures : Ir.contract_formula list;
+  forbidden : Ir.contract_formula list;
 }
 
 type transition_group_view = {
@@ -94,40 +106,25 @@ type t = {
   control_states : Ast.ident list;
   init_control_state : Ast.ident;
   transitions : runtime_transition_view list;
+  product_transitions : runtime_product_transition_view list;
   transition_groups : transition_group_view list;
   state_branches : state_branch_view list;
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   coherency_goals : Ir.contract_formula list;
-  monitor_state_ctors : Ast.ident list;
-  kernel_contract : Kernel_guided_contract.node_contract option;
 }
-
-val set_keep_monitor_translation : bool -> unit
-val get_keep_monitor_translation : unit -> bool
 
 val of_node :
   nodes:Ast.node list ->
   Ast.node ->
   t
-val with_kernel_product_hints : ?kernel_ir:Proof_kernel_types.node_ir -> t -> t
 val find_callee_summary : t -> Ast.ident -> callee_summary_view option
 val transition_to_ast : runtime_transition_view -> Ast.transition
 val to_ast_node : t -> Ast.node
 val has_instance_calls : t -> bool
 
-val pre_k_updates_of_map : (Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.stmt list
-
-(** Build a runtime view directly from a [Proof_obligation_ir.verified_node] (Pass 5
-    output).  Callee summaries for local nodes are resolved from
-    [program_verified_nodes]. *)
-val of_verified_node :
-  program_verified_nodes:Proof_obligation_ir.verified_node list ->
-  Proof_obligation_ir.verified_node ->
-  t
-
-val of_exported_summary :
-  program_summaries:Proof_kernel_types.exported_node_summary_ir list ->
-  Proof_kernel_types.exported_node_summary_ir ->
+val of_ir_node :
+  program_nodes:Ir.node list ->
+  Ir.node ->
   t

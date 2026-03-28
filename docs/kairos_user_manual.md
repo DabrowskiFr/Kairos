@@ -15,7 +15,7 @@ commands, panels, recommended workflows and diagnostics for all three.
 
 ## Repository Layout
 
-- CLI sources: `bin/cli/cli.ml`, `bin/cli/cli_pipeline.ml`
+- CLI source: `bin/cli/cli.ml`
 - LSP server: `bin/lsp/kairos_lsp.ml`
 - Native GTK IDE: `bin/ide/obcwhy3_ide.ml`
 - VS Code extension: `extensions/kairos-vscode`

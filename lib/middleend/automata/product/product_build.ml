@@ -32,7 +32,7 @@ let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
-  fo_of_iexpr g |> Fo_simplifier.simplify_fo
+  Fo_simplifier.simplify_fo g
 
 let program_guard_fo (t : Abs.transition) : Fo_formula.t =
   (* Program guards are normalized before overlap checks so they are compared at
@@ -138,7 +138,7 @@ let make_assume_view (build : Automaton_types.automata_build) : automaton_view =
   | _ ->
       {
         states = [ LTrue ];
-        grouped = [ (0, { Ast.iexpr = ILitBool true; loc = None }, 0) ];
+        grouped = [ (0, FTrue, 0) ];
         atom_map_exprs = [];
         bad_idx = -1;
       }

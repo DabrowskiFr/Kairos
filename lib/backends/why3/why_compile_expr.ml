@@ -27,43 +27,15 @@ open Temporal_support
 open Ast_pretty
 open Why_term_support
 
-let is_mon_state_ctor (name : ident) : bool =
-  let len = String.length name in
-  len >= 4
-  && String.sub name 0 3 = "Aut"
-  && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
-
 let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
-  let match_mon_state_eq ctor other is_eq =
-    let scrut = compile_iexpr env other in
-    let pat = { pat_desc = Papp (qid1 ctor, []); pat_loc = loc } in
-    let tru = mk_expr Etrue in
-    let fls = mk_expr Efalse in
-    let then_e, else_e = if is_eq then (tru, fls) else (fls, tru) in
-    mk_expr (Ematch (scrut, [ (pat, then_e); ({ pat_desc = Pwild; pat_loc = loc }, else_e) ], []))
-  in
   match e.iexpr with
   | ILitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_expr (if b then Etrue else Efalse)
   | IVar x ->
-      if is_rec_var env x then field env x
-      else if is_mon_state_ctor x then mk_expr (Eidapp (qid1 x, []))
-      else mk_expr (Eident (qid1 x))
+      if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
   | IPar e -> compile_iexpr env e
   | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_iexpr env a ]))
   | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
-  | IBin (((Eq | Neq) as op), a, b) -> begin
-      match (as_var a, as_var b) with
-      | Some va, Some vb when is_mon_state_ctor va || is_mon_state_ctor vb ->
-          if is_mon_state_ctor va && is_mon_state_ctor vb then
-            let same = va = vb in
-            let is_eq = match op with Eq -> true | Neq -> false | _ -> true in
-            mk_expr (if same = is_eq then Etrue else Efalse)
-          else
-            let ctor, other = if is_mon_state_ctor va then (va, mk_var vb) else (vb, mk_var va) in
-            match_mon_state_eq ctor other (op = Eq)
-      | _ -> mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
-    end
   | IBin (op, a, b) ->
       mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
 
@@ -165,40 +137,17 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
       match h with
       | HNow e ->
           let t = compile_term env e in
-          (* in_post=true signals StepTickContext (shift=0, old=true):
-             - Ghost pre-k register variables (e.g. __pre_k1_x) are updated AFTER the
-               automaton check in the step body, so they must use the PRE-STATE value
-               (i.e. old()), otherwise the post-state value would reflect the ghost
-               update and make the safety obligation trivially true.
-             - User-visible output/local variables (e.g. y, z) are updated BEFORE the
-               automaton check, so they must use the POST-STATE value (no old()), which
-               equals the value at automaton-check time.
-             For all other contexts (in_post=false), preserve the original old/current
-             distinction driven by `shift`. *)
-          let use_old =
-            if in_post then
-              (* For StepTickContext: only pre-k register variables need old(). *)
-              not (is_const_iexpr e)
-              &&
-              (match e.iexpr with
-              | IVar name ->
-                  List.exists
-                    (fun (_, (info : Temporal_support.pre_k_info)) -> List.mem name info.names)
-                    env.pre_k
-              | _ -> false)
-            else old && not (is_const_iexpr e)
-          in
+          let use_old = old && not (is_const_iexpr e) in
           if use_old then term_old t else t
-      | HPreK (_e, _) -> begin
+      | HPreK (_e, k) -> begin
           match find_pre_k env h with
           | None -> failwith "pre_k not registered"
           | Some info ->
-              let name = List.nth info.names (List.length info.names - 1) in
-              let t = term_of_var env name in
-              (* in_post=true with old=true means StepTickContext: the pre-k register
-                 (__pre_k1_x) must be read BEFORE the ghost update at the end of the
-                 step, i.e. its pre-state value, so wrap in old(). *)
-              if in_post && old then term_old t else t
+              if k <= 0 || k > List.length info.names then
+                failwith "pre_k slot out of bounds"
+              else
+                let name = List.nth info.names (k - 1) in
+              term_of_var env name
         end
     end
 
@@ -212,35 +161,7 @@ let compile_fo_term ?(prefer_link = false) (env : env) (f : fo_atom) : Ptree.ter
              compile_hexpr ~prefer_link env h2 ))
   | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~prefer_link env) hs))
 
-let rec compile_ltl_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (shift : int)
-    (f : ltl) : Ptree.term =
-  let shift = if shift <= 0 then 0 else 1 in
-  match f with
-  | LTrue -> mk_term Ttrue
-  | LFalse -> mk_term Tfalse
-  | LNot a -> mk_term (Tnot (compile_ltl_term_shift ~prefer_link ~in_post env shift a))
-  | LAnd (a, b) ->
-      term_bool_binop Dterm.DTand
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
-  | LOr (a, b) ->
-      term_bool_binop Dterm.DTor
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
-  | LImp (a, b) ->
-      term_bool_binop Dterm.DTimplies
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift a)
-        (compile_ltl_term_shift ~prefer_link ~in_post env shift b)
-  | LX a -> compile_ltl_term_shift ~prefer_link ~in_post env 1 a
-  | LG a -> compile_ltl_term_shift ~prefer_link ~in_post env shift a
-  | LW (a, b) ->
-      compile_ltl_term_shift ~prefer_link ~in_post env shift
-        (LOr (b, LAnd (a, LX (LW (a, b)))))
-  | LAtom f ->
-      let old = shift = 0 in
-      compile_fo_term_shift ~prefer_link ~in_post env old f
-
-and compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (old : bool)
+let compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (old : bool)
     (f : fo_atom) : Ptree.term =
   match f with
   | FRel (h1, r, h2) ->
@@ -252,52 +173,27 @@ and compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) 
   | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
 
-let rel_hexpr (env : env) (h : hexpr) : hexpr =
-  match h with HNow e -> HNow e | HPreK (e, k) -> HPreK (e, k)
-
-let rec ltl_relational (env : env) (f : ltl) : ltl =
+let rec compile_local_ltl_term ?(prefer_link = false) ?(in_post = false) (env : env) (f : ltl) :
+    Ptree.term =
   match f with
-  | LTrue | LFalse -> f
-  | LNot a -> LNot (ltl_relational env a)
-  | LAnd (a, b) -> LAnd (ltl_relational env a, ltl_relational env b)
-  | LOr (a, b) -> LOr (ltl_relational env a, ltl_relational env b)
-  | LImp (a, b) -> LImp (ltl_relational env a, ltl_relational env b)
-  | LX a -> LX (ltl_relational env a)
-  | LG a -> LG (ltl_relational env a)
-  | LW (a, b) -> LW (ltl_relational env a, ltl_relational env b)
-  | LAtom f -> LAtom (rel_fo env f)
-
-and rel_fo (env : env) (f : fo_atom) : fo_atom =
-  match f with
-  | FRel (h1, r, h2) -> FRel (rel_hexpr env h1, r, rel_hexpr env h2)
-  | FPred (id, hs) -> FPred (id, List.map (rel_hexpr env) hs)
-
-type spec_frag = { pre : Ptree.term list; post : Ptree.term list }
-
-let empty_frag : spec_frag = { pre = []; post = [] }
-
-let ltl_spec (env : env) (f : ltl) : spec_frag =
-  let rec has_x = function
-    | LX _ -> true
-    | LTrue | LFalse | LAtom _ -> false
-    | LNot a | LG a -> has_x a
-    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> has_x a || has_x b
-  in
-  let post_term f =
-    if has_x f then compile_ltl_term_shift ~prefer_link:true ~in_post:true env 0 f
-    else compile_ltl_term_shift ~prefer_link:true ~in_post:true env 1 f
-  in
-  match f with
-  | LTrue -> empty_frag
-  | LFalse -> { pre = []; post = [ mk_term Tfalse ] }
-  | LNot _ | LAnd _ | LOr _ | LImp _ | LAtom _ | LX _ | LW _ ->
-      let pre_t = compile_ltl_term_shift ~prefer_link:true ~in_post:false env 1 f in
-      let post_t = post_term f in
-      { pre = [ pre_t ]; post = [ post_t ] }
-  | LG a ->
-      let pre_t = compile_ltl_term_shift ~prefer_link:true ~in_post:false env 1 a in
-      let post_t = post_term a in
-      { pre = [ pre_t ]; post = [ post_t ] }
+  | LTrue -> mk_term Ttrue
+  | LFalse -> mk_term Tfalse
+  | LNot a -> mk_term (Tnot (compile_local_ltl_term ~prefer_link ~in_post env a))
+  | LAnd (a, b) ->
+      term_bool_binop Dterm.DTand
+        (compile_local_ltl_term ~prefer_link ~in_post env a)
+        (compile_local_ltl_term ~prefer_link ~in_post env b)
+  | LOr (a, b) ->
+      term_bool_binop Dterm.DTor
+        (compile_local_ltl_term ~prefer_link ~in_post env a)
+        (compile_local_ltl_term ~prefer_link ~in_post env b)
+  | LImp (a, b) ->
+      term_bool_binop Dterm.DTimplies
+        (compile_local_ltl_term ~prefer_link ~in_post env a)
+        (compile_local_ltl_term ~prefer_link ~in_post env b)
+  | LAtom fo -> compile_fo_term_shift ~prefer_link ~in_post env false fo
+  | LX _ | LG _ | LW _ ->
+      failwith "compile_local_ltl_term: residual temporal operator in IR contract"
 
 let pre_k_source_expr (env : env) (e : iexpr) : Ptree.expr =
   match e.iexpr with

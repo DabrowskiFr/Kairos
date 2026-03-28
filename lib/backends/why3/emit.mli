@@ -51,21 +51,10 @@ type comment_specs =
 (* In‑memory Why3 representation of a full program. *)
 type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }
 
-(* Verified-node path: compile a list of Pass-5 verified_nodes to a Why3
-   program AST.  Equivalent to compile_program_ast_from_summaries but uses
-   the new IR types exclusively. *)
-val compile_program_ast_from_verified_nodes :
-  ?prefix_fields:bool ->
-  ?kernel_ir_map:(Ast.ident * Proof_kernel_types.node_ir) list ->
-  Proof_obligation_ir.verified_node list ->
-  program_ast
-
-(* IR path: compile a full list of summaries to a Why3 program AST. *)
-val compile_program_ast_from_summaries :
+val compile_program_ast_from_ir_nodes :
   ?prefix_fields:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
-  ?kernel_ir_map:(Ast.ident * Proof_kernel_types.node_ir) list ->
-  Proof_kernel_types.exported_node_summary_ir list ->
+  Ir.node list ->
   program_ast
 
 (* Render a Why3 AST to text. *)

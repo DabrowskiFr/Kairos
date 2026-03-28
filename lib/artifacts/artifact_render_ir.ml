@@ -83,7 +83,7 @@ let render_fo_o_list (fs : Ir.contract_formula list) : string =
 (* raw_node                                                             *)
 (* ------------------------------------------------------------------ *)
 
-let render_raw_node_header (n : Proof_obligation_ir.raw_node) : string =
+let render_raw_node_header (n : Ir.raw_node) : string =
   Printf.sprintf
     "# [raw] %s\n%s\n\n[node %s]\n  inputs      : %s\n  outputs     : %s\n  locals      : %s\n  states      : %s\n  init        : %s\n  instances   : %s\n  pre_k       : %s\n\n  assumes     : %s\n  guarantees  : %s"
     n.node_name separator n.node_name
@@ -97,7 +97,7 @@ let render_raw_node_header (n : Proof_obligation_ir.raw_node) : string =
     (render_ltl_list n.assumes)
     (render_ltl_list n.guarantees)
 
-let render_raw_transition (t : Proof_obligation_ir.raw_transition) : string =
+let render_raw_transition (t : Ir.raw_transition) : string =
   let guard_str = Ast_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.guard_iexpr with
@@ -111,7 +111,7 @@ let render_raw_transition (t : Proof_obligation_ir.raw_transition) : string =
     guard_iexpr_str
     (render_stmt_list t.body_stmts)
 
-let render_raw_node (n : Proof_obligation_ir.raw_node) : string =
+let render_raw_node (n : Ir.raw_node) : string =
   let header = render_raw_node_header n in
   let transitions = List.map render_raw_transition n.transitions in
   header ^ "\n" ^ String.concat "\n" transitions ^ "\n"
@@ -120,7 +120,7 @@ let render_raw_node (n : Proof_obligation_ir.raw_node) : string =
 (* annotated_node                                                       *)
 (* ------------------------------------------------------------------ *)
 
-let render_annotated_transition (t : Proof_obligation_ir.annotated_transition) : string =
+let render_annotated_transition (t : Ir.annotated_transition) : string =
   let raw = t.raw in
   let guard_str = Ast_pretty.string_of_fo raw.guard in
   let guard_iexpr_str =
@@ -137,7 +137,7 @@ let render_annotated_transition (t : Proof_obligation_ir.annotated_transition) :
     (render_fo_o_list t.requires)
     (render_fo_o_list t.ensures)
 
-let render_annotated_node (n : Proof_obligation_ir.annotated_node) : string =
+let render_annotated_node (n : Ir.annotated_node) : string =
   let raw = n.raw in
   let header =
     Printf.sprintf
@@ -160,7 +160,7 @@ let render_annotated_node (n : Proof_obligation_ir.annotated_node) : string =
 (* verified_node                                                        *)
 (* ------------------------------------------------------------------ *)
 
-let render_verified_transition (t : Proof_obligation_ir.verified_transition) : string =
+let render_verified_transition (t : Ir.verified_transition) : string =
   let guard_str = Ast_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.guard_iexpr with
@@ -177,7 +177,7 @@ let render_verified_transition (t : Proof_obligation_ir.verified_transition) : s
     (render_fo_o_list t.requires)
     (render_fo_o_list t.ensures)
 
-let render_verified_node (n : Proof_obligation_ir.verified_node) : string =
+let render_verified_node (n : Ir.verified_node) : string =
   let header =
     Printf.sprintf
       "# [verified] %s\n%s\n\n[node %s]\n  inputs      : %s\n  outputs     : %s\n  locals      : %s\n  states      : %s\n  init        : %s\n  instances   : %s\n\n  assumes     : %s\n  guarantees  : %s"

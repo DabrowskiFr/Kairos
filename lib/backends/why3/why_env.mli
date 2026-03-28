@@ -18,14 +18,6 @@
 
 (** Environment threaded through Why3 expression and contract compilation. *)
 
-(* {1 Instrumentation Constructor Discovery} *)
-
-(* Detect if an identifier is a monitor state constructor. *)
-val is_mon_state_ctor : string -> bool
-
-(* Collect monitor state constructors referenced by a node. *)
-val collect_mon_state_ctors : Ast.node -> Ast.ident list
-
 (* {1 Why3 Environment Preparation} *)
 
 (* Precomputed data for emitting a node. *)
@@ -37,24 +29,14 @@ type env_info = Why_types.env_info
    (and inputs if any). - [env] records links/pre_k derived from [node] and collection passes. *)
 
 (* Build environment data needed by the Why3 emission stages. *)
-val prepare_runtime_view : prefix_fields:bool -> Why_runtime_view.t -> env_info
-
-(* Backward-compatible adapter from the current normalized node. *)
-val prepare_node :
+val prepare_runtime_view :
   prefix_fields:bool ->
-  nodes:Ast.node list ->
-  Ast.node ->
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  Why_runtime_view.t ->
   env_info
 
-val prepare_summary :
+val prepare_ir_node :
   prefix_fields:bool ->
-  program_summaries:Proof_kernel_types.exported_node_summary_ir list ->
-  Proof_kernel_types.exported_node_summary_ir ->
-  env_info
-
-(** Build environment data from a [Proof_obligation_ir.verified_node] (Pass 5 output). *)
-val prepare_verified_node :
-  prefix_fields:bool ->
-  program_verified_nodes:Proof_obligation_ir.verified_node list ->
-  Proof_obligation_ir.verified_node ->
+  program_nodes:Ir.node list ->
+  Ir.node ->
   env_info

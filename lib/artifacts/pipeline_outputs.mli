@@ -1,8 +1,5 @@
 (** Full output assembly for the imported/main pipeline. *)
 
-val with_why_translation_mode :
-  Pipeline_types.why_translation_mode -> (unit -> 'a) -> 'a
-
 val stage_meta :
   Pipeline_types.stage_infos -> (string * (string * string) list) list
 

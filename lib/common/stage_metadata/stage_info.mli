@@ -44,25 +44,45 @@ type contracts_info = {
   warnings : string list;
 }
 
-(** Metadata produced by the instrumentation and IR-construction passes. *)
+(** Metadata produced after IR construction and proof-artifact export.
+
+    The record groups:
+    {ul
+    {- structured IR outputs;}
+    {- exported kernel summaries;}
+    {- human-readable renderings for diagnostics;}
+    {- DOT renderings for automata and product views;}
+    {- warnings emitted during this export stage.}} *)
 type instrumentation_info = {
+  (** Kernel-style IR for each processed node. *)
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
+  (** Export-oriented node summaries paired with the kernel IR. *)
   exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
   (** Pass 3 output: raw IR nodes (no Hoare triples). *)
-  raw_ir_nodes : Proof_obligation_ir.raw_node list;
+  raw_ir_nodes : Ir.raw_node list;
   (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)
-  annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
+  annotated_ir_nodes : Ir.annotated_node list;
   (** Pass 5 output: verified IR nodes (history eliminated, ready for Why3). *)
-  verified_ir_nodes : Proof_obligation_ir.verified_node list;
+  verified_ir_nodes : Ir.verified_node list;
+  (** Text rendering of the kernel IR. *)
   kernel_pipeline_lines : string list;
+  (** Non-fatal warnings emitted while building proof artifacts. *)
   warnings : string list;
+  (** Text rendering of the guarantee automaton. *)
   guarantee_automaton_lines : string list;
+  (** Text rendering of the assume automaton. *)
   assume_automaton_lines : string list;
+  (** Text rendering of the explored product. *)
   product_lines : string list;
+  (** Text rendering of generated obligations. *)
   obligations_lines : string list;
+  (** Text rendering of pruning explanations. *)
   prune_lines : string list;
+  (** DOT rendering of the guarantee automaton. *)
   guarantee_automaton_dot : string;
+  (** DOT rendering of the assume automaton. *)
   assume_automaton_dot : string;
+  (** DOT rendering of the product graph. *)
   product_dot : string;
 }
 
@@ -75,5 +95,7 @@ val empty_automata_info : automata_info
 (** Default empty contracts metadata. *)
 val empty_contracts_info : contracts_info
 
-(** Default empty instrumentation metadata. *)
+(** Empty proof-artifact metadata.
+
+    Every list field is empty and every DOT payload is the empty string. *)
 val empty_instrumentation_info : instrumentation_info

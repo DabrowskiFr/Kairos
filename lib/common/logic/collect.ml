@@ -68,12 +68,13 @@ let collect_pre_k_from_specs ~(fo_atom : ltl list) ~(ltl : ltl list)
   |> fun acc ->
   List.fold_left (fun acc inv -> collect_pre_k_ltl inv.formula acc) acc invariants_state_rel
 
-let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
-  let spec = specification_of_node n in
-  let sem = semantics_of_node n in
+let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
+    ~(ltl : ltl list) ~(invariants_user : invariant_user list)
+    ~(invariants_state_rel : invariant_state_rel list) :
+    (hexpr * Temporal_support.pre_k_info) list =
   let init_for_var =
     let table =
-      List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
+      List.map (fun v -> (v.vname, v.vty)) (inputs @ locals @ outputs)
     in
     fun v ->
       match List.assoc_opt v table with
@@ -85,19 +86,19 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
   let coherency_fo = [] in
   let normalized_fo = List.map normalize_ltl coherency_fo in
-  let normalized_ltl = List.map normalize_ltl (spec.spec_assumes @ spec.spec_guarantees) in
-  let normalized_invariants_user = [] in
+  let normalized_ltl = List.map normalize_ltl ltl in
+  let normalized_invariants_user = invariants_user in
   let normalized_invariants_state_rel =
     List.map
       (fun inv -> { inv with formula = normalize_ltl inv.formula })
-      spec.spec_invariants_state_rel
+      invariants_state_rel
   in
   let pre_k_exprs =
     collect_pre_k_from_specs ~fo_atom:normalized_fo ~ltl:normalized_ltl
       ~invariants_user:normalized_invariants_user
       ~invariants_state_rel:normalized_invariants_state_rel
   in
-  let vars = sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs in
+  let vars = inputs @ locals @ outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
     | Some v -> v.vty
@@ -139,6 +140,13 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
              in
              (h, { h; expr = e; names; vty })
          | _ -> failwith "expected pre_k hexpr")
+
+let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
+  let spec = specification_of_node n in
+  let sem = semantics_of_node n in
+  build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs
+    ~ltl:(spec.spec_assumes @ spec.spec_guarantees) ~invariants_user:[]
+    ~invariants_state_rel:spec.spec_invariants_state_rel
 
 let rec collect_calls_stmt (acc : (ident * iexpr list) list) (s : stmt) : (ident * iexpr list) list
     =

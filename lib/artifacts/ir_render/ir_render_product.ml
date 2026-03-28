@@ -29,6 +29,18 @@ let escape_dot_label (s : string) : string =
     s;
   Buffer.contents b
 
+let escape_html_label (s : string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string b "&amp;"
+      | '<' -> Buffer.add_string b "&lt;"
+      | '>' -> Buffer.add_string b "&gt;"
+      | '"' -> Buffer.add_string b "&quot;"
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
 let string_of_state (s : PT.product_state) : string =
   Printf.sprintf "(%s, A%d, G%d)" s.prog_state s.assume_state s.guarantee_state
 
@@ -105,6 +117,51 @@ let rewrite_history_vars_early (s : string) : string =
   loop 0;
   Buffer.contents b
 
+let pretty_product_formula (f : Fo_formula.t) : string =
+  f |> string_of_fo |> strip_braces_early |> rewrite_history_vars_early
+
+let replace_all ~pattern ~by s =
+  let plen = String.length pattern in
+  if plen = 0 then s
+  else
+    let buf = Buffer.create (String.length s) in
+    let rec loop i =
+      if i >= String.length s then ()
+      else if i + plen <= String.length s && String.sub s i plen = pattern then (
+        Buffer.add_string buf by;
+        loop (i + plen))
+      else (
+        Buffer.add_char buf s.[i];
+        loop (i + 1))
+    in
+    loop 0;
+    Buffer.contents buf
+
+let mathify_formula (s : string) : string =
+  s
+  |> replace_all ~pattern:"<>" ~by:"≠"
+  |> replace_all ~pattern:" -> " ~by:" → "
+  |> replace_all ~pattern:" and " ~by:" ∧ "
+  |> replace_all ~pattern:" or " ~by:" ∨ "
+  |> replace_all ~pattern:"not " ~by:"¬"
+  |> replace_all ~pattern:"true" ~by:"⊤"
+  |> replace_all ~pattern:"false" ~by:"⊥"
+
+let rec top_level_disjuncts (f : Fo_formula.t) : Fo_formula.t list =
+  match f with FOr (a, b) -> top_level_disjuncts a @ top_level_disjuncts b | x -> [ x ]
+
+let pretty_dot_formula (f : Fo_formula.t) : string =
+  match top_level_disjuncts f with
+  | [ x ] -> x |> pretty_product_formula |> mathify_formula
+  | xs ->
+      xs
+      |> List.map (fun x -> x |> pretty_product_formula |> mathify_formula)
+      |> String.concat ", "
+      |> Printf.sprintf "{%s}"
+
+let pretty_plain_dot_formula (f : Fo_formula.t) : string =
+  f |> pretty_product_formula |> mathify_formula
+
 let render_program_lines ~(node_name : ident) (node : Abs.node) =
   let states =
     node.semantics.sem_states
@@ -116,9 +173,7 @@ let render_program_lines ~(node_name : ident) (node : Abs.node) =
            let guard =
              match t.guard with
              | None -> "⊤"
-             | Some g ->
-                 g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
-                 |> rewrite_history_vars_early
+             | Some g -> g |> iexpr_to_fo_with_atoms [] |> pretty_plain_dot_formula
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
   in
@@ -132,9 +187,9 @@ let render_product_lines ~(node_name : ident) (analysis : Product_analysis.analy
   let steps =
     analysis.exploration.steps
     |> List.map (fun (step : PT.product_step) ->
-           Printf.sprintf "[%s] %s -- %s / A[%s]:%s / G[%s]:%s --> %s [%s]" node_name
+           Printf.sprintf "[%s] %s -- P:%s / A[%s]:%s / G[%s]:%s --> %s [%s]" node_name
              (string_of_state step.src)
-             step.prog_transition.src
+             (string_of_fo step.prog_guard)
              (string_of_edge step.assume_edge)
              (string_of_fo step.assume_guard)
              (string_of_edge step.guarantee_edge)
@@ -227,12 +282,156 @@ let pretty_edge_ref ~prefix ~(edge : PT.automaton_edge) ~(bad_idx : int) =
     (pretty_aut_state ~prefix ~idx:src ~bad_idx)
     (pretty_aut_state ~prefix ~idx:dst ~bad_idx)
 
+let tau_alias (i : int) : string = "τ" ^ product_subscript_digits i
+
+let add_bottom_formula_table ?(multiline = false) ?(show_title = true) buf ~title
+    ~(rows : (string * string) list) =
+  if rows <> [] then (
+    Buffer.add_string buf "  label=<\n";
+    Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
+    if show_title then
+      Buffer.add_string buf
+        (Printf.sprintf
+           "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
+           (escape_html_label title));
+    List.iter
+      (fun (alias, formula) ->
+        if multiline then
+          let lines = String.split_on_char '\n' formula in
+          match lines with
+          | [] -> ()
+          | first :: rest ->
+              Buffer.add_string buf
+                (Printf.sprintf
+                   "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD \
+                    ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">::=</FONT></TD><TD ALIGN=\"LEFT\"><FONT \
+                    POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
+                   (escape_html_label alias) (escape_html_label first));
+              List.iter
+                (fun line ->
+                  Buffer.add_string buf
+                    (Printf.sprintf
+                       "      <TR><TD></TD><TD></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
+                       (escape_html_label line)))
+                rest
+        else
+          Buffer.add_string buf
+            (Printf.sprintf
+               "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD \
+                ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">::=</FONT></TD><TD ALIGN=\"LEFT\"><FONT \
+                POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
+               (escape_html_label alias) (escape_html_label formula)))
+      rows;
+    Buffer.add_string buf "    </TABLE>>;\n")
+
+type merged_product_edge = {
+  src : PT.product_state;
+  dst : PT.product_state;
+  step_class : PT.step_class;
+  prog_guard : Fo_formula.t;
+  assume_guard : Fo_formula.t;
+  guarantee_guard : Fo_formula.t;
+}
+
+type product_edge_visual = {
+  color : string;
+  style : string;
+  category : string;
+}
+
+let merge_product_steps_for_dot (analysis : Product_analysis.analysis) : merged_product_edge list =
+  let tbl = Hashtbl.create 64 in
+  let key_of_step (step : PT.product_step) =
+    ( step.src,
+      step.dst,
+      step.step_class,
+      step.assume_edge,
+      step.guarantee_edge,
+      step.assume_guard,
+      step.guarantee_guard )
+  in
+  List.iter
+    (fun (step : PT.product_step) ->
+      let key = key_of_step step in
+      match Hashtbl.find_opt tbl key with
+      | None ->
+          Hashtbl.add tbl key
+            {
+              src = step.src;
+              dst = step.dst;
+              step_class = step.step_class;
+              prog_guard = step.prog_guard;
+              assume_guard = step.assume_guard;
+              guarantee_guard = step.guarantee_guard;
+            }
+      | Some merged ->
+          Hashtbl.replace tbl key
+            { merged with prog_guard = Fo_simplifier.simplify_fo (FOr (merged.prog_guard, step.prog_guard)) })
+    analysis.exploration.steps;
+  Hashtbl.fold (fun _ step acc -> step :: acc) tbl []
+  |> List.sort (fun a b ->
+         compare
+           ( string_of_state a.src,
+             string_of_state a.dst,
+             string_of_step_class a.step_class,
+             pretty_product_formula a.prog_guard )
+         ( string_of_state b.src,
+             string_of_state b.dst,
+             string_of_step_class b.step_class,
+             pretty_product_formula b.prog_guard ))
+
+let product_edge_visual ~(analysis : Product_analysis.analysis) (step : merged_product_edge) :
+    product_edge_visual =
+  let src_live =
+    step.src.assume_state <> analysis.assume_bad_idx
+    && step.src.guarantee_state <> analysis.guarantee_bad_idx
+  in
+  let dst_assume_bad =
+    analysis.assume_bad_idx >= 0 && step.dst.assume_state = analysis.assume_bad_idx
+  in
+  let dst_guarantee_bad =
+    analysis.guarantee_bad_idx >= 0 && step.dst.guarantee_state = analysis.guarantee_bad_idx
+  in
+  if not src_live then
+    { color = "#b8b8b8"; style = "dashed"; category = "from bad state" }
+  else if dst_assume_bad then
+    { color = "#c78a2c"; style = "dashed"; category = "to A_bad" }
+  else if dst_guarantee_bad then
+    { color = "#c0392b"; style = "solid"; category = "to G_bad" }
+  else
+    { color = "#222222"; style = "solid"; category = "live to live" }
+
 let render_product_dot ~(node_name : ident) (analysis : Product_analysis.analysis) =
   let buf = Buffer.create 4096 in
   let state_indices = product_state_index_map analysis.exploration.states in
+  let is_live_product_state (st : PT.product_state) =
+    st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
+  in
+  let should_annotate_step (step : merged_product_edge) =
+    is_live_product_state step.src
+    && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
+  in
+  let transition_details_rev = ref [] in
+  let transition_alias_of_detail =
+    let tbl = Hashtbl.create 64 in
+    let next = ref 1 in
+    fun detail ->
+      match Hashtbl.find_opt tbl detail with
+      | Some alias -> alias
+      | None ->
+          let alias = tau_alias !next in
+          incr next;
+          Hashtbl.add tbl detail alias;
+          transition_details_rev := (alias, detail) :: !transition_details_rev;
+          alias
+  in
   Buffer.add_string buf "digraph Product {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   Buffer.add_string buf "  forcelabels=true;\n";
+  Buffer.add_string buf "  labelloc=b;\n";
+  Buffer.add_string buf "  labeljust=l;\n";
+  Buffer.add_string buf "  fontsize=10;\n";
+  Buffer.add_string buf "  fontname=\"Helvetica\";\n";
   Buffer.add_string buf
     "  node [shape=box,style=\"rounded,filled\",penwidth=1.4,fontname=\"Helvetica\",fontsize=11,margin=0.12];\n";
   Buffer.add_string buf
@@ -249,30 +448,65 @@ let render_product_dot ~(node_name : ident) (analysis : Product_analysis.analysi
                  (pretty_product_state st ~analysis)))))
     analysis.exploration.states;
   let seen_edges = Hashtbl.create 64 in
+  let merged_steps = merge_product_steps_for_dot analysis in
   List.iter
-    (fun (step : PT.product_step) ->
-      let edge_color =
-        match step.step_class with
-        | PT.Safe -> "black"
-        | PT.Bad_assumption -> "orange"
-        | PT.Bad_guarantee -> "red"
-      in
+    (fun (step : merged_product_edge) ->
+      let visual = product_edge_visual ~analysis step in
       let edge_label =
-        Printf.sprintf "%s\\n%s\\n%s" (pretty_step_class step.step_class)
-          (pretty_edge_ref ~prefix:"A" ~edge:step.assume_edge ~bad_idx:analysis.assume_bad_idx)
-          (pretty_edge_ref ~prefix:"G" ~edge:step.guarantee_edge ~bad_idx:analysis.guarantee_bad_idx)
+        if should_annotate_step step then
+          let edge_detail =
+            Printf.sprintf "P: %s\nA: %s\nG: %s"
+              (pretty_plain_dot_formula step.prog_guard)
+              (pretty_plain_dot_formula step.assume_guard)
+              (pretty_plain_dot_formula step.guarantee_guard)
+          in
+          transition_alias_of_detail edge_detail
+        else ""
       in
       let key =
-        Printf.sprintf "%s|%s|%s|%s" (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
-          edge_label
+        Printf.sprintf "%s|%s|%s|%s|%s" (node_id_of_state step.src) (node_id_of_state step.dst)
+          visual.color visual.style edge_label
       in
       if not (Hashtbl.mem seen_edges key) then (
         Hashtbl.add seen_edges key ();
         Buffer.add_string buf
-          (Printf.sprintf "  %s -> %s [color=%s,xlabel=\"%s\"];\n"
-             (node_id_of_state step.src) (node_id_of_state step.dst) edge_color
-             (escape_dot_label edge_label))))
-    analysis.exploration.steps;
+          (if edge_label = "" then
+             Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
+               (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style
+           else
+             Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\",xlabel=\"%s\"];\n"
+               (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style
+               (escape_dot_label edge_label))))
+    merged_steps;
+  Buffer.add_string buf
+    "  legend_product [shape=plaintext,margin=0.1,label=<\n";
+  Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
+  Buffer.add_string buf
+    "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>Edge categories</B></FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
+  Buffer.add_string buf "    </TABLE>>];\n";
+  begin
+    match List.rev analysis.exploration.states with
+    | last_state :: _ ->
+        Buffer.add_string buf
+          (Printf.sprintf "  %s -> legend_product [style=invis,weight=0];\n"
+             (node_id_of_state last_state))
+    | [] -> ()
+  end;
+  begin
+    match List.rev !transition_details_rev with
+    | [] -> ()
+    | details ->
+        add_bottom_formula_table ~multiline:true ~show_title:false buf ~title:"Product transitions"
+          ~rows:details
+  end;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
@@ -304,11 +538,9 @@ let render_program_dot ~(node_name : ident) (node : Abs.node) =
       transitions_from_state st
       |> List.iter (fun (t : Ast.transition) ->
              let guard =
-               match t.guard with
-               | None -> "⊤"
-               | Some g ->
-                   g |> iexpr_to_fo_with_atoms [] |> string_of_fo |> strip_braces_early
-                   |> rewrite_history_vars_early
+             match t.guard with
+             | None -> "⊤"
+             | Some g -> g |> iexpr_to_fo_with_atoms [] |> pretty_plain_dot_formula
              in
              Buffer.add_string buf
                (Printf.sprintf
@@ -369,23 +601,6 @@ let rewrite_history_vars (s : string) : string =
 
 let compact_display_string (s : string) : string = s |> strip_braces |> rewrite_history_vars
 
-let replace_all ~pattern ~by s =
-  let plen = String.length pattern in
-  if plen = 0 then s
-  else
-    let buf = Buffer.create (String.length s) in
-    let rec loop i =
-      if i >= String.length s then ()
-      else if i + plen <= String.length s && String.sub s i plen = pattern then (
-        Buffer.add_string buf by;
-        loop (i + plen))
-      else (
-        Buffer.add_char buf s.[i];
-        loop (i + 1))
-    in
-    loop 0;
-    Buffer.contents buf
-
 let unicode_subscript_digits (n : int) : string =
   let map = function
     | '0' -> "₀"
@@ -403,27 +618,17 @@ let unicode_subscript_digits (n : int) : string =
   string_of_int n |> String.to_seq |> List.of_seq |> List.map map |> String.concat ""
 
 let phi_alias (i : int) : string = "φ" ^ unicode_subscript_digits i
-
 let html_state_label ~state_prefix ~idx ~is_bad =
   if is_bad then Printf.sprintf "<I>%s</I><SUB>bad</SUB>" state_prefix
   else Printf.sprintf "<I>%s</I><SUB>%d</SUB>" state_prefix idx
 
-let mathify_formula (s : string) : string =
-  s
-  |> replace_all ~pattern:"<>" ~by:"≠"
-  |> replace_all ~pattern:" and " ~by:" ∧ "
-  |> replace_all ~pattern:" or " ~by:" ∨ "
-  |> replace_all ~pattern:"not " ~by:"¬"
-  |> replace_all ~pattern:"true" ~by:"⊤"
-  |> replace_all ~pattern:"false" ~by:"⊥"
-
 let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~atom_map_exprs =
   let buf = Buffer.create 1024 in
-  let (node_fill, node_border, title_color, legend_fill, edge_color) =
+  let (node_fill, node_border, title_color, edge_color) =
     if prefix = "a" then
-      ("#e8f3ea", "#2f6b3b", "#2f6b3b", "#f4fbf5", "#2f6b3b")
+      ("#e8f3ea", "#2f6b3b", "#2f6b3b", "#2f6b3b")
     else
-      ("#f6eadf", "#8b5a2b", "#8b5a2b", "#fdf6f0", "#8b5a2b")
+      ("#f6eadf", "#8b5a2b", "#8b5a2b", "#8b5a2b")
   in
   let bad_fill = "#f6d7d7" in
   let bad_border = "#a53030" in
@@ -431,7 +636,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
     grouped
     |> List.map (fun (_src, guard, _dst) ->
            let _ = atom_map_exprs in
-           guard |> iexpr_to_fo_with_atoms [] |> string_of_fo |> compact_display_string)
+           pretty_plain_dot_formula guard)
   in
   let alias_of_guard =
     let tbl = Hashtbl.create 16 in
@@ -448,9 +653,8 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
   Buffer.add_string buf (Printf.sprintf "digraph %s {\n" graph_name);
   Buffer.add_string buf "  rankdir=LR;\n";
   Buffer.add_string buf "  forcelabels=true;\n";
-  Buffer.add_string buf "  labelloc=t;\n";
-  Buffer.add_string buf
-    (Printf.sprintf "  label=\"%s automaton\";\n" (String.uppercase_ascii state_prefix));
+  Buffer.add_string buf "  labelloc=b;\n";
+  Buffer.add_string buf "  labeljust=l;\n";
   Buffer.add_string buf "  fontsize=18;\n";
   Buffer.add_string buf
     (Printf.sprintf "  fontcolor=\"%s\";\n" title_color);
@@ -472,7 +676,7 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
     (fun (src, guard, dst) ->
       let formula =
         let _ = atom_map_exprs in
-        guard |> iexpr_to_fo_with_atoms [] |> string_of_fo |> compact_display_string
+        pretty_plain_dot_formula guard
       in
       let alias = if formula = "true" then "⊤" else alias_of_guard formula in
       let dst_is_bad =
@@ -497,22 +701,9 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
             Some (alias_of_guard formula, formula)))
         guard_strings
     in
-    match unique_guards with
-    | [] -> ()
-    | _ ->
-        let legend =
-          Printf.sprintf "%s transition guards\\l%s\\l" state_prefix
-            (unique_guards
-            |> List.map (fun (alias, formula) ->
-                   Printf.sprintf "%s := %s" alias (mathify_formula formula))
-            |> String.concat "\\l")
-        in
-        Buffer.add_string buf "  { rank=sink;\n";
-        Buffer.add_string buf
-          (Printf.sprintf
-             "    legend_%s [shape=note,label=\"%s\",style=\"filled,rounded\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"%s\",fontname=\"Helvetica\",fontsize=10];\n"
-             prefix (escape_dot_label legend) legend_fill node_border node_border);
-        Buffer.add_string buf "  }\n"
+    add_bottom_formula_table buf
+      ~title:(Printf.sprintf "%s transition guards" state_prefix)
+      ~rows:unique_guards
   end;
   Buffer.add_string buf "}\n";
   Buffer.contents buf

@@ -24,9 +24,6 @@ type guard = Automaton_types.guard
 val guard_to_formula : guard -> string
 (* Render a guard as a boolean formula string. *)
 
-val guard_to_iexpr : guard -> Ast.iexpr
-(* Convert a guard into an iexpr formula. *)
-
 type automata_atoms = Automaton_types.automata_atoms = {
   atom_map : (Ast.fo_atom * Ast.ident) list;
   atom_named_exprs : (Ast.ident * Ast.iexpr) list;
@@ -37,9 +34,6 @@ val make_atom_names : (Ast.fo_atom * Ast.iexpr) list -> string list
 
 val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
 (* Inline atom variables inside a boolean expression using a name->expr map. *)
-
-val recover_guard_iexpr : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Ast.iexpr
-(* Identity on semantic guards; kept for compatibility at call sites. *)
 
 val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Fo_formula.t
 (* Convert a semantic guard into a first-order formula. *)

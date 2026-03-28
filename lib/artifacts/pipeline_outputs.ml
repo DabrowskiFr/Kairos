@@ -1,20 +1,5 @@
 open Ast
 
-let with_why_translation_mode (mode : Pipeline_types.why_translation_mode) f =
-  let keep_monitor =
-    match mode with
-    | Pipeline_types.Why_mode_monitor -> true
-    | Pipeline_types.Why_mode_no_automata -> false
-  in
-  let pure_translation = false in
-  let prev_keep = Why_runtime_view.get_keep_monitor_translation () in
-  let prev_pure = Why_contracts.get_pure_translation () in
-  Why_runtime_view.set_keep_monitor_translation keep_monitor;
-  Why_contracts.set_pure_translation pure_translation;
-  Fun.protect f ~finally:(fun () ->
-      Why_runtime_view.set_keep_monitor_translation prev_keep;
-      Why_contracts.set_pure_translation prev_pure)
-
 let join_blocks_with_spans ~sep blocks =
   let b = Buffer.create 4096 in
   let spans = ref [] in
@@ -95,20 +80,11 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
-    let kernel_ir_map =
-      List.map (fun (ir : Proof_kernel_types.node_ir) -> (ir.reactive_program.node_name, ir))
-        instrumentation_info.kernel_ir_nodes
+    let why_ast =
+      Emit.compile_program_ast_from_ir_nodes ~prefix_fields:cfg.prefix_fields
+        asts.instrumentation
     in
-    let program_summaries = instrumentation_info.exported_node_summaries in
-    let _why_ast, why_text, why_spans =
-      with_why_translation_mode cfg.why_translation_mode (fun () ->
-          let why_ast =
-            Emit.compile_program_ast_from_summaries ~prefix_fields:cfg.prefix_fields ~kernel_ir_map
-              program_summaries
-          in
-          let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
-          (why_ast, why_text, why_spans))
-    in
+    let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
     List.iter
       (fun (wid, (start_offset, end_offset)) ->
@@ -153,9 +129,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
              | Some selected -> List.nth_opt vc_ids_ordered selected = Some vcid)
     in
     let dot_text, labels_text =
-      if cfg.generate_monitor_text then
-        Artifact_render_monitor.dot_monitor_program ~show_labels:false asts.automata_generation
-      else ("", "")
+      Artifact_render_monitor.dot_monitor_program ~show_labels:false asts.automata_generation
     in
     let dot_png, dot_png_error =
       if cfg.generate_dot_png && dot_text <> "" then Graphviz_render.dot_png_from_text_diagnostic dot_text

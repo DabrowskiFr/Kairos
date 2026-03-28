@@ -143,13 +143,6 @@ type stage_infos = {
   instrumentation : Stage_info.instrumentation_info option;
 }
 
-type why_translation_mode =
-  | Why_mode_no_automata
-  | Why_mode_monitor
-
-val string_of_why_translation_mode : why_translation_mode -> string
-val why_translation_mode_of_string : string -> why_translation_mode option
-
 type config = {
   input_file : string;
   prover : string;
@@ -160,11 +153,9 @@ type config = {
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prefix_fields : bool;
-  why_translation_mode : why_translation_mode;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
-  generate_monitor_text : bool;
   generate_dot_png : bool;
 }
 

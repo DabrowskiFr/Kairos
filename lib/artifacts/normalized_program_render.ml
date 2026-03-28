@@ -11,8 +11,10 @@ let render_origin = function
         | Formula_origin.Instrumentation -> "Instrumentation"
         | Formula_origin.Invariant -> "Invariant"
         | Formula_origin.GuaranteeAutomaton -> "GuaranteeAutomaton"
+        | Formula_origin.GuaranteeViolation -> "GuaranteeViolation"
         | Formula_origin.GuaranteePropagation -> "GuaranteePropagation"
         | Formula_origin.AssumeAutomaton -> "AssumeAutomaton"
+        | Formula_origin.ProgramGuard -> "ProgramGuard"
         | Formula_origin.Internal -> "Internal"
       in
       " {" ^ s ^ "}"

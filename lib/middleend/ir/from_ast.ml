@@ -31,6 +31,7 @@ let of_ast_node (n : Ast.node) : Ir.node =
         state_invariants = spec.spec_invariants_state_rel;
       };
     coherency_goals = [];
+    proof_views = Ir.empty_proof_views;
   }
 
 let of_ast_program (p : Ast.program) : Ir.node list = List.map of_ast_node p

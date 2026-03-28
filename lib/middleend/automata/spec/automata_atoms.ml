@@ -28,9 +28,7 @@ open Ltl_valuation
 type guard = Automaton_types.guard
 
 let guard_to_formula (g : guard) : string =
-  Ast_pretty.string_of_iexpr g
-
-let guard_to_iexpr (g : guard) : Ast.iexpr = g
+  Ast_pretty.string_of_fo g
 
 let sanitize_ident (s : string) : string =
   (* Normalize an arbitrary string into a safe, lowercase identifier. *)
@@ -88,13 +86,9 @@ let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
   in
   go e
 
-let recover_guard_iexpr (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : iexpr =
-  let _ = atom_map in
-  g
-
 let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map in
-  iexpr_to_fo_with_atoms [] g
+  g
 
 type automata_atoms = Automaton_types.automata_atoms = {
   atom_map : (fo_atom * ident) list;

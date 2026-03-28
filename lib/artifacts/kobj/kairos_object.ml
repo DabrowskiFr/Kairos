@@ -145,9 +145,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
             in
             let source_pre_k_map = Collect.build_pre_k_infos node in
             let runtime_signature = node_signature_of_ast runtime_node in
-            let exported_runtime_locals =
-              List.filter (fun (v : Ast.vdecl) -> v.vname <> "__aut_state") runtime_signature.locals
-            in
+            let exported_runtime_locals = runtime_signature.locals in
             let signature =
               {
                 runtime_signature with

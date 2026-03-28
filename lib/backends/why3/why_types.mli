@@ -28,8 +28,6 @@ type env_info = {
   module_name : string;
   (* Extra imports required by this module. *)
   imports : Why3.Ptree.decl list;
-  (* Instrumentation state type declarations (if any). *)
-  type_mon_state : Why3.Ptree.decl list;
   (* Local mirror types synthesized for callee instances. *)
   instance_type_decls : Why3.Ptree.decl list;
   (* Node state type declaration. *)
@@ -42,35 +40,22 @@ type env_info = {
   inputs : Why3.Ptree.binder list;
   (* Return expression for the node. *)
   ret_expr : Why3.Ptree.expr;
-  (* Ghost update expression (if any). *)
-  ghost_updates : Why3.Ptree.expr;
-  (* Whether ghost updates are present. *)
-  has_ghost_updates : bool;
   (* Mapping from pre‑k expressions to generated info. *)
   pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
   (* Flat list of pre‑k infos. *)
   pre_k_infos : Temporal_support.pre_k_info list;
-  (* Whether a step counter is required. *)
-  needs_step_count : bool;
-  (* Whether a first‑step flag is required. *)
-  needs_first_step : bool;
-  (* Whether the node has contracts only at initialization. *)
-  has_initial_only_contracts : bool;
   (* Predicate to decide whether an [old] is needed for a hexpr. *)
   hexpr_needs_old : Ast.hexpr -> bool;
   (* Input names as identifiers. *)
   input_names : Ast.ident list;
-  (* Instrumentation state constructors (if any). *)
-  mon_state_ctors : Ast.ident list;
-  (* Initialization expression for an input variable. *)
-  init_for_var : Ast.ident -> Ast.iexpr;
 }
 
 (* Pre/post contract payload ready for Why3 emission. *)
 type step_contract_info = {
-  step : Proof_kernel_types.product_step_ir;
+  step : Why_runtime_view.runtime_product_transition_view;
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
+  forbidden : Why3.Ptree.term list;
 }
 
 type contract_info = {

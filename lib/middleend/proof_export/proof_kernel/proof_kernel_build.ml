@@ -13,7 +13,7 @@ let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
-  fo_of_iexpr g |> Fo_simplifier.simplify_fo
+  Fo_simplifier.simplify_fo g
 
 type lit = { var : ident; cst : string; is_pos : bool }
 

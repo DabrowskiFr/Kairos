@@ -4,7 +4,7 @@ let unique_pre_k_infos (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) 
   pre_k_map
   |> List.fold_left
        (fun acc (_, info) ->
-         if List.exists (fun existing -> existing.Temporal_support.expr = info.Temporal_support.expr && existing.Temporal_support.names = info.Temporal_support.names) acc then
+         if List.exists (fun existing -> existing.Temporal_support.names = info.Temporal_support.names) acc then
            acc
          else acc @ [ info ])
        []
@@ -68,9 +68,19 @@ let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
   | Some fo_atom' -> { f with value = fo_atom' }
   | None -> f
 
+let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+    (pc : Ir.product_contract) : Ir.product_contract =
+  let lower = lower_fo_o pre_k_map in
+  {
+    pc with
+    requires = List.map lower pc.requires;
+    ensures = List.map lower pc.ensures;
+    forbidden = List.map lower pc.forbidden;
+  }
+
 (** {2 Main pass} *)
 
-let eliminate (annotated : Proof_obligation_ir.annotated_node) : Proof_obligation_ir.verified_node =
+let eliminate (annotated : Ir.annotated_node) : Ir.verified_node =
   let raw = annotated.raw in
   let pre_k_map = raw.pre_k_map in
   let existing_names = List.map (fun (v : vdecl) -> v.vname) raw.locals in
@@ -79,9 +89,9 @@ let eliminate (annotated : Proof_obligation_ir.annotated_node) : Proof_obligatio
   let lower = lower_fo_o pre_k_map in
   let transitions =
     List.map
-      (fun (t : Proof_obligation_ir.annotated_transition) ->
+      (fun (t : Ir.annotated_transition) ->
         {
-          Proof_obligation_ir.src_state             = t.raw.src_state;
+          Ir.src_state             = t.raw.src_state;
           dst_state                       = t.raw.dst_state;
           guard                           = t.raw.guard;
           guard_iexpr                     = t.raw.guard_iexpr;
@@ -93,7 +103,7 @@ let eliminate (annotated : Proof_obligation_ir.annotated_node) : Proof_obligatio
       annotated.transitions
   in
   {
-    Proof_obligation_ir.node_name        = raw.node_name;
+    node_name                   = raw.node_name;
     inputs                     = raw.inputs;
     outputs                    = raw.outputs;
     locals                     = raw.locals @ extra_locals;
@@ -101,8 +111,27 @@ let eliminate (annotated : Proof_obligation_ir.annotated_node) : Proof_obligatio
     init_state                 = raw.init_state;
     instances                  = raw.instances;
     transitions;
+    product_transitions        = [];
     assumes                    = raw.assumes;
     guarantees                 = raw.guarantees;
     coherency_goals            = List.map lower annotated.coherency_goals;
     user_invariants            = annotated.user_invariants;
   }
+
+let apply_node (node : Ir.node) : Ir.node =
+  let annotated =
+    match node.proof_views.annotated with
+    | Some annotated -> annotated
+    | None -> failwith "Proof_obligation_lowering.apply_node: missing annotated proof view"
+  in
+  let lowered = eliminate annotated in
+  let verified =
+    {
+      lowered with
+      product_transitions =
+        List.map (lower_product_transition ~pre_k_map:annotated.raw.pre_k_map) node.product_transitions;
+    }
+  in
+  { node with proof_views = { node.proof_views with verified = Some verified } }
+
+let apply_program (program : Ir.node list) : Ir.node list = List.map apply_node program

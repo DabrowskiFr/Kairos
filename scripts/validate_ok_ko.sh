@@ -9,7 +9,8 @@ repo_root="${1:-$default_repo_root}"
 timeout_s="${2:-5}"
 suite_mode="${3:-legacy}"
 file_timeout_s="${4:-60}"
-single_file="${5:-}"
+suite_subset="${5:-all}"
+single_file="${6:-}"
 cli="$repo_root/_build/default/bin/cli/main.exe"
 report_dir="$repo_root/_build/validation"
 parallel_jobs="${VALIDATE_JOBS:-4}"
@@ -116,8 +117,35 @@ run_cli_dump_with_isolation() {
   fi
 }
 
+run_cli_prove_with_isolation() {
+  local stdout_file="$1"
+  local stderr_file="$2"
+  local file="$3"
+
+  local task_root
+  task_root="$(mktemp -d)"
+  mkdir -p "$task_root/tmp" "$task_root/xdg-cache"
+
+  if run_with_file_timeout "$stdout_file" "$stderr_file" \
+    env TMPDIR="$task_root/tmp" XDG_CACHE_HOME="$task_root/xdg-cache" \
+    opam exec -- "$cli" --prove "$file"
+  then
+    local status=0
+    rm -rf "$task_root"
+    return "$status"
+  else
+    local status=$?
+    rm -rf "$task_root"
+    return "$status"
+  fi
+}
+
 compile_kobjs_for_dir() {
   local dir="$1"
+  local filter="${2:-all}"
+  if [[ "$filter" == "without_calls" ]]; then
+    return 0
+  fi
   local file
   for pass in 1 2; do
     for file in "$dir"/*.kairos; do
@@ -188,9 +216,20 @@ run_classifications_parallel() {
     return 0
   fi
 
+  flush_parts() {
+    local part
+    for part in "$tmpdir"/*.tsv; do
+      [ -e "$part" ] || continue
+      cat "$part" >> "$report_file"
+      rm -f "$part"
+    done
+  }
+
   if ! [[ "$jobs" =~ ^[0-9]+$ ]] || (( jobs < 1 )); then
     jobs=1
   fi
+
+  : > "$report_file"
 
   for file in "${files[@]}"; do
     local slot
@@ -209,6 +248,7 @@ run_classifications_parallel() {
           failed=1
         fi
       done
+      flush_parts
       pids=()
     fi
   done
@@ -221,18 +261,13 @@ run_classifications_parallel() {
     fi
   done
 
+  flush_parts
+
   if (( failed != 0 )); then
     rm -rf "$tmpdir"
     echo "Parallel classification failed" >&2
     exit 1
   fi
-
-  local part
-  : > "$report_file"
-  for part in "$tmpdir"/*.tsv; do
-    [ -e "$part" ] || continue
-    cat "$part" >> "$report_file"
-  done
   rm -rf "$tmpdir"
 }
 
@@ -250,23 +285,8 @@ classify_ok() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_cli_dump_with_isolation "$tmp" "$tmp.stderr" "$file"; then
-    local failed_count
-    if ! failed_count="$(jq 'length' < "$tmp" 2>/dev/null)"; then
-      local err
-      err="$(stderr_summary "$tmp.stderr")"
-      if [[ -z "$err" ]]; then
-        err="invalid_or_empty_proof_trace_json"
-      fi
-      printf '%s\tERROR\t%s\n' "$file" "$err"
-      rm -f "$tmp" "$tmp.stderr"
-      return 0
-    fi
-    if [[ "$failed_count" == "0" ]]; then
-      printf '%s\tOK\t0\n' "$file"
-    else
-      printf '%s\tFAILED\t%s\n' "$file" "$failed_count"
-    fi
+  if run_cli_prove_with_isolation "$tmp" "$tmp.stderr" "$file"; then
+    printf '%s\tOK\t0\n' "$file"
   else
     local status=$?
     local err
@@ -278,7 +298,10 @@ classify_ok() {
         printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
       fi
     else
-      printf '%s\tERROR\t%s\n' "$file" "$err"
+      if [[ -z "$err" ]]; then
+        err="prove_failed"
+      fi
+      printf '%s\tFAILED\t%s\n' "$file" "$err"
     fi
   fi
   rm -f "$tmp" "$tmp.stderr"
@@ -288,35 +311,8 @@ classify_ko() {
   local file="$1"
   local tmp
   tmp="$(mktemp)"
-  if run_cli_dump_with_isolation "$tmp" "$tmp.stderr" "$file"; then
-    local failed_count
-    if ! failed_count="$(jq 'length' < "$tmp" 2>/dev/null)"; then
-      local err
-      err="$(stderr_summary "$tmp.stderr")"
-      if [[ -z "$err" ]]; then
-        err="invalid_or_empty_proof_trace_json"
-      fi
-      printf '%s\tINVALID\t%s\n' "$file" "$err"
-      rm -f "$tmp" "$tmp.stderr"
-      return 0
-    fi
-    if [[ "$failed_count" == "0" ]]; then
-      printf '%s\tUNEXPECTED_GREEN\t0\n' "$file"
-    else
-      local status
-      if ! status="$(jq -r '
-        if any(.[]; .status == "failure") then
-          "INVALID"
-        elif any(.[]; (.status == "timeout") or (.solver_status == "timeout") or (.solver_detail == "solver_timeout")) then
-          "TIMEOUT"
-        else
-          "INVALID"
-        end
-      ' < "$tmp" 2>/dev/null)"; then
-        status="INVALID"
-      fi
-      printf '%s\t%s\t%s\n' "$file" "$status" "$failed_count"
-    fi
+  if run_cli_prove_with_isolation "$tmp" "$tmp.stderr" "$file"; then
+    printf '%s\tUNEXPECTED_GREEN\t0\n' "$file"
   else
     local status=$?
     local err
@@ -328,19 +324,24 @@ classify_ko() {
         printf '%s\tTIMEOUT\tfile_timeout_%ss\n' "$file" "$file_timeout_s"
       fi
     else
+      if [[ -z "$err" ]]; then
+        err="prove_failed"
+      fi
       printf '%s\tINVALID\t%s\n' "$file" "$err"
     fi
   fi
   rm -f "$tmp" "$tmp.stderr"
 }
 
-# run_suite NAME OK_DIR KO_DIR [FILTER]
+# run_suite NAME OK_DIR KO_DIR [FILTER] [SUBSET]
 # FILTER: "all" (default) | "with_calls" | "without_calls"
+# SUBSET: "all" (default) | "ok" | "ko"
 run_suite() {
   local suite_name="$1"
   local ok_dir="$2"
   local ko_dir="$3"
   local filter="${4:-all}"
+  local subset="${5:-all}"
   local ok_report="$report_dir/${suite_name}_ok_report.tsv"
   local ko_report="$report_dir/${suite_name}_ko_report.tsv"
   local summary_report="$report_dir/${suite_name}_summary.txt"
@@ -348,15 +349,32 @@ run_suite() {
   local ko_report_tmp="$ko_report.tmp"
   local summary_report_tmp="$summary_report.tmp"
 
-  compile_kobjs_for_dir "$ok_dir"
-  read_files_into_array ok_files collect_suite_files "$ok_dir" "$filter" ok
-  run_classifications_parallel classify_ok "$ok_report_tmp" "${ok_files[@]}"
-  mv "$ok_report_tmp" "$ok_report"
+  case "$subset" in
+    all|ok|ko) ;;
+    *)
+      echo "Unknown subset: $subset" >&2
+      echo "Expected one of: all, ok, ko" >&2
+      exit 2
+      ;;
+  esac
 
-  compile_kobjs_for_dir "$ko_dir"
-  read_files_into_array ko_files collect_suite_files "$ko_dir" "$filter" ko
-  run_classifications_parallel classify_ko "$ko_report_tmp" "${ko_files[@]}"
-  mv "$ko_report_tmp" "$ko_report"
+  if [[ "$subset" == "all" || "$subset" == "ok" ]]; then
+    compile_kobjs_for_dir "$ok_dir" "$filter"
+    read_files_into_array ok_files collect_suite_files "$ok_dir" "$filter" ok
+    run_classifications_parallel classify_ok "$ok_report_tmp" "${ok_files[@]}"
+    mv "$ok_report_tmp" "$ok_report"
+  else
+    : > "$ok_report"
+  fi
+
+  if [[ "$subset" == "all" || "$subset" == "ko" ]]; then
+    compile_kobjs_for_dir "$ko_dir" "$filter"
+    read_files_into_array ko_files collect_suite_files "$ko_dir" "$filter" ko
+    run_classifications_parallel classify_ko "$ko_report_tmp" "${ko_files[@]}"
+    mv "$ko_report_tmp" "$ko_report"
+  else
+    : > "$ko_report"
+  fi
 
   local ok_total ok_green ok_non_green ko_total ko_invalid ko_timeout ko_false_green
   ok_total="$(wc -l < "$ok_report" | tr -d ' ')"
@@ -370,6 +388,7 @@ run_suite() {
 
   {
     echo "suite=$suite_name"
+    echo "subset=$subset"
     echo "timeout_per_goal=$timeout_s"
     echo "timeout_per_file=$file_timeout_s"
     echo "ok_total=$ok_total"
@@ -392,20 +411,21 @@ ko_dir="$repo_root/tests/ko"
 
 case "$suite_mode" in
   legacy)
-    run_suite "legacy" "$ok_dir" "$ko_dir"
+    run_suite "legacy" "$ok_dir" "$ko_dir" "all" "$suite_subset"
     ;;
   with_calls)
-    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls"
+    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls" "$suite_subset"
     ;;
   without_calls)
-    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls"
+    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls" "$suite_subset"
     ;;
   split)
-    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls"
+    run_suite "with_calls" "$ok_dir" "$ko_dir" "with_calls" "$suite_subset"
     echo
-    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls"
+    run_suite "without_calls" "$ok_dir" "$ko_dir" "without_calls" "$suite_subset"
     ;;
   single_ok)
+    single_file="${5:-}"
     if [[ -z "$single_file" ]]; then
       echo "single_ok requires a file path as 5th argument" >&2
       exit 2
@@ -413,6 +433,7 @@ case "$suite_mode" in
     classify_ok "$single_file"
     ;;
   single_ko)
+    single_file="${5:-}"
     if [[ -z "$single_file" ]]; then
       echo "single_ko requires a file path as 5th argument" >&2
       exit 2
@@ -422,7 +443,9 @@ case "$suite_mode" in
   *)
     echo "Unknown suite mode: $suite_mode" >&2
     echo "Expected one of: legacy, with_calls, without_calls, split, single_ok, single_ko" >&2
-    echo "Usage: $0 [repo_root] [timeout_per_goal_s] [suite_mode] [timeout_per_file_s] [single_file]" >&2
+    echo "Usage: $0 [repo_root] [timeout_per_goal_s] [suite_mode] [timeout_per_file_s] [subset=all|ok|ko]" >&2
+    echo "   or: $0 [repo_root] [timeout_per_goal_s] single_ok [timeout_per_file_s] [file]" >&2
+    echo "   or: $0 [repo_root] [timeout_per_goal_s] single_ko [timeout_per_file_s] [file]" >&2
     exit 2
     ;;
 esac

@@ -215,12 +215,6 @@ let get_engine (params : Yojson.Safe.t) : Engine_service.engine =
   | Some s -> Option.value (Engine_service.engine_of_string s) ~default:Engine_service.Default
   | None -> Engine_service.Default
 
-let get_why_mode (params : Yojson.Safe.t) : Pipeline_types.why_translation_mode =
-  match get_param_string params "whyMode" with
-  | Some s ->
-      Option.value (Pipeline_types.why_translation_mode_of_string s) ~default:Pipeline_types.Why_mode_no_automata
-  | None -> Pipeline_types.Why_mode_no_automata
-
 let symbol_info ~(uri : string) ~(name : string) ~(line : int) ~(character : int) : Yojson.Safe.t =
   let range =
     let start = lsp_position ~line ~character in
@@ -258,35 +252,7 @@ let kobj_request_input_and_engine (params : Yojson.Safe.t) :
   in
   (input_file, engine)
 
-let read_or_compile_kobj ~(engine : Engine_service.engine) ~(input_file : string) =
-  if Filename.check_suffix input_file ".kobj" then
-    Kairos_object.read_file ~path:input_file
-  else
-    match Engine_service.compile_object ~engine ~input_file with
-    | Ok obj -> Ok obj
-    | Error e -> Error (Pipeline_types.error_to_string e)
-
-let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.config =
-  {
-    input_file = cfg.input_file;
-    prover = cfg.prover;
-    prover_cmd = cfg.prover_cmd;
-   wp_only = cfg.wp_only;
-    smoke_tests = cfg.smoke_tests;
-    timeout_s = cfg.timeout_s;
-    selected_goal_index = cfg.selected_goal_index;
-    compute_proof_diagnostics = cfg.compute_proof_diagnostics;
-    prefix_fields = cfg.prefix_fields;
-    why_translation_mode =
-      Option.value
-        (Pipeline_types.why_translation_mode_of_string cfg.why_mode)
-        ~default:Pipeline_types.Why_mode_no_automata;
-    prove = cfg.prove;
-    generate_vc_text = cfg.generate_vc_text;
-    generate_smt_text = cfg.generate_smt_text;
-    generate_monitor_text = cfg.generate_monitor_text;
-    generate_dot_png = cfg.generate_dot_png;
-  }
+let pipeline_config_of_protocol = Lsp_backend.pipeline_config_of_protocol
 
 let send_work_done_begin (oc : out_channel) ~(token : string) ~(title : string) ~(message : string) : unit =
   send_notification oc ~method_name:"$/progress"
@@ -674,30 +640,28 @@ let () =
             Option.iter
               (fun id ->
                 let req = decode_or_none Lsp_protocol.instrumentation_pass_request_of_yojson params in
-                let input_file =
+                let req =
                   match req with
-                  | Some req -> Some req.input_file
-                  | None -> get_param_string params "inputFile"
+                  | Some req -> Some req
+                  | None -> (
+                      match get_param_string params "inputFile" with
+                      | Some input_file ->
+                          Some
+                            {
+                              Lsp_protocol.input_file;
+                              generate_png = get_param_bool params "generatePng" true;
+                              engine = Engine_service.string_of_engine (get_engine params);
+                            }
+                      | None -> None)
                 in
-                let generate_png =
-                  match req with
-                  | Some req -> req.generate_png
-                  | None -> get_param_bool params "generatePng" true
-                in
-                let engine =
-                  match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
-                  | None -> get_engine params
-                in
-                match input_file with
-                | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.instrumentation_pass ~engine ~generate_png ~input_file
-                    with
+                match req with
+                | Some req when Sys.file_exists req.input_file -> (
+                    match Lsp_backend.instrumentation_pass req with
                     | Ok out ->
                         send_result stdout ~id_json:id
-                          ~result_json:(Lsp_protocol.yojson_of_automata_outputs (map_automata out))
-                    | Error e ->
-                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
+                          ~result_json:(Lsp_protocol.yojson_of_automata_outputs out)
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
                 | _ ->
                     send_error stdout ~id_json:(Some id) ~code:(-32602)
                       ~message:"Missing valid inputFile for kairos/instrumentationPass")
@@ -706,123 +670,104 @@ let () =
             Option.iter
               (fun id ->
                 let req = decode_or_none Lsp_protocol.why_pass_request_of_yojson params in
-                let input_file =
+                let req =
                   match req with
-                  | Some req -> Some req.input_file
-                  | None -> get_param_string params "inputFile"
+                  | Some req -> Some req
+                  | None -> (
+                      match get_param_string params "inputFile" with
+                      | Some input_file ->
+                          Some
+                            {
+                              Lsp_protocol.input_file;
+                              prefix_fields = get_param_bool params "prefixFields" false;
+                              engine = Engine_service.string_of_engine (get_engine params);
+                            }
+                      | None -> None)
                 in
-                let prefix_fields =
-                  match req with
-                  | Some req -> req.prefix_fields
-                  | None -> get_param_bool params "prefixFields" false
-                in
-                let engine =
-                  match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
-                  | None -> get_engine params
-                in
-                let why_translation_mode =
-                  match req with
-                  | Some req ->
-                      Option.bind req.why_mode Pipeline_types.why_translation_mode_of_string
-                      |> Option.value ~default:Pipeline_types.Why_mode_no_automata
-                  | None -> get_why_mode params
-                in
-                match input_file with
-                | Some input_file when Sys.file_exists input_file -> (
-                    match Engine_service.why_pass ~engine ~prefix_fields ~why_translation_mode ~input_file with
+                match req with
+                | Some req when Sys.file_exists req.input_file -> (
+                    match Lsp_backend.why_pass req with
                     | Ok out ->
-                        send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_why_outputs (map_why out))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
-                | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile")
+                        send_result stdout ~id_json:id
+                          ~result_json:(Lsp_protocol.yojson_of_why_outputs out)
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/obligationsPass" ->
             Option.iter
               (fun id ->
                 let req = decode_or_none Lsp_protocol.obligations_pass_request_of_yojson params in
-                let input_file =
+                let req =
                   match req with
-                  | Some req -> Some req.input_file
-                  | None -> get_param_string params "inputFile"
+                  | Some req -> Some req
+                  | None -> (
+                      match (get_param_string params "inputFile", get_param_string params "prover") with
+                      | Some input_file, Some prover ->
+                          Some
+                            {
+                              Lsp_protocol.input_file;
+                              prover;
+                              prefix_fields = get_param_bool params "prefixFields" false;
+                              engine = Engine_service.string_of_engine (get_engine params);
+                            }
+                      | _ -> None)
                 in
-                let prover =
-                  match req with
-                  | Some req -> Some req.prover
-                  | None -> get_param_string params "prover"
-                in
-                let prefix_fields =
-                  match req with
-                  | Some req -> req.prefix_fields
-                  | None -> get_param_bool params "prefixFields" false
-                in
-                let engine =
-                  match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
-                  | None -> get_engine params
-                in
-                let why_translation_mode =
-                  match req with
-                  | Some req ->
-                      Option.bind req.why_mode Pipeline_types.why_translation_mode_of_string
-                      |> Option.value ~default:Pipeline_types.Why_mode_no_automata
-                  | None -> get_why_mode params
-                in
-                match (input_file, prover) with
-                | Some input_file, Some prover when Sys.file_exists input_file -> (
-                    match Engine_service.obligations_pass ~engine ~prefix_fields ~why_translation_mode ~prover ~input_file with
+                match req with
+                | Some req when Sys.file_exists req.input_file -> (
+                    match Lsp_backend.obligations_pass req with
                     | Ok out ->
                         send_result stdout ~id_json:id
-                          ~result_json:(Lsp_protocol.yojson_of_obligations_outputs (map_oblig out))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
-                | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/prover")
+                          ~result_json:(Lsp_protocol.yojson_of_obligations_outputs out)
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile/prover")
               id_json
         | Some "kairos/evalPass" ->
             Option.iter
               (fun id ->
                 let req = decode_or_none Lsp_protocol.eval_pass_request_of_yojson params in
-                let input_file =
+                let req =
                   match req with
-                  | Some req -> Some req.input_file
-                  | None -> get_param_string params "inputFile"
+                  | Some req -> Some req
+                  | None -> (
+                      match (get_param_string params "inputFile", get_param_string params "traceText") with
+                      | Some input_file, Some trace_text ->
+                          Some
+                            {
+                              Lsp_protocol.input_file;
+                              trace_text;
+                              with_state = get_param_bool params "withState" false;
+                              with_locals = get_param_bool params "withLocals" false;
+                              engine = Engine_service.string_of_engine (get_engine params);
+                            }
+                      | _ -> None)
                 in
-                let trace_text =
-                  match req with
-                  | Some req -> Some req.trace_text
-                  | None -> get_param_string params "traceText"
-                in
-                let with_state =
-                  match req with
-                  | Some req -> req.with_state
-                  | None -> get_param_bool params "withState" false
-                in
-                let with_locals =
-                  match req with
-                  | Some req -> req.with_locals
-                  | None -> get_param_bool params "withLocals" false
-                in
-                let engine =
-                  match req with
-                  | Some req -> Option.value (Engine_service.engine_of_string req.engine) ~default:Engine_service.Default
-                  | None -> get_engine params
-                in
-                match (input_file, trace_text) with
-                | Some input_file, Some trace_text when Sys.file_exists input_file -> (
-                    match Engine_service.eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals with
+                match req with
+                | Some req when Sys.file_exists req.input_file -> (
+                    match Lsp_backend.eval_pass req with
                     | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
-                | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile/traceText")
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
+                | _ ->
+                    send_error stdout ~id_json:(Some id) ~code:(-32602)
+                      ~message:"Missing valid inputFile/traceText")
               id_json
         | Some "kairos/kobjSummary" ->
             Option.iter
               (fun id ->
                 let input_file, engine = kobj_request_input_and_engine params in
                 match input_file with
-                | Some input_file when Sys.file_exists input_file ->
-                    let obj_result = read_or_compile_kobj ~engine ~input_file in
-                    (match obj_result with
-                    | Ok obj ->
-                        send_result stdout ~id_json:id
-                          ~result_json:(`String (Kairos_object.render_summary obj))
+                | Some input_file when Sys.file_exists input_file -> (
+                    match
+                      Lsp_backend.kobj_summary
+                        { Lsp_protocol.input_file; engine = Engine_service.string_of_engine engine }
+                    with
+                    | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error msg ->
                         send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
                 | _ ->
@@ -834,12 +779,12 @@ let () =
               (fun id ->
                 let input_file, engine = kobj_request_input_and_engine params in
                 match input_file with
-                | Some input_file when Sys.file_exists input_file ->
-                    let obj_result = read_or_compile_kobj ~engine ~input_file in
-                    (match obj_result with
-                    | Ok obj ->
-                        send_result stdout ~id_json:id
-                          ~result_json:(`String (Kairos_object.render_clauses obj))
+                | Some input_file when Sys.file_exists input_file -> (
+                    match
+                      Lsp_backend.kobj_clauses
+                        { Lsp_protocol.input_file; engine = Engine_service.string_of_engine engine }
+                    with
+                    | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error msg ->
                         send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
                 | _ ->
@@ -851,12 +796,12 @@ let () =
               (fun id ->
                 let input_file, engine = kobj_request_input_and_engine params in
                 match input_file with
-                | Some input_file when Sys.file_exists input_file ->
-                    let obj_result = read_or_compile_kobj ~engine ~input_file in
-                    (match obj_result with
-                    | Ok obj ->
-                        send_result stdout ~id_json:id
-                          ~result_json:(`String (Kairos_object.render_product obj))
+                | Some input_file when Sys.file_exists input_file -> (
+                    match
+                      Lsp_backend.kobj_product
+                        { Lsp_protocol.input_file; engine = Engine_service.string_of_engine engine }
+                    with
+                    | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
                     | Error msg ->
                         send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
                 | _ ->
@@ -873,7 +818,9 @@ let () =
                 in
                 match dot with
                 | Some dot ->
-                    let out = Graphviz_render.dot_png_from_text dot in
+                    let out =
+                      Lsp_backend.dot_png_from_text { Lsp_protocol.dot_text = dot }
+                    in
                     send_result stdout ~id_json:id
                       ~result_json:(match out with None -> `Null | Some s -> `String s)
                 | None -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing dotText")
@@ -921,11 +868,9 @@ let () =
                             compute_proof_diagnostics =
                               get_param_bool params "computeProofDiagnostics" false;
                             prefix_fields = get_param_bool params "prefixFields" false;
-                            why_translation_mode = get_why_mode params;
                             prove = get_param_bool params "prove" true;
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;
-                            generate_monitor_text = get_param_bool params "generateMonitorText" true;
                             generate_dot_png = get_param_bool params "generateDotPng" true;
                           }
                     in
@@ -951,7 +896,7 @@ let () =
                       let payload : Lsp_protocol.outputs_ready_notification =
                         {
                           request_id = protocol_request_id id;
-                          payload = map_outputs out;
+                          payload = out;
                         }
                       in
                       send_notification stdout ~method_name:"kairos/outputsReady"
@@ -991,11 +936,28 @@ let () =
                       send_notification stdout ~method_name:"kairos/goalDone"
                         ~params_json:(Lsp_protocol.yojson_of_goal_done_notification payload)
                     in
+                    let lsp_cfg =
+                      {
+                        Lsp_protocol.input_file = cfg.input_file;
+                        engine = Engine_service.string_of_engine engine;
+                        prover = cfg.prover;
+                        prover_cmd = cfg.prover_cmd;
+                        wp_only = cfg.wp_only;
+                        smoke_tests = cfg.smoke_tests;
+                        timeout_s = cfg.timeout_s;
+                        selected_goal_index = cfg.selected_goal_index;
+                        compute_proof_diagnostics = cfg.compute_proof_diagnostics;
+                        prefix_fields = cfg.prefix_fields;
+                        prove = cfg.prove;
+                        generate_vc_text = cfg.generate_vc_text;
+                        generate_smt_text = cfg.generate_smt_text;
+                        generate_dot_png = cfg.generate_dot_png;
+                      }
+                    in
                     (match
-                       Engine_service.run_with_callbacks ~engine
-                         ~should_cancel:(fun () ->
-                           Hashtbl.mem canceled req_key)
-                         cfg ~on_outputs_ready ~on_goals_ready ~on_goal_done
+                       Lsp_backend.run_with_callbacks ~engine
+                         ~should_cancel:(fun () -> Hashtbl.mem canceled req_key)
+                         lsp_cfg ~on_outputs_ready ~on_goals_ready ~on_goal_done
                      with
                     | Ok out ->
                         if Hashtbl.mem canceled req_key then
@@ -1003,8 +965,11 @@ let () =
                         else (
                           if !supports_work_done_progress then
                             send_work_done_end stdout ~token:progress_token ~message:"Done";
-                          send_result stdout ~id_json:id ~result_json:(Lsp_protocol.yojson_of_outputs (map_outputs out)))
-                    | Error e -> send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:(Pipeline_types.error_to_string e))
+                          send_result stdout ~id_json:id
+                            ~result_json:(Lsp_protocol.yojson_of_outputs out))
+                    | Error msg ->
+                        send_error stdout ~id_json:(Some id) ~code:(-32001)
+                          ~message:msg)
                 | _ -> send_error stdout ~id_json:(Some id) ~code:(-32602) ~message:"Missing valid inputFile")
               id_json
         | Some _ ->

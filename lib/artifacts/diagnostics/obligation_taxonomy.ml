@@ -6,6 +6,7 @@ module Abs = Ir
 type family =
   | FamTransitionRequires
   | FamTransitionEnsures
+  | FamGuaranteeViolationForbidden
   | FamInvariantRequires
   | FamInvariantEnsuresShifted
   | FamInitialInvariantGoal
@@ -45,6 +46,7 @@ let ordered_families =
   [
     FamTransitionRequires;
     FamTransitionEnsures;
+    FamGuaranteeViolationForbidden;
     FamInvariantRequires;
     FamInvariantEnsuresShifted;
     FamInitialInvariantGoal;
@@ -58,6 +60,7 @@ let ordered_families =
 let family_name = function
   | FamTransitionRequires -> "transition_requires"
   | FamTransitionEnsures -> "transition_ensures"
+  | FamGuaranteeViolationForbidden -> "guarantee_violation_forbidden"
   | FamInvariantRequires -> "invariant_requires"
   | FamInvariantEnsuresShifted -> "invariant_ensures_shifted"
   | FamInitialInvariantGoal -> "initial_invariant_goal"
@@ -100,6 +103,7 @@ let category_of_family = function
   | FamGuaranteePropagationRequires
   | FamGuaranteeAutomatonEnsures
   | FamStateAwareAssumptionRequires -> Some CatAutomatonSupport
+  | FamGuaranteeViolationForbidden -> Some CatNoBad
   | FamTransitionRequires | FamTransitionEnsures -> None
 
 let classify_require (f : Abs.contract_formula) : family =
@@ -108,8 +112,11 @@ let classify_require (f : Abs.contract_formula) : family =
   | Some Instrumentation -> FamNoBadRequires
   | Some GuaranteePropagation -> FamGuaranteePropagationRequires
   | Some AssumeAutomaton -> FamStateAwareAssumptionRequires
+  | Some ProgramGuard -> FamTransitionRequires
   | Some GuaranteeAutomaton ->
       FamTransitionRequires
+  | Some GuaranteeViolation ->
+      FamNoBadRequires
   | Some UserContract | Some Internal | None ->
       FamTransitionRequires
 
@@ -118,8 +125,9 @@ let classify_ensure (f : Abs.contract_formula) : family =
   | Some Invariant -> FamInvariantEnsuresShifted
   | Some Instrumentation -> FamNoBadEnsures
   | Some GuaranteeAutomaton -> FamGuaranteeAutomatonEnsures
+  | Some GuaranteeViolation -> FamGuaranteeViolationForbidden
   | Some UserContract | Some Internal | Some GuaranteePropagation
-  | Some AssumeAutomaton | None ->
+  | Some AssumeAutomaton | Some ProgramGuard | None ->
       FamTransitionEnsures
 
 let summarize_program (p : Abs.node list) : summary =

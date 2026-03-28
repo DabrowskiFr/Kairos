@@ -6,5 +6,4 @@
  (libraries
   kairos_ast
   kairos_ir
-  kairos_proof_obligation_ir
   kairos_proof_kernel_types))

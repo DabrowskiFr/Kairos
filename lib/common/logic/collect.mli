@@ -30,6 +30,15 @@ val collect_pre_k_from_specs :
   invariants_state_rel:Ast.invariant_state_rel list ->
   Ast.hexpr list
 
+val build_pre_k_infos_from_parts :
+  inputs:Ast.vdecl list ->
+  locals:Ast.vdecl list ->
+  outputs:Ast.vdecl list ->
+  ltl:Ast.ltl list ->
+  invariants_user:Ast.invariant_user list ->
+  invariants_state_rel:Ast.invariant_state_rel list ->
+  (Ast.hexpr * Temporal_support.pre_k_info) list
+
 val build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list
 
 val collect_calls_stmt :

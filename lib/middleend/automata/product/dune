@@ -3,6 +3,6 @@
  (wrapped false)
  (modules product_types product_analysis product_build)
  (libraries
-  kairos_ast kairos_fo_formula kairos_logic kairos_ir kairos_proof_obligation_ir
+  kairos_ast kairos_fo_formula kairos_logic kairos_ir
   kairos_proof_kernel_types kairos_automata kairos_generated_names kairos_ast_pretty
   kairos_temporal_support))

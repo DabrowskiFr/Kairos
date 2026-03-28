@@ -1,11 +1,9 @@
 open Ast
 
-module Abs = Ir
-
 type ir_nodes = {
-  raw_ir_nodes : Proof_obligation_ir.raw_node list;
-  annotated_ir_nodes : Proof_obligation_ir.annotated_node list;
-  verified_ir_nodes : Proof_obligation_ir.verified_node list;
+  raw_ir_nodes : Ir.raw_node list;
+  annotated_ir_nodes : Ir.annotated_node list;
+  verified_ir_nodes : Ir.verified_node list;
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 
@@ -19,31 +17,39 @@ let build_ast_with_info ~input_file () :
     let p_automaton, automata, automata_info =
       Automata_pass.Pass.run_with_info p_parsed ()
     in
-    let p_contracts, _automata, contracts_info =
-      Contracts_pass.Pass.run_with_info p_automaton automata
-    in
-    let p_monitor, automata, instrumentation_info =
-      Instrumentation_pass.Pass.run_with_info p_contracts automata
-    in
-    let asts : Pipeline_types.ast_stages =
-      {
-        source;
-        parsed = p_parsed;
-        automata_generation = p_automaton;
-        automata;
-        contracts = p_contracts;
-        instrumentation = p_monitor;
-      }
-    in
-    let infos : Pipeline_types.stage_infos =
-      {
-        parse = Some parse_info;
-        automata_generation = Some automata_info;
-        contracts = Some contracts_info;
-        instrumentation = Some instrumentation_info;
-      }
-    in
-    Ok (asts, infos)
+    match Orchestration.run p_automaton automata with
+    | Error msg -> Error (Pipeline_types.Stage_error msg)
+    | Ok ir_program -> (
+        let p_contracts = ir_program.nodes in
+        let p_instrumentation = ir_program.nodes in
+        let contracts_info =
+          {
+            Stage_info.contract_origin_map = ir_program.contracts_info.contract_origin_map;
+            warnings = ir_program.contracts_info.warnings;
+          }
+        in
+        match Orchestration.instrumentation_info_of_ir ~automata ir_program with
+        | Error msg -> Error (Pipeline_types.Stage_error msg)
+        | Ok instrumentation_info ->
+        let asts : Pipeline_types.ast_stages =
+          {
+            source;
+            parsed = p_parsed;
+            automata_generation = p_automaton;
+            automata;
+            contracts = p_contracts;
+            instrumentation = p_instrumentation;
+          }
+        in
+        let infos : Pipeline_types.stage_infos =
+          {
+            parse = Some parse_info;
+            automata_generation = Some automata_info;
+            contracts = Some contracts_info;
+              instrumentation = Some instrumentation_info;
+            }
+        in
+        Ok (asts, infos))
   with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))
 
 let dump_ir_nodes ~input_file : (ir_nodes, Pipeline_types.error) result =
@@ -69,6 +75,6 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result 
       in
       Kairos_object.build ~source_path:input_file ~source_hash:parse_info.text_hash
         ~imports:(Source_file.imported_paths asts.source) ~program:asts.parsed
-        ~runtime_program:(List.map Abs.to_ast_node asts.instrumentation)
+        ~runtime_program:(List.map Ir.to_ast_node asts.instrumentation)
         ~kernel_ir_nodes:instrumentation_info.kernel_ir_nodes
       |> Result.map_error (fun msg -> Pipeline_types.Stage_error msg)

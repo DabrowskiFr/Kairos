@@ -19,6 +19,18 @@ let product_state_of_pt (st : PT.product_state) : Abs.product_state =
     guarantee_state_index = st.guarantee_state;
   }
 
+let product_step_class_of_pt = function
+  | PT.Safe -> Abs.Safe
+  | PT.Bad_assumption -> Abs.Bad_assumption
+  | PT.Bad_guarantee -> Abs.Bad_guarantee
+
+let is_live_product_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
+  st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
+
+let is_relevant_product_step ~(analysis : Product_build.analysis) (step : PT.product_step) : bool =
+  is_live_product_state ~analysis step.src
+  && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
+
 let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) :
     Abs.product_contract list =
   let transition_indices =
@@ -28,22 +40,32 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
   in
   analysis.exploration.steps
   |> List.filter_map (fun (step : PT.product_step) ->
-         if step.step_class <> PT.Safe then None
+         if not (is_relevant_product_step ~analysis step) then None
          else
            match Hashtbl.find_opt transition_indices step.prog_transition with
            | None -> None
            | Some program_transition_index ->
-           let ensures = [ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ] in
-           Some
-             {
-               program_transition_index;
-               Abs.product_src = product_state_of_pt step.src;
-               product_dst = product_state_of_pt step.dst;
-               assume_guard = step.assume_guard;
-               guarantee_guard = step.guarantee_guard;
-               requires = [];
-               ensures;
-             })
+               let ensures, forbidden =
+                 match step.step_class with
+                 | PT.Safe ->
+                     ([ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ], [])
+                 | PT.Bad_guarantee ->
+                     ([], [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ])
+                 | PT.Bad_assumption ->
+                     ([], [])
+               in
+               Some
+                 {
+                   program_transition_index;
+                   step_class = product_step_class_of_pt step.step_class;
+                   Abs.product_src = product_state_of_pt step.src;
+                   product_dst = product_state_of_pt step.dst;
+                   assume_guard = step.assume_guard;
+                   guarantee_guard = step.guarantee_guard;
+                   requires = [];
+                   ensures;
+                   forbidden;
+                 })
 
 type t = { product_transitions : Abs.product_contract list }
 

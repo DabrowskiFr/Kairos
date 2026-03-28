@@ -2,6 +2,7 @@ open Ast
 open Fo_specs
 open Fo_time
 open Formula_origin
+open Ast_pretty
 
 module Abs = Ir
 
@@ -14,31 +15,45 @@ let is_input_of_node (n : Abs.node) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
-let instrumentation_state_var = "__aut_state"
+let rec iexpr_mentions_current_input ~(is_input : ident -> bool) (e : Ast.iexpr) =
+  match e.iexpr with
+  | IVar name -> is_input name
+  | ILitInt _ | ILitBool _ -> false
+  | IPar inner | IUn (_, inner) -> iexpr_mentions_current_input ~is_input inner
+  | IBin (_, a, b) ->
+      iexpr_mentions_current_input ~is_input a || iexpr_mentions_current_input ~is_input b
 
-let rec fo_ltl_mentions_var (v : ident) (f : ltl) : bool =
-  let hexpr_mentions_var = function
-    | HNow e | HPreK (e, _) -> begin
-        match e.iexpr with IVar v' -> String.equal v v' | _ -> false
-      end
-  in
+let hexpr_mentions_current_input ~(is_input : ident -> bool) = function
+  | HNow e -> iexpr_mentions_current_input ~is_input e
+  | HPreK _ -> false
+
+let rec ltl_mentions_current_input ~(is_input : ident -> bool) (f : Ast.ltl) =
   match f with
   | LTrue | LFalse -> false
-  | LAtom (FRel (h1, _, h2)) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
-  | LAtom (FPred (_, hs)) -> List.exists hexpr_mentions_var hs
-  | LNot a | LX a | LG a -> fo_ltl_mentions_var v a
+  | LAtom (FRel (a, _, b)) ->
+      hexpr_mentions_current_input ~is_input a || hexpr_mentions_current_input ~is_input b
+  | LAtom (FPred (_, hs)) -> List.exists (hexpr_mentions_current_input ~is_input) hs
+  | LNot inner | LX inner | LG inner -> ltl_mentions_current_input ~is_input inner
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-      fo_ltl_mentions_var v a || fo_ltl_mentions_var v b
+      ltl_mentions_current_input ~is_input a || ltl_mentions_current_input ~is_input b
+
+let reject_current_input_invariant ~(node : Abs.node) (inv : invariant_state_rel) : unit =
+  let is_input = is_input_of_node node in
+  if ltl_mentions_current_input ~is_input inv.formula then
+    failwith
+      (Printf.sprintf
+         "State invariant for node %s in state %s mentions a current input (HNow on an input), \
+          which is forbidden for node-entry invariants: %s"
+         node.semantics.sem_nname inv.state (string_of_ltl inv.formula))
 
 let invariant_of_state (n : Abs.node) : ident -> ltl option =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : invariant_state_rel) ->
-      if List.mem inv.state n.semantics.sem_states
-         && not (fo_ltl_mentions_var instrumentation_state_var inv.formula)
-      then
+      if List.mem inv.state n.semantics.sem_states then (
+        reject_current_input_invariant ~node:n inv;
         let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
-        Hashtbl.replace by_state inv.state (dedup_fo (inv.formula :: existing)))
+        Hashtbl.replace by_state inv.state (dedup_fo (inv.formula :: existing))))
     n.source_info.state_invariants;
   fun st ->
     let all = Hashtbl.find_opt by_state st |> Option.value ~default:[] in
@@ -69,7 +84,7 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
           match invariant_generation.invariant_of_state pc.product_dst.prog_state with
           | None -> pc.ensures
           | Some inv ->
-              let shifted_inv = shift_ltl_forward_inputs ~is_input inv in
+              let shifted_inv = shift_ltl_backward_inputs ~is_input inv in
               add_unique_formula Invariant shifted_inv pc.ensures
         in
         if requires == pc.requires && ensures == pc.ensures then pc

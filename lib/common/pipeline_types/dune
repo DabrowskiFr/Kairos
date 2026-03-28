@@ -8,6 +8,5 @@
   kairos_stage_types
   kairos_stage_metadata
   kairos_ir
-  kairos_proof_obligation_ir
   kairos_proof_kernel_types
   kairos_automata))

@@ -1,4 +1,4 @@
-type guard = Ast.iexpr
+type guard = Fo_formula.t
 type transition = int * guard * int
 
 type automaton = {

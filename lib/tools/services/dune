@@ -1,7 +1,7 @@
 (library
  (name kairos_services)
  (wrapped false)
- (modules compile_run engine_service pipeline_service pipeline_cli_service)
+ (modules compile_run engine_service pipeline_service)
  (libraries
   kairos_simulation
   kairos_pipeline_types

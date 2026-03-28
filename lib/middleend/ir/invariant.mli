@@ -1,5 +1,10 @@
 (** Materialize invariant obligations on normalized transitions. *)
 
+val invariant_of_state :
+  Ir.node ->
+  Ast.ident ->
+  Ast.ltl option
+
 type t = {
   invariant_of_state : Ast.ident -> Ast.ltl option;
 }

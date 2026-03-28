@@ -10,8 +10,10 @@ type t =
   | Instrumentation
   | Invariant
   | GuaranteeAutomaton
+  | GuaranteeViolation
   | GuaranteePropagation
   | AssumeAutomaton
+  | ProgramGuard
   | Internal
 [@@deriving show, yojson]
 

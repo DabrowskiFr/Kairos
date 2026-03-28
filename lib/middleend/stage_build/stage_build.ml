@@ -24,10 +24,10 @@ let program_stats (p : Ast.program) : (string * string) list =
     ("locals", string_of_int locals);
   ]
 
-let emit_monitor_generation_debug_stats (p : Ast.program) =
+let emit_automata_generation_debug_stats (p : Ast.program) =
   let nodes = List.length p in
   let edges = List.fold_left (fun acc n -> acc + List.length n.semantics.sem_trans) 0 p in
-  Log.stage_info (Some Stage_names.Automaton) "instrumentation generation stats"
+  Log.stage_info (Some Stage_names.Automaton) "automata generation stats"
     [ ("nodes", string_of_int nodes); ("edges", string_of_int edges) ]
 
 let reid_with_origin (x : Ast.ltl_o) : Ast.ltl_o =
@@ -50,6 +50,7 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
       pc with
       requires = List.map reid_contract_formula pc.requires;
       ensures = List.map reid_contract_formula pc.ensures;
+      forbidden = List.map reid_contract_formula pc.forbidden;
     }
   in
   let reid_trans (t : Abs.transition) =
@@ -94,50 +95,58 @@ let build_ast_with_info ?(log = false) ~input_file () :
           p_parsed |> fun p -> Automata_pass.Pass.run_with_info p () |> fun (p, stage, info) ->
           (reid_program p, stage, info)
         in
-        emit_monitor_generation_debug_stats p_automaton;
+        emit_automata_generation_debug_stats p_automaton;
         if log then
           Log.stage_end Stage_names.Automaton
             (int_of_float ((Unix.gettimeofday () -. t1) *. 1000.))
             (program_stats p_automaton);
         let t2 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Contracts;
-        let p_contracts, automata, contracts_info =
-          Contracts_pass.Pass.run_with_info p_automaton automata |> fun (p, stage, info) ->
-          (reid_normalized_program p, stage, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Contracts
-            (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-            (program_stats (List.map Abs.to_ast_node p_contracts));
-        let t3 = Unix.gettimeofday () in
-        if log then Log.stage_start Stage_names.Instrumentation;
-        let p_monitor, automata, instrumentation_info =
-          Instrumentation_pass.Pass.run_with_info p_contracts automata
-          |> fun (p, stage, info) -> (reid_normalized_program p, stage, info)
-        in
-        if log then
-          Log.stage_end Stage_names.Instrumentation
-            (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
-            (program_stats (List.map Abs.to_ast_node p_monitor));
-        let asts : Pipeline_types.ast_stages =
-          {
-            source = { Source_file.imports = []; nodes = p_parsed };
-            parsed = p_parsed;
-            automata_generation = p_automaton;
-            automata;
-            contracts = p_contracts;
-            instrumentation = p_monitor;
-          }
-        in
-        let infos : Pipeline_types.stage_infos =
-          {
-            parse = Some parse_info;
-            automata_generation = Some automata_info;
-            contracts = Some contracts_info;
-            instrumentation = Some instrumentation_info;
-          }
-        in
-        Ok (asts, infos)
+        match Orchestration.run p_automaton automata with
+        | Error msg -> Error (Pipeline_types.Stage_error msg)
+        | Ok ir_program -> (
+            let p_contracts = ir_program.nodes in
+            let p_instrumentation = ir_program.nodes in
+            let contracts_info =
+              {
+                Stage_info.contract_origin_map = ir_program.contracts_info.contract_origin_map;
+                warnings = ir_program.contracts_info.warnings;
+              }
+            in
+            match Orchestration.instrumentation_info_of_ir ~automata ir_program with
+            | Error msg -> Error (Pipeline_types.Stage_error msg)
+            | Ok instrumentation_info ->
+            let p_contracts = reid_normalized_program p_contracts in
+            if log then
+              Log.stage_end Stage_names.Contracts
+                (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
+                (program_stats (List.map Abs.to_ast_node p_contracts));
+            let t3 = Unix.gettimeofday () in
+            if log then Log.stage_start Stage_names.Instrumentation;
+            let p_instrumentation = reid_normalized_program p_instrumentation in
+            if log then
+              Log.stage_end Stage_names.Instrumentation
+                (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
+                (program_stats (List.map Abs.to_ast_node p_instrumentation));
+            let asts : Pipeline_types.ast_stages =
+              {
+                source = { Source_file.imports = []; nodes = p_parsed };
+                parsed = p_parsed;
+                automata_generation = p_automaton;
+                automata;
+                contracts = p_contracts;
+                instrumentation = p_instrumentation;
+              }
+            in
+            let infos : Pipeline_types.stage_infos =
+              {
+                parse = Some parse_info;
+                automata_generation = Some automata_info;
+                contracts = Some contracts_info;
+                instrumentation = Some instrumentation_info;
+              }
+            in
+            Ok (asts, infos))
       with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn)))
 
 let build_ast ?(log = false) ~input_file () :

@@ -11,6 +11,13 @@ let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
   && a.guarantee_state_index = b.guarantee_state_index
 
 let same_product_contract_step (pc : Abs.product_contract) (step : product_step_ir) : bool =
+  pc.step_class
+  =
+  (match step.step_kind with
+  | StepSafe -> Abs.Safe
+  | StepBadAssumption -> Abs.Bad_assumption
+  | StepBadGuarantee -> Abs.Bad_guarantee)
+  &&
   same_product_state pc.product_src step.src
   && same_product_state pc.product_dst step.dst
   && Fo_simplifier.simplify_fo pc.assume_guard
