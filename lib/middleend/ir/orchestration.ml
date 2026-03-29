@@ -62,6 +62,15 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     guarantee_automaton_lines =
       left.guarantee_automaton_lines @ right.guarantee_automaton_lines;
     assume_automaton_lines = left.assume_automaton_lines @ right.assume_automaton_lines;
+    guarantee_automaton_tex =
+      if left.guarantee_automaton_tex <> "" then left.guarantee_automaton_tex
+      else right.guarantee_automaton_tex;
+    assume_automaton_tex =
+      if left.assume_automaton_tex <> "" then left.assume_automaton_tex
+      else right.assume_automaton_tex;
+    product_tex = if left.product_tex <> "" then left.product_tex else right.product_tex;
+    product_tex_explicit =
+      if left.product_tex_explicit <> "" then left.product_tex_explicit else right.product_tex_explicit;
     product_lines = left.product_lines @ right.product_lines;
     obligations_lines = left.obligations_lines @ right.obligations_lines;
     prune_lines = left.prune_lines @ right.prune_lines;
@@ -72,6 +81,8 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
       if left.assume_automaton_dot <> "" then left.assume_automaton_dot
       else right.assume_automaton_dot;
     product_dot = if left.product_dot <> "" then left.product_dot else right.product_dot;
+    product_dot_explicit =
+      if left.product_dot_explicit <> "" then left.product_dot_explicit else right.product_dot_explicit;
   }
 
 let raw_of_node (node : Ir.node) : (Ir.raw_node, string) result =
@@ -127,12 +138,17 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
       warnings = [];
       guarantee_automaton_lines = rendered.guarantee_automaton_lines;
       assume_automaton_lines = rendered.assume_automaton_lines;
+      guarantee_automaton_tex = rendered.guarantee_automaton_tex;
+      assume_automaton_tex = rendered.assume_automaton_tex;
+      product_tex = rendered.product_tex;
+      product_tex_explicit = rendered.product_tex_explicit;
       product_lines = rendered.product_lines;
       obligations_lines = rendered.obligations_lines;
       prune_lines = rendered.prune_lines;
       guarantee_automaton_dot = rendered.guarantee_automaton_dot;
       assume_automaton_dot = rendered.assume_automaton_dot;
       product_dot = rendered.product_dot;
+      product_dot_explicit = rendered.product_dot_explicit;
     }
 
 let instrumentation_info_of_ir ~(automata : Automata_generation.node_builds) (program : Ir.program)

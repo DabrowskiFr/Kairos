@@ -5,7 +5,7 @@ val stage_meta :
 
 val instrumentation_diag_texts :
   Pipeline_types.stage_infos ->
-  string * string * string * string * string * string * string * string
+  string * string * string * string * string * string * string * string * string * string * string * string * string
 
 val program_automaton_texts : Pipeline_types.ast_stages -> string * string
 

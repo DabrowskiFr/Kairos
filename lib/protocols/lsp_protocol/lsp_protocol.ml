@@ -64,6 +64,10 @@ type outputs = {
   program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
+  guarantee_automaton_tex : string;
+  assume_automaton_tex : string;
+  product_tex : string;
+  product_tex_explicit : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
@@ -71,6 +75,7 @@ type outputs = {
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
+  product_dot_explicit : string;
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
@@ -106,6 +111,10 @@ type automata_outputs = {
   program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
+  guarantee_automaton_tex : string;
+  assume_automaton_tex : string;
+  product_tex : string;
+  product_tex_explicit : string;
   product_text : string;
   obligations_map_text : string;
   prune_reasons_text : string;
@@ -113,6 +122,7 @@ type automata_outputs = {
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
+  product_dot_explicit : string;
   dot_png : string option;
   dot_png_error : string option;
   program_png : string option;

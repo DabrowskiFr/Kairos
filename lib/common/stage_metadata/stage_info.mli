@@ -72,6 +72,14 @@ type instrumentation_info = {
   guarantee_automaton_lines : string list;
   (** Text rendering of the assume automaton. *)
   assume_automaton_lines : string list;
+  (** LaTeX rendering of the guarantee automaton guards. *)
+  guarantee_automaton_tex : string;
+  (** LaTeX rendering of the assume automaton guards. *)
+  assume_automaton_tex : string;
+  (** LaTeX rendering of the product-transition guards. *)
+  product_tex : string;
+  (** LaTeX rendering of the explicit product-transition guards. *)
+  product_tex_explicit : string;
   (** Text rendering of the explored product. *)
   product_lines : string list;
   (** Text rendering of generated obligations. *)
@@ -84,6 +92,8 @@ type instrumentation_info = {
   assume_automaton_dot : string;
   (** DOT rendering of the product graph. *)
   product_dot : string;
+  (** DOT rendering of the explicit product graph. *)
+  product_dot_explicit : string;
 }
 
 (** Default empty parsing metadata. *)

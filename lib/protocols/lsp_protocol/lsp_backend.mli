@@ -28,6 +28,14 @@ val kobj_product :
   Lsp_protocol.kobj_summary_request ->
   (string, string) result
 
+val kobj_contracts :
+  Lsp_protocol.kobj_summary_request ->
+  (string, string) result
+
+val normalized_program :
+  Lsp_protocol.kobj_summary_request ->
+  (string, string) result
+
 val dot_png_from_text :
   Lsp_protocol.dot_png_from_text_request ->
   string option

@@ -11,12 +11,17 @@ module Abs = Ir
 type rendered = {
   guarantee_automaton_lines : string list;
   assume_automaton_lines : string list;
+  guarantee_automaton_tex : string;
+  assume_automaton_tex : string;
+  product_tex : string;
+  product_tex_explicit : string;
   product_lines : string list;
   obligations_lines : string list;
   prune_lines : string list;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
+  product_dot_explicit : string;
 }
 
 let escape_dot_label (s : string) : string =
@@ -284,6 +289,46 @@ let pretty_edge_ref ~prefix ~(edge : PT.automaton_edge) ~(bad_idx : int) =
 
 let tau_alias (i : int) : string = "τ" ^ product_subscript_digits i
 
+let split_all_on sep s =
+  let sep_len = String.length sep in
+  let rec loop acc start =
+    if start > String.length s then List.rev acc
+    else
+      let rec find i =
+        if i + sep_len > String.length s then None
+        else if String.sub s i sep_len = sep then Some i
+        else find (i + 1)
+      in
+      match find start with
+      | None -> List.rev (String.sub s start (String.length s - start) :: acc)
+      | Some i ->
+          let piece = String.sub s start (i - start) in
+          loop (piece :: acc) (i + sep_len)
+  in
+  loop [] 0
+
+let wrap_formula_lines ?(max_width = 72) (s : string) : string list =
+  let s = String.trim s in
+  let join_wrapped sep pieces =
+    let rec loop acc current = function
+      | [] -> List.rev (String.trim current :: acc)
+      | piece :: rest ->
+          let piece = String.trim piece in
+          let candidate = if current = "" then piece else current ^ sep ^ piece in
+          if current <> "" && String.length candidate > max_width then
+            loop (String.trim current :: acc) piece rest
+          else loop acc candidate rest
+    in
+    loop [] "" pieces
+  in
+  if s = "" || String.length s <= max_width then [ s ]
+  else
+    let by_or = split_all_on " ∨ " s in
+    if List.length by_or > 1 then join_wrapped " ∨ " by_or
+    else
+      let by_and = split_all_on " ∧ " s in
+      if List.length by_and > 1 then join_wrapped " ∧ " by_and else [ s ]
+
 let add_bottom_formula_table ?(multiline = false) ?(show_title = true) buf ~title
     ~(rows : (string * string) list) =
   if rows <> [] then (
@@ -500,12 +545,111 @@ let render_product_dot ~(node_name : ident) (analysis : Product_analysis.analysi
              (node_id_of_state last_state))
     | [] -> ()
   end;
+  Buffer.add_string buf "}\n";
+  Buffer.contents buf
+
+let render_product_dot_explicit ~(node_name : ident) (analysis : Product_analysis.analysis) =
+  let buf = Buffer.create 4096 in
+  let state_indices = product_state_index_map analysis.exploration.states in
+  let is_live_product_state (st : PT.product_state) =
+    st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
+  in
+  let should_annotate_step (step : PT.product_step) =
+    is_live_product_state step.src
+    && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
+  in
+  let transition_details_rev = ref [] in
+  let next = ref 1 in
+  Buffer.add_string buf "digraph Product {\n";
+  Buffer.add_string buf "  rankdir=LR;\n";
+  Buffer.add_string buf "  forcelabels=true;\n";
+  Buffer.add_string buf "  labelloc=b;\n";
+  Buffer.add_string buf "  labeljust=l;\n";
+  Buffer.add_string buf "  fontsize=10;\n";
+  Buffer.add_string buf "  fontname=\"Helvetica\";\n";
+  Buffer.add_string buf
+    "  node [shape=box,style=\"rounded,filled\",penwidth=1.4,fontname=\"Helvetica\",fontsize=11,margin=0.12];\n";
+  Buffer.add_string buf
+    "  edge [fontname=\"Helvetica\",fontsize=11,penwidth=1.25,arrowsize=0.75];\n";
+  List.iter
+    (fun st ->
+      let fill, border = product_node_fill st ~analysis in
+      let idx = Hashtbl.find state_indices st in
+      Buffer.add_string buf
+        (Printf.sprintf "  %s [fillcolor=\"%s\",color=\"%s\",label=\"%s\"];\n"
+           (node_id_of_state st) fill border
+           (escape_dot_label
+              (Printf.sprintf "P%s\\n%s" (product_subscript_digits idx)
+                 (pretty_product_state st ~analysis)))))
+    analysis.exploration.states;
+  List.iter
+    (fun (step : PT.product_step) ->
+      let visual =
+        product_edge_visual ~analysis
+          {
+            src = step.src;
+            dst = step.dst;
+            step_class = step.step_class;
+            prog_guard = step.prog_guard;
+            assume_guard = step.assume_guard;
+            guarantee_guard = step.guarantee_guard;
+          }
+      in
+      let edge_label =
+        if should_annotate_step step then (
+          let alias = tau_alias !next in
+          incr next;
+          let detail =
+            Printf.sprintf "P: %s\nA: %s\nG: %s"
+              (pretty_plain_dot_formula step.prog_guard)
+              (pretty_plain_dot_formula step.assume_guard)
+              (pretty_plain_dot_formula step.guarantee_guard)
+          in
+          transition_details_rev := (alias, detail) :: !transition_details_rev;
+          alias)
+        else ""
+      in
+      if edge_label = "" then
+        Buffer.add_string buf
+          (Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
+             (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style)
+      else (
+        let mid_id = Printf.sprintf "edge_mid_%s" (String.lowercase_ascii edge_label) in
+        Buffer.add_string buf
+          (Printf.sprintf
+             "  %s [shape=point,width=0.04,height=0.04,label=\"\",color=\"#ffffff\",fontcolor=\"#ffffff\"];\n"
+             mid_id);
+        Buffer.add_string buf
+          (Printf.sprintf
+             "  %s -> %s [color=\"%s\",style=\"%s\",arrowhead=\"none\",constraint=false];\n"
+             (node_id_of_state step.src) mid_id visual.color visual.style);
+        Buffer.add_string buf
+          (Printf.sprintf
+             "  %s -> %s [color=\"%s\",style=\"%s\",xlabel=\"%s\",constraint=false];\n"
+             mid_id (node_id_of_state step.dst) visual.color visual.style
+             (escape_dot_label edge_label))))
+    analysis.exploration.steps;
+  Buffer.add_string buf
+    "  legend_product [shape=plaintext,margin=0.1,label=<\n";
+  Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
+  Buffer.add_string buf
+    "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>Edge categories</B></FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
+  Buffer.add_string buf
+    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
+  Buffer.add_string buf "    </TABLE>>];\n";
   begin
-    match List.rev !transition_details_rev with
+    match List.rev analysis.exploration.states with
+    | last_state :: _ ->
+        Buffer.add_string buf
+          (Printf.sprintf "  %s -> legend_product [style=invis,weight=0];\n"
+             (node_id_of_state last_state))
     | [] -> ()
-    | details ->
-        add_bottom_formula_table ~multiline:true ~show_title:false buf ~title:"Product transitions"
-          ~rows:details
   end;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
@@ -618,9 +762,280 @@ let unicode_subscript_digits (n : int) : string =
   string_of_int n |> String.to_seq |> List.of_seq |> List.map map |> String.concat ""
 
 let phi_alias (i : int) : string = "φ" ^ unicode_subscript_digits i
+let tau_alias_unicode (i : int) : string = "τ" ^ unicode_subscript_digits i
+
 let html_state_label ~state_prefix ~idx ~is_bad =
   if is_bad then Printf.sprintf "<I>%s</I><SUB>bad</SUB>" state_prefix
   else Printf.sprintf "<I>%s</I><SUB>%d</SUB>" state_prefix idx
+
+let grouped_guard_rows grouped =
+  let tbl = Hashtbl.create 16 in
+  let next = ref 1 in
+  grouped
+  |> List.filter_map (fun (_src, guard, _dst) ->
+         let formula = pretty_plain_dot_formula guard in
+         if formula = "true" || Hashtbl.mem tbl formula then None
+         else (
+           let alias = phi_alias !next in
+           incr next;
+           Hashtbl.add tbl formula alias;
+           Some (alias, formula)))
+
+let split_formula_for_tex ?(max_width = 88) (formula : string) : (string * string) list =
+  let formula = String.trim formula in
+  let build sep latex_op =
+    let pieces = split_all_on sep formula |> List.map String.trim |> List.filter (( <> ) "") in
+    let rec loop acc current is_first = function
+      | [] ->
+          if current = "" then List.rev acc
+          else
+            let op = if is_first then "" else latex_op in
+            List.rev ((op, current) :: acc)
+      | piece :: rest ->
+          if current = "" then loop acc piece is_first rest
+          else
+            let candidate = current ^ sep ^ piece in
+            if String.length candidate <= max_width then loop acc candidate is_first rest
+            else
+              let op = if is_first then "" else latex_op in
+              loop ((op, current) :: acc) piece false rest
+    in
+    match pieces with
+    | [] -> []
+    | first :: rest -> loop [] first true rest
+  in
+  if String.length formula <= max_width then [ ("", formula) ]
+  else
+    let by_or = build " ∨ " "\\lor" in
+    if List.length by_or > 1 then by_or
+    else
+      let by_and = build " ∧ " "\\land" in
+      if List.length by_and > 1 then by_and else [ ("", formula) ]
+
+let latexify_formula (s : string) : string =
+  s
+  |> replace_all ~pattern:"φ₁" ~by:"\\phi_{1}"
+  |> replace_all ~pattern:"φ₂" ~by:"\\phi_{2}"
+  |> replace_all ~pattern:"φ₃" ~by:"\\phi_{3}"
+  |> replace_all ~pattern:"φ₄" ~by:"\\phi_{4}"
+  |> replace_all ~pattern:"φ₅" ~by:"\\phi_{5}"
+  |> replace_all ~pattern:"φ₆" ~by:"\\phi_{6}"
+  |> replace_all ~pattern:"φ₇" ~by:"\\phi_{7}"
+  |> replace_all ~pattern:"φ₈" ~by:"\\phi_{8}"
+  |> replace_all ~pattern:"φ₉" ~by:"\\phi_{9}"
+  |> replace_all ~pattern:"⊤" ~by:"\\top"
+  |> replace_all ~pattern:"⊥" ~by:"\\bot"
+  |> replace_all ~pattern:"¬" ~by:"\\neg "
+  |> replace_all ~pattern:" ∧ " ~by:" \\land "
+  |> replace_all ~pattern:" ∨ " ~by:" \\lor "
+  |> replace_all ~pattern:" → " ~by:" \\rightarrow "
+  |> replace_all ~pattern:"pre_k(" ~by:"\\mathsf{pre}_k("
+  |> replace_all ~pattern:"pre(" ~by:"\\mathsf{pre}("
+
+let latexify_alias (s : string) : string =
+  s
+  |> replace_all ~pattern:"φ₁" ~by:"\\phi_{1}"
+  |> replace_all ~pattern:"φ₂" ~by:"\\phi_{2}"
+  |> replace_all ~pattern:"φ₃" ~by:"\\phi_{3}"
+  |> replace_all ~pattern:"φ₄" ~by:"\\phi_{4}"
+  |> replace_all ~pattern:"φ₅" ~by:"\\phi_{5}"
+  |> replace_all ~pattern:"φ₆" ~by:"\\phi_{6}"
+  |> replace_all ~pattern:"φ₇" ~by:"\\phi_{7}"
+  |> replace_all ~pattern:"φ₈" ~by:"\\phi_{8}"
+  |> replace_all ~pattern:"φ₉" ~by:"\\phi_{9}"
+  |> replace_all ~pattern:"τ₁" ~by:"\\tau_{1}"
+  |> replace_all ~pattern:"τ₂" ~by:"\\tau_{2}"
+  |> replace_all ~pattern:"τ₃" ~by:"\\tau_{3}"
+  |> replace_all ~pattern:"τ₄" ~by:"\\tau_{4}"
+  |> replace_all ~pattern:"τ₅" ~by:"\\tau_{5}"
+  |> replace_all ~pattern:"τ₆" ~by:"\\tau_{6}"
+  |> replace_all ~pattern:"τ₇" ~by:"\\tau_{7}"
+  |> replace_all ~pattern:"τ₈" ~by:"\\tau_{8}"
+  |> replace_all ~pattern:"τ₉" ~by:"\\tau_{9}"
+
+let render_tex_array rows =
+  "\\[\n\\begin{array}{lcl}\n" ^ String.concat "\n" rows ^ "\n\\end{array}\n\\]\n"
+
+let render_automaton_tex grouped =
+  let rows = grouped_guard_rows grouped in
+  let last_row = List.length rows - 1 in
+  let rendered_rows =
+    rows
+    |> List.mapi (fun idx (alias, formula) ->
+           let alias = latexify_alias alias in
+           let pieces =
+             split_formula_for_tex formula
+             |> List.map (fun (op, piece) -> (op, latexify_formula piece))
+           in
+           match pieces with
+           | [] -> Printf.sprintf "%s &::=&" alias
+           | (op0, first) :: rest ->
+               let first_body = if op0 = "" then first else op0 ^ " " ^ first in
+               String.concat "\n"
+                 ((Printf.sprintf "%s &::=& %s%s" alias first_body
+                     (if rest = [] && idx = last_row then "" else " \\\\"))
+                 :: List.mapi
+                      (fun j (op, piece) ->
+                        let suffix =
+                          if idx = last_row && j = List.length rest - 1 then "" else " \\\\"
+                        in
+                        let body = if op = "" then piece else op ^ " " ^ piece in
+                        Printf.sprintf " & & %s%s" body suffix)
+                      rest))
+  in
+  render_tex_array rendered_rows
+
+let render_automaton_text ~prefix labels grouped =
+  let state_lines = render_automaton_lines ~prefix labels in
+  let guard_lines =
+    grouped_guard_rows grouped
+    |> List.map (fun (alias, formula) ->
+           let wrapped = wrap_formula_lines formula in
+           match wrapped with
+           | [] -> alias ^ " ::= "
+           | first :: rest ->
+               String.concat "\n"
+                 ((Printf.sprintf "%s ::= %s" alias first)
+                 :: List.map (fun line -> String.make (String.length alias + 5) ' ' ^ line) rest))
+  in
+  String.concat "\n"
+    (state_lines
+    @
+    if guard_lines = [] then []
+    else [ ""; prefix ^ " transition guards:" ] @ guard_lines)
+
+let render_product_tex (analysis : Product_analysis.analysis) =
+  let details_rev = ref [] in
+  let alias_of_detail =
+    let tbl = Hashtbl.create 64 in
+    let next = ref 1 in
+    fun detail ->
+      match Hashtbl.find_opt tbl detail with
+      | Some alias -> alias
+      | None ->
+          let alias = tau_alias_unicode !next in
+          incr next;
+          Hashtbl.add tbl detail alias;
+          details_rev := (alias, detail) :: !details_rev;
+          alias
+  in
+  let merged_steps = merge_product_steps_for_dot analysis in
+  List.iter
+    (fun (step : merged_product_edge) ->
+      let src_live =
+        step.src.assume_state <> analysis.assume_bad_idx
+        && step.src.guarantee_state <> analysis.guarantee_bad_idx
+      in
+      let dst_assume_bad =
+        analysis.assume_bad_idx >= 0 && step.dst.assume_state = analysis.assume_bad_idx
+      in
+      if src_live && not dst_assume_bad then
+        ignore
+          (alias_of_detail
+             [
+               ("\\mathrm{P}:", pretty_plain_dot_formula step.prog_guard);
+               ("\\mathrm{A}:", pretty_plain_dot_formula step.assume_guard);
+               ("\\mathrm{G}:", pretty_plain_dot_formula step.guarantee_guard);
+             ]))
+    merged_steps;
+  let details = List.rev !details_rev in
+  let last_row = List.length details - 1 in
+  let rendered_rows =
+    details
+    |> List.mapi (fun idx (alias, detail) ->
+           let alias = latexify_alias alias in
+           let body_lines =
+             detail
+             |> List.concat_map (fun (label, formula) ->
+                    let parts = split_formula_for_tex formula in
+                    match parts with
+                    | [] -> [ label ]
+                    | (op0, first) :: rest ->
+                        let first_text =
+                          let piece = latexify_formula first in
+                          if op0 = "" then label ^ " " ^ piece else label ^ " " ^ op0 ^ " " ^ piece
+                        in
+                        first_text
+                        :: List.map
+                             (fun (op, piece) ->
+                               let piece = latexify_formula piece in
+                               if op = "" then piece else op ^ " " ^ piece)
+                             rest)
+           in
+           match body_lines with
+           | [] -> Printf.sprintf "%s &::=&" alias
+           | first :: rest ->
+               String.concat "\n"
+                 ((Printf.sprintf "%s &::=& %s%s" alias first
+                     (if rest = [] && idx = last_row then "" else " \\\\"))
+                 :: List.mapi
+                      (fun j piece ->
+                        let suffix =
+                          if idx = last_row && j = List.length rest - 1 then "" else " \\\\"
+                        in
+                        Printf.sprintf " & & %s%s" piece suffix)
+                      rest))
+  in
+  render_tex_array rendered_rows
+
+let render_product_tex_explicit (analysis : Product_analysis.analysis) =
+  let details =
+    analysis.exploration.steps
+    |> List.filter_map (fun (step : PT.product_step) ->
+           let src_live =
+             step.src.assume_state <> analysis.assume_bad_idx
+             && step.src.guarantee_state <> analysis.guarantee_bad_idx
+           in
+           let dst_assume_bad =
+             analysis.assume_bad_idx >= 0 && step.dst.assume_state = analysis.assume_bad_idx
+           in
+           if src_live && not dst_assume_bad then
+             Some
+               [
+                 ("\\mathrm{P}:", pretty_plain_dot_formula step.prog_guard);
+                 ("\\mathrm{A}:", pretty_plain_dot_formula step.assume_guard);
+                 ("\\mathrm{G}:", pretty_plain_dot_formula step.guarantee_guard);
+               ]
+           else None)
+    |> List.mapi (fun idx detail -> (latexify_alias (tau_alias_unicode (idx + 1)), detail))
+  in
+  let last_row = List.length details - 1 in
+  let rendered_rows =
+    details
+    |> List.mapi (fun idx (alias, detail) ->
+           let body_lines =
+             detail
+             |> List.concat_map (fun (label, formula) ->
+                    let parts = split_formula_for_tex formula in
+                    match parts with
+                    | [] -> [ label ]
+                    | (op0, first) :: rest ->
+                        let first_text =
+                          let piece = latexify_formula first in
+                          if op0 = "" then label ^ " " ^ piece else label ^ " " ^ op0 ^ " " ^ piece
+                        in
+                        first_text
+                        :: List.map
+                             (fun (op, piece) ->
+                               let piece = latexify_formula piece in
+                               if op = "" then piece else op ^ " " ^ piece)
+                             rest)
+           in
+           match body_lines with
+           | [] -> Printf.sprintf "%s &::=&" alias
+           | first :: rest ->
+               String.concat "\n"
+                 ((Printf.sprintf "%s &::=& %s%s" alias first
+                     (if rest = [] && idx = last_row then "" else " \\\\"))
+                 :: List.mapi
+                      (fun j piece ->
+                        let suffix =
+                          if idx = last_row && j = List.length rest - 1 then "" else " \\\\"
+                        in
+                        Printf.sprintf " & & %s%s" piece suffix)
+                      rest))
+  in
+  render_tex_array rendered_rows
 
 let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~atom_map_exprs =
   let buf = Buffer.create 1024 in
@@ -632,12 +1047,6 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
   in
   let bad_fill = "#f6d7d7" in
   let bad_border = "#a53030" in
-  let guard_strings =
-    grouped
-    |> List.map (fun (_src, guard, _dst) ->
-           let _ = atom_map_exprs in
-           pretty_plain_dot_formula guard)
-  in
   let alias_of_guard =
     let tbl = Hashtbl.create 16 in
     let next = ref 1 in
@@ -690,36 +1099,27 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
            "  %s%d -> %s%d [xlabel=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
            prefix src prefix dst (escape_dot_label alias) this_edge_color this_edge_color))
     grouped;
-  begin
-    let unique_guards =
-      let seen = Hashtbl.create 16 in
-      List.filter_map
-        (fun formula ->
-          if formula = "true" || Hashtbl.mem seen formula then None
-          else (
-            Hashtbl.add seen formula ();
-            Some (alias_of_guard formula, formula)))
-        guard_strings
-    in
-    add_bottom_formula_table buf
-      ~title:(Printf.sprintf "%s transition guards" state_prefix)
-      ~rows:unique_guards
-  end;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
 let render ~(node_name : ident) ~(analysis : Product_analysis.analysis) : rendered =
   let guarantee_automaton_lines =
-    render_automaton_lines ~prefix:"G" analysis.guarantee_state_labels
+    render_automaton_text ~prefix:"G" analysis.guarantee_state_labels analysis.guarantee_grouped_edges
+    |> String.split_on_char '\n'
     |> List.map (fun line -> Printf.sprintf "[%s] %s" node_name line)
   in
   let assume_automaton_lines =
-    render_automaton_lines ~prefix:"A" analysis.assume_state_labels
+    render_automaton_text ~prefix:"A" analysis.assume_state_labels analysis.assume_grouped_edges
+    |> String.split_on_char '\n'
     |> List.map (fun line -> Printf.sprintf "[%s] %s" node_name line)
   in
   {
     guarantee_automaton_lines;
     assume_automaton_lines;
+    guarantee_automaton_tex = render_automaton_tex analysis.guarantee_grouped_edges;
+    assume_automaton_tex = render_automaton_tex analysis.assume_grouped_edges;
+    product_tex = render_product_tex analysis;
+    product_tex_explicit = render_product_tex_explicit analysis;
     product_lines = render_product_lines ~node_name analysis;
     obligations_lines = render_obligation_lines ~node_name analysis;
     prune_lines = render_prune_lines ~node_name analysis;
@@ -732,6 +1132,7 @@ let render ~(node_name : ident) ~(analysis : Product_analysis.analysis) : render
         ~labels:analysis.assume_state_labels ~grouped:analysis.assume_grouped_edges
         ~atom_map_exprs:analysis.assume_atom_map_exprs;
     product_dot = render_product_dot ~node_name analysis;
+    product_dot_explicit = render_product_dot_explicit ~node_name analysis;
   }
 
 let render_guarantee_automaton ~(node_name : ident) ~(analysis : Product_analysis.analysis) :
@@ -742,7 +1143,8 @@ let render_guarantee_automaton ~(node_name : ident) ~(analysis : Product_analysi
       ~atom_map_exprs:analysis.guarantee_atom_map_exprs
   in
   let labels =
-    render_automaton_lines ~prefix:"G" analysis.guarantee_state_labels
+    render_automaton_text ~prefix:"G" analysis.guarantee_state_labels analysis.guarantee_grouped_edges
+    |> String.split_on_char '\n'
     |> List.map (fun line -> Printf.sprintf "[%s] %s" node_name line)
     |> String.concat "\n"
   in

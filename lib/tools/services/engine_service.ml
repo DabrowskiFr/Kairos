@@ -20,6 +20,10 @@ let obligations_pass ~engine ~prefix_fields ~prover ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.obligations_pass ~prefix_fields ~prover ~input_file
 
+let normalized_program ~engine ~input_file =
+  match normalize engine with
+  | Default -> Pipeline_service.normalized_program ~input_file
+
 let compile_object ~engine ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.compile_object ~input_file

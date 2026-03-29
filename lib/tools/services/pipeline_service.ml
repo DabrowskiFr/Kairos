@@ -19,6 +19,11 @@ let why_pass =
 let obligations_pass =
   Pipeline_why.obligations_pass ~build_ast_with_info:Pipeline_build.build_ast_with_info
 
+let normalized_program ~input_file =
+  match Pipeline_build.build_ast_with_info ~input_file () with
+  | Error _ as err -> err
+  | Ok (asts, _infos) -> Ok (Normalized_program_render.render_program asts.instrumentation)
+
 let dump_ir_nodes = Pipeline_build.dump_ir_nodes
 let compile_object = Pipeline_build.compile_object
 

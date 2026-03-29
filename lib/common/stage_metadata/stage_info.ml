@@ -46,12 +46,17 @@ type instrumentation_info = {
   warnings : string list;
   guarantee_automaton_lines : string list;
   assume_automaton_lines : string list;
+  guarantee_automaton_tex : string;
+  assume_automaton_tex : string;
+  product_tex : string;
+  product_tex_explicit : string;
   product_lines : string list;
   obligations_lines : string list;
   prune_lines : string list;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
+  product_dot_explicit : string;
 }
 
 let empty_parse_info : parse_info =
@@ -73,10 +78,15 @@ let empty_instrumentation_info : instrumentation_info =
     warnings = [];
     guarantee_automaton_lines = [];
     assume_automaton_lines = [];
+    guarantee_automaton_tex = "";
+    assume_automaton_tex = "";
+    product_tex = "";
+    product_tex_explicit = "";
     product_lines = [];
     obligations_lines = [];
     prune_lines = [];
     guarantee_automaton_dot = "";
     assume_automaton_dot = "";
     product_dot = "";
+    product_dot_explicit = "";
   }
