@@ -150,7 +150,6 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
     product_tex_explicit = o.product_tex_explicit;
     product_text = o.product_text;
     obligations_map_text = o.obligations_map_text;
-    prune_reasons_text = o.prune_reasons_text;
     program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;
@@ -197,7 +196,6 @@ let map_automata (o : Pipeline_types.automata_outputs) : Lsp_protocol.automata_o
     product_tex_explicit = o.product_tex_explicit;
     product_text = o.product_text;
     obligations_map_text = o.obligations_map_text;
-    prune_reasons_text = o.prune_reasons_text;
     program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;

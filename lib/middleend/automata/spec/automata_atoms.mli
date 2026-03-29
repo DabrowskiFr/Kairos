@@ -16,31 +16,50 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Atom-table support for generated automata and guard recovery. *)
+(** Atom-table support for the monitor-style automata construction.
 
+    This module is responsible for:
+    - collecting first-order atoms from temporal formulas;
+    - assigning stable names to these atoms;
+    - recovering readable guards from automaton transitions. *)
+
+(** Guard type used on automaton transitions. *)
 type guard = Automaton_types.guard
-(* Semantic transition guard. *)
 
 val guard_to_formula : guard -> string
-(* Render a guard as a boolean formula string. *)
+(** Pretty-print a transition guard as a first-order boolean formula. *)
 
+(** Atom tables shared by the automata-generation pipeline.
+
+    - [atom_map] associates each semantic first-order atom with its generated
+      name;
+    - [atom_named_exprs] stores the corresponding named boolean expressions. *)
 type automata_atoms = Automaton_types.automata_atoms = {
   atom_map : (Ast.fo_atom * Ast.ident) list;
   atom_named_exprs : (Ast.ident * Ast.iexpr) list;
 }
 
 val make_atom_names : (Ast.fo_atom * Ast.iexpr) list -> string list
-(* Generate stable, unique atom names from atom expressions. *)
+(** [make_atom_names atoms] generates stable, readable, and unique names for the
+    given atoms, preserving the input order. *)
 
 val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
-(* Inline atom variables inside a boolean expression using a name->expr map. *)
+(** [inline_atoms_iexpr defs expr] replaces atom variables occurring in [expr]
+    by their underlying boolean expressions. *)
 
 val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Fo_formula.t
-(* Convert a semantic guard into a first-order formula. *)
+(** Convert an automaton guard back to a first-order formula suitable for
+    downstream rendering and export. *)
 
 val collect_atoms : Ast.node -> automata_atoms
-(* Collect and validate atoms used by the monitor construction. *)
+(** Collect all atoms needed by the guarantee-monitor construction of one node.
+
+    This entry point is intentionally guarantee-focused: assumptions are ignored
+    here and handled separately when needed. *)
 
 val collect_atoms_from_ltls :
   Ast.node -> ltls:Ast.ltl list -> automata_atoms
-(* Collect and validate atoms for an explicit list of LTL formulas. *)
+(** Collect atoms for the explicit list of temporal formulas [ltls].
+
+    The function fails when one of the extracted atoms cannot be translated to a
+    boolean expression accepted by the automata construction pipeline. *)

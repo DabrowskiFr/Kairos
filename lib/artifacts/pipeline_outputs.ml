@@ -30,7 +30,7 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
   ]
 
 let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
-    string * string * string * string * string * string * string * string * string * string * string * string * string =
+    string * string * string * string * string * string * string * string * string * string * string * string =
   let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
   let obligations_text =
     let base = String.concat "\n" i.obligations_lines in
@@ -45,7 +45,6 @@ let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
     String.concat "\n" i.assume_automaton_lines,
     String.concat "\n" i.product_lines,
     obligations_text,
-    String.concat "\n" i.prune_lines,
     i.guarantee_automaton_tex,
     i.assume_automaton_tex,
     i.product_tex,
@@ -142,7 +141,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     in
     let program_dot, program_automaton_text = program_automaton_texts asts in
     let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
-        prune_reasons_text, guarantee_automaton_tex, assume_automaton_tex, product_tex,
+        guarantee_automaton_tex, assume_automaton_tex, product_tex,
         product_tex_explicit, guarantee_automaton_dot, assume_automaton_dot, product_dot,
         product_dot_explicit =
       instrumentation_diag_texts infos
@@ -299,7 +298,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       product_tex_explicit;
       product_text;
       obligations_map_text;
-      prune_reasons_text;
       program_dot;
       guarantee_automaton_dot;
       assume_automaton_dot;

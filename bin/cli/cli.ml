@@ -30,7 +30,7 @@ let report_failed_goals (goals : Lsp_protocol.goal_info list) : string list =
   |> List.filter_map (fun x -> x)
 
 let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dump_obligations_map
-    dump_prune_reasons dump_normalized_program dump_why dump_why3_vc dump_smt2
+    dump_normalized_program dump_why dump_why3_vc dump_smt2
     dump_kobj_summary dump_kobj_clauses dump_kobj_product dump_kobj_contracts
     prove prover prover_cmd timeout_s file =
   let dump_mode_count =
@@ -42,7 +42,6 @@ let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dum
         dump_automata <> None;
         dump_product <> None;
         dump_obligations_map <> None;
-        dump_prune_reasons <> None;
         dump_normalized_program <> None;
         dump_kobj_summary <> None;
         dump_kobj_clauses <> None;
@@ -53,19 +52,19 @@ let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dum
   if
     (dump_dot <> None || dump_dot_short <> None || dump_dot_explicit <> None || dump_automata <> None
    || dump_product <> None || dump_obligations_map <> None
-      || dump_prune_reasons <> None || dump_normalized_program <> None
+      || dump_normalized_program <> None
       || dump_kobj_summary <> None || dump_kobj_clauses <> None
       || dump_kobj_product <> None || dump_kobj_contracts <> None)
     && (prove || dump_why <> None || dump_why3_vc <> None || dump_smt2 <> None)
   then
     `Error
       ( false,
-        "--dump-dot/--dump-dot-explicit/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons/--dump-normalized-program/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
+        "--dump-dot/--dump-dot-explicit/--dump-automata/--dump-product/--dump-obligations-map/--dump-normalized-program/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
       )
   else if dump_mode_count > 1 then
     `Error
       ( false,
-        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-dot-explicit/--dump-automata/--dump-product/--dump-obligations-map/--dump-prune-reasons/--dump-normalized-program/--dump-kobj-*"
+        "Only one dump mode can be selected among --dump-dot/--dump-dot-short/--dump-dot-explicit/--dump-automata/--dump-product/--dump-obligations-map/--dump-normalized-program/--dump-kobj-*"
       )
   else
     let instrumentation_req =
@@ -103,15 +102,14 @@ let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dum
         dump_automata,
         dump_product,
         dump_obligations_map,
-        dump_prune_reasons,
         dump_normalized_program,
         dump_kobj_summary,
         dump_kobj_clauses,
         dump_kobj_product,
         dump_kobj_contracts )
     with
-    | Some out, None, None, None, None, None, None, None, None, None, None, None
-    | None, Some out, None, None, None, None, None, None, None, None, None, None -> (
+    | Some out, None, None, None, None, None, None, None, None, None, None
+    | None, Some out, None, None, None, None, None, None, None, None, None -> (
         match Lsp_backend.instrumentation_pass instrumentation_req with
         | Error msg -> `Error (false, msg)
         | Ok o ->
@@ -131,7 +129,7 @@ let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dum
             write_target (dot_base ^ ".product.dot") o.product_dot;
             write_target (dot_base ^ ".product.tex") o.product_tex;
             `Ok ())
-    | None, None, Some out, None, None, None, None, None, None, None, None, None -> (
+    | None, None, Some out, None, None, None, None, None, None, None, None -> (
         match Lsp_backend.instrumentation_pass instrumentation_req with
         | Error msg -> `Error (false, msg)
         | Ok o ->
@@ -151,55 +149,49 @@ let run dump_dot dump_dot_short dump_dot_explicit dump_automata dump_product dum
             write_target (dot_base ^ ".product.dot") o.product_dot_explicit;
             write_target (dot_base ^ ".product.tex") o.product_tex_explicit;
             `Ok ())
-    | None, None, None, Some out, None, None, None, None, None, None, None, None -> (
+    | None, None, None, Some out, None, None, None, None, None, None, None -> (
         match Lsp_backend.instrumentation_pass instrumentation_req with
         | Error msg -> `Error (false, msg)
         | Ok o ->
             write_target out (o.guarantee_automaton_text ^ "\n\n" ^ o.assume_automaton_text);
             `Ok ())
-    | None, None, None, None, Some out, None, None, None, None, None, None, None -> (
+    | None, None, None, None, Some out, None, None, None, None, None, None -> (
         match Lsp_backend.instrumentation_pass instrumentation_req with
         | Error msg -> `Error (false, msg)
         | Ok o ->
             write_target out o.product_text;
             `Ok ())
-    | None, None, None, None, None, Some out, None, None, None, None, None, None -> (
+    | None, None, None, None, None, Some out, None, None, None, None, None -> (
         match Lsp_backend.instrumentation_pass instrumentation_req with
         | Error msg -> `Error (false, msg)
         | Ok o ->
             write_target out o.obligations_map_text;
             `Ok ())
-    | None, None, None, None, None, None, Some out, None, None, None, None, None -> (
-        match Lsp_backend.instrumentation_pass instrumentation_req with
-        | Error msg -> `Error (false, msg)
-        | Ok o ->
-            write_target out o.prune_reasons_text;
-            `Ok ())
-    | None, None, None, None, None, None, None, Some out, None, None, None, None -> (
+    | None, None, None, None, None, None, Some out, None, None, None, None -> (
         match Lsp_backend.normalized_program kobj_req with
         | Error msg -> `Error (false, msg)
         | Ok text ->
             write_target out text;
             `Ok ())
-    | None, None, None, None, None, None, None, None, Some out, None, None, None -> (
+    | None, None, None, None, None, None, None, Some out, None, None, None -> (
         match Lsp_backend.kobj_summary kobj_req with
         | Error msg -> `Error (false, msg)
         | Ok text ->
             write_target out text;
             `Ok ())
-    | None, None, None, None, None, None, None, None, None, Some out, None, None -> (
+    | None, None, None, None, None, None, None, None, Some out, None, None -> (
         match Lsp_backend.kobj_clauses kobj_req with
         | Error msg -> `Error (false, msg)
         | Ok text ->
             write_target out text;
             `Ok ())
-    | None, None, None, None, None, None, None, None, None, None, Some out, None -> (
+    | None, None, None, None, None, None, None, None, None, Some out, None -> (
         match Lsp_backend.kobj_product kobj_req with
         | Error msg -> `Error (false, msg)
         | Ok text ->
             write_target out text;
             `Ok ())
-    | None, None, None, None, None, None, None, None, None, None, None, Some out -> (
+    | None, None, None, None, None, None, None, None, None, None, Some out -> (
         match Lsp_backend.kobj_contracts kobj_req with
         | Error msg -> `Error (false, msg)
         | Ok text ->
@@ -295,12 +287,6 @@ let cmd =
       & info [ "dump-obligations-map" ] ~docv:"FILE"
           ~doc:"Dump mapping from transitions to generated clauses.")
   in
-  let dump_prune_reasons =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-prune-reasons" ] ~docv:"FILE"
-          ~doc:"Dump prune reason counters for product exploration.")
-  in
   let dump_normalized_program =
     Arg.(
       value & opt (some string) None
@@ -367,7 +353,7 @@ let cmd =
     Term.(
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_dot_explicit $ dump_automata $ dump_product
-       $ dump_obligations_map $ dump_prune_reasons $ dump_normalized_program
+       $ dump_obligations_map $ dump_normalized_program
        $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
        $ dump_kobj_clauses $ dump_kobj_product $ dump_kobj_contracts $ prove
        $ prover $ prover_cmd $ timeout_s $ file))

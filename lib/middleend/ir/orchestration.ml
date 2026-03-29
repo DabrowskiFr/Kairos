@@ -73,7 +73,6 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
       if left.product_tex_explicit <> "" then left.product_tex_explicit else right.product_tex_explicit;
     product_lines = left.product_lines @ right.product_lines;
     obligations_lines = left.obligations_lines @ right.obligations_lines;
-    prune_lines = left.prune_lines @ right.prune_lines;
     guarantee_automaton_dot =
       if left.guarantee_automaton_dot <> "" then left.guarantee_automaton_dot
       else right.guarantee_automaton_dot;
@@ -144,7 +143,6 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
       product_tex_explicit = rendered.product_tex_explicit;
       product_lines = rendered.product_lines;
       obligations_lines = rendered.obligations_lines;
-      prune_lines = rendered.prune_lines;
       guarantee_automaton_dot = rendered.guarantee_automaton_dot;
       assume_automaton_dot = rendered.assume_automaton_dot;
       product_dot = rendered.product_dot;

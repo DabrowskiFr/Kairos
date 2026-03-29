@@ -17,7 +17,6 @@ type rendered = {
   product_tex_explicit : string;
   product_lines : string list;
   obligations_lines : string list;
-  prune_lines : string list;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
@@ -53,11 +52,6 @@ let string_of_step_class = function
   | PT.Safe -> "safe"
   | PT.Bad_assumption -> "bad_A"
   | PT.Bad_guarantee -> "bad_G"
-
-let string_of_prune_reason = function
-  | PT.Incompatible_program_assumption -> "program/A incompatible"
-  | PT.Incompatible_program_guarantee -> "program/G incompatible"
-  | PT.Incompatible_assumption_guarantee -> "A/G incompatible"
 
 let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
   Printf.sprintf "%d->%d" src dst
@@ -222,18 +216,6 @@ let render_obligation_lines ~(node_name : ident) (analysis : Product_analysis.an
                     (string_of_state step.dst)
                     (string_of_ltl simplified))
          | _ -> None)
-
-let render_prune_lines ~(node_name : ident) (analysis : Product_analysis.analysis) =
-  analysis.exploration.pruned_steps
-  |> List.map (fun (step : PT.pruned_step) ->
-         Printf.sprintf "[%s] prune %s -- %s / A[%s]:%s / G[%s]:%s [%s]" node_name
-           (string_of_state step.src)
-           step.prog_transition.src
-           (string_of_edge step.assume_edge)
-           (string_of_fo step.assume_guard)
-           (string_of_edge step.guarantee_edge)
-           (string_of_fo step.guarantee_guard)
-           (string_of_prune_reason step.reason))
 
 let node_id_of_state (s : PT.product_state) : string =
   Printf.sprintf "n_%s_a%d_g%d" s.prog_state s.assume_state s.guarantee_state
@@ -1122,7 +1104,6 @@ let render ~(node_name : ident) ~(analysis : Product_analysis.analysis) : render
     product_tex_explicit = render_product_tex_explicit analysis;
     product_lines = render_product_lines ~node_name analysis;
     obligations_lines = render_obligation_lines ~node_name analysis;
-    prune_lines = render_prune_lines ~node_name analysis;
     guarantee_automaton_dot =
       render_automaton_dot ~graph_name:"GuaranteeAutomaton" ~prefix:"g" ~state_prefix:"G"
         ~labels:analysis.guarantee_state_labels ~grouped:analysis.guarantee_grouped_edges

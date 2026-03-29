@@ -10,7 +10,7 @@ val instrumentation_pass :
     (Pipeline_types.stage_infos -> (string * (string * string) list) list) ->
   instrumentation_diag_texts:
     (Pipeline_types.stage_infos ->
-    string * string * string * string * string * string * string * string * string * string * string * string * string) ->
+    string * string * string * string * string * string * string * string * string * string * string * string) ->
   program_automaton_texts:(Pipeline_types.ast_stages -> string * string) ->
   generate_png:bool ->
   input_file:string ->

@@ -84,8 +84,6 @@ type instrumentation_info = {
   product_lines : string list;
   (** Text rendering of generated obligations. *)
   obligations_lines : string list;
-  (** Text rendering of pruning explanations. *)
-  prune_lines : string list;
   (** DOT rendering of the guarantee automaton. *)
   guarantee_automaton_dot : string;
   (** DOT rendering of the assume automaton. *)

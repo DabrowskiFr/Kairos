@@ -39,85 +39,6 @@ let program_guard_fo (t : Abs.transition) : Fo_formula.t =
      the same boolean level as recovered automaton guards. *)
   match t.guard with None -> FTrue | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo
 
-type lit = { var : ident; cst : string; is_pos : bool }
-
-let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
-  let mk ?(is_pos = true) v c = Some { var = v; cst = c; is_pos } in
-  match (h1, r, h2) with
-  | HNow a, REq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk v (string_of_int i)
-      | ILitInt i, IVar v -> mk v (string_of_int i)
-      | IVar v, ILitBool b -> mk v (if b then "true" else "false")
-      | ILitBool b, IVar v -> mk v (if b then "true" else "false")
-      | _ -> None
-    end
-  | HNow a, RNeq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk ~is_pos:false v (string_of_int i)
-      | ILitInt i, IVar v -> mk ~is_pos:false v (string_of_int i)
-      | IVar v, ILitBool b -> mk ~is_pos:false v (if b then "true" else "false")
-      | ILitBool b, IVar v -> mk ~is_pos:false v (if b then "true" else "false")
-      | _ -> None
-    end
-  | _ -> None
-
-let rec conj_lits (f : Fo_formula.t) : lit list option =
-  match f with
-  | FTrue -> Some []
-  | FAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
-  | FNot x -> begin
-      match x with
-      | FAtom (FRel (h1, REq, h2)) -> Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
-      | _ -> None
-    end
-  | FAnd (a, b) -> begin
-      match (conj_lits a, conj_lits b) with
-      | Some la, Some lb -> Some (la @ lb)
-      | _ -> None
-    end
-  | _ -> None
-
-let disj_conjs (f : Fo_formula.t) : lit list list option =
-  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
-  let xs = go f |> List.map conj_lits in
-  List.fold_right
-    (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
-    xs (Some [])
-
-let lits_consistent (a : lit list) (b : lit list) : bool =
-  let pos = Hashtbl.create 16 in
-  let neg = Hashtbl.create 16 in
-  let add_lit l =
-    if l.is_pos then (
-      let prev = Hashtbl.find_opt pos l.var |> Option.value ~default:[] in
-      if not (List.mem l.cst prev) then Hashtbl.replace pos l.var (l.cst :: prev))
-    else (
-      let prev = Hashtbl.find_opt neg l.var |> Option.value ~default:[] in
-      if not (List.mem l.cst prev) then Hashtbl.replace neg l.var (l.cst :: prev))
-  in
-  List.iter add_lit (a @ b);
-  let ok = ref true in
-  Hashtbl.iter
-    (fun v vals ->
-      let unique_vals = List.sort_uniq String.compare vals in
-      let neg_vals =
-        Hashtbl.find_opt neg v |> Option.value ~default:[] |> List.sort_uniq String.compare
-      in
-      if List.length unique_vals > 1 then ok := false;
-      if List.exists (fun c -> List.mem c neg_vals) unique_vals then ok := false)
-    pos;
-  !ok
-
-let fo_overlap_conservative (a : Fo_formula.t) (b : Fo_formula.t) : bool =
-  (* Conservative satisfiability check on already-normalized guards.
-     This intentionally keeps program, assumption, and guarantee guards separate:
-     it only decides whether two guards may overlap, it does not merge them. *)
-  match (disj_conjs a, disj_conjs b) with
-  | Some da, Some db ->
-      List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
-  | _ -> true
-
 let first_false_idx (states : Ast.ltl list) : int =
   let rec loop i = function
     | [] -> -1
@@ -196,29 +117,11 @@ let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node) : 
   let q = Queue.create () in
   let states_rev = ref [] in
   let steps_rev = ref [] in
-  let pruned_rev = ref [] in
   let push_state st =
     if not (Hashtbl.mem seen st) then (
       Hashtbl.add seen st ();
       states_rev := st :: !states_rev;
       Queue.add st q)
-  in
-  let mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge ~assume_src ~assume_dst ~assume_guard
-      ~guarantee_edge ~guarantee_src ~guarantee_dst ~guarantee_guard ~reason =
-    {
-      PT.src;
-      prog_transition;
-      prog_guard;
-      assume_edge;
-      assume_src;
-      assume_dst;
-      assume_guard;
-      guarantee_edge;
-      guarantee_src;
-      guarantee_dst;
-      guarantee_guard;
-      reason;
-    }
   in
   push_state initial_state;
   while not (Queue.is_empty q) do
@@ -238,53 +141,31 @@ let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node) : 
                 let guarantee_guard =
                   automaton_guard_fo ~atom_map_exprs:guarantee.atom_map_exprs guarantee_guard_raw
                 in
-                if not (fo_overlap_conservative prog_guard assume_guard) then
-                  pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
-                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
-                      ~guarantee_src:src.guarantee_state ~guarantee_dst
-                      ~guarantee_guard ~reason:PT.Incompatible_program_assumption
-                    :: !pruned_rev
-                else if not (fo_overlap_conservative prog_guard guarantee_guard) then
-                  pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
-                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
-                      ~guarantee_src:src.guarantee_state ~guarantee_dst
-                      ~guarantee_guard ~reason:PT.Incompatible_program_guarantee
-                    :: !pruned_rev
-                else if not (fo_overlap_conservative assume_guard guarantee_guard) then
-                  pruned_rev :=
-                    mk_pruned ~src ~prog_transition ~prog_guard ~assume_edge
-                      ~assume_src:src.assume_state ~assume_dst ~assume_guard ~guarantee_edge
-                      ~guarantee_src:src.guarantee_state ~guarantee_dst
-                      ~guarantee_guard ~reason:PT.Incompatible_assumption_guarantee
-                    :: !pruned_rev
-                else
-                  let dst =
-                    {
-                      PT.prog_state = prog_transition.dst;
-                      assume_state = assume_dst;
-                      guarantee_state = guarantee_dst;
-                    }
-                  in
-                  let step_class =
-                    classify_step ~assume_bad_idx:assume.bad_idx ~guarantee_bad_idx:guarantee.bad_idx dst
-                  in
-                  let step =
-                    {
-                      PT.src;
-                      dst;
-                      prog_transition;
-                      prog_guard;
-                      assume_edge;
-                      assume_guard;
-                      guarantee_edge;
-                      guarantee_guard;
-                      step_class;
-                    }
-                  in
-                  steps_rev := step :: !steps_rev;
-                  push_state dst)
+                let dst =
+                  {
+                    PT.prog_state = prog_transition.dst;
+                    assume_state = assume_dst;
+                    guarantee_state = guarantee_dst;
+                  }
+                in
+                let step_class =
+                  classify_step ~assume_bad_idx:assume.bad_idx ~guarantee_bad_idx:guarantee.bad_idx dst
+                in
+                let step =
+                  {
+                    PT.src;
+                    dst;
+                    prog_transition;
+                    prog_guard;
+                    assume_edge;
+                    assume_guard;
+                    guarantee_edge;
+                    guarantee_guard;
+                    step_class;
+                  }
+                in
+                steps_rev := step :: !steps_rev;
+                push_state dst)
               guarantee_edges)
           assume_edges)
       prog_edges
@@ -295,7 +176,6 @@ let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node) : 
         PT.initial_state;
         states = List.sort_uniq PT.compare_state (List.rev !states_rev);
         steps = List.rev !steps_rev;
-        pruned_steps = List.rev !pruned_rev;
       };
     assume_bad_idx = assume.bad_idx;
     guarantee_bad_idx = guarantee.bad_idx;

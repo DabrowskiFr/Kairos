@@ -70,7 +70,6 @@ type outputs = {
   product_tex_explicit : string;
   product_text : string;
   obligations_map_text : string;
-  prune_reasons_text : string;
   program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
@@ -117,7 +116,6 @@ type automata_outputs = {
   product_tex_explicit : string;
   product_text : string;
   obligations_map_text : string;
-  prune_reasons_text : string;
   program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;

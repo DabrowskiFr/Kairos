@@ -52,7 +52,6 @@ type instrumentation_info = {
   product_tex_explicit : string;
   product_lines : string list;
   obligations_lines : string list;
-  prune_lines : string list;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
@@ -84,7 +83,6 @@ let empty_instrumentation_info : instrumentation_info =
     product_tex_explicit = "";
     product_lines = [];
     obligations_lines = [];
-    prune_lines = [];
     guarantee_automaton_dot = "";
     assume_automaton_dot = "";
     product_dot = "";

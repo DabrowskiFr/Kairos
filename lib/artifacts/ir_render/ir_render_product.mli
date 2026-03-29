@@ -9,7 +9,6 @@ type rendered = {
   product_tex_explicit : string;
   product_lines : string list;
   obligations_lines : string list;
-  prune_lines : string list;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;

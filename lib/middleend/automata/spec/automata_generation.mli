@@ -16,20 +16,33 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Front-facing API for generating guarantee/assumption automata from Kairos
-    temporal contracts. *)
+(** Front-facing API for generating assumption and guarantee automata from the
+    temporal contracts attached to a node. *)
 
+(** Public alias for the normalized automaton representation used downstream. *)
 type automata_automaton = Automaton_types.automaton
+
+(** Complete automata bundle built for one node. *)
 type automata_build = Automaton_types.automata_build = {
+  (** Atom table used for guarantee construction. *)
   atoms : Automaton_types.automata_atoms;
+  (** Generated names of guarantee atoms, in backend order. *)
   guarantee_atom_names : Ast.ident list;
+  (** Combined guarantee specification after frontend normalization. *)
   guarantee_spec : Ast.ltl;
+  (** Guarantee automaton built from [guarantee_spec]. *)
   guarantee_automaton : automata_automaton;
+  (** Optional atom table used for assumption construction. *)
   assume_atoms : Automaton_types.automata_atoms option;
+  (** Generated names of assumption atoms, when assumptions are present. *)
   assume_atom_names : Ast.ident list;
+  (** Combined assumption specification, when assumptions are present. *)
   assume_spec : Ast.ltl option;
+  (** Assumption automaton, when assumptions are present. *)
   assume_automaton : automata_automaton option;
 }
+
+(** Automata bundles indexed by node name. *)
 type node_builds = (Ast.ident * automata_build) list
 
 val build_guarantee_automaton :
@@ -38,14 +51,23 @@ val build_guarantee_automaton :
   atom_names:Ast.ident list ->
   Ast.ltl ->
   automata_automaton
-(* Build, minimize, and group a guarantee automaton. *)
+(** Build the automaton associated with one temporal specification.
+
+    The function delegates to {!Automaton_build.build}, then returns the
+    normalized automaton used by the rest of the middleend. *)
 
 val build_guarantee_spec : atom_map:(Ast.fo_atom * Ast.ident) list -> Ast.node -> Ast.ltl
-(* Build the LTL specification made of node guarantees. *)
+(** Combine the guarantees of a node into the monitor specification used for the
+    guarantee automaton. Assumptions are included in this combined formula in
+    the way required by the current monitor construction. *)
 
 val build_assumption_spec : atom_map:(Ast.fo_atom * Ast.ident) list -> Ast.node -> Ast.ltl
-(* Build LTL spec made of node assumptions only. *)
+(** Combine the assumptions of a node into a standalone assumption
+    specification. *)
 
 val build_for_node : Ast.node -> automata_build
-(* Collect atoms, build guarantee/assumption specs, and construct the
-   corresponding automata. *)
+(** Build the full automata bundle for one node:
+    - collect guarantee atoms;
+    - build the combined guarantee specification and automaton;
+    - if assumptions exist, collect their atoms and build the corresponding
+      assumption specification and automaton. *)
