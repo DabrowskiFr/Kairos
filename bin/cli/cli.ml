@@ -31,7 +31,7 @@ let report_failed_goals (goals : Lsp_protocol.goal_info list) : string list =
 
 let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
     dump_prune_reasons dump_why dump_why3_vc dump_smt2 dump_kobj_summary
-    dump_kobj_clauses dump_kobj_product prove prover prover_cmd file =
+    dump_kobj_clauses dump_kobj_product prove prover prover_cmd timeout_s file =
   let dump_mode_count =
     List.fold_left (fun acc b -> if b then acc + 1 else acc) 0
       [
@@ -190,7 +190,7 @@ let run dump_dot dump_dot_short dump_automata dump_product dump_obligations_map
               prover_cmd;
               wp_only = false;
               smoke_tests = false;
-              timeout_s = 10;
+              timeout_s;
               selected_goal_index = None;
               compute_proof_diagnostics = false;
               prefix_fields = false;
@@ -295,13 +295,19 @@ let cmd =
       value & opt (some string) None
       & info [ "prover-cmd" ] ~docv:"CMD" ~doc:"Override prover command.")
   in
+  let timeout_s =
+    Arg.(
+      value & opt int 10
+      & info [ "timeout-s" ] ~docv:"SECONDS"
+          ~doc:"Per-goal prover timeout in seconds for --prove and Why3 obligation dumps.")
+  in
   let term =
     Term.(
       ret
         (const run $ dump_dot $ dump_dot_short $ dump_automata $ dump_product
        $ dump_obligations_map $ dump_prune_reasons $ dump_why $ dump_why3_vc
        $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
-       $ prove $ prover $ prover_cmd $ file))
+       $ prove $ prover $ prover_cmd $ timeout_s $ file))
   in
   let info = Cmd.info "kairos" ~doc:"Minimal CLI backed by the Kairos LSP service layer" in
   Cmd.v info term

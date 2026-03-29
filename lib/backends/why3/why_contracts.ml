@@ -193,6 +193,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     | Some GuaranteePropagation -> "Guarantee propagation"
     | Some AssumeAutomaton -> "Assume automaton"
     | Some ProgramGuard -> "Program guard"
+    | Some StateStability -> "State stability"
     | Some Instrumentation -> "Instrumentation"
     | Some Internal -> "Internal"
     | None -> "Unknown"

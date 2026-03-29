@@ -1,6 +1,6 @@
 node handoff() returns (modeA: int, modeB: int)
 contracts
-  ensures: G( {modeA} = {2} => X( {modeB} = {1} ) );
+  ensures: G( {modeA} = {1} => X( {modeB} = {0} ) );
 states
   Init(init), A, B;
 invariants

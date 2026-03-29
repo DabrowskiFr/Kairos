@@ -29,6 +29,7 @@ type product_contract = {
   assume_guard : Fo_formula.t;
   guarantee_guard : Fo_formula.t;
   requires : contract_formula list;
+  propagates : contract_formula list;
   ensures : contract_formula list;
   forbidden : contract_formula list;
 }

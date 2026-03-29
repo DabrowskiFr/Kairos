@@ -24,9 +24,18 @@ let guard_ltl_of_transition (t : Abs.transition) : ltl =
 let input_names (n : Abs.node) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
+let non_input_program_var_names (n : Abs.node) : ident list =
+  List.map (fun (v : vdecl) -> v.vname) (n.semantics.sem_outputs @ n.semantics.sem_locals)
+  |> List.sort_uniq String.compare
+
 let is_input_of_node (n : Abs.node) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
+
+let ivar (name : ident) : iexpr = { iexpr = IVar name; loc = None }
+
+let stability_ltl (name : ident) : ltl =
+  LAtom (FRel (HNow (ivar name), REq, HPreK (ivar name, 1)))
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   String.equal a.prog_state b.prog_state
@@ -48,14 +57,14 @@ let guarantee_pre_of_product_state ~(node : Abs.node) ~(analysis : Product_build
   in
   List.iter
     (fun (pc : Abs.product_contract) ->
-      let ensures =
-        pc.ensures
+      let propagated =
+        pc.propagates
         |> List.filter (fun (f : Abs.contract_formula) ->
                f.origin = Some GuaranteeAutomaton)
         |> Abs.values
         |> List.map (shift_ltl_forward_inputs ~is_input)
       in
-      if ensures <> [] then add pc.product_dst ensures)
+      if propagated <> [] then add pc.product_dst propagated)
     node.product_transitions;
   let initial_product_state =
     let st = analysis.exploration.initial_state in
@@ -77,10 +86,24 @@ let guarantee_pre_of_product_state ~(node : Abs.node) ~(analysis : Product_build
     in
     disj_fo from_ensures
 
-type t = { guarantee_pre_of_product_state : Abs.product_state -> Ast.ltl option }
+type t = {
+  guarantee_pre_of_product_state : Abs.product_state -> Ast.ltl option;
+  initial_product_state : Abs.product_state;
+  state_stability : Ast.ltl list;
+}
 
 let build ~(node : Abs.node) ~(analysis : Product_build.analysis) : t =
-  { guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~analysis }
+  let st = analysis.exploration.initial_state in
+  {
+    guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~analysis;
+    initial_product_state =
+      {
+        Abs.prog_state = st.prog_state;
+        assume_state_index = st.assume_state;
+        guarantee_state_index = st.guarantee_state;
+      };
+    state_stability = List.map stability_ltl (non_input_program_var_names node);
+  }
 
 let add_unique_formula (origin : Formula_origin.t) (f : ltl)
     (xs : Abs.contract_formula list) : Abs.contract_formula list =
@@ -107,6 +130,13 @@ let apply ~(pre_generation : t) (n : Abs.node) : Abs.node =
           add_unique_formula AssumeAutomaton (ltl_of_fo pc.assume_guard) requires
         in
         let requires = add_unique_formula ProgramGuard program_guard requires in
+        let requires =
+          if same_product_state pc.product_src pre_generation.initial_product_state then requires
+          else
+            List.fold_left
+              (fun acc f -> add_unique_formula StateStability f acc)
+              requires pre_generation.state_stability
+        in
         if requires == pc.requires then pc else { pc with requires })
       n.product_transitions
   in

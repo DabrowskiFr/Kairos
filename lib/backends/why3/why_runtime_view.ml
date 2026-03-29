@@ -87,6 +87,7 @@ type runtime_product_transition_view = {
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
   requires : Abs.contract_formula list;
+  propagates : Abs.contract_formula list;
   ensures : Abs.contract_formula list;
   forbidden : Abs.contract_formula list;
 }
@@ -602,6 +603,7 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
           product_src = pc.product_src;
           product_dst = pc.product_dst;
           requires = pc.requires;
+          propagates = pc.propagates;
           ensures = pc.ensures;
           forbidden = pc.forbidden;
         })

@@ -27,6 +27,7 @@ type product_contract = {
   assume_guard : Fo_formula.t;
   guarantee_guard : Fo_formula.t;
   requires : contract_formula list;
+  propagates : contract_formula list;
   ensures : contract_formula list;
   forbidden : contract_formula list;
 }
@@ -173,6 +174,7 @@ let map_product_contract_formulas ~contract ~guard (pc : product_contract) : pro
   {
     pc with
     requires = List.map (map_formula contract) pc.requires;
+    propagates = List.map (map_formula contract) pc.propagates;
     ensures = List.map (map_formula contract) pc.ensures;
     forbidden = List.map (map_formula contract) pc.forbidden;
     assume_guard = guard pc.assume_guard;

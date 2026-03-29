@@ -125,10 +125,12 @@ run_cli_prove_with_isolation() {
   local task_root
   task_root="$(mktemp -d)"
   mkdir -p "$task_root/tmp" "$task_root/xdg-cache"
+  local goal_timeout
+  goal_timeout="$(effective_goal_timeout_s)"
 
   if run_with_file_timeout "$stdout_file" "$stderr_file" \
     env TMPDIR="$task_root/tmp" XDG_CACHE_HOME="$task_root/xdg-cache" \
-    opam exec -- "$cli" --prove "$file"
+    opam exec -- "$cli" --prove --timeout-s "$goal_timeout" "$file"
   then
     local status=0
     rm -rf "$task_root"

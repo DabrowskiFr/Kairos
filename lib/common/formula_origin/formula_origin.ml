@@ -7,6 +7,7 @@ type t =
   | GuaranteePropagation
   | AssumeAutomaton
   | ProgramGuard
+  | StateStability
   | Internal
 [@@deriving show, yojson]
 
@@ -19,6 +20,7 @@ let to_string = function
   | GuaranteePropagation -> "guarantee-propagation"
   | AssumeAutomaton -> "assume-automaton"
   | ProgramGuard -> "program-guard"
+  | StateStability -> "state-stability"
   | Internal -> "internal"
 
 let of_string = function
@@ -30,5 +32,6 @@ let of_string = function
   | "guarantee-propagation" | "GuaranteePropagation" -> Some GuaranteePropagation
   | "assume-automaton" | "AssumeAutomaton" -> Some AssumeAutomaton
   | "program-guard" | "ProgramGuard" -> Some ProgramGuard
+  | "state-stability" | "StateStability" -> Some StateStability
   | "internal" | "Internal" -> Some Internal
   | _ -> None

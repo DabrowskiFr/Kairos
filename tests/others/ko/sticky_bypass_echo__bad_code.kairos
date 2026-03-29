@@ -4,11 +4,12 @@
    Why it must be rejected:
      The Hold-state invariant requires  y = latched.  Setting y := 0 violates
      this invariant in the self-loop.
-     The contract  G(bypass=1 => X G(y = prev x))  is broken because y is 0
-     instead of the latched value of x. *)
+     The contracts capturing sample-then-hold behavior are broken because y is 0
+     instead of the latched value. *)
 node sticky_bypass_echo(bypass: int, x: int) returns (y: int)
 contracts
-  ensures: G (bypass = 1 => X G (y = prev x));
+  ensures: G (bypass = 1 => X (y = prev x));
+  ensures: G (bypass = 1 => X G (y = prev y));
 locals
   latched: int;
 states
@@ -16,6 +17,9 @@ states
 invariants
   in Hold:
     y = latched;
+    y = prev y;
+    latched = prev y;
+    prev bypass = 1 => y = prev x;
 transitions
   Init:
     to Hold when bypass = 1 {

@@ -2,6 +2,8 @@
 
 type t = {
   guarantee_pre_of_product_state : Ir.product_state -> Ast.ltl option;
+  initial_product_state : Ir.product_state;
+  state_stability : Ast.ltl list;
 }
 
 val build :

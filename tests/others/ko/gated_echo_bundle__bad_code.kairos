@@ -4,11 +4,12 @@
    Why it must be rejected:
      The Hold-state invariant requires  y = hold and z = y.  Setting both to 0
      in the self-loop violates both invariant clauses.
-     The contract  G(gate=1 => X G((y = prev x) and (z = y)))  is broken because
+     The contracts capturing sample-then-hold bundle behavior are broken because
      y and z are 0 instead of echoing the latched value. *)
 node gated_echo_bundle(gate: int, x: int) returns (y: int, z: int)
 contracts
-  ensures: G (gate = 1 => X G ((y = prev x) and (z = y)));
+  ensures: G (gate = 1 => X ((y = prev x) and (z = y)));
+  ensures: G (gate = 1 => X G ((y = prev y) and (z = y)));
 locals
   hold: int;
 states
@@ -16,7 +17,10 @@ states
 invariants
   in Hold:
     y = hold and
-    z = y;
+    y = prev y and
+    z = y and
+    hold = prev y;
+    prev gate = 1 => y = prev x;
 transitions
   Init:
     to Hold when gate = 1 {

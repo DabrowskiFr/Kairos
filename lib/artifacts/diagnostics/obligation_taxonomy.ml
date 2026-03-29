@@ -113,6 +113,7 @@ let classify_require (f : Abs.contract_formula) : family =
   | Some GuaranteePropagation -> FamGuaranteePropagationRequires
   | Some AssumeAutomaton -> FamStateAwareAssumptionRequires
   | Some ProgramGuard -> FamTransitionRequires
+  | Some StateStability -> FamTransitionRequires
   | Some GuaranteeAutomaton ->
       FamTransitionRequires
   | Some GuaranteeViolation ->
@@ -127,7 +128,7 @@ let classify_ensure (f : Abs.contract_formula) : family =
   | Some GuaranteeAutomaton -> FamGuaranteeAutomatonEnsures
   | Some GuaranteeViolation -> FamGuaranteeViolationForbidden
   | Some UserContract | Some Internal | Some GuaranteePropagation
-  | Some AssumeAutomaton | Some ProgramGuard | None ->
+  | Some AssumeAutomaton | Some ProgramGuard | Some StateStability | None ->
       FamTransitionEnsures
 
 let summarize_program (p : Abs.node list) : summary =

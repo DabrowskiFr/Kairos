@@ -15,6 +15,7 @@ let render_origin = function
         | Formula_origin.GuaranteePropagation -> "GuaranteePropagation"
         | Formula_origin.AssumeAutomaton -> "AssumeAutomaton"
         | Formula_origin.ProgramGuard -> "ProgramGuard"
+        | Formula_origin.StateStability -> "StateStability"
         | Formula_origin.Internal -> "Internal"
       in
       " {" ^ s ^ "}"

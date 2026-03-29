@@ -82,6 +82,7 @@ type runtime_product_transition_view = {
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
   requires : Ir.contract_formula list;
+  propagates : Ir.contract_formula list;
   ensures : Ir.contract_formula list;
   forbidden : Ir.contract_formula list;
 }

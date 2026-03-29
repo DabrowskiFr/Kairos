@@ -14,6 +14,7 @@ type t =
   | GuaranteePropagation
   | AssumeAutomaton
   | ProgramGuard
+  | StateStability
   | Internal
 [@@deriving show, yojson]
 
