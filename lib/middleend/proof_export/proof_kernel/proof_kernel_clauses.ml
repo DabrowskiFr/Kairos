@@ -15,38 +15,61 @@ let same_product_state_ref (a : Abs.product_state) (b : product_state_ir) =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let same_product_contract_step (pc : Abs.product_contract) (step : product_step_ir) =
-  pc.step_class
+let same_product_case_step (case : Abs.product_case) (step : product_step_ir) =
+  case.step_class
   =
   (match step.step_kind with
   | StepSafe -> Abs.Safe
   | StepBadAssumption -> Abs.Bad_assumption
   | StepBadGuarantee -> Abs.Bad_guarantee)
-  &&
-  same_product_state_ref pc.product_src step.src
-  && same_product_state_ref pc.product_dst step.dst
-  && Fo_simplifier.simplify_fo pc.assume_guard
-     = Fo_simplifier.simplify_fo step.assume_edge.guard
-  && Fo_simplifier.simplify_fo pc.guarantee_guard
+  && same_product_state_ref case.product_dst step.dst
+  && Fo_simplifier.simplify_fo case.guarantee_guard
      = Fo_simplifier.simplify_fo step.guarantee_edge.guard
+
+let product_transition_index_of_step (step : product_step_ir) : int option =
+  let raw =
+    match String.starts_with ~prefix:"tr_" step.program_transition_id with
+    | true -> String.sub step.program_transition_id 3 (String.length step.program_transition_id - 3)
+    | false -> ""
+  in
+  let len = String.length raw in
+  let rec first_non_digit i =
+    if i >= len then len
+    else
+      match raw.[i] with
+      | '0' .. '9' -> first_non_digit (i + 1)
+      | _ -> i
+  in
+  let prefix_len = first_non_digit 0 in
+  if prefix_len = 0 then None else int_of_string_opt (String.sub raw 0 prefix_len)
+
+let product_contract_case_of_step ~(node : Abs.node) (step : product_step_ir) :
+    (Abs.product_contract * Abs.product_case) option =
+  match product_transition_index_of_step step with
+  | None -> None
+  | Some idx ->
+      List.find_opt
+        (fun (pc : Abs.product_contract) ->
+          pc.program_transition_index = idx
+          && same_product_state_ref pc.product_src step.src
+          && Fo_simplifier.simplify_fo pc.assume_guard
+             = Fo_simplifier.simplify_fo step.assume_edge.guard
+          && List.exists (fun case -> same_product_case_step case step) pc.cases)
+        node.product_transitions
+      |> function
+      | None -> None
+      | Some pc ->
+          List.find_opt (fun case -> same_product_case_step case step) pc.cases
+          |> Option.map (fun case -> (pc, case))
 
 let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis)
     ~(steps : product_step_ir list) ~automaton_guard_fo : generated_clause_ir list =
   let _analysis = analysis in
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let product_contracts_of_step (step : product_step_ir) : Abs.product_contract list =
-    let program_transition_index =
-      match String.starts_with ~prefix:"tr_" step.program_transition_id with
-      | true -> String.sub step.program_transition_id 3 (String.length step.program_transition_id - 3)
-      | false -> ""
-    in
-    match int_of_string_opt program_transition_index with
+    match product_contract_case_of_step ~node step with
     | None -> []
-    | Some idx ->
-        List.filter
-          (fun (pc : Abs.product_contract) ->
-            pc.program_transition_index = idx && same_product_contract_step pc step)
-          node.product_transitions
+    | Some (pc, _case) -> [ pc ]
   in
   let guarantee_propagation_requires (pc : Abs.product_contract) : Ast.ltl list =
     pc.requires
@@ -238,20 +261,6 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
-  let product_contract_of_step (step : product_step_ir) : Abs.product_contract option =
-    let program_transition_index =
-      match String.starts_with ~prefix:"tr_" step.program_transition_id with
-      | true -> String.sub step.program_transition_id 3 (String.length step.program_transition_id - 3)
-      | false -> ""
-    in
-    match int_of_string_opt program_transition_index with
-    | None -> None
-    | Some idx ->
-        List.find_opt
-          (fun (pc : Abs.product_contract) ->
-            pc.program_transition_index = idx && same_product_contract_step pc step)
-          node.product_transitions
-  in
   let guarantee_propagation_requires (pc : Abs.product_contract) : Ast.ltl list =
     pc.requires
     |> List.filter_map (fun (f : Abs.contract_formula) ->
@@ -272,9 +281,9 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
     | LTrue | LFalse | LAtom _ | LX _ | LG _ | LW _ -> f
   in
   let compatibility_phase_formula_for_step (step : product_step_ir) =
-    match product_contract_of_step step with
+    match product_contract_case_of_step ~node step with
     | None -> None
-    | Some pc ->
+    | Some (pc, _case) ->
         guarantee_propagation_requires pc
         |> List.sort_uniq Stdlib.compare
         |> function

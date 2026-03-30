@@ -23,6 +23,11 @@ open Ast
 module Abs = Ir
 open Collect
 
+let dedup_contract_formulas (xs : Abs.contract_formula list) : Abs.contract_formula list =
+  List.sort_uniq
+    (fun (a : Abs.contract_formula) (b : Abs.contract_formula) -> Int.compare a.oid b.oid)
+    xs
+
 type port_view = {
   port_name : Ast.ident;
   port_type : Ast.ty;
@@ -591,22 +596,60 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
   let callee_nodes = List.map ast_node_of_ir_node program_nodes in
   let runtime = of_node ~nodes:callee_nodes synthetic_node in
   let product_transitions =
-    List.map
+    List.concat_map
       (fun (pc : Ir.product_contract) ->
         let t = List.nth node.trans pc.program_transition_index in
-        {
-          transition_id = Printf.sprintf "tr_%d" pc.program_transition_index;
-          src_state = t.src;
-          dst_state = t.dst;
-          guard = t.guard;
-          step_class = pc.step_class;
-          product_src = pc.product_src;
-          product_dst = pc.product_dst;
-          requires = pc.requires;
-          propagates = pc.propagates;
-          ensures = pc.ensures;
-          forbidden = pc.forbidden;
-        })
+        let safe_cases, other_cases =
+          List.partition
+            (fun (case : Ir.product_case) -> case.step_class = Ir.Safe)
+            pc.cases
+        in
+        let safe_group =
+          match safe_cases with
+          | [] -> []
+          | first_safe :: _ ->
+              let propagates =
+                safe_cases |> List.concat_map (fun (case : Ir.product_case) -> case.propagates)
+                |> dedup_contract_formulas
+              in
+              let case_ensures =
+                safe_cases |> List.concat_map (fun (case : Ir.product_case) -> case.ensures)
+                |> dedup_contract_formulas
+              in
+              [
+                {
+                  transition_id = Printf.sprintf "tr_%d" pc.program_transition_index;
+                  src_state = t.src;
+                  dst_state = t.dst;
+                  guard = t.guard;
+                  step_class = Ir.Safe;
+                  product_src = pc.product_src;
+                  product_dst = first_safe.product_dst;
+                  requires = pc.requires;
+                  propagates;
+                  ensures = dedup_contract_formulas (pc.ensures @ case_ensures);
+                  forbidden = [];
+                };
+              ]
+        in
+        let bad_groups =
+          other_cases
+          |> List.map (fun (case : Ir.product_case) ->
+                 {
+                   transition_id = Printf.sprintf "tr_%d" pc.program_transition_index;
+                   src_state = t.src;
+                   dst_state = t.dst;
+                   guard = t.guard;
+                   step_class = case.step_class;
+                   product_src = pc.product_src;
+                   product_dst = case.product_dst;
+                   requires = pc.requires;
+                   propagates = case.propagates;
+                   ensures = case.ensures;
+                   forbidden = case.forbidden;
+                 })
+        in
+        safe_group @ bad_groups)
       node.product_transitions
   in
   {

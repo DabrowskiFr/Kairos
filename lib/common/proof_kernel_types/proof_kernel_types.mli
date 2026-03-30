@@ -174,9 +174,13 @@ type node_signature_ir = {
 }
 [@@deriving yojson]
 
-(** Contract attached to one product transition. *)
+(** Contract attached to one canonical proof-step group.
+
+    Safe contracts may summarize several explicit product steps sharing the
+    same program transition, source product state, and assume edge. Bad
+    contracts remain singleton groups. *)
 type proof_step_contract_ir = {
-  step : product_step_ir;
+  steps : product_step_ir list;
   entry_clauses : relational_generated_clause_ir list;
   clauses : relational_generated_clause_ir list;
 }

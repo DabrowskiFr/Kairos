@@ -86,7 +86,7 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Tapply (fn, _arg) -> begin
       match fn.term_desc with Tident q -> Ast_pretty.string_of_qid q = "old" | _ -> term_has_old fn
     end
-  | Tbinop (a, _, b) | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
+  | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
   | Tnot a -> term_has_old a
   | Tidapp (_q, args) -> List.exists term_has_old args
   | Tif (c, t1, t2) -> term_has_old c || term_has_old t1 || term_has_old t2
@@ -100,7 +100,7 @@ let rec term_mentions_record (rec_name : string) (t : Ptree.term) : bool =
   match t.term_desc with
   | Tident q -> qid_root q = rec_name
   | Tapply (fn, arg) -> term_mentions_record rec_name fn || term_mentions_record rec_name arg
-  | Tbinop (a, _, b) | Tbinnop (a, _, b) | Tinnfix (a, _, b) ->
+  | Tbinnop (a, _, b) | Tinnfix (a, _, b) ->
       term_mentions_record rec_name a || term_mentions_record rec_name b
   | Tnot a -> term_mentions_record rec_name a
   | Tidapp (_q, args) -> List.exists (term_mentions_record rec_name) args
@@ -152,7 +152,6 @@ let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term 
       end
     | Tconst _ | Ttrue | Tfalse -> t
     | Tnot a -> mk_term (Tnot (go a))
-    | Tbinop (a, op, b) -> mk_term (Tbinop (go a, op, go b))
     | Tbinnop (a, op, b) -> mk_term (Tbinnop (go a, op, go b))
     | Tinnfix (a, op, b) -> mk_term (Tinnfix (go a, op, go b))
     | Tidapp (q, args) -> mk_term (Tidapp (q, List.map go args))

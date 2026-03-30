@@ -34,7 +34,11 @@ let build_raw_node (node : Abs.node) : Ir.raw_node =
     let product_formulas =
       node.product_transitions
       |> List.concat_map (fun (pc : Abs.product_contract) ->
-             Abs.values (pc.requires @ pc.propagates @ pc.ensures @ pc.forbidden))
+             Abs.values (pc.requires @ pc.ensures)
+             @
+             (pc.cases
+             |> List.concat_map (fun (case : Abs.product_case) ->
+                    Abs.values (case.propagates @ case.ensures @ case.forbidden))))
     in
     transition_formulas @ product_formulas @ Abs.values node.coherency_goals
   in

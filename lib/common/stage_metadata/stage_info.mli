@@ -80,8 +80,12 @@ type instrumentation_info = {
   product_tex : string;
   (** LaTeX rendering of the explicit product-transition guards. *)
   product_tex_explicit : string;
+  (** LaTeX rendering of the canonical proof-step structure. *)
+  canonical_tex : string;
   (** Text rendering of the explored product. *)
   product_lines : string list;
+  (** Text rendering of the canonical proof-step structure. *)
+  canonical_lines : string list;
   (** Text rendering of generated obligations. *)
   obligations_lines : string list;
   (** DOT rendering of the guarantee automaton. *)
@@ -92,6 +96,8 @@ type instrumentation_info = {
   product_dot : string;
   (** DOT rendering of the explicit product graph. *)
   product_dot_explicit : string;
+  (** DOT rendering of the canonical proof-step structure. *)
+  canonical_dot : string;
 }
 
 (** Default empty parsing metadata. *)

@@ -36,78 +36,171 @@ let same_product_state (a : PT.product_state) (b : PT.product_state) : bool =
   && a.assume_state = b.assume_state
   && a.guarantee_state = b.guarantee_state
 
-let group_key_of_step ~(program_transition_index : int) (step : PT.product_step) : string =
-  Printf.sprintf "%d|%s|%d|%d" program_transition_index step.src.prog_state step.src.assume_state
-    step.src.guarantee_state
-
 let disj_ltl (fs : ltl list) : ltl option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> LOr (acc, x)) f rest)
 
+let automaton_outgoing (grouped : Automaton_types.transition list) :
+    (int, Automaton_types.transition list) Hashtbl.t =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (((src, _guard, _dst) as edge) : Automaton_types.transition) ->
+      let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
+      Hashtbl.replace tbl src (edge :: prev))
+    grouped;
+  tbl
+
+let edges_from_outgoing (outgoing : (int, Automaton_types.transition list) Hashtbl.t) idx =
+  Hashtbl.find_opt outgoing idx |> Option.value ~default:[]
+
+let transition_indices (node : Abs.node) : (Abs.transition, int) Hashtbl.t =
+  node.trans
+  |> List.mapi (fun idx t -> (t, idx))
+  |> List.to_seq |> Hashtbl.of_seq
+
+let program_outgoing (node : Abs.node) : (ident, Abs.transition list) Hashtbl.t =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (t : Abs.transition) ->
+      let prev = Hashtbl.find_opt tbl t.src |> Option.value ~default:[] in
+      Hashtbl.replace tbl t.src (t :: prev))
+    node.trans;
+  tbl
+
+let classify_case ~(analysis : Product_build.analysis) (dst : PT.product_state) : PT.step_class =
+  if analysis.assume_bad_idx >= 0 && dst.assume_state = analysis.assume_bad_idx then PT.Bad_assumption
+  else if analysis.guarantee_bad_idx >= 0 && dst.guarantee_state = analysis.guarantee_bad_idx then
+    PT.Bad_guarantee
+  else PT.Safe
+
 let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) :
     Abs.product_contract list =
-  let transition_indices =
-    node.trans
-    |> List.mapi (fun idx t -> (t, idx))
-    |> List.to_seq |> Hashtbl.of_seq
+  let transition_indices = transition_indices node in
+  let prog_outgoing = program_outgoing node in
+  let assume_outgoing = automaton_outgoing analysis.assume_grouped_edges in
+  let guarantee_outgoing = automaton_outgoing analysis.guarantee_grouped_edges in
+  let groups = Hashtbl.create 32 in
+  let order = ref [] in
+  let seen = Hashtbl.create 64 in
+  let q = Queue.create () in
+  let push_state st =
+    if not (Hashtbl.mem seen st) then (
+      Hashtbl.add seen st ();
+      Queue.add st q)
   in
-  let relevant_steps =
-    analysis.exploration.steps
-    |> List.filter_map (fun (step : PT.product_step) ->
-           if not (is_relevant_product_step ~analysis step) then None
-           else
-             Option.map (fun idx -> (step, idx)) (Hashtbl.find_opt transition_indices step.prog_transition))
-  in
-  let safe_group_guards = Hashtbl.create 32 in
-  let safe_group_first_dst = Hashtbl.create 32 in
-  List.iter
-    (fun ((step : PT.product_step), program_transition_index) ->
-      match step.step_class with
-      | PT.Safe ->
-          let key = group_key_of_step ~program_transition_index step in
-          let previous = Hashtbl.find_opt safe_group_guards key |> Option.value ~default:[] in
-          Hashtbl.replace safe_group_guards key (ltl_of_fo step.guarantee_guard :: previous);
-          if not (Hashtbl.mem safe_group_first_dst key) then Hashtbl.add safe_group_first_dst key step.dst
-      | PT.Bad_assumption | PT.Bad_guarantee -> ())
-    relevant_steps;
-  relevant_steps
-  |> List.map (fun ((step : PT.product_step), program_transition_index) ->
-         let propagates, ensures, forbidden =
-           match step.step_class with
-           | PT.Safe ->
-               let key = group_key_of_step ~program_transition_index step in
-               let grouped_ensure =
-                 match Hashtbl.find_opt safe_group_guards key with
-                 | Some guards -> begin
-                     match disj_ltl guards with
-                     | Some grouped -> begin
-                         match Hashtbl.find_opt safe_group_first_dst key with
-                         | Some first_dst when same_product_state first_dst step.dst ->
-                             [ Abs.with_origin Internal grouped ]
-                         | _ -> []
-                       end
-                     | None -> []
-                   end
-                 | None -> []
-               in
-               ([ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ], grouped_ensure, [])
-           | PT.Bad_guarantee ->
-               ([], [], [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ])
-           | PT.Bad_assumption -> ([], [], [])
-         in
-         {
-           program_transition_index;
-           step_class = product_step_class_of_pt step.step_class;
-           Abs.product_src = product_state_of_pt step.src;
-           product_dst = product_state_of_pt step.dst;
-           assume_guard = step.assume_guard;
-           guarantee_guard = step.guarantee_guard;
-           requires = [];
-           propagates;
-           ensures;
-           forbidden;
-         })
+  push_state analysis.exploration.initial_state;
+  while not (Queue.is_empty q) do
+    let src = Queue.take q in
+    let prog_edges = Hashtbl.find_opt prog_outgoing src.prog_state |> Option.value ~default:[] in
+    let assume_edges = edges_from_outgoing assume_outgoing src.assume_state in
+    let guarantee_edges = edges_from_outgoing guarantee_outgoing src.guarantee_state in
+    List.iter
+      (fun (prog_transition : Abs.transition) ->
+        match Hashtbl.find_opt transition_indices prog_transition with
+        | None -> ()
+        | Some program_transition_index ->
+            List.iter
+              (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) :
+                    Automaton_types.transition) ->
+                List.iter
+                  (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
+                        Automaton_types.transition) ->
+                    let dst =
+                      {
+                        PT.prog_state = prog_transition.dst;
+                        assume_state = assume_dst;
+                        guarantee_state = guarantee_dst;
+                      }
+                    in
+                    push_state dst;
+                    let step_class = classify_case ~analysis dst in
+                    let step =
+                      {
+                        PT.src;
+                        dst;
+                        prog_transition;
+                        prog_guard =
+                          (match prog_transition.guard with
+                          | None -> Fo_formula.FTrue
+                          | Some g -> Fo_specs.iexpr_to_fo_with_atoms [] g |> Fo_simplifier.simplify_fo);
+                        assume_edge;
+                        assume_guard = Fo_simplifier.simplify_fo assume_guard_raw;
+                        guarantee_edge;
+                        guarantee_guard = Fo_simplifier.simplify_fo guarantee_guard_raw;
+                        step_class;
+                      }
+                    in
+                    if is_relevant_product_step ~analysis step then (
+                      let key = (program_transition_index, step.src, step.assume_edge) in
+                      if not (Hashtbl.mem groups key) then order := key :: !order;
+                      let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
+                      Hashtbl.replace groups key ((step, program_transition_index) :: previous)))
+                  guarantee_edges)
+              assume_edges)
+      prog_edges
+  done;
+  List.rev !order
+  |> List.filter_map (fun key ->
+         match Hashtbl.find_opt groups key with
+         | None -> None
+         | Some grouped ->
+             let grouped = List.rev grouped in
+             let ((repr_step : PT.product_step), program_transition_index) = List.hd grouped in
+             let safe_guards =
+               grouped
+               |> List.filter_map (fun ((step : PT.product_step), _) ->
+                      match step.step_class with
+                      | PT.Safe -> Some (ltl_of_fo step.guarantee_guard)
+                      | PT.Bad_assumption | PT.Bad_guarantee -> None)
+             in
+             let first_safe_dst =
+               grouped
+               |> List.find_map (fun ((step : PT.product_step), _) ->
+                      match step.step_class with
+                      | PT.Safe -> Some step.dst
+                      | PT.Bad_assumption | PT.Bad_guarantee -> None)
+             in
+             let cases =
+               grouped
+               |> List.filter_map (fun ((step : PT.product_step), _) ->
+                      match step.step_class with
+                      | PT.Bad_assumption -> None
+                      | PT.Safe ->
+                          Some
+                            {
+                              Abs.step_class = product_step_class_of_pt step.step_class;
+                              product_dst = product_state_of_pt step.dst;
+                              guarantee_guard = step.guarantee_guard;
+                              propagates =
+                                [ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ];
+                              ensures = [];
+                              forbidden = [];
+                            }
+                      | PT.Bad_guarantee ->
+                          Some
+                            {
+                              Abs.step_class = product_step_class_of_pt step.step_class;
+                              product_dst = product_state_of_pt step.dst;
+                              guarantee_guard = step.guarantee_guard;
+                              propagates = [];
+                              ensures = [];
+                              forbidden =
+                                [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ];
+                            })
+             in
+             Some
+               {
+                 program_transition_index;
+                 Abs.product_src = product_state_of_pt repr_step.src;
+                 assume_guard = repr_step.assume_guard;
+                 requires = [];
+                 ensures =
+                   (match (disj_ltl safe_guards, first_safe_dst) with
+                   | Some grouped, Some _first_dst -> [ Abs.with_origin Internal grouped ]
+                   | _ -> []);
+                 cases;
+               })
 
 type t = { product_transitions : Abs.product_contract list }
 

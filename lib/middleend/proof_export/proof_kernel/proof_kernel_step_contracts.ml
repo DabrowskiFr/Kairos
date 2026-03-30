@@ -10,19 +10,25 @@ let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let same_product_contract_step (pc : Abs.product_contract) (step : product_step_ir) : bool =
-  pc.step_class
+let same_product_state_ir (a : product_state_ir) (b : product_state_ir) : bool =
+  String.equal a.prog_state b.prog_state
+  && a.assume_state_index = b.assume_state_index
+  && a.guarantee_state_index = b.guarantee_state_index
+
+let same_automaton_edge_ir (a : automaton_edge_ir) (b : automaton_edge_ir) : bool =
+  a.src_index = b.src_index
+  && a.dst_index = b.dst_index
+  && Fo_simplifier.simplify_fo a.guard = Fo_simplifier.simplify_fo b.guard
+
+let same_product_case_step (case : Abs.product_case) (step : product_step_ir) : bool =
+  case.step_class
   =
   (match step.step_kind with
   | StepSafe -> Abs.Safe
   | StepBadAssumption -> Abs.Bad_assumption
   | StepBadGuarantee -> Abs.Bad_guarantee)
-  &&
-  same_product_state pc.product_src step.src
-  && same_product_state pc.product_dst step.dst
-  && Fo_simplifier.simplify_fo pc.assume_guard
-     = Fo_simplifier.simplify_fo step.assume_edge.guard
-  && Fo_simplifier.simplify_fo pc.guarantee_guard
+  && same_product_state case.product_dst step.dst
+  && Fo_simplifier.simplify_fo case.guarantee_guard
      = Fo_simplifier.simplify_fo step.guarantee_edge.guard
 
 let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_program_ir)
@@ -43,7 +49,9 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
         List.find_opt
           (fun (pc : Abs.product_contract) ->
             pc.program_transition_index = program_transition_index
-            && same_product_contract_step pc step)
+            && same_product_state pc.product_src step.src
+            && Fo_simplifier.simplify_fo pc.assume_guard
+               = Fo_simplifier.simplify_fo step.assume_edge.guard)
           node.product_transitions
   in
   let slot_to_current_expr =
@@ -199,10 +207,13 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
            | OriginInitAutomatonCoherence ->
                clause)
   in
-  let entry_clauses_for (step : product_step_ir) =
-    match product_contract_of_step step with
-    | None -> []
-    | Some pc ->
+  let entry_clauses_for_steps (steps : product_step_ir list) =
+    match steps with
+    | [] -> []
+    | step :: _ -> (
+        match product_contract_of_step step with
+        | None -> []
+        | Some pc ->
         pc.requires
         |> List.map (fun (f : Ir.contract_formula) ->
                {
@@ -217,10 +228,39 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
                      };
                    ];
                })
+      )
   in
-  let build_step_contract (step : product_step_ir) =
-    let entry_clauses = entry_clauses_for step in
-    let post_clauses = clauses_for_step step in
-    { step; entry_clauses; clauses = post_clauses }
+  let dedup_clauses (clauses : relational_generated_clause_ir list) =
+    List.sort_uniq Stdlib.compare clauses
   in
-  List.map build_step_contract product_steps
+  let safe_group_key (step : product_step_ir) =
+    (step.program_transition_id, step.src, step.assume_edge)
+  in
+  let safe_groups = Hashtbl.create 16 in
+  let safe_order = ref [] in
+  let singleton_contract step =
+    let steps = [ step ] in
+    let entry_clauses = entry_clauses_for_steps steps in
+    let clauses = clauses_for_step step in
+    { steps; entry_clauses; clauses }
+  in
+  let contracts_rev = ref [] in
+  List.iter
+    (fun (step : product_step_ir) ->
+      match step.step_kind with
+      | StepSafe ->
+          let key = safe_group_key step in
+          if not (Hashtbl.mem safe_groups key) then safe_order := key :: !safe_order;
+          let prev = Hashtbl.find_opt safe_groups key |> Option.value ~default:[] in
+          Hashtbl.replace safe_groups key (step :: prev)
+      | StepBadAssumption | StepBadGuarantee -> contracts_rev := singleton_contract step :: !contracts_rev)
+    product_steps;
+  let safe_contracts =
+    List.rev !safe_order
+    |> List.map (fun key ->
+           let steps = Hashtbl.find safe_groups key |> List.rev in
+           let entry_clauses = entry_clauses_for_steps steps in
+           let clauses = steps |> List.concat_map clauses_for_step |> dedup_clauses in
+           { steps; entry_clauses; clauses })
+  in
+  safe_contracts @ List.rev !contracts_rev

@@ -80,15 +80,19 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
           | None -> pc.requires
           | Some inv -> add_unique_formula Invariant inv pc.requires
         in
-        let ensures =
-          match invariant_generation.invariant_of_state pc.product_dst.prog_state with
-          | None -> pc.ensures
-          | Some inv ->
-              let shifted_inv = shift_ltl_backward_inputs ~is_input inv in
-              add_unique_formula Invariant shifted_inv pc.ensures
+        let cases =
+          List.map
+            (fun (case : Abs.product_case) ->
+              match invariant_generation.invariant_of_state case.product_dst.prog_state with
+              | None -> case
+              | Some inv ->
+                  let shifted_inv = shift_ltl_backward_inputs ~is_input inv in
+                  let ensures = add_unique_formula Invariant shifted_inv case.ensures in
+                  if ensures == case.ensures then case else { case with ensures })
+            pc.cases
         in
-        if requires == pc.requires && ensures == pc.ensures then pc
-        else { pc with requires; ensures })
+        if requires == pc.requires && cases == pc.cases then pc
+        else { pc with requires; cases })
       n.product_transitions
   in
   { n with product_transitions }

@@ -49,9 +49,17 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
     {
       pc with
       requires = List.map reid_contract_formula pc.requires;
-      propagates = List.map reid_contract_formula pc.propagates;
       ensures = List.map reid_contract_formula pc.ensures;
-      forbidden = List.map reid_contract_formula pc.forbidden;
+      cases =
+        List.map
+          (fun (case : Abs.product_case) ->
+            {
+              case with
+              propagates = List.map reid_contract_formula case.propagates;
+              ensures = List.map reid_contract_formula case.ensures;
+              forbidden = List.map reid_contract_formula case.forbidden;
+            })
+          pc.cases;
     }
   in
   let reid_trans (t : Abs.transition) =

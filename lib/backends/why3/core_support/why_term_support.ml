@@ -95,7 +95,7 @@ let rec string_of_term (t : Ptree.term) : string =
   | Tinnfix (a, op, b) ->
       let op_str = normalize_infix op.id_str in
       "(" ^ aux a ^ " " ^ op_str ^ " " ^ aux b ^ ")"
-  | Tbinop (a, d, b) | Tbinnop (a, d, b) ->
+  | Tbinnop (a, d, b) ->
       let op =
         match d with
         | Dterm.DTand -> "/\\"
@@ -143,7 +143,7 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
         | Tnot inner -> inner
         | _ -> mk_term (Tnot (simplify_term_bool a))
       end
-    | Tbinop (a, Dterm.DTand, b) | Tbinnop (a, Dterm.DTand, b) ->
+    | Tbinnop (a, Dterm.DTand, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -154,7 +154,7 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | _ when string_of_term a = string_of_term b -> a
           | _ -> term_bool_binop Dterm.DTand a b
         end
-    | Tbinop (a, Dterm.DTor, b) | Tbinnop (a, Dterm.DTor, b) ->
+    | Tbinnop (a, Dterm.DTor, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -165,7 +165,7 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | _ when string_of_term a = string_of_term b -> a
           | _ -> term_bool_binop Dterm.DTor a b
         end
-    | Tbinop (a, Dterm.DTimplies, b) | Tbinnop (a, Dterm.DTimplies, b) ->
+    | Tbinnop (a, Dterm.DTimplies, b) ->
         let a = simplify_term_bool a in
         let b = simplify_term_bool b in
         begin
@@ -176,7 +176,6 @@ let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
           | _ when string_of_term a = string_of_term b -> mk_term Ttrue
           | _ -> term_bool_binop Dterm.DTimplies a b
         end
-    | Tbinop (a, op, b) -> mk_term (Tbinop (simplify_term_bool a, op, simplify_term_bool b))
     | Tbinnop (a, op, b) -> mk_term (Tbinnop (simplify_term_bool a, op, simplify_term_bool b))
     | Tinnfix (a, op, b) -> mk_term (Tinnfix (simplify_term_bool a, op, simplify_term_bool b))
     | Tapply (f, a) -> mk_term (Tapply (simplify_term_bool f, simplify_term_bool a))

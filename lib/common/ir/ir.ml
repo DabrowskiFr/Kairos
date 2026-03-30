@@ -19,17 +19,22 @@ type product_step_class =
   | Bad_assumption
   | Bad_guarantee
 
-type product_contract = {
-  program_transition_index : int;
+type product_case = {
   step_class : product_step_class;
-  product_src : product_state;
   product_dst : product_state;
-  assume_guard : Fo_formula.t;
   guarantee_guard : Fo_formula.t;
-  requires : contract_formula list;
   propagates : contract_formula list;
   ensures : contract_formula list;
   forbidden : contract_formula list;
+}
+
+type product_contract = {
+  program_transition_index : int;
+  product_src : product_state;
+  assume_guard : Fo_formula.t;
+  requires : contract_formula list;
+  ensures : contract_formula list;
+  cases : product_case list;
 }
 
 type transition = {
@@ -174,11 +179,19 @@ let map_product_contract_formulas ~contract ~guard (pc : product_contract) : pro
   {
     pc with
     requires = List.map (map_formula contract) pc.requires;
-    propagates = List.map (map_formula contract) pc.propagates;
     ensures = List.map (map_formula contract) pc.ensures;
-    forbidden = List.map (map_formula contract) pc.forbidden;
     assume_guard = guard pc.assume_guard;
-    guarantee_guard = guard pc.guarantee_guard;
+    cases =
+      List.map
+        (fun (c : product_case) ->
+          {
+            c with
+            guarantee_guard = guard c.guarantee_guard;
+            propagates = List.map (map_formula contract) c.propagates;
+            ensures = List.map (map_formula contract) c.ensures;
+            forbidden = List.map (map_formula contract) c.forbidden;
+          })
+        pc.cases;
   }
 
 let empty_proof_views : proof_views = { raw = None; annotated = None; verified = None }

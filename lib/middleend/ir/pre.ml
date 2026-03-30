@@ -57,14 +57,17 @@ let guarantee_pre_of_product_state ~(node : Abs.node) ~(analysis : Product_build
   in
   List.iter
     (fun (pc : Abs.product_contract) ->
-      let propagated =
-        pc.propagates
-        |> List.filter (fun (f : Abs.contract_formula) ->
-               f.origin = Some GuaranteeAutomaton)
-        |> Abs.values
-        |> List.map (shift_ltl_forward_inputs ~is_input)
-      in
-      if propagated <> [] then add pc.product_dst propagated)
+      List.iter
+        (fun (case : Abs.product_case) ->
+          let propagated =
+            case.propagates
+            |> List.filter (fun (f : Abs.contract_formula) ->
+                   f.origin = Some GuaranteeAutomaton)
+            |> Abs.values
+            |> List.map (shift_ltl_forward_inputs ~is_input)
+          in
+          if propagated <> [] then add case.product_dst propagated)
+        pc.cases)
     node.product_transitions;
   let initial_product_state =
     let st = analysis.exploration.initial_state in

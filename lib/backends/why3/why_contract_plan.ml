@@ -45,7 +45,7 @@ type link_contracts = {
   link_invariants : Ptree.term list;
 }
 
-let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinop (a, Dterm.DTand, b))
+let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinnop (a, Dterm.DTand, b))
 
 let with_guard (cond : Ptree.term) (guard : Ptree.term option) : Ptree.term =
   match guard with None -> cond | Some g -> term_and cond g
@@ -56,7 +56,7 @@ let rec term_mentions_record (rec_name : string) (t : Ptree.term) : bool =
   match t.term_desc with
   | Tident q -> qid_root q = rec_name
   | Tapply (fn, arg) -> term_mentions_record rec_name fn || term_mentions_record rec_name arg
-  | Tbinop (a, _, b) | Tinnfix (a, _, b) ->
+  | Tbinnop (a, _, b) | Tinnfix (a, _, b) ->
       term_mentions_record rec_name a || term_mentions_record rec_name b
   | Tnot a -> term_mentions_record rec_name a
   | Tidapp (_q, args) -> List.exists (term_mentions_record rec_name) args

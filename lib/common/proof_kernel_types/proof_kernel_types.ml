@@ -154,7 +154,7 @@ type node_signature_ir = {
 [@@deriving yojson]
 
 type proof_step_contract_ir = {
-  step : product_step_ir;
+  steps : product_step_ir list;
   entry_clauses : relational_generated_clause_ir list;
   clauses : relational_generated_clause_ir list;
 }

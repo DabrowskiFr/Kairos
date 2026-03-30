@@ -9,10 +9,10 @@ let instrumentation_pass ~build_ast_with_info ~stage_meta ~instrumentation_diag_
       let instrumentation_info =
         Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
       in
-      let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
-          guarantee_automaton_tex, assume_automaton_tex, product_tex,
-          product_tex_explicit, guarantee_automaton_dot, assume_automaton_dot, product_dot,
-          product_dot_explicit =
+      let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
+          obligations_map_text_raw, guarantee_automaton_tex, assume_automaton_tex, product_tex,
+          product_tex_explicit, canonical_tex, guarantee_automaton_dot, assume_automaton_dot,
+          product_dot, product_dot_explicit, canonical_dot =
         instrumentation_diag_texts infos
       in
       let obligations_map_text =
@@ -58,13 +58,16 @@ let instrumentation_pass ~build_ast_with_info ~stage_meta ~instrumentation_diag_
           assume_automaton_tex;
           product_tex;
           product_tex_explicit;
+          canonical_tex;
           product_text;
+          canonical_text;
           obligations_map_text;
           program_dot;
           guarantee_automaton_dot;
           assume_automaton_dot;
           product_dot;
           product_dot_explicit;
+          canonical_dot;
           dot_png;
           dot_png_error;
           program_png;

@@ -601,7 +601,11 @@ let render_product_contracts (obj : t) : string =
   let render_contract indent_level
       (transitions_by_id : (string, Proof_kernel_types.reactive_transition_ir) Hashtbl.t)
       (contract : Proof_kernel_types.proof_step_contract_ir) =
-    let step = contract.step in
+    let step =
+      match contract.steps with
+      | step :: _ -> step
+      | [] -> failwith "Malformed proof-step contract: empty grouped steps"
+    in
     let transition =
       match Hashtbl.find_opt transitions_by_id step.program_transition_id with
       | Some t -> t
@@ -620,6 +624,18 @@ let render_product_contracts (obj : t) : string =
       | [] -> [ "true" ]
       | xs -> normalize_formula_lines (List.map post_clause_to_formula xs)
     in
+    let grouped_steps =
+      match contract.steps with
+      | [] | [ _ ] -> []
+      | xs ->
+          let dsts =
+            xs
+            |> List.map (fun (step : Proof_kernel_types.product_step_ir) -> string_of_product_state step.dst)
+            |> List.sort_uniq String.compare
+          in
+          [ indent (indent_level + 1) ^ "grouped destinations:";
+            indent (indent_level + 2) ^ String.concat ", " dsts ]
+    in
     [
       indent indent_level ^ "contract";
       indent (indent_level + 1)
@@ -628,6 +644,7 @@ let render_product_contracts (obj : t) : string =
       indent (indent_level + 1) ^ "program transition id: " ^ step.program_transition_id;
       indent (indent_level + 1) ^ "{pre}";
     ]
+    @ grouped_steps
     @ List.map (fun s -> indent (indent_level + 2) ^ s) pre_formulas
     @ render_code (indent_level + 1) transition
     @ [ indent (indent_level + 1) ^ "{post}" ]

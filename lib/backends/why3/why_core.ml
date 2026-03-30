@@ -28,7 +28,7 @@ open Why_term_support
 open Why_compile_expr
 
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =
-  mk_term (Tbinop (a, Dterm.DTand, b))
+  mk_term (Tbinnop (a, Dterm.DTand, b))
 
 let is_unit_expr (e : Ptree.expr) : bool = match e.expr_desc with Etuple [] -> true | _ -> false
 let fresh_if_id =
@@ -75,7 +75,7 @@ let rec term_mentions_qid_name (name : string) (term : Ptree.term) : bool =
   match term.term_desc with
   | Tident q -> String.equal (string_of_qid q) name
   | Tapply (fn, arg) -> term_mentions_qid_name name fn || term_mentions_qid_name name arg
-  | Tbinop (lhs, _, rhs) | Tinnfix (lhs, _, rhs) ->
+  | Tbinnop (lhs, _, rhs) | Tinnfix (lhs, _, rhs) ->
       term_mentions_qid_name name lhs || term_mentions_qid_name name rhs
   | Tnot inner -> term_mentions_qid_name name inner
   | Tidapp (_q, args) -> List.exists (term_mentions_qid_name name) args

@@ -1,0 +1,23 @@
+armed_fault_monitor
+===================
+
+Ce cas est sorti de `tests/ok` car la chaine de preuve exporte encore des helpers
+locaux en phase `G1` avec une obligation active trop forte pour certains pas du
+programme.
+
+Le symptome observe est le meme que sur `armed_delay` :
+
+  - des helpers `step_tr_*_ps_*_g1_*`
+  - construits a partir d'un contexte de phase active
+  - mais avec une condition historique d'activation trop faible dans le pre
+
+La phase de garantie active depend d'une histoire du signal d'armement, mais cette
+dependance n'est pas conservee avec assez de precision dans les obligations locales
+exportees. On finit alors par demander une propriete de surveillance deja activee
+sur des pas ou le code ne l'assure pas encore directement.
+
+Ce cas documente donc un probleme de projection entre :
+
+  formalisation temporelle -> resumes de phase/source -> helpers locaux
+
+et non un simple bug d'invariant utilisateur ou un faux `bad_spec`.

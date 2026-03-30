@@ -1,0 +1,41 @@
+armed_delay
+===========
+
+Ce cas est sorti de `tests/ok` car la chaine de preuve exporte encore, pour certains
+helpers locaux, une obligation de la forme `y = prev x` dans des pas `Idle -> Idle`
+ou `Idle -> Track` dont le code execute:
+
+  y := 0;
+  z := x;
+
+Le probleme observe n'est pas un melange entre cas `Safe` et `BadGuarantee`.
+Les cas `Safe` sont bien regroupes par:
+
+  - meme transition programme
+  - meme etat source produit
+  - meme assume
+
+mais cela ne suffit pas.
+
+Le blocage vient du fait que la projection vers les obligations conserve encore un
+contexte source produit `(..., G1)` pour des pas issus de `Idle`, puis en deduit des
+helpers qui exigent directement `y = prev x`.
+
+Or, sur ce programme, l'obligation "maintenir `y = prev x`" ne doit etre active
+qu'apres une activation historique par `arm = 1`. La condition historique exportee
+pour la phase `G1` est trop faible: elle ne transporte pas correctement la raison pour
+laquelle on est entre dans cette phase, et la VC finale devient plus forte que le
+programme.
+
+En pratique, le symptome visible est:
+
+  - des helpers `step_tr_*_ps_*_g1_*`
+  - avec un pre faible
+  - et une postcondition `y = prev x`
+  - appliquee a un code qui fixe `y := 0`
+
+Ce cas documente donc un probleme d'architecture de la projection
+formalisation -> clauses/export -> obligations locales:
+
+  la dependance historique "apres un `arm = 1` anterieur" n'est pas conservee avec
+  assez de precision dans les obligations exportees.

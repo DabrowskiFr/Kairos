@@ -56,7 +56,7 @@ let empty_spec () : Ptree.spec =
     sp_partial = false;
   }
 
-let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinop (a, Dterm.DTand, b))
+let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinnop (a, Dterm.DTand, b))
 
 let rec iexpr_of_selector_ltl (f : Ast.ltl) : Ast.iexpr option =
   let rec hexpr_to_iexpr = function
@@ -388,7 +388,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         in
         let acc = collect_state_mentions ~old_state ~inside_old lhs acc in
         collect_state_mentions ~old_state ~inside_old rhs acc
-    | Tbinop (lhs, _, rhs) ->
+    | Tbinnop (lhs, _, rhs) ->
         let acc = collect_state_mentions ~old_state ~inside_old lhs acc in
         collect_state_mentions ~old_state ~inside_old rhs acc
     | Tnot inner -> collect_state_mentions ~old_state ~inside_old inner acc
@@ -405,7 +405,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   let classify_by_state ~(old_state : bool) (term : Ptree.term) : Ast.ident option =
     let focus =
       match (strip_term_attrs term).term_desc with
-      | Tbinop (lhs, Dterm.DTimplies, _rhs) -> lhs
+      | Tbinnop (lhs, Dterm.DTimplies, _rhs) -> lhs
       | _ -> term
     in
     let mentioned =
@@ -643,7 +643,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         match terms with
         | [] -> None
         | [ t ] -> Some t
-        | t :: rest -> Some (List.fold_left (fun acc x -> mk_term (Tbinop (acc, Dterm.DTand, x))) t rest)
+        | t :: rest ->
+            Some (List.fold_left (fun acc x -> mk_term (Tbinnop (acc, Dterm.DTand, x))) t rest)
       in
       let is_init_goal = function LImp (LTrue, _) -> true | _ -> false in
       List.mapi
@@ -655,7 +656,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           let base =
             let base = compile_local_ltl_term env f.value in
             if is_init_goal f.value then
-              match init_guard with Some g -> mk_term (Tbinop (g, Dterm.DTimplies, base)) | None -> base
+              match init_guard with Some g -> mk_term (Tbinnop (g, Dterm.DTimplies, base)) | None -> base
             else base
           in
           let base = mk_term (Tattr (ATstr origin_attr, base)) in

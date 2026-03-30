@@ -30,7 +30,21 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
   ]
 
 let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
-    string * string * string * string * string * string * string * string * string * string * string * string =
+    string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string
+    * string =
   let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
   let obligations_text =
     let base = String.concat "\n" i.obligations_lines in
@@ -44,15 +58,18 @@ let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
   ( String.concat "\n" i.guarantee_automaton_lines,
     String.concat "\n" i.assume_automaton_lines,
     String.concat "\n" i.product_lines,
+    String.concat "\n" i.canonical_lines,
     obligations_text,
     i.guarantee_automaton_tex,
     i.assume_automaton_tex,
     i.product_tex,
     i.product_tex_explicit,
+    i.canonical_tex,
     i.guarantee_automaton_dot,
     i.assume_automaton_dot,
     i.product_dot,
-    i.product_dot_explicit )
+    i.product_dot_explicit,
+    i.canonical_dot )
 
 let program_automaton_texts (asts : Pipeline_types.ast_stages) : string * string =
   match asts.automata_generation with
@@ -140,10 +157,10 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       else (None, None)
     in
     let program_dot, program_automaton_text = program_automaton_texts asts in
-    let guarantee_automaton_text, assume_automaton_text, product_text, obligations_map_text_raw,
-        guarantee_automaton_tex, assume_automaton_tex, product_tex,
-        product_tex_explicit, guarantee_automaton_dot, assume_automaton_dot, product_dot,
-        product_dot_explicit =
+    let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
+        obligations_map_text_raw, guarantee_automaton_tex, assume_automaton_tex, product_tex,
+        product_tex_explicit, canonical_tex, guarantee_automaton_dot, assume_automaton_dot,
+        product_dot, product_dot_explicit, canonical_dot =
       instrumentation_diag_texts infos
     in
     let program_png, program_png_error =
@@ -296,13 +313,16 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       assume_automaton_tex;
       product_tex;
       product_tex_explicit;
+      canonical_tex;
       product_text;
+      canonical_text;
       obligations_map_text;
       program_dot;
       guarantee_automaton_dot;
       assume_automaton_dot;
       product_dot;
       product_dot_explicit;
+      canonical_dot;
       stage_meta = stage_meta infos @ [ ("obligations_taxonomy", Obligation_taxonomy.to_stage_meta obligation_summary) ];
       goals;
       proof_traces;

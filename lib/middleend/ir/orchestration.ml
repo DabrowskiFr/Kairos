@@ -35,7 +35,13 @@ let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t op
   let collect_product_transition acc (transition : Ir.product_contract) =
     transition.requires |> List.fold_left collect_formula acc |> fun acc ->
     transition.ensures |> List.fold_left collect_formula acc |> fun acc ->
-    List.fold_left collect_formula acc transition.forbidden
+    transition.cases
+    |> List.fold_left
+         (fun acc (case : Ir.product_case) ->
+           case.propagates |> List.fold_left collect_formula acc |> fun acc ->
+           case.ensures |> List.fold_left collect_formula acc |> fun acc ->
+           List.fold_left collect_formula acc case.forbidden)
+         acc
   in
   nodes
   |> List.fold_left
@@ -71,7 +77,9 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     product_tex = if left.product_tex <> "" then left.product_tex else right.product_tex;
     product_tex_explicit =
       if left.product_tex_explicit <> "" then left.product_tex_explicit else right.product_tex_explicit;
+    canonical_tex = if left.canonical_tex <> "" then left.canonical_tex else right.canonical_tex;
     product_lines = left.product_lines @ right.product_lines;
+    canonical_lines = left.canonical_lines @ right.canonical_lines;
     obligations_lines = left.obligations_lines @ right.obligations_lines;
     guarantee_automaton_dot =
       if left.guarantee_automaton_dot <> "" then left.guarantee_automaton_dot
@@ -82,6 +90,7 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     product_dot = if left.product_dot <> "" then left.product_dot else right.product_dot;
     product_dot_explicit =
       if left.product_dot_explicit <> "" then left.product_dot_explicit else right.product_dot_explicit;
+    canonical_dot = if left.canonical_dot <> "" then left.canonical_dot else right.canonical_dot;
   }
 
 let raw_of_node (node : Ir.node) : (Ir.raw_node, string) result =
@@ -116,6 +125,9 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
   let* annotated_ir = annotated_of_node node in
   let* verified_ir = verified_of_node node in
   let rendered = Ir_render_product.render ~node_name:node.semantics.sem_nname ~analysis in
+  let rendered_canonical =
+    Ir_render_canonical.render ~node_name:node.semantics.sem_nname ~analysis ~node
+  in
   let kernel_ir =
     Proof_kernel_build.of_node_analysis
       ~node_name:node.semantics.sem_nname
@@ -141,12 +153,15 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
       assume_automaton_tex = rendered.assume_automaton_tex;
       product_tex = rendered.product_tex;
       product_tex_explicit = rendered.product_tex_explicit;
+      canonical_tex = rendered_canonical.canonical_tex;
       product_lines = rendered.product_lines;
+      canonical_lines = rendered_canonical.canonical_lines;
       obligations_lines = rendered.obligations_lines;
       guarantee_automaton_dot = rendered.guarantee_automaton_dot;
       assume_automaton_dot = rendered.assume_automaton_dot;
       product_dot = rendered.product_dot;
       product_dot_explicit = rendered.product_dot_explicit;
+      canonical_dot = rendered_canonical.canonical_dot;
     }
 
 let instrumentation_info_of_ir ~(automata : Automata_generation.node_builds) (program : Ir.program)

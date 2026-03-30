@@ -21,17 +21,22 @@ type product_step_class =
   | Bad_assumption
   | Bad_guarantee
 
-type product_contract = {
-  program_transition_index : int;
+type product_case = {
   step_class : product_step_class;
-  product_src : product_state;
   product_dst : product_state;
-  assume_guard : Fo_formula.t;
   guarantee_guard : Fo_formula.t;
-  requires : contract_formula list;
   propagates : contract_formula list;
   ensures : contract_formula list;
   forbidden : contract_formula list;
+}
+
+type product_contract = {
+  program_transition_index : int;
+  product_src : product_state;
+  assume_guard : Fo_formula.t;
+  requires : contract_formula list;
+  ensures : contract_formula list;
+  cases : product_case list;
 }
 
 (** Normalized transition.
