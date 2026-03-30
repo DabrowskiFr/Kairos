@@ -45,6 +45,65 @@ let escape_html_label (s : string) : string =
     s;
   Buffer.contents b
 
+let html_of_multiline_formula (s : string) : string =
+  let escaped = escape_html_label s in
+  let b = Buffer.create (String.length escaped) in
+  String.iter
+    (function
+      | '\n' -> Buffer.add_string b "<BR ALIGN=\"LEFT\"/>"
+      | c -> Buffer.add_char b c)
+    escaped;
+  Buffer.contents b
+
+let add_formula_legend_rows_html buf ~title ~defs =
+  if defs <> [] then (
+    Buffer.add_string buf
+      (Printf.sprintf
+         "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
+         (escape_html_label title));
+    List.iter
+      (fun (alias, formula) ->
+        Buffer.add_string buf
+          (Printf.sprintf
+             "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
+             (escape_html_label alias) (html_of_multiline_formula formula)))
+      defs)
+
+let add_sink_legend_block_html buf ~legend_id ~title ~rows_html ~anchor_id =
+  Buffer.add_string buf "  subgraph cluster_legend_sink {\n";
+  Buffer.add_string buf "    rank=sink;\n";
+  Buffer.add_string buf "    color=\"transparent\";\n";
+  Buffer.add_string buf "    margin=0;\n";
+  Buffer.add_string buf
+    (Printf.sprintf "    %s [shape=plaintext,margin=0.1,label=<\n" legend_id);
+  Buffer.add_string buf "      <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
+  Buffer.add_string buf
+    (Printf.sprintf
+       "        <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
+       (escape_html_label title));
+  Buffer.add_string buf rows_html;
+  Buffer.add_string buf "      </TABLE>>];\n";
+  Buffer.add_string buf "  }\n";
+  Buffer.add_string buf
+    (Printf.sprintf "  %s -> %s [style=invis,weight=0];\n" anchor_id legend_id)
+
+let add_labeled_edge buf ~src_id ~dst_id ~label ~color ~style =
+  Buffer.add_string buf
+    (Printf.sprintf "  %s -> %s [label=\"%s\",color=\"%s\",fontcolor=\"%s\",style=\"%s\"];\n"
+       src_id dst_id (escape_dot_label label) color color style)
+
+let escape_html_label (s : string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string b "&amp;"
+      | '<' -> Buffer.add_string b "&lt;"
+      | '>' -> Buffer.add_string b "&gt;"
+      | '"' -> Buffer.add_string b "&quot;"
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
 let string_of_state (s : PT.product_state) : string =
   Printf.sprintf "(%s, A%d, G%d)" s.prog_state s.assume_state s.guarantee_state
 
@@ -496,35 +555,31 @@ let render_product_dot ~(node_name : ident) (analysis : Product_analysis.analysi
       in
       if not (Hashtbl.mem seen_edges key) then (
         Hashtbl.add seen_edges key ();
-        Buffer.add_string buf
-          (if edge_label = "" then
-             Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
-               (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style
-           else
-             Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\",xlabel=\"%s\"];\n"
-               (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style
-               (escape_dot_label edge_label))))
+        if edge_label = "" then
+          Buffer.add_string buf
+            (Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
+               (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style)
+        else
+          add_labeled_edge buf ~src_id:(node_id_of_state step.src)
+            ~dst_id:(node_id_of_state step.dst) ~label:edge_label ~color:visual.color
+            ~style:visual.style)
+      )
     merged_steps;
-  Buffer.add_string buf
-    "  legend_product [shape=plaintext,margin=0.1,label=<\n";
-  Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
-  Buffer.add_string buf
-    "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>Edge categories</B></FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
-  Buffer.add_string buf "    </TABLE>>];\n";
+  let rows_buf = Buffer.create 512 in
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
+  add_formula_legend_rows_html rows_buf ~title:"Transition formulas" ~defs:(List.rev !transition_details_rev);
   begin
     match List.rev analysis.exploration.states with
     | last_state :: _ ->
-        Buffer.add_string buf
-          (Printf.sprintf "  %s -> legend_product [style=invis,weight=0];\n"
-             (node_id_of_state last_state))
+        add_sink_legend_block_html buf ~legend_id:"legend_product" ~title:"Edge categories"
+          ~rows_html:(Buffer.contents rows_buf) ~anchor_id:(node_id_of_state last_state)
     | [] -> ()
   end;
   Buffer.add_string buf "}\n";
@@ -596,41 +651,25 @@ let render_product_dot_explicit ~(node_name : ident) (analysis : Product_analysi
           (Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
              (node_id_of_state step.src) (node_id_of_state step.dst) visual.color visual.style)
       else (
-        let mid_id = Printf.sprintf "edge_mid_%s" (String.lowercase_ascii edge_label) in
-        Buffer.add_string buf
-          (Printf.sprintf
-             "  %s [shape=point,width=0.04,height=0.04,label=\"\",color=\"#ffffff\",fontcolor=\"#ffffff\"];\n"
-             mid_id);
-        Buffer.add_string buf
-          (Printf.sprintf
-             "  %s -> %s [color=\"%s\",style=\"%s\",arrowhead=\"none\",constraint=false];\n"
-             (node_id_of_state step.src) mid_id visual.color visual.style);
-        Buffer.add_string buf
-          (Printf.sprintf
-             "  %s -> %s [color=\"%s\",style=\"%s\",xlabel=\"%s\",constraint=false];\n"
-             mid_id (node_id_of_state step.dst) visual.color visual.style
-             (escape_dot_label edge_label))))
+        add_labeled_edge buf ~src_id:(node_id_of_state step.src)
+          ~dst_id:(node_id_of_state step.dst) ~label:edge_label ~color:visual.color
+          ~style:visual.style))
     analysis.exploration.steps;
-  Buffer.add_string buf
-    "  legend_product [shape=plaintext,margin=0.1,label=<\n";
-  Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
-  Buffer.add_string buf
-    "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>Edge categories</B></FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
-  Buffer.add_string buf
-    "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
-  Buffer.add_string buf "    </TABLE>>];\n";
+  let rows_buf = Buffer.create 512 in
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#222222\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c0392b\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#c78a2c\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n";
+  Buffer.add_string rows_buf
+    "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#b8b8b8\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n";
+  add_formula_legend_rows_html rows_buf ~title:"Transition formulas" ~defs:(List.rev !transition_details_rev);
   begin
     match List.rev analysis.exploration.states with
     | last_state :: _ ->
-        Buffer.add_string buf
-          (Printf.sprintf "  %s -> legend_product [style=invis,weight=0];\n"
-             (node_id_of_state last_state))
+        add_sink_legend_block_html buf ~legend_id:"legend_product" ~title:"Edge categories"
+          ~rows_html:(Buffer.contents rows_buf) ~anchor_id:(node_id_of_state last_state)
     | [] -> ()
   end;
   Buffer.add_string buf "}\n";
@@ -668,10 +707,9 @@ let render_program_dot ~(node_name : ident) (node : Abs.node) =
              | None -> "⊤"
              | Some g -> g |> iexpr_to_fo_with_atoms [] |> pretty_plain_dot_formula
              in
-             Buffer.add_string buf
-               (Printf.sprintf
-                  "  p_%s -> p_%s [xlabel=\"%s\",color=\"#5e8f6b\",fontcolor=\"#5e8f6b\"];\n"
-                  (escape_dot_label t.src) (escape_dot_label t.dst) (escape_dot_label guard))))
+             add_labeled_edge buf ~src_id:(Printf.sprintf "p_%s" (escape_dot_label t.src))
+               ~dst_id:(Printf.sprintf "p_%s" (escape_dot_label t.dst))
+               ~label:guard ~color:"#5e8f6b" ~style:"solid"))
     node.semantics.sem_states;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
@@ -1029,18 +1067,10 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
   in
   let bad_fill = "#f6d7d7" in
   let bad_border = "#a53030" in
-  let alias_of_guard =
-    let tbl = Hashtbl.create 16 in
-    let next = ref 1 in
-    fun guard_s ->
-      match Hashtbl.find_opt tbl guard_s with
-      | Some alias -> alias
-      | None ->
-          let alias = phi_alias !next in
-          incr next;
-          Hashtbl.add tbl guard_s alias;
-          alias
-  in
+  let guard_rows = grouped_guard_rows grouped in
+  let alias_tbl = Hashtbl.create 16 in
+  List.iter (fun (alias, formula) -> Hashtbl.replace alias_tbl formula alias) guard_rows;
+  let alias_of_guard guard_s = Hashtbl.find alias_tbl guard_s in
   Buffer.add_string buf (Printf.sprintf "digraph %s {\n" graph_name);
   Buffer.add_string buf "  rankdir=LR;\n";
   Buffer.add_string buf "  forcelabels=true;\n";
@@ -1076,11 +1106,20 @@ let render_automaton_dot ~graph_name ~prefix ~state_prefix ~labels ~grouped ~ato
         | None -> false
       in
       let this_edge_color = if dst_is_bad then bad_border else edge_color in
-      Buffer.add_string buf
-        (Printf.sprintf
-           "  %s%d -> %s%d [xlabel=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
-           prefix src prefix dst (escape_dot_label alias) this_edge_color this_edge_color))
+      add_labeled_edge buf ~src_id:(Printf.sprintf "%s%d" prefix src)
+        ~dst_id:(Printf.sprintf "%s%d" prefix dst) ~label:alias ~color:this_edge_color
+        ~style:"solid")
     grouped;
+  if guard_rows <> [] then (
+    match labels with
+    | [] -> ()
+    | _ ->
+        let last_idx = List.length labels - 1 in
+        let rows_buf = Buffer.create 256 in
+        add_formula_legend_rows_html rows_buf ~title:"Formula aliases" ~defs:guard_rows;
+        add_sink_legend_block_html buf ~legend_id:("legend_" ^ prefix) ~title:"Formula aliases"
+          ~rows_html:(Buffer.contents rows_buf)
+          ~anchor_id:(Printf.sprintf "%s%d" prefix last_idx));
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 

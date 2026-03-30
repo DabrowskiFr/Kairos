@@ -26,6 +26,50 @@ let escape_dot_label (s : string) : string =
     s;
   Buffer.contents b
 
+let escape_html_label (s : string) : string =
+  let b = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string b "&amp;"
+      | '<' -> Buffer.add_string b "&lt;"
+      | '>' -> Buffer.add_string b "&gt;"
+      | '"' -> Buffer.add_string b "&quot;"
+      | c -> Buffer.add_char b c)
+    s;
+  Buffer.contents b
+
+let add_formula_legend_rows_html buf ~title defs =
+  if defs <> [] then (
+    Buffer.add_string buf
+      (Printf.sprintf
+         "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
+         (escape_html_label title));
+    List.iter
+      (fun (alias, formula) ->
+        Buffer.add_string buf
+          (Printf.sprintf
+             "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
+             (escape_html_label alias) (escape_html_label formula)))
+      defs)
+
+let add_sink_legend_block_html buf ~legend_id ~title ~rows_html ~anchor_id =
+  Buffer.add_string buf "  subgraph cluster_legend_sink {\n";
+  Buffer.add_string buf "    rank=sink;\n";
+  Buffer.add_string buf "    color=\"transparent\";\n";
+  Buffer.add_string buf "    margin=0;\n";
+  Buffer.add_string buf
+    (Printf.sprintf "    %s [shape=plaintext,margin=0.1,label=<\n" legend_id);
+  Buffer.add_string buf "      <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
+  Buffer.add_string buf
+    (Printf.sprintf
+       "        <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
+       (escape_html_label title));
+  Buffer.add_string buf rows_html;
+  Buffer.add_string buf "      </TABLE>>];\n";
+  Buffer.add_string buf "  }\n";
+  Buffer.add_string buf
+    (Printf.sprintf "  %s -> %s [style=invis,weight=0];\n" anchor_id legend_id)
+
 let escape_tex (s : string) : string =
   let repl = function
     | '_' -> "\\_"
@@ -278,17 +322,51 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            (cdef, head_edge :: case_edges))
     |> List.split
   in
+  let legend_defs = aliases.definitions in
   String.concat "\n"
     ([
        "digraph canonical_proof {";
-       "  rankdir=LR;";
+       "  rankdir=TB;";
+       "  compound=true;";
        "  graph [fontname=\"Helvetica\"];";
        "  node [fontname=\"Helvetica\"];";
        "  edge [fontname=\"Helvetica\"];";
-       Printf.sprintf "  labelloc=\"t\";";
-       Printf.sprintf "  label=\"Canonical proof structure for %s\";" (escape_dot_label node_name);
+       "  subgraph cluster_main {";
+       "    rankdir=LR;";
+       "    color=\"transparent\";";
+       Printf.sprintf "    labelloc=\"t\";";
+       Printf.sprintf "    label=\"Canonical proof structure for %s\";" (escape_dot_label node_name);
      ]
-    @ state_defs @ contract_defs @ List.concat edges @ [ "}" ])
+    @ List.map (fun s -> "  " ^ s) state_defs
+    @ List.map (fun s -> "  " ^ s) contract_defs
+    @ List.map (fun s -> "  " ^ s) (List.concat edges)
+    @ [ "  }" ]
+    @
+    if legend_defs = [] then [ "}" ]
+    else
+      let tmp = Buffer.create 256 in
+      add_formula_legend_rows_html tmp ~title:"Formula aliases" legend_defs;
+      let legend_block =
+        match List.rev states with
+        | last_state :: _ ->
+            let anchor_id = state_node_id (Hashtbl.find state_index last_state) in
+            [
+              "  subgraph cluster_legend_sink {";
+              "    rank=sink;";
+              "    color=\"transparent\";";
+              "    margin=0;";
+              "    legend_canonical [shape=plaintext,margin=0.1,label=<";
+              "      <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">";
+            ]
+            @ (Buffer.contents tmp |> String.split_on_char '\n' |> List.filter (fun s -> s <> "") |> List.map (fun s -> "  " ^ s))
+            @ [
+                "      </TABLE>>];";
+                "  }";
+                Printf.sprintf "  %s -> legend_canonical [style=invis,weight=100];" anchor_id;
+              ]
+        | [] -> []
+      in
+      legend_block @ [ "}" ])
 
 let render ~node_name ~(analysis : Product_analysis.analysis) ~(node : Abs.node) =
   {
