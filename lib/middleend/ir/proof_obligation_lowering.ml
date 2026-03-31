@@ -74,6 +74,9 @@ let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info)
   {
     pc with
     requires = List.map lower pc.requires;
+    ensures = List.map lower pc.ensures;
+    safe_propagates = List.map lower pc.safe_propagates;
+    safe_ensures = List.map lower pc.safe_ensures;
     cases =
       List.map
         (fun (case : Ir.product_case) ->

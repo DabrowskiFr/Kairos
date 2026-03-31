@@ -92,7 +92,7 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
             pc.cases
         in
         if requires == pc.requires && cases == pc.cases then pc
-        else { pc with requires; cases })
+        else Abs.refresh_safe_summary { pc with requires; cases })
       n.product_transitions
   in
   { n with product_transitions }

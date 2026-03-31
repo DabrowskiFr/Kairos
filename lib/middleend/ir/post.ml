@@ -39,10 +39,10 @@ let same_product_state (a : PT.product_state) (b : PT.product_state) : bool =
   && a.assume_state = b.assume_state
   && a.guarantee_state = b.guarantee_state
 
-let disj_fo (fs : Fo_formula.t list) : ltl option =
+let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo |> ltl_of_fo)
+  | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
 
 let automaton_outgoing (grouped : Automaton_types.transition list) :
     (int, Automaton_types.transition list) Hashtbl.t =
@@ -200,8 +200,20 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                  requires = [];
                  ensures =
                    (match (disj_fo safe_guards, first_safe_dst) with
-                   | Some grouped, Some _first_dst -> [ Abs.with_origin Internal grouped ]
+                   | Some grouped, Some _first_dst -> [ Abs.with_origin Internal (ltl_of_fo grouped) ]
                    | _ -> []);
+                 safe_product_dst = Option.map product_state_of_pt first_safe_dst;
+                 safe_guarantee_guard = disj_fo safe_guards;
+                 safe_propagates =
+                   grouped
+                   |> List.filter_map (fun ((step : PT.product_step), _) ->
+                          match step.step_class with
+                          | PT.Safe ->
+                              Some
+                                (Abs.with_origin GuaranteeAutomaton
+                                   (ltl_of_fo step.guarantee_guard))
+                          | PT.Bad_assumption | PT.Bad_guarantee -> None);
+                 safe_ensures = [];
                  cases;
                })
 

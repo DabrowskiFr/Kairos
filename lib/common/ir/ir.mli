@@ -36,6 +36,10 @@ type product_contract = {
   assume_guard : Fo_formula.t;
   requires : contract_formula list;
   ensures : contract_formula list;
+  safe_product_dst : product_state option;
+  safe_guarantee_guard : Fo_formula.t option;
+  safe_propagates : contract_formula list;
+  safe_ensures : contract_formula list;
   cases : product_case list;
 }
 
@@ -191,6 +195,8 @@ val map_product_contract_formulas :
   guard:(Fo_formula.t -> Fo_formula.t) ->
   product_contract ->
   product_contract
+
+val refresh_safe_summary : product_contract -> product_contract
 
 (** Rewrite the transition list of a node while preserving the other fields. *)
 val map_transitions : (transition list -> transition list) -> node -> node

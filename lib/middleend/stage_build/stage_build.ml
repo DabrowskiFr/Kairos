@@ -50,6 +50,8 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
       pc with
       requires = List.map reid_contract_formula pc.requires;
       ensures = List.map reid_contract_formula pc.ensures;
+      safe_propagates = List.map reid_contract_formula pc.safe_propagates;
+      safe_ensures = List.map reid_contract_formula pc.safe_ensures;
       cases =
         List.map
           (fun (case : Abs.product_case) ->

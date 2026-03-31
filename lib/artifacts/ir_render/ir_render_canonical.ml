@@ -200,6 +200,25 @@ let string_of_product_state (st : Abs.product_state) =
 let state_node_id (idx : int) = Printf.sprintf "st_%d" idx
 let contract_node_id (idx : int) = Printf.sprintf "c_%d" idx
 
+let canonical_display_cases (pc : Abs.product_contract) : Abs.product_case list =
+  let safe_case =
+    match (pc.safe_product_dst, pc.safe_guarantee_guard) with
+    | Some product_dst, Some guarantee_guard ->
+        [
+          {
+            Abs.step_class = Abs.Safe;
+            product_dst;
+            guarantee_guard;
+            propagates = pc.safe_propagates;
+            ensures = pc.safe_ensures;
+            forbidden = [];
+          };
+        ]
+    | _ -> []
+  in
+  let bad_cases = List.filter (fun (case : Abs.product_case) -> case.step_class <> Abs.Safe) pc.cases in
+  safe_case @ bad_cases
+
 let canonical_formula_aliases ~(node : Abs.node) =
   let seen = Hashtbl.create 32 in
   let defs_rev = ref [] in
@@ -222,7 +241,8 @@ let canonical_formula_aliases ~(node : Abs.node) =
          in
          register program_guard;
          register (pretty_fo pc.assume_guard);
-         pc.cases |> List.iter (fun (case : Abs.product_case) -> register (pretty_fo case.guarantee_guard)));
+         canonical_display_cases pc
+         |> List.iter (fun (case : Abs.product_case) -> register (pretty_fo case.guarantee_guard)));
   let dot_alias_of formula = fst (Hashtbl.find seen formula) in
   let tex_alias_of formula = snd (Hashtbl.find seen formula) in
   { dot_alias_of; tex_alias_of; definitions = List.rev !defs_rev }
@@ -269,7 +289,7 @@ let render_canonical_lines ~(node : Abs.node) =
            |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_ltl f.value)
          in
          let cases =
-           pc.cases
+           canonical_display_cases pc
            |> List.mapi (fun case_idx (case : Abs.product_case) ->
                   let kind =
                     match case.step_class with
@@ -332,7 +352,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            let acc = pc.product_src :: acc in
            List.fold_left
              (fun acc (case : Abs.product_case) -> case.product_dst :: acc)
-             acc pc.cases)
+             acc (canonical_display_cases pc))
          []
     |> List.sort_uniq Stdlib.compare
   in
@@ -380,7 +400,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                src_id cid head_lbl
            in
           let case_edges =
-            pc.cases
+            canonical_display_cases pc
             |> List.mapi (fun case_idx (case : Abs.product_case) ->
                    let dst_id = state_node_id (Hashtbl.find state_index case.product_dst) in
                     let color =

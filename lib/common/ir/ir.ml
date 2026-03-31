@@ -34,6 +34,10 @@ type product_contract = {
   assume_guard : Fo_formula.t;
   requires : contract_formula list;
   ensures : contract_formula list;
+  safe_product_dst : product_state option;
+  safe_guarantee_guard : Fo_formula.t option;
+  safe_propagates : contract_formula list;
+  safe_ensures : contract_formula list;
   cases : product_case list;
 }
 
@@ -175,12 +179,50 @@ let with_origin ?loc origin value : contract_formula =
 let map_formula f (x : contract_formula) : contract_formula = { x with value = f x.value }
 let values xs = List.map (fun x -> x.value) xs
 
+let dedup_contract_formulas (xs : contract_formula list) : contract_formula list =
+  List.sort_uniq
+    (fun (a : contract_formula) (b : contract_formula) -> Int.compare a.oid b.oid)
+    xs
+
+let refresh_safe_summary (pc : product_contract) : product_contract =
+  let safe_cases = List.filter (fun (c : product_case) -> c.step_class = Safe) pc.cases in
+  let safe_product_dst =
+    match (pc.safe_product_dst, safe_cases) with
+    | Some dst, _ :: _ -> Some dst
+    | None, first_safe :: _ -> Some first_safe.product_dst
+    | _ -> None
+  in
+  let safe_guarantee_guard =
+    match (pc.safe_guarantee_guard, safe_cases) with
+    | Some guard, _ :: _ -> Some guard
+    | None, first_safe :: rest ->
+        Some
+          (List.fold_left
+             (fun acc (c : product_case) -> Fo_formula.FOr (acc, c.guarantee_guard))
+             first_safe.guarantee_guard rest)
+    | _ -> None
+  in
+  let safe_propagates =
+    safe_cases
+    |> List.concat_map (fun (c : product_case) -> c.propagates)
+    |> dedup_contract_formulas
+  in
+  let safe_ensures =
+    safe_cases
+    |> List.concat_map (fun (c : product_case) -> c.ensures)
+    |> dedup_contract_formulas
+  in
+  { pc with safe_product_dst; safe_guarantee_guard; safe_propagates; safe_ensures }
+
 let map_product_contract_formulas ~contract ~guard (pc : product_contract) : product_contract =
   {
     pc with
     requires = List.map (map_formula contract) pc.requires;
     ensures = List.map (map_formula contract) pc.ensures;
+    safe_propagates = List.map (map_formula contract) pc.safe_propagates;
+    safe_ensures = List.map (map_formula contract) pc.safe_ensures;
     assume_guard = guard pc.assume_guard;
+    safe_guarantee_guard = Option.map guard pc.safe_guarantee_guard;
     cases =
       List.map
         (fun (c : product_case) ->

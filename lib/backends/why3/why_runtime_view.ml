@@ -599,23 +599,10 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
     List.concat_map
       (fun (pc : Ir.product_contract) ->
         let t = List.nth node.trans pc.program_transition_index in
-        let safe_cases, other_cases =
-          List.partition
-            (fun (case : Ir.product_case) -> case.step_class = Ir.Safe)
-            pc.cases
-        in
         let safe_group =
-          match safe_cases with
-          | [] -> []
-          | first_safe :: _ ->
-              let propagates =
-                safe_cases |> List.concat_map (fun (case : Ir.product_case) -> case.propagates)
-                |> dedup_contract_formulas
-              in
-              let case_ensures =
-                safe_cases |> List.concat_map (fun (case : Ir.product_case) -> case.ensures)
-                |> dedup_contract_formulas
-              in
+          match pc.safe_product_dst with
+          | None -> []
+          | Some product_dst ->
               [
                 {
                   transition_id = Printf.sprintf "tr_%d" pc.program_transition_index;
@@ -624,16 +611,17 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
                   guard = t.guard;
                   step_class = Ir.Safe;
                   product_src = pc.product_src;
-                  product_dst = first_safe.product_dst;
+                  product_dst;
                   requires = pc.requires;
-                  propagates;
-                  ensures = dedup_contract_formulas (pc.ensures @ case_ensures);
+                  propagates = pc.safe_propagates;
+                  ensures = dedup_contract_formulas (pc.ensures @ pc.safe_ensures);
                   forbidden = [];
                 };
               ]
         in
         let bad_groups =
-          other_cases
+          pc.cases
+          |> List.filter (fun (case : Ir.product_case) -> case.step_class <> Ir.Safe)
           |> List.map (fun (case : Ir.product_case) ->
                  {
                    transition_id = Printf.sprintf "tr_%d" pc.program_transition_index;
