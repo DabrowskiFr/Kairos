@@ -9,6 +9,9 @@ module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
 let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactive_program_ir =
@@ -22,7 +25,7 @@ let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactiv
           guard =
             (match t.guard with
             | None -> FTrue
-            | Some g -> fo_of_iexpr g |> Fo_simplifier.simplify_fo);
+            | Some g -> fo_of_iexpr g |> simplify_fo);
           guard_iexpr = t.guard;
           requires = t.requires;
           ensures = t.ensures;
@@ -63,7 +66,7 @@ let program_transition_id_of_step ~(reactive_program : reactive_program_ir) (ste
   let matches (tr : reactive_transition_ir) =
     String.equal tr.src_state step.prog_transition.src
     && String.equal tr.dst_state step.prog_transition.dst
-    && Fo_simplifier.simplify_fo tr.guard = Fo_simplifier.simplify_fo step.prog_guard
+    && simplify_fo tr.guard = simplify_fo step.prog_guard
   in
   match List.find_opt matches reactive_program.transitions with
   | Some tr -> tr.transition_id
@@ -322,7 +325,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
         (fun (tr : reactive_transition_ir) ->
           String.equal tr.src_state src
           && String.equal tr.dst_state dst
-          && Fo_simplifier.simplify_fo tr.guard = Fo_simplifier.simplify_fo guard)
+          && simplify_fo tr.guard = simplify_fo guard)
         reactive_program.transitions
     with
     | Some tr -> tr.transition_id
@@ -337,7 +340,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
          let program_guard =
            match t.guard with
            | None -> FTrue
-           | Some g -> Fo_simplifier.simplify_fo (fo_of_iexpr g)
+           | Some g -> simplify_fo (fo_of_iexpr g)
          in
          live_states
          |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.src)
@@ -364,7 +367,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
                        match (assume_guard, guarantee_guard) with
                        | Some ag, Some gg ->
                            let combined =
-                             Fo_simplifier.simplify_fo (FAnd (program_guard, FAnd (ag, gg)))
+                             simplify_fo (FAnd (program_guard, FAnd (ag, gg)))
                           in
                            if combined = FFalse then None
                            else

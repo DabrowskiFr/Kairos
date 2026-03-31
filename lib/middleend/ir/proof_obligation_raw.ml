@@ -1,11 +1,14 @@
 module Abs = Ir
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 (** Convert an optional imperative guard to a first-order formula. *)
 let guard_fo (g : Ast.iexpr option) : Fo_formula.t =
   match g with
   | None -> Fo_formula.FTrue
   | Some e ->
-      Fo_specs.iexpr_to_fo_with_atoms [] e |> Fo_simplifier.simplify_fo
+      Fo_specs.iexpr_to_fo_with_atoms [] e |> simplify_fo
 
 (** Build a raw transition from a finalized abstract transition.
     requires/ensures are intentionally omitted — they belong to pass 4. *)

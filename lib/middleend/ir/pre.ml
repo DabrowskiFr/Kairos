@@ -6,6 +6,9 @@ open Temporal_support
 module Abs = Ir
 module PT = Product_types
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let dedup_fo (xs : ltl list) : ltl list = List.sort_uniq compare xs
 
 let disj_fo (fs : ltl list) : ltl option =
@@ -18,7 +21,7 @@ let guard_ltl_of_transition (t : Abs.transition) : ltl =
   | None -> LTrue
   | Some guard ->
       Fo_specs.iexpr_to_fo_with_atoms [] guard
-      |> Fo_simplifier.simplify_fo
+      |> simplify_fo
       |> ltl_of_fo
 
 let input_names (n : Abs.node) : ident list =

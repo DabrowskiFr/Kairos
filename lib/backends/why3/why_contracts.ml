@@ -31,6 +31,9 @@ open Collect
 open Why_compile_expr
 open Why_labels
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 type contract_info = Why_types.contract_info
 
 type compiled_kernel_clause = {
@@ -125,7 +128,7 @@ let runtime_guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_
 let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) : Ast.ltl =
   match t.guard with
   | None -> LTrue
-  | Some g -> Temporal_support.ltl_of_fo (Fo_simplifier.simplify_fo (Fo_specs.iexpr_to_fo_with_atoms [] g))
+  | Some g -> Temporal_support.ltl_of_fo (simplify_fo (Fo_specs.iexpr_to_fo_with_atoms [] g))
 
 let same_runtime_transition_as_step (step : Proof_kernel_types.product_step_ir)
     (t : Why_runtime_view.runtime_transition_view) : bool =

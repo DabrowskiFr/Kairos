@@ -5,6 +5,9 @@ open Temporal_support
 module Abs = Ir
 module PT = Product_types
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let input_names (n : Abs.node) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
@@ -36,10 +39,10 @@ let same_product_state (a : PT.product_state) (b : PT.product_state) : bool =
   && a.assume_state = b.assume_state
   && a.guarantee_state = b.guarantee_state
 
-let disj_ltl (fs : ltl list) : ltl option =
+let disj_fo (fs : Fo_formula.t list) : ltl option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> LOr (acc, x)) f rest)
+  | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo |> ltl_of_fo)
 
 let automaton_outgoing (grouped : Automaton_types.transition list) :
     (int, Automaton_types.transition list) Hashtbl.t =
@@ -123,11 +126,11 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                         prog_guard =
                           (match prog_transition.guard with
                           | None -> Fo_formula.FTrue
-                          | Some g -> Fo_specs.iexpr_to_fo_with_atoms [] g |> Fo_simplifier.simplify_fo);
+                          | Some g -> Fo_specs.iexpr_to_fo_with_atoms [] g |> simplify_fo);
                         assume_edge;
-                        assume_guard = Fo_simplifier.simplify_fo assume_guard_raw;
+                        assume_guard = simplify_fo assume_guard_raw;
                         guarantee_edge;
-                        guarantee_guard = Fo_simplifier.simplify_fo guarantee_guard_raw;
+                        guarantee_guard = simplify_fo guarantee_guard_raw;
                         step_class;
                       }
                     in
@@ -151,7 +154,7 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                grouped
                |> List.filter_map (fun ((step : PT.product_step), _) ->
                       match step.step_class with
-                      | PT.Safe -> Some (ltl_of_fo step.guarantee_guard)
+                      | PT.Safe -> Some step.guarantee_guard
                       | PT.Bad_assumption | PT.Bad_guarantee -> None)
              in
              let first_safe_dst =
@@ -196,7 +199,7 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                  assume_guard = repr_step.assume_guard;
                  requires = [];
                  ensures =
-                   (match (disj_ltl safe_guards, first_safe_dst) with
+                   (match (disj_fo safe_guards, first_safe_dst) with
                    | Some grouped, Some _first_dst -> [ Abs.with_origin Internal grouped ]
                    | _ -> []);
                  cases;

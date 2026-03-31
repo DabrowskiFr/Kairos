@@ -8,6 +8,9 @@ open Fo_specs
 module PT = Product_types
 module Abs = Ir
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 type rendered = {
   guarantee_automaton_lines : string list;
   assume_automaton_lines : string list;
@@ -452,7 +455,7 @@ let merge_product_steps_for_dot (analysis : Product_analysis.analysis) : merged_
             }
       | Some merged ->
           Hashtbl.replace tbl key
-            { merged with prog_guard = Fo_simplifier.simplify_fo (FOr (merged.prog_guard, step.prog_guard)) })
+            { merged with prog_guard = simplify_fo (FOr (merged.prog_guard, step.prog_guard)) })
     analysis.exploration.steps;
   Hashtbl.fold (fun _ step acc -> step :: acc) tbl []
   |> List.sort (fun a b ->

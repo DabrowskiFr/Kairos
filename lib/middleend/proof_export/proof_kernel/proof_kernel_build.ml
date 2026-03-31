@@ -9,11 +9,14 @@ open Fo_formula
 module Abs = Ir
 module PT = Product_types
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
-  Fo_simplifier.simplify_fo g
+  simplify_fo g
 
 type lit = { var : ident; cst : string; is_pos : bool }
 
@@ -94,7 +97,7 @@ let fo_overlap_conservative (a : Fo_formula.t) (b : Fo_formula.t) : bool =
   | _ -> true
 
 let guards_may_overlap (a : Fo_formula.t) (b : Fo_formula.t) : bool =
-  match Fo_simplifier.simplify_fo (FAnd (a, b)) with
+  match simplify_fo (FAnd (a, b)) with
   | FFalse -> false
   | _ -> fo_overlap_conservative a b
 

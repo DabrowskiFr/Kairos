@@ -10,6 +10,9 @@ module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let same_product_state_ref (a : Abs.product_state) (b : product_state_ir) =
   String.equal a.prog_state b.prog_state
   && a.assume_state_index = b.assume_state_index
@@ -23,8 +26,7 @@ let same_product_case_step (case : Abs.product_case) (step : product_step_ir) =
   | StepBadAssumption -> Abs.Bad_assumption
   | StepBadGuarantee -> Abs.Bad_guarantee)
   && same_product_state_ref case.product_dst step.dst
-  && Fo_simplifier.simplify_fo case.guarantee_guard
-     = Fo_simplifier.simplify_fo step.guarantee_edge.guard
+  && simplify_fo case.guarantee_guard = simplify_fo step.guarantee_edge.guard
 
 let product_transition_index_of_step (step : product_step_ir) : int option =
   let raw =
@@ -52,8 +54,7 @@ let product_contract_case_of_step ~(node : Abs.node) (step : product_step_ir) :
         (fun (pc : Abs.product_contract) ->
           pc.program_transition_index = idx
           && same_product_state_ref pc.product_src step.src
-          && Fo_simplifier.simplify_fo pc.assume_guard
-             = Fo_simplifier.simplify_fo step.assume_edge.guard
+          && simplify_fo pc.assume_guard = simplify_fo step.assume_edge.guard
           && List.exists (fun case -> same_product_case_step case step) pc.cases)
         node.product_transitions
       |> function

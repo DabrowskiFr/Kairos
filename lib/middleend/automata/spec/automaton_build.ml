@@ -2,6 +2,9 @@ open Ast
 open Fo_specs
 open Fo_formula
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let inline_atom_names (atom_named_exprs : (Ast.ident * Ast.iexpr) list) (e : Ast.iexpr) : Ast.iexpr =
   let map = Hashtbl.create 16 in
   List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_named_exprs;
@@ -76,7 +79,7 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (Ast.fo_at
   let atom_name_to_fo = List.map (fun (atom, name) -> (name, atom)) atom_map in
   let guard_to_fo (g : Automaton_spot.raw_guard) : Fo_formula.t =
     let _ = atom_named_exprs in
-    Ltl_valuation.terms_to_iexpr g |> iexpr_to_fo_with_atoms atom_name_to_fo |> Fo_simplifier.simplify_fo
+    Ltl_valuation.terms_to_iexpr g |> iexpr_to_fo_with_atoms atom_name_to_fo |> simplify_fo
   in
   let transitions =
     List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw

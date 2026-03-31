@@ -5,6 +5,9 @@ open Ast_pretty
 open Proof_kernel_types
 module Abs = Ir
 
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
   String.equal a.prog_state b.prog_state
   && a.assume_state_index = b.assume_state_index
@@ -18,7 +21,7 @@ let same_product_state_ir (a : product_state_ir) (b : product_state_ir) : bool =
 let same_automaton_edge_ir (a : automaton_edge_ir) (b : automaton_edge_ir) : bool =
   a.src_index = b.src_index
   && a.dst_index = b.dst_index
-  && Fo_simplifier.simplify_fo a.guard = Fo_simplifier.simplify_fo b.guard
+  && simplify_fo a.guard = simplify_fo b.guard
 
 let same_product_case_step (case : Abs.product_case) (step : product_step_ir) : bool =
   case.step_class
@@ -28,8 +31,7 @@ let same_product_case_step (case : Abs.product_case) (step : product_step_ir) : 
   | StepBadAssumption -> Abs.Bad_assumption
   | StepBadGuarantee -> Abs.Bad_guarantee)
   && same_product_state case.product_dst step.dst
-  && Fo_simplifier.simplify_fo case.guarantee_guard
-     = Fo_simplifier.simplify_fo step.guarantee_edge.guard
+  && simplify_fo case.guarantee_guard = simplify_fo step.guarantee_edge.guard
 
 let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_program_ir)
     ~(product_steps : product_step_ir list)
@@ -50,8 +52,7 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
           (fun (pc : Abs.product_contract) ->
             pc.program_transition_index = program_transition_index
             && same_product_state pc.product_src step.src
-            && Fo_simplifier.simplify_fo pc.assume_guard
-               = Fo_simplifier.simplify_fo step.assume_edge.guard)
+            && simplify_fo pc.assume_guard = simplify_fo step.assume_edge.guard)
           node.product_transitions
   in
   let slot_to_current_expr =
