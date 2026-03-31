@@ -16,6 +16,12 @@ type formula_aliases = {
   definitions : (string * string) list;
 }
 
+type transition_aliases = {
+  dot_alias_of_index : int -> string;
+  tex_alias_of_index : int -> string;
+  definitions : (string * string) list;
+}
+
 let escape_dot_label (s : string) : string =
   let b = Buffer.create (String.length s) in
   String.iter
@@ -143,6 +149,30 @@ let pretty_ltl (f : ltl) : string = f |> string_of_ltl |> strip_braces |> rewrit
 
 let pretty_fo (f : Fo_formula.t) : string = f |> string_of_fo |> strip_braces |> rewrite_history_vars
 
+let pretty_stmt (s : Ast.stmt) : string =
+  match s.stmt with
+  | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
+  | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SCall (inst, args, rets) ->
+      "(" ^ String.concat ", " rets ^ ") := " ^ inst
+      ^ "(" ^ String.concat ", " (List.map Ast_pretty.string_of_iexpr args) ^ ")"
+  | SSkip -> "skip"
+  | SMatch (e, _branches, _default) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
+
+let pretty_transition (t : Abs.transition) : string =
+  let guard =
+    match t.guard with
+    | None -> "true"
+    | Some g -> string_of_iexpr g
+  in
+  let body =
+    match t.body with
+    | [] -> "skip"
+    | xs -> String.concat "; " (List.map pretty_stmt xs)
+  in
+  Printf.sprintf "%s -> %s when %s / %s" t.src t.dst guard body
+
 let mathify (s : string) : string =
   s
   |> replace_all ~pattern:"<>" ~by:"\\neq "
@@ -185,6 +215,18 @@ let canonical_formula_aliases ~(node : Abs.node) =
   let dot_alias_of formula = fst (Hashtbl.find seen formula) in
   let tex_alias_of formula = snd (Hashtbl.find seen formula) in
   { dot_alias_of; tex_alias_of; definitions = List.rev !defs_rev }
+
+let canonical_transition_aliases ~(node : Abs.node) =
+  let definitions =
+    node.trans
+    |> List.mapi (fun idx t ->
+           (Printf.sprintf "t_{%d}" idx, pretty_transition t))
+  in
+  {
+    dot_alias_of_index = (fun idx -> Printf.sprintf "t%d" idx);
+    tex_alias_of_index = (fun idx -> Printf.sprintf "t_{%d}" idx);
+    definitions;
+  }
 
 let state_style ~(analysis : Product_analysis.analysis) (st : Abs.product_state) =
   if st.assume_state_index = analysis.assume_bad_idx && analysis.assume_bad_idx >= 0 then
@@ -247,15 +289,31 @@ let render_canonical_lines ~(node : Abs.node) =
 
 let render_canonical_tex ~(node : Abs.node) =
   let aliases = canonical_formula_aliases ~node in
-  let lines =
+  let transition_aliases = canonical_transition_aliases ~node in
+  let phi_lines =
     aliases.definitions
     |> List.map (fun (alias, formula) ->
            Printf.sprintf "%s &\\equiv& %s \\\\" alias (escape_tex (mathify formula)))
   in
-  "\\[\n\\begin{array}{lcl}\n" ^ String.concat "\n" lines ^ "\n\\end{array}\n\\]\n"
+  let t_lines =
+    transition_aliases.definitions
+    |> List.map (fun (alias, transition) ->
+           Printf.sprintf "%s &\\equiv& %s \\\\" alias (escape_tex transition))
+  in
+  let blocks =
+    [
+      ("\\[\n\\begin{array}{lcl}\n", phi_lines);
+      ("\\[\n\\begin{array}{lcl}\n", t_lines);
+    ]
+    |> List.filter_map (fun (prefix, lines) ->
+           if lines = [] then None
+           else Some (prefix ^ String.concat "\n" lines ^ "\n\\end{array}\n\\]\n"))
+  in
+  String.concat "\n" blocks
 
 let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.analysis) ~(node : Abs.node) =
   let aliases = canonical_formula_aliases ~node in
+  let transition_aliases = canonical_transition_aliases ~node in
   let states =
     node.product_transitions
     |> List.fold_left
@@ -289,7 +347,8 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            in
            let cid = contract_node_id (idx + 1) in
            let clabel =
-             Printf.sprintf "C%d\\nP: %s\\nA: %s" (idx + 1)
+             Printf.sprintf "τ: %s\\nP: %s\\nA: %s"
+               (transition_aliases.dot_alias_of_index pc.program_transition_index |> escape_dot_label)
                (aliases.dot_alias_of program_guard |> escape_dot_label)
                (aliases.dot_alias_of (pretty_fo pc.assume_guard) |> escape_dot_label)
            in
@@ -313,7 +372,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                       | Abs.Bad_guarantee -> "#c0392b"
                     in
                     let lbl =
-                      Printf.sprintf "κ%d.%d\\nG: %s" (idx + 1) (case_idx + 1)
+                      Printf.sprintf "G: %s"
                         (aliases.dot_alias_of (pretty_fo case.guarantee_guard) |> escape_dot_label)
                     in
                     Printf.sprintf "  %s -> %s [label=\"%s\", color=\"%s\", fontcolor=\"%s\"];"
@@ -322,7 +381,8 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            (cdef, head_edge :: case_edges))
     |> List.split
   in
-  let legend_defs = aliases.definitions in
+  let formula_legend_defs = aliases.definitions in
+  let transition_legend_defs = transition_aliases.definitions in
   String.concat "\n"
     ([
        "digraph canonical_proof {";
@@ -342,10 +402,11 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
     @ List.map (fun s -> "  " ^ s) (List.concat edges)
     @ [ "  }" ]
     @
-    if legend_defs = [] then [ "}" ]
+    if formula_legend_defs = [] && transition_legend_defs = [] then [ "}" ]
     else
       let tmp = Buffer.create 256 in
-      add_formula_legend_rows_html tmp ~title:"Formula aliases" legend_defs;
+      add_formula_legend_rows_html tmp ~title:"Formula aliases" formula_legend_defs;
+      add_formula_legend_rows_html tmp ~title:"Transition aliases" transition_legend_defs;
       let legend_block =
         match List.rev states with
         | last_state :: _ ->
