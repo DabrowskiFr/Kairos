@@ -30,10 +30,6 @@ let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t op
   let collect_formula acc (formula : Ir.contract_formula) =
     (formula.meta.oid, formula.meta.origin) :: acc
   in
-  let collect_transition acc (transition : Ir.transition) =
-    transition.requires |> List.fold_left collect_formula acc |> fun acc ->
-    List.fold_left collect_formula acc transition.ensures
-  in
   let collect_product_transition acc (transition : Ir.product_contract) =
     transition.common.requires |> List.fold_left collect_formula acc |> fun acc ->
     transition.common.ensures |> List.fold_left collect_formula acc |> fun acc ->
@@ -48,9 +44,7 @@ let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t op
   nodes
   |> List.fold_left
        (fun acc (node : Ir.node) ->
-         node.trans
-         |> List.fold_left collect_transition acc
-         |> fun acc -> List.fold_left collect_product_transition acc node.product_transitions)
+         List.fold_left collect_product_transition acc node.product_transitions)
        []
   |> List.rev
 

@@ -27,8 +27,8 @@ let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactiv
             | None -> FTrue
             | Some g -> fo_of_iexpr g |> simplify_fo);
           guard_iexpr = t.guard;
-          requires = t.requires;
-          ensures = t.ensures;
+          requires = [];
+          ensures = [];
           body_stmts = t.body;
         })
       node.trans
@@ -109,16 +109,9 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
 
 let post_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.ltl option =
   let formulas =
-    node.trans
-    |> List.filter_map (fun (t : Abs.transition) ->
-           if t.dst <> state_name then None
-           else
-             t.ensures
-             |> List.filter_map (fun (f : Abs.contract_formula) ->
-                    match f.meta.origin with
-                    | Some Formula_origin.Invariant -> Some f.logic
-                    | _ -> None)
-             |> Fo_specs.conj_ltl)
+    node.source_info.state_invariants
+    |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
+           if inv.state = state_name then Some inv.formula else None)
   in
   match formulas with
   | [] -> None

@@ -71,19 +71,11 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
           pc.cases;
     }
   in
-  let reid_trans (t : Abs.transition) =
-    {
-      t with
-      requires = List.map reid_contract_formula t.requires;
-      ensures = List.map reid_contract_formula t.ensures;
-    }
-  in
   let reid_node (n : Abs.node) =
     {
       n with
       product_transitions = List.map reid_product_contract n.product_transitions;
       coherency_goals = List.map reid_contract_formula n.coherency_goals;
-      trans = List.map reid_trans n.trans;
     }
   in
   List.map reid_node p

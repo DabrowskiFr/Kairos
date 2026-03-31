@@ -77,7 +77,7 @@ main() {
     "${cli_cmd[@]}" --dump-automata "$out_dir/$stem.automata" "$kairos_file"
     "${cli_cmd[@]}" --dump-product "$out_dir/$stem.product" "$kairos_file"
     "${cli_cmd[@]}" --dump-canonical "$out_dir/$stem.canonical.dot" "$kairos_file"
-    "${cli_cmd[@]}" --dump-ir-pretty "$out_dir/$stem.ir.pretty.txt" "$kairos_file"
+    "${cli_cmd[@]}" --dump-ir-pretty="$out_dir/$stem.ir.pretty.txt" "$kairos_file"
   )
 
   while IFS= read -r -d '' dot_file; do

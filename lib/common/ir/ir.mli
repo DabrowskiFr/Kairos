@@ -95,6 +95,7 @@ type product_step_class =
     Fields:
     {ul
     {- [step_class]: branch class;}
+    {- [product_dst_id]: stable destination identifier used by renderers;}
     {- [product_dst]: destination product state;}
     {- [guarantee_guard]: guarantee-side selector guard;}
     {- [propagates]: formulas propagated by this branch to the next step.
@@ -107,6 +108,7 @@ type product_step_class =
     {- [forbidden]: forbidden formulas (typically bad-guarantee).}} *)
 type product_case = {
   step_class : product_step_class;
+  product_dst_id : string;
   product_dst : product_state;
   guarantee_guard : Fo_formula.t;
   propagates : contract_formula list;
@@ -117,6 +119,7 @@ type product_case = {
 (** Identity shared by all product steps grouped in a canonical contract. *)
 type product_contract_identity = {
   program_transition_index : transition_index;
+  product_src_id : string;
   product_src : product_state;
   assume_guard : Fo_formula.t;
 }
@@ -129,8 +132,8 @@ type product_contract_common = {
 
 (** Precomputed safe summary consumed by proof/export backends. *)
 type product_contract_safe_summary = {
-  safe_product_dst : product_state option;
-  safe_guarantee_guard : Fo_formula.t option;
+  safe_destination_id : string option;
+  safe_product_dsts : product_state list;
   safe_propagates : contract_formula list;
   safe_ensures : contract_formula list;
 }
@@ -169,17 +172,12 @@ type product_contract = {
     This record combines:
     {ul
     {- source control-flow information;}
-    {- generated transition contracts;}
-    {- the executable statement body;}
-    {- per-transition warnings.}} *)
+    {- the executable statement body.}} *)
 type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : contract_formula list;
-  ensures : contract_formula list;
   body : stmt list;
-  warnings : string list;
 }
 
 type node_semantics = Ast.node_semantics

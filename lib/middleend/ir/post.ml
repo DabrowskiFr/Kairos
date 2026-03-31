@@ -143,88 +143,112 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
               assume_edges)
       prog_edges
   done;
-  List.rev !order
-  |> List.filter_map (fun key ->
-         match Hashtbl.find_opt groups key with
-         | None -> None
-         | Some grouped ->
-             let grouped = List.rev grouped in
-             let ((repr_step : PT.product_step), program_transition_index) = List.hd grouped in
-             let safe_guards =
-               grouped
-               |> List.filter_map (fun ((step : PT.product_step), _) ->
-                      match step.step_class with
-                      | PT.Safe -> Some step.guarantee_guard
-                      | PT.Bad_assumption | PT.Bad_guarantee -> None)
-             in
-             let first_safe_dst =
-               grouped
-               |> List.find_map (fun ((step : PT.product_step), _) ->
-                      match step.step_class with
-                      | PT.Safe -> Some step.dst
-                      | PT.Bad_assumption | PT.Bad_guarantee -> None)
-             in
-             let cases =
-               grouped
-               |> List.filter_map (fun ((step : PT.product_step), _) ->
-                      match step.step_class with
-                      | PT.Bad_assumption -> None
-                      | PT.Safe ->
-                          Some
-                            {
-                              Abs.step_class = product_step_class_of_pt step.step_class;
-                              product_dst = product_state_of_pt step.dst;
-                              guarantee_guard = step.guarantee_guard;
-                              propagates =
-                                [ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ];
-                              ensures = [];
-                              forbidden = [];
-                            }
-                      | PT.Bad_guarantee ->
-                          Some
-                            {
-                              Abs.step_class = product_step_class_of_pt step.step_class;
-                              product_dst = product_state_of_pt step.dst;
-                              guarantee_guard = step.guarantee_guard;
-                              propagates = [];
-                              ensures = [];
-                              forbidden =
-                                [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ];
-                            })
-             in
-             Some
-               ({
-                 Abs.identity =
-                   {
-                     program_transition_index;
-                     product_src = product_state_of_pt repr_step.src;
-                     assume_guard = repr_step.assume_guard;
-                   };
-                 common =
-                   {
-                     requires = [];
-                     ensures =
-                   (match (disj_fo safe_guards, first_safe_dst) with
-                   | Some grouped, Some _first_dst -> [ Abs.with_origin Internal (ltl_of_fo grouped) ]
-                   | _ -> []);
-                   };
-                 safe_summary =
-                   {
-                     safe_product_dst = Option.map product_state_of_pt first_safe_dst;
-                     safe_guarantee_guard = disj_fo safe_guards;
-                     safe_propagates =
-                   grouped
-                   |> List.filter_map (fun ((step : PT.product_step), _) ->
-                          match step.step_class with
-                          | PT.Safe ->
-                              Some
-                                (Abs.with_origin GuaranteeAutomaton
-                                   (ltl_of_fo step.guarantee_guard))
-                          | PT.Bad_assumption | PT.Bad_guarantee -> None);
-                     safe_ensures = [];
-                   };
-                 cases;
-               } : Abs.product_contract))
+  let contracts =
+    List.rev !order
+    |> List.filter_map (fun key ->
+           match Hashtbl.find_opt groups key with
+           | None -> None
+           | Some grouped ->
+               let grouped = List.rev grouped in
+               let ((repr_step : PT.product_step), program_transition_index) = List.hd grouped in
+               let safe_guards =
+                 grouped
+                 |> List.filter_map (fun ((step : PT.product_step), _) ->
+                        match step.step_class with
+                        | PT.Safe -> Some step.guarantee_guard
+                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
+               in
+               let safe_product_dsts =
+                 grouped
+                 |> List.filter_map (fun ((step : PT.product_step), _) ->
+                        match step.step_class with
+                        | PT.Safe -> Some (product_state_of_pt step.dst)
+                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
+                 |> List.sort_uniq Stdlib.compare
+               in
+               let cases =
+                 grouped
+                 |> List.filter_map (fun ((step : PT.product_step), _) ->
+                        match step.step_class with
+                        | PT.Bad_assumption -> None
+                        | PT.Safe ->
+                            Some
+                              {
+                                Abs.step_class = product_step_class_of_pt step.step_class;
+                                product_dst_id = "";
+                                product_dst = product_state_of_pt step.dst;
+                                guarantee_guard = step.guarantee_guard;
+                                propagates =
+                                  [ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ];
+                                ensures = [];
+                                forbidden = [];
+                              }
+                        | PT.Bad_guarantee ->
+                            Some
+                              {
+                                Abs.step_class = product_step_class_of_pt step.step_class;
+                                product_dst_id = "";
+                                product_dst = product_state_of_pt step.dst;
+                                guarantee_guard = step.guarantee_guard;
+                                propagates = [];
+                                ensures = [];
+                                forbidden =
+                                  [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ];
+                              })
+               in
+               Some
+                 ({
+                   Abs.identity =
+                     {
+                       program_transition_index;
+                       product_src_id = "";
+                       product_src = product_state_of_pt repr_step.src;
+                       assume_guard = repr_step.assume_guard;
+                     };
+                   common =
+                     {
+                       requires = [];
+                       ensures =
+                     (match (disj_fo safe_guards, safe_product_dsts) with
+                     | Some grouped, _ :: _ -> [ Abs.with_origin Internal (ltl_of_fo grouped) ]
+                     | _ -> []);
+                     };
+                   safe_summary =
+                     {
+                       safe_destination_id = None;
+                       safe_product_dsts;
+                       safe_propagates =
+                     grouped
+                     |> List.filter_map (fun ((step : PT.product_step), _) ->
+                            match step.step_class with
+                            | PT.Safe ->
+                                Some
+                                  (Abs.with_origin GuaranteeAutomaton
+                                     (ltl_of_fo step.guarantee_guard))
+                            | PT.Bad_assumption | PT.Bad_guarantee -> None);
+                       safe_ensures = [];
+                     };
+                   cases;
+                 } : Abs.product_contract))
+  in
+  contracts
+  |> List.mapi (fun idx (pc : Abs.product_contract) ->
+         let source_id = Printf.sprintf "S%d" (idx + 1) in
+         let safe_destination_id =
+           if pc.safe_summary.safe_product_dsts = [] then None
+           else Some (Printf.sprintf "D%d" (idx + 1))
+         in
+         let cases =
+           pc.cases
+           |> List.mapi (fun case_idx (case : Abs.product_case) ->
+                  { case with product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (case_idx + 1) })
+         in
+         {
+           pc with
+           identity = { pc.identity with product_src_id = source_id };
+           safe_summary = { pc.safe_summary with safe_destination_id };
+           cases;
+         })
 
 type t = { product_transitions : Abs.product_contract list }
 

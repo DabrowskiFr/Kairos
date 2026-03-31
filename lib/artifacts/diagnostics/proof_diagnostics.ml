@@ -1,5 +1,4 @@
 open Ast
-open Formula_origin
 
 module Abs = Ir
 
@@ -15,48 +14,6 @@ type formula_record = {
   obligation_category : string option;
   loc : Ast.loc option;
 }
-
-let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
-    string * string option * string option =
-  let family =
-    if is_require then
-      match f.meta.origin with
-      | Some Invariant -> Some Obligation_taxonomy.FamInvariantRequires
-      | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadRequires
-      | Some GuaranteePropagation ->
-          Some Obligation_taxonomy.FamGuaranteePropagationRequires
-      | Some AssumeAutomaton -> Some Obligation_taxonomy.FamStateAwareAssumptionRequires
-      | Some ProgramGuard -> Some Obligation_taxonomy.FamTransitionRequires
-      | Some StateStability -> Some Obligation_taxonomy.FamTransitionRequires
-      | Some GuaranteeAutomaton ->
-          Some Obligation_taxonomy.FamTransitionRequires
-      | Some GuaranteeViolation ->
-          Some Obligation_taxonomy.FamNoBadRequires
-      | Some UserContract | Some Internal | None ->
-          Some Obligation_taxonomy.FamTransitionRequires
-    else
-      match f.meta.origin with
-      | Some Invariant -> Some Obligation_taxonomy.FamInvariantEnsuresShifted
-      | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadEnsures
-      | Some GuaranteeAutomaton -> Some Obligation_taxonomy.FamGuaranteeAutomatonEnsures
-      | Some GuaranteeViolation -> Some Obligation_taxonomy.FamGuaranteeViolationForbidden
-      | Some UserContract | Some Internal | Some GuaranteePropagation
-      | Some AssumeAutomaton | Some ProgramGuard | Some StateStability | None ->
-          Some Obligation_taxonomy.FamTransitionEnsures
-  in
-  let family_name = Option.map Obligation_taxonomy.family_name family in
-  let category_name =
-    match family with
-    | None -> None
-    | Some fam ->
-        Obligation_taxonomy.category_of_family fam |> Option.map Obligation_taxonomy.category_name
-  in
-  let obligation_kind =
-    match family_name with
-    | Some name -> name
-    | None -> if is_require then "transition_requires" else "transition_ensures"
-  in
-  (obligation_kind, family_name, category_name)
 
 let build_formula_records (p_obc : Abs.node list) : formula_record list =
   let records = ref [] in
@@ -82,44 +39,7 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
               loc = goal.meta.loc;
             })
         node.coherency_goals;
-      List.iter
-        (fun (t : Abs.transition) ->
-          let source = Printf.sprintf "%s: %s -> %s" node_name t.src t.dst in
-          List.iter
-            (fun (req : Abs.contract_formula) ->
-              let obligation_kind, obligation_family, obligation_category =
-                classify_formula ~is_require:true req
-              in
-              add
-                {
-                  oid = req.meta.oid;
-                  source;
-                  node = Some node_name;
-                  transition = Some (Printf.sprintf "%s -> %s" t.src t.dst);
-                  obligation_kind;
-                  obligation_family;
-                  obligation_category;
-                  loc = req.meta.loc;
-                })
-            t.requires;
-          List.iter
-            (fun (ens : Abs.contract_formula) ->
-              let obligation_kind, obligation_family, obligation_category =
-                classify_formula ~is_require:false ens
-              in
-              add
-                {
-                  oid = ens.meta.oid;
-                  source;
-                  node = Some node_name;
-                  transition = Some (Printf.sprintf "%s -> %s" t.src t.dst);
-                  obligation_kind;
-                  obligation_family;
-                  obligation_category;
-                  loc = ens.meta.loc;
-                })
-            t.ensures)
-        node.trans)
+      ())
     p_obc;
   List.rev !records
 

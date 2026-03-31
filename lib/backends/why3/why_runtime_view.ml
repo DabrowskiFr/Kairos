@@ -601,9 +601,9 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
       (fun (pc : Ir.product_contract) ->
         let t = List.nth node.trans pc.identity.program_transition_index in
         let safe_group =
-          match pc.safe_summary.safe_product_dst with
-          | None -> []
-          | Some product_dst ->
+          match pc.safe_summary.safe_product_dsts with
+          | [] -> []
+          | product_dst :: _ ->
               [
                 {
                   transition_id = Printf.sprintf "tr_%d" pc.identity.program_transition_index;

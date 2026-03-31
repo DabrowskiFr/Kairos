@@ -33,10 +33,6 @@ let raw_transition_of_abs (t : Abs.transition) : Ir.raw_transition =
     No requires/ensures are copied — those are the responsibility of pass 4. *)
 let build_raw_node (node : Abs.node) : Ir.raw_node =
   let contract_formulas =
-    let transition_formulas =
-      node.trans
-      |> List.concat_map (fun (t : Abs.transition) -> Abs.values (t.requires @ t.ensures))
-    in
     let product_formulas =
       node.product_transitions
       |> List.concat_map (fun (pc : Abs.product_contract) ->
@@ -46,7 +42,7 @@ let build_raw_node (node : Abs.node) : Ir.raw_node =
              |> List.concat_map (fun (case : Abs.product_case) ->
                     Abs.values (case.propagates @ case.ensures @ case.forbidden))))
     in
-    transition_formulas @ product_formulas @ Abs.values node.coherency_goals
+    product_formulas @ Abs.values node.coherency_goals
   in
   let pre_k_map =
     Collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs

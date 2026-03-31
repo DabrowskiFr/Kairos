@@ -296,14 +296,9 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
         | f :: rest -> Some (List.fold_left (fun acc fo_atom -> LOr (acc, fo_atom)) f rest |> normalize_phase_summary)
   in
   let invariants_for_state state_name =
-    node.trans
-    |> List.filter (fun (t : Abs.transition) -> t.dst = state_name)
-    |> List.concat_map (fun (t : Abs.transition) ->
-           t.ensures
-           |> List.filter_map (fun (f : Abs.contract_formula) ->
-                  match f.meta.origin with
-                  | Some Formula_origin.Invariant -> Some (current (FactFormula f.logic))
-                  | _ -> None))
+    node.source_info.state_invariants
+    |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
+           if inv.state = state_name then Some (current (FactFormula inv.formula)) else None)
   in
   let init_goal_facts =
     node.coherency_goals

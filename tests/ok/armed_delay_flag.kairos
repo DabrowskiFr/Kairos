@@ -1,0 +1,25 @@
+node armed_delay(arm: int, x: int) returns (y: int)
+contracts
+  ensures: G (arm = 1 => X G (y = prev x));
+  // Helper, armed should be a ghost variable
+  ensures: G (arm = 1 => G (armed= 1));
+locals
+  z: int;
+  armed: int;
+states
+  Init(init), Idle, Track;
+invariants
+  in Idle:  
+    armed = 0;
+  in Track: 
+    armed = 1 and z = prev x;
+transitions
+  Init:
+    to Track when arm = 1 { armed := 1; z := x; }
+    to Idle when arm = 0 { armed := 0; }
+  Idle:
+    to Track when arm = 1 { armed := 1; z := x; }
+    to Idle when arm = 0 { skip; }
+  Track:
+    to Track { y := z; z := x; }
+end

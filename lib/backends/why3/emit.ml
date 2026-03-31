@@ -461,20 +461,27 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     |> List.filter (fun (sc : Why_types.step_contract_info) ->
            same_runtime_transition_as_step sc.step t)
   in
-  let step_helper_name (sc : Why_types.step_contract_info) =
+  let step_class_suffix = function
+    | Ir.Safe -> "safe"
+    | Ir.Bad_assumption -> "bad_assumption"
+    | Ir.Bad_guarantee -> "bad_guarantee"
+  in
+  let step_helper_name ~(index : int) (sc : Why_types.step_contract_info) =
     let step = sc.step in
-    Printf.sprintf "step_%s_ps_%s_to_%s_a%d_%d_g%d_%d"
+    Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_%d"
       (String.lowercase_ascii step.transition_id)
       (String.lowercase_ascii step.product_src.prog_state)
-      (String.lowercase_ascii step.product_dst.prog_state)
-      step.product_src.assume_state_index step.product_dst.assume_state_index
-      step.product_src.guarantee_state_index step.product_dst.guarantee_state_index
+      step.product_src.assume_state_index
+      step.product_src.guarantee_state_index
+      (step_class_suffix step.step_class)
+      index
   in
   let kernel_step_helper_decls =
     if not use_product_helper_contracts then []
     else
       step_contracts
-      |> List.filter_map (fun (sc : Why_types.step_contract_info) ->
+      |> List.mapi (fun i sc -> (i, sc))
+      |> List.filter_map (fun (i, (sc : Why_types.step_contract_info)) ->
              let matching_transition =
                runtime_view.transitions
                |> List.find_opt (fun (t : Why_runtime_view.runtime_transition_view) ->
@@ -483,7 +490,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
              match matching_transition with
              | None -> None
              | Some t ->
-                 let helper_name = ident (step_helper_name sc) in
+                 let helper_name = ident (step_helper_name ~index:i sc) in
                  let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
                  let spc =
                    {

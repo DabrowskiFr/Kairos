@@ -129,14 +129,23 @@ let render_annotated_transition (t : Ir.annotated_transition) : string =
     | None -> ""
     | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
   in
-  Printf.sprintf
-    "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
-    raw.core.src_state raw.core.dst_state
-    guard_str
-    guard_iexpr_str
-    (render_stmt_list raw.core.body_stmts)
-    (render_fo_o_list t.contracts.requires)
-    (render_fo_o_list t.contracts.ensures)
+  let contract_lines =
+    let lines = ref [] in
+    if t.contracts.requires <> [] then
+      lines := !lines @ [ "  requires    :"; "    " ^ render_fo_o_list t.contracts.requires ];
+    if t.contracts.ensures <> [] then
+      lines := !lines @ [ "  ensures     :"; "    " ^ render_fo_o_list t.contracts.ensures ];
+    !lines
+  in
+  String.concat "\n"
+    ([
+       "";
+       Printf.sprintf "[transition %s -> %s]" raw.core.src_state raw.core.dst_state;
+       Printf.sprintf "  guard       : %s%s" guard_str guard_iexpr_str;
+       "  body        :";
+       "    " ^ render_stmt_list raw.core.body_stmts;
+     ]
+    @ contract_lines)
 
 let render_annotated_node (n : Ir.annotated_node) : string =
   let raw = n.raw in
@@ -169,15 +178,25 @@ let render_verified_transition (t : Ir.verified_transition) : string =
     | None -> ""
     | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
   in
-  Printf.sprintf
-    "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s\n  pre_k_upd   :\n    %s\n  requires    :\n    %s\n  ensures     :\n    %s"
-    t.core.src_state t.core.dst_state
-    guard_str
-    guard_iexpr_str
-    (render_stmt_list t.core.body_stmts)
-    (render_stmt_list t.pre_k_updates)
-    (render_fo_o_list t.contracts.requires)
-    (render_fo_o_list t.contracts.ensures)
+  let contract_lines =
+    let lines = ref [] in
+    if t.contracts.requires <> [] then
+      lines := !lines @ [ "  requires    :"; "    " ^ render_fo_o_list t.contracts.requires ];
+    if t.contracts.ensures <> [] then
+      lines := !lines @ [ "  ensures     :"; "    " ^ render_fo_o_list t.contracts.ensures ];
+    !lines
+  in
+  String.concat "\n"
+    ([
+       "";
+       Printf.sprintf "[transition %s -> %s]" t.core.src_state t.core.dst_state;
+       Printf.sprintf "  guard       : %s%s" guard_str guard_iexpr_str;
+       "  body        :";
+       "    " ^ render_stmt_list t.core.body_stmts;
+       "  pre_k_upd   :";
+       "    " ^ render_stmt_list t.pre_k_updates;
+     ]
+    @ contract_lines)
 
 let render_verified_node (n : Ir.verified_node) : string =
   let c = n.core in
@@ -234,9 +253,8 @@ let render_iexpr_opt = function
 let render_product_state (s : Ir.product_state) : string =
   Printf.sprintf "(%s,A%d,G%d)" s.prog_state s.assume_state_index s.guarantee_state_index
 
-let render_product_state_opt = function
-  | None -> "None"
-  | Some s -> "Some(" ^ render_product_state s ^ ")"
+let render_product_state_list (xs : Ir.product_state list) : string =
+  "[" ^ String.concat ", " (List.map render_product_state xs) ^ "]"
 
 let render_step_class = function
   | Ir.Safe -> "Safe"
@@ -262,10 +280,6 @@ let collect_formula_pool (program : Ir.program) : Ir.contract_formula list =
     | Some _ -> ()
   in
   let add_formulas = List.iter add_formula in
-  let add_transition (t : Ir.transition) =
-    add_formulas t.requires;
-    add_formulas t.ensures
-  in
   let add_product_case (c : Ir.product_case) =
     add_formulas c.propagates;
     add_formulas c.ensures;
@@ -297,7 +311,6 @@ let collect_formula_pool (program : Ir.program) : Ir.contract_formula list =
     add_formulas v.coherency_goals
   in
   let add_node (n : Ir.node) =
-    List.iter add_transition n.trans;
     List.iter add_product_contract n.product_transitions;
     add_formulas n.coherency_goals;
     Option.iter add_raw n.proof_views.raw;
@@ -336,21 +349,16 @@ let render_formula_pool (buf : Buffer.t) (program : Ir.program) =
 let render_transition_full (buf : Buffer.t) (idx : int) (t : Ir.transition) =
   line ~indent:1 buf
     (Printf.sprintf "t%d: %s -> %s when %s" idx t.src t.dst (render_iexpr_opt t.guard));
-  line ~indent:2 buf ("requires=" ^ render_formula_refs t.requires);
-  line ~indent:2 buf ("ensures =" ^ render_formula_refs t.ensures);
   let body = "[" ^ String.concat "; " (List.map render_stmt t.body) ^ "]" in
-  line ~indent:2 buf ("body=" ^ body);
-  line ~indent:2 buf ("warnings=[" ^ String.concat ", " t.warnings ^ "]")
+  line ~indent:2 buf ("body=" ^ body)
 
 let render_product_contract ~name ~(indent : int) (buf : Buffer.t) (pc : Ir.product_contract) =
   line ~indent buf
     (Printf.sprintf "%s @ %s via t%d" name (render_product_state pc.identity.product_src)
        pc.identity.program_transition_index);
   line ~indent:(indent + 1) buf "identity:";
-  line ~indent:(indent + 2) buf
-    (Printf.sprintf "program_transition_index=%d" pc.identity.program_transition_index);
-  line ~indent:(indent + 2) buf
-    ("product_src=" ^ render_product_state pc.identity.product_src);
+  line ~indent:(indent + 2) buf ("source_id=" ^ pc.identity.product_src_id);
+  line ~indent:(indent + 2) buf ("source=" ^ render_product_state pc.identity.product_src);
   line ~indent:(indent + 2) buf
     ("assume_guard=" ^ Ast_pretty.string_of_fo pc.identity.assume_guard);
   line ~indent:(indent + 1) buf "common:";
@@ -358,13 +366,13 @@ let render_product_contract ~name ~(indent : int) (buf : Buffer.t) (pc : Ir.prod
   line ~indent:(indent + 2) buf ("ensures =" ^ render_formula_refs pc.common.ensures);
   line ~indent:(indent + 1) buf "safe_summary:";
   line ~indent:(indent + 2) buf
-    ("safe_product_dst=" ^ render_product_state_opt pc.safe_summary.safe_product_dst);
-  line ~indent:(indent + 2) buf
-    ("safe_guarantee_guard="
+    ("destination_id="
     ^
-    match pc.safe_summary.safe_guarantee_guard with
+    match pc.safe_summary.safe_destination_id with
     | None -> "None"
-    | Some g -> "Some(" ^ Ast_pretty.string_of_fo g ^ ")");
+    | Some id -> id);
+  line ~indent:(indent + 2) buf
+    ("destinations=" ^ render_product_state_list pc.safe_summary.safe_product_dsts);
   line ~indent:(indent + 2) buf
     ("safe_propagates=" ^ render_formula_refs pc.safe_summary.safe_propagates);
   line ~indent:(indent + 2) buf
@@ -376,6 +384,7 @@ let render_product_contract ~name ~(indent : int) (buf : Buffer.t) (pc : Ir.prod
       (fun idx (c : Ir.product_case) ->
         line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
         line ~indent:(indent + 3) buf ("step_class=" ^ render_step_class c.step_class);
+        line ~indent:(indent + 3) buf ("product_dst_id=" ^ c.product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf ("guarantee_guard=" ^ Ast_pretty.string_of_fo c.guarantee_guard);
         line ~indent:(indent + 3) buf ("propagates=" ^ render_formula_refs c.propagates);
@@ -415,8 +424,10 @@ let render_annotated_transition ~indent (buf : Buffer.t) idx (t : Ir.annotated_t
   line ~indent:(indent + 1) buf ("guard=" ^ Ast_pretty.string_of_fo t.raw.guard);
   line ~indent:(indent + 1) buf
     ("body=[" ^ String.concat "; " (List.map render_stmt t.raw.core.body_stmts) ^ "]");
-  line ~indent:(indent + 1) buf ("requires=" ^ render_formula_refs t.contracts.requires);
-  line ~indent:(indent + 1) buf ("ensures =" ^ render_formula_refs t.contracts.ensures)
+  if t.contracts.requires <> [] then
+    line ~indent:(indent + 1) buf ("requires=" ^ render_formula_refs t.contracts.requires);
+  if t.contracts.ensures <> [] then
+    line ~indent:(indent + 1) buf ("ensures =" ^ render_formula_refs t.contracts.ensures)
 
 let render_verified_transition_full ~indent (buf : Buffer.t) idx (t : Ir.verified_transition) =
   line ~indent buf
@@ -427,8 +438,10 @@ let render_verified_transition_full ~indent (buf : Buffer.t) idx (t : Ir.verifie
     ("body=[" ^ String.concat "; " (List.map render_stmt t.core.body_stmts) ^ "]");
   line ~indent:(indent + 1) buf
     ("pre_k_updates=[" ^ String.concat "; " (List.map render_stmt t.pre_k_updates) ^ "]");
-  line ~indent:(indent + 1) buf ("requires=" ^ render_formula_refs t.contracts.requires);
-  line ~indent:(indent + 1) buf ("ensures =" ^ render_formula_refs t.contracts.ensures)
+  if t.contracts.requires <> [] then
+    line ~indent:(indent + 1) buf ("requires=" ^ render_formula_refs t.contracts.requires);
+  if t.contracts.ensures <> [] then
+    line ~indent:(indent + 1) buf ("ensures =" ^ render_formula_refs t.contracts.ensures)
 
 let render_raw_view ~indent (buf : Buffer.t) = function
   | None -> line ~indent buf "raw=None"
@@ -546,8 +559,8 @@ let render_pretty_program (program : Ir.program) : string =
            Printf.sprintf "(%d,%s)" oid (render_origin_opt origin))
          program.contracts_info.contract_origin_map)
     ^ "]");
-  line ~indent:1 buf
-    ("warnings=[" ^ String.concat "; " program.contracts_info.warnings ^ "]");
+  if program.contracts_info.warnings <> [] then
+    line ~indent:1 buf ("warnings=[" ^ String.concat "; " program.contracts_info.warnings ^ "]");
   line buf "";
   render_formula_pool buf program;
   line buf "";

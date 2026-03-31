@@ -8,10 +8,7 @@ let of_ast_transition (t : Ast.transition) : Ir.transition =
     src = t.src;
     dst = t.dst;
     guard = t.guard;
-    requires = [];
-    ensures = [];
     body = t.body;
-    warnings = [];
   }
 
 let of_ast_node (n : Ast.node) : Ir.node =

@@ -1,5 +1,4 @@
 open Ast
-open Formula_origin
 
 module Abs = Ir
 
@@ -106,31 +105,6 @@ let category_of_family = function
   | FamGuaranteeViolationForbidden -> Some CatNoBad
   | FamTransitionRequires | FamTransitionEnsures -> None
 
-let classify_require (f : Abs.contract_formula) : family =
-  match f.meta.origin with
-  | Some Invariant -> FamInvariantRequires
-  | Some Instrumentation -> FamNoBadRequires
-  | Some GuaranteePropagation -> FamGuaranteePropagationRequires
-  | Some AssumeAutomaton -> FamStateAwareAssumptionRequires
-  | Some ProgramGuard -> FamTransitionRequires
-  | Some StateStability -> FamTransitionRequires
-  | Some GuaranteeAutomaton ->
-      FamTransitionRequires
-  | Some GuaranteeViolation ->
-      FamNoBadRequires
-  | Some UserContract | Some Internal | None ->
-      FamTransitionRequires
-
-let classify_ensure (f : Abs.contract_formula) : family =
-  match f.meta.origin with
-  | Some Invariant -> FamInvariantEnsuresShifted
-  | Some Instrumentation -> FamNoBadEnsures
-  | Some GuaranteeAutomaton -> FamGuaranteeAutomatonEnsures
-  | Some GuaranteeViolation -> FamGuaranteeViolationForbidden
-  | Some UserContract | Some Internal | Some GuaranteePropagation
-  | Some AssumeAutomaton | Some ProgramGuard | Some StateStability | None ->
-      FamTransitionEnsures
-
 let summarize_program (p : Abs.node list) : summary =
   let table = Hashtbl.create 16 in
   let category_table = Hashtbl.create 8 in
@@ -161,12 +135,7 @@ let summarize_program (p : Abs.node list) : summary =
   in
   List.iter
     (fun (n : Abs.node) ->
-      List.iter (fun (_ : Abs.contract_formula) -> bump FamInitialInvariantGoal) n.coherency_goals;
-      List.iter
-        (fun (t : Abs.transition) ->
-          List.iter (fun r -> bump (classify_require r)) t.requires;
-          List.iter (fun e -> bump (classify_ensure e)) t.ensures)
-        n.trans)
+      List.iter (fun (_ : Abs.contract_formula) -> bump FamInitialInvariantGoal) n.coherency_goals)
     p;
   let counts =
     List.filter_map

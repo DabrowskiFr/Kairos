@@ -1,0 +1,17 @@
+[armed_one_forever] state (Armed, A0, G1)
+[armed_one_forever] state (Armed, A0, G2)
+[armed_one_forever] state (Armed, A1, G1)
+[armed_one_forever] state (Armed, A1, G2)
+[armed_one_forever] state (Init, A0, G0)
+[armed_one_forever] (Init, A0, G0) -- P:{x} = {1} / A[0->0]:{x} = {0} or {x} = {1} / G[0->1]:{x} = {1} and {y} = {1} --> (Armed, A0, G1) [safe]
+[armed_one_forever] (Armed, A0, G1) -- P:true / A[0->0]:{x} = {0} or {x} = {1} / G[1->1]:{y} = {1} --> (Armed, A0, G1) [safe]
+[armed_one_forever] (Init, A0, G0) -- P:{x} = {0} / A[0->0]:{x} = {0} or {x} = {1} / G[0->0]:not {x} = {1} --> (Init, A0, G0) [safe]
+[armed_one_forever] (Init, A0, G0) -- P:{x} = {1} / A[0->0]:{x} = {0} or {x} = {1} / G[0->2]:{x} = {1} and not {y} = {1} --> (Armed, A0, G2) [bad_G]
+[armed_one_forever] (Armed, A0, G1) -- P:true / A[0->0]:{x} = {0} or {x} = {1} / G[1->2]:not {y} = {1} --> (Armed, A0, G2) [bad_G]
+[armed_one_forever] (Armed, A0, G1) -- P:true / A[0->1]:not {x} = {0} and not {x} = {1} / G[1->1]:{y} = {1} --> (Armed, A1, G1) [bad_A]
+[armed_one_forever] (Armed, A0, G1) -- P:true / A[0->1]:not {x} = {0} and not {x} = {1} / G[1->2]:not {y} = {1} --> (Armed, A1, G2) [bad_A]
+[armed_one_forever] (Armed, A0, G2) -- P:true / A[0->0]:{x} = {0} or {x} = {1} / G[2->2]:true --> (Armed, A0, G2) [bad_G]
+[armed_one_forever] (Armed, A0, G2) -- P:true / A[0->1]:not {x} = {0} and not {x} = {1} / G[2->2]:true --> (Armed, A1, G2) [bad_A]
+[armed_one_forever] (Armed, A1, G1) -- P:true / A[1->1]:true / G[1->1]:{y} = {1} --> (Armed, A1, G1) [bad_A]
+[armed_one_forever] (Armed, A1, G1) -- P:true / A[1->1]:true / G[1->2]:not {y} = {1} --> (Armed, A1, G2) [bad_A]
+[armed_one_forever] (Armed, A1, G2) -- P:true / A[1->1]:true / G[2->2]:true --> (Armed, A1, G2) [bad_A]

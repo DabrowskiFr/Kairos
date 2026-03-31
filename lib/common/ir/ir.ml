@@ -77,6 +77,7 @@ type product_step_class =
 
 type product_case = {
   step_class : product_step_class;
+  product_dst_id : string;
   product_dst : product_state;
   guarantee_guard : Fo_formula.t;
   propagates : contract_formula list;
@@ -86,6 +87,7 @@ type product_case = {
 
 type product_contract_identity = {
   program_transition_index : transition_index;
+  product_src_id : string;
   product_src : product_state;
   assume_guard : Fo_formula.t;
 }
@@ -96,8 +98,8 @@ type product_contract_common = {
 }
 
 type product_contract_safe_summary = {
-  safe_product_dst : product_state option;
-  safe_guarantee_guard : Fo_formula.t option;
+  safe_destination_id : string option;
+  safe_product_dsts : product_state list;
   safe_propagates : contract_formula list;
   safe_ensures : contract_formula list;
 }
@@ -113,10 +115,7 @@ type transition = {
   src : ident;
   dst : ident;
   guard : iexpr option;
-  requires : contract_formula list;
-  ensures : contract_formula list;
   body : stmt list;
-  warnings : string list;
 }
 
 type node_semantics = Ast.node_semantics
@@ -246,21 +245,18 @@ let dedup_contract_formulas (xs : contract_formula list) : contract_formula list
 
 let refresh_safe_summary (pc : product_contract) : product_contract =
   let safe_cases = List.filter (fun (c : product_case) -> c.step_class = Safe) pc.cases in
-  let safe_product_dst =
-    match (pc.safe_summary.safe_product_dst, safe_cases) with
-    | Some dst, _ :: _ -> Some dst
-    | None, first_safe :: _ -> Some first_safe.product_dst
-    | _ -> None
+  let safe_product_dsts =
+    match (pc.safe_summary.safe_product_dsts, safe_cases) with
+    | existing, _ :: _ when existing <> [] -> existing
+    | _, _ ->
+        safe_cases
+        |> List.map (fun (c : product_case) -> c.product_dst)
+        |> List.sort_uniq Stdlib.compare
   in
-  let safe_guarantee_guard =
-    match (pc.safe_summary.safe_guarantee_guard, safe_cases) with
-    | Some guard, _ :: _ -> Some guard
-    | None, first_safe :: rest ->
-        Some
-          (List.fold_left
-             (fun acc (c : product_case) -> Fo_formula.FOr (acc, c.guarantee_guard))
-             first_safe.guarantee_guard rest)
-    | _ -> None
+  let safe_destination_id =
+    match safe_cases with
+    | [] -> None
+    | _ :: _ -> pc.safe_summary.safe_destination_id
   in
   let safe_propagates =
     safe_cases
@@ -274,7 +270,7 @@ let refresh_safe_summary (pc : product_contract) : product_contract =
   in
   {
     pc with
-    safe_summary = { safe_product_dst; safe_guarantee_guard; safe_propagates; safe_ensures };
+    safe_summary = { safe_destination_id; safe_product_dsts; safe_propagates; safe_ensures };
   }
 
 let empty_proof_views : proof_views = { raw = None; annotated = None; verified = None }
