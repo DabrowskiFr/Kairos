@@ -18,10 +18,6 @@ let () =
       ("end", END);
       ("requires", REQUIRES);
       ("ensures", ENSURES);
-      ("assume", ASSUME);
-      ("assumes", ASSUME);
-      ("guarantee", GUARANTEE);
-      ("guarantees", GUARANTEE);
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
@@ -84,10 +80,6 @@ let expected_tokens : (string * Parser.token) list =
     ("end", END);
     ("requires", REQUIRES);
     ("ensures", ENSURES);
-    ("assume", ASSUME);
-    ("assumes", ASSUME);
-    ("guarantee", GUARANTEE);
-    ("guarantees", GUARANTEE);
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);

@@ -83,7 +83,7 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %}
 
 %token NODE RETURNS LOCALS STATES INIT TRANS END
-%token REQUIRES ENSURES ASSUME GUARANTEE
+%token REQUIRES ENSURES
 %token INVARIANT IN
 %token INVARIANTS
 %token CONTRACTS

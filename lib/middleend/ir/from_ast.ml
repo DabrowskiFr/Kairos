@@ -11,7 +11,6 @@ let of_ast_transition (t : Ast.transition) : Ir.transition =
     requires = [];
     ensures = [];
     body = t.body;
-    uid = None;
     warnings = [];
   }
 
@@ -22,7 +21,6 @@ let of_ast_node (n : Ast.node) : Ir.node =
     semantics;
     trans = List.map of_ast_transition n.semantics.sem_trans;
     product_transitions = [];
-    uid = None;
     source_info =
       {
         assumes = spec.spec_assumes;

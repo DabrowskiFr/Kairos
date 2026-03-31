@@ -48,7 +48,6 @@ type transition = {
   requires : contract_formula list;
   ensures : contract_formula list;
   body : stmt list;
-  uid : int option;
   warnings : string list;
 }
 
@@ -138,7 +137,6 @@ type node = {
   semantics : node_semantics;
   trans : transition list;
   product_transitions : product_contract list;
-  uid : int option;
   source_info : source_info;
   coherency_goals : contract_formula list;
   proof_views : proof_views;
@@ -148,9 +146,6 @@ type program = {
   nodes : node list;
   contracts_info : contracts_info;
 }
-
-let to_ast_contract_formula (f : contract_formula) : Ast.ltl_o =
-  { value = f.value; oid = f.oid; loc = f.loc }
 
 let to_ast_transition (t : transition) : Ast.transition =
   { src = t.src; dst = t.dst; guard = t.guard; body = t.body }
@@ -170,13 +165,8 @@ let to_ast_node (n : node) : Ast.node =
       };
   }
 
-let map_transitions (f : transition list -> transition list) (n : node) : node =
-  { n with trans = f n.trans }
-
 let with_origin ?loc origin value : contract_formula =
   { value; origin = Some origin; oid = Provenance.fresh_id (); loc }
-
-let map_formula f (x : contract_formula) : contract_formula = { x with value = f x.value }
 let values xs = List.map (fun x -> x.value) xs
 
 let dedup_contract_formulas (xs : contract_formula list) : contract_formula list =
@@ -213,27 +203,5 @@ let refresh_safe_summary (pc : product_contract) : product_contract =
     |> dedup_contract_formulas
   in
   { pc with safe_product_dst; safe_guarantee_guard; safe_propagates; safe_ensures }
-
-let map_product_contract_formulas ~contract ~guard (pc : product_contract) : product_contract =
-  {
-    pc with
-    requires = List.map (map_formula contract) pc.requires;
-    ensures = List.map (map_formula contract) pc.ensures;
-    safe_propagates = List.map (map_formula contract) pc.safe_propagates;
-    safe_ensures = List.map (map_formula contract) pc.safe_ensures;
-    assume_guard = guard pc.assume_guard;
-    safe_guarantee_guard = Option.map guard pc.safe_guarantee_guard;
-    cases =
-      List.map
-        (fun (c : product_case) ->
-          {
-            c with
-            guarantee_guard = guard c.guarantee_guard;
-            propagates = List.map (map_formula contract) c.propagates;
-            ensures = List.map (map_formula contract) c.ensures;
-            forbidden = List.map (map_formula contract) c.forbidden;
-          })
-        pc.cases;
-  }
 
 let empty_proof_views : proof_views = { raw = None; annotated = None; verified = None }

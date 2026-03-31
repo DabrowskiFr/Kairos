@@ -3,12 +3,22 @@
 Quick commands
 --------------
 - Build the CLI: `dune build bin/cli/main.exe`
-- Build the Rocq development: `dune build`
-- Run lint checks: `scripts/lint.sh`
 - Run all tests: `dune runtest`
+
+./scripts/validate_ok_ko.sh . 1 without_calls 60 ok
+./scripts/validate_ok_ko.sh . 1 without_calls 60 ko
 
 CLI usage
 ---------
+
+- Prove : dune exec bin/cli/main.exe -- --prove <filename>
+- Dump guarantee+assume automata : dune exec bin/cli/main.exe -- --dump-automata=<filename> <filename>
+- Dump product automaton text : dune exec bin/cli/main.exe -- --dump-product=<filename> <filename>
+- Dump canonical structure : dune exec bin/cli/main.exe -- --dump-canonical=<filename> <filename>
+
+GTK IDE (skeleton)
+------------------
+
 - Generate Why3: `dune exec -- kairos <file.obc>`
 - Dump DOT only: `dune exec -- kairos --dump-dot out/monitor.dot <file.obc>`
 - Dump internal AST JSON: `dune exec -- kairos --dump-json - <file.obc>`

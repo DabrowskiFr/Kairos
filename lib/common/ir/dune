@@ -2,7 +2,7 @@
  (name kairos_ir)
  (public_name kairos.ir)
  (wrapped false)
- (modules ir)
+ (modules ir ir_shared_types)
  (libraries kairos_ast kairos_fo_formula kairos_provenance kairos_temporal_support yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))
