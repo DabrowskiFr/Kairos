@@ -58,6 +58,17 @@ let add_formula_legend_rows_html buf ~title defs =
              (escape_html_label alias) (escape_html_label formula)))
       defs)
 
+let html_contract_label ~tau =
+  String.concat "\n"
+    [
+      "<";
+      "  <TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"4\" COLOR=\"#4f5b66\">";
+      "    <TR><TD BGCOLOR=\"#e9edf1\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"11\">"
+      ^ escape_html_label tau ^ "</FONT></TD></TR>";
+      "  </TABLE>";
+      ">";
+    ]
+
 let add_sink_legend_block_html buf ~legend_id ~title ~rows_html ~anchor_id =
   Buffer.add_string buf "  subgraph cluster_legend_sink {\n";
   Buffer.add_string buf "    rank=sink;\n";
@@ -347,20 +358,27 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            in
            let cid = contract_node_id (idx + 1) in
            let clabel =
-             Printf.sprintf "τ: %s\\nP: %s\\nA: %s"
-               (transition_aliases.dot_alias_of_index pc.program_transition_index |> escape_dot_label)
-               (aliases.dot_alias_of program_guard |> escape_dot_label)
-               (aliases.dot_alias_of (pretty_fo pc.assume_guard) |> escape_dot_label)
+             html_contract_label
+               ~tau:(transition_aliases.dot_alias_of_index pc.program_transition_index)
            in
            let cdef =
              Printf.sprintf
-               "  %s [shape=ellipse, style=\"filled\", fillcolor=\"#f4f6f8\", color=\"#4f5b66\", label=\"%s\"];"
+               "  %s [shape=plain, margin=0, label=%s];"
                cid clabel
            in
            let src_id =
              state_node_id (Hashtbl.find state_index pc.product_src)
            in
-           let head_edge = Printf.sprintf "  %s -> %s [color=\"#4f5b66\", penwidth=1.4];" src_id cid in
+           let head_lbl =
+             Printf.sprintf "P: %s, A: %s"
+               (aliases.dot_alias_of program_guard |> escape_dot_label)
+               (aliases.dot_alias_of (pretty_fo pc.assume_guard) |> escape_dot_label)
+           in
+           let head_edge =
+             Printf.sprintf
+               "  %s -> %s [label=\"%s\", color=\"#4f5b66\", fontcolor=\"#4f5b66\", penwidth=1.4];"
+               src_id cid head_lbl
+           in
           let case_edges =
             pc.cases
             |> List.mapi (fun case_idx (case : Abs.product_case) ->
