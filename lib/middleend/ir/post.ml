@@ -193,18 +193,26 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                             })
              in
              Some
-               {
-                 program_transition_index;
-                 Abs.product_src = product_state_of_pt repr_step.src;
-                 assume_guard = repr_step.assume_guard;
-                 requires = [];
-                 ensures =
+               ({
+                 Abs.identity =
+                   {
+                     program_transition_index;
+                     product_src = product_state_of_pt repr_step.src;
+                     assume_guard = repr_step.assume_guard;
+                   };
+                 common =
+                   {
+                     requires = [];
+                     ensures =
                    (match (disj_fo safe_guards, first_safe_dst) with
                    | Some grouped, Some _first_dst -> [ Abs.with_origin Internal (ltl_of_fo grouped) ]
                    | _ -> []);
-                 safe_product_dst = Option.map product_state_of_pt first_safe_dst;
-                 safe_guarantee_guard = disj_fo safe_guards;
-                 safe_propagates =
+                   };
+                 safe_summary =
+                   {
+                     safe_product_dst = Option.map product_state_of_pt first_safe_dst;
+                     safe_guarantee_guard = disj_fo safe_guards;
+                     safe_propagates =
                    grouped
                    |> List.filter_map (fun ((step : PT.product_step), _) ->
                           match step.step_class with
@@ -213,9 +221,10 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                                 (Abs.with_origin GuaranteeAutomaton
                                    (ltl_of_fo step.guarantee_guard))
                           | PT.Bad_assumption | PT.Bad_guarantee -> None);
-                 safe_ensures = [];
+                     safe_ensures = [];
+                   };
                  cases;
-               })
+               } : Abs.product_contract))
 
 type t = { product_transitions : Abs.product_contract list }
 

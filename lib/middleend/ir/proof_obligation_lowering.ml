@@ -64,8 +64,8 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
     found in the map; in that case we keep the formula verbatim. *)
 let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
     (f : Ir.contract_formula) : Ir.contract_formula =
-  match Fo_specs.lower_ltl_pre_k ~pre_k_map f.value with
-  | Some fo_atom' -> { f with value = fo_atom' }
+  match Fo_specs.lower_ltl_pre_k ~pre_k_map f.logic with
+  | Some fo_atom' -> { f with logic = fo_atom' }
   | None -> f
 
 let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
@@ -73,10 +73,17 @@ let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info)
   let lower = lower_fo_o pre_k_map in
   {
     pc with
-    requires = List.map lower pc.requires;
-    ensures = List.map lower pc.ensures;
-    safe_propagates = List.map lower pc.safe_propagates;
-    safe_ensures = List.map lower pc.safe_ensures;
+    common =
+      {
+        requires = List.map lower pc.common.requires;
+        ensures = List.map lower pc.common.ensures;
+      };
+    safe_summary =
+      {
+        pc.safe_summary with
+        safe_propagates = List.map lower pc.safe_summary.safe_propagates;
+        safe_ensures = List.map lower pc.safe_summary.safe_ensures;
+      };
     cases =
       List.map
         (fun (case : Ir.product_case) ->
@@ -94,39 +101,33 @@ let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info)
 let eliminate (annotated : Ir.annotated_node) : Ir.verified_node =
   let raw = annotated.raw in
   let pre_k_map = raw.pre_k_map in
-  let existing_names = List.map (fun (v : vdecl) -> v.vname) raw.locals in
+  let existing_names = List.map (fun (v : vdecl) -> v.vname) raw.core.locals in
   let extra_locals = pre_k_extra_locals ~existing_names pre_k_map in
   let updates = pre_k_shift_stmts pre_k_map in
   let lower = lower_fo_o pre_k_map in
   let transitions =
     List.map
       (fun (t : Ir.annotated_transition) ->
-        {
-          Ir.src_state             = t.raw.src_state;
-          dst_state                       = t.raw.dst_state;
-          guard                           = t.raw.guard;
-          guard_iexpr                     = t.raw.guard_iexpr;
-          body_stmts                      = t.raw.body_stmts;
-          pre_k_updates                   = updates;
-          requires                        = List.map lower t.requires;
-          ensures                         = List.map lower t.ensures;
-        })
+        ({
+          Ir.core = t.raw.core;
+          guard = t.raw.guard;
+          pre_k_updates = updates;
+          contracts =
+            {
+              requires = List.map lower t.contracts.requires;
+              ensures = List.map lower t.contracts.ensures;
+            };
+        } : Ir.verified_transition))
       annotated.transitions
   in
   {
-    node_name                   = raw.node_name;
-    inputs                     = raw.inputs;
-    outputs                    = raw.outputs;
-    locals                     = raw.locals @ extra_locals;
-    control_states             = raw.control_states;
-    init_state                 = raw.init_state;
-    instances                  = raw.instances;
+    Ir.core = { raw.core with locals = raw.core.locals @ extra_locals };
     transitions;
-    product_transitions        = [];
-    assumes                    = raw.assumes;
-    guarantees                 = raw.guarantees;
-    coherency_goals            = List.map lower annotated.coherency_goals;
-    user_invariants            = annotated.user_invariants;
+    product_transitions = [];
+    assumes = raw.assumes;
+    guarantees = raw.guarantees;
+    coherency_goals = List.map lower annotated.coherency_goals;
+    user_invariants = annotated.user_invariants;
   }
 
 let apply_node (node : Ir.node) : Ir.node =

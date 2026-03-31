@@ -1,7 +1,7 @@
 open Ast
 
 let of_ast_contract_formula ?origin (f : Ast.ltl_o) : Ir.contract_formula =
-  { value = f.value; origin; oid = f.oid; loc = f.loc }
+  { logic = f.value; meta = { origin; oid = f.oid; loc = f.loc } }
 
 let of_ast_transition (t : Ast.transition) : Ir.transition =
   {

@@ -15,3 +15,15 @@ type invariant_user = Ast.invariant_user
 type invariant_state_rel = Ast.invariant_state_rel
 type node_semantics = Ast.node_semantics
 type transition = Ast.transition
+
+(** Stable identifier attached to logical formulas across exports/reports. *)
+type formula_id = int
+
+(** Index of a transition inside a node transition table. *)
+type transition_index = int
+
+(** Index of an automaton state in generated assume/guarantee automata. *)
+type automaton_state_index = int
+
+(** Entry mapping a formula id to its optional origin metadata. *)
+type formula_origin_entry = formula_id * Formula_origin.t option

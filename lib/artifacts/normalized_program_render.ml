@@ -21,7 +21,8 @@ let render_origin = function
       " {" ^ s ^ "}"
 
 let render_fo_o (kw : string) (f : Ir.contract_formula) (indent_level : int) : string =
-  indent_str indent_level ^ kw ^ " " ^ Ast_pretty.string_of_ltl f.value ^ render_origin f.origin ^ ";"
+  indent_str indent_level ^ kw ^ " " ^ Ast_pretty.string_of_ltl f.logic
+  ^ render_origin f.meta.origin ^ ";"
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with

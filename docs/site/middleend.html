@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairos Middle-end Guide</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">K</span>
+          <span class="brand-copy">
+            <strong>Kairos</strong>
+            <span>Documentation portal</span>
+          </span>
+        </a>
+        <nav class="nav">
+          <a href="./index.html">Home</a>
+          <a href="./frontend.html">Frontend</a>
+          <a href="./common.html">Common</a>
+          <a class="active" href="./middleend.html">Middle-end</a>
+          <a href="./artifacts.html">Artifacts</a>
+          <a href="./backends.html">Backends</a>
+          <a href="./kairos/index.html">API</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="eyebrow">Guide</div>
+            <h1>Middle-end</h1>
+            <p class="lede">
+              The middle-end builds semantic proof obligations from source-level
+              nodes: automata, product transitions, canonical contracts, and
+              proof views.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="./kairos/middleend.html">Open middle-end page</a>
+              <a class="button secondary" href="./kairos/Ir/index.html">Open Ir</a>
+            </div>
+          </article>
+
+          <section class="panel">
+            <div class="kicker">Pipeline</div>
+            <pre class="code-block">source program
+  <span class="token-arrow">-&gt;</span> automata generation
+  <span class="token-arrow">-&gt;</span> product construction
+  <span class="token-arrow">-&gt;</span> canonical contracts
+  <span class="token-arrow">-&gt;</span> pre/invariant/post</pre>
+          </section>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="grid">
+          <article class="card">
+            <div class="kicker">Automata</div>
+            <h3>Spec and Product</h3>
+            <p>From assumptions and guarantees to synchronized product transitions.</p>
+            <p><a href="./kairos/Automata_generation/index.html">Automata generation</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">IR passes</div>
+            <h3>From_ast / Pre / Invariant / Post</h3>
+            <p>Canonical shaping and obligation structuring before backend translation.</p>
+            <p><a href="./kairos/middleend.html">Browse guide page</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Staging</div>
+            <h3>Orchestration</h3>
+            <p>Coordinates the middle-end outputs consumed by rendering and Why3.</p>
+            <p><a href="./kairos/Stage_info/index.html">Open stage data</a></p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

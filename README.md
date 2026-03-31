@@ -8,6 +8,9 @@ Quick commands
 ./scripts/validate_ok_ko.sh . 1 without_calls 60 ok
 ./scripts/validate_ok_ko.sh . 1 without_calls 60 ko
 
+Oui : ./scripts/build_docs_site.sh.
+-> _build/default/_doc_site
+
 CLI usage
 ---------
 

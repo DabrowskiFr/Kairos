@@ -1,17 +1,73 @@
 open Ast
+open Ir_shared_types
 
-type contract_formula = {
-  value : ltl;
+let ( let* ) = Result.bind
+
+type formula_meta = {
   origin : Formula_origin.t option;
-  oid : int;
+  oid : formula_id;
   loc : loc option;
 }
-[@@deriving yojson]
+
+type contract_formula = {
+  logic : ltl;
+  meta : formula_meta;
+}
+
+let formula_meta_to_yojson (m : formula_meta) : Yojson.Safe.t =
+  let option_to_yojson f = function None -> `Null | Some x -> f x in
+  `Assoc
+    [
+      ("origin", option_to_yojson Formula_origin.to_yojson m.origin);
+      ("oid", `Int m.oid);
+      ("loc", option_to_yojson Ast.loc_to_yojson m.loc);
+    ]
+
+let formula_meta_of_yojson (json : Yojson.Safe.t) : (formula_meta, string) result =
+  let option_of_yojson f = function `Null -> Ok None | x -> Result.map Option.some (f x) in
+  match json with
+  | `Assoc fields ->
+      let find name = List.assoc_opt name fields in
+      let* origin_json = Option.to_result ~none:"formula_meta: missing field 'origin'" (find "origin") in
+      let* oid_json = Option.to_result ~none:"formula_meta: missing field 'oid'" (find "oid") in
+      let* loc_json = Option.to_result ~none:"formula_meta: missing field 'loc'" (find "loc") in
+      let* origin = option_of_yojson Formula_origin.of_yojson origin_json in
+      let* loc = option_of_yojson Ast.loc_of_yojson loc_json in
+      let oid =
+        match oid_json with
+        | `Int n -> Ok n
+        | _ -> Error "formula_meta.oid: expected int"
+      in
+      let* oid = oid in
+      Ok { origin; oid; loc }
+  | _ -> Error "formula_meta: expected object"
+
+let contract_formula_to_yojson (f : contract_formula) : Yojson.Safe.t =
+  `Assoc
+    [
+      ("logic", Ast.ltl_to_yojson f.logic);
+      ("meta", formula_meta_to_yojson f.meta);
+    ]
+
+let contract_formula_of_yojson (json : Yojson.Safe.t) : (contract_formula, string) result =
+  match json with
+  | `Assoc fields ->
+      let find name =
+        match List.assoc_opt name fields with
+        | Some v -> Ok v
+        | None -> Error (Printf.sprintf "contract_formula: missing field '%s'" name)
+      in
+      let* logic_json = find "logic" in
+      let* meta_json = find "meta" in
+      let* logic = Ast.ltl_of_yojson logic_json in
+      let* meta = formula_meta_of_yojson meta_json in
+      Ok { logic; meta }
+  | _ -> Error "contract_formula: expected object"
 
 type product_state = {
   prog_state : ident;
-  assume_state_index : int;
-  guarantee_state_index : int;
+  assume_state_index : automaton_state_index;
+  guarantee_state_index : automaton_state_index;
 }
 
 type product_step_class =
@@ -28,16 +84,28 @@ type product_case = {
   forbidden : contract_formula list;
 }
 
-type product_contract = {
-  program_transition_index : int;
+type product_contract_identity = {
+  program_transition_index : transition_index;
   product_src : product_state;
   assume_guard : Fo_formula.t;
+}
+
+type product_contract_common = {
   requires : contract_formula list;
   ensures : contract_formula list;
+}
+
+type product_contract_safe_summary = {
   safe_product_dst : product_state option;
   safe_guarantee_guard : Fo_formula.t option;
   safe_propagates : contract_formula list;
   safe_ensures : contract_formula list;
+}
+
+type product_contract = {
+  identity : product_contract_identity;
+  common : product_contract_common;
+  safe_summary : product_contract_safe_summary;
   cases : product_case list;
 }
 
@@ -60,15 +128,24 @@ type source_info = {
   state_invariants : invariant_state_rel list;
 }
 
-type raw_transition = {
+type transition_core = {
   src_state : ident;
   dst_state : ident;
-  guard : Fo_formula.t;
   guard_iexpr : iexpr option;
   body_stmts : stmt list;
 }
 
-type raw_node = {
+type transition_contracts = {
+  requires : contract_formula list;
+  ensures : contract_formula list;
+}
+
+type raw_transition = {
+  core : transition_core;
+  guard : Fo_formula.t;
+}
+
+type node_core = {
   node_name : ident;
   inputs : vdecl list;
   outputs : vdecl list;
@@ -76,6 +153,10 @@ type raw_node = {
   control_states : ident list;
   init_state : ident;
   instances : (ident * ident) list;
+}
+
+type raw_node = {
+  core : node_core;
   pre_k_map : (hexpr * Temporal_support.pre_k_info) list;
   transitions : raw_transition list;
   assumes : ltl list;
@@ -84,8 +165,7 @@ type raw_node = {
 
 type annotated_transition = {
   raw : raw_transition;
-  requires : contract_formula list;
-  ensures : contract_formula list;
+  contracts : transition_contracts;
 }
 
 type annotated_node = {
@@ -96,24 +176,14 @@ type annotated_node = {
 }
 
 type verified_transition = {
-  src_state : ident;
-  dst_state : ident;
+  core : transition_core;
   guard : Fo_formula.t;
-  guard_iexpr : iexpr option;
-  body_stmts : stmt list;
   pre_k_updates : stmt list;
-  requires : contract_formula list;
-  ensures : contract_formula list;
+  contracts : transition_contracts;
 }
 
 type verified_node = {
-  node_name : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  locals : vdecl list;
-  control_states : ident list;
-  init_state : ident;
-  instances : (ident * ident) list;
+  core : node_core;
   transitions : verified_transition list;
   product_transitions : product_contract list;
   assumes : ltl list;
@@ -129,7 +199,7 @@ type proof_views = {
 }
 
 type contracts_info = {
-  contract_origin_map : (int * Formula_origin.t option) list;
+  contract_origin_map : formula_origin_entry list;
   warnings : string list;
 }
 
@@ -165,25 +235,25 @@ let to_ast_node (n : node) : Ast.node =
       };
   }
 
-let with_origin ?loc origin value : contract_formula =
-  { value; origin = Some origin; oid = Provenance.fresh_id (); loc }
-let values xs = List.map (fun x -> x.value) xs
+let with_origin ?loc origin logic : contract_formula =
+  { logic; meta = { origin = Some origin; oid = Provenance.fresh_id (); loc } }
+let values xs = List.map (fun x -> x.logic) xs
 
 let dedup_contract_formulas (xs : contract_formula list) : contract_formula list =
   List.sort_uniq
-    (fun (a : contract_formula) (b : contract_formula) -> Int.compare a.oid b.oid)
+    (fun (a : contract_formula) (b : contract_formula) -> Int.compare a.meta.oid b.meta.oid)
     xs
 
 let refresh_safe_summary (pc : product_contract) : product_contract =
   let safe_cases = List.filter (fun (c : product_case) -> c.step_class = Safe) pc.cases in
   let safe_product_dst =
-    match (pc.safe_product_dst, safe_cases) with
+    match (pc.safe_summary.safe_product_dst, safe_cases) with
     | Some dst, _ :: _ -> Some dst
     | None, first_safe :: _ -> Some first_safe.product_dst
     | _ -> None
   in
   let safe_guarantee_guard =
-    match (pc.safe_guarantee_guard, safe_cases) with
+    match (pc.safe_summary.safe_guarantee_guard, safe_cases) with
     | Some guard, _ :: _ -> Some guard
     | None, first_safe :: rest ->
         Some
@@ -202,6 +272,9 @@ let refresh_safe_summary (pc : product_contract) : product_contract =
     |> List.concat_map (fun (c : product_case) -> c.ensures)
     |> dedup_contract_formulas
   in
-  { pc with safe_product_dst; safe_guarantee_guard; safe_propagates; safe_ensures }
+  {
+    pc with
+    safe_summary = { safe_product_dst; safe_guarantee_guard; safe_propagates; safe_ensures };
+  }
 
 let empty_proof_views : proof_views = { raw = None; annotated = None; verified = None }

@@ -202,15 +202,15 @@ let contract_node_id (idx : int) = Printf.sprintf "c_%d" idx
 
 let canonical_display_cases (pc : Abs.product_contract) : Abs.product_case list =
   let safe_case =
-    match (pc.safe_product_dst, pc.safe_guarantee_guard) with
+    match (pc.safe_summary.safe_product_dst, pc.safe_summary.safe_guarantee_guard) with
     | Some product_dst, Some guarantee_guard ->
         [
           {
             Abs.step_class = Abs.Safe;
             product_dst;
             guarantee_guard;
-            propagates = pc.safe_propagates;
-            ensures = pc.safe_ensures;
+            propagates = pc.safe_summary.safe_propagates;
+            ensures = pc.safe_summary.safe_ensures;
             forbidden = [];
           };
         ]
@@ -233,14 +233,14 @@ let canonical_formula_aliases ~(node : Abs.node) =
   in
   node.product_transitions
   |> List.iter (fun (pc : Abs.product_contract) ->
-         let t = List.nth node.trans pc.program_transition_index in
+         let t = List.nth node.trans pc.identity.program_transition_index in
          let program_guard =
            match t.guard with
            | None -> "true"
            | Some g -> string_of_iexpr g
          in
          register program_guard;
-         register (pretty_fo pc.assume_guard);
+         register (pretty_fo pc.identity.assume_guard);
          canonical_display_cases pc
          |> List.iter (fun (case : Abs.product_case) -> register (pretty_fo case.guarantee_guard)));
   let dot_alias_of formula = fst (Hashtbl.find seen formula) in
@@ -274,19 +274,20 @@ let state_style ~(analysis : Product_analysis.analysis) (st : Abs.product_state)
 let render_canonical_lines ~(node : Abs.node) =
   node.product_transitions
   |> List.mapi (fun idx (pc : Abs.product_contract) ->
-         let t = List.nth node.trans pc.program_transition_index in
+         let t = List.nth node.trans pc.identity.program_transition_index in
          let head =
            Printf.sprintf "C%d: %s via tr_%d (%s -> %s), A=%s" (idx + 1)
-             (string_of_product_state pc.product_src) pc.program_transition_index t.src t.dst
-             (pretty_fo pc.assume_guard)
+             (string_of_product_state pc.identity.product_src)
+             pc.identity.program_transition_index t.src t.dst
+             (pretty_fo pc.identity.assume_guard)
          in
          let reqs =
-           pc.requires
-           |> List.map (fun (f : Abs.contract_formula) -> "  pre += " ^ pretty_ltl f.value)
+           pc.common.requires
+           |> List.map (fun (f : Abs.contract_formula) -> "  pre += " ^ pretty_ltl f.logic)
          in
          let common_ensures =
-           pc.ensures
-           |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_ltl f.value)
+           pc.common.ensures
+           |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_ltl f.logic)
          in
          let cases =
            canonical_display_cases pc
@@ -304,15 +305,15 @@ let render_canonical_lines ~(node : Abs.node) =
                   in
                   let props =
                     case.propagates
-                    |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_ltl f.value)
+                    |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_ltl f.logic)
                   in
                   let ens =
                     case.ensures
-                    |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_ltl f.value)
+                    |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_ltl f.logic)
                   in
                   let forb =
                     case.forbidden
-                    |> List.map (fun (f : Abs.contract_formula) -> "    forbid += " ^ pretty_ltl f.value)
+                    |> List.map (fun (f : Abs.contract_formula) -> "    forbid += " ^ pretty_ltl f.logic)
                   in
                   String.concat "\n" (base :: props @ ens @ forb))
          in
@@ -349,7 +350,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
     node.product_transitions
     |> List.fold_left
          (fun acc (pc : Abs.product_contract) ->
-           let acc = pc.product_src :: acc in
+           let acc = pc.identity.product_src :: acc in
            List.fold_left
              (fun acc (case : Abs.product_case) -> case.product_dst :: acc)
              acc (canonical_display_cases pc))
@@ -370,7 +371,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
   let contract_defs, edges =
     node.product_transitions
     |> List.mapi (fun idx (pc : Abs.product_contract) ->
-           let t = List.nth node.trans pc.program_transition_index in
+           let t = List.nth node.trans pc.identity.program_transition_index in
            let program_guard =
              match t.guard with
              | None -> "true"
@@ -379,7 +380,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
            let cid = contract_node_id (idx + 1) in
            let clabel =
              html_contract_label
-               ~tau:(transition_aliases.dot_alias_of_index pc.program_transition_index)
+               ~tau:(transition_aliases.dot_alias_of_index pc.identity.program_transition_index)
            in
            let cdef =
              Printf.sprintf
@@ -387,12 +388,12 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                cid clabel
            in
            let src_id =
-             state_node_id (Hashtbl.find state_index pc.product_src)
+             state_node_id (Hashtbl.find state_index pc.identity.product_src)
            in
            let head_lbl =
              Printf.sprintf "P: %s, A: %s"
                (aliases.dot_alias_of program_guard |> escape_dot_label)
-               (aliases.dot_alias_of (pretty_fo pc.assume_guard) |> escape_dot_label)
+               (aliases.dot_alias_of (pretty_fo pc.identity.assume_guard) |> escape_dot_label)
            in
            let head_edge =
              Printf.sprintf

@@ -7,14 +7,14 @@ let to_string = function
   | Parsed -> "parsed"
   | Automaton -> "automaton"
   | Contracts -> "contracts"
-  | Instrumentation -> "instrumentation"
+  | Instrumentation -> "ir_construction"
   | Why -> "why"
   | Prove -> "prove"
 
 let description = function
   | Parsed -> "after parsing"
   | Automaton -> "after automata generation"
-  | Instrumentation -> "after instrumentation pass"
+  | Instrumentation -> "after IR construction"
   | Contracts -> "after user contract initialization"
   | Why -> "after Why3 generation"
   | Prove -> "after Why3 proof"
@@ -23,7 +23,7 @@ let of_string = function
   | "parsed" -> Ok Parsed
   | "automaton" -> Ok Automaton
   | "contracts" -> Ok Contracts
-  | "instrumentation" | "monitor" -> Ok Instrumentation
+  | "ir_construction" | "instrumentation" | "monitor" -> Ok Instrumentation
   | other ->
       Error
         ("Unknown stage for --dump-ast. Use: "

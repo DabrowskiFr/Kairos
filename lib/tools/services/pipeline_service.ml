@@ -24,6 +24,23 @@ let normalized_program ~input_file =
   | Error _ as err -> err
   | Ok (asts, _infos) -> Ok (Normalized_program_render.render_program asts.instrumentation)
 
+let ir_pretty_dump ~input_file =
+  match Pipeline_build.build_ast_with_info ~input_file () with
+  | Error _ as err -> err
+  | Ok (asts, infos) ->
+      let c = Option.value infos.contracts ~default:Stage_info.empty_contracts_info in
+      let program : Ir.program =
+        {
+          nodes = asts.instrumentation;
+          contracts_info =
+            {
+              contract_origin_map = c.contract_origin_map;
+              warnings = c.warnings;
+            };
+        }
+      in
+      Ok (Artifact_render_ir.render_pretty_program program)
+
 let dump_ir_nodes = Pipeline_build.dump_ir_nodes
 let compile_object = Pipeline_build.compile_object
 

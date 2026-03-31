@@ -650,12 +650,12 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       List.mapi
         (fun i (f : Ir.contract_formula) ->
           let wid = Provenance.fresh_id () in
-          Provenance.add_parents ~child:wid ~parents:[ f.oid ];
+          Provenance.add_parents ~child:wid ~parents:[ f.meta.oid ];
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
           let origin_attr = attr_for_label "User contracts coherency" in
           let base =
-            let base = compile_local_ltl_term env f.value in
-            if is_init_goal f.value then
+            let base = compile_local_ltl_term env f.logic in
+            if is_init_goal f.logic then
               match init_guard with Some g -> mk_term (Tbinnop (g, Dterm.DTimplies, base)) | None -> base
             else base
           in

@@ -24,6 +24,10 @@ let normalized_program ~engine ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.normalized_program ~input_file
 
+let ir_pretty_dump ~engine ~input_file =
+  match normalize engine with
+  | Default -> Pipeline_service.ir_pretty_dump ~input_file
+
 let compile_object ~engine ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.compile_object ~input_file

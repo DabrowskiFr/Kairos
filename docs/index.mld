@@ -23,12 +23,16 @@ If you are reading the codebase for the first time:
 
 1. start with {!page-frontend};
 2. continue with {!page-common};
-3. then read the middle-end and backend directories in the repository.
+3. continue with {!page-middleend};
+4. then read {!page-artifacts} and {!page-backends}.
 
 {1 Guides}
 
 - {!page-frontend}
 - {!page-common}
+- {!page-middleend}
+- {!page-artifacts}
+- {!page-backends}
 
 {1 Frontend API}
 

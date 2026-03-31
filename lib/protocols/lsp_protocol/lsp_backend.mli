@@ -36,6 +36,10 @@ val normalized_program :
   Lsp_protocol.kobj_summary_request ->
   (string, string) result
 
+val ir_pretty_dump :
+  Lsp_protocol.kobj_summary_request ->
+  (string, string) result
+
 val dot_png_from_text :
   Lsp_protocol.dot_png_from_text_request ->
   string option

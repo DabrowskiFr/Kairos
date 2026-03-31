@@ -118,6 +118,15 @@ let normalized_program (req : Lsp_protocol.kobj_summary_request) =
   | Ok text -> Ok text
   | Error e -> Error (map_error e)
 
+let ir_pretty_dump (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.ir_pretty_dump ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
 let dot_png_from_text (req : Lsp_protocol.dot_png_from_text_request) =
   Graphviz_render.dot_png_from_text req.dot_text
 

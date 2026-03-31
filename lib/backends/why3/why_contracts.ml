@@ -36,14 +36,6 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 
 type contract_info = Why_types.contract_info
 
-type compiled_kernel_clause = {
-  body : Ptree.term;
-  label : string;
-  vcid : string;
-  src_state : Ast.ident option;
-  anchor_step : Proof_kernel_types.product_step_ir option;
-}
-
 type step_contract_info = Why_types.step_contract_info
 
 type transition_contracts = {
@@ -130,10 +122,6 @@ let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) :
   | None -> LTrue
   | Some g -> Temporal_support.ltl_of_fo (simplify_fo (Fo_specs.iexpr_to_fo_with_atoms [] g))
 
-let same_runtime_transition_as_step (step : Proof_kernel_types.product_step_ir)
-    (t : Why_runtime_view.runtime_transition_view) : bool =
-  String.equal step.program_transition_id t.transition_id
-
 let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
   List.iter
@@ -175,17 +163,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     (runtime : Why_runtime_view.t) : Why_types.contract_info =
   let _nodes = nodes in
   let env = info.env in
-  let pre_k_map = info.pre_k_map in
-  let current_temporal_contract : Kernel_guided_contract.exported_summary_contract =
-    {
-      callee_node_name = runtime.node_name;
-      input_names = runtime.inputs |> List.map (fun (p : Why_runtime_view.port_view) -> p.port_name);
-      output_names = runtime.outputs |> List.map (fun (p : Why_runtime_view.port_view) -> p.port_name);
-      user_invariants = runtime.user_invariants;
-      state_invariants = [];
-      temporal_bindings = Kernel_guided_contract.temporal_bindings_of_pre_k_map pre_k_map;
-    }
-  in
   let hexpr_needs_old = info.hexpr_needs_old in
   let origin_label = function
     | Some UserContract -> "User contract"
@@ -201,18 +178,18 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     | None -> "Unknown"
   in
   let compile_formula ~in_post (f : Ir.contract_formula) : Ptree.term list =
-    [ Why_compile_expr.compile_local_ltl_term ~in_post env f.value ]
+    [ Why_compile_expr.compile_local_ltl_term ~in_post env f.logic ]
   in
   let compile_forbidden_formula (f : Ir.contract_formula) : Ptree.term list =
-    let term = Why_compile_expr.compile_local_ltl_term ~in_post:true env f.value in
+    let term = Why_compile_expr.compile_local_ltl_term ~in_post:true env f.logic in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
     pc.requires
     |> List.concat_map (fun (f : Ir.contract_formula) ->
-           let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
+           let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
            compile_formula ~in_post:false f
-           |> List.map (fun t -> mk_term (Tattr (rid_attr, t)), origin_label f.origin))
+           |> List.map (fun t -> mk_term (Tattr (rid_attr, t)), origin_label f.meta.origin))
   in
   let compile_step_contract (pc : Why_runtime_view.runtime_product_transition_view) : step_contract_info =
     let forbidden =
@@ -252,7 +229,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
   let compiled_step_contracts = List.map compile_step_contract runtime.product_transitions in
   let pre_contract = transition_requires_pre in
   let link_contracts =
-    Why_contract_plan.compute_link_contracts ~env ~runtime ~current_temporal_contract ~hexpr_needs_old
+    Why_contract_plan.compute_link_contracts ~env ~runtime ~hexpr_needs_old
   in
   let link_terms_pre = link_contracts.link_terms_pre in
   let link_terms_post = link_contracts.link_terms_post in

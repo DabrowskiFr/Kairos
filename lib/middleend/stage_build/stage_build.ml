@@ -41,17 +41,24 @@ let reid_program (p : Ast.program) : Ast.program =
 
 let reid_contract_formula (f : Abs.contract_formula) : Abs.contract_formula =
   let new_id = Provenance.fresh_id () in
-  Provenance.add_parents ~child:new_id ~parents:[ f.oid ];
-  { f with oid = new_id }
+  Provenance.add_parents ~child:new_id ~parents:[ f.meta.oid ];
+  { f with meta = { f.meta with oid = new_id } }
 
 let reid_normalized_program (p : Abs.node list) : Abs.node list =
   let reid_product_contract (pc : Abs.product_contract) =
     {
       pc with
-      requires = List.map reid_contract_formula pc.requires;
-      ensures = List.map reid_contract_formula pc.ensures;
-      safe_propagates = List.map reid_contract_formula pc.safe_propagates;
-      safe_ensures = List.map reid_contract_formula pc.safe_ensures;
+      common =
+        {
+          requires = List.map reid_contract_formula pc.common.requires;
+          ensures = List.map reid_contract_formula pc.common.ensures;
+        };
+      safe_summary =
+        {
+          pc.safe_summary with
+          safe_propagates = List.map reid_contract_formula pc.safe_summary.safe_propagates;
+          safe_ensures = List.map reid_contract_formula pc.safe_summary.safe_ensures;
+        };
       cases =
         List.map
           (fun (case : Abs.product_case) ->

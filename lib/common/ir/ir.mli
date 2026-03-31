@@ -1,29 +1,78 @@
-(** Intermediate representation used by the middle-end. *)
+(** Intermediate representation (IR) for the middle-end.
+
+    Stable interface between:
+    {ul {- AST translation (From_ast);}
+        {- middle-end passes;}
+        {- proof-kernel and Why3 backends;}
+        {- rendering and diagnostics.}}
+
+    Middle-end passes:
+    {ul
+    {- Automata/Product passes compute product states and materialize
+       canonical [product_contract] values in
+       [node.product_transitions].}
+
+    {- Contract enrichment passes ([pre], [invariant], [post])
+       refine:
+       {ul
+       {- [product_contract.common]}
+       {- [product_contract.safe_summary]}
+       {- [cases]}
+       }
+    }
+
+    {- Proof-obligation pipeline snapshots are stored in
+       [proof_views]:
+       {ol
+       {- [raw] — pre-contract view with [pre_k_map].}
+       {- [annotated] — contracts attached to transitions.}
+       {- [verified] — lowered [pre_k] formulas with update
+          statements.}
+       }
+    }
+
+    {- Backends:
+       Why3 local codegen consumes [node] (and proof views when
+       needed), while proof-kernel export derives exchange-oriented
+       summaries from the same IR state.}
+    }
+*)
 
 open Ir_shared_types
 
-(** Logical formula carried by generated contracts.
+(** Traceability metadata attached to a logical formula.
 
     Fields:
     {ul
-    {- [value]: logical payload;}
     {- [origin]: optional generation origin;}
     {- [oid]: stable identifier used across exports/reports;}
     {- [loc]: optional source location.}} *)
-type contract_formula = {
-  value : ltl;
+type formula_meta = {
   origin : Formula_origin.t option;
-  oid : int;
+  oid : formula_id;
   loc : loc option;
 }
-[@@deriving yojson]
+
+type contract_formula = {
+  logic : ltl;
+  meta : formula_meta;
+}
+
+(** JSON encoding for [formula_meta], used by downstream derived encoders. *)
+val formula_meta_to_yojson : formula_meta -> Yojson.Safe.t
+(** JSON decoding for [formula_meta], used by downstream derived decoders. *)
+val formula_meta_of_yojson : Yojson.Safe.t -> (formula_meta, string) result
+(** JSON encoding for [contract_formula], used by proof/artifact schemas. *)
+val contract_formula_to_yojson : contract_formula -> Yojson.Safe.t
+(** JSON decoding for [contract_formula], used by proof/artifact schemas. *)
+val contract_formula_of_yojson : Yojson.Safe.t -> (contract_formula, string) result
 
 (** Reachable state in the synchronous product
     [(program state, assume automaton state, guarantee automaton state)]. *)
 type product_state = {
   prog_state : ident;
-  assume_state_index : int;
-  guarantee_state_index : int;
+  assume_state_index : automaton_state_index;
+  guarantee_state_index : automaton_state_index;
 }
 
 (** Classification of one product step.
@@ -65,6 +114,27 @@ type product_case = {
   forbidden : contract_formula list;
 }
 
+(** Identity shared by all product steps grouped in a canonical contract. *)
+type product_contract_identity = {
+  program_transition_index : transition_index;
+  product_src : product_state;
+  assume_guard : Fo_formula.t;
+}
+
+(** Contract formulas shared by all cases in a canonical contract. *)
+type product_contract_common = {
+  requires : contract_formula list;
+  ensures : contract_formula list;
+}
+
+(** Precomputed safe summary consumed by proof/export backends. *)
+type product_contract_safe_summary = {
+  safe_product_dst : product_state option;
+  safe_guarantee_guard : Fo_formula.t option;
+  safe_propagates : contract_formula list;
+  safe_ensures : contract_formula list;
+}
+
 (** Canonical contract for a product-step group.
 
     A contract factors all steps sharing:
@@ -79,26 +149,18 @@ type product_case = {
 
     Fields:
     {ul
-    {- [program_transition_index]: index into [node.trans];}
-    {- [product_src]: common source product state;}
-    {- [assume_guard]: common assume-side guard;}
-    {- [requires]: common preconditions;}
-    {- [ensures]: common postconditions;}
-    {- [safe_product_dst]: destination of the canonical safe summary, if any;}
-    {- [safe_guarantee_guard]: combined safe guarantee guard, if any;}
-    {- [safe_propagates]: combined propagated formulas for safe summary;}
-    {- [safe_ensures]: combined ensures for safe summary;}
-    {- [cases]: residual branch-level cases.}} *)
+    {- [identity]: shared group identity;}
+    {- [common]: formulas shared by all branches;}
+    {- [safe_summary]: precomputed safe aggregation;}
+    {- [cases]: residual branch-level cases.}}
+
+    Invariant:
+    [safe_summary] is the canonical aggregation of safe cases and is kept
+    consistent by {!refresh_safe_summary}. *)
 type product_contract = {
-  program_transition_index : int;
-  product_src : product_state;
-  assume_guard : Fo_formula.t;
-  requires : contract_formula list;
-  ensures : contract_formula list;
-  safe_product_dst : product_state option;
-  safe_guarantee_guard : Fo_formula.t option;
-  safe_propagates : contract_formula list;
-  safe_ensures : contract_formula list;
+  identity : product_contract_identity;
+  common : product_contract_common;
+  safe_summary : product_contract_safe_summary;
   cases : product_case list;
 }
 
@@ -122,7 +184,10 @@ type transition = {
 
 type node_semantics = Ast.node_semantics
 
-(** Source-level contractual information kept alongside normalized semantics. *)
+(** Source-level contractual information kept alongside normalized semantics.
+
+    This data is preserved for traceability and export; it is not a duplicate
+    of normalized transition contracts. *)
 type source_info = {
   assumes : ltl list;
   guarantees : ltl list;
@@ -130,17 +195,38 @@ type source_info = {
   state_invariants : invariant_state_rel list;
 }
 
-(** Transition view for the raw proof-obligation pipeline stage. *)
-type raw_transition = {
+(** Shared executable part of a transition, reused across proof phases.
+
+    Fields:
+    {ul
+    {- [src_state]: source control state;}
+    {- [dst_state]: destination control state;}
+    {- [guard_iexpr]: source guard expression, when available;}
+    {- [body_stmts]: executable statement list.}} *)
+type transition_core = {
   src_state : ident;
   dst_state : ident;
-  guard : Fo_formula.t;
   guard_iexpr : iexpr option;
   body_stmts : stmt list;
 }
 
-(** Raw node used by proof-obligation generation before contract injection. *)
-type raw_node = {
+(** Shared contract payload attached to a transition in a proof phase.
+
+    The same structure is reused by annotated and verified transitions to avoid
+    phase-specific duplication of [requires]/[ensures] fields. *)
+type transition_contracts = {
+  requires : contract_formula list;
+  ensures : contract_formula list;
+}
+
+(** Transition view for the raw proof-obligation pipeline stage. *)
+type raw_transition = {
+  core : transition_core;
+  guard : Fo_formula.t;
+}
+
+(** Shared structural part of a node, reused across proof phases. *)
+type node_core = {
   node_name : ident;
   inputs : vdecl list;
   outputs : vdecl list;
@@ -148,6 +234,11 @@ type raw_node = {
   control_states : ident list;
   init_state : ident;
   instances : (ident * ident) list;
+}
+
+(** Raw node used by proof-obligation generation before contract injection. *)
+type raw_node = {
+  core : node_core;
   pre_k_map : (hexpr * Temporal_support.pre_k_info) list;
   transitions : raw_transition list;
   assumes : ltl list;
@@ -157,8 +248,7 @@ type raw_node = {
 (** Transition after contract injection, still before [pre_k] lowering. *)
 type annotated_transition = {
   raw : raw_transition;
-  requires : contract_formula list;
-  ensures : contract_formula list;
+  contracts : transition_contracts;
 }
 
 (** Annotated node before [pre_k] elimination/lowering. *)
@@ -171,25 +261,15 @@ type annotated_node = {
 
 (** Transition ready for VC generation after [pre_k] lowering. *)
 type verified_transition = {
-  src_state : ident;
-  dst_state : ident;
+  core : transition_core;
   guard : Fo_formula.t;
-  guard_iexpr : iexpr option;
-  body_stmts : stmt list;
   pre_k_updates : stmt list;
-  requires : contract_formula list;
-  ensures : contract_formula list;
+  contracts : transition_contracts;
 }
 
 (** Verified node snapshot used by proof-obligation exports. *)
 type verified_node = {
-  node_name : ident;
-  inputs : vdecl list;
-  outputs : vdecl list;
-  locals : vdecl list;
-  control_states : ident list;
-  init_state : ident;
-  instances : (ident * ident) list;
+  core : node_core;
   transitions : verified_transition list;
   product_transitions : product_contract list;
   assumes : ltl list;
@@ -198,16 +278,22 @@ type verified_node = {
   user_invariants : invariant_user list;
 }
 
-(** Optional snapshots of the proof-obligation pipeline. *)
+(** Optional snapshots of the proof-obligation pipeline.
+
+    These are pipeline artifacts for diagnostics/export; the semantic source of
+    truth remains [node] + product contracts. *)
 type proof_views = {
   raw : raw_node option;
   annotated : annotated_node option;
   verified : verified_node option;
 }
 
-(** Program-level metadata attached to normalized contracts. *)
+(** Program-level metadata attached to normalized contracts.
+
+    [contract_origin_map] stores one entry per known formula id, allowing
+    downstream tools to recover origin labels without re-walking the whole IR. *)
 type contracts_info = {
-  contract_origin_map : (int * Formula_origin.t option) list;
+  contract_origin_map : formula_origin_entry list;
   warnings : string list;
 }
 
@@ -245,7 +331,9 @@ val to_ast_node : node -> Ast.node
 val with_origin : ?loc:loc -> Formula_origin.t -> ltl -> contract_formula
 
 (** Extract the raw logical formulas carried by a list of normalized contract
-    formulas. *)
+    formulas.
+
+    This helper intentionally drops metadata and keeps only [logic]. *)
 val values : contract_formula list -> ltl list
 
 (** Recompute [safe_*] summary fields from [cases], preserving explicitly set

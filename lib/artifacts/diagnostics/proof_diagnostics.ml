@@ -20,7 +20,7 @@ let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
     string * string option * string option =
   let family =
     if is_require then
-      match f.origin with
+      match f.meta.origin with
       | Some Invariant -> Some Obligation_taxonomy.FamInvariantRequires
       | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadRequires
       | Some GuaranteePropagation ->
@@ -35,7 +35,7 @@ let classify_formula ~(is_require : bool) (f : Abs.contract_formula) :
       | Some UserContract | Some Internal | None ->
           Some Obligation_taxonomy.FamTransitionRequires
     else
-      match f.origin with
+      match f.meta.origin with
       | Some Invariant -> Some Obligation_taxonomy.FamInvariantEnsuresShifted
       | Some Instrumentation -> Some Obligation_taxonomy.FamNoBadEnsures
       | Some GuaranteeAutomaton -> Some Obligation_taxonomy.FamGuaranteeAutomatonEnsures
@@ -68,7 +68,7 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
         (fun (goal : Abs.contract_formula) ->
           add
             {
-              oid = goal.oid;
+              oid = goal.meta.oid;
               source = Printf.sprintf "%s: <init>" node_name;
               node = Some node_name;
               transition = None;
@@ -79,7 +79,7 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
                      Obligation_taxonomy.FamInitialInvariantGoal);
               obligation_category =
                 Some (Obligation_taxonomy.category_name Obligation_taxonomy.CatInitialGoal);
-              loc = goal.loc;
+              loc = goal.meta.loc;
             })
         node.coherency_goals;
       List.iter
@@ -92,14 +92,14 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
               in
               add
                 {
-                  oid = req.oid;
+                  oid = req.meta.oid;
                   source;
                   node = Some node_name;
                   transition = Some (Printf.sprintf "%s -> %s" t.src t.dst);
                   obligation_kind;
                   obligation_family;
                   obligation_category;
-                  loc = req.loc;
+                  loc = req.meta.loc;
                 })
             t.requires;
           List.iter
@@ -109,14 +109,14 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
               in
               add
                 {
-                  oid = ens.oid;
+                  oid = ens.meta.oid;
                   source;
                   node = Some node_name;
                   transition = Some (Printf.sprintf "%s -> %s" t.src t.dst);
                   obligation_kind;
                   obligation_family;
                   obligation_category;
-                  loc = ens.loc;
+                  loc = ens.meta.loc;
                 })
             t.ensures)
         node.trans)

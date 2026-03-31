@@ -27,14 +27,16 @@ let analysis_of_node ~(analyses : (Ast.ident * Product_build.analysis) list) (no
     node.semantics.sem_nname analyses
 
 let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t option) list =
-  let collect_formula acc (formula : Ir.contract_formula) = (formula.oid, formula.origin) :: acc in
+  let collect_formula acc (formula : Ir.contract_formula) =
+    (formula.meta.oid, formula.meta.origin) :: acc
+  in
   let collect_transition acc (transition : Ir.transition) =
     transition.requires |> List.fold_left collect_formula acc |> fun acc ->
     List.fold_left collect_formula acc transition.ensures
   in
   let collect_product_transition acc (transition : Ir.product_contract) =
-    transition.requires |> List.fold_left collect_formula acc |> fun acc ->
-    transition.ensures |> List.fold_left collect_formula acc |> fun acc ->
+    transition.common.requires |> List.fold_left collect_formula acc |> fun acc ->
+    transition.common.ensures |> List.fold_left collect_formula acc |> fun acc ->
     transition.cases
     |> List.fold_left
          (fun acc (case : Ir.product_case) ->

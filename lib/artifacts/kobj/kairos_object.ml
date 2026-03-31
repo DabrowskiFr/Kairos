@@ -323,7 +323,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
         (indent indent_level ^ label ^ ":")
         :: List.map
              (fun (f : Ir.contract_formula) ->
-               indent (indent_level + 1) ^ Ast_pretty.string_of_ltl f.value)
+               indent (indent_level + 1) ^ Ast_pretty.string_of_ltl f.logic)
              fs
   in
   let body_lines =

@@ -65,7 +65,7 @@ let guarantee_pre_of_product_state ~(node : Abs.node) ~(analysis : Product_build
           let propagated =
             case.propagates
             |> List.filter (fun (f : Abs.contract_formula) ->
-                   f.origin = Some GuaranteeAutomaton)
+                   f.meta.origin = Some GuaranteeAutomaton)
             |> Abs.values
             |> List.map (shift_ltl_forward_inputs ~is_input)
           in
@@ -113,7 +113,7 @@ let build ~(node : Abs.node) ~(analysis : Product_build.analysis) : t =
 
 let add_unique_formula (origin : Formula_origin.t) (f : ltl)
     (xs : Abs.contract_formula list) : Abs.contract_formula list =
-  if List.exists (fun (x : Abs.contract_formula) -> x.value = f) xs then xs
+  if List.exists (fun (x : Abs.contract_formula) -> x.logic = f) xs then xs
   else xs @ [ Abs.with_origin origin f ]
 
 let apply ~(pre_generation : t) (n : Abs.node) : Abs.node =
@@ -122,28 +122,29 @@ let apply ~(pre_generation : t) (n : Abs.node) : Abs.node =
     List.map
       (fun (pc : Abs.product_contract) ->
         let program_guard =
-          if pc.program_transition_index >= 0
-             && pc.program_transition_index < Array.length transition_by_index
-          then guard_ltl_of_transition transition_by_index.(pc.program_transition_index)
+          if pc.identity.program_transition_index >= 0
+             && pc.identity.program_transition_index < Array.length transition_by_index
+          then guard_ltl_of_transition transition_by_index.(pc.identity.program_transition_index)
           else LTrue
         in
         let requires =
-          match pre_generation.guarantee_pre_of_product_state pc.product_src with
-          | None -> pc.requires
-          | Some inv -> add_unique_formula GuaranteePropagation inv pc.requires
+          match pre_generation.guarantee_pre_of_product_state pc.identity.product_src with
+          | None -> pc.common.requires
+          | Some inv -> add_unique_formula GuaranteePropagation inv pc.common.requires
         in
         let requires =
-          add_unique_formula AssumeAutomaton (ltl_of_fo pc.assume_guard) requires
+          add_unique_formula AssumeAutomaton (ltl_of_fo pc.identity.assume_guard) requires
         in
         let requires = add_unique_formula ProgramGuard program_guard requires in
         let requires =
-          if same_product_state pc.product_src pre_generation.initial_product_state then requires
+          if same_product_state pc.identity.product_src pre_generation.initial_product_state then requires
           else
             List.fold_left
               (fun acc f -> add_unique_formula StateStability f acc)
               requires pre_generation.state_stability
         in
-        if requires == pc.requires then pc else { pc with requires })
+        if requires == pc.common.requires then pc
+        else { pc with common = { pc.common with requires } })
       n.product_transitions
   in
   { n with product_transitions }

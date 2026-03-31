@@ -44,6 +44,5 @@ val compute_transition_contracts :
 val compute_link_contracts :
   env:Why_term_support.env ->
   runtime:Why_runtime_view.t ->
-  current_temporal_contract:Kernel_guided_contract.exported_summary_contract ->
   hexpr_needs_old:(Ast.hexpr -> bool) ->
   link_contracts

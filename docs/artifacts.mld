@@ -1,0 +1,24 @@
+{0 Artifacts}
+
+The artifacts layer renders and exports data produced by the middle-end:
+
+- IR and canonical renderings;
+- graph dumps (automata/product/canonical);
+- `.kobj` import/export helpers;
+- diagnostics and helper outputs.
+
+{1 Scope}
+
+This layer is focused on serialization and presentation of already-computed
+semantic data. It does not define proof semantics by itself.
+
+{1 Main areas in the repository}
+
+- `lib/artifacts/ir_render`
+  Rendering of canonical IR structures and related views.
+
+- `lib/artifacts/kobj`
+  Import/export for Kairos object files (`.kobj`).
+
+- `lib/artifacts/diagnostics`
+  Diagnostics materialization helpers.

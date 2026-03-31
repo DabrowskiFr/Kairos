@@ -67,7 +67,7 @@ let build ~(node : Abs.node) : t = { invariant_of_state = invariant_of_state nod
 
 let add_unique_formula (origin : Formula_origin.t) (f : ltl)
     (xs : Abs.contract_formula list) : Abs.contract_formula list =
-  if List.exists (fun (x : Abs.contract_formula) -> x.value = f) xs then xs
+  if List.exists (fun (x : Abs.contract_formula) -> x.logic = f) xs then xs
   else xs @ [ Abs.with_origin origin f ]
 
 let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
@@ -76,9 +76,9 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
     List.map
       (fun (pc : Abs.product_contract) ->
         let requires =
-          match invariant_generation.invariant_of_state pc.product_src.prog_state with
-          | None -> pc.requires
-          | Some inv -> add_unique_formula Invariant inv pc.requires
+          match invariant_generation.invariant_of_state pc.identity.product_src.prog_state with
+          | None -> pc.common.requires
+          | Some inv -> add_unique_formula Invariant inv pc.common.requires
         in
         let cases =
           List.map
@@ -91,8 +91,8 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
                   if ensures == case.ensures then case else { case with ensures })
             pc.cases
         in
-        if requires == pc.requires && cases == pc.cases then pc
-        else Abs.refresh_safe_summary { pc with requires; cases })
+        if requires == pc.common.requires && cases == pc.cases then pc
+        else Abs.refresh_safe_summary { pc with common = { pc.common with requires }; cases })
       n.product_transitions
   in
   { n with product_transitions }

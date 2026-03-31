@@ -17,7 +17,7 @@ let zip_transitions (raws : Ir.raw_transition list)
 (** Lift an abstract transition's contracts into an annotated_transition. *)
 let annotate_transition (raw : Ir.raw_transition)
     (abs_t : Abs.transition) : Ir.annotated_transition =
-  { raw; requires = abs_t.requires; ensures = abs_t.ensures }
+  { raw; contracts = { requires = abs_t.requires; ensures = abs_t.ensures } }
 
 (** Annotate a raw node with Hoare triples.
 

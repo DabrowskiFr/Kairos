@@ -6,7 +6,7 @@ let add_initial_invariant_goal (n : Abs.node) ~(inv_of_state : ident -> ltl opti
   | None -> n
   | Some inv ->
       let existing_values =
-        List.map (fun (f : Abs.contract_formula) -> f.value) n.coherency_goals
+        List.map (fun (f : Abs.contract_formula) -> f.logic) n.coherency_goals
       in
       if List.mem inv existing_values then n
       else

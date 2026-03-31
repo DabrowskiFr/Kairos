@@ -38,42 +38,43 @@ let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
   Buffer.add_string buf
     (Printf.sprintf
        "  %s -> %s [label=<\n    <TABLE BORDER=\"0\" CELLPADDING=\"2\" CELLSPACING=\"0\">\n"
-       raw.src_state raw.dst_state);
+       raw.core.src_state raw.core.dst_state);
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.value) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
            s))
-    t.requires;
+    t.contracts.requires;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.value) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"
            s))
-    t.ensures;
+    t.contracts.ensures;
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
 let dot_of_annotated_node (n : Ir.annotated_node) : string =
   let raw = n.raw in
+  let c = raw.core in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf
     (Printf.sprintf
        "digraph \"%s\" {\n  rankdir=LR;\n  node [shape=circle fontname=\"Courier\" fontsize=10];\n  edge [fontname=\"Courier\" fontsize=9];\n  // States\n"
-       raw.node_name);
+       c.node_name);
   List.iter
     (fun state ->
-      if state = raw.init_state then
+      if state = c.init_state then
         Buffer.add_string buf
           (Printf.sprintf "  %s [shape=doublecircle label=\"%s\"];\n" state state)
       else Buffer.add_string buf (Printf.sprintf "  %s [label=\"%s\"];\n" state state))
-    raw.control_states;
+    c.control_states;
   Buffer.add_string buf "  // Transitions\n";
   List.iter (fun t -> Buffer.add_string buf (dot_of_annotated_transition t)) n.transitions;
   Buffer.add_string buf "}\n";
@@ -89,7 +90,7 @@ let dot_of_verified_transition (t : Ir.verified_transition) : string =
   Buffer.add_string buf
     (Printf.sprintf
        "  %s -> %s [label=<\n    <TABLE BORDER=\"0\" CELLPADDING=\"2\" CELLSPACING=\"0\">\n"
-       t.src_state t.dst_state);
+       t.core.src_state t.core.dst_state);
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   if t.pre_k_updates <> [] then begin
@@ -111,36 +112,37 @@ let dot_of_verified_transition (t : Ir.verified_transition) : string =
   end;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.value) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
            s))
-    t.requires;
+    t.contracts.requires;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.value) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"
            s))
-    t.ensures;
+    t.contracts.ensures;
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
 let dot_of_verified_node (n : Ir.verified_node) : string =
+  let c = n.core in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf
     (Printf.sprintf
        "digraph \"%s\" {\n  rankdir=LR;\n  node [shape=circle fontname=\"Courier\" fontsize=10];\n  edge [fontname=\"Courier\" fontsize=9];\n  // States\n"
-       n.node_name);
+       c.node_name);
   List.iter
     (fun state ->
-      if state = n.init_state then
+      if state = c.init_state then
         Buffer.add_string buf
           (Printf.sprintf "  %s [shape=doublecircle label=\"%s\"];\n" state state)
       else Buffer.add_string buf (Printf.sprintf "  %s [label=\"%s\"];\n" state state))
-    n.control_states;
+    c.control_states;
   Buffer.add_string buf "  // Transitions\n";
   List.iter (fun t -> Buffer.add_string buf (dot_of_verified_transition t)) n.transitions;
   Buffer.add_string buf "}\n";

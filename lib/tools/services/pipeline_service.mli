@@ -17,6 +17,7 @@ val obligations_pass :
   (Pipeline_types.obligations_outputs, Pipeline_types.error) result
 
 val normalized_program : input_file:string -> (string, Pipeline_types.error) result
+val ir_pretty_dump : input_file:string -> (string, Pipeline_types.error) result
 
 val compile_object : input_file:string -> (Kairos_object.t, Pipeline_types.error) result
 

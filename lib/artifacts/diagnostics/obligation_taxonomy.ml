@@ -107,7 +107,7 @@ let category_of_family = function
   | FamTransitionRequires | FamTransitionEnsures -> None
 
 let classify_require (f : Abs.contract_formula) : family =
-  match f.origin with
+  match f.meta.origin with
   | Some Invariant -> FamInvariantRequires
   | Some Instrumentation -> FamNoBadRequires
   | Some GuaranteePropagation -> FamGuaranteePropagationRequires
@@ -122,7 +122,7 @@ let classify_require (f : Abs.contract_formula) : family =
       FamTransitionRequires
 
 let classify_ensure (f : Abs.contract_formula) : family =
-  match f.origin with
+  match f.meta.origin with
   | Some Invariant -> FamInvariantEnsuresShifted
   | Some Instrumentation -> FamNoBadEnsures
   | Some GuaranteeAutomaton -> FamGuaranteeAutomatonEnsures

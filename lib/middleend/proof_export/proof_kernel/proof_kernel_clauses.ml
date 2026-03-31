@@ -52,9 +52,9 @@ let product_contract_case_of_step ~(node : Abs.node) (step : product_step_ir) :
   | Some idx ->
       List.find_opt
         (fun (pc : Abs.product_contract) ->
-          pc.program_transition_index = idx
-          && same_product_state_ref pc.product_src step.src
-          && simplify_fo pc.assume_guard = simplify_fo step.assume_edge.guard
+          pc.identity.program_transition_index = idx
+          && same_product_state_ref pc.identity.product_src step.src
+          && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard
           && List.exists (fun case -> same_product_case_step case step) pc.cases)
         node.product_transitions
       |> function
@@ -73,9 +73,11 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
     | Some (pc, _case) -> [ pc ]
   in
   let guarantee_propagation_requires (pc : Abs.product_contract) : Ast.ltl list =
-    pc.requires
+    pc.common.requires
     |> List.filter_map (fun (f : Abs.contract_formula) ->
-           match f.origin with Some Formula_origin.GuaranteePropagation -> Some f.value | _ -> None)
+           match f.meta.origin with
+           | Some Formula_origin.GuaranteePropagation -> Some f.logic
+           | _ -> None)
   in
   let input_names =
     node.semantics.sem_inputs |> List.map (fun (v : Ast.vdecl) -> v.vname) |> List.sort_uniq String.compare
@@ -263,9 +265,11 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
   let guarantee_propagation_requires (pc : Abs.product_contract) : Ast.ltl list =
-    pc.requires
+    pc.common.requires
     |> List.filter_map (fun (f : Abs.contract_formula) ->
-           match f.origin with Some Formula_origin.GuaranteePropagation -> Some f.value | _ -> None)
+           match f.meta.origin with
+           | Some Formula_origin.GuaranteePropagation -> Some f.logic
+           | _ -> None)
   in
   let rec split_top_level_or (f : ltl) : ltl list =
     match f with
@@ -297,13 +301,13 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
     |> List.concat_map (fun (t : Abs.transition) ->
            t.ensures
            |> List.filter_map (fun (f : Abs.contract_formula) ->
-                  match f.origin with
-                  | Some Formula_origin.Invariant -> Some (current (FactFormula f.value))
+                  match f.meta.origin with
+                  | Some Formula_origin.Invariant -> Some (current (FactFormula f.logic))
                   | _ -> None))
   in
   let init_goal_facts =
     node.coherency_goals
-    |> List.map (fun (f : Abs.contract_formula) -> current (FactFormula f.value))
+    |> List.map (fun (f : Abs.contract_formula) -> current (FactFormula f.logic))
   in
   let init_clauses =
     [

@@ -50,9 +50,9 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
     | Some program_transition_index ->
         List.find_opt
           (fun (pc : Abs.product_contract) ->
-            pc.program_transition_index = program_transition_index
-            && same_product_state pc.product_src step.src
-            && simplify_fo pc.assume_guard = simplify_fo step.assume_edge.guard)
+            pc.identity.program_transition_index = program_transition_index
+            && same_product_state pc.identity.product_src step.src
+            && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard)
           node.product_transitions
   in
   let slot_to_current_expr =
@@ -215,7 +215,7 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
         match product_contract_of_step step with
         | None -> []
         | Some pc ->
-        pc.requires
+        pc.common.requires
         |> List.map (fun (f : Ir.contract_formula) ->
                {
                  origin = OriginPhaseStepPreSummary;
@@ -225,7 +225,7 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
                    [
                      {
                        time = CurrentTick;
-                       desc = RelFactFormula (Fo_simplifier.simplify_ltl (rewrite_ltl_pre f.value));
+                       desc = RelFactFormula (Fo_simplifier.simplify_ltl (rewrite_ltl_pre f.logic));
                      };
                    ];
                })

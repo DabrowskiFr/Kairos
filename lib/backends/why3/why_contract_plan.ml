@@ -104,15 +104,15 @@ let compute_transition_contracts ~(env : env)
     ~(post_contract_user : Ptree.term list) :
     transition_contracts =
   let compile_require ((f : Ir.contract_formula), label) =
-    let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.oid)) in
-    [ Why_compile_expr.compile_local_ltl_term ~in_post:false env f.value ]
+    let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
+    [ Why_compile_expr.compile_local_ltl_term ~in_post:false env f.logic ]
     |> List.map (fun t -> mk_term (Tattr (rid_attr, t)))
     |> List.map (fun t -> (t, label))
   in
   let transition_requires_pre_terms =
     product_transitions
     |> List.concat_map (fun (t : Why_runtime_view.runtime_product_transition_view) ->
-           List.map (fun (f : Ir.contract_formula) -> (f, origin_label f.origin)) t.requires
+           List.map (fun (f : Ir.contract_formula) -> (f, origin_label f.meta.origin)) t.requires
            |> List.concat_map compile_require)
   in
   let transition_requires_pre = List.map fst transition_requires_pre_terms in
@@ -127,10 +127,8 @@ let compute_transition_contracts ~(env : env)
   }
 
 let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
-    ~(current_temporal_contract : Kernel_guided_contract.exported_summary_contract)
     ~(hexpr_needs_old : Ast.hexpr -> bool) :
     link_contracts =
-  ignore current_temporal_contract;
   let link_terms_pre, link_terms_post =
     List.fold_left
       (fun (pre, post) inv ->

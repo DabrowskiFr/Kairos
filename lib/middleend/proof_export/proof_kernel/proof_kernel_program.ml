@@ -115,8 +115,8 @@ let post_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.ltl
            else
              t.ensures
              |> List.filter_map (fun (f : Abs.contract_formula) ->
-                    match f.origin with
-                    | Some Formula_origin.Invariant -> Some f.value
+                    match f.meta.origin with
+                    | Some Formula_origin.Invariant -> Some f.logic
                     | _ -> None)
              |> Fo_specs.conj_ltl)
   in
