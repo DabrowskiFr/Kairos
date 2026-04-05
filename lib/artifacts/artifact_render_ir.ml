@@ -77,7 +77,7 @@ let render_fo_o_list (fs : Ir.contract_formula list) : string =
   | [] -> "(none)"
   | _ ->
       String.concat "\n    "
-        (List.map (fun (f : Ir.contract_formula) -> Ast_pretty.string_of_ltl f.logic) fs)
+        (List.map (fun (f : Ir.contract_formula) -> Ast_pretty.string_of_fo f.logic) fs)
 
 (* ------------------------------------------------------------------ *)
 (* raw_node                                                             *)
@@ -256,11 +256,6 @@ let render_product_state (s : Ir.product_state) : string =
 let render_product_state_list (xs : Ir.product_state list) : string =
   "[" ^ String.concat ", " (List.map render_product_state xs) ^ "]"
 
-let render_step_class = function
-  | Ir.Safe -> "Safe"
-  | Ir.Bad_assumption -> "Bad_assumption"
-  | Ir.Bad_guarantee -> "Bad_guarantee"
-
 let render_user_invariant (inv : Ast.invariant_user) : string =
   Printf.sprintf "{id=%s; expr=%s}" inv.inv_id (Ast_pretty.string_of_hexpr inv.inv_expr)
 
@@ -280,17 +275,21 @@ let collect_formula_pool (program : Ir.program) : Ir.contract_formula list =
     | Some _ -> ()
   in
   let add_formulas = List.iter add_formula in
-  let add_product_case (c : Ir.product_case) =
-    add_formulas c.propagates;
-    add_formulas c.ensures;
-    add_formulas c.forbidden
-  in
   let add_product_contract (pc : Ir.product_contract) =
     add_formulas pc.common.requires;
     add_formulas pc.common.ensures;
     add_formulas pc.safe_summary.safe_propagates;
     add_formulas pc.safe_summary.safe_ensures;
-    List.iter add_product_case pc.cases
+    List.iter
+      (fun (c : Ir.safe_product_case) ->
+        add_formulas c.propagates;
+        add_formulas c.ensures)
+      pc.safe_cases;
+    List.iter
+      (fun (c : Ir.unsafe_product_case) ->
+        add_formulas c.ensures;
+        add_formulas c.forbidden)
+      pc.unsafe_cases
   in
   let add_raw (_r : Ir.raw_node) = () in
   let add_annotated (a : Ir.annotated_node) =
@@ -323,7 +322,7 @@ let collect_formula_pool (program : Ir.program) : Ir.contract_formula list =
          if not (Hashtbl.mem by_oid oid) then
            let synthetic : Ir.contract_formula =
              {
-               logic = Ast.LTrue;
+               logic = Fo_formula.FTrue;
                meta = { origin = origin_opt; oid; loc = None };
              }
            in
@@ -340,7 +339,7 @@ let render_formula_pool (buf : Buffer.t) (program : Ir.program) =
       (fun (f : Ir.contract_formula) ->
         line ~indent:1 buf
           (Printf.sprintf "%s = {logic=%s; meta={origin=%s; oid=%d; loc=%s}}"
-             (render_formula_ref f) (Ast_pretty.string_of_ltl f.logic)
+             (render_formula_ref f) (Ast_pretty.string_of_fo f.logic)
              (render_origin_opt f.meta.origin)
              f.meta.oid
              (render_loc_opt f.meta.loc)))
@@ -377,20 +376,34 @@ let render_product_contract ~name ~(indent : int) (buf : Buffer.t) (pc : Ir.prod
     ("safe_propagates=" ^ render_formula_refs pc.safe_summary.safe_propagates);
   line ~indent:(indent + 2) buf
     ("safe_ensures=" ^ render_formula_refs pc.safe_summary.safe_ensures);
-  line ~indent:(indent + 1) buf "cases:";
-  if pc.cases = [] then line ~indent:(indent + 2) buf "[]"
+  line ~indent:(indent + 1) buf "safe_cases:";
+  if pc.safe_cases = [] then line ~indent:(indent + 2) buf "[]"
   else
     List.iteri
-      (fun idx (c : Ir.product_case) ->
+      (fun idx (c : Ir.safe_product_case) ->
         line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
-        line ~indent:(indent + 3) buf ("step_class=" ^ render_step_class c.step_class);
+        line ~indent:(indent + 3) buf "step_class=Safe";
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ c.product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf ("guarantee_guard=" ^ Ast_pretty.string_of_fo c.guarantee_guard);
         line ~indent:(indent + 3) buf ("propagates=" ^ render_formula_refs c.propagates);
         line ~indent:(indent + 3) buf ("ensures=" ^ render_formula_refs c.ensures);
+        line ~indent:(indent + 3) buf "forbidden=[]")
+      pc.safe_cases;
+  line ~indent:(indent + 1) buf "unsafe_cases:";
+  if pc.unsafe_cases = [] then line ~indent:(indent + 2) buf "[]"
+  else
+    List.iteri
+      (fun idx (c : Ir.unsafe_product_case) ->
+        line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
+        line ~indent:(indent + 3) buf "step_class=Bad_guarantee";
+        line ~indent:(indent + 3) buf ("product_dst_id=" ^ c.product_dst_id);
+        line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
+        line ~indent:(indent + 3) buf ("guarantee_guard=" ^ Ast_pretty.string_of_fo c.guarantee_guard);
+        line ~indent:(indent + 3) buf "propagates=[]";
+        line ~indent:(indent + 3) buf ("ensures=" ^ render_formula_refs c.ensures);
         line ~indent:(indent + 3) buf ("forbidden=" ^ render_formula_refs c.forbidden))
-      pc.cases
+      pc.unsafe_cases
 
 let render_node_core ~indent (buf : Buffer.t) (c : Ir.node_core) =
   line ~indent buf ("node_name=" ^ c.node_name);

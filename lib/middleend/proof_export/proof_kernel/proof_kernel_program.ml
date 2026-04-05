@@ -1,6 +1,5 @@
 open Ast
 open Generated_names
-open Temporal_support
 open Ast_pretty
 open Fo_specs
 open Fo_formula
@@ -107,15 +106,15 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let post_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Ast.ltl option =
+let post_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Fo_formula.t option =
   let formulas =
     node.source_info.state_invariants
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
-           if inv.state = state_name then Some inv.formula else None)
+           if inv.state = state_name then Some (fo_formula_of_non_temporal_ltl_exn inv.formula) else None)
   in
   match formulas with
   | [] -> None
-  | hd :: tl -> Some (List.fold_left (fun acc fo_atom -> Ast.LAnd (acc, fo_atom)) hd tl)
+  | hd :: tl -> Some (List.fold_left (fun acc fo_formula -> Fo_formula.FAnd (acc, fo_formula)) hd tl)
 
 type current_const =
   | CInt of int
@@ -253,27 +252,27 @@ let add_current_atom env ~(negated : bool) (fo_atom : Ast.fo_atom) : bool option
     end
   | _ -> None
 
-let rec current_formula_maybe_satisfiable env (fo_atom : Ast.ltl) : bool =
-  match fo_atom with
-  | Ast.LTrue -> true
-  | Ast.LFalse -> false
-  | Ast.LAtom atom -> begin
+let rec current_formula_maybe_satisfiable env (fo_formula : Fo_formula.t) : bool =
+  match fo_formula with
+  | Fo_formula.FTrue -> true
+  | Fo_formula.FFalse -> false
+  | Fo_formula.FAtom atom -> begin
       match add_current_atom env ~negated:false atom with
       | Some b -> b
       | None -> true
     end
-  | Ast.LNot (Ast.LAtom atom) -> begin
+  | Fo_formula.FNot (Fo_formula.FAtom atom) -> begin
       match add_current_atom env ~negated:true atom with
       | Some b -> b
       | None -> true
     end
-  | Ast.LNot inner -> not (current_formula_maybe_satisfiable env inner)
-  | Ast.LAnd (a, b) ->
+  | Fo_formula.FNot inner -> not (current_formula_maybe_satisfiable env inner)
+  | Fo_formula.FAnd (a, b) ->
       current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
-  | Ast.LOr (a, b) ->
+  | Fo_formula.FOr (a, b) ->
       let env_left = clone_constraint_env env in
       current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
-  | Ast.LImp _ | Ast.LX _ | Ast.LG _ | Ast.LW _ -> true
+  | Fo_formula.FImp _ -> true
 
 let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analysis)
     (step : product_step_ir) : bool =
@@ -288,7 +287,7 @@ let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analy
   | Some dst_inv ->
       current_formula_maybe_satisfiable
         (empty_current_constraint_env ())
-        (Ast.LAnd (ltl_of_fo step.guarantee_edge.guard, dst_inv))
+        (Fo_formula.FAnd (step.guarantee_edge.guard, dst_inv))
 
 let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
     ~(reactive_program : reactive_program_ir) ~(live_states : PT.product_state list)

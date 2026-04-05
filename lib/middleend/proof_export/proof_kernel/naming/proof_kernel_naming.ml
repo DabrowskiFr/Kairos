@@ -52,15 +52,15 @@ let string_of_clause_time = function
 let string_of_clause_fact_desc = function
   | FactProgramState st -> "st = " ^ st
   | FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
-  | FactPhaseFormula f -> "phase(" ^ string_of_ltl f ^ ")"
-  | FactFormula f -> string_of_ltl f
+  | FactPhaseFormula f -> "phase(" ^ string_of_fo f ^ ")"
+  | FactFormula f -> string_of_fo f
   | FactFalse -> "false"
 
 let string_of_relational_clause_fact_desc = function
   | RelFactProgramState st -> "st = " ^ st
   | RelFactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
-  | RelFactPhaseFormula f -> "phase(" ^ string_of_ltl f ^ ")"
-  | RelFactFormula f -> string_of_ltl f
+  | RelFactPhaseFormula f -> "phase(" ^ string_of_fo f ^ ")"
+  | RelFactFormula f -> string_of_fo f
   | RelFactFalse -> "false"
 
 let string_of_clause_fact (fact : clause_fact_ir) =

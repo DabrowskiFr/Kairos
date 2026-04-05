@@ -28,6 +28,11 @@ let starts_with ~(prefix : string) (s : string) : bool =
   let n = String.length prefix in
   String.length s >= n && String.sub s 0 n = prefix
 
+let fo_simplifier_forced_off () =
+  match Sys.getenv_opt "KAIROS_FO_SIMPLIFIER" with
+  | Some "off" -> true
+  | _ -> false
+
 let rec sanitize_ident (s : string) : string =
   let buf = Buffer.create (String.length s + 8) in
   String.iter
@@ -117,7 +122,20 @@ let infer_atom_sorts (f : fo_atom) (vars : (ident, smt_sort) Hashtbl.t) : unit =
     end
   | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
 
-let infer_formula_sorts (f : ltl) : (ident, smt_sort) Hashtbl.t =
+let infer_formula_sorts_fo (f : Fo_formula.t) : (ident, smt_sort) Hashtbl.t =
+  let vars = Hashtbl.create 32 in
+  let rec go = function
+    | Fo_formula.FTrue | Fo_formula.FFalse -> ()
+    | Fo_formula.FAtom a -> infer_atom_sorts a vars
+    | Fo_formula.FNot a -> go a
+    | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
+        go a;
+        go b
+  in
+  go f;
+  vars
+
+let infer_formula_sorts_ltl (f : ltl) : (ident, smt_sort) Hashtbl.t =
   let vars = Hashtbl.create 32 in
   let rec go = function
     | LTrue | LFalse -> ()
@@ -131,11 +149,11 @@ let infer_formula_sorts (f : ltl) : (ident, smt_sort) Hashtbl.t =
   vars
 
 let make_env (f : ltl) : smt_env =
-  { vars = infer_formula_sorts f; preds = Hashtbl.create 16; preks = Hashtbl.create 16 }
+  { vars = infer_formula_sorts_ltl f; preds = Hashtbl.create 16; preks = Hashtbl.create 16 }
 
 let make_z3_env (f : Fo_formula.t) : z3_env =
   let ctx = Z3.mk_context [] in
-  let vars = infer_formula_sorts (Temporal_support.ltl_of_fo f) in
+  let vars = infer_formula_sorts_fo f in
   { ctx; vars; z3_vars = Hashtbl.create 32; z3_preds = Hashtbl.create 16; z3_preks = Hashtbl.create 16 }
 
 let smt_var_name (v : ident) : string = "__v_" ^ sanitize_ident v
@@ -452,28 +470,35 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
           (fo_of_z3_hexpr env e)
 
 let simplify_fo_formula (f : Fo_formula.t) : Fo_formula.t option =
-  try
-    let env = make_z3_env f in
-    let e0 = z3_of_fo env f in
-    let e1 = Z3.Expr.simplify e0 None in
-    let goal = Z3.Goal.mk_goal env.ctx true false false in
-    Z3.Goal.add goal [ e1 ];
-    let tactic =
-      Z3.Tactic.and_then env.ctx
-        (Z3.Tactic.mk_tactic env.ctx "ctx-simplify")
-        (Z3.Tactic.mk_tactic env.ctx "propagate-values")
-        [ Z3.Tactic.mk_tactic env.ctx "unit-subsume-simplify" ]
+  if fo_simplifier_forced_off () then None
+  else
+    let t0 = Unix.gettimeofday () in
+    let finish out =
+      External_timing.record_z3 ~elapsed_s:(Unix.gettimeofday () -. t0);
+      out
     in
-    let result = Z3.Tactic.apply tactic goal None in
-    let e2 =
-      match Z3.Tactic.ApplyResult.get_subgoals result with
-      | [] -> Z3.Boolean.mk_true env.ctx
-      | [ subgoal ] -> Z3.Goal.as_expr subgoal
-      | subgoals ->
-          Z3.Boolean.mk_and env.ctx (List.map Z3.Goal.as_expr subgoals)
-    in
-    fo_of_z3_formula env e2
-  with _ -> None
+    try
+      let env = make_z3_env f in
+      let e0 = z3_of_fo env f in
+      let e1 = Z3.Expr.simplify e0 None in
+      let goal = Z3.Goal.mk_goal env.ctx true false false in
+      Z3.Goal.add goal [ e1 ];
+      let tactic =
+        Z3.Tactic.and_then env.ctx
+          (Z3.Tactic.mk_tactic env.ctx "ctx-simplify")
+          (Z3.Tactic.mk_tactic env.ctx "propagate-values")
+          [ Z3.Tactic.mk_tactic env.ctx "unit-subsume-simplify" ]
+      in
+      let result = Z3.Tactic.apply tactic goal None in
+      let e2 =
+        match Z3.Tactic.ApplyResult.get_subgoals result with
+        | [] -> Z3.Boolean.mk_true env.ctx
+        | [ subgoal ] -> Z3.Goal.as_expr subgoal
+        | subgoals ->
+            Z3.Boolean.mk_and env.ctx (List.map Z3.Goal.as_expr subgoals)
+      in
+      finish (fo_of_z3_formula env e2)
+    with _ -> finish None
 
 let rec smt_of_iexpr (env : smt_env) (e : iexpr) : string * smt_sort =
   match e.iexpr with
@@ -655,26 +680,30 @@ let z3_command () : string =
           | Some p -> Filename.quote p ^ " exec -- z3 -in -smt2"
           | None -> "")
 
+let solver_enabled () = (not (fo_simplifier_forced_off ())) && z3_command () <> ""
+
 let run_z3_query (query_key : string) (script : string) : bool option =
-  match Hashtbl.find_opt z3_status_cache query_key with
-  | Some cached -> cached
-  | None ->
-      let cmd = z3_command () in
-      if cmd = "" then None
-      else
-        let ic, oc, ec = Unix.open_process_full cmd (Unix.environment ()) in
-        output_string oc script;
-        close_out oc;
-        let stdout = read_all ic |> String.trim in
-        let _stderr = read_all ec in
-        let _ = Unix.close_process_full (ic, oc, ec) in
-        let result =
-          if starts_with ~prefix:"unsat" stdout then Some true
-          else if starts_with ~prefix:"sat" stdout then Some false
-          else None
-        in
-        Hashtbl.replace z3_status_cache query_key result;
-        result
+  if not (solver_enabled ()) then None
+  else
+    match Hashtbl.find_opt z3_status_cache query_key with
+    | Some cached -> cached
+    | None ->
+        let cmd = z3_command () in
+        if cmd = "" then None
+        else
+          let ic, oc, ec = Unix.open_process_full cmd (Unix.environment ()) in
+          output_string oc script;
+          close_out oc;
+          let stdout = read_all ic |> String.trim in
+          let _stderr = read_all ec in
+          let _ = Unix.close_process_full (ic, oc, ec) in
+          let result =
+            if starts_with ~prefix:"unsat" stdout then Some true
+            else if starts_with ~prefix:"sat" stdout then Some false
+            else None
+          in
+          Hashtbl.replace z3_status_cache query_key result;
+          result
 
 let prove_formula (f : ltl) : bool option =
   let env = make_env f in
@@ -703,8 +732,3 @@ let implies_formula (a : ltl) (b : ltl) : bool option =
       let result = prove_formula (LImp (a, b)) in
       Hashtbl.replace z3_implies_cache key result;
       result
-
-let solver_enabled () =
-  match Sys.getenv_opt "KAIROS_FO_SIMPLIFIER" with
-  | Some "off" -> false
-  | _ -> z3_command () <> ""

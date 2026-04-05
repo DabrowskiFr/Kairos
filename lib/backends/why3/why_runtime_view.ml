@@ -84,12 +84,16 @@ type runtime_transition_view = {
   call_sites : call_site_view list;
 }
 
+type runtime_step_class =
+  | StepSafe
+  | StepBadGuarantee
+
 type runtime_product_transition_view = {
   transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
-  step_class : Ir.product_step_class;
+  step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
   requires : Abs.contract_formula list;
@@ -610,7 +614,7 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
                   src_state = t.src;
                   dst_state = t.dst;
                   guard = t.guard;
-                  step_class = Ir.Safe;
+                  step_class = StepSafe;
                   product_src = pc.identity.product_src;
                   product_dst;
                   requires = pc.common.requires;
@@ -621,19 +625,18 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
               ]
         in
         let bad_groups =
-          pc.cases
-          |> List.filter (fun (case : Ir.product_case) -> case.step_class <> Ir.Safe)
-          |> List.map (fun (case : Ir.product_case) ->
+          pc.unsafe_cases
+          |> List.map (fun (case : Ir.unsafe_product_case) ->
                  {
                    transition_id = Printf.sprintf "tr_%d" pc.identity.program_transition_index;
                    src_state = t.src;
                    dst_state = t.dst;
                    guard = t.guard;
-                   step_class = case.step_class;
+                   step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;
                    requires = pc.common.requires;
-                   propagates = case.propagates;
+                   propagates = [];
                    ensures = case.ensures;
                    forbidden = case.forbidden;
                  })

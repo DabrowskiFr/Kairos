@@ -87,6 +87,13 @@ val lower_fo_temporal_bindings :
 val lower_fo_pre_k :
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.fo_atom -> Ast.fo_atom option
 
+(** Lower [pre_k] occurrences inside a non-temporal first-order formula. *)
+val lower_fo_formula_temporal_bindings :
+  temporal_bindings:temporal_binding list -> Fo_formula.t -> Fo_formula.t option
+
+val lower_fo_formula_pre_k :
+  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Fo_formula.t -> Fo_formula.t option
+
 (** Lower [pre_k] occurrences inside an LTL formula when possible. *)
 val lower_ltl_temporal_bindings :
   temporal_bindings:temporal_binding list -> Ast.ltl -> Ast.ltl option
@@ -118,6 +125,13 @@ val atom_to_var_rel : Ast.ident -> Ast.fo_atom
 (** Reconstruct a non-temporal formula by inlining atom variables from a
     name-to-atom map. *)
 val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo_atom) list -> Ast.iexpr -> Fo_formula.t
+
+(** Convert a non-temporal LTL formula into [Fo_formula.t].
+    Returns [None] when temporal operators remain. *)
+val fo_formula_of_non_temporal_ltl : Ast.ltl -> Fo_formula.t option
+
+(** Same as [fo_formula_of_non_temporal_ltl] but raises on temporal operators. *)
+val fo_formula_of_non_temporal_ltl_exn : Ast.ltl -> Fo_formula.t
 
 (** {1 Atom Replacement} *)
 

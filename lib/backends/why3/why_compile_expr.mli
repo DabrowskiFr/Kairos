@@ -80,6 +80,10 @@ val compile_fo_term : ?prefer_link:bool -> Why_term_support.env -> Ast.fo_atom -
 val compile_local_ltl_term :
   ?prefer_link:bool -> ?in_post:bool -> Why_term_support.env -> Ast.ltl -> Why3.Ptree.term
 
+(* Compile a local first-order formula from the canonical IR directly. *)
+val compile_local_fo_formula_term :
+  ?prefer_link:bool -> ?in_post:bool -> Why_term_support.env -> Fo_formula.t -> Why3.Ptree.term
+
 (* Compile a FO formula shifted by k (temporal unrolling). *)
 val compile_fo_term_shift :
   ?prefer_link:bool -> ?in_post:bool -> Why_term_support.env -> bool -> Ast.fo_atom -> Why3.Ptree.term

@@ -2,6 +2,11 @@ open Ast
 
 let ( let* ) = Result.bind
 
+type run_metrics = {
+  product_s : float;
+  canonical_s : float;
+}
+
 let build_node_analysis ~(automata : Automata_generation.node_builds) (node : Ir.node) :
     (Product_build.analysis, string) result =
   let* build =
@@ -33,12 +38,18 @@ let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t op
   let collect_product_transition acc (transition : Ir.product_contract) =
     transition.common.requires |> List.fold_left collect_formula acc |> fun acc ->
     transition.common.ensures |> List.fold_left collect_formula acc |> fun acc ->
-    transition.cases
+    transition.safe_cases
     |> List.fold_left
-         (fun acc (case : Ir.product_case) ->
+         (fun acc (case : Ir.safe_product_case) ->
            case.propagates |> List.fold_left collect_formula acc |> fun acc ->
+           case.ensures |> List.fold_left collect_formula acc)
+         acc
+    |> fun acc ->
+    transition.unsafe_cases
+    |> List.fold_left
+         (fun acc (case : Ir.unsafe_product_case) ->
            case.ensures |> List.fold_left collect_formula acc |> fun acc ->
-           List.fold_left collect_formula acc case.forbidden)
+           case.forbidden |> List.fold_left collect_formula acc)
          acc
   in
   nodes
@@ -50,6 +61,29 @@ let collect_contract_origins (nodes : Ir.node list) : (int * Formula_origin.t op
 
 let contracts_info_of_nodes (nodes : Ir.node list) : Ir.contracts_info =
   { contract_origin_map = collect_contract_origins nodes; warnings = [] }
+
+let product_state_is_live ~(analysis : Product_build.analysis) (st : Product_types.product_state) :
+    bool =
+  st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
+
+let product_step_is_live_requested ~(analysis : Product_build.analysis)
+    (step : Product_types.product_step) : bool =
+  let src_not_g_bad =
+    analysis.guarantee_bad_idx < 0 || step.src.guarantee_state <> analysis.guarantee_bad_idx
+  in
+  let dst_not_a_bad =
+    analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx
+  in
+  src_not_g_bad && dst_not_a_bad
+
+let accumulate_case_counts (contracts : Ir.product_contract list) :
+    int * int * int =
+  List.fold_left
+    (fun (safe_acc, bad_a_acc, bad_g_acc) (contract : Ir.product_contract) ->
+      (safe_acc + List.length contract.safe_cases, bad_a_acc,
+       bad_g_acc + List.length contract.unsafe_cases))
+    (0, 0, 0)
+    contracts
 
 let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     (right : Stage_info.instrumentation_info) : Stage_info.instrumentation_info =
@@ -87,6 +121,25 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     product_dot_explicit =
       if left.product_dot_explicit <> "" then left.product_dot_explicit else right.product_dot_explicit;
     canonical_dot = if left.canonical_dot <> "" then left.canonical_dot else right.canonical_dot;
+    require_automata_state_count =
+      left.require_automata_state_count + right.require_automata_state_count;
+    require_automata_edge_count =
+      left.require_automata_edge_count + right.require_automata_edge_count;
+    ensures_automata_state_count =
+      left.ensures_automata_state_count + right.ensures_automata_state_count;
+    ensures_automata_edge_count =
+      left.ensures_automata_edge_count + right.ensures_automata_edge_count;
+    product_edge_count_full = left.product_edge_count_full + right.product_edge_count_full;
+    product_edge_count_live = left.product_edge_count_live + right.product_edge_count_live;
+    product_state_count_full = left.product_state_count_full + right.product_state_count_full;
+    product_state_count_live = left.product_state_count_live + right.product_state_count_live;
+    canonical_contract_count = left.canonical_contract_count + right.canonical_contract_count;
+    canonical_case_safe_count =
+      left.canonical_case_safe_count + right.canonical_case_safe_count;
+    canonical_case_bad_assumption_count =
+      left.canonical_case_bad_assumption_count + right.canonical_case_bad_assumption_count;
+    canonical_case_bad_guarantee_count =
+      left.canonical_case_bad_guarantee_count + right.canonical_case_bad_guarantee_count;
   }
 
 let raw_of_node (node : Ir.node) : (Ir.raw_node, string) result =
@@ -134,6 +187,27 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
   let exported_summary =
     Proof_kernel_build.export_node_summary ~node ~normalized_ir:kernel_ir
   in
+  let require_automata_state_count = List.length analysis.assume_state_labels in
+  let require_automata_edge_count = List.length analysis.assume_grouped_edges in
+  let ensures_automata_state_count = List.length analysis.guarantee_state_labels in
+  let ensures_automata_edge_count = List.length analysis.guarantee_grouped_edges in
+  let product_edge_count_full = List.length analysis.exploration.steps in
+  let product_edge_count_live =
+    analysis.exploration.steps
+    |> List.filter (product_step_is_live_requested ~analysis)
+    |> List.length
+  in
+  let product_state_count_full = List.length analysis.exploration.states in
+  let product_state_count_live =
+    analysis.exploration.states
+    |> List.filter (product_state_is_live ~analysis)
+    |> List.length
+  in
+  let canonical_contract_count = List.length node.product_transitions in
+  let canonical_case_safe_count, canonical_case_bad_assumption_count,
+      canonical_case_bad_guarantee_count =
+    accumulate_case_counts node.product_transitions
+  in
   Ok
     {
       Stage_info.kernel_ir_nodes = [ kernel_ir ];
@@ -158,6 +232,18 @@ let instrumentation_info_of_node ~(nodes : Ir.node list)
       product_dot = rendered.product_dot;
       product_dot_explicit = rendered.product_dot_explicit;
       canonical_dot = rendered_canonical.canonical_dot;
+      require_automata_state_count;
+      require_automata_edge_count;
+      ensures_automata_state_count;
+      ensures_automata_edge_count;
+      product_edge_count_full;
+      product_edge_count_live;
+      product_state_count_full;
+      product_state_count_live;
+      canonical_contract_count;
+      canonical_case_safe_count;
+      canonical_case_bad_assumption_count;
+      canonical_case_bad_guarantee_count;
     }
 
 let instrumentation_info_of_ir ~(automata : Automata_generation.node_builds) (program : Ir.program)
@@ -169,10 +255,13 @@ let instrumentation_info_of_ir ~(automata : Automata_generation.node_builds) (pr
   |> Result.map
        (List.fold_left merge_instrumentation_info Stage_info.empty_instrumentation_info)
 
-let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
-    (Ir.program, string) result =
+let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
+    ((Ir.program * run_metrics), string) result =
   let initial_ir = From_ast.of_ast_program parsed in
+  let t_product = Unix.gettimeofday () in
   let* analyses = build_analyses ~automata initial_ir in
+  let product_s = Unix.gettimeofday () -. t_product in
+  let t_canonical = Unix.gettimeofday () in
   let nodes =
     initial_ir
     |> Post.apply_program ~post_generations:(Post.build_program ~analyses initial_ir)
@@ -184,4 +273,10 @@ let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_build
     |> Proof_obligation_annotate.apply_program ~analyses
     |> Proof_obligation_lowering.apply_program
   in
-  Ok ({ nodes; contracts_info = contracts_info_of_nodes nodes } : Ir.program)
+  let canonical_s = Unix.gettimeofday () -. t_canonical in
+  let program = ({ nodes; contracts_info = contracts_info_of_nodes nodes } : Ir.program) in
+  Ok (program, { product_s; canonical_s })
+
+let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
+    (Ir.program, string) result =
+  run_with_metrics parsed automata |> Result.map fst

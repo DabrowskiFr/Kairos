@@ -17,9 +17,11 @@ let build_ast_with_info ~input_file () :
     let p_automaton, automata, automata_info =
       Automata_pass.Pass.run_with_info p_parsed ()
     in
-    match Orchestration.run p_automaton automata with
+    match Orchestration.run_with_metrics p_automaton automata with
     | Error msg -> Error (Pipeline_types.Stage_error msg)
-    | Ok ir_program -> (
+    | Ok (ir_program, run_metrics) -> (
+        External_timing.record_product ~elapsed_s:run_metrics.product_s;
+        External_timing.record_canonical ~elapsed_s:run_metrics.canonical_s;
         let p_contracts = ir_program.nodes in
         let p_instrumentation = ir_program.nodes in
         let contracts_info =

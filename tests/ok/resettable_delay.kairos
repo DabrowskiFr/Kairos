@@ -10,26 +10,13 @@ states
   Init(init), Run;
 invariants
   in Run:
-    (prev reset = 1 => m = 0) and
-    (prev reset = 0 => m = prev x);
+    (prev reset = 1 => m = 0) and (prev reset = 0 => m = prev x);
 transitions
   Init:
-    to Run when reset = 1 {
-      y := 0;
-      m := 0;
-    }
-    to Run when reset = 0 {
-      y := 0;
-      m := x;
-    }
+    to Run when reset = 1 { y := 0; m := 0; }
+    to Run when reset = 0 { y := 0; m := x; }
   Run:
-    to Run when reset = 1 {
-      y := 0;
-      m := 0;
-    }
-    to Run when reset = 0 {
-      y := m;
-      m := x;
-    }
+    to Run when reset = 1 { y := 0; m := 0; }
+    to Run when reset = 0 { y := m; m := x; }
 end
   

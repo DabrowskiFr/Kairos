@@ -13,27 +13,6 @@ let rec max_x_depth (f : ltl) : int =
   | LNot a | LG a -> max_x_depth a
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> max (max_x_depth a) (max_x_depth b)
 
-let rec ltl_of_fo (f : Fo_formula.t) : ltl =
-  match f with
-  | FTrue -> LTrue
-  | FFalse -> LFalse
-  | FAtom a -> LAtom a
-  | FNot a -> LNot (ltl_of_fo a)
-  | FAnd (a, b) -> LAnd (ltl_of_fo a, ltl_of_fo b)
-  | FOr (a, b) -> LOr (ltl_of_fo a, ltl_of_fo b)
-  | FImp (a, b) -> LImp (ltl_of_fo a, ltl_of_fo b)
-
-let rec fo_of_ltl (f : ltl) : Fo_formula.t =
-  match f with
-  | LTrue -> FTrue
-  | LFalse -> FFalse
-  | LAtom a -> FAtom a
-  | LNot a -> FNot (fo_of_ltl a)
-  | LAnd (a, b) -> FAnd (fo_of_ltl a, fo_of_ltl b)
-  | LOr (a, b) -> FOr (fo_of_ltl a, fo_of_ltl b)
-  | LImp (a, b) -> FImp (fo_of_ltl a, fo_of_ltl b)
-  | LX _ | LG _ | LW _ -> failwith "fo_of_ltl: temporal operator"
-
 let is_const_iexpr (e : iexpr) : bool =
   match e.iexpr with
   | ILitInt _ | ILitBool _ -> true

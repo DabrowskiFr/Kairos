@@ -117,11 +117,6 @@ let runtime_guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_
     Ptree.term option =
   Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
-let runtime_transition_guard_fo (t : Why_runtime_view.runtime_transition_view) : Ast.ltl =
-  match t.guard with
-  | None -> LTrue
-  | Some g -> Temporal_support.ltl_of_fo (simplify_fo (Fo_specs.iexpr_to_fo_with_atoms [] g))
-
 let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
   List.iter
@@ -178,10 +173,10 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     | None -> "Unknown"
   in
   let compile_formula ~in_post (f : Ir.contract_formula) : Ptree.term list =
-    [ Why_compile_expr.compile_local_ltl_term ~in_post env f.logic ]
+    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
   in
   let compile_forbidden_formula (f : Ir.contract_formula) : Ptree.term list =
-    let term = Why_compile_expr.compile_local_ltl_term ~in_post:true env f.logic in
+    let term = Why_compile_expr.compile_local_fo_formula_term ~in_post:true env f.logic in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =

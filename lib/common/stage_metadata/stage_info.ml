@@ -59,6 +59,18 @@ type instrumentation_info = {
   product_dot : string;
   product_dot_explicit : string;
   canonical_dot : string;
+  require_automata_state_count : int;
+  require_automata_edge_count : int;
+  ensures_automata_state_count : int;
+  ensures_automata_edge_count : int;
+  product_edge_count_full : int;
+  product_edge_count_live : int;
+  product_state_count_full : int;
+  product_state_count_live : int;
+  canonical_contract_count : int;
+  canonical_case_safe_count : int;
+  canonical_case_bad_assumption_count : int;
+  canonical_case_bad_guarantee_count : int;
 }
 
 let empty_parse_info : parse_info =
@@ -93,4 +105,16 @@ let empty_instrumentation_info : instrumentation_info =
     product_dot = "";
     product_dot_explicit = "";
     canonical_dot = "";
+    require_automata_state_count = 0;
+    require_automata_edge_count = 0;
+    ensures_automata_state_count = 0;
+    ensures_automata_edge_count = 0;
+    product_edge_count_full = 0;
+    product_edge_count_live = 0;
+    product_state_count_full = 0;
+    product_state_count_live = 0;
+    canonical_contract_count = 0;
+    canonical_case_safe_count = 0;
+    canonical_case_bad_assumption_count = 0;
+    canonical_case_bad_guarantee_count = 0;
   }

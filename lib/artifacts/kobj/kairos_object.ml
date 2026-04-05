@@ -227,8 +227,8 @@ let string_of_clause_time = function
 let string_of_clause_desc = function
   | Proof_kernel_types.FactProgramState st -> "ProgramState = " ^ st
   | Proof_kernel_types.FactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
-  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_ltl f
-  | Proof_kernel_types.FactFormula f -> Ast_pretty.string_of_ltl f
+  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_fo f
+  | Proof_kernel_types.FactFormula f -> Ast_pretty.string_of_fo f
   | Proof_kernel_types.FactFalse -> "false"
 
 let string_of_clause_fact (fact : Proof_kernel_types.clause_fact_ir) =
@@ -237,49 +237,24 @@ let string_of_clause_fact (fact : Proof_kernel_types.clause_fact_ir) =
 let string_of_rel_clause_desc = function
   | Proof_kernel_types.RelFactProgramState st -> "ProgramState = " ^ st
   | Proof_kernel_types.RelFactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
-  | Proof_kernel_types.RelFactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_ltl f
-  | Proof_kernel_types.RelFactFormula f -> Ast_pretty.string_of_ltl f
+  | Proof_kernel_types.RelFactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_fo f
+  | Proof_kernel_types.RelFactFormula f -> Ast_pretty.string_of_fo f
   | Proof_kernel_types.RelFactFalse -> "false"
 
 let string_of_rel_clause_fact (fact : Proof_kernel_types.relational_clause_fact_ir) =
   string_of_clause_time fact.time ^ " " ^ string_of_rel_clause_desc fact.desc
 
-let rec simplify_display_ltl (f : Ast.ltl) : Ast.ltl =
-  match f with
-  | Ast.LTrue | Ast.LFalse | Ast.LAtom _ -> f
-  | Ast.LNot a -> (
-      match simplify_display_ltl a with
-      | Ast.LTrue -> Ast.LFalse
-      | Ast.LFalse -> Ast.LTrue
-      | a' -> Ast.LNot a')
-  | Ast.LAnd (a, b) -> (
-      match (simplify_display_ltl a, simplify_display_ltl b) with
-      | Ast.LFalse, _ | _, Ast.LFalse -> Ast.LFalse
-      | Ast.LTrue, x | x, Ast.LTrue -> x
-      | a', b' -> Ast.LAnd (a', b'))
-  | Ast.LOr (a, b) -> (
-      match (simplify_display_ltl a, simplify_display_ltl b) with
-      | Ast.LTrue, _ | _, Ast.LTrue -> Ast.LTrue
-      | Ast.LFalse, x | x, Ast.LFalse -> x
-      | a', b' -> Ast.LOr (a', b'))
-  | Ast.LImp (a, b) -> (
-      match (simplify_display_ltl a, simplify_display_ltl b) with
-      | Ast.LFalse, _ -> Ast.LTrue
-      | Ast.LTrue, x -> x
-      | _, Ast.LTrue -> Ast.LTrue
-      | a', b' -> Ast.LImp (a', b'))
-  | Ast.LX a -> Ast.LX (simplify_display_ltl a)
-  | Ast.LG a -> Ast.LG (simplify_display_ltl a)
-  | Ast.LW (a, b) -> Ast.LW (simplify_display_ltl a, simplify_display_ltl b)
+let simplify_display_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some s -> s | None -> f
 
 let string_of_display_rel_desc = function
   | Proof_kernel_types.RelFactProgramState _ | Proof_kernel_types.RelFactGuaranteeState _ -> None
   | Proof_kernel_types.RelFactPhaseFormula f ->
-      let f = simplify_display_ltl f in
-      Some (Ast_pretty.string_of_ltl f)
+      let f = simplify_display_fo f in
+      Some (Ast_pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFormula f ->
-      let f = simplify_display_ltl f in
-      Some (Ast_pretty.string_of_ltl f)
+      let f = simplify_display_fo f in
+      Some (Ast_pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFalse -> Some "false"
 
 let simplify_formula_list (xs : string list) : string list =
@@ -323,7 +298,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
         (indent indent_level ^ label ^ ":")
         :: List.map
              (fun (f : Ir.contract_formula) ->
-               indent (indent_level + 1) ^ Ast_pretty.string_of_ltl f.logic)
+               indent (indent_level + 1) ^ Ast_pretty.string_of_fo f.logic)
              fs
   in
   let body_lines =

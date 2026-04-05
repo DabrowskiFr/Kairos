@@ -229,6 +229,7 @@ type instrumentation_pass_request = {
 type why_pass_request = {
   input_file : string;
   prefix_fields : bool;
+  disable_why3_optimizations : bool;
   engine : string;
 }
 
@@ -236,6 +237,7 @@ type obligations_pass_request = {
   input_file : string;
   prover : string;
   prefix_fields : bool;
+  disable_why3_optimizations : bool;
   engine : string;
 }
 
@@ -269,6 +271,7 @@ type config = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  disable_why3_optimizations : bool;
 }
 
 val yojson_of_loc : loc -> Yojson.Safe.t

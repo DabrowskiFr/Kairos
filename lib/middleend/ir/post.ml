@@ -22,11 +22,6 @@ let product_state_of_pt (st : PT.product_state) : Abs.product_state =
     guarantee_state_index = st.guarantee_state;
   }
 
-let product_step_class_of_pt = function
-  | PT.Safe -> Abs.Safe
-  | PT.Bad_assumption -> Abs.Bad_assumption
-  | PT.Bad_guarantee -> Abs.Bad_guarantee
-
 let is_live_product_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
   st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
 
@@ -166,35 +161,37 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                         | PT.Bad_assumption | PT.Bad_guarantee -> None)
                  |> List.sort_uniq Stdlib.compare
                in
-               let cases =
+               let safe_cases =
                  grouped
                  |> List.filter_map (fun ((step : PT.product_step), _) ->
                         match step.step_class with
-                        | PT.Bad_assumption -> None
                         | PT.Safe ->
                             Some
-                              {
-                                Abs.step_class = product_step_class_of_pt step.step_class;
-                                product_dst_id = "";
-                                product_dst = product_state_of_pt step.dst;
-                                guarantee_guard = step.guarantee_guard;
-                                propagates =
-                                  [ Abs.with_origin GuaranteeAutomaton (ltl_of_fo step.guarantee_guard) ];
-                                ensures = [];
-                                forbidden = [];
-                              }
+                              ({
+                                 product_dst_id = "";
+                                 product_dst = product_state_of_pt step.dst;
+                                 guarantee_guard = step.guarantee_guard;
+                                 propagates =
+                                   [ Abs.with_origin GuaranteeAutomaton step.guarantee_guard ];
+                                 ensures = [];
+                               } : Abs.safe_product_case)
+                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
+               in
+               let unsafe_cases =
+                 grouped
+                 |> List.filter_map (fun ((step : PT.product_step), _) ->
+                        match step.step_class with
                         | PT.Bad_guarantee ->
                             Some
-                              {
-                                Abs.step_class = product_step_class_of_pt step.step_class;
-                                product_dst_id = "";
-                                product_dst = product_state_of_pt step.dst;
-                                guarantee_guard = step.guarantee_guard;
-                                propagates = [];
-                                ensures = [];
-                                forbidden =
-                                  [ Abs.with_origin GuaranteeViolation (ltl_of_fo step.guarantee_guard) ];
-                              })
+                              ({
+                                 product_dst_id = "";
+                                 product_dst = product_state_of_pt step.dst;
+                                 guarantee_guard = step.guarantee_guard;
+                                 ensures = [];
+                                 forbidden =
+                                   [ Abs.with_origin GuaranteeViolation step.guarantee_guard ];
+                               } : Abs.unsafe_product_case)
+                        | PT.Safe | PT.Bad_assumption -> None)
                in
                Some
                  ({
@@ -209,26 +206,27 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
                      {
                        requires = [];
                        ensures =
-                     (match (disj_fo safe_guards, safe_product_dsts) with
-                     | Some grouped, _ :: _ -> [ Abs.with_origin Internal (ltl_of_fo grouped) ]
-                     | _ -> []);
+                         (match (disj_fo safe_guards, safe_product_dsts) with
+                         | Some grouped, _ :: _ -> [ Abs.with_origin Internal grouped ]
+                         | _ -> []);
                      };
                    safe_summary =
                      {
                        safe_destination_id = None;
                        safe_product_dsts;
                        safe_propagates =
-                     grouped
-                     |> List.filter_map (fun ((step : PT.product_step), _) ->
-                            match step.step_class with
-                            | PT.Safe ->
-                                Some
-                                  (Abs.with_origin GuaranteeAutomaton
-                                     (ltl_of_fo step.guarantee_guard))
-                            | PT.Bad_assumption | PT.Bad_guarantee -> None);
+                         grouped
+                         |> List.filter_map (fun ((step : PT.product_step), _) ->
+                                match step.step_class with
+                                | PT.Safe ->
+                                    Some
+                                      (Abs.with_origin GuaranteeAutomaton
+                                         step.guarantee_guard)
+                                | PT.Bad_assumption | PT.Bad_guarantee -> None);
                        safe_ensures = [];
                      };
-                   cases;
+                   safe_cases;
+                   unsafe_cases;
                  } : Abs.product_contract))
   in
   contracts
@@ -238,16 +236,25 @@ let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) 
            if pc.safe_summary.safe_product_dsts = [] then None
            else Some (Printf.sprintf "D%d" (idx + 1))
          in
-         let cases =
-           pc.cases
-           |> List.mapi (fun case_idx (case : Abs.product_case) ->
-                  { case with product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (case_idx + 1) })
+         let safe_cases =
+           pc.safe_cases
+           |> List.mapi (fun case_idx (case : Abs.safe_product_case) ->
+                  let product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (case_idx + 1) in
+                  { case with product_dst_id })
+         in
+         let unsafe_cases =
+           pc.unsafe_cases
+           |> List.mapi (fun case_idx (case : Abs.unsafe_product_case) ->
+                  let offset = List.length pc.safe_cases in
+                  let product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (offset + case_idx + 1) in
+                  { case with product_dst_id })
          in
          {
            pc with
            identity = { pc.identity with product_src_id = source_id };
            safe_summary = { pc.safe_summary with safe_destination_id };
-           cases;
+           safe_cases;
+           unsafe_cases;
          })
 
 type t = { product_transitions : Abs.product_contract list }

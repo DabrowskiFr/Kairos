@@ -10,7 +10,7 @@ type formula_meta = {
 }
 
 type contract_formula = {
-  logic : ltl;
+  logic : Fo_formula.t;
   meta : formula_meta;
 }
 
@@ -45,7 +45,7 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (formula_meta, string) resul
 let contract_formula_to_yojson (f : contract_formula) : Yojson.Safe.t =
   `Assoc
     [
-      ("logic", Ast.ltl_to_yojson f.logic);
+      ("logic", Fo_formula.to_yojson f.logic);
       ("meta", formula_meta_to_yojson f.meta);
     ]
 
@@ -59,7 +59,7 @@ let contract_formula_of_yojson (json : Yojson.Safe.t) : (contract_formula, strin
       in
       let* logic_json = find "logic" in
       let* meta_json = find "meta" in
-      let* logic = Ast.ltl_of_yojson logic_json in
+      let* logic = Fo_formula.of_yojson logic_json in
       let* meta = formula_meta_of_yojson meta_json in
       Ok { logic; meta }
   | _ -> Error "contract_formula: expected object"
@@ -70,17 +70,18 @@ type product_state = {
   guarantee_state_index : automaton_state_index;
 }
 
-type product_step_class =
-  | Safe
-  | Bad_assumption
-  | Bad_guarantee
-
-type product_case = {
-  step_class : product_step_class;
+type safe_product_case = {
   product_dst_id : string;
   product_dst : product_state;
   guarantee_guard : Fo_formula.t;
   propagates : contract_formula list;
+  ensures : contract_formula list;
+}
+
+type unsafe_product_case = {
+  product_dst_id : string;
+  product_dst : product_state;
+  guarantee_guard : Fo_formula.t;
   ensures : contract_formula list;
   forbidden : contract_formula list;
 }
@@ -108,7 +109,8 @@ type product_contract = {
   identity : product_contract_identity;
   common : product_contract_common;
   safe_summary : product_contract_safe_summary;
-  cases : product_case list;
+  safe_cases : safe_product_case list;
+  unsafe_cases : unsafe_product_case list;
 }
 
 type transition = {
@@ -244,13 +246,13 @@ let dedup_contract_formulas (xs : contract_formula list) : contract_formula list
     xs
 
 let refresh_safe_summary (pc : product_contract) : product_contract =
-  let safe_cases = List.filter (fun (c : product_case) -> c.step_class = Safe) pc.cases in
+  let safe_cases : safe_product_case list = pc.safe_cases in
   let safe_product_dsts =
     match (pc.safe_summary.safe_product_dsts, safe_cases) with
     | existing, _ :: _ when existing <> [] -> existing
     | _, _ ->
         safe_cases
-        |> List.map (fun (c : product_case) -> c.product_dst)
+        |> List.map (fun (c : safe_product_case) -> c.product_dst)
         |> List.sort_uniq Stdlib.compare
   in
   let safe_destination_id =
@@ -260,12 +262,12 @@ let refresh_safe_summary (pc : product_contract) : product_contract =
   in
   let safe_propagates =
     safe_cases
-    |> List.concat_map (fun (c : product_case) -> c.propagates)
+    |> List.concat_map (fun (c : safe_product_case) -> c.propagates)
     |> dedup_contract_formulas
   in
   let safe_ensures =
     safe_cases
-    |> List.concat_map (fun (c : product_case) -> c.ensures)
+    |> List.concat_map (fun (c : safe_product_case) -> c.ensures)
     |> dedup_contract_formulas
   in
   {

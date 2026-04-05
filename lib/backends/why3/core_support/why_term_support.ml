@@ -123,7 +123,13 @@ let uniq_terms (terms : Ptree.term list) : Ptree.term list =
   in
   aux [] [] terms
 
+let why3_optimizations_enabled_ref = ref true
+let set_why3_optimizations_enabled enabled = why3_optimizations_enabled_ref := enabled
+let why3_optimizations_enabled () = !why3_optimizations_enabled_ref
+
 let rec simplify_term_bool (t : Ptree.term) : Ptree.term =
+  if not !why3_optimizations_enabled_ref then t
+  else
   let rebuild_with_attrs attrs body =
     List.fold_right (fun attr acc -> mk_term (Tattr (attr, acc))) attrs body
   in

@@ -38,16 +38,23 @@ let build_raw_node (node : Abs.node) : Ir.raw_node =
       |> List.concat_map (fun (pc : Abs.product_contract) ->
              Abs.values (pc.common.requires @ pc.common.ensures)
              @
-             (pc.cases
-             |> List.concat_map (fun (case : Abs.product_case) ->
-                    Abs.values (case.propagates @ case.ensures @ case.forbidden))))
+             let case_formulas =
+               List.concat_map
+                 (fun (case : Abs.safe_product_case) -> case.propagates @ case.ensures)
+                 pc.safe_cases
+               @ List.concat_map
+                   (fun (case : Abs.unsafe_product_case) -> case.ensures @ case.forbidden)
+                   pc.unsafe_cases
+             in
+             Abs.values case_formulas)
     in
     product_formulas @ Abs.values node.coherency_goals
   in
   let pre_k_map =
     Collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
       ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
-      ~ltl:(node.source_info.assumes @ node.source_info.guarantees @ contract_formulas)
+      ~fo_formulas:contract_formulas
+      ~ltl:(node.source_info.assumes @ node.source_info.guarantees)
       ~invariants_user:node.source_info.user_invariants
       ~invariants_state_rel:node.source_info.state_invariants
   in

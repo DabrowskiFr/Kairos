@@ -1,7 +1,11 @@
 open Ast
+open Fo_specs
 
 let of_ast_contract_formula ?origin (f : Ast.ltl_o) : Ir.contract_formula =
-  { logic = f.value; meta = { origin; oid = f.oid; loc = f.loc } }
+  {
+    logic = fo_formula_of_non_temporal_ltl_exn f.value;
+    meta = { origin; oid = f.oid; loc = f.loc };
+  }
 
 let of_ast_transition (t : Ast.transition) : Ir.transition =
   {

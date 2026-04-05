@@ -96,8 +96,8 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of Ast.ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of Ast.ltl
-  | FactFormula of Ast.ltl
+  | FactPhaseFormula of Fo_formula.t
+  | FactFormula of Fo_formula.t
   | FactFalse
 [@@deriving yojson]
 
@@ -123,8 +123,8 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of Ast.ident
   | RelFactGuaranteeState of int
-  | RelFactPhaseFormula of Ast.ltl
-  | RelFactFormula of Ast.ltl
+  | RelFactPhaseFormula of Fo_formula.t
+  | RelFactFormula of Fo_formula.t
   | RelFactFalse
 [@@deriving yojson]
 

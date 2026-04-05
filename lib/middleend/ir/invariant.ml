@@ -65,7 +65,7 @@ type t = {
 
 let build ~(node : Abs.node) : t = { invariant_of_state = invariant_of_state node }
 
-let add_unique_formula (origin : Formula_origin.t) (f : ltl)
+let add_unique_formula (origin : Formula_origin.t) (f : Fo_formula.t)
     (xs : Abs.contract_formula list) : Abs.contract_formula list =
   if List.exists (fun (x : Abs.contract_formula) -> x.logic = f) xs then xs
   else xs @ [ Abs.with_origin origin f ]
@@ -78,21 +78,41 @@ let apply ~(invariant_generation : t) (n : Abs.node) : Abs.node =
         let requires =
           match invariant_generation.invariant_of_state pc.identity.product_src.prog_state with
           | None -> pc.common.requires
-          | Some inv -> add_unique_formula Invariant inv pc.common.requires
+          | Some inv ->
+              add_unique_formula Invariant (fo_formula_of_non_temporal_ltl_exn inv) pc.common.requires
         in
-        let cases =
+        let safe_cases =
           List.map
-            (fun (case : Abs.product_case) ->
+            (fun (case : Abs.safe_product_case) ->
               match invariant_generation.invariant_of_state case.product_dst.prog_state with
               | None -> case
               | Some inv ->
-                  let shifted_inv = shift_ltl_backward_inputs ~is_input inv in
+                  let shifted_inv =
+                    shift_formula_backward_inputs ~is_input (fo_formula_of_non_temporal_ltl_exn inv)
+                  in
                   let ensures = add_unique_formula Invariant shifted_inv case.ensures in
                   if ensures == case.ensures then case else { case with ensures })
-            pc.cases
+            pc.safe_cases
         in
-        if requires == pc.common.requires && cases == pc.cases then pc
-        else Abs.refresh_safe_summary { pc with common = { pc.common with requires }; cases })
+        let unsafe_cases =
+          List.map
+            (fun (case : Abs.unsafe_product_case) ->
+              match invariant_generation.invariant_of_state case.product_dst.prog_state with
+              | None -> case
+              | Some inv ->
+                  let shifted_inv =
+                    shift_formula_backward_inputs ~is_input (fo_formula_of_non_temporal_ltl_exn inv)
+                  in
+                  let ensures = add_unique_formula Invariant shifted_inv case.ensures in
+                  if ensures == case.ensures then case else { case with ensures })
+            pc.unsafe_cases
+        in
+        if requires == pc.common.requires && safe_cases == pc.safe_cases
+           && unsafe_cases == pc.unsafe_cases
+        then pc
+        else
+          Abs.refresh_safe_summary
+            { pc with common = { pc.common with requires }; safe_cases; unsafe_cases })
       n.product_transitions
   in
   { n with product_transitions }

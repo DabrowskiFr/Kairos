@@ -43,7 +43,7 @@ let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
@@ -51,7 +51,7 @@ let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
     t.contracts.requires;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"
@@ -112,7 +112,7 @@ let dot_of_verified_transition (t : Ir.verified_transition) : string =
   end;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
@@ -120,7 +120,7 @@ let dot_of_verified_transition (t : Ir.verified_transition) : string =
     t.contracts.requires;
   List.iter
     (fun (f : Ir.contract_formula) ->
-      let s = truncate (Ast_pretty.string_of_ltl f.logic) |> html_escape in
+      let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"

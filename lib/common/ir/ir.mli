@@ -1,52 +1,6 @@
-(** Intermediate representation (IR) for the middle-end.
-
-    Stable interface between:
-    {ul {- AST translation (From_ast);}
-        {- middle-end passes;}
-        {- proof-kernel and Why3 backends;}
-        {- rendering and diagnostics.}}
-
-    Middle-end passes:
-    {ul
-    {- Automata/Product passes compute product states and materialize
-       canonical [product_contract] values in
-       [node.product_transitions].}
-
-    {- Contract enrichment passes ([pre], [invariant], [post])
-       refine:
-       {ul
-       {- [product_contract.common]}
-       {- [product_contract.safe_summary]}
-       {- [cases]}
-       }
-    }
-
-    {- Proof-obligation pipeline snapshots are stored in
-       [proof_views]:
-       {ol
-       {- [raw] — pre-contract view with [pre_k_map].}
-       {- [annotated] — contracts attached to transitions.}
-       {- [verified] — lowered [pre_k] formulas with update
-          statements.}
-       }
-    }
-
-    {- Backends:
-       Why3 local codegen consumes [node] (and proof views when
-       needed), while proof-kernel export derives exchange-oriented
-       summaries from the same IR state.}
-    }
-*)
 
 open Ir_shared_types
 
-(** Traceability metadata attached to a logical formula.
-
-    Fields:
-    {ul
-    {- [origin]: optional generation origin;}
-    {- [oid]: stable identifier used across exports/reports;}
-    {- [loc]: optional source location.}} *)
 type formula_meta = {
   origin : Formula_origin.t option;
   oid : formula_id;
@@ -54,7 +8,7 @@ type formula_meta = {
 }
 
 type contract_formula = {
-  logic : ltl;
+  logic : Fo_formula.t;
   meta : formula_meta;
 }
 
@@ -75,26 +29,10 @@ type product_state = {
   guarantee_state_index : automaton_state_index;
 }
 
-(** Classification of one product step.
-
-    Constructors:
-    {ul
-    {- [Safe]: compatible with both assume and guarantee;}
-    {- [Bad_assumption]: assume violation;}
-    {- [Bad_guarantee]: guarantee violation only.}} 
-    if a step violates both assume and guarantee, it is classified as
-    [Bad_assumption].
-    *)
-type product_step_class =
-  | Safe
-  | Bad_assumption
-  | Bad_guarantee
-
-(** Residual case attached to a canonical product contract.
+(** Residual safe branch attached to a canonical product contract.
 
     Fields:
     {ul
-    {- [step_class]: branch class;}
     {- [product_dst_id]: stable destination identifier used by renderers;}
     {- [product_dst]: destination product state;}
     {- [guarantee_guard]: guarantee-side selector guard;}
@@ -104,14 +42,28 @@ type product_step_class =
        [pre] keeps those formulas, shifts them with
        [shift_ltl_forward_inputs], and injects the result into destination
        canonical [requires] with origin [GuaranteePropagation].}
-    {- [ensures]: branch-specific postconditions;}
-    {- [forbidden]: forbidden formulas (typically bad-guarantee).}} *)
-type product_case = {
-  step_class : product_step_class;
+    {- [ensures]: branch-specific postconditions.}} *)
+type safe_product_case = {
   product_dst_id : string;
   product_dst : product_state;
   guarantee_guard : Fo_formula.t;
   propagates : contract_formula list;
+  ensures : contract_formula list;
+}
+
+(** Residual unsafe branch attached to a canonical product contract.
+
+    Fields:
+    {ul
+    {- [product_dst_id]: stable destination identifier used by renderers;}
+    {- [product_dst]: destination product state;}
+    {- [guarantee_guard]: guarantee-side selector guard;}
+    {- [ensures]: branch-specific postconditions;}
+    {- [forbidden]: forbidden formulas (typically bad-guarantee).}} *)
+type unsafe_product_case = {
+  product_dst_id : string;
+  product_dst : product_state;
+  guarantee_guard : Fo_formula.t;
   ensures : contract_formula list;
   forbidden : contract_formula list;
 }
@@ -147,15 +99,16 @@ type product_contract_safe_summary = {
     {- the same assume guard.}}
 
     The [safe_*] fields store the already-computed safe summary consumed by the
-    Why backend, while [cases] keeps branch-level details for diagnostics and
-    exports.
+    Why backend, while [safe_cases]/[unsafe_cases] keep branch-level details for
+    diagnostics and exports.
 
     Fields:
     {ul
     {- [identity]: shared group identity;}
     {- [common]: formulas shared by all branches;}
     {- [safe_summary]: precomputed safe aggregation;}
-    {- [cases]: residual branch-level cases.}}
+    {- [safe_cases]: residual admissible branches;}
+    {- [unsafe_cases]: residual branches to exclude.}}
 
     Invariant:
     [safe_summary] is the canonical aggregation of safe cases and is kept
@@ -164,7 +117,8 @@ type product_contract = {
   identity : product_contract_identity;
   common : product_contract_common;
   safe_summary : product_contract_safe_summary;
-  cases : product_case list;
+  safe_cases : safe_product_case list;
+  unsafe_cases : unsafe_product_case list;
 }
 
 (** Normalized transition.
@@ -304,6 +258,7 @@ type contracts_info = {
     {- product-specialized transitions;}
     {- source information kept for traceability and export;}
     {- coherency goals.}} *)
+    
 type node = {
   semantics : node_semantics;
   trans : transition list;
@@ -326,13 +281,13 @@ val to_ast_transition : transition -> Ast.transition
 val to_ast_node : node -> Ast.node
 
 (** Build a contract formula with a fresh provenance id. *)
-val with_origin : ?loc:loc -> Formula_origin.t -> ltl -> contract_formula
+val with_origin : ?loc:loc -> Formula_origin.t -> Fo_formula.t -> contract_formula
 
 (** Extract the raw logical formulas carried by a list of normalized contract
     formulas.
 
     This helper intentionally drops metadata and keeps only [logic]. *)
-val values : contract_formula list -> ltl list
+val values : contract_formula list -> Fo_formula.t list
 
 (** Recompute [safe_*] summary fields from [cases], preserving explicitly set
     summary fields when they are still consistent with available safe cases. *)

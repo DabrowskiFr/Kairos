@@ -53,6 +53,7 @@ type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_gro
 
 val compile_program_ast_from_ir_nodes :
   ?prefix_fields:bool ->
+  ?disable_why3_optimizations:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
   Ir.node list ->
   program_ast

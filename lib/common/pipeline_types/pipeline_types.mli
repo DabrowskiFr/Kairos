@@ -171,6 +171,7 @@ type config = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  disable_why3_optimizations : bool;
 }
 
 type error =

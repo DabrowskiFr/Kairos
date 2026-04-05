@@ -12,13 +12,15 @@ let instrumentation_pass ~engine ~generate_png ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.instrumentation_pass ~generate_png ~input_file
 
-let why_pass ~engine ~prefix_fields ~input_file =
+let why_pass ~engine ~prefix_fields ~disable_why3_optimizations ~input_file =
   match normalize engine with
-  | Default -> Pipeline_service.why_pass ~prefix_fields ~input_file
+  | Default -> Pipeline_service.why_pass ~prefix_fields ~disable_why3_optimizations ~input_file
 
-let obligations_pass ~engine ~prefix_fields ~prover ~input_file =
+let obligations_pass ~engine ~prefix_fields ~disable_why3_optimizations ~prover ~input_file =
   match normalize engine with
-  | Default -> Pipeline_service.obligations_pass ~prefix_fields ~prover ~input_file
+  | Default ->
+      Pipeline_service.obligations_pass ~prefix_fields ~disable_why3_optimizations
+        ~prover ~input_file
 
 let normalized_program ~engine ~input_file =
   match normalize engine with

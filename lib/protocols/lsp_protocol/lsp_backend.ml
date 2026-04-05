@@ -15,6 +15,7 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.con
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
     generate_dot_png = cfg.generate_dot_png;
+    disable_why3_optimizations = cfg.disable_why3_optimizations;
   }
 
 let read_or_compile_kobj ~(engine : Engine_service.engine) ~(input_file : string) =
@@ -43,7 +44,9 @@ let why_pass (req : Lsp_protocol.why_pass_request) =
       ~default:Engine_service.Default
   in
   match
-    Engine_service.why_pass ~engine ~prefix_fields:req.prefix_fields ~input_file:req.input_file
+    Engine_service.why_pass ~engine ~prefix_fields:req.prefix_fields
+      ~disable_why3_optimizations:req.disable_why3_optimizations
+      ~input_file:req.input_file
   with
   | Ok out -> Ok (Lsp_app.map_why out)
   | Error e -> Error (map_error e)
@@ -55,6 +58,7 @@ let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
   in
   match
     Engine_service.obligations_pass ~engine ~prefix_fields:req.prefix_fields
+      ~disable_why3_optimizations:req.disable_why3_optimizations
       ~prover:req.prover ~input_file:req.input_file
   with
   | Ok out -> Ok (Lsp_app.map_oblig out)

@@ -13,12 +13,14 @@ val instrumentation_pass :
 val why_pass :
   engine:engine ->
   prefix_fields:bool ->
+  disable_why3_optimizations:bool ->
   input_file:string ->
   (Pipeline_types.why_outputs, Pipeline_types.error) result
 
 val obligations_pass :
   engine:engine ->
   prefix_fields:bool ->
+  disable_why3_optimizations:bool ->
   prover:string ->
   input_file:string ->
   (Pipeline_types.obligations_outputs, Pipeline_types.error) result

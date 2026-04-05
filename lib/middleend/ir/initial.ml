@@ -1,4 +1,5 @@
 open Ast
+open Fo_specs
 module Abs = Ir
 
 let add_initial_invariant_goal (n : Abs.node) ~(inv_of_state : ident -> ltl option) : Abs.node =
@@ -8,6 +9,7 @@ let add_initial_invariant_goal (n : Abs.node) ~(inv_of_state : ident -> ltl opti
       let existing_values =
         List.map (fun (f : Abs.contract_formula) -> f.logic) n.coherency_goals
       in
+      let inv = fo_formula_of_non_temporal_ltl_exn inv in
       if List.mem inv existing_values then n
       else
         {

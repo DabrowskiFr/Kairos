@@ -7,5 +7,5 @@
   pipeline_outputs)
  (libraries
   kairos_ast kairos_fo_formula kairos_provenance kairos_stage_types kairos_stage_names kairos_logging kairos_automata_generation kairos_automata_pass kairos_ir kairos_ir_passes kairos_ir_stage_passes kairos_proof_kernel_types kairos_ast_pretty kairos_generated_names kairos_temporal_support kairos_why3
-  kairos_external_why3 kairos_external_graphviz kairos_kobj proof_obligation_ir_render kairos_diagnostics kairos_pipeline_types
+  kairos_external_why3 kairos_external_graphviz kairos_external_timing kairos_kobj proof_obligation_ir_render kairos_diagnostics kairos_pipeline_types
   bos fpath))

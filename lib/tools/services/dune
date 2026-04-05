@@ -8,4 +8,5 @@
   kairos_artifacts
   kairos_why3
   kairos_kobj
-  kairos_external_why3))
+  kairos_external_why3
+  kairos_external_timing))

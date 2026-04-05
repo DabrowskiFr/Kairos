@@ -59,16 +59,24 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
           safe_propagates = List.map reid_contract_formula pc.safe_summary.safe_propagates;
           safe_ensures = List.map reid_contract_formula pc.safe_summary.safe_ensures;
         };
-      cases =
+      safe_cases =
         List.map
-          (fun (case : Abs.product_case) ->
+          (fun (c : Abs.safe_product_case) ->
             {
-              case with
-              propagates = List.map reid_contract_formula case.propagates;
-              ensures = List.map reid_contract_formula case.ensures;
-              forbidden = List.map reid_contract_formula case.forbidden;
+              c with
+              propagates = List.map reid_contract_formula c.propagates;
+              ensures = List.map reid_contract_formula c.ensures;
             })
-          pc.cases;
+          pc.safe_cases;
+      unsafe_cases =
+        List.map
+          (fun (c : Abs.unsafe_product_case) ->
+            {
+              c with
+              ensures = List.map reid_contract_formula c.ensures;
+              forbidden = List.map reid_contract_formula c.forbidden;
+            })
+          pc.unsafe_cases;
     }
   in
   let reid_node (n : Abs.node) =

@@ -1,9 +1,45 @@
 (** High-level orchestration for full compilation/proof runs. *)
 
+let fmt_s x = Printf.sprintf "%.6f" x
+
+let solver_sum_s (goals : Pipeline_types.goal_info list) : float =
+  List.fold_left (fun acc (_, _, time_s, _, _, _) -> acc +. time_s) 0.0 goals
+
+let with_timing_stage_meta ~(t0 : float) ~(t_build_done : float)
+    ~(snap_before : External_timing.snapshot) (out : Pipeline_types.outputs) :
+    Pipeline_types.outputs =
+  let t_end = Unix.gettimeofday () in
+  let counters = External_timing.diff ~before:snap_before ~after_:(External_timing.snapshot ()) in
+  let solver_s = solver_sum_s out.goals in
+  let timing_fields =
+    [
+      ("total_wall_s", fmt_s (t_end -. t0));
+      ("build_ast_s", fmt_s (t_build_done -. t0));
+      ("build_outputs_s", fmt_s (t_end -. t_build_done));
+      ("spot_s", fmt_s counters.spot_s);
+      ("spot_calls", string_of_int counters.spot_calls);
+      ("z3_s", fmt_s counters.z3_s);
+      ("z3_calls", string_of_int counters.z3_calls);
+      ("product_s", fmt_s counters.product_s);
+      ("canonical_s", fmt_s counters.canonical_s);
+      ("why_gen_s", fmt_s counters.why_gen_s);
+      ("vc_smt_s", fmt_s counters.vc_smt_s);
+      ("solver_sum_s", fmt_s solver_s);
+      ("solver_goal_count", string_of_int (List.length out.goals));
+    ]
+  in
+  { out with stage_meta = out.stage_meta @ [ ("timings", timing_fields) ] }
+
 let run ~build_ast_with_info ~build_outputs (cfg : Pipeline_types.config) =
+  let t0 = Unix.gettimeofday () in
+  let snap_before = External_timing.snapshot () in
   match build_ast_with_info ~input_file:cfg.input_file () with
   | Error _ as e -> e
-  | Ok (asts, infos) -> build_outputs ~cfg ~asts ~infos
+  | Ok (asts, infos) ->
+      let t_build_done = Unix.gettimeofday () in
+      (match build_outputs ~cfg ~asts ~infos with
+      | Error _ as e -> e
+      | Ok out -> Ok (with_timing_stage_meta ~t0 ~t_build_done ~snap_before out))
 
 let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
     (cfg : Pipeline_types.config) ~on_outputs_ready ~on_goals_ready ~on_goal_done =

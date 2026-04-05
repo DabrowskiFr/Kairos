@@ -23,16 +23,6 @@ let same_automaton_edge_ir (a : automaton_edge_ir) (b : automaton_edge_ir) : boo
   && a.dst_index = b.dst_index
   && simplify_fo a.guard = simplify_fo b.guard
 
-let same_product_case_step (case : Abs.product_case) (step : product_step_ir) : bool =
-  case.step_class
-  =
-  (match step.step_kind with
-  | StepSafe -> Abs.Safe
-  | StepBadAssumption -> Abs.Bad_assumption
-  | StepBadGuarantee -> Abs.Bad_guarantee)
-  && same_product_state case.product_dst step.dst
-  && simplify_fo case.guarantee_guard = simplify_fo step.guarantee_edge.guard
-
 let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_program_ir)
     ~(product_steps : product_step_ir list)
     ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
@@ -99,17 +89,14 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
     | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
     | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_post hs)
   in
-  let rec rewrite_ltl_post (f : Ast.ltl) : Ast.ltl =
+  let rec rewrite_formula_post (f : Fo_formula.t) : Fo_formula.t =
     match f with
-    | Ast.LTrue | Ast.LFalse -> f
-    | Ast.LAtom fo_atom -> Ast.LAtom (rewrite_fo_post fo_atom)
-    | Ast.LNot a -> Ast.LNot (rewrite_ltl_post a)
-    | Ast.LAnd (a, b) -> Ast.LAnd (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LOr (a, b) -> Ast.LOr (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LImp (a, b) -> Ast.LImp (rewrite_ltl_post a, rewrite_ltl_post b)
-    | Ast.LX a -> Ast.LX (rewrite_ltl_post a)
-    | Ast.LG a -> Ast.LG (rewrite_ltl_post a)
-    | Ast.LW (a, b) -> Ast.LW (rewrite_ltl_post a, rewrite_ltl_post b)
+    | Fo_formula.FTrue | Fo_formula.FFalse -> f
+    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_post fo_atom)
+    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_post a)
+    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_post a, rewrite_formula_post b)
+    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_post a, rewrite_formula_post b)
+    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_post a, rewrite_formula_post b)
   in
   let rec rewrite_iexpr_pre (e : Ast.iexpr) : Ast.iexpr =
     let iexpr =
@@ -146,17 +133,14 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
     | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
     | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_pre hs)
   in
-  let rec rewrite_ltl_pre (f : Ast.ltl) : Ast.ltl =
+  let rec rewrite_formula_pre (f : Fo_formula.t) : Fo_formula.t =
     match f with
-    | Ast.LTrue | Ast.LFalse -> f
-    | Ast.LAtom fo_atom -> Ast.LAtom (rewrite_fo_pre fo_atom)
-    | Ast.LNot a -> Ast.LNot (rewrite_ltl_pre a)
-    | Ast.LAnd (a, b) -> Ast.LAnd (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LOr (a, b) -> Ast.LOr (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LImp (a, b) -> Ast.LImp (rewrite_ltl_pre a, rewrite_ltl_pre b)
-    | Ast.LX a -> Ast.LX (rewrite_ltl_pre a)
-    | Ast.LG a -> Ast.LG (rewrite_ltl_pre a)
-    | Ast.LW (a, b) -> Ast.LW (rewrite_ltl_pre a, rewrite_ltl_pre b)
+    | Fo_formula.FTrue | Fo_formula.FFalse -> f
+    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_pre fo_atom)
+    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_pre a)
+    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_pre a, rewrite_formula_pre b)
+    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_pre a, rewrite_formula_pre b)
+    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_pre a, rewrite_formula_pre b)
   in
   let is_structural_step_fact (fact : relational_clause_fact_ir) =
     match fact.desc with
@@ -183,8 +167,8 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
   let shift_post_fact (fact : relational_clause_fact_ir) =
     let desc =
       match fact.desc with
-      | RelFactPhaseFormula fo_atom -> RelFactPhaseFormula (rewrite_ltl_post fo_atom)
-      | RelFactFormula fo_atom -> RelFactFormula (rewrite_ltl_post fo_atom)
+      | RelFactPhaseFormula fo_formula -> RelFactPhaseFormula (rewrite_formula_post fo_formula)
+      | RelFactFormula fo_formula -> RelFactFormula (rewrite_formula_post fo_formula)
       | _ -> fact.desc
     in
     { fact with desc }
@@ -222,12 +206,14 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
                  anchor = ClauseAnchorProductStep step;
                  hypotheses = [];
                  conclusions =
-                   [
-                     {
-                       time = CurrentTick;
-                       desc = RelFactFormula (Fo_simplifier.simplify_ltl (rewrite_ltl_pre f.logic));
-                     };
-                   ];
+                         [
+                           {
+                             time = CurrentTick;
+                             desc =
+                               RelFactFormula
+                                  (Fo_simplifier.simplify_fo (rewrite_formula_pre f.logic));
+                           };
+                         ];
                })
       )
   in

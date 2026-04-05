@@ -109,14 +109,18 @@ let string_of_spot_ltl ~(atom_map : (fo_atom * ident) list) (f : ltl) : string =
   go ~ctx:0 f
 
 let ensure_safety (formula : string) : unit =
+  let t0 = Unix.gettimeofday () in
   let cmd = "ltlfilt --safety -f " ^ Filename.quote formula in
   let result = run_command cmd in
+  External_timing.record_spot ~elapsed_s:(Unix.gettimeofday () -. t0);
   if not (command_ok result) then
     failwith ("Spot backend rejected a non-safety formula: " ^ command_summary result)
 
 let call_spot (formula : string) : string =
+  let t0 = Unix.gettimeofday () in
   let cmd = "ltl2tgba -M -D -C -H -f " ^ Filename.quote formula in
   let result = run_command cmd in
+  External_timing.record_spot ~elapsed_s:(Unix.gettimeofday () -. t0);
   if command_ok result then result.stdout
   else failwith ("Spot backend failed to generate an automaton: " ^ command_summary result)
 

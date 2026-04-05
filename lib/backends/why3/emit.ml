@@ -153,7 +153,7 @@ let logic_getter_decl_for_type ~(vars_type_name : string) ~(field_name : string)
     ]
 
 let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runtime_view.port_view list)
-    ~(name : string) ~(formula : Ast.ltl) : Ptree.decl =
+    ~(name : string) ~(formula : Fo_formula.t) : Ptree.decl =
   let env = { env with rec_name = "self" } in
   let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
   let input_params =
@@ -162,7 +162,7 @@ let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runti
         (loc, Some (ident p.port_name), false, default_pty p.port_type))
       input_ports
   in
-  let body = Why_compile_expr.compile_local_ltl_term env formula in
+  let body = Why_compile_expr.compile_local_fo_formula_term env formula in
   Ptree.Dlogic
     [
       {
@@ -462,9 +462,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
            same_runtime_transition_as_step sc.step t)
   in
   let step_class_suffix = function
-    | Ir.Safe -> "safe"
-    | Ir.Bad_assumption -> "bad_assumption"
-    | Ir.Bad_guarantee -> "bad_guarantee"
+    | Why_runtime_view.StepSafe -> "safe"
+    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
   in
   let step_helper_name ~(index : int) (sc : Why_types.step_contract_info) =
     let step = sc.step in
@@ -653,7 +652,10 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         | t :: rest ->
             Some (List.fold_left (fun acc x -> mk_term (Tbinnop (acc, Dterm.DTand, x))) t rest)
       in
-      let is_init_goal = function LImp (LTrue, _) -> true | _ -> false in
+      let is_init_goal = function
+        | Fo_formula.FImp (Fo_formula.FTrue, _) -> true
+        | _ -> false
+      in
       List.mapi
         (fun i (f : Ir.contract_formula) ->
           let wid = Provenance.fresh_id () in
@@ -661,7 +663,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
           let origin_attr = attr_for_label "User contracts coherency" in
           let base =
-            let base = compile_local_ltl_term env f.logic in
+            let base = compile_local_fo_formula_term env f.logic in
             if is_init_goal f.logic then
               match init_guard with Some g -> mk_term (Tbinnop (g, Dterm.DTimplies, base)) | None -> base
             else base
@@ -737,21 +739,28 @@ let compile_node_from_ir_node ~prefix_fields ?comment_specs ~(program_nodes : Ir
     ~node_names:(List.map (fun (n : Ir.node) -> n.semantics.sem_nname) program_nodes)
     info
 
-let compile_program_ast_from_ir_nodes ?(prefix_fields = true) ?(comment_map = [])
-    (program_nodes : Ir.node list) :
+let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
+    ?(disable_why3_optimizations = false) ?(comment_map = []) (program_nodes : Ir.node list) :
     program_ast =
   let lookup_comment name = List.assoc_opt name comment_map in
-  let modules =
-    List.map
-      (fun (node : Ir.node) ->
-        let name = node.semantics.sem_nname in
-        compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name) ~program_nodes
-          node)
-      program_nodes
-  in
-  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
-  let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
-  { mlw; module_info }
+  let previous_opt_flag = Why_term_support.why3_optimizations_enabled () in
+  Why_term_support.set_why3_optimizations_enabled (not disable_why3_optimizations);
+  try
+    let modules =
+      List.map
+        (fun (node : Ir.node) ->
+          let name = node.semantics.sem_nname in
+          compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name) ~program_nodes
+            node)
+        program_nodes
+    in
+    Why_term_support.set_why3_optimizations_enabled previous_opt_flag;
+    let mlw = Ptree.Modules (List.map (fun (a, _b, c, _, _) -> (a, c)) modules) in
+    let module_info = List.map (fun (id, _, _, _, groups) -> (id.id_str, groups)) modules in
+    { mlw; module_info }
+  with exn ->
+    Why_term_support.set_why3_optimizations_enabled previous_opt_flag;
+    raise exn
 
 let emit_program_ast (ast : program_ast) : string =
   let mlw = ast.mlw in

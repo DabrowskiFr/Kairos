@@ -680,6 +680,8 @@ let () =
                             {
                               Lsp_protocol.input_file;
                               prefix_fields = get_param_bool params "prefixFields" false;
+                              disable_why3_optimizations =
+                                get_param_bool params "disableWhy3Optimizations" false;
                               engine = Engine_service.string_of_engine (get_engine params);
                             }
                       | None -> None)
@@ -711,6 +713,8 @@ let () =
                               Lsp_protocol.input_file;
                               prover;
                               prefix_fields = get_param_bool params "prefixFields" false;
+                              disable_why3_optimizations =
+                                get_param_bool params "disableWhy3Optimizations" false;
                               engine = Engine_service.string_of_engine (get_engine params);
                             }
                       | _ -> None)
@@ -872,6 +876,8 @@ let () =
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;
                             generate_dot_png = get_param_bool params "generateDotPng" true;
+                            disable_why3_optimizations =
+                              get_param_bool params "disableWhy3Optimizations" false;
                           }
                     in
                     let engine =
@@ -952,6 +958,7 @@ let () =
                         generate_vc_text = cfg.generate_vc_text;
                         generate_smt_text = cfg.generate_smt_text;
                         generate_dot_png = cfg.generate_dot_png;
+                        disable_why3_optimizations = cfg.disable_why3_optimizations;
                       }
                     in
                     (match

@@ -268,6 +268,7 @@ type instrumentation_pass_request = {
 type why_pass_request = {
   input_file : string [@key "inputFile"];
   prefix_fields : bool [@key "prefixFields"];
+  disable_why3_optimizations : bool [@key "disableWhy3Optimizations"] [@default false];
   engine : string;
 }
 [@@deriving yojson]
@@ -276,6 +277,7 @@ type obligations_pass_request = {
   input_file : string [@key "inputFile"];
   prover : string;
   prefix_fields : bool [@key "prefixFields"];
+  disable_why3_optimizations : bool [@key "disableWhy3Optimizations"] [@default false];
   engine : string;
 }
 [@@deriving yojson]
@@ -312,6 +314,7 @@ type config_repr = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  disable_why3_optimizations : bool [@default false];
 }
 [@@deriving yojson]
 
@@ -330,6 +333,7 @@ type config = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  disable_why3_optimizations : bool;
 }
 
 let yojson_of_config (c : config) =
@@ -349,6 +353,7 @@ let yojson_of_config (c : config) =
       generate_vc_text = c.generate_vc_text;
       generate_smt_text = c.generate_smt_text;
       generate_dot_png = c.generate_dot_png;
+      disable_why3_optimizations = c.disable_why3_optimizations;
     }
   in
   config_repr_to_yojson repr
@@ -373,6 +378,7 @@ let config_of_yojson json =
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;
           generate_dot_png = repr.generate_dot_png;
+          disable_why3_optimizations = repr.disable_why3_optimizations;
         }
 
 let yojson_of_loc = loc_to_yojson

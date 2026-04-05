@@ -26,6 +26,16 @@ val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast
     expression depends on an input. *)
 val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
 
+(** Shift one step forward all input-dependent references in a non-temporal
+    boolean formula. *)
+val shift_formula_forward_inputs :
+  is_input:(Ast.ident -> bool) -> Fo_formula.t -> Fo_formula.t
+
+(** Shift one step backward all input-dependent references in a non-temporal
+    boolean formula. *)
+val shift_formula_backward_inputs :
+  is_input:(Ast.ident -> bool) -> Fo_formula.t -> Fo_formula.t
+
 (** Shift all references inside a first-order formula one step forward in
     time. *)
 val shift_fo_forward_all : Ast.fo_atom -> Ast.fo_atom

@@ -55,6 +55,34 @@ let shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom
       FRel (shift_hexpr_backward ~is_input h1, r, shift_hexpr_backward ~is_input h2)
   | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_backward ~is_input) hs)
 
+let rec shift_formula_forward_inputs ~(is_input : ident -> bool) (f : Fo_formula.t) :
+    Fo_formula.t =
+  let open Fo_formula in
+  match f with
+  | FTrue | FFalse -> f
+  | FAtom a -> FAtom (shift_fo_forward_inputs ~is_input a)
+  | FNot a -> FNot (shift_formula_forward_inputs ~is_input a)
+  | FAnd (a, b) ->
+      FAnd (shift_formula_forward_inputs ~is_input a, shift_formula_forward_inputs ~is_input b)
+  | FOr (a, b) ->
+      FOr (shift_formula_forward_inputs ~is_input a, shift_formula_forward_inputs ~is_input b)
+  | FImp (a, b) ->
+      FImp (shift_formula_forward_inputs ~is_input a, shift_formula_forward_inputs ~is_input b)
+
+let rec shift_formula_backward_inputs ~(is_input : ident -> bool) (f : Fo_formula.t) :
+    Fo_formula.t =
+  let open Fo_formula in
+  match f with
+  | FTrue | FFalse -> f
+  | FAtom a -> FAtom (shift_fo_backward_inputs ~is_input a)
+  | FNot a -> FNot (shift_formula_backward_inputs ~is_input a)
+  | FAnd (a, b) ->
+      FAnd (shift_formula_backward_inputs ~is_input a, shift_formula_backward_inputs ~is_input b)
+  | FOr (a, b) ->
+      FOr (shift_formula_backward_inputs ~is_input a, shift_formula_backward_inputs ~is_input b)
+  | FImp (a, b) ->
+      FImp (shift_formula_backward_inputs ~is_input a, shift_formula_backward_inputs ~is_input b)
+
 let shift_hexpr_forward_all (h : hexpr) : hexpr =
   match h with
   | HNow e -> HPreK (e, 1)

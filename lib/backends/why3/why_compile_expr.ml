@@ -195,6 +195,27 @@ let rec compile_local_ltl_term ?(prefer_link = false) ?(in_post = false) (env : 
   | LX _ | LG _ | LW _ ->
       failwith "compile_local_ltl_term: residual temporal operator in IR contract"
 
+let rec compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) (env : env)
+    (f : Fo_formula.t) : Ptree.term =
+  match f with
+  | Fo_formula.FTrue -> mk_term Ttrue
+  | Fo_formula.FFalse -> mk_term Tfalse
+  | Fo_formula.FAtom fo -> compile_fo_term_shift ~prefer_link ~in_post env false fo
+  | Fo_formula.FNot a ->
+      mk_term (Tnot (compile_local_fo_formula_term ~prefer_link ~in_post env a))
+  | Fo_formula.FAnd (a, b) ->
+      term_bool_binop Dterm.DTand
+        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
+        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
+  | Fo_formula.FOr (a, b) ->
+      term_bool_binop Dterm.DTor
+        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
+        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
+  | Fo_formula.FImp (a, b) ->
+      term_bool_binop Dterm.DTimplies
+        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
+        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
+
 let pre_k_source_expr (env : env) (e : iexpr) : Ptree.expr =
   match e.iexpr with
   | IVar x -> field env x

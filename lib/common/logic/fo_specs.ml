@@ -133,6 +133,46 @@ let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f :
 let lower_fo_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : fo_atom option =
   lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
+let rec lower_fo_formula_temporal_bindings ~(temporal_bindings : temporal_binding list)
+    (f : Fo_formula.t) : Fo_formula.t option =
+  match f with
+  | Fo_formula.FTrue -> Some Fo_formula.FTrue
+  | Fo_formula.FFalse -> Some Fo_formula.FFalse
+  | Fo_formula.FAtom atom ->
+      Option.map (fun atom' -> Fo_formula.FAtom atom')
+        (lower_fo_temporal_bindings ~temporal_bindings atom)
+  | Fo_formula.FNot a ->
+      Option.map (fun a' -> Fo_formula.FNot a')
+        (lower_fo_formula_temporal_bindings ~temporal_bindings a)
+  | Fo_formula.FAnd (a, b) -> begin
+      match
+        ( lower_fo_formula_temporal_bindings ~temporal_bindings a,
+          lower_fo_formula_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some (Fo_formula.FAnd (a', b'))
+      | _ -> None
+    end
+  | Fo_formula.FOr (a, b) -> begin
+      match
+        ( lower_fo_formula_temporal_bindings ~temporal_bindings a,
+          lower_fo_formula_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some (Fo_formula.FOr (a', b'))
+      | _ -> None
+    end
+  | Fo_formula.FImp (a, b) -> begin
+      match
+        ( lower_fo_formula_temporal_bindings ~temporal_bindings a,
+          lower_fo_formula_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some (Fo_formula.FImp (a', b'))
+      | _ -> None
+    end
+
+let lower_fo_formula_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+    (f : Fo_formula.t) : Fo_formula.t option =
+  lower_fo_formula_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
+
 let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : ltl) :
     ltl option =
   match f with
@@ -246,6 +286,38 @@ let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo_atom) list) (e : iexpr) :
   | IBin (Ge, a, b) -> FAtom (FRel (HNow a, RGe, HNow b))
   | IBin (_, a, b) -> FAtom (FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true)))
   | IUn (_, a) -> FAtom (FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true)))
+
+let rec fo_formula_of_non_temporal_ltl (f : ltl) : Fo_formula.t option =
+  match f with
+  | LTrue -> Some Fo_formula.FTrue
+  | LFalse -> Some Fo_formula.FFalse
+  | LAtom a -> Some (Fo_formula.FAtom a)
+  | LNot a ->
+      Option.map (fun a' -> Fo_formula.FNot a') (fo_formula_of_non_temporal_ltl a)
+  | LAnd (a, b) -> begin
+      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
+      | Some a', Some b' -> Some (Fo_formula.FAnd (a', b'))
+      | _ -> None
+    end
+  | LOr (a, b) -> begin
+      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
+      | Some a', Some b' -> Some (Fo_formula.FOr (a', b'))
+      | _ -> None
+    end
+  | LImp (a, b) -> begin
+      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
+      | Some a', Some b' -> Some (Fo_formula.FImp (a', b'))
+      | _ -> None
+    end
+  | LX _ | LG _ | LW _ -> None
+
+let fo_formula_of_non_temporal_ltl_exn (f : ltl) : Fo_formula.t =
+  match fo_formula_of_non_temporal_ltl f with
+  | Some ff -> ff
+  | None ->
+      failwith
+        (Printf.sprintf "fo_formula_of_non_temporal_ltl_exn: temporal operator in %s"
+           (Ast_pretty.string_of_ltl f))
 
 let rec replace_atoms_ltl (atom_map : (fo_atom * ident) list) (f : ltl) : ltl =
   match f with

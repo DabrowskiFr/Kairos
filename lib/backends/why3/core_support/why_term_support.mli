@@ -32,6 +32,8 @@ val find_pre_k : env -> Ast.hexpr -> Temporal_support.pre_k_info option
 val normalize_infix : string -> string
 val string_of_term : Why3.Ptree.term -> string
 val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list
+val set_why3_optimizations_enabled : bool -> unit
+val why3_optimizations_enabled : unit -> bool
 val simplify_term_bool : Why3.Ptree.term -> Why3.Ptree.term
 val term_of_var : env -> Ast.ident -> Why3.Ptree.term
 val relop_id : Ast.relop -> string

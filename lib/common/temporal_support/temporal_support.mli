@@ -21,13 +21,6 @@ type ltl_norm = { ltl : Ast.ltl; k_guard : int option }
 (** Maximum nesting depth of [X] operators in a formula. *)
 val max_x_depth : Ast.ltl -> int
 
-(** Embed a non-temporal first-order formula as an LTL formula. *)
-val ltl_of_fo : Fo_formula.t -> Ast.ltl
-
-(** Recover a non-temporal first-order formula from an LTL formula, failing on
-    temporal formulas. *)
-val fo_of_ltl : Ast.ltl -> Fo_formula.t
-
 (** Decide whether an expression can safely stay in the current tick when
     history is shifted. *)
 val is_const_iexpr : Ast.iexpr -> bool

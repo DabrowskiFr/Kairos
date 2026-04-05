@@ -1,9 +1,9 @@
 (** Compute and materialize preconditions from transition postconditions. *)
 
 type t = {
-  guarantee_pre_of_product_state : Ir.product_state -> Ast.ltl option;
+  guarantee_pre_of_product_state : Ir.product_state -> Fo_formula.t option;
   initial_product_state : Ir.product_state;
-  state_stability : Ast.ltl list;
+  state_stability : Fo_formula.t list;
 }
 
 val build :

@@ -25,6 +25,7 @@ val collect_fo : Ast.fo_atom -> Ast.hexpr list -> Ast.hexpr list
 
 val collect_pre_k_from_specs :
   fo_atom:Ast.ltl list ->
+  fo_formula:Fo_formula.t list ->
   ltl:Ast.ltl list ->
   invariants_user:Ast.invariant_user list ->
   invariants_state_rel:Ast.invariant_state_rel list ->
@@ -34,6 +35,7 @@ val build_pre_k_infos_from_parts :
   inputs:Ast.vdecl list ->
   locals:Ast.vdecl list ->
   outputs:Ast.vdecl list ->
+  fo_formulas:Fo_formula.t list ->
   ltl:Ast.ltl list ->
   invariants_user:Ast.invariant_user list ->
   invariants_state_rel:Ast.invariant_state_rel list ->

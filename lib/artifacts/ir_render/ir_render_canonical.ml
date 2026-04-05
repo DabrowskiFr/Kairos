@@ -156,7 +156,8 @@ let rewrite_history_vars (s : string) : string =
   loop 0;
   Buffer.contents b
 
-let pretty_ltl (f : ltl) : string = f |> string_of_ltl |> strip_braces |> rewrite_history_vars
+let pretty_formula (f : Fo_formula.t) : string =
+  f |> string_of_fo |> strip_braces |> rewrite_history_vars
 
 let pretty_fo (f : Fo_formula.t) : string = f |> string_of_fo |> strip_braces |> rewrite_history_vars
 
@@ -216,11 +217,11 @@ let safe_destination_node_id_of (id : string) =
 let case_destination_node_id_of (id : string) =
   "k_" ^ String.lowercase_ascii (sanitize_id id)
 
-let safe_cases (pc : Abs.product_contract) : Abs.product_case list =
-  List.filter (fun (case : Abs.product_case) -> case.step_class = Abs.Safe) pc.cases
+let safe_cases (pc : Abs.product_contract) : Abs.safe_product_case list =
+  pc.safe_cases
 
-let bad_cases (pc : Abs.product_contract) : Abs.product_case list =
-  List.filter (fun (case : Abs.product_case) -> case.step_class <> Abs.Safe) pc.cases
+let bad_cases (pc : Abs.product_contract) : Abs.unsafe_product_case list =
+  pc.unsafe_cases
 
 let safe_guarantee_guard (pc : Abs.product_contract) : Fo_formula.t option =
   match safe_cases pc with
@@ -228,7 +229,7 @@ let safe_guarantee_guard (pc : Abs.product_contract) : Fo_formula.t option =
   | first :: rest ->
       Some
         (List.fold_left
-           (fun acc (case : Abs.product_case) -> Fo_formula.FOr (acc, case.guarantee_guard))
+           (fun acc (case : Abs.safe_product_case) -> Fo_formula.FOr (acc, case.guarantee_guard))
            first.guarantee_guard rest)
 
 let string_of_product_state_list (xs : Abs.product_state list) : string =
@@ -258,7 +259,7 @@ let canonical_formula_aliases ~(node : Abs.node) =
          register (pretty_fo pc.identity.assume_guard);
          Option.iter (fun g -> register (pretty_fo g)) (safe_guarantee_guard pc);
          bad_cases pc
-         |> List.iter (fun (case : Abs.product_case) -> register (pretty_fo case.guarantee_guard)));
+         |> List.iter (fun (case : Abs.unsafe_product_case) -> register (pretty_fo case.guarantee_guard)));
   let dot_alias_of formula = fst (Hashtbl.find seen formula) in
   let tex_alias_of formula = snd (Hashtbl.find seen formula) in
   { dot_alias_of; tex_alias_of; definitions = List.rev !defs_rev }
@@ -299,11 +300,11 @@ let render_canonical_lines ~(node : Abs.node) =
          in
          let reqs =
            pc.common.requires
-           |> List.map (fun (f : Abs.contract_formula) -> "  pre += " ^ pretty_ltl f.logic)
+           |> List.map (fun (f : Abs.contract_formula) -> "  pre += " ^ pretty_formula f.logic)
          in
          let common_ensures =
            pc.common.ensures
-           |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_ltl f.logic)
+           |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_formula f.logic)
          in
          let safe_part =
            match (pc.safe_summary.safe_destination_id, safe_guarantee_guard pc) with
@@ -316,18 +317,15 @@ let render_canonical_lines ~(node : Abs.node) =
                    (pretty_fo g);
                ]
                @ (pc.safe_summary.safe_propagates
-                 |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_ltl f.logic))
+                 |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_formula f.logic))
                @ (pc.safe_summary.safe_ensures
-                 |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_ltl f.logic))
+                 |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_formula f.logic))
          in
          let cases =
            bad_cases pc
-           |> List.mapi (fun case_idx (case : Abs.product_case) ->
+           |> List.mapi (fun case_idx (case : Abs.unsafe_product_case) ->
                   let kind =
-                    match case.step_class with
-                    | Abs.Safe -> "Safe"
-                    | Abs.Bad_assumption -> "BadAssumption"
-                    | Abs.Bad_guarantee -> "BadGuarantee"
+                    "BadGuarantee"
                   in
                   let base =
                     Printf.sprintf "  κ%d.%d: %s -> %s=%s, G=%s" (idx + 1) (case_idx + 1) kind
@@ -336,16 +334,15 @@ let render_canonical_lines ~(node : Abs.node) =
                       (pretty_fo case.guarantee_guard)
                   in
                   let props =
-                    case.propagates
-                    |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_ltl f.logic)
+                    []
                   in
                   let ens =
                     case.ensures
-                    |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_ltl f.logic)
+                    |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_formula f.logic)
                   in
                   let forb =
                     case.forbidden
-                    |> List.map (fun (f : Abs.contract_formula) -> "    forbid += " ^ pretty_ltl f.logic)
+                    |> List.map (fun (f : Abs.contract_formula) -> "    forbid += " ^ pretty_formula f.logic)
                   in
                   String.concat "\n" (base :: props @ ens @ forb))
          in
@@ -454,7 +451,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                edges := safe_edge :: !edges
          end;
          bad_cases pc
-         |> List.iter (fun (case : Abs.product_case) ->
+         |> List.iter (fun (case : Abs.unsafe_product_case) ->
                 let did = case_destination_node_id_of case.product_dst_id in
                 let fill, border = state_style ~analysis case.product_dst in
                 let dst_label =
@@ -469,10 +466,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                 in
                 case_defs := ddef :: !case_defs;
                 let color =
-                  match case.step_class with
-                  | Abs.Safe -> "#2c7a7b"
-                  | Abs.Bad_assumption -> "#e67e22"
-                  | Abs.Bad_guarantee -> "#c0392b"
+                  "#c0392b"
                 in
                 let lbl =
                   Printf.sprintf "G: %s"

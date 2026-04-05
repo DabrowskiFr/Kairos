@@ -12,12 +12,14 @@ let instrumentation_pass =
     ~instrumentation_diag_texts:Pipeline_outputs.instrumentation_diag_texts
     ~program_automaton_texts:Pipeline_outputs.program_automaton_texts
 
-let why_pass =
+let why_pass ~prefix_fields ~disable_why3_optimizations ~input_file =
   Pipeline_why.why_pass ~build_ast_with_info:Pipeline_build.build_ast_with_info
-    ~stage_meta:Pipeline_outputs.stage_meta
+    ~stage_meta:Pipeline_outputs.stage_meta ~prefix_fields ~disable_why3_optimizations
+    ~input_file
 
-let obligations_pass =
+let obligations_pass ~prefix_fields ~disable_why3_optimizations ~prover ~input_file =
   Pipeline_why.obligations_pass ~build_ast_with_info:Pipeline_build.build_ast_with_info
+    ~prefix_fields ~disable_why3_optimizations ~prover ~input_file
 
 let normalized_program ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with

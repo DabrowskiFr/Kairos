@@ -118,13 +118,11 @@ let string_of_step_class = function
 let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
   Printf.sprintf "%d->%d" src dst
 
-let obligation_formula (step : PT.product_step) : ltl =
-  LNot
-    (LAnd
-       ( Temporal_support.ltl_of_fo step.prog_guard,
-         LAnd
-           ( Temporal_support.ltl_of_fo step.assume_guard,
-             Temporal_support.ltl_of_fo step.guarantee_guard ) ))
+let obligation_formula (step : PT.product_step) : Fo_formula.t =
+  Fo_formula.FNot
+    (Fo_formula.FAnd
+       ( step.prog_guard,
+         Fo_formula.FAnd (step.assume_guard, step.guarantee_guard) ))
 
 let render_automaton_lines ~prefix labels =
   labels |> List.mapi (fun i lbl -> Printf.sprintf "%s%d = %s" prefix i lbl)
@@ -269,14 +267,14 @@ let render_obligation_lines ~(node_name : ident) (analysis : Product_analysis.an
                step.src.assume_state <> analysis.assume_bad_idx
                && step.src.guarantee_state <> analysis.guarantee_bad_idx
              in
-             let simplified = Fo_simplifier.simplify_ltl (obligation_formula step) in
-             if (not src_live) || simplified = LTrue || simplified = LFalse then None
+             let simplified = Fo_simplifier.simplify_fo (obligation_formula step) in
+             if (not src_live) || simplified = Fo_formula.FTrue || simplified = Fo_formula.FFalse then None
              else
                Some
                  (Printf.sprintf "[%s] obligation %s -> %s: %s" node_name
                     (string_of_state step.src)
                     (string_of_state step.dst)
-                    (string_of_ltl simplified))
+                    (string_of_fo simplified))
          | _ -> None)
 
 let node_id_of_state (s : PT.product_state) : string =

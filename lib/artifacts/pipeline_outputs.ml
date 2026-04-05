@@ -27,6 +27,26 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
     ("contracts", [ ("origins", string_of_int (List.length c.contract_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
     ("instrumentation", [ ("obligations_lines", string_of_int (List.length i.obligations_lines)) ]);
+    ( "graph_metrics",
+      [
+        ("require_automata_states", string_of_int i.require_automata_state_count);
+        ("require_automata_edges", string_of_int i.require_automata_edge_count);
+        ("ensures_automata_states", string_of_int i.ensures_automata_state_count);
+        ("ensures_automata_edges", string_of_int i.ensures_automata_edge_count);
+        ("product_edges_full", string_of_int i.product_edge_count_full);
+        ("product_edges_live", string_of_int i.product_edge_count_live);
+        ("product_states_full", string_of_int i.product_state_count_full);
+        ("product_states_live", string_of_int i.product_state_count_live);
+      ] );
+    ( "canonical_metrics",
+      [
+        ("canonical_contracts", string_of_int i.canonical_contract_count);
+        ("canonical_cases_safe", string_of_int i.canonical_case_safe_count);
+        ( "canonical_cases_bad_assumption",
+          string_of_int i.canonical_case_bad_assumption_count );
+        ( "canonical_cases_bad_guarantee",
+          string_of_int i.canonical_case_bad_guarantee_count );
+      ] );
   ]
 
 let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
@@ -101,17 +121,21 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
+    let t_why_gen = Unix.gettimeofday () in
     let why_ast =
       Emit.compile_program_ast_from_ir_nodes ~prefix_fields:cfg.prefix_fields
+        ~disable_why3_optimizations:cfg.disable_why3_optimizations
         asts.instrumentation
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
+    External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
     List.iter
       (fun (wid, (start_offset, end_offset)) ->
         Hashtbl.replace why_span_tbl wid
           { Pipeline_types.start_offset = start_offset; end_offset })
       why_spans;
+    let t_vc_smt = Unix.gettimeofday () in
     let vc_tasks = Why_contract_prove.dump_why3_tasks_with_attrs ~text:why_text in
     let vc_text, vc_spans_ordered =
       if cfg.generate_vc_text then join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks else ("", [])
@@ -209,6 +233,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
           task_goal_wids
         |> List.filter (fun (idx, _, _, _, _, _, _) -> matches_selected_goal ~cfg idx)
     in
+    External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
     let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
     List.iter
       (fun ((idx, _, _, _, _, _, _) as goal_result) -> Hashtbl.replace goal_result_tbl idx goal_result)

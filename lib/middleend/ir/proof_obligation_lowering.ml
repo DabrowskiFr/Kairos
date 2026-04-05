@@ -64,9 +64,29 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
     found in the map; in that case we keep the formula verbatim. *)
 let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
     (f : Ir.contract_formula) : Ir.contract_formula =
-  match Fo_specs.lower_ltl_pre_k ~pre_k_map f.logic with
-  | Some fo_atom' -> { f with logic = fo_atom' }
-  | None -> f
+  let rec lower_formula (formula : Fo_formula.t) : Fo_formula.t option =
+    match formula with
+    | Fo_formula.FTrue | Fo_formula.FFalse -> Some formula
+    | Fo_formula.FAtom atom ->
+        Fo_specs.lower_fo_pre_k ~pre_k_map atom |> Option.map (fun atom' -> Fo_formula.FAtom atom')
+    | Fo_formula.FNot a -> lower_formula a |> Option.map (fun a' -> Fo_formula.FNot a')
+    | Fo_formula.FAnd (a, b) -> begin
+        match (lower_formula a, lower_formula b) with
+        | Some a', Some b' -> Some (Fo_formula.FAnd (a', b'))
+        | _ -> None
+      end
+    | Fo_formula.FOr (a, b) -> begin
+        match (lower_formula a, lower_formula b) with
+        | Some a', Some b' -> Some (Fo_formula.FOr (a', b'))
+        | _ -> None
+      end
+    | Fo_formula.FImp (a, b) -> begin
+        match (lower_formula a, lower_formula b) with
+        | Some a', Some b' -> Some (Fo_formula.FImp (a', b'))
+        | _ -> None
+      end
+  in
+  match lower_formula f.logic with Some logic -> { f with logic } | None -> f
 
 let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
     (pc : Ir.product_contract) : Ir.product_contract =
@@ -84,16 +104,24 @@ let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info)
         safe_propagates = List.map lower pc.safe_summary.safe_propagates;
         safe_ensures = List.map lower pc.safe_summary.safe_ensures;
       };
-    cases =
+    safe_cases =
       List.map
-        (fun (case : Ir.product_case) ->
+        (fun (c : Ir.safe_product_case) ->
           {
-            case with
-            propagates = List.map lower case.propagates;
-            ensures = List.map lower case.ensures;
-            forbidden = List.map lower case.forbidden;
+            c with
+            propagates = List.map lower c.propagates;
+            ensures = List.map lower c.ensures;
           })
-        pc.cases;
+        pc.safe_cases;
+    unsafe_cases =
+      List.map
+        (fun (c : Ir.unsafe_product_case) ->
+          {
+            c with
+            ensures = List.map lower c.ensures;
+            forbidden = List.map lower c.forbidden;
+          })
+        pc.unsafe_cases;
   }
 
 (** {2 Main pass} *)

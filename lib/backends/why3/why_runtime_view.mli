@@ -73,12 +73,16 @@ type runtime_transition_view = {
   call_sites : call_site_view list;
 }
 
+type runtime_step_class =
+  | StepSafe
+  | StepBadGuarantee
+
 type runtime_product_transition_view = {
   transition_id : string;
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
-  step_class : Ir.product_step_class;
+  step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
   requires : Ir.contract_formula list;

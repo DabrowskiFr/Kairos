@@ -105,7 +105,7 @@ let compute_transition_contracts ~(env : env)
     transition_contracts =
   let compile_require ((f : Ir.contract_formula), label) =
     let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
-    [ Why_compile_expr.compile_local_ltl_term ~in_post:false env f.logic ]
+    [ Why_compile_expr.compile_local_fo_formula_term ~in_post:false env f.logic ]
     |> List.map (fun t -> mk_term (Tattr (rid_attr, t)))
     |> List.map (fun t -> (t, label))
   in
