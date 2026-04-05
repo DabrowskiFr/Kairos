@@ -58,7 +58,7 @@ let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_t
 let program_guard_fo (t : Abs.transition) : Fo_formula.t =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard with None -> FTrue | Some g -> fo_of_iexpr g |> simplify_fo
+  match t.guard_iexpr with None -> FTrue | Some g -> fo_of_iexpr g |> simplify_fo
 
 let first_false_idx (states : Ast.ltl list) : int =
   let rec loop i = function
@@ -93,13 +93,13 @@ let make_guarantee_view (build : Automaton_types.automata_build) : automaton_vie
     bad_idx = first_false_idx build.guarantee_automaton.states;
   }
 
-let node_outgoing (n : Abs.node) : (ident, Abs.transition list) Hashtbl.t =
+let node_outgoing (program_transitions : Abs.transition list) : (ident, Abs.transition list) Hashtbl.t =
   let tbl = Hashtbl.create 16 in
   List.iter
     (fun (t : Abs.transition) ->
-      let prev = Hashtbl.find_opt tbl t.src |> Option.value ~default:[] in
-      Hashtbl.replace tbl t.src (t :: prev))
-    n.trans;
+      let prev = Hashtbl.find_opt tbl t.src_state |> Option.value ~default:[] in
+      Hashtbl.replace tbl t.src_state (t :: prev))
+    program_transitions;
   tbl
 
 let automaton_outgoing (view : automaton_view) : (int * Automaton_types.transition list) list =
@@ -125,14 +125,15 @@ let classify_step ~(assume_bad_idx : int) ~(guarantee_bad_idx : int) (dst : PT.p
   else if guarantee_bad_idx >= 0 && dst.guarantee_state = guarantee_bad_idx then PT.Bad_guarantee
   else PT.Safe
 
-let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node) : analysis =
+let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node_ir)
+    ~(program_transitions : Abs.transition list) : analysis =
   let assume = make_assume_view build in
   let guarantee = make_guarantee_view build in
-  let prog_outgoing = node_outgoing node in
+  let prog_outgoing = node_outgoing program_transitions in
   let assume_outgoing = automaton_outgoing assume in
   let guarantee_outgoing = automaton_outgoing guarantee in
   let initial_state =
-    { PT.prog_state = node.semantics.sem_init_state; assume_state = 0; guarantee_state = 0 }
+    { PT.prog_state = node.context.semantics.sem_init_state; assume_state = 0; guarantee_state = 0 }
   in
   let seen = Hashtbl.create 64 in
   let q = Queue.create () in
@@ -164,7 +165,7 @@ let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node) : 
                 in
                 let dst =
                   {
-                    PT.prog_state = prog_transition.dst;
+                    PT.prog_state = prog_transition.dst_state;
                     assume_state = assume_dst;
                     guarantee_state = guarantee_dst;
                   }

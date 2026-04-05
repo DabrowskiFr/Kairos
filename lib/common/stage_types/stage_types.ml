@@ -17,6 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 type parsed = Ast.program
-type contracts_stage = Ir.node list
-type instrumentation_stage = Ir.node list
-type why_stage = Ir.node list
+type contracts_stage = Ir.node_ir list
+type instrumentation_stage = Ir.node_ir list
+type why_stage = Ir.node_ir list

@@ -31,17 +31,17 @@ type automata_info = {
   warnings : string list;
 }
 
-type contracts_info = {
-  contract_origin_map : (int * Formula_origin.t option) list;
+type formulas_info = {
+  formula_origin_map : (int * Formula_origin.t option) list;
   warnings : string list;
 }
 
 type instrumentation_info = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
   exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
-  raw_ir_nodes : Ir.raw_node list;
-  annotated_ir_nodes : Ir.annotated_node list;
-  verified_ir_nodes : Ir.verified_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   kernel_pipeline_lines : string list;
   warnings : string list;
   guarantee_automaton_lines : string list;
@@ -67,7 +67,7 @@ type instrumentation_info = {
   product_edge_count_live : int;
   product_state_count_full : int;
   product_state_count_live : int;
-  canonical_contract_count : int;
+  canonical_summary_count : int;
   canonical_case_safe_count : int;
   canonical_case_bad_assumption_count : int;
   canonical_case_bad_guarantee_count : int;
@@ -79,7 +79,7 @@ let empty_parse_info : parse_info =
 let empty_automata_info : automata_info =
   { residual_state_count = 0; residual_edge_count = 0; warnings = [] }
 
-let empty_contracts_info : contracts_info = { contract_origin_map = []; warnings = [] }
+let empty_contracts_info : formulas_info = { formula_origin_map = []; warnings = [] }
 
 let empty_instrumentation_info : instrumentation_info =
   {
@@ -113,7 +113,7 @@ let empty_instrumentation_info : instrumentation_info =
     product_edge_count_live = 0;
     product_state_count_full = 0;
     product_state_count_live = 0;
-    canonical_contract_count = 0;
+    canonical_summary_count = 0;
     canonical_case_safe_count = 0;
     canonical_case_bad_assumption_count = 0;
     canonical_case_bad_guarantee_count = 0;

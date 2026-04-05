@@ -176,7 +176,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 signature;
                 normalized_ir;
                 user_invariants = [];
-                coherency_goals = (From_ast.of_ast_node node).coherency_goals;
+                coherency_goals = (From_ast.of_ast_node node).goals;
                 pre_k_map = source_pre_k_map;
                 delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;
@@ -315,7 +315,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
     | _ ->
         (indent indent_level ^ label ^ ":")
         :: List.map
-             (fun (f : Ir.contract_formula) ->
+             (fun (f : Ir.summary_formula) ->
                indent (indent_level + 1) ^ Ast_pretty.string_of_fo f.logic)
              fs
   in

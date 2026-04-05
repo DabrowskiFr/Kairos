@@ -22,10 +22,10 @@
 type parsed = Ast.program
 
 (* Enriched normalized program after contract generation/initial goals. *)
-type contracts_stage = Ir.node list
+type contracts_stage = Ir.node_ir list
 
 (* Enriched normalized program after instrumentation. *)
-type instrumentation_stage = Ir.node list
+type instrumentation_stage = Ir.node_ir list
 
 (* Enriched normalized program ready for Why3-side compilation. *)
-type why_stage = Ir.node list
+type why_stage = Ir.node_ir list

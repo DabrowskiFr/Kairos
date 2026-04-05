@@ -23,7 +23,7 @@
  *
  * Substitutes all [Ast.hexpr] references of the form [prev^k x] (i.e.
  * [HPreK(x, k)]) with the corresponding ghost local variable
- * [IVar "__pre_k{k}_x"], producing a [Ir.verified_node] that is
+ * [IVar "__pre_k{k}_x"], producing a [Ir_proof_views.verified_node] that is
  * ready for trivial structural Why3 emission.
  *
  * The pass also:
@@ -32,7 +32,8 @@
  *   [pre_k_updates] field.
  *---------------------------------------------------------------------------*)
 
-(** Eliminate history references from the annotated view stored inside the IR. *)
+(** Eliminate history references from product-step summaries using [node.pre_k_map]. *)
 
-val apply_node : Ir.node -> Ir.node
-val apply_program : Ir.node list -> Ir.node list
+val eliminate : Ir_proof_views.annotated_node -> Ir_proof_views.verified_node
+val apply_node : Ir.node_ir -> Ir.node_ir
+val apply_program : Ir.node_ir list -> Ir.node_ir list

@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
 
 module Abs = Ir
@@ -39,33 +57,23 @@ let reid_program (p : Ast.program) : Ast.program =
   let _ = reid_with_origin in
   p
 
-let reid_contract_formula (f : Abs.contract_formula) : Abs.contract_formula =
+let reid_contract_formula (f : Abs.summary_formula) : Abs.summary_formula =
   let new_id = Provenance.fresh_id () in
   Provenance.add_parents ~child:new_id ~parents:[ f.meta.oid ];
   { f with meta = { f.meta with oid = new_id } }
 
-let reid_normalized_program (p : Abs.node list) : Abs.node list =
-  let reid_product_contract (pc : Abs.product_contract) =
+let reid_normalized_program (p : Abs.node_ir list) : Abs.node_ir list =
+  let reid_product_contract (pc : Abs.product_step_summary) =
     {
       pc with
-      common =
-        {
-          requires = List.map reid_contract_formula pc.common.requires;
-          ensures = List.map reid_contract_formula pc.common.ensures;
-        };
-      safe_summary =
-        {
-          pc.safe_summary with
-          safe_propagates = List.map reid_contract_formula pc.safe_summary.safe_propagates;
-          safe_ensures = List.map reid_contract_formula pc.safe_summary.safe_ensures;
-        };
+      requires = List.map reid_contract_formula pc.requires;
+      ensures = List.map reid_contract_formula pc.ensures;
       safe_cases =
         List.map
           (fun (c : Abs.safe_product_case) ->
             {
               c with
-              propagates = List.map reid_contract_formula c.propagates;
-              ensures = List.map reid_contract_formula c.ensures;
+              admissible_guard = reid_contract_formula c.admissible_guard;
             })
           pc.safe_cases;
       unsafe_cases =
@@ -73,17 +81,16 @@ let reid_normalized_program (p : Abs.node list) : Abs.node list =
           (fun (c : Abs.unsafe_product_case) ->
             {
               c with
-              ensures = List.map reid_contract_formula c.ensures;
-              forbidden = List.map reid_contract_formula c.forbidden;
+              excluded_guard = reid_contract_formula c.excluded_guard;
             })
           pc.unsafe_cases;
     }
   in
-  let reid_node (n : Abs.node) =
+  let reid_node (n : Abs.node_ir) =
     {
       n with
-      product_transitions = List.map reid_product_contract n.product_transitions;
-      coherency_goals = List.map reid_contract_formula n.coherency_goals;
+      summaries = List.map reid_product_contract n.summaries;
+      goals = List.map reid_contract_formula n.goals;
     }
   in
   List.map reid_node p
@@ -125,27 +132,30 @@ let build_ast_with_info ?(log = false) ~input_file () :
         | Ok ir_program -> (
             let p_contracts = ir_program.nodes in
             let p_instrumentation = ir_program.nodes in
-            let contracts_info =
+            let formulas_info =
               {
-                Stage_info.contract_origin_map = ir_program.contracts_info.contract_origin_map;
-                warnings = ir_program.contracts_info.warnings;
+                Stage_info.formula_origin_map = ir_program.formulas_info.formula_origin_map;
+                warnings = ir_program.formulas_info.warnings;
               }
             in
-            match Orchestration.instrumentation_info_of_ir ~automata ir_program with
+            match
+              Orchestration.instrumentation_info_of_ir ~automata ~source_program:p_automaton
+                ir_program
+            with
             | Error msg -> Error (Pipeline_types.Stage_error msg)
             | Ok instrumentation_info ->
             let p_contracts = reid_normalized_program p_contracts in
             if log then
               Log.stage_end Stage_names.Contracts
                 (int_of_float ((Unix.gettimeofday () -. t2) *. 1000.))
-                (program_stats (List.map Abs.to_ast_node p_contracts));
+                (program_stats p_automaton);
             let t3 = Unix.gettimeofday () in
             if log then Log.stage_start Stage_names.Instrumentation;
             let p_instrumentation = reid_normalized_program p_instrumentation in
             if log then
               Log.stage_end Stage_names.Instrumentation
                 (int_of_float ((Unix.gettimeofday () -. t3) *. 1000.))
-                (program_stats (List.map Abs.to_ast_node p_instrumentation));
+                (program_stats p_automaton);
             let asts : Pipeline_types.ast_stages =
               {
                 source = { Source_file.imports = []; nodes = p_parsed };
@@ -160,7 +170,7 @@ let build_ast_with_info ?(log = false) ~input_file () :
               {
                 parse = Some parse_info;
                 automata_generation = Some automata_info;
-                contracts = Some contracts_info;
+                contracts = Some formulas_info;
                 instrumentation = Some instrumentation_info;
               }
             in

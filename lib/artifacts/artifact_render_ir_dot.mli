@@ -24,6 +24,6 @@
  * Produces Graphviz DOT representations of IR nodes for visualization.
  *---------------------------------------------------------------------------*)
 
-val dot_of_annotated_node : Ir.annotated_node -> string
-val dot_of_verified_node : Ir.verified_node -> string
+val dot_of_annotated_node : Ir_proof_views.annotated_node -> string
+val dot_of_verified_node : Ir_proof_views.verified_node -> string
 val dot_of_kernel_node_ir : Proof_kernel_types.node_ir -> string

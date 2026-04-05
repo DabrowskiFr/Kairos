@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
 
 let unique_pre_k_infos (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) : Temporal_support.pre_k_info list =
@@ -63,7 +81,7 @@ let pre_k_shift_stmts (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
     Uses [Fo_specs.lower_fo_pre_k] which returns [None] when a [HPreK] is not
     found in the map; in that case we keep the formula verbatim. *)
 let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
-    (f : Ir.contract_formula) : Ir.contract_formula =
+    (f : Ir.summary_formula) : Ir.summary_formula =
   let rec lower_formula (formula : Fo_formula.t) : Fo_formula.t option =
     match formula with
     | Fo_formula.FTrue | Fo_formula.FFalse -> Some formula
@@ -89,28 +107,18 @@ let lower_fo_o (pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
   match lower_formula f.logic with Some logic -> { f with logic } | None -> f
 
 let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
-    (pc : Ir.product_contract) : Ir.product_contract =
+    (pc : Ir.product_step_summary) : Ir.product_step_summary =
   let lower = lower_fo_o pre_k_map in
   {
     pc with
-    common =
-      {
-        requires = List.map lower pc.common.requires;
-        ensures = List.map lower pc.common.ensures;
-      };
-    safe_summary =
-      {
-        pc.safe_summary with
-        safe_propagates = List.map lower pc.safe_summary.safe_propagates;
-        safe_ensures = List.map lower pc.safe_summary.safe_ensures;
-      };
+    requires = List.map lower pc.requires;
+    ensures = List.map lower pc.ensures;
     safe_cases =
       List.map
         (fun (c : Ir.safe_product_case) ->
           {
             c with
-            propagates = List.map lower c.propagates;
-            ensures = List.map lower c.ensures;
+            admissible_guard = lower c.admissible_guard;
           })
         pc.safe_cases;
     unsafe_cases =
@@ -118,15 +126,14 @@ let lower_product_transition ~(pre_k_map : (hexpr * Temporal_support.pre_k_info)
         (fun (c : Ir.unsafe_product_case) ->
           {
             c with
-            ensures = List.map lower c.ensures;
-            forbidden = List.map lower c.forbidden;
+            excluded_guard = lower c.excluded_guard;
           })
         pc.unsafe_cases;
   }
 
 (** {2 Main pass} *)
 
-let eliminate (annotated : Ir.annotated_node) : Ir.verified_node =
+let eliminate (annotated : Ir_proof_views.annotated_node) : Ir_proof_views.verified_node =
   let raw = annotated.raw in
   let pre_k_map = raw.pre_k_map in
   let existing_names = List.map (fun (v : vdecl) -> v.vname) raw.core.locals in
@@ -135,21 +142,21 @@ let eliminate (annotated : Ir.annotated_node) : Ir.verified_node =
   let lower = lower_fo_o pre_k_map in
   let transitions =
     List.map
-      (fun (t : Ir.annotated_transition) ->
+      (fun (t : Ir_proof_views.annotated_transition) ->
         ({
-          Ir.core = t.raw.core;
+          Ir_proof_views.core = t.raw.core;
           guard = t.raw.guard;
           pre_k_updates = updates;
-          contracts =
+          clauses =
             {
-              requires = List.map lower t.contracts.requires;
-              ensures = List.map lower t.contracts.ensures;
+              requires = List.map lower t.clauses.requires;
+              ensures = List.map lower t.clauses.ensures;
             };
-        } : Ir.verified_transition))
+        } : Ir_proof_views.verified_transition))
       annotated.transitions
   in
   {
-    Ir.core = { raw.core with locals = raw.core.locals @ extra_locals };
+    Ir_proof_views.core = { raw.core with locals = raw.core.locals @ extra_locals };
     transitions;
     product_transitions = [];
     assumes = raw.assumes;
@@ -158,20 +165,10 @@ let eliminate (annotated : Ir.annotated_node) : Ir.verified_node =
     user_invariants = annotated.user_invariants;
   }
 
-let apply_node (node : Ir.node) : Ir.node =
-  let annotated =
-    match node.proof_views.annotated with
-    | Some annotated -> annotated
-    | None -> failwith "Proof_obligation_lowering.apply_node: missing annotated proof view"
-  in
-  let lowered = eliminate annotated in
-  let verified =
-    {
-      lowered with
-      product_transitions =
-        List.map (lower_product_transition ~pre_k_map:annotated.raw.pre_k_map) node.product_transitions;
-    }
-  in
-  { node with proof_views = { node.proof_views with verified = Some verified } }
+let apply_node (node : Ir.node_ir) : Ir.node_ir =
+  {
+    node with
+    summaries = List.map (lower_product_transition ~pre_k_map:node.context.pre_k_map) node.summaries;
+  }
 
-let apply_program (program : Ir.node list) : Ir.node list = List.map apply_node program
+let apply_program (program : Ir.node_ir list) : Ir.node_ir list = List.map apply_node program

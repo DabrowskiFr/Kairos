@@ -41,7 +41,7 @@ let same_automaton_edge_ir (a : automaton_edge_ir) (b : automaton_edge_ir) : boo
   && a.dst_index = b.dst_index
   && simplify_fo a.guard = simplify_fo b.guard
 
-let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_program_ir)
+let build_proof_step_contracts ~(node : Abs.node_ir) ~(reactive_program : reactive_program_ir)
     ~(product_steps : product_step_ir list)
     ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
     ~(initial_product_state : product_state_ir)
@@ -52,16 +52,16 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
     |> List.mapi (fun idx (tr : reactive_transition_ir) -> (tr.transition_id, idx))
     |> List.to_seq |> Hashtbl.of_seq
   in
-  let product_contract_of_step (step : product_step_ir) : Abs.product_contract option =
+  let product_contract_of_step (step : product_step_ir) : Abs.product_step_summary option =
     match Hashtbl.find_opt transition_index_by_id step.program_transition_id with
     | None -> None
-    | Some program_transition_index ->
+    | Some step_uid ->
         List.find_opt
-          (fun (pc : Abs.product_contract) ->
-            pc.identity.program_transition_index = program_transition_index
+          (fun (pc : Abs.product_step_summary) ->
+            pc.trace.step_uid = step_uid
             && same_product_state pc.identity.product_src step.src
             && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard)
-          node.product_transitions
+          node.summaries
   in
   let slot_to_current_expr =
     let add acc (_h, info) =
@@ -217,8 +217,8 @@ let build_proof_step_contracts ~(node : Abs.node) ~(reactive_program : reactive_
         match product_contract_of_step step with
         | None -> []
         | Some pc ->
-        pc.common.requires
-        |> List.map (fun (f : Ir.contract_formula) ->
+        pc.requires
+        |> List.map (fun (f : Ir.summary_formula) ->
                {
                  origin = OriginPhaseStepPreSummary;
                  anchor = ClauseAnchorProductStep step;

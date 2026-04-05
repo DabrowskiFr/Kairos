@@ -50,10 +50,10 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
 
 let render_transition ?(indent : int = 0) (t : Ir.transition) : string =
   let guard_s =
-    match t.guard with None -> "" | Some g -> " when " ^ Ast_pretty.string_of_iexpr g
+    match t.guard_iexpr with None -> "" | Some g -> " when " ^ Ast_pretty.string_of_iexpr g
   in
-  let header = indent_str indent ^ "transition " ^ t.src ^ " -> " ^ t.dst ^ guard_s ^ " {" in
-  let body = List.concat_map (fun s -> render_stmt s (indent + 1)) t.body in
+  let header = indent_str indent ^ "transition " ^ t.src_state ^ " -> " ^ t.dst_state ^ guard_s ^ " {" in
+  let body = List.concat_map (fun s -> render_stmt s (indent + 1)) t.body_stmts in
   let sections = if body = [] then [] else (indent_str (indent + 1) ^ "do") :: body in
   String.concat "\n" (header :: sections @ [ indent_str indent ^ "}" ])
 
@@ -67,8 +67,36 @@ let render_vdecl (v : vdecl) : string =
   in
   v.vname ^ ": " ^ ty_s
 
-let render_node (n : Ir.node) : string =
-  let sem = n.semantics in
+let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
+  {
+    src_state = t.src;
+    dst_state = t.dst;
+    guard_iexpr = t.guard;
+    body_stmts = t.body;
+  }
+
+let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.node_ir) :
+    Ir.transition list =
+  match source_program with
+  | Some source_program -> (
+      match
+        List.find_opt
+          (fun (source_node : Ast.node) ->
+            String.equal source_node.semantics.sem_nname n.context.semantics.sem_nname)
+          source_program
+      with
+      | Some source_node -> List.map ir_transition_of_ast_transition source_node.semantics.sem_trans
+      | None ->
+          n.summaries
+          |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
+          |> List.sort_uniq Stdlib.compare)
+  | None ->
+      n.summaries
+      |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
+      |> List.sort_uniq Stdlib.compare
+
+let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_ir) : string =
+  let sem = n.context.semantics in
   let line_params name vs =
     if vs = [] then None
     else Some (name ^ " " ^ String.concat ", " (List.map render_vdecl vs) ^ ";")
@@ -87,14 +115,19 @@ let render_node (n : Ir.node) : string =
     |> List.filter_map Fun.id
   in
   let assumes =
-    List.map (fun a -> "assume " ^ Ast_pretty.string_of_ltl a ^ ";") n.source_info.assumes
+    List.map (fun a -> "assume " ^ Ast_pretty.string_of_ltl a ^ ";") n.context.source_info.assumes
   in
   let guarantees =
-    List.map (fun g -> "guarantee " ^ Ast_pretty.string_of_ltl g ^ ";") n.source_info.guarantees
+    List.map (fun g -> "guarantee " ^ Ast_pretty.string_of_ltl g ^ ";") n.context.source_info.guarantees
   in
-  let trans = List.map (render_transition ~indent:1) n.trans in
+  let trans =
+    List.map (render_transition ~indent:1) (program_transitions_of_node ~source_program n)
+  in
   let body = List.map (fun l -> indent_str 1 ^ l) (fields @ assumes @ guarantees) @ trans in
   String.concat "\n" ([ "node " ^ sem.sem_nname ^ " {" ] @ body @ [ "}" ])
 
-let render_program (p : Ir.node list) : string =
-  String.concat "\n\n" (List.map render_node p)
+let render_node ?(source_program : Ast.program option = None) (n : Ir.node_ir) : string =
+  render_node_with_source ~source_program n
+
+let render_program ?(source_program : Ast.program option = None) (p : Ir.node_ir list) : string =
+  String.concat "\n\n" (List.map (render_node_with_source ~source_program) p)

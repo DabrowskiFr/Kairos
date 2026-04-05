@@ -19,9 +19,9 @@
 (** Imported AST construction and IR/object extraction for the main pipeline. *)
 
 type ir_nodes = {
-  raw_ir_nodes : Ir.raw_node list;
-  annotated_ir_nodes : Ir.annotated_node list;
-  verified_ir_nodes : Ir.verified_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 

@@ -18,59 +18,19 @@
 
 module Abs = Ir
 
-(** Pair raw transitions with their corresponding abstract transitions.
-    Both lists originate from the same instrumented node and must be in the
-    same order (they are produced by the same [List.map] in the instrumentation
-    pass and in [Proof_obligation_raw.build_raw_node]). *)
-let zip_transitions (raws : Ir.raw_transition list)
-    (abs_trans : Abs.transition list) :
-    (Ir.raw_transition * Abs.transition) list =
-  try List.combine raws abs_trans
-  with Invalid_argument _ ->
-    failwith
-      "Proof_obligation_annotate.annotate: raw transitions and abstract transitions \
-       have different lengths — raw_node and abstract node must originate from \
-       the same instrumentation pass output"
-
 (** Lift an abstract transition into an annotated transition skeleton.
-    Transition-level contracts are intentionally empty at this stage. *)
-let annotate_transition (raw : Ir.raw_transition)
-    (_abs_t : Abs.transition) : Ir.annotated_transition =
-  { raw; contracts = { requires = []; ensures = [] } }
+    Transition-level clauses are intentionally empty at this stage. *)
+let annotate_transition (raw : Ir_proof_views.raw_transition) : Ir_proof_views.annotated_transition =
+  { raw; clauses = { requires = []; ensures = [] } }
 
 (** Annotate a raw node with transition-level proof payload. *)
-let annotate ~(raw : Ir.raw_node) ~(node : Abs.node)
-    ~(analysis : Product_build.analysis) : Ir.annotated_node =
-  (* [analysis] is kept so the call site can evolve without changing this
-     annotation step; the pre/post generation already happened on [node.trans]. *)
-  ignore analysis;
-  let pairs = zip_transitions raw.transitions node.trans in
-  let transitions =
-    List.map (fun (r, t) -> annotate_transition r t) pairs
-  in
+let annotate ~(raw : Ir_proof_views.raw_node) ~(node : Abs.node_ir)
+    : Ir_proof_views.annotated_node =
+  let _ = node in
+  let transitions = List.map annotate_transition raw.transitions in
   {
     raw;
     transitions;
-    coherency_goals    = node.coherency_goals;
-    user_invariants    = node.source_info.user_invariants;
+    coherency_goals = node.goals;
+    user_invariants = node.context.source_info.user_invariants;
   }
-
-let apply_node ~(analysis : Product_build.analysis) (node : Abs.node) : Abs.node =
-  let raw =
-    match node.proof_views.raw with
-    | Some raw -> raw
-    | None -> failwith "Proof_obligation_annotate.apply_node: missing raw proof view"
-  in
-  { node with proof_views = { node.proof_views with annotated = Some (annotate ~raw ~node ~analysis) } }
-
-let apply_program ~(analyses : (Ast.ident * Product_build.analysis) list) (program : Abs.node list) :
-    Abs.node list =
-  let analysis_of_node (node : Abs.node) =
-    match List.assoc_opt node.semantics.sem_nname analyses with
-    | Some analysis -> analysis
-    | None ->
-        failwith
-          (Printf.sprintf "Proof_obligation_annotate.apply_program: missing analysis for node %s"
-             node.semantics.sem_nname)
-  in
-  List.map (fun node -> apply_node ~analysis:(analysis_of_node node) node) program

@@ -123,7 +123,7 @@ let category_of_family = function
   | FamGuaranteeViolationForbidden -> Some CatNoBad
   | FamTransitionRequires | FamTransitionEnsures -> None
 
-let summarize_program (p : Abs.node list) : summary =
+let summarize_program (p : Abs.node_ir list) : summary =
   let table = Hashtbl.create 16 in
   let category_table = Hashtbl.create 8 in
   let major_table = Hashtbl.create 4 in
@@ -152,8 +152,8 @@ let summarize_program (p : Abs.node list) : summary =
           (helper_kind_of_category cat)
   in
   List.iter
-    (fun (n : Abs.node) ->
-      List.iter (fun (_ : Abs.contract_formula) -> bump FamInitialInvariantGoal) n.coherency_goals)
+    (fun (n : Abs.node_ir) ->
+      List.iter (fun (_ : Abs.summary_formula) -> bump FamInitialInvariantGoal) n.goals)
     p;
   let counts =
     List.filter_map

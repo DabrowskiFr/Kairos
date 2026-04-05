@@ -28,7 +28,7 @@ open Ast
 open Formula_origin
 open Why_compile_expr
 
-type transition_contracts = {
+type transition_clauses = {
   transition_requires_pre_terms : (Ptree.term * string) list;
   transition_requires_pre : Ptree.term list;
   post_contract_terms : Ptree.term list;
@@ -102,8 +102,8 @@ let origin_label = function
 let compute_transition_contracts ~(env : env)
     ~(product_transitions : Why_runtime_view.runtime_product_transition_view list)
     ~(post_contract_user : Ptree.term list) :
-    transition_contracts =
-  let compile_require ((f : Ir.contract_formula), label) =
+    transition_clauses =
+  let compile_require ((f : Ir.summary_formula), label) =
     let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post:false env f.logic ]
     |> List.map (fun t -> mk_term (Tattr (rid_attr, t)))
@@ -112,7 +112,7 @@ let compute_transition_contracts ~(env : env)
   let transition_requires_pre_terms =
     product_transitions
     |> List.concat_map (fun (t : Why_runtime_view.runtime_product_transition_view) ->
-           List.map (fun (f : Ir.contract_formula) -> (f, origin_label f.meta.origin)) t.requires
+           List.map (fun (f : Ir.summary_formula) -> (f, origin_label f.meta.origin)) t.requires
            |> List.concat_map compile_require)
   in
   let transition_requires_pre = List.map fst transition_requires_pre_terms in

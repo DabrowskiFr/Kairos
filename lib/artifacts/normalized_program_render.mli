@@ -17,5 +17,5 @@
  *---------------------------------------------------------------------------*)
 
 val render_transition : ?indent:int -> Ir.transition -> string
-val render_node : Ir.node -> string
-val render_program : Ir.node list -> string
+val render_node : ?source_program:Ast.program option -> Ir.node_ir -> string
+val render_program : ?source_program:Ast.program option -> Ir.node_ir list -> string

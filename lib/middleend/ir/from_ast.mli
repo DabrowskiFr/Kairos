@@ -20,11 +20,11 @@
 
 val of_ast_transition : Ast.transition -> Ir.transition
 
-val of_ast_contract_formula :
+val of_ast_summary_formula :
   ?origin:Formula_origin.t ->
   Ast.ltl_o ->
-  Ir.contract_formula
+  Ir.summary_formula
 
-val of_ast_node : Ast.node -> Ir.node
+val of_ast_node : Ast.node -> Ir.node_ir
 
-val of_ast_program : Ast.program -> Ir.node list
+val of_ast_program : Ast.program -> Ir.node_ir list

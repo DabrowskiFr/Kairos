@@ -657,7 +657,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
         | _ -> false
       in
       List.mapi
-        (fun i (f : Ir.contract_formula) ->
+        (fun i (f : Ir.summary_formula) ->
           let wid = Provenance.fresh_id () in
           Provenance.add_parents ~child:wid ~parents:[ f.meta.oid ];
           let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
@@ -731,27 +731,29 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
-let compile_node_from_ir_node ~prefix_fields ?comment_specs ~(program_nodes : Ir.node list)
-    (node : Ir.node) :
+let compile_node_from_ir_node ~prefix_fields ?comment_specs
+    ~(backend_context : Why_runtime_view.backend_phase_context)
+    ~(program_nodes : Ir.node_ir list) (node : Ir.node_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_ir_node ~prefix_fields ~program_nodes node in
+  let info = Why_env.prepare_ir_node ~prefix_fields ~backend_context node in
   compile_node_with_info ?comment_specs
-    ~node_names:(List.map (fun (n : Ir.node) -> n.semantics.sem_nname) program_nodes)
+    ~node_names:(List.map (fun (n : Ir.node_ir) -> n.context.semantics.sem_nname) program_nodes)
     info
 
 let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
-    ?(disable_why3_optimizations = false) ?(comment_map = []) (program_nodes : Ir.node list) :
-    program_ast =
+    ?(disable_why3_optimizations = false) ?(comment_map = [])
+    ~(backend_context : Why_runtime_view.backend_phase_context)
+    (program_nodes : Ir.node_ir list) : program_ast =
   let lookup_comment name = List.assoc_opt name comment_map in
   let previous_opt_flag = Why_term_support.why3_optimizations_enabled () in
   Why_term_support.set_why3_optimizations_enabled (not disable_why3_optimizations);
   try
     let modules =
       List.map
-        (fun (node : Ir.node) ->
-          let name = node.semantics.sem_nname in
-          compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name) ~program_nodes
-            node)
+        (fun (node : Ir.node_ir) ->
+          let name = node.context.semantics.sem_nname in
+          compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name)
+            ~backend_context ~program_nodes node)
         program_nodes
     in
     Why_term_support.set_why3_optimizations_enabled previous_opt_flag;

@@ -37,6 +37,6 @@ val prepare_runtime_view :
 
 val prepare_ir_node :
   prefix_fields:bool ->
-  program_nodes:Ir.node list ->
-  Ir.node ->
+  backend_context:Why_runtime_view.backend_phase_context ->
+  Ir.node_ir ->
   env_info

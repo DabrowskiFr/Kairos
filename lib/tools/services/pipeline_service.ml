@@ -17,9 +17,9 @@
  *---------------------------------------------------------------------------*)
 
 type ir_nodes = Pipeline_build.ir_nodes = {
-  raw_ir_nodes : Ir.raw_node list;
-  annotated_ir_nodes : Ir.annotated_node list;
-  verified_ir_nodes : Ir.verified_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 
@@ -42,24 +42,31 @@ let obligations_pass ~prefix_fields ~disable_why3_optimizations ~prover ~input_f
 let normalized_program ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
-  | Ok (asts, _infos) -> Ok (Normalized_program_render.render_program asts.instrumentation)
+  | Ok (asts, _infos) ->
+      Ok
+        (Normalized_program_render.render_program
+           ~source_program:(Some asts.automata_generation)
+           asts.instrumentation)
 
 let ir_pretty_dump ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
   | Ok (asts, infos) ->
       let c = Option.value infos.contracts ~default:Stage_info.empty_contracts_info in
-      let program : Ir.program =
+      let program : Ir.program_ir =
         {
           nodes = asts.instrumentation;
-          contracts_info =
+          formulas_info =
             {
-              contract_origin_map = c.contract_origin_map;
+              formula_origin_map = c.formula_origin_map;
               warnings = c.warnings;
             };
         }
       in
-      Ok (Artifact_render_ir.render_pretty_program program)
+      Ok
+        (Artifact_render_ir.render_pretty_program
+           ~source_program:(Some asts.automata_generation)
+           program)
 
 let dump_ir_nodes = Pipeline_build.dump_ir_nodes
 let compile_object = Pipeline_build.compile_object

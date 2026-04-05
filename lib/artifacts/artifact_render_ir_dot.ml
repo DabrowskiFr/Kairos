@@ -49,7 +49,7 @@ let truncate (s : string) : string =
 (* annotated_node                                                       *)
 (* ------------------------------------------------------------------ *)
 
-let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
+let dot_of_annotated_transition (t : Ir_proof_views.annotated_transition) : string =
   let raw = t.raw in
   let guard_str = truncate (Ast_pretty.string_of_fo raw.guard) |> html_escape in
   let buf = Buffer.create 256 in
@@ -60,25 +60,25 @@ let dot_of_annotated_transition (t : Ir.annotated_transition) : string =
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
   List.iter
-    (fun (f : Ir.contract_formula) ->
+    (fun (f : Ir.summary_formula) ->
       let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
            s))
-    t.contracts.requires;
+    t.clauses.requires;
   List.iter
-    (fun (f : Ir.contract_formula) ->
+    (fun (f : Ir.summary_formula) ->
       let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"
            s))
-    t.contracts.ensures;
+    t.clauses.ensures;
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
-let dot_of_annotated_node (n : Ir.annotated_node) : string =
+let dot_of_annotated_node (n : Ir_proof_views.annotated_node) : string =
   let raw = n.raw in
   let c = raw.core in
   let buf = Buffer.create 1024 in
@@ -102,7 +102,7 @@ let dot_of_annotated_node (n : Ir.annotated_node) : string =
 (* verified_node                                                        *)
 (* ------------------------------------------------------------------ *)
 
-let dot_of_verified_transition (t : Ir.verified_transition) : string =
+let dot_of_verified_transition (t : Ir_proof_views.verified_transition) : string =
   let guard_str = truncate (Ast_pretty.string_of_fo t.guard) |> html_escape in
   let buf = Buffer.create 256 in
   Buffer.add_string buf
@@ -129,25 +129,25 @@ let dot_of_verified_transition (t : Ir.verified_transition) : string =
       upd_strs
   end;
   List.iter
-    (fun (f : Ir.contract_formula) ->
+    (fun (f : Ir.summary_formula) ->
       let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#cc0000\"><B>req:</B></FONT> %s</TD></TR>\n"
            s))
-    t.contracts.requires;
+    t.clauses.requires;
   List.iter
-    (fun (f : Ir.contract_formula) ->
+    (fun (f : Ir.summary_formula) ->
       let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in
       Buffer.add_string buf
         (Printf.sprintf
            "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#006600\"><B>ens:</B></FONT> %s</TD></TR>\n"
            s))
-    t.contracts.ensures;
+    t.clauses.ensures;
   Buffer.add_string buf "    </TABLE>\n  >];\n";
   Buffer.contents buf
 
-let dot_of_verified_node (n : Ir.verified_node) : string =
+let dot_of_verified_node (n : Ir_proof_views.verified_node) : string =
   let c = n.core in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf

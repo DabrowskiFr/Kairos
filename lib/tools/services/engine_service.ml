@@ -53,9 +53,9 @@ let compile_object ~engine ~input_file =
   | Default -> Pipeline_service.compile_object ~input_file
 
 type ir_nodes = Pipeline_service.ir_nodes = {
-  raw_ir_nodes : Ir.raw_node list;
-  annotated_ir_nodes : Ir.annotated_node list;
-  verified_ir_nodes : Ir.verified_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 

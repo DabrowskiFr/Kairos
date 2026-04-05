@@ -23,9 +23,9 @@ open Ast
 module Abs = Ir
 open Collect
 
-let dedup_contract_formulas (xs : Abs.contract_formula list) : Abs.contract_formula list =
+let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula list =
   List.sort_uniq
-    (fun (a : Abs.contract_formula) (b : Abs.contract_formula) ->
+    (fun (a : Abs.summary_formula) (b : Abs.summary_formula) ->
       Int.compare a.meta.oid b.meta.oid)
     xs
 
@@ -77,8 +77,8 @@ type runtime_transition_view = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
-  requires : Abs.contract_formula list;
-  ensures : Abs.contract_formula list;
+  requires : Abs.summary_formula list;
+  ensures : Abs.summary_formula list;
   body : Ast.stmt list;
   action_blocks : action_block_view list;
   call_sites : call_site_view list;
@@ -96,10 +96,10 @@ type runtime_product_transition_view = {
   step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
-  requires : Abs.contract_formula list;
-  propagates : Abs.contract_formula list;
-  ensures : Abs.contract_formula list;
-  forbidden : Abs.contract_formula list;
+  requires : Abs.summary_formula list;
+  propagates : Abs.summary_formula list;
+  ensures : Abs.summary_formula list;
+  forbidden : Abs.summary_formula list;
 }
 
 type transition_group_view = {
@@ -128,7 +128,15 @@ type t = {
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
-  coherency_goals : Abs.contract_formula list;
+  coherency_goals : Abs.summary_formula list;
+}
+
+type backend_node_context = {
+  program_transitions : Abs.transition list;
+}
+
+type backend_phase_context = {
+  nodes : (Ast.ident * backend_node_context) list;
 }
 
 type known_value =
@@ -197,6 +205,40 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_user_invariants = [];
     callee_contract;
   }
+
+let ir_transition_of_ast_transition (t : Ast.transition) : Abs.transition =
+  {
+    src_state = t.src;
+    dst_state = t.dst;
+    guard_iexpr = t.guard;
+    body_stmts = t.body;
+  }
+
+let dedup_callee_summaries (summaries : callee_summary_view list) : callee_summary_view list =
+  let seen = Hashtbl.create 16 in
+  let add acc summary =
+    if Hashtbl.mem seen summary.callee_node_name then acc
+    else (
+      Hashtbl.replace seen summary.callee_node_name ();
+      summary :: acc)
+  in
+  List.rev (List.fold_left add [] summaries)
+
+let build_backend_node_context (source_node : Ast.node) : backend_node_context =
+  let sem = source_node.semantics in
+  { program_transitions = List.map ir_transition_of_ast_transition sem.sem_trans }
+
+let build_backend_phase_context (source_program : Ast.program) : backend_phase_context =
+  {
+    nodes =
+      List.map
+        (fun (source_node : Ast.node) -> (source_node.semantics.sem_nname, build_backend_node_context source_node))
+        source_program;
+  }
+
+let find_backend_node_context (context : backend_phase_context) (node_name : Ast.ident) :
+    backend_node_context option =
+  List.assoc_opt node_name context.nodes
 
 let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
   List.map action_of_stmt stmts
@@ -417,6 +459,15 @@ let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_v
     call_sites;
   }
 
+let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_view =
+  transition_of_ast ?transition_id
+    {
+      Ast.src = t.src_state;
+      dst = t.dst_state;
+      guard = t.guard_iexpr;
+      body = t.body_stmts;
+    }
+
 let respecialize_transition_actions (t : runtime_transition_view) : runtime_transition_view =
   let known = known_context_of_transition_guard t.guard in
   let raw_blocks =
@@ -559,67 +610,65 @@ let pre_k_locals_of_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) l
   |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
          List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
 
-let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
-  let raw =
-    match node.proof_views.raw with
-    | Some raw -> raw
-    | None ->
-        failwith
-          (Printf.sprintf "Why_runtime_view.of_ir_node: missing raw proof view for node %s"
-             node.semantics.sem_nname)
+let of_ir_node ~(backend_node_context : backend_node_context) (node : Ir.node_ir) : t =
+  let sem = node.context.semantics in
+  let transitions =
+    List.mapi
+      (fun idx (t : Abs.transition) ->
+        transition_of_ir ~transition_id:(Printf.sprintf "tr_%d" idx) t)
+      backend_node_context.program_transitions
   in
-  let ast_node_of_ir_node (n : Ir.node) : Ast.node =
-    let raw =
-      match n.proof_views.raw with
-      | Some raw -> raw
-      | None ->
-          failwith
-            (Printf.sprintf "Why_runtime_view.of_ir_node: missing raw proof view for callee node %s"
-               n.semantics.sem_nname)
-    in
+  let transition_groups = group_transitions transitions in
+  let runtime =
     {
-      Ast.semantics =
-        {
-          Ast.sem_nname = n.semantics.sem_nname;
-          sem_inputs = n.semantics.sem_inputs;
-          sem_outputs = n.semantics.sem_outputs;
-          sem_instances = n.semantics.sem_instances;
-          sem_locals = n.semantics.sem_locals @ pre_k_locals_of_map raw.pre_k_map;
-          sem_states = n.semantics.sem_states;
-          sem_init_state = n.semantics.sem_init_state;
-          sem_trans = List.map Ir.to_ast_transition n.trans;
-        };
-      specification =
-        {
-          Ast.spec_assumes = n.source_info.assumes;
-          spec_guarantees = n.source_info.guarantees;
-          spec_invariants_state_rel = [];
-        };
+      node_name = sem.sem_nname;
+      inputs = List.map port_of_vdecl sem.sem_inputs;
+      outputs = List.map port_of_vdecl sem.sem_outputs;
+      locals =
+        List.map port_of_vdecl (sem.sem_locals @ pre_k_locals_of_map node.context.pre_k_map);
+      instances = [];
+      callee_summaries = [];
+      control_states = sem.sem_states;
+      init_control_state = sem.sem_init_state;
+      transitions;
+      product_transitions = [];
+      transition_groups;
+      state_branches = state_branches_of_groups transition_groups;
+      assumes = node.context.source_info.assumes;
+      guarantees = node.context.source_info.guarantees;
+      user_invariants = node.context.source_info.user_invariants;
+      coherency_goals = node.goals;
     }
   in
-  let synthetic_node = ast_node_of_ir_node node in
-  let callee_nodes = List.map ast_node_of_ir_node program_nodes in
-  let runtime = of_node ~nodes:callee_nodes synthetic_node in
   let product_transitions =
     List.concat_map
-      (fun (pc : Ir.product_contract) ->
-        let t = List.nth node.trans pc.identity.program_transition_index in
+      (fun (pc : Ir.product_step_summary) ->
+        let t = pc.identity.program_step in
+        let safe_product_dsts =
+          pc.safe_cases
+          |> List.map (fun (case : Ir.safe_product_case) -> case.product_dst)
+          |> List.sort_uniq Stdlib.compare
+        in
+        let admissible_guards =
+          pc.safe_cases
+          |> List.map (fun (case : Ir.safe_product_case) -> case.admissible_guard)
+        in
         let safe_group =
-          match pc.safe_summary.safe_product_dsts with
+          match safe_product_dsts with
           | [] -> []
           | product_dst :: _ ->
               [
                 {
-                  transition_id = Printf.sprintf "tr_%d" pc.identity.program_transition_index;
-                  src_state = t.src;
-                  dst_state = t.dst;
-                  guard = t.guard;
+                  transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                  src_state = t.src_state;
+                  dst_state = t.dst_state;
+                  guard = t.guard_iexpr;
                   step_class = StepSafe;
                   product_src = pc.identity.product_src;
                   product_dst;
-                  requires = pc.common.requires;
-                  propagates = pc.safe_summary.safe_propagates;
-                  ensures = dedup_contract_formulas (pc.common.ensures @ pc.safe_summary.safe_ensures);
+                  requires = pc.requires;
+                  propagates = admissible_guards;
+                  ensures = dedup_summary_formulas pc.ensures;
                   forbidden = [];
                 };
               ]
@@ -628,27 +677,20 @@ let of_ir_node ~(program_nodes : Ir.node list) (node : Ir.node) : t =
           pc.unsafe_cases
           |> List.map (fun (case : Ir.unsafe_product_case) ->
                  {
-                   transition_id = Printf.sprintf "tr_%d" pc.identity.program_transition_index;
-                   src_state = t.src;
-                   dst_state = t.dst;
-                   guard = t.guard;
+                   transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                   src_state = t.src_state;
+                   dst_state = t.dst_state;
+                   guard = t.guard_iexpr;
                    step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;
-                   requires = pc.common.requires;
+                   requires = pc.requires;
                    propagates = [];
-                   ensures = case.ensures;
-                   forbidden = case.forbidden;
+                   ensures = [];
+                   forbidden = [ case.excluded_guard ];
                  })
         in
         safe_group @ bad_groups)
-      node.product_transitions
+      node.summaries
   in
-  {
-    runtime with
-    product_transitions;
-    assumes = node.source_info.assumes;
-    guarantees = node.source_info.guarantees;
-    user_invariants = node.source_info.user_invariants;
-    coherency_goals = node.coherency_goals;
-  }
+  { runtime with product_transitions }

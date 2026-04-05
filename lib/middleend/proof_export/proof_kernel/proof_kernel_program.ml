@@ -31,29 +31,30 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
-let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : reactive_program_ir =
+let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node)
+    ~(program_transitions : Abs.transition list) : reactive_program_ir =
   let transitions =
     List.mapi
       (fun idx (t : Abs.transition) ->
         {
           transition_id = Printf.sprintf "tr_%d" idx;
-          src_state = t.src;
-          dst_state = t.dst;
+          src_state = t.src_state;
+          dst_state = t.dst_state;
           guard =
-            (match t.guard with
+            (match t.guard_iexpr with
             | None -> FTrue
             | Some g -> fo_of_iexpr g |> simplify_fo);
-          guard_iexpr = t.guard;
+          guard_iexpr = t.guard_iexpr;
           requires = [];
           ensures = [];
-          body_stmts = t.body;
+          body_stmts = t.body_stmts;
         })
-      node.trans
+      program_transitions
   in
   {
     node_name;
-    init_state = node.semantics.sem_init_state;
-    states = node.semantics.sem_states;
+    init_state = source_node.semantics.sem_init_state;
+    states = source_node.semantics.sem_states;
     transitions;
   }
 
@@ -81,8 +82,8 @@ let build_automaton ~(role : automaton_role) ~(labels : string list) ~(bad_idx :
 let program_transition_id_of_step ~(reactive_program : reactive_program_ir) (step : PT.product_step) :
     string =
   let matches (tr : reactive_transition_ir) =
-    String.equal tr.src_state step.prog_transition.src
-    && String.equal tr.dst_state step.prog_transition.dst
+    String.equal tr.src_state step.prog_transition.src_state
+    && String.equal tr.dst_state step.prog_transition.dst_state
     && simplify_fo tr.guard = simplify_fo step.prog_guard
   in
   match List.find_opt matches reactive_program.transitions with
@@ -91,7 +92,7 @@ let program_transition_id_of_step ~(reactive_program : reactive_program_ir) (ste
       failwith
         (Printf.sprintf
            "Unable to associate product step %s->%s with a reactive transition in node %s"
-           step.prog_transition.src step.prog_transition.dst reactive_program.node_name)
+           step.prog_transition.src_state step.prog_transition.dst_state reactive_program.node_name)
 
 let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.product_step) : product_step_ir =
   {
@@ -108,7 +109,7 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
         guarantee_state_index = step.dst.guarantee_state;
       };
     program_transition_id = program_transition_id_of_step ~reactive_program step;
-    program_transition = (step.prog_transition.src, step.prog_transition.dst);
+    program_transition = (step.prog_transition.src_state, step.prog_transition.dst_state);
     program_guard = step.prog_guard;
     assume_edge =
       (let src, _guard, dst = step.assume_edge in
@@ -124,9 +125,9 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let post_formula_for_state ~(node : Abs.node) (state_name : Ast.ident) : Fo_formula.t option =
+let post_formula_for_state ~(node : Abs.node_ir) (state_name : Ast.ident) : Fo_formula.t option =
   let formulas =
-    node.source_info.state_invariants
+    node.context.source_info.state_invariants
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
            if inv.state = state_name then Some (fo_formula_of_non_temporal_ltl_exn inv.formula) else None)
   in
@@ -292,7 +293,7 @@ let rec current_formula_maybe_satisfiable env (fo_formula : Fo_formula.t) : bool
       current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
   | Fo_formula.FImp _ -> true
 
-let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     (step : product_step_ir) : bool =
   let src_live =
     step.src.assume_state_index <> analysis.assume_bad_idx
@@ -307,7 +308,8 @@ let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analy
         (empty_current_constraint_env ())
         (Fo_formula.FAnd (step.guarantee_edge.guard, dst_inv))
 
-let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let synthesize_fallback_product_steps ~(program_transitions : Abs.transition list)
+    ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(reactive_program : reactive_program_ir) ~(live_states : PT.product_state list)
     ~automaton_guard_fo ~product_state_of_pt:_ ~product_step_kind_of_pt:_ ~is_live_state:_ :
     product_step_ir list =
@@ -345,18 +347,18 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
              "Unable to associate fallback product step %s->%s with a reactive transition in node %s"
              src dst reactive_program.node_name)
   in
-  node.trans
+  program_transitions
   |> List.concat_map (fun (t : Abs.transition) ->
          let program_guard =
-           match t.guard with
+           match t.guard_iexpr with
            | None -> FTrue
            | Some g -> simplify_fo (fo_of_iexpr g)
          in
          live_states
-         |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.src)
+         |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.src_state)
          |> List.concat_map (fun (src : PT.product_state) ->
                 live_states
-                |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.dst)
+                |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.dst_state)
                 |> List.filter_map (fun (dst : PT.product_state) ->
                        let assume_guards = matching_edges assume_edges src.assume_state dst.assume_state in
                        let guarantee_guards =
@@ -396,8 +398,9 @@ let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_bu
                                      guarantee_state_index = dst.guarantee_state;
                                    };
                                  program_transition_id =
-                                   transition_id_for ~src:t.src ~dst:t.dst ~guard:program_guard;
-                                 program_transition = (t.src, t.dst);
+                                   transition_id_for ~src:t.src_state ~dst:t.dst_state
+                                     ~guard:program_guard;
+                                 program_transition = (t.src_state, t.dst_state);
                                  program_guard;
                                  assume_edge =
                                    { src_index = src.assume_state; dst_index = dst.assume_state; guard = ag };

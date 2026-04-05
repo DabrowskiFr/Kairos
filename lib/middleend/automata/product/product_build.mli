@@ -30,7 +30,8 @@ type analysis = Product_analysis.analysis
 
 val analyze_node :
   build:Automaton_types.automata_build ->
-  node:Ir.node ->
+  node:Ir.node_ir ->
+  program_transitions:Ir.transition list ->
   analysis
 (** [analyze_node ~build ~node] explores the explicit product associated with
     [node] using the automata already built in [build].

@@ -28,5 +28,5 @@ type rendered = {
 val render :
   node_name:Ast.ident ->
   analysis:Product_analysis.analysis ->
-  node:Ir.node ->
+  node:Ir.node_ir ->
   rendered

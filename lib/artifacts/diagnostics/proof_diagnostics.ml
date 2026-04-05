@@ -33,14 +33,14 @@ type formula_record = {
   loc : Ast.loc option;
 }
 
-let build_formula_records (p_obc : Abs.node list) : formula_record list =
+let build_formula_records (p_obc : Abs.node_ir list) : formula_record list =
   let records = ref [] in
   let add record = records := record :: !records in
   List.iter
-    (fun (node : Abs.node) ->
-      let node_name = node.semantics.sem_nname in
+    (fun (node : Abs.node_ir) ->
+      let node_name = node.context.semantics.sem_nname in
       List.iter
-        (fun (goal : Abs.contract_formula) ->
+        (fun (goal : Abs.summary_formula) ->
           add
             {
               oid = goal.meta.oid;
@@ -56,7 +56,7 @@ let build_formula_records (p_obc : Abs.node list) : formula_record list =
                 Some (Obligation_taxonomy.category_name Obligation_taxonomy.CatInitialGoal);
               loc = goal.meta.loc;
             })
-        node.coherency_goals;
+        node.goals;
       ())
     p_obc;
   List.rev !records
@@ -512,7 +512,8 @@ let source_from_record_or_state ~(record : formula_record option)
               List.find_map
                 (fun (t : Ast.transition) ->
                   if t.src = src_state && t.dst = dst_state then
-                    Some (Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst)
+                    Some
+                      (Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst)
                   else None)
                 node.semantics.sem_trans)
             obc_program

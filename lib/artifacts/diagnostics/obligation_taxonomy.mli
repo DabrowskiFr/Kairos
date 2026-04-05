@@ -77,6 +77,6 @@ val helper_phase_name : helper_phase -> string
 val helper_phase_of_category : category -> helper_phase option
 val helper_kind_name : helper_kind -> string
 val helper_kind_of_category : category -> helper_kind option
-val summarize_program : Ir.node list -> summary
+val summarize_program : Ir.node_ir list -> summary
 val render_summary : summary -> string
 val to_stage_meta : summary -> (string * string) list

@@ -239,14 +239,15 @@ let pretty_dot_formula (f : Fo_formula.t) : string =
 let pretty_plain_dot_formula (f : Fo_formula.t) : string =
   f |> pretty_product_formula |> mathify_formula
 
-let render_program_lines ~(node_name : ident) (node : Abs.node) =
+let render_program_lines ~(node_name : ident) (node : Ast.node) =
+  let sem = node.semantics in
   let states =
-    node.semantics.sem_states
+    sem.sem_states
     |> List.map (fun st -> Printf.sprintf "[%s] P[%s]" node_name st)
   in
   let transitions =
-    node.trans
-    |> List.map (fun (t : Abs.transition) ->
+    sem.sem_trans
+    |> List.map (fun (t : Ast.transition) ->
            let guard =
              match t.guard with
              | None -> "⊤"
@@ -694,9 +695,10 @@ let render_product_dot_explicit ~(node_name : ident) (analysis : Product_analysi
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
-let render_program_dot ~(node_name : ident) (node : Abs.node) =
+let render_program_dot ~(node_name : ident) (node : Ast.node) =
   let buf = Buffer.create 4096 in
-  let transitions_from_state = Ast_queries.transitions_from_state_fn (Abs.to_ast_node node) in
+  let transitions_from_state = Ast_queries.transitions_from_state_fn node in
+  let sem = node.semantics in
   Buffer.add_string buf "digraph ProgramAutomaton {\n";
   Buffer.add_string buf "  rankdir=LR;\n";
   Buffer.add_string buf "  forcelabels=true;\n";
@@ -711,12 +713,13 @@ let render_program_dot ~(node_name : ident) (node : Abs.node) =
   List.iter
     (fun st ->
       let fill, border =
-        if st = node.semantics.sem_init_state then ("#dff3e4", "#2f7a4c") else ("#eef8f0", "#5e8f6b")
+        if st = sem.sem_init_state then ("#dff3e4", "#2f7a4c")
+        else ("#eef8f0", "#5e8f6b")
       in
       Buffer.add_string buf
         (Printf.sprintf "  p_%s [label=\"%s\",fillcolor=\"%s\",color=\"%s\",fontcolor=\"%s\"];\n"
            (escape_dot_label st) (escape_dot_label st) fill border border))
-    node.semantics.sem_states;
+    sem.sem_states;
   List.iter
     (fun st ->
       transitions_from_state st
@@ -729,7 +732,7 @@ let render_program_dot ~(node_name : ident) (node : Abs.node) =
              add_labeled_edge buf ~src_id:(Printf.sprintf "p_%s" (escape_dot_label t.src))
                ~dst_id:(Printf.sprintf "p_%s" (escape_dot_label t.dst))
                ~label:guard ~color:"#5e8f6b" ~style:"solid"))
-    node.semantics.sem_states;
+    sem.sem_states;
   Buffer.add_string buf "}\n";
   Buffer.contents buf
 
@@ -1189,7 +1192,7 @@ let render_guarantee_automaton ~(node_name : ident) ~(analysis : Product_analysi
   in
   (dot, labels)
 
-let render_program_automaton ~(node_name : ident) ~(node : Abs.node) : string * string =
+let render_program_automaton ~(node_name : ident) ~(node : Ast.node) : string * string =
   let dot = render_program_dot ~node_name node in
   let labels = render_program_lines ~node_name node |> String.concat "\n" in
   (dot, labels)

@@ -18,7 +18,7 @@
 
 (** Organizes exported kernel clauses into Why3 contract fragments. *)
 
-type transition_contracts = {
+type transition_clauses = {
   transition_requires_pre_terms : (Why3.Ptree.term * string) list;
   transition_requires_pre : Why3.Ptree.term list;
   post_contract_terms : Why3.Ptree.term list;
@@ -39,7 +39,7 @@ val compute_transition_contracts :
   env:Why_term_support.env ->
   product_transitions:Why_runtime_view.runtime_product_transition_view list ->
   post_contract_user:Why3.Ptree.term list ->
-  transition_contracts
+  transition_clauses
 
 val compute_link_contracts :
   env:Why_term_support.env ->

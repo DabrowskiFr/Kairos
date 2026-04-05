@@ -32,6 +32,17 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
+let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
+  {
+    src_state = t.src;
+    dst_state = t.dst;
+    guard_iexpr = t.guard;
+    body_stmts = t.body;
+  }
+
+let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
+  List.map ir_transition_of_ast_transition node.semantics.sem_trans
+
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
   simplify_fo g
@@ -153,8 +164,11 @@ let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
              if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
            info.names)
 
-let build_reactive_program ~(node_name : Ast.ident) ~(node : Abs.node) : Proof_kernel_types.reactive_program_ir =
-  Proof_kernel_program.build_reactive_program ~node_name ~node
+let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node) :
+    Proof_kernel_types.reactive_program_ir =
+  Proof_kernel_program.build_reactive_program ~node_name
+    ~source_node
+    ~program_transitions:(program_transitions_of_ast_node source_node)
 
 let build_automaton ~(role : Proof_kernel_types.automaton_role) ~(labels : string list) ~(bad_idx : int)
     ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (Ast.ident * Ast.iexpr) list) :
@@ -167,20 +181,23 @@ let build_product_step ~(reactive_program : Proof_kernel_types.reactive_program_
     Proof_kernel_types.product_step_ir =
   Proof_kernel_program.build_product_step ~reactive_program step
 
-let is_feasible_product_step ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     (step : Proof_kernel_types.product_step_ir) : bool =
   Proof_kernel_program.is_feasible_product_step ~node ~analysis step
 
-let synthesize_fallback_product_steps ~(node : Abs.node) ~(analysis : Product_build.analysis)
-    ~(reactive_program : Proof_kernel_types.reactive_program_ir) ~(live_states : PT.product_state list) :
+let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+    ~(source_node : Ast.node) ~(reactive_program : Proof_kernel_types.reactive_program_ir)
+    ~(live_states : PT.product_state list) :
     Proof_kernel_types.product_step_ir list =
-  Proof_kernel_program.synthesize_fallback_product_steps ~node ~analysis ~reactive_program
+  Proof_kernel_program.synthesize_fallback_product_steps
+    ~program_transitions:(program_transitions_of_ast_node source_node)
+    ~node ~analysis ~reactive_program
     ~live_states
     ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
       automaton_guard_fo ~atom_map_exprs guard_raw)
     ~product_state_of_pt ~product_step_kind_of_pt ~is_live_state
 
-let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(initial_state : Proof_kernel_types.product_state_ir) ~(steps : Proof_kernel_types.product_step_ir list) :
     Proof_kernel_types.generated_clause_ir list =
   Proof_kernel_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps
@@ -219,23 +236,23 @@ let node_signature_of_ast (n : Ast.node) : Proof_kernel_types.node_signature_ir 
     init_state = sem.sem_init_state;
   }
 
-let export_node_summary ~(node : Abs.node) ~(normalized_ir : Proof_kernel_types.node_ir) :
+let export_node_summary ~(source_node : Ast.node) ~(node : Abs.node_ir)
+    ~(normalized_ir : Proof_kernel_types.node_ir) :
     Proof_kernel_types.exported_node_summary_ir =
-  let node_ast = Abs.to_ast_node node in
   {
-    signature = node_signature_of_ast node_ast;
+    signature = node_signature_of_ast source_node;
     normalized_ir;
-    user_invariants = node.source_info.user_invariants;
-    coherency_goals = node.coherency_goals;
-    pre_k_map = build_pre_k_infos node_ast;
-    delay_spec = extract_delay_spec node.source_info.guarantees;
-    assumes = node.source_info.assumes;
-    guarantees = node.source_info.guarantees;
+    user_invariants = node.context.source_info.user_invariants;
+    coherency_goals = node.goals;
+    pre_k_map = build_pre_k_infos source_node;
+    delay_spec = extract_delay_spec node.context.source_info.guarantees;
+    assumes = node.context.source_info.assumes;
+    guarantees = node.context.source_info.guarantees;
   }
 
-let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
-    ~(node : Abs.node) ~(analysis : Product_build.analysis) : Proof_kernel_types.node_ir =
-  let reactive_program = build_reactive_program ~node_name ~node in
+let of_node_analysis ~(node_name : Ast.ident) ~(source_node : Ast.node) ~(node : Abs.node_ir)
+    ~(analysis : Product_build.analysis) : Proof_kernel_types.node_ir =
+  let reactive_program = build_reactive_program ~node_name ~source_node in
   let assume_automaton =
     build_automaton ~role:Proof_kernel_types.Assume ~labels:analysis.assume_state_labels
       ~bad_idx:analysis.assume_bad_idx ~grouped_edges:analysis.assume_grouped_edges
@@ -258,7 +275,7 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   let product_steps =
     if explicit_steps <> [] then explicit_steps
     else
-      synthesize_fallback_product_steps ~node ~analysis ~reactive_program
+      synthesize_fallback_product_steps ~node ~analysis ~source_node ~reactive_program
         ~live_states:live_product_states
   in
   let product_coverage =
@@ -269,7 +286,7 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
   let historical_generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
-  let pre_k_map = build_pre_k_infos (Abs.to_ast_node node) in
+  let pre_k_map = build_pre_k_infos source_node in
   let eliminated_generated_clauses =
     List.filter_map (Proof_kernel_clauses.lower_generated_clause ~pre_k_map) historical_generated_clauses
   in
@@ -281,7 +298,7 @@ let of_node_analysis ~(node_name : Ast.ident) ~(nodes : Abs.node list)
     Proof_kernel_step_contracts.build_proof_step_contracts ~node ~reactive_program ~product_steps ~pre_k_map
       ~initial_product_state ~symbolic_generated_clauses
   in
-  let ghost_locals = pre_k_locals_of_ast (Abs.to_ast_node node) in
+  let ghost_locals = pre_k_locals_of_ast source_node in
   {
     Proof_kernel_types.reactive_program;
     assume_automaton;

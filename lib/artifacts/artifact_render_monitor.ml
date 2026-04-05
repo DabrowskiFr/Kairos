@@ -262,10 +262,12 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
     |> List.map (fun n ->
            let sem = n.semantics in
            let build = Automata_generation.build_for_node n in
-           let analysis = Product_build.analyze_node ~build ~node:(From_ast.of_ast_node n) in
-           let abs_node = From_ast.of_ast_node n in
+           let analysis =
+             Product_build.analyze_node ~build ~node:(From_ast.of_ast_node n)
+               ~program_transitions:(List.map From_ast.of_ast_transition n.semantics.sem_trans)
+           in
            let program =
-             Ir_render_product.render_program_automaton ~node_name:sem.sem_nname ~node:abs_node
+             Ir_render_product.render_program_automaton ~node_name:sem.sem_nname ~node:n
            in
            let full = Ir_render_product.render ~node_name:sem.sem_nname ~analysis in
            (program, (full.assume_automaton_dot, String.concat "\n" full.assume_automaton_lines),

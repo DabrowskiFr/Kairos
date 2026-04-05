@@ -45,5 +45,5 @@ val render_guarantee_automaton :
 
 val render_program_automaton :
   node_name:Ast.ident ->
-  node:Ir.node ->
+  node:Ast.node ->
   string * string

@@ -19,7 +19,7 @@
 open Ast
 open Fo_specs
 
-let of_ast_contract_formula ?origin (f : Ast.ltl_o) : Ir.contract_formula =
+let of_ast_summary_formula ?origin (f : Ast.ltl_o) : Ir.summary_formula =
   {
     logic = fo_formula_of_non_temporal_ltl_exn f.value;
     meta = { origin; oid = f.oid; loc = f.loc };
@@ -27,28 +27,38 @@ let of_ast_contract_formula ?origin (f : Ast.ltl_o) : Ir.contract_formula =
 
 let of_ast_transition (t : Ast.transition) : Ir.transition =
   {
-    src = t.src;
-    dst = t.dst;
-    guard = t.guard;
-    body = t.body;
+    src_state = t.src;
+    dst_state = t.dst;
+    guard_iexpr = t.guard;
+    body_stmts = t.body;
   }
 
-let of_ast_node (n : Ast.node) : Ir.node =
+let of_ast_node (n : Ast.node) : Ir.node_ir =
   let semantics = Ast.semantics_of_node n in
   let spec = Ast.specification_of_node n in
   {
-    semantics;
-    trans = List.map of_ast_transition n.semantics.sem_trans;
-    product_transitions = [];
-    source_info =
+    context =
       {
-        assumes = spec.spec_assumes;
-        guarantees = spec.spec_guarantees;
-        user_invariants = [];
-        state_invariants = spec.spec_invariants_state_rel;
+        semantics =
+          {
+            Ir.sem_nname = semantics.sem_nname;
+            sem_inputs = semantics.sem_inputs;
+            sem_outputs = semantics.sem_outputs;
+            sem_locals = semantics.sem_locals;
+            sem_states = semantics.sem_states;
+            sem_init_state = semantics.sem_init_state;
+          };
+        pre_k_map = [];
+        source_info =
+          {
+            assumes = spec.spec_assumes;
+            guarantees = spec.spec_guarantees;
+            user_invariants = [];
+            state_invariants = spec.spec_invariants_state_rel;
+          };
       };
-    coherency_goals = [];
-    proof_views = Ir.empty_proof_views;
+    summaries = [];
+    goals = [];
   }
 
-let of_ast_program (p : Ast.program) : Ir.node list = List.map of_ast_node p
+let of_ast_program (p : Ast.program) : Ir.node_ir list = List.map of_ast_node p

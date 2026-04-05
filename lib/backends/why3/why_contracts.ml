@@ -38,7 +38,7 @@ type contract_info = Why_types.contract_info
 
 type step_contract_info = Why_types.step_contract_info
 
-type transition_contracts = {
+type transition_clauses = {
   transition_requires_pre_terms : (Ptree.term * string) list;
   transition_requires_pre : Ptree.term list;
   post_contract_terms : Ptree.term list;
@@ -172,16 +172,16 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     | Some Internal -> "Internal"
     | None -> "Unknown"
   in
-  let compile_formula ~in_post (f : Ir.contract_formula) : Ptree.term list =
+  let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
   in
-  let compile_forbidden_formula (f : Ir.contract_formula) : Ptree.term list =
+  let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
     let term = Why_compile_expr.compile_local_fo_formula_term ~in_post:true env f.logic in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
     pc.requires
-    |> List.concat_map (fun (f : Ir.contract_formula) ->
+    |> List.concat_map (fun (f : Ir.summary_formula) ->
            let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
            compile_formula ~in_post:false f
            |> List.map (fun t -> mk_term (Tattr (rid_attr, t)), origin_label f.meta.origin))
@@ -211,16 +211,16 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     ignore runtime.guarantees;
     if !pure_translation then [] else []
   in
-  let transition_contracts =
+  let transition_clauses =
     Why_contract_plan.compute_transition_contracts ~env
       ~product_transitions:runtime.product_transitions ~post_contract_user
   in
-  let transition_requires_pre_terms = transition_contracts.transition_requires_pre_terms in
-  let transition_requires_pre = transition_contracts.transition_requires_pre in
-  let post_contract_terms = transition_contracts.post_contract_terms in
-  let pure_post = transition_contracts.pure_post in
-  let post_terms = transition_contracts.post_terms in
-  let post_terms_vcid = transition_contracts.post_terms_vcid in
+  let transition_requires_pre_terms = transition_clauses.transition_requires_pre_terms in
+  let transition_requires_pre = transition_clauses.transition_requires_pre in
+  let post_contract_terms = transition_clauses.post_contract_terms in
+  let pure_post = transition_clauses.pure_post in
+  let post_terms = transition_clauses.post_terms in
+  let post_terms_vcid = transition_clauses.post_terms_vcid in
   let compiled_step_contracts = List.map compile_step_contract runtime.product_transitions in
   let pre_contract = transition_requires_pre in
   let link_contracts =

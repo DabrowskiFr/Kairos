@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
 open Generated_names
 open Temporal_support
@@ -21,12 +39,12 @@ let same_product_state_ref (a : Abs.product_state) (b : product_state_ir) =
 let same_safe_case_step (case : Abs.safe_product_case) (step : product_step_ir) =
   step.step_kind = StepSafe
   && same_product_state_ref case.product_dst step.dst
-  && simplify_fo case.guarantee_guard = simplify_fo step.guarantee_edge.guard
+  && simplify_fo case.admissible_guard.logic = simplify_fo step.guarantee_edge.guard
 
 let same_unsafe_case_step (case : Abs.unsafe_product_case) (step : product_step_ir) =
   step.step_kind = StepBadGuarantee
   && same_product_state_ref case.product_dst step.dst
-  && simplify_fo case.guarantee_guard = simplify_fo step.guarantee_edge.guard
+  && simplify_fo case.excluded_guard.logic = simplify_fo step.guarantee_edge.guard
 
 let product_transition_index_of_step (step : product_step_ir) : int option =
   let raw =
@@ -45,14 +63,14 @@ let product_transition_index_of_step (step : product_step_ir) : int option =
   let prefix_len = first_non_digit 0 in
   if prefix_len = 0 then None else int_of_string_opt (String.sub raw 0 prefix_len)
 
-let product_contract_of_step ~(node : Abs.node) (step : product_step_ir) :
-    Abs.product_contract option =
+let product_contract_of_step ~(node : Abs.node_ir) (step : product_step_ir) :
+    Abs.product_step_summary option =
   match product_transition_index_of_step step with
   | None -> None
   | Some idx ->
       List.find_opt
-        (fun (pc : Abs.product_contract) ->
-          pc.identity.program_transition_index = idx
+        (fun (pc : Abs.product_step_summary) ->
+          pc.trace.step_uid = idx
           && same_product_state_ref pc.identity.product_src step.src
           && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard
           &&
@@ -61,26 +79,28 @@ let product_contract_of_step ~(node : Abs.node) (step : product_step_ir) :
           | StepBadGuarantee ->
               List.exists (fun case -> same_unsafe_case_step case step) pc.unsafe_cases
           | StepBadAssumption -> false)
-        node.product_transitions
+        node.summaries
 
-let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(steps : product_step_ir list) ~automaton_guard_fo : generated_clause_ir list =
   let _analysis = analysis in
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
-  let product_contracts_of_step (step : product_step_ir) : Abs.product_contract list =
+  let product_contracts_of_step (step : product_step_ir) : Abs.product_step_summary list =
     match product_contract_of_step ~node step with
     | None -> []
     | Some pc -> [ pc ]
   in
-  let guarantee_propagation_requires (pc : Abs.product_contract) : Fo_formula.t list =
-    pc.common.requires
-    |> List.filter_map (fun (f : Abs.contract_formula) ->
+  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Fo_formula.t list =
+    pc.requires
+    |> List.filter_map (fun (f : Abs.summary_formula) ->
            match f.meta.origin with
            | Some Formula_origin.GuaranteePropagation -> Some f.logic
            | _ -> None)
   in
   let input_names =
-    node.semantics.sem_inputs |> List.map (fun (v : Ast.vdecl) -> v.vname) |> List.sort_uniq String.compare
+    node.context.semantics.sem_inputs
+    |> List.map (fun (v : Ast.vdecl) -> v.vname)
+    |> List.sort_uniq String.compare
   in
   let rec iexpr_mentions_current_input (e : Ast.iexpr) =
     match e.iexpr with
@@ -268,15 +288,15 @@ let build_source_summary_clauses ~(node : Abs.node) ~(analysis : Product_build.a
                  }
              | _ -> clause)
 
-let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analysis)
+let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(initial_state : product_state_ir) ~(steps : product_step_ir list) ~automaton_guard_fo
     ~is_live_state : generated_clause_ir list =
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
-  let guarantee_propagation_requires (pc : Abs.product_contract) : Fo_formula.t list =
-    pc.common.requires
-    |> List.filter_map (fun (f : Abs.contract_formula) ->
+  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Fo_formula.t list =
+    pc.requires
+    |> List.filter_map (fun (f : Abs.summary_formula) ->
            match f.meta.origin with
            | Some Formula_origin.GuaranteePropagation -> Some f.logic
            | _ -> None)
@@ -313,15 +333,15 @@ let build_generated_clauses ~(node : Abs.node) ~(analysis : Product_build.analys
               |> normalize_phase_summary)
   in
   let invariants_for_state state_name =
-    node.source_info.state_invariants
+    node.context.source_info.state_invariants
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
            if inv.state = state_name then
              Some (current (FactFormula (Fo_specs.fo_formula_of_non_temporal_ltl_exn inv.formula)))
            else None)
   in
   let init_goal_facts =
-    node.coherency_goals
-    |> List.map (fun (f : Abs.contract_formula) -> current (FactFormula f.logic))
+    node.goals
+    |> List.map (fun (f : Abs.summary_formula) -> current (FactFormula f.logic))
   in
   let init_clauses =
     [

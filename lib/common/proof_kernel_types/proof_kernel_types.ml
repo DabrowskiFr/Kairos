@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 type automaton_role =
   | Assume
   | Guarantee
@@ -9,8 +27,12 @@ type reactive_transition_ir = {
   dst_state : Ast.ident;
   guard : Fo_formula.t;
   guard_iexpr : Ast.iexpr option;
-  requires : Ir.contract_formula list;
-  ensures : Ir.contract_formula list;
+  requires : Ir.summary_formula list
+      [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
+      [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
+  ensures : Ir.summary_formula list
+      [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
+      [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
   body_stmts : Ast.stmt list;
 }
 [@@deriving yojson]
@@ -180,7 +202,9 @@ type exported_node_summary_ir = {
   signature : node_signature_ir;
   normalized_ir : node_ir;
   user_invariants : Ast.invariant_user list;
-  coherency_goals : Ir.contract_formula list;
+  coherency_goals : Ir.summary_formula list
+      [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
+      [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
   pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
   delay_spec : (Ast.ident * Ast.ident) option;
   assumes : Ast.ltl list;

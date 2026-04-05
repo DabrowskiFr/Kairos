@@ -23,7 +23,8 @@ module PT = Product_types
 
 val build_reactive_program :
   node_name:Ast.ident ->
-  node:Abs.node ->
+  source_node:Ast.node ->
+  program_transitions:Abs.transition list ->
   Proof_kernel_types.reactive_program_ir
 
 val build_automaton :
@@ -36,7 +37,7 @@ val build_automaton :
   Proof_kernel_types.safety_automaton_ir
 
 val is_feasible_product_step :
-  node:Abs.node ->
+  node:Abs.node_ir ->
   analysis:Product_build.analysis ->
   Proof_kernel_types.product_step_ir ->
   bool
@@ -47,7 +48,8 @@ val build_product_step :
   Proof_kernel_types.product_step_ir
 
 val synthesize_fallback_product_steps :
-  node:Abs.node ->
+  program_transitions:Abs.transition list ->
+  node:Abs.node_ir ->
   analysis:Product_build.analysis ->
   reactive_program:Proof_kernel_types.reactive_program_ir ->
   live_states:PT.product_state list ->

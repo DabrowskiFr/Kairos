@@ -19,14 +19,13 @@
 (*---------------------------------------------------------------------------
  * Kairos — Pass 4: Annotated-view materialization.
  *
- * Builds [Ir.annotated_node] from [Ir.raw_node] while preserving transition
+ * Builds [Ir_proof_views.annotated_node] from [Ir_proof_views.raw_node] while preserving transition
  * structure for diagnostics/export.
  *
  * The formulas may still contain [Ast.hexpr] references (prev^k x);
  * history elimination is performed in pass 5 ([Proof_obligation_lowering]).
  *---------------------------------------------------------------------------*)
 
-(** Materializes the annotated proof view stored inside the IR. *)
+(** Build the annotated proof snapshot from a raw snapshot and an IR node. *)
 
-val apply_node : analysis:Product_build.analysis -> Ir.node -> Ir.node
-val apply_program : analyses:(Ast.ident * Product_build.analysis) list -> Ir.node list -> Ir.node list
+val annotate : raw:Ir_proof_views.raw_node -> node:Ir.node_ir -> Ir_proof_views.annotated_node

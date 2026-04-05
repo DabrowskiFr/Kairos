@@ -1,296 +1,147 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
+open Fo_specs
+open Fo_time
 open Formula_origin
-open Temporal_support
+open Ast_pretty
 
 module Abs = Ir
-module PT = Product_types
 
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
-
-let input_names (n : Abs.node) : ident list =
-  List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
-
-let is_input_of_node (n : Abs.node) : ident -> bool =
-  let names = input_names n in
-  fun x -> List.mem x names
-
-let product_state_of_pt (st : PT.product_state) : Abs.product_state =
-  {
-    prog_state = st.prog_state;
-    assume_state_index = st.assume_state;
-    guarantee_state_index = st.guarantee_state;
-  }
-
-let is_live_product_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
-  st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
-
-let is_relevant_product_step ~(analysis : Product_build.analysis) (step : PT.product_step) : bool =
-  is_live_product_state ~analysis step.src
-  && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
-
-let same_product_state (a : PT.product_state) (b : PT.product_state) : bool =
-  String.equal a.prog_state b.prog_state
-  && a.assume_state = b.assume_state
-  && a.guarantee_state = b.guarantee_state
 
 let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
 
-let automaton_outgoing (grouped : Automaton_types.transition list) :
-    (int, Automaton_types.transition list) Hashtbl.t =
-  let tbl = Hashtbl.create 16 in
+let input_names (n : Abs.node_ir) : ident list =
+  List.map (fun (v : vdecl) -> v.vname) n.context.semantics.sem_inputs
+
+let is_input_of_node (n : Abs.node_ir) : ident -> bool =
+  let names = input_names n in
+  fun x -> List.mem x names
+
+let rec iexpr_mentions_current_input ~(is_input : ident -> bool) (e : Ast.iexpr) =
+  match e.iexpr with
+  | IVar name -> is_input name
+  | ILitInt _ | ILitBool _ -> false
+  | IPar inner | IUn (_, inner) -> iexpr_mentions_current_input ~is_input inner
+  | IBin (_, a, b) ->
+      iexpr_mentions_current_input ~is_input a || iexpr_mentions_current_input ~is_input b
+
+let hexpr_mentions_current_input ~(is_input : ident -> bool) = function
+  | HNow e -> iexpr_mentions_current_input ~is_input e
+  | HPreK _ -> false
+
+let rec ltl_mentions_current_input ~(is_input : ident -> bool) (f : Ast.ltl) =
+  match f with
+  | LTrue | LFalse -> false
+  | LAtom (FRel (a, _, b)) ->
+      hexpr_mentions_current_input ~is_input a || hexpr_mentions_current_input ~is_input b
+  | LAtom (FPred (_, hs)) -> List.exists (hexpr_mentions_current_input ~is_input) hs
+  | LNot inner | LX inner | LG inner -> ltl_mentions_current_input ~is_input inner
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      ltl_mentions_current_input ~is_input a || ltl_mentions_current_input ~is_input b
+
+let reject_current_input_invariant ~(node : Abs.node_ir) (inv : invariant_state_rel) : unit =
+  let is_input = is_input_of_node node in
+  if ltl_mentions_current_input ~is_input inv.formula then
+    failwith
+      (Printf.sprintf
+         "State invariant for node %s in state %s mentions a current input (HNow on an input), \
+          which is forbidden for node-entry invariants: %s"
+         node.context.semantics.sem_nname inv.state (string_of_ltl inv.formula))
+
+let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
+  let by_state = Hashtbl.create 16 in
   List.iter
-    (fun (((src, _guard, _dst) as edge) : Automaton_types.transition) ->
-      let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
-      Hashtbl.replace tbl src (edge :: prev))
-    grouped;
-  tbl
+    (fun (inv : invariant_state_rel) ->
+      if List.mem inv.state n.context.semantics.sem_states then (
+        reject_current_input_invariant ~node:n inv;
+        let inv_fo = fo_formula_of_non_temporal_ltl_exn inv.formula in
+        let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
+        Hashtbl.replace by_state inv.state (inv_fo :: existing)))
+    n.context.source_info.state_invariants;
+  fun st ->
+    (match Hashtbl.find_opt by_state st with
+    | None -> None
+    | Some xs -> conj_fo (List.sort_uniq compare xs))
 
-let edges_from_outgoing (outgoing : (int, Automaton_types.transition list) Hashtbl.t) idx =
-  Hashtbl.find_opt outgoing idx |> Option.value ~default:[]
+  let add_unique_formula (origin : Formula_origin.t) (f : Fo_formula.t)
+    (xs : Abs.summary_formula list) : Abs.summary_formula list =
+  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
+  else xs @ [ Ir_formula.with_origin origin f ]
 
-let transition_indices (node : Abs.node) : (Abs.transition, int) Hashtbl.t =
-  node.trans
-  |> List.mapi (fun idx t -> (t, idx))
-  |> List.to_seq |> Hashtbl.of_seq
-
-let program_outgoing (node : Abs.node) : (ident, Abs.transition list) Hashtbl.t =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun (t : Abs.transition) ->
-      let prev = Hashtbl.find_opt tbl t.src |> Option.value ~default:[] in
-      Hashtbl.replace tbl t.src (t :: prev))
-    node.trans;
-  tbl
-
-let classify_case ~(analysis : Product_build.analysis) (dst : PT.product_state) : PT.step_class =
-  if analysis.assume_bad_idx >= 0 && dst.assume_state = analysis.assume_bad_idx then PT.Bad_assumption
-  else if analysis.guarantee_bad_idx >= 0 && dst.guarantee_state = analysis.guarantee_bad_idx then
-    PT.Bad_guarantee
-  else PT.Safe
-
-let product_transitions ~(analysis : Product_build.analysis) ~(node : Abs.node) :
-    Abs.product_contract list =
-  let transition_indices = transition_indices node in
-  let prog_outgoing = program_outgoing node in
-  let assume_outgoing = automaton_outgoing analysis.assume_grouped_edges in
-  let guarantee_outgoing = automaton_outgoing analysis.guarantee_grouped_edges in
-  let groups = Hashtbl.create 32 in
-  let order = ref [] in
-  let seen = Hashtbl.create 64 in
-  let q = Queue.create () in
-  let push_state st =
-    if not (Hashtbl.mem seen st) then (
-      Hashtbl.add seen st ();
-      Queue.add st q)
+let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_summary) :
+    Abs.product_step_summary =
+  let is_input = is_input_of_node node in
+  let inv_of_state = invariant_of_state node in
+  let safe_disjunction =
+    pc.safe_cases
+    |> List.map (fun (case : Abs.safe_product_case) -> case.admissible_guard.logic)
+    |> disj_fo
   in
-  push_state analysis.exploration.initial_state;
-  while not (Queue.is_empty q) do
-    let src = Queue.take q in
-    let prog_edges = Hashtbl.find_opt prog_outgoing src.prog_state |> Option.value ~default:[] in
-    let assume_edges = edges_from_outgoing assume_outgoing src.assume_state in
-    let guarantee_edges = edges_from_outgoing guarantee_outgoing src.guarantee_state in
-    List.iter
-      (fun (prog_transition : Abs.transition) ->
-        match Hashtbl.find_opt transition_indices prog_transition with
-        | None -> ()
-        | Some program_transition_index ->
-            List.iter
-              (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) :
-                    Automaton_types.transition) ->
-                List.iter
-                  (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
-                        Automaton_types.transition) ->
-                    let dst =
-                      {
-                        PT.prog_state = prog_transition.dst;
-                        assume_state = assume_dst;
-                        guarantee_state = guarantee_dst;
-                      }
-                    in
-                    push_state dst;
-                    let step_class = classify_case ~analysis dst in
-                    let step =
-                      {
-                        PT.src;
-                        dst;
-                        prog_transition;
-                        prog_guard =
-                          (match prog_transition.guard with
-                          | None -> Fo_formula.FTrue
-                          | Some g -> Fo_specs.iexpr_to_fo_with_atoms [] g |> simplify_fo);
-                        assume_edge;
-                        assume_guard = simplify_fo assume_guard_raw;
-                        guarantee_edge;
-                        guarantee_guard = simplify_fo guarantee_guard_raw;
-                        step_class;
-                      }
-                    in
-                    if is_relevant_product_step ~analysis step then (
-                      let key = (program_transition_index, step.src, step.assume_edge) in
-                      if not (Hashtbl.mem groups key) then order := key :: !order;
-                      let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
-                      Hashtbl.replace groups key ((step, program_transition_index) :: previous)))
-                  guarantee_edges)
-              assume_edges)
-      prog_edges
-  done;
-  let contracts =
-    List.rev !order
-    |> List.filter_map (fun key ->
-           match Hashtbl.find_opt groups key with
+  let shifted_destination_invariants =
+    pc.safe_cases
+    |> List.filter_map (fun (case : Abs.safe_product_case) ->
+           match inv_of_state case.product_dst.prog_state with
            | None -> None
-           | Some grouped ->
-               let grouped = List.rev grouped in
-               let ((repr_step : PT.product_step), program_transition_index) = List.hd grouped in
-               let safe_guards =
-                 grouped
-                 |> List.filter_map (fun ((step : PT.product_step), _) ->
-                        match step.step_class with
-                        | PT.Safe -> Some step.guarantee_guard
-                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
-               in
-               let safe_product_dsts =
-                 grouped
-                 |> List.filter_map (fun ((step : PT.product_step), _) ->
-                        match step.step_class with
-                        | PT.Safe -> Some (product_state_of_pt step.dst)
-                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
-                 |> List.sort_uniq Stdlib.compare
-               in
-               let safe_cases =
-                 grouped
-                 |> List.filter_map (fun ((step : PT.product_step), _) ->
-                        match step.step_class with
-                        | PT.Safe ->
-                            Some
-                              ({
-                                 product_dst_id = "";
-                                 product_dst = product_state_of_pt step.dst;
-                                 guarantee_guard = step.guarantee_guard;
-                                 propagates =
-                                   [ Abs.with_origin GuaranteeAutomaton step.guarantee_guard ];
-                                 ensures = [];
-                               } : Abs.safe_product_case)
-                        | PT.Bad_assumption | PT.Bad_guarantee -> None)
-               in
-               let unsafe_cases =
-                 grouped
-                 |> List.filter_map (fun ((step : PT.product_step), _) ->
-                        match step.step_class with
-                        | PT.Bad_guarantee ->
-                            Some
-                              ({
-                                 product_dst_id = "";
-                                 product_dst = product_state_of_pt step.dst;
-                                 guarantee_guard = step.guarantee_guard;
-                                 ensures = [];
-                                 forbidden =
-                                   [ Abs.with_origin GuaranteeViolation step.guarantee_guard ];
-                               } : Abs.unsafe_product_case)
-                        | PT.Safe | PT.Bad_assumption -> None)
-               in
-               Some
-                 ({
-                   Abs.identity =
-                     {
-                       program_transition_index;
-                       product_src_id = "";
-                       product_src = product_state_of_pt repr_step.src;
-                       assume_guard = repr_step.assume_guard;
-                     };
-                   common =
-                     {
-                       requires = [];
-                       ensures =
-                         (match (disj_fo safe_guards, safe_product_dsts) with
-                         | Some grouped, _ :: _ -> [ Abs.with_origin Internal grouped ]
-                         | _ -> []);
-                     };
-                   safe_summary =
-                     {
-                       safe_destination_id = None;
-                       safe_product_dsts;
-                       safe_propagates =
-                         grouped
-                         |> List.filter_map (fun ((step : PT.product_step), _) ->
-                                match step.step_class with
-                                | PT.Safe ->
-                                    Some
-                                      (Abs.with_origin GuaranteeAutomaton
-                                         step.guarantee_guard)
-                                | PT.Bad_assumption | PT.Bad_guarantee -> None);
-                       safe_ensures = [];
-                     };
-                   safe_cases;
-                   unsafe_cases;
-                 } : Abs.product_contract))
+           | Some inv -> Some (shift_formula_backward_inputs ~is_input inv))
+    |> List.sort_uniq compare
   in
-  contracts
-  |> List.mapi (fun idx (pc : Abs.product_contract) ->
-         let source_id = Printf.sprintf "S%d" (idx + 1) in
-         let safe_destination_id =
-           if pc.safe_summary.safe_product_dsts = [] then None
-           else Some (Printf.sprintf "D%d" (idx + 1))
-         in
-         let safe_cases =
-           pc.safe_cases
-           |> List.mapi (fun case_idx (case : Abs.safe_product_case) ->
-                  let product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (case_idx + 1) in
-                  { case with product_dst_id })
-         in
-         let unsafe_cases =
-           pc.unsafe_cases
-           |> List.mapi (fun case_idx (case : Abs.unsafe_product_case) ->
-                  let offset = List.length pc.safe_cases in
-                  let product_dst_id = Printf.sprintf "K%d_%d" (idx + 1) (offset + case_idx + 1) in
-                  { case with product_dst_id })
-         in
-         {
-           pc with
-           identity = { pc.identity with product_src_id = source_id };
-           safe_summary = { pc.safe_summary with safe_destination_id };
-           safe_cases;
-           unsafe_cases;
-         })
+  let ensures =
+    (pc.ensures
+    |> fun acc ->
+    (match safe_disjunction with
+    | None -> acc
+    | Some f -> add_unique_formula Internal f acc)
+    |> fun acc ->
+    List.fold_left
+      (fun acc shifted_inv -> add_unique_formula Invariant shifted_inv acc)
+      acc shifted_destination_invariants)
+  in
+  { pc with ensures }
 
-type t = { product_transitions : Abs.product_contract list }
+type t = { summaries : Abs.product_step_summary list }
 
-let build ~(node : Abs.node) ~(analysis : Product_build.analysis) : t =
-  { product_transitions = product_transitions ~analysis ~node }
+let build ~(node : Abs.node_ir) : t =
+  { summaries = List.map (enrich_product_step_summary ~node) node.summaries }
 
-let apply ~(post_generation : t) (n : Abs.node) : Abs.node =
-  { n with product_transitions = post_generation.product_transitions }
+let apply ~(post_generation : t) (n : Abs.node_ir) : Abs.node_ir =
+  { n with summaries = post_generation.summaries }
 
-let build_program ~(analyses : (Ast.ident * Product_build.analysis) list) (p : Abs.node list) :
-    (Ast.ident * t) list =
+let build_program (p : Abs.node_ir list) : (Ast.ident * t) list =
+  List.map (fun (n : Abs.node_ir) -> (n.context.semantics.sem_nname, build ~node:n)) p
+
+let apply_program ~(post_generations : (Ast.ident * t) list) (p : Abs.node_ir list) :
+    Abs.node_ir list =
   List.map
-    (fun (n : Abs.node) ->
-      let analysis =
-        match List.assoc_opt n.semantics.sem_nname analyses with
-        | Some analysis -> analysis
-        | None ->
-            failwith
-              (Printf.sprintf "Missing product analysis for normalized node %s"
-                 n.semantics.sem_nname)
-      in
-      (n.semantics.sem_nname, build ~node:n ~analysis))
-    p
-
-let apply_program ~(post_generations : (Ast.ident * t) list) (p : Abs.node list) :
-    Abs.node list =
-  List.map
-    (fun (n : Abs.node) ->
+    (fun (n : Abs.node_ir) ->
       let post_generation =
-        match List.assoc_opt n.semantics.sem_nname post_generations with
+        match List.assoc_opt n.context.semantics.sem_nname post_generations with
         | Some pg -> pg
         | None ->
             failwith
               (Printf.sprintf "Missing post generation for normalized node %s"
-                 n.semantics.sem_nname)
+                 n.context.semantics.sem_nname)
       in
       apply ~post_generation n)
     p

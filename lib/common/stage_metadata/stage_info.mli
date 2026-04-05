@@ -39,8 +39,8 @@ type automata_info = {
 }
 
 (** Metadata produced by the contracts pass. *)
-type contracts_info = {
-  contract_origin_map : (int * Formula_origin.t option) list;
+type formulas_info = {
+  formula_origin_map : (int * Formula_origin.t option) list;
   warnings : string list;
 }
 
@@ -59,11 +59,11 @@ type instrumentation_info = {
   (** Export-oriented node summaries paired with the kernel IR. *)
   exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
   (** Pass 3 output: raw IR nodes (no Hoare triples). *)
-  raw_ir_nodes : Ir.raw_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
   (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)
-  annotated_ir_nodes : Ir.annotated_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
   (** Pass 5 output: verified IR nodes (history eliminated, ready for Why3). *)
-  verified_ir_nodes : Ir.verified_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   (** Text rendering of the kernel IR. *)
   kernel_pipeline_lines : string list;
   (** Non-fatal warnings emitted while building proof artifacts. *)
@@ -117,7 +117,7 @@ type instrumentation_info = {
       (states that are neither [A_bad] nor [G_bad]). *)
   product_state_count_live : int;
   (** Number of canonical contracts (sum over processed nodes). *)
-  canonical_contract_count : int;
+  canonical_summary_count : int;
   (** Number of safe canonical cases (sum over processed nodes). *)
   canonical_case_safe_count : int;
   (** Number of bad-assumption canonical cases (sum over processed nodes). *)
@@ -133,7 +133,7 @@ val empty_parse_info : parse_info
 val empty_automata_info : automata_info
 
 (** Default empty contracts metadata. *)
-val empty_contracts_info : contracts_info
+val empty_contracts_info : formulas_info
 
 (** Empty proof-artifact metadata.
 

@@ -31,8 +31,6 @@ type stmt = Ast.stmt
 type vdecl = Ast.vdecl
 type invariant_user = Ast.invariant_user
 type invariant_state_rel = Ast.invariant_state_rel
-type node_semantics = Ast.node_semantics
-type transition = Ast.transition
 
 (** Stable identifier attached to logical formulas across exports/reports. *)
 type formula_id = int

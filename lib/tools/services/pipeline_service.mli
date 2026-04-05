@@ -42,9 +42,9 @@ val ir_pretty_dump : input_file:string -> (string, Pipeline_types.error) result
 val compile_object : input_file:string -> (Kairos_object.t, Pipeline_types.error) result
 
 type ir_nodes = Pipeline_build.ir_nodes = {
-  raw_ir_nodes : Ir.raw_node list;
-  annotated_ir_nodes : Ir.annotated_node list;
-  verified_ir_nodes : Ir.verified_node list;
+  raw_ir_nodes : Ir_proof_views.raw_node list;
+  annotated_ir_nodes : Ir_proof_views.annotated_node list;
+  verified_ir_nodes : Ir_proof_views.verified_node list;
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 

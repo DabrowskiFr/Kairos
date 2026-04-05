@@ -66,8 +66,8 @@ type runtime_transition_view = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
-  requires : Ir.contract_formula list;
-  ensures : Ir.contract_formula list;
+  requires : Ir.summary_formula list;
+  ensures : Ir.summary_formula list;
   body : Ast.stmt list;
   action_blocks : action_block_view list;
   call_sites : call_site_view list;
@@ -85,10 +85,10 @@ type runtime_product_transition_view = {
   step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
-  requires : Ir.contract_formula list;
-  propagates : Ir.contract_formula list;
-  ensures : Ir.contract_formula list;
-  forbidden : Ir.contract_formula list;
+  requires : Ir.summary_formula list;
+  propagates : Ir.summary_formula list;
+  ensures : Ir.summary_formula list;
+  forbidden : Ir.summary_formula list;
 }
 
 type transition_group_view = {
@@ -117,7 +117,15 @@ type t = {
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
-  coherency_goals : Ir.contract_formula list;
+  coherency_goals : Ir.summary_formula list;
+}
+
+type backend_node_context = {
+  program_transitions : Ir.transition list;
+}
+
+type backend_phase_context = {
+  nodes : (Ast.ident * backend_node_context) list;
 }
 
 val of_node :
@@ -129,7 +137,7 @@ val transition_to_ast : runtime_transition_view -> Ast.transition
 val to_ast_node : t -> Ast.node
 val has_instance_calls : t -> bool
 
-val of_ir_node :
-  program_nodes:Ir.node list ->
-  Ir.node ->
-  t
+val build_backend_phase_context : Ast.program -> backend_phase_context
+val find_backend_node_context : backend_phase_context -> Ast.ident -> backend_node_context option
+
+val of_ir_node : backend_node_context:backend_node_context -> Ir.node_ir -> t

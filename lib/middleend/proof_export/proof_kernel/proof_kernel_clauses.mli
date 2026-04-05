@@ -22,7 +22,7 @@ module Abs = Ir
 module PT = Product_types
 
 val build_generated_clauses :
-  node:Abs.node ->
+  node:Abs.node_ir ->
   analysis:Product_build.analysis ->
   initial_state:Proof_kernel_types.product_state_ir ->
   steps:Proof_kernel_types.product_step_ir list ->

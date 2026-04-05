@@ -1,3 +1,21 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
 open Ast
 open Ast_pretty
 open Temporal_support
@@ -17,8 +35,8 @@ type formula_aliases = {
 }
 
 type transition_aliases = {
-  dot_alias_of_index : int -> string;
-  tex_alias_of_index : int -> string;
+  dot_alias_of_id : int -> string;
+  tex_alias_of_id : int -> string;
   definitions : (string * string) list;
 }
 
@@ -174,16 +192,29 @@ let pretty_stmt (s : Ast.stmt) : string =
 
 let pretty_transition (t : Abs.transition) : string =
   let guard =
-    match t.guard with
+    match t.guard_iexpr with
     | None -> "true"
     | Some g -> string_of_iexpr g
   in
   let body =
-    match t.body with
+    match t.body_stmts with
     | [] -> "skip"
     | xs -> String.concat "; " (List.map pretty_stmt xs)
   in
-  Printf.sprintf "%s -> %s when %s / %s" t.src t.dst guard body
+  Printf.sprintf "%s -> %s when %s / %s" t.src_state t.dst_state guard body
+
+let pretty_transition_core (t : Abs.transition) : string =
+  let guard =
+    match t.guard_iexpr with
+    | None -> "true"
+    | Some g -> string_of_iexpr g
+  in
+  let body =
+    match t.body_stmts with
+    | [] -> "skip"
+    | xs -> String.concat "; " (List.map pretty_stmt xs)
+  in
+  Printf.sprintf "%s -> %s when %s / %s" t.src_state t.dst_state guard body
 
 let mathify (s : string) : string =
   s
@@ -217,25 +248,35 @@ let safe_destination_node_id_of (id : string) =
 let case_destination_node_id_of (id : string) =
   "k_" ^ String.lowercase_ascii (sanitize_id id)
 
-let safe_cases (pc : Abs.product_contract) : Abs.safe_product_case list =
+let safe_cases (pc : Abs.product_step_summary) : Abs.safe_product_case list =
   pc.safe_cases
 
-let bad_cases (pc : Abs.product_contract) : Abs.unsafe_product_case list =
+let bad_cases (pc : Abs.product_step_summary) : Abs.unsafe_product_case list =
   pc.unsafe_cases
 
-let safe_guarantee_guard (pc : Abs.product_contract) : Fo_formula.t option =
+let safe_guarantee_guard (pc : Abs.product_step_summary) : Fo_formula.t option =
   match safe_cases pc with
   | [] -> None
   | first :: rest ->
       Some
         (List.fold_left
-           (fun acc (case : Abs.safe_product_case) -> Fo_formula.FOr (acc, case.guarantee_guard))
-           first.guarantee_guard rest)
+           (fun acc (case : Abs.safe_product_case) ->
+             Fo_formula.FOr (acc, case.admissible_guard.logic))
+           first.admissible_guard.logic rest)
+
+let safe_product_dsts (pc : Abs.product_step_summary) : Abs.product_state list =
+  pc.safe_cases
+  |> List.map (fun (case : Abs.safe_product_case) -> case.product_dst)
+  |> List.sort_uniq Stdlib.compare
+
+let safe_admissible_guards (pc : Abs.product_step_summary) : Abs.summary_formula list =
+  pc.safe_cases
+  |> List.map (fun (case : Abs.safe_product_case) -> case.admissible_guard)
 
 let string_of_product_state_list (xs : Abs.product_state list) : string =
   "[" ^ String.concat ", " (List.map string_of_product_state xs) ^ "]"
 
-let canonical_formula_aliases ~(node : Abs.node) =
+let canonical_formula_aliases ~(node : Abs.node_ir) =
   let seen = Hashtbl.create 32 in
   let defs_rev = ref [] in
   let next = ref 1 in
@@ -247,11 +288,11 @@ let canonical_formula_aliases ~(node : Abs.node) =
       Hashtbl.add seen formula (dot_alias, tex_alias);
       defs_rev := (tex_alias, formula) :: !defs_rev)
   in
-  node.product_transitions
-  |> List.iter (fun (pc : Abs.product_contract) ->
-         let t = List.nth node.trans pc.identity.program_transition_index in
+  node.summaries
+  |> List.iter (fun (pc : Abs.product_step_summary) ->
+         let t = pc.identity.program_step in
          let program_guard =
-           match t.guard with
+           match t.guard_iexpr with
            | None -> "true"
            | Some g -> string_of_iexpr g
          in
@@ -259,20 +300,27 @@ let canonical_formula_aliases ~(node : Abs.node) =
          register (pretty_fo pc.identity.assume_guard);
          Option.iter (fun g -> register (pretty_fo g)) (safe_guarantee_guard pc);
          bad_cases pc
-         |> List.iter (fun (case : Abs.unsafe_product_case) -> register (pretty_fo case.guarantee_guard)));
+         |> List.iter (fun (case : Abs.unsafe_product_case) ->
+                register (pretty_fo case.excluded_guard.logic)));
   let dot_alias_of formula = fst (Hashtbl.find seen formula) in
   let tex_alias_of formula = snd (Hashtbl.find seen formula) in
   { dot_alias_of; tex_alias_of; definitions = List.rev !defs_rev }
 
-let canonical_transition_aliases ~(node : Abs.node) =
+let canonical_transition_aliases ~(node : Abs.node_ir) =
+  let by_id : (int, string) Hashtbl.t = Hashtbl.create 32 in
+  List.iter
+    (fun (pc : Abs.product_step_summary) ->
+      if not (Hashtbl.mem by_id pc.trace.step_uid) then
+        Hashtbl.add by_id pc.trace.step_uid
+          (pretty_transition_core pc.identity.program_step))
+    node.summaries;
   let definitions =
-    node.trans
-    |> List.mapi (fun idx t ->
-           (Printf.sprintf "t_{%d}" idx, pretty_transition t))
+    Hashtbl.to_seq by_id |> List.of_seq |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+    |> List.map (fun (id, repr) -> (Printf.sprintf "t_{%d}" id, repr))
   in
   {
-    dot_alias_of_index = (fun idx -> Printf.sprintf "t%d" idx);
-    tex_alias_of_index = (fun idx -> Printf.sprintf "t_{%d}" idx);
+    dot_alias_of_id = (fun id -> Printf.sprintf "t%d" id);
+    tex_alias_of_id = (fun id -> Printf.sprintf "t_{%d}" id);
     definitions;
   }
 
@@ -288,67 +336,75 @@ let state_style ~(analysis : Product_analysis.analysis) (st : Abs.product_state)
   then ("#eaf2ff", "#3b6fb6")
   else ("#ffffff", "#666666")
 
-let render_canonical_lines ~(node : Abs.node) =
-  node.product_transitions
-  |> List.mapi (fun idx (pc : Abs.product_contract) ->
-         let t = List.nth node.trans pc.identity.program_transition_index in
+let source_id_of_contract (contract_index : int) : string =
+  Printf.sprintf "S%d" contract_index
+
+let safe_destination_id_of_contract ~(contract_index : int)
+    (pc : Abs.product_step_summary) : string option =
+  if safe_product_dsts pc = [] then None
+  else Some (Printf.sprintf "D%d" contract_index)
+
+let render_canonical_lines ~(node : Abs.node_ir) =
+  node.summaries
+  |> List.mapi (fun idx (pc : Abs.product_step_summary) ->
+         let contract_index = idx + 1 in
+         let t = pc.identity.program_step in
          let head =
-           Printf.sprintf "C%d: %s=%s via tr_%d (%s -> %s), A=%s" (idx + 1) pc.identity.product_src_id
+           Printf.sprintf "C%d: %s=%s via tr_%d (%s -> %s), A=%s" contract_index
+             (source_id_of_contract contract_index)
              (string_of_product_state pc.identity.product_src)
-             pc.identity.program_transition_index t.src t.dst
+             pc.trace.step_uid t.src_state t.dst_state
              (pretty_fo pc.identity.assume_guard)
          in
          let reqs =
-           pc.common.requires
-           |> List.map (fun (f : Abs.contract_formula) -> "  pre += " ^ pretty_formula f.logic)
+           pc.requires
+           |> List.map (fun (f : Abs.summary_formula) -> "  pre += " ^ pretty_formula f.logic)
          in
          let common_ensures =
-           pc.common.ensures
-           |> List.map (fun (f : Abs.contract_formula) -> "  post += " ^ pretty_formula f.logic)
+           pc.ensures
+           |> List.map (fun (f : Abs.summary_formula) -> "  post += " ^ pretty_formula f.logic)
          in
          let safe_part =
-           match (pc.safe_summary.safe_destination_id, safe_guarantee_guard pc) with
+           match (safe_destination_id_of_contract ~contract_index pc, safe_guarantee_guard pc) with
            | None, _ -> []
            | Some _, None -> []
            | Some dst_id, Some g ->
                [
-                 Printf.sprintf "  κ%d.safe: Safe -> %s=%s, G=%s" (idx + 1) dst_id
-                   (string_of_product_state_list pc.safe_summary.safe_product_dsts)
+                 Printf.sprintf "  κ%d.safe: Safe -> %s=%s, G=%s" contract_index dst_id
+                   (string_of_product_state_list (safe_product_dsts pc))
                    (pretty_fo g);
                ]
-               @ (pc.safe_summary.safe_propagates
-                 |> List.map (fun (f : Abs.contract_formula) -> "    propagate += " ^ pretty_formula f.logic))
-               @ (pc.safe_summary.safe_ensures
-                 |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_formula f.logic))
-         in
-         let cases =
-           bad_cases pc
+               @ (safe_admissible_guards pc
+                 |> List.map (fun (f : Abs.summary_formula) -> "    propagate += " ^ pretty_formula f.logic))
+        in
+        let cases =
+          bad_cases pc
            |> List.mapi (fun case_idx (case : Abs.unsafe_product_case) ->
+                  let case_id =
+                    Printf.sprintf "K%d_%d" contract_index
+                      (List.length pc.safe_cases + case_idx + 1)
+                  in
                   let kind =
                     "BadGuarantee"
                   in
                   let base =
-                    Printf.sprintf "  κ%d.%d: %s -> %s=%s, G=%s" (idx + 1) (case_idx + 1) kind
-                      case.product_dst_id
+                    Printf.sprintf "  κ%d.%d: %s -> %s=%s, G=%s" contract_index (case_idx + 1) kind
+                      case_id
                       (string_of_product_state case.product_dst)
-                      (pretty_fo case.guarantee_guard)
+                      (pretty_fo case.excluded_guard.logic)
                   in
                   let props =
                     []
                   in
-                  let ens =
-                    case.ensures
-                    |> List.map (fun (f : Abs.contract_formula) -> "    ensure += " ^ pretty_formula f.logic)
-                  in
                   let forb =
-                    case.forbidden
-                    |> List.map (fun (f : Abs.contract_formula) -> "    forbid += " ^ pretty_formula f.logic)
+                    [ case.excluded_guard ]
+                    |> List.map (fun (f : Abs.summary_formula) -> "    forbid += " ^ pretty_formula f.logic)
                   in
-                  String.concat "\n" (base :: props @ ens @ forb))
+                  String.concat "\n" (base :: props @ forb))
          in
          String.concat "\n" (head :: reqs @ common_ensures @ safe_part @ cases))
 
-let render_canonical_tex ~(node : Abs.node) =
+let render_canonical_tex ~(node : Abs.node_ir) =
   let aliases = canonical_formula_aliases ~node in
   let transition_aliases = canonical_transition_aliases ~node in
   let phi_lines =
@@ -372,13 +428,14 @@ let render_canonical_tex ~(node : Abs.node) =
   in
   String.concat "\n" blocks
 
-let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.analysis) ~(node : Abs.node) =
+let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.analysis) ~(node : Abs.node_ir) =
   let aliases = canonical_formula_aliases ~node in
   let transition_aliases = canonical_transition_aliases ~node in
   let source_defs =
-    node.product_transitions
-    |> List.map (fun (pc : Abs.product_contract) ->
-           let sid_raw = pc.identity.product_src_id in
+    node.summaries
+    |> List.mapi (fun idx (pc : Abs.product_step_summary) ->
+           let contract_index = idx + 1 in
+           let sid_raw = source_id_of_contract contract_index in
            let sid = source_node_id_of sid_raw in
            let fill, color = state_style ~analysis pc.identity.product_src in
            let label =
@@ -394,19 +451,20 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
   let safe_defs = ref [] in
   let case_defs = ref [] in
   let edges = ref [] in
-  node.product_transitions
-  |> List.iteri (fun idx (pc : Abs.product_contract) ->
+  node.summaries
+  |> List.iteri (fun idx (pc : Abs.product_step_summary) ->
          let cid_num = idx + 1 in
-         let t = List.nth node.trans pc.identity.program_transition_index in
+         let contract_index = idx + 1 in
+         let t = pc.identity.program_step in
          let program_guard =
-           match t.guard with
+           match t.guard_iexpr with
            | None -> "true"
            | Some g -> string_of_iexpr g
          in
          let cid = contract_node_id cid_num in
          let clabel =
            html_contract_label
-             ~tau:(transition_aliases.dot_alias_of_index pc.identity.program_transition_index)
+             ~tau:(transition_aliases.dot_alias_of_id pc.trace.step_uid)
          in
          let cdef =
            Printf.sprintf
@@ -414,7 +472,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
              cid clabel
          in
          contract_defs := cdef :: !contract_defs;
-         let src_id = source_node_id_of pc.identity.product_src_id in
+         let src_id = source_node_id_of (source_id_of_contract contract_index) in
          let head_lbl =
            Printf.sprintf "P: %s, A: %s"
              (aliases.dot_alias_of program_guard |> escape_dot_label)
@@ -427,14 +485,14 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
          in
          edges := head_edge :: !edges;
          begin
-           match (pc.safe_summary.safe_destination_id, safe_guarantee_guard pc) with
+           match (safe_destination_id_of_contract ~contract_index pc, safe_guarantee_guard pc) with
            | None, _ -> ()
            | Some _, None -> ()
            | Some did_raw, Some g ->
                let did = safe_destination_node_id_of did_raw in
                let safe_label =
                  Printf.sprintf "%s = %s" did_raw
-                   (string_of_product_state_list pc.safe_summary.safe_product_dsts)
+                   (string_of_product_state_list (safe_product_dsts pc))
                in
                let ddef =
                  Printf.sprintf
@@ -451,11 +509,15 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                edges := safe_edge :: !edges
          end;
          bad_cases pc
-         |> List.iter (fun (case : Abs.unsafe_product_case) ->
-                let did = case_destination_node_id_of case.product_dst_id in
+         |> List.iteri (fun case_idx (case : Abs.unsafe_product_case) ->
+                let case_id =
+                  Printf.sprintf "K%d_%d" contract_index
+                    (List.length pc.safe_cases + case_idx + 1)
+                in
+                let did = case_destination_node_id_of case_id in
                 let fill, border = state_style ~analysis case.product_dst in
                 let dst_label =
-                  Printf.sprintf "%s = %s" case.product_dst_id
+                  Printf.sprintf "%s = %s" case_id
                     (string_of_product_state case.product_dst)
                 in
                 let ddef =
@@ -470,7 +532,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
                 in
                 let lbl =
                   Printf.sprintf "G: %s"
-                    (aliases.dot_alias_of (pretty_fo case.guarantee_guard) |> escape_dot_label)
+                    (aliases.dot_alias_of (pretty_fo case.excluded_guard.logic) |> escape_dot_label)
                 in
                 let edge =
                   Printf.sprintf "  %s -> %s [label=\"%s\", color=\"%s\", fontcolor=\"%s\"];"
@@ -510,9 +572,10 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
       add_formula_legend_rows_html tmp ~title:"Formula aliases" formula_legend_defs;
       add_formula_legend_rows_html tmp ~title:"Transition aliases" transition_legend_defs;
       let legend_block =
-        match List.rev node.product_transitions with
-        | last_pc :: _ ->
-            let anchor_id = source_node_id_of last_pc.identity.product_src_id in
+        match List.rev node.summaries with
+        | _ :: _ ->
+            let last_contract_index = List.length node.summaries in
+            let anchor_id = source_node_id_of (source_id_of_contract last_contract_index) in
             [
               "  subgraph cluster_legend_sink {";
               "    rank=sink;";
@@ -531,7 +594,7 @@ let render_canonical_dot ~(node_name : ident) ~(analysis : Product_analysis.anal
       in
       legend_block @ [ "}" ])
 
-let render ~node_name ~(analysis : Product_analysis.analysis) ~(node : Abs.node) =
+let render ~node_name ~(analysis : Product_analysis.analysis) ~(node : Abs.node_ir) =
   {
     canonical_lines = render_canonical_lines ~node;
     canonical_tex = render_canonical_tex ~node;

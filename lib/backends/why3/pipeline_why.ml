@@ -30,9 +30,10 @@ let join_blocks ~sep blocks =
 let compile_why_text ~prefix_fields ~disable_why3_optimizations ~(asts : Pipeline_types.ast_stages)
     ~(infos : Pipeline_types.stage_infos) =
   let _ = infos in
+  let backend_context = Why_runtime_view.build_backend_phase_context asts.automata_generation in
   let why_ast =
     Emit.compile_program_ast_from_ir_nodes ~prefix_fields ~disable_why3_optimizations
-      asts.instrumentation
+      ~backend_context asts.instrumentation
   in
   Emit.emit_program_ast why_ast
 

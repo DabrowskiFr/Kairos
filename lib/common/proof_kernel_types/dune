@@ -3,6 +3,6 @@
  (public_name kairos.proof_kernel_types)
  (wrapped false)
  (modules proof_kernel_types)
- (libraries kairos_ast kairos_fo_formula kairos_ir kairos_temporal_support yojson)
+ (libraries kairos_ast kairos_fo_formula kairos_ir kairos_ir_json_codec kairos_temporal_support yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

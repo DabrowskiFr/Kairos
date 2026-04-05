@@ -43,7 +43,7 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
   [
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
-    ("contracts", [ ("origins", string_of_int (List.length c.contract_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
+    ("contracts", [ ("origins", string_of_int (List.length c.formula_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
     ("instrumentation", [ ("obligations_lines", string_of_int (List.length i.obligations_lines)) ]);
     ( "graph_metrics",
       [
@@ -58,7 +58,7 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
       ] );
     ( "canonical_metrics",
       [
-        ("canonical_contracts", string_of_int i.canonical_contract_count);
+        ("canonical_summaries", string_of_int i.canonical_summary_count);
         ("canonical_cases_safe", string_of_int i.canonical_case_safe_count);
         ( "canonical_cases_bad_assumption",
           string_of_int i.canonical_case_bad_assumption_count );
@@ -113,8 +113,7 @@ let program_automaton_texts (asts : Pipeline_types.ast_stages) : string * string
   match asts.automata_generation with
   | [] -> ("", "")
   | node :: _ ->
-      Ir_render_product.render_program_automaton ~node_name:node.semantics.sem_nname
-        ~node:(From_ast.of_ast_node node)
+      Ir_render_product.render_program_automaton ~node_name:node.semantics.sem_nname ~node
 
 let unique_preserve_order xs =
   let seen = Hashtbl.create 16 in
@@ -139,11 +138,12 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
+    let backend_context = Why_runtime_view.build_backend_phase_context asts.automata_generation in
     let t_why_gen = Unix.gettimeofday () in
     let why_ast =
       Emit.compile_program_ast_from_ir_nodes ~prefix_fields:cfg.prefix_fields
         ~disable_why3_optimizations:cfg.disable_why3_optimizations
-        asts.instrumentation
+        ~backend_context asts.instrumentation
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
@@ -179,10 +179,10 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
           let record =
             Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
           in
-          let source =
+            let source =
             Proof_diagnostics.source_from_record_or_state ~record
               ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-              ~obc_program:(List.map Ir.to_ast_node asts.contracts)
+              ~obc_program:asts.automata_generation
           in
           (vcid, source))
         task_goal_wids
@@ -265,10 +265,10 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                let record =
                  Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
                in
-               let source =
+                 let source =
                  Proof_diagnostics.source_from_record_or_state ~record
                    ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-                   ~obc_program:(List.map Ir.to_ast_node asts.contracts)
+                   ~obc_program:asts.automata_generation
                in
                let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
                  match Hashtbl.find_opt goal_result_tbl idx with
