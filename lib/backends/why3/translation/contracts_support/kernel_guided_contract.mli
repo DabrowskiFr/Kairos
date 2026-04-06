@@ -23,6 +23,7 @@ type temporal_binding_ir = {
   source_hexpr : Ast.hexpr;
   source_expr : Ast.iexpr;
   slot_names : Ast.ident list;
+  slot_type : Ast.ty;
 }
 
 type exported_summary_contract = {

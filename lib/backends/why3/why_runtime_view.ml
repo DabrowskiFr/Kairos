@@ -565,24 +565,6 @@ let to_ast_node (runtime : t) : Ast.node =
 let has_instance_calls (runtime : t) : bool =
   List.exists (fun (t : runtime_transition_view) -> t.call_sites <> []) runtime.transitions
 
-let pre_k_locals_of_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) : Ast.vdecl list =
-  let infos =
-    pre_k_map
-    |> List.fold_left
-         (fun acc (_, info) ->
-           if List.exists
-                (fun (existing : Temporal_support.pre_k_info) ->
-                  existing.Temporal_support.names = info.Temporal_support.names)
-                acc
-           then
-             acc
-           else acc @ [ info ])
-         []
-  in
-  infos
-  |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
-         List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
-
 let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
     Abs.transition list =
   let seen : (Abs.transition, unit) Hashtbl.t = Hashtbl.create 64 in
@@ -611,8 +593,7 @@ let of_ir_node (node : Ir.node_ir) : t =
       node_name = sem.sem_nname;
       inputs = List.map port_of_vdecl sem.sem_inputs;
       outputs = List.map port_of_vdecl sem.sem_outputs;
-      locals =
-        List.map port_of_vdecl (sem.sem_locals @ pre_k_locals_of_map node.context.pre_k_map);
+      locals = List.map port_of_vdecl sem.sem_locals;
       instances = [];
       callee_summaries = [];
       control_states = sem.sem_states;
