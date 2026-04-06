@@ -56,7 +56,7 @@ let build_formula_records (p_obc : Abs.node_ir list) : formula_record list =
                 Some (Obligation_taxonomy.category_name Obligation_taxonomy.CatInitialGoal);
               loc = goal.meta.loc;
             })
-        node.goals;
+        node.init_invariant_goals;
       ())
     p_obc;
   List.rev !records

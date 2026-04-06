@@ -58,7 +58,7 @@ let of_ast_node (n : Ast.node) : Ir.node_ir =
           };
       };
     summaries = [];
-    goals = [];
+    init_invariant_goals = [];
   }
 
 let of_ast_program (p : Ast.program) : Ir.node_ir list = List.map of_ast_node p

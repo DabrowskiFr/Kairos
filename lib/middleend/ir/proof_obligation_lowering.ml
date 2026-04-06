@@ -43,38 +43,6 @@ let pre_k_extra_locals ~(existing_names : ident list)
              else Some { vname = name; vty = info.Temporal_support.vty })
            info.Temporal_support.names)
 
-(** {2 Shift statements}
-
-    Generate the [pre_k_updates] statements for a node:
-      [__pre_k2_x := __pre_k1_x;  __pre_k1_x := x;  ...]
-
-    Replicates [Why_runtime_view.pre_k_updates_of_map] to avoid a dependency
-    from a middle-end pass on a backend/why module. *)
-let pre_k_shift_stmts (pre_k_map : (hexpr * Temporal_support.pre_k_info) list) : stmt list =
-  let s desc = { stmt = desc; loc = None } in
-  let mk_ivar name = { iexpr = IVar name; loc = None } in
-  unique_pre_k_infos pre_k_map
-  |> List.concat_map (fun info ->
-      let names = info.Temporal_support.names in
-      (* Shift deeper slots first: __pre_k{n}_x := __pre_k{n-1}_x, …  *)
-      let shifts =
-        let rec loop i acc =
-          if i <= 1 then acc
-          else
-            let tgt = List.nth names (i - 1) in
-            let src = List.nth names (i - 2) in
-            loop (i - 1) (acc @ [ s (SAssign (tgt, mk_ivar src)) ])
-        in
-        loop (List.length names) []
-      in
-      (* Capture current value into the shallowest slot: __pre_k1_x := x *)
-      let first =
-        match names with
-        | [] -> []
-        | name :: _ -> [ s (SAssign (name, info.Temporal_support.expr)) ]
-      in
-      shifts @ first)
-
 (** {2 Formula substitution}
 
     Substitute [HPreK(x, k)] → [HNow (IVar "__pre_k{k}_x")] in an [ltl_o].
@@ -138,7 +106,6 @@ let eliminate (annotated : Ir_proof_views.annotated_node) : Ir_proof_views.verif
   let pre_k_map = raw.pre_k_map in
   let existing_names = List.map (fun (v : vdecl) -> v.vname) raw.core.locals in
   let extra_locals = pre_k_extra_locals ~existing_names pre_k_map in
-  let updates = pre_k_shift_stmts pre_k_map in
   let lower = lower_fo_o pre_k_map in
   let transitions =
     List.map
@@ -146,7 +113,6 @@ let eliminate (annotated : Ir_proof_views.annotated_node) : Ir_proof_views.verif
         ({
           Ir_proof_views.core = t.raw.core;
           guard = t.raw.guard;
-          pre_k_updates = updates;
           clauses =
             {
               requires = List.map lower t.clauses.requires;
@@ -161,7 +127,7 @@ let eliminate (annotated : Ir_proof_views.annotated_node) : Ir_proof_views.verif
     product_transitions = [];
     assumes = raw.assumes;
     guarantees = raw.guarantees;
-    coherency_goals = List.map lower annotated.coherency_goals;
+    init_invariant_goals = List.map lower annotated.init_invariant_goals;
     user_invariants = annotated.user_invariants;
   }
 

@@ -67,14 +67,6 @@ let render_vdecl (v : vdecl) : string =
   in
   v.vname ^ ": " ^ ty_s
 
-let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.node_ir) :
     Ir.transition list =
   match source_program with
@@ -85,7 +77,7 @@ let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.n
             String.equal source_node.semantics.sem_nname n.context.semantics.sem_nname)
           source_program
       with
-      | Some source_node -> List.map ir_transition_of_ast_transition source_node.semantics.sem_trans
+      | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
       | None ->
           n.summaries
           |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)

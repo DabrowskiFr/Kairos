@@ -176,7 +176,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 signature;
                 normalized_ir;
                 user_invariants = [];
-                coherency_goals = (From_ast.of_ast_node node).goals;
+                coherency_goals = (From_ast.of_ast_node node).init_invariant_goals;
                 pre_k_map = source_pre_k_map;
                 delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;

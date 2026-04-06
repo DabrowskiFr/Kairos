@@ -16,22 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pass 5: history elimination over the Kairos IR. *)
+val of_ast_transition : Ast.transition -> Ir.transition
 
-(*---------------------------------------------------------------------------
- * Kairos — Pass 5: History elimination.
- *
- * Substitutes all [Ast.hexpr] references of the form [prev^k x] (i.e.
- * [HPreK(x, k)]) with the corresponding ghost local variable
- * [IVar "__pre_k{k}_x"], producing a [Ir_proof_views.verified_node] that is
- * ready for trivial structural Why3 emission.
- *
- * The pass also appends the introduced [__pre_k{k}_x] variables to the node's
- * locals.
- *---------------------------------------------------------------------------*)
+val prioritized_program_transitions_of_ast :
+  Ast.transition list ->
+  Ir.transition list
 
-(** Eliminate history references from product-step summaries using [node.pre_k_map]. *)
-
-val eliminate : Ir_proof_views.annotated_node -> Ir_proof_views.verified_node
-val apply_node : Ir.node_ir -> Ir.node_ir
-val apply_program : Ir.node_ir list -> Ir.node_ir list
+val prioritized_program_transitions_of_node :
+  Ast.node ->
+  Ir.transition list

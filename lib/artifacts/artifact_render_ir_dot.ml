@@ -111,23 +111,6 @@ let dot_of_verified_transition (t : Ir_proof_views.verified_transition) : string
        t.core.src_state t.core.dst_state);
   Buffer.add_string buf
     (Printf.sprintf "      <TR><TD ALIGN=\"LEFT\"><B>guard:</B> %s</TD></TR>\n" guard_str);
-  if t.pre_k_updates <> [] then begin
-    let upd_strs =
-      List.map
-        (fun (s : Ast.stmt) ->
-          match s.stmt with
-          | SAssign (v, e) -> truncate (v ^ " := " ^ Ast_pretty.string_of_iexpr e) |> html_escape
-          | _ -> "...")
-        t.pre_k_updates
-    in
-    List.iter
-      (fun s ->
-        Buffer.add_string buf
-          (Printf.sprintf
-             "      <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"#8800aa\"><B>upd:</B></FONT> %s</TD></TR>\n"
-             s))
-      upd_strs
-  end;
   List.iter
     (fun (f : Ir.summary_formula) ->
       let s = truncate (Ast_pretty.string_of_fo f.logic) |> html_escape in

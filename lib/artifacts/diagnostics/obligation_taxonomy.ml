@@ -153,7 +153,9 @@ let summarize_program (p : Abs.node_ir list) : summary =
   in
   List.iter
     (fun (n : Abs.node_ir) ->
-      List.iter (fun (_ : Abs.summary_formula) -> bump FamInitialInvariantGoal) n.goals)
+      List.iter
+        (fun (_ : Abs.summary_formula) -> bump FamInitialInvariantGoal)
+        n.init_invariant_goals)
     p;
   let counts =
     List.filter_map

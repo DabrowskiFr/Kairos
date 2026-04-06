@@ -210,14 +210,16 @@ let apply ~(pre_generation : t) (n : Abs.node_ir) : Abs.node_ir =
         { pc with requires })
       n.summaries
   in
-  let goals =
+  let init_invariant_goals =
     match pre_generation.invariant_of_state n.context.semantics.sem_init_state with
-    | None -> n.goals
+    | None -> n.init_invariant_goals
     | Some inv ->
-        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.goals then n.goals
-        else n.goals @ [ Ir_formula.with_origin Formula_origin.Invariant inv ]
+        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.init_invariant_goals then
+          n.init_invariant_goals
+        else
+          n.init_invariant_goals @ [ Ir_formula.with_origin Formula_origin.Invariant inv ]
   in
-  { n with summaries; goals }
+  { n with summaries; init_invariant_goals }
 
 let build_program (p : Abs.node_ir list) : (Ast.ident * t) list =
   List.map (fun (n : Abs.node_ir) -> (n.context.semantics.sem_nname, build ~node:n)) p

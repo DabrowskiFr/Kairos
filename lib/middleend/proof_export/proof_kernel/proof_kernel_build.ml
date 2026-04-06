@@ -32,16 +32,8 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
-let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
-  List.map ir_transition_of_ast_transition node.semantics.sem_trans
+  Ir_transition.prioritized_program_transitions_of_node node
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
@@ -243,7 +235,7 @@ let export_node_summary ~(source_node : Ast.node) ~(node : Abs.node_ir)
     signature = node_signature_of_ast source_node;
     normalized_ir;
     user_invariants = node.context.source_info.user_invariants;
-    coherency_goals = node.goals;
+    coherency_goals = node.init_invariant_goals;
     pre_k_map = build_pre_k_infos source_node;
     delay_spec = extract_delay_spec node.context.source_info.guarantees;
     assumes = node.context.source_info.assumes;

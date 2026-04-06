@@ -90,7 +90,7 @@ let reid_normalized_program (p : Abs.node_ir list) : Abs.node_ir list =
     {
       n with
       summaries = List.map reid_product_contract n.summaries;
-      goals = List.map reid_contract_formula n.goals;
+      init_invariant_goals = List.map reid_contract_formula n.init_invariant_goals;
     }
   in
   List.map reid_node p

@@ -55,7 +55,6 @@ val compile_program_ast_from_ir_nodes :
   ?prefix_fields:bool ->
   ?disable_why3_optimizations:bool ->
   ?comment_map:(Ast.ident * comment_specs) list ->
-  backend_context:Why_runtime_view.backend_phase_context ->
   Ir.node_ir list ->
   program_ast
 

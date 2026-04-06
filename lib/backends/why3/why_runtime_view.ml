@@ -93,6 +93,7 @@ type runtime_product_transition_view = {
   src_state : Ast.ident;
   dst_state : Ast.ident;
   guard : Ast.iexpr option;
+  body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
@@ -128,15 +129,7 @@ type t = {
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
-  coherency_goals : Abs.summary_formula list;
-}
-
-type backend_node_context = {
-  program_transitions : Abs.transition list;
-}
-
-type backend_phase_context = {
-  nodes : (Ast.ident * backend_node_context) list;
+  init_invariant_goals : Abs.summary_formula list;
 }
 
 type known_value =
@@ -206,14 +199,6 @@ let callee_summary_of_node (n : Ast.node) : callee_summary_view =
     callee_contract;
   }
 
-let ir_transition_of_ast_transition (t : Ast.transition) : Abs.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let dedup_callee_summaries (summaries : callee_summary_view list) : callee_summary_view list =
   let seen = Hashtbl.create 16 in
   let add acc summary =
@@ -223,22 +208,6 @@ let dedup_callee_summaries (summaries : callee_summary_view list) : callee_summa
       summary :: acc)
   in
   List.rev (List.fold_left add [] summaries)
-
-let build_backend_node_context (source_node : Ast.node) : backend_node_context =
-  let sem = source_node.semantics in
-  { program_transitions = List.map ir_transition_of_ast_transition sem.sem_trans }
-
-let build_backend_phase_context (source_program : Ast.program) : backend_phase_context =
-  {
-    nodes =
-      List.map
-        (fun (source_node : Ast.node) -> (source_node.semantics.sem_nname, build_backend_node_context source_node))
-        source_program;
-  }
-
-let find_backend_node_context (context : backend_phase_context) (node_name : Ast.ident) :
-    backend_node_context option =
-  List.assoc_opt node_name context.nodes
 
 let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
   List.map action_of_stmt stmts
@@ -468,6 +437,10 @@ let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_vi
       body = t.body_stmts;
     }
 
+let transition_of_product_step (step : runtime_product_transition_view) : runtime_transition_view =
+  transition_of_ast ~transition_id:step.transition_id
+    { Ast.src = step.src_state; dst = step.dst_state; guard = step.guard; body = step.body }
+
 let respecialize_transition_actions (t : runtime_transition_view) : runtime_transition_view =
   let known = known_context_of_transition_guard t.guard in
   let raw_blocks =
@@ -551,7 +524,7 @@ let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
     assumes = spec.spec_assumes;
     guarantees = spec.spec_guarantees;
     user_invariants = [];
-    coherency_goals = [];
+    init_invariant_goals = [];
   }
 
 let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_view option =
@@ -610,13 +583,27 @@ let pre_k_locals_of_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) l
   |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
          List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
 
-let of_ir_node ~(backend_node_context : backend_node_context) (node : Ir.node_ir) : t =
+let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
+    Abs.transition list =
+  let seen : (Abs.transition, unit) Hashtbl.t = Hashtbl.create 64 in
+  let ordered = ref [] in
+  List.iter
+    (fun (summary : Abs.product_step_summary) ->
+      let step = summary.identity.program_step in
+      if not (Hashtbl.mem seen step) then (
+        Hashtbl.add seen step ();
+        ordered := !ordered @ [ step ]))
+    summaries;
+  !ordered
+
+let of_ir_node (node : Ir.node_ir) : t =
   let sem = node.context.semantics in
+  let program_transitions = program_transitions_from_summaries node.summaries in
   let transitions =
     List.mapi
       (fun idx (t : Abs.transition) ->
         transition_of_ir ~transition_id:(Printf.sprintf "tr_%d" idx) t)
-      backend_node_context.program_transitions
+      program_transitions
   in
   let transition_groups = group_transitions transitions in
   let runtime =
@@ -637,7 +624,7 @@ let of_ir_node ~(backend_node_context : backend_node_context) (node : Ir.node_ir
       assumes = node.context.source_info.assumes;
       guarantees = node.context.source_info.guarantees;
       user_invariants = node.context.source_info.user_invariants;
-      coherency_goals = node.goals;
+      init_invariant_goals = node.init_invariant_goals;
     }
   in
   let product_transitions =
@@ -663,6 +650,7 @@ let of_ir_node ~(backend_node_context : backend_node_context) (node : Ir.node_ir
                   src_state = t.src_state;
                   dst_state = t.dst_state;
                   guard = t.guard_iexpr;
+                  body = t.body_stmts;
                   step_class = StepSafe;
                   product_src = pc.identity.product_src;
                   product_dst;
@@ -681,6 +669,7 @@ let of_ir_node ~(backend_node_context : backend_node_context) (node : Ir.node_ir
                    src_state = t.src_state;
                    dst_state = t.dst_state;
                    guard = t.guard_iexpr;
+                   body = t.body_stmts;
                    step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;

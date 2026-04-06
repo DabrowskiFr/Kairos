@@ -53,14 +53,13 @@ type annotated_transition = {
 type annotated_node = {
   raw : raw_node;
   transitions : annotated_transition list;
-  coherency_goals : Ir.summary_formula list;
+  init_invariant_goals : Ir.summary_formula list;
   user_invariants : invariant_user list;
 }
 
 type verified_transition = {
   core : Ir.transition;
   guard : Fo_formula.t;
-  pre_k_updates : stmt list;
   clauses : transition_clauses;
 }
 
@@ -70,6 +69,6 @@ type verified_node = {
   product_transitions : Ir.product_step_summary list;
   assumes : ltl list;
   guarantees : ltl list;
-  coherency_goals : Ir.summary_formula list;
+  init_invariant_goals : Ir.summary_formula list;
   user_invariants : invariant_user list;
 }

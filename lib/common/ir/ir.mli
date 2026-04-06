@@ -108,7 +108,7 @@ type node_context = {
 type node_ir = {
   context : node_context;
   summaries : product_step_summary list;
-  goals : summary_formula list;
+  init_invariant_goals : summary_formula list;
 }
 
 type program_ir = {

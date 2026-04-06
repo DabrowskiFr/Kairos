@@ -31,6 +31,6 @@ let annotate ~(raw : Ir_proof_views.raw_node) ~(node : Abs.node_ir)
   {
     raw;
     transitions;
-    coherency_goals = node.goals;
+    init_invariant_goals = node.init_invariant_goals;
     user_invariants = node.context.source_info.user_invariants;
   }

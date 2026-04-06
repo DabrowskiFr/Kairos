@@ -327,7 +327,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
            []
       |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
-  let body = compile_runtime_view env runtime_view in
+  let full_step_body () = compile_runtime_view env runtime_view in
   let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
     let hid = Provenance.fresh_id () in
     let origin_attr = attr_for_label origin_label in
@@ -452,15 +452,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     in
     (helper_pre, helper_post)
   in
-  let same_runtime_transition_as_step (step : Why_runtime_view.runtime_product_transition_view)
-      (t : Why_runtime_view.runtime_transition_view) : bool =
-    String.equal step.transition_id t.transition_id
-  in
-  let step_contracts_for_transition (t : Why_runtime_view.runtime_transition_view) =
-    step_contracts
-    |> List.filter (fun (sc : Why_types.step_contract_info) ->
-           same_runtime_transition_as_step sc.step t)
-  in
   let step_class_suffix = function
     | Why_runtime_view.StepSafe -> "safe"
     | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
@@ -481,46 +472,36 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       step_contracts
       |> List.mapi (fun i sc -> (i, sc))
       |> List.filter_map (fun (i, (sc : Why_types.step_contract_info)) ->
-             let matching_transition =
-               runtime_view.transitions
-               |> List.find_opt (fun (t : Why_runtime_view.runtime_transition_view) ->
-                      String.equal sc.step.transition_id t.transition_id)
+             let t = Why_runtime_view.transition_of_product_step sc.step in
+             let helper_name = ident (step_helper_name ~index:i sc) in
+             let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
+             let spc =
+               {
+                 Ptree.sp_pre =
+                   term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state))) :: sc.pre;
+                 sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
+                 sp_xpost = [];
+                 sp_reads = [];
+                 sp_writes = [];
+                 sp_alias = [];
+                 sp_variant = [];
+                 sp_checkrw = false;
+                 sp_diverge = false;
+                 sp_partial = false;
+               }
              in
-             match matching_transition with
-             | None -> None
-             | Some t ->
-                 let helper_name = ident (step_helper_name ~index:i sc) in
-                 let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
-                 let spc =
-                   {
-                     Ptree.sp_pre =
-                       term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-                       :: sc.pre;
-                     sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
-                     sp_xpost = [];
-                     sp_reads = [];
-                     sp_writes = [];
-                     sp_alias = [];
-                     sp_variant = [];
-                     sp_checkrw = false;
-                     sp_diverge = false;
-                     sp_partial = false;
-                   }
-                in
-                let helper_body =
-                  compile_transition_body env [] t
-                in
-                 let fn =
-                   mk_expr
-                     (Efun
-                        ( inputs,
-                          None,
-                          { pat_desc = Pwild; pat_loc = loc },
-                          Ity.MaskVisible,
-                          spc,
-                          helper_body ))
-                 in
-                 Some (Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
+             let helper_body = compile_transition_body env [] t in
+             let fn =
+               mk_expr
+                 (Efun
+                    ( inputs,
+                      None,
+                      { pat_desc = Pwild; pat_loc = loc },
+                      Ity.MaskVisible,
+                      spc,
+                      helper_body ))
+             in
+             Some (Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
   in
   let helper_decls =
     if use_product_helper_contracts then []
@@ -566,7 +547,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
       runtime_view.state_branches
   in
   let wrapper_body =
-    if use_product_helper_contracts then mk_expr (Esequence (body, ret_expr))
+    if use_product_helper_contracts then ret_expr
     else
       let branches =
         List.map
@@ -594,7 +575,11 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
              (if exhaustive then branches
               else
                 branches
-                @ [ ({ pat_desc = Pwild; pat_loc = loc }, mk_expr (Esequence (body, ret_expr))) ]),
+                @
+                [
+                  ( { pat_desc = Pwild; pat_loc = loc },
+                    mk_expr (Esequence (full_step_body (), ret_expr)) );
+                ]),
              [] ))
   in
 
@@ -638,7 +623,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
 
   let coherency_goal_decls =
-    let goals = runtime_view.coherency_goals in
+    let goals = runtime_view.init_invariant_goals in
     if goals = [] then []
     else
       let init_guard =
@@ -732,17 +717,15 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   (ident module_name, None, decls, comment, { pre_labels; post_labels })
 
 let compile_node_from_ir_node ~prefix_fields ?comment_specs
-    ~(backend_context : Why_runtime_view.backend_phase_context)
     ~(program_nodes : Ir.node_ir list) (node : Ir.node_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_ir_node ~prefix_fields ~backend_context node in
+  let info = Why_env.prepare_ir_node ~prefix_fields node in
   compile_node_with_info ?comment_specs
     ~node_names:(List.map (fun (n : Ir.node_ir) -> n.context.semantics.sem_nname) program_nodes)
     info
 
 let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
     ?(disable_why3_optimizations = false) ?(comment_map = [])
-    ~(backend_context : Why_runtime_view.backend_phase_context)
     (program_nodes : Ir.node_ir list) : program_ast =
   let lookup_comment name = List.assoc_opt name comment_map in
   let previous_opt_flag = Why_term_support.why3_optimizations_enabled () in
@@ -753,7 +736,7 @@ let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
         (fun (node : Ir.node_ir) ->
           let name = node.context.semantics.sem_nname in
           compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name)
-            ~backend_context ~program_nodes node)
+            ~program_nodes node)
         program_nodes
     in
     Why_term_support.set_why3_optimizations_enabled previous_opt_flag;

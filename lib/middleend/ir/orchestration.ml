@@ -30,16 +30,8 @@ type initial_ir = {
   analyses : (Ast.ident * Product_build.analysis) list;
 }
 
-let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
-  List.map ir_transition_of_ast_transition node.semantics.sem_trans
+  Ir_transition.prioritized_program_transitions_of_node node
 
 let source_nodes_by_name (source_program : Ast.program) : (Ast.ident * Ast.node) list =
   List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program

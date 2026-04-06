@@ -272,18 +272,6 @@ let prepare_runtime_view ~(prefix_fields : bool)
     input_names;
   }
 
-let prepare_ir_node ~(prefix_fields : bool)
-    ~(backend_context : Why_runtime_view.backend_phase_context) (node : Ir.node_ir) :
-    Why_types.env_info =
-  let backend_node_context =
-    match
-      Why_runtime_view.find_backend_node_context backend_context node.context.semantics.sem_nname
-    with
-    | Some backend_node_context -> backend_node_context
-    | None ->
-        failwith
-          (Printf.sprintf "Missing backend context for IR node %s"
-             node.context.semantics.sem_nname)
-  in
-  let runtime = Why_runtime_view.of_ir_node ~backend_node_context node in
+let prepare_ir_node ~(prefix_fields : bool) (node : Ir.node_ir) : Why_types.env_info =
+  let runtime = Why_runtime_view.of_ir_node node in
   prepare_runtime_view ~prefix_fields ~pre_k_map:node.context.pre_k_map runtime

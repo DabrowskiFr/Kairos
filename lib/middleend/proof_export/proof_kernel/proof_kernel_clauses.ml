@@ -340,7 +340,7 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.ana
            else None)
   in
   let init_goal_facts =
-    node.goals
+    node.init_invariant_goals
     |> List.map (fun (f : Abs.summary_formula) -> current (FactFormula f.logic))
   in
   let init_clauses =

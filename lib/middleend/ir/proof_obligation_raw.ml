@@ -60,7 +60,7 @@ let compute_pre_k_map (node : Abs.node_ir) : (Ast.hexpr * Temporal_support.pre_k
              in
              Ir_formula.values case_formulas)
     in
-    product_formulas @ Ir_formula.values node.goals
+    product_formulas @ Ir_formula.values node.init_invariant_goals
   in
   Collect.build_pre_k_infos_from_parts ~inputs:node.context.semantics.sem_inputs
     ~locals:node.context.semantics.sem_locals ~outputs:node.context.semantics.sem_outputs

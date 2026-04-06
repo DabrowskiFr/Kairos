@@ -138,12 +138,11 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let instrumentation_info =
       Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
     in
-    let backend_context = Why_runtime_view.build_backend_phase_context asts.automata_generation in
     let t_why_gen = Unix.gettimeofday () in
     let why_ast =
       Emit.compile_program_ast_from_ir_nodes ~prefix_fields:cfg.prefix_fields
         ~disable_why3_optimizations:cfg.disable_why3_optimizations
-        ~backend_context asts.instrumentation
+        asts.instrumentation
     in
     let why_text, why_spans = Emit.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);

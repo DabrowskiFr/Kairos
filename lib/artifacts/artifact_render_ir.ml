@@ -97,14 +97,6 @@ let render_fo_o_list (fs : Ir.summary_formula list) : string =
       String.concat "\n    "
         (List.map (fun (f : Ir.summary_formula) -> Ast_pretty.string_of_fo f.logic) fs)
 
-let ir_transition_of_ast_transition (t : Ast.transition) : Ir.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let program_transitions_from_summaries (n : Ir.node_ir) : Ir.transition list =
   n.summaries
   |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
@@ -120,7 +112,7 @@ let program_transitions_for_node ~(source_program : Ast.program option) (n : Ir.
             String.equal source_node.semantics.sem_nname n.context.semantics.sem_nname)
           source_program
       with
-      | Some source_node -> List.map ir_transition_of_ast_transition source_node.semantics.sem_trans
+      | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
       | None -> program_transitions_from_summaries n)
   | None -> program_transitions_from_summaries n
 
@@ -236,8 +228,6 @@ let render_verified_transition (t : Ir_proof_views.verified_transition) : string
        Printf.sprintf "  guard       : %s%s" guard_str guard_iexpr_str;
        "  body        :";
        "    " ^ render_stmt_list t.core.body_stmts;
-       "  pre_k_upd   :";
-       "    " ^ render_stmt_list t.pre_k_updates;
      ]
     @ contract_lines)
 
@@ -333,7 +323,7 @@ let collect_formula_pool ~(source_program : Ast.program option) (program : Ir.pr
         add_formulas t.clauses.requires;
         add_formulas t.clauses.ensures)
       a.transitions;
-    add_formulas a.coherency_goals
+    add_formulas a.init_invariant_goals
   in
   let add_verified (v : Ir_proof_views.verified_node) =
     List.iter
@@ -342,11 +332,11 @@ let collect_formula_pool ~(source_program : Ast.program option) (program : Ir.pr
         add_formulas t.clauses.ensures)
       v.transitions;
     List.iter add_product_contract v.product_transitions;
-    add_formulas v.coherency_goals
+    add_formulas v.init_invariant_goals
   in
   let add_node (n : Ir.node_ir) =
     List.iter add_product_contract n.summaries;
-    add_formulas n.goals;
+    add_formulas n.init_invariant_goals;
     let raw =
       Proof_obligation_raw.build_raw_node
         ~program_transitions:(program_transitions_for_node ~source_program n)
@@ -512,8 +502,6 @@ let render_verified_transition_full ~indent (buf : Buffer.t) idx (t : Ir_proof_v
   line ~indent:(indent + 1) buf ("guard=" ^ Ast_pretty.string_of_fo t.guard);
   line ~indent:(indent + 1) buf
     ("body=[" ^ String.concat "; " (List.map render_stmt t.core.body_stmts) ^ "]");
-  line ~indent:(indent + 1) buf
-    ("pre_k_updates=[" ^ String.concat "; " (List.map render_stmt t.pre_k_updates) ^ "]");
   if t.clauses.requires <> [] then
     line ~indent:(indent + 1) buf ("requires=" ^ render_formula_refs t.clauses.requires);
   if t.clauses.ensures <> [] then
@@ -548,7 +536,8 @@ let render_annotated_view ~indent (buf : Buffer.t) = function
       line ~indent:(indent + 1) buf "transitions:";
       if ann.transitions = [] then line ~indent:(indent + 2) buf "[]"
       else List.iteri (render_annotated_transition ~indent:(indent + 2) buf) ann.transitions;
-      line ~indent:(indent + 1) buf ("coherency_goals=" ^ render_formula_refs ann.coherency_goals);
+      line ~indent:(indent + 1) buf
+        ("init_invariant_goals=" ^ render_formula_refs ann.init_invariant_goals);
       line ~indent:(indent + 1) buf
         ("user_invariants=[" ^ String.concat "; " (List.map render_user_invariant ann.user_invariants) ^ "]");
       line ~indent buf "}"
@@ -574,7 +563,8 @@ let render_verified_view ~indent (buf : Buffer.t) = function
         ("assumes=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl ver.assumes) ^ "]");
       line ~indent:(indent + 1) buf
         ("guarantees=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl ver.guarantees) ^ "]");
-      line ~indent:(indent + 1) buf ("coherency_goals=" ^ render_formula_refs ver.coherency_goals);
+      line ~indent:(indent + 1) buf
+        ("init_invariant_goals=" ^ render_formula_refs ver.init_invariant_goals);
       line ~indent:(indent + 1) buf
         ("user_invariants=[" ^ String.concat "; " (List.map render_user_invariant ver.user_invariants) ^ "]");
       line ~indent buf "}"
@@ -622,7 +612,7 @@ let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
           ~indent:1 buf pc)
       n.summaries;
   line buf "";
-  line buf ("coherency_goals=" ^ render_formula_refs n.goals);
+  line buf ("init_invariant_goals=" ^ render_formula_refs n.init_invariant_goals);
   line buf "";
   line buf "proof_views";
   let raw = Proof_obligation_raw.build_raw_node ~program_transitions n in
