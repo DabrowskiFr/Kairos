@@ -240,14 +240,24 @@ let prepare_runtime_view ~(prefix_fields : bool)
   let field_qid name = qid1 (rec_var_name env name) in
   let output_exprs = List.map (fun v -> field env v.vname) n.semantics.sem_outputs in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
+  let input_binders =
+    List.map
+      (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
+      n.semantics.sem_inputs
+  in
+  let pre_k_binders =
+    let seen = Hashtbl.create 16 in
+    pre_k_infos
+    |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
+           info.names
+           |> List.filter_map (fun name ->
+                  if Hashtbl.mem seen name then None
+                  else (
+                    Hashtbl.add seen name ();
+                    Some (loc, Some (ident name), false, Some (default_pty info.vty)))))
+  in
   let inputs =
-    match n.semantics.sem_inputs with
-    | [] -> [ vars_param ]
-    | _ ->
-        vars_param
-        :: List.map
-             (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
-             n.semantics.sem_inputs
+    vars_param :: (input_binders @ pre_k_binders)
   in
   let ret_expr =
     match output_exprs with

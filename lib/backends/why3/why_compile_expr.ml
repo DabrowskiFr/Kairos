@@ -70,20 +70,14 @@ let rec compile_term_instance (env : env) (inst_name : ident) (node_name : ident
 let compile_hexpr_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
     (node_name : ident) (inputs : ident list)
     (contract : Kernel_guided_contract.exported_summary_contract) (h : hexpr) : Ptree.term =
-  let instance_term () =
-    let base = term_of_var env inst_name in
-    if in_post then term_old base else base
-  in
-  let logic_of_slot slot_name =
-    let prefixed = Generated_names.prefix_for_node node_name ^ slot_name in
-    mk_term (Tidapp (qid1 ("logic_" ^ prefixed), [ instance_term () ]))
-  in
   match h with
   | HNow e -> compile_term_instance env inst_name node_name inputs e
   | HPreK (_e, _) -> begin
       match Kernel_guided_contract.latest_slot_name_for_hexpr contract h with
       | None -> failwith "pre_k not registered in kernel-guided contract (instance)"
-      | Some name -> logic_of_slot name
+      | Some name ->
+          let prefixed = Generated_names.prefix_for_node node_name ^ name in
+          mk_term (Tident (qid1 prefixed))
     end
 
 let compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
@@ -155,11 +149,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
                 failwith "pre_k slot out of bounds"
               else
                 let name = List.nth info.names (k - 1) in
-                let self =
-                  let base = mk_term (Tident (qid1 env.rec_name)) in
-                  if old || in_post then term_old base else base
-                in
-                mk_term (Tidapp (qid1 ("logic_" ^ name), [ self ]))
+                mk_term (Tident (qid1 name))
         end
     end
 

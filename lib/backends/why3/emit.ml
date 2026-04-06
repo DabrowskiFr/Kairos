@@ -152,21 +152,6 @@ let logic_getter_decl_for_type ~(vars_type_name : string) ~(field_name : string)
       };
     ]
 
-let logic_symbol_decl_for_type ~(vars_type_name : string) ~(symbol_name : string) ~(vty : Ast.ty) :
-    Ptree.decl =
-  let getter_name = ident ("logic_" ^ symbol_name) in
-  let param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 vars_type_name, [])) in
-  Ptree.Dlogic
-    [
-      {
-        ld_loc = loc;
-        ld_ident = getter_name;
-        ld_params = [ param ];
-        ld_type = Some (default_pty vty);
-        ld_def = None;
-      };
-    ]
-
 let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runtime_view.port_view list)
     ~(name : string) ~(formula : Fo_formula.t) : Ptree.decl =
   let env = { env with rec_name = "self" } in
@@ -245,19 +230,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     let mk (v : Ast.vdecl) = logic_getter_decl ~env v.vname v.vty in
     logic_getter_decl ~env "st" (TCustom "state") :: List.map mk locals_and_outputs
   in
-  let pre_k_logic_decls =
-    let seen = Hashtbl.create 16 in
-    info.pre_k_infos
-    |> List.concat_map (fun (pre_k_info : Temporal_support.pre_k_info) ->
-           pre_k_info.names
-           |> List.filter_map (fun name ->
-                  if Hashtbl.mem seen name then None
-                  else (
-                    Hashtbl.add seen name ();
-                    Some
-                      (logic_symbol_decl_for_type ~vars_type_name:"vars" ~symbol_name:name
-                         ~vty:pre_k_info.vty))))
-  in
   let phase_case_logic_decls =
     match kernel_ir with
     | None -> []
@@ -322,21 +294,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
                  ])
                fields
            in
-           let temporal_decls =
-             let seen_temporal = Hashtbl.create 16 in
-             summary.callee_contract.temporal_bindings
-             |> List.concat_map (fun binding ->
-                    binding.Kernel_guided_contract.slot_names
-                    |> List.filter_map (fun slot_name ->
-                           let field_name = prefix_for_node summary.callee_node_name ^ slot_name in
-                           if Hashtbl.mem seen_temporal field_name then None
-                           else (
-                             Hashtbl.add seen_temporal field_name ();
-                             Some
-                               (logic_symbol_decl_for_type ~vars_type_name ~symbol_name:field_name
-                                  ~vty:binding.Kernel_guided_contract.slot_type))))
-           in
-           field_decls @ temporal_decls)
+           field_decls)
   in
 
   let contracts = Why_contracts.build_contracts ~nodes:[] info in
@@ -710,7 +668,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
 
   let decls =
     imports @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls
-    @ logic_getter_decls @ pre_k_logic_decls @ phase_case_logic_decls
+    @ logic_getter_decls @ phase_case_logic_decls
     @ instance_mirror_getter_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
     @ coherency_goal_decls @ kernel_init_goal_decls
   in

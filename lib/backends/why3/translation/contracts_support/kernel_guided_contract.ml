@@ -22,7 +22,6 @@ type temporal_binding_ir = {
   source_hexpr : Ast.hexpr;
   source_expr : Ast.iexpr;
   slot_names : Ast.ident list;
-  slot_type : Ast.ty;
 }
 
 type exported_summary_contract = {
@@ -68,7 +67,7 @@ let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Temporal_support.pr
         | HPreK _ -> []
         | HNow _ -> info.names
       in
-      { source_hexpr; source_expr = info.expr; slot_names; slot_type = info.vty })
+      { source_hexpr; source_expr = info.expr; slot_names })
     pre_k_map
 
 let exported_summary_of_exported_ir
