@@ -3,7 +3,7 @@
  (wrapped false)
  (modules
  emit pipeline_why
-  why_types why_core why_compile_expr why_env why_runtime_view
+  why_core why_compile_expr why_runtime_view
   why_contracts why_term_support)
  (libraries
   kairos_ast kairos_provenance kairos_logic kairos_stage_types kairos_stage_names kairos_logging

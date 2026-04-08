@@ -23,26 +23,34 @@
 
 (* {1 Contract Assembly} *)
 
-type contract_info = Why_types.contract_info
-(* Pre/post conditions with label groups for UI diagnostics. *)
+type step_contract_info = {
+  step : Why_runtime_view.runtime_product_transition_view;
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+  forbidden : Why3.Ptree.term list;
+}
+
+type contract_info = {
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+  pre_labels : string list;
+  post_labels : string list;
+  pre_origin_labels : string list;
+  post_origin_labels : string list;
+  pre_source_states : string option list;
+  post_source_states : string option list;
+  post_vcids : string option list;
+  step_contracts : step_contract_info list;
+}
 
 val set_pure_translation : bool -> unit
 val get_pure_translation : unit -> bool
 (* Enable/disable pure translation mode (no extra contract generation). *)
 
-(* {2 Invariants}
-
-   - [build_contracts] expects [env_info] produced by [prepare_ir_node]. *)
-
 val build_contracts :
   nodes:Ast.node list ->
-  Why_env.env_info ->
+  env:Why_term_support.env ->
+  hexpr_needs_old:(Ast.hexpr -> bool) ->
+  runtime:Why_runtime_view.t ->
   contract_info
-(* Build full contract terms (pre/post) and their labels. *)
-
-val build_contracts_runtime_view :
-  nodes:Ast.node list ->
-  Why_env.env_info ->
-  Why_runtime_view.t ->
-  contract_info
-(* Same as [build_contracts], but driven explicitly by the abstract Why runtime view. *)
+(* Build full contract terms (pre/post) and their labels for a runtime view. *)

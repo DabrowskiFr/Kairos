@@ -34,9 +34,25 @@ open Why_labels
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-type contract_info = Why_types.contract_info
+type step_contract_info = {
+  step : Why_runtime_view.runtime_product_transition_view;
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+  forbidden : Why3.Ptree.term list;
+}
 
-type step_contract_info = Why_types.step_contract_info
+type contract_info = {
+  pre : Why3.Ptree.term list;
+  post : Why3.Ptree.term list;
+  pre_labels : string list;
+  post_labels : string list;
+  pre_origin_labels : string list;
+  post_origin_labels : string list;
+  pre_source_states : string option list;
+  post_source_states : string option list;
+  post_vcids : string option list;
+  step_contracts : step_contract_info list;
+}
 
 type transition_clauses = {
   transition_requires_pre_terms : (Ptree.term * string) list;
@@ -263,11 +279,9 @@ let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term 
   in
   go
 
-let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_info)
-    (runtime : Why_runtime_view.t) : Why_types.contract_info =
+let build_contracts ~(nodes : Ast.node list) ~(env : Why_term_support.env)
+    ~(hexpr_needs_old : Ast.hexpr -> bool) ~(runtime : Why_runtime_view.t) : contract_info =
   let _nodes = nodes in
-  let env = info.env in
-  let hexpr_needs_old = info.hexpr_needs_old in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
   in
@@ -472,6 +486,3 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     post_vcids;
     step_contracts = compiled_step_contracts;
   }
-
-let build_contracts ~(nodes : Ast.node list) (info : Why_env.env_info) : Why_types.contract_info =
-  build_contracts_runtime_view ~nodes info info.runtime_view

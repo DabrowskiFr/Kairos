@@ -2,7 +2,7 @@
  (name kairos_artifacts)
  (wrapped false)
  (modules
- ast_dump artifact_io artifact_render_ir artifact_render_ir_dot
+ ast_dump artifact_io artifact_render_ir
   artifact_render_monitor instrumentation_artifacts normalized_program_render pipeline_build
   pipeline_outputs)
  (libraries

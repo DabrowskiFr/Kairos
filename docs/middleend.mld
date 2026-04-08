@@ -24,12 +24,8 @@ It does not emit Why3 text directly; that is handled by backend layers.
 - `lib/middleend/ir`
   Canonical IR shaping passes (`pre`, `invariant`, `post`) and proof views.
 
-- `lib/middleend/stage_build`
-  Pipeline stage orchestration for middle-end data.
-
 {1 Reading order}
 
 1. automata generation (`automata/spec`)
 2. product build (`automata/product`)
 3. IR passes (`ir`)
-4. stage orchestration (`stage_build`)

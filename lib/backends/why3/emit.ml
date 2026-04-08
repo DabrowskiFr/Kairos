@@ -42,6 +42,159 @@ type comment_specs =
 
 type program_ast = { mlw : Ptree.mlw_file; module_info : (string * spec_groups) list }
 
+type env_info = {
+  runtime_view : Why_runtime_view.t;
+  module_name : string;
+  imports : Why3.Ptree.decl list;
+  type_state : Why3.Ptree.decl;
+  type_vars : Why3.Ptree.decl;
+  env : Why_term_support.env;
+  inputs : Why3.Ptree.binder list;
+  ret_expr : Why3.Ptree.expr;
+  hexpr_needs_old : Ast.hexpr -> bool;
+  input_names : Ast.ident list;
+}
+
+let prepare_runtime_view ~(prefix_fields : bool) ~(temporal_layout : Ir.temporal_layout)
+    (runtime : Why_runtime_view.t) : env_info =
+  let n = Why_runtime_view.to_ast_node runtime in
+  let module_name = module_name_of_node n.semantics.sem_nname in
+  let imports =
+    [
+      Ptree.Duseimport (loc, false, [ (qid1 "int.Int", None) ]);
+      Ptree.Duseimport (loc, false, [ (qid1 "array.Array", None) ]);
+    ]
+  in
+  let type_state =
+    Ptree.Dtype
+      [
+        {
+          td_loc = loc;
+          td_ident = ident "state";
+          td_params = [];
+          td_vis = Public;
+          td_mut = false;
+          td_inv = [];
+          td_wit = None;
+          td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.semantics.sem_states);
+        };
+      ]
+  in
+  let pre_k_infos = List.map snd temporal_layout in
+  let inv_links = runtime.user_invariants |> List.map (fun inv -> (inv.inv_expr, inv.inv_id)) in
+  let field_prefix = if prefix_fields then prefix_for_node n.semantics.sem_nname else "" in
+  let input_names = Ast_queries.input_names_of_node n in
+  let base_vars =
+    "st" :: List.map (fun v -> v.vname) (n.semantics.sem_locals @ n.semantics.sem_outputs)
+  in
+  let hexpr_needs_old (_h : hexpr) : bool = false in
+  let var_map = List.map (fun name -> (name, field_prefix ^ name)) base_vars in
+  let env =
+    {
+      rec_name = "vars";
+      rec_vars = base_vars;
+      var_map;
+      links = inv_links;
+      inputs = input_names;
+    }
+  in
+  let is_ghost_local name =
+    (String.length name >= 7 && String.sub name 0 7 = "__atom_")
+    || (String.length name >= 5 && String.sub name 0 5 = "atom_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
+    || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
+  in
+  let local_fields =
+    List.map
+      (fun v ->
+        {
+          f_loc = loc;
+          f_ident = ident (rec_var_name env v.vname);
+          f_pty = default_pty v.vty;
+          f_mutable = true;
+          f_ghost = is_ghost_local v.vname;
+        })
+      n.semantics.sem_locals
+  in
+  let output_fields =
+    List.map
+      (fun v ->
+        {
+          f_loc = loc;
+          f_ident = ident (rec_var_name env v.vname);
+          f_pty = default_pty v.vty;
+          f_mutable = true;
+          f_ghost = false;
+        })
+      n.semantics.sem_outputs
+  in
+  let fields : Ptree.field list =
+    {
+      f_loc = loc;
+      f_ident = ident (rec_var_name env "st");
+      f_pty = Ptree.PTtyapp (qid1 "state", []);
+      f_mutable = true;
+      f_ghost = false;
+    }
+    :: (local_fields @ output_fields)
+  in
+  let type_vars =
+    Ptree.Dtype
+      [
+        {
+          td_loc = loc;
+          td_ident = ident "vars";
+          td_params = [];
+          td_vis = Public;
+          td_mut = true;
+          td_inv = [];
+          td_wit = None;
+          td_def = TDrecord fields;
+        };
+      ]
+  in
+  let output_exprs = List.map (fun v -> field env v.vname) n.semantics.sem_outputs in
+  let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
+  let input_binders =
+    List.map
+      (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
+      n.semantics.sem_inputs
+  in
+  let pre_k_binders =
+    let seen = Hashtbl.create 16 in
+    pre_k_infos
+    |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
+           info.names
+           |> List.filter_map (fun name ->
+                  if Hashtbl.mem seen name then None
+                  else (
+                    Hashtbl.add seen name ();
+                    Some (loc, Some (ident name), false, Some (default_pty info.vty)))))
+  in
+  let inputs = vars_param :: (input_binders @ pre_k_binders) in
+  let ret_expr =
+    match output_exprs with
+    | [] -> mk_expr (Etuple [])
+    | [ e ] -> e
+    | es -> mk_expr (Etuple es)
+  in
+  {
+    runtime_view = runtime;
+    module_name;
+    imports;
+    type_state;
+    type_vars;
+    env;
+    inputs;
+    ret_expr;
+    hexpr_needs_old;
+    input_names;
+  }
+
+let prepare_ir_node ~(prefix_fields : bool) (node : Ir.node_ir) : env_info =
+  let runtime = Why_runtime_view.of_ir_node node in
+  prepare_runtime_view ~prefix_fields ~temporal_layout:node.temporal_layout runtime
+
 let empty_spec () : Ptree.spec =
   {
     Ptree.sp_pre = [];
@@ -147,7 +300,7 @@ let port_view_to_vdecl (p : Why_runtime_view.port_view) : Ast.vdecl =
    The active path builds [info] from the IR via [prepare_ir_node].
    [node_names] is the list of peer-program node names used only for comment stripping. *)
 let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident list)
-    (info : Why_types.env_info) :
+    (info : env_info) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let runtime_view = info.runtime_view in
   let comment_specs =
@@ -225,7 +378,10 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
              []
         |> List.rev
   in
-  let contracts = Why_contracts.build_contracts ~nodes:[] info in
+  let contracts =
+    Why_contracts.build_contracts ~nodes:[] ~env:info.env ~hexpr_needs_old:info.hexpr_needs_old
+      ~runtime:runtime_view
+  in
   let pre = contracts.pre in
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
@@ -387,7 +543,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     | Why_runtime_view.StepSafe -> "safe"
     | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
   in
-  let step_helper_name ~(index : int) (sc : Why_types.step_contract_info) =
+  let step_helper_name ~(index : int) (sc : Why_contracts.step_contract_info) =
     let step = sc.step in
     Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_%d"
       (String.lowercase_ascii step.transition_id)
@@ -402,7 +558,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
     else
       step_contracts
       |> List.mapi (fun i sc -> (i, sc))
-      |> List.filter_map (fun (i, (sc : Why_types.step_contract_info)) ->
+      |> List.filter_map (fun (i, (sc : Why_contracts.step_contract_info)) ->
              let t = Why_runtime_view.transition_of_product_step sc.step in
              let helper_name = ident (step_helper_name ~index:i sc) in
              let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
@@ -648,7 +804,7 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
 let compile_node_from_ir_node ~prefix_fields ?comment_specs
     ~(program_nodes : Ir.node_ir list) (node : Ir.node_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
-  let info = Why_env.prepare_ir_node ~prefix_fields node in
+  let info = prepare_ir_node ~prefix_fields node in
   compile_node_with_info ?comment_specs
     ~node_names:(List.map (fun (n : Ir.node_ir) -> n.semantics.sem_nname) program_nodes)
     info
