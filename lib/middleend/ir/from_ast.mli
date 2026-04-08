@@ -16,15 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Build normalized nodes directly from source AST nodes. *)
+(** Build initial IR from source AST nodes in one step:
+    context projection + product analysis + minimal summary generation. *)
 
-val of_ast_transition : Ast.transition -> Ir.transition
-
-val of_ast_summary_formula :
-  ?origin:Formula_origin.t ->
-  Ast.ltl_o ->
-  Ir.summary_formula
-
-val of_ast_node : Ast.node -> Ir.node_ir
-
-val of_ast_program : Ast.program -> Ir.node_ir list
+val of_ast_program :
+  automata:Automata_generation.node_builds ->
+  Ast.program ->
+  (Ir.node_ir list, string) result

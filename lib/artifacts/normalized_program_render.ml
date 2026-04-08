@@ -24,10 +24,7 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with
   | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Ast_pretty.string_of_iexpr e ^ ";" ]
   | SSkip -> [ indent_str indent_level ^ "skip;" ]
-  | SCall (inst, args, outs) ->
-      let args_s = String.concat ", " (List.map Ast_pretty.string_of_iexpr args) in
-      let outs_s = String.concat ", " outs in
-      [ indent_str indent_level ^ "call " ^ inst ^ "(" ^ args_s ^ ") returns (" ^ outs_s ^ ");" ]
+  | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SIf (c, t, e) ->
       [ indent_str indent_level ^ "if " ^ Ast_pretty.string_of_iexpr c ^ " then" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) t
@@ -74,7 +71,7 @@ let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.n
       match
         List.find_opt
           (fun (source_node : Ast.node) ->
-            String.equal source_node.semantics.sem_nname n.context.semantics.sem_nname)
+            String.equal source_node.semantics.sem_nname n.semantics.sem_nname)
           source_program
       with
       | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
@@ -88,7 +85,7 @@ let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.n
       |> List.sort_uniq Stdlib.compare
 
 let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_ir) : string =
-  let sem = n.context.semantics in
+  let sem = n.semantics in
   let line_params name vs =
     if vs = [] then None
     else Some (name ^ " " ^ String.concat ", " (List.map render_vdecl vs) ^ ";")
@@ -107,10 +104,10 @@ let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_
     |> List.filter_map Fun.id
   in
   let assumes =
-    List.map (fun a -> "assume " ^ Ast_pretty.string_of_ltl a ^ ";") n.context.source_info.assumes
+    List.map (fun a -> "assume " ^ Ast_pretty.string_of_ltl a ^ ";") n.source_info.assumes
   in
   let guarantees =
-    List.map (fun g -> "guarantee " ^ Ast_pretty.string_of_ltl g ^ ";") n.context.source_info.guarantees
+    List.map (fun g -> "guarantee " ^ Ast_pretty.string_of_ltl g ^ ";") n.source_info.guarantees
   in
   let trans =
     List.map (render_transition ~indent:1) (program_transitions_of_node ~source_program n)

@@ -30,7 +30,6 @@ type label_context = {
   link_terms_post : Why3.Ptree.term list;
   link_invariants : Why3.Ptree.term list;
   post_contract_user : Why3.Ptree.term list;
-  instance_invariants : Why3.Ptree.term list;
 }
 (* Context used to generate labels from contract terms. *)
 

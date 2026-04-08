@@ -261,10 +261,27 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
     p
     |> List.map (fun n ->
            let sem = n.semantics in
+           let normalized_node : Ir.node_ir =
+             {
+               semantics =
+                 {
+                   sem_nname = sem.sem_nname;
+                   sem_inputs = sem.sem_inputs;
+                   sem_outputs = sem.sem_outputs;
+                   sem_locals = sem.sem_locals;
+                   sem_states = sem.sem_states;
+                   sem_init_state = sem.sem_init_state;
+                 };
+               source_info = { assumes = []; guarantees = []; state_invariants = [] };
+               temporal_layout = Collect.build_pre_k_infos n;
+               summaries = [];
+               init_invariant_goals = [];
+             }
+           in
            let build = Automata_generation.build_for_node n in
            let analysis =
-             Product_build.analyze_node ~build ~node:(From_ast.of_ast_node n)
-               ~program_transitions:(List.map From_ast.of_ast_transition n.semantics.sem_trans)
+             Product_build.analyze_node ~build ~node:normalized_node
+               ~program_transitions:(Ir_transition.prioritized_program_transitions_of_node n)
            in
            let program =
              Ir_render_product.render_program_automaton ~node_name:sem.sem_nname ~node:n

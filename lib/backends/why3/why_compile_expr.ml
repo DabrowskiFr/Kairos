@@ -22,8 +22,6 @@ open Why3
 open Ptree
 open Ast
 open Ast_builders
-open Generated_names
-open Temporal_support
 open Ast_pretty
 open Why_term_support
 
@@ -49,69 +47,6 @@ let rec compile_term (env : env) (e : iexpr) : Ptree.term =
   | IUn (Not, a) -> mk_term (Tnot (compile_term env a))
   | IBin (op, a, b) ->
       mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b))
-
-let rec compile_term_instance (env : env) (inst_name : ident) (node_name : ident)
-    (inputs : ident list) (e : iexpr) : Ptree.term =
-  match e.iexpr with
-  | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
-  | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
-  | IVar x -> term_of_instance_var env inst_name node_name x
-  | IPar e -> compile_term_instance env inst_name node_name inputs e
-  | IUn (Neg, a) ->
-      mk_term (Tidapp (qid1 "(-)", [ compile_term_instance env inst_name node_name inputs a ]))
-  | IUn (Not, a) -> mk_term (Tnot (compile_term_instance env inst_name node_name inputs a))
-  | IBin (op, a, b) ->
-      mk_term
-        (Tinnfix
-           ( compile_term_instance env inst_name node_name inputs a,
-             infix_ident (binop_id op),
-             compile_term_instance env inst_name node_name inputs b ))
-
-let compile_hexpr_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
-    (node_name : ident) (inputs : ident list)
-    (contract : Kernel_guided_contract.exported_summary_contract) (h : hexpr) : Ptree.term =
-  match h with
-  | HNow e -> compile_term_instance env inst_name node_name inputs e
-  | HPreK (_e, _) -> begin
-      match Kernel_guided_contract.latest_slot_name_for_hexpr contract h with
-      | None -> failwith "pre_k not registered in kernel-guided contract (instance)"
-      | Some name ->
-          let prefixed = Generated_names.prefix_for_node node_name ^ name in
-          mk_term (Tident (qid1 prefixed))
-    end
-
-let compile_fo_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
-    (node_name : ident) (inputs : ident list)
-    (contract : Kernel_guided_contract.exported_summary_contract) (f : fo_atom) : Ptree.term =
-  match f with
-  | FRel (h1, r, h2) ->
-      mk_term
-        (Tinnfix
-           ( compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract h1,
-             infix_ident (relop_id r),
-             compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract h2 ))
-  | FPred (id, hs) ->
-      mk_term
-        (Tidapp
-           ( qid1 id,
-             List.map
-               (compile_hexpr_instance_contract ~in_post env inst_name node_name inputs contract)
-               hs ))
-
-let rec compile_ltl_term_instance_contract ?(in_post = false) (env : env) (inst_name : ident)
-    (node_name : ident) (inputs : ident list)
-    (contract : Kernel_guided_contract.exported_summary_contract) (f : ltl) : Ptree.term =
-  let go = compile_ltl_term_instance_contract ~in_post env inst_name node_name inputs contract in
-  match f with
-  | LTrue -> mk_term Ttrue
-  | LFalse -> mk_term Tfalse
-  | LAtom a ->
-      compile_fo_term_instance_contract ~in_post env inst_name node_name inputs contract a
-  | LNot a -> mk_term (Tnot (go a))
-  | LAnd (a, b) -> term_bool_binop Dterm.DTand (go a) (go b)
-  | LOr (a, b) -> term_bool_binop Dterm.DTor (go a) (go b)
-  | LImp (a, b) -> term_bool_binop Dterm.DTimplies (go a) (go b)
-  | LX _ | LG _ | LW _ -> mk_term Ttrue
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
   match outputs with
@@ -142,14 +77,9 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
           let use_old = old && not (is_const_iexpr e) in
           if use_old then term_old t else t
       | HPreK (_e, k) -> begin
-          match find_pre_k env h with
-          | None -> failwith "pre_k not registered"
-          | Some info ->
-              if k <= 0 || k > List.length info.names then
-                failwith "pre_k slot out of bounds"
-              else
-                let name = List.nth info.names (k - 1) in
-                mk_term (Tident (qid1 name))
+          let _ = (env, k) in
+          failwith
+            "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
         end
     end
 

@@ -25,8 +25,6 @@ type env = {
   rec_vars : string list;
   var_map : (ident * ident) list;
   links : (hexpr * ident) list;
-  pre_k : (hexpr * Temporal_support.pre_k_info) list;
-  inst_map : (ident * ident) list;
   inputs : ident list;
 }
 
@@ -93,9 +91,6 @@ let term_var (env : env) (x : ident) : Ptree.term_desc =
 
 let find_link (env : env) (h : hexpr) : ident option =
   List.find_map (fun (h', id) -> if h' = h then Some id else None) env.links
-
-let find_pre_k (env : env) (h : hexpr) : Temporal_support.pre_k_info option =
-  List.find_map (fun (h', info) -> if h' = h then Some info else None) env.pre_k
 
 let normalize_infix (s : string) : string =
   let prefix = "infix " in
@@ -224,21 +219,3 @@ let term_of_var (env : env) (name : ident) : Ptree.term = mk_term (term_var env 
 
 let relop_id (r : relop) : string =
   match r with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
-
-let term_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (var_name : ident) :
-    Ptree.term =
-  let inst_prefix = Generated_names.prefix_for_node node_name in
-  let inner_field = inst_prefix ^ var_name in
-  let inst_term =
-    if List.mem inst_name env.rec_vars then term_of_var env inst_name else mk_term (Tident (qid1 inst_name))
-  in
-  mk_term (Tapply (mk_term (Tident (qid1 ("logic_" ^ inner_field))), inst_term))
-
-let expr_of_instance_var (env : env) (inst_name : ident) (node_name : ident) (var_name : ident) :
-    Ptree.expr =
-  let inst_prefix = Generated_names.prefix_for_node node_name in
-  let inner_field = inst_prefix ^ var_name in
-  let inst_expr =
-    if List.mem inst_name env.rec_vars then field env inst_name else mk_expr (Eident (qid1 inst_name))
-  in
-  apply_expr (mk_expr (Eident (qid1 ("get_" ^ inner_field)))) [ inst_expr ]

@@ -35,7 +35,7 @@ let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
 
 let input_names (n : Abs.node_ir) : ident list =
-  List.map (fun (v : vdecl) -> v.vname) n.context.semantics.sem_inputs
+  List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
 let is_input_of_node (n : Abs.node_ir) : ident -> bool =
   let names = input_names n in
@@ -44,7 +44,7 @@ let is_input_of_node (n : Abs.node_ir) : ident -> bool =
 let non_input_program_var_names (n : Abs.node_ir) : ident list =
   List.map
     (fun (v : vdecl) -> v.vname)
-    (n.context.semantics.sem_outputs @ n.context.semantics.sem_locals)
+    (n.semantics.sem_outputs @ n.semantics.sem_locals)
   |> List.sort_uniq String.compare
 
 let ivar (name : ident) : iexpr = { iexpr = IVar name; loc = None }
@@ -91,18 +91,18 @@ let reject_current_input_invariant ~(node : Abs.node_ir) (inv : invariant_state_
       (Printf.sprintf
          "State invariant for node %s in state %s mentions a current input (HNow on an input), \
           which is forbidden for node-entry invariants: %s"
-         node.context.semantics.sem_nname inv.state (string_of_ltl inv.formula))
+         node.semantics.sem_nname inv.state (string_of_ltl inv.formula))
 
 let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : invariant_state_rel) ->
-      if List.mem inv.state n.context.semantics.sem_states then (
+      if List.mem inv.state n.semantics.sem_states then (
         reject_current_input_invariant ~node:n inv;
         let inv_fo = fo_formula_of_non_temporal_ltl_exn inv.formula in
         let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
         Hashtbl.replace by_state inv.state (inv_fo :: existing)))
-    n.context.source_info.state_invariants;
+    n.source_info.state_invariants;
   fun st ->
     (match Hashtbl.find_opt by_state st with
     | None -> None
@@ -113,7 +113,7 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
     node.summaries
     |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
     |> List.filter (fun (st : Abs.product_state) ->
-           String.equal st.prog_state node.context.semantics.sem_init_state)
+           String.equal st.prog_state node.semantics.sem_init_state)
     |> List.sort_uniq Stdlib.compare
   in
   match
@@ -127,7 +127,7 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
       | st :: _ -> st
       | [] ->
           {
-            Abs.prog_state = node.context.semantics.sem_init_state;
+            Abs.prog_state = node.semantics.sem_init_state;
             assume_state_index = 0;
             guarantee_state_index = 0;
           })
@@ -165,14 +165,14 @@ let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state
     in
     disj_fo from_ensures
 
-type t = {
+type node_generation = {
   guarantee_pre_of_product_state : Abs.product_state -> Fo_formula.t option;
   initial_product_state : Abs.product_state;
   state_stability : Fo_formula.t list;
   invariant_of_state : Ast.ident -> Fo_formula.t option;
 }
 
-let build ~(node : Abs.node_ir) : t =
+let compute_generation ~(node : Abs.node_ir) : node_generation =
   let initial_product_state = infer_initial_product_state node in
   {
     guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~initial_product_state;
@@ -186,7 +186,8 @@ let add_unique_formula (origin : Formula_origin.t) (f : Fo_formula.t)
   if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
   else xs @ [ Ir_formula.with_origin origin f ]
 
-let apply ~(pre_generation : t) (n : Abs.node_ir) : Abs.node_ir =
+let run_node (n : Abs.node_ir) : Abs.node_ir =
+  let pre_generation = compute_generation ~node:n in
   let summaries =
     List.map
       (fun (pc : Abs.product_step_summary) ->
@@ -211,7 +212,7 @@ let apply ~(pre_generation : t) (n : Abs.node_ir) : Abs.node_ir =
       n.summaries
   in
   let init_invariant_goals =
-    match pre_generation.invariant_of_state n.context.semantics.sem_init_state with
+    match pre_generation.invariant_of_state n.semantics.sem_init_state with
     | None -> n.init_invariant_goals
     | Some inv ->
         if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.init_invariant_goals then
@@ -221,19 +222,4 @@ let apply ~(pre_generation : t) (n : Abs.node_ir) : Abs.node_ir =
   in
   { n with summaries; init_invariant_goals }
 
-let build_program (p : Abs.node_ir list) : (Ast.ident * t) list =
-  List.map (fun (n : Abs.node_ir) -> (n.context.semantics.sem_nname, build ~node:n)) p
-
-let apply_program ~(pre_generations : (Ast.ident * t) list) (p : Abs.node_ir list) : Abs.node_ir list =
-  List.map
-    (fun (n : Abs.node_ir) ->
-      let pre_generation =
-        match List.assoc_opt n.context.semantics.sem_nname pre_generations with
-        | Some pg -> pg
-        | None ->
-            failwith
-              (Printf.sprintf "Missing pre generation for normalized node %s"
-                 n.context.semantics.sem_nname)
-      in
-      apply ~pre_generation n)
-    p
+let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p

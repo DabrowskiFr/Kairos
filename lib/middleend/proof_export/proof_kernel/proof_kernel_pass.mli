@@ -16,16 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(*---------------------------------------------------------------------------
- * Kairos — Pass 4: Annotated-view materialization.
- *
- * Builds [Ir_proof_views.annotated_node] from [Ir_proof_views.raw_node] while preserving transition
- * structure for diagnostics/export.
- *
- * The formulas may still contain [Ast.hexpr] references (prev^k x);
- * history elimination is performed in pass 5 ([Proof_obligation_lowering]).
- *---------------------------------------------------------------------------*)
+type node_input = {
+  node_name : Ast.ident;
+  source_node : Ast.node;
+  node : Ir.node_ir;
+  analysis : Product_build.analysis;
+}
 
-(** Build the annotated proof snapshot from a raw snapshot and an IR node. *)
+type node_output = {
+  normalized_ir : Proof_kernel_types.node_ir;
+  exported_summary : Proof_kernel_types.exported_node_summary_ir;
+}
 
-val annotate : raw:Ir_proof_views.raw_node -> node:Ir.node_ir -> Ir_proof_views.annotated_node
+val build_normalized_ir : node_input -> Proof_kernel_types.node_ir
+
+val build_exported_summary :
+  input:node_input ->
+  normalized_ir:Proof_kernel_types.node_ir ->
+  Proof_kernel_types.exported_node_summary_ir
+
+val compile_node : node_input -> node_output

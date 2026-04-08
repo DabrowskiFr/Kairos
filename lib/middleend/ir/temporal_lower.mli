@@ -16,10 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pass 3: compute and attach the node-level pre_k map in the IR node context. *)
+(** Final IR phase: lower temporal references ([pre], [pre_k]) to materialized slots
+    using the node temporal layout. *)
 
-val compute_pre_k_map : Ir.node_ir -> (Ast.hexpr * Temporal_support.pre_k_info) list
-val build_raw_node : program_transitions:Ir.transition list -> Ir.node_ir -> Ir_proof_views.raw_node
-
-val apply_node : Ir.node_ir -> Ir.node_ir
-val apply_program : Ir.node_ir list -> Ir.node_ir list
+val run_program : Ir.node_ir list -> Ir.node_ir list

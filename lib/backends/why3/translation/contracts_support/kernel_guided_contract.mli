@@ -26,7 +26,7 @@ type temporal_binding_ir = {
 }
 
 type exported_summary_contract = {
-  callee_node_name : Ast.ident;
+  node_name : Ast.ident;
   input_names : Ast.ident list;
   output_names : Ast.ident list;
   user_invariants : Ast.invariant_user list;
@@ -58,8 +58,8 @@ type node_contract = {
   symbolic_clauses : Proof_kernel_types.relational_generated_clause_ir list;
 }
 
-val temporal_bindings_of_pre_k_map :
-  (Ast.hexpr * Temporal_support.pre_k_info) list -> temporal_binding_ir list
+val temporal_bindings_of_layout :
+  Ir.temporal_layout -> temporal_binding_ir list
 
 val exported_summary_of_exported_ir :
   Proof_kernel_types.exported_node_summary_ir -> exported_summary_contract

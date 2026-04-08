@@ -30,8 +30,6 @@ type transition_clauses = {
 type link_contracts = {
   link_terms_pre : Why3.Ptree.term list;
   link_terms_post : Why3.Ptree.term list;
-  instance_invariants : Why3.Ptree.term list;
-  instance_delay_links_inv : Why3.Ptree.term list;
   link_invariants : Why3.Ptree.term list;
 }
 

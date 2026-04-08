@@ -51,12 +51,8 @@ let render_ident_list (ids : Ast.ident list) : string =
   | [] -> "(none)"
   | _ -> String.concat " | " ids
 
-let render_instances (insts : (Ast.ident * Ast.ident) list) : string =
-  match insts with
-  | [] -> "(none)"
-  | _ -> String.concat ", " (List.map (fun (i, n) -> i ^ " : " ^ n) insts)
-
-let render_pre_k_map (m : (Ast.hexpr * Temporal_support.pre_k_info) list) : string =
+let render_temporal_layout (layout : Ir.temporal_layout) : string =
+  let m = layout in
   match m with
   | [] -> "(none)"
   | _ ->
@@ -73,9 +69,7 @@ let render_stmt (s : Ast.stmt) : string =
   | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
   | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
   | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
-  | SCall (inst, args, rets) ->
-      "(" ^ String.concat ", " rets ^ ") := " ^ inst
-      ^ "(" ^ String.concat ", " (List.map Ast_pretty.string_of_iexpr args) ^ ")"
+  | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->
       "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
@@ -109,12 +103,84 @@ let program_transitions_for_node ~(source_program : Ast.program option) (n : Ir.
       match
         List.find_opt
           (fun (source_node : Ast.node) ->
-            String.equal source_node.semantics.sem_nname n.context.semantics.sem_nname)
+            String.equal source_node.semantics.sem_nname n.semantics.sem_nname)
           source_program
       with
       | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
       | None -> program_transitions_from_summaries n)
   | None -> program_transitions_from_summaries n
+
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
+let guard_fo (g : Ast.iexpr option) : Fo_formula.t =
+  match g with
+  | None -> Fo_formula.FTrue
+  | Some e ->
+      Fo_specs.iexpr_to_fo_with_atoms [] e |> simplify_fo
+
+let raw_transition_of_program_transition (t : Ir.transition) : Ir_proof_views.raw_transition =
+  {
+    core =
+      {
+        Ir.src_state = t.src_state;
+        dst_state = t.dst_state;
+        guard_iexpr = t.guard_iexpr;
+        body_stmts = t.body_stmts;
+      };
+    guard = guard_fo t.guard_iexpr;
+  }
+
+let build_raw_ir_node ~(program_transitions : Ir.transition list) (node : Ir.node_ir) :
+    Ir_proof_views.raw_node =
+  {
+    core =
+      {
+        Ir_proof_views.node_name = node.semantics.sem_nname;
+        inputs = node.semantics.sem_inputs;
+        outputs = node.semantics.sem_outputs;
+        locals = node.semantics.sem_locals;
+        control_states = node.semantics.sem_states;
+        init_state = node.semantics.sem_init_state;
+      };
+    temporal_layout = node.temporal_layout;
+    transitions = List.map raw_transition_of_program_transition program_transitions;
+    assumes = node.source_info.assumes;
+    guarantees = node.source_info.guarantees;
+  }
+
+let annotate_raw_ir_node ~(raw : Ir_proof_views.raw_node) ~(node : Ir.node_ir) :
+    Ir_proof_views.annotated_node =
+  {
+    raw;
+    transitions =
+      List.map
+        (fun (t : Ir_proof_views.raw_transition) ->
+          ({ raw = t; clauses = { requires = []; ensures = [] } }
+            : Ir_proof_views.annotated_transition))
+        raw.transitions;
+    init_invariant_goals = node.init_invariant_goals;
+  }
+
+let verify_annotated_ir_node ~(annotated : Ir_proof_views.annotated_node)
+    ~(product_transitions : Ir.product_step_summary list) : Ir_proof_views.verified_node =
+  {
+    Ir_proof_views.core = annotated.raw.core;
+    transitions =
+      List.map
+        (fun (t : Ir_proof_views.annotated_transition) ->
+          ({
+             Ir_proof_views.core = t.raw.core;
+             guard = t.raw.guard;
+             clauses = t.clauses;
+           }
+            : Ir_proof_views.verified_transition))
+        annotated.transitions;
+    product_transitions;
+    assumes = annotated.raw.assumes;
+    guarantees = annotated.raw.guarantees;
+    init_invariant_goals = annotated.init_invariant_goals;
+  }
 
 (* ------------------------------------------------------------------ *)
 (* raw_node                                                             *)
@@ -130,7 +196,7 @@ let render_raw_node_header (n : Ir_proof_views.raw_node) : string =
     (render_vdecl_list c.locals)
     (render_ident_list c.control_states)
     c.init_state
-    (render_pre_k_map n.pre_k_map)
+    (render_temporal_layout n.temporal_layout)
     (render_ltl_list n.assumes)
     (render_ltl_list n.guarantees)
 
@@ -195,7 +261,7 @@ let render_annotated_node (n : Ir_proof_views.annotated_node) : string =
       (render_vdecl_list c.locals)
       (render_ident_list c.control_states)
       c.init_state
-      (render_pre_k_map raw.pre_k_map)
+      (render_temporal_layout raw.temporal_layout)
       (render_ltl_list raw.assumes)
       (render_ltl_list raw.guarantees)
   in
@@ -337,24 +403,16 @@ let collect_formula_pool ~(source_program : Ast.program option) (program : Ir.pr
   let add_node (n : Ir.node_ir) =
     List.iter add_product_contract n.summaries;
     add_formulas n.init_invariant_goals;
-    let raw =
-      Proof_obligation_raw.build_raw_node
-        ~program_transitions:(program_transitions_for_node ~source_program n)
-        n
-    in
-    let annotated = Proof_obligation_annotate.annotate ~raw ~node:n in
-    let verified =
-      {
-        (Proof_obligation_lowering.eliminate annotated) with
-        product_transitions = n.summaries;
-      }
-    in
+    let program_transitions = program_transitions_for_node ~source_program n in
+    let raw = build_raw_ir_node ~program_transitions n in
+    let annotated = annotate_raw_ir_node ~raw ~node:n in
+    let verified = verify_annotated_ir_node ~annotated ~product_transitions:n.summaries in
     add_raw raw;
     add_annotated annotated;
     add_verified verified
   in
   List.iter add_node program.nodes;
-  program.formulas_info.formula_origin_map
+  program.formula_origin_map
   |> List.iter (fun (oid, origin_opt) ->
          if not (Hashtbl.mem by_oid oid) then
            let synthetic : Ir.summary_formula =
@@ -467,7 +525,7 @@ let render_node_core ~indent (buf : Buffer.t) (c : Ir_proof_views.node_core) =
   line ~indent buf ("control_states=" ^ render_idents_short c.control_states);
   line ~indent buf ("init_state=" ^ c.init_state)
 
-let render_pre_k_map_entry (h, (info : Temporal_support.pre_k_info)) : string =
+let render_temporal_layout_entry (h, (info : Temporal_support.pre_k_info)) : string =
   Printf.sprintf "{key=%s; h=%s; expr=%s; names=[%s]; vty=%s}"
     (Ast_pretty.string_of_hexpr h)
     (Ast_pretty.string_of_hexpr info.h)
@@ -513,12 +571,12 @@ let render_raw_view ~indent (buf : Buffer.t) = function
       line ~indent buf "raw=Some {";
       line ~indent:(indent + 1) buf "core:";
       render_node_core ~indent:(indent + 2) buf raw.core;
-      line ~indent:(indent + 1) buf "pre_k_map:";
-      if raw.pre_k_map = [] then line ~indent:(indent + 2) buf "[]"
+      line ~indent:(indent + 1) buf "temporal_layout:";
+      if raw.temporal_layout = [] then line ~indent:(indent + 2) buf "[]"
       else
         List.iter
-          (fun e -> line ~indent:(indent + 2) buf (render_pre_k_map_entry e))
-          raw.pre_k_map;
+          (fun e -> line ~indent:(indent + 2) buf (render_temporal_layout_entry e))
+          raw.temporal_layout;
       line ~indent:(indent + 1) buf "transitions:";
       if raw.transitions = [] then line ~indent:(indent + 2) buf "[]"
       else List.iteri (render_raw_transition ~indent:(indent + 2) buf) raw.transitions;
@@ -538,8 +596,6 @@ let render_annotated_view ~indent (buf : Buffer.t) = function
       else List.iteri (render_annotated_transition ~indent:(indent + 2) buf) ann.transitions;
       line ~indent:(indent + 1) buf
         ("init_invariant_goals=" ^ render_formula_refs ann.init_invariant_goals);
-      line ~indent:(indent + 1) buf
-        ("user_invariants=[" ^ String.concat "; " (List.map render_user_invariant ann.user_invariants) ^ "]");
       line ~indent buf "}"
 
 let render_verified_view ~indent (buf : Buffer.t) = function
@@ -565,38 +621,32 @@ let render_verified_view ~indent (buf : Buffer.t) = function
         ("guarantees=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl ver.guarantees) ^ "]");
       line ~indent:(indent + 1) buf
         ("init_invariant_goals=" ^ render_formula_refs ver.init_invariant_goals);
-      line ~indent:(indent + 1) buf
-        ("user_invariants=[" ^ String.concat "; " (List.map render_user_invariant ver.user_invariants) ^ "]");
       line ~indent buf "}"
 
 let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
     (n : Ir.node_ir) =
   let program_transitions = program_transitions_for_node ~source_program n in
-  line buf ("node " ^ n.context.semantics.sem_nname);
+  line buf ("node " ^ n.semantics.sem_nname);
   line buf "";
   line buf "signature";
-  line ~indent:1 buf ("inputs=" ^ render_vdecls_short n.context.semantics.sem_inputs);
-  line ~indent:1 buf ("outputs=" ^ render_vdecls_short n.context.semantics.sem_outputs);
-  line ~indent:1 buf ("locals=" ^ render_vdecls_short n.context.semantics.sem_locals);
-  line ~indent:1 buf ("states=" ^ render_idents_short n.context.semantics.sem_states);
-  line ~indent:1 buf ("init=" ^ n.context.semantics.sem_init_state);
+  line ~indent:1 buf ("inputs=" ^ render_vdecls_short n.semantics.sem_inputs);
+  line ~indent:1 buf ("outputs=" ^ render_vdecls_short n.semantics.sem_outputs);
+  line ~indent:1 buf ("locals=" ^ render_vdecls_short n.semantics.sem_locals);
+  line ~indent:1 buf ("states=" ^ render_idents_short n.semantics.sem_states);
+  line ~indent:1 buf ("init=" ^ n.semantics.sem_init_state);
   line buf "";
   line buf "source_info";
   line ~indent:1 buf
     ("assumes=["
-    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.context.source_info.assumes)
+    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.source_info.assumes)
     ^ "]");
   line ~indent:1 buf
     ("guarantees=["
-    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.context.source_info.guarantees)
-    ^ "]");
-  line ~indent:1 buf
-    ("user_invariants=["
-    ^ String.concat "; " (List.map render_user_invariant n.context.source_info.user_invariants)
+    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.source_info.guarantees)
     ^ "]");
   line ~indent:1 buf
     ("state_invariants=["
-    ^ String.concat "; " (List.map render_state_invariant n.context.source_info.state_invariants)
+    ^ String.concat "; " (List.map render_state_invariant n.source_info.state_invariants)
     ^ "]");
   line buf "";
   line buf "transitions";
@@ -615,14 +665,9 @@ let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
   line buf ("init_invariant_goals=" ^ render_formula_refs n.init_invariant_goals);
   line buf "";
   line buf "proof_views";
-  let raw = Proof_obligation_raw.build_raw_node ~program_transitions n in
-  let annotated = Proof_obligation_annotate.annotate ~raw ~node:n in
-  let verified =
-      {
-        (Proof_obligation_lowering.eliminate annotated) with
-        product_transitions = n.summaries;
-      }
-  in
+  let raw = build_raw_ir_node ~program_transitions n in
+  let annotated = annotate_raw_ir_node ~raw ~node:n in
+  let verified = verify_annotated_ir_node ~annotated ~product_transitions:n.summaries in
   render_raw_view ~indent:1 buf (Some raw);
   render_annotated_view ~indent:1 buf (Some annotated);
   render_verified_view ~indent:1 buf (Some verified);
@@ -632,18 +677,16 @@ let render_pretty_program ?(source_program : Ast.program option = None) (program
     string =
   let buf = Buffer.create 32768 in
   line buf "program";
-  line buf "formulas_info";
+  line buf "formula_origin_map";
   line ~indent:1 buf
-    ("formula_origin_map=["
+    ("["
     ^
     String.concat "; "
       (List.map
          (fun (oid, origin) ->
            Printf.sprintf "(%d,%s)" oid (render_origin_opt origin))
-         program.formulas_info.formula_origin_map)
+         program.formula_origin_map)
     ^ "]");
-  if program.formulas_info.warnings <> [] then
-    line ~indent:1 buf ("warnings=[" ^ String.concat "; " program.formulas_info.warnings ^ "]");
   line buf "";
   render_formula_pool ~source_program buf program;
   line buf "";

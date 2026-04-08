@@ -25,13 +25,80 @@ type run_metrics = {
   canonical_s : float;
 }
 
-type initial_ir = {
-  nodes : Ir.node_ir list;
-  analyses : (Ast.ident * Product_build.analysis) list;
-}
-
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
+
+let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
+let guard_fo (g : Ast.iexpr option) : Fo_formula.t =
+  match g with
+  | None -> Fo_formula.FTrue
+  | Some e ->
+      Fo_specs.iexpr_to_fo_with_atoms [] e |> simplify_fo
+
+let raw_transition_of_program_transition (t : Ir.transition) : Ir_proof_views.raw_transition =
+  {
+    core =
+      {
+        Ir.src_state = t.src_state;
+        dst_state = t.dst_state;
+        guard_iexpr = t.guard_iexpr;
+        body_stmts = t.body_stmts;
+      };
+    guard = guard_fo t.guard_iexpr;
+  }
+
+let build_raw_ir_node ~(program_transitions : Ir.transition list) (node : Ir.node_ir) :
+    Ir_proof_views.raw_node =
+  {
+    core =
+      {
+        Ir_proof_views.node_name = node.semantics.sem_nname;
+        inputs = node.semantics.sem_inputs;
+        outputs = node.semantics.sem_outputs;
+        locals = node.semantics.sem_locals;
+        control_states = node.semantics.sem_states;
+        init_state = node.semantics.sem_init_state;
+      };
+    temporal_layout = node.temporal_layout;
+    transitions = List.map raw_transition_of_program_transition program_transitions;
+    assumes = node.source_info.assumes;
+    guarantees = node.source_info.guarantees;
+  }
+
+let annotate_raw_ir_node ~(raw : Ir_proof_views.raw_node) ~(node : Ir.node_ir) :
+    Ir_proof_views.annotated_node =
+  {
+    raw;
+    transitions =
+      List.map
+        (fun (t : Ir_proof_views.raw_transition) ->
+          ({ raw = t; clauses = { requires = []; ensures = [] } }
+            : Ir_proof_views.annotated_transition))
+        raw.transitions;
+    init_invariant_goals = node.init_invariant_goals;
+  }
+
+let verify_annotated_ir_node ~(annotated : Ir_proof_views.annotated_node)
+    ~(product_transitions : Ir.product_step_summary list) : Ir_proof_views.verified_node =
+  {
+    Ir_proof_views.core = annotated.raw.core;
+    transitions =
+      List.map
+        (fun (t : Ir_proof_views.annotated_transition) ->
+          ({
+             Ir_proof_views.core = t.raw.core;
+             guard = t.raw.guard;
+             clauses = t.clauses;
+           }
+            : Ir_proof_views.verified_transition))
+        annotated.transitions;
+    product_transitions;
+    assumes = annotated.raw.assumes;
+    guarantees = annotated.raw.guarantees;
+    init_invariant_goals = annotated.init_invariant_goals;
+  }
 
 let source_nodes_by_name (source_program : Ast.program) : (Ast.ident * Ast.node) list =
   List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program
@@ -42,54 +109,57 @@ let source_node_of_name ~(source_nodes : (Ast.ident * Ast.node) list) ~(node_nam
     ~missing:(fun name -> Printf.sprintf "Missing source AST node for IR node %s" name)
     node_name source_nodes
 
+let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
+  let semantics = Ast.semantics_of_node source_node in
+  {
+    Ir.semantics =
+      {
+        sem_nname = semantics.sem_nname;
+        sem_inputs = semantics.sem_inputs;
+        sem_outputs = semantics.sem_outputs;
+        sem_locals = semantics.sem_locals;
+        sem_states = semantics.sem_states;
+        sem_init_state = semantics.sem_init_state;
+      };
+    source_info = { assumes = []; guarantees = []; state_invariants = [] };
+    temporal_layout = Collect.build_pre_k_infos source_node;
+    summaries = [];
+    init_invariant_goals = [];
+  }
+
 let build_node_analysis ~(automata : Automata_generation.node_builds)
-    ~(program_transitions : Ir.transition list) (node : Ir.node_ir) :
+    ~(program_transitions : Ir.transition list) (source_node : Ast.node) :
     (Product_build.analysis, string) result =
+  let node = analysis_context_of_source_node source_node in
   let* build =
     Result_utils.find_assoc
       ~missing:(fun node_name -> Printf.sprintf "Missing automata build for IR node %s" node_name)
-      node.context.semantics.sem_nname automata
+      node.semantics.sem_nname automata
   in
   Ok (Product_build.analyze_node ~build ~node ~program_transitions)
 
 let build_analyses ~(automata : Automata_generation.node_builds)
-    ~(source_nodes : (Ast.ident * Ast.node) list) (nodes : Ir.node_ir list) :
+    ~(source_nodes : (Ast.ident * Ast.node) list) :
     ((Ast.ident * Product_build.analysis) list, string) result =
-  nodes
-  |> List.map (fun (node : Ir.node_ir) ->
-         let* source_node =
-           source_node_of_name ~source_nodes ~node_name:node.context.semantics.sem_nname
-         in
+  source_nodes
+  |> List.map (fun (node_name, source_node) ->
          let analysis =
            build_node_analysis ~automata
              ~program_transitions:(program_transitions_of_ast_node source_node)
-             node
+             source_node
          in
-         Result.map (fun value -> (node.context.semantics.sem_nname, value)) analysis)
+         Result.map (fun value -> (node_name, value)) analysis)
   |> Result_utils.all
 
 let build_initial_ir ~(automata : Automata_generation.node_builds) (parsed : Stage_types.parsed) :
-    (initial_ir, string) result =
-  let source_nodes = source_nodes_by_name parsed in
-  let context_nodes = From_ast.of_ast_program parsed in
-  let* analyses = build_analyses ~automata ~source_nodes context_nodes in
-  let* minimal_generations =
-    Minimal.build_program ~analyses
-      ~program_transitions_of_node:(fun node_name ->
-        let* source_node = source_node_of_name ~source_nodes ~node_name in
-        Ok (program_transitions_of_ast_node source_node))
-      context_nodes
-  in
-  let minimal_nodes =
-    Minimal.apply_program ~minimal_generations context_nodes
-  in
-  Ok { nodes = minimal_nodes; analyses }
+    (Ir.node_ir list, string) result =
+  From_ast.of_ast_program ~automata parsed
 
 let analysis_of_node ~(analyses : (Ast.ident * Product_build.analysis) list) (node : Ir.node_ir) :
     (Product_build.analysis, string) result =
   Result_utils.find_assoc
     ~missing:(fun node_name -> Printf.sprintf "Missing product analysis for IR node %s" node_name)
-    node.context.semantics.sem_nname analyses
+    node.semantics.sem_nname analyses
 
 let collect_formula_origins (nodes : Ir.node_ir list) : (int * Formula_origin.t option) list =
   let collect_formula acc (formula : Ir.summary_formula) =
@@ -116,8 +186,8 @@ let collect_formula_origins (nodes : Ir.node_ir list) : (int * Formula_origin.t 
        []
   |> List.rev
 
-let formulas_info_of_nodes (nodes : Ir.node_ir list) : Ir.formulas_info =
-  { formula_origin_map = collect_formula_origins nodes; warnings = [] }
+let formula_origin_map_of_nodes (nodes : Ir.node_ir list) : (int * Formula_origin.t option) list =
+  collect_formula_origins nodes
 
 let product_state_is_live ~(analysis : Product_build.analysis) (st : Product_types.product_state) :
     bool =
@@ -203,33 +273,27 @@ let instrumentation_info_of_node ~(source_node : Ast.node)
     ~(analyses : (Ast.ident * Product_build.analysis) list) (node : Ir.node_ir) :
     (Stage_info.instrumentation_info, string) result =
   let* analysis = analysis_of_node ~analyses node in
-  let raw_ir =
-    Proof_obligation_raw.build_raw_node ~program_transitions:(program_transitions_of_ast_node source_node)
-      node
-  in
-  let annotated_ir = Proof_obligation_annotate.annotate ~raw:raw_ir ~node in
-  let verified_ir =
-    {
-      (Proof_obligation_lowering.eliminate annotated_ir) with
-      product_transitions = node.summaries;
-    }
-  in
+  let program_transitions = program_transitions_of_ast_node source_node in
+  let raw_ir = build_raw_ir_node ~program_transitions node in
+  let annotated_ir = annotate_raw_ir_node ~raw:raw_ir ~node in
+  let verified_ir = verify_annotated_ir_node ~annotated:annotated_ir ~product_transitions:node.summaries in
   let rendered =
-    Ir_render_product.render ~node_name:node.context.semantics.sem_nname ~analysis
+    Ir_render_product.render ~node_name:node.semantics.sem_nname ~analysis
   in
   let rendered_canonical =
-    Ir_render_canonical.render ~node_name:node.context.semantics.sem_nname ~analysis ~node
+    Ir_render_canonical.render ~node_name:node.semantics.sem_nname ~analysis ~node
   in
-  let kernel_ir =
-    Proof_kernel_build.of_node_analysis
-      ~node_name:node.context.semantics.sem_nname
-      ~source_node
-      ~node
-      ~analysis
+  let kernel_output =
+    Proof_kernel_pass.compile_node
+      {
+        Proof_kernel_pass.node_name = node.semantics.sem_nname;
+        source_node;
+        node;
+        analysis;
+      }
   in
-  let exported_summary =
-    Proof_kernel_build.export_node_summary ~source_node ~node ~normalized_ir:kernel_ir
-  in
+  let kernel_ir = kernel_output.normalized_ir in
+  let exported_summary = kernel_output.exported_summary in
   let require_automata_state_count = List.length analysis.assume_state_labels in
   let require_automata_edge_count = List.length analysis.assume_grouped_edges in
   let ensures_automata_state_count = List.length analysis.guarantee_state_labels in
@@ -293,12 +357,12 @@ let instrumentation_info_of_ir ~(automata : Automata_generation.node_builds)
     ~(source_program : Ast.program) (program : Ir.program_ir)
     : (Stage_info.instrumentation_info, string) result =
   let source_nodes = source_nodes_by_name source_program in
-  let* analyses = build_analyses ~automata ~source_nodes program.nodes in
+  let* analyses = build_analyses ~automata ~source_nodes in
   let node_results =
     program.nodes
     |> List.map (fun (node : Ir.node_ir) ->
            let* source_node =
-             source_node_of_name ~source_nodes ~node_name:node.context.semantics.sem_nname
+             source_node_of_name ~source_nodes ~node_name:node.semantics.sem_nname
            in
            instrumentation_info_of_node ~source_node ~analyses node)
   in
@@ -309,18 +373,17 @@ let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generati
     ((Ir.program_ir * run_metrics), string) result =
   (* Phase 1: initial IR construction = AST context projection + minimal summaries. *)
   let t_product = Unix.gettimeofday () in
-  let* initial_ir = build_initial_ir ~automata parsed in
+  let* initial_nodes = build_initial_ir ~automata parsed in
   let product_s = Unix.gettimeofday () -. t_product in
   let t_canonical = Unix.gettimeofday () in
   let nodes =
-    initial_ir.nodes
-    |> fun nodes -> Pre.apply_program ~pre_generations:(Pre.build_program nodes) nodes
-    |> fun nodes -> Post.apply_program ~post_generations:(Post.build_program nodes) nodes
-    |> Proof_obligation_raw.apply_program
-    |> Proof_obligation_lowering.apply_program
+    initial_nodes
+    |> Pre.run_program
+    |> Post.run_program
+    |> Temporal_lower.run_program
   in
   let canonical_s = Unix.gettimeofday () -. t_canonical in
-  let program = ({ nodes; formulas_info = formulas_info_of_nodes nodes } : Ir.program_ir) in
+  let program = ({ nodes; formula_origin_map = formula_origin_map_of_nodes nodes } : Ir.program_ir) in
   Ok (program, { product_s; canonical_s })
 
 let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :

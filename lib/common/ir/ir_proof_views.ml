@@ -39,7 +39,7 @@ type node_core = {
 
 type raw_node = {
   core : node_core;
-  pre_k_map : (hexpr * Temporal_support.pre_k_info) list;
+  temporal_layout : Ir.temporal_layout;
   transitions : raw_transition list;
   assumes : ltl list;
   guarantees : ltl list;
@@ -54,7 +54,6 @@ type annotated_node = {
   raw : raw_node;
   transitions : annotated_transition list;
   init_invariant_goals : Ir.summary_formula list;
-  user_invariants : invariant_user list;
 }
 
 type verified_transition = {
@@ -70,5 +69,4 @@ type verified_node = {
   assumes : ltl list;
   guarantees : ltl list;
   init_invariant_goals : Ir.summary_formula list;
-  user_invariants : invariant_user list;
 }

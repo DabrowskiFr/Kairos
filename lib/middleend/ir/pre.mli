@@ -25,27 +25,4 @@
     - source-state invariants,
     - initial-state treatment (including coherency invariant goal). *)
 
-type t = {
-  guarantee_pre_of_product_state : Ir.product_state -> Fo_formula.t option;
-  initial_product_state : Ir.product_state;
-  state_stability : Fo_formula.t list;
-  invariant_of_state : Ast.ident -> Fo_formula.t option;
-}
-
-val build :
-  node:Ir.node_ir ->
-  t
-
-val apply :
-  pre_generation:t ->
-  Ir.node_ir ->
-  Ir.node_ir
-
-val build_program :
-  Ir.node_ir list ->
-  (Ast.ident * t) list
-
-val apply_program :
-  pre_generations:(Ast.ident * t) list ->
-  Ir.node_ir list ->
-  Ir.node_ir list
+val run_program : Ir.node_ir list -> Ir.node_ir list

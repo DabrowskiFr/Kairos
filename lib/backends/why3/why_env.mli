@@ -31,7 +31,7 @@ type env_info = Why_types.env_info
 (* Build environment data needed by the Why3 emission stages. *)
 val prepare_runtime_view :
   prefix_fields:bool ->
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_layout:Ir.temporal_layout ->
   Why_runtime_view.t ->
   env_info
 

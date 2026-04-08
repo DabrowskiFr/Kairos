@@ -30,6 +30,9 @@ type summary_formula = {
   meta : formula_meta;
 }
 
+(** Materialized temporal history layout used after canonical IR construction. *)
+type temporal_layout = (hexpr * Temporal_support.pre_k_info) list
+
 (** Product state: (program control, assume automaton, guarantee automaton). *)
 type product_state = {
   prog_state : ident;
@@ -89,29 +92,18 @@ type node_signature = {
 type source_info = {
   assumes : ltl list;
   guarantees : ltl list;
-  user_invariants : invariant_user list;
   state_invariants : invariant_state_rel list;
 }
 
-(** Program-level formula metadata (origins + warnings). *)
-type formulas_info = {
-  formula_origin_map : formula_origin_entry list;
-  warnings : string list;
-}
-
-type node_context = {
-  semantics : node_signature;
-  pre_k_map : (hexpr * Temporal_support.pre_k_info) list;
-  source_info : source_info;
-}
-
 type node_ir = {
-  context : node_context;
+  semantics : node_signature;
+  source_info : source_info;
+  temporal_layout : temporal_layout;
   summaries : product_step_summary list;
   init_invariant_goals : summary_formula list;
 }
 
 type program_ir = {
   nodes : node_ir list;
-  formulas_info : formulas_info;
+  formula_origin_map : formula_origin_entry list;
 }

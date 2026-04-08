@@ -56,11 +56,7 @@ let ir_pretty_dump ~input_file =
       let program : Ir.program_ir =
         {
           nodes = asts.instrumentation;
-          formulas_info =
-            {
-              formula_origin_map = c.formula_origin_map;
-              warnings = c.warnings;
-            };
+          formula_origin_map = c.formula_origin_map;
         }
       in
       Ok

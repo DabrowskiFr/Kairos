@@ -127,7 +127,7 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
 
 let post_formula_for_state ~(node : Abs.node_ir) (state_name : Ast.ident) : Fo_formula.t option =
   let formulas =
-    node.context.source_info.state_invariants
+    node.source_info.state_invariants
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
            if inv.state = state_name then Some (fo_formula_of_non_temporal_ltl_exn inv.formula) else None)
   in

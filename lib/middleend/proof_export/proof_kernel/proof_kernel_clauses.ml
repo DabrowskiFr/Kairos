@@ -98,7 +98,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Product_buil
            | _ -> None)
   in
   let input_names =
-    node.context.semantics.sem_inputs
+    node.semantics.sem_inputs
     |> List.map (fun (v : Ast.vdecl) -> v.vname)
     |> List.sort_uniq String.compare
   in
@@ -333,7 +333,7 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.ana
               |> normalize_phase_summary)
   in
   let invariants_for_state state_name =
-    node.context.source_info.state_invariants
+    node.source_info.state_invariants
     |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
            if inv.state = state_name then
              Some (current (FactFormula (Fo_specs.fo_formula_of_non_temporal_ltl_exn inv.formula)))
@@ -452,9 +452,9 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.ana
   in
   init_clauses @ source_summary_clauses @ step_clauses
 
-let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) (fact : clause_fact_ir) :
+let lower_clause_fact ~(temporal_bindings : Fo_specs.temporal_binding list)
+    (fact : clause_fact_ir) :
     clause_fact_ir option =
-  let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let lower_desc = function
     | FactProgramState _ as desc -> Some desc
     | FactGuaranteeState _ as desc -> Some desc
@@ -468,12 +468,12 @@ let lower_clause_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) li
   in
   Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
 
-let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
+let lower_generated_clause ~(temporal_bindings : Fo_specs.temporal_binding list)
     (clause : generated_clause_ir) : generated_clause_ir option =
   let rec lower_all acc = function
     | [] -> Some (List.rev acc)
     | fact :: tl -> (
-        match lower_clause_fact ~pre_k_map fact with
+        match lower_clause_fact ~temporal_bindings fact with
         | None -> None
         | Some fact' -> lower_all (fact' :: acc) tl)
   in
@@ -488,9 +488,8 @@ let lower_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_inf
       else Some { clause with hypotheses; conclusions }
   | _ -> None
 
-let relationalize_clause_fact ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
+let relationalize_clause_fact ~(temporal_bindings : Fo_specs.temporal_binding list)
     (fact : clause_fact_ir) : relational_clause_fact_ir option =
-  let temporal_bindings = temporal_bindings_of_pre_k_map ~pre_k_map in
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
     | FactGuaranteeState idx -> Some (RelFactGuaranteeState idx)
@@ -552,9 +551,9 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   fold [] facts
 
-let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list)
+let relationalize_generated_clause ~(temporal_bindings : Fo_specs.temporal_binding list)
     (clause : generated_clause_ir) : relational_generated_clause_ir list =
-  let lower_all facts = List.filter_map (relationalize_clause_fact ~pre_k_map) facts in
+  let lower_all facts = List.filter_map (relationalize_clause_fact ~temporal_bindings) facts in
   let hypotheses = lower_all clause.hypotheses in
   let conclusions = lower_all clause.conclusions in
   if conclusions = [] then []
@@ -564,3 +563,247 @@ let relationalize_generated_clause ~(pre_k_map : (Ast.hexpr * Temporal_support.p
            match normalize_relational_hypotheses hypotheses with
            | None -> None
            | Some hypotheses -> Some { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
+
+let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
+  String.equal a.prog_state b.prog_state
+  && a.assume_state_index = b.assume_state_index
+  && a.guarantee_state_index = b.guarantee_state_index
+
+let same_product_state_ir (a : product_state_ir) (b : product_state_ir) : bool =
+  String.equal a.prog_state b.prog_state
+  && a.assume_state_index = b.assume_state_index
+  && a.guarantee_state_index = b.guarantee_state_index
+
+let same_automaton_edge_ir (a : automaton_edge_ir) (b : automaton_edge_ir) : bool =
+  a.src_index = b.src_index
+  && a.dst_index = b.dst_index
+  && simplify_fo a.guard = simplify_fo b.guard
+
+let build_proof_step_contracts ~(node : Abs.node_ir) ~(reactive_program : reactive_program_ir)
+    ~(product_steps : product_step_ir list)
+    ~(temporal_layout : Ir.temporal_layout)
+    ~(initial_product_state : product_state_ir)
+    ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
+    proof_step_contract_ir list =
+  let _ = initial_product_state in
+  let transition_index_by_id =
+    reactive_program.transitions
+    |> List.mapi (fun idx (tr : reactive_transition_ir) -> (tr.transition_id, idx))
+    |> List.to_seq |> Hashtbl.of_seq
+  in
+  let product_contract_of_step (step : product_step_ir) : Abs.product_step_summary option =
+    match Hashtbl.find_opt transition_index_by_id step.program_transition_id with
+    | None -> None
+    | Some step_uid ->
+        List.find_opt
+          (fun (pc : Abs.product_step_summary) ->
+            pc.trace.step_uid = step_uid
+            && same_product_state pc.identity.product_src step.src
+            && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard)
+          node.summaries
+  in
+  let slot_to_current_expr =
+    let add acc (_h, info) =
+      info.Temporal_support.names
+      |> List.mapi (fun idx name ->
+             let lowered =
+               if idx = 0 then Ast.HNow info.Temporal_support.expr else Ast.HPreK (info.Temporal_support.expr, idx)
+             in
+             (name, lowered))
+      |> List.rev_append acc
+    in
+    List.fold_left add [] temporal_layout
+  in
+  let current_expr_to_next_slot =
+    let add acc (_h, info) =
+      match info.Temporal_support.expr.iexpr with
+      | IVar base_var -> (base_var, info.Temporal_support.names) :: acc
+      | _ -> acc
+    in
+    List.fold_left add [] temporal_layout
+  in
+  let rec rewrite_iexpr_post (e : Ast.iexpr) : Ast.iexpr =
+    let iexpr =
+      match e.iexpr with
+      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
+      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_post inner)
+      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_post inner)
+      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_post a, rewrite_iexpr_post b)
+    in
+    { e with iexpr }
+  in
+  let rec rewrite_hexpr_post (h : Ast.hexpr) : Ast.hexpr =
+    match h with
+    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ } as e) -> (
+        match List.assoc_opt name slot_to_current_expr with
+        | Some lowered -> lowered
+        | None -> Ast.HNow (rewrite_iexpr_post e))
+    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_post e)
+    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_post e, k)
+  in
+  let rewrite_fo_post (f : Ast.fo_atom) : Ast.fo_atom =
+    match f with
+    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
+    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_post hs)
+  in
+  let rec rewrite_formula_post (f : Fo_formula.t) : Fo_formula.t =
+    match f with
+    | Fo_formula.FTrue | Fo_formula.FFalse -> f
+    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_post fo_atom)
+    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_post a)
+    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_post a, rewrite_formula_post b)
+    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_post a, rewrite_formula_post b)
+    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_post a, rewrite_formula_post b)
+  in
+  let rec rewrite_iexpr_pre (e : Ast.iexpr) : Ast.iexpr =
+    let iexpr =
+      match e.iexpr with
+      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
+      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_pre inner)
+      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_pre inner)
+      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_pre a, rewrite_iexpr_pre b)
+    in
+    { e with iexpr }
+  in
+  let slot_name_for_depth base_var depth =
+    match List.assoc_opt base_var current_expr_to_next_slot with
+    | None -> None
+    | Some names ->
+        let idx = depth - 1 in
+        if idx < 0 || idx >= List.length names then None else Some (List.nth names idx)
+  in
+  let rec rewrite_hexpr_pre (h : Ast.hexpr) : Ast.hexpr =
+    match h with
+    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ }) -> (
+        match slot_name_for_depth name 1 with
+        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
+        | None -> h)
+    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_pre e)
+    | Ast.HPreK (({ Ast.iexpr = Ast.IVar name; _ } as e), k) -> (
+        match slot_name_for_depth name (k + 1) with
+        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
+        | None -> Ast.HPreK (rewrite_iexpr_pre e, k))
+    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_pre e, k)
+  in
+  let rewrite_fo_pre (f : Ast.fo_atom) : Ast.fo_atom =
+    match f with
+    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
+    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_pre hs)
+  in
+  let rec rewrite_formula_pre (f : Fo_formula.t) : Fo_formula.t =
+    match f with
+    | Fo_formula.FTrue | Fo_formula.FFalse -> f
+    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_pre fo_atom)
+    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_pre a)
+    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_pre a, rewrite_formula_pre b)
+    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_pre a, rewrite_formula_pre b)
+    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_pre a, rewrite_formula_pre b)
+  in
+  let is_structural_step_fact (fact : relational_clause_fact_ir) =
+    match fact.desc with
+    | RelFactProgramState _ | RelFactGuaranteeState _ -> true
+    | _ -> false
+  in
+  let strip_structural_step_facts (clause : relational_generated_clause_ir) :
+      relational_generated_clause_ir =
+    {
+      clause with
+      hypotheses = List.filter (fun fact -> not (is_structural_step_fact fact)) clause.hypotheses;
+      conclusions = List.filter (fun fact -> not (is_structural_step_fact fact)) clause.conclusions;
+    }
+  in
+  let raw_clauses_for_step (step : product_step_ir) =
+    symbolic_generated_clauses
+    |> List.filter (fun (clause : relational_generated_clause_ir) ->
+           match (clause.origin, clause.anchor) with
+           | OriginPhaseStepPreSummary, _ -> false
+           | _, ClauseAnchorProductStep anchored_step -> anchored_step = step
+           | _, ClauseAnchorProductState _ -> false)
+    |> List.map strip_structural_step_facts
+  in
+  let shift_post_fact (fact : relational_clause_fact_ir) =
+    let desc =
+      match fact.desc with
+      | RelFactPhaseFormula fo_formula -> RelFactPhaseFormula (rewrite_formula_post fo_formula)
+      | RelFactFormula fo_formula -> RelFactFormula (rewrite_formula_post fo_formula)
+      | _ -> fact.desc
+    in
+    { fact with desc }
+  in
+  let clauses_for_step (step : product_step_ir) =
+    raw_clauses_for_step step
+    |> List.map (fun clause ->
+           match clause.origin with
+           | OriginPropagationNodeInvariant ->
+               {
+                 clause with
+                 hypotheses = List.map shift_post_fact clause.hypotheses;
+                 conclusions = List.map shift_post_fact clause.conclusions;
+               }
+           | OriginPropagationAutomatonCoherence
+           | OriginPhaseStepSummary
+           | OriginSafety
+           | OriginSourceProductSummary
+           | OriginPhaseStepPreSummary
+           | OriginInitNodeInvariant
+           | OriginInitAutomatonCoherence ->
+               clause)
+  in
+  let entry_clauses_for_steps (steps : product_step_ir list) =
+    match steps with
+    | [] -> []
+    | step :: _ -> (
+        match product_contract_of_step step with
+        | None -> []
+        | Some pc ->
+            pc.requires
+            |> List.map (fun (f : Ir.summary_formula) ->
+                   {
+                     origin = OriginPhaseStepPreSummary;
+                     anchor = ClauseAnchorProductStep step;
+                     hypotheses = [];
+                     conclusions =
+                       [
+                         {
+                           time = CurrentTick;
+                           desc =
+                             RelFactFormula
+                               (Fo_simplifier.simplify_fo (rewrite_formula_pre f.logic));
+                         };
+                       ];
+                   }))
+  in
+  let dedup_clauses (clauses : relational_generated_clause_ir list) =
+    List.sort_uniq Stdlib.compare clauses
+  in
+  let safe_group_key (step : product_step_ir) =
+    (step.program_transition_id, step.src, step.assume_edge)
+  in
+  let safe_groups = Hashtbl.create 16 in
+  let safe_order = ref [] in
+  let singleton_contract step =
+    let steps = [ step ] in
+    let entry_clauses = entry_clauses_for_steps steps in
+    let clauses = clauses_for_step step in
+    { steps; entry_clauses; clauses }
+  in
+  let contracts_rev = ref [] in
+  List.iter
+    (fun (step : product_step_ir) ->
+      match step.step_kind with
+      | StepSafe ->
+          let key = safe_group_key step in
+          if not (Hashtbl.mem safe_groups key) then safe_order := key :: !safe_order;
+          let prev = Hashtbl.find_opt safe_groups key |> Option.value ~default:[] in
+          Hashtbl.replace safe_groups key (step :: prev)
+      | StepBadAssumption | StepBadGuarantee -> contracts_rev := singleton_contract step :: !contracts_rev)
+    product_steps;
+  let safe_contracts =
+    List.rev !safe_order
+    |> List.map (fun key ->
+           let steps = Hashtbl.find safe_groups key |> List.rev in
+           let entry_clauses = entry_clauses_for_steps steps in
+           let clauses = steps |> List.concat_map clauses_for_step |> dedup_clauses in
+           { steps; entry_clauses; clauses })
+  in
+  safe_contracts @ List.rev !contracts_rev

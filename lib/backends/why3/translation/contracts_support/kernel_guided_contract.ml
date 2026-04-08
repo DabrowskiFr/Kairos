@@ -25,7 +25,7 @@ type temporal_binding_ir = {
 }
 
 type exported_summary_contract = {
-  callee_node_name : Ast.ident;
+  node_name : Ast.ident;
   input_names : Ast.ident list;
   output_names : Ast.ident list;
   user_invariants : Ast.invariant_user list;
@@ -57,7 +57,7 @@ type node_contract = {
   symbolic_clauses : Proof_kernel_types.relational_generated_clause_ir list;
 }
 
-let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list) :
+let temporal_bindings_of_layout (temporal_layout : Ir.temporal_layout) :
     temporal_binding_ir list =
   List.map
     (fun (source_hexpr, (info : Temporal_support.pre_k_info)) ->
@@ -68,27 +68,27 @@ let temporal_bindings_of_pre_k_map (pre_k_map : (Ast.hexpr * Temporal_support.pr
         | HNow _ -> info.names
       in
       { source_hexpr; source_expr = info.expr; slot_names })
-    pre_k_map
+    temporal_layout
 
 let exported_summary_of_exported_ir
     (summary : Proof_kernel_types.exported_node_summary_ir) : exported_summary_contract =
   {
-    callee_node_name = summary.signature.node_name;
+    node_name = summary.signature.node_name;
     input_names = List.map (fun (v : Ast.vdecl) -> v.vname) summary.signature.inputs;
     output_names = List.map (fun (v : Ast.vdecl) -> v.vname) summary.signature.outputs;
     user_invariants = summary.user_invariants;
     state_invariants = [];
-    temporal_bindings = temporal_bindings_of_pre_k_map summary.pre_k_map;
+    temporal_bindings = temporal_bindings_of_layout summary.temporal_layout;
   }
 
 let exported_summary_of_ast_node (node : Ast.node) : exported_summary_contract =
   {
-    callee_node_name = node.semantics.sem_nname;
+    node_name = node.semantics.sem_nname;
     input_names = Ast_queries.input_names_of_node node;
     output_names = Ast_queries.output_names_of_node node;
     user_invariants = [];
     state_invariants = node.specification.spec_invariants_state_rel;
-    temporal_bindings = temporal_bindings_of_pre_k_map (Collect.build_pre_k_infos node);
+    temporal_bindings = temporal_bindings_of_layout (Collect.build_pre_k_infos node);
   }
 
 let node_contract_of_ir (ir : Proof_kernel_types.node_ir) : node_contract =

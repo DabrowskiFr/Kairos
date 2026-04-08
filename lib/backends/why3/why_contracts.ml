@@ -50,8 +50,6 @@ type transition_clauses = {
 type link_contracts = {
   link_terms_pre : Ptree.term list;
   link_terms_post : Ptree.term list;
-  instance_invariants : Ptree.term list;
-  instance_delay_links_inv : Ptree.term list;
   link_invariants : Ptree.term list;
 }
 
@@ -228,18 +226,13 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
   in
   let link_terms_pre = link_contracts.link_terms_pre in
   let link_terms_post = link_contracts.link_terms_post in
-  let instance_invariants = link_contracts.instance_invariants in
-  let instance_delay_links_inv = link_contracts.instance_delay_links_inv in
   let link_invariants = link_contracts.link_invariants in
   let post = post_contract_terms in
   let pre =
     link_invariants @ link_terms_pre @ pre_contract
     |> uniq_terms
   in
-  let post =
-    link_invariants @ instance_invariants @ link_terms_post @ post
-    |> uniq_terms
-  in
+  let post = link_invariants @ link_terms_post @ post |> uniq_terms in
   let pre, post = if !pure_translation then (transition_requires_pre, pure_post) else (pre, post) in
   let is_true_term t = match t.term_desc with Ttrue -> true | _ -> false in
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
@@ -265,7 +258,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
       link_terms_post;
       link_invariants;
       post_contract_user;
-      instance_invariants;
     }
   in
   let pre_labels, post_labels = Why_contract_labels.build_labels label_context in

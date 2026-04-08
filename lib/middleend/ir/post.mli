@@ -24,22 +24,4 @@
     - destination invariants shifted in post-state coordinates and injected
       into [ensures]. *)
 
-type t = { summaries : Ir.product_step_summary list }
-
-val build :
-  node:Ir.node_ir ->
-  t
-
-val apply :
-  post_generation:t ->
-  Ir.node_ir ->
-  Ir.node_ir
-
-val build_program :
-  Ir.node_ir list ->
-  (Ast.ident * t) list
-
-val apply_program :
-  post_generations:(Ast.ident * t) list ->
-  Ir.node_ir list ->
-  Ir.node_ir list
+val run_program : Ir.node_ir list -> Ir.node_ir list

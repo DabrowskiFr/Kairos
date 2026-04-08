@@ -38,7 +38,7 @@ let build_formula_records (p_obc : Abs.node_ir list) : formula_record list =
   let add record = records := record :: !records in
   List.iter
     (fun (node : Abs.node_ir) ->
-      let node_name = node.context.semantics.sem_nname in
+      let node_name = node.semantics.sem_nname in
       List.iter
         (fun (goal : Abs.summary_formula) ->
           add

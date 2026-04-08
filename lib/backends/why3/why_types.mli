@@ -28,8 +28,6 @@ type env_info = {
   module_name : string;
   (* Extra imports required by this module. *)
   imports : Why3.Ptree.decl list;
-  (* Local mirror types synthesized for callee instances. *)
-  instance_type_decls : Why3.Ptree.decl list;
   (* Node state type declaration. *)
   type_state : Why3.Ptree.decl;
   (* Variable tuple type declaration. *)
@@ -40,10 +38,6 @@ type env_info = {
   inputs : Why3.Ptree.binder list;
   (* Return expression for the node. *)
   ret_expr : Why3.Ptree.expr;
-  (* Mapping from pre‑k expressions to generated info. *)
-  pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
-  (* Flat list of pre‑k infos. *)
-  pre_k_infos : Temporal_support.pre_k_info list;
   (* Predicate to decide whether an [old] is needed for a hexpr. *)
   hexpr_needs_old : Ast.hexpr -> bool;
   (* Input names as identifiers. *)

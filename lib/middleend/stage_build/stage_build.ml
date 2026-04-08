@@ -95,6 +95,34 @@ let reid_normalized_program (p : Abs.node_ir list) : Abs.node_ir list =
   in
   List.map reid_node p
 
+let rec stmt_contains_call (s : Ast.stmt) : bool =
+  match s.stmt with
+  | SCall _ -> true
+  | SIf (_, then_branch, else_branch) ->
+      List.exists stmt_contains_call then_branch || List.exists stmt_contains_call else_branch
+  | SMatch (_, branches, default_branch) ->
+      List.exists
+        (fun (_ctor, body) -> List.exists stmt_contains_call body)
+        branches
+      || List.exists stmt_contains_call default_branch
+  | SAssign _ | SSkip -> false
+
+let transition_contains_call (t : Ast.transition) : bool =
+  List.exists stmt_contains_call t.body
+
+let node_uses_calls (n : Ast.node) : bool =
+  n.semantics.sem_instances <> [] || List.exists transition_contains_call n.semantics.sem_trans
+
+let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
+  match List.find_opt node_uses_calls program with
+  | None -> Ok ()
+  | Some n ->
+      Error
+        (Pipeline_types.Stage_error
+           (Printf.sprintf
+              "Calls are not supported in this Kairos version (node '%s')."
+              n.semantics.sem_nname))
+
 let build_ast_with_info ?(log = false) ~input_file () :
     (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error)
     result =
@@ -113,6 +141,9 @@ let build_ast_with_info ?(log = false) ~input_file () :
   match parse () with
   | Error _ as err -> err
   | Ok (p_parsed, parse_info) -> (
+      match reject_calls p_parsed with
+      | Error _ as err -> err
+      | Ok () ->
       try
         let t1 = Unix.gettimeofday () in
         if log then Log.stage_start Stage_names.Automaton;
@@ -134,8 +165,8 @@ let build_ast_with_info ?(log = false) ~input_file () :
             let p_instrumentation = ir_program.nodes in
             let formulas_info =
               {
-                Stage_info.formula_origin_map = ir_program.formulas_info.formula_origin_map;
-                warnings = ir_program.formulas_info.warnings;
+                Stage_info.formula_origin_map = ir_program.formula_origin_map;
+                warnings = [];
               }
             in
             match

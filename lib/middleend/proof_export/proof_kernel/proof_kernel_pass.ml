@@ -27,6 +27,18 @@ open Fo_formula
 module Abs = Ir
 module PT = Product_types
 
+type node_input = {
+  node_name : Ast.ident;
+  source_node : Ast.node;
+  node : Ir.node_ir;
+  analysis : Product_build.analysis;
+}
+
+type node_output = {
+  normalized_ir : Proof_kernel_types.node_ir;
+  exported_summary : Proof_kernel_types.exported_node_summary_ir;
+}
+
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
@@ -137,9 +149,10 @@ let product_step_kind_of_pt = function
 let is_live_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
   st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
 
-let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
-  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) n.semantics.sem_locals in
-  build_pre_k_infos n
+let temporal_locals_of_layout ~(existing_locals : Ast.vdecl list) (layout : Ir.temporal_layout) :
+    Ast.vdecl list =
+  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) existing_locals in
+  layout
   |> List.fold_left
        (fun acc (_, info) ->
          if List.exists
@@ -158,30 +171,30 @@ let pre_k_locals_of_ast (n : Ast.node) : Ast.vdecl list =
 
 let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node) :
     Proof_kernel_types.reactive_program_ir =
-  Proof_kernel_program.build_reactive_program ~node_name
+  Proof_kernel_product.build_reactive_program ~node_name
     ~source_node
     ~program_transitions:(program_transitions_of_ast_node source_node)
 
 let build_automaton ~(role : Proof_kernel_types.automaton_role) ~(labels : string list) ~(bad_idx : int)
     ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (Ast.ident * Ast.iexpr) list) :
     Proof_kernel_types.safety_automaton_ir =
-  Proof_kernel_program.build_automaton ~role ~labels ~bad_idx ~grouped_edges ~atom_map_exprs
+  Proof_kernel_product.build_automaton ~role ~labels ~bad_idx ~grouped_edges ~atom_map_exprs
     ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
       automaton_guard_fo ~atom_map_exprs guard_raw)
 
 let build_product_step ~(reactive_program : Proof_kernel_types.reactive_program_ir) (step : PT.product_step) :
     Proof_kernel_types.product_step_ir =
-  Proof_kernel_program.build_product_step ~reactive_program step
+  Proof_kernel_product.build_product_step ~reactive_program step
 
 let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     (step : Proof_kernel_types.product_step_ir) : bool =
-  Proof_kernel_program.is_feasible_product_step ~node ~analysis step
+  Proof_kernel_product.is_feasible_product_step ~node ~analysis step
 
 let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(source_node : Ast.node) ~(reactive_program : Proof_kernel_types.reactive_program_ir)
     ~(live_states : PT.product_state list) :
     Proof_kernel_types.product_step_ir list =
-  Proof_kernel_program.synthesize_fallback_product_steps
+  Proof_kernel_product.synthesize_fallback_product_steps
     ~program_transitions:(program_transitions_of_ast_node source_node)
     ~node ~analysis ~reactive_program
     ~live_states
@@ -197,53 +210,40 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.ana
       automaton_guard_fo ~atom_map_exprs guard_raw)
     ~is_live_state
 
-let node_signature_of_ast (n : Ast.node) : Proof_kernel_types.node_signature_ir =
+let node_signature_of_ast ~(temporal_layout : Ir.temporal_layout) (n : Ast.node) :
+    Proof_kernel_types.node_signature_ir =
   let sem = n.semantics in
-  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) sem.sem_locals in
-  let pre_k_locals =
-    build_pre_k_infos n
-    |> List.fold_left
-         (fun (acc : Temporal_support.pre_k_info list) (_, info) ->
-           if List.exists
-                (fun (existing_info : Temporal_support.pre_k_info) ->
-                  existing_info.Temporal_support.expr = info.Temporal_support.expr
-                  && existing_info.Temporal_support.names = info.Temporal_support.names)
-                acc
-           then acc
-           else acc @ [ info ])
-         []
-    |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
-           List.filter_map
-             (fun name ->
-               if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
-             info.names)
-  in
+  let temporal_locals = temporal_locals_of_layout ~existing_locals:sem.sem_locals temporal_layout in
   {
     node_name = sem.sem_nname;
     inputs = sem.sem_inputs;
     outputs = sem.sem_outputs;
-    locals = sem.sem_locals @ pre_k_locals;
-    instances = sem.sem_instances;
+    locals = sem.sem_locals @ temporal_locals;
     states = sem.sem_states;
     init_state = sem.sem_init_state;
   }
 
-let export_node_summary ~(source_node : Ast.node) ~(node : Abs.node_ir)
+let build_exported_summary ~(input : node_input)
     ~(normalized_ir : Proof_kernel_types.node_ir) :
     Proof_kernel_types.exported_node_summary_ir =
+  let source_node = input.source_node in
+  let node = input.node in
   {
-    signature = node_signature_of_ast source_node;
+    signature = node_signature_of_ast ~temporal_layout:node.temporal_layout source_node;
     normalized_ir;
-    user_invariants = node.context.source_info.user_invariants;
+    user_invariants = [];
     coherency_goals = node.init_invariant_goals;
-    pre_k_map = build_pre_k_infos source_node;
-    delay_spec = extract_delay_spec node.context.source_info.guarantees;
-    assumes = node.context.source_info.assumes;
-    guarantees = node.context.source_info.guarantees;
+    temporal_layout = node.temporal_layout;
+    delay_spec = extract_delay_spec node.source_info.guarantees;
+    assumes = node.source_info.assumes;
+    guarantees = node.source_info.guarantees;
   }
 
-let of_node_analysis ~(node_name : Ast.ident) ~(source_node : Ast.node) ~(node : Abs.node_ir)
-    ~(analysis : Product_build.analysis) : Proof_kernel_types.node_ir =
+let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
+  let node_name = input.node_name in
+  let source_node = input.source_node in
+  let node = input.node in
+  let analysis = input.analysis in
   let reactive_program = build_reactive_program ~node_name ~source_node in
   let assume_automaton =
     build_automaton ~role:Proof_kernel_types.Assume ~labels:analysis.assume_state_labels
@@ -278,19 +278,23 @@ let of_node_analysis ~(node_name : Ast.ident) ~(source_node : Ast.node) ~(node :
   let historical_generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
-  let pre_k_map = build_pre_k_infos source_node in
+  let temporal_bindings = Ir_formula.temporal_bindings_of_node node in
   let eliminated_generated_clauses =
-    List.filter_map (Proof_kernel_clauses.lower_generated_clause ~pre_k_map) historical_generated_clauses
+    List.filter_map (Proof_kernel_clauses.lower_generated_clause ~temporal_bindings)
+      historical_generated_clauses
   in
   let symbolic_generated_clauses =
-    List.concat_map (Proof_kernel_clauses.relationalize_generated_clause ~pre_k_map)
+    List.concat_map (Proof_kernel_clauses.relationalize_generated_clause ~temporal_bindings)
       eliminated_generated_clauses
   in
   let proof_step_contracts =
-    Proof_kernel_step_contracts.build_proof_step_contracts ~node ~reactive_program ~product_steps ~pre_k_map
+    Proof_kernel_clauses.build_proof_step_contracts ~node ~reactive_program ~product_steps
+      ~temporal_layout:node.temporal_layout
       ~initial_product_state ~symbolic_generated_clauses
   in
-  let ghost_locals = pre_k_locals_of_ast source_node in
+  let ghost_locals =
+    temporal_locals_of_layout ~existing_locals:source_node.semantics.sem_locals node.temporal_layout
+  in
   {
     Proof_kernel_types.reactive_program;
     assume_automaton;
@@ -299,9 +303,15 @@ let of_node_analysis ~(node_name : Ast.ident) ~(source_node : Ast.node) ~(node :
     product_states;
     product_steps;
     product_coverage;
+    temporal_layout = node.temporal_layout;
     historical_generated_clauses;
     eliminated_generated_clauses;
     symbolic_generated_clauses;
     proof_step_contracts;
     ghost_locals;
   }
+
+let compile_node (input : node_input) : node_output =
+  let normalized_ir = build_normalized_ir input in
+  let exported_summary = build_exported_summary ~input ~normalized_ir in
+  { normalized_ir; exported_summary }

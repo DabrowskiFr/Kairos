@@ -40,8 +40,6 @@ type transition_clauses = {
 type link_contracts = {
   link_terms_pre : Ptree.term list;
   link_terms_post : Ptree.term list;
-  instance_invariants : Ptree.term list;
-  instance_delay_links_inv : Ptree.term list;
   link_invariants : Ptree.term list;
 }
 
@@ -138,24 +136,6 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
         if hexpr_needs_old inv.inv_expr then (pre, t :: post) else (t :: pre, t :: post))
       ([], []) runtime.user_invariants
   in
-  let instance_invariant_terms ?(in_post = false) (inst_name : string)
-      (summary : Why_runtime_view.callee_summary_view) =
-    let node_name = summary.callee_node_name in
-    let input_names = summary.callee_input_names in
-    let contract = summary.callee_contract in
-    let from_user =
-      List.map
-        (fun inv ->
-          let lhs = term_of_instance_var env inst_name node_name inv.inv_id in
-          let rhs =
-            compile_hexpr_instance_contract ~in_post env inst_name node_name input_names contract
-              inv.inv_expr
-          in
-          term_eq lhs rhs)
-        summary.callee_user_invariants
-    in
-    from_user
-  in
   let output_links =
     let rec last_assigned_var (out : Ast.ident) (stmts : Ast.stmt list) =
       match stmts with
@@ -186,18 +166,8 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
             else None)
       (List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.outputs)
   in
-  let instance_invariants =
-    List.concat_map
-      (fun (inst : Why_runtime_view.instance_view) ->
-        match Why_runtime_view.find_callee_summary runtime inst.callee_node_name with
-        | None -> []
-        | Some summary -> instance_invariant_terms ~in_post:false inst.instance_name summary)
-      runtime.instances
-  in
   {
     link_terms_pre;
     link_terms_post;
-    instance_invariants;
-    instance_delay_links_inv = [];
     link_invariants = output_links;
   }

@@ -33,7 +33,7 @@ let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
 
 let input_names (n : Abs.node_ir) : ident list =
-  List.map (fun (v : vdecl) -> v.vname) n.context.semantics.sem_inputs
+  List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
 let is_input_of_node (n : Abs.node_ir) : ident -> bool =
   let names = input_names n in
@@ -68,18 +68,18 @@ let reject_current_input_invariant ~(node : Abs.node_ir) (inv : invariant_state_
       (Printf.sprintf
          "State invariant for node %s in state %s mentions a current input (HNow on an input), \
           which is forbidden for node-entry invariants: %s"
-         node.context.semantics.sem_nname inv.state (string_of_ltl inv.formula))
+         node.semantics.sem_nname inv.state (string_of_ltl inv.formula))
 
 let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : invariant_state_rel) ->
-      if List.mem inv.state n.context.semantics.sem_states then (
+      if List.mem inv.state n.semantics.sem_states then (
         reject_current_input_invariant ~node:n inv;
         let inv_fo = fo_formula_of_non_temporal_ltl_exn inv.formula in
         let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
         Hashtbl.replace by_state inv.state (inv_fo :: existing)))
-    n.context.source_info.state_invariants;
+    n.source_info.state_invariants;
   fun st ->
     (match Hashtbl.find_opt by_state st with
     | None -> None
@@ -120,28 +120,13 @@ let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_sum
   in
   { pc with ensures }
 
-type t = { summaries : Abs.product_step_summary list }
+type node_generation = { summaries : Abs.product_step_summary list }
 
-let build ~(node : Abs.node_ir) : t =
+let compute_generation ~(node : Abs.node_ir) : node_generation =
   { summaries = List.map (enrich_product_step_summary ~node) node.summaries }
 
-let apply ~(post_generation : t) (n : Abs.node_ir) : Abs.node_ir =
+let run_node (n : Abs.node_ir) : Abs.node_ir =
+  let post_generation = compute_generation ~node:n in
   { n with summaries = post_generation.summaries }
 
-let build_program (p : Abs.node_ir list) : (Ast.ident * t) list =
-  List.map (fun (n : Abs.node_ir) -> (n.context.semantics.sem_nname, build ~node:n)) p
-
-let apply_program ~(post_generations : (Ast.ident * t) list) (p : Abs.node_ir list) :
-    Abs.node_ir list =
-  List.map
-    (fun (n : Abs.node_ir) ->
-      let post_generation =
-        match List.assoc_opt n.context.semantics.sem_nname post_generations with
-        | Some pg -> pg
-        | None ->
-            failwith
-              (Printf.sprintf "Missing post generation for normalized node %s"
-                 n.context.semantics.sem_nname)
-      in
-      apply ~post_generation n)
-    p
+let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p

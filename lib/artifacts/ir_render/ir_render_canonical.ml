@@ -184,9 +184,7 @@ let pretty_stmt (s : Ast.stmt) : string =
   | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
   | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
   | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
-  | SCall (inst, args, rets) ->
-      "(" ^ String.concat ", " rets ^ ") := " ^ inst
-      ^ "(" ^ String.concat ", " (List.map Ast_pretty.string_of_iexpr args) ^ ")"
+  | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
 

@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic collection helpers over AST programs: temporal history, call
-    sites, and lightweight spec heuristics. *)
+(** Semantic collection helpers over AST programs: temporal history and
+    lightweight specification heuristics. *)
 
 val collect_hexpr : Ast.hexpr -> Ast.hexpr list -> Ast.hexpr list
 val collect_ltl : Ast.ltl -> Ast.hexpr list -> Ast.hexpr list
@@ -42,18 +42,5 @@ val build_pre_k_infos_from_parts :
   (Ast.hexpr * Temporal_support.pre_k_info) list
 
 val build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list
-
-val collect_calls_stmt :
-  (Ast.ident * Ast.iexpr list) list -> Ast.stmt -> (Ast.ident * Ast.iexpr list) list
-
-val collect_calls_trans : Ast.transition list -> (Ast.ident * Ast.iexpr list) list
-
-val collect_calls_stmt_full :
-  (Ast.ident * Ast.iexpr list * Ast.ident list) list ->
-  Ast.stmt ->
-  (Ast.ident * Ast.iexpr list * Ast.ident list) list
-
-val collect_calls_trans_full :
-  Ast.transition list -> (Ast.ident * Ast.iexpr list * Ast.ident list) list
 
 val extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option

@@ -21,3 +21,9 @@ let with_origin ?loc origin logic : Ir.summary_formula =
 
 let values (xs : Ir.summary_formula list) : Fo_formula.t list =
   List.map (fun (x : Ir.summary_formula) -> x.logic) xs
+
+let temporal_bindings_of_layout (layout : Ir.temporal_layout) : Fo_specs.temporal_binding list =
+  Fo_specs.temporal_bindings_of_pre_k_map ~pre_k_map:layout
+
+let temporal_bindings_of_node (node : Ir.node_ir) : Fo_specs.temporal_binding list =
+  temporal_bindings_of_layout node.temporal_layout

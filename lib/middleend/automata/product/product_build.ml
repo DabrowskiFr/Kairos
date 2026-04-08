@@ -133,7 +133,7 @@ let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node_ir)
   let assume_outgoing = automaton_outgoing assume in
   let guarantee_outgoing = automaton_outgoing guarantee in
   let initial_state =
-    { PT.prog_state = node.context.semantics.sem_init_state; assume_state = 0; guarantee_state = 0 }
+    { PT.prog_state = node.semantics.sem_init_state; assume_state = 0; guarantee_state = 0 }
   in
   let seen = Hashtbl.create 64 in
   let q = Queue.create () in

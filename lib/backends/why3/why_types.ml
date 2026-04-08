@@ -22,14 +22,11 @@ type env_info = {
   runtime_view : Why_runtime_view.t;
   module_name : string;
   imports : Why3.Ptree.decl list;
-  instance_type_decls : Why3.Ptree.decl list;
   type_state : Why3.Ptree.decl;
   type_vars : Why3.Ptree.decl;
   env : Why_term_support.env;
   inputs : Why3.Ptree.binder list;
   ret_expr : Why3.Ptree.expr;
-  pre_k_map : (Ast.hexpr * Temporal_support.pre_k_info) list;
-  pre_k_infos : Temporal_support.pre_k_info list;
   hexpr_needs_old : Ast.hexpr -> bool;
   input_names : Ast.ident list;
 }

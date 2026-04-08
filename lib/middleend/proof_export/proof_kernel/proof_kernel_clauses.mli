@@ -33,17 +33,17 @@ val build_generated_clauses :
   Proof_kernel_types.generated_clause_ir list
 
 val lower_clause_fact :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_bindings:Fo_specs.temporal_binding list ->
   Proof_kernel_types.clause_fact_ir ->
   Proof_kernel_types.clause_fact_ir option
 
 val lower_generated_clause :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_bindings:Fo_specs.temporal_binding list ->
   Proof_kernel_types.generated_clause_ir ->
   Proof_kernel_types.generated_clause_ir option
 
 val relationalize_clause_fact :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_bindings:Fo_specs.temporal_binding list ->
   Proof_kernel_types.clause_fact_ir ->
   Proof_kernel_types.relational_clause_fact_ir option
 
@@ -56,6 +56,15 @@ val normalize_relational_hypotheses :
   Proof_kernel_types.relational_clause_fact_ir list option
 
 val relationalize_generated_clause :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_bindings:Fo_specs.temporal_binding list ->
   Proof_kernel_types.generated_clause_ir ->
   Proof_kernel_types.relational_generated_clause_ir list
+
+val build_proof_step_contracts :
+  node:Ir.node_ir ->
+  reactive_program:Proof_kernel_types.reactive_program_ir ->
+  product_steps:Proof_kernel_types.product_step_ir list ->
+  temporal_layout:Ir.temporal_layout ->
+  initial_product_state:Proof_kernel_types.product_state_ir ->
+  symbolic_generated_clauses:Proof_kernel_types.relational_generated_clause_ir list ->
+  Proof_kernel_types.proof_step_contract_ir list

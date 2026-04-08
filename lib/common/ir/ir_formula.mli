@@ -25,3 +25,11 @@ val with_origin :
   Ir.summary_formula
 
 val values : Ir.summary_formula list -> Fo_formula.t list
+
+val temporal_bindings_of_layout :
+  Ir.temporal_layout ->
+  Fo_specs.temporal_binding list
+
+val temporal_bindings_of_node :
+  Ir.node_ir ->
+  Fo_specs.temporal_binding list

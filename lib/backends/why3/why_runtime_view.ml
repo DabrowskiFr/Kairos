@@ -34,35 +34,11 @@ type port_view = {
   port_type : Ast.ty;
 }
 
-type instance_view = {
-  instance_name : Ast.ident;
-  callee_node_name : Ast.ident;
-}
-
-type callee_summary_view = {
-  callee_node_name : Ast.ident;
-  callee_inputs : port_view list;
-  callee_outputs : port_view list;
-  callee_locals : port_view list;
-  callee_states : Ast.ident list;
-  callee_input_names : Ast.ident list;
-  callee_output_names : Ast.ident list;
-  callee_user_invariants : Ast.invariant_user list;
-  callee_contract : Kernel_guided_contract.exported_summary_contract;
-}
-
-type call_site_view = {
-  call_instance : Ast.ident;
-  call_args : Ast.iexpr list;
-  call_outputs : Ast.ident list;
-}
-
 type runtime_action_view =
   | ActionAssign of Ast.ident * Ast.iexpr
   | ActionIf of Ast.iexpr * runtime_action_view list * runtime_action_view list
   | ActionMatch of Ast.iexpr * (Ast.ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
-  | ActionCall of call_site_view
 
 type action_block_kind =
   | ActionUser
@@ -81,7 +57,6 @@ type runtime_transition_view = {
   ensures : Abs.summary_formula list;
   body : Ast.stmt list;
   action_blocks : action_block_view list;
-  call_sites : call_site_view list;
 }
 
 type runtime_step_class =
@@ -118,8 +93,6 @@ type t = {
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
-  instances : instance_view list;
-  callee_summaries : callee_summary_view list;
   control_states : Ast.ident list;
   init_control_state : Ast.ident;
   transitions : runtime_transition_view list;
@@ -178,36 +151,8 @@ let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
         List.fold_left (fun acc (_, body) -> List.fold_left collect_ctor_stmt acc body) acc branches
       in
       List.fold_left collect_ctor_stmt acc def
-  | SCall (_, args, _) -> List.fold_left collect_ctor_iexpr acc args
+  | SCall _ -> failwith "instance calls are not supported"
   | SSkip -> acc
-
-let instance_of_pair ((instance_name, callee_node_name) : Ast.ident * Ast.ident) : instance_view =
-  { instance_name; callee_node_name }
-
-let callee_summary_of_node (n : Ast.node) : callee_summary_view =
-  let callee_contract = Kernel_guided_contract.exported_summary_of_ast_node n in
-  let sem = n.semantics in
-  {
-    callee_node_name = sem.sem_nname;
-    callee_inputs = List.map port_of_vdecl sem.sem_inputs;
-    callee_outputs = List.map port_of_vdecl sem.sem_outputs;
-    callee_locals = List.map port_of_vdecl sem.sem_locals;
-    callee_states = sem.sem_states;
-    callee_input_names = Ast_queries.input_names_of_node n;
-    callee_output_names = Ast_queries.output_names_of_node n;
-    callee_user_invariants = [];
-    callee_contract;
-  }
-
-let dedup_callee_summaries (summaries : callee_summary_view list) : callee_summary_view list =
-  let seen = Hashtbl.create 16 in
-  let add acc summary =
-    if Hashtbl.mem seen summary.callee_node_name then acc
-    else (
-      Hashtbl.replace seen summary.callee_node_name ();
-      summary :: acc)
-  in
-  List.rev (List.fold_left add [] summaries)
 
 let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
   List.map action_of_stmt stmts
@@ -223,8 +168,7 @@ and action_of_stmt (s : Ast.stmt) : runtime_action_view =
       in
       ActionMatch (scrutinee, branches, actions_of_stmts default_branch)
   | SSkip -> ActionSkip
-  | SCall (call_instance, call_args, call_outputs) ->
-      ActionCall { call_instance; call_args; call_outputs }
+  | SCall _ -> failwith "instance calls are not supported"
 
 let literal_known_value (e : iexpr) : known_value option =
   match e.iexpr with
@@ -346,10 +290,6 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
           end
       in
       ([ ActionAssign (x, e') ], known')
-  | ActionCall { call_instance; call_args; call_outputs } ->
-      let call_args = List.map (simplify_iexpr known) call_args in
-      let known' = List.fold_left drop_known known call_outputs in
-      ([ ActionCall { call_instance; call_args; call_outputs } ], known')
   | ActionIf (cond, then_actions, else_actions) ->
       let cond' = simplify_iexpr known cond in
       begin
@@ -373,25 +313,6 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       let default_actions, _ = simplify_actions known default_actions in
       ([ ActionMatch (scrutinee', branches, default_actions) ], known)
 
-let rec collect_call_sites_action (acc : call_site_view list) (a : runtime_action_view) :
-    call_site_view list =
-  match a with
-  | ActionAssign _ | ActionSkip -> acc
-  | ActionCall call_site -> acc @ [ call_site ]
-  | ActionIf (_, then_actions, else_actions) ->
-      let acc = List.fold_left collect_call_sites_action acc then_actions in
-      List.fold_left collect_call_sites_action acc else_actions
-  | ActionMatch (_, branches, default_actions) ->
-      let acc =
-        List.fold_left
-          (fun acc (_, actions) -> List.fold_left collect_call_sites_action acc actions)
-          acc branches
-      in
-      List.fold_left collect_call_sites_action acc default_actions
-
-let collect_call_sites (actions : runtime_action_view list) : call_site_view list =
-  List.fold_left collect_call_sites_action [] actions
-
 let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
   let known = known_context_of_transition_guard t.guard in
   let raw_blocks =
@@ -412,9 +333,6 @@ let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
 
 let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_view =
   let action_blocks = action_blocks_of_transition t in
-  let call_sites =
-    List.concat_map (fun (block : action_block_view) -> collect_call_sites block.block_actions) action_blocks
-  in
   {
     transition_id =
       Option.value ~default:(Printf.sprintf "%s__%s" t.src t.dst) transition_id;
@@ -425,7 +343,6 @@ let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_v
     ensures = [];
     body = t.body;
     action_blocks;
-    call_sites;
   }
 
 let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_view =
@@ -458,10 +375,7 @@ let respecialize_transition_actions (t : runtime_transition_view) : runtime_tran
     |> List.filter_map (fun (block_kind, block_actions) ->
            if block_actions = [] then None else Some { block_kind; block_actions })
   in
-  let call_sites =
-    List.concat_map (fun (block : action_block_view) -> collect_call_sites block.block_actions) action_blocks
-  in
-  { t with action_blocks; call_sites }
+  { t with action_blocks }
 
 let group_transitions (transitions : runtime_transition_view list) : transition_group_view list =
   let by_state =
@@ -484,24 +398,7 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
 let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
   let sem = n.semantics in
   let spec = n.specification in
-  let callee_names = List.map snd sem.sem_instances |> List.sort_uniq String.compare in
-  let local_summaries =
-    nodes
-    |> List.filter_map (fun candidate ->
-           if List.mem candidate.semantics.sem_nname callee_names then
-             Some (callee_summary_of_node candidate)
-           else None)
-  in
-  let callee_summaries =
-    let seen = Hashtbl.create 16 in
-    let add acc summary =
-      if Hashtbl.mem seen summary.callee_node_name then acc
-      else (
-        Hashtbl.replace seen summary.callee_node_name ();
-        summary :: acc)
-    in
-    List.rev (List.fold_left add [] local_summaries)
-  in
+  let _ = nodes in
   let transitions =
     List.mapi
       (fun idx t -> transition_of_ast ~transition_id:(Printf.sprintf "tr_%d" idx) t)
@@ -513,8 +410,6 @@ let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
     inputs = List.map port_of_vdecl sem.sem_inputs;
     outputs = List.map port_of_vdecl sem.sem_outputs;
     locals = List.map port_of_vdecl sem.sem_locals;
-    instances = List.map instance_of_pair sem.sem_instances;
-    callee_summaries;
     control_states = sem.sem_states;
     init_control_state = sem.sem_init_state;
     transitions;
@@ -526,11 +421,6 @@ let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
     user_invariants = [];
     init_invariant_goals = [];
   }
-
-let find_callee_summary (runtime : t) (node_name : Ast.ident) : callee_summary_view option =
-  List.find_opt
-    (fun (summary : callee_summary_view) -> summary.callee_node_name = node_name)
-    runtime.callee_summaries
 
 let transition_to_ast (t : runtime_transition_view) : Ast.transition =
   { Ast.src = t.src_state; dst = t.dst_state; guard = t.guard; body = t.body }
@@ -544,10 +434,7 @@ let to_ast_node (runtime : t) : Ast.node =
           List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.inputs;
         sem_outputs =
           List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.outputs;
-        sem_instances =
-          List.map
-            (fun (i : instance_view) -> (i.instance_name, i.callee_node_name))
-            runtime.instances;
+        sem_instances = [];
         sem_locals =
           List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
         sem_states = runtime.control_states;
@@ -561,9 +448,6 @@ let to_ast_node (runtime : t) : Ast.node =
         spec_invariants_state_rel = [];
       };
   }
-
-let has_instance_calls (runtime : t) : bool =
-  List.exists (fun (t : runtime_transition_view) -> t.call_sites <> []) runtime.transitions
 
 let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
     Abs.transition list =
@@ -579,7 +463,7 @@ let program_transitions_from_summaries (summaries : Abs.product_step_summary lis
   !ordered
 
 let of_ir_node (node : Ir.node_ir) : t =
-  let sem = node.context.semantics in
+  let sem = node.semantics in
   let program_transitions = program_transitions_from_summaries node.summaries in
   let transitions =
     List.mapi
@@ -594,17 +478,15 @@ let of_ir_node (node : Ir.node_ir) : t =
       inputs = List.map port_of_vdecl sem.sem_inputs;
       outputs = List.map port_of_vdecl sem.sem_outputs;
       locals = List.map port_of_vdecl sem.sem_locals;
-      instances = [];
-      callee_summaries = [];
       control_states = sem.sem_states;
       init_control_state = sem.sem_init_state;
       transitions;
       product_transitions = [];
       transition_groups;
       state_branches = state_branches_of_groups transition_groups;
-      assumes = node.context.source_info.assumes;
-      guarantees = node.context.source_info.guarantees;
-      user_invariants = node.context.source_info.user_invariants;
+      assumes = node.source_info.assumes;
+      guarantees = node.source_info.guarantees;
+      user_invariants = [];
       init_invariant_goals = node.init_invariant_goals;
     }
   in

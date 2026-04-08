@@ -133,8 +133,6 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
             branches @ [ ({ pat_desc = Pwild; pat_loc = loc }, compile_seq env sticky_asserts default) ]
         in
         mk_expr (Ematch (scrut, branches, []))
-    | Why_runtime_view.ActionCall { call_instance = inst; call_args = _; call_outputs = _ } ->
-        failwith ("Instance calls are not supported on the without_calls branch: " ^ inst)
   in
   match lst with
   | [] -> mk_expr (Etuple [])

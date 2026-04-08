@@ -120,8 +120,8 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   List.iter
     (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.semantics.sem_nname node)
     runtime_program;
-  let pre_k_locals_of_source (node : Ast.node) : Ast.vdecl list =
-    Collect.build_pre_k_infos node
+  let pre_k_locals_of_layout (layout : (Ast.hexpr * Temporal_support.pre_k_info) list) : Ast.vdecl list =
+    layout
     |> List.concat_map (fun (_, (info : Temporal_support.pre_k_info)) ->
            List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
   in
@@ -136,8 +136,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
       node_name = sem.sem_nname;
       inputs = sem.sem_inputs;
       outputs = sem.sem_outputs;
-      locals = sem.sem_locals @ pre_k_locals_of_source node;
-      instances = sem.sem_instances;
+      locals = sem.sem_locals;
       states = sem.sem_states;
       init_state = sem.sem_init_state;
     }
@@ -161,14 +160,14 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                           "Missing runtime node '%s' while building .kobj"
                           node.semantics.sem_nname))
             in
-            let source_pre_k_map = Collect.build_pre_k_infos node in
             let runtime_signature = node_signature_of_ast runtime_node in
             let exported_runtime_locals = runtime_signature.locals in
             let signature =
               {
                 runtime_signature with
                 locals =
-                  append_missing_locals exported_runtime_locals (pre_k_locals_of_source node);
+                  append_missing_locals exported_runtime_locals
+                    (pre_k_locals_of_layout normalized_ir.temporal_layout);
               }
             in
             let summary : Proof_kernel_types.exported_node_summary_ir =
@@ -176,8 +175,8 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 signature;
                 normalized_ir;
                 user_invariants = [];
-                coherency_goals = (From_ast.of_ast_node node).init_invariant_goals;
-                pre_k_map = source_pre_k_map;
+                coherency_goals = [];
+                temporal_layout = normalized_ir.temporal_layout;
                 delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;
                 guarantees = node.specification.spec_guarantees;
@@ -220,10 +219,7 @@ let rec string_of_stmt (s : Ast.stmt) =
   match s.stmt with
   | Ast.SAssign (id, e) -> id ^ " := " ^ Ast_pretty.string_of_iexpr e
   | Ast.SSkip -> "skip"
-  | Ast.SCall (inst, args, outs) ->
-      let args_s = String.concat ", " (List.map Ast_pretty.string_of_iexpr args) in
-      let outs_s = String.concat ", " outs in
-      "call " ^ inst ^ "(" ^ args_s ^ ") returns (" ^ outs_s ^ ")"
+  | Ast.SCall _ -> failwith "calls are not supported outside parser/AST"
   | Ast.SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then ..."
   | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " with ..."
 
@@ -461,7 +457,7 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
   let pre_k_lines =
     [ indent 1 ^ "temporal memory" ]
     @
-    (match node.pre_k_map with
+    (match node.temporal_layout with
     | [] -> [ indent 2 ^ "pre_k: none" ]
     | xs ->
         [ indent 2 ^ "pre_k:" ]

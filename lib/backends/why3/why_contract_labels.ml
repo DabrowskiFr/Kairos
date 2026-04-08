@@ -31,7 +31,6 @@ type label_context = {
   link_terms_post : Ptree.term list;
   link_invariants : Ptree.term list;
   post_contract_user : Ptree.term list;
-  instance_invariants : Ptree.term list;
 }
 
 let build_labels (ctx : label_context) : string list * string list =
@@ -81,7 +80,6 @@ let build_labels (ctx : label_context) : string list * string list =
           ("User contract ensures", group_terms_by_post ctx.post_contract_user);
           ("Atoms", group_terms_by_post atom_post);
           ("User invariants", group_terms_by_post user_post);
-          ("Instance invariants", group_terms_by_post ctx.instance_invariants);
           ("Internal links", group_terms_by_post ctx.link_invariants);
         ]
     in

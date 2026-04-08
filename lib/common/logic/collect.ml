@@ -158,52 +158,6 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
     ~fo_formulas:[] ~ltl:(spec.spec_assumes @ spec.spec_guarantees) ~invariants_user:[]
     ~invariants_state_rel:spec.spec_invariants_state_rel
 
-let rec collect_calls_stmt (acc : (ident * iexpr list) list) (s : stmt) : (ident * iexpr list) list
-    =
-  match s.stmt with
-  | SCall (inst, args, _outs) -> (inst, args) :: acc
-  | SIf (_c, tbr, fbr) ->
-      let acc = List.fold_left collect_calls_stmt acc tbr in
-      List.fold_left collect_calls_stmt acc fbr
-  | SMatch (_e, branches, def) ->
-      let acc =
-        List.fold_left
-          (fun acc (_ctor, body) -> List.fold_left collect_calls_stmt acc body)
-          acc branches
-      in
-      List.fold_left collect_calls_stmt acc def
-  | SAssign _ | SSkip -> acc
-
-let collect_calls_trans (ts : transition list) : (ident * iexpr list) list =
-  List.fold_left
-    (fun acc (t : transition) ->
-      let acc = List.fold_left collect_calls_stmt acc t.body in
-      acc)
-    [] ts
-
-let rec collect_calls_stmt_full (acc : (ident * iexpr list * ident list) list) (s : stmt) :
-    (ident * iexpr list * ident list) list =
-  match s.stmt with
-  | SCall (inst, args, outs) -> (inst, args, outs) :: acc
-  | SIf (_c, tbr, fbr) ->
-      let acc = List.fold_left collect_calls_stmt_full acc tbr in
-      List.fold_left collect_calls_stmt_full acc fbr
-  | SMatch (_e, branches, def) ->
-      let acc =
-        List.fold_left
-          (fun acc (_ctor, body) -> List.fold_left collect_calls_stmt_full acc body)
-          acc branches
-      in
-      List.fold_left collect_calls_stmt_full acc def
-  | SAssign _ | SSkip -> acc
-
-let collect_calls_trans_full (ts : transition list) : (ident * iexpr list * ident list) list =
-  List.fold_left
-    (fun acc (t : transition) ->
-      let acc = List.fold_left collect_calls_stmt_full acc t.body in
-      acc)
-    [] ts
-
 let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a

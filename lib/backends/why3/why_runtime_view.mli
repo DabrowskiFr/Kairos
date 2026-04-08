@@ -23,35 +23,11 @@ type port_view = {
   port_type : Ast.ty;
 }
 
-type instance_view = {
-  instance_name : Ast.ident;
-  callee_node_name : Ast.ident;
-}
-
-type callee_summary_view = {
-  callee_node_name : Ast.ident;
-  callee_inputs : port_view list;
-  callee_outputs : port_view list;
-  callee_locals : port_view list;
-  callee_states : Ast.ident list;
-  callee_input_names : Ast.ident list;
-  callee_output_names : Ast.ident list;
-  callee_user_invariants : Ast.invariant_user list;
-  callee_contract : Kernel_guided_contract.exported_summary_contract;
-}
-
-type call_site_view = {
-  call_instance : Ast.ident;
-  call_args : Ast.iexpr list;
-  call_outputs : Ast.ident list;
-}
-
 type runtime_action_view =
   | ActionAssign of Ast.ident * Ast.iexpr
   | ActionIf of Ast.iexpr * runtime_action_view list * runtime_action_view list
   | ActionMatch of Ast.iexpr * (Ast.ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
-  | ActionCall of call_site_view
 
 type action_block_kind =
   | ActionUser
@@ -70,7 +46,6 @@ type runtime_transition_view = {
   ensures : Ir.summary_formula list;
   body : Ast.stmt list;
   action_blocks : action_block_view list;
-  call_sites : call_site_view list;
 }
 
 type runtime_step_class =
@@ -107,8 +82,6 @@ type t = {
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
-  instances : instance_view list;
-  callee_summaries : callee_summary_view list;
   control_states : Ast.ident list;
   init_control_state : Ast.ident;
   transitions : runtime_transition_view list;
@@ -125,10 +98,8 @@ val of_node :
   nodes:Ast.node list ->
   Ast.node ->
   t
-val find_callee_summary : t -> Ast.ident -> callee_summary_view option
 val transition_to_ast : runtime_transition_view -> Ast.transition
 val to_ast_node : t -> Ast.node
-val has_instance_calls : t -> bool
 
 val transition_of_product_step : runtime_product_transition_view -> runtime_transition_view
 

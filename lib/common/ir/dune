@@ -3,7 +3,7 @@
  (public_name kairos.ir)
  (wrapped false)
  (modules ir ir_shared_types ir_proof_views ir_to_ast ir_formula ir_transition)
- (libraries kairos_ast kairos_fo_formula kairos_provenance kairos_temporal_support))
+ (libraries kairos_ast kairos_fo_formula kairos_logic kairos_provenance kairos_temporal_support))
 
 (library
  (name kairos_ir_json_codec)

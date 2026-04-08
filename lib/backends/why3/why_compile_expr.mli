@@ -26,44 +26,6 @@ val compile_iexpr : Why_term_support.env -> Ast.iexpr -> Why3.Ptree.expr
 (* Compile an immediate expression to Why3 term. *)
 val compile_term : Why_term_support.env -> Ast.iexpr -> Why3.Ptree.term
 
-(* Compile a term for an instance (qualified by node/instance names). *)
-val compile_term_instance :
-  Why_term_support.env -> Ast.ident -> Ast.ident -> Ast.ident list -> Ast.iexpr -> Why3.Ptree.term
-
-(* Compile a historical expression for an instance using the kernel-guided
-   temporal contract instead of a raw pre_k materialization map. *)
-val compile_hexpr_instance_contract :
-  ?in_post:bool ->
-  Why_term_support.env ->
-  Ast.ident ->
-  Ast.ident ->
-  Ast.ident list ->
-  Kernel_guided_contract.exported_summary_contract ->
-  Ast.hexpr ->
-  Why3.Ptree.term
-
-(* Compile a FO formula for an instance using the kernel-guided temporal
-   contract instead of a raw pre_k materialization map. *)
-val compile_fo_term_instance_contract :
-  ?in_post:bool ->
-  Why_term_support.env ->
-  Ast.ident ->
-  Ast.ident ->
-  Ast.ident list ->
-  Kernel_guided_contract.exported_summary_contract ->
-  Ast.fo_atom ->
-  Why3.Ptree.term
-
-val compile_ltl_term_instance_contract :
-  ?in_post:bool ->
-  Why_term_support.env ->
-  Ast.ident ->
-  Ast.ident ->
-  Ast.ident list ->
-  Kernel_guided_contract.exported_summary_contract ->
-  Ast.ltl ->
-  Why3.Ptree.term
-
 (* Build a tuple term from output variables (if any). *)
 val term_of_outputs : Why_term_support.env -> Ast.vdecl list -> Why3.Ptree.term option
 

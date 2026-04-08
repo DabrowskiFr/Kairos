@@ -118,40 +118,6 @@ let logic_getter_decl ~(env : Why_term_support.env) (vname : Ast.ident) (vty : A
       };
     ]
 
-let getter_decl_for_type ~(vars_type_name : string) ~(field_name : string) ~(vname : Ast.ident) ~(vty : Ast.ty) :
-    Ptree.decl =
-  let getter_name = ident ("get_" ^ field_name) in
-  let is_ghost = is_ghost_field_name vname in
-  let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 vars_type_name, []))) in
-  let body = mk_expr (Eident (qdot (qid1 "self") field_name)) in
-  let fn =
-    mk_expr
-      (Efun
-         ( [ arg ],
-           Some (default_pty vty),
-           { pat_desc = Pwild; pat_loc = loc },
-           Ity.MaskVisible,
-           empty_spec (),
-           body ))
-  in
-  Ptree.Dlet (getter_name, is_ghost, Expr.RKnone, fn)
-
-let logic_getter_decl_for_type ~(vars_type_name : string) ~(field_name : string) ~(vty : Ast.ty) :
-    Ptree.decl =
-  let getter_name = ident ("logic_" ^ field_name) in
-  let param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 vars_type_name, [])) in
-  let body = mk_term (Tident (qdot (qid1 "self") field_name)) in
-  Ptree.Dlogic
-    [
-      {
-        ld_loc = loc;
-        ld_ident = getter_name;
-        ld_params = [ param ];
-        ld_type = Some (default_pty vty);
-        ld_def = Some body;
-      };
-    ]
-
 let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runtime_view.port_view list)
     ~(name : string) ~(formula : Fo_formula.t) : Ptree.decl =
   let env = { env with rec_name = "self" } in
@@ -266,37 +232,6 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
              []
         |> List.rev
   in
-  let instance_mirror_getter_decls =
-    let used_summaries =
-      runtime_view.instances
-      |> List.filter_map (fun (inst : Why_runtime_view.instance_view) ->
-             Why_runtime_view.find_callee_summary runtime_view inst.callee_node_name)
-      |> List.sort_uniq
-           (fun (a : Why_runtime_view.callee_summary_view) (b : Why_runtime_view.callee_summary_view) ->
-             String.compare a.callee_node_name b.callee_node_name)
-    in
-    used_summaries
-    |> List.concat_map (fun (summary : Why_runtime_view.callee_summary_view) ->
-           let vars_type_name = instance_vars_type_name summary.callee_node_name in
-           let fields =
-             (prefix_for_node summary.callee_node_name ^ "st", "st", TCustom (instance_state_type_name summary.callee_node_name))
-             :: List.map
-                  (fun (port : Why_runtime_view.port_view) ->
-                    (prefix_for_node summary.callee_node_name ^ port.port_name, port.port_name, port.port_type))
-                  (summary.callee_locals @ summary.callee_outputs)
-           in
-           let field_decls =
-             List.concat_map
-               (fun (field_name, vname, vty) ->
-                 [
-                   getter_decl_for_type ~vars_type_name ~field_name ~vname ~vty;
-                   logic_getter_decl_for_type ~vars_type_name ~field_name ~vty;
-                 ])
-               fields
-           in
-           field_decls)
-  in
-
   let contracts = Why_contracts.build_contracts ~nodes:[] info in
   let pre = contracts.pre in
   let post = contracts.post in
@@ -667,9 +602,8 @@ let compile_node_with_info ?comment_specs ?kernel_ir ~(node_names : Ast.ident li
   in
 
   let decls =
-    imports @ info.instance_type_decls @ [ type_state; type_vars ] @ getter_decls
-    @ logic_getter_decls @ phase_case_logic_decls
-    @ instance_mirror_getter_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
+    imports @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    @ phase_case_logic_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
     @ coherency_goal_decls @ kernel_init_goal_decls
   in
 
@@ -723,7 +657,7 @@ let compile_node_from_ir_node ~prefix_fields ?comment_specs
     Ptree.ident * Ptree.qualid option * Ptree.decl list * string * spec_groups =
   let info = Why_env.prepare_ir_node ~prefix_fields node in
   compile_node_with_info ?comment_specs
-    ~node_names:(List.map (fun (n : Ir.node_ir) -> n.context.semantics.sem_nname) program_nodes)
+    ~node_names:(List.map (fun (n : Ir.node_ir) -> n.semantics.sem_nname) program_nodes)
     info
 
 let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
@@ -736,7 +670,7 @@ let compile_program_ast_from_ir_nodes ?(prefix_fields = true)
     let modules =
       List.map
         (fun (node : Ir.node_ir) ->
-          let name = node.context.semantics.sem_nname in
+          let name = node.semantics.sem_nname in
           compile_node_from_ir_node ~prefix_fields ?comment_specs:(lookup_comment name)
             ~program_nodes node)
         program_nodes
