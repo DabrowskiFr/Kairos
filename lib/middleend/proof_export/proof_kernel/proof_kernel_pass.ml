@@ -19,9 +19,9 @@
 open Ast
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
-open Collect
+open Pre_k_collect
 open Fo_formula
 
 module Abs = Ir
@@ -62,8 +62,8 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
       | ILitInt i, IVar v -> mk v (string_of_int i)
       | IVar v, ILitBool bb -> mk v (if bb then "true" else "false")
       | ILitBool bb, IVar v -> mk v (if bb then "true" else "false")
-      | ILitBool bb, _ -> mk (Ast_pretty.string_of_iexpr b) (if bb then "true" else "false")
-      | _, ILitBool bb -> mk (Ast_pretty.string_of_iexpr a) (if bb then "true" else "false")
+      | ILitBool bb, _ -> mk (Logic_pretty.string_of_iexpr b) (if bb then "true" else "false")
+      | _, ILitBool bb -> mk (Logic_pretty.string_of_iexpr a) (if bb then "true" else "false")
       | _ -> None
     end
   | HNow a, RNeq, HNow b -> begin
@@ -73,8 +73,8 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
       | IVar v, ILitBool bb -> mk ~is_pos:false v (if bb then "true" else "false")
       | ILitBool bb, IVar v -> mk ~is_pos:false v (if bb then "true" else "false")
       | ILitBool bb, _ ->
-          mk ~is_pos:false (Ast_pretty.string_of_iexpr b) (if bb then "true" else "false")
-      | _, ILitBool bb -> mk ~is_pos:false (Ast_pretty.string_of_iexpr a) (if bb then "true" else "false")
+          mk ~is_pos:false (Logic_pretty.string_of_iexpr b) (if bb then "true" else "false")
+      | _, ILitBool bb -> mk ~is_pos:false (Logic_pretty.string_of_iexpr a) (if bb then "true" else "false")
       | _ -> None
     end
   | _ -> None
@@ -205,7 +205,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Product
 let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
     ~(initial_state : Proof_kernel_types.product_state_ir) ~(steps : Proof_kernel_types.product_step_ir list) :
     Proof_kernel_types.generated_clause_ir list =
-  Proof_kernel_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps
+  Proof_kernel_generated_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps
     ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
       automaton_guard_fo ~atom_map_exprs guard_raw)
     ~is_live_state
@@ -280,15 +280,15 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
   in
   let temporal_bindings = Ir_formula.temporal_bindings_of_node node in
   let eliminated_generated_clauses =
-    List.filter_map (Proof_kernel_clauses.lower_generated_clause ~temporal_bindings)
+    List.filter_map (Proof_kernel_clause_lowering.lower_generated_clause ~temporal_bindings)
       historical_generated_clauses
   in
   let symbolic_generated_clauses =
-    List.concat_map (Proof_kernel_clauses.relationalize_generated_clause ~temporal_bindings)
+    List.concat_map (Proof_kernel_clause_lowering.relationalize_generated_clause ~temporal_bindings)
       eliminated_generated_clauses
   in
-  let proof_step_contracts =
-    Proof_kernel_clauses.build_proof_step_contracts ~node ~reactive_program ~product_steps
+  let proof_step_summaries =
+    Proof_kernel_step_summaries.build_proof_step_summaries ~node ~reactive_program ~product_steps
       ~temporal_layout:node.temporal_layout
       ~initial_product_state ~symbolic_generated_clauses
   in
@@ -307,7 +307,7 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
     historical_generated_clauses;
     eliminated_generated_clauses;
     symbolic_generated_clauses;
-    proof_step_contracts;
+    proof_step_summaries;
     ghost_locals;
   }
 

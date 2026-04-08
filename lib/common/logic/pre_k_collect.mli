@@ -16,14 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Generic signature for a middle-end pass with stage artifacts and info. *)
-module type S = sig
-  type ast_in
-  type ast_out
-  type stage_in
-  type stage_out
-  type info
+(** Semantic collection helpers over AST programs: temporal history and
+    lightweight specification heuristics. *)
 
-  val run : ast_in -> stage_in -> ast_out * stage_out
-  val run_with_info : ast_in -> stage_in -> ast_out * stage_out * info
-end
+val build_pre_k_infos_from_parts :
+  inputs:Ast.vdecl list ->
+  locals:Ast.vdecl list ->
+  outputs:Ast.vdecl list ->
+  fo_formulas:Fo_formula.t list ->
+  ltl:Ast.ltl list ->
+  invariants_user:Ast.invariant_user list ->
+  invariants_state_rel:Ast.invariant_state_rel list ->
+  (Ast.hexpr * Temporal_support.pre_k_info) list
+
+val build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list
+
+val extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option

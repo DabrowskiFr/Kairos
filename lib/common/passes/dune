@@ -1,4 +1,0 @@
-(library
- (name kairos_passes)
- (wrapped false)
- (modules pass_intf))

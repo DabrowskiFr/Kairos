@@ -177,7 +177,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 user_invariants = [];
                 coherency_goals = [];
                 temporal_layout = normalized_ir.temporal_layout;
-                delay_spec = Collect.extract_delay_spec node.specification.spec_guarantees;
+                delay_spec = Pre_k_collect.extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;
                 guarantees = node.specification.spec_guarantees;
               }
@@ -217,11 +217,11 @@ let string_of_vdecl (v : Ast.vdecl) =
 
 let rec string_of_stmt (s : Ast.stmt) =
   match s.stmt with
-  | Ast.SAssign (id, e) -> id ^ " := " ^ Ast_pretty.string_of_iexpr e
+  | Ast.SAssign (id, e) -> id ^ " := " ^ Logic_pretty.string_of_iexpr e
   | Ast.SSkip -> "skip"
   | Ast.SCall _ -> failwith "calls are not supported outside parser/AST"
-  | Ast.SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then ..."
-  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " with ..."
+  | Ast.SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then ..."
+  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Logic_pretty.string_of_iexpr e ^ " with ..."
 
 let string_of_clause_origin = function
   | Proof_kernel_types.OriginSourceProductSummary -> "SourceProductSummary"
@@ -241,8 +241,8 @@ let string_of_clause_time = function
 let string_of_clause_desc = function
   | Proof_kernel_types.FactProgramState st -> "ProgramState = " ^ st
   | Proof_kernel_types.FactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
-  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_fo f
-  | Proof_kernel_types.FactFormula f -> Ast_pretty.string_of_fo f
+  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Logic_pretty.string_of_fo f
+  | Proof_kernel_types.FactFormula f -> Logic_pretty.string_of_fo f
   | Proof_kernel_types.FactFalse -> "false"
 
 let string_of_clause_fact (fact : Proof_kernel_types.clause_fact_ir) =
@@ -255,10 +255,10 @@ let string_of_display_rel_desc = function
   | Proof_kernel_types.RelFactProgramState _ | Proof_kernel_types.RelFactGuaranteeState _ -> None
   | Proof_kernel_types.RelFactPhaseFormula f ->
       let f = simplify_display_fo f in
-      Some (Ast_pretty.string_of_fo f)
+      Some (Logic_pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFormula f ->
       let f = simplify_display_fo f in
-      Some (Ast_pretty.string_of_fo f)
+      Some (Logic_pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFalse -> Some "false"
 
 let simplify_formula_list (xs : string list) : string list =
@@ -293,7 +293,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
   let guard =
     match t.guard_iexpr with
     | None -> "true"
-    | Some g -> Ast_pretty.string_of_iexpr g
+    | Some g -> Logic_pretty.string_of_iexpr g
   in
   let render_fo_os label fs =
     match fs with
@@ -302,7 +302,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
         (indent indent_level ^ label ^ ":")
         :: List.map
              (fun (f : Ir.summary_formula) ->
-               indent (indent_level + 1) ^ Ast_pretty.string_of_fo f.logic)
+               indent (indent_level + 1) ^ Logic_pretty.string_of_fo f.logic)
              fs
   in
   let body_lines =
@@ -402,9 +402,9 @@ let render_product_steps indent_level (steps : Proof_kernel_types.product_step_i
             ^ fst step.program_transition ^ " -> " ^ snd step.program_transition;
             indent (indent_level + 1) ^ "kind: " ^ string_of_step_kind step.step_kind;
             indent (indent_level + 1) ^ "origin: " ^ string_of_step_origin step.step_origin;
-            indent (indent_level + 1) ^ "program guard: " ^ Ast_pretty.string_of_fo step.program_guard;
-            indent (indent_level + 1) ^ "assume guard: " ^ Ast_pretty.string_of_fo step.assume_edge.guard;
-            indent (indent_level + 1) ^ "guarantee guard: " ^ Ast_pretty.string_of_fo step.guarantee_edge.guard;
+            indent (indent_level + 1) ^ "program guard: " ^ Logic_pretty.string_of_fo step.program_guard;
+            indent (indent_level + 1) ^ "assume guard: " ^ Logic_pretty.string_of_fo step.assume_edge.guard;
+            indent (indent_level + 1) ^ "guarantee guard: " ^ Logic_pretty.string_of_fo step.guarantee_edge.guard;
             "";
           ])
         xs
@@ -426,20 +426,20 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
       indent 2 ^ "init: " ^ sig_.init_state;
     ]
   in
-  let source_contracts =
+  let source_summaries =
     [
-      indent 1 ^ "source contracts";
+      indent 1 ^ "source summaries";
       (if node.assumes = [] then indent 2 ^ "requires: none" else indent 2 ^ "requires:");
     ]
-    @ List.map (fun f -> indent 3 ^ Ast_pretty.string_of_ltl f) node.assumes
+    @ List.map (fun f -> indent 3 ^ Logic_pretty.string_of_ltl f) node.assumes
     @
     [
       (if node.guarantees = [] then indent 2 ^ "ensures: none" else indent 2 ^ "ensures:");
     ]
-    @ List.map (fun f -> indent 3 ^ Ast_pretty.string_of_ltl f) node.guarantees
+    @ List.map (fun f -> indent 3 ^ Logic_pretty.string_of_ltl f) node.guarantees
   in
   let transition_lines =
-    [ indent 1 ^ "transition contracts" ]
+    [ indent 1 ^ "transition summaries" ]
     @ (match ir.reactive_program.transitions with
       | [] -> [ indent 2 ^ "none" ]
       | xs -> List.concat_map (render_transition_summary 2) xs)
@@ -453,7 +453,7 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
         [ indent 2 ^ "pre_k:" ]
         @ List.map
             (fun (h, info) ->
-              indent 3 ^ Ast_pretty.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Temporal_support.names)
+              indent 3 ^ Logic_pretty.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Temporal_support.names)
             xs)
   in
   let step_counts =
@@ -485,7 +485,7 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
     @ render_clause_preview 2 ir.historical_generated_clauses
   in
   String.concat "\n"
-    (header @ signature_lines @ source_contracts @ transition_lines @ pre_k_lines
+    (header @ signature_lines @ source_summaries @ transition_lines @ pre_k_lines
    @ step_counts @ clause_lines)
 
 let render_summary (obj : t) : string =
@@ -532,7 +532,7 @@ let render_product (obj : t) : string =
   in
   String.concat "\n\n" (List.map render_node obj.nodes)
 
-let render_product_contracts (obj : t) : string =
+let render_product_summaries (obj : t) : string =
   let string_of_product_state (st : Proof_kernel_types.product_state_ir) =
     Printf.sprintf "(P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index st.guarantee_state_index
   in
@@ -564,7 +564,7 @@ let render_product_contracts (obj : t) : string =
     let guard =
       match transition.guard_iexpr with
       | None -> "true"
-      | Some g -> Ast_pretty.string_of_iexpr g
+      | Some g -> Logic_pretty.string_of_iexpr g
     in
     let body_lines =
       match transition.body_stmts with
@@ -577,34 +577,34 @@ let render_product_contracts (obj : t) : string =
     ]
     @ body_lines
   in
-  let render_contract indent_level
+  let render_summary indent_level
       (transitions_by_id : (string, Proof_kernel_types.reactive_transition_ir) Hashtbl.t)
-      (contract : Proof_kernel_types.proof_step_contract_ir) =
+      (summary : Proof_kernel_types.proof_step_summary_ir) =
     let step =
-      match contract.steps with
+      match summary.steps with
       | step :: _ -> step
-      | [] -> failwith "Malformed proof-step contract: empty grouped steps"
+      | [] -> failwith "Malformed proof-step summary: empty grouped steps"
     in
     let transition =
       match Hashtbl.find_opt transitions_by_id step.program_transition_id with
       | Some t -> t
       | None ->
           failwith
-            (Printf.sprintf "Missing reactive transition '%s' for proof-step contract"
+            (Printf.sprintf "Missing reactive transition '%s' for proof-step summary"
                step.program_transition_id)
     in
     let pre_formulas =
-      match contract.entry_clauses with
+      match summary.entry_clauses with
       | [] -> [ "true" ]
       | xs -> normalize_formula_lines (List.map entry_clause_to_formula xs)
     in
     let post_formulas =
-      match contract.clauses with
+      match summary.clauses with
       | [] -> [ "true" ]
       | xs -> normalize_formula_lines (List.map post_clause_to_formula xs)
     in
     let grouped_steps =
-      match contract.steps with
+      match summary.steps with
       | [] | [ _ ] -> []
       | xs ->
           let dsts =
@@ -616,7 +616,7 @@ let render_product_contracts (obj : t) : string =
             indent (indent_level + 2) ^ String.concat ", " dsts ]
     in
     [
-      indent indent_level ^ "contract";
+      indent indent_level ^ "summary";
       indent (indent_level + 1)
       ^ (string_of_product_state step.src ^ " -> " ^ string_of_product_state step.dst);
       indent (indent_level + 1) ^ "kind: " ^ string_of_step_kind step.step_kind;
@@ -652,14 +652,14 @@ let render_product_contracts (obj : t) : string =
         indent 2 ^ "product steps";
       ]
     in
-    let contracts =
-      [ indent 1 ^ "proof step contracts" ]
+    let summaries =
+      [ indent 1 ^ "proof step summaries" ]
       @
-      (match ir.proof_step_contracts with
+      (match ir.proof_step_summaries with
       | [] -> [ indent 2 ^ "none" ]
-      | xs -> List.concat_map (render_contract 2 transitions_by_id) xs)
+      | xs -> List.concat_map (render_summary 2 transitions_by_id) xs)
     in
-    String.concat "\n" (header @ render_product_steps 3 ir.product_steps @ [ "" ] @ contracts)
+    String.concat "\n" (header @ render_product_steps 3 ir.product_steps @ [ "" ] @ summaries)
   in
   String.concat "\n\n" (List.map render_node obj.nodes)
 

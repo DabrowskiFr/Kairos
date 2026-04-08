@@ -20,7 +20,7 @@ open Ast
 open Ast_builders
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
 open Automata_generation
 module Abs = Ir
@@ -95,7 +95,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     let fo_specs = [] in
     let spec = Ast.specification_of_node n in
     let ltl_specs = spec.spec_assumes @ spec.spec_guarantees in
-    let pre_k_map = Collect.build_pre_k_infos n in
+    let pre_k_map = Pre_k_collect.build_pre_k_infos n in
     let inputs = Ast_queries.input_names_of_node n in
     let var_types =
       List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
@@ -136,46 +136,46 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
           | { iexpr = IVar x; _ }, { iexpr = ILitBool true; _ }
           | { iexpr = ILitBool true; _ }, { iexpr = IVar x; _ } -> begin
               match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> Ast_pretty.string_of_iexpr e
-              | None -> Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), REq, HNow (mk_bool true)))
+              | Some e -> Logic_pretty.string_of_iexpr e
+              | None -> Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), REq, HNow (mk_bool true)))
             end
           | { iexpr = IVar x; _ }, { iexpr = ILitBool false; _ }
           | { iexpr = ILitBool false; _ }, { iexpr = IVar x; _ } -> begin
               match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> "not " ^ Ast_pretty.string_of_iexpr e
-              | None -> Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), REq, HNow (mk_bool false)))
+              | Some e -> "not " ^ Logic_pretty.string_of_iexpr e
+              | None -> Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), REq, HNow (mk_bool false)))
             end
-          | _ -> Ast_pretty.string_of_fo_atom (FRel (HNow e1, REq, HNow e2))
+          | _ -> Logic_pretty.string_of_fo_atom (FRel (HNow e1, REq, HNow e2))
         end
       | FRel (HNow a, RNeq, HNow b) -> begin
           match (as_var a, b.iexpr) with
           | Some x, ILitBool true -> begin
               match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> "not " ^ Ast_pretty.string_of_iexpr e
-              | None -> Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+              | Some e -> "not " ^ Logic_pretty.string_of_iexpr e
+              | None -> Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
             end
           | Some x, ILitBool false -> begin
               match Hashtbl.find_opt atom_expr_tbl x with
-              | Some e -> Ast_pretty.string_of_iexpr e
-              | None -> Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+              | Some e -> Logic_pretty.string_of_iexpr e
+              | None -> Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
             end
           | _ -> begin
               match (as_var b, a.iexpr) with
               | Some x, ILitBool true -> begin
                   match Hashtbl.find_opt atom_expr_tbl x with
-                  | Some e -> "not " ^ Ast_pretty.string_of_iexpr e
-                  | None -> Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
+                  | Some e -> "not " ^ Logic_pretty.string_of_iexpr e
+                  | None -> Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool true)))
                 end
               | Some x, ILitBool false -> begin
                   match Hashtbl.find_opt atom_expr_tbl x with
-                  | Some e -> Ast_pretty.string_of_iexpr e
+                  | Some e -> Logic_pretty.string_of_iexpr e
                   | None ->
-                      Ast_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
+                      Logic_pretty.string_of_fo_atom (FRel (HNow (mk_var x), RNeq, HNow (mk_bool false)))
                 end
-              | _ -> Ast_pretty.string_of_fo_atom (FRel (HNow a, RNeq, HNow b))
+              | _ -> Logic_pretty.string_of_fo_atom (FRel (HNow a, RNeq, HNow b))
             end
         end
-      | f -> Ast_pretty.string_of_fo_atom f
+      | f -> Logic_pretty.string_of_fo_atom f
     in
     let rec string_of_ltl_inline = function
       | LTrue -> "true"
@@ -210,7 +210,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
     let inline_atom_names s =
       List.fold_left
         (fun acc (name, e) ->
-          let by = Ast_pretty.string_of_iexpr e in
+          let by = Logic_pretty.string_of_iexpr e in
           let acc = replace_all ~sub:("{" ^ name ^ "} = {true}") ~by acc in
           let acc = replace_all ~sub:("{" ^ name ^ "} = {false}") ~by:("not " ^ by) acc in
           let acc = replace_all ~sub:("{" ^ name ^ "}") ~by acc in
@@ -240,7 +240,7 @@ let dot_residual_program ?(show_labels = false) (p : Ast.program) : string * str
         if not show_labels then
           Buffer.add_string label_buf
             (Printf.sprintf "node:\n  id: %s\n  formula: %s\n\n" node_id
-               (strip_braces (Ast_pretty.string_of_ltl f))))
+               (strip_braces (Logic_pretty.string_of_ltl f))))
       states;
     List.iter
       (fun (i, guard, j) ->
@@ -273,7 +273,7 @@ let dot_monitor_program ?(show_labels = false) (p : Ast.program) : string * stri
                    sem_init_state = sem.sem_init_state;
                  };
                source_info = { assumes = []; guarantees = []; state_invariants = [] };
-               temporal_layout = Collect.build_pre_k_infos n;
+               temporal_layout = Pre_k_collect.build_pre_k_infos n;
                summaries = [];
                init_invariant_goals = [];
              }

@@ -42,7 +42,7 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     in
     product_formulas @ Ir_formula.values node.init_invariant_goals
   in
-  Collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
+  Pre_k_collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
     ~fo_formulas:summary_formulas
     ~ltl:(node.source_info.assumes @ node.source_info.guarantees)
@@ -56,7 +56,7 @@ let lower_formula ~(node_name : Ast.ident) ~(temporal_bindings : Fo_specs.tempor
       failwith
         (Printf.sprintf
            "temporal_lower: unable to lower formula for node %s: %s"
-           node_name (Ast_pretty.string_of_fo f.logic))
+           node_name (Logic_pretty.string_of_fo f.logic))
   | Some logic -> { f with logic = simplify_fo logic }
 
 let run_node (node : Abs.node_ir) : Abs.node_ir =

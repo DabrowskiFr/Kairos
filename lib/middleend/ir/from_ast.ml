@@ -24,7 +24,7 @@ module PT = Product_types
 let ( let* ) = Result.bind
 
 let temporal_layout_of_ast_node (n : Ast.node) : Ir.temporal_layout =
-  Collect.build_pre_k_infos n
+  Pre_k_collect.build_pre_k_infos n
 
 let rec stmt_contains_call (s : Ast.stmt) : bool =
   match s.stmt with

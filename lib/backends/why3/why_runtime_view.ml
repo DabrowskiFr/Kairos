@@ -21,7 +21,7 @@
 open Ast
 
 module Abs = Ir
-open Collect
+open Pre_k_collect
 
 let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula list =
   List.sort_uniq

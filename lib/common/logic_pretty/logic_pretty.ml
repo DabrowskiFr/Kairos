@@ -16,19 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Why3
-open Ptree
 open Ast
 open Fo_formula
-
-let string_of_qid (q : Ptree.qualid) : string =
-  let rec aux = function
-    | Ptree.Qident id -> id.id_str
-    | Ptree.Qdot (q, id) -> aux q ^ "." ^ id.id_str
-  in
-  aux q
-
-let string_of_const (c : Constant.constant) : string = Format.asprintf "%a" Constant.print_def c
 
 let string_of_relop (op : relop) : string =
   match op with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="

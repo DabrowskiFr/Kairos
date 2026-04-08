@@ -20,9 +20,7 @@
 
 open Ast
 open Ast_builders
-open Generated_names
 open Temporal_support
-open Ast_pretty
 
 let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
   let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in

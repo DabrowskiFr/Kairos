@@ -18,9 +18,8 @@
 
 open Ast
 open Ast_builders
-open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_formula
 
 let rec collect_atoms_ltl (f : ltl) (acc : fo_atom list) : fo_atom list =
@@ -34,26 +33,10 @@ let rec collect_atoms_ltl (f : ltl) (acc : fo_atom list) : fo_atom list =
 and collect_atoms_fo (f : fo_atom) (acc : fo_atom list) : fo_atom list =
   if List.exists (( = ) f) acc then acc else f :: acc
 
-let collect_atoms_from_node (n : Ast.node) : fo_atom list =
-  let spec = Ast.specification_of_node n in
-  let acc =
-    List.fold_left
-      (fun acc f -> collect_atoms_ltl f acc)
-      [] (spec.spec_assumes @ spec.spec_guarantees)
-  in
-  List.fold_left (fun acc inv -> collect_atoms_ltl inv.formula acc) acc spec.spec_invariants_state_rel
-
-let transition_fo (_t : Ast.transition) : ltl list = []
-
 let conj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
-
-let conj_ltl (fs : ltl list) : ltl option =
-  match fs with
-  | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> LAnd (acc, x)) f rest)
 
 let relop_to_binop (r : relop) : binop =
   match r with REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge
@@ -314,7 +297,7 @@ let fo_formula_of_non_temporal_ltl_exn (f : ltl) : Fo_formula.t =
   | None ->
       failwith
         (Printf.sprintf "fo_formula_of_non_temporal_ltl_exn: temporal operator in %s"
-           (Ast_pretty.string_of_ltl f))
+           (Logic_pretty.string_of_ltl f))
 
 let rec replace_atoms_ltl (atom_map : (fo_atom * ident) list) (f : ltl) : ltl =
   match f with
@@ -337,9 +320,6 @@ and replace_atoms_fo (atom_map : (fo_atom * ident) list) (f : fo_atom) : fo_atom
 let replace_atoms_invariants_state_rel (atom_map : (fo_atom * ident) list)
     (invs : invariant_state_rel list) : invariant_state_rel list =
   List.map (fun inv -> { inv with formula = replace_atoms_ltl atom_map inv.formula }) invs
-
-let replace_atoms_transition (_atom_map : (fo_atom * ident) list) (t : Ast.transition) : Ast.transition =
-  t
 
 (* Fold-specific helpers removed. *)
 

@@ -21,14 +21,14 @@ open Fo_formula
 open Ast_builders
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
 open Ltl_valuation
 
 type guard = Automaton_types.guard
 
 let guard_to_formula (g : guard) : string =
-  Ast_pretty.string_of_fo g
+  Logic_pretty.string_of_fo g
 
 let sanitize_ident (s : string) : string =
   (* Normalize an arbitrary string into a safe, lowercase identifier. *)
@@ -68,7 +68,7 @@ let make_atom_names (atom_exprs : (fo_atom * iexpr) list) : string list =
   in
   List.map
     (fun (_atom, expr) ->
-      let base = "atom_" ^ sanitize_ident (Ast_pretty.string_of_iexpr expr) in
+      let base = "atom_" ^ sanitize_ident (Logic_pretty.string_of_iexpr expr) in
       fresh base)
     atom_exprs
 
@@ -102,7 +102,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.ltl list) :
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
   in
-  let pre_k_map = Collect.build_pre_k_infos n_ast in
+  let pre_k_map = Pre_k_collect.build_pre_k_infos n_ast in
   let inputs = List.map (fun v -> v.vname) sem.sem_inputs in
   let atoms_all = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltls |> List.sort_uniq compare in
   let atom_exprs, skipped =
@@ -115,7 +115,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.ltl list) :
   in
   if skipped <> [] then (
     let lines =
-      List.rev skipped |> List.map (fun a -> "  - " ^ Ast_pretty.string_of_fo_atom a) |> String.concat "\n"
+      List.rev skipped |> List.map (fun a -> "  - " ^ Logic_pretty.string_of_fo_atom a) |> String.concat "\n"
     in
     prerr_endline "Non-translatable monitor atoms:";
     prerr_endline lines;

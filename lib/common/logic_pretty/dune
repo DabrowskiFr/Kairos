@@ -1,0 +1,6 @@
+(library
+ (name kairos_logic_pretty)
+ (public_name kairos.logic_pretty)
+ (wrapped false)
+ (modules logic_pretty)
+ (libraries kairos_ast kairos_fo_formula))

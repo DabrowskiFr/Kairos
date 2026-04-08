@@ -1,6 +1,0 @@
-(library
- (name kairos_ast_pretty)
- (public_name kairos.ast_pretty)
- (wrapped false)
- (modules ast_pretty)
- (libraries kairos_ast kairos_fo_formula why3))

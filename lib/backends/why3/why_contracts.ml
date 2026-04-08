@@ -23,11 +23,11 @@ open Provenance
 open Ptree
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Why_term_support
 open Ast
 open Formula_origin
-open Collect
+open Pre_k_collect
 open Why_compile_expr
 open Why_labels
 
@@ -237,7 +237,7 @@ let build_labels (ctx : label_context) : string list * string list =
 let rec term_has_old (t : Ptree.term) : bool =
   match t.term_desc with
   | Tapply (fn, _arg) -> begin
-      match fn.term_desc with Tident q -> Ast_pretty.string_of_qid q = "old" | _ -> term_has_old fn
+      match fn.term_desc with Tident q -> string_of_qid q = "old" | _ -> term_has_old fn
     end
   | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
   | Tnot a -> term_has_old a

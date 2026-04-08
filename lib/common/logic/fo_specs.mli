@@ -26,23 +26,9 @@
 (** Collect atomic first-order formulas referenced by an LTL formula. *)
 val collect_atoms_ltl : Ast.ltl -> Ast.fo_atom list -> Ast.fo_atom list
 
-(** Collect atomic first-order formulas referenced by a first-order formula. *)
-val collect_atoms_fo : Ast.fo_atom -> Ast.fo_atom list -> Ast.fo_atom list
-
-(** Collect atom formulas from node-level specifications and invariants. *)
-val collect_atoms_from_node : Ast.node -> Ast.fo_atom list
-
-(** {1 Transition Helpers} *)
-
-(** Flatten transition formulas into a single list. *)
-val transition_fo : Ast.transition -> Ast.ltl list
-
 (** Conjoin a list of first-order formulas, or return [None] for an empty
     list. *)
 val conj_fo : Fo_formula.t list -> Fo_formula.t option
-
-(** Conjoin a list of LTL formulas, or return [None] for an empty list. *)
-val conj_ltl : Ast.ltl list -> Ast.ltl option
 
 (** {1 Expression Conversion} *)
 
@@ -145,9 +131,6 @@ val replace_atoms_fo : (Ast.fo_atom * Ast.ident) list -> Ast.fo_atom -> Ast.fo_a
 (** Replace atom formulas inside state invariants. *)
 val replace_atoms_invariants_state_rel :
   (Ast.fo_atom * Ast.ident) list -> Ast.invariant_state_rel list -> Ast.invariant_state_rel list
-
-(** Replace atom formulas inside a transition. *)
-val replace_atoms_transition : (Ast.fo_atom * Ast.ident) list -> Ast.transition -> Ast.transition
 
 (** {1 Instrumentation Specs} *)
 

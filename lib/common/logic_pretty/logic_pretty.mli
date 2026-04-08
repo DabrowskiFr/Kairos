@@ -16,16 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Stage-specific type aliases used to make pipeline intent explicit. *)
-
-(* Parsed AST, directly from the frontend. *)
-type parsed = Ast.program
-
-(* Enriched normalized program after contract generation/initial goals. *)
-type contracts_stage = Ir.node_ir list
-
-(* Enriched normalized program after instrumentation. *)
-type instrumentation_stage = Ir.node_ir list
-
-(* Enriched normalized program ready for Why3-side compilation. *)
-type why_stage = Ir.node_ir list
+val string_of_relop : Ast.relop -> string
+val string_of_iexpr : ?ctx:int -> Ast.iexpr -> string
+val string_of_hexpr : Ast.hexpr -> string
+val string_of_fo_atom : ?ctx:int -> Ast.fo_atom -> string
+val string_of_fo : ?ctx:int -> Fo_formula.t -> string
+val string_of_ltl : ?ctx:int -> Ast.ltl -> string

@@ -3,4 +3,4 @@
  (public_name kairos.automata)
  (wrapped false)
  (modules automaton_types)
- (libraries kairos_ast kairos_logic why3 re))
+ (libraries kairos_ast kairos_fo_formula))
