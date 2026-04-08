@@ -1,5 +1,0 @@
-(library
- (name kairos_why_core_support)
- (wrapped false)
- (modules why_term_support)
- (libraries kairos_ast kairos_generated_names kairos_ast_pretty kairos_temporal_support why3))

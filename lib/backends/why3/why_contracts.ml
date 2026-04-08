@@ -53,9 +53,170 @@ type link_contracts = {
   link_invariants : Ptree.term list;
 }
 
+type label_context = {
+  kernel_first : bool;
+  pre : Ptree.term list;
+  post : Ptree.term list;
+  transition_requires_pre : Ptree.term list;
+  transition_requires_pre_terms : (Ptree.term * string) list;
+  link_terms_pre : Ptree.term list;
+  link_terms_post : Ptree.term list;
+  link_invariants : Ptree.term list;
+  post_contract_user : Ptree.term list;
+}
+
 let pure_translation = ref false
 let set_pure_translation (b : bool) : unit = pure_translation := b
 let get_pure_translation () : bool = !pure_translation
+
+let origin_label = function
+  | Some UserContract -> "User contract"
+  | Some Invariant -> "User invariant"
+  | Some GuaranteeAutomaton -> "Guarantee automaton"
+  | Some GuaranteeViolation -> "Guarantee violation"
+  | Some GuaranteePropagation -> "Guarantee propagation"
+  | Some AssumeAutomaton -> "Assume automaton"
+  | Some ProgramGuard -> "Program guard"
+  | Some StateStability -> "State stability"
+  | Some Instrumentation -> "Instrumentation"
+  | Some Internal -> "Internal"
+  | None -> "Unknown"
+
+let compute_transition_contracts ~(env : env)
+    ~(product_transitions : Why_runtime_view.runtime_product_transition_view list)
+    ~(post_contract_user : Ptree.term list) :
+    transition_clauses =
+  let compile_require ((f : Ir.summary_formula), label) =
+    let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
+    [ Why_compile_expr.compile_local_fo_formula_term ~in_post:false env f.logic ]
+    |> List.map (fun t -> mk_term (Tattr (rid_attr, t)))
+    |> List.map (fun t -> (t, label))
+  in
+  let transition_requires_pre_terms =
+    product_transitions
+    |> List.concat_map (fun (t : Why_runtime_view.runtime_product_transition_view) ->
+           List.map (fun (f : Ir.summary_formula) -> (f, origin_label f.meta.origin)) t.requires
+           |> List.concat_map compile_require)
+  in
+  let transition_requires_pre = List.map fst transition_requires_pre_terms in
+  let transition_requires_post = transition_requires_pre in
+  {
+    transition_requires_pre_terms;
+    transition_requires_pre;
+    post_contract_terms = post_contract_user @ transition_requires_post;
+    pure_post = [];
+    post_terms = [];
+    post_terms_vcid = [];
+  }
+
+let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
+    ~(hexpr_needs_old : Ast.hexpr -> bool) :
+    link_contracts =
+  let link_terms_pre, link_terms_post =
+    List.fold_left
+      (fun (pre, post) inv ->
+        let lhs = term_of_var env inv.inv_id in
+        let rhs = compile_hexpr ~prefer_link:false ~in_post:true env inv.inv_expr in
+        let t = term_eq lhs rhs in
+        if hexpr_needs_old inv.inv_expr then (pre, t :: post) else (t :: pre, t :: post))
+      ([], []) runtime.user_invariants
+  in
+  let output_links =
+    let rec last_assigned_var (out : Ast.ident) (stmts : Ast.stmt list) =
+      match stmts with
+      | [] -> None
+      | s :: rest -> (
+          match s.stmt with
+          | SAssign (x, e) when x = out -> begin
+              match e.iexpr with
+              | IVar v -> Some v
+              | _ -> last_assigned_var out rest
+            end
+          | _ -> last_assigned_var out rest)
+    in
+    List.filter_map
+      (fun out ->
+        let assigns =
+          List.filter_map
+            (fun (t : Why_runtime_view.runtime_transition_view) ->
+              last_assigned_var out (List.rev t.body))
+            runtime.transitions
+        in
+        match assigns with
+        | [] -> None
+        | v :: _ ->
+            if List.length assigns = List.length runtime.transitions
+               && List.for_all (( = ) v) assigns
+            then Some (term_eq (term_of_var env out) (term_of_var env v))
+            else None)
+      (List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.outputs)
+  in
+  {
+    link_terms_pre;
+    link_terms_post;
+    link_invariants = output_links;
+  }
+
+let build_labels (ctx : label_context) : string list * string list =
+  let pre_out = List.rev ctx.pre in
+  let post_out = List.rev ctx.post in
+  let group_terms_by_pre terms = List.filter (fun t -> List.mem t pre_out) terms in
+  let group_terms_by_post terms = List.filter (fun t -> List.mem t post_out) terms in
+  let contains_sub s sub =
+    let len_s = String.length s in
+    let len_sub = String.length sub in
+    let rec loop i =
+      if i + len_sub > len_s then false
+      else if String.sub s i len_sub = sub then true
+      else loop (i + 1)
+    in
+    if len_sub = 0 then true else loop 0
+  in
+  let split_link_terms terms =
+    List.fold_right
+      (fun t (atom, user) ->
+        let s = Why_term_support.string_of_term t in
+        if contains_sub s "atom_" then (t :: atom, user) else (atom, t :: user))
+      terms ([], [])
+  in
+  let atom_pre, user_pre = split_link_terms ctx.link_terms_pre in
+  let atom_post, user_post = split_link_terms ctx.link_terms_post in
+  let pre_groups =
+    if ctx.kernel_first then
+      [
+        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
+        ("Internal links", group_terms_by_pre ctx.link_invariants);
+      ]
+    else
+      [
+        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
+        ("Atoms", group_terms_by_pre atom_pre);
+        ("User invariants", group_terms_by_pre user_pre);
+        ("Internal links", group_terms_by_pre ctx.link_invariants);
+      ]
+  in
+  let post_groups =
+    if ctx.kernel_first then
+      [ ("Internal links", group_terms_by_post ctx.link_invariants) ]
+    else
+      [
+        ("User contract ensures", group_terms_by_post ctx.post_contract_user);
+        ("Atoms", group_terms_by_post atom_post);
+        ("User invariants", group_terms_by_post user_post);
+        ("Internal links", group_terms_by_post ctx.link_invariants);
+      ]
+  in
+  let label_for_term groups overrides t =
+    match List.find_opt (fun (term, _) -> term = t) overrides with
+    | Some (_, lbl) -> lbl
+    | None -> (
+        match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
+        | Some (lbl, _) -> lbl
+        | None -> "Other")
+  in
+  let pre_labels = List.map (label_for_term pre_groups ctx.transition_requires_pre_terms) pre_out in
+  let post_labels = List.map (label_for_term post_groups []) post_out in
+  (pre_labels, post_labels)
 
 let rec term_has_old (t : Ptree.term) : bool =
   match t.term_desc with
@@ -107,19 +268,6 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
   let _nodes = nodes in
   let env = info.env in
   let hexpr_needs_old = info.hexpr_needs_old in
-  let origin_label = function
-    | Some UserContract -> "User contract"
-    | Some Invariant -> "User invariant"
-    | Some GuaranteeAutomaton -> "Guarantee automaton"
-    | Some GuaranteeViolation -> "Guarantee violation"
-    | Some GuaranteePropagation -> "Guarantee propagation"
-    | Some AssumeAutomaton -> "Assume automaton"
-    | Some ProgramGuard -> "Program guard"
-    | Some StateStability -> "State stability"
-    | Some Instrumentation -> "Instrumentation"
-    | Some Internal -> "Internal"
-    | None -> "Unknown"
-  in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
   in
@@ -160,8 +308,8 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
     if !pure_translation then [] else []
   in
   let transition_clauses =
-    Why_contract_plan.compute_transition_contracts ~env
-      ~product_transitions:runtime.product_transitions ~post_contract_user
+    compute_transition_contracts ~env ~product_transitions:runtime.product_transitions
+      ~post_contract_user
   in
   let transition_requires_pre_terms = transition_clauses.transition_requires_pre_terms in
   let transition_requires_pre = transition_clauses.transition_requires_pre in
@@ -172,7 +320,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
   let compiled_step_contracts = List.map compile_step_contract runtime.product_transitions in
   let pre_contract = transition_requires_pre in
   let link_contracts =
-    Why_contract_plan.compute_link_contracts ~env ~runtime ~hexpr_needs_old
+    compute_link_contracts ~env ~runtime ~hexpr_needs_old
   in
   let link_terms_pre = link_contracts.link_terms_pre in
   let link_terms_post = link_contracts.link_terms_post in
@@ -197,7 +345,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
   let transition_requires_pre_terms =
     List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) transition_requires_pre_terms
   in
-  let label_context : Why_contract_labels.label_context =
+  let label_context : label_context =
     {
       kernel_first = false;
       pre;
@@ -210,7 +358,7 @@ let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_in
       post_contract_user;
     }
   in
-  let pre_labels, post_labels = Why_contract_labels.build_labels label_context in
+  let pre_labels, post_labels = build_labels label_context in
   let build_label_opts (labeled : (Ptree.term * string) list) (terms : Ptree.term list)
       ~(is_candidate : Ptree.term -> bool) =
     let buckets = Hashtbl.create 64 in

@@ -4,10 +4,9 @@
  (modules
  emit pipeline_why
   why_types why_core why_compile_expr why_env why_runtime_view
-  why_contract_plan why_contracts
-  why_contract_labels)
+  why_contracts why_term_support)
  (libraries
   kairos_ast kairos_provenance kairos_logic kairos_stage_types kairos_stage_names kairos_logging
   kairos_ir kairos_proof_kernel_types kairos_generated_names kairos_proof_kernel_naming kairos_ast_pretty kairos_temporal_support
-  kairos_why_core_support kairos_why_contract_support proof_obligation_ir_render
+  proof_obligation_ir_render
   kairos_pipeline_types kairos_external_why3 kairos_external_z3 why3))
