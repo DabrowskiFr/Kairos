@@ -85,9 +85,6 @@ let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr
            | [] -> None
          else None)
 
-let pre_k_var_of_hexpr ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : ident option =
-  latest_temporal_slot ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
-
 let hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
     ~(temporal_bindings : temporal_binding list) (h : hexpr) : iexpr option =
   let _ = (inputs, var_types) in

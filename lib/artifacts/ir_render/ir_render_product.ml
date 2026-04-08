@@ -224,18 +224,6 @@ let mathify_formula (s : string) : string =
   |> replace_all ~pattern:"true" ~by:"⊤"
   |> replace_all ~pattern:"false" ~by:"⊥"
 
-let rec top_level_disjuncts (f : Fo_formula.t) : Fo_formula.t list =
-  match f with FOr (a, b) -> top_level_disjuncts a @ top_level_disjuncts b | x -> [ x ]
-
-let pretty_dot_formula (f : Fo_formula.t) : string =
-  match top_level_disjuncts f with
-  | [ x ] -> x |> pretty_product_formula |> mathify_formula
-  | xs ->
-      xs
-      |> List.map (fun x -> x |> pretty_product_formula |> mathify_formula)
-      |> String.concat ", "
-      |> Printf.sprintf "{%s}"
-
 let pretty_plain_dot_formula (f : Fo_formula.t) : string =
   f |> pretty_product_formula |> mathify_formula
 
@@ -337,17 +325,6 @@ let product_node_fill (s : PT.product_state) ~(analysis : Product_analysis.analy
     ("#f9ead7", "#b26a1f")
   else ("white", "#6b7280")
 
-let pretty_step_class = function
-  | PT.Safe -> "safe"
-  | PT.Bad_assumption -> "bad_A"
-  | PT.Bad_guarantee -> "bad_G"
-
-let pretty_edge_ref ~prefix ~(edge : PT.automaton_edge) ~(bad_idx : int) =
-  let src, _guard, dst = edge in
-  Printf.sprintf "%s[%s → %s]" prefix
-    (pretty_aut_state ~prefix ~idx:src ~bad_idx)
-    (pretty_aut_state ~prefix ~idx:dst ~bad_idx)
-
 let tau_alias (i : int) : string = "τ" ^ product_subscript_digits i
 
 let split_all_on sep s =
@@ -389,46 +366,6 @@ let wrap_formula_lines ?(max_width = 72) (s : string) : string list =
     else
       let by_and = split_all_on " ∧ " s in
       if List.length by_and > 1 then join_wrapped " ∧ " by_and else [ s ]
-
-let add_bottom_formula_table ?(multiline = false) ?(show_title = true) buf ~title
-    ~(rows : (string * string) list) =
-  if rows <> [] then (
-    Buffer.add_string buf "  label=<\n";
-    Buffer.add_string buf "    <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
-    if show_title then
-      Buffer.add_string buf
-        (Printf.sprintf
-           "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
-           (escape_html_label title));
-    List.iter
-      (fun (alias, formula) ->
-        if multiline then
-          let lines = String.split_on_char '\n' formula in
-          match lines with
-          | [] -> ()
-          | first :: rest ->
-              Buffer.add_string buf
-                (Printf.sprintf
-                   "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD \
-                    ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">::=</FONT></TD><TD ALIGN=\"LEFT\"><FONT \
-                    POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
-                   (escape_html_label alias) (escape_html_label first));
-              List.iter
-                (fun line ->
-                  Buffer.add_string buf
-                    (Printf.sprintf
-                       "      <TR><TD></TD><TD></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
-                       (escape_html_label line)))
-                rest
-        else
-          Buffer.add_string buf
-            (Printf.sprintf
-               "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD \
-                ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">::=</FONT></TD><TD ALIGN=\"LEFT\"><FONT \
-                POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
-               (escape_html_label alias) (escape_html_label formula)))
-      rows;
-    Buffer.add_string buf "    </TABLE>>;\n")
 
 type merged_product_edge = {
   src : PT.product_state;

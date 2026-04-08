@@ -140,13 +140,6 @@ let logic_bool_pred_decl ~(env : Why_term_support.env) ~(input_ports : Why_runti
       };
     ]
 
-let kernel_clause_origin_label = function
-  | Proof_kernel_types.OriginSafety -> "Kernel safety"
-  | Proof_kernel_types.OriginInitNodeInvariant -> "Kernel init node invariant"
-  | Proof_kernel_types.OriginInitAutomatonCoherence -> "Kernel init automaton coherence"
-  | Proof_kernel_types.OriginPropagationNodeInvariant -> "Kernel propagation node invariant"
-  | Proof_kernel_types.OriginPropagationAutomatonCoherence -> "Kernel propagation automaton coherence"
-
 let port_view_to_vdecl (p : Why_runtime_view.port_view) : Ast.vdecl =
   { Ast.vname = p.port_name; vty = p.port_type }
 

@@ -248,16 +248,6 @@ let string_of_clause_desc = function
 let string_of_clause_fact (fact : Proof_kernel_types.clause_fact_ir) =
   string_of_clause_time fact.time ^ " " ^ string_of_clause_desc fact.desc
 
-let string_of_rel_clause_desc = function
-  | Proof_kernel_types.RelFactProgramState st -> "ProgramState = " ^ st
-  | Proof_kernel_types.RelFactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
-  | Proof_kernel_types.RelFactPhaseFormula f -> "Phase = " ^ Ast_pretty.string_of_fo f
-  | Proof_kernel_types.RelFactFormula f -> Ast_pretty.string_of_fo f
-  | Proof_kernel_types.RelFactFalse -> "false"
-
-let string_of_rel_clause_fact (fact : Proof_kernel_types.relational_clause_fact_ir) =
-  string_of_clause_time fact.time ^ " " ^ string_of_rel_clause_desc fact.desc
-
 let simplify_display_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some s -> s | None -> f
 

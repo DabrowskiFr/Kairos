@@ -132,9 +132,6 @@ let lsp_range ~line ~c1 ~c2 =
   let end_ = lsp_position ~line ~character:c2 in
   Lsp_types.Range.create ~start ~end_
 
-let range_json ~line ~c1 ~c2 : Yojson.Safe.t =
-  lsp_range ~line ~c1 ~c2 |> Lsp_types.Range.yojson_of_t
-
 let lsp_location_json ~uri ~line ~c1 ~c2 : Yojson.Safe.t =
   Lsp_types.Location.create ~uri:(Lsp_types.DocumentUri.of_string uri) ~range:(lsp_range ~line ~c1 ~c2)
   |> Lsp_types.Location.yojson_of_t
@@ -301,8 +298,6 @@ let send_work_done_end (oc : out_channel) ~(token : string) ~(message : string) 
           ("value", `Assoc [ ("kind", `String "end"); ("message", `String message) ]);
         ])
 
-let member k = function `Assoc xs -> List.assoc_opt k xs | _ -> None
-let as_string = function Some (`String s) -> Some s | _ -> None
 let is_request id_json = Option.is_some id_json
 let id_key (id : Jsonrpc.Id.t) = Jsonrpc.Id.yojson_of_t id |> Yojson.Safe.to_string
 

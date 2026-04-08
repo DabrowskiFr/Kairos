@@ -350,9 +350,6 @@ let render_product_state (s : Ir.product_state) : string =
 let render_product_state_list (xs : Ir.product_state list) : string =
   "[" ^ String.concat ", " (List.map render_product_state xs) ^ "]"
 
-let render_user_invariant (inv : Ast.invariant_user) : string =
-  Printf.sprintf "{id=%s; expr=%s}" inv.inv_id (Ast_pretty.string_of_hexpr inv.inv_expr)
-
 let render_state_invariant (inv : Ast.invariant_state_rel) : string =
   Printf.sprintf "{state=%s; formula=%s}" inv.state (Ast_pretty.string_of_ltl inv.formula)
 

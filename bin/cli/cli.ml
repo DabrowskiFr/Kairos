@@ -91,8 +91,6 @@ let dot_dump_base (path : string) : string =
 let ensure_dot_path (path : string) : string =
   if Filename.check_suffix path ".dot" then path else path ^ ".dot"
 
-let labels_path_of_dot (dot_path : string) : string = dot_dump_base dot_path ^ ".labels"
-
 let strip_dot_legend ~(legend_id : string) (dot_text : string) : string =
   let lines = String.split_on_char '\n' dot_text in
   let rec drop_legend_block acc = function
@@ -313,23 +311,6 @@ let write_article_bundle ~out ~(artifacts : Lsp_protocol.automata_outputs) ~(nor
   write_target (prefix ^ ".canonical.txt") artifacts.canonical_text;
   write_target (prefix ^ ".canonical.dot") artifacts.canonical_dot;
   write_target (prefix ^ ".canonical.tex") artifacts.canonical_tex;
-  `Ok ()
-
-let write_dot_bundle ~out ~explicit_product (artifacts : Lsp_protocol.automata_outputs) =
-  let dot_path = ensure_dot_path out in
-  let dot_base = dot_dump_base dot_path in
-  write_target dot_path artifacts.dot_text;
-  write_target (labels_path_of_dot dot_path) artifacts.labels_text;
-  write_target (dot_base ^ ".assume.dot") artifacts.assume_automaton_dot;
-  write_target (dot_base ^ ".guarantee.dot") artifacts.guarantee_automaton_dot;
-  write_target (dot_base ^ ".assume.tex") artifacts.assume_automaton_tex;
-  write_target (dot_base ^ ".guarantee.tex") artifacts.guarantee_automaton_tex;
-  write_target
-    (dot_base ^ ".product.dot")
-    (if explicit_product then artifacts.product_dot_explicit else artifacts.product_dot);
-  write_target
-    (dot_base ^ ".product.tex")
-    (if explicit_product then artifacts.product_tex_explicit else artifacts.product_tex);
   `Ok ()
 
 let dump_mode_count args =

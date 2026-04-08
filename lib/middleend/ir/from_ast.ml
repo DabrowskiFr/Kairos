@@ -23,20 +23,6 @@ module PT = Product_types
 
 let ( let* ) = Result.bind
 
-let of_ast_summary_formula ?origin (f : Ast.ltl_o) : Ir.summary_formula =
-  {
-    logic = fo_formula_of_non_temporal_ltl_exn f.value;
-    meta = { origin; oid = f.oid; loc = f.loc };
-  }
-
-let of_ast_transition (t : Ast.transition) : Ir.transition =
-  {
-    src_state = t.src;
-    dst_state = t.dst;
-    guard_iexpr = t.guard;
-    body_stmts = t.body;
-  }
-
 let temporal_layout_of_ast_node (n : Ast.node) : Ir.temporal_layout =
   Collect.build_pre_k_infos n
 

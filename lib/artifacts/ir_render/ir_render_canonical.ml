@@ -188,19 +188,6 @@ let pretty_stmt (s : Ast.stmt) : string =
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
 
-let pretty_transition (t : Abs.transition) : string =
-  let guard =
-    match t.guard_iexpr with
-    | None -> "true"
-    | Some g -> string_of_iexpr g
-  in
-  let body =
-    match t.body_stmts with
-    | [] -> "skip"
-    | xs -> String.concat "; " (List.map pretty_stmt xs)
-  in
-  Printf.sprintf "%s -> %s when %s / %s" t.src_state t.dst_state guard body
-
 let pretty_transition_core (t : Abs.transition) : string =
   let guard =
     match t.guard_iexpr with

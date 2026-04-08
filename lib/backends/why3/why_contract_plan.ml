@@ -43,47 +43,6 @@ type link_contracts = {
   link_invariants : Ptree.term list;
 }
 
-let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinnop (a, Dterm.DTand, b))
-
-let with_guard (cond : Ptree.term) (guard : Ptree.term option) : Ptree.term =
-  match guard with None -> cond | Some g -> term_and cond g
-
-let rec qid_root = function Ptree.Qident id -> id.id_str | Ptree.Qdot (q, _) -> qid_root q
-
-let rec term_mentions_record (rec_name : string) (t : Ptree.term) : bool =
-  match t.term_desc with
-  | Tident q -> qid_root q = rec_name
-  | Tapply (fn, arg) -> term_mentions_record rec_name fn || term_mentions_record rec_name arg
-  | Tbinnop (a, _, b) | Tinnfix (a, _, b) ->
-      term_mentions_record rec_name a || term_mentions_record rec_name b
-  | Tnot a -> term_mentions_record rec_name a
-  | Tidapp (_q, args) -> List.exists (term_mentions_record rec_name) args
-  | Tif (c, t1, t2) ->
-      term_mentions_record rec_name c || term_mentions_record rec_name t1
-      || term_mentions_record rec_name t2
-  | Ttuple ts -> List.exists (term_mentions_record rec_name) ts
-  | Tattr (_attr, t) -> term_mentions_record rec_name t
-  | Tconst _ | Ttrue | Tfalse -> false
-  | _ -> false
-
-let old_if_needed (env : env) (t : Ptree.term) : Ptree.term =
-  if term_mentions_record env.rec_name t then term_old t else t
-
-let guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_view) : Ptree.term option =
-  Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
-
-let fo_mentions_var (name : Ast.ident) (f : Ast.fo_atom) : bool =
-  let hexpr_mentions_var = function
-    | Ast.HNow e | Ast.HPreK (e, _) -> begin
-        match e.iexpr with
-        | Ast.IVar v -> String.equal v name
-        | _ -> false
-      end
-  in
-  match f with
-  | Ast.FRel (h1, _, h2) -> hexpr_mentions_var h1 || hexpr_mentions_var h2
-  | Ast.FPred (_, hs) -> List.exists hexpr_mentions_var hs
-
 let origin_label = function
   | Some UserContract -> "User contract"
   | Some Invariant -> "User invariant"

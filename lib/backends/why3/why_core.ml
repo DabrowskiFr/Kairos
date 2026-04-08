@@ -31,11 +31,6 @@ let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =
   mk_term (Tbinnop (a, Dterm.DTand, b))
 
 let is_unit_expr (e : Ptree.expr) : bool = match e.expr_desc with Etuple [] -> true | _ -> false
-let fresh_if_id =
-  let c = ref 0 in
-  fun () ->
-    incr c;
-    ident (Printf.sprintf "__if_cond_%d" !c)
 
 let explicit_noop () =
   let noop = ident "__noop" in

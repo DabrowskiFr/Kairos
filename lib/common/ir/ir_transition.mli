@@ -16,12 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val of_ast_transition : Ast.transition -> Ir.transition
-
-val prioritized_program_transitions_of_ast :
-  Ast.transition list ->
-  Ir.transition list
-
 val prioritized_program_transitions_of_node :
   Ast.node ->
   Ir.transition list

@@ -358,25 +358,6 @@ let transition_of_product_step (step : runtime_product_transition_view) : runtim
   transition_of_ast ~transition_id:step.transition_id
     { Ast.src = step.src_state; dst = step.dst_state; guard = step.guard; body = step.body }
 
-let respecialize_transition_actions (t : runtime_transition_view) : runtime_transition_view =
-  let known = known_context_of_transition_guard t.guard in
-  let raw_blocks =
-    [ (ActionUser, actions_of_stmts t.body) ]
-  in
-  let blocks, _ =
-    List.fold_left
-      (fun (acc, known) (block_kind, actions) ->
-        let actions, known = simplify_actions known actions in
-        ((block_kind, actions) :: acc, known))
-      ([], known) raw_blocks
-  in
-  let action_blocks =
-    List.rev blocks
-    |> List.filter_map (fun (block_kind, block_actions) ->
-           if block_actions = [] then None else Some { block_kind; block_actions })
-  in
-  { t with action_blocks }
-
 let group_transitions (transitions : runtime_transition_view list) : transition_group_view list =
   let by_state =
     List.fold_left

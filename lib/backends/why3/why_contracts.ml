@@ -56,23 +56,6 @@ type link_contracts = {
 let pure_translation = ref false
 let set_pure_translation (b : bool) : unit = pure_translation := b
 let get_pure_translation () : bool = !pure_translation
-let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = term_bool_binop Dterm.DTand a b
-
-let contains_sub (s : string) (sub : string) : bool =
-  let len_s = String.length s in
-  let len_sub = String.length sub in
-  let rec loop i =
-    if i + len_sub > len_s then false
-    else if String.sub s i len_sub = sub then true
-    else loop (i + 1)
-  in
-  if len_sub = 0 then true else loop 0
-
-let guard_term_pre (env : env) (t : transition) : Ptree.term option =
-  Option.map (compile_term env) t.guard
-
-let with_guard (cond : Ptree.term) (guard : Ptree.term option) : Ptree.term =
-  match guard with None -> cond | Some g -> term_and cond g
 
 let rec term_has_old (t : Ptree.term) : bool =
   match t.term_desc with
@@ -86,34 +69,6 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Ttuple ts -> List.exists term_has_old ts
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
-
-let rec qid_root = function Ptree.Qident id -> id.id_str | Ptree.Qdot (q, _) -> qid_root q
-
-let rec term_mentions_record (rec_name : string) (t : Ptree.term) : bool =
-  match t.term_desc with
-  | Tident q -> qid_root q = rec_name
-  | Tapply (fn, arg) -> term_mentions_record rec_name fn || term_mentions_record rec_name arg
-  | Tbinnop (a, _, b) | Tinnfix (a, _, b) ->
-      term_mentions_record rec_name a || term_mentions_record rec_name b
-  | Tnot a -> term_mentions_record rec_name a
-  | Tidapp (_q, args) -> List.exists (term_mentions_record rec_name) args
-  | Tif (c, t1, t2) ->
-      term_mentions_record rec_name c || term_mentions_record rec_name t1
-      || term_mentions_record rec_name t2
-  | Ttuple ts -> List.exists (term_mentions_record rec_name) ts
-  | Tattr (_attr, t) -> term_mentions_record rec_name t
-  | Tconst _ | Ttrue | Tfalse -> false
-  | _ -> false
-
-let old_if_needed (env : env) (t : Ptree.term) : Ptree.term =
-  if term_mentions_record env.rec_name t then term_old t else t
-
-let guard_term_old (env : env) (t : transition) : Ptree.term option =
-  Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
-
-let runtime_guard_term_old (env : env) (t : Why_runtime_view.runtime_transition_view) :
-    Ptree.term option =
-  Option.map (fun g -> old_if_needed env (compile_term env g)) t.guard
 
 let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
   let atom_map = Hashtbl.create 16 in
@@ -146,11 +101,6 @@ let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term 
     | _ -> t
   in
   go
-
-let inline_atom_terms (env : env) (invs : invariant_user list) (terms : Ptree.term list) :
-    Ptree.term list =
-  let go = inline_atom_terms_map env invs in
-  List.map go terms
 
 let build_contracts_runtime_view ~(nodes : Ast.node list) (info : Why_env.env_info)
     (runtime : Why_runtime_view.t) : Why_types.contract_info =
