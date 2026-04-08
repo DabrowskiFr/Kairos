@@ -26,7 +26,7 @@ let read_all (fn : string) : string =
   close_in ic;
   s
 
-let parse_source_file_with_info (fn : string) : Source_file.t * Stage_info.parse_info =
+let parse_source_file_with_info (fn : string) : Source_file.t * Parse_info.t =
   let file_text = read_all fn in
   let file_hash = Digest.to_hex (Digest.string file_text) in
   let ic = open_in fn in
@@ -78,14 +78,7 @@ let parse_source_file_with_info (fn : string) : Source_file.t * Stage_info.parse
     let p = I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint in
     close_in ic;
     let source = p in
-    let info =
-      {
-        Stage_info.source_path = Some fn;
-        Stage_info.text_hash = Some file_hash;
-        Stage_info.parse_errors = [];
-        Stage_info.warnings = [];
-      }
-    in
+    let info = { Parse_info.source_path = Some fn; text_hash = Some file_hash; parse_errors = []; warnings = [] } in
     (source, info)
   with
   | Lexer.Lexing_error msg ->
@@ -101,7 +94,7 @@ let parse_source_file_with_info (fn : string) : Source_file.t * Stage_info.parse
       close_in_noerr ic;
       raise e
 
-let parse_file_with_info (fn : string) : Ast.program * Stage_info.parse_info =
+let parse_file_with_info (fn : string) : Ast.program * Parse_info.t =
   let source, info = parse_source_file_with_info fn in
   (source.nodes, info)
 

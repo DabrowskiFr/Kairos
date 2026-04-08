@@ -20,7 +20,7 @@ open Ast
 open Ast_builders
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
 
 module PT = Product_types

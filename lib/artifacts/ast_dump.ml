@@ -34,13 +34,13 @@ let rec json_stmt_of_ast (s : Ast.stmt) : Yojson.Safe.t =
           [
             ("kind", `String "assign");
             ("lhs", `String name);
-            ("rhs", `String (Ast_pretty.string_of_iexpr expr));
+            ("rhs", `String (Logic_pretty.string_of_iexpr expr));
           ]
     | Ast.SIf (cond, then_branch, else_branch) ->
         `Assoc
           [
             ("kind", `String "if");
-            ("cond", `String (Ast_pretty.string_of_iexpr cond));
+            ("cond", `String (Logic_pretty.string_of_iexpr cond));
             ("then", `List (List.map json_stmt_of_ast then_branch));
             ("else", `List (List.map json_stmt_of_ast else_branch));
           ]
@@ -48,7 +48,7 @@ let rec json_stmt_of_ast (s : Ast.stmt) : Yojson.Safe.t =
         `Assoc
           [
             ("kind", `String "match");
-            ("expr", `String (Ast_pretty.string_of_iexpr expr));
+            ("expr", `String (Logic_pretty.string_of_iexpr expr));
             ( "branches",
               `List
                 (List.map
@@ -64,7 +64,7 @@ let rec json_stmt_of_ast (s : Ast.stmt) : Yojson.Safe.t =
           [
             ("kind", `String "call");
             ("instance", `String inst);
-            ("args", `List (List.map (fun e -> `String (Ast_pretty.string_of_iexpr e)) args));
+            ("args", `List (List.map (fun e -> `String (Logic_pretty.string_of_iexpr e)) args));
             ("outs", `List (List.map (fun x -> `String x) outs));
           ]
   in
@@ -85,7 +85,7 @@ let json_transition_of_ast (t : Ast.transition) : Yojson.Safe.t =
       ( "guard",
         match t.guard with
         | None -> `Null
-        | Some g -> `String (Ast_pretty.string_of_iexpr g) );
+        | Some g -> `String (Logic_pretty.string_of_iexpr g) );
       ("body", `List (List.map json_stmt_of_ast t.body));
     ]
 
@@ -105,8 +105,8 @@ let json_node_of_ast (n : Ast.node) : Yojson.Safe.t =
           (List.map
              (fun (inst, node) -> `List [ `String inst; `String node ])
              sem.sem_instances) );
-      ("assumes", `List (List.map (fun f -> `String (Ast_pretty.string_of_ltl f)) spec.spec_assumes));
-      ("guarantees", `List (List.map (fun f -> `String (Ast_pretty.string_of_ltl f)) spec.spec_guarantees));
+      ("assumes", `List (List.map (fun f -> `String (Logic_pretty.string_of_ltl f)) spec.spec_assumes));
+      ("guarantees", `List (List.map (fun f -> `String (Logic_pretty.string_of_ltl f)) spec.spec_guarantees));
       ("transitions", `List (List.map json_transition_of_ast sem.sem_trans));
     ]
 

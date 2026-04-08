@@ -25,6 +25,18 @@ type ir_nodes = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
 }
 
+let stage_parse_info_of_frontend (info : Parse_info.t) : Stage_info.parse_info =
+  {
+    source_path = info.source_path;
+    text_hash = info.text_hash;
+    parse_errors =
+      List.map
+        (fun (e : Parse_info.parse_error) ->
+          ({ Stage_info.loc = e.loc; message = e.message } : Stage_info.parse_error))
+        info.parse_errors;
+    warnings = info.warnings;
+  }
+
 let rec stmt_contains_call (s : Ast.stmt) : bool =
   match s.stmt with
   | SCall _ -> true
@@ -58,7 +70,8 @@ let build_ast_with_info ~input_file () :
     result =
   Provenance.reset ();
   try
-    let source, parse_info = Parse_file.parse_source_file_with_info input_file in
+    let source, parse_info_front = Parse_file.parse_source_file_with_info input_file in
+    let parse_info = stage_parse_info_of_frontend parse_info_front in
     let p_parsed = source.nodes in
     match reject_calls p_parsed with
     | Error _ as err -> err
@@ -80,7 +93,7 @@ let build_ast_with_info ~input_file () :
           }
         in
         match
-          Orchestration.instrumentation_info_of_ir ~automata
+          Instrumentation_info_builder.instrumentation_info_of_ir ~automata
             ~source_program:p_automaton ir_program
         with
         | Error msg -> Error (Pipeline_types.Stage_error msg)

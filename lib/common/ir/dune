@@ -3,4 +3,4 @@
  (public_name kairos.ir)
  (wrapped false)
  (modules ir ir_shared_types ir_formula ir_transition)
- (libraries kairos_ast kairos_fo_formula kairos_logic kairos_provenance kairos_temporal_support))
+ (libraries kairos_ast kairos_core_syntax kairos_fo_formula kairos_logic kairos_provenance kairos_temporal_support))

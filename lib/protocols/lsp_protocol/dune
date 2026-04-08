@@ -11,5 +11,5 @@
  (wrapped false)
  (modules lsp_app lsp_backend lsp_services)
  (libraries
-  kairos_pipeline_types kairos_artifacts kairos_diagnostics kairos_kobj kairos_lsp_protocol
+  kairos_pipeline_types kairos_artifact_pipeline kairos_diagnostics kairos_kobj kairos_lsp_protocol
   kairos_services kairos_stage_metadata yojson str))

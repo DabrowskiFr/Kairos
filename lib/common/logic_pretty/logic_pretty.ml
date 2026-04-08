@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Ast
+open Core_syntax
 open Fo_formula
 
 let string_of_relop (op : relop) : string =

@@ -98,13 +98,23 @@ let normalize_infix (s : string) : string =
     String.sub s (String.length prefix) (String.length s - String.length prefix)
   else s
 
+let string_of_qid (q : Ptree.qualid) : string =
+  let rec aux = function
+    | Ptree.Qident id -> id.id_str
+    | Ptree.Qdot (q, id) -> aux q ^ "." ^ id.id_str
+  in
+  aux q
+
+let string_of_const (c : Why3.Constant.constant) : string =
+  Format.asprintf "%a" Why3.Constant.print_def c
+
 let rec string_of_term (t : Ptree.term) : string =
   let aux = string_of_term in
   match t.term_desc with
-  | Tconst c -> Ast_pretty.string_of_const c
+  | Tconst c -> string_of_const c
   | Ttrue -> "true"
   | Tfalse -> "false"
-  | Tident q -> Ast_pretty.string_of_qid q
+  | Tident q -> string_of_qid q
   | Tinnfix (a, op, b) ->
       let op_str = normalize_infix op.id_str in
       "(" ^ aux a ^ " " ^ op_str ^ " " ^ aux b ^ ")"
@@ -118,11 +128,11 @@ let rec string_of_term (t : Ptree.term) : string =
       in
       "(" ^ aux a ^ " " ^ op ^ " " ^ aux b ^ ")"
   | Tnot a -> "not " ^ aux a
-  | Tidapp (q, args) -> Ast_pretty.string_of_qid q ^ "(" ^ String.concat ", " (List.map aux args) ^ ")"
+  | Tidapp (q, args) -> string_of_qid q ^ "(" ^ String.concat ", " (List.map aux args) ^ ")"
   | Tat (t', id) -> if id.id_str = "old" then "old(" ^ aux t' ^ ")" else aux t' ^ "@" ^ id.id_str
   | Tapply (f, a) -> begin
       match f.term_desc with
-      | Tident q when Ast_pretty.string_of_qid q = "old" -> "old(" ^ aux a ^ ")"
+      | Tident q when string_of_qid q = "old" -> "old(" ^ aux a ^ ")"
       | _ -> aux f ^ "(" ^ aux a ^ ")"
     end
   | _ -> "?"

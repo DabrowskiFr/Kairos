@@ -45,6 +45,8 @@ val is_rec_var : env -> Ast.ident -> bool
 val term_var : env -> Ast.ident -> Why3.Ptree.term_desc
 val find_link : env -> Ast.hexpr -> Ast.ident option
 val normalize_infix : string -> string
+val string_of_qid : Why3.Ptree.qualid -> string
+val string_of_const : Why3.Constant.constant -> string
 val string_of_term : Why3.Ptree.term -> string
 val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list
 val set_why3_optimizations_enabled : bool -> unit

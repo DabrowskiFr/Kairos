@@ -43,33 +43,51 @@
    {- invariants;}
    {- program structure.}} *)
 
-(** {1 Core Types} *)
+(** {1 Core Types}
 
-(** Identifier used for variables, nodes, states, etc. *)
-type ident = string [@@deriving yojson]
+    Shared core syntax exported from {!module-Core_syntax}. *)
 
-(** Simple types for variables and expressions. *)
-type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
+type ident = Core_syntax.ident [@@deriving yojson]
 
-(** Binary operators for expressions.
-
-    Includes arithmetic, comparisons, and boolean connectives used at the
-    expression level. *)
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson]
-
-(** Unary operators for expressions. *)
-type unop = Neg | Not [@@deriving yojson]
-
-(** Source location, using 1-based line and column numbers. *)
-type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
-
-(** {2 Expressions}
-
-    Immediate expressions evaluated at the current instant. *)
-type iexpr = { iexpr : iexpr_desc; loc : loc option }
+type ty = Core_syntax.ty =
+  | TInt
+  | TBool
+  | TReal
+  | TCustom of string
 [@@deriving yojson]
 
-and iexpr_desc =
+type binop = Core_syntax.binop =
+  | Add
+  | Sub
+  | Mul
+  | Div
+  | Eq
+  | Neq
+  | Lt
+  | Le
+  | Gt
+  | Ge
+  | And
+  | Or
+[@@deriving yojson]
+
+type unop = Core_syntax.unop = Neg | Not [@@deriving yojson]
+
+type loc = Core_syntax.loc = {
+  line : int;
+  col : int;
+  line_end : int;
+  col_end : int;
+}
+[@@deriving yojson]
+
+type iexpr = Core_syntax.iexpr = {
+  iexpr : iexpr_desc;
+  loc : loc option;
+}
+[@@deriving yojson]
+
+and iexpr_desc = Core_syntax.iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
   | IVar of ident
@@ -78,24 +96,16 @@ and iexpr_desc =
   | IPar of iexpr
 [@@deriving yojson]
 
-(** {2 Historical expressions}
+type hexpr = Core_syntax.hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving yojson]
 
-    Expressions with bounded-history operators. *)
-type hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving yojson]
+type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
 
-(** Relational operators for first-order formulas over {!type-hexpr}. *)
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
-
-(** {1 Logical Formulas & Provenance} *)
-
-(** First-order formulas used in contracts and VC generation. *)
-type fo_atom =
+type fo_atom = Core_syntax.fo_atom =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
 [@@deriving yojson]
 
-(** Linear-time temporal logic over first-order atoms. *)
-type ltl =
+type ltl = Core_syntax.ltl =
   | LTrue
   | LFalse
   | LAtom of fo_atom
@@ -108,9 +118,30 @@ type ltl =
   | LW of ltl * ltl
 [@@deriving yojson]
 
-(** LTL formula annotated with a stable identifier and an optional source
-    location. *)
-type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
+type ltl_o = Core_syntax.ltl_o = {
+  value : ltl;
+  oid : int;
+  loc : loc option;
+}
+[@@deriving yojson]
+
+type vdecl = Core_syntax.vdecl = {
+  vname : ident;
+  vty : ty;
+}
+[@@deriving yojson]
+
+type invariant_user = Core_syntax.invariant_user = {
+  inv_id : ident;
+  inv_expr : hexpr;
+}
+[@@deriving show, yojson]
+
+type invariant_state_rel = Core_syntax.invariant_state_rel = {
+  state : ident;
+  formula : ltl;
+}
+[@@deriving show, yojson]
 
 (** {1 Statements & Invariants} *)
 
@@ -126,21 +157,12 @@ and stmt_desc =
   | SCall of ident * iexpr list * ident list
 [@@deriving yojson]
 
-(** Named user invariants expressed as history expressions. *)
-type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-
-(** State invariant: [formula] must hold whenever the node is in [state]. *)
-type invariant_state_rel = { state : ident; formula : ltl } [@@deriving show, yojson]
-
 (** {1 Per-pass Metadata}
 
     Per-pass metadata is documented in {!module-Stage_info} and kept separate
     from the AST. *)
 
 (** {1 Program Structure} *)
-
-(** Variable declaration. *)
-type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
 
 (** Source transition. *)
 type transition = {

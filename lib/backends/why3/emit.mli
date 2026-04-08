@@ -42,14 +42,13 @@ val compile_runtime_view :
 (* {1 Node Compilation} *)
 
 (* Pre/post labels attached to generated specs (for highlighting). *)
-type spec_groups = { pre_labels : string list; post_labels : string list }
+type spec_groups = Why_emit_types.spec_groups
 
 (* Raw comment payloads used to emit VC/goal comments. *)
-type comment_specs =
-  Ast.ltl list * Ast.ltl list * Ast.transition list * (string * string * string) list
+type comment_specs = Why_emit_types.comment_specs
 
 (* In‑memory Why3 representation of a full program. *)
-type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }
+type program_ast = Why_emit_types.program_ast
 
 val compile_program_ast_from_ir_nodes :
   ?prefix_fields:bool ->

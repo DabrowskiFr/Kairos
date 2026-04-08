@@ -22,7 +22,7 @@ open Why3
 open Ptree
 open Ast
 open Ast_builders
-open Ast_pretty
+open Logic_pretty
 open Why_term_support
 
 let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =

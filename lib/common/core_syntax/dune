@@ -1,0 +1,8 @@
+(library
+ (name kairos_core_syntax)
+ (public_name kairos.core_syntax)
+ (wrapped false)
+ (modules core_syntax)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

@@ -21,16 +21,16 @@
     This module provides a stable surface for common structural types used by
     the IR, while keeping compatibility with the current AST definitions. *)
 
-type ident = Ast.ident
-type loc = Ast.loc
-type ltl = Ast.ltl
-type ltl_o = Ast.ltl_o
-type hexpr = Ast.hexpr
-type iexpr = Ast.iexpr
+type ident = Core_syntax.ident
+type loc = Core_syntax.loc
+type ltl = Core_syntax.ltl
+type ltl_o = Core_syntax.ltl_o
+type hexpr = Core_syntax.hexpr
+type iexpr = Core_syntax.iexpr
 type stmt = Ast.stmt
-type vdecl = Ast.vdecl
-type invariant_user = Ast.invariant_user
-type invariant_state_rel = Ast.invariant_state_rel
+type vdecl = Core_syntax.vdecl
+type invariant_user = Core_syntax.invariant_user
+type invariant_state_rel = Core_syntax.invariant_state_rel
 
 (** Stable identifier attached to logical formulas across exports/reports. *)
 type formula_id = int

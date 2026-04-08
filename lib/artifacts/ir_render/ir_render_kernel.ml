@@ -19,7 +19,7 @@
 open Ast
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 module Naming = Proof_kernel_naming
 
 let render_reactive_program (p : Proof_kernel_types.reactive_program_ir) : string list =

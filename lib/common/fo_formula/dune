@@ -3,6 +3,6 @@
  (public_name kairos.fo_formula)
  (wrapped false)
  (modules fo_formula)
- (libraries kairos_ast yojson)
+ (libraries kairos_core_syntax yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

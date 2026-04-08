@@ -61,18 +61,18 @@ let render_temporal_layout (layout : Ir.temporal_layout) : string =
            (fun (h, (info : Temporal_support.pre_k_info)) ->
              let names_str = String.concat ", " info.names in
              let ty_str = render_ty info.vty in
-             Ast_pretty.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
+             Logic_pretty.string_of_hexpr h ^ " -> slot " ^ names_str ^ " : " ^ ty_str)
            m)
 
 let render_stmt (s : Ast.stmt) : string =
   match s.stmt with
-  | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
-  | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
-  | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SAssign (v, e) -> v ^ " := " ^ Logic_pretty.string_of_iexpr e
+  | SIf (c, _t, []) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->
-      "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
+      "match " ^ Logic_pretty.string_of_iexpr e ^ " { ... }"
 
 let render_stmt_list (stmts : Ast.stmt list) : string =
   match stmts with
@@ -82,14 +82,14 @@ let render_stmt_list (stmts : Ast.stmt list) : string =
 let render_ltl_list (fs : Ast.ltl list) : string =
   match fs with
   | [] -> "(none)"
-  | _ -> String.concat "\n    " (List.map Ast_pretty.string_of_ltl fs)
+  | _ -> String.concat "\n    " (List.map Logic_pretty.string_of_ltl fs)
 
 let render_fo_o_list (fs : Ir.summary_formula list) : string =
   match fs with
   | [] -> "(none)"
   | _ ->
       String.concat "\n    "
-        (List.map (fun (f : Ir.summary_formula) -> Ast_pretty.string_of_fo f.logic) fs)
+        (List.map (fun (f : Ir.summary_formula) -> Logic_pretty.string_of_fo f.logic) fs)
 
 let program_transitions_from_summaries (n : Ir.node_ir) : Ir.transition list =
   n.summaries
@@ -201,11 +201,11 @@ let render_raw_node_header (n : Ir_proof_views.raw_node) : string =
     (render_ltl_list n.guarantees)
 
 let render_raw_transition (t : Ir_proof_views.raw_transition) : string =
-  let guard_str = Ast_pretty.string_of_fo t.guard in
+  let guard_str = Logic_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.core.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Logic_pretty.string_of_iexpr e
   in
   Printf.sprintf
     "\n[transition %s -> %s]\n  guard       : %s%s\n  body        :\n    %s"
@@ -225,11 +225,11 @@ let render_raw_node (n : Ir_proof_views.raw_node) : string =
 
 let render_annotated_transition (t : Ir_proof_views.annotated_transition) : string =
   let raw = t.raw in
-  let guard_str = Ast_pretty.string_of_fo raw.guard in
+  let guard_str = Logic_pretty.string_of_fo raw.guard in
   let guard_iexpr_str =
     match raw.core.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Logic_pretty.string_of_iexpr e
   in
   let contract_lines =
     let lines = ref [] in
@@ -273,11 +273,11 @@ let render_annotated_node (n : Ir_proof_views.annotated_node) : string =
 (* ------------------------------------------------------------------ *)
 
 let render_verified_transition (t : Ir_proof_views.verified_transition) : string =
-  let guard_str = Ast_pretty.string_of_fo t.guard in
+  let guard_str = Logic_pretty.string_of_fo t.guard in
   let guard_iexpr_str =
     match t.core.guard_iexpr with
     | None -> ""
-    | Some e -> "\n  guard_iexpr : " ^ Ast_pretty.string_of_iexpr e
+    | Some e -> "\n  guard_iexpr : " ^ Logic_pretty.string_of_iexpr e
   in
   let contract_lines =
     let lines = ref [] in
@@ -342,7 +342,7 @@ let render_idents_short (xs : Ast.ident list) : string = "[" ^ String.concat ", 
 
 let render_iexpr_opt = function
   | None -> "true"
-  | Some e -> Ast_pretty.string_of_iexpr e
+  | Some e -> Logic_pretty.string_of_iexpr e
 
 let render_product_state (s : Ir.product_state) : string =
   Printf.sprintf "(%s,A%d,G%d)" s.prog_state s.assume_state_index s.guarantee_state_index
@@ -351,7 +351,7 @@ let render_product_state_list (xs : Ir.product_state list) : string =
   "[" ^ String.concat ", " (List.map render_product_state xs) ^ "]"
 
 let render_state_invariant (inv : Ast.invariant_state_rel) : string =
-  Printf.sprintf "{state=%s; formula=%s}" inv.state (Ast_pretty.string_of_ltl inv.formula)
+  Printf.sprintf "{state=%s; formula=%s}" inv.state (Logic_pretty.string_of_ltl inv.formula)
 
 let render_formula_ref (f : Ir.summary_formula) : string = Printf.sprintf "f#%d" f.meta.oid
 
@@ -432,7 +432,7 @@ let render_formula_pool ~(source_program : Ast.program option) (buf : Buffer.t)
       (fun (f : Ir.summary_formula) ->
         line ~indent:1 buf
           (Printf.sprintf "%s = {logic=%s; meta={origin=%s; oid=%d; loc=%s}}"
-             (render_formula_ref f) (Ast_pretty.string_of_fo f.logic)
+             (render_formula_ref f) (Logic_pretty.string_of_fo f.logic)
              (render_origin_opt f.meta.origin)
              f.meta.oid
              (render_loc_opt f.meta.loc)))
@@ -468,7 +468,7 @@ let render_product_contract ~name ~contract_index ~(indent : int) (buf : Buffer.
   line ~indent:(indent + 2) buf ("source_id=" ^ source_id);
   line ~indent:(indent + 2) buf ("source=" ^ render_product_state pc.identity.product_src);
   line ~indent:(indent + 2) buf
-    ("assume_guard=" ^ Ast_pretty.string_of_fo pc.identity.assume_guard);
+    ("assume_guard=" ^ Logic_pretty.string_of_fo pc.identity.assume_guard);
   line ~indent:(indent + 1) buf "summary:";
   line ~indent:(indent + 2) buf ("requires=" ^ render_formula_refs pc.requires);
   line ~indent:(indent + 2) buf ("ensures =" ^ render_formula_refs pc.ensures);
@@ -494,7 +494,7 @@ let render_product_contract ~name ~contract_index ~(indent : int) (buf : Buffer.
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf
-          ("admissible_guard=" ^ Ast_pretty.string_of_fo c.admissible_guard.logic);
+          ("admissible_guard=" ^ Logic_pretty.string_of_fo c.admissible_guard.logic);
         line ~indent:(indent + 3) buf "excluded_guard=[]")
       pc.safe_cases;
   line ~indent:(indent + 1) buf "unsafe_cases:";
@@ -508,7 +508,7 @@ let render_product_contract ~name ~contract_index ~(indent : int) (buf : Buffer.
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf
-          ("excluded_guard=" ^ Ast_pretty.string_of_fo c.excluded_guard.logic);
+          ("excluded_guard=" ^ Logic_pretty.string_of_fo c.excluded_guard.logic);
         line ~indent:(indent + 3) buf "admissible_guard=[]";
         line ~indent:(indent + 3) buf "ensures=[]";
         line ~indent:(indent + 3) buf ("excluded=" ^ render_formula_refs [ c.excluded_guard ]))
@@ -524,9 +524,9 @@ let render_node_core ~indent (buf : Buffer.t) (c : Ir_proof_views.node_core) =
 
 let render_temporal_layout_entry (h, (info : Temporal_support.pre_k_info)) : string =
   Printf.sprintf "{key=%s; h=%s; expr=%s; names=[%s]; vty=%s}"
-    (Ast_pretty.string_of_hexpr h)
-    (Ast_pretty.string_of_hexpr info.h)
-    (Ast_pretty.string_of_iexpr info.expr)
+    (Logic_pretty.string_of_hexpr h)
+    (Logic_pretty.string_of_hexpr info.h)
+    (Logic_pretty.string_of_iexpr info.expr)
     (String.concat ", " info.names)
     (render_ty_short info.vty)
 
@@ -534,7 +534,7 @@ let render_raw_transition ~indent (buf : Buffer.t) idx (t : Ir_proof_views.raw_t
   line ~indent buf
     (Printf.sprintf "r%d: %s -> %s when %s" idx t.core.src_state t.core.dst_state
        (render_iexpr_opt t.core.guard_iexpr));
-  line ~indent:(indent + 1) buf ("guard=" ^ Ast_pretty.string_of_fo t.guard);
+  line ~indent:(indent + 1) buf ("guard=" ^ Logic_pretty.string_of_fo t.guard);
   line ~indent:(indent + 1) buf
     ("body=[" ^ String.concat "; " (List.map render_stmt t.core.body_stmts) ^ "]")
 
@@ -542,7 +542,7 @@ let render_annotated_transition ~indent (buf : Buffer.t) idx (t : Ir_proof_views
   line ~indent buf
     (Printf.sprintf "a%d: %s -> %s when %s" idx t.raw.core.src_state t.raw.core.dst_state
        (render_iexpr_opt t.raw.core.guard_iexpr));
-  line ~indent:(indent + 1) buf ("guard=" ^ Ast_pretty.string_of_fo t.raw.guard);
+  line ~indent:(indent + 1) buf ("guard=" ^ Logic_pretty.string_of_fo t.raw.guard);
   line ~indent:(indent + 1) buf
     ("body=[" ^ String.concat "; " (List.map render_stmt t.raw.core.body_stmts) ^ "]");
   if t.clauses.requires <> [] then
@@ -554,7 +554,7 @@ let render_verified_transition_full ~indent (buf : Buffer.t) idx (t : Ir_proof_v
   line ~indent buf
     (Printf.sprintf "v%d: %s -> %s when %s" idx t.core.src_state t.core.dst_state
        (render_iexpr_opt t.core.guard_iexpr));
-  line ~indent:(indent + 1) buf ("guard=" ^ Ast_pretty.string_of_fo t.guard);
+  line ~indent:(indent + 1) buf ("guard=" ^ Logic_pretty.string_of_fo t.guard);
   line ~indent:(indent + 1) buf
     ("body=[" ^ String.concat "; " (List.map render_stmt t.core.body_stmts) ^ "]");
   if t.clauses.requires <> [] then
@@ -578,9 +578,9 @@ let render_raw_view ~indent (buf : Buffer.t) = function
       if raw.transitions = [] then line ~indent:(indent + 2) buf "[]"
       else List.iteri (render_raw_transition ~indent:(indent + 2) buf) raw.transitions;
       line ~indent:(indent + 1) buf
-        ("assumes=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl raw.assumes) ^ "]");
+        ("assumes=[" ^ String.concat "; " (List.map Logic_pretty.string_of_ltl raw.assumes) ^ "]");
       line ~indent:(indent + 1) buf
-        ("guarantees=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl raw.guarantees) ^ "]");
+        ("guarantees=[" ^ String.concat "; " (List.map Logic_pretty.string_of_ltl raw.guarantees) ^ "]");
       line ~indent buf "}"
 
 let render_annotated_view ~indent (buf : Buffer.t) = function
@@ -613,9 +613,9 @@ let render_verified_view ~indent (buf : Buffer.t) = function
               ~contract_index:(i + 1) ~indent:(indent + 2) buf pc)
           ver.product_transitions;
       line ~indent:(indent + 1) buf
-        ("assumes=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl ver.assumes) ^ "]");
+        ("assumes=[" ^ String.concat "; " (List.map Logic_pretty.string_of_ltl ver.assumes) ^ "]");
       line ~indent:(indent + 1) buf
-        ("guarantees=[" ^ String.concat "; " (List.map Ast_pretty.string_of_ltl ver.guarantees) ^ "]");
+        ("guarantees=[" ^ String.concat "; " (List.map Logic_pretty.string_of_ltl ver.guarantees) ^ "]");
       line ~indent:(indent + 1) buf
         ("init_invariant_goals=" ^ render_formula_refs ver.init_invariant_goals);
       line ~indent buf "}"
@@ -635,11 +635,11 @@ let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
   line buf "source_info";
   line ~indent:1 buf
     ("assumes=["
-    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.source_info.assumes)
+    ^ String.concat "; " (List.map Logic_pretty.string_of_ltl n.source_info.assumes)
     ^ "]");
   line ~indent:1 buf
     ("guarantees=["
-    ^ String.concat "; " (List.map Ast_pretty.string_of_ltl n.source_info.guarantees)
+    ^ String.concat "; " (List.map Logic_pretty.string_of_ltl n.source_info.guarantees)
     ^ "]");
   line ~indent:1 buf
     ("state_invariants=["

@@ -23,7 +23,7 @@ open Ptree
 open Ast
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Why_term_support
 open Why_compile_expr
 

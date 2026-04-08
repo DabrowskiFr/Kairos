@@ -18,7 +18,7 @@
 
 open Ast
 open Generated_names
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
 open Fo_formula
 

@@ -37,7 +37,7 @@ let validate_ltl_weak_until_positivity ~(context : string) (f : ltl) : unit =
           failwith
             (Printf.sprintf
                "Unsupported LTL formula in %s: weak-until W appears in negative position: %s" context
-               (Ast_pretty.string_of_ltl f));
+               (Logic_pretty.string_of_ltl f));
         go ~positive a;
         go ~positive b
   in

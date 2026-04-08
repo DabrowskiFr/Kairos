@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Ast_pretty
+open Logic_pretty
 open Fo_formula
 
 let mk_iexpr iexpr = { iexpr; loc = None }

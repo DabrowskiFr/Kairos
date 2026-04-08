@@ -20,7 +20,7 @@ open Ast
 open Fo_specs
 open Fo_time
 open Formula_origin
-open Ast_pretty
+open Logic_pretty
 
 module Abs = Ir
 

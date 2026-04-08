@@ -19,7 +19,7 @@
 type t =
   | FTrue
   | FFalse
-  | FAtom of Ast.fo_atom
+  | FAtom of Core_syntax.fo_atom
   | FNot of t
   | FAnd of t * t
   | FOr of t * t

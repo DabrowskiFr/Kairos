@@ -22,17 +22,17 @@ let indent_str (n : int) : string = String.make (2 * max 0 n) ' '
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with
-  | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Ast_pretty.string_of_iexpr e ^ ";" ]
+  | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Logic_pretty.string_of_iexpr e ^ ";" ]
   | SSkip -> [ indent_str indent_level ^ "skip;" ]
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SIf (c, t, e) ->
-      [ indent_str indent_level ^ "if " ^ Ast_pretty.string_of_iexpr c ^ " then" ]
+      [ indent_str indent_level ^ "if " ^ Logic_pretty.string_of_iexpr c ^ " then" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) t
       @ [ indent_str indent_level ^ "else" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) e
       @ [ indent_str indent_level ^ "end;" ]
   | SMatch (e, branches, dflt) ->
-      [ indent_str indent_level ^ "match " ^ Ast_pretty.string_of_iexpr e ^ " with" ]
+      [ indent_str indent_level ^ "match " ^ Logic_pretty.string_of_iexpr e ^ " with" ]
       @ List.concat_map
           (fun (ctor, body) ->
             [ indent_str (indent_level + 1) ^ "| " ^ ctor ^ " ->" ]
@@ -47,7 +47,7 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
 
 let render_transition ?(indent : int = 0) (t : Ir.transition) : string =
   let guard_s =
-    match t.guard_iexpr with None -> "" | Some g -> " when " ^ Ast_pretty.string_of_iexpr g
+    match t.guard_iexpr with None -> "" | Some g -> " when " ^ Logic_pretty.string_of_iexpr g
   in
   let header = indent_str indent ^ "transition " ^ t.src_state ^ " -> " ^ t.dst_state ^ guard_s ^ " {" in
   let body = List.concat_map (fun s -> render_stmt s (indent + 1)) t.body_stmts in
@@ -104,10 +104,10 @@ let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_
     |> List.filter_map Fun.id
   in
   let assumes =
-    List.map (fun a -> "assume " ^ Ast_pretty.string_of_ltl a ^ ";") n.source_info.assumes
+    List.map (fun a -> "assume " ^ Logic_pretty.string_of_ltl a ^ ";") n.source_info.assumes
   in
   let guarantees =
-    List.map (fun g -> "guarantee " ^ Ast_pretty.string_of_ltl g ^ ";") n.source_info.guarantees
+    List.map (fun g -> "guarantee " ^ Logic_pretty.string_of_ltl g ^ ";") n.source_info.guarantees
   in
   let trans =
     List.map (render_transition ~indent:1) (program_transitions_of_node ~source_program n)

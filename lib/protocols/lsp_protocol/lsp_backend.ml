@@ -128,7 +128,7 @@ let kobj_contracts (req : Lsp_protocol.kobj_summary_request) =
       ~default:Engine_service.Default
   in
   match read_or_compile_kobj ~engine ~input_file:req.input_file with
-  | Ok obj -> Ok (Kairos_object.render_product_contracts obj)
+  | Ok obj -> Ok (Kairos_object.render_product_summaries obj)
   | Error msg -> Error msg
 
 let normalized_program (req : Lsp_protocol.kobj_summary_request) =

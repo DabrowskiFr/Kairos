@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Ast_pretty
+open Logic_pretty
 open Temporal_support
 
 module Abs = Ir
@@ -181,12 +181,12 @@ let pretty_fo (f : Fo_formula.t) : string = f |> string_of_fo |> strip_braces |>
 
 let pretty_stmt (s : Ast.stmt) : string =
   match s.stmt with
-  | SAssign (v, e) -> v ^ " := " ^ Ast_pretty.string_of_iexpr e
-  | SIf (c, _t, []) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... }"
-  | SIf (c, _t, _e) -> "if " ^ Ast_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SAssign (v, e) -> v ^ " := " ^ Logic_pretty.string_of_iexpr e
+  | SIf (c, _t, []) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
-  | SMatch (e, _branches, _default) -> "match " ^ Ast_pretty.string_of_iexpr e ^ " { ... }"
+  | SMatch (e, _branches, _default) -> "match " ^ Logic_pretty.string_of_iexpr e ^ " { ... }"
 
 let pretty_transition_core (t : Abs.transition) : string =
   let guard =
