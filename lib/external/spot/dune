@@ -3,4 +3,4 @@
  (public_name kairos.external_spot)
  (wrapped false)
  (modules automaton_spot)
- (libraries kairos_ast kairos_logic kairos_ast_pretty kairos_external_timing unix))
+ (libraries kairos_ast kairos_ltl_valuation kairos_logic_pretty kairos_external_timing unix))

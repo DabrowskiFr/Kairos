@@ -2,9 +2,9 @@
  (name kairos_parse)
  (public_name kairos.parse)
  (wrapped false)
- (modules source_file parse_file parse_api lexer parser)
+ (modules source_file ast_provenance parse_info parse_file parse_api lexer parser)
  (private_modules lexer parser)
- (libraries kairos_ast kairos_provenance kairos_stage_types kairos_stage_metadata sedlex)
+ (libraries kairos_ast kairos_provenance sedlex)
  (preprocess
   (pps sedlex.ppx)))
 

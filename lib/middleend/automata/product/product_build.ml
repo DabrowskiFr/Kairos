@@ -19,9 +19,8 @@
 open Ast
 open Generated_names
 open Temporal_support
-open Ast_pretty
+open Logic_pretty
 open Fo_specs
-open Ltl_valuation
 open Fo_formula
 
 module Abs = Ir

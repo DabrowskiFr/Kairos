@@ -1,0 +1,6 @@
+(library
+ (name kairos_ir_proof_views)
+ (public_name kairos.ir_proof_views)
+ (wrapped false)
+ (modules ir_proof_views)
+ (libraries kairos_ast kairos_fo_formula kairos_ir))

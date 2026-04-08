@@ -4,8 +4,10 @@
  (modules compile_run engine_service pipeline_service)
  (libraries
   kairos_simulation
-  kairos_pipeline_types
-  kairos_artifacts
+ kairos_pipeline_types
+ kairos_artifact_pipeline
+ kairos_artifact_render
+  kairos_ir_proof_views
   kairos_why3
   kairos_kobj
   kairos_external_why3
