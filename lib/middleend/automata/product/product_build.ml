@@ -36,18 +36,6 @@ type automaton_view = {
   bad_idx : int;
 }
 
-type analysis = Product_analysis.analysis = {
-  exploration : PT.exploration;
-  assume_bad_idx : int;
-  guarantee_bad_idx : int;
-  guarantee_state_labels : string list;
-  assume_state_labels : string list;
-  guarantee_grouped_edges : Automaton_types.transition list;
-  assume_grouped_edges : Automaton_types.transition list;
-  guarantee_atom_map_exprs : (ident * iexpr) list;
-  assume_atom_map_exprs : (ident * iexpr) list;
-}
-
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
 let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
@@ -125,7 +113,7 @@ let classify_step ~(assume_bad_idx : int) ~(guarantee_bad_idx : int) (dst : PT.p
   else PT.Safe
 
 let analyze_node ~(build : Automaton_types.automata_build) ~(node : Abs.node_ir)
-    ~(program_transitions : Abs.transition list) : analysis =
+    ~(program_transitions : Abs.transition list) : Temporal_automata.node_data =
   let assume = make_assume_view build in
   let guarantee = make_guarantee_view build in
   let prog_outgoing = node_outgoing program_transitions in

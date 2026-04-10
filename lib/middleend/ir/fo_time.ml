@@ -101,28 +101,3 @@ let shift_fo_backward_all (f : fo_atom) : fo_atom =
   | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
   | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)
 
-let rec shift_ltl_forward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
-  let go = shift_ltl_forward_inputs ~is_input in
-  match f with
-  | LTrue | LFalse -> f
-  | LAtom a -> LAtom (shift_fo_forward_inputs ~is_input a)
-  | LNot a -> LNot (go a)
-  | LAnd (a, b) -> LAnd (go a, go b)
-  | LOr (a, b) -> LOr (go a, go b)
-  | LImp (a, b) -> LImp (go a, go b)
-  | LX a -> LX (go a)
-  | LG a -> LG (go a)
-  | LW (a, b) -> LW (go a, go b)
-
-let rec shift_ltl_backward_inputs ~(is_input : ident -> bool) (f : ltl) : ltl =
-  let go = shift_ltl_backward_inputs ~is_input in
-  match f with
-  | LTrue | LFalse -> f
-  | LAtom a -> LAtom (shift_fo_backward_inputs ~is_input a)
-  | LNot a -> LNot (go a)
-  | LAnd (a, b) -> LAnd (go a, go b)
-  | LOr (a, b) -> LOr (go a, go b)
-  | LImp (a, b) -> LImp (go a, go b)
-  | LX a -> LX (go a)
-  | LG a -> LG (go a)
-  | LW (a, b) -> LW (go a, go b)

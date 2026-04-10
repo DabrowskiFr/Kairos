@@ -16,42 +16,70 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Reconstructs the executable runtime view consumed by Why generation. *)
+(** Why3-specific intermediate representation of a Kairos node.
 
+    Reconstructs from an {!Ir.node_ir} a structured view exposing ports,
+    transitions (with guards, bodies and contracts), state-indexed branches,
+    global contracts and user invariants. All compilation and contract-building
+    modules in the backend consume this representation rather than the generic
+    IR. *)
+
+(** An input, output or local variable port. *)
 type port_view = {
   port_name : Ast.ident;
   port_type : Ast.ty;
 }
 
+(** An imperative action in the body of a transition. *)
 type runtime_action_view =
   | ActionAssign of Ast.ident * Ast.iexpr
+      (** Simple assignment [x := e]. *)
   | ActionIf of Ast.iexpr * runtime_action_view list * runtime_action_view list
+      (** Conditional branch. *)
   | ActionMatch of Ast.iexpr * (Ast.ident * runtime_action_view list) list * runtime_action_view list
+      (** Constructor match. *)
   | ActionSkip
+      (** No-op action. *)
 
+(** Category of an action block. *)
 type action_block_kind =
   | ActionUser
+      (** Block corresponding to user-written code. *)
 
+(** A group of homogeneous actions within a transition. *)
 type action_block_view = {
   block_kind : action_block_kind;
   block_actions : runtime_action_view list;
 }
 
+(** Full view of a source-program transition. *)
 type runtime_transition_view = {
   transition_id : string;
+      (** Unique transition identifier. *)
   src_state : Ast.ident;
+      (** Source control state. *)
   dst_state : Ast.ident;
+      (** Target control state. *)
   guard : Ast.iexpr option;
+      (** Triggering condition, or [None] if unconditional. *)
   requires : Ir.summary_formula list;
+      (** Preconditions from the IR. *)
   ensures : Ir.summary_formula list;
+      (** Postconditions from the IR. *)
   body : Ast.stmt list;
+      (** Raw transition body (list of statements). *)
   action_blocks : action_block_view list;
+      (** Structured body as typed action blocks. *)
 }
 
+(** Classification of a product transition with respect to guarantee violation. *)
 type runtime_step_class =
   | StepSafe
+      (** The transition does not violate any guarantee. *)
   | StepBadGuarantee
+      (** The transition is allowed to violate a guarantee (worst-case assumption). *)
 
+(** View of a transition in the program-times-monitor product (relational mode). *)
 type runtime_product_transition_view = {
   transition_id : string;
   src_state : Ast.ident;
@@ -60,23 +88,31 @@ type runtime_product_transition_view = {
   body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
+      (** Source product state (program state x guarantee state). *)
   product_dst : Ir.product_state;
+      (** Target product state. *)
   requires : Ir.summary_formula list;
   propagates : Ir.summary_formula list;
+      (** Formulas propagated from the previous state. *)
   ensures : Ir.summary_formula list;
   forbidden : Ir.summary_formula list;
+      (** Formulas whose verification is intentionally deferred. *)
 }
 
+(** Transitions sharing the same source control state, grouped for helper
+    generation in {!Why_compile}. *)
 type transition_group_view = {
   group_state : Ast.ident;
   group_transitions : runtime_transition_view list;
 }
 
+(** One arm of the pattern match on the current control state in [step]. *)
 type state_branch_view = {
   branch_state : Ast.ident;
   branch_transitions : runtime_transition_view list;
 }
 
+(** Complete view of a node, ready to be compiled to WhyML. *)
 type t = {
   node_name : Ast.ident;
   inputs : port_view list;
@@ -84,6 +120,7 @@ type t = {
   locals : port_view list;
   control_states : Ast.ident list;
   init_control_state : Ast.ident;
+      (** Initial control state (used for coherency goals). *)
   transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
   transition_groups : transition_group_view list;
@@ -92,15 +129,20 @@ type t = {
   guarantees : Ast.ltl list;
   user_invariants : Ast.invariant_user list;
   init_invariant_goals : Ir.summary_formula list;
+      (** Formulas to check at the initial state (coherency goals). *)
 }
 
-val of_node :
-  nodes:Ast.node list ->
-  Ast.node ->
-  t
+(** Reconstructs an {!Ast.transition} from a transition view,
+    giving access to generic AST accessors. *)
 val transition_to_ast : runtime_transition_view -> Ast.transition
+
+(** Reconstructs a full {!Ast.node} from the node view,
+    used by {!Why_compile} to access semantic metadata. *)
 val to_ast_node : t -> Ast.node
 
+(** Projects a product transition to a plain transition by dropping relational
+    information, used to compile its imperative body. *)
 val transition_of_product_step : runtime_product_transition_view -> runtime_transition_view
 
+(** Main entry point: builds the runtime view of a node from its IR. *)
 val of_ir_node : Ir.node_ir -> t

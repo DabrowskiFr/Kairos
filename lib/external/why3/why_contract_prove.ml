@@ -86,21 +86,27 @@ let add_answer summary (answer : Call_provers.prover_answer) =
   | Call_provers.Failure _ -> { summary with failure = summary.failure + 1 }
   | Call_provers.HighFailure _ -> { summary with failure = summary.failure + 1 }
 
-let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) =
-  let lexbuf = Lexing.from_string text in
-  Loc.set_file filename lexbuf;
-  let parsed = Lexer.parse_mlw_file lexbuf in
-  let mods = Typing.type_mlw_file env [] filename parsed in
+let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
+  let mods = Typing.type_mlw_file env [] "<generated>" ptree in
   Wstdlib.Mstr.fold
     (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
     mods []
   |> List.rev
+
+let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) =
+  let lexbuf = Lexing.from_string text in
+  Loc.set_file filename lexbuf;
+  let parsed = Lexer.parse_mlw_file lexbuf in
+  tasks_of_ptree ~env ~ptree:parsed
 
 let apply_transform name env tasks =
   List.concat_map (fun task -> Trans.apply_transform name env task) tasks
 
 let normalize_tasks ~(env : Env.env) ~(text : string) : Task.task list =
   tasks_of_text ~env ~filename:"<generated>" ~text |> apply_transform "split_vc" env
+
+let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
+  tasks_of_ptree ~env ~ptree |> apply_transform "split_vc" env
 
 let extract_trace_ids_from_attrs (attrs : Ident.Sattr.t) : int list =
   Ident.Sattr.elements attrs
@@ -237,8 +243,8 @@ let task_wids_deep (task : Task.task) : int list =
          | _ -> ());
   List.rev !wids
 
-let normalize_tasks_with_wids ~(env : Env.env) ~(text : string) : (Task.task * int list) list =
-  let tasks0 = tasks_of_text ~env ~filename:"<generated>" ~text in
+let normalize_tasks_with_wids_impl ~(env : Env.env) (tasks0 : Task.task list) :
+    (Task.task * int list) list =
   List.concat_map
     (fun task0 ->
       let parent_wids = task_wids_deep task0 in
@@ -249,6 +255,13 @@ let normalize_tasks_with_wids ~(env : Env.env) ~(text : string) : (Task.task * i
           if local_wids = [] then (t, parent_wids) else (t, local_wids))
         split)
     tasks0
+
+let normalize_tasks_with_wids ~(env : Env.env) ~(text : string) : (Task.task * int list) list =
+  normalize_tasks_with_wids_impl ~env (tasks_of_text ~env ~filename:"<generated>" ~text)
+
+let normalize_tasks_with_wids_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) :
+    (Task.task * int list) list =
+  normalize_tasks_with_wids_impl ~env (tasks_of_ptree ~env ~ptree)
 
 let find_config_file () =
   let env_opt name =
@@ -537,9 +550,7 @@ let dump_why3_tasks ~(text : string) : string list =
   in
   List.map task_to_string tasks
 
-let dump_why3_tasks_with_attrs ~(text : string) : string list =
-  let _config, _main, env, _datadir_opt = setup_env () in
-  let tasks = normalize_tasks ~env ~text in
+let dump_why3_tasks_with_attrs_impl (tasks : Task.task list) : string list =
   let attrs_to_string (attrs : Ident.Sattr.t) : string =
     Ident.Sattr.elements attrs |> List.map (fun a -> a.Ident.attr_string) |> String.concat ", "
   in
@@ -562,6 +573,14 @@ let dump_why3_tasks_with_attrs ~(text : string) : string list =
     else Buffer.contents buffer ^ "\n" ^ String.concat "\n" prop_lines ^ "\n"
   in
   List.map task_to_string tasks
+
+let dump_why3_tasks_with_attrs ~(text : string) : string list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  dump_why3_tasks_with_attrs_impl (normalize_tasks ~env ~text)
+
+let dump_why3_tasks_with_attrs_of_ptree ~(ptree : Ptree.mlw_file) : string list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  dump_why3_tasks_with_attrs_impl (normalize_tasks_of_ptree ~env ~ptree)
 
 let task_goal_wids ~(text : string) : int list list =
   let _config, _main, env, _datadir_opt = setup_env () in
@@ -963,7 +982,8 @@ let minimize_failing_hypotheses ?(timeout = 5) ?prover_cmd ~(prover : string) ~(
           let grouped_active, grouped_removed = eliminate_groups candidate_hids [] in
           Some (greedy grouped_active grouped_removed grouped_active)
 
-let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
+let dump_smt2_tasks_impl ~(prover : string) (tasks_with_wids : (Task.task * int list) list) :
+    string list =
   let config, main, env, datadir_opt = setup_env () in
   let filter = Whyconf.parse_filter_prover prover |> Whyconf.filter_prover_with_shortcut config in
   let fallback_z3 () =
@@ -1004,7 +1024,6 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
       end
   in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks_with_wids = normalize_tasks_with_wids ~env ~text in
   let task_to_smt2 task =
     let prepared = Driver.prepare_task driver task in
     let buffer = Buffer.create 4096 in
@@ -1014,6 +1033,14 @@ let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
     Buffer.contents buffer
   in
   List.map (fun (t, _wids) -> task_to_smt2 t) tasks_with_wids
+
+let dump_smt2_tasks ~(prover : string) ~(text : string) : string list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  dump_smt2_tasks_impl ~prover (normalize_tasks_with_wids ~env ~text)
+
+let dump_smt2_tasks_of_ptree ~(prover : string) ~(ptree : Ptree.mlw_file) : string list =
+  let _config, _main, env, _datadir_opt = setup_env () in
+  dump_smt2_tasks_impl ~prover (normalize_tasks_with_wids_of_ptree ~env ~ptree)
 
 let top_level_asserts (text : string) : (int * int) list =
   let len = String.length text in

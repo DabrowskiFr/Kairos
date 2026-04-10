@@ -20,7 +20,6 @@ open Ast
 open Fo_specs
 open Fo_time
 open Formula_origin
-open Logic_pretty
 
 module Abs = Ir
 
@@ -39,46 +38,13 @@ let is_input_of_node (n : Abs.node_ir) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
-let rec iexpr_mentions_current_input ~(is_input : ident -> bool) (e : Ast.iexpr) =
-  match e.iexpr with
-  | IVar name -> is_input name
-  | ILitInt _ | ILitBool _ -> false
-  | IPar inner | IUn (_, inner) -> iexpr_mentions_current_input ~is_input inner
-  | IBin (_, a, b) ->
-      iexpr_mentions_current_input ~is_input a || iexpr_mentions_current_input ~is_input b
-
-let hexpr_mentions_current_input ~(is_input : ident -> bool) = function
-  | HNow e -> iexpr_mentions_current_input ~is_input e
-  | HPreK _ -> false
-
-let rec ltl_mentions_current_input ~(is_input : ident -> bool) (f : Ast.ltl) =
-  match f with
-  | LTrue | LFalse -> false
-  | LAtom (FRel (a, _, b)) ->
-      hexpr_mentions_current_input ~is_input a || hexpr_mentions_current_input ~is_input b
-  | LAtom (FPred (_, hs)) -> List.exists (hexpr_mentions_current_input ~is_input) hs
-  | LNot inner | LX inner | LG inner -> ltl_mentions_current_input ~is_input inner
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-      ltl_mentions_current_input ~is_input a || ltl_mentions_current_input ~is_input b
-
-let reject_current_input_invariant ~(node : Abs.node_ir) (inv : invariant_state_rel) : unit =
-  let is_input = is_input_of_node node in
-  if ltl_mentions_current_input ~is_input inv.formula then
-    failwith
-      (Printf.sprintf
-         "State invariant for node %s in state %s mentions a current input (HNow on an input), \
-          which is forbidden for node-entry invariants: %s"
-         node.semantics.sem_nname inv.state (string_of_ltl inv.formula))
-
 let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
   let by_state = Hashtbl.create 16 in
   List.iter
-    (fun (inv : invariant_state_rel) ->
+    (fun (inv : Abs.state_invariant) ->
       if List.mem inv.state n.semantics.sem_states then (
-        reject_current_input_invariant ~node:n inv;
-        let inv_fo = fo_formula_of_non_temporal_ltl_exn inv.formula in
         let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
-        Hashtbl.replace by_state inv.state (inv_fo :: existing)))
+        Hashtbl.replace by_state inv.state (inv.formula :: existing)))
     n.source_info.state_invariants;
   fun st ->
     (match Hashtbl.find_opt by_state st with

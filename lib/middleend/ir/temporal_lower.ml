@@ -44,10 +44,8 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
   in
   Pre_k_collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
-    ~fo_formulas:summary_formulas
-    ~ltl:(node.source_info.assumes @ node.source_info.guarantees)
+    ~fo_formulas:summary_formulas ~ltl:[]
     ~invariants_user:[]
-    ~invariants_state_rel:node.source_info.state_invariants
 
 let lower_formula ~(node_name : Ast.ident) ~(temporal_bindings : Fo_specs.temporal_binding list)
     (f : Abs.summary_formula) : Abs.summary_formula =

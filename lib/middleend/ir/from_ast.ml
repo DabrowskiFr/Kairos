@@ -23,8 +23,39 @@ module PT = Product_types
 
 let ( let* ) = Result.bind
 
-let temporal_layout_of_ast_node (n : Ast.node) : Ir.temporal_layout =
-  Pre_k_collect.build_pre_k_infos n
+let rec fo_mentions_current_input ~(is_input : ident -> bool) (f : Fo_formula.t) =
+  let hexpr_uses_input = function
+    | HPreK _ -> false
+    | HNow e ->
+        let rec go = function
+          | { iexpr = IVar name; _ } -> is_input name
+          | { iexpr = ILitInt _ | ILitBool _; _ } -> false
+          | { iexpr = IPar e; _ } | { iexpr = IUn (_, e); _ } -> go e
+          | { iexpr = IBin (_, a, b); _ } -> go a || go b
+        in go e
+  in
+  match f with
+  | Fo_formula.FTrue | Fo_formula.FFalse -> false
+  | Fo_formula.FAtom (FRel (h1, _, h2)) -> hexpr_uses_input h1 || hexpr_uses_input h2
+  | Fo_formula.FAtom (FPred (_, hs)) -> List.exists hexpr_uses_input hs
+  | Fo_formula.FNot f -> fo_mentions_current_input ~is_input f
+  | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
+      fo_mentions_current_input ~is_input a || fo_mentions_current_input ~is_input b
+
+let convert_state_invariants (node_name : ident) (inputs : vdecl list)
+    (invs : Ast.invariant_state_rel list) : Ir.state_invariant list =
+  let input_names = List.map (fun (v : vdecl) -> v.vname) inputs in
+  let is_input x = List.mem x input_names in
+  List.map
+    (fun (inv : Ast.invariant_state_rel) ->
+      if fo_mentions_current_input ~is_input inv.formula then
+        failwith
+          (Printf.sprintf
+             "State invariant for node %s in state %s mentions a current input, \
+              which is forbidden for node-entry invariants: %s"
+             node_name inv.state (Logic_pretty.string_of_fo inv.formula));
+      { Ir.state = inv.state; formula = inv.formula })
+    invs
 
 let rec stmt_contains_call (s : Ast.stmt) : bool =
   match s.stmt with
@@ -61,9 +92,11 @@ let of_ast_node (n : Ast.node) : Ir.node_ir =
       {
         assumes = spec.spec_assumes;
         guarantees = spec.spec_guarantees;
-        state_invariants = spec.spec_invariants_state_rel;
+        state_invariants =
+          convert_state_invariants semantics.sem_nname semantics.sem_inputs
+            spec.spec_invariants_state_rel;
       };
-    temporal_layout = temporal_layout_of_ast_node n;
+    temporal_layout = [];
     summaries = [];
     init_invariant_goals = [];
   }
@@ -86,13 +119,13 @@ let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
         sem_init_state = semantics.sem_init_state;
       };
     source_info = { assumes = []; guarantees = []; state_invariants = [] };
-    temporal_layout = temporal_layout_of_ast_node source_node;
+    temporal_layout = [];
     summaries = [];
     init_invariant_goals = [];
   }
 
 let build_node_analysis ~(automata : Automata_generation.node_builds) (source_node : Ast.node) :
-    (Product_build.analysis, string) result =
+    (Temporal_automata.node_data, string) result =
   let node = analysis_context_of_source_node source_node in
   let* build =
     match List.assoc_opt node.semantics.sem_nname automata with
@@ -107,7 +140,7 @@ let build_node_analysis ~(automata : Automata_generation.node_builds) (source_no
 
 let build_analyses ~(automata : Automata_generation.node_builds)
     ~(source_nodes : (Ast.ident * Ast.node) list) :
-    ((Ast.ident * Product_build.analysis) list, string) result =
+    ((Ast.ident * Temporal_automata.node_data) list, string) result =
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
     | (node_name, source_node) :: rest ->
@@ -126,14 +159,14 @@ let product_state_of_pt (st : PT.product_state) : Ir.product_state =
     guarantee_state_index = st.guarantee_state;
   }
 
-let is_live_product_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
+let is_live_product_state ~(analysis : Temporal_automata.node_data) (st : PT.product_state) : bool =
   st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
 
-let is_relevant_product_step ~(analysis : Product_build.analysis) (step : PT.product_step) : bool =
+let is_relevant_product_step ~(analysis : Temporal_automata.node_data) (step : PT.product_step) : bool =
   is_live_product_state ~analysis step.src
   && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
 
-let classify_case ~(analysis : Product_build.analysis) (dst : PT.product_state) : PT.step_class =
+let classify_case ~(analysis : Temporal_automata.node_data) (dst : PT.product_state) : PT.step_class =
   if analysis.assume_bad_idx >= 0 && dst.assume_state = analysis.assume_bad_idx then PT.Bad_assumption
   else if analysis.guarantee_bad_idx >= 0 && dst.guarantee_state = analysis.guarantee_bad_idx then
     PT.Bad_guarantee
@@ -166,7 +199,7 @@ let automaton_outgoing (grouped : Automaton_types.transition list) :
 let edges_from_outgoing (outgoing : (int, Automaton_types.transition list) Hashtbl.t) idx =
   Hashtbl.find_opt outgoing idx |> Option.value ~default:[]
 
-let build_minimal_summaries ~(analysis : Product_build.analysis)
+let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
     ~(program_transitions : Ir.transition list) ~(node : Ir.node_ir) : Ir.product_step_summary list =
   let transition_indices = transition_indices program_transitions in
   let prog_outgoing = program_outgoing program_transitions in
@@ -290,7 +323,7 @@ let build_minimal_summaries ~(analysis : Product_build.analysis)
                 }
                  : Ir.product_step_summary))
 
-let with_minimal_summaries ~(analyses : (Ast.ident * Product_build.analysis) list)
+let with_minimal_summaries ~(analyses : (Ast.ident * Temporal_automata.node_data) list)
     ~(source_nodes : (Ast.ident * Ast.node) list)
     (nodes : Ir.node_ir list) : (Ir.node_ir list, string) result =
   let rec collect acc = function

@@ -39,9 +39,8 @@ and collect_fo (f : fo_atom) (acc : hexpr list) : hexpr list =
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
 
-let collect_pre_k_from_specs ~(fo_atom : ltl list) ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list)
-    ~(invariants_user : invariant_user list) ~(invariants_state_rel : invariant_state_rel list) :
-    hexpr list =
+let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list)
+    ~(invariants_user : invariant_user list) : hexpr list =
   let collect_pre_k_hexpr h acc =
     let acc =
       match h with HPreK _ -> if List.exists (( = ) h) acc then acc else h :: acc | _ -> acc
@@ -68,17 +67,13 @@ let collect_pre_k_from_specs ~(fo_atom : ltl list) ~(fo_formula : Fo_formula.t l
     | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
         collect_pre_k_fo_formula b (collect_pre_k_fo_formula a acc)
   in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) [] fo_atom in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_fo_formula f acc) acc fo_formula in
+  let acc = List.fold_left (fun acc f -> collect_pre_k_fo_formula f acc) [] fo_formula in
   let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
   List.fold_left (fun acc inv -> collect_pre_k_hexpr inv.inv_expr acc) acc invariants_user
-  |> fun acc ->
-  List.fold_left (fun acc inv -> collect_pre_k_ltl inv.formula acc) acc invariants_state_rel
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
     ~(fo_formulas : Fo_formula.t list) ~(ltl : ltl list)
-    ~(invariants_user : invariant_user list)
-    ~(invariants_state_rel : invariant_state_rel list) :
+    ~(invariants_user : invariant_user list) :
     (hexpr * Temporal_support.pre_k_info) list =
   let init_for_var =
     let table =
@@ -92,19 +87,11 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
       | Some (TCustom _) | None -> mk_int 0
   in
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
-  let coherency_fo = [] in
-  let normalized_fo = List.map normalize_ltl coherency_fo in
   let normalized_ltl = List.map normalize_ltl ltl in
   let normalized_invariants_user = invariants_user in
-  let normalized_invariants_state_rel =
-    List.map
-      (fun inv -> { inv with formula = normalize_ltl inv.formula })
-      invariants_state_rel
-  in
   let pre_k_exprs =
-    collect_pre_k_from_specs ~fo_atom:normalized_fo ~fo_formula:fo_formulas ~ltl:normalized_ltl
+    collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl
       ~invariants_user:normalized_invariants_user
-      ~invariants_state_rel:normalized_invariants_state_rel
   in
   let vars = inputs @ locals @ outputs in
   let find_vty name =
@@ -153,8 +140,9 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
   let spec = specification_of_node n in
   let sem = semantics_of_node n in
   build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs
-    ~fo_formulas:[] ~ltl:(spec.spec_assumes @ spec.spec_guarantees) ~invariants_user:[]
-    ~invariants_state_rel:spec.spec_invariants_state_rel
+    ~fo_formulas:(List.map (fun inv -> inv.formula) spec.spec_invariants_state_rel)
+    ~ltl:(spec.spec_assumes @ spec.spec_guarantees)
+    ~invariants_user:[]
 
 let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function

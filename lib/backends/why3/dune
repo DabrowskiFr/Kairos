@@ -2,14 +2,13 @@
  (name kairos_why3)
  (wrapped false)
  (modules
- emit pipeline_why
-  why_emit_types
-  why_emit_compile
-  why_emit_render
-  why_core why_compile_expr why_runtime_view
-  why_contracts why_term_support)
+  why_pipeline
+  why_compile
+  why_render
+  why_compile_step why_compile_expr why_runtime_view
+  why_contracts)
  (libraries
-  kairos_ast kairos_provenance kairos_logic kairos_stage_types kairos_stage_names kairos_logging
+  kairos_core_syntax kairos_ast kairos_provenance kairos_logic kairos_stage_types kairos_stage_names kairos_logging
   kairos_ir kairos_proof_kernel_types kairos_generated_names kairos_proof_kernel_naming kairos_logic_pretty kairos_temporal_support
-  proof_obligation_ir_render
+  kairos_artifact_text_render
   kairos_pipeline_types kairos_external_why3 kairos_external_z3 why3))

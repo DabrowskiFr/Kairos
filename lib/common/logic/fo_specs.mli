@@ -80,13 +80,6 @@ val lower_fo_formula_temporal_bindings :
 val lower_fo_formula_pre_k :
   pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Fo_formula.t -> Fo_formula.t option
 
-(** Lower [pre_k] occurrences inside an LTL formula when possible. *)
-val lower_ltl_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Ast.ltl -> Ast.ltl option
-
-val lower_ltl_pre_k :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.ltl -> Ast.ltl option
-
 (** Infer a simple type for an immediate expression from variable types. *)
 val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
 
@@ -112,25 +105,6 @@ val atom_to_var_rel : Ast.ident -> Ast.fo_atom
     name-to-atom map. *)
 val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo_atom) list -> Ast.iexpr -> Fo_formula.t
 
-(** Convert a non-temporal LTL formula into [Fo_formula.t].
-    Returns [None] when temporal operators remain. *)
-val fo_formula_of_non_temporal_ltl : Ast.ltl -> Fo_formula.t option
-
-(** Same as [fo_formula_of_non_temporal_ltl] but raises on temporal operators. *)
-val fo_formula_of_non_temporal_ltl_exn : Ast.ltl -> Fo_formula.t
-
-(** {1 Atom Replacement} *)
-
-(** Replace atom formulas by their variable representation in LTL. *)
-val replace_atoms_ltl : (Ast.fo_atom * Ast.ident) list -> Ast.ltl -> Ast.ltl
-
-(** Replace atom formulas by their variable representation in first-order
-    formulas. *)
-val replace_atoms_fo : (Ast.fo_atom * Ast.ident) list -> Ast.fo_atom -> Ast.fo_atom
-
-(** Replace atom formulas inside state invariants. *)
-val replace_atoms_invariants_state_rel :
-  (Ast.fo_atom * Ast.ident) list -> Ast.invariant_state_rel list -> Ast.invariant_state_rel list
 
 (** {1 Instrumentation Specs} *)
 

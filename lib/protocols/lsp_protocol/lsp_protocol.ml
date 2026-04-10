@@ -82,11 +82,6 @@ type outputs = {
   program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
-  guarantee_automaton_tex : string;
-  assume_automaton_tex : string;
-  product_tex : string;
-  product_tex_explicit : string;
-  canonical_tex : string;
   product_text : string;
   canonical_text : string;
   obligations_map_text : string;
@@ -94,7 +89,6 @@ type outputs = {
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-  product_dot_explicit : string;
   canonical_dot : string;
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
@@ -131,11 +125,6 @@ type automata_outputs = {
   program_automaton_text : string;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
-  guarantee_automaton_tex : string;
-  assume_automaton_tex : string;
-  product_tex : string;
-  product_tex_explicit : string;
-  canonical_tex : string;
   product_text : string;
   canonical_text : string;
   obligations_map_text : string;
@@ -143,7 +132,6 @@ type automata_outputs = {
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-  product_dot_explicit : string;
   canonical_dot : string;
   dot_png : string option;
   dot_png_error : string option;
@@ -285,8 +273,6 @@ type instrumentation_pass_request = {
 
 type why_pass_request = {
   input_file : string [@key "inputFile"];
-  prefix_fields : bool [@key "prefixFields"];
-  disable_why3_optimizations : bool [@key "disableWhy3Optimizations"] [@default false];
   engine : string;
 }
 [@@deriving yojson]
@@ -294,8 +280,6 @@ type why_pass_request = {
 type obligations_pass_request = {
   input_file : string [@key "inputFile"];
   prover : string;
-  prefix_fields : bool [@key "prefixFields"];
-  disable_why3_optimizations : bool [@key "disableWhy3Optimizations"] [@default false];
   engine : string;
 }
 [@@deriving yojson]
@@ -327,12 +311,10 @@ type config_repr = {
   timeout_s : int;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
-  prefix_fields : bool;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
-  disable_why3_optimizations : bool [@default false];
 }
 [@@deriving yojson]
 
@@ -346,12 +328,10 @@ type config = {
   timeout_s : int;
   selected_goal_index : int option;
   compute_proof_diagnostics : bool;
-  prefix_fields : bool;
   prove : bool;
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
-  disable_why3_optimizations : bool;
 }
 
 let yojson_of_config (c : config) =
@@ -366,12 +346,10 @@ let yojson_of_config (c : config) =
       timeout_s = c.timeout_s;
       selected_goal_index = c.selected_goal_index;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
-      prefix_fields = c.prefix_fields;
       prove = c.prove;
       generate_vc_text = c.generate_vc_text;
       generate_smt_text = c.generate_smt_text;
       generate_dot_png = c.generate_dot_png;
-      disable_why3_optimizations = c.disable_why3_optimizations;
     }
   in
   config_repr_to_yojson repr
@@ -391,12 +369,10 @@ let config_of_yojson json =
           timeout_s = repr.timeout_s;
           selected_goal_index = repr.selected_goal_index;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
-          prefix_fields = repr.prefix_fields;
           prove = repr.prove;
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;
           generate_dot_png = repr.generate_dot_png;
-          disable_why3_optimizations = repr.disable_why3_optimizations;
         }
 
 let yojson_of_loc = loc_to_yojson

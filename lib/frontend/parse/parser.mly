@@ -1,6 +1,7 @@
 %{
 open Ast
 open Source_file
+open Fo_formula
 
 let expect_now h =
   match h with
@@ -518,36 +519,36 @@ hexpr:
   | PREK LPAREN iexpr COMMA INT RPAREN { HPreK($3, $5) }
 
 ltl_atom:
-  | fo_atom_noparen { $1 }
-  | LPAREN ltl RPAREN { $2 }
-
-fo_atom_noparen:
   | TRUE { LTrue }
   | FALSE { LFalse }
   | hexpr relop hexpr { LAtom(FRel($1,$2,$3)) }
   | IDENT LPAREN hexpr_list_opt RPAREN { LAtom(FPred($1,$3)) }
+  | LPAREN ltl RPAREN { $2 }
 
 fo_atom:
-  | fo_atom_noparen { $1 }
+  | TRUE { FTrue }
+  | FALSE { FFalse }
+  | hexpr relop hexpr { FAtom(FRel($1,$2,$3)) }
+  | IDENT LPAREN hexpr_list_opt RPAREN { FAtom(FPred($1,$3)) }
   | LPAREN fo_formula RPAREN { $2 }
 
 fo_un:
-  | NOT fo_un { LNot $2 }
+  | NOT fo_un { FNot $2 }
   | fo_atom { $1 }
 
 fo_and:
-  | fo_and AND fo_un { LAnd($1,$3) }
+  | fo_and AND fo_un { FAnd($1,$3) }
   | fo_un { $1 }
 
 fo_or:
-  | fo_or OR fo_and { LOr($1,$3) }
+  | fo_or OR fo_and { FOr($1,$3) }
   | fo_and { $1 }
 
 fo_formula:
   | fo_imp { $1 }
 
 fo_imp:
-  | fo_or IMPL fo_imp { LImp($1,$3) }
+  | fo_or IMPL fo_imp { FImp($1,$3) }
   | fo_or { $1 }
 
 ltl_un:

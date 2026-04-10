@@ -30,15 +30,11 @@ val instrumentation_pass :
 
 val why_pass :
   engine:engine ->
-  prefix_fields:bool ->
-  disable_why3_optimizations:bool ->
   input_file:string ->
   (Pipeline_types.why_outputs, Pipeline_types.error) result
 
 val obligations_pass :
   engine:engine ->
-  prefix_fields:bool ->
-  disable_why3_optimizations:bool ->
   prover:string ->
   input_file:string ->
   (Pipeline_types.obligations_outputs, Pipeline_types.error) result
@@ -50,16 +46,6 @@ val ir_pretty_dump :
 
 val compile_object :
   engine:engine -> input_file:string -> (Kairos_object.t, Pipeline_types.error) result
-
-type ir_nodes = Pipeline_service.ir_nodes = {
-  raw_ir_nodes : Ir_proof_views.raw_node list;
-  annotated_ir_nodes : Ir_proof_views.annotated_node list;
-  verified_ir_nodes : Ir_proof_views.verified_node list;
-  kernel_ir_nodes : Proof_kernel_types.node_ir list;
-}
-
-val dump_ir_nodes :
-  engine:engine -> input_file:string -> (ir_nodes, Pipeline_types.error) result
 
 val eval_pass :
   engine:engine -> input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->

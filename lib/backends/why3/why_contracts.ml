@@ -24,7 +24,6 @@ open Ptree
 open Generated_names
 open Temporal_support
 open Logic_pretty
-open Why_term_support
 open Ast
 open Formula_origin
 open Pre_k_collect
@@ -80,10 +79,6 @@ type label_context = {
   link_invariants : Ptree.term list;
   post_contract_user : Ptree.term list;
 }
-
-let pure_translation = ref false
-let set_pure_translation (b : bool) : unit = pure_translation := b
-let get_pure_translation () : bool = !pure_translation
 
 let origin_label = function
   | Some UserContract -> "User contract"
@@ -191,7 +186,7 @@ let build_labels (ctx : label_context) : string list * string list =
   let split_link_terms terms =
     List.fold_right
       (fun t (atom, user) ->
-        let s = Why_term_support.string_of_term t in
+        let s = Why_compile_expr.string_of_term t in
         if contains_sub s "atom_" then (t :: atom, user) else (atom, t :: user))
       terms ([], [])
   in
@@ -254,7 +249,7 @@ let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term 
       match inv.inv_expr with
       | HNow e when String.length inv.inv_id >= 5 && String.sub inv.inv_id 0 5 = "atom_" ->
           let qid =
-            let field = rec_var_name env inv.inv_id in
+            let field = inv.inv_id in
             let q = qdot (qid1 env.rec_name) field in
             string_of_qid q
           in
@@ -279,8 +274,9 @@ let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term 
   in
   go
 
-let build_contracts ~(nodes : Ast.node list) ~(env : Why_term_support.env)
-    ~(hexpr_needs_old : Ast.hexpr -> bool) ~(runtime : Why_runtime_view.t) : contract_info =
+let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
+    ~(hexpr_needs_old : Ast.hexpr -> bool) ~(runtime : Why_runtime_view.t)
+    ~(pure_translation : bool) : contract_info =
   let _nodes = nodes in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
@@ -319,7 +315,7 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_term_support.env)
      Do not also inject them globally as step preconditions. *)
   let post_contract_user =
     ignore runtime.guarantees;
-    if !pure_translation then [] else []
+    if pure_translation then [] else []
   in
   let transition_clauses =
     compute_transition_contracts ~env ~product_transitions:runtime.product_transitions
@@ -345,19 +341,19 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_term_support.env)
     |> uniq_terms
   in
   let post = link_invariants @ link_terms_post @ post |> uniq_terms in
-  let pre, post = if !pure_translation then (transition_requires_pre, pure_post) else (pre, post) in
+  let pre, post = if pure_translation then (transition_requires_pre, pure_post) else (pre, post) in
   let is_true_term t = match t.term_desc with Ttrue -> true | _ -> false in
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
 
   let inline_term = inline_atom_terms_map env runtime.user_invariants in
-  let pre = List.map (fun t -> simplify_term_bool (inline_term t)) pre in
-  let post = List.map (fun t -> simplify_term_bool (inline_term t)) post in
+  let pre = List.map (fun t -> inline_term t) pre in
+  let post = List.map (fun t -> inline_term t) post in
   let transition_requires_pre =
-    List.map (fun t -> simplify_term_bool (inline_term t)) transition_requires_pre
+    List.map (fun t -> inline_term t) transition_requires_pre
   in
   let transition_requires_pre_terms =
-    List.map (fun (t, lbl) -> (simplify_term_bool (inline_term t), lbl)) transition_requires_pre_terms
+    List.map (fun (t, lbl) -> (inline_term t, lbl)) transition_requires_pre_terms
   in
   let label_context : label_context =
     {
@@ -460,7 +456,7 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_term_support.env)
       (runtime.product_transitions
       |> List.concat_map (fun (pc : Why_runtime_view.runtime_product_transition_view) ->
              compile_labeled_requires pc
-             |> List.map (fun (term, _label) -> (simplify_term_bool (inline_term term), Some pc.src_state))))
+             |> List.map (fun (term, _label) -> (inline_term term, Some pc.src_state))))
       pre_out ~is_candidate:(fun _ -> true)
   in
   let post_state_opts =

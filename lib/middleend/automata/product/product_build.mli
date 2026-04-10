@@ -25,14 +25,11 @@
     and records one {!Product_types.product_step} for every local combination of
     program transition, assumption edge, and guarantee edge. *)
 
-(** Alias used by downstream code. *)
-type analysis = Product_analysis.analysis
-
 val analyze_node :
   build:Automaton_types.automata_build ->
   node:Ir.node_ir ->
   program_transitions:Ir.transition list ->
-  analysis
+  Temporal_automata.node_data
 (** [analyze_node ~build ~node] explores the explicit product associated with
     [node] using the automata already built in [build].
 

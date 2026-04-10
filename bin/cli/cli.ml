@@ -22,7 +22,6 @@ let docs_general = Manpage.s_common_options
 let docs_proof = "PROOF"
 let docs_graph = "GRAPH DUMPS"
 let docs_text = "TEXT EXPORTS"
-let docs_bundle = "BUNDLES"
 let why3_proof = "WHY3"
 let docs_kobj = "KOBJ"
 
@@ -32,20 +31,16 @@ type cli_args = {
   prove : bool;
   prover : string;
   prover_cmd : string option;
-  disable_why3_optimizations : bool;
   timeout_s : int;
-  dump_dot_explicit : string option;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;
-  dump_product_short : string option;
   dump_canonical : string option;
   dump_canonical_short : string option;
   dump_obligations_map : string option;
   dump_normalized_program : string option;
   dump_ir_pretty : string option;
   dump_timings : string option;
-  dump_article_bundle : string option;
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
@@ -58,14 +53,12 @@ type cli_args = {
 (* Mutually exclusive dump modes. Each one corresponds to a single "artifact export"
    branch and bypasses the general run/prove flow. *)
 type dump_mode =
-  | Dump_product_explicit of { out : string }
+  | Dump_product of { out : string }
   | Dump_automata of { out : string; short : bool }
-  | Dump_product_merge of { out : string; short : bool }
   | Dump_canonical of { out : string; short : bool }
   | Dump_obligations_map of { out : string }
   | Dump_normalized_program of { out : string }
   | Dump_ir_pretty of { out : string }
-  | Dump_article_bundle of { out : string }
   | Dump_kobj_summary of { out : string }
   | Dump_kobj_clauses of { out : string }
   | Dump_kobj_product of { out : string }
@@ -83,7 +76,10 @@ type action =
 let write_target out text =
   match out with
   | "-" -> print_string text
-  | path -> Artifact_io.write_text path text
+  | path -> (
+      match Bos.OS.File.write (Fpath.v path) text with
+      | Ok () -> ()
+      | Error (`Msg msg) -> failwith msg)
 
 let dot_dump_base (path : string) : string =
   if Filename.check_suffix path ".dot" then Filename.chop_suffix path ".dot" else path
@@ -143,11 +139,9 @@ let engine = Engine_service.string_of_engine Engine_service.Default
 let instrumentation_req args =
   { Lsp_protocol.input_file = args.file; generate_png = false; engine }
 
-let why_req args =
+let why_req args : Lsp_protocol.why_pass_request =
   {
-    Lsp_protocol.input_file = args.file;
-    prefix_fields = false;
-    disable_why3_optimizations = args.disable_why3_optimizations;
+    input_file = args.file;
     engine;
   }
 
@@ -155,8 +149,6 @@ let obligations_req args =
   {
     Lsp_protocol.input_file = args.file;
     prover = args.prover;
-    prefix_fields = false;
-    disable_why3_optimizations = args.disable_why3_optimizations;
     engine;
   }
 
@@ -173,12 +165,10 @@ let run_req args =
     timeout_s = args.timeout_s;
     selected_goal_index = None;
     compute_proof_diagnostics = false;
-    prefix_fields = false;
     prove = args.prove;
     generate_vc_text = Option.is_some args.dump_why3_vc;
     generate_smt_text = Option.is_some args.dump_smt2;
     generate_dot_png = false;
-    disable_why3_optimizations = args.disable_why3_optimizations;
   }
 
 (* Thin wrappers around backend passes so the execution layer can focus on the
@@ -266,18 +256,12 @@ let write_automata_bundle ~out ~short (artifacts : Lsp_protocol.automata_outputs
     (dot_base ^ ".guarantee.dot")
     (if short then strip_dot_legend ~legend_id:"legend_g" artifacts.guarantee_automaton_dot
      else artifacts.guarantee_automaton_dot);
-  write_target (dot_base ^ ".assume.tex") artifacts.assume_automaton_tex;
-  write_target (dot_base ^ ".guarantee.tex") artifacts.guarantee_automaton_tex;
   `Ok ()
 
-let write_product_bundle ~out ~short ~explicit (artifacts : Lsp_protocol.automata_outputs) =
+let write_product_bundle ~out (artifacts : Lsp_protocol.automata_outputs) =
   let dot_base = dot_dump_base out in
   write_target out artifacts.product_text;
-  write_target
-    (dot_base ^ ".dot")
-    (let dot = if explicit then artifacts.product_dot_explicit else artifacts.product_dot in
-     if short then strip_dot_legend ~legend_id:"legend_product" dot else dot);
-  write_target (dot_base ^ ".tex") (if explicit then artifacts.product_tex_explicit else artifacts.product_tex);
+  write_target (dot_base ^ ".dot") artifacts.product_dot;
   `Ok ()
 
 let write_canonical_bundle ~out ~short (artifacts : Lsp_protocol.automata_outputs) =
@@ -287,30 +271,7 @@ let write_canonical_bundle ~out ~short (artifacts : Lsp_protocol.automata_output
     dot_path
     (if short then strip_dot_legend ~legend_id:"legend_canonical" artifacts.canonical_dot
      else artifacts.canonical_dot);
-  write_target (dot_base ^ ".tex") artifacts.canonical_tex;
   write_target (dot_base ^ ".txt") artifacts.canonical_text;
-  `Ok ()
-
-let write_article_bundle ~out ~(artifacts : Lsp_protocol.automata_outputs) ~(normalized : string)
-    ~(ir_pretty : string) =
-  let prefix = if Filename.check_suffix out ".dot" then Filename.chop_suffix out ".dot" else out in
-  write_target (prefix ^ ".normalized.txt") normalized;
-  write_target (prefix ^ ".ir.pretty.txt") ir_pretty;
-  write_target
-    (prefix ^ ".automata.txt")
-    (artifacts.guarantee_automaton_text ^ "\n\n" ^ artifacts.assume_automaton_text);
-  write_target (prefix ^ ".automata.assume.dot") artifacts.assume_automaton_dot;
-  write_target (prefix ^ ".automata.guarantee.dot") artifacts.guarantee_automaton_dot;
-  write_target (prefix ^ ".automata.assume.tex") artifacts.assume_automaton_tex;
-  write_target (prefix ^ ".automata.guarantee.tex") artifacts.guarantee_automaton_tex;
-  write_target (prefix ^ ".product.txt") artifacts.product_text;
-  write_target (prefix ^ ".product.dot") artifacts.product_dot_explicit;
-  write_target (prefix ^ ".product.tex") artifacts.product_tex_explicit;
-  write_target (prefix ^ ".product-merge.dot") artifacts.product_dot;
-  write_target (prefix ^ ".product-merge.tex") artifacts.product_tex;
-  write_target (prefix ^ ".canonical.txt") artifacts.canonical_text;
-  write_target (prefix ^ ".canonical.dot") artifacts.canonical_dot;
-  write_target (prefix ^ ".canonical.tex") artifacts.canonical_tex;
   `Ok ()
 
 let dump_mode_count args =
@@ -318,17 +279,14 @@ let dump_mode_count args =
     (fun acc opt -> if Option.is_some opt then acc + 1 else acc)
     0
     [
-      args.dump_dot_explicit;
       args.dump_automata;
       args.dump_automata_short;
       args.dump_product;
-      args.dump_product_short;
       args.dump_canonical;
       args.dump_canonical_short;
       args.dump_obligations_map;
       args.dump_normalized_program;
       args.dump_ir_pretty;
-      args.dump_article_bundle;
       args.dump_kobj_summary;
       args.dump_kobj_clauses;
       args.dump_kobj_product;
@@ -346,10 +304,10 @@ let has_why_mode args =
 let validate_args args =
   if has_dump_mode args && has_why_mode args then
     Error
-      "--dump-product/--dump-automata/--dump-automata-short/--dump-product-merge/--dump-product-merge-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-article-bundle/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
+      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
     Error
-      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-product-merge/--dump-product-merge-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-article-bundle/--dump-kobj-*"
+      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-*"
   else Ok ()
 
 (* Preserve the previous precedence between dump options while converting the raw
@@ -363,20 +321,7 @@ let resolve_dump_mode args =
         (Some
            (Dump_automata { out = get_some "dump-automata-short" args.dump_automata_short; short = true }))
   | _ when Option.is_some args.dump_product ->
-      Ok (Some (Dump_product_explicit { out = get_some "dump-product" args.dump_product }))
-  | _ when Option.is_some args.dump_dot_explicit ->
-      Ok
-        (Some
-           (Dump_product_merge
-              { out = get_some "dump-product-merge" args.dump_dot_explicit; short = false }))
-  | _ when Option.is_some args.dump_product_short ->
-      Ok
-        (Some
-           (Dump_product_merge
-              {
-                out = get_some "dump-product-merge-short" args.dump_product_short;
-                short = true;
-              }))
+      Ok (Some (Dump_product { out = get_some "dump-product" args.dump_product }))
   | _ when Option.is_some args.dump_canonical ->
       Ok (Some (Dump_canonical { out = get_some "dump-canonical" args.dump_canonical; short = false }))
   | _ when Option.is_some args.dump_canonical_short ->
@@ -393,11 +338,6 @@ let resolve_dump_mode args =
               { out = get_some "dump-normalized-program" args.dump_normalized_program }))
   | _ when Option.is_some args.dump_ir_pretty ->
       Ok (Some (Dump_ir_pretty { out = get_some "dump-ir-pretty" args.dump_ir_pretty }))
-  | _ when Option.is_some args.dump_article_bundle ->
-      Ok
-        (Some
-           (Dump_article_bundle
-              { out = get_some "dump-article-bundle" args.dump_article_bundle }))
   | _ when Option.is_some args.dump_kobj_summary ->
       Ok (Some (Dump_kobj_summary { out = get_some "dump-kobj-summary" args.dump_kobj_summary }))
   | _ when Option.is_some args.dump_kobj_clauses ->
@@ -425,28 +365,16 @@ let resolve_action args =
 (* Dump execution is deliberately shallow: one resolved mode, one backend family,
    one bundle/text writer. *)
 let exec_dump_mode args = function
-  | Dump_product_explicit { out } ->
-      with_instrumentation_pass args (write_product_bundle ~out ~short:false ~explicit:true)
+  | Dump_product { out } ->
+      with_instrumentation_pass args (write_product_bundle ~out)
   | Dump_automata { out; short } ->
       with_instrumentation_pass args (write_automata_bundle ~out ~short)
-  | Dump_product_merge { out; short } ->
-      with_instrumentation_pass args (write_product_bundle ~out ~short ~explicit:false)
   | Dump_canonical { out; short } ->
       with_instrumentation_pass args (write_canonical_bundle ~out ~short)
   | Dump_obligations_map { out } ->
       with_instrumentation_pass args (fun artifacts -> write_text_output out artifacts.obligations_map_text)
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)
   | Dump_ir_pretty { out } -> with_ir_pretty args (write_text_output out)
-  | Dump_article_bundle { out } ->
-      if out = "-" then
-        `Error
-          ( false,
-            "--dump-article-bundle expects a file prefix (not '-') because it emits multiple files" )
-      else
-        with_instrumentation_pass args (fun artifacts ->
-            with_normalized_program args (fun normalized ->
-                with_ir_pretty args (fun ir_pretty ->
-                    write_article_bundle ~out ~artifacts ~normalized ~ir_pretty)))
   | Dump_kobj_summary { out } -> with_kobj_summary args (write_text_output out)
   | Dump_kobj_clauses { out } -> with_kobj_clauses args (write_text_output out)
   | Dump_kobj_product { out } -> with_kobj_product args (write_text_output out)
@@ -508,13 +436,6 @@ let cmd =
       value & opt (some string) None
       & info [ "prover-cmd" ] ~docs:docs_proof ~docv:"CMD" ~doc:"Override prover command.")
   in
-  let disable_why3_optimizations =
-    Arg.(
-      value & flag
-      & info [ "disable-why3-optimizations" ] ~docs:why3_proof
-          ~doc:
-            "Disable Why3 backend optimizations (term-level boolean simplification in generated pre/post formulas).")
-  in
   let dump_automata =
     Arg.(
       value & opt (some string) None
@@ -525,14 +446,14 @@ let cmd =
     Arg.(
       value & opt (some string) None
       & info [ "dump-product" ] ~docs:docs_graph ~docv:"FILE"
-          ~doc:"Dump product automaton text with the explicit product graph.")
+          ~doc:"Dump product automaton text.")
   in
   let dump_canonical =
     Arg.(
       value & opt (some string) None
       & info [ "dump-canonical" ] ~docs:docs_graph ~docv:"FILE"
           ~doc:
-            "Dump the canonical proof-step structure as FILE.dot plus FILE.tex and FILE.txt side artifacts.")
+            "Dump the canonical proof-step structure as FILE.dot plus FILE.txt side artifacts.")
   in
   let dump_automata_short =
     Arg.(
@@ -540,25 +461,12 @@ let cmd =
       & info [ "dump-automata-short" ] ~docs:docs_graph ~docv:"FILE"
           ~doc:"Dump guarantee+assume automata text, plus short DOT side files without embedded formula legends.")
   in
-  let dump_product_short =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-product-merge-short" ] ~docs:docs_graph ~docv:"FILE"
-          ~doc:"Dump product automaton text, plus a short DOT side file without embedded formula legend.")
-  in
   let dump_canonical_short =
     Arg.(
       value & opt (some string) None
       & info [ "dump-canonical-short" ] ~docs:docs_graph ~docv:"FILE"
           ~doc:
-            "Dump the canonical proof-step structure as a short FILE.dot plus FILE.tex and FILE.txt side artifacts.")
-  in
-  let dump_dot_explicit =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-product-merge" ] ~docs:docs_graph ~docv:"FILE"
-          ~doc:
-            "Dump product automaton text with the merged product graph.")
+            "Dump the canonical proof-step structure as a short FILE.dot plus FILE.txt side artifacts.")
   in
   let dump_obligations_map =
     Arg.(
@@ -576,7 +484,7 @@ let cmd =
     Arg.(
       value & opt (some string) None
       & info [ "dump-ir-pretty" ] ~docs:docs_text ~docv:"FILE"
-          ~doc:"Dump the full IR in canonical readable format (includes proof_views).")
+          ~doc:"Dump the full IR in canonical readable format.")
   in
   let dump_timings =
     Arg.(
@@ -584,13 +492,6 @@ let cmd =
       & info [ "dump-timings" ] ~docs:docs_text ~docv:"FILE"
           ~doc:
             "Dump per-run metrics as CSV key/value lines (timings, graph/canonical counts, obligation taxonomy).")
-  in
-  let dump_article_bundle =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-article-bundle" ] ~docs:docs_bundle ~docv:"PREFIX"
-          ~doc:
-            "Dump a compact article/debug bundle to PREFIX.* (normalized, IR pretty, automata, product, merged product, canonical).")
   in
   let dump_why =
     Arg.(
@@ -638,9 +539,9 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file prove prover prover_cmd disable_why3_optimizations timeout_s dump_automata dump_product
-        dump_canonical dump_automata_short dump_product_short dump_canonical_short dump_dot_explicit
-        dump_obligations_map dump_normalized_program dump_ir_pretty dump_timings dump_article_bundle dump_why
+    let make_cli_args file prove prover prover_cmd timeout_s dump_automata dump_product
+        dump_canonical dump_automata_short dump_canonical_short
+        dump_obligations_map dump_normalized_program dump_ir_pretty dump_timings dump_why
         dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses dump_kobj_product
         dump_kobj_contracts =
       {
@@ -648,20 +549,16 @@ let cmd =
         prove;
         prover;
         prover_cmd;
-        disable_why3_optimizations;
         timeout_s;
         dump_automata;
         dump_product;
         dump_canonical;
         dump_automata_short;
-        dump_product_short;
         dump_canonical_short;
-        dump_dot_explicit;
         dump_obligations_map;
         dump_normalized_program;
         dump_ir_pretty;
         dump_timings;
-        dump_article_bundle;
         dump_why;
         dump_why3_vc;
         dump_smt2;
@@ -673,9 +570,9 @@ let cmd =
     in
     Term.(
       const make_cli_args $ file $ prove $ prover $ prover_cmd
-      $ disable_why3_optimizations $ timeout_s $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short $ dump_product_short
-      $ dump_canonical_short $ dump_dot_explicit $ dump_obligations_map $ dump_normalized_program
-      $ dump_ir_pretty $ dump_timings $ dump_article_bundle $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
+      $ timeout_s $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
+      $ dump_canonical_short $ dump_obligations_map $ dump_normalized_program
+      $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
       $ dump_kobj_clauses $ dump_kobj_product $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in
@@ -685,7 +582,6 @@ let cmd =
   `S docs_proof;
   `S docs_graph;
   `S docs_text;
-  `S docs_bundle;
   `S docs_kobj;
   `S Manpage.s_common_options;
 ]in

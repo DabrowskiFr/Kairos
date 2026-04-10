@@ -20,7 +20,7 @@ type node_input = {
   node_name : Ast.ident;
   source_node : Ast.node;
   node : Ir.node_ir;
-  analysis : Product_build.analysis;
+  analysis : Temporal_automata.node_data;
 }
 
 type node_output = {

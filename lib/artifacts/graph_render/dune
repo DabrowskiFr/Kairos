@@ -1,0 +1,20 @@
+(library
+ (name kairos_artifact_graph_render)
+ (wrapped false)
+ (modules automata_graph_render)
+ (libraries
+  kairos_ast
+  kairos_fo_formula
+  kairos_provenance
+  kairos_logging
+  kairos_automata_generation
+  kairos_automata_pass
+  kairos_ir
+  kairos_ir_passes
+  kairos_ir_stage_passes
+  kairos_proof_kernel_types
+  kairos_logic_pretty
+  kairos_generated_names
+  kairos_temporal_support
+  kairos_product_build
+  kairos_external_z3))

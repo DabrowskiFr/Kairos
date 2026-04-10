@@ -3,6 +3,6 @@
  (public_name kairos.ast)
  (wrapped false)
  (modules ast ast_builders ast_queries)
- (libraries yojson why3 kairos_formula_origin kairos_core_syntax)
+ (libraries yojson why3 kairos_formula_origin kairos_core_syntax kairos_fo_formula)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

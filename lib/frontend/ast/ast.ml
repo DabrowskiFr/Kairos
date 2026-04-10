@@ -88,7 +88,7 @@ type ltl = Core_syntax.ltl =
 type ltl_o = Core_syntax.ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving show, yojson]
 type vdecl = Core_syntax.vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 type invariant_user = Core_syntax.invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = Core_syntax.invariant_state_rel = { state : ident; formula : ltl } [@@deriving show, yojson]
+type invariant_state_rel = { state : ident; formula : Fo_formula.t } [@@deriving show, yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
 

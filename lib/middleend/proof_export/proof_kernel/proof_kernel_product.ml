@@ -128,8 +128,8 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
 let post_formula_for_state ~(node : Abs.node_ir) (state_name : Ast.ident) : Fo_formula.t option =
   let formulas =
     node.source_info.state_invariants
-    |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
-           if inv.state = state_name then Some (fo_formula_of_non_temporal_ltl_exn inv.formula) else None)
+    |> List.filter_map (fun (inv : Abs.state_invariant) ->
+           if inv.state = state_name then Some inv.formula else None)
   in
   match formulas with
   | [] -> None
@@ -293,7 +293,7 @@ let rec current_formula_maybe_satisfiable env (fo_formula : Fo_formula.t) : bool
       current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
   | Fo_formula.FImp _ -> true
 
-let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : product_step_ir) : bool =
   let src_live =
     step.src.assume_state_index <> analysis.assume_bad_idx
@@ -309,7 +309,7 @@ let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.an
         (Fo_formula.FAnd (step.guarantee_edge.guard, dst_inv))
 
 let synthesize_fallback_product_steps ~(program_transitions : Abs.transition list)
-    ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+    ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(reactive_program : reactive_program_ir) ~(live_states : PT.product_state list)
     ~automaton_guard_fo ~product_state_of_pt:_ ~product_step_kind_of_pt:_ ~is_live_state:_ :
     product_step_ir list =

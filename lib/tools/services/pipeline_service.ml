@@ -16,13 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type ir_nodes = Pipeline_build.ir_nodes = {
-  raw_ir_nodes : Ir_proof_views.raw_node list;
-  annotated_ir_nodes : Ir_proof_views.annotated_node list;
-  verified_ir_nodes : Ir_proof_views.verified_node list;
-  kernel_ir_nodes : Proof_kernel_types.node_ir list;
-}
-
 let instrumentation_pass =
   Instrumentation_artifacts.instrumentation_pass
     ~build_ast_with_info:Pipeline_build.build_ast_with_info
@@ -30,21 +23,25 @@ let instrumentation_pass =
     ~instrumentation_diag_texts:Pipeline_outputs.instrumentation_diag_texts
     ~program_automaton_texts:Pipeline_outputs.program_automaton_texts
 
-let why_pass ~prefix_fields ~disable_why3_optimizations ~input_file =
-  Pipeline_why.why_pass ~build_ast_with_info:Pipeline_build.build_ast_with_info
-    ~stage_meta:Pipeline_outputs.stage_meta ~prefix_fields ~disable_why3_optimizations
-    ~input_file
+let why_pass ~input_file =
+  match Pipeline_build.build_ast_with_info ~input_file () with
+  | Error _ as e -> e
+  | Ok (asts, infos) ->
+      let why_text = Why_pipeline.why_pass asts.instrumentation in
+      Ok { Pipeline_types.why_text; stage_meta = Pipeline_outputs.stage_meta infos }
 
-let obligations_pass ~prefix_fields ~disable_why3_optimizations ~prover ~input_file =
-  Pipeline_why.obligations_pass ~build_ast_with_info:Pipeline_build.build_ast_with_info
-    ~prefix_fields ~disable_why3_optimizations ~prover ~input_file
+let obligations_pass ~prover ~input_file =
+  match Pipeline_build.build_ast_with_info ~input_file () with
+  | Error _ as e -> e
+  | Ok (asts, _infos) ->
+      Ok (Why_pipeline.obligations_pass ~prover asts.instrumentation)
 
 let normalized_program ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
   | Ok (asts, _infos) ->
       Ok
-        (Normalized_program_render.render_program
+        (Ir_text_program_view_render.render_program
            ~source_program:(Some asts.automata_generation)
            asts.instrumentation)
 
@@ -60,11 +57,10 @@ let ir_pretty_dump ~input_file =
         }
       in
       Ok
-        (Artifact_render_ir.render_pretty_program
+        (Ir_text_proof_view_render.render_pretty_program
            ~source_program:(Some asts.automata_generation)
            program)
 
-let dump_ir_nodes = Pipeline_build.dump_ir_nodes
 let compile_object = Pipeline_build.compile_object
 
 let eval_pass ~input_file ~trace_text ~with_state ~with_locals =

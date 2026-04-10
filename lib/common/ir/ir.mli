@@ -88,11 +88,17 @@ type node_signature = {
   sem_init_state : ident;
 }
 
+(** State invariant already converted to FO (non-temporal by construction). *)
+type state_invariant = {
+  state : ident;
+  formula : Fo_formula.t;
+}
+
 (** Source-level specs and invariants kept for traceability/export. *)
 type source_info = {
   assumes : ltl list;
   guarantees : ltl list;
-  state_invariants : invariant_state_rel list;
+  state_invariants : state_invariant list;
 }
 
 type node_ir = {

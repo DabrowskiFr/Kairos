@@ -153,45 +153,6 @@ let lower_fo_formula_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) l
     (f : Fo_formula.t) : Fo_formula.t option =
   lower_fo_formula_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
-let rec lower_ltl_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : ltl) :
-    ltl option =
-  match f with
-  | LTrue | LFalse -> Some f
-  | LAtom a -> Option.map (fun a' -> LAtom a') (lower_fo_temporal_bindings ~temporal_bindings a)
-  | LNot a -> Option.map (fun a' -> LNot a') (lower_ltl_temporal_bindings ~temporal_bindings a)
-  | LX a -> Option.map (fun a' -> LX a') (lower_ltl_temporal_bindings ~temporal_bindings a)
-  | LG a -> Option.map (fun a' -> LG a') (lower_ltl_temporal_bindings ~temporal_bindings a)
-  | LAnd (a, b) -> begin
-      match
-        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (LAnd (a', b'))
-      | _ -> None
-    end
-  | LOr (a, b) -> begin
-      match
-        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (LOr (a', b'))
-      | _ -> None
-    end
-  | LImp (a, b) -> begin
-      match
-        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (LImp (a', b'))
-      | _ -> None
-    end
-  | LW (a, b) -> begin
-      match
-        (lower_ltl_temporal_bindings ~temporal_bindings a, lower_ltl_temporal_bindings ~temporal_bindings b)
-      with
-      | Some a', Some b' -> Some (LW (a', b'))
-      | _ -> None
-    end
-
-let lower_ltl_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : ltl) : ltl option =
-  lower_ltl_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
 
 let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
   let rec go = function
@@ -267,59 +228,7 @@ let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo_atom) list) (e : iexpr) :
   | IBin (_, a, b) -> FAtom (FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true)))
   | IUn (_, a) -> FAtom (FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true)))
 
-let rec fo_formula_of_non_temporal_ltl (f : ltl) : Fo_formula.t option =
-  match f with
-  | LTrue -> Some Fo_formula.FTrue
-  | LFalse -> Some Fo_formula.FFalse
-  | LAtom a -> Some (Fo_formula.FAtom a)
-  | LNot a ->
-      Option.map (fun a' -> Fo_formula.FNot a') (fo_formula_of_non_temporal_ltl a)
-  | LAnd (a, b) -> begin
-      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
-      | Some a', Some b' -> Some (Fo_formula.FAnd (a', b'))
-      | _ -> None
-    end
-  | LOr (a, b) -> begin
-      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
-      | Some a', Some b' -> Some (Fo_formula.FOr (a', b'))
-      | _ -> None
-    end
-  | LImp (a, b) -> begin
-      match (fo_formula_of_non_temporal_ltl a, fo_formula_of_non_temporal_ltl b) with
-      | Some a', Some b' -> Some (Fo_formula.FImp (a', b'))
-      | _ -> None
-    end
-  | LX _ | LG _ | LW _ -> None
 
-let fo_formula_of_non_temporal_ltl_exn (f : ltl) : Fo_formula.t =
-  match fo_formula_of_non_temporal_ltl f with
-  | Some ff -> ff
-  | None ->
-      failwith
-        (Printf.sprintf "fo_formula_of_non_temporal_ltl_exn: temporal operator in %s"
-           (Logic_pretty.string_of_ltl f))
-
-let rec replace_atoms_ltl (atom_map : (fo_atom * ident) list) (f : ltl) : ltl =
-  match f with
-  | LTrue | LFalse -> f
-  | LAtom a -> LAtom (replace_atoms_fo atom_map a)
-  | LNot a -> LNot (replace_atoms_ltl atom_map a)
-  | LAnd (a, b) -> LAnd (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
-  | LOr (a, b) -> LOr (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
-  | LImp (a, b) -> LImp (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
-  | LX a -> LX (replace_atoms_ltl atom_map a)
-  | LG a -> LG (replace_atoms_ltl atom_map a)
-  | LW (a, b) -> LW (replace_atoms_ltl atom_map a, replace_atoms_ltl atom_map b)
-
-and replace_atoms_fo (atom_map : (fo_atom * ident) list) (f : fo_atom) : fo_atom =
-  match f with
-  | FRel _ | FPred _ -> begin
-      match List.assoc_opt f atom_map with Some name -> atom_to_var_rel name | None -> f
-    end
-
-let replace_atoms_invariants_state_rel (atom_map : (fo_atom * ident) list)
-    (invs : invariant_state_rel list) : invariant_state_rel list =
-  List.map (fun inv -> { inv with formula = replace_atoms_ltl atom_map inv.formula }) invs
 
 (* Fold-specific helpers removed. *)
 

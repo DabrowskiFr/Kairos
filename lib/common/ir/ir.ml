@@ -80,10 +80,15 @@ type node_signature = {
   sem_init_state : ident;
 }
 
+type state_invariant = {
+  state : ident;
+  formula : Fo_formula.t;
+}
+
 type source_info = {
   assumes : ltl list;
   guarantees : ltl list;
-  state_invariants : invariant_state_rel list;
+  state_invariants : state_invariant list;
 }
 
 type node_ir = {

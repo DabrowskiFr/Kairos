@@ -41,8 +41,14 @@ val dump_why3_tasks : text:string -> string list
 (* Dump Why3 tasks with attributes preserved. *)
 val dump_why3_tasks_with_attrs : text:string -> string list
 
+(* Dump Why3 tasks with attributes directly from a parse tree (no text round-trip). *)
+val dump_why3_tasks_with_attrs_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
+
 (* Dump SMT2 tasks for a given prover. *)
 val dump_smt2_tasks : prover:string -> text:string -> string list
+
+(* Dump SMT2 tasks directly from a parse tree (no text round-trip). *)
+val dump_smt2_tasks_of_ptree : prover:string -> ptree:Why3.Ptree.mlw_file -> string list
 
 (* Same as [prove_text_detailed] but emits callbacks per goal. *)
 val prove_text_detailed_with_callbacks :

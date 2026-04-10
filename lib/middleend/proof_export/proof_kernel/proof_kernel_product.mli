@@ -38,7 +38,7 @@ val build_automaton :
 
 val is_feasible_product_step :
   node:Abs.node_ir ->
-  analysis:Product_build.analysis ->
+  analysis:Temporal_automata.node_data ->
   Proof_kernel_types.product_step_ir ->
   bool
 
@@ -50,11 +50,11 @@ val build_product_step :
 val synthesize_fallback_product_steps :
   program_transitions:Abs.transition list ->
   node:Abs.node_ir ->
-  analysis:Product_build.analysis ->
+  analysis:Temporal_automata.node_data ->
   reactive_program:Proof_kernel_types.reactive_program_ir ->
   live_states:PT.product_state list ->
   automaton_guard_fo:((Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Fo_formula.t) ->
   product_state_of_pt:(PT.product_state -> Proof_kernel_types.product_state_ir) ->
   product_step_kind_of_pt:(PT.step_class -> Proof_kernel_types.product_step_kind) ->
-  is_live_state:(analysis:Product_build.analysis -> PT.product_state -> bool) ->
+  is_live_state:(analysis:Temporal_automata.node_data -> PT.product_state -> bool) ->
   Proof_kernel_types.product_step_ir list

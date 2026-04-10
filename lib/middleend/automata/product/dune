@@ -1,7 +1,7 @@
 (library
  (name kairos_product_build)
  (wrapped false)
- (modules product_types product_analysis product_build)
+ (modules product_types temporal_automata product_build)
  (libraries
   kairos_ast kairos_fo_formula kairos_logic kairos_ir
   kairos_proof_kernel_types kairos_automata kairos_generated_names kairos_logic_pretty

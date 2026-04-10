@@ -77,7 +77,7 @@ let product_summary_of_step ~(node : Abs.node_ir) (step : product_step_ir) :
           | StepBadAssumption -> false)
         node.summaries
 
-let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(steps : product_step_ir list) ~automaton_guard_fo : generated_clause_ir list =
   let _analysis = analysis in
   let _automaton_guard_fo = automaton_guard_fo in
@@ -285,7 +285,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Product_buil
                  }
              | _ -> clause)
 
-let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(initial_state : product_state_ir) ~(steps : product_step_ir list) ~automaton_guard_fo
     ~is_live_state : generated_clause_ir list =
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
@@ -331,9 +331,8 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.ana
   in
   let invariants_for_state state_name =
     node.source_info.state_invariants
-    |> List.filter_map (fun (inv : Ast.invariant_state_rel) ->
-           if inv.state = state_name then
-             Some (current (FactFormula (Fo_specs.fo_formula_of_non_temporal_ltl_exn inv.formula)))
+    |> List.filter_map (fun (inv : Ir.state_invariant) ->
+           if inv.state = state_name then Some (current (FactFormula inv.formula))
            else None)
   in
   let init_goal_facts =

@@ -26,7 +26,6 @@ val build_pre_k_infos_from_parts :
   fo_formulas:Fo_formula.t list ->
   ltl:Ast.ltl list ->
   invariants_user:Ast.invariant_user list ->
-  invariants_state_rel:Ast.invariant_state_rel list ->
   (Ast.hexpr * Temporal_support.pre_k_info) list
 
 val build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list

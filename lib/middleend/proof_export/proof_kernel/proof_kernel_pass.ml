@@ -31,7 +31,7 @@ type node_input = {
   node_name : Ast.ident;
   source_node : Ast.node;
   node : Ir.node_ir;
-  analysis : Product_build.analysis;
+  analysis : Temporal_automata.node_data;
 }
 
 type node_output = {
@@ -146,7 +146,7 @@ let product_step_kind_of_pt = function
   | PT.Bad_assumption -> Proof_kernel_types.StepBadAssumption
   | PT.Bad_guarantee -> Proof_kernel_types.StepBadGuarantee
 
-let is_live_state ~(analysis : Product_build.analysis) (st : PT.product_state) : bool =
+let is_live_state ~(analysis : Temporal_automata.node_data) (st : PT.product_state) : bool =
   st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
 
 let temporal_locals_of_layout ~(existing_locals : Ast.vdecl list) (layout : Ir.temporal_layout) :
@@ -186,11 +186,11 @@ let build_product_step ~(reactive_program : Proof_kernel_types.reactive_program_
     Proof_kernel_types.product_step_ir =
   Proof_kernel_product.build_product_step ~reactive_program step
 
-let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : Proof_kernel_types.product_step_ir) : bool =
   Proof_kernel_product.is_feasible_product_step ~node ~analysis step
 
-let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(source_node : Ast.node) ~(reactive_program : Proof_kernel_types.reactive_program_ir)
     ~(live_states : PT.product_state list) :
     Proof_kernel_types.product_step_ir list =
@@ -202,7 +202,7 @@ let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Product
       automaton_guard_fo ~atom_map_exprs guard_raw)
     ~product_state_of_pt ~product_step_kind_of_pt ~is_live_state
 
-let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Product_build.analysis)
+let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(initial_state : Proof_kernel_types.product_state_ir) ~(steps : Proof_kernel_types.product_step_ir list) :
     Proof_kernel_types.generated_clause_ir list =
   Proof_kernel_generated_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps

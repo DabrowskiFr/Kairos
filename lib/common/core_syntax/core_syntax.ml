@@ -62,4 +62,3 @@ type ltl =
 type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving show, yojson]
 type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
 type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = { state : ident; formula : ltl } [@@deriving show, yojson]

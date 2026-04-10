@@ -58,12 +58,6 @@ type instrumentation_info = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
   (** Export-oriented node summaries paired with the kernel IR. *)
   exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
-  (** Pass 3 output: raw IR nodes (no Hoare triples). *)
-  raw_ir_nodes : Ir_proof_views.raw_node list;
-  (** Pass 4 output: annotated IR nodes (Hoare triples added, pre_k references still present). *)
-  annotated_ir_nodes : Ir_proof_views.annotated_node list;
-  (** Pass 5 output: verified IR nodes (history eliminated, ready for Why3). *)
-  verified_ir_nodes : Ir_proof_views.verified_node list;
   (** Text rendering of the kernel IR. *)
   kernel_pipeline_lines : string list;
   (** Non-fatal warnings emitted while building proof artifacts. *)
@@ -72,30 +66,14 @@ type instrumentation_info = {
   guarantee_automaton_lines : string list;
   (** Text rendering of the assume automaton. *)
   assume_automaton_lines : string list;
-  (** LaTeX rendering of the guarantee automaton guards. *)
-  guarantee_automaton_tex : string;
-  (** LaTeX rendering of the assume automaton guards. *)
-  assume_automaton_tex : string;
-  (** LaTeX rendering of the product-transition guards. *)
-  product_tex : string;
-  (** LaTeX rendering of the explicit product-transition guards. *)
-  product_tex_explicit : string;
-  (** LaTeX rendering of the canonical proof-step structure. *)
-  canonical_tex : string;
-  (** Text rendering of the explored product. *)
-  product_lines : string list;
   (** Text rendering of the canonical proof-step structure. *)
   canonical_lines : string list;
-  (** Text rendering of generated obligations. *)
-  obligations_lines : string list;
   (** DOT rendering of the guarantee automaton. *)
   guarantee_automaton_dot : string;
   (** DOT rendering of the assume automaton. *)
   assume_automaton_dot : string;
   (** DOT rendering of the product graph. *)
   product_dot : string;
-  (** DOT rendering of the explicit product graph. *)
-  product_dot_explicit : string;
   (** DOT rendering of the canonical proof-step structure. *)
   canonical_dot : string;
   (** Number of states in the require automata (sum over processed nodes). *)

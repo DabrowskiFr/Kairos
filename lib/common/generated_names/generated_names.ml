@@ -20,6 +20,5 @@ open Ast
 
 let module_name_of_node (name : ident) : string = String.capitalize_ascii name
 
-let prefix_for_node (name : ident) : string = "__" ^ String.lowercase_ascii name ^ "_"
 let pre_input_name (name : ident) : string = "__pre_in_" ^ name
 let pre_input_old_name (name : ident) : string = "__pre_old_" ^ name

@@ -137,9 +137,9 @@ type invariant_user = Core_syntax.invariant_user = {
 }
 [@@deriving show, yojson]
 
-type invariant_state_rel = Core_syntax.invariant_state_rel = {
+type invariant_state_rel = {
   state : ident;
-  formula : ltl;
+  formula : Fo_formula.t;
 }
 [@@deriving show, yojson]
 

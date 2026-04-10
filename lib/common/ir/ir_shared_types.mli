@@ -30,7 +30,6 @@ type iexpr = Core_syntax.iexpr
 type stmt = Ast.stmt
 type vdecl = Core_syntax.vdecl
 type invariant_user = Core_syntax.invariant_user
-type invariant_state_rel = Core_syntax.invariant_state_rel
 
 (** Stable identifier attached to logical formulas across exports/reports. *)
 type formula_id = int

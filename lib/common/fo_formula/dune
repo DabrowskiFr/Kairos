@@ -5,4 +5,4 @@
  (modules fo_formula)
  (libraries kairos_core_syntax yojson)
  (preprocess
-  (pps ppx_deriving_yojson)))
+  (pps ppx_deriving.show ppx_deriving_yojson)))

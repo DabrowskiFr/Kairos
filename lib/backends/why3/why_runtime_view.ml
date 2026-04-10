@@ -130,14 +130,6 @@ let collect_ctor_fo (acc : ident list) (f : fo_atom) : ident list =
   | FRel (h1, _, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
   | FPred (_, hs) -> List.fold_left collect_ctor_hexpr acc hs
 
-let rec collect_ctor_ltl (acc : ident list) (f : ltl) : ident list =
-  match f with
-  | LTrue | LFalse -> acc
-  | LAtom a -> collect_ctor_fo acc a
-  | LNot a | LX a | LG a -> collect_ctor_ltl acc a
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-      collect_ctor_ltl (collect_ctor_ltl acc a) b
-
 let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   match s.stmt with
   | SAssign (_, e) -> collect_ctor_iexpr acc e
@@ -375,33 +367,6 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
     (fun (group : transition_group_view) ->
       { branch_state = group.group_state; branch_transitions = group.group_transitions })
     groups
-
-let of_node ~(nodes : Ast.node list) (n : Ast.node) : t =
-  let sem = n.semantics in
-  let spec = n.specification in
-  let _ = nodes in
-  let transitions =
-    List.mapi
-      (fun idx t -> transition_of_ast ~transition_id:(Printf.sprintf "tr_%d" idx) t)
-      sem.sem_trans
-  in
-  let transition_groups = group_transitions transitions in
-  {
-    node_name = sem.sem_nname;
-    inputs = List.map port_of_vdecl sem.sem_inputs;
-    outputs = List.map port_of_vdecl sem.sem_outputs;
-    locals = List.map port_of_vdecl sem.sem_locals;
-    control_states = sem.sem_states;
-    init_control_state = sem.sem_init_state;
-    transitions;
-    product_transitions = [];
-    transition_groups;
-    state_branches = state_branches_of_groups transition_groups;
-    assumes = spec.spec_assumes;
-    guarantees = spec.spec_guarantees;
-    user_invariants = [];
-    init_invariant_goals = [];
-  }
 
 let transition_to_ast (t : runtime_transition_view) : Ast.transition =
   { Ast.src = t.src_state; dst = t.dst_state; guard = t.guard; body = t.body }

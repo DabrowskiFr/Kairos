@@ -80,11 +80,6 @@ include struct
     program_automaton_text : string;
     guarantee_automaton_text : string;
     assume_automaton_text : string;
-    guarantee_automaton_tex : string;
-    assume_automaton_tex : string;
-    product_tex : string;
-    product_tex_explicit : string;
-    canonical_tex : string;
     product_text : string;
     canonical_text : string;
     obligations_map_text : string;
@@ -92,7 +87,6 @@ include struct
     guarantee_automaton_dot : string;
     assume_automaton_dot : string;
     product_dot : string;
-    product_dot_explicit : string;
     canonical_dot : string;
     stage_meta : (string * (string * string) list) list;
     goals : goal_info list;
@@ -128,11 +122,6 @@ include struct
     program_automaton_text : string;
     guarantee_automaton_text : string;
     assume_automaton_text : string;
-    guarantee_automaton_tex : string;
-    assume_automaton_tex : string;
-    product_tex : string;
-    product_tex_explicit : string;
-    canonical_tex : string;
     product_text : string;
     canonical_text : string;
     obligations_map_text : string;
@@ -140,7 +129,6 @@ include struct
     guarantee_automaton_dot : string;
     assume_automaton_dot : string;
     product_dot : string;
-    product_dot_explicit : string;
     canonical_dot : string;
     dot_png : string option;
     dot_png_error : string option;
@@ -185,12 +173,10 @@ type ast_stages = {
     timeout_s : int;
     selected_goal_index : int option;
     compute_proof_diagnostics : bool;
-    prefix_fields : bool;
     prove : bool;
     generate_vc_text : bool;
     generate_smt_text : bool;
     generate_dot_png : bool;
-    disable_why3_optimizations : bool;
   }
 
   type error =

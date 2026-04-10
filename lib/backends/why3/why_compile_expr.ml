@@ -20,10 +20,150 @@
 
 open Why3
 open Ptree
-open Ast
+open Core_syntax
 open Ast_builders
 open Logic_pretty
-open Why_term_support
+
+(* ---- Compilation environment ---- *)
+
+type env = {
+  rec_name : string;
+  rec_vars : string list;
+  links : (hexpr * ident) list;
+}
+
+(* ---- Why3 Ptree primitives ---- *)
+
+let loc : Why3.Loc.position = Why3.Loc.dummy_position
+let ident (s : string) : Ptree.ident = { Ptree.id_str = s; id_ats = []; id_loc = loc }
+
+let infix_ident (s : string) : Ptree.ident =
+  { Ptree.id_str = Ident.op_infix s; id_ats = []; id_loc = loc }
+
+let qid1 (s : string) : Ptree.qualid = Ptree.Qident (ident s)
+let qdot (q : Ptree.qualid) (s : string) : Ptree.qualid = Ptree.Qdot (q, ident s)
+let mk_expr (desc : Ptree.expr_desc) : Ptree.expr = { Ptree.expr_desc = desc; expr_loc = loc }
+let mk_term (desc : Ptree.term_desc) : Ptree.term = { Ptree.term_desc = desc; term_loc = loc }
+
+let term_eq (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tinnfix (a, infix_ident "=", b))
+
+let term_neq (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tinnfix (a, infix_ident "<>", b))
+
+let term_bool_binop (op : Dterm.dbinop) (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinnop (a, op, b))
+
+let term_implies (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  term_bool_binop Dterm.DTimplies a b
+
+(* Wraps [t] with the WhyML [old] keyword using the [Tat] constructor so that
+   [Mlw_printer] emits [old t] rather than the function-application form
+   [(old t)] which would require a text post-processing fixup. *)
+let term_old (t : Ptree.term) : Ptree.term = mk_term (Tat (t, ident "old"))
+
+let apply_expr (fn : Ptree.expr) (args : Ptree.expr list) : Ptree.expr =
+  List.fold_left (fun acc arg -> mk_expr (Eapply (acc, arg))) fn args
+
+(* ---- Kairos → Why3 type and operator mappings ---- *)
+
+let default_pty (t : ty) : Ptree.pty =
+  match t with
+  | TInt -> Ptree.PTtyapp (qid1 "int", [])
+  | TBool -> Ptree.PTtyapp (qid1 "bool", [])
+  | TReal -> Ptree.PTtyapp (qid1 "real", [])
+  | TCustom s -> Ptree.PTtyapp (qid1 s, [])
+
+let binop_id (op : binop) : string =
+  match op with
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | Eq -> "="
+  | Neq -> "<>"
+  | Lt -> "<"
+  | Le -> "<="
+  | Gt -> ">"
+  | Ge -> ">="
+  | And -> "&&"
+  | Or -> "||"
+
+let relop_id (r : relop) : string =
+  match r with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
+
+(* ---- Env operations ---- *)
+
+let field (env : env) (name : ident) : Ptree.expr =
+  mk_expr (Eident (qdot (qid1 env.rec_name) name))
+
+let is_rec_var (env : env) (x : ident) : bool = List.exists (( = ) x) env.rec_vars
+
+let term_var (env : env) (x : ident) : Ptree.term_desc =
+  if is_rec_var env x then Tident (qdot (qid1 env.rec_name) x) else Tident (qid1 x)
+
+let find_link (env : env) (h : hexpr) : ident option =
+  List.find_map (fun (h', id) -> if h' = h then Some id else None) env.links
+
+let term_of_var (env : env) (name : ident) : Ptree.term = mk_term (term_var env name)
+
+(* ---- Term serialisation (used for deduplication) ---- *)
+
+let normalize_infix (s : string) : string =
+  let prefix = "infix " in
+  if String.length s > String.length prefix && String.sub s 0 (String.length prefix) = prefix then
+    String.sub s (String.length prefix) (String.length s - String.length prefix)
+  else s
+
+let string_of_qid (q : Ptree.qualid) : string =
+  let rec aux = function
+    | Ptree.Qident id -> id.id_str
+    | Ptree.Qdot (q, id) -> aux q ^ "." ^ id.id_str
+  in
+  aux q
+
+let string_of_const (c : Why3.Constant.constant) : string =
+  Format.asprintf "%a" Why3.Constant.print_def c
+
+let rec string_of_term (t : Ptree.term) : string =
+  let aux = string_of_term in
+  match t.term_desc with
+  | Tconst c -> string_of_const c
+  | Ttrue -> "true"
+  | Tfalse -> "false"
+  | Tident q -> string_of_qid q
+  | Tinnfix (a, op, b) ->
+      let op_str = normalize_infix op.id_str in
+      "(" ^ aux a ^ " " ^ op_str ^ " " ^ aux b ^ ")"
+  | Tbinnop (a, d, b) ->
+      let op =
+        match d with
+        | Dterm.DTand -> "/\\"
+        | Dterm.DTor -> "\\/"
+        | Dterm.DTimplies -> "->"
+        | _ -> "?"
+      in
+      "(" ^ aux a ^ " " ^ op ^ " " ^ aux b ^ ")"
+  | Tnot a -> "not " ^ aux a
+  | Tidapp (q, args) -> string_of_qid q ^ "(" ^ String.concat ", " (List.map aux args) ^ ")"
+  | Tat (t', id) -> if id.id_str = "old" then "old(" ^ aux t' ^ ")" else aux t' ^ "@" ^ id.id_str
+  | Tapply (f, a) -> begin
+      match f.term_desc with
+      | Tident q when string_of_qid q = "old" -> "old(" ^ aux a ^ ")"
+      | _ -> aux f ^ "(" ^ aux a ^ ")"
+    end
+  | _ -> "?"
+
+let uniq_terms (terms : Ptree.term list) : Ptree.term list =
+  let rec aux seen acc = function
+    | [] -> List.rev acc
+    | t :: ts ->
+        let key = string_of_term t in
+        if List.mem key seen then aux seen acc ts else aux (key :: seen) (t :: acc) ts
+  in
+  aux [] [] terms
+
+(* ---- Expression and formula compilation ---- *)
 
 let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
   match e.iexpr with
@@ -104,28 +244,6 @@ let compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) 
              compile_hexpr ~old ~prefer_link ~in_post env h2 ))
   | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
-
-let rec compile_local_ltl_term ?(prefer_link = false) ?(in_post = false) (env : env) (f : ltl) :
-    Ptree.term =
-  match f with
-  | LTrue -> mk_term Ttrue
-  | LFalse -> mk_term Tfalse
-  | LNot a -> mk_term (Tnot (compile_local_ltl_term ~prefer_link ~in_post env a))
-  | LAnd (a, b) ->
-      term_bool_binop Dterm.DTand
-        (compile_local_ltl_term ~prefer_link ~in_post env a)
-        (compile_local_ltl_term ~prefer_link ~in_post env b)
-  | LOr (a, b) ->
-      term_bool_binop Dterm.DTor
-        (compile_local_ltl_term ~prefer_link ~in_post env a)
-        (compile_local_ltl_term ~prefer_link ~in_post env b)
-  | LImp (a, b) ->
-      term_bool_binop Dterm.DTimplies
-        (compile_local_ltl_term ~prefer_link ~in_post env a)
-        (compile_local_ltl_term ~prefer_link ~in_post env b)
-  | LAtom fo -> compile_fo_term_shift ~prefer_link ~in_post env false fo
-  | LX _ | LG _ | LW _ ->
-      failwith "compile_local_ltl_term: residual temporal operator in IR contract"
 
 let rec compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) (env : env)
     (f : Fo_formula.t) : Ptree.term =

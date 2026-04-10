@@ -26,4 +26,4 @@ type t =
   | FAnd of t * t
   | FOr of t * t
   | FImp of t * t
-[@@deriving yojson]
+[@@deriving show, yojson]
