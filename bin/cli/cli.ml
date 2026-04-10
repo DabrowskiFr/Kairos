@@ -29,8 +29,6 @@ let docs_kobj = "KOBJ"
 type cli_args = {
   file : string;
   prove : bool;
-  prover : string;
-  prover_cmd : string option;
   timeout_s : int;
   dump_automata : string option;
   dump_automata_short : string option;
@@ -145,10 +143,9 @@ let why_req args : Lsp_protocol.why_pass_request =
     engine;
   }
 
-let obligations_req args =
+let obligations_req (args : cli_args) : Lsp_protocol.obligations_pass_request =
   {
     Lsp_protocol.input_file = args.file;
-    prover = args.prover;
     engine;
   }
 
@@ -158,12 +155,9 @@ let run_req args =
   {
     Lsp_protocol.input_file = args.file;
     engine;
-    prover = args.prover;
-    prover_cmd = args.prover_cmd;
     wp_only = false;
     smoke_tests = false;
     timeout_s = args.timeout_s;
-    selected_goal_index = None;
     compute_proof_diagnostics = false;
     prove = args.prove;
     generate_vc_text = Option.is_some args.dump_why3_vc;
@@ -426,16 +420,6 @@ let cmd =
   let prove =
     Arg.(value & flag & info [ "prove" ] ~docs:docs_proof ~doc:"Run prover on generated Why3 obligations.")
   in
-  let prover =
-    Arg.(
-      value & opt string "z3"
-      & info [ "prover" ] ~docs:docs_proof ~docv:"NAME" ~doc:"Prover for --prove (default: z3).")
-  in
-  let prover_cmd =
-    Arg.(
-      value & opt (some string) None
-      & info [ "prover-cmd" ] ~docs:docs_proof ~docv:"CMD" ~doc:"Override prover command.")
-  in
   let dump_automata =
     Arg.(
       value & opt (some string) None
@@ -539,7 +523,7 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file prove prover prover_cmd timeout_s dump_automata dump_product
+    let make_cli_args file prove timeout_s dump_automata dump_product
         dump_canonical dump_automata_short dump_canonical_short
         dump_obligations_map dump_normalized_program dump_ir_pretty dump_timings dump_why
         dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses dump_kobj_product
@@ -547,8 +531,6 @@ let cmd =
       {
         file;
         prove;
-        prover;
-        prover_cmd;
         timeout_s;
         dump_automata;
         dump_product;
@@ -569,8 +551,8 @@ let cmd =
       }
     in
     Term.(
-      const make_cli_args $ file $ prove $ prover $ prover_cmd
-      $ timeout_s $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
+      const make_cli_args $ file $ prove $ timeout_s $ dump_automata $ dump_product
+      $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_normalized_program
       $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
       $ dump_kobj_clauses $ dump_kobj_product $ dump_kobj_contracts)

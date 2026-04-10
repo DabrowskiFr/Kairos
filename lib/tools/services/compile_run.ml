@@ -77,7 +77,7 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
   else
     match build_ast_with_info ~input_file:cfg.input_file () with
     | Error _ as e -> e
-    | Ok (asts, infos) ->
+    | Ok ((asts : Pipeline_types.ast_stages), infos) ->
         let pending_cfg = { cfg with prove = false; compute_proof_diagnostics = false } in
         (match build_outputs ~cfg:pending_cfg ~asts ~infos with
         | Error _ as e -> e
@@ -87,17 +87,25 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
             on_goals_ready (goal_names, pending_out.vc_ids_ordered);
             if not cfg.prove || cfg.wp_only then Ok pending_out
             else
+              let ptree =
+                (Why_compile.compile_program_ast_from_ir_nodes asts.instrumentation).Why_compile.mlw
+              in
               let finished = ref [] in
-              let _summary, _ =
-                Why_contract_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s
-                  ~prover:cfg.prover ?prover_cmd:cfg.prover_cmd
-                  ?selected_goal_index:cfg.selected_goal_index ~text:pending_out.why_text
-                  ~vc_ids_ordered:(Some pending_out.vc_ids_ordered)
-                  ~should_cancel ~on_goal_start:(fun _ _ -> ())
-                  ~on_goal_done:(fun idx goal status time_s dump_path source vcid ->
-                    finished := (idx, goal, status, time_s, dump_path, source, vcid) :: !finished;
-                    on_goal_done idx goal status time_s dump_path source vcid)
-                  ()
+              let _ =
+                Why_contract_prove.prove_ptree_with_events ~timeout:cfg.timeout_s
+                  ptree
+                  ~should_cancel ~on_goal_start:(fun _ -> ())
+                  ~on_goal_done:(fun ev ->
+                    let idx = ev.goal_index in
+                    let r = ev.result in
+                    let status = Why_contract_prove.prover_answer_to_status r.answer in
+                    let vcid =
+                      match List.nth_opt pending_out.vc_ids_ordered idx with
+                      | Some id -> Some (string_of_int id)
+                      | None -> None
+                    in
+                    finished := (idx, r.goal_name, status, r.time_s, r.dump_path, r.source, vcid) :: !finished;
+                    on_goal_done idx r.goal_name status r.time_s r.dump_path r.source vcid)
               in
               if should_cancel () then Error (Pipeline_types.Stage_error "Request cancelled")
               else

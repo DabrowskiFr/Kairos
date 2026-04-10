@@ -91,7 +91,6 @@ type outputs = {
   goals : goal_info list;
   proof_traces : proof_trace list;
   vc_sources : (int * string) list;
-  task_sequents : (string list * string) list;
   vc_locs : (int * Ast.loc) list;
   vc_locs_ordered : Ast.loc list;
   vc_spans_ordered : (int * int) list;
@@ -165,12 +164,9 @@ type stage_infos = {
 
 type config = {
   input_file : string;
-  prover : string;
-  prover_cmd : string option;
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prove : bool;
   generate_vc_text : bool;

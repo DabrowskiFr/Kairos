@@ -1,7 +1,7 @@
 (library
  (name kairos_artifact_text_render)
  (wrapped false)
- (modules ir_text_proof_view_render ir_text_program_view_render)
+ (modules ir_text_proof_view_render ir_text_program_view_render why_text_render)
  (libraries
   kairos_ast
   kairos_fo_formula
@@ -13,4 +13,14 @@
   kairos_proof_kernel_types
   kairos_logic_pretty
   kairos_generated_names
-  kairos_temporal_support))
+  kairos_temporal_support
+  kairos_why3
+  why3))
+
+(library
+ (name kairos_artifact_why_task_dump)
+ (wrapped false)
+ (modules why_task_dump_render)
+ (libraries
+  kairos_external_why3
+  why3))

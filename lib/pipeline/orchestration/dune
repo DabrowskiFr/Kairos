@@ -34,6 +34,7 @@
   kairos_pipeline_diagnostics
   kairos_pipeline_types
   kairos_artifact_text_render
+  kairos_artifact_why_task_dump
   kairos_artifact_graph_render
   bos
   fpath))

@@ -16,83 +16,89 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Why3 proof execution and task extraction. *)
+(** Why3 proof execution and task-level analysis.
 
-(* Aggregate counts for VC results. *)
-type summary = {
-  total : int;
-  valid : int;
-  invalid : int;
-  unknown : int;
-  timeout : int;
-  failure : int;
+    In this module, a {{!Why3.Task.task}task} is one elementary proof
+    obligation handled by Why3 (hypotheses + one goal).
+
+    {e Normalized tasks} are the obligations obtained after Why3 normalization
+    (notably VC splitting), so each resulting task is an atomic goal that can be
+    proved, dumped, diagnosed, and traced independently. *)
+
+(** Per-goal proof result returned by batch proving.
+
+    Fields:
+    - [goal_name]: normalized Why3 goal identifier.
+    - [answer]: typed Why3 prover answer.
+    - [time_s]: elapsed solver time in seconds for this goal.
+    - [dump_path]: optional path to dumped failing SMT script.
+    - [source]: provenance/source label attached to the goal. *)
+type goal_proof_result = {
+  goal_name : string;
+  answer : Why3.Call_provers.prover_answer;
+  time_s : float;
+  dump_path : string option;
+  source : string;
 }
 
-(* Result of running a proof batch. *)
-type result = { status : int; summary : summary }
+(** Event payload emitted when one goal starts.
 
-(* Prove a Why3 theory text with a given prover. *)
-val prove_text :
-  ?timeout:int -> ?prover_cmd:string -> prover:string -> text:string -> unit -> result
+    Fields:
+    - [goal_index]: zero-based index in normalized goal order.
+    - [goal_name]: Why3 goal identifier. *)
+type goal_start_event = {
+  goal_index : int;
+  goal_name : string;
+}
 
-(* Dump Why3 tasks (sequents) as strings. *)
-val dump_why3_tasks : text:string -> string list
+(** Event payload emitted when one goal is finished.
 
-(* Dump Why3 tasks with attributes preserved. *)
-val dump_why3_tasks_with_attrs : text:string -> string list
+    Fields:
+    - [goal_index]: zero-based index in normalized goal order.
+    - [result]: structured proof outcome for that goal. *)
+type goal_done_event = {
+  goal_index : int;
+  result : goal_proof_result;
+}
 
-(* Dump Why3 tasks with attributes directly from a parse tree (no text round-trip). *)
-val dump_why3_tasks_with_attrs_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
+(** Convert a Why3 prover answer into the stable Kairos status string.
 
-(* Dump SMT2 tasks for a given prover. *)
-val dump_smt2_tasks : prover:string -> text:string -> string list
+    @param answer
+      Typed answer returned by Why3.
+    @return
+      One of [valid], [invalid], [timeout], [unknown], [oom], [failure]. *)
+val prover_answer_to_status : Why3.Call_provers.prover_answer -> string
 
-(* Dump SMT2 tasks directly from a parse tree (no text round-trip). *)
-val dump_smt2_tasks_of_ptree : prover:string -> ptree:Why3.Ptree.mlw_file -> string list
+(** Run proof on normalized tasks built from a Why3 parse tree.
 
-(* Same as [prove_text_detailed] but emits callbacks per goal. *)
-val prove_text_detailed_with_callbacks :
+    @param timeout
+      Per-goal timeout in seconds.
+    @param should_cancel
+      Cooperative cancellation callback, polled between goals.
+    @param on_goal_start
+      Optional callback fired when one goal starts. Defaults to a no-op.
+    @param on_goal_done
+      Optional callback fired when one goal completes. Defaults to a no-op.
+    @param ptree
+      WhyML parse tree to normalize and prove.
+    @return
+      One entry per proven goal, in normalized goal order. *)
+val prove_ptree_with_events :
   ?timeout:int ->
-  ?prover_cmd:string ->
-  ?selected_goal_index:int ->
   ?should_cancel:(unit -> bool) ->
-  prover:string ->
-  text:string ->
-  vc_ids_ordered:int list option ->
-  on_goal_start:(int -> string -> unit) ->
-  on_goal_done:
-    (int -> string -> string -> float -> string option -> string -> string option -> unit) ->
-  unit ->
-  summary * (string * string * float * string option * string * string option) list
+  ?on_goal_start:(goal_start_event -> unit) ->
+  ?on_goal_done:(goal_done_event -> unit) ->
+  Why3.Ptree.mlw_file ->
+  goal_proof_result list
 
-type sequent_term = {
-  text : string;
-  symbols : string list;
-  operators : string list;
-  quantifiers : string list;
-  has_arithmetic : bool;
-  term_size : int;
-  hypothesis_ids : int list;
-  origin_labels : string list;
-  hypothesis_kind : string option;
-}
-
-type structured_sequent = {
-  hypotheses : sequent_term list;
-  goal : sequent_term;
-}
-
-type failing_hypothesis_core = {
-  kept_hypothesis_ids : int list;
-  removed_hypothesis_ids : int list;
-}
-
+(** Native unsat-core payload from the underlying SMT solver. *)
 type native_unsat_core = {
   solver : string;
   hypothesis_ids : int list;
   smt_text : string;
 }
 
+(** Native probing payload for one goal, including optional model text. *)
 type native_solver_probe = {
   solver : string;
   status : string;
@@ -101,47 +107,37 @@ type native_solver_probe = {
   smt_text : string;
 }
 
-(* Extract Why3 goal ids for each task. *)
-val task_goal_wids : text:string -> int list list
+(** Request a native unsat-core for one targeted goal.
 
-(* Infer (src,dst) state names per normalized task from Why3 AST structure.
-   Returns [None] when source cannot be inferred for a task. *)
-val task_state_pairs : text:string -> (string * string) option list
-
-(* Extract sequents as (hypotheses, goal) pairs. *)
-val task_sequents : text:string -> (string list * string) list
-
-(* Extract sequents with term-structure analysis. *)
-val task_structured_sequents : text:string -> structured_sequent list
-
-(* For one failed goal, greedily minimize the set of Kairos-instrumented
-   hypotheses needed to reproduce a non-valid result. *)
-val minimize_failing_hypotheses :
+    @param timeout
+      Solver timeout in seconds.
+    @param ptree
+      WhyML parse tree containing the target goal.
+    @param goal_index
+      Zero-based index in normalized goal order.
+    @return
+      [Some core] when solver output provides an unsat core, [None] otherwise. *)
+val native_unsat_core_for_goal_of_ptree :
   ?timeout:int ->
-  ?prover_cmd:string ->
-  prover:string ->
-  text:string ->
-  goal_index:int ->
-  unit ->
-  failing_hypothesis_core option
-
-(* Ask the underlying SMT solver for a native unsat core on one targeted goal
-   by generating a dedicated named-assertion SMT script. *)
-val native_unsat_core_for_goal :
-  ?timeout:int ->
-  prover:string ->
-  text:string ->
+  ptree:Why3.Ptree.mlw_file ->
   goal_index:int ->
   unit ->
   native_unsat_core option
 
-(* Probe one targeted goal directly through the native SMT solver, capturing a
-   finer status classification and a model/counterexample payload when the VC is
-   satisfiable. *)
-val native_solver_probe_for_goal :
+(** Probe one goal through the native SMT solver.
+
+    @param timeout
+      Solver timeout in seconds.
+    @param ptree
+      WhyML parse tree containing the target goal.
+    @param goal_index
+      Zero-based index in normalized goal order.
+    @return
+      [Some probe] with solver status/details (and optional model for SAT),
+      [None] when the goal cannot be targeted. *)
+val native_solver_probe_for_goal_of_ptree :
   ?timeout:int ->
-  prover:string ->
-  text:string ->
+  ptree:Why3.Ptree.mlw_file ->
   goal_index:int ->
   unit ->
   native_solver_probe option

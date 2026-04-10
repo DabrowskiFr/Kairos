@@ -16,25 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Why/VC/SMT obligations export pass extracted from the v2 pipeline implementation. *)
+(** Render Why3 AST to text for artifact export/UI display. *)
 
-let join_blocks ~sep blocks =
-  let b = Buffer.create 4096 in
-  List.iteri
-    (fun i s ->
-      if i > 0 then Buffer.add_string b sep;
-      Buffer.add_string b s)
-    blocks;
-  Buffer.contents b
+(** Render a Why program AST into final WhyML text.
 
-let obligations_pass (nodes : Ir.node_ir list) : Pipeline_types.obligations_outputs =
-  let ptree = (Why_compile.compile_program_ast_from_ir_nodes nodes).Why_compile.mlw in
-  let vc_text =
-    join_blocks ~sep:"\n(* ---- goal ---- *)\n"
-      (Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree)
-  in
-  let smt_text =
-    join_blocks ~sep:"\n; ---- goal ----\n"
-      (Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree)
-  in
-  { Pipeline_types.vc_text; smt_text }
+    @param ast
+      Structured Why AST built from IR.
+    @return
+      WhyML source text after rendering passes. *)
+val emit_program_ast : Why_compile.program_ast -> string
+
+(** Render WhyML text and return origin spans for labeled fragments.
+
+    @param ast
+      Structured Why AST built from IR.
+    @return
+      [(text, spans)] where [spans] maps provenance id to byte offsets in the
+      rendered text. *)
+val emit_program_ast_with_spans :
+  Why_compile.program_ast -> string * (int * (int * int)) list

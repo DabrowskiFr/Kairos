@@ -21,12 +21,9 @@ let map_error = Pipeline_types.error_to_string
 let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.config =
   {
     input_file = cfg.input_file;
-    prover = cfg.prover;
-    prover_cmd = cfg.prover_cmd;
     wp_only = cfg.wp_only;
     smoke_tests = cfg.smoke_tests;
     timeout_s = cfg.timeout_s;
-    selected_goal_index = cfg.selected_goal_index;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prove = cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
@@ -71,7 +68,7 @@ let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
       ~default:Engine_service.Default
   in
   match
-    Engine_service.obligations_pass ~engine ~prover:req.prover ~input_file:req.input_file
+    Engine_service.obligations_pass ~engine ~input_file:req.input_file
   with
   | Ok out -> Ok (Lsp_app.map_oblig out)
   | Error e -> Error (map_error e)

@@ -174,7 +174,6 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
     vc_sources = o.vc_sources;
-    task_sequents = o.task_sequents;
     vc_locs = List.map (fun (i, l) -> (i, loc_of_ast l)) o.vc_locs;
     vc_locs_ordered = List.map loc_of_ast o.vc_locs_ordered;
     vc_spans_ordered = o.vc_spans_ordered;

@@ -94,7 +94,6 @@ type outputs = {
   goals : goal_info list;
   proof_traces : proof_trace list;
   vc_sources : (int * string) list;
-  task_sequents : (string list * string) list;
   vc_locs : (int * loc) list;
   vc_locs_ordered : loc list;
   vc_spans_ordered : (int * int) list;
@@ -279,7 +278,6 @@ type why_pass_request = {
 
 type obligations_pass_request = {
   input_file : string [@key "inputFile"];
-  prover : string;
   engine : string;
 }
 [@@deriving yojson]
@@ -304,12 +302,9 @@ type dot_png_from_text_request = { dot_text : string [@key "dotText"] } [@@deriv
 type config_repr = {
   input_file : string;
   engine : string option;
-  prover : string;
-  prover_cmd : string option;
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prove : bool;
   generate_vc_text : bool;
@@ -321,12 +316,9 @@ type config_repr = {
 type config = {
   input_file : string;
   engine : string;
-  prover : string;
-  prover_cmd : string option;
   wp_only : bool;
   smoke_tests : bool;
   timeout_s : int;
-  selected_goal_index : int option;
   compute_proof_diagnostics : bool;
   prove : bool;
   generate_vc_text : bool;
@@ -339,12 +331,9 @@ let yojson_of_config (c : config) =
     {
       input_file = c.input_file;
       engine = Some c.engine;
-      prover = c.prover;
-      prover_cmd = c.prover_cmd;
       wp_only = c.wp_only;
       smoke_tests = c.smoke_tests;
       timeout_s = c.timeout_s;
-      selected_goal_index = c.selected_goal_index;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prove = c.prove;
       generate_vc_text = c.generate_vc_text;
@@ -362,12 +351,9 @@ let config_of_yojson json =
         {
           input_file = repr.input_file;
           engine = Option.value repr.engine ~default:"v2";
-          prover = repr.prover;
-          prover_cmd = repr.prover_cmd;
           wp_only = repr.wp_only;
           smoke_tests = repr.smoke_tests;
           timeout_s = repr.timeout_s;
-          selected_goal_index = repr.selected_goal_index;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prove = repr.prove;
           generate_vc_text = repr.generate_vc_text;

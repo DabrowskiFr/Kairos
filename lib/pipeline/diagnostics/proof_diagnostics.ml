@@ -76,153 +76,15 @@ let unique_preserve_order xs =
         true))
     xs
 
-let take n xs =
-  let rec loop acc n = function
-    | _ when n <= 0 -> List.rev acc
-    | [] -> List.rev acc
-    | x :: rest -> loop (x :: acc) (n - 1) rest
-  in
-  loop [] n xs
-
-let summarize_instrumented_hypothesis (hyp : Why_contract_prove.sequent_term) =
-  let tags =
-    let origin_tags = List.map (fun origin -> "origin:" ^ origin) hyp.origin_labels in
-    let kind_tags = match hyp.hypothesis_kind with Some kind -> [ "kind:" ^ kind ] | None -> [] in
-    let hid_tags = List.map (fun id -> "hid:" ^ string_of_int id) hyp.hypothesis_ids in
-    take 4 (origin_tags @ kind_tags @ hid_tags)
-  in
-  match tags with
-  | [] -> hyp.text
-  | _ -> Printf.sprintf "[%s] %s" (String.concat ", " tags) hyp.text
-
-let intersect_count xs ys =
-  let tbl = Hashtbl.create 16 in
-  List.iter (fun x -> Hashtbl.replace tbl x ()) xs;
-  List.fold_left (fun acc y -> if Hashtbl.mem tbl y then acc + 1 else acc) 0 ys
-
-let derive_structured_context ~(failing_core : Why_contract_prove.failing_hypothesis_core option)
-    (seq : Why_contract_prove.structured_sequent option) =
-  match seq with
-  | None -> ([], [], [], [], [], [])
-  | Some seq ->
-      let goal : Why_contract_prove.sequent_term = seq.goal in
-      let kept_tbl = Hashtbl.create 16 in
-      let removed_tbl = Hashtbl.create 16 in
-      (match failing_core with
-      | Some core ->
-          List.iter (fun id -> Hashtbl.replace kept_tbl id ()) core.kept_hypothesis_ids;
-          List.iter (fun id -> Hashtbl.replace removed_tbl id ()) core.removed_hypothesis_ids
-      | None -> ());
-      let scored =
-        seq.hypotheses
-        |> List.mapi (fun idx (hyp : Why_contract_prove.sequent_term) ->
-               let symbol_overlap = intersect_count goal.symbols hyp.symbols in
-               let operator_overlap = intersect_count goal.operators hyp.operators in
-               let quantifier_overlap = intersect_count goal.quantifiers hyp.quantifiers in
-               let arithmetic_bonus =
-                 if goal.has_arithmetic && hyp.has_arithmetic then 1 else 0
-               in
-               let instrumentation_bonus =
-                 if hyp.hypothesis_ids <> [] || hyp.origin_labels <> [] then 3 else 0
-               in
-               let core_bonus =
-                 if List.exists (fun id -> Hashtbl.mem kept_tbl id) hyp.hypothesis_ids then 100
-                 else 0
-               in
-               let score =
-                 (symbol_overlap * 4) + (operator_overlap * 2) + quantifier_overlap
-                 + arithmetic_bonus + instrumentation_bonus + core_bonus
-               in
-               (idx, score, symbol_overlap, hyp))
-        |> List.sort (fun (idx_a, score_a, overlap_a, _) (idx_b, score_b, overlap_b, _) ->
-               match compare score_b score_a with
-               | 0 -> begin
-                   match compare overlap_b overlap_a with
-                   | 0 -> compare idx_a idx_b
-                   | c -> c
-                 end
-               | c -> c)
-      in
-      let minimal_context =
-        scored
-        |> List.filter_map
-             (fun (_idx, score, symbol_overlap, (hyp : Why_contract_prove.sequent_term)) ->
-               if score > 0 || symbol_overlap > 0 then Some (summarize_instrumented_hypothesis hyp)
-               else None)
-        |> take 4
-      in
-      let broader_context =
-        scored
-        |> List.filter_map
-             (fun (_idx, score, _symbol_overlap, (hyp : Why_contract_prove.sequent_term)) ->
-               if score > 0 then Some (summarize_instrumented_hypothesis hyp) else None)
-        |> take 8
-      in
-      let unused =
-        let removed =
-          seq.hypotheses
-          |> List.filter_map (fun (hyp : Why_contract_prove.sequent_term) ->
-                 if List.exists (fun id -> Hashtbl.mem removed_tbl id) hyp.hypothesis_ids then
-                   Some (summarize_instrumented_hypothesis hyp)
-                 else None)
-          |> unique_preserve_order
-        in
-        if removed <> [] then removed |> take 5
-        else
-          scored
-          |> List.filter_map
-               (fun (_idx, score, symbol_overlap, (hyp : Why_contract_prove.sequent_term)) ->
-                 if score = 0 && symbol_overlap = 0 then Some (summarize_instrumented_hypothesis hyp)
-                 else None)
-          |> take 5
-      in
-      let minimal_context =
-        let replay_context =
-          seq.hypotheses
-          |> List.filter_map (fun (hyp : Why_contract_prove.sequent_term) ->
-                 if List.exists (fun id -> Hashtbl.mem kept_tbl id) hyp.hypothesis_ids then
-                   Some (summarize_instrumented_hypothesis hyp)
-                 else None)
-          |> unique_preserve_order
-          |> take 4
-        in
-        if replay_context <> [] then replay_context else minimal_context
-      in
-      let kairos_core_hypotheses =
-        seq.hypotheses
-        |> List.filter_map (fun (hyp : Why_contract_prove.sequent_term) ->
-               if hyp.hypothesis_ids <> [] || hyp.origin_labels <> [] then
-                 Some (summarize_instrumented_hypothesis hyp)
-               else None)
-        |> unique_preserve_order
-        |> take 6
-      in
-      let why3_noise_hypotheses =
-        seq.hypotheses
-        |> List.filter_map (fun (hyp : Why_contract_prove.sequent_term) ->
-               if hyp.hypothesis_ids = [] && hyp.origin_labels = [] then
-                 Some (summarize_instrumented_hypothesis hyp)
-               else None)
-        |> unique_preserve_order
-        |> take 6
-      in
-      ( goal.symbols,
-        kairos_core_hypotheses,
-        why3_noise_hypotheses,
-        minimal_context,
-        (if broader_context <> [] then broader_context
-         else take 6 (List.map summarize_instrumented_hypothesis seq.hypotheses)),
-        unused )
-
 let diagnostic_for_trace ~(status : string) ~(record : formula_record option) ~(goal_text : string)
-    ~(structured_sequent : Why_contract_prove.structured_sequent option)
-    ~(failing_core : Why_contract_prove.failing_hypothesis_core option)
     ~(native_core : Why_contract_prove.native_unsat_core option)
     ~(native_probe : Why_contract_prove.native_solver_probe option) : Types.proof_diagnostic =
-  let goal_symbols, kairos_core_hypotheses, why3_noise_hypotheses, relevant_hypotheses,
-      context_hypotheses, unused_hypotheses =
-    derive_structured_context ~failing_core structured_sequent
-  in
+  let goal_symbols = [] in
+  let kairos_core_hypotheses = [] in
+  let why3_noise_hypotheses = [] in
+  let relevant_hypotheses = kairos_core_hypotheses in
+  let context_hypotheses = kairos_core_hypotheses in
+  let unused_hypotheses = [] in
   let status_norm = String.lowercase_ascii (String.trim status) in
   let native_probe_status =
     Option.map (fun (probe : Why_contract_prove.native_solver_probe) -> probe.status) native_probe
@@ -438,17 +300,15 @@ let diagnostic_for_trace ~(status : string) ~(record : formula_record option) ~(
     missing_elements;
     goal_symbols;
     analysis_method =
-      (match native_core, failing_core with
-      | Some core, _ ->
+      (match native_core with
+      | Some core ->
           Printf.sprintf
             "Native SMT unsat core recovered from %s on hid-named assertions, then remapped to Kairos hypotheses"
             core.solver
-      | None, _ when native_probe_model <> None ->
+      | None when native_probe_model <> None ->
           "Native SMT model recovered from the targeted solver on the focused VC"
-      | None, Some _ ->
-          "Structured Why3 term analysis with Kairos hypothesis instrumentation plus greedy replay-minimization of failing hid-marked hypotheses"
-      | None, None ->
-          "Structured Why3 term analysis with Kairos hypothesis instrumentation (origin/hid/kind markers preserved through normalized sequents)");
+      | None ->
+          "Status-based diagnostic without structured sequent analysis");
     solver_detail = native_probe_detail;
     native_unsat_core_solver =
       Option.map (fun (core : Why_contract_prove.native_unsat_core) -> core.solver) native_core;
@@ -499,25 +359,10 @@ let resolve_formula_record ~(records : (int, formula_record) Hashtbl.t) ~(why_id
   let origin_ids = collect_origin_ids why_ids in
   List.find_map (fun id -> Hashtbl.find_opt records id) origin_ids
 
-let source_from_record_or_state ~(record : formula_record option)
-    ~(state_pair : (string * string) option) ~(obc_program : Ast.program) =
+let source_from_record_or_state ~(record : formula_record option) =
   match record with
   | Some record -> record.source
-  | None -> (
-      match state_pair with
-      | None -> ""
-      | Some (src_state, dst_state) ->
-          List.find_map
-            (fun (node : Ast.node) ->
-              List.find_map
-                (fun (t : Ast.transition) ->
-                  if t.src = src_state && t.dst = dst_state then
-                    Some
-                      (Printf.sprintf "%s: %s -> %s" node.semantics.sem_nname t.src t.dst)
-                  else None)
-                node.semantics.sem_trans)
-            obc_program
-          |> Option.value ~default:(Printf.sprintf "%s -> %s" src_state dst_state))
+  | None -> ""
 
 let lookup_span table id = Hashtbl.find_opt table id
 

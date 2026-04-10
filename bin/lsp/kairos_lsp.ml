@@ -716,12 +716,11 @@ let () =
                   match req with
                   | Some req -> Some req
                   | None -> (
-                      match (get_param_string params "inputFile", get_param_string params "prover") with
-                      | Some input_file, Some prover ->
+                      match get_param_string params "inputFile" with
+                      | Some input_file ->
                           Some
                             {
                               Lsp_protocol.input_file;
-                              prover;
                               engine = Engine_service.string_of_engine (get_engine params);
                             }
                       | _ -> None)
@@ -736,7 +735,7 @@ let () =
                         send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
                 | _ ->
                     send_error stdout ~id_json:(Some id) ~code:(-32602)
-                      ~message:"Missing valid inputFile/prover")
+                      ~message:"Missing valid inputFile")
               id_json
         | Some "kairos/evalPass" ->
             Option.iter
@@ -867,15 +866,9 @@ let () =
                       | None ->
                           {
                             input_file;
-                            prover = Option.value (get_param_string params "prover") ~default:"z3";
-                            prover_cmd = get_param_string params "proverCmd";
                             wp_only = get_param_bool params "wpOnly" false;
                             smoke_tests = get_param_bool params "smokeTests" false;
                             timeout_s = get_param_int params "timeoutS" 5;
-                            selected_goal_index =
-                              (match get_param_int params "selectedGoalIndex" (-1) with
-                              | n when n >= 0 -> Some n
-                              | _ -> None);
                             compute_proof_diagnostics =
                               get_param_bool params "computeProofDiagnostics" false;
                             prove = get_param_bool params "prove" true;
@@ -950,12 +943,9 @@ let () =
                       {
                         Lsp_protocol.input_file = cfg.input_file;
                         engine = Engine_service.string_of_engine engine;
-                        prover = cfg.prover;
-                        prover_cmd = cfg.prover_cmd;
                         wp_only = cfg.wp_only;
                         smoke_tests = cfg.smoke_tests;
                         timeout_s = cfg.timeout_s;
-                        selected_goal_index = cfg.selected_goal_index;
                         compute_proof_diagnostics = cfg.compute_proof_diagnostics;
                         prove = cfg.prove;
                         generate_vc_text = cfg.generate_vc_text;

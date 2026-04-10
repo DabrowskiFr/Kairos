@@ -18,13 +18,9 @@
 
 (** Pipeline entry points for the Why3 backend.
 
-    Exposes the two passes of the Why3 backend in the form expected by the
-    Kairos pipeline. Each pass receives a [build_ast_with_info] constructor
-    and returns a typed {!Pipeline_types} result. *)
+    Exposes the obligations export pass in the form expected by the Kairos
+    pipeline. *)
 
-(** [why_pass nodes] compiles a list of IR nodes to WhyML text. *)
-val why_pass : Ir.node_ir list -> string
-
-(** [obligations_pass ~prover nodes] compiles IR nodes and generates
+(** [obligations_pass nodes] compiles IR nodes and generates
     verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass : prover:string -> Ir.node_ir list -> Pipeline_types.obligations_outputs
+val obligations_pass : Ir.node_ir list -> Pipeline_types.obligations_outputs

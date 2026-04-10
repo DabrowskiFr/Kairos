@@ -28,7 +28,6 @@ val why_pass :
   (Pipeline_types.why_outputs, Pipeline_types.error) result
 
 val obligations_pass :
-  prover:string ->
   input_file:string ->
   (Pipeline_types.obligations_outputs, Pipeline_types.error) result
 

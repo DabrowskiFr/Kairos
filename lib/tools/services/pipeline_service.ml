@@ -27,14 +27,15 @@ let why_pass ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, infos) ->
-      let why_text = Why_pipeline.why_pass asts.instrumentation in
+      let why_ast = Why_compile.compile_program_ast_from_ir_nodes asts.instrumentation in
+      let why_text = Why_text_render.emit_program_ast why_ast in
       Ok { Pipeline_types.why_text; stage_meta = Pipeline_outputs.stage_meta infos }
 
-let obligations_pass ~prover ~input_file =
+let obligations_pass ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok (asts, _infos) ->
-      Ok (Why_pipeline.obligations_pass ~prover asts.instrumentation)
+      Ok (Why_pipeline.obligations_pass asts.instrumentation)
 
 let normalized_program ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with

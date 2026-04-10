@@ -96,7 +96,6 @@ export interface Outputs {
   proof_traces: ProofTrace[];
   obcplus_sequents: Array<[number, string]>;
   vc_sources: Array<[number, string]>;
-  task_sequents: Array<[string[], string]>;
   vc_locs: Array<[number, Loc]>;
   obcplus_spans: Array<[number, [number, number]]>;
   vc_locs_ordered: Loc[];
@@ -228,13 +227,10 @@ export interface GoalTreeNode {
 export interface KairosRunConfig {
   inputFile: string;
   engine: string;
-  prover: string;
-  proverCmd?: string;
   wpOnly: boolean;
   smokeTests: boolean;
   timeoutS: number;
   maxProofGoals?: number;
-  selectedGoalIndex?: number;
   computeProofDiagnostics: boolean;
   prefixFields: boolean;
   prove: boolean;

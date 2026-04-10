@@ -83,7 +83,6 @@ Generate obligations.
 
 **Params**
 - `inputFile` (string)
-- `prover` (string)
 - `prefixFields` (bool, default false)
 
 **Result**
@@ -118,8 +117,6 @@ Full pipeline run with optional proof.
 
 **Params**
 - `inputFile` (string)
-- `prover` (string, default `z3`)
-- `proverCmd` (string, optional)
 - `wpOnly` (bool, default false)
 - `smokeTests` (bool, default false)
 - `timeoutS` (int, default 5)

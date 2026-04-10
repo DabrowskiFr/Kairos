@@ -358,16 +358,6 @@
           ],
           "description": "Kairos engine to use for runs."
         },
-        "kairos.run.prover": {
-          "type": "string",
-          "default": "z3",
-          "description": "Default prover used for Build and Prove."
-        },
-        "kairos.run.proverCmd": {
-          "type": "string",
-          "default": "",
-          "description": "Optional explicit prover command."
-        },
         "kairos.run.timeoutS": {
           "type": "number",
           "default": 5,

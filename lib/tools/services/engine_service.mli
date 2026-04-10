@@ -35,7 +35,6 @@ val why_pass :
 
 val obligations_pass :
   engine:engine ->
-  prover:string ->
   input_file:string ->
   (Pipeline_types.obligations_outputs, Pipeline_types.error) result
 

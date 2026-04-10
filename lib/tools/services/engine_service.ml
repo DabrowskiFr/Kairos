@@ -34,11 +34,11 @@ let why_pass ~engine ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.why_pass ~input_file
 
-let obligations_pass ~engine ~prover ~input_file =
+let obligations_pass ~engine ~input_file =
   match normalize engine with
   | Default ->
       Pipeline_service.obligations_pass
-        ~prover ~input_file
+        ~input_file
 
 let normalized_program ~engine ~input_file =
   match normalize engine with

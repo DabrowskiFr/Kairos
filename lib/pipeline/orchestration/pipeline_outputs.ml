@@ -107,11 +107,6 @@ let unique_preserve_order xs =
         true))
     xs
 
-let option_join = function Some x -> x | None -> None
-
-let matches_selected_goal ~(cfg : Pipeline_types.config) idx =
-  match cfg.selected_goal_index with None -> true | Some selected -> idx = selected
-
 let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_stages)
     ~(infos : Pipeline_types.stage_infos) :
     (Pipeline_types.outputs, Pipeline_types.error) result =
@@ -121,7 +116,8 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes asts.instrumentation
     in
-    let why_text, why_spans = Why_render.emit_program_ast_with_spans why_ast in
+    let ptree = why_ast.Why_compile.mlw in
+    let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
     List.iter
@@ -130,18 +126,18 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
           { Pipeline_types.start_offset = start_offset; end_offset })
       why_spans;
     let t_vc_smt = Unix.gettimeofday () in
-    let vc_tasks = Why_contract_prove.dump_why3_tasks_with_attrs ~text:why_text in
+    let vc_tasks = Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree in
     let vc_text, vc_spans_ordered =
       if cfg.generate_vc_text then join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks else ("", [])
     in
-    let smt_tasks = Why_contract_prove.dump_smt2_tasks ~prover:cfg.prover ~text:why_text in
+    let smt_tasks = Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree in
     let smt_text, smt_spans_ordered =
       if cfg.generate_smt_text then join_blocks_with_spans ~sep:"\n; ---- goal ----\n" smt_tasks else ("", [])
     in
-    let task_sequents = Why_contract_prove.task_sequents ~text:why_text in
-    let task_structured_sequents = Why_contract_prove.task_structured_sequents ~text:why_text in
-    let task_goal_wids = Why_contract_prove.task_goal_wids ~text:why_text in
-    let task_state_pairs = Why_contract_prove.task_state_pairs ~text:why_text in
+    let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
+    let task_goal_wids =
+      Why_task_support.normalize_tasks_with_wids_of_ptree ~env ~ptree |> List.map snd
+    in
     let vc_ids_ordered = Proof_diagnostics.vc_ids_of_task_goal_ids task_goal_wids in
     let vc_locs, vc_locs_ordered = ([], []) in
     let vc_loc_tbl = Hashtbl.create (List.length vc_locs * 2 + 1) in
@@ -155,17 +151,11 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
           let record =
             Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
           in
-            let source =
+          let source =
             Proof_diagnostics.source_from_record_or_state ~record
-              ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-              ~obc_program:asts.automata_generation
           in
           (vcid, source))
         task_goal_wids
-      |> List.filter (fun (vcid, _source) ->
-             match cfg.selected_goal_index with
-             | None -> true
-             | Some selected -> List.nth_opt vc_ids_ordered selected = Some vcid)
     in
     let program_dot, program_automaton_text = program_automaton_texts asts in
     let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
@@ -210,14 +200,20 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let goal_results =
       if cfg.prove && not cfg.wp_only then
         let finished = ref [] in
-        let _summary, _ =
-          Why_contract_prove.prove_text_detailed_with_callbacks ~timeout:cfg.timeout_s ~prover:cfg.prover
-            ?prover_cmd:cfg.prover_cmd ?selected_goal_index:cfg.selected_goal_index ~text:why_text
-            ~vc_ids_ordered:(Some vc_ids_ordered) ~should_cancel:(fun () -> false)
-            ~on_goal_start:(fun _ _ -> ())
-            ~on_goal_done:(fun idx goal status time_s dump_path source vcid ->
-              finished := (idx, goal, status, time_s, dump_path, source, vcid) :: !finished)
-            ()
+        let _ =
+          Why_contract_prove.prove_ptree_with_events ~timeout:cfg.timeout_s
+            ptree ~should_cancel:(fun () -> false)
+            ~on_goal_start:(fun _ -> ())
+            ~on_goal_done:(fun ev ->
+              let idx = ev.goal_index in
+              let r = ev.result in
+              let status = Why_contract_prove.prover_answer_to_status r.answer in
+              let vcid =
+                match List.nth_opt vc_ids_ordered idx with
+                | Some id -> Some (string_of_int id)
+                | None -> None
+              in
+              finished := (idx, r.goal_name, status, r.time_s, r.dump_path, r.source, vcid) :: !finished)
         in
         List.sort (fun (a, _, _, _, _, _, _) (b, _, _, _, _, _, _) -> compare a b) !finished
       else
@@ -227,7 +223,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
             let stable_id = Proof_diagnostics.stable_goal_id idx why_ids in
             (idx, stable_id, "pending", 0.0, None, "", Some (string_of_int vcid)))
           task_goal_wids
-        |> List.filter (fun (idx, _, _, _, _, _, _) -> matches_selected_goal ~cfg idx)
     in
     External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
     let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
@@ -237,83 +232,65 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let proof_traces =
       List.mapi (fun idx why_ids -> (idx, why_ids)) task_goal_wids
       |> List.filter_map (fun (idx, why_ids) ->
-             if not (matches_selected_goal ~cfg idx) then None
-             else
-               let origin_ids = Proof_diagnostics.collect_origin_ids why_ids in
-               let record =
-                 Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
-               in
-                 let source =
-                 Proof_diagnostics.source_from_record_or_state ~record
-                   ~state_pair:(List.nth_opt task_state_pairs idx |> option_join)
-                   ~obc_program:asts.automata_generation
-               in
-               let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
-                 match Hashtbl.find_opt goal_result_tbl idx with
-                 | Some goal -> goal
-                 | None ->
-                     let fallback_id = Proof_diagnostics.stable_goal_id idx why_ids in
-                     (idx, fallback_id, "pending", 0.0, None, source, Some (string_of_int (List.nth vc_ids_ordered idx)))
-               in
-               let stable_id = Proof_diagnostics.stable_goal_id idx why_ids in
-               let native_core, native_probe, failing_core =
-                 if not cfg.compute_proof_diagnostics then (None, None, None)
-                 else
-                   match String.lowercase_ascii status with
-                   | "valid" | "proved" ->
-                       if cfg.selected_goal_index = Some idx then
-                         ( Why_contract_prove.native_unsat_core_for_goal ~timeout:cfg.timeout_s ~prover:cfg.prover
-                             ~text:why_text ~goal_index:idx (),
-                           None,
-                           None )
-                       else (None, None, None)
-                   | "pending" -> (None, None, None)
-                   | _ ->
-                       let native_probe =
-                         Why_contract_prove.native_solver_probe_for_goal ~timeout:cfg.timeout_s ~prover:cfg.prover
-                           ~text:why_text ~goal_index:idx ()
-                       in
-                       let failing_core =
-                         match native_probe with
-                         | Some { model_text = Some _; _ } -> None
-                         | _ ->
-                             Why_contract_prove.minimize_failing_hypotheses ~timeout:1 ?prover_cmd:cfg.prover_cmd
-                               ~prover:cfg.prover ~text:why_text ~goal_index:idx ()
-                       in
-                       (None, native_probe, failing_core)
-               in
-               let diagnostic =
-                 Proof_diagnostics.diagnostic_for_trace ~status ~record ~goal_text:goal_name
-                   ~structured_sequent:(List.nth_opt task_structured_sequents idx)
-                   ~failing_core ~native_core ~native_probe
-               in
-               let source_span =
-                 match List.find_map (fun id -> Hashtbl.find_opt vc_loc_tbl id) origin_ids with
-                 | Some _ as loc -> loc
-                 | None -> Option.bind record (fun r -> r.loc)
-               in
-               Some {
-                 Pipeline_types.goal_index = idx;
-                 stable_id;
-                 goal_name;
-                 status;
-                 solver_status = (match native_probe with Some probe -> probe.status | None -> status);
-                 time_s;
-                 source;
-                 node = Option.bind record (fun r -> r.node);
-                 transition = Option.bind record (fun r -> r.transition);
-                 obligation_kind = (match record with Some r -> r.obligation_kind | None -> "unknown");
-                 obligation_family = Option.bind record (fun r -> r.obligation_family);
-                 obligation_category = Option.bind record (fun r -> r.obligation_category);
-                 origin_ids;
-                 vc_id = raw_vcid;
-                 source_span;
-                 why_span = List.find_map (fun id -> Proof_diagnostics.lookup_span why_span_tbl id) origin_ids;
-                 vc_span = List.nth_opt vc_spans_ordered idx;
-                 smt_span = List.nth_opt smt_spans_ordered idx;
-                 dump_path;
-                 diagnostic;
-               })
+             let origin_ids = Proof_diagnostics.collect_origin_ids why_ids in
+             let record =
+               Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
+             in
+             let source =
+               Proof_diagnostics.source_from_record_or_state ~record
+             in
+             let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
+               match Hashtbl.find_opt goal_result_tbl idx with
+               | Some goal -> goal
+               | None ->
+                   let fallback_id = Proof_diagnostics.stable_goal_id idx why_ids in
+                   (idx, fallback_id, "pending", 0.0, None, source, Some (string_of_int (List.nth vc_ids_ordered idx)))
+             in
+             let stable_id = Proof_diagnostics.stable_goal_id idx why_ids in
+             let native_core, native_probe =
+               if not cfg.compute_proof_diagnostics then (None, None)
+               else
+                 match String.lowercase_ascii status with
+                 | "valid" | "proved" -> (None, None)
+                 | "pending" -> (None, None)
+                 | _ ->
+                     let native_probe =
+                       Why_contract_prove.native_solver_probe_for_goal_of_ptree ~timeout:cfg.timeout_s
+                         ~ptree ~goal_index:idx ()
+                     in
+                     (None, native_probe)
+             in
+             let diagnostic =
+               Proof_diagnostics.diagnostic_for_trace ~status ~record ~goal_text:goal_name
+                 ~native_core ~native_probe
+             in
+             let source_span =
+               match List.find_map (fun id -> Hashtbl.find_opt vc_loc_tbl id) origin_ids with
+               | Some _ as loc -> loc
+               | None -> Option.bind record (fun r -> r.loc)
+             in
+             Some {
+               Pipeline_types.goal_index = idx;
+               stable_id;
+               goal_name;
+               status;
+               solver_status = (match native_probe with Some probe -> probe.status | None -> status);
+               time_s;
+               source;
+               node = Option.bind record (fun r -> r.node);
+               transition = Option.bind record (fun r -> r.transition);
+               obligation_kind = (match record with Some r -> r.obligation_kind | None -> "unknown");
+               obligation_family = Option.bind record (fun r -> r.obligation_family);
+               obligation_category = Option.bind record (fun r -> r.obligation_category);
+               origin_ids;
+               vc_id = raw_vcid;
+               source_span;
+               why_span = List.find_map (fun id -> Proof_diagnostics.lookup_span why_span_tbl id) origin_ids;
+               vc_span = List.nth_opt vc_spans_ordered idx;
+               smt_span = List.nth_opt smt_spans_ordered idx;
+               dump_path;
+               diagnostic;
+             })
     in
     let goals =
       List.map
@@ -342,7 +319,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       goals;
       proof_traces;
       vc_sources;
-      task_sequents;
       vc_locs;
       vc_locs_ordered;
       vc_spans_ordered =

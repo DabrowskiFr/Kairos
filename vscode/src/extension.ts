@@ -89,8 +89,6 @@ function getRunSettings() {
   const cfg = vscode.workspace.getConfiguration("kairos");
   return {
     engine: cfg.get<string>("run.engine", "v2"),
-    prover: cfg.get<string>("run.prover", "z3"),
-    proverCmd: cfg.get<string>("run.proverCmd", ""),
     timeoutS: cfg.get<number>("run.timeoutS", 5),
     maxProofGoals: cfg.get<number | undefined>("run.maxProofGoals"),
     wpOnly: cfg.get<boolean>("run.wpOnly", false),
@@ -891,7 +889,7 @@ ${rows
     openDashboardPanel: showDashboardPanel,
     openExplainFailurePanel: showExplainFailurePanel,
     rerunFocusedDiagnosis: async (trace) => {
-      await runWithOptions("prove", { selectedGoalIndex: trace.goal_index });
+      await runWith("prove");
       const refreshed =
         state.outputs?.proof_traces.find((item) => item.goal_index === trace.goal_index) ?? trace;
       await showExplainFailurePanel(refreshed);
@@ -940,13 +938,10 @@ ${rows
   });
 
   async function runWith(command: "build" | "prove" | "run"): Promise<void> {
-    return runWithOptions(command, {});
+    return runWithOptions(command);
   }
 
-  async function runWithOptions(
-    command: "build" | "prove" | "run",
-    options: { selectedGoalIndex?: number }
-  ): Promise<void> {
+  async function runWithOptions(command: "build" | "prove" | "run"): Promise<void> {
     if (!client) {
       return;
     }
@@ -968,14 +963,11 @@ ${rows
         {
           inputFile,
           engine: settings.engine,
-          prover: settings.prover,
-          proverCmd: settings.proverCmd || undefined,
           wpOnly: settings.wpOnly,
           smokeTests: settings.smokeTests,
           timeoutS: settings.timeoutS,
           maxProofGoals: settings.maxProofGoals,
-          selectedGoalIndex: options.selectedGoalIndex,
-          computeProofDiagnostics: options.selectedGoalIndex !== undefined,
+          computeProofDiagnostics: false,
           prefixFields: settings.prefixFields,
           prove: command !== "build",
           generateVcText: settings.generateVcText,
