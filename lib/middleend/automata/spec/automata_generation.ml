@@ -60,7 +60,7 @@ let combine_guarantees_for_automaton ~(assumes : ltl list) ~(guarantees : ltl li
   let _ = assumes in
   match guarantees with [] -> LTrue | _ -> g
 
-let build_guarantee_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : ltl =
+let build_guarantee_spec ~(atom_map : ((hexpr * relop * hexpr) * ident) list) (n : Ast.node) : ltl =
   let _ = atom_map in
   let spec = Ast.specification_of_node n in
   let spec_assumes = spec.spec_assumes in
@@ -75,7 +75,7 @@ let build_guarantee_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : l
   combine_guarantees_for_automaton ~assumes:spec_assumes ~guarantees:spec_guarantees
   |> simplify_temporal_idempotence
 
-let build_assumption_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : ltl =
+let build_assumption_spec ~(atom_map : ((hexpr * relop * hexpr) * ident) list) (n : Ast.node) : ltl =
   let _ = atom_map in
   let spec = Ast.specification_of_node n in
   List.iteri
@@ -90,7 +90,7 @@ let build_assumption_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : 
 
 type automata_automaton = Automaton_types.automaton
 
-let build_guarantee_automaton ~(atom_map : (fo_atom * ident) list)
+let build_guarantee_automaton ~(atom_map : ((hexpr * relop * hexpr) * ident) list)
     ~(atom_named_exprs : (ident * expr) list) ~(atom_names : ident list)
     (spec : ltl) : automata_automaton =
   Automaton_build.build ~atom_map ~atom_named_exprs ~atom_names spec

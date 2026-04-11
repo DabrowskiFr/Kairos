@@ -74,17 +74,11 @@ and hexpr_desc =
   | HUn of unop * hexpr
 [@@deriving yojson]
 
-(** First-order logic atom. *)
-type fo_atom =
-  | FRel of hexpr * relop * hexpr
-  | FPred of ident * hexpr list
-[@@deriving yojson]
-
 (** LTL formulas (safety-oriented fragment used by the tool). *)
 type ltl =
   | LTrue
   | LFalse
-  | LAtom of fo_atom
+  | LAtom of hexpr * relop * hexpr
   | LNot of ltl
   | LAnd of ltl * ltl
   | LOr of ltl * ltl

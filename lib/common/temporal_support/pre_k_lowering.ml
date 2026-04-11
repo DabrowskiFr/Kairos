@@ -127,26 +127,6 @@ let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding lis
 let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
-let lower_fo_temporal_bindings ~(temporal_bindings : temporal_binding list) (f : fo_atom) : fo_atom option =
-  match f with
-  | FRel (h1, r, h2) -> begin
-      match (lower_hexpr_temporal_bindings ~temporal_bindings h1, lower_hexpr_temporal_bindings ~temporal_bindings h2) with
-      | Some h1', Some h2' -> Some (FRel (h1', r, h2'))
-      | _ -> None
-    end
-  | FPred (id, hs) ->
-      let rec lower_args acc = function
-        | [] -> Some (List.rev acc)
-        | h :: tl -> (
-            match lower_hexpr_temporal_bindings ~temporal_bindings h with
-            | None -> None
-            | Some h' -> lower_args (h' :: acc) tl)
-      in
-      Option.map (fun hs' -> FPred (id, hs')) (lower_args [] hs)
-
-let lower_fo_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : fo_atom option =
-  lower_fo_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
-
 let lower_fo_formula_temporal_bindings ~(temporal_bindings : temporal_binding list)
     (f : Core_syntax.hexpr) : Core_syntax.hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings f

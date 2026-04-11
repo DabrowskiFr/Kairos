@@ -22,7 +22,7 @@ let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LX a -> find_in_ltl a
-    | LAtom (FRel (lhs, REq, rhs)) -> (
+    | LAtom (lhs, REq, rhs) -> (
         match (lhs.hexpr, rhs.hexpr) with
         | HVar out, HPreK (b, 1) -> Some (out, b)
         | HPreK (b, 1), HVar out -> Some (out, b)

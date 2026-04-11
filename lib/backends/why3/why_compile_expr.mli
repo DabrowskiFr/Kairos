@@ -132,19 +132,10 @@ val term_of_outputs : env -> Core_syntax.vdecl list -> Why3.Ptree.term option
 val compile_hexpr :
   ?old:bool -> ?prefer_link:bool -> ?in_post:bool -> env -> Core_syntax.hexpr -> Why3.Ptree.term
 
-(** [compile_fo_term env atom] compiles a Kairos first-order atom to a Why3
-    term. *)
-val compile_fo_term : ?prefer_link:bool -> env -> Core_syntax.fo_atom -> Why3.Ptree.term
-
 (** [compile_local_fo_formula_term env f] compiles a canonical first-order
     formula from the IR to a Why3 term. *)
 val compile_local_fo_formula_term :
   ?prefer_link:bool -> ?in_post:bool -> env -> Core_syntax.hexpr -> Why3.Ptree.term
-
-(** [compile_fo_term_shift env in_old atom] compiles a first-order atom
-    applying the temporal shift. *)
-val compile_fo_term_shift :
-  ?prefer_link:bool -> ?in_post:bool -> env -> bool -> Core_syntax.fo_atom -> Why3.Ptree.term
 
 (** [pre_k_source_expr env x] builds the WhyML source expression for a k-step
     history variable initialisation. *)

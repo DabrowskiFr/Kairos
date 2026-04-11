@@ -24,10 +24,12 @@ open Ltl_valuation
 
 type guard = Automaton_types.guard
 
-let rec collect_atoms_ltl (f : ltl) (acc : fo_atom list) : fo_atom list =
+let rec collect_atoms_ltl (f : ltl) (acc : (hexpr * relop * hexpr) list) : (hexpr * relop * hexpr) list =
   match f with
   | LTrue | LFalse -> acc
-  | LAtom a -> if List.exists (( = ) a) acc then acc else a :: acc
+  | LAtom (h1, r, h2) ->
+      let atom = (h1, r, h2) in
+      if List.exists (( = ) atom) acc then acc else atom :: acc
   | LNot a | LX a | LG a -> collect_atoms_ltl a acc
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
       collect_atoms_ltl b (collect_atoms_ltl a acc)
@@ -58,7 +60,7 @@ let sanitize_ident (s : string) : string =
   let starts_with_digit = match out.[0] with '0' .. '9' -> true | _ -> false in
   if starts_with_digit then "atom_" ^ out else out
 
-let make_atom_names (atom_exprs : (fo_atom * expr) list) : string list =
+let make_atom_names (atom_exprs : ((hexpr * relop * hexpr) * expr) list) : string list =
   (* Build stable, readable, and unique atom identifiers from expressions. *)
   let used = Hashtbl.create 16 in
   let fresh base =
@@ -96,7 +98,7 @@ let recover_guard_fo (atom_map : (ident * expr) list) (g : Automaton_types.guard
   g
 
 type automata_atoms = Automaton_types.automata_atoms = {
-  atom_map : (fo_atom * ident) list;
+  atom_map : ((hexpr * relop * hexpr) * ident) list;
   atom_named_exprs : (ident * expr) list;
 }
 
@@ -128,25 +130,22 @@ let mk_bool_neq (a : expr) (b : expr) : expr =
          mk_expr (EBin (And, mk_expr (EUn (Not, a)), b)) ))
 
 let atom_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : expr option =
+    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+    ((h1, r, h2) : hexpr * relop * hexpr) : expr option =
   let _ = inputs in
-  match f with
-  | FRel (h1, r, h2) -> begin
-      match
-        ( Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h1,
-          Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h2 )
-      with
-      | Some e1, Some e2 ->
-          let ty1 = infer_expr_type ~var_types e1 in
-          let ty2 = infer_expr_type ~var_types e2 in
-          begin match (ty1, ty2, r) with
-          | Some TBool, Some TBool, REq -> Some (mk_bool_eq e1 e2)
-          | Some TBool, Some TBool, RNeq -> Some (mk_bool_neq e1 e2)
-          | _ -> Some (mk_expr (ECmp (r, e1, e2)))
-          end
-      | _ -> None
-    end
-  | FPred _ -> None
+  match
+    ( Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h1,
+      Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h2 )
+  with
+  | Some e1, Some e2 ->
+      let ty1 = infer_expr_type ~var_types e1 in
+      let ty2 = infer_expr_type ~var_types e2 in
+      begin match (ty1, ty2, r) with
+      | Some TBool, Some TBool, REq -> Some (mk_bool_eq e1 e2)
+      | Some TBool, Some TBool, RNeq -> Some (mk_bool_neq e1 e2)
+      | _ -> Some (mk_expr (ECmp (r, e1, e2)))
+      end
+  | _ -> None
 
 let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
     automata_atoms =
@@ -168,7 +167,10 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
   in
   if skipped <> [] then (
     let lines =
-      List.rev skipped |> List.map (fun a -> "  - " ^ Pretty.string_of_fo_atom a) |> String.concat "\n"
+      List.rev skipped
+      |> List.map (fun (h1, r, h2) ->
+             "  - " ^ Pretty.string_of_hexpr h1 ^ " " ^ Pretty.string_of_relop r ^ " " ^ Pretty.string_of_hexpr h2)
+      |> String.concat "\n"
     in
     prerr_endline "Non-translatable monitor atoms:";
     prerr_endline lines;

@@ -36,11 +36,11 @@ val guard_to_formula : guard -> string
       name;
     - [atom_named_exprs] stores the corresponding named boolean expressions. *)
 type automata_atoms = Automaton_types.automata_atoms = {
-  atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
+  atom_map : ((Core_syntax.hexpr * Core_syntax.relop * Core_syntax.hexpr) * Core_syntax.ident) list;
   atom_named_exprs : (Core_syntax.ident * Core_syntax.expr) list;
 }
 
-val make_atom_names : (Core_syntax.fo_atom * Core_syntax.expr) list -> string list
+val make_atom_names : ((Core_syntax.hexpr * Core_syntax.relop * Core_syntax.hexpr) * Core_syntax.expr) list -> string list
 (** [make_atom_names atoms] generates stable, readable, and unique names for the
     given atoms, preserving the input order. *)
 

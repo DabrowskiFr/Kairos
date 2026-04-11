@@ -114,12 +114,6 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
 let string_of_expr ?(ctx = 0) (e : expr) : string = string_of_expr_with_ctx ~ctx e
 let string_of_hexpr (h : hexpr) : string = string_of_hexpr_with_ctx h
 
-let string_of_fo_atom ?(ctx = 0) (f : fo_atom) : string =
-  ignore ctx;
-  match f with
-  | FRel (h1, r, h2) -> string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
-  | FPred (id, hs) -> id ^ "(" ^ String.concat ", " (List.map string_of_hexpr hs) ^ ")"
-
 let string_of_fo ?(ctx = 0) (f : Core_syntax.hexpr) : string =
   string_of_hexpr_with_ctx ~ctx f
 
@@ -128,7 +122,7 @@ let rec string_of_ltl ?(ctx = 0) (f : ltl) : string =
   match f with
   | LTrue -> "true"
   | LFalse -> "false"
-  | LAtom a -> string_of_fo_atom a
+  | LAtom (h1, r, h2) -> string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
   | LNot a -> wrap 5 ("not " ^ string_of_ltl ~ctx:5 a)
   | LX a -> "X(" ^ string_of_ltl a ^ ")"
   | LG a -> "G(" ^ string_of_ltl a ^ ")"

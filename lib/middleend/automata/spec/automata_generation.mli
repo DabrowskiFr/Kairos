@@ -46,7 +46,7 @@ type automata_build = Automaton_types.automata_build = {
 type node_builds = (ident * automata_build) list
 
 val build_guarantee_automaton :
-  atom_map:(fo_atom * ident) list ->
+  atom_map:((hexpr * relop * hexpr) * ident) list ->
   atom_named_exprs:(ident * expr) list ->
   atom_names:ident list ->
   ltl ->
@@ -56,12 +56,12 @@ val build_guarantee_automaton :
     The function delegates to {!Automaton_build.build}, then returns the
     normalized automaton used by the rest of the middleend. *)
 
-val build_guarantee_spec : atom_map:(fo_atom * ident) list -> Ast.node -> ltl
+val build_guarantee_spec : atom_map:((hexpr * relop * hexpr) * ident) list -> Ast.node -> ltl
 (** Combine the guarantees of a node into the monitor specification used for the
     guarantee automaton. Assumptions are included in this combined formula in
     the way required by the current monitor construction. *)
 
-val build_assumption_spec : atom_map:(fo_atom * ident) list -> Ast.node -> ltl
+val build_assumption_spec : atom_map:((hexpr * relop * hexpr) * ident) list -> Ast.node -> ltl
 (** Combine the assumptions of a node into a standalone assumption
     specification. *)
 

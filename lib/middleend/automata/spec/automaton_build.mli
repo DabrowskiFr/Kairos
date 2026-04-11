@@ -23,7 +23,7 @@
     backend and normalizing its result into {!Automaton_types.automaton}. *)
 open Core_syntax
 val build :
-  atom_map:(fo_atom * ident) list ->
+  atom_map:((hexpr * relop * hexpr) * ident) list ->
   atom_names:ident list ->
   atom_named_exprs:(ident * expr) list ->
   ltl ->

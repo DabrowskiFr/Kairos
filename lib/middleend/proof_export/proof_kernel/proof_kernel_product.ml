@@ -239,35 +239,31 @@ let current_const_of_hexpr = function
   | { hexpr = HLitBool b; _ } -> Some (CBool b)
   | _ -> None
 
-let add_current_atom env ~(negated : bool) (fo_atom : fo_atom) : bool option =
-  match fo_atom with
-  | FRel (h1, REq, h2) -> begin
-      match
-        ( current_var_of_hexpr h1,
-          current_var_of_hexpr h2,
-          current_const_of_hexpr h1,
-          current_const_of_hexpr h2 )
-      with
-      | Some v, _, _, Some c ->
-          let root = find_root env v in
-          if negated then (
-            add_forbid env root c;
-            match Hashtbl.find_opt env.const_of_root root with
-            | Some assigned when const_equal assigned c -> Some false
-            | _ -> Some true)
-          else Some (assign_const env root c)
-      | _, Some v, Some c, _ ->
-          let root = find_root env v in
-          if negated then (
-            add_forbid env root c;
-            match Hashtbl.find_opt env.const_of_root root with
-            | Some assigned when const_equal assigned c -> Some false
-            | _ -> Some true)
-          else Some (assign_const env root c)
-      | Some v1, Some v2, _, _ when not negated ->
-          Some (merge_roots env (find_root env v1) (find_root env v2))
-      | _ -> None
-    end
+let add_current_equality env ~(negated : bool) (h1 : hexpr) (h2 : hexpr) : bool option =
+  match
+    ( current_var_of_hexpr h1,
+      current_var_of_hexpr h2,
+      current_const_of_hexpr h1,
+      current_const_of_hexpr h2 )
+  with
+  | Some v, _, _, Some c ->
+      let root = find_root env v in
+      if negated then (
+        add_forbid env root c;
+        match Hashtbl.find_opt env.const_of_root root with
+        | Some assigned when const_equal assigned c -> Some false
+        | _ -> Some true)
+      else Some (assign_const env root c)
+  | _, Some v, Some c, _ ->
+      let root = find_root env v in
+      if negated then (
+        add_forbid env root c;
+        match Hashtbl.find_opt env.const_of_root root with
+        | Some assigned when const_equal assigned c -> Some false
+        | _ -> Some true)
+      else Some (assign_const env root c)
+  | Some v1, Some v2, _, _ when not negated ->
+      Some (merge_roots env (find_root env v1) (find_root env v2))
   | _ -> None
 
 let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) : bool =
@@ -275,21 +271,15 @@ let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) :
   | HLitBool true -> true
   | HLitBool false -> false
   | HCmp (r, h1, h2) -> (
-      match add_current_atom env ~negated:false (FRel (h1, r, h2)) with
+      match (if r = REq then add_current_equality env ~negated:false h1 h2 else None) with
       | Some b -> b
       | None -> true)
-  | HPred (id, hs) -> (
-      match add_current_atom env ~negated:false (FPred (id, hs)) with
-      | Some b -> b
-      | None -> true)
+  | HPred (_id, _hs) -> true
   | HUn (Not, ({ hexpr = HCmp (r, h1, h2); _ } as _inner)) -> (
-      match add_current_atom env ~negated:true (FRel (h1, r, h2)) with
+      match (if r = REq then add_current_equality env ~negated:true h1 h2 else None) with
       | Some b -> b
       | None -> true)
-  | HUn (Not, ({ hexpr = HPred (id, hs); _ } as _inner)) -> (
-      match add_current_atom env ~negated:true (FPred (id, hs)) with
-      | Some b -> b
-      | None -> true)
+  | HUn (Not, ({ hexpr = HPred (_id, _hs); _ } as _inner)) -> true
   | HUn (Not, inner) -> not (current_formula_maybe_satisfiable env inner)
   | HBin (And, a, b) -> current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
   | HBin (Or, a, b) ->

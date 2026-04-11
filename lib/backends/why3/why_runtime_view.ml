@@ -128,11 +128,6 @@ let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
   | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_ctor_hexpr (collect_ctor_hexpr acc a) b
 
-let collect_ctor_fo (acc : ident list) (f : fo_atom) : ident list =
-  match f with
-  | FRel (h1, _, h2) -> collect_ctor_hexpr (collect_ctor_hexpr acc h1) h2
-  | FPred (_, hs) -> List.fold_left collect_ctor_hexpr acc hs
-
 let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   match s.stmt with
   | SAssign (_, e) -> collect_ctor_expr acc e

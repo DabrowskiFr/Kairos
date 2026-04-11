@@ -35,7 +35,8 @@ let inline_atom_names (atom_named_exprs : (ident * expr) list) (e : expr) : expr
   in
   go e
 
-let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom * ident) list)
+let normalize_spot_automaton ~(atom_names : string list)
+    ~(atom_map : ((hexpr * relop * hexpr) * ident) list)
     ~(atom_named_exprs : (ident * expr) list) (hoa : Automaton_spot.hoa_automaton) :
     Automaton_types.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
@@ -93,18 +94,13 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom *
     Hashtbl.fold (fun (src, dst) guard acc -> (src, guard, dst) :: acc) table []
     |> List.sort compare
   in
-  let atom_name_to_fo = List.map (fun (atom, name) -> (name, atom)) atom_map in
-  let hexpr_of_fo_atom (atom : fo_atom) : Core_syntax.hexpr =
-    match atom with
-    | FRel (lhs, rel, rhs) -> mk_hexpr (HCmp (rel, lhs, rhs))
-    | FPred (id, args) -> mk_hpred id args
-  in
+  let atom_name_to_rel = List.map (fun ((lhs, rel, rhs), name) -> (name, (lhs, rel, rhs))) atom_map in
   let rec substitute_atom_vars (h : Core_syntax.hexpr) : Core_syntax.hexpr =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HPreK _ -> h
     | HVar name -> begin
-        match List.assoc_opt name atom_name_to_fo with
-        | Some atom -> hexpr_of_fo_atom atom
+        match List.assoc_opt name atom_name_to_rel with
+        | Some (lhs, rel, rhs) -> mk_hexpr (HCmp (rel, lhs, rhs))
         | None -> h
       end
     | HPred (id, args) -> with_hexpr_desc h (HPred (id, List.map substitute_atom_vars args))
@@ -123,7 +119,7 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom *
   in
   { Automaton_types.atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
 
-let build ~(atom_map : (fo_atom * ident) list) ~(atom_names : ident list)
+let build ~(atom_map : ((hexpr * relop * hexpr) * ident) list) ~(atom_names : ident list)
     ~(atom_named_exprs : (ident * expr) list) (spec : ltl) : Automaton_types.automaton =
   let formula = Automaton_spot.string_of_spot_ltl ~atom_map spec in
   let () = Automaton_spot.ensure_safety formula in

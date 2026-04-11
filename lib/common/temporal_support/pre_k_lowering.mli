@@ -64,12 +64,6 @@ val lower_hexpr_temporal_bindings : temporal_bindings:temporal_binding list -> C
     [pre_k_map]-derived bindings. *)
 val lower_hexpr_pre_k : pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
-(** Lower one first-order atom using explicit temporal bindings. *)
-val lower_fo_temporal_bindings : temporal_bindings:temporal_binding list -> Core_syntax.fo_atom -> Core_syntax.fo_atom option
-
-(** Convenience wrapper around {!val:lower_fo_temporal_bindings}. *)
-val lower_fo_pre_k : pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.fo_atom -> Core_syntax.fo_atom option
-
 (** Lower one first-order formula (represented as [hexpr]) with explicit bindings. *)
 val lower_fo_formula_temporal_bindings :
   temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option

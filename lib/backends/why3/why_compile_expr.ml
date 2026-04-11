@@ -266,28 +266,6 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
       let use_old = old && not (is_const_hexpr h) in
       if use_old then term_old t else t
 
-let compile_fo_term ?(prefer_link = false) (env : env) (f : fo_atom) : Ptree.term =
-  match f with
-  | FRel (h1, r, h2) ->
-      mk_term
-        (Tinnfix
-           ( compile_hexpr ~prefer_link env h1,
-             infix_ident (relop_id r),
-             compile_hexpr ~prefer_link env h2 ))
-  | FPred (id, hs) -> mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~prefer_link env) hs))
-
-let compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) (old : bool)
-    (f : fo_atom) : Ptree.term =
-  match f with
-  | FRel (h1, r, h2) ->
-      mk_term
-        (Tinnfix
-           ( compile_hexpr ~old ~prefer_link ~in_post env h1,
-             infix_ident (relop_id r),
-             compile_hexpr ~old ~prefer_link ~in_post env h2 ))
-  | FPred (id, hs) ->
-      mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
-
 let compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) (env : env)
     (f : Core_syntax.hexpr) : Ptree.term =
   compile_hexpr ~old:false ~prefer_link ~in_post env f

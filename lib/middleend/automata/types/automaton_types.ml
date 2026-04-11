@@ -29,7 +29,7 @@ type automaton = {
 }
 
 type automata_atoms = {
-  atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
+  atom_map : ((Core_syntax.hexpr * Core_syntax.relop * Core_syntax.hexpr) * Core_syntax.ident) list;
   atom_named_exprs : (Core_syntax.ident * Core_syntax.expr) list;
 }
 

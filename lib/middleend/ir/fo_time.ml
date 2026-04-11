@@ -52,17 +52,6 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   in
   go h
 
-let shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
-  match f with
-  | FRel (h1, r, h2) -> FRel (shift_hexpr_forward ~is_input h1, r, shift_hexpr_forward ~is_input h2)
-  | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_forward ~is_input) hs)
-
-let shift_fo_backward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
-  match f with
-  | FRel (h1, r, h2) ->
-      FRel (shift_hexpr_backward ~is_input h1, r, shift_hexpr_backward ~is_input h2)
-  | FPred (id, hs) -> FPred (id, List.map (shift_hexpr_backward ~is_input) hs)
-
 let rec shift_formula_forward_inputs ~(is_input : ident -> bool) (f : Core_syntax.hexpr) :
     Core_syntax.hexpr =
   shift_hexpr_forward ~is_input f
@@ -96,13 +85,3 @@ let shift_hexpr_backward_all (h : hexpr) : hexpr =
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
   in
   go h
-
-let shift_fo_forward_all (f : fo_atom) : fo_atom =
-  match f with
-  | FRel (h1, r, h2) -> FRel (shift_hexpr_forward_all h1, r, shift_hexpr_forward_all h2)
-  | FPred (id, hs) -> FPred (id, List.map shift_hexpr_forward_all hs)
-
-let shift_fo_backward_all (f : fo_atom) : fo_atom =
-  match f with
-  | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
-  | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)

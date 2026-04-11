@@ -534,11 +534,10 @@ hexpr:
 ltl_atom:
   | TRUE { LTrue }
   | FALSE { LFalse }
-  | hexpr relop hexpr { LAtom(FRel($1,$2,$3)) }
-  | IDENT LPAREN hexpr_list_opt RPAREN { LAtom(FPred($1,$3)) }
+  | hexpr relop hexpr { LAtom($1,$2,$3) }
   | LPAREN ltl RPAREN { $2 }
 
-fo_atom:
+fo_leaf:
   | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool true) }
   | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool false) }
   | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HCmp($2,$1,$3)) }
@@ -547,7 +546,7 @@ fo_atom:
 
 fo_un:
   | NOT fo_un { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (HUn(Not,$2)) }
-  | fo_atom { $1 }
+  | fo_leaf { $1 }
 
 fo_and:
   | fo_and AND fo_un { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin(And,$1,$3)) }

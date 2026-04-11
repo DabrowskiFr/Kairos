@@ -97,22 +97,12 @@ let normalize_ltl_for_k ~(init_for_var : ident -> expr) (f : ltl) : ltl_norm =
         | _ -> None
       end
     | LG a -> Option.map (fun a' -> LG a') (shift_ltl_with_depth k depth a)
-    | LAtom (FRel (h1, r, h2)) ->
+    | LAtom (h1, r, h2) ->
         let shift = k - depth in
         begin match (shift_hexpr_by ~init_for_var shift h1, shift_hexpr_by ~init_for_var shift h2) with
-        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
+        | Some h1', Some h2' -> Some (LAtom (h1', r, h2'))
         | _ -> None
         end
-    | LAtom (FPred (id, hs)) ->
-        let shift = k - depth in
-        let rec map acc = function
-          | [] -> Some (List.rev acc)
-          | h :: rest -> (
-              match shift_hexpr_by ~init_for_var shift h with
-              | Some h' -> map (h' :: acc) rest
-              | None -> None)
-        in
-        Option.map (fun hs' -> LAtom (FPred (id, hs'))) (map [] hs)
   in
   let k = max_x_depth f in
   if k = 0 then { ltl = f; k_guard = None }
@@ -149,17 +139,8 @@ let rec shift_ltl_by ~(init_for_var : ident -> expr) (shift : int) (f : ltl) : l
         | _ -> None
       end
     | LG a -> Option.map (fun a' -> LG a') (shift_ltl_by ~init_for_var shift a)
-    | LAtom (FRel (h1, r, h2)) -> begin
+    | LAtom (h1, r, h2) -> begin
         match (shift_hexpr_by ~init_for_var shift h1, shift_hexpr_by ~init_for_var shift h2) with
-        | Some h1', Some h2' -> Some (LAtom (FRel (h1', r, h2')))
+        | Some h1', Some h2' -> Some (LAtom (h1', r, h2'))
         | _ -> None
       end
-    | LAtom (FPred (id, hs)) ->
-        let rec map acc = function
-          | [] -> Some (List.rev acc)
-          | h :: rest -> (
-              match shift_hexpr_by ~init_for_var shift h with
-              | Some h' -> map (h' :: acc) rest
-              | None -> None)
-        in
-        Option.map (fun hs' -> LAtom (FPred (id, hs'))) (map [] hs)

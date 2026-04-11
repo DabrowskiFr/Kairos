@@ -175,7 +175,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
                     same_product_state step.src st && step.step_kind = StepSafe)
              |> List.concat_map product_summaries_of_step
              |> List.concat_map guarantee_propagation_requires
-             |> List.filter (fun fo_atom -> not (fo_mentions_current_input fo_atom))
+             |> List.filter (fun phase_formula -> not (fo_mentions_current_input phase_formula))
              |> List.sort_uniq Stdlib.compare
            in
            let phase_formula =
@@ -223,21 +223,21 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
   List.iter
     (fun (clause : generated_clause_ir) ->
       match (anchor_state_of_clause clause, phase_formula_of_clause clause) with
-      | Some st, Some fo_atom ->
+      | Some st, Some phase_formula ->
           let key = (st.prog_state, st.guarantee_state_index) in
           let merged =
             match Hashtbl.find_opt raw_formula_table key with
-            | None -> fo_atom
-            | Some prev -> term_or prev fo_atom
+            | None -> phase_formula
+            | Some prev -> term_or prev phase_formula
           in
           Hashtbl.replace raw_formula_table key merged
       | _ -> ())
     raw_summaries;
   let by_prog_state = Hashtbl.create 16 in
   Hashtbl.iter
-    (fun ((prog_state, gidx) as key) fo_atom ->
+    (fun ((prog_state, gidx) as key) phase_formula ->
       let prev = Hashtbl.find_opt by_prog_state prog_state |> Option.value ~default:[] in
-      Hashtbl.replace by_prog_state prog_state ((gidx, fo_atom, key) :: prev))
+      Hashtbl.replace by_prog_state prog_state ((gidx, phase_formula, key) :: prev))
     raw_formula_table;
   let exclusive_formula_table = Hashtbl.create 16 in
   Hashtbl.iter

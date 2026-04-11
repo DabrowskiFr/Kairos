@@ -39,12 +39,7 @@ let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =
   | LNot a -> collect_ltl a acc
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> collect_ltl b (collect_ltl a acc)
   | LX a | LG a -> collect_ltl a acc
-  | LAtom f -> collect_fo f acc
-
-and collect_fo (f : fo_atom) (acc : hexpr list) : hexpr list =
-  match f with
-  | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
-  | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
+  | LAtom (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
 
 let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl list) : hexpr list =
   let collect_pre_k_hexpr = collect_hexpr in
@@ -54,11 +49,7 @@ let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl 
     | LNot a | LX a | LG a -> collect_pre_k_ltl a acc
     | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         collect_pre_k_ltl b (collect_pre_k_ltl a acc)
-    | LAtom f -> collect_pre_k_fo f acc
-  and collect_pre_k_fo f acc =
-    match f with
-    | FRel (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
-    | FPred (_id, hs) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
+    | LAtom (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
   in
   let rec collect_pre_k_fo_formula (f : Core_syntax.hexpr) (acc : hexpr list) : hexpr list =
     match f.hexpr with

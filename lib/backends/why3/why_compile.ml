@@ -316,17 +316,17 @@ let compile_node_with_info ?kernel_ir
                      clause.conclusions
                      |> List.find_map (fun (fact : Proof_kernel_types.clause_fact_ir) ->
                             match (fact.time, fact.desc) with
-                            | Proof_kernel_types.CurrentTick, Proof_kernel_types.FactPhaseFormula fo_atom ->
-                                Some fo_atom
+                            | Proof_kernel_types.CurrentTick, Proof_kernel_types.FactPhaseFormula phase_formula ->
+                                Some phase_formula
                             | _ -> None)
                    in
                    match phase_formula with
                    | None -> acc
-                   | Some fo_atom ->
+                   | Some phase_formula ->
                        add_decl acc
                          (Proof_kernel_naming.phase_state_case_name ~prog_state:st.prog_state
                             ~guarantee_state:st.guarantee_state_index)
-                         fo_atom
+                         phase_formula
                  end
                | _ -> acc)
              []

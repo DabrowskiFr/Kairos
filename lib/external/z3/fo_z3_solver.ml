@@ -124,28 +124,6 @@ let rec infer_hexpr_sort vars (h : hexpr) =
       match (sa, sb) with Some s, _ | _, Some s -> Some s | None, None -> Some SInt
     end
 
-let infer_atom_sorts (f : fo_atom) (vars : (ident, smt_sort) Hashtbl.t) : unit =
-  let var_of_hexpr (h : hexpr) =
-    match h.hexpr with HVar v | HPreK (v, _) -> Some v | _ -> None
-  in
-  match f with
-  | FRel (h1, r, h2) -> begin
-      match r with
-      | RLt | RLe | RGt | RGe ->
-          let _ = infer_hexpr_sort vars h1 in
-          let _ = infer_hexpr_sort vars h2 in
-          ()
-      | REq | RNeq ->
-          let s1 = infer_hexpr_sort vars h1 in
-          let s2 = infer_hexpr_sort vars h2 in
-          let s =
-            match (s1, s2) with Some s, _ | _, Some s -> s | None, None -> SInt
-          in
-          Option.iter (fun v -> Hashtbl.replace vars v s) (var_of_hexpr h1);
-          Option.iter (fun v -> Hashtbl.replace vars v s) (var_of_hexpr h2)
-    end
-  | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
-
 let infer_formula_sorts_fo (f : Core_syntax.hexpr) : (ident, smt_sort) Hashtbl.t =
   let vars = Hashtbl.create 32 in
   ignore (infer_hexpr_sort vars f);
@@ -278,39 +256,6 @@ let rec z3_of_hexpr (env : z3_env) (h : hexpr) : Z3.Expr.expr * smt_sort =
       let a, _ = z3_of_hexpr env a in
       let b, _ = z3_of_hexpr env b in
       (Z3.Arithmetic.mk_ge env.ctx a b, SBool)
-
-let z3_of_fo_atom (env : z3_env) = function
-  | FRel (h1, REq, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Boolean.mk_eq env.ctx a b
-  | FRel (h1, RNeq, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Boolean.mk_not env.ctx (Z3.Boolean.mk_eq env.ctx a b)
-  | FRel (h1, RLt, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Arithmetic.mk_lt env.ctx a b
-  | FRel (h1, RLe, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Arithmetic.mk_le env.ctx a b
-  | FRel (h1, RGt, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Arithmetic.mk_gt env.ctx a b
-  | FRel (h1, RGe, h2) ->
-      let a, _ = z3_of_hexpr env h1 in
-      let b, _ = z3_of_hexpr env h2 in
-      Z3.Arithmetic.mk_ge env.ctx a b
-  | FPred (id, hs) ->
-      let args = List.map (z3_of_hexpr env) hs in
-      let sorts = List.map (fun (_, s) -> z3_sort env s) args in
-      let name = smt_pred_name id (List.length hs) in
-      let fd = Z3.FuncDecl.mk_func_decl_s env.ctx name sorts (Z3.Boolean.mk_sort env.ctx) in
-      Hashtbl.replace env.z3_preds name id;
-      Z3.Expr.mk_app env.ctx fd (List.map fst args)
 
 let z3_of_fo (env : z3_env) (f : Core_syntax.hexpr) : Z3.Expr.expr =
   fst (z3_of_hexpr env f)

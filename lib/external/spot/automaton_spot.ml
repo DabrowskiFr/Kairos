@@ -92,10 +92,18 @@ let command_summary (r : process_result) : string =
 
 let spot_ap_name (i : int) : string = Printf.sprintf "__kairos_ap_%d" i
 
-let string_of_spot_ltl ~(atom_map : (fo_atom * ident) list) (f : ltl) : string =
-  let atom_name (a : fo_atom) : string =
+let string_of_spot_ltl ~(atom_map : ((hexpr * relop * hexpr) * ident) list) (f : ltl) : string =
+  let atom_name (a : hexpr * relop * hexpr) : string =
     let rec find i = function
-      | [] -> failwith ("Spot backend: unmapped atom " ^ Pretty.string_of_fo_atom a)
+      | [] ->
+          let h1, r, h2 = a in
+          failwith
+            ("Spot backend: unmapped atom "
+            ^ Pretty.string_of_hexpr h1
+            ^ " "
+            ^ Pretty.string_of_relop r
+            ^ " "
+            ^ Pretty.string_of_hexpr h2)
       | (a', _) :: tl -> if a = a' then spot_ap_name i else find (i + 1) tl
     in
     find 0 atom_map
@@ -103,7 +111,7 @@ let string_of_spot_ltl ~(atom_map : (fo_atom * ident) list) (f : ltl) : string =
   let rec go ~(ctx : int) = function
     | LTrue -> "1"
     | LFalse -> "0"
-    | LAtom a -> atom_name a
+    | LAtom (h1, r, h2) -> atom_name (h1, r, h2)
     | LNot a ->
         let s = "!" ^ go ~ctx:4 a in
         if ctx > 4 then "(" ^ s ^ ")" else s
