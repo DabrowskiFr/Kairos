@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Ast_builders
 
@@ -44,16 +44,7 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
                 current inputs have no predecessor-time counterpart"
                v);
         h
-    | HPreK (v, k) ->
-        if k <= 1 then (
-          if is_input v then
-            failwith
-              (Printf.sprintf
-                 "shift_hexpr_backward: cannot backward-shift pre(%s); \
-                  inputs are refreshed between ticks"
-                 v);
-          mk_hvar v)
-        else mk_hpre_k v (k - 1)
+    | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
     | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
     | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
