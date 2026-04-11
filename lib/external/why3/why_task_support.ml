@@ -31,61 +31,6 @@ let apply_transform name env tasks =
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
   tasks_of_ptree ~env ~ptree |> apply_transform "split_vc" env
 
-let extract_trace_ids_from_attrs (attrs : Ident.Sattr.t) : int list =
-  Ident.Sattr.elements attrs
-  |> List.filter_map (fun attr ->
-         let s = attr.Ident.attr_string in
-         let parse_with_prefix prefix =
-           let plen = String.length prefix in
-           if String.length s >= plen && String.sub s 0 plen = prefix then
-             try Some (int_of_string (String.sub s plen (String.length s - plen))) with _ -> None
-           else None
-         in
-         match parse_with_prefix "wid:" with
-         | Some _ as id -> id
-         | None -> parse_with_prefix "rid:")
-
-let task_wids_deep (task : Task.task) : int list =
-  let wids = ref [] in
-  let add_wids attrs =
-    extract_trace_ids_from_attrs attrs
-    |> List.iter (fun w -> if List.mem w !wids then () else wids := w :: !wids)
-  in
-  let add_wids_from_term (t : Term.term) =
-    add_wids t.Term.t_attrs;
-    ignore
-      (Term.t_fold
-         (fun () tm ->
-           add_wids tm.Term.t_attrs;
-           ())
-         () t)
-  in
-  begin try add_wids_from_term (Task.task_goal_fmla task) with _ -> ()
-  end;
-  Task.task_decls task
-  |> List.iter (fun decl ->
-         match decl.Decl.d_node with
-         | Decl.Dprop (_kind, _pr, t) -> add_wids_from_term t
-         | _ -> ());
-  List.rev !wids
-
-let normalize_tasks_with_wids_impl ~(env : Env.env) (tasks0 : Task.task list) :
-    (Task.task * int list) list =
-  List.concat_map
-    (fun task0 ->
-      let parent_wids = task_wids_deep task0 in
-      let split = Trans.apply_transform "split_vc" env task0 in
-      List.map
-        (fun t ->
-          let local_wids = task_wids_deep t in
-          if local_wids = [] then (t, parent_wids) else (t, local_wids))
-        split)
-    tasks0
-
-let normalize_tasks_with_wids_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) :
-    (Task.task * int list) list =
-  normalize_tasks_with_wids_impl ~env (tasks_of_ptree ~env ~ptree)
-
 let find_config_file () =
   let env_opt name =
     match Sys.getenv_opt name with Some path when Sys.file_exists path -> Some path | _ -> None

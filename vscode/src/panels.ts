@@ -534,7 +534,6 @@ export class DashboardPanel {
                 obligation_kind: "",
                 obligation_family: null,
                 obligation_category: null,
-                origin_ids: [],
                 vc_id: item.vcid,
                 source_span: null,
                 obc_span: null,

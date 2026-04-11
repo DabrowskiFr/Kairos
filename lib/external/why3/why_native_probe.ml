@@ -68,10 +68,10 @@ let native_unsat_core_for_goal_of_ptree ?(timeout = 5) ~(ptree : Ptree.mlw_file)
 let native_solver_probe_for_goal_of_ptree ?(timeout = 5) ~(ptree : Ptree.mlw_file)
     ~(goal_index : int) () : native_solver_probe option =
   let config, main, env, datadir_opt = setup_env () in
-  let tasks_with_wids = normalize_tasks_with_wids_of_ptree ~env ~ptree in
-  match List.nth_opt tasks_with_wids goal_index with
+  let tasks = normalize_tasks_of_ptree ~env ~ptree in
+  match List.nth_opt tasks goal_index with
   | None -> None
-  | Some (task, _) ->
+  | Some task ->
       let prover_cfg = select_z3_prover_cfg ~config ~datadir_opt in
       let driver = Driver.load_driver_for_prover main env prover_cfg in
       let smt_text = task_to_smt2_with_driver ~driver task in

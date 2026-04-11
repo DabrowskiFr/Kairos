@@ -62,7 +62,6 @@ type proof_trace = {
   obligation_kind : string;
   obligation_family : string option;
   obligation_category : string option;
-  origin_ids : int list;
   vc_id : string option;
   source_span : loc option;
   why_span : text_span option;
@@ -92,7 +91,6 @@ type outputs = {
   stage_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
-  vc_sources : (int * string) list;
   vc_locs : (int * loc) list;
   vc_locs_ordered : loc list;
   vc_spans_ordered : (int * int) list;
@@ -215,14 +213,12 @@ type outline_request = {
 
 type goals_tree_final_request = {
   goals : goal_info list;
-  vc_sources : (int * string) list;
   vc_text : string;
 }
 
 type goals_tree_pending_request = {
   goal_names : string list;
   vc_ids : int list;
-  vc_sources : (int * string) list;
 }
 
 type instrumentation_pass_request = {

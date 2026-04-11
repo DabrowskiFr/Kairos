@@ -43,7 +43,7 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
   [
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
-    ("contracts", [ ("origins", string_of_int (List.length c.formula_origin_map)); ("warnings", string_of_int (List.length c.warnings)) ]);
+    ("contracts", [ ("warnings", string_of_int (List.length c.warnings)) ]);
     ( "graph_metrics",
       [
         ("require_automata_states", string_of_int i.require_automata_state_count);
@@ -119,12 +119,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let ptree = why_ast.Why_compile.mlw in
     let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
-    let why_span_tbl = Hashtbl.create (List.length why_spans * 2 + 1) in
-    List.iter
-      (fun (wid, (start_offset, end_offset)) ->
-        Hashtbl.replace why_span_tbl wid
-          { Pipeline_types.start_offset = start_offset; end_offset })
-      why_spans;
     let t_vc_smt = Unix.gettimeofday () in
     let vc_tasks = Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree in
     let vc_text, vc_spans_ordered =
@@ -135,28 +129,10 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       if cfg.generate_smt_text then join_blocks_with_spans ~sep:"\n; ---- goal ----\n" smt_tasks else ("", [])
     in
     let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
-    let task_goal_wids =
-      Why_task_support.normalize_tasks_with_wids_of_ptree ~env ~ptree |> List.map snd
-    in
-    let vc_ids_ordered = Proof_diagnostics.vc_ids_of_task_goal_ids task_goal_wids in
+    let normalized_tasks = Why_task_support.normalize_tasks_of_ptree ~env ~ptree in
+    let goal_count = List.length normalized_tasks in
+    let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
     let vc_locs, vc_locs_ordered = ([], []) in
-    let vc_loc_tbl = Hashtbl.create (List.length vc_locs * 2 + 1) in
-    List.iter (fun (id, loc) -> Hashtbl.replace vc_loc_tbl id loc) vc_locs;
-    let formula_records = Proof_diagnostics.build_formula_records asts.contracts in
-    let formula_record_tbl = Proof_diagnostics.formula_record_table formula_records in
-    let vc_sources =
-      List.mapi
-        (fun idx why_ids ->
-          let vcid = List.nth vc_ids_ordered idx in
-          let record =
-            Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
-          in
-          let source =
-            Proof_diagnostics.source_from_record_or_state ~record
-          in
-          (vcid, source))
-        task_goal_wids
-    in
     let program_dot, program_automaton_text = program_automaton_texts asts in
     let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
         obligations_map_text_raw, guarantee_automaton_dot, assume_automaton_dot, product_dot,
@@ -218,11 +194,11 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
         List.sort (fun (a, _, _, _, _, _, _) (b, _, _, _, _, _, _) -> compare a b) !finished
       else
         List.mapi
-          (fun idx why_ids ->
+          (fun idx _task ->
             let vcid = List.nth vc_ids_ordered idx in
-            let stable_id = Proof_diagnostics.stable_goal_id idx why_ids in
+            let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
             (idx, stable_id, "pending", 0.0, None, "", Some (string_of_int vcid)))
-          task_goal_wids
+          normalized_tasks
     in
     External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
     let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
@@ -230,23 +206,22 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       (fun ((idx, _, _, _, _, _, _) as goal_result) -> Hashtbl.replace goal_result_tbl idx goal_result)
       goal_results;
     let proof_traces =
-      List.mapi (fun idx why_ids -> (idx, why_ids)) task_goal_wids
-      |> List.filter_map (fun (idx, why_ids) ->
-             let origin_ids = Proof_diagnostics.collect_origin_ids why_ids in
-             let record =
-               Proof_diagnostics.resolve_formula_record ~records:formula_record_tbl ~why_ids
-             in
-             let source =
-               Proof_diagnostics.source_from_record_or_state ~record
-             in
-             let _goal_idx, goal_name, status, time_s, dump_path, _raw_source, raw_vcid =
+      List.mapi (fun idx _task -> idx) normalized_tasks
+      |> List.filter_map (fun idx ->
+             let _goal_idx, goal_name, status, time_s, dump_path, source, raw_vcid =
                match Hashtbl.find_opt goal_result_tbl idx with
                | Some goal -> goal
                | None ->
-                   let fallback_id = Proof_diagnostics.stable_goal_id idx why_ids in
-                   (idx, fallback_id, "pending", 0.0, None, source, Some (string_of_int (List.nth vc_ids_ordered idx)))
+                   let fallback_id = Printf.sprintf "vc-%03d" (idx + 1) in
+                   ( idx,
+                     fallback_id,
+                     "pending",
+                     0.0,
+                     None,
+                     "",
+                     Some (string_of_int (List.nth vc_ids_ordered idx)) )
              in
-             let stable_id = Proof_diagnostics.stable_goal_id idx why_ids in
+             let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
              let native_core, native_probe =
                if not cfg.compute_proof_diagnostics then (None, None)
                else
@@ -261,13 +236,8 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                      (None, native_probe)
              in
              let diagnostic =
-               Proof_diagnostics.diagnostic_for_trace ~status ~record ~goal_text:goal_name
+               Proof_diagnostics.diagnostic_for_trace ~status ~goal_text:goal_name
                  ~native_core ~native_probe
-             in
-             let source_span =
-               match List.find_map (fun id -> Hashtbl.find_opt vc_loc_tbl id) origin_ids with
-               | Some _ as loc -> loc
-               | None -> Option.bind record (fun r -> r.loc)
              in
              Some {
                Pipeline_types.goal_index = idx;
@@ -277,15 +247,14 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                solver_status = (match native_probe with Some probe -> probe.status | None -> status);
                time_s;
                source;
-               node = Option.bind record (fun r -> r.node);
-               transition = Option.bind record (fun r -> r.transition);
-               obligation_kind = (match record with Some r -> r.obligation_kind | None -> "unknown");
-               obligation_family = Option.bind record (fun r -> r.obligation_family);
-               obligation_category = Option.bind record (fun r -> r.obligation_category);
-               origin_ids;
+               node = None;
+               transition = None;
+               obligation_kind = "unknown";
+               obligation_family = None;
+               obligation_category = None;
                vc_id = raw_vcid;
-               source_span;
-               why_span = List.find_map (fun id -> Proof_diagnostics.lookup_span why_span_tbl id) origin_ids;
+               source_span = None;
+               why_span = None;
                vc_span = List.nth_opt vc_spans_ordered idx;
                smt_span = List.nth_opt smt_spans_ordered idx;
                dump_path;
@@ -318,7 +287,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
       stage_meta = stage_meta infos @ [ ("obligations_taxonomy", Obligation_taxonomy.to_stage_meta obligation_summary) ];
       goals;
       proof_traces;
-      vc_sources;
       vc_locs;
       vc_locs_ordered;
       vc_spans_ordered =

@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Why3
-open Why_labels
 open Why_task_support
 
 type goal_proof_result = {
@@ -64,9 +63,6 @@ let goal_name_of_prepared_task (prepared : Task.task) : string =
   let pr = Task.task_goal prepared in
   pr.Decl.pr_name.Ident.id_string
 
-let goal_attrs_of_prepared_task (prepared : Task.task) : Ident.Sattr.t =
-  (Task.task_goal_fmla prepared).Term.t_attrs
-
 (* Prove normalized tasks one by one, emit progress callbacks, and collect
    per-goal results with optional failing SMT dumps.
 
@@ -75,24 +71,23 @@ let goal_attrs_of_prepared_task (prepared : Task.task) : Ident.Sattr.t =
    - [main]: Why3 main config, used by the prover call API.
    - [limits]: per-goal resource limits (timeout/memory).
    - [command]: full prover command resolved from Why3 config.
-   - [goal_labels]: fallback provenance labels indexed by goal name.
    - [should_cancel]: cooperative cancellation predicate.
    - [on_goal_start]: callback emitted before launching one goal.
    - [on_goal_done]: callback emitted when one goal finishes.
-   - [tasks_with_wids]: normalized Why3 tasks plus associated source ids.
+   - [tasks]: normalized Why3 tasks.
 *)
 let prove_tasks_with_details ~(driver : Driver.driver) ~(main : Whyconf.main)
     ~(limits : Call_provers.resource_limits) ~(command : string)
-    ~(goal_labels : (string, string) Hashtbl.t) ~(should_cancel : unit -> bool)
+    ~(should_cancel : unit -> bool)
     ~(on_goal_start : goal_start_event -> unit) ~(on_goal_done : goal_done_event -> unit)
-    (tasks_with_wids : (Task.task * int list) list) :
+    (tasks : Task.task list) :
     goal_proof_result list =
-  let indexed_tasks = List.mapi (fun i tw -> (i, tw)) tasks_with_wids in
+  let indexed_tasks = List.mapi (fun i task -> (i, task)) tasks in
   let total_tasks = List.length indexed_tasks in
   let rec loop pos details = function
     | [] -> List.rev details
     | _ when should_cancel () -> List.rev details
-    | (orig_idx, (task, _seed_wids)) :: rest ->
+    | (orig_idx, task) :: rest ->
         log_progress ~pos ~total:total_tasks;
         let prepared = Driver.prepare_task driver task in
         let buffer = Buffer.create 4096 in
@@ -121,19 +116,13 @@ let prove_tasks_with_details ~(driver : Driver.driver) ~(main : Whyconf.main)
             Some tmp)
           else None
         in
-        let provenance =
-          let attrs = goal_attrs_of_prepared_task prepared in
-          match label_of_attrs attrs with
-          | Some lbl -> lbl
-          | None -> ( match Hashtbl.find_opt goal_labels goal with Some lbl -> lbl | None -> "")
-        in
         let detail =
           {
             goal_name = goal;
             answer;
             time_s = elapsed;
             dump_path;
-            source = provenance;
+            source = "";
           }
         in
         on_goal_done { goal_index = orig_idx; result = detail };
@@ -149,36 +138,10 @@ let prove_ptree_with_events ?(timeout = 30) ?(should_cancel = fun () -> false)
     ?(on_goal_done = fun (_ : goal_done_event) -> ())
     (ptree : Ptree.mlw_file) :
     goal_proof_result list =
-  let extract_goal_labels_from_tasks tasks =
-    let tbl = Hashtbl.create 64 in
-    let comment_re = Str.regexp "^\\s*\\(\\* \\(.*\\) \\*\\)\\s*$" in
-    let goal_re = Str.regexp "^\\s*goal[ \t]+\\([A-Za-z0-9_]+\\)\\b" in
-    let extract_label task =
-      task
-      |> String.split_on_char '\n'
-      |> List.find_map (fun line ->
-             if Str.string_match comment_re line 0 then Some (Str.matched_group 2 line) else None)
-      |> Option.value ~default:""
-    in
-    List.iter
-      (fun task ->
-        let label = extract_label task in
-        if label <> "" then
-          match
-            String.split_on_char '\n' task
-            |> List.find_map (fun line ->
-                   if Str.string_match goal_re line 0 then Some (Str.matched_group 1 line) else None)
-          with
-          | None -> ()
-          | Some goal_name -> Hashtbl.replace tbl goal_name label)
-      tasks;
-    tbl
-  in
-  let render_task (task : Task.task) : string = Format.asprintf "%a" Pretty.print_task task in
   let config, main, env, datadir_opt = setup_env () in
   let prover_cfg = select_z3_prover_cfg ~config ~datadir_opt in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks_with_wids = normalize_tasks_with_wids_of_ptree ~env ~ptree in
+  let tasks = normalize_tasks_of_ptree ~env ~ptree in
   let limits =
     {
       Call_provers.empty_limits with
@@ -187,9 +150,5 @@ let prove_ptree_with_events ?(timeout = 30) ?(should_cancel = fun () -> false)
     }
   in
   let command = Whyconf.get_complete_command prover_cfg ~with_steps:false in
-  let goal_labels =
-    let tasks = List.map (fun (task, _wids) -> render_task task) tasks_with_wids in
-    extract_goal_labels_from_tasks tasks
-  in
-  prove_tasks_with_details ~driver ~main ~limits ~command ~goal_labels ~should_cancel
-    ~on_goal_start ~on_goal_done tasks_with_wids
+  prove_tasks_with_details ~driver ~main ~limits ~command ~should_cancel
+    ~on_goal_start ~on_goal_done tasks

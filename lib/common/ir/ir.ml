@@ -99,7 +99,4 @@ type node_ir = {
   init_invariant_goals : summary_formula list;
 }
 
-type program_ir = {
-  nodes : node_ir list;
-  formula_origin_map : formula_origin_entry list;
-}
+type program_ir = { nodes : node_ir list }

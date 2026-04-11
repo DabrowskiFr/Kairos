@@ -65,14 +65,12 @@ type goal_tree_node = {
 
 val goals_tree_final :
   goals:Pipeline_types.goal_info list ->
-  vc_sources:(int * string) list ->
   vc_text:string ->
   goal_tree_node list
 
 val goals_tree_pending :
   goal_names:string list ->
   vc_ids:int list ->
-  vc_sources:(int * string) list ->
   goal_tree_node list
 
 val yojson_of_goals_tree : goal_tree_node list -> Yojson.Safe.t

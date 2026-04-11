@@ -32,7 +32,7 @@
     - [answer]: typed Why3 prover answer.
     - [time_s]: elapsed solver time in seconds for this goal.
     - [dump_path]: optional path to dumped failing SMT script.
-    - [source]: provenance/source label attached to the goal. *)
+    - [source]: optional source label when available. *)
 type goal_proof_result = {
   goal_name : string;
   answer : Why3.Call_provers.prover_answer;

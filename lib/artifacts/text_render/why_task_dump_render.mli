@@ -29,13 +29,12 @@
       One textual task per normalized goal. *)
 val dump_why3_tasks_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
 
-(** Dump normalized Why3 tasks with provenance attributes appended.
+(** Dump normalized Why3 tasks with their Why3 attributes appended.
 
     @param ptree
       WhyML parse tree to render.
     @return
-      One textual task per normalized goal, with additional attribute comments
-      for traceability. *)
+      One textual task per normalized goal, with additional attribute comments. *)
 val dump_why3_tasks_with_attrs_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
 
 (** Dump normalized tasks as SMT-LIB2 scripts.

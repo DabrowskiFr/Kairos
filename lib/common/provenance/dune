@@ -1,5 +1,0 @@
-(library
- (name kairos_provenance)
- (public_name kairos.provenance)
- (wrapped false)
- (modules provenance))

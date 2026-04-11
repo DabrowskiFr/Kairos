@@ -10,7 +10,6 @@
  (libraries
   kairos_ast
   kairos_fo_formula
-  kairos_provenance
   kairos_stage_types
   kairos_stage_names
   kairos_logging

@@ -30,7 +30,6 @@ open Temporal_support
 open Logic_pretty
 open Pre_k_collect
 open Why_compile_expr
-open Why_labels
 
 let compile_seq = Why_compile_step.compile_seq
 let compile_transition_body = Why_compile_step.compile_transition_body
@@ -368,22 +367,10 @@ let compile_node_with_info ?kernel_ir
       |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
   let full_step_body () = compile_runtime_view env runtime_view in
-  let add_trace_attrs ~(kind : string) ~(origin_label : string) term =
-    let hid = Provenance.fresh_id () in
-    let origin_attr = attr_for_label origin_label in
-    let kind_attr = hyp_kind_attr kind in
-    let hid_attr = hyp_id_attr hid in
-    let term = mk_term (Tattr (ATstr origin_attr, term)) in
-    let term = mk_term (Tattr (ATstr kind_attr, term)) in
-    mk_term (Tattr (ATstr hid_attr, term))
-  in
-  let add_origin_attr label term = mk_term (Tattr (ATstr (attr_for_label label), term)) in
-  let pre =
-    List.map2 (fun label term -> add_trace_attrs ~kind:"pre" ~origin_label:label term) pre_origin_labels pre
-  in
-  let post =
-    List.map2 (fun label term -> add_trace_attrs ~kind:"post" ~origin_label:label term) post_origin_labels post
-  in
+  let _ = pre_origin_labels in
+  let _ = post_origin_labels in
+  let pre = pre in
+  let post = post in
   let add_vcid_attr vcid_opt term =
     match vcid_opt with
     | None -> term
@@ -683,20 +670,14 @@ let compile_node_with_info ?kernel_ir
       in
       List.mapi
         (fun i (f : Ir.summary_formula) ->
-          let wid = Provenance.fresh_id () in
-          Provenance.add_parents ~child:wid ~parents:[ f.meta.oid ];
-          let wid_attr = Ident.create_attribute (Printf.sprintf "wid:%d" wid) in
-          let origin_attr = attr_for_label "User contracts coherency" in
           let base =
             let base = compile_local_fo_formula_term env f.logic in
             if is_init_goal f.logic then
               match init_guard with Some g -> mk_term (Tbinnop (g, Dterm.DTimplies, base)) | None -> base
             else base
           in
-          let base = mk_term (Tattr (ATstr origin_attr, base)) in
           let quantified = mk_term (Tquant (Dterm.DTforall, inputs, [], base)) in
-          let term = mk_term (Tattr (ATstr wid_attr, quantified)) in
-          Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "coherency_goal_%d" (i + 1)), term))
+          Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "coherency_goal_%d" (i + 1)), quantified))
         goals
   in
   let kernel_init_goal_decls =

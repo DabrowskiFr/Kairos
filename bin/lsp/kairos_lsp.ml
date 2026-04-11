@@ -592,26 +592,17 @@ let () =
                 match decode_or_none Lsp_protocol.goals_tree_final_request_of_yojson params with
                 | Some req ->
                     let nodes =
-                      Lsp_services.goals_tree_final ~goals:req.goals ~vc_sources:req.vc_sources
-                        ~vc_text:req.vc_text
+                      Lsp_services.goals_tree_final ~goals:req.goals ~vc_text:req.vc_text
                     in
                     send_result stdout ~id_json:id
                       ~result_json:(goals_tree_json_of_nodes nodes)
                 | None ->
                     let goals_json = Option.value (get_param_list params "goals") ~default:[] in
-                    let vc_sources_json =
-                      Option.value (get_param_list params "vcSources") ~default:[]
-                    in
                     let vc_text = Option.value (get_param_string params "vcText") ~default:"" in
                     let goals =
                       List.filter_map (fun g -> match Lsp_protocol.goal_info_of_yojson g with Ok v -> Some v | Error _ -> None) goals_json
                     in
-                    let vc_sources =
-                      List.filter_map
-                        (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
-                        vc_sources_json
-                    in
-                    let nodes = Lsp_services.goals_tree_final ~goals ~vc_sources ~vc_text in
+                    let nodes = Lsp_services.goals_tree_final ~goals ~vc_text in
                     send_result stdout ~id_json:id
                       ~result_json:(goals_tree_json_of_nodes nodes))
               id_json
@@ -621,8 +612,8 @@ let () =
                 match decode_or_none Lsp_protocol.goals_tree_pending_request_of_yojson params with
                 | Some req ->
                     let nodes =
-                      Lsp_services.goals_tree_pending ~goal_names:req.goal_names ~vc_ids:req.vc_ids
-                        ~vc_sources:req.vc_sources
+                      Lsp_services.goals_tree_pending ~goal_names:req.goal_names
+                        ~vc_ids:req.vc_ids
                     in
                     send_result stdout ~id_json:id
                       ~result_json:(goals_tree_json_of_nodes nodes)
@@ -635,17 +626,7 @@ let () =
                       Option.value (get_param_list params "vcIds") ~default:[]
                       |> List.filter_map (function `Int i -> Some i | _ -> None)
                     in
-                    let vc_sources_json =
-                      Option.value (get_param_list params "vcSources") ~default:[]
-                    in
-                    let vc_sources =
-                      List.filter_map
-                        (function `List [ `Int k; `String v ] -> Some (k, v) | _ -> None)
-                        vc_sources_json
-                    in
-                    let nodes =
-                      Lsp_services.goals_tree_pending ~goal_names ~vc_ids ~vc_sources
-                    in
+                    let nodes = Lsp_services.goals_tree_pending ~goal_names ~vc_ids in
                     send_result stdout ~id_json:id
                       ~result_json:(goals_tree_json_of_nodes nodes))
               id_json

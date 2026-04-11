@@ -61,7 +61,6 @@ include struct
     obligation_kind : string;
     obligation_family : string option;
     obligation_category : string option;
-    origin_ids : int list;
     vc_id : string option;
     source_span : Ast.loc option;
     why_span : text_span option;
@@ -91,7 +90,6 @@ include struct
     stage_meta : (string * (string * string) list) list;
     goals : goal_info list;
     proof_traces : proof_trace list;
-    vc_sources : (int * string) list;
     vc_locs : (int * Ast.loc) list;
     vc_locs_ordered : Ast.loc list;
     vc_spans_ordered : (int * int) list;

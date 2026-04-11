@@ -142,7 +142,6 @@ let proof_trace_of_pipeline (trace : Pipeline_types.proof_trace) : Lsp_protocol.
     obligation_kind = trace.obligation_kind;
     obligation_family = trace.obligation_family;
     obligation_category = trace.obligation_category;
-    origin_ids = trace.origin_ids;
     vc_id = trace.vc_id;
     source_span = Option.map loc_of_ast trace.source_span;
     why_span = Option.map text_span_of_pipeline trace.why_span;
@@ -173,7 +172,6 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
     stage_meta = o.stage_meta;
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
-    vc_sources = o.vc_sources;
     vc_locs = List.map (fun (i, l) -> (i, loc_of_ast l)) o.vc_locs;
     vc_locs_ordered = List.map loc_of_ast o.vc_locs_ordered;
     vc_spans_ordered = o.vc_spans_ordered;

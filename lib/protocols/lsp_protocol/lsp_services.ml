@@ -309,53 +309,32 @@ let group_goal_entries (entries : goal_tree_entry list) : goal_tree_node list =
       { node; source = node; succeeded; total; transitions })
     !node_order
 
-let goals_tree_final ~goals ~(vc_sources : (int * string) list) ~vc_text : goal_tree_node list =
+let goals_tree_final ~goals ~vc_text : goal_tree_node list =
   let source_by_index = extract_goal_sources_by_index vc_text in
-  let vc_source_tbl = Hashtbl.create (List.length vc_sources * 2 + 1) in
-  List.iter (fun (k, v) -> Hashtbl.replace vc_source_tbl k v) vc_sources;
   let entries =
     List.mapi
       (fun idx (goal, status_txt, time_s, dump_path, source, vcid) ->
-        let source_vcid =
-          match vcid with
-          | None -> None
-          | Some v -> (
-              match int_of_string_opt v with
-              | None -> None
-              | Some id -> Hashtbl.find_opt vc_source_tbl id)
-        in
         let source_idx = Hashtbl.find_opt source_by_index idx in
         let source =
-          match (source_vcid, source_idx) with
-          | Some s, _ when s <> "" -> s
-          | _, Some s when s <> "" -> s
-          | _ -> source
+          match source_idx with Some s when s <> "" -> s | _ -> source
         in
         { idx; goal; status = String.trim status_txt; time_s; dump_path; source; vcid })
       goals
   in
   group_goal_entries entries
 
-let goals_tree_pending ~(goal_names : string list) ~(vc_ids : int list)
-    ~(vc_sources : (int * string) list) : goal_tree_node list =
-  let vc_source_tbl = Hashtbl.create (List.length vc_sources * 2 + 1) in
-  List.iter (fun (k, v) -> Hashtbl.replace vc_source_tbl k v) vc_sources;
+let goals_tree_pending ~(goal_names : string list) ~(vc_ids : int list) : goal_tree_node list =
   let entries =
     List.mapi
       (fun idx goal ->
         let vcid = List.nth_opt vc_ids idx in
-        let source =
-          match vcid with
-          | Some id -> Option.value (Hashtbl.find_opt vc_source_tbl id) ~default:""
-          | None -> ""
-        in
         {
           idx;
           goal;
           status = "pending";
           time_s = 0.0;
           dump_path = None;
-          source;
+          source = "";
           vcid = Option.map string_of_int vcid;
         })
       goal_names

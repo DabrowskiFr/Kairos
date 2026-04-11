@@ -4,7 +4,7 @@
  (wrapped false)
  (modules source_file ast_provenance parse_info parse_file parse_api lexer parser)
  (private_modules lexer parser)
- (libraries kairos_ast kairos_provenance sedlex)
+ (libraries kairos_ast sedlex)
  (preprocess
   (pps sedlex.ppx)))
 

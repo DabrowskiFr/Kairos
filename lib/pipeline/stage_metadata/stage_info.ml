@@ -31,10 +31,7 @@ type automata_info = {
   warnings : string list;
 }
 
-type formulas_info = {
-  formula_origin_map : (int * Formula_origin.t option) list;
-  warnings : string list;
-}
+type formulas_info = { warnings : string list }
 
 type instrumentation_info = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
@@ -68,7 +65,7 @@ let empty_parse_info : parse_info =
 let empty_automata_info : automata_info =
   { residual_state_count = 0; residual_edge_count = 0; warnings = [] }
 
-let empty_contracts_info : formulas_info = { formula_origin_map = []; warnings = [] }
+let empty_contracts_info : formulas_info = { warnings = [] }
 
 let empty_instrumentation_info : instrumentation_info =
   {

@@ -50,13 +50,8 @@ let ir_pretty_dump ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
   | Ok (asts, infos) ->
-      let c = Option.value infos.contracts ~default:Stage_info.empty_contracts_info in
-      let program : Ir.program_ir =
-        {
-          nodes = asts.instrumentation;
-          formula_origin_map = c.formula_origin_map;
-        }
-      in
+      let _ = infos in
+      let program : Ir.program_ir = { nodes = asts.instrumentation } in
       Ok
         (Ir_text_proof_view_render.render_pretty_program
            ~source_program:(Some asts.automata_generation)

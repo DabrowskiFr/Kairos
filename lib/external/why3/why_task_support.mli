@@ -21,7 +21,7 @@
     A {{!Why3.Task.task}task} is one elementary Why3 proof obligation.
     The helpers of this module build {e normalized tasks}: VC obligations after
     Why3 normalization/splitting, in a deterministic order suitable for proof
-    runs, dumps, and provenance tracking. *)
+    runs and dumps. *)
 
 (** Initialize Why3 configuration and typing environment.
 
@@ -40,28 +40,6 @@ val setup_env : unit -> Why3.Whyconf.config * Why3.Whyconf.main * Why3.Env.env *
       Normalized task list in deterministic order. *)
 val normalize_tasks_of_ptree :
   env:Why3.Env.env -> ptree:Why3.Ptree.mlw_file -> Why3.Task.task list
-
-(** Collect provenance ids ([wid:*]/[rid:*]) from one task.
-
-    @param task
-      Why3 task to inspect.
-    @return
-      Distinct provenance ids found in goal and hypotheses. *)
-val task_wids_deep : Why3.Task.task -> int list
-
-(** Normalize tasks and associate each one with provenance ids.
-
-    @param env
-      Why3 environment used for typing and transforms.
-    @param ptree
-      WhyML parse tree to normalize.
-    @return
-      List of pairs [(task, wids)] where [wids] tracks provenance for each
-      normalized task. *)
-val normalize_tasks_with_wids_of_ptree :
-  env:Why3.Env.env ->
-  ptree:Why3.Ptree.mlw_file ->
-  (Why3.Task.task * int list) list
 
 (** Select the Z3 prover configuration from Why3 config with fallback logic.
 

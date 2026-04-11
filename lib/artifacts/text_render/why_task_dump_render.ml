@@ -71,5 +71,5 @@ let dump_smt2_tasks_of_ptree ~(ptree : Ptree.mlw_file) : string list =
   let config, main, env, datadir_opt = setup_env () in
   let prover_cfg = select_z3_prover_cfg ~config ~datadir_opt in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
-  let tasks_with_wids = normalize_tasks_with_wids_of_ptree ~env ~ptree in
-  List.map (fun (task, _wids) -> task_to_smt2_with_driver ~driver task) tasks_with_wids
+  let tasks = normalize_tasks_of_ptree ~env ~ptree in
+  List.map (task_to_smt2_with_driver ~driver) tasks

@@ -9,7 +9,6 @@
  (libraries
   kairos_ast
   kairos_fo_formula
-  kairos_provenance
   kairos_logging
   kairos_ir
   kairos_ir_passes

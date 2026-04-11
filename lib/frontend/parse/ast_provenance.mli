@@ -16,9 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Provenance helpers for annotated formulas.
-
-    These helpers attach and rewrite the [origin] metadata used for VC tracing. *)
+(** Helpers for annotated formulas built by the parser. *)
 
 (** Wrap a formula with origin and optional source location, allocating a fresh
     identifier. *)

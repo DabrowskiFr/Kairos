@@ -471,7 +471,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   async function computeGoalsTreePending(): Promise<void> {
-    const tree = buildGoalsTreePendingFallback(state.goalNames, state.vcIds, state.outputs?.vc_sources ?? []);
+    const tree = buildGoalsTreePendingFallback(state.goalNames, state.vcIds);
     const entries = tree.flatMap((node) => node.transitions.flatMap((transition) => transition.items));
     state.setGoalEntries(entries);
     state.setGoalsTree(tree);

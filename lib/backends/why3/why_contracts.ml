@@ -19,7 +19,6 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 open Why3
-open Provenance
 open Ptree
 open Generated_names
 open Temporal_support
@@ -28,7 +27,16 @@ open Ast
 open Formula_origin
 open Pre_k_collect
 open Why_compile_expr
-open Why_labels
+
+let normalize_label (label : string) : string =
+  if label = "User contract" then "user"
+  else if
+    label = "User contracts coherency" || label = "User constract coherency"
+    || label = "User invariant"
+  then
+    "invariant"
+  else if label = "" then "Other"
+  else label
 
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
@@ -98,9 +106,7 @@ let compute_transition_contracts ~(env : env)
     ~(post_contract_user : Ptree.term list) :
     transition_clauses =
   let compile_require ((f : Ir.summary_formula), label) =
-    let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post:false env f.logic ]
-    |> List.map (fun t -> mk_term (Tattr (rid_attr, t)))
     |> List.map (fun t -> (t, label))
   in
   let transition_requires_pre_terms =
@@ -288,9 +294,8 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
     pc.requires
     |> List.concat_map (fun (f : Ir.summary_formula) ->
-           let rid_attr = ATstr (Ident.create_attribute (Printf.sprintf "rid:%d" f.meta.oid)) in
            compile_formula ~in_post:false f
-           |> List.map (fun t -> mk_term (Tattr (rid_attr, t)), origin_label f.meta.origin))
+           |> List.map (fun t -> (t, origin_label f.meta.origin)))
   in
   let compile_step_contract (pc : Why_runtime_view.runtime_product_transition_view) : step_contract_info =
     let forbidden =

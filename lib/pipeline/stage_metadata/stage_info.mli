@@ -39,10 +39,7 @@ type automata_info = {
 }
 
 (** Metadata produced by the contracts pass. *)
-type formulas_info = {
-  formula_origin_map : (int * Formula_origin.t option) list;
-  warnings : string list;
-}
+type formulas_info = { warnings : string list }
 
 (** Metadata produced after IR construction and proof-artifact export.
 

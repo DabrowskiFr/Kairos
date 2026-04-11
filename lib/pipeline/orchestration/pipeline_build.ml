@@ -61,7 +61,6 @@ let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
 let build_ast_with_info ~input_file () :
     (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error)
     result =
-  Provenance.reset ();
   try
     let source, parse_info_front = Parse_file.parse_source_file_with_info input_file in
     let parse_info = stage_parse_info_of_frontend parse_info_front in
@@ -79,11 +78,7 @@ let build_ast_with_info ~input_file () :
         External_timing.record_canonical ~elapsed_s:run_metrics.canonical_s;
         let p_contracts = ir_program.nodes in
         let p_instrumentation = ir_program.nodes in
-        let formulas_info =
-          {
-            Stage_info.formula_origin_map = ir_program.formula_origin_map;
-            warnings = [];
-          }
+        let formulas_info : Stage_info.formulas_info = { warnings = [] }
         in
         match
           Instrumentation_info_builder.instrumentation_info_of_ir ~automata

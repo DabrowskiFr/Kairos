@@ -18,7 +18,11 @@
 
 open Ast
 
-let fresh_oid () = Provenance.fresh_id ()
+let next_oid = ref 0
+
+let fresh_oid () =
+  incr next_oid;
+  !next_oid
 
 let with_origin ?loc origin value =
   let oid = fresh_oid () in

@@ -31,7 +31,7 @@ val emit_program_ast : Why_compile.program_ast -> string
     @param ast
       Structured Why AST built from IR.
     @return
-      [(text, spans)] where [spans] maps provenance id to byte offsets in the
-      rendered text. *)
+      [(text, spans)] where [spans] maps stable identifiers (when available) to
+      byte offsets in the rendered text. *)
 val emit_program_ast_with_spans :
   Why_compile.program_ast -> string * (int * (int * int)) list

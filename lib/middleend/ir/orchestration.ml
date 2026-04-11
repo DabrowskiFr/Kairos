@@ -29,34 +29,6 @@ let build_initial_ir ~(automata : Automata_generation.node_builds) (parsed : Sta
     (Ir.node_ir list, string) result =
   From_ast.of_ast_program ~automata parsed
 
-let collect_formula_origins (nodes : Ir.node_ir list) : (int * Formula_origin.t option) list =
-  let collect_formula acc (formula : Ir.summary_formula) =
-    (formula.meta.oid, formula.meta.origin) :: acc
-  in
-  let collect_product_transition acc (transition : Ir.product_step_summary) =
-    transition.requires |> List.fold_left collect_formula acc |> fun acc ->
-    transition.ensures |> List.fold_left collect_formula acc |> fun acc ->
-    transition.safe_cases
-    |> List.fold_left
-         (fun acc (case : Ir.safe_product_case) ->
-           collect_formula acc case.admissible_guard)
-         acc
-    |> fun acc ->
-    transition.unsafe_cases
-    |> List.fold_left
-         (fun acc (case : Ir.unsafe_product_case) -> collect_formula acc case.excluded_guard)
-         acc
-  in
-  nodes
-  |> List.fold_left
-       (fun acc (node : Ir.node_ir) ->
-         List.fold_left collect_product_transition acc node.summaries)
-       []
-  |> List.rev
-
-let formula_origin_map_of_nodes (nodes : Ir.node_ir list) : (int * Formula_origin.t option) list =
-  collect_formula_origins nodes
-
 let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
     ((Ir.program_ir * run_metrics), string) result =
   (* Phase 1: initial IR construction = AST context projection + minimal summaries. *)
@@ -71,7 +43,7 @@ let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generati
     |> Temporal_lower.run_program
   in
   let canonical_s = Unix.gettimeofday () -. t_canonical in
-  let program = ({ nodes; formula_origin_map = formula_origin_map_of_nodes nodes } : Ir.program_ir) in
+  let program = ({ nodes } : Ir.program_ir) in
   Ok (program, { product_s; canonical_s })
 
 let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :

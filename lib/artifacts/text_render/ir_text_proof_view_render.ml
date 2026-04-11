@@ -144,14 +144,6 @@ let collect_formula_pool (program : Ir.program_ir) : Ir.summary_formula list =
       List.iter add_product_summary n.summaries;
       add_formulas n.init_invariant_goals)
     program.nodes;
-  List.iter
-    (fun (oid, origin_opt) ->
-      if not (Hashtbl.mem by_oid oid) then
-        let synthetic : Ir.summary_formula =
-          { logic = Fo_formula.FTrue; meta = { origin = origin_opt; oid; loc = None } }
-        in
-        Hashtbl.add by_oid oid synthetic)
-    program.formula_origin_map;
   Hashtbl.fold (fun _ f acc -> f :: acc) by_oid []
   |> List.sort (fun (a : Ir.summary_formula) (b : Ir.summary_formula) ->
          Int.compare a.meta.oid b.meta.oid)
@@ -295,16 +287,6 @@ let render_pretty_program ?(source_program : Ast.program option = None) (program
     string =
   let buf = Buffer.create 32768 in
   line buf "program";
-  line buf "formula_origin_map";
-  line ~indent:1 buf
-    ("["
-    ^
-    String.concat "; "
-      (List.map
-         (fun (oid, origin) -> Printf.sprintf "(%d,%s)" oid (render_origin_opt origin))
-         program.formula_origin_map)
-    ^ "]");
-  line buf "";
   render_formula_pool buf program;
   line buf "";
   List.iter (render_node_pretty ~source_program buf) program.nodes;

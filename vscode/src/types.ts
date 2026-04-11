@@ -49,7 +49,6 @@ export interface ProofTrace {
   obligation_kind: string;
   obligation_family: string | null;
   obligation_category: string | null;
-  origin_ids: number[];
   vc_id: string | null;
   source_span: Loc | null;
   obc_span: TextSpan | null;
@@ -95,7 +94,6 @@ export interface Outputs {
   goals: GoalInfoTuple[];
   proof_traces: ProofTrace[];
   obcplus_sequents: Array<[number, string]>;
-  vc_sources: Array<[number, string]>;
   vc_locs: Array<[number, Loc]>;
   obcplus_spans: Array<[number, [number, number]]>;
   vc_locs_ordered: Loc[];

@@ -69,10 +69,8 @@ export function buildGoalsTreeFinalFallback(goals: GoalInfoTuple[]): GoalTreeNod
 
 export function buildGoalsTreePendingFallback(
   goalNames: string[],
-  vcIds: number[],
-  vcSources: Array<[number, string]>
+  vcIds: number[]
 ): GoalTreeNode[] {
-  const vcSourceById = new Map<number, string>(vcSources);
   const entries: GoalTreeEntry[] = goalNames.map((goal, idx) => {
     const vcId = typeof vcIds[idx] === "number" ? vcIds[idx] : null;
     return {
@@ -82,7 +80,7 @@ export function buildGoalsTreePendingFallback(
       status: "pending",
       time_s: 0,
       dump_path: null,
-      source: vcId !== null ? vcSourceById.get(vcId) ?? "" : "",
+      source: "",
       vcid: vcId !== null ? String(vcId) : null
     };
   });

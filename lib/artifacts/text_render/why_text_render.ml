@@ -276,34 +276,4 @@ let emit_program_ast (ast : program_ast) : string =
 
 let emit_program_ast_with_spans (ast : program_ast) : string * (int * (int * int)) list =
   let out = emit_program_ast ast in
-  let len = String.length out in
-  let spans = ref [] in
-  let try_match_attr_at i prefix =
-    let plen = String.length prefix in
-    if i + plen > len then None
-    else if String.sub out i plen <> prefix then None
-    else
-      let j = ref (i + plen) in
-      while !j < len && out.[!j] >= '0' && out.[!j] <= '9' do incr j done;
-      if !j = i + plen then None
-      else
-        let id = int_of_string (String.sub out (i + plen) (!j - i - plen)) in
-        let line_start = try String.rindex_from out (i - 1) '\n' + 1 with Not_found -> 0 in
-        let line_end = try String.index_from out !j '\n' with Not_found -> len in
-        Some (id, (line_start, line_end), !j)
-  in
-  let i = ref 0 in
-  while !i < len do
-    match try_match_attr_at !i "wid:" with
-    | Some (id, span, next) ->
-        spans := (id, span) :: !spans;
-        i := next
-    | None -> begin
-        match try_match_attr_at !i "rid:" with
-        | Some (id, span, next) ->
-            spans := (id, span) :: !spans;
-            i := next
-        | None -> incr i
-      end
-  done;
-  (out, List.rev !spans)
+  (out, [])

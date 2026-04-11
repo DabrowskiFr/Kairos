@@ -16,8 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+let next_oid = ref 0
+
+let fresh_oid () =
+  incr next_oid;
+  !next_oid
+
 let with_origin ?loc origin logic : Ir.summary_formula =
-  { logic; meta = { origin = Some origin; oid = Provenance.fresh_id (); loc } }
+  { logic; meta = { origin = Some origin; oid = fresh_oid (); loc } }
 
 let values (xs : Ir.summary_formula list) : Fo_formula.t list =
   List.map (fun (x : Ir.summary_formula) -> x.logic) xs
