@@ -98,14 +98,14 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
                   ~on_goal_done:(fun ev ->
                     let idx = ev.goal_index in
                     let r = ev.result in
-                    let status = Proof_status_render.of_prover_answer r.answer in
+                    let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
                     let vcid =
                       match List.nth_opt pending_out.vc_ids_ordered idx with
                       | Some id -> Some (string_of_int id)
                       | None -> None
                     in
-                    finished := (idx, r.goal_name, status, r.time_s, r.dump_path, vcid) :: !finished;
-                    on_goal_done idx r.goal_name status r.time_s r.dump_path vcid)
+                    finished := (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid) :: !finished;
+                    on_goal_done idx r.goal_name status r.prover_result.pr_time r.dump_path vcid)
               in
               if should_cancel () then Error (Pipeline_types.Stage_error "Request cancelled")
               else

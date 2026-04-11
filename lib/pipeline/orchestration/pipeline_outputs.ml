@@ -183,13 +183,13 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
             ~on_goal_done:(fun ev ->
               let idx = ev.goal_index in
               let r = ev.result in
-              let status = Proof_status_render.of_prover_answer r.answer in
+              let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
               let vcid =
                 match List.nth_opt vc_ids_ordered idx with
                 | Some id -> Some (string_of_int id)
                 | None -> None
               in
-              finished := (idx, r.goal_name, status, r.time_s, r.dump_path, vcid) :: !finished)
+              finished := (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid) :: !finished)
         in
         List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
       else

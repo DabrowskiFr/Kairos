@@ -29,13 +29,11 @@
 
     Fields:
     - [goal_name]: normalized Why3 goal identifier.
-    - [answer]: typed Why3 prover answer.
-    - [time_s]: elapsed solver time in seconds for this goal.
+    - [prover_result]: full typed Why3 prover result for this goal.
     - [dump_path]: optional path to dumped failing SMT script. *)
 type goal_proof_result = {
   goal_name : string;
-  answer : Why3.Call_provers.prover_answer;
-  time_s : float;
+  prover_result : Why3.Call_provers.prover_result;
   dump_path : string option;
 }
 
