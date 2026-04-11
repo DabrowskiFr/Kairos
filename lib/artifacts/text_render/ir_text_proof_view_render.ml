@@ -19,7 +19,7 @@
 (*---------------------------------------------------------------------------
  * Kairos — Text renderer for canonical IR.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 let separator = "# " ^ String.make 48 '='
 
 let line ?(indent = 0) (buf : Buffer.t) (s : string) =
@@ -27,22 +27,22 @@ let line ?(indent = 0) (buf : Buffer.t) (s : string) =
   Buffer.add_string buf s;
   Buffer.add_char buf '\n'
 
-let render_ty (t : Ast.ty) : string =
+let render_ty (t : ty) : string =
   match t with
   | TInt -> "int"
   | TBool -> "bool"
   | TReal -> "real"
   | TCustom s -> s
 
-let render_vdecl (d : Ast.vdecl) : string =
+let render_vdecl (d : vdecl) : string =
   d.vname ^ " : " ^ render_ty d.vty
 
-let render_vdecl_list (ds : Ast.vdecl list) : string =
+let render_vdecl_list (ds : vdecl list) : string =
   match ds with
   | [] -> "(none)"
   | _ -> String.concat ", " (List.map render_vdecl ds)
 
-let render_ident_list (ids : Ast.ident list) : string =
+let render_ident_list (ids : ident list) : string =
   match ids with
   | [] -> "(none)"
   | _ -> String.concat " | " ids
@@ -57,14 +57,14 @@ let render_stmt (s : Ast.stmt) : string =
   | SMatch (e, _branches, _default) ->
       "match " ^ Logic_pretty.string_of_iexpr e ^ " { ... }"
 
-let render_ltl_list (fs : Ast.ltl list) : string =
+let render_ltl_list (fs : ltl list) : string =
   match fs with
   | [] -> "(none)"
   | _ -> String.concat "\n    " (List.map Logic_pretty.string_of_ltl fs)
 
 let render_loc_opt = function
   | None -> "None"
-  | Some (l : Ast.loc) -> Printf.sprintf "Some(%d:%d-%d:%d)" l.line l.col l.line_end l.col_end
+  | Some (l : loc) -> Printf.sprintf "Some(%d:%d-%d:%d)" l.line l.col l.line_end l.col_end
 
 let render_origin_opt = function
   | None -> "None"
@@ -72,13 +72,13 @@ let render_origin_opt = function
 
 let render_ty_short = render_ty
 
-let render_vdecl_short (d : Ast.vdecl) : string =
+let render_vdecl_short (d : vdecl) : string =
   Printf.sprintf "%s:%s" d.vname (render_ty_short d.vty)
 
-let render_vdecls_short (ds : Ast.vdecl list) : string =
+let render_vdecls_short (ds : vdecl list) : string =
   "[" ^ String.concat ", " (List.map render_vdecl_short ds) ^ "]"
 
-let render_idents_short (xs : Ast.ident list) : string =
+let render_idents_short (xs : ident list) : string =
   "[" ^ String.concat ", " xs ^ "]"
 
 let render_iexpr_opt = function

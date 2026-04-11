@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+open Core_syntax
 open Ast
 
 let mk_iexpr ?loc iexpr = { iexpr; loc }
@@ -26,11 +27,11 @@ let mk_int n = mk_iexpr (ILitInt n)
 let mk_bool b = mk_iexpr (ILitBool b)
 let as_var e = match e.iexpr with IVar v -> Some v | _ -> None
 
-let ibinop_of_binop = function
-  | Add -> Some IAdd
-  | Sub -> Some ISub
-  | Mul -> Some IMul
-  | Div -> Some IDiv
+(* let ibinop_of_binop = function
+  | Add -> Some Add
+  | Sub -> Some Sub
+  | Mul -> Some Mul
+  | Div -> Some Div
   | Eq | Neq | Lt | Le | Gt | Ge | And | Or -> None
 
 let ibool_binop_of_binop = function
@@ -51,7 +52,7 @@ let iunop_of_unop = function Neg -> Some INeg | Not -> Some INot
 let unop_of_iunop = function INeg -> Neg | INot -> Not
 let binop_of_ibinop = function IAdd -> Add | ISub -> Sub | IMul -> Mul | IDiv -> Div
 let binop_of_ibool_binop = function IAnd -> And | IOr -> Or
-let binop_of_irelop = function REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge
+let binop_of_irelop = function REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge *)
 
 let mk_hexpr ?loc hexpr = { hexpr; loc }
 let hexpr_desc h = h.hexpr
@@ -62,12 +63,12 @@ let mk_hbool b = mk_hexpr (HLitBool b)
 let mk_hpre_k v k = mk_hexpr (HPreK (v, k))
 let as_hvar h = match h.hexpr with HVar v -> Some v | _ -> None
 
-let hbinop_of_ibinop = function IAdd -> HAdd | ISub -> HSub | IMul -> HMul | IDiv -> HDiv
-let hbool_binop_of_ibool_binop = function IAnd -> HAnd | IOr -> HOr
+(* let hbinop_of_ibinop = function Add -> HAdd | ISub -> HSub | IMul -> HMul | IDiv -> HDiv
+let hbool_binop_of_ibool_binop = function And -> HAnd | IOr -> HOr
 let hunop_of_iunop = function INeg -> HNeg | INot -> HNot
 let ibinop_of_hbinop = function HAdd -> IAdd | HSub -> ISub | HMul -> IMul | HDiv -> IDiv
 let ibool_binop_of_hbool_binop = function HAnd -> IAnd | HOr -> IOr
-let iunop_of_hunop = function HNeg -> INeg | HNot -> INot
+let iunop_of_hunop = function HNeg -> INeg | HNot -> INot *)
 
 let rec hexpr_of_iexpr (e : iexpr) : hexpr =
   let hexpr =
@@ -76,11 +77,11 @@ let rec hexpr_of_iexpr (e : iexpr) : hexpr =
     | ILitBool b -> HLitBool b
     | IVar v -> HVar v
     | IArithBin (op, a, b) ->
-        HArithBin (hbinop_of_ibinop op, hexpr_of_iexpr a, hexpr_of_iexpr b)
+        HArithBin (op, hexpr_of_iexpr a, hexpr_of_iexpr b)
     | IBoolBin (op, a, b) ->
-        HBoolBin (hbool_binop_of_ibool_binop op, hexpr_of_iexpr a, hexpr_of_iexpr b)
+        HBoolBin (op, hexpr_of_iexpr a, hexpr_of_iexpr b)
     | ICmp (op, a, b) -> HCmp (op, hexpr_of_iexpr a, hexpr_of_iexpr b)
-    | IUn (op, inner) -> HUn (hunop_of_iunop op, hexpr_of_iexpr inner)
+    | IUn (op, inner) -> HUn (op, hexpr_of_iexpr inner)
   in
   { hexpr; loc = e.loc }
 
@@ -91,15 +92,15 @@ let rec iexpr_of_hexpr (h : hexpr) : iexpr option =
   | HLitBool b -> Some { iexpr = ILitBool b; loc }
   | HVar v -> Some { iexpr = IVar v; loc }
   | HUn (op, inner) ->
-      Option.map (fun e -> { iexpr = IUn (iunop_of_hunop op, e); loc }) (iexpr_of_hexpr inner)
+      Option.map (fun e -> { iexpr = IUn (op, e); loc }) (iexpr_of_hexpr inner)
   | HArithBin (op, a, b) -> begin
       match (iexpr_of_hexpr a, iexpr_of_hexpr b) with
-      | Some a', Some b' -> Some { iexpr = IArithBin (ibinop_of_hbinop op, a', b'); loc }
+      | Some a', Some b' -> Some { iexpr = IArithBin (op, a', b'); loc }
       | _ -> None
     end
   | HBoolBin (op, a, b) -> begin
       match (iexpr_of_hexpr a, iexpr_of_hexpr b) with
-      | Some a', Some b' -> Some { iexpr = IBoolBin (ibool_binop_of_hbool_binop op, a', b'); loc }
+      | Some a', Some b' -> Some { iexpr = IBoolBin (op, a', b'); loc }
       | _ -> None
     end
   | HCmp (op, a, b) -> begin
@@ -107,7 +108,7 @@ let rec iexpr_of_hexpr (h : hexpr) : iexpr option =
       | Some a', Some b' -> Some { iexpr = ICmp (op, a', b'); loc }
       | _ -> None
     end
-  | HPreK _ -> None
+  | HPreK _ -> None 
 let mk_stmt ?loc stmt = { stmt; loc }
 let stmt_desc s = s.stmt
 let with_stmt_desc s stmt = { s with stmt }

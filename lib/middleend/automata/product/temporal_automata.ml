@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 type node_data = {
   exploration : Product_types.exploration;
   assume_bad_idx : int;
@@ -24,6 +24,6 @@ type node_data = {
   assume_state_labels : string list;
   guarantee_grouped_edges : Automaton_types.transition list;
   assume_grouped_edges : Automaton_types.transition list;
-  guarantee_atom_map_exprs : (Ast.ident * Ast.iexpr) list;
-  assume_atom_map_exprs : (Ast.ident * Ast.iexpr) list;
+  guarantee_atom_map_exprs : (ident * iexpr) list;
+  assume_atom_map_exprs : (ident * iexpr) list;
 }

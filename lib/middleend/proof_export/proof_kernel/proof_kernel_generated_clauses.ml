@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+open Core_syntax
 open Ast
 open Fo_specs
 open Fo_formula
@@ -96,10 +97,10 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
   in
   let input_names =
     node.semantics.sem_inputs
-    |> List.map (fun (v : Ast.vdecl) -> v.vname)
+    |> List.map (fun (v : vdecl) -> v.vname)
     |> List.sort_uniq String.compare
   in
-  let rec hexpr_mentions_current_input (h : Ast.hexpr) =
+  let rec hexpr_mentions_current_input (h : hexpr) =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HPreK _ -> false
     | HVar name -> List.mem name input_names

@@ -18,6 +18,7 @@
 
 [@@@ocaml.warning "-8-26-27-32-33"]
 
+open Core_syntax
 open Ast
 
 module Abs = Ir
@@ -30,14 +31,14 @@ let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula
     xs
 
 type port_view = {
-  port_name : Ast.ident;
-  port_type : Ast.ty;
+  port_name : ident;
+  port_type : ty;
 }
 
 type runtime_action_view =
-  | ActionAssign of Ast.ident * Ast.iexpr
-  | ActionIf of Ast.iexpr * runtime_action_view list * runtime_action_view list
-  | ActionMatch of Ast.iexpr * (Ast.ident * runtime_action_view list) list * runtime_action_view list
+  | ActionAssign of ident * iexpr
+  | ActionIf of iexpr * runtime_action_view list * runtime_action_view list
+  | ActionMatch of iexpr * (ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
 
 type action_block_kind =
@@ -50,9 +51,9 @@ type action_block_view = {
 
 type runtime_transition_view = {
   transition_id : string;
-  src_state : Ast.ident;
-  dst_state : Ast.ident;
-  guard : Ast.iexpr option;
+  src_state : ident;
+  dst_state : ident;
+  guard : iexpr option;
   requires : Abs.summary_formula list;
   ensures : Abs.summary_formula list;
   body : Ast.stmt list;
@@ -65,9 +66,9 @@ type runtime_step_class =
 
 type runtime_product_transition_view = {
   transition_id : string;
-  src_state : Ast.ident;
-  dst_state : Ast.ident;
-  guard : Ast.iexpr option;
+  src_state : ident;
+  dst_state : ident;
+  guard : iexpr option;
   body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
@@ -79,28 +80,28 @@ type runtime_product_transition_view = {
 }
 
 type transition_group_view = {
-  group_state : Ast.ident;
+  group_state : ident;
   group_transitions : runtime_transition_view list;
 }
 
 type state_branch_view = {
-  branch_state : Ast.ident;
+  branch_state : ident;
   branch_transitions : runtime_transition_view list;
 }
 
 type t = {
-  node_name : Ast.ident;
+  node_name : ident;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
-  control_states : Ast.ident list;
-  init_control_state : Ast.ident;
+  control_states : ident list;
+  init_control_state : ident;
   transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
   transition_groups : transition_group_view list;
   state_branches : state_branch_view list;
-  assumes : Ast.ltl list;
-  guarantees : Ast.ltl list;
+  assumes : ltl list;
+  guarantees : ltl list;
   init_invariant_goals : Abs.summary_formula list;
 }
 
@@ -108,7 +109,7 @@ type known_value =
   | KnownInt of int
   | KnownBool of bool
 
-let port_of_vdecl (v : Ast.vdecl) : port_view = { port_name = v.vname; port_type = v.vty }
+let port_of_vdecl (v : vdecl) : port_view = { port_name = v.vname; port_type = v.vty }
 
 let collect_ctor_iexpr (acc : ident list) (e : iexpr) : ident list =
   let rec go acc (e : iexpr) =
@@ -193,25 +194,25 @@ let rec simplify_iexpr (known : (ident * known_value) list) (e : iexpr) : iexpr 
       | None -> e
     end
   | ILitInt _ | ILitBool _ -> e
-  | IUn (INot, inner) -> begin
+  | IUn (Not, inner) -> begin
       match (simplify_iexpr known inner).iexpr with
       | ILitBool b -> mk (ILitBool (not b))
-      | inner' -> mk (IUn (INot, { e with iexpr = inner' }))
+      | inner' -> mk (IUn (Not, { e with iexpr = inner' }))
     end
-  | IUn (INeg, inner) -> begin
+  | IUn (Neg, inner) -> begin
       match (simplify_iexpr known inner).iexpr with
       | ILitInt n -> mk (ILitInt (-n))
-      | inner' -> mk (IUn (INeg, { e with iexpr = inner' }))
+      | inner' -> mk (IUn (Neg, { e with iexpr = inner' }))
     end
   | IArithBin (op, a, b) ->
       let a' = simplify_iexpr known a in
       let b' = simplify_iexpr known b in
       begin
         match (op, a'.iexpr, b'.iexpr) with
-        | IAdd, ILitInt x, ILitInt y -> mk (ILitInt (x + y))
-        | ISub, ILitInt x, ILitInt y -> mk (ILitInt (x - y))
-        | IMul, ILitInt x, ILitInt y -> mk (ILitInt (x * y))
-        | IDiv, ILitInt x, ILitInt y when y <> 0 -> mk (ILitInt (x / y))
+        | Add, ILitInt x, ILitInt y -> mk (ILitInt (x + y))
+        | Sub, ILitInt x, ILitInt y -> mk (ILitInt (x - y))
+        | Mul, ILitInt x, ILitInt y -> mk (ILitInt (x * y))
+        | Div, ILitInt x, ILitInt y when y <> 0 -> mk (ILitInt (x / y))
         | _ -> mk (IArithBin (op, a', b'))
       end
   | IBoolBin (op, a, b) ->
@@ -219,16 +220,16 @@ let rec simplify_iexpr (known : (ident * known_value) list) (e : iexpr) : iexpr 
       let b' = simplify_iexpr known b in
       begin
         match (op, a'.iexpr, b'.iexpr) with
-        | IAnd, ILitBool x, ILitBool y -> mk (ILitBool (x && y))
-        | IOr, ILitBool x, ILitBool y -> mk (ILitBool (x || y))
-        | IAnd, ILitBool true, _ -> b'
-        | IAnd, _, ILitBool true -> a'
-        | IAnd, ILitBool false, _ -> mk (ILitBool false)
-        | IAnd, _, ILitBool false -> mk (ILitBool false)
-        | IOr, ILitBool false, _ -> b'
-        | IOr, _, ILitBool false -> a'
-        | IOr, ILitBool true, _ -> mk (ILitBool true)
-        | IOr, _, ILitBool true -> mk (ILitBool true)
+        | And, ILitBool x, ILitBool y -> mk (ILitBool (x && y))
+        | Or, ILitBool x, ILitBool y -> mk (ILitBool (x || y))
+        | And, ILitBool true, _ -> b'
+        | And, _, ILitBool true -> a'
+        | And, ILitBool false, _ -> mk (ILitBool false)
+        | And, _, ILitBool false -> mk (ILitBool false)
+        | Or, ILitBool false, _ -> b'
+        | Or, _, ILitBool false -> a'
+        | Or, ILitBool true, _ -> mk (ILitBool true)
+        | Or, _, ILitBool true -> mk (ILitBool true)
         | _ -> mk (IBoolBin (op, a', b'))
       end
   | ICmp (op, a, b) ->
@@ -250,7 +251,7 @@ let rec simplify_iexpr (known : (ident * known_value) list) (e : iexpr) : iexpr 
 let known_from_guard (guard : iexpr option) : (ident * known_value) list =
   let rec gather acc (e : iexpr) =
     match e.iexpr with
-    | IBoolBin (IAnd, a, b) -> gather (gather acc a) b
+    | IBoolBin (And, a, b) -> gather (gather acc a) b
     | ICmp (REq, ({ iexpr = IVar x; _ } as _a), b) -> begin
         match literal_known_value b with
         | Some v -> bind_known acc x v
@@ -392,12 +393,12 @@ let to_ast_node (runtime : t) : Ast.node =
       {
         Ast.sem_nname = runtime.node_name;
         sem_inputs =
-          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.inputs;
+          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.inputs;
         sem_outputs =
-          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.outputs;
+          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.outputs;
         sem_instances = [];
         sem_locals =
-          List.map (fun (p : port_view) -> { Ast.vname = p.port_name; vty = p.port_type }) runtime.locals;
+          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.locals;
         sem_states = runtime.control_states;
         sem_init_state = runtime.init_control_state;
         sem_trans = List.map transition_to_ast runtime.transitions;

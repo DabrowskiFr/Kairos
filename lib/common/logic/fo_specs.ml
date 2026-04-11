@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Ast_builders
 open Temporal_support
@@ -38,13 +38,10 @@ let conj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
 
-let iunop_of_hunop = function HNeg -> INeg | HNot -> INot
-let ibinop_of_hbinop = function HAdd -> IAdd | HSub -> ISub | HMul -> IMul | HDiv -> IDiv
-let ibool_binop_of_hbool_binop = function HAnd -> IAnd | HOr -> IOr
 
 type temporal_binding = {
-  source_hexpr : Ast.hexpr;
-  slot_names : Ast.ident list;
+  source_hexpr : Core_syntax.hexpr;
+  slot_names : Core_syntax.ident list;
 }
 
 let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
@@ -84,14 +81,14 @@ let rec hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types
       | None -> None
     end
   | HUn (op, inner) ->
-      Option.map (fun e -> { iexpr = IUn (iunop_of_hunop op, e); loc })
+      Option.map (fun e -> { iexpr = IUn (op, e); loc })
         (hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings inner)
   | HArithBin (op, a, b) -> begin
       match
         ( hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings a,
           hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings b )
       with
-      | Some a', Some b' -> Some { iexpr = IArithBin (ibinop_of_hbinop op, a', b'); loc }
+      | Some a', Some b' -> Some { iexpr = IArithBin (op, a', b'); loc }
       | _ -> None
     end
   | HBoolBin (op, a, b) -> begin
@@ -100,7 +97,7 @@ let rec hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types
           hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings b )
       with
       | Some a', Some b' ->
-          Some { iexpr = IBoolBin (ibool_binop_of_hbool_binop op, a', b'); loc }
+          Some { iexpr = IBoolBin (op, a', b'); loc }
       | _ -> None
     end
   | HCmp (op, a, b) -> begin
@@ -224,8 +221,8 @@ let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
     | ILitBool _ -> Some TBool
     | ILitInt _ -> Some TInt
     | IVar x -> List.assoc_opt x var_types
-    | IUn (INot, _) -> Some TBool
-    | IUn (INeg, _) -> Some TInt
+    | IUn (Not, _) -> Some TBool
+    | IUn (Neg, _) -> Some TInt
     | IBoolBin (_, _, _) -> Some TBool
     | ICmp (_, _, _) -> Some TBool
     | IArithBin (_, _, _) -> Some TInt
@@ -235,16 +232,16 @@ let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
 let mk_bool_eq (a : iexpr) (b : iexpr) : iexpr =
   mk_iexpr
     (IBoolBin
-       ( IOr,
-         mk_iexpr (IBoolBin (IAnd, a, b)),
-         mk_iexpr (IBoolBin (IAnd, mk_iexpr (IUn (INot, a)), mk_iexpr (IUn (INot, b)))) ))
+       ( Or,
+         mk_iexpr (IBoolBin (And, a, b)),
+         mk_iexpr (IBoolBin (And, mk_iexpr (IUn (Not, a)), mk_iexpr (IUn (Not, b)))) ))
 
 let mk_bool_neq (a : iexpr) (b : iexpr) : iexpr =
   mk_iexpr
     (IBoolBin
-       ( IOr,
-         mk_iexpr (IBoolBin (IAnd, a, mk_iexpr (IUn (INot, b)))),
-         mk_iexpr (IBoolBin (IAnd, mk_iexpr (IUn (INot, a)), b)) ))
+       ( Or,
+         mk_iexpr (IBoolBin (And, a, mk_iexpr (IUn (Not, b)))),
+         mk_iexpr (IBoolBin (And, mk_iexpr (IUn (Not, a)), b)) ))
 
 let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
     ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : iexpr option =
@@ -278,10 +275,10 @@ let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo_atom) list) (e : iexpr) :
       | Some f -> FAtom f
       | None -> FAtom (FRel (mk_hvar v, REq, mk_hbool true))
     end
-  | IUn (INot, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
-  | IBoolBin (IAnd, a, b) ->
+  | IUn (Not, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
+  | IBoolBin (And, a, b) ->
       FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBoolBin (IOr, a, b) ->
+  | IBoolBin (Or, a, b) ->
       FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
   | ICmp (REq, a, b) -> FAtom (FRel (hexpr_of_iexpr a, REq, hexpr_of_iexpr b))
   | ICmp (RNeq, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RNeq, hexpr_of_iexpr b))
@@ -289,7 +286,7 @@ let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo_atom) list) (e : iexpr) :
   | ICmp (RLe, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RLe, hexpr_of_iexpr b))
   | ICmp (RGt, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RGt, hexpr_of_iexpr b))
   | ICmp (RGe, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RGe, hexpr_of_iexpr b))
-  | IArithBin (_, _, _) | IUn (INeg, _) ->
+  | IArithBin (_, _, _) | IUn (Neg, _) ->
       FAtom (FRel (hexpr_of_iexpr e, REq, mk_hbool true))
 
 

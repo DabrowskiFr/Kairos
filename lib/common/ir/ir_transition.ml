@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 
 type guard_formula =
@@ -54,7 +54,7 @@ let guard_of_formula = function
 let not_formula = function
   | GTrue -> GFalse
   | GFalse -> GTrue
-  | GExpr e -> GExpr (Ast_builders.mk_iexpr (IUn (INot, e)))
+  | GExpr e -> GExpr (Ast_builders.mk_iexpr (IUn (Not, e)))
 
 let and_formula a b =
   match (a, b) with
@@ -63,7 +63,7 @@ let and_formula a b =
   | _ ->
       GExpr
         (Ast_builders.mk_iexpr
-           (IBoolBin (IAnd, iexpr_of_formula a, iexpr_of_formula b)))
+           (IBoolBin (And, iexpr_of_formula a, iexpr_of_formula b)))
 
 let or_formula a b =
   match (a, b) with
@@ -72,7 +72,7 @@ let or_formula a b =
   | _ ->
       GExpr
         (Ast_builders.mk_iexpr
-           (IBoolBin (IOr, iexpr_of_formula a, iexpr_of_formula b)))
+           (IBoolBin (Or, iexpr_of_formula a, iexpr_of_formula b)))
 
 let prioritized_program_transitions_of_ast (transitions : Ast.transition list) : Ir.transition list =
   let previous_guards_by_src : (ident, guard_formula) Hashtbl.t = Hashtbl.create 16 in

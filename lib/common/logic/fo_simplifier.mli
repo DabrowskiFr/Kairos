@@ -24,4 +24,4 @@
 val simplify_fo : Fo_formula.t -> Fo_formula.t
 
 (** Simplify an LTL formula while preserving temporal operators. *)
-val simplify_ltl : Ast.ltl -> Ast.ltl
+val simplify_ltl : Core_syntax.ltl -> Core_syntax.ltl

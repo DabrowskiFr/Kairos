@@ -16,7 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Ast
+open Core_syntax
+ open Ast
 
 let next_oid = ref 0
 

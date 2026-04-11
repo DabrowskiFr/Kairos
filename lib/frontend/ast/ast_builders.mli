@@ -21,53 +21,55 @@
    These helpers centralize defaults (locations) and make parser/transform code more compact. *)
 
 (** Build an immediate expression with an optional source location. *)
-val mk_iexpr : ?loc:Ast.loc -> Ast.iexpr_desc -> Ast.iexpr
+val mk_iexpr : ?loc:Core_syntax.loc -> Core_syntax.iexpr_desc -> Core_syntax.iexpr
 
 (** Extract the underlying descriptor from an immediate expression. *)
-val iexpr_desc : Ast.iexpr -> Ast.iexpr_desc
+val iexpr_desc : Core_syntax.iexpr -> Core_syntax.iexpr_desc
 
 (** Replace the descriptor while preserving the source location. *)
-val with_iexpr_desc : Ast.iexpr -> Ast.iexpr_desc -> Ast.iexpr
+val with_iexpr_desc : Core_syntax.iexpr -> Core_syntax.iexpr_desc -> Core_syntax.iexpr
 
 (** Convenience constructor for a variable expression. *)
-val mk_var : Ast.ident -> Ast.iexpr
+val mk_var : Core_syntax.ident -> Core_syntax.iexpr
 
 (** Convenience constructor for an integer literal. *)
-val mk_int : int -> Ast.iexpr
+val mk_int : int -> Core_syntax.iexpr
 
 (** Convenience constructor for a boolean literal. *)
-val mk_bool : bool -> Ast.iexpr
+val mk_bool : bool -> Core_syntax.iexpr
 
 (** Return the identifier when the expression is a variable. *)
-val as_var : Ast.iexpr -> Ast.ident option
+val as_var : Core_syntax.iexpr -> Core_syntax.ident option
 
 (** Build a historical expression with an optional source location. *)
-val mk_hexpr : ?loc:Ast.loc -> Ast.hexpr_desc -> Ast.hexpr
+val mk_hexpr : ?loc:Core_syntax.loc -> Core_syntax.hexpr_desc -> Core_syntax.hexpr
 
 (** Extract the underlying descriptor from a historical expression. *)
-val hexpr_desc : Ast.hexpr -> Ast.hexpr_desc
+val hexpr_desc : Core_syntax.hexpr -> Core_syntax.hexpr_desc
 
 (** Replace the descriptor while preserving the source location. *)
-val with_hexpr_desc : Ast.hexpr -> Ast.hexpr_desc -> Ast.hexpr
+val with_hexpr_desc : Core_syntax.hexpr -> Core_syntax.hexpr_desc -> Core_syntax.hexpr
 
 (** Convenience constructors for historical expressions. *)
-val mk_hvar : Ast.ident -> Ast.hexpr
-val mk_hint : int -> Ast.hexpr
-val mk_hbool : bool -> Ast.hexpr
-val mk_hpre_k : Ast.ident -> int -> Ast.hexpr
+val mk_hvar : Core_syntax.ident -> Core_syntax.hexpr
+val mk_hint : int -> Core_syntax.hexpr
+val mk_hbool : bool -> Core_syntax.hexpr
+val mk_hpre_k : Core_syntax.ident -> int -> Core_syntax.hexpr
 
 (** Return the identifier when the historical expression is a variable. *)
-val as_hvar : Ast.hexpr -> Ast.ident option
+val as_hvar : Core_syntax.hexpr -> Core_syntax.ident option
 
 (** Embed a non-temporal expression into the historical syntax. *)
-val hexpr_of_iexpr : Ast.iexpr -> Ast.hexpr
+val hexpr_of_iexpr : Core_syntax.iexpr -> Core_syntax.hexpr
 
 (** Project a historical expression to non-temporal syntax when it contains no
     [pre]/[pre_k] reference. *)
-val iexpr_of_hexpr : Ast.hexpr -> Ast.iexpr option
+val iexpr_of_hexpr : Core_syntax.hexpr -> Core_syntax.iexpr option
+
+(**********************)
 
 (** Build a statement with an optional source location. *)
-val mk_stmt : ?loc:Ast.loc -> Ast.stmt_desc -> Ast.stmt
+val mk_stmt : ?loc:Core_syntax.loc -> Ast.stmt_desc -> Ast.stmt
 
 (** Extract the underlying descriptor from a statement. *)
 val stmt_desc : Ast.stmt -> Ast.stmt_desc
@@ -77,22 +79,22 @@ val with_stmt_desc : Ast.stmt -> Ast.stmt_desc -> Ast.stmt
 
 (** Build a source transition. *)
 val mk_transition :
-  src:Ast.ident ->
-  dst:Ast.ident ->
-  guard:Ast.iexpr option ->
+  src:Core_syntax.ident ->
+  dst:Core_syntax.ident ->
+  guard:Core_syntax.iexpr option ->
   body:Ast.stmt list ->
   Ast.transition
 
 (** Build a source node. *)
 val mk_node :
-  nname:Ast.ident ->
-  inputs:Ast.vdecl list ->
-  outputs:Ast.vdecl list ->
-  assumes:Ast.ltl list ->
-  guarantees:Ast.ltl list ->
-  instances:(Ast.ident * Ast.ident) list ->
-  locals:Ast.vdecl list ->
-  states:Ast.ident list ->
-  init_state:Ast.ident ->
+  nname:Core_syntax.ident ->
+  inputs:Core_syntax.vdecl list ->
+  outputs:Core_syntax.vdecl list ->
+  assumes:Core_syntax.ltl list ->
+  guarantees:Core_syntax.ltl list ->
+  instances:(Core_syntax.ident * Core_syntax.ident) list ->
+  locals:Core_syntax.vdecl list ->
+  states:Core_syntax.ident list ->
+  init_state:Core_syntax.ident ->
   trans:Ast.transition list ->
   Ast.node

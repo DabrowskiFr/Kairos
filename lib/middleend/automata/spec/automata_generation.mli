@@ -18,7 +18,7 @@
 
 (** Front-facing API for generating assumption and guarantee automata from the
     temporal contracts attached to a node. *)
-
+open Core_syntax
 (** Public alias for the normalized automaton representation used downstream. *)
 type automata_automaton = Automaton_types.automaton
 
@@ -27,41 +27,41 @@ type automata_build = Automaton_types.automata_build = {
   (** Atom table used for guarantee construction. *)
   atoms : Automaton_types.automata_atoms;
   (** Generated names of guarantee atoms, in backend order. *)
-  guarantee_atom_names : Ast.ident list;
+  guarantee_atom_names : ident list;
   (** Combined guarantee specification after frontend normalization. *)
-  guarantee_spec : Ast.ltl;
+  guarantee_spec : ltl;
   (** Guarantee automaton built from [guarantee_spec]. *)
   guarantee_automaton : automata_automaton;
   (** Optional atom table used for assumption construction. *)
   assume_atoms : Automaton_types.automata_atoms option;
   (** Generated names of assumption atoms, when assumptions are present. *)
-  assume_atom_names : Ast.ident list;
+  assume_atom_names : ident list;
   (** Combined assumption specification, when assumptions are present. *)
-  assume_spec : Ast.ltl option;
+  assume_spec : ltl option;
   (** Assumption automaton, when assumptions are present. *)
   assume_automaton : automata_automaton option;
 }
 
 (** Automata bundles indexed by node name. *)
-type node_builds = (Ast.ident * automata_build) list
+type node_builds = (ident * automata_build) list
 
 val build_guarantee_automaton :
-  atom_map:(Ast.fo_atom * Ast.ident) list ->
-  atom_named_exprs:(Ast.ident * Ast.iexpr) list ->
-  atom_names:Ast.ident list ->
-  Ast.ltl ->
+  atom_map:(fo_atom * ident) list ->
+  atom_named_exprs:(ident * iexpr) list ->
+  atom_names:ident list ->
+  ltl ->
   automata_automaton
 (** Build the automaton associated with one temporal specification.
 
     The function delegates to {!Automaton_build.build}, then returns the
     normalized automaton used by the rest of the middleend. *)
 
-val build_guarantee_spec : atom_map:(Ast.fo_atom * Ast.ident) list -> Ast.node -> Ast.ltl
+val build_guarantee_spec : atom_map:(fo_atom * ident) list -> Ast.node -> ltl
 (** Combine the guarantees of a node into the monitor specification used for the
     guarantee automaton. Assumptions are included in this combined formula in
     the way required by the current monitor construction. *)
 
-val build_assumption_spec : atom_map:(Ast.fo_atom * Ast.ident) list -> Ast.node -> Ast.ltl
+val build_assumption_spec : atom_map:(fo_atom * ident) list -> Ast.node -> ltl
 (** Combine the assumptions of a node into a standalone assumption
     specification. *)
 

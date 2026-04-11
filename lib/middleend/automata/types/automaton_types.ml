@@ -20,28 +20,28 @@ type guard = Fo_formula.t
 type transition = int * guard * int
 
 type automaton = {
-  atom_names : Ast.ident list;
-  states_raw : Ast.ltl list;
+  atom_names : Core_syntax.ident list;
+  states_raw : Core_syntax.ltl list;
   transitions_raw : transition list;
-  states : Ast.ltl list;
+  states : Core_syntax.ltl list;
   transitions : transition list;
   grouped : transition list;
 }
 
 type automata_atoms = {
-  atom_map : (Ast.fo_atom * Ast.ident) list;
-  atom_named_exprs : (Ast.ident * Ast.iexpr) list;
+  atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
+  atom_named_exprs : (Core_syntax.ident * Core_syntax.iexpr) list;
 }
 
 type automata_build = {
   atoms : automata_atoms;
-  guarantee_atom_names : Ast.ident list;
-  guarantee_spec : Ast.ltl;
+  guarantee_atom_names : Core_syntax.ident list;
+  guarantee_spec : Core_syntax.ltl;
   guarantee_automaton : automaton;
   assume_atoms : automata_atoms option;
-  assume_atom_names : Ast.ident list;
-  assume_spec : Ast.ltl option;
+  assume_atom_names : Core_syntax.ident list;
+  assume_spec : Core_syntax.ltl option;
   assume_automaton : automaton option;
 }
 
-type node_builds = (Ast.ident * automata_build) list
+type node_builds = (Core_syntax.ident * automata_build) list

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 (** Core type definitions for the product and proof-kernel IR.
 
     This module defines:
@@ -34,10 +34,10 @@ type automaton_role =
 (** Reactive transition used by the kernel pipeline. *)
 type reactive_transition_ir = {
   transition_id : string;
-  src_state : Ast.ident;
-  dst_state : Ast.ident;
+  src_state : ident;
+  dst_state : ident;
   guard : Fo_formula.t;
-  guard_iexpr : Ast.iexpr option;
+  guard_iexpr : iexpr option;
   requires : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
@@ -50,9 +50,9 @@ type reactive_transition_ir = {
 
 (** Reactive program paired with kernel data. *)
 type reactive_program_ir = {
-  node_name : Ast.ident;
-  init_state : Ast.ident;
-  states : Ast.ident list;
+  node_name : ident;
+  init_state : ident;
+  states : ident list;
   transitions : reactive_transition_ir list;
 }
 [@@deriving yojson]
@@ -77,7 +77,7 @@ type safety_automaton_ir = {
 
 (** Explicit state of the semantic product program × assume × guarantee. *)
 type product_state_ir = {
-  prog_state : Ast.ident;
+  prog_state : ident;
   assume_state_index : int;
   guarantee_state_index : int;
 }
@@ -101,7 +101,7 @@ type product_step_ir = {
   src : product_state_ir;
   dst : product_state_ir;
   program_transition_id : string;
-  program_transition : Ast.ident * Ast.ident;
+  program_transition : ident * ident;
   program_guard : Fo_formula.t;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
@@ -134,7 +134,7 @@ type clause_time_ir =
 [@@deriving yojson]
 
 type clause_fact_desc_ir =
-  | FactProgramState of Ast.ident
+  | FactProgramState of ident
   | FactGuaranteeState of int
   | FactPhaseFormula of Fo_formula.t
   | FactFormula of Fo_formula.t
@@ -162,7 +162,7 @@ type generated_clause_ir = {
 [@@deriving yojson]
 
 type relational_clause_fact_desc_ir =
-  | RelFactProgramState of Ast.ident
+  | RelFactProgramState of ident
   | RelFactGuaranteeState of int
   | RelFactPhaseFormula of Fo_formula.t
   | RelFactFormula of Fo_formula.t
@@ -186,12 +186,12 @@ type relational_generated_clause_ir = {
 
 (** Minimal exported signature for a node summary. *)
 type node_signature_ir = {
-  node_name : Ast.ident;
-  inputs : Ast.vdecl list;
-  outputs : Ast.vdecl list;
-  locals : Ast.vdecl list;
-  states : Ast.ident list;
-  init_state : Ast.ident;
+  node_name : ident;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  locals : vdecl list;
+  states : ident list;
+  init_state : ident;
 }
 [@@deriving yojson]
 
@@ -216,12 +216,12 @@ type node_ir = {
   product_states : product_state_ir list;
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
-  temporal_layout : (Ast.hexpr * Temporal_support.pre_k_info) list;
+  temporal_layout : (hexpr * Temporal_support.pre_k_info) list;
   historical_generated_clauses : generated_clause_ir list;
   eliminated_generated_clauses : generated_clause_ir list;
   symbolic_generated_clauses : relational_generated_clause_ir list;
   proof_step_summaries : proof_step_summary_ir list;
-  ghost_locals : Ast.vdecl list;
+  ghost_locals : vdecl list;
 }
 [@@deriving yojson]
 
@@ -232,9 +232,9 @@ type exported_node_summary_ir = {
   coherency_goals : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
-  temporal_layout : (Ast.hexpr * Temporal_support.pre_k_info) list;
-  delay_spec : (Ast.ident * Ast.ident) option;
-  assumes : Ast.ltl list;
-  guarantees : Ast.ltl list;
+  temporal_layout : (hexpr * Temporal_support.pre_k_info) list;
+  delay_spec : (ident * ident) option;
+  assumes : ltl list;
+  guarantees : ltl list;
 }
 [@@deriving yojson]

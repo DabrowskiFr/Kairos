@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Ast_builders
 open Fo_specs
@@ -136,7 +136,7 @@ type node_generation = {
   guarantee_pre_of_product_state : Abs.product_state -> Fo_formula.t option;
   initial_product_state : Abs.product_state;
   state_stability : Fo_formula.t list;
-  invariant_of_state : Ast.ident -> Fo_formula.t option;
+  invariant_of_state : ident -> Fo_formula.t option;
 }
 
 let compute_generation ~(node : Abs.node_ir) : node_generation =

@@ -24,19 +24,21 @@
     modules in the backend consume this representation rather than the generic
     IR. *)
 
+open Core_syntax
+
 (** An input, output or local variable port. *)
 type port_view = {
-  port_name : Ast.ident;
-  port_type : Ast.ty;
+  port_name : ident;
+  port_type : ty;
 }
 
 (** An imperative action in the body of a transition. *)
 type runtime_action_view =
-  | ActionAssign of Ast.ident * Ast.iexpr
+  | ActionAssign of ident * iexpr
       (** Simple assignment [x := e]. *)
-  | ActionIf of Ast.iexpr * runtime_action_view list * runtime_action_view list
+  | ActionIf of iexpr * runtime_action_view list * runtime_action_view list
       (** Conditional branch. *)
-  | ActionMatch of Ast.iexpr * (Ast.ident * runtime_action_view list) list * runtime_action_view list
+  | ActionMatch of iexpr * (ident * runtime_action_view list) list * runtime_action_view list
       (** Constructor match. *)
   | ActionSkip
       (** No-op action. *)
@@ -56,11 +58,11 @@ type action_block_view = {
 type runtime_transition_view = {
   transition_id : string;
       (** Unique transition identifier. *)
-  src_state : Ast.ident;
+  src_state : ident;
       (** Source control state. *)
-  dst_state : Ast.ident;
+  dst_state : ident;
       (** Target control state. *)
-  guard : Ast.iexpr option;
+  guard : iexpr option;
       (** Triggering condition, or [None] if unconditional. *)
   requires : Ir.summary_formula list;
       (** Preconditions from the IR. *)
@@ -82,9 +84,9 @@ type runtime_step_class =
 (** View of a transition in the program-times-monitor product (relational mode). *)
 type runtime_product_transition_view = {
   transition_id : string;
-  src_state : Ast.ident;
-  dst_state : Ast.ident;
-  guard : Ast.iexpr option;
+  src_state : ident;
+  dst_state : ident;
+  guard : iexpr option;
   body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
@@ -102,31 +104,31 @@ type runtime_product_transition_view = {
 (** Transitions sharing the same source control state, grouped for helper
     generation in {!Why_compile}. *)
 type transition_group_view = {
-  group_state : Ast.ident;
+  group_state : ident;
   group_transitions : runtime_transition_view list;
 }
 
 (** One arm of the pattern match on the current control state in [step]. *)
 type state_branch_view = {
-  branch_state : Ast.ident;
+  branch_state : ident;
   branch_transitions : runtime_transition_view list;
 }
 
 (** Complete view of a node, ready to be compiled to WhyML. *)
 type t = {
-  node_name : Ast.ident;
+  node_name : ident;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
-  control_states : Ast.ident list;
-  init_control_state : Ast.ident;
+  control_states : ident list;
+  init_control_state : ident;
       (** Initial control state (used for coherency goals). *)
   transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
   transition_groups : transition_group_view list;
   state_branches : state_branch_view list;
-  assumes : Ast.ltl list;
-  guarantees : Ast.ltl list;
+  assumes : ltl list;
+  guarantees : ltl list;
   init_invariant_goals : Ir.summary_formula list;
       (** Formulas to check at the initial state (coherency goals). *)
 }

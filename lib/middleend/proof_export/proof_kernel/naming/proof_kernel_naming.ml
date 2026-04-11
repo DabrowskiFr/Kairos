@@ -15,12 +15,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Logic_pretty
 open Proof_kernel_types
 
-let phase_state_case_name ~(prog_state : Ast.ident) ~(guarantee_state : int) : string =
+let phase_state_case_name ~(prog_state : ident) ~(guarantee_state : int) : string =
   Printf.sprintf "phase_case_%s_g%d" (String.lowercase_ascii prog_state) guarantee_state
 
 let phase_step_case_stem (step : product_step_ir) : string =

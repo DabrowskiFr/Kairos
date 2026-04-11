@@ -20,30 +20,31 @@ type ident = string [@@deriving yojson]
 
 type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
 
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson]
+(* type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson] *)
 
-type unop = Neg | Not [@@deriving yojson]
+(* type unop = Neg | Not [@@deriving yojson] *)
 
 type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
 
+type binop =
+  | Add
+  | Sub
+  | Mul
+  | Div
+[@@deriving yojson]
+
+type bool_binop =
+  | And
+  | Or
+[@@deriving yojson]
+
+type unop =
+  | Neg
+  | Not
+[@@deriving yojson]
+
 type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
 
-type ibinop =
-  | IAdd
-  | ISub
-  | IMul
-  | IDiv
-[@@deriving yojson]
-
-type ibool_binop =
-  | IAnd
-  | IOr
-[@@deriving yojson]
-
-type iunop =
-  | INeg
-  | INot
-[@@deriving yojson]
 
 type iexpr = { iexpr : iexpr_desc; loc : loc option }
 
@@ -51,13 +52,13 @@ and iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
   | IVar of ident
-  | IArithBin of ibinop * iexpr * iexpr
-  | IBoolBin of ibool_binop * iexpr * iexpr
+  | IArithBin of binop * iexpr * iexpr
+  | IBoolBin of bool_binop * iexpr * iexpr
   | ICmp of relop * iexpr * iexpr
-  | IUn of iunop * iexpr
+  | IUn of unop * iexpr
 [@@deriving yojson]
 
-type hbinop =
+(* type hbinop =
   | HAdd
   | HSub
   | HMul
@@ -72,7 +73,7 @@ type hbool_binop =
 type hunop =
   | HNeg
   | HNot
-[@@deriving yojson]
+[@@deriving yojson] *)
 
 type hexpr = { hexpr : hexpr_desc; loc : loc option }
 
@@ -81,10 +82,10 @@ and hexpr_desc =
   | HLitBool of bool
   | HVar of ident
   | HPreK of ident * int
-  | HArithBin of hbinop * hexpr * hexpr
-  | HBoolBin of hbool_binop * hexpr * hexpr
+  | HArithBin of binop * hexpr * hexpr
+  | HBoolBin of bool_binop * hexpr * hexpr
   | HCmp of relop * hexpr * hexpr
-  | HUn of hunop * hexpr
+  | HUn of unop * hexpr
 [@@deriving yojson]
 
 type fo_atom =

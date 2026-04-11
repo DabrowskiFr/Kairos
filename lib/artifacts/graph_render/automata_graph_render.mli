@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 (** Graph renderers for require/ensures automata and their synchronized product. *)
-
+open Core_syntax
 (** One DOT graph paired with its human-readable labels. *)
 type graph = {
   dot : string;
@@ -26,24 +26,24 @@ type graph = {
 
 (** Render only the ensures automaton. *)
 val render_ensures_automaton :
-  node_name:Ast.ident ->
+  node_name:ident ->
   analysis:Temporal_automata.node_data ->
   graph
 
 (** Render only the require automaton. *)
 val render_require_automaton :
-  node_name:Ast.ident ->
+  node_name:ident ->
   analysis:Temporal_automata.node_data ->
   graph
 
 (** Render only the product graph (merged by destination states). *)
 val render_product :
-  node_name:Ast.ident ->
+  node_name:ident ->
   analysis:Temporal_automata.node_data ->
   graph
 
 (** Render the program control automaton. *)
 val render_program_automaton :
-  node_name:Ast.ident ->
+  node_name:ident ->
   node:Ast.node ->
   graph

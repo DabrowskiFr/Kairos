@@ -162,8 +162,8 @@ let compile_transition_body (env : env) (sticky_asserts : Ptree.term list)
   let block_exprs = List.map (compile_action_block env sticky_asserts) t.action_blocks in
   seq_exprs (block_exprs @ [ assign_dst ])
 
-let compile_state_body (env : env) (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
-    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+let compile_state_body (env : env) (branch_entry_asserts : (ident * Ptree.term list) list)
+    (branch_sticky_asserts : (ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.expr =
   let entry_asserts =
     match List.assoc_opt st branch_entry_asserts with
@@ -190,8 +190,8 @@ let compile_state_body (env : env) (branch_entry_asserts : (Ast.ident * Ptree.te
   in
   seq_exprs (entry_asserts @ sticky_asserts @ [ chain trs ])
 
-let compile_state_branch_ast (env : env) (branch_entry_asserts : (Ast.ident * Ptree.term list) list)
-    (branch_sticky_asserts : (Ast.ident * Ptree.term list) list)
+let compile_state_branch_ast (env : env) (branch_entry_asserts : (ident * Ptree.term list) list)
+    (branch_sticky_asserts : (ident * Ptree.term list) list)
     (st : ident) (trs : Why_runtime_view.runtime_transition_view list) : Ptree.reg_branch =
   let pat = { pat_desc = Papp (qid1 st, []); pat_loc = loc } in
   let body = compile_state_body env branch_entry_asserts branch_sticky_asserts st trs in

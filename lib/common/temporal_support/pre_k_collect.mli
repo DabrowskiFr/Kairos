@@ -20,13 +20,13 @@
     lightweight specification heuristics. *)
 
 val build_pre_k_infos_from_parts :
-  inputs:Ast.vdecl list ->
-  locals:Ast.vdecl list ->
-  outputs:Ast.vdecl list ->
+  inputs:Core_syntax.vdecl list ->
+  locals:Core_syntax.vdecl list ->
+  outputs:Core_syntax.vdecl list ->
   fo_formulas:Fo_formula.t list ->
-  ltl:Ast.ltl list ->
-  (Ast.hexpr * Temporal_support.pre_k_info) list
+  ltl:Core_syntax.ltl list ->
+  (Core_syntax.hexpr * Temporal_support.pre_k_info) list
 
-val build_pre_k_infos : Ast.node -> (Ast.hexpr * Temporal_support.pre_k_info) list
+val build_pre_k_infos : Ast.node -> (Core_syntax.hexpr * Temporal_support.pre_k_info) list
 
-val extract_delay_spec : Ast.ltl list -> (Ast.ident * Ast.ident) option
+val extract_delay_spec : Core_syntax.ltl list -> (Core_syntax.ident * Core_syntax.ident) option

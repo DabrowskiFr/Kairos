@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type parse_error = { loc : Ast.loc option; message : string }
+type parse_error = { loc : Core_syntax.loc option; message : string }
 
 type t = {
   source_path : string option;

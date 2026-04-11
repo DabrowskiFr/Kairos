@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Generated_names
 open Temporal_support
@@ -30,7 +30,7 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 type automaton_view = {
-  states : Ast.ltl list;
+  states : ltl list;
   grouped : Automaton_types.transition list;
   atom_map_exprs : (ident * iexpr) list;
   bad_idx : int;
@@ -47,7 +47,7 @@ let program_guard_fo (t : Abs.transition) : Fo_formula.t =
      the same boolean level as recovered automaton guards. *)
   match t.guard_iexpr with None -> FTrue | Some g -> fo_of_iexpr g |> simplify_fo
 
-let first_false_idx (states : Ast.ltl list) : int =
+let first_false_idx (states : ltl list) : int =
   let rec loop i = function
     | [] -> -1
     | LFalse :: _ -> i

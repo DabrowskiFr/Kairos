@@ -15,32 +15,32 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 (** Time-shifting utilities for formulas and history expressions. *)
 
 (** Shift one step forward every historical occurrence whose underlying
     expression depends on an input. *)
-val shift_fo_forward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
+val shift_fo_forward_inputs : is_input:(ident -> bool) -> fo_atom -> fo_atom
 
 (** Shift one step backward every historical occurrence whose underlying
     expression depends on an input. *)
-val shift_fo_backward_inputs : is_input:(Ast.ident -> bool) -> Ast.fo_atom -> Ast.fo_atom
+val shift_fo_backward_inputs : is_input:(ident -> bool) -> fo_atom -> fo_atom
 
 (** Shift one step forward all input-dependent references in a non-temporal
     boolean formula. *)
 val shift_formula_forward_inputs :
-  is_input:(Ast.ident -> bool) -> Fo_formula.t -> Fo_formula.t
+  is_input:(ident -> bool) -> Fo_formula.t -> Fo_formula.t
 
 (** Shift one step backward all input-dependent references in a non-temporal
     boolean formula. *)
 val shift_formula_backward_inputs :
-  is_input:(Ast.ident -> bool) -> Fo_formula.t -> Fo_formula.t
+  is_input:(ident -> bool) -> Fo_formula.t -> Fo_formula.t
 
 (** Shift all references inside a first-order formula one step forward in
     time. *)
-val shift_fo_forward_all : Ast.fo_atom -> Ast.fo_atom
+val shift_fo_forward_all : fo_atom -> fo_atom
 
 (** Shift all references inside a first-order formula one step backward in
     time. *)
-val shift_fo_backward_all : Ast.fo_atom -> Ast.fo_atom
+val shift_fo_backward_all : fo_atom -> fo_atom
 

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 
 module Abs = Ir
@@ -46,7 +46,7 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
     ~fo_formulas:summary_formulas ~ltl:[]
 
-let lower_formula ~(node_name : Ast.ident) ~(temporal_bindings : Fo_specs.temporal_binding list)
+let lower_formula ~(node_name : ident) ~(temporal_bindings : Fo_specs.temporal_binding list)
     (f : Abs.summary_formula) : Abs.summary_formula =
   match Fo_specs.lower_fo_formula_temporal_bindings ~temporal_bindings f.logic with
   | None ->

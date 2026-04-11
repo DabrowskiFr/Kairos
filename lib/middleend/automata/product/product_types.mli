@@ -18,6 +18,8 @@
 
 (** Core types for the explicit product explored by {!Product_build}. *)
 
+open Core_syntax
+
 (** One reachable state of the product automaton.
 
     A product state stores:
@@ -25,7 +27,7 @@
     - the current state of the assumption automaton;
     - the current state of the guarantee automaton. *)
 type product_state = {
-  prog_state : Ast.ident;
+  prog_state : ident;
   assume_state : int;
   guarantee_state : int;
 }

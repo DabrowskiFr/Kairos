@@ -24,6 +24,7 @@ type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_gro
 
 open Why3
 open Ptree
+open Core_syntax
 open Ast
 open Generated_names
 open Temporal_support
@@ -46,8 +47,8 @@ type env_info = {
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
   ret_expr : Why3.Ptree.expr;
-  hexpr_needs_old : Ast.hexpr -> bool;
-  input_names : Ast.ident list;
+  hexpr_needs_old : hexpr -> bool;
+  input_names : ident list;
 }
 
 let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_runtime_view.t) : env_info =
@@ -211,7 +212,7 @@ let is_ghost_field_name (name : string) : bool =
   || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
   || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
 
-let logic_getter_decl ~(env : Why_compile_expr.env) (vname : Ast.ident) (vty : Ast.ty) : Ptree.decl =
+let logic_getter_decl ~(env : Why_compile_expr.env) (vname : ident) (vty : ty) : Ptree.decl =
   let field_name = vname in
   let getter_name = ident ("logic_" ^ field_name) in
   let param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
@@ -249,8 +250,8 @@ let logic_bool_pred_decl ~(env : Why_compile_expr.env) ~(input_ports : Why_runti
       };
     ]
 
-let port_view_to_vdecl (p : Why_runtime_view.port_view) : Ast.vdecl =
-  { Ast.vname = p.port_name; vty = p.port_type }
+let port_view_to_vdecl (p : Why_runtime_view.port_view) : vdecl =
+  { vname = p.port_name; vty = p.port_type }
 
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
    The active path builds [info] from the IR via [prepare_ir_node]. *)
@@ -270,7 +271,7 @@ let compile_node_with_info ?kernel_ir
     List.map port_view_to_vdecl (runtime_view.locals @ runtime_view.outputs)
   in
   let getter_decls =
-    let mk_getter (v : Ast.vdecl) =
+    let mk_getter (v : vdecl) =
       let field_name = v.vname in
       let getter_name = ident ("get_" ^ field_name) in
       let is_ghost = is_ghost_field_name v.vname in
@@ -291,7 +292,7 @@ let compile_node_with_info ?kernel_ir
     List.map mk_getter locals_and_outputs
   in
   let logic_getter_decls =
-    let mk (v : Ast.vdecl) = logic_getter_decl ~env v.vname v.vty in
+    let mk (v : vdecl) = logic_getter_decl ~env v.vname v.vty in
     logic_getter_decl ~env "st" (TCustom "state") :: List.map mk locals_and_outputs
   in
   let phase_case_logic_decls =
@@ -388,7 +389,7 @@ let compile_node_with_info ?kernel_ir
     | { Ptree.term_desc = Tident (Qident id); _ } -> Some id.id_str
     | _ -> None
   in
-  let state_eq_name (lhs : Ptree.term) (rhs : Ptree.term) : Ast.ident option =
+  let state_eq_name (lhs : Ptree.term) (rhs : Ptree.term) : ident option =
     let lhs = strip_term_attrs lhs in
     let rhs = strip_term_attrs rhs in
     match (lhs.term_desc, rhs.term_desc) with
@@ -397,7 +398,7 @@ let compile_node_with_info ?kernel_ir
     | _ -> None
   in
   let rec collect_state_mentions ~(old_state : bool) ~(inside_old : bool) (term : Ptree.term)
-      (acc : Ast.ident list) : Ast.ident list =
+      (acc : ident list) : ident list =
     let term = strip_term_attrs term in
     match term.term_desc with
     | Tapply (fn, arg) -> begin
@@ -429,7 +430,7 @@ let compile_node_with_info ?kernel_ir
     | Tident _ | Tconst _ | Ttrue | Tfalse -> acc
     | _ -> acc
   in
-  let classify_by_state ~(old_state : bool) (term : Ptree.term) : Ast.ident option =
+  let classify_by_state ~(old_state : bool) (term : Ptree.term) : ident option =
     let focus =
       match (strip_term_attrs term).term_desc with
       | Tbinnop (lhs, Dterm.DTimplies, _rhs) -> lhs

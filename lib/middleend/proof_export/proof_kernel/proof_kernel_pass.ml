@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Generated_names
 open Temporal_support
@@ -28,7 +28,7 @@ module Abs = Ir
 module PT = Product_types
 
 type node_input = {
-  node_name : Ast.ident;
+  node_name : ident;
   source_node : Ast.node;
   node : Ir.node_ir;
   analysis : Temporal_automata.node_data;
@@ -147,9 +147,9 @@ let product_step_kind_of_pt = function
 let is_live_state ~(analysis : Temporal_automata.node_data) (st : PT.product_state) : bool =
   st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
 
-let temporal_locals_of_layout ~(existing_locals : Ast.vdecl list) (layout : Ir.temporal_layout) :
-    Ast.vdecl list =
-  let existing = List.map (fun (v : Ast.vdecl) -> v.vname) existing_locals in
+let temporal_locals_of_layout ~(existing_locals : vdecl list) (layout : Ir.temporal_layout) :
+    vdecl list =
+  let existing = List.map (fun (v : vdecl) -> v.vname) existing_locals in
   layout
   |> List.fold_left
        (fun acc (_, info) ->
@@ -164,17 +164,17 @@ let temporal_locals_of_layout ~(existing_locals : Ast.vdecl list) (layout : Ir.t
   |> List.concat_map (fun info ->
          List.filter_map
            (fun name ->
-             if List.mem name existing then None else Some { Ast.vname = name; vty = info.vty })
+             if List.mem name existing then None else Some { vname = name; vty = info.vty })
            info.names)
 
-let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node) :
+let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node) :
     Proof_kernel_types.reactive_program_ir =
   Proof_kernel_product.build_reactive_program ~node_name
     ~source_node
     ~program_transitions:(program_transitions_of_ast_node source_node)
 
 let build_automaton ~(role : Proof_kernel_types.automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (Ast.ident * Ast.iexpr) list) :
+    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * iexpr) list) :
     Proof_kernel_types.safety_automaton_ir =
   Proof_kernel_product.build_automaton ~role ~labels ~bad_idx ~grouped_edges ~atom_map_exprs
     ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->

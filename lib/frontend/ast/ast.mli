@@ -18,154 +18,26 @@
 
 (** Abstract syntax tree for Kairos programs *)
 
-(** {1 Core Types}
+(** {1 Core Types} *)
 
-    Shared core syntax exported from {!module-Core_syntax}. *)
-
-type ident = Core_syntax.ident [@@deriving yojson]
-
-type ty = Core_syntax.ty =
-  | TInt
-  | TBool
-  | TReal
-  | TCustom of string
-[@@deriving yojson]
-
-type binop = Core_syntax.binop =
-  | Add | Sub | Mul | Div
-  | Eq | Neq
-  | Lt | Le | Gt | Ge
-  | And | Or
-[@@deriving yojson]
-
-type unop = Core_syntax.unop = Neg | Not [@@deriving yojson]
-
-type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
-
-type ibinop = Core_syntax.ibinop =
-  | IAdd
-  | ISub
-  | IMul
-  | IDiv
-[@@deriving yojson]
-
-type ibool_binop = Core_syntax.ibool_binop =
-  | IAnd
-  | IOr
-[@@deriving yojson]
-
-type iunop = Core_syntax.iunop =
-  | INeg
-  | INot
-[@@deriving yojson]
-
-type loc = Core_syntax.loc = {
-  line : int;
-  col : int;
-  line_end : int;
-  col_end : int;
-}
-[@@deriving yojson]
-
-type iexpr = Core_syntax.iexpr = {
-  iexpr : iexpr_desc;
-  loc : loc option;
-}
-[@@deriving yojson]
-
-and iexpr_desc = Core_syntax.iexpr_desc =
-  | ILitInt of int
-  | ILitBool of bool
-  | IVar of ident
-  | IArithBin of ibinop * iexpr * iexpr
-  | IBoolBin of ibool_binop * iexpr * iexpr
-  | ICmp of relop * iexpr * iexpr
-  | IUn of iunop * iexpr
-[@@deriving yojson]
-
-type hbinop = Core_syntax.hbinop =
-  | HAdd
-  | HSub
-  | HMul
-  | HDiv
-[@@deriving yojson]
-
-type hbool_binop = Core_syntax.hbool_binop =
-  | HAnd
-  | HOr
-[@@deriving yojson]
-
-type hunop = Core_syntax.hunop =
-  | HNeg
-  | HNot
-[@@deriving yojson]
-
-type hexpr = Core_syntax.hexpr = {
-  hexpr : hexpr_desc;
-  loc : loc option;
-}
-[@@deriving yojson]
-
-and hexpr_desc = Core_syntax.hexpr_desc =
-  | HLitInt of int
-  | HLitBool of bool
-  | HVar of ident
-  | HPreK of ident * int
-  | HArithBin of hbinop * hexpr * hexpr
-  | HBoolBin of hbool_binop * hexpr * hexpr
-  | HCmp of relop * hexpr * hexpr
-  | HUn of hunop * hexpr
-[@@deriving yojson]
-
-type fo_atom = Core_syntax.fo_atom =
-  | FRel of hexpr * relop * hexpr
-  | FPred of ident * hexpr list
-[@@deriving yojson]
-
-type ltl = Core_syntax.ltl =
-  | LTrue
-  | LFalse
-  | LAtom of fo_atom
-  | LNot of ltl
-  | LAnd of ltl * ltl
-  | LOr of ltl * ltl
-  | LImp of ltl * ltl
-  | LX of ltl
-  | LG of ltl
-  | LW of ltl * ltl
-[@@deriving yojson]
-
-type ltl_o = Core_syntax.ltl_o = {
-  value : ltl;
-  oid : int;
-  loc : loc option;
-}
-[@@deriving yojson]
-
-type vdecl = Core_syntax.vdecl = {
-  vname : ident;
-  vty : ty;
-}
-[@@deriving yojson]
 
 type invariant_state_rel = {
-  state : ident;
+  state : Core_syntax.ident;
   formula : Fo_formula.t;
-}
-[@@deriving yojson]
+}[@@deriving yojson]
 
 (** {1 Statements & Invariants} *)
 
 (** Executable statements. *)
-type stmt = { stmt : stmt_desc; loc : loc option }
+type stmt = { stmt : stmt_desc; loc : Core_syntax.loc option }
 [@@deriving yojson]
 
 and stmt_desc =
-  | SAssign of ident * iexpr
-  | SIf of iexpr * stmt list * stmt list
-  | SMatch of iexpr * (ident * stmt list) list * stmt list
+  | SAssign of Core_syntax.ident * Core_syntax.iexpr
+  | SIf of Core_syntax.iexpr * stmt list * stmt list
+  | SMatch of Core_syntax.iexpr * (Core_syntax.ident * stmt list) list * stmt list
   | SSkip
-  | SCall of ident * iexpr list * ident list
+  | SCall of Core_syntax.ident * Core_syntax.iexpr list * Core_syntax.ident list
 [@@deriving yojson]
 
 (** {1 Per-pass Metadata}
@@ -177,21 +49,21 @@ and stmt_desc =
 
 (** Source transition. *)
 type transition = {
-  src : ident;
-  dst : ident;
-  guard : iexpr option;
+  src : Core_syntax.ident;
+  dst : Core_syntax.ident;
+  guard : Core_syntax.iexpr option;
   body : stmt list;
 }
 
 (** Program-facing part of a node: state machine and transition semantics. *)
 type node_semantics = {
-  sem_nname : ident;
-  sem_inputs : vdecl list;
-  sem_outputs : vdecl list;
-  sem_instances : (ident * ident) list;
-  sem_locals : vdecl list;
-  sem_states : ident list;
-  sem_init_state : ident;
+  sem_nname : Core_syntax.ident;
+  sem_inputs : Core_syntax.vdecl list;
+  sem_outputs : Core_syntax.vdecl list;
+  sem_instances : (Core_syntax.ident * Core_syntax.ident) list;
+  sem_locals : Core_syntax.vdecl list;
+  sem_states : Core_syntax.ident list;
+  sem_init_state : Core_syntax.ident;
   sem_trans : transition list;
 }
 
@@ -200,8 +72,8 @@ type node_semantics = {
     Formulas may refer to current values through [HVar] and to bounded history
     through [HPreK]. *)
 type node_specification = {
-  spec_assumes : ltl list;
-  spec_guarantees : ltl list;
+  spec_assumes : Core_syntax.ltl list;
+  spec_guarantees : Core_syntax.ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
 }
 

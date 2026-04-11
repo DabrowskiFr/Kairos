@@ -20,4 +20,4 @@
 
 (** Wrap a formula with origin and optional source location, allocating a fresh
     identifier. *)
-val with_origin : ?loc:Ast.loc -> Formula_origin.t -> Ast.ltl -> Ast.ltl_o
+val with_origin : ?loc:Core_syntax.loc -> Formula_origin.t -> Core_syntax.ltl -> Core_syntax.ltl_o

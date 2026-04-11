@@ -57,10 +57,10 @@ val term_to_string : term -> string
 val valuations_to_formula : string list -> (string * bool) list list -> string
 
 (** Convert an implicant into an immediate expression. *)
-val term_to_iexpr : term -> Ast.iexpr
+val term_to_iexpr : term -> Core_syntax.iexpr
 
 (** Convert a disjunction of implicants into an immediate expression. *)
-val terms_to_iexpr : term list -> Ast.iexpr
+val terms_to_iexpr : term list -> Core_syntax.iexpr
 
 (** Build an immediate-expression formula covering the given valuations. *)
-val valuations_to_iexpr : string list -> (string * bool) list list -> Ast.iexpr
+val valuations_to_iexpr : string list -> (string * bool) list list -> Core_syntax.iexpr

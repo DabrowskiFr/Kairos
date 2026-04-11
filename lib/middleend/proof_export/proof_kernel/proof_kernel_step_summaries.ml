@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Ast_builders
 open Temporal_support
@@ -63,7 +63,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
                if idx = 0 then Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
                else
                  match info.Temporal_support.expr.iexpr with
-                 | Ast.IVar base -> Ast_builders.mk_hpre_k base idx
+                 | IVar base -> Ast_builders.mk_hpre_k base idx
                  | _ -> Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
              in
              (name, lowered))
@@ -79,28 +79,28 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     in
     List.fold_left add [] temporal_layout
   in
-  let rec rewrite_hexpr_post (h : Ast.hexpr) : Ast.hexpr =
+  let rec rewrite_hexpr_post (h : hexpr) : hexpr =
     match h.hexpr with
-    | Ast.HLitInt _ | Ast.HLitBool _ | Ast.HPreK _ -> h
-    | Ast.HVar name -> (
+    | HLitInt _ | HLitBool _ | HPreK _ -> h
+    | HVar name -> (
         match List.assoc_opt name slot_to_current_expr with
         | Some lowered -> lowered
         | None -> h)
-    | Ast.HUn (op, inner) ->
-        Ast_builders.with_hexpr_desc h (Ast.HUn (op, rewrite_hexpr_post inner))
-    | Ast.HArithBin (op, a, b) ->
+    | HUn (op, inner) ->
+        Ast_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
+    | HArithBin (op, a, b) ->
         Ast_builders.with_hexpr_desc h
-          (Ast.HArithBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
-    | Ast.HBoolBin (op, a, b) ->
+          (HArithBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+    | HBoolBin (op, a, b) ->
         Ast_builders.with_hexpr_desc h
-          (Ast.HBoolBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
-    | Ast.HCmp (op, a, b) ->
-        Ast_builders.with_hexpr_desc h (Ast.HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+          (HBoolBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+    | HCmp (op, a, b) ->
+        Ast_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
   in
-  let rewrite_fo_post (f : Ast.fo_atom) : Ast.fo_atom =
+  let rewrite_fo_post (f : fo_atom) : fo_atom =
     match f with
-    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
-    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_post hs)
+    | FRel (h1, r, h2) -> FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
+    | FPred (id, hs) -> FPred (id, List.map rewrite_hexpr_post hs)
   in
   let rec rewrite_formula_post (f : Fo_formula.t) : Fo_formula.t =
     match f with
@@ -118,32 +118,32 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         let idx = depth - 1 in
         if idx < 0 || idx >= List.length names then None else Some (List.nth names idx)
   in
-  let rec rewrite_hexpr_pre (h : Ast.hexpr) : Ast.hexpr =
+  let rec rewrite_hexpr_pre (h : hexpr) : hexpr =
     match h.hexpr with
-    | Ast.HLitInt _ | Ast.HLitBool _ -> h
-    | Ast.HVar name -> (
+    | HLitInt _ | HLitBool _ -> h
+    | HVar name -> (
         match slot_name_for_depth name 1 with
         | Some slot -> Ast_builders.mk_hvar slot
         | None -> h)
-    | Ast.HPreK (name, k) -> (
+    | HPreK (name, k) -> (
         match slot_name_for_depth name (k + 1) with
         | Some slot -> Ast_builders.mk_hvar slot
         | None -> h)
-    | Ast.HUn (op, inner) ->
-        Ast_builders.with_hexpr_desc h (Ast.HUn (op, rewrite_hexpr_pre inner))
-    | Ast.HArithBin (op, a, b) ->
+    | HUn (op, inner) ->
+        Ast_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
+    | HArithBin (op, a, b) ->
         Ast_builders.with_hexpr_desc h
-          (Ast.HArithBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
-    | Ast.HBoolBin (op, a, b) ->
+          (HArithBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+    | HBoolBin (op, a, b) ->
         Ast_builders.with_hexpr_desc h
-          (Ast.HBoolBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
-    | Ast.HCmp (op, a, b) ->
-        Ast_builders.with_hexpr_desc h (Ast.HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+          (HBoolBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+    | HCmp (op, a, b) ->
+        Ast_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
   in
-  let rewrite_fo_pre (f : Ast.fo_atom) : Ast.fo_atom =
+  let rewrite_fo_pre (f : fo_atom) : fo_atom =
     match f with
-    | Ast.FRel (h1, r, h2) -> Ast.FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
-    | Ast.FPred (id, hs) -> Ast.FPred (id, List.map rewrite_hexpr_pre hs)
+    | FRel (h1, r, h2) -> FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
+    | FPred (id, hs) -> FPred (id, List.map rewrite_hexpr_pre hs)
   in
   let rec rewrite_formula_pre (f : Fo_formula.t) : Fo_formula.t =
     match f with

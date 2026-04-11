@@ -23,6 +23,7 @@
     - assigning stable names to these atoms;
     - recovering readable guards from automaton transitions. *)
 
+open Core_syntax
 (** Guard type used on automaton transitions. *)
 type guard = Automaton_types.guard
 
@@ -35,19 +36,19 @@ val guard_to_formula : guard -> string
       name;
     - [atom_named_exprs] stores the corresponding named boolean expressions. *)
 type automata_atoms = Automaton_types.automata_atoms = {
-  atom_map : (Ast.fo_atom * Ast.ident) list;
-  atom_named_exprs : (Ast.ident * Ast.iexpr) list;
+  atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
+  atom_named_exprs : (Core_syntax.ident * Core_syntax.iexpr) list;
 }
 
-val make_atom_names : (Ast.fo_atom * Ast.iexpr) list -> string list
+val make_atom_names : (Core_syntax.fo_atom * Core_syntax.iexpr) list -> string list
 (** [make_atom_names atoms] generates stable, readable, and unique names for the
     given atoms, preserving the input order. *)
 
-val inline_atoms_iexpr : (Ast.ident * Ast.iexpr) list -> Ast.iexpr -> Ast.iexpr
+val inline_atoms_iexpr : (Core_syntax.ident * Core_syntax.iexpr) list -> Core_syntax.iexpr -> Core_syntax.iexpr
 (** [inline_atoms_iexpr defs expr] replaces atom variables occurring in [expr]
     by their underlying boolean expressions. *)
 
-val recover_guard_fo : (Ast.ident * Ast.iexpr) list -> Automaton_types.guard -> Fo_formula.t
+val recover_guard_fo : (Core_syntax.ident * Core_syntax.iexpr) list -> Automaton_types.guard -> Fo_formula.t
 (** Convert an automaton guard back to a first-order formula suitable for
     downstream rendering and export. *)
 
@@ -58,7 +59,7 @@ val collect_atoms : Ast.node -> automata_atoms
     here and handled separately when needed. *)
 
 val collect_atoms_from_ltls :
-  Ast.node -> ltls:Ast.ltl list -> automata_atoms
+  Ast.node -> ltls:ltl list -> automata_atoms
 (** Collect atoms for the explicit list of temporal formulas [ltls].
 
     The function fails when one of the extracted atoms cannot be translated to a

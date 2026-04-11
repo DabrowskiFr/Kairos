@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
+open Core_syntax
 
 type metadata = {
   format : string;
@@ -120,15 +121,15 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   List.iter
     (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.semantics.sem_nname node)
     runtime_program;
-  let pre_k_locals_of_layout (layout : (Ast.hexpr * Temporal_support.pre_k_info) list) : Ast.vdecl list =
+  let pre_k_locals_of_layout (layout : (hexpr * Temporal_support.pre_k_info) list) : vdecl list =
     layout
     |> List.concat_map (fun (_, (info : Temporal_support.pre_k_info)) ->
-           List.map (fun name -> { Ast.vname = name; vty = info.vty }) info.names)
+           List.map (fun name -> { vname = name; vty = info.vty }) info.names)
   in
-  let append_missing_locals (locals : Ast.vdecl list) (extra : Ast.vdecl list) : Ast.vdecl list =
-    let existing = List.map (fun (v : Ast.vdecl) -> v.vname) locals in
+  let append_missing_locals (locals : vdecl list) (extra : vdecl list) : vdecl list =
+    let existing = List.map (fun (v : vdecl) -> v.vname) locals in
     locals
-    @ List.filter (fun (v : Ast.vdecl) -> not (List.mem v.vname existing)) extra
+    @ List.filter (fun (v : vdecl) -> not (List.mem v.vname existing)) extra
   in
   let node_signature_of_ast (node : Ast.node) : Proof_kernel_types.node_signature_ir =
     let sem = node.semantics in
@@ -204,13 +205,13 @@ let summaries (obj : t) : Proof_kernel_types.exported_node_summary_ir list = obj
 
 let indent n = String.make (2 * max 0 n) ' '
 
-let string_of_vdecl (v : Ast.vdecl) =
+let string_of_vdecl (v : vdecl) =
   let ty =
     match v.vty with
-    | Ast.TInt -> "int"
-    | Ast.TBool -> "bool"
-    | Ast.TReal -> "real"
-    | Ast.TCustom s -> s
+    | TInt -> "int"
+    | TBool -> "bool"
+    | TReal -> "real"
+    | TCustom s -> s
   in
   v.vname ^ ":" ^ ty
 

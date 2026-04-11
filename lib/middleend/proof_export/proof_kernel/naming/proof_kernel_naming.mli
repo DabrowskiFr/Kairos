@@ -17,8 +17,9 @@
  *---------------------------------------------------------------------------*)
 
 (** Stable naming and lightweight string render helpers for kernel/product IR. *)
+open Core_syntax
 
-val phase_state_case_name : prog_state:Ast.ident -> guarantee_state:int -> string
+val phase_state_case_name : prog_state:ident -> guarantee_state:int -> string
 val phase_step_pre_case_name : Proof_kernel_types.product_step_ir -> string
 val phase_step_post_case_name : Proof_kernel_types.product_step_ir -> string
 

@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
-type parse_error = { loc : Ast.loc option; message : string }
+open Core_syntax
+type parse_error = { loc : loc option; message : string }
 
 type parse_info = {
   source_path : string option;

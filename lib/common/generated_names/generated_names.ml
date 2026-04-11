@@ -18,7 +18,7 @@
 
 open Ast
 
-let module_name_of_node (name : ident) : string = String.capitalize_ascii name
+let module_name_of_node (name : Core_syntax.ident) : string = String.capitalize_ascii name
 
-let pre_input_name (name : ident) : string = "__pre_in_" ^ name
-let pre_input_old_name (name : ident) : string = "__pre_old_" ^ name
+let pre_input_name (name : Core_syntax.ident) : string = "__pre_in_" ^ name
+let pre_input_old_name (name : Core_syntax.ident) : string = "__pre_old_" ^ name

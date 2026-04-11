@@ -53,7 +53,7 @@ type hoa_automaton = {
 type raw_guard = (string * bool option) list list
 
 val automata_log_enabled : bool
-val string_of_spot_ltl : atom_map:(fo_atom * ident) list -> ltl -> string
+val string_of_spot_ltl : atom_map:(Core_syntax.fo_atom * Core_syntax.ident) list -> Core_syntax.ltl -> string
 val ensure_safety : string -> unit
 val call_spot : string -> string
 val parse_hoa : string -> hoa_automaton

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 
 let ( let* ) = Result.bind
@@ -23,10 +23,10 @@ let ( let* ) = Result.bind
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
 
-let source_nodes_by_name (source_program : Ast.program) : (Ast.ident * Ast.node) list =
+let source_nodes_by_name (source_program : Ast.program) : (ident * node) list =
   List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program
 
-let source_node_of_name ~(source_nodes : (Ast.ident * Ast.node) list) ~(node_name : Ast.ident) :
+let source_node_of_name ~(source_nodes : (ident * Ast.node) list) ~(node_name : ident) :
     (Ast.node, string) result =
   Result_utils.find_assoc
     ~missing:(fun name -> Printf.sprintf "Missing source AST node for IR node %s" name)
@@ -62,8 +62,8 @@ let build_node_analysis ~(automata : Automata_generation.node_builds)
   Ok (Product_build.analyze_node ~build ~node ~program_transitions)
 
 let build_analyses ~(automata : Automata_generation.node_builds)
-    ~(source_nodes : (Ast.ident * Ast.node) list) :
-    ((Ast.ident * Temporal_automata.node_data) list, string) result =
+    ~(source_nodes : (ident * Ast.node) list) :
+    ((ident * Temporal_automata.node_data) list, string) result =
   source_nodes
   |> List.map (fun (node_name, source_node) ->
          let analysis =
@@ -74,7 +74,7 @@ let build_analyses ~(automata : Automata_generation.node_builds)
          Result.map (fun value -> (node_name, value)) analysis)
   |> Result_utils.all
 
-let analysis_of_node ~(analyses : (Ast.ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
+let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
     (Temporal_automata.node_data, string) result =
   Result_utils.find_assoc
     ~missing:(fun node_name -> Printf.sprintf "Missing product analysis for IR node %s" node_name)
@@ -144,7 +144,7 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
   }
 
 let instrumentation_info_of_node ~(source_node : Ast.node)
-    ~(analyses : (Ast.ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
+    ~(analyses : (ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
     (Stage_info.instrumentation_info, string) result =
   let* analysis = analysis_of_node ~analyses node in
   let require_automaton =

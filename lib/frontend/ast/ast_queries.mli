@@ -19,13 +19,13 @@
 (** Structural queries and small utilities over the source AST. *)
 
 (** Render a source location in a compact human-readable form. *)
-val loc_to_string : Ast.loc -> string
+val loc_to_string : Core_syntax.loc -> string
 
 (** Names of the input variables declared by a node. *)
-val input_names_of_node : Ast.node -> Ast.ident list
+val input_names_of_node : Ast.node -> Core_syntax.ident list
 
 (** Names of the output variables declared by a node. *)
-val output_names_of_node : Ast.node -> Ast.ident list
+val output_names_of_node : Ast.node -> Core_syntax.ident list
 
 (** Build an index from source state names to their outgoing transitions. *)
-val transitions_from_state_fn : Ast.node -> Ast.ident -> Ast.transition list
+val transitions_from_state_fn : Ast.node -> Core_syntax.ident -> Ast.transition list

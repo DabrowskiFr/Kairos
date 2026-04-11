@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 
 type eval_value =
@@ -33,10 +33,10 @@ let string_of_eval_value = function
 let eval_error msg = Error (Pipeline_types.Stage_error ("eval: " ^ msg))
 
 let default_value_of_ty = function
-  | Ast.TInt -> VInt 0
-  | Ast.TBool -> VBool false
-  | Ast.TReal -> VReal 0.0
-  | Ast.TCustom c -> VCustom c
+  | TInt -> VInt 0
+  | TBool -> VBool false
+  | TReal -> VReal 0.0
+  | TCustom c -> VCustom c
 
 let split_assignments (s : string) : string list =
   s |> String.split_on_char ',' |> List.map String.trim |> List.filter (fun x -> x <> "")
@@ -46,23 +46,23 @@ let strip_optional_quotes (s : string) : string =
   let n = String.length s in
   if n >= 2 && s.[0] = '"' && s.[n - 1] = '"' then String.sub s 1 (n - 2) else s
 
-let parse_typed_value ~(name : string) ~(ty : Ast.ty) (raw : string) :
+let parse_typed_value ~(name : string) ~(ty : ty) (raw : string) :
     (eval_value, Pipeline_types.error) result =
   match ty with
-  | Ast.TInt -> (
+  | TInt -> (
       match int_of_string_opt raw with
       | Some i -> Ok (VInt i)
       | None -> eval_error (Printf.sprintf "invalid int for '%s': %s" name raw))
-  | Ast.TBool -> (
+  | TBool -> (
       match String.lowercase_ascii raw with
       | "true" | "1" -> Ok (VBool true)
       | "false" | "0" -> Ok (VBool false)
       | _ -> eval_error (Printf.sprintf "invalid bool for '%s': %s" name raw))
-  | Ast.TReal -> (
+  | TReal -> (
       match float_of_string_opt raw with
       | Some f -> Ok (VReal f)
       | None -> eval_error (Printf.sprintf "invalid real for '%s': %s" name raw))
-  | Ast.TCustom _ -> Ok (VCustom raw)
+  | TCustom _ -> Ok (VCustom raw)
 
 let eval_bool_of_value ~(ctx : string) = function
   | VBool b -> Ok b
@@ -72,9 +72,9 @@ let eval_int_of_value ~(ctx : string) = function
   | VInt i -> Ok i
   | v -> eval_error (Printf.sprintf "expected int in %s, got '%s'" ctx (string_of_eval_value v))
 
-let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
+let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : iexpr) :
     (eval_value, Pipeline_types.error) result =
-  let rec go (e : Ast.iexpr) : (eval_value, Pipeline_types.error) result =
+  let rec go (e : iexpr) : (eval_value, Pipeline_types.error) result =
     match e.iexpr with
     | ILitInt i -> Ok (VInt i)
     | ILitBool b -> Ok (VBool b)
@@ -82,14 +82,14 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
         match Hashtbl.find_opt env v with
         | Some value -> Ok value
         | None -> eval_error (Printf.sprintf "unbound variable '%s'" v))
-    | IUn (INeg, e) -> (
+    | IUn (Neg, e) -> (
         match go e with
         | Error _ as err -> err
         | Ok v -> (
             match eval_int_of_value ~ctx:"unary '-'" v with
             | Error _ as err -> err
             | Ok i -> Ok (VInt (-i))))
-    | IUn (INot, e) -> (
+    | IUn (Not, e) -> (
         match go e with
         | Error _ as err -> err
         | Ok v -> (
@@ -108,14 +108,14 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
             | (Error _ as err), _ -> err
             | _, (Error _ as err) -> err
             | Ok li, Ok ri ->
-                if op = IDiv && ri = 0 then eval_error "division by zero"
+                if op = Div && ri = 0 then eval_error "division by zero"
                 else
                   let v =
                     match op with
-                    | IAdd -> li + ri
-                    | ISub -> li - ri
-                    | IMul -> li * ri
-                    | IDiv -> li / ri
+                    | Add -> li + ri
+                    | Sub -> li - ri
+                    | Mul -> li * ri
+                    | Div -> li / ri
                   in
                   Ok (VInt v)))
     | IBoolBin (op, l, r) -> (
@@ -129,7 +129,7 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
             with
             | (Error _ as err), _ -> err
             | _, (Error _ as err) -> err
-            | Ok lb, Ok rb -> Ok (VBool (if op = IAnd then lb && rb else lb || rb))))
+            | Ok lb, Ok rb -> Ok (VBool (if op = And then lb && rb else lb || rb))))
     | ICmp (op, l, r) -> (
         match (go l, go r) with
         | (Error _ as err), _ -> err
@@ -158,7 +158,7 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
   in
   go e
 
-let eval_guard env (g : Ast.iexpr option) : (bool, Pipeline_types.error) result =
+let eval_guard env (g : iexpr option) : (bool, Pipeline_types.error) result =
   match g with
   | None -> Ok true
   | Some e -> (

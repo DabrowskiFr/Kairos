@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 type node_input = {
-  node_name : Ast.ident;
+  node_name : ident;
   source_node : Ast.node;
   node : Ir.node_ir;
   analysis : Temporal_automata.node_data;

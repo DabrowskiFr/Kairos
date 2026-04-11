@@ -23,6 +23,7 @@ open Ptree
 open Generated_names
 open Temporal_support
 open Logic_pretty
+open Core_syntax
 open Ast
 open Formula_origin
 open Pre_k_collect
@@ -127,13 +128,13 @@ let compute_transition_contracts ~(env : env)
   }
 
 let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
-    ~(hexpr_needs_old : Ast.hexpr -> bool) :
+    ~(hexpr_needs_old : hexpr -> bool) :
     link_contracts =
   let _ = env in
   let _ = hexpr_needs_old in
   let link_terms_pre, link_terms_post = ([], []) in
   let output_links =
-    let rec last_assigned_var (out : Ast.ident) (stmts : Ast.stmt list) =
+    let rec last_assigned_var (out : ident) (stmts : Ast.stmt list) =
       match stmts with
       | [] -> None
       | s :: rest -> (
@@ -243,7 +244,7 @@ let rec term_has_old (t : Ptree.term) : bool =
   | _ -> false
 
 let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
-    ~(hexpr_needs_old : Ast.hexpr -> bool) ~(runtime : Why_runtime_view.t)
+    ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) : contract_info =
   let _nodes = nodes in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
@@ -375,7 +376,7 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
           | _ -> None)
       terms
   in
-  let build_state_opts (tagged : (Ptree.term * Ast.ident option) list) (terms : Ptree.term list)
+  let build_state_opts (tagged : (Ptree.term * ident option) list) (terms : Ptree.term list)
       ~(is_candidate : Ptree.term -> bool) =
     let buckets = Hashtbl.create 64 in
     List.iter

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 (** Result of the explicit product exploration for one normalized node.
 
     The node data keeps both the reachable product graph itself and the metadata
@@ -42,7 +42,7 @@ type node_data = {
   (** Grouped edges of the assumption automaton. *)
   assume_grouped_edges : Automaton_types.transition list;
   (** Atom-name table used to render guarantee guards. *)
-  guarantee_atom_map_exprs : (Ast.ident * Ast.iexpr) list;
+  guarantee_atom_map_exprs : (ident * iexpr) list;
   (** Atom-name table used to render assumption guards. *)
-  assume_atom_map_exprs : (Ast.ident * Ast.iexpr) list;
+  assume_atom_map_exprs : (ident * iexpr) list;
 }

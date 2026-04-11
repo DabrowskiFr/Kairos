@@ -17,11 +17,11 @@
  *---------------------------------------------------------------------------*)
 
 (** Bundles the intermediate artifacts produced by instrumentation stages. *)
-
+open Core_syntax
 (** {1 Per-pass Metadata} *)
 
 (** Parser error payload. *)
-type parse_error = { loc : Ast.loc option; message : string }
+type parse_error = { loc : loc option; message : string }
 
 (** Parsing metadata reported by the frontend. *)
 type parse_info = {

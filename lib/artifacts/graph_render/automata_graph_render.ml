@@ -22,6 +22,7 @@
    Each public function returns a [graph] value containing both a DOT string
    (for rendering) and a text [labels] string (for diagnostics). *)
 
+open Core_syntax
 open Ast
 open Ast_builders
 open Generated_names

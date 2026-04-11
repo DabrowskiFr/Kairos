@@ -24,7 +24,7 @@
     Utilities to extract atomic first-order formulas from specifications. *)
 
 (** Collect atomic first-order formulas referenced by an LTL formula. *)
-val collect_atoms_ltl : Ast.ltl -> Ast.fo_atom list -> Ast.fo_atom list
+val collect_atoms_ltl : Core_syntax.ltl -> Core_syntax.fo_atom list -> Core_syntax.fo_atom list
 
 (** Conjoin a list of first-order formulas, or return [None] for an empty
     list. *)
@@ -33,74 +33,74 @@ val conj_fo : Fo_formula.t list -> Fo_formula.t option
 (** {1 Expression Conversion} *)
 
 type temporal_binding = {
-  source_hexpr : Ast.hexpr;
-  slot_names : Ast.ident list;
+  source_hexpr : Core_syntax.hexpr;
+  slot_names : Core_syntax.ident list;
 }
 
 val temporal_bindings_of_pre_k_map :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> temporal_binding list
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> temporal_binding list
 
 (** Convert a history expression to an immediate expression when representable,
     using temporal bindings. *)
 val hexpr_to_iexpr_with_temporal_bindings :
-  inputs:Ast.ident list ->
-  var_types:(Ast.ident * Ast.ty) list ->
+  inputs:Core_syntax.ident list ->
+  var_types:(Core_syntax.ident * Core_syntax.ty) list ->
   temporal_bindings:temporal_binding list ->
-  Ast.hexpr ->
-  Ast.iexpr option
+  Core_syntax.hexpr ->
+  Core_syntax.iexpr option
 
 val hexpr_to_iexpr :
-  inputs:Ast.ident list ->
-  var_types:(Ast.ident * Ast.ty) list ->
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
-  Ast.hexpr ->
-  Ast.iexpr option
+  inputs:Core_syntax.ident list ->
+  var_types:(Core_syntax.ident * Core_syntax.ty) list ->
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list ->
+  Core_syntax.hexpr ->
+  Core_syntax.iexpr option
 
 (** Lower [pre_k] occurrences to explicit symbolic history variables. *)
 val lower_hexpr_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Ast.hexpr -> Ast.hexpr option
+  temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
 val lower_hexpr_pre_k :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.hexpr -> Ast.hexpr option
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
 (** Lower [pre_k] occurrences inside a first-order formula. *)
 val lower_fo_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Ast.fo_atom -> Ast.fo_atom option
+  temporal_bindings:temporal_binding list -> Core_syntax.fo_atom -> Core_syntax.fo_atom option
 
 val lower_fo_pre_k :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Ast.fo_atom -> Ast.fo_atom option
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.fo_atom -> Core_syntax.fo_atom option
 
 (** Lower [pre_k] occurrences inside a non-temporal first-order formula. *)
 val lower_fo_formula_temporal_bindings :
   temporal_bindings:temporal_binding list -> Fo_formula.t -> Fo_formula.t option
 
 val lower_fo_formula_pre_k :
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list -> Fo_formula.t -> Fo_formula.t option
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Fo_formula.t -> Fo_formula.t option
 
 (** Infer a simple type for an immediate expression from variable types. *)
-val infer_iexpr_type : var_types:(Ast.ident * Ast.ty) list -> Ast.iexpr -> Ast.ty option
+val infer_iexpr_type : var_types:(Core_syntax.ident * Core_syntax.ty) list -> Core_syntax.iexpr -> Core_syntax.ty option
 
 (** Boolean equality encoded as a pure boolean expression. *)
-val mk_bool_eq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
+val mk_bool_eq : Core_syntax.iexpr -> Core_syntax.iexpr -> Core_syntax.iexpr
 
 (** Boolean inequality encoded as a pure boolean expression. *)
-val mk_bool_neq : Ast.iexpr -> Ast.iexpr -> Ast.iexpr
+val mk_bool_neq : Core_syntax.iexpr -> Core_syntax.iexpr -> Core_syntax.iexpr
 
 (** Convert an atomic first-order predicate to an immediate expression when
     possible. *)
 val atom_to_iexpr :
-  inputs:Ast.ident list ->
-  var_types:(Ast.ident * Ast.ty) list ->
-  pre_k_map:(Ast.hexpr * Temporal_support.pre_k_info) list ->
-  Ast.fo_atom ->
-  Ast.iexpr option
+  inputs:Core_syntax.ident list ->
+  var_types:(Core_syntax.ident * Core_syntax.ty) list ->
+  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list ->
+  Core_syntax.fo_atom ->
+  Core_syntax.iexpr option
 
 (** Encode an atom variable as a first-order relation [var = true]. *)
-val atom_to_var_rel : Ast.ident -> Ast.fo_atom
+val atom_to_var_rel : Core_syntax.ident -> Core_syntax.fo_atom
 
 (** Reconstruct a non-temporal formula by inlining atom variables from a
     name-to-atom map. *)
-val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo_atom) list -> Ast.iexpr -> Fo_formula.t
+val iexpr_to_fo_with_atoms : (Core_syntax.ident * Core_syntax.fo_atom) list -> Core_syntax.iexpr -> Fo_formula.t
 
 
 (** {1 Instrumentation Specs} *)
@@ -110,4 +110,4 @@ val iexpr_to_fo_with_atoms : (Ast.ident * Ast.fo_atom) list -> Ast.iexpr -> Fo_f
     Current policy: only guarantees are turned into an automaton;
     assumptions are handled as proof hypotheses. *)
 val combine_contracts_for_monitor :
-  assumes:Ast.ltl list -> guarantees:Ast.ltl list -> Ast.ltl
+  assumes:Core_syntax.ltl list -> guarantees:Core_syntax.ltl list -> Core_syntax.ltl

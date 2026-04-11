@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Fo_specs
 
@@ -101,7 +101,7 @@ let of_ast_node (n : Ast.node) : Ir.node_ir =
 
 let of_ast_program_context (p : Ast.program) : Ir.node_ir list = List.map of_ast_node p
 
-let source_nodes_by_name (source_program : Ast.program) : (Ast.ident * Ast.node) list =
+let source_nodes_by_name (source_program : Ast.program) : (ident * Ast.node) list =
   List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program
 
 let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
@@ -137,8 +137,8 @@ let build_node_analysis ~(automata : Automata_generation.node_builds) (source_no
        ~program_transitions:(Ir_transition.prioritized_program_transitions_of_node source_node))
 
 let build_analyses ~(automata : Automata_generation.node_builds)
-    ~(source_nodes : (Ast.ident * Ast.node) list) :
-    ((Ast.ident * Temporal_automata.node_data) list, string) result =
+    ~(source_nodes : (ident * Ast.node) list) :
+    ((ident * Temporal_automata.node_data) list, string) result =
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
     | (node_name, source_node) :: rest ->
@@ -321,8 +321,8 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                 }
                  : Ir.product_step_summary))
 
-let with_minimal_summaries ~(analyses : (Ast.ident * Temporal_automata.node_data) list)
-    ~(source_nodes : (Ast.ident * Ast.node) list)
+let with_minimal_summaries ~(analyses : (ident * Temporal_automata.node_data) list)
+    ~(source_nodes : (ident * Ast.node) list)
     (nodes : Ir.node_ir list) : (Ir.node_ir list, string) result =
   let rec collect acc = function
     | [] -> Ok (List.rev acc)

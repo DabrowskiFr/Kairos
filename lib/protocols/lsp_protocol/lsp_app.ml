@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 let get_param_string (params : Yojson.Safe.t) key =
   match params with
   | `Assoc xs -> (
@@ -99,7 +99,7 @@ let client_supports_work_done_progress (params : Yojson.Safe.t) : bool =
       | _ -> false)
   | None -> false
 
-let loc_of_ast (l : Ast.loc) : Lsp_protocol.loc =
+let loc_of_ast (l : loc) : Lsp_protocol.loc =
   { line = l.line; col = l.col; line_end = l.line_end; col_end = l.col_end }
 
 let text_span_of_pipeline (span : Pipeline_types.text_span) : Lsp_protocol.text_span =

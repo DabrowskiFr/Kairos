@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 [@@@ocaml.warning "-8-26-27-32-33"]
-
+open Core_syntax
 open Ast
 open Ast_builders
 open Temporal_support

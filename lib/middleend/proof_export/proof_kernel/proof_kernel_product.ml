@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Generated_names
 open Logic_pretty
@@ -31,7 +31,7 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 
 let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
 
-let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node)
+let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
     ~(program_transitions : Abs.transition list) : reactive_program_ir =
   let transitions =
     List.mapi
@@ -59,7 +59,7 @@ let build_reactive_program ~(node_name : Ast.ident) ~(source_node : Ast.node)
   }
 
 let build_automaton ~(role : automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (Ast.ident * Ast.iexpr) list)
+    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * iexpr) list)
     ~automaton_guard_fo : safety_automaton_ir =
   let edges =
     List.map
@@ -125,7 +125,7 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let post_formula_for_state ~(node : Abs.node_ir) (state_name : Ast.ident) : Fo_formula.t option =
+let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Fo_formula.t option =
   let formulas =
     node.source_info.state_invariants
     |> List.filter_map (fun (inv : Abs.state_invariant) ->
@@ -140,9 +140,9 @@ type current_const =
   | CBool of bool
 
 type current_constraint_env = {
-  parent : (Ast.ident, Ast.ident) Hashtbl.t;
-  const_of_root : (Ast.ident, current_const) Hashtbl.t;
-  forbids_of_root : (Ast.ident, current_const list) Hashtbl.t;
+  parent : (ident, ident) Hashtbl.t;
+  const_of_root : (ident, current_const) Hashtbl.t;
+  forbids_of_root : (ident, current_const list) Hashtbl.t;
 }
 
 let empty_current_constraint_env () =
@@ -226,24 +226,24 @@ let clone_constraint_env env =
     forbids_of_root = copy_tbl env.forbids_of_root;
   }
 
-let current_const_of_iexpr (e : Ast.iexpr) : current_const option =
+let current_const_of_iexpr (e : iexpr) : current_const option =
   match e.iexpr with
-  | Ast.ILitInt n -> Some (CInt n)
-  | Ast.ILitBool b -> Some (CBool b)
+  | ILitInt n -> Some (CInt n)
+  | ILitBool b -> Some (CBool b)
   | _ -> None
 
 let current_var_of_hexpr = function
-  | { Ast.hexpr = Ast.HVar v; _ } -> Some v
+  | { hexpr = HVar v; _ } -> Some v
   | _ -> None
 
 let current_const_of_hexpr = function
-  | { Ast.hexpr = Ast.HLitInt n; _ } -> Some (CInt n)
-  | { Ast.hexpr = Ast.HLitBool b; _ } -> Some (CBool b)
+  | { hexpr = HLitInt n; _ } -> Some (CInt n)
+  | { hexpr = HLitBool b; _ } -> Some (CBool b)
   | _ -> None
 
-let add_current_atom env ~(negated : bool) (fo_atom : Ast.fo_atom) : bool option =
+let add_current_atom env ~(negated : bool) (fo_atom : fo_atom) : bool option =
   match fo_atom with
-  | Ast.FRel (h1, Ast.REq, h2) -> begin
+  | FRel (h1, REq, h2) -> begin
       match
         ( current_var_of_hexpr h1,
           current_var_of_hexpr h2,
@@ -332,7 +332,7 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
     |> List.filter_map (fun (s, d, g) -> if s = src && d = dst then Some g else None)
     |> List.sort_uniq Stdlib.compare
   in
-  let transition_id_for ~(src : Ast.ident) ~(dst : Ast.ident) ~(guard : Fo_formula.t) =
+  let transition_id_for ~(src : ident) ~(dst : ident) ~(guard : Fo_formula.t) =
     match
       List.find_opt
         (fun (tr : reactive_transition_ir) ->

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Fo_specs
 open Fo_formula
@@ -23,22 +23,22 @@ open Fo_formula
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let inline_atom_names (atom_named_exprs : (Ast.ident * Ast.iexpr) list) (e : Ast.iexpr) : Ast.iexpr =
+let inline_atom_names (atom_named_exprs : (ident * iexpr) list) (e : iexpr) : iexpr =
   let map = Hashtbl.create 16 in
   List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_named_exprs;
-  let rec go (e : Ast.iexpr) =
+  let rec go (e : iexpr) =
     match e.iexpr with
-    | Ast.IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
-    | Ast.ILitInt _ | Ast.ILitBool _ -> e
-    | Ast.IUn (op, inner) -> { e with iexpr = Ast.IUn (op, go inner) }
-    | Ast.IArithBin (op, a, b) -> { e with iexpr = Ast.IArithBin (op, go a, go b) }
-    | Ast.IBoolBin (op, a, b) -> { e with iexpr = Ast.IBoolBin (op, go a, go b) }
-    | Ast.ICmp (op, a, b) -> { e with iexpr = Ast.ICmp (op, go a, go b) }
+    | IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
+    | ILitInt _ | ILitBool _ -> e
+    | IUn (op, inner) -> { e with iexpr = IUn (op, go inner) }
+    | IArithBin (op, a, b) -> { e with iexpr = IArithBin (op, go a, go b) }
+    | IBoolBin (op, a, b) -> { e with iexpr = IBoolBin (op, go a, go b) }
+    | ICmp (op, a, b) -> { e with iexpr = ICmp (op, go a, go b) }
   in
   go e
 
-let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (Ast.fo_atom * Ast.ident) list)
-    ~(atom_named_exprs : (Ast.ident * Ast.iexpr) list) (hoa : Automaton_spot.hoa_automaton) :
+let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom * ident) list)
+    ~(atom_named_exprs : (ident * iexpr) list) (hoa : Automaton_spot.hoa_automaton) :
     Automaton_types.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
   List.iter (fun (st : Automaton_spot.hoa_state) -> Hashtbl.replace by_id st.id st) hoa.states;
@@ -106,7 +106,7 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (Ast.fo_at
   { Automaton_types.atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
 
 let build ~(atom_map : (fo_atom * ident) list) ~(atom_names : ident list)
-    ~(atom_named_exprs : (Ast.ident * Ast.iexpr) list) (spec : ltl) : Automaton_types.automaton =
+    ~(atom_named_exprs : (ident * iexpr) list) (spec : ltl) : Automaton_types.automaton =
   let formula = Automaton_spot.string_of_spot_ltl ~atom_map spec in
   let () = Automaton_spot.ensure_safety formula in
   let hoa_text = Automaton_spot.call_spot formula in

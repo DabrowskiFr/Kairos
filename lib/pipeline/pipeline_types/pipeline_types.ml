@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 include struct
+open Core_syntax
   open Ast
 
   type goal_info = string * string * float * string option * string option
@@ -62,7 +63,7 @@ include struct
     obligation_family : string option;
     obligation_category : string option;
     vc_id : string option;
-    source_span : Ast.loc option;
+    source_span : loc option;
     why_span : text_span option;
     vc_span : text_span option;
     smt_span : text_span option;
@@ -90,8 +91,8 @@ include struct
     stage_meta : (string * (string * string) list) list;
     goals : goal_info list;
     proof_traces : proof_trace list;
-    vc_locs : (int * Ast.loc) list;
-    vc_locs_ordered : Ast.loc list;
+    vc_locs : (int * loc) list;
+    vc_locs_ordered : loc list;
     vc_spans_ordered : (int * int) list;
     why_spans : (int * (int * int)) list;
     vc_ids_ordered : int list;

@@ -16,6 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val module_name_of_node : Ast.ident -> string
-val pre_input_name : Ast.ident -> string
-val pre_input_old_name : Ast.ident -> string
+val module_name_of_node : Core_syntax.ident -> string
+val pre_input_name : Core_syntax.ident -> string
+val pre_input_old_name : Core_syntax.ident -> string

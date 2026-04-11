@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-
+open Core_syntax
 open Ast
 open Fo_formula
 open Ast_builders
@@ -96,7 +96,7 @@ type automata_atoms = Automaton_types.automata_atoms = {
   atom_named_exprs : (ident * iexpr) list;
 }
 
-let collect_atoms_from_ltls (n : Ast.node) ~(ltls : Ast.ltl list) :
+let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
     automata_atoms =
   let n_ast = n in
   let sem = n_ast.semantics in

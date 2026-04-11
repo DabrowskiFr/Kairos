@@ -1,4 +1,5 @@
 %{
+open Core_syntax
 open Ast
 open Source_file
 open Fo_formula
@@ -17,7 +18,7 @@ let mk_stmt_loc start_pos end_pos desc =
 let mk_hexpr_loc start_pos end_pos desc =
   Ast_builders.mk_hexpr ~loc:(loc_of_positions start_pos end_pos) desc
 
-let resolve_init_state ~(inline_init:Ast.ident option) : Ast.ident =
+let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
   | Some s -> s
   | None -> failwith "missing init state: mark one state with '(init)'"
@@ -443,17 +444,17 @@ arith_atom:
   | LPAREN arith RPAREN { $2 }
 
 arith_unary:
-  | MINUS arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(INeg,$2)) }
+  | MINUS arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Neg,$2)) }
   | arith_atom { $1 }
 
 arith_mul:
-  | arith_mul STAR arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(IMul,$1,$3)) }
-  | arith_mul SLASH arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(IDiv,$1,$3)) }
+  | arith_mul STAR arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Mul,$1,$3)) }
+  | arith_mul SLASH arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Div,$1,$3)) }
   | arith_unary { $1 }
 
 arith:
-  | arith PLUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(IAdd,$1,$3)) }
-  | arith MINUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(ISub,$1,$3)) }
+  | arith PLUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Add,$1,$3)) }
+  | arith MINUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Sub,$1,$3)) }
   | arith_mul { $1 }
 
 
@@ -471,15 +472,15 @@ iexpr_atom:
   | arith %prec IEXPR_ARITH { $1 }
 
 iexpr_not:
-  | NOT iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(INot,$2)) }
+  | NOT iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Not,$2)) }
   | iexpr_atom { $1 }
 
 iexpr_and:
-  | iexpr_and AND iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(IAnd,$1,$3)) }
+  | iexpr_and AND iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(And,$1,$3)) }
   | iexpr_not { $1 }
 
 iexpr_or:
-  | iexpr_or OR iexpr_and { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(IOr,$1,$3)) }
+  | iexpr_or OR iexpr_and { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(Or,$1,$3)) }
   | iexpr_and { $1 }
 
 iexpr:
@@ -516,17 +517,17 @@ h_atom:
   | LPAREN hexpr RPAREN { $2 }
 
 h_unary:
-  | MINUS h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (HUn (HNeg, $2)) }
+  | MINUS h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (HUn (Neg, $2)) }
   | h_atom { $1 }
 
 h_mul:
-  | h_mul STAR h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (HMul, $1, $3)) }
-  | h_mul SLASH h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (HDiv, $1, $3)) }
+  | h_mul STAR h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Mul, $1, $3)) }
+  | h_mul SLASH h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Div, $1, $3)) }
   | h_unary { $1 }
 
 h_arith:
-  | h_arith PLUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (HAdd, $1, $3)) }
-  | h_arith MINUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (HSub, $1, $3)) }
+  | h_arith PLUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Add, $1, $3)) }
+  | h_arith MINUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Sub, $1, $3)) }
   | h_mul { $1 }
 
 hexpr:

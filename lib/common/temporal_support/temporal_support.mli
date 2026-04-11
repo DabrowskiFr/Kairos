@@ -29,25 +29,25 @@
     - [expr] is the memorized expression.
     - [names] are the slot names, from most recent to oldest.
     - [vty] is the slot type. *)
-type pre_k_info = { h : Ast.hexpr; expr : Ast.iexpr; names : string list; vty : Ast.ty }
+type pre_k_info = { h : Core_syntax.hexpr; expr : Core_syntax.iexpr; names : string list; vty : Core_syntax.ty }
 [@@deriving yojson]
 
 (** Result of normalizing an LTL formula with respect to the maximum [X]-depth
     it requires. *)
-type ltl_norm = { ltl : Ast.ltl; k_guard : int option }
+type ltl_norm = { ltl : Core_syntax.ltl; k_guard : int option }
 
 (** Maximum nesting depth of [X] operators in a formula. *)
-val max_x_depth : Ast.ltl -> int
+val max_x_depth : Core_syntax.ltl -> int
 
 (** Decide whether an expression can safely stay in the current tick when
     history is shifted. *)
-val is_const_iexpr : Ast.iexpr -> bool
+val is_const_iexpr : Core_syntax.iexpr -> bool
 
 (** Shift one history expression by [shift] ticks when representable. *)
-val shift_hexpr_by : init_for_var:(Ast.ident -> Ast.iexpr) -> int -> Ast.hexpr -> Ast.hexpr option
+val shift_hexpr_by : init_for_var:(Core_syntax.ident -> Core_syntax.iexpr) -> int -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
 (** Normalize an LTL formula and record the required [X]-depth in [k_guard]. *)
-val normalize_ltl_for_k : init_for_var:(Ast.ident -> Ast.iexpr) -> Ast.ltl -> ltl_norm
+val normalize_ltl_for_k : init_for_var:(Core_syntax.ident -> Core_syntax.iexpr) -> Core_syntax.ltl -> ltl_norm
 
 (** Shift an entire LTL formula by [shift] ticks when representable. *)
-val shift_ltl_by : init_for_var:(Ast.ident -> Ast.iexpr) -> int -> Ast.ltl -> Ast.ltl option
+val shift_ltl_by : init_for_var:(Core_syntax.ident -> Core_syntax.iexpr) -> int -> Core_syntax.ltl -> Core_syntax.ltl option
