@@ -7,7 +7,7 @@ pipeline.
 
 {[
 common
-  -> shared formula/provenance utilities
+  -> shared formula and syntax utilities
   -> shared semantic program data
   -> shared proof IR data
   -> shared metadata exchanged across stages
@@ -18,18 +18,11 @@ common
 - {!module-Automaton_types}
   Shared semantic automata data.
 
-- {!module-Formula_origin}
-  Origin tags attached to generated contract formulas.
-
-- {!module-Collect}
-  Shared collectors for history expressions, calls, and lightweight spec
-  extraction.
-
 - {!module-Fo_simplifier}
   Formula simplification.
 
-- {!module-Fo_specs}
-  Helpers for first-order temporal specifications.
+- {!module-Core_syntax_builders}
+  Core syntax constructors and expression-layer conversions.
 
 - {!module-Fo_time}
   Time-shifting helpers for formulas.
@@ -61,12 +54,17 @@ common
 - {!module-Temporal_support}
   Shared bounded-history helpers.
 
+- {!module-Pre_k_layout}
+  [pre_k] layout extraction for one node.
+
+- {!module-Pre_k_lowering}
+  [pre_k] lowering with explicit temporal bindings.
+
 {1 Representative Types}
 
 {[
 type contract_formula = {
   value : Ast.ltl;
-  origin : Formula_origin.t option;
   oid : int;
   loc : Ast.loc option;
 }
@@ -84,14 +82,13 @@ type product_state_ir = {
 
 A useful reading order is:
 
-1. `Formula_origin`
-2. `Provenance`
-3. `Temporal_support`
+1. `Provenance`
+2. `Temporal_support`
+3. `Ir`
 4. `Ir`
-5. `Ir`
-6. `Proof_kernel_types`
-7. `Collect`, `Fo_specs`, `Fo_simplifier`, `Fo_time`, `Ltl_valuation`
-8. `Automaton_types`
+5. `Proof_kernel_types`
+6. `Core_syntax_builders`, `Fo_simplifier`, `Fo_time`, `Ltl_valuation`
+7. `Automaton_types`
 
 {1 Scope}
 

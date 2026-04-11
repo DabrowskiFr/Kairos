@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Logic_pretty
+open Pretty
 open Proof_kernel_types
 
 let phase_state_case_name ~(prog_state : ident) ~(guarantee_state : int) : string =

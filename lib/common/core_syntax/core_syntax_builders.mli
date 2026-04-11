@@ -56,6 +56,21 @@ val mk_hbool : bool -> Core_syntax.hexpr
 (** [mk_hpre_k x k] builds [pre_k(x,k)] at the historical level. *)
 val mk_hpre_k : Core_syntax.ident -> int -> Core_syntax.hexpr
 
+(** [mk_hpred p args] builds a boolean predicate application [p(args)]. *)
+val mk_hpred : Core_syntax.ident -> Core_syntax.hexpr list -> Core_syntax.hexpr
+
+(** [mk_hnot h] builds [not h]. *)
+val mk_hnot : Core_syntax.hexpr -> Core_syntax.hexpr
+
+(** [mk_hand a b] builds [a and b]. *)
+val mk_hand : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+
+(** [mk_hor a b] builds [a or b]. *)
+val mk_hor : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+
+(** [mk_himp a b] builds [a -> b] as [not a or b]. *)
+val mk_himp : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+
 (** [hexpr_of_expr e] structurally converts [e] into the historical layer,
     preserving source location. *)
 val hexpr_of_expr : Core_syntax.expr -> Core_syntax.hexpr

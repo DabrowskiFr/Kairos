@@ -17,16 +17,14 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Generated_names
 open Temporal_support
-open Logic_pretty
-open Fo_specs
-open Fo_formula
+open Pretty
+open Core_syntax_builders
 
 module Abs = Ir
 module PT = Product_types
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 type automaton_view = {
@@ -36,16 +34,16 @@ type automaton_view = {
   bad_idx : int;
 }
 
-let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Core_syntax.hexpr =
   let _ = atom_map_exprs in
   simplify_fo g
 
-let program_guard_fo (t : Abs.transition) : Fo_formula.t =
+let program_guard_fo (t : Abs.transition) : Core_syntax.hexpr =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard_expr with None -> FTrue | Some g -> fo_of_expr g |> simplify_fo
+  match t.guard_expr with None -> mk_hbool true | Some g -> fo_of_expr g |> simplify_fo
 
 let first_false_idx (states : ltl list) : int =
   let rec loop i = function
@@ -67,7 +65,7 @@ let make_assume_view (build : Automaton_types.automata_build) : automaton_view =
   | _ ->
       {
         states = [ LTrue ];
-        grouped = [ (0, FTrue, 0) ];
+        grouped = [ (0, mk_hbool true, 0) ];
         atom_map_exprs = [];
         bad_idx = -1;
       }

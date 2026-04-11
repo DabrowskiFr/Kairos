@@ -48,7 +48,7 @@ val inline_atoms_expr : (Core_syntax.ident * Core_syntax.expr) list -> Core_synt
 (** [inline_atoms_expr defs expr] replaces atom variables occurring in [expr]
     by their underlying boolean expressions. *)
 
-val recover_guard_fo : (Core_syntax.ident * Core_syntax.expr) list -> Automaton_types.guard -> Fo_formula.t
+val recover_guard_fo : (Core_syntax.ident * Core_syntax.expr) list -> Automaton_types.guard -> Core_syntax.hexpr
 (** Convert an automaton guard back to a first-order formula suitable for
     downstream rendering and export. *)
 

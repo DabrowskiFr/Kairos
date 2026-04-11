@@ -20,26 +20,14 @@
 
 open Why3
 open Ptree
-open Generated_names
 open Temporal_support
-open Logic_pretty
+open Pretty
 open Core_syntax
 open Ast
-open Formula_origin
-open Pre_k_collect
+open Pre_k_layout
 open Why_compile_expr
 
-let normalize_label (label : string) : string =
-  if label = "User contract" then "user"
-  else if
-    label = "User contracts coherency" || label = "User constract coherency"
-    || label = "User invariant"
-  then
-    "invariant"
-  else if label = "" then "Other"
-  else label
-
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 type step_contract_info = {
@@ -54,8 +42,6 @@ type contract_info = {
   post : Why3.Ptree.term list;
   pre_labels : string list;
   post_labels : string list;
-  pre_origin_labels : string list;
-  post_origin_labels : string list;
   pre_source_states : string option list;
   post_source_states : string option list;
   post_vcids : string option list;
@@ -89,19 +75,6 @@ type label_context = {
   post_contract_user : Ptree.term list;
 }
 
-let origin_label = function
-  | Some UserContract -> "User contract"
-  | Some Invariant -> "User invariant"
-  | Some GuaranteeAutomaton -> "Guarantee automaton"
-  | Some GuaranteeViolation -> "Guarantee violation"
-  | Some GuaranteePropagation -> "Guarantee propagation"
-  | Some AssumeAutomaton -> "Assume automaton"
-  | Some ProgramGuard -> "Program guard"
-  | Some StateStability -> "State stability"
-  | Some Instrumentation -> "Instrumentation"
-  | Some Internal -> "Internal"
-  | None -> "Unknown"
-
 let compute_transition_contracts ~(env : env)
     ~(product_transitions : Why_runtime_view.runtime_product_transition_view list)
     ~(post_contract_user : Ptree.term list) :
@@ -113,7 +86,7 @@ let compute_transition_contracts ~(env : env)
   let transition_requires_pre_terms =
     product_transitions
     |> List.concat_map (fun (t : Why_runtime_view.runtime_product_transition_view) ->
-           List.map (fun (f : Ir.summary_formula) -> (f, origin_label f.meta.origin)) t.requires
+           List.map (fun (f : Ir.summary_formula) -> (f, "Transition requires")) t.requires
            |> List.concat_map compile_require)
   in
   let transition_requires_pre = List.map fst transition_requires_pre_terms in
@@ -258,7 +231,7 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
     pc.requires
     |> List.concat_map (fun (f : Ir.summary_formula) ->
            compile_formula ~in_post:false f
-           |> List.map (fun t -> (t, origin_label f.meta.origin)))
+           |> List.map (fun t -> (t, "Transition requires")))
   in
   let compile_step_contract (pc : Why_runtime_view.runtime_product_transition_view) : step_contract_info =
     let forbidden =
@@ -427,15 +400,11 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
   let pre_labels = merge_labels pre_label_opts pre_labels in
   let post_labels = merge_labels post_label_opts post_labels in
   let post_vcids = post_vcid_opts in
-  let pre_origin_labels = List.map normalize_label pre_labels in
-  let post_origin_labels = List.map normalize_label post_labels in
   {
     pre = pre_out;
     post = post_out;
     pre_labels;
     post_labels;
-    pre_origin_labels;
-    post_origin_labels;
     pre_source_states = pre_state_opts;
     post_source_states = post_state_opts;
     post_vcids;

@@ -30,6 +30,11 @@ let mk_hvar v = mk_hexpr (HVar v)
 let mk_hint n = mk_hexpr (HLitInt n)
 let mk_hbool b = mk_hexpr (HLitBool b)
 let mk_hpre_k v k = mk_hexpr (HPreK (v, k))
+let mk_hpred id args = mk_hexpr (HPred (id, args))
+let mk_hnot h = mk_hexpr (HUn (Not, h))
+let mk_hand a b = mk_hexpr (HBin (And, a, b))
+let mk_hor a b = mk_hexpr (HBin (Or, a, b))
+let mk_himp a b = mk_hor (mk_hnot a) b
 
 let rec hexpr_of_expr (e : expr) : hexpr =
   let hexpr =

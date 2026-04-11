@@ -16,17 +16,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic collection helpers over AST programs: temporal history and
-    lightweight specification heuristics. *)
+(** Collection of [pre_k] usage and slot layout extraction.
 
+    This module computes the temporal layout required by one node before lowering:
+    it scans formulas, finds all [pre_k] occurrences, computes maximal depths per
+    variable, and builds the corresponding slot metadata. *)
+
+(** [build_pre_k_infos_from_parts ~inputs ~locals ~outputs ~fo_formulas ~ltl]
+    computes the [pre_k] layout for the given formula set.
+
+    The result maps each encountered [HPreK] source expression to one
+    {!type:Temporal_support.pre_k_info} record containing generated slot names
+    and type information. *)
 val build_pre_k_infos_from_parts :
   inputs:Core_syntax.vdecl list ->
   locals:Core_syntax.vdecl list ->
   outputs:Core_syntax.vdecl list ->
-  fo_formulas:Fo_formula.t list ->
+  fo_formulas:Core_syntax.hexpr list ->
   ltl:Core_syntax.ltl list ->
   (Core_syntax.hexpr * Temporal_support.pre_k_info) list
 
-val build_pre_k_infos : Ast.node -> (Core_syntax.hexpr * Temporal_support.pre_k_info) list
+(** [build_pre_k_infos node] is the node-level entry point used by the pipeline.
 
-val extract_delay_spec : Core_syntax.ltl list -> (Core_syntax.ident * Core_syntax.ident) option
+    It collects [pre_k] references from:
+    {ul
+    {- state invariants as first-order formulas;}
+    {- [require]/[ensures] LTL clauses.}
+    } *)
+val build_pre_k_infos : Ast.node -> (Core_syntax.hexpr * Temporal_support.pre_k_info) list

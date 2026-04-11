@@ -18,21 +18,24 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Fo_specs
 open Fo_time
-open Formula_origin
 
 module Abs = Ir
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let dedup_formulas (xs : Fo_formula.t list) : Fo_formula.t list = List.sort_uniq compare xs
+let dedup_formulas (xs : Core_syntax.hexpr list) : Core_syntax.hexpr list = List.sort_uniq compare xs
 
-let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
+let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
+
+let conj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+  match fs with
+  | [] -> None
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hand f rest)
 
 let input_names (n : Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
@@ -49,20 +52,20 @@ let non_input_program_var_names (n : Abs.node_ir) : ident list =
 
 let ivar (name : ident) : expr = { expr = EVar name; loc = None }
 
-let stability_formula (name : ident) : Fo_formula.t =
-  Fo_formula.FAtom (FRel (hexpr_of_expr (ivar name), REq, mk_hpre_k name 1))
+let stability_formula (name : ident) : Core_syntax.hexpr =
+  mk_hexpr (HCmp (REq, hexpr_of_expr (ivar name), mk_hpre_k name 1))
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   String.equal a.prog_state b.prog_state
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let guard_fo_of_transition_core (t : Abs.transition) : Fo_formula.t =
+let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.hexpr =
   match t.guard_expr with
-  | None -> Fo_formula.FTrue
-  | Some guard -> Fo_specs.expr_to_fo_with_atoms [] guard |> simplify_fo
+  | None -> Core_syntax_builders.mk_hbool true
+  | Some guard -> Core_syntax_builders.hexpr_of_expr guard |> simplify_fo
 
-let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
+let invariant_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr option =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : Abs.state_invariant) ->
@@ -100,7 +103,7 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
           })
 
 let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state : Abs.product_state) :
-    Abs.product_state -> Fo_formula.t option =
+    Abs.product_state -> Core_syntax.hexpr option =
   let is_input = is_input_of_node node in
   let by_dst = ref [] in
   let add dst formulas =
@@ -128,15 +131,15 @@ let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state
       |> Option.value ~default:[]
     in
     let from_ensures =
-      if same_product_state st initial_product_state then Fo_formula.FTrue :: from_ensures else from_ensures
+      if same_product_state st initial_product_state then Core_syntax_builders.mk_hbool true :: from_ensures else from_ensures
     in
     disj_fo from_ensures
 
 type node_generation = {
-  guarantee_pre_of_product_state : Abs.product_state -> Fo_formula.t option;
+  guarantee_pre_of_product_state : Abs.product_state -> Core_syntax.hexpr option;
   initial_product_state : Abs.product_state;
-  state_stability : Fo_formula.t list;
-  invariant_of_state : ident -> Fo_formula.t option;
+  state_stability : Core_syntax.hexpr list;
+  invariant_of_state : ident -> Core_syntax.hexpr option;
 }
 
 let compute_generation ~(node : Abs.node_ir) : node_generation =
@@ -148,10 +151,10 @@ let compute_generation ~(node : Abs.node_ir) : node_generation =
     invariant_of_state = invariant_of_state node;
   }
 
-let add_unique_formula (origin : Formula_origin.t) (f : Fo_formula.t)
+let add_unique_formula (f : Core_syntax.hexpr)
     (xs : Abs.summary_formula list) : Abs.summary_formula list =
   if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
-  else xs @ [ Ir_formula.with_origin origin f ]
+  else xs @ [ Ir_formula.make f ]
 
 let run_node (n : Abs.node_ir) : Abs.node_ir =
   let pre_generation = compute_generation ~node:n in
@@ -159,23 +162,26 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
     List.map
       (fun (pc : Abs.product_step_summary) ->
         let program_guard = guard_fo_of_transition_core pc.identity.program_step in
+        let propagation_requires =
+          match pre_generation.guarantee_pre_of_product_state pc.identity.product_src with
+          | None -> []
+          | Some inv -> [ Ir_formula.make inv ]
+        in
         let requires =
           []
           |> fun acc ->
           (match pre_generation.invariant_of_state pc.identity.product_src.prog_state with
           | None -> acc
-          | Some inv -> add_unique_formula Invariant inv acc)
+          | Some inv -> add_unique_formula inv acc)
           |> fun acc ->
-          (match pre_generation.guarantee_pre_of_product_state pc.identity.product_src with
-          | None -> acc
-          | Some inv -> add_unique_formula GuaranteePropagation inv acc)
-          |> add_unique_formula AssumeAutomaton pc.identity.assume_guard
-          |> add_unique_formula ProgramGuard program_guard
+          List.fold_left (fun acc (f : Abs.summary_formula) -> add_unique_formula f.logic acc) acc propagation_requires
+          |> add_unique_formula pc.identity.assume_guard
+          |> add_unique_formula program_guard
           |> fun acc ->
           if same_product_state pc.identity.product_src pre_generation.initial_product_state then acc
-          else List.fold_left (fun acc f -> add_unique_formula StateStability f acc) acc pre_generation.state_stability
+          else List.fold_left (fun acc f -> add_unique_formula f acc) acc pre_generation.state_stability
         in
-        { pc with requires })
+        { pc with propagation_requires; requires })
       n.summaries
   in
   let init_invariant_goals =
@@ -185,7 +191,7 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
         if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.init_invariant_goals then
           n.init_invariant_goals
         else
-          n.init_invariant_goals @ [ Ir_formula.with_origin Formula_origin.Invariant inv ]
+          n.init_invariant_goals @ [ Ir_formula.make inv ]
   in
   { n with summaries; init_invariant_goals }
 

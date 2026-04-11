@@ -36,7 +36,7 @@ type reactive_transition_ir = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
-  guard : Fo_formula.t;
+  guard : Core_syntax.hexpr;
   guard_expr : expr option;
   requires : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
@@ -61,7 +61,7 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Fo_formula.t;
+  guard : Core_syntax.hexpr;
 }
 [@@deriving yojson]
 
@@ -102,7 +102,7 @@ type product_step_ir = {
   dst : product_state_ir;
   program_transition_id : string;
   program_transition : ident * ident;
-  program_guard : Fo_formula.t;
+  program_guard : Core_syntax.hexpr;
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -136,8 +136,8 @@ type clause_time_ir =
 type clause_fact_desc_ir =
   | FactProgramState of ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of Fo_formula.t
-  | FactFormula of Fo_formula.t
+  | FactPhaseFormula of Core_syntax.hexpr
+  | FactFormula of Core_syntax.hexpr
   | FactFalse
 [@@deriving yojson]
 
@@ -164,8 +164,8 @@ type generated_clause_ir = {
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of ident
   | RelFactGuaranteeState of int
-  | RelFactPhaseFormula of Fo_formula.t
-  | RelFactFormula of Fo_formula.t
+  | RelFactPhaseFormula of Core_syntax.hexpr
+  | RelFactFormula of Core_syntax.hexpr
   | RelFactFalse
 [@@deriving yojson]
 

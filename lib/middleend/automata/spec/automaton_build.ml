@@ -17,10 +17,9 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Fo_specs
-open Fo_formula
+open Core_syntax_builders
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 let inline_atom_names (atom_named_exprs : (ident * expr) list) (e : expr) : expr =
@@ -95,9 +94,29 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom *
     |> List.sort compare
   in
   let atom_name_to_fo = List.map (fun (atom, name) -> (name, atom)) atom_map in
-  let guard_to_fo (g : Automaton_spot.raw_guard) : Fo_formula.t =
+  let hexpr_of_fo_atom (atom : fo_atom) : Core_syntax.hexpr =
+    match atom with
+    | FRel (lhs, rel, rhs) -> mk_hexpr (HCmp (rel, lhs, rhs))
+    | FPred (id, args) -> mk_hpred id args
+  in
+  let rec substitute_atom_vars (h : Core_syntax.hexpr) : Core_syntax.hexpr =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HPreK _ -> h
+    | HVar name -> begin
+        match List.assoc_opt name atom_name_to_fo with
+        | Some atom -> hexpr_of_fo_atom atom
+        | None -> h
+      end
+    | HPred (id, args) -> with_hexpr_desc h (HPred (id, List.map substitute_atom_vars args))
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, substitute_atom_vars inner))
+    | HBin (op, lhs, rhs) ->
+        with_hexpr_desc h (HBin (op, substitute_atom_vars lhs, substitute_atom_vars rhs))
+    | HCmp (rel, lhs, rhs) ->
+        with_hexpr_desc h (HCmp (rel, substitute_atom_vars lhs, substitute_atom_vars rhs))
+  in
+  let guard_to_fo (g : Automaton_spot.raw_guard) : Core_syntax.hexpr =
     let _ = atom_named_exprs in
-    Ltl_valuation.terms_to_expr g |> expr_to_fo_with_atoms atom_name_to_fo |> simplify_fo
+    Ltl_valuation.terms_to_expr g |> hexpr_of_expr |> substitute_atom_vars |> simplify_fo
   in
   let transitions =
     List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw

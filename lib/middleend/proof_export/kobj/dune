@@ -5,6 +5,6 @@
  (libraries
   kairos_ast kairos_logic kairos_parse kairos_stage_types kairos_stage_names kairos_automata
   kairos_ir kairos_ir_passes kairos_proof_kernel_types
-  kairos_logic_pretty kairos_temporal_support yojson)
+ kairos_core_syntax kairos_temporal_support yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

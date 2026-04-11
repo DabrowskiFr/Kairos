@@ -28,6 +28,7 @@ let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
   in
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
+  | HPred (_, hs) -> List.fold_left (fun a x -> collect_hexpr x a) acc hs
   | HUn (_, inner) -> collect_hexpr inner acc
   | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_hexpr b (collect_hexpr a acc)
@@ -45,7 +46,7 @@ and collect_fo (f : fo_atom) (acc : hexpr list) : hexpr list =
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
 
-let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list) : hexpr list =
+let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl list) : hexpr list =
   let collect_pre_k_hexpr = collect_hexpr in
   let rec collect_pre_k_ltl f acc =
     match f with
@@ -59,19 +60,19 @@ let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list)
     | FRel (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
     | FPred (_id, hs) -> List.fold_left (fun a h -> collect_pre_k_hexpr h a) acc hs
   in
-  let rec collect_pre_k_fo_formula (f : Fo_formula.t) (acc : hexpr list) : hexpr list =
-    match f with
-    | Fo_formula.FTrue | Fo_formula.FFalse -> acc
-    | Fo_formula.FAtom atom -> collect_pre_k_fo atom acc
-    | Fo_formula.FNot inner -> collect_pre_k_fo_formula inner acc
-    | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
-        collect_pre_k_fo_formula b (collect_pre_k_fo_formula a acc)
+  let rec collect_pre_k_fo_formula (f : Core_syntax.hexpr) (acc : hexpr list) : hexpr list =
+    match f.hexpr with
+    | HLitInt _ | HLitBool _ | HVar _ -> acc
+    | HPreK _ -> if List.exists (fun h' -> h' = f) acc then acc else f :: acc
+    | HPred (_, hs) -> List.fold_left (fun a x -> collect_pre_k_fo_formula x a) acc hs
+    | HUn (_, inner) -> collect_pre_k_fo_formula inner acc
+    | HBin (_, a, b) | HCmp (_, a, b) -> collect_pre_k_fo_formula b (collect_pre_k_fo_formula a acc)
   in
   let acc = List.fold_left (fun acc f -> collect_pre_k_fo_formula f acc) [] fo_formula in
   List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
-    ~(fo_formulas : Fo_formula.t list) ~(ltl : ltl list) :
+    ~(fo_formulas : Core_syntax.hexpr list) ~(ltl : ltl list) :
     (hexpr * Temporal_support.pre_k_info) list =
   let init_for_var =
     let table =
@@ -130,16 +131,3 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
   build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs
     ~fo_formulas:(List.map (fun inv -> inv.formula) spec.spec_invariants_state_rel)
     ~ltl:(spec.spec_assumes @ spec.spec_guarantees)
-
-let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
-  let rec find_in_ltl = function
-    | LG a -> find_in_ltl a
-    | LX a -> find_in_ltl a
-    | LAtom (FRel (lhs, REq, rhs)) -> (
-        match (lhs.hexpr, rhs.hexpr) with
-        | HVar out, HPreK (b, 1) -> Some (out, b)
-        | HPreK (b, 1), HVar out -> Some (out, b)
-        | _ -> None)
-    | _ -> None
-  in
-  List.find_map find_in_ltl guarantees

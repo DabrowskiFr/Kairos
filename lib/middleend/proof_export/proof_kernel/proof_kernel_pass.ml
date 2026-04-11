@@ -17,12 +17,10 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Generated_names
 open Temporal_support
-open Logic_pretty
-open Fo_specs
-open Pre_k_collect
-open Fo_formula
+open Pretty
+open Pre_k_layout
+open Core_syntax_builders
 
 module Abs = Ir
 module PT = Product_types
@@ -39,15 +37,28 @@ type node_output = {
   exported_summary : Proof_kernel_types.exported_node_summary_ir;
 }
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
+
+let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
+  let rec find_in_ltl = function
+    | LG a -> find_in_ltl a
+    | LX a -> find_in_ltl a
+    | LAtom (FRel (lhs, REq, rhs)) -> (
+        match (lhs.hexpr, rhs.hexpr) with
+        | HVar out, HPreK (b, 1) -> Some (out, b)
+        | HPreK (b, 1), HVar out -> Some (out, b)
+        | _ -> None)
+    | _ -> None
+  in
+  List.find_map find_in_ltl guarantees
 
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Core_syntax.hexpr =
   let _ = atom_map_exprs in
   simplify_fo g
 
@@ -62,7 +73,7 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     | HLitBool b -> Some (if b then "true" else "false")
     | _ -> None
   in
-  let fallback_var (h : hexpr) = Logic_pretty.string_of_hexpr h in
+  let fallback_var (h : hexpr) = Pretty.string_of_hexpr h in
   let build ~is_pos h_left h_right =
     match (var_of_hexpr h_left, const_of_hexpr h_right) with
     | Some v, Some c -> mk ~is_pos v c
@@ -77,21 +88,24 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
   in
   match r with REq -> build ~is_pos:true h1 h2 | RNeq -> build ~is_pos:false h1 h2 | _ -> None
 
-let rec conj_lits (f : Fo_formula.t) : lit list option =
-  match f with
-  | FTrue -> Some []
-  | FAtom (FRel (h1, r, h2)) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
-  | FNot (FAtom (FRel (h1, REq, h2))) ->
+let rec conj_lits (f : Core_syntax.hexpr) : lit list option =
+  match f.hexpr with
+  | HLitBool true -> Some []
+  | HCmp (r, h1, h2) -> Option.map (fun l -> [ l ]) (lit_of_rel h1 r h2)
+  | HUn (Not, { hexpr = HCmp (REq, h1, h2); _ }) ->
       Option.map (fun l -> [ { l with is_pos = false } ]) (lit_of_rel h1 REq h2)
-  | FAnd (a, b) -> begin
+  | HBin (And, a, b) -> begin
       match (conj_lits a, conj_lits b) with
       | Some la, Some lb -> Some (la @ lb)
       | _ -> None
     end
   | _ -> None
 
-let disj_conjs (f : Fo_formula.t) : lit list list option =
-  let rec go = function FOr (a, b) -> go a @ go b | x -> [ x ] in
+let disj_conjs (f : Core_syntax.hexpr) : lit list list option =
+  let rec go = function
+    | { hexpr = HBin (Or, a, b); _ } -> go a @ go b
+    | x -> [ x ]
+  in
   let xs = go f |> List.map conj_lits in
   List.fold_right
     (fun x acc -> Option.bind x (fun v -> Option.map (fun r -> v :: r) acc))
@@ -121,15 +135,15 @@ let lits_consistent (a : lit list) (b : lit list) : bool =
     pos;
   !ok
 
-let fo_overlap_conservative (a : Fo_formula.t) (b : Fo_formula.t) : bool =
+let fo_overlap_conservative (a : Core_syntax.hexpr) (b : Core_syntax.hexpr) : bool =
   match (disj_conjs a, disj_conjs b) with
   | Some da, Some db ->
       List.exists (fun ca -> List.exists (fun cb -> lits_consistent ca cb) db) da
   | _ -> true
 
-let guards_may_overlap (a : Fo_formula.t) (b : Fo_formula.t) : bool =
-  match simplify_fo (FAnd (a, b)) with
-  | FFalse -> false
+let guards_may_overlap (a : Core_syntax.hexpr) (b : Core_syntax.hexpr) : bool =
+  match simplify_fo (Core_syntax_builders.mk_hand a b) with
+  | { hexpr = HLitBool false; _ } -> false
   | _ -> fo_overlap_conservative a b
 
 let product_state_of_pt (st : PT.product_state) : Proof_kernel_types.product_state_ir =

@@ -1,6 +1,0 @@
-(library
- (name kairos_generated_names)
- (public_name kairos.generated_names)
- (wrapped false)
- (modules generated_names)
- (libraries kairos_ast))

@@ -68,6 +68,7 @@ and hexpr_desc =
   | HLitBool of bool
   | HVar of ident
   | HPreK of ident * int
+  | HPred of ident * hexpr list
   | HBin of binop * hexpr * hexpr
   | HCmp of relop * hexpr * hexpr
   | HUn of unop * hexpr

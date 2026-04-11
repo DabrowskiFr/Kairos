@@ -23,7 +23,7 @@
 
 type invariant_state_rel = {
   state : Core_syntax.ident;
-  formula : Fo_formula.t;
+  formula : Core_syntax.hexpr;
 }[@@deriving yojson]
 
 (** {1 Statements & Invariants} *)

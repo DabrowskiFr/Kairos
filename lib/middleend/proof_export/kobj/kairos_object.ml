@@ -16,6 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
+open Pretty
+
+let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
+  let rec find_in_ltl = function
+    | LG a -> find_in_ltl a
+    | LX a -> find_in_ltl a
+    | LAtom (FRel (lhs, REq, rhs)) -> (
+        match (lhs.hexpr, rhs.hexpr) with
+        | HVar out, HPreK (b, 1) -> Some (out, b)
+        | HPreK (b, 1), HVar out -> Some (out, b)
+        | _ -> None)
+    | _ -> None
+  in
+  List.find_map find_in_ltl guarantees
 
 type metadata = {
   format : string;
@@ -177,7 +191,7 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 normalized_ir;
                 coherency_goals = [];
                 temporal_layout = normalized_ir.temporal_layout;
-                delay_spec = Pre_k_collect.extract_delay_spec node.specification.spec_guarantees;
+                delay_spec = extract_delay_spec node.specification.spec_guarantees;
                 assumes = node.specification.spec_assumes;
                 guarantees = node.specification.spec_guarantees;
               }
@@ -217,11 +231,11 @@ let string_of_vdecl (v : vdecl) =
 
 let rec string_of_stmt (s : Ast.stmt) =
   match s.stmt with
-  | Ast.SAssign (id, e) -> id ^ " := " ^ Logic_pretty.string_of_expr e
+  | Ast.SAssign (id, e) -> id ^ " := " ^ Pretty.string_of_expr e
   | Ast.SSkip -> "skip"
   | Ast.SCall _ -> failwith "calls are not supported outside parser/AST"
-  | Ast.SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_expr c ^ " then ..."
-  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Logic_pretty.string_of_expr e ^ " with ..."
+  | Ast.SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then ..."
+  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Pretty.string_of_expr e ^ " with ..."
 
 let string_of_clause_origin = function
   | Proof_kernel_types.OriginSourceProductSummary -> "SourceProductSummary"
@@ -241,24 +255,24 @@ let string_of_clause_time = function
 let string_of_clause_desc = function
   | Proof_kernel_types.FactProgramState st -> "ProgramState = " ^ st
   | Proof_kernel_types.FactGuaranteeState i -> "GuaranteeState = " ^ string_of_int i
-  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Logic_pretty.string_of_fo f
-  | Proof_kernel_types.FactFormula f -> Logic_pretty.string_of_fo f
+  | Proof_kernel_types.FactPhaseFormula f -> "Phase = " ^ Pretty.string_of_fo f
+  | Proof_kernel_types.FactFormula f -> Pretty.string_of_fo f
   | Proof_kernel_types.FactFalse -> "false"
 
 let string_of_clause_fact (fact : Proof_kernel_types.clause_fact_ir) =
   string_of_clause_time fact.time ^ " " ^ string_of_clause_desc fact.desc
 
-let simplify_display_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_display_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some s -> s | None -> f
 
 let string_of_display_rel_desc = function
   | Proof_kernel_types.RelFactProgramState _ | Proof_kernel_types.RelFactGuaranteeState _ -> None
   | Proof_kernel_types.RelFactPhaseFormula f ->
       let f = simplify_display_fo f in
-      Some (Logic_pretty.string_of_fo f)
+      Some (Pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFormula f ->
       let f = simplify_display_fo f in
-      Some (Logic_pretty.string_of_fo f)
+      Some (Pretty.string_of_fo f)
   | Proof_kernel_types.RelFactFalse -> Some "false"
 
 let simplify_formula_list (xs : string list) : string list =
@@ -293,7 +307,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
   let guard =
     match t.guard_expr with
     | None -> "true"
-    | Some g -> Logic_pretty.string_of_expr g
+    | Some g -> Pretty.string_of_expr g
   in
   let render_fo_os label fs =
     match fs with
@@ -302,7 +316,7 @@ let render_transition_summary indent_level (t : Proof_kernel_types.reactive_tran
         (indent indent_level ^ label ^ ":")
         :: List.map
              (fun (f : Ir.summary_formula) ->
-               indent (indent_level + 1) ^ Logic_pretty.string_of_fo f.logic)
+               indent (indent_level + 1) ^ Pretty.string_of_fo f.logic)
              fs
   in
   let body_lines =
@@ -402,9 +416,9 @@ let render_product_steps indent_level (steps : Proof_kernel_types.product_step_i
             ^ fst step.program_transition ^ " -> " ^ snd step.program_transition;
             indent (indent_level + 1) ^ "kind: " ^ string_of_step_kind step.step_kind;
             indent (indent_level + 1) ^ "origin: " ^ string_of_step_origin step.step_origin;
-            indent (indent_level + 1) ^ "program guard: " ^ Logic_pretty.string_of_fo step.program_guard;
-            indent (indent_level + 1) ^ "assume guard: " ^ Logic_pretty.string_of_fo step.assume_edge.guard;
-            indent (indent_level + 1) ^ "guarantee guard: " ^ Logic_pretty.string_of_fo step.guarantee_edge.guard;
+            indent (indent_level + 1) ^ "program guard: " ^ Pretty.string_of_fo step.program_guard;
+            indent (indent_level + 1) ^ "assume guard: " ^ Pretty.string_of_fo step.assume_edge.guard;
+            indent (indent_level + 1) ^ "guarantee guard: " ^ Pretty.string_of_fo step.guarantee_edge.guard;
             "";
           ])
         xs
@@ -431,12 +445,12 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
       indent 1 ^ "source summaries";
       (if node.assumes = [] then indent 2 ^ "requires: none" else indent 2 ^ "requires:");
     ]
-    @ List.map (fun f -> indent 3 ^ Logic_pretty.string_of_ltl f) node.assumes
+    @ List.map (fun f -> indent 3 ^ Pretty.string_of_ltl f) node.assumes
     @
     [
       (if node.guarantees = [] then indent 2 ^ "ensures: none" else indent 2 ^ "ensures:");
     ]
-    @ List.map (fun f -> indent 3 ^ Logic_pretty.string_of_ltl f) node.guarantees
+    @ List.map (fun f -> indent 3 ^ Pretty.string_of_ltl f) node.guarantees
   in
   let transition_lines =
     [ indent 1 ^ "transition summaries" ]
@@ -453,7 +467,7 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
         [ indent 2 ^ "pre_k:" ]
         @ List.map
             (fun (h, info) ->
-              indent 3 ^ Logic_pretty.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Temporal_support.names)
+              indent 3 ^ Pretty.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Temporal_support.names)
             xs)
   in
   let step_counts =
@@ -564,7 +578,7 @@ let render_product_summaries (obj : t) : string =
     let guard =
       match transition.guard_expr with
       | None -> "true"
-      | Some g -> Logic_pretty.string_of_expr g
+      | Some g -> Pretty.string_of_expr g
     in
     let body_lines =
       match transition.body_stmts with

@@ -16,28 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Origin tags attached to contract formulas.
-
-    These tags classify formulas for:
-    {ul
-    {- diagnostics;}
-    {- rendering;}
-    {- obligation labeling.}} *)
-type t =
-  | UserContract
-  | Instrumentation
-  | Invariant
-  | GuaranteeAutomaton
-  | GuaranteeViolation
-  | GuaranteePropagation
-  | AssumeAutomaton
-  | ProgramGuard
-  | StateStability
-  | Internal
-[@@deriving yojson]
-
-(** Stable textual encoding used in artifacts and diagnostics. *)
-val to_string : t -> string
-
-(** Partial inverse of {!to_string}. *)
-val of_string : string -> t option
+val string_of_relop : Core_syntax.relop -> string
+val string_of_expr : ?ctx:int -> Core_syntax.expr -> string
+val string_of_hexpr : Core_syntax.hexpr -> string
+val string_of_fo_atom : ?ctx:int -> Core_syntax.fo_atom -> string
+val string_of_fo : ?ctx:int -> Core_syntax.hexpr -> string
+val string_of_ltl : ?ctx:int -> Core_syntax.ltl -> string

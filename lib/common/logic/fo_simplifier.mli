@@ -21,7 +21,7 @@
 
 (** Simplify a non-temporal boolean formula using local rewrites plus optional
     Z3 checks. *)
-val simplify_fo : Fo_formula.t -> Fo_formula.t
+val simplify_fo : Core_syntax.hexpr -> Core_syntax.hexpr
 
 (** Simplify an LTL formula while preserving temporal operators. *)
 val simplify_ltl : Core_syntax.ltl -> Core_syntax.ltl

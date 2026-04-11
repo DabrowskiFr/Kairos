@@ -17,19 +17,17 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Generated_names
-open Logic_pretty
-open Fo_specs
-open Fo_formula
+open Pretty
+open Core_syntax_builders
 
 module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
 
 let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
     ~(program_transitions : Abs.transition list) : reactive_program_ir =
@@ -42,7 +40,7 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
           dst_state = t.dst_state;
           guard =
             (match t.guard_expr with
-            | None -> FTrue
+            | None -> mk_hbool true
             | Some g -> fo_of_expr g |> simplify_fo);
           guard_expr = t.guard_expr;
           requires = [];
@@ -125,7 +123,7 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Fo_formula.t option =
+let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Core_syntax.hexpr option =
   let formulas =
     node.source_info.state_invariants
     |> List.filter_map (fun (inv : Abs.state_invariant) ->
@@ -133,7 +131,7 @@ let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Fo_formu
   in
   match formulas with
   | [] -> None
-  | hd :: tl -> Some (List.fold_left (fun acc fo_formula -> Fo_formula.FAnd (acc, fo_formula)) hd tl)
+  | hd :: tl -> Some (List.fold_left Core_syntax_builders.mk_hand hd tl)
 
 type current_const =
   | CInt of int
@@ -272,27 +270,34 @@ let add_current_atom env ~(negated : bool) (fo_atom : fo_atom) : bool option =
     end
   | _ -> None
 
-let rec current_formula_maybe_satisfiable env (fo_formula : Fo_formula.t) : bool =
-  match fo_formula with
-  | Fo_formula.FTrue -> true
-  | Fo_formula.FFalse -> false
-  | Fo_formula.FAtom atom -> begin
-      match add_current_atom env ~negated:false atom with
+let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) : bool =
+  match fo_formula.hexpr with
+  | HLitBool true -> true
+  | HLitBool false -> false
+  | HCmp (r, h1, h2) -> (
+      match add_current_atom env ~negated:false (FRel (h1, r, h2)) with
       | Some b -> b
-      | None -> true
-    end
-  | Fo_formula.FNot (Fo_formula.FAtom atom) -> begin
-      match add_current_atom env ~negated:true atom with
+      | None -> true)
+  | HPred (id, hs) -> (
+      match add_current_atom env ~negated:false (FPred (id, hs)) with
       | Some b -> b
-      | None -> true
-    end
-  | Fo_formula.FNot inner -> not (current_formula_maybe_satisfiable env inner)
-  | Fo_formula.FAnd (a, b) ->
-      current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
-  | Fo_formula.FOr (a, b) ->
+      | None -> true)
+  | HUn (Not, ({ hexpr = HCmp (r, h1, h2); _ } as _inner)) -> (
+      match add_current_atom env ~negated:true (FRel (h1, r, h2)) with
+      | Some b -> b
+      | None -> true)
+  | HUn (Not, ({ hexpr = HPred (id, hs); _ } as _inner)) -> (
+      match add_current_atom env ~negated:true (FPred (id, hs)) with
+      | Some b -> b
+      | None -> true)
+  | HUn (Not, inner) -> not (current_formula_maybe_satisfiable env inner)
+  | HBin (And, a, b) -> current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
+  | HBin (Or, a, b) ->
       let env_left = clone_constraint_env env in
       current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
-  | Fo_formula.FImp _ -> true
+  | HBin (Add, _, _) | HBin (Sub, _, _) | HBin (Mul, _, _) | HBin (Div, _, _) -> true
+  | HLitInt _ | HVar _ | HPreK _ -> true
+  | HUn (Neg, _) -> true
 
 let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : product_step_ir) : bool =
@@ -307,7 +312,7 @@ let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automat
   | Some dst_inv ->
       current_formula_maybe_satisfiable
         (empty_current_constraint_env ())
-        (Fo_formula.FAnd (step.guarantee_edge.guard, dst_inv))
+        (Core_syntax_builders.mk_hand step.guarantee_edge.guard dst_inv)
 
 let synthesize_fallback_product_steps ~(program_transitions : Abs.transition list)
     ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
@@ -332,7 +337,7 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
     |> List.filter_map (fun (s, d, g) -> if s = src && d = dst then Some g else None)
     |> List.sort_uniq Stdlib.compare
   in
-  let transition_id_for ~(src : ident) ~(dst : ident) ~(guard : Fo_formula.t) =
+  let transition_id_for ~(src : ident) ~(dst : ident) ~(guard : Core_syntax.hexpr) =
     match
       List.find_opt
         (fun (tr : reactive_transition_ir) ->
@@ -352,7 +357,7 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
   |> List.concat_map (fun (t : Abs.transition) ->
          let program_guard =
            match t.guard_expr with
-           | None -> FTrue
+           | None -> mk_hbool true
            | Some g -> simplify_fo (fo_of_expr g)
          in
          live_states
@@ -369,20 +374,20 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
                          match assume_guards with
                          | [] -> None
                          | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left (fun acc x -> FOr (acc, x)) g gs)
+                         | g :: gs -> Some (List.fold_left mk_hor g gs)
                        in
                        let guarantee_guard =
                          match guarantee_guards with
                          | [] -> None
                          | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left (fun acc x -> FOr (acc, x)) g gs)
+                         | g :: gs -> Some (List.fold_left mk_hor g gs)
                        in
                        match (assume_guard, guarantee_guard) with
                        | Some ag, Some gg ->
                            let combined =
-                             simplify_fo (FAnd (program_guard, FAnd (ag, gg)))
+                             simplify_fo (mk_hand program_guard (mk_hand ag gg))
                           in
-                           if combined = FFalse then None
+                           if combined = mk_hbool false then None
                            else
                              Some
                                {

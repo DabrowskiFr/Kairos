@@ -45,7 +45,7 @@ let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
         sem_init_state = semantics.sem_init_state;
       };
     source_info = { assumes = []; guarantees = []; state_invariants = [] };
-    temporal_layout = Pre_k_collect.build_pre_k_infos source_node;
+    temporal_layout = Pre_k_layout.build_pre_k_infos source_node;
     summaries = [];
     init_invariant_goals = [];
   }

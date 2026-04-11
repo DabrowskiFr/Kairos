@@ -16,4 +16,4 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val simplify_fo_formula : Fo_formula.t -> Fo_formula.t option
+val simplify_fo_formula : Core_syntax.hexpr -> Core_syntax.hexpr option

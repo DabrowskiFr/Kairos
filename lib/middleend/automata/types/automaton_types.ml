@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type guard = Fo_formula.t
+type guard = Core_syntax.hexpr
 type transition = int * guard * int
 
 type automaton = {

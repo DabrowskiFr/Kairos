@@ -25,15 +25,13 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Generated_names
 open Temporal_support
-open Logic_pretty
-open Fo_specs
+open Pretty
 
 module PT = Product_types
 
 (* Calls the Z3-based formula simplifier; returns the formula unchanged on failure. *)
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 (* Public result type: a Graphviz DOT source paired with human-readable
@@ -144,11 +142,10 @@ let string_of_step_class = function
 let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
   Printf.sprintf "%d->%d" src dst
 
-let obligation_formula (step : PT.product_step) : Fo_formula.t =
-  Fo_formula.FNot
-    (Fo_formula.FAnd
-       ( step.prog_guard,
-         Fo_formula.FAnd (step.assume_guard, step.guarantee_guard) ))
+let obligation_formula (step : PT.product_step) : Core_syntax.hexpr =
+  Core_syntax_builders.mk_hnot
+    (Core_syntax_builders.mk_hand step.prog_guard
+       (Core_syntax_builders.mk_hand step.assume_guard step.guarantee_guard))
 
 (* Produces one text line per automaton state: "A0 = <formula>". *)
 let render_automaton_lines ~prefix labels =
@@ -208,7 +205,7 @@ let rewrite_history_vars (s : string) : string =
 
 (* Converts a formula to a clean display string: serialises, strips braces,
    and rewrites history variables. *)
-let pretty_product_formula (f : Fo_formula.t) : string =
+let pretty_product_formula (f : Core_syntax.hexpr) : string =
   f |> string_of_fo |> strip_braces |> rewrite_history_vars
 
 (* Replaces every occurrence of [pattern] in [s] with [by].
@@ -274,7 +271,7 @@ let mathify_formula (s : string) : string =
 
 (* Full formula-to-display-string pipeline for plain DOT labels:
    serialise → strip braces → rewrite history vars → replace operators with Unicode. *)
-let pretty_plain_dot_formula (f : Fo_formula.t) : string =
+let pretty_plain_dot_formula (f : Core_syntax.hexpr) : string =
   f |> pretty_product_formula |> mathify_formula
 
 (* Builds the text-label lines for a program automaton: one line per state
@@ -292,7 +289,7 @@ let render_program_lines ~(node_name : ident) (node : Ast.node) =
            let guard =
              match t.guard with
              | None -> "⊤"
-             | Some g -> g |> expr_to_fo_with_atoms [] |> pretty_plain_dot_formula
+             | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
   in
@@ -442,9 +439,9 @@ type merged_product_edge = {
   src : PT.product_state;
   dst : PT.product_state;
   step_class : PT.step_class;
-  prog_guard : Fo_formula.t;
-  assume_guard : Fo_formula.t;
-  guarantee_guard : Fo_formula.t;
+  prog_guard : Core_syntax.hexpr;
+  assume_guard : Core_syntax.hexpr;
+  guarantee_guard : Core_syntax.hexpr;
 }
 
 (* Visual attributes for a product-graph edge (colour, stroke style, and a
@@ -486,7 +483,7 @@ let merge_product_steps_for_dot (analysis : Temporal_automata.node_data) : merge
             }
       | Some merged ->
           Hashtbl.replace tbl key
-            { merged with prog_guard = simplify_fo (FOr (merged.prog_guard, step.prog_guard)) })
+            { merged with prog_guard = simplify_fo (Core_syntax_builders.mk_hor merged.prog_guard step.prog_guard) })
     analysis.exploration.steps;
   Hashtbl.fold (fun _ step acc -> step :: acc) tbl []
   |> List.sort (fun a b ->
@@ -720,7 +717,7 @@ let prepare_program_graph (node : Ast.node) =
       |> List.map (fun (t : Ast.transition) ->
            let guard = match t.guard with
              | None -> "⊤"
-             | Some g -> g |> expr_to_fo_with_atoms [] |> pretty_plain_dot_formula
+             | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
            in
            { edge_src = Printf.sprintf "p_%s" (escape_dot_label t.src);
              edge_dst = Printf.sprintf "p_%s" (escape_dot_label t.dst);

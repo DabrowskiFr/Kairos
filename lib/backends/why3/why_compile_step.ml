@@ -21,9 +21,8 @@
 open Why3
 open Ptree
 open Core_syntax
-open Generated_names
 open Temporal_support
-open Logic_pretty
+open Pretty
 open Why_compile_expr
 
 let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =

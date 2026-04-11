@@ -19,7 +19,6 @@
 open Core_syntax
 open Ast
 open Automata_atoms
-open Fo_specs
 
 let validate_ltl_weak_until_positivity ~(context : string) (f : ltl) : unit =
   let rec go ~(positive : bool) (g : ltl) : unit =
@@ -38,7 +37,7 @@ let validate_ltl_weak_until_positivity ~(context : string) (f : ltl) : unit =
           failwith
             (Printf.sprintf
                "Unsupported LTL formula in %s: weak-until W appears in negative position: %s" context
-               (Logic_pretty.string_of_ltl f));
+               (Pretty.string_of_ltl f));
         go ~positive a;
         go ~positive b
   in
@@ -55,6 +54,12 @@ let rec simplify_temporal_idempotence (f : ltl) : ltl =
   | LOr (a, b) -> LOr (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
   | LImp (a, b) -> LImp (simplify_temporal_idempotence a, simplify_temporal_idempotence b)
 
+let combine_guarantees_for_automaton ~(assumes : ltl list) ~(guarantees : ltl list) : ltl =
+  let rec mk_and = function [] -> LTrue | [ x ] -> x | x :: xs -> LAnd (x, mk_and xs) in
+  let g = mk_and (List.rev guarantees) in
+  let _ = assumes in
+  match guarantees with [] -> LTrue | _ -> g
+
 let build_guarantee_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : ltl =
   let _ = atom_map in
   let spec = Ast.specification_of_node n in
@@ -67,7 +72,7 @@ let build_guarantee_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : l
           (Printf.sprintf "guarantee #%d of node %s" (i + 1) n.semantics.sem_nname)
         g)
     spec_guarantees;
-  combine_contracts_for_monitor ~assumes:spec_assumes ~guarantees:spec_guarantees
+  combine_guarantees_for_automaton ~assumes:spec_assumes ~guarantees:spec_guarantees
   |> simplify_temporal_idempotence
 
 let build_assumption_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : ltl =

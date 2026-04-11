@@ -38,6 +38,3 @@ type transition_index = int
 
 (** Index of an automaton state in generated assume/guarantee automata. *)
 type automaton_state_index = int
-
-(** Entry mapping a formula id to its optional origin metadata. *)
-type formula_origin_entry = formula_id * Formula_origin.t option

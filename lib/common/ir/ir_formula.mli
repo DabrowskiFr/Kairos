@@ -18,18 +18,17 @@
 
 (** Helpers over [Ir.summary_formula]. *)
 open Core_syntax
-val with_origin :
+val make :
   ?loc:Loc.loc ->
-  Formula_origin.t ->
-  Fo_formula.t ->
+  Core_syntax.hexpr ->
   Ir.summary_formula
 
-val values : Ir.summary_formula list -> Fo_formula.t list
+val values : Ir.summary_formula list -> Core_syntax.hexpr list
 
 val temporal_bindings_of_layout :
   Ir.temporal_layout ->
-  Fo_specs.temporal_binding list
+  Pre_k_lowering.temporal_binding list
 
 val temporal_bindings_of_node :
   Ir.node_ir ->
-  Fo_specs.temporal_binding list
+  Pre_k_lowering.temporal_binding list

@@ -28,4 +28,3 @@ type vdecl = Core_syntax.vdecl
 type formula_id = int
 type transition_index = int
 type automaton_state_index = int
-type formula_origin_entry = formula_id * Formula_origin.t option

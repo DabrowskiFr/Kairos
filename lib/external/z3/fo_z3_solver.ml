@@ -17,8 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Logic_pretty
-open Fo_formula
+open Pretty
 
 let mk_expr expr = { expr; loc = None }
 let ( let* ) = Option.bind
@@ -98,6 +97,9 @@ let rec infer_hexpr_sort vars (h : hexpr) =
   | HLitBool _ -> Some SBool
   | HVar v -> Hashtbl.find_opt vars v
   | HPreK (v, _) -> Hashtbl.find_opt vars v
+  | HPred (_, hs) ->
+      List.iter (fun x -> ignore (infer_hexpr_sort vars x)) hs;
+      Some SBool
   | HUn (Neg, inner) ->
       let _ = infer_hexpr_sort vars inner in
       Some SInt
@@ -144,20 +146,12 @@ let infer_atom_sorts (f : fo_atom) (vars : (ident, smt_sort) Hashtbl.t) : unit =
     end
   | FPred (_, hs) -> List.iter (fun h -> ignore (infer_hexpr_sort vars h)) hs
 
-let infer_formula_sorts_fo (f : Fo_formula.t) : (ident, smt_sort) Hashtbl.t =
+let infer_formula_sorts_fo (f : Core_syntax.hexpr) : (ident, smt_sort) Hashtbl.t =
   let vars = Hashtbl.create 32 in
-  let rec go = function
-    | Fo_formula.FTrue | Fo_formula.FFalse -> ()
-    | Fo_formula.FAtom a -> infer_atom_sorts a vars
-    | Fo_formula.FNot a -> go a
-    | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
-        go a;
-        go b
-  in
-  go f;
+  ignore (infer_hexpr_sort vars f);
   vars
 
-let make_z3_env (f : Fo_formula.t) : z3_env =
+let make_z3_env (f : Core_syntax.hexpr) : z3_env =
   let ctx = Z3.mk_context [] in
   let vars = infer_formula_sorts_fo f in
   { ctx; vars; z3_vars = Hashtbl.create 32; z3_preds = Hashtbl.create 16; z3_preks = Hashtbl.create 16 }
@@ -235,6 +229,13 @@ let rec z3_of_hexpr (env : z3_env) (h : hexpr) : Z3.Expr.expr * smt_sort =
       let fd = Z3.FuncDecl.mk_func_decl_s env.ctx name [ z3_sort env sort ] (z3_sort env sort) in
       Hashtbl.replace env.z3_preks name k;
       (Z3.Expr.mk_app env.ctx fd [ arg ], sort)
+  | HPred (id, hs) ->
+      let args = List.map (z3_of_hexpr env) hs in
+      let sorts = List.map (fun (_, s) -> z3_sort env s) args in
+      let name = smt_pred_name id (List.length hs) in
+      let fd = Z3.FuncDecl.mk_func_decl_s env.ctx name sorts (Z3.Boolean.mk_sort env.ctx) in
+      Hashtbl.replace env.z3_preds name id;
+      (Z3.Expr.mk_app env.ctx fd (List.map fst args), SBool)
   | HUn (Neg, inner) ->
       let a, _ = z3_of_hexpr env inner in
       (Z3.Arithmetic.mk_unary_minus env.ctx a, SInt)
@@ -311,27 +312,21 @@ let z3_of_fo_atom (env : z3_env) = function
       Hashtbl.replace env.z3_preds name id;
       Z3.Expr.mk_app env.ctx fd (List.map fst args)
 
-let rec z3_of_fo (env : z3_env) = function
-  | FTrue -> Z3.Boolean.mk_true env.ctx
-  | FFalse -> Z3.Boolean.mk_false env.ctx
-  | FAtom a -> z3_of_fo_atom env a
-  | FNot a -> Z3.Boolean.mk_not env.ctx (z3_of_fo env a)
-  | FAnd (a, b) -> Z3.Boolean.mk_and env.ctx [ z3_of_fo env a; z3_of_fo env b ]
-  | FOr (a, b) -> Z3.Boolean.mk_or env.ctx [ z3_of_fo env a; z3_of_fo env b ]
-  | FImp (a, b) -> Z3.Boolean.mk_implies env.ctx (z3_of_fo env a) (z3_of_fo env b)
+let z3_of_fo (env : z3_env) (f : Core_syntax.hexpr) : Z3.Expr.expr =
+  fst (z3_of_hexpr env f)
 
 let func_name (e : Z3.Expr.expr) : string =
   Z3.Expr.get_func_decl e |> Z3.FuncDecl.get_name |> Z3.Symbol.get_string
 
 let rebuild_and = function
-  | [] -> FTrue
+  | [] -> Core_syntax_builders.mk_hbool true
   | [ x ] -> x
-  | x :: xs -> List.fold_left (fun acc y -> FAnd (acc, y)) x xs
+  | x :: xs -> List.fold_left Core_syntax_builders.mk_hand x xs
 
 let rebuild_or = function
-  | [] -> FFalse
+  | [] -> Core_syntax_builders.mk_hbool false
   | [ x ] -> x
-  | x :: xs -> List.fold_left (fun acc y -> FOr (acc, y)) x xs
+  | x :: xs -> List.fold_left Core_syntax_builders.mk_hor x xs
 
 let is_literal_expr (e : expr) =
   match e.expr with ELitInt _ | ELitBool _ -> true | _ -> false
@@ -425,15 +420,15 @@ let fo_of_z3_hexpr (env : z3_env) (e : Z3.Expr.expr) : hexpr option =
     | _ -> Option.map Core_syntax_builders.hexpr_of_expr (fo_of_z3_expr env e)
   else Option.map Core_syntax_builders.hexpr_of_expr (fo_of_z3_expr env e)
 
-let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option =
-  if Z3.Boolean.is_true e then Some FTrue
-  else if Z3.Boolean.is_false e then Some FFalse
+let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Core_syntax.hexpr option =
+  if Z3.Boolean.is_true e then Some (Core_syntax_builders.mk_hbool true)
+  else if Z3.Boolean.is_false e then Some (Core_syntax_builders.mk_hbool false)
   else if Z3.Boolean.is_not e then begin
     match Z3.Expr.get_args e with
     | [ a ] ->
         let open Option in
         let* a = fo_of_z3_formula env a in
-        Some (FNot a)
+        Some (Core_syntax_builders.mk_hnot a)
     | _ -> None
   end
   else if Z3.Boolean.is_and e then
@@ -460,7 +455,7 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
         let open Option in
         let* a = fo_of_z3_formula env a in
         let* b = fo_of_z3_formula env b in
-        Some (FImp (a, b))
+        Some (Core_syntax_builders.mk_himp a b)
     | _ -> None
   end
   else if Z3.Boolean.is_eq e then begin
@@ -470,7 +465,7 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
         let* a = fo_of_z3_hexpr env a in
         let* b = fo_of_z3_hexpr env b in
         let a, r, b = normalize_rel a REq b in
-        Some (FAtom (FRel (a, r, b)))
+        Some (Core_syntax_builders.mk_hexpr (HCmp (r, a, b)))
     | _ -> None
   end
   else if Z3.Arithmetic.is_le e || Z3.Arithmetic.is_ge e || Z3.Arithmetic.is_lt e || Z3.Arithmetic.is_gt e then
@@ -487,7 +482,7 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
           let* a = fo_of_z3_hexpr env a in
           let* b = fo_of_z3_hexpr env b in
           let a, rel, b = normalize_rel a rel b in
-          Some (FAtom (FRel (a, rel, b)))
+          Some (Core_syntax_builders.mk_hexpr (HCmp (rel, a, b)))
       | _ -> None
     end
   else
@@ -502,13 +497,13 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
               | None -> None
             end
         in
-        Option.map (fun hs -> FAtom (FPred (id, hs))) (map [] (Z3.Expr.get_args e))
+        Option.map (fun hs -> Core_syntax_builders.mk_hpred id hs) (map [] (Z3.Expr.get_args e))
     | None ->
         Option.map
-          (fun h -> FAtom (FRel (h, REq, Core_syntax_builders.mk_hbool true)))
+          (fun h -> Core_syntax_builders.mk_hexpr (HCmp (REq, h, Core_syntax_builders.mk_hbool true)))
           (fo_of_z3_hexpr env e)
 
-let simplify_fo_formula (f : Fo_formula.t) : Fo_formula.t option =
+let simplify_fo_formula (f : Core_syntax.hexpr) : Core_syntax.hexpr option =
   if fo_simplifier_forced_off () then None
   else
     let t0 = Unix.gettimeofday () in

@@ -19,12 +19,11 @@ open Core_syntax
 open Ast
 open Core_syntax_builders
 open Temporal_support
-open Fo_formula
 
 module Abs = Ir
 open Proof_kernel_types
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
@@ -88,25 +87,18 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         | None -> h)
     | HUn (op, inner) ->
         Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
+    | HPred (id, hs) ->
+        Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_post hs))
     | HBin (op, a, b) ->
         Core_syntax_builders.with_hexpr_desc h
           (HBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
     | HCmp (op, a, b) ->
         Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
   in
-  let rewrite_fo_post (f : fo_atom) : fo_atom =
-    match f with
-    | FRel (h1, r, h2) -> FRel (rewrite_hexpr_post h1, r, rewrite_hexpr_post h2)
-    | FPred (id, hs) -> FPred (id, List.map rewrite_hexpr_post hs)
-  in
-  let rec rewrite_formula_post (f : Fo_formula.t) : Fo_formula.t =
-    match f with
-    | Fo_formula.FTrue | Fo_formula.FFalse -> f
-    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_post fo_atom)
-    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_post a)
-    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_post a, rewrite_formula_post b)
-    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_post a, rewrite_formula_post b)
-    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_post a, rewrite_formula_post b)
+  let rec rewrite_formula_post (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    match f.hexpr with
+    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> rewrite_hexpr_post f
+    | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_post f
   in
   let slot_name_for_depth base_var depth =
     match List.assoc_opt base_var current_expr_to_next_slot with
@@ -126,6 +118,8 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         match slot_name_for_depth name (k + 1) with
         | Some slot -> Core_syntax_builders.mk_hvar slot
         | None -> h)
+    | HPred (id, hs) ->
+        Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_pre hs))
     | HUn (op, inner) ->
         Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
     | HBin (op, a, b) ->
@@ -134,19 +128,10 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     | HCmp (op, a, b) ->
         Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
   in
-  let rewrite_fo_pre (f : fo_atom) : fo_atom =
-    match f with
-    | FRel (h1, r, h2) -> FRel (rewrite_hexpr_pre h1, r, rewrite_hexpr_pre h2)
-    | FPred (id, hs) -> FPred (id, List.map rewrite_hexpr_pre hs)
-  in
-  let rec rewrite_formula_pre (f : Fo_formula.t) : Fo_formula.t =
-    match f with
-    | Fo_formula.FTrue | Fo_formula.FFalse -> f
-    | Fo_formula.FAtom fo_atom -> Fo_formula.FAtom (rewrite_fo_pre fo_atom)
-    | Fo_formula.FNot a -> Fo_formula.FNot (rewrite_formula_pre a)
-    | Fo_formula.FAnd (a, b) -> Fo_formula.FAnd (rewrite_formula_pre a, rewrite_formula_pre b)
-    | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_pre a, rewrite_formula_pre b)
-    | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_pre a, rewrite_formula_pre b)
+  let rec rewrite_formula_pre (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    match f.hexpr with
+    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
+    | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
   in
   let is_structural_step_fact (fact : relational_clause_fact_ir) =
     match fact.desc with

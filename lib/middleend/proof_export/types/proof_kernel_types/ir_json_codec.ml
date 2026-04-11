@@ -22,7 +22,6 @@ let formula_meta_to_yojson (m : Ir.formula_meta) : Yojson.Safe.t =
   let option_to_yojson f = function None -> `Null | Some x -> f x in
   `Assoc
     [
-      ("origin", option_to_yojson Formula_origin.to_yojson m.origin);
       ("oid", `Int m.oid);
       ("loc", option_to_yojson Loc.loc_to_yojson m.loc);
     ]
@@ -32,10 +31,8 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) re
   match json with
   | `Assoc fields ->
       let find name = List.assoc_opt name fields in
-      let* origin_json = Option.to_result ~none:"formula_meta: missing field 'origin'" (find "origin") in
       let* oid_json = Option.to_result ~none:"formula_meta: missing field 'oid'" (find "oid") in
       let* loc_json = Option.to_result ~none:"formula_meta: missing field 'loc'" (find "loc") in
-      let* origin = option_of_yojson Formula_origin.of_yojson origin_json in
       let* loc = option_of_yojson Loc.loc_of_yojson loc_json in
       let oid =
         match oid_json with
@@ -43,13 +40,13 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) re
         | _ -> Error "formula_meta.oid: expected int"
       in
       let* oid = oid in
-      Ok { Ir.origin; oid; loc }
+      Ok { Ir.oid; loc }
   | _ -> Error "formula_meta: expected object"
 
 let summary_formula_to_yojson (f : Ir.summary_formula) : Yojson.Safe.t =
   `Assoc
     [
-      ("logic", Fo_formula.to_yojson f.logic);
+      ("logic", Core_syntax.hexpr_to_yojson f.logic);
       ("meta", formula_meta_to_yojson f.meta);
     ]
 
@@ -63,7 +60,7 @@ let summary_formula_of_yojson (json : Yojson.Safe.t) : (Ir.summary_formula, stri
       in
       let* logic_json = find "logic" in
       let* meta_json = find "meta" in
-      let* logic = Fo_formula.of_yojson logic_json in
+      let* logic = Core_syntax.hexpr_of_yojson logic_json in
       let* meta = formula_meta_of_yojson meta_json in
       Ok { Ir.logic; meta }
   | _ -> Error "summary_formula: expected object"

@@ -18,19 +18,22 @@
 
 open Core_syntax
 open Ast
-open Fo_specs
 open Fo_time
-open Formula_origin
 
 module Abs = Ir
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let disj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
+let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
   match fs with
   | [] -> None
-  | f :: rest -> Some (List.fold_left (fun acc x -> Fo_formula.FOr (acc, x)) f rest |> simplify_fo)
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
+
+let conj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+  match fs with
+  | [] -> None
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hand f rest)
 
 let input_names (n : Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
@@ -39,7 +42,7 @@ let is_input_of_node (n : Abs.node_ir) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
-let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
+let invariant_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr option =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : Abs.state_invariant) ->
@@ -52,10 +55,10 @@ let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
     | None -> None
     | Some xs -> conj_fo (List.sort_uniq compare xs))
 
-  let add_unique_formula (origin : Formula_origin.t) (f : Fo_formula.t)
+let add_unique_formula (f : Core_syntax.hexpr)
     (xs : Abs.summary_formula list) : Abs.summary_formula list =
   if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
-  else xs @ [ Ir_formula.with_origin origin f ]
+  else xs @ [ Ir_formula.make f ]
 
 let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_summary) :
     Abs.product_step_summary =
@@ -79,10 +82,10 @@ let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_sum
     |> fun acc ->
     (match safe_disjunction with
     | None -> acc
-    | Some f -> add_unique_formula Internal f acc)
+    | Some f -> add_unique_formula f acc)
     |> fun acc ->
     List.fold_left
-      (fun acc shifted_inv -> add_unique_formula Invariant shifted_inv acc)
+      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
       acc shifted_destination_invariants)
   in
   { pc with ensures }

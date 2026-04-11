@@ -20,7 +20,7 @@ open Ast
 
 module Abs = Ir
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
@@ -28,7 +28,7 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     let product_formulas =
       node.summaries
       |> List.concat_map (fun (summary : Abs.product_step_summary) ->
-             Ir_formula.values (summary.requires @ summary.ensures)
+             Ir_formula.values (summary.propagation_requires @ summary.requires @ summary.ensures)
              @
              let case_formulas =
                List.concat_map
@@ -42,18 +42,18 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     in
     product_formulas @ Ir_formula.values node.init_invariant_goals
   in
-  Pre_k_collect.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
+  Pre_k_layout.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
     ~fo_formulas:summary_formulas ~ltl:[]
 
-let lower_formula ~(node_name : ident) ~(temporal_bindings : Fo_specs.temporal_binding list)
+let lower_formula ~(node_name : ident) ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
     (f : Abs.summary_formula) : Abs.summary_formula =
-  match Fo_specs.lower_fo_formula_temporal_bindings ~temporal_bindings f.logic with
+  match Pre_k_lowering.lower_fo_formula_temporal_bindings ~temporal_bindings f.logic with
   | None ->
       failwith
         (Printf.sprintf
            "temporal_lower: unable to lower formula for node %s: %s"
-           node_name (Logic_pretty.string_of_fo f.logic))
+           node_name (Pretty.string_of_fo f.logic))
   | Some logic -> { f with logic = simplify_fo logic }
 
 let run_node (node : Abs.node_ir) : Abs.node_ir =
@@ -63,6 +63,7 @@ let run_node (node : Abs.node_ir) : Abs.node_ir =
   let summaries =
     node.summaries
     |> List.map (fun (summary : Abs.product_step_summary) ->
+           let propagation_requires = List.map lower summary.propagation_requires in
            let requires = List.map lower summary.requires in
            let ensures = List.map lower summary.ensures in
            let safe_cases =
@@ -75,7 +76,7 @@ let run_node (node : Abs.node_ir) : Abs.node_ir =
              |> List.map (fun (c : Abs.unsafe_product_case) ->
                     { c with excluded_guard = lower c.excluded_guard })
            in
-           { summary with requires; ensures; safe_cases; unsafe_cases })
+           { summary with propagation_requires; requires; ensures; safe_cases; unsafe_cases })
   in
   let init_invariant_goals = List.map lower node.init_invariant_goals in
   { node with temporal_layout; summaries; init_invariant_goals }

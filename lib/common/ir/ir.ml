@@ -19,13 +19,12 @@
 open Ir_shared_types
 
 type formula_meta = {
-  origin : Formula_origin.t option;
   oid : formula_id;
   loc : loc option;
 }
 
 type summary_formula = {
-  logic : Fo_formula.t;
+  logic : Core_syntax.hexpr;
   meta : formula_meta;
 }
 
@@ -59,12 +58,13 @@ type product_step_summary_trace = { step_uid : transition_index }
 type product_step_summary_identity = {
   program_step : transition;
   product_src : product_state;
-  assume_guard : Fo_formula.t;
+  assume_guard : Core_syntax.hexpr;
 }
 
 type product_step_summary = {
   trace : product_step_summary_trace;
   identity : product_step_summary_identity;
+  propagation_requires : summary_formula list;
   requires : summary_formula list;
   ensures : summary_formula list;
   safe_cases : safe_product_case list;
@@ -82,7 +82,7 @@ type node_signature = {
 
 type state_invariant = {
   state : ident;
-  formula : Fo_formula.t;
+  formula : Core_syntax.hexpr;
 }
 
 type source_info = {

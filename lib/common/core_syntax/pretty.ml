@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
-open Fo_formula
 
 let string_of_relop (op : relop) : string =
   match op with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
@@ -93,6 +92,8 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
   | HVar x -> x
   | HPreK (v, k) ->
       if k = 1 then "pre(" ^ v ^ ")" else "pre_k(" ^ v ^ ", " ^ string_of_int k ^ ")"
+  | HPred (id, hs) ->
+      id ^ "(" ^ String.concat ", " (List.map (string_of_hexpr_with_ctx ~ctx:0) hs) ^ ")"
   | HUn (op, a) ->
       let prec = prec_of_hunop op in
       let prefix = match op with Neg -> "-" | Not -> "not " in
@@ -119,16 +120,8 @@ let string_of_fo_atom ?(ctx = 0) (f : fo_atom) : string =
   | FRel (h1, r, h2) -> string_of_hexpr h1 ^ " " ^ string_of_relop r ^ " " ^ string_of_hexpr h2
   | FPred (id, hs) -> id ^ "(" ^ String.concat ", " (List.map string_of_hexpr hs) ^ ")"
 
-let rec string_of_fo ?(ctx = 0) (f : Fo_formula.t) : string =
-  let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
-  match f with
-  | FTrue -> "true"
-  | FFalse -> "false"
-  | FAtom a -> string_of_fo_atom a
-  | FNot a -> wrap 5 ("not " ^ string_of_fo ~ctx:5 a)
-  | FAnd (a, b) -> wrap 3 (string_of_fo ~ctx:3 a ^ " and " ^ string_of_fo ~ctx:3 b)
-  | FOr (a, b) -> wrap 2 (string_of_fo ~ctx:2 a ^ " or " ^ string_of_fo ~ctx:2 b)
-  | FImp (a, b) -> wrap 1 (string_of_fo ~ctx:1 a ^ " -> " ^ string_of_fo ~ctx:1 b)
+let string_of_fo ?(ctx = 0) (f : Core_syntax.hexpr) : string =
+  string_of_hexpr_with_ctx ~ctx f
 
 let rec string_of_ltl ?(ctx = 0) (f : ltl) : string =
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in

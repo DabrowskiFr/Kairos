@@ -20,6 +20,7 @@
  * Kairos — Text renderer for canonical IR.
  *---------------------------------------------------------------------------*)
 open Core_syntax
+open Pretty
 let separator = "# " ^ String.make 48 '='
 
 let line ?(indent = 0) (buf : Buffer.t) (s : string) =
@@ -49,26 +50,22 @@ let render_ident_list (ids : ident list) : string =
 
 let render_stmt (s : Ast.stmt) : string =
   match s.stmt with
-  | SAssign (v, e) -> v ^ " := " ^ Logic_pretty.string_of_expr e
-  | SIf (c, _t, []) -> "if " ^ Logic_pretty.string_of_expr c ^ " then { ... }"
-  | SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_expr c ^ " then { ... } else { ... }"
+  | SAssign (v, e) -> v ^ " := " ^ Pretty.string_of_expr e
+  | SIf (c, _t, []) -> "if " ^ Pretty.string_of_expr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then { ... } else { ... }"
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->
-      "match " ^ Logic_pretty.string_of_expr e ^ " { ... }"
+      "match " ^ Pretty.string_of_expr e ^ " { ... }"
 
 let render_ltl_list (fs : ltl list) : string =
   match fs with
   | [] -> "(none)"
-  | _ -> String.concat "\n    " (List.map Logic_pretty.string_of_ltl fs)
+  | _ -> String.concat "\n    " (List.map Pretty.string_of_ltl fs)
 
 let render_loc_opt = function
   | None -> "None"
   | Some (l : Loc.loc) -> Printf.sprintf "Some(%d:%d-%d:%d)" l.line l.col l.line_end l.col_end
-
-let render_origin_opt = function
-  | None -> "None"
-  | Some o -> "Some(" ^ Formula_origin.to_string o ^ ")"
 
 let render_ty_short = render_ty
 
@@ -83,7 +80,7 @@ let render_idents_short (xs : ident list) : string =
 
 let render_expr_opt = function
   | None -> "true"
-  | Some e -> Logic_pretty.string_of_expr e
+  | Some e -> Pretty.string_of_expr e
 
 let render_product_state (s : Ir.product_state) : string =
   Printf.sprintf "(%s,R%d,E%d)" s.prog_state s.assume_state_index s.guarantee_state_index
@@ -92,7 +89,7 @@ let render_product_state_list (xs : Ir.product_state list) : string =
   "[" ^ String.concat ", " (List.map render_product_state xs) ^ "]"
 
 let render_state_invariant (inv : Ir.state_invariant) : string =
-  Printf.sprintf "{state=%s; formula=%s}" inv.state (Logic_pretty.string_of_fo inv.formula)
+  Printf.sprintf "{state=%s; formula=%s}" inv.state (Pretty.string_of_fo inv.formula)
 
 let render_formula_ref (f : Ir.summary_formula) : string =
   Printf.sprintf "f#%d" f.meta.oid
@@ -128,6 +125,7 @@ let collect_formula_pool (program : Ir.program_ir) : Ir.summary_formula list =
   in
   let add_formulas = List.iter add_formula in
   let add_product_summary (summary : Ir.product_step_summary) =
+    add_formulas summary.propagation_requires;
     add_formulas summary.requires;
     add_formulas summary.ensures;
     List.iter
@@ -156,9 +154,8 @@ let render_formula_pool (buf : Buffer.t) (program : Ir.program_ir) =
     List.iter
       (fun (f : Ir.summary_formula) ->
         line ~indent:1 buf
-          (Printf.sprintf "%s = {logic=%s; meta={origin=%s; oid=%d; loc=%s}}"
-             (render_formula_ref f) (Logic_pretty.string_of_fo f.logic)
-             (render_origin_opt f.meta.origin)
+          (Printf.sprintf "%s = {logic=%s; meta={oid=%d; loc=%s}}"
+             (render_formula_ref f) (Pretty.string_of_fo f.logic)
              f.meta.oid
              (render_loc_opt f.meta.loc)))
       formulas
@@ -193,8 +190,9 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   line ~indent:(indent + 2) buf ("source_id=" ^ source_id);
   line ~indent:(indent + 2) buf ("source=" ^ render_product_state summary.identity.product_src);
   line ~indent:(indent + 2) buf
-    ("assume_guard=" ^ Logic_pretty.string_of_fo summary.identity.assume_guard);
+    ("assume_guard=" ^ Pretty.string_of_fo summary.identity.assume_guard);
   line ~indent:(indent + 1) buf "summary:";
+  line ~indent:(indent + 2) buf ("propagation_requires=" ^ render_formula_refs summary.propagation_requires);
   line ~indent:(indent + 2) buf ("requires=" ^ render_formula_refs summary.requires);
   line ~indent:(indent + 2) buf ("ensures =" ^ render_formula_refs summary.ensures);
   line ~indent:(indent + 1) buf "safe_aggregate:";
@@ -217,7 +215,7 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf
-          ("admissible_guard=" ^ Logic_pretty.string_of_fo c.admissible_guard.logic);
+          ("admissible_guard=" ^ Pretty.string_of_fo c.admissible_guard.logic);
         line ~indent:(indent + 3) buf "excluded_guard=[]")
       summary.safe_cases;
   line ~indent:(indent + 1) buf "unsafe_cases:";
@@ -233,7 +231,7 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf
-          ("excluded_guard=" ^ Logic_pretty.string_of_fo c.excluded_guard.logic);
+          ("excluded_guard=" ^ Pretty.string_of_fo c.excluded_guard.logic);
         line ~indent:(indent + 3) buf "admissible_guard=[]";
         line ~indent:(indent + 3) buf "ensures=[]";
         line ~indent:(indent + 3) buf ("excluded=" ^ render_formula_refs [ c.excluded_guard ]))
@@ -254,11 +252,11 @@ let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
   line buf "source_info";
   line ~indent:1 buf
     ("assumes=["
-    ^ String.concat "; " (List.map Logic_pretty.string_of_ltl n.source_info.assumes)
+    ^ String.concat "; " (List.map Pretty.string_of_ltl n.source_info.assumes)
     ^ "]");
   line ~indent:1 buf
     ("guarantees=["
-    ^ String.concat "; " (List.map Logic_pretty.string_of_ltl n.source_info.guarantees)
+    ^ String.concat "; " (List.map Pretty.string_of_ltl n.source_info.guarantees)
     ^ "]");
   line ~indent:1 buf
     ("state_invariants=["

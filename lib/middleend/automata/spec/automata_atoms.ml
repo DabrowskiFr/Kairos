@@ -17,18 +17,23 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Fo_formula
 open Core_syntax_builders
-open Generated_names
 open Temporal_support
-open Logic_pretty
-open Fo_specs
+open Pretty
 open Ltl_valuation
 
 type guard = Automaton_types.guard
 
+let rec collect_atoms_ltl (f : ltl) (acc : fo_atom list) : fo_atom list =
+  match f with
+  | LTrue | LFalse -> acc
+  | LAtom a -> if List.exists (( = ) a) acc then acc else a :: acc
+  | LNot a | LX a | LG a -> collect_atoms_ltl a acc
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      collect_atoms_ltl b (collect_atoms_ltl a acc)
+
 let guard_to_formula (g : guard) : string =
-  Logic_pretty.string_of_fo g
+  Pretty.string_of_fo g
 
 let sanitize_ident (s : string) : string =
   (* Normalize an arbitrary string into a safe, lowercase identifier. *)
@@ -68,7 +73,7 @@ let make_atom_names (atom_exprs : (fo_atom * expr) list) : string list =
   in
   List.map
     (fun (_atom, expr) ->
-      let base = "atom_" ^ sanitize_ident (Logic_pretty.string_of_expr expr) in
+      let base = "atom_" ^ sanitize_ident (Pretty.string_of_expr expr) in
       fresh base)
     atom_exprs
 
@@ -86,7 +91,7 @@ let inline_atoms_expr (atom_map : (ident * expr) list) (e : expr) : expr =
   in
   go e
 
-let recover_guard_fo (atom_map : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let recover_guard_fo (atom_map : (ident * expr) list) (g : Automaton_types.guard) : Core_syntax.hexpr =
   let _ = atom_map in
   g
 
@@ -95,6 +100,54 @@ type automata_atoms = Automaton_types.automata_atoms = {
   atom_named_exprs : (ident * expr) list;
 }
 
+let infer_expr_type ~(var_types : (ident * ty) list) (e : expr) : ty option =
+  let rec go = function
+    | ELitBool _ -> Some TBool
+    | ELitInt _ -> Some TInt
+    | EVar x -> List.assoc_opt x var_types
+    | EUn (Not, _) -> Some TBool
+    | EUn (Neg, _) -> Some TInt
+    | EBin (And, _, _) | EBin (Or, _, _) -> Some TBool
+    | EBin (Add, _, _) | EBin (Sub, _, _) | EBin (Mul, _, _) | EBin (Div, _, _) -> Some TInt
+    | ECmp (_, _, _) -> Some TBool
+  in
+  go e.expr
+
+let mk_bool_eq (a : expr) (b : expr) : expr =
+  mk_expr
+    (EBin
+       ( Or,
+         mk_expr (EBin (And, a, b)),
+         mk_expr (EBin (And, mk_expr (EUn (Not, a)), mk_expr (EUn (Not, b)))) ))
+
+let mk_bool_neq (a : expr) (b : expr) : expr =
+  mk_expr
+    (EBin
+       ( Or,
+         mk_expr (EBin (And, a, mk_expr (EUn (Not, b)))),
+         mk_expr (EBin (And, mk_expr (EUn (Not, a)), b)) ))
+
+let atom_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
+    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : expr option =
+  let _ = inputs in
+  match f with
+  | FRel (h1, r, h2) -> begin
+      match
+        ( Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h1,
+          Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h2 )
+      with
+      | Some e1, Some e2 ->
+          let ty1 = infer_expr_type ~var_types e1 in
+          let ty2 = infer_expr_type ~var_types e2 in
+          begin match (ty1, ty2, r) with
+          | Some TBool, Some TBool, REq -> Some (mk_bool_eq e1 e2)
+          | Some TBool, Some TBool, RNeq -> Some (mk_bool_neq e1 e2)
+          | _ -> Some (mk_expr (ECmp (r, e1, e2)))
+          end
+      | _ -> None
+    end
+  | FPred _ -> None
+
 let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
     automata_atoms =
   let n_ast = n in
@@ -102,7 +155,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
   in
-  let pre_k_map = Pre_k_collect.build_pre_k_infos n_ast in
+  let pre_k_map = Pre_k_layout.build_pre_k_infos n_ast in
   let inputs = List.map (fun v -> v.vname) sem.sem_inputs in
   let atoms_all = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltls |> List.sort_uniq compare in
   let atom_exprs, skipped =
@@ -115,7 +168,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
   in
   if skipped <> [] then (
     let lines =
-      List.rev skipped |> List.map (fun a -> "  - " ^ Logic_pretty.string_of_fo_atom a) |> String.concat "\n"
+      List.rev skipped |> List.map (fun a -> "  - " ^ Pretty.string_of_fo_atom a) |> String.concat "\n"
     in
     prerr_endline "Non-translatable monitor atoms:";
     prerr_endline lines;

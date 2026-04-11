@@ -18,36 +18,60 @@
 
 (** Shared helpers for bounded temporal history.
 
-    This module groups the operations around:
+    This module provides the pure transformations used by the temporal passes:
     {ul
-    {- [pre_k] expressions;}
-    {- bounded history slots;}
-    {- LTL shifting by a finite number of ticks.}} *)
+    {- representation metadata for [pre_k] history slots;}
+    {- finite shifts on historical formulas ([hexpr]) and LTL formulas;}
+    {- normalization of LTL formulas w.r.t. the maximal [X]-depth.}
+    }
 
-(** Metadata attached to one history expression.
+    These functions do not mutate IR structures: they only rewrite formulas. *)
 
-    - [expr] is the memorized expression.
-    - [names] are the slot names, from most recent to oldest.
-    - [vty] is the slot type. *)
+(** Metadata attached to one temporal history source.
+
+    The record links one source formula to the runtime slots used to materialize
+    bounded history:
+    {ul
+    {- [h]: source historical expression (typically [HPreK (_, k)]);}
+    {- [expr]: base expression used to update slots;}
+    {- [names]: generated slot identifiers ordered by increasing depth
+       ([pre_k1], [pre_k2], ...);}
+    {- [vty]: type of the stored values.}
+    } *)
 type pre_k_info = { h : Core_syntax.hexpr; expr : Core_syntax.expr; names : string list; vty : Core_syntax.ty }
 [@@deriving yojson]
 
-(** Result of normalizing an LTL formula with respect to the maximum [X]-depth
-    it requires. *)
+(** Result of LTL normalization with explicit shift depth.
+
+    [k_guard] is [Some k] when the normalized formula required aligning [X]-nesting
+    to depth [k], and [None] when no [X] shift was needed. *)
 type ltl_norm = { ltl : Core_syntax.ltl; k_guard : int option }
 
-(** Maximum nesting depth of [X] operators in a formula. *)
+(** [max_x_depth f] returns the maximum nesting depth of [X] in [f]. *)
 val max_x_depth : Core_syntax.ltl -> int
 
-(** Decide whether an expression can safely stay in the current tick when
-    history is shifted. *)
+(** [is_const_expr e] returns [true] for expressions that are considered tick-invariant
+    by the temporal utilities.
+
+    The current implementation treats literals and internal [Aut<digits>] names
+    as constant. *)
 val is_const_expr : Core_syntax.expr -> bool
 
-(** Shift one history expression by [shift] ticks when representable. *)
+(** [shift_hexpr_by ~init_for_var shift h] shifts historical references in [h]
+    by [shift] ticks.
+
+    - [shift <= 0] returns [Some h].
+    - On success, each [HVar v] becomes [HPreK (v, shift)] and each
+      [HPreK (v, k)] becomes [HPreK (v, k + shift)].
+    - Returns [None] when a sub-expression cannot be shifted. *)
 val shift_hexpr_by : init_for_var:(Core_syntax.ident -> Core_syntax.expr) -> int -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
-(** Normalize an LTL formula and record the required [X]-depth in [k_guard]. *)
+(** [normalize_ltl_for_k ~init_for_var f] normalizes [f] by aligning nested [X]
+    to a single maximal depth and returns that depth in [k_guard]. *)
 val normalize_ltl_for_k : init_for_var:(Core_syntax.ident -> Core_syntax.expr) -> Core_syntax.ltl -> ltl_norm
 
-(** Shift an entire LTL formula by [shift] ticks when representable. *)
+(** [shift_ltl_by ~init_for_var shift f] applies a finite temporal shift to all
+    atom-level historical references in [f].
+
+    Returns [None] when one shifted atom cannot be represented. *)
 val shift_ltl_by : init_for_var:(Core_syntax.ident -> Core_syntax.expr) -> int -> Core_syntax.ltl -> Core_syntax.ltl option

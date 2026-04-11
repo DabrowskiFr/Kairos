@@ -19,6 +19,7 @@
 open Core_syntax
 open Ast
 open Ltl_valuation
+open Pretty
 
 type process_result = {
   status : Unix.process_status;
@@ -94,7 +95,7 @@ let spot_ap_name (i : int) : string = Printf.sprintf "__kairos_ap_%d" i
 let string_of_spot_ltl ~(atom_map : (fo_atom * ident) list) (f : ltl) : string =
   let atom_name (a : fo_atom) : string =
     let rec find i = function
-      | [] -> failwith ("Spot backend: unmapped atom " ^ Logic_pretty.string_of_fo_atom a)
+      | [] -> failwith ("Spot backend: unmapped atom " ^ Pretty.string_of_fo_atom a)
       | (a', _) :: tl -> if a = a' then spot_ap_name i else find (i + 1) tl
     in
     find 0 atom_map

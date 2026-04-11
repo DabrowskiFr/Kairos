@@ -139,7 +139,7 @@ val compile_fo_term : ?prefer_link:bool -> env -> Core_syntax.fo_atom -> Why3.Pt
 (** [compile_local_fo_formula_term env f] compiles a canonical first-order
     formula from the IR to a Why3 term. *)
 val compile_local_fo_formula_term :
-  ?prefer_link:bool -> ?in_post:bool -> env -> Fo_formula.t -> Why3.Ptree.term
+  ?prefer_link:bool -> ?in_post:bool -> env -> Core_syntax.hexpr -> Why3.Ptree.term
 
 (** [compile_fo_term_shift env in_old atom] compiles a first-order atom
     applying the temporal shift. *)

@@ -2,7 +2,6 @@
 open Core_syntax
 open Ast
 open Source_file
-open Fo_formula
 
 let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Loc.loc =
   { line = start_pos.pos_lnum;
@@ -10,7 +9,6 @@ let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Loc
     line_end = end_pos.pos_lnum;
     col_end = end_pos.pos_cnum - end_pos.pos_bol; }
 
-let with_origin_loc origin loc value = Ast_provenance.with_origin ~loc origin value
 let mk_expr_loc start_pos end_pos desc =
   Core_syntax_builders.mk_expr ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_stmt_loc start_pos end_pos desc =
@@ -541,29 +539,32 @@ ltl_atom:
   | LPAREN ltl RPAREN { $2 }
 
 fo_atom:
-  | TRUE { FTrue }
-  | FALSE { FFalse }
-  | hexpr relop hexpr { FAtom(FRel($1,$2,$3)) }
-  | IDENT LPAREN hexpr_list_opt RPAREN { FAtom(FPred($1,$3)) }
+  | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool true) }
+  | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool false) }
+  | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HCmp($2,$1,$3)) }
+  | IDENT LPAREN hexpr_list_opt RPAREN { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (HPred($1,$3)) }
   | LPAREN fo_formula RPAREN { $2 }
 
 fo_un:
-  | NOT fo_un { FNot $2 }
+  | NOT fo_un { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (HUn(Not,$2)) }
   | fo_atom { $1 }
 
 fo_and:
-  | fo_and AND fo_un { FAnd($1,$3) }
+  | fo_and AND fo_un { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin(And,$1,$3)) }
   | fo_un { $1 }
 
 fo_or:
-  | fo_or OR fo_and { FOr($1,$3) }
+  | fo_or OR fo_and { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin(Or,$1,$3)) }
   | fo_and { $1 }
 
 fo_formula:
   | fo_imp { $1 }
 
 fo_imp:
-  | fo_or IMPL fo_imp { FImp($1,$3) }
+  | fo_or IMPL fo_imp {
+      let not_lhs = mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HUn(Not,$1)) in
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin(Or, not_lhs, $3))
+    }
   | fo_or { $1 }
 
 ltl_un:

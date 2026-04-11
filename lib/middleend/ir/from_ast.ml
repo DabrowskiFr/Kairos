@@ -17,28 +17,22 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Fo_specs
+open Core_syntax_builders
 
 module PT = Product_types
 
 let ( let* ) = Result.bind
 
-let rec fo_mentions_current_input ~(is_input : ident -> bool) (f : Fo_formula.t) =
-  let rec hexpr_uses_input (h : hexpr) =
+let fo_mentions_current_input ~(is_input : ident -> bool) (f : Core_syntax.hexpr) =
+  let rec go (h : hexpr) =
     match h.hexpr with
-    | HPreK _ | HLitInt _ | HLitBool _ -> false
+    | HLitInt _ | HLitBool _ | HPreK _ -> false
     | HVar name -> is_input name
-    | HUn (_, inner) -> hexpr_uses_input inner
-    | HBin (_, a, b) | HCmp (_, a, b) ->
-        hexpr_uses_input a || hexpr_uses_input b
+    | HPred (_, args) -> List.exists go args
+    | HUn (_, inner) -> go inner
+    | HBin (_, a, b) | HCmp (_, a, b) -> go a || go b
   in
-  match f with
-  | Fo_formula.FTrue | Fo_formula.FFalse -> false
-  | Fo_formula.FAtom (FRel (h1, _, h2)) -> hexpr_uses_input h1 || hexpr_uses_input h2
-  | Fo_formula.FAtom (FPred (_, hs)) -> List.exists hexpr_uses_input hs
-  | Fo_formula.FNot f -> fo_mentions_current_input ~is_input f
-  | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
-      fo_mentions_current_input ~is_input a || fo_mentions_current_input ~is_input b
+  go f
 
 let convert_state_invariants (node_name : ident) (inputs : vdecl list)
     (invs : Ast.invariant_state_rel list) : Ir.state_invariant list =
@@ -51,7 +45,7 @@ let convert_state_invariants (node_name : ident) (inputs : vdecl list)
           (Printf.sprintf
              "State invariant for node %s in state %s mentions a current input, \
               which is forbidden for node-entry invariants: %s"
-             node_name inv.state (Logic_pretty.string_of_fo inv.formula));
+             node_name inv.state (Pretty.string_of_fo inv.formula));
       { Ir.state = inv.state; formula = inv.formula })
     invs
 
@@ -147,7 +141,7 @@ let build_analyses ~(automata : Automata_generation.node_builds)
   in
   collect [] source_nodes
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
@@ -246,8 +240,8 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         prog_transition;
                         prog_guard =
                           (match prog_transition.guard_expr with
-                          | None -> Fo_formula.FTrue
-                          | Some g -> Fo_specs.expr_to_fo_with_atoms [] g |> simplify_fo);
+                          | None -> Core_syntax_builders.mk_hbool true
+                          | Some g -> hexpr_of_expr g |> simplify_fo);
                         assume_edge;
                         assume_guard = simplify_fo assume_guard_raw;
                         guarantee_edge;
@@ -279,9 +273,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                           Some
                             ({
                                product_dst = product_state_of_pt step.dst;
-                               admissible_guard =
-                                 Ir_formula.with_origin Formula_origin.GuaranteeAutomaton
-                                   step.guarantee_guard;
+                               admissible_guard = Ir_formula.make step.guarantee_guard;
                              } : Ir.safe_product_case)
                       | PT.Bad_assumption | PT.Bad_guarantee -> None)
              in
@@ -293,9 +285,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                           Some
                             ({
                                product_dst = product_state_of_pt step.dst;
-                               excluded_guard =
-                                 Ir_formula.with_origin Formula_origin.GuaranteeViolation
-                                   step.guarantee_guard;
+                               excluded_guard = Ir_formula.make step.guarantee_guard;
                              } : Ir.unsafe_product_case)
                       | PT.Safe | PT.Bad_assumption -> None)
              in
@@ -313,7 +303,8 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         };
                       product_src = product_state_of_pt repr_step.src;
                       assume_guard = repr_step.assume_guard;
-                    };
+                  };
+                  propagation_requires = [];
                   requires = [];
                   ensures = [];
                   safe_cases;

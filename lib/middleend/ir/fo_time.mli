@@ -29,12 +29,12 @@ val shift_fo_backward_inputs : is_input:(ident -> bool) -> fo_atom -> fo_atom
 (** Shift one step forward all input-dependent references in a non-temporal
     boolean formula. *)
 val shift_formula_forward_inputs :
-  is_input:(ident -> bool) -> Fo_formula.t -> Fo_formula.t
+  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
 
 (** Shift one step backward all input-dependent references in a non-temporal
     boolean formula. *)
 val shift_formula_backward_inputs :
-  is_input:(ident -> bool) -> Fo_formula.t -> Fo_formula.t
+  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
 
 (** Shift all references inside a first-order formula one step forward in
     time. *)

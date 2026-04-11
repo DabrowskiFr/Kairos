@@ -25,7 +25,6 @@ let fresh_oid () =
   incr next_oid;
   !next_oid
 
-let with_origin ?loc origin value =
+let with_meta ?loc value =
   let oid = fresh_oid () in
-  let _ = origin in
   { value; oid; loc }

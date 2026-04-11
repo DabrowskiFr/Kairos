@@ -2,7 +2,7 @@
  (name kairos_temporal_support)
  (public_name kairos.temporal_support)
  (wrapped false)
- (modules temporal_support pre_k_collect)
- (libraries kairos_ast kairos_fo_formula yojson)
+ (modules temporal_support pre_k_layout pre_k_lowering)
+ (libraries kairos_ast yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

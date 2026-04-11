@@ -21,7 +21,7 @@
 open Why3
 open Ptree
 open Core_syntax
-open Logic_pretty
+open Pretty
 
 (* ---- Compilation environment ---- *)
 
@@ -220,6 +220,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HLitInt _ | HLitBool _ -> true
     | HVar name -> is_const_var_name name
     | HPreK _ -> false
+    | HPred _ -> false
     | HUn (_, inner) -> is_const_hexpr inner
     | HBin (_, a, b) | HCmp (_, a, b) ->
         is_const_hexpr a && is_const_hexpr b
@@ -252,6 +253,8 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HPreK (_e, _k) ->
         failwith
           "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
+    | HPred (id, hs) ->
+        mk_term (Tidapp (qid1 id, List.map compile_hexpr_term hs))
   in
   let _ = in_post in
   match (find_link env h, prefer_link) with
@@ -285,26 +288,9 @@ let compile_fo_term_shift ?(prefer_link = false) ?(in_post = false) (env : env) 
   | FPred (id, hs) ->
       mk_term (Tidapp (qid1 id, List.map (compile_hexpr ~old ~prefer_link ~in_post env) hs))
 
-let rec compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) (env : env)
-    (f : Fo_formula.t) : Ptree.term =
-  match f with
-  | Fo_formula.FTrue -> mk_term Ttrue
-  | Fo_formula.FFalse -> mk_term Tfalse
-  | Fo_formula.FAtom fo -> compile_fo_term_shift ~prefer_link ~in_post env false fo
-  | Fo_formula.FNot a ->
-      mk_term (Tnot (compile_local_fo_formula_term ~prefer_link ~in_post env a))
-  | Fo_formula.FAnd (a, b) ->
-      term_bool_binop Dterm.DTand
-        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
-        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
-  | Fo_formula.FOr (a, b) ->
-      term_bool_binop Dterm.DTor
-        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
-        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
-  | Fo_formula.FImp (a, b) ->
-      term_bool_binop Dterm.DTimplies
-        (compile_local_fo_formula_term ~prefer_link ~in_post env a)
-        (compile_local_fo_formula_term ~prefer_link ~in_post env b)
+let compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) (env : env)
+    (f : Core_syntax.hexpr) : Ptree.term =
+  compile_hexpr ~old:false ~prefer_link ~in_post env f
 
 let pre_k_source_expr (env : env) (x : ident) : Ptree.expr =
   field env x

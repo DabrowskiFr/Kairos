@@ -18,7 +18,6 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Fo_formula
 
 type pre_k_info = { h : hexpr; expr : expr; names : string list; vty : ty } [@@deriving yojson]
 
@@ -49,6 +48,15 @@ let rec shift_hexpr_by ~(init_for_var : ident -> expr) (shift : int) (h : hexpr)
     | HLitInt _ | HLitBool _ -> Some h
     | HVar v -> Some (mk_hpre_k v shift)
     | HPreK (v, k) -> Some (mk_hpre_k v (k + shift))
+    | HPred (id, hs) ->
+        let rec map acc = function
+          | [] -> Some (List.rev acc)
+          | x :: xs -> (
+              match shift_hexpr_by ~init_for_var shift x with
+              | Some x' -> map (x' :: acc) xs
+              | None -> None)
+        in
+        Option.map (fun hs' -> with_hexpr_desc h (HPred (id, hs'))) (map [] hs)
     | HUn (op, inner) ->
         Option.map
           (fun inner' -> with_hexpr_desc h (HUn (op, inner')))

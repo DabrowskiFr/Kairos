@@ -18,14 +18,12 @@
 
 open Core_syntax
 open Ast
-open Fo_specs
-open Fo_formula
 
 module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
-let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
 let same_product_state_ref (a : Abs.product_state) (b : product_state_ir) =
@@ -88,12 +86,8 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
     | None -> []
     | Some pc -> [ pc ]
   in
-  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Fo_formula.t list =
-    pc.requires
-    |> List.filter_map (fun (f : Abs.summary_formula) ->
-           match f.meta.origin with
-           | Some Formula_origin.GuaranteePropagation -> Some f.logic
-           | _ -> None)
+  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Core_syntax.hexpr list =
+    List.map (fun (f : Abs.summary_formula) -> f.logic) pc.propagation_requires
   in
   let input_names =
     node.semantics.sem_inputs
@@ -104,63 +98,61 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HPreK _ -> false
     | HVar name -> List.mem name input_names
+    | HPred (_, hs) -> List.exists hexpr_mentions_current_input hs
     | HUn (_, inner) -> hexpr_mentions_current_input inner
     | HBin (_, a, b) | HCmp (_, a, b) ->
         hexpr_mentions_current_input a || hexpr_mentions_current_input b
   in
-  let rec fo_mentions_current_input (f : Fo_formula.t) =
-    match f with
-    | Fo_formula.FTrue | Fo_formula.FFalse -> false
-    | Fo_formula.FAtom (FRel (a, _, b)) -> hexpr_mentions_current_input a || hexpr_mentions_current_input b
-    | Fo_formula.FAtom (FPred (_, hs)) -> List.exists hexpr_mentions_current_input hs
-    | Fo_formula.FNot inner -> fo_mentions_current_input inner
-    | Fo_formula.FAnd (a, b) | Fo_formula.FOr (a, b) | Fo_formula.FImp (a, b) ->
-        fo_mentions_current_input a || fo_mentions_current_input b
+  let fo_mentions_current_input (f : Core_syntax.hexpr) =
+    hexpr_mentions_current_input f
   in
-  let rec normalize_source_summary (f : Fo_formula.t) : Fo_formula.t =
-    match f with
-    | Fo_formula.FNot (Fo_formula.FOr (Fo_formula.FNot a, Fo_formula.FNot b)) ->
-        Fo_formula.FAnd (normalize_source_summary a, normalize_source_summary b)
-    | Fo_formula.FNot inner -> begin
+  let rec normalize_source_summary (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    match f.hexpr with
+    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ | HPred _ -> f
+    | HUn (Neg, inner) ->
+        Core_syntax_builders.with_hexpr_desc f (HUn (Neg, normalize_source_summary inner))
+    | HUn (Not, inner) -> (
         match normalize_source_summary inner with
-        | Fo_formula.FTrue -> Fo_formula.FFalse
-        | Fo_formula.FFalse -> Fo_formula.FTrue
-        | inner -> Fo_formula.FNot inner
-      end
-    | Fo_formula.FAnd (a, b) -> begin
+        | { hexpr = HLitBool true; _ } -> Core_syntax_builders.mk_hbool false
+        | { hexpr = HLitBool false; _ } -> Core_syntax_builders.mk_hbool true
+        | inner' -> Core_syntax_builders.mk_hnot inner')
+    | HBin (And, a, b) -> begin
         match (normalize_source_summary a, normalize_source_summary b) with
-        | Fo_formula.FFalse, _ | _, Fo_formula.FFalse -> Fo_formula.FFalse
-        | Fo_formula.FTrue, rhs -> rhs
-        | lhs, Fo_formula.FTrue -> lhs
-        | lhs, rhs -> Fo_formula.FAnd (lhs, rhs)
+        | ({ hexpr = HLitBool false; _ } as x), _ -> x
+        | _, ({ hexpr = HLitBool false; _ } as x) -> x
+        | { hexpr = HLitBool true; _ }, rhs -> rhs
+        | lhs, { hexpr = HLitBool true; _ } -> lhs
+        | lhs, rhs -> Core_syntax_builders.mk_hand lhs rhs
       end
-    | Fo_formula.FOr (a, b) -> begin
+    | HBin (Or, a, b) -> begin
         match (normalize_source_summary a, normalize_source_summary b) with
-        | Fo_formula.FTrue, _ | _, Fo_formula.FTrue -> Fo_formula.FTrue
-        | Fo_formula.FFalse, rhs -> rhs
-        | lhs, Fo_formula.FFalse -> lhs
-        | lhs, rhs -> Fo_formula.FOr (lhs, rhs)
+        | ({ hexpr = HLitBool true; _ } as x), _ -> x
+        | _, ({ hexpr = HLitBool true; _ } as x) -> x
+        | { hexpr = HLitBool false; _ }, rhs -> rhs
+        | lhs, { hexpr = HLitBool false; _ } -> lhs
+        | lhs, rhs -> Core_syntax_builders.mk_hor lhs rhs
       end
-    | Fo_formula.FImp (a, b) ->
-        Fo_formula.FImp (normalize_source_summary a, normalize_source_summary b)
-    | Fo_formula.FTrue | Fo_formula.FFalse | Fo_formula.FAtom _ -> f
+    | HBin (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc f
+          (HBin (op, normalize_source_summary a, normalize_source_summary b))
+    | HCmp (r, a, b) ->
+        Core_syntax_builders.with_hexpr_desc f
+          (HCmp (r, normalize_source_summary a, normalize_source_summary b))
   in
-  let term_or a b = normalize_source_summary (Fo_formula.FOr (a, b)) in
-  let term_and a b = normalize_source_summary (Fo_formula.FAnd (a, b)) in
-  let term_not a = normalize_source_summary (Fo_formula.FNot a) in
-  let rec phase_summary_obviously_inconsistent (f : Fo_formula.t) : bool =
+  let term_or a b = normalize_source_summary (Core_syntax_builders.mk_hor a b) in
+  let term_and a b = normalize_source_summary (Core_syntax_builders.mk_hand a b) in
+  let term_not a = normalize_source_summary (Core_syntax_builders.mk_hnot a) in
+  let rec phase_summary_obviously_inconsistent (f : Core_syntax.hexpr) : bool =
     match normalize_source_summary f with
-    | Fo_formula.FFalse -> true
-    | Fo_formula.FAtom
-        (FRel ({ hexpr = HVar x; _ }, RNeq, { hexpr = HVar y; _ }))
+    | { hexpr = HLitBool false; _ } -> true
+    | { hexpr = HCmp (RNeq, { hexpr = HVar x; _ }, { hexpr = HVar y; _ }); _ }
       when String.equal x y ->
         true
-    | Fo_formula.FNot
-        (Fo_formula.FAtom (FRel ({ hexpr = HVar x; _ }, REq, { hexpr = HVar y; _ })))
+    | { hexpr = HUn (Not, { hexpr = HCmp (REq, { hexpr = HVar x; _ }, { hexpr = HVar y; _ }); _ }); _ }
       when String.equal x y ->
         true
-    | Fo_formula.FNot Fo_formula.FTrue -> true
-    | Fo_formula.FAnd (a, b) ->
+    | { hexpr = HUn (Not, { hexpr = HLitBool true; _ }); _ } -> true
+    | { hexpr = HBin (And, a, b); _ } ->
         phase_summary_obviously_inconsistent a || phase_summary_obviously_inconsistent b
     | _ -> false
   in
@@ -192,7 +184,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
              | f :: rest ->
                  Some
                    (List.fold_left
-                      (fun acc fo_atom -> Fo_formula.FOr (acc, fo_atom))
+                      Core_syntax_builders.mk_hor
                       f rest
                    |> normalize_source_summary)
            in
@@ -291,30 +283,25 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata
   let current (desc : clause_fact_desc_ir) : clause_fact_ir = { time = CurrentTick; desc } in
   let previous (desc : clause_fact_desc_ir) : clause_fact_ir = { time = PreviousTick; desc } in
   let step_ctx (desc : clause_fact_desc_ir) : clause_fact_ir = { time = StepTickContext; desc } in
-  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Fo_formula.t list =
-    pc.requires
-    |> List.filter_map (fun (f : Abs.summary_formula) ->
-           match f.meta.origin with
-           | Some Formula_origin.GuaranteePropagation -> Some f.logic
-           | _ -> None)
+  let guarantee_propagation_requires (pc : Abs.product_step_summary) : Core_syntax.hexpr list =
+    List.map (fun (f : Abs.summary_formula) -> f.logic) pc.propagation_requires
   in
-  let rec split_top_level_or (f : Fo_formula.t) : Fo_formula.t list =
-    match f with
-    | Fo_formula.FOr (a, b) -> split_top_level_or a @ split_top_level_or b
+  let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
+    match f.hexpr with
+    | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
     | _ -> [ f ]
   in
-  let rec normalize_phase_summary (f : Fo_formula.t) : Fo_formula.t =
-    match f with
-    | Fo_formula.FNot (Fo_formula.FOr (Fo_formula.FNot a, Fo_formula.FNot b)) ->
-        Fo_formula.FAnd (normalize_phase_summary a, normalize_phase_summary b)
-    | Fo_formula.FNot inner -> Fo_formula.FNot (normalize_phase_summary inner)
-    | Fo_formula.FAnd (a, b) ->
-        Fo_formula.FAnd (normalize_phase_summary a, normalize_phase_summary b)
-    | Fo_formula.FOr (a, b) ->
-        Fo_formula.FOr (normalize_phase_summary a, normalize_phase_summary b)
-    | Fo_formula.FImp (a, b) ->
-        Fo_formula.FImp (normalize_phase_summary a, normalize_phase_summary b)
-    | Fo_formula.FTrue | Fo_formula.FFalse | Fo_formula.FAtom _ -> f
+  let rec normalize_phase_summary (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    match f.hexpr with
+    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ | HPred _ -> f
+    | HUn (op, inner) ->
+        Core_syntax_builders.with_hexpr_desc f (HUn (op, normalize_phase_summary inner))
+    | HBin (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc f
+          (HBin (op, normalize_phase_summary a, normalize_phase_summary b))
+    | HCmp (r, a, b) ->
+        Core_syntax_builders.with_hexpr_desc f
+          (HCmp (r, normalize_phase_summary a, normalize_phase_summary b))
   in
   let compatibility_phase_formula_for_step (step : product_step_ir) =
     match product_summary_of_step ~node step with
@@ -326,7 +313,7 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata
         | [] -> None
         | f :: rest ->
             Some
-              (List.fold_left (fun acc fo_atom -> Fo_formula.FOr (acc, fo_atom)) f rest
+              (List.fold_left Core_syntax_builders.mk_hor f rest
               |> normalize_phase_summary)
   in
   let invariants_for_state state_name =

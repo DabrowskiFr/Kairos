@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 
-type invariant_state_rel = { state : ident; formula : Fo_formula.t } [@@deriving yojson]
+type invariant_state_rel = { state : ident; formula : Core_syntax.hexpr } [@@deriving yojson]
 
 type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 

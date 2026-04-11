@@ -16,11 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Fo_specs
-open Fo_formula
+open Pre_k_lowering
+open Core_syntax
+open Core_syntax_builders
 open Proof_kernel_types
 
-let lower_clause_fact ~(temporal_bindings : Fo_specs.temporal_binding list)
+let is_hfalse (h : Core_syntax.hexpr) =
+  match h.hexpr with HLitBool false -> true | _ -> false
+
+let is_htrue (h : Core_syntax.hexpr) =
+  match h.hexpr with HLitBool true -> true | _ -> false
+
+let lower_clause_fact ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
     (fact : clause_fact_ir) :
     clause_fact_ir option =
   let lower_desc = function
@@ -36,7 +43,7 @@ let lower_clause_fact ~(temporal_bindings : Fo_specs.temporal_binding list)
   in
   Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
 
-let lower_generated_clause ~(temporal_bindings : Fo_specs.temporal_binding list)
+let lower_generated_clause ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
     (clause : generated_clause_ir) : generated_clause_ir option =
   let rec lower_all acc = function
     | [] -> Some (List.rev acc)
@@ -50,13 +57,13 @@ let lower_generated_clause ~(temporal_bindings : Fo_specs.temporal_binding list)
       if
         List.exists
           (fun (fact : clause_fact_ir) ->
-            fact.desc = FactFormula Fo_formula.FFalse || fact.desc = FactFalse)
+            fact.desc = FactFormula (mk_hbool false) || fact.desc = FactFalse)
           hypotheses
       then None
       else Some { clause with hypotheses; conclusions }
   | _ -> None
 
-let relationalize_clause_fact ~(temporal_bindings : Fo_specs.temporal_binding list)
+let relationalize_clause_fact ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
     (fact : clause_fact_ir) : relational_clause_fact_ir option =
   let rel_desc = function
     | FactProgramState st -> Some (RelFactProgramState st)
@@ -75,7 +82,7 @@ let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
     relational_clause_fact_ir list list =
   let rec expand_one acc = function
     | [] -> [ List.rev acc ]
-    | ({ desc = RelFactFormula (Fo_formula.FOr (a, b)); _ } as fact) :: tl ->
+    | ({ desc = RelFactFormula ({ hexpr = HBin (Or, a, b); _ }); _ } as fact) :: tl ->
         let left = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo a) } in
         let right = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo b) } in
         (expand_one (left :: acc) tl) @ expand_one (right :: acc) tl
@@ -88,7 +95,7 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   let combine_formula left right =
     match (left, right) with
     | RelFactFormula a, RelFactFormula b ->
-        Some (RelFactFormula (Fo_simplifier.simplify_fo (Fo_formula.FAnd (a, b))))
+        Some (RelFactFormula (Fo_simplifier.simplify_fo (mk_hand a b)))
     | _ -> None
   in
   let rec insert acc fact =
@@ -97,7 +104,7 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
     | hd :: tl ->
         if hd.time = fact.time then
           match combine_formula hd.desc fact.desc with
-          | Some (RelFactFormula Fo_formula.FFalse) -> None
+          | Some (RelFactFormula h) when is_hfalse h -> None
           | Some desc -> Some ({ hd with desc } :: tl)
           | None -> Option.map (fun tl' -> hd :: tl') (insert tl fact)
         else
@@ -108,9 +115,9 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
         Some
           (List.filter
              (fun (fact : relational_clause_fact_ir) ->
-               fact.desc <> RelFactFormula Fo_formula.FTrue)
+               match fact.desc with RelFactFormula h -> not (is_htrue h) | _ -> true)
              acc)
-    | ({ desc = RelFactFormula Fo_formula.FFalse; _ } : relational_clause_fact_ir) :: _ -> None
+    | ({ desc = RelFactFormula h; _ } : relational_clause_fact_ir) :: _ when is_hfalse h -> None
     | ({ desc = RelFactFalse; _ } : relational_clause_fact_ir) :: _ -> None
     | fact :: tl -> (
         match insert acc fact with
@@ -119,7 +126,7 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   fold [] facts
 
-let relationalize_generated_clause ~(temporal_bindings : Fo_specs.temporal_binding list)
+let relationalize_generated_clause ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
     (clause : generated_clause_ir) : relational_generated_clause_ir list =
   let lower_all facts = List.filter_map (relationalize_clause_fact ~temporal_bindings) facts in
   let hypotheses = lower_all clause.hypotheses in

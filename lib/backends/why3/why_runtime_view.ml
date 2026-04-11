@@ -22,7 +22,7 @@ open Core_syntax
 open Ast
 
 module Abs = Ir
-open Pre_k_collect
+open Pre_k_layout
 
 let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula list =
   List.sort_uniq

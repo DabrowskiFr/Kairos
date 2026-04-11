@@ -41,10 +41,10 @@ If you are reading the codebase for the first time:
 
 {1 Common API}
 
-- {!modules:Automaton_types Formula_origin}
-- {!modules:Collect Fo_simplifier Fo_specs Fo_time Ltl_valuation}
+- {!modules:Automaton_types}
+- {!modules:Core_syntax_builders Fo_simplifier Fo_time Ltl_valuation}
 - {!modules:Ir Proof_kernel_types}
-- {!modules:Ast_provenance Provenance Stage_info Stage_names Temporal_support}
+- {!modules:Ast_provenance Provenance Stage_info Stage_names Temporal_support Pre_k_layout Pre_k_lowering Syntax_pretty}
 
 {1 Example Shapes}
 

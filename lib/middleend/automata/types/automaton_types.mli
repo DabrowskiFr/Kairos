@@ -29,7 +29,7 @@
     Guards are stored as first-order formulas over history expressions. This
     preserves temporal structure such as [pre_k] through automata construction;
     lowering to materialized history variables happens later in the pipeline. *)
-type guard = Fo_formula.t
+type guard = Core_syntax.hexpr
 
 (** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int

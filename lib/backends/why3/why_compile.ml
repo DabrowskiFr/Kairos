@@ -26,10 +26,9 @@ open Why3
 open Ptree
 open Core_syntax
 open Ast
-open Generated_names
 open Temporal_support
-open Logic_pretty
-open Pre_k_collect
+open Pretty
+open Pre_k_layout
 open Why_compile_expr
 
 let compile_seq = Why_compile_step.compile_seq
@@ -37,6 +36,8 @@ let compile_transition_body = Why_compile_step.compile_transition_body
 let compile_state_body = Why_compile_step.compile_state_body
 let compile_transitions = Why_compile_step.compile_transitions
 let compile_runtime_view = Why_compile_step.compile_runtime_view
+
+let module_name_of_node (name : Core_syntax.ident) : string = String.capitalize_ascii name
 
 type env_info = {
   runtime_view : Why_runtime_view.t;
@@ -229,7 +230,7 @@ let logic_getter_decl ~(env : Why_compile_expr.env) (vname : ident) (vty : ty) :
     ]
 
 let logic_bool_pred_decl ~(env : Why_compile_expr.env) ~(input_ports : Why_runtime_view.port_view list)
-    ~(name : string) ~(formula : Fo_formula.t) : Ptree.decl =
+    ~(name : string) ~(formula : Core_syntax.hexpr) : Ptree.decl =
   let env = { env with rec_name = "self" } in
   let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
   let input_params =
@@ -339,8 +340,6 @@ let compile_node_with_info ?kernel_ir
   let post = contracts.post in
   let pre_labels = contracts.pre_labels in
   let post_labels = contracts.post_labels in
-  let pre_origin_labels = contracts.pre_origin_labels in
-  let post_origin_labels = contracts.post_origin_labels in
   let pre_source_states = contracts.pre_source_states in
   let post_source_states = contracts.post_source_states in
   let post_vcids = contracts.post_vcids in
@@ -368,8 +367,6 @@ let compile_node_with_info ?kernel_ir
       |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
   in
   let full_step_body () = compile_runtime_view env runtime_view in
-  let _ = pre_origin_labels in
-  let _ = post_origin_labels in
   let pre = pre in
   let post = post in
   let add_vcid_attr vcid_opt term =
@@ -454,21 +451,14 @@ let compile_node_with_info ?kernel_ir
     let state_guard =
       term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name)))
     in
-    let helper_pre =
-      state_guard
-      :: List.filteri
-          (fun idx term ->
-            let keep_origin =
-              match List.nth_opt pre_origin_labels idx with
-              | Some "Guarantee propagation" when use_product_helper_contracts -> false
-              | _ -> true
-            in
-            keep_origin
-            &&
+        let helper_pre =
+          state_guard
+          :: List.filteri
+              (fun idx term ->
             match List.nth_opt pre_source_states idx with
             | Some (Some tagged_state) -> String.equal tagged_state state_name
             | _ -> keep_for_state ~old_state:false state_name term)
-          pre
+              pre
     in
     let helper_post =
       List.filteri
@@ -614,13 +604,7 @@ let compile_node_with_info ?kernel_ir
   let step_decl =
     let wrapper_pre =
       if not use_product_helper_contracts then pre
-      else
-        List.filteri
-          (fun idx _ ->
-            match List.nth_opt pre_origin_labels idx with
-            | Some "Kernel proof-step entry" -> false
-            | _ -> true)
-          pre
+      else pre
     in
     let spc =
       {
@@ -666,7 +650,8 @@ let compile_node_with_info ?kernel_ir
             Some (List.fold_left (fun acc x -> mk_term (Tbinnop (acc, Dterm.DTand, x))) t rest)
       in
       let is_init_goal = function
-        | Fo_formula.FImp (Fo_formula.FTrue, _) -> true
+        | { hexpr = HBin (Or, { hexpr = HUn (Not, { hexpr = HLitBool true; _ }); _ }, _); _ } ->
+            true
         | _ -> false
       in
       List.mapi
