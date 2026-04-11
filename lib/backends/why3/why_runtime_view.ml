@@ -36,9 +36,9 @@ type port_view = {
 }
 
 type runtime_action_view =
-  | ActionAssign of ident * iexpr
-  | ActionIf of iexpr * runtime_action_view list * runtime_action_view list
-  | ActionMatch of iexpr * (ident * runtime_action_view list) list * runtime_action_view list
+  | ActionAssign of ident * expr
+  | ActionIf of expr * runtime_action_view list * runtime_action_view list
+  | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
 
 type action_block_kind =
@@ -53,7 +53,7 @@ type runtime_transition_view = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
-  guard : iexpr option;
+  guard : expr option;
   requires : Abs.summary_formula list;
   ensures : Abs.summary_formula list;
   body : Ast.stmt list;
@@ -68,7 +68,7 @@ type runtime_product_transition_view = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
-  guard : iexpr option;
+  guard : expr option;
   body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
@@ -111,13 +111,13 @@ type known_value =
 
 let port_of_vdecl (v : vdecl) : port_view = { port_name = v.vname; port_type = v.vty }
 
-let collect_ctor_iexpr (acc : ident list) (e : iexpr) : ident list =
-  let rec go acc (e : iexpr) =
-    match e.iexpr with
-    | IVar _name -> acc
-    | ILitInt _ | ILitBool _ -> acc
-    | IUn (_, inner) -> go acc inner
-    | IArithBin (_, a, b) | IBoolBin (_, a, b) | ICmp (_, a, b) -> go (go acc a) b
+let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
+  let rec go acc (e : expr) =
+    match e.expr with
+    | EVar _name -> acc
+    | ELitInt _ | ELitBool _ -> acc
+    | EUn (_, inner) -> go acc inner
+    | EBin (_, a, b) | ECmp (_, a, b) -> go (go acc a) b
   in
   go acc e
 
@@ -125,7 +125,7 @@ let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
   | HUn (_, inner) -> collect_ctor_hexpr acc inner
-  | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+  | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_ctor_hexpr (collect_ctor_hexpr acc a) b
 
 let collect_ctor_fo (acc : ident list) (f : fo_atom) : ident list =
@@ -135,13 +135,13 @@ let collect_ctor_fo (acc : ident list) (f : fo_atom) : ident list =
 
 let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   match s.stmt with
-  | SAssign (_, e) -> collect_ctor_iexpr acc e
+  | SAssign (_, e) -> collect_ctor_expr acc e
   | SIf (c, tbr, fbr) ->
-      let acc = collect_ctor_iexpr acc c in
+      let acc = collect_ctor_expr acc c in
       let acc = List.fold_left collect_ctor_stmt acc tbr in
       List.fold_left collect_ctor_stmt acc fbr
   | SMatch (e, branches, def) ->
-      let acc = collect_ctor_iexpr acc e in
+      let acc = collect_ctor_expr acc e in
       let acc =
         List.fold_left (fun acc (_, body) -> List.fold_left collect_ctor_stmt acc body) acc branches
       in
@@ -165,15 +165,15 @@ and action_of_stmt (s : Ast.stmt) : runtime_action_view =
   | SSkip -> ActionSkip
   | SCall _ -> failwith "instance calls are not supported"
 
-let literal_known_value (e : iexpr) : known_value option =
-  match e.iexpr with
-  | ILitInt n -> Some (KnownInt n)
-  | ILitBool b -> Some (KnownBool b)
+let literal_known_value (e : expr) : known_value option =
+  match e.expr with
+  | ELitInt n -> Some (KnownInt n)
+  | ELitBool b -> Some (KnownBool b)
   | _ -> None
 
 let known_expr_of_value = function
-  | KnownInt n -> { iexpr = ILitInt n; loc = None }
-  | KnownBool b -> { iexpr = ILitBool b; loc = None }
+  | KnownInt n -> { expr = ELitInt n; loc = None }
+  | KnownBool b -> { expr = ELitBool b; loc = None }
 
 let lookup_known (known : (ident * known_value) list) (x : ident) : known_value option =
   List.assoc_opt x known
@@ -185,79 +185,72 @@ let bind_known (known : (ident * known_value) list) (x : ident) (v : known_value
 let drop_known (known : (ident * known_value) list) (x : ident) : (ident * known_value) list =
   List.remove_assoc x known
 
-let rec simplify_iexpr (known : (ident * known_value) list) (e : iexpr) : iexpr =
-  let mk desc = { e with iexpr = desc } in
-  match e.iexpr with
-  | IVar x -> begin
+let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
+  let mk desc = { e with expr = desc } in
+  match e.expr with
+  | EVar x -> begin
       match lookup_known known x with
       | Some v -> known_expr_of_value v
       | None -> e
     end
-  | ILitInt _ | ILitBool _ -> e
-  | IUn (Not, inner) -> begin
-      match (simplify_iexpr known inner).iexpr with
-      | ILitBool b -> mk (ILitBool (not b))
-      | inner' -> mk (IUn (Not, { e with iexpr = inner' }))
+  | ELitInt _ | ELitBool _ -> e
+  | EUn (Not, inner) -> begin
+      match (simplify_expr known inner).expr with
+      | ELitBool b -> mk (ELitBool (not b))
+      | inner' -> mk (EUn (Not, { e with expr = inner' }))
     end
-  | IUn (Neg, inner) -> begin
-      match (simplify_iexpr known inner).iexpr with
-      | ILitInt n -> mk (ILitInt (-n))
-      | inner' -> mk (IUn (Neg, { e with iexpr = inner' }))
+  | EUn (Neg, inner) -> begin
+      match (simplify_expr known inner).expr with
+      | ELitInt n -> mk (ELitInt (-n))
+      | inner' -> mk (EUn (Neg, { e with expr = inner' }))
     end
-  | IArithBin (op, a, b) ->
-      let a' = simplify_iexpr known a in
-      let b' = simplify_iexpr known b in
+  | EBin (op, a, b) ->
+      let a' = simplify_expr known a in
+      let b' = simplify_expr known b in
       begin
-        match (op, a'.iexpr, b'.iexpr) with
-        | Add, ILitInt x, ILitInt y -> mk (ILitInt (x + y))
-        | Sub, ILitInt x, ILitInt y -> mk (ILitInt (x - y))
-        | Mul, ILitInt x, ILitInt y -> mk (ILitInt (x * y))
-        | Div, ILitInt x, ILitInt y when y <> 0 -> mk (ILitInt (x / y))
-        | _ -> mk (IArithBin (op, a', b'))
+        match (op, a'.expr, b'.expr) with
+        | Add, ELitInt x, ELitInt y -> mk (ELitInt (x + y))
+        | Sub, ELitInt x, ELitInt y -> mk (ELitInt (x - y))
+        | Mul, ELitInt x, ELitInt y -> mk (ELitInt (x * y))
+        | Div, ELitInt x, ELitInt y when y <> 0 -> mk (ELitInt (x / y))
+        | And, ELitBool x, ELitBool y -> mk (ELitBool (x && y))
+        | Or, ELitBool x, ELitBool y -> mk (ELitBool (x || y))
+        | And, ELitBool true, _ -> b'
+        | And, _, ELitBool true -> a'
+        | And, ELitBool false, _ -> mk (ELitBool false)
+        | And, _, ELitBool false -> mk (ELitBool false)
+        | Or, ELitBool false, _ -> b'
+        | Or, _, ELitBool false -> a'
+        | Or, ELitBool true, _ -> mk (ELitBool true)
+        | Or, _, ELitBool true -> mk (ELitBool true)
+        | _ -> mk (EBin (op, a', b'))
       end
-  | IBoolBin (op, a, b) ->
-      let a' = simplify_iexpr known a in
-      let b' = simplify_iexpr known b in
+  | ECmp (op, a, b) ->
+      let a' = simplify_expr known a in
+      let b' = simplify_expr known b in
       begin
-        match (op, a'.iexpr, b'.iexpr) with
-        | And, ILitBool x, ILitBool y -> mk (ILitBool (x && y))
-        | Or, ILitBool x, ILitBool y -> mk (ILitBool (x || y))
-        | And, ILitBool true, _ -> b'
-        | And, _, ILitBool true -> a'
-        | And, ILitBool false, _ -> mk (ILitBool false)
-        | And, _, ILitBool false -> mk (ILitBool false)
-        | Or, ILitBool false, _ -> b'
-        | Or, _, ILitBool false -> a'
-        | Or, ILitBool true, _ -> mk (ILitBool true)
-        | Or, _, ILitBool true -> mk (ILitBool true)
-        | _ -> mk (IBoolBin (op, a', b'))
-      end
-  | ICmp (op, a, b) ->
-      let a' = simplify_iexpr known a in
-      let b' = simplify_iexpr known b in
-      begin
-        match (op, a'.iexpr, b'.iexpr) with
-        | REq, ILitInt x, ILitInt y -> mk (ILitBool (x = y))
-        | REq, ILitBool x, ILitBool y -> mk (ILitBool (x = y))
-        | RNeq, ILitInt x, ILitInt y -> mk (ILitBool (x <> y))
-        | RNeq, ILitBool x, ILitBool y -> mk (ILitBool (x <> y))
-        | RLt, ILitInt x, ILitInt y -> mk (ILitBool (x < y))
-        | RLe, ILitInt x, ILitInt y -> mk (ILitBool (x <= y))
-        | RGt, ILitInt x, ILitInt y -> mk (ILitBool (x > y))
-        | RGe, ILitInt x, ILitInt y -> mk (ILitBool (x >= y))
-        | _ -> mk (ICmp (op, a', b'))
+        match (op, a'.expr, b'.expr) with
+        | REq, ELitInt x, ELitInt y -> mk (ELitBool (x = y))
+        | REq, ELitBool x, ELitBool y -> mk (ELitBool (x = y))
+        | RNeq, ELitInt x, ELitInt y -> mk (ELitBool (x <> y))
+        | RNeq, ELitBool x, ELitBool y -> mk (ELitBool (x <> y))
+        | RLt, ELitInt x, ELitInt y -> mk (ELitBool (x < y))
+        | RLe, ELitInt x, ELitInt y -> mk (ELitBool (x <= y))
+        | RGt, ELitInt x, ELitInt y -> mk (ELitBool (x > y))
+        | RGe, ELitInt x, ELitInt y -> mk (ELitBool (x >= y))
+        | _ -> mk (ECmp (op, a', b'))
       end
 
-let known_from_guard (guard : iexpr option) : (ident * known_value) list =
-  let rec gather acc (e : iexpr) =
-    match e.iexpr with
-    | IBoolBin (And, a, b) -> gather (gather acc a) b
-    | ICmp (REq, ({ iexpr = IVar x; _ } as _a), b) -> begin
+let known_from_guard (guard : expr option) : (ident * known_value) list =
+  let rec gather acc (e : expr) =
+    match e.expr with
+    | EBin (And, a, b) -> gather (gather acc a) b
+    | ECmp (REq, ({ expr = EVar x; _ } as _a), b) -> begin
         match literal_known_value b with
         | Some v -> bind_known acc x v
         | None -> acc
       end
-    | ICmp (REq, a, ({ iexpr = IVar x; _ } as _b)) -> begin
+    | ECmp (REq, a, ({ expr = EVar x; _ } as _b)) -> begin
         match literal_known_value a with
         | Some v -> bind_known acc x v
         | None -> acc
@@ -266,7 +259,7 @@ let known_from_guard (guard : iexpr option) : (ident * known_value) list =
   in
   match guard with None -> [] | Some g -> gather [] g
 
-let known_context_of_transition_guard (guard : iexpr option) : (ident * known_value) list =
+let known_context_of_transition_guard (guard : expr option) : (ident * known_value) list =
   known_from_guard guard
 
 let rec simplify_actions (known : (ident * known_value) list) (actions : runtime_action_view list) :
@@ -283,10 +276,10 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
   match action with
   | ActionSkip -> ([ ActionSkip ], known)
   | ActionAssign (x, e) ->
-      let e' = simplify_iexpr known e in
+      let e' = simplify_expr known e in
       let known' =
-        match e'.iexpr with
-        | IVar y -> begin
+        match e'.expr with
+        | EVar y -> begin
             match lookup_known known y with
             | Some v -> bind_known known x v
             | None -> drop_known known x
@@ -299,18 +292,18 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       in
       ([ ActionAssign (x, e') ], known')
   | ActionIf (cond, then_actions, else_actions) ->
-      let cond' = simplify_iexpr known cond in
+      let cond' = simplify_expr known cond in
       begin
-        match cond'.iexpr with
-        | ILitBool true -> simplify_actions known then_actions
-        | ILitBool false -> simplify_actions known else_actions
+        match cond'.expr with
+        | ELitBool true -> simplify_actions known then_actions
+        | ELitBool false -> simplify_actions known else_actions
         | _ ->
             let then_actions, _ = simplify_actions known then_actions in
             let else_actions, _ = simplify_actions known else_actions in
             ([ ActionIf (cond', then_actions, else_actions) ], known)
       end
   | ActionMatch (scrutinee, branches, default_actions) ->
-      let scrutinee' = simplify_iexpr known scrutinee in
+      let scrutinee' = simplify_expr known scrutinee in
       let branches =
         List.map
           (fun (ctor, body) ->
@@ -358,7 +351,7 @@ let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_vi
     {
       Ast.src = t.src_state;
       dst = t.dst_state;
-      guard = t.guard_iexpr;
+      guard = t.guard_expr;
       body = t.body_stmts;
     }
 
@@ -473,7 +466,7 @@ let of_ir_node (node : Ir.node_ir) : t =
                   transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
                   src_state = t.src_state;
                   dst_state = t.dst_state;
-                  guard = t.guard_iexpr;
+                  guard = t.guard_expr;
                   body = t.body_stmts;
                   step_class = StepSafe;
                   product_src = pc.identity.product_src;
@@ -492,7 +485,7 @@ let of_ir_node (node : Ir.node_ir) : t =
                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
                    src_state = t.src_state;
                    dst_state = t.dst_state;
-                   guard = t.guard_iexpr;
+                   guard = t.guard_expr;
                    body = t.body_stmts;
                    step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;

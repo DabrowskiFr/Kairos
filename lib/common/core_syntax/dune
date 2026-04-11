@@ -2,7 +2,7 @@
  (name kairos_core_syntax)
  (public_name kairos.core_syntax)
  (wrapped false)
- (modules core_syntax)
+ (modules loc core_syntax core_syntax_builders)
  (libraries yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

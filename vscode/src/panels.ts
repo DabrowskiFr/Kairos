@@ -34,17 +34,13 @@ export interface PanelHost {
   openDashboardPanel(): Promise<void>;
   openExplainFailurePanel(trace?: ProofTrace | null): Promise<void>;
   rerunFocusedDiagnosis(trace: ProofTrace): Promise<void>;
-  openEvalPanel(): Promise<void>;
   openPipelinePanel(): Promise<void>;
   openComparePanel(): Promise<void>;
-  runEval(traceText: string, withState: boolean, withLocals: boolean): Promise<string>;
   openWhyForGoal(goal: GoalTreeEntry): Promise<void>;
   openSourceLocation(loc: Loc | null): Promise<void>;
   openDumpPath(path: string | null): Promise<void>;
   diffCurrentObcWithPrevious(): Promise<void>;
   showRunHistory(): Promise<void>;
-  openTraceFile(): Promise<string | null>;
-  saveTraceFile(contents: string): Promise<string | null>;
   exportHtmlReport(): Promise<void>;
 }
 
@@ -339,134 +335,6 @@ ${panes}
 </script>
 </body>
 </html>`;
-  }
-}
-
-export class EvalPanel {
-  private panel: vscode.WebviewPanel | null = null;
-  private host: PanelHost | null = null;
-
-  constructor(private readonly state: KairosState) {
-    this.state.onDidChange(() => this.render());
-  }
-
-  setHost(host: PanelHost): void {
-    this.host = host;
-  }
-
-  async show(): Promise<void> {
-    const column = preferredViewColumn();
-    if (!this.panel) {
-      this.panel = vscode.window.createWebviewPanel("kairosEval", "Kairos Eval", column, {
-        enableScripts: true,
-        retainContextWhenHidden: true
-      });
-      this.panel.onDidDispose(() => {
-        this.panel = null;
-      });
-      this.panel.webview.onDidReceiveMessage(async (message) => {
-        if (message?.type === "runEval") {
-          const result = await this.host?.runEval(message.traceText, !!message.withState, !!message.withLocals);
-          await this.panel?.webview.postMessage({ type: "evalResult", result });
-        } else if (message?.type === "openTraceFile") {
-          const contents = await this.host?.openTraceFile();
-          await this.panel?.webview.postMessage({ type: "traceOpened", contents });
-        } else if (message?.type === "saveTraceFile") {
-          const path = await this.host?.saveTraceFile(message.traceText ?? "");
-          await this.panel?.webview.postMessage({ type: "traceSaved", path });
-        }
-      });
-    }
-    this.panel.reveal(column);
-    this.render();
-  }
-
-  private render(): void {
-    if (!this.panel) {
-      return;
-    }
-    const scriptNonce = nonce();
-    const latest = this.state.evalHistory[0];
-    const examples = [
-      "# one step per line\\nx=1, y=0",
-      "reset=1, x=0\\nreset=0, x=5\\nreset=0, x=7",
-      '{"x": 1, "reset": 0}\\n{"x": 2, "reset": 0}'
-    ];
-    this.panel.webview.html = `<!DOCTYPE html>
-<html lang="en"><head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}';">
-  <style>
-    :root { color-scheme: light; --bg: var(--vscode-editor-background, #fbfbf9); --fg: var(--vscode-editor-foreground, #202020); --border: var(--vscode-panel-border, #d9d9d9); --accent: var(--vscode-focusBorder, #0f6cbd); }
-    body { margin: 0; font-family: var(--vscode-font-family); background: var(--bg); color: var(--fg); }
-    .shell { display: grid; grid-template-rows: auto 1fr 1fr; height: 100vh; }
-    .toolbar { display: flex; gap: 8px; align-items: center; padding: 12px; border-bottom: 1px solid var(--border); }
-    textarea, pre { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid var(--border); padding: 12px; font: 12px/1.5 var(--vscode-editor-font-family, monospace); }
-    textarea { min-height: 100%; resize: none; }
-    .grid { padding: 12px; min-height: 0; }
-    button, select { font: inherit; }
-    button { border: 1px solid var(--border); border-radius: 8px; background: white; padding: 6px 10px; cursor: pointer; }
-    button.primary { background: var(--accent); color: white; border-color: var(--accent); }
-  </style>
-</head>
-<body>
-  <div class="shell">
-    <div class="toolbar">
-      <button class="primary" id="run">Run Eval</button>
-      <button id="open">Open Trace</button>
-      <button id="save">Save Trace</button>
-      <label><input type="checkbox" id="withState" ${latest?.withState ? "checked" : ""}> with_state</label>
-      <label><input type="checkbox" id="withLocals" ${latest?.withLocals ? "checked" : ""}> with_locals</label>
-      <select id="examples">
-        <option value="">Examples</option>
-        ${examples.map((_, idx) => `<option value="${idx}">Example ${idx + 1}</option>`).join("")}
-      </select>
-      <span>${escapeHtml(this.state.activeFile ?? "No active file")}</span>
-    </div>
-    <div class="grid">
-      <textarea id="trace">${escapeHtml(latest?.traceText ?? "# one step per line: x=1, y=0")}</textarea>
-    </div>
-    <div class="grid">
-      <pre id="result">${escapeHtml(this.state.outputs?.eval_text ?? "Eval results will appear here.")}</pre>
-    </div>
-  </div>
-  <script nonce="${scriptNonce}">
-    const vscode = acquireVsCodeApi();
-    const examples = ${JSON.stringify(examples)};
-    document.getElementById("run").addEventListener("click", () => {
-      vscode.postMessage({
-        type: "runEval",
-        traceText: document.getElementById("trace").value,
-        withState: document.getElementById("withState").checked,
-        withLocals: document.getElementById("withLocals").checked
-      });
-    });
-    document.getElementById("examples").addEventListener("change", (event) => {
-      const value = event.target.value;
-      if (value !== "") {
-        document.getElementById("trace").value = examples[Number(value)];
-      }
-    });
-    document.getElementById("open").addEventListener("click", () => {
-      vscode.postMessage({ type: "openTraceFile" });
-    });
-    document.getElementById("save").addEventListener("click", () => {
-      vscode.postMessage({ type: "saveTraceFile", traceText: document.getElementById("trace").value });
-    });
-    window.addEventListener("message", (event) => {
-      if (event.data?.type === "evalResult") {
-        document.getElementById("result").textContent = event.data.result || "";
-      } else if (event.data?.type === "traceOpened" && typeof event.data.contents === "string") {
-        document.getElementById("trace").value = event.data.contents;
-      }
-    });
-    window.addEventListener("message", (event) => {
-      if (event.data?.type === "traceSaved" && event.data.path) {
-        document.getElementById("result").textContent = "Trace saved to " + event.data.path;
-      }
-    });
-  </script>
-</body></html>`;
   }
 }
 
@@ -949,8 +817,7 @@ export class ArtifactsPanel {
       guarantee: this.state.outputs?.guarantee_automaton_text ?? this.state.automata?.guarantee_automaton_text ?? "",
       product: this.state.outputs?.product_text ?? this.state.automata?.product_text ?? "",
       obligations_map: this.state.outputs?.obligations_map_text ?? this.state.automata?.obligations_map_text ?? "",
-      prune_reasons: this.state.outputs?.prune_reasons_text ?? this.state.automata?.prune_reasons_text ?? "",
-      eval: this.state.outputs?.eval_text ?? ""
+      prune_reasons: this.state.outputs?.prune_reasons_text ?? this.state.automata?.prune_reasons_text ?? ""
     };
     const scriptNonce = nonce();
     this.panel.webview.html = `<!DOCTYPE html>

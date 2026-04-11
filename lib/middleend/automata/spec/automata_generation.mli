@@ -47,7 +47,7 @@ type node_builds = (ident * automata_build) list
 
 val build_guarantee_automaton :
   atom_map:(fo_atom * ident) list ->
-  atom_named_exprs:(ident * iexpr) list ->
+  atom_named_exprs:(ident * expr) list ->
   atom_names:ident list ->
   ltl ->
   automata_automaton

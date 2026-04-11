@@ -24,7 +24,7 @@
 
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 open Generated_names
 open Temporal_support
 open Logic_pretty
@@ -292,7 +292,7 @@ let render_program_lines ~(node_name : ident) (node : Ast.node) =
            let guard =
              match t.guard with
              | None -> "⊤"
-             | Some g -> g |> iexpr_to_fo_with_atoms [] |> pretty_plain_dot_formula
+             | Some g -> g |> expr_to_fo_with_atoms [] |> pretty_plain_dot_formula
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
   in
@@ -720,7 +720,7 @@ let prepare_program_graph (node : Ast.node) =
       |> List.map (fun (t : Ast.transition) ->
            let guard = match t.guard with
              | None -> "⊤"
-             | Some g -> g |> iexpr_to_fo_with_atoms [] |> pretty_plain_dot_formula
+             | Some g -> g |> expr_to_fo_with_atoms [] |> pretty_plain_dot_formula
            in
            { edge_src = Printf.sprintf "p_%s" (escape_dot_label t.src);
              edge_dst = Printf.sprintf "p_%s" (escape_dot_label t.dst);

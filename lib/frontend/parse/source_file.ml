@@ -18,7 +18,7 @@
 
 type import_decl = {
   import_path : string;
-  import_loc : Core_syntax.loc option;
+  import_loc : Loc.loc option;
 }
 
 type t = {

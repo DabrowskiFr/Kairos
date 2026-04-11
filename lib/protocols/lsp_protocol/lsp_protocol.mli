@@ -236,14 +236,6 @@ type obligations_pass_request = {
   engine : string;
 }
 
-type eval_pass_request = {
-  input_file : string;
-  trace_text : string;
-  with_state : bool;
-  with_locals : bool;
-  engine : string;
-}
-
 type kobj_summary_request = {
   input_file : string;
   engine : string;
@@ -341,9 +333,6 @@ val why_pass_request_of_yojson : Yojson.Safe.t -> (why_pass_request, string) res
 
 val yojson_of_obligations_pass_request : obligations_pass_request -> Yojson.Safe.t
 val obligations_pass_request_of_yojson : Yojson.Safe.t -> (obligations_pass_request, string) result
-
-val yojson_of_eval_pass_request : eval_pass_request -> Yojson.Safe.t
-val eval_pass_request_of_yojson : Yojson.Safe.t -> (eval_pass_request, string) result
 
 val yojson_of_kobj_summary_request : kobj_summary_request -> Yojson.Safe.t
 val kobj_summary_request_of_yojson : Yojson.Safe.t -> (kobj_summary_request, string) result

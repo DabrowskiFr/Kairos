@@ -24,7 +24,7 @@ let formula_meta_to_yojson (m : Ir.formula_meta) : Yojson.Safe.t =
     [
       ("origin", option_to_yojson Formula_origin.to_yojson m.origin);
       ("oid", `Int m.oid);
-      ("loc", option_to_yojson Core_syntax.loc_to_yojson m.loc);
+      ("loc", option_to_yojson Loc.loc_to_yojson m.loc);
     ]
 
 let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) result =
@@ -36,7 +36,7 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) re
       let* oid_json = Option.to_result ~none:"formula_meta: missing field 'oid'" (find "oid") in
       let* loc_json = Option.to_result ~none:"formula_meta: missing field 'loc'" (find "loc") in
       let* origin = option_of_yojson Formula_origin.of_yojson origin_json in
-      let* loc = option_of_yojson Core_syntax.loc_of_yojson loc_json in
+      let* loc = option_of_yojson Loc.loc_of_yojson loc_json in
       let oid =
         match oid_json with
         | `Int n -> Ok n

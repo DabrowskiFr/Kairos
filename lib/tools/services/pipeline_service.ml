@@ -59,9 +59,6 @@ let ir_pretty_dump ~input_file =
 
 let compile_object = Pipeline_build.compile_object
 
-let eval_pass ~input_file ~trace_text ~with_state ~with_locals =
-  Simulation_eval.eval_pass ~input_file ~trace_text ~with_state ~with_locals
-
 let run =
   Compile_run.run ~build_ast_with_info:Pipeline_build.build_ast_with_info
     ~build_outputs:Pipeline_outputs.build_outputs

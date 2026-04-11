@@ -40,7 +40,7 @@ type product_state = {
 type transition = {
   src_state : ident;
   dst_state : ident;
-  guard_iexpr : iexpr option;
+  guard_expr : expr option;
   body_stmts : stmt list;
 }
 

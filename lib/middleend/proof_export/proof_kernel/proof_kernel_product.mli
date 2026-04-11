@@ -32,8 +32,8 @@ val build_automaton :
   labels:string list ->
   bad_idx:int ->
   grouped_edges:PT.automaton_edge list ->
-  atom_map_exprs:(ident * iexpr) list ->
-  automaton_guard_fo:((ident * iexpr) list -> Automaton_types.guard -> Fo_formula.t) ->
+  atom_map_exprs:(ident * expr) list ->
+  automaton_guard_fo:((ident * expr) list -> Automaton_types.guard -> Fo_formula.t) ->
   Proof_kernel_types.safety_automaton_ir
 
 val is_feasible_product_step :
@@ -53,7 +53,7 @@ val synthesize_fallback_product_steps :
   analysis:Temporal_automata.node_data ->
   reactive_program:Proof_kernel_types.reactive_program_ir ->
   live_states:PT.product_state list ->
-  automaton_guard_fo:((ident * iexpr) list -> Automaton_types.guard -> Fo_formula.t) ->
+  automaton_guard_fo:((ident * expr) list -> Automaton_types.guard -> Fo_formula.t) ->
   product_state_of_pt:(PT.product_state -> Proof_kernel_types.product_state_ir) ->
   product_step_kind_of_pt:(PT.step_class -> Proof_kernel_types.product_step_kind) ->
   is_live_state:(analysis:Temporal_automata.node_data -> PT.product_state -> bool) ->

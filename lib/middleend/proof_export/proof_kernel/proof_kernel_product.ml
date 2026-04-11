@@ -29,7 +29,7 @@ open Proof_kernel_types
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
 
 let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
     ~(program_transitions : Abs.transition list) : reactive_program_ir =
@@ -41,10 +41,10 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
           src_state = t.src_state;
           dst_state = t.dst_state;
           guard =
-            (match t.guard_iexpr with
+            (match t.guard_expr with
             | None -> FTrue
-            | Some g -> fo_of_iexpr g |> simplify_fo);
-          guard_iexpr = t.guard_iexpr;
+            | Some g -> fo_of_expr g |> simplify_fo);
+          guard_expr = t.guard_expr;
           requires = [];
           ensures = [];
           body_stmts = t.body_stmts;
@@ -59,7 +59,7 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
   }
 
 let build_automaton ~(role : automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * iexpr) list)
+    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * expr) list)
     ~automaton_guard_fo : safety_automaton_ir =
   let edges =
     List.map
@@ -226,10 +226,10 @@ let clone_constraint_env env =
     forbids_of_root = copy_tbl env.forbids_of_root;
   }
 
-let current_const_of_iexpr (e : iexpr) : current_const option =
-  match e.iexpr with
-  | ILitInt n -> Some (CInt n)
-  | ILitBool b -> Some (CBool b)
+let current_const_of_expr (e : expr) : current_const option =
+  match e.expr with
+  | ELitInt n -> Some (CInt n)
+  | ELitBool b -> Some (CBool b)
   | _ -> None
 
 let current_var_of_hexpr = function
@@ -351,9 +351,9 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
   program_transitions
   |> List.concat_map (fun (t : Abs.transition) ->
          let program_guard =
-           match t.guard_iexpr with
+           match t.guard_expr with
            | None -> FTrue
-           | Some g -> simplify_fo (fo_of_iexpr g)
+           | Some g -> simplify_fo (fo_of_expr g)
          in
          live_states
          |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.src_state)

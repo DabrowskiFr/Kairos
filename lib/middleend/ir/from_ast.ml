@@ -29,7 +29,7 @@ let rec fo_mentions_current_input ~(is_input : ident -> bool) (f : Fo_formula.t)
     | HPreK _ | HLitInt _ | HLitBool _ -> false
     | HVar name -> is_input name
     | HUn (_, inner) -> hexpr_uses_input inner
-    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+    | HBin (_, a, b) | HCmp (_, a, b) ->
         hexpr_uses_input a || hexpr_uses_input b
   in
   match f with
@@ -245,9 +245,9 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         dst;
                         prog_transition;
                         prog_guard =
-                          (match prog_transition.guard_iexpr with
+                          (match prog_transition.guard_expr with
                           | None -> Fo_formula.FTrue
-                          | Some g -> Fo_specs.iexpr_to_fo_with_atoms [] g |> simplify_fo);
+                          | Some g -> Fo_specs.expr_to_fo_with_atoms [] g |> simplify_fo);
                         assume_edge;
                         assume_guard = simplify_fo assume_guard_raw;
                         guarantee_edge;
@@ -308,7 +308,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         {
                           src_state = repr_step.prog_transition.src_state;
                           dst_state = repr_step.prog_transition.dst_state;
-                          guard_iexpr = repr_step.prog_transition.guard_iexpr;
+                          guard_expr = repr_step.prog_transition.guard_expr;
                           body_stmts = repr_step.prog_transition.body_stmts;
                         };
                       product_src = product_state_of_pt repr_step.src;

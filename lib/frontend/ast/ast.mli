@@ -29,15 +29,15 @@ type invariant_state_rel = {
 (** {1 Statements & Invariants} *)
 
 (** Executable statements. *)
-type stmt = { stmt : stmt_desc; loc : Core_syntax.loc option }
+type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 [@@deriving yojson]
 
 and stmt_desc =
-  | SAssign of Core_syntax.ident * Core_syntax.iexpr
-  | SIf of Core_syntax.iexpr * stmt list * stmt list
-  | SMatch of Core_syntax.iexpr * (Core_syntax.ident * stmt list) list * stmt list
+  | SAssign of Core_syntax.ident * Core_syntax.expr
+  | SIf of Core_syntax.expr * stmt list * stmt list
+  | SMatch of Core_syntax.expr * (Core_syntax.ident * stmt list) list * stmt list
   | SSkip
-  | SCall of Core_syntax.ident * Core_syntax.iexpr list * Core_syntax.ident list
+  | SCall of Core_syntax.ident * Core_syntax.expr list * Core_syntax.ident list
 [@@deriving yojson]
 
 (** {1 Per-pass Metadata}
@@ -51,7 +51,7 @@ and stmt_desc =
 type transition = {
   src : Core_syntax.ident;
   dst : Core_syntax.ident;
-  guard : Core_syntax.iexpr option;
+  guard : Core_syntax.expr option;
   body : stmt list;
 }
 

@@ -277,15 +277,6 @@ type obligations_pass_request = {
 }
 [@@deriving yojson]
 
-type eval_pass_request = {
-  input_file : string [@key "inputFile"];
-  trace_text : string [@key "traceText"];
-  with_state : bool [@key "withState"];
-  with_locals : bool [@key "withLocals"];
-  engine : string;
-}
-[@@deriving yojson]
-
 type kobj_summary_request = {
   input_file : string [@key "inputFile"];
   engine : string;
@@ -430,9 +421,6 @@ let why_pass_request_of_yojson = why_pass_request_of_yojson
 
 let yojson_of_obligations_pass_request = obligations_pass_request_to_yojson
 let obligations_pass_request_of_yojson = obligations_pass_request_of_yojson
-
-let yojson_of_eval_pass_request = eval_pass_request_to_yojson
-let eval_pass_request_of_yojson = eval_pass_request_of_yojson
 
 let yojson_of_kobj_summary_request = kobj_summary_request_to_yojson
 let kobj_summary_request_of_yojson = kobj_summary_request_of_yojson

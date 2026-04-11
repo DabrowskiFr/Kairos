@@ -18,14 +18,12 @@
     "onCommand:kairos.build",
     "onCommand:kairos.prove",
     "onCommand:kairos.instrumentation",
-    "onCommand:kairos.eval",
     "onCommand:kairos.cancelRun",
     "onCommand:kairos.resetState",
     "onCommand:kairos.automataPanel",
     "onCommand:kairos.dashboardPanel",
     "onCommand:kairos.explainFailure",
     "onCommand:kairos.artifactsPanel",
-    "onCommand:kairos.evalPanel",
     "onCommand:kairos.pipelinePanel",
     "onCommand:kairos.compareAutomata",
     "onCommand:kairos.irPanel",
@@ -84,10 +82,6 @@
         "title": "Kairos: Automata (Instrumentation Pass)"
       },
       {
-        "command": "kairos.eval",
-        "title": "Kairos: Eval Trace"
-      },
-      {
         "command": "kairos.cancelRun",
         "title": "Kairos: Cancel Run"
       },
@@ -110,10 +104,6 @@
       {
         "command": "kairos.artifactsPanel",
         "title": "Kairos: Open Artifacts Workspace"
-      },
-      {
-        "command": "kairos.evalPanel",
-        "title": "Kairos: Open Eval Playground"
       },
       {
         "command": "kairos.pipelinePanel",
@@ -240,11 +230,6 @@
     "menus": {
       "editor/context": [
         {
-          "command": "kairos.evalPanel",
-          "when": "resourceLangId == kairos",
-          "group": "navigation"
-        },
-        {
           "command": "kairos.artifactsPanel",
           "when": "resourceLangId == kairos",
           "group": "navigation"
@@ -273,12 +258,6 @@
         "command": "kairos.prove",
         "key": "ctrl+alt+p",
         "mac": "cmd+alt+p",
-        "when": "editorTextFocus && resourceLangId == kairos"
-      },
-      {
-        "command": "kairos.evalPanel",
-        "key": "ctrl+alt+e",
-        "mac": "cmd+alt+e",
         "when": "editorTextFocus && resourceLangId == kairos"
       },
       {

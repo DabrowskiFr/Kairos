@@ -217,11 +217,11 @@ let string_of_vdecl (v : vdecl) =
 
 let rec string_of_stmt (s : Ast.stmt) =
   match s.stmt with
-  | Ast.SAssign (id, e) -> id ^ " := " ^ Logic_pretty.string_of_iexpr e
+  | Ast.SAssign (id, e) -> id ^ " := " ^ Logic_pretty.string_of_expr e
   | Ast.SSkip -> "skip"
   | Ast.SCall _ -> failwith "calls are not supported outside parser/AST"
-  | Ast.SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then ..."
-  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Logic_pretty.string_of_iexpr e ^ " with ..."
+  | Ast.SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_expr c ^ " then ..."
+  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Logic_pretty.string_of_expr e ^ " with ..."
 
 let string_of_clause_origin = function
   | Proof_kernel_types.OriginSourceProductSummary -> "SourceProductSummary"
@@ -291,9 +291,9 @@ let string_of_anchor = function
 
 let render_transition_summary indent_level (t : Proof_kernel_types.reactive_transition_ir) =
   let guard =
-    match t.guard_iexpr with
+    match t.guard_expr with
     | None -> "true"
-    | Some g -> Logic_pretty.string_of_iexpr g
+    | Some g -> Logic_pretty.string_of_expr g
   in
   let render_fo_os label fs =
     match fs with
@@ -562,9 +562,9 @@ let render_product_summaries (obj : t) : string =
   in
   let render_code indent_level (transition : Proof_kernel_types.reactive_transition_ir) =
     let guard =
-      match transition.guard_iexpr with
+      match transition.guard_expr with
       | None -> "true"
-      | Some g -> Logic_pretty.string_of_iexpr g
+      | Some g -> Logic_pretty.string_of_expr g
     in
     let body_lines =
       match transition.body_stmts with

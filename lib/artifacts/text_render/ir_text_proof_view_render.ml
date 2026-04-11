@@ -49,13 +49,13 @@ let render_ident_list (ids : ident list) : string =
 
 let render_stmt (s : Ast.stmt) : string =
   match s.stmt with
-  | SAssign (v, e) -> v ^ " := " ^ Logic_pretty.string_of_iexpr e
-  | SIf (c, _t, []) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... }"
-  | SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_iexpr c ^ " then { ... } else { ... }"
+  | SAssign (v, e) -> v ^ " := " ^ Logic_pretty.string_of_expr e
+  | SIf (c, _t, []) -> "if " ^ Logic_pretty.string_of_expr c ^ " then { ... }"
+  | SIf (c, _t, _e) -> "if " ^ Logic_pretty.string_of_expr c ^ " then { ... } else { ... }"
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->
-      "match " ^ Logic_pretty.string_of_iexpr e ^ " { ... }"
+      "match " ^ Logic_pretty.string_of_expr e ^ " { ... }"
 
 let render_ltl_list (fs : ltl list) : string =
   match fs with
@@ -64,7 +64,7 @@ let render_ltl_list (fs : ltl list) : string =
 
 let render_loc_opt = function
   | None -> "None"
-  | Some (l : loc) -> Printf.sprintf "Some(%d:%d-%d:%d)" l.line l.col l.line_end l.col_end
+  | Some (l : Loc.loc) -> Printf.sprintf "Some(%d:%d-%d:%d)" l.line l.col l.line_end l.col_end
 
 let render_origin_opt = function
   | None -> "None"
@@ -81,9 +81,9 @@ let render_vdecls_short (ds : vdecl list) : string =
 let render_idents_short (xs : ident list) : string =
   "[" ^ String.concat ", " xs ^ "]"
 
-let render_iexpr_opt = function
+let render_expr_opt = function
   | None -> "true"
-  | Some e -> Logic_pretty.string_of_iexpr e
+  | Some e -> Logic_pretty.string_of_expr e
 
 let render_product_state (s : Ir.product_state) : string =
   Printf.sprintf "(%s,R%d,E%d)" s.prog_state s.assume_state_index s.guarantee_state_index
@@ -166,7 +166,7 @@ let render_formula_pool (buf : Buffer.t) (program : Ir.program_ir) =
 let render_transition_full (buf : Buffer.t) (idx : int) (t : Ir.transition) =
   line ~indent:1 buf
     (Printf.sprintf "t%d: %s -> %s when %s" idx t.src_state t.dst_state
-       (render_iexpr_opt t.guard_iexpr));
+       (render_expr_opt t.guard_expr));
   let body = "[" ^ String.concat "; " (List.map render_stmt t.body_stmts) ^ "]" in
   line ~indent:2 buf ("body=" ^ body)
 

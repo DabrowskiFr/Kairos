@@ -99,7 +99,7 @@ let client_supports_work_done_progress (params : Yojson.Safe.t) : bool =
       | _ -> false)
   | None -> false
 
-let loc_of_ast (l : loc) : Lsp_protocol.loc =
+let loc_of_ast (l : Loc.loc) : Lsp_protocol.loc =
   { line = l.line; col = l.col; line_end = l.line_end; col_end = l.col_end }
 
 let text_span_of_pipeline (span : Pipeline_types.text_span) : Lsp_protocol.text_span =

@@ -12,7 +12,6 @@ import {
   ComparePanel,
   DashboardPanel,
   ExplainFailurePanel,
-  EvalPanel,
   IrPanel,
   IrNodeGraphs,
   PanelHost,
@@ -204,7 +203,6 @@ function defaultSessionSnapshot(): SessionSnapshot {
     activeFile: null,
     currentArtifact: "obc",
     runHistory: [],
-    evalHistory: [],
     openPanels: []
   };
 }
@@ -273,7 +271,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   state.activeFile = session.activeFile;
   state.currentArtifact = session.currentArtifact;
   state.runHistory = session.runHistory;
-  state.evalHistory = session.evalHistory;
   const docProvider = new KairosDocProvider(state);
   const outlineProvider = new OutlineProvider(state);
   const goalsProvider = new GoalsProvider(state);
@@ -286,7 +283,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     statusBar.tooltip = state.activeFile ?? "No active file";
     if (state.runPhase === "failed") {
       statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.errorBackground");
-    } else if (state.runPhase === "proving" || state.runPhase === "building" || state.runPhase === "eval") {
+    } else if (state.runPhase === "proving" || state.runPhase === "building") {
       statusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
     } else {
       statusBar.backgroundColor = undefined;
@@ -311,7 +308,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   const automataPanel = new AutomataPanel(state);
-  const evalPanel = new EvalPanel(state);
   const dashboardPanel = new DashboardPanel(state);
   const explainFailurePanel = new ExplainFailurePanel(state);
   const artifactsPanel = new ArtifactsPanel(state);
@@ -379,7 +375,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       activeFile: state.activeFile,
       currentArtifact: state.currentArtifact,
       runHistory: state.runHistory,
-      evalHistory: state.evalHistory,
       openPanels: [...openPanels]
     } satisfies SessionSnapshot);
   };
@@ -612,29 +607,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       GraphId,
       { svg: string; pngSrc: string; renderError?: string }
     >;
-  }
-
-  async function openTraceFile(): Promise<string | null> {
-    const selection = await vscode.window.showOpenDialog({
-      canSelectMany: false,
-      filters: { Trace: ["txt", "trace", "jsonl", "csv"] }
-    });
-    if (!selection?.[0]) {
-      return null;
-    }
-    const bytes = await vscode.workspace.fs.readFile(selection[0]);
-    return Buffer.from(bytes).toString("utf8");
-  }
-
-  async function saveTraceFile(contents: string): Promise<string | null> {
-    const target = await vscode.window.showSaveDialog({
-      filters: { Trace: ["txt", "trace", "jsonl", "csv"] }
-    });
-    if (!target) {
-      return null;
-    }
-    await vscode.workspace.fs.writeFile(target, Buffer.from(contents, "utf8"));
-    return target.fsPath;
   }
 
   function renderHtmlReport(): string {
@@ -870,11 +842,6 @@ ${rows
     await artifactsPanel.show();
   }
 
-  async function showEvalPanel(): Promise<void> {
-    openPanels.add("eval");
-    await evalPanel.show();
-  }
-
   const panelHost: PanelHost = {
     openArtifact: async (kind) => {
       if (kind === "program" || kind === "assume" || kind === "guarantee" || kind === "product") {
@@ -894,21 +861,16 @@ ${rows
         state.outputs?.proof_traces.find((item) => item.goal_index === trace.goal_index) ?? trace;
       await showExplainFailurePanel(refreshed);
     },
-    openEvalPanel: showEvalPanel,
     openPipelinePanel,
     openComparePanel,
-    runEval: async (traceText, withState, withLocals) => runEval(traceText, withState, withLocals),
     openWhyForGoal,
     openSourceLocation,
     openDumpPath,
     diffCurrentObcWithPrevious,
     showRunHistory: async () => showRunHistory(),
-    openTraceFile,
-    saveTraceFile,
     exportHtmlReport
   };
   automataPanel.setHost(panelHost);
-  evalPanel.setHost(panelHost);
   dashboardPanel.setHost(panelHost);
   explainFailurePanel.setHost(panelHost);
   artifactsPanel.setHost(panelHost);
@@ -1063,45 +1025,6 @@ ${rows
     }
   }
 
-  async function runEval(traceText: string, withState: boolean, withLocals: boolean): Promise<string> {
-    if (!client) {
-      return "LSP client is not available.";
-    }
-    const context = await resolveKairosContext();
-    if (!context) {
-      return "No Kairos file is active.";
-    }
-    const settings = getRunSettings();
-    const inputFile = context.inputFile;
-    state.activeFile = inputFile;
-    const runId = state.beginRun("eval", inputFile, "eval", "Eval run");
-    state.setPhase("eval", "Eval running", "eval");
-    try {
-      await ensureClientReady();
-      const result = (await client.sendRequest(
-        "kairos/evalPass",
-        {
-          inputFile,
-          traceText,
-          withState,
-          withLocals,
-          engine: settings.engine
-        }
-      )) as string;
-      state.setOutputs({ ...(state.outputs ?? ({} as Outputs)), eval_text: result } as Outputs);
-      state.addEvalHistory({ traceText, withState, withLocals, createdAt: new Date().toISOString(), file: inputFile });
-      state.setPhase("completed", "Eval completed", "eval");
-      state.finishRun(runId, true, "completed", "Eval completed");
-      docProvider.refresh("eval");
-      return result;
-    } catch (error) {
-      const message = String(error);
-      state.setPhase("failed", message, "eval");
-      state.finishRun(runId, false, "failed", message);
-      return `Eval failed: ${message}`;
-    }
-  }
-
   async function cancelRun(): Promise<void> {
     if (!activeRunCancellation) {
       vscode.window.showInformationMessage("No active Kairos run to cancel.");
@@ -1212,13 +1135,11 @@ ${rows
     vscode.commands.registerCommand("kairos.dashboardPanel", showDashboardPanel),
     vscode.commands.registerCommand("kairos.explainFailure", async (trace?: ProofTrace | null) => showExplainFailurePanel(trace)),
     vscode.commands.registerCommand("kairos.artifactsPanel", showArtifactsPanel),
-    vscode.commands.registerCommand("kairos.evalPanel", showEvalPanel),
     vscode.commands.registerCommand("kairos.pipelinePanel", openPipelinePanel),
     vscode.commands.registerCommand("kairos.compareAutomata", openComparePanel),
     vscode.commands.registerCommand("kairos.irPanel", showIrPanel),
     vscode.commands.registerCommand("kairos.exportHtmlReport", exportHtmlReport),
     vscode.commands.registerCommand("kairos.openRecentFile", openRecentFile),
-    vscode.commands.registerCommand("kairos.eval", showEvalPanel),
     vscode.commands.registerCommand("kairos.diffObc", diffCurrentObcWithPrevious),
     vscode.commands.registerCommand("kairos.showRunHistory", showRunHistory),
     vscode.commands.registerCommand("kairos.openTraceLogs", async () => {
@@ -1256,8 +1177,6 @@ ${rows
         await explainFailurePanel.show(state.activeProofTrace);
       } else if (panelId === "artifacts") {
         await artifactsPanel.show();
-      } else if (panelId === "eval") {
-        await evalPanel.show();
       } else if (panelId === "pipeline") {
         await pipelinePanel.show();
       } else if (panelId === "compare") {

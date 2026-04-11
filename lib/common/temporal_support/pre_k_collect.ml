@@ -19,7 +19,7 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 open Temporal_support
 
 let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
@@ -29,7 +29,7 @@ let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
   | HUn (_, inner) -> collect_hexpr inner acc
-  | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+  | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_hexpr b (collect_hexpr a acc)
 
 let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =

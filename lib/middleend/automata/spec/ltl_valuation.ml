@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
-open Ast_builders
+open Core_syntax_builders
 
 let valuation_label (vals : (string * bool) list) : string =
   vals |> List.map (fun (n, b) -> n ^ "=" ^ if b then "1" else "0") |> String.concat ","
@@ -157,36 +157,36 @@ let valuations_to_formula (atom_names : string list) (vals_list : (string * bool
         let parts = List.map term_to_string implicants in
         match parts with [] -> "false" | [ p ] -> p | _ -> String.concat " || " parts)
 
-let term_to_iexpr (term : term) : Core_syntax.iexpr =
+let term_to_expr (term : term) : Core_syntax.expr =
   let parts =
     List.filter_map
       (fun (name, v) ->
         match v with
         | None -> None
         | Some true -> Some (mk_var name)
-        | Some false -> Some (mk_iexpr (IUn (Not, mk_var name))))
+        | Some false -> Some (mk_expr (EUn (Not, mk_var name))))
       term
   in
   match parts with
   | [] -> mk_bool true
   | [ p ] -> p
-  | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBoolBin (And, acc, x))) p rest
+  | p :: rest -> List.fold_left (fun acc x -> mk_expr (EBin (And, acc, x))) p rest
 
-let terms_to_iexpr (terms : term list) : Core_syntax.iexpr =
+let terms_to_expr (terms : term list) : Core_syntax.expr =
   match terms with
   | [] -> mk_bool false
   | _ -> (
       if List.exists (fun t -> List.for_all (fun (_, v) -> v = None) t) terms then mk_bool true
       else
-        let parts = List.map term_to_iexpr terms in
+        let parts = List.map term_to_expr terms in
         match parts with
         | [] -> mk_bool false
         | [ p ] -> p
-        | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBoolBin (Or, acc, x))) p rest)
+        | p :: rest -> List.fold_left (fun acc x -> mk_expr (EBin (Or, acc, x))) p rest)
 
-let valuations_to_iexpr (atom_names : string list) (vals_list : (string * bool) list list) : Core_syntax.iexpr =
+let valuations_to_expr (atom_names : string list) (vals_list : (string * bool) list list) : Core_syntax.expr =
   match vals_list with
   | [] -> mk_bool false
   | _ ->
       let implicants = choose_implicants atom_names vals_list in
-      terms_to_iexpr implicants
+      terms_to_expr implicants

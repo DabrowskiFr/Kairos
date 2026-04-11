@@ -19,7 +19,7 @@
 (** Helpers over [Ir.summary_formula]. *)
 open Core_syntax
 val with_origin :
-  ?loc:loc ->
+  ?loc:Loc.loc ->
   Formula_origin.t ->
   Fo_formula.t ->
   Ir.summary_formula

@@ -276,7 +276,7 @@ let compile_node_with_info ?kernel_ir
       let getter_name = ident ("get_" ^ field_name) in
       let is_ghost = is_ghost_field_name v.vname in
       let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
-      let body = compile_iexpr { env with rec_name = "self" } { iexpr = IVar field_name; loc = None } in
+      let body = compile_expr { env with rec_name = "self" } { expr = EVar field_name; loc = None } in
       let fn =
         mk_expr
           (Efun

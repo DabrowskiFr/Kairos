@@ -23,22 +23,21 @@ open Fo_formula
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let inline_atom_names (atom_named_exprs : (ident * iexpr) list) (e : iexpr) : iexpr =
+let inline_atom_names (atom_named_exprs : (ident * expr) list) (e : expr) : expr =
   let map = Hashtbl.create 16 in
   List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_named_exprs;
-  let rec go (e : iexpr) =
-    match e.iexpr with
-    | IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
-    | ILitInt _ | ILitBool _ -> e
-    | IUn (op, inner) -> { e with iexpr = IUn (op, go inner) }
-    | IArithBin (op, a, b) -> { e with iexpr = IArithBin (op, go a, go b) }
-    | IBoolBin (op, a, b) -> { e with iexpr = IBoolBin (op, go a, go b) }
-    | ICmp (op, a, b) -> { e with iexpr = ICmp (op, go a, go b) }
+  let rec go (e : expr) =
+    match e.expr with
+    | EVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
+    | ELitInt _ | ELitBool _ -> e
+    | EUn (op, inner) -> { e with expr = EUn (op, go inner) }
+    | EBin (op, a, b) -> { e with expr = EBin (op, go a, go b) }
+    | ECmp (op, a, b) -> { e with expr = ECmp (op, go a, go b) }
   in
   go e
 
 let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom * ident) list)
-    ~(atom_named_exprs : (ident * iexpr) list) (hoa : Automaton_spot.hoa_automaton) :
+    ~(atom_named_exprs : (ident * expr) list) (hoa : Automaton_spot.hoa_automaton) :
     Automaton_types.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
   List.iter (fun (st : Automaton_spot.hoa_state) -> Hashtbl.replace by_id st.id st) hoa.states;
@@ -98,7 +97,7 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom *
   let atom_name_to_fo = List.map (fun (atom, name) -> (name, atom)) atom_map in
   let guard_to_fo (g : Automaton_spot.raw_guard) : Fo_formula.t =
     let _ = atom_named_exprs in
-    Ltl_valuation.terms_to_iexpr g |> iexpr_to_fo_with_atoms atom_name_to_fo |> simplify_fo
+    Ltl_valuation.terms_to_expr g |> expr_to_fo_with_atoms atom_name_to_fo |> simplify_fo
   in
   let transitions =
     List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw
@@ -106,7 +105,7 @@ let normalize_spot_automaton ~(atom_names : string list) ~(atom_map : (fo_atom *
   { Automaton_types.atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
 
 let build ~(atom_map : (fo_atom * ident) list) ~(atom_names : ident list)
-    ~(atom_named_exprs : (ident * iexpr) list) (spec : ltl) : Automaton_types.automaton =
+    ~(atom_named_exprs : (ident * expr) list) (spec : ltl) : Automaton_types.automaton =
   let formula = Automaton_spot.string_of_spot_ltl ~atom_map spec in
   let () = Automaton_spot.ensure_safety formula in
   let hoa_text = Automaton_spot.call_spot formula in

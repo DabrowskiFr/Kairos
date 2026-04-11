@@ -73,19 +73,6 @@ let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
   | Ok out -> Ok (Lsp_app.map_oblig out)
   | Error e -> Error (map_error e)
 
-let eval_pass (req : Lsp_protocol.eval_pass_request) =
-  let engine =
-    Option.value (Engine_service.engine_of_string req.engine)
-      ~default:Engine_service.Default
-  in
-  match
-    Engine_service.eval_pass ~engine ~input_file:req.input_file
-      ~trace_text:req.trace_text ~with_state:req.with_state
-      ~with_locals:req.with_locals
-  with
-  | Ok out -> Ok out
-  | Error e -> Error (map_error e)
-
 let kobj_summary (req : Lsp_protocol.kobj_summary_request) =
   let engine =
     Option.value (Engine_service.engine_of_string req.engine)

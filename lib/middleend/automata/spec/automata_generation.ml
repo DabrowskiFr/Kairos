@@ -86,7 +86,7 @@ let build_assumption_spec ~(atom_map : (fo_atom * ident) list) (n : Ast.node) : 
 type automata_automaton = Automaton_types.automaton
 
 let build_guarantee_automaton ~(atom_map : (fo_atom * ident) list)
-    ~(atom_named_exprs : (ident * iexpr) list) ~(atom_names : ident list)
+    ~(atom_named_exprs : (ident * expr) list) ~(atom_names : ident list)
     (spec : ltl) : automata_automaton =
   Automaton_build.build ~atom_map ~atom_named_exprs ~atom_names spec
 

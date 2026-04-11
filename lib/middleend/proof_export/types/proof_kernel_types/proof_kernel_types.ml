@@ -26,7 +26,7 @@ type reactive_transition_ir = {
   src_state : ident;
   dst_state : ident;
   guard : Fo_formula.t;
-  guard_iexpr : iexpr option;
+  guard_expr : expr option;
   requires : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];

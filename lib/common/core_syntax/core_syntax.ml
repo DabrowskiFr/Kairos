@@ -16,83 +16,70 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type ident = string [@@deriving yojson]
+(** {1 Core syntax}
 
-type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
+    This module defines the shared syntax core used by the frontend,
+    middle-end, and backends. It separates two expression layers:
+    - [expr]: executable expressions.
+    - [hexpr]: historical/logical expressions. *)
 
-(* type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson] *)
+(** Identifiers (variables, states, symbols). *)
+type ident = string 
+  [@@deriving yojson]
 
-(* type unop = Neg | Not [@@deriving yojson] *)
+(** Source types supported by the core. *)
+type ty = TInt | TBool | TReal | TCustom of string 
+  [@@deriving yojson]
 
-type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
+(** Binary operators. *)
+type binop = Add | Sub | Mul | Div | And | Or
+  [@@deriving yojson]
 
-type binop =
-  | Add
-  | Sub
-  | Mul
-  | Div
+(** Unary operators. *)
+type unop = Neg | Not
+  [@@deriving yojson]
+
+(** Comparison operators. *)
+type relop = REq | RNeq | RLt | RLe | RGt | RGe 
+  [@@deriving yojson]
+
+(** Imperative/executable expression.
+
+    Used in transition guards and imperative statements. *)
+type expr = { expr : expr_desc; loc : Loc.loc option }
+
+and expr_desc =
+  | ELitInt of int
+  | ELitBool of bool
+  | EVar of ident
+  | EBin of binop * expr * expr
+  | ECmp of relop * expr * expr
+  | EUn of unop * expr
 [@@deriving yojson]
 
-type bool_binop =
-  | And
-  | Or
-[@@deriving yojson]
+(** Historical/logical expression.
 
-type unop =
-  | Neg
-  | Not
-[@@deriving yojson]
-
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
-
-
-type iexpr = { iexpr : iexpr_desc; loc : loc option }
-
-and iexpr_desc =
-  | ILitInt of int
-  | ILitBool of bool
-  | IVar of ident
-  | IArithBin of binop * iexpr * iexpr
-  | IBoolBin of bool_binop * iexpr * iexpr
-  | ICmp of relop * iexpr * iexpr
-  | IUn of unop * iexpr
-[@@deriving yojson]
-
-(* type hbinop =
-  | HAdd
-  | HSub
-  | HMul
-  | HDiv
-[@@deriving yojson]
-
-type hbool_binop =
-  | HAnd
-  | HOr
-[@@deriving yojson]
-
-type hunop =
-  | HNeg
-  | HNot
-[@@deriving yojson] *)
-
-type hexpr = { hexpr : hexpr_desc; loc : loc option }
+    Used in first-order atoms. [HPreK (x, k)] denotes the value of [x]
+    [k] steps in the past. *)
+type hexpr = { hexpr : hexpr_desc; loc : Loc.loc option }
 
 and hexpr_desc =
   | HLitInt of int
   | HLitBool of bool
   | HVar of ident
   | HPreK of ident * int
-  | HArithBin of binop * hexpr * hexpr
-  | HBoolBin of bool_binop * hexpr * hexpr
+  | HBin of binop * hexpr * hexpr
   | HCmp of relop * hexpr * hexpr
   | HUn of unop * hexpr
 [@@deriving yojson]
 
+(** First-order logic atom. *)
 type fo_atom =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
 [@@deriving yojson]
 
+(** LTL formulas (safety-oriented fragment used by the tool). *)
 type ltl =
   | LTrue
   | LFalse
@@ -106,5 +93,9 @@ type ltl =
   | LW of ltl * ltl
 [@@deriving yojson]
 
-type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
+(** LTL formula tagged with a stable identifier and optional source location
+    (diagnostic/render traceability). *)
+type ltl_o = { value : ltl; oid : int; loc : Loc.loc option } [@@deriving yojson]
+
+(** Typed variable declaration. *)
 type vdecl = { vname : ident; vty : ty } [@@deriving yojson]

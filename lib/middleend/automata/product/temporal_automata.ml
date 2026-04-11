@@ -24,6 +24,6 @@ type node_data = {
   assume_state_labels : string list;
   guarantee_grouped_edges : Automaton_types.transition list;
   assume_grouped_edges : Automaton_types.transition list;
-  guarantee_atom_map_exprs : (ident * iexpr) list;
-  assume_atom_map_exprs : (ident * iexpr) list;
+  guarantee_atom_map_exprs : (ident * expr) list;
+  assume_atom_map_exprs : (ident * expr) list;
 }

@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 val string_of_relop : Core_syntax.relop -> string
-val string_of_iexpr : ?ctx:int -> Core_syntax.iexpr -> string
+val string_of_expr : ?ctx:int -> Core_syntax.expr -> string
 val string_of_hexpr : Core_syntax.hexpr -> string
 val string_of_fo_atom : ?ctx:int -> Core_syntax.fo_atom -> string
 val string_of_fo : ?ctx:int -> Fo_formula.t -> string

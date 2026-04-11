@@ -21,40 +21,40 @@ open Ast
 type guard_formula =
   | GTrue
   | GFalse
-  | GExpr of iexpr
+  | GExpr of expr
 
 let of_ast_transition (t : Ast.transition) : Ir.transition =
   {
     src_state = t.src;
     dst_state = t.dst;
-    guard_iexpr = t.guard;
+    guard_expr = t.guard;
     body_stmts = t.body;
   }
 
-let guard_formula_of_iexpr (e : iexpr) : guard_formula =
-  match e.iexpr with
-  | ILitBool true -> GTrue
-  | ILitBool false -> GFalse
+let guard_formula_of_expr (e : expr) : guard_formula =
+  match e.expr with
+  | ELitBool true -> GTrue
+  | ELitBool false -> GFalse
   | _ -> GExpr e
 
 let guard_formula_of_guard = function
   | None -> GTrue
-  | Some g -> guard_formula_of_iexpr g
+  | Some g -> guard_formula_of_expr g
 
-let iexpr_of_formula = function
+let expr_of_formula = function
   | GExpr e -> e
-  | GTrue -> Ast_builders.mk_bool true
-  | GFalse -> Ast_builders.mk_bool false
+  | GTrue -> Core_syntax_builders.mk_bool true
+  | GFalse -> Core_syntax_builders.mk_bool false
 
 let guard_of_formula = function
   | GTrue -> None
-  | GFalse -> Some (Ast_builders.mk_bool false)
+  | GFalse -> Some (Core_syntax_builders.mk_bool false)
   | GExpr e -> Some e
 
 let not_formula = function
   | GTrue -> GFalse
   | GFalse -> GTrue
-  | GExpr e -> GExpr (Ast_builders.mk_iexpr (IUn (Not, e)))
+  | GExpr e -> GExpr (Core_syntax_builders.mk_expr (EUn (Not, e)))
 
 let and_formula a b =
   match (a, b) with
@@ -62,8 +62,8 @@ let and_formula a b =
   | GTrue, x | x, GTrue -> x
   | _ ->
       GExpr
-        (Ast_builders.mk_iexpr
-           (IBoolBin (And, iexpr_of_formula a, iexpr_of_formula b)))
+        (Core_syntax_builders.mk_expr
+           (EBin (And, expr_of_formula a, expr_of_formula b)))
 
 let or_formula a b =
   match (a, b) with
@@ -71,8 +71,8 @@ let or_formula a b =
   | GFalse, x | x, GFalse -> x
   | _ ->
       GExpr
-        (Ast_builders.mk_iexpr
-           (IBoolBin (Or, iexpr_of_formula a, iexpr_of_formula b)))
+        (Core_syntax_builders.mk_expr
+           (EBin (Or, expr_of_formula a, expr_of_formula b)))
 
 let prioritized_program_transitions_of_ast (transitions : Ast.transition list) : Ir.transition list =
   let previous_guards_by_src : (ident, guard_formula) Hashtbl.t = Hashtbl.create 16 in
@@ -86,7 +86,7 @@ let prioritized_program_transitions_of_ast (transitions : Ast.transition list) :
          let updated_previous_guard = or_formula previous_guard original_guard in
          Hashtbl.replace previous_guards_by_src t.src updated_previous_guard;
          let base = of_ast_transition t in
-         ({ base with guard_iexpr = guard_of_formula effective_guard } : Ir.transition))
+         ({ base with guard_expr = guard_of_formula effective_guard } : Ir.transition))
 
 let prioritized_program_transitions_of_node (node : Ast.node) : Ir.transition list =
   prioritized_program_transitions_of_ast node.semantics.sem_trans

@@ -19,20 +19,20 @@ open Core_syntax
 
 type invariant_state_rel = { state : ident; formula : Fo_formula.t } [@@deriving yojson]
 
-type stmt = { stmt : stmt_desc; loc : loc option }
+type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 
 and stmt_desc =
-  | SAssign of ident * iexpr
-  | SIf of iexpr * stmt list * stmt list
-  | SMatch of iexpr * (ident * stmt list) list * stmt list
+  | SAssign of ident * expr
+  | SIf of expr * stmt list * stmt list
+  | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
-  | SCall of ident * iexpr list * ident list
+  | SCall of ident * expr list * ident list
 [@@deriving yojson]
 
 type transition = {
   src : ident;
   dst : ident;
-  guard : iexpr option;
+  guard : expr option;
   body : stmt list;
 }
 

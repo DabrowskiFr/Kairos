@@ -20,7 +20,7 @@ open Ast
 open Logic_pretty
 open Fo_formula
 
-let mk_iexpr iexpr = { iexpr; loc = None }
+let mk_expr expr = { expr; loc = None }
 let ( let* ) = Option.bind
 
 type smt_sort = SInt | SBool
@@ -55,7 +55,7 @@ let rec sanitize_ident (s : string) : string =
 
 let string_of_sort = function SInt -> "Int" | SBool -> "Bool"
 
-let rec infer_iexpr_sort (vars : (ident, smt_sort) Hashtbl.t) (e : iexpr) : smt_sort option =
+let rec infer_expr_sort (vars : (ident, smt_sort) Hashtbl.t) (e : expr) : smt_sort option =
   let unify_var v s =
     match Hashtbl.find_opt vars v with
     | None ->
@@ -63,32 +63,32 @@ let rec infer_iexpr_sort (vars : (ident, smt_sort) Hashtbl.t) (e : iexpr) : smt_
         Some s
     | Some s' -> Some s'
   in
-  match e.iexpr with
-  | ILitInt _ -> Some SInt
-  | ILitBool _ -> Some SBool
-  | IVar v -> Hashtbl.find_opt vars v
-  | IUn (Neg, a) ->
-      let _ = infer_iexpr_sort vars a in
+  match e.expr with
+  | ELitInt _ -> Some SInt
+  | ELitBool _ -> Some SBool
+  | EVar v -> Hashtbl.find_opt vars v
+  | EUn (Neg, a) ->
+      let _ = infer_expr_sort vars a in
       Some SInt
-  | IUn (Not, a) ->
-      let _ = infer_iexpr_sort vars a in
+  | EUn (Not, a) ->
+      let _ = infer_expr_sort vars a in
       Some SBool
-  | IArithBin (_, a, b) ->
-      let _ = infer_iexpr_sort vars a in
-      let _ = infer_iexpr_sort vars b in
-      Some SInt
-  | IBoolBin (_, a, b) ->
-      let _ = infer_iexpr_sort vars a in
-      let _ = infer_iexpr_sort vars b in
-      Some SBool
-  | ICmp (_, a, b) -> begin
-      let sa = infer_iexpr_sort vars a in
-      let sb = infer_iexpr_sort vars b in
+  | EBin (op, a, b) ->
+      let _ = infer_expr_sort vars a in
+      let _ = infer_expr_sort vars b in
+      begin
+        match op with
+        | Add | Sub | Mul | Div -> Some SInt
+        | And | Or -> Some SBool
+      end
+  | ECmp (_, a, b) -> begin
+      let sa = infer_expr_sort vars a in
+      let sb = infer_expr_sort vars b in
       let operand_sort =
         match (sa, sb) with Some s, _ | _, Some s -> s | None, None -> SInt
       in
-      (match a.iexpr with IVar v -> ignore (unify_var v operand_sort) | _ -> ());
-      (match b.iexpr with IVar v -> ignore (unify_var v operand_sort) | _ -> ());
+      (match a.expr with EVar v -> ignore (unify_var v operand_sort) | _ -> ());
+      (match b.expr with EVar v -> ignore (unify_var v operand_sort) | _ -> ());
       Some SBool
     end
 
@@ -104,14 +104,14 @@ let rec infer_hexpr_sort vars (h : hexpr) =
   | HUn (Not, inner) ->
       let _ = infer_hexpr_sort vars inner in
       Some SBool
-  | HArithBin (_, a, b) ->
+  | HBin (op, a, b) ->
       let _ = infer_hexpr_sort vars a in
       let _ = infer_hexpr_sort vars b in
-      Some SInt
-  | HBoolBin (_, a, b) ->
-      let _ = infer_hexpr_sort vars a in
-      let _ = infer_hexpr_sort vars b in
-      Some SBool
+      begin
+        match op with
+        | Add | Sub | Mul | Div -> Some SInt
+        | And | Or -> Some SBool
+      end
   | HCmp (RLt, a, b) | HCmp (RLe, a, b) | HCmp (RGt, a, b) | HCmp (RGe, a, b) ->
       let _ = infer_hexpr_sort vars a in
       let _ = infer_hexpr_sort vars b in
@@ -172,77 +172,65 @@ let z3_sort (env : z3_env) = function
   | SInt -> Z3.Arithmetic.Integer.mk_sort env.ctx
   | SBool -> Z3.Boolean.mk_sort env.ctx
 
-let rec z3_of_iexpr (env : z3_env) (e : iexpr) : Z3.Expr.expr * smt_sort =
-  match e.iexpr with
-  | ILitInt i -> (Z3.Arithmetic.Integer.mk_numeral_i env.ctx i, SInt)
-  | ILitBool b -> (Z3.Boolean.mk_val env.ctx b, SBool)
-  | IVar v ->
+let rec z3_of_expr (env : z3_env) (e : expr) : Z3.Expr.expr * smt_sort =
+  match e.expr with
+  | ELitInt i -> (Z3.Arithmetic.Integer.mk_numeral_i env.ctx i, SInt)
+  | ELitBool b -> (Z3.Boolean.mk_val env.ctx b, SBool)
+  | EVar v ->
       let sort = Hashtbl.find_opt env.vars v |> Option.value ~default:SInt in
       let name = smt_var_name v in
       Hashtbl.replace env.z3_vars name v;
       (Z3.Expr.mk_const_s env.ctx name (z3_sort env sort), sort)
-  | IUn (Neg, a) ->
-      let a, _ = z3_of_iexpr env a in
+  | EUn (Neg, a) ->
+      let a, _ = z3_of_expr env a in
       (Z3.Arithmetic.mk_unary_minus env.ctx a, SInt)
-  | IUn (Not, a) ->
-      let a, _ = z3_of_iexpr env a in
+  | EUn (Not, a) ->
+      let a, _ = z3_of_expr env a in
       (Z3.Boolean.mk_not env.ctx a, SBool)
-  | IArithBin (Add, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Arithmetic.mk_add env.ctx [ a; b ], SInt)
-  | IArithBin (Sub, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Arithmetic.mk_sub env.ctx [ a; b ], SInt)
-  | IArithBin (Mul, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Arithmetic.mk_mul env.ctx [ a; b ], SInt)
-  | IArithBin (Div, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Arithmetic.mk_div env.ctx a b, SInt)
-  | IBoolBin (And, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Boolean.mk_and env.ctx [ a; b ], SBool)
-  | IBoolBin (Or, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
-      (Z3.Boolean.mk_or env.ctx [ a; b ], SBool)
-  | ICmp (REq, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | EBin (op, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
+      begin
+        match op with
+        | Add -> (Z3.Arithmetic.mk_add env.ctx [ a; b ], SInt)
+        | Sub -> (Z3.Arithmetic.mk_sub env.ctx [ a; b ], SInt)
+        | Mul -> (Z3.Arithmetic.mk_mul env.ctx [ a; b ], SInt)
+        | Div -> (Z3.Arithmetic.mk_div env.ctx a b, SInt)
+        | And -> (Z3.Boolean.mk_and env.ctx [ a; b ], SBool)
+        | Or -> (Z3.Boolean.mk_or env.ctx [ a; b ], SBool)
+      end
+  | ECmp (REq, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Boolean.mk_eq env.ctx a b, SBool)
-  | ICmp (RNeq, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | ECmp (RNeq, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Boolean.mk_not env.ctx (Z3.Boolean.mk_eq env.ctx a b), SBool)
-  | ICmp (RLt, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | ECmp (RLt, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Arithmetic.mk_lt env.ctx a b, SBool)
-  | ICmp (RLe, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | ECmp (RLe, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Arithmetic.mk_le env.ctx a b, SBool)
-  | ICmp (RGt, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | ECmp (RGt, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Arithmetic.mk_gt env.ctx a b, SBool)
-  | ICmp (RGe, a, b) ->
-      let a, _ = z3_of_iexpr env a in
-      let b, _ = z3_of_iexpr env b in
+  | ECmp (RGe, a, b) ->
+      let a, _ = z3_of_expr env a in
+      let b, _ = z3_of_expr env b in
       (Z3.Arithmetic.mk_ge env.ctx a b, SBool)
 
 let rec z3_of_hexpr (env : z3_env) (h : hexpr) : Z3.Expr.expr * smt_sort =
   match h.hexpr with
   | HLitInt i -> (Z3.Arithmetic.Integer.mk_numeral_i env.ctx i, SInt)
   | HLitBool b -> (Z3.Boolean.mk_val env.ctx b, SBool)
-  | HVar v -> z3_of_iexpr env (mk_iexpr (IVar v))
+  | HVar v -> z3_of_expr env (mk_expr (EVar v))
   | HPreK (v, k) ->
-      let arg, sort = z3_of_iexpr env (mk_iexpr (IVar v)) in
+      let arg, sort = z3_of_expr env (mk_expr (EVar v)) in
       let name = smt_prek_name k sort in
       let fd = Z3.FuncDecl.mk_func_decl_s env.ctx name [ z3_sort env sort ] (z3_sort env sort) in
       Hashtbl.replace env.z3_preks name k;
@@ -253,30 +241,18 @@ let rec z3_of_hexpr (env : z3_env) (h : hexpr) : Z3.Expr.expr * smt_sort =
   | HUn (Not, inner) ->
       let a, _ = z3_of_hexpr env inner in
       (Z3.Boolean.mk_not env.ctx a, SBool)
-  | HArithBin (Add, a, b) ->
+  | HBin (op, a, b) ->
       let a, _ = z3_of_hexpr env a in
       let b, _ = z3_of_hexpr env b in
-      (Z3.Arithmetic.mk_add env.ctx [ a; b ], SInt)
-  | HArithBin (Sub, a, b) ->
-      let a, _ = z3_of_hexpr env a in
-      let b, _ = z3_of_hexpr env b in
-      (Z3.Arithmetic.mk_sub env.ctx [ a; b ], SInt)
-  | HArithBin (Mul, a, b) ->
-      let a, _ = z3_of_hexpr env a in
-      let b, _ = z3_of_hexpr env b in
-      (Z3.Arithmetic.mk_mul env.ctx [ a; b ], SInt)
-  | HArithBin (Div, a, b) ->
-      let a, _ = z3_of_hexpr env a in
-      let b, _ = z3_of_hexpr env b in
-      (Z3.Arithmetic.mk_div env.ctx a b, SInt)
-  | HBoolBin (And, a, b) ->
-      let a, _ = z3_of_hexpr env a in
-      let b, _ = z3_of_hexpr env b in
-      (Z3.Boolean.mk_and env.ctx [ a; b ], SBool)
-  | HBoolBin (Or, a, b) ->
-      let a, _ = z3_of_hexpr env a in
-      let b, _ = z3_of_hexpr env b in
-      (Z3.Boolean.mk_or env.ctx [ a; b ], SBool)
+      begin
+        match op with
+        | Add -> (Z3.Arithmetic.mk_add env.ctx [ a; b ], SInt)
+        | Sub -> (Z3.Arithmetic.mk_sub env.ctx [ a; b ], SInt)
+        | Mul -> (Z3.Arithmetic.mk_mul env.ctx [ a; b ], SInt)
+        | Div -> (Z3.Arithmetic.mk_div env.ctx a b, SInt)
+        | And -> (Z3.Boolean.mk_and env.ctx [ a; b ], SBool)
+        | Or -> (Z3.Boolean.mk_or env.ctx [ a; b ], SBool)
+      end
   | HCmp (REq, a, b) ->
       let a, _ = z3_of_hexpr env a in
       let b, _ = z3_of_hexpr env b in
@@ -357,8 +333,8 @@ let rebuild_or = function
   | [ x ] -> x
   | x :: xs -> List.fold_left (fun acc y -> FOr (acc, y)) x xs
 
-let is_literal_iexpr (e : iexpr) =
-  match e.iexpr with ILitInt _ | ILitBool _ -> true | _ -> false
+let is_literal_expr (e : expr) =
+  match e.expr with ELitInt _ | ELitBool _ -> true | _ -> false
 
 let is_const_hexpr (h : hexpr) =
   match h.hexpr with HLitInt _ | HLitBool _ -> true | _ -> false
@@ -376,42 +352,42 @@ let normalize_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : hexpr * relop * hexpr 
   | true, false -> (h2, flip_relop r, h1)
   | _ -> (h1, r, h2)
 
-let rec fo_of_z3_iexpr (env : z3_env) (e : Z3.Expr.expr) : iexpr option =
-  if Z3.Boolean.is_true e then Some (mk_iexpr (ILitBool true))
-  else if Z3.Boolean.is_false e then Some (mk_iexpr (ILitBool false))
+let rec fo_of_z3_expr (env : z3_env) (e : Z3.Expr.expr) : expr option =
+  if Z3.Boolean.is_true e then Some (mk_expr (ELitBool true))
+  else if Z3.Boolean.is_false e then Some (mk_expr (ELitBool false))
   else if Z3.Arithmetic.is_int_numeral e then
-    Some (mk_iexpr (ILitInt (int_of_string (Z3.Arithmetic.Integer.numeral_to_string e))))
+    Some (mk_expr (ELitInt (int_of_string (Z3.Arithmetic.Integer.numeral_to_string e))))
   else if Z3.Expr.is_const e then
     let name = func_name e in
-    Option.map (fun v -> mk_iexpr (IVar v)) (Hashtbl.find_opt env.z3_vars name)
+    Option.map (fun v -> mk_expr (EVar v)) (Hashtbl.find_opt env.z3_vars name)
   else if Z3.Boolean.is_not e then begin
     match Z3.Expr.get_args e with
-    | [ a ] -> Option.map (fun a -> mk_iexpr (IUn (Not, a))) (fo_of_z3_iexpr env a)
+    | [ a ] -> Option.map (fun a -> mk_expr (EUn (Not, a))) (fo_of_z3_expr env a)
     | _ -> None
   end
   else if Z3.Arithmetic.is_uminus e then begin
     match Z3.Expr.get_args e with
-    | [ a ] -> Option.map (fun a -> mk_iexpr (IUn (Neg, a))) (fo_of_z3_iexpr env a)
+    | [ a ] -> Option.map (fun a -> mk_expr (EUn (Neg, a))) (fo_of_z3_expr env a)
     | _ -> None
   end
   else if Z3.Boolean.is_and e then
     let rec fold = function
-      | [] -> Some (mk_iexpr (ILitBool true))
-      | [ x ] -> fo_of_z3_iexpr env x
+      | [] -> Some (mk_expr (ELitBool true))
+      | [ x ] -> fo_of_z3_expr env x
       | x :: rest ->
-          let* x = fo_of_z3_iexpr env x in
+          let* x = fo_of_z3_expr env x in
           let* rest = fold rest in
-          Some (mk_iexpr (IBoolBin (And, x, rest)))
+          Some (mk_expr (EBin (And, x, rest)))
     in
     fold (Z3.Expr.get_args e)
   else if Z3.Boolean.is_or e then
     let rec fold = function
-      | [] -> Some (mk_iexpr (ILitBool false))
-      | [ x ] -> fo_of_z3_iexpr env x
+      | [] -> Some (mk_expr (ELitBool false))
+      | [ x ] -> fo_of_z3_expr env x
       | x :: rest ->
-          let* x = fo_of_z3_iexpr env x in
+          let* x = fo_of_z3_expr env x in
           let* rest = fold rest in
-          Some (mk_iexpr (IBoolBin (Or, x, rest)))
+          Some (mk_expr (EBin (Or, x, rest)))
     in
     fold (Z3.Expr.get_args e)
   else if Z3.Arithmetic.is_add e || Z3.Arithmetic.is_sub e || Z3.Arithmetic.is_mul e then
@@ -420,19 +396,19 @@ let rec fo_of_z3_iexpr (env : z3_env) (e : Z3.Expr.expr) : iexpr option =
     in
     let rec fold = function
       | [] -> None
-      | [ x ] -> fo_of_z3_iexpr env x
+      | [ x ] -> fo_of_z3_expr env x
       | x :: rest ->
-          let* x = fo_of_z3_iexpr env x in
+          let* x = fo_of_z3_expr env x in
           let* rest = fold rest in
-          Some (mk_iexpr (IArithBin (op, x, rest)))
+          Some (mk_expr (EBin (op, x, rest)))
     in
     fold (Z3.Expr.get_args e)
   else if Z3.Arithmetic.is_div e || Z3.Arithmetic.is_idiv e then begin
     match Z3.Expr.get_args e with
     | [ a; b ] ->
-        let* a = fo_of_z3_iexpr env a in
-        let* b = fo_of_z3_iexpr env b in
-        Some (mk_iexpr (IArithBin (Div, a, b)))
+        let* a = fo_of_z3_expr env a in
+        let* b = fo_of_z3_expr env b in
+        Some (mk_expr (EBin (Div, a, b)))
     | _ -> None
   end
   else None
@@ -442,12 +418,12 @@ let fo_of_z3_hexpr (env : z3_env) (e : Z3.Expr.expr) : hexpr option =
     let name = func_name e in
     match (Hashtbl.find_opt env.z3_preks name, Z3.Expr.get_args e) with
     | Some k, [ arg ] -> begin
-        match fo_of_z3_iexpr env arg with
-        | Some ({ iexpr = IVar v; _ }) -> Some { hexpr = HPreK (v, k); loc = None }
+        match fo_of_z3_expr env arg with
+        | Some ({ expr = EVar v; _ }) -> Some { hexpr = HPreK (v, k); loc = None }
         | _ -> None
       end
-    | _ -> Option.map Ast_builders.hexpr_of_iexpr (fo_of_z3_iexpr env e)
-  else Option.map Ast_builders.hexpr_of_iexpr (fo_of_z3_iexpr env e)
+    | _ -> Option.map Core_syntax_builders.hexpr_of_expr (fo_of_z3_expr env e)
+  else Option.map Core_syntax_builders.hexpr_of_expr (fo_of_z3_expr env e)
 
 let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option =
   if Z3.Boolean.is_true e then Some FTrue
@@ -529,7 +505,7 @@ let rec fo_of_z3_formula (env : z3_env) (e : Z3.Expr.expr) : Fo_formula.t option
         Option.map (fun hs -> FAtom (FPred (id, hs))) (map [] (Z3.Expr.get_args e))
     | None ->
         Option.map
-          (fun h -> FAtom (FRel (h, REq, Ast_builders.mk_hbool true)))
+          (fun h -> FAtom (FRel (h, REq, Core_syntax_builders.mk_hbool true)))
           (fo_of_z3_hexpr env e)
 
 let simplify_fo_formula (f : Fo_formula.t) : Fo_formula.t option =

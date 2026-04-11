@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 open Temporal_support
 open Fo_formula
 
@@ -60,11 +60,11 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
       info.Temporal_support.names
       |> List.mapi (fun idx name ->
              let lowered =
-               if idx = 0 then Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
+               if idx = 0 then Core_syntax_builders.hexpr_of_expr info.Temporal_support.expr
                else
-                 match info.Temporal_support.expr.iexpr with
-                 | IVar base -> Ast_builders.mk_hpre_k base idx
-                 | _ -> Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
+                 match info.Temporal_support.expr.expr with
+                 | EVar base -> Core_syntax_builders.mk_hpre_k base idx
+                 | _ -> Core_syntax_builders.hexpr_of_expr info.Temporal_support.expr
              in
              (name, lowered))
       |> List.rev_append acc
@@ -73,8 +73,8 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let current_expr_to_next_slot =
     let add acc (_h, info) =
-      match info.Temporal_support.expr.iexpr with
-      | IVar base_var -> (base_var, info.Temporal_support.names) :: acc
+      match info.Temporal_support.expr.expr with
+      | EVar base_var -> (base_var, info.Temporal_support.names) :: acc
       | _ -> acc
     in
     List.fold_left add [] temporal_layout
@@ -87,15 +87,12 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         | Some lowered -> lowered
         | None -> h)
     | HUn (op, inner) ->
-        Ast_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
-    | HArithBin (op, a, b) ->
-        Ast_builders.with_hexpr_desc h
-          (HArithBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
-    | HBoolBin (op, a, b) ->
-        Ast_builders.with_hexpr_desc h
-          (HBoolBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+        Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
+    | HBin (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc h
+          (HBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
     | HCmp (op, a, b) ->
-        Ast_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+        Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
   in
   let rewrite_fo_post (f : fo_atom) : fo_atom =
     match f with
@@ -123,22 +120,19 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     | HLitInt _ | HLitBool _ -> h
     | HVar name -> (
         match slot_name_for_depth name 1 with
-        | Some slot -> Ast_builders.mk_hvar slot
+        | Some slot -> Core_syntax_builders.mk_hvar slot
         | None -> h)
     | HPreK (name, k) -> (
         match slot_name_for_depth name (k + 1) with
-        | Some slot -> Ast_builders.mk_hvar slot
+        | Some slot -> Core_syntax_builders.mk_hvar slot
         | None -> h)
     | HUn (op, inner) ->
-        Ast_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
-    | HArithBin (op, a, b) ->
-        Ast_builders.with_hexpr_desc h
-          (HArithBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
-    | HBoolBin (op, a, b) ->
-        Ast_builders.with_hexpr_desc h
-          (HBoolBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+        Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
+    | HBin (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc h
+          (HBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
     | HCmp (op, a, b) ->
-        Ast_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+        Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
   in
   let rewrite_fo_pre (f : fo_atom) : fo_atom =
     match f with

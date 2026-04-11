@@ -117,7 +117,6 @@ export interface Outputs {
   product_png_error: string | null;
   historical_clauses_text: string;
   eliminated_clauses_text: string;
-  eval_text?: string;
 }
 
 export interface AutomataOutputs {
@@ -241,7 +240,6 @@ export type RunPhase =
   | "parsing"
   | "building"
   | "proving"
-  | "eval"
   | "completed"
   | "failed"
   | "cancelled";
@@ -264,8 +262,7 @@ export type ArtifactId =
   | "guarantee"
   | "product"
   | "obligations_map"
-  | "prune_reasons"
-  | "eval";
+  | "prune_reasons";
 
 export type GraphId = "program" | "assume" | "guarantee" | "product";
 
@@ -281,26 +278,17 @@ export interface RunHistoryEntry {
   summary: string;
 }
 
-export interface EvalHistoryEntry {
-  traceText: string;
-  withState: boolean;
-  withLocals: boolean;
-  createdAt: string;
-  file: string;
-}
-
 export interface ExportRequest {
   graphId: GraphId;
   format: "png" | "svg" | "pdf";
 }
 
-export type PanelId = "automata" | "dashboard" | "explain" | "artifacts" | "eval" | "pipeline" | "compare";
+export type PanelId = "automata" | "dashboard" | "explain" | "artifacts" | "pipeline" | "compare";
 
 export interface SessionSnapshot {
   activeFile: string | null;
   currentArtifact: ArtifactId;
   runHistory: RunHistoryEntry[];
-  evalHistory: EvalHistoryEntry[];
   openPanels: PanelId[];
 }
 
@@ -329,6 +317,5 @@ export const ARTIFACTS: ArtifactDescriptor[] = [
     label: "Prune Reasons",
     kind: "text",
     description: "Why transitions or states were pruned"
-  },
-  { id: "eval", label: "Eval", kind: "text", description: "Eval output" }
+  }
 ];

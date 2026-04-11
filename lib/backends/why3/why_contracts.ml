@@ -140,8 +140,8 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
       | s :: rest -> (
           match s.stmt with
           | SAssign (x, e) when x = out -> begin
-              match e.iexpr with
-              | IVar v -> Some v
+              match e.expr with
+              | EVar v -> Some v
               | _ -> last_assigned_var out rest
             end
           | _ -> last_assigned_var out rest)

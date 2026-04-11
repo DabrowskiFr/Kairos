@@ -16,11 +16,29 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Trace evaluator for a single top-level Kairos node. *)
+open Core_syntax
 
-val eval_pass :
-  input_file:string ->
-  trace_text:string ->
-  with_state:bool ->
-  with_locals:bool ->
-  (string, Pipeline_types.error) result
+let mk_expr ?loc expr = { expr; loc }
+let with_expr_desc e expr = { e with expr }
+let mk_var v = mk_expr (EVar v)
+let mk_int n = mk_expr (ELitInt n)
+let mk_bool b = mk_expr (ELitBool b)
+
+let mk_hexpr ?loc hexpr = { hexpr; loc }
+let with_hexpr_desc h hexpr = { h with hexpr }
+let mk_hvar v = mk_hexpr (HVar v)
+let mk_hint n = mk_hexpr (HLitInt n)
+let mk_hbool b = mk_hexpr (HLitBool b)
+let mk_hpre_k v k = mk_hexpr (HPreK (v, k))
+
+let rec hexpr_of_expr (e : expr) : hexpr =
+  let hexpr =
+    match e.expr with
+    | ELitInt n -> HLitInt n
+    | ELitBool b -> HLitBool b
+    | EVar v -> HVar v
+    | EBin (op, a, b) -> HBin (op, hexpr_of_expr a, hexpr_of_expr b)
+    | ECmp (op, a, b) -> HCmp (op, hexpr_of_expr a, hexpr_of_expr b)
+    | EUn (op, inner) -> HUn (op, hexpr_of_expr inner)
+  in
+  { hexpr; loc = e.loc }

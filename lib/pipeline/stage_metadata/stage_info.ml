@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-type parse_error = { loc : loc option; message : string }
+type parse_error = { loc : Loc.loc option; message : string }
 
 type parse_info = {
   source_path : string option;

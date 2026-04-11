@@ -4,19 +4,19 @@ open Ast
 open Source_file
 open Fo_formula
 
-let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) =
+let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Loc.loc =
   { line = start_pos.pos_lnum;
     col = start_pos.pos_cnum - start_pos.pos_bol;
     line_end = end_pos.pos_lnum;
     col_end = end_pos.pos_cnum - end_pos.pos_bol; }
 
 let with_origin_loc origin loc value = Ast_provenance.with_origin ~loc origin value
-let mk_iexpr_loc start_pos end_pos desc =
-  Ast_builders.mk_iexpr ~loc:(loc_of_positions start_pos end_pos) desc
+let mk_expr_loc start_pos end_pos desc =
+  Core_syntax_builders.mk_expr ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_stmt_loc start_pos end_pos desc =
   Ast_builders.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_hexpr_loc start_pos end_pos desc =
-  Ast_builders.mk_hexpr ~loc:(loc_of_positions start_pos end_pos) desc
+  Core_syntax_builders.mk_hexpr ~loc:(loc_of_positions start_pos end_pos) desc
 
 let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
@@ -62,10 +62,10 @@ let implicit_history_alias_k (alias:string) : int option =
 
 let expand_history_alias (alias:string) (arg:ident) : hexpr =
   match Hashtbl.find_opt history_aliases alias with
-  | Some (_param, k) -> Ast_builders.mk_hpre_k arg k
+  | Some (_param, k) -> Core_syntax_builders.mk_hpre_k arg k
   | None -> (
       match implicit_history_alias_k alias with
-      | Some k -> Ast_builders.mk_hpre_k arg k
+      | Some k -> Core_syntax_builders.mk_hpre_k arg k
       | None -> failwith (Printf.sprintf "unknown history alias '%s'" alias))
 
 let is_reserved_history_alias_name (id:string) : bool =
@@ -391,19 +391,19 @@ match_transition:
 
 guard_opt:
   | /* empty */ { None }
-  | LBRACK iexpr RBRACK { Some $2 }
+  | LBRACK expr RBRACK { Some $2 }
   | LBRACK TRUE RBRACK {
-      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true))
+      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true))
     }
   | LBRACK FALSE RBRACK {
-      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false))
+      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false))
     }
-  | WHEN iexpr { Some $2 }
+  | WHEN expr { Some $2 }
   | WHEN TRUE {
-      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true))
+      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true))
     }
   | WHEN FALSE {
-      Some (mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false))
+      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false))
     }
 
 stmt_list_opt:
@@ -415,85 +415,85 @@ stmt_list:
   | stmt SEMI { [$1] }
 
 stmt:
-  | IDENT ASSIGN iexpr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
+  | IDENT ASSIGN expr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
   | IDENT ASSIGN TRUE {
-      let e = mk_iexpr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ILitBool true) in
+      let e = mk_expr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ELitBool true) in
       mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
     }
   | IDENT ASSIGN FALSE {
-      let e = mk_iexpr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ILitBool false) in
+      let e = mk_expr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ELitBool false) in
       mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
     }
-  | IF iexpr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf($2,$4,$6)) }
+  | IF expr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf($2,$4,$6)) }
   | IF TRUE THEN stmt_list_opt ELSE stmt_list_opt END {
-      let c = mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool true) in
+      let c = mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true) in
       mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
     }
   | IF FALSE THEN stmt_list_opt ELSE stmt_list_opt END {
-      let c = mk_iexpr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ILitBool false) in
+      let c = mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false) in
       mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
     }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSkip }
-  | CALL IDENT LPAREN iexpr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
+  | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SCall($2, $4, $8)) }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
-  | INT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ILitInt $1) }
-  | IDENT { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (IVar $1) }
+  | INT { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ELitInt $1) }
+  | IDENT { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (EVar $1) }
   | LPAREN arith RPAREN { $2 }
 
 arith_unary:
-  | MINUS arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Neg,$2)) }
+  | MINUS arith_unary { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (EUn(Neg,$2)) }
   | arith_atom { $1 }
 
 arith_mul:
-  | arith_mul STAR arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Mul,$1,$3)) }
-  | arith_mul SLASH arith_unary { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Div,$1,$3)) }
+  | arith_mul STAR arith_unary { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(Mul,$1,$3)) }
+  | arith_mul SLASH arith_unary { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(Div,$1,$3)) }
   | arith_unary { $1 }
 
 arith:
-  | arith PLUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Add,$1,$3)) }
-  | arith MINUS arith_mul { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IArithBin(Sub,$1,$3)) }
+  | arith PLUS arith_mul { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(Add,$1,$3)) }
+  | arith MINUS arith_mul { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(Sub,$1,$3)) }
   | arith_mul { $1 }
 
 
-iexpr_atom:
-  | LPAREN iexpr RPAREN { $2 }
+expr_atom:
+  | LPAREN expr RPAREN { $2 }
   | arith relop arith {
       match $2 with
-      | REq -> Ast_builders.mk_iexpr (ICmp(REq, $1, $3))
-      | RNeq -> Ast_builders.mk_iexpr (ICmp(RNeq, $1, $3))
-      | RLt -> Ast_builders.mk_iexpr (ICmp(RLt, $1, $3))
-      | RLe -> Ast_builders.mk_iexpr (ICmp(RLe, $1, $3))
-      | RGt -> Ast_builders.mk_iexpr (ICmp(RGt, $1, $3))
-      | RGe -> Ast_builders.mk_iexpr (ICmp(RGe, $1, $3))
+      | REq -> Core_syntax_builders.mk_expr (ECmp(REq, $1, $3))
+      | RNeq -> Core_syntax_builders.mk_expr (ECmp(RNeq, $1, $3))
+      | RLt -> Core_syntax_builders.mk_expr (ECmp(RLt, $1, $3))
+      | RLe -> Core_syntax_builders.mk_expr (ECmp(RLe, $1, $3))
+      | RGt -> Core_syntax_builders.mk_expr (ECmp(RGt, $1, $3))
+      | RGe -> Core_syntax_builders.mk_expr (ECmp(RGe, $1, $3))
     }
   | arith %prec IEXPR_ARITH { $1 }
 
-iexpr_not:
-  | NOT iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (IUn(Not,$2)) }
-  | iexpr_atom { $1 }
+expr_not:
+  | NOT expr_not { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (EUn(Not,$2)) }
+  | expr_atom { $1 }
 
-iexpr_and:
-  | iexpr_and AND iexpr_not { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(And,$1,$3)) }
-  | iexpr_not { $1 }
+expr_and:
+  | expr_and AND expr_not { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(And,$1,$3)) }
+  | expr_not { $1 }
 
-iexpr_or:
-  | iexpr_or OR iexpr_and { mk_iexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (IBoolBin(Or,$1,$3)) }
-  | iexpr_and { $1 }
+expr_or:
+  | expr_or OR expr_and { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (EBin(Or,$1,$3)) }
+  | expr_and { $1 }
 
-iexpr:
-  | iexpr_or { $1 }
+expr:
+  | expr_or { $1 }
 
 
-iexpr_list_opt:
+expr_list_opt:
   | /* empty */ { [] }
-  | iexpr_list { $1 }
+  | expr_list { $1 }
 
-iexpr_list:
-  | iexpr COMMA iexpr_list { $1 :: $3 }
-  | iexpr { [$1] }
+expr_list:
+  | expr COMMA expr_list { $1 :: $3 }
+  | expr { [$1] }
 
 id_list_opt:
   | /* empty */ { [] }
@@ -513,7 +513,7 @@ h_atom:
   | PREK LPAREN IDENT COMMA INT RPAREN {
       mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (HPreK ($3, $5))
     }
-  | LBRACE iexpr RBRACE { Ast_builders.hexpr_of_iexpr $2 }
+  | LBRACE expr RBRACE { Core_syntax_builders.hexpr_of_expr $2 }
   | LPAREN hexpr RPAREN { $2 }
 
 h_unary:
@@ -521,13 +521,13 @@ h_unary:
   | h_atom { $1 }
 
 h_mul:
-  | h_mul STAR h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Mul, $1, $3)) }
-  | h_mul SLASH h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Div, $1, $3)) }
+  | h_mul STAR h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin (Mul, $1, $3)) }
+  | h_mul SLASH h_unary { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin (Div, $1, $3)) }
   | h_unary { $1 }
 
 h_arith:
-  | h_arith PLUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Add, $1, $3)) }
-  | h_arith MINUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HArithBin (Sub, $1, $3)) }
+  | h_arith PLUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin (Add, $1, $3)) }
+  | h_arith MINUS h_mul { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HBin (Sub, $1, $3)) }
   | h_mul { $1 }
 
 hexpr:

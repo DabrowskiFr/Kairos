@@ -21,7 +21,6 @@
 open Why3
 open Ptree
 open Core_syntax
-open Ast_builders
 open Logic_pretty
 
 (* ---- Compilation environment ---- *)
@@ -84,11 +83,7 @@ let binop_id (op : binop) : string =
   | Sub -> "-"
   | Mul -> "*"
   | Div -> "/"
-
-  let bool_binop_id (op : bool_binop) : string = 
-    match op with 
-    | And -> "&&"
-    | Or -> "||"
+  | And | Or -> invalid_arg "binop_id: expected arithmetic operator"
 
 let relop_id (r : relop) : string =
   match r with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
@@ -173,35 +168,37 @@ let uniq_terms (terms : Ptree.term list) : Ptree.term list =
 
 (* ---- Expression and formula compilation ---- *)
 
-let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
-  match e.iexpr with
-  | ILitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
-  | ILitBool b -> mk_expr (if b then Etrue else Efalse)
-  | IVar x ->
+let rec compile_expr (env : env) (e : expr) : Ptree.expr =
+  match e.expr with
+  | ELitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
+  | ELitBool b -> mk_expr (if b then Etrue else Efalse)
+  | EVar x ->
       if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
-  | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_iexpr env a ]))
-  | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
-  | IArithBin (op, a, b) ->
-      mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
-  | IBoolBin (And, a, b) -> mk_expr (Eand (compile_iexpr env a, compile_iexpr env b))
-  | IBoolBin (Or, a, b) -> mk_expr (Eor (compile_iexpr env a, compile_iexpr env b))
-  | ICmp (op, a, b) ->
-      mk_expr (Einnfix (compile_iexpr env a, infix_ident (relop_id op), compile_iexpr env b))
+  | EUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_expr env a ]))
+  | EUn (Not, a) -> mk_expr (Enot (compile_expr env a))
+  | EBin (op, a, b) -> (
+      match op with
+      | And -> mk_expr (Eand (compile_expr env a, compile_expr env b))
+      | Or -> mk_expr (Eor (compile_expr env a, compile_expr env b))
+      | Add | Sub | Mul | Div ->
+          mk_expr (Einnfix (compile_expr env a, infix_ident (binop_id op), compile_expr env b)))
+  | ECmp (op, a, b) ->
+      mk_expr (Einnfix (compile_expr env a, infix_ident (relop_id op), compile_expr env b))
 
-let rec compile_term (env : env) (e : iexpr) : Ptree.term =
-  match e.iexpr with
-  | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
-  | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
-  | IVar x -> mk_term (term_var env x)
-  | IUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
-  | IUn (Not, a) -> mk_term (Tnot (compile_term env a))
-  | IArithBin (op, a, b) ->
-      mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b))
-  | IBoolBin (op, a, b) ->
-      term_bool_binop
-        (match op with And -> Dterm.DTand | Or -> Dterm.DTor)
-        (compile_term env a) (compile_term env b)
-  | ICmp (op, a, b) ->
+let rec compile_term (env : env) (e : expr) : Ptree.term =
+  match e.expr with
+  | ELitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
+  | ELitBool b -> mk_term (if b then Ttrue else Tfalse)
+  | EVar x -> mk_term (term_var env x)
+  | EUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
+  | EUn (Not, a) -> mk_term (Tnot (compile_term env a))
+  | EBin (op, a, b) -> (
+      match op with
+      | And -> term_bool_binop Dterm.DTand (compile_term env a) (compile_term env b)
+      | Or -> term_bool_binop Dterm.DTor (compile_term env a) (compile_term env b)
+      | Add | Sub | Mul | Div ->
+          mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b)))
+  | ECmp (op, a, b) ->
       mk_term (Tinnfix (compile_term env a, infix_ident (relop_id op), compile_term env b))
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
@@ -224,7 +221,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HVar name -> is_const_var_name name
     | HPreK _ -> false
     | HUn (_, inner) -> is_const_hexpr inner
-    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+    | HBin (_, a, b) | HCmp (_, a, b) ->
         is_const_hexpr a && is_const_hexpr b
   in
   let rec compile_hexpr_term (h : hexpr) =
@@ -234,17 +231,17 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HVar x -> mk_term (term_var env x)
     | HUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_hexpr_term a ]))
     | HUn (Not, a) -> mk_term (Tnot (compile_hexpr_term a))
-    | HBoolBin (And, a, b) ->
-        term_bool_binop Dterm.DTand (compile_hexpr_term a) (compile_hexpr_term b)
-    | HBoolBin (Or, a, b) ->
-        term_bool_binop Dterm.DTor (compile_hexpr_term a) (compile_hexpr_term b)
-    | HArithBin (op, a, b) ->
-        mk_term
-          (Tinnfix
-             ( compile_hexpr_term a,
-               infix_ident
-                 (binop_id op),
-               compile_hexpr_term b ))
+    | HBin (op, a, b) -> (
+        match op with
+        | And -> term_bool_binop Dterm.DTand (compile_hexpr_term a) (compile_hexpr_term b)
+        | Or -> term_bool_binop Dterm.DTor (compile_hexpr_term a) (compile_hexpr_term b)
+        | Add | Sub | Mul | Div ->
+            mk_term
+              (Tinnfix
+                 ( compile_hexpr_term a,
+                   infix_ident
+                     (binop_id op),
+                   compile_hexpr_term b )))
     | HCmp (op, a, b) ->
         mk_term
           (Tinnfix

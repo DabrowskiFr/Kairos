@@ -246,8 +246,7 @@ export class KairosCodeLensProvider implements vscode.CodeLensProvider {
       new vscode.CodeLens(top, { command: "kairos.build", title: "Kairos: Build" }),
       new vscode.CodeLens(top, { command: "kairos.prove", title: "Kairos: Prove" }),
       new vscode.CodeLens(top, { command: "kairos.automataPanel", title: "Kairos: Automata" }),
-      new vscode.CodeLens(top, { command: "kairos.irPanel", title: "Kairos: IR" }),
-      new vscode.CodeLens(top, { command: "kairos.evalPanel", title: "Kairos: Eval" })
+      new vscode.CodeLens(top, { command: "kairos.irPanel", title: "Kairos: IR" })
     ];
     const regex = /^\s*(node|contract|transition)\b/mg;
     const text = document.getText();

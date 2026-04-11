@@ -18,7 +18,7 @@
 open Core_syntax
 open Ast
 open Fo_formula
-open Ast_builders
+open Core_syntax_builders
 open Generated_names
 open Temporal_support
 open Logic_pretty
@@ -53,7 +53,7 @@ let sanitize_ident (s : string) : string =
   let starts_with_digit = match out.[0] with '0' .. '9' -> true | _ -> false in
   if starts_with_digit then "atom_" ^ out else out
 
-let make_atom_names (atom_exprs : (fo_atom * iexpr) list) : string list =
+let make_atom_names (atom_exprs : (fo_atom * expr) list) : string list =
   (* Build stable, readable, and unique atom identifiers from expressions. *)
   let used = Hashtbl.create 16 in
   let fresh base =
@@ -68,32 +68,31 @@ let make_atom_names (atom_exprs : (fo_atom * iexpr) list) : string list =
   in
   List.map
     (fun (_atom, expr) ->
-      let base = "atom_" ^ sanitize_ident (Logic_pretty.string_of_iexpr expr) in
+      let base = "atom_" ^ sanitize_ident (Logic_pretty.string_of_expr expr) in
       fresh base)
     atom_exprs
 
-let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
+let inline_atoms_expr (atom_map : (ident * expr) list) (e : expr) : expr =
   (* Substitute atom variables with their underlying boolean expressions. *)
   let map = Hashtbl.create 16 in
   List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_map;
-  let rec go (e : iexpr) =
-    match e.iexpr with
-    | IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
-    | ILitInt _ | ILitBool _ -> e
-    | IUn (op, inner) -> with_iexpr_desc e (IUn (op, go inner))
-    | IArithBin (op, a, b) -> with_iexpr_desc e (IArithBin (op, go a, go b))
-    | IBoolBin (op, a, b) -> with_iexpr_desc e (IBoolBin (op, go a, go b))
-    | ICmp (op, a, b) -> with_iexpr_desc e (ICmp (op, go a, go b))
+  let rec go (e : expr) =
+    match e.expr with
+    | EVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
+    | ELitInt _ | ELitBool _ -> e
+    | EUn (op, inner) -> with_expr_desc e (EUn (op, go inner))
+    | EBin (op, a, b) -> with_expr_desc e (EBin (op, go a, go b))
+    | ECmp (op, a, b) -> with_expr_desc e (ECmp (op, go a, go b))
   in
   go e
 
-let recover_guard_fo (atom_map : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let recover_guard_fo (atom_map : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map in
   g
 
 type automata_atoms = Automaton_types.automata_atoms = {
   atom_map : (fo_atom * ident) list;
-  atom_named_exprs : (ident * iexpr) list;
+  atom_named_exprs : (ident * expr) list;
 }
 
 let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
@@ -109,7 +108,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
   let atom_exprs, skipped =
     List.fold_left
       (fun (ok, bad) a ->
-        match atom_to_iexpr ~inputs ~var_types ~pre_k_map a with
+        match atom_to_expr ~inputs ~var_types ~pre_k_map a with
         | Some e -> ((a, e) :: ok, bad)
         | None -> (ok, a :: bad))
       ([], []) atoms_all
@@ -120,7 +119,7 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
     in
     prerr_endline "Non-translatable monitor atoms:";
     prerr_endline lines;
-    failwith "Cannot build monitor: some atoms are not translatable to iexpr.");
+    failwith "Cannot build monitor: some atoms are not translatable to expr.");
   let atom_exprs = List.rev atom_exprs in
   let atom_names = make_atom_names atom_exprs in
   let atom_map = List.map2 (fun (a, _) name -> (a, name)) atom_exprs atom_names in

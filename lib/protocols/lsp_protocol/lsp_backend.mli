@@ -30,10 +30,6 @@ val obligations_pass :
   Lsp_protocol.obligations_pass_request ->
   (Lsp_protocol.obligations_outputs, string) result
 
-val eval_pass :
-  Lsp_protocol.eval_pass_request ->
-  (string, string) result
-
 val kobj_summary :
   Lsp_protocol.kobj_summary_request ->
   (string, string) result

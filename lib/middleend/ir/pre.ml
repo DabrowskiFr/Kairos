@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 open Fo_specs
 open Fo_time
 open Formula_origin
@@ -47,10 +47,10 @@ let non_input_program_var_names (n : Abs.node_ir) : ident list =
     (n.semantics.sem_outputs @ n.semantics.sem_locals)
   |> List.sort_uniq String.compare
 
-let ivar (name : ident) : iexpr = { iexpr = IVar name; loc = None }
+let ivar (name : ident) : expr = { expr = EVar name; loc = None }
 
 let stability_formula (name : ident) : Fo_formula.t =
-  Fo_formula.FAtom (FRel (hexpr_of_iexpr (ivar name), REq, mk_hpre_k name 1))
+  Fo_formula.FAtom (FRel (hexpr_of_expr (ivar name), REq, mk_hpre_k name 1))
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   String.equal a.prog_state b.prog_state
@@ -58,9 +58,9 @@ let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   && a.guarantee_state_index = b.guarantee_state_index
 
 let guard_fo_of_transition_core (t : Abs.transition) : Fo_formula.t =
-  match t.guard_iexpr with
+  match t.guard_expr with
   | None -> Fo_formula.FTrue
-  | Some guard -> Fo_specs.iexpr_to_fo_with_atoms [] guard |> simplify_fo
+  | Some guard -> Fo_specs.expr_to_fo_with_atoms [] guard |> simplify_fo
 
 let invariant_of_state (n : Abs.node_ir) : ident -> Fo_formula.t option =
   let by_state = Hashtbl.create 16 in

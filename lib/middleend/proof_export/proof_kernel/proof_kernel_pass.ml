@@ -42,12 +42,12 @@ type node_output = {
 let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
 
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
   simplify_fo g
 
@@ -174,7 +174,7 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node) :
     ~program_transitions:(program_transitions_of_ast_node source_node)
 
 let build_automaton ~(role : Proof_kernel_types.automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * iexpr) list) :
+    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * expr) list) :
     Proof_kernel_types.safety_automaton_ir =
   Proof_kernel_product.build_automaton ~role ~labels ~bad_idx ~grouped_edges ~atom_map_exprs
     ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->

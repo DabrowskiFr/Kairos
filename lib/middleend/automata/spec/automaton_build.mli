@@ -25,7 +25,7 @@ open Core_syntax
 val build :
   atom_map:(fo_atom * ident) list ->
   atom_names:ident list ->
-  atom_named_exprs:(ident * iexpr) list ->
+  atom_named_exprs:(ident * expr) list ->
   ltl ->
   Automaton_types.automaton
 (** [build ~atom_map ~atom_names ~atom_named_exprs spec] constructs the safety

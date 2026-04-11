@@ -30,8 +30,7 @@ export class KairosDocProvider implements vscode.TextDocumentContentProvider {
       "guarantee",
       "product",
       "obligations_map",
-      "prune_reasons",
-      "eval"
+      "prune_reasons"
     ];
     kinds.forEach((kind) => this.refresh(kind));
   }
@@ -41,7 +40,7 @@ export class KairosDocProvider implements vscode.TextDocumentContentProvider {
     const out = this.state.outputs;
     const automata = this.state.automata;
     if (!out && !automata) {
-      return "No Kairos data available yet. Run Build, Prove, Automata or Eval first.";
+      return "No Kairos data available yet. Run Build, Prove or Automata first.";
     }
     switch (kind) {
       case "obc":
@@ -66,8 +65,6 @@ export class KairosDocProvider implements vscode.TextDocumentContentProvider {
         return automata?.obligations_map_text ?? out?.obligations_map_text ?? "";
       case "prune_reasons":
         return automata?.prune_reasons_text ?? out?.prune_reasons_text ?? "";
-      case "eval":
-        return out?.eval_text ?? "";
       default:
         return "";
     }

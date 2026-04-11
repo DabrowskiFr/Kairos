@@ -22,38 +22,68 @@ open Fo_formula
 let string_of_relop (op : relop) : string =
   match op with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
 
-let string_of_binop = function Add -> "+" | Sub -> "-" | Mul -> "*" | Div -> "/"
-let string_of_bool_binop = function And -> "&&" | Or -> "||"
+let string_of_binop = function
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | And -> "&&"
+  | Or -> "||"
 
-let rec string_of_iexpr_with_ctx ?(ctx = 0) (e : iexpr) : string =
-  let prec_of_ibinop = function Add | Sub -> 4 | Mul | Div -> 5 in
-  let prec_of_ibool_binop = function Or -> 1 | And -> 2 in
+let string_of_arith_binop = function
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | And | Or -> invalid_arg "string_of_arith_binop: expected arithmetic operator"
+
+let string_of_bool_binop = function
+  | And -> "&&"
+  | Or -> "||"
+  | Add | Sub | Mul | Div -> invalid_arg "string_of_bool_binop: expected boolean operator"
+
+let rec string_of_expr_with_ctx ?(ctx = 0) (e : expr) : string =
+  let prec_of_ibinop = function
+    | Add | Sub -> 4
+    | Mul | Div -> 5
+    | And | Or -> invalid_arg "prec_of_ibinop: expected arithmetic operator"
+  in
+  let prec_of_ibool_binop = function
+    | Or -> 1
+    | And -> 2
+    | Add | Sub | Mul | Div -> invalid_arg "prec_of_ibool_binop: expected boolean operator"
+  in
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
-  match e.iexpr with
-  | ILitInt n -> string_of_int n
-  | ILitBool b -> if b then "true" else "false"
-  | IVar x -> x
-  | IUn (Neg, a) -> wrap 6 ("-" ^ string_of_iexpr_with_ctx ~ctx:6 a)
-  | IUn (Not, a) -> wrap 6 ("not " ^ string_of_iexpr_with_ctx ~ctx:6 a)
-  | IArithBin (op, a, b) ->
-      let prec = prec_of_ibinop op in
+  match e.expr with
+  | ELitInt n -> string_of_int n
+  | ELitBool b -> if b then "true" else "false"
+  | EVar x -> x
+  | EUn (Neg, a) -> wrap 6 ("-" ^ string_of_expr_with_ctx ~ctx:6 a)
+  | EUn (Not, a) -> wrap 6 ("not " ^ string_of_expr_with_ctx ~ctx:6 a)
+  | EBin (op, a, b) ->
+      let is_bool = match op with And | Or -> true | Add | Sub | Mul | Div -> false in
+      let prec = if is_bool then prec_of_ibool_binop op else prec_of_ibinop op in
+      let op_s = if is_bool then string_of_bool_binop op else string_of_arith_binop op in
       wrap prec
-        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_binop op ^ " "
-       ^ string_of_iexpr_with_ctx ~ctx:prec b)
-  | IBoolBin (op, a, b) ->
-      let prec = prec_of_ibool_binop op in
-      wrap prec
-        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_bool_binop op ^ " "
-       ^ string_of_iexpr_with_ctx ~ctx:prec b)
-  | ICmp (op, a, b) ->
+        (string_of_expr_with_ctx ~ctx:prec a ^ " " ^ op_s ^ " "
+       ^ string_of_expr_with_ctx ~ctx:prec b)
+  | ECmp (op, a, b) ->
       let prec = 3 in
       wrap prec
-        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop op ^ " "
-       ^ string_of_iexpr_with_ctx ~ctx:prec b)
+        (string_of_expr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop op ^ " "
+       ^ string_of_expr_with_ctx ~ctx:prec b)
 
 let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
-  let prec_of_harith_binop = function Add | Sub -> 4 | Mul | Div -> 5 in
-  let prec_of_hbool_binop = function Or -> 1 | And -> 2 in
+  let prec_of_harith_binop = function
+    | Add | Sub -> 4
+    | Mul | Div -> 5
+    | And | Or -> invalid_arg "prec_of_harith_binop: expected arithmetic operator"
+  in
+  let prec_of_hbool_binop = function
+    | Or -> 1
+    | And -> 2
+    | Add | Sub | Mul | Div -> invalid_arg "prec_of_hbool_binop: expected boolean operator"
+  in
   let prec_of_relop _ = 3 in
   let prec_of_hunop = function Not | Neg -> 6 in
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
@@ -67,15 +97,12 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
       let prec = prec_of_hunop op in
       let prefix = match op with Neg -> "-" | Not -> "not " in
       wrap prec (prefix ^ string_of_hexpr_with_ctx ~ctx:prec a)
-  | HArithBin (op, a, b) ->
-      let prec = prec_of_harith_binop op in
+  | HBin (op, a, b) ->
+      let is_bool = match op with And | Or -> true | Add | Sub | Mul | Div -> false in
+      let prec = if is_bool then prec_of_hbool_binop op else prec_of_harith_binop op in
+      let op_s = if is_bool then string_of_bool_binop op else string_of_arith_binop op in
       wrap prec
-        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_binop op ^ " "
-       ^ string_of_hexpr_with_ctx ~ctx:prec b)
-  | HBoolBin (op, a, b) ->
-      let prec = prec_of_hbool_binop op in
-      wrap prec
-        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_bool_binop op ^ " "
+        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ op_s ^ " "
        ^ string_of_hexpr_with_ctx ~ctx:prec b)
   | HCmp (rop, a, b) ->
       let prec = prec_of_relop rop in
@@ -83,7 +110,7 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
         (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop rop ^ " "
        ^ string_of_hexpr_with_ctx ~ctx:prec b)
 
-let string_of_iexpr ?(ctx = 0) (e : iexpr) : string = string_of_iexpr_with_ctx ~ctx e
+let string_of_expr ?(ctx = 0) (e : expr) : string = string_of_expr_with_ctx ~ctx e
 let string_of_hexpr (h : hexpr) : string = string_of_hexpr_with_ctx h
 
 let string_of_fo_atom ?(ctx = 0) (f : fo_atom) : string =

@@ -88,19 +88,6 @@ Generate obligations.
 **Result**
 `obligations_outputs` JSON (`Lsp_protocol`).
 
-## kairos/evalPass
-
-Evaluate a trace.
-
-**Params**
-- `inputFile` (string)
-- `traceText` (string)
-- `withState` (bool, default false)
-- `withLocals` (bool, default false)
-
-**Result**
-String output.
-
 ## kairos/dotPngFromText
 
 Convert DOT to base64 PNG.

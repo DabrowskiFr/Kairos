@@ -42,7 +42,7 @@ type node_data = {
   (** Grouped edges of the assumption automaton. *)
   assume_grouped_edges : Automaton_types.transition list;
   (** Atom-name table used to render guarantee guards. *)
-  guarantee_atom_map_exprs : (ident * iexpr) list;
+  guarantee_atom_map_exprs : (ident * expr) list;
   (** Atom-name table used to render assumption guards. *)
-  assume_atom_map_exprs : (ident * iexpr) list;
+  assume_atom_map_exprs : (ident * expr) list;
 }

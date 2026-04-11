@@ -108,22 +108,22 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
                  [
                    ( mk_expr (Eident (qid1 env.rec_name)),
                      Some (qid1 x),
-                     compile_iexpr env e );
+                     compile_expr env e );
                  ])
           else
-            mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, compile_iexpr env e) ])
+            mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, compile_expr env e) ])
         in
         let assign = if is_ghost_local x then mk_expr (Eghost assign) else assign in
         let reassert = preserved_asserts_after_assign x |> assert_terms |> seq_exprs in
         seq_exprs [ assign; reassert ]
     | Why_runtime_view.ActionIf (c, tbr, fbr) ->
-        let cond = compile_iexpr env c in
+        let cond = compile_expr env c in
         let else_branch =
           if fbr = [] then explicit_noop () else compile_seq env sticky_asserts fbr
         in
         mk_expr (Eif (cond, compile_seq env sticky_asserts tbr, else_branch))
     | Why_runtime_view.ActionMatch (e, branches, default) ->
-        let scrut = compile_iexpr env e in
+        let scrut = compile_expr env e in
         let branches =
           List.map
             (fun (ctor, body) ->
@@ -184,7 +184,7 @@ let compile_state_body (env : env) (branch_entry_asserts : (ident * Ptree.term l
     match trs with
     | [] -> mk_expr (Etuple [])
     | (t : Why_runtime_view.runtime_transition_view) :: rest ->
-        let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_iexpr env g in
+        let guard = match t.guard with None -> mk_expr Etrue | Some g -> compile_expr env g in
         let trans_body = compile_transition_body env local_assert_terms t in
         mk_expr (Eif (guard, trans_body, chain rest))
   in
@@ -207,7 +207,7 @@ let compile_transitions (env : env) (branches_view : Why_runtime_view.state_bran
   in
   mk_expr
     (Ematch
-       ( compile_iexpr env { iexpr = IVar "st"; loc = None },
+       ( compile_expr env { expr = EVar "st"; loc = None },
          branches @ [ ({ pat_desc = Pwild; pat_loc = loc }, mk_expr (Etuple [])) ],
          [] ))
 

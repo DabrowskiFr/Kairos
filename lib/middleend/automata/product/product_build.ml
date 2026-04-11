@@ -32,20 +32,20 @@ let simplify_fo (f : Fo_formula.t) : Fo_formula.t =
 type automaton_view = {
   states : ltl list;
   grouped : Automaton_types.transition list;
-  atom_map_exprs : (ident * iexpr) list;
+  atom_map_exprs : (ident * expr) list;
   bad_idx : int;
 }
 
-let fo_of_iexpr (e : iexpr) : Fo_formula.t = iexpr_to_fo_with_atoms [] e
+let fo_of_expr (e : expr) : Fo_formula.t = expr_to_fo_with_atoms [] e
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * iexpr) list) (g : Automaton_types.guard) : Fo_formula.t =
+let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Fo_formula.t =
   let _ = atom_map_exprs in
   simplify_fo g
 
 let program_guard_fo (t : Abs.transition) : Fo_formula.t =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard_iexpr with None -> FTrue | Some g -> fo_of_iexpr g |> simplify_fo
+  match t.guard_expr with None -> FTrue | Some g -> fo_of_expr g |> simplify_fo
 
 let first_false_idx (states : ltl list) : int =
   let rec loop i = function

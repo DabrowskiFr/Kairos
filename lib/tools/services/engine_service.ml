@@ -52,10 +52,6 @@ let compile_object ~engine ~input_file =
   match normalize engine with
   | Default -> Pipeline_service.compile_object ~input_file
 
-let eval_pass ~engine ~input_file ~trace_text ~with_state ~with_locals =
-  match normalize engine with
-  | Default -> Pipeline_service.eval_pass ~input_file ~trace_text ~with_state ~with_locals
-
 let run ~engine cfg =
   match normalize engine with
   | Default -> Pipeline_service.run cfg

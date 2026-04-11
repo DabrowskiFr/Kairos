@@ -46,10 +46,6 @@ val ir_pretty_dump :
 val compile_object :
   engine:engine -> input_file:string -> (Kairos_object.t, Pipeline_types.error) result
 
-val eval_pass :
-  engine:engine -> input_file:string -> trace_text:string -> with_state:bool -> with_locals:bool ->
-  (string, Pipeline_types.error) result
-
 val run :
   engine:engine -> Pipeline_types.config ->
   (Pipeline_types.outputs, Pipeline_types.error) result

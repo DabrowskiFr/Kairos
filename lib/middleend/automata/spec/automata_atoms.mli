@@ -37,18 +37,18 @@ val guard_to_formula : guard -> string
     - [atom_named_exprs] stores the corresponding named boolean expressions. *)
 type automata_atoms = Automaton_types.automata_atoms = {
   atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
-  atom_named_exprs : (Core_syntax.ident * Core_syntax.iexpr) list;
+  atom_named_exprs : (Core_syntax.ident * Core_syntax.expr) list;
 }
 
-val make_atom_names : (Core_syntax.fo_atom * Core_syntax.iexpr) list -> string list
+val make_atom_names : (Core_syntax.fo_atom * Core_syntax.expr) list -> string list
 (** [make_atom_names atoms] generates stable, readable, and unique names for the
     given atoms, preserving the input order. *)
 
-val inline_atoms_iexpr : (Core_syntax.ident * Core_syntax.iexpr) list -> Core_syntax.iexpr -> Core_syntax.iexpr
-(** [inline_atoms_iexpr defs expr] replaces atom variables occurring in [expr]
+val inline_atoms_expr : (Core_syntax.ident * Core_syntax.expr) list -> Core_syntax.expr -> Core_syntax.expr
+(** [inline_atoms_expr defs expr] replaces atom variables occurring in [expr]
     by their underlying boolean expressions. *)
 
-val recover_guard_fo : (Core_syntax.ident * Core_syntax.iexpr) list -> Automaton_types.guard -> Fo_formula.t
+val recover_guard_fo : (Core_syntax.ident * Core_syntax.expr) list -> Automaton_types.guard -> Fo_formula.t
 (** Convert an automaton guard back to a first-order formula suitable for
     downstream rendering and export. *)
 

@@ -3,7 +3,6 @@
  (wrapped false)
  (modules compile_run engine_service pipeline_service)
  (libraries
-  kairos_simulation
   kairos_pipeline_types
   kairos_pipeline_orchestration
   kairos_pipeline_diagnostics

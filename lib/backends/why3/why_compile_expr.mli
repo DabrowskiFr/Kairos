@@ -109,14 +109,14 @@ val string_of_term : Why3.Ptree.term -> string
 (** Removes duplicate terms from a list using their textual representation. *)
 val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list
 
-(** [compile_iexpr env e] compiles an immediate Kairos expression to a Why3
+(** [compile_expr env e] compiles an immediate Kairos expression to a Why3
     expression. Local and output variables are accessed through the [vars]
     record; inputs are direct parameters. *)
-val compile_iexpr : env -> Core_syntax.iexpr -> Why3.Ptree.expr
+val compile_expr : env -> Core_syntax.expr -> Why3.Ptree.expr
 
 (** [compile_term env e] compiles an immediate Kairos expression to a Why3
     term (logical form, used inside contracts). *)
-val compile_term : env -> Core_syntax.iexpr -> Why3.Ptree.term
+val compile_term : env -> Core_syntax.expr -> Why3.Ptree.term
 
 (** [term_of_outputs env outputs] builds the tuple term representing the node
     outputs in a postcondition. Returns [None] when the list is empty. *)

@@ -19,7 +19,7 @@
 (** Structural queries and small utilities over the source AST. *)
 
 (** Render a source location in a compact human-readable form. *)
-val loc_to_string : Core_syntax.loc -> string
+val loc_to_string : Loc.loc -> string
 
 (** Names of the input variables declared by a node. *)
 val input_names_of_node : Ast.node -> Core_syntax.ident list

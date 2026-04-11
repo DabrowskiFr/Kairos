@@ -105,7 +105,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
     | HLitInt _ | HLitBool _ | HPreK _ -> false
     | HVar name -> List.mem name input_names
     | HUn (_, inner) -> hexpr_mentions_current_input inner
-    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+    | HBin (_, a, b) | HCmp (_, a, b) ->
         hexpr_mentions_current_input a || hexpr_mentions_current_input b
   in
   let rec fo_mentions_current_input (f : Fo_formula.t) =

@@ -19,7 +19,7 @@
 open Core_syntax
 open Ast
 
-let loc_to_string (l : loc) : string =
+let loc_to_string (l : Loc.loc) : string =
   Printf.sprintf "%d:%d-%d:%d" l.line l.col l.line_end l.col_end
 
 let input_names_of_node (n : node) : ident list = List.map (fun v -> v.vname) n.semantics.sem_inputs

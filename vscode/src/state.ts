@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import {
   ArtifactId,
   AutomataOutputs,
-  EvalHistoryEntry,
   GoalDonePayload,
   GoalTreeEntry,
   GoalTreeNode,
@@ -35,7 +34,6 @@ export class KairosState {
   public activeGoal: GoalDonePayload | null = null;
   public activeProofTrace: ProofTrace | null = null;
   public runHistory: RunHistoryEntry[] = [];
-  public evalHistory: EvalHistoryEntry[] = [];
   public startedAtMs: number | null = null;
 
   private readonly didChangeEmitter = new vscode.EventEmitter<void>();
@@ -130,7 +128,7 @@ export class KairosState {
     if (command !== undefined) {
       this.activeCommand = command;
     }
-    if (phase === "building" || phase === "proving" || phase === "eval" || phase === "parsing") {
+    if (phase === "building" || phase === "proving" || phase === "parsing") {
       this.startedAtMs = Date.now();
     }
     if (phase === "completed" || phase === "failed" || phase === "cancelled" || phase === "idle") {
@@ -172,10 +170,5 @@ export class KairosState {
       return { ...entry, endedAt, durationMs, phase, success, summary };
     });
     this.didHistoryEmitter.fire();
-  }
-
-  addEvalHistory(entry: EvalHistoryEntry): void {
-    this.evalHistory = [entry, ...this.evalHistory].slice(0, 20);
-    this.didChangeEmitter.fire();
   }
 }

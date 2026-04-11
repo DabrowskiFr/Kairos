@@ -42,19 +42,19 @@ val temporal_bindings_of_pre_k_map :
 
 (** Convert a history expression to an immediate expression when representable,
     using temporal bindings. *)
-val hexpr_to_iexpr_with_temporal_bindings :
+val hexpr_to_expr_with_temporal_bindings :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
   temporal_bindings:temporal_binding list ->
   Core_syntax.hexpr ->
-  Core_syntax.iexpr option
+  Core_syntax.expr option
 
-val hexpr_to_iexpr :
+val hexpr_to_expr :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
   pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list ->
   Core_syntax.hexpr ->
-  Core_syntax.iexpr option
+  Core_syntax.expr option
 
 (** Lower [pre_k] occurrences to explicit symbolic history variables. *)
 val lower_hexpr_temporal_bindings :
@@ -78,29 +78,29 @@ val lower_fo_formula_pre_k :
   pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Fo_formula.t -> Fo_formula.t option
 
 (** Infer a simple type for an immediate expression from variable types. *)
-val infer_iexpr_type : var_types:(Core_syntax.ident * Core_syntax.ty) list -> Core_syntax.iexpr -> Core_syntax.ty option
+val infer_expr_type : var_types:(Core_syntax.ident * Core_syntax.ty) list -> Core_syntax.expr -> Core_syntax.ty option
 
 (** Boolean equality encoded as a pure boolean expression. *)
-val mk_bool_eq : Core_syntax.iexpr -> Core_syntax.iexpr -> Core_syntax.iexpr
+val mk_bool_eq : Core_syntax.expr -> Core_syntax.expr -> Core_syntax.expr
 
 (** Boolean inequality encoded as a pure boolean expression. *)
-val mk_bool_neq : Core_syntax.iexpr -> Core_syntax.iexpr -> Core_syntax.iexpr
+val mk_bool_neq : Core_syntax.expr -> Core_syntax.expr -> Core_syntax.expr
 
 (** Convert an atomic first-order predicate to an immediate expression when
     possible. *)
-val atom_to_iexpr :
+val atom_to_expr :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
   pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list ->
   Core_syntax.fo_atom ->
-  Core_syntax.iexpr option
+  Core_syntax.expr option
 
 (** Encode an atom variable as a first-order relation [var = true]. *)
 val atom_to_var_rel : Core_syntax.ident -> Core_syntax.fo_atom
 
 (** Reconstruct a non-temporal formula by inlining atom variables from a
     name-to-atom map. *)
-val iexpr_to_fo_with_atoms : (Core_syntax.ident * Core_syntax.fo_atom) list -> Core_syntax.iexpr -> Fo_formula.t
+val expr_to_fo_with_atoms : (Core_syntax.ident * Core_syntax.fo_atom) list -> Core_syntax.expr -> Fo_formula.t
 
 
 (** {1 Instrumentation Specs} *)

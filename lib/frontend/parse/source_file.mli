@@ -22,7 +22,7 @@
 (** One syntactic import declaration as it appears in the source file. *)
 type import_decl = {
   import_path : string;
-  import_loc : Core_syntax.loc option;
+  import_loc : Loc.loc option;
 }
 
 (** Parsed source file, before imports are resolved or expanded. *)

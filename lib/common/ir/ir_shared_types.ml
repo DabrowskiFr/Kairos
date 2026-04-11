@@ -17,11 +17,11 @@
  *---------------------------------------------------------------------------*)
 
 type ident = Core_syntax.ident
-type loc = Core_syntax.loc
+type loc = Loc.loc
 type ltl = Core_syntax.ltl
 type ltl_o = Core_syntax.ltl_o
 type hexpr = Core_syntax.hexpr
-type iexpr = Core_syntax.iexpr
+type expr = Core_syntax.expr
 type stmt = Ast.stmt
 type vdecl = Core_syntax.vdecl
 

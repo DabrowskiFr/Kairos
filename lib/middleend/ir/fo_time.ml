@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 
 let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   let rec go (h : hexpr) =
@@ -26,8 +26,7 @@ let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
     | HVar v -> if is_input v then mk_hpre_k v 1 else h
     | HPreK (v, k) -> mk_hpre_k v (k + 1)
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
-    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
-    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
   in
   go h
@@ -46,8 +45,7 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
         h
     | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
-    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
-    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
   in
   go h
@@ -98,8 +96,7 @@ let shift_hexpr_forward_all (h : hexpr) : hexpr =
     | HVar v -> mk_hpre_k v 1
     | HPreK (v, k) -> mk_hpre_k v (k + 1)
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
-    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
-    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
   in
   go h
@@ -111,8 +108,7 @@ let shift_hexpr_backward_all (h : hexpr) : hexpr =
     | HVar _ -> h
     | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
-    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
-    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
   in
   go h

@@ -55,7 +55,7 @@ type automaton = {
     while building temporal automata. *)
 type automata_atoms = {
   atom_map : (Core_syntax.fo_atom * Core_syntax.ident) list;
-  atom_named_exprs : (Core_syntax.ident * Core_syntax.iexpr) list;
+  atom_named_exprs : (Core_syntax.ident * Core_syntax.expr) list;
 }
 
 (** Per-node automata generation result.

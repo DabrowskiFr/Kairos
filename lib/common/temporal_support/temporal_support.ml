@@ -17,10 +17,10 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Ast_builders
+open Core_syntax_builders
 open Fo_formula
 
-type pre_k_info = { h : hexpr; expr : iexpr; names : string list; vty : ty } [@@deriving yojson]
+type pre_k_info = { h : hexpr; expr : expr; names : string list; vty : ty } [@@deriving yojson]
 
 type ltl_norm = { ltl : ltl; k_guard : int option }
 
@@ -31,17 +31,17 @@ let rec max_x_depth (f : ltl) : int =
   | LNot a | LG a -> max_x_depth a
   | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> max (max_x_depth a) (max_x_depth b)
 
-let is_const_iexpr (e : iexpr) : bool =
-  match e.iexpr with
-  | ILitInt _ | ILitBool _ -> true
-  | IVar name ->
+let is_const_expr (e : expr) : bool =
+  match e.expr with
+  | ELitInt _ | ELitBool _ -> true
+  | EVar name ->
       let len = String.length name in
       len >= 4
       && String.sub name 0 3 = "Aut"
       && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
   | _ -> false
 
-let rec shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr) : hexpr option =
+let rec shift_hexpr_by ~(init_for_var : ident -> expr) (shift : int) (h : hexpr) : hexpr option =
   let _ = init_for_var in
   if shift <= 0 then Some h
   else
@@ -53,20 +53,16 @@ let rec shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr
         Option.map
           (fun inner' -> with_hexpr_desc h (HUn (op, inner')))
           (shift_hexpr_by ~init_for_var shift inner)
-    | HArithBin (op, a, b) -> (
+    | HBin (op, a, b) -> (
         match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
-        | Some a', Some b' -> Some (with_hexpr_desc h (HArithBin (op, a', b')))
-        | _ -> None)
-    | HBoolBin (op, a, b) -> (
-        match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
-        | Some a', Some b' -> Some (with_hexpr_desc h (HBoolBin (op, a', b')))
+        | Some a', Some b' -> Some (with_hexpr_desc h (HBin (op, a', b')))
         | _ -> None)
     | HCmp (op, a, b) -> (
         match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
         | Some a', Some b' -> Some (with_hexpr_desc h (HCmp (op, a', b')))
         | _ -> None)
 
-let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : ltl) : ltl_norm =
+let normalize_ltl_for_k ~(init_for_var : ident -> expr) (f : ltl) : ltl_norm =
   let rec shift_ltl_with_depth k depth f =
     match f with
     | LX a -> shift_ltl_with_depth k (depth + 1) a
@@ -117,7 +113,7 @@ let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : ltl) : ltl_norm =
     | Some ltl -> { ltl; k_guard = Some k }
     | None -> { ltl = f; k_guard = Some k }
 
-let rec shift_ltl_by ~(init_for_var : ident -> iexpr) (shift : int) (f : ltl) : ltl option =
+let rec shift_ltl_by ~(init_for_var : ident -> expr) (shift : int) (f : ltl) : ltl option =
   if shift <= 0 then Some f
   else
     match f with

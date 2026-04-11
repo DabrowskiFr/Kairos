@@ -34,11 +34,11 @@ type port_view = {
 
 (** An imperative action in the body of a transition. *)
 type runtime_action_view =
-  | ActionAssign of ident * iexpr
+  | ActionAssign of ident * expr
       (** Simple assignment [x := e]. *)
-  | ActionIf of iexpr * runtime_action_view list * runtime_action_view list
+  | ActionIf of expr * runtime_action_view list * runtime_action_view list
       (** Conditional branch. *)
-  | ActionMatch of iexpr * (ident * runtime_action_view list) list * runtime_action_view list
+  | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
       (** Constructor match. *)
   | ActionSkip
       (** No-op action. *)
@@ -62,7 +62,7 @@ type runtime_transition_view = {
       (** Source control state. *)
   dst_state : ident;
       (** Target control state. *)
-  guard : iexpr option;
+  guard : expr option;
       (** Triggering condition, or [None] if unconditional. *)
   requires : Ir.summary_formula list;
       (** Preconditions from the IR. *)
@@ -86,7 +86,7 @@ type runtime_product_transition_view = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
-  guard : iexpr option;
+  guard : expr option;
   body : Ast.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;

@@ -718,36 +718,6 @@ let () =
                     send_error stdout ~id_json:(Some id) ~code:(-32602)
                       ~message:"Missing valid inputFile")
               id_json
-        | Some "kairos/evalPass" ->
-            Option.iter
-              (fun id ->
-                let req = decode_or_none Lsp_protocol.eval_pass_request_of_yojson params in
-                let req =
-                  match req with
-                  | Some req -> Some req
-                  | None -> (
-                      match (get_param_string params "inputFile", get_param_string params "traceText") with
-                      | Some input_file, Some trace_text ->
-                          Some
-                            {
-                              Lsp_protocol.input_file;
-                              trace_text;
-                              with_state = get_param_bool params "withState" false;
-                              with_locals = get_param_bool params "withLocals" false;
-                              engine = Engine_service.string_of_engine (get_engine params);
-                            }
-                      | _ -> None)
-                in
-                match req with
-                | Some req when Sys.file_exists req.input_file -> (
-                    match Lsp_backend.eval_pass req with
-                    | Ok out -> send_result stdout ~id_json:id ~result_json:(`String out)
-                    | Error msg ->
-                        send_error stdout ~id_json:(Some id) ~code:(-32001) ~message:msg)
-                | _ ->
-                    send_error stdout ~id_json:(Some id) ~code:(-32602)
-                      ~message:"Missing valid inputFile/traceText")
-              id_json
         | Some "kairos/kobjSummary" ->
             Option.iter
               (fun id ->
