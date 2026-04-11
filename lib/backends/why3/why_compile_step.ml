@@ -68,11 +68,13 @@ let rec term_mentions_qid_name (name : string) (term : Ptree.term) : bool =
   let term = strip_term_attrs term in
   match term.term_desc with
   | Tident q -> String.equal (string_of_qid q) name
+  | Tasref q -> String.equal (string_of_qid q) name
   | Tapply (fn, arg) -> term_mentions_qid_name name fn || term_mentions_qid_name name arg
   | Tbinnop (lhs, _, rhs) | Tinnfix (lhs, _, rhs) ->
       term_mentions_qid_name name lhs || term_mentions_qid_name name rhs
   | Tnot inner -> term_mentions_qid_name name inner
-  | Tidapp (_q, args) -> List.exists (term_mentions_qid_name name) args
+  | Tidapp (q, args) ->
+      String.equal (string_of_qid q) name || List.exists (term_mentions_qid_name name) args
   | Tif (c, t_then, t_else) ->
       term_mentions_qid_name name c || term_mentions_qid_name name t_then
       || term_mentions_qid_name name t_else
@@ -84,9 +86,7 @@ let rec term_mentions_qid_name (name : string) (term : Ptree.term) : bool =
 let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
     (lst : Why_runtime_view.runtime_action_view list) : Ptree.expr =
   let assert_terms terms = List.map (fun term -> mk_expr (Eassert (Expr.Assert, term))) terms in
-  let qid_name_for_var x =
-    if is_rec_var env x then string_of_qid (qdot (qid1 env.rec_name) (x)) else x
-  in
+  let qid_name_for_var x = x in
   let preserved_asserts_after_assign x =
     let qid_name = qid_name_for_var x in
     List.filter (fun term -> not (term_mentions_qid_name qid_name term)) sticky_asserts
@@ -101,8 +101,18 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
           || (String.length name >= 6 && String.sub name 0 6 = "__aut_")
           || (String.length name >= 6 && String.sub name 0 6 = "__pre_")
         in
-        let tgt = if is_rec_var env x then field env x else mk_expr (Eident (qid1 x)) in
-        let assign = mk_expr (Eassign [ (tgt, None, compile_iexpr env e) ]) in
+        let assign =
+          if is_rec_var env x then
+            mk_expr
+              (Eassign
+                 [
+                   ( mk_expr (Eident (qid1 env.rec_name)),
+                     Some (qid1 x),
+                     compile_iexpr env e );
+                 ])
+          else
+            mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, compile_iexpr env e) ])
+        in
         let assign = if is_ghost_local x then mk_expr (Eghost assign) else assign in
         let reassert = preserved_asserts_after_assign x |> assert_terms |> seq_exprs in
         seq_exprs [ assign; reassert ]
@@ -144,7 +154,9 @@ let compile_transition_body (env : env) (sticky_asserts : Ptree.term list)
     mk_expr
       (Eassign
          [
-           (field env "st", None, mk_expr (Eident (qid1 t.dst_state)));
+           ( mk_expr (Eident (qid1 env.rec_name)),
+             Some (qid1 "st"),
+             mk_expr (Eident (qid1 t.dst_state)) );
          ])
   in
   let block_exprs = List.map (compile_action_block env sticky_asserts) t.action_blocks in
@@ -195,7 +207,7 @@ let compile_transitions (env : env) (branches_view : Why_runtime_view.state_bran
   in
   mk_expr
     (Ematch
-       ( field env "st",
+       ( compile_iexpr env { iexpr = IVar "st"; loc = None },
          branches @ [ ({ pat_desc = Pwild; pat_loc = loc }, mk_expr (Etuple [])) ],
          [] ))
 

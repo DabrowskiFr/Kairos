@@ -77,8 +77,8 @@ let unique_preserve_order xs =
     xs
 
 let diagnostic_for_trace ~(status : string) ~(record : formula_record option) ~(goal_text : string)
-    ~(native_core : Why_contract_prove.native_unsat_core option)
-    ~(native_probe : Why_contract_prove.native_solver_probe option) : Types.proof_diagnostic =
+    ~(native_core : Why_native_probe.native_unsat_core option)
+    ~(native_probe : Why_native_probe.native_solver_probe option) : Types.proof_diagnostic =
   let goal_symbols = [] in
   let kairos_core_hypotheses = [] in
   let why3_noise_hypotheses = [] in
@@ -87,13 +87,13 @@ let diagnostic_for_trace ~(status : string) ~(record : formula_record option) ~(
   let unused_hypotheses = [] in
   let status_norm = String.lowercase_ascii (String.trim status) in
   let native_probe_status =
-    Option.map (fun (probe : Why_contract_prove.native_solver_probe) -> probe.status) native_probe
+    Option.map (fun (probe : Why_native_probe.native_solver_probe) -> probe.status) native_probe
   in
   let native_probe_detail =
-    Option.bind native_probe (fun (probe : Why_contract_prove.native_solver_probe) -> probe.detail)
+    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) -> probe.detail)
   in
   let native_probe_model =
-    Option.bind native_probe (fun (probe : Why_contract_prove.native_solver_probe) -> probe.model_text)
+    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) -> probe.model_text)
   in
   let category, probable_cause, missing_elements, suggestions, detail_override =
     match (status_norm, native_probe_status, native_probe_model) with
@@ -311,11 +311,11 @@ let diagnostic_for_trace ~(status : string) ~(record : formula_record option) ~(
           "Status-based diagnostic without structured sequent analysis");
     solver_detail = native_probe_detail;
     native_unsat_core_solver =
-      Option.map (fun (core : Why_contract_prove.native_unsat_core) -> core.solver) native_core;
+      Option.map (fun (core : Why_native_probe.native_unsat_core) -> core.solver) native_core;
     native_unsat_core_hypothesis_ids =
       (match native_core with Some core -> core.hypothesis_ids | None -> []);
     native_counterexample_solver =
-      Option.bind native_probe (fun (probe : Why_contract_prove.native_solver_probe) ->
+      Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) ->
           match probe.model_text with Some _ -> Some probe.solver | None -> None);
     native_counterexample_model = native_probe_model;
     kairos_core_hypotheses;

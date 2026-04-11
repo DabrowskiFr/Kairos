@@ -40,7 +40,11 @@ let ident (s : string) : Ptree.ident = { Ptree.id_str = s; id_ats = []; id_loc =
 let infix_ident (s : string) : Ptree.ident =
   { Ptree.id_str = Ident.op_infix s; id_ats = []; id_loc = loc }
 
-let qid1 (s : string) : Ptree.qualid = Ptree.Qident (ident s)
+let qid1 (s : string) : Ptree.qualid =
+  match String.split_on_char '.' s with
+  | [] -> Ptree.Qident (ident s)
+  | hd :: tl ->
+      List.fold_left (fun acc part -> Ptree.Qdot (acc, ident part)) (Ptree.Qident (ident hd)) tl
 let qdot (q : Ptree.qualid) (s : string) : Ptree.qualid = Ptree.Qdot (q, ident s)
 let mk_expr (desc : Ptree.expr_desc) : Ptree.expr = { Ptree.expr_desc = desc; expr_loc = loc }
 let mk_term (desc : Ptree.term_desc) : Ptree.term = { Ptree.term_desc = desc; term_loc = loc }
@@ -95,12 +99,13 @@ let relop_id (r : relop) : string =
 (* ---- Env operations ---- *)
 
 let field (env : env) (name : ident) : Ptree.expr =
-  mk_expr (Eident (qdot (qid1 env.rec_name) name))
+  mk_expr (Eidapp (qid1 name, [ mk_expr (Eident (qid1 env.rec_name)) ]))
 
 let is_rec_var (env : env) (x : ident) : bool = List.exists (( = ) x) env.rec_vars
 
 let term_var (env : env) (x : ident) : Ptree.term_desc =
-  if is_rec_var env x then Tident (qdot (qid1 env.rec_name) x) else Tident (qid1 x)
+  if is_rec_var env x then Tidapp (qid1 x, [ mk_term (Tident (qid1 env.rec_name)) ])
+  else Tident (qid1 x)
 
 let find_link (env : env) (h : hexpr) : ident option =
   List.find_map (fun (h', id) -> if h' = h then Some id else None) env.links
@@ -174,6 +179,8 @@ let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
   | IPar e -> compile_iexpr env e
   | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_iexpr env a ]))
   | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
+  | IBin (And, a, b) -> mk_expr (Eand (compile_iexpr env a, compile_iexpr env b))
+  | IBin (Or, a, b) -> mk_expr (Eor (compile_iexpr env a, compile_iexpr env b))
   | IBin (op, a, b) ->
       mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
 
@@ -185,6 +192,8 @@ let rec compile_term (env : env) (e : iexpr) : Ptree.term =
   | IPar e -> compile_term env e
   | IUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
   | IUn (Not, a) -> mk_term (Tnot (compile_term env a))
+  | IBin (And, a, b) -> term_bool_binop Dterm.DTand (compile_term env a) (compile_term env b)
+  | IBin (Or, a, b) -> term_bool_binop Dterm.DTor (compile_term env a) (compile_term env b)
   | IBin (op, a, b) ->
       mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b))
 

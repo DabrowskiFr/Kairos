@@ -16,4 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val simplify_fo_formula : Fo_formula.t -> Fo_formula.t option
+(** Render-friendly mapping for Why3 prover answers. *)
+
+(** Convert a Why3 answer to the stable textual status used in artifacts/UI.
+
+    @param answer
+      Typed answer returned by Why3.
+    @return
+      One of [valid], [invalid], [timeout], [unknown], [oom], [failure]. *)
+val of_prover_answer : Why3.Call_provers.prover_answer -> string

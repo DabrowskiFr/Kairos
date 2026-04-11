@@ -61,14 +61,6 @@ type goal_done_event = {
   result : goal_proof_result;
 }
 
-(** Convert a Why3 prover answer into the stable Kairos status string.
-
-    @param answer
-      Typed answer returned by Why3.
-    @return
-      One of [valid], [invalid], [timeout], [unknown], [oom], [failure]. *)
-val prover_answer_to_status : Why3.Call_provers.prover_answer -> string
-
 (** Run proof on normalized tasks built from a Why3 parse tree.
 
     @param timeout
@@ -90,54 +82,3 @@ val prove_ptree_with_events :
   ?on_goal_done:(goal_done_event -> unit) ->
   Why3.Ptree.mlw_file ->
   goal_proof_result list
-
-(** Native unsat-core payload from the underlying SMT solver. *)
-type native_unsat_core = {
-  solver : string;
-  hypothesis_ids : int list;
-  smt_text : string;
-}
-
-(** Native probing payload for one goal, including optional model text. *)
-type native_solver_probe = {
-  solver : string;
-  status : string;
-  detail : string option;
-  model_text : string option;
-  smt_text : string;
-}
-
-(** Request a native unsat-core for one targeted goal.
-
-    @param timeout
-      Solver timeout in seconds.
-    @param ptree
-      WhyML parse tree containing the target goal.
-    @param goal_index
-      Zero-based index in normalized goal order.
-    @return
-      [Some core] when solver output provides an unsat core, [None] otherwise. *)
-val native_unsat_core_for_goal_of_ptree :
-  ?timeout:int ->
-  ptree:Why3.Ptree.mlw_file ->
-  goal_index:int ->
-  unit ->
-  native_unsat_core option
-
-(** Probe one goal through the native SMT solver.
-
-    @param timeout
-      Solver timeout in seconds.
-    @param ptree
-      WhyML parse tree containing the target goal.
-    @param goal_index
-      Zero-based index in normalized goal order.
-    @return
-      [Some probe] with solver status/details (and optional model for SAT),
-      [None] when the goal cannot be targeted. *)
-val native_solver_probe_for_goal_of_ptree :
-  ?timeout:int ->
-  ptree:Why3.Ptree.mlw_file ->
-  goal_index:int ->
-  unit ->
-  native_solver_probe option

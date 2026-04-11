@@ -98,7 +98,7 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
                   ~on_goal_done:(fun ev ->
                     let idx = ev.goal_index in
                     let r = ev.result in
-                    let status = Why_contract_prove.prover_answer_to_status r.answer in
+                    let status = Proof_status_render.of_prover_answer r.answer in
                     let vcid =
                       match List.nth_opt pending_out.vc_ids_ordered idx with
                       | Some id -> Some (string_of_int id)

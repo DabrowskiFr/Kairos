@@ -216,7 +216,7 @@ let logic_getter_decl ~(env : Why_compile_expr.env) (vname : Ast.ident) (vty : A
   let field_name = vname in
   let getter_name = ident ("logic_" ^ field_name) in
   let param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
-  let body = mk_term (Tident (qdot (qid1 "self") field_name)) in
+  let body = term_of_var { env with rec_name = "self" } field_name in
   Ptree.Dlogic
     [
       {
@@ -276,7 +276,7 @@ let compile_node_with_info ?kernel_ir
       let getter_name = ident ("get_" ^ field_name) in
       let is_ghost = is_ghost_field_name v.vname in
       let arg = (loc, Some (ident "self"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
-      let body = mk_expr (Eident (qdot (qid1 "self") field_name)) in
+      let body = compile_iexpr { env with rec_name = "self" } { iexpr = IVar field_name; loc = None } in
       let fn =
         mk_expr
           (Efun

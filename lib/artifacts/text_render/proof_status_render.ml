@@ -16,4 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val simplify_fo_formula : Fo_formula.t -> Fo_formula.t option
+open Why3
+
+(* Stable textual mapping used by CLI/LSP/artifacts. *)
+let of_prover_answer = function
+  | Call_provers.Valid -> "valid"
+  | Call_provers.Invalid -> "invalid"
+  | Call_provers.Timeout -> "timeout"
+  | Call_provers.StepLimitExceeded -> "timeout"
+  | Call_provers.Unknown _ -> "unknown"
+  | Call_provers.OutOfMemory -> "oom"
+  | Call_provers.Failure _ -> "failure"
+  | Call_provers.HighFailure _ -> "failure"

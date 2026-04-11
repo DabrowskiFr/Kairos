@@ -46,8 +46,8 @@ val diagnostic_for_trace :
   status:string ->
   record:formula_record option ->
   goal_text:string ->
-  native_core:Why_contract_prove.native_unsat_core option ->
-  native_probe:Why_contract_prove.native_solver_probe option ->
+  native_core:Why_native_probe.native_unsat_core option ->
+  native_probe:Why_native_probe.native_solver_probe option ->
   Pipeline_types.proof_diagnostic
 
 val generic_diagnostic_for_status :

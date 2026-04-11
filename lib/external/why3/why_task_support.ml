@@ -118,8 +118,8 @@ let find_datadir () =
 
 let load_config () =
   match find_config_file () with
-  | Some path -> Whyconf.read_config (Some path)
-  | None -> Whyconf.init_config None
+  | Some path -> (Whyconf.read_config (Some path), true)
+  | None -> (Whyconf.init_config None, false)
 
 let setup_env () =
   let datadir_opt = find_datadir () in
@@ -132,18 +132,40 @@ let setup_env () =
         let stdlib = Filename.concat datadir "stdlib" in
         if Sys.file_exists stdlib then Whyconf.stdlib_path := stdlib
   in
-  let config = load_config () |> Whyconf.set_load_default_plugins false in
+  let config, has_config_file = load_config () in
+  let base_main = Whyconf.get_main config in
+  let base_loadpath = Whyconf.loadpath base_main in
+  let keep_config_main = has_config_file && base_loadpath <> [] in
+  let main =
+    if keep_config_main then base_main
+    else
+      match datadir_opt with
+      | None -> base_main
+      | Some datadir ->
+          let stdlib = Filename.concat datadir "stdlib" in
+          let prefix = Filename.dirname (Filename.dirname datadir) in
+          let libdir = Filename.concat prefix "lib/why3" in
+          let main = Whyconf.set_datadir base_main datadir in
+          let main = if Sys.file_exists libdir then Whyconf.set_libdir main libdir else main in
+          if Sys.file_exists stdlib then
+            let current = Whyconf.loadpath main in
+            if current = [] then Whyconf.set_loadpath main [ stdlib ]
+            else if List.mem stdlib current then main
+            else Whyconf.set_loadpath main (current @ [ stdlib ])
+          else main
+  in
   let main =
     match datadir_opt with
-    | None -> Whyconf.get_main config
+    | None -> main
     | Some datadir ->
         let stdlib = Filename.concat datadir "stdlib" in
-        let prefix = Filename.dirname (Filename.dirname datadir) in
-        let libdir = Filename.concat prefix "lib/why3" in
-        let main = Whyconf.get_main config |> fun m -> Whyconf.set_datadir m datadir in
-        let main = if Sys.file_exists libdir then Whyconf.set_libdir main libdir else main in
-        let main = if Sys.file_exists stdlib then Whyconf.set_loadpath main [ stdlib ] else main in
-        main
+        let current = Whyconf.loadpath main in
+        let with_datadir = if List.mem datadir current then current else datadir :: current in
+        let with_stdlib =
+          if Sys.file_exists stdlib && not (List.mem stdlib with_datadir) then with_datadir @ [ stdlib ]
+          else with_datadir
+        in
+        Whyconf.set_loadpath main with_stdlib
   in
   let config = Whyconf.set_main config main in
   let env = Env.create_env (Whyconf.loadpath main) in
@@ -156,21 +178,18 @@ let fallback_z3_prover_cfg (datadir_opt : string option) : Whyconf.config_prover
       let driver_file = Filename.concat datadir "drivers/z3.drv" in
       if not (Sys.file_exists driver_file) then None
       else
-        let z3_ok = Sys.command "z3 -version > /dev/null 2>&1" = 0 in
-        if not z3_ok then None
-        else
-          Some
-            {
-              Whyconf.prover = { prover_name = "Z3"; prover_version = ""; prover_altern = "" };
-              command = "z3 -smt2 -T:%t %f";
-              command_steps = None;
-              driver = (None, driver_file);
-              in_place = false;
-              editor = "";
-              interactive = false;
-              extra_options = [];
-              extra_drivers = [];
-            }
+        Some
+          {
+            Whyconf.prover = { prover_name = "Z3"; prover_version = ""; prover_altern = "" };
+            command = "z3 -smt2 -T:%t %f";
+            command_steps = None;
+            driver = (None, driver_file);
+            in_place = false;
+            editor = "";
+            interactive = false;
+            extra_options = [];
+            extra_drivers = [];
+          }
 
 let select_z3_prover_cfg ~(config : Whyconf.config) ~(datadir_opt : string option) :
     Whyconf.config_prover =
@@ -179,14 +198,7 @@ let select_z3_prover_cfg ~(config : Whyconf.config) ~(datadir_opt : string optio
     |> Whyconf.filter_prover_with_shortcut config
   in
   try Whyconf.filter_one_prover config filter
-  with Whyconf.ProverNotFound _ -> (
+  with Whyconf.ProverNotFound _ as exn -> (
     match fallback_z3_prover_cfg datadir_opt with
     | Some prover_cfg -> prover_cfg
-    | None ->
-        let _ = Sys.command "why3 config detect > /dev/null 2>&1" in
-        let cfg = load_config () in
-        let filter =
-          Whyconf.parse_filter_prover "z3"
-          |> Whyconf.filter_prover_with_shortcut cfg
-        in
-        Whyconf.filter_one_prover cfg filter)
+    | None -> raise exn)
