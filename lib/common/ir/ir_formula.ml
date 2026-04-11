@@ -29,7 +29,7 @@ let values (xs : Ir.summary_formula list) : Core_syntax.hexpr list =
   List.map (fun (x : Ir.summary_formula) -> x.logic) xs
 
 let temporal_bindings_of_layout (layout : Ir.temporal_layout) : Pre_k_lowering.temporal_binding list =
-  Pre_k_lowering.temporal_bindings_of_pre_k_map ~pre_k_map:layout
+  Pre_k_lowering.temporal_bindings_of_layout ~temporal_layout:layout
 
 let temporal_bindings_of_node (node : Ir.node_ir) : Pre_k_lowering.temporal_binding list =
   temporal_bindings_of_layout node.temporal_layout

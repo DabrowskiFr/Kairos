@@ -29,16 +29,15 @@
 
 (** Metadata attached to one temporal history source.
 
-    The record links one source formula to the runtime slots used to materialize
+    The record links one source variable to the runtime slots used to materialize
     bounded history:
     {ul
-    {- [h]: source historical expression (typically [HPreK (_, k)]);}
-    {- [expr]: base expression used to update slots;}
+    {- [var_name]: source variable name used by [pre_k];}
     {- [names]: generated slot identifiers ordered by increasing depth
        ([pre_k1], [pre_k2], ...);}
     {- [vty]: type of the stored values.}
     } *)
-type pre_k_info = { h : Core_syntax.hexpr; expr : Core_syntax.expr; names : string list; vty : Core_syntax.ty }
+type pre_k_info = { var_name : Core_syntax.ident; names : string list; vty : Core_syntax.ty }
 [@@deriving yojson]
 
 (** Result of LTL normalization with explicit shift depth.

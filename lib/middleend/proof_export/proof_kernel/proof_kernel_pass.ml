@@ -166,10 +166,10 @@ let temporal_locals_of_layout ~(existing_locals : vdecl list) (layout : Ir.tempo
   let existing = List.map (fun (v : vdecl) -> v.vname) existing_locals in
   layout
   |> List.fold_left
-       (fun acc (_, info) ->
+       (fun acc info ->
          if List.exists
               (fun (existing_info : Temporal_support.pre_k_info) ->
-                existing_info.Temporal_support.expr = info.Temporal_support.expr
+                existing_info.Temporal_support.var_name = info.Temporal_support.var_name
                 && existing_info.Temporal_support.names = info.Temporal_support.names)
               acc
          then acc

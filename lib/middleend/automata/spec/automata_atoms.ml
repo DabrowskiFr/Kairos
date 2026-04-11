@@ -130,12 +130,12 @@ let mk_bool_neq (a : expr) (b : expr) : expr =
          mk_expr (EBin (And, mk_expr (EUn (Not, a)), b)) ))
 
 let atom_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+    ~(temporal_layout : Temporal_support.pre_k_info list)
     ((h1, r, h2) : hexpr * relop * hexpr) : expr option =
   let _ = inputs in
   match
-    ( Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h1,
-      Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~pre_k_map h2 )
+    ( Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~temporal_layout h1,
+      Pre_k_lowering.hexpr_to_expr ~inputs ~var_types ~temporal_layout h2 )
   with
   | Some e1, Some e2 ->
       let ty1 = infer_expr_type ~var_types e1 in
@@ -154,13 +154,13 @@ let collect_atoms_from_ltls (n : Ast.node) ~(ltls : ltl list) :
   let var_types =
     List.map (fun v -> (v.vname, v.vty)) (sem.sem_inputs @ sem.sem_locals @ sem.sem_outputs)
   in
-  let pre_k_map = Pre_k_layout.build_pre_k_infos n_ast in
+  let temporal_layout = Pre_k_layout.build_pre_k_infos n_ast in
   let inputs = List.map (fun v -> v.vname) sem.sem_inputs in
   let atoms_all = List.fold_left (fun acc f -> collect_atoms_ltl f acc) [] ltls |> List.sort_uniq compare in
   let atom_exprs, skipped =
     List.fold_left
       (fun (ok, bad) a ->
-        match atom_to_expr ~inputs ~var_types ~pre_k_map a with
+        match atom_to_expr ~inputs ~var_types ~temporal_layout a with
         | Some e -> ((a, e) :: ok, bad)
         | None -> (ok, a :: bad))
       ([], []) atoms_all

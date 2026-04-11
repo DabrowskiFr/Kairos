@@ -135,9 +135,9 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
   List.iter
     (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.semantics.sem_nname node)
     runtime_program;
-  let pre_k_locals_of_layout (layout : (hexpr * Temporal_support.pre_k_info) list) : vdecl list =
+  let pre_k_locals_of_layout (layout : Temporal_support.pre_k_info list) : vdecl list =
     layout
-    |> List.concat_map (fun (_, (info : Temporal_support.pre_k_info)) ->
+    |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
            List.map (fun name -> { vname = name; vty = info.vty }) info.names)
   in
   let append_missing_locals (locals : vdecl list) (extra : vdecl list) : vdecl list =
@@ -466,8 +466,8 @@ let render_node_summary (node : Proof_kernel_types.exported_node_summary_ir) =
     | xs ->
         [ indent 2 ^ "pre_k:" ]
         @ List.map
-            (fun (h, info) ->
-              indent 3 ^ Pretty.string_of_hexpr h ^ " -> " ^ String.concat ", " info.Temporal_support.names)
+            (fun (info : Temporal_support.pre_k_info) ->
+              indent 3 ^ info.Temporal_support.var_name ^ " -> " ^ String.concat ", " info.Temporal_support.names)
             xs)
   in
   let step_counts =

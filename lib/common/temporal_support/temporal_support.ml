@@ -19,7 +19,7 @@ open Core_syntax
 open Ast
 open Core_syntax_builders
 
-type pre_k_info = { h : hexpr; expr : expr; names : string list; vty : ty } [@@deriving yojson]
+type pre_k_info = { var_name : ident; names : string list; vty : ty } [@@deriving yojson]
 
 type ltl_norm = { ltl : ltl; k_guard : int option }
 

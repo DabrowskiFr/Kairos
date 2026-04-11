@@ -22,49 +22,36 @@ open Ast
 open Core_syntax_builders
 open Temporal_support
 
-let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
-  let acc =
-    match h.hexpr with HPreK _ -> if List.exists (fun h' -> h' = h) acc then acc else h :: acc | _ -> acc
-  in
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
-  | HPred (_, hs) -> List.fold_left (fun a x -> collect_hexpr x a) acc hs
-  | HUn (_, inner) -> collect_hexpr inner acc
-  | HBin (_, a, b) | HCmp (_, a, b) ->
-      collect_hexpr b (collect_hexpr a acc)
+let add_pre_k_occurrence (vname : ident) (k : int) (acc : (ident * int) list) : (ident * int) list =
+  if List.exists (fun (v, d) -> String.equal v vname && d = k) acc then acc else (vname, k) :: acc
 
-let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =
+let rec collect_pre_k_occurrences_hexpr (h : Core_syntax.hexpr) (acc : (ident * int) list) :
+    (ident * int) list =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HVar _ -> acc
+  | HPreK (vname, k) -> add_pre_k_occurrence vname k acc
+  | HPred (_, hs) -> List.fold_left (fun a x -> collect_pre_k_occurrences_hexpr x a) acc hs
+  | HUn (_, inner) -> collect_pre_k_occurrences_hexpr inner acc
+  | HBin (_, a, b) | HCmp (_, a, b) ->
+      collect_pre_k_occurrences_hexpr b (collect_pre_k_occurrences_hexpr a acc)
+
+let rec collect_pre_k_occurrences_ltl (f : ltl) (acc : (ident * int) list) : (ident * int) list =
   match f with
   | LTrue | LFalse -> acc
-  | LNot a -> collect_ltl a acc
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> collect_ltl b (collect_ltl a acc)
-  | LX a | LG a -> collect_ltl a acc
-  | LAtom (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
+  | LNot a | LX a | LG a -> collect_pre_k_occurrences_ltl a acc
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      collect_pre_k_occurrences_ltl b (collect_pre_k_occurrences_ltl a acc)
+  | LAtom (h1, _, h2) ->
+      collect_pre_k_occurrences_hexpr h2 (collect_pre_k_occurrences_hexpr h1 acc)
 
-let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl list) : hexpr list =
-  let collect_pre_k_hexpr = collect_hexpr in
-  let rec collect_pre_k_ltl f acc =
-    match f with
-    | LTrue | LFalse -> acc
-    | LNot a | LX a | LG a -> collect_pre_k_ltl a acc
-    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-        collect_pre_k_ltl b (collect_pre_k_ltl a acc)
-    | LAtom (h1, _, h2) -> collect_pre_k_hexpr h2 (collect_pre_k_hexpr h1 acc)
-  in
-  let rec collect_pre_k_fo_formula (f : Core_syntax.hexpr) (acc : hexpr list) : hexpr list =
-    match f.hexpr with
-    | HLitInt _ | HLitBool _ | HVar _ -> acc
-    | HPreK _ -> if List.exists (fun h' -> h' = f) acc then acc else f :: acc
-    | HPred (_, hs) -> List.fold_left (fun a x -> collect_pre_k_fo_formula x a) acc hs
-    | HUn (_, inner) -> collect_pre_k_fo_formula inner acc
-    | HBin (_, a, b) | HCmp (_, a, b) -> collect_pre_k_fo_formula b (collect_pre_k_fo_formula a acc)
-  in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_fo_formula f acc) [] fo_formula in
-  List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl
+let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl list) :
+    (ident * int) list =
+  let acc = List.fold_left (fun acc f -> collect_pre_k_occurrences_hexpr f acc) [] fo_formula in
+  List.fold_left (fun acc f -> collect_pre_k_occurrences_ltl f acc) acc ltl
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
     ~(fo_formulas : Core_syntax.hexpr list) ~(ltl : ltl list) :
-    (hexpr * Temporal_support.pre_k_info) list =
+    Temporal_support.pre_k_info list =
   let init_for_var =
     let table =
       List.map (fun v -> (v.vname, v.vty)) (inputs @ locals @ outputs)
@@ -78,7 +65,7 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
   in
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
   let normalized_ltl = List.map normalize_ltl ltl in
-  let pre_k_exprs = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl in
+  let pre_k_occurrences = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl in
   let vars = inputs @ locals @ outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
@@ -93,30 +80,20 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
   in
   let max_k_by_var =
     List.fold_left
-      (fun acc h ->
-        match h.hexpr with
-        | HPreK (vname, k) ->
-            let current = Option.value (List.assoc_opt vname acc) ~default:0 in
-            if k > current then (vname, k) :: List.remove_assoc vname acc else acc
-        | _ -> acc)
-      [] pre_k_exprs
+      (fun acc (vname, k) ->
+        let current = Option.value (List.assoc_opt vname acc) ~default:0 in
+        if k > current then (vname, k) :: List.remove_assoc vname acc else acc)
+      [] pre_k_occurrences
   in
-  pre_k_exprs
-  |> List.mapi (fun i h ->
-         let _ = i in
-         match h.hexpr with
-         | HPreK (vname, k) ->
-             if k <= 0 then failwith "pre_k expects k >= 1";
-             let vty = find_vty vname in
-             let names =
-               match List.assoc_opt vname max_k_by_var with
-               | Some max_k -> make_names vname max_k
-               | None -> failwith ("pre_k missing max depth for variable: " ^ vname)
-             in
-             (h, { h; expr = mk_var vname; names; vty })
-         | _ -> failwith "expected pre_k hexpr")
+  max_k_by_var
+  |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+  |> List.map (fun (vname, max_k) ->
+         if max_k <= 0 then failwith "pre_k expects k >= 1";
+         let vty = find_vty vname in
+         let names = make_names vname max_k in
+         { var_name = vname; names; vty })
 
-let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
+let build_pre_k_infos (n : node) : Temporal_support.pre_k_info list =
   let spec = specification_of_node n in
   let sem = semantics_of_node n in
   build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs

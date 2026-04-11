@@ -189,7 +189,7 @@ type node_ir = {
   product_states : product_state_ir list;
   product_steps : product_step_ir list;
   product_coverage : product_coverage_ir;
-  temporal_layout : (hexpr * Temporal_support.pre_k_info) list;
+  temporal_layout : Temporal_support.pre_k_info list;
   historical_generated_clauses : generated_clause_ir list;
   eliminated_generated_clauses : generated_clause_ir list;
   symbolic_generated_clauses : relational_generated_clause_ir list;
@@ -204,7 +204,7 @@ type exported_node_summary_ir = {
   coherency_goals : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
-  temporal_layout : (hexpr * Temporal_support.pre_k_info) list;
+  temporal_layout : Temporal_support.pre_k_info list;
   delay_spec : (ident * ident) option;
   assumes : ltl list;
   guarantees : ltl list;

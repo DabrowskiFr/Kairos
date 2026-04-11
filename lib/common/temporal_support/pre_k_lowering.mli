@@ -18,22 +18,22 @@
 
 (** Lowering utilities from historical formulas to materialized temporal slots.
 
-    A lowering map is provided either directly as a [pre_k_map] (layout result)
-    or as explicit {!type:temporal_binding} values. Functions return [None] when
+    A lowering map is provided either directly as a [temporal_layout] (layout
+    result) or as explicit {!type:temporal_binding} values. Functions return [None] when
     some [pre_k] occurrence cannot be resolved to a slot. *)
 
-(** Binding between a source historical expression and concrete slot names. *)
+(** Binding between a source variable and concrete slot names. *)
 type temporal_binding = {
-  (** Source expression to be replaced (typically [HPreK (_, k)]). *)
-  source_hexpr : Core_syntax.hexpr;
+  (** Source variable for [pre_k(var, k)] lookups. *)
+  source_var : Core_syntax.ident;
   (** Candidate slot names used during lowering. *)
   slot_names : Core_syntax.ident list;
 }
 
-(** [temporal_bindings_of_pre_k_map ~pre_k_map] converts layout metadata into
+(** [temporal_bindings_of_layout ~temporal_layout] converts layout metadata into
     explicit lowering bindings. *)
-val temporal_bindings_of_pre_k_map :
-  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> temporal_binding list
+val temporal_bindings_of_layout :
+  temporal_layout:Temporal_support.pre_k_info list -> temporal_binding list
 
 (** [hexpr_to_expr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings h]
     attempts to translate [h] to an executable expression.
@@ -48,11 +48,11 @@ val hexpr_to_expr_with_temporal_bindings :
   Core_syntax.expr option
 
 (** Convenience wrapper around {!val:hexpr_to_expr_with_temporal_bindings}
-    using [pre_k_map]-derived bindings. *)
+    using [temporal_layout]-derived bindings. *)
 val hexpr_to_expr :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
-  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list ->
+  temporal_layout:Temporal_support.pre_k_info list ->
   Core_syntax.hexpr ->
   Core_syntax.expr option
 
@@ -61,8 +61,11 @@ val hexpr_to_expr :
 val lower_hexpr_temporal_bindings : temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option
 
 (** Convenience wrapper around {!val:lower_hexpr_temporal_bindings} using
-    [pre_k_map]-derived bindings. *)
-val lower_hexpr_pre_k : pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.hexpr -> Core_syntax.hexpr option
+    [temporal_layout]-derived bindings. *)
+val lower_hexpr_pre_k :
+  temporal_layout:Temporal_support.pre_k_info list ->
+  Core_syntax.hexpr ->
+  Core_syntax.hexpr option
 
 (** Lower one first-order formula (represented as [hexpr]) with explicit bindings. *)
 val lower_fo_formula_temporal_bindings :
@@ -70,4 +73,6 @@ val lower_fo_formula_temporal_bindings :
 
 (** Convenience wrapper around {!val:lower_fo_formula_temporal_bindings}. *)
 val lower_fo_formula_pre_k :
-  pre_k_map:(Core_syntax.hexpr * Temporal_support.pre_k_info) list -> Core_syntax.hexpr -> Core_syntax.hexpr option
+  temporal_layout:Temporal_support.pre_k_info list ->
+  Core_syntax.hexpr ->
+  Core_syntax.hexpr option

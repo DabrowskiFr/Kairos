@@ -30,7 +30,7 @@ type summary_formula = {
 }
 
 (** Materialized temporal history layout used after canonical IR construction. *)
-type temporal_layout = (hexpr * Temporal_support.pre_k_info) list
+type temporal_layout = Temporal_support.pre_k_info list
 
 (** Product state: (program control, assume automaton, guarantee automaton). *)
 type product_state = {

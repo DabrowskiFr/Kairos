@@ -25,16 +25,16 @@
 (** [build_pre_k_infos_from_parts ~inputs ~locals ~outputs ~fo_formulas ~ltl]
     computes the [pre_k] layout for the given formula set.
 
-    The result maps each encountered [HPreK] source expression to one
-    {!type:Temporal_support.pre_k_info} record containing generated slot names
-    and type information. *)
+    The result provides one {!type:Temporal_support.pre_k_info} per source
+    variable that appears under [pre_k], with slot names sized to the maximal
+    required depth for that variable. *)
 val build_pre_k_infos_from_parts :
   inputs:Core_syntax.vdecl list ->
   locals:Core_syntax.vdecl list ->
   outputs:Core_syntax.vdecl list ->
   fo_formulas:Core_syntax.hexpr list ->
   ltl:Core_syntax.ltl list ->
-  (Core_syntax.hexpr * Temporal_support.pre_k_info) list
+  Temporal_support.pre_k_info list
 
 (** [build_pre_k_infos node] is the node-level entry point used by the pipeline.
 
@@ -43,4 +43,4 @@ val build_pre_k_infos_from_parts :
     {- state invariants as first-order formulas;}
     {- [require]/[ensures] LTL clauses.}
     } *)
-val build_pre_k_infos : Ast.node -> (Core_syntax.hexpr * Temporal_support.pre_k_info) list
+val build_pre_k_infos : Ast.node -> Temporal_support.pre_k_info list

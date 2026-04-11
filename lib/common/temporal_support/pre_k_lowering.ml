@@ -19,31 +19,28 @@
 open Core_syntax
 
 type temporal_binding = {
-  source_hexpr : Core_syntax.hexpr;
+  source_var : Core_syntax.ident;
   slot_names : Core_syntax.ident list;
 }
 
-let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) :
+let temporal_bindings_of_layout ~(temporal_layout : Temporal_support.pre_k_info list) :
     temporal_binding list =
   List.map
-    (fun (source_hexpr, info) ->
-      let slot_names =
-        match source_hexpr.hexpr with
-        | HPreK (_, k) when k > 0 && k <= List.length info.Temporal_support.names ->
-            [ List.nth info.Temporal_support.names (k - 1) ]
-        | HPreK _ -> []
-        | _ -> info.Temporal_support.names
-      in
-      { source_hexpr; slot_names })
-    pre_k_map
+    (fun (info : Temporal_support.pre_k_info) ->
+      { source_var = info.var_name; slot_names = info.names })
+    temporal_layout
 
-let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr) : ident option =
+let slot_for_depth ~(slot_names : ident list) (depth : int) : ident option =
+  if depth <= 0 then None
+  else
+    let idx = depth - 1 in
+    if idx < 0 || idx >= List.length slot_names then None else Some (List.nth slot_names idx)
+
+let temporal_slot_for_pre_k ~(temporal_bindings : temporal_binding list) ~(var_name : ident) ~(depth : int) :
+    ident option =
   temporal_bindings
   |> List.find_map (fun binding ->
-         if binding.source_hexpr = h then
-           match List.rev binding.slot_names with
-           | name :: _ -> Some name
-           | [] -> None
+         if String.equal binding.source_var var_name then slot_for_depth ~slot_names:binding.slot_names depth
          else None)
 
 let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
@@ -54,8 +51,8 @@ let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types 
   | HLitInt n -> Some { expr = ELitInt n; loc }
   | HLitBool b -> Some { expr = ELitBool b; loc }
   | HVar v -> Some { expr = EVar v; loc }
-  | HPreK _ -> begin
-      match latest_temporal_slot ~temporal_bindings h with
+  | HPreK (v, k) -> begin
+      match temporal_slot_for_pre_k ~temporal_bindings ~var_name:v ~depth:k with
       | Some name -> Some { expr = EVar name; loc }
       | None -> None
     end
@@ -81,17 +78,17 @@ let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types 
     end
 
 let hexpr_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : expr option =
+    ~(temporal_layout : Temporal_support.pre_k_info list) (h : hexpr) : expr option =
   hexpr_to_expr_with_temporal_bindings ~inputs ~var_types
-    ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
+    ~temporal_bindings:(temporal_bindings_of_layout ~temporal_layout) h
 
 let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (h : hexpr) :
     hexpr option =
   let loc = h.loc in
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HVar _ -> Some h
-  | HPreK _ -> begin
-      match latest_temporal_slot ~temporal_bindings h with
+  | HPreK (v, k) -> begin
+      match temporal_slot_for_pre_k ~temporal_bindings ~var_name:v ~depth:k with
       | Some name -> Some { hexpr = HVar name; loc }
       | None -> None
     end
@@ -124,13 +121,13 @@ let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding lis
       | _ -> None
     end
 
-let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : hexpr option =
-  lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
+let lower_hexpr_pre_k ~(temporal_layout : Temporal_support.pre_k_info list) (h : hexpr) : hexpr option =
+  lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_layout ~temporal_layout) h
 
 let lower_fo_formula_temporal_bindings ~(temporal_bindings : temporal_binding list)
     (f : Core_syntax.hexpr) : Core_syntax.hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings f
 
-let lower_fo_formula_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list)
+let lower_fo_formula_pre_k ~(temporal_layout : Temporal_support.pre_k_info list)
     (f : Core_syntax.hexpr) : Core_syntax.hexpr option =
-  lower_fo_formula_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) f
+  lower_fo_formula_temporal_bindings ~temporal_bindings:(temporal_bindings_of_layout ~temporal_layout) f

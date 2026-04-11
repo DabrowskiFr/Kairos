@@ -55,15 +55,12 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
           node.summaries
   in
   let slot_to_current_expr =
-    let add acc (_h, info) =
+    let add acc (info : Temporal_support.pre_k_info) =
       info.Temporal_support.names
       |> List.mapi (fun idx name ->
              let lowered =
-               if idx = 0 then Core_syntax_builders.hexpr_of_expr info.Temporal_support.expr
-               else
-                 match info.Temporal_support.expr.expr with
-                 | EVar base -> Core_syntax_builders.mk_hpre_k base idx
-                 | _ -> Core_syntax_builders.hexpr_of_expr info.Temporal_support.expr
+               if idx = 0 then Core_syntax_builders.mk_hvar info.Temporal_support.var_name
+               else Core_syntax_builders.mk_hpre_k info.Temporal_support.var_name idx
              in
              (name, lowered))
       |> List.rev_append acc
@@ -71,10 +68,8 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     List.fold_left add [] temporal_layout
   in
   let current_expr_to_next_slot =
-    let add acc (_h, info) =
-      match info.Temporal_support.expr.expr with
-      | EVar base_var -> (base_var, info.Temporal_support.names) :: acc
-      | _ -> acc
+    let add acc (info : Temporal_support.pre_k_info) =
+      (info.Temporal_support.var_name, info.Temporal_support.names) :: acc
     in
     List.fold_left add [] temporal_layout
   in
