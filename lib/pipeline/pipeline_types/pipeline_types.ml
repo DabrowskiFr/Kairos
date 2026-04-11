@@ -19,7 +19,7 @@
 include struct
   open Ast
 
-  type goal_info = string * string * float * string option * string * string option
+  type goal_info = string * string * float * string option * string option
 
   type text_span = {
     start_offset : int;

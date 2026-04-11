@@ -313,11 +313,9 @@ let goals_tree_final ~goals ~vc_text : goal_tree_node list =
   let source_by_index = extract_goal_sources_by_index vc_text in
   let entries =
     List.mapi
-      (fun idx (goal, status_txt, time_s, dump_path, source, vcid) ->
+      (fun idx (goal, status_txt, time_s, dump_path, vcid) ->
         let source_idx = Hashtbl.find_opt source_by_index idx in
-        let source =
-          match source_idx with Some s when s <> "" -> s | _ -> source
-        in
+        let source = match source_idx with Some s when s <> "" -> s | _ -> "" in
         { idx; goal; status = String.trim status_txt; time_s; dump_path; source; vcid })
       goals
   in

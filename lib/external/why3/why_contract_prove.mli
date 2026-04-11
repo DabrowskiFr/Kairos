@@ -31,14 +31,12 @@
     - [goal_name]: normalized Why3 goal identifier.
     - [answer]: typed Why3 prover answer.
     - [time_s]: elapsed solver time in seconds for this goal.
-    - [dump_path]: optional path to dumped failing SMT script.
-    - [source]: optional source label when available. *)
+    - [dump_path]: optional path to dumped failing SMT script. *)
 type goal_proof_result = {
   goal_name : string;
   answer : Why3.Call_provers.prover_answer;
   time_s : float;
   dump_path : string option;
-  source : string;
 }
 
 (** Event payload emitted when one goal starts.

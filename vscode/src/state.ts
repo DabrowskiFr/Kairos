@@ -77,7 +77,7 @@ export class KairosState {
       status: payload.status ?? current?.status ?? "pending",
       time_s: typeof payload.time_s === "number" ? payload.time_s : (current?.time_s ?? 0),
       dump_path: payload.dump_path ?? current?.dump_path ?? null,
-      source: payload.source ?? current?.source ?? "",
+      source: current?.source ?? "",
       vcid: payload.vcid ?? current?.vcid ?? null
     };
     this.goalEntries = next;

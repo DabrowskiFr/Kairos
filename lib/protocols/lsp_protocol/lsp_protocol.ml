@@ -18,7 +18,7 @@
 
 type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
 
-type goal_info = string * string * float * string option * string * string option [@@deriving yojson]
+type goal_info = string * string * float * string option * string option [@@deriving yojson]
 
 type text_span = {
   start_offset : int;
@@ -174,7 +174,6 @@ type goal_done_payload = {
   status : string;
   time_s : float;
   dump_path : string option;
-  source : string;
   vcid : string option;
 }
 [@@deriving yojson]

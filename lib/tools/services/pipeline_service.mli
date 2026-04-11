@@ -47,5 +47,5 @@ val run_with_callbacks :
   Pipeline_types.config ->
   on_outputs_ready:(Pipeline_types.outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->
-  on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
+  on_goal_done:(int -> string -> string -> float -> string option -> string option -> unit) ->
   (Pipeline_types.outputs, Pipeline_types.error) result

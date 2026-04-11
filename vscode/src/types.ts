@@ -64,7 +64,6 @@ export type GoalInfoTuple = [
   status: string,
   time_s: number,
   dump_path: string | null,
-  source: string,
   vcid: string | null
 ];
 
@@ -160,7 +159,6 @@ export interface GoalDonePayload {
   status: string;
   time_s: number;
   dump_path: string | null;
-  source: string;
   vcid: string | null;
 }
 

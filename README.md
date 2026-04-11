@@ -5,8 +5,8 @@ Quick commands
 - Build the CLI: `dune build bin/cli/main.exe`
 - Run all tests: `dune runtest`
 
-./scripts/validate_ok_ko.sh . 1 without_calls 60 ok
-./scripts/validate_ok_ko.sh . 1 without_calls 60 ko
+./scripts/validate_ok_ko.sh --repo-root . --timeout-goal 1 --timeout-file 60 --jobs 15 --subset ok
+./scripts/validate_ok_ko.sh --repo-root . --timeout-goal 1 --timeout-file 60 --jobs 15 --subset ko
 
 Oui : ./scripts/build_docs_site.sh.
 -> _build/default/_doc_site

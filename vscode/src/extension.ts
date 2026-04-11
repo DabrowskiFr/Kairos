@@ -463,8 +463,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         status: String(goal?.[1] ?? ""),
         time_s: typeof goal?.[2] === "number" ? goal[2] : 0,
         dump_path: goal?.[3] ?? null,
-        source: String(goal?.[4] ?? ""),
-        vcid: goal?.[5] ?? null
+        source: "",
+        vcid: goal?.[4] ?? null
       })) ?? [];
     state.setGoalEntries(entries);
     state.setGoalsTree(buildGoalsTreeFinalFallback(outputs.goals ?? []));

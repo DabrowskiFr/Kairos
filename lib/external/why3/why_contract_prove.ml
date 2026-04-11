@@ -24,7 +24,6 @@ type goal_proof_result = {
   answer : Call_provers.prover_answer;
   time_s : float;
   dump_path : string option;
-  source : string;
 }
 
 type goal_start_event = {
@@ -63,6 +62,44 @@ let goal_name_of_prepared_task (prepared : Task.task) : string =
   let pr = Task.task_goal prepared in
   pr.Decl.pr_name.Ident.id_string
 
+type prove_task_env = {
+  driver : Driver.driver;
+  main : Whyconf.main;
+  limits : Call_provers.resource_limits;
+  command : string;
+}
+
+(* Prove one prepared normalized task and return its detailed result. *)
+let prove_one_task_with_details ~(env : prove_task_env) ~(task_index : int)
+    ~(prepared : Task.task) ~(goal : string) : goal_proof_result =
+  let buffer = Buffer.create 4096 in
+  let fmt = Format.formatter_of_buffer buffer in
+  let printing_info = Driver.print_task_prepared env.driver fmt prepared in
+  Format.pp_print_flush fmt ();
+  let t0 = Unix.gettimeofday () in
+  let answer =
+    let call =
+      Driver.prove_buffer_prepared ~command:env.command ~config:env.main ~limits:env.limits
+        ~theory_name:"generated" ~goal_name:goal ~get_model:printing_info env.driver buffer
+    in
+    let result = Call_provers.wait_on_call call in
+    result.Call_provers.pr_answer
+  in
+  let elapsed = Unix.gettimeofday () -. t0 in
+  let dump_path =
+    if answer <> Call_provers.Valid then (
+      let tmp = Filename.temp_file (Printf.sprintf "why3_failed_%d_" (task_index + 1)) ".smt2" in
+      Out_channel.with_open_text tmp (fun oc -> output_string oc (Buffer.contents buffer));
+      Some tmp)
+    else None
+  in
+  {
+    goal_name = goal;
+    answer;
+    time_s = elapsed;
+    dump_path;
+  }
+
 (* Prove normalized tasks one by one, emit progress callbacks, and collect
    per-goal results with optional failing SMT dumps.
 
@@ -84,50 +121,25 @@ let prove_tasks_with_details ~(driver : Driver.driver) ~(main : Whyconf.main)
     goal_proof_result list =
   let indexed_tasks = List.mapi (fun i task -> (i, task)) tasks in
   let total_tasks = List.length indexed_tasks in
+  let env = { driver; main; limits; command } in
   let rec loop pos details = function
     | [] -> List.rev details
     | _ when should_cancel () -> List.rev details
-    | (orig_idx, task) :: rest ->
+    | (task_index, task) :: rest -> (
         log_progress ~pos ~total:total_tasks;
         let prepared = Driver.prepare_task driver task in
-        let buffer = Buffer.create 4096 in
-        let fmt = Format.formatter_of_buffer buffer in
-        let printing_info = Driver.print_task_prepared driver fmt prepared in
-        Format.pp_print_flush fmt ();
         let goal = goal_name_of_prepared_task prepared in
-        on_goal_start { goal_index = orig_idx; goal_name = goal };
+        on_goal_start { goal_index = task_index; goal_name = goal };
         if should_cancel () then List.rev details
         else
-        let t0 = Unix.gettimeofday () in
-        let answer =
-          let call =
-            Driver.prove_buffer_prepared ~command ~config:main ~limits ~theory_name:"generated"
-              ~goal_name:goal ~get_model:printing_info driver buffer
-          in
-          let result = Call_provers.wait_on_call call in
-          result.Call_provers.pr_answer
-        in
-        let elapsed = Unix.gettimeofday () -. t0 in
-        let dump_path =
-          if answer <> Call_provers.Valid then (
-            let tmp = Filename.temp_file (Printf.sprintf "why3_failed_%d_" (orig_idx + 1)) ".smt2" in
-            Out_channel.with_open_text tmp (fun oc -> output_string oc (Buffer.contents buffer));
-            log_failed_goal ~pos ~total:total_tasks ~answer ~dump_path:tmp;
-            Some tmp)
-          else None
-        in
-        let detail =
-          {
-            goal_name = goal;
-            answer;
-            time_s = elapsed;
-            dump_path;
-            source = "";
-          }
-        in
-        on_goal_done { goal_index = orig_idx; result = detail };
-        if should_cancel () then List.rev (detail :: details)
-        else loop (pos + 1) (detail :: details) rest
+          let detail = prove_one_task_with_details ~env ~task_index ~prepared ~goal in
+          on_goal_done { goal_index = task_index; result = detail };
+          (match (detail.answer, detail.dump_path) with
+          | answer, Some dump_path when answer <> Call_provers.Valid ->
+              log_failed_goal ~pos ~total:total_tasks ~answer ~dump_path
+          | _ -> ());
+          if should_cancel () then List.rev (detail :: details)
+          else loop (pos + 1) (detail :: details) rest)
   in
   loop 0 [] indexed_tasks
 

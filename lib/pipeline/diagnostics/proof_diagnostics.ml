@@ -146,25 +146,24 @@ let generic_diagnostic_for_status ~(status : string)
 
 let apply_goal_results_to_outputs ~(out : Types.outputs)
     ~(goal_results :
-       (int * string * string * float * string option * string * string option) list) :
+       (int * string * string * float * string option * string option) list) :
     Types.outputs =
   let results_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
-    (fun ((idx, _, _, _, _, _, _) as item) -> Hashtbl.replace results_tbl idx item)
+    (fun ((idx, _, _, _, _, _) as item) -> Hashtbl.replace results_tbl idx item)
     goal_results;
   let proof_traces =
     List.map
       (fun (trace : Types.proof_trace) ->
         match Hashtbl.find_opt results_tbl trace.goal_index with
         | None -> trace
-        | Some (_idx, goal_name, status, time_s, dump_path, source, vc_id) ->
+        | Some (_idx, goal_name, status, time_s, dump_path, vc_id) ->
             {
               trace with
               goal_name;
               status;
               solver_status = status;
               time_s;
-              source;
               vc_id;
               dump_path;
               diagnostic = generic_diagnostic_for_status ~status trace.diagnostic;
@@ -178,7 +177,6 @@ let apply_goal_results_to_outputs ~(out : Types.outputs)
           trace.status,
           trace.time_s,
           trace.dump_path,
-          trace.source,
           trace.vc_id ))
       proof_traces
   in

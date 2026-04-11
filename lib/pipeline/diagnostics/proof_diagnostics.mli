@@ -32,5 +32,5 @@ val generic_diagnostic_for_status :
 
 val apply_goal_results_to_outputs :
   out:Pipeline_types.outputs ->
-  goal_results:(int * string * string * float * string option * string * string option) list ->
+  goal_results:(int * string * string * float * string option * string option) list ->
   Pipeline_types.outputs

@@ -110,23 +110,30 @@ let strip_dot_legend ~(legend_id : string) (dot_text : string) : string =
 
 let report_failed_goals (goals : Lsp_protocol.goal_info list) : string list =
   let total = List.length goals in
-  let failure_info (_, status, _, dump_path, source, vcid) =
+  let failure_info (_, status, _, dump_path, vcid) =
     let status = String.lowercase_ascii status in
     if status <> "valid" && status <> "proved" && status <> "unknown" then
-      Some (status, dump_path, source, vcid)
+      Some (status, dump_path, vcid)
     else None
   in
   List.mapi
-    (fun idx ((goal, _, time_s, _, _, _) as info) ->
+    (fun idx ((goal, _, time_s, _, _) as info) ->
       match failure_info info with
       | None -> None
-      | Some (status, dump_path, source, vcid) ->
+      | Some (status, dump_path, vcid) ->
+          let details =
+            List.filter_map Fun.id
+              [
+                Option.map (fun id -> "vcid=" ^ id) vcid;
+                Option.map (fun p -> "dump=" ^ p) dump_path;
+              ]
+            |> String.concat ", "
+          in
           Some
-            (Printf.sprintf "goal %d/%d failed: %s (source=%s%s%s, time=%.3fs)" (idx + 1)
-               total goal source
-               (match vcid with None -> "" | Some id -> ", vcid=" ^ id)
-               (match dump_path with None -> "" | Some p -> ", dump=" ^ p)
-               time_s))
+            (Printf.sprintf "goal %d/%d failed: %s (%sstatus=%s, time=%.3fs)" (idx + 1)
+               total goal
+               (if details = "" then "" else details ^ ", ")
+               status time_s))
     goals
   |> List.filter_map Fun.id
 

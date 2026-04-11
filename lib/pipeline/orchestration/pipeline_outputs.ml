@@ -189,26 +189,26 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                 | Some id -> Some (string_of_int id)
                 | None -> None
               in
-              finished := (idx, r.goal_name, status, r.time_s, r.dump_path, r.source, vcid) :: !finished)
+              finished := (idx, r.goal_name, status, r.time_s, r.dump_path, vcid) :: !finished)
         in
-        List.sort (fun (a, _, _, _, _, _, _) (b, _, _, _, _, _, _) -> compare a b) !finished
+        List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
       else
         List.mapi
           (fun idx _task ->
             let vcid = List.nth vc_ids_ordered idx in
             let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
-            (idx, stable_id, "pending", 0.0, None, "", Some (string_of_int vcid)))
+            (idx, stable_id, "pending", 0.0, None, Some (string_of_int vcid)))
           normalized_tasks
     in
     External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
     let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
     List.iter
-      (fun ((idx, _, _, _, _, _, _) as goal_result) -> Hashtbl.replace goal_result_tbl idx goal_result)
+      (fun ((idx, _, _, _, _, _) as goal_result) -> Hashtbl.replace goal_result_tbl idx goal_result)
       goal_results;
     let proof_traces =
       List.mapi (fun idx _task -> idx) normalized_tasks
       |> List.filter_map (fun idx ->
-             let _goal_idx, goal_name, status, time_s, dump_path, source, raw_vcid =
+             let _goal_idx, goal_name, status, time_s, dump_path, raw_vcid =
                match Hashtbl.find_opt goal_result_tbl idx with
                | Some goal -> goal
                | None ->
@@ -218,7 +218,6 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                      "pending",
                      0.0,
                      None,
-                     "",
                      Some (string_of_int (List.nth vc_ids_ordered idx)) )
              in
              let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
@@ -246,7 +245,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
                status;
                solver_status = (match native_probe with Some probe -> probe.status | None -> status);
                time_s;
-               source;
+               source = "";
                node = None;
                transition = None;
                obligation_kind = "unknown";
@@ -264,7 +263,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let goals =
       List.map
         (fun (trace : Pipeline_types.proof_trace) ->
-          (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.source, trace.vc_id))
+          (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
         proof_traces
     in
     Ok {

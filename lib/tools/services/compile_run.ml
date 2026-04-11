@@ -21,7 +21,7 @@
 let fmt_s x = Printf.sprintf "%.6f" x
 
 let solver_sum_s (goals : Pipeline_types.goal_info list) : float =
-  List.fold_left (fun acc (_, _, time_s, _, _, _) -> acc +. time_s) 0.0 goals
+  List.fold_left (fun acc (_, _, time_s, _, _) -> acc +. time_s) 0.0 goals
 
 let with_timing_stage_meta ~(t0 : float) ~(t_build_done : float)
     ~(snap_before : External_timing.snapshot) (out : Pipeline_types.outputs) :
@@ -66,12 +66,12 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
     | Error _ as e -> e
     | Ok (out : Pipeline_types.outputs) ->
         on_outputs_ready { out with goals = [] };
-        let goal_names = List.map (fun (g, _, _, _, _, _) -> g) out.goals in
+        let goal_names = List.map (fun (g, _, _, _, _) -> g) out.goals in
         let vc_ids = List.init (List.length out.goals) (fun i -> i + 1) in
         on_goals_ready (goal_names, vc_ids);
         List.iteri
-          (fun i (goal, status, time_s, dump_path, source, vcid) ->
-            on_goal_done i goal status time_s dump_path source vcid)
+          (fun i (goal, status, time_s, dump_path, vcid) ->
+            on_goal_done i goal status time_s dump_path vcid)
           out.goals;
         if should_cancel () then Error (Pipeline_types.Stage_error "Request cancelled") else Ok out
   else
@@ -83,7 +83,7 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
         | Error _ as e -> e
         | Ok (pending_out : Pipeline_types.outputs) ->
             on_outputs_ready { pending_out with goals = [] };
-            let goal_names = List.map (fun (g, _, _, _, _, _) -> g) pending_out.goals in
+            let goal_names = List.map (fun (g, _, _, _, _) -> g) pending_out.goals in
             on_goals_ready (goal_names, pending_out.vc_ids_ordered);
             if not cfg.prove || cfg.wp_only then Ok pending_out
             else
@@ -104,14 +104,14 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
                       | Some id -> Some (string_of_int id)
                       | None -> None
                     in
-                    finished := (idx, r.goal_name, status, r.time_s, r.dump_path, r.source, vcid) :: !finished;
-                    on_goal_done idx r.goal_name status r.time_s r.dump_path r.source vcid)
+                    finished := (idx, r.goal_name, status, r.time_s, r.dump_path, vcid) :: !finished;
+                    on_goal_done idx r.goal_name status r.time_s r.dump_path vcid)
               in
               if should_cancel () then Error (Pipeline_types.Stage_error "Request cancelled")
               else
                 let goal_results =
                   List.sort
-                    (fun (a, _, _, _, _, _, _) (b, _, _, _, _, _, _) -> compare a b)
+                    (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b)
                     !finished
                 in
                 Ok

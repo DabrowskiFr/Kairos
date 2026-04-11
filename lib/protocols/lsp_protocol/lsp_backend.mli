@@ -73,5 +73,5 @@ val run_with_callbacks :
   Lsp_protocol.config ->
   on_outputs_ready:(Lsp_protocol.outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->
-  on_goal_done:(int -> string -> string -> float -> string option -> string -> string option -> unit) ->
+  on_goal_done:(int -> string -> string -> float -> string option -> string option -> unit) ->
   (Lsp_protocol.outputs, string) result

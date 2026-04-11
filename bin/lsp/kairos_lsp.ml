@@ -903,7 +903,7 @@ let () =
                       send_notification stdout ~method_name:"kairos/goalsReady"
                         ~params_json:(Lsp_protocol.yojson_of_goals_ready_notification payload)
                     in
-                    let on_goal_done idx goal status time_s dump_path source vcid =
+                    let on_goal_done idx goal status time_s dump_path vcid =
                       incr completed_goals;
                       if !supports_work_done_progress then
                         send_work_done_report stdout ~token:progress_token
@@ -914,7 +914,7 @@ let () =
                       let payload : Lsp_protocol.goal_done_notification =
                         {
                           request_id = protocol_request_id id;
-                          payload = { idx; goal; status; time_s; dump_path; source; vcid };
+                          payload = { idx; goal; status; time_s; dump_path; vcid };
                         }
                       in
                       send_notification stdout ~method_name:"kairos/goalDone"
