@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 open Temporal_support
 open Fo_formula
 
@@ -59,7 +60,11 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
       info.Temporal_support.names
       |> List.mapi (fun idx name ->
              let lowered =
-               if idx = 0 then Ast.HNow info.Temporal_support.expr else Ast.HPreK (info.Temporal_support.expr, idx)
+               if idx = 0 then Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
+               else
+                 match info.Temporal_support.expr.iexpr with
+                 | Ast.IVar base -> Ast_builders.mk_hpre_k base idx
+                 | _ -> Ast_builders.hexpr_of_iexpr info.Temporal_support.expr
              in
              (name, lowered))
       |> List.rev_append acc
@@ -74,24 +79,23 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     in
     List.fold_left add [] temporal_layout
   in
-  let rec rewrite_iexpr_post (e : Ast.iexpr) : Ast.iexpr =
-    let iexpr =
-      match e.iexpr with
-      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
-      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_post inner)
-      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_post inner)
-      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_post a, rewrite_iexpr_post b)
-    in
-    { e with iexpr }
-  in
   let rec rewrite_hexpr_post (h : Ast.hexpr) : Ast.hexpr =
-    match h with
-    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ } as e) -> (
+    match h.hexpr with
+    | Ast.HLitInt _ | Ast.HLitBool _ | Ast.HPreK _ -> h
+    | Ast.HVar name -> (
         match List.assoc_opt name slot_to_current_expr with
         | Some lowered -> lowered
-        | None -> Ast.HNow (rewrite_iexpr_post e))
-    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_post e)
-    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_post e, k)
+        | None -> h)
+    | Ast.HUn (op, inner) ->
+        Ast_builders.with_hexpr_desc h (Ast.HUn (op, rewrite_hexpr_post inner))
+    | Ast.HArithBin (op, a, b) ->
+        Ast_builders.with_hexpr_desc h
+          (Ast.HArithBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+    | Ast.HBoolBin (op, a, b) ->
+        Ast_builders.with_hexpr_desc h
+          (Ast.HBoolBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
+    | Ast.HCmp (op, a, b) ->
+        Ast_builders.with_hexpr_desc h (Ast.HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
   in
   let rewrite_fo_post (f : Ast.fo_atom) : Ast.fo_atom =
     match f with
@@ -107,16 +111,6 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     | Fo_formula.FOr (a, b) -> Fo_formula.FOr (rewrite_formula_post a, rewrite_formula_post b)
     | Fo_formula.FImp (a, b) -> Fo_formula.FImp (rewrite_formula_post a, rewrite_formula_post b)
   in
-  let rec rewrite_iexpr_pre (e : Ast.iexpr) : Ast.iexpr =
-    let iexpr =
-      match e.iexpr with
-      | Ast.ILitInt _ | Ast.ILitBool _ | Ast.IVar _ -> e.iexpr
-      | Ast.IPar inner -> Ast.IPar (rewrite_iexpr_pre inner)
-      | Ast.IUn (op, inner) -> Ast.IUn (op, rewrite_iexpr_pre inner)
-      | Ast.IBin (op, a, b) -> Ast.IBin (op, rewrite_iexpr_pre a, rewrite_iexpr_pre b)
-    in
-    { e with iexpr }
-  in
   let slot_name_for_depth base_var depth =
     match List.assoc_opt base_var current_expr_to_next_slot with
     | None -> None
@@ -125,17 +119,26 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         if idx < 0 || idx >= List.length names then None else Some (List.nth names idx)
   in
   let rec rewrite_hexpr_pre (h : Ast.hexpr) : Ast.hexpr =
-    match h with
-    | Ast.HNow ({ Ast.iexpr = Ast.IVar name; _ }) -> (
+    match h.hexpr with
+    | Ast.HLitInt _ | Ast.HLitBool _ -> h
+    | Ast.HVar name -> (
         match slot_name_for_depth name 1 with
-        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
+        | Some slot -> Ast_builders.mk_hvar slot
         | None -> h)
-    | Ast.HNow e -> Ast.HNow (rewrite_iexpr_pre e)
-    | Ast.HPreK (({ Ast.iexpr = Ast.IVar name; _ } as e), k) -> (
+    | Ast.HPreK (name, k) -> (
         match slot_name_for_depth name (k + 1) with
-        | Some slot -> Ast.HNow { Ast.iexpr = Ast.IVar slot; loc = None }
-        | None -> Ast.HPreK (rewrite_iexpr_pre e, k))
-    | Ast.HPreK (e, k) -> Ast.HPreK (rewrite_iexpr_pre e, k)
+        | Some slot -> Ast_builders.mk_hvar slot
+        | None -> h)
+    | Ast.HUn (op, inner) ->
+        Ast_builders.with_hexpr_desc h (Ast.HUn (op, rewrite_hexpr_pre inner))
+    | Ast.HArithBin (op, a, b) ->
+        Ast_builders.with_hexpr_desc h
+          (Ast.HArithBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+    | Ast.HBoolBin (op, a, b) ->
+        Ast_builders.with_hexpr_desc h
+          (Ast.HBoolBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
+    | Ast.HCmp (op, a, b) ->
+        Ast_builders.with_hexpr_desc h (Ast.HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
   in
   let rewrite_fo_pre (f : Ast.fo_atom) : Ast.fo_atom =
     match f with

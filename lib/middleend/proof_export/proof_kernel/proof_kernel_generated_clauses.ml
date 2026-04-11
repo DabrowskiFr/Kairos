@@ -99,16 +99,13 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
     |> List.map (fun (v : Ast.vdecl) -> v.vname)
     |> List.sort_uniq String.compare
   in
-  let rec iexpr_mentions_current_input (e : Ast.iexpr) =
-    match e.iexpr with
-    | IVar name -> List.mem name input_names
-    | ILitInt _ | ILitBool _ -> false
-    | IPar inner | IUn (_, inner) -> iexpr_mentions_current_input inner
-    | IBin (_, a, b) -> iexpr_mentions_current_input a || iexpr_mentions_current_input b
-  in
-  let hexpr_mentions_current_input = function
-    | HNow e -> iexpr_mentions_current_input e
-    | HPreK _ -> false
+  let rec hexpr_mentions_current_input (h : Ast.hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HPreK _ -> false
+    | HVar name -> List.mem name input_names
+    | HUn (_, inner) -> hexpr_mentions_current_input inner
+    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+        hexpr_mentions_current_input a || hexpr_mentions_current_input b
   in
   let rec fo_mentions_current_input (f : Fo_formula.t) =
     match f with
@@ -153,10 +150,12 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
   let rec phase_summary_obviously_inconsistent (f : Fo_formula.t) : bool =
     match normalize_source_summary f with
     | Fo_formula.FFalse -> true
-    | Fo_formula.FAtom (FRel (HNow { iexpr = IVar x; _ }, RNeq, HNow { iexpr = IVar y; _ }))
+    | Fo_formula.FAtom
+        (FRel ({ hexpr = HVar x; _ }, RNeq, { hexpr = HVar y; _ }))
       when String.equal x y ->
         true
-    | Fo_formula.FNot (Fo_formula.FAtom (FRel (HNow { iexpr = IVar x; _ }, REq, HNow { iexpr = IVar y; _ })))
+    | Fo_formula.FNot
+        (Fo_formula.FAtom (FRel ({ hexpr = HVar x; _ }, REq, { hexpr = HVar y; _ })))
       when String.equal x y ->
         true
     | Fo_formula.FNot Fo_formula.FTrue -> true

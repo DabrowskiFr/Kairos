@@ -174,7 +174,6 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
               {
                 signature;
                 normalized_ir;
-                user_invariants = [];
                 coherency_goals = [];
                 temporal_layout = normalized_ir.temporal_layout;
                 delay_spec = Pre_k_collect.extract_delay_spec node.specification.spec_guarantees;

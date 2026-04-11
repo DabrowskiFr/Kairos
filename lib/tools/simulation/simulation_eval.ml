@@ -82,49 +82,63 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
         match Hashtbl.find_opt env v with
         | Some value -> Ok value
         | None -> eval_error (Printf.sprintf "unbound variable '%s'" v))
-    | IPar e -> go e
-    | IUn (Neg, e) -> (
+    | IUn (INeg, e) -> (
         match go e with
         | Error _ as err -> err
         | Ok v -> (
             match eval_int_of_value ~ctx:"unary '-'" v with
             | Error _ as err -> err
             | Ok i -> Ok (VInt (-i))))
-    | IUn (Not, e) -> (
+    | IUn (INot, e) -> (
         match go e with
         | Error _ as err -> err
         | Ok v -> (
             match eval_bool_of_value ~ctx:"unary 'not'" v with
             | Error _ as err -> err
             | Ok b -> Ok (VBool (not b))))
-    | IBin (op, l, r) -> (
+    | IArithBin (op, l, r) -> (
+        match (go l, go r) with
+        | (Error _ as err), _ -> err
+        | _, (Error _ as err) -> err
+        | Ok vl, Ok vr -> (
+            match
+              ( eval_int_of_value ~ctx:"arithmetic lhs" vl,
+                eval_int_of_value ~ctx:"arithmetic rhs" vr )
+            with
+            | (Error _ as err), _ -> err
+            | _, (Error _ as err) -> err
+            | Ok li, Ok ri ->
+                if op = IDiv && ri = 0 then eval_error "division by zero"
+                else
+                  let v =
+                    match op with
+                    | IAdd -> li + ri
+                    | ISub -> li - ri
+                    | IMul -> li * ri
+                    | IDiv -> li / ri
+                  in
+                  Ok (VInt v)))
+    | IBoolBin (op, l, r) -> (
+        match (go l, go r) with
+        | (Error _ as err), _ -> err
+        | _, (Error _ as err) -> err
+        | Ok vl, Ok vr -> (
+            match
+              ( eval_bool_of_value ~ctx:"logical lhs" vl,
+                eval_bool_of_value ~ctx:"logical rhs" vr )
+            with
+            | (Error _ as err), _ -> err
+            | _, (Error _ as err) -> err
+            | Ok lb, Ok rb -> Ok (VBool (if op = IAnd then lb && rb else lb || rb))))
+    | ICmp (op, l, r) -> (
         match (go l, go r) with
         | (Error _ as err), _ -> err
         | _, (Error _ as err) -> err
         | Ok vl, Ok vr -> (
             match op with
-            | Add | Sub | Mul | Div -> (
-                match
-                  ( eval_int_of_value ~ctx:"arithmetic lhs" vl,
-                    eval_int_of_value ~ctx:"arithmetic rhs" vr )
-                with
-                | (Error _ as err), _ -> err
-                | _, (Error _ as err) -> err
-                | Ok li, Ok ri ->
-                    if op = Div && ri = 0 then eval_error "division by zero"
-                    else
-                      let v =
-                        match op with
-                        | Add -> li + ri
-                        | Sub -> li - ri
-                        | Mul -> li * ri
-                        | Div -> li / ri
-                        | _ -> assert false
-                      in
-                      Ok (VInt v))
-            | Eq -> Ok (VBool (vl = vr))
-            | Neq -> Ok (VBool (vl <> vr))
-            | Lt | Le | Gt | Ge -> (
+            | REq -> Ok (VBool (vl = vr))
+            | RNeq -> Ok (VBool (vl <> vr))
+            | RLt | RLe | RGt | RGe -> (
                 match
                   ( eval_int_of_value ~ctx:"comparison lhs" vl,
                     eval_int_of_value ~ctx:"comparison rhs" vr )
@@ -134,21 +148,13 @@ let eval_iexpr (env : (string, eval_value) Hashtbl.t) (e : Ast.iexpr) :
                 | Ok li, Ok ri ->
                     let b =
                       match op with
-                      | Lt -> li < ri
-                      | Le -> li <= ri
-                      | Gt -> li > ri
-                      | Ge -> li >= ri
+                      | RLt -> li < ri
+                      | RLe -> li <= ri
+                      | RGt -> li > ri
+                      | RGe -> li >= ri
                       | _ -> assert false
                     in
-                    Ok (VBool b))
-            | And | Or -> (
-                match
-                  ( eval_bool_of_value ~ctx:"logical lhs" vl,
-                    eval_bool_of_value ~ctx:"logical rhs" vr )
-                with
-                | (Error _ as err), _ -> err
-                | _, (Error _ as err) -> err
-                | Ok lb, Ok rb -> Ok (VBool (if op = And then lb && rb else lb || rb)))))
+                    Ok (VBool b))))
   in
   go e
 

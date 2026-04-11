@@ -16,32 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Core abstract syntax tree for Kairos programs, expressions, temporal
-    formulas, and contract annotations. *)
-
-(** {1 AST Overview}
-
-   This module defines the source-level syntax tree shared by the frontend.
-
-   Structural overview:
-   {v
-   program
-     -> node
-     -> transition
-     -> stmt
-
-   node
-     -> semantics
-     -> specification
-   v}
-
-   The sections below follow the language structure:
-   {ul
-   {- expressions;}
-   {- temporal formulas;}
-   {- statements;}
-   {- invariants;}
-   {- program structure.}} *)
+(** Abstract syntax tree for Kairos programs *)
 
 (** {1 Core Types}
 
@@ -57,21 +32,32 @@ type ty = Core_syntax.ty =
 [@@deriving yojson]
 
 type binop = Core_syntax.binop =
-  | Add
-  | Sub
-  | Mul
-  | Div
-  | Eq
-  | Neq
-  | Lt
-  | Le
-  | Gt
-  | Ge
-  | And
-  | Or
+  | Add | Sub | Mul | Div
+  | Eq | Neq
+  | Lt | Le | Gt | Ge
+  | And | Or
 [@@deriving yojson]
 
 type unop = Core_syntax.unop = Neg | Not [@@deriving yojson]
+
+type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
+
+type ibinop = Core_syntax.ibinop =
+  | IAdd
+  | ISub
+  | IMul
+  | IDiv
+[@@deriving yojson]
+
+type ibool_binop = Core_syntax.ibool_binop =
+  | IAnd
+  | IOr
+[@@deriving yojson]
+
+type iunop = Core_syntax.iunop =
+  | INeg
+  | INot
+[@@deriving yojson]
 
 type loc = Core_syntax.loc = {
   line : int;
@@ -91,14 +77,45 @@ and iexpr_desc = Core_syntax.iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
   | IVar of ident
-  | IBin of binop * iexpr * iexpr
-  | IUn of unop * iexpr
-  | IPar of iexpr
+  | IArithBin of ibinop * iexpr * iexpr
+  | IBoolBin of ibool_binop * iexpr * iexpr
+  | ICmp of relop * iexpr * iexpr
+  | IUn of iunop * iexpr
 [@@deriving yojson]
 
-type hexpr = Core_syntax.hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving yojson]
+type hbinop = Core_syntax.hbinop =
+  | HAdd
+  | HSub
+  | HMul
+  | HDiv
+[@@deriving yojson]
 
-type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
+type hbool_binop = Core_syntax.hbool_binop =
+  | HAnd
+  | HOr
+[@@deriving yojson]
+
+type hunop = Core_syntax.hunop =
+  | HNeg
+  | HNot
+[@@deriving yojson]
+
+type hexpr = Core_syntax.hexpr = {
+  hexpr : hexpr_desc;
+  loc : loc option;
+}
+[@@deriving yojson]
+
+and hexpr_desc = Core_syntax.hexpr_desc =
+  | HLitInt of int
+  | HLitBool of bool
+  | HVar of ident
+  | HPreK of ident * int
+  | HArithBin of hbinop * hexpr * hexpr
+  | HBoolBin of hbool_binop * hexpr * hexpr
+  | HCmp of relop * hexpr * hexpr
+  | HUn of hunop * hexpr
+[@@deriving yojson]
 
 type fo_atom = Core_syntax.fo_atom =
   | FRel of hexpr * relop * hexpr
@@ -131,17 +148,11 @@ type vdecl = Core_syntax.vdecl = {
 }
 [@@deriving yojson]
 
-type invariant_user = Core_syntax.invariant_user = {
-  inv_id : ident;
-  inv_expr : hexpr;
-}
-[@@deriving show, yojson]
-
 type invariant_state_rel = {
   state : ident;
   formula : Fo_formula.t;
 }
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 (** {1 Statements & Invariants} *)
 
@@ -186,8 +197,8 @@ type node_semantics = {
 
 (** Specification-facing part of a node.
 
-    Formulas may refer to the current tick through [HNow] and to bounded
-    history through [HPreK]. *)
+    Formulas may refer to current values through [HVar] and to bounded history
+    through [HPreK]. *)
 type node_specification = {
   spec_assumes : ltl list;
   spec_guarantees : ltl list;
@@ -209,6 +220,3 @@ type program = node list
 
 val semantics_of_node : node -> node_semantics
 val specification_of_node : node -> node_specification
-
-(** Debug string representation of a program, mainly used for dumps. *)
-val show_program : program -> string

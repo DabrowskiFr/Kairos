@@ -34,7 +34,7 @@ type t =
   | ProgramGuard
   | StateStability
   | Internal
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 (** Stable textual encoding used in artifacts and diagnostics. *)
 val to_string : t -> string

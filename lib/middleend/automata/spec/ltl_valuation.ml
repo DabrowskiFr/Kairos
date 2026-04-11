@@ -164,13 +164,13 @@ let term_to_iexpr (term : term) : iexpr =
         match v with
         | None -> None
         | Some true -> Some (mk_var name)
-        | Some false -> Some (mk_iexpr (IUn (Not, mk_var name))))
+        | Some false -> Some (mk_iexpr (IUn (INot, mk_var name))))
       term
   in
   match parts with
   | [] -> mk_bool true
   | [ p ] -> p
-  | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBin (And, acc, x))) p rest
+  | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBoolBin (IAnd, acc, x))) p rest
 
 let terms_to_iexpr (terms : term list) : iexpr =
   match terms with
@@ -182,7 +182,7 @@ let terms_to_iexpr (terms : term list) : iexpr =
         match parts with
         | [] -> mk_bool false
         | [ p ] -> p
-        | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBin (Or, acc, x))) p rest)
+        | p :: rest -> List.fold_left (fun acc x -> mk_iexpr (IBoolBin (IOr, acc, x))) p rest)
 
 let valuations_to_iexpr (atom_names : string list) (vals_list : (string * bool) list list) : iexpr =
   match vals_list with

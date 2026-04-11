@@ -101,7 +101,6 @@ type t = {
   state_branches : state_branch_view list;
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
-  user_invariants : Ast.invariant_user list;
   init_invariant_goals : Abs.summary_formula list;
 }
 
@@ -116,14 +115,17 @@ let collect_ctor_iexpr (acc : ident list) (e : iexpr) : ident list =
     match e.iexpr with
     | IVar _name -> acc
     | ILitInt _ | ILitBool _ -> acc
-    | IPar inner -> go acc inner
     | IUn (_, inner) -> go acc inner
-    | IBin (_, a, b) -> go (go acc a) b
+    | IArithBin (_, a, b) | IBoolBin (_, a, b) | ICmp (_, a, b) -> go (go acc a) b
   in
   go acc e
 
-let collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
-  match h with HNow e -> collect_ctor_iexpr acc e | HPreK (e, _) -> collect_ctor_iexpr acc e
+let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
+  | HUn (_, inner) -> collect_ctor_hexpr acc inner
+  | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+      collect_ctor_hexpr (collect_ctor_hexpr acc a) b
 
 let collect_ctor_fo (acc : ident list) (f : fo_atom) : ident list =
   match f with
@@ -191,57 +193,70 @@ let rec simplify_iexpr (known : (ident * known_value) list) (e : iexpr) : iexpr 
       | None -> e
     end
   | ILitInt _ | ILitBool _ -> e
-  | IPar inner -> simplify_iexpr known inner
-  | IUn (Not, inner) -> begin
+  | IUn (INot, inner) -> begin
       match (simplify_iexpr known inner).iexpr with
       | ILitBool b -> mk (ILitBool (not b))
-      | inner' -> mk (IUn (Not, { e with iexpr = inner' }))
+      | inner' -> mk (IUn (INot, { e with iexpr = inner' }))
     end
-  | IUn (Neg, inner) -> begin
+  | IUn (INeg, inner) -> begin
       match (simplify_iexpr known inner).iexpr with
       | ILitInt n -> mk (ILitInt (-n))
-      | inner' -> mk (IUn (Neg, { e with iexpr = inner' }))
+      | inner' -> mk (IUn (INeg, { e with iexpr = inner' }))
     end
-  | IBin (op, a, b) ->
+  | IArithBin (op, a, b) ->
       let a' = simplify_iexpr known a in
       let b' = simplify_iexpr known b in
       begin
         match (op, a'.iexpr, b'.iexpr) with
-        | Eq, ILitInt x, ILitInt y -> mk (ILitBool (x = y))
-        | Eq, ILitBool x, ILitBool y -> mk (ILitBool (x = y))
-        | Neq, ILitInt x, ILitInt y -> mk (ILitBool (x <> y))
-        | Neq, ILitBool x, ILitBool y -> mk (ILitBool (x <> y))
-        | And, ILitBool x, ILitBool y -> mk (ILitBool (x && y))
-        | Or, ILitBool x, ILitBool y -> mk (ILitBool (x || y))
-        | Lt, ILitInt x, ILitInt y -> mk (ILitBool (x < y))
-        | Le, ILitInt x, ILitInt y -> mk (ILitBool (x <= y))
-        | Gt, ILitInt x, ILitInt y -> mk (ILitBool (x > y))
-        | Ge, ILitInt x, ILitInt y -> mk (ILitBool (x >= y))
-        | Add, ILitInt x, ILitInt y -> mk (ILitInt (x + y))
-        | Sub, ILitInt x, ILitInt y -> mk (ILitInt (x - y))
-        | Mul, ILitInt x, ILitInt y -> mk (ILitInt (x * y))
-        | Div, ILitInt x, ILitInt y when y <> 0 -> mk (ILitInt (x / y))
-        | And, ILitBool true, _ -> b'
-        | And, _, ILitBool true -> a'
-        | And, ILitBool false, _ -> mk (ILitBool false)
-        | And, _, ILitBool false -> mk (ILitBool false)
-        | Or, ILitBool false, _ -> b'
-        | Or, _, ILitBool false -> a'
-        | Or, ILitBool true, _ -> mk (ILitBool true)
-        | Or, _, ILitBool true -> mk (ILitBool true)
-        | _ -> mk (IBin (op, a', b'))
+        | IAdd, ILitInt x, ILitInt y -> mk (ILitInt (x + y))
+        | ISub, ILitInt x, ILitInt y -> mk (ILitInt (x - y))
+        | IMul, ILitInt x, ILitInt y -> mk (ILitInt (x * y))
+        | IDiv, ILitInt x, ILitInt y when y <> 0 -> mk (ILitInt (x / y))
+        | _ -> mk (IArithBin (op, a', b'))
+      end
+  | IBoolBin (op, a, b) ->
+      let a' = simplify_iexpr known a in
+      let b' = simplify_iexpr known b in
+      begin
+        match (op, a'.iexpr, b'.iexpr) with
+        | IAnd, ILitBool x, ILitBool y -> mk (ILitBool (x && y))
+        | IOr, ILitBool x, ILitBool y -> mk (ILitBool (x || y))
+        | IAnd, ILitBool true, _ -> b'
+        | IAnd, _, ILitBool true -> a'
+        | IAnd, ILitBool false, _ -> mk (ILitBool false)
+        | IAnd, _, ILitBool false -> mk (ILitBool false)
+        | IOr, ILitBool false, _ -> b'
+        | IOr, _, ILitBool false -> a'
+        | IOr, ILitBool true, _ -> mk (ILitBool true)
+        | IOr, _, ILitBool true -> mk (ILitBool true)
+        | _ -> mk (IBoolBin (op, a', b'))
+      end
+  | ICmp (op, a, b) ->
+      let a' = simplify_iexpr known a in
+      let b' = simplify_iexpr known b in
+      begin
+        match (op, a'.iexpr, b'.iexpr) with
+        | REq, ILitInt x, ILitInt y -> mk (ILitBool (x = y))
+        | REq, ILitBool x, ILitBool y -> mk (ILitBool (x = y))
+        | RNeq, ILitInt x, ILitInt y -> mk (ILitBool (x <> y))
+        | RNeq, ILitBool x, ILitBool y -> mk (ILitBool (x <> y))
+        | RLt, ILitInt x, ILitInt y -> mk (ILitBool (x < y))
+        | RLe, ILitInt x, ILitInt y -> mk (ILitBool (x <= y))
+        | RGt, ILitInt x, ILitInt y -> mk (ILitBool (x > y))
+        | RGe, ILitInt x, ILitInt y -> mk (ILitBool (x >= y))
+        | _ -> mk (ICmp (op, a', b'))
       end
 
 let known_from_guard (guard : iexpr option) : (ident * known_value) list =
   let rec gather acc (e : iexpr) =
     match e.iexpr with
-    | IBin (And, a, b) -> gather (gather acc a) b
-    | IBin (Eq, ({ iexpr = IVar x; _ } as _a), b) -> begin
+    | IBoolBin (IAnd, a, b) -> gather (gather acc a) b
+    | ICmp (REq, ({ iexpr = IVar x; _ } as _a), b) -> begin
         match literal_known_value b with
         | Some v -> bind_known acc x v
         | None -> acc
       end
-    | IBin (Eq, a, ({ iexpr = IVar x; _ } as _b)) -> begin
+    | ICmp (REq, a, ({ iexpr = IVar x; _ } as _b)) -> begin
         match literal_known_value a with
         | Some v -> bind_known acc x v
         | None -> acc
@@ -432,7 +447,6 @@ let of_ir_node (node : Ir.node_ir) : t =
       state_branches = state_branches_of_groups transition_groups;
       assumes = node.source_info.assumes;
       guarantees = node.source_info.guarantees;
-      user_invariants = [];
       init_invariant_goals = node.init_invariant_goals;
     }
   in

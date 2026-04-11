@@ -16,14 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type ident = Core_syntax.ident [@@deriving show, yojson]
+type ident = Core_syntax.ident [@@deriving yojson]
 
 type ty = Core_syntax.ty =
   | TInt
   | TBool
   | TReal
   | TCustom of string
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 type binop = Core_syntax.binop =
   | Add
@@ -38,9 +38,28 @@ type binop = Core_syntax.binop =
   | Ge
   | And
   | Or
-[@@deriving show, yojson]
+[@@deriving yojson]
 
-type unop = Core_syntax.unop = Neg | Not [@@deriving show, yojson]
+type unop = Core_syntax.unop = Neg | Not [@@deriving yojson]
+
+type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
+
+type ibinop = Core_syntax.ibinop =
+  | IAdd
+  | ISub
+  | IMul
+  | IDiv
+[@@deriving yojson]
+
+type ibool_binop = Core_syntax.ibool_binop =
+  | IAnd
+  | IOr
+[@@deriving yojson]
+
+type iunop = Core_syntax.iunop =
+  | INeg
+  | INot
+[@@deriving yojson]
 
 type loc = Core_syntax.loc = {
   line : int;
@@ -48,7 +67,7 @@ type loc = Core_syntax.loc = {
   line_end : int;
   col_end : int;
 }
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 type iexpr = Core_syntax.iexpr = {
   iexpr : iexpr_desc;
@@ -59,18 +78,49 @@ and iexpr_desc = Core_syntax.iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
   | IVar of ident
-  | IBin of binop * iexpr * iexpr
-  | IUn of unop * iexpr
-  | IPar of iexpr
-[@@deriving show, yojson]
+  | IArithBin of ibinop * iexpr * iexpr
+  | IBoolBin of ibool_binop * iexpr * iexpr
+  | ICmp of relop * iexpr * iexpr
+  | IUn of iunop * iexpr
+[@@deriving yojson]
 
-type hexpr = Core_syntax.hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving show, yojson]
-type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show, yojson]
+type hbinop = Core_syntax.hbinop =
+  | HAdd
+  | HSub
+  | HMul
+  | HDiv
+[@@deriving yojson]
+
+type hbool_binop = Core_syntax.hbool_binop =
+  | HAnd
+  | HOr
+[@@deriving yojson]
+
+type hunop = Core_syntax.hunop =
+  | HNeg
+  | HNot
+[@@deriving yojson]
+
+type hexpr = Core_syntax.hexpr = {
+  hexpr : hexpr_desc;
+  loc : loc option;
+}
+
+and hexpr_desc = Core_syntax.hexpr_desc =
+  | HLitInt of int
+  | HLitBool of bool
+  | HVar of ident
+  | HPreK of ident * int
+  | HArithBin of hbinop * hexpr * hexpr
+  | HBoolBin of hbool_binop * hexpr * hexpr
+  | HCmp of relop * hexpr * hexpr
+  | HUn of hunop * hexpr
+[@@deriving yojson]
 
 type fo_atom = Core_syntax.fo_atom =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 type ltl = Core_syntax.ltl =
   | LTrue
@@ -83,12 +133,11 @@ type ltl = Core_syntax.ltl =
   | LX of ltl
   | LG of ltl
   | LW of ltl * ltl
-[@@deriving show, yojson]
+[@@deriving yojson]
 
-type ltl_o = Core_syntax.ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving show, yojson]
-type vdecl = Core_syntax.vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
-type invariant_user = Core_syntax.invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
-type invariant_state_rel = { state : ident; formula : Fo_formula.t } [@@deriving show, yojson]
+type ltl_o = Core_syntax.ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
+type vdecl = Core_syntax.vdecl = { vname : ident; vty : ty } [@@deriving yojson]
+type invariant_state_rel = { state : ident; formula : Fo_formula.t } [@@deriving yojson]
 
 type stmt = { stmt : stmt_desc; loc : loc option }
 
@@ -98,7 +147,7 @@ and stmt_desc =
   | SMatch of iexpr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * iexpr list * ident list
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 type transition = {
   src : ident;
@@ -106,7 +155,7 @@ type transition = {
   guard : iexpr option;
   body : stmt list;
 }
-[@@deriving show]
+
 
 type node_semantics = {
   sem_nname : ident;
@@ -118,22 +167,22 @@ type node_semantics = {
   sem_init_state : ident;
   sem_trans : transition list;
 }
-[@@deriving show]
+
 
 type node_specification = {
   spec_assumes : ltl list;
   spec_guarantees : ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
 }
-[@@deriving show]
+
 
 type node = {
   semantics : node_semantics;
   specification : node_specification;
 }
-[@@deriving show]
 
-type program = node list [@@deriving show]
+
+type program = node list
 
 let semantics_of_node (n : node) : node_semantics =
   n.semantics

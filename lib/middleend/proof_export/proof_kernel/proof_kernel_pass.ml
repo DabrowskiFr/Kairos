@@ -55,29 +55,27 @@ type lit = { var : ident; cst : string; is_pos : bool }
 
 let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
   let mk ?(is_pos = true) v c = Some { var = v; cst = c; is_pos } in
-  match (h1, r, h2) with
-  | HNow a, REq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk v (string_of_int i)
-      | ILitInt i, IVar v -> mk v (string_of_int i)
-      | IVar v, ILitBool bb -> mk v (if bb then "true" else "false")
-      | ILitBool bb, IVar v -> mk v (if bb then "true" else "false")
-      | ILitBool bb, _ -> mk (Logic_pretty.string_of_iexpr b) (if bb then "true" else "false")
-      | _, ILitBool bb -> mk (Logic_pretty.string_of_iexpr a) (if bb then "true" else "false")
-      | _ -> None
-    end
-  | HNow a, RNeq, HNow b -> begin
-      match (a.iexpr, b.iexpr) with
-      | IVar v, ILitInt i -> mk ~is_pos:false v (string_of_int i)
-      | ILitInt i, IVar v -> mk ~is_pos:false v (string_of_int i)
-      | IVar v, ILitBool bb -> mk ~is_pos:false v (if bb then "true" else "false")
-      | ILitBool bb, IVar v -> mk ~is_pos:false v (if bb then "true" else "false")
-      | ILitBool bb, _ ->
-          mk ~is_pos:false (Logic_pretty.string_of_iexpr b) (if bb then "true" else "false")
-      | _, ILitBool bb -> mk ~is_pos:false (Logic_pretty.string_of_iexpr a) (if bb then "true" else "false")
-      | _ -> None
-    end
-  | _ -> None
+  let var_of_hexpr (h : hexpr) = match h.hexpr with HVar v -> Some v | _ -> None in
+  let const_of_hexpr (h : hexpr) =
+    match h.hexpr with
+    | HLitInt i -> Some (string_of_int i)
+    | HLitBool b -> Some (if b then "true" else "false")
+    | _ -> None
+  in
+  let fallback_var (h : hexpr) = Logic_pretty.string_of_hexpr h in
+  let build ~is_pos h_left h_right =
+    match (var_of_hexpr h_left, const_of_hexpr h_right) with
+    | Some v, Some c -> mk ~is_pos v c
+    | _ -> (
+        match (const_of_hexpr h_left, var_of_hexpr h_right) with
+        | Some c, Some v -> mk ~is_pos v c
+        | _ -> (
+            match (const_of_hexpr h_left, const_of_hexpr h_right) with
+            | Some c, _ -> mk ~is_pos (fallback_var h_right) c
+            | _, Some c -> mk ~is_pos (fallback_var h_left) c
+            | _ -> None))
+  in
+  match r with REq -> build ~is_pos:true h1 h2 | RNeq -> build ~is_pos:false h1 h2 | _ -> None
 
 let rec conj_lits (f : Fo_formula.t) : lit list option =
   match f with
@@ -231,7 +229,6 @@ let build_exported_summary ~(input : node_input)
   {
     signature = node_signature_of_ast ~temporal_layout:node.temporal_layout source_node;
     normalized_ir;
-    user_invariants = [];
     coherency_goals = node.init_invariant_goals;
     temporal_layout = node.temporal_layout;
     delay_spec = extract_delay_spec node.source_info.guarantees;

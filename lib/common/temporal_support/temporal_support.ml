@@ -41,16 +41,30 @@ let is_const_iexpr (e : iexpr) : bool =
       && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
   | _ -> false
 
-let shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr) : hexpr option =
+let rec shift_hexpr_by ~(init_for_var : ident -> iexpr) (shift : int) (h : hexpr) : hexpr option =
   let _ = init_for_var in
   if shift <= 0 then Some h
   else
-    match h with
-    | HNow e when is_const_iexpr e -> Some (HNow e)
-    | HNow e -> begin match as_var e with Some v -> Some (HPreK (mk_var v, 1)) | None -> None end
-    | HPreK (e, k) -> begin
-        match as_var e with Some v -> Some (HPreK (mk_var v, k + shift)) | None -> None
-      end
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> Some h
+    | HVar v -> Some (mk_hpre_k v shift)
+    | HPreK (v, k) -> Some (mk_hpre_k v (k + shift))
+    | HUn (op, inner) ->
+        Option.map
+          (fun inner' -> with_hexpr_desc h (HUn (op, inner')))
+          (shift_hexpr_by ~init_for_var shift inner)
+    | HArithBin (op, a, b) -> (
+        match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (with_hexpr_desc h (HArithBin (op, a', b')))
+        | _ -> None)
+    | HBoolBin (op, a, b) -> (
+        match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (with_hexpr_desc h (HBoolBin (op, a', b')))
+        | _ -> None)
+    | HCmp (op, a, b) -> (
+        match (shift_hexpr_by ~init_for_var shift a, shift_hexpr_by ~init_for_var shift b) with
+        | Some a', Some b' -> Some (with_hexpr_desc h (HCmp (op, a', b')))
+        | _ -> None)
 
 let normalize_ltl_for_k ~(init_for_var : ident -> iexpr) (f : ltl) : ltl_norm =
   let rec shift_ltl_with_depth k depth f =

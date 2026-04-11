@@ -20,29 +20,46 @@ open Ast
 open Ast_builders
 
 let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
-  match h with
-  | HNow e -> begin match as_var e with Some v when is_input v -> HPreK (e, 1) | _ -> h end
-  | HPreK (e, k) -> HPreK (e, k + 1)
+  let rec go (h : hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> h
+    | HVar v -> if is_input v then mk_hpre_k v 1 else h
+    | HPreK (v, k) -> mk_hpre_k v (k + 1)
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
+    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
 
 let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
-  match h with
-  (* Going backward from the beginning of tick t+1 to the end of tick t can
-     only invert formulas that actually come from a previous forward shift.
-     A current input [HNow x] at t+1 denotes the freshly sampled environment
-     value for tick t+1; it has no counterpart at the end of tick t.
-     Encountering it here means the caller is trying to backward-shift a
-     formula that is not in the image of [shift_hexpr_forward]. *)
-  | HNow e -> begin
-      match as_var e with
-      | Some v when is_input v ->
+  let rec go (h : hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> h
+    | HVar v ->
+        if is_input v then
           failwith
             (Printf.sprintf
                "shift_hexpr_backward: cannot backward-shift current input %s; \
-                HNow on inputs has no predecessor-time counterpart"
-               v)
-      | _ -> h
-    end
-  | HPreK (e, k) -> if k <= 1 then HNow e else HPreK (e, k - 1)
+                current inputs have no predecessor-time counterpart"
+               v);
+        h
+    | HPreK (v, k) ->
+        if k <= 1 then (
+          if is_input v then
+            failwith
+              (Printf.sprintf
+                 "shift_hexpr_backward: cannot backward-shift pre(%s); \
+                  inputs are refreshed between ticks"
+                 v);
+          mk_hvar v)
+        else mk_hpre_k v (k - 1)
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
+    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
 
 let shift_fo_forward_inputs ~(is_input : ident -> bool) (f : fo_atom) : fo_atom =
   match f with
@@ -84,12 +101,30 @@ let rec shift_formula_backward_inputs ~(is_input : ident -> bool) (f : Fo_formul
       FImp (shift_formula_backward_inputs ~is_input a, shift_formula_backward_inputs ~is_input b)
 
 let shift_hexpr_forward_all (h : hexpr) : hexpr =
-  match h with
-  | HNow e -> HPreK (e, 1)
-  | HPreK (e, k) -> HPreK (e, k + 1)
+  let rec go (h : hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> h
+    | HVar v -> mk_hpre_k v 1
+    | HPreK (v, k) -> mk_hpre_k v (k + 1)
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
+    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
 
 let shift_hexpr_backward_all (h : hexpr) : hexpr =
-  match h with HNow e -> HNow e | HPreK (e, k) -> if k <= 1 then HNow e else HPreK (e, k - 1)
+  let rec go (h : hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> h
+    | HVar _ -> h
+    | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HArithBin (op, a, b) -> with_hexpr_desc h (HArithBin (op, go a, go b))
+    | HBoolBin (op, a, b) -> with_hexpr_desc h (HBoolBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
 
 let shift_fo_forward_all (f : fo_atom) : fo_atom =
   match f with
@@ -100,4 +135,3 @@ let shift_fo_backward_all (f : fo_atom) : fo_atom =
   match f with
   | FRel (h1, r, h2) -> FRel (shift_hexpr_backward_all h1, r, shift_hexpr_backward_all h2)
   | FPred (id, hs) -> FPred (id, List.map shift_hexpr_backward_all hs)
-

@@ -18,19 +18,20 @@
 
 open Why3
 
-let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
-  let mods = Typing.type_mlw_file env [] "<generated>" ptree in
-  Wstdlib.Mstr.fold
-    (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
-    mods []
-  |> List.rev
-
-let apply_transform name env tasks =
-  List.concat_map (fun task -> Trans.apply_transform name env task) tasks
-
+(* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
+   une liste stable d'obligations élémentaires. *)
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
-  tasks_of_ptree ~env ~ptree |> apply_transform "split_vc" env
+  let modules = Typing.type_mlw_file env [] "<generated>" ptree in
+  let typed_tasks =
+    Wstdlib.Mstr.fold
+      (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
+      modules []
+    |> List.rev
+  in
+  List.concat_map (fun task -> Trans.apply_transform "split_vc" env task) typed_tasks
 
+(* Cherche un fichier de configuration Why3 explicite (env), puis sur les
+   emplacements utilisateur habituels. *)
 let find_config_file () =
   let env_opt name =
     match Sys.getenv_opt name with Some path when Sys.file_exists path -> Some path | _ -> None
@@ -44,6 +45,8 @@ let find_config_file () =
       in
       List.find_map (fun path -> if Sys.file_exists path then Some path else None) candidates
 
+(* Détecte un datadir Why3 utilisable depuis l'environnement, puis via le switch
+   opam courant si disponible. *)
 let find_datadir () =
   let env_opt name =
     match Sys.getenv_opt name with Some path when Sys.file_exists path -> Some path | _ -> None
@@ -61,11 +64,11 @@ let find_datadir () =
         end
     end
 
-let load_config () =
-  match find_config_file () with
-  | Some path -> (Whyconf.read_config (Some path), true)
-  | None -> (Whyconf.init_config None, false)
-
+(* Initialise le contexte Why3 complet:
+   - charge config/main,
+   - stabilise datadir/loadpath/libdir,
+   - construit l'environnement de typage.
+   Le tuple retourné est la base commune des passes proof/dump. *)
 let setup_env () =
   let datadir_opt = find_datadir () in
   let () =
@@ -77,7 +80,11 @@ let setup_env () =
         let stdlib = Filename.concat datadir "stdlib" in
         if Sys.file_exists stdlib then Whyconf.stdlib_path := stdlib
   in
-  let config, has_config_file = load_config () in
+  let config, has_config_file =
+    match find_config_file () with
+    | Some path -> (Whyconf.read_config (Some path), true)
+    | None -> (Whyconf.init_config None, false)
+  in
   let base_main = Whyconf.get_main config in
   let base_loadpath = Whyconf.loadpath base_main in
   let keep_config_main = has_config_file && base_loadpath <> [] in
@@ -116,6 +123,8 @@ let setup_env () =
   let env = Env.create_env (Whyconf.loadpath main) in
   (config, main, env, datadir_opt)
 
+(* Fallback minimal pour Z3 quand la configuration Why3 ne fournit pas
+   d'entrée prover résoluble, en s'appuyant sur le datadir détecté. *)
 let fallback_z3_prover_cfg (datadir_opt : string option) : Whyconf.config_prover option =
   match datadir_opt with
   | None -> None
@@ -136,6 +145,8 @@ let fallback_z3_prover_cfg (datadir_opt : string option) : Whyconf.config_prover
             extra_drivers = [];
           }
 
+(* Sélectionne la config Z3 dans Why3; si absente, tente un fallback driver
+   local avant d'échouer. *)
 let select_z3_prover_cfg ~(config : Whyconf.config) ~(datadir_opt : string option) :
     Whyconf.config_prover =
   let filter =

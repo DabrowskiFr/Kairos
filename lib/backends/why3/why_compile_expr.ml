@@ -96,6 +96,12 @@ let binop_id (op : binop) : string =
 let relop_id (r : relop) : string =
   match r with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
 
+let ibinop_id (op : ibinop) : string =
+  match op with IAdd -> "+" | ISub -> "-" | IMul -> "*" | IDiv -> "/"
+
+let ibool_binop_id (op : ibool_binop) : string =
+  match op with IAnd -> "&&" | IOr -> "||"
+
 (* ---- Env operations ---- *)
 
 let field (env : env) (name : ident) : Ptree.expr =
@@ -176,26 +182,30 @@ let rec compile_iexpr (env : env) (e : iexpr) : Ptree.expr =
   | ILitBool b -> mk_expr (if b then Etrue else Efalse)
   | IVar x ->
       if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
-  | IPar e -> compile_iexpr env e
-  | IUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_iexpr env a ]))
-  | IUn (Not, a) -> mk_expr (Enot (compile_iexpr env a))
-  | IBin (And, a, b) -> mk_expr (Eand (compile_iexpr env a, compile_iexpr env b))
-  | IBin (Or, a, b) -> mk_expr (Eor (compile_iexpr env a, compile_iexpr env b))
-  | IBin (op, a, b) ->
-      mk_expr (Einnfix (compile_iexpr env a, infix_ident (binop_id op), compile_iexpr env b))
+  | IUn (INeg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_iexpr env a ]))
+  | IUn (INot, a) -> mk_expr (Enot (compile_iexpr env a))
+  | IArithBin (op, a, b) ->
+      mk_expr (Einnfix (compile_iexpr env a, infix_ident (ibinop_id op), compile_iexpr env b))
+  | IBoolBin (IAnd, a, b) -> mk_expr (Eand (compile_iexpr env a, compile_iexpr env b))
+  | IBoolBin (IOr, a, b) -> mk_expr (Eor (compile_iexpr env a, compile_iexpr env b))
+  | ICmp (op, a, b) ->
+      mk_expr (Einnfix (compile_iexpr env a, infix_ident (relop_id op), compile_iexpr env b))
 
 let rec compile_term (env : env) (e : iexpr) : Ptree.term =
   match e.iexpr with
   | ILitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ILitBool b -> mk_term (if b then Ttrue else Tfalse)
   | IVar x -> mk_term (term_var env x)
-  | IPar e -> compile_term env e
-  | IUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
-  | IUn (Not, a) -> mk_term (Tnot (compile_term env a))
-  | IBin (And, a, b) -> term_bool_binop Dterm.DTand (compile_term env a) (compile_term env b)
-  | IBin (Or, a, b) -> term_bool_binop Dterm.DTor (compile_term env a) (compile_term env b)
-  | IBin (op, a, b) ->
-      mk_term (Tinnfix (compile_term env a, infix_ident (binop_id op), compile_term env b))
+  | IUn (INeg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
+  | IUn (INot, a) -> mk_term (Tnot (compile_term env a))
+  | IArithBin (op, a, b) ->
+      mk_term (Tinnfix (compile_term env a, infix_ident (ibinop_id op), compile_term env b))
+  | IBoolBin (op, a, b) ->
+      term_bool_binop
+        (match op with IAnd -> Dterm.DTand | IOr -> Dterm.DTor)
+        (compile_term env a) (compile_term env b)
+  | ICmp (op, a, b) ->
+      mk_term (Tinnfix (compile_term env a, infix_ident (relop_id op), compile_term env b))
 
 let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
   match outputs with
@@ -205,32 +215,60 @@ let term_of_outputs (env : env) (outputs : vdecl list) : Ptree.term option =
 
 let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env : env) (h : hexpr) :
     Ptree.term =
-  let is_const_iexpr (e : iexpr) =
-    match e.iexpr with
-    | ILitInt _ | ILitBool _ -> true
-    | IVar name ->
-        let len = String.length name in
-        len >= 4
-        && String.sub name 0 3 = "Aut"
-        && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
-    | _ -> false
+  let is_const_var_name (name : string) =
+    let len = String.length name in
+    len >= 4
+    && String.sub name 0 3 = "Aut"
+    && String.for_all (function '0' .. '9' -> true | _ -> false) (String.sub name 3 (len - 3))
   in
+  let rec is_const_hexpr (h : hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> true
+    | HVar name -> is_const_var_name name
+    | HPreK _ -> false
+    | HUn (_, inner) -> is_const_hexpr inner
+    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+        is_const_hexpr a && is_const_hexpr b
+  in
+  let rec compile_hexpr_term (h : hexpr) =
+    match h.hexpr with
+    | HLitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
+    | HLitBool b -> mk_term (if b then Ttrue else Tfalse)
+    | HVar x -> mk_term (term_var env x)
+    | HUn (HNeg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_hexpr_term a ]))
+    | HUn (HNot, a) -> mk_term (Tnot (compile_hexpr_term a))
+    | HBoolBin (HAnd, a, b) ->
+        term_bool_binop Dterm.DTand (compile_hexpr_term a) (compile_hexpr_term b)
+    | HBoolBin (HOr, a, b) ->
+        term_bool_binop Dterm.DTor (compile_hexpr_term a) (compile_hexpr_term b)
+    | HArithBin (op, a, b) ->
+        mk_term
+          (Tinnfix
+             ( compile_hexpr_term a,
+               infix_ident
+                 (binop_id
+                    (match op with HAdd -> Add | HSub -> Sub | HMul -> Mul | HDiv -> Div)),
+               compile_hexpr_term b ))
+    | HCmp (op, a, b) ->
+        mk_term
+          (Tinnfix
+             ( compile_hexpr_term a,
+               infix_ident
+                 (relop_id op),
+               compile_hexpr_term b ))
+    | HPreK (_e, _k) ->
+        failwith
+          "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
+  in
+  let _ = in_post in
   match (find_link env h, prefer_link) with
   | Some id, true ->
       let t = mk_term (term_var env id) in
       if old then term_old t else t
-  | _ -> begin
-      match h with
-      | HNow e ->
-          let t = compile_term env e in
-          let use_old = old && not (is_const_iexpr e) in
-          if use_old then term_old t else t
-      | HPreK (_e, k) -> begin
-          let _ = (env, k) in
-          failwith
-            "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
-        end
-    end
+  | _ ->
+      let t = compile_hexpr_term h in
+      let use_old = old && not (is_const_hexpr h) in
+      if use_old then term_old t else t
 
 let compile_fo_term ?(prefer_link = false) (env : env) (f : fo_atom) : Ptree.term =
   match f with
@@ -275,12 +313,8 @@ let rec compile_local_fo_formula_term ?(prefer_link = false) ?(in_post = false) 
         (compile_local_fo_formula_term ~prefer_link ~in_post env a)
         (compile_local_fo_formula_term ~prefer_link ~in_post env b)
 
-let pre_k_source_expr (env : env) (e : iexpr) : Ptree.expr =
-  match e.iexpr with
-  | IVar x -> field env x
-  | _ -> failwith "pre_k expects a variable as first argument"
+let pre_k_source_expr (env : env) (x : ident) : Ptree.expr =
+  field env x
 
-let pre_k_source_term (env : env) (e : iexpr) : Ptree.term =
-  match e.iexpr with
-  | IVar x -> term_of_var env x
-  | _ -> failwith "pre_k expects a variable as first argument"
+let pre_k_source_term (env : env) (x : ident) : Ptree.term =
+  term_of_var env x

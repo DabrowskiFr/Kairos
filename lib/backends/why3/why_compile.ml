@@ -75,7 +75,7 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
       ]
   in
   let pre_k_infos = List.map snd temporal_layout in
-  let inv_links = runtime.user_invariants |> List.map (fun inv -> (inv.inv_expr, inv.inv_id)) in
+  let inv_links = [] in
   let input_names = Ast_queries.input_names_of_node n in
   let base_vars =
     "st" :: List.map (fun v -> v.vname) (n.semantics.sem_locals @ n.semantics.sem_outputs)

@@ -201,7 +201,6 @@ type node_ir = {
 type exported_node_summary_ir = {
   signature : node_signature_ir;
   normalized_ir : node_ir;
-  user_invariants : Ast.invariant_user list;
   coherency_goals : Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];

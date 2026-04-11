@@ -41,6 +41,31 @@ val mk_bool : bool -> Ast.iexpr
 (** Return the identifier when the expression is a variable. *)
 val as_var : Ast.iexpr -> Ast.ident option
 
+(** Build a historical expression with an optional source location. *)
+val mk_hexpr : ?loc:Ast.loc -> Ast.hexpr_desc -> Ast.hexpr
+
+(** Extract the underlying descriptor from a historical expression. *)
+val hexpr_desc : Ast.hexpr -> Ast.hexpr_desc
+
+(** Replace the descriptor while preserving the source location. *)
+val with_hexpr_desc : Ast.hexpr -> Ast.hexpr_desc -> Ast.hexpr
+
+(** Convenience constructors for historical expressions. *)
+val mk_hvar : Ast.ident -> Ast.hexpr
+val mk_hint : int -> Ast.hexpr
+val mk_hbool : bool -> Ast.hexpr
+val mk_hpre_k : Ast.ident -> int -> Ast.hexpr
+
+(** Return the identifier when the historical expression is a variable. *)
+val as_hvar : Ast.hexpr -> Ast.ident option
+
+(** Embed a non-temporal expression into the historical syntax. *)
+val hexpr_of_iexpr : Ast.iexpr -> Ast.hexpr
+
+(** Project a historical expression to non-temporal syntax when it contains no
+    [pre]/[pre_k] reference. *)
+val iexpr_of_hexpr : Ast.hexpr -> Ast.iexpr option
+
 (** Build a statement with an optional source location. *)
 val mk_stmt : ?loc:Ast.loc -> Ast.stmt_desc -> Ast.stmt
 

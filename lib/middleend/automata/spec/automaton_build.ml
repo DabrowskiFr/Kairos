@@ -30,9 +30,10 @@ let inline_atom_names (atom_named_exprs : (Ast.ident * Ast.iexpr) list) (e : Ast
     match e.iexpr with
     | Ast.IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
     | Ast.ILitInt _ | Ast.ILitBool _ -> e
-    | Ast.IPar inner -> { e with iexpr = Ast.IPar (go inner) }
     | Ast.IUn (op, inner) -> { e with iexpr = Ast.IUn (op, go inner) }
-    | Ast.IBin (op, a, b) -> { e with iexpr = Ast.IBin (op, go a, go b) }
+    | Ast.IArithBin (op, a, b) -> { e with iexpr = Ast.IArithBin (op, go a, go b) }
+    | Ast.IBoolBin (op, a, b) -> { e with iexpr = Ast.IBoolBin (op, go a, go b) }
+    | Ast.ICmp (op, a, b) -> { e with iexpr = Ast.ICmp (op, go a, go b) }
   in
   go e
 

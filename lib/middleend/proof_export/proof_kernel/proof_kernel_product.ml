@@ -233,11 +233,12 @@ let current_const_of_iexpr (e : Ast.iexpr) : current_const option =
   | _ -> None
 
 let current_var_of_hexpr = function
-  | Ast.HNow { iexpr = Ast.IVar v; _ } -> Some v
+  | { Ast.hexpr = Ast.HVar v; _ } -> Some v
   | _ -> None
 
 let current_const_of_hexpr = function
-  | Ast.HNow e -> current_const_of_iexpr e
+  | { Ast.hexpr = Ast.HLitInt n; _ } -> Some (CInt n)
+  | { Ast.hexpr = Ast.HLitBool b; _ } -> Some (CBool b)
   | _ -> None
 
 let add_current_atom env ~(negated : bool) (fo_atom : Ast.fo_atom) : bool option =

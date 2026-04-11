@@ -27,7 +27,7 @@ type t =
   | ProgramGuard
   | StateStability
   | Internal
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 let to_string = function
   | UserContract -> "user"

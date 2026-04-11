@@ -80,9 +80,10 @@ let inline_atoms_iexpr (atom_map : (ident * iexpr) list) (e : iexpr) : iexpr =
     match e.iexpr with
     | IVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
     | ILitInt _ | ILitBool _ -> e
-    | IPar inner -> with_iexpr_desc e (IPar (go inner))
     | IUn (op, inner) -> with_iexpr_desc e (IUn (op, go inner))
-    | IBin (op, a, b) -> with_iexpr_desc e (IBin (op, go a, go b))
+    | IArithBin (op, a, b) -> with_iexpr_desc e (IArithBin (op, go a, go b))
+    | IBoolBin (op, a, b) -> with_iexpr_desc e (IBoolBin (op, go a, go b))
+    | ICmp (op, a, b) -> with_iexpr_desc e (ICmp (op, go a, go b))
   in
   go e
 

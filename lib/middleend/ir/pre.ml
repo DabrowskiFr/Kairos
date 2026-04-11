@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Ast
+open Ast_builders
 open Fo_specs
 open Fo_time
 open Formula_origin
@@ -49,7 +50,7 @@ let non_input_program_var_names (n : Abs.node_ir) : ident list =
 let ivar (name : ident) : iexpr = { iexpr = IVar name; loc = None }
 
 let stability_formula (name : ident) : Fo_formula.t =
-  Fo_formula.FAtom (FRel (HNow (ivar name), REq, HPreK (ivar name, 1)))
+  Fo_formula.FAtom (FRel (hexpr_of_iexpr (ivar name), REq, mk_hpre_k name 1))
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   String.equal a.prog_state b.prog_state

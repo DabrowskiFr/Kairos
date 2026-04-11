@@ -24,15 +24,13 @@ module PT = Product_types
 let ( let* ) = Result.bind
 
 let rec fo_mentions_current_input ~(is_input : ident -> bool) (f : Fo_formula.t) =
-  let hexpr_uses_input = function
-    | HPreK _ -> false
-    | HNow e ->
-        let rec go = function
-          | { iexpr = IVar name; _ } -> is_input name
-          | { iexpr = ILitInt _ | ILitBool _; _ } -> false
-          | { iexpr = IPar e; _ } | { iexpr = IUn (_, e); _ } -> go e
-          | { iexpr = IBin (_, a, b); _ } -> go a || go b
-        in go e
+  let rec hexpr_uses_input (h : hexpr) =
+    match h.hexpr with
+    | HPreK _ | HLitInt _ | HLitBool _ -> false
+    | HVar name -> is_input name
+    | HUn (_, inner) -> hexpr_uses_input inner
+    | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+        hexpr_uses_input a || hexpr_uses_input b
   in
   match f with
   | Fo_formula.FTrue | Fo_formula.FFalse -> false

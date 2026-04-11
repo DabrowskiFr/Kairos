@@ -38,8 +38,9 @@ let conj_fo (fs : Fo_formula.t list) : Fo_formula.t option =
   | [] -> None
   | f :: rest -> Some (List.fold_left (fun acc x -> FAnd (acc, x)) f rest)
 
-let relop_to_binop (r : relop) : binop =
-  match r with REq -> Eq | RNeq -> Neq | RLt -> Lt | RLe -> Le | RGt -> Gt | RGe -> Ge
+let iunop_of_hunop = function HNeg -> INeg | HNot -> INot
+let ibinop_of_hbinop = function HAdd -> IAdd | HSub -> ISub | HMul -> IMul | HDiv -> IDiv
+let ibool_binop_of_hbool_binop = function HAnd -> IAnd | HOr -> IOr
 
 type temporal_binding = {
   source_hexpr : Ast.hexpr;
@@ -51,10 +52,11 @@ let temporal_bindings_of_pre_k_map ~(pre_k_map : (hexpr * Temporal_support.pre_k
   List.map
     (fun (source_hexpr, info) ->
       let slot_names =
-        match source_hexpr with
-        | HPreK (_, k) when k > 0 && k <= List.length info.Temporal_support.names -> [ List.nth info.Temporal_support.names (k - 1) ]
+        match source_hexpr.hexpr with
+        | HPreK (_, k) when k > 0 && k <= List.length info.Temporal_support.names ->
+            [ List.nth info.Temporal_support.names (k - 1) ]
         | HPreK _ -> []
-        | HNow _ -> info.Temporal_support.names
+        | _ -> info.Temporal_support.names
       in
       { source_hexpr; slot_names })
     pre_k_map
@@ -68,15 +70,46 @@ let latest_temporal_slot ~(temporal_bindings : temporal_binding list) (h : hexpr
            | [] -> None
          else None)
 
-let hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
+let rec hexpr_to_iexpr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
     ~(temporal_bindings : temporal_binding list) (h : hexpr) : iexpr option =
   let _ = (inputs, var_types) in
-  match h with
-  | HNow e -> Some e
-  | HPreK _ as h -> begin
+  let loc = h.loc in
+  match h.hexpr with
+  | HLitInt n -> Some { iexpr = ILitInt n; loc }
+  | HLitBool b -> Some { iexpr = ILitBool b; loc }
+  | HVar v -> Some { iexpr = IVar v; loc }
+  | HPreK _ -> begin
       match latest_temporal_slot ~temporal_bindings h with
-      | Some name -> Some (mk_var name)
+      | Some name -> Some { iexpr = IVar name; loc }
       | None -> None
+    end
+  | HUn (op, inner) ->
+      Option.map (fun e -> { iexpr = IUn (iunop_of_hunop op, e); loc })
+        (hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings inner)
+  | HArithBin (op, a, b) -> begin
+      match
+        ( hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings a,
+          hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some { iexpr = IArithBin (ibinop_of_hbinop op, a', b'); loc }
+      | _ -> None
+    end
+  | HBoolBin (op, a, b) -> begin
+      match
+        ( hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings a,
+          hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings b )
+      with
+      | Some a', Some b' ->
+          Some { iexpr = IBoolBin (ibool_binop_of_hbool_binop op, a', b'); loc }
+      | _ -> None
+    end
+  | HCmp (op, a, b) -> begin
+      match
+        ( hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings a,
+          hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some { iexpr = ICmp (op, a', b'); loc }
+      | _ -> None
     end
 
 let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
@@ -84,11 +117,43 @@ let hexpr_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
   hexpr_to_iexpr_with_temporal_bindings ~inputs ~var_types
     ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
 
-let lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (h : hexpr) :
+let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (h : hexpr) :
     hexpr option =
-  match hexpr_to_iexpr_with_temporal_bindings ~inputs:[] ~var_types:[] ~temporal_bindings h with
-  | Some e -> Some (HNow e)
-  | None -> None
+  let loc = h.loc in
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HVar _ -> Some h
+  | HPreK _ -> begin
+      match latest_temporal_slot ~temporal_bindings h with
+      | Some name -> Some { hexpr = HVar name; loc }
+      | None -> None
+    end
+  | HUn (op, inner) ->
+      Option.map (fun inner' -> { hexpr = HUn (op, inner'); loc })
+        (lower_hexpr_temporal_bindings ~temporal_bindings inner)
+  | HArithBin (op, a, b) -> begin
+      match
+        ( lower_hexpr_temporal_bindings ~temporal_bindings a,
+          lower_hexpr_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some { hexpr = HArithBin (op, a', b'); loc }
+      | _ -> None
+    end
+  | HBoolBin (op, a, b) -> begin
+      match
+        ( lower_hexpr_temporal_bindings ~temporal_bindings a,
+          lower_hexpr_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some { hexpr = HBoolBin (op, a', b'); loc }
+      | _ -> None
+    end
+  | HCmp (op, a, b) -> begin
+      match
+        ( lower_hexpr_temporal_bindings ~temporal_bindings a,
+          lower_hexpr_temporal_bindings ~temporal_bindings b )
+      with
+      | Some a', Some b' -> Some { hexpr = HCmp (op, a', b'); loc }
+      | _ -> None
+    end
 
 let lower_hexpr_pre_k ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (h : hexpr) : hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings:(temporal_bindings_of_pre_k_map ~pre_k_map) h
@@ -159,29 +224,27 @@ let infer_iexpr_type ~(var_types : (ident * ty) list) (e : iexpr) : ty option =
     | ILitBool _ -> Some TBool
     | ILitInt _ -> Some TInt
     | IVar x -> List.assoc_opt x var_types
-    | IPar e -> go e.iexpr
-    | IUn (Not, _) -> Some TBool
-    | IUn (Neg, _) -> Some TInt
-    | IBin (And, _, _) | IBin (Or, _, _) -> Some TBool
-    | IBin (Eq, _, _) | IBin (Neq, _, _) -> Some TBool
-    | IBin (Lt, _, _) | IBin (Le, _, _) | IBin (Gt, _, _) | IBin (Ge, _, _) -> Some TBool
-    | IBin (Add, _, _) | IBin (Sub, _, _) | IBin (Mul, _, _) | IBin (Div, _, _) -> Some TInt
+    | IUn (INot, _) -> Some TBool
+    | IUn (INeg, _) -> Some TInt
+    | IBoolBin (_, _, _) -> Some TBool
+    | ICmp (_, _, _) -> Some TBool
+    | IArithBin (_, _, _) -> Some TInt
   in
   go e.iexpr
 
 let mk_bool_eq (a : iexpr) (b : iexpr) : iexpr =
   mk_iexpr
-    (IBin
-       ( Or,
-         mk_iexpr (IBin (And, a, b)),
-         mk_iexpr (IBin (And, mk_iexpr (IUn (Not, a)), mk_iexpr (IUn (Not, b)))) ))
+    (IBoolBin
+       ( IOr,
+         mk_iexpr (IBoolBin (IAnd, a, b)),
+         mk_iexpr (IBoolBin (IAnd, mk_iexpr (IUn (INot, a)), mk_iexpr (IUn (INot, b)))) ))
 
 let mk_bool_neq (a : iexpr) (b : iexpr) : iexpr =
   mk_iexpr
-    (IBin
-       ( Or,
-         mk_iexpr (IBin (And, a, mk_iexpr (IUn (Not, b)))),
-         mk_iexpr (IBin (And, mk_iexpr (IUn (Not, a)), b)) ))
+    (IBoolBin
+       ( IOr,
+         mk_iexpr (IBoolBin (IAnd, a, mk_iexpr (IUn (INot, b)))),
+         mk_iexpr (IBoolBin (IAnd, mk_iexpr (IUn (INot, a)), b)) ))
 
 let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
     ~(pre_k_map : (hexpr * Temporal_support.pre_k_info) list) (f : fo_atom) : iexpr option =
@@ -197,36 +260,37 @@ let atom_to_iexpr ~(inputs : ident list) ~(var_types : (ident * ty) list)
           begin match (ty1, ty2, r) with
           | Some TBool, Some TBool, REq -> Some (mk_bool_eq e1 e2)
           | Some TBool, Some TBool, RNeq -> Some (mk_bool_neq e1 e2)
-          | _ -> Some (mk_iexpr (IBin (relop_to_binop r, e1, e2)))
+          | _ -> Some (mk_iexpr (ICmp (r, e1, e2)))
           end
       | _ -> None
     end
   | FPred _ -> None
 
-let atom_to_var_rel (name : ident) : fo_atom = FRel (HNow (mk_var name), REq, HNow (mk_bool true))
+let atom_to_var_rel (name : ident) : fo_atom = FRel (mk_hvar name, REq, mk_hbool true)
 
 let rec iexpr_to_fo_with_atoms (atom_map : (ident * fo_atom) list) (e : iexpr) : Fo_formula.t =
   match e.iexpr with
   | ILitBool true -> FTrue
   | ILitBool false -> FFalse
-  | ILitInt i -> FAtom (FRel (HNow (mk_int i), REq, HNow (mk_bool true)))
+  | ILitInt i -> FAtom (FRel (mk_hint i, REq, mk_hbool true))
   | IVar v -> begin
       match List.assoc_opt v atom_map with
       | Some f -> FAtom f
-      | None -> FAtom (FRel (HNow (mk_var v), REq, HNow (mk_bool true)))
+      | None -> FAtom (FRel (mk_hvar v, REq, mk_hbool true))
     end
-  | IPar e -> iexpr_to_fo_with_atoms atom_map e
-  | IUn (Not, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
-  | IBin (And, a, b) -> FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Or, a, b) -> FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
-  | IBin (Eq, a, b) -> FAtom (FRel (HNow a, REq, HNow b))
-  | IBin (Neq, a, b) -> FAtom (FRel (HNow a, RNeq, HNow b))
-  | IBin (Lt, a, b) -> FAtom (FRel (HNow a, RLt, HNow b))
-  | IBin (Le, a, b) -> FAtom (FRel (HNow a, RLe, HNow b))
-  | IBin (Gt, a, b) -> FAtom (FRel (HNow a, RGt, HNow b))
-  | IBin (Ge, a, b) -> FAtom (FRel (HNow a, RGe, HNow b))
-  | IBin (_, a, b) -> FAtom (FRel (HNow (mk_iexpr (IBin (Eq, a, b))), REq, HNow (mk_bool true)))
-  | IUn (_, a) -> FAtom (FRel (HNow (mk_iexpr (IUn (Not, a))), REq, HNow (mk_bool true)))
+  | IUn (INot, a) -> FNot (iexpr_to_fo_with_atoms atom_map a)
+  | IBoolBin (IAnd, a, b) ->
+      FAnd (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | IBoolBin (IOr, a, b) ->
+      FOr (iexpr_to_fo_with_atoms atom_map a, iexpr_to_fo_with_atoms atom_map b)
+  | ICmp (REq, a, b) -> FAtom (FRel (hexpr_of_iexpr a, REq, hexpr_of_iexpr b))
+  | ICmp (RNeq, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RNeq, hexpr_of_iexpr b))
+  | ICmp (RLt, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RLt, hexpr_of_iexpr b))
+  | ICmp (RLe, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RLe, hexpr_of_iexpr b))
+  | ICmp (RGt, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RGt, hexpr_of_iexpr b))
+  | ICmp (RGe, a, b) -> FAtom (FRel (hexpr_of_iexpr a, RGe, hexpr_of_iexpr b))
+  | IArithBin (_, _, _) | IUn (INeg, _) ->
+      FAtom (FRel (hexpr_of_iexpr e, REq, mk_hbool true))
 
 
 

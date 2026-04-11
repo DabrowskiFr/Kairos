@@ -22,46 +22,72 @@ open Fo_formula
 let string_of_relop (op : relop) : string =
   match op with REq -> "=" | RNeq -> "<>" | RLt -> "<" | RLe -> "<=" | RGt -> ">" | RGe -> ">="
 
-let string_of_binop = function
-  | Add -> "+"
-  | Sub -> "-"
-  | Mul -> "*"
-  | Div -> "/"
-  | Eq -> "="
-  | Neq -> "<>"
-  | Lt -> "<"
-  | Le -> "<="
-  | Gt -> ">"
-  | Ge -> ">="
-  | And -> "&&"
-  | Or -> "||"
+let string_of_ibinop = function IAdd -> "+" | ISub -> "-" | IMul -> "*" | IDiv -> "/"
+let string_of_ibool_binop = function IAnd -> "&&" | IOr -> "||"
 
-let rec string_of_iexpr ?(ctx = 0) (e : iexpr) : string =
-  let prec_of_binop = function
-    | Or -> 1
-    | And -> 2
-    | Eq | Neq | Lt | Le | Gt | Ge -> 3
-    | Add | Sub -> 4
-    | Mul | Div -> 5
-  in
+let string_of_hbinop = function HAdd -> "+" | HSub -> "-" | HMul -> "*" | HDiv -> "/"
+let string_of_hbool_binop = function HAnd -> "&&" | HOr -> "||"
+
+let rec string_of_iexpr_with_ctx ?(ctx = 0) (e : iexpr) : string =
+  let prec_of_ibinop = function IAdd | ISub -> 4 | IMul | IDiv -> 5 in
+  let prec_of_ibool_binop = function IOr -> 1 | IAnd -> 2 in
   let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
   match e.iexpr with
   | ILitInt n -> string_of_int n
   | ILitBool b -> if b then "true" else "false"
   | IVar x -> x
-  | IPar inner -> "(" ^ string_of_iexpr inner ^ ")"
-  | IUn (Neg, a) -> wrap 6 ("-" ^ string_of_iexpr ~ctx:6 a)
-  | IUn (Not, a) -> wrap 6 ("not " ^ string_of_iexpr ~ctx:6 a)
-  | IBin (op, a, b) ->
-      let prec = prec_of_binop op in
-      let op_str = string_of_binop op in
-      wrap prec (string_of_iexpr ~ctx:prec a ^ " " ^ op_str ^ " " ^ string_of_iexpr ~ctx:prec b)
+  | IUn (INeg, a) -> wrap 6 ("-" ^ string_of_iexpr_with_ctx ~ctx:6 a)
+  | IUn (INot, a) -> wrap 6 ("not " ^ string_of_iexpr_with_ctx ~ctx:6 a)
+  | IArithBin (op, a, b) ->
+      let prec = prec_of_ibinop op in
+      wrap prec
+        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_ibinop op ^ " "
+       ^ string_of_iexpr_with_ctx ~ctx:prec b)
+  | IBoolBin (op, a, b) ->
+      let prec = prec_of_ibool_binop op in
+      wrap prec
+        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_ibool_binop op ^ " "
+       ^ string_of_iexpr_with_ctx ~ctx:prec b)
+  | ICmp (op, a, b) ->
+      let prec = 3 in
+      wrap prec
+        (string_of_iexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop op ^ " "
+       ^ string_of_iexpr_with_ctx ~ctx:prec b)
 
-let string_of_hexpr (h : hexpr) : string =
-  match h with
-  | HNow e -> "{" ^ string_of_iexpr e ^ "}"
-  | HPreK (e, k) ->
-      if k = 1 then "pre(" ^ string_of_iexpr e ^ ")" else "pre_k(" ^ string_of_iexpr e ^ ", " ^ string_of_int k ^ ")"
+let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
+  let prec_of_harith_binop = function HAdd | HSub -> 4 | HMul | HDiv -> 5 in
+  let prec_of_hbool_binop = function HOr -> 1 | HAnd -> 2 in
+  let prec_of_relop _ = 3 in
+  let prec_of_hunop = function HNot | HNeg -> 6 in
+  let wrap prec s = if prec < ctx then "(" ^ s ^ ")" else s in
+  match h.hexpr with
+  | HLitInt n -> string_of_int n
+  | HLitBool b -> if b then "true" else "false"
+  | HVar x -> x
+  | HPreK (v, k) ->
+      if k = 1 then "pre(" ^ v ^ ")" else "pre_k(" ^ v ^ ", " ^ string_of_int k ^ ")"
+  | HUn (op, a) ->
+      let prec = prec_of_hunop op in
+      let prefix = match op with HNeg -> "-" | HNot -> "not " in
+      wrap prec (prefix ^ string_of_hexpr_with_ctx ~ctx:prec a)
+  | HArithBin (op, a, b) ->
+      let prec = prec_of_harith_binop op in
+      wrap prec
+        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_hbinop op ^ " "
+       ^ string_of_hexpr_with_ctx ~ctx:prec b)
+  | HBoolBin (op, a, b) ->
+      let prec = prec_of_hbool_binop op in
+      wrap prec
+        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_hbool_binop op ^ " "
+       ^ string_of_hexpr_with_ctx ~ctx:prec b)
+  | HCmp (rop, a, b) ->
+      let prec = prec_of_relop rop in
+      wrap prec
+        (string_of_hexpr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop rop ^ " "
+       ^ string_of_hexpr_with_ctx ~ctx:prec b)
+
+let string_of_iexpr ?(ctx = 0) (e : iexpr) : string = string_of_iexpr_with_ctx ~ctx e
+let string_of_hexpr (h : hexpr) : string = string_of_hexpr_with_ctx h
 
 let string_of_fo_atom ?(ctx = 0) (f : fo_atom) : string =
   ignore ctx;

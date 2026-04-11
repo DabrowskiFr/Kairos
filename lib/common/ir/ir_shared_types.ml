@@ -24,7 +24,6 @@ type hexpr = Core_syntax.hexpr
 type iexpr = Core_syntax.iexpr
 type stmt = Ast.stmt
 type vdecl = Core_syntax.vdecl
-type invariant_user = Core_syntax.invariant_user
 
 type formula_id = int
 type transition_index = int

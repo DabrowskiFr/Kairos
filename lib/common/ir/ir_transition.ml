@@ -54,19 +54,25 @@ let guard_of_formula = function
 let not_formula = function
   | GTrue -> GFalse
   | GFalse -> GTrue
-  | GExpr e -> GExpr (Ast_builders.mk_iexpr (IUn (Not, e)))
+  | GExpr e -> GExpr (Ast_builders.mk_iexpr (IUn (INot, e)))
 
 let and_formula a b =
   match (a, b) with
   | GFalse, _ | _, GFalse -> GFalse
   | GTrue, x | x, GTrue -> x
-  | _ -> GExpr (Ast_builders.mk_iexpr (IBin (And, iexpr_of_formula a, iexpr_of_formula b)))
+  | _ ->
+      GExpr
+        (Ast_builders.mk_iexpr
+           (IBoolBin (IAnd, iexpr_of_formula a, iexpr_of_formula b)))
 
 let or_formula a b =
   match (a, b) with
   | GTrue, _ | _, GTrue -> GTrue
   | GFalse, x | x, GFalse -> x
-  | _ -> GExpr (Ast_builders.mk_iexpr (IBin (Or, iexpr_of_formula a, iexpr_of_formula b)))
+  | _ ->
+      GExpr
+        (Ast_builders.mk_iexpr
+           (IBoolBin (IOr, iexpr_of_formula a, iexpr_of_formula b)))
 
 let prioritized_program_transitions_of_ast (transitions : Ast.transition list) : Ir.transition list =
   let previous_guards_by_src : (ident, guard_formula) Hashtbl.t = Hashtbl.create 16 in

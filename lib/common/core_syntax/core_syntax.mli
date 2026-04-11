@@ -18,36 +18,83 @@
 
 (** Core syntax shared by AST, IR, middle-end and backends. *)
 
-type ident = string [@@deriving show, yojson]
+type ident = string [@@deriving yojson]
 
-type ty = TInt | TBool | TReal | TCustom of string [@@deriving show, yojson]
+type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
 
-type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving show, yojson]
+type binop = Add | Sub | Mul | Div | Eq | Neq | Lt | Le | Gt | Ge | And | Or [@@deriving yojson]
 
-type unop = Neg | Not [@@deriving show, yojson]
+type unop = Neg | Not [@@deriving yojson]
 
-type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving show, yojson]
+type loc = { line : int; col : int; line_end : int; col_end : int } [@@deriving yojson]
+
+type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
+
+type ibinop =
+  | IAdd
+  | ISub
+  | IMul
+  | IDiv
+[@@deriving yojson]
+
+type ibool_binop =
+  | IAnd
+  | IOr
+[@@deriving yojson]
+
+type iunop =
+  | INeg
+  | INot
+[@@deriving yojson]
 
 type iexpr = { iexpr : iexpr_desc; loc : loc option }
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 and iexpr_desc =
   | ILitInt of int
   | ILitBool of bool
   | IVar of ident
-  | IBin of binop * iexpr * iexpr
-  | IUn of unop * iexpr
-  | IPar of iexpr
-[@@deriving show, yojson]
+  | IArithBin of ibinop * iexpr * iexpr
+  | IBoolBin of ibool_binop * iexpr * iexpr
+  | ICmp of relop * iexpr * iexpr
+  | IUn of iunop * iexpr
+[@@deriving yojson]
 
-type hexpr = HNow of iexpr | HPreK of iexpr * int [@@deriving show, yojson]
+type hbinop =
+  | HAdd
+  | HSub
+  | HMul
+  | HDiv
+[@@deriving yojson]
 
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving show, yojson]
+type hbool_binop =
+  | HAnd
+  | HOr
+[@@deriving yojson]
+
+type hunop =
+  | HNeg
+  | HNot
+[@@deriving yojson]
+
+type hexpr = { hexpr : hexpr_desc; loc : loc option }
+[@@deriving yojson]
+
+and hexpr_desc =
+  | HLitInt of int
+  | HLitBool of bool
+  | HVar of ident
+  | HPreK of ident * int
+  | HArithBin of hbinop * hexpr * hexpr
+  | HBoolBin of hbool_binop * hexpr * hexpr
+  | HCmp of relop * hexpr * hexpr
+  | HUn of hunop * hexpr
+[@@deriving yojson]
 
 type fo_atom =
   | FRel of hexpr * relop * hexpr
   | FPred of ident * hexpr list
-[@@deriving show, yojson]
+[@@deriving yojson]
 
 type ltl =
   | LTrue
@@ -60,10 +107,8 @@ type ltl =
   | LX of ltl
   | LG of ltl
   | LW of ltl * ltl
-[@@deriving show, yojson]
+[@@deriving yojson]
 
-type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving show, yojson]
+type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
 
-type vdecl = { vname : ident; vty : ty } [@@deriving show, yojson]
-
-type invariant_user = { inv_id : ident; inv_expr : hexpr } [@@deriving show, yojson]
+type vdecl = { vname : ident; vty : ty } [@@deriving yojson]

@@ -23,8 +23,14 @@ open Ast_builders
 open Temporal_support
 
 let rec collect_hexpr (h : hexpr) (acc : hexpr list) : hexpr list =
-  let acc = if List.exists (fun h' -> h' = h) acc then acc else h :: acc in
-  match h with HNow _ -> acc | HPreK (e, _) -> collect_hexpr (HNow e) acc
+  let acc =
+    match h.hexpr with HPreK _ -> if List.exists (fun h' -> h' = h) acc then acc else h :: acc | _ -> acc
+  in
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
+  | HUn (_, inner) -> collect_hexpr inner acc
+  | HArithBin (_, a, b) | HBoolBin (_, a, b) | HCmp (_, a, b) ->
+      collect_hexpr b (collect_hexpr a acc)
 
 let rec collect_ltl (f : ltl) (acc : hexpr list) : hexpr list =
   match f with
@@ -39,14 +45,8 @@ and collect_fo (f : fo_atom) (acc : hexpr list) : hexpr list =
   | FRel (h1, _, h2) -> collect_hexpr h2 (collect_hexpr h1 acc)
   | FPred (_id, hs) -> List.fold_left (fun a h -> collect_hexpr h a) acc hs
 
-let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list)
-    ~(invariants_user : invariant_user list) : hexpr list =
-  let collect_pre_k_hexpr h acc =
-    let acc =
-      match h with HPreK _ -> if List.exists (( = ) h) acc then acc else h :: acc | _ -> acc
-    in
-    match h with HNow _ | HPreK _ -> acc
-  in
+let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list) : hexpr list =
+  let collect_pre_k_hexpr = collect_hexpr in
   let rec collect_pre_k_ltl f acc =
     match f with
     | LTrue | LFalse -> acc
@@ -68,12 +68,10 @@ let collect_pre_k_from_specs ~(fo_formula : Fo_formula.t list) ~(ltl : ltl list)
         collect_pre_k_fo_formula b (collect_pre_k_fo_formula a acc)
   in
   let acc = List.fold_left (fun acc f -> collect_pre_k_fo_formula f acc) [] fo_formula in
-  let acc = List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl in
-  List.fold_left (fun acc inv -> collect_pre_k_hexpr inv.inv_expr acc) acc invariants_user
+  List.fold_left (fun acc f -> collect_pre_k_ltl f acc) acc ltl
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
-    ~(fo_formulas : Fo_formula.t list) ~(ltl : ltl list)
-    ~(invariants_user : invariant_user list) :
+    ~(fo_formulas : Fo_formula.t list) ~(ltl : ltl list) :
     (hexpr * Temporal_support.pre_k_info) list =
   let init_for_var =
     let table =
@@ -88,11 +86,7 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
   in
   let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
   let normalized_ltl = List.map normalize_ltl ltl in
-  let normalized_invariants_user = invariants_user in
-  let pre_k_exprs =
-    collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl
-      ~invariants_user:normalized_invariants_user
-  in
+  let pre_k_exprs = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl in
   let vars = inputs @ locals @ outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
@@ -108,32 +102,26 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
   let max_k_by_var =
     List.fold_left
       (fun acc h ->
-        match h with
-        | HPreK ({ iexpr = IVar vname; _ }, k) ->
+        match h.hexpr with
+        | HPreK (vname, k) ->
             let current = Option.value (List.assoc_opt vname acc) ~default:0 in
             if k > current then (vname, k) :: List.remove_assoc vname acc else acc
-        | HPreK _ -> failwith "pre_k expects a variable as first argument"
         | _ -> acc)
       [] pre_k_exprs
   in
   pre_k_exprs
   |> List.mapi (fun i h ->
          let _ = i in
-         match h with
-         | HPreK (e, k) ->
+         match h.hexpr with
+         | HPreK (vname, k) ->
              if k <= 0 then failwith "pre_k expects k >= 1";
-             let vname =
-               match e.iexpr with
-               | IVar x -> x
-               | _ -> failwith "pre_k expects a variable as first argument"
-             in
              let vty = find_vty vname in
              let names =
                match List.assoc_opt vname max_k_by_var with
                | Some max_k -> make_names vname max_k
                | None -> failwith ("pre_k missing max depth for variable: " ^ vname)
              in
-             (h, { h; expr = e; names; vty })
+             (h, { h; expr = mk_var vname; names; vty })
          | _ -> failwith "expected pre_k hexpr")
 
 let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
@@ -142,15 +130,16 @@ let build_pre_k_infos (n : node) : (hexpr * Temporal_support.pre_k_info) list =
   build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs
     ~fo_formulas:(List.map (fun inv -> inv.formula) spec.spec_invariants_state_rel)
     ~ltl:(spec.spec_assumes @ spec.spec_guarantees)
-    ~invariants_user:[]
 
 let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
     | LG a -> find_in_ltl a
     | LX a -> find_in_ltl a
-    | LAtom (FRel (HNow a, REq, HPreK (b, 1))) | LAtom (FRel (HPreK (b, 1), REq, HNow a)) -> begin
-        match (as_var a, as_var b) with Some out, Some inp -> Some (out, inp) | _ -> None
-      end
+    | LAtom (FRel (lhs, REq, rhs)) -> (
+        match (lhs.hexpr, rhs.hexpr) with
+        | HVar out, HPreK (b, 1) -> Some (out, b)
+        | HPreK (b, 1), HVar out -> Some (out, b)
+        | _ -> None)
     | _ -> None
   in
   List.find_map find_in_ltl guarantees

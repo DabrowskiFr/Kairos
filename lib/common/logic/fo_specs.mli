@@ -32,9 +32,6 @@ val conj_fo : Fo_formula.t list -> Fo_formula.t option
 
 (** {1 Expression Conversion} *)
 
-(** Map a relational operator to its boolean binary counterpart. *)
-val relop_to_binop : Ast.relop -> Ast.binop
-
 type temporal_binding = {
   source_hexpr : Ast.hexpr;
   slot_names : Ast.ident list;

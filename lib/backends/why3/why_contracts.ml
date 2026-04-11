@@ -129,15 +129,9 @@ let compute_transition_contracts ~(env : env)
 let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
     ~(hexpr_needs_old : Ast.hexpr -> bool) :
     link_contracts =
-  let link_terms_pre, link_terms_post =
-    List.fold_left
-      (fun (pre, post) inv ->
-        let lhs = term_of_var env inv.inv_id in
-        let rhs = compile_hexpr ~prefer_link:false ~in_post:true env inv.inv_expr in
-        let t = term_eq lhs rhs in
-        if hexpr_needs_old inv.inv_expr then (pre, t :: post) else (t :: pre, t :: post))
-      ([], []) runtime.user_invariants
-  in
+  let _ = env in
+  let _ = hexpr_needs_old in
+  let link_terms_pre, link_terms_post = ([], []) in
   let output_links =
     let rec last_assigned_var (out : Ast.ident) (stmts : Ast.stmt list) =
       match stmts with
@@ -248,38 +242,6 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
 
-let inline_atom_terms_map (env : env) (invs : invariant_user list) : Ptree.term -> Ptree.term =
-  let atom_map = Hashtbl.create 16 in
-  List.iter
-    (fun inv ->
-      match inv.inv_expr with
-      | HNow e when String.length inv.inv_id >= 5 && String.sub inv.inv_id 0 5 = "atom_" ->
-          let qid =
-            let field = inv.inv_id in
-            let q = qdot (qid1 env.rec_name) field in
-            string_of_qid q
-          in
-          Hashtbl.replace atom_map qid (compile_term env e)
-      | _ -> ())
-    invs;
-  let rec go (t : Ptree.term) : Ptree.term =
-    match t.term_desc with
-    | Tident q -> begin
-        match Hashtbl.find_opt atom_map (string_of_qid q) with Some repl -> repl | None -> t
-      end
-    | Tconst _ | Ttrue | Tfalse -> t
-    | Tnot a -> mk_term (Tnot (go a))
-    | Tbinnop (a, op, b) -> mk_term (Tbinnop (go a, op, go b))
-    | Tinnfix (a, op, b) -> mk_term (Tinnfix (go a, op, go b))
-    | Tidapp (q, args) -> mk_term (Tidapp (q, List.map go args))
-    | Tapply (f, a) -> mk_term (Tapply (go f, go a))
-    | Tif (c, t1, t2) -> mk_term (Tif (go c, go t1, go t2))
-    | Ttuple ts -> mk_term (Ttuple (List.map go ts))
-    | Tattr (attr, t) -> mk_term (Tattr (attr, go t))
-    | _ -> t
-  in
-  go
-
 let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
     ~(hexpr_needs_old : Ast.hexpr -> bool) ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) : contract_info =
@@ -351,15 +313,6 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
   let pre = List.filter (fun t -> not (is_true_term t)) pre in
   let post = List.filter (fun t -> not (is_true_term t)) post in
 
-  let inline_term = inline_atom_terms_map env runtime.user_invariants in
-  let pre = List.map (fun t -> inline_term t) pre in
-  let post = List.map (fun t -> inline_term t) post in
-  let transition_requires_pre =
-    List.map (fun t -> inline_term t) transition_requires_pre
-  in
-  let transition_requires_pre_terms =
-    List.map (fun (t, lbl) -> (inline_term t, lbl)) transition_requires_pre_terms
-  in
   let label_context : label_context =
     {
       kernel_first = false;
@@ -461,7 +414,7 @@ let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
       (runtime.product_transitions
       |> List.concat_map (fun (pc : Why_runtime_view.runtime_product_transition_view) ->
              compile_labeled_requires pc
-             |> List.map (fun (term, _label) -> (inline_term term, Some pc.src_state))))
+             |> List.map (fun (term, _label) -> (term, Some pc.src_state))))
       pre_out ~is_candidate:(fun _ -> true)
   in
   let post_state_opts =

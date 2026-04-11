@@ -146,10 +146,10 @@ val compile_local_fo_formula_term :
 val compile_fo_term_shift :
   ?prefer_link:bool -> ?in_post:bool -> env -> bool -> Core_syntax.fo_atom -> Why3.Ptree.term
 
-(** [pre_k_source_expr env e] builds the WhyML source expression for a k-step
+(** [pre_k_source_expr env x] builds the WhyML source expression for a k-step
     history variable initialisation. *)
-val pre_k_source_expr : env -> Core_syntax.iexpr -> Why3.Ptree.expr
+val pre_k_source_expr : env -> Core_syntax.ident -> Why3.Ptree.expr
 
-(** [pre_k_source_term env e] builds the logical source term for a k-step
+(** [pre_k_source_term env x] builds the logical source term for a k-step
     history variable. *)
-val pre_k_source_term : env -> Core_syntax.iexpr -> Why3.Ptree.term
+val pre_k_source_term : env -> Core_syntax.ident -> Why3.Ptree.term

@@ -127,7 +127,6 @@ type t = {
   state_branches : state_branch_view list;
   assumes : Ast.ltl list;
   guarantees : Ast.ltl list;
-  user_invariants : Ast.invariant_user list;
   init_invariant_goals : Ir.summary_formula list;
       (** Formulas to check at the initial state (coherency goals). *)
 }
