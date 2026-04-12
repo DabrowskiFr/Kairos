@@ -16,12 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let instrumentation_pass =
-  Instrumentation_artifacts.instrumentation_pass
-    ~build_ast_with_info:Pipeline_build.build_ast_with_info
-    ~stage_meta:Pipeline_outputs.stage_meta
-    ~instrumentation_diag_texts:Pipeline_outputs.instrumentation_diag_texts
-    ~program_automaton_texts:Pipeline_outputs.program_automaton_texts
+let instrumentation_pass = Instrumentation_artifacts.instrumentation_pass
 
 let why_pass ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
@@ -57,7 +52,7 @@ let ir_pretty_dump ~input_file =
            ~source_program:(Some asts.automata_generation)
            program)
 
-let compile_object = Pipeline_build.compile_object
+let compile_object = Instrumentation_artifacts.compile_object
 
 let run =
   Compile_run.run ~build_ast_with_info:Pipeline_build.build_ast_with_info

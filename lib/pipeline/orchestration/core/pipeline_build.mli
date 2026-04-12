@@ -22,6 +22,3 @@ val build_ast_with_info :
   input_file:string ->
   unit ->
   (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error) result
-
-val compile_object :
-  input_file:string -> (Kairos_object.t, Pipeline_types.error) result

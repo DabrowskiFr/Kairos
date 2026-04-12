@@ -41,38 +41,13 @@ type automata_info = {
 (** Metadata produced by the summaries pass. *)
 type summaries_info = { warnings : string list }
 
-(** Metadata produced after IR construction and proof-artifact export.
+(** Metadata produced after IR construction.
 
-    The record groups:
-    {ul
-    {- structured IR outputs;}
-    {- exported kernel summaries;}
-    {- human-readable renderings for diagnostics;}
-    {- DOT renderings for automata and product views;}
-    {- warnings emitted during this export stage.}} *)
+    This record only stores structural counters and pass warnings.
+    Rendering and proof-export payloads are produced later by output modules. *)
 type instrumentation_info = {
-  (** Kernel-style IR for each processed node. *)
-  kernel_ir_nodes : Proof_kernel_types.node_ir list;
-  (** Export-oriented node summaries paired with the kernel IR. *)
-  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
-  (** Text rendering of the kernel IR. *)
-  kernel_pipeline_lines : string list;
   (** Non-fatal warnings emitted while building proof artifacts. *)
   warnings : string list;
-  (** Text rendering of the guarantee automaton. *)
-  guarantee_automaton_lines : string list;
-  (** Text rendering of the assume automaton. *)
-  assume_automaton_lines : string list;
-  (** Text rendering of the canonical proof-step structure. *)
-  canonical_lines : string list;
-  (** DOT rendering of the guarantee automaton. *)
-  guarantee_automaton_dot : string;
-  (** DOT rendering of the assume automaton. *)
-  assume_automaton_dot : string;
-  (** DOT rendering of the product graph. *)
-  product_dot : string;
-  (** DOT rendering of the canonical proof-step structure. *)
-  canonical_dot : string;
   (** Number of states in the require automata (sum over processed nodes). *)
   require_automata_state_count : int;
   (** Number of edges in the require automata (sum over processed nodes). *)
@@ -110,7 +85,5 @@ val empty_automata_info : automata_info
 (** Default empty summaries metadata. *)
 val empty_summaries_info : summaries_info
 
-(** Empty proof-artifact metadata.
-
-    Every list field is empty and every DOT payload is the empty string. *)
+(** Empty IR instrumentation metadata (all counters set to zero). *)
 val empty_instrumentation_info : instrumentation_info

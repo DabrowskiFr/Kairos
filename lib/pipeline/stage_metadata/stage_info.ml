@@ -34,17 +34,7 @@ type automata_info = {
 type summaries_info = { warnings : string list }
 
 type instrumentation_info = {
-  kernel_ir_nodes : Proof_kernel_types.node_ir list;
-  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
-  kernel_pipeline_lines : string list;
   warnings : string list;
-  guarantee_automaton_lines : string list;
-  assume_automaton_lines : string list;
-  canonical_lines : string list;
-  guarantee_automaton_dot : string;
-  assume_automaton_dot : string;
-  product_dot : string;
-  canonical_dot : string;
   require_automata_state_count : int;
   require_automata_edge_count : int;
   ensures_automata_state_count : int;
@@ -69,17 +59,7 @@ let empty_summaries_info : summaries_info = { warnings = [] }
 
 let empty_instrumentation_info : instrumentation_info =
   {
-    kernel_ir_nodes = [];
-    exported_node_summaries = [];
-    kernel_pipeline_lines = [];
     warnings = [];
-    guarantee_automaton_lines = [];
-    assume_automaton_lines = [];
-    canonical_lines = [];
-    guarantee_automaton_dot = "";
-    assume_automaton_dot = "";
-    product_dot = "";
-    canonical_dot = "";
     require_automata_state_count = 0;
     require_automata_edge_count = 0;
     ensures_automata_state_count = 0;

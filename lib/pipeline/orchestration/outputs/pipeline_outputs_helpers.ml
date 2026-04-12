@@ -66,28 +66,6 @@ let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string
       ] );
   ]
 
-let instrumentation_diag_texts (infos : Pipeline_types.stage_infos) :
-    string
-    * string
-    * string
-    * string
-    * string
-    * string
-    * string
-    * string
-    * string =
-  let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
-  let obligations_text = String.concat "\n" i.kernel_pipeline_lines in
-  ( String.concat "\n" i.guarantee_automaton_lines,
-    String.concat "\n" i.assume_automaton_lines,
-    "",
-    String.concat "\n" i.canonical_lines,
-    obligations_text,
-    i.guarantee_automaton_dot,
-    i.assume_automaton_dot,
-    i.product_dot,
-    i.canonical_dot )
-
 let program_automaton_texts (asts : Pipeline_types.ast_stages) : string * string =
   match asts.automata_generation with
   | [] -> ("", "")

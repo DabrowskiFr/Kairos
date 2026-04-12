@@ -23,6 +23,9 @@ include Pipeline_outputs_helpers
 let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_stages)
     ~(infos : Pipeline_types.stage_infos) :
     (Pipeline_types.outputs, Pipeline_types.error) result =
+  match Pipeline_artifact_bundle.build ~asts with
+  | Error msg -> Error (Pipeline_types.Stage_error msg)
+  | Ok artifacts ->
   try
     let obligation_summary = Obligation_taxonomy.summarize_program asts.instrumentation in
     let t_why_gen = Unix.gettimeofday () in
@@ -47,11 +50,15 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
     let vc_locs, vc_locs_ordered = ([], []) in
     let program_dot, program_automaton_text = program_automaton_texts asts in
-    let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
-        obligations_map_text_raw, guarantee_automaton_dot, assume_automaton_dot, product_dot,
-        canonical_dot =
-      instrumentation_diag_texts infos
-    in
+    let guarantee_automaton_text = artifacts.guarantee_automaton_text in
+    let assume_automaton_text = artifacts.assume_automaton_text in
+    let product_text = artifacts.product_text in
+    let canonical_text = artifacts.canonical_text in
+    let obligations_map_text_raw = artifacts.obligations_map_text_raw in
+    let guarantee_automaton_dot = artifacts.guarantee_automaton_dot in
+    let assume_automaton_dot = artifacts.assume_automaton_dot in
+    let product_dot = artifacts.product_dot in
+    let canonical_dot = artifacts.canonical_dot in
     let dot_text = product_dot in
     let labels_text =
       String.concat "\n\n"

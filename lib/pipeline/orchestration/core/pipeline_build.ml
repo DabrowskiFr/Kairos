@@ -105,17 +105,3 @@ let build_ast_with_info ~input_file () :
         in
         Ok (asts, infos))
   with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))
-
-let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
-  match build_ast_with_info ~input_file () with
-  | Error _ as err -> err
-  | Ok (asts, infos) ->
-      let parse_info = Option.value infos.parse ~default:Stage_info.empty_parse_info in
-      let instrumentation_info =
-        Option.value infos.instrumentation ~default:Stage_info.empty_instrumentation_info
-      in
-      Kairos_object.build ~source_path:input_file ~source_hash:parse_info.text_hash
-        ~imports:(Source_file.imported_paths asts.source) ~program:asts.parsed
-        ~runtime_program:asts.automata_generation
-        ~kernel_ir_nodes:instrumentation_info.kernel_ir_nodes
-      |> Result.map_error (fun msg -> Pipeline_types.Stage_error msg)

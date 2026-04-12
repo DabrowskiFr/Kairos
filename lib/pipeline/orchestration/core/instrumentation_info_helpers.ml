@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Pretty
 
 let ( let* ) = Result.bind
 
@@ -107,22 +106,7 @@ let accumulate_case_counts (summaries : Ir.product_step_summary list) :
 let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     (right : Stage_info.instrumentation_info) : Stage_info.instrumentation_info =
   {
-    Stage_info.kernel_ir_nodes = left.kernel_ir_nodes @ right.kernel_ir_nodes;
-    exported_node_summaries = left.exported_node_summaries @ right.exported_node_summaries;
-    kernel_pipeline_lines = left.kernel_pipeline_lines @ right.kernel_pipeline_lines;
-    warnings = left.warnings @ right.warnings;
-    guarantee_automaton_lines =
-      left.guarantee_automaton_lines @ right.guarantee_automaton_lines;
-    assume_automaton_lines = left.assume_automaton_lines @ right.assume_automaton_lines;
-    canonical_lines = left.canonical_lines @ right.canonical_lines;
-    guarantee_automaton_dot =
-      if left.guarantee_automaton_dot <> "" then left.guarantee_automaton_dot
-      else right.guarantee_automaton_dot;
-    assume_automaton_dot =
-      if left.assume_automaton_dot <> "" then left.assume_automaton_dot
-      else right.assume_automaton_dot;
-    product_dot = if left.product_dot <> "" then left.product_dot else right.product_dot;
-    canonical_dot = if left.canonical_dot <> "" then left.canonical_dot else right.canonical_dot;
+    Stage_info.warnings = left.warnings @ right.warnings;
     require_automata_state_count =
       left.require_automata_state_count + right.require_automata_state_count;
     require_automata_edge_count =
@@ -143,4 +127,3 @@ let merge_instrumentation_info (left : Stage_info.instrumentation_info)
     canonical_case_bad_guarantee_count =
       left.canonical_case_bad_guarantee_count + right.canonical_case_bad_guarantee_count;
   }
-

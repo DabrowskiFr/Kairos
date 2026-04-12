@@ -21,10 +21,6 @@
 val stage_meta :
   Pipeline_types.stage_infos -> (string * (string * string) list) list
 
-val instrumentation_diag_texts :
-  Pipeline_types.stage_infos ->
-  string * string * string * string * string * string * string * string * string
-
 val program_automaton_texts : Pipeline_types.ast_stages -> string * string
 
 val build_outputs :
