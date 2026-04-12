@@ -24,7 +24,7 @@ let build_outputs ~(cfg : Pipeline_types.config) ~(asts : Pipeline_types.ast_sta
     ~(infos : Pipeline_types.stage_infos) :
     (Pipeline_types.outputs, Pipeline_types.error) result =
   try
-    let obligation_summary = Obligation_taxonomy.summarize_program asts.summaries in
+    let obligation_summary = Obligation_taxonomy.summarize_program asts.instrumentation in
     let t_why_gen = Unix.gettimeofday () in
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes asts.instrumentation

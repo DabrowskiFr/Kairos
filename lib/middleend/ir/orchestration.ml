@@ -25,12 +25,18 @@ type run_metrics = {
   canonical_s : float;
 }
 
+type run_artifacts = {
+  summaries_nodes : Ir.node_ir list;
+  instrumentation_program : Ir.program_ir;
+  metrics : run_metrics;
+}
+
 let build_initial_ir ~(automata : Automata_generation.node_builds) (parsed : Stage_types.parsed) :
     (Ir.node_ir list, string) result =
   From_ast.of_ast_program ~automata parsed
 
 let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
-    ((Ir.program_ir * run_metrics), string) result =
+    (run_artifacts, string) result =
   (* Phase 1: initial IR construction = AST context projection + minimal summaries. *)
   let t_product = Unix.gettimeofday () in
   let* initial_nodes = build_initial_ir ~automata parsed in
@@ -43,9 +49,14 @@ let run_with_metrics (parsed : Stage_types.parsed) (automata : Automata_generati
     |> Temporal_lower.run_program
   in
   let canonical_s = Unix.gettimeofday () -. t_canonical in
-  let program = ({ nodes } : Ir.program_ir) in
-  Ok (program, { product_s; canonical_s })
+  let instrumentation_program = ({ nodes } : Ir.program_ir) in
+  Ok
+    {
+      summaries_nodes = initial_nodes;
+      instrumentation_program;
+      metrics = { product_s; canonical_s };
+    }
 
 let run (parsed : Stage_types.parsed) (automata : Automata_generation.node_builds) :
     (Ir.program_ir, string) result =
-  run_with_metrics parsed automata |> Result.map fst
+  run_with_metrics parsed automata |> Result.map (fun x -> x.instrumentation_program)

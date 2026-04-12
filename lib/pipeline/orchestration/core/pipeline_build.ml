@@ -73,10 +73,9 @@ let build_ast_with_info ~input_file () :
     in
     match Orchestration.run_with_metrics p_automaton automata with
     | Error msg -> Error (Pipeline_types.Stage_error msg)
-    | Ok (ir_program, run_metrics) -> (
+    | Ok { summaries_nodes = p_summaries; instrumentation_program = ir_program; metrics = run_metrics } -> (
         External_timing.record_product ~elapsed_s:run_metrics.product_s;
         External_timing.record_canonical ~elapsed_s:run_metrics.canonical_s;
-        let p_summaries = ir_program.nodes in
         let p_instrumentation = ir_program.nodes in
         let summaries_info : Stage_info.summaries_info = { warnings = [] }
         in

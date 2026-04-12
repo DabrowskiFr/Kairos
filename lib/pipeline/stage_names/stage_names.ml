@@ -18,7 +18,7 @@
 
 type stage_id = Parsed | Automaton | Summaries | Instrumentation | Why | Prove
 
-let ast_stages = [ Parsed; Automaton; Instrumentation; Summaries ]
+let ast_stages = [ Parsed; Automaton; Summaries; Instrumentation ]
 let all = ast_stages @ [ Why; Prove ]
 
 let to_string = function

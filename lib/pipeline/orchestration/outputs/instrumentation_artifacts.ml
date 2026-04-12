@@ -23,7 +23,7 @@ let instrumentation_pass ~build_ast_with_info ~stage_meta ~instrumentation_diag_
   match build_ast_with_info ~input_file () with
   | Error _ as e -> e
   | Ok ((asts : Pipeline_types.ast_stages), (infos : Pipeline_types.stage_infos)) ->
-      let obligation_summary = Obligation_taxonomy.summarize_program asts.summaries in
+      let obligation_summary = Obligation_taxonomy.summarize_program asts.instrumentation in
       let guarantee_automaton_text, assume_automaton_text, product_text, canonical_text,
           obligations_map_text_raw, guarantee_automaton_dot, assume_automaton_dot, product_dot,
           canonical_dot =
