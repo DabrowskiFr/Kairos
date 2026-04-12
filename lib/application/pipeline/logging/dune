@@ -1,5 +1,0 @@
-(library
- (name kairos_logging)
- (wrapped false)
- (modules log)
- (libraries kairos_stage_names logs logs.fmt fmt))

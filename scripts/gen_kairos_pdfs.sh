@@ -63,7 +63,7 @@ main() {
 
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   repo_root="$(cd "$script_dir/.." && pwd)"
-  cli_cmd=("dune" "exec" "bin/cli/main.exe" "--")
+  cli_cmd=("dune" "exec" "bin/cli/kairos.exe" "--")
 
   base_name="$(basename "$kairos_file")"
   stem="${base_name%.kairos}"

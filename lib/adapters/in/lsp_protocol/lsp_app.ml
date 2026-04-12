@@ -169,7 +169,7 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;
     canonical_dot = o.canonical_dot;
-    stage_meta = o.stage_meta;
+    flow_meta = o.flow_meta;
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
     vc_locs = List.map (fun (i, l) -> (i, loc_of_ast l)) o.vc_locs;
@@ -220,13 +220,13 @@ let map_automata (o : Pipeline_types.automata_outputs) : Lsp_protocol.automata_o
     assume_automaton_png_error = o.assume_automaton_png_error;
     product_png = o.product_png;
     product_png_error = o.product_png_error;
-    stage_meta = o.stage_meta;
+    flow_meta = o.flow_meta;
     historical_clauses_text = o.historical_clauses_text;
     eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
 let map_why (o : Pipeline_types.why_outputs) : Lsp_protocol.why_outputs =
-  { why_text = o.why_text; stage_meta = o.stage_meta }
+  { why_text = o.why_text; flow_meta = o.flow_meta }
 
 let map_oblig (o : Pipeline_types.obligations_outputs) : Lsp_protocol.obligations_outputs =
   { vc_text = o.vc_text; smt_text = o.smt_text }

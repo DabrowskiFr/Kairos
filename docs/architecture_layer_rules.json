@@ -2,15 +2,14 @@
   "layers": {
     "foundation": [
       "kairos_core_syntax",
-      "kairos_stage_names",
       "kairos_logging"
     ],
-    "frontend": [
+    "parsing": [
       "kairos_ast",
       "kairos_parse",
       "kairos_ltl_valuation"
     ],
-    "middleend": [
+    "verification": [
       "kairos_automata",
       "kairos_automata_generation",
       "kairos_product_build",
@@ -22,42 +21,32 @@
       "kairos_proof_kernel_types"
     ],
     "pipeline_meta": [
-      "kairos_passes",
       "kairos_automata_pass",
       "kairos_ir_stage_passes",
-      "kairos_stage_types",
-      "kairos_stage_metadata",
-      "kairos_pipeline_types",
-      "kairos_pipeline_diagnostics"
+      "kairos_flow_metadata",
+      "kairos_verification_flow_types",
+      "kairos_verification_flow_diagnostics"
     ],
     "application": [
       "kairos_application_ports",
       "kairos_application_usecases"
     ],
     "adapters_out": [
-      "kairos_pipeline_runtime"
-    ],
-    "proof_export": [
-      "kairos_proof_kernel_naming",
-      "kairos_proof_kernel_build",
-      "kairos_kobj"
-    ],
-    "backend": [
-      "kairos_why3"
-    ],
-    "artifacts": [
+      "kairos_verification_runtime",
+      "kairos_verification_runtime_orchestration",
+      "kairos_verification_runtime_outputs",
+      "kairos_services",
+      "kairos_kobj",
+      "kairos_why3",
       "kairos_artifact_graph_render",
       "kairos_artifact_text_render",
       "kairos_artifact_why_task_dump"
     ],
-    "pipeline_orchestration": [
-      "kairos_pipeline_orchestration"
-    ],
-    "pipeline_outputs": [
-      "kairos_pipeline_outputs"
+    "proof_export": [
+      "kairos_proof_kernel_naming",
+      "kairos_proof_kernel_build"
     ],
     "adapters_in": [
-      "kairos_services",
       "kairos_lsp_protocol",
       "kairos_lsp_app"
     ],
@@ -73,128 +62,62 @@
     "foundation": [
       "foundation"
     ],
-    "frontend": [
+    "parsing": [
       "foundation",
-      "frontend"
+      "parsing"
     ],
-    "middleend": [
+    "verification": [
       "foundation",
-      "frontend",
-      "middleend",
-      "external"
+      "parsing",
+      "verification"
     ],
     "shared_model": [
       "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "external"
+      "parsing",
+      "verification",
+      "shared_model"
     ],
     "pipeline_meta": [
-      "foundation",
-      "frontend",
-      "middleend",
       "pipeline_meta",
-      "backend"
+      "foundation",
+      "parsing",
+      "verification"
     ],
     "application": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "pipeline_meta",
-      "application"
+      "application",
+      "pipeline_meta"
     ],
     "adapters_out": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
-      "application",
-      "proof_export",
-      "backend",
-      "artifacts",
-      "pipeline_orchestration",
-      "pipeline_outputs",
       "adapters_out",
-      "external"
+      "application",
+      "external",
+      "pipeline_meta",
+      "proof_export",
+      "shared_model",
+      "verification",
+      "parsing",
+      "foundation"
     ],
     "proof_export": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
       "proof_export",
-      "external"
-    ],
-    "backend": [
       "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "proof_export",
-      "backend",
-      "artifacts",
-      "external"
-    ],
-    "artifacts": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
+      "parsing",
+      "verification",
       "pipeline_meta",
-      "proof_export",
-      "backend",
-      "artifacts",
-      "external"
-    ],
-    "pipeline_orchestration": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
-      "pipeline_orchestration",
-      "external"
-    ],
-    "pipeline_outputs": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
-      "proof_export",
-      "backend",
-      "artifacts",
-      "pipeline_orchestration",
-      "pipeline_outputs",
-      "external"
+      "shared_model"
     ],
     "adapters_in": [
-      "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
-      "application",
-      "adapters_out",
-      "proof_export",
-      "backend",
-      "artifacts",
-      "pipeline_orchestration",
-      "pipeline_outputs",
       "adapters_in",
-      "external"
+      "foundation",
+      "parsing",
+      "pipeline_meta",
+      "proof_export"
     ],
     "external": [
+      "external",
       "foundation",
-      "frontend",
-      "middleend",
-      "shared_model",
-      "pipeline_meta",
-      "proof_export",
-      "external"
+      "parsing",
+      "verification"
     ]
   }
 }

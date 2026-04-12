@@ -89,7 +89,7 @@ type outputs = {
   assume_automaton_dot : string;
   product_dot : string;
   canonical_dot : string;
-  stage_meta : (string * (string * string) list) list;
+  flow_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
   vc_locs : (int * loc) list;
@@ -140,13 +140,13 @@ type automata_outputs = {
   assume_automaton_png_error : string option;
   product_png : string option;
   product_png_error : string option;
-  stage_meta : (string * (string * string) list) list;
+  flow_meta : (string * (string * string) list) list;
   historical_clauses_text : string;
   eliminated_clauses_text : string;
 }
 [@@deriving yojson]
 
-type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
+type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
 [@@deriving yojson]
 
 type obligations_outputs = { vc_text : string; smt_text : string } [@@deriving yojson]

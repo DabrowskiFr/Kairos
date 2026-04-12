@@ -41,48 +41,25 @@ let mk_diag ~severity ~source ~message : diagnostic =
   { line; col; severity; source; message }
 
 let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
-  let tmp = Filename.temp_file "kairos_lsp_doc_" ".kairos" in
-  let oc = open_out_bin tmp in
-  output_string oc text;
-  close_out_noerr oc;
-  let res =
-    try
-      match Pipeline_runtime.build_snapshot ~input_file:tmp with
-      | Ok { asts = _; infos } ->
-          let diags = ref [] in
-          let add_warnings source ws =
-            List.iter
-              (fun w -> diags := mk_diag ~severity:2 ~source ~message:w :: !diags)
-              ws
-          in
-          begin
-            match infos.parse with
-            | Some p ->
-                List.iter
-                  (fun e ->
-                    diags :=
-                      mk_diag ~severity:1 ~source:"kairos-parse" ~message:e.Stage_info.message
-                      :: !diags)
-                  p.Stage_info.parse_errors;
-                add_warnings "kairos-parse" p.Stage_info.warnings
-            | None -> ()
-          end;
-          begin match infos.automata_generation with Some i -> add_warnings "kairos-automata" i.Stage_info.warnings | None -> () end;
-          begin match infos.summaries with Some i -> add_warnings "kairos-summaries" i.Stage_info.warnings | None -> () end;
-          begin match infos.instrumentation with Some i -> add_warnings "kairos-instrumentation" i.Stage_info.warnings | None -> () end;
-          List.rev !diags
-      | Error (Pipeline_types.Stage_error msg) ->
-          [ mk_diag ~severity:1 ~source:"kairos-stage" ~message:msg ]
-      | Error (Pipeline_types.Parse_error msg) ->
-          [ mk_diag ~severity:1 ~source:"kairos-parse" ~message:msg ]
-      | Error e ->
-          [ mk_diag ~severity:1 ~source:"kairos-pipeline" ~message:(Pipeline_types.error_to_string e) ]
-    with exn ->
-      let msg = Printexc.to_string exn in
-      [ mk_diag ~severity:1 ~source:"kairos-parse" ~message:msg ]
-  in
-  (try Sys.remove tmp with _ -> ());
-  res
+  try
+    let _source, info =
+      Parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
+    in
+    let diags = ref [] in
+    List.iter
+      (fun e ->
+        diags :=
+          mk_diag ~severity:1 ~source:"kairos-parse"
+            ~message:e.Parse_info.message
+          :: !diags)
+      info.Parse_info.parse_errors;
+    List.iter
+      (fun w -> diags := mk_diag ~severity:2 ~source:"kairos-parse" ~message:w :: !diags)
+      info.Parse_info.warnings;
+    List.rev !diags
+  with exn ->
+    let msg = Printexc.to_string exn in
+    [ mk_diag ~severity:1 ~source:"kairos-parse" ~message:msg ]
 
 type outline_sections = {
   nodes : (string * int) list;
@@ -454,13 +431,8 @@ let semantic_symbols_of_program (p : Ast.program) : semantic_symbols =
   { all = to_list tbl_all; nodes = to_list tbl_nodes; states = to_list tbl_states; vars = to_list tbl_vars }
 
 let parse_program_from_text (text : string) : Ast.program option =
-  let tmp = Filename.temp_file "kairos_lsp_sem_" ".kairos" in
-  let oc = open_out_bin tmp in
-  output_string oc text;
-  close_out_noerr oc;
-  let res = try Some (Parse_api.parse_file tmp) with _ -> None in
-  (try Sys.remove tmp with _ -> ());
-  res
+  try Some (Parse_api.parse_text ~filename:"<lsp-buffer>" ~text)
+  with _ -> None
 
 let symbol_kind (symbols : semantic_symbols) (ident : string) : string option =
   if List.mem ident symbols.nodes then Some "node"

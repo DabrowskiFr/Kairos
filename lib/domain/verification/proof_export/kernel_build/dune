@@ -1,0 +1,13 @@
+(library
+ (name kairos_proof_kernel_build)
+ (wrapped false)
+ (modules
+  proof_kernel_product
+  proof_kernel_generated_clauses
+ proof_kernel_clause_lowering
+  proof_kernel_step_summaries
+  proof_kernel_pass)
+ (libraries
+  kairos_ast kairos_ir
+  kairos_proof_kernel_types kairos_automata kairos_product_build
+  kairos_core_syntax kairos_ir_temporal_support))

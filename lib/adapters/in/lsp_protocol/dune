@@ -9,7 +9,7 @@
 (library
  (name kairos_lsp_app)
  (wrapped false)
- (modules lsp_app lsp_backend lsp_services)
+ (modules lsp_app lsp_services)
  (libraries
-  kairos_pipeline_types kairos_lsp_protocol
-  kairos_pipeline_runtime kairos_services kairos_stage_metadata yojson str))
+  kairos_verification_flow_types kairos_lsp_protocol
+  kairos_parse kairos_ast kairos_core_syntax yojson str))

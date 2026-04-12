@@ -11,10 +11,10 @@ artifacts.
 
 {1 Main areas in the repository}
 
-- `lib/adapters/out/backends/why3`
+- `lib/adapters/out/provers/why3`
   Why3 translation, runtime views, and backend planning.
 
-- `lib/domain/middleend/proof_export`
+- `lib/domain/verification/proof_export`
   Proof-kernel export data consumed for interop and guided flows.
 
 {1 Notes}

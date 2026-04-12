@@ -45,11 +45,8 @@ common
 - {!module-Provenance}
   Provenance graph primitives.
 
-- {!module-Stage_info}
-  Per-stage metadata exported by the pipeline.
-
-- {!module-Stage_names}
-  Stable identifiers for pipeline stages.
+- {!module-Flow_info}
+  Per-flow metadata exported by the pipeline.
 
 - {!module-Temporal_support}
   Shared bounded-history helpers.

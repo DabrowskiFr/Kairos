@@ -52,7 +52,7 @@ A practical reading order is:
 
 {[
 val parse_source_file_with_info :
-  string -> Source_file.t * Stage_info.parse_info
+  string -> Source_file.t * Flow_info.parse_info
 
 val parse_file :
   string -> Ast.program

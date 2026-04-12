@@ -1,0 +1,28 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from others/delay_int_instance.kairos:
+     Run -> Run overwrites the instance result with  y := 0  after the call.
+   Why it must be rejected:
+     Instance d returns the one-cycle delayed value of x into y.  Setting y := 0
+     immediately after discards the result.
+     The contract  X G(y = prev x)  is broken because y is always 0
+     from the second step onward instead of reflecting the delayed input. *)
+import "./delay_core.kobj";
+
+node delay_int_instance(x: int) returns (y: int)
+contracts
+  ensures: X ( G (y = prev x) );
+instances
+  instance d: delay_core;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+    call d(x) returns (y);
+  }
+  Run:
+    to Run {
+    call d(x) returns (y);
+    y := 0; // BUG: overwrites instance result — should be removed
+  }
+end

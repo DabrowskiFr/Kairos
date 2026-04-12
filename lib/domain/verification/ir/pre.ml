@@ -1,0 +1,197 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+open Core_syntax
+open Ast
+open Core_syntax_builders
+open Fo_time
+
+module Abs = Ir
+
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr = f
+
+let dedup_formulas (xs : Core_syntax.hexpr list) : Core_syntax.hexpr list = List.sort_uniq compare xs
+
+let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+  match fs with
+  | [] -> None
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
+
+let conj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+  match fs with
+  | [] -> None
+  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hand f rest)
+
+let input_names (n : Abs.node_ir) : ident list =
+  List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
+
+let is_input_of_node (n : Abs.node_ir) : ident -> bool =
+  let names = input_names n in
+  fun x -> List.mem x names
+
+let non_input_program_var_names (n : Abs.node_ir) : ident list =
+  List.map
+    (fun (v : vdecl) -> v.vname)
+    (n.semantics.sem_outputs @ n.semantics.sem_locals)
+  |> List.sort_uniq String.compare
+
+let ivar (name : ident) : expr = { expr = EVar name; loc = None }
+
+let stability_formula (name : ident) : Core_syntax.hexpr =
+  mk_hexpr (HCmp (REq, hexpr_of_expr (ivar name), mk_hpre_k name 1))
+
+let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
+  String.equal a.prog_state b.prog_state
+  && a.assume_state_index = b.assume_state_index
+  && a.guarantee_state_index = b.guarantee_state_index
+
+let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.hexpr =
+  match t.guard_expr with
+  | None -> Core_syntax_builders.mk_hbool true
+  | Some guard -> Core_syntax_builders.hexpr_of_expr guard |> simplify_fo
+
+let invariant_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr option =
+  let by_state = Hashtbl.create 16 in
+  List.iter
+    (fun (inv : Abs.state_invariant) ->
+      if List.mem inv.state n.semantics.sem_states then (
+        let existing = Hashtbl.find_opt by_state inv.state |> Option.value ~default:[] in
+        Hashtbl.replace by_state inv.state (inv.formula :: existing)))
+    n.source_info.state_invariants;
+  fun st ->
+    (match Hashtbl.find_opt by_state st with
+    | None -> None
+    | Some xs -> conj_fo (List.sort_uniq compare xs))
+
+let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
+  let candidates =
+    node.summaries
+    |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
+    |> List.filter (fun (st : Abs.product_state) ->
+           String.equal st.prog_state node.semantics.sem_init_state)
+    |> List.sort_uniq Stdlib.compare
+  in
+  match
+    List.find_opt
+      (fun (st : Abs.product_state) -> st.assume_state_index = 0 && st.guarantee_state_index = 0)
+      candidates
+  with
+  | Some st -> st
+  | None -> (
+      match candidates with
+      | st :: _ -> st
+      | [] ->
+          {
+            Abs.prog_state = node.semantics.sem_init_state;
+            assume_state_index = 0;
+            guarantee_state_index = 0;
+          })
+
+let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state : Abs.product_state) :
+    Abs.product_state -> Core_syntax.hexpr option =
+  let is_input = is_input_of_node node in
+  let by_dst = ref [] in
+  let add dst formulas =
+    let rec loop acc = function
+      | [] -> List.rev ((dst, formulas) :: acc)
+      | (dst', prev) :: rest when same_product_state dst dst' ->
+          List.rev_append acc ((dst, dedup_formulas (formulas @ prev)) :: rest)
+      | x :: rest -> loop (x :: acc) rest
+    in
+    by_dst := loop [] !by_dst
+  in
+  List.iter
+    (fun (pc : Abs.product_step_summary) ->
+      List.iter
+        (fun (case : Abs.safe_product_case) ->
+          let propagated = shift_formula_forward_inputs ~is_input case.admissible_guard.logic in
+          add case.product_dst [ propagated ])
+        pc.safe_cases)
+    node.summaries;
+  fun st ->
+    let from_ensures =
+      List.find_map
+        (fun (dst, fs) -> if same_product_state dst st then Some fs else None)
+        !by_dst
+      |> Option.value ~default:[]
+    in
+    let from_ensures =
+      if same_product_state st initial_product_state then Core_syntax_builders.mk_hbool true :: from_ensures else from_ensures
+    in
+    disj_fo from_ensures
+
+type node_generation = {
+  guarantee_pre_of_product_state : Abs.product_state -> Core_syntax.hexpr option;
+  initial_product_state : Abs.product_state;
+  state_stability : Core_syntax.hexpr list;
+  invariant_of_state : ident -> Core_syntax.hexpr option;
+}
+
+let compute_generation ~(node : Abs.node_ir) : node_generation =
+  let initial_product_state = infer_initial_product_state node in
+  {
+    guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~initial_product_state;
+    initial_product_state;
+    state_stability = List.map stability_formula (non_input_program_var_names node);
+    invariant_of_state = invariant_of_state node;
+  }
+
+let add_unique_formula (f : Core_syntax.hexpr)
+    (xs : Abs.summary_formula list) : Abs.summary_formula list =
+  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
+  else xs @ [ Ir_formula.make f ]
+
+let run_node (n : Abs.node_ir) : Abs.node_ir =
+  let pre_generation = compute_generation ~node:n in
+  let summaries =
+    List.map
+      (fun (pc : Abs.product_step_summary) ->
+        let program_guard = guard_fo_of_transition_core pc.identity.program_step in
+        let propagation_requires =
+          match pre_generation.guarantee_pre_of_product_state pc.identity.product_src with
+          | None -> []
+          | Some inv -> [ Ir_formula.make inv ]
+        in
+        let requires =
+          []
+          |> fun acc ->
+          (match pre_generation.invariant_of_state pc.identity.product_src.prog_state with
+          | None -> acc
+          | Some inv -> add_unique_formula inv acc)
+          |> fun acc ->
+          List.fold_left (fun acc (f : Abs.summary_formula) -> add_unique_formula f.logic acc) acc propagation_requires
+          |> add_unique_formula pc.identity.assume_guard
+          |> add_unique_formula program_guard
+          |> fun acc ->
+          if same_product_state pc.identity.product_src pre_generation.initial_product_state then acc
+          else List.fold_left (fun acc f -> add_unique_formula f acc) acc pre_generation.state_stability
+        in
+        { pc with propagation_requires; requires })
+      n.summaries
+  in
+  let init_invariant_goals =
+    match pre_generation.invariant_of_state n.semantics.sem_init_state with
+    | None -> n.init_invariant_goals
+    | Some inv ->
+        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.init_invariant_goals then
+          n.init_invariant_goals
+        else
+          n.init_invariant_goals @ [ Ir_formula.make inv ]
+  in
+  { n with summaries; init_invariant_goals }
+
+let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p

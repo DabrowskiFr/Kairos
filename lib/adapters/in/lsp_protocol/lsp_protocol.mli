@@ -20,12 +20,18 @@
 
 type loc = { line : int; col : int; line_end : int; col_end : int }
 
+(** Type [goal_info]. *)
+
 type goal_info = string * string * float * string option * string option
+
+(** Type [text_span]. *)
 
 type text_span = {
   start_offset : int;
   end_offset : int;
 }
+
+(** Type [proof_diagnostic]. *)
 
 type proof_diagnostic = {
   category : string;
@@ -49,6 +55,8 @@ type proof_diagnostic = {
   limitations : string list;
 }
 
+(** Type [proof_trace]. *)
+
 type proof_trace = {
   goal_index : int;
   stable_id : string;
@@ -71,6 +79,8 @@ type proof_trace = {
   diagnostic : proof_diagnostic;
 }
 
+(** Type [outputs]. *)
+
 type outputs = {
   why_text : string;
   vc_text : string;
@@ -88,7 +98,7 @@ type outputs = {
   assume_automaton_dot : string;
   product_dot : string;
   canonical_dot : string;
-  stage_meta : (string * (string * string) list) list;
+  flow_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
   vc_locs : (int * loc) list;
@@ -114,6 +124,8 @@ type outputs = {
   eliminated_clauses_text : string;
 }
 
+(** Type [automata_outputs]. *)
+
 type automata_outputs = {
   dot_text : string;
   labels_text : string;
@@ -138,20 +150,30 @@ type automata_outputs = {
   assume_automaton_png_error : string option;
   product_png : string option;
   product_png_error : string option;
-  stage_meta : (string * (string * string) list) list;
+  flow_meta : (string * (string * string) list) list;
   historical_clauses_text : string;
   eliminated_clauses_text : string;
 }
 
-type why_outputs = { why_text : string; stage_meta : (string * (string * string) list) list }
+(** Type [why_outputs]. *)
+
+type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
+
+(** Type [obligations_outputs]. *)
 
 type obligations_outputs = { vc_text : string; smt_text : string }
+
+(** Type [rpc_request_id]. *)
 
 type rpc_request_id =
   | Rpc_int_id of int
   | Rpc_string_id of string
 
+(** Type [goals_ready_payload]. *)
+
 type goals_ready_payload = { names : string list; vc_ids : int list }
+
+(** Type [goal_done_payload]. *)
 
 type goal_done_payload = {
   idx : int;
@@ -162,9 +184,17 @@ type goal_done_payload = {
   vcid : string option;
 }
 
+(** Type [outputs_ready_notification]. *)
+
 type outputs_ready_notification = { request_id : rpc_request_id; payload : outputs }
+(** Type [goals_ready_notification]. *)
+
 type goals_ready_notification = { request_id : rpc_request_id; payload : goals_ready_payload }
+(** Type [goal_done_notification]. *)
+
 type goal_done_notification = { request_id : rpc_request_id; payload : goal_done_payload }
+
+(** Type [outline_sections]. *)
 
 type outline_sections = {
   nodes : (string * int) list;
@@ -172,10 +202,14 @@ type outline_sections = {
   contracts : (string * int) list;
 }
 
+(** Type [outline_payload]. *)
+
 type outline_payload = {
   source : outline_sections;
   abstract_program : outline_sections;
 }
+
+(** Type [goal_tree_entry]. *)
 
 type goal_tree_entry = {
   idx : int;
@@ -188,6 +222,8 @@ type goal_tree_entry = {
   vcid : string option;
 }
 
+(** Type [goal_tree_transition]. *)
+
 type goal_tree_transition = {
   transition : string;
   source : string;
@@ -195,6 +231,8 @@ type goal_tree_transition = {
   total : int;
   items : goal_tree_entry list;
 }
+
+(** Type [goal_tree_node]. *)
 
 type goal_tree_node = {
   node : string;
@@ -204,21 +242,29 @@ type goal_tree_node = {
   transitions : goal_tree_transition list;
 }
 
+(** Type [outline_request]. *)
+
 type outline_request = {
   uri : string option;
   source_text : string option;
   abstract_text : string option;
 }
 
+(** Type [goals_tree_final_request]. *)
+
 type goals_tree_final_request = {
   goals : goal_info list;
   vc_text : string;
 }
 
+(** Type [goals_tree_pending_request]. *)
+
 type goals_tree_pending_request = {
   goal_names : string list;
   vc_ids : int list;
 }
+
+(** Type [instrumentation_pass_request]. *)
 
 type instrumentation_pass_request = {
   input_file : string;
@@ -226,22 +272,32 @@ type instrumentation_pass_request = {
   engine : string;
 }
 
+(** Type [why_pass_request]. *)
+
 type why_pass_request = {
   input_file : string;
   engine : string;
 }
+
+(** Type [obligations_pass_request]. *)
 
 type obligations_pass_request = {
   input_file : string;
   engine : string;
 }
 
+(** Type [kobj_summary_request]. *)
+
 type kobj_summary_request = {
   input_file : string;
   engine : string;
 }
 
+(** Type [dot_png_from_text_request]. *)
+
 type dot_png_from_text_request = { dot_text : string }
+
+(** Type [config]. *)
 
 type config = {
   input_file : string;
@@ -256,89 +312,205 @@ type config = {
   generate_dot_png : bool;
 }
 
+(** [yojson_of_loc] service entrypoint. *)
+
 val yojson_of_loc : loc -> Yojson.Safe.t
+(** [loc_of_yojson] service entrypoint. *)
+
 val loc_of_yojson : Yojson.Safe.t -> (loc, string) result
 
+(** [yojson_of_goal_info] service entrypoint. *)
+
 val yojson_of_goal_info : goal_info -> Yojson.Safe.t
+(** [goal_info_of_yojson] service entrypoint. *)
+
 val goal_info_of_yojson : Yojson.Safe.t -> (goal_info, string) result
 
+(** [yojson_of_text_span] service entrypoint. *)
+
 val yojson_of_text_span : text_span -> Yojson.Safe.t
+(** [text_span_of_yojson] service entrypoint. *)
+
 val text_span_of_yojson : Yojson.Safe.t -> (text_span, string) result
 
+(** [yojson_of_proof_diagnostic] service entrypoint. *)
+
 val yojson_of_proof_diagnostic : proof_diagnostic -> Yojson.Safe.t
+(** [proof_diagnostic_of_yojson] service entrypoint. *)
+
 val proof_diagnostic_of_yojson : Yojson.Safe.t -> (proof_diagnostic, string) result
 
+(** [yojson_of_proof_trace] service entrypoint. *)
+
 val yojson_of_proof_trace : proof_trace -> Yojson.Safe.t
+(** [proof_trace_of_yojson] service entrypoint. *)
+
 val proof_trace_of_yojson : Yojson.Safe.t -> (proof_trace, string) result
 
+(** [yojson_of_outputs] service entrypoint. *)
+
 val yojson_of_outputs : outputs -> Yojson.Safe.t
+(** [outputs_of_yojson] service entrypoint. *)
+
 val outputs_of_yojson : Yojson.Safe.t -> (outputs, string) result
 
+(** [yojson_of_automata_outputs] service entrypoint. *)
+
 val yojson_of_automata_outputs : automata_outputs -> Yojson.Safe.t
+(** [automata_outputs_of_yojson] service entrypoint. *)
+
 val automata_outputs_of_yojson : Yojson.Safe.t -> (automata_outputs, string) result
 
+(** [yojson_of_why_outputs] service entrypoint. *)
+
 val yojson_of_why_outputs : why_outputs -> Yojson.Safe.t
+(** [why_outputs_of_yojson] service entrypoint. *)
+
 val why_outputs_of_yojson : Yojson.Safe.t -> (why_outputs, string) result
 
+(** [yojson_of_obligations_outputs] service entrypoint. *)
+
 val yojson_of_obligations_outputs : obligations_outputs -> Yojson.Safe.t
+(** [obligations_outputs_of_yojson] service entrypoint. *)
+
 val obligations_outputs_of_yojson : Yojson.Safe.t -> (obligations_outputs, string) result
 
+(** [yojson_of_rpc_request_id] service entrypoint. *)
+
 val yojson_of_rpc_request_id : rpc_request_id -> Yojson.Safe.t
+(** [rpc_request_id_of_yojson] service entrypoint. *)
+
 val rpc_request_id_of_yojson : Yojson.Safe.t -> (rpc_request_id, string) result
 
+(** [yojson_of_goals_ready_payload] service entrypoint. *)
+
 val yojson_of_goals_ready_payload : goals_ready_payload -> Yojson.Safe.t
+(** [goals_ready_payload_of_yojson] service entrypoint. *)
+
 val goals_ready_payload_of_yojson : Yojson.Safe.t -> (goals_ready_payload, string) result
 
+(** [yojson_of_goal_done_payload] service entrypoint. *)
+
 val yojson_of_goal_done_payload : goal_done_payload -> Yojson.Safe.t
+(** [goal_done_payload_of_yojson] service entrypoint. *)
+
 val goal_done_payload_of_yojson : Yojson.Safe.t -> (goal_done_payload, string) result
 
+(** [yojson_of_outputs_ready_notification] service entrypoint. *)
+
 val yojson_of_outputs_ready_notification : outputs_ready_notification -> Yojson.Safe.t
+(** [outputs_ready_notification_of_yojson] service entrypoint. *)
+
 val outputs_ready_notification_of_yojson : Yojson.Safe.t -> (outputs_ready_notification, string) result
 
+(** [yojson_of_goals_ready_notification] service entrypoint. *)
+
 val yojson_of_goals_ready_notification : goals_ready_notification -> Yojson.Safe.t
+(** [goals_ready_notification_of_yojson] service entrypoint. *)
+
 val goals_ready_notification_of_yojson : Yojson.Safe.t -> (goals_ready_notification, string) result
 
+(** [yojson_of_goal_done_notification] service entrypoint. *)
+
 val yojson_of_goal_done_notification : goal_done_notification -> Yojson.Safe.t
+(** [goal_done_notification_of_yojson] service entrypoint. *)
+
 val goal_done_notification_of_yojson : Yojson.Safe.t -> (goal_done_notification, string) result
 
+(** [yojson_of_outline_sections] service entrypoint. *)
+
 val yojson_of_outline_sections : outline_sections -> Yojson.Safe.t
+(** [outline_sections_of_yojson] service entrypoint. *)
+
 val outline_sections_of_yojson : Yojson.Safe.t -> (outline_sections, string) result
 
+(** [yojson_of_outline_payload] service entrypoint. *)
+
 val yojson_of_outline_payload : outline_payload -> Yojson.Safe.t
+(** [outline_payload_of_yojson] service entrypoint. *)
+
 val outline_payload_of_yojson : Yojson.Safe.t -> (outline_payload, string) result
 
+(** [yojson_of_goal_tree_entry] service entrypoint. *)
+
 val yojson_of_goal_tree_entry : goal_tree_entry -> Yojson.Safe.t
+(** [goal_tree_entry_of_yojson] service entrypoint. *)
+
 val goal_tree_entry_of_yojson : Yojson.Safe.t -> (goal_tree_entry, string) result
 
+(** [yojson_of_goal_tree_transition] service entrypoint. *)
+
 val yojson_of_goal_tree_transition : goal_tree_transition -> Yojson.Safe.t
+(** [goal_tree_transition_of_yojson] service entrypoint. *)
+
 val goal_tree_transition_of_yojson : Yojson.Safe.t -> (goal_tree_transition, string) result
 
+(** [yojson_of_goal_tree_node] service entrypoint. *)
+
 val yojson_of_goal_tree_node : goal_tree_node -> Yojson.Safe.t
+(** [goal_tree_node_of_yojson] service entrypoint. *)
+
 val goal_tree_node_of_yojson : Yojson.Safe.t -> (goal_tree_node, string) result
 
+(** [yojson_of_outline_request] service entrypoint. *)
+
 val yojson_of_outline_request : outline_request -> Yojson.Safe.t
+(** [outline_request_of_yojson] service entrypoint. *)
+
 val outline_request_of_yojson : Yojson.Safe.t -> (outline_request, string) result
 
+(** [yojson_of_goals_tree_final_request] service entrypoint. *)
+
 val yojson_of_goals_tree_final_request : goals_tree_final_request -> Yojson.Safe.t
+(** [goals_tree_final_request_of_yojson] service entrypoint. *)
+
 val goals_tree_final_request_of_yojson : Yojson.Safe.t -> (goals_tree_final_request, string) result
 
+(** [yojson_of_goals_tree_pending_request] service entrypoint. *)
+
 val yojson_of_goals_tree_pending_request : goals_tree_pending_request -> Yojson.Safe.t
+(** [goals_tree_pending_request_of_yojson] service entrypoint. *)
+
 val goals_tree_pending_request_of_yojson : Yojson.Safe.t -> (goals_tree_pending_request, string) result
 
+(** [yojson_of_instrumentation_pass_request] service entrypoint. *)
+
 val yojson_of_instrumentation_pass_request : instrumentation_pass_request -> Yojson.Safe.t
+(** [instrumentation_pass_request_of_yojson] service entrypoint. *)
+
 val instrumentation_pass_request_of_yojson : Yojson.Safe.t -> (instrumentation_pass_request, string) result
 
+(** [yojson_of_why_pass_request] service entrypoint. *)
+
 val yojson_of_why_pass_request : why_pass_request -> Yojson.Safe.t
+(** [why_pass_request_of_yojson] service entrypoint. *)
+
 val why_pass_request_of_yojson : Yojson.Safe.t -> (why_pass_request, string) result
 
+(** [yojson_of_obligations_pass_request] service entrypoint. *)
+
 val yojson_of_obligations_pass_request : obligations_pass_request -> Yojson.Safe.t
+(** [obligations_pass_request_of_yojson] service entrypoint. *)
+
 val obligations_pass_request_of_yojson : Yojson.Safe.t -> (obligations_pass_request, string) result
 
+(** [yojson_of_kobj_summary_request] service entrypoint. *)
+
 val yojson_of_kobj_summary_request : kobj_summary_request -> Yojson.Safe.t
+(** [kobj_summary_request_of_yojson] service entrypoint. *)
+
 val kobj_summary_request_of_yojson : Yojson.Safe.t -> (kobj_summary_request, string) result
 
+(** [yojson_of_dot_png_from_text_request] service entrypoint. *)
+
 val yojson_of_dot_png_from_text_request : dot_png_from_text_request -> Yojson.Safe.t
+(** [dot_png_from_text_request_of_yojson] service entrypoint. *)
+
 val dot_png_from_text_request_of_yojson : Yojson.Safe.t -> (dot_png_from_text_request, string) result
 
+(** [yojson_of_config] service entrypoint. *)
+
 val yojson_of_config : config -> Yojson.Safe.t
+(** [config_of_yojson] service entrypoint. *)
+
 val config_of_yojson : Yojson.Safe.t -> (config, string) result

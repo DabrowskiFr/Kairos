@@ -1,0 +1,41 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Small reusable [result]-oriented combinators for pipeline orchestration. *)
+
+(** Lookup in an association list with custom missing-key error. *)
+val find_assoc :
+  missing:('key -> 'error) ->
+  'key ->
+  ('key * 'value) list ->
+  ('value, 'error) result
+
+(** Sequence a list of results, failing on first error. *)
+val all : ('a, 'error) result list -> ('a list, 'error) result
+
+(** Zip four lists and map with a result-producing function.
+
+    Returns [length_mismatch] when input lengths differ. *)
+val map4 :
+  length_mismatch:'error ->
+  ('a -> 'b -> 'c -> 'd -> ('e, 'error) result) ->
+  'a list ->
+  'b list ->
+  'c list ->
+  'd list ->
+  ('e list, 'error) result

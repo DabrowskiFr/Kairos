@@ -1,8 +1,0 @@
-(library
- (name kairos_stage_types)
- (public_name kairos.stage_types)
- (wrapped false)
- (modules stage_types)
- (libraries
-  kairos_ast
-  kairos_ir))

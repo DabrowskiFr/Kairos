@@ -2,4 +2,4 @@
  (name kairos_application_ports)
  (wrapped false)
  (modules application_ports)
- (libraries kairos_pipeline_types))
+ (libraries kairos_verification_flow_types))

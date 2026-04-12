@@ -29,6 +29,8 @@ type snapshot = {
   vc_smt_s : float;
 }
 
+(** [reset] service entrypoint. *)
+
 val reset : unit -> unit
 (** Reset all counters to zero. *)
 

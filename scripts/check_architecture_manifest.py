@@ -33,15 +33,17 @@ def main() -> int:
 
     required = [
         "lib/domain/foundation/core_syntax",
-        "lib/domain/middleend/ir/types/ir.ml",
-        "lib/domain/middleend/ir/types/ir.mli",
-        "lib/domain/middleend/ir/temporal_support/pre_k_layout.ml",
-        "lib/domain/middleend/ir/temporal_support/pre_k_lowering.ml",
+        "lib/domain/verification/ir/types/ir.ml",
+        "lib/domain/verification/ir/types/ir.mli",
+        "lib/domain/verification/ir/temporal_support/pre_k_layout.ml",
+        "lib/domain/verification/ir/temporal_support/pre_k_lowering.ml",
         "lib/application/ports",
         "lib/application/usecases",
-        "lib/adapters/in/services",
+        "lib/application/verification_flow",
         "lib/adapters/in/lsp_protocol",
-        "lib/adapters/out/pipeline",
+        "lib/adapters/out/services",
+        "lib/adapters/out/runtime",
+        "lib/adapters/out/runtime/orchestration",
         ".github/workflows/architecture.yml",
     ]
     forbidden = [

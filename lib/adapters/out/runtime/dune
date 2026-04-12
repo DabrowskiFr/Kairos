@@ -1,0 +1,15 @@
+(library
+ (name kairos_verification_runtime)
+ (wrapped false)
+ (modules verification_runtime_adapters verification_runtime)
+ (libraries
+  kairos_application_usecases
+  kairos_verification_flow_types
+  kairos_verification_runtime_orchestration
+  kairos_verification_runtime_outputs
+  kairos_verification_flow_diagnostics
+  kairos_artifact_text_render
+  kairos_why3
+  kairos_kobj
+  kairos_external_why3
+  kairos_external_timing))

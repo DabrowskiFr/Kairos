@@ -16,4 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Z3-based simplification for first-order formulas.
+
+    This adapter exposes the FO simplifier used by Kairos passes to normalize
+    and compact logical guards before rendering and proof generation. *)
+
+(** Try to simplify one FO formula with Z3.
+
+    Returns [None] when simplification is unavailable or fails. *)
 val simplify_fo_formula : Core_syntax.hexpr -> Core_syntax.hexpr option

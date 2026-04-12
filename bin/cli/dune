@@ -1,7 +1,7 @@
 (executable
- (name main)
+ (name kairos)
  (public_name kairos)
- (modules main cli)
+ (modules kairos)
  (libraries
   kairos_services
   bos

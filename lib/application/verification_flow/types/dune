@@ -1,0 +1,10 @@
+(library
+ (name kairos_verification_flow_types)
+ (wrapped false)
+ (modules pipeline_types)
+ (libraries
+ kairos_ast
+ kairos_parse
+  kairos_flow_metadata
+  kairos_ir
+  kairos_automata))

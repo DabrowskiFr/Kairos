@@ -15,13 +15,13 @@ It does not emit Why3 text directly; that is handled by backend layers.
 
 {1 Main areas in the repository}
 
-- `lib/domain/middleend/automata/spec`
+- `lib/domain/verification/automata/spec`
   Specification automata generation.
 
-- `lib/domain/middleend/automata/product`
+- `lib/domain/verification/automata/product`
   Product construction and transition classification.
 
-- `lib/domain/middleend/ir`
+- `lib/domain/verification/ir`
   Canonical IR shaping passes (`pre`, `invariant`, `post`) and proof views.
 
 {1 Reading order}

@@ -1,0 +1,6 @@
+(library
+ (name kairos_flow_metadata)
+ (public_name kairos.flow_metadata)
+ (wrapped false)
+ (modules flow_info)
+ (libraries kairos_ast kairos_ir))

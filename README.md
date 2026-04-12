@@ -2,7 +2,7 @@
 
 Quick commands
 --------------
-- Build the CLI: `dune build bin/cli/main.exe`
+- Build the CLI: `dune build bin/cli/kairos.exe`
 - Run all tests: `dune runtest`
 
 ./scripts/validate_ok_ko.sh --repo-root . --timeout-goal 1 --timeout-file 60 --jobs 15 --subset ok
@@ -14,10 +14,10 @@ Oui : ./scripts/build_docs_site.sh.
 CLI usage
 ---------
 
-- Prove : dune exec bin/cli/main.exe -- --prove <filename>
-- Dump guarantee+assume automata : dune exec bin/cli/main.exe -- --dump-automata=<filename> <filename>
-- Dump product automaton text : dune exec bin/cli/main.exe -- --dump-product=<filename> <filename>
-- Dump canonical structure : dune exec bin/cli/main.exe -- --dump-canonical=<filename> <filename>
+- Prove : dune exec bin/cli/kairos.exe -- --prove <filename>
+- Dump guarantee+assume automata : dune exec bin/cli/kairos.exe -- --dump-automata=<filename> <filename>
+- Dump product automaton text : dune exec bin/cli/kairos.exe -- --dump-product=<filename> <filename>
+- Dump canonical structure : dune exec bin/cli/kairos.exe -- --dump-canonical=<filename> <filename>
 
 GTK IDE (skeleton)
 ------------------

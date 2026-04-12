@@ -44,7 +44,7 @@ If you are reading the codebase for the first time:
 - {!modules:Automaton_types}
 - {!modules:Core_syntax_builders Fo_simplifier Fo_time Ltl_valuation}
 - {!modules:Ir Proof_kernel_types}
-- {!modules:Ast_provenance Provenance Stage_info Stage_names Temporal_support Pre_k_layout Pre_k_lowering Syntax_pretty}
+- {!modules:Ast_provenance Provenance Flow_info Temporal_support Pre_k_layout Pre_k_lowering Syntax_pretty}
 
 {1 Example Shapes}
 

@@ -104,7 +104,7 @@ case "$subset" in
     ;;
 esac
 
-cli="$repo_root/_build/default/bin/cli/main.exe"
+cli="$repo_root/_build/default/bin/cli/kairos.exe"
 report_dir="$repo_root/_build/validation"
 mkdir -p "$report_dir"
 

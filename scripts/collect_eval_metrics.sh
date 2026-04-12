@@ -11,7 +11,7 @@ Collect structural/proof metrics for a list of .kairos examples and emit:
 
 Options:
   --repo DIR           Kairos repo root (default: script parent/..)
-  --cli PATH           CLI executable (default: REPO/_build/default/bin/cli/main.exe)
+  --cli PATH           CLI executable (default: REPO/_build/default/bin/cli/kairos.exe)
   --out-dir DIR        Working/output directory (default: REPO/tmp/eval_metrics)
   --csv PATH           CSV output path (default: OUT_DIR/metrics.csv)
   --tex PATH           LaTeX table output path (default: OUT_DIR/metrics_table.tex)
@@ -87,7 +87,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$CLI" ]]; then
-  CLI="$REPO/_build/default/bin/cli/main.exe"
+  CLI="$REPO/_build/default/bin/cli/kairos.exe"
 fi
 if [[ -z "$OUT_DIR" ]]; then
   OUT_DIR="$REPO/tmp/eval_metrics"
@@ -102,7 +102,7 @@ fi
 mkdir -p "$OUT_DIR"
 
 if [[ "$DO_BUILD" == "1" ]]; then
-  (cd "$REPO" && dune build bin/cli/main.exe)
+  (cd "$REPO" && dune build bin/cli/kairos.exe)
 fi
 
 IFS=',' read -r -a EXAMPLES <<< "$EXAMPLES_CSV"

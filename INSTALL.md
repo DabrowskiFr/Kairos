@@ -76,7 +76,7 @@ which kairos-ide
 You can also verify the local build directly from the repository:
 
 ```bash
-opam exec -- dune build bin/cli/main.exe --display=short
+opam exec -- dune build bin/cli/kairos.exe --display=short
 opam exec -- dune build bin/lsp/kairos_lsp.exe --display=short
 opam exec -- dune build bin/ide/obcwhy3_ide.exe --display=short
 ```

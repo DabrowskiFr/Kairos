@@ -5,19 +5,15 @@ This document is the human-readable companion of
 
 ## Layers
 
-- `foundation`: core shared syntax and naming (`core_syntax`, `stage_names`, `logging`)
-- `frontend`: parser and AST
-- `middleend`: automata/product/IR core transformations
+- `foundation`: core shared syntax and logging (`core_syntax`, `logging`)
+- `parsing`: parser and AST
+- `verification`: automata/product/IR core transformations
 - `shared_model`: cross-cutting typed model (`proof_kernel_types`)
 - `pipeline_meta`: stage-level metadata/types and diagnostics
 - `application`: use-cases and abstract ports (`application_ports`, `application_usecases`)
-- `adapters_out`: concrete outgoing adapters + bound runtime (`pipeline_runtime`)
-- `proof_export`: kernel export builders and kobj
-- `backend`: Why backend
-- `artifacts`: text/graph/task dump renderers
-- `pipeline_orchestration`: core pipeline orchestration
-- `pipeline_outputs`: output assembly, rendering, proof wiring
-- `adapters_in`: services and LSP adapters
+- `adapters_out`: concrete outgoing adapters (runtime/services, kobj, Why3 backend, renderers)
+- `proof_export`: domain-side kernel export builders
+- `adapters_in`: LSP adapters
 - `external`: external tool adapters (Spot/Why3/Z3/Graphviz/timing)
 
 ## Dependency policy
@@ -28,6 +24,13 @@ Rules are checked on direct dependencies between `kairos_*` libraries:
 - no stale or missing mappings are allowed;
 - each dependency `A -> B` must satisfy:
   - `layer(B) ∈ allow[layer(A)]` from `architecture_layer_rules.json`.
+
+For strict clean boundaries, domain-side layers (`parsing`, `verification`,
+`shared_model`, `proof_export`) do not allow direct dependencies to `external`.
+Application-side layers (`application`, `pipeline_meta`) do not allow direct
+dependencies to `adapters_out` or `external`.
+Incoming adapters (`adapters_in`) may depend inward on `foundation`/`parsing`
+for parse-oriented editor diagnostics, but not on `adapters_out`.
 
 ## Validation
 

@@ -1,0 +1,5 @@
+(library
+ (name kairos_logging)
+ (wrapped false)
+ (modules log)
+ (libraries logs logs.fmt fmt))

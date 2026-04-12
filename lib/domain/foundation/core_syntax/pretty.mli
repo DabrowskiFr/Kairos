@@ -16,8 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Pretty-printers for core syntax expressions and LTL formulas. *)
+
+(** Render a comparison operator. *)
 val string_of_relop : Core_syntax.relop -> string
+
+(** Render an executable expression with optional precedence context. *)
 val string_of_expr : ?ctx:int -> Core_syntax.expr -> string
+
+(** Render a historical/logical expression. *)
 val string_of_hexpr : Core_syntax.hexpr -> string
+
+(** Alias for rendering a first-order formula expression. *)
 val string_of_fo : ?ctx:int -> Core_syntax.hexpr -> string
+
+(** Render an LTL formula with optional precedence context. *)
 val string_of_ltl : ?ctx:int -> Core_syntax.ltl -> string

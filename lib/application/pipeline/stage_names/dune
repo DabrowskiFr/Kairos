@@ -1,5 +1,0 @@
-(library
- (name kairos_stage_names)
- (public_name kairos.stage_names)
- (wrapped false)
- (modules stage_names))

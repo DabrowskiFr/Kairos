@@ -1,8 +1,0 @@
-(library
- (name kairos_product_build)
- (wrapped false)
- (modules product_types temporal_automata product_build)
- (libraries
-  kairos_ast kairos_ir
-  kairos_automata kairos_core_syntax
-  kairos_ir_temporal_support kairos_external_z3))
