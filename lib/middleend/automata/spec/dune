@@ -11,7 +11,7 @@
  (wrapped false)
  (modules automata_atoms automata_generation automaton_build)
  (libraries
-  kairos_ast kairos_logic kairos_ltl_valuation kairos_automata
+  kairos_ast kairos_ltl_valuation kairos_automata
   kairos_core_syntax
   kairos_temporal_support kairos_external_spot kairos_external_z3))
 

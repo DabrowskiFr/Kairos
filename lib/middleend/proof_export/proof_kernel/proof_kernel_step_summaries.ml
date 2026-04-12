@@ -196,7 +196,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
                            time = CurrentTick;
                            desc =
                              RelFactFormula
-                               (Fo_simplifier.simplify_fo (rewrite_formula_pre f.logic));
+                               (simplify_fo (rewrite_formula_pre f.logic));
                          };
                        ];
                    }))

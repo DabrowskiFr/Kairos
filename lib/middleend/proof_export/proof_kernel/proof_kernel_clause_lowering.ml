@@ -20,6 +20,9 @@ open Core_syntax
 open Core_syntax_builders
 open Proof_kernel_types
 
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+
 let is_hfalse (h : Core_syntax.hexpr) =
   match h.hexpr with HLitBool false -> true | _ -> false
 
@@ -51,8 +54,8 @@ let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
   let rec expand_one acc = function
     | [] -> [ List.rev acc ]
     | ({ desc = RelFactFormula ({ hexpr = HBin (Or, a, b); _ }); _ } as fact) :: tl ->
-        let left = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo a) } in
-        let right = { fact with desc = RelFactFormula (Fo_simplifier.simplify_fo b) } in
+        let left = { fact with desc = RelFactFormula (simplify_fo a) } in
+        let right = { fact with desc = RelFactFormula (simplify_fo b) } in
         (expand_one (left :: acc) tl) @ expand_one (right :: acc) tl
     | fact :: tl -> expand_one (fact :: acc) tl
   in
@@ -63,7 +66,7 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   let combine_formula left right =
     match (left, right) with
     | RelFactFormula a, RelFactFormula b ->
-        Some (RelFactFormula (Fo_simplifier.simplify_fo (mk_hand a b)))
+        Some (RelFactFormula (simplify_fo (mk_hand a b)))
     | _ -> None
   in
   let rec insert acc fact =

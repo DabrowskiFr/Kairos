@@ -9,7 +9,6 @@
  (libraries
    kairos_core_syntax 
    kairos_ast 
-   kairos_logic 
    kairos_stage_types 
    kairos_stage_names 
    kairos_logging
