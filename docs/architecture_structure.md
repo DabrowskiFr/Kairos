@@ -43,3 +43,13 @@ Reorganization should remain structural:
 - avoid semantic changes during pure architecture passes;
 - validate with `dune build -j 1` and `dune runtest -j 1`.
 
+## Formal layer matrix
+
+The project now uses a formal, machine-checked layer matrix:
+- layer mapping and allowed inter-layer dependencies:
+  - `docs/architecture_layer_rules.json`
+- CI checker:
+  - `scripts/check_layer_dependencies.py`
+
+Each `kairos_*` library must belong to exactly one layer, and every
+`kairos_* -> kairos_*` dependency is validated against the matrix.
