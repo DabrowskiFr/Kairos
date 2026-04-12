@@ -53,9 +53,9 @@ let run ~build_ast_with_info ~build_outputs (cfg : Pipeline_types.config) =
   let snap_before = External_timing.snapshot () in
   match build_ast_with_info ~input_file:cfg.input_file () with
   | Error _ as e -> e
-  | Ok (asts, infos) ->
+  | Ok (snapshot : Pipeline_types.pipeline_snapshot) ->
       let t_build_done = Unix.gettimeofday () in
-      (match build_outputs ~cfg ~asts ~infos with
+      (match build_outputs ~cfg ~snapshot with
       | Error _ as e -> e
       | Ok out -> Ok (with_timing_stage_meta ~t0 ~t_build_done ~snap_before out))
 
@@ -77,9 +77,10 @@ let run_with_callbacks ~build_ast_with_info ~build_outputs ~should_cancel
   else
     match build_ast_with_info ~input_file:cfg.input_file () with
     | Error _ as e -> e
-    | Ok ((asts : Pipeline_types.ast_stages), infos) ->
+    | Ok (snapshot : Pipeline_types.pipeline_snapshot) ->
+        let asts = snapshot.asts in
         let pending_cfg = { cfg with prove = false; compute_proof_diagnostics = false } in
-        (match build_outputs ~cfg:pending_cfg ~asts ~infos with
+        (match build_outputs ~cfg:pending_cfg ~snapshot with
         | Error _ as e -> e
         | Ok (pending_out : Pipeline_types.outputs) ->
             on_outputs_ready { pending_out with goals = [] };

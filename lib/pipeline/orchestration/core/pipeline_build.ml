@@ -59,7 +59,7 @@ let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
               n.semantics.sem_nname))
 
 let build_ast_with_info ~input_file () :
-    (Pipeline_types.ast_stages * Pipeline_types.stage_infos, Pipeline_types.error)
+    (Pipeline_types.pipeline_snapshot, Pipeline_types.error)
     result =
   try
     let source, parse_info_front = Parse_file.parse_source_file_with_info input_file in
@@ -103,5 +103,5 @@ let build_ast_with_info ~input_file () :
             instrumentation = Some instrumentation_info;
           }
         in
-        Ok (asts, infos))
+        Ok { asts; infos })
   with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))

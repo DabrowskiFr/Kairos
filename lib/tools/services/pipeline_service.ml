@@ -21,7 +21,7 @@ let instrumentation_pass = Instrumentation_artifacts.instrumentation_pass
 let why_pass ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as e -> e
-  | Ok (asts, infos) ->
+  | Ok { asts; infos } ->
       let why_ast = Why_compile.compile_program_ast_from_ir_nodes asts.instrumentation in
       let why_text = Why_text_render.emit_program_ast why_ast in
       Ok { Pipeline_types.why_text; stage_meta = Pipeline_outputs.stage_meta infos }
@@ -29,13 +29,13 @@ let why_pass ~input_file =
 let obligations_pass ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as e -> e
-  | Ok (asts, _infos) ->
+  | Ok { asts; infos = _ } ->
       Ok (Why_pipeline.obligations_pass asts.instrumentation)
 
 let normalized_program ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
-  | Ok (asts, _infos) ->
+  | Ok { asts; infos = _ } ->
       Ok
         (Ir_text_program_view_render.render_program
            ~source_program:(Some asts.automata_generation)
@@ -44,8 +44,7 @@ let normalized_program ~input_file =
 let ir_pretty_dump ~input_file =
   match Pipeline_build.build_ast_with_info ~input_file () with
   | Error _ as err -> err
-  | Ok (asts, infos) ->
-      let _ = infos in
+  | Ok { asts; infos = _ } ->
       let program : Ir.program_ir = { nodes = asts.instrumentation } in
       Ok
         (Ir_text_proof_view_render.render_pretty_program

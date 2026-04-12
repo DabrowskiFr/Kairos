@@ -50,7 +50,7 @@ let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
   let res =
     try
       match Build.build_ast_with_info ~input_file:tmp () with
-      | Ok ((_asts, infos)) ->
+      | Ok { asts = _; infos } ->
           let diags = ref [] in
           let add_warnings source ws =
             List.iter

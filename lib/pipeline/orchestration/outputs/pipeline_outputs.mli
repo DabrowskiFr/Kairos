@@ -25,6 +25,5 @@ val program_automaton_texts : Pipeline_types.ast_stages -> string * string
 
 val build_outputs :
   cfg:Pipeline_types.config ->
-  asts:Pipeline_types.ast_stages ->
-  infos:Pipeline_types.stage_infos ->
+  snapshot:Pipeline_types.pipeline_snapshot ->
   (Pipeline_types.outputs, Pipeline_types.error) result

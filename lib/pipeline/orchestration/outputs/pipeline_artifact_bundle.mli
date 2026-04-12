@@ -16,9 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Imported AST construction and IR/object extraction for the main pipeline. *)
+(** Artifact payloads derived from the final IR snapshot. *)
 
-val build_ast_with_info :
-  input_file:string ->
-  unit ->
-  (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result
+type t = {
+  kernel_ir_nodes : Proof_kernel_types.node_ir list;
+  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
+  guarantee_automaton_text : string;
+  assume_automaton_text : string;
+  product_text : string;
+  canonical_text : string;
+  obligations_map_text_raw : string;
+  guarantee_automaton_dot : string;
+  assume_automaton_dot : string;
+  product_dot : string;
+  canonical_dot : string;
+}
+
+val build :
+  asts:Pipeline_types.ast_stages -> (t, string) result

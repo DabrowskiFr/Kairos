@@ -16,9 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Imported AST construction and IR/object extraction for the main pipeline. *)
+(** Final output records assembly from intermediate artifact/proof bundles. *)
 
-val build_ast_with_info :
-  input_file:string ->
-  unit ->
-  (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result
+val map_outputs :
+  cfg:Pipeline_types.config ->
+  snapshot:Pipeline_types.pipeline_snapshot ->
+  artifacts:Pipeline_artifact_bundle.t ->
+  proof:Proof_runner.run_output ->
+  obligation_summary:Obligation_taxonomy.summary ->
+  Pipeline_types.outputs
+
+val map_automata_outputs :
+  generate_png:bool ->
+  snapshot:Pipeline_types.pipeline_snapshot ->
+  artifacts:Pipeline_artifact_bundle.t ->
+  obligation_summary:Obligation_taxonomy.summary ->
+  Pipeline_types.automata_outputs

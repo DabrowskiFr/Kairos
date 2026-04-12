@@ -28,6 +28,8 @@
  (modules
   pipeline_artifact_bundle
   pipeline_outputs_helpers
+  proof_runner
+  output_mapper
   pipeline_outputs
   instrumentation_artifacts)
  (libraries

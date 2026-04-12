@@ -162,6 +162,11 @@ type ast_stages = {
     instrumentation : Stage_info.instrumentation_info option;
   }
 
+  type pipeline_snapshot = {
+    asts : ast_stages;
+    infos : stage_infos;
+  }
+
   type config = {
     input_file : string;
     wp_only : bool;

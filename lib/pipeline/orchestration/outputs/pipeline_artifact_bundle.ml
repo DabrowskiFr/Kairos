@@ -21,6 +21,7 @@ open Ast
 open Pretty
 
 let ( let* ) = Result.bind
+module Info_helpers = Instrumentation_info_helpers
 
 type t = {
   kernel_ir_nodes : Proof_kernel_types.node_ir list;
@@ -43,66 +44,6 @@ type node_artifacts = {
   ensures_graph : Automata_graph_render.graph;
   product_graph : Automata_graph_render.graph;
 }
-
-let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
-  Ir_transition.prioritized_program_transitions_of_node node
-
-let source_nodes_by_name (source_program : Ast.program) : (ident * Ast.node) list =
-  List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program
-
-let source_node_of_name ~(source_nodes : (ident * Ast.node) list) ~(node_name : ident) :
-    (Ast.node, string) result =
-  Result_utils.find_assoc
-    ~missing:(fun name -> Printf.sprintf "Missing source AST node for IR node %s" name)
-    node_name source_nodes
-
-let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
-  let semantics = Ast.semantics_of_node source_node in
-  {
-    Ir.semantics =
-      {
-        sem_nname = semantics.sem_nname;
-        sem_inputs = semantics.sem_inputs;
-        sem_outputs = semantics.sem_outputs;
-        sem_locals = semantics.sem_locals;
-        sem_states = semantics.sem_states;
-        sem_init_state = semantics.sem_init_state;
-      };
-    source_info = { assumes = []; guarantees = []; state_invariants = [] };
-    temporal_layout = Pre_k_layout.build_pre_k_infos source_node;
-    summaries = [];
-    init_invariant_goals = [];
-  }
-
-let build_node_analysis ~(automata : Automata_generation.node_builds)
-    ~(program_transitions : Ir.transition list) (source_node : Ast.node) :
-    (Temporal_automata.node_data, string) result =
-  let node = analysis_context_of_source_node source_node in
-  let* build =
-    Result_utils.find_assoc
-      ~missing:(fun node_name -> Printf.sprintf "Missing automata build for IR node %s" node_name)
-      node.semantics.sem_nname automata
-  in
-  Ok (Product_build.analyze_node ~build ~node ~program_transitions)
-
-let build_analyses ~(automata : Automata_generation.node_builds)
-    ~(source_nodes : (ident * Ast.node) list) :
-    ((ident * Temporal_automata.node_data) list, string) result =
-  source_nodes
-  |> List.map (fun (node_name, source_node) ->
-         let analysis =
-           build_node_analysis ~automata
-             ~program_transitions:(program_transitions_of_ast_node source_node)
-             source_node
-         in
-         Result.map (fun value -> (node_name, value)) analysis)
-  |> Result_utils.all
-
-let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
-    (Temporal_automata.node_data, string) result =
-  Result_utils.find_assoc
-    ~missing:(fun node_name -> Printf.sprintf "Missing product analysis for IR node %s" node_name)
-    node.semantics.sem_nname analyses
 
 let lower_guard_for_kernel ~(node_name : ident)
     ~(temporal_bindings : Pre_k_lowering.temporal_binding list) ~(context : string)
@@ -220,15 +161,16 @@ let join_non_empty (xs : string list) : string =
   |> String.concat "\n\n"
 
 let build ~(asts : Pipeline_types.ast_stages) : (t, string) result =
-  let source_nodes = source_nodes_by_name asts.automata_generation in
-  let* analyses = build_analyses ~automata:asts.automata ~source_nodes in
+  let source_nodes = Info_helpers.source_nodes_by_name asts.automata_generation in
+  let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes in
   let* node_artifacts =
     asts.instrumentation
     |> List.map (fun (node : Ir.node_ir) ->
            let* source_node =
-             source_node_of_name ~source_nodes ~node_name:node.semantics.sem_nname
+             Info_helpers.source_node_of_name ~source_nodes
+               ~node_name:node.semantics.sem_nname
            in
-           let* analysis = analysis_of_node ~analyses node in
+           let* analysis = Info_helpers.analysis_of_node ~analyses node in
            build_node_artifacts ~source_node ~analysis node)
     |> Result_utils.all
   in
