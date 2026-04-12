@@ -3,5 +3,5 @@
  (public_name kairos.external_z3)
  (wrapped false)
  (modules fo_z3_solver)
- (libraries kairos_ast kairos_core_syntax kairos_temporal_support
+ (libraries kairos_ast kairos_core_syntax
   kairos_external_timing unix z3))
