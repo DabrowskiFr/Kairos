@@ -13,7 +13,8 @@ This document is the human-readable companion of
 - `proof_export`: kernel export builders and kobj
 - `backend`: Why backend
 - `artifacts`: text/graph/task dump renderers
-- `pipeline_exec`: orchestration and output assembly
+- `pipeline_orchestration`: core pipeline orchestration
+- `pipeline_outputs`: output assembly, rendering, proof wiring
 - `adapters_in`: services and LSP adapters
 - `external`: external tool adapters (Spot/Why3/Z3/Graphviz/timing)
 
