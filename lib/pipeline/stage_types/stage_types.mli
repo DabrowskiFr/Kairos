@@ -21,8 +21,8 @@
 (* Parsed AST, directly from the frontend. *)
 type parsed = Ast.program
 
-(* Enriched normalized program after contract generation/initial goals. *)
-type contracts_stage = Ir.node_ir list
+(* Enriched normalized program after summary generation/initial goals. *)
+type summaries_stage = Ir.node_ir list
 
 (* Enriched normalized program after instrumentation. *)
 type instrumentation_stage = Ir.node_ir list

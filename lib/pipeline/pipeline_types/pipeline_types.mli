@@ -150,14 +150,14 @@ type ast_stages = {
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Automaton_types.node_builds;
-  contracts : Ir.node_ir list;
+  summaries : Ir.node_ir list;
   instrumentation : Ir.node_ir list;
 }
 
 type stage_infos = {
   parse : Stage_info.parse_info option;
   automata_generation : Stage_info.automata_info option;
-  contracts : Stage_info.formulas_info option;
+  summaries : Stage_info.summaries_info option;
   instrumentation : Stage_info.instrumentation_info option;
 }
 

@@ -76,9 +76,9 @@ let build_ast_with_info ~input_file () :
     | Ok (ir_program, run_metrics) -> (
         External_timing.record_product ~elapsed_s:run_metrics.product_s;
         External_timing.record_canonical ~elapsed_s:run_metrics.canonical_s;
-        let p_contracts = ir_program.nodes in
+        let p_summaries = ir_program.nodes in
         let p_instrumentation = ir_program.nodes in
-        let formulas_info : Stage_info.formulas_info = { warnings = [] }
+        let summaries_info : Stage_info.summaries_info = { warnings = [] }
         in
         match
           Instrumentation_info_builder.instrumentation_info_of_ir ~automata
@@ -92,7 +92,7 @@ let build_ast_with_info ~input_file () :
             parsed = p_parsed;
             automata_generation = p_automaton;
             automata;
-            contracts = p_contracts;
+            summaries = p_summaries;
             instrumentation = p_instrumentation;
           }
         in
@@ -100,9 +100,9 @@ let build_ast_with_info ~input_file () :
           {
             parse = Some parse_info;
             automata_generation = Some automata_info;
-            contracts = Some formulas_info;
-              instrumentation = Some instrumentation_info;
-            }
+            summaries = Some summaries_info;
+            instrumentation = Some instrumentation_info;
+          }
         in
         Ok (asts, infos))
   with exn -> Error (Pipeline_types.Stage_error (Printexc.to_string exn))

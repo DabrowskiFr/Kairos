@@ -38,8 +38,8 @@ type automata_info = {
   warnings : string list;
 }
 
-(** Metadata produced by the contracts pass. *)
-type formulas_info = { warnings : string list }
+(** Metadata produced by the summaries pass. *)
+type summaries_info = { warnings : string list }
 
 (** Metadata produced after IR construction and proof-artifact export.
 
@@ -91,7 +91,7 @@ type instrumentation_info = {
   (** Number of product states in the classical live subgraph
       (states that are neither [A_bad] nor [G_bad]). *)
   product_state_count_live : int;
-  (** Number of canonical contracts (sum over processed nodes). *)
+  (** Number of canonical summaries (sum over processed nodes). *)
   canonical_summary_count : int;
   (** Number of safe canonical cases (sum over processed nodes). *)
   canonical_case_safe_count : int;
@@ -107,8 +107,8 @@ val empty_parse_info : parse_info
 (** Default empty automata-generation metadata. *)
 val empty_automata_info : automata_info
 
-(** Default empty contracts metadata. *)
-val empty_contracts_info : formulas_info
+(** Default empty summaries metadata. *)
+val empty_summaries_info : summaries_info
 
 (** Empty proof-artifact metadata.
 

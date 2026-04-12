@@ -16,15 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type stage_id = Parsed | Automaton | Contracts | Instrumentation | Why | Prove
+type stage_id = Parsed | Automaton | Summaries | Instrumentation | Why | Prove
 
-let ast_stages = [ Parsed; Automaton; Instrumentation; Contracts ]
+let ast_stages = [ Parsed; Automaton; Instrumentation; Summaries ]
 let all = ast_stages @ [ Why; Prove ]
 
 let to_string = function
   | Parsed -> "parsed"
   | Automaton -> "automaton"
-  | Contracts -> "contracts"
+  | Summaries -> "summaries"
   | Instrumentation -> "ir_construction"
   | Why -> "why"
   | Prove -> "prove"
@@ -33,15 +33,15 @@ let description = function
   | Parsed -> "after parsing"
   | Automaton -> "after automata generation"
   | Instrumentation -> "after IR construction"
-  | Contracts -> "after user contract initialization"
+  | Summaries -> "after summary initialization"
   | Why -> "after Why3 generation"
   | Prove -> "after Why3 proof"
 
 let of_string = function
   | "parsed" -> Ok Parsed
   | "automaton" -> Ok Automaton
-  | "contracts" -> Ok Contracts
-  | "ir_construction" | "instrumentation" | "monitor" -> Ok Instrumentation
+  | "summaries" -> Ok Summaries
+  | "ir_construction" -> Ok Instrumentation
   | other ->
       Error
         ("Unknown stage for --dump-ast. Use: "

@@ -18,7 +18,7 @@
 
 (** Logical identifiers for pipeline stages, mainly used in logs and UI
     diagnostics. *)
-type stage_id = Parsed | Automaton | Contracts | Instrumentation | Why | Prove
+type stage_id = Parsed | Automaton | Summaries | Instrumentation | Why | Prove
 
 (** All known pipeline stages, in declaration order. *)
 val all : stage_id list

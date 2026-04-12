@@ -38,12 +38,12 @@ let join_blocks_with_spans ~sep blocks =
 let stage_meta (infos : Pipeline_types.stage_infos) : (string * (string * string) list) list =
   let p = Option.value ~default:Stage_info.empty_parse_info infos.parse in
   let a = Option.value ~default:Stage_info.empty_automata_info infos.automata_generation in
-  let c = Option.value ~default:Stage_info.empty_contracts_info infos.contracts in
+  let s = Option.value ~default:Stage_info.empty_summaries_info infos.summaries in
   let i = Option.value ~default:Stage_info.empty_instrumentation_info infos.instrumentation in
   [
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
-    ("contracts", [ ("warnings", string_of_int (List.length c.warnings)) ]);
+    ("summaries", [ ("warnings", string_of_int (List.length s.warnings)) ]);
     ( "graph_metrics",
       [
         ("require_automata_states", string_of_int i.require_automata_state_count);
@@ -96,4 +96,3 @@ let program_automaton_texts (asts : Pipeline_types.ast_stages) : string * string
         Automata_graph_render.render_program_automaton ~node_name:node.semantics.sem_nname ~node
       in
       (graph.dot, graph.labels)
-
