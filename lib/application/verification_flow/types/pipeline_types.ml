@@ -147,7 +147,7 @@ open Core_syntax
   type obligations_outputs = { vc_text : string; smt_text : string }
 
 type ast_flow = {
-  source : Source_file.t;
+  source : Parse_api.source;
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Automaton_types.node_builds;

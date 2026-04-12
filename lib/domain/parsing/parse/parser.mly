@@ -1,7 +1,6 @@
 %{
 open Core_syntax
 open Ast
-open Source_file
 
 let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Loc.loc =
   { line = start_pos.pos_lnum;
@@ -107,12 +106,12 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %nonassoc RPAREN
 
 %start <Ast.program> program
-%start <Source_file.t> source_file
+%start <(string * Loc.loc option) list * Ast.program> source_file
 
 %%
 
 source_file:
-  | imports_opt nodes EOF { { imports = $1; nodes = $2 } }
+  | imports_opt nodes EOF { ($1, $2) }
 
 program:
   | imports_opt nodes EOF { $2 }
@@ -128,8 +127,7 @@ import_decls:
 import_decl:
   | IMPORT STRING SEMI
       {
-        { import_path = $2;
-          import_loc = Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)) }
+        ($2, Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)))
       }
 
 nodes:

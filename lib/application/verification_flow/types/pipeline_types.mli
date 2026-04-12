@@ -164,7 +164,7 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 (** Snapshot of program forms produced by early and middle pipeline stages. *)
 
 type ast_flow = {
-  source : Source_file.t;
+  source : Parse_api.source;
   parsed : Ast.program;
   automata_generation : Ast.program;
   automata : Automaton_types.node_builds;

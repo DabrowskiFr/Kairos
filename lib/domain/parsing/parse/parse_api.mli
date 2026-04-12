@@ -16,23 +16,44 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Public parsing entry points for the frontend. *)
+(** Public parsing entry points and source-level parse data.
 
-(** Parse source text and keep the explicit import declarations alongside the node
-    program. *)
+    This module is the single public API of the parsing layer. It exposes:
+    - the parsed source shape (imports + nodes),
+    - parse diagnostics,
+    - parsing functions for text buffers. *)
+
+(** One syntactic import declaration. *)
+type import_decl = {
+  import_path : string;
+  import_loc : Loc.loc option;
+}
+
+(** Parsed source file, before import resolution/expansion. *)
+type source = {
+  imports : import_decl list;
+  nodes : Ast.program;
+}
+
+(** Paths referenced by explicit imports, in source order. *)
+val imported_paths : source -> string list
+
+(** One parse error with optional source location. *)
+type parse_error = {
+  loc : Loc.loc option;
+  message : string;
+}
+
+(** Parse diagnostics bundle attached to one parsed source. *)
+type parse_info = {
+  source_path : string option;
+  text_hash : string option;
+  parse_errors : parse_error list;
+  warnings : string list;
+}
+
+(** Parse source text and keep explicit imports with parse diagnostics. *)
 val parse_source_text_with_info :
   filename:string ->
   text:string ->
-  Source_file.t * Parse_info.t
-
-(** Parse source text and return only the node program. *)
-val parse_text :
-  filename:string ->
-  text:string ->
-  Ast.program
-
-(** Same as {!parse_text}, but also return frontend parse metadata. *)
-val parse_text_with_info :
-  filename:string ->
-  text:string ->
-  Ast.program * Parse_info.t
+  source * parse_info

@@ -47,7 +47,7 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result 
             in
             Kairos_object.build ~source_path:input_file
               ~source_hash:parse_info.text_hash
-              ~imports:(Source_file.imported_paths asts.source)
+              ~imports:(Parse_api.imported_paths asts.source)
               ~program:asts.parsed ~runtime_program:asts.automata_generation
               ~kernel_ir_nodes:artifacts.kernel_ir_nodes
             |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)

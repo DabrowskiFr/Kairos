@@ -20,13 +20,13 @@ open Ast
 
 let ( let* ) = Result.bind
 
-let flow_parse_info_of_frontend (info : Parse_info.t) : Flow_info.parse_info =
+let flow_parse_info_of_frontend (info : Parse_api.parse_info) : Flow_info.parse_info =
   {
     source_path = info.source_path;
     text_hash = info.text_hash;
     parse_errors =
       List.map
-        (fun (e : Parse_info.parse_error) ->
+        (fun (e : Parse_api.parse_error) ->
           ({ Flow_info.loc = e.loc; message = e.message } : Flow_info.parse_error))
         info.parse_errors;
     warnings = info.warnings;

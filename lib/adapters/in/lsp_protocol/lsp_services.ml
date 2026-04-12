@@ -50,12 +50,12 @@ let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
       (fun e ->
         diags :=
           mk_diag ~severity:1 ~source:"kairos-parse"
-            ~message:e.Parse_info.message
+            ~message:e.Parse_api.message
           :: !diags)
-      info.Parse_info.parse_errors;
+      info.Parse_api.parse_errors;
     List.iter
       (fun w -> diags := mk_diag ~severity:2 ~source:"kairos-parse" ~message:w :: !diags)
-      info.Parse_info.warnings;
+      info.Parse_api.warnings;
     List.rev !diags
   with exn ->
     let msg = Printexc.to_string exn in
@@ -431,7 +431,11 @@ let semantic_symbols_of_program (p : Ast.program) : semantic_symbols =
   { all = to_list tbl_all; nodes = to_list tbl_nodes; states = to_list tbl_states; vars = to_list tbl_vars }
 
 let parse_program_from_text (text : string) : Ast.program option =
-  try Some (Parse_api.parse_text ~filename:"<lsp-buffer>" ~text)
+  try
+    let source, _info =
+      Parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
+    in
+    Some source.nodes
   with _ -> None
 
 let symbol_kind (symbols : semantic_symbols) (ident : string) : string option =
