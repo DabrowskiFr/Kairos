@@ -1,0 +1,8 @@
+(library
+ (name kairos_services)
+ (wrapped false)
+ (modules engine_service pipeline_service)
+ (libraries
+  kairos_pipeline_runtime
+  kairos_pipeline_types
+  kairos_kobj))

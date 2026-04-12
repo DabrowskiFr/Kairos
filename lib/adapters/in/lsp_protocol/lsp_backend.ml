@@ -1,0 +1,139 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+let map_error = Engine_service.error_to_string
+
+let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.config =
+  {
+    input_file = cfg.input_file;
+    wp_only = cfg.wp_only;
+    smoke_tests = cfg.smoke_tests;
+    timeout_s = cfg.timeout_s;
+    compute_proof_diagnostics = cfg.compute_proof_diagnostics;
+    prove = cfg.prove;
+    generate_vc_text = cfg.generate_vc_text;
+    generate_smt_text = cfg.generate_smt_text;
+    generate_dot_png = cfg.generate_dot_png;
+  }
+
+let instrumentation_pass (req : Lsp_protocol.instrumentation_pass_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match
+    Engine_service.instrumentation_pass ~engine ~generate_png:req.generate_png
+      ~input_file:req.input_file
+  with
+  | Ok out -> Ok (Lsp_app.map_automata out)
+  | Error e -> Error (map_error e)
+
+let why_pass (req : Lsp_protocol.why_pass_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match
+    Engine_service.why_pass ~engine ~input_file:req.input_file
+  with
+  | Ok out -> Ok (Lsp_app.map_why out)
+  | Error e -> Error (map_error e)
+
+let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match
+    Engine_service.obligations_pass ~engine ~input_file:req.input_file
+  with
+  | Ok out -> Ok (Lsp_app.map_oblig out)
+  | Error e -> Error (map_error e)
+
+let kobj_summary (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.kobj_summary ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let kobj_clauses (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.kobj_clauses ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let kobj_product (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.kobj_product ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let kobj_contracts (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.kobj_contracts ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let normalized_program (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.normalized_program ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let ir_pretty_dump (req : Lsp_protocol.kobj_summary_request) =
+  let engine =
+    Option.value (Engine_service.engine_of_string req.engine)
+      ~default:Engine_service.Default
+  in
+  match Engine_service.ir_pretty_dump ~engine ~input_file:req.input_file with
+  | Ok text -> Ok text
+  | Error e -> Error (map_error e)
+
+let dot_png_from_text (req : Lsp_protocol.dot_png_from_text_request) =
+  Graphviz_render.dot_png_from_text req.dot_text
+
+let run ~engine (cfg : Lsp_protocol.config) =
+  match Engine_service.run ~engine (pipeline_config_of_protocol cfg) with
+  | Ok out -> Ok (Lsp_app.map_outputs out)
+  | Error e -> Error (map_error e)
+
+let run_with_callbacks ~engine ~should_cancel (cfg : Lsp_protocol.config)
+    ~on_outputs_ready ~on_goals_ready ~on_goal_done =
+  match
+    Engine_service.run_with_callbacks ~engine ~should_cancel
+      (pipeline_config_of_protocol cfg)
+      ~on_outputs_ready:(fun out -> on_outputs_ready (Lsp_app.map_outputs out))
+      ~on_goals_ready ~on_goal_done
+  with
+  | Ok out -> Ok (Lsp_app.map_outputs out)
+  | Error e -> Error (map_error e)

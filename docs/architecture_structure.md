@@ -3,26 +3,56 @@
 This note describes the current project structure after the repository
 reorganization and states naming rules used for new code.
 
+## At a glance
+
+```text
+lib/
+├─ domain/
+│  ├─ foundation/core_syntax
+│  ├─ frontend/{ast,parse}
+│  └─ middleend/{automata,ir,proof_export}
+├─ application/
+│  ├─ pipeline/{stage_*,passes,diagnostics,pipeline_types}
+│  ├─ ports
+│  └─ usecases
+└─ adapters/
+   ├─ in/{services,lsp_protocol}
+   └─ out/{pipeline,backends,external,artifacts}
+```
+
+Execution flow:
+`domain -> application -> adapters/out`, with `adapters/in` as entry points.
+
 ## Layered structure
 
-- `lib/common/core_syntax`: foundational syntax and pretty/build helpers only.
-- `lib/frontend`: parsing and AST construction.
-- `lib/middleend/automata`: require/ensures automata and product analysis.
-- `lib/middleend/ir`: IR types, temporal support, and IR passes.
-- `lib/middleend/proof_export`:
+- `lib/domain`:
+  - `foundation/core_syntax`: foundational syntax and pretty/build helpers only.
+  - `frontend`: parsing and AST construction.
+  - `middleend/automata`: require/ensures automata and product analysis.
+  - `middleend/ir`: IR types, temporal support, and IR passes.
+  - `middleend/proof_export`:
   - `kernel_build`: proof-kernel construction from IR/product data.
   - `kernel_types`: shared export types and JSON codec.
   - `kobj`: object export/import representation.
-- `lib/backends/why3`:
+- `lib/application`:
+  - `ports`: abstract application ports (no external/tool coupling).
+  - `usecases`: pipeline use-cases depending only on ports + pipeline meta types.
+  - `pipeline`: stage metadata/types, pass interfaces, and diagnostics.
+- `lib/adapters/out/backends/why3`:
   - `compile`: Why AST/code generation internals.
   - `contracts`: contract/obligation lowering to Why terms.
   - `runtime`: runtime view reconstruction.
-- `lib/artifacts`: text and graph rendering only.
-- `lib/pipeline`: orchestration, diagnostics, stage types/names.
+- `lib/adapters/out`:
+  - `artifacts`: text/graph/task rendering.
+  - `external`: Spot, Z3, Why3, Graphviz, timing adapters.
+  - `pipeline`: concrete outgoing adapters and bound runtime use-cases.
+- `lib/adapters/in`:
+  - `services`: incoming façade used by CLI/LSP.
+  - `lsp_protocol`: LSP protocol + backend/service glue.
 
 ## Orchestration split
 
-`lib/pipeline/orchestration/dune` now exposes:
+`lib/adapters/out/pipeline/orchestration/dune` exposes:
 - `kairos_pipeline_orchestration`: core build/analysis orchestration.
 - `kairos_pipeline_outputs`: output assembly/proof execution/render wiring.
 

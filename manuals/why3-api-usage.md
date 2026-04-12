@@ -6,9 +6,9 @@ Ce document recense les **structures de données** et **fonctions Why3** utilis�
 
 Inventaire construit à partir des usages dans :
 
-- `lib/backends/why3/`
-- `lib/external/why3/`
-- `lib/artifacts/text_render/`
+- `lib/adapters/out/backends/why3/`
+- `lib/adapters/out/external/why3/`
+- `lib/adapters/out/artifacts/text_render/`
 
 ## 1) Configuration, environnement, sélection de prouveur
 

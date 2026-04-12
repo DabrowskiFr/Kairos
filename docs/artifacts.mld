@@ -14,11 +14,11 @@ semantic data. It does not define proof semantics by itself.
 
 {1 Main areas in the repository}
 
-- `lib/artifacts/ir_render`
-  Rendering of canonical IR structures and related views.
+- `lib/adapters/out/artifacts/graph_render`
+  Graph rendering for automata/product/summary dumps.
 
-- `lib/artifacts/kobj`
-  Import/export for Kairos object files (`.kobj`).
+- `lib/adapters/out/artifacts/text_render`
+  Text renderers for IR views, proof status, and Why text output.
 
-- `lib/artifacts/diagnostics`
-  Diagnostics materialization helpers.
+- `lib/adapters/out/artifacts/why_task_dump`
+  Why3 task dump rendering helpers.

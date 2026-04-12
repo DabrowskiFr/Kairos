@@ -32,17 +32,33 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
     required = [
-        "lib/common/core_syntax",
-        "lib/middleend/ir/types/ir.ml",
-        "lib/middleend/ir/types/ir.mli",
-        "lib/middleend/ir/temporal_support/pre_k_layout.ml",
-        "lib/middleend/ir/temporal_support/pre_k_lowering.ml",
+        "lib/domain/foundation/core_syntax",
+        "lib/domain/middleend/ir/types/ir.ml",
+        "lib/domain/middleend/ir/types/ir.mli",
+        "lib/domain/middleend/ir/temporal_support/pre_k_layout.ml",
+        "lib/domain/middleend/ir/temporal_support/pre_k_lowering.ml",
+        "lib/application/ports",
+        "lib/application/usecases",
+        "lib/adapters/in/services",
+        "lib/adapters/in/lsp_protocol",
+        "lib/adapters/out/pipeline",
         ".github/workflows/architecture.yml",
     ]
     forbidden = [
+        "lib/common",
         "lib/common/ir",
         "lib/common/logic",
         "lib/common/temporal_support",
+        "lib/common/core_syntax",
+        "lib/frontend",
+        "lib/middleend",
+        "lib/protocols",
+        "lib/pipeline",
+        "lib/backends",
+        "lib/external",
+        "lib/artifacts",
+        "lib/tools",
+        "lib/tools/services",
     ]
 
     for rel in required:
@@ -56,4 +72,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

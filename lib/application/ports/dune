@@ -1,0 +1,5 @@
+(library
+ (name kairos_application_ports)
+ (wrapped false)
+ (modules application_ports)
+ (libraries kairos_pipeline_types))

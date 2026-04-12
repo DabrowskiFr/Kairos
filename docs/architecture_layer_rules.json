@@ -30,6 +30,13 @@
       "kairos_pipeline_types",
       "kairos_pipeline_diagnostics"
     ],
+    "application": [
+      "kairos_application_ports",
+      "kairos_application_usecases"
+    ],
+    "adapters_out": [
+      "kairos_pipeline_runtime"
+    ],
     "proof_export": [
       "kairos_proof_kernel_naming",
       "kairos_proof_kernel_build",
@@ -74,7 +81,6 @@
       "foundation",
       "frontend",
       "middleend",
-      "shared_model",
       "external"
     ],
     "shared_model": [
@@ -88,10 +94,29 @@
       "foundation",
       "frontend",
       "middleend",
+      "pipeline_meta",
+      "backend"
+    ],
+    "application": [
+      "foundation",
+      "frontend",
+      "middleend",
+      "pipeline_meta",
+      "application"
+    ],
+    "adapters_out": [
+      "foundation",
+      "frontend",
+      "middleend",
       "shared_model",
       "pipeline_meta",
+      "application",
       "proof_export",
       "backend",
+      "artifacts",
+      "pipeline_orchestration",
+      "pipeline_outputs",
+      "adapters_out",
       "external"
     ],
     "proof_export": [
@@ -108,7 +133,6 @@
       "frontend",
       "middleend",
       "shared_model",
-      "pipeline_meta",
       "proof_export",
       "backend",
       "artifacts",
@@ -153,6 +177,8 @@
       "middleend",
       "shared_model",
       "pipeline_meta",
+      "application",
+      "adapters_out",
       "proof_export",
       "backend",
       "artifacts",

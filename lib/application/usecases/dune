@@ -1,0 +1,8 @@
+(library
+ (name kairos_application_usecases)
+ (wrapped false)
+ (modules pipeline_usecases)
+ (libraries
+  kairos_application_ports
+  kairos_pipeline_types
+  kairos_pipeline_diagnostics))

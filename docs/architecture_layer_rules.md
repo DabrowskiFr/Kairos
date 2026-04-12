@@ -10,6 +10,8 @@ This document is the human-readable companion of
 - `middleend`: automata/product/IR core transformations
 - `shared_model`: cross-cutting typed model (`proof_kernel_types`)
 - `pipeline_meta`: stage-level metadata/types and diagnostics
+- `application`: use-cases and abstract ports (`application_ports`, `application_usecases`)
+- `adapters_out`: concrete outgoing adapters + bound runtime (`pipeline_runtime`)
 - `proof_export`: kernel export builders and kobj
 - `backend`: Why backend
 - `artifacts`: text/graph/task dump renderers

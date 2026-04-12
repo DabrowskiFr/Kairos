@@ -108,7 +108,7 @@ let strip_dot_legend ~(legend_id : string) (dot_text : string) : string =
   in
   String.concat "\n" (drop_legend_block [] lines)
 
-let report_failed_goals (goals : Lsp_protocol.goal_info list) : string list =
+let report_failed_goals goals =
   let total = List.length goals in
   let failure_info (_, status, _, dump_path, vcid) =
     let status = String.lowercase_ascii status in
@@ -137,86 +137,53 @@ let report_failed_goals (goals : Lsp_protocol.goal_info list) : string list =
     goals
   |> List.filter_map Fun.id
 
-let engine = Engine_service.string_of_engine Engine_service.Default
-
-(* Request builders centralize the common engine/input setup expected by each
-   backend entrypoint. *)
-let instrumentation_req args =
-  { Lsp_protocol.input_file = args.file; generate_png = false; engine }
-
-let why_req args : Lsp_protocol.why_pass_request =
-  {
-    input_file = args.file;
-    engine;
-  }
-
-let obligations_req (args : cli_args) : Lsp_protocol.obligations_pass_request =
-  {
-    Lsp_protocol.input_file = args.file;
-    engine;
-  }
-
-let kobj_req args = { Lsp_protocol.input_file = args.file; engine }
-
-let run_req args =
-  {
-    Lsp_protocol.input_file = args.file;
-    engine;
-    wp_only = false;
-    smoke_tests = false;
-    timeout_s = args.timeout_s;
-    compute_proof_diagnostics = false;
-    prove = args.prove;
-    generate_vc_text = Option.is_some args.dump_why3_vc;
-    generate_smt_text = Option.is_some args.dump_smt2;
-    generate_dot_png = false;
-  }
+let map_error e = Engine_service.error_to_string e
 
 (* Thin wrappers around backend passes so the execution layer can focus on the
    selected action instead of repeating result/error plumbing. *)
 let with_instrumentation_pass args f =
-  match Lsp_backend.instrumentation_pass (instrumentation_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.automata_dump_data ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok out -> f out
 
-let with_why_pass args f =
-  match Lsp_backend.why_pass (why_req args) with
-  | Error msg -> `Error (false, msg)
-  | Ok out -> f out
+let with_why_text_dump args f =
+  match Pipeline_service.why_text_dump ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
+  | Ok text -> f text
 
 let with_obligations_pass args f =
-  match Lsp_backend.obligations_pass (obligations_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.obligations_dump_data ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok out -> f out
 
 let with_kobj_summary args f =
-  match Lsp_backend.kobj_summary (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.kobj_summary ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_kobj_clauses args f =
-  match Lsp_backend.kobj_clauses (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.kobj_clauses ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_kobj_product args f =
-  match Lsp_backend.kobj_product (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.kobj_product ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_kobj_contracts args f =
-  match Lsp_backend.kobj_contracts (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.kobj_contracts ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_normalized_program args f =
-  match Lsp_backend.normalized_program (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.normalized_program ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_ir_pretty args f =
-  match Lsp_backend.ir_pretty_dump (kobj_req args) with
-  | Error msg -> `Error (false, msg)
+  match Pipeline_service.ir_pretty_dump ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let write_text_output out text =
@@ -246,33 +213,39 @@ let get_some name = function Some x -> x | None -> impossible_missing_option nam
 
 (* Shared file-emission helpers. They preserve the current on-disk bundle layout
    and filename conventions while keeping the execution branches short. *)
-let write_automata_bundle ~out ~short (artifacts : Lsp_protocol.automata_outputs) =
+let write_automata_bundle ~out ~short artifacts =
   let dot_base = dot_dump_base out in
-  write_target out (artifacts.guarantee_automaton_text ^ "\n\n" ^ artifacts.assume_automaton_text);
+  write_target out
+    (artifacts.Pipeline_service.guarantee_automaton_text ^ "\n\n"
+   ^ artifacts.Pipeline_service.assume_automaton_text);
   write_target
     (dot_base ^ ".assume.dot")
-    (if short then strip_dot_legend ~legend_id:"legend_a" artifacts.assume_automaton_dot
-     else artifacts.assume_automaton_dot);
+    (if short then
+       strip_dot_legend ~legend_id:"legend_a" artifacts.Pipeline_service.assume_automaton_dot
+     else artifacts.Pipeline_service.assume_automaton_dot);
   write_target
     (dot_base ^ ".guarantee.dot")
-    (if short then strip_dot_legend ~legend_id:"legend_g" artifacts.guarantee_automaton_dot
-     else artifacts.guarantee_automaton_dot);
+    (if short then
+       strip_dot_legend ~legend_id:"legend_g"
+         artifacts.Pipeline_service.guarantee_automaton_dot
+     else artifacts.Pipeline_service.guarantee_automaton_dot);
   `Ok ()
 
-let write_product_bundle ~out (artifacts : Lsp_protocol.automata_outputs) =
+let write_product_bundle ~out artifacts =
   let dot_base = dot_dump_base out in
-  write_target out artifacts.product_text;
-  write_target (dot_base ^ ".dot") artifacts.product_dot;
+  write_target out artifacts.Pipeline_service.product_text;
+  write_target (dot_base ^ ".dot") artifacts.Pipeline_service.product_dot;
   `Ok ()
 
-let write_canonical_bundle ~out ~short (artifacts : Lsp_protocol.automata_outputs) =
+let write_canonical_bundle ~out ~short artifacts =
   let dot_path = ensure_dot_path out in
   let dot_base = dot_dump_base dot_path in
   write_target
     dot_path
-    (if short then strip_dot_legend ~legend_id:"legend_canonical" artifacts.canonical_dot
-     else artifacts.canonical_dot);
-  write_target (dot_base ^ ".txt") artifacts.canonical_text;
+    (if short then
+       strip_dot_legend ~legend_id:"legend_canonical" artifacts.Pipeline_service.canonical_dot
+     else artifacts.Pipeline_service.canonical_dot);
+  write_target (dot_base ^ ".txt") artifacts.Pipeline_service.canonical_text;
   `Ok ()
 
 let dump_mode_count args =
@@ -373,7 +346,8 @@ let exec_dump_mode args = function
   | Dump_canonical { out; short } ->
       with_instrumentation_pass args (write_canonical_bundle ~out ~short)
   | Dump_obligations_map { out } ->
-      with_instrumentation_pass args (fun artifacts -> write_text_output out artifacts.obligations_map_text)
+      with_instrumentation_pass args (fun artifacts ->
+          write_text_output out artifacts.Pipeline_service.obligations_map_text)
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)
   | Dump_ir_pretty { out } -> with_ir_pretty args (write_text_output out)
   | Dump_kobj_summary { out } -> with_kobj_summary args (write_text_output out)
@@ -381,32 +355,36 @@ let exec_dump_mode args = function
   | Dump_kobj_product { out } -> with_kobj_product args (write_text_output out)
   | Dump_kobj_contracts { out } -> with_kobj_contracts args (write_text_output out)
 
-(* The generic run path remains the only branch that calls [Lsp_backend.run].
+(* The generic run path remains the only branch that calls [Engine_service.run].
    It still handles optional side dumps and proof failure reporting. *)
 let exec_action args = function
   | Dump mode -> exec_dump_mode args mode
   | Dump_why { out } ->
-      with_why_pass args (fun why_out ->
-          write_target out why_out.why_text;
+      with_why_text_dump args (fun why_text ->
+          write_target out why_text;
           `Ok ())
   | Dump_why3_vc { out } ->
       with_obligations_pass args (fun obligations_out ->
-          write_target out obligations_out.vc_text;
+          write_target out obligations_out.Pipeline_service.vc_text;
           `Ok ())
   | Dump_smt2 { out } ->
       with_obligations_pass args (fun obligations_out ->
-          write_target out obligations_out.smt_text;
+          write_target out obligations_out.Pipeline_service.smt_text;
           `Ok ())
   | Run { prove } -> (
-      match Lsp_backend.run ~engine:Engine_service.Default (run_req args) with
-      | Error msg -> `Error (false, msg)
+      match
+        Pipeline_service.run_dump_data ~input_file:args.file ~timeout_s:args.timeout_s ~prove
+          ~generate_vc_text:(Option.is_some args.dump_why3_vc)
+          ~generate_smt_text:(Option.is_some args.dump_smt2)
+      with
+      | Error e -> `Error (false, map_error e)
       | Ok out ->
-          Option.iter (fun path -> write_target path out.why_text) args.dump_why;
-          Option.iter (fun path -> write_target path out.vc_text) args.dump_why3_vc;
-          Option.iter (fun path -> write_target path out.smt_text) args.dump_smt2;
-          Option.iter (fun path -> write_timing_dump path out.stage_meta) args.dump_timings;
+          Option.iter (fun path -> write_target path out.Pipeline_service.why_text) args.dump_why;
+          Option.iter (fun path -> write_target path out.Pipeline_service.vc_text) args.dump_why3_vc;
+          Option.iter (fun path -> write_target path out.Pipeline_service.smt_text) args.dump_smt2;
+          Option.iter (fun path -> write_timing_dump path out.Pipeline_service.stage_meta) args.dump_timings;
           if prove then
-            let failures = report_failed_goals out.goals in
+            let failures = report_failed_goals out.Pipeline_service.goals in
             if failures <> [] then `Error (false, String.concat "\n" failures) else `Ok ()
           else `Ok ())
 

@@ -3,11 +3,7 @@
  (public_name kairos)
  (modules main cli)
  (libraries
-  kairos_pipeline_types
   kairos_services
-  kairos_kobj
-  kairos_lsp_protocol
-  kairos_lsp_app
   bos
   fpath
   cmdliner))
