@@ -18,7 +18,6 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Temporal_support
 open Pretty
 open Ltl_valuation
 
@@ -130,7 +129,7 @@ let mk_bool_neq (a : expr) (b : expr) : expr =
          mk_expr (EBin (And, mk_expr (EUn (Not, a)), b)) ))
 
 let atom_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(temporal_layout : Temporal_support.pre_k_info list)
+    ~(temporal_layout : Pre_k_layout.pre_k_info list)
     ((h1, r, h2) : hexpr * relop * hexpr) : expr option =
   let _ = inputs in
   match

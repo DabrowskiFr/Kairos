@@ -25,7 +25,6 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Temporal_support
 open Pretty
 
 module PT = Product_types

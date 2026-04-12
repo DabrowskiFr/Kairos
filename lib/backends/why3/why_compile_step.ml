@@ -21,7 +21,6 @@
 open Why3
 open Ptree
 open Core_syntax
-open Temporal_support
 open Pretty
 open Why_compile_expr
 

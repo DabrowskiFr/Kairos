@@ -19,8 +19,13 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Core_syntax
 open Ast
-open Core_syntax_builders
-open Temporal_support
+
+type pre_k_info = {
+  var_name : Core_syntax.ident;
+  names : string list;
+  vty : Core_syntax.ty;
+}
+[@@deriving yojson]
 
 let add_pre_k_occurrence (vname : ident) (k : int) (acc : (ident * int) list) : (ident * int) list =
   if List.exists (fun (v, d) -> String.equal v vname && d = k) acc then acc else (vname, k) :: acc
@@ -51,21 +56,8 @@ let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl 
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
     ~(fo_formulas : Core_syntax.hexpr list) ~(ltl : ltl list) :
-    Temporal_support.pre_k_info list =
-  let init_for_var =
-    let table =
-      List.map (fun v -> (v.vname, v.vty)) (inputs @ locals @ outputs)
-    in
-    fun v ->
-      match List.assoc_opt v table with
-      | Some TBool -> mk_bool false
-      | Some TInt -> mk_int 0
-      | Some TReal -> mk_int 0
-      | Some (TCustom _) | None -> mk_int 0
-  in
-  let normalize_ltl f = (normalize_ltl_for_k ~init_for_var f).ltl in
-  let normalized_ltl = List.map normalize_ltl ltl in
-  let pre_k_occurrences = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl:normalized_ltl in
+    pre_k_info list =
+  let pre_k_occurrences = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl in
   let vars = inputs @ locals @ outputs in
   let find_vty name =
     match List.find_opt (fun v -> v.vname = name) vars with
@@ -93,7 +85,7 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
          let names = make_names vname max_k in
          { var_name = vname; names; vty })
 
-let build_pre_k_infos (n : node) : Temporal_support.pre_k_info list =
+let build_pre_k_infos (n : node) : pre_k_info list =
   let spec = specification_of_node n in
   let sem = semantics_of_node n in
   build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs

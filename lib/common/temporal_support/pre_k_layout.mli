@@ -22,10 +22,18 @@
     it scans formulas, finds all [pre_k] occurrences, computes maximal depths per
     variable, and builds the corresponding slot metadata. *)
 
+(** Metadata attached to one temporal-history source variable. *)
+type pre_k_info = {
+  var_name : Core_syntax.ident;
+  names : string list;
+  vty : Core_syntax.ty;
+}
+[@@deriving yojson]
+
 (** [build_pre_k_infos_from_parts ~inputs ~locals ~outputs ~fo_formulas ~ltl]
     computes the [pre_k] layout for the given formula set.
 
-    The result provides one {!type:Temporal_support.pre_k_info} per source
+    The result provides one {!type:pre_k_info} per source
     variable that appears under [pre_k], with slot names sized to the maximal
     required depth for that variable. *)
 val build_pre_k_infos_from_parts :
@@ -34,7 +42,7 @@ val build_pre_k_infos_from_parts :
   outputs:Core_syntax.vdecl list ->
   fo_formulas:Core_syntax.hexpr list ->
   ltl:Core_syntax.ltl list ->
-  Temporal_support.pre_k_info list
+  pre_k_info list
 
 (** [build_pre_k_infos node] is the node-level entry point used by the pipeline.
 
@@ -43,4 +51,4 @@ val build_pre_k_infos_from_parts :
     {- state invariants as first-order formulas;}
     {- [require]/[ensures] LTL clauses.}
     } *)
-val build_pre_k_infos : Ast.node -> Temporal_support.pre_k_info list
+val build_pre_k_infos : Ast.node -> pre_k_info list

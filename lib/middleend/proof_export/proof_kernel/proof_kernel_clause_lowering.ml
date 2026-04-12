@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Pre_k_lowering
 open Core_syntax
 open Core_syntax_builders
 open Proof_kernel_types
@@ -27,56 +26,25 @@ let is_hfalse (h : Core_syntax.hexpr) =
 let is_htrue (h : Core_syntax.hexpr) =
   match h.hexpr with HLitBool true -> true | _ -> false
 
-let lower_clause_fact ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (fact : clause_fact_ir) :
-    clause_fact_ir option =
-  let lower_desc = function
-    | FactProgramState _ as desc -> Some desc
-    | FactGuaranteeState _ as desc -> Some desc
-    | FactPhaseFormula fo_formula ->
-        Option.map (fun fo_formula' -> FactPhaseFormula fo_formula')
-          (lower_fo_formula_temporal_bindings ~temporal_bindings fo_formula)
-    | FactFalse -> Some FactFalse
-    | FactFormula fo_formula ->
-        Option.map (fun fo_formula' -> FactFormula fo_formula')
-          (lower_fo_formula_temporal_bindings ~temporal_bindings fo_formula)
-  in
-  Option.map (fun desc -> { fact with desc }) (lower_desc fact.desc)
+let lower_generated_clause (clause : generated_clause_ir) : generated_clause_ir option =
+  if
+    List.exists
+      (fun (fact : clause_fact_ir) ->
+        fact.desc = FactFormula (mk_hbool false) || fact.desc = FactFalse)
+      clause.hypotheses
+  then None
+  else Some clause
 
-let lower_generated_clause ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (clause : generated_clause_ir) : generated_clause_ir option =
-  let rec lower_all acc = function
-    | [] -> Some (List.rev acc)
-    | fact :: tl -> (
-        match lower_clause_fact ~temporal_bindings fact with
-        | None -> None
-        | Some fact' -> lower_all (fact' :: acc) tl)
+let relationalize_clause_fact (fact : clause_fact_ir) : relational_clause_fact_ir =
+  let desc =
+    match fact.desc with
+    | FactProgramState st -> RelFactProgramState st
+    | FactGuaranteeState idx -> RelFactGuaranteeState idx
+    | FactPhaseFormula fo_formula -> RelFactPhaseFormula fo_formula
+    | FactFormula fo_formula -> RelFactFormula fo_formula
+    | FactFalse -> RelFactFalse
   in
-  match (lower_all [] clause.hypotheses, lower_all [] clause.conclusions) with
-  | Some hypotheses, Some conclusions ->
-      if
-        List.exists
-          (fun (fact : clause_fact_ir) ->
-            fact.desc = FactFormula (mk_hbool false) || fact.desc = FactFalse)
-          hypotheses
-      then None
-      else Some { clause with hypotheses; conclusions }
-  | _ -> None
-
-let relationalize_clause_fact ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (fact : clause_fact_ir) : relational_clause_fact_ir option =
-  let rel_desc = function
-    | FactProgramState st -> Some (RelFactProgramState st)
-    | FactGuaranteeState idx -> Some (RelFactGuaranteeState idx)
-    | FactPhaseFormula fo_formula ->
-        Option.map (fun fo_formula' -> RelFactPhaseFormula fo_formula')
-          (lower_fo_formula_temporal_bindings ~temporal_bindings fo_formula)
-    | FactFormula fo_formula ->
-        Option.map (fun fo_formula' -> RelFactFormula fo_formula')
-          (lower_fo_formula_temporal_bindings ~temporal_bindings fo_formula)
-    | FactFalse -> Some RelFactFalse
-  in
-  Option.map (fun desc -> { time = fact.time; desc }) (rel_desc fact.desc)
+  { time = fact.time; desc }
 
 let expand_relational_hypotheses (facts : relational_clause_fact_ir list) :
     relational_clause_fact_ir list list =
@@ -126,11 +94,9 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
   in
   fold [] facts
 
-let relationalize_generated_clause ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (clause : generated_clause_ir) : relational_generated_clause_ir list =
-  let lower_all facts = List.filter_map (relationalize_clause_fact ~temporal_bindings) facts in
-  let hypotheses = lower_all clause.hypotheses in
-  let conclusions = lower_all clause.conclusions in
+let relationalize_generated_clause (clause : generated_clause_ir) : relational_generated_clause_ir list =
+  let hypotheses = List.map relationalize_clause_fact clause.hypotheses in
+  let conclusions = List.map relationalize_clause_fact clause.conclusions in
   if conclusions = [] then []
   else
     expand_relational_hypotheses hypotheses

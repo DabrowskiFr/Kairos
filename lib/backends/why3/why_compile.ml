@@ -26,7 +26,6 @@ open Why3
 open Ptree
 open Core_syntax
 open Ast
-open Temporal_support
 open Pretty
 open Pre_k_layout
 open Why_compile_expr
@@ -155,7 +154,7 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
   let pre_k_binders =
     let seen = Hashtbl.create 16 in
     pre_k_infos
-    |> List.concat_map (fun (info : Temporal_support.pre_k_info) ->
+    |> List.concat_map (fun (info : Pre_k_layout.pre_k_info) ->
            info.names
            |> List.filter_map (fun name ->
                   if Hashtbl.mem seen name then None

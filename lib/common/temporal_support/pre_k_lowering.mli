@@ -33,46 +33,18 @@ type temporal_binding = {
 (** [temporal_bindings_of_layout ~temporal_layout] converts layout metadata into
     explicit lowering bindings. *)
 val temporal_bindings_of_layout :
-  temporal_layout:Temporal_support.pre_k_info list -> temporal_binding list
+  temporal_layout:Pre_k_layout.pre_k_info list -> temporal_binding list
 
-(** [hexpr_to_expr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings h]
-    attempts to translate [h] to an executable expression.
-
-    - [HPreK] nodes are replaced by bound slots.
-    - Unsupported constructs (notably [HPred]) return [None]. *)
-val hexpr_to_expr_with_temporal_bindings :
-  inputs:Core_syntax.ident list ->
-  var_types:(Core_syntax.ident * Core_syntax.ty) list ->
-  temporal_bindings:temporal_binding list ->
-  Core_syntax.hexpr ->
-  Core_syntax.expr option
-
-(** Convenience wrapper around {!val:hexpr_to_expr_with_temporal_bindings}
-    using [temporal_layout]-derived bindings. *)
+(** [hexpr_to_expr ~inputs ~var_types ~temporal_layout h] attempts to translate
+    [h] to an executable expression by replacing [HPreK] nodes with materialized
+    slots. Unsupported constructs (notably [HPred]) return [None]. *)
 val hexpr_to_expr :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
-  temporal_layout:Temporal_support.pre_k_info list ->
+  temporal_layout:Pre_k_layout.pre_k_info list ->
   Core_syntax.hexpr ->
   Core_syntax.expr option
-
-(** [lower_hexpr_temporal_bindings ~temporal_bindings h] rewrites [h] by replacing
-    [pre_k]-style nodes with slot variables. *)
-val lower_hexpr_temporal_bindings : temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option
-
-(** Convenience wrapper around {!val:lower_hexpr_temporal_bindings} using
-    [temporal_layout]-derived bindings. *)
-val lower_hexpr_pre_k :
-  temporal_layout:Temporal_support.pre_k_info list ->
-  Core_syntax.hexpr ->
-  Core_syntax.hexpr option
 
 (** Lower one first-order formula (represented as [hexpr]) with explicit bindings. *)
 val lower_fo_formula_temporal_bindings :
   temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option
-
-(** Convenience wrapper around {!val:lower_fo_formula_temporal_bindings}. *)
-val lower_fo_formula_pre_k :
-  temporal_layout:Temporal_support.pre_k_info list ->
-  Core_syntax.hexpr ->
-  Core_syntax.hexpr option

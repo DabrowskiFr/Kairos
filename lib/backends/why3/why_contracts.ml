@@ -20,7 +20,6 @@
 
 open Why3
 open Ptree
-open Temporal_support
 open Pretty
 open Core_syntax
 open Ast

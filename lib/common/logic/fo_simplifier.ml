@@ -19,7 +19,6 @@
 open Core_syntax
 open Ast
 module Solver = Fo_z3_solver
-open Temporal_support
 
 let rec simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Solver.simplify_fo_formula f with Some g -> g | None -> f

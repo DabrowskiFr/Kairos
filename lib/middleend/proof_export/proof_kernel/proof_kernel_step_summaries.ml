@@ -18,7 +18,6 @@
 open Core_syntax
 open Ast
 open Core_syntax_builders
-open Temporal_support
 
 module Abs = Ir
 open Proof_kernel_types
@@ -55,12 +54,12 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
           node.summaries
   in
   let slot_to_current_expr =
-    let add acc (info : Temporal_support.pre_k_info) =
-      info.Temporal_support.names
+    let add acc (info : Pre_k_layout.pre_k_info) =
+      info.Pre_k_layout.names
       |> List.mapi (fun idx name ->
              let lowered =
-               if idx = 0 then Core_syntax_builders.mk_hvar info.Temporal_support.var_name
-               else Core_syntax_builders.mk_hpre_k info.Temporal_support.var_name idx
+               if idx = 0 then Core_syntax_builders.mk_hvar info.Pre_k_layout.var_name
+               else Core_syntax_builders.mk_hpre_k info.Pre_k_layout.var_name idx
              in
              (name, lowered))
       |> List.rev_append acc
@@ -68,8 +67,8 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     List.fold_left add [] temporal_layout
   in
   let current_expr_to_next_slot =
-    let add acc (info : Temporal_support.pre_k_info) =
-      (info.Temporal_support.var_name, info.Temporal_support.names) :: acc
+    let add acc (info : Pre_k_layout.pre_k_info) =
+      (info.Pre_k_layout.var_name, info.Pre_k_layout.names) :: acc
     in
     List.fold_left add [] temporal_layout
   in

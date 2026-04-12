@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Temporal_support
 open Pretty
 open Pre_k_layout
 open Core_syntax_builders
@@ -167,11 +166,11 @@ let temporal_locals_of_layout ~(existing_locals : vdecl list) (layout : Ir.tempo
   layout
   |> List.fold_left
        (fun acc info ->
-         if List.exists
-              (fun (existing_info : Temporal_support.pre_k_info) ->
-                existing_info.Temporal_support.var_name = info.Temporal_support.var_name
-                && existing_info.Temporal_support.names = info.Temporal_support.names)
-              acc
+	         if List.exists
+	              (fun (existing_info : Pre_k_layout.pre_k_info) ->
+	                existing_info.Pre_k_layout.var_name = info.Pre_k_layout.var_name
+	                && existing_info.Pre_k_layout.names = info.Pre_k_layout.names)
+	              acc
          then acc
          else acc @ [ info ])
        []
@@ -289,13 +288,12 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
   let historical_generated_clauses =
     build_generated_clauses ~node ~analysis ~initial_state:initial_product_state ~steps:product_steps
   in
-  let temporal_bindings = Ir_formula.temporal_bindings_of_node node in
   let eliminated_generated_clauses =
-    List.filter_map (Proof_kernel_clause_lowering.lower_generated_clause ~temporal_bindings)
+    List.filter_map Proof_kernel_clause_lowering.lower_generated_clause
       historical_generated_clauses
   in
   let symbolic_generated_clauses =
-    List.concat_map (Proof_kernel_clause_lowering.relationalize_generated_clause ~temporal_bindings)
+    List.concat_map Proof_kernel_clause_lowering.relationalize_generated_clause
       eliminated_generated_clauses
   in
   let proof_step_summaries =

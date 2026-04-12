@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Ast
-open Temporal_support
 open Pretty
 open Core_syntax_builders
 

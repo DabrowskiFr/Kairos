@@ -28,7 +28,7 @@ type summary_formula = {
   meta : formula_meta;
 }
 
-type temporal_layout = Temporal_support.pre_k_info list
+type temporal_layout = Pre_k_layout.pre_k_info list
 
 type product_state = {
   prog_state : ident;
