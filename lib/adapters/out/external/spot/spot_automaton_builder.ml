@@ -22,22 +22,9 @@ open Core_syntax_builders
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
-let inline_atom_names (atom_named_exprs : (ident * expr) list) (e : expr) : expr =
-  let map = Hashtbl.create 16 in
-  List.iter (fun (name, expr) -> Hashtbl.replace map name expr) atom_named_exprs;
-  let rec go (e : expr) =
-    match e.expr with
-    | EVar name -> begin match Hashtbl.find_opt map name with Some expr -> go expr | None -> e end
-    | ELitInt _ | ELitBool _ -> e
-    | EUn (op, inner) -> { e with expr = EUn (op, go inner) }
-    | EBin (op, a, b) -> { e with expr = EBin (op, go a, go b) }
-    | ECmp (op, a, b) -> { e with expr = ECmp (op, go a, go b) }
-  in
-  go e
-
 let normalize_spot_automaton ~(atom_names : string list)
-    ~(atom_map : ((hexpr * relop * hexpr) * ident) list)
-    ~(atom_named_exprs : (ident * expr) list) (hoa : Automaton_spot.hoa_automaton) :
+    ~(atom_map : (ltl_atom * ident) list)
+    (hoa : Automaton_spot.hoa_automaton) :
     Automaton_types.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
   List.iter (fun (st : Automaton_spot.hoa_state) -> Hashtbl.replace by_id st.id st) hoa.states;
@@ -111,16 +98,16 @@ let normalize_spot_automaton ~(atom_names : string list)
         with_hexpr_desc h (HCmp (rel, substitute_atom_vars lhs, substitute_atom_vars rhs))
   in
   let guard_to_fo (g : Automaton_spot.raw_guard) : Core_syntax.hexpr =
-    let _ = atom_named_exprs in
     Ltl_valuation.terms_to_expr g |> hexpr_of_expr |> substitute_atom_vars |> simplify_fo
   in
   let transitions =
     List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw
   in
-  { Automaton_types.atom_names; states_raw = states; transitions_raw = transitions; states; transitions; grouped = transitions }
+  let _ = atom_names in
+  { states; transitions }
 
-let build ~(atom_map : ((hexpr * relop * hexpr) * ident) list) ~(atom_names : ident list)
-    ~(atom_named_exprs : (ident * expr) list) (spec : ltl) : Automaton_types.automaton =
+let build ~(atom_map : (ltl_atom * ident) list) (spec : ltl) : Automaton_types.automaton =
+  let atom_names = List.map snd atom_map in
   let formula = Automaton_spot.string_of_spot_ltl ~atom_map spec in
   let () = Automaton_spot.ensure_safety formula in
   let hoa_text = Automaton_spot.call_spot formula in
@@ -129,4 +116,4 @@ let build ~(atom_map : ((hexpr * relop * hexpr) * ident) list) ~(atom_names : id
     failwith
       (Printf.sprintf "Spot backend returned %d APs but Kairos expected %d" hoa.ap_count
          (List.length atom_names));
-  normalize_spot_automaton ~atom_names ~atom_map ~atom_named_exprs hoa
+  normalize_spot_automaton ~atom_names ~atom_map hoa

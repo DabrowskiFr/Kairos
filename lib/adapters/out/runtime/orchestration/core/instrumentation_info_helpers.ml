@@ -22,7 +22,7 @@
     helpers used by {!Instrumentation_info_builder}. *)
 
 open Core_syntax
-open Ast
+open Automaton_types
 
 (** Helper value. *)
 
@@ -30,35 +30,28 @@ let ( let* ) = Result.bind
 
 (** [program_transitions_of_ast_node] helper value. *)
 
-let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
-  Ir_transition.prioritized_program_transitions_of_node node
+let program_transitions_of_model_node (node : Verification_model.node_model) :
+    Verification_model.program_step list =
+  node.steps
 
 (** [source_nodes_by_name] helper value. *)
 
-let source_nodes_by_name (source_program : Ast.program) : (ident * node) list =
-  List.map (fun (node : Ast.node) -> (node.semantics.sem_nname, node)) source_program
-
-(** [source_node_of_name] helper value. *)
-
-let source_node_of_name ~(source_nodes : (ident * Ast.node) list) ~(node_name : ident) :
-    (Ast.node, string) result =
-  Result_utils.find_assoc
-    ~missing:(fun name -> Printf.sprintf "Missing source AST node for IR node %s" name)
-    node_name source_nodes
+let source_nodes_by_name (source_program : Verification_model.program_model) :
+    (ident * Verification_model.node_model) list =
+  List.map (fun (node : Verification_model.node_model) -> (node.node_name, node)) source_program
 
 (** [analysis_context_of_source_node] helper value. *)
 
-let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
-  let semantics = Ast.semantics_of_node source_node in
+let analysis_context_of_source_node (source_node : Verification_model.node_model) : Ir.node_ir =
   {
     Ir.semantics =
       {
-        sem_nname = semantics.sem_nname;
-        sem_inputs = semantics.sem_inputs;
-        sem_outputs = semantics.sem_outputs;
-        sem_locals = semantics.sem_locals;
-        sem_states = semantics.sem_states;
-        sem_init_state = semantics.sem_init_state;
+        sem_nname = source_node.node_name;
+        sem_inputs = source_node.inputs;
+        sem_outputs = source_node.outputs;
+        sem_locals = source_node.locals;
+        sem_states = source_node.states;
+        sem_init_state = source_node.init_state;
       };
     source_info = { assumes = []; guarantees = []; state_invariants = [] };
     temporal_layout = Pre_k_layout.build_pre_k_infos source_node;
@@ -68,8 +61,9 @@ let analysis_context_of_source_node (source_node : Ast.node) : Ir.node_ir =
 
 (** [build_node_analysis] helper value. *)
 
-let build_node_analysis ~(automata : Automata_generation.node_builds)
-    ~(program_transitions : Ir.transition list) (source_node : Ast.node) :
+let build_node_analysis
+    ~(automata : (Core_syntax.ident * automata_spec) list)
+    (source_node : Verification_model.node_model) :
     (Temporal_automata.node_data, string) result =
   let node = analysis_context_of_source_node source_node in
   let* build =
@@ -77,20 +71,19 @@ let build_node_analysis ~(automata : Automata_generation.node_builds)
       ~missing:(fun node_name -> Printf.sprintf "Missing automata build for IR node %s" node_name)
       node.semantics.sem_nname automata
   in
-  Ok (Product_build.analyze_node ~build ~node ~program_transitions)
+  Ok
+    (Product_build.analyze_node ~build ~node:source_node
+       ~program_transitions:(program_transitions_of_model_node source_node))
 
 (** [build_analyses] helper value. *)
 
-let build_analyses ~(automata : Automata_generation.node_builds)
-    ~(source_nodes : (ident * Ast.node) list) :
+let build_analyses
+    ~(automata : (Core_syntax.ident * automata_spec) list)
+    ~(source_nodes : (ident * Verification_model.node_model) list) :
     ((ident * Temporal_automata.node_data) list, string) result =
   source_nodes
   |> List.map (fun (node_name, source_node) ->
-         let analysis =
-           build_node_analysis ~automata
-             ~program_transitions:(program_transitions_of_ast_node source_node)
-             source_node
-         in
+         let analysis = build_node_analysis ~automata source_node in
          Result.map (fun value -> (node_name, value)) analysis)
   |> Result_utils.all
 

@@ -18,7 +18,12 @@
 
 module Usecases = Verification_flow_usecases.Make (Verification_runtime_adapters.Ports)
 
-let build_snapshot = Verification_runtime_adapters.Ports.Snapshot.build_snapshot
+let ( let* ) = Result.bind
+
+let build_snapshot ~input_file =
+  let* frontend = Verification_runtime_adapters.Ports.Frontend.parse_input ~input_file in
+  Verification_runtime_adapters.Ports.Snapshot.build_snapshot ~frontend
+
 let instrumentation_pass = Usecases.instrumentation_pass
 let why_pass = Usecases.why_pass
 let obligations_pass = Usecases.obligations_pass

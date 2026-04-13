@@ -56,8 +56,7 @@ let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
 let program_transitions_of_ast_node (node : Ast.node) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
 
-let automaton_guard_fo ~(atom_map_exprs : (ident * expr) list) (g : Automaton_types.guard) : Core_syntax.hexpr =
-  let _ = atom_map_exprs in
+let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.hexpr =
   simplify_fo g
 
 type lit = { var : ident; cst : string; is_pos : bool }
@@ -186,11 +185,10 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node) :
     ~program_transitions:(program_transitions_of_ast_node source_node)
 
 let build_automaton ~(role : Proof_kernel_types.automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * expr) list) :
+    ~(grouped_edges : PT.automaton_edge list) :
     Proof_kernel_types.safety_automaton_ir =
-  Proof_kernel_product.build_automaton ~role ~labels ~bad_idx ~grouped_edges ~atom_map_exprs
-    ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
-      automaton_guard_fo ~atom_map_exprs guard_raw)
+  Proof_kernel_product.build_automaton ~role ~labels ~bad_idx ~grouped_edges
+    ~automaton_guard_fo
 
 let build_product_step ~(reactive_program : Proof_kernel_types.reactive_program_ir) (step : PT.product_step) :
     Proof_kernel_types.product_step_ir =
@@ -208,16 +206,14 @@ let synthesize_fallback_product_steps ~(node : Abs.node_ir) ~(analysis : Tempora
     ~program_transitions:(program_transitions_of_ast_node source_node)
     ~node ~analysis ~reactive_program
     ~live_states
-    ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
-      automaton_guard_fo ~atom_map_exprs guard_raw)
+    ~automaton_guard_fo
     ~product_state_of_pt ~product_step_kind_of_pt ~is_live_state
 
 let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(initial_state : Proof_kernel_types.product_state_ir) ~(steps : Proof_kernel_types.product_step_ir list) :
     Proof_kernel_types.generated_clause_ir list =
   Proof_kernel_generated_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps
-    ~automaton_guard_fo:(fun atom_map_exprs guard_raw ->
-      automaton_guard_fo ~atom_map_exprs guard_raw)
+    ~automaton_guard_fo
     ~is_live_state
 
 let node_signature_of_ast ~(temporal_layout : Ir.temporal_layout) (n : Ast.node) :
@@ -257,12 +253,10 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
   let assume_automaton =
     build_automaton ~role:Proof_kernel_types.Assume ~labels:analysis.assume_state_labels
       ~bad_idx:analysis.assume_bad_idx ~grouped_edges:analysis.assume_grouped_edges
-      ~atom_map_exprs:analysis.assume_atom_map_exprs
   in
   let guarantee_automaton =
     build_automaton ~role:Proof_kernel_types.Guarantee ~labels:analysis.guarantee_state_labels
       ~bad_idx:analysis.guarantee_bad_idx ~grouped_edges:analysis.guarantee_grouped_edges
-      ~atom_map_exprs:analysis.guarantee_atom_map_exprs
   in
   let initial_product_state = product_state_of_pt analysis.exploration.initial_state in
   let live_product_states =

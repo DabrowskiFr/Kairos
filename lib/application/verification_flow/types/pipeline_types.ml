@@ -144,13 +144,21 @@ open Core_syntax
   }
 
   type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
-  type obligations_outputs = { vc_text : string; smt_text : string }
+type obligations_outputs = { vc_text : string; smt_text : string }
+
+type frontend_payload = {
+  imports : string list;
+  parse_info : Flow_info.parse_info;
+  parsed : Ast.program;
+  verification_model : Verification_model.program_model;
+}
 
 type ast_flow = {
-  source : Parse_api.source;
+  imports : string list;
   parsed : Ast.program;
+  verification_model : Verification_model.program_model;
   automata_generation : Ast.program;
-  automata : Automaton_types.node_builds;
+  automata : (ident * Automaton_types.automata_spec) list;
   summaries : Ir.node_ir list;
   instrumentation : Ir.node_ir list;
 }

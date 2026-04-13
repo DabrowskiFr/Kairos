@@ -18,11 +18,11 @@
 
 (** Snapshot builder for the application pipeline.
 
-    This module performs parse + automata + IR orchestration and returns a
-    [pipeline_snapshot] enriched with flow metadata.
+    This module consumes a frontend payload (already parsed/lowered) and
+    performs automata + IR orchestration, returning a [pipeline_snapshot]
+    enriched with flow metadata.
 *)
 
-val build_ast_with_info :
-  input_file:string ->
-  unit ->
+val build_snapshot_from_frontend :
+  frontend:Pipeline_types.frontend_payload ->
   (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result

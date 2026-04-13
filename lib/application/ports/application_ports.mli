@@ -47,6 +47,15 @@ type timing_counters = {
 
 type goal_result = int * string * string * float * string option * string option
 
+(** Port responsible for parsing and lowering one Kairos input source. *)
+
+module type FRONTEND_PORT = sig
+  (** Parse and lower [input_file] into a frontend payload. *)
+  val parse_input :
+    input_file:string ->
+    (Pipeline_types.frontend_payload, Pipeline_types.error) result
+end
+
 (** Port producing an immutable pipeline snapshot from an input file. *)
 
 module type SNAPSHOT_PORT = sig
@@ -54,13 +63,13 @@ module type SNAPSHOT_PORT = sig
 
   type snapshot
 
-  (** Build a snapshot from [input_file].
+  (** Build a snapshot from a frontend payload.
 
       Returns [Error _] when parsing or stage preparation fails.
   *)
 
   val build_snapshot :
-    input_file:string ->
+    frontend:Pipeline_types.frontend_payload ->
     (snapshot, Pipeline_types.error) result
 end
 
@@ -179,6 +188,9 @@ module type PORTS = sig
 
   type snapshot
 
+  (** Snapshot construction port. *)
+
+  module Frontend : FRONTEND_PORT
   (** Snapshot construction port. *)
 
   module Snapshot : SNAPSHOT_PORT with type snapshot = snapshot

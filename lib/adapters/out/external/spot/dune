@@ -5,7 +5,6 @@
  (modules automaton_spot spot_automaton_builder)
  (libraries
   kairos_ast
-  kairos_ltl_valuation
   kairos_automata
   kairos_core_syntax
   kairos_external_timing

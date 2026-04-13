@@ -21,28 +21,7 @@
     This module provides a stable surface for common structural types used by
     the IR, while keeping compatibility with the current AST definitions. *)
 
-type ident = Core_syntax.ident
-(** Type [loc]. *)
-
-type loc = Loc.loc
-(** Type [ltl]. *)
-
-type ltl = Core_syntax.ltl
-(** Type [ltl_o]. *)
-
-type ltl_o = Core_syntax.ltl_o
-(** Type [hexpr]. *)
-
-type hexpr = Core_syntax.hexpr
-(** Type [expr]. *)
-
-type expr = Core_syntax.expr
-(** Type [stmt]. *)
-
-type stmt = Ast.stmt
-(** Type [vdecl]. *)
-
-type vdecl = Core_syntax.vdecl
+(* type vdecl = Core_syntax.vdecl *)
 
 (** Stable identifier attached to logical formulas across exports/reports. *)
 type formula_id = int

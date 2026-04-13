@@ -161,13 +161,25 @@ type why_outputs = { why_text : string; flow_meta : (string * (string * string) 
 
 type obligations_outputs = { vc_text : string; smt_text : string }
 
+(** Frontend parsing payload consumed by snapshot builders.
+
+    It bundles parsed source-level data and the internal verification model. *)
+
+type frontend_payload = {
+  imports : string list;
+  parse_info : Flow_info.parse_info;
+  parsed : Ast.program;
+  verification_model : Verification_model.program_model;
+}
+
 (** Snapshot of program forms produced by early and middle pipeline stages. *)
 
 type ast_flow = {
-  source : Parse_api.source;
+  imports : string list;
   parsed : Ast.program;
+  verification_model : Verification_model.program_model;
   automata_generation : Ast.program;
-  automata : Automaton_types.node_builds;
+  automata : (ident * Automaton_types.automata_spec) list;
   summaries : Ir.node_ir list;
   instrumentation : Ir.node_ir list;
 }

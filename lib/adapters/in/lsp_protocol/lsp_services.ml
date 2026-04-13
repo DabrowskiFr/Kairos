@@ -43,19 +43,19 @@ let mk_diag ~severity ~source ~message : diagnostic =
 let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
   try
     let _source, info =
-      Parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
+      Kx_parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
     in
     let diags = ref [] in
     List.iter
       (fun e ->
         diags :=
           mk_diag ~severity:1 ~source:"kairos-parse"
-            ~message:e.Parse_api.message
+            ~message:e.Kx_parse_api.message
           :: !diags)
-      info.Parse_api.parse_errors;
+      info.Kx_parse_api.parse_errors;
     List.iter
       (fun w -> diags := mk_diag ~severity:2 ~source:"kairos-parse" ~message:w :: !diags)
-      info.Parse_api.warnings;
+      info.Kx_parse_api.warnings;
     List.rev !diags
   with exn ->
     let msg = Printexc.to_string exn in
@@ -433,7 +433,7 @@ let semantic_symbols_of_program (p : Ast.program) : semantic_symbols =
 let parse_program_from_text (text : string) : Ast.program option =
   try
     let source, _info =
-      Parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
+      Kx_parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
     in
     Some source.nodes
   with _ -> None

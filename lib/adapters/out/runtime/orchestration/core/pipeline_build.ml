@@ -20,18 +20,6 @@ open Ast
 
 let ( let* ) = Result.bind
 
-let flow_parse_info_of_frontend (info : Parse_api.parse_info) : Flow_info.parse_info =
-  {
-    source_path = info.source_path;
-    text_hash = info.text_hash;
-    parse_errors =
-      List.map
-        (fun (e : Parse_api.parse_error) ->
-          ({ Flow_info.loc = e.loc; message = e.message } : Flow_info.parse_error))
-        info.parse_errors;
-    warnings = info.warnings;
-  }
-
 let rec stmt_contains_call (s : Ast.stmt) : bool =
   match s.stmt with
   | SCall _ -> true
@@ -60,30 +48,19 @@ let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
               "Calls are not supported in this Kairos version (node '%s')."
               n.semantics.sem_nname))
 
-let read_all_text (path : string) : (string, Pipeline_types.error) result =
-  try
-    let ic = open_in_bin path in
-    let len = in_channel_length ic in
-    let s = really_input_string ic len in
-    close_in ic;
-    Ok s
-  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
-
-let build_ast_with_info ~input_file () :
+let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
     (Pipeline_types.pipeline_snapshot, Pipeline_types.error)
     result =
   try
-    let* source_text = read_all_text input_file in
-    let source, parse_info_front =
-      Parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
-    in
-    let parse_info = flow_parse_info_of_frontend parse_info_front in
-    let p_parsed = source.nodes in
+    let imports = frontend.imports in
+    let parse_info = frontend.parse_info in
+    let p_parsed = frontend.parsed in
+    let p_model = frontend.verification_model in
     match reject_calls p_parsed with
     | Error _ as err -> err
     | Ok () ->
-    let p_automaton, automata, automata_pass_info =
-      Automata_pass.run_with_info p_parsed Spot_automaton_builder.build
+    let automata, automata_pass_info =
+      Automata_generation.run p_model ~build_automaton:Spot_automaton_builder.build
     in
     let automata_info : Flow_info.automata_info =
       {
@@ -94,7 +71,7 @@ let build_ast_with_info ~input_file () :
     in
     let t_product = Unix.gettimeofday () in
     let p_summaries =
-      match Orchestration.build_initial_ir ~automata p_automaton with
+      match Orchestration.build_initial_ir ~automata p_model with
       | Error msg -> Error (Pipeline_types.Flow_error msg)
       | Ok summaries ->
           External_timing.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
@@ -111,15 +88,16 @@ let build_ast_with_info ~input_file () :
         in
         match
           Instrumentation_info_builder.instrumentation_info_of_ir ~automata
-            ~source_program:p_automaton ir_program
+            ~source_program:p_parsed ~source_model:p_model ir_program
         with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok instrumentation_info ->
         let asts : Pipeline_types.ast_flow =
           {
-            source;
+            imports;
             parsed = p_parsed;
-            automata_generation = p_automaton;
+            verification_model = p_model;
+            automata_generation = p_parsed;
             automata;
             summaries = p_summaries;
             instrumentation = p_instrumentation;

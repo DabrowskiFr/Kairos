@@ -1,0 +1,7 @@
+(library
+ (name kairos_frontend_kairos_ast)
+ (wrapped false)
+ (modules kx_ast kx_ast_builders)
+ (libraries kairos_frontend_kairos_syntax yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))

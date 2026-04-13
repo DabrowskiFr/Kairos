@@ -16,11 +16,55 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+module Frontend = struct
+  let flow_parse_info_of_frontend (info : Kx_parse_api.parse_info) : Flow_info.parse_info =
+    {
+      source_path = info.source_path;
+      text_hash = info.text_hash;
+      parse_errors =
+        List.map
+          (fun (e : Kx_parse_api.parse_error) ->
+            ({ Flow_info.loc = e.loc; message = e.message } : Flow_info.parse_error))
+          info.parse_errors;
+      warnings = info.warnings;
+    }
+
+  let read_all_text (path : string) : (string, Pipeline_types.error) result =
+    try
+      let ic = open_in_bin path in
+      let len = in_channel_length ic in
+      let s = really_input_string ic len in
+      close_in ic;
+      Ok s
+    with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+
+  let parse_input ~input_file : (Pipeline_types.frontend_payload, Pipeline_types.error) result =
+    match read_all_text input_file with
+    | Error _ as err -> err
+    | Ok source_text -> (
+        try
+          let source, parse_info_front =
+            Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
+          in
+          let parse_info = flow_parse_info_of_frontend parse_info_front in
+          let parsed = source.nodes in
+          let verification_model = Kairos_to_model.program parsed in
+          Ok { imports = Kx_parse_api.imported_paths source; parse_info; parsed; verification_model }
+        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+end
+
 module Snapshot = struct
   type snapshot = Pipeline_types.pipeline_snapshot
 
-  let build_snapshot ~input_file = Pipeline_build.build_ast_with_info ~input_file ()
+  let build_snapshot ~frontend = Pipeline_build.build_snapshot_from_frontend ~frontend
 end
+
+let ( let* ) = Result.bind
+
+let snapshot_of_input_file ~(input_file : string) :
+    (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result =
+  let* frontend = Frontend.parse_input ~input_file in
+  Snapshot.build_snapshot ~frontend
 
 module Outputs = struct
   type snapshot = Pipeline_types.pipeline_snapshot
@@ -29,7 +73,16 @@ module Outputs = struct
 end
 
 module Instrumentation = struct
-  let instrumentation_pass = Instrumentation_artifacts.instrumentation_pass
+  let instrumentation_pass ~generate_png ~input_file =
+    match snapshot_of_input_file ~input_file with
+    | Error _ as err -> err
+    | Ok (snapshot : Pipeline_types.pipeline_snapshot) -> (
+        match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
+        | Error msg -> Error (Pipeline_types.Flow_error msg)
+        | Ok artifacts ->
+            Ok
+              (Output_mapper.map_automata_outputs ~generate_png ~snapshot
+                 ~artifacts))
 end
 
 module Why_text = struct
@@ -110,6 +163,7 @@ end
 module Ports = struct
   type snapshot = Pipeline_types.pipeline_snapshot
 
+  module Frontend = Frontend
   module Snapshot = Snapshot
   module Outputs = Outputs
   module Instrumentation = Instrumentation
@@ -120,4 +174,20 @@ module Ports = struct
   module Proof_events = Proof_events
 end
 
-let compile_object = Instrumentation_artifacts.compile_object
+let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
+  match snapshot_of_input_file ~input_file with
+  | Error _ as err -> err
+  | Ok (snapshot : Pipeline_types.pipeline_snapshot) -> (
+      match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
+      | Error msg -> Error (Pipeline_types.Flow_error msg)
+      | Ok artifacts ->
+          let parse_info =
+            Option.value snapshot.infos.parse ~default:Flow_info.empty_parse_info
+          in
+          Kairos_object.build ~source_path:input_file
+            ~source_hash:parse_info.text_hash
+            ~imports:snapshot.asts.imports
+            ~program:snapshot.asts.parsed
+            ~runtime_program:snapshot.asts.automata_generation
+            ~kernel_ir_nodes:artifacts.kernel_ir_nodes
+          |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg))

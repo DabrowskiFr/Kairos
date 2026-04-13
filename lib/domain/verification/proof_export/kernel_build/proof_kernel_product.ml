@@ -56,15 +56,14 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Ast.node)
   }
 
 let build_automaton ~(role : automaton_role) ~(labels : string list) ~(bad_idx : int)
-    ~(grouped_edges : PT.automaton_edge list) ~(atom_map_exprs : (ident * expr) list)
-    ~automaton_guard_fo : safety_automaton_ir =
+    ~(grouped_edges : PT.automaton_edge list) ~automaton_guard_fo : safety_automaton_ir =
   let edges =
     List.map
       (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
         {
           src_index = src;
           dst_index = dst;
-          guard = automaton_guard_fo atom_map_exprs guard_raw;
+          guard = automaton_guard_fo guard_raw;
         })
       grouped_edges
   in
@@ -312,13 +311,13 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
   let assume_edges =
     List.map
       (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
-        (src, dst, automaton_guard_fo analysis.assume_atom_map_exprs guard_raw))
+        (src, dst, automaton_guard_fo guard_raw))
       analysis.assume_grouped_edges
   in
   let guarantee_edges =
     List.map
       (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
-        (src, dst, automaton_guard_fo analysis.guarantee_atom_map_exprs guard_raw))
+        (src, dst, automaton_guard_fo guard_raw))
       analysis.guarantee_grouped_edges
   in
   let matching_edges edges src dst =

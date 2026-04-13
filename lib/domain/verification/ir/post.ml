@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
-open Ast
 open Fo_time
 
 module Abs = Ir

@@ -3,6 +3,6 @@
  (public_name kairos.ir_temporal_support)
  (wrapped false)
  (modules pre_k_layout pre_k_lowering)
- (libraries kairos_ast yojson)
+ (libraries kairos_core_syntax kairos_verification_model yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

@@ -10,14 +10,11 @@
   result_utils)
  (libraries
   kairos_ast
-  kairos_parse
  kairos_verification_flow_types
- kairos_automata_generation
-  kairos_automata_pass
+ kairos_automata
   kairos_ir
   kairos_ir_passes
   kairos_ir_stage_passes
-  kairos_product_build
   kairos_external_spot
   kairos_external_timing
   kairos_core_syntax))
@@ -27,17 +24,15 @@
  (wrapped false)
  (modules
   pipeline_artifact_bundle
-  pipeline_outputs_helpers
-  proof_runner
-  output_mapper
-  pipeline_outputs
-  instrumentation_artifacts)
+ pipeline_outputs_helpers
+ proof_runner
+ output_mapper
+  pipeline_outputs)
  (libraries
   kairos_verification_runtime_orchestration
   kairos_ast
   kairos_verification_flow_types
-  kairos_automata_generation
-  kairos_product_build
+  kairos_automata
   kairos_ir
   kairos_ir_stage_passes
   kairos_core_syntax

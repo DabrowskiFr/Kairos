@@ -1,0 +1,5 @@
+(library
+ (name kairos_input_lang)
+ (wrapped false)
+ (modules kairos_to_model)
+ (libraries kairos_ast kairos_core_syntax kairos_verification_model))

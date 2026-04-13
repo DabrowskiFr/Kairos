@@ -25,11 +25,12 @@
     - node/program IR containers consumed by later pipeline phases. *)
 
 open Ir_shared_types
+open Core_syntax
 
 (** Metadata attached to one logical formula in the IR. *)
 type formula_meta = {
   oid : formula_id;
-  loc : loc option;
+  loc : Loc.loc option;
 }
 
 (** Formula used in IR summaries and goals. *)
@@ -48,13 +49,14 @@ type product_state = {
   guarantee_state_index : automaton_state_index;
 }
 
-(** Normalized program transition used by IR summaries. *)
+(** Normalized executable transition used by the IR summaries. *)
 type transition = {
   src_state : ident;
   dst_state : ident;
   guard_expr : expr option;
-  body_stmts : stmt list;
+  body_stmts : Ast.stmt list;
 }
+
 
 (** Admissible branch: destination product state + admissibility guard. *)
 type safe_product_case = {

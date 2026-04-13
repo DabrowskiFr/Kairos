@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Ast
 open Core_syntax_builders
 
 let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =

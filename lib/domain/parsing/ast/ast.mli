@@ -18,12 +18,14 @@
 
 (** Abstract syntax tree for Kairos programs *)
 
+open Core_syntax
+
 (** {1 Core Types} *)
 
 
 type invariant_state_rel = {
-  state : Core_syntax.ident;
-  formula : Core_syntax.hexpr;
+  state : ident;
+  formula : hexpr;
 }[@@deriving yojson]
 
 (** {1 Statements & Invariants} *)
@@ -33,11 +35,11 @@ type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 [@@deriving yojson]
 
 and stmt_desc =
-  | SAssign of Core_syntax.ident * Core_syntax.expr
-  | SIf of Core_syntax.expr * stmt list * stmt list
-  | SMatch of Core_syntax.expr * (Core_syntax.ident * stmt list) list * stmt list
+  | SAssign of ident * expr
+  | SIf of expr * stmt list * stmt list
+  | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
-  | SCall of Core_syntax.ident * Core_syntax.expr list * Core_syntax.ident list
+  | SCall of ident * expr list * ident list
 [@@deriving yojson]
 
 (** {1 Per-pass Metadata}
@@ -48,21 +50,21 @@ and stmt_desc =
 
 (** Source transition. *)
 type transition = {
-  src : Core_syntax.ident;
-  dst : Core_syntax.ident;
-  guard : Core_syntax.expr option;
+  src : ident;
+  dst : ident;
+  guard : expr option;
   body : stmt list;
 }
 
 (** Program-facing part of a node: state machine and transition semantics. *)
 type node_semantics = {
-  sem_nname : Core_syntax.ident;
-  sem_inputs : Core_syntax.vdecl list;
-  sem_outputs : Core_syntax.vdecl list;
-  sem_instances : (Core_syntax.ident * Core_syntax.ident) list;
-  sem_locals : Core_syntax.vdecl list;
-  sem_states : Core_syntax.ident list;
-  sem_init_state : Core_syntax.ident;
+  sem_nname : ident;
+  sem_inputs : vdecl list;
+  sem_outputs : vdecl list;
+  sem_instances : (ident * ident) list;
+  sem_locals : vdecl list;
+  sem_states : ident list;
+  sem_init_state : ident;
   sem_trans : transition list;
 }
 
@@ -71,8 +73,8 @@ type node_semantics = {
     Formulas may refer to current values through [HVar] and to bounded history
     through [HPreK]. *)
 type node_specification = {
-  spec_assumes : Core_syntax.ltl list;
-  spec_guarantees : Core_syntax.ltl list;
+  spec_assumes : ltl list;
+  spec_guarantees : ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
 }
 

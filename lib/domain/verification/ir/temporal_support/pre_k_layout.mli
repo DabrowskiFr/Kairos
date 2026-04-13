@@ -51,4 +51,4 @@ val build_pre_k_infos_from_parts :
     {- state invariants as first-order formulas;}
     {- [require]/[ensures] LTL clauses.}
     } *)
-val build_pre_k_infos : Ast.node -> pre_k_info list
+val build_pre_k_infos : Verification_model.node_model -> pre_k_info list

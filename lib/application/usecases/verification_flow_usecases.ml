@@ -17,6 +17,8 @@
  *---------------------------------------------------------------------------*)
 
 module Make (P : Application_ports.PORTS) = struct
+  let ( let* ) = Result.bind
+
   let fmt_s x = Printf.sprintf "%.6f" x
 
   let solver_sum_s (goals : Pipeline_types.goal_info list) : float =
@@ -49,31 +51,30 @@ module Make (P : Application_ports.PORTS) = struct
   let instrumentation_pass = P.Instrumentation.instrumentation_pass
 
   let why_pass ~input_file =
-    match P.Snapshot.build_snapshot ~input_file with
-    | Error _ as e -> e
-    | Ok snapshot -> Ok (P.Why_text.why_text ~snapshot)
+    let* frontend = P.Frontend.parse_input ~input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~frontend in
+    Ok (P.Why_text.why_text ~snapshot)
 
   let obligations_pass ~input_file =
-    match P.Snapshot.build_snapshot ~input_file with
-    | Error _ as e -> e
-    | Ok snapshot -> Ok (P.Obligations.obligations ~snapshot)
+    let* frontend = P.Frontend.parse_input ~input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~frontend in
+    Ok (P.Obligations.obligations ~snapshot)
 
   let normalized_program ~input_file =
-    match P.Snapshot.build_snapshot ~input_file with
-    | Error _ as err -> err
-    | Ok snapshot -> Ok (P.Ir_render.normalized_program ~snapshot)
+    let* frontend = P.Frontend.parse_input ~input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~frontend in
+    Ok (P.Ir_render.normalized_program ~snapshot)
 
   let ir_pretty_dump ~input_file =
-    match P.Snapshot.build_snapshot ~input_file with
-    | Error _ as err -> err
-    | Ok snapshot -> Ok (P.Ir_render.pretty_program ~snapshot)
+    let* frontend = P.Frontend.parse_input ~input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~frontend in
+    Ok (P.Ir_render.pretty_program ~snapshot)
 
   let run (cfg : Pipeline_types.config) =
     let t0 = Unix.gettimeofday () in
     let snap_before = P.Timing.snapshot () in
-    match P.Snapshot.build_snapshot ~input_file:cfg.input_file with
-    | Error _ as e -> e
-    | Ok snapshot ->
+    let* frontend = P.Frontend.parse_input ~input_file:cfg.input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~frontend in
         let t_build_done = Unix.gettimeofday () in
         (match P.Outputs.build_outputs ~cfg ~snapshot with
         | Error _ as e -> e
@@ -95,9 +96,8 @@ module Make (P : Application_ports.PORTS) = struct
             out.goals;
           if should_cancel () then Error (Pipeline_types.Flow_error "Request cancelled") else Ok out
     else
-      match P.Snapshot.build_snapshot ~input_file:cfg.input_file with
-      | Error _ as e -> e
-      | Ok snapshot ->
+      let* frontend = P.Frontend.parse_input ~input_file:cfg.input_file in
+      let* snapshot = P.Snapshot.build_snapshot ~frontend in
           let pending_cfg = { cfg with prove = false; compute_proof_diagnostics = false } in
           (match P.Outputs.build_outputs ~cfg:pending_cfg ~snapshot with
           | Error _ as e -> e

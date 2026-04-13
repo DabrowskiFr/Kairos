@@ -161,15 +161,22 @@ let join_non_empty (xs : string list) : string =
   |> String.concat "\n\n"
 
 let build ~(asts : Pipeline_types.ast_flow) : (t, string) result =
-  let source_nodes = Info_helpers.source_nodes_by_name asts.automata_generation in
-  let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes in
+  let source_nodes_model = Info_helpers.source_nodes_by_name asts.verification_model in
+  let source_nodes_ast =
+    List.map
+      (fun (node : Ast.node) -> (node.semantics.sem_nname, node))
+      asts.automata_generation
+  in
+  let source_ast_node_of_name (node_name : ident) : (Ast.node, string) result =
+    match List.assoc_opt node_name source_nodes_ast with
+    | Some node -> Ok node
+    | None -> Error (Printf.sprintf "Missing source AST node for IR node %s" node_name)
+  in
+  let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes:source_nodes_model in
   let* node_artifacts =
     asts.instrumentation
     |> List.map (fun (node : Ir.node_ir) ->
-           let* source_node =
-             Info_helpers.source_node_of_name ~source_nodes
-               ~node_name:node.semantics.sem_nname
-           in
+           let* source_node = source_ast_node_of_name node.semantics.sem_nname in
            let* analysis = Info_helpers.analysis_of_node ~analyses node in
            build_node_artifacts ~source_node ~analysis node)
     |> Result_utils.all

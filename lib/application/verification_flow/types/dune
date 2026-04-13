@@ -4,7 +4,7 @@
  (modules pipeline_types)
  (libraries
  kairos_ast
- kairos_parse
   kairos_flow_metadata
+  kairos_verification_model
   kairos_ir
   kairos_automata))

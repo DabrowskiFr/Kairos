@@ -72,7 +72,7 @@ val automata_log_enabled : bool
 
 (** Render a Kairos LTL formula into Spot syntax with the given atom map. *)
 val string_of_spot_ltl :
-  atom_map:((Core_syntax.hexpr * Core_syntax.relop * Core_syntax.hexpr) * Core_syntax.ident) list ->
+  atom_map:(Core_syntax.ltl_atom * Core_syntax.ident) list ->
   Core_syntax.ltl ->
   string
 

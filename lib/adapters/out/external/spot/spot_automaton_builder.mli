@@ -25,11 +25,9 @@ open Core_syntax
 (** [build] service entrypoint. *)
 
 val build :
-  atom_map:((hexpr * relop * hexpr) * ident) list ->
-  atom_names:ident list ->
-  atom_named_exprs:(ident * expr) list ->
+  atom_map:(ltl_atom * ident) list ->
   ltl ->
   Automaton_types.automaton
-(** [build ~atom_map ~atom_names ~atom_named_exprs spec] constructs the safety
+(** [build ~atom_map spec] constructs the safety
     automaton for [spec], then normalizes states and guards into the automaton
     format consumed by the rest of the middleend. *)

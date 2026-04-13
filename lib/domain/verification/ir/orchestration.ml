@@ -21,7 +21,7 @@
     The module drives the IR pipeline from parsed AST + automata builds and
     returns both initial summaries and fully instrumented IR. *)
 
-open Ast
+open Automaton_types
 
 (** Helper value. *)
 
@@ -36,9 +36,11 @@ type run_artifacts = {
 
 (** [build_initial_ir] helper value. *)
 
-let build_initial_ir ~(automata : Automata_generation.node_builds) (parsed : Ast.program) :
+let build_initial_ir
+    ~(automata : (Core_syntax.ident * automata_spec) list)
+    (program : Verification_model.program_model) :
     (Ir.node_ir list, string) result =
-  From_ast.of_ast_program ~automata parsed
+  From_model.of_model_program ~automata program
 
 (** [build_instrumented_ir] helper value. *)
 
@@ -53,8 +55,10 @@ let build_instrumented_ir (initial_nodes : Ir.node_ir list) : Ir.program_ir =
 
 (** [run] helper value. *)
 
-let run (parsed : Ast.program) (automata : Automata_generation.node_builds) :
+let run
+    (program : Verification_model.program_model)
+    (automata : (Core_syntax.ident * automata_spec) list) :
     (run_artifacts, string) result =
-  let* summaries_nodes = build_initial_ir ~automata parsed in
+  let* summaries_nodes = build_initial_ir ~automata program in
   let instrumentation_program = build_instrumented_ir summaries_nodes in
   Ok { summaries_nodes; instrumentation_program }

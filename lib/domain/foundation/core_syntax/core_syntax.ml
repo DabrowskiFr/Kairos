@@ -75,10 +75,13 @@ and hexpr_desc =
 [@@deriving yojson]
 
 (** LTL formulas (safety-oriented fragment used by the tool). *)
+type ltl_atom = hexpr * relop * hexpr [@@deriving yojson]
+
+(** LTL formulas (safety-oriented fragment used by the tool). *)
 type ltl =
   | LTrue
   | LFalse
-  | LAtom of hexpr * relop * hexpr
+  | LAtom of ltl_atom
   | LNot of ltl
   | LAnd of ltl * ltl
   | LOr of ltl * ltl
@@ -88,8 +91,7 @@ type ltl =
   | LW of ltl * ltl
 [@@deriving yojson]
 
-(** LTL formula tagged with a stable identifier and optional source location
-    (diagnostic/render traceability). *)
+(** LTL formula tagged with a stable identifier and optional source location *)
 type ltl_o = { value : ltl; oid : int; loc : Loc.loc option } [@@deriving yojson]
 
 (** Typed variable declaration. *)

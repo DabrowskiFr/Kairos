@@ -18,7 +18,6 @@
 
 [@@@ocaml.warning "-8-26-27-32-33"]
 open Core_syntax
-open Ast
 
 type pre_k_info = {
   var_name : Core_syntax.ident;
@@ -85,9 +84,7 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
          let names = make_names vname max_k in
          { var_name = vname; names; vty })
 
-let build_pre_k_infos (n : node) : pre_k_info list =
-  let spec = specification_of_node n in
-  let sem = semantics_of_node n in
-  build_pre_k_infos_from_parts ~inputs:sem.sem_inputs ~locals:sem.sem_locals ~outputs:sem.sem_outputs
-    ~fo_formulas:(List.map (fun inv -> inv.formula) spec.spec_invariants_state_rel)
-    ~ltl:(spec.spec_assumes @ spec.spec_guarantees)
+let build_pre_k_infos (n : Verification_model.node_model) : pre_k_info list =
+  build_pre_k_infos_from_parts ~inputs:n.inputs ~locals:n.locals ~outputs:n.outputs
+    ~fo_formulas:(List.map (fun (inv : Verification_model.state_invariant) -> inv.formula) n.state_invariants)
+    ~ltl:(n.assumes @ n.guarantees)

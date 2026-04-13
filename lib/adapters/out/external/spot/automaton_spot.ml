@@ -92,8 +92,8 @@ let command_summary (r : process_result) : string =
 
 let spot_ap_name (i : int) : string = Printf.sprintf "__kairos_ap_%d" i
 
-let string_of_spot_ltl ~(atom_map : ((hexpr * relop * hexpr) * ident) list) (f : ltl) : string =
-  let atom_name (a : hexpr * relop * hexpr) : string =
+let string_of_spot_ltl ~(atom_map : (ltl_atom * ident) list) (f : ltl) : string =
+  let atom_name (a : ltl_atom) : string =
     let rec find i = function
       | [] ->
           let h1, r, h2 = a in
@@ -111,7 +111,7 @@ let string_of_spot_ltl ~(atom_map : ((hexpr * relop * hexpr) * ident) list) (f :
   let rec go ~(ctx : int) = function
     | LTrue -> "1"
     | LFalse -> "0"
-    | LAtom (h1, r, h2) -> atom_name (h1, r, h2)
+    | LAtom atom -> atom_name atom
     | LNot a ->
         let s = "!" ^ go ~ctx:4 a in
         if ctx > 4 then "(" ^ s ^ ")" else s

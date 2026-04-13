@@ -16,11 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+open Core_syntax
+open Ast
 open Ir_shared_types
 
 type formula_meta = {
   oid : formula_id;
-  loc : loc option;
+  loc : Loc.loc option;
 }
 
 type summary_formula = {

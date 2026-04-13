@@ -29,11 +29,17 @@ type timing_counters = {
 
 type goal_result = int * string * string * float * string option * string option
 
+module type FRONTEND_PORT = sig
+  val parse_input :
+    input_file:string ->
+    (Pipeline_types.frontend_payload, Pipeline_types.error) result
+end
+
 module type SNAPSHOT_PORT = sig
   type snapshot
 
   val build_snapshot :
-    input_file:string ->
+    frontend:Pipeline_types.frontend_payload ->
     (snapshot, Pipeline_types.error) result
 end
 
@@ -98,6 +104,7 @@ end
 module type PORTS = sig
   type snapshot
 
+  module Frontend : FRONTEND_PORT
   module Snapshot : SNAPSHOT_PORT with type snapshot = snapshot
   module Outputs : OUTPUTS_PORT with type snapshot = snapshot
   module Instrumentation : INSTRUMENTATION_PORT

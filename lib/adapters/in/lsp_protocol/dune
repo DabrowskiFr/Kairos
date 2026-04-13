@@ -12,4 +12,4 @@
  (modules lsp_app lsp_services)
  (libraries
   kairos_verification_flow_types kairos_lsp_protocol
-  kairos_parse kairos_ast kairos_core_syntax yojson str))
+  kairos_frontend_kairos_parse kairos_ast kairos_core_syntax yojson str))

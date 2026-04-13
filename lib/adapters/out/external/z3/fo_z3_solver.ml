@@ -287,7 +287,7 @@ let flip_relop = function
   | RGt -> RLt
   | RGe -> RLe
 
-let normalize_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : hexpr * relop * hexpr =
+let normalize_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : ltl_atom =
   match (is_const_hexpr h1, is_const_hexpr h2) with
   | true, false -> (h2, flip_relop r, h1)
   | _ -> (h1, r, h2)

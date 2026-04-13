@@ -21,7 +21,7 @@
     This module provides the ordering logic used to build canonical IR
     transitions from source AST nodes. *)
 
-(** Compute source-order-prioritized transitions for one AST node. *)
 val prioritized_program_transitions_of_node :
   Ast.node ->
   Ir.transition list
+(** Compute source-order-prioritized transitions for one AST node. *)
