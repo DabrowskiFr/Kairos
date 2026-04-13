@@ -23,7 +23,6 @@
    (for rendering) and a text [labels] string (for diagnostics). *)
 
 open Core_syntax
-open Ast
 open Core_syntax_builders
 open Pretty
 
@@ -276,21 +275,20 @@ let pretty_plain_dot_formula (f : Core_syntax.hexpr) : string =
 (* Builds the text-label lines for a program automaton: one line per state
    and one line per transition, prefixed with the node name. Used as the
    [labels] field of the returned [graph]. *)
-let render_program_lines ~(node_name : ident) (node : Ast.node) =
-  let sem = node.semantics in
+let render_program_lines ~(node_name : ident) (node : Verification_model.node_model) =
   let states =
-    sem.sem_states
+    node.states
     |> List.map (fun st -> Printf.sprintf "[%s] P[%s]" node_name st)
   in
   let transitions =
-    sem.sem_trans
-    |> List.map (fun (t : Ast.transition) ->
+    node.steps
+    |> List.map (fun (t : Verification_model.program_step) ->
            let guard =
-             match t.guard with
+             match t.guard_expr with
              | None -> "⊤"
              | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
            in
-           Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src t.dst guard)
+           Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src_state t.dst_state guard)
   in
   states @ transitions
 
@@ -697,37 +695,40 @@ let emit_product_dot (analysis : Temporal_automata.node_data) =
 
 (* Pure computation phase for the program automaton: one [ready_node] per
    control state and one [ready_edge] per transition. No DOT is emitted here. *)
-let prepare_program_graph (node : Ast.node) =
-  let sem = node.semantics in
-  let transitions_from_state = Ast_queries.transitions_from_state_fn node in
+let prepare_program_graph (node : Verification_model.node_model) =
+  let transitions_from_state state_name =
+    List.filter
+      (fun (step : Verification_model.program_step) -> String.equal step.src_state state_name)
+      node.steps
+  in
   let nodes =
     List.map (fun st ->
       let fill, border =
-        if st = sem.sem_init_state then ("#dff3e4", "#2f7a4c") else ("#eef8f0", "#5e8f6b")
+        if st = node.init_state then ("#dff3e4", "#2f7a4c") else ("#eef8f0", "#5e8f6b")
       in
       { node_id = Printf.sprintf "p_%s" (escape_dot_label st);
         node_label = `Plain st; node_fill = fill; node_border = border;
         node_fontcolor = Some border })
-    sem.sem_states
+    node.states
   in
   let edges =
     List.concat_map (fun st ->
       transitions_from_state st
-      |> List.map (fun (t : Ast.transition) ->
-           let guard = match t.guard with
+      |> List.map (fun (t : Verification_model.program_step) ->
+           let guard = match t.guard_expr with
              | None -> "⊤"
              | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
            in
-           { edge_src = Printf.sprintf "p_%s" (escape_dot_label t.src);
-             edge_dst = Printf.sprintf "p_%s" (escape_dot_label t.dst);
+           { edge_src = Printf.sprintf "p_%s" (escape_dot_label t.src_state);
+             edge_dst = Printf.sprintf "p_%s" (escape_dot_label t.dst_state);
              edge_label = guard; edge_color = "#5e8f6b"; edge_style = "solid" }))
-    sem.sem_states
+    node.states
   in
   (nodes, edges)
 
 (* Emission phase for the program automaton: calls [prepare_program_graph] and
    assembles the full DOT source string. *)
-let emit_program_dot ~(node_name : ident) (node : Ast.node) =
+let emit_program_dot ~(node_name : ident) (node : Verification_model.node_model) =
   let nodes, edges = prepare_program_graph node in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf "digraph ProgramAutomaton {\n";
@@ -927,7 +928,7 @@ let render_product ~(node_name : ident) ~(analysis : Temporal_automata.node_data
 
 (* Renders the program control automaton: one node per control state, one edge
    per transition with its guard as a label. *)
-let render_program_automaton ~(node_name : ident) ~(node : Ast.node) : graph =
+let render_program_automaton ~(node_name : ident) ~(node : Verification_model.node_model) : graph =
   let dot = emit_program_dot ~node_name node in
   let labels = render_program_lines ~node_name node |> String.concat "\n" in
   { dot; labels }

@@ -16,8 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Ast
-
 include Pipeline_outputs_helpers
 
 let build_outputs ~(cfg : Pipeline_types.config)

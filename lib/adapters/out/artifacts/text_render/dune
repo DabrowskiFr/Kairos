@@ -7,7 +7,7 @@
   proof_status_render
   why_text_render)
  (libraries
-  kairos_ast
+  kairos_verification_model
   kairos_logging
   kairos_ir
   kairos_ir_passes

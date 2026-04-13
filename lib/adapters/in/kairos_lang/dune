@@ -1,5 +1,12 @@
 (library
  (name kairos_input_lang)
  (wrapped false)
- (modules kairos_to_model)
- (libraries kairos_ast kairos_core_syntax kairos_verification_model))
+ (modules kairos_to_model kairos_frontend)
+ (libraries
+  kairos_frontend_kairos_parse
+  kairos_frontend_kairos_ast
+  kairos_frontend_kairos_syntax
+  kairos_core_syntax
+  kairos_verification_model
+  kairos_flow_metadata
+  kairos_verification_flow_types))

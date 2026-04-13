@@ -3,7 +3,7 @@
  (wrapped false)
  (modules kairos_object)
  (libraries
-  kairos_ast kairos_automata
+  kairos_automata kairos_verification_model
   kairos_ir kairos_ir_passes kairos_proof_kernel_types
  kairos_core_syntax kairos_ir_temporal_support yojson)
  (preprocess

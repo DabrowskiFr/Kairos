@@ -26,13 +26,13 @@
 (** One syntactic import declaration. *)
 type import_decl = {
   import_path : string;
-  import_loc : Loc.loc option;
+  import_loc : Kx_loc.loc option;
 }
 
 (** Parsed source file, before import resolution/expansion. *)
 type source = {
   imports : import_decl list;
-  nodes : Ast.program;
+  nodes : Kx_ast.program;
 }
 
 (** Paths referenced by explicit imports, in source order. *)
@@ -40,7 +40,7 @@ val imported_paths : source -> string list
 
 (** One parse error with optional source location. *)
 type parse_error = {
-  loc : Loc.loc option;
+  loc : Kx_loc.loc option;
   message : string;
 }
 

@@ -168,7 +168,6 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 type frontend_payload = {
   imports : string list;
   parse_info : Flow_info.parse_info;
-  parsed : Ast.program;
   verification_model : Verification_model.program_model;
 }
 
@@ -176,9 +175,8 @@ type frontend_payload = {
 
 type ast_flow = {
   imports : string list;
-  parsed : Ast.program;
   verification_model : Verification_model.program_model;
-  automata_generation : Ast.program;
+  automata_generation : Verification_model.program_model;
   automata : (ident * Automaton_types.automata_spec) list;
   summaries : Ir.node_ir list;
   instrumentation : Ir.node_ir list;

@@ -68,7 +68,7 @@ type runtime_transition_view = {
       (** Preconditions from the IR. *)
   ensures : Ir.summary_formula list;
       (** Postconditions from the IR. *)
-  body : Ast.stmt list;
+  body : Core_syntax.stmt list;
       (** Raw transition body (list of statements). *)
   action_blocks : action_block_view list;
       (** Structured body as typed action blocks. *)
@@ -87,7 +87,7 @@ type runtime_product_transition_view = {
   src_state : ident;
   dst_state : ident;
   guard : expr option;
-  body : Ast.stmt list;
+  body : Core_syntax.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
       (** Source product state (program state x guarantee state). *)
@@ -132,14 +132,6 @@ type t = {
   init_invariant_goals : Ir.summary_formula list;
       (** Formulas to check at the initial state (coherency goals). *)
 }
-
-(** Reconstructs an {!Ast.transition} from a transition view,
-    giving access to generic AST accessors. *)
-val transition_to_ast : runtime_transition_view -> Ast.transition
-
-(** Reconstructs a full {!Ast.node} from the node view,
-    used by {!Why_compile} to access semantic metadata. *)
-val to_ast_node : t -> Ast.node
 
 (** Projects a product transition to a plain transition by dropping relational
     information, used to compile its imperative body. *)

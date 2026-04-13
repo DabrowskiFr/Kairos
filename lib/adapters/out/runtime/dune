@@ -4,7 +4,6 @@
  (modules verification_runtime_adapters verification_runtime)
  (libraries
   kairos_application_usecases
-  kairos_frontend_kairos_parse
   kairos_input_lang
   kairos_verification_flow_types
   kairos_verification_runtime_orchestration

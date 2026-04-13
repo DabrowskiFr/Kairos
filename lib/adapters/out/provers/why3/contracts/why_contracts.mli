@@ -55,11 +55,9 @@ type contract_info = {
       (** Per-step contracts for the product (relational mode only). *)
 }
 
-(** [build_contracts ~nodes ~env ~hexpr_needs_old ~runtime ~pure_translation]
+(** [build_contracts ~env ~hexpr_needs_old ~runtime ~pure_translation]
     generates the full [step] contract for the node described by [runtime].
 
-    - [~nodes]: list of program nodes, used to resolve cross-node contract
-      references.
     - [~env]: compilation environment for the node.
     - [~hexpr_needs_old]: predicate indicating whether a historical expression
       must be wrapped in [old()] in the postcondition.
@@ -67,7 +65,6 @@ type contract_info = {
       and the postcondition is left empty (pure translation mode, no
       verification). *)
 val build_contracts :
-  nodes:Ast.node list ->
   env:Why_compile_expr.env ->
   hexpr_needs_old:(hexpr -> bool) ->
   runtime:Why_runtime_view.t ->

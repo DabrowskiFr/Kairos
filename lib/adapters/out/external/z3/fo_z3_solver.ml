@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Ast
 open Pretty
 
 let mk_expr expr = { expr; loc = None }

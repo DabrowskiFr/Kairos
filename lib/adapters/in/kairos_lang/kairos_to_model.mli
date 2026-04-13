@@ -20,8 +20,7 @@
 
 (** Translate one source node to the internal model and apply transition
     prioritization. *)
-val node : Ast.node -> Verification_model.node_model
+val node : Kx_ast.node -> Verification_model.node_model
 
 (** Translate a full source program to the internal model. *)
-val program : Ast.program -> Verification_model.program_model
-
+val program : Kx_ast.program -> Verification_model.program_model

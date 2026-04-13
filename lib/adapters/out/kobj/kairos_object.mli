@@ -49,8 +49,8 @@ val build :
   source_path:string ->
   source_hash:string option ->
   imports:string list ->
-  program:Ast.program ->
-  runtime_program:Ast.program ->
+  program:Verification_model.program_model ->
+  runtime_program:Verification_model.program_model ->
   kernel_ir_nodes:Proof_kernel_types.node_ir list ->
   (t, string) result
 

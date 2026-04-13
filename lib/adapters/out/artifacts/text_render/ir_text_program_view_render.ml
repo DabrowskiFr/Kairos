@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Ast
 open Pretty
 
 let indent_str (n : int) : string = String.make (2 * max 0 n) ' '
@@ -65,14 +64,15 @@ let render_vdecl (v : vdecl) : string =
   in
   v.vname ^ ": " ^ ty_s
 
-let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.node_ir) :
+let program_transitions_of_node ~(source_program : Verification_model.program_model option)
+    (n : Ir.node_ir) :
     Ir.transition list =
   match source_program with
   | Some source_program -> (
       match
         List.find_opt
-          (fun (source_node : Ast.node) ->
-            String.equal source_node.semantics.sem_nname n.semantics.sem_nname)
+          (fun (source_node : Verification_model.node_model) ->
+            String.equal source_node.node_name n.semantics.sem_nname)
           source_program
       with
       | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
@@ -85,7 +85,8 @@ let program_transitions_of_node ~(source_program : Ast.program option) (n : Ir.n
       |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
       |> List.sort_uniq Stdlib.compare
 
-let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_ir) : string =
+let render_node_with_source ~(source_program : Verification_model.program_model option)
+    (n : Ir.node_ir) : string =
   let sem = n.semantics in
   let line_params name vs =
     if vs = [] then None
@@ -116,8 +117,10 @@ let render_node_with_source ~(source_program : Ast.program option) (n : Ir.node_
   let body = List.map (fun l -> indent_str 1 ^ l) (fields @ assumes @ guarantees) @ trans in
   String.concat "\n" ([ "node " ^ sem.sem_nname ^ " {" ] @ body @ [ "}" ])
 
-let render_node ?(source_program : Ast.program option = None) (n : Ir.node_ir) : string =
+let render_node ?(source_program : Verification_model.program_model option = None)
+    (n : Ir.node_ir) : string =
   render_node_with_source ~source_program n
 
-let render_program ?(source_program : Ast.program option = None) (p : Ir.node_ir list) : string =
+let render_program ?(source_program : Verification_model.program_model option = None)
+    (p : Ir.node_ir list) : string =
   String.concat "\n\n" (List.map (render_node_with_source ~source_program) p)

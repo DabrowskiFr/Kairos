@@ -15,9 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-open Core_syntax
-open Ast
-
 let parse_line_col_from_error (msg : string) : (int * int) option =
   let re = Str.regexp ".*:\\([0-9]+\\):\\([0-9]+\\)" in
   if Str.string_match re msg 0 then
@@ -411,26 +408,38 @@ type semantic_symbols = {
   vars : string list;
 }
 
-let semantic_symbols_of_program (p : Ast.program) : semantic_symbols =
+let semantic_symbols_of_program (p : Kx_ast.program) : semantic_symbols =
   let tbl_all = Hashtbl.create 256 in
   let tbl_nodes = Hashtbl.create 64 in
   let tbl_states = Hashtbl.create 128 in
   let tbl_vars = Hashtbl.create 256 in
   let add tbl s = if s <> "" then Hashtbl.replace tbl s () in
   List.iter
-    (fun (n : Ast.node) ->
+    (fun (n : Kx_ast.node) ->
       let sem = n.semantics in
       add tbl_nodes sem.sem_nname;
       add tbl_all sem.sem_nname;
       List.iter (fun st -> add tbl_states st; add tbl_all st) sem.sem_states;
-      List.iter (fun v -> add tbl_vars v.vname; add tbl_all v.vname) sem.sem_inputs;
-      List.iter (fun v -> add tbl_vars v.vname; add tbl_all v.vname) sem.sem_outputs;
-      List.iter (fun v -> add tbl_vars v.vname; add tbl_all v.vname) sem.sem_locals)
+      List.iter
+        (fun v ->
+          add tbl_vars v.Kx_core_syntax.vname;
+          add tbl_all v.Kx_core_syntax.vname)
+        sem.sem_inputs;
+      List.iter
+        (fun v ->
+          add tbl_vars v.Kx_core_syntax.vname;
+          add tbl_all v.Kx_core_syntax.vname)
+        sem.sem_outputs;
+      List.iter
+        (fun v ->
+          add tbl_vars v.Kx_core_syntax.vname;
+          add tbl_all v.Kx_core_syntax.vname)
+        sem.sem_locals)
     p;
   let to_list tbl = Hashtbl.to_seq_keys tbl |> List.of_seq |> List.sort_uniq String.compare in
   { all = to_list tbl_all; nodes = to_list tbl_nodes; states = to_list tbl_states; vars = to_list tbl_vars }
 
-let parse_program_from_text (text : string) : Ast.program option =
+let parse_program_from_text (text : string) : Kx_ast.program option =
   try
     let source, _info =
       Kx_parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text

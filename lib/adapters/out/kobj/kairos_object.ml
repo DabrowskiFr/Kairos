@@ -123,8 +123,9 @@ let t_of_yojson = function
       | _ -> Error "expected metadata and nodes")
   | _ -> Error "expected object"
 
-let build ~source_path ~source_hash ~imports ~(program : Ast.program)
-    ~(runtime_program : Ast.program) ~(kernel_ir_nodes : Proof_kernel_types.node_ir list) :
+let build ~source_path ~source_hash ~imports ~(program : Verification_model.program_model)
+    ~(runtime_program : Verification_model.program_model)
+    ~(kernel_ir_nodes : Proof_kernel_types.node_ir list) :
     (t, string) result =
   let ir_by_name = Hashtbl.create (List.length kernel_ir_nodes * 2 + 1) in
   let runtime_by_name = Hashtbl.create (List.length runtime_program * 2 + 1) in
@@ -133,7 +134,8 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
       Hashtbl.replace ir_by_name ir.reactive_program.node_name ir)
     kernel_ir_nodes;
   List.iter
-    (fun (node : Ast.node) -> Hashtbl.replace runtime_by_name node.semantics.sem_nname node)
+    (fun (node : Verification_model.node_model) ->
+      Hashtbl.replace runtime_by_name node.node_name node)
     runtime_program;
   let pre_k_locals_of_layout (layout : Pre_k_layout.pre_k_info list) : vdecl list =
     layout
@@ -145,37 +147,37 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
     locals
     @ List.filter (fun (v : vdecl) -> not (List.mem v.vname existing)) extra
   in
-  let node_signature_of_ast (node : Ast.node) : Proof_kernel_types.node_signature_ir =
-    let sem = node.semantics in
+  let node_signature_of_model (node : Verification_model.node_model) :
+      Proof_kernel_types.node_signature_ir =
     {
-      node_name = sem.sem_nname;
-      inputs = sem.sem_inputs;
-      outputs = sem.sem_outputs;
-      locals = sem.sem_locals;
-      states = sem.sem_states;
-      init_state = sem.sem_init_state;
+      node_name = node.node_name;
+      inputs = node.inputs;
+      outputs = node.outputs;
+      locals = node.locals;
+      states = node.states;
+      init_state = node.init_state;
     }
   in
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
-    | (node : Ast.node) :: rest -> (
-        match Hashtbl.find_opt ir_by_name node.semantics.sem_nname with
+    | (node : Verification_model.node_model) :: rest -> (
+        match Hashtbl.find_opt ir_by_name node.node_name with
         | None ->
             Error
               (Printf.sprintf "Missing normalized IR for local node '%s' while building .kobj"
-                 node.semantics.sem_nname)
+                 node.node_name)
         | Some normalized_ir ->
             let runtime_node =
-              match Hashtbl.find_opt runtime_by_name node.semantics.sem_nname with
+              match Hashtbl.find_opt runtime_by_name node.node_name with
               | Some runtime_node -> runtime_node
               | None ->
                   raise
                     (Failure
                        (Printf.sprintf
                           "Missing runtime node '%s' while building .kobj"
-                          node.semantics.sem_nname))
+                          node.node_name))
             in
-            let runtime_signature = node_signature_of_ast runtime_node in
+            let runtime_signature = node_signature_of_model runtime_node in
             let exported_runtime_locals = runtime_signature.locals in
             let signature =
               {
@@ -191,9 +193,9 @@ let build ~source_path ~source_hash ~imports ~(program : Ast.program)
                 normalized_ir;
                 coherency_goals = [];
                 temporal_layout = normalized_ir.temporal_layout;
-                delay_spec = extract_delay_spec node.specification.spec_guarantees;
-                assumes = node.specification.spec_assumes;
-                guarantees = node.specification.spec_guarantees;
+                delay_spec = extract_delay_spec node.guarantees;
+                assumes = node.assumes;
+                guarantees = node.guarantees;
               }
             in
             collect (summary :: acc) rest)
@@ -229,13 +231,13 @@ let string_of_vdecl (v : vdecl) =
   in
   v.vname ^ ":" ^ ty
 
-let rec string_of_stmt (s : Ast.stmt) =
+let rec string_of_stmt (s : Core_syntax.stmt) =
   match s.stmt with
-  | Ast.SAssign (id, e) -> id ^ " := " ^ Pretty.string_of_expr e
-  | Ast.SSkip -> "skip"
-  | Ast.SCall _ -> failwith "calls are not supported outside parser/AST"
-  | Ast.SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then ..."
-  | Ast.SMatch (e, _branches, _dflt) -> "match " ^ Pretty.string_of_expr e ^ " with ..."
+  | Core_syntax.SAssign (id, e) -> id ^ " := " ^ Pretty.string_of_expr e
+  | Core_syntax.SSkip -> "skip"
+  | Core_syntax.SCall _ -> failwith "calls are not supported outside parser/AST"
+  | Core_syntax.SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then ..."
+  | Core_syntax.SMatch (e, _branches, _dflt) -> "match " ^ Pretty.string_of_expr e ^ " with ..."
 
 let string_of_clause_origin = function
   | Proof_kernel_types.OriginSourceProductSummary -> "SourceProductSummary"

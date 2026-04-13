@@ -3,6 +3,5 @@
  (wrapped false)
  (modules proof_diagnostics)
  (libraries
- kairos_ast
  kairos_logging
   kairos_verification_flow_types))

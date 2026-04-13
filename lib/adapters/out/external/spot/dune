@@ -4,7 +4,6 @@
  (wrapped false)
  (modules automaton_spot spot_automaton_builder)
  (libraries
-  kairos_ast
   kairos_automata
   kairos_core_syntax
   kairos_external_timing

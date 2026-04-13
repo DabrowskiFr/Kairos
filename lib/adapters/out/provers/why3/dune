@@ -10,7 +10,6 @@
   why_contracts)
  (libraries
    kairos_core_syntax 
-   kairos_ast 
    kairos_logging
    kairos_ir 
    kairos_proof_kernel_types 

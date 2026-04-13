@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
-open Ast
 open Ltl_valuation
 open Pretty
 

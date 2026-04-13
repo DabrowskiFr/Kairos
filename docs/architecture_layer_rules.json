@@ -4,9 +4,6 @@
       "kairos_core_syntax",
       "kairos_logging"
     ],
-    "parsing": [
-      "kairos_ast"
-    ],
     "verification": [
       "kairos_verification_model",
       "kairos_automata",
@@ -64,25 +61,18 @@
     "foundation": [
       "foundation"
     ],
-    "parsing": [
-      "foundation",
-      "parsing"
-    ],
     "verification": [
       "foundation",
-      "parsing",
       "verification"
     ],
     "shared_model": [
       "foundation",
-      "parsing",
       "verification",
       "shared_model"
     ],
     "pipeline_meta": [
       "pipeline_meta",
       "foundation",
-      "parsing",
       "verification"
     ],
     "application": [
@@ -98,7 +88,6 @@
       "proof_export",
       "shared_model",
       "verification",
-      "parsing",
       "foundation"
     ],
     "composition": [
@@ -111,13 +100,11 @@
       "proof_export",
       "shared_model",
       "verification",
-      "parsing",
       "foundation"
     ],
     "proof_export": [
       "proof_export",
       "foundation",
-      "parsing",
       "verification",
       "pipeline_meta",
       "shared_model"
@@ -125,7 +112,6 @@
     "adapters_in": [
       "adapters_in",
       "foundation",
-      "parsing",
       "verification",
       "pipeline_meta",
       "proof_export"
@@ -133,7 +119,6 @@
     "external": [
       "external",
       "foundation",
-      "parsing",
       "verification"
     ]
   }

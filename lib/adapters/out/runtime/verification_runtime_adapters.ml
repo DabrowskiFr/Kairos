@@ -17,40 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 module Frontend = struct
-  let flow_parse_info_of_frontend (info : Kx_parse_api.parse_info) : Flow_info.parse_info =
-    {
-      source_path = info.source_path;
-      text_hash = info.text_hash;
-      parse_errors =
-        List.map
-          (fun (e : Kx_parse_api.parse_error) ->
-            ({ Flow_info.loc = e.loc; message = e.message } : Flow_info.parse_error))
-          info.parse_errors;
-      warnings = info.warnings;
-    }
-
-  let read_all_text (path : string) : (string, Pipeline_types.error) result =
-    try
-      let ic = open_in_bin path in
-      let len = in_channel_length ic in
-      let s = really_input_string ic len in
-      close_in ic;
-      Ok s
-    with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
-
-  let parse_input ~input_file : (Pipeline_types.frontend_payload, Pipeline_types.error) result =
-    match read_all_text input_file with
-    | Error _ as err -> err
-    | Ok source_text -> (
-        try
-          let source, parse_info_front =
-            Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
-          in
-          let parse_info = flow_parse_info_of_frontend parse_info_front in
-          let parsed = source.nodes in
-          let verification_model = Kairos_to_model.program parsed in
-          Ok { imports = Kx_parse_api.imported_paths source; parse_info; parsed; verification_model }
-        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+  let parse_input = Kairos_frontend.parse_input
 end
 
 module Snapshot = struct
@@ -187,7 +154,7 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result 
           Kairos_object.build ~source_path:input_file
             ~source_hash:parse_info.text_hash
             ~imports:snapshot.asts.imports
-            ~program:snapshot.asts.parsed
+            ~program:snapshot.asts.verification_model
             ~runtime_program:snapshot.asts.automata_generation
             ~kernel_ir_nodes:artifacts.kernel_ir_nodes
           |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg))

@@ -9,7 +9,6 @@
   pipeline_build
   result_utils)
  (libraries
-  kairos_ast
  kairos_verification_flow_types
  kairos_automata
   kairos_ir
@@ -30,7 +29,6 @@
   pipeline_outputs)
  (libraries
   kairos_verification_runtime_orchestration
-  kairos_ast
   kairos_verification_flow_types
   kairos_automata
   kairos_ir

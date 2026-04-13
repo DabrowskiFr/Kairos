@@ -19,7 +19,6 @@
 [@@@ocaml.warning "-8-26-27-32-33"]
 
 open Core_syntax
-open Ast
 
 module Abs = Ir
 open Pre_k_layout
@@ -56,7 +55,7 @@ type runtime_transition_view = {
   guard : expr option;
   requires : Abs.summary_formula list;
   ensures : Abs.summary_formula list;
-  body : Ast.stmt list;
+  body : Core_syntax.stmt list;
   action_blocks : action_block_view list;
 }
 
@@ -69,7 +68,7 @@ type runtime_product_transition_view = {
   src_state : ident;
   dst_state : ident;
   guard : expr option;
-  body : Ast.stmt list;
+  body : Core_syntax.stmt list;
   step_class : runtime_step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
@@ -144,10 +143,10 @@ let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   | SCall _ -> failwith "instance calls are not supported"
   | SSkip -> acc
 
-let rec actions_of_stmts (stmts : Ast.stmt list) : runtime_action_view list =
+let rec actions_of_stmts (stmts : Core_syntax.stmt list) : runtime_action_view list =
   List.map action_of_stmt stmts
 
-and action_of_stmt (s : Ast.stmt) : runtime_action_view =
+and action_of_stmt (s : Core_syntax.stmt) : runtime_action_view =
   match s.stmt with
   | SAssign (name, expr) -> ActionAssign (name, expr)
   | SIf (cond, then_branch, else_branch) ->
@@ -309,10 +308,10 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       let default_actions, _ = simplify_actions known default_actions in
       ([ ActionMatch (scrutinee', branches, default_actions) ], known)
 
-let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
-  let known = known_context_of_transition_guard t.guard in
+let action_blocks_of_transition (t : Abs.transition) : action_block_view list =
+  let known = known_context_of_transition_guard t.guard_expr in
   let raw_blocks =
-    [ (ActionUser, actions_of_stmts t.body) ]
+    [ (ActionUser, actions_of_stmts t.body_stmts) ]
   in
   let blocks, _ =
     List.fold_left
@@ -327,32 +326,28 @@ let action_blocks_of_transition (t : Ast.transition) : action_block_view list =
       if block_actions = [] then None else Some { block_kind; block_actions })
     blocks
 
-let transition_of_ast ?transition_id (t : Ast.transition) : runtime_transition_view =
+let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_view =
   let action_blocks = action_blocks_of_transition t in
   {
     transition_id =
-      Option.value ~default:(Printf.sprintf "%s__%s" t.src t.dst) transition_id;
-    src_state = t.src;
-    dst_state = t.dst;
-    guard = t.guard;
+      Option.value ~default:(Printf.sprintf "%s__%s" t.src_state t.dst_state) transition_id;
+    src_state = t.src_state;
+    dst_state = t.dst_state;
+    guard = t.guard_expr;
     requires = [];
     ensures = [];
-    body = t.body;
+    body = t.body_stmts;
     action_blocks;
   }
 
-let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_view =
-  transition_of_ast ?transition_id
-    {
-      Ast.src = t.src_state;
-      dst = t.dst_state;
-      guard = t.guard_expr;
-      body = t.body_stmts;
-    }
-
 let transition_of_product_step (step : runtime_product_transition_view) : runtime_transition_view =
-  transition_of_ast ~transition_id:step.transition_id
-    { Ast.src = step.src_state; dst = step.dst_state; guard = step.guard; body = step.body }
+  transition_of_ir ~transition_id:step.transition_id
+    {
+      src_state = step.src_state;
+      dst_state = step.dst_state;
+      guard_expr = step.guard;
+      body_stmts = step.body;
+    }
 
 let group_transitions (transitions : runtime_transition_view list) : transition_group_view list =
   let by_state =
@@ -371,33 +366,6 @@ let state_branches_of_groups (groups : transition_group_view list) : state_branc
     (fun (group : transition_group_view) ->
       { branch_state = group.group_state; branch_transitions = group.group_transitions })
     groups
-
-let transition_to_ast (t : runtime_transition_view) : Ast.transition =
-  { Ast.src = t.src_state; dst = t.dst_state; guard = t.guard; body = t.body }
-
-let to_ast_node (runtime : t) : Ast.node =
-  {
-    semantics =
-      {
-        Ast.sem_nname = runtime.node_name;
-        sem_inputs =
-          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.inputs;
-        sem_outputs =
-          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.outputs;
-        sem_instances = [];
-        sem_locals =
-          List.map (fun (p : port_view) -> { vname = p.port_name; vty = p.port_type }) runtime.locals;
-        sem_states = runtime.control_states;
-        sem_init_state = runtime.init_control_state;
-        sem_trans = List.map transition_to_ast runtime.transitions;
-      };
-    specification =
-      {
-        Ast.spec_assumes = runtime.assumes;
-        spec_guarantees = runtime.guarantees;
-        spec_invariants_state_rel = [];
-      };
-  }
 
 let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
     Abs.transition list =

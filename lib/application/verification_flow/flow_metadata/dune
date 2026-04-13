@@ -3,4 +3,4 @@
  (public_name kairos.flow_metadata)
  (wrapped false)
  (modules flow_info)
- (libraries kairos_ast kairos_ir))
+ (libraries kairos_core_syntax))
