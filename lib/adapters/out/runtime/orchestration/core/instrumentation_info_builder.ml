@@ -79,10 +79,8 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
 
 let instrumentation_info_of_ir
     ~(automata : (Core_syntax.ident * automata_spec) list)
-    ~(source_program : Ast.program)
     ~(source_model : Verification_model.program_model) (program : Ir.program_ir)
     : (Flow_info.instrumentation_info, string) result =
-  let _ = source_program in
   let source_nodes = Info_helpers.source_nodes_by_name source_model in
   let* analyses = Info_helpers.build_analyses ~automata ~source_nodes in
   let node_results =

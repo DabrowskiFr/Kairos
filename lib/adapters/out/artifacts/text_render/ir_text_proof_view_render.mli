@@ -22,4 +22,7 @@
     summaries, safe/unsafe residual cases). *)
 
 (** Render a full IR program in proof view. *)
-val render_pretty_program : ?source_program:Ast.program option -> Ir.program_ir -> string
+val render_pretty_program :
+  ?source_program:Verification_model.program_model option ->
+  Ir.program_ir ->
+  string

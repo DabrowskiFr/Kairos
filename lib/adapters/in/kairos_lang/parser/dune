@@ -6,8 +6,7 @@
  (libraries
   kairos_frontend_kairos_ast
   kairos_frontend_kairos_syntax
-  kairos_ast
-  kairos_core_syntax
+  menhirLib
   sedlex)
  (preprocess
   (pps sedlex.ppx)))

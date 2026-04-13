@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
-open Ast
 open Pretty
 
 let ( let* ) = Result.bind
@@ -119,7 +118,7 @@ let lower_analysis_for_kernel ~(node : Ir.node_ir)
       exploration = { analysis.exploration with steps };
     }
 
-let build_node_artifacts ~(source_node : Ast.node)
+let build_node_artifacts ~(source_node : Verification_model.node_model)
     ~(analysis : Temporal_automata.node_data) (node : Ir.node_ir) :
     (node_artifacts, string) result =
   let* analysis_for_kernel = lower_analysis_for_kernel ~node ~analysis in
@@ -162,21 +161,16 @@ let join_non_empty (xs : string list) : string =
 
 let build ~(asts : Pipeline_types.ast_flow) : (t, string) result =
   let source_nodes_model = Info_helpers.source_nodes_by_name asts.verification_model in
-  let source_nodes_ast =
-    List.map
-      (fun (node : Ast.node) -> (node.semantics.sem_nname, node))
-      asts.automata_generation
-  in
-  let source_ast_node_of_name (node_name : ident) : (Ast.node, string) result =
-    match List.assoc_opt node_name source_nodes_ast with
+  let source_node_of_name (node_name : ident) : (Verification_model.node_model, string) result =
+    match List.assoc_opt node_name source_nodes_model with
     | Some node -> Ok node
-    | None -> Error (Printf.sprintf "Missing source AST node for IR node %s" node_name)
+    | None -> Error (Printf.sprintf "Missing source model node for IR node %s" node_name)
   in
   let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes:source_nodes_model in
   let* node_artifacts =
     asts.instrumentation
     |> List.map (fun (node : Ir.node_ir) ->
-           let* source_node = source_ast_node_of_name node.semantics.sem_nname in
+           let* source_node = source_node_of_name node.semantics.sem_nname in
            let* analysis = Info_helpers.analysis_of_node ~analyses node in
            build_node_artifacts ~source_node ~analysis node)
     |> Result_utils.all

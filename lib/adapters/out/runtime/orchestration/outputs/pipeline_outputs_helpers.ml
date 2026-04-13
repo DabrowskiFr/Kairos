@@ -22,8 +22,6 @@
     block concatenation with spans, flow metadata projection, and initial
     program-automaton textual rendering. *)
 
-open Ast
-
 (** [join_blocks_with_spans] helper value. *)
 
 let join_blocks_with_spans ~sep blocks =
@@ -83,6 +81,6 @@ let program_automaton_texts (asts : Pipeline_types.ast_flow) : string * string =
   | [] -> ("", "")
   | node :: _ ->
       let graph =
-        Automata_graph_render.render_program_automaton ~node_name:node.semantics.sem_nname ~node
+        Automata_graph_render.render_program_automaton ~node_name:node.node_name ~node
       in
       (graph.dot, graph.labels)

@@ -16,11 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Ast
-
 let ( let* ) = Result.bind
 
-let rec stmt_contains_call (s : Ast.stmt) : bool =
+let rec stmt_contains_call (s : Core_syntax.stmt) : bool =
   match s.stmt with
   | SCall _ -> true
   | SIf (_, then_branch, else_branch) ->
@@ -32,13 +30,13 @@ let rec stmt_contains_call (s : Ast.stmt) : bool =
       || List.exists stmt_contains_call default_branch
   | SAssign _ | SSkip -> false
 
-let transition_contains_call (t : Ast.transition) : bool =
-  List.exists stmt_contains_call t.body
+let transition_contains_call (t : Verification_model.program_step) : bool =
+  List.exists stmt_contains_call t.body_stmts
 
-let node_uses_calls (n : Ast.node) : bool =
-  n.semantics.sem_instances <> [] || List.exists transition_contains_call n.semantics.sem_trans
+let node_uses_calls (n : Verification_model.node_model) : bool =
+  List.exists transition_contains_call n.steps
 
-let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
+let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_types.error) result =
   match List.find_opt node_uses_calls program with
   | None -> Ok ()
   | Some n ->
@@ -46,7 +44,7 @@ let reject_calls (program : Ast.program) : (unit, Pipeline_types.error) result =
         (Pipeline_types.Flow_error
            (Printf.sprintf
               "Calls are not supported in this Kairos version (node '%s')."
-              n.semantics.sem_nname))
+              n.node_name))
 
 let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
     (Pipeline_types.pipeline_snapshot, Pipeline_types.error)
@@ -54,9 +52,8 @@ let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
   try
     let imports = frontend.imports in
     let parse_info = frontend.parse_info in
-    let p_parsed = frontend.parsed in
     let p_model = frontend.verification_model in
-    match reject_calls p_parsed with
+    match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->
     let automata, automata_pass_info =
@@ -88,16 +85,15 @@ let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
         in
         match
           Instrumentation_info_builder.instrumentation_info_of_ir ~automata
-            ~source_program:p_parsed ~source_model:p_model ir_program
+            ~source_model:p_model ir_program
         with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok instrumentation_info ->
         let asts : Pipeline_types.ast_flow =
           {
             imports;
-            parsed = p_parsed;
             verification_model = p_model;
-            automata_generation = p_parsed;
+            automata_generation = p_model;
             automata;
             summaries = p_summaries;
             instrumentation = p_instrumentation;

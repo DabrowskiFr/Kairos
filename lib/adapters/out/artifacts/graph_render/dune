@@ -3,7 +3,7 @@
  (wrapped false)
  (modules automata_graph_render)
  (libraries
-  kairos_ast
+  kairos_verification_model
   kairos_automata
   kairos_logging
   kairos_ir

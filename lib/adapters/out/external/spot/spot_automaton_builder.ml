@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Ast
 open Core_syntax_builders
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =

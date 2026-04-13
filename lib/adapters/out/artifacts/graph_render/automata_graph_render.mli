@@ -45,5 +45,5 @@ val render_product :
 (** Render the program control automaton. *)
 val render_program_automaton :
   node_name:ident ->
-  node:Ast.node ->
+  node:Verification_model.node_model ->
   graph

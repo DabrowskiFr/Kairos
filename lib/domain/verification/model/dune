@@ -1,6 +1,0 @@
-(library
- (name kairos_verification_model)
- (public_name kairos.verification_model)
- (wrapped false)
- (modules verification_model)
- (libraries kairos_core_syntax kairos_ast))

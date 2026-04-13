@@ -106,10 +106,10 @@ type semantic_symbols = {
 
 (** [parse_program_from_text] service entrypoint. *)
 
-val parse_program_from_text : string -> Ast.program option
+val parse_program_from_text : string -> Kx_ast.program option
 (** [semantic_symbols_of_program] service entrypoint. *)
 
-val semantic_symbols_of_program : Ast.program -> semantic_symbols
+val semantic_symbols_of_program : Kx_ast.program -> semantic_symbols
 (** [symbol_kind] service entrypoint. *)
 
 val symbol_kind : semantic_symbols -> string -> string option

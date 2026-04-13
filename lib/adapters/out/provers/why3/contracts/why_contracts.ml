@@ -22,7 +22,6 @@ open Why3
 open Ptree
 open Pretty
 open Core_syntax
-open Ast
 open Pre_k_layout
 open Why_compile_expr
 
@@ -106,7 +105,7 @@ let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
   let _ = hexpr_needs_old in
   let link_terms_pre, link_terms_post = ([], []) in
   let output_links =
-    let rec last_assigned_var (out : ident) (stmts : Ast.stmt list) =
+    let rec last_assigned_var (out : ident) (stmts : Core_syntax.stmt list) =
       match stmts with
       | [] -> None
       | s :: rest -> (
@@ -215,10 +214,9 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
 
-let build_contracts ~(nodes : Ast.node list) ~(env : Why_compile_expr.env)
+let build_contracts ~(env : Why_compile_expr.env)
     ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) : contract_info =
-  let _nodes = nodes in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
     [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
   in

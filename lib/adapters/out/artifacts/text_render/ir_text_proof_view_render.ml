@@ -48,7 +48,7 @@ let render_ident_list (ids : ident list) : string =
   | [] -> "(none)"
   | _ -> String.concat " | " ids
 
-let render_stmt (s : Ast.stmt) : string =
+let render_stmt (s : Core_syntax.stmt) : string =
   match s.stmt with
   | SAssign (v, e) -> v ^ " := " ^ Pretty.string_of_expr e
   | SIf (c, _t, []) -> "if " ^ Pretty.string_of_expr c ^ " then { ... }"
@@ -102,14 +102,15 @@ let program_transitions_from_summaries (n : Ir.node_ir) : Ir.transition list =
   |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
   |> List.sort_uniq Stdlib.compare
 
-let program_transitions_for_node ~(source_program : Ast.program option) (n : Ir.node_ir) :
+let program_transitions_for_node ~(source_program : Verification_model.program_model option)
+    (n : Ir.node_ir) :
     Ir.transition list =
   match source_program with
   | Some source_program -> (
       match
         List.find_opt
-          (fun (source_node : Ast.node) ->
-            String.equal source_node.semantics.sem_nname n.semantics.sem_nname)
+          (fun (source_node : Verification_model.node_model) ->
+            String.equal source_node.node_name n.semantics.sem_nname)
           source_program
       with
       | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
@@ -237,7 +238,8 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
         line ~indent:(indent + 3) buf ("excluded=" ^ render_formula_refs [ c.excluded_guard ]))
       summary.unsafe_cases
 
-let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
+let render_node_pretty ~(source_program : Verification_model.program_model option)
+    (buf : Buffer.t)
     (n : Ir.node_ir) =
   let program_transitions = program_transitions_for_node ~source_program n in
   line buf ("node " ^ n.semantics.sem_nname);
@@ -281,7 +283,8 @@ let render_node_pretty ~(source_program : Ast.program option) (buf : Buffer.t)
   line buf separator;
   line buf ""
 
-let render_pretty_program ?(source_program : Ast.program option = None) (program : Ir.program_ir) :
+let render_pretty_program ?(source_program : Verification_model.program_model option = None)
+    (program : Ir.program_ir) :
     string =
   let buf = Buffer.create 32768 in
   line buf "program";

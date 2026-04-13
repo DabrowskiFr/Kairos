@@ -1,8 +1,0 @@
-(library
- (name kairos_proof_kernel_types)
- (public_name kairos.proof_kernel_types)
- (wrapped false)
- (modules ir_json_codec proof_kernel_types)
- (libraries kairos_ast kairos_core_syntax kairos_ir kairos_ir_temporal_support yojson)
- (preprocess
-  (pps ppx_deriving.show ppx_deriving_yojson)))

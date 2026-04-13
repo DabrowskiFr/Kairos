@@ -34,7 +34,6 @@ type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_gro
 open Why3
 open Ptree
 open Core_syntax
-open Ast
 open Pretty
 open Pre_k_layout
 open Why_compile_expr
@@ -77,8 +76,7 @@ type env_info = {
 (** [prepare_runtime_view] helper value. *)
 
 let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_runtime_view.t) : env_info =
-  let n = Why_runtime_view.to_ast_node runtime in
-  let module_name = module_name_of_node n.semantics.sem_nname in
+  let module_name = module_name_of_node runtime.node_name in
   let imports =
     [
       Ptree.Duseimport (loc, false, [ (qid1 "int.Int", None) ]);
@@ -96,15 +94,16 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
           td_mut = false;
           td_inv = [];
           td_wit = None;
-          td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) n.semantics.sem_states);
+          td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) runtime.control_states);
         };
       ]
   in
   let pre_k_infos = temporal_layout in
   let inv_links = [] in
-  let input_names = Ast_queries.input_names_of_node n in
+  let input_names = List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.inputs in
   let base_vars =
-    "st" :: List.map (fun v -> v.vname) (n.semantics.sem_locals @ n.semantics.sem_outputs)
+    "st"
+    :: List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) (runtime.locals @ runtime.outputs)
   in
   let hexpr_needs_old (_h : hexpr) : bool = false in
   let env =
@@ -119,24 +118,24 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
       (fun v ->
         {
           f_loc = loc;
-          f_ident = ident (v.vname);
-          f_pty = default_pty v.vty;
+          f_ident = ident (v.Why_runtime_view.port_name);
+          f_pty = default_pty v.port_type;
           f_mutable = true;
           f_ghost = false;
         })
-      n.semantics.sem_locals
+      runtime.locals
   in
   let output_fields =
     List.map
       (fun v ->
         {
           f_loc = loc;
-          f_ident = ident (v.vname);
-          f_pty = default_pty v.vty;
+          f_ident = ident (v.Why_runtime_view.port_name);
+          f_pty = default_pty v.port_type;
           f_mutable = true;
           f_ghost = false;
         })
-      n.semantics.sem_outputs
+      runtime.outputs
   in
   let fields : Ptree.field list =
     {
@@ -163,12 +162,17 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
         };
       ]
   in
-  let output_exprs = List.map (fun v -> field env v.vname) n.semantics.sem_outputs in
+  let output_exprs =
+    List.map
+      (fun (v : Why_runtime_view.port_view) -> field env v.port_name)
+      runtime.outputs
+  in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
   let input_binders =
     List.map
-      (fun v -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
-      n.semantics.sem_inputs
+      (fun (v : Why_runtime_view.port_view) ->
+        (loc, Some (ident v.port_name), false, Some (default_pty v.port_type)))
+      runtime.inputs
   in
   let pre_k_binders =
     let seen = Hashtbl.create 16 in
@@ -360,7 +364,7 @@ let compile_node_with_info ?kernel_ir
         |> List.rev
   in
   let contracts =
-    Why_contracts.build_contracts ~nodes:[] ~env:info.env ~hexpr_needs_old:info.hexpr_needs_old
+    Why_contracts.build_contracts ~env:info.env ~hexpr_needs_old:info.hexpr_needs_old
       ~runtime:runtime_view ~pure_translation:false
   in
   let pre = contracts.pre in

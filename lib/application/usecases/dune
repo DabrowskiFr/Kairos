@@ -5,4 +5,5 @@
  (libraries
   kairos_application_ports
   kairos_verification_flow_types
-  kairos_verification_flow_diagnostics))
+  kairos_verification_flow_diagnostics
+  unix))

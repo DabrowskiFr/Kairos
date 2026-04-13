@@ -18,19 +18,19 @@
 
 type import_decl = {
   import_path : string;
-  import_loc : Loc.loc option;
+  import_loc : Kx_loc.loc option;
 }
 
 type source = {
   imports : import_decl list;
-  nodes : Ast.program;
+  nodes : Kx_ast.program;
 }
 
 let imported_paths (parsed_source : source) : string list =
   List.map (fun decl -> decl.import_path) parsed_source.imports
 
 type parse_error = {
-  loc : Loc.loc option;
+  loc : Kx_loc.loc option;
   message : string;
 }
 
@@ -40,139 +40,6 @@ type parse_info = {
   parse_errors : parse_error list;
   warnings : string list;
 }
-
-let lower_loc (loc : Kx_loc.loc) : Loc.loc =
-  {
-    line = loc.line;
-    col = loc.col;
-    line_end = loc.line_end;
-    col_end = loc.col_end;
-  }
-
-let lower_ty (ty : Kx_core_syntax.ty) : Core_syntax.ty =
-  match ty with
-  | Kx_core_syntax.TInt -> Core_syntax.TInt
-  | Kx_core_syntax.TBool -> Core_syntax.TBool
-  | Kx_core_syntax.TReal -> Core_syntax.TReal
-  | Kx_core_syntax.TCustom name -> Core_syntax.TCustom name
-
-let lower_binop (op : Kx_core_syntax.binop) : Core_syntax.binop =
-  match op with
-  | Kx_core_syntax.Add -> Core_syntax.Add
-  | Kx_core_syntax.Sub -> Core_syntax.Sub
-  | Kx_core_syntax.Mul -> Core_syntax.Mul
-  | Kx_core_syntax.Div -> Core_syntax.Div
-  | Kx_core_syntax.And -> Core_syntax.And
-  | Kx_core_syntax.Or -> Core_syntax.Or
-
-let lower_unop (op : Kx_core_syntax.unop) : Core_syntax.unop =
-  match op with
-  | Kx_core_syntax.Neg -> Core_syntax.Neg
-  | Kx_core_syntax.Not -> Core_syntax.Not
-
-let lower_relop (op : Kx_core_syntax.relop) : Core_syntax.relop =
-  match op with
-  | Kx_core_syntax.REq -> Core_syntax.REq
-  | Kx_core_syntax.RNeq -> Core_syntax.RNeq
-  | Kx_core_syntax.RLt -> Core_syntax.RLt
-  | Kx_core_syntax.RLe -> Core_syntax.RLe
-  | Kx_core_syntax.RGt -> Core_syntax.RGt
-  | Kx_core_syntax.RGe -> Core_syntax.RGe
-
-let rec lower_expr (e : Kx_core_syntax.expr) : Core_syntax.expr =
-  let expr =
-    match e.expr with
-    | Kx_core_syntax.ELitInt n -> Core_syntax.ELitInt n
-    | Kx_core_syntax.ELitBool b -> Core_syntax.ELitBool b
-    | Kx_core_syntax.EVar v -> Core_syntax.EVar v
-    | Kx_core_syntax.EBin (op, a, b) ->
-        Core_syntax.EBin (lower_binop op, lower_expr a, lower_expr b)
-    | Kx_core_syntax.ECmp (op, a, b) ->
-        Core_syntax.ECmp (lower_relop op, lower_expr a, lower_expr b)
-    | Kx_core_syntax.EUn (op, inner) -> Core_syntax.EUn (lower_unop op, lower_expr inner)
-  in
-  { Core_syntax.expr; loc = Option.map lower_loc e.loc }
-
-let rec lower_hexpr (h : Kx_core_syntax.hexpr) : Core_syntax.hexpr =
-  let hexpr =
-    match h.hexpr with
-    | Kx_core_syntax.HLitInt n -> Core_syntax.HLitInt n
-    | Kx_core_syntax.HLitBool b -> Core_syntax.HLitBool b
-    | Kx_core_syntax.HVar v -> Core_syntax.HVar v
-    | Kx_core_syntax.HPreK (v, k) -> Core_syntax.HPreK (v, k)
-    | Kx_core_syntax.HPred (id, hs) -> Core_syntax.HPred (id, List.map lower_hexpr hs)
-    | Kx_core_syntax.HBin (op, a, b) ->
-        Core_syntax.HBin (lower_binop op, lower_hexpr a, lower_hexpr b)
-    | Kx_core_syntax.HCmp (op, a, b) ->
-        Core_syntax.HCmp (lower_relop op, lower_hexpr a, lower_hexpr b)
-    | Kx_core_syntax.HUn (op, inner) -> Core_syntax.HUn (lower_unop op, lower_hexpr inner)
-  in
-  { Core_syntax.hexpr; loc = Option.map lower_loc h.loc }
-
-let rec lower_ltl (f : Kx_core_syntax.ltl) : Core_syntax.ltl =
-  match f with
-  | Kx_core_syntax.LTrue -> Core_syntax.LTrue
-  | Kx_core_syntax.LFalse -> Core_syntax.LFalse
-  | Kx_core_syntax.LAtom (h1, r, h2) ->
-      Core_syntax.LAtom (lower_hexpr h1, lower_relop r, lower_hexpr h2)
-  | Kx_core_syntax.LNot a -> Core_syntax.LNot (lower_ltl a)
-  | Kx_core_syntax.LAnd (a, b) -> Core_syntax.LAnd (lower_ltl a, lower_ltl b)
-  | Kx_core_syntax.LOr (a, b) -> Core_syntax.LOr (lower_ltl a, lower_ltl b)
-  | Kx_core_syntax.LImp (a, b) -> Core_syntax.LImp (lower_ltl a, lower_ltl b)
-  | Kx_core_syntax.LX a -> Core_syntax.LX (lower_ltl a)
-  | Kx_core_syntax.LG a -> Core_syntax.LG (lower_ltl a)
-  | Kx_core_syntax.LW (a, b) -> Core_syntax.LW (lower_ltl a, lower_ltl b)
-
-let lower_vdecl (v : Kx_core_syntax.vdecl) : Core_syntax.vdecl =
-  { vname = v.vname; vty = lower_ty v.vty }
-
-let rec lower_stmt (s : Kx_ast.stmt) : Ast.stmt =
-  let stmt =
-    match s.stmt with
-    | Kx_ast.SAssign (id, e) -> Ast.SAssign (id, lower_expr e)
-    | Kx_ast.SIf (c, t, e) -> Ast.SIf (lower_expr c, List.map lower_stmt t, List.map lower_stmt e)
-    | Kx_ast.SMatch (e, branches, dflt) ->
-        Ast.SMatch
-          ( lower_expr e,
-            List.map (fun (ctor, body) -> (ctor, List.map lower_stmt body)) branches,
-            List.map lower_stmt dflt )
-    | Kx_ast.SSkip -> Ast.SSkip
-    | Kx_ast.SCall (callee, args, outs) -> Ast.SCall (callee, List.map lower_expr args, outs)
-  in
-  { Ast.stmt; loc = Option.map lower_loc s.loc }
-
-let lower_transition (t : Kx_ast.transition) : Ast.transition =
-  {
-    Ast.src = t.src;
-    dst = t.dst;
-    guard = Option.map lower_expr t.guard;
-    body = List.map lower_stmt t.body;
-  }
-
-let lower_state_invariant (inv : Kx_ast.invariant_state_rel) : Ast.invariant_state_rel =
-  { Ast.state = inv.state; formula = lower_hexpr inv.formula }
-
-let lower_node (n : Kx_ast.node) : Ast.node =
-  {
-    Ast.semantics =
-      {
-        sem_nname = n.semantics.sem_nname;
-        sem_inputs = List.map lower_vdecl n.semantics.sem_inputs;
-        sem_outputs = List.map lower_vdecl n.semantics.sem_outputs;
-        sem_instances = n.semantics.sem_instances;
-        sem_locals = List.map lower_vdecl n.semantics.sem_locals;
-        sem_states = n.semantics.sem_states;
-        sem_init_state = n.semantics.sem_init_state;
-        sem_trans = List.map lower_transition n.semantics.sem_trans;
-      };
-    specification =
-      {
-        spec_assumes = List.map lower_ltl n.specification.spec_assumes;
-        spec_guarantees = List.map lower_ltl n.specification.spec_guarantees;
-        spec_invariants_state_rel =
-          List.map lower_state_invariant n.specification.spec_invariants_state_rel;
-      };
-  }
 
 let parse_source_text_with_info ~(filename : string) ~(text : string) : source * parse_info =
   let file_text = text in
@@ -222,16 +89,15 @@ let parse_source_text_with_info ~(filename : string) ~(text : string) : source *
               lexeme context expected))
     in
     let checkpoint = Kx_parser.Incremental.source_file start_pos in
-    let imports_raw, nodes_kx =
+    let imports_raw, nodes =
       I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint
     in
     let imports =
       List.map
-        (fun (import_path, import_loc) ->
-          { import_path; import_loc = Option.map lower_loc import_loc })
+        (fun (import_path, import_loc) -> { import_path; import_loc })
         imports_raw
     in
-    let parsed_source = { imports; nodes = List.map lower_node nodes_kx } in
+    let parsed_source = { imports; nodes } in
     let info =
       {
         source_path = Some filename;

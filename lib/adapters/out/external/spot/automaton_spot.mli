@@ -21,8 +21,6 @@
     This module defines the typed data extracted from HOA files and the
     conversion helpers used by the automata-generation pipeline. *)
 
-open Ast
-
 (** Result of one external process execution. *)
 type process_result = {
   status : Unix.process_status;
