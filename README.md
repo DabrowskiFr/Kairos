@@ -1,50 +1,46 @@
-# kairos
+# Kairos
 
-Quick commands
---------------
-- Build the CLI: `dune build bin/cli/kairos.exe`
-- Run all tests: `dune runtest`
+Kairos is a deductive verification tool for synchronous reactive programs.
+It takes a program and its temporal contracts (`requires`/`ensures`), builds
+an intermediate verification representation, and generates local proof
+obligations checked with a standard verification backend.
 
-./scripts/validate_ok_ko.sh --repo-root . --timeout-goal 1 --timeout-file 60 --jobs 15 --subset ok
-./scripts/validate_ok_ko.sh --repo-root . --timeout-goal 1 --timeout-file 60 --jobs 15 --subset ko
+## Run the validation campaign
 
-Oui : ./scripts/build_docs_site.sh.
--> _build/default/_doc_site
+Full campaign (15 jobs, 1s timeout per VC, 15s timeout per file):
 
-CLI usage
----------
+```bash
+./scripts/validate_ok_ko.sh --jobs 15 --timeout-goal 1 --timeout-file 15
+```
 
-- Prove : dune exec bin/cli/kairos.exe -- --prove <filename>
-- Dump guarantee+assume automata : dune exec bin/cli/kairos.exe -- --dump-automata=<filename> <filename>
-- Dump product automaton text : dune exec bin/cli/kairos.exe -- --dump-product=<filename> <filename>
-- Dump canonical structure : dune exec bin/cli/kairos.exe -- --dump-canonical=<filename> <filename>
+Reports are written to:
 
-GTK IDE (skeleton)
-------------------
+```text
+_build/validation/
+```
 
-- Generate Why3: `dune exec -- kairos <file.obc>`
-- Dump DOT only: `dune exec -- kairos --dump-dot out/monitor.dot <file.obc>`
-- Dump internal AST JSON: `dune exec -- kairos --dump-json - <file.obc>`
-- Write Why3 to file: `dune exec -- kairos -o out/file.why <file.obc>`
-- Dump structured proof traces: `dune exec -- kairos --dump-proof-traces-json - <file.kairos>`
-- Bound heavy proof-diagnosis runs: `dune exec -- kairos --dump-proof-traces-json - --proof-traces-failed-only --max-proof-traces 20 --proof-traces-fast --timeout-s 1 <file.kairos>`
+## Verify a specific program
 
-GTK IDE (skeleton)
-------------------
-- Build: `dune build bin/ide/obcwhy3_ide.exe`
-- Run: `dune exec -- bin/ide/obcwhy3_ide.exe`
+Proof command for a `.kairos` file:
 
-Notes
------
-- `scripts/lint.sh` runs build + unit tests + golden diffs. To include Why3
-  proofs, run: `LINT_RUN_WHY3=1 scripts/lint.sh`.
-- AST API overview: `AST_API.md`.
-- Architecture notes:
-  - `ARCHITECTURE_PIPELINE_LAYERS.md`
-  - `ARCHITECTURE_WHY_RUNTIME_VIEW.md`
-  - `ARCHITECTURE_REMAINING_OBC_DEPENDENCIES.md`
+```bash
+dune exec -j 1 -- kairos --prove --timeout-s 1 <chemin/vers/programme.kairos>
+```
 
-VS Code Extension
------------------
-- Official extension (LSP client): `extensions/kairos-vscode`
-- Build helper script: `scripts/vscode.sh` (use `--package` to create a `.vsix`)
+Example:
+
+```bash
+dune exec -j 1 -- kairos --prove --timeout-s 1 tests/ok/resettable_delay.kairos
+```
+
+To list all available CLI commands and options:
+
+```bash
+dune exec -j 1 -- kairos --help
+```
+
+## Where test examples are located
+
+- Expected **valid** examples: `tests/ok/`
+- Expected **invalid** examples: `tests/ko/`
+
