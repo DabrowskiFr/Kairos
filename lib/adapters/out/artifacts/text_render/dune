@@ -4,10 +4,8 @@
  (modules
   ir_text_proof_view_render
   ir_text_program_view_render
-  proof_status_render
-  why_text_render)
+  proof_status_render)
  (libraries
   kairos_domain_core
   kairos_domain_proof_export
-  kairos_why3
   why3))

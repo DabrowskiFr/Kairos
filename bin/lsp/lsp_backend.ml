@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Usecases = Verification_flow_usecases.Make (Verification_runtime_adapters.Ports)
+module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
 
 let map_error = Pipeline_types.error_to_string
 
@@ -73,7 +73,7 @@ let read_or_compile_kobj ~(input_file : string) =
     match Kairos_object.read_file ~path:input_file with
     | Ok obj -> Ok obj
     | Error msg -> Error (Pipeline_types.Flow_error msg)
-  else Verification_runtime_adapters.compile_object ~input_file
+  else Kairos_usecase_wiring.compile_object ~input_file
 
 let kobj_summary (req : Lsp_protocol.kobj_summary_request) =
   let engine =

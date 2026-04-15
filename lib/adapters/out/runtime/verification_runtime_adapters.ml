@@ -16,22 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Frontend = struct
-  let parse_input = Kairos_frontend.parse_input
-end
-
 module Snapshot = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let build_snapshot ~frontend = Pipeline_build.build_snapshot_from_frontend ~frontend
 end
-
-let ( let* ) = Result.bind
-
-let snapshot_of_input_file ~(input_file : string) :
-    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result =
-  let* frontend = Frontend.parse_input ~input_file in
-  Snapshot.build_snapshot ~frontend
 
 module Outputs = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
@@ -39,18 +28,13 @@ module Outputs = struct
   let build_outputs = Pipeline_outputs.build_outputs
 end
 
-module Instrumentation = struct
-  let instrumentation_pass ~generate_png ~input_file =
-    match snapshot_of_input_file ~input_file with
-    | Error _ as err -> err
-    | Ok (snapshot : Runtime_snapshot.pipeline_snapshot) -> (
-        match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
-        | Error msg -> Error (Pipeline_types.Flow_error msg)
-        | Ok artifacts ->
-            Ok
-              (Output_mapper.map_automata_outputs ~generate_png ~snapshot
-                 ~artifacts))
-end
+let instrumentation_from_snapshot ~generate_png ~(snapshot : Runtime_snapshot.pipeline_snapshot) =
+  match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
+  | Error msg -> Error (Pipeline_types.Flow_error msg)
+  | Ok artifacts ->
+      Ok
+        (Output_mapper.map_automata_outputs ~generate_png ~snapshot
+           ~artifacts)
 
 module Why_text = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
@@ -128,34 +112,18 @@ module Proof_events = struct
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b) !finished
 end
 
-module Ports = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
-
-  module Frontend = Frontend
-  module Snapshot = Snapshot
-  module Outputs = Outputs
-  module Instrumentation = Instrumentation
-  module Why_text = Why_text
-  module Obligations = Obligations
-  module Ir_render = Ir_render
-  module Timing = Timing
-  module Proof_events = Proof_events
-end
-
-let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
-  match snapshot_of_input_file ~input_file with
-  | Error _ as err -> err
-  | Ok (snapshot : Runtime_snapshot.pipeline_snapshot) -> (
-      match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
-      | Error msg -> Error (Pipeline_types.Flow_error msg)
-      | Ok artifacts ->
-          let parse_info =
-            Option.value snapshot.infos.parse ~default:Flow_info.empty_parse_info
-          in
-          Kairos_object.build ~source_path:input_file
-            ~source_hash:parse_info.text_hash
-            ~imports:snapshot.asts.imports
-            ~program:snapshot.asts.verification_model
-            ~runtime_program:snapshot.asts.automata_generation
-            ~kernel_ir_nodes:artifacts.kernel_ir_nodes
-          |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg))
+let compile_object_from_snapshot ~input_file ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
+    (Kairos_object.t, Pipeline_types.error) result =
+  match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
+  | Error msg -> Error (Pipeline_types.Flow_error msg)
+  | Ok artifacts ->
+      let parse_info =
+        Option.value snapshot.infos.parse ~default:Flow_info.empty_parse_info
+      in
+      Kairos_object.build ~source_path:input_file
+        ~source_hash:parse_info.text_hash
+        ~imports:snapshot.asts.imports
+        ~program:snapshot.asts.verification_model
+        ~runtime_program:snapshot.asts.automata_generation
+        ~kernel_ir_nodes:artifacts.kernel_ir_nodes
+      |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)

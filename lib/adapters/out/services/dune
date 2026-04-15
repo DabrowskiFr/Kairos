@@ -1,5 +1,0 @@
-(library
- (name kairos_services)
- (wrapped false)
- (modules engine_service)
- (libraries kairos_application))

@@ -16,11 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Engine selection helpers shared by entrypoints. *)
+(** Composition root wiring application ports to concrete adapters. *)
 
-type engine = Default
+module Ports : Application_ports.PORTS with type snapshot = Runtime_snapshot.pipeline_snapshot
 
-val engine_of_string : string -> engine option
-val string_of_engine : engine -> string
-val normalize : engine -> engine
-val error_to_string : Pipeline_types.error -> string
+val compile_object :
+  input_file:string -> (Kairos_object.t, Pipeline_types.error) result

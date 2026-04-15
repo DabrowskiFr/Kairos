@@ -16,11 +16,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Concrete outgoing adapters wiring existing modules to application ports. *)
+(** Concrete outgoing adapter modules (snapshot, outputs, Why, obligations, etc.). *)
 
-module Ports : Application_ports.PORTS with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Snapshot : Application_ports.SNAPSHOT_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Outputs : Application_ports.OUTPUTS_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Why_text : Application_ports.WHY_TEXT_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Obligations : Application_ports.OBLIGATIONS_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Ir_render : Application_ports.IR_RENDER_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Timing : Application_ports.TIMING_PORT
+module Proof_events :
+  Application_ports.PROOF_EVENTS_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
 
-(** Convenience export helper used by runtime/services to produce [.kobj]. *)
+(** Build instrumentation artifacts from an already prepared snapshot. *)
+val instrumentation_from_snapshot :
+  generate_png:bool ->
+  snapshot:Runtime_snapshot.pipeline_snapshot ->
+  (Pipeline_types.automata_outputs, Pipeline_types.error) result
 
-val compile_object :
-  input_file:string -> (Kairos_object.t, Pipeline_types.error) result
+(** Build a [.kobj] object from an already prepared snapshot. *)
+val compile_object_from_snapshot :
+  input_file:string ->
+  snapshot:Runtime_snapshot.pipeline_snapshot ->
+  (Kairos_object.t, Pipeline_types.error) result

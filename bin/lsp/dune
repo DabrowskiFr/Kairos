@@ -1,11 +1,10 @@
 (executable
  (name kairos_lsp)
  (public_name kairos-lsp)
- (modules kairos_lsp lsp_backend)
+ (modules kairos_lsp lsp_backend engine_service)
  (libraries
   kairos_application
-  kairos_verification_runtime
-  kairos_services
+  kairos_composition
   kairos_kobj
   kairos_lsp_protocol kairos_lsp_app kairos_external_graphviz
   yojson unix str jsonrpc lsp))
