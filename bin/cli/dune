@@ -4,7 +4,7 @@
  (modules kairos)
 (libraries
   kairos_application
-  kairos_verification_runtime
+  kairos_composition
   kairos_kobj
   bos
   fpath

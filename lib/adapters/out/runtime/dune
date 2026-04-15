@@ -17,7 +17,6 @@
   pipeline_outputs)
  (libraries
   kairos_application
-  kairos_input_lang
   kairos_domain_core
   kairos_domain_verification
   kairos_domain_proof_export

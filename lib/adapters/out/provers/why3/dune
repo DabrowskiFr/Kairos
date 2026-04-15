@@ -6,7 +6,10 @@
  (modules
   why_pipeline
   why_compile
- why_compile_step why_compile_expr why_runtime_view
+  why_compile_step
+  why_compile_expr
+  why_runtime_view
+  why_text_render
   why_contracts)
  (libraries
    kairos_domain_core

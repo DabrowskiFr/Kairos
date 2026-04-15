@@ -71,7 +71,7 @@ type action =
   | Dump_smt2 of { out : string }
   | Run of { prove : bool }
 
-module Usecases = Verification_flow_usecases.Make (Verification_runtime_adapters.Ports)
+module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
 
 module Pipeline_service = struct
   type goal_info = string * string * float * string option * string option
@@ -138,7 +138,7 @@ module Pipeline_service = struct
       match Kairos_object.read_file ~path:input_file with
       | Ok obj -> Ok obj
       | Error msg -> Error (Pipeline_types.Flow_error msg)
-    else Verification_runtime_adapters.compile_object ~input_file
+    else Kairos_usecase_wiring.compile_object ~input_file
 
   let kobj_summary ~input_file =
     match read_or_compile_kobj ~input_file with
