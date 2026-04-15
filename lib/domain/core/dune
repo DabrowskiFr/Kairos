@@ -1,0 +1,20 @@
+(library
+ (name kairos_domain_core)
+ (public_name kairos.domain_core)
+ (wrapped false)
+ (modules
+  loc
+  core_syntax
+  core_syntax_builders
+  pretty
+  log
+  verification_model
+  pre_k_layout
+  pre_k_lowering
+  ir
+  ir_shared_types
+  ir_formula
+  ir_transition)
+ (libraries yojson logs logs.fmt fmt)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

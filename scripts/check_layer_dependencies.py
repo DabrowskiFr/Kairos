@@ -135,11 +135,11 @@ def main() -> int:
             + ", ".join(stale)
         )
 
-    if "kairos_core_syntax" in deps:
-        internal = sorted(d for d in deps["kairos_core_syntax"] if d.startswith("kairos_"))
+    if "kairos_domain_core" in deps:
+        internal = sorted(d for d in deps["kairos_domain_core"] if d.startswith("kairos_"))
         if internal:
             fail(
-                "kairos_core_syntax must stay foundational with no internal deps: "
+                "kairos_domain_core must stay foundational with no internal deps: "
                 + ", ".join(internal)
             )
 

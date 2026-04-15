@@ -1,0 +1,10 @@
+(library
+ (name kairos_application)
+ (wrapped false)
+ (modules
+  flow_info
+  pipeline_types
+  proof_diagnostics
+  application_ports
+  verification_flow_usecases)
+ (libraries kairos_domain_core))

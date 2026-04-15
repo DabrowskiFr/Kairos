@@ -11,5 +11,5 @@
  (wrapped false)
  (modules lsp_app lsp_services)
  (libraries
-  kairos_verification_flow_types kairos_lsp_protocol
-  kairos_frontend_kairos_parse kairos_frontend_kairos_ast kairos_frontend_kairos_syntax yojson str))
+  kairos_application kairos_lsp_protocol
+  kairos_input_lang yojson str))

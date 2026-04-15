@@ -1,50 +1,29 @@
 {
   "layers": {
     "foundation": [
-      "kairos_core_syntax",
-      "kairos_logging"
+      "kairos_domain_core"
     ],
     "verification": [
-      "kairos_verification_model",
-      "kairos_automata",
-      "kairos_ir_temporal_support",
-      "kairos_ir",
-      "kairos_ir_passes"
-    ],
-    "shared_model": [
-      "kairos_proof_kernel_types"
-    ],
-    "pipeline_meta": [
-      "kairos_ir_stage_passes",
-      "kairos_flow_metadata",
-      "kairos_verification_flow_types",
-      "kairos_verification_flow_diagnostics"
+      "kairos_domain_verification"
     ],
     "application": [
-      "kairos_application_ports",
-      "kairos_application_usecases"
+      "kairos_application"
     ],
     "adapters_out": [
-      "kairos_verification_runtime_orchestration",
-      "kairos_verification_runtime_outputs",
-      "kairos_services",
-      "kairos_kobj",
-      "kairos_why3",
       "kairos_artifact_graph_render",
       "kairos_artifact_text_render",
-      "kairos_artifact_why_task_dump"
+      "kairos_artifact_why_task_dump",
+      "kairos_services",
+      "kairos_kobj",
+      "kairos_why3"
     ],
     "composition": [
       "kairos_verification_runtime"
     ],
     "proof_export": [
-      "kairos_proof_kernel_naming",
-      "kairos_proof_kernel_build"
+      "kairos_domain_proof_export"
     ],
     "adapters_in": [
-      "kairos_frontend_kairos_syntax",
-      "kairos_frontend_kairos_ast",
-      "kairos_frontend_kairos_parse",
       "kairos_input_lang",
       "kairos_lsp_protocol",
       "kairos_lsp_app"
@@ -65,28 +44,17 @@
       "foundation",
       "verification"
     ],
-    "shared_model": [
-      "foundation",
-      "verification",
-      "shared_model"
-    ],
-    "pipeline_meta": [
-      "pipeline_meta",
-      "foundation",
-      "verification"
-    ],
     "application": [
       "application",
-      "pipeline_meta"
+      "verification",
+      "foundation"
     ],
     "adapters_out": [
       "adapters_out",
       "composition",
       "application",
       "external",
-      "pipeline_meta",
       "proof_export",
-      "shared_model",
       "verification",
       "foundation"
     ],
@@ -96,24 +64,20 @@
       "adapters_in",
       "adapters_out",
       "external",
-      "pipeline_meta",
       "proof_export",
-      "shared_model",
       "verification",
       "foundation"
     ],
     "proof_export": [
       "proof_export",
       "foundation",
-      "verification",
-      "pipeline_meta",
-      "shared_model"
+      "verification"
     ],
     "adapters_in": [
       "adapters_in",
+      "application",
       "foundation",
       "verification",
-      "pipeline_meta",
       "proof_export"
     ],
     "external": [

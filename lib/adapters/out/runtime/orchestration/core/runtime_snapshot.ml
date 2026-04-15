@@ -16,19 +16,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Usecases = Verification_flow_usecases.Make (Verification_runtime_adapters.Ports)
+open Core_syntax
 
-let ( let* ) = Result.bind
+type ast_flow = {
+  imports : string list;
+  verification_model : Verification_model.program_model;
+  automata_generation : Verification_model.program_model;
+  automata : (ident * Automaton_types.automata_spec) list;
+  summaries : Ir.node_ir list;
+  instrumentation : Ir.node_ir list;
+}
 
-let build_snapshot ~input_file =
-  let* frontend = Verification_runtime_adapters.Ports.Frontend.parse_input ~input_file in
-  Verification_runtime_adapters.Ports.Snapshot.build_snapshot ~frontend
+type flow_infos = {
+  parse : Flow_info.parse_info option;
+  automata_generation : Flow_info.automata_info option;
+  summaries : Flow_info.summaries_info option;
+  instrumentation : Flow_info.instrumentation_info option;
+}
 
-let instrumentation_pass = Usecases.instrumentation_pass
-let why_pass = Usecases.why_pass
-let obligations_pass = Usecases.obligations_pass
-let normalized_program = Usecases.normalized_program
-let ir_pretty_dump = Usecases.ir_pretty_dump
-let run = Usecases.run
-let run_with_callbacks = Usecases.run_with_callbacks
-let compile_object = Verification_runtime_adapters.compile_object
+type pipeline_snapshot = {
+  asts : ast_flow;
+  infos : flow_infos;
+}

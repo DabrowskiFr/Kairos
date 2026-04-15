@@ -38,4 +38,4 @@ type t = {
 (** Build artifact texts/dots and exported kernel structures for [asts]. *)
 
 val build :
-  asts:Pipeline_types.ast_flow -> (t, string) result
+  asts:Runtime_snapshot.ast_flow -> (t, string) result

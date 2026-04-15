@@ -21,7 +21,7 @@
 (** Build the full [Pipeline_types.outputs] record. *)
 val map_outputs :
   cfg:Pipeline_types.config ->
-  snapshot:Pipeline_types.pipeline_snapshot ->
+  snapshot:Runtime_snapshot.pipeline_snapshot ->
   artifacts:Pipeline_artifact_bundle.t ->
   proof:Proof_runner.run_output ->
   Pipeline_types.outputs
@@ -30,6 +30,6 @@ val map_outputs :
 
 val map_automata_outputs :
   generate_png:bool ->
-  snapshot:Pipeline_types.pipeline_snapshot ->
+  snapshot:Runtime_snapshot.pipeline_snapshot ->
   artifacts:Pipeline_artifact_bundle.t ->
   Pipeline_types.automata_outputs

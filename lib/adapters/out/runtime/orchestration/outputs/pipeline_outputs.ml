@@ -19,7 +19,7 @@
 include Pipeline_outputs_helpers
 
 let build_outputs ~(cfg : Pipeline_types.config)
-    ~(snapshot : Pipeline_types.pipeline_snapshot) :
+    ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
     (Pipeline_types.outputs, Pipeline_types.error) result =
   let asts = snapshot.asts in
   match Pipeline_artifact_bundle.build ~asts with

@@ -3,8 +3,9 @@
  (wrapped false)
  (modules kairos_object)
  (libraries
-  kairos_automata kairos_verification_model
-  kairos_ir kairos_ir_passes kairos_proof_kernel_types
- kairos_core_syntax kairos_ir_temporal_support yojson)
+  kairos_domain_verification
+  kairos_domain_core
+  kairos_domain_proof_export
+  yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

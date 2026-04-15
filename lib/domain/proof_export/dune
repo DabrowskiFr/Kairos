@@ -1,0 +1,16 @@
+(library
+ (name kairos_domain_proof_export)
+ (public_name kairos.domain_proof_export)
+ (wrapped false)
+ (modules
+  proof_kernel_types
+  ir_json_codec
+  proof_kernel_naming
+  proof_kernel_product
+  proof_kernel_generated_clauses
+  proof_kernel_clause_lowering
+  proof_kernel_step_summaries
+  proof_kernel_pass)
+ (libraries kairos_domain_core kairos_domain_verification yojson)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving_yojson)))

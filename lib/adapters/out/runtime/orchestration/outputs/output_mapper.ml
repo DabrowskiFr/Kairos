@@ -18,7 +18,7 @@
 
 let obligations_map_text ~(raw : string) : string = raw
 
-let program_automaton_texts (asts : Pipeline_types.ast_flow) : string * string =
+let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
   Pipeline_outputs_helpers.program_automaton_texts asts
 
 let build_labels_text ~(program_automaton_text : string)
@@ -79,7 +79,7 @@ let graph_pngs ~(generate_main_png : bool) ~(program_dot : string)
     product_png_error )
 
 let map_outputs ~(cfg : Pipeline_types.config)
-    ~(snapshot : Pipeline_types.pipeline_snapshot)
+    ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     ~(artifacts : Pipeline_artifact_bundle.t) ~(proof : Proof_runner.run_output)
     : Pipeline_types.outputs =
   let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in
@@ -142,7 +142,7 @@ let map_outputs ~(cfg : Pipeline_types.config)
   }
 
 let map_automata_outputs ~(generate_png : bool)
-    ~(snapshot : Pipeline_types.pipeline_snapshot)
+    ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     ~(artifacts : Pipeline_artifact_bundle.t) :
     Pipeline_types.automata_outputs =
   let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in

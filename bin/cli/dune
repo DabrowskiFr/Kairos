@@ -2,8 +2,10 @@
  (name kairos)
  (public_name kairos)
  (modules kairos)
- (libraries
-  kairos_services
+(libraries
+  kairos_application
+  kairos_verification_runtime
+  kairos_kobj
   bos
   fpath
   cmdliner))
