@@ -18,7 +18,7 @@
 
 (** Concrete outgoing adapters wiring existing modules to application ports. *)
 
-module Ports : Application_ports.PORTS with type snapshot = Pipeline_types.pipeline_snapshot
+module Ports : Application_ports.PORTS with type snapshot = Runtime_snapshot.pipeline_snapshot
 
 (** Convenience export helper used by runtime/services to produce [.kobj]. *)
 

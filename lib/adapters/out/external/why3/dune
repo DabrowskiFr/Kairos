@@ -2,4 +2,4 @@
  (name kairos_external_why3)
  (wrapped false)
  (modules why_task_support why_contract_prove why_native_probe)
- (libraries kairos_logging why3))
+ (libraries kairos_domain_core why3))

@@ -26,7 +26,7 @@ module Make (P : Application_ports.PORTS) = struct
 
   let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
       ~(snap_before : P.Timing.snapshot) (out : Pipeline_types.outputs) : Pipeline_types.outputs =
-    let t_end = Unix.gettimeofday () in
+    let t_end = P.Timing.now_s () in
     let counters = P.Timing.diff ~before:snap_before ~after_:(P.Timing.snapshot ()) in
     let solver_s = solver_sum_s out.goals in
     let timing_fields =
@@ -71,11 +71,11 @@ module Make (P : Application_ports.PORTS) = struct
     Ok (P.Ir_render.pretty_program ~snapshot)
 
   let run (cfg : Pipeline_types.config) =
-    let t0 = Unix.gettimeofday () in
+    let t0 = P.Timing.now_s () in
     let snap_before = P.Timing.snapshot () in
     let* frontend = P.Frontend.parse_input ~input_file:cfg.input_file in
     let* snapshot = P.Snapshot.build_snapshot ~frontend in
-        let t_build_done = Unix.gettimeofday () in
+        let t_build_done = P.Timing.now_s () in
         (match P.Outputs.build_outputs ~cfg ~snapshot with
         | Error _ as e -> e
         | Ok out -> Ok (with_timing_flow_meta ~t0 ~t_build_done ~snap_before out))

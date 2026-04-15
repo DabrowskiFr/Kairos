@@ -43,7 +43,7 @@ let join_blocks_with_spans ~sep blocks =
 
 (** [flow_meta] helper value. *)
 
-let flow_meta (infos : Pipeline_types.flow_infos) : (string * (string * string) list) list =
+let flow_meta (infos : Runtime_snapshot.flow_infos) : (string * (string * string) list) list =
   let p = Option.value ~default:Flow_info.empty_parse_info infos.parse in
   let a = Option.value ~default:Flow_info.empty_automata_info infos.automata_generation in
   let s = Option.value ~default:Flow_info.empty_summaries_info infos.summaries in
@@ -76,7 +76,7 @@ let flow_meta (infos : Pipeline_types.flow_infos) : (string * (string * string) 
 
 (** [program_automaton_texts] helper value. *)
 
-let program_automaton_texts (asts : Pipeline_types.ast_flow) : string * string =
+let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
   match asts.automata_generation with
   | [] -> ("", "")
   | node :: _ ->

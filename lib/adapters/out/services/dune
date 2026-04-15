@@ -1,8 +1,5 @@
 (library
  (name kairos_services)
  (wrapped false)
- (modules engine_service pipeline_service)
- (libraries
-  kairos_verification_runtime
-  kairos_verification_flow_types
-  kairos_kobj))
+ (modules engine_service)
+ (libraries kairos_application))

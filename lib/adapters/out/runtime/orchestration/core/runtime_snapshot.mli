@@ -16,8 +16,32 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Kairos input adapter: parse source text and produce application frontend payload. *)
+(** Runtime-side snapshot types used by outgoing orchestration adapters.
 
-val parse_input :
-  input_file:string ->
-  (Application_ports.frontend_input, Application_ports.frontend_error) result
+    These types are intentionally kept in adapters/out because they represent
+    technical assembly state (automata analyses, intermediate IR lists, stage
+    infos) rather than application use-case DTOs.
+*)
+
+open Core_syntax
+
+type ast_flow = {
+  imports : string list;
+  verification_model : Verification_model.program_model;
+  automata_generation : Verification_model.program_model;
+  automata : (ident * Automaton_types.automata_spec) list;
+  summaries : Ir.node_ir list;
+  instrumentation : Ir.node_ir list;
+}
+
+type flow_infos = {
+  parse : Flow_info.parse_info option;
+  automata_generation : Flow_info.automata_info option;
+  summaries : Flow_info.summaries_info option;
+  instrumentation : Flow_info.instrumentation_info option;
+}
+
+type pipeline_snapshot = {
+  asts : ast_flow;
+  infos : flow_infos;
+}

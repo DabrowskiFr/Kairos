@@ -21,7 +21,7 @@ module Frontend = struct
 end
 
 module Snapshot = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let build_snapshot ~frontend = Pipeline_build.build_snapshot_from_frontend ~frontend
 end
@@ -29,12 +29,12 @@ end
 let ( let* ) = Result.bind
 
 let snapshot_of_input_file ~(input_file : string) :
-    (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result =
+    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result =
   let* frontend = Frontend.parse_input ~input_file in
   Snapshot.build_snapshot ~frontend
 
 module Outputs = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let build_outputs = Pipeline_outputs.build_outputs
 end
@@ -43,7 +43,7 @@ module Instrumentation = struct
   let instrumentation_pass ~generate_png ~input_file =
     match snapshot_of_input_file ~input_file with
     | Error _ as err -> err
-    | Ok (snapshot : Pipeline_types.pipeline_snapshot) -> (
+    | Ok (snapshot : Runtime_snapshot.pipeline_snapshot) -> (
         match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok artifacts ->
@@ -53,7 +53,7 @@ module Instrumentation = struct
 end
 
 module Why_text = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
     let why_ast = Why_compile.compile_program_ast_from_ir_nodes snapshot.asts.instrumentation in
@@ -62,7 +62,7 @@ module Why_text = struct
 end
 
 module Obligations = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let obligations ~(snapshot : snapshot) : Pipeline_types.obligations_outputs =
     let out = Why_pipeline.obligations_pass snapshot.asts.instrumentation in
@@ -70,7 +70,7 @@ module Obligations = struct
 end
 
 module Ir_render = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let normalized_program ~(snapshot : snapshot) : string =
     Ir_text_program_view_render.render_program ~source_program:(Some snapshot.asts.automata_generation)
@@ -86,6 +86,7 @@ end
 module Timing = struct
   type snapshot = External_timing.snapshot
 
+  let now_s = Unix.gettimeofday
   let snapshot = External_timing.snapshot
 
   let diff ~before ~after_ : Application_ports.timing_counters =
@@ -103,7 +104,7 @@ module Timing = struct
 end
 
 module Proof_events = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let prove_with_events ~timeout_s ~should_cancel ~(snapshot : snapshot)
       ~(vc_ids_ordered : int list) ~on_goal_done : Application_ports.goal_result list =
@@ -128,7 +129,7 @@ module Proof_events = struct
 end
 
 module Ports = struct
-  type snapshot = Pipeline_types.pipeline_snapshot
+  type snapshot = Runtime_snapshot.pipeline_snapshot
 
   module Frontend = Frontend
   module Snapshot = Snapshot
@@ -144,7 +145,7 @@ end
 let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
   match snapshot_of_input_file ~input_file with
   | Error _ as err -> err
-  | Ok (snapshot : Pipeline_types.pipeline_snapshot) -> (
+  | Ok (snapshot : Runtime_snapshot.pipeline_snapshot) -> (
       match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
       | Error msg -> Error (Pipeline_types.Flow_error msg)
       | Ok artifacts ->

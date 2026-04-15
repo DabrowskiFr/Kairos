@@ -24,5 +24,5 @@
 *)
 
 val build_snapshot_from_frontend :
-  frontend:Pipeline_types.frontend_payload ->
-  (Pipeline_types.pipeline_snapshot, Pipeline_types.error) result
+  frontend:Application_ports.frontend_input ->
+  (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result

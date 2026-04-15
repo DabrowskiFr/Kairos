@@ -46,8 +46,8 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
-let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
-    (Pipeline_types.pipeline_snapshot, Pipeline_types.error)
+let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) :
+    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
     result =
   try
     let imports = frontend.imports in
@@ -89,7 +89,7 @@ let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
         with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok instrumentation_info ->
-        let asts : Pipeline_types.ast_flow =
+        let asts : Runtime_snapshot.ast_flow =
           {
             imports;
             verification_model = p_model;
@@ -99,7 +99,7 @@ let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
             instrumentation = p_instrumentation;
           }
         in
-        let infos : Pipeline_types.flow_infos =
+        let infos : Runtime_snapshot.flow_infos =
           {
             parse = Some parse_info;
             automata_generation = Some automata_info;
@@ -107,6 +107,6 @@ let build_snapshot_from_frontend ~(frontend : Pipeline_types.frontend_payload) :
             instrumentation = Some instrumentation_info;
           }
         in
-        let snapshot : Pipeline_types.pipeline_snapshot = { asts; infos } in
+        let snapshot : Runtime_snapshot.pipeline_snapshot = { asts; infos } in
         Ok snapshot)
   with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))

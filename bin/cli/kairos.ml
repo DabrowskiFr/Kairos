@@ -71,6 +71,126 @@ type action =
   | Dump_smt2 of { out : string }
   | Run of { prove : bool }
 
+module Usecases = Verification_flow_usecases.Make (Verification_runtime_adapters.Ports)
+
+module Pipeline_service = struct
+  type goal_info = string * string * float * string option * string option
+  type flow_meta = (string * (string * string) list) list
+
+  type automata_dump_data = {
+    guarantee_automaton_text : string;
+    assume_automaton_text : string;
+    guarantee_automaton_dot : string;
+    assume_automaton_dot : string;
+    product_text : string;
+    product_dot : string;
+    canonical_text : string;
+    canonical_dot : string;
+    obligations_map_text : string;
+  }
+
+  type obligations_dump_data = {
+    vc_text : string;
+    smt_text : string;
+  }
+
+  type run_dump_data = {
+    why_text : string;
+    vc_text : string;
+    smt_text : string;
+    flow_meta : flow_meta;
+    goals : goal_info list;
+  }
+
+  let instrumentation_pass = Usecases.instrumentation_pass
+  let why_pass = Usecases.why_pass
+  let obligations_pass = Usecases.obligations_pass
+
+  let automata_dump_data ~input_file =
+    match instrumentation_pass ~generate_png:false ~input_file with
+    | Error _ as e -> e
+    | Ok out ->
+        Ok
+          {
+            guarantee_automaton_text = out.guarantee_automaton_text;
+            assume_automaton_text = out.assume_automaton_text;
+            guarantee_automaton_dot = out.guarantee_automaton_dot;
+            assume_automaton_dot = out.assume_automaton_dot;
+            product_text = out.product_text;
+            product_dot = out.product_dot;
+            canonical_text = out.canonical_text;
+            canonical_dot = out.canonical_dot;
+            obligations_map_text = out.obligations_map_text;
+          }
+
+  let why_text_dump ~input_file =
+    match why_pass ~input_file with
+    | Error _ as e -> e
+    | Ok out -> Ok out.why_text
+
+  let obligations_dump_data ~input_file =
+    match obligations_pass ~input_file with
+    | Error _ as e -> e
+    | Ok out -> Ok { vc_text = out.vc_text; smt_text = out.smt_text }
+
+  let read_or_compile_kobj ~(input_file : string) =
+    if Filename.check_suffix input_file ".kobj" then
+      match Kairos_object.read_file ~path:input_file with
+      | Ok obj -> Ok obj
+      | Error msg -> Error (Pipeline_types.Flow_error msg)
+    else Verification_runtime_adapters.compile_object ~input_file
+
+  let kobj_summary ~input_file =
+    match read_or_compile_kobj ~input_file with
+    | Error _ as e -> e
+    | Ok obj -> Ok (Kairos_object.render_summary obj)
+
+  let kobj_clauses ~input_file =
+    match read_or_compile_kobj ~input_file with
+    | Error _ as e -> e
+    | Ok obj -> Ok (Kairos_object.render_clauses obj)
+
+  let kobj_product ~input_file =
+    match read_or_compile_kobj ~input_file with
+    | Error _ as e -> e
+    | Ok obj -> Ok (Kairos_object.render_product obj)
+
+  let kobj_contracts ~input_file =
+    match read_or_compile_kobj ~input_file with
+    | Error _ as e -> e
+    | Ok obj -> Ok (Kairos_object.render_product_summaries obj)
+
+  let normalized_program = Usecases.normalized_program
+  let ir_pretty_dump = Usecases.ir_pretty_dump
+  let run = Usecases.run
+
+  let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text =
+    let cfg =
+      {
+        Pipeline_types.input_file;
+        wp_only = false;
+        smoke_tests = false;
+        timeout_s;
+        compute_proof_diagnostics = false;
+        prove;
+        generate_vc_text;
+        generate_smt_text;
+        generate_dot_png = false;
+      }
+    in
+    match run cfg with
+    | Error _ as e -> e
+    | Ok out ->
+        Ok
+          {
+            why_text = out.why_text;
+            vc_text = out.vc_text;
+            smt_text = out.smt_text;
+            flow_meta = out.flow_meta;
+            goals = out.goals;
+          }
+end
+
 let write_target out text =
   match out with
   | "-" -> print_string text
@@ -137,7 +257,7 @@ let report_failed_goals goals =
     goals
   |> List.filter_map Fun.id
 
-let map_error e = Engine_service.error_to_string e
+let map_error e = Pipeline_types.error_to_string e
 
 (* Thin wrappers around backend passes so the execution layer can focus on the
    selected action instead of repeating result/error plumbing. *)
@@ -354,7 +474,7 @@ let exec_dump_mode args = function
   | Dump_kobj_product { out } -> with_kobj_product args (write_text_output out)
   | Dump_kobj_contracts { out } -> with_kobj_contracts args (write_text_output out)
 
-(* The generic run path remains the only branch that calls [Engine_service.run].
+(* The generic run path remains the only branch that calls the full run use-case.
    It still handles optional side dumps and proof failure reporting. *)
 let exec_action args = function
   | Dump mode -> exec_dump_mode args mode

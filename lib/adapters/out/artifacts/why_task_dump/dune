@@ -2,6 +2,4 @@
  (name kairos_artifact_why_task_dump)
  (wrapped false)
  (modules why_task_dump_render)
- (libraries
-  kairos_external_why3
-  why3))
+ (libraries kairos_external_why3 why3))

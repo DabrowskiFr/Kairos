@@ -161,43 +161,6 @@ type why_outputs = { why_text : string; flow_meta : (string * (string * string) 
 
 type obligations_outputs = { vc_text : string; smt_text : string }
 
-(** Frontend parsing payload consumed by snapshot builders.
-
-    It bundles parsed source-level data and the internal verification model. *)
-
-type frontend_payload = {
-  imports : string list;
-  parse_info : Flow_info.parse_info;
-  verification_model : Verification_model.program_model;
-}
-
-(** Snapshot of program forms produced by early and middle pipeline stages. *)
-
-type ast_flow = {
-  imports : string list;
-  verification_model : Verification_model.program_model;
-  automata_generation : Verification_model.program_model;
-  automata : (ident * Automaton_types.automata_spec) list;
-  summaries : Ir.node_ir list;
-  instrumentation : Ir.node_ir list;
-}
-
-(** Stage metadata attached to a snapshot. *)
-
-type flow_infos = {
-  parse : Flow_info.parse_info option;
-  automata_generation : Flow_info.automata_info option;
-  summaries : Flow_info.summaries_info option;
-  instrumentation : Flow_info.instrumentation_info option;
-}
-
-(** Immutable snapshot consumed by output/proof adapters. *)
-
-type pipeline_snapshot = {
-  asts : ast_flow;
-  infos : flow_infos;
-}
-
 (** Runtime configuration of the full pipeline execution. *)
 
 type config = {

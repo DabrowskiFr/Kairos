@@ -36,17 +36,17 @@ let flow_parse_info_of_frontend (info : Kx_parse_api.parse_info) : Flow_info.par
     warnings = info.warnings;
   }
 
-let read_all_text (path : string) : (string, Pipeline_types.error) result =
+let read_all_text (path : string) : (string, Application_ports.frontend_error) result =
   try
     let ic = open_in_bin path in
     let len = in_channel_length ic in
     let s = really_input_string ic len in
     close_in ic;
     Ok s
-  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Application_ports.flow_error (Printexc.to_string exn))
 
 let parse_input ~(input_file : string) :
-    (Pipeline_types.frontend_payload, Pipeline_types.error) result =
+    (Application_ports.frontend_input, Application_ports.frontend_error) result =
   match read_all_text input_file with
   | Error _ as err -> err
   | Ok source_text -> (
@@ -62,4 +62,4 @@ let parse_input ~(input_file : string) :
             parse_info;
             verification_model;
           }
-      with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+      with exn -> Error (Application_ports.parse_error (Printexc.to_string exn)))

@@ -1,9 +1,0 @@
-(library
- (name kairos_application_usecases)
- (wrapped false)
- (modules verification_flow_usecases)
- (libraries
-  kairos_application_ports
-  kairos_verification_flow_types
-  kairos_verification_flow_diagnostics
-  unix))

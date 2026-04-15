@@ -4,8 +4,8 @@
  (wrapped false)
  (modules automaton_spot spot_automaton_builder)
  (libraries
-  kairos_automata
-  kairos_core_syntax
+  kairos_domain_verification
+  kairos_domain_core
   kairos_external_timing
   kairos_external_z3
   unix))
