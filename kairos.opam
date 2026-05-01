@@ -1,0 +1,22 @@
+opam-version: "2.0"
+name: "kairos"
+version: "dev"
+synopsis: "Kairos CLI, LSP server, and native IDE"
+description: "Kairos toolchain including the command-line interface, language server, and native IDE."
+depends: [
+  "dune" {>= "3.10"}
+  "rocq-prover"
+  "menhir"
+  "ppx_deriving"
+  "ppx_deriving_yojson"
+  "ocaml"
+  "yojson"
+  "jsonrpc"
+  "lsp"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs "@install"]
+]
+install: [
+  ["dune" "install" "-p" name "--create-install-files" "--prefix" prefix "--libdir" lib]
+]

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairos Artifacts Guide</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">K</span>
+          <span class="brand-copy">
+            <strong>Kairos</strong>
+            <span>Documentation portal</span>
+          </span>
+        </a>
+        <nav class="nav">
+          <a href="./index.html">Home</a>
+          <a href="./frontend.html">Frontend</a>
+          <a href="./common.html">Common</a>
+          <a href="./middleend.html">Middle-end</a>
+          <a class="active" href="./artifacts.html">Artifacts</a>
+          <a href="./backends.html">Backends</a>
+          <a href="./kairos/index.html">API</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="eyebrow">Guide</div>
+            <h1>Artifacts</h1>
+            <p class="lede">
+              Artifact code renders and exports middle-end outputs: graph dumps,
+              IR views, diagnostics, and `.kobj` import/export data.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="./kairos/artifacts.html">Open artifacts page</a>
+              <a class="button secondary" href="./kairos/Ir/index.html">Open Ir</a>
+            </div>
+          </article>
+
+          <section class="panel">
+            <div class="kicker">Responsibilities</div>
+            <pre class="code-block">canonical data
+  <span class="token-arrow">-&gt;</span> graph dumps (.dot)
+  <span class="token-arrow">-&gt;</span> rendered summaries
+  <span class="token-arrow">-&gt;</span> kobj import/export
+  <span class="token-arrow">-&gt;</span> diagnostics files</pre>
+          </section>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

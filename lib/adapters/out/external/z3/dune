@@ -1,0 +1,7 @@
+(library
+ (name kairos_external_z3)
+ (public_name kairos.external_z3)
+ (wrapped false)
+ (modules fo_z3_solver)
+ (libraries kairos_domain_core
+  kairos_external_timing unix z3))

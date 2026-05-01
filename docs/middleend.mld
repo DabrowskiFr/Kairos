@@ -1,0 +1,31 @@
+{0 Middle-end}
+
+The middle-end builds semantic proof data from the source program:
+
+- automata generation from assumptions/guarantees;
+- product construction between program transitions and automata transitions;
+- canonical contract construction;
+- pre/invariant/post passes;
+- proof-view extraction.
+
+{1 Scope}
+
+This layer is where Kairos turns parsed nodes into canonical proof obligations.
+It does not emit Why3 text directly; that is handled by backend layers.
+
+{1 Main areas in the repository}
+
+- `lib/domain/verification/automata/spec`
+  Specification automata generation.
+
+- `lib/domain/verification/automata/product`
+  Product construction and transition classification.
+
+- `lib/domain/verification/ir`
+  Canonical IR shaping passes (`pre`, `invariant`, `post`) and proof views.
+
+{1 Reading order}
+
+1. automata generation (`automata/spec`)
+2. product build (`automata/product`)
+3. IR passes (`ir`)

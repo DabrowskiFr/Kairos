@@ -1,0 +1,18 @@
+(library
+ (name kairos_domain_verification)
+ (public_name kairos.domain_verification)
+ (wrapped false)
+ (modules
+  automaton_types
+  automata_generation
+  ltl_valuation
+  product_types
+  temporal_automata
+  product_build
+  fo_time
+  from_model
+  pre
+  post
+  temporal_lower
+  orchestration)
+ (libraries kairos_domain_core))

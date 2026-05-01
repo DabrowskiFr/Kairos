@@ -1,0 +1,10 @@
+(library
+ (name kairos_lsp_app)
+ (wrapped false)
+ (modules lsp_app lsp_services)
+ (libraries
+  kairos_application
+  kairos_lsp_protocol
+  kairos_input_lang
+  yojson
+  str))

@@ -1,0 +1,48 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/w_guarded_prev_hold.kairos:
+     Hold -> Hold (gate = 1) sets  y := 1  instead of  y := 0.
+   Why it must be rejected:
+     The Hold-state invariant requires  y = 0.  Setting y := 1 in the self-loop
+     violates this invariant on the very next tick.
+     The contract  next always ((gate=1 and prev gate=1) => ((y=0) W gate=0))
+     is broken because y = 1 while the gate remains high. *)
+node w_guarded_prev_hold(gate: int, x: int) returns (y: int)
+contracts
+  requires: G(gate = 0 or gate = 1);
+  ensures: next always ((gate = 1 and prev gate = 1) => ((y = 0) W (gate = 0)));
+locals
+  hold: int;
+states
+  Init(init), Wait, Hold;
+invariants
+  in Hold:
+    y = 0;
+transitions
+  Init:
+    to Hold when gate = 1 {
+      y := 0;
+      hold := x;
+    }
+    to Wait when gate = 0 {
+      y := 0;
+      hold := x;
+    }
+  Wait:
+    to Hold when gate = 1 {
+      y := 0;
+      hold := x;
+    }
+    to Wait when gate = 0 {
+      y := 0;
+      hold := x;
+    }
+  Hold:
+    to Wait when gate = 0 {
+      y := 0;
+      hold := x;
+    }
+    to Hold when gate = 1 {
+      y := 1; // BUG: should be  y := 0  (violates Hold invariant  y = 0)
+      hold := x;
+    }
+end

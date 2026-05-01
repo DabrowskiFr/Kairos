@@ -1,0 +1,11 @@
+(library
+ (name kairos_kobj)
+ (wrapped false)
+ (modules kairos_object)
+ (libraries
+  kairos_domain_verification
+  kairos_domain_core
+  kairos_domain_proof_export
+  yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))

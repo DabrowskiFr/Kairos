@@ -1,0 +1,26 @@
+(library
+ (name kairos_input_lang)
+ (wrapped false)
+ (modules
+  kx_loc
+  kx_core_syntax
+  kx_core_syntax_builders
+  kx_ast
+  kx_ast_builders
+  kx_parse_api
+  kx_lexer
+  kx_parser
+  kairos_to_model
+  kairos_frontend)
+ (private_modules kx_lexer kx_parser)
+ (libraries
+  kairos_application
+  kairos_domain_core
+  menhirLib
+  sedlex)
+ (preprocess
+  (pps sedlex.ppx)))
+
+(menhir
+ (modules kx_parser)
+ (flags --table --inspection))

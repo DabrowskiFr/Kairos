@@ -1,0 +1,11 @@
+(executable
+ (name kairos)
+ (public_name kairos)
+ (modules kairos)
+(libraries
+  kairos_application
+  kairos_composition
+  kairos_kobj
+  bos
+  fpath
+  cmdliner))

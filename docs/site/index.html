@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kairos Documentation</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="shell">
+        <a class="brand" href="./index.html">
+          <span class="brand-mark">K</span>
+          <span class="brand-copy">
+            <strong>Kairos</strong>
+            <span>Documentation portal</span>
+          </span>
+        </a>
+        <nav class="nav">
+          <a class="active" href="./index.html">Home</a>
+          <a href="./frontend.html">Frontend</a>
+          <a href="./common.html">Common</a>
+          <a href="./middleend.html">Middle-end</a>
+          <a href="./artifacts.html">Artifacts</a>
+          <a href="./backends.html">Backends</a>
+          <a href="./kairos/index.html">API</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-grid">
+          <article class="hero-card">
+            <div class="eyebrow">Kairos Codebase Guide</div>
+            <h1>Readable entry point, generated API, and cleaner navigation.</h1>
+            <p class="lede">
+              This site wraps the generated <code>odoc</code> API in a more
+              pleasant front door: a curated landing page, guide pages, and a
+              direct path into the module reference.
+            </p>
+            <div class="actions">
+              <a class="button primary" href="./kairos/index.html">Open API Reference</a>
+              <a class="button secondary" href="./frontend.html">Start With Frontend</a>
+            </div>
+          </article>
+
+          <div class="hero-side">
+            <section class="panel">
+              <div class="kicker">Pipeline sketch</div>
+              <pre class="code-block">source file
+  <span class="token-arrow">-&gt;</span> frontend
+  <span class="token-arrow">-&gt;</span> shared semantic data
+  <span class="token-arrow">-&gt;</span> middle-end construction
+  <span class="token-arrow">-&gt;</span> artifacts / Why3</pre>
+            </section>
+
+            <section class="panel">
+              <div class="kicker">What lives here</div>
+              <ul class="list">
+                <li>guide pages for the main layers</li>
+                <li>styled entry pages for reading order</li>
+                <li>generated API under <code>api/</code></li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="grid">
+          <article class="card">
+            <div class="kicker">Guide</div>
+            <h3>Frontend</h3>
+            <p>Read the parsing and source AST layer before the proof pipeline.</p>
+            <p><a href="./frontend.html">Open the frontend guide</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Guide</div>
+            <h3>Common</h3>
+            <p>See the shared semantic structures, provenance, and IR types.</p>
+            <p><a href="./common.html">Open the common guide</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Guide</div>
+            <h3>Middle-end</h3>
+            <p>Understand automata, product construction, and canonical obligations.</p>
+            <p><a href="./middleend.html">Open the middle-end guide</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Guide</div>
+            <h3>Artifacts</h3>
+            <p>Read how dumps, renders, diagnostics, and kobj exports are produced.</p>
+            <p><a href="./artifacts.html">Open the artifacts guide</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Guide</div>
+            <h3>Backends</h3>
+            <p>Follow canonical obligations through Why3-oriented backend code.</p>
+            <p><a href="./backends.html">Open the backends guide</a></p>
+          </article>
+
+          <article class="card">
+            <div class="kicker">Reference</div>
+            <h3>API</h3>
+            <p>Browse the generated module reference without losing code-level detail.</p>
+            <p><a href="./kairos/index.html">Open the API reference</a></p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="callout">
+          <h2>Why not only use <code>odoc</code> directly?</h2>
+          <p>
+            The generated API is still the source of truth for signatures and
+            module pages. This wrapper adds a friendlier landing page and guide
+            structure on top of it, without replacing the generated reference.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell footer">
+      Generated from the repository sources and the <code>odoc</code> API output.
+    </footer>
+  </body>
+</html>

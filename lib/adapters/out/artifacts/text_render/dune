@@ -1,0 +1,11 @@
+(library
+ (name kairos_artifact_text_render)
+ (wrapped false)
+ (modules
+  ir_text_proof_view_render
+  ir_text_program_view_render
+  proof_status_render)
+ (libraries
+  kairos_domain_core
+  kairos_domain_proof_export
+  why3))

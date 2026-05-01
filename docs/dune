@@ -1,0 +1,3 @@
+(documentation
+ (package kairos)
+ (mld_files index frontend common middleend artifacts backends))

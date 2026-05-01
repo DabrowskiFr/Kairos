@@ -1,0 +1,89 @@
+{
+  "layers": {
+    "foundation": [
+      "kairos_domain_core"
+    ],
+    "verification": [
+      "kairos_domain_verification"
+    ],
+    "application": [
+      "kairos_application"
+    ],
+    "adapters_out": [
+      "kairos_verification_runtime",
+      "kairos_artifact_graph_render",
+      "kairos_artifact_text_render",
+      "kairos_artifact_why_task_dump",
+      "kairos_kobj",
+      "kairos_why3"
+    ],
+    "composition": [
+      "kairos_composition"
+    ],
+    "proof_export": [
+      "kairos_domain_proof_export"
+    ],
+    "adapters_in": [
+      "kairos_input_lang",
+      "kairos_lsp_protocol",
+      "kairos_lsp_app"
+    ],
+    "external": [
+      "kairos_external_graphviz",
+      "kairos_external_spot",
+      "kairos_external_timing",
+      "kairos_external_why3",
+      "kairos_external_z3"
+    ]
+  },
+  "allow": {
+    "foundation": [
+      "foundation"
+    ],
+    "verification": [
+      "foundation",
+      "verification"
+    ],
+    "application": [
+      "application",
+      "verification",
+      "foundation"
+    ],
+    "adapters_out": [
+      "adapters_out",
+      "composition",
+      "application",
+      "external",
+      "proof_export",
+      "verification",
+      "foundation"
+    ],
+    "composition": [
+      "composition",
+      "application",
+      "adapters_in",
+      "adapters_out",
+      "external",
+      "proof_export",
+      "verification",
+      "foundation"
+    ],
+    "proof_export": [
+      "proof_export",
+      "foundation",
+      "verification"
+    ],
+    "adapters_in": [
+      "adapters_in",
+      "application",
+      "foundation",
+      "verification",
+      "proof_export"
+    ],
+    "external": [
+      "external",
+      "foundation",
+      "verification"
+    ]
+  }
+}

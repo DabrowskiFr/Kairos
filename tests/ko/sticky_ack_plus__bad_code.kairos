@@ -1,0 +1,40 @@
+(* BAD CODE — should be rejected by the verifier.
+   Differences from ok/sticky_ack_plus.kairos:
+     Wait -> Latched sets  ack := 0  instead of  ack := 1.
+     Latched -> Latched sets  ack := 0  instead of  ack := 1.
+   Why it must be rejected:
+     Once armed (req = 1), ack must become and stay 1 as required by
+       G(req = 1 => G(ack = 1))  and  G(ack = 1 => G(ack = 1)).
+     Setting ack := 0 on entry to and inside Latched means ack is never 1
+     from the Wait state, and is immediately reset even if it was 1 on entry. *)
+node sticky_ack_plus(req: int) returns (ack: int)
+contracts
+  ensures: G (req = 1 => G (ack = 1));
+  ensures: G (ack = 1 => G (ack = 1));
+states
+  Init(init), Wait, Latched;
+invariants
+  in Wait:
+    ack = 0;
+  in Latched:
+    ack = 1;
+transitions
+  Init:
+    to Latched when req = 1 {
+      ack := 1;
+    }
+    to Wait when req = 0 {
+      ack := 0;
+    }
+  Wait:
+    to Latched when req = 1 {
+      ack := 0; // BUG: should be  ack := 1  (latch must fire)
+    }
+    to Wait when req = 0 {
+      ack := 0;
+    }
+  Latched:
+    to Latched {
+      ack := 0; // BUG: should be  ack := 1  (latch must stay set)
+    }
+end

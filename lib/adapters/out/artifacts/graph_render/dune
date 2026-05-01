@@ -1,0 +1,9 @@
+(library
+ (name kairos_artifact_graph_render)
+ (wrapped false)
+ (modules automata_graph_render)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_domain_proof_export
+  kairos_external_z3))

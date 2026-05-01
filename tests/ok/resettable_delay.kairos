@@ -1,0 +1,22 @@
+node resettable_delay(r: int, x: int) returns (y: int)
+contracts
+  requires : G ((r = 0 or r = 1) and (r = 1 => x = 0));
+  ensures  : G ((r = 1) => (y = 0));
+  ensures  : X G ((r = 0 and prev r = 1) => y = 0);
+  ensures  : X G ((r = 0 and prev r = 0) => y = prev x);
+locals
+  m : int;
+states
+  Init(init), Run;
+invariants
+  in Run:
+    (prev r = 1 => m = 0) and (prev r = 0 => m = prev x);
+transitions
+  Init:
+    to Run when r = 1 { y := 0; m := 0; }
+    to Run when r = 0 { y := 0; m := x; }
+  Run:
+    to Run when r = 1 { y := 0; m := 0; }
+    to Run when r = 0 { y := m; m := x; }
+end
+  

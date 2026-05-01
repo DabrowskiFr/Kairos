@@ -1,0 +1,41 @@
+(* BAD CODE — should be rejected by the verifier.
+   Differences from ok/handoff.kairos:
+     A -> B sets  modeB := 0  instead of  modeB := 1.
+     B -> A sets  modeA := 0  instead of  modeA := 1.
+   Why it must be rejected:
+     State B invariant requires  modeB = 1.  A -> B arrives in B with modeB = 0,
+     violating the B invariant immediately.
+     State A invariant requires  modeA = 1.  B -> A arrives in A with modeA = 0.
+     Both modes are 0 after every handoff, breaking the contracts
+       G(modeA = 1 => X(modeB = 1))  and  G(modeB = 1 => X(modeA = 1)). *)
+node handoff() returns (modeA: int, modeB: int)
+contracts
+  ensures: G( {modeA} = {1} => X( {modeB} = {1} ) );
+  ensures: G( {modeB} = {1} => X( {modeA} = {1} ) );
+  ensures: G (G ( {modeA} = {1} => X( {modeB} = {1} ) ));
+states
+  Init(init), A, B;
+invariants
+  in A:
+      modeA = 1;
+      modeB = 0;
+  in B:
+      modeA = 0;
+      modeB = 1;
+transitions
+  Init:
+    to A {
+      modeA := 1;
+      modeB := 0;
+    }
+  A:
+    to B  {
+    modeA := 0;
+    modeB := 0; // BUG: should be  modeB := 1  (violates B invariant  modeB = 1)
+  }
+  B:
+    to A  {
+    modeA := 0; // BUG: should be  modeA := 1  (violates A invariant  modeA = 1)
+    modeB := 0;
+  }
+end

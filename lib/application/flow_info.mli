@@ -1,0 +1,89 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Bundles the intermediate artifacts produced by instrumentation stages. *)
+open Core_syntax
+(** {1 Per-pass Metadata} *)
+
+(** Parser error payload. *)
+type parse_error = { loc : Loc.loc option; message : string }
+
+(** Parsing metadata reported by the frontend. *)
+type parse_info = {
+  source_path : string option;
+  text_hash : string option;
+  parse_errors : parse_error list;
+  warnings : string list;
+}
+
+(** Metadata produced by the automata generation pass. *)
+type automata_info = {
+  residual_state_count : int;
+  residual_edge_count : int;
+  warnings : string list;
+}
+
+(** Metadata produced by the summaries pass. *)
+type summaries_info = { warnings : string list }
+
+(** Metadata produced after IR construction.
+
+    This record only stores structural counters and pass warnings.
+    Rendering and proof-export payloads are produced later by output modules. *)
+type instrumentation_info = {
+  (** Non-fatal warnings emitted while building proof artifacts. *)
+  warnings : string list;
+  (** Number of states in the require automata (sum over processed nodes). *)
+  require_automata_state_count : int;
+  (** Number of edges in the require automata (sum over processed nodes). *)
+  require_automata_edge_count : int;
+  (** Number of states in the ensures automata (sum over processed nodes). *)
+  ensures_automata_state_count : int;
+  (** Number of edges in the ensures automata (sum over processed nodes). *)
+  ensures_automata_edge_count : int;
+  (** Number of edges in the full explicit product (sum over processed nodes). *)
+  product_edge_count_full : int;
+  (** Number of edges in the live product subgraph:
+      excludes steps whose source is in [G_bad] or whose destination is in [A_bad]. *)
+  product_edge_count_live : int;
+  (** Number of product states in the full explicit product (sum over processed nodes). *)
+  product_state_count_full : int;
+  (** Number of product states in the classical live subgraph
+      (states that are neither [A_bad] nor [G_bad]). *)
+  product_state_count_live : int;
+  (** Number of canonical summaries (sum over processed nodes). *)
+  canonical_summary_count : int;
+  (** Number of safe canonical cases (sum over processed nodes). *)
+  canonical_case_safe_count : int;
+  (** Number of bad-assumption canonical cases (sum over processed nodes). *)
+  canonical_case_bad_assumption_count : int;
+  (** Number of bad-guarantee canonical cases (sum over processed nodes). *)
+  canonical_case_bad_guarantee_count : int;
+}
+
+(** Default empty parsing metadata. *)
+val empty_parse_info : parse_info
+
+(** Default empty automata-generation metadata. *)
+val empty_automata_info : automata_info
+
+(** Default empty summaries metadata. *)
+val empty_summaries_info : summaries_info
+
+(** Empty IR instrumentation metadata (all counters set to zero). *)
+val empty_instrumentation_info : instrumentation_info

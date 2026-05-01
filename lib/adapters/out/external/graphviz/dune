@@ -1,0 +1,5 @@
+(library
+ (name kairos_external_graphviz)
+ (wrapped false)
+ (modules graphviz_render)
+ (libraries bos fpath))

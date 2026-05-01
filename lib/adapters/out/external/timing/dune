@@ -1,0 +1,6 @@
+(library
+ (name kairos_external_timing)
+ (public_name kairos.external_timing)
+ (wrapped false)
+ (modules external_timing)
+ (libraries unix))
