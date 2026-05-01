@@ -1,0 +1,24 @@
+{0 Artifacts}
+
+The artifacts layer renders and exports data produced by the middle-end:
+
+- IR and canonical renderings;
+- graph dumps (automata/product/canonical);
+- `.kobj` import/export helpers;
+- diagnostics and helper outputs.
+
+{1 Scope}
+
+This layer is focused on serialization and presentation of already-computed
+semantic data. It does not define proof semantics by itself.
+
+{1 Main areas in the repository}
+
+- `lib/adapters/out/artifacts/graph_render`
+  Graph rendering for automata/product/summary dumps.
+
+- `lib/adapters/out/artifacts/text_render`
+  Text renderers for IR views, proof status, and Why text output.
+
+- `lib/adapters/out/artifacts/why_task_dump`
+  Why3 task dump rendering helpers.

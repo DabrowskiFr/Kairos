@@ -1,0 +1,110 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kairos IR",
+  "scopeName": "source.kir",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#sectionHeaders" },
+    { "include": "#clauseKeywords" },
+    { "include": "#structureKeywords" },
+    { "include": "#originKeywords" },
+    { "include": "#metaAttributes" },
+    { "include": "#brackets" },
+    { "include": "#numbers" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.kir",
+          "match": "--.*$"
+        }
+      ]
+    },
+    "sectionHeaders": {
+      "patterns": [
+        {
+          "name": "entity.name.section.kir",
+          "match": "^(reactive_program|assume_automaton|guarantee_automaton|explicit_product|callee_tick_abis)\\b"
+        }
+      ]
+    },
+    "clauseKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.clause.historical.kir",
+          "match": "\\bhistorical_clause\\b"
+        },
+        {
+          "name": "keyword.control.clause.eliminated.kir",
+          "match": "\\beliminated_clause\\b"
+        },
+        {
+          "name": "keyword.control.clause.symbolic.kir",
+          "match": "\\bsymbolic_clause\\b"
+        }
+      ]
+    },
+    "structureKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.other.structure.kir",
+          "match": "\\b(pstate|pstep|state|edge|coverage|instance|case|callee_tick_abi)\\b"
+        },
+        {
+          "name": "keyword.other.relation.kir",
+          "match": "\\b(on|if|then|delay_history|delay_caller_pre|user_invariant|state_eq|state_neq)\\b"
+        }
+      ]
+    },
+    "originKeywords": {
+      "patterns": [
+        {
+          "name": "support.type.origin.kir",
+          "match": "\\b(guarantee|assume|init|safety|user|historical|eliminated|symbolic|progress|entry|exported|transition)\\b"
+        }
+      ]
+    },
+    "metaAttributes": {
+      "patterns": [
+        {
+          "name": "support.constant.attribute.kir",
+          "match": "\\b(initial|bad|states|edges|steps|historical|eliminated|symbolic|init|coverage|total|partial|proved|failed|unknown)=[^\\s\\]]*"
+        }
+      ]
+    },
+    "brackets": {
+      "patterns": [
+        {
+          "name": "punctuation.section.brackets.kir",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.separator.comma.kir",
+          "match": ","
+        },
+        {
+          "name": "keyword.operator.arrow.kir",
+          "match": "->"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.kir",
+          "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.kir",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_']*\\b"
+        }
+      ]
+    }
+  }
+}

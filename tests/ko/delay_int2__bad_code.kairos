@@ -1,0 +1,40 @@
+(* BAD CODE — should be rejected by the verifier.
+   Difference from ok/delay_int2.kairos:
+     Run -> Run sets  y := 0  instead of  y := s2.
+     Init2 -> Run also sets  y := 0  (superfluous and wrong; ok version omits it).
+   Why it must be rejected:
+     The Run-state invariant guarantees  s2 = prev2 x.  The output y must be
+     set to s2 to implement the two-cycle delay required by  next next always(y = prev2 x).
+     With y := 0 the output is always 0, violating the contract for any x != 0. *)
+node delay_int2(x: int) returns (y: int)
+contracts
+  ensures: next next always ( y = prev2 x );
+locals
+  s1, s2: int;
+states
+  Init1(init), Init2, Run;
+invariants
+  in Init2:
+    s1 = prev x;
+  in Run:
+    s1 = prev x;
+    s2 = prev2 x;
+transitions
+  Init1:
+    to Init2 {
+      s1 := x;
+      s2 := 0;
+    }
+  Init2:
+    to Run {
+      s2 := s1;
+      s1 := x;
+      y := 0; // BUG: unnecessary assignment, absent in ok version
+    }
+  Run:
+    to Run {
+      y := 0; // BUG: should be  y := s2  (s2 = prev2 x by Run invariant)
+      s2 := s1;
+      s1 := x;
+    }
+end

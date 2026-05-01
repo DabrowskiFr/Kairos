@@ -1,0 +1,187 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Kairos",
+  "scopeName": "source.kairos",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#nodeHeader" },
+    { "include": "#sectionKeywords" },
+    { "include": "#stateLabels" },
+    { "include": "#transitionTargets" },
+    { "include": "#declarationNames" },
+    { "include": "#temporalOperators" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#numbers" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.kairos",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.kairos",
+          "begin": "\\(\\*",
+          "end": "\\*\\)",
+          "patterns": [
+            { "include": "#comments" }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.kairos",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.kairos",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "nodeHeader": {
+      "patterns": [
+        {
+          "name": "meta.node.header.kairos",
+          "match": "\\b(node)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.node.kairos" },
+            "2": { "name": "entity.name.function.kairos" }
+          }
+        }
+      ]
+    },
+    "sectionKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.section.kairos",
+          "match": "^\\s*(contracts|locals|states|invariants|transitions)\\b"
+        }
+      ]
+    },
+    "stateLabels": {
+      "patterns": [
+        {
+          "name": "meta.state.declaration.kairos",
+          "match": "\\b([A-Z][A-Za-z0-9_]*)(?=\\s*(?:\\(init\\))?(?:,|;))",
+          "captures": {
+            "1": { "name": "entity.name.type.state.kairos" }
+          }
+        },
+        {
+          "name": "meta.state.label.kairos",
+          "match": "^\\s*([A-Z][A-Za-z0-9_]*)\\s*:",
+          "captures": {
+            "1": { "name": "entity.name.type.state.kairos" }
+          }
+        },
+        {
+          "name": "meta.invariant.label.kairos",
+          "match": "\\b(in)\\s+([A-Z][A-Za-z0-9_]*)\\s*:",
+          "captures": {
+            "1": { "name": "keyword.control.invariant.kairos" },
+            "2": { "name": "entity.name.type.state.kairos" }
+          }
+        }
+      ]
+    },
+    "transitionTargets": {
+      "patterns": [
+        {
+          "name": "meta.transition.target.kairos",
+          "match": "\\b(to)\\s+([A-Z][A-Za-z0-9_]*)\\b(?:\\s+(when)\\b)?",
+          "captures": {
+            "1": { "name": "keyword.control.transition.kairos" },
+            "2": { "name": "entity.name.type.state.kairos" },
+            "3": { "name": "keyword.control.condition.kairos" }
+          }
+        }
+      ]
+    },
+    "declarationNames": {
+      "patterns": [
+        {
+          "name": "meta.declaration.variable.kairos",
+          "match": "\\b([a-zA-Z_][A-Za-z0-9_]*)\\b\\s*:",
+          "captures": {
+            "1": { "name": "variable.other.definition.kairos" }
+          }
+        }
+      ]
+    },
+    "temporalOperators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.temporal.kairos",
+          "match": "\\b(?:G|F|X|U|W|R|M|Y|Z|H|O|always|eventually|next|prev\\d*)\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.kairos",
+          "match": "\\b(?:returns|requires|ensures|when|skip|end|init|not|and|or|in)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.kairos",
+          "match": "\\b(?:int|bool|float|real|unit)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.kairos",
+          "match": "\\b(?:true|false)\\b"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.kairos",
+          "match": "(?<![A-Za-z0-9_])(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?![A-Za-z0-9_])"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.kairos",
+          "match": ":="
+        },
+        {
+          "name": "keyword.operator.logical.kairos",
+          "match": "<=>|=>|>=|<=|!=|=|>|<"
+        },
+        {
+          "name": "keyword.operator.arithmetic.kairos",
+          "match": "[+\\-*/]"
+        },
+        {
+          "name": "punctuation.separator.kairos",
+          "match": "[,;]"
+        },
+        {
+          "name": "punctuation.bracket.kairos",
+          "match": "[(){}\\[\\]]"
+        }
+      ]
+    }
+  }
+}

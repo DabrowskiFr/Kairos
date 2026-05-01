@@ -1,0 +1,94 @@
+{0 Common}
+
+The common layer groups shared data and logic used by several parts of the
+pipeline.
+
+{1 Mental Model}
+
+{[
+common
+  -> shared formula and syntax utilities
+  -> shared semantic program data
+  -> shared proof IR data
+  -> shared metadata exchanged across stages
+]}
+
+{1 Main modules}
+
+- {!module-Automaton_types}
+  Shared semantic automata data.
+
+- {!module-Fo_simplifier}
+  Formula simplification.
+
+- {!module-Core_syntax_builders}
+  Core syntax constructors and expression-layer conversions.
+
+- {!module-Fo_time}
+  Time-shifting helpers for formulas.
+
+- {!module-Ltl_valuation}
+  Finite valuation helpers used by the automata pipeline.
+
+- {!module-Ir}
+  Normalized program representation used by the middle-end.
+
+- {!module-Ir}
+  Shared proof-obligation IR types.
+
+- {!module-Proof_kernel_types}
+  Shared proof-kernel IR types.
+
+- {!module-Ast_provenance}
+  Source-formula wrapper helpers with stable identifiers and locations.
+
+- {!module-Provenance}
+  Provenance graph primitives.
+
+- {!module-Flow_info}
+  Per-flow metadata exported by the pipeline.
+
+- {!module-Temporal_support}
+  Shared bounded-history helpers.
+
+- {!module-Pre_k_layout}
+  [pre_k] layout extraction for one node.
+
+- {!module-Pre_k_lowering}
+  [pre_k] lowering with explicit temporal bindings.
+
+{1 Representative Types}
+
+{[
+type contract_formula = {
+  value : Ast.ltl;
+  oid : int;
+  loc : Ast.loc option;
+}
+]}
+
+{[
+type product_state_ir = {
+  program_state : Ast.ident;
+  assume_state_index : int;
+  guarantee_state_index : int;
+}
+]}
+
+{1 Reading order}
+
+A useful reading order is:
+
+1. `Provenance`
+2. `Temporal_support`
+3. `Ir`
+4. `Ir`
+5. `Proof_kernel_types`
+6. `Core_syntax_builders`, `Fo_simplifier`, `Fo_time`, `Ltl_valuation`
+7. `Automaton_types`
+
+{1 Scope}
+
+These modules define shared concepts and data.
+Construction passes, external tool adapters, artifact rendering, and Why3
+compilation are documented elsewhere.

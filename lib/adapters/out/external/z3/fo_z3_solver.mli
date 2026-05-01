@@ -1,0 +1,27 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Z3-based simplification for first-order formulas.
+
+    This adapter exposes the FO simplifier used by Kairos passes to normalize
+    and compact logical guards before rendering and proof generation. *)
+
+(** Try to simplify one FO formula with Z3.
+
+    Returns [None] when simplification is unavailable or fails. *)
+val simplify_fo_formula : Core_syntax.hexpr -> Core_syntax.hexpr option

@@ -1,0 +1,72 @@
+{0 Frontend}
+
+The frontend covers the source-language side of Kairos:
+
+- source-file parsing;
+- abstract syntax tree construction;
+- source-level structural queries.
+
+{1 Main modules}
+
+- {!module-Ast}
+  Source abstract syntax tree for expressions, formulas, statements, nodes, and programs.
+
+- {!module-Ast_builders}
+  Constructors and small helpers used by the parser and source-to-source transformations.
+
+- {!module-Ast_queries}
+  Structural queries over the source AST.
+
+- {!module-Source_file}
+  File-level representation combining import declarations and parsed nodes.
+
+- {!module-Parse_file}
+  File-oriented parser entry points built on top of the lexer and Menhir parser.
+
+- {!module-Parse_api}
+  Thin public parsing API used by the rest of the pipeline.
+
+{1 Mental Model}
+
+{[
+text file
+  -> lexer / parser
+  -> Source_file
+  -> Ast.program
+]}
+
+The frontend is responsible for the source representation itself.
+It does not define proof obligations, product states, or backend-specific data.
+
+{1 Reading order}
+
+A practical reading order is:
+
+1. `Ast`
+2. `Ast_builders`
+3. `Source_file`
+4. `Parse_file`
+5. `Parse_api`
+
+{1 Example}
+
+{[
+val parse_source_file_with_info :
+  string -> Source_file.t * Flow_info.parse_info
+
+val parse_file :
+  string -> Ast.program
+]}
+
+{[
+type node = {
+  semantics : node_semantics;
+  specification : node_specification;
+}
+]}
+
+{1 Notes}
+
+The frontend pages document the source representation itself.
+Pass metadata, automata generation, proof obligations, and backend-specific
+data are documented outside the frontend.

@@ -1,0 +1,31 @@
+(include_subdirs unqualified)
+
+(library
+ (name kairos_verification_runtime)
+ (wrapped false)
+ (modules
+  verification_runtime_adapters
+  runtime_snapshot
+  instrumentation_info_helpers
+  instrumentation_info_builder
+  pipeline_build
+  result_utils
+  pipeline_artifact_bundle
+  pipeline_outputs_helpers
+  proof_runner
+  output_mapper
+  pipeline_outputs)
+ (libraries
+  kairos_application
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_domain_proof_export
+  kairos_kobj
+  kairos_why3
+  kairos_artifact_text_render
+  kairos_artifact_graph_render
+  kairos_artifact_why_task_dump
+  kairos_external_spot
+  kairos_external_graphviz
+  kairos_external_why3
+  kairos_external_timing))

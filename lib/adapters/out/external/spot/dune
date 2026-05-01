@@ -1,0 +1,11 @@
+(library
+ (name kairos_external_spot)
+ (public_name kairos.external_spot)
+ (wrapped false)
+ (modules automaton_spot spot_automaton_builder)
+ (libraries
+  kairos_domain_verification
+  kairos_domain_core
+  kairos_external_timing
+  kairos_external_z3
+  unix))

@@ -1,0 +1,23 @@
+{0 Backends}
+
+Backend layers consume canonical proof views and produce verifier-facing
+artifacts, mainly for Why3.
+
+{1 Scope}
+
+Backend code translates already-constructed obligations into target formats.
+It should not redefine source semantics; it compiles semantic IR into backend
+artifacts.
+
+{1 Main areas in the repository}
+
+- `lib/adapters/out/provers/why3`
+  Why3 translation, runtime views, and backend planning.
+
+- `lib/domain/verification/proof_export`
+  Proof-kernel export data consumed for interop and guided flows.
+
+{1 Notes}
+
+The Why3 backend is driven by canonical obligations and proof views emitted by
+the middle-end. Generated Why code is a compilation artifact.

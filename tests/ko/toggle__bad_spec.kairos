@@ -1,0 +1,15 @@
+node toggle() returns (y: int)
+contracts
+  ensures: y = 1;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run  {
+    y := 0;
+  }
+  Run:
+    to Run  {
+    y := 1 - y;
+  }
+end
