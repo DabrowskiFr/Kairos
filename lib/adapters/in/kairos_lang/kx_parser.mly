@@ -19,6 +19,187 @@ let mk_hexpr_loc start_pos end_pos desc =
 let indexed_ident (base:ident) (idx:ident) : ident =
   base ^ "_" ^ idx
 
+let indexed_ident_many (base:ident) (idxs:ident list) : ident =
+  String.concat "_" (base :: idxs)
+
+let domain_table : (string, ident list) Hashtbl.t = Hashtbl.create 17
+let predicate_table : (string, ident list * hexpr) Hashtbl.t = Hashtbl.create 17
+
+let reset_frontend_tables () =
+  Hashtbl.clear domain_table;
+  Hashtbl.clear predicate_table
+
+let register_domain ~(name:ident) ~(members:ident list) : unit =
+  if Hashtbl.mem domain_table name then
+    failwith (Printf.sprintf "duplicate finite domain '%s'" name);
+  if members = [] then
+    failwith (Printf.sprintf "finite domain '%s' has no members" name);
+  Hashtbl.add domain_table name members
+
+let domain_members name =
+  match Hashtbl.find_opt domain_table name with
+  | Some members -> members
+  | None -> failwith (Printf.sprintf "unknown finite domain '%s'" name)
+
+let expand_domain_or_single name =
+  match Hashtbl.find_opt domain_table name with
+  | Some members -> members
+  | None -> [ name ]
+
+let cartesian_concat left right =
+  List.concat_map (fun xs -> List.map (fun ys -> xs @ ys) right) left
+
+let register_predicate ~(name:ident) ~(params:ident list) ~(body:hexpr) : unit =
+  if Hashtbl.mem predicate_table name then
+    failwith (Printf.sprintf "duplicate predicate '%s'" name);
+  Hashtbl.add predicate_table name (params, body)
+
+let subst_ident ~(param:ident) ~(value:ident) (id:ident) : ident =
+  id
+  |> String.split_on_char '_'
+  |> List.map (fun part -> if String.equal part param then value else part)
+  |> String.concat "_"
+
+let rec subst_expr_index ~(param:ident) ~(value:ident) (e:expr) : expr =
+  let expr =
+    match e.expr with
+    | ELitInt _ | ELitBool _ -> e.expr
+    | EVar id -> EVar (subst_ident ~param ~value id)
+    | EBin (op, a, b) ->
+        EBin (op, subst_expr_index ~param ~value a, subst_expr_index ~param ~value b)
+    | ECmp (op, a, b) ->
+        ECmp (op, subst_expr_index ~param ~value a, subst_expr_index ~param ~value b)
+    | EUn (op, inner) -> EUn (op, subst_expr_index ~param ~value inner)
+  in
+  { e with expr }
+
+let rec subst_hexpr_index ~(param:ident) ~(value:ident) (h:hexpr) : hexpr =
+  let hexpr =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ -> h.hexpr
+    | HVar id -> HVar (subst_ident ~param ~value id)
+    | HPreK (id, k) -> HPreK (subst_ident ~param ~value id, k)
+    | HPred (id, args) ->
+        HPred (subst_ident ~param ~value id, List.map (subst_hexpr_index ~param ~value) args)
+    | HBin (op, a, b) ->
+        HBin (op, subst_hexpr_index ~param ~value a, subst_hexpr_index ~param ~value b)
+    | HCmp (op, a, b) ->
+        HCmp (op, subst_hexpr_index ~param ~value a, subst_hexpr_index ~param ~value b)
+    | HUn (op, inner) -> HUn (op, subst_hexpr_index ~param ~value inner)
+  in
+  { h with hexpr }
+
+let rec subst_ltl_index ~(param:ident) ~(value:ident) (f:ltl) : ltl =
+  match f with
+  | LTrue | LFalse -> f
+  | LAtom (a, op, b) ->
+      LAtom (subst_hexpr_index ~param ~value a, op, subst_hexpr_index ~param ~value b)
+  | LNot inner -> LNot (subst_ltl_index ~param ~value inner)
+  | LAnd (a, b) -> LAnd (subst_ltl_index ~param ~value a, subst_ltl_index ~param ~value b)
+  | LOr (a, b) -> LOr (subst_ltl_index ~param ~value a, subst_ltl_index ~param ~value b)
+  | LImp (a, b) -> LImp (subst_ltl_index ~param ~value a, subst_ltl_index ~param ~value b)
+  | LX inner -> LX (subst_ltl_index ~param ~value inner)
+  | LG inner -> LG (subst_ltl_index ~param ~value inner)
+  | LW (a, b) -> LW (subst_ltl_index ~param ~value a, subst_ltl_index ~param ~value b)
+
+let rec subst_stmt_index ~(param:ident) ~(value:ident) (s:stmt) : stmt =
+  let stmt =
+    match s.stmt with
+    | SAssign (id, rhs) -> SAssign (subst_ident ~param ~value id, subst_expr_index ~param ~value rhs)
+    | SIf (cond, t, e) ->
+        SIf
+          ( subst_expr_index ~param ~value cond,
+            List.map (subst_stmt_index ~param ~value) t,
+            List.map (subst_stmt_index ~param ~value) e )
+    | SMatch (scrutinee, branches, dflt) ->
+        SMatch
+          ( subst_expr_index ~param ~value scrutinee,
+            List.map
+              (fun (ctor, body) -> (subst_ident ~param ~value ctor, List.map (subst_stmt_index ~param ~value) body))
+              branches,
+            List.map (subst_stmt_index ~param ~value) dflt )
+    | SSkip -> SSkip
+    | SCall (callee, args, outs) ->
+        SCall
+          ( subst_ident ~param ~value callee,
+            List.map (subst_expr_index ~param ~value) args,
+            List.map (subst_ident ~param ~value) outs )
+  in
+  { s with stmt }
+
+let subst_many_hexpr params args body =
+  if List.length params <> List.length args then
+    failwith
+      (Printf.sprintf "predicate expects %d arguments but got %d" (List.length params) (List.length args));
+  List.fold_left2
+    (fun acc param value -> subst_hexpr_index ~param ~value acc)
+    body params args
+
+let expand_predicate name args =
+  match Hashtbl.find_opt predicate_table name with
+  | Some (params, body) -> subst_many_hexpr params args body
+  | None -> Kx_core_syntax_builders.mk_hpred name (List.map Kx_core_syntax_builders.mk_hvar args)
+
+let rec ltl_of_fo (h:hexpr) : ltl =
+  match h.hexpr with
+  | HLitBool true -> LTrue
+  | HLitBool false -> LFalse
+  | HUn (Not, inner) -> LNot (ltl_of_fo inner)
+  | HBin (And, a, b) -> LAnd (ltl_of_fo a, ltl_of_fo b)
+  | HBin (Or, a, b) -> LOr (ltl_of_fo a, ltl_of_fo b)
+  | HCmp (op, a, b) -> LAtom (a, op, b)
+  | _ -> LAtom (h, REq, Kx_core_syntax_builders.mk_hbool true)
+
+let rec expr_of_fo (h:hexpr) : expr =
+  let expr =
+    match h.hexpr with
+    | HLitInt n -> ELitInt n
+    | HLitBool b -> ELitBool b
+    | HVar id -> EVar id
+    | HPreK _ ->
+        failwith "historical predicate cannot be used in executable expressions"
+    | HPred _ ->
+        failwith "unexpanded predicate cannot be used in executable expressions"
+    | HBin (op, a, b) -> EBin (op, expr_of_fo a, expr_of_fo b)
+    | HCmp (op, a, b) -> ECmp (op, expr_of_fo a, expr_of_fo b)
+    | HUn (op, inner) -> EUn (op, expr_of_fo inner)
+  in
+  Kx_core_syntax_builders.mk_expr expr
+
+let rec ltl_and = function
+  | [] -> LTrue
+  | [ x ] -> x
+  | x :: xs -> LAnd (x, ltl_and xs)
+
+let rec ltl_or = function
+  | [] -> LFalse
+  | [ x ] -> x
+  | x :: xs -> LOr (x, ltl_or xs)
+
+let rec hexpr_and = function
+  | [] -> Kx_core_syntax_builders.mk_hbool true
+  | [ x ] -> x
+  | x :: xs -> Kx_core_syntax_builders.mk_hand x (hexpr_and xs)
+
+let rec hexpr_or = function
+  | [] -> Kx_core_syntax_builders.mk_hbool false
+  | [ x ] -> x
+  | x :: xs -> Kx_core_syntax_builders.mk_hor x (hexpr_or xs)
+
+let expand_ltl_quantifier ~universal param domain body =
+  domain_members domain
+  |> List.map (fun value -> subst_ltl_index ~param ~value body)
+  |> if universal then ltl_and else ltl_or
+
+let expand_fo_quantifier ~universal param domain body =
+  domain_members domain
+  |> List.map (fun value -> subst_hexpr_index ~param ~value body)
+  |> if universal then hexpr_and else hexpr_or
+
+let expand_stmt_quantifier param domain body =
+  domain_members domain
+  |> List.concat_map (fun value -> List.map (subst_stmt_index ~param ~value) body)
+
 let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
   | Some s -> s
@@ -150,7 +331,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
     routes
 %}
 
-%token TYPE
+%token TYPE DOMAIN PREDICATE
 %token NODE RETURNS LOCALS STATES INIT TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
@@ -160,7 +341,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %token LET
 %token IMPORT
 %token INSTANCE INSTANCES CALL
-%token IF THEN ELSE SKIP
+%token IF THEN ELSE SKIP FOR FORALL EXISTS
 %token WHEN
 %token MATCH WITH BAR
 %token FROM TO
@@ -171,7 +352,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %token AND OR NOT
 %token G X W R
 %token MAINTAINEDUNTIL WHILEROUTELOCKED
-%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
+%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
 %token EQ NEQ LT LE GT GE
@@ -195,10 +376,13 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %%
 
 source_file:
-  | imports_opt type_decls_opt nodes EOF { ($1, $2, $3) }
+  | frontend_scope_start imports_opt frontend_decls_opt nodes EOF { ($2, $3, $4) }
 
 program:
-  | imports_opt type_decls_opt nodes EOF { $3 }
+  | frontend_scope_start imports_opt frontend_decls_opt nodes EOF { $4 }
+
+frontend_scope_start:
+  | /* empty */ { reset_frontend_tables () }
 
 imports_opt:
   | /* empty */ { [] }
@@ -214,24 +398,54 @@ import_decl:
         ($2, Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)))
       }
 
-type_decls_opt:
+frontend_decls_opt:
   | /* empty */ { [] }
-  | type_decls { $1 }
+  | frontend_decls { $1 }
 
-type_decls:
-  | type_decl type_decls { $1 :: $2 }
+frontend_decls:
+  | frontend_decl frontend_decls { $1 @ $2 }
+  | frontend_decl { $1 }
+
+frontend_decl:
   | type_decl { [$1] }
+  | domain_decl { [] }
+  | predicate_decl { [] }
 
 type_decl:
   | TYPE IDENT EQ enum_ctor_list SEMI
       {
         let () = forbid_reserved_identifier ~context:"enum type" $2 in
         List.iter (fun name -> forbid_reserved_identifier ~context:"enum constructor" name) $4;
+        register_domain ~name:$2 ~members:$4;
         { enum_name = $2; enum_constructors = $4 }
       }
 
 enum_ctor_list:
   | IDENT BAR enum_ctor_list { $1 :: $3 }
+  | IDENT { [$1] }
+
+domain_decl:
+  | DOMAIN IDENT EQ enum_ctor_list SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"finite domain" $2 in
+        List.iter (fun name -> forbid_reserved_identifier ~context:"finite domain member" name) $4;
+        register_domain ~name:$2 ~members:$4
+      }
+
+predicate_decl:
+  | PREDICATE IDENT LPAREN pred_params_opt RPAREN EQ fo_formula SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"predicate name" $2 in
+        List.iter (fun name -> forbid_reserved_identifier ~context:"predicate parameter" name) $4;
+        register_predicate ~name:$2 ~params:$4 ~body:$7
+      }
+
+pred_params_opt:
+  | /* empty */ { [] }
+  | pred_params { $1 }
+
+pred_params:
+  | IDENT COMMA pred_params { $1 :: $3 }
   | IDENT { [$1] }
 
 nodes:
@@ -284,8 +498,8 @@ param:
 
 param_name:
   | IDENT { [$1] }
-  | IDENT LBRACK ident_list RBRACK
-      { List.map (indexed_ident $1) $3 }
+  | IDENT LBRACK decl_index_choices RBRACK
+      { List.map (indexed_ident_many $1) $3 }
 
 ty:
   | TINT { TInt }
@@ -408,8 +622,19 @@ decl_names:
 
 decl_name:
   | IDENT { [$1] }
-  | IDENT LBRACK ident_list RBRACK
-      { List.map (indexed_ident $1) $3 }
+  | IDENT LBRACK decl_index_choices RBRACK
+      { List.map (indexed_ident_many $1) $3 }
+
+decl_index_choices:
+  | decl_index_product COMMA decl_index_choices { $1 @ $3 }
+  | decl_index_product { $1 }
+
+decl_index_product:
+  | decl_index_atom STAR decl_index_product { cartesian_concat $1 $3 }
+  | decl_index_atom { $1 }
+
+decl_index_atom:
+  | IDENT { List.map (fun name -> [name]) (expand_domain_or_single $1) }
 
 ident_list:
   | IDENT COMMA ident_list { $1 :: $3 }
@@ -565,8 +790,13 @@ stmt_list_opt:
   | stmt_list { $1 }
 
 stmt_list:
-  | stmt SEMI stmt_list { $1 :: $3 }
+  | stmt_item stmt_list { $1 @ $2 }
+  | stmt_item { $1 }
+
+stmt_item:
   | stmt SEMI { [$1] }
+  | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
+      { expand_stmt_quantifier $2 $4 $6 }
 
 stmt:
   | indexed_ref ASSIGN expr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
@@ -577,7 +807,7 @@ stmt:
 
 indexed_ref:
   | IDENT { $1 }
-  | IDENT LBRACK IDENT RBRACK { indexed_ident $1 $3 }
+  | IDENT LBRACK ident_list RBRACK { indexed_ident_many $1 $3 }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
@@ -607,6 +837,7 @@ cmp_atom:
 
 expr_atom:
   | LPAREN expr RPAREN { $2 }
+  | IDENT LPAREN id_list_opt RPAREN { expr_of_fo (expand_predicate $1 $3) }
   | cmp_atom EQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(REq, $1, $3)) }
   | cmp_atom NEQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RNeq, $1, $3)) }
   | cmp_atom LT cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RLt, $1, $3)) }
@@ -681,6 +912,11 @@ hexpr:
 
 ltl_atom:
   | hexpr relop hexpr { LAtom($1,$2,$3) }
+  | IDENT LPAREN id_list_opt RPAREN { ltl_of_fo (expand_predicate $1 $3) }
+  | FORALL IDENT IN IDENT DOT ltl
+      { expand_ltl_quantifier ~universal:true $2 $4 $6 }
+  | EXISTS IDENT IN IDENT DOT ltl
+      { expand_ltl_quantifier ~universal:false $2 $4 $6 }
   | MAINTAINEDUNTIL LPAREN ltl COMMA ltl COMMA ltl RPAREN
       { LG (LImp ($3, LX (LW ($5, $7)))) }
   | WHILEROUTELOCKED LPAREN IDENT COMMA ltl RPAREN
@@ -692,7 +928,11 @@ ltl_atom:
 
 fo_leaf:
   | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HCmp($2,$1,$3)) }
-  | IDENT LPAREN hexpr_list_opt RPAREN { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (HPred($1,$3)) }
+  | IDENT LPAREN id_list_opt RPAREN { expand_predicate $1 $3 }
+  | FORALL IDENT IN IDENT DOT fo_formula
+      { expand_fo_quantifier ~universal:true $2 $4 $6 }
+  | EXISTS IDENT IN IDENT DOT fo_formula
+      { expand_fo_quantifier ~universal:false $2 $4 $6 }
   | LPAREN fo_formula RPAREN { $2 }
 
 fo_un:
@@ -750,11 +990,3 @@ relop:
   | LE { RLe }
   | GT { RGt }
   | GE { RGe }
-
-hexpr_list_opt:
-  | /* empty */ { [] }
-  | hexpr_list { $1 }
-
-hexpr_list:
-  | hexpr COMMA hexpr_list { $1 :: $3 }
-  | hexpr { [$1] }

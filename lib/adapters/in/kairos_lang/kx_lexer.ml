@@ -39,6 +39,8 @@ let () =
     [
       ("node", NODE);
       ("type", TYPE);
+      ("domain", DOMAIN);
+      ("predicate", PREDICATE);
       ("returns", RETURNS);
       ("locals", LOCALS);
       ("states", STATES);
@@ -65,6 +67,9 @@ let () =
       ("if", IF);
       ("then", THEN);
       ("else", ELSE);
+      ("for", FOR);
+      ("forall", FORALL);
+      ("exists", EXISTS);
       ("match", MATCH);
       ("with", WITH);
       ("when", WHEN);
@@ -119,6 +124,8 @@ let expected_tokens : (string * Kx_parser.token) list =
   [
     ("node", NODE);
     ("type", TYPE);
+    ("domain", DOMAIN);
+    ("predicate", PREDICATE);
     ("returns", RETURNS);
     ("locals", LOCALS);
     ("states", STATES);
@@ -145,6 +152,9 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("if", IF);
     ("then", THEN);
     ("else", ELSE);
+    ("for", FOR);
+    ("forall", FORALL);
+    ("exists", EXISTS);
     ("match", MATCH);
     ("with", WITH);
     ("when", WHEN);
@@ -193,6 +203,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     (",", COMMA);
     (";", SEMI);
     (":", COLON);
+    (".", DOT);
     ("int-literal", INT 0);
     ("identifier", IDENT "");
     ("string-literal", STRING "");
@@ -271,6 +282,7 @@ let rec token lexbuf =
   | "," -> tok lexbuf COMMA
   | ";" -> tok lexbuf SEMI
   | ":" -> tok lexbuf COLON
+  | "." -> tok lexbuf DOT
   | "|" -> tok lexbuf BAR
   | Plus '0' .. '9' ->
       let s = set_lexeme lexbuf in

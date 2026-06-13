@@ -1,0 +1,37 @@
+type Route = R1 | R2;
+type Track = T1 | T2;
+domain Channel = CH1 | CH2;
+
+predicate tracksClear() =
+  forall t in Track. occupied[t] = false;
+
+node domain_quantified_predicate(
+  request[Route]: bool,
+  occupied[Track]: bool
+) returns (
+  signal[Route]: bool,
+  healthy[Channel]: bool
+)
+contracts
+  ensures: forall r in Route.
+    G(signal[r] = true => tracksClear());
+  ensures: forall ch in Channel.
+    G(healthy[ch] = true);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      for r in Route {
+        if request[r] and tracksClear() then
+          signal[r] := true;
+        else
+          signal[r] := false;
+        end;
+      }
+      for ch in Channel {
+        healthy[ch] := true;
+      }
+    }
+end

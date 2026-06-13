@@ -1,0 +1,140 @@
+type Track = TA | TB | TC | TD | TE | TF;
+type Route = R_AB | R_AC | R_DE | R_CF | R_BF;
+type Point = P1 | P2 | P3;
+type SignalColor = Red | Green;
+type PointPosition = Normal | Reverse;
+type RouteState = Idle | Locked | Releasing;
+
+predicate routeIdle(r) =
+  routeState[r] = Idle;
+
+predicate routeLocked(r) =
+  routeState[r] = Locked;
+
+predicate signalRed(r) =
+  signal[r] = Red;
+
+predicate signalGreen(r) =
+  signal[r] = Green;
+
+predicate allRoutesIdle() =
+  forall r in Route. routeIdle(r);
+
+node quantified_railway_interlocking(
+  occupied[Track]: bool,
+  request[Route]: bool,
+  cancel[Route]: bool,
+  releaseAck[Route]: bool
+) returns (
+  signal[Route]: SignalColor,
+  routeState[Route]: RouteState,
+  reserved[Route]: bool,
+  pointPosition[Point]: PointPosition
+)
+contracts
+  topology
+    route R_AB uses TA, TB requires P1 = Normal;
+    route R_AC uses TA, TC requires P1 = Reverse;
+    route R_DE uses TD, TE requires P2 = Normal;
+    route R_CF uses TC, TF requires P2 = Reverse, P3 = Normal;
+    route R_BF uses TB, TF requires P3 = Reverse;
+    conflict R_AB, R_AC;
+    conflict R_AB, R_BF;
+    conflict R_AC, R_CF;
+    conflict R_DE, R_CF;
+    conflict R_CF, R_BF;
+    routeSignal R_AB -> R_AB;
+    routeSignal R_AC -> R_AC;
+    routeSignal R_DE -> R_DE;
+    routeSignal R_CF -> R_CF;
+    routeSignal R_BF -> R_BF;
+  end
+
+  ensures: forall r in Route.
+    G(routeState[r] = Releasing => signalRed(r));
+  ensures: forall r in Route.
+    G(cancel[r] = true => X(signalRed(r) W routeIdle(r)));
+  ensures: forall r in Route.
+    G(signalGreen(r) => routeLocked(r));
+
+states Init(init), Run;
+
+trans
+  Init:
+    to Run {
+      for r in Route {
+        signal[r] := Red;
+        routeState[r] := Idle;
+        reserved[r] := false;
+      }
+      pointPosition[P1] := Normal;
+      pointPosition[P2] := Normal;
+      pointPosition[P3] := Normal;
+    }
+
+  Run:
+    to Run {
+      for r in Route {
+        if cancel[r] and routeState[r] != Idle then
+          routeState[r] := Releasing;
+          signal[r] := Red;
+        else
+          skip;
+        end;
+
+        if releaseAck[r] and routeState[r] = Releasing then
+          routeState[r] := Idle;
+          reserved[r] := false;
+          signal[r] := Red;
+        else
+          skip;
+        end;
+      }
+
+      if request[R_AB] and allRoutesIdle() and occupied[TA] = false and occupied[TB] = false then
+        routeState[R_AB] := Locked;
+        reserved[R_AB] := true;
+        pointPosition[P1] := Normal;
+        signal[R_AB] := Green;
+      else
+        skip;
+      end;
+
+      if request[R_AC] and allRoutesIdle() and occupied[TA] = false and occupied[TC] = false then
+        routeState[R_AC] := Locked;
+        reserved[R_AC] := true;
+        pointPosition[P1] := Reverse;
+        signal[R_AC] := Green;
+      else
+        skip;
+      end;
+
+      if request[R_DE] and allRoutesIdle() and occupied[TD] = false and occupied[TE] = false then
+        routeState[R_DE] := Locked;
+        reserved[R_DE] := true;
+        pointPosition[P2] := Normal;
+        signal[R_DE] := Green;
+      else
+        skip;
+      end;
+
+      if request[R_CF] and allRoutesIdle() and occupied[TC] = false and occupied[TF] = false then
+        routeState[R_CF] := Locked;
+        reserved[R_CF] := true;
+        pointPosition[P2] := Reverse;
+        pointPosition[P3] := Normal;
+        signal[R_CF] := Green;
+      else
+        skip;
+      end;
+
+      if request[R_BF] and allRoutesIdle() and occupied[TB] = false and occupied[TF] = false then
+        routeState[R_BF] := Locked;
+        reserved[R_BF] := true;
+        pointPosition[P3] := Reverse;
+        signal[R_BF] := Green;
+      else
+        skip;
+      end;
+    }
+end
