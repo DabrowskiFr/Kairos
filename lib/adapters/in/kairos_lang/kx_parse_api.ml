@@ -91,15 +91,21 @@ let parse_source_text_with_info ~(filename : string) ~(text : string) : source *
               lexeme context expected))
     in
     let checkpoint = Kx_parser.Incremental.source_file start_pos in
-    let imports_raw, type_decls, function_decls, nodes =
-      I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint
-    in
+    let surface_source = I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint in
+    let elaborated_source = Kx_elaborate.elaborate_source surface_source in
     let imports =
       List.map
         (fun (import_path, import_loc) -> { import_path; import_loc })
-        imports_raw
+        elaborated_source.imports
     in
-    let parsed_source = { imports; type_decls; function_decls; nodes } in
+    let parsed_source =
+      {
+        imports;
+        type_decls = elaborated_source.type_decls;
+        function_decls = elaborated_source.function_decls;
+        nodes = elaborated_source.nodes;
+      }
+    in
     let info =
       {
         source_path = Some filename;
