@@ -2,9 +2,6 @@ type Route = R1 | R2;
 type Track = T1 | T2;
 domain Channel = CH1 | CH2;
 
-predicate tracksClear() =
-  forall t in Track. occupied[t] = false;
-
 node domain_quantified_predicate(
   request[Route]: bool,
   occupied[Track]: bool
@@ -12,6 +9,10 @@ node domain_quantified_predicate(
   signal[Route]: bool,
   healthy[Channel]: bool
 )
+
+predicate tracksClear() =
+  forall t in Track. occupied[t] = false;
+
 contracts
   ensures: forall r in Route.
     G(signal[r] = true => tracksClear());

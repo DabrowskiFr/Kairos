@@ -29,6 +29,9 @@ let reset_frontend_tables () =
   Hashtbl.clear domain_table;
   Hashtbl.clear predicate_table
 
+let reset_node_predicates () =
+  Hashtbl.clear predicate_table
+
 let register_domain ~(name:ident) ~(members:ident list) : unit =
   if Hashtbl.mem domain_table name then
     failwith (Printf.sprintf "duplicate finite domain '%s'" name);
@@ -409,7 +412,6 @@ frontend_decls:
 frontend_decl:
   | type_decl { [$1] }
   | domain_decl { [] }
-  | predicate_decl { [] }
 
 type_decl:
   | TYPE IDENT EQ enum_ctor_list SEMI
@@ -456,6 +458,7 @@ node:
   NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN
   alias_scope_start
   alias_decls_opt
+  predicate_decls_opt
   node_contracts_block instances_opt
   locals_opt
   STATES state_decls SEMI
@@ -464,21 +467,21 @@ node:
   END
   {
     let () = forbid_reserved_identifier ~context:"node name" $2 in
-    let states, inline_init = $16 in
+    let states, inline_init = $17 in
     let init_state = resolve_init_state ~inline_init in
     Kx_ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
       ~outputs:$8
-      ~assumes:(fst $12)
-      ~guarantees:(snd $12)
-      ~instances:$13
-      ~locals:$14
+      ~assumes:(fst $13)
+      ~guarantees:(snd $13)
+      ~instances:$14
+      ~locals:$15
       ~states
       ~init_state
-      ~trans:$20
+      ~trans:$21
     |> fun n ->
-      { n with specification = { n.specification with spec_invariants_state_rel = $18 } }
+      { n with specification = { n.specification with spec_invariants_state_rel = $19 } }
   }
 
 params_opt:
@@ -641,7 +644,7 @@ ident_list:
   | IDENT { [$1] }
 
 alias_scope_start:
-  | /* empty */ { reset_history_aliases () }
+  | /* empty */ { reset_history_aliases (); reset_node_predicates () }
 
 alias_decls_opt:
   | /* empty */ { () }
@@ -664,6 +667,14 @@ alias_decl:
         let () = forbid_reserved_identifier ~context:"history alias rhs parameter" $7 in
         register_history_alias ~alias:$2 ~param:$3 ~rhs_param:$7 ~k:$9
       }
+
+predicate_decls_opt:
+  | /* empty */ { () }
+  | predicate_decls { () }
+
+predicate_decls:
+  | predicate_decl predicate_decls { () }
+  | predicate_decl { () }
 
 state_decls:
   | state_decl COMMA state_decls {

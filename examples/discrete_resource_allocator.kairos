@@ -2,6 +2,16 @@ type Client = C1 | C2 | C3 | C4;
 type Resource = CPU | BUS | IO;
 type LeaseState = Free | Granted | Releasing;
 
+node discrete_resource_allocator(
+  request[Client * Resource]: bool,
+  releaseReq[Client * Resource]: bool
+) returns (
+  holds[Client * Resource]: bool,
+  leaseState[Client * Resource]: LeaseState,
+  grantAge[Client * Resource]: int,
+  resourceBusy[Resource]: bool
+)
+
 predicate resourceFree(r) =
   forall c in Client. holds[c, r] = false;
 
@@ -15,15 +25,6 @@ predicate allResourcesExclusive() =
 predicate releaseRequested(c, r) =
   releaseReq[c, r] = true;
 
-node discrete_resource_allocator(
-  request[Client * Resource]: bool,
-  releaseReq[Client * Resource]: bool
-) returns (
-  holds[Client * Resource]: bool,
-  leaseState[Client * Resource]: LeaseState,
-  grantAge[Client * Resource]: int,
-  resourceBusy[Resource]: bool
-)
 contracts
   ensures: G(allResourcesExclusive());
   ensures: forall c in Client. forall r in Resource.

@@ -5,6 +5,18 @@ type SignalColor = Red | Green;
 type PointPosition = Normal | Reverse;
 type RouteState = Idle | Locked | Releasing;
 
+node quantified_railway_interlocking(
+  occupied[Track]: bool,
+  request[Route]: bool,
+  cancel[Route]: bool,
+  releaseAck[Route]: bool
+) returns (
+  signal[Route]: SignalColor,
+  routeState[Route]: RouteState,
+  reserved[Route]: bool,
+  pointPosition[Point]: PointPosition
+)
+
 predicate routeIdle(r) =
   routeState[r] = Idle;
 
@@ -20,17 +32,6 @@ predicate signalGreen(r) =
 predicate allRoutesIdle() =
   forall r in Route. routeIdle(r);
 
-node quantified_railway_interlocking(
-  occupied[Track]: bool,
-  request[Route]: bool,
-  cancel[Route]: bool,
-  releaseAck[Route]: bool
-) returns (
-  signal[Route]: SignalColor,
-  routeState[Route]: RouteState,
-  reserved[Route]: bool,
-  pointPosition[Point]: PointPosition
-)
 contracts
   topology
     route R_AB uses TA, TB requires P1 = Normal;
