@@ -1,72 +1,107 @@
 {0 Frontend}
 
-The frontend covers the source-language side of Kairos:
-
-- source-file parsing;
-- abstract syntax tree construction;
-- source-level structural queries.
-
-{1 Main modules}
-
-- {!module-Ast}
-  Source abstract syntax tree for expressions, formulas, statements, nodes, and programs.
-
-- {!module-Ast_builders}
-  Constructors and small helpers used by the parser and source-to-source transformations.
-
-- {!module-Ast_queries}
-  Structural queries over the source AST.
-
-- {!module-Source_file}
-  File-level representation combining import declarations and parsed nodes.
-
-- {!module-Parse_file}
-  File-oriented parser entry points built on top of the lexer and Menhir parser.
-
-- {!module-Parse_api}
-  Thin public parsing API used by the rest of the pipeline.
-
-{1 Mental Model}
+The Kairos frontend is split into two syntax levels.
 
 {[
 text file
   -> lexer / parser
-  -> Source_file
-  -> Ast.program
+  -> Kx_surface_syntax.source
+  -> Kx_elaborate.elaborate_source
+  -> Kx_ast.program
+  -> Kairos_to_model
+  -> Verification_model.node_model
 ]}
 
-The frontend is responsible for the source representation itself.
-It does not define proof obligations, product states, or backend-specific data.
+The verification pipeline consumes the elaborated AST, not the surface AST.
+This keeps source conveniences out of the core engine.
 
-{1 Reading order}
+{1 Surface Syntax}
 
-A practical reading order is:
+[Kx_surface_syntax] is the AST produced directly by the parser.
+It keeps all frontend conveniences explicit:
 
-1. `Ast`
-2. `Ast_builders`
-3. `Source_file`
-4. `Parse_file`
-5. `Parse_api`
+- enum declarations and finite domains;
+- indexed variable families such as [signal[Route]];
+- bounded [forall] / [exists] over finite domains;
+- local predicates;
+- named actions;
+- topology blocks;
+- history aliases;
+- statement-level [for] loops;
+- LTL helper forms such as [maintainedUntil] and [whileRouteLocked].
 
-{1 Example}
+This AST is useful for diagnostics and frontend tests, but it is not the AST
+used by the verification engine.
 
-{[
-val parse_source_file_with_info :
-  string -> Source_file.t * Flow_info.parse_info
+{1 Elaboration}
 
-val parse_file :
-  string -> Ast.program
-]}
+[Kx_elaborate] lowers surface syntax to [Kx_ast].
+The pass expands or removes the syntactic extensions:
 
-{[
-type node = {
-  semantics : node_semantics;
-  specification : node_specification;
-}
-]}
+- indexed variable families become scalar variables with stable names;
+- bounded quantifiers become finite conjunctions or disjunctions;
+- local predicates are expanded at their call sites;
+- named actions and [for] loops are inlined into ordinary statements;
+- topology blocks generate ordinary LTL safety guarantees;
+- [maintainedUntil(a,b,c)] becomes [G(a -> X(b W c))];
+- [whileRouteLocked(r,p)] becomes [G(routeLocked(r) -> X(p W routeReleased(r)))].
 
-{1 Notes}
+Elaboration does not add a compatibility layer. Unknown predicates are rejected
+instead of being preserved as implicit uninterpreted predicates.
 
-The frontend pages document the source representation itself.
-Pass metadata, automata generation, proof obligations, and backend-specific
-data are documented outside the frontend.
+{1 Core Frontend AST}
+
+[Kx_ast] is the small AST accepted by the rest of the Kairos
+implementation. It contains ordinary declarations, scalar variables, ordinary
+statements, invariants and LTL contracts. It no longer contains surface
+constructs such as [SSFor], [SSActionCall], [SCTopology], [SHForall] or
+frontend predicate declarations.
+
+Some constructs are real core-language features rather than pure syntax sugar:
+
+- enum types and enum literals;
+- pure first-order functions with contracts;
+- ghost variables.
+
+Pure functions are non-historical. Their contracts and bodies cannot mention
+[pre], [preK] or local predicates. They are intended to translate directly to
+Why3 functions.
+
+In LTL and first-order formulas, a direct boolean call [p(x)] accepts identifier
+arguments. For indexed references or general expressions, inject an executable
+expression into the formula with braces, for example
+[{ isIdleState(routeState[r]) } = true].
+
+{1 HPred}
+
+[HPred] is still present in the core logical expression type. It denotes an
+explicit predicate application at the core level, and some lower layers still
+know how to carry it.
+
+The Kairos source frontend does not create [HPred] as a fallback for an
+undeclared source predicate. A source predicate must be declared locally and is
+expanded by [Kx_elaborate]; otherwise parsing/elaboration fails. This
+prevents accidental proof obligations over names that the program never
+defined.
+
+{1 Debug Dumps}
+
+The CLI exposes frontend boundary dumps:
+
+- [--dump-surface=FILE] writes the parsed [Kx_surface_syntax.source];
+- [--dump-elaborated=FILE] writes the elaborated source with [Kx_ast];
+- [--dump-normalized-program=FILE] writes the normalized program after the
+  later frontend/model pipeline.
+
+Use these dumps to check whether a language extension is still surface syntax
+or has reached the core engine.
+
+{1 Main Modules}
+
+- [Kx_parser] and [Kx_lexer]: source parser.
+- [Kx_surface_syntax]: parser output AST.
+- [Kx_elaborate]: surface-to-core elaboration.
+- [Kx_ast]: elaborated frontend AST consumed by the pipeline.
+- [Kx_parse_api]: public parsing API and JSON debug serialization.
+- [Kairos_to_model]: lowering from frontend AST to the verification
+  model.

@@ -342,7 +342,7 @@ let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
            spc,
            body ))
   in
-  Ptree.Dlet (ident f.function_name, false, Expr.RKnone, fn)
+  Ptree.Dlet (ident f.function_name, false, Expr.RKfunc, fn)
 
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
    The active path builds [info] from the IR via [prepare_ir_node]. *)

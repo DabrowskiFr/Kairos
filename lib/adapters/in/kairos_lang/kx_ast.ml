@@ -35,7 +35,7 @@ type transition = {
   guard : expr option;
   body : stmt list;
 }
-
+[@@deriving yojson]
 
 type node_semantics = {
   sem_nname : ident;
@@ -48,22 +48,22 @@ type node_semantics = {
   sem_init_state : ident;
   sem_trans : transition list;
 }
-
+[@@deriving yojson]
 
 type node_specification = {
   spec_assumes : ltl list;
   spec_guarantees : ltl list;
   spec_invariants_state_rel : invariant_state_rel list;
 }
-
+[@@deriving yojson]
 
 type node = {
   semantics : node_semantics;
   specification : node_specification;
 }
+[@@deriving yojson]
 
-
-type program = node list
+type program = node list [@@deriving yojson]
 
 let semantics_of_node (n : node) : node_semantics =
   n.semantics

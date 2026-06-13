@@ -1,0 +1,10 @@
+(rule
+ (alias runtest)
+ (deps
+  check_elaboration_frontier.sh
+  ok/domain_quantified_predicate.kairos
+  ok/named_action_inline.kairos
+  ok/topology_single_route.kairos
+  ko/unknown_predicate_fallback.kairos)
+ (action
+  (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})))

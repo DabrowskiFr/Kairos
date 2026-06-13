@@ -78,6 +78,8 @@ and hexpr_desc =
   | HLitEnum of ident
   | HVar of ident
   | HPreK of ident * int
+  (** Explicit core-level predicate application. The Kairos source frontend
+      does not emit this as a fallback for undeclared local predicates. *)
   | HPred of ident * hexpr list
   | HFunCall of ident * hexpr list
   | HBin of binop * hexpr * hexpr

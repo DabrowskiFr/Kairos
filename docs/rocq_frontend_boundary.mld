@@ -1,0 +1,48 @@
+{0 Rocq Frontend Boundary}
+
+The current trusted implementation boundary is the elaborated Kairos core
+language, not the extended surface language.
+
+{[
+Kx_surface_syntax.source
+  -- Kx_elaborate.elaborate_source -->
+Kx_ast.program
+  -- Kairos_to_model -->
+Verification_model.node_model
+  -- verification / Why3 backend -->
+proof obligations
+]}
+
+The existing Rocq development should be compared against the semantics of
+[Kx_ast] / [Verification_model] and the obligation generation that follows.
+Surface constructs such as finite-domain quantifiers, named actions, topology
+blocks and LTL helpers are frontend elaborations.
+
+{1 What This Means}
+
+For the current implementation:
+
+- local predicates are not a proof-kernel feature; they are expanded before the
+  core pipeline;
+- topology blocks are not a new temporal logic; they generate ordinary safety
+  LTL formulas using [G], [X] and [W];
+- [maintainedUntil] and [whileRouteLocked] are surface constructors for formulas
+  already expressible in the existing LTL fragment;
+- pure functions and enum literals are core constructs and must be accounted
+  for when lowering to Why3 or to any formal semantic model.
+
+{1 Future Formalization Obligation}
+
+To connect the extended language to Rocq cleanly, add a separate elaboration
+correctness theorem:
+
+{[
+surface_program P
+  elaborates_to C
+  sem_surface P traces
+  <-> sem_core C traces
+]}
+
+The current codebase does not yet formalize this theorem. Until it does, Rocq
+should treat the elaborated AST as the formal entry point and document the
+surface elaborator as an implementation component whose behavior is tested.

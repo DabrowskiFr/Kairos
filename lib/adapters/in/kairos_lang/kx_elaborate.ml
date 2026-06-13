@@ -314,6 +314,9 @@ and lower_hexpr env stack (h : S.hexpr) : hexpr =
       |> core_hexpr_or
 
 and expand_predicate env stack name args =
+  (* Source predicates must be declared and are fully expanded here. Do not
+     synthesize [HPred] for unknown names: that would silently move an
+     undeclared frontend name into the trusted core pipeline. *)
   match List.assoc_opt name env.predicates with
   | None -> failwith (Printf.sprintf "unknown predicate '%s'" name)
   | Some pred ->

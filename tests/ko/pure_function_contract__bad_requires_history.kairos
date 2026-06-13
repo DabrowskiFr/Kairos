@@ -1,0 +1,20 @@
+function badRequiresHistory(x: int): int
+  requires: pre(x) >= 0;
+  ensures: result >= 0;
+= x;
+
+node pure_function_contract_bad_requires_history(input: int) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = input);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := input;
+    }
+end

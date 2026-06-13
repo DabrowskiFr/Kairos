@@ -38,6 +38,8 @@ type cli_args = {
   dump_canonical : string option;
   dump_canonical_short : string option;
   dump_obligations_map : string option;
+  dump_surface : string option;
+  dump_elaborated : string option;
   dump_normalized_program : string option;
   dump_ir_pretty : string option;
   dump_timings : string option;
@@ -57,6 +59,8 @@ type dump_mode =
   | Dump_automata of { out : string; short : bool }
   | Dump_canonical of { out : string; short : bool }
   | Dump_obligations_map of { out : string }
+  | Dump_surface of { out : string }
+  | Dump_elaborated of { out : string }
   | Dump_normalized_program of { out : string }
   | Dump_ir_pretty of { out : string }
   | Dump_kobj_summary of { out : string }
@@ -172,6 +176,35 @@ module Pipeline_service = struct
   let normalized_program = Usecases.normalized_program
   let ir_pretty_dump = Usecases.ir_pretty_dump
   let run = Usecases.run
+
+  let read_text_for_dump input_file =
+    try
+      let ic = open_in_bin input_file in
+      let len = in_channel_length ic in
+      let text = really_input_string ic len in
+      close_in ic;
+      Ok text
+    with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn))
+
+  let surface_dump ~input_file =
+    match read_text_for_dump input_file with
+    | Error _ as e -> e
+    | Ok text -> (
+        try
+          let surface, _ =
+            Kx_parse_api.parse_surface_text_with_info ~filename:input_file ~text
+          in
+          Ok (Kx_parse_api.surface_source_to_json surface)
+        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+
+  let elaborated_dump ~input_file =
+    match read_text_for_dump input_file with
+    | Error _ as e -> e
+    | Ok text -> (
+        try
+          let source, _ = Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text in
+          Ok (Kx_parse_api.source_to_json source)
+        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
 
   let frontend_check ~input_file =
     match Kairos_frontend.parse_input ~input_file with
@@ -330,6 +363,16 @@ let with_ir_pretty args f =
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
+let with_surface_dump args f =
+  match Pipeline_service.surface_dump ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
+  | Ok text -> f text
+
+let with_elaborated_dump args f =
+  match Pipeline_service.elaborated_dump ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
+  | Ok text -> f text
+
 let write_text_output out text =
   write_target out text;
   `Ok ()
@@ -402,6 +445,8 @@ let dump_mode_count args =
       args.dump_canonical;
       args.dump_canonical_short;
       args.dump_obligations_map;
+      args.dump_surface;
+      args.dump_elaborated;
       args.dump_normalized_program;
       args.dump_ir_pretty;
       args.dump_kobj_summary;
@@ -423,10 +468,10 @@ let validate_args args =
     Error "--check-frontend cannot be combined with dump, proof, or Why3 options"
   else if has_dump_mode args && has_why_mode args then
     Error
-      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
+      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
     Error
-      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-*"
+      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-*"
   else Ok ()
 
 (* Preserve the previous precedence between dump options while converting the raw
@@ -450,6 +495,10 @@ let resolve_dump_mode args =
   | _ when Option.is_some args.dump_obligations_map ->
       Ok
         (Some (Dump_obligations_map { out = get_some "dump-obligations-map" args.dump_obligations_map }))
+  | _ when Option.is_some args.dump_surface ->
+      Ok (Some (Dump_surface { out = get_some "dump-surface" args.dump_surface }))
+  | _ when Option.is_some args.dump_elaborated ->
+      Ok (Some (Dump_elaborated { out = get_some "dump-elaborated" args.dump_elaborated }))
   | _ when Option.is_some args.dump_normalized_program ->
       Ok
         (Some
@@ -495,6 +544,8 @@ let exec_dump_mode args = function
   | Dump_obligations_map { out } ->
       with_instrumentation_pass args (fun artifacts ->
           write_text_output out artifacts.Pipeline_service.obligations_map_text)
+  | Dump_surface { out } -> with_surface_dump args (write_text_output out)
+  | Dump_elaborated { out } -> with_elaborated_dump args (write_text_output out)
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)
   | Dump_ir_pretty { out } -> with_ir_pretty args (write_text_output out)
   | Dump_kobj_summary { out } -> with_kobj_summary args (write_text_output out)
@@ -604,6 +655,18 @@ let cmd =
       & info [ "dump-obligations-map" ] ~docs:docs_text ~docv:"FILE"
           ~doc:"Dump mapping from transitions to generated clauses.")
   in
+  let dump_surface =
+    Arg.(
+      value & opt (some string) None
+      & info [ "dump-surface" ] ~docs:docs_frontend ~docv:"FILE"
+          ~doc:"Dump the parser surface AST before frontend elaboration.")
+  in
+  let dump_elaborated =
+    Arg.(
+      value & opt (some string) None
+      & info [ "dump-elaborated" ] ~docs:docs_frontend ~docv:"FILE"
+          ~doc:"Dump the frontend-elaborated AST passed to model lowering.")
+  in
   let dump_normalized_program =
     Arg.(
       value & opt (some string) None
@@ -670,10 +733,10 @@ let cmd =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
     let make_cli_args file check_frontend prove timeout_s dump_automata dump_product
-        dump_canonical dump_automata_short dump_canonical_short
-        dump_obligations_map dump_normalized_program dump_ir_pretty dump_timings dump_why
-        dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses dump_kobj_product
-        dump_kobj_contracts =
+        dump_canonical dump_automata_short dump_canonical_short dump_obligations_map
+        dump_surface dump_elaborated dump_normalized_program dump_ir_pretty dump_timings
+        dump_why dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses
+        dump_kobj_product dump_kobj_contracts =
       {
         file;
         check_frontend;
@@ -685,6 +748,8 @@ let cmd =
         dump_automata_short;
         dump_canonical_short;
         dump_obligations_map;
+        dump_surface;
+        dump_elaborated;
         dump_normalized_program;
         dump_ir_pretty;
         dump_timings;
@@ -700,9 +765,10 @@ let cmd =
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s $ dump_automata $ dump_product
       $ dump_canonical $ dump_automata_short
-      $ dump_canonical_short $ dump_obligations_map $ dump_normalized_program
-      $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
-      $ dump_kobj_clauses $ dump_kobj_product $ dump_kobj_contracts)
+      $ dump_canonical_short $ dump_obligations_map $ dump_surface $ dump_elaborated
+      $ dump_normalized_program $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc
+      $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
+      $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in
   let man =

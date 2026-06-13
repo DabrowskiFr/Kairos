@@ -1,0 +1,37 @@
+type SignalColor = Red | Green;
+
+function stopSignal(): SignalColor
+  ensures: result = Red;
+= Red;
+
+function isGreen(c: SignalColor): bool
+  ensures: result = { c = Green };
+= c = Green;
+
+function isRed(c: SignalColor): bool
+  ensures: result = { c = Red };
+= c = Red;
+
+node pure_function_bool_enum(request: bool) returns (
+  signal: SignalColor,
+  greenSeen: bool
+)
+
+contracts
+  ensures: G(isGreen(signal) => request = true);
+  ensures: G(isRed(signal) => greenSeen = false);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      if request then
+        signal := Green;
+        greenSeen := true;
+      else
+        signal := stopSignal();
+        greenSeen := false;
+      end;
+    }
+end

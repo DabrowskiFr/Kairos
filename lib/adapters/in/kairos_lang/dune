@@ -20,9 +20,10 @@
   kairos_application
   kairos_domain_core
   menhirLib
-  sedlex)
+  sedlex
+  yojson)
  (preprocess
-  (pps sedlex.ppx)))
+  (pps sedlex.ppx ppx_deriving_yojson)))
 
 (menhir
  (modules kx_parser)

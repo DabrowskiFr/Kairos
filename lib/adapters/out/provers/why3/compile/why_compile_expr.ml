@@ -68,6 +68,9 @@ let term_old (t : Ptree.term) : Ptree.term = mk_term (Tat (t, ident "old"))
 let apply_expr (fn : Ptree.expr) (args : Ptree.expr list) : Ptree.expr =
   List.fold_left (fun acc arg -> mk_expr (Eapply (acc, arg))) fn args
 
+let apply_term (fn : Ptree.term) (args : Ptree.term list) : Ptree.term =
+  List.fold_left (fun acc arg -> mk_term (Tapply (acc, arg))) fn args
+
 let negate_expr (e : Ptree.expr) : Ptree.expr = mk_expr (Enot e)
 
 (* ---- Kairos → Why3 type and operator mappings ---- *)
@@ -226,7 +229,7 @@ let rec compile_term (env : env) (e : expr) : Ptree.term =
   | ELitBool b -> mk_term (if b then Ttrue else Tfalse)
   | ELitEnum c -> mk_term (Tident (qid1 c))
   | EVar x -> mk_term (term_var env x)
-  | EFunCall (fn, args) -> mk_term (Tidapp (qid1 fn, List.map (compile_term env) args))
+  | EFunCall (fn, args) -> apply_term (mk_term (Tident (qid1 fn))) (List.map (compile_term env) args)
   | EUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
   | EUn (Not, a) -> mk_term (Tnot (compile_term env a))
   | EBin (op, a, b) -> (
@@ -292,10 +295,8 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HPreK (_e, _k) ->
         failwith
           "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
-    | HPred (id, hs) ->
-        mk_term (Tidapp (qid1 id, List.map compile_hexpr_term hs))
-    | HFunCall (fn, hs) ->
-        mk_term (Tidapp (qid1 fn, List.map compile_hexpr_term hs))
+    | HPred (id, hs) -> apply_term (mk_term (Tident (qid1 id))) (List.map compile_hexpr_term hs)
+    | HFunCall (fn, hs) -> apply_term (mk_term (Tident (qid1 fn))) (List.map compile_hexpr_term hs)
   in
   let _ = in_post in
   match (find_link env h, prefer_link) with

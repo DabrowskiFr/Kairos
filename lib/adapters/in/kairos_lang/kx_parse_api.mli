@@ -37,6 +37,9 @@ type source = {
   nodes : Kx_ast.program;
 }
 
+(** Parsed surface source before frontend elaboration. *)
+type surface_source = Kx_surface_syntax.source
+
 (** Paths referenced by explicit imports, in source order. *)
 val imported_paths : source -> string list
 
@@ -59,3 +62,15 @@ val parse_source_text_with_info :
   filename:string ->
   text:string ->
   source * parse_info
+
+(** Parse source text into the surface AST without running elaboration. *)
+val parse_surface_text_with_info :
+  filename:string ->
+  text:string ->
+  surface_source * parse_info
+
+(** Serialize the surface AST as stable debug JSON. *)
+val surface_source_to_json : surface_source -> string
+
+(** Serialize the elaborated source AST as stable debug JSON. *)
+val source_to_json : source -> string

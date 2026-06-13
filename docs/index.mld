@@ -24,7 +24,8 @@ If you are reading the codebase for the first time:
 1. start with {!page-frontend};
 2. continue with {!page-common};
 3. continue with {!page-middleend};
-4. then read {!page-artifacts} and {!page-backends}.
+4. then read {!page-artifacts}, {!page-backends}, and
+   {!page-rocq_frontend_boundary}.
 
 {1 Guides}
 
@@ -33,11 +34,15 @@ If you are reading the codebase for the first time:
 - {!page-middleend}
 - {!page-artifacts}
 - {!page-backends}
+- {!page-rocq_frontend_boundary}
 
 {1 Frontend API}
 
-- {!modules:Ast Ast_builders Ast_queries}
-- {!modules:Parse_api Parse_file Source_file}
+- [Kx_surface_syntax]
+- [Kx_elaborate]
+- [Kx_ast]
+- [Kx_parse_api]
+- [Kairos_to_model]
 
 {1 Common API}
 

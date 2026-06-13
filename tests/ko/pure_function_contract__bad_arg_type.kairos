@@ -1,0 +1,18 @@
+function idInt(x: int): int
+= x;
+
+node pure_function_contract_bad_arg_type(flag: bool) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = 0);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := idInt(flag);
+    }
+end

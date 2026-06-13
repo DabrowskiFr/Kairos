@@ -1,0 +1,20 @@
+function badResultRequires(x: int): int
+  requires: result >= 0;
+  ensures: result >= 0;
+= x;
+
+node pure_function_contract_bad_result_requires(input: int) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = input);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := input;
+    }
+end

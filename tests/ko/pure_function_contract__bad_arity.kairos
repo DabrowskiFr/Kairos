@@ -1,0 +1,18 @@
+function idInt(x: int): int
+= x;
+
+node pure_function_contract_bad_arity(input: int) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = input);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := idInt(input, input);
+    }
+end
