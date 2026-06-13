@@ -206,8 +206,17 @@ let same_ty (a : Core_syntax.ty) (b : Core_syntax.ty) : bool = a = b
 
 let validate_node (n : Verification_model.node_model) : unit =
   let node_name = n.node_name in
-  let vars = n.inputs @ n.outputs @ n.locals in
+  let vars = n.inputs @ n.outputs @ n.locals @ n.ghosts in
+  let real_var_names = List.map (fun (v : Core_syntax.vdecl) -> v.vname) (n.inputs @ n.outputs @ n.locals) in
+  let ghost_var_names = List.map (fun (v : Core_syntax.vdecl) -> v.vname) n.ghosts in
   validate_identifier_collisions node_name n.type_decls ~vars ~states:n.states;
+  let seen_vars = Hashtbl.create 32 in
+  List.iter
+    (fun (v : Core_syntax.vdecl) ->
+      match Hashtbl.find_opt seen_vars v.vname with
+      | Some () -> fail_node node_name (Printf.sprintf "duplicate variable '%s'" v.vname)
+      | None -> Hashtbl.add seen_vars v.vname ())
+    vars;
   let var_types = List.map (fun (v : Core_syntax.vdecl) -> (v.vname, v.vty)) vars in
   let find_var x =
     match List.assoc_opt x var_types with
@@ -224,6 +233,33 @@ let validate_node (n : Verification_model.node_model) : unit =
       fail_node node_name
         (Printf.sprintf "%s has type %s but %s was expected" context (type_name actual)
            (type_name expected))
+  in
+  let is_ghost_var x = List.mem x ghost_var_names in
+  let reject_ghost_use context vars =
+    match List.find_opt is_ghost_var vars with
+    | Some x -> fail_node node_name (Printf.sprintf "%s mentions ghost variable '%s'" context x)
+    | None -> ()
+  in
+  let rec vars_of_expr (e : Core_syntax.expr) : Core_syntax.ident list =
+    match e.expr with
+    | ELitInt _ | ELitBool _ | ELitEnum _ -> []
+    | EVar x -> [ x ]
+    | EUn (_, inner) -> vars_of_expr inner
+    | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr a @ vars_of_expr b
+  in
+  let rec vars_of_hexpr (h : Core_syntax.hexpr) : Core_syntax.ident list =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> []
+    | HVar x | HPreK (x, _) -> [ x ]
+    | HPred (_, args) -> List.concat_map vars_of_hexpr args
+    | HUn (_, inner) -> vars_of_hexpr inner
+    | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr a @ vars_of_hexpr b
+  in
+  let rec vars_of_ltl = function
+    | Core_syntax.LTrue | LFalse -> []
+    | LAtom (a, _, b) -> vars_of_hexpr a @ vars_of_hexpr b
+    | LNot a | LX a | LG a -> vars_of_ltl a
+    | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) -> vars_of_ltl a @ vars_of_ltl b
   in
   let rec expr_ty (e : Core_syntax.expr) : Core_syntax.ty =
     match e.expr with
@@ -313,13 +349,19 @@ let validate_node (n : Verification_model.node_model) : unit =
   in
   let rec validate_stmt (s : Core_syntax.stmt) : unit =
     match s.stmt with
-    | SAssign (id, rhs) -> expect_ty ("assignment to " ^ id) (find_var id) (expr_ty rhs)
+    | SAssign (id, rhs) ->
+        expect_ty ("assignment to " ^ id) (find_var id) (expr_ty rhs);
+        if List.mem id real_var_names then
+          reject_ghost_use ("assignment to non-ghost variable '" ^ id ^ "'")
+            (vars_of_expr rhs)
     | SIf (cond, then_branch, else_branch) ->
         expect_ty "if condition" TBool (expr_ty cond);
+        reject_ghost_use "if condition" (vars_of_expr cond);
         List.iter validate_stmt then_branch;
         List.iter validate_stmt else_branch
     | SMatch (scrutinee, branches, default_branch) ->
         let scrutinee_ty = expr_ty scrutinee in
+        reject_ghost_use "match scrutinee" (vars_of_expr scrutinee);
         List.iter
           (fun (ctor, body) ->
             expect_ty ("match branch " ^ ctor) scrutinee_ty (find_ctor ctor);
@@ -327,11 +369,27 @@ let validate_node (n : Verification_model.node_model) : unit =
           branches;
         List.iter validate_stmt default_branch
     | SSkip -> ()
-    | SCall _ -> ()
+    | SCall (_callee, args, outs) ->
+        List.iteri
+          (fun idx arg ->
+            expect_ty ("call argument " ^ string_of_int (idx + 1)) (expr_ty arg) (expr_ty arg);
+            reject_ghost_use ("call argument " ^ string_of_int (idx + 1)) (vars_of_expr arg))
+          args;
+        List.iter
+          (fun out ->
+            if is_ghost_var out then
+              fail_node node_name
+                (Printf.sprintf "call output cannot target ghost variable '%s'" out);
+            ignore (find_var out))
+          outs
   in
   List.iter
     (fun (step : Verification_model.program_step) ->
-      Option.iter (fun guard -> expect_ty "transition guard" TBool (expr_ty guard)) step.guard_expr;
+      Option.iter
+        (fun guard ->
+          expect_ty "transition guard" TBool (expr_ty guard);
+          reject_ghost_use "transition guard" (vars_of_expr guard))
+        step.guard_expr;
       List.iter validate_stmt step.body_stmts)
     n.steps;
   List.iter (fun (inv : Verification_model.state_invariant) ->
@@ -339,8 +397,16 @@ let validate_node (n : Verification_model.node_model) : unit =
         fail_node node_name (Printf.sprintf "unknown invariant state '%s'" inv.state);
       expect_ty ("invariant in " ^ inv.state) TBool (hexpr_ty inv.formula))
     n.state_invariants;
-  List.iter validate_ltl n.assumes;
-  List.iter validate_ltl n.guarantees
+  List.iter
+    (fun assume ->
+      validate_ltl assume;
+      reject_ghost_use "requires contract" (vars_of_ltl assume))
+    n.assumes;
+  List.iter
+    (fun guarantee ->
+      validate_ltl guarantee;
+      reject_ghost_use "ensures contract" (vars_of_ltl guarantee))
+    n.guarantees
 
 let node ~(type_decls : Core_syntax.enum_decl list) (n : Kx_ast.node) :
     Verification_model.node_model =
@@ -353,6 +419,7 @@ let node ~(type_decls : Core_syntax.enum_decl list) (n : Kx_ast.node) :
     inputs = List.map lower_vdecl sem.sem_inputs;
     outputs = List.map lower_vdecl sem.sem_outputs;
     locals = List.map lower_vdecl sem.sem_locals;
+    ghosts = List.map lower_vdecl sem.sem_ghosts;
     states = sem.sem_states;
     init_state = sem.sem_init_state;
     steps = List.map (step ~type_decls) sem.sem_trans;

@@ -11,6 +11,8 @@ node discrete_resource_allocator(
   grantAge[Client * Resource]: int,
   resourceBusy[Resource]: bool
 )
+ghosts
+  proofBusy[Resource]: bool;
 
 predicate resourceFree(r) =
   forall c in Client. holds[c, r] = false;
@@ -33,6 +35,10 @@ contracts
 
 states Init(init), Run;
 
+invariants
+  in Run:
+    forall r in Resource. proofBusy[r] = resourceBusy[r];
+
 trans
   Init:
     to Run {
@@ -45,6 +51,7 @@ trans
       }
       for r in Resource {
         resourceBusy[r] := false;
+        proofBusy[r] := false;
       }
     }
 
@@ -80,6 +87,7 @@ trans
 
       for r in Resource {
         resourceBusy[r] := not resourceFree(r);
+        proofBusy[r] := not resourceFree(r);
       }
     }
 end

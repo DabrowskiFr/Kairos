@@ -43,6 +43,7 @@ type node_semantics = {
   sem_outputs : vdecl list;
   sem_instances : (ident * ident) list;
   sem_locals : vdecl list;
+  sem_ghosts : vdecl list;
   sem_states : ident list;
   sem_init_state : ident;
   sem_trans : transition list;

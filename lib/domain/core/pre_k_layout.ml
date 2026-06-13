@@ -85,6 +85,6 @@ let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~
          { var_name = vname; names; vty })
 
 let build_pre_k_infos (n : Verification_model.node_model) : pre_k_info list =
-  build_pre_k_infos_from_parts ~inputs:n.inputs ~locals:n.locals ~outputs:n.outputs
+  build_pre_k_infos_from_parts ~inputs:n.inputs ~locals:(n.locals @ n.ghosts) ~outputs:n.outputs
     ~fo_formulas:(List.map (fun (inv : Verification_model.state_invariant) -> inv.formula) n.state_invariants)
     ~ltl:(n.assumes @ n.guarantees)

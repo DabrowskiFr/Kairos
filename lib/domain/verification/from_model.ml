@@ -58,7 +58,7 @@ let of_model_node (n : Vm.node_model) : Ir.node_ir =
         sem_type_decls = n.type_decls;
         sem_inputs = n.inputs;
         sem_outputs = n.outputs;
-        sem_locals = n.locals;
+        sem_locals = n.locals @ n.ghosts;
         sem_states = n.states;
         sem_init_state = n.init_state;
       };

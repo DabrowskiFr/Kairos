@@ -335,7 +335,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %}
 
 %token TYPE DOMAIN PREDICATE
-%token NODE RETURNS LOCALS STATES INIT TRANS END
+%token NODE RETURNS LOCALS GHOSTS STATES INIT TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
 %token INVARIANTS
@@ -458,6 +458,7 @@ node:
   NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN
   alias_scope_start
   alias_decls_opt
+  ghosts_opt
   predicate_decls_opt
   node_contracts_block instances_opt
   locals_opt
@@ -467,21 +468,22 @@ node:
   END
   {
     let () = forbid_reserved_identifier ~context:"node name" $2 in
-    let states, inline_init = $17 in
+    let states, inline_init = $18 in
     let init_state = resolve_init_state ~inline_init in
     Kx_ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
       ~outputs:$8
-      ~assumes:(fst $13)
-      ~guarantees:(snd $13)
-      ~instances:$14
-      ~locals:$15
+      ~assumes:(fst $14)
+      ~guarantees:(snd $14)
+      ~instances:$15
+      ~locals:$16
+      ~ghosts:$12
       ~states
       ~init_state
-      ~trans:$21
+      ~trans:$22
     |> fun n ->
-      { n with specification = { n.specification with spec_invariants_state_rel = $19 } }
+      { n with specification = { n.specification with spec_invariants_state_rel = $20 } }
   }
 
 params_opt:
@@ -521,6 +523,10 @@ instances_opt:
 locals_opt:
   | /* empty */ { [] }
   | LOCALS vdecls_opt { $2 }
+
+ghosts_opt:
+  | /* empty */ { [] }
+  | GHOSTS vdecls_opt { $2 }
 
 instance_list:
   | instance_decl instance_list { $1 :: $2 }

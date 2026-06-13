@@ -1,0 +1,18 @@
+node ghost_bad_rhs(input: bool) returns (
+  out: bool
+)
+ghosts
+  proofFlag: bool;
+
+contracts
+  ensures: G(out = false);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      proofFlag := input;
+      out := proofFlag;
+    }
+end

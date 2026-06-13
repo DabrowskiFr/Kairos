@@ -36,6 +36,7 @@ type node_model = {
   inputs : vdecl list;
   outputs : vdecl list;
   locals : vdecl list;
+  ghosts : vdecl list;
   states : ident list;
   init_state : ident;
   steps : program_step list;

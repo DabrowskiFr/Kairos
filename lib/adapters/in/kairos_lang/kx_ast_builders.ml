@@ -24,8 +24,8 @@ let with_stmt_desc s stmt = { s with stmt }
 
 let mk_transition ~src ~dst ~guard ~body : transition = { src; dst; guard; body }
 
-let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~states ~init_state
-    ~trans : node =
+let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~ghosts
+    ~states ~init_state ~trans : node =
   {
     semantics =
       {
@@ -34,6 +34,7 @@ let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~sta
         sem_outputs = outputs;
         sem_instances = instances;
         sem_locals = locals;
+        sem_ghosts = ghosts;
         sem_states = states;
         sem_init_state = init_state;
         sem_trans = trans;

@@ -1,0 +1,18 @@
+node ghost_bad_contract(input: bool) returns (
+  out: bool
+)
+ghosts
+  proofFlag: bool;
+
+contracts
+  ensures: G(proofFlag = false);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      proofFlag := input;
+      out := false;
+    }
+end

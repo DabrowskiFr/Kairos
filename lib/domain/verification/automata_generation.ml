@@ -126,7 +126,7 @@ let collect_atoms_from_ltls (n : Verification_model.node_model) ~(ltls : ltl lis
            List.map (fun ctor -> (ctor, TCustom decl.enum_name)) decl.enum_constructors)
   in
   let var_types =
-    constructor_types @ List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    constructor_types @ List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.ghosts @ n.outputs)
   in
   let temporal_layout = Pre_k_layout.build_pre_k_infos n in
   let inputs = List.map (fun v -> v.vname) n.inputs in

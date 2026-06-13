@@ -1,0 +1,33 @@
+node ghost_auxiliary_invariant(request: bool) returns (
+  granted: bool
+)
+ghosts
+  grantMirror: bool;
+
+contracts
+  ensures: G(granted = true => request = true);
+
+states Init(init), Run;
+
+invariants
+  in Run:
+    grantMirror = granted;
+
+trans
+  Init:
+    to Run {
+      granted := false;
+      grantMirror := false;
+    }
+
+  Run:
+    to Run {
+      if request then
+        granted := true;
+        grantMirror := true;
+      else
+        granted := false;
+        grantMirror := false;
+      end;
+    }
+end

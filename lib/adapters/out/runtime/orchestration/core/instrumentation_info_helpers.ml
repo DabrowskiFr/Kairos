@@ -50,7 +50,7 @@ let analysis_context_of_source_node (source_node : Verification_model.node_model
         sem_type_decls = source_node.type_decls;
         sem_inputs = source_node.inputs;
         sem_outputs = source_node.outputs;
-        sem_locals = source_node.locals;
+        sem_locals = source_node.locals @ source_node.ghosts;
         sem_states = source_node.states;
         sem_init_state = source_node.init_state;
       };

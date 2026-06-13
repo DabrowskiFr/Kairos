@@ -219,12 +219,13 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata
 
 let node_signature_of_model ~(temporal_layout : Ir.temporal_layout) (n : Verification_model.node_model) :
     Proof_kernel_types.node_signature_ir =
-  let temporal_locals = temporal_locals_of_layout ~existing_locals:n.locals temporal_layout in
+  let source_locals = n.locals @ n.ghosts in
+  let temporal_locals = temporal_locals_of_layout ~existing_locals:source_locals temporal_layout in
   {
     node_name = n.node_name;
     inputs = n.inputs;
     outputs = n.outputs;
-    locals = n.locals @ temporal_locals;
+    locals = source_locals @ temporal_locals;
     states = n.states;
     init_state = n.init_state;
   }
@@ -295,7 +296,7 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
       ~initial_product_state ~symbolic_generated_clauses
   in
   let ghost_locals =
-    temporal_locals_of_layout ~existing_locals:source_node.locals node.temporal_layout
+    temporal_locals_of_layout ~existing_locals:(source_node.locals @ source_node.ghosts) node.temporal_layout
   in
   {
     Proof_kernel_types.reactive_program;
