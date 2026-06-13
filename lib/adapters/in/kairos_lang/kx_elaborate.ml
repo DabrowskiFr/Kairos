@@ -315,7 +315,7 @@ and lower_hexpr env stack (h : S.hexpr) : hexpr =
 
 and expand_predicate env stack name args =
   match List.assoc_opt name env.predicates with
-  | None -> B.mk_hpred name (List.map B.mk_hvar args)
+  | None -> failwith (Printf.sprintf "unknown predicate '%s'" name)
   | Some pred ->
       if List.mem name stack then
         failwith (Printf.sprintf "cyclic predicate expansion involving '%s'" name);

@@ -1,0 +1,15 @@
+node unknown_predicate_fallback(input: bool) returns (
+  output: bool
+)
+
+contracts
+  ensures: G(ghostPredicate(input));
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      output := input;
+    }
+end
