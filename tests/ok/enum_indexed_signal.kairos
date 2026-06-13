@@ -1,0 +1,31 @@
+type SignalColor = Red | Green;
+type Route = R1 | R2;
+
+node enum_indexed_signal(request[R1, R2]: bool) returns (
+  signal[R1, R2]: SignalColor
+)
+contracts
+  ensures: G(signal[R1] = Green => request[R1] = true);
+  ensures: G(signal[R2] = Green => request[R2] = true);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      signal[R1] := Red;
+      signal[R2] := Red;
+    }
+  Run:
+    to Run {
+      if request[R1] then
+        signal[R1] := Green;
+      else
+        signal[R1] := Red;
+      end;
+      if request[R2] then
+        signal[R2] := Green;
+      else
+        signal[R2] := Red;
+      end;
+    }
+end

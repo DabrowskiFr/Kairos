@@ -55,7 +55,9 @@ let parse_input ~(input_file : string) :
           Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
         in
         let parse_info = flow_parse_info_of_frontend parse_info_kx in
-        let verification_model = Kairos_to_model.program source_kx.nodes in
+        let verification_model =
+          Kairos_to_model.program ~type_decls:source_kx.type_decls source_kx.nodes
+        in
         Ok
           {
             imports = Kx_parse_api.imported_paths source_kx;

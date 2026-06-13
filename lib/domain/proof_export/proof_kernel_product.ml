@@ -133,6 +133,7 @@ let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Core_syn
 type current_const =
   | CInt of int
   | CBool of bool
+  | CEnum of ident
 
 type current_constraint_env = {
   parent : (ident, ident) Hashtbl.t;
@@ -162,6 +163,7 @@ let const_equal a b =
   match (a, b) with
   | CInt x, CInt y -> x = y
   | CBool x, CBool y -> Bool.equal x y
+  | CEnum x, CEnum y -> String.equal x y
   | _ -> false
 
 let add_forbid env root c =
@@ -225,6 +227,7 @@ let current_const_of_expr (e : expr) : current_const option =
   match e.expr with
   | ELitInt n -> Some (CInt n)
   | ELitBool b -> Some (CBool b)
+  | ELitEnum c -> Some (CEnum c)
   | _ -> None
 
 let current_var_of_hexpr = function
@@ -234,6 +237,7 @@ let current_var_of_hexpr = function
 let current_const_of_hexpr = function
   | { hexpr = HLitInt n; _ } -> Some (CInt n)
   | { hexpr = HLitBool b; _ } -> Some (CBool b)
+  | { hexpr = HLitEnum c; _ } -> Some (CEnum c)
   | _ -> None
 
 let add_current_equality env ~(negated : bool) (h1 : hexpr) (h2 : hexpr) : bool option =
@@ -283,7 +287,7 @@ let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) :
       let env_left = clone_constraint_env env in
       current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
   | HBin (Add, _, _) | HBin (Sub, _, _) | HBin (Mul, _, _) | HBin (Div, _, _) -> true
-  | HLitInt _ | HVar _ | HPreK _ -> true
+  | HLitInt _ | HLitEnum _ | HVar _ | HPreK _ -> true
   | HUn (Neg, _) -> true
 
 let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)

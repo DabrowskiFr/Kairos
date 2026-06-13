@@ -32,6 +32,7 @@ type import_decl = {
 (** Parsed source file, before import resolution/expansion. *)
 type source = {
   imports : import_decl list;
+  type_decls : Kx_core_syntax.enum_decl list;
   nodes : Kx_ast.program;
 }
 

@@ -1,0 +1,41 @@
+type SignalColor = Red | Green;
+type RouteState = Idle | Locked;
+type Track = T1;
+type Route = R1;
+
+node topology_single_route(
+  occupied[T1]: bool
+) returns (
+  signal[R1]: SignalColor,
+  routeState[R1]: RouteState,
+  reserved[R1]: bool
+)
+contracts
+  topology
+    route R1 uses T1;
+  end
+states
+  Init(init), Run;
+invariants
+  in Init:
+    signal[R1] = Red;
+    routeState[R1] = Idle;
+    reserved[R1] = false;
+  in Run:
+    signal[R1] = Red;
+    routeState[R1] = Idle;
+    reserved[R1] = false;
+transitions
+  Init:
+    to Run {
+      signal[R1] := Red;
+      routeState[R1] := Idle;
+      reserved[R1] := false;
+    }
+  Run:
+    to Run {
+      signal[R1] := Red;
+      routeState[R1] := Idle;
+      reserved[R1] := false;
+    }
+end

@@ -117,6 +117,7 @@ type state_branch_view = {
 (** Complete view of a node, ready to be compiled to WhyML. *)
 type t = {
   node_name : ident;
+  type_decls : enum_decl list;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;

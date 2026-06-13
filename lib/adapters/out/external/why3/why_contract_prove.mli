@@ -73,6 +73,7 @@ type goal_done_event = {
       One entry per proven goal, in normalized goal order. *)
 val prove_ptree_with_events :
   ?timeout:int ->
+  ?split_vc:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->

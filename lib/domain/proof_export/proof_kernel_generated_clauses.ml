@@ -117,7 +117,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
   in
   let rec hexpr_mentions_current_input (h : hexpr) =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ | HPreK _ -> false
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> false
     | HVar name -> List.mem name input_names
     | HPred (_, hs) -> List.exists hexpr_mentions_current_input hs
     | HUn (_, inner) -> hexpr_mentions_current_input inner
@@ -129,7 +129,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_aut
   in
   let rec normalize_source_summary (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
-    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ | HPred _ -> f
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ -> f
     | HUn (Neg, inner) ->
         Core_syntax_builders.with_hexpr_desc f (HUn (Neg, normalize_source_summary inner))
     | HUn (Not, inner) -> (
@@ -316,7 +316,7 @@ let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata
   in
   let rec normalize_phase_summary (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
-    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ | HPred _ -> f
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ -> f
     | HUn (op, inner) ->
         Core_syntax_builders.with_hexpr_desc f (HUn (op, normalize_phase_summary inner))
     | HBin (op, a, b) ->

@@ -31,6 +31,13 @@ type ident = string
 type ty = TInt | TBool | TReal | TCustom of string 
   [@@deriving yojson]
 
+(** Finite algebraic type declaration. *)
+type enum_decl = {
+  enum_name : ident;
+  enum_constructors : ident list;
+}
+[@@deriving yojson]
+
 (** Binary operators. *)
 type binop = Add | Sub | Mul | Div | And | Or
   [@@deriving yojson]

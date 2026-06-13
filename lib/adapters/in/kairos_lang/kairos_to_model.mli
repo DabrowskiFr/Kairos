@@ -20,7 +20,7 @@
 
 (** Translate one source node to the internal model and apply transition
     prioritization. *)
-val node : Kx_ast.node -> Verification_model.node_model
+val node : type_decls:Core_syntax.enum_decl list -> Kx_ast.node -> Verification_model.node_model
 
 (** Translate a full source program to the internal model. *)
-val program : Kx_ast.program -> Verification_model.program_model
+val program : ?type_decls:Kx_core_syntax.enum_decl list -> Kx_ast.program -> Verification_model.program_model

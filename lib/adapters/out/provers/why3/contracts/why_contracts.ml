@@ -218,10 +218,10 @@ let build_contracts ~(env : Why_compile_expr.env)
     ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) : contract_info =
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
-    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env f.logic ]
+    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env (simplify_fo f.logic) ]
   in
   let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
-    let term = Why_compile_expr.compile_local_fo_formula_term ~in_post:true env f.logic in
+    let term = Why_compile_expr.compile_local_fo_formula_term ~in_post:true env (simplify_fo f.logic) in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =

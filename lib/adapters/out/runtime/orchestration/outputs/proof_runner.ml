@@ -213,9 +213,46 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
              why_span = None;
              vc_span = List.nth_opt vc_spans_ordered idx;
              smt_span = List.nth_opt smt_spans_ordered idx;
-             dump_path;
-             diagnostic;
-           })
+           dump_path;
+           diagnostic;
+         })
+
+let build_fast_proof_traces
+    (goal_results : (int * string * string * float * string option * string option) list) :
+    Pipeline_types.proof_trace list =
+  goal_results
+  |> List.map (fun (idx, goal_name, status, time_s, dump_path, raw_vcid) ->
+         let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
+         {
+           Pipeline_types.goal_index = idx;
+           stable_id;
+           goal_name;
+           status;
+           solver_status = status;
+           time_s;
+           source = "";
+           node = None;
+           transition = None;
+           obligation_kind = "unknown";
+           obligation_family = None;
+           obligation_category = None;
+           vc_id = raw_vcid;
+           source_span = None;
+           why_span = None;
+           vc_span = None;
+           smt_span = None;
+           dump_path;
+           diagnostic =
+             diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
+               ~native_probe:None;
+         })
+
+let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
+    Pipeline_types.goal_info list =
+  List.map
+    (fun (trace : Pipeline_types.proof_trace) ->
+      (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
+    proof_traces
 
 let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     (run_output, Pipeline_types.error) result =
@@ -226,55 +263,90 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
-    let vc_tasks = Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree in
-    let vc_text, vc_spans_ordered =
-      if cfg.generate_vc_text then
-        Pipeline_outputs_helpers.join_blocks_with_spans
-          ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
-      else ("", [])
-    in
-    let smt_tasks = Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree in
-    let smt_text, smt_spans_ordered =
-      if cfg.generate_smt_text then
-        Pipeline_outputs_helpers.join_blocks_with_spans
-          ~sep:"\n; ---- goal ----\n" smt_tasks
-      else ("", [])
-    in
-    let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
-    let normalized_tasks = Why_task_support.normalize_tasks_of_ptree ~env ~ptree in
-    let goal_count = List.length normalized_tasks in
-    let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
-    let vc_locs, vc_locs_ordered = ([], []) in
-    let goal_results =
-      build_goal_results ~cfg ~ptree ~vc_ids_ordered ~normalized_tasks
-    in
-    External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
-    let proof_traces =
-      build_proof_traces ~cfg ~ptree ~normalized_tasks ~goal_results ~vc_ids_ordered
-        ~vc_spans_ordered ~smt_spans_ordered
-    in
-    let goals =
-      List.map
-        (fun (trace : Pipeline_types.proof_trace) ->
-          ( trace.goal_name,
-            trace.status,
-            trace.time_s,
-            trace.dump_path,
-            trace.vc_id ))
-        proof_traces
-    in
-    Ok
-      {
-        why_text;
-        why_spans;
-        vc_text;
-        vc_spans_ordered;
-        smt_text;
-        smt_spans_ordered;
-        vc_ids_ordered;
-        vc_locs;
-        vc_locs_ordered;
-        goals;
-        proof_traces;
-      }
+    if cfg.prove && not cfg.wp_only && not cfg.generate_vc_text
+       && not cfg.generate_smt_text && not cfg.compute_proof_diagnostics
+    then
+      let goal_results =
+        let finished = ref [] in
+        let _ =
+          Why_contract_prove.prove_ptree_with_events ~timeout:cfg.timeout_s
+            ~split_vc:false ptree ~on_goal_start:(fun _ -> ())
+            ~on_goal_done:(fun ev ->
+              let idx = ev.Why_contract_prove.goal_index in
+              let r = ev.result in
+              let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
+              finished :=
+                ( idx,
+                  r.goal_name,
+                  status,
+                  r.prover_result.pr_time,
+                  r.dump_path,
+                  Some (string_of_int (idx + 1)) )
+                :: !finished)
+        in
+        List.sort
+          (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b)
+          !finished
+      in
+      let vc_ids_ordered = List.map (fun (idx, _, _, _, _, _) -> idx + 1) goal_results in
+      let proof_traces = build_fast_proof_traces goal_results in
+      let goals = goals_of_proof_traces proof_traces in
+      External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
+      Ok
+        {
+          why_text;
+          why_spans;
+          vc_text = "";
+          vc_spans_ordered = [];
+          smt_text = "";
+          smt_spans_ordered = [];
+          vc_ids_ordered;
+          vc_locs = [];
+          vc_locs_ordered = [];
+          goals;
+          proof_traces;
+        }
+    else
+      let vc_tasks = Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree in
+      let vc_text, vc_spans_ordered =
+        if cfg.generate_vc_text then
+          Pipeline_outputs_helpers.join_blocks_with_spans
+            ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+        else ("", [])
+      in
+      let smt_tasks = Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree in
+      let smt_text, smt_spans_ordered =
+        if cfg.generate_smt_text then
+          Pipeline_outputs_helpers.join_blocks_with_spans
+            ~sep:"\n; ---- goal ----\n" smt_tasks
+        else ("", [])
+      in
+      let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
+      let normalized_tasks = Why_task_support.normalize_tasks_of_ptree ~env ~ptree in
+      let goal_count = List.length normalized_tasks in
+      let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
+      let vc_locs, vc_locs_ordered = ([], []) in
+      let goal_results =
+        build_goal_results ~cfg ~ptree ~vc_ids_ordered ~normalized_tasks
+      in
+      External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
+      let proof_traces =
+        build_proof_traces ~cfg ~ptree ~normalized_tasks ~goal_results ~vc_ids_ordered
+          ~vc_spans_ordered ~smt_spans_ordered
+      in
+      let goals = goals_of_proof_traces proof_traces in
+      Ok
+        {
+          why_text;
+          why_spans;
+          vc_text;
+          vc_spans_ordered;
+          smt_text;
+          smt_spans_ordered;
+          vc_ids_ordered;
+          vc_locs;
+          vc_locs_ordered;
+          goals;
+          proof_traces;
+        }
   with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))

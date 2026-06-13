@@ -25,6 +25,10 @@ let build_outputs ~(cfg : Pipeline_types.config)
   match Pipeline_artifact_bundle.build ~asts with
   | Error msg -> Error (Pipeline_types.Flow_error msg)
   | Ok artifacts -> (
-      match Proof_runner.run ~cfg ~instrumentation:asts.instrumentation with
+      let proof_instrumentation =
+        Runtime_ir_merge.merge_by_source ~source_model:asts.verification_model
+          asts.instrumentation
+      in
+      match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
       | Error _ as err -> err
       | Ok proof -> Ok (Output_mapper.map_outputs ~cfg ~snapshot ~artifacts ~proof))

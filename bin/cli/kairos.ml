@@ -24,10 +24,12 @@ let docs_graph = "GRAPH DUMPS"
 let docs_text = "TEXT EXPORTS"
 let why3_proof = "WHY3"
 let docs_kobj = "KOBJ"
+let docs_frontend = "FRONTEND"
 
 (* Parsed CLI arguments *)
 type cli_args = {
   file : string;
+  check_frontend : bool;
   prove : bool;
   timeout_s : int;
   dump_automata : string option;
@@ -69,6 +71,7 @@ type action =
   | Dump_why of { out : string }
   | Dump_why3_vc of { out : string }
   | Dump_smt2 of { out : string }
+  | Check_frontend
   | Run of { prove : bool }
 
 module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
@@ -100,6 +103,12 @@ module Pipeline_service = struct
     smt_text : string;
     flow_meta : flow_meta;
     goals : goal_info list;
+  }
+
+  type frontend_check_data = {
+    node_count : int;
+    assume_count : int;
+    guarantee_count : int;
   }
 
   let instrumentation_pass = Usecases.instrumentation_pass
@@ -163,6 +172,21 @@ module Pipeline_service = struct
   let normalized_program = Usecases.normalized_program
   let ir_pretty_dump = Usecases.ir_pretty_dump
   let run = Usecases.run
+
+  let frontend_check ~input_file =
+    match Kairos_frontend.parse_input ~input_file with
+    | Error _ as e -> e
+    | Ok frontend ->
+        let nodes = frontend.Application_ports.verification_model in
+        let assume_count =
+          nodes |> List.map (fun (n : Verification_model.node_model) -> List.length n.assumes)
+          |> List.fold_left ( + ) 0
+        in
+        let guarantee_count =
+          nodes |> List.map (fun (n : Verification_model.node_model) -> List.length n.guarantees)
+          |> List.fold_left ( + ) 0
+        in
+        Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text =
     let cfg =
@@ -395,7 +419,9 @@ let has_why_mode args =
 (* Validation only checks user-facing CLI consistency rules: incompatible dump vs
    proof modes, and the "at most one dump mode" constraint. *)
 let validate_args args =
-  if has_dump_mode args && has_why_mode args then
+  if args.check_frontend && (has_dump_mode args || has_why_mode args) then
+    Error "--check-frontend cannot be combined with dump, proof, or Why3 options"
+  else if has_dump_mode args && has_why_mode args then
     Error
       "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
@@ -445,7 +471,9 @@ let resolve_dump_mode args =
 (* Non-dump actions preserve the current special cases:
    standalone Why dump, standalone VC dump, standalone SMT dump, else full run. *)
 let resolve_action args =
-  match resolve_dump_mode args with
+  if args.check_frontend then Ok Check_frontend
+  else
+    match resolve_dump_mode args with
   | Error _ as e -> e
   | Ok (Some mode) -> Ok (Dump mode)
   | Ok None -> (
@@ -478,6 +506,14 @@ let exec_dump_mode args = function
    It still handles optional side dumps and proof failure reporting. *)
 let exec_action args = function
   | Dump mode -> exec_dump_mode args mode
+  | Check_frontend -> (
+      match Pipeline_service.frontend_check ~input_file:args.file with
+      | Error e -> `Error (false, map_error e)
+      | Ok data ->
+          Printf.printf "frontend ok: nodes=%d assumes=%d guarantees=%d\n"
+            data.Pipeline_service.node_count data.Pipeline_service.assume_count
+            data.Pipeline_service.guarantee_count;
+          `Ok ())
   | Dump_why { out } ->
       with_why_text_dump args (fun why_text ->
           write_target out why_text;
@@ -520,6 +556,12 @@ let cmd =
   let file =
     let doc = "Input Kairos file." in
     Arg.(required & pos 0 (some string) None & info [] ~docs:docs_general ~docv:"FILE" ~doc)
+  in
+  let check_frontend =
+    Arg.(
+      value & flag
+      & info [ "check-frontend" ] ~docs:docs_frontend
+          ~doc:"Parse and lower the input without building automata or proof obligations.")
   in
   let prove =
     Arg.(value & flag & info [ "prove" ] ~docs:docs_proof ~doc:"Run prover on generated Why3 obligations.")
@@ -627,13 +669,14 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file prove timeout_s dump_automata dump_product
+    let make_cli_args file check_frontend prove timeout_s dump_automata dump_product
         dump_canonical dump_automata_short dump_canonical_short
         dump_obligations_map dump_normalized_program dump_ir_pretty dump_timings dump_why
         dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses dump_kobj_product
         dump_kobj_contracts =
       {
         file;
+        check_frontend;
         prove;
         timeout_s;
         dump_automata;
@@ -655,22 +698,25 @@ let cmd =
       }
     in
     Term.(
-      const make_cli_args $ file $ prove $ timeout_s $ dump_automata $ dump_product
+      const make_cli_args $ file $ check_frontend $ prove $ timeout_s $ dump_automata $ dump_product
       $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_normalized_program
       $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary
       $ dump_kobj_clauses $ dump_kobj_product $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in
-  let man = [
-  `S Manpage.s_description;
-  `P "Kairos command line interface.";
-  `S docs_proof;
-  `S docs_graph;
-  `S docs_text;
-  `S docs_kobj;
-  `S Manpage.s_common_options;
-]in
+  let man =
+    [
+      `S Manpage.s_description;
+      `P "Kairos command line interface.";
+      `S docs_proof;
+      `S docs_frontend;
+      `S docs_graph;
+      `S docs_text;
+      `S docs_kobj;
+      `S Manpage.s_common_options;
+    ]
+  in
   let info = Cmd.info "kairos" ~doc:"CLI backed by the Kairos LSP service layer" ~man:man in
   Cmd.v info term
 

@@ -40,7 +40,12 @@ module Why_text = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
-    let why_ast = Why_compile.compile_program_ast_from_ir_nodes snapshot.asts.instrumentation in
+    let instrumentation =
+      Runtime_ir_merge.merge_by_source
+        ~source_model:snapshot.asts.verification_model
+        snapshot.asts.instrumentation
+    in
+    let why_ast = Why_compile.compile_program_ast_from_ir_nodes instrumentation in
     let why_text = Why_text_render.emit_program_ast why_ast in
     { Pipeline_types.why_text; flow_meta = Pipeline_outputs.flow_meta snapshot.infos }
 end
@@ -49,7 +54,12 @@ module Obligations = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
   let obligations ~(snapshot : snapshot) : Pipeline_types.obligations_outputs =
-    let out = Why_pipeline.obligations_pass snapshot.asts.instrumentation in
+    let instrumentation =
+      Runtime_ir_merge.merge_by_source
+        ~source_model:snapshot.asts.verification_model
+        snapshot.asts.instrumentation
+    in
+    let out = Why_pipeline.obligations_pass instrumentation in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end
 
@@ -92,7 +102,12 @@ module Proof_events = struct
 
   let prove_with_events ~timeout_s ~should_cancel ~(snapshot : snapshot)
       ~(vc_ids_ordered : int list) ~on_goal_done : Application_ports.goal_result list =
-    let ptree = (Why_compile.compile_program_ast_from_ir_nodes snapshot.asts.instrumentation).Why_compile.mlw in
+    let instrumentation =
+      Runtime_ir_merge.merge_by_source
+        ~source_model:snapshot.asts.verification_model
+        snapshot.asts.instrumentation
+    in
+    let ptree = (Why_compile.compile_program_ast_from_ir_nodes instrumentation).Why_compile.mlw in
     let finished = ref [] in
     let _ =
       Why_contract_prove.prove_ptree_with_events ~timeout:timeout_s ptree ~should_cancel

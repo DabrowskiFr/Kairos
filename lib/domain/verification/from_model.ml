@@ -27,7 +27,7 @@ let ( let* ) = Result.bind
 let fo_mentions_current_input ~(is_input : ident -> bool) (f : Core_syntax.hexpr) =
   let rec go (h : hexpr) =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ | HPreK _ -> false
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> false
     | HVar name -> is_input name
     | HPred (_, args) -> List.exists go args
     | HUn (_, inner) -> go inner
@@ -55,6 +55,7 @@ let of_model_node (n : Vm.node_model) : Ir.node_ir =
     semantics =
       {
         Ir.sem_nname = n.node_name;
+        sem_type_decls = n.type_decls;
         sem_inputs = n.inputs;
         sem_outputs = n.outputs;
         sem_locals = n.locals;
@@ -316,4 +317,3 @@ let of_model_program
   let* analyses = build_analyses ~automata ~source_nodes in
   of_model_program_context program
   |> with_minimal_summaries ~analyses ~source_nodes
-

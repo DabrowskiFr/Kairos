@@ -64,6 +64,9 @@ let render_vdecl (v : vdecl) : string =
   in
   v.vname ^ ": " ^ ty_s
 
+let render_enum_decl (decl : enum_decl) : string =
+  "type " ^ decl.enum_name ^ " = " ^ String.concat " | " decl.enum_constructors ^ ";"
+
 let program_transitions_of_node ~(source_program : Verification_model.program_model option)
     (n : Ir.node_ir) :
     Ir.transition list =
@@ -96,7 +99,8 @@ let render_node_with_source ~(source_program : Verification_model.program_model 
     if sem.sem_states = [] then None else Some ("states " ^ String.concat ", " sem.sem_states ^ ";")
   in
   let fields =
-    [
+    List.map (fun decl -> Some (render_enum_decl decl)) sem.sem_type_decls
+    @ [
       line_params "inputs" sem.sem_inputs;
       line_params "outputs" sem.sem_outputs;
       line_params "locals" sem.sem_locals;

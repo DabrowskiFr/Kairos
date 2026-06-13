@@ -63,7 +63,7 @@ let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.hexpr =
   | None -> Core_syntax_builders.mk_hbool true
   | Some guard -> Core_syntax_builders.hexpr_of_expr guard |> simplify_fo
 
-let invariant_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr option =
+let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : Abs.state_invariant) ->
@@ -73,8 +73,8 @@ let invariant_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr option =
     n.source_info.state_invariants;
   fun st ->
     (match Hashtbl.find_opt by_state st with
-    | None -> None
-    | Some xs -> conj_fo (List.sort_uniq compare xs))
+    | None -> []
+    | Some xs -> List.sort_uniq compare xs)
 
 let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
   let candidates =
@@ -104,34 +104,45 @@ let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state
     Abs.product_state -> Core_syntax.hexpr option =
   let is_input = is_input_of_node node in
   let by_dst = ref [] in
-  let add dst formulas =
+  let by_src = ref [] in
+  let add table_ref state formulas =
     let rec loop acc = function
-      | [] -> List.rev ((dst, formulas) :: acc)
-      | (dst', prev) :: rest when same_product_state dst dst' ->
-          List.rev_append acc ((dst, dedup_formulas (formulas @ prev)) :: rest)
+      | [] -> List.rev ((state, formulas) :: acc)
+      | (state', prev) :: rest when same_product_state state state' ->
+          List.rev_append acc ((state, dedup_formulas (formulas @ prev)) :: rest)
       | x :: rest -> loop (x :: acc) rest
     in
-    by_dst := loop [] !by_dst
+    table_ref := loop [] !table_ref
   in
   List.iter
     (fun (pc : Abs.product_step_summary) ->
       List.iter
         (fun (case : Abs.safe_product_case) ->
           let propagated = shift_formula_forward_inputs ~is_input case.admissible_guard.logic in
-          add case.product_dst [ propagated ])
+          add by_dst case.product_dst [ propagated ];
+          add by_src pc.identity.product_src [ case.admissible_guard.logic ])
         pc.safe_cases)
     node.summaries;
+  let lookup table st =
+    List.find_map
+      (fun (state, fs) -> if same_product_state state st then Some fs else None)
+      !table
+    |> Option.value ~default:[]
+  in
   fun st ->
-    let from_ensures =
-      List.find_map
-        (fun (dst, fs) -> if same_product_state dst st then Some fs else None)
-        !by_dst
-      |> Option.value ~default:[]
+    let incoming =
+      if same_product_state st initial_product_state then
+        [ Core_syntax_builders.mk_hbool true ]
+      else lookup by_dst st
     in
-    let from_ensures =
-      if same_product_state st initial_product_state then Core_syntax_builders.mk_hbool true :: from_ensures else from_ensures
+    let phase =
+      if same_product_state st initial_product_state || st.guarantee_state_index = 0 then []
+      else List.map (shift_formula_forward_inputs ~is_input) (lookup by_src st)
     in
-    disj_fo from_ensures
+    match (disj_fo incoming, disj_fo phase) with
+    | None, None -> None
+    | Some f, None | None, Some f -> Some f
+    | Some incoming, Some phase -> Some (Core_syntax_builders.mk_hand incoming phase)
 
 type node_generation = {
   guarantee_pre_of_product_state : Abs.product_state -> Core_syntax.hexpr option;
@@ -146,7 +157,7 @@ let compute_generation ~(node : Abs.node_ir) : node_generation =
     guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~initial_product_state;
     initial_product_state;
     state_stability = List.map stability_formula (non_input_program_var_names node);
-    invariant_of_state = invariant_of_state node;
+    invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
 
 let add_unique_formula (f : Core_syntax.hexpr)
@@ -168,9 +179,9 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
         let requires =
           []
           |> fun acc ->
-          (match pre_generation.invariant_of_state pc.identity.product_src.prog_state with
-          | None -> acc
-          | Some inv -> add_unique_formula inv acc)
+          List.fold_left
+            (fun acc inv -> add_unique_formula inv acc)
+            acc (invariants_of_state n pc.identity.product_src.prog_state)
           |> fun acc ->
           List.fold_left (fun acc (f : Abs.summary_formula) -> add_unique_formula f.logic acc) acc propagation_requires
           |> add_unique_formula pc.identity.assume_guard
@@ -183,13 +194,12 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
       n.summaries
   in
   let init_invariant_goals =
-    match pre_generation.invariant_of_state n.semantics.sem_init_state with
-    | None -> n.init_invariant_goals
-    | Some inv ->
-        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) n.init_invariant_goals then
-          n.init_invariant_goals
-        else
-          n.init_invariant_goals @ [ Ir_formula.make inv ]
+    List.fold_left
+      (fun acc inv ->
+        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) acc then acc
+        else acc @ [ Ir_formula.make inv ])
+      n.init_invariant_goals
+      (invariants_of_state n n.semantics.sem_init_state)
   in
   { n with summaries; init_invariant_goals }
 

@@ -83,7 +83,7 @@ let normalize_spot_automaton ~(atom_names : string list)
   let atom_name_to_rel = List.map (fun ((lhs, rel, rhs), name) -> (name, (lhs, rel, rhs))) atom_map in
   let rec substitute_atom_vars (h : Core_syntax.hexpr) : Core_syntax.hexpr =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ | HPreK _ -> h
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> h
     | HVar name -> begin
         match List.assoc_opt name atom_name_to_rel with
         | Some (lhs, rel, rhs) -> mk_hexpr (HCmp (rel, lhs, rhs))

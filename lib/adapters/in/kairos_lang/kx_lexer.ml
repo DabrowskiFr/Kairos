@@ -38,6 +38,7 @@ let () =
     (fun (k, t) -> Hashtbl.add kw_table k t)
     [
       ("node", NODE);
+      ("type", TYPE);
       ("returns", RETURNS);
       ("locals", LOCALS);
       ("states", STATES);
@@ -51,6 +52,11 @@ let () =
       ("invariants", INVARIANTS);
       ("in", IN);
       ("contracts", CONTRACTS);
+      ("topology", TOPOLOGY);
+      ("route", ROUTE);
+      ("uses", USES);
+      ("conflict", CONFLICT);
+      ("routeSignal", ROUTESIGNAL);
       ("import", IMPORT);
       ("let", LET);
       ("instance", INSTANCE);
@@ -83,6 +89,8 @@ let () =
       ("X", X);
       ("W", W);
       ("R", R);
+      ("maintainedUntil", MAINTAINEDUNTIL);
+      ("whileRouteLocked", WHILEROUTELOCKED);
     ]
 
 (** [last_lexeme_ref] helper value. *)
@@ -110,6 +118,7 @@ let tok lexbuf t =
 let expected_tokens : (string * Kx_parser.token) list =
   [
     ("node", NODE);
+    ("type", TYPE);
     ("returns", RETURNS);
     ("locals", LOCALS);
     ("states", STATES);
@@ -123,6 +132,11 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("invariants", INVARIANTS);
     ("in", IN);
     ("contracts", CONTRACTS);
+    ("topology", TOPOLOGY);
+    ("route", ROUTE);
+    ("uses", USES);
+    ("conflict", CONFLICT);
+    ("routeSignal", ROUTESIGNAL);
     ("import", IMPORT);
     ("let", LET);
     ("instance", INSTANCE);
@@ -155,6 +169,8 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("X", X);
     ("W", W);
     ("R", R);
+    ("maintainedUntil", MAINTAINEDUNTIL);
+    ("whileRouteLocked", WHILEROUTELOCKED);
     (":=", ASSIGN);
     ("->", ARROW);
     ("=>", IMPL);

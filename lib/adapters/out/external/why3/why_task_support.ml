@@ -18,17 +18,19 @@
 
 open Why3
 
+(* Type un ptree Why3 et extrait les tâches top-level sans éclatement VC. *)
+let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
+  let modules = Typing.type_mlw_file env [] "<generated>" ptree in
+  Wstdlib.Mstr.fold
+    (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
+    modules []
+  |> List.rev
+
 (* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
    une liste stable d'obligations élémentaires. *)
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
-  let modules = Typing.type_mlw_file env [] "<generated>" ptree in
-  let typed_tasks =
-    Wstdlib.Mstr.fold
-      (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
-      modules []
-    |> List.rev
-  in
-  List.concat_map (fun task -> Trans.apply_transform "split_vc" env task) typed_tasks
+  tasks_of_ptree ~env ~ptree
+  |> List.concat_map (fun task -> Trans.apply_transform "split_vc" env task)
 
 (* Cherche un fichier de configuration Why3 explicite (env), puis sur les
    emplacements utilisateur habituels. *)
@@ -158,3 +160,10 @@ let select_z3_prover_cfg ~(config : Whyconf.config) ~(datadir_opt : string optio
     match fallback_z3_prover_cfg datadir_opt with
     | Some prover_cfg -> prover_cfg
     | None -> raise exn)
+
+let select_alt_ergo_prover_cfg ~(config : Whyconf.config) : Whyconf.config_prover option =
+  let filter =
+    Whyconf.parse_filter_prover "alt-ergo"
+    |> Whyconf.filter_prover_with_shortcut config
+  in
+  try Some (Whyconf.filter_one_prover config filter) with Whyconf.ProverNotFound _ -> None

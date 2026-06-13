@@ -56,6 +56,7 @@ let rec string_of_expr_with_ctx ?(ctx = 0) (e : expr) : string =
   match e.expr with
   | ELitInt n -> string_of_int n
   | ELitBool b -> if b then "true" else "false"
+  | ELitEnum c -> c
   | EVar x -> x
   | EUn (Neg, a) -> wrap 6 ("-" ^ string_of_expr_with_ctx ~ctx:6 a)
   | EUn (Not, a) -> wrap 6 ("not " ^ string_of_expr_with_ctx ~ctx:6 a)
@@ -89,6 +90,7 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
   match h.hexpr with
   | HLitInt n -> string_of_int n
   | HLitBool b -> if b then "true" else "false"
+  | HLitEnum c -> c
   | HVar x -> x
   | HPreK (v, k) ->
       if k = 1 then "pre(" ^ v ^ ")" else "pre_k(" ^ v ^ ", " ^ string_of_int k ^ ")"

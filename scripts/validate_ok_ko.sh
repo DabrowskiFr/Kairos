@@ -280,7 +280,7 @@ run_classifications_parallel() {
     pids+=("$!")
     idx=$((idx + 1))
 
-    if (( ${#pids[@]:-0} >= jobs )); then
+    if (( ${#pids[@]} >= jobs )); then
       local pid
       for pid in "${pids[@]:-}"; do
         [[ -n "$pid" ]] || continue

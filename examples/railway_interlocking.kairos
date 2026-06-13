@@ -1,0 +1,250 @@
+type SignalColor = Red | Green;
+type PointPosition = Normal | Reverse;
+type RouteState = Idle | Requested | Locked | Releasing;
+type Track = TA | TB | TC | TD | TE;
+type Point = P1 | P2;
+type Route = R_AB | R_AC | R_DE | R_CD;
+
+node railway_interlocking(
+  occupied[TA, TB, TC, TD, TE]: bool,
+  request[R_AB, R_AC, R_DE, R_CD]: bool,
+  cancel[R_AB, R_AC, R_DE, R_CD]: bool,
+  releaseAck[R_AB, R_AC, R_DE, R_CD]: bool
+) returns (
+  signal[R_AB, R_AC, R_DE, R_CD]: SignalColor,
+  routeState[R_AB, R_AC, R_DE, R_CD]: RouteState,
+  reserved[R_AB, R_AC, R_DE, R_CD]: bool,
+  pointPosition[P1, P2]: PointPosition
+)
+contracts
+  topology
+    route R_AB uses TA, TB requires P1 = Normal;
+    route R_AC uses TA, TC requires P1 = Reverse;
+    route R_DE uses TD, TE requires P2 = Normal;
+    route R_CD uses TC, TD requires P2 = Reverse;
+    routeSignal R_AB -> R_AB;
+    routeSignal R_AC -> R_AC;
+    routeSignal R_DE -> R_DE;
+    routeSignal R_CD -> R_CD;
+    conflict R_AB, R_AC;
+    conflict R_AC, R_CD;
+    conflict R_DE, R_CD;
+  end
+  ensures: maintainedUntil(
+    cancel[R_AB] = true and routeState[R_AB] = Releasing,
+    signal[R_AB] = Red and routeState[R_AB] = Releasing,
+    routeState[R_AB] = Idle
+  );
+  ensures: maintainedUntil(
+    cancel[R_AC] = true and routeState[R_AC] = Releasing,
+    signal[R_AC] = Red and routeState[R_AC] = Releasing,
+    routeState[R_AC] = Idle
+  );
+  ensures: maintainedUntil(
+    cancel[R_DE] = true and routeState[R_DE] = Releasing,
+    signal[R_DE] = Red and routeState[R_DE] = Releasing,
+    routeState[R_DE] = Idle
+  );
+  ensures: maintainedUntil(
+    cancel[R_CD] = true and routeState[R_CD] = Releasing,
+    signal[R_CD] = Red and routeState[R_CD] = Releasing,
+    routeState[R_CD] = Idle
+  );
+states
+  Init(init), Run;
+invariants
+  in Init:
+    signal[R_AB] = Red;
+    signal[R_AC] = Red;
+    signal[R_DE] = Red;
+    signal[R_CD] = Red;
+  in Run:
+    routeState[R_AB] = Idle or routeState[R_AB] = Locked or routeState[R_AB] = Releasing;
+    routeState[R_AC] = Idle or routeState[R_AC] = Locked or routeState[R_AC] = Releasing;
+    routeState[R_DE] = Idle or routeState[R_DE] = Locked or routeState[R_DE] = Releasing;
+    routeState[R_CD] = Idle or routeState[R_CD] = Locked or routeState[R_CD] = Releasing;
+    routeState[R_AB] = Releasing => signal[R_AB] = Red;
+    routeState[R_AC] = Releasing => signal[R_AC] = Red;
+    routeState[R_DE] = Releasing => signal[R_DE] = Red;
+    routeState[R_CD] = Releasing => signal[R_CD] = Red;
+    routeState[R_AB] != Idle =>
+      reserved[R_AB] = true
+      and pointPosition[P1] = Normal
+      and routeState[R_AC] != Locked;
+    routeState[R_AC] != Idle =>
+      reserved[R_AC] = true
+      and pointPosition[P1] = Reverse
+      and routeState[R_AB] != Locked
+      and routeState[R_CD] != Locked;
+    routeState[R_DE] != Idle =>
+      reserved[R_DE] = true
+      and pointPosition[P2] = Normal
+      and routeState[R_CD] != Locked;
+    routeState[R_CD] != Idle =>
+      reserved[R_CD] = true
+      and pointPosition[P2] = Reverse
+      and routeState[R_AC] != Locked
+      and routeState[R_DE] != Locked;
+transitions
+  Init:
+    to Run {
+      signal[R_AB] := Red;
+      signal[R_AC] := Red;
+      signal[R_DE] := Red;
+      signal[R_CD] := Red;
+      routeState[R_AB] := Idle;
+      routeState[R_AC] := Idle;
+      routeState[R_DE] := Idle;
+      routeState[R_CD] := Idle;
+      reserved[R_AB] := false;
+      reserved[R_AC] := false;
+      reserved[R_DE] := false;
+      reserved[R_CD] := false;
+      pointPosition[P1] := Normal;
+      pointPosition[P2] := Normal;
+    }
+  Run:
+    to Run {
+      if cancel[R_AB] and routeState[R_AB] != Idle then
+        routeState[R_AB] := Releasing;
+        reserved[R_AB] := true;
+        signal[R_AB] := Red;
+      else
+        if releaseAck[R_AB] then
+        routeState[R_AB] := Idle;
+        reserved[R_AB] := false;
+        signal[R_AB] := Red;
+      else
+        if routeState[R_AB] = Releasing then
+          routeState[R_AB] := Releasing;
+          reserved[R_AB] := true;
+          signal[R_AB] := Red;
+        else
+        if request[R_AB]
+           and routeState[R_AB] = Idle
+           and routeState[R_AC] = Idle
+           and occupied[TA] = false
+           and occupied[TB] = false then
+          routeState[R_AB] := Locked;
+          reserved[R_AB] := true;
+          pointPosition[P1] := Normal;
+          signal[R_AB] := Green;
+        else
+          if routeState[R_AB] = Locked and occupied[TA] = false and occupied[TB] = false then
+            signal[R_AB] := Green;
+          else
+            signal[R_AB] := Red;
+          end;
+        end;
+        end;
+      end;
+      end;
+
+      if cancel[R_AC] and routeState[R_AC] != Idle then
+        routeState[R_AC] := Releasing;
+        reserved[R_AC] := true;
+        signal[R_AC] := Red;
+      else
+        if releaseAck[R_AC] then
+        routeState[R_AC] := Idle;
+        reserved[R_AC] := false;
+        signal[R_AC] := Red;
+      else
+        if routeState[R_AC] = Releasing then
+          routeState[R_AC] := Releasing;
+          reserved[R_AC] := true;
+          signal[R_AC] := Red;
+        else
+        if request[R_AC]
+           and routeState[R_AC] = Idle
+           and routeState[R_AB] = Idle
+           and routeState[R_CD] = Idle
+           and occupied[TA] = false
+           and occupied[TC] = false then
+          routeState[R_AC] := Locked;
+          reserved[R_AC] := true;
+          pointPosition[P1] := Reverse;
+          signal[R_AC] := Green;
+        else
+          if routeState[R_AC] = Locked and occupied[TA] = false and occupied[TC] = false then
+            signal[R_AC] := Green;
+          else
+            signal[R_AC] := Red;
+          end;
+        end;
+        end;
+      end;
+      end;
+
+      if cancel[R_DE] and routeState[R_DE] != Idle then
+        routeState[R_DE] := Releasing;
+        reserved[R_DE] := true;
+        signal[R_DE] := Red;
+      else
+        if releaseAck[R_DE] then
+        routeState[R_DE] := Idle;
+        reserved[R_DE] := false;
+        signal[R_DE] := Red;
+      else
+        if routeState[R_DE] = Releasing then
+          routeState[R_DE] := Releasing;
+          reserved[R_DE] := true;
+          signal[R_DE] := Red;
+        else
+        if request[R_DE]
+           and routeState[R_DE] = Idle
+           and routeState[R_CD] = Idle
+           and occupied[TD] = false
+           and occupied[TE] = false then
+          routeState[R_DE] := Locked;
+          reserved[R_DE] := true;
+          pointPosition[P2] := Normal;
+          signal[R_DE] := Green;
+        else
+          if routeState[R_DE] = Locked and occupied[TD] = false and occupied[TE] = false then
+            signal[R_DE] := Green;
+          else
+            signal[R_DE] := Red;
+          end;
+        end;
+        end;
+      end;
+      end;
+
+      if cancel[R_CD] and routeState[R_CD] != Idle then
+        routeState[R_CD] := Releasing;
+        reserved[R_CD] := true;
+        signal[R_CD] := Red;
+      else
+        if releaseAck[R_CD] then
+        routeState[R_CD] := Idle;
+        reserved[R_CD] := false;
+        signal[R_CD] := Red;
+      else
+        if routeState[R_CD] = Releasing then
+          routeState[R_CD] := Releasing;
+          reserved[R_CD] := true;
+          signal[R_CD] := Red;
+        else
+        if request[R_CD]
+           and routeState[R_CD] = Idle
+           and routeState[R_AC] = Idle
+           and routeState[R_DE] = Idle
+           and occupied[TC] = false
+           and occupied[TD] = false then
+          routeState[R_CD] := Locked;
+          reserved[R_CD] := true;
+          pointPosition[P2] := Reverse;
+          signal[R_CD] := Green;
+        else
+          if routeState[R_CD] = Locked and occupied[TC] = false and occupied[TD] = false then
+            signal[R_CD] := Green;
+          else
+            signal[R_CD] := Red;
+          end;
+        end;
+        end;
+      end;
+      end;
+    }
+end

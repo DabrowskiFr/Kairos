@@ -37,6 +37,9 @@ val mk_int : int -> Core_syntax.expr
 (** [mk_bool b] builds the imperative boolean literal [b]. *)
 val mk_bool : bool -> Core_syntax.expr
 
+(** [mk_enum c] builds the imperative enum constructor literal [c]. *)
+val mk_enum : Core_syntax.ident -> Core_syntax.expr
+
 (** [mk_hexpr ?loc d] builds a historical expression described by [d]. *)
 val mk_hexpr : ?loc:Loc.loc -> Core_syntax.hexpr_desc -> Core_syntax.hexpr
 
@@ -52,6 +55,9 @@ val mk_hint : int -> Core_syntax.hexpr
 
 (** [mk_hbool b] builds the historical boolean literal [b]. *)
 val mk_hbool : bool -> Core_syntax.hexpr
+
+(** [mk_henum c] builds the historical enum constructor literal [c]. *)
+val mk_henum : Core_syntax.ident -> Core_syntax.hexpr
 
 (** [mk_hpre_k x k] builds [pre_k(x,k)] at the historical level. *)
 val mk_hpre_k : Core_syntax.ident -> int -> Core_syntax.hexpr

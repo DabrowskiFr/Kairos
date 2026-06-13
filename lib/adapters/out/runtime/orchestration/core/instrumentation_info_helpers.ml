@@ -47,6 +47,7 @@ let analysis_context_of_source_node (source_node : Verification_model.node_model
     Ir.semantics =
       {
         sem_nname = source_node.node_name;
+        sem_type_decls = source_node.type_decls;
         sem_inputs = source_node.inputs;
         sem_outputs = source_node.outputs;
         sem_locals = source_node.locals;

@@ -86,7 +86,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let rec rewrite_hexpr_post (h : hexpr) : hexpr =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ | HPreK _ -> h
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> h
     | HVar name -> (
         match List.assoc_opt name slot_to_current_expr with
         | Some lowered -> lowered
@@ -103,7 +103,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let rec rewrite_formula_post (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
-    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> rewrite_hexpr_post f
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_post f
     | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_post f
   in
   let slot_name_for_depth base_var depth =
@@ -115,7 +115,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let rec rewrite_hexpr_pre (h : hexpr) : hexpr =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ -> h
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar name -> (
         match slot_name_for_depth name 1 with
         | Some slot -> Core_syntax_builders.mk_hvar slot
@@ -136,7 +136,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let rec rewrite_formula_pre (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
-    | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
     | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
   in
   let is_structural_step_fact (fact : relational_clause_fact_ir) =

@@ -23,12 +23,14 @@ let with_expr_desc e expr = { e with expr }
 let mk_var v = mk_expr (EVar v)
 let mk_int n = mk_expr (ELitInt n)
 let mk_bool b = mk_expr (ELitBool b)
+let mk_enum c = mk_expr (ELitEnum c)
 
 let mk_hexpr ?loc hexpr = { hexpr; loc }
 let with_hexpr_desc h hexpr = { h with hexpr }
 let mk_hvar v = mk_hexpr (HVar v)
 let mk_hint n = mk_hexpr (HLitInt n)
 let mk_hbool b = mk_hexpr (HLitBool b)
+let mk_henum c = mk_hexpr (HLitEnum c)
 let mk_hpre_k v k = mk_hexpr (HPreK (v, k))
 let mk_hpred id args = mk_hexpr (HPred (id, args))
 let mk_hnot h = mk_hexpr (HUn (Not, h))
@@ -41,6 +43,7 @@ let rec hexpr_of_expr (e : expr) : hexpr =
     match e.expr with
     | ELitInt n -> HLitInt n
     | ELitBool b -> HLitBool b
+    | ELitEnum c -> HLitEnum c
     | EVar v -> HVar v
     | EBin (op, a, b) -> HBin (op, hexpr_of_expr a, hexpr_of_expr b)
     | ECmp (op, a, b) -> HCmp (op, hexpr_of_expr a, hexpr_of_expr b)

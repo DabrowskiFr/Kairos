@@ -32,6 +32,7 @@ type state_invariant = {
 
 type node_model = {
   node_name : ident;
+  type_decls : enum_decl list;
   inputs : vdecl list;
   outputs : vdecl list;
   locals : vdecl list;

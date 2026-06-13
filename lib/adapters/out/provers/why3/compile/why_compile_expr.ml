@@ -68,6 +68,8 @@ let term_old (t : Ptree.term) : Ptree.term = mk_term (Tat (t, ident "old"))
 let apply_expr (fn : Ptree.expr) (args : Ptree.expr list) : Ptree.expr =
   List.fold_left (fun acc arg -> mk_expr (Eapply (acc, arg))) fn args
 
+let negate_expr (e : Ptree.expr) : Ptree.expr = mk_expr (Enot e)
+
 (* ---- Kairos → Why3 type and operator mappings ---- *)
 
 let default_pty (t : ty) : Ptree.pty =
@@ -172,6 +174,7 @@ let rec compile_expr (env : env) (e : expr) : Ptree.expr =
   match e.expr with
   | ELitInt n -> mk_expr (Econst (Constant.int_const (BigInt.of_int n)))
   | ELitBool b -> mk_expr (if b then Etrue else Efalse)
+  | ELitEnum c -> mk_expr (Eident (qid1 c))
   | EVar x ->
       if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
   | EUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_expr env a ]))
@@ -182,6 +185,36 @@ let rec compile_expr (env : env) (e : expr) : Ptree.expr =
       | Or -> mk_expr (Eor (compile_expr env a, compile_expr env b))
       | Add | Sub | Mul | Div ->
           mk_expr (Einnfix (compile_expr env a, infix_ident (binop_id op), compile_expr env b)))
+  | ECmp ((REq | RNeq as op), a, { expr = ELitBool expected; _ }) ->
+      let base = if expected then compile_expr env a else negate_expr (compile_expr env a) in
+      if op = REq then base else negate_expr base
+  | ECmp ((REq | RNeq as op), { expr = ELitBool expected; _ }, b) ->
+      let base = if expected then compile_expr env b else negate_expr (compile_expr env b) in
+      if op = REq then base else negate_expr base
+  | ECmp ((REq | RNeq as op), a, { expr = ELitEnum ctor; _ }) ->
+      let base =
+        mk_expr
+          (Ematch
+             ( compile_expr env a,
+               [
+                 ({ pat_desc = Papp (qid1 ctor, []); pat_loc = loc }, mk_expr Etrue);
+                 ({ pat_desc = Pwild; pat_loc = loc }, mk_expr Efalse);
+               ],
+               [] ))
+      in
+      if op = REq then base else negate_expr base
+  | ECmp ((REq | RNeq as op), { expr = ELitEnum ctor; _ }, b) ->
+      let base =
+        mk_expr
+          (Ematch
+             ( compile_expr env b,
+               [
+                 ({ pat_desc = Papp (qid1 ctor, []); pat_loc = loc }, mk_expr Etrue);
+                 ({ pat_desc = Pwild; pat_loc = loc }, mk_expr Efalse);
+               ],
+               [] ))
+      in
+      if op = REq then base else negate_expr base
   | ECmp (op, a, b) ->
       mk_expr (Einnfix (compile_expr env a, infix_ident (relop_id op), compile_expr env b))
 
@@ -189,6 +222,7 @@ let rec compile_term (env : env) (e : expr) : Ptree.term =
   match e.expr with
   | ELitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
   | ELitBool b -> mk_term (if b then Ttrue else Tfalse)
+  | ELitEnum c -> mk_term (Tident (qid1 c))
   | EVar x -> mk_term (term_var env x)
   | EUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
   | EUn (Not, a) -> mk_term (Tnot (compile_term env a))
@@ -217,7 +251,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
   in
   let rec is_const_hexpr (h : hexpr) =
     match h.hexpr with
-    | HLitInt _ | HLitBool _ -> true
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> true
     | HVar name -> is_const_var_name name
     | HPreK _ -> false
     | HPred _ -> false
@@ -229,6 +263,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     match h.hexpr with
     | HLitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
     | HLitBool b -> mk_term (if b then Ttrue else Tfalse)
+    | HLitEnum c -> mk_term (Tident (qid1 c))
     | HVar x -> mk_term (term_var env x)
     | HUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_hexpr_term a ]))
     | HUn (Not, a) -> mk_term (Tnot (compile_hexpr_term a))

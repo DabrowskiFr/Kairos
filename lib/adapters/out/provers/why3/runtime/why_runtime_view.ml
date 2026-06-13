@@ -23,6 +23,8 @@ open Core_syntax
 module Abs = Ir
 open Pre_k_layout
 
+module StringSet = Set.Make (String)
+
 let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula list =
   List.sort_uniq
     (fun (a : Abs.summary_formula) (b : Abs.summary_formula) ->
@@ -90,6 +92,7 @@ type state_branch_view = {
 
 type t = {
   node_name : ident;
+  type_decls : enum_decl list;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
@@ -107,14 +110,91 @@ type t = {
 type known_value =
   | KnownInt of int
   | KnownBool of bool
+  | KnownEnum of ident
 
 let port_of_vdecl (v : vdecl) : port_view = { port_name = v.vname; port_type = v.vty }
+
+let rec vars_of_expr (acc : StringSet.t) (e : expr) : StringSet.t =
+  match e.expr with
+  | EVar name -> StringSet.add name acc
+  | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
+  | EUn (_, inner) -> vars_of_expr acc inner
+  | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr (vars_of_expr acc a) b
+
+let rec vars_of_hexpr (acc : StringSet.t) (h : hexpr) : StringSet.t =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ -> acc
+  | HVar name | HPreK (name, _) -> StringSet.add name acc
+  | HPred (_, hs) -> List.fold_left vars_of_hexpr acc hs
+  | HUn (_, inner) -> vars_of_hexpr acc inner
+  | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
+
+let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t =
+  List.fold_left
+    (fun acc (f : Abs.summary_formula) -> vars_of_hexpr acc f.logic)
+    StringSet.empty formulas
+
+let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * StringSet.t =
+  match s.stmt with
+  | SAssign (name, expr) ->
+      if StringSet.mem name needed_after then
+        let needed_before =
+          needed_after |> StringSet.remove name |> fun acc -> vars_of_expr acc expr
+        in
+        (Some s, needed_before)
+      else (None, needed_after)
+  | SIf (cond, then_branch, else_branch) ->
+      let then_branch', then_needed = slice_stmts needed_after then_branch in
+      let else_branch', else_needed = slice_stmts needed_after else_branch in
+      if then_branch' = [] && else_branch' = [] then (None, needed_after)
+      else
+        let needed_before =
+          StringSet.union then_needed else_needed |> fun acc -> vars_of_expr acc cond
+        in
+        (Some { s with stmt = SIf (cond, then_branch', else_branch') }, needed_before)
+  | SMatch (scrutinee, branches, default_branch) ->
+      let sliced_branches, branch_needed =
+        List.fold_right
+          (fun (ctor, body) (branches_acc, needed_acc) ->
+            let body', body_needed = slice_stmts needed_after body in
+            ((ctor, body') :: branches_acc, StringSet.union needed_acc body_needed))
+          branches ([], StringSet.empty)
+      in
+      let default_branch', default_needed = slice_stmts needed_after default_branch in
+      let has_body =
+        default_branch' <> []
+        || List.exists (fun (_, body) -> body <> []) sliced_branches
+      in
+      if not has_body then (None, needed_after)
+      else
+        let needed_before =
+          StringSet.union branch_needed default_needed |> fun acc -> vars_of_expr acc scrutinee
+        in
+        (Some { s with stmt = SMatch (scrutinee, sliced_branches, default_branch') }, needed_before)
+  | SSkip -> (None, needed_after)
+  | SCall _ -> (Some s, needed_after)
+
+and slice_stmts (needed_after : StringSet.t) (stmts : stmt list) : stmt list * StringSet.t =
+  List.fold_left
+    (fun (kept, needed) stmt ->
+      let kept_stmt, needed_before = slice_stmt needed stmt in
+      let kept =
+        match kept_stmt with
+        | None -> kept
+        | Some stmt -> stmt :: kept
+      in
+      (kept, needed_before))
+    ([], needed_after) (List.rev stmts)
+
+let slice_body_for_formulas (body : stmt list) (formulas : Abs.summary_formula list) : stmt list =
+  let needed = vars_of_summary_formulas formulas in
+  if StringSet.is_empty needed then [] else fst (slice_stmts needed body)
 
 let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
   let rec go acc (e : expr) =
     match e.expr with
     | EVar _name -> acc
-    | ELitInt _ | ELitBool _ -> acc
+    | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
     | EUn (_, inner) -> go acc inner
     | EBin (_, a, b) | ECmp (_, a, b) -> go (go acc a) b
   in
@@ -122,7 +202,7 @@ let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
 
 let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
   match h.hexpr with
-  | HLitInt _ | HLitBool _ | HVar _ | HPreK _ -> acc
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> acc
   | HUn (_, inner) -> collect_ctor_hexpr acc inner
   | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_ctor_hexpr (collect_ctor_hexpr acc a) b
@@ -163,11 +243,13 @@ let literal_known_value (e : expr) : known_value option =
   match e.expr with
   | ELitInt n -> Some (KnownInt n)
   | ELitBool b -> Some (KnownBool b)
+  | ELitEnum c -> Some (KnownEnum c)
   | _ -> None
 
 let known_expr_of_value = function
   | KnownInt n -> { expr = ELitInt n; loc = None }
   | KnownBool b -> { expr = ELitBool b; loc = None }
+  | KnownEnum c -> { expr = ELitEnum c; loc = None }
 
 let lookup_known (known : (ident * known_value) list) (x : ident) : known_value option =
   List.assoc_opt x known
@@ -187,7 +269,7 @@ let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
       | Some v -> known_expr_of_value v
       | None -> e
     end
-  | ELitInt _ | ELitBool _ -> e
+  | ELitInt _ | ELitBool _ | ELitEnum _ -> e
   | EUn (Not, inner) -> begin
       match (simplify_expr known inner).expr with
       | ELitBool b -> mk (ELitBool (not b))
@@ -226,8 +308,10 @@ let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
         match (op, a'.expr, b'.expr) with
         | REq, ELitInt x, ELitInt y -> mk (ELitBool (x = y))
         | REq, ELitBool x, ELitBool y -> mk (ELitBool (x = y))
+        | REq, ELitEnum x, ELitEnum y -> mk (ELitBool (String.equal x y))
         | RNeq, ELitInt x, ELitInt y -> mk (ELitBool (x <> y))
         | RNeq, ELitBool x, ELitBool y -> mk (ELitBool (x <> y))
+        | RNeq, ELitEnum x, ELitEnum y -> mk (ELitBool (not (String.equal x y)))
         | RLt, ELitInt x, ELitInt y -> mk (ELitBool (x < y))
         | RLe, ELitInt x, ELitInt y -> mk (ELitBool (x <= y))
         | RGt, ELitInt x, ELitInt y -> mk (ELitBool (x > y))
@@ -393,6 +477,7 @@ let of_ir_node (node : Ir.node_ir) : t =
   let runtime =
     {
       node_name = sem.sem_nname;
+      type_decls = sem.sem_type_decls;
       inputs = List.map port_of_vdecl sem.sem_inputs;
       outputs = List.map port_of_vdecl sem.sem_outputs;
       locals = List.map port_of_vdecl sem.sem_locals;
@@ -411,6 +496,7 @@ let of_ir_node (node : Ir.node_ir) : t =
     List.concat_map
       (fun (pc : Ir.product_step_summary) ->
         let t = pc.identity.program_step in
+        let safe_ensures = dedup_summary_formulas pc.ensures in
         let safe_product_dsts =
           pc.safe_cases
           |> List.map (fun (case : Ir.safe_product_case) -> case.product_dst)
@@ -424,32 +510,34 @@ let of_ir_node (node : Ir.node_ir) : t =
           match safe_product_dsts with
           | [] -> []
           | product_dst :: _ ->
-              [
-                {
-                  transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
-                  src_state = t.src_state;
-                  dst_state = t.dst_state;
-                  guard = t.guard_expr;
-                  body = t.body_stmts;
-                  step_class = StepSafe;
-                  product_src = pc.identity.product_src;
-                  product_dst;
-                  requires = pc.requires;
-                  propagates = admissible_guards;
-                  ensures = dedup_summary_formulas pc.ensures;
-                  forbidden = [];
-                };
-              ]
+              List.map
+                (fun ensure ->
+                  {
+                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                    src_state = t.src_state;
+                    dst_state = t.dst_state;
+                    guard = t.guard_expr;
+                    body = slice_body_for_formulas t.body_stmts [ ensure ];
+                    step_class = StepSafe;
+                    product_src = pc.identity.product_src;
+                    product_dst;
+                    requires = pc.requires;
+                    propagates = admissible_guards;
+                    ensures = [ ensure ];
+                    forbidden = [];
+                  })
+                safe_ensures
         in
         let bad_groups =
           pc.unsafe_cases
           |> List.map (fun (case : Ir.unsafe_product_case) ->
+                 let bad_body = slice_body_for_formulas t.body_stmts [ case.excluded_guard ] in
                  {
                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
                    src_state = t.src_state;
                    dst_state = t.dst_state;
                    guard = t.guard_expr;
-                   body = t.body_stmts;
+                   body = bad_body;
                    step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;

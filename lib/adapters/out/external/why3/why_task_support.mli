@@ -30,6 +30,13 @@
       Why3 data directory, when available. *)
 val setup_env : unit -> Why3.Whyconf.config * Why3.Whyconf.main * Why3.Env.env * string option
 
+(** Extract top-level Why3 tasks without VC splitting.
+
+    This is useful for fast batch proving where a valid unsplit VC is as sound
+    as all of its split subgoals, but produces less granular diagnostics. *)
+val tasks_of_ptree :
+  env:Why3.Env.env -> ptree:Why3.Ptree.mlw_file -> Why3.Task.task list
+
 (** Normalize parse-tree obligations into split Why3 tasks.
 
     @param env
@@ -53,3 +60,8 @@ val select_z3_prover_cfg :
   config:Why3.Whyconf.config ->
   datadir_opt:string option ->
   Why3.Whyconf.config_prover
+
+(** Select the Alt-Ergo prover configuration from Why3 config, when available. *)
+val select_alt_ergo_prover_cfg :
+  config:Why3.Whyconf.config ->
+  Why3.Whyconf.config_prover option

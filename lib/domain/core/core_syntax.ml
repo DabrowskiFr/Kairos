@@ -31,6 +31,13 @@ type ident = string
 type ty = TInt | TBool | TReal | TCustom of string 
   [@@deriving yojson]
 
+(** Finite algebraic type declaration. *)
+type enum_decl = {
+  enum_name : ident;
+  enum_constructors : ident list;
+}
+[@@deriving yojson]
+
 (** Binary operators. *)
 type binop = Add | Sub | Mul | Div | And | Or
   [@@deriving yojson]
@@ -51,6 +58,7 @@ type expr = { expr : expr_desc; loc : Loc.loc option }
 and expr_desc =
   | ELitInt of int
   | ELitBool of bool
+  | ELitEnum of ident
   | EVar of ident
   | EBin of binop * expr * expr
   | ECmp of relop * expr * expr
@@ -66,6 +74,7 @@ type hexpr = { hexpr : hexpr_desc; loc : Loc.loc option }
 and hexpr_desc =
   | HLitInt of int
   | HLitBool of bool
+  | HLitEnum of ident
   | HVar of ident
   | HPreK of ident * int
   | HPred of ident * hexpr list

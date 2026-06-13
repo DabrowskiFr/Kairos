@@ -160,7 +160,7 @@ let join_non_empty (xs : string list) : string =
   |> String.concat "\n\n"
 
 let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
-  let source_nodes_model = Info_helpers.source_nodes_by_name asts.verification_model in
+  let source_nodes_model = Info_helpers.source_nodes_by_name asts.automata_generation in
   let source_node_of_name (node_name : ident) : (Verification_model.node_model, string) result =
     match List.assoc_opt node_name source_nodes_model with
     | Some node -> Ok node

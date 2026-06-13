@@ -1,6 +1,7 @@
 %{
 open Kx_core_syntax
 open Kx_ast
+open Kx_topology_syntax
 
 let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Kx_loc.loc =
   { line = start_pos.pos_lnum;
@@ -14,6 +15,9 @@ let mk_stmt_loc start_pos end_pos desc =
   Kx_ast_builders.mk_stmt ~loc:(loc_of_positions start_pos end_pos) desc
 let mk_hexpr_loc start_pos end_pos desc =
   Kx_core_syntax_builders.mk_hexpr ~loc:(loc_of_positions start_pos end_pos) desc
+
+let indexed_ident (base:ident) (idx:ident) : ident =
+  base ^ "_" ^ idx
 
 let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
@@ -73,13 +77,86 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
     failwith
       (Printf.sprintf
          "identifier '%s' is reserved for implicit history aliases (context: %s)" id context)
+
+let hvar_indexed base idx = Kx_core_syntax_builders.mk_hvar (indexed_ident base idx)
+let hctor ctor = Kx_core_syntax_builders.mk_hvar ctor
+
+let l_atom lhs rel rhs = LAtom (lhs, rel, rhs)
+let l_eq lhs rhs = l_atom lhs REq rhs
+let l_neq lhs rhs = l_atom lhs RNeq rhs
+
+let rec l_and = function
+  | [] -> LTrue
+  | [ x ] -> x
+  | x :: xs -> LAnd (x, l_and xs)
+
+let maintained_until trigger invariant release =
+  LG (LImp (trigger, LX (LW (invariant, release))))
+
+let route_state route = hvar_indexed "routeState" route
+let route_locked route = l_eq (route_state route) (hctor "Locked")
+let route_released route = l_eq (route_state route) (hctor "Idle")
+let while_route_locked route invariant =
+  maintained_until (route_locked route) invariant (route_released route)
+
+let topology_generated_guarantees (entries : topology_entry list) : ltl list =
+  let routes =
+    entries
+    |> List.filter_map (function
+         | TRoute r -> Some r
+         | TConflict _ | TRouteSignal _ -> None)
+  in
+  let conflicts =
+    entries
+    |> List.filter_map (function
+         | TConflict (a, b) -> Some (a, b)
+         | TRoute _ | TRouteSignal _ -> None)
+  in
+  let signals =
+    entries
+    |> List.filter_map (function
+         | TRouteSignal (route, signal) -> Some (route, signal)
+         | TRoute _ | TConflict _ -> None)
+  in
+  let conflict_peers route =
+    conflicts
+    |> List.filter_map (fun (a, b) ->
+           if String.equal route a then Some b
+           else if String.equal route b then Some a
+           else None)
+  in
+  let reserved route = l_eq (hvar_indexed "reserved" route) (Kx_core_syntax_builders.mk_hbool true) in
+  let route_signal route = Option.value ~default:route (List.assoc_opt route signals) in
+  let signal_color route color = l_eq (hvar_indexed "signal" (route_signal route)) (hctor color) in
+  let track_clear track = l_eq (hvar_indexed "occupied" track) (Kx_core_syntax_builders.mk_hbool false) in
+  let point_fixed point pos = l_eq (hvar_indexed "pointPosition" point) (hctor pos) in
+  let locked_route_guarantee ({ route; points; _ } : topology_route) =
+    let conflict_clauses =
+      conflict_peers route
+      |> List.map (fun peer -> l_neq (route_state peer) (hctor "Locked"))
+    in
+    let point_clauses = List.map (fun (point, pos) -> point_fixed point pos) points in
+    while_route_locked route (l_and (reserved route :: conflict_clauses @ point_clauses))
+  in
+  let no_green_occupied_guarantee ({ route; tracks; _ } : topology_route) =
+    LG (LImp (signal_color route "Green", l_and (List.map track_clear tracks)))
+  in
+  List.concat_map
+    (fun route ->
+      [
+        locked_route_guarantee route;
+        no_green_occupied_guarantee route;
+      ])
+    routes
 %}
 
+%token TYPE
 %token NODE RETURNS LOCALS STATES INIT TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
 %token INVARIANTS
 %token CONTRACTS
+%token TOPOLOGY ROUTE USES CONFLICT ROUTESIGNAL
 %token LET
 %token IMPORT
 %token INSTANCE INSTANCES CALL
@@ -93,6 +170,7 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %token PREK
 %token AND OR NOT
 %token G X W R
+%token MAINTAINEDUNTIL WHILEROUTELOCKED
 %token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
@@ -106,15 +184,21 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %nonassoc RPAREN
 
 %start <Kx_ast.program> program
-%start <(string * Kx_loc.loc option) list * Kx_ast.program> source_file
+%start <(string * Kx_loc.loc option) list * Kx_core_syntax.enum_decl list * Kx_ast.program> source_file
+
+%type <Kx_core_syntax.ltl list> topology_block
+%type <Kx_topology_syntax.topology_entry list> topology_entries
+%type <Kx_topology_syntax.topology_entry> topology_entry
+%type <(Kx_core_syntax.ident * Kx_core_syntax.ident) list> topology_requires_opt point_requirements
+%type <Kx_core_syntax.ident * Kx_core_syntax.ident> point_requirement
 
 %%
 
 source_file:
-  | imports_opt nodes EOF { ($1, $2) }
+  | imports_opt type_decls_opt nodes EOF { ($1, $2, $3) }
 
 program:
-  | imports_opt nodes EOF { $2 }
+  | imports_opt type_decls_opt nodes EOF { $3 }
 
 imports_opt:
   | /* empty */ { [] }
@@ -129,6 +213,26 @@ import_decl:
       {
         ($2, Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)))
       }
+
+type_decls_opt:
+  | /* empty */ { [] }
+  | type_decls { $1 }
+
+type_decls:
+  | type_decl type_decls { $1 :: $2 }
+  | type_decl { [$1] }
+
+type_decl:
+  | TYPE IDENT EQ enum_ctor_list SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"enum type" $2 in
+        List.iter (fun name -> forbid_reserved_identifier ~context:"enum constructor" name) $4;
+        { enum_name = $2; enum_constructors = $4 }
+      }
+
+enum_ctor_list:
+  | IDENT BAR enum_ctor_list { $1 :: $3 }
+  | IDENT { [$1] }
 
 nodes:
   | node nodes { $1 :: $2 }
@@ -168,15 +272,20 @@ params_opt:
   | params { $1 }
 
 params:
-  | param COMMA params { $1 :: $3 }
-  | param { [$1] }
+  | param COMMA params { $1 @ $3 }
+  | param { $1 }
 
 param:
-  IDENT COLON ty
+  param_name COLON ty
     {
-      let () = forbid_reserved_identifier ~context:"parameter" $1 in
-      {vname=$1; vty=$3}
+      List.iter (fun name -> forbid_reserved_identifier ~context:"parameter" name) $1;
+      List.map (fun name -> {vname=name; vty=$3}) $1
     }
+
+param_name:
+  | IDENT { [$1] }
+  | IDENT LBRACK ident_list RBRACK
+      { List.map (indexed_ident $1) $3 }
 
 ty:
   | TINT { TInt }
@@ -209,6 +318,15 @@ instance_decl:
       }
 
 node_contracts:
+  | topology_block node_contracts
+      {
+        let (a, g) = $2 in
+        (a, $1 @ g)
+      }
+  | topology_block
+      {
+        ([], $1)
+      }
   | REQUIRES COLON ltl SEMI node_contracts
       {
         let (a, g) = $5 in ($3 :: a, g)
@@ -226,6 +344,49 @@ node_contracts:
         ([], [$3])
       }
 
+topology_block:
+  | TOPOLOGY topology_entries END { topology_generated_guarantees $2 }
+
+topology_entries:
+  | topology_entry topology_entries { $1 :: $2 }
+  | topology_entry { [$1] }
+
+topology_entry:
+  | ROUTE IDENT USES ident_list topology_requires_opt SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"topology route" $2 in
+        List.iter (fun name -> forbid_reserved_identifier ~context:"topology track" name) $4;
+        List.iter
+          (fun (point, pos) ->
+            forbid_reserved_identifier ~context:"topology point" point;
+            forbid_reserved_identifier ~context:"topology point position" pos)
+          $5;
+        TRoute { route = $2; tracks = $4; points = $5 }
+      }
+  | CONFLICT IDENT COMMA IDENT SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"topology conflict route" $2 in
+        let () = forbid_reserved_identifier ~context:"topology conflict route" $4 in
+        TConflict ($2, $4)
+      }
+  | ROUTESIGNAL IDENT ARROW IDENT SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"topology routeSignal route" $2 in
+        let () = forbid_reserved_identifier ~context:"topology routeSignal signal" $4 in
+        TRouteSignal ($2, $4)
+      }
+
+topology_requires_opt:
+  | /* empty */ { [] }
+  | REQUIRES point_requirements { $2 }
+
+point_requirements:
+  | point_requirement COMMA point_requirements { $1 :: $3 }
+  | point_requirement { [$1] }
+
+point_requirement:
+  | IDENT EQ IDENT { ($1, $3) }
+
 vdecls_opt:
   | /* empty */ { [] }
   | vdecls { $1 }
@@ -235,11 +396,20 @@ vdecls:
   | vdecl_group { $1 }
 
 vdecl_group:
-  ident_list COLON ty SEMI
+  decl_names COLON ty SEMI
     {
       List.iter (fun name -> forbid_reserved_identifier ~context:"variable declaration" name) $1;
       List.map (fun name -> {vname=name; vty=$3}) $1
     }
+
+decl_names:
+  | decl_name COMMA decl_names { $1 @ $3 }
+  | decl_name { $1 }
+
+decl_name:
+  | IDENT { [$1] }
+  | IDENT LBRACK ident_list RBRACK
+      { List.map (indexed_ident $1) $3 }
 
 ident_list:
   | IDENT COMMA ident_list { $1 :: $3 }
@@ -388,19 +558,7 @@ match_transition:
 guard_opt:
   | /* empty */ { None }
   | LBRACK expr RBRACK { Some $2 }
-  | LBRACK TRUE RBRACK {
-      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true))
-    }
-  | LBRACK FALSE RBRACK {
-      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false))
-    }
   | WHEN expr { Some $2 }
-  | WHEN TRUE {
-      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true))
-    }
-  | WHEN FALSE {
-      Some (mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false))
-    }
 
 stmt_list_opt:
   | /* empty */ { [] }
@@ -411,32 +569,20 @@ stmt_list:
   | stmt SEMI { [$1] }
 
 stmt:
-  | IDENT ASSIGN expr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
-  | IDENT ASSIGN TRUE {
-      let e = mk_expr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ELitBool true) in
-      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
-    }
-  | IDENT ASSIGN FALSE {
-      let e = mk_expr_loc (Parsing.rhs_start_pos 3) (Parsing.rhs_end_pos 3) (ELitBool false) in
-      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,e))
-    }
+  | indexed_ref ASSIGN expr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SAssign($1,$3)) }
   | IF expr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf($2,$4,$6)) }
-  | IF TRUE THEN stmt_list_opt ELSE stmt_list_opt END {
-      let c = mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool true) in
-      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
-    }
-  | IF FALSE THEN stmt_list_opt ELSE stmt_list_opt END {
-      let c = mk_expr_loc (Parsing.rhs_start_pos 2) (Parsing.rhs_end_pos 2) (ELitBool false) in
-      mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SIf(c,$4,$6))
-    }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSkip }
   | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SCall($2, $4, $8)) }
 
+indexed_ref:
+  | IDENT { $1 }
+  | IDENT LBRACK IDENT RBRACK { indexed_ident $1 $3 }
+
 (* arithmetic expressions without booleans *)
 arith_atom:
   | INT { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ELitInt $1) }
-  | IDENT { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (EVar $1) }
+  | indexed_ref { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (EVar $1) }
   | LPAREN arith RPAREN { $2 }
 
 arith_unary:
@@ -454,18 +600,20 @@ arith:
   | arith_mul { $1 }
 
 
+cmp_atom:
+  | arith %prec IEXPR_ARITH { $1 }
+  | TRUE { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ELitBool true) }
+  | FALSE { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (ELitBool false) }
+
 expr_atom:
   | LPAREN expr RPAREN { $2 }
-  | arith relop arith {
-      match $2 with
-      | REq -> Kx_core_syntax_builders.mk_expr (ECmp(REq, $1, $3))
-      | RNeq -> Kx_core_syntax_builders.mk_expr (ECmp(RNeq, $1, $3))
-      | RLt -> Kx_core_syntax_builders.mk_expr (ECmp(RLt, $1, $3))
-      | RLe -> Kx_core_syntax_builders.mk_expr (ECmp(RLe, $1, $3))
-      | RGt -> Kx_core_syntax_builders.mk_expr (ECmp(RGt, $1, $3))
-      | RGe -> Kx_core_syntax_builders.mk_expr (ECmp(RGe, $1, $3))
-    }
-  | arith %prec IEXPR_ARITH { $1 }
+  | cmp_atom EQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(REq, $1, $3)) }
+  | cmp_atom NEQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RNeq, $1, $3)) }
+  | cmp_atom LT cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RLt, $1, $3)) }
+  | cmp_atom LE cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RLe, $1, $3)) }
+  | cmp_atom GT cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RGt, $1, $3)) }
+  | cmp_atom GE cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RGe, $1, $3)) }
+  | cmp_atom { $1 }
 
 expr_not:
   | NOT expr_not { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (EUn(Not,$2)) }
@@ -501,8 +649,10 @@ id_list:
 
 h_atom:
   | INT { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitInt $1) }
+  | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool true) }
+  | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool false) }
   | IDENT IDENT { expand_history_alias $1 $2 }
-  | IDENT { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HVar $1) }
+  | indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HVar $1) }
   | PRE LPAREN IDENT RPAREN {
       mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (HPreK ($3, 1))
     }
@@ -530,14 +680,17 @@ hexpr:
   | h_arith { $1 }
 
 ltl_atom:
-  | TRUE { LTrue }
-  | FALSE { LFalse }
   | hexpr relop hexpr { LAtom($1,$2,$3) }
+  | MAINTAINEDUNTIL LPAREN ltl COMMA ltl COMMA ltl RPAREN
+      { LG (LImp ($3, LX (LW ($5, $7)))) }
+  | WHILEROUTELOCKED LPAREN IDENT COMMA ltl RPAREN
+      {
+        let () = forbid_reserved_identifier ~context:"whileRouteLocked route" $3 in
+        while_route_locked $3 $5
+      }
   | LPAREN ltl RPAREN { $2 }
 
 fo_leaf:
-  | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool true) }
-  | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (HLitBool false) }
   | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HCmp($2,$1,$3)) }
   | IDENT LPAREN hexpr_list_opt RPAREN { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (HPred($1,$3)) }
   | LPAREN fo_formula RPAREN { $2 }

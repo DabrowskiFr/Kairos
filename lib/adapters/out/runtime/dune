@@ -8,6 +8,7 @@
   runtime_snapshot
   instrumentation_info_helpers
   instrumentation_info_builder
+  runtime_ir_merge
   pipeline_build
   result_utils
   pipeline_artifact_bundle

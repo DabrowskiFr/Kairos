@@ -46,6 +46,38 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
+let split_node_guarantees (program : Verification_model.program_model) :
+    Verification_model.program_model =
+  let used_names = Hashtbl.create (List.length program * 2 + 1) in
+  List.iter
+    (fun (node : Verification_model.node_model) ->
+      Hashtbl.replace used_names node.node_name ())
+    program;
+  let fresh_runtime_name base guarantee_index =
+    let rec loop suffix =
+      let candidate =
+        Printf.sprintf "%s__kairos_g%d" base (guarantee_index + suffix)
+      in
+      if Hashtbl.mem used_names candidate then loop (suffix + 1)
+      else (
+        Hashtbl.replace used_names candidate ();
+        candidate)
+    in
+    loop 0
+  in
+  program
+  |> List.concat_map (fun (node : Verification_model.node_model) ->
+         match node.guarantees with
+         | [] | [ _ ] -> [ node ]
+         | guarantees ->
+             guarantees
+             |> List.mapi (fun idx guarantee ->
+                    {
+                      node with
+                      node_name = fresh_runtime_name node.node_name (idx + 1);
+                      guarantees = [ guarantee ];
+                    }))
+
 let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) :
     (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
     result =
@@ -56,8 +88,9 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
     match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->
+    let runtime_model = split_node_guarantees p_model in
     let automata, automata_pass_info =
-      Automata_generation.run p_model ~build_automaton:Spot_automaton_builder.build
+      Automata_generation.run runtime_model ~build_automaton:Spot_automaton_builder.build
     in
     let automata_info : Flow_info.automata_info =
       {
@@ -68,7 +101,7 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
     in
     let t_product = Unix.gettimeofday () in
     let p_summaries =
-      match Orchestration.build_initial_ir ~automata p_model with
+      match Orchestration.build_initial_ir ~automata runtime_model with
       | Error msg -> Error (Pipeline_types.Flow_error msg)
       | Ok summaries ->
           External_timing.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
@@ -85,7 +118,7 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
         in
         match
           Instrumentation_info_builder.instrumentation_info_of_ir ~automata
-            ~source_model:p_model ir_program
+            ~source_model:runtime_model ir_program
         with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok instrumentation_info ->
@@ -93,7 +126,7 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
           {
             imports;
             verification_model = p_model;
-            automata_generation = p_model;
+            automata_generation = runtime_model;
             automata;
             summaries = p_summaries;
             instrumentation = p_instrumentation;

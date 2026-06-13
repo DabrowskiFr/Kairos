@@ -67,6 +67,7 @@ let lit_of_rel (h1 : hexpr) (r : relop) (h2 : hexpr) : lit option =
     match h.hexpr with
     | HLitInt i -> Some (string_of_int i)
     | HLitBool b -> Some (if b then "true" else "false")
+    | HLitEnum c -> Some c
     | _ -> None
   in
   let fallback_var (h : hexpr) = Pretty.string_of_hexpr h in

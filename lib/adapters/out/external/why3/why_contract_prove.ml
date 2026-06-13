@@ -25,6 +25,11 @@ type goal_proof_result = {
   dump_path : string option;
 }
 
+type prover_handle = {
+  driver : Driver.driver;
+  command : string;
+}
+
 type goal_start_event = {
   goal_index : int;
   goal_name : string;
@@ -75,24 +80,46 @@ let dump_path_of_prover_answer
 
 (* Prove one prepared normalized task and return its detailed result. *)
 let prove_one_task_with_details 
-    ~(command : string)
     ~(why3_main : Whyconf.main)
     ~(limits : Call_provers.resource_limits) 
-    ~(driver : Driver.driver) 
+    ~(primary : prover_handle)
+    ~(fallback : prover_handle option)
     ~(task_index : int)
     ~(prepared : Task.task) 
     ~(goal_name : string) : goal_proof_result =
-      let buffer = Buffer.create 4096 in
-      let fmt = Format.formatter_of_buffer buffer in
-      let printing_info = Driver.print_task_prepared driver fmt prepared in
-      Format.pp_print_flush fmt ();
-      let call =
-        Driver.prove_buffer_prepared ~command ~config:why3_main ~limits
-          ~goal_name ~get_model:printing_info driver buffer
+      let run (handle : prover_handle) =
+        let buffer = Buffer.create 4096 in
+        let fmt = Format.formatter_of_buffer buffer in
+        let printing_info = Driver.print_task_prepared handle.driver fmt prepared in
+        Format.pp_print_flush fmt ();
+        let call =
+          Driver.prove_buffer_prepared ~command:handle.command ~config:why3_main ~limits
+            ~goal_name ~get_model:printing_info handle.driver buffer
+        in
+        (Call_provers.wait_on_call call, buffer)
       in
-      let prover_result = Call_provers.wait_on_call call in
-      let dump_path = dump_path_of_prover_answer ~task_index ~prover_result ~buffer in
-        { goal_name; prover_result; dump_path }
+      let primary_result, primary_buffer = run primary in
+      match (primary_result.Call_provers.pr_answer, fallback) with
+      | Call_provers.Valid, _ ->
+          { goal_name; prover_result = primary_result; dump_path = None }
+      | _, Some fallback_handle -> (
+          let fallback_result, fallback_buffer = run fallback_handle in
+          match fallback_result.Call_provers.pr_answer with
+          | Call_provers.Valid ->
+              { goal_name; prover_result = fallback_result; dump_path = None }
+          | _ ->
+              let dump_path =
+                dump_path_of_prover_answer ~task_index ~prover_result:primary_result
+                  ~buffer:primary_buffer
+              in
+              let _ = fallback_buffer in
+              { goal_name; prover_result = primary_result; dump_path })
+      | _, None ->
+          let dump_path =
+            dump_path_of_prover_answer ~task_index ~prover_result:primary_result
+              ~buffer:primary_buffer
+          in
+          { goal_name; prover_result = primary_result; dump_path }
 
 (* Prove normalized tasks one by one, emit progress callbacks, and collect
    per-goal results with optional failing SMT dumps.
@@ -107,10 +134,11 @@ let prove_one_task_with_details
    - [on_goal_done]: callback emitted when one goal finishes.
    - [tasks]: normalized Why3 tasks.
 *)
-let prove_tasks_with_details ~(driver : Driver.driver) 
+let prove_tasks_with_details
     ~(why3_main : Whyconf.main)
     ~(limits : Call_provers.resource_limits) 
-    ~(command : string)
+    ~(primary : prover_handle)
+    ~(fallback : prover_handle option)
     ~(should_cancel : unit -> bool)
     ~(on_goal_start : goal_start_event -> unit) 
     ~(on_goal_done : goal_done_event -> unit)
@@ -123,14 +151,14 @@ let prove_tasks_with_details ~(driver : Driver.driver)
     | _ when should_cancel () -> List.rev details
     | (task_index, task) :: rest -> (
         log_progress ~pos ~total:total_tasks;
-        let prepared = Driver.prepare_task driver task in
+        let prepared = Driver.prepare_task primary.driver task in
         let goal_name = goal_name_of_prepared_task prepared in
         on_goal_start { goal_index = task_index; goal_name = goal_name };
         if should_cancel () then List.rev details
         else
           let detail =
-            prove_one_task_with_details ~driver ~why3_main ~limits ~command ~task_index ~prepared
-              ~goal_name
+            prove_one_task_with_details ~why3_main ~limits ~primary ~fallback ~task_index
+              ~prepared ~goal_name
           in
           on_goal_done { goal_index = task_index; result = detail };
           (match (detail.prover_result.pr_answer, detail.dump_path) with
@@ -146,6 +174,7 @@ let prove_tasks_with_details ~(driver : Driver.driver)
    build normalized tasks from a ptree and run the proof loop. *)
 let prove_ptree_with_events 
   ?(timeout = 30) 
+  ?(split_vc = true)
   ?(should_cancel = fun () -> false)
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
@@ -153,7 +182,18 @@ let prove_ptree_with_events
     let why3_config, why3_main, env, datadir_opt = setup_env () in
     let prover_cfg = select_z3_prover_cfg ~config:why3_config ~datadir_opt in
     let driver = Driver.load_driver_for_prover why3_main env prover_cfg in
-    let tasks = normalize_tasks_of_ptree ~env ~ptree in
+    let fallback =
+      select_alt_ergo_prover_cfg ~config:why3_config
+      |> Option.map (fun cfg ->
+             {
+               driver = Driver.load_driver_for_prover why3_main env cfg;
+               command = Whyconf.get_complete_command cfg ~with_steps:false;
+             })
+    in
+    let tasks =
+      if split_vc then normalize_tasks_of_ptree ~env ~ptree
+      else tasks_of_ptree ~env ~ptree
+    in
     let limits =
       {
         Call_provers.empty_limits with
@@ -161,6 +201,8 @@ let prove_ptree_with_events
         limit_mem = Whyconf.memlimit why3_main;
       }
     in
-    let command = Whyconf.get_complete_command prover_cfg ~with_steps:false in
-    prove_tasks_with_details ~driver ~why3_main ~limits ~command ~should_cancel
+    let primary =
+      { driver; command = Whyconf.get_complete_command prover_cfg ~with_steps:false }
+    in
+    prove_tasks_with_details ~why3_main ~limits ~primary ~fallback ~should_cancel
       ~on_goal_start ~on_goal_done tasks

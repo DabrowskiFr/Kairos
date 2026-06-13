@@ -64,6 +64,7 @@ type env_info = {
   runtime_view : Why_runtime_view.t;
   module_name : string;
   imports : Why3.Ptree.decl list;
+  type_enum_decls : Why3.Ptree.decl list;
   type_state : Why3.Ptree.decl;
   type_vars : Why3.Ptree.decl;
   env : Why_compile_expr.env;
@@ -97,6 +98,25 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
           td_def = TDalgebraic (List.map (fun s -> (loc, ident s, [])) runtime.control_states);
         };
       ]
+  in
+  let type_enum_decls =
+    runtime.type_decls
+    |> List.map (fun (decl : enum_decl) ->
+           Ptree.Dtype
+             [
+               {
+                 td_loc = loc;
+                 td_ident = ident decl.enum_name;
+                 td_params = [];
+                 td_vis = Public;
+                 td_mut = false;
+                 td_inv = [];
+                 td_wit = None;
+                 td_def =
+                   TDalgebraic
+                     (List.map (fun ctor -> (loc, ident ctor, [])) decl.enum_constructors);
+               };
+             ])
   in
   let pre_k_infos = temporal_layout in
   let inv_links = [] in
@@ -196,6 +216,7 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
     runtime_view = runtime;
     module_name;
     imports;
+    type_enum_decls;
     type_state;
     type_vars;
     env;
@@ -295,6 +316,7 @@ let compile_node_with_info ?kernel_ir
   let module_name = info.module_name in
   let imports = info.imports in
   let type_state = info.type_state in
+  let type_enum_decls = info.type_enum_decls in
   let type_vars = info.type_vars in
   let env = info.env in
   let inputs = info.inputs in
@@ -670,30 +692,16 @@ let compile_node_with_info ?kernel_ir
     if goals = [] then []
     else
       let init_guard =
-        let st_init =
-          term_eq (term_of_var env "st") (mk_term (Tident (qid1 runtime_view.init_control_state)))
-        in
-        let terms = [ st_init ] in
-        match terms with
-        | [] -> None
-        | [ t ] -> Some t
-        | t :: rest ->
-            Some (List.fold_left (fun acc x -> mk_term (Tbinnop (acc, Dterm.DTand, x))) t rest)
-      in
-      let is_init_goal = function
-        | { hexpr = HBin (Or, { hexpr = HUn (Not, { hexpr = HLitBool true; _ }); _ }, _); _ } ->
-            true
-        | _ -> false
+        term_eq (term_of_var env "st") (mk_term (Tident (qid1 runtime_view.init_control_state)))
       in
       List.mapi
         (fun i (f : Ir.summary_formula) ->
-          let base =
-            let base = compile_local_fo_formula_term env f.logic in
-            if is_init_goal f.logic then
-              match init_guard with Some g -> mk_term (Tbinnop (g, Dterm.DTimplies, base)) | None -> base
-            else base
+          let base = compile_local_fo_formula_term env f.logic in
+          let coherent_initial_state = term_and init_guard base in
+          let vars_only =
+            match inputs with vars_param :: _ -> [ vars_param ] | [] -> inputs
           in
-          let quantified = mk_term (Tquant (Dterm.DTforall, inputs, [], base)) in
+          let quantified = mk_term (Tquant (Dterm.DTexists, vars_only, [], coherent_initial_state)) in
           Ptree.Dprop (Decl.Pgoal, ident (Printf.sprintf "coherency_goal_%d" (i + 1)), quantified))
         goals
   in
@@ -702,7 +710,7 @@ let compile_node_with_info ?kernel_ir
   in
 
   let decls =
-    imports @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    imports @ type_enum_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
     @ phase_case_logic_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
     @ coherency_goal_decls @ kernel_init_goal_decls
   in

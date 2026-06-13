@@ -77,6 +77,7 @@ let infer_expr_type ~(var_types : (ident * ty) list) (e : expr) : ty option =
   let rec go = function
     | ELitBool _ -> Some TBool
     | ELitInt _ -> Some TInt
+    | ELitEnum c -> List.assoc_opt c var_types
     | EVar x -> List.assoc_opt x var_types
     | EUn (Not, _) -> Some TBool
     | EUn (Neg, _) -> Some TInt
@@ -119,8 +120,13 @@ let atom_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
   | _ -> None
 
 let collect_atoms_from_ltls (n : Verification_model.node_model) ~(ltls : ltl list) : atom_map =
+  let constructor_types =
+    n.type_decls
+    |> List.concat_map (fun (decl : enum_decl) ->
+           List.map (fun ctor -> (ctor, TCustom decl.enum_name)) decl.enum_constructors)
+  in
   let var_types =
-    List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
+    constructor_types @ List.map (fun v -> (v.vname, v.vty)) (n.inputs @ n.locals @ n.outputs)
   in
   let temporal_layout = Pre_k_layout.build_pre_k_infos n in
   let inputs = List.map (fun v -> v.vname) n.inputs in
