@@ -34,7 +34,8 @@ let rec collect_pre_k_occurrences_hexpr (h : Core_syntax.hexpr) (acc : (ident * 
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> acc
   | HPreK (vname, k) -> add_pre_k_occurrence vname k acc
-  | HPred (_, hs) -> List.fold_left (fun a x -> collect_pre_k_occurrences_hexpr x a) acc hs
+  | HPred (_, hs) | HFunCall (_, hs) ->
+      List.fold_left (fun a x -> collect_pre_k_occurrences_hexpr x a) acc hs
   | HUn (_, inner) -> collect_pre_k_occurrences_hexpr inner acc
   | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_pre_k_occurrences_hexpr b (collect_pre_k_occurrences_hexpr a acc)

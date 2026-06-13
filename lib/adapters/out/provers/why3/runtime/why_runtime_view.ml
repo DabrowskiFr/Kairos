@@ -93,6 +93,7 @@ type state_branch_view = {
 type t = {
   node_name : ident;
   type_decls : enum_decl list;
+  function_decls : pure_function_decl list;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;
@@ -118,6 +119,7 @@ let rec vars_of_expr (acc : StringSet.t) (e : expr) : StringSet.t =
   match e.expr with
   | EVar name -> StringSet.add name acc
   | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
+  | EFunCall (_, args) -> List.fold_left vars_of_expr acc args
   | EUn (_, inner) -> vars_of_expr acc inner
   | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr (vars_of_expr acc a) b
 
@@ -126,6 +128,7 @@ let rec vars_of_hexpr (acc : StringSet.t) (h : hexpr) : StringSet.t =
   | HLitInt _ | HLitBool _ | HLitEnum _ -> acc
   | HVar name | HPreK (name, _) -> StringSet.add name acc
   | HPred (_, hs) -> List.fold_left vars_of_hexpr acc hs
+  | HFunCall (_, hs) -> List.fold_left vars_of_hexpr acc hs
   | HUn (_, inner) -> vars_of_hexpr acc inner
   | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
 
@@ -195,6 +198,7 @@ let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
     match e.expr with
     | EVar _name -> acc
     | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
+    | EFunCall (_, args) -> List.fold_left go acc args
     | EUn (_, inner) -> go acc inner
     | EBin (_, a, b) | ECmp (_, a, b) -> go (go acc a) b
   in
@@ -203,6 +207,8 @@ let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
 let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> acc
+  | HPred (_, args) -> List.fold_left collect_ctor_hexpr acc args
+  | HFunCall (_, args) -> List.fold_left collect_ctor_hexpr acc args
   | HUn (_, inner) -> collect_ctor_hexpr acc inner
   | HBin (_, a, b) | HCmp (_, a, b) ->
       collect_ctor_hexpr (collect_ctor_hexpr acc a) b
@@ -270,6 +276,7 @@ let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
       | None -> e
     end
   | ELitInt _ | ELitBool _ | ELitEnum _ -> e
+  | EFunCall (fn, args) -> mk (EFunCall (fn, List.map (simplify_expr known) args))
   | EUn (Not, inner) -> begin
       match (simplify_expr known inner).expr with
       | ELitBool b -> mk (ELitBool (not b))
@@ -478,6 +485,7 @@ let of_ir_node (node : Ir.node_ir) : t =
     {
       node_name = sem.sem_nname;
       type_decls = sem.sem_type_decls;
+      function_decls = sem.sem_function_decls;
       inputs = List.map port_of_vdecl sem.sem_inputs;
       outputs = List.map port_of_vdecl sem.sem_outputs;
       locals = List.map port_of_vdecl sem.sem_locals;

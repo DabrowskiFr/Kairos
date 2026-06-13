@@ -75,6 +75,7 @@ type product_step_summary = {
 type node_signature = {
   sem_nname : ident;
   sem_type_decls : enum_decl list;
+  sem_function_decls : pure_function_decl list;
   sem_inputs : vdecl list;
   sem_outputs : vdecl list;
   sem_locals : vdecl list;

@@ -276,11 +276,13 @@ let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) :
       | Some b -> b
       | None -> true)
   | HPred (_id, _hs) -> true
+  | HFunCall (_id, _hs) -> true
   | HUn (Not, ({ hexpr = HCmp (r, h1, h2); _ } as _inner)) -> (
       match (if r = REq then add_current_equality env ~negated:true h1 h2 else None) with
       | Some b -> b
       | None -> true)
   | HUn (Not, ({ hexpr = HPred (_id, _hs); _ } as _inner)) -> true
+  | HUn (Not, ({ hexpr = HFunCall (_id, _hs); _ } as _inner)) -> true
   | HUn (Not, inner) -> not (current_formula_maybe_satisfiable env inner)
   | HBin (And, a, b) -> current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
   | HBin (Or, a, b) ->

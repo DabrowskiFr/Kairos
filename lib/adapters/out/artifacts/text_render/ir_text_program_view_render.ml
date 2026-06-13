@@ -54,18 +54,27 @@ let render_transition ?(indent : int = 0) (t : Ir.transition) : string =
   let sections = if body = [] then [] else (indent_str (indent + 1) ^ "do") :: body in
   String.concat "\n" (header :: sections @ [ indent_str indent ^ "}" ])
 
+let render_ty = function
+  | TInt -> "int"
+  | TBool -> "bool"
+  | TReal -> "real"
+  | TCustom s -> s
+
 let render_vdecl (v : vdecl) : string =
-  let ty_s =
-    match v.vty with
-    | TInt -> "int"
-    | TBool -> "bool"
-    | TReal -> "real"
-    | TCustom s -> s
-  in
-  v.vname ^ ": " ^ ty_s
+  v.vname ^ ": " ^ render_ty v.vty
 
 let render_enum_decl (decl : enum_decl) : string =
   "type " ^ decl.enum_name ^ " = " ^ String.concat " | " decl.enum_constructors ^ ";"
+
+let render_function_decl (f : pure_function_decl) : string =
+  let header =
+    "function " ^ f.function_name ^ "("
+    ^ String.concat ", " (List.map render_vdecl f.function_params)
+    ^ "): " ^ render_ty f.function_return
+  in
+  let reqs = List.map (fun req -> "  requires " ^ Pretty.string_of_fo req ^ ";") f.function_requires in
+  let enss = List.map (fun ens -> "  ensures " ^ Pretty.string_of_fo ens ^ ";") f.function_ensures in
+  String.concat "\n" ([ header ] @ reqs @ enss @ [ "  = " ^ Pretty.string_of_expr f.function_body ^ ";" ])
 
 let program_transitions_of_node ~(source_program : Verification_model.program_model option)
     (n : Ir.node_ir) :
@@ -100,6 +109,7 @@ let render_node_with_source ~(source_program : Verification_model.program_model 
   in
   let fields =
     List.map (fun decl -> Some (render_enum_decl decl)) sem.sem_type_decls
+    @ List.map (fun decl -> Some (render_function_decl decl)) sem.sem_function_decls
     @ [
       line_params "inputs" sem.sem_inputs;
       line_params "outputs" sem.sem_outputs;

@@ -79,6 +79,7 @@ let infer_expr_type ~(var_types : (ident * ty) list) (e : expr) : ty option =
     | ELitInt _ -> Some TInt
     | ELitEnum c -> List.assoc_opt c var_types
     | EVar x -> List.assoc_opt x var_types
+    | EFunCall _ -> None
     | EUn (Not, _) -> Some TBool
     | EUn (Neg, _) -> Some TInt
     | EBin (And, _, _) | EBin (Or, _, _) -> Some TBool

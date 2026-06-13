@@ -25,6 +25,7 @@ let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
     | HVar v -> if is_input v then mk_hpre_k v 1 else h
     | HPreK (v, k) -> mk_hpre_k v (k + 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
     | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
@@ -45,6 +46,7 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
         h
     | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
     | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
@@ -66,6 +68,7 @@ let shift_hexpr_forward_all (h : hexpr) : hexpr =
     | HVar v -> mk_hpre_k v 1
     | HPreK (v, k) -> mk_hpre_k v (k + 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
     | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
@@ -79,6 +82,7 @@ let shift_hexpr_backward_all (h : hexpr) : hexpr =
     | HVar _ -> h
     | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
     | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
     | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))

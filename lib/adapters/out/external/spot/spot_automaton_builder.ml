@@ -90,6 +90,8 @@ let normalize_spot_automaton ~(atom_names : string list)
         | None -> h
       end
     | HPred (id, args) -> with_hexpr_desc h (HPred (id, List.map substitute_atom_vars args))
+    | HFunCall (fn, args) ->
+        with_hexpr_desc h (HFunCall (fn, List.map substitute_atom_vars args))
     | HUn (op, inner) -> with_hexpr_desc h (HUn (op, substitute_atom_vars inner))
     | HBin (op, lhs, rhs) ->
         with_hexpr_desc h (HBin (op, substitute_atom_vars lhs, substitute_atom_vars rhs))

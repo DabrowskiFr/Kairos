@@ -1,0 +1,21 @@
+function nonneg(x: int): int
+  requires: x >= 0;
+  ensures: result >= 0;
+= x;
+
+node pure_function_contract(input: int) returns (
+  out: int
+)
+
+contracts
+  requires: G(input >= 0);
+  ensures: G(out >= 0);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := nonneg(input);
+    }
+end

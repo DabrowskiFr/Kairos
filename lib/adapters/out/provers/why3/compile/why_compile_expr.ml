@@ -177,6 +177,8 @@ let rec compile_expr (env : env) (e : expr) : Ptree.expr =
   | ELitEnum c -> mk_expr (Eident (qid1 c))
   | EVar x ->
       if is_rec_var env x then field env x else mk_expr (Eident (qid1 x))
+  | EFunCall (fn, args) ->
+      apply_expr (mk_expr (Eident (qid1 fn))) (List.map (compile_expr env) args)
   | EUn (Neg, a) -> mk_expr (Eidapp (qid1 "(-)", [ compile_expr env a ]))
   | EUn (Not, a) -> mk_expr (Enot (compile_expr env a))
   | EBin (op, a, b) -> (
@@ -224,6 +226,7 @@ let rec compile_term (env : env) (e : expr) : Ptree.term =
   | ELitBool b -> mk_term (if b then Ttrue else Tfalse)
   | ELitEnum c -> mk_term (Tident (qid1 c))
   | EVar x -> mk_term (term_var env x)
+  | EFunCall (fn, args) -> mk_term (Tidapp (qid1 fn, List.map (compile_term env) args))
   | EUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_term env a ]))
   | EUn (Not, a) -> mk_term (Tnot (compile_term env a))
   | EBin (op, a, b) -> (
@@ -255,6 +258,7 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
     | HVar name -> is_const_var_name name
     | HPreK _ -> false
     | HPred _ -> false
+    | HFunCall _ -> false
     | HUn (_, inner) -> is_const_hexpr inner
     | HBin (_, a, b) | HCmp (_, a, b) ->
         is_const_hexpr a && is_const_hexpr b
@@ -290,6 +294,8 @@ let compile_hexpr ?(old = false) ?(prefer_link = false) ?(in_post = false) (env 
           "compile_hexpr: residual HPreK in Why3 emission input (temporal lowering must run in IR)"
     | HPred (id, hs) ->
         mk_term (Tidapp (qid1 id, List.map compile_hexpr_term hs))
+    | HFunCall (fn, hs) ->
+        mk_term (Tidapp (qid1 fn, List.map compile_hexpr_term hs))
   in
   let _ = in_post in
   match (find_link env h, prefer_link) with

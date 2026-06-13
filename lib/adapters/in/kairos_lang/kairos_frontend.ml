@@ -56,7 +56,8 @@ let parse_input ~(input_file : string) :
         in
         let parse_info = flow_parse_info_of_frontend parse_info_kx in
         let verification_model =
-          Kairos_to_model.program ~type_decls:source_kx.type_decls source_kx.nodes
+          Kairos_to_model.program ~type_decls:source_kx.type_decls
+            ~function_decls:source_kx.function_decls source_kx.nodes
         in
         Ok
           {

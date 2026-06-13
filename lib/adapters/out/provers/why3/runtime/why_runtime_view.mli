@@ -118,6 +118,7 @@ type state_branch_view = {
 type t = {
   node_name : ident;
   type_decls : enum_decl list;
+  function_decls : pure_function_decl list;
   inputs : port_view list;
   outputs : port_view list;
   locals : port_view list;

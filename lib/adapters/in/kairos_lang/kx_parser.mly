@@ -23,11 +23,13 @@ let indexed_ident_many (base:ident) (idxs:ident list) : ident =
   String.concat "_" (base :: idxs)
 
 let domain_table : (string, ident list) Hashtbl.t = Hashtbl.create 17
+let function_table : (string, vdecl list * ty) Hashtbl.t = Hashtbl.create 17
 let predicate_table : (string, ident list * hexpr) Hashtbl.t = Hashtbl.create 17
 let action_table : (string, ident list * stmt list) Hashtbl.t = Hashtbl.create 17
 
 let reset_frontend_tables () =
   Hashtbl.clear domain_table;
+  Hashtbl.clear function_table;
   Hashtbl.clear predicate_table;
   Hashtbl.clear action_table
 
@@ -55,9 +57,36 @@ let expand_domain_or_single name =
 let cartesian_concat left right =
   List.concat_map (fun xs -> List.map (fun ys -> xs @ ys) right) left
 
+let register_function_signature ~(name:ident) ~(params:vdecl list) ~(return_ty:ty) : unit =
+  if Hashtbl.mem function_table name then
+    failwith (Printf.sprintf "duplicate pure function '%s'" name);
+  if Hashtbl.mem predicate_table name then
+    failwith (Printf.sprintf "pure function '%s' conflicts with a predicate of the same name" name);
+  if Hashtbl.mem action_table name then
+    failwith (Printf.sprintf "pure function '%s' conflicts with an action of the same name" name);
+  Hashtbl.add function_table name (params, return_ty)
+
+let function_signature name =
+  Hashtbl.find_opt function_table name
+
+let is_bool_function name =
+  match function_signature name with
+  | Some (_, TBool) -> true
+  | Some _ | None -> false
+
+let ident_args_of_exprs ~(context:string) (args:expr list) : ident list =
+  List.map
+    (fun arg ->
+      match arg.expr with
+      | EVar id -> id
+      | _ -> failwith (Printf.sprintf "%s expects identifier arguments" context))
+    args
+
 let register_predicate ~(name:ident) ~(params:ident list) ~(body:hexpr) : unit =
   if Hashtbl.mem predicate_table name then
     failwith (Printf.sprintf "duplicate predicate '%s'" name);
+  if Hashtbl.mem function_table name then
+    failwith (Printf.sprintf "predicate '%s' conflicts with a pure function of the same name" name);
   if Hashtbl.mem action_table name then
     failwith (Printf.sprintf "predicate '%s' conflicts with an action of the same name" name);
   Hashtbl.add predicate_table name (params, body)
@@ -65,6 +94,8 @@ let register_predicate ~(name:ident) ~(params:ident list) ~(body:hexpr) : unit =
 let register_action ~(name:ident) ~(params:ident list) ~(body:stmt list) : unit =
   if Hashtbl.mem action_table name then
     failwith (Printf.sprintf "duplicate action '%s'" name);
+  if Hashtbl.mem function_table name then
+    failwith (Printf.sprintf "action '%s' conflicts with a pure function of the same name" name);
   if Hashtbl.mem predicate_table name then
     failwith (Printf.sprintf "action '%s' conflicts with a predicate of the same name" name);
   Hashtbl.add action_table name (params, body)
@@ -80,6 +111,8 @@ let rec subst_expr_index ~(param:ident) ~(value:ident) (e:expr) : expr =
     match e.expr with
     | ELitInt _ | ELitBool _ -> e.expr
     | EVar id -> EVar (subst_ident ~param ~value id)
+    | EFunCall (fn, args) ->
+        EFunCall (fn, List.map (subst_expr_index ~param ~value) args)
     | EBin (op, a, b) ->
         EBin (op, subst_expr_index ~param ~value a, subst_expr_index ~param ~value b)
     | ECmp (op, a, b) ->
@@ -96,6 +129,8 @@ let rec subst_hexpr_index ~(param:ident) ~(value:ident) (h:hexpr) : hexpr =
     | HPreK (id, k) -> HPreK (subst_ident ~param ~value id, k)
     | HPred (id, args) ->
         HPred (subst_ident ~param ~value id, List.map (subst_hexpr_index ~param ~value) args)
+    | HFunCall (fn, args) ->
+        HFunCall (fn, List.map (subst_hexpr_index ~param ~value) args)
     | HBin (op, a, b) ->
         HBin (op, subst_hexpr_index ~param ~value a, subst_hexpr_index ~param ~value b)
     | HCmp (op, a, b) ->
@@ -188,6 +223,7 @@ let rec expr_of_fo (h:hexpr) : expr =
         failwith "historical predicate cannot be used in executable expressions"
     | HPred _ ->
         failwith "unexpanded predicate cannot be used in executable expressions"
+    | HFunCall (fn, args) -> EFunCall (fn, List.map expr_of_fo args)
     | HBin (op, a, b) -> EBin (op, expr_of_fo a, expr_of_fo b)
     | HCmp (op, a, b) -> ECmp (op, expr_of_fo a, expr_of_fo b)
     | HUn (op, inner) -> EUn (op, expr_of_fo inner)
@@ -359,7 +395,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
     routes
 %}
 
-%token TYPE DOMAIN PREDICATE ACTION
+%token TYPE DOMAIN FUNCTION PREDICATE ACTION
 %token NODE RETURNS LOCALS GHOSTS STATES INIT TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
@@ -393,7 +429,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %nonassoc RPAREN
 
 %start <Kx_ast.program> program
-%start <(string * Kx_loc.loc option) list * Kx_core_syntax.enum_decl list * Kx_ast.program> source_file
+%start <(string * Kx_loc.loc option) list * Kx_core_syntax.enum_decl list * Kx_core_syntax.pure_function_decl list * Kx_ast.program> source_file
 
 %type <Kx_core_syntax.ltl list> topology_block
 %type <Kx_topology_syntax.topology_entry list> topology_entries
@@ -404,7 +440,11 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
 %%
 
 source_file:
-  | frontend_scope_start imports_opt frontend_decls_opt nodes EOF { ($2, $3, $4) }
+  | frontend_scope_start imports_opt frontend_decls_opt nodes EOF
+      {
+        let type_decls, function_decls = $3 in
+        ($2, type_decls, function_decls, $4)
+      }
 
 program:
   | frontend_scope_start imports_opt frontend_decls_opt nodes EOF { $4 }
@@ -427,16 +467,22 @@ import_decl:
       }
 
 frontend_decls_opt:
-  | /* empty */ { [] }
+  | /* empty */ { ([], []) }
   | frontend_decls { $1 }
 
 frontend_decls:
-  | frontend_decl frontend_decls { $1 @ $2 }
+  | frontend_decl frontend_decls
+      {
+        let ts1, fs1 = $1 in
+        let ts2, fs2 = $2 in
+        (ts1 @ ts2, fs1 @ fs2)
+      }
   | frontend_decl { $1 }
 
 frontend_decl:
-  | type_decl { [$1] }
-  | domain_decl { [] }
+  | type_decl { ([$1], []) }
+  | domain_decl { ([], []) }
+  | function_decl { ([], [$1]) }
 
 type_decl:
   | TYPE IDENT EQ enum_ctor_list SEMI
@@ -458,6 +504,48 @@ domain_decl:
         List.iter (fun name -> forbid_reserved_identifier ~context:"finite domain member" name) $4;
         register_domain ~name:$2 ~members:$4
       }
+
+function_decl:
+  | FUNCTION IDENT LPAREN params_opt RPAREN COLON ty function_contracts_opt EQ expr SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"function name" $2 in
+        if String.equal $2 "result" then
+          failwith "function name 'result' is reserved for function postconditions";
+        List.iter
+          (fun (v:vdecl) ->
+            forbid_reserved_identifier ~context:"function parameter" v.vname;
+            if String.equal v.vname "result" then
+              failwith "function parameter 'result' is reserved for function postconditions")
+          $4;
+        register_function_signature ~name:$2 ~params:$4 ~return_ty:$7;
+        let reqs, enss = $8 in
+        {
+          function_name = $2;
+          function_params = $4;
+          function_return = $7;
+          function_requires = reqs;
+          function_ensures = enss;
+          function_body = $10;
+        }
+      }
+
+function_contracts_opt:
+  | /* empty */ { ([], []) }
+  | function_contracts { $1 }
+
+function_contracts:
+  | REQUIRES COLON fo_formula SEMI function_contracts
+      {
+        let reqs, enss = $5 in
+        ($3 :: reqs, enss)
+      }
+  | ENSURES COLON fo_formula SEMI function_contracts
+      {
+        let reqs, enss = $5 in
+        (reqs, $3 :: enss)
+      }
+  | REQUIRES COLON fo_formula SEMI { ([$3], []) }
+  | ENSURES COLON fo_formula SEMI { ([], [$3]) }
 
 predicate_decl:
   | PREDICATE IDENT LPAREN pred_params_opt RPAREN EQ fo_formula SEMI
@@ -898,7 +986,13 @@ cmp_atom:
 
 expr_atom:
   | LPAREN expr RPAREN { $2 }
-  | IDENT LPAREN id_list_opt RPAREN { expr_of_fo (expand_predicate $1 $3) }
+  | IDENT LPAREN expr_list_opt RPAREN
+      {
+        match function_signature $1 with
+        | Some _ -> mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (EFunCall ($1, $3))
+        | None ->
+            expr_of_fo (expand_predicate $1 (ident_args_of_exprs ~context:("predicate '" ^ $1 ^ "'") $3))
+      }
   | cmp_atom EQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(REq, $1, $3)) }
   | cmp_atom NEQ cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RNeq, $1, $3)) }
   | cmp_atom LT cmp_atom { Kx_core_syntax_builders.mk_expr (ECmp(RLt, $1, $3)) }
@@ -973,7 +1067,14 @@ hexpr:
 
 ltl_atom:
   | hexpr relop hexpr { LAtom($1,$2,$3) }
-  | IDENT LPAREN id_list_opt RPAREN { ltl_of_fo (expand_predicate $1 $3) }
+  | IDENT LPAREN id_list_opt RPAREN
+      {
+        if is_bool_function $1 then
+          ltl_of_fo
+            (mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4)
+               (HFunCall ($1, List.map Kx_core_syntax_builders.mk_hvar $3)))
+        else ltl_of_fo (expand_predicate $1 $3)
+      }
   | FORALL IDENT IN IDENT DOT ltl
       { expand_ltl_quantifier ~universal:true $2 $4 $6 }
   | EXISTS IDENT IN IDENT DOT ltl
@@ -989,7 +1090,13 @@ ltl_atom:
 
 fo_leaf:
   | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (HCmp($2,$1,$3)) }
-  | IDENT LPAREN id_list_opt RPAREN { expand_predicate $1 $3 }
+  | IDENT LPAREN id_list_opt RPAREN
+      {
+        if is_bool_function $1 then
+          mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4)
+            (HFunCall ($1, List.map Kx_core_syntax_builders.mk_hvar $3))
+        else expand_predicate $1 $3
+      }
   | FORALL IDENT IN IDENT DOT fo_formula
       { expand_fo_quantifier ~universal:true $2 $4 $6 }
   | EXISTS IDENT IN IDENT DOT fo_formula

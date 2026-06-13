@@ -1,0 +1,19 @@
+function badHistory(x: int): int
+  ensures: result = pre(x);
+= x;
+
+node pure_function_contract_bad_history(input: int) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = input);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := input;
+    }
+end

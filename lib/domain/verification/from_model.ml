@@ -30,6 +30,7 @@ let fo_mentions_current_input ~(is_input : ident -> bool) (f : Core_syntax.hexpr
     | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> false
     | HVar name -> is_input name
     | HPred (_, args) -> List.exists go args
+    | HFunCall (_, args) -> List.exists go args
     | HUn (_, inner) -> go inner
     | HBin (_, a, b) | HCmp (_, a, b) -> go a || go b
   in
@@ -56,6 +57,7 @@ let of_model_node (n : Vm.node_model) : Ir.node_ir =
       {
         Ir.sem_nname = n.node_name;
         sem_type_decls = n.type_decls;
+        sem_function_decls = n.function_decls;
         sem_inputs = n.inputs;
         sem_outputs = n.outputs;
         sem_locals = n.locals @ n.ghosts;

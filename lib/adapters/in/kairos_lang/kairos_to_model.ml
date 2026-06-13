@@ -119,6 +119,8 @@ let rec expr ~(type_decls : Core_syntax.enum_decl list) (source_expr : Kx_core_s
         match lookup_constructor type_decls v with
         | Some _ -> Core_syntax.ELitEnum v
         | None -> Core_syntax.EVar v)
+    | Kx_core_syntax.EFunCall (fn, args) ->
+        Core_syntax.EFunCall (fn, List.map (expr ~type_decls) args)
     | Kx_core_syntax.EBin (op, a, b) ->
         Core_syntax.EBin (lower_binop op, expr ~type_decls a, expr ~type_decls b)
     | Kx_core_syntax.ECmp (op, a, b) ->
@@ -140,6 +142,8 @@ let rec hexpr ~(type_decls : Core_syntax.enum_decl list) (source_hexpr : Kx_core
     | Kx_core_syntax.HPreK (v, k) -> Core_syntax.HPreK (v, k)
     | Kx_core_syntax.HPred (id, hs) ->
         Core_syntax.HPred (id, List.map (hexpr ~type_decls) hs)
+    | Kx_core_syntax.HFunCall (fn, hs) ->
+        Core_syntax.HFunCall (fn, List.map (hexpr ~type_decls) hs)
     | Kx_core_syntax.HBin (op, a, b) ->
         Core_syntax.HBin (lower_binop op, hexpr ~type_decls a, hexpr ~type_decls b)
     | Kx_core_syntax.HCmp (op, a, b) ->
@@ -165,6 +169,17 @@ let rec ltl ~(type_decls : Core_syntax.enum_decl list) (source_ltl : Kx_core_syn
 
 let lower_vdecl (v : Kx_core_syntax.vdecl) : Core_syntax.vdecl =
   { vname = v.vname; vty = lower_ty v.vty }
+
+let lower_function_decl ~(type_decls : Core_syntax.enum_decl list)
+    (f : Kx_core_syntax.pure_function_decl) : Core_syntax.pure_function_decl =
+  {
+    function_name = f.function_name;
+    function_params = List.map lower_vdecl f.function_params;
+    function_return = lower_ty f.function_return;
+    function_requires = List.map (hexpr ~type_decls) f.function_requires;
+    function_ensures = List.map (hexpr ~type_decls) f.function_ensures;
+    function_body = expr ~type_decls f.function_body;
+  }
 
 let lower_state_invariant ~(type_decls : Core_syntax.enum_decl list)
     (inv : Kx_ast.invariant_state_rel) : Verification_model.state_invariant =
@@ -204,6 +219,184 @@ let type_name = function
 
 let same_ty (a : Core_syntax.ty) (b : Core_syntax.ty) : bool = a = b
 
+let validate_function_decls (type_decls : Core_syntax.enum_decl list)
+    (function_decls : Core_syntax.pure_function_decl list) : unit =
+  let fail_function fname msg =
+    failwith (Printf.sprintf "Type error in function %s: %s" fname msg)
+  in
+  let function_names = Hashtbl.create (List.length function_decls * 2 + 1) in
+  List.iter
+    (fun (f : Core_syntax.pure_function_decl) ->
+      if String.equal f.function_name "result" then
+        fail_function f.function_name "'result' is reserved for function postconditions";
+      match Hashtbl.find_opt function_names f.function_name with
+      | Some () -> fail_function f.function_name "duplicate pure function"
+      | None -> Hashtbl.add function_names f.function_name ())
+    function_decls;
+  let function_sigs =
+    List.map
+      (fun (f : Core_syntax.pure_function_decl) ->
+        (f.function_name, (f.function_params, f.function_return)))
+      function_decls
+  in
+  let find_ctor fname c =
+    match lookup_constructor type_decls c with
+    | Some ty -> ty
+    | None -> fail_function fname (Printf.sprintf "unknown enum constructor '%s'" c)
+  in
+  let find_fun fname called =
+    match List.assoc_opt called function_sigs with
+    | Some sig_ -> sig_
+    | None -> fail_function fname (Printf.sprintf "unknown pure function '%s'" called)
+  in
+  let expect_ty fname context expected actual =
+    if not (same_ty expected actual) then
+      fail_function fname
+        (Printf.sprintf "%s has type %s but %s was expected" context (type_name actual)
+           (type_name expected))
+  in
+  let rec expr_ty fname var_types (e : Core_syntax.expr) : Core_syntax.ty =
+    let find_var x =
+      match List.assoc_opt x var_types with
+      | Some ty -> ty
+      | None -> fail_function fname (Printf.sprintf "unknown variable '%s'" x)
+    in
+    match e.expr with
+    | ELitInt _ -> TInt
+    | ELitBool _ -> TBool
+    | ELitEnum c -> find_ctor fname c
+    | EVar x -> find_var x
+    | EFunCall (called, args) ->
+        let params, return_ty = find_fun fname called in
+        if List.length params <> List.length args then
+          fail_function fname
+            (Printf.sprintf "function '%s' expects %d arguments but got %d" called
+               (List.length params) (List.length args));
+        List.iter2
+          (fun (param : Core_syntax.vdecl) arg ->
+            expect_ty fname ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
+              param.vty (expr_ty fname var_types arg))
+          params args;
+        return_ty
+    | EUn (Not, inner) ->
+        expect_ty fname "not operand" TBool (expr_ty fname var_types inner);
+        TBool
+    | EUn (Neg, inner) ->
+        expect_ty fname "negation operand" TInt (expr_ty fname var_types inner);
+        TInt
+    | EBin ((And | Or), a, b) ->
+        expect_ty fname "left boolean operand" TBool (expr_ty fname var_types a);
+        expect_ty fname "right boolean operand" TBool (expr_ty fname var_types b);
+        TBool
+    | EBin ((Add | Sub | Mul | Div), a, b) ->
+        expect_ty fname "left arithmetic operand" TInt (expr_ty fname var_types a);
+        expect_ty fname "right arithmetic operand" TInt (expr_ty fname var_types b);
+        TInt
+    | ECmp ((REq | RNeq), a, b) ->
+        let ta = expr_ty fname var_types a in
+        let tb = expr_ty fname var_types b in
+        if not (same_ty ta tb) then
+          fail_function fname
+            (Printf.sprintf "comparison mixes %s and %s" (type_name ta) (type_name tb));
+        TBool
+    | ECmp ((RLt | RLe | RGt | RGe), a, b) ->
+        expect_ty fname "left ordered comparison operand" TInt (expr_ty fname var_types a);
+        expect_ty fname "right ordered comparison operand" TInt (expr_ty fname var_types b);
+        TBool
+  in
+  let rec hexpr_has_history (h : Core_syntax.hexpr) : bool =
+    match h.hexpr with
+    | HPreK _ -> true
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> false
+    | HPred (_, hs) | HFunCall (_, hs) -> List.exists hexpr_has_history hs
+    | HUn (_, inner) -> hexpr_has_history inner
+    | HBin (_, a, b) | HCmp (_, a, b) -> hexpr_has_history a || hexpr_has_history b
+  in
+  let rec hexpr_ty fname var_types (h : Core_syntax.hexpr) : Core_syntax.ty =
+    let find_var x =
+      match List.assoc_opt x var_types with
+      | Some ty -> ty
+      | None -> fail_function fname (Printf.sprintf "unknown variable '%s'" x)
+    in
+    match h.hexpr with
+    | HLitInt _ -> TInt
+    | HLitBool _ -> TBool
+    | HLitEnum c -> find_ctor fname c
+    | HVar x -> find_var x
+    | HPreK _ -> fail_function fname "function contracts cannot mention history"
+    | HPred (id, _) ->
+        fail_function fname
+          (Printf.sprintf "function contracts cannot mention predicate '%s'" id)
+    | HFunCall (called, args) ->
+        let params, return_ty = find_fun fname called in
+        if List.length params <> List.length args then
+          fail_function fname
+            (Printf.sprintf "function '%s' expects %d arguments but got %d" called
+               (List.length params) (List.length args));
+        List.iter2
+          (fun (param : Core_syntax.vdecl) arg ->
+            expect_ty fname ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
+              param.vty (hexpr_ty fname var_types arg))
+          params args;
+        return_ty
+    | HUn (Not, inner) ->
+        expect_ty fname "not operand" TBool (hexpr_ty fname var_types inner);
+        TBool
+    | HUn (Neg, inner) ->
+        expect_ty fname "negation operand" TInt (hexpr_ty fname var_types inner);
+        TInt
+    | HBin ((And | Or), a, b) ->
+        expect_ty fname "left boolean operand" TBool (hexpr_ty fname var_types a);
+        expect_ty fname "right boolean operand" TBool (hexpr_ty fname var_types b);
+        TBool
+    | HBin ((Add | Sub | Mul | Div), a, b) ->
+        expect_ty fname "left arithmetic operand" TInt (hexpr_ty fname var_types a);
+        expect_ty fname "right arithmetic operand" TInt (hexpr_ty fname var_types b);
+        TInt
+    | HCmp ((REq | RNeq), a, b) ->
+        let ta = hexpr_ty fname var_types a in
+        let tb = hexpr_ty fname var_types b in
+        if not (same_ty ta tb) then
+          fail_function fname
+            (Printf.sprintf "formula comparison mixes %s and %s" (type_name ta) (type_name tb));
+        TBool
+    | HCmp ((RLt | RLe | RGt | RGe), a, b) ->
+        expect_ty fname "left ordered formula operand" TInt (hexpr_ty fname var_types a);
+        expect_ty fname "right ordered formula operand" TInt (hexpr_ty fname var_types b);
+        TBool
+  in
+  List.iter
+    (fun (f : Core_syntax.pure_function_decl) ->
+      let seen_params = Hashtbl.create 8 in
+      List.iter
+        (fun (param : Core_syntax.vdecl) ->
+          if String.equal param.vname "result" then
+            fail_function f.function_name
+              "function parameter 'result' is reserved for postconditions";
+          match Hashtbl.find_opt seen_params param.vname with
+          | Some () -> fail_function f.function_name (Printf.sprintf "duplicate parameter '%s'" param.vname)
+          | None -> Hashtbl.add seen_params param.vname ())
+        f.function_params;
+      let param_types = List.map (fun (v : Core_syntax.vdecl) -> (v.vname, v.vty)) f.function_params in
+      expect_ty f.function_name "function body" f.function_return
+        (expr_ty f.function_name param_types f.function_body);
+      List.iter
+        (fun req ->
+          if hexpr_has_history req then
+            fail_function f.function_name "function requires cannot mention history";
+          expect_ty f.function_name "requires clause" TBool
+            (hexpr_ty f.function_name param_types req))
+        f.function_requires;
+      let post_types = ("result", f.function_return) :: param_types in
+      List.iter
+        (fun ens ->
+          if hexpr_has_history ens then
+            fail_function f.function_name "function ensures cannot mention history";
+          expect_ty f.function_name "ensures clause" TBool
+            (hexpr_ty f.function_name post_types ens))
+        f.function_ensures)
+    function_decls
+
 let validate_node (n : Verification_model.node_model) : unit =
   let node_name = n.node_name in
   let vars = n.inputs @ n.outputs @ n.locals @ n.ghosts in
@@ -235,6 +428,17 @@ let validate_node (n : Verification_model.node_model) : unit =
            (type_name expected))
   in
   let is_ghost_var x = List.mem x ghost_var_names in
+  let function_sigs =
+    List.map
+      (fun (f : Core_syntax.pure_function_decl) ->
+        (f.function_name, (f.function_params, f.function_return)))
+      n.function_decls
+  in
+  let find_fun called =
+    match List.assoc_opt called function_sigs with
+    | Some sig_ -> sig_
+    | None -> fail_node node_name (Printf.sprintf "unknown pure function '%s'" called)
+  in
   let reject_ghost_use context vars =
     match List.find_opt is_ghost_var vars with
     | Some x -> fail_node node_name (Printf.sprintf "%s mentions ghost variable '%s'" context x)
@@ -244,6 +448,7 @@ let validate_node (n : Verification_model.node_model) : unit =
     match e.expr with
     | ELitInt _ | ELitBool _ | ELitEnum _ -> []
     | EVar x -> [ x ]
+    | EFunCall (_, args) -> List.concat_map vars_of_expr args
     | EUn (_, inner) -> vars_of_expr inner
     | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr a @ vars_of_expr b
   in
@@ -252,6 +457,7 @@ let validate_node (n : Verification_model.node_model) : unit =
     | HLitInt _ | HLitBool _ | HLitEnum _ -> []
     | HVar x | HPreK (x, _) -> [ x ]
     | HPred (_, args) -> List.concat_map vars_of_hexpr args
+    | HFunCall (_, args) -> List.concat_map vars_of_hexpr args
     | HUn (_, inner) -> vars_of_hexpr inner
     | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr a @ vars_of_hexpr b
   in
@@ -267,6 +473,18 @@ let validate_node (n : Verification_model.node_model) : unit =
     | ELitBool _ -> TBool
     | ELitEnum c -> find_ctor c
     | EVar x -> find_var x
+    | EFunCall (called, args) ->
+        let params, return_ty = find_fun called in
+        if List.length params <> List.length args then
+          fail_node node_name
+            (Printf.sprintf "function '%s' expects %d arguments but got %d" called
+               (List.length params) (List.length args));
+        List.iter2
+          (fun (param : Core_syntax.vdecl) arg ->
+            expect_ty ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
+              param.vty (expr_ty arg))
+          params args;
+        return_ty
     | EUn (Not, inner) ->
         expect_ty "not operand" TBool (expr_ty inner);
         TBool
@@ -301,6 +519,18 @@ let validate_node (n : Verification_model.node_model) : unit =
     | HVar x -> find_var x
     | HPreK (x, _) -> find_var x
     | HPred _ -> TBool
+    | HFunCall (called, args) ->
+        let params, return_ty = find_fun called in
+        if List.length params <> List.length args then
+          fail_node node_name
+            (Printf.sprintf "function '%s' expects %d arguments but got %d" called
+               (List.length params) (List.length args));
+        List.iter2
+          (fun (param : Core_syntax.vdecl) arg ->
+            expect_ty ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
+              param.vty (hexpr_ty arg))
+          params args;
+        return_ty
     | HUn (Not, inner) ->
         expect_ty "not operand" TBool (hexpr_ty inner);
         TBool
@@ -408,7 +638,8 @@ let validate_node (n : Verification_model.node_model) : unit =
       reject_ghost_use "ensures contract" (vars_of_ltl guarantee))
     n.guarantees
 
-let node ~(type_decls : Core_syntax.enum_decl list) (n : Kx_ast.node) :
+let node ~(type_decls : Core_syntax.enum_decl list)
+    ~(function_decls : Core_syntax.pure_function_decl list) (n : Kx_ast.node) :
     Verification_model.node_model =
   let sem = Kx_ast.semantics_of_node n in
   let spec = Kx_ast.specification_of_node n in
@@ -416,6 +647,7 @@ let node ~(type_decls : Core_syntax.enum_decl list) (n : Kx_ast.node) :
     {
     Verification_model.node_name = sem.sem_nname;
     type_decls;
+    function_decls;
     inputs = List.map lower_vdecl sem.sem_inputs;
     outputs = List.map lower_vdecl sem.sem_outputs;
     locals = List.map lower_vdecl sem.sem_locals;
@@ -432,8 +664,11 @@ let node ~(type_decls : Core_syntax.enum_decl list) (n : Kx_ast.node) :
   validate_node lowered;
   Verification_model.prioritize_node_steps lowered
 
-let program ?(type_decls : Kx_core_syntax.enum_decl list = []) (p : Kx_ast.program) :
+let program ?(type_decls : Kx_core_syntax.enum_decl list = [])
+    ?(function_decls : Kx_core_syntax.pure_function_decl list = []) (p : Kx_ast.program) :
     Verification_model.program_model =
   let type_decls = List.map lower_enum_decl type_decls in
+  let function_decls = List.map (lower_function_decl ~type_decls) function_decls in
   validate_unique_type_decls type_decls;
-  List.map (node ~type_decls) p
+  validate_function_decls type_decls function_decls;
+  List.map (node ~type_decls ~function_decls) p

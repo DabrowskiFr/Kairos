@@ -58,6 +58,8 @@ let rec string_of_expr_with_ctx ?(ctx = 0) (e : expr) : string =
   | ELitBool b -> if b then "true" else "false"
   | ELitEnum c -> c
   | EVar x -> x
+  | EFunCall (fn, args) ->
+      fn ^ "(" ^ String.concat ", " (List.map (string_of_expr_with_ctx ~ctx:0) args) ^ ")"
   | EUn (Neg, a) -> wrap 6 ("-" ^ string_of_expr_with_ctx ~ctx:6 a)
   | EUn (Not, a) -> wrap 6 ("not " ^ string_of_expr_with_ctx ~ctx:6 a)
   | EBin (op, a, b) ->
@@ -96,6 +98,8 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
       if k = 1 then "pre(" ^ v ^ ")" else "pre_k(" ^ v ^ ", " ^ string_of_int k ^ ")"
   | HPred (id, hs) ->
       id ^ "(" ^ String.concat ", " (List.map (string_of_hexpr_with_ctx ~ctx:0) hs) ^ ")"
+  | HFunCall (fn, args) ->
+      fn ^ "(" ^ String.concat ", " (List.map (string_of_hexpr_with_ctx ~ctx:0) args) ^ ")"
   | HUn (op, a) ->
       let prec = prec_of_hunop op in
       let prefix = match op with Neg -> "-" | Not -> "not " in

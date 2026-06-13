@@ -48,6 +48,7 @@ let rec key_of_hexpr (h : hexpr) : string =
   | HVar v -> "v:" ^ v
   | HPreK (v, k) -> "p:" ^ string_of_int k ^ ":" ^ v
   | HPred (id, hs) -> "pred:" ^ id ^ "(" ^ String.concat "," (List.map key_of_hexpr hs) ^ ")"
+  | HFunCall (id, hs) -> "fun:" ^ id ^ "(" ^ String.concat "," (List.map key_of_hexpr hs) ^ ")"
   | HUn (op, inner) ->
       let op_s = match op with Neg -> "neg" | Not -> "not" in
       op_s ^ "(" ^ key_of_hexpr inner ^ ")"
@@ -341,7 +342,7 @@ let rebuild_or_syntax (xs : hexpr list) : hexpr =
 
 let rec simplify_fo_syntax (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match f.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ -> f
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
   | HUn (Neg, inner) -> mk_h (HUn (Neg, simplify_fo_syntax inner))
   | HUn (Not, inner) -> begin
       match (simplify_fo_syntax inner).hexpr with
@@ -422,6 +423,9 @@ let rec infer_expr_sort (vars : (ident, smt_sort) Hashtbl.t) (e : expr) : smt_so
   | ELitBool _ -> Some SBool
   | ELitEnum _ -> None
   | EVar v -> Hashtbl.find_opt vars v
+  | EFunCall (_, args) ->
+      List.iter (fun x -> ignore (infer_expr_sort vars x)) args;
+      None
   | EUn (Neg, a) ->
       let _ = infer_expr_sort vars a in
       Some SInt
@@ -457,6 +461,9 @@ let rec infer_hexpr_sort vars (h : hexpr) =
   | HPred (_, hs) ->
       List.iter (fun x -> ignore (infer_hexpr_sort vars x)) hs;
       Some SBool
+  | HFunCall (_, hs) ->
+      List.iter (fun x -> ignore (infer_hexpr_sort vars x)) hs;
+      None
   | HUn (Neg, inner) ->
       let _ = infer_hexpr_sort vars inner in
       Some SInt
@@ -516,6 +523,7 @@ let rec z3_of_expr (env : z3_env) (e : expr) : Z3.Expr.expr * smt_sort =
   | ELitInt i -> (Z3.Arithmetic.Integer.mk_numeral_i env.ctx i, SInt)
   | ELitBool b -> (Z3.Boolean.mk_val env.ctx b, SBool)
   | ELitEnum _ -> raise Unsupported_enum_formula
+  | EFunCall _ -> raise Unsupported_enum_formula
   | EVar v ->
       let sort = Hashtbl.find_opt env.vars v |> Option.value ~default:SInt in
       let name = smt_var_name v in
@@ -583,6 +591,7 @@ let rec z3_of_hexpr (env : z3_env) (h : hexpr) : Z3.Expr.expr * smt_sort =
       let fd = Z3.FuncDecl.mk_func_decl_s env.ctx name sorts (Z3.Boolean.mk_sort env.ctx) in
       Hashtbl.replace env.z3_preds name id;
       (Z3.Expr.mk_app env.ctx fd (List.map fst args), SBool)
+  | HFunCall _ -> raise Unsupported_enum_formula
   | HUn (Neg, inner) ->
       let a, _ = z3_of_hexpr env inner in
       (Z3.Arithmetic.mk_unary_minus env.ctx a, SInt)

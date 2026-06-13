@@ -5,6 +5,26 @@ type SignalColor = Red | Green;
 type PointPosition = Normal | Reverse;
 type RouteState = Idle | Locked | Releasing;
 
+function stopSignal(): SignalColor
+  ensures: result = Red;
+= Red;
+
+function proceedSignal(): SignalColor
+  ensures: result = Green;
+= Green;
+
+function idleState(): RouteState
+  ensures: result = Idle;
+= Idle;
+
+function lockedState(): RouteState
+  ensures: result = Locked;
+= Locked;
+
+function releasingState(): RouteState
+  ensures: result = Releasing;
+= Releasing;
+
 node quantified_railway_interlocking(
   occupied[Track]: bool,
   request[Route]: bool,
@@ -33,20 +53,20 @@ predicate allRoutesIdle() =
   forall r in Route. routeIdle(r);
 
 action clearRoute(r) {
-  signal[r] := Red;
-  routeState[r] := Idle;
+  signal[r] := stopSignal();
+  routeState[r] := idleState();
   reserved[r] := false;
 }
 
 action cancelRoute(r) {
-  routeState[r] := Releasing;
-  signal[r] := Red;
+  routeState[r] := releasingState();
+  signal[r] := stopSignal();
 }
 
 action lockRoute(r) {
-  routeState[r] := Locked;
+  routeState[r] := lockedState();
   reserved[r] := true;
-  signal[r] := Green;
+  signal[r] := proceedSignal();
 }
 
 contracts

@@ -45,6 +45,7 @@ let rec hexpr_of_expr (e : expr) : hexpr =
     | ELitBool b -> HLitBool b
     | ELitEnum c -> HLitEnum c
     | EVar v -> HVar v
+    | EFunCall (fn, args) -> HFunCall (fn, List.map hexpr_of_expr args)
     | EBin (op, a, b) -> HBin (op, hexpr_of_expr a, hexpr_of_expr b)
     | ECmp (op, a, b) -> HCmp (op, hexpr_of_expr a, hexpr_of_expr b)
     | EUn (op, inner) -> HUn (op, hexpr_of_expr inner)

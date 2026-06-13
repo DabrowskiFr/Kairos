@@ -305,6 +305,45 @@ let logic_bool_pred_decl ~(env : Why_compile_expr.env) ~(input_ports : Why_runti
 let port_view_to_vdecl (p : Why_runtime_view.port_view) : vdecl =
   { vname = p.port_name; vty = p.port_type }
 
+(** [compile_pure_function_decl] translates a source-level pure function into a
+    WhyML function with pre/postconditions. *)
+let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
+  let env = { rec_name = ""; rec_vars = []; links = [] } in
+  let binders =
+    List.map
+      (fun (v : vdecl) -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
+      f.function_params
+  in
+  let mk_post t =
+    (loc, [ ({ pat_desc = Pvar (ident "result"); pat_loc = loc }, t) ])
+  in
+  let spc =
+    {
+      Ptree.sp_pre = List.map (compile_local_fo_formula_term env) f.function_requires;
+      sp_post = List.map (fun ens -> mk_post (compile_local_fo_formula_term env ens)) f.function_ensures;
+      sp_xpost = [];
+      sp_reads = [];
+      sp_writes = [];
+      sp_alias = [];
+      sp_variant = [];
+      sp_checkrw = false;
+      sp_diverge = false;
+      sp_partial = false;
+    }
+  in
+  let body = compile_expr env f.function_body in
+  let fn =
+    mk_expr
+      (Efun
+         ( binders,
+           Some (default_pty f.function_return),
+           { pat_desc = Pwild; pat_loc = loc },
+           Ity.MaskVisible,
+           spc,
+           body ))
+  in
+  Ptree.Dlet (ident f.function_name, false, Expr.RKnone, fn)
+
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
    The active path builds [info] from the IR via [prepare_ir_node]. *)
 (** [compile_node_with_info] helper value. *)
@@ -319,6 +358,7 @@ let compile_node_with_info ?kernel_ir
   let type_enum_decls = info.type_enum_decls in
   let type_vars = info.type_vars in
   let env = info.env in
+  let function_decls = List.map compile_pure_function_decl runtime_view.function_decls in
   let inputs = info.inputs in
   let ret_expr = info.ret_expr in
   (* Locals and outputs as vdecl list (needed for getter generation). *)
@@ -710,7 +750,7 @@ let compile_node_with_info ?kernel_ir
   in
 
   let decls =
-    imports @ type_enum_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
+    imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
     @ phase_case_logic_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
     @ coherency_goal_decls @ kernel_init_goal_decls
   in

@@ -63,6 +63,7 @@ let signature_of_model_node (node : Verification_model.node_model) :
   {
     sem_nname = node.node_name;
     sem_type_decls = node.type_decls;
+    sem_function_decls = node.function_decls;
     sem_inputs = node.inputs;
     sem_outputs = node.outputs;
     sem_locals = node.locals @ node.ghosts;

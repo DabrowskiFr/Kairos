@@ -95,6 +95,9 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
     | HPred (id, hs) ->
         Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_post hs))
+    | HFunCall (fn, hs) ->
+        Core_syntax_builders.with_hexpr_desc h
+          (HFunCall (fn, List.map rewrite_hexpr_post hs))
     | HBin (op, a, b) ->
         Core_syntax_builders.with_hexpr_desc h
           (HBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
@@ -104,7 +107,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   let rec rewrite_formula_post (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_post f
-    | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_post f
+    | HPred _ | HFunCall _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_post f
   in
   let slot_name_for_depth base_var depth =
     match List.assoc_opt base_var current_expr_to_next_slot with
@@ -126,6 +129,9 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         | None -> h)
     | HPred (id, hs) ->
         Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_pre hs))
+    | HFunCall (fn, hs) ->
+        Core_syntax_builders.with_hexpr_desc h
+          (HFunCall (fn, List.map rewrite_hexpr_pre hs))
     | HUn (op, inner) ->
         Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
     | HBin (op, a, b) ->
@@ -137,7 +143,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   let rec rewrite_formula_pre (f : Core_syntax.hexpr) : Core_syntax.hexpr =
     match f.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
-    | HPred _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
+    | HPred _ | HFunCall _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
   in
   let is_structural_step_fact (fact : relational_clause_fact_ir) =
     match fact.desc with

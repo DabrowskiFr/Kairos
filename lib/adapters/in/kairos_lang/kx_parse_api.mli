@@ -33,6 +33,7 @@ type import_decl = {
 type source = {
   imports : import_decl list;
   type_decls : Kx_core_syntax.enum_decl list;
+  function_decls : Kx_core_syntax.pure_function_decl list;
   nodes : Kx_ast.program;
 }
 

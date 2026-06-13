@@ -40,6 +40,7 @@ let () =
       ("node", NODE);
       ("type", TYPE);
       ("domain", DOMAIN);
+      ("function", FUNCTION);
       ("predicate", PREDICATE);
       ("action", ACTION);
       ("returns", RETURNS);
@@ -128,6 +129,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("node", NODE);
     ("type", TYPE);
     ("domain", DOMAIN);
+    ("function", FUNCTION);
     ("predicate", PREDICATE);
     ("action", ACTION);
     ("returns", RETURNS);

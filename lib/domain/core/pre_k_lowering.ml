@@ -58,6 +58,15 @@ let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types 
       | None -> None
     end
   | HPred _ -> None
+  | HFunCall (fn, hs) ->
+      let rec lower_args acc = function
+        | [] -> Some (List.rev acc)
+        | x :: xs -> (
+            match hexpr_to_expr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings x with
+            | None -> None
+            | Some x' -> lower_args (x' :: acc) xs)
+      in
+      Option.map (fun args -> { expr = EFunCall (fn, args); loc }) (lower_args [] hs)
   | HUn (op, inner) ->
       Option.map (fun e -> { expr = EUn (op, e); loc })
         (hexpr_to_expr_with_temporal_bindings ~inputs ~var_types ~temporal_bindings inner)
@@ -102,6 +111,15 @@ let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding lis
             | Some x' -> lower_args (x' :: acc) xs)
       in
       Option.map (fun hs' -> { hexpr = HPred (id, hs'); loc }) (lower_args [] hs)
+  | HFunCall (fn, hs) ->
+      let rec lower_args acc = function
+        | [] -> Some (List.rev acc)
+        | x :: xs -> (
+            match lower_hexpr_temporal_bindings ~temporal_bindings x with
+            | None -> None
+            | Some x' -> lower_args (x' :: acc) xs)
+      in
+      Option.map (fun hs' -> { hexpr = HFunCall (fn, hs'); loc }) (lower_args [] hs)
   | HUn (op, inner) ->
       Option.map (fun inner' -> { hexpr = HUn (op, inner'); loc })
         (lower_hexpr_temporal_bindings ~temporal_bindings inner)

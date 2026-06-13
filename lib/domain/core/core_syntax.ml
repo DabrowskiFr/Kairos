@@ -60,6 +60,7 @@ and expr_desc =
   | ELitBool of bool
   | ELitEnum of ident
   | EVar of ident
+  | EFunCall of ident * expr list
   | EBin of binop * expr * expr
   | ECmp of relop * expr * expr
   | EUn of unop * expr
@@ -78,6 +79,7 @@ and hexpr_desc =
   | HVar of ident
   | HPreK of ident * int
   | HPred of ident * hexpr list
+  | HFunCall of ident * hexpr list
   | HBin of binop * hexpr * hexpr
   | HCmp of relop * hexpr * hexpr
   | HUn of unop * hexpr
@@ -105,6 +107,20 @@ type ltl_o = { value : ltl; oid : int; loc : Loc.loc option } [@@deriving yojson
 
 (** Typed variable declaration. *)
 type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
+
+(** Pure first-order function declaration.
+
+    Functions are translated as Why3 functions. The [result] identifier is
+    reserved for postconditions and denotes the returned value. *)
+type pure_function_decl = {
+  function_name : ident;
+  function_params : vdecl list;
+  function_return : ty;
+  function_requires : hexpr list;
+  function_ensures : hexpr list;
+  function_body : expr;
+}
+[@@deriving yojson]
 
 (** Internal imperative statement language used by the verification model and IR.
 
