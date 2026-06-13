@@ -32,6 +32,23 @@ predicate signalGreen(r) =
 predicate allRoutesIdle() =
   forall r in Route. routeIdle(r);
 
+action clearRoute(r) {
+  signal[r] := Red;
+  routeState[r] := Idle;
+  reserved[r] := false;
+}
+
+action cancelRoute(r) {
+  routeState[r] := Releasing;
+  signal[r] := Red;
+}
+
+action lockRoute(r) {
+  routeState[r] := Locked;
+  reserved[r] := true;
+  signal[r] := Green;
+}
+
 contracts
   topology
     route R_AB uses TA, TB requires P1 = Normal;
@@ -64,9 +81,7 @@ trans
   Init:
     to Run {
       for r in Route {
-        signal[r] := Red;
-        routeState[r] := Idle;
-        reserved[r] := false;
+        clearRoute(r);
       }
       pointPosition[P1] := Normal;
       pointPosition[P2] := Normal;
@@ -77,63 +92,50 @@ trans
     to Run {
       for r in Route {
         if cancel[r] and routeState[r] != Idle then
-          routeState[r] := Releasing;
-          signal[r] := Red;
+          cancelRoute(r);
         else
           skip;
         end;
 
         if releaseAck[r] and routeState[r] = Releasing then
-          routeState[r] := Idle;
-          reserved[r] := false;
-          signal[r] := Red;
+          clearRoute(r);
         else
           skip;
         end;
       }
 
       if request[R_AB] and allRoutesIdle() and occupied[TA] = false and occupied[TB] = false then
-        routeState[R_AB] := Locked;
-        reserved[R_AB] := true;
+        lockRoute(R_AB);
         pointPosition[P1] := Normal;
-        signal[R_AB] := Green;
       else
         skip;
       end;
 
       if request[R_AC] and allRoutesIdle() and occupied[TA] = false and occupied[TC] = false then
-        routeState[R_AC] := Locked;
-        reserved[R_AC] := true;
+        lockRoute(R_AC);
         pointPosition[P1] := Reverse;
-        signal[R_AC] := Green;
       else
         skip;
       end;
 
       if request[R_DE] and allRoutesIdle() and occupied[TD] = false and occupied[TE] = false then
-        routeState[R_DE] := Locked;
-        reserved[R_DE] := true;
+        lockRoute(R_DE);
         pointPosition[P2] := Normal;
-        signal[R_DE] := Green;
       else
         skip;
       end;
 
       if request[R_CF] and allRoutesIdle() and occupied[TC] = false and occupied[TF] = false then
-        routeState[R_CF] := Locked;
-        reserved[R_CF] := true;
+        lockRoute(R_CF);
         pointPosition[P2] := Reverse;
         pointPosition[P3] := Normal;
-        signal[R_CF] := Green;
       else
         skip;
       end;
 
       if request[R_BF] and allRoutesIdle() and occupied[TB] = false and occupied[TF] = false then
-        routeState[R_BF] := Locked;
-        reserved[R_BF] := true;
+        lockRoute(R_BF);
         pointPosition[P3] := Reverse;
-        signal[R_BF] := Green;
       else
         skip;
       end;

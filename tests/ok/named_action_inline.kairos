@@ -1,0 +1,55 @@
+type Route = R1 | R2;
+
+node named_action_inline(
+  request[Route]: bool
+) returns (
+  locked[Route]: bool,
+  enabled[Route]: bool
+)
+ghosts
+  proofLocked[Route]: bool;
+
+predicate mirrored() =
+  forall r in Route. proofLocked[r] = locked[r];
+
+action clearRoute(r) {
+  locked[r] := false;
+  enabled[r] := false;
+  proofLocked[r] := false;
+}
+
+action lockRoute(r) {
+  locked[r] := true;
+  enabled[r] := true;
+  proofLocked[r] := true;
+}
+
+contracts
+  ensures: forall r in Route.
+    G(enabled[r] = true => locked[r] = true);
+
+states Init(init), Run;
+
+invariants
+  in Run:
+    mirrored();
+
+trans
+  Init:
+    to Run {
+      for r in Route {
+        clearRoute(r);
+      }
+    }
+
+  Run:
+    to Run {
+      for r in Route {
+        if request[r] then
+          lockRoute(r);
+        else
+          clearRoute(r);
+        end;
+      }
+    }
+end

@@ -24,13 +24,16 @@ let indexed_ident_many (base:ident) (idxs:ident list) : ident =
 
 let domain_table : (string, ident list) Hashtbl.t = Hashtbl.create 17
 let predicate_table : (string, ident list * hexpr) Hashtbl.t = Hashtbl.create 17
+let action_table : (string, ident list * stmt list) Hashtbl.t = Hashtbl.create 17
 
 let reset_frontend_tables () =
   Hashtbl.clear domain_table;
-  Hashtbl.clear predicate_table
+  Hashtbl.clear predicate_table;
+  Hashtbl.clear action_table
 
-let reset_node_predicates () =
-  Hashtbl.clear predicate_table
+let reset_node_macros () =
+  Hashtbl.clear predicate_table;
+  Hashtbl.clear action_table
 
 let register_domain ~(name:ident) ~(members:ident list) : unit =
   if Hashtbl.mem domain_table name then
@@ -55,7 +58,16 @@ let cartesian_concat left right =
 let register_predicate ~(name:ident) ~(params:ident list) ~(body:hexpr) : unit =
   if Hashtbl.mem predicate_table name then
     failwith (Printf.sprintf "duplicate predicate '%s'" name);
+  if Hashtbl.mem action_table name then
+    failwith (Printf.sprintf "predicate '%s' conflicts with an action of the same name" name);
   Hashtbl.add predicate_table name (params, body)
+
+let register_action ~(name:ident) ~(params:ident list) ~(body:stmt list) : unit =
+  if Hashtbl.mem action_table name then
+    failwith (Printf.sprintf "duplicate action '%s'" name);
+  if Hashtbl.mem predicate_table name then
+    failwith (Printf.sprintf "action '%s' conflicts with a predicate of the same name" name);
+  Hashtbl.add action_table name (params, body)
 
 let subst_ident ~(param:ident) ~(value:ident) (id:ident) : ident =
   id
@@ -142,6 +154,19 @@ let expand_predicate name args =
   match Hashtbl.find_opt predicate_table name with
   | Some (params, body) -> subst_many_hexpr params args body
   | None -> Kx_core_syntax_builders.mk_hpred name (List.map Kx_core_syntax_builders.mk_hvar args)
+
+let subst_many_stmts name params args body =
+  if List.length params <> List.length args then
+    failwith
+      (Printf.sprintf "action '%s' expects %d arguments but got %d" name (List.length params) (List.length args));
+  List.fold_left2
+    (fun acc param value -> List.map (subst_stmt_index ~param ~value) acc)
+    body params args
+
+let expand_action name args =
+  match Hashtbl.find_opt action_table name with
+  | Some (params, body) -> subst_many_stmts name params args body
+  | None -> failwith (Printf.sprintf "unknown action '%s'" name)
 
 let rec ltl_of_fo (h:hexpr) : ltl =
   match h.hexpr with
@@ -334,7 +359,7 @@ let topology_generated_guarantees (entries : topology_entry list) : ltl list =
     routes
 %}
 
-%token TYPE DOMAIN PREDICATE
+%token TYPE DOMAIN PREDICATE ACTION
 %token NODE RETURNS LOCALS GHOSTS STATES INIT TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
@@ -460,6 +485,7 @@ node:
   alias_decls_opt
   ghosts_opt
   predicate_decls_opt
+  action_decls_opt
   node_contracts_block instances_opt
   locals_opt
   STATES state_decls SEMI
@@ -468,22 +494,22 @@ node:
   END
   {
     let () = forbid_reserved_identifier ~context:"node name" $2 in
-    let states, inline_init = $18 in
+    let states, inline_init = $19 in
     let init_state = resolve_init_state ~inline_init in
     Kx_ast_builders.mk_node
       ~nname:$2
       ~inputs:$4
       ~outputs:$8
-      ~assumes:(fst $14)
-      ~guarantees:(snd $14)
-      ~instances:$15
-      ~locals:$16
+      ~assumes:(fst $15)
+      ~guarantees:(snd $15)
+      ~instances:$16
+      ~locals:$17
       ~ghosts:$12
       ~states
       ~init_state
-      ~trans:$22
+      ~trans:$23
     |> fun n ->
-      { n with specification = { n.specification with spec_invariants_state_rel = $20 } }
+      { n with specification = { n.specification with spec_invariants_state_rel = $21 } }
   }
 
 params_opt:
@@ -650,7 +676,7 @@ ident_list:
   | IDENT { [$1] }
 
 alias_scope_start:
-  | /* empty */ { reset_history_aliases (); reset_node_predicates () }
+  | /* empty */ { reset_history_aliases (); reset_node_macros () }
 
 alias_decls_opt:
   | /* empty */ { () }
@@ -681,6 +707,22 @@ predicate_decls_opt:
 predicate_decls:
   | predicate_decl predicate_decls { () }
   | predicate_decl { () }
+
+action_decls_opt:
+  | /* empty */ { () }
+  | action_decls { () }
+
+action_decls:
+  | action_decl action_decls { () }
+  | action_decl { () }
+
+action_decl:
+  | ACTION IDENT LPAREN pred_params_opt RPAREN LBRACE stmt_list_opt RBRACE
+      {
+        let () = forbid_reserved_identifier ~context:"action name" $2 in
+        List.iter (fun name -> forbid_reserved_identifier ~context:"action parameter" name) $4;
+        register_action ~name:$2 ~params:$4 ~body:$7
+      }
 
 state_decls:
   | state_decl COMMA state_decls {
@@ -812,6 +854,8 @@ stmt_list:
 
 stmt_item:
   | stmt SEMI { [$1] }
+  | IDENT LPAREN id_list_opt RPAREN SEMI
+      { expand_action $1 $3 }
   | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
       { expand_stmt_quantifier $2 $4 $6 }
 

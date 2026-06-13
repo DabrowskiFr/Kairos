@@ -41,6 +41,7 @@ let () =
       ("type", TYPE);
       ("domain", DOMAIN);
       ("predicate", PREDICATE);
+      ("action", ACTION);
       ("returns", RETURNS);
       ("locals", LOCALS);
       ("ghost", GHOSTS);
@@ -128,6 +129,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("type", TYPE);
     ("domain", DOMAIN);
     ("predicate", PREDICATE);
+    ("action", ACTION);
     ("returns", RETURNS);
     ("locals", LOCALS);
     ("ghost", GHOSTS);
