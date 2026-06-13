@@ -1,6 +1,6 @@
-type Track = TA | TB | TC | TD | TE | TF;
-type Route = R_AB | R_AC | R_DE | R_CF | R_BF | R_CE;
-type Point = P1 | P2 | P3;
+type Track = TA | TB | TC | TD | TE;
+type Route = R_AB | R_AC | R_DE;
+type Point = P1 | P2;
 type SignalColor = Red | Green;
 type PointPosition = Normal | Reverse;
 type RouteState = Idle | Locked | Releasing;
@@ -76,6 +76,7 @@ action clearRoute(r) {
 
 action cancelRoute(r) {
   routeState[r] := releasingState();
+  reserved[r] := true;
   signal[r] := stopSignal();
 }
 
@@ -90,33 +91,38 @@ contracts
     route R_AB uses TA, TB requires P1 = Normal;
     route R_AC uses TA, TC requires P1 = Reverse;
     route R_DE uses TD, TE requires P2 = Normal;
-    route R_CF uses TC, TF requires P2 = Reverse, P3 = Normal;
-    route R_BF uses TB, TF requires P3 = Reverse;
-    route R_CE uses TC, TE requires P2 = Reverse;
     conflict R_AB, R_AC;
-    conflict R_AB, R_BF;
-    conflict R_AC, R_CF;
-    conflict R_AC, R_CE;
-    conflict R_DE, R_CF;
-    conflict R_DE, R_CE;
-    conflict R_CF, R_BF;
-    conflict R_CF, R_CE;
+    conflict R_AC, R_DE;
     routeSignal R_AB -> R_AB;
     routeSignal R_AC -> R_AC;
     routeSignal R_DE -> R_DE;
-    routeSignal R_CF -> R_CF;
-    routeSignal R_BF -> R_BF;
-    routeSignal R_CE -> R_CE;
   end
 
+  ensures: G(routeState[R_AB] = Locked => X(reserved[R_AB] = true W routeState[R_AB] = Idle));
   ensures: forall r in Route.
     G(routeState[r] = Releasing => signalRed(r));
-  ensures: forall r in Route.
-    G(cancel[r] = true => X(signalRed(r) W routeIdle(r)));
   ensures: forall r in Route.
     G(signalGreen(r) => routeLocked(r));
 
 states Init(init), Run;
+
+invariants
+  in Init:
+    forall r in Route. signal[r] = Red;
+    forall r in Route. routeIdle(r);
+    forall r in Route. reserved[r] = false;
+  in Run:
+    forall r in Route. routeState[r] = Idle or routeState[r] = Locked or routeState[r] = Releasing;
+    forall r in Route. routeState[r] != Idle => reserved[r] = true;
+    forall r in Route. routeState[r] = Releasing => signalRed(r);
+    routeState[R_AB] != Idle =>
+      pointPosition[P1] = Normal
+      and routeState[R_AC] != Locked;
+    routeState[R_AC] != Idle =>
+      pointPosition[P1] = Reverse
+      and routeState[R_AB] != Locked;
+    routeState[R_DE] != Idle =>
+      pointPosition[P2] = Normal;
 
 trans
   Init:
@@ -126,66 +132,53 @@ trans
       }
       pointPosition[P1] := Normal;
       pointPosition[P2] := Normal;
-      pointPosition[P3] := Normal;
     }
 
   Run:
     to Run {
       for r in Route {
-        if cancel[r] and not isIdleState(routeState[r]) then
-          cancelRoute(r);
-        else
-          skip;
-        end;
-
-        if releaseAck[r] and isReleasingState(routeState[r]) then
-          clearRoute(r);
-        else
-          skip;
-        end;
+        signal[r] := stopSignal();
       }
 
-      if request[R_AB] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TB]) then
-        lockRoute(R_AB);
-        pointPosition[P1] := Normal;
+      if cancel[R_AB] and not isIdleState(routeState[R_AB]) then
+        cancelRoute(R_AB);
       else
-        skip;
-      end;
-
-      if request[R_AC] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TC]) then
-        lockRoute(R_AC);
-        pointPosition[P1] := Reverse;
-      else
-        skip;
-      end;
-
-      if request[R_DE] and allRoutesIdle() and trackClear(occupied[TD]) and trackClear(occupied[TE]) then
-        lockRoute(R_DE);
-        pointPosition[P2] := Normal;
-      else
-        skip;
-      end;
-
-      if request[R_CF] and allRoutesIdle() and trackClear(occupied[TC]) and trackClear(occupied[TF]) then
-        lockRoute(R_CF);
-        pointPosition[P2] := Reverse;
-        pointPosition[P3] := Normal;
-      else
-        skip;
-      end;
-
-      if request[R_BF] and allRoutesIdle() and trackClear(occupied[TB]) and trackClear(occupied[TF]) then
-        lockRoute(R_BF);
-        pointPosition[P3] := Reverse;
-      else
-        skip;
-      end;
-
-      if request[R_CE] and allRoutesIdle() and trackClear(occupied[TC]) and trackClear(occupied[TE]) then
-        lockRoute(R_CE);
-        pointPosition[P2] := Reverse;
-      else
-        skip;
+        if releaseAck[R_AB] and isReleasingState(routeState[R_AB]) then
+          clearRoute(R_AB);
+        else
+          if cancel[R_AC] and not isIdleState(routeState[R_AC]) then
+            cancelRoute(R_AC);
+          else
+            if releaseAck[R_AC] and isReleasingState(routeState[R_AC]) then
+              clearRoute(R_AC);
+            else
+              if cancel[R_DE] and not isIdleState(routeState[R_DE]) then
+                cancelRoute(R_DE);
+              else
+                if releaseAck[R_DE] and isReleasingState(routeState[R_DE]) then
+                  clearRoute(R_DE);
+                else
+                  if request[R_AB] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TB]) then
+                    lockRoute(R_AB);
+                    pointPosition[P1] := Normal;
+                  else
+                    if request[R_AC] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TC]) then
+                      lockRoute(R_AC);
+                      pointPosition[P1] := Reverse;
+                    else
+                      if request[R_DE] and allRoutesIdle() and trackClear(occupied[TD]) and trackClear(occupied[TE]) then
+                        lockRoute(R_DE);
+                        pointPosition[P2] := Normal;
+                      else
+                        skip;
+                      end;
+                    end;
+                  end;
+                end;
+              end;
+            end;
+          end;
+        end;
       end;
     }
 end
