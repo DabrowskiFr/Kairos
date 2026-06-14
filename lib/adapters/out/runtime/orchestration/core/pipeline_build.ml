@@ -18,6 +18,8 @@
 
 let ( let* ) = Result.bind
 
+module StringSet = Set.Make (String)
+
 let rec stmt_contains_call (s : Core_syntax.stmt) : bool =
   match s.stmt with
   | SCall _ -> true
@@ -57,6 +59,34 @@ let rec ltl_contains_weak_until (formula : Core_syntax.ltl) : bool =
   | Core_syntax.LImp (a, b) ->
       ltl_contains_weak_until a || ltl_contains_weak_until b
 
+let rec vars_of_hexpr (acc : StringSet.t) (h : Core_syntax.hexpr) : StringSet.t =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ -> acc
+  | HVar name | HPreK (name, _) -> StringSet.add name acc
+  | HPred (_, args) | HFunCall (_, args) ->
+      List.fold_left vars_of_hexpr acc args
+  | HUn (_, inner) -> vars_of_hexpr acc inner
+  | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
+
+let rec vars_of_ltl (acc : StringSet.t) (formula : Core_syntax.ltl) : StringSet.t =
+  match formula with
+  | LTrue | LFalse -> acc
+  | LAtom (a, _, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
+  | LNot a | LX a | LG a -> vars_of_ltl acc a
+  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
+      vars_of_ltl (vars_of_ltl acc a) b
+
+let guarantee_mentions_private_var (node : Verification_model.node_model)
+    (guarantee : Core_syntax.ltl) : bool =
+  let private_vars =
+    node.locals @ node.ghosts
+    |> List.fold_left
+         (fun acc (v : Core_syntax.vdecl) -> StringSet.add v.vname acc)
+         StringSet.empty
+  in
+  let guarantee_vars = vars_of_ltl StringSet.empty guarantee in
+  not (StringSet.is_empty (StringSet.inter private_vars guarantee_vars))
+
 let split_node_guarantees (program : Verification_model.program_model) :
     Verification_model.program_model =
   let used_names = Hashtbl.create (List.length program * 2 + 1) in
@@ -83,12 +113,25 @@ let split_node_guarantees (program : Verification_model.program_model) :
          | guarantees ->
              if not (List.exists ltl_contains_weak_until guarantees) then [ node ]
              else
-               guarantees
+               let plain_guarantees, weak_until_guarantees =
+                 List.partition
+                   (fun guarantee -> not (ltl_contains_weak_until guarantee))
+                   guarantees
+               in
+               let auxiliary_plain_guarantees =
+                 List.filter (guarantee_mentions_private_var node) plain_guarantees
+               in
+               (plain_guarantees @ weak_until_guarantees)
                |> List.mapi (fun idx guarantee ->
+                      let guarantees =
+                        if ltl_contains_weak_until guarantee then
+                          auxiliary_plain_guarantees @ [ guarantee ]
+                        else [ guarantee ]
+                      in
                       {
                         node with
                         node_name = fresh_runtime_name node.node_name (idx + 1);
-                        guarantees = [ guarantee ];
+                        guarantees;
                       }))
 
 let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) :
