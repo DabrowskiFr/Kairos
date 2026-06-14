@@ -46,6 +46,17 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
+let rec ltl_contains_weak_until (formula : Core_syntax.ltl) : bool =
+  match formula with
+  | Core_syntax.LTrue | Core_syntax.LFalse | Core_syntax.LAtom _ -> false
+  | Core_syntax.LNot a | Core_syntax.LX a | Core_syntax.LG a ->
+      ltl_contains_weak_until a
+  | Core_syntax.LW _ -> true
+  | Core_syntax.LAnd (a, b)
+  | Core_syntax.LOr (a, b)
+  | Core_syntax.LImp (a, b) ->
+      ltl_contains_weak_until a || ltl_contains_weak_until b
+
 let split_node_guarantees (program : Verification_model.program_model) :
     Verification_model.program_model =
   let used_names = Hashtbl.create (List.length program * 2 + 1) in
@@ -70,13 +81,15 @@ let split_node_guarantees (program : Verification_model.program_model) :
          match node.guarantees with
          | [] | [ _ ] -> [ node ]
          | guarantees ->
-             guarantees
-             |> List.mapi (fun idx guarantee ->
-                    {
-                      node with
-                      node_name = fresh_runtime_name node.node_name (idx + 1);
-                      guarantees = [ guarantee ];
-                    }))
+             if not (List.exists ltl_contains_weak_until guarantees) then [ node ]
+             else
+               guarantees
+               |> List.mapi (fun idx guarantee ->
+                      {
+                        node with
+                        node_name = fresh_runtime_name node.node_name (idx + 1);
+                        guarantees = [ guarantee ];
+                      }))
 
 let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) :
     (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)

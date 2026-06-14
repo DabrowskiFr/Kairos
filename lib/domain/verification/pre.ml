@@ -104,45 +104,36 @@ let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state
     Abs.product_state -> Core_syntax.hexpr option =
   let is_input = is_input_of_node node in
   let by_dst = ref [] in
-  let by_src = ref [] in
-  let add table_ref state formulas =
+  let add dst formulas =
     let rec loop acc = function
-      | [] -> List.rev ((state, formulas) :: acc)
-      | (state', prev) :: rest when same_product_state state state' ->
-          List.rev_append acc ((state, dedup_formulas (formulas @ prev)) :: rest)
+      | [] -> List.rev ((dst, formulas) :: acc)
+      | (dst', prev) :: rest when same_product_state dst dst' ->
+          List.rev_append acc ((dst, dedup_formulas (formulas @ prev)) :: rest)
       | x :: rest -> loop (x :: acc) rest
     in
-    table_ref := loop [] !table_ref
+    by_dst := loop [] !by_dst
   in
   List.iter
     (fun (pc : Abs.product_step_summary) ->
       List.iter
         (fun (case : Abs.safe_product_case) ->
           let propagated = shift_formula_forward_inputs ~is_input case.admissible_guard.logic in
-          add by_dst case.product_dst [ propagated ];
-          add by_src pc.identity.product_src [ case.admissible_guard.logic ])
+          add case.product_dst [ propagated ])
         pc.safe_cases)
     node.summaries;
-  let lookup table st =
-    List.find_map
-      (fun (state, fs) -> if same_product_state state st then Some fs else None)
-      !table
-    |> Option.value ~default:[]
-  in
   fun st ->
     let incoming =
+      List.find_map
+        (fun (dst, fs) -> if same_product_state dst st then Some fs else None)
+        !by_dst
+      |> Option.value ~default:[]
+    in
+    let incoming =
       if same_product_state st initial_product_state then
-        [ Core_syntax_builders.mk_hbool true ]
-      else lookup by_dst st
+        Core_syntax_builders.mk_hbool true :: incoming
+      else incoming
     in
-    let phase =
-      if same_product_state st initial_product_state || st.guarantee_state_index = 0 then []
-      else List.map (shift_formula_forward_inputs ~is_input) (lookup by_src st)
-    in
-    match (disj_fo incoming, disj_fo phase) with
-    | None, None -> None
-    | Some f, None | None, Some f -> Some f
-    | Some incoming, Some phase -> Some (Core_syntax_builders.mk_hand incoming phase)
+    disj_fo incoming
 
 type node_generation = {
   guarantee_pre_of_product_state : Abs.product_state -> Core_syntax.hexpr option;

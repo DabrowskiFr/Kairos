@@ -113,9 +113,11 @@ invariants
       and routeState[R_AC] != Locked;
     routeState[R_AC] != Idle =>
       pointPosition[P1] = Reverse
-      and routeState[R_AB] != Locked;
+      and routeState[R_AB] != Locked
+      and routeState[R_DE] != Locked;
     routeState[R_DE] != Idle =>
-      pointPosition[P2] = Normal;
+      pointPosition[P2] = Normal
+      and routeState[R_AC] != Locked;
 
 trans
   Init:
