@@ -362,6 +362,14 @@ let rec lower_ltl env (f : S.ltl) : ltl =
       let released = LAtom (route_state, REq, B.mk_hvar "Idle") in
       LG (LImp (locked, LX (LW (lower_ltl env invariant, released))))
 
+let rec lower_contract_ltls env (f : S.ltl) : ltl list =
+  match f with
+  | SLAnd (a, b) -> lower_contract_ltls env a @ lower_contract_ltls env b
+  | SLForall (param, domain, body) ->
+      domain_members env domain
+      |> List.concat_map (fun value -> lower_contract_ltls env (subst_ltl ~param ~value body))
+  | _ -> [ lower_ltl env f ]
+
 let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
   match s.sstmt with
   | SSAssign (lhs, rhs) ->
@@ -472,8 +480,8 @@ let lower_contracts env contracts =
   let assumes, guarantees =
     List.fold_left
       (fun (assumes, guarantees) -> function
-        | S.SCRequires f -> (lower_ltl env f :: assumes, guarantees)
-        | S.SCEnsures f -> (assumes, lower_ltl env f :: guarantees)
+        | S.SCRequires f -> (List.rev_append (lower_contract_ltls env f) assumes, guarantees)
+        | S.SCEnsures f -> (assumes, List.rev_append (lower_contract_ltls env f) guarantees)
         | S.SCTopology entries ->
             (assumes, List.rev_append (topology_generated_guarantees entries) guarantees))
       ([], []) contracts
