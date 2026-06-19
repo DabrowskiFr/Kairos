@@ -380,9 +380,6 @@ let raw_guard_of_label ~(atom_names : string list) ~(hoa_ap_names : string list)
   label_to_dnf label
   |> List.filter_map normalize_cube
   |> List.map term_of_cube
-  |> prime_implicants
 
 let raw_guard_true (atom_names : string list) : raw_guard =
   [ List.map (fun name -> (name, None)) atom_names ]
-
-let merge_raw_guards (g1 : raw_guard) (g2 : raw_guard) : raw_guard = prime_implicants (g1 @ g2)

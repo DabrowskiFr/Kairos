@@ -1,7 +1,6 @@
 %{
 open Kx_core_syntax
 open Kx_surface_syntax
-open Kx_topology_syntax
 
 let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Kx_loc.loc =
   { line = start_pos.pos_lnum;
@@ -20,8 +19,17 @@ let mk_stmt_loc start_pos end_pos desc =
 let mk_hexpr_loc start_pos end_pos desc =
   Kx_surface_syntax.mk_hexpr ~loc:(loc start_pos end_pos) desc
 
+let mk_history_expr_loc start_pos end_pos desc =
+  Kx_surface_syntax.mk_history_expr ~loc:(loc start_pos end_pos) desc
+
 let indexed_ref base indices = { ref_base = base; ref_indices = indices }
 let scalar_ref base = indexed_ref base []
+
+let indexed_ref_name (r:indexed_ref) : string =
+  String.concat "_" (r.ref_base :: r.ref_indices)
+
+let is_scalar_ref_named (name:string) (r:indexed_ref) : bool =
+  String.equal r.ref_base name && r.ref_indices = []
 
 let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
@@ -55,20 +63,121 @@ let implicit_history_alias_k (alias:string) : int option =
 let is_reserved_history_alias_name (id:string) : bool =
   match implicit_history_alias_k id with Some _ -> true | None -> false
 
+let has_prefix ~(prefix:string) (s:string) : bool =
+  let plen = String.length prefix in
+  String.length s >= plen && String.equal (String.sub s 0 plen) prefix
+
+let internal_identifier_prefix = "__kairos_"
+
 let forbid_reserved_identifier ~(context:string) (id:string) : unit =
   if is_reserved_history_alias_name id then
     failwith
       (Printf.sprintf
          "identifier '%s' is reserved for implicit history aliases (context: %s)" id context)
+  else if has_prefix ~prefix:internal_identifier_prefix id then
+    failwith
+      (Printf.sprintf "identifier '%s' uses the reserved internal prefix %s (context: %s)"
+         id internal_identifier_prefix context)
+
+let concise_observer_error ~(observer:string) ~(phase:string) (msg:string) : 'a =
+  failwith (Printf.sprintf "concise observer '%s' %s expression %s" observer phase msg)
+
+let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : expr =
+  let mk desc = Kx_surface_syntax.mk_expr ?loc:h.hloc desc in
+  match h.shexpr with
+  | SHLitInt n -> mk (SELitInt n)
+  | SHLitBool b -> mk (SELitBool b)
+  | SHVar r when is_scalar_ref_named observer r ->
+      concise_observer_error ~observer ~phase
+        "reads the observer directly; use pre(observer) in the step expression"
+  | SHVar r -> mk (SEVar r)
+  | SHPreK (r, SNNat 1) when String.equal phase "step" && is_scalar_ref_named observer r ->
+      mk (SEVar r)
+  | SHPreK (r, _) when is_scalar_ref_named observer r ->
+      concise_observer_error ~observer ~phase
+        "can only use pre(observer) in the step expression"
+  | SHPreK _ ->
+      concise_observer_error ~observer ~phase
+        "can only use pre(observer) for the observer being defined"
+  | SHExpr _ ->
+      concise_observer_error ~observer ~phase
+        "cannot embed executable expressions with braces"
+  | SHPast _ | SHHistoryCall _ | SHHistoryAlias _ | SHCall _
+  | SHForall _ | SHExists _ | SHRangeForall _ | SHRangeExists _ ->
+      concise_observer_error ~observer ~phase
+        "uses a construct that is not supported in concise observer equations"
+  | SHBin (op, a, b) ->
+      mk (SEBin (op, observer_expr_of_hexpr ~observer ~phase a,
+                 observer_expr_of_hexpr ~observer ~phase b))
+  | SHCmp (op, a, b) ->
+      mk (SECmp (op, observer_expr_of_hexpr ~observer ~phase a,
+                 observer_expr_of_hexpr ~observer ~phase b))
+  | SHUn (op, inner) ->
+      mk (SEUn (op, observer_expr_of_hexpr ~observer ~phase inner))
+
+let rec observer_stmts_of_history_expr ~(observer:string) ~(phase:string)
+    (h:history_expr) : stmt list =
+  match h.shistory_expr with
+  | SHValue formula ->
+      [ Kx_surface_syntax.mk_stmt ?loc:h.hvloc
+          (SSAssign (scalar_ref observer, observer_expr_of_hexpr ~observer ~phase formula)) ]
+  | SHIf (cond, then_value, else_value) ->
+      [ Kx_surface_syntax.mk_stmt ?loc:h.hvloc
+          (SSIf
+             ( observer_expr_of_hexpr ~observer ~phase cond,
+               observer_stmts_of_history_expr ~observer ~phase then_value,
+               observer_stmts_of_history_expr ~observer ~phase else_value )) ]
+
+let rec expr_refs (e:expr) : string list =
+  match e.sexpr with
+  | SELitInt _ | SELitBool _ -> []
+  | SEVar r -> [indexed_ref_name r]
+  | SECall (_, args) -> List.concat_map expr_refs args
+  | SEBin (_, a, b) | SECmp (_, a, b) -> expr_refs a @ expr_refs b
+  | SEUn (_, inner) -> expr_refs inner
+
+let first_duplicate (names:string list) : string option =
+  let rec loop seen = function
+    | [] -> None
+    | name :: rest ->
+        if List.mem name seen then Some name else loop (name :: seen) rest
+  in
+  loop [] names
+
+let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr list) : stmt list =
+  let lhs_len = List.length lhs in
+  let rhs_len = List.length rhs in
+  if lhs_len <> rhs_len then
+    failwith
+      (Printf.sprintf
+         "multiple assignment arity mismatch: %d left-hand side(s) but %d right-hand side(s)"
+         lhs_len rhs_len);
+  let lhs_names = List.map indexed_ref_name lhs in
+  if lhs_len > 1 then (
+    (match first_duplicate lhs_names with
+    | Some name ->
+        failwith (Printf.sprintf "multiple assignment assigns '%s' more than once" name)
+    | None -> ());
+    let rhs_refs = List.concat_map expr_refs rhs in
+    (match List.find_opt (fun name -> List.mem name rhs_refs) lhs_names with
+    | Some name ->
+        failwith
+          (Printf.sprintf
+             "multiple assignment right-hand side mentions assigned variable '%s'" name)
+    | None -> ()));
+  List.map2
+    (fun target value ->
+      mk_stmt_loc start_pos end_pos (SSAssign (target, value)))
+    lhs rhs
+
 %}
 
-%token TYPE DOMAIN FUNCTION PREDICATE ACTION
-%token NODE RETURNS LOCALS GHOSTS STATES INIT TRANS END
+%token TYPE FUNCTION PREDICATE ACTION SPEC DEF HISTORY
+%token NODE RETURNS LOCALS GHOSTS OBSERVERS STATES INIT STEP TRANS END
 %token REQUIRES ENSURES
 %token INVARIANT IN
 %token INVARIANTS
 %token CONTRACTS
-%token TOPOLOGY ROUTE USES CONFLICT ROUTESIGNAL
 %token LET
 %token IMPORT
 %token INSTANCE INSTANCES CALL
@@ -77,13 +186,13 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 %token MATCH WITH BAR
 %token FROM TO
 %token TRUE FALSE
-%token TINT TBOOL TREAL
+%token TINT TBOOL TREAL FORMULA HEXPR NAT
 %token PRE
 %token PREK
+%token PAST
 %token AND OR NOT
 %token G X W R
-%token MAINTAINEDUNTIL WHILEROUTELOCKED
-%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT
+%token LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA SEMI COLON DOT DOLLAR
 %token ASSIGN ARROW IMPL
 %token PLUS MINUS STAR SLASH
 %token EQ NEQ LT LE GT GE
@@ -97,12 +206,6 @@ let forbid_reserved_identifier ~(context:string) (id:string) : unit =
 
 %start <Kx_surface_syntax.program> program
 %start <Kx_surface_syntax.source> source_file
-
-%type <Kx_surface_syntax.contract_item> topology_block
-%type <Kx_topology_syntax.topology_entry list> topology_entries
-%type <Kx_topology_syntax.topology_entry> topology_entry
-%type <(Kx_core_syntax.ident * Kx_core_syntax.ident) list> topology_requires_opt point_requirements
-%type <Kx_core_syntax.ident * Kx_core_syntax.ident> point_requirement
 
 %%
 
@@ -142,8 +245,9 @@ frontend_decls:
 
 frontend_decl:
   | type_decl { STypeDecl $1 }
-  | domain_decl { SDomainDecl $1 }
   | function_decl { SFunctionDecl $1 }
+  | spec_def_decl { SSpecDefDecl $1 }
+  | history_def_decl { SHistoryDefDecl $1 }
 
 type_decl:
   | TYPE IDENT EQ enum_ctor_list SEMI
@@ -156,14 +260,6 @@ type_decl:
 enum_ctor_list:
   | IDENT BAR enum_ctor_list { $1 :: $3 }
   | IDENT { [$1] }
-
-domain_decl:
-  | DOMAIN IDENT EQ enum_ctor_list SEMI
-      {
-        let () = forbid_reserved_identifier ~context:"finite domain" $2 in
-        List.iter (fun name -> forbid_reserved_identifier ~context:"finite domain member" name) $4;
-        { domain_name = $2; domain_members = $4 }
-      }
 
 function_decl:
   | FUNCTION IDENT LPAREN params_opt RPAREN COLON ty function_contracts_opt EQ expr SEMI
@@ -206,6 +302,85 @@ function_contracts:
   | REQUIRES COLON fo_formula SEMI { ([$3], []) }
   | ENSURES COLON fo_formula SEMI { ([], [$3]) }
 
+spec_def_decl:
+  | SPEC DEF IDENT LPAREN spec_params_opt RPAREN EQ ltl SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"spec definition name" $3 in
+        {
+          spec_def_name = $3;
+          spec_def_params = $5;
+          spec_def_body = $8;
+        }
+      }
+
+history_def_decl:
+  | HISTORY DEF IDENT LPAREN IDENT COLON HEXPR RPAREN COLON ty
+    INIT EQ history_expr SEMI history_init_ensures_opt
+    STEP EQ history_expr SEMI history_step_ensures_opt
+      {
+        let () = forbid_reserved_identifier ~context:"history definition name" $3 in
+        let () = forbid_reserved_identifier ~context:"history definition parameter" $5 in
+        if String.equal $5 "self" then
+          failwith "history definition parameter 'self' is reserved for the generated history value";
+        {
+          history_def_name = $3;
+          history_param = $5;
+          history_ty = $10;
+          history_init = $13;
+          history_init_ensures = $15;
+          history_step = $18;
+          history_step_ensures = $20;
+        }
+      }
+
+history_init_ensures_opt:
+  | /* empty */ { [] }
+  | history_init_ensures { $1 }
+
+history_init_ensures:
+  | INIT ENSURES COLON fo_formula SEMI history_init_ensures { $4 :: $6 }
+  | INIT ENSURES COLON fo_formula SEMI { [$4] }
+
+history_step_ensures_opt:
+  | /* empty */ { [] }
+  | history_step_ensures { $1 }
+
+history_step_ensures:
+  | STEP ENSURES COLON fo_formula SEMI history_step_ensures { $4 :: $6 }
+  | STEP ENSURES COLON fo_formula SEMI { [$4] }
+
+history_expr:
+  | IF fo_formula THEN history_expr ELSE history_expr END
+      {
+        mk_history_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7)
+          (SHIf ($2, $4, $6))
+      }
+  | hexpr
+      {
+        mk_history_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1)
+          (SHValue $1)
+      }
+
+spec_params_opt:
+  | /* empty */ { [] }
+  | spec_params { $1 }
+
+spec_params:
+  | spec_param COMMA spec_params { $1 :: $3 }
+  | spec_param { [$1] }
+
+spec_param:
+  | IDENT COLON spec_param_kind
+      {
+        let () = forbid_reserved_identifier ~context:"spec definition parameter" $1 in
+        { spec_param_name = $1; spec_param_kind = $3 }
+      }
+
+spec_param_kind:
+  | FORMULA { SPFormula }
+  | HEXPR { SPHExpr }
+  | NAT { SPNat }
+
 predicate_decl:
   | PREDICATE IDENT LPAREN pred_params_opt RPAREN EQ fo_formula SEMI
       {
@@ -228,36 +403,38 @@ nodes:
 
 node:
   NODE IDENT LPAREN params_opt RPAREN RETURNS LPAREN params_opt RPAREN
-  alias_decls_opt
-  ghosts_opt
-  predicate_decls_opt
-  action_decls_opt
-  node_contracts_block instances_opt
+	  alias_decls_opt
+	  ghosts_opt
+	  observers_opt
+	  predicate_decls_opt
+	  action_decls_opt
+	  node_contracts_block instances_opt
   locals_opt
   STATES state_decls SEMI
   state_invariants_opt
-  TRANS transitions
-  END
-  {
-    let () = forbid_reserved_identifier ~context:"node name" $2 in
-    let states, inline_init = $18 in
-    let init_state = resolve_init_state ~inline_init in
-    {
-      node_name = $2;
-      inputs = $4;
-      outputs = $8;
-      history_aliases = $10;
-      ghosts = $11;
-      predicates = $12;
-      actions = $13;
-      contracts = $14;
-      instances = $15;
-      locals = $16;
-      state_decls = { states; init_state };
-      state_invariants = $20;
-      transitions = $22;
-    }
-  }
+	  TRANS transitions
+	  END
+	  {
+	    let () = forbid_reserved_identifier ~context:"node name" $2 in
+	    let states, inline_init = $19 in
+	    let init_state = resolve_init_state ~inline_init in
+	    {
+	      node_name = $2;
+	      inputs = $4;
+	      outputs = $8;
+	      history_aliases = $10;
+	      ghosts = $11;
+	      observers = $12;
+	      predicates = $13;
+	      actions = $14;
+	      contracts = $15;
+	      instances = $16;
+	      locals = $17;
+	      state_decls = { states; init_state };
+	      state_invariants = $21;
+	      transitions = $23;
+	    }
+	  }
 
 params_opt:
   | /* empty */ { [] }
@@ -301,6 +478,36 @@ ghosts_opt:
   | /* empty */ { [] }
   | GHOSTS vdecls_opt { $2 }
 
+observers_opt:
+  | /* empty */ { [] }
+  | OBSERVERS observer_decls { $2 }
+
+observer_decls:
+  | observer_decl observer_decls { $1 :: $2 }
+  | observer_decl { [$1] }
+
+observer_decl:
+  | IDENT COLON ty INIT LBRACE stmt_list_opt RBRACE STEP LBRACE stmt_list_opt RBRACE
+      {
+        let () = forbid_reserved_identifier ~context:"observer name" $1 in
+        {
+          observer_name = $1;
+          observer_ty = $3;
+          observer_init = $6;
+          observer_step = $10;
+        }
+	      }
+  | IDENT COLON ty EQ history_expr ARROW history_expr SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"observer name" $1 in
+        {
+          observer_name = $1;
+          observer_ty = $3;
+          observer_init = observer_stmts_of_history_expr ~observer:$1 ~phase:"init" $5;
+          observer_step = observer_stmts_of_history_expr ~observer:$1 ~phase:"step" $7;
+        }
+      }
+
 instance_list:
   | instance_decl instance_list { $1 :: $2 }
   | instance_decl { [$1] }
@@ -314,55 +521,10 @@ instance_decl:
       }
 
 node_contracts:
-  | topology_block node_contracts { $1 :: $2 }
-  | topology_block { [$1] }
   | REQUIRES COLON ltl SEMI node_contracts { SCRequires $3 :: $5 }
   | ENSURES COLON ltl SEMI node_contracts { SCEnsures $3 :: $5 }
   | REQUIRES COLON ltl SEMI { [SCRequires $3] }
   | ENSURES COLON ltl SEMI { [SCEnsures $3] }
-
-topology_block:
-  | TOPOLOGY topology_entries END { SCTopology $2 }
-
-topology_entries:
-  | topology_entry topology_entries { $1 :: $2 }
-  | topology_entry { [$1] }
-
-topology_entry:
-  | ROUTE IDENT USES ident_list topology_requires_opt SEMI
-      {
-        let () = forbid_reserved_identifier ~context:"topology route" $2 in
-        List.iter (fun name -> forbid_reserved_identifier ~context:"topology track" name) $4;
-        List.iter
-          (fun (point, pos) ->
-            forbid_reserved_identifier ~context:"topology point" point;
-            forbid_reserved_identifier ~context:"topology point position" pos)
-          $5;
-        TRoute { route = $2; tracks = $4; points = $5 }
-      }
-  | CONFLICT IDENT COMMA IDENT SEMI
-      {
-        let () = forbid_reserved_identifier ~context:"topology conflict route" $2 in
-        let () = forbid_reserved_identifier ~context:"topology conflict route" $4 in
-        TConflict ($2, $4)
-      }
-  | ROUTESIGNAL IDENT ARROW IDENT SEMI
-      {
-        let () = forbid_reserved_identifier ~context:"topology routeSignal route" $2 in
-        let () = forbid_reserved_identifier ~context:"topology routeSignal signal" $4 in
-        TRouteSignal ($2, $4)
-      }
-
-topology_requires_opt:
-  | /* empty */ { [] }
-  | REQUIRES point_requirements { $2 }
-
-point_requirements:
-  | point_requirement COMMA point_requirements { $1 :: $3 }
-  | point_requirement { [$1] }
-
-point_requirement:
-  | IDENT EQ IDENT { ($1, $3) }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -519,13 +681,13 @@ transition_group:
   | FROM IDENT COLON to_transitions {
       List.map
         (fun (dst, guard, body) ->
-          { src = $2; dst; guard; body })
+          { src = $2; dst; guard; body; ensures = [] })
         $4
     }
   | IDENT COLON to_transitions {
       List.map
         (fun (dst, guard, body) ->
-          { src = $1; dst; guard; body })
+          { src = $1; dst; guard; body; ensures = [] })
         $3
     }
 
@@ -546,7 +708,7 @@ match_transitions:
 match_transition:
   | BAR IDENT ARROW IDENT guard_opt LBRACE stmt_list_opt RBRACE
       {
-        { src = $2; dst = $4; guard = $5; body = $7 }
+        { src = $2; dst = $4; guard = $5; body = $7; ensures = [] }
       }
 
 guard_opt:
@@ -563,14 +725,24 @@ stmt_list:
   | stmt_item { $1 }
 
 stmt_item:
+  | assignment_stmt SEMI { $1 }
   | stmt SEMI { [$1] }
   | IDENT LPAREN id_list_opt RPAREN SEMI
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SSActionCall ($1, $3))] }
   | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSFor ($2, $4, $6))] }
 
+assignment_stmt:
+  | indexed_ref_list ASSIGN expr_list
+      {
+        multiple_assign_stmts
+          (Parsing.rhs_start_pos 1)
+          (Parsing.rhs_end_pos 3)
+          $1
+          $3
+      }
+
 stmt:
-  | indexed_ref ASSIGN expr { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SSAssign($1,$3)) }
   | IF expr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSIf($2,$4,$6)) }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSSkip }
   | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
@@ -579,6 +751,10 @@ stmt:
 indexed_ref:
   | IDENT { scalar_ref $1 }
   | IDENT LBRACK ident_list RBRACK { indexed_ref $1 $3 }
+
+indexed_ref_list:
+  | indexed_ref COMMA indexed_ref_list { $1 :: $3 }
+  | indexed_ref { [$1] }
 
 (* arithmetic expressions without booleans *)
 arith_atom:
@@ -650,17 +826,43 @@ id_list:
   | IDENT COMMA id_list { $1 :: $3 }
   | IDENT { [$1] }
 
+nat_expr:
+  | INT { SNNat $1 }
+  | IDENT { SNVar $1 }
+
+spec_arg_list_opt:
+  | /* empty */ { [] }
+  | spec_arg_list { $1 }
+
+spec_arg_list:
+  | spec_arg COMMA spec_arg_list { $1 :: $3 }
+  | spec_arg { [$1] }
+
+spec_arg:
+  | LBRACK ltl RBRACK { SAFormula $2 }
+  | DOLLAR IDENT { SAFormula (SLFormulaParam $2) }
+  | hexpr { SAHExpr $1 }
+
 h_atom:
   | INT { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitInt $1) }
   | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitBool true) }
   | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitBool false) }
+  | HISTORY IDENT LPAREN indexed_ref RPAREN {
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SHHistoryCall ($2, $4))
+    }
   | IDENT indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (SHHistoryAlias ($1, $2)) }
   | indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHVar $1) }
   | PRE LPAREN indexed_ref RPAREN {
-      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHPreK ($3, 1))
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHPreK ($3, SNNat 1))
     }
-  | PREK LPAREN indexed_ref COMMA INT RPAREN {
+  | PREK LPAREN indexed_ref COMMA nat_expr RPAREN {
       mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHPreK ($3, $5))
+    }
+  | PAST LPAREN hexpr COMMA nat_expr RPAREN {
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHPast ($3, $5))
+    }
+  | PAST LPAREN fo_formula COMMA nat_expr RPAREN {
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHPast ($3, $5))
     }
   | LBRACE expr RBRACE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SHExpr $2) }
   | LPAREN hexpr RPAREN { $2 }
@@ -684,19 +886,17 @@ hexpr:
 
 ltl_atom:
   | hexpr relop hexpr { SLAtom($1,$2,$3) }
-  | IDENT LPAREN id_list_opt RPAREN
-      { SLFo (mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHCall ($1, $3))) }
+  | DOLLAR IDENT { SLFormulaParam $2 }
+  | IDENT LPAREN spec_arg_list_opt RPAREN
+      { SLCall ($1, $3) }
   | FORALL IDENT IN IDENT DOT ltl
       { SLForall ($2, $4, $6) }
   | EXISTS IDENT IN IDENT DOT ltl
       { SLExists ($2, $4, $6) }
-  | MAINTAINEDUNTIL LPAREN ltl COMMA ltl COMMA ltl RPAREN
-      { SLMaintainedUntil ($3, $5, $7) }
-  | WHILEROUTELOCKED LPAREN IDENT COMMA ltl RPAREN
-      {
-        let () = forbid_reserved_identifier ~context:"whileRouteLocked route" $3 in
-        SLWhileRouteLocked ($3, $5)
-      }
+  | FORALL IDENT IN nat_expr DOT DOT nat_expr DOT ltl
+      { SLRangeForall ($2, $4, $7, $9) }
+  | EXISTS IDENT IN nat_expr DOT DOT nat_expr DOT ltl
+      { SLRangeExists ($2, $4, $7, $9) }
   | LPAREN ltl RPAREN { $2 }
 
 fo_leaf:
@@ -707,6 +907,10 @@ fo_leaf:
       { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHForall ($2, $4, $6)) }
   | EXISTS IDENT IN IDENT DOT fo_formula
       { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHExists ($2, $4, $6)) }
+  | FORALL IDENT IN nat_expr DOT DOT nat_expr DOT fo_formula
+      { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SHRangeForall ($2, $4, $7, $9)) }
+  | EXISTS IDENT IN nat_expr DOT DOT nat_expr DOT fo_formula
+      { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SHRangeExists ($2, $4, $7, $9)) }
   | LPAREN fo_formula RPAREN { $2 }
 
 fo_un:

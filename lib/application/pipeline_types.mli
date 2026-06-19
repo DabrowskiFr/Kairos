@@ -161,6 +161,29 @@ type why_outputs = { why_text : string; flow_meta : (string * (string * string) 
 
 type obligations_outputs = { vc_text : string; smt_text : string }
 
+(** Optional proof-generation optimizations.
+
+    Disabling every field selects the reference pipeline shape intended to be
+    formalized first. Enabling fields may reduce the number or size of generated
+    obligations, but must not change the source property being checked. *)
+
+type proof_optimizations = {
+  group_public_non_w_guarantees : bool;
+  share_why3_facts : bool;
+  simplify_why3_formulas : bool;
+  slice_why3_transition_bodies : bool;
+  simplify_why3_runtime_actions : bool;
+  deduplicate_why3_terms : bool;
+}
+
+(** Reference, non-optimized proof generation. *)
+
+val reference_proof_optimizations : proof_optimizations
+
+(** Default interactive/prover-oriented proof generation. *)
+
+val default_proof_optimizations : proof_optimizations
+
 (** Runtime configuration of the full pipeline execution. *)
 
 type config = {
@@ -173,6 +196,7 @@ type config = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  proof_optimizations : proof_optimizations;
 }
 
 (** Unified pipeline error type. *)

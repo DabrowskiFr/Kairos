@@ -23,7 +23,8 @@ module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr = f
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  Core_fo_simplifier.simplify f
 
 let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
 
@@ -120,192 +121,11 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let post_formula_for_state ~(node : Abs.node_ir) (state_name : ident) : Core_syntax.hexpr option =
-  let formulas =
-    node.source_info.state_invariants
-    |> List.filter_map (fun (inv : Abs.state_invariant) ->
-           if inv.state = state_name then Some inv.formula else None)
-  in
-  match formulas with
-  | [] -> None
-  | hd :: tl -> Some (List.fold_left Core_syntax_builders.mk_hand hd tl)
-
-type current_const =
-  | CInt of int
-  | CBool of bool
-  | CEnum of ident
-
-type current_constraint_env = {
-  parent : (ident, ident) Hashtbl.t;
-  const_of_root : (ident, current_const) Hashtbl.t;
-  forbids_of_root : (ident, current_const list) Hashtbl.t;
-}
-
-let empty_current_constraint_env () =
-  {
-    parent = Hashtbl.create 16;
-    const_of_root = Hashtbl.create 16;
-    forbids_of_root = Hashtbl.create 16;
-  }
-
-let rec find_root env v =
-  match Hashtbl.find_opt env.parent v with
-  | None ->
-      Hashtbl.replace env.parent v v;
-      v
-  | Some p when p = v -> v
-  | Some p ->
-      let root = find_root env p in
-      Hashtbl.replace env.parent v root;
-      root
-
-let const_equal a b =
-  match (a, b) with
-  | CInt x, CInt y -> x = y
-  | CBool x, CBool y -> Bool.equal x y
-  | CEnum x, CEnum y -> String.equal x y
-  | _ -> false
-
-let add_forbid env root c =
-  let prev = Hashtbl.find_opt env.forbids_of_root root |> Option.value ~default:[] in
-  if List.exists (const_equal c) prev then ()
-  else Hashtbl.replace env.forbids_of_root root (c :: prev)
-
-let root_forbids env root c =
-  Hashtbl.find_opt env.forbids_of_root root
-  |> Option.value ~default:[]
-  |> List.exists (const_equal c)
-
-let assign_const env root c =
-  match Hashtbl.find_opt env.const_of_root root with
-  | Some existing when not (const_equal existing c) -> false
-  | Some _ -> not (root_forbids env root c)
-  | None ->
-      if root_forbids env root c then false
-      else (
-        Hashtbl.replace env.const_of_root root c;
-        true)
-
-let merge_roots env r1 r2 =
-  if r1 = r2 then true
-  else
-    let c1 = Hashtbl.find_opt env.const_of_root r1 in
-    let c2 = Hashtbl.find_opt env.const_of_root r2 in
-    match (c1, c2) with
-    | Some a, Some b when not (const_equal a b) -> false
-    | _ ->
-        Hashtbl.replace env.parent r2 r1;
-        begin
-          match c1 with
-          | Some _ -> ()
-          | None -> Option.iter (fun c -> Hashtbl.replace env.const_of_root r1 c) c2
-        end;
-        let forbids =
-          (Hashtbl.find_opt env.forbids_of_root r1 |> Option.value ~default:[])
-          @ (Hashtbl.find_opt env.forbids_of_root r2 |> Option.value ~default:[])
-        in
-        Hashtbl.replace env.forbids_of_root r1 forbids;
-        begin
-          match Hashtbl.find_opt env.const_of_root r1 with
-          | Some c when root_forbids env r1 c -> false
-          | _ -> true
-        end
-
-let clone_constraint_env env =
-  let copy_tbl tbl =
-    let out = Hashtbl.create (Hashtbl.length tbl * 2 + 1) in
-    Hashtbl.iter (fun k v -> Hashtbl.replace out k v) tbl;
-    out
-  in
-  {
-    parent = copy_tbl env.parent;
-    const_of_root = copy_tbl env.const_of_root;
-    forbids_of_root = copy_tbl env.forbids_of_root;
-  }
-
-let current_const_of_expr (e : expr) : current_const option =
-  match e.expr with
-  | ELitInt n -> Some (CInt n)
-  | ELitBool b -> Some (CBool b)
-  | ELitEnum c -> Some (CEnum c)
-  | _ -> None
-
-let current_var_of_hexpr = function
-  | { hexpr = HVar v; _ } -> Some v
-  | _ -> None
-
-let current_const_of_hexpr = function
-  | { hexpr = HLitInt n; _ } -> Some (CInt n)
-  | { hexpr = HLitBool b; _ } -> Some (CBool b)
-  | { hexpr = HLitEnum c; _ } -> Some (CEnum c)
-  | _ -> None
-
-let add_current_equality env ~(negated : bool) (h1 : hexpr) (h2 : hexpr) : bool option =
-  match
-    ( current_var_of_hexpr h1,
-      current_var_of_hexpr h2,
-      current_const_of_hexpr h1,
-      current_const_of_hexpr h2 )
-  with
-  | Some v, _, _, Some c ->
-      let root = find_root env v in
-      if negated then (
-        add_forbid env root c;
-        match Hashtbl.find_opt env.const_of_root root with
-        | Some assigned when const_equal assigned c -> Some false
-        | _ -> Some true)
-      else Some (assign_const env root c)
-  | _, Some v, Some c, _ ->
-      let root = find_root env v in
-      if negated then (
-        add_forbid env root c;
-        match Hashtbl.find_opt env.const_of_root root with
-        | Some assigned when const_equal assigned c -> Some false
-        | _ -> Some true)
-      else Some (assign_const env root c)
-  | Some v1, Some v2, _, _ when not negated ->
-      Some (merge_roots env (find_root env v1) (find_root env v2))
-  | _ -> None
-
-let rec current_formula_maybe_satisfiable env (fo_formula : Core_syntax.hexpr) : bool =
-  match fo_formula.hexpr with
-  | HLitBool true -> true
-  | HLitBool false -> false
-  | HCmp (r, h1, h2) -> (
-      match (if r = REq then add_current_equality env ~negated:false h1 h2 else None) with
-      | Some b -> b
-      | None -> true)
-  | HPred (_id, _hs) -> true
-  | HFunCall (_id, _hs) -> true
-  | HUn (Not, ({ hexpr = HCmp (r, h1, h2); _ } as _inner)) -> (
-      match (if r = REq then add_current_equality env ~negated:true h1 h2 else None) with
-      | Some b -> b
-      | None -> true)
-  | HUn (Not, ({ hexpr = HPred (_id, _hs); _ } as _inner)) -> true
-  | HUn (Not, ({ hexpr = HFunCall (_id, _hs); _ } as _inner)) -> true
-  | HUn (Not, inner) -> not (current_formula_maybe_satisfiable env inner)
-  | HBin (And, a, b) -> current_formula_maybe_satisfiable env a && current_formula_maybe_satisfiable env b
-  | HBin (Or, a, b) ->
-      let env_left = clone_constraint_env env in
-      current_formula_maybe_satisfiable env_left a || current_formula_maybe_satisfiable env b
-  | HBin (Add, _, _) | HBin (Sub, _, _) | HBin (Mul, _, _) | HBin (Div, _, _) -> true
-  | HLitInt _ | HLitEnum _ | HVar _ | HPreK _ -> true
-  | HUn (Neg, _) -> true
-
 let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : product_step_ir) : bool =
-  let src_live =
-    step.src.assume_state_index <> analysis.assume_bad_idx
-    && step.src.guarantee_state_index <> analysis.guarantee_bad_idx
-  in
-  src_live
-  &&
-  match post_formula_for_state ~node step.dst.prog_state with
-  | None -> true
-  | Some dst_inv ->
-      current_formula_maybe_satisfiable
-        (empty_current_constraint_env ())
-        (Core_syntax_builders.mk_hand step.guarantee_edge.guard dst_inv)
+  ignore node;
+  step.src.assume_state_index <> analysis.assume_bad_idx
+  && step.src.guarantee_state_index <> analysis.guarantee_bad_idx
 
 let synthesize_fallback_product_steps ~(program_transitions : Abs.transition list)
     ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
@@ -377,35 +197,30 @@ let synthesize_fallback_product_steps ~(program_transitions : Abs.transition lis
                        in
                        match (assume_guard, guarantee_guard) with
                        | Some ag, Some gg ->
-                           let combined =
-                             simplify_fo (mk_hand program_guard (mk_hand ag gg))
-                          in
-                           if combined = mk_hbool false then None
-                           else
-                             Some
-                               {
-                                 src =
-                                   {
-                                     prog_state = src.prog_state;
-                                     assume_state_index = src.assume_state;
-                                     guarantee_state_index = src.guarantee_state;
-                                   };
-                                 dst =
-                                   {
-                                     prog_state = dst.prog_state;
-                                     assume_state_index = dst.assume_state;
-                                     guarantee_state_index = dst.guarantee_state;
-                                   };
-                                 program_transition_id =
-                                   transition_id_for ~src:t.src_state ~dst:t.dst_state
-                                     ~guard:program_guard;
-                                 program_transition = (t.src_state, t.dst_state);
-                                 program_guard;
-                                 assume_edge =
-                                   { src_index = src.assume_state; dst_index = dst.assume_state; guard = ag };
-                                 guarantee_edge =
-                                   { src_index = src.guarantee_state; dst_index = dst.guarantee_state; guard = gg };
-                                 step_kind = StepSafe;
-                                 step_origin = StepFromFallbackSynthesis;
-                               }
+                           Some
+                             {
+                               src =
+                                 {
+                                   prog_state = src.prog_state;
+                                   assume_state_index = src.assume_state;
+                                   guarantee_state_index = src.guarantee_state;
+                                 };
+                               dst =
+                                 {
+                                   prog_state = dst.prog_state;
+                                   assume_state_index = dst.assume_state;
+                                   guarantee_state_index = dst.guarantee_state;
+                                 };
+                               program_transition_id =
+                                 transition_id_for ~src:t.src_state ~dst:t.dst_state
+                                   ~guard:program_guard;
+                               program_transition = (t.src_state, t.dst_state);
+                               program_guard;
+                               assume_edge =
+                                 { src_index = src.assume_state; dst_index = dst.assume_state; guard = ag };
+                               guarantee_edge =
+                                 { src_index = src.guarantee_state; dst_index = dst.guarantee_state; guard = gg };
+                               step_kind = StepSafe;
+                               step_origin = StepFromFallbackSynthesis;
+                             }
                        | _ -> None)))

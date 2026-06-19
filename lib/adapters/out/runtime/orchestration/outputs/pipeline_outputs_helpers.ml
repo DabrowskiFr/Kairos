@@ -43,7 +43,29 @@ let join_blocks_with_spans ~sep blocks =
 
 (** [flow_meta] helper value. *)
 
-let flow_meta (infos : Runtime_snapshot.flow_infos) : (string * (string * string) list) list =
+let bool_s b = if b then "true" else "false"
+
+let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations option) =
+  match proof_optimizations with
+  | None -> []
+  | Some opts ->
+      [
+        ( "proof_optimizations",
+          [
+            ( "group_public_non_w_guarantees",
+              bool_s opts.group_public_non_w_guarantees );
+            ("share_why3_facts", bool_s opts.share_why3_facts);
+            ("simplify_why3_formulas", bool_s opts.simplify_why3_formulas);
+            ( "slice_why3_transition_bodies",
+              bool_s opts.slice_why3_transition_bodies );
+            ( "simplify_why3_runtime_actions",
+              bool_s opts.simplify_why3_runtime_actions );
+            ("deduplicate_why3_terms", bool_s opts.deduplicate_why3_terms);
+          ] );
+      ]
+
+let flow_meta ?proof_optimizations (infos : Runtime_snapshot.flow_infos) :
+    (string * (string * string) list) list =
   let p = Option.value ~default:Flow_info.empty_parse_info infos.parse in
   let a = Option.value ~default:Flow_info.empty_automata_info infos.automata_generation in
   let s = Option.value ~default:Flow_info.empty_summaries_info infos.summaries in
@@ -73,6 +95,7 @@ let flow_meta (infos : Runtime_snapshot.flow_infos) : (string * (string * string
           string_of_int i.canonical_case_bad_guarantee_count );
       ] );
   ]
+  @ optimization_meta proof_optimizations
 
 (** [program_automaton_texts] helper value. *)
 

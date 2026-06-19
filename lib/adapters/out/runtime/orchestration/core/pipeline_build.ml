@@ -46,7 +46,9 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
-let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) :
+let build_snapshot_from_frontend
+    ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    ~(frontend : Application_ports.frontend_input) :
     (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
     result =
   try
@@ -57,7 +59,7 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
     | Error _ as err -> err
     | Ok () ->
     let* runtime_model =
-      Contract_partition.partition_program p_model
+      Contract_partition.partition_program ~proof_optimizations p_model
       |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)
     in
     let automata, automata_pass_info =
@@ -111,6 +113,8 @@ let build_snapshot_from_frontend ~(frontend : Application_ports.frontend_input) 
             instrumentation = Some instrumentation_info;
           }
         in
-        let snapshot : Runtime_snapshot.pipeline_snapshot = { asts; infos } in
+        let snapshot : Runtime_snapshot.pipeline_snapshot =
+          { asts; infos; proof_optimizations }
+        in
         Ok snapshot)
   with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))

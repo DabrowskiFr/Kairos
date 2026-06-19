@@ -114,7 +114,8 @@ let build_analyses
   in
   collect [] source_nodes
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr = f
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  Core_fo_simplifier.simplify f
 
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
   {
@@ -281,7 +282,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                     };
                   propagation_requires = [];
                   requires = [];
-                  ensures = [];
+                  ensures = List.map Ir_formula.make repr_step.prog_transition.ensures;
                   safe_cases;
                   unsafe_cases;
                 }

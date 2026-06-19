@@ -1,0 +1,13 @@
+node unknown_history_definition(x: int) returns (
+  ok: bool
+)
+contracts
+  ensures: X G(history missing(x) = x);
+states
+  Run(init);
+transitions
+  Run:
+    to Run {
+      ok := true;
+    }
+end

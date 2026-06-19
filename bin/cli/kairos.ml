@@ -32,6 +32,13 @@ type cli_args = {
   check_frontend : bool;
   prove : bool;
   timeout_s : int;
+  no_proof_optimizations : bool;
+  no_proof_grouping : bool;
+  no_why3_fact_sharing : bool;
+  no_why3_fo_simplification : bool;
+  no_why3_body_slicing : bool;
+  no_why3_action_simplification : bool;
+  no_why3_term_dedup : bool;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;
@@ -43,6 +50,7 @@ type cli_args = {
   dump_normalized_program : string option;
   dump_ir_pretty : string option;
   dump_timings : string option;
+  dump_goals : string option;
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
@@ -79,6 +87,25 @@ type action =
   | Run of { prove : bool }
 
 module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
+
+let proof_optimizations_of_args args =
+  let base =
+    if args.no_proof_optimizations then Pipeline_types.reference_proof_optimizations
+    else Pipeline_types.default_proof_optimizations
+  in
+  {
+    Pipeline_types.group_public_non_w_guarantees =
+      base.group_public_non_w_guarantees && not args.no_proof_grouping;
+    share_why3_facts = base.share_why3_facts && not args.no_why3_fact_sharing;
+    simplify_why3_formulas =
+      base.simplify_why3_formulas && not args.no_why3_fo_simplification;
+    slice_why3_transition_bodies =
+      base.slice_why3_transition_bodies && not args.no_why3_body_slicing;
+    simplify_why3_runtime_actions =
+      base.simplify_why3_runtime_actions && not args.no_why3_action_simplification;
+    deduplicate_why3_terms =
+      base.deduplicate_why3_terms && not args.no_why3_term_dedup;
+  }
 
 module Pipeline_service = struct
   type goal_info = string * string * float * string option * string option
@@ -136,13 +163,13 @@ module Pipeline_service = struct
             obligations_map_text = out.obligations_map_text;
           }
 
-  let why_text_dump ~input_file =
-    match why_pass ~input_file with
+  let why_text_dump ~input_file ~proof_optimizations =
+    match why_pass ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok out.why_text
 
-  let obligations_dump_data ~input_file =
-    match obligations_pass ~input_file with
+  let obligations_dump_data ~input_file ~proof_optimizations =
+    match obligations_pass ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok { vc_text = out.vc_text; smt_text = out.smt_text }
 
@@ -221,7 +248,8 @@ module Pipeline_service = struct
         in
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
-  let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text =
+  let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text
+      ~proof_optimizations =
     let cfg =
       {
         Pipeline_types.input_file;
@@ -233,6 +261,7 @@ module Pipeline_service = struct
         generate_vc_text;
         generate_smt_text;
         generate_dot_png = false;
+        proof_optimizations;
       }
     in
     match run cfg with
@@ -324,12 +353,18 @@ let with_instrumentation_pass args f =
   | Ok out -> f out
 
 let with_why_text_dump args f =
-  match Pipeline_service.why_text_dump ~input_file:args.file with
+  match
+    Pipeline_service.why_text_dump ~input_file:args.file
+      ~proof_optimizations:(proof_optimizations_of_args args)
+  with
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_obligations_pass args f =
-  match Pipeline_service.obligations_dump_data ~input_file:args.file with
+  match
+    Pipeline_service.obligations_dump_data ~input_file:args.file
+      ~proof_optimizations:(proof_optimizations_of_args args)
+  with
   | Error e -> `Error (false, map_error e)
   | Ok out -> f out
 
@@ -354,12 +389,18 @@ let with_kobj_contracts args f =
   | Ok text -> f text
 
 let with_normalized_program args f =
-  match Pipeline_service.normalized_program ~input_file:args.file with
+  match
+    Pipeline_service.normalized_program ~input_file:args.file
+      ~proof_optimizations:(proof_optimizations_of_args args)
+  with
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
 let with_ir_pretty args f =
-  match Pipeline_service.ir_pretty_dump ~input_file:args.file with
+  match
+    Pipeline_service.ir_pretty_dump ~input_file:args.file
+      ~proof_optimizations:(proof_optimizations_of_args args)
+  with
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
@@ -390,8 +431,43 @@ let write_timing_dump out (flow_meta : (string * (string * string) list) list) =
   in
   let graph_lines = section_lines "graph_metrics" in
   let canonical_lines = section_lines "canonical_metrics" in
-  let out_lines = timing_lines @ graph_lines @ canonical_lines in
+  let optimization_lines = section_lines "proof_optimizations" in
+  let out_lines = timing_lines @ graph_lines @ canonical_lines @ optimization_lines in
   write_target out (String.concat "\n" out_lines ^ "\n")
+
+let csv_escape field =
+  let needs_quote =
+    String.exists (function '"' | ',' | '\n' | '\r' -> true | _ -> false) field
+  in
+  if not needs_quote then field
+  else
+    let b = Buffer.create (String.length field + 8) in
+    Buffer.add_char b '"';
+    String.iter
+      (function
+        | '"' -> Buffer.add_string b "\"\""
+        | c -> Buffer.add_char b c)
+      field;
+    Buffer.add_char b '"';
+    Buffer.contents b
+
+let write_goals_dump out (goals : Pipeline_service.goal_info list) =
+  let header = "index,name,status,time_s,dump_path,vcid" in
+  let rows =
+    List.mapi
+      (fun idx (name, status, time_s, dump_path, vcid) ->
+        [
+          string_of_int (idx + 1);
+          name;
+          status;
+          Printf.sprintf "%.6f" time_s;
+          Option.value dump_path ~default:"";
+          Option.value vcid ~default:"";
+        ]
+        |> List.map csv_escape |> String.concat ",")
+      goals
+  in
+  write_target out (String.concat "\n" (header :: rows) ^ "\n")
 
 let impossible_missing_option name = failwith ("internal error: missing CLI option for " ^ name)
 
@@ -459,7 +535,7 @@ let has_dump_mode args = dump_mode_count args > 0
 
 let has_why_mode args =
   args.prove || Option.is_some args.dump_why || Option.is_some args.dump_why3_vc
-  || Option.is_some args.dump_smt2
+  || Option.is_some args.dump_smt2 || Option.is_some args.dump_goals
 
 (* Validation only checks user-facing CLI consistency rules: incompatible dump vs
    proof modes, and the "at most one dump mode" constraint. *)
@@ -582,6 +658,7 @@ let exec_action args = function
         Pipeline_service.run_dump_data ~input_file:args.file ~timeout_s:args.timeout_s ~prove
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
+          ~proof_optimizations:(proof_optimizations_of_args args)
       with
       | Error e -> `Error (false, map_error e)
       | Ok out ->
@@ -589,6 +666,7 @@ let exec_action args = function
           Option.iter (fun path -> write_target path out.Pipeline_service.vc_text) args.dump_why3_vc;
           Option.iter (fun path -> write_target path out.Pipeline_service.smt_text) args.dump_smt2;
           Option.iter (fun path -> write_timing_dump path out.Pipeline_service.flow_meta) args.dump_timings;
+          Option.iter (fun path -> write_goals_dump path out.Pipeline_service.goals) args.dump_goals;
           if prove then
             let failures = report_failed_goals out.Pipeline_service.goals in
             if failures <> [] then `Error (false, String.concat "\n" failures) else `Ok ()
@@ -686,6 +764,12 @@ let cmd =
           ~doc:
             "Dump per-run metrics as CSV key/value lines (timings, graph/canonical counts, obligation taxonomy).")
   in
+  let dump_goals =
+    Arg.(
+      value & opt (some string) None
+      & info [ "dump-goals" ] ~docs:docs_proof ~docv:"FILE"
+          ~doc:"Dump proof goal statuses and prover times as CSV.")
+  in
   let dump_why =
     Arg.(
       value & opt (some string) None
@@ -729,19 +813,77 @@ let cmd =
       & info [ "timeout-s" ] ~docs:docs_proof ~docv:"SECONDS"
           ~doc:"Per-goal prover timeout in seconds for --prove and Why3 obligation dumps.")
   in
+  let no_proof_optimizations =
+    Arg.(
+      value & flag
+      & info [ "no-proof-optimizations" ] ~docs:docs_proof
+          ~doc:
+            "Disable proof-generation optimizations. This selects the reference pipeline shape intended for the first Rocq formalization.")
+  in
+  let no_proof_grouping =
+    Arg.(
+      value & flag
+      & info [ "no-proof-grouping" ] ~docs:docs_proof
+          ~doc:
+            "Disable the optimization that groups public non-W guarantees into a single proof node.")
+  in
+  let no_why3_fact_sharing =
+    Arg.(
+      value & flag
+      & info [ "no-why3-fact-sharing" ] ~docs:docs_proof
+          ~doc:
+            "Disable the Why3 backend optimization that factors repeated contract facts into shared logical definitions.")
+  in
+  let no_why3_fo_simplification =
+    Arg.(
+      value & flag
+      & info [ "no-why3-fo-simplification" ] ~docs:docs_proof
+          ~doc:
+            "Disable backend FO formula simplification before Why3 term generation.")
+  in
+  let no_why3_body_slicing =
+    Arg.(
+      value & flag
+      & info [ "no-why3-body-slicing" ] ~docs:docs_proof
+          ~doc:
+            "Disable backend slicing of transition bodies used in per-transition Why3 helper functions.")
+  in
+  let no_why3_action_simplification =
+    Arg.(
+      value & flag
+      & info [ "no-why3-action-simplification" ] ~docs:docs_proof
+          ~doc:
+            "Disable backend simplification of runtime action blocks emitted to Why3.")
+  in
+  let no_why3_term_dedup =
+    Arg.(
+      value & flag
+      & info [ "no-why3-term-dedup" ] ~docs:docs_proof
+          ~doc:"Disable syntactic deduplication of generated Why3 contract terms.")
+  in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file check_frontend prove timeout_s dump_automata dump_product
-        dump_canonical dump_automata_short dump_canonical_short dump_obligations_map
-        dump_surface dump_elaborated dump_normalized_program dump_ir_pretty dump_timings
-        dump_why dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses
+    let make_cli_args file check_frontend prove timeout_s no_proof_optimizations
+        no_proof_grouping no_why3_fact_sharing no_why3_fo_simplification
+        no_why3_body_slicing no_why3_action_simplification no_why3_term_dedup
+        dump_automata dump_product dump_canonical dump_automata_short
+        dump_canonical_short dump_obligations_map dump_surface dump_elaborated
+        dump_normalized_program dump_ir_pretty dump_timings dump_goals dump_why
+        dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses
         dump_kobj_product dump_kobj_contracts =
       {
         file;
         check_frontend;
         prove;
         timeout_s;
+        no_proof_optimizations;
+        no_proof_grouping;
+        no_why3_fact_sharing;
+        no_why3_fo_simplification;
+        no_why3_body_slicing;
+        no_why3_action_simplification;
+        no_why3_term_dedup;
         dump_automata;
         dump_product;
         dump_canonical;
@@ -753,6 +895,7 @@ let cmd =
         dump_normalized_program;
         dump_ir_pretty;
         dump_timings;
+        dump_goals;
         dump_why;
         dump_why3_vc;
         dump_smt2;
@@ -763,11 +906,15 @@ let cmd =
       }
     in
     Term.(
-      const make_cli_args $ file $ check_frontend $ prove $ timeout_s $ dump_automata $ dump_product
-      $ dump_canonical $ dump_automata_short
-      $ dump_canonical_short $ dump_obligations_map $ dump_surface $ dump_elaborated
-      $ dump_normalized_program $ dump_ir_pretty $ dump_timings $ dump_why $ dump_why3_vc
-      $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
+      const make_cli_args $ file $ check_frontend $ prove $ timeout_s
+      $ no_proof_optimizations $ no_proof_grouping $ no_why3_fact_sharing
+      $ no_why3_fo_simplification $ no_why3_body_slicing
+      $ no_why3_action_simplification $ no_why3_term_dedup $ dump_automata
+      $ dump_product $ dump_canonical $ dump_automata_short
+      $ dump_canonical_short $ dump_obligations_map $ dump_surface
+      $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
+      $ dump_timings $ dump_goals $ dump_why $ dump_why3_vc $ dump_smt2
+      $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
       $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in

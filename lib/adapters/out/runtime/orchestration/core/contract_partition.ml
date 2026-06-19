@@ -31,11 +31,14 @@ let ( let* ) = Result.bind
       if P satisfies the source guarantees, then P satisfies every generated
       group.
 
-    When weak-until formulas are present, we split them to keep automata small.
-    Non-W guarantees that mention non-interface variables are classified as
-    internal auxiliary guarantees: they are proved on their own, and they are
-    also kept in the context of each W group. Public non-W guarantees are still
-    proved, but are not copied into W groups automatically. *)
+    When weak-until formulas are present, the reference transformation splits W
+    guarantees and keeps internal auxiliary non-W guarantees with each W group.
+    This part belongs to the proof-generation structure.
+
+    Grouping all public non-W guarantees together is an optimization layered on
+    top of that reference transformation. It is controlled by
+    [Pipeline_types.proof_optimizations] and can be disabled for the Rocq-facing
+    baseline. *)
 
 type guarantee_ref = {
   gid : int;
@@ -82,9 +85,11 @@ let rec vars_of_ltl (acc : StringSet.t) (formula : Core_syntax.ltl) : StringSet.
       vars_of_ltl (vars_of_ltl acc a) b
 
 let private_vars_of_node (node : Verification_model.node_model) : StringSet.t =
+  let public_ghosts = StringSet.of_list node.public_ghosts in
   node.locals @ node.ghosts
   |> List.fold_left
-       (fun acc (v : Core_syntax.vdecl) -> StringSet.add v.vname acc)
+       (fun acc (v : Core_syntax.vdecl) ->
+         if StringSet.mem v.vname public_ghosts then acc else StringSet.add v.vname acc)
        StringSet.empty
 
 let mentions_private_var ~(private_vars : StringSet.t) (formula : Core_syntax.ltl) : bool =
@@ -104,7 +109,8 @@ let guarantee_refs (node : Verification_model.node_model) : guarantee_ref list =
              (not has_weak_until) && mentions_private_var ~private_vars formula;
          })
 
-let build_groups (refs : guarantee_ref list) : proof_group list =
+let build_groups ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    (refs : guarantee_ref list) : proof_group list =
   if not (List.exists (fun g -> g.has_weak_until) refs) then
     match refs with
     | [] -> []
@@ -115,15 +121,52 @@ let build_groups (refs : guarantee_ref list) : proof_group list =
       |> List.filter (fun g -> g.is_internal_auxiliary)
       |> List.map (fun g -> g.gid)
     in
-    refs
-    |> List.map (fun g ->
-           let members =
-             if g.has_weak_until then auxiliary_members @ [ g.gid ] else [ g.gid ]
-           in
-           {
-             group_name = Printf.sprintf "g%d" (g.gid + 1);
-             members = List.sort_uniq Int.compare members;
-           })
+    let auxiliary_group =
+      match auxiliary_members with
+      | [] -> []
+      | members ->
+          [
+            {
+              group_name = "auxiliary";
+              members = List.sort_uniq Int.compare members;
+            };
+          ]
+    in
+    let w_groups =
+      refs
+      |> List.filter (fun g -> g.has_weak_until)
+      |> List.map (fun g ->
+             {
+               group_name = Printf.sprintf "g%d" (g.gid + 1);
+               members = List.sort_uniq Int.compare (auxiliary_members @ [ g.gid ]);
+             })
+    in
+    let public_non_w_members =
+      refs
+      |> List.filter (fun g -> (not g.has_weak_until) && not g.is_internal_auxiliary)
+      |> List.map (fun g -> g.gid)
+    in
+    let public_non_w_groups =
+      if proof_optimizations.group_public_non_w_guarantees then
+        match public_non_w_members with
+        | [] -> []
+        | members ->
+            [
+              {
+                group_name = "public_non_w";
+                members = List.sort_uniq Int.compare members;
+              };
+            ]
+      else
+        refs
+        |> List.filter (fun g -> (not g.has_weak_until) && not g.is_internal_auxiliary)
+        |> List.map (fun g ->
+               {
+                 group_name = Printf.sprintf "g%d" (g.gid + 1);
+                 members = [ g.gid ];
+               })
+    in
+    auxiliary_group @ w_groups @ public_non_w_groups
 
 let validate_groups ~(node_name : string) ~(guarantee_count : int) (groups : proof_group list) :
     (unit, string) result =
@@ -180,14 +223,15 @@ let fresh_runtime_name used_names base group_index =
   in
   loop 0
 
-let partition_node ~(used_names : (string, unit) Hashtbl.t)
+let partition_node ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    ~(used_names : (string, unit) Hashtbl.t)
     (node : Verification_model.node_model) :
     (Verification_model.node_model list, string) result =
   match node.guarantees with
   | [] | [ _ ] -> Ok [ node ]
   | guarantees ->
       let refs = guarantee_refs node in
-      let groups = build_groups refs in
+      let groups = build_groups ~proof_optimizations refs in
       let guarantee_count = List.length guarantees in
       let* () = validate_groups ~node_name:node.node_name ~guarantee_count groups in
       let source = Array.of_list guarantees in
@@ -203,7 +247,9 @@ let partition_node ~(used_names : (string, unit) Hashtbl.t)
                })
         |> fun nodes -> Ok nodes
 
-let partition_program (program : Verification_model.program_model) :
+let partition_program
+    ?(proof_optimizations = Pipeline_types.default_proof_optimizations)
+    (program : Verification_model.program_model) :
     (Verification_model.program_model, string) result =
   let used_names = Hashtbl.create (List.length program * 2 + 1) in
   List.iter
@@ -213,7 +259,7 @@ let partition_program (program : Verification_model.program_model) :
   let rec loop acc = function
     | [] -> Ok (List.rev acc)
     | node :: rest -> (
-        match partition_node ~used_names node with
+        match partition_node ~proof_optimizations ~used_names node with
         | Error _ as err -> err
         | Ok nodes -> loop (List.rev_append nodes acc) rest)
   in

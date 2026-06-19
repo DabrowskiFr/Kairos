@@ -258,7 +258,15 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     (run_output, Pipeline_types.error) result =
   try
     let t_why_gen = Unix.gettimeofday () in
-    let why_ast = Why_compile.compile_program_ast_from_ir_nodes instrumentation in
+    let opts = cfg.proof_optimizations in
+    let why_ast =
+      Why_compile.compile_program_ast_from_ir_nodes
+        ~share_why3_facts:opts.share_why3_facts
+        ~simplify_why3_formulas:opts.simplify_why3_formulas
+        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
+        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+    in
     let ptree = why_ast.Why_compile.mlw in
     let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);

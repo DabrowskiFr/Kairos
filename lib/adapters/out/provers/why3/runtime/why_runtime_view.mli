@@ -137,7 +137,14 @@ type t = {
 
 (** Projects a product transition to a plain transition by dropping relational
     information, used to compile its imperative body. *)
-val transition_of_product_step : runtime_product_transition_view -> runtime_transition_view
+val transition_of_product_step :
+  ?simplify_runtime_actions:bool ->
+  runtime_product_transition_view ->
+  runtime_transition_view
 
 (** Main entry point: builds the runtime view of a node from its IR. *)
-val of_ir_node : Ir.node_ir -> t
+val of_ir_node :
+  ?simplify_runtime_actions:bool ->
+  ?slice_transition_bodies:bool ->
+  Ir.node_ir ->
+  t

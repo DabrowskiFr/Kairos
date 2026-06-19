@@ -19,7 +19,8 @@ open Core_syntax
 
 module Abs = Ir
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr = f
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  Core_fo_simplifier.simplify f
 
 let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
   let summary_formulas =

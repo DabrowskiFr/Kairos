@@ -1,0 +1,13 @@
+node internal_prefix_reserved(__kairos_x: int) returns (
+  ok: bool
+)
+contracts
+  ensures: X G(ok = true);
+states
+  Run(init);
+transitions
+  Run:
+    to Run {
+      ok := true;
+    }
+end

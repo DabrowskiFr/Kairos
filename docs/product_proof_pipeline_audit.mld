@@ -1,0 +1,106 @@
+{0 Product Proof Pipeline Audit}
+
+This audit records what the current implementation does before any redesign of
+the product proof obligations. It is intentionally conservative: it identifies
+where the current pipeline is soundly structured, where it is only an
+approximation, and where a future change must be justified against
+{!page-temporal_phase_semantics}.
+
+{1 Product-step enumeration}
+
+[lib/domain/verification/from_model.ml] builds product summaries from the
+program transitions and the assumption/guarantee automata.
+
+The important current property is that the builder enumerates the product
+combinations and does not prune branches by proving same-step formula
+inconsistency. It classifies destinations as safe, bad assumption, or bad
+guarantee, then groups cases by:
+
+- program transition index;
+- source product state;
+- assumption edge.
+
+For each such group, the safe guarantee outcomes are stored in [safe_cases],
+and the bad-guarantee outcomes are stored in [unsafe_cases].
+
+{1 Postcondition disjunction}
+
+[lib/domain/verification/post.ml] already keeps the relevant disjunction for a
+fixed source precondition. For a product-step summary, it adds an ensured
+formula equal to the disjunction of all [safe_cases] guarantee guards.
+
+This means the current missing piece is not "add a disjunction". The
+disjunction exists. The open issue is how to justify that the source product
+state used by the obligation is genuinely reachable at the corresponding
+end-of-instant boundary.
+
+{1 Current pre-generation}
+
+[lib/domain/verification/pre.ml] computes [propagation_requires] with
+[guarantee_pre_of_product_state]. The current computation looks at incoming
+safe cases and propagates only the safe case's [admissible_guard], shifting
+input references forward.
+
+This is a weak compatibility summary for guarantee automaton states. It is not
+a full product-step reachability proof. In particular, it deliberately must
+not be strengthened by shifting the program guard or the assumption guard into
+the next instant: those guards are step-context facts, not end-of-instant
+state facts.
+
+This file is therefore the main place where the current approximation can
+create spurious source product states in later proof obligations.
+
+{1 Generated clauses}
+
+[lib/domain/proof_export/proof_kernel_generated_clauses.ml] introduces three
+time classes:
+
+- [PreviousTick], for facts about the completed previous instant;
+- [CurrentTick], for facts about the completed current instant;
+- [StepTickContext], for facts that hold during the current step.
+
+The step clauses use previous program/guarantee states together with
+step-context program and assumption guards to prove current program and
+guarantee states. Safety obligations for bad-guarantee edges also keep the bad
+guarantee case in [StepTickContext].
+
+This separation is the right shape. The delicate part is
+[OriginPhaseStepPreSummary], which reuses [propagation_requires] as a previous
+phase formula. Since [propagation_requires] comes from the weak pre-generation
+described above, this clause inherits the same approximation.
+
+{1 Product export}
+
+[lib/domain/proof_export/proof_kernel_product.ml] exports explicit product
+steps. Its feasibility filter currently rejects only steps whose source is
+already in a bad assumption or bad guarantee state. It does not filter edges by
+syntactic satisfiability of mixed source/destination facts.
+
+That is the conservative behavior expected by the temporal phase semantics.
+
+{1 Things that must not be done}
+
+The following changes would be unsound without a separate formal argument:
+
+- filtering product edges because a conjunction contains both [P] and [not P]
+  when [P] may be evaluated before the body and [not P] after the body;
+- replacing a step-context program guard by a [pre] fact in a later instant;
+- replacing a step-context assumption guard by a [pre] fact in a later
+  instant;
+- treating [pre^2] as an internal phase marker;
+- validating reachability pruning with SMT satisfiability rather than with a
+  certified product-reachability argument.
+
+{1 Open point before changing the generator}
+
+Before changing the code, the next design decision is whether product-state
+reachability should be carried as:
+
+- an explicit inductive product reachability predicate in the proof IR; or
+- a certified invariant generated from the product graph; or
+- another formal object that Rocq can relate to the explored product steps.
+
+In all cases, the formal object must talk about end-of-instant product states
+and same-step transition selection separately. It cannot be reconstructed by
+shifting transition guards with [pre].
+

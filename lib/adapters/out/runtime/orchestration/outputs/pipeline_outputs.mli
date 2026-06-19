@@ -20,6 +20,7 @@
 
 (** Convert internal stage infos to serialized flow metadata. *)
 val flow_meta :
+  ?proof_optimizations:Pipeline_types.proof_optimizations ->
   Runtime_snapshot.flow_infos -> (string * (string * string) list) list
 
 (** Extract the first node's program automaton DOT and labels text. *)

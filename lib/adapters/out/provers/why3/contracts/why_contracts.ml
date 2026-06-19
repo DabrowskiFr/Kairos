@@ -216,12 +216,18 @@ let rec term_has_old (t : Ptree.term) : bool =
 
 let build_contracts ~(env : Why_compile_expr.env)
     ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
-    ~(pure_translation : bool) : contract_info =
+    ~(pure_translation : bool) ~(simplify_formulas : bool)
+    ~(deduplicate_terms : bool) : contract_info =
+  let normalize_fo f = if simplify_formulas then simplify_fo f else f in
+  let maybe_uniq terms = if deduplicate_terms then uniq_terms terms else terms in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
-    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env (simplify_fo f.logic) ]
+    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env (normalize_fo f.logic) ]
   in
   let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
-    let term = Why_compile_expr.compile_local_fo_formula_term ~in_post:true env (simplify_fo f.logic) in
+    let term =
+      Why_compile_expr.compile_local_fo_formula_term ~in_post:true env
+        (normalize_fo f.logic)
+    in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
@@ -234,18 +240,18 @@ let build_contracts ~(env : Why_compile_expr.env)
     let forbidden =
       pc.forbidden
       |> List.concat_map compile_forbidden_formula
-      |> uniq_terms
+      |> maybe_uniq
     in
     {
       step = pc;
       pre =
         pc.requires
         |> List.concat_map (compile_formula ~in_post:false)
-        |> uniq_terms;
+        |> maybe_uniq;
       post =
         pc.ensures
         |> List.concat_map (compile_formula ~in_post:true)
-        |> uniq_terms;
+        |> maybe_uniq;
       forbidden;
     }
   in
@@ -276,13 +282,17 @@ let build_contracts ~(env : Why_compile_expr.env)
   let post = post_contract_terms in
   let pre =
     link_invariants @ link_terms_pre @ pre_contract
-    |> uniq_terms
+    |> maybe_uniq
   in
-  let post = link_invariants @ link_terms_post @ post |> uniq_terms in
+  let post = link_invariants @ link_terms_post @ post |> maybe_uniq in
   let pre, post = if pure_translation then (transition_requires_pre, pure_post) else (pre, post) in
   let is_true_term t = match t.term_desc with Ttrue -> true | _ -> false in
-  let pre = List.filter (fun t -> not (is_true_term t)) pre in
-  let post = List.filter (fun t -> not (is_true_term t)) post in
+  let pre =
+    if simplify_formulas then List.filter (fun t -> not (is_true_term t)) pre else pre
+  in
+  let post =
+    if simplify_formulas then List.filter (fun t -> not (is_true_term t)) post else post
+  in
 
   let label_context : label_context =
     {

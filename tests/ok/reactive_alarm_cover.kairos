@@ -1,0 +1,67 @@
+spec def responds_now_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+node reactive_alarm_cover(
+  occlusion: bool, doorOpen: bool, start: bool, stop: bool
+) returns (
+  motorOn: bool, alarmLatched: bool
+)
+predicate hazardActive() =
+  occlusion = true or doorOpen = true;
+contracts
+  ensures: responds_now_next(
+    [hazardActive()], [alarmLatched = true and motorOn = false]);
+states
+  Init(init), Idle, Run, Alarm;
+invariants
+  in Idle:
+    motorOn = false; alarmLatched = false;
+  in Run:
+    motorOn = true; alarmLatched = false;
+  in Alarm:
+    motorOn = false; alarmLatched = true;
+transitions
+  Init:
+    to Alarm when hazardActive() {
+      motorOn, alarmLatched := false, true;
+    }
+    to Run when start = true {
+      motorOn, alarmLatched := true, false;
+    }
+    to Idle {
+      motorOn, alarmLatched := false, false;
+    }
+
+  Idle:
+    to Alarm when hazardActive() {
+      motorOn, alarmLatched := false, true;
+    }
+    to Run when start = true {
+      motorOn, alarmLatched := true, false;
+    }
+    to Idle {
+      motorOn, alarmLatched := false, false;
+    }
+
+  Run:
+    to Alarm when hazardActive() {
+      motorOn, alarmLatched := false, true;
+    }
+    to Idle when stop = true {
+      motorOn, alarmLatched := false, false;
+    }
+    to Run {
+      motorOn, alarmLatched := true, false;
+    }
+
+  Alarm:
+    to Alarm when hazardActive() {
+      motorOn, alarmLatched := false, true;
+    }
+    to Idle when stop = true {
+      motorOn, alarmLatched := false, false;
+    }
+    to Alarm {
+      motorOn, alarmLatched := false, true;
+    }
+end

@@ -8,6 +8,11 @@ The middle-end builds semantic proof data from the source program:
 - pre/invariant/post passes;
 - proof-view extraction.
 
+The temporal proof passes rely on a phase distinction that is easy to
+break accidentally. The intended vocabulary is documented in
+{!page-temporal_phase_semantics}; the current product-proof pipeline is
+audited in {!page-product_proof_pipeline_audit}.
+
 {1 Scope}
 
 This layer is where Kairos turns parsed nodes into canonical proof obligations.

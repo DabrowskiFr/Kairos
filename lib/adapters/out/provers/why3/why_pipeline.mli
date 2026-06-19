@@ -29,4 +29,11 @@ type obligations_outputs = {
 
 (** [obligations_pass nodes] compiles IR nodes and generates
     verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass : Ir.node_ir list -> obligations_outputs
+val obligations_pass :
+  ?share_why3_facts:bool ->
+  ?simplify_why3_formulas:bool ->
+  ?slice_why3_transition_bodies:bool ->
+  ?simplify_why3_runtime_actions:bool ->
+  ?deduplicate_why3_terms:bool ->
+  Ir.node_ir list ->
+  obligations_outputs

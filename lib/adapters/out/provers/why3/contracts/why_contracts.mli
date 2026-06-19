@@ -63,10 +63,16 @@ type contract_info = {
       must be wrapped in [old()] in the postcondition.
     - [~pure_translation]: when [true], only transition preconditions are kept
       and the postcondition is left empty (pure translation mode, no
-      verification). *)
+      verification).
+    - [~simplify_formulas]: when [true], applies backend FO simplifications
+      before Why3 term generation.
+    - [~deduplicate_terms]: when [true], removes syntactically duplicate
+      contract terms. *)
 val build_contracts :
   env:Why_compile_expr.env ->
   hexpr_needs_old:(hexpr -> bool) ->
   runtime:Why_runtime_view.t ->
   pure_translation:bool ->
+  simplify_formulas:bool ->
+  deduplicate_terms:bool ->
   contract_info

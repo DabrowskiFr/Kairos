@@ -111,7 +111,9 @@ let map_outputs ~(cfg : Pipeline_types.config)
     assume_automaton_dot = artifacts.assume_automaton_dot;
     product_dot = artifacts.product_dot;
     canonical_dot = artifacts.canonical_dot;
-    flow_meta = Pipeline_outputs_helpers.flow_meta snapshot.infos;
+    flow_meta =
+      Pipeline_outputs_helpers.flow_meta
+        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     goals = proof.goals;
     proof_traces = proof.proof_traces;
     vc_locs = proof.vc_locs;
@@ -181,7 +183,9 @@ let map_automata_outputs ~(generate_png : bool)
     assume_automaton_png_error;
     product_png;
     product_png_error;
-    flow_meta = Pipeline_outputs_helpers.flow_meta snapshot.infos;
+    flow_meta =
+      Pipeline_outputs_helpers.flow_meta
+        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     historical_clauses_text = "";
     eliminated_clauses_text = "";
   }

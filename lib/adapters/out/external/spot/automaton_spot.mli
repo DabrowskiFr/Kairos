@@ -89,6 +89,3 @@ val raw_guard_of_label :
 
 (** Tautological raw guard over the given atom domain. *)
 val raw_guard_true : string list -> raw_guard
-
-(** Merge two raw guards with disjunction semantics. *)
-val merge_raw_guards : raw_guard -> raw_guard -> raw_guard

@@ -1,0 +1,19 @@
+node concise_observer_bad_pre(x: int) returns (
+  ok: bool
+)
+observers
+  seen : int = x -> pre(x);
+contracts
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end

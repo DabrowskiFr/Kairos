@@ -109,7 +109,7 @@ let rec literal_key (h : hexpr) : (string * bool) option =
   | None -> begin
       match h.hexpr with
       | HUn (Not, inner) -> Option.map (fun (key, sign) -> (key, not sign)) (literal_key inner)
-      | HVar _ | HPred _ -> Some ("bool:" ^ key_of_hexpr h, true)
+      | HVar _ | HPred _ | HFunCall _ -> Some ("bool:" ^ key_of_hexpr h, true)
       | _ -> None
     end
 
@@ -169,9 +169,26 @@ let dedup_hexprs (xs : hexpr list) : hexpr list =
   in
   loop [] xs
 
+let bool_literals_have_complement (xs : hexpr list) : bool =
+  let seen = Hashtbl.create 16 in
+  List.exists
+    (fun h ->
+      match literal_key h with
+      | None -> false
+      | Some (key, sign) -> begin
+          match Hashtbl.find_opt seen key with
+          | Some prev when Bool.equal prev (not sign) -> true
+          | _ ->
+              Hashtbl.replace seen key sign;
+              false
+        end)
+    xs
+
 let and_has_contradiction (xs : hexpr list) : bool =
   let equalities = Hashtbl.create 16 in
   let disequalities = Hashtbl.create 16 in
+  bool_literals_have_complement xs
+  ||
   List.exists
     (fun h ->
       match rel_lit_of_hexpr h with
@@ -212,9 +229,14 @@ let prune_redundant_disequalities (xs : hexpr list) : hexpr list =
       | _ -> true)
     xs
 
+let bool_literals_have_tautology (xs : hexpr list) : bool =
+  bool_literals_have_complement xs
+
 let or_has_tautology (xs : hexpr list) : bool =
   let seen_eq = Hashtbl.create 16 in
   let seen_neq = Hashtbl.create 16 in
+  bool_literals_have_tautology xs
+  ||
   List.exists
     (fun h ->
       match rel_lit_of_hexpr h with
@@ -318,6 +340,103 @@ let remove_absorbed_disjuncts (xs : hexpr list) : hexpr list =
               keyed))
   |> List.map fst
 
+type cube_lit = {
+  cube_key : string;
+  cube_sign : bool;
+  cube_expr : hexpr;
+}
+
+let cube_of_conjunction (h : hexpr) : cube_lit list option =
+  let add_lit acc atom =
+    match literal_key atom with
+    | None -> None
+    | Some (key, sign) -> begin
+        match List.find_opt (fun lit -> String.equal lit.cube_key key) acc with
+        | Some prev when Bool.equal prev.cube_sign sign -> Some acc
+        | Some _ -> None
+        | None -> Some ({ cube_key = key; cube_sign = sign; cube_expr = atom } :: acc)
+      end
+  in
+  let atoms = flatten_bool And h in
+  if List.exists is_hfalse atoms then Some []
+  else
+    atoms
+    |> List.filter (fun atom -> not (is_htrue atom))
+    |> List.fold_left
+         (fun acc atom -> Option.bind acc (fun acc -> add_lit acc atom))
+         (Some [])
+    |> Option.map List.rev
+
+let cube_contains_literal lit cube =
+  List.exists
+    (fun other ->
+      String.equal lit.cube_key other.cube_key
+      && Bool.equal lit.cube_sign other.cube_sign)
+    cube
+
+let cube_key_sign lit = (lit.cube_key, lit.cube_sign)
+
+let common_cube_literals cubes =
+  match cubes with
+  | [] -> []
+  | first :: rest ->
+      first
+      |> List.filter (fun lit -> List.for_all (cube_contains_literal lit) rest)
+      |> List.sort_uniq (fun a b -> compare (cube_key_sign a) (cube_key_sign b))
+
+let remove_cube_literals common cube =
+  cube
+  |> List.filter (fun lit ->
+         not
+           (List.exists
+              (fun c ->
+                String.equal lit.cube_key c.cube_key
+                && Bool.equal lit.cube_sign c.cube_sign)
+              common))
+
+let rec assignments = function
+  | [] -> [ [] ]
+  | key :: rest ->
+      let rest = assignments rest in
+      List.map (fun a -> (key, false) :: a) rest
+      @ List.map (fun a -> (key, true) :: a) rest
+
+let cube_satisfied assignment cube =
+  List.for_all
+    (fun lit ->
+      match List.assoc_opt lit.cube_key assignment with
+      | Some value -> Bool.equal value lit.cube_sign
+      | None -> false)
+    cube
+
+let dnf_tautology cubes =
+  let vars =
+    cubes
+    |> List.concat_map (List.map (fun lit -> lit.cube_key))
+    |> List.sort_uniq String.compare
+  in
+  List.length vars <= 12
+  && List.for_all
+       (fun assignment -> List.exists (cube_satisfied assignment) cubes)
+       (assignments vars)
+
+let simplify_common_dnf_tautology (xs : hexpr list) : hexpr option =
+  let cubes =
+    List.fold_right
+      (fun cube acc ->
+        Option.bind cube (fun cube -> Option.map (fun acc -> cube :: acc) acc))
+      (List.map cube_of_conjunction xs)
+      (Some [])
+  in
+  match cubes with
+  | None -> None
+  | Some cubes ->
+      let common = common_cube_literals cubes in
+      let residuals = List.map (remove_cube_literals common) cubes in
+      if dnf_tautology residuals then
+        Some (rebuild_and_syntax (List.map (fun lit -> lit.cube_expr) common))
+      else None
+
 let rebuild_or_syntax (xs : hexpr list) : hexpr =
   let xs = List.concat_map (flatten_bool Or) xs in
   if List.exists is_htrue xs || or_has_tautology xs then htrue
@@ -334,6 +453,11 @@ let rebuild_or_syntax (xs : hexpr list) : hexpr =
       |> resolve_or_all
       |> remove_absorbed_disjuncts
       |> dedup_hexprs
+    in
+    let xs =
+      match simplify_common_dnf_tautology xs with
+      | Some simplified -> [ simplified ]
+      | None -> xs
     in
     match xs with
     | [] -> hfalse

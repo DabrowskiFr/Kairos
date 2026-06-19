@@ -15,8 +15,8 @@ proof obligations
 
 The existing Rocq development should be compared against the semantics of
 [Kx_ast] / [Verification_model] and the obligation generation that follows.
-Surface constructs such as finite-domain quantifiers, named actions, topology
-blocks and LTL helpers are frontend elaborations.
+Surface constructs such as enum-indexed quantifiers and named actions are
+frontend elaborations.
 
 {1 What This Means}
 
@@ -24,10 +24,17 @@ For the current implementation:
 
 - local predicates are not a proof-kernel feature; they are expanded before the
   core pipeline;
-- topology blocks are not a new temporal logic; they generate ordinary safety
-  LTL formulas using [G], [X] and [W];
-- [maintainedUntil] and [whileRouteLocked] are surface constructors for formulas
-  already expressible in the existing LTL fragment;
+- observers are not operational program state; they elaborate to generated
+  ghost variables and ghost-only updates, with no influence on observable
+  behavior;
+- [history def] declarations and [history name(x)] applications are frontend
+	  constructs; they elaborate to reserved generated ghosts, ghost-only updates,
+	  and phase-specific transition [ensures] clauses before the verification
+	  model is built. Bounded [pre_k(self,k)] in a history update is implemented by
+	  reserved generated delay/snapshot ghosts;
+- high-level safety schemas such as [maintainedUntil] should be ordinary
+  [spec def] declarations or explicit LTL formulas using [G], [X] and [W],
+  not proof-kernel features;
 - pure functions and enum literals are core constructs and must be accounted
   for when lowering to Why3 or to any formal semantic model.
 

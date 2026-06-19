@@ -209,6 +209,7 @@ let step ~(type_decls : Core_syntax.enum_decl list) (source_transition : Kx_ast.
     dst_state = source_transition.dst;
     guard_expr = Option.map (expr ~type_decls) source_transition.guard;
     body_stmts = List.map (stmt ~type_decls) source_transition.body;
+    ensures = List.map (hexpr ~type_decls) source_transition.ensures;
   }
 
 let type_name = function
@@ -402,6 +403,7 @@ let validate_node (n : Verification_model.node_model) : unit =
   let vars = n.inputs @ n.outputs @ n.locals @ n.ghosts in
   let real_var_names = List.map (fun (v : Core_syntax.vdecl) -> v.vname) (n.inputs @ n.outputs @ n.locals) in
   let ghost_var_names = List.map (fun (v : Core_syntax.vdecl) -> v.vname) n.ghosts in
+  let public_ghost_names = n.public_ghosts in
   validate_identifier_collisions node_name n.type_decls ~vars ~states:n.states;
   let seen_vars = Hashtbl.create 32 in
   List.iter
@@ -409,7 +411,13 @@ let validate_node (n : Verification_model.node_model) : unit =
       match Hashtbl.find_opt seen_vars v.vname with
       | Some () -> fail_node node_name (Printf.sprintf "duplicate variable '%s'" v.vname)
       | None -> Hashtbl.add seen_vars v.vname ())
-    vars;
+	    vars;
+  List.iter
+    (fun name ->
+      if not (List.mem name ghost_var_names) then
+        fail_node node_name
+          (Printf.sprintf "public ghost '%s' is not declared as a ghost variable" name))
+    public_ghost_names;
   let var_types = List.map (fun (v : Core_syntax.vdecl) -> (v.vname, v.vty)) vars in
   let find_var x =
     match List.assoc_opt x var_types with
@@ -428,6 +436,7 @@ let validate_node (n : Verification_model.node_model) : unit =
            (type_name expected))
   in
   let is_ghost_var x = List.mem x ghost_var_names in
+  let is_public_ghost_var x = List.mem x public_ghost_names in
   let function_sigs =
     List.map
       (fun (f : Core_syntax.pure_function_decl) ->
@@ -439,8 +448,23 @@ let validate_node (n : Verification_model.node_model) : unit =
     | Some sig_ -> sig_
     | None -> fail_node node_name (Printf.sprintf "unknown pure function '%s'" called)
   in
-  let reject_ghost_use context vars =
-    match List.find_opt is_ghost_var vars with
+  let has_prefix ~(prefix : string) (s : string) : bool =
+    let plen = String.length prefix in
+    String.length s >= plen && String.equal (String.sub s 0 plen) prefix
+  in
+  let is_generated_history_var x =
+    has_prefix ~prefix:"__kairos_history_" x
+  in
+  let reject_ghost_use ?(allow_generated_history = false) ?(allow_public_ghosts = false)
+      context vars =
+    match
+      List.find_opt
+        (fun x ->
+          is_ghost_var x
+          && not (allow_generated_history && is_generated_history_var x)
+          && not (allow_public_ghosts && is_public_ghost_var x))
+        vars
+    with
     | Some x -> fail_node node_name (Printf.sprintf "%s mentions ghost variable '%s'" context x)
     | None -> ()
   in
@@ -577,6 +601,17 @@ let validate_node (n : Verification_model.node_model) : unit =
         validate_ltl a;
         validate_ltl b
   in
+  let rec stmt_writes_real (s : Core_syntax.stmt) : bool =
+    match s.stmt with
+    | SAssign (id, _) -> List.mem id real_var_names
+    | SIf (_, then_branch, else_branch) ->
+        List.exists stmt_writes_real (then_branch @ else_branch)
+    | SMatch (_, branches, default_branch) ->
+        List.exists stmt_writes_real (List.concat_map snd branches @ default_branch)
+    | SSkip -> false
+    | SCall _ -> true
+  in
+  let stmt_list_writes_real body = List.exists stmt_writes_real body in
   let rec validate_stmt (s : Core_syntax.stmt) : unit =
     match s.stmt with
     | SAssign (id, rhs) ->
@@ -586,12 +621,14 @@ let validate_node (n : Verification_model.node_model) : unit =
             (vars_of_expr rhs)
     | SIf (cond, then_branch, else_branch) ->
         expect_ty "if condition" TBool (expr_ty cond);
-        reject_ghost_use "if condition" (vars_of_expr cond);
+        if stmt_list_writes_real (then_branch @ else_branch) then
+          reject_ghost_use "if condition" (vars_of_expr cond);
         List.iter validate_stmt then_branch;
         List.iter validate_stmt else_branch
     | SMatch (scrutinee, branches, default_branch) ->
         let scrutinee_ty = expr_ty scrutinee in
-        reject_ghost_use "match scrutinee" (vars_of_expr scrutinee);
+        if stmt_list_writes_real (List.concat_map snd branches @ default_branch) then
+          reject_ghost_use "match scrutinee" (vars_of_expr scrutinee);
         List.iter
           (fun (ctor, body) ->
             expect_ty ("match branch " ^ ctor) scrutinee_ty (find_ctor ctor);
@@ -620,7 +657,13 @@ let validate_node (n : Verification_model.node_model) : unit =
           expect_ty "transition guard" TBool (expr_ty guard);
           reject_ghost_use "transition guard" (vars_of_expr guard))
         step.guard_expr;
-      List.iter validate_stmt step.body_stmts)
+      List.iter validate_stmt step.body_stmts;
+      List.iter
+        (fun ensure ->
+          expect_ty "transition ensures" TBool (hexpr_ty ensure);
+          reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true "transition ensures"
+            (vars_of_hexpr ensure))
+        step.ensures)
     n.steps;
   List.iter (fun (inv : Verification_model.state_invariant) ->
       if not (List.mem inv.state n.states) then
@@ -630,12 +673,14 @@ let validate_node (n : Verification_model.node_model) : unit =
   List.iter
     (fun assume ->
       validate_ltl assume;
-      reject_ghost_use "requires contract" (vars_of_ltl assume))
+      reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
+        "requires contract" (vars_of_ltl assume))
     n.assumes;
   List.iter
     (fun guarantee ->
       validate_ltl guarantee;
-      reject_ghost_use "ensures contract" (vars_of_ltl guarantee))
+      reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
+        "ensures contract" (vars_of_ltl guarantee))
     n.guarantees
 
 let node ~(type_decls : Core_syntax.enum_decl list)
@@ -652,6 +697,7 @@ let node ~(type_decls : Core_syntax.enum_decl list)
     outputs = List.map lower_vdecl sem.sem_outputs;
     locals = List.map lower_vdecl sem.sem_locals;
     ghosts = List.map lower_vdecl sem.sem_ghosts;
+    public_ghosts = sem.sem_public_ghosts;
     states = sem.sem_states;
     init_state = sem.sem_init_state;
     steps = List.map (step ~type_decls) sem.sem_trans;

@@ -31,21 +31,29 @@ module Make (P : Application_ports.PORTS) : sig
   (** Generate Why text outputs on one source file. *)
 
   val why_pass :
+    proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (Pipeline_types.why_outputs, Pipeline_types.error) result
 
   (** Generate VC/SMT obligations on one source file. *)
 
   val obligations_pass :
+    proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (Pipeline_types.obligations_outputs, Pipeline_types.error) result
 
   (** Render the normalized IR textual view for one source file. *)
 
-  val normalized_program : input_file:string -> (string, Pipeline_types.error) result
+  val normalized_program :
+    proof_optimizations:Pipeline_types.proof_optimizations ->
+    input_file:string ->
+    (string, Pipeline_types.error) result
   (** Render the proof-oriented pretty IR textual view for one source file. *)
 
-  val ir_pretty_dump : input_file:string -> (string, Pipeline_types.error) result
+  val ir_pretty_dump :
+    proof_optimizations:Pipeline_types.proof_optimizations ->
+    input_file:string ->
+    (string, Pipeline_types.error) result
 
   (** Execute the full pipeline according to [config]. *)
 

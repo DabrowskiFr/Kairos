@@ -21,7 +21,8 @@ open Fo_time
 
 module Abs = Ir
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr = f
+let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  Core_fo_simplifier.simplify f
 
 let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
   match fs with

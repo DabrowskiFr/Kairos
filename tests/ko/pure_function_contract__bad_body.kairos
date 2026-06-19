@@ -1,0 +1,19 @@
+function dishonest(x: int): int
+  ensures: result = x + 1;
+= x;
+
+node pure_function_contract_bad_body(input: int) returns (
+  out: int
+)
+
+contracts
+  ensures: G(out = input);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      out := input;
+    }
+end

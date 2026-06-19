@@ -18,9 +18,6 @@
 open Core_syntax
 open Core_syntax_builders
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
-
 let normalize_spot_automaton ~(atom_names : string list)
     ~(atom_map : (ltl_atom * ident) list)
     (hoa : Automaton_spot.hoa_automaton) :
@@ -56,11 +53,9 @@ let normalize_spot_automaton ~(atom_names : string list)
   let id_map = Hashtbl.create (List.length hoa.states * 2) in
   List.iteri (fun idx id -> Hashtbl.replace id_map id idx) ordered_accepting;
   List.iter (fun id -> if has_bad && List.mem id rejecting then Hashtbl.replace id_map id bad_idx) rejecting;
-  let table = Hashtbl.create 32 in
+  let transitions_rev = ref [] in
   let add_transition src guard dst =
-    let key = (src, dst) in
-    let prev = Hashtbl.find_opt table key |> Option.value ~default:[] in
-    Hashtbl.replace table key (Automaton_spot.merge_raw_guards prev guard)
+    transitions_rev := (src, guard, dst) :: !transitions_rev
   in
   List.iter
     (fun (st : Automaton_spot.hoa_state) ->
@@ -76,10 +71,7 @@ let normalize_spot_automaton ~(atom_names : string list)
           st.transitions)
     hoa.states;
   if has_bad then add_transition bad_idx (Automaton_spot.raw_guard_true atom_names) bad_idx;
-  let transitions_raw =
-    Hashtbl.fold (fun (src, dst) guard acc -> (src, guard, dst) :: acc) table []
-    |> List.sort compare
-  in
+  let transitions_raw = List.rev !transitions_rev in
   let atom_name_to_rel = List.map (fun ((lhs, rel, rhs), name) -> (name, (lhs, rel, rhs))) atom_map in
   let rec substitute_atom_vars (h : Core_syntax.hexpr) : Core_syntax.hexpr =
     match h.hexpr with
@@ -99,7 +91,7 @@ let normalize_spot_automaton ~(atom_names : string list)
         with_hexpr_desc h (HCmp (rel, substitute_atom_vars lhs, substitute_atom_vars rhs))
   in
   let guard_to_fo (g : Automaton_spot.raw_guard) : Core_syntax.hexpr =
-    Ltl_valuation.terms_to_expr g |> hexpr_of_expr |> substitute_atom_vars |> simplify_fo
+    Ltl_valuation.terms_to_expr g |> hexpr_of_expr |> substitute_atom_vars
   in
   let transitions =
     List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw

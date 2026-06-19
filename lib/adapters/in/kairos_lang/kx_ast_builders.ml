@@ -22,10 +22,11 @@ let mk_stmt ?loc stmt = { stmt; loc }
 let stmt_desc s = s.stmt
 let with_stmt_desc s stmt = { s with stmt }
 
-let mk_transition ~src ~dst ~guard ~body : transition = { src; dst; guard; body }
+let mk_transition ~src ~dst ~guard ~body ?(ensures = []) () : transition =
+  { src; dst; guard; body; ensures }
 
 let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~ghosts
-    ~states ~init_state ~trans : node =
+    ~public_ghosts ~states ~init_state ~trans : node =
   {
     semantics =
       {
@@ -35,6 +36,7 @@ let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~gho
         sem_instances = instances;
         sem_locals = locals;
         sem_ghosts = ghosts;
+        sem_public_ghosts = public_ghosts;
         sem_states = states;
         sem_init_state = init_state;
         sem_trans = trans;

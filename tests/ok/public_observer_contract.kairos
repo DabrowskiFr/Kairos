@@ -1,0 +1,21 @@
+node public_observer_contract(x: int) returns (
+  out: int
+)
+observers
+  total : int = x -> pre(total) + x;
+contracts
+  requires: G(x >= 0);
+  ensures: G(total >= 0);
+  ensures: G(out = x);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      out := x;
+    }
+  Run:
+    to Run {
+      out := x;
+    }
+end

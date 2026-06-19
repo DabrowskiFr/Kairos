@@ -228,8 +228,13 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
 
 (** [prepare_ir_node] helper value. *)
 
-let prepare_ir_node (node : Ir.node_ir) : env_info =
-  let runtime = Why_runtime_view.of_ir_node node in
+let prepare_ir_node ?(simplify_why3_runtime_actions = true)
+    ?(slice_why3_transition_bodies = true) (node : Ir.node_ir) : env_info =
+  let runtime =
+    Why_runtime_view.of_ir_node
+      ~simplify_runtime_actions:simplify_why3_runtime_actions
+      ~slice_transition_bodies:slice_why3_transition_bodies node
+  in
   prepare_runtime_view ~temporal_layout:node.temporal_layout runtime
 
 (** [empty_spec] helper value. *)
@@ -349,6 +354,10 @@ let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
 (** [compile_node_with_info] helper value. *)
 
 let compile_node_with_info ?kernel_ir
+    ?(share_why3_facts = true)
+    ?(simplify_why3_formulas = true)
+    ?(simplify_why3_runtime_actions = true)
+    ?(deduplicate_why3_terms = true)
     (info : env_info) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups =
   let runtime_view = info.runtime_view in
@@ -428,6 +437,8 @@ let compile_node_with_info ?kernel_ir
   let contracts =
     Why_contracts.build_contracts ~env:info.env ~hexpr_needs_old:info.hexpr_needs_old
       ~runtime:runtime_view ~pure_translation:false
+      ~simplify_formulas:simplify_why3_formulas
+      ~deduplicate_terms:deduplicate_why3_terms
   in
   let pre = contracts.pre in
   let post = contracts.post in
@@ -445,6 +456,7 @@ let compile_node_with_info ?kernel_ir
   let branch_entry_asserts =
     if use_product_helper_contracts then []
     else
+      let maybe_uniq terms = if deduplicate_why3_terms then uniq_terms terms else terms in
       let add_assert acc state_name term =
         let prev = Option.value ~default:[] (List.assoc_opt state_name acc) in
         (state_name, term :: prev) :: List.remove_assoc state_name acc
@@ -457,7 +469,7 @@ let compile_node_with_info ?kernel_ir
              | Some (Some state_name) -> add_assert acc state_name term
              | _ -> acc)
            []
-      |> List.map (fun (state_name, terms) -> (state_name, List.rev (uniq_terms terms)))
+      |> List.map (fun (state_name, terms) -> (state_name, List.rev (maybe_uniq terms)))
   in
   let full_step_body () = compile_runtime_view env runtime_view in
   let pre = pre in
@@ -469,6 +481,115 @@ let compile_node_with_info ?kernel_ir
   in
   let post = List.map2 add_vcid_attr post_vcids post in
   let helper_args = List.map binder_expr inputs in
+
+  let rec term_has_old_or_attr (term : Ptree.term) : bool =
+    match term.term_desc with
+    | Tattr _ -> true
+    | Tat (_, id) when id.id_str = "old" -> true
+    | Tapply (fn, arg) -> begin
+        match fn.term_desc with
+        | Tident q when string_of_qid q = "old" -> true
+        | _ -> term_has_old_or_attr fn || term_has_old_or_attr arg
+      end
+    | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old_or_attr a || term_has_old_or_attr b
+    | Tnot a -> term_has_old_or_attr a
+    | Tidapp (_q, args) -> List.exists term_has_old_or_attr args
+    | Tif (c, t_then, t_else) ->
+        term_has_old_or_attr c || term_has_old_or_attr t_then || term_has_old_or_attr t_else
+    | Ttuple terms -> List.exists term_has_old_or_attr terms
+    | Tident _ | Tconst _ | Ttrue | Tfalse -> false
+    | _ -> true
+  in
+  let share_candidate term =
+    (not (term_has_old_or_attr term))
+    &&
+    match term.term_desc with
+    | Tbinnop _ | Tnot _ -> true
+    | _ -> false
+  in
+  let make_shared_fact_info () =
+    if
+      (not share_why3_facts) || not use_product_helper_contracts
+    then ([], fun term -> term)
+    else
+      let counts = Hashtbl.create 128 in
+      let first_terms = Hashtbl.create 128 in
+      let add_term term =
+        if share_candidate term then (
+          let key = string_of_term term in
+          Hashtbl.replace counts key (Option.value ~default:0 (Hashtbl.find_opt counts key) + 1);
+          if not (Hashtbl.mem first_terms key) then Hashtbl.add first_terms key term)
+      in
+      List.iter
+        (fun (sc : Why_contracts.step_contract_info) ->
+          List.iter add_term sc.pre;
+          List.iter add_term sc.post;
+          List.iter add_term sc.forbidden)
+        step_contracts;
+      let shared_keys =
+        counts |> Hashtbl.to_seq
+        |> Seq.filter (fun (_key, count) -> count >= 10)
+        |> List.of_seq
+        |> List.map fst
+        |> List.sort String.compare
+      in
+      let key_to_name = Hashtbl.create (List.length shared_keys * 2 + 1) in
+      List.iteri
+        (fun idx key -> Hashtbl.add key_to_name key (Printf.sprintf "__kairos_shared_fact_%03d" (idx + 1)))
+        shared_keys;
+      let param_of_binder ((bloc, id_opt, ghost, pty_opt) : Ptree.binder) : Ptree.param option =
+        match (id_opt, pty_opt) with
+        | Some _, Some pty -> Some (bloc, id_opt, ghost, pty)
+        | _ -> None
+      in
+      let arg_of_binder ((_, id_opt, _, _) : Ptree.binder) : Ptree.term option =
+        Option.map (fun id -> mk_term (Tident (qid1 id.id_str))) id_opt
+      in
+      let binder_name ((_, id_opt, _, _) : Ptree.binder) =
+        Option.map (fun id -> id.id_str) id_opt
+      in
+      let binder_used_by_key key binder =
+        match binder_name binder with
+        | None -> false
+        | Some name ->
+            let len_key = String.length key in
+            let len_name = String.length name in
+            let rec loop i =
+              if i + len_name > len_key then false
+              else if String.sub key i len_name = name then true
+              else loop (i + 1)
+            in
+            loop 0
+      in
+      let params_for_key key = inputs |> List.filter (binder_used_by_key key) |> List.filter_map param_of_binder in
+      let args_for_key key = inputs |> List.filter (binder_used_by_key key) |> List.filter_map arg_of_binder in
+      let decls =
+        shared_keys
+        |> List.map (fun key ->
+               let name = Hashtbl.find key_to_name key in
+               let body = Hashtbl.find first_terms key in
+               Ptree.Dlogic
+                 [
+                   {
+                     ld_loc = loc;
+                     ld_ident = ident name;
+                     ld_params = params_for_key key;
+                     ld_type = Some (Ptree.PTtyapp (qid1 "bool", []));
+                     ld_def = Some body;
+                   };
+                 ])
+      in
+      let rewrite term =
+        if not (share_candidate term) then term
+        else
+          let key = string_of_term term in
+          match Hashtbl.find_opt key_to_name key with
+          | None -> term
+          | Some name -> mk_term (Tidapp (qid1 name, args_for_key key))
+      in
+      (decls, rewrite)
+  in
+  let shared_fact_decls, rewrite_shared_fact = make_shared_fact_info () in
 
   let state_names = runtime_view.control_states in
   let rec strip_term_attrs (term : Ptree.term) : Ptree.term =
@@ -583,14 +704,18 @@ let compile_node_with_info ?kernel_ir
       step_contracts
       |> List.mapi (fun i sc -> (i, sc))
       |> List.filter_map (fun (i, (sc : Why_contracts.step_contract_info)) ->
-             let t = Why_runtime_view.transition_of_product_step sc.step in
+             let t =
+               Why_runtime_view.transition_of_product_step
+                 ~simplify_runtime_actions:simplify_why3_runtime_actions sc.step
+             in
              let helper_name = ident (step_helper_name ~index:i sc) in
              let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
              let spc =
                {
                  Ptree.sp_pre =
-                   term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state))) :: sc.pre;
-                 sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
+                   term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+                   :: List.map rewrite_shared_fact sc.pre;
+                 sp_post = List.rev_map mk_post (List.map rewrite_shared_fact (sc.forbidden @ sc.post));
                  sp_xpost = [];
                  sp_reads = [];
                  sp_writes = [];
@@ -751,7 +876,7 @@ let compile_node_with_info ?kernel_ir
 
   let decls =
     imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
-    @ phase_case_logic_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
+    @ phase_case_logic_decls @ shared_fact_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
     @ coherency_goal_decls @ kernel_init_goal_decls
   in
 
@@ -759,15 +884,33 @@ let compile_node_with_info ?kernel_ir
 
 (** [compile_node_from_ir_node] helper value. *)
 
-let compile_node_from_ir_node (node : Ir.node_ir) :
+let compile_node_from_ir_node
+    ?(share_why3_facts = true)
+    ?(simplify_why3_formulas = true)
+    ?(slice_why3_transition_bodies = true)
+    ?(simplify_why3_runtime_actions = true)
+    ?(deduplicate_why3_terms = true)
+    (node : Ir.node_ir) :
     Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups =
-  compile_node_with_info (prepare_ir_node node)
+  compile_node_with_info ~share_why3_facts ~simplify_why3_formulas
+    ~simplify_why3_runtime_actions ~deduplicate_why3_terms
+    (prepare_ir_node ~simplify_why3_runtime_actions ~slice_why3_transition_bodies node)
 
 (** [compile_program_ast_from_ir_nodes] helper value. *)
 
-let compile_program_ast_from_ir_nodes (program_nodes : Ir.node_ir list) : program_ast =
+let compile_program_ast_from_ir_nodes
+    ?(share_why3_facts = true)
+    ?(simplify_why3_formulas = true)
+    ?(slice_why3_transition_bodies = true)
+    ?(simplify_why3_runtime_actions = true)
+    ?(deduplicate_why3_terms = true)
+    (program_nodes : Ir.node_ir list) : program_ast =
   let modules =
-    List.map compile_node_from_ir_node program_nodes
+    List.map
+      (compile_node_from_ir_node ~share_why3_facts ~simplify_why3_formulas
+         ~slice_why3_transition_bodies ~simplify_why3_runtime_actions
+         ~deduplicate_why3_terms)
+      program_nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _) -> (a, c)) modules) in
   let module_info = List.map (fun (id, _, _, groups) -> (id.id_str, groups)) modules in

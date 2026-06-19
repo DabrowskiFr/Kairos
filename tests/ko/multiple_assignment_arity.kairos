@@ -1,0 +1,17 @@
+node multiple_assignment_arity(x: int) returns (
+  a: int, b: int
+)
+contracts
+  ensures: X G(a >= 0);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      a, b := x;
+    }
+  Run:
+    to Run {
+      a, b := x;
+    }
+end

@@ -1,3 +1,12 @@
 (documentation
  (package kairos)
- (mld_files index frontend common middleend artifacts backends rocq_frontend_boundary))
+ (mld_files
+  index
+  frontend
+  common
+  middleend
+  artifacts
+  backends
+  rocq_frontend_boundary
+  temporal_phase_semantics
+  product_proof_pipeline_audit))

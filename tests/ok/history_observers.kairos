@@ -1,0 +1,50 @@
+node history_observers(x: int) returns (
+  ok: bool
+)
+observers
+  firstX : int
+    init {
+      firstX := x;
+    }
+    step {
+      firstX := firstX;
+    }
+  sumX : int
+    init {
+      sumX := x;
+    }
+    step {
+      sumX := sumX + x;
+    }
+  maxX : int
+    init {
+      maxX := x;
+    }
+    step {
+      if x > maxX then
+        maxX := x;
+      else
+        maxX := maxX;
+      end;
+    }
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+    firstX >= 0;
+    sumX >= 0;
+    maxX >= 0;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end

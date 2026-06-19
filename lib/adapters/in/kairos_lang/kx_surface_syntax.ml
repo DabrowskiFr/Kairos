@@ -18,9 +18,9 @@
 
 (** Surface syntax produced by the parser.
 
-    This AST intentionally keeps frontend conveniences explicit: finite-domain
-    declarations, indexed variable names, bounded quantifiers, local predicates,
-    inline actions, topology blocks, history aliases, and statement-level [for]
+    This AST intentionally keeps frontend conveniences explicit: indexed
+    variable names, bounded quantifiers over enum types, local predicates, spec
+    definitions, inline actions, history aliases, and statement-level [for]
     loops. [Kx_elaborate] is the only module that lowers this syntax into the
     smaller [Kx_ast] consumed by the rest of Kairos. *)
 
@@ -39,9 +39,16 @@ type raw_vdecl = {
 }
 [@@deriving yojson]
 
-type domain_decl = {
-  domain_name : ident;
-  domain_members : ident list;
+type spec_param_kind = SPFormula | SPHExpr | SPNat [@@deriving yojson]
+
+type nat_expr =
+  | SNNat of int
+  | SNVar of ident
+[@@deriving yojson]
+
+type spec_param = {
+  spec_param_name : ident;
+  spec_param_kind : spec_param_kind;
 }
 [@@deriving yojson]
 
@@ -63,7 +70,9 @@ and hexpr_desc =
   | SHLitInt of int
   | SHLitBool of bool
   | SHVar of indexed_ref
-  | SHPreK of indexed_ref * int
+  | SHPreK of indexed_ref * nat_expr
+  | SHPast of hexpr * nat_expr
+  | SHHistoryCall of ident * indexed_ref
   | SHHistoryAlias of ident * indexed_ref
   | SHCall of ident * ident list
   | SHExpr of expr
@@ -72,6 +81,8 @@ and hexpr_desc =
   | SHUn of unop * hexpr
   | SHForall of ident * ident * hexpr
   | SHExists of ident * ident * hexpr
+  | SHRangeForall of ident * nat_expr * nat_expr * hexpr
+  | SHRangeExists of ident * nat_expr * nat_expr * hexpr
 [@@deriving yojson]
 
 type ltl =
@@ -79,6 +90,8 @@ type ltl =
   | SLFalse
   | SLAtom of hexpr * relop * hexpr
   | SLFo of hexpr
+  | SLFormulaParam of ident
+  | SLCall of ident * spec_arg list
   | SLNot of ltl
   | SLAnd of ltl * ltl
   | SLOr of ltl * ltl
@@ -88,8 +101,11 @@ type ltl =
   | SLW of ltl * ltl
   | SLForall of ident * ident * ltl
   | SLExists of ident * ident * ltl
-  | SLMaintainedUntil of ltl * ltl * ltl
-  | SLWhileRouteLocked of ident * ltl
+  | SLRangeForall of ident * nat_expr * nat_expr * ltl
+  | SLRangeExists of ident * nat_expr * nat_expr * ltl
+and spec_arg =
+  | SAFormula of ltl
+  | SAHExpr of hexpr
 [@@deriving yojson]
 
 type function_decl = {
@@ -129,6 +145,13 @@ and stmt_desc =
   | SSFor of ident * ident * stmt list
 [@@deriving yojson]
 
+type history_expr = { shistory_expr : history_expr_desc; hvloc : Kx_loc.loc option }
+
+and history_expr_desc =
+  | SHValue of hexpr
+  | SHIf of hexpr * history_expr * history_expr
+[@@deriving yojson]
+
 type action_decl = {
   action_name : ident;
   action_params : ident list;
@@ -136,10 +159,35 @@ type action_decl = {
 }
 [@@deriving yojson]
 
+type spec_def_decl = {
+  spec_def_name : ident;
+  spec_def_params : spec_param list;
+  spec_def_body : ltl;
+}
+[@@deriving yojson]
+
+type history_def_decl = {
+  history_def_name : ident;
+  history_param : ident;
+  history_ty : ty;
+  history_init : history_expr;
+  history_init_ensures : hexpr list;
+  history_step : history_expr;
+  history_step_ensures : hexpr list;
+}
+[@@deriving yojson]
+
+type observer_decl = {
+  observer_name : ident;
+  observer_ty : ty;
+  observer_init : stmt list;
+  observer_step : stmt list;
+}
+[@@deriving yojson]
+
 type contract_item =
   | SCRequires of ltl
   | SCEnsures of ltl
-  | SCTopology of Kx_topology_syntax.topology_entry list
 [@@deriving yojson]
 
 type state_invariant = {
@@ -153,6 +201,7 @@ type transition = {
   dst : ident;
   guard : expr option;
   body : stmt list;
+  ensures : hexpr list;
 }
 [@@deriving yojson]
 
@@ -168,6 +217,7 @@ type node = {
   outputs : raw_vdecl list;
   history_aliases : history_alias_decl list;
   ghosts : raw_vdecl list;
+  observers : observer_decl list;
   predicates : predicate_decl list;
   actions : action_decl list;
   contracts : contract_item list;
@@ -181,8 +231,9 @@ type node = {
 
 type frontend_decl =
   | STypeDecl of enum_decl
-  | SDomainDecl of domain_decl
   | SFunctionDecl of function_decl
+  | SSpecDefDecl of spec_def_decl
+  | SHistoryDefDecl of history_def_decl
 [@@deriving yojson]
 
 type import_decl = string * Kx_loc.loc option [@@deriving yojson]
@@ -198,6 +249,7 @@ type program = node list [@@deriving yojson]
 
 let mk_indexed_ref ref_base ref_indices = { ref_base; ref_indices }
 let mk_scalar_ref ref_base = mk_indexed_ref ref_base []
+let mk_history_expr ?loc shistory_expr = { shistory_expr; hvloc = loc }
 
 let mk_expr ?loc sexpr = { sexpr; loc }
 let mk_hexpr ?loc shexpr = { shexpr; hloc = loc }

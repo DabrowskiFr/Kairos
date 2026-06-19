@@ -1,0 +1,26 @@
+history def dishonest(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = pre(self);
+  step ensures: self = pre(self) + 1;
+
+node history_definition_bad_ensures(x: int) returns (
+  ok: bool
+)
+contracts
+  ensures: X G(ok = true);
+  ensures: X G(history dishonest(x) = history dishonest(x));
+states Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end

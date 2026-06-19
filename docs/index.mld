@@ -27,6 +27,10 @@ If you are reading the codebase for the first time:
 4. then read {!page-artifacts}, {!page-backends}, and
    {!page-rocq_frontend_boundary}.
 
+For temporal proof work, read {!page-temporal_phase_semantics} before
+changing product construction or proof-obligation generation, then use
+{!page-product_proof_pipeline_audit} as a map of the current pipeline.
+
 {1 Guides}
 
 - {!page-frontend}
@@ -35,6 +39,8 @@ If you are reading the codebase for the first time:
 - {!page-artifacts}
 - {!page-backends}
 - {!page-rocq_frontend_boundary}
+- {!page-temporal_phase_semantics}
+- {!page-product_proof_pipeline_audit}
 
 {1 Frontend API}
 

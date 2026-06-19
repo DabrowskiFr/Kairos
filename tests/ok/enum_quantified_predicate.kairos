@@ -1,8 +1,8 @@
 type Route = R1 | R2;
 type Track = T1 | T2;
-domain Channel = CH1 | CH2;
+type Channel = CH1 | CH2;
 
-node domain_quantified_predicate(
+node enum_quantified_predicate(
   request[Route]: bool,
   occupied[Track]: bool
 ) returns (

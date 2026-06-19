@@ -3,7 +3,7 @@ type RouteState = Idle | Locked;
 type Track = T1;
 type Route = R1;
 
-node topology_single_route(
+node explicit_single_route_safety(
   occupied[T1]: bool
 ) returns (
   signal[R1]: SignalColor,
@@ -11,9 +11,8 @@ node topology_single_route(
   reserved[R1]: bool
 )
 contracts
-  topology
-    route R1 uses T1;
-  end
+  ensures: G(routeState[R1] = Locked => X(reserved[R1] = true W routeState[R1] = Idle));
+  ensures: G(signal[R1] = Green => occupied[T1] = false);
 states
   Init(init), Run;
 invariants

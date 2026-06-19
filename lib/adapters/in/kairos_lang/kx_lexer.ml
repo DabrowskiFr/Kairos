@@ -39,16 +39,20 @@ let () =
     [
       ("node", NODE);
       ("type", TYPE);
-      ("domain", DOMAIN);
       ("function", FUNCTION);
       ("predicate", PREDICATE);
       ("action", ACTION);
+      ("history", HISTORY);
+      ("spec", SPEC);
+      ("def", DEF);
       ("returns", RETURNS);
       ("locals", LOCALS);
-      ("ghost", GHOSTS);
-      ("ghosts", GHOSTS);
-      ("states", STATES);
+	      ("ghost", GHOSTS);
+	      ("ghosts", GHOSTS);
+	      ("observers", OBSERVERS);
+	      ("states", STATES);
       ("init", INIT);
+      ("step", STEP);
       ("trans", TRANS);
       ("transitions", TRANS);
       ("end", END);
@@ -58,11 +62,6 @@ let () =
       ("invariants", INVARIANTS);
       ("in", IN);
       ("contracts", CONTRACTS);
-      ("topology", TOPOLOGY);
-      ("route", ROUTE);
-      ("uses", USES);
-      ("conflict", CONFLICT);
-      ("routeSignal", ROUTESIGNAL);
       ("import", IMPORT);
       ("let", LET);
       ("instance", INSTANCE);
@@ -85,8 +84,15 @@ let () =
       ("int", TINT);
       ("bool", TBOOL);
       ("real", TREAL);
+      ("Formula", FORMULA);
+      ("formula", FORMULA);
+      ("HExpr", HEXPR);
+      ("hexpr", HEXPR);
+      ("Nat", NAT);
+      ("nat", NAT);
       ("pre", PRE);
       ("pre_k", PREK);
+      ("past", PAST);
       ("and", AND);
       ("or", OR);
       ("not", NOT);
@@ -98,8 +104,6 @@ let () =
       ("X", X);
       ("W", W);
       ("R", R);
-      ("maintainedUntil", MAINTAINEDUNTIL);
-      ("whileRouteLocked", WHILEROUTELOCKED);
     ]
 
 (** [last_lexeme_ref] helper value. *)
@@ -128,16 +132,20 @@ let expected_tokens : (string * Kx_parser.token) list =
   [
     ("node", NODE);
     ("type", TYPE);
-    ("domain", DOMAIN);
     ("function", FUNCTION);
     ("predicate", PREDICATE);
     ("action", ACTION);
+    ("history", HISTORY);
+    ("spec", SPEC);
+    ("def", DEF);
     ("returns", RETURNS);
     ("locals", LOCALS);
     ("ghost", GHOSTS);
     ("ghosts", GHOSTS);
+    ("observers", OBSERVERS);
     ("states", STATES);
     ("init", INIT);
+    ("step", STEP);
     ("trans", TRANS);
     ("transitions", TRANS);
     ("end", END);
@@ -147,11 +155,6 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("invariants", INVARIANTS);
     ("in", IN);
     ("contracts", CONTRACTS);
-    ("topology", TOPOLOGY);
-    ("route", ROUTE);
-    ("uses", USES);
-    ("conflict", CONFLICT);
-    ("routeSignal", ROUTESIGNAL);
     ("import", IMPORT);
     ("let", LET);
     ("instance", INSTANCE);
@@ -174,8 +177,15 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("int", TINT);
     ("bool", TBOOL);
     ("real", TREAL);
+    ("Formula", FORMULA);
+    ("formula", FORMULA);
+    ("HExpr", HEXPR);
+    ("hexpr", HEXPR);
+    ("Nat", NAT);
+    ("nat", NAT);
     ("pre", PRE);
     ("pre_k", PREK);
+    ("past", PAST);
     ("and", AND);
     ("or", OR);
     ("not", NOT);
@@ -187,8 +197,6 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("X", X);
     ("W", W);
     ("R", R);
-    ("maintainedUntil", MAINTAINEDUNTIL);
-    ("whileRouteLocked", WHILEROUTELOCKED);
     (":=", ASSIGN);
     ("->", ARROW);
     ("=>", IMPL);
@@ -212,6 +220,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     (";", SEMI);
     (":", COLON);
     (".", DOT);
+    ("$", DOLLAR);
     ("int-literal", INT 0);
     ("identifier", IDENT "");
     ("string-literal", STRING "");
@@ -291,6 +300,7 @@ let rec token lexbuf =
   | ";" -> tok lexbuf SEMI
   | ":" -> tok lexbuf COLON
   | "." -> tok lexbuf DOT
+  | "$" -> tok lexbuf DOLLAR
   | "|" -> tok lexbuf BAR
   | Plus '0' .. '9' ->
       let s = set_lexeme lexbuf in

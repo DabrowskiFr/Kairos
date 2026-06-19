@@ -145,6 +145,35 @@ open Core_syntax
 type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
 type obligations_outputs = { vc_text : string; smt_text : string }
 
+  type proof_optimizations = {
+    group_public_non_w_guarantees : bool;
+    share_why3_facts : bool;
+    simplify_why3_formulas : bool;
+    slice_why3_transition_bodies : bool;
+    simplify_why3_runtime_actions : bool;
+    deduplicate_why3_terms : bool;
+  }
+
+  let reference_proof_optimizations =
+    {
+      group_public_non_w_guarantees = false;
+      share_why3_facts = false;
+      simplify_why3_formulas = false;
+      slice_why3_transition_bodies = false;
+      simplify_why3_runtime_actions = false;
+      deduplicate_why3_terms = false;
+    }
+
+  let default_proof_optimizations =
+    {
+      group_public_non_w_guarantees = true;
+      share_why3_facts = true;
+      simplify_why3_formulas = true;
+      slice_why3_transition_bodies = true;
+      simplify_why3_runtime_actions = true;
+      deduplicate_why3_terms = true;
+    }
+
   type config = {
     input_file : string;
     wp_only : bool;
@@ -155,6 +184,7 @@ type obligations_outputs = { vc_text : string; smt_text : string }
     generate_vc_text : bool;
     generate_smt_text : bool;
     generate_dot_png : bool;
+    proof_optimizations : proof_optimizations;
   }
 
   type error =

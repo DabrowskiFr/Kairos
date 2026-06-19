@@ -5,7 +5,6 @@
   kx_loc
   kx_core_syntax
   kx_core_syntax_builders
-  kx_topology_syntax
   kx_surface_syntax
   kx_ast
   kx_ast_builders

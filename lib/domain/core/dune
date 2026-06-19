@@ -6,6 +6,7 @@
   loc
   core_syntax
   core_syntax_builders
+  core_fo_simplifier
   pretty
   log
   verification_model

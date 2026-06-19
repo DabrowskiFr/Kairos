@@ -19,7 +19,8 @@
 module Snapshot = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
-  let build_snapshot ~frontend = Pipeline_build.build_snapshot_from_frontend ~frontend
+  let build_snapshot ~proof_optimizations ~frontend =
+    Pipeline_build.build_snapshot_from_frontend ~proof_optimizations ~frontend
 end
 
 module Outputs = struct
@@ -45,9 +46,22 @@ module Why_text = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let why_ast = Why_compile.compile_program_ast_from_ir_nodes instrumentation in
+    let opts = snapshot.proof_optimizations in
+    let why_ast =
+      Why_compile.compile_program_ast_from_ir_nodes
+        ~share_why3_facts:opts.share_why3_facts
+        ~simplify_why3_formulas:opts.simplify_why3_formulas
+        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
+        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+    in
     let why_text = Why_text_render.emit_program_ast why_ast in
-    { Pipeline_types.why_text; flow_meta = Pipeline_outputs.flow_meta snapshot.infos }
+    {
+      Pipeline_types.why_text;
+      flow_meta =
+        Pipeline_outputs.flow_meta
+          ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+    }
 end
 
 module Obligations = struct
@@ -59,7 +73,15 @@ module Obligations = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let out = Why_pipeline.obligations_pass instrumentation in
+    let opts = snapshot.proof_optimizations in
+    let out =
+      Why_pipeline.obligations_pass
+        ~share_why3_facts:opts.share_why3_facts
+        ~simplify_why3_formulas:opts.simplify_why3_formulas
+        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
+        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+    in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end
 
@@ -107,7 +129,16 @@ module Proof_events = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let ptree = (Why_compile.compile_program_ast_from_ir_nodes instrumentation).Why_compile.mlw in
+    let opts = snapshot.proof_optimizations in
+    let ptree =
+      (Why_compile.compile_program_ast_from_ir_nodes
+         ~share_why3_facts:opts.share_why3_facts
+         ~simplify_why3_formulas:opts.simplify_why3_formulas
+         ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
+         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
+         ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation)
+        .Why_compile.mlw
+    in
     let finished = ref [] in
     let _ =
       Why_contract_prove.prove_ptree_with_events ~timeout:timeout_s ptree ~should_cancel

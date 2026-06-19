@@ -487,9 +487,9 @@ let completion_items_for_text (text : string) : string list =
   let push s = if String.length s > 0 then Hashtbl.replace tbl s () in
   let keywords =
     [
-      "node"; "returns"; "contracts"; "ensures"; "requires"; "assumes"; "guarantees";
-      "locals"; "states"; "invariants"; "transitions"; "to"; "end"; "if"; "then"; "else";
-      "match"; "skip"; "init";
+	      "node"; "returns"; "contracts"; "ensures"; "requires"; "assumes"; "guarantees";
+	      "locals"; "ghosts"; "observers"; "states"; "invariants"; "transitions"; "to"; "end"; "if";
+	      "then"; "else"; "match"; "skip"; "init"; "step"; "history"; "self";
     ]
   in
   List.iter push keywords;

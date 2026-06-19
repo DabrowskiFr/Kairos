@@ -1,0 +1,84 @@
+{0 Temporal Phase Semantics}
+
+This note fixes the vocabulary used by the temporal proof generator. It is a
+design note, not a new proof strategy.
+
+{1 End-of-instant product states}
+
+A product state is an end-of-instant state:
+
+- the program component is the control state after the program step has run;
+- the assumption automaton component is the automaton state after reading the
+  instant trace;
+- the guarantee automaton component is the automaton state after reading the
+  instant trace.
+
+Thus, at instant [n], the product state [(s_n, a_n, g_n)] denotes the state
+after instant [n] has completed. The previous product state
+[(s_{n-1}, a_{n-1}, g_{n-1})] is the state after instant [n-1] has completed.
+
+{1 Step context}
+
+A program transition from [s_{n-1}] to [s_n] is selected and executed during
+instant [n]. Its guard belongs to the step context of instant [n]. It is not a
+fact about the end of instant [n-1], and it is not a fact that can be shifted
+to instant [n+1] with [pre].
+
+The same distinction applies to assumption-side guards used to select the
+current product edge. They constrain the current step. They are not persistent
+facts about the next product source state unless a separate semantic rule
+proves that persistence.
+
+{1 Meaning of [pre]}
+
+The expression [pre(x)] at instant [n] denotes the value of [x] at the end of
+instant [n-1]. More generally, [pre^k(x)] denotes an earlier completed
+instant. It never denotes an internal "before executing the previous step"
+phase.
+
+Consequently, replacing a step-context fact by [pre] or [pre^2] does not
+recover the phase in which a transition guard was evaluated. If the step body
+can update a variable, then the value observed by [pre] is the post-step value
+of the previous instant, not the pre-body value used by the previous guard.
+
+{1 Current trace point}
+
+The automata for assumptions and guarantees read the current trace point.
+Their edges are part of the product step from
+[(s_{n-1}, a_{n-1}, g_{n-1})] to [(s_n, a_n, g_n)]. The guarantee edge guard
+is therefore a current-step formula: it must be justified from the current
+execution and the source product state.
+
+{1 Soundness boundaries}
+
+These boundaries must hold in the generator and in the Rocq development:
+
+- product exploration must not remove an edge because a syntactic conjunction
+  mixes source facts and destination facts that look inconsistent;
+- the proof generator must not turn a program guard or assumption guard from a
+  step-context fact into a previous-tick hypothesis for a later instant;
+- reachability of a product state must be represented either by an explicit
+  product-reachability argument or by a certified invariant, not by an
+  unproved reconstruction from shifted guards;
+- for one source precondition, possible guarantee-edge outcomes must remain
+  grouped as a disjunction when proving that the program step forces at least
+  one safe product successor.
+
+{1 Intended relation}
+
+The intended semantic object is a step relation of the following shape:
+
+{[
+reachable_product_state(n - 1, src)
+and selected_program_transition(n, tr)
+and selected_assumption_edge(n, ae)
+and selected_guarantee_edge(n, ge)
+and executes_to(n, tr, src.program_state, dst.program_state)
+implies reachable_product_state(n, dst)
+]}
+
+The important point is that [selected_program_transition],
+[selected_assumption_edge], and [selected_guarantee_edge] are facts of instant
+[n]. They are not reconstructed at instant [n+1] by applying [pre] to their
+guards.
+

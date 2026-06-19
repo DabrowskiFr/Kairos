@@ -826,6 +826,8 @@ let () =
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;
                             generate_dot_png = get_param_bool params "generateDotPng" true;
+                            proof_optimizations =
+                              Pipeline_types.default_proof_optimizations;
                           }
                     in
                     let engine =

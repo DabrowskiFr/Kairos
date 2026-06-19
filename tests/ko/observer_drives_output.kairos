@@ -1,0 +1,28 @@
+node observer_drives_output(x: int) returns (
+  out: int
+)
+observers
+  peak: int
+    init {
+      peak := x;
+    }
+    step {
+      if x > peak then
+        peak := x;
+      else
+        peak := peak;
+      end;
+    }
+contracts
+  ensures: X G(out >= 0);
+states Init(init), Run;
+transitions
+  Init:
+    to Run {
+      out := x;
+    }
+  Run:
+    to Run {
+      out := peak;
+    }
+end

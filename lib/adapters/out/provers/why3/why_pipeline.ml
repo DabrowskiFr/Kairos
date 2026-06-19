@@ -32,8 +32,19 @@ let join_blocks ~sep blocks =
     blocks;
   Buffer.contents b
 
-let obligations_pass (nodes : Ir.node_ir list) : obligations_outputs =
-  let ptree = (Why_compile.compile_program_ast_from_ir_nodes nodes).Why_compile.mlw in
+let obligations_pass
+    ?(share_why3_facts = true)
+    ?(simplify_why3_formulas = true)
+    ?(slice_why3_transition_bodies = true)
+    ?(simplify_why3_runtime_actions = true)
+    ?(deduplicate_why3_terms = true)
+    (nodes : Ir.node_ir list) : obligations_outputs =
+  let ptree =
+    (Why_compile.compile_program_ast_from_ir_nodes ~share_why3_facts
+       ~simplify_why3_formulas ~slice_why3_transition_bodies
+       ~simplify_why3_runtime_actions ~deduplicate_why3_terms nodes)
+      .Why_compile.mlw
+  in
   let vc_text =
     join_blocks ~sep:"\n(* ---- goal ---- *)\n"
       (Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree)

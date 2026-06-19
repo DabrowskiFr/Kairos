@@ -28,10 +28,6 @@ open Pretty
 
 module PT = Product_types
 
-(* Calls the Z3-based formula simplifier; returns the formula unchanged on failure. *)
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
-
 (* Public result type: a Graphviz DOT source paired with human-readable
    text labels (one line per state or transition) for diagnostic output. *)
 type graph = {
@@ -480,7 +476,7 @@ let merge_product_steps_for_dot (analysis : Temporal_automata.node_data) : merge
             }
       | Some merged ->
           Hashtbl.replace tbl key
-            { merged with prog_guard = simplify_fo (Core_syntax_builders.mk_hor merged.prog_guard step.prog_guard) })
+            { merged with prog_guard = Core_syntax_builders.mk_hor merged.prog_guard step.prog_guard })
     analysis.exploration.steps;
   Hashtbl.fold (fun _ step acc -> step :: acc) tbl []
   |> List.sort (fun a b ->

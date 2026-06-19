@@ -78,18 +78,22 @@ action lockRoute(r) {
 }
 
 contracts
-  topology
-    route R_AB uses TA, TB requires P1 = Normal;
-    route R_AC uses TA, TC requires P1 = Reverse;
-    route R_DE uses TD, TE requires P2 = Normal;
-    conflict R_AB, R_AC;
-    conflict R_AC, R_DE;
-    routeSignal R_AB -> R_AB;
-    routeSignal R_AC -> R_AC;
-    routeSignal R_DE -> R_DE;
-  end
-
   ensures: G(routeState[R_AB] = Locked => X(reserved[R_AB] = true W routeState[R_AB] = Idle));
+  ensures: G(routeState[R_AC] = Locked => X(reserved[R_AC] = true W routeState[R_AC] = Idle));
+  ensures: G(routeState[R_DE] = Locked => X(reserved[R_DE] = true W routeState[R_DE] = Idle));
+
+  ensures: G(routeState[R_AB] = Locked =>
+    X((routeState[R_AC] != Locked and pointPosition[P1] = Normal) W routeState[R_AB] = Idle));
+  ensures: G(routeState[R_AC] = Locked =>
+    X((routeState[R_AB] != Locked and routeState[R_DE] != Locked and pointPosition[P1] = Reverse)
+      W routeState[R_AC] = Idle));
+  ensures: G(routeState[R_DE] = Locked =>
+    X((routeState[R_AC] != Locked and pointPosition[P2] = Normal) W routeState[R_DE] = Idle));
+
+  ensures: G(signal[R_AB] = Green => occupied[TA] = false and occupied[TB] = false);
+  ensures: G(signal[R_AC] = Green => occupied[TA] = false and occupied[TC] = false);
+  ensures: G(signal[R_DE] = Green => occupied[TD] = false and occupied[TE] = false);
+
   ensures: forall r in Route.
     G(routeState[r] = Releasing => signalRed(r));
   ensures: forall r in Route.

@@ -2,9 +2,24 @@
  (alias runtest)
  (deps
   check_elaboration_frontier.sh
-  ok/domain_quantified_predicate.kairos
+  frontend/spec_past_formula_frontier.kairos
+  ok/explicit_single_route_safety.kairos
+  ok/enum_quantified_predicate.kairos
+  ok/history_observers.kairos
+  ok/history_observers_concise.kairos
+  ok/history_self_pre_k.kairos
+  ok/history_spec_expressions.kairos
+  ok/multiple_assignment_sugar.kairos
   ok/named_action_inline.kairos
-  ok/topology_single_route.kairos
+  ok/public_observer_contract.kairos
+  ok/spec_definition_past.kairos
+  ko/internal_prefix_reserved.kairos
+  ko/concise_observer_bad_pre.kairos
+  ko/multiple_assignment_arity.kairos
+  ko/multiple_assignment_rhs_depends.kairos
+  ko/observer_drives_output.kairos
+  ko/private_ghost_contract.kairos
+  ko/unknown_history_definition.kairos
   ko/unknown_predicate_fallback.kairos)
  (action
   (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})))

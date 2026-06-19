@@ -34,6 +34,7 @@ type transition = {
   dst : ident;
   guard : expr option;
   body : stmt list;
+  ensures : hexpr list;
 }
 [@@deriving yojson]
 
@@ -44,6 +45,7 @@ type node_semantics = {
   sem_instances : (ident * ident) list;
   sem_locals : vdecl list;
   sem_ghosts : vdecl list;
+  sem_public_ghosts : ident list;
   sem_states : ident list;
   sem_init_state : ident;
   sem_trans : transition list;

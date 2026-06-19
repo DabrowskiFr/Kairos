@@ -1,0 +1,22 @@
+spec def rose(x: HExpr) =
+  x = true and past(x, 1) = false;
+
+spec def stable_for(x: HExpr, n: Nat) =
+  forall i in 1..n. x = pre_k(x, i);
+
+spec def implies_now(effect: Formula, cause: Formula) =
+  $effect => $cause;
+
+node spec_definition_past(x: bool) returns (out: bool)
+contracts
+  ensures: G(rose(x) => out = true);
+  ensures: G(stable_for(x, 1) => out = x);
+  ensures: G(implies_now([out = true], [x = true]));
+states
+  Run(init);
+transitions
+  Run:
+    to Run {
+      out := x;
+    }
+end

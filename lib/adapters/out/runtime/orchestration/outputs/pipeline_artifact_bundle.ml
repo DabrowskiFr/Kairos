@@ -159,6 +159,134 @@ let join_non_empty (xs : string list) : string =
   |> List.filter (fun s -> String.trim s <> "")
   |> String.concat "\n\n"
 
+let artifact_kobj ~(asts : Runtime_snapshot.ast_flow)
+    ~(nodes : Proof_kernel_types.exported_node_summary_ir list) : Kairos_object.t =
+  {
+    Kairos_object.metadata =
+      {
+        format = Kairos_object.current_format;
+        format_version = Kairos_object.current_version;
+        backend_agnostic = true;
+        source_path = None;
+        source_hash = None;
+        imports = asts.imports;
+      };
+    nodes;
+  }
+
+let string_of_product_state (st : Proof_kernel_types.product_state_ir) =
+  Printf.sprintf "(P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index
+    st.guarantee_state_index
+
+let string_of_step_kind = function
+  | Proof_kernel_types.StepSafe -> "safe"
+  | Proof_kernel_types.StepBadAssumption -> "bad_assumption"
+  | Proof_kernel_types.StepBadGuarantee -> "bad_guarantee"
+
+let string_of_origin = function
+  | Proof_kernel_types.OriginSourceProductSummary -> "source-product-summary"
+  | Proof_kernel_types.OriginPhaseStepPreSummary -> "phase-step-pre"
+  | Proof_kernel_types.OriginPhaseStepSummary -> "phase-step"
+  | Proof_kernel_types.OriginSafety -> "safety"
+  | Proof_kernel_types.OriginInitNodeInvariant -> "init-node-invariant"
+  | Proof_kernel_types.OriginInitAutomatonCoherence -> "init-automaton-coherence"
+  | Proof_kernel_types.OriginPropagationNodeInvariant -> "propagation-node-invariant"
+  | Proof_kernel_types.OriginPropagationAutomatonCoherence ->
+      "propagation-automaton-coherence"
+
+let string_of_time = function
+  | Proof_kernel_types.CurrentTick -> "current"
+  | Proof_kernel_types.PreviousTick -> "previous"
+  | Proof_kernel_types.StepTickContext -> "step"
+
+let string_of_rel_desc = function
+  | Proof_kernel_types.RelFactProgramState st -> "state = " ^ st
+  | Proof_kernel_types.RelFactGuaranteeState idx ->
+      Printf.sprintf "guarantee_state = %d" idx
+  | Proof_kernel_types.RelFactPhaseFormula fo
+  | Proof_kernel_types.RelFactFormula fo ->
+      string_of_fo fo
+  | Proof_kernel_types.RelFactFalse -> "false"
+
+let string_of_rel_fact (fact : Proof_kernel_types.relational_clause_fact_ir) =
+  Printf.sprintf "%s:%s" (string_of_time fact.time) (string_of_rel_desc fact.desc)
+
+let string_of_rel_clause (clause : Proof_kernel_types.relational_generated_clause_ir) =
+  let side facts =
+    match facts with
+    | [] -> "true"
+    | xs -> xs |> List.map string_of_rel_fact |> String.concat "; "
+  in
+  Printf.sprintf "[%s] %s ==> %s" (string_of_origin clause.origin)
+    (side clause.hypotheses) (side clause.conclusions)
+
+let helper_prefix_of_step (step : Proof_kernel_types.product_step_ir) =
+  Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_*"
+    (String.lowercase_ascii step.program_transition_id)
+    (String.lowercase_ascii step.src.prog_state)
+    step.src.assume_state_index step.src.guarantee_state_index
+    (string_of_step_kind step.step_kind)
+
+let render_obligations_map_node
+    (node : Proof_kernel_types.exported_node_summary_ir) : string =
+  let ir = node.normalized_ir in
+  let transition_by_id = Hashtbl.create 16 in
+  List.iter
+    (fun (tr : Proof_kernel_types.reactive_transition_ir) ->
+      Hashtbl.replace transition_by_id tr.transition_id tr)
+    ir.reactive_program.transitions;
+  let render_summary idx (summary : Proof_kernel_types.proof_step_summary_ir) =
+    match summary.steps with
+    | [] -> []
+    | step :: _ ->
+        let transition =
+          match Hashtbl.find_opt transition_by_id step.program_transition_id with
+          | Some tr ->
+              Printf.sprintf "%s -> %s" tr.src_state tr.dst_state
+          | None -> step.program_transition_id
+        in
+        let dsts =
+          summary.steps
+          |> List.map (fun (s : Proof_kernel_types.product_step_ir) ->
+                 string_of_product_state s.dst)
+          |> List.sort_uniq String.compare
+          |> String.concat ", "
+        in
+        [
+          Printf.sprintf "summary %03d" (idx + 1);
+          "  node: " ^ node.signature.node_name;
+          "  why3-helper-prefix: " ^ helper_prefix_of_step step;
+          "  source-transition: " ^ transition;
+          "  product-source: " ^ string_of_product_state step.src;
+          "  product-destinations: " ^ dsts;
+          "  kind: " ^ string_of_step_kind step.step_kind;
+          Printf.sprintf "  grouped-product-steps: %d" (List.length summary.steps);
+          Printf.sprintf "  entry-clauses: %d" (List.length summary.entry_clauses);
+        ]
+        @ List.mapi
+            (fun i clause ->
+              Printf.sprintf "    entry[%02d]: %s" (i + 1)
+                (string_of_rel_clause clause))
+            summary.entry_clauses
+        @
+        [
+          Printf.sprintf "  post-clauses: %d" (List.length summary.clauses);
+        ]
+        @ List.mapi
+            (fun i clause ->
+              Printf.sprintf "    post[%02d]: %s" (i + 1)
+                (string_of_rel_clause clause))
+            summary.clauses
+        @ [ "" ]
+  in
+  String.concat "\n"
+    (("Node " ^ node.signature.node_name)
+     :: (ir.proof_step_summaries |> List.mapi render_summary |> List.concat))
+
+let render_obligations_map
+    (nodes : Proof_kernel_types.exported_node_summary_ir list) =
+  nodes |> List.map render_obligations_map_node |> join_non_empty
+
 let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
   let source_nodes_model = Info_helpers.source_nodes_by_name asts.automata_generation in
   let source_node_of_name (node_name : ident) : (Verification_model.node_model, string) result =
@@ -203,6 +331,7 @@ let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
     first_non_empty
       (List.map (fun (n : node_artifacts) -> n.product_graph.dot) node_artifacts)
   in
+  let artifact_obj = artifact_kobj ~asts ~nodes:exported_node_summaries in
   Ok
     {
       kernel_ir_nodes;
@@ -210,8 +339,8 @@ let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
       guarantee_automaton_text;
       assume_automaton_text;
       product_text;
-      canonical_text = "";
-      obligations_map_text_raw = "";
+      canonical_text = Kairos_object.render_product_summaries artifact_obj;
+      obligations_map_text_raw = render_obligations_map exported_node_summaries;
       guarantee_automaton_dot;
       assume_automaton_dot;
       product_dot;

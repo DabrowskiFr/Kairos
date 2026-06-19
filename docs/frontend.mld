@@ -20,15 +20,15 @@ This keeps source conveniences out of the core engine.
 [Kx_surface_syntax] is the AST produced directly by the parser.
 It keeps all frontend conveniences explicit:
 
-- enum declarations and finite domains;
+- enum declarations, which also provide the finite sets used for indexing;
 - indexed variable families such as [signal[Route]];
-- bounded [forall] / [exists] over finite domains;
+- bounded [forall] / [exists] over enum types;
 - local predicates;
 - named actions;
-- topology blocks;
+- observers with explicit [init] and [step] blocks;
 - history aliases;
-- statement-level [for] loops;
-- LTL helper forms such as [maintainedUntil] and [whileRouteLocked].
+- [history def] declarations and [history name(x)] applications;
+- statement-level [for] loops.
 
 This AST is useful for diagnostics and frontend tests, but it is not the AST
 used by the verification engine.
@@ -38,13 +38,21 @@ used by the verification engine.
 [Kx_elaborate] lowers surface syntax to [Kx_ast].
 The pass expands or removes the syntactic extensions:
 
-- indexed variable families become scalar variables with stable names;
-- bounded quantifiers become finite conjunctions or disjunctions;
+- indexed variable families are expanded using enum constructors and become
+  scalar variables with stable names;
+- bounded quantifiers over enum types become finite conjunctions or
+  disjunctions;
 - local predicates are expanded at their call sites;
 - named actions and [for] loops are inlined into ordinary statements;
-- topology blocks generate ordinary LTL safety guarantees;
-- [maintainedUntil(a,b,c)] becomes [G(a -> X(b W c))];
-- [whileRouteLocked(r,p)] becomes [G(routeLocked(r) -> X(p W routeReleased(r)))].
+- [history def] applications become generated scalar ghosts, generated ghost
+  updates, and phase-specific transition [ensures] clauses declared by the
+  corresponding definition;
+- observers become generated scalar ghosts plus generated assignments on
+  transitions.
+
+There is no separate [domain] declaration in the source language. A declaration
+such as [type Route = R1 | R2;] is both the value type [Route] and the finite
+set used by [signal[Route]], [forall r in Route], and [for r in Route].
 
 Elaboration does not add a compatibility layer. Unknown predicates are rejected
 instead of being preserved as implicit uninterpreted predicates.
@@ -54,8 +62,63 @@ instead of being preserved as implicit uninterpreted predicates.
 [Kx_ast] is the small AST accepted by the rest of the Kairos
 implementation. It contains ordinary declarations, scalar variables, ordinary
 statements, invariants and LTL contracts. It no longer contains surface
-constructs such as [SSFor], [SSActionCall], [SCTopology], [SHForall] or
-frontend predicate declarations.
+constructs such as [SSFor], [SSActionCall], [SHForall] or
+frontend predicate declarations. It also no longer contains observer
+declarations.
+
+{1 Historical Definitions}
+
+The source language provides a generic way to define reusable historical
+summaries for specifications:
+
+{[
+history def first_value(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = pre(self);
+  step ensures: self = pre(self);
+]}
+
+A definition has one historical-expression parameter, a result type, an [init]
+expression, a [step] expression, and optional phase-specific [ensures] clauses.
+The special name [self] denotes the generated history value. [init] is injected
+on transitions leaving the initial state; [step] is injected on the other
+transitions. Update expressions are pure frontend expressions: [step] may read
+[pre(self)] and bounded [pre_k(self,k)] with constant [k], while bare [self] is
+rejected so the temporal offset is explicit.
+
+The definition is used in formulas with [history name(x)]:
+
+{[
+ensures: X G(history first_value(x) >= 0);
+]}
+
+History definitions are not core syntax. The parser records applications as
+[SHHistoryCall], and [Kx_elaborate] replaces each use by a generated ghost
+whose name is reserved under the [__kairos_history_] prefix. The source
+language rejects user identifiers starting with [__kairos_] so that users
+cannot name these internals directly.
+
+The optional [init ensures] and [step ensures] clauses are not LTL formulas and
+do not create a new temporal logic. They elaborate to local transition
+postconditions used as auxiliary proof facts. For input parameters, [pre(x)] in
+such a clause denotes the input sample consumed by the transition; for [self],
+[pre(self)] remains a real one-step historical reference to the generated ghost.
+
+Generated history ghosts are proof-only state. Source guards, source
+assignments and actions cannot depend on them except through the generated
+[init] and [step] blocks. Public contracts may mention them only through
+[history name(x)] applications; ordinary user ghosts and observers remain
+forbidden in [requires] and [ensures].
+
+This mechanism is generic: [first_value], running maxima, counters, sums, or
+domain-specific summaries are source definitions, not names hardcoded in the
+frontend.
+
+High-level safety schemas such as [maintainedUntil] are not parser
+constructors. They should be written as [spec def] declarations, for example
+[spec def maintainedUntil(t: Formula, i: Formula, r: Formula) =
+G($t -> X($i W $r));].
 
 Some constructs are real core-language features rather than pure syntax sugar:
 
@@ -66,6 +129,36 @@ Some constructs are real core-language features rather than pure syntax sugar:
 Pure functions are non-historical. Their contracts and bodies cannot mention
 [pre], [preK] or local predicates. They are intended to translate directly to
 Why3 functions.
+
+{1 Observers}
+
+Observers are generated ghost state variables, not a fixed set of operators.
+An observer declares its type and two statement blocks:
+
+{[
+observers
+  total: int
+    init {
+      total := delivered;
+    }
+    step {
+      total := total + delivered;
+    }
+]}
+
+The [init] block is injected on transitions leaving the initial state. The
+[step] block is injected on all other transitions. Each block must assign the
+observer itself on every path, and may assign only that observer. The [init]
+block cannot read any observer, and the [step] block may read only its own
+observer value.
+
+The generated variable is placed in [sem_ghosts], not [sem_locals]. Source
+transition guards, transition bodies and actions cannot read observers, so an
+observer cannot influence outputs, calls or control flow. Observers are also
+recorded as public specification ghosts: public [requires] and [ensures]
+contracts may mention them, while ordinary user ghosts remain private. This
+keeps observers as scalar history summaries for public trace specifications and
+prevents the observer section from becoming a second transition language.
 
 In LTL and first-order formulas, a direct boolean call [p(x)] accepts identifier
 arguments. For indexed references or general expressions, inject an executable

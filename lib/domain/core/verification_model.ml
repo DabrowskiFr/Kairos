@@ -23,6 +23,7 @@ type program_step = {
   dst_state : ident;
   guard_expr : expr option;
   body_stmts : stmt list;
+  ensures : hexpr list;
 }
 
 type state_invariant = {
@@ -38,6 +39,7 @@ type node_model = {
   outputs : vdecl list;
   locals : vdecl list;
   ghosts : vdecl list;
+  public_ghosts : ident list;
   states : ident list;
   init_state : ident;
   steps : program_step list;

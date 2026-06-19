@@ -1,0 +1,27 @@
+history def two_back(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = pre_k(self, 2);
+
+node history_self_pre_k_example(x: int) returns (
+  ok: bool
+)
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+  ensures: X G(history two_back(x) = history two_back(x));
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end

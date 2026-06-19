@@ -1,0 +1,21 @@
+node private_ghost_contract(x: int) returns (
+  out: int
+)
+ghosts
+  private: int;
+contracts
+  ensures: G(private >= 0);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      out := x;
+      private := x;
+    }
+  Run:
+    to Run {
+      out := x;
+      private := private;
+    }
+end

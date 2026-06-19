@@ -5,6 +5,9 @@ type Track = TA | TB | TC | TD | TE;
 type Point = P1 | P2;
 type Route = R_AB | R_AC | R_DE | R_CD;
 
+spec def maintainedUntil(trigger: Formula, inv: Formula, rel: Formula) =
+  G($trigger => X($inv W $rel));
+
 node railway_interlocking(
   occupied[TA, TB, TC, TD, TE]: bool,
   request[R_AB, R_AC, R_DE, R_CD]: bool,
@@ -17,38 +20,45 @@ node railway_interlocking(
   pointPosition[P1, P2]: PointPosition
 )
 contracts
-  topology
-    route R_AB uses TA, TB requires P1 = Normal;
-    route R_AC uses TA, TC requires P1 = Reverse;
-    route R_DE uses TD, TE requires P2 = Normal;
-    route R_CD uses TC, TD requires P2 = Reverse;
-    routeSignal R_AB -> R_AB;
-    routeSignal R_AC -> R_AC;
-    routeSignal R_DE -> R_DE;
-    routeSignal R_CD -> R_CD;
-    conflict R_AB, R_AC;
-    conflict R_AC, R_CD;
-    conflict R_DE, R_CD;
-  end
+  ensures: G(routeState[R_AB] = Locked =>
+    X((reserved[R_AB] = true and pointPosition[P1] = Normal and routeState[R_AC] != Locked)
+      W routeState[R_AB] = Idle));
+  ensures: G(routeState[R_AC] = Locked =>
+    X((reserved[R_AC] = true and pointPosition[P1] = Reverse
+       and routeState[R_AB] != Locked and routeState[R_CD] != Locked)
+      W routeState[R_AC] = Idle));
+  ensures: G(routeState[R_DE] = Locked =>
+    X((reserved[R_DE] = true and pointPosition[P2] = Normal and routeState[R_CD] != Locked)
+      W routeState[R_DE] = Idle));
+  ensures: G(routeState[R_CD] = Locked =>
+    X((reserved[R_CD] = true and pointPosition[P2] = Reverse
+       and routeState[R_AC] != Locked and routeState[R_DE] != Locked)
+      W routeState[R_CD] = Idle));
+
+  ensures: G(signal[R_AB] = Green => occupied[TA] = false and occupied[TB] = false);
+  ensures: G(signal[R_AC] = Green => occupied[TA] = false and occupied[TC] = false);
+  ensures: G(signal[R_DE] = Green => occupied[TD] = false and occupied[TE] = false);
+  ensures: G(signal[R_CD] = Green => occupied[TC] = false and occupied[TD] = false);
+
   ensures: maintainedUntil(
-    cancel[R_AB] = true and routeState[R_AB] = Releasing,
-    signal[R_AB] = Red and routeState[R_AB] = Releasing,
-    routeState[R_AB] = Idle
+    [cancel[R_AB] = true and routeState[R_AB] = Releasing],
+    [signal[R_AB] = Red and routeState[R_AB] = Releasing],
+    [routeState[R_AB] = Idle]
   );
   ensures: maintainedUntil(
-    cancel[R_AC] = true and routeState[R_AC] = Releasing,
-    signal[R_AC] = Red and routeState[R_AC] = Releasing,
-    routeState[R_AC] = Idle
+    [cancel[R_AC] = true and routeState[R_AC] = Releasing],
+    [signal[R_AC] = Red and routeState[R_AC] = Releasing],
+    [routeState[R_AC] = Idle]
   );
   ensures: maintainedUntil(
-    cancel[R_DE] = true and routeState[R_DE] = Releasing,
-    signal[R_DE] = Red and routeState[R_DE] = Releasing,
-    routeState[R_DE] = Idle
+    [cancel[R_DE] = true and routeState[R_DE] = Releasing],
+    [signal[R_DE] = Red and routeState[R_DE] = Releasing],
+    [routeState[R_DE] = Idle]
   );
   ensures: maintainedUntil(
-    cancel[R_CD] = true and routeState[R_CD] = Releasing,
-    signal[R_CD] = Red and routeState[R_CD] = Releasing,
-    routeState[R_CD] = Idle
+    [cancel[R_CD] = true and routeState[R_CD] = Releasing],
+    [signal[R_CD] = Red and routeState[R_CD] = Releasing],
+    [routeState[R_CD] = Idle]
   );
 states
   Init(init), Run;

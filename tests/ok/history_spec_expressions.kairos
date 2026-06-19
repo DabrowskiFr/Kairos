@@ -1,0 +1,101 @@
+history def first_value(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = pre(self);
+  step ensures: self = pre(self);
+
+history def running_max(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = if x > pre(self) then x else pre(self) end;
+  step ensures: self >= pre(x);
+  step ensures: self >= pre(self);
+  step ensures: self = pre(x) or self = pre(self);
+
+history def running_sum(x: HExpr): int
+  init = x;
+  init ensures: self = pre(x);
+  step = pre(self) + x;
+  step ensures: self = pre(self) + pre(x);
+
+spec def firstValueStable(x: HExpr) =
+  X X G(history first_value(x) = past(history first_value(x), 1));
+
+spec def seenMaxDominatesNow(x: HExpr) =
+  X G(history running_max(x) >= x);
+
+spec def seenSumWellFormed(x: HExpr) =
+  X G(history running_sum(x) = history running_sum(x));
+
+node history_const_example(x: int) returns (
+  ok: bool
+)
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+  ensures: firstValueStable(x);
+  ensures: X G(history first_value(x) >= 0);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+    history first_value(x) >= 0;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end
+
+node history_max_example(x: int) returns (
+  ok: bool
+)
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+  ensures: seenMaxDominatesNow(x);
+  ensures: X G(history running_max(x) >= 0);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+    history running_max(x) >= 0;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end
+
+node history_sum_example(x: int) returns (
+  ok: bool
+)
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+  ensures: seenSumWellFormed(x);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end

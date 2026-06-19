@@ -399,26 +399,31 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       let default_actions, _ = simplify_actions known default_actions in
       ([ ActionMatch (scrutinee', branches, default_actions) ], known)
 
-let action_blocks_of_transition (t : Abs.transition) : action_block_view list =
-  let known = known_context_of_transition_guard t.guard_expr in
+let action_blocks_of_transition ~(simplify_runtime_actions : bool) (t : Abs.transition) :
+    action_block_view list =
   let raw_blocks =
     [ (ActionUser, actions_of_stmts t.body_stmts) ]
   in
-  let blocks, _ =
-    List.fold_left
-      (fun (acc, known) (block_kind, actions) ->
-        let actions, known = simplify_actions known actions in
-        ((block_kind, actions) :: acc, known))
-      ([], known) raw_blocks
+  let blocks =
+    if not simplify_runtime_actions then raw_blocks
+    else
+      let known = known_context_of_transition_guard t.guard_expr in
+      fst
+        (List.fold_left
+           (fun (acc, known) (block_kind, actions) ->
+             let actions, known = simplify_actions known actions in
+             ((block_kind, actions) :: acc, known))
+           ([], known) raw_blocks)
+      |> List.rev
   in
-  let blocks = List.rev blocks in
   List.filter_map
     (fun (block_kind, block_actions) ->
       if block_actions = [] then None else Some { block_kind; block_actions })
     blocks
 
-let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_view =
-  let action_blocks = action_blocks_of_transition t in
+let transition_of_ir ?transition_id ?(simplify_runtime_actions = true)
+    (t : Abs.transition) : runtime_transition_view =
+  let action_blocks = action_blocks_of_transition ~simplify_runtime_actions t in
   {
     transition_id =
       Option.value ~default:(Printf.sprintf "%s__%s" t.src_state t.dst_state) transition_id;
@@ -431,8 +436,9 @@ let transition_of_ir ?transition_id (t : Abs.transition) : runtime_transition_vi
     action_blocks;
   }
 
-let transition_of_product_step (step : runtime_product_transition_view) : runtime_transition_view =
-  transition_of_ir ~transition_id:step.transition_id
+let transition_of_product_step ?(simplify_runtime_actions = true)
+    (step : runtime_product_transition_view) : runtime_transition_view =
+  transition_of_ir ~transition_id:step.transition_id ~simplify_runtime_actions
     {
       src_state = step.src_state;
       dst_state = step.dst_state;
@@ -471,13 +477,15 @@ let program_transitions_from_summaries (summaries : Abs.product_step_summary lis
     summaries;
   !ordered
 
-let of_ir_node (node : Ir.node_ir) : t =
+let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = true)
+    (node : Ir.node_ir) : t =
   let sem = node.semantics in
   let program_transitions = program_transitions_from_summaries node.summaries in
   let transitions =
     List.mapi
       (fun idx (t : Abs.transition) ->
-        transition_of_ir ~transition_id:(Printf.sprintf "tr_%d" idx) t)
+        transition_of_ir ~transition_id:(Printf.sprintf "tr_%d" idx)
+          ~simplify_runtime_actions t)
       program_transitions
   in
   let transition_groups = group_transitions transitions in
@@ -520,12 +528,17 @@ let of_ir_node (node : Ir.node_ir) : t =
           | product_dst :: _ ->
               List.map
                 (fun ensure ->
+                  let body =
+                    if slice_transition_bodies then
+                      slice_body_for_formulas t.body_stmts [ ensure ]
+                    else t.body_stmts
+                  in
                   {
                     transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
                     src_state = t.src_state;
                     dst_state = t.dst_state;
                     guard = t.guard_expr;
-                    body = slice_body_for_formulas t.body_stmts [ ensure ];
+                    body;
                     step_class = StepSafe;
                     product_src = pc.identity.product_src;
                     product_dst;
@@ -539,7 +552,11 @@ let of_ir_node (node : Ir.node_ir) : t =
         let bad_groups =
           pc.unsafe_cases
           |> List.map (fun (case : Ir.unsafe_product_case) ->
-                 let bad_body = slice_body_for_formulas t.body_stmts [ case.excluded_guard ] in
+                 let bad_body =
+                   if slice_transition_bodies then
+                     slice_body_for_formulas t.body_stmts [ case.excluded_guard ]
+                   else t.body_stmts
+                 in
                  {
                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
                    src_state = t.src_state;

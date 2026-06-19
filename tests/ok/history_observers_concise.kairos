@@ -1,0 +1,28 @@
+node history_observers_concise(x: int) returns (
+  ok: bool
+)
+observers
+  firstX : int = x -> pre(firstX);
+  sumX : int = x -> pre(sumX) + x;
+  maxX : int = x -> if x > pre(maxX) then x else pre(maxX) end;
+contracts
+  requires: G(x >= 0);
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    ok = true;
+    firstX >= 0;
+    sumX >= 0;
+    maxX >= 0;
+transitions
+  Init:
+    to Run {
+      ok := true;
+    }
+  Run:
+    to Run {
+      ok := true;
+    }
+end
