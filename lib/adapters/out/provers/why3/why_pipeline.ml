@@ -45,12 +45,17 @@ let obligations_pass
        ~simplify_why3_runtime_actions ~deduplicate_why3_terms nodes)
       .Why_compile.mlw
   in
+  let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
+  let tasks =
+    let ptrees = Why_task_support.module_ptrees_of_ptree ptree in
+    Why_task_support.normalize_tasks_of_ptrees ~env ~ptrees
+  in
   let vc_text =
     join_blocks ~sep:"\n(* ---- goal ---- *)\n"
-      (Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree)
+      (Why_task_dump_render.dump_why3_tasks_with_attrs_of_tasks tasks)
   in
   let smt_text =
     join_blocks ~sep:"\n; ---- goal ----\n"
-      (Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree)
+      (Why_task_dump_render.dump_smt2_tasks_of_tasks tasks)
   in
   { vc_text; smt_text }

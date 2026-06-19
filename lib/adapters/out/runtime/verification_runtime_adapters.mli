@@ -22,6 +22,8 @@ module Snapshot : Application_ports.SNAPSHOT_PORT with type snapshot = Runtime_s
 module Outputs : Application_ports.OUTPUTS_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
 module Why_text : Application_ports.WHY_TEXT_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
 module Obligations : Application_ports.OBLIGATIONS_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
+module Cost_report :
+  Application_ports.COST_REPORT_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
 module Ir_render : Application_ports.IR_RENDER_PORT with type snapshot = Runtime_snapshot.pipeline_snapshot
 module Timing : Application_ports.TIMING_PORT
 module Proof_events :

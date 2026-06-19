@@ -41,6 +41,7 @@ module Ports = struct
   module Instrumentation = Instrumentation
   module Why_text = Verification_runtime_adapters.Why_text
   module Obligations = Verification_runtime_adapters.Obligations
+  module Cost_report = Verification_runtime_adapters.Cost_report
   module Ir_render = Verification_runtime_adapters.Ir_render
   module Timing = Verification_runtime_adapters.Timing
   module Proof_events = Verification_runtime_adapters.Proof_events

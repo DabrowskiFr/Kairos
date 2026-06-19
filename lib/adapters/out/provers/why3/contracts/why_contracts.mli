@@ -31,6 +31,8 @@ type step_contract_info = {
       (** Preconditions specific to this step. *)
   post : Why3.Ptree.term list;
       (** Postconditions specific to this step. *)
+  local_cuts : Why3.Ptree.term list;
+      (** Helper-local assertions inserted after the step body. *)
   forbidden : Why3.Ptree.term list;
       (** Formulas whose violation is intentionally tolerated at this step. *)
 }
@@ -58,6 +60,10 @@ type contract_info = {
 (** [build_contracts ~env ~hexpr_needs_old ~runtime ~pure_translation]
     generates the full [step] contract for the node described by [runtime].
 
+    - [~abstract_formula]: optionally replaces a formula by a backend-level
+      abstraction, such as a generated shared predicate.
+    - [~local_cut_candidate]: identifies postcondition facts whose unfolded
+      form should be asserted inside product-step helpers.
     - [~env]: compilation environment for the node.
     - [~hexpr_needs_old]: predicate indicating whether a historical expression
       must be wrapped in [old()] in the postcondition.
@@ -69,6 +75,8 @@ type contract_info = {
     - [~deduplicate_terms]: when [true], removes syntactically duplicate
       contract terms. *)
 val build_contracts :
+  abstract_formula:(in_post:bool -> hexpr -> Why3.Ptree.term option) ->
+  local_cut_candidate:(hexpr -> bool) ->
   env:Why_compile_expr.env ->
   hexpr_needs_old:(hexpr -> bool) ->
   runtime:Why_runtime_view.t ->

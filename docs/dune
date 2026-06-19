@@ -9,4 +9,6 @@
   backends
   rocq_frontend_boundary
   temporal_phase_semantics
-  product_proof_pipeline_audit))
+  product_proof_pipeline_audit
+  pipeline_cost_model
+  grouped_product_encoding_plan))

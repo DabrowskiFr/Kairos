@@ -146,6 +146,23 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
     | HPred _ | HFunCall _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
   in
+  let is_true_fo (f : Core_syntax.hexpr) =
+    match f.hexpr with HLitBool true -> true | _ -> false
+  in
+  let relational_fact_is_true (fact : relational_clause_fact_ir) =
+    match fact.desc with
+    | RelFactFormula h | RelFactPhaseFormula h -> is_true_fo h
+    | RelFactFalse | RelFactProgramState _ | RelFactGuaranteeState _ -> false
+  in
+  let normalize_relational_clause (clause : relational_generated_clause_ir) =
+    let hypotheses =
+      List.filter (fun fact -> not (relational_fact_is_true fact)) clause.hypotheses
+    in
+    let conclusions =
+      List.filter (fun fact -> not (relational_fact_is_true fact)) clause.conclusions
+    in
+    match conclusions with [] -> None | _ -> Some { clause with hypotheses; conclusions }
+  in
   let is_structural_step_fact (fact : relational_clause_fact_ir) =
     match fact.desc with
     | RelFactProgramState _ | RelFactGuaranteeState _ -> true
@@ -179,14 +196,15 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   in
   let clauses_for_step (step : product_step_ir) =
     raw_clauses_for_step step
-    |> List.map (fun clause ->
-           match clause.origin with
-           | OriginPropagationNodeInvariant ->
-               {
-                 clause with
-                 hypotheses = List.map shift_post_fact clause.hypotheses;
-                 conclusions = List.map shift_post_fact clause.conclusions;
-               }
+    |> List.filter_map (fun clause ->
+           let clause =
+             match clause.origin with
+             | OriginPropagationNodeInvariant ->
+                 {
+                   clause with
+                   hypotheses = List.map shift_post_fact clause.hypotheses;
+                   conclusions = List.map shift_post_fact clause.conclusions;
+                 }
            | OriginPropagationAutomatonCoherence
            | OriginPhaseStepSummary
            | OriginSafety
@@ -194,31 +212,29 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
            | OriginPhaseStepPreSummary
            | OriginInitNodeInvariant
            | OriginInitAutomatonCoherence ->
-               clause)
+               clause
+           in
+           normalize_relational_clause clause)
   in
   let entry_clauses_for_steps (steps : product_step_ir list) =
     match steps with
     | [] -> []
     | step :: _ -> (
-    match product_summary_of_step step with
+        match product_summary_of_step step with
         | None -> []
         | Some pc ->
             pc.requires
-            |> List.map (fun (f : Ir.summary_formula) ->
-                   {
-                     origin = OriginPhaseStepPreSummary;
-                     anchor = ClauseAnchorProductStep step;
-                     hypotheses = [];
-                     conclusions =
-                       [
-                         {
-                           time = CurrentTick;
-                           desc =
-                             RelFactFormula
-                               (simplify_fo (rewrite_formula_pre f.logic));
-                         };
-                       ];
-                   }))
+            |> List.filter_map (fun (f : Ir.summary_formula) ->
+                   let logic = simplify_fo (rewrite_formula_pre f.logic) in
+                   if is_true_fo logic then None
+                   else
+                     Some
+                       {
+                         origin = OriginPhaseStepPreSummary;
+                         anchor = ClauseAnchorProductStep step;
+                         hypotheses = [];
+                         conclusions = [ { time = CurrentTick; desc = RelFactFormula logic } ];
+                       }))
   in
   let dedup_clauses (clauses : relational_generated_clause_ir list) =
     List.sort_uniq Stdlib.compare clauses

@@ -79,3 +79,27 @@ val prove_ptree_with_events :
   ?on_goal_done:(goal_done_event -> unit) ->
   Why3.Ptree.mlw_file ->
   goal_proof_result list
+
+(** Run proof on already-normalized Why3 tasks.
+
+    This is the entry point used when a caller has already split/generated the
+    task list, for example to persist progress while proving the same tasks. *)
+val prove_tasks_with_events :
+  ?timeout:int ->
+  ?should_cancel:(unit -> bool) ->
+  ?on_goal_start:(goal_start_event -> unit) ->
+  ?on_goal_done:(goal_done_event -> unit) ->
+  Why3.Task.task list ->
+  goal_proof_result list
+
+(** Run proof on normalized tasks built from several Why3 module chunks.
+
+    The resulting goal order is the concatenation of the per-chunk orders. *)
+val prove_ptrees_with_events :
+  ?timeout:int ->
+  ?split_vc:bool ->
+  ?should_cancel:(unit -> bool) ->
+  ?on_goal_start:(goal_start_event -> unit) ->
+  ?on_goal_done:(goal_done_event -> unit) ->
+  Why3.Ptree.mlw_file list ->
+  goal_proof_result list

@@ -29,7 +29,10 @@ If you are reading the codebase for the first time:
 
 For temporal proof work, read {!page-temporal_phase_semantics} before
 changing product construction or proof-obligation generation, then use
-{!page-product_proof_pipeline_audit} as a map of the current pipeline.
+{!page-product_proof_pipeline_audit} as a map of the current pipeline. Use
+{!page-pipeline_cost_model} before changing sharing, grouping, or backend
+thresholds. The conservative plan for replacing edge-oriented proof emission
+with a grouped encoding is recorded in {!page-grouped_product_encoding_plan}.
 
 {1 Guides}
 
@@ -41,6 +44,8 @@ changing product construction or proof-obligation generation, then use
 - {!page-rocq_frontend_boundary}
 - {!page-temporal_phase_semantics}
 - {!page-product_proof_pipeline_audit}
+- {!page-pipeline_cost_model}
+- {!page-grouped_product_encoding_plan}
 
 {1 Frontend API}
 

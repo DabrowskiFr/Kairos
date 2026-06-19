@@ -36,6 +36,7 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.con
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
     generate_dot_png = cfg.generate_dot_png;
+    proof_progress_path = None;
     proof_optimizations = Pipeline_types.default_proof_optimizations;
   }
 

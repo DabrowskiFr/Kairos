@@ -40,7 +40,7 @@ let instrumentation_from_snapshot ~generate_png ~(snapshot : Runtime_snapshot.pi
 module Why_text = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
-  let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
+  let render_why_text ~(snapshot : snapshot) : string =
     let instrumentation =
       Runtime_ir_merge.merge_by_source
         ~source_model:snapshot.asts.verification_model
@@ -55,13 +55,37 @@ module Why_text = struct
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
     in
-    let why_text = Why_text_render.emit_program_ast why_ast in
+    Why_text_render.emit_program_ast why_ast
+
+  let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
+    let why_text = render_why_text ~snapshot in
     {
       Pipeline_types.why_text;
       flow_meta =
         Pipeline_outputs.flow_meta
           ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     }
+end
+
+module Cost_report = struct
+  type snapshot = Runtime_snapshot.pipeline_snapshot
+
+  let cost_report ~input_file ~(snapshot : snapshot) :
+      (Pipeline_types.cost_report_outputs, Pipeline_types.error) result =
+    let t_artifacts = Unix.gettimeofday () in
+    match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
+    | Error msg -> Error (Pipeline_types.Flow_error msg)
+    | Ok artifacts ->
+        let artifact_build_s = Unix.gettimeofday () -. t_artifacts in
+        let t_why = Unix.gettimeofday () in
+        let why_text = Why_text.render_why_text ~snapshot in
+        let why_text_s = Unix.gettimeofday () -. t_why in
+        Ok
+          {
+            Pipeline_types.cost_report_json =
+              Pipeline_cost_report.render_json ~input_file ~artifact_build_s
+                ~why_text_s ~snapshot ~artifacts ~why_text;
+          }
 end
 
 module Obligations = struct

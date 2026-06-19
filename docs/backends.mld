@@ -20,4 +20,5 @@ artifacts.
 {1 Notes}
 
 The Why3 backend is driven by canonical obligations and proof views emitted by
-the middle-end. Generated Why code is a compilation artifact.
+the middle-end. Generated Why code is a compilation artifact. Backend
+grouping and sharing choices should follow {!page-pipeline_cost_model}.

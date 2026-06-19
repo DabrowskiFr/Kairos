@@ -150,6 +150,21 @@ module type OBLIGATIONS_PORT = sig
     Pipeline_types.obligations_outputs
 end
 
+(** Port generating a whole-pipeline proof-cost report. *)
+
+module type COST_REPORT_PORT = sig
+  (** Opaque snapshot type shared across ports. *)
+
+  type snapshot
+
+  (** Produce a JSON cost report for [snapshot] without running solvers. *)
+
+  val cost_report :
+    input_file:string ->
+    snapshot:snapshot ->
+    (Pipeline_types.cost_report_outputs, Pipeline_types.error) result
+end
+
 (** Port exposing textual renderings of the normalized IR. *)
 
 module type IR_RENDER_PORT = sig
@@ -230,6 +245,9 @@ module type PORTS = sig
   (** VC/SMT obligations generation port. *)
 
   module Obligations : OBLIGATIONS_PORT with type snapshot = snapshot
+  (** Whole-pipeline cost-report generation port. *)
+
+  module Cost_report : COST_REPORT_PORT with type snapshot = snapshot
   (** IR text rendering port. *)
 
   module Ir_render : IR_RENDER_PORT with type snapshot = snapshot

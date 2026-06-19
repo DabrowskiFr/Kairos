@@ -82,3 +82,88 @@ The important point is that [selected_program_transition],
 [n]. They are not reconstructed at instant [n+1] by applying [pre] to their
 guards.
 
+{1 Product Reachability}
+
+There are two different notions of reachability in the implementation, and
+they must not be confused.
+
+[Product_build] computes graph reachability: a product state is discovered if
+there is a path in the syntactic product graph from the initial product state.
+This exploration deliberately follows every local combination of program
+transition, assumption edge, and guarantee edge. It does not prove that the
+guards of the path can hold together along a concrete execution.
+
+Semantic product reachability is stronger. A product state [p] is semantically
+reachable at end of instant [n] when there exists a concrete execution prefix
+of length [n] such that:
+
+- the program component of [p] is the control state obtained after executing
+  the program step of instant [n];
+- the assumption component of [p] is the state obtained by feeding the same
+  instant trace to the assumption automaton;
+- the guarantee component of [p] is the state obtained by feeding the same
+  instant trace to the guarantee automaton;
+- for every previous instant in the prefix, the program transition guard,
+  assumption edge guard, and guarantee edge guard used by the product step
+  were true in the correct phase of that instant.
+
+For proof obligations about guarantees, the useful source predicate is the
+live version of this relation. [LiveReach(n, p)] means that [p] is
+semantically reachable at end of instant [n] and that the prefix has not
+already reached the bad assumption state or the bad guarantee state. A path
+that has reached the bad assumption state is outside the guarantee theorem; a
+path that reaches the bad guarantee state is precisely what the safety
+obligations must rule out.
+
+The inductive rules are:
+
+- [LiveReach(0, p0)] for the initial product state [p0];
+- if [LiveReach(n - 1, src)] holds, the program step from [src.program_state]
+  to [dst.program_state] executes at instant [n], the selected assumption edge
+  does not go to the bad assumption state, the selected guarantee edge does
+  not go to the bad guarantee state, and all three selected guards hold in the
+  current step context, then [LiveReach(n, dst)] holds;
+- if [LiveReach(n - 1, src)] holds and a selected assumption edge goes to the
+  bad assumption state, no live successor is produced;
+- if [LiveReach(n - 1, src)] holds and a selected guarantee edge goes to the
+  bad guarantee state while the assumption edge is still non-bad, the generated
+  safety obligation must prove that this step context is impossible.
+
+The generator may use [LiveReach(n - 1, src)] only as an induction hypothesis
+for a source product state of the current product step. It must not manufacture
+[LiveReach] from shifted program guards, shifted assumption guards, or local
+syntactic compatibility of incoming edges.
+
+{1 Backend Representation}
+
+The current Why3 backend cannot use a bare uninterpreted fact [LiveReach(p)]
+as a useful hypothesis. Such a fact would either prove nothing about program
+variables or, if asserted without an induction rule, would be an unsound
+assumption.
+
+The representation intended for the backend is therefore a finite certified
+reachability invariant. For each live product state [p], the generator may
+carry a first-order formula [R_p] over end-of-instant values. The formulas
+must satisfy the following proof obligations:
+
+- initialization: the initial program-state facts imply [R_p0];
+- preservation: for every safe product step [src -> dst], [R_src] together
+  with the previous program state, previous guarantee state, current
+  step-context program guard, current step-context assumption guard, current
+  guarantee edge guard, and the program body implies [R_dst];
+- use: every generated obligation for a product step out of [src] may assume
+  [R_src] at the previous end-of-instant boundary;
+- bad-guarantee exclusion: for every bad-guarantee step out of [src],
+  [R_src] and the same step-context facts must imply contradiction.
+
+Soundness requires only that [R_p] over-approximates [LiveReach(_, p)]. A weak
+choice such as [R_p = true] is sound but useless. A useful choice may set
+[R_p] to [false] only when the preservation proof establishes that no concrete
+safe prefix reaches [p]. This is different from dropping product edges: the
+edge remains in the explored product, but its obligations are guarded by the
+certified source invariant.
+
+This is the precise sense in which product reachability can help with states
+such as [(Idle, A0, G1)]. It is not enough to notice locally that the state
+has incoming edges; the invariant must record enough end-of-instant
+information to prove whether a concrete safe prefix can really end there.

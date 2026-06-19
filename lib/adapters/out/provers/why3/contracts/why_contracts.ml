@@ -28,10 +28,19 @@ open Why_compile_expr
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
 
+let rec hexpr_size (h : Core_syntax.hexpr) : int =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
+  | HUn (_, inner) -> 1 + hexpr_size inner
+  | HPred (_, hs) | HFunCall (_, hs) ->
+      1 + List.fold_left (fun acc h -> acc + hexpr_size h) 0 hs
+  | HBin (_, a, b) | HCmp (_, a, b) -> 1 + hexpr_size a + hexpr_size b
+
 type step_contract_info = {
   step : Why_runtime_view.runtime_product_transition_view;
   pre : Why3.Ptree.term list;
   post : Why3.Ptree.term list;
+  local_cuts : Why3.Ptree.term list;
   forbidden : Why3.Ptree.term list;
 }
 
@@ -73,12 +82,13 @@ type label_context = {
   post_contract_user : Ptree.term list;
 }
 
-let compute_transition_contracts ~(env : env)
+let compute_transition_contracts ~(compile_formula_term : in_post:bool -> hexpr -> Ptree.term)
+    ~(env : env)
     ~(product_transitions : Why_runtime_view.runtime_product_transition_view list)
     ~(post_contract_user : Ptree.term list) :
     transition_clauses =
   let compile_require ((f : Ir.summary_formula), label) =
-    [ Why_compile_expr.compile_local_fo_formula_term ~in_post:false env f.logic ]
+    [ compile_formula_term ~in_post:false f.logic ]
     |> List.map (fun t -> (t, label))
   in
   let transition_requires_pre_terms =
@@ -214,20 +224,54 @@ let rec term_has_old (t : Ptree.term) : bool =
   | Tident _ | Tconst _ | Ttrue | Tfalse -> false
   | _ -> false
 
-let build_contracts ~(env : Why_compile_expr.env)
+let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term option)
+    ~(local_cut_candidate : hexpr -> bool)
+    ~(env : Why_compile_expr.env)
     ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) ~(simplify_formulas : bool)
     ~(deduplicate_terms : bool) : contract_info =
   let normalize_fo f = if simplify_formulas then simplify_fo f else f in
   let maybe_uniq terms = if deduplicate_terms then uniq_terms terms else terms in
+  let compile_formula_term ~in_post logic =
+    match abstract_formula ~in_post logic with
+    | Some term -> term
+    | None ->
+        let normalized = normalize_fo logic in
+        begin
+          match abstract_formula ~in_post normalized with
+          | Some term -> term
+          | None -> Why_compile_expr.compile_local_fo_formula_term ~in_post env normalized
+        end
+  in
+  let compile_unshared_formula_term ~in_post logic =
+    let normalized = normalize_fo logic in
+    Why_compile_expr.compile_local_fo_formula_term ~in_post env normalized
+  in
   let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
-    [ Why_compile_expr.compile_local_fo_formula_term ~in_post env (normalize_fo f.logic) ]
+    [ compile_formula_term ~in_post f.logic ]
+  in
+  let rec split_top_level_and (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
+    match f.hexpr with
+    | HBin (And, a, b) -> split_top_level_and a @ split_top_level_and b
+    | _ -> [ f ]
+  in
+  let local_cut_formulas (formulas : Ir.summary_formula list) : Core_syntax.hexpr list =
+    formulas
+    |> List.concat_map (fun (formula : Ir.summary_formula) ->
+           let pieces = split_top_level_and formula.logic in
+           let selected_pieces = List.filter local_cut_candidate pieces in
+           match selected_pieces with
+           | [] when local_cut_candidate formula.logic -> [ formula.logic ]
+           | [] -> []
+           | facts -> facts)
+    |> List.sort_uniq Stdlib.compare
+    |> List.sort (fun a b ->
+           match Int.compare (hexpr_size b) (hexpr_size a) with
+           | 0 -> Stdlib.compare a b
+           | c -> c)
   in
   let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
-    let term =
-      Why_compile_expr.compile_local_fo_formula_term ~in_post:true env
-        (normalize_fo f.logic)
-    in
+    let term = compile_formula_term ~in_post:true f.logic in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
@@ -245,12 +289,17 @@ let build_contracts ~(env : Why_compile_expr.env)
     {
       step = pc;
       pre =
-        pc.requires
+        (pc.requires @ pc.local_requires)
         |> List.concat_map (compile_formula ~in_post:false)
         |> maybe_uniq;
       post =
         pc.ensures
         |> List.concat_map (compile_formula ~in_post:true)
+        |> maybe_uniq;
+      local_cuts =
+        pc.ensures
+        |> local_cut_formulas
+        |> List.map (compile_unshared_formula_term ~in_post:true)
         |> maybe_uniq;
       forbidden;
     }
@@ -262,8 +311,8 @@ let build_contracts ~(env : Why_compile_expr.env)
     if pure_translation then [] else []
   in
   let transition_clauses =
-    compute_transition_contracts ~env ~product_transitions:runtime.product_transitions
-      ~post_contract_user
+    compute_transition_contracts ~compile_formula_term ~env
+      ~product_transitions:runtime.product_transitions ~post_contract_user
   in
   let transition_requires_pre_terms = transition_clauses.transition_requires_pre_terms in
   let transition_requires_pre = transition_clauses.transition_requires_pre in

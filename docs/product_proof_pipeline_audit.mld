@@ -91,16 +91,72 @@ The following changes would be unsound without a separate formal argument:
 - validating reachability pruning with SMT satisfiability rather than with a
   certified product-reachability argument.
 
-{1 Open point before changing the generator}
+{1 Rejected direction}
 
-Before changing the code, the next design decision is whether product-state
-reachability should be carried as:
+Adding a finite product-state coherence predicate [C_p] did not provide the
+missing argument in the current model. It only restated information that is
+already syntactically known on a product edge, namely its source product state,
+and did not give a certified reachability/progression fact for the product
+automaton.
 
-- an explicit inductive product reachability predicate in the proof IR; or
-- a certified invariant generated from the product graph; or
-- another formal object that Rocq can relate to the explored product steps.
+The useful lesson is negative: the source state of an edge is not the missing
+information. The missing information, if we want to rule out spurious source
+states, must be an end-of-instant reachability invariant that is related to
+the explored product steps and their progression obligations.
 
-In all cases, the formal object must talk about end-of-instant product states
-and same-step transition selection separately. It cannot be reconstructed by
-shifting transition guards with [pre].
+{1 Product reachability decision}
 
+The semantic object is fixed in {!page-temporal_phase_semantics}: graph
+reachability in [Product_build] is not enough. The missing object is
+[LiveReach(n, p)], semantic reachability of a live product state at the end of
+instant [n].
+
+For the current Why3 backend, [LiveReach] must not be represented as a bare
+uninterpreted hypothesis. The chosen backend shape is a finite certified
+reachability invariant [R_p] for each live product state [p]:
+
+- [R_p] is a first-order end-of-instant formula;
+- generated obligations out of [p] may assume [R_p] at [PreviousTick];
+- initialization and safe product steps must prove preservation of the
+  corresponding [R_p] formulas;
+- bad-guarantee steps must be refuted under [R_src] and the current
+  step-context facts.
+
+This is deliberately stronger than the rejected [C_p] direction. [C_p] was a
+local compatibility predicate over incoming edges. [R_p] is useful only if it
+is justified by an induction over product executions, and only if it carries
+enough end-of-instant information to rule out spurious source states.
+
+The first implementation step is therefore not to filter product edges. It is
+to introduce the invariant shape and its generated preservation/refutation
+obligations, then choose a conservative initial synthesis for the [R_p]
+formulas.
+
+{1 Prototype status}
+
+The current prototype implements a deliberately small [true]/[false]
+synthesis for [R_p]. It is used in two places:
+
+- when [R_dst] is [false], the generator adds preservation obligations of the
+  form [guard_dst => false];
+- when [R_src] is [false], the Why3 backend adds a backend-local helper
+  precondition [false] for obligations whose source is [src].
+
+The backend-local precondition is not part of the global [step] precondition.
+It is therefore only a way to avoid proving outgoing obligations from product
+states whose unreachability must already be certified by incoming
+preservation obligations.
+
+On the original [tests/ok/reactive_alarm_cover.kairos], this removed the
+earlier spurious timeouts from unreachable [(Idle, A0, G1)] and
+[(Run, A0, G1)] sources and exposed a real model error: from
+[(Alarm, A0, G1)], transition [Alarm -> Idle] with [stop] set
+[alarmLatched] to [false], while the guarantee state still required the
+one-step response [alarmLatched && not motorOn].
+
+The example now separates [AlarmPending] from [Alarm]. [AlarmPending] records
+that the controller still owes the one-step response to a hazard seen at the
+previous instant. Clearing can only happen once the controller has spent an
+instant producing [alarmLatched && not motorOn]. With this model correction,
+the [reactive_alarm_cover] obligations validate with the prototype [R_p]
+support enabled.

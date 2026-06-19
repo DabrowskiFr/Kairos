@@ -42,6 +42,13 @@ module Make (P : Application_ports.PORTS) : sig
     input_file:string ->
     (Pipeline_types.obligations_outputs, Pipeline_types.error) result
 
+  (** Generate a whole-pipeline proof-cost report on one source file. *)
+
+  val cost_report :
+    proof_optimizations:Pipeline_types.proof_optimizations ->
+    input_file:string ->
+    (Pipeline_types.cost_report_outputs, Pipeline_types.error) result
+
   (** Render the normalized IR textual view for one source file. *)
 
   val normalized_program :

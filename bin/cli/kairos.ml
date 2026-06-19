@@ -49,6 +49,7 @@ type cli_args = {
   dump_elaborated : string option;
   dump_normalized_program : string option;
   dump_ir_pretty : string option;
+  dump_cost_report : string option;
   dump_timings : string option;
   dump_goals : string option;
   dump_why : string option;
@@ -71,6 +72,7 @@ type dump_mode =
   | Dump_elaborated of { out : string }
   | Dump_normalized_program of { out : string }
   | Dump_ir_pretty of { out : string }
+  | Dump_cost_report of { out : string }
   | Dump_kobj_summary of { out : string }
   | Dump_kobj_clauses of { out : string }
   | Dump_kobj_product of { out : string }
@@ -145,6 +147,7 @@ module Pipeline_service = struct
   let instrumentation_pass = Usecases.instrumentation_pass
   let why_pass = Usecases.why_pass
   let obligations_pass = Usecases.obligations_pass
+  let cost_report = Usecases.cost_report
 
   let automata_dump_data ~input_file =
     match instrumentation_pass ~generate_png:false ~input_file with
@@ -172,6 +175,11 @@ module Pipeline_service = struct
     match obligations_pass ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok { vc_text = out.vc_text; smt_text = out.smt_text }
+
+  let cost_report_dump ~input_file ~proof_optimizations =
+    match cost_report ~proof_optimizations ~input_file with
+    | Error _ as e -> e
+    | Ok out -> Ok out.cost_report_json
 
   let read_or_compile_kobj ~(input_file : string) =
     if Filename.check_suffix input_file ".kobj" then
@@ -249,7 +257,7 @@ module Pipeline_service = struct
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text
-      ~proof_optimizations =
+      ~proof_progress_path ~proof_optimizations =
     let cfg =
       {
         Pipeline_types.input_file;
@@ -261,6 +269,7 @@ module Pipeline_service = struct
         generate_vc_text;
         generate_smt_text;
         generate_dot_png = false;
+        proof_progress_path;
         proof_optimizations;
       }
     in
@@ -404,6 +413,14 @@ let with_ir_pretty args f =
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
+let with_cost_report args f =
+  match
+    Pipeline_service.cost_report_dump ~input_file:args.file
+      ~proof_optimizations:(proof_optimizations_of_args args)
+  with
+  | Error e -> `Error (false, map_error e)
+  | Ok text -> f text
+
 let with_surface_dump args f =
   match Pipeline_service.surface_dump ~input_file:args.file with
   | Error e -> `Error (false, map_error e)
@@ -525,6 +542,7 @@ let dump_mode_count args =
       args.dump_elaborated;
       args.dump_normalized_program;
       args.dump_ir_pretty;
+      args.dump_cost_report;
       args.dump_kobj_summary;
       args.dump_kobj_clauses;
       args.dump_kobj_product;
@@ -544,10 +562,10 @@ let validate_args args =
     Error "--check-frontend cannot be combined with dump, proof, or Why3 options"
   else if has_dump_mode args && has_why_mode args then
     Error
-      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
+      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
     Error
-      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-kobj-*"
+      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--dump-kobj-*"
   else Ok ()
 
 (* Preserve the previous precedence between dump options while converting the raw
@@ -582,6 +600,11 @@ let resolve_dump_mode args =
               { out = get_some "dump-normalized-program" args.dump_normalized_program }))
   | _ when Option.is_some args.dump_ir_pretty ->
       Ok (Some (Dump_ir_pretty { out = get_some "dump-ir-pretty" args.dump_ir_pretty }))
+  | _ when Option.is_some args.dump_cost_report ->
+      Ok
+        (Some
+           (Dump_cost_report
+              { out = get_some "dump-cost-report" args.dump_cost_report }))
   | _ when Option.is_some args.dump_kobj_summary ->
       Ok (Some (Dump_kobj_summary { out = get_some "dump-kobj-summary" args.dump_kobj_summary }))
   | _ when Option.is_some args.dump_kobj_clauses ->
@@ -624,6 +647,7 @@ let exec_dump_mode args = function
   | Dump_elaborated { out } -> with_elaborated_dump args (write_text_output out)
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)
   | Dump_ir_pretty { out } -> with_ir_pretty args (write_text_output out)
+  | Dump_cost_report { out } -> with_cost_report args (write_text_output out)
   | Dump_kobj_summary { out } -> with_kobj_summary args (write_text_output out)
   | Dump_kobj_clauses { out } -> with_kobj_clauses args (write_text_output out)
   | Dump_kobj_product { out } -> with_kobj_product args (write_text_output out)
@@ -658,6 +682,7 @@ let exec_action args = function
         Pipeline_service.run_dump_data ~input_file:args.file ~timeout_s:args.timeout_s ~prove
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
+          ~proof_progress_path:(if prove then args.dump_goals else None)
           ~proof_optimizations:(proof_optimizations_of_args args)
       with
       | Error e -> `Error (false, map_error e)
@@ -756,6 +781,13 @@ let cmd =
       value & opt (some string) None
       & info [ "dump-ir-pretty" ] ~docs:docs_text ~docv:"FILE"
           ~doc:"Dump the full IR in canonical readable format.")
+  in
+  let dump_cost_report =
+    Arg.(
+      value & opt (some string) None
+      & info [ "dump-cost-report" ] ~docs:docs_text ~docv:"FILE"
+          ~doc:
+            "Dump a JSON cost report from source, automata, product summaries, proof kernel, and generated WhyML.")
   in
   let dump_timings =
     Arg.(
@@ -869,9 +901,9 @@ let cmd =
         no_why3_body_slicing no_why3_action_simplification no_why3_term_dedup
         dump_automata dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
-        dump_normalized_program dump_ir_pretty dump_timings dump_goals dump_why
-        dump_why3_vc dump_smt2 dump_kobj_summary dump_kobj_clauses
-        dump_kobj_product dump_kobj_contracts =
+        dump_normalized_program dump_ir_pretty dump_cost_report dump_timings
+        dump_goals dump_why dump_why3_vc dump_smt2 dump_kobj_summary
+        dump_kobj_clauses dump_kobj_product dump_kobj_contracts =
       {
         file;
         check_frontend;
@@ -894,6 +926,7 @@ let cmd =
         dump_elaborated;
         dump_normalized_program;
         dump_ir_pretty;
+        dump_cost_report;
         dump_timings;
         dump_goals;
         dump_why;
@@ -913,8 +946,8 @@ let cmd =
       $ dump_product $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
-      $ dump_timings $ dump_goals $ dump_why $ dump_why3_vc $ dump_smt2
-      $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
+      $ dump_cost_report $ dump_timings $ dump_goals $ dump_why $ dump_why3_vc
+      $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
       $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in

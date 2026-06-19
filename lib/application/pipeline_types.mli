@@ -161,6 +161,10 @@ type why_outputs = { why_text : string; flow_meta : (string * (string * string) 
 
 type obligations_outputs = { vc_text : string; smt_text : string }
 
+(** Whole-pipeline proof-generation cost report. *)
+
+type cost_report_outputs = { cost_report_json : string }
+
 (** Optional proof-generation optimizations.
 
     Disabling every field selects the reference pipeline shape intended to be
@@ -196,6 +200,7 @@ type config = {
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
+  proof_progress_path : string option;
   proof_optimizations : proof_optimizations;
 }
 

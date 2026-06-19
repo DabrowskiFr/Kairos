@@ -37,6 +37,9 @@ val dump_why3_tasks_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
       One textual task per normalized goal, with additional attribute comments. *)
 val dump_why3_tasks_with_attrs_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
 
+(** Dump already-normalized Why3 tasks with their Why3 attributes appended. *)
+val dump_why3_tasks_with_attrs_of_tasks : Why3.Task.task list -> string list
+
 (** Dump normalized tasks as SMT-LIB2 scripts.
 
     @param ptree
@@ -44,3 +47,6 @@ val dump_why3_tasks_with_attrs_of_ptree : ptree:Why3.Ptree.mlw_file -> string li
     @return
       One SMT-LIB2 script per normalized goal, prepared for Z3. *)
 val dump_smt2_tasks_of_ptree : ptree:Why3.Ptree.mlw_file -> string list
+
+(** Dump already-normalized tasks as SMT-LIB2 scripts. *)
+val dump_smt2_tasks_of_tasks : Why3.Task.task list -> string list

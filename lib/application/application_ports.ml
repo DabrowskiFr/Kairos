@@ -87,6 +87,15 @@ module type OBLIGATIONS_PORT = sig
     Pipeline_types.obligations_outputs
 end
 
+module type COST_REPORT_PORT = sig
+  type snapshot
+
+  val cost_report :
+    input_file:string ->
+    snapshot:snapshot ->
+    (Pipeline_types.cost_report_outputs, Pipeline_types.error) result
+end
+
 module type IR_RENDER_PORT = sig
   type snapshot
 
@@ -123,6 +132,7 @@ module type PORTS = sig
   module Instrumentation : INSTRUMENTATION_PORT
   module Why_text : WHY_TEXT_PORT with type snapshot = snapshot
   module Obligations : OBLIGATIONS_PORT with type snapshot = snapshot
+  module Cost_report : COST_REPORT_PORT with type snapshot = snapshot
   module Ir_render : IR_RENDER_PORT with type snapshot = snapshot
   module Timing : TIMING_PORT
   module Proof_events : PROOF_EVENTS_PORT with type snapshot = snapshot

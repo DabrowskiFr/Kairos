@@ -18,6 +18,8 @@
 
 open Core_syntax
 
+module StringSet = Set.Make (String)
+
 let mk_h desc = Core_syntax_builders.mk_hexpr desc
 let htrue = Core_syntax_builders.mk_hbool true
 let hfalse = Core_syntax_builders.mk_hbool false
@@ -25,40 +27,91 @@ let hfalse = Core_syntax_builders.mk_hbool false
 let is_htrue = function { hexpr = HLitBool true; _ } -> true | _ -> false
 let is_hfalse = function { hexpr = HLitBool false; _ } -> true | _ -> false
 
-let rec key_of_hexpr (h : hexpr) : string =
-  match h.hexpr with
-  | HLitInt n -> "i:" ^ string_of_int n
-  | HLitBool b -> "b:" ^ string_of_bool b
-  | HLitEnum c -> "e:" ^ c
-  | HVar v -> "v:" ^ v
-  | HPreK (v, k) -> "p:" ^ string_of_int k ^ ":" ^ v
-  | HPred (id, hs) -> "pred:" ^ id ^ "(" ^ String.concat "," (List.map key_of_hexpr hs) ^ ")"
-  | HFunCall (id, hs) -> "fun:" ^ id ^ "(" ^ String.concat "," (List.map key_of_hexpr hs) ^ ")"
-  | HUn (op, inner) ->
-      let op_s = match op with Neg -> "neg" | Not -> "not" in
-      op_s ^ "(" ^ key_of_hexpr inner ^ ")"
-  | HBin (op, a, b) ->
-      let op_s =
-        match op with
-        | Add -> "+"
-        | Sub -> "-"
-        | Mul -> "*"
-        | Div -> "/"
-        | And -> "and"
-        | Or -> "or"
-      in
-      op_s ^ "(" ^ key_of_hexpr a ^ "," ^ key_of_hexpr b ^ ")"
-  | HCmp (op, a, b) ->
-      let op_s =
-        match op with
-        | REq -> "="
-        | RNeq -> "<>"
-        | RLt -> "<"
-        | RLe -> "<="
-        | RGt -> ">"
-        | RGe -> ">="
-      in
-      op_s ^ "(" ^ key_of_hexpr a ^ "," ^ key_of_hexpr b ^ ")"
+let simple_absorption_disjunct_limit = 32
+let simple_absorption_term_limit = 8
+let pairwise_resolution_disjunct_limit = 0
+let absorption_disjunct_limit = 32
+let common_dnf_tautology_disjunct_limit = 16
+let simplify_cache_limit = 20000
+
+let simplify_cache : (string, Core_syntax.hexpr) Hashtbl.t = Hashtbl.create 4096
+
+let key_of_hexpr (h : hexpr) : string =
+  let buf = Buffer.create 64 in
+  let rec add h =
+    match h.hexpr with
+    | HLitInt n ->
+        Buffer.add_string buf "i:";
+        Buffer.add_string buf (string_of_int n)
+    | HLitBool b ->
+        Buffer.add_string buf "b:";
+        Buffer.add_string buf (string_of_bool b)
+    | HLitEnum c ->
+        Buffer.add_string buf "e:";
+        Buffer.add_string buf c
+    | HVar v ->
+        Buffer.add_string buf "v:";
+        Buffer.add_string buf v
+    | HPreK (v, k) ->
+        Buffer.add_string buf "p:";
+        Buffer.add_string buf (string_of_int k);
+        Buffer.add_char buf ':';
+        Buffer.add_string buf v
+    | HPred (id, hs) ->
+        Buffer.add_string buf "pred:";
+        Buffer.add_string buf id;
+        Buffer.add_char buf '(';
+        add_list hs;
+        Buffer.add_char buf ')'
+    | HFunCall (id, hs) ->
+        Buffer.add_string buf "fun:";
+        Buffer.add_string buf id;
+        Buffer.add_char buf '(';
+        add_list hs;
+        Buffer.add_char buf ')'
+    | HUn (op, inner) ->
+        Buffer.add_string buf (match op with Neg -> "neg" | Not -> "not");
+        Buffer.add_char buf '(';
+        add inner;
+        Buffer.add_char buf ')'
+    | HBin (op, a, b) ->
+        Buffer.add_string buf
+          (match op with
+          | Add -> "+"
+          | Sub -> "-"
+          | Mul -> "*"
+          | Div -> "/"
+          | And -> "and"
+          | Or -> "or");
+        Buffer.add_char buf '(';
+        add a;
+        Buffer.add_char buf ',';
+        add b;
+        Buffer.add_char buf ')'
+    | HCmp (op, a, b) ->
+        Buffer.add_string buf
+          (match op with
+          | REq -> "="
+          | RNeq -> "<>"
+          | RLt -> "<"
+          | RLe -> "<="
+          | RGt -> ">"
+          | RGe -> ">=");
+        Buffer.add_char buf '(';
+        add a;
+        Buffer.add_char buf ',';
+        add b;
+        Buffer.add_char buf ')'
+  and add_list = function
+    | [] -> ()
+    | [ x ] -> add x
+    | x :: xs ->
+        add x;
+        Buffer.add_char buf ',';
+        add_list xs
+  in
+  add h;
+  Buffer.contents buf
 
 let const_key_of_hexpr = function
   | { hexpr = HLitInt n; _ } -> Some ("i:" ^ string_of_int n)
@@ -136,10 +189,13 @@ let eval_const_rel (op : relop) (a : hexpr) (b : hexpr) : bool option =
         | RLt | RLe | RGt | RGe -> false)
   | _ -> None
 
-let rec flatten_bool (op : binop) (h : hexpr) : hexpr list =
-  match h.hexpr with
-  | HBin (op', a, b) when op = op' -> flatten_bool op a @ flatten_bool op b
-  | _ -> [ h ]
+let flatten_bool (op : binop) (h : hexpr) : hexpr list =
+  let rec loop acc h =
+    match h.hexpr with
+    | HBin (op', a, b) when op = op' -> loop (loop acc b) a
+    | _ -> h :: acc
+  in
+  List.rev (loop [] h)
 
 let dedup_hexprs (xs : hexpr list) : hexpr list =
   let seen = Hashtbl.create (List.length xs * 2 + 1) in
@@ -153,6 +209,19 @@ let dedup_hexprs (xs : hexpr list) : hexpr list =
           loop (x :: acc) rest)
   in
   loop [] xs
+
+let length_at_most limit xs =
+  let rec loop n = function
+    | [] -> true
+    | _ :: rest -> n > 0 && loop (n - 1) rest
+  in
+  limit >= 0 && loop limit xs
+
+let string_set_of_keys xs =
+  List.fold_left (fun acc key -> StringSet.add key acc) StringSet.empty xs
+
+let keyed_hexprs (xs : hexpr list) : (string * hexpr) list =
+  List.map (fun h -> (key_of_hexpr h, h)) xs
 
 let bool_literals_have_complement (xs : hexpr list) : bool =
   let seen = Hashtbl.create 16 in
@@ -261,25 +330,26 @@ and simplify_disjunct_against_simple (simple : hexpr) (h : hexpr) : hexpr option
         Some (rebuild_and_syntax pruned)
 
 and resolve_or_pair (a : hexpr) (b : hexpr) : hexpr option =
-  let ca = flatten_bool And a |> dedup_hexprs in
-  let cb = flatten_bool And b |> dedup_hexprs in
+  let ca = flatten_bool And a |> dedup_hexprs |> keyed_hexprs in
+  let cb = flatten_bool And b |> dedup_hexprs |> keyed_hexprs in
+  let keys_b = string_set_of_keys (List.map fst cb) in
   let common =
     ca
-    |> List.filter (fun h ->
-           List.exists (fun other -> String.equal (key_of_hexpr h) (key_of_hexpr other)) cb)
+    |> List.filter (fun (key, _h) -> StringSet.mem key keys_b)
   in
+  let common_keys = string_set_of_keys (List.map fst common) in
   let diff_a =
     ca
-    |> List.filter (fun h ->
-           not (List.exists (fun c -> String.equal (key_of_hexpr h) (key_of_hexpr c)) common))
+    |> List.filter (fun (key, _h) -> not (StringSet.mem key common_keys))
+    |> List.map snd
   in
   let diff_b =
     cb
-    |> List.filter (fun h ->
-           not (List.exists (fun c -> String.equal (key_of_hexpr h) (key_of_hexpr c)) common))
+    |> List.filter (fun (key, _h) -> not (StringSet.mem key common_keys))
+    |> List.map snd
   in
   match (diff_a, diff_b) with
-  | [ da ], [ db ] when are_complements da db -> Some (rebuild_and_syntax common)
+  | [ da ], [ db ] when are_complements da db -> Some (rebuild_and_syntax (List.map snd common))
   | _ -> None
 
 and resolve_or_once (xs : hexpr list) : hexpr list * bool =
@@ -299,21 +369,20 @@ and resolve_or_all xs =
   let xs, changed = resolve_or_once xs in
   if changed then resolve_or_all (dedup_hexprs xs) else xs
 
-and conjunction_keys (h : hexpr) : string list =
-  flatten_bool And h |> List.map key_of_hexpr |> List.sort_uniq String.compare
-
-and keys_subset a b = List.for_all (fun x -> List.mem x b) a
+and conjunction_key_set (h : hexpr) : StringSet.t =
+  flatten_bool And h
+  |> List.fold_left (fun acc h -> StringSet.add (key_of_hexpr h) acc) StringSet.empty
 
 and remove_absorbed_disjuncts (xs : hexpr list) : hexpr list =
-  let keyed = List.map (fun h -> (h, conjunction_keys h)) xs in
+  let keyed = List.map (fun h -> (h, key_of_hexpr h, conjunction_key_set h)) xs in
   keyed
-  |> List.filter (fun (h, keys) ->
+  |> List.filter (fun (_h, key, keys) ->
          not
            (List.exists
-              (fun (other, other_keys) ->
-                key_of_hexpr h <> key_of_hexpr other && keys_subset other_keys keys)
+              (fun (_other, other_key, other_keys) ->
+                (not (String.equal key other_key)) && StringSet.subset other_keys keys)
               keyed))
-  |> List.map fst
+  |> List.map (fun (h, _key, _keys) -> h)
 
 type cube_lit = {
   cube_key : string;
@@ -419,25 +488,36 @@ let rec rebuild_or_syntax (xs : hexpr list) : hexpr =
       xs |> List.filter (fun h -> match flatten_bool And h with [ _ ] -> true | _ -> false)
     in
     let xs =
-      List.fold_left
-        (fun acc simple ->
-          acc |> List.filter_map (simplify_disjunct_against_simple simple) |> dedup_hexprs)
-        xs simple_terms
-      |> resolve_or_all
-      |> remove_absorbed_disjuncts
-      |> dedup_hexprs
+      if
+        length_at_most simple_absorption_disjunct_limit xs
+        && length_at_most simple_absorption_term_limit simple_terms
+      then
+        List.fold_left
+          (fun acc simple ->
+            acc |> List.filter_map (simplify_disjunct_against_simple simple) |> dedup_hexprs)
+          xs simple_terms
+      else xs
     in
     let xs =
-      match simplify_common_dnf_tautology xs with
-      | Some simplified -> [ simplified ]
-      | None -> xs
+      if length_at_most pairwise_resolution_disjunct_limit xs then resolve_or_all xs else xs
+    in
+    let xs =
+      if length_at_most absorption_disjunct_limit xs then remove_absorbed_disjuncts xs else xs
+    in
+    let xs = dedup_hexprs xs in
+    let xs =
+      if length_at_most common_dnf_tautology_disjunct_limit xs then
+        match simplify_common_dnf_tautology xs with
+        | Some simplified -> [ simplified ]
+        | None -> xs
+      else xs
     in
     match xs with
     | [] -> hfalse
     | [ x ] -> x
     | x :: rest -> List.fold_left Core_syntax_builders.mk_hor x rest
 
-let rec simplify (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let rec simplify_uncached (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   match f.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
   | HUn (Neg, inner) -> mk_h (HUn (Neg, simplify inner))
@@ -481,3 +561,16 @@ let rec simplify (f : Core_syntax.hexpr) : Core_syntax.hexpr =
             | _ -> mk_h (HCmp (op, a, b))
           end
       end
+
+and simplify (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  match f.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
+  | _ ->
+      let key = key_of_hexpr f in
+      match Hashtbl.find_opt simplify_cache key with
+      | Some cached -> cached
+      | None ->
+          let simplified = simplify_uncached f in
+          if Hashtbl.length simplify_cache >= simplify_cache_limit then Hashtbl.clear simplify_cache;
+          Hashtbl.replace simplify_cache key simplified;
+          simplified

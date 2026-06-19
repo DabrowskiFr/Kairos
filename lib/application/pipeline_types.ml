@@ -144,6 +144,7 @@ open Core_syntax
 
 type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
 type obligations_outputs = { vc_text : string; smt_text : string }
+type cost_report_outputs = { cost_report_json : string }
 
   type proof_optimizations = {
     group_public_non_w_guarantees : bool;
@@ -184,6 +185,7 @@ type obligations_outputs = { vc_text : string; smt_text : string }
     generate_vc_text : bool;
     generate_smt_text : bool;
     generate_dot_png : bool;
+    proof_progress_path : string option;
     proof_optimizations : proof_optimizations;
   }
 

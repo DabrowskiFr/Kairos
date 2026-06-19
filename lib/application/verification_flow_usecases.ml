@@ -60,6 +60,11 @@ module Make (P : Application_ports.PORTS) = struct
     let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
     Ok (P.Obligations.obligations ~snapshot)
 
+  let cost_report ~proof_optimizations ~input_file =
+    let* frontend = P.Frontend.parse_input ~input_file in
+    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    P.Cost_report.cost_report ~input_file ~snapshot
+
   let normalized_program ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
     let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in

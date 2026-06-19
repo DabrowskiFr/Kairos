@@ -16,7 +16,8 @@
   pipeline_outputs_helpers
   proof_runner
   output_mapper
-  pipeline_outputs)
+  pipeline_outputs
+  pipeline_cost_report)
  (libraries
   kairos_application
   kairos_domain_core
@@ -30,4 +31,5 @@
   kairos_external_spot
   kairos_external_graphviz
   kairos_external_why3
-  kairos_external_timing))
+  kairos_external_timing
+  yojson))

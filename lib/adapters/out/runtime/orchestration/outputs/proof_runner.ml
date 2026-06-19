@@ -30,6 +30,44 @@ type run_output = {
   proof_traces : Pipeline_types.proof_trace list;
 }
 
+let csv_escape field =
+  if String.exists (fun c -> c = ',' || c = '"' || c = '\n' || c = '\r') field then
+    let b = Buffer.create (String.length field + 8) in
+    Buffer.add_char b '"';
+    String.iter
+      (function
+        | '"' -> Buffer.add_string b "\"\""
+        | c -> Buffer.add_char b c)
+      field;
+    Buffer.add_char b '"';
+    Buffer.contents b
+  else field
+
+type proof_progress = { emit : Pipeline_types.goal_info -> unit }
+
+let open_proof_progress = function
+  | None | Some "-" -> None
+  | Some path ->
+      let oc = open_out path in
+      output_string oc "index,name,status,time_s,dump_path,vcid\n";
+      flush oc;
+      let rows = ref 0 in
+      let emit (name, status, time_s, dump_path, vcid) =
+        incr rows;
+        [
+          string_of_int !rows;
+          name;
+          status;
+          Printf.sprintf "%.6f" time_s;
+          Option.value dump_path ~default:"";
+          Option.value vcid ~default:"";
+        ]
+        |> List.map csv_escape |> String.concat "," |> output_string oc;
+        output_char oc '\n';
+        flush oc
+      in
+      Some { emit }
+
 let diagnostic_for_trace ~(status : string) ~(goal_text : string)
     ~(native_core : Why_native_probe.native_unsat_core option)
     ~(native_probe : Why_native_probe.native_solver_probe option) :
@@ -122,13 +160,13 @@ let diagnostic_for_trace ~(status : string) ~(goal_text : string)
       ];
   }
 
-let build_goal_results ~(cfg : Pipeline_types.config) ~ptree
+let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     ~(vc_ids_ordered : int list) ~normalized_tasks :
     (int * string * string * float * string option * string option) list =
   if cfg.prove && not cfg.wp_only then
     let finished = ref [] in
     let _ =
-      Why_contract_prove.prove_ptree_with_events ~timeout:cfg.timeout_s ptree
+      Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
         ~should_cancel:(fun () -> false)
         ~on_goal_start:(fun _ -> ())
         ~on_goal_done:(fun ev ->
@@ -140,9 +178,15 @@ let build_goal_results ~(cfg : Pipeline_types.config) ~ptree
             | Some id -> Some (string_of_int id)
             | None -> None
           in
+          Option.iter
+            (fun (progress : proof_progress) ->
+              progress.emit
+                (r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid))
+            progress;
           finished :=
             (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid)
             :: !finished)
+        normalized_tasks
     in
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
   else
@@ -257,6 +301,7 @@ let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
 let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     (run_output, Pipeline_types.error) result =
   try
+    let progress = open_proof_progress cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
     let opts = cfg.proof_optimizations in
     let why_ast =
@@ -268,17 +313,18 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
     in
     let ptree = why_ast.Why_compile.mlw in
+    let module_ptrees = Why_task_support.module_ptrees_of_ptree ptree in
     let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
-    if cfg.prove && not cfg.wp_only && not cfg.generate_vc_text
+    if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
        && not cfg.generate_smt_text && not cfg.compute_proof_diagnostics
     then
       let goal_results =
         let finished = ref [] in
         let _ =
-          Why_contract_prove.prove_ptree_with_events ~timeout:cfg.timeout_s
-            ~split_vc:false ptree ~on_goal_start:(fun _ -> ())
+          Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
+            ~split_vc:false module_ptrees ~on_goal_start:(fun _ -> ())
             ~on_goal_done:(fun ev ->
               let idx = ev.Why_contract_prove.goal_index in
               let r = ev.result in
@@ -315,27 +361,37 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
           proof_traces;
         }
     else
-      let vc_tasks = Why_task_dump_render.dump_why3_tasks_with_attrs_of_ptree ~ptree in
+      let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
+      let normalized_tasks =
+        Why_task_support.normalize_tasks_of_ptrees ~env ~ptrees:module_ptrees
+      in
+      let vc_tasks =
+        if cfg.generate_vc_text then
+          Why_task_dump_render.dump_why3_tasks_with_attrs_of_tasks normalized_tasks
+        else []
+      in
       let vc_text, vc_spans_ordered =
         if cfg.generate_vc_text then
           Pipeline_outputs_helpers.join_blocks_with_spans
             ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
         else ("", [])
       in
-      let smt_tasks = Why_task_dump_render.dump_smt2_tasks_of_ptree ~ptree in
+      let smt_tasks =
+        if cfg.generate_smt_text then
+          Why_task_dump_render.dump_smt2_tasks_of_tasks normalized_tasks
+        else []
+      in
       let smt_text, smt_spans_ordered =
         if cfg.generate_smt_text then
           Pipeline_outputs_helpers.join_blocks_with_spans
             ~sep:"\n; ---- goal ----\n" smt_tasks
         else ("", [])
       in
-      let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
-      let normalized_tasks = Why_task_support.normalize_tasks_of_ptree ~env ~ptree in
       let goal_count = List.length normalized_tasks in
       let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
       let vc_locs, vc_locs_ordered = ([], []) in
       let goal_results =
-        build_goal_results ~cfg ~ptree ~vc_ids_ordered ~normalized_tasks
+        build_goal_results ~progress ~cfg ~vc_ids_ordered ~normalized_tasks
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =

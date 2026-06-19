@@ -12,17 +12,19 @@ contracts
   ensures: responds_now_next(
     [hazardActive()], [alarmLatched = true and motorOn = false]);
 states
-  Init(init), Idle, Run, Alarm;
+  Init(init), Idle, Run, AlarmPending, Alarm;
 invariants
   in Idle:
     motorOn = false; alarmLatched = false;
   in Run:
     motorOn = true; alarmLatched = false;
+  in AlarmPending:
+    motorOn = false; alarmLatched = true;
   in Alarm:
     motorOn = false; alarmLatched = true;
 transitions
   Init:
-    to Alarm when hazardActive() {
+    to AlarmPending when hazardActive() {
       motorOn, alarmLatched := false, true;
     }
     to Run when start = true {
@@ -33,7 +35,7 @@ transitions
     }
 
   Idle:
-    to Alarm when hazardActive() {
+    to AlarmPending when hazardActive() {
       motorOn, alarmLatched := false, true;
     }
     to Run when start = true {
@@ -44,7 +46,7 @@ transitions
     }
 
   Run:
-    to Alarm when hazardActive() {
+    to AlarmPending when hazardActive() {
       motorOn, alarmLatched := false, true;
     }
     to Idle when stop = true {
@@ -54,8 +56,16 @@ transitions
       motorOn, alarmLatched := true, false;
     }
 
+  AlarmPending:
+    to AlarmPending when hazardActive() {
+      motorOn, alarmLatched := false, true;
+    }
+    to Alarm {
+      motorOn, alarmLatched := false, true;
+    }
+
   Alarm:
-    to Alarm when hazardActive() {
+    to AlarmPending when hazardActive() {
       motorOn, alarmLatched := false, true;
     }
     to Idle when stop = true {

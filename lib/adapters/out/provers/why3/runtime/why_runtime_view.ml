@@ -75,6 +75,7 @@ type runtime_product_transition_view = {
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
   requires : Abs.summary_formula list;
+  local_requires : Abs.summary_formula list;
   propagates : Abs.summary_formula list;
   ensures : Abs.summary_formula list;
   forbidden : Abs.summary_formula list;
@@ -136,6 +137,11 @@ let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t
   List.fold_left
     (fun acc (f : Abs.summary_formula) -> vars_of_hexpr acc f.logic)
     StringSet.empty formulas
+
+let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
+  match f.hexpr with
+  | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
+  | _ -> [ f ]
 
 let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * StringSet.t =
   match s.stmt with
@@ -508,10 +514,16 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
       init_invariant_goals = node.init_invariant_goals;
     }
   in
+  let reachability = Product_reachability.build ~node in
   let product_transitions =
     List.concat_map
       (fun (pc : Ir.product_step_summary) ->
         let t = pc.identity.program_step in
+        let local_requires =
+          Product_reachability.local_requires_of_product_state reachability
+            pc.identity.product_src
+          |> List.map Ir_formula.make
+        in
         let safe_ensures = dedup_summary_formulas pc.ensures in
         let safe_product_dsts =
           pc.safe_cases
@@ -526,28 +538,28 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
           match safe_product_dsts with
           | [] -> []
           | product_dst :: _ ->
-              List.map
-                (fun ensure ->
-                  let body =
-                    if slice_transition_bodies then
-                      slice_body_for_formulas t.body_stmts [ ensure ]
-                    else t.body_stmts
-                  in
-                  {
-                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
-                    src_state = t.src_state;
-                    dst_state = t.dst_state;
-                    guard = t.guard_expr;
-                    body;
-                    step_class = StepSafe;
-                    product_src = pc.identity.product_src;
-                    product_dst;
-                    requires = pc.requires;
-                    propagates = admissible_guards;
-                    ensures = [ ensure ];
-                    forbidden = [];
-                  })
-                safe_ensures
+              let body =
+                if slice_transition_bodies then
+                  slice_body_for_formulas t.body_stmts safe_ensures
+                else t.body_stmts
+              in
+              [
+                {
+                  transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                  src_state = t.src_state;
+                  dst_state = t.dst_state;
+                  guard = t.guard_expr;
+                  body;
+                  step_class = StepSafe;
+                  product_src = pc.identity.product_src;
+                  product_dst;
+                  requires = pc.requires;
+                  local_requires;
+                  propagates = admissible_guards;
+                  ensures = safe_ensures;
+                  forbidden = [];
+                };
+              ]
         in
         let bad_groups =
           pc.unsafe_cases
@@ -567,9 +579,13 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;
                    requires = pc.requires;
+                   local_requires;
                    propagates = [];
                    ensures = [];
-                   forbidden = [ case.excluded_guard ];
+                   forbidden =
+                     case.excluded_guard.logic
+                     |> split_top_level_or
+                     |> List.map Ir_formula.make;
                  })
         in
         safe_group @ bad_groups)

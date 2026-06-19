@@ -170,15 +170,12 @@ let prove_tasks_with_details
   in
   loop 0 [] indexed_tasks
 
-(* Public entry point:
-   build normalized tasks from a ptree and run the proof loop. *)
-let prove_ptree_with_events 
-  ?(timeout = 30) 
-  ?(split_vc = true)
+let prove_tasks_with_events
+  ?(timeout = 30)
   ?(should_cancel = fun () -> false)
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
-  (ptree : Ptree.mlw_file) : goal_proof_result list =
+  (tasks : Task.task list) : goal_proof_result list =
     let why3_config, why3_main, env, datadir_opt = setup_env () in
     let prover_cfg = select_z3_prover_cfg ~config:why3_config ~datadir_opt in
     let driver = Driver.load_driver_for_prover why3_main env prover_cfg in
@@ -189,10 +186,6 @@ let prove_ptree_with_events
                driver = Driver.load_driver_for_prover why3_main env cfg;
                command = Whyconf.get_complete_command cfg ~with_steps:false;
              })
-    in
-    let tasks =
-      if split_vc then normalize_tasks_of_ptree ~env ~ptree
-      else tasks_of_ptree ~env ~ptree
     in
     let limits =
       {
@@ -206,3 +199,30 @@ let prove_ptree_with_events
     in
     prove_tasks_with_details ~why3_main ~limits ~primary ~fallback ~should_cancel
       ~on_goal_start ~on_goal_done tasks
+
+let prove_ptrees_with_events
+  ?(timeout = 30)
+  ?(split_vc = true)
+  ?(should_cancel = fun () -> false)
+  ?(on_goal_start = fun (_ : goal_start_event) -> ())
+  ?(on_goal_done = fun (_ : goal_done_event) -> ())
+  (ptrees : Ptree.mlw_file list) : goal_proof_result list =
+    let _why3_config, _why3_main, env, _datadir_opt = setup_env () in
+    let tasks =
+      if split_vc then normalize_tasks_of_ptrees ~env ~ptrees
+      else tasks_of_ptrees ~env ~ptrees
+    in
+    prove_tasks_with_events ~timeout ~should_cancel ~on_goal_start
+      ~on_goal_done tasks
+
+(* Public entry point:
+   build normalized tasks from a ptree and run the proof loop. *)
+let prove_ptree_with_events
+  ?(timeout = 30)
+  ?(split_vc = true)
+  ?(should_cancel = fun () -> false)
+  ?(on_goal_start = fun (_ : goal_start_event) -> ())
+  ?(on_goal_done = fun (_ : goal_done_event) -> ())
+  (ptree : Ptree.mlw_file) : goal_proof_result list =
+    prove_ptrees_with_events ~timeout ~split_vc ~should_cancel ~on_goal_start
+      ~on_goal_done [ ptree ]

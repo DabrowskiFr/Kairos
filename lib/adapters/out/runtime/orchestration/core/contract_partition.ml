@@ -35,16 +35,20 @@ let ( let* ) = Result.bind
     guarantees and keeps internal auxiliary non-W guarantees with each W group.
     This part belongs to the proof-generation structure.
 
-    Grouping all public non-W guarantees together is an optimization layered on
-    top of that reference transformation. It is controlled by
-    [Pipeline_types.proof_optimizations] and can be disabled for the Rocq-facing
-    baseline. *)
+    Public non-W guarantees may be grouped, but not by blindly conjoining the
+    whole public contract. The grouping key is structural: same temporal proof
+    family and same footprint of variables constrained by the conclusion. This
+    keeps the transformation compositional while avoiding a product automaton
+    whose edges encode unrelated public guarantees in one large guard. The
+    grouping is controlled by [Pipeline_types.proof_optimizations] and can be
+    disabled for the Rocq-facing baseline. *)
 
 type guarantee_ref = {
   gid : int;
   formula : Core_syntax.ltl;
   has_weak_until : bool;
   is_internal_auxiliary : bool;
+  public_non_w_family : string option;
 }
 
 type proof_group = {
@@ -96,17 +100,52 @@ let mentions_private_var ~(private_vars : StringSet.t) (formula : Core_syntax.lt
   let formula_vars = vars_of_ltl StringSet.empty formula in
   not (StringSet.is_empty (StringSet.inter private_vars formula_vars))
 
+let sorted_vars_key vars =
+  match StringSet.elements vars with
+  | [] -> "pure"
+  | xs -> String.concat "_" xs
+
+let rec strip_leading_x count (formula : Core_syntax.ltl) =
+  match formula with
+  | Core_syntax.LX inner -> strip_leading_x (count + 1) inner
+  | _ -> (count, formula)
+
+let strip_one_leading_x formula =
+  match formula with Core_syntax.LX inner -> Some inner | _ -> None
+
+let public_non_w_family_key (formula : Core_syntax.ltl) : string =
+  let outer_delay, body = strip_leading_x 0 formula in
+  let family, response_delay, focus =
+    match body with
+    | Core_syntax.LG (Core_syntax.LImp (_trigger, response)) -> begin
+        match strip_one_leading_x response with
+        | Some delayed_response ->
+            ("next_response", outer_delay + 1, delayed_response)
+        | None -> ("current_response", outer_delay, response)
+      end
+    | Core_syntax.LG invariant -> ("invariant", outer_delay, invariant)
+    | _ -> ("other", outer_delay, body)
+  in
+  Printf.sprintf "%s_d%d_%s" family response_delay
+    (sorted_vars_key (vars_of_ltl StringSet.empty focus))
+
 let guarantee_refs (node : Verification_model.node_model) : guarantee_ref list =
   let private_vars = private_vars_of_node node in
   node.guarantees
   |> List.mapi (fun gid formula ->
          let has_weak_until = ltl_contains_weak_until formula in
+         let is_internal_auxiliary =
+           (not has_weak_until) && mentions_private_var ~private_vars formula
+         in
          {
            gid;
            formula;
            has_weak_until;
-           is_internal_auxiliary =
-             (not has_weak_until) && mentions_private_var ~private_vars formula;
+           is_internal_auxiliary;
+           public_non_w_family =
+             (if (not has_weak_until) && not is_internal_auxiliary then
+                Some (public_non_w_family_key formula)
+              else None);
          })
 
 let build_groups ~(proof_optimizations : Pipeline_types.proof_optimizations)
@@ -141,22 +180,24 @@ let build_groups ~(proof_optimizations : Pipeline_types.proof_optimizations)
                members = List.sort_uniq Int.compare (auxiliary_members @ [ g.gid ]);
              })
     in
-    let public_non_w_members =
-      refs
-      |> List.filter (fun g -> (not g.has_weak_until) && not g.is_internal_auxiliary)
-      |> List.map (fun g -> g.gid)
-    in
     let public_non_w_groups =
       if proof_optimizations.group_public_non_w_guarantees then
-        match public_non_w_members with
-        | [] -> []
-        | members ->
-            [
-              {
-                group_name = "public_non_w";
-                members = List.sort_uniq Int.compare members;
-              };
-            ]
+        let add_ref groups g =
+          match g.public_non_w_family with
+          | None -> groups
+          | Some family ->
+              let previous = List.assoc_opt family groups |> Option.value ~default:[] in
+              (family, g.gid :: previous) :: List.remove_assoc family groups
+        in
+        refs
+        |> List.filter (fun g -> (not g.has_weak_until) && not g.is_internal_auxiliary)
+        |> List.fold_left add_ref []
+        |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+        |> List.mapi (fun idx (family, members) ->
+               {
+                 group_name = Printf.sprintf "public_non_w_%02d_%s" (idx + 1) family;
+                 members = List.sort_uniq Int.compare members;
+               })
       else
         refs
         |> List.filter (fun g -> (not g.has_weak_until) && not g.is_internal_auxiliary)

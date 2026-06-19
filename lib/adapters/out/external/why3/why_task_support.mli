@@ -30,12 +30,23 @@
       Why3 data directory, when available. *)
 val setup_env : unit -> Why3.Whyconf.config * Why3.Whyconf.main * Why3.Env.env * string option
 
+(** Split a generated WhyML file into one-file-per-module chunks.
+
+    Kairos-generated modules are self-contained; processing them one at a time
+    preserves their obligations while avoiding a monolithic Why3 task
+    extraction step. *)
+val module_ptrees_of_ptree : Why3.Ptree.mlw_file -> Why3.Ptree.mlw_file list
+
 (** Extract top-level Why3 tasks without VC splitting.
 
     This is useful for fast batch proving where a valid unsplit VC is as sound
     as all of its split subgoals, but produces less granular diagnostics. *)
 val tasks_of_ptree :
   env:Why3.Env.env -> ptree:Why3.Ptree.mlw_file -> Why3.Task.task list
+
+(** Extract top-level Why3 tasks from several module chunks. *)
+val tasks_of_ptrees :
+  env:Why3.Env.env -> ptrees:Why3.Ptree.mlw_file list -> Why3.Task.task list
 
 (** Normalize parse-tree obligations into split Why3 tasks.
 
@@ -47,6 +58,10 @@ val tasks_of_ptree :
       Normalized task list in deterministic order. *)
 val normalize_tasks_of_ptree :
   env:Why3.Env.env -> ptree:Why3.Ptree.mlw_file -> Why3.Task.task list
+
+(** Normalize obligations from several module chunks. *)
+val normalize_tasks_of_ptrees :
+  env:Why3.Env.env -> ptrees:Why3.Ptree.mlw_file list -> Why3.Task.task list
 
 (** Select the Z3 prover configuration from Why3 config with fallback logic.
 

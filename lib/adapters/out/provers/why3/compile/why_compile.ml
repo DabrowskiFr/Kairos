@@ -38,6 +38,8 @@ open Pretty
 open Pre_k_layout
 open Why_compile_expr
 
+module StringSet = Set.Make (String)
+
 (** [compile_seq] helper value. *)
 
 let compile_seq = Why_compile_step.compile_seq
@@ -263,6 +265,195 @@ let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinnop (
 let binder_expr ((_, id_opt, _, _) : Ptree.binder) : Ptree.expr =
   match id_opt with Some id -> mk_expr (Eident (qid1 id.id_str)) | None -> mk_expr (Etuple [])
 
+let rec names_of_qualid (qid : Ptree.qualid) (acc : StringSet.t) : StringSet.t =
+  match qid with
+  | Qident id -> StringSet.add id.id_str acc
+  | Qdot (parent, id) -> StringSet.add id.id_str (names_of_qualid parent acc)
+
+let rec names_of_term (term : Ptree.term) (acc : StringSet.t) : StringSet.t =
+  match term.term_desc with
+  | Ttrue | Tfalse | Tconst _ -> acc
+  | Tident qid | Tasref qid -> names_of_qualid qid acc
+  | Tidapp (qid, terms) ->
+      List.fold_left (fun acc term -> names_of_term term acc) (names_of_qualid qid acc) terms
+  | Tapply (fn, arg) ->
+      names_of_term arg (names_of_term fn acc)
+  | Tinfix (lhs, _, rhs)
+  | Tinnfix (lhs, _, rhs)
+  | Tbinop (lhs, _, rhs)
+  | Tbinnop (lhs, _, rhs) ->
+      names_of_term rhs (names_of_term lhs acc)
+  | Tnot inner | Tcast (inner, _) | Tscope (_, inner) | Tat (inner, _) | Tattr (_, inner) ->
+      names_of_term inner acc
+  | Tif (cond, t_then, t_else) ->
+      names_of_term t_else (names_of_term t_then (names_of_term cond acc))
+  | Tquant (_, _, triggers, body) ->
+      let acc =
+        List.fold_left
+          (fun acc trigger -> List.fold_left (fun acc term -> names_of_term term acc) acc trigger)
+          acc triggers
+      in
+      names_of_term body acc
+  | Teps (_, _, body) -> names_of_term body acc
+  | Tlet (_, value, body) -> names_of_term body (names_of_term value acc)
+  | Tcase (scrutinee, branches) ->
+      List.fold_left
+        (fun acc (_pattern, body) -> names_of_term body acc)
+        (names_of_term scrutinee acc) branches
+  | Ttuple terms ->
+      List.fold_left (fun acc term -> names_of_term term acc) acc terms
+  | Trecord fields ->
+      List.fold_left (fun acc (_field, term) -> names_of_term term acc) acc fields
+  | Tupdate (base, fields) ->
+      List.fold_left
+        (fun acc (_field, term) -> names_of_term term acc)
+        (names_of_term base acc) fields
+
+let names_of_variant (variant : Ptree.variant) (acc : StringSet.t) : StringSet.t =
+  List.fold_left (fun acc (term, _rel) -> names_of_term term acc) acc variant
+
+let names_of_spec (spc : Ptree.spec) (acc : StringSet.t) : StringSet.t =
+  let acc = List.fold_left (fun acc term -> names_of_term term acc) acc spc.sp_pre in
+  let acc =
+    List.fold_left
+      (fun acc (_loc, posts) ->
+        List.fold_left (fun acc (_pat, term) -> names_of_term term acc) acc posts)
+      acc spc.sp_post
+  in
+  let acc =
+    List.fold_left
+      (fun acc (_loc, posts) ->
+        List.fold_left
+          (fun acc (_qid, post_opt) ->
+            match post_opt with
+            | None -> acc
+            | Some (_pat, term) -> names_of_term term acc)
+          acc posts)
+      acc spc.sp_xpost
+  in
+  let acc = List.fold_left (fun acc term -> names_of_term term acc) acc spc.sp_writes in
+  let acc =
+    List.fold_left
+      (fun acc (lhs, rhs) -> names_of_term rhs (names_of_term lhs acc))
+      acc spc.sp_alias
+  in
+  names_of_variant spc.sp_variant acc
+
+let rec names_of_expr (expr : Ptree.expr) (acc : StringSet.t) : StringSet.t =
+  match expr.expr_desc with
+  | Eref | Etrue | Efalse | Econst _ | Eabsurd -> acc
+  | Eident qid | Easref qid | Eidpur qid -> names_of_qualid qid acc
+  | Eidapp (qid, args) ->
+      List.fold_left (fun acc expr -> names_of_expr expr acc) (names_of_qualid qid acc) args
+  | Eapply (fn, arg) | Einfix (fn, _, arg) | Einnfix (fn, _, arg) ->
+      names_of_expr arg (names_of_expr fn acc)
+  | Elet (_, _, _, value, body) ->
+      names_of_expr body (names_of_expr value acc)
+  | Erec (defs, body) ->
+      let acc =
+        List.fold_left
+          (fun acc (_id, _ghost, _kind, _binders, _pty, _pat, _mask, spc, body) ->
+            names_of_expr body (names_of_spec spc acc))
+          acc defs
+      in
+      names_of_expr body acc
+  | Efun (_binders, _pty, _pat, _mask, spc, body) ->
+      names_of_expr body (names_of_spec spc acc)
+  | Eany (_params, _kind, _pty, _pat, _mask, spc) ->
+      names_of_spec spc acc
+  | Etuple exprs ->
+      List.fold_left (fun acc expr -> names_of_expr expr acc) acc exprs
+  | Erecord fields ->
+      List.fold_left (fun acc (_field, expr) -> names_of_expr expr acc) acc fields
+  | Eupdate (base, fields) ->
+      List.fold_left
+        (fun acc (_field, expr) -> names_of_expr expr acc)
+        (names_of_expr base acc) fields
+  | Eassign assigns ->
+      List.fold_left
+        (fun acc (lhs, _field, rhs) -> names_of_expr rhs (names_of_expr lhs acc))
+        acc assigns
+  | Esequence (first, second)
+  | Eand (first, second)
+  | Eor (first, second) ->
+      names_of_expr second (names_of_expr first acc)
+  | Eif (cond, t_then, t_else) ->
+      names_of_expr t_else (names_of_expr t_then (names_of_expr cond acc))
+  | Ewhile (cond, invariant, variant, body) ->
+      let acc = List.fold_left (fun acc term -> names_of_term term acc) acc invariant in
+      names_of_expr body (names_of_variant variant (names_of_expr cond acc))
+  | Enot inner | Ecast (inner, _) | Eghost inner | Eattr (_, inner) | Elabel (_, inner)
+  | Escope (_, inner) ->
+      names_of_expr inner acc
+  | Ematch (scrutinee, branches, exn_branches) ->
+      let acc =
+        List.fold_left
+          (fun acc (_pat, body) -> names_of_expr body acc)
+          (names_of_expr scrutinee acc) branches
+      in
+      List.fold_left
+        (fun acc (_qid, _pattern_opt, body) -> names_of_expr body acc)
+        acc exn_branches
+  | Epure term | Eassert (_, term) -> names_of_term term acc
+  | Eraise (_qid, expr_opt) -> Option.fold ~none:acc ~some:(fun expr -> names_of_expr expr acc) expr_opt
+  | Eexn (_, _, _, body) | Eoptexn (_, _, body) -> names_of_expr body acc
+  | Efor (_, start, _dir, stop, invariant, body) ->
+      let acc = List.fold_left (fun acc term -> names_of_term term acc) acc invariant in
+      names_of_expr body (names_of_expr stop (names_of_expr start acc))
+
+let mark_unused_binders (used : StringSet.t) (binders : Ptree.binder list) : Ptree.binder list =
+  let should_mark_unused id =
+    (not (StringSet.mem id.id_str used)) && not (String.starts_with ~prefix:"_" id.id_str)
+  in
+  List.map
+    (fun (bloc, id_opt, ghost, pty_opt) ->
+      match id_opt with
+      | Some id when should_mark_unused id ->
+          (bloc, Some (ident ("_" ^ id.id_str)), ghost, pty_opt)
+      | _ -> (bloc, id_opt, ghost, pty_opt))
+    binders
+
+let helper_binders_without_unused_warnings (binders : Ptree.binder list) (spc : Ptree.spec)
+    (body : Ptree.expr) : Ptree.binder list =
+  let used = names_of_expr body (names_of_spec spc StringSet.empty) in
+  mark_unused_binders used binders
+
+let balance_boolean_hexpr (formula : Core_syntax.hexpr) : Core_syntax.hexpr =
+  let build_balanced op formulas =
+    match formulas with
+    | [] -> invalid_arg "balance_boolean_hexpr: empty boolean formula list"
+    | [ formula ] -> formula
+    | _ ->
+        let arr = Array.of_list formulas in
+        let rec build lo hi =
+          if hi - lo = 1 then arr.(lo)
+          else
+            let mid = lo + ((hi - lo) / 2) in
+            Core_syntax_builders.mk_hexpr (HBin (op, build lo mid, build mid hi))
+        in
+        build 0 (Array.length arr)
+  in
+  let rec flatten op acc h =
+    match h.hexpr with
+    | HBin (op', a, b) when op = op' -> flatten op (flatten op acc b) a
+    | _ -> h :: acc
+  in
+  let rec normalize h =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> h
+    | HUn (op, inner) -> Core_syntax_builders.with_hexpr_desc h (HUn (op, normalize inner))
+    | HPred (id, hs) -> Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map normalize hs))
+    | HFunCall (fn, hs) ->
+        Core_syntax_builders.with_hexpr_desc h (HFunCall (fn, List.map normalize hs))
+    | HBin ((And | Or as op), _, _) ->
+        flatten op [] h |> List.rev |> List.map normalize |> build_balanced op
+    | HBin (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc h (HBin (op, normalize a, normalize b))
+    | HCmp (op, a, b) ->
+        Core_syntax_builders.with_hexpr_desc h (HCmp (op, normalize a, normalize b))
+  in
+  normalize formula
+
 (** [logic_getter_decl] helper value. *)
 
 let logic_getter_decl ~(env : Why_compile_expr.env) (vname : ident) (vty : ty) : Ptree.decl =
@@ -293,17 +484,71 @@ let logic_bool_pred_decl ~(env : Why_compile_expr.env) ~(input_ports : Why_runti
         (loc, Some (ident p.port_name), false, default_pty p.port_type))
       input_ports
   in
-  let body = Why_compile_expr.compile_local_fo_formula_term env formula in
+  let body = Why_compile_expr.compile_local_fo_formula_term env (balance_boolean_hexpr formula) in
   Ptree.Dlogic
     [
       {
         ld_loc = loc;
         ld_ident = ident name;
         ld_params = self_param :: input_params;
-        ld_type = Some (Ptree.PTtyapp (qid1 "bool", []));
+        ld_type = None;
         ld_def = Some body;
       };
     ]
+
+let logic_bool_pred_decl_with_params ~(env : Why_compile_expr.env)
+    ~(params : (ident * Ptree.pty) list) ~(name : string) ~(formula : Core_syntax.hexpr) :
+    Ptree.decl =
+  let env = { env with rec_name = "self" } in
+  let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
+  let params =
+    List.map (fun (name, pty) -> (loc, Some (ident name), false, pty)) params
+  in
+  let body = Why_compile_expr.compile_local_fo_formula_term env (balance_boolean_hexpr formula) in
+  Ptree.Dlogic
+    [
+      {
+        ld_loc = loc;
+        ld_ident = ident name;
+        ld_params = self_param :: params;
+        ld_type = None;
+        ld_def = Some body;
+      };
+    ]
+
+let logic_bool_pred_decl_with_body ~use_self
+    ~(params : (ident * Ptree.pty) list) ~(name : string) ~(body : Ptree.term) :
+    Ptree.decl =
+  let self_param : Ptree.param = (loc, Some (ident "self"), false, Ptree.PTtyapp (qid1 "vars", [])) in
+  let params =
+    List.map (fun (name, pty) -> (loc, Some (ident name), false, pty)) params
+  in
+  Ptree.Dlogic
+    [
+      {
+        ld_loc = loc;
+        ld_ident = ident name;
+        ld_params = (if use_self then self_param :: params else params);
+        ld_type = None;
+        ld_def = Some body;
+      };
+    ]
+
+let rec hexpr_size (h : Core_syntax.hexpr) : int =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
+  | HUn (_, inner) -> 1 + hexpr_size inner
+  | HPred (_, hs) | HFunCall (_, hs) ->
+      1 + List.fold_left (fun acc h -> acc + hexpr_size h) 0 hs
+  | HBin (_, a, b) | HCmp (_, a, b) -> 1 + hexpr_size a + hexpr_size b
+
+let rec vars_of_hexpr (acc : StringSet.t) (h : Core_syntax.hexpr) : StringSet.t =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ -> acc
+  | HVar name | HPreK (name, _) -> StringSet.add name acc
+  | HUn (_, inner) -> vars_of_hexpr acc inner
+  | HPred (_, hs) | HFunCall (_, hs) -> List.fold_left vars_of_hexpr acc hs
+  | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
 
 (** [port_view_to_vdecl] helper value. *)
 
@@ -359,7 +604,7 @@ let compile_node_with_info ?kernel_ir
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     (info : env_info) :
-    Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups =
+    (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   let runtime_view = info.runtime_view in
   let module_name = info.module_name in
   let imports = info.imports in
@@ -434,9 +679,265 @@ let compile_node_with_info ?kernel_ir
              []
         |> List.rev
   in
+  let shared_formula_params =
+    inputs
+    |> List.filter_map (fun (_, id_opt, _, pty_opt) ->
+           match (id_opt, pty_opt) with
+           | Some id, Some pty when not (String.equal id.id_str env.rec_name) -> Some (id.id_str, pty)
+           | _ -> None)
+  in
+  let formula_key (formula : Core_syntax.hexpr) =
+    let binop_key = function
+      | Add -> "add"
+      | Sub -> "sub"
+      | Mul -> "mul"
+      | Div -> "div"
+      | And -> "and"
+      | Or -> "or"
+    in
+    let unop_key = function Neg -> "neg" | Not -> "not" in
+    let relop_key = function
+      | REq -> "eq"
+      | RNeq -> "neq"
+      | RLt -> "lt"
+      | RLe -> "le"
+      | RGt -> "gt"
+      | RGe -> "ge"
+    in
+    let rec go h =
+      match h.hexpr with
+      | HLitInt n -> "i:" ^ string_of_int n
+      | HLitBool b -> "b:" ^ string_of_bool b
+      | HLitEnum c -> "e:" ^ c
+      | HVar v -> "v:" ^ v
+      | HPreK (v, k) -> "pre:" ^ v ^ ":" ^ string_of_int k
+      | HPred (id, hs) -> "pred:" ^ id ^ "(" ^ String.concat "," (List.map go hs) ^ ")"
+      | HFunCall (fn, hs) ->
+          "fun:" ^ fn ^ "(" ^ String.concat "," (List.map go hs) ^ ")"
+      | HUn (op, inner) -> "un:" ^ unop_key op ^ "(" ^ go inner ^ ")"
+      | HBin (op, a, b) ->
+          "bin:" ^ binop_key op ^ "(" ^ go a ^ "," ^ go b ^ ")"
+      | HCmp (op, a, b) ->
+          "cmp:" ^ relop_key op ^ "(" ^ go a ^ "," ^ go b ^ ")"
+    in
+    go formula
+  in
+  let shared_formula_stats : (string, Core_syntax.hexpr * int * StringSet.t) Hashtbl.t =
+    Hashtbl.create 128
+  in
+  let shared_formula_table : (string, string * (ident * Ptree.pty) list * int * bool) Hashtbl.t =
+    Hashtbl.create 128
+  in
+  let shared_formula_order = ref [] in
+  let is_composite_fact (formula : Core_syntax.hexpr) =
+    match formula.hexpr with
+    | HBin (And, _, _) | HBin (Or, _, _) | HUn (Not, _) | HPred _ -> true
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HFunCall _
+    | HUn (Neg, _) | HBin ((Add | Sub | Mul | Div), _, _) | HCmp _ ->
+        false
+  in
+  let params_for_formula (formula : Core_syntax.hexpr) =
+    let vars = vars_of_hexpr StringSet.empty formula in
+    List.filter (fun (param_name, _) -> StringSet.mem param_name vars) shared_formula_params
+  in
+  let formula_uses_self (formula : Core_syntax.hexpr) =
+    let vars = vars_of_hexpr StringSet.empty formula in
+    List.exists (fun rec_var -> StringSet.mem rec_var vars) env.rec_vars
+  in
+  let record_formula_occurrence ~scope (formula : Core_syntax.hexpr) =
+    let key = formula_key formula in
+    match Hashtbl.find_opt shared_formula_stats key with
+    | Some (representative, count, scopes) ->
+        Hashtbl.replace shared_formula_stats key
+          (representative, count + 1, StringSet.add scope scopes)
+    | None ->
+        Hashtbl.add shared_formula_stats key
+          (formula, 1, StringSet.singleton scope)
+  in
+  let add_summary_formulas ~scope formulas =
+    List.iter
+      (fun (formula : Ir.summary_formula) -> record_formula_occurrence ~scope formula.logic)
+      formulas
+  in
+  if share_why3_facts then
+    List.iteri
+      (fun idx (pc : Why_runtime_view.runtime_product_transition_view) ->
+        let scope =
+          Printf.sprintf "%d:%s:%s:%d:%d:%s" idx pc.transition_id
+            pc.product_src.prog_state pc.product_src.assume_state_index
+            pc.product_src.guarantee_state_index
+            (match pc.step_class with
+            | Why_runtime_view.StepSafe -> "safe"
+            | Why_runtime_view.StepBadGuarantee -> "bad_guarantee")
+        in
+        add_summary_formulas ~scope pc.requires;
+        add_summary_formulas ~scope pc.local_requires;
+        add_summary_formulas ~scope pc.ensures;
+        add_summary_formulas ~scope pc.forbidden)
+      runtime_view.product_transitions;
+  if share_why3_facts then
+    Hashtbl.to_seq shared_formula_stats
+    |> Seq.iter (fun (key, (formula, _count, scopes)) ->
+           if is_composite_fact formula && StringSet.cardinal scopes > 1 then (
+             let size = hexpr_size formula in
+             let name =
+               Printf.sprintf "shared_contract_formula_%03d"
+                 (Hashtbl.length shared_formula_table + 1)
+             in
+             let params = params_for_formula formula in
+             let use_self = formula_uses_self formula in
+             Hashtbl.add shared_formula_table key (name, params, size, use_self);
+             shared_formula_order := (name, params, formula, size) :: !shared_formula_order));
+  let shared_formula_call_with_rec rec_name name params use_self =
+    let args =
+      (if use_self then [ mk_term (Tident (qid1 rec_name)) ] else [])
+      @ List.map
+          (fun (param_name, _) -> mk_term (Tident (qid1 param_name)))
+          params
+    in
+    mk_term (Tidapp (qid1 name, args))
+  in
+  let shared_formula_call name params use_self =
+    shared_formula_call_with_rec env.rec_name name params use_self
+  in
+  let rec compile_shared_hexpr current_key rec_name formula =
+    let key = formula_key formula in
+    match Hashtbl.find_opt shared_formula_table key with
+    | Some (name, params, _, use_self) when not (String.equal key current_key) ->
+        shared_formula_call_with_rec rec_name name params use_self
+    | _ ->
+        let local_env = { env with rec_name } in
+        begin
+          match formula.hexpr with
+          | HLitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
+          | HLitBool b -> mk_term (if b then Ttrue else Tfalse)
+          | HLitEnum c -> mk_term (Tident (qid1 c))
+          | HVar x -> mk_term (term_var local_env x)
+          | HPreK (_name, _k) ->
+              failwith
+                "compile_shared_hexpr: residual HPreK in Why3 emission input"
+          | HUn (Neg, a) ->
+              mk_term (Tidapp (qid1 "(-)", [ compile_shared_hexpr current_key rec_name a ]))
+          | HUn (Not, a) -> mk_term (Tnot (compile_shared_hexpr current_key rec_name a))
+          | HPred (id, hs) ->
+              mk_term
+                (Tidapp
+                   (qid1 id, List.map (compile_shared_hexpr current_key rec_name) hs))
+          | HFunCall (fn, hs) ->
+              mk_term
+                (Tidapp
+                   (qid1 fn, List.map (compile_shared_hexpr current_key rec_name) hs))
+          | HBin (And, a, b) ->
+              term_bool_binop Dterm.DTand
+                (compile_shared_hexpr current_key rec_name a)
+                (compile_shared_hexpr current_key rec_name b)
+          | HBin (Or, a, b) ->
+              term_bool_binop Dterm.DTor
+                (compile_shared_hexpr current_key rec_name a)
+                (compile_shared_hexpr current_key rec_name b)
+          | HBin (op, a, b) ->
+              mk_term
+                (Tinnfix
+                   ( compile_shared_hexpr current_key rec_name a,
+                     infix_ident (binop_id op),
+                     compile_shared_hexpr current_key rec_name b ))
+          | HCmp (op, a, b) ->
+              mk_term
+                (Tinnfix
+                   ( compile_shared_hexpr current_key rec_name a,
+                     infix_ident (relop_id op),
+                     compile_shared_hexpr current_key rec_name b ))
+        end
+  in
+  let abstract_formula ~in_post:_ (formula : Core_syntax.hexpr) =
+    if not share_why3_facts then None
+    else
+      Hashtbl.find_opt shared_formula_table (formula_key formula)
+      |> Option.map (fun (name, params, _, use_self) ->
+             shared_formula_call name params use_self)
+  in
+  let emit_local_unfolded_cuts = false in
+  let local_cut_candidate (formula : Core_syntax.hexpr) =
+    emit_local_unfolded_cuts
+    &&
+    match formula.hexpr with
+    | HBin ((And | Or), _, _) | HUn (Not, _) | HPred _ -> true
+    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HFunCall _
+    | HUn (Neg, _) | HBin ((Add | Sub | Mul | Div), _, _) | HCmp _ ->
+        false
+  in
+  let shared_formula_entries =
+    if not share_why3_facts then []
+    else
+      !shared_formula_order
+      |> List.sort (fun (_, _, _, size_a) (_, _, _, size_b) -> Int.compare size_a size_b)
+      |> List.map (fun (name, params, formula, _) ->
+             let body = compile_shared_hexpr (formula_key formula) "self" formula in
+             let decl =
+               logic_bool_pred_decl_with_body ~use_self:(formula_uses_self formula)
+                 ~params ~name ~body
+             in
+             (name, formula, decl))
+  in
+  let shared_formula_decls =
+    List.map (fun (_name, _formula, decl) -> decl) shared_formula_entries
+  in
+  let shared_formula_names_in_term term =
+    names_of_term term StringSet.empty
+    |> StringSet.filter (String.starts_with ~prefix:"shared_contract_formula_")
+  in
+  let shared_formula_names_in_terms terms =
+    List.fold_left
+      (fun acc term -> StringSet.union acc (shared_formula_names_in_term term))
+      StringSet.empty terms
+  in
+  let direct_shared_formula_deps (formula : Core_syntax.hexpr) =
+    let rec go current_key h acc =
+      let key = formula_key h in
+      match Hashtbl.find_opt shared_formula_table key with
+      | Some (name, _, _, _) when not (String.equal key current_key) ->
+          StringSet.add name acc
+      | _ -> begin
+          match h.hexpr with
+          | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> acc
+          | HUn (_, inner) -> go current_key inner acc
+          | HPred (_, hs) | HFunCall (_, hs) ->
+              List.fold_left (fun acc h -> go current_key h acc) acc hs
+          | HBin (_, a, b) | HCmp (_, a, b) ->
+              go current_key b (go current_key a acc)
+        end
+    in
+    go (formula_key formula) formula StringSet.empty
+  in
+  let shared_formula_deps_by_name =
+    shared_formula_entries
+    |> List.map (fun (name, formula, _decl) -> (name, direct_shared_formula_deps formula))
+  in
+  let shared_formula_closure names =
+    let rec loop seen work =
+      match work with
+      | [] -> seen
+      | name :: rest ->
+          if StringSet.mem name seen then loop seen rest
+          else
+            let deps =
+              Option.value (List.assoc_opt name shared_formula_deps_by_name)
+                ~default:StringSet.empty
+              |> StringSet.elements
+            in
+            loop (StringSet.add name seen) (deps @ rest)
+    in
+    loop StringSet.empty (StringSet.elements names)
+  in
+  let local_shared_formula_decls names =
+    let closure = shared_formula_closure names in
+    shared_formula_entries
+    |> List.filter_map (fun (name, _formula, decl) ->
+           if StringSet.mem name closure then Some decl else None)
+  in
   let contracts =
-    Why_contracts.build_contracts ~env:info.env ~hexpr_needs_old:info.hexpr_needs_old
-      ~runtime:runtime_view ~pure_translation:false
+    Why_contracts.build_contracts ~abstract_formula ~local_cut_candidate ~env:info.env
+      ~hexpr_needs_old:info.hexpr_needs_old ~runtime:runtime_view ~pure_translation:false
       ~simplify_formulas:simplify_why3_formulas
       ~deduplicate_terms:deduplicate_why3_terms
   in
@@ -481,115 +982,6 @@ let compile_node_with_info ?kernel_ir
   in
   let post = List.map2 add_vcid_attr post_vcids post in
   let helper_args = List.map binder_expr inputs in
-
-  let rec term_has_old_or_attr (term : Ptree.term) : bool =
-    match term.term_desc with
-    | Tattr _ -> true
-    | Tat (_, id) when id.id_str = "old" -> true
-    | Tapply (fn, arg) -> begin
-        match fn.term_desc with
-        | Tident q when string_of_qid q = "old" -> true
-        | _ -> term_has_old_or_attr fn || term_has_old_or_attr arg
-      end
-    | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old_or_attr a || term_has_old_or_attr b
-    | Tnot a -> term_has_old_or_attr a
-    | Tidapp (_q, args) -> List.exists term_has_old_or_attr args
-    | Tif (c, t_then, t_else) ->
-        term_has_old_or_attr c || term_has_old_or_attr t_then || term_has_old_or_attr t_else
-    | Ttuple terms -> List.exists term_has_old_or_attr terms
-    | Tident _ | Tconst _ | Ttrue | Tfalse -> false
-    | _ -> true
-  in
-  let share_candidate term =
-    (not (term_has_old_or_attr term))
-    &&
-    match term.term_desc with
-    | Tbinnop _ | Tnot _ -> true
-    | _ -> false
-  in
-  let make_shared_fact_info () =
-    if
-      (not share_why3_facts) || not use_product_helper_contracts
-    then ([], fun term -> term)
-    else
-      let counts = Hashtbl.create 128 in
-      let first_terms = Hashtbl.create 128 in
-      let add_term term =
-        if share_candidate term then (
-          let key = string_of_term term in
-          Hashtbl.replace counts key (Option.value ~default:0 (Hashtbl.find_opt counts key) + 1);
-          if not (Hashtbl.mem first_terms key) then Hashtbl.add first_terms key term)
-      in
-      List.iter
-        (fun (sc : Why_contracts.step_contract_info) ->
-          List.iter add_term sc.pre;
-          List.iter add_term sc.post;
-          List.iter add_term sc.forbidden)
-        step_contracts;
-      let shared_keys =
-        counts |> Hashtbl.to_seq
-        |> Seq.filter (fun (_key, count) -> count >= 10)
-        |> List.of_seq
-        |> List.map fst
-        |> List.sort String.compare
-      in
-      let key_to_name = Hashtbl.create (List.length shared_keys * 2 + 1) in
-      List.iteri
-        (fun idx key -> Hashtbl.add key_to_name key (Printf.sprintf "__kairos_shared_fact_%03d" (idx + 1)))
-        shared_keys;
-      let param_of_binder ((bloc, id_opt, ghost, pty_opt) : Ptree.binder) : Ptree.param option =
-        match (id_opt, pty_opt) with
-        | Some _, Some pty -> Some (bloc, id_opt, ghost, pty)
-        | _ -> None
-      in
-      let arg_of_binder ((_, id_opt, _, _) : Ptree.binder) : Ptree.term option =
-        Option.map (fun id -> mk_term (Tident (qid1 id.id_str))) id_opt
-      in
-      let binder_name ((_, id_opt, _, _) : Ptree.binder) =
-        Option.map (fun id -> id.id_str) id_opt
-      in
-      let binder_used_by_key key binder =
-        match binder_name binder with
-        | None -> false
-        | Some name ->
-            let len_key = String.length key in
-            let len_name = String.length name in
-            let rec loop i =
-              if i + len_name > len_key then false
-              else if String.sub key i len_name = name then true
-              else loop (i + 1)
-            in
-            loop 0
-      in
-      let params_for_key key = inputs |> List.filter (binder_used_by_key key) |> List.filter_map param_of_binder in
-      let args_for_key key = inputs |> List.filter (binder_used_by_key key) |> List.filter_map arg_of_binder in
-      let decls =
-        shared_keys
-        |> List.map (fun key ->
-               let name = Hashtbl.find key_to_name key in
-               let body = Hashtbl.find first_terms key in
-               Ptree.Dlogic
-                 [
-                   {
-                     ld_loc = loc;
-                     ld_ident = ident name;
-                     ld_params = params_for_key key;
-                     ld_type = Some (Ptree.PTtyapp (qid1 "bool", []));
-                     ld_def = Some body;
-                   };
-                 ])
-      in
-      let rewrite term =
-        if not (share_candidate term) then term
-        else
-          let key = string_of_term term in
-          match Hashtbl.find_opt key_to_name key with
-          | None -> term
-          | Some name -> mk_term (Tidapp (qid1 name, args_for_key key))
-      in
-      (decls, rewrite)
-  in
-  let shared_fact_decls, rewrite_shared_fact = make_shared_fact_info () in
 
   let state_names = runtime_view.control_states in
   let rec strip_term_attrs (term : Ptree.term) : Ptree.term =
@@ -698,7 +1090,7 @@ let compile_node_with_info ?kernel_ir
       (step_class_suffix step.step_class)
       index
   in
-  let kernel_step_helper_decls =
+  let kernel_step_helper_units =
     if not use_product_helper_contracts then []
     else
       step_contracts
@@ -714,8 +1106,12 @@ let compile_node_with_info ?kernel_ir
                {
                  Ptree.sp_pre =
                    term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-                   :: List.map rewrite_shared_fact sc.pre;
-                 sp_post = List.rev_map mk_post (List.map rewrite_shared_fact (sc.forbidden @ sc.post));
+                   :: sc.pre;
+                 (* Helper contracts may use shared predicates to control
+                    global text size.  Selected helper-local cuts are emitted
+                    unfolded in the body, as assertions, so they add proof
+                    obligations instead of weakening the postcondition. *)
+                 sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
                  sp_xpost = [];
                  sp_reads = [];
                  sp_writes = [];
@@ -726,18 +1122,41 @@ let compile_node_with_info ?kernel_ir
                  sp_partial = false;
                }
              in
-             let helper_body = compile_transition_body env [] t in
+             let seq_exprs (exprs : Ptree.expr list) =
+               let exprs =
+                 List.filter
+                   (fun expr -> match expr.expr_desc with Etuple [] -> false | _ -> true)
+                   exprs
+               in
+               match exprs with
+               | [] -> mk_expr (Etuple [])
+               | first :: rest ->
+                   List.fold_left (fun acc expr -> mk_expr (Esequence (acc, expr))) first rest
+             in
+             let local_cut_asserts =
+               sc.local_cuts
+               |> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term)))
+             in
+             let helper_body =
+               seq_exprs (compile_transition_body env [] t :: local_cut_asserts)
+             in
+             let helper_inputs =
+               helper_binders_without_unused_warnings inputs spc helper_body
+             in
              let fn =
                mk_expr
                  (Efun
-                    ( inputs,
+                    ( helper_inputs,
                       None,
                       { pat_desc = Pwild; pat_loc = loc },
                       Ity.MaskVisible,
                       spc,
                       helper_body ))
              in
-             Some (Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
+             Some (i, sc, helper_name.id_str, Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
+  in
+  let kernel_step_helper_decls =
+    List.map (fun (_i, _sc, _name, decl) -> decl) kernel_step_helper_units
   in
   let helper_decls =
     if use_product_helper_contracts then []
@@ -769,10 +1188,13 @@ let compile_node_with_info ?kernel_ir
           compile_state_body env branch_entry_asserts branch_sticky_asserts branch.branch_state
             branch.branch_transitions
         in
+        let helper_inputs =
+          helper_binders_without_unused_warnings inputs spc helper_body
+        in
         let fn =
           mk_expr
             (Efun
-               ( inputs,
+               ( helper_inputs,
                  None,
                  { pat_desc = Pwild; pat_loc = loc },
                  Ity.MaskVisible,
@@ -874,13 +1296,43 @@ let compile_node_with_info ?kernel_ir
     []
   in
 
-  let decls =
-    imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ] @ getter_decls @ logic_getter_decls
-    @ phase_case_logic_decls @ shared_fact_decls @ kernel_step_helper_decls @ helper_decls @ [ step_decl ]
-    @ coherency_goal_decls @ kernel_init_goal_decls
+  let common_decls =
+    imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ]
+    @ getter_decls @ logic_getter_decls @ phase_case_logic_decls
   in
-
-  (ident module_name, None, decls, { pre_labels; post_labels })
+  if use_product_helper_contracts then
+    let init_modules =
+      match coherency_goal_decls @ kernel_init_goal_decls with
+      | [] -> []
+      | init_goals ->
+          [
+            ( ident (module_name ^ "__init"),
+              None,
+              common_decls @ init_goals,
+              { pre_labels; post_labels } );
+          ]
+    in
+    let helper_modules =
+      kernel_step_helper_units
+      |> List.map
+           (fun (_i, (sc : Why_contracts.step_contract_info), helper_name, decl) ->
+             let shared_names =
+               shared_formula_names_in_terms
+                 (sc.pre @ sc.post @ sc.forbidden)
+             in
+             let local_shared_decls = local_shared_formula_decls shared_names in
+             ( ident (module_name ^ "__" ^ helper_name),
+               None,
+               common_decls @ local_shared_decls @ [ decl ],
+               { pre_labels; post_labels } ))
+    in
+    init_modules @ helper_modules
+  else
+    let decls =
+      common_decls @ shared_formula_decls @ kernel_step_helper_decls @ helper_decls
+      @ [ step_decl ] @ coherency_goal_decls @ kernel_init_goal_decls
+    in
+    [ (ident module_name, None, decls, { pre_labels; post_labels }) ]
 
 (** [compile_node_from_ir_node] helper value. *)
 
@@ -891,7 +1343,7 @@ let compile_node_from_ir_node
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     (node : Ir.node_ir) :
-    Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups =
+    (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   compile_node_with_info ~share_why3_facts ~simplify_why3_formulas
     ~simplify_why3_runtime_actions ~deduplicate_why3_terms
     (prepare_ir_node ~simplify_why3_runtime_actions ~slice_why3_transition_bodies node)
@@ -906,7 +1358,7 @@ let compile_program_ast_from_ir_nodes
     ?(deduplicate_why3_terms = true)
     (program_nodes : Ir.node_ir list) : program_ast =
   let modules =
-    List.map
+    List.concat_map
       (compile_node_from_ir_node ~share_why3_facts ~simplify_why3_formulas
          ~slice_why3_transition_bodies ~simplify_why3_runtime_actions
          ~deduplicate_why3_terms)

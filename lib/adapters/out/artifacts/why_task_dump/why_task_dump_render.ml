@@ -55,6 +55,8 @@ let dump_why3_tasks_with_attrs_impl (tasks : Task.task list) : string list =
   in
   List.map task_to_string tasks
 
+let dump_why3_tasks_with_attrs_of_tasks = dump_why3_tasks_with_attrs_impl
+
 let dump_why3_tasks_with_attrs_of_ptree ~(ptree : Ptree.mlw_file) : string list =
   let _config, _main, env, _datadir_opt = setup_env () in
   dump_why3_tasks_with_attrs_impl (normalize_tasks_of_ptree ~env ~ptree)
@@ -72,4 +74,10 @@ let dump_smt2_tasks_of_ptree ~(ptree : Ptree.mlw_file) : string list =
   let prover_cfg = select_z3_prover_cfg ~config ~datadir_opt in
   let driver = Driver.load_driver_for_prover main env prover_cfg in
   let tasks = normalize_tasks_of_ptree ~env ~ptree in
+  List.map (task_to_smt2_with_driver ~driver) tasks
+
+let dump_smt2_tasks_of_tasks (tasks : Task.task list) : string list =
+  let config, main, env, datadir_opt = setup_env () in
+  let prover_cfg = select_z3_prover_cfg ~config ~datadir_opt in
+  let driver = Driver.load_driver_for_prover main env prover_cfg in
   List.map (task_to_smt2_with_driver ~driver) tasks

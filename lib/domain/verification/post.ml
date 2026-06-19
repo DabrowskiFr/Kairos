@@ -67,7 +67,10 @@ let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_sum
     pc.safe_cases
     |> List.concat_map (fun (case : Abs.safe_product_case) ->
            invs_of_state case.product_dst.prog_state
-           |> List.map (shift_formula_backward_inputs ~is_input))
+           |> List.map (fun inv ->
+                  let shifted = shift_formula_backward_inputs ~is_input inv in
+                  Core_syntax_builders.mk_himp case.admissible_guard.logic shifted
+                  |> simplify_fo))
     |> List.sort_uniq compare
   in
   let ensures =

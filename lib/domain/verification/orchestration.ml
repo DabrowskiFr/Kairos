@@ -48,6 +48,7 @@ let build_instrumented_ir (initial_nodes : Ir.node_ir list) : Ir.program_ir =
   let nodes =
     initial_nodes
     |> Pre.run_program
+    |> Product_reachability.run_program
     |> Post.run_program
     |> Temporal_lower.run_program
   in

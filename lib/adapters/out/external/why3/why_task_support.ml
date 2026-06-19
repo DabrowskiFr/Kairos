@@ -18,6 +18,11 @@
 
 open Why3
 
+let module_ptrees_of_ptree = function
+  | Ptree.Modules modules ->
+      List.map (fun (module_id, decls) -> Ptree.Modules [ (module_id, decls) ]) modules
+  | Ptree.Decls _ as ptree -> [ ptree ]
+
 (* Type un ptree Why3 et extrait les tâches top-level sans éclatement VC. *)
 let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
   let modules = Typing.type_mlw_file env [] "<generated>" ptree in
@@ -26,11 +31,18 @@ let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
     modules []
   |> List.rev
 
+let tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) : Task.task list =
+  List.concat_map (fun ptree -> tasks_of_ptree ~env ~ptree) ptrees
+
 (* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
    une liste stable d'obligations élémentaires. *)
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
   tasks_of_ptree ~env ~ptree
   |> List.concat_map (fun task -> Trans.apply_transform "split_vc" env task)
+
+let normalize_tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) :
+    Task.task list =
+  List.concat_map (fun ptree -> normalize_tasks_of_ptree ~env ~ptree) ptrees
 
 (* Cherche un fichier de configuration Why3 explicite (env), puis sur les
    emplacements utilisateur habituels. *)

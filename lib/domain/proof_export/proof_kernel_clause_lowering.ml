@@ -40,16 +40,32 @@ let is_hfalse (h : Core_syntax.hexpr) =
 let is_htrue (h : Core_syntax.hexpr) =
   match h.hexpr with HLitBool true -> true | _ -> false
 
+(** [fact_desc_is_false] helper value. *)
+
+let fact_desc_is_false = function
+  | FactFormula h | FactPhaseFormula h -> is_hfalse h
+  | FactFalse -> true
+  | FactProgramState _ | FactGuaranteeState _ -> false
+
+(** [fact_desc_is_true] helper value. *)
+
+let fact_desc_is_true = function
+  | FactFormula h | FactPhaseFormula h -> is_htrue h
+  | FactFalse | FactProgramState _ | FactGuaranteeState _ -> false
+
 (** [lower_generated_clause] helper value. *)
 
 let lower_generated_clause (clause : generated_clause_ir) : generated_clause_ir option =
-  if
-    List.exists
-      (fun (fact : clause_fact_ir) ->
-        fact.desc = FactFormula (mk_hbool false) || fact.desc = FactFalse)
-      clause.hypotheses
+  if List.exists (fun (fact : clause_fact_ir) -> fact_desc_is_false fact.desc) clause.hypotheses
   then None
-  else Some clause
+  else
+    let hypotheses =
+      List.filter (fun (fact : clause_fact_ir) -> not (fact_desc_is_true fact.desc)) clause.hypotheses
+    in
+    let conclusions =
+      List.filter (fun (fact : clause_fact_ir) -> not (fact_desc_is_true fact.desc)) clause.conclusions
+    in
+    match conclusions with [] -> None | _ -> Some { clause with hypotheses; conclusions }
 
 (** [relationalize_clause_fact] helper value. *)
 
@@ -63,6 +79,12 @@ let relationalize_clause_fact (fact : clause_fact_ir) : relational_clause_fact_i
     | FactFalse -> RelFactFalse
   in
   { time = fact.time; desc }
+
+(** [rel_fact_desc_is_true] helper value. *)
+
+let rel_fact_desc_is_true = function
+  | RelFactFormula h | RelFactPhaseFormula h -> is_htrue h
+  | RelFactFalse | RelFactProgramState _ | RelFactGuaranteeState _ -> false
 
 (** [expand_relational_hypotheses] helper value. *)
 
@@ -105,9 +127,12 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
         Some
           (List.filter
              (fun (fact : relational_clause_fact_ir) ->
-               match fact.desc with RelFactFormula h -> not (is_htrue h) | _ -> true)
+               match fact.desc with
+               | RelFactFormula h | RelFactPhaseFormula h -> not (is_htrue h)
+               | _ -> true)
              acc)
-    | ({ desc = RelFactFormula h; _ } : relational_clause_fact_ir) :: _ when is_hfalse h -> None
+    | ({ desc = (RelFactFormula h | RelFactPhaseFormula h); _ } : relational_clause_fact_ir) :: _
+      when is_hfalse h -> None
     | ({ desc = RelFactFalse; _ } : relational_clause_fact_ir) :: _ -> None
     | fact :: tl -> (
         match insert acc fact with
@@ -120,7 +145,11 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
 
 let relationalize_generated_clause (clause : generated_clause_ir) : relational_generated_clause_ir list =
   let hypotheses = List.map relationalize_clause_fact clause.hypotheses in
-  let conclusions = List.map relationalize_clause_fact clause.conclusions in
+  let conclusions =
+    clause.conclusions
+    |> List.map relationalize_clause_fact
+    |> List.filter (fun (fact : relational_clause_fact_ir) -> not (rel_fact_desc_is_true fact.desc))
+  in
   if conclusions = [] then []
   else
     expand_relational_hypotheses hypotheses

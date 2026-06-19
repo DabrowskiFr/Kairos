@@ -94,6 +94,9 @@ type runtime_product_transition_view = {
   product_dst : Ir.product_state;
       (** Target product state. *)
   requires : Ir.summary_formula list;
+  local_requires : Ir.summary_formula list;
+      (** Backend-only helper preconditions. These are not global step
+          preconditions. *)
   propagates : Ir.summary_formula list;
       (** Formulas propagated from the previous state. *)
   ensures : Ir.summary_formula list;
