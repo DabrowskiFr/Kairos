@@ -165,6 +165,20 @@ type obligations_outputs = { vc_text : string; smt_text : string }
 
 type cost_report_outputs = { cost_report_json : string }
 
+(** Proof-obligation encoding used by the backend.
+
+    [Explicit_product] is the current reference backend: it emits obligations
+    from explicit product edges. Other encodings must be proved equivalent to
+    this one before becoming defaults. *)
+
+type proof_encoding = Explicit_product
+
+val string_of_proof_encoding : proof_encoding -> string
+
+val proof_encoding_of_string : string -> proof_encoding option
+
+val default_proof_encoding : proof_encoding
+
 (** Optional proof-generation optimizations.
 
     Disabling every field selects the reference pipeline shape intended to be
@@ -201,6 +215,8 @@ type config = {
   generate_smt_text : bool;
   generate_dot_png : bool;
   proof_progress_path : string option;
+  stop_on_first_nonvalid : bool;
+  proof_encoding : proof_encoding;
   proof_optimizations : proof_optimizations;
 }
 

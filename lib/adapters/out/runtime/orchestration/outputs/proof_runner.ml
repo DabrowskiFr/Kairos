@@ -160,14 +160,21 @@ let diagnostic_for_trace ~(status : string) ~(goal_text : string)
       ];
   }
 
+let proof_status_is_valid status =
+  match String.lowercase_ascii status with
+  | "valid" | "proved" -> true
+  | _ -> false
+
 let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     ~(vc_ids_ordered : int list) ~normalized_tasks :
     (int * string * string * float * string option * string option) list =
   if cfg.prove && not cfg.wp_only then
     let finished = ref [] in
+    let stop_requested = ref false in
+    let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
     let _ =
       Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
-        ~should_cancel:(fun () -> false)
+        ~should_cancel
         ~on_goal_start:(fun _ -> ())
         ~on_goal_done:(fun ev ->
           let idx = ev.goal_index in
@@ -185,7 +192,9 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
             progress;
           finished :=
             (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid)
-            :: !finished)
+            :: !finished;
+          if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
+            stop_requested := true)
         normalized_tasks
     in
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
@@ -303,7 +312,10 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
   try
     let progress = open_proof_progress cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
-    let opts = cfg.proof_optimizations in
+    let opts =
+      match cfg.proof_encoding with
+      | Pipeline_types.Explicit_product -> cfg.proof_optimizations
+    in
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes
         ~share_why3_facts:opts.share_why3_facts
@@ -312,9 +324,11 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
     in
-    let ptree = why_ast.Why_compile.mlw in
-    let module_ptrees = Why_task_support.module_ptrees_of_ptree ptree in
     let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
+    let proof_ptree =
+      Why_task_support.ptree_of_text ~filename:"<kairos-generated>" ~text:why_text
+    in
+    let module_ptrees = Why_task_support.module_ptrees_of_ptree proof_ptree in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
     if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
@@ -322,9 +336,11 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     then
       let goal_results =
         let finished = ref [] in
+        let stop_requested = ref false in
+        let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
         let _ =
           Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
-            ~split_vc:false module_ptrees ~on_goal_start:(fun _ -> ())
+            ~split_vc:false ~should_cancel ~on_goal_start:(fun _ -> ())
             ~on_goal_done:(fun ev ->
               let idx = ev.Why_contract_prove.goal_index in
               let r = ev.result in
@@ -336,7 +352,10 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
                   r.prover_result.pr_time,
                   r.dump_path,
                   Some (string_of_int (idx + 1)) )
-                :: !finished)
+                :: !finished;
+              if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
+                stop_requested := true)
+            module_ptrees
         in
         List.sort
           (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b)
@@ -395,7 +414,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
-        build_proof_traces ~cfg ~ptree ~normalized_tasks ~goal_results ~vc_ids_ordered
+        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks ~goal_results
+          ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in
       let goals = goals_of_proof_traces proof_traces in

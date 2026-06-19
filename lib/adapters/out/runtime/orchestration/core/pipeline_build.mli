@@ -24,6 +24,7 @@
 *)
 
 val build_snapshot_from_frontend :
+  proof_encoding:Pipeline_types.proof_encoding ->
   proof_optimizations:Pipeline_types.proof_optimizations ->
   frontend:Application_ports.frontend_input ->
   (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result

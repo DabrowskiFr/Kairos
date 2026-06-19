@@ -37,6 +37,8 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.con
     generate_smt_text = cfg.generate_smt_text;
     generate_dot_png = cfg.generate_dot_png;
     proof_progress_path = None;
+    stop_on_first_nonvalid = false;
+    proof_encoding = Pipeline_types.default_proof_encoding;
     proof_optimizations = Pipeline_types.default_proof_optimizations;
   }
 
@@ -58,6 +60,7 @@ let why_pass (req : Lsp_protocol.why_pass_request) =
   with_engine engine (fun () ->
       match
         Usecases.why_pass
+          ~proof_encoding:Pipeline_types.default_proof_encoding
           ~proof_optimizations:Pipeline_types.default_proof_optimizations
           ~input_file:req.input_file
       with
@@ -72,6 +75,7 @@ let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
   with_engine engine (fun () ->
       match
         Usecases.obligations_pass
+          ~proof_encoding:Pipeline_types.default_proof_encoding
           ~proof_optimizations:Pipeline_types.default_proof_optimizations
           ~input_file:req.input_file
       with
@@ -133,6 +137,7 @@ let normalized_program (req : Lsp_protocol.kobj_summary_request) =
   with_engine engine (fun () ->
       match
         Usecases.normalized_program
+          ~proof_encoding:Pipeline_types.default_proof_encoding
           ~proof_optimizations:Pipeline_types.default_proof_optimizations
           ~input_file:req.input_file
       with
@@ -147,6 +152,7 @@ let ir_pretty_dump (req : Lsp_protocol.kobj_summary_request) =
   with_engine engine (fun () ->
       match
         Usecases.ir_pretty_dump
+          ~proof_encoding:Pipeline_types.default_proof_encoding
           ~proof_optimizations:Pipeline_types.default_proof_optimizations
           ~input_file:req.input_file
       with

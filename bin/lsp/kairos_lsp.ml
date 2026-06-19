@@ -827,6 +827,8 @@ let () =
                             generate_smt_text = get_param_bool params "generateSmtText" true;
                             generate_dot_png = get_param_bool params "generateDotPng" true;
                             proof_progress_path = None;
+                            stop_on_first_nonvalid = false;
+                            proof_encoding = Pipeline_types.default_proof_encoding;
                             proof_optimizations =
                               Pipeline_types.default_proof_optimizations;
                           }

@@ -47,6 +47,7 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               n.node_name))
 
 let build_snapshot_from_frontend
+    ~(proof_encoding : Pipeline_types.proof_encoding)
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
     ~(frontend : Application_ports.frontend_input) :
     (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
@@ -114,7 +115,7 @@ let build_snapshot_from_frontend
           }
         in
         let snapshot : Runtime_snapshot.pipeline_snapshot =
-          { asts; infos; proof_optimizations }
+          { asts; infos; proof_encoding; proof_optimizations }
         in
         Ok snapshot)
   with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))

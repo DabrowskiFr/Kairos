@@ -18,6 +18,11 @@
 
 open Why3
 
+let ptree_of_text ~(filename : string) ~(text : string) : Ptree.mlw_file =
+  let lexbuf = Lexing.from_string text in
+  Loc.set_file filename lexbuf;
+  Lexer.parse_mlw_file lexbuf
+
 let module_ptrees_of_ptree = function
   | Ptree.Modules modules ->
       List.map (fun (module_id, decls) -> Ptree.Modules [ (module_id, decls) ]) modules
@@ -34,6 +39,37 @@ let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
 let tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) : Task.task list =
   List.concat_map (fun ptree -> tasks_of_ptree ~env ~ptree) ptrees
 
+let tasks_of_theories (theories : Theory.theory Wstdlib.Mstr.t) : Task.task list =
+  Wstdlib.Mstr.fold
+    (fun _ th acc -> List.rev_append (Task.split_theory th None None) acc)
+    theories []
+  |> List.rev
+
+let ensure_whyml_format_registered () =
+  ignore (Lexer.parse_mlw_file : Lexing.lexbuf -> Ptree.mlw_file);
+  ignore (Pmodule.mlw_language : Pmodule.mlw_file Env.language)
+
+let read_theories_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
+    Theory.theory Wstdlib.Mstr.t =
+  ensure_whyml_format_registered ();
+  let suffix =
+    match Filename.extension filename with
+    | "" -> ".why"
+    | ext -> ext
+  in
+  let tmp, oc = Filename.open_temp_file "kairos-why3-" suffix in
+  Fun.protect
+    ~finally:(fun () -> try Sys.remove tmp with Sys_error _ -> ())
+    (fun () ->
+      output_string oc text;
+      close_out oc;
+      fst (Env.read_file Env.base_language env tmp))
+
+let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
+    Task.task list =
+  let _ = filename in
+  tasks_of_theories (read_theories_of_text ~env ~filename ~text)
+
 (* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
    une liste stable d'obligations élémentaires. *)
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
@@ -43,6 +79,11 @@ let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.t
 let normalize_tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) :
     Task.task list =
   List.concat_map (fun ptree -> normalize_tasks_of_ptree ~env ~ptree) ptrees
+
+let normalize_tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
+    Task.task list =
+  tasks_of_text ~env ~filename ~text
+  |> List.concat_map (fun task -> Trans.apply_transform "split_vc" env task)
 
 (* Cherche un fichier de configuration Why3 explicite (env), puis sur les
    emplacements utilisateur habituels. *)
@@ -83,7 +124,7 @@ let find_datadir () =
    - stabilise datadir/loadpath/libdir,
    - construit l'environnement de typage.
    Le tuple retourné est la base commune des passes proof/dump. *)
-let setup_env () =
+let setup_env_uncached () =
   let datadir_opt = find_datadir () in
   let () =
     match datadir_opt with
@@ -96,7 +137,7 @@ let setup_env () =
   in
   let config, has_config_file =
     match find_config_file () with
-    | Some path -> (Whyconf.read_config (Some path), true)
+    | Some path -> (Whyconf.init_config (Some path), true)
     | None -> (Whyconf.init_config None, false)
   in
   let base_main = Whyconf.get_main config in
@@ -134,8 +175,19 @@ let setup_env () =
         Whyconf.set_loadpath main with_stdlib
   in
   let config = Whyconf.set_main config main in
+  Whyconf.load_plugins main;
   let env = Env.create_env (Whyconf.loadpath main) in
   (config, main, env, datadir_opt)
+
+let setup_env_cache = ref None
+
+let setup_env () =
+  match !setup_env_cache with
+  | Some ctx -> ctx
+  | None ->
+      let ctx = setup_env_uncached () in
+      setup_env_cache := Some ctx;
+      ctx
 
 (* Fallback minimal pour Z3 quand la configuration Why3 ne fournit pas
    d'entrée prover résoluble, en s'appuyant sur le datadir détecté. *)
@@ -143,9 +195,20 @@ let fallback_z3_prover_cfg (datadir_opt : string option) : Whyconf.config_prover
   match datadir_opt with
   | None -> None
   | Some datadir ->
-      let driver_file = Filename.concat datadir "drivers/z3.drv" in
-      if not (Sys.file_exists driver_file) then None
-      else
+      let drivers_dir = Filename.concat datadir "drivers" in
+      let driver_candidates =
+        [ "z3_487.drv"; "z3_471.drv"; "z3_440.drv"; "z3_432.drv"; "z3.drv" ]
+      in
+      let driver_file =
+        List.find_map
+          (fun driver ->
+            let path = Filename.concat drivers_dir driver in
+            if Sys.file_exists path then Some path else None)
+          driver_candidates
+      in
+      match driver_file with
+      | None -> None
+      | Some driver_file ->
         Some
           {
             Whyconf.prover = { prover_name = "Z3"; prover_version = ""; prover_altern = "" };

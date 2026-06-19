@@ -31,6 +31,7 @@ module Make (P : Application_ports.PORTS) : sig
   (** Generate Why text outputs on one source file. *)
 
   val why_pass :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (Pipeline_types.why_outputs, Pipeline_types.error) result
@@ -38,6 +39,7 @@ module Make (P : Application_ports.PORTS) : sig
   (** Generate VC/SMT obligations on one source file. *)
 
   val obligations_pass :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (Pipeline_types.obligations_outputs, Pipeline_types.error) result
@@ -45,6 +47,7 @@ module Make (P : Application_ports.PORTS) : sig
   (** Generate a whole-pipeline proof-cost report on one source file. *)
 
   val cost_report :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (Pipeline_types.cost_report_outputs, Pipeline_types.error) result
@@ -52,12 +55,14 @@ module Make (P : Application_ports.PORTS) : sig
   (** Render the normalized IR textual view for one source file. *)
 
   val normalized_program :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (string, Pipeline_types.error) result
   (** Render the proof-oriented pretty IR textual view for one source file. *)
 
   val ir_pretty_dump :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     input_file:string ->
     (string, Pipeline_types.error) result

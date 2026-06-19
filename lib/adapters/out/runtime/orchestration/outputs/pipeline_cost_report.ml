@@ -702,7 +702,9 @@ let why3_json why_text ~why_text_s =
     ]
 
 let flow_meta_json snapshot =
-  Pipeline_outputs.flow_meta ~proof_optimizations:snapshot.Runtime_snapshot.proof_optimizations
+  Pipeline_outputs.flow_meta
+    ~proof_encoding:snapshot.Runtime_snapshot.proof_encoding
+    ~proof_optimizations:snapshot.Runtime_snapshot.proof_optimizations
     snapshot.Runtime_snapshot.infos
   |> json_list (fun (section, fields) ->
          json_assoc
@@ -723,6 +725,9 @@ let proof_optimizations_json (opts : Pipeline_types.proof_optimizations) =
       ("deduplicate_why3_terms", json_bool opts.deduplicate_why3_terms);
     ]
 
+let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =
+  json_string (Pipeline_types.string_of_proof_encoding encoding)
+
 let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~why_text =
   let facts = collect_all_facts snapshot artifacts in
   let nodes =
@@ -733,6 +738,7 @@ let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~
       [
         ("format", json_string "kairos-cost-report-v1");
         ("input_file", json_string input_file);
+        ("proof_encoding", proof_encoding_json snapshot.proof_encoding);
         ( "timings",
           json_assoc
             [

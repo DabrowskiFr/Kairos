@@ -45,6 +45,15 @@ let join_blocks_with_spans ~sep blocks =
 
 let bool_s b = if b then "true" else "false"
 
+let encoding_meta (proof_encoding : Pipeline_types.proof_encoding option) =
+  match proof_encoding with
+  | None -> []
+  | Some encoding ->
+      [
+        ( "proof_encoding",
+          [ ("encoding", Pipeline_types.string_of_proof_encoding encoding) ] );
+      ]
+
 let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations option) =
   match proof_optimizations with
   | None -> []
@@ -64,7 +73,7 @@ let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations 
           ] );
       ]
 
-let flow_meta ?proof_optimizations (infos : Runtime_snapshot.flow_infos) :
+let flow_meta ?proof_encoding ?proof_optimizations (infos : Runtime_snapshot.flow_infos) :
     (string * (string * string) list) list =
   let p = Option.value ~default:Flow_info.empty_parse_info infos.parse in
   let a = Option.value ~default:Flow_info.empty_automata_info infos.automata_generation in
@@ -95,6 +104,7 @@ let flow_meta ?proof_optimizations (infos : Runtime_snapshot.flow_infos) :
           string_of_int i.canonical_case_bad_guarantee_count );
       ] );
   ]
+  @ encoding_meta proof_encoding
   @ optimization_meta proof_optimizations
 
 (** [program_automaton_texts] helper value. *)

@@ -20,6 +20,7 @@
 
 (** Convert internal stage infos to serialized flow metadata. *)
 val flow_meta :
+  ?proof_encoding:Pipeline_types.proof_encoding ->
   ?proof_optimizations:Pipeline_types.proof_optimizations ->
   Runtime_snapshot.flow_infos -> (string * (string * string) list) list
 

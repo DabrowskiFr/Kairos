@@ -146,6 +146,16 @@ type why_outputs = { why_text : string; flow_meta : (string * (string * string) 
 type obligations_outputs = { vc_text : string; smt_text : string }
 type cost_report_outputs = { cost_report_json : string }
 
+  type proof_encoding = Explicit_product
+
+  let string_of_proof_encoding = function Explicit_product -> "explicit-product"
+
+  let proof_encoding_of_string = function
+    | "explicit-product" -> Some Explicit_product
+    | _ -> None
+
+  let default_proof_encoding = Explicit_product
+
   type proof_optimizations = {
     group_public_non_w_guarantees : bool;
     share_why3_facts : bool;
@@ -186,6 +196,8 @@ type cost_report_outputs = { cost_report_json : string }
     generate_smt_text : bool;
     generate_dot_png : bool;
     proof_progress_path : string option;
+    stop_on_first_nonvalid : bool;
+    proof_encoding : proof_encoding;
     proof_optimizations : proof_optimizations;
   }
 

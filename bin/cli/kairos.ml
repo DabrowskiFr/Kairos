@@ -32,6 +32,8 @@ type cli_args = {
   check_frontend : bool;
   prove : bool;
   timeout_s : int;
+  proof_encoding : Pipeline_types.proof_encoding;
+  stop_on_first_nonvalid : bool;
   no_proof_optimizations : bool;
   no_proof_grouping : bool;
   no_why3_fact_sharing : bool;
@@ -109,6 +111,21 @@ let proof_optimizations_of_args args =
       base.deduplicate_why3_terms && not args.no_why3_term_dedup;
   }
 
+let proof_encoding_parser s =
+  match Pipeline_types.proof_encoding_of_string s with
+  | Some encoding -> Ok encoding
+  | None ->
+      Error
+        (`Msg
+          (Printf.sprintf
+             "unsupported proof encoding '%s' (available: explicit-product)" s))
+
+let proof_encoding_printer fmt encoding =
+  Format.pp_print_string fmt (Pipeline_types.string_of_proof_encoding encoding)
+
+let proof_encoding_conv =
+  Cmdliner.Arg.conv (proof_encoding_parser, proof_encoding_printer)
+
 module Pipeline_service = struct
   type goal_info = string * string * float * string option * string option
   type flow_meta = (string * (string * string) list) list
@@ -166,18 +183,18 @@ module Pipeline_service = struct
             obligations_map_text = out.obligations_map_text;
           }
 
-  let why_text_dump ~input_file ~proof_optimizations =
-    match why_pass ~proof_optimizations ~input_file with
+  let why_text_dump ~input_file ~proof_encoding ~proof_optimizations =
+    match why_pass ~proof_encoding ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok out.why_text
 
-  let obligations_dump_data ~input_file ~proof_optimizations =
-    match obligations_pass ~proof_optimizations ~input_file with
+  let obligations_dump_data ~input_file ~proof_encoding ~proof_optimizations =
+    match obligations_pass ~proof_encoding ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok { vc_text = out.vc_text; smt_text = out.smt_text }
 
-  let cost_report_dump ~input_file ~proof_optimizations =
-    match cost_report ~proof_optimizations ~input_file with
+  let cost_report_dump ~input_file ~proof_encoding ~proof_optimizations =
+    match cost_report ~proof_encoding ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok out.cost_report_json
 
@@ -257,7 +274,8 @@ module Pipeline_service = struct
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text
-      ~proof_progress_path ~proof_optimizations =
+      ~proof_progress_path ~stop_on_first_nonvalid ~proof_encoding
+      ~proof_optimizations =
     let cfg =
       {
         Pipeline_types.input_file;
@@ -270,6 +288,8 @@ module Pipeline_service = struct
         generate_smt_text;
         generate_dot_png = false;
         proof_progress_path;
+        stop_on_first_nonvalid;
+        proof_encoding;
         proof_optimizations;
       }
     in
@@ -327,7 +347,7 @@ let report_failed_goals goals =
   let total = List.length goals in
   let failure_info (_, status, _, dump_path, vcid) =
     let status = String.lowercase_ascii status in
-    if status <> "valid" && status <> "proved" && status <> "unknown" then
+    if status <> "valid" && status <> "proved" && status <> "pending" then
       Some (status, dump_path, vcid)
     else None
   in
@@ -364,6 +384,7 @@ let with_instrumentation_pass args f =
 let with_why_text_dump args f =
   match
     Pipeline_service.why_text_dump ~input_file:args.file
+      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -372,6 +393,7 @@ let with_why_text_dump args f =
 let with_obligations_pass args f =
   match
     Pipeline_service.obligations_dump_data ~input_file:args.file
+      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -400,6 +422,7 @@ let with_kobj_contracts args f =
 let with_normalized_program args f =
   match
     Pipeline_service.normalized_program ~input_file:args.file
+      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -408,6 +431,7 @@ let with_normalized_program args f =
 let with_ir_pretty args f =
   match
     Pipeline_service.ir_pretty_dump ~input_file:args.file
+      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -416,6 +440,7 @@ let with_ir_pretty args f =
 let with_cost_report args f =
   match
     Pipeline_service.cost_report_dump ~input_file:args.file
+      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -448,8 +473,11 @@ let write_timing_dump out (flow_meta : (string * (string * string) list) list) =
   in
   let graph_lines = section_lines "graph_metrics" in
   let canonical_lines = section_lines "canonical_metrics" in
+  let encoding_lines = section_lines "proof_encoding" in
   let optimization_lines = section_lines "proof_optimizations" in
-  let out_lines = timing_lines @ graph_lines @ canonical_lines @ optimization_lines in
+  let out_lines =
+    timing_lines @ graph_lines @ canonical_lines @ encoding_lines @ optimization_lines
+  in
   write_target out (String.concat "\n" out_lines ^ "\n")
 
 let csv_escape field =
@@ -683,6 +711,8 @@ let exec_action args = function
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
           ~proof_progress_path:(if prove then args.dump_goals else None)
+          ~stop_on_first_nonvalid:args.stop_on_first_nonvalid
+          ~proof_encoding:args.proof_encoding
           ~proof_optimizations:(proof_optimizations_of_args args)
       with
       | Error e -> `Error (false, map_error e)
@@ -845,6 +875,21 @@ let cmd =
       & info [ "timeout-s" ] ~docs:docs_proof ~docv:"SECONDS"
           ~doc:"Per-goal prover timeout in seconds for --prove and Why3 obligation dumps.")
   in
+  let proof_encoding =
+    Arg.(
+      value
+      & opt proof_encoding_conv Pipeline_types.default_proof_encoding
+      & info [ "proof-encoding" ] ~docs:docs_proof ~docv:"ENCODING"
+          ~doc:
+            "Select the proof-obligation encoding. Currently available: explicit-product.")
+  in
+  let stop_on_first_nonvalid =
+    Arg.(
+      value & flag
+      & info [ "stop-on-first-nonvalid" ] ~docs:docs_proof
+          ~doc:
+            "Stop proving after the first goal whose prover status is not valid/proved. Useful with --dump-goals for focused diagnostics.")
+  in
   let no_proof_optimizations =
     Arg.(
       value & flag
@@ -896,10 +941,11 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file check_frontend prove timeout_s no_proof_optimizations
-        no_proof_grouping no_why3_fact_sharing no_why3_fo_simplification
-        no_why3_body_slicing no_why3_action_simplification no_why3_term_dedup
-        dump_automata dump_product dump_canonical dump_automata_short
+    let make_cli_args file check_frontend prove timeout_s proof_encoding
+        stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
+        no_why3_fact_sharing no_why3_fo_simplification no_why3_body_slicing
+        no_why3_action_simplification no_why3_term_dedup dump_automata
+        dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report dump_timings
         dump_goals dump_why dump_why3_vc dump_smt2 dump_kobj_summary
@@ -909,6 +955,8 @@ let cmd =
         check_frontend;
         prove;
         timeout_s;
+        proof_encoding;
+        stop_on_first_nonvalid;
         no_proof_optimizations;
         no_proof_grouping;
         no_why3_fact_sharing;
@@ -940,7 +988,8 @@ let cmd =
     in
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
-      $ no_proof_optimizations $ no_proof_grouping $ no_why3_fact_sharing
+      $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
+      $ no_proof_grouping $ no_why3_fact_sharing
       $ no_why3_fo_simplification $ no_why3_body_slicing
       $ no_why3_action_simplification $ no_why3_term_dedup $ dump_automata
       $ dump_product $ dump_canonical $ dump_automata_short

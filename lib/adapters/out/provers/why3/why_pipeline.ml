@@ -39,16 +39,16 @@ let obligations_pass
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     (nodes : Ir.node_ir list) : obligations_outputs =
-  let ptree =
-    (Why_compile.compile_program_ast_from_ir_nodes ~share_why3_facts
-       ~simplify_why3_formulas ~slice_why3_transition_bodies
-       ~simplify_why3_runtime_actions ~deduplicate_why3_terms nodes)
-      .Why_compile.mlw
+  let why_ast =
+    Why_compile.compile_program_ast_from_ir_nodes ~share_why3_facts
+      ~simplify_why3_formulas ~slice_why3_transition_bodies
+      ~simplify_why3_runtime_actions ~deduplicate_why3_terms nodes
   in
+  let why_text = Why_text_render.emit_program_ast why_ast in
   let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
   let tasks =
-    let ptrees = Why_task_support.module_ptrees_of_ptree ptree in
-    Why_task_support.normalize_tasks_of_ptrees ~env ~ptrees
+    Why_task_support.normalize_tasks_of_text ~env ~filename:"<kairos-generated>"
+      ~text:why_text
   in
   let vc_text =
     join_blocks ~sep:"\n(* ---- goal ---- *)\n"

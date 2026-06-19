@@ -19,8 +19,9 @@
 module Snapshot = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
-  let build_snapshot ~proof_optimizations ~frontend =
-    Pipeline_build.build_snapshot_from_frontend ~proof_optimizations ~frontend
+  let build_snapshot ~proof_encoding ~proof_optimizations ~frontend =
+    Pipeline_build.build_snapshot_from_frontend ~proof_encoding ~proof_optimizations
+      ~frontend
 end
 
 module Outputs = struct
@@ -28,6 +29,10 @@ module Outputs = struct
 
   let build_outputs = Pipeline_outputs.build_outputs
 end
+
+let explicit_product_optimizations (snapshot : Runtime_snapshot.pipeline_snapshot) =
+  match snapshot.proof_encoding with
+  | Pipeline_types.Explicit_product -> snapshot.proof_optimizations
 
 let instrumentation_from_snapshot ~generate_png ~(snapshot : Runtime_snapshot.pipeline_snapshot) =
   match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
@@ -46,7 +51,7 @@ module Why_text = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let opts = snapshot.proof_optimizations in
+    let opts = explicit_product_optimizations snapshot in
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes
         ~share_why3_facts:opts.share_why3_facts
@@ -63,6 +68,7 @@ module Why_text = struct
       Pipeline_types.why_text;
       flow_meta =
         Pipeline_outputs.flow_meta
+          ~proof_encoding:snapshot.proof_encoding
           ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     }
 end
@@ -97,7 +103,7 @@ module Obligations = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let opts = snapshot.proof_optimizations in
+    let opts = explicit_product_optimizations snapshot in
     let out =
       Why_pipeline.obligations_pass
         ~share_why3_facts:opts.share_why3_facts
@@ -153,7 +159,7 @@ module Proof_events = struct
         ~source_model:snapshot.asts.verification_model
         snapshot.asts.instrumentation
     in
-    let opts = snapshot.proof_optimizations in
+    let opts = explicit_product_optimizations snapshot in
     let ptree =
       (Why_compile.compile_program_ast_from_ir_nodes
          ~share_why3_facts:opts.share_why3_facts

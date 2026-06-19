@@ -16,6 +16,9 @@ construction:
 
 This backend is the reference used for comparison.
 
+Status: implemented as [Pipeline_types.Explicit_product] and exposed through
+[`--proof-encoding explicit-product`]. No grouped backend is accepted yet.
+
 {1 2. Introduce A Product Obligation IR}
 
 Introduce explicit intermediate records such as [product_edge_obligation] and

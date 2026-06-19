@@ -44,5 +44,6 @@ type flow_infos = {
 type pipeline_snapshot = {
   asts : ast_flow;
   infos : flow_infos;
+  proof_encoding : Pipeline_types.proof_encoding;
   proof_optimizations : Pipeline_types.proof_optimizations;
 }

@@ -25,10 +25,11 @@ end
 module Instrumentation = struct
   let instrumentation_pass ~generate_png ~input_file =
     let* frontend = Frontend.parse_input ~input_file in
-    let* snapshot =
-      Verification_runtime_adapters.Snapshot.build_snapshot
-        ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
-    in
+  let* snapshot =
+    Verification_runtime_adapters.Snapshot.build_snapshot
+      ~proof_encoding:Pipeline_types.default_proof_encoding
+      ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
+  in
     Verification_runtime_adapters.instrumentation_from_snapshot ~generate_png ~snapshot
 end
 
@@ -51,6 +52,7 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result 
   let* frontend = Frontend.parse_input ~input_file in
   let* snapshot =
     Verification_runtime_adapters.Snapshot.build_snapshot
+      ~proof_encoding:Pipeline_types.default_proof_encoding
       ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
   in
   Verification_runtime_adapters.compile_object_from_snapshot ~input_file ~snapshot

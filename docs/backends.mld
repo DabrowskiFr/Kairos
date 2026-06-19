@@ -22,3 +22,8 @@ artifacts.
 The Why3 backend is driven by canonical obligations and proof views emitted by
 the middle-end. Generated Why code is a compilation artifact. Backend
 grouping and sharing choices should follow {!page-pipeline_cost_model}.
+
+The current reference proof-obligation encoding is named [explicit-product].
+It is selected by default and can be stated explicitly with
+[`--proof-encoding explicit-product`]. This encoding keeps the product-edge
+oriented backend as the comparison point for future grouped encodings.

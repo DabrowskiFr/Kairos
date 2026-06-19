@@ -113,6 +113,7 @@ let map_outputs ~(cfg : Pipeline_types.config)
     canonical_dot = artifacts.canonical_dot;
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
+        ~proof_encoding:snapshot.proof_encoding
         ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     goals = proof.goals;
     proof_traces = proof.proof_traces;
@@ -185,6 +186,7 @@ let map_automata_outputs ~(generate_png : bool)
     product_png_error;
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
+        ~proof_encoding:snapshot.proof_encoding
         ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
     historical_clauses_text = "";
     eliminated_clauses_text = "";

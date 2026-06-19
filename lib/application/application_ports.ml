@@ -50,6 +50,7 @@ module type SNAPSHOT_PORT = sig
   type snapshot
 
   val build_snapshot :
+    proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     frontend:frontend_input ->
     (snapshot, Pipeline_types.error) result

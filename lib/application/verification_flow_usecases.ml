@@ -24,11 +24,20 @@ module Make (P : Application_ports.PORTS) = struct
   let solver_sum_s (goals : Pipeline_types.goal_info list) : float =
     List.fold_left (fun acc (_, _, time_s, _, _) -> acc +. time_s) 0.0 goals
 
+  let goal_status_is_pending (_, status, _, _, _) =
+    String.lowercase_ascii status = "pending"
+
   let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
       ~(snap_before : P.Timing.snapshot) (out : Pipeline_types.outputs) : Pipeline_types.outputs =
     let t_end = P.Timing.now_s () in
     let counters = P.Timing.diff ~before:snap_before ~after_:(P.Timing.snapshot ()) in
     let solver_s = solver_sum_s out.goals in
+    let pending_goal_count =
+      List.fold_left
+        (fun acc goal -> if goal_status_is_pending goal then acc + 1 else acc)
+        0 out.goals
+    in
+    let attempted_goal_count = List.length out.goals - pending_goal_count in
     let timing_fields =
       [
         ("total_wall_s", fmt_s (t_end -. t0));
@@ -43,43 +52,57 @@ module Make (P : Application_ports.PORTS) = struct
         ("why_gen_s", fmt_s counters.why_gen_s);
         ("vc_smt_s", fmt_s counters.vc_smt_s);
         ("solver_sum_s", fmt_s solver_s);
-        ("solver_goal_count", string_of_int (List.length out.goals));
+        ("solver_goal_count", string_of_int attempted_goal_count);
+        ("pending_goal_count", string_of_int pending_goal_count);
       ]
     in
     { out with flow_meta = out.flow_meta @ [ ("timings", timing_fields) ] }
 
   let instrumentation_pass = P.Instrumentation.instrumentation_pass
 
-  let why_pass ~proof_optimizations ~input_file =
+  let why_pass ~proof_encoding ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding ~proof_optimizations ~frontend
+    in
     Ok (P.Why_text.why_text ~snapshot)
 
-  let obligations_pass ~proof_optimizations ~input_file =
+  let obligations_pass ~proof_encoding ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding ~proof_optimizations ~frontend
+    in
     Ok (P.Obligations.obligations ~snapshot)
 
-  let cost_report ~proof_optimizations ~input_file =
+  let cost_report ~proof_encoding ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding ~proof_optimizations ~frontend
+    in
     P.Cost_report.cost_report ~input_file ~snapshot
 
-  let normalized_program ~proof_optimizations ~input_file =
+  let normalized_program ~proof_encoding ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding ~proof_optimizations ~frontend
+    in
     Ok (P.Ir_render.normalized_program ~snapshot)
 
-  let ir_pretty_dump ~proof_optimizations ~input_file =
+  let ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file =
     let* frontend = P.Frontend.parse_input ~input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding ~proof_optimizations ~frontend
+    in
     Ok (P.Ir_render.pretty_program ~snapshot)
 
   let run (cfg : Pipeline_types.config) =
     let t0 = P.Timing.now_s () in
     let snap_before = P.Timing.snapshot () in
     let* frontend = P.Frontend.parse_input ~input_file:cfg.input_file in
-    let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations:cfg.proof_optimizations ~frontend in
+    let* snapshot =
+      P.Snapshot.build_snapshot ~proof_encoding:cfg.proof_encoding
+        ~proof_optimizations:cfg.proof_optimizations ~frontend
+    in
         let t_build_done = P.Timing.now_s () in
         (match P.Outputs.build_outputs ~cfg ~snapshot with
         | Error _ as e -> e
@@ -102,7 +125,10 @@ module Make (P : Application_ports.PORTS) = struct
           if should_cancel () then Error (Pipeline_types.Flow_error "Request cancelled") else Ok out
     else
       let* frontend = P.Frontend.parse_input ~input_file:cfg.input_file in
-      let* snapshot = P.Snapshot.build_snapshot ~proof_optimizations:cfg.proof_optimizations ~frontend in
+      let* snapshot =
+        P.Snapshot.build_snapshot ~proof_encoding:cfg.proof_encoding
+          ~proof_optimizations:cfg.proof_optimizations ~frontend
+      in
           let pending_cfg = { cfg with prove = false; compute_proof_diagnostics = false } in
           (match P.Outputs.build_outputs ~cfg:pending_cfg ~snapshot with
           | Error _ as e -> e
