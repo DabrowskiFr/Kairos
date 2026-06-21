@@ -10,6 +10,8 @@
   temporal_automata
   product_build
   fo_time
+  fo_contradiction
+  product_characteristics
   from_model
   pre
   product_reachability

@@ -54,7 +54,12 @@ let add_unique_formula (f : Core_syntax.hexpr)
   if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
   else xs @ [ Ir_formula.make f ]
 
-let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_summary) :
+let formula_mem (f : Core_syntax.hexpr) (xs : Core_syntax.hexpr list) : bool =
+  List.exists (( = ) f) xs
+
+let enrich_product_step_summary ~(node : Abs.node_ir)
+    ~(product_characteristics : Product_characteristics.t)
+    (pc : Abs.product_step_summary) :
     Abs.product_step_summary =
   let is_input = is_input_of_node node in
   let invs_of_state = invariants_of_state node in
@@ -63,15 +68,41 @@ let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_sum
     |> List.map (fun (case : Abs.safe_product_case) -> case.admissible_guard.logic)
     |> disj_fo
   in
-  let shifted_destination_invariants =
+  let destination_invariants_by_case =
     pc.safe_cases
-    |> List.concat_map (fun (case : Abs.safe_product_case) ->
-           invs_of_state case.product_dst.prog_state
+    |> List.map (fun (case : Abs.safe_product_case) ->
+           (case, invs_of_state case.product_dst.prog_state))
+  in
+  let common_destination_invariants =
+    match destination_invariants_by_case with
+    | [] -> []
+    | (_, invs) :: rest ->
+        invs
+        |> List.filter (fun inv ->
+               List.for_all
+                 (fun (_, other_invs) -> formula_mem inv other_invs)
+                 rest)
+  in
+  let shifted_common_destination_invariants =
+    common_destination_invariants
+    |> List.map (shift_formula_backward_inputs ~is_input)
+    |> List.map simplify_fo
+  in
+  let shifted_guarded_destination_invariants =
+    destination_invariants_by_case
+    |> List.concat_map (fun ((case : Abs.safe_product_case), invs) ->
+           invs
+           |> List.filter (fun inv ->
+                  not (formula_mem inv common_destination_invariants))
            |> List.map (fun inv ->
                   let shifted = shift_formula_backward_inputs ~is_input inv in
-                  Core_syntax_builders.mk_himp case.admissible_guard.logic shifted
+                  Core_syntax_builders.mk_himp case.admissible_guard.logic
+                    shifted
                   |> simplify_fo))
     |> List.sort_uniq compare
+  in
+  let shifted_product_characteristics =
+    Product_characteristics.preservation_ensures product_characteristics ~is_input pc
   in
   let ensures =
     (pc.ensures
@@ -82,14 +113,28 @@ let enrich_product_step_summary ~(node : Abs.node_ir) (pc : Abs.product_step_sum
     |> fun acc ->
     List.fold_left
       (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
-      acc shifted_destination_invariants)
+      acc shifted_common_destination_invariants
+    |> fun acc ->
+    List.fold_left
+      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
+      acc shifted_guarded_destination_invariants
+    |> fun acc ->
+    List.fold_left
+      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
+      acc shifted_product_characteristics)
   in
   { pc with ensures }
 
 type node_generation = { summaries : Abs.product_step_summary list }
 
 let compute_generation ~(node : Abs.node_ir) : node_generation =
-  { summaries = List.map (enrich_product_step_summary ~node) node.summaries }
+  let product_characteristics = Product_characteristics.build ~node in
+  {
+    summaries =
+      List.map
+        (enrich_product_step_summary ~node ~product_characteristics)
+        node.summaries;
+  }
 
 let run_node (n : Abs.node_ir) : Abs.node_ir =
   let post_generation = compute_generation ~node:n in

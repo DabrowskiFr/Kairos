@@ -82,67 +82,12 @@ let flatten_bool op (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
   in
   List.rev (loop [] f)
 
-type bool_lit = { name : ident; value : bool }
-
-let bool_lit_of_hexpr (h : Core_syntax.hexpr) : bool_lit option =
-  match h.hexpr with
-  | HVar name -> Some { name; value = true }
-  | HUn (Not, { hexpr = HVar name; _ }) -> Some { name; value = false }
-  | HCmp (REq, { hexpr = HVar name; _ }, { hexpr = HLitBool value; _ })
-  | HCmp (REq, { hexpr = HLitBool value; _ }, { hexpr = HVar name; _ }) ->
-      Some { name; value }
-  | HCmp (RNeq, { hexpr = HVar name; _ }, { hexpr = HLitBool value; _ })
-  | HCmp (RNeq, { hexpr = HLitBool value; _ }, { hexpr = HVar name; _ }) ->
-      Some { name; value = not value }
-  | HUn (Not, { hexpr = HCmp (REq, { hexpr = HVar name; _ }, { hexpr = HLitBool value; _ }); _ })
-  | HUn (Not, { hexpr = HCmp (REq, { hexpr = HLitBool value; _ }, { hexpr = HVar name; _ }); _ }) ->
-      Some { name; value = not value }
-  | _ -> None
-
-let exact_complement (a : Core_syntax.hexpr) (b : Core_syntax.hexpr) : bool =
-  match (a.hexpr, b.hexpr) with
-  | HUn (Not, inner), _ when inner = b -> true
-  | _, HUn (Not, inner) when inner = a -> true
-  | _ -> false
-
-let and_has_contradiction (xs : Core_syntax.hexpr list) : bool =
-  let lits = Hashtbl.create 16 in
-  let lit_contradiction =
-    xs
-    |> List.exists (fun h ->
-           match bool_lit_of_hexpr h with
-           | None -> false
-           | Some lit -> (
-               match Hashtbl.find_opt lits lit.name with
-               | Some previous when previous <> lit.value -> true
-               | _ ->
-                   Hashtbl.replace lits lit.name lit.value;
-                   false))
-  in
-  lit_contradiction
-  || List.exists
-       (fun a -> List.exists (fun b -> exact_complement a b) xs)
-       xs
-
 let contradictory_context (context : Core_syntax.hexpr list) (candidate : Core_syntax.hexpr) :
     bool =
-  let xs = context @ flatten_bool And candidate in
-  is_hfalse (List.fold_left mk_hand (mk_hbool true) xs) || and_has_contradiction xs
+  Fo_contradiction.contradictory_context context candidate
 
 let conjunction_obviously_false (f : Core_syntax.hexpr) : bool =
-  let f = simplify_fo f in
-  if is_hfalse f then true
-  else
-    let conjuncts = flatten_bool And f in
-    and_has_contradiction conjuncts
-    || List.exists
-         (fun h ->
-           match h.hexpr with
-           | HBin (Or, _, _) ->
-               flatten_bool Or h
-               |> List.for_all (contradictory_context (List.filter (( != ) h) conjuncts))
-           | _ -> false)
-         conjuncts
+  Fo_contradiction.conjunction_obviously_false f
 
 let edge_may_fire (pc : Abs.product_step_summary) (case : Abs.safe_product_case) : bool =
   let guard =

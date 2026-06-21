@@ -553,7 +553,7 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
                   step_class = StepSafe;
                   product_src = pc.identity.product_src;
                   product_dst;
-                  requires = pc.requires;
+                  requires = pc.propagation_requires @ pc.requires;
                   local_requires;
                   propagates = admissible_guards;
                   ensures = safe_ensures;
@@ -578,7 +578,7 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
                    step_class = StepBadGuarantee;
                    product_src = pc.identity.product_src;
                    product_dst = case.product_dst;
-                   requires = pc.requires;
+                   requires = pc.propagation_requires @ pc.requires;
                    local_requires;
                    propagates = [];
                    ensures = [];

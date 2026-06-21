@@ -33,3 +33,9 @@ val shift_formula_forward_inputs :
     boolean formula. *)
 val shift_formula_backward_inputs :
   is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
+
+(** Shift one step forward all variable references in a formula. This is used
+    when a fact about the beginning of a program step is transported to the
+    entry of the next step, where every value from the previous beginning is a
+    historical value. *)
+val shift_hexpr_forward_all : Core_syntax.hexpr -> Core_syntax.hexpr

@@ -17,31 +17,16 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Core_syntax_builders
-open Fo_time
 
 module Abs = Ir
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let dedup_formulas (xs : Core_syntax.hexpr list) : Core_syntax.hexpr list = List.sort_uniq compare xs
-
-let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
-  match fs with
-  | [] -> None
-  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
-
 let conj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hand f rest)
-
-let input_names (n : Abs.node_ir) : ident list =
-  List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
-
-let is_input_of_node (n : Abs.node_ir) : ident -> bool =
-  let names = input_names n in
-  fun x -> List.mem x names
 
 let non_input_program_var_names (n : Abs.node_ir) : ident list =
   List.map
@@ -101,43 +86,8 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
             guarantee_state_index = 0;
           })
 
-let guarantee_pre_of_product_state ~(node : Abs.node_ir) ~(initial_product_state : Abs.product_state) :
-    Abs.product_state -> Core_syntax.hexpr option =
-  let is_input = is_input_of_node node in
-  let by_dst = ref [] in
-  let add dst formulas =
-    let rec loop acc = function
-      | [] -> List.rev ((dst, formulas) :: acc)
-      | (dst', prev) :: rest when same_product_state dst dst' ->
-          List.rev_append acc ((dst, dedup_formulas (formulas @ prev)) :: rest)
-      | x :: rest -> loop (x :: acc) rest
-    in
-    by_dst := loop [] !by_dst
-  in
-  List.iter
-    (fun (pc : Abs.product_step_summary) ->
-      List.iter
-        (fun (case : Abs.safe_product_case) ->
-          let propagated = shift_formula_forward_inputs ~is_input case.admissible_guard.logic in
-          add case.product_dst [ propagated ])
-        pc.safe_cases)
-    node.summaries;
-  fun st ->
-    let incoming =
-      List.find_map
-        (fun (dst, fs) -> if same_product_state dst st then Some fs else None)
-        !by_dst
-      |> Option.value ~default:[]
-    in
-    let incoming =
-      if same_product_state st initial_product_state then
-        Core_syntax_builders.mk_hbool true :: incoming
-      else incoming
-    in
-    disj_fo incoming
-
 type node_generation = {
-  guarantee_pre_of_product_state : Abs.product_state -> Core_syntax.hexpr option;
+  product_characteristics : Product_characteristics.t;
   initial_product_state : Abs.product_state;
   state_stability : Core_syntax.hexpr list;
   invariant_of_state : ident -> Core_syntax.hexpr option;
@@ -146,7 +96,7 @@ type node_generation = {
 let compute_generation ~(node : Abs.node_ir) : node_generation =
   let initial_product_state = infer_initial_product_state node in
   {
-    guarantee_pre_of_product_state = guarantee_pre_of_product_state ~node ~initial_product_state;
+    product_characteristics = Product_characteristics.build ~node;
     initial_product_state;
     state_stability = List.map stability_formula (non_input_program_var_names node);
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
@@ -164,9 +114,9 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
       (fun (pc : Abs.product_step_summary) ->
         let program_guard = guard_fo_of_transition_core pc.identity.program_step in
         let propagation_requires =
-          match pre_generation.guarantee_pre_of_product_state pc.identity.product_src with
-          | None -> []
-          | Some inv -> [ Ir_formula.make inv ]
+          Product_characteristics.entry_facts_of_product_state
+            pre_generation.product_characteristics pc.identity.product_src
+          |> List.map Ir_formula.make
         in
         let requires =
           []
