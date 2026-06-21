@@ -1,0 +1,44 @@
+node state_selector_invariants(alarm: bool) returns (
+  x: int
+)
+contracts
+  ensures: X G(x >= 0);
+states
+  Init(init), Idle, Run, Alarm;
+invariants
+  in states except {Init}:
+    x >= 0;
+  in {Idle, Run}:
+    x <= 10;
+  in states except {Init, Alarm}:
+    x != 7;
+transitions
+  Init:
+    to Alarm when alarm = true {
+      x := 0;
+    }
+    to Idle {
+      x := 0;
+    }
+  Idle:
+    to Alarm when alarm = true {
+      x := 0;
+    }
+    to Run {
+      x := 1;
+    }
+  Run:
+    to Alarm when alarm = true {
+      x := 0;
+    }
+    to Run {
+      x := 1;
+    }
+  Alarm:
+    to Idle when alarm = false {
+      x := 0;
+    }
+    to Alarm {
+      x := 0;
+    }
+end

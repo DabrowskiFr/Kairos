@@ -33,6 +33,7 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.con
     timeout_s = cfg.timeout_s;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prove = cfg.prove;
+    proof_jobs = 1;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
     generate_dot_png = cfg.generate_dot_png;

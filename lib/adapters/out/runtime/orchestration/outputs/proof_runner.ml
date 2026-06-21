@@ -165,6 +165,103 @@ let proof_status_is_valid status =
   | "valid" | "proved" -> true
   | _ -> false
 
+type goal_attribution = {
+  source : string;
+  node : string option;
+  transition : string option;
+  obligation_kind : string;
+  obligation_family : string option;
+  obligation_category : string option;
+}
+
+let product_state_source (st : Ir.product_state) =
+  Printf.sprintf "(P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index
+    st.guarantee_state_index
+
+let attribution_step_class
+    (step_class : Why_runtime_view.runtime_step_class) =
+  match step_class with
+  | Why_runtime_view.StepSafe ->
+      ("product-step-safe", Some "guarantee-progress")
+  | Why_runtime_view.StepBadGuarantee ->
+      ("product-step-bad-guarantee", Some "guarantee-violation-exclusion")
+
+let goal_name_lookup_key (goal_name : string) =
+  match String.index_opt goal_name '\'' with
+  | None -> goal_name
+  | Some idx -> String.sub goal_name 0 idx
+
+let attribution_of_step ~node_name ~index
+    (step : Why_runtime_view.runtime_product_transition_view) =
+  let obligation_kind, obligation_category =
+    attribution_step_class step.step_class
+  in
+  let source =
+    Printf.sprintf
+      "helper=%s;product_src=%s;product_dst=%s;requires=%d;local_requires=%d;\
+       propagates=%d;ensures=%d;forbidden=%d"
+      (Why_compile.product_step_helper_name ~index step)
+      (product_state_source step.product_src)
+      (product_state_source step.product_dst)
+      (List.length step.requires)
+      (List.length step.local_requires)
+      (List.length step.propagates)
+      (List.length step.ensures)
+      (List.length step.forbidden)
+  in
+  {
+    source;
+    node = Some node_name;
+    transition =
+      Some
+        (Printf.sprintf "%s -> %s (%s)" step.src_state step.dst_state
+           step.transition_id);
+    obligation_kind;
+    obligation_family = Some "product-step";
+    obligation_category;
+  }
+
+let build_attribution_table
+    ~(opts : Pipeline_types.proof_optimizations)
+    (instrumentation : Ir.node_ir list) :
+    (string, goal_attribution) Hashtbl.t =
+  let table = Hashtbl.create 256 in
+  instrumentation
+  |> List.iter (fun (node : Ir.node_ir) ->
+         let runtime =
+           Why_runtime_view.of_ir_node
+             ~simplify_runtime_actions:opts.simplify_why3_runtime_actions
+             ~slice_transition_bodies:opts.slice_why3_transition_bodies node
+         in
+         List.iteri
+           (fun index step ->
+             let helper_name = Why_compile.product_step_helper_name ~index step in
+             Hashtbl.replace table helper_name
+               (attribution_of_step ~node_name:runtime.node_name ~index step))
+           runtime.product_transitions);
+  table
+
+let attribution_for_goal attributions goal_name =
+  Hashtbl.find_opt attributions (goal_name_lookup_key goal_name)
+
+let apply_attribution attributions goal_name
+    (trace : Pipeline_types.proof_trace) =
+  match attribution_for_goal attributions goal_name with
+  | None -> trace
+  | Some attribution ->
+      {
+        trace with
+        source = attribution.source;
+        node = attribution.node;
+        transition = attribution.transition;
+        obligation_kind = attribution.obligation_kind;
+        obligation_family = attribution.obligation_family;
+        obligation_category = attribution.obligation_category;
+      }
+
+let goal_name_of_task task =
+  Why_contract_prove.goal_name_of_prepared_task task
+
 let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     ~(vc_ids_ordered : int list) ~normalized_tasks :
     (int * string * string * float * string option * string option) list =
@@ -172,9 +269,10 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     let finished = ref [] in
     let stop_requested = ref false in
     let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
+    let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
     let _ =
       Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
-        ~should_cancel
+        ~jobs:proof_jobs ~should_cancel
         ~on_goal_start:(fun _ -> ())
         ~on_goal_done:(fun ev ->
           let idx = ev.goal_index in
@@ -200,13 +298,16 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
   else
     List.mapi
-      (fun idx _task ->
+      (fun idx task ->
         let vcid = List.nth vc_ids_ordered idx in
-        let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
-        (idx, stable_id, "pending", 0.0, None, Some (string_of_int vcid)))
+        let goal_name =
+          try goal_name_of_task task with _ -> Printf.sprintf "vc-%03d" (idx + 1)
+        in
+        (idx, goal_name, "pending", 0.0, None, Some (string_of_int vcid)))
       normalized_tasks
 
 let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
+    ~attributions
     ~(goal_results : (int * string * string * float * string option * string option) list)
     ~(vc_ids_ordered : int list)
     ~(vc_spans_ordered : Pipeline_types.text_span list)
@@ -246,7 +347,7 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
                  (None, native_probe)
          in
          let diagnostic = diagnostic_for_trace ~status ~goal_text:goal_name ~native_core ~native_probe in
-         Some
+         let trace =
            {
              Pipeline_types.goal_index = idx;
              stable_id;
@@ -266,39 +367,44 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
              why_span = None;
              vc_span = List.nth_opt vc_spans_ordered idx;
              smt_span = List.nth_opt smt_spans_ordered idx;
-           dump_path;
-           diagnostic;
-         })
+             dump_path;
+             diagnostic;
+           }
+         in
+         Some (apply_attribution attributions goal_name trace))
 
-let build_fast_proof_traces
+let build_fast_proof_traces ~attributions
     (goal_results : (int * string * string * float * string option * string option) list) :
     Pipeline_types.proof_trace list =
   goal_results
   |> List.map (fun (idx, goal_name, status, time_s, dump_path, raw_vcid) ->
          let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
-         {
-           Pipeline_types.goal_index = idx;
-           stable_id;
-           goal_name;
-           status;
-           solver_status = status;
-           time_s;
-           source = "";
-           node = None;
-           transition = None;
-           obligation_kind = "unknown";
-           obligation_family = None;
-           obligation_category = None;
-           vc_id = raw_vcid;
-           source_span = None;
-           why_span = None;
-           vc_span = None;
-           smt_span = None;
-           dump_path;
-           diagnostic =
-             diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
-               ~native_probe:None;
-         })
+         let trace =
+           {
+             Pipeline_types.goal_index = idx;
+             stable_id;
+             goal_name;
+             status;
+             solver_status = status;
+             time_s;
+             source = "";
+             node = None;
+             transition = None;
+             obligation_kind = "unknown";
+             obligation_family = None;
+             obligation_category = None;
+             vc_id = raw_vcid;
+             source_span = None;
+             why_span = None;
+             vc_span = None;
+             smt_span = None;
+             dump_path;
+             diagnostic =
+               diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
+                 ~native_probe:None;
+           }
+         in
+         apply_attribution attributions goal_name trace)
 
 let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
     Pipeline_types.goal_info list =
@@ -316,6 +422,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       match cfg.proof_encoding with
       | Pipeline_types.Explicit_product -> cfg.proof_optimizations
     in
+    let attributions = build_attribution_table ~opts instrumentation in
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes
         ~share_why3_facts:opts.share_why3_facts
@@ -338,9 +445,10 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         let finished = ref [] in
         let stop_requested = ref false in
         let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
+        let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
         let _ =
           Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
-            ~split_vc:false ~should_cancel ~on_goal_start:(fun _ -> ())
+            ~jobs:proof_jobs ~split_vc:true ~should_cancel ~on_goal_start:(fun _ -> ())
             ~on_goal_done:(fun ev ->
               let idx = ev.Why_contract_prove.goal_index in
               let r = ev.result in
@@ -362,7 +470,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
           !finished
       in
       let vc_ids_ordered = List.map (fun (idx, _, _, _, _, _) -> idx + 1) goal_results in
-      let proof_traces = build_fast_proof_traces goal_results in
+      let proof_traces = build_fast_proof_traces ~attributions goal_results in
       let goals = goals_of_proof_traces proof_traces in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       Ok
@@ -414,8 +522,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
-        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks ~goal_results
-          ~vc_ids_ordered
+        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks ~attributions
+          ~goal_results ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in
       let goals = goals_of_proof_traces proof_traces in

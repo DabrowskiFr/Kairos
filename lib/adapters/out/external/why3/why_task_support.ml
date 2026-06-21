@@ -23,10 +23,7 @@ let ptree_of_text ~(filename : string) ~(text : string) : Ptree.mlw_file =
   Loc.set_file filename lexbuf;
   Lexer.parse_mlw_file lexbuf
 
-let module_ptrees_of_ptree = function
-  | Ptree.Modules modules ->
-      List.map (fun (module_id, decls) -> Ptree.Modules [ (module_id, decls) ]) modules
-  | Ptree.Decls _ as ptree -> [ ptree ]
+let module_ptrees_of_ptree ptree = [ ptree ]
 
 (* Type un ptree Why3 et extrait les tâches top-level sans éclatement VC. *)
 let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =

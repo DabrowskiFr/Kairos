@@ -488,7 +488,7 @@ let completion_items_for_text (text : string) : string list =
   let keywords =
     [
 	      "node"; "returns"; "contracts"; "ensures"; "requires"; "assumes"; "guarantees";
-	      "locals"; "ghosts"; "observers"; "states"; "invariants"; "transitions"; "to"; "end"; "if";
+	      "locals"; "ghosts"; "observers"; "states"; "invariants"; "except"; "transitions"; "to"; "end"; "if";
 	      "then"; "else"; "match"; "skip"; "init"; "step"; "history"; "self";
     ]
   in

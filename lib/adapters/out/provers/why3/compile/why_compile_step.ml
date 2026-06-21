@@ -89,30 +89,48 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
     let qid_name = qid_name_for_var x in
     List.filter (fun term -> not (term_mentions_qid_name qid_name term)) sticky_asserts
   in
+  let compile_assignment x rhs =
+    let assign =
+      if is_rec_var env x then
+        mk_expr
+          (Eassign
+             [
+               ( mk_expr (Eident (qid1 env.rec_name)),
+                 Some (qid1 x),
+                 rhs );
+             ])
+      else
+        mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, rhs) ])
+    in
+    let reassert = preserved_asserts_after_assign x |> assert_terms |> seq_exprs in
+    seq_exprs [ assign; reassert ]
+  in
   let compile_action (a : Why_runtime_view.runtime_action_view) : Ptree.expr =
     match a with
     | Why_runtime_view.ActionSkip -> mk_expr (Etuple [])
     | Why_runtime_view.ActionAssign (x, e) ->
-        let assign =
-          if is_rec_var env x then
-            mk_expr
-              (Eassign
-                 [
-                   ( mk_expr (Eident (qid1 env.rec_name)),
-                     Some (qid1 x),
-                     compile_expr env e );
-                 ])
-          else
-            mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, compile_expr env e) ])
-        in
-        let reassert = preserved_asserts_after_assign x |> assert_terms |> seq_exprs in
-        seq_exprs [ assign; reassert ]
+        compile_assignment x (compile_expr env e)
     | Why_runtime_view.ActionIf (c, tbr, fbr) ->
         let cond = compile_expr env c in
-        let else_branch =
-          if fbr = [] then explicit_noop () else compile_seq env sticky_asserts fbr
-        in
-        mk_expr (Eif (cond, compile_seq env sticky_asserts tbr, else_branch))
+        begin
+          match (tbr, fbr) with
+          | ( [ Why_runtime_view.ActionAssign (x_then, e_then) ],
+              [ Why_runtime_view.ActionAssign (x_else, e_else) ] )
+            when String.equal x_then x_else ->
+              let rhs =
+                mk_expr
+                  (Eif
+                     ( cond,
+                       compile_expr env e_then,
+                       compile_expr env e_else ))
+              in
+              compile_assignment x_then rhs
+          | _ ->
+              let else_branch =
+                if fbr = [] then explicit_noop () else compile_seq env sticky_asserts fbr
+              in
+              mk_expr (Eif (cond, compile_seq env sticky_asserts tbr, else_branch))
+        end
     | Why_runtime_view.ActionMatch (e, branches, default) ->
         let scrut = compile_expr env e in
         let branches =

@@ -823,6 +823,7 @@ let () =
                             compute_proof_diagnostics =
                               get_param_bool params "computeProofDiagnostics" false;
                             prove = get_param_bool params "prove" true;
+                            proof_jobs = get_param_int params "proofJobs" 1;
                             generate_vc_text = get_param_bool params "generateVcText" true;
                             generate_smt_text = get_param_bool params "generateSmtText" true;
                             generate_dot_png = get_param_bool params "generateDotPng" true;
@@ -904,6 +905,7 @@ let () =
                         timeout_s = cfg.timeout_s;
                         compute_proof_diagnostics = cfg.compute_proof_diagnostics;
                         prove = cfg.prove;
+                        proof_jobs = cfg.proof_jobs;
                         generate_vc_text = cfg.generate_vc_text;
                         generate_smt_text = cfg.generate_smt_text;
                         generate_dot_png = cfg.generate_dot_png;

@@ -76,11 +76,15 @@ let negate_expr (e : Ptree.expr) : Ptree.expr = mk_expr (Enot e)
 (* ---- Kairos → Why3 type and operator mappings ---- *)
 
 let default_pty (t : ty) : Ptree.pty =
+  let why_type_name name =
+    if String.equal name "state" then "state"
+    else "kairos_" ^ String.uncapitalize_ascii name
+  in
   match t with
   | TInt -> Ptree.PTtyapp (qid1 "int", [])
   | TBool -> Ptree.PTtyapp (qid1 "bool", [])
   | TReal -> Ptree.PTtyapp (qid1 "real", [])
-  | TCustom s -> Ptree.PTtyapp (qid1 s, [])
+  | TCustom s -> Ptree.PTtyapp (qid1 (why_type_name s), [])
 
 let binop_id (op : binop) : string =
   match op with

@@ -131,7 +131,7 @@
       "patterns": [
         {
           "name": "keyword.control.kairos",
-          "match": "\\b(?:returns|requires|ensures|when|skip|end|init|not|and|or|in)\\b"
+          "match": "\\b(?:returns|requires|ensures|when|skip|end|init|not|and|or|in|except)\\b"
         }
       ]
     },

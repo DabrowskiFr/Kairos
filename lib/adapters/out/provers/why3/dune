@@ -17,4 +17,4 @@
    kairos_domain_proof_export
    kairos_artifact_why_task_dump
    kairos_external_why3
-   kairos_external_z3 why3))
+   why3))

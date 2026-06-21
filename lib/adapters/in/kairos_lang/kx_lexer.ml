@@ -61,6 +61,7 @@ let () =
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
+      ("except", EXCEPT);
       ("contracts", CONTRACTS);
       ("import", IMPORT);
       ("let", LET);
@@ -154,6 +155,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);
+    ("except", EXCEPT);
     ("contracts", CONTRACTS);
     ("import", IMPORT);
     ("let", LET);

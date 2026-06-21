@@ -146,6 +146,15 @@ module Timing = struct
       canonical_s = d.canonical_s;
       why_gen_s = d.why_gen_s;
       vc_smt_s = d.vc_smt_s;
+      why3_prepare_s = d.why3_prepare_s;
+      why3_print_s = d.why3_print_s;
+      why3_spawn_s = d.why3_spawn_s;
+      why3_wait_s = d.why3_wait_s;
+      why3_solver_s = d.why3_solver_s;
+      why3_input_goal_count = d.why3_input_goal_count;
+      why3_goal_count = d.why3_goal_count;
+      why3_duplicate_goal_count = d.why3_duplicate_goal_count;
+      why3_fallback_count = d.why3_fallback_count;
     }
 end
 

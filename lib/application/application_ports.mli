@@ -32,6 +32,15 @@ type timing_counters = {
   canonical_s : float;
   why_gen_s : float;
   vc_smt_s : float;
+  why3_prepare_s : float;
+  why3_print_s : float;
+  why3_spawn_s : float;
+  why3_wait_s : float;
+  why3_solver_s : float;
+  why3_input_goal_count : int;
+  why3_goal_count : int;
+  why3_duplicate_goal_count : int;
+  why3_fallback_count : int;
 }
 
 (** One goal result reported by the proof-events port.

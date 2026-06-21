@@ -70,8 +70,8 @@ type contract_info = {
     - [~pure_translation]: when [true], only transition preconditions are kept
       and the postcondition is left empty (pure translation mode, no
       verification).
-    - [~simplify_formulas]: when [true], applies backend FO simplifications
-      before Why3 term generation.
+    - [~simplify_formulas]: when [true], applies cheap syntactic FO
+      simplifications before Why3 term generation.
     - [~deduplicate_terms]: when [true], removes syntactically duplicate
       contract terms. *)
 val build_contracts :

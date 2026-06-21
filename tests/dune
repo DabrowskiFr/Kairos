@@ -13,6 +13,7 @@
   ok/named_action_inline.kairos
   ok/public_observer_contract.kairos
   ok/spec_definition_past.kairos
+  ok/state_selector_invariants.kairos
   ko/internal_prefix_reserved.kairos
   ko/concise_observer_bad_pre.kairos
   ko/multiple_assignment_arity.kairos

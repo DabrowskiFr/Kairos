@@ -26,7 +26,7 @@ open Pre_k_layout
 open Why_compile_expr
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  match Fo_z3_solver.simplify_fo_formula f with Some simplified -> simplified | None -> f
+  Core_fo_simplifier.simplify f
 
 let rec hexpr_size (h : Core_syntax.hexpr) : int =
   match h.hexpr with

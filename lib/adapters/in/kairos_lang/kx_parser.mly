@@ -177,6 +177,7 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
 %token REQUIRES ENSURES
 %token INVARIANT IN
 %token INVARIANTS
+%token EXCEPT
 %token CONTRACTS
 %token LET
 %token IMPORT
@@ -650,16 +651,29 @@ state_invariants:
   | state_invariant { $1 }
 
 state_invariant:
-  | INVARIANT IN IDENT COLON invariant_formula_list
-      { List.map (fun f -> { state = $3; formula = f }) $5 }
+  | INVARIANT IN state_selector COLON invariant_formula_list
+      { List.map (fun f -> { selector = $3; formula = f }) $5 }
 
 invariant_entries:
   | invariant_entry invariant_entries { $1 @ $2 }
   | invariant_entry { $1 }
 
 invariant_entry:
-  | IN IDENT COLON invariant_formula_list
-      { List.map (fun f -> { state = $2; formula = f }) $4 }
+  | IN state_selector COLON invariant_formula_list
+      { List.map (fun f -> { selector = $2; formula = f }) $4 }
+
+state_selector:
+  | state_selector_diff { $1 }
+
+state_selector_diff:
+  | state_selector_diff EXCEPT state_selector_atom { SSelDiff ($1, $3) }
+  | state_selector_atom { $1 }
+
+state_selector_atom:
+  | IDENT { SSelState $1 }
+  | STATES { SSelAll }
+  | LBRACE ident_list RBRACE { SSelSet $2 }
+  | LPAREN state_selector RPAREN { $2 }
 
 invariant_formula_list:
   | fo_formula SEMI invariant_formula_list { $1 :: $3 }

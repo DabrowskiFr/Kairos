@@ -28,6 +28,7 @@ It keeps all frontend conveniences explicit:
 - observers with explicit [init] and [step] blocks;
 - history aliases;
 - [history def] declarations and [history name(x)] applications;
+- grouped state-invariant selectors;
 - statement-level [for] loops.
 
 This AST is useful for diagnostics and frontend tests, but it is not the AST
@@ -47,6 +48,7 @@ The pass expands or removes the syntactic extensions:
 - [history def] applications become generated scalar ghosts, generated ghost
   updates, and phase-specific transition [ensures] clauses declared by the
   corresponding definition;
+- grouped state-invariant selectors expand to ordinary per-state invariants;
 - observers become generated scalar ghosts plus generated assignments on
   transitions.
 
@@ -65,6 +67,26 @@ statements, invariants and LTL contracts. It no longer contains surface
 constructs such as [SSFor], [SSActionCall], [SHForall] or
 frontend predicate declarations. It also no longer contains observer
 declarations.
+
+{1 State-Invariant Selectors}
+
+State invariants are stored by the core frontend AST as flat [(state, formula)]
+pairs. The surface language allows a compact selector in the [in] header and
+expands it before entering [Kx_ast]:
+
+{[
+invariants
+  in states except {Init}:
+    safe = true;
+  in {Running, Recovering}:
+    motorOn = true;
+]}
+
+The supported selectors are a single state name, a brace-delimited list of
+states, [states] for the complete declared state set, parenthesized selectors,
+and [except] for set difference. Selectors are resolved against the declared
+states of the node, preserve declaration order, reject unknown or duplicate
+states, and must not resolve to the empty set.
 
 {1 Historical Definitions}
 

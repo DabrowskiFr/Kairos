@@ -32,6 +32,7 @@ type cli_args = {
   check_frontend : bool;
   prove : bool;
   timeout_s : int;
+  proof_jobs : int;
   proof_encoding : Pipeline_types.proof_encoding;
   stop_on_first_nonvalid : bool;
   no_proof_optimizations : bool;
@@ -153,6 +154,7 @@ module Pipeline_service = struct
     smt_text : string;
     flow_meta : flow_meta;
     goals : goal_info list;
+    proof_traces : Pipeline_types.proof_trace list;
   }
 
   type frontend_check_data = {
@@ -274,7 +276,7 @@ module Pipeline_service = struct
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text
-      ~proof_progress_path ~stop_on_first_nonvalid ~proof_encoding
+      ~proof_progress_path ~stop_on_first_nonvalid ~proof_jobs ~proof_encoding
       ~proof_optimizations =
     let cfg =
       {
@@ -284,6 +286,7 @@ module Pipeline_service = struct
         timeout_s;
         compute_proof_diagnostics = false;
         prove;
+        proof_jobs;
         generate_vc_text;
         generate_smt_text;
         generate_dot_png = false;
@@ -303,6 +306,7 @@ module Pipeline_service = struct
             smt_text = out.smt_text;
             flow_meta = out.flow_meta;
             goals = out.goals;
+            proof_traces = out.proof_traces;
           }
 end
 
@@ -496,21 +500,30 @@ let csv_escape field =
     Buffer.add_char b '"';
     Buffer.contents b
 
-let write_goals_dump out (goals : Pipeline_service.goal_info list) =
-  let header = "index,name,status,time_s,dump_path,vcid" in
+let write_goals_dump out (traces : Pipeline_types.proof_trace list) =
+  let header =
+    "index,name,status,time_s,dump_path,vcid,node,transition,obligation_kind,\
+     obligation_family,obligation_category,source"
+  in
   let rows =
     List.mapi
-      (fun idx (name, status, time_s, dump_path, vcid) ->
+      (fun idx (trace : Pipeline_types.proof_trace) ->
         [
           string_of_int (idx + 1);
-          name;
-          status;
-          Printf.sprintf "%.6f" time_s;
-          Option.value dump_path ~default:"";
-          Option.value vcid ~default:"";
+          trace.goal_name;
+          trace.status;
+          Printf.sprintf "%.6f" trace.time_s;
+          Option.value trace.dump_path ~default:"";
+          Option.value trace.vc_id ~default:"";
+          Option.value trace.node ~default:"";
+          Option.value trace.transition ~default:"";
+          trace.obligation_kind;
+          Option.value trace.obligation_family ~default:"";
+          Option.value trace.obligation_category ~default:"";
+          trace.source;
         ]
         |> List.map csv_escape |> String.concat ",")
-      goals
+      traces
   in
   write_target out (String.concat "\n" (header :: rows) ^ "\n")
 
@@ -711,7 +724,7 @@ let exec_action args = function
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
           ~proof_progress_path:(if prove then args.dump_goals else None)
-          ~stop_on_first_nonvalid:args.stop_on_first_nonvalid
+          ~stop_on_first_nonvalid:args.stop_on_first_nonvalid ~proof_jobs:args.proof_jobs
           ~proof_encoding:args.proof_encoding
           ~proof_optimizations:(proof_optimizations_of_args args)
       with
@@ -721,7 +734,9 @@ let exec_action args = function
           Option.iter (fun path -> write_target path out.Pipeline_service.vc_text) args.dump_why3_vc;
           Option.iter (fun path -> write_target path out.Pipeline_service.smt_text) args.dump_smt2;
           Option.iter (fun path -> write_timing_dump path out.Pipeline_service.flow_meta) args.dump_timings;
-          Option.iter (fun path -> write_goals_dump path out.Pipeline_service.goals) args.dump_goals;
+          Option.iter
+            (fun path -> write_goals_dump path out.Pipeline_service.proof_traces)
+            args.dump_goals;
           if prove then
             let failures = report_failed_goals out.Pipeline_service.goals in
             if failures <> [] then `Error (false, String.concat "\n" failures) else `Ok ()
@@ -875,6 +890,15 @@ let cmd =
       & info [ "timeout-s" ] ~docs:docs_proof ~docv:"SECONDS"
           ~doc:"Per-goal prover timeout in seconds for --prove and Why3 obligation dumps.")
   in
+  let proof_jobs =
+    Arg.(
+      value & opt int 1
+      & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
+          ~doc:
+            "Maximum number of Why3 prover calls to keep in flight. The default \
+             is 1. With --stop-on-first-nonvalid, Kairos uses one job to keep \
+             strict first-failure semantics.")
+  in
   let proof_encoding =
     Arg.(
       value
@@ -916,7 +940,7 @@ let cmd =
       value & flag
       & info [ "no-why3-fo-simplification" ] ~docs:docs_proof
           ~doc:
-            "Disable backend FO formula simplification before Why3 term generation.")
+            "Disable cheap syntactic backend FO simplification before Why3 term generation.")
   in
   let no_why3_body_slicing =
     Arg.(
@@ -941,7 +965,7 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file check_frontend prove timeout_s proof_encoding
+    let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
         no_why3_fact_sharing no_why3_fo_simplification no_why3_body_slicing
         no_why3_action_simplification no_why3_term_dedup dump_automata
@@ -955,6 +979,7 @@ let cmd =
         check_frontend;
         prove;
         timeout_s;
+        proof_jobs;
         proof_encoding;
         stop_on_first_nonvalid;
         no_proof_optimizations;
@@ -988,7 +1013,7 @@ let cmd =
     in
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
-      $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
+      $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
       $ no_proof_grouping $ no_why3_fact_sharing
       $ no_why3_fo_simplification $ no_why3_body_slicing
       $ no_why3_action_simplification $ no_why3_term_dedup $ dump_automata

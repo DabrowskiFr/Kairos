@@ -40,6 +40,13 @@ open Why_compile_expr
 
 module StringSet = Set.Make (String)
 
+(** [why_type_name] maps source enum type names to WhyML type identifiers.
+    WhyML type identifiers are lowercase, while Kairos examples commonly use
+    CamelCase enum names. *)
+let why_type_name name =
+  if String.equal name "state" then "state"
+  else "kairos_" ^ String.uncapitalize_ascii name
+
 (** [compile_seq] helper value. *)
 
 let compile_seq = Why_compile_step.compile_seq
@@ -107,10 +114,10 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
            Ptree.Dtype
              [
                {
-                 td_loc = loc;
-                 td_ident = ident decl.enum_name;
-                 td_params = [];
-                 td_vis = Public;
+          td_loc = loc;
+          td_ident = ident (why_type_name decl.enum_name);
+          td_params = [];
+          td_vis = Public;
                  td_mut = false;
                  td_inv = [];
                  td_wit = None;
@@ -239,6 +246,24 @@ let prepare_ir_node ?(simplify_why3_runtime_actions = true)
   in
   prepare_runtime_view ~temporal_layout:node.temporal_layout runtime
 
+(** Stable helper-name convention for per-product-step proof obligations.
+
+    The proof runner uses this same function to map Why3 goal names back to
+    their Kairos product-step origin. *)
+let product_step_helper_name ~(index : int)
+    (step : Why_runtime_view.runtime_product_transition_view) =
+  let step_class_suffix = function
+    | Why_runtime_view.StepSafe -> "safe"
+    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
+  in
+  Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_%d"
+    (String.lowercase_ascii step.transition_id)
+    (String.lowercase_ascii step.product_src.prog_state)
+    step.product_src.assume_state_index
+    step.product_src.guarantee_state_index
+    (step_class_suffix step.step_class)
+    index
+
 (** [empty_spec] helper value. *)
 
 let empty_spec () : Ptree.spec =
@@ -264,6 +289,18 @@ let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term = mk_term (Tbinnop (
 
 let binder_expr ((_, id_opt, _, _) : Ptree.binder) : Ptree.expr =
   match id_opt with Some id -> mk_expr (Eident (qid1 id.id_str)) | None -> mk_expr (Etuple [])
+
+let binder_term ((_, id_opt, _, _) : Ptree.binder) : Ptree.term option =
+  Option.map (fun id -> mk_term (Tident (qid1 id.id_str))) id_opt
+
+let param_of_binder ((bloc, id_opt, ghost, pty_opt) : Ptree.binder) : Ptree.param option =
+  Option.map (fun pty -> (bloc, id_opt, ghost, pty)) pty_opt
+
+let term_and_list (terms : Ptree.term list) : Ptree.term =
+  match terms with
+  | [] -> mk_term Ttrue
+  | [ term ] -> term
+  | first :: rest -> List.fold_left term_and first rest
 
 let rec names_of_qualid (qid : Ptree.qualid) (acc : StringSet.t) : StringSet.t =
   match qid with
@@ -311,6 +348,36 @@ let rec names_of_term (term : Ptree.term) (acc : StringSet.t) : StringSet.t =
 
 let names_of_variant (variant : Ptree.variant) (acc : StringSet.t) : StringSet.t =
   List.fold_left (fun acc (term, _rel) -> names_of_term term acc) acc variant
+
+let rec term_has_old (term : Ptree.term) : bool =
+  match term.term_desc with
+  | Tapply (fn, arg) -> begin
+      match fn.term_desc with
+      | Tident qid when String.equal (string_of_qid qid) "old" -> true
+      | _ -> term_has_old fn || term_has_old arg
+    end
+  | Tat (_, id) when String.equal id.id_str "old" -> true
+  | Tinfix (lhs, _, rhs)
+  | Tinnfix (lhs, _, rhs)
+  | Tbinop (lhs, _, rhs)
+  | Tbinnop (lhs, _, rhs) ->
+      term_has_old lhs || term_has_old rhs
+  | Tnot inner | Tcast (inner, _) | Tscope (_, inner) | Tat (inner, _) | Tattr (_, inner) ->
+      term_has_old inner
+  | Tif (cond, t_then, t_else) ->
+      term_has_old cond || term_has_old t_then || term_has_old t_else
+  | Tquant (_, _, triggers, body) ->
+      List.exists (List.exists term_has_old) triggers || term_has_old body
+  | Teps (_, _, body) -> term_has_old body
+  | Tlet (_, value, body) -> term_has_old value || term_has_old body
+  | Tcase (scrutinee, branches) ->
+      term_has_old scrutinee
+      || List.exists (fun (_pattern, body) -> term_has_old body) branches
+  | Tidapp (_, terms) | Ttuple terms -> List.exists term_has_old terms
+  | Trecord fields -> List.exists (fun (_field, term) -> term_has_old term) fields
+  | Tupdate (base, fields) ->
+      term_has_old base || List.exists (fun (_field, term) -> term_has_old term) fields
+  | Ttrue | Tfalse | Tconst _ | Tident _ | Tasref _ -> false
 
 let names_of_spec (spc : Ptree.spec) (acc : StringSet.t) : StringSet.t =
   let acc = List.fold_left (fun acc term -> names_of_term term acc) acc spc.sp_pre in
@@ -417,6 +484,16 @@ let helper_binders_without_unused_warnings (binders : Ptree.binder list) (spc : 
     (body : Ptree.expr) : Ptree.binder list =
   let used = names_of_expr body (names_of_spec spc StringSet.empty) in
   mark_unused_binders used binders
+
+let helper_binders_without_unused_parameters (binders : Ptree.binder list) (spc : Ptree.spec)
+    (body : Ptree.expr) : Ptree.binder list =
+  let used = names_of_expr body (names_of_spec spc StringSet.empty) in
+  List.filter
+    (fun (_, id_opt, _, _) ->
+      match id_opt with
+      | None -> true
+      | Some id -> StringSet.mem id.id_str used)
+    binders
 
 let balance_boolean_hexpr (formula : Core_syntax.hexpr) : Core_syntax.hexpr =
   let build_balanced op formulas =
@@ -557,6 +634,13 @@ let port_view_to_vdecl (p : Why_runtime_view.port_view) : vdecl =
 
 (** [compile_pure_function_decl] translates a source-level pure function into a
     WhyML function with pre/postconditions. *)
+let is_definition_postcondition (body : Core_syntax.hexpr) (ens : Core_syntax.hexpr) : bool =
+  match ens.hexpr with
+  | HCmp (REq, { hexpr = HVar "result"; _ }, rhs)
+  | HCmp (REq, rhs, { hexpr = HVar "result"; _ }) ->
+      Core_fo_simplifier.simplify rhs = Core_fo_simplifier.simplify body
+  | _ -> false
+
 let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
   let env = { rec_name = ""; rec_vars = []; links = [] } in
   let binders =
@@ -564,24 +648,31 @@ let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
       (fun (v : vdecl) -> (loc, Some (ident v.vname), false, Some (default_pty v.vty)))
       f.function_params
   in
+  let body_hexpr = Core_syntax_builders.hexpr_of_expr f.function_body in
+  let drop_definition_contract =
+    f.function_requires = []
+    && List.for_all (is_definition_postcondition body_hexpr) f.function_ensures
+  in
   let mk_post t =
     (loc, [ ({ pat_desc = Pvar (ident "result"); pat_loc = loc }, t) ])
   in
   let spc =
-    {
-      Ptree.sp_pre = List.map (compile_local_fo_formula_term env) f.function_requires;
-      sp_post = List.map (fun ens -> mk_post (compile_local_fo_formula_term env ens)) f.function_ensures;
-      sp_xpost = [];
-      sp_reads = [];
-      sp_writes = [];
-      sp_alias = [];
-      sp_variant = [];
-      sp_checkrw = false;
-      sp_diverge = false;
-      sp_partial = false;
-    }
+    if drop_definition_contract then empty_spec ()
+    else
+      {
+        Ptree.sp_pre = List.map (compile_local_fo_formula_term env) f.function_requires;
+        sp_post =
+          List.map (fun ens -> mk_post (compile_local_fo_formula_term env ens)) f.function_ensures;
+        sp_xpost = [];
+        sp_reads = [];
+        sp_writes = [];
+        sp_alias = [];
+        sp_variant = [];
+        sp_checkrw = false;
+        sp_diverge = false;
+        sp_partial = false;
+      }
   in
-  let body = compile_expr env f.function_body in
   let fn =
     mk_expr
       (Efun
@@ -590,7 +681,7 @@ let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
            { pat_desc = Pwild; pat_loc = loc },
            Ity.MaskVisible,
            spc,
-           body ))
+           compile_expr env f.function_body ))
   in
   Ptree.Dlet (ident f.function_name, false, Expr.RKfunc, fn)
 
@@ -1076,42 +1167,147 @@ let compile_node_with_info ?kernel_ir
     in
     (helper_pre, helper_post)
   in
-  let step_class_suffix = function
-    | Why_runtime_view.StepSafe -> "safe"
-    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
-  in
   let step_helper_name ~(index : int) (sc : Why_contracts.step_contract_info) =
-    let step = sc.step in
-    Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_%d"
-      (String.lowercase_ascii step.transition_id)
-      (String.lowercase_ascii step.product_src.prog_state)
-      step.product_src.assume_state_index
-      step.product_src.guarantee_state_index
-      (step_class_suffix step.step_class)
-      index
+    product_step_helper_name ~index sc.step
   in
-  let kernel_step_helper_units =
+  let import_module name =
+    Ptree.Duseimport (loc, false, [ (qid1 name, None) ])
+  in
+  let common_module_name = module_name ^ "__Common" in
+  let common_import = import_module common_module_name in
+  let predicate_bundle_decl_and_call ~(name : string) (terms : Ptree.term list) =
+    let body = term_and_list terms in
+    let used = names_of_term body StringSet.empty in
+    let used_inputs =
+      inputs
+      |> List.filter (fun (_, id_opt, _, _) ->
+             match id_opt with
+             | Some id -> StringSet.mem id.id_str used
+             | None -> false)
+    in
+    let params = List.filter_map param_of_binder used_inputs in
+    let args = List.filter_map binder_term used_inputs in
+    let decl =
+      Ptree.Dlogic
+        [
+          {
+            ld_loc = loc;
+            ld_ident = ident name;
+            ld_params = params;
+            ld_type = None;
+            ld_def = Some body;
+          };
+        ]
+    in
+    (decl, mk_term (Tidapp (qid1 name, args)))
+  in
+  let shared_bundle_call ~(module_suffix : string) ~(predicate_prefix : string)
+      ~(table : (string, string * string) Hashtbl.t) ~modules (terms : Ptree.term list) =
+    let body = term_and_list terms in
+    let key = string_of_term body in
+    let used = names_of_term body StringSet.empty in
+    let used_inputs =
+      inputs
+      |> List.filter (fun (_, id_opt, _, _) ->
+             match id_opt with
+             | Some id -> StringSet.mem id.id_str used
+             | None -> false)
+    in
+    let params = List.filter_map param_of_binder used_inputs in
+    let args = List.filter_map binder_term used_inputs in
+    let bundle_module_name, name =
+      match Hashtbl.find_opt table key with
+      | Some existing -> existing
+      | None ->
+          let index = Hashtbl.length table + 1 in
+          let bundle_module_name =
+            Printf.sprintf "%s__%s_%03d" module_name module_suffix index
+          in
+          let name = Printf.sprintf "%s_%03d" predicate_prefix index in
+          let decl =
+            Ptree.Dlogic
+              [
+                {
+                  ld_loc = loc;
+                  ld_ident = ident name;
+                  ld_params = params;
+                  ld_type = None;
+                  ld_def = Some body;
+                };
+              ]
+          in
+          Hashtbl.add table key (bundle_module_name, name);
+          modules :=
+            ( ident bundle_module_name,
+              None,
+              imports @ [ common_import; decl ],
+              { pre_labels = []; post_labels = [] } )
+            :: !modules;
+          (bundle_module_name, name)
+    in
+    (import_module bundle_module_name, mk_term (Tidapp (qid1 name, args)))
+  in
+  let shared_post_bundle_table : (string, string * string) Hashtbl.t = Hashtbl.create 128 in
+  let shared_post_bundle_modules = ref [] in
+  let shared_post_bundle_call =
+    shared_bundle_call ~module_suffix:"Post" ~predicate_prefix:"shared_post_bundle"
+      ~table:shared_post_bundle_table ~modules:shared_post_bundle_modules
+  in
+  let prepared_step_helper_units =
     if not use_product_helper_contracts then []
     else
       step_contracts
       |> List.mapi (fun i sc -> (i, sc))
-      |> List.filter_map (fun (i, (sc : Why_contracts.step_contract_info)) ->
+      |> List.map (fun (i, (sc : Why_contracts.step_contract_info)) ->
              let t =
                Why_runtime_view.transition_of_product_step
                  ~simplify_runtime_actions:simplify_why3_runtime_actions sc.step
              in
              let helper_name = ident (step_helper_name ~index:i sc) in
+             let state_guard =
+               term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+             in
+             let raw_pre_terms = state_guard :: sc.pre in
+             let raw_post_terms = sc.forbidden @ sc.post in
+             let bundle_post_terms =
+               List.length raw_post_terms > 1
+               && not (List.exists term_has_old raw_post_terms)
+             in
+             (i, sc, t, helper_name, raw_pre_terms, raw_post_terms, bundle_post_terms))
+  in
+  let kernel_step_helper_units =
+    prepared_step_helper_units
+    |> List.map
+         (fun ( i,
+                (sc : Why_contracts.step_contract_info),
+                t,
+                helper_name,
+                raw_pre_terms,
+                raw_post_terms,
+                bundle_post_terms ) ->
              let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
+             let pre_bundle_decls, pre_term =
+               let pre_decl, call =
+                 predicate_bundle_decl_and_call
+                   ~name:(helper_name.id_str ^ "_pre")
+                   raw_pre_terms
+               in
+               ([ pre_decl ], call)
+             in
+             let post_bundle_decls, post_terms =
+               if not bundle_post_terms then ([], raw_post_terms)
+               else
+                 let post_import, call = shared_post_bundle_call raw_post_terms in
+                 ([ post_import ], [ call ])
+             in
              let spc =
                {
-                 Ptree.sp_pre =
-                   term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-                   :: sc.pre;
+                 Ptree.sp_pre = [ pre_term ];
                  (* Helper contracts may use shared predicates to control
                     global text size.  Selected helper-local cuts are emitted
                     unfolded in the body, as assertions, so they add proof
                     obligations instead of weakening the postcondition. *)
-                 sp_post = List.rev_map mk_post (sc.forbidden @ sc.post);
+                 sp_post = List.rev_map mk_post post_terms;
                  sp_xpost = [];
                  sp_reads = [];
                  sp_writes = [];
@@ -1121,6 +1317,10 @@ let compile_node_with_info ?kernel_ir
                  sp_diverge = false;
                  sp_partial = false;
                }
+             in
+             let local_cut_asserts =
+               sc.local_cuts
+               |> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term)))
              in
              let seq_exprs (exprs : Ptree.expr list) =
                let exprs =
@@ -1133,15 +1333,11 @@ let compile_node_with_info ?kernel_ir
                | first :: rest ->
                    List.fold_left (fun acc expr -> mk_expr (Esequence (acc, expr))) first rest
              in
-             let local_cut_asserts =
-               sc.local_cuts
-               |> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term)))
-             in
              let helper_body =
                seq_exprs (compile_transition_body env [] t :: local_cut_asserts)
              in
              let helper_inputs =
-               helper_binders_without_unused_warnings inputs spc helper_body
+               helper_binders_without_unused_parameters inputs spc helper_body
              in
              let fn =
                mk_expr
@@ -1153,10 +1349,14 @@ let compile_node_with_info ?kernel_ir
                       spc,
                       helper_body ))
              in
-             Some (i, sc, helper_name.id_str, Ptree.Dlet (helper_name, false, Expr.RKnone, fn)))
+             ( i,
+               sc,
+               helper_name.id_str,
+               pre_bundle_decls @ post_bundle_decls
+               @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] ))
   in
   let kernel_step_helper_decls =
-    List.map (fun (_i, _sc, _name, decl) -> decl) kernel_step_helper_units
+    List.concat_map (fun (_i, _sc, _name, decls) -> decls) kernel_step_helper_units
   in
   let helper_decls =
     if use_product_helper_contracts then []
@@ -1301,6 +1501,12 @@ let compile_node_with_info ?kernel_ir
     @ getter_decls @ logic_getter_decls @ phase_case_logic_decls
   in
   if use_product_helper_contracts then
+    let common_module =
+      ( ident common_module_name,
+        None,
+        common_decls @ shared_formula_decls,
+        { pre_labels = []; post_labels = [] } )
+    in
     let init_modules =
       match coherency_goal_decls @ kernel_init_goal_decls with
       | [] -> []
@@ -1308,25 +1514,25 @@ let compile_node_with_info ?kernel_ir
           [
             ( ident (module_name ^ "__init"),
               None,
-              common_decls @ init_goals,
+              imports @ [ common_import ] @ init_goals,
               { pre_labels; post_labels } );
           ]
     in
     let helper_modules =
       kernel_step_helper_units
       |> List.map
-           (fun (_i, (sc : Why_contracts.step_contract_info), helper_name, decl) ->
-             let shared_names =
-               shared_formula_names_in_terms
-                 (sc.pre @ sc.post @ sc.forbidden)
-             in
-             let local_shared_decls = local_shared_formula_decls shared_names in
+           (fun
+             ( _i,
+               (_sc : Why_contracts.step_contract_info),
+               helper_name,
+               decls ) ->
              ( ident (module_name ^ "__" ^ helper_name),
                None,
-               common_decls @ local_shared_decls @ [ decl ],
+               imports @ [ common_import ] @ decls,
                { pre_labels; post_labels } ))
     in
-    init_modules @ helper_modules
+    common_module
+    :: (List.rev !shared_post_bundle_modules @ init_modules @ helper_modules)
   else
     let decls =
       common_decls @ shared_formula_decls @ kernel_step_helper_decls @ helper_decls

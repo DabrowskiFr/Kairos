@@ -1428,6 +1428,62 @@ let node_env base_env (n : S.node) =
         n.history_aliases;
   }
 
+let state_mem name states =
+  List.exists (String.equal name) states
+
+let state_ordered_filter states selected =
+  List.filter (fun state -> state_mem state selected) states
+
+let first_duplicate names =
+  let seen = Hashtbl.create 17 in
+  List.find_opt
+    (fun name ->
+      if Hashtbl.mem seen name then true
+      else (
+        Hashtbl.add seen name ();
+        false))
+    names
+
+let resolve_state_selector ~node_name ~states selector =
+  let validate_state state =
+    if not (state_mem state states) then
+      failwith
+        (Printf.sprintf "unknown invariant state '%s' in node '%s'" state node_name)
+  in
+  let rec resolve = function
+    | S.SSelState state ->
+        validate_state state;
+        [ state ]
+    | S.SSelSet selected ->
+        (match first_duplicate selected with
+        | Some state ->
+            failwith
+              (Printf.sprintf "duplicate invariant state '%s' in node '%s'" state node_name)
+        | None -> ());
+        List.iter validate_state selected;
+        state_ordered_filter states selected
+    | S.SSelAll -> states
+    | S.SSelDiff (a, b) ->
+        let a = resolve a in
+        let b = resolve b in
+        List.filter (fun state -> state_mem state a && not (state_mem state b)) states
+  in
+  resolve selector
+
+let expand_state_invariants (n : S.node) =
+  List.concat_map
+    (fun (inv : S.state_invariant) ->
+      let states =
+        resolve_state_selector ~node_name:n.node_name ~states:n.state_decls.states inv.selector
+      in
+      if states = [] then
+        failwith
+          (Printf.sprintf
+             "state selector for an invariant in node '%s' does not select any state"
+             n.node_name);
+      List.map (fun state -> (state, inv.formula)) states)
+    n.state_invariants
+
 let lower_node base_env (n : S.node) : Kx_ast.node =
   let env = node_env base_env n in
   validate_observers n;
@@ -1446,7 +1502,7 @@ let lower_node base_env (n : S.node) : Kx_ast.node =
          (expand_observers_in_transition ~init_state:n.state_decls.init_state n.observers)
   in
   let assumes, guarantees = lower_contracts env contracts in
-  let state_invariants = n.state_invariants in
+  let state_invariants = expand_state_invariants n in
   let node =
     Kx_ast_builders.mk_node ~nname:n.node_name ~inputs:(lower_raw_vdecls env n.inputs)
 	  ~outputs:(lower_raw_vdecls env n.outputs) ~assumes ~guarantees ~instances:n.instances
@@ -1463,8 +1519,8 @@ let lower_node base_env (n : S.node) : Kx_ast.node =
         node.specification with
         spec_invariants_state_rel =
           List.map
-            (fun (inv : S.state_invariant) ->
-              { Kx_ast.state = inv.state; formula = lower_hexpr env empty_spec_context [] inv.formula })
+            (fun (state, formula) ->
+              { Kx_ast.state; formula = lower_hexpr env empty_spec_context [] formula })
             state_invariants;
       };
   }

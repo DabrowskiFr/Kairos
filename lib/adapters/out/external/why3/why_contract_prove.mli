@@ -57,6 +57,9 @@ type goal_done_event = {
   result : goal_proof_result;
 }
 
+(** Return the Why3 goal identifier carried by a normalized/prepared task. *)
+val goal_name_of_prepared_task : Why3.Task.task -> string
+
 (** Run proof on normalized tasks built from a Why3 parse tree.
 
     @param timeout
@@ -73,6 +76,7 @@ type goal_done_event = {
       One entry per proven goal, in normalized goal order. *)
 val prove_ptree_with_events :
   ?timeout:int ->
+  ?jobs:int ->
   ?split_vc:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
@@ -86,6 +90,7 @@ val prove_ptree_with_events :
     task list, for example to persist progress while proving the same tasks. *)
 val prove_tasks_with_events :
   ?timeout:int ->
+  ?jobs:int ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
@@ -97,6 +102,7 @@ val prove_tasks_with_events :
     The resulting goal order is the concatenation of the per-chunk orders. *)
 val prove_ptrees_with_events :
   ?timeout:int ->
+  ?jobs:int ->
   ?split_vc:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->

@@ -190,8 +190,15 @@ type contract_item =
   | SCEnsures of ltl
 [@@deriving yojson]
 
+type state_selector =
+  | SSelState of ident
+  | SSelSet of ident list
+  | SSelAll
+  | SSelDiff of state_selector * state_selector
+[@@deriving yojson]
+
 type state_invariant = {
-  state : ident;
+  selector : state_selector;
   formula : hexpr;
 }
 [@@deriving yojson]

@@ -51,6 +51,19 @@ module Make (P : Application_ports.PORTS) = struct
         ("canonical_s", fmt_s counters.canonical_s);
         ("why_gen_s", fmt_s counters.why_gen_s);
         ("vc_smt_s", fmt_s counters.vc_smt_s);
+        ("why3_prepare_s", fmt_s counters.why3_prepare_s);
+        ("why3_print_s", fmt_s counters.why3_print_s);
+        ("why3_spawn_s", fmt_s counters.why3_spawn_s);
+        ("why3_wait_s", fmt_s counters.why3_wait_s);
+        ("why3_solver_s", fmt_s counters.why3_solver_s);
+        ( "why3_non_solver_overhead_s",
+          fmt_s
+            (max 0.0
+               (counters.vc_smt_s -. counters.why3_solver_s)) );
+        ("why3_input_goal_count", string_of_int counters.why3_input_goal_count);
+        ("why3_goal_count", string_of_int counters.why3_goal_count);
+        ("why3_duplicate_goal_count", string_of_int counters.why3_duplicate_goal_count);
+        ("why3_fallback_count", string_of_int counters.why3_fallback_count);
         ("solver_sum_s", fmt_s solver_s);
         ("solver_goal_count", string_of_int attempted_goal_count);
         ("pending_goal_count", string_of_int pending_goal_count);

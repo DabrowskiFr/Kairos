@@ -27,6 +27,15 @@ type snapshot = {
   canonical_s : float;
   why_gen_s : float;
   vc_smt_s : float;
+  why3_prepare_s : float;
+  why3_print_s : float;
+  why3_spawn_s : float;
+  why3_wait_s : float;
+  why3_solver_s : float;
+  why3_input_goal_count : int;
+  why3_goal_count : int;
+  why3_duplicate_goal_count : int;
+  why3_fallback_count : int;
 }
 
 (** [reset] service entrypoint. *)
@@ -57,3 +66,24 @@ val record_why_gen : elapsed_s:float -> unit
 
 val record_vc_smt : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent generating VCs and submitting to SMT. *)
+
+val record_why3_prepare : elapsed_s:float -> unit
+(** Add elapsed wall-clock time spent preparing Why3 tasks. *)
+
+val record_why3_print : elapsed_s:float -> unit
+(** Add elapsed wall-clock time spent printing prepared tasks to SMT-LIB. *)
+
+val record_why3_spawn : elapsed_s:float -> unit
+(** Add elapsed wall-clock time spent creating prover calls. *)
+
+val record_why3_wait : elapsed_s:float -> solver_s:float -> unit
+(** Add elapsed wall-clock and solver-reported time for one prover result. *)
+
+val record_why3_input_goals : count:int -> unit
+(** Add logical Why3 goals submitted to the proof loop before deduplication. *)
+
+val record_why3_duplicate_goal : unit -> unit
+(** Count one logical goal proved by reusing an identical SMT task result. *)
+
+val record_why3_fallback : unit -> unit
+(** Count one fallback prover attempt after a primary prover non-valid result. *)

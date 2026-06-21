@@ -192,6 +192,7 @@ type cost_report_outputs = { cost_report_json : string }
     timeout_s : int;
     compute_proof_diagnostics : bool;
     prove : bool;
+    proof_jobs : int;
     generate_vc_text : bool;
     generate_smt_text : bool;
     generate_dot_png : bool;

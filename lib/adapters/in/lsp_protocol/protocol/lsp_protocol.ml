@@ -293,6 +293,7 @@ type config_repr = {
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
+  proof_jobs : int option;
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
@@ -307,6 +308,7 @@ type config = {
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
+  proof_jobs : int;
   generate_vc_text : bool;
   generate_smt_text : bool;
   generate_dot_png : bool;
@@ -322,6 +324,7 @@ let yojson_of_config (c : config) =
       timeout_s = c.timeout_s;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prove = c.prove;
+      proof_jobs = Some c.proof_jobs;
       generate_vc_text = c.generate_vc_text;
       generate_smt_text = c.generate_smt_text;
       generate_dot_png = c.generate_dot_png;
@@ -342,6 +345,7 @@ let config_of_yojson json =
           timeout_s = repr.timeout_s;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prove = repr.prove;
+          proof_jobs = Option.value repr.proof_jobs ~default:1;
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;
           generate_dot_png = repr.generate_dot_png;
