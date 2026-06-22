@@ -293,25 +293,25 @@ let build_attribution_table
       in
       (step.step_class, t)
     in
-    List.iter
-      (fun step ->
+    runtime.product_transitions
+    |> List.iteri (fun index step ->
         let key = group_key step in
         if not (Hashtbl.mem groups key) then order := key :: !order;
         let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
-        Hashtbl.replace groups key (step :: previous))
-      runtime.product_transitions;
+        Hashtbl.replace groups key ((index, step) :: previous));
     List.rev !order
-    |> List.iteri (fun index key ->
-           let steps = Hashtbl.find groups key |> List.rev in
-           match steps with
-           | representative :: _ when List.length steps > 1 ->
-               let helper_name =
-                 Why_compile.product_step_group_helper_name ~index representative
-               in
-               Hashtbl.replace table helper_name
-                 (attribution_of_group ~node_name:runtime.node_name ~index
-                    ~group_size:(List.length steps) representative)
-           | _ -> ())
+    |> List.iter (fun key ->
+           let indexed_steps = Hashtbl.find groups key |> List.rev in
+           if List.length indexed_steps > 1 then
+             indexed_steps
+             |> List.iter (fun (index, representative) ->
+                    let helper_name =
+                      Why_compile.product_step_group_helper_name ~index
+                        representative
+                    in
+                    Hashtbl.replace table helper_name
+                      (attribution_of_group ~node_name:runtime.node_name ~index
+                         ~group_size:(List.length indexed_steps) representative)))
   in
   instrumentation
   |> List.iter (fun (node : Ir.node_ir) ->
@@ -554,6 +554,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms
         ~group_why3_product_steps:opts.group_why3_product_steps
+        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
         instrumentation
     in
     let proof_ptree = why_ast.Why_compile.mlw in

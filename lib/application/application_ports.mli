@@ -66,6 +66,24 @@ type ir_fact_family_counters = {
   unique_inserted_count : int;
 }
 
+type why3_product_group_counters = {
+  group_name : string;
+  node_name : string;
+  transition_id : string;
+  step_class : string;
+  source_state : string;
+  emitted_as_group : bool;
+  split_due_to_cost : bool;
+  edge_count : int;
+  distinct_pre_count : int;
+  distinct_post_count : int;
+  post_implication_count : int;
+  pre_text_bytes : int;
+  post_text_bytes : int;
+  estimated_cost : int;
+  max_cost : int;
+}
+
 type timing_counters = {
   frontend_parse_s : float;
   snapshot_build_s : float;
@@ -106,6 +124,7 @@ type timing_counters = {
   why3_workers : why3_worker_counters list;
   ir_passes : ir_pass_counters list;
   ir_fact_families : ir_fact_family_counters list;
+  why3_product_groups : why3_product_group_counters list;
 }
 
 (** One goal result reported by the proof-events port.

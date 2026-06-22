@@ -59,6 +59,24 @@ type ir_fact_family_snapshot = {
   unique_inserted_count : int;
 }
 
+type why3_product_group_snapshot = {
+  group_name : string;
+  node_name : string;
+  transition_id : string;
+  step_class : string;
+  source_state : string;
+  emitted_as_group : bool;
+  split_due_to_cost : bool;
+  edge_count : int;
+  distinct_pre_count : int;
+  distinct_post_count : int;
+  post_implication_count : int;
+  pre_text_bytes : int;
+  post_text_bytes : int;
+  estimated_cost : int;
+  max_cost : int;
+}
+
 type snapshot = {
   frontend_parse_s : float;
   snapshot_build_s : float;
@@ -99,6 +117,7 @@ type snapshot = {
   why3_workers : why3_worker_snapshot list;
   ir_passes : ir_pass_snapshot list;
   ir_fact_families : ir_fact_family_snapshot list;
+  why3_product_groups : why3_product_group_snapshot list;
   why3_smt_fingerprints : string list;
 }
 
@@ -140,6 +159,7 @@ let why3_smt_fingerprints = ref []
 let why3_workers = ref []
 let ir_passes = ref []
 let ir_fact_families = ref []
+let why3_product_groups = ref []
 
 let unique_string_count xs = List.length (List.sort_uniq String.compare xs)
 
@@ -181,7 +201,8 @@ let reset () =
   why3_smt_fingerprints := [];
   why3_workers := [];
   ir_passes := [];
-  ir_fact_families := []
+  ir_fact_families := [];
+  why3_product_groups := []
 
 let snapshot () : snapshot =
   {
@@ -225,6 +246,7 @@ let snapshot () : snapshot =
     why3_workers = List.rev !why3_workers;
     ir_passes = List.rev !ir_passes;
     ir_fact_families = List.rev !ir_fact_families;
+    why3_product_groups = List.rev !why3_product_groups;
     why3_smt_fingerprints = List.rev !why3_smt_fingerprints;
   }
 
@@ -311,6 +333,10 @@ let diff ~before ~(after_ : snapshot) : snapshot =
       drop_prefix
         (List.length before.ir_fact_families)
         after_.ir_fact_families;
+    why3_product_groups =
+      drop_prefix
+        (List.length before.why3_product_groups)
+        after_.why3_product_groups;
   }
 
 let add_snapshot (s : snapshot) =
@@ -361,7 +387,9 @@ let add_snapshot (s : snapshot) =
     List.rev_append s.why3_smt_fingerprints !why3_smt_fingerprints;
   why3_workers := List.rev_append s.why3_workers !why3_workers;
   ir_passes := List.rev_append s.ir_passes !ir_passes;
-  ir_fact_families := List.rev_append s.ir_fact_families !ir_fact_families
+  ir_fact_families := List.rev_append s.ir_fact_families !ir_fact_families;
+  why3_product_groups :=
+    List.rev_append s.why3_product_groups !why3_product_groups
 
 let record_why3_worker worker = why3_workers := worker :: !why3_workers
 
@@ -369,6 +397,9 @@ let record_ir_pass pass = ir_passes := pass :: !ir_passes
 
 let record_ir_fact_family family =
   ir_fact_families := family :: !ir_fact_families
+
+let record_why3_product_group group =
+  why3_product_groups := group :: !why3_product_groups
 
 let record_frontend_parse ~elapsed_s =
   frontend_parse_s := !frontend_parse_s +. max 0.0 elapsed_s

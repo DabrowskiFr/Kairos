@@ -39,12 +39,13 @@ let obligations_pass
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     ?(group_why3_product_steps = true)
+    ?(why3_product_step_group_max_cost = 0)
     (nodes : Ir.node_ir list) : obligations_outputs =
   let why_ast =
     Why_compile.compile_program_ast_from_ir_nodes ~share_why3_facts
       ~simplify_why3_formulas ~slice_why3_transition_bodies
       ~simplify_why3_runtime_actions ~deduplicate_why3_terms
-      ~group_why3_product_steps nodes
+      ~group_why3_product_steps ~why3_product_step_group_max_cost nodes
   in
   let why_text = Why_text_render.emit_program_ast why_ast in
   let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in

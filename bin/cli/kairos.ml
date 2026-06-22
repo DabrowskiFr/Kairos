@@ -43,6 +43,7 @@ type cli_args = {
   no_why3_action_simplification : bool;
   no_why3_term_dedup : bool;
   no_why3_product_step_grouping : bool;
+  why3_product_step_group_max_cost : int option;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;
@@ -114,6 +115,9 @@ let proof_optimizations_of_args args =
       base.deduplicate_why3_terms && not args.no_why3_term_dedup;
     group_why3_product_steps =
       base.group_why3_product_steps && not args.no_why3_product_step_grouping;
+    why3_product_step_group_max_cost =
+      Option.value args.why3_product_step_group_max_cost
+        ~default:base.why3_product_step_group_max_cost;
   }
 
 let proof_encoding_parser s =
@@ -1000,6 +1004,15 @@ let cmd =
           ~doc:
             "Disable grouping of product-step Why3 helpers by executable transition.")
   in
+  let why3_product_step_group_max_cost =
+    Arg.(
+      value & opt (some int) None
+      & info [ "why3-product-step-group-max-cost" ] ~docs:docs_proof
+          ~docv:"N"
+          ~doc:
+            "Split product-step Why3 helper groups when the estimated generated \
+             term cost would exceed N. Values <= 0 keep grouping unbounded.")
+  in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
@@ -1007,11 +1020,12 @@ let cmd =
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
         no_why3_fact_sharing no_why3_fo_simplification no_why3_body_slicing
         no_why3_action_simplification no_why3_term_dedup
-        no_why3_product_step_grouping dump_automata dump_product dump_canonical dump_automata_short
+        no_why3_product_step_grouping why3_product_step_group_max_cost
+        dump_automata dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report dump_timings
-        dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 dump_kobj_summary
-        dump_kobj_clauses dump_kobj_product dump_kobj_contracts =
+        dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2
+        dump_kobj_summary dump_kobj_clauses dump_kobj_product dump_kobj_contracts =
       {
         file;
         check_frontend;
@@ -1028,6 +1042,7 @@ let cmd =
         no_why3_action_simplification;
         no_why3_term_dedup;
         no_why3_product_step_grouping;
+        why3_product_step_group_max_cost;
         dump_automata;
         dump_product;
         dump_canonical;
@@ -1057,8 +1072,8 @@ let cmd =
       $ no_proof_grouping $ no_why3_fact_sharing
       $ no_why3_fo_simplification $ no_why3_body_slicing
       $ no_why3_action_simplification $ no_why3_term_dedup
-      $ no_why3_product_step_grouping $ dump_automata $ dump_product
-      $ dump_canonical $ dump_automata_short
+      $ no_why3_product_step_grouping $ why3_product_step_group_max_cost
+      $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
       $ dump_cost_report $ dump_timings $ dump_goals $ dump_failed_smt $ dump_why

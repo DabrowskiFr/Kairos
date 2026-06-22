@@ -169,6 +169,7 @@ type cost_report_outputs = { cost_report_json : string }
     simplify_why3_runtime_actions : bool;
     deduplicate_why3_terms : bool;
     group_why3_product_steps : bool;
+    why3_product_step_group_max_cost : int;
   }
 
   let reference_proof_optimizations =
@@ -180,6 +181,7 @@ type cost_report_outputs = { cost_report_json : string }
       simplify_why3_runtime_actions = false;
       deduplicate_why3_terms = false;
       group_why3_product_steps = false;
+      why3_product_step_group_max_cost = 0;
     }
 
   let default_proof_optimizations =
@@ -191,6 +193,7 @@ type cost_report_outputs = { cost_report_json : string }
       simplify_why3_runtime_actions = true;
       deduplicate_why3_terms = true;
       group_why3_product_steps = true;
+      why3_product_step_group_max_cost = 0;
     }
 
   type config = {

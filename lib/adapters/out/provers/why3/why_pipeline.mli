@@ -36,5 +36,6 @@ val obligations_pass :
   ?simplify_why3_runtime_actions:bool ->
   ?deduplicate_why3_terms:bool ->
   ?group_why3_product_steps:bool ->
+  ?why3_product_step_group_max_cost:int ->
   Ir.node_ir list ->
   obligations_outputs

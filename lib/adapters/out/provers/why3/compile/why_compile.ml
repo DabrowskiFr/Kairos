@@ -264,6 +264,10 @@ let product_step_helper_name ~(index : int)
     (step_class_suffix step.step_class)
     index
 
+let product_step_class_name = function
+  | Why_runtime_view.StepSafe -> "safe"
+  | Why_runtime_view.StepBadGuarantee -> "bad-guarantee"
+
 let product_step_group_helper_name ~(index : int)
     (step : Why_runtime_view.runtime_product_transition_view) =
   let step_class_suffix = function
@@ -715,6 +719,7 @@ let compile_node_with_info ?kernel_ir
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     ?(group_why3_product_steps = true)
+    ?(why3_product_step_group_max_cost = 0)
     (info : env_info) :
     (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   let runtime_view = info.runtime_view in
@@ -967,6 +972,13 @@ let compile_node_with_info ?kernel_ir
       Hashtbl.find_opt shared_formula_table (formula_key formula)
       |> Option.map (fun (name, params, _, use_self) ->
              shared_formula_call name params use_self)
+  in
+  let abstract_formula_with_rec rec_name (formula : Core_syntax.hexpr) =
+    if not share_why3_facts then None
+    else
+      Hashtbl.find_opt shared_formula_table (formula_key formula)
+      |> Option.map (fun (name, params, _, use_self) ->
+             shared_formula_call_with_rec rec_name name params use_self)
   in
   let emit_local_unfolded_cuts = false in
   let local_cut_candidate (formula : Core_syntax.hexpr) =
@@ -1511,12 +1523,19 @@ let compile_node_with_info ?kernel_ir
     (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
   in
   let formula_term_with_rec ~in_post rec_name logic =
-    let local_env = { env with rec_name } in
     let normalized =
       if simplify_why3_formulas then Core_fo_simplifier.simplify logic
       else logic
     in
-    compile_local_fo_formula_term ~in_post local_env normalized
+    match abstract_formula_with_rec rec_name logic with
+    | Some term -> term
+    | None -> begin
+        match abstract_formula_with_rec rec_name normalized with
+        | Some term -> term
+        | None ->
+            let local_env = { env with rec_name } in
+            compile_local_fo_formula_term ~in_post local_env normalized
+      end
   in
   let state_guard_with_rec rec_name state_name =
     let local_env = { env with rec_name } in
@@ -1543,22 +1562,21 @@ let compile_node_with_info ?kernel_ir
     in
     forbidden @ ensures
   in
-  let build_grouped_kernel_helper group_index entries =
-    let (first_i, (first_sc : Why_contracts.step_contract_info), first_t) =
-      List.hd entries
-    in
-    let helper_name =
-      ident (product_step_group_helper_name ~index:group_index first_sc.step)
-    in
-    let pre_term =
+  let pre_vars_name = "__pre_vars" in
+  let post_vars_name = "__post_vars" in
+  let unique_term_count terms =
+    terms
+    |> List.map string_of_term
+    |> List.sort_uniq String.compare
+    |> List.length
+  in
+  let grouped_kernel_terms entries =
+    let pre_terms =
       entries
       |> List.map (fun (_i, sc, _t) ->
              step_pre_terms_with_rec env.rec_name sc |> term_and_list)
-      |> term_or_list
     in
-    let pre_vars_name = "__pre_vars" in
-    let post_vars_name = "__post_vars" in
-    let post_pred_name = helper_name.id_str ^ "_post" in
+    let pre_term = pre_terms |> term_or_list in
     let grouped_post_preconditions =
       let groups = Hashtbl.create 16 in
       let order = ref [] in
@@ -1584,6 +1602,130 @@ let compile_node_with_info ?kernel_ir
       grouped_post_preconditions
       |> List.map (fun (pre, post) -> term_implies pre post)
       |> term_and_list
+    in
+    let post_terms =
+      grouped_post_preconditions |> List.map (fun (_pre, post) -> post)
+    in
+    let pre_text_bytes = String.length (string_of_term pre_term) in
+    let post_text_bytes = String.length (string_of_term post_body) in
+    ( pre_term,
+      post_body,
+      unique_term_count pre_terms,
+      unique_term_count post_terms,
+      List.length grouped_post_preconditions,
+      pre_text_bytes,
+      post_text_bytes,
+      pre_text_bytes + post_text_bytes )
+  in
+  let group_entry_profile ((_, sc, _) as entry) =
+    let pre_current =
+      step_pre_terms_with_rec env.rec_name sc |> term_and_list
+    in
+    let pre_snapshot =
+      step_pre_terms_with_rec pre_vars_name sc |> term_and_list
+    in
+    let post_snapshot =
+      step_post_terms_with_rec post_vars_name sc |> term_and_list
+    in
+    let pre_current_s = string_of_term pre_current in
+    let pre_snapshot_s = string_of_term pre_snapshot in
+    let post_snapshot_s = string_of_term post_snapshot in
+    ( entry,
+      pre_current_s,
+      String.length pre_current_s,
+      pre_snapshot_s,
+      String.length pre_snapshot_s,
+      post_snapshot_s,
+      String.length post_snapshot_s )
+  in
+  let profile_entry (entry, _pre_current_s, _pre_current_bytes,
+      _pre_snapshot_s, _pre_snapshot_bytes, _post_snapshot_s,
+      _post_snapshot_bytes) =
+    entry
+  in
+  let profiled_group_cost profiles =
+    let pre_bytes =
+      profiles
+      |> List.fold_left
+           (fun acc (_entry, _pre_current_s, pre_current_bytes,
+                _pre_snapshot_s, _pre_snapshot_bytes, _post_snapshot_s,
+                _post_snapshot_bytes) ->
+             acc + pre_current_bytes)
+           0
+    in
+    let post_groups = Hashtbl.create 16 in
+    profiles
+    |> List.iter
+         (fun (_entry, _pre_current_s, _pre_current_bytes, _pre_snapshot_s,
+              pre_snapshot_bytes, post_snapshot_s, post_snapshot_bytes) ->
+           let previous_pre_bytes, previous_post_bytes =
+             Hashtbl.find_opt post_groups post_snapshot_s
+             |> Option.value ~default:(0, post_snapshot_bytes)
+           in
+           Hashtbl.replace post_groups post_snapshot_s
+             (previous_pre_bytes + pre_snapshot_bytes, previous_post_bytes));
+    pre_bytes
+    + (post_groups
+      |> Hashtbl.to_seq_values
+      |> Seq.fold_left
+           (fun acc (pre_snapshot_bytes, post_snapshot_bytes) ->
+             acc + pre_snapshot_bytes + post_snapshot_bytes)
+           0)
+  in
+  let product_source_label (state : Ir.product_state) =
+    Printf.sprintf "%s/a%d/g%d" state.prog_state state.assume_state_index
+      state.guarantee_state_index
+  in
+  let record_group_metrics ~group_name ~emitted_as_group ~split_due_to_cost
+      ~entries ~distinct_pre_count ~distinct_post_count ~post_implication_count
+      ~pre_text_bytes ~post_text_bytes ~estimated_cost =
+    let (_first_i, (first_sc : Why_contracts.step_contract_info), _first_t) =
+      List.hd entries
+    in
+    External_timing.record_why3_product_group
+      {
+        group_name;
+        node_name = runtime_view.node_name;
+        transition_id = first_sc.step.transition_id;
+        step_class = product_step_class_name first_sc.step.step_class;
+        source_state = product_source_label first_sc.step.product_src;
+        emitted_as_group;
+        split_due_to_cost;
+        edge_count = List.length entries;
+        distinct_pre_count;
+        distinct_post_count;
+        post_implication_count;
+        pre_text_bytes;
+        post_text_bytes;
+        estimated_cost;
+        max_cost = why3_product_step_group_max_cost;
+      }
+  in
+  let build_grouped_kernel_helper ~split_due_to_cost entries =
+    let (first_i, (first_sc : Why_contracts.step_contract_info), first_t) =
+      List.hd entries
+    in
+    let helper_name =
+      ident (product_step_group_helper_name ~index:first_i first_sc.step)
+    in
+    let post_pred_name = helper_name.id_str ^ "_post" in
+    let ( pre_term,
+          post_body,
+          distinct_pre_count,
+          distinct_post_count,
+          post_implication_count,
+          pre_text_bytes,
+          post_text_bytes,
+          estimated_cost ) =
+      grouped_kernel_terms entries
+    in
+    record_group_metrics ~group_name:helper_name.id_str ~emitted_as_group:true
+      ~split_due_to_cost ~entries ~distinct_pre_count ~distinct_post_count
+      ~post_implication_count ~pre_text_bytes ~post_text_bytes ~estimated_cost;
+    let local_shared_decls =
+      [ pre_term; post_body ]
+      |> shared_formula_names_in_terms
+      |> local_shared_formula_decls
     in
     let post_used_names = names_of_term post_body StringSet.empty in
     let post_input_binders =
@@ -1656,9 +1798,47 @@ let compile_node_with_info ?kernel_ir
       helper_binders_without_unused_parameters inputs spc helper_body
     in
     let fn = helper_function helper_inputs spc helper_body in
-    let _ = first_i in
     ( helper_name.id_str,
-      [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+      local_shared_decls
+      @ [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+  in
+  let split_group_by_cost entries =
+    if why3_product_step_group_max_cost <= 0 then [ entries ]
+    else
+      let profiles = List.map group_entry_profile entries in
+      let rec loop chunks current_rev rest =
+        match rest with
+        | [] ->
+            let chunks =
+              match current_rev with
+              | [] -> chunks
+              | _ -> (List.rev current_rev |> List.map profile_entry) :: chunks
+            in
+            List.rev chunks
+        | profile :: tail ->
+            let candidate = List.rev (profile :: current_rev) in
+            if current_rev <> []
+               && profiled_group_cost candidate
+                  > why3_product_step_group_max_cost
+            then
+              let chunk = List.rev current_rev |> List.map profile_entry in
+              loop (chunk :: chunks) [ profile ] tail
+            else loop chunks (profile :: current_rev) tail
+      in
+      loop [] [] profiles
+  in
+  let record_singleton_split_chunk ~split_due_to_cost i sc t =
+    let entries = [ (i, sc, t) ] in
+    let (_pre_term, _post_body, distinct_pre_count, distinct_post_count,
+         post_implication_count, pre_text_bytes, post_text_bytes,
+         estimated_cost) =
+      grouped_kernel_terms entries
+    in
+    record_group_metrics
+      ~group_name:(product_step_helper_name ~index:i sc.step)
+      ~emitted_as_group:false ~split_due_to_cost ~entries ~distinct_pre_count
+      ~distinct_post_count ~post_implication_count ~pre_text_bytes
+      ~post_text_bytes ~estimated_cost
   in
   let group_kernel_helpers indexed_contracts =
     let indexed_transitions =
@@ -1683,7 +1863,7 @@ let compile_node_with_info ?kernel_ir
         Hashtbl.replace groups key (entry :: previous))
       indexed_transitions;
     List.rev !order
-    |> List.mapi (fun group_index key ->
+    |> List.concat_map (fun key ->
            let entries = Hashtbl.find groups key |> List.rev in
            let groupable =
              group_why3_product_steps
@@ -1693,11 +1873,20 @@ let compile_node_with_info ?kernel_ir
                     sc.local_cuts = [])
                   entries
            in
-           if groupable then [ build_grouped_kernel_helper group_index entries ]
+           if groupable then
+             let chunks = split_group_by_cost entries in
+             let split_due_to_cost = List.length chunks > 1 in
+             chunks
+             |> List.concat_map (function
+                  | [] -> []
+                  | [ (i, sc, t) ] ->
+                      record_singleton_split_chunk ~split_due_to_cost i sc t;
+                      [ build_individual_kernel_helper (i, sc) ]
+                  | chunk ->
+                      [ build_grouped_kernel_helper ~split_due_to_cost chunk ])
            else
              entries
              |> List.map (fun (i, sc, _t) -> build_individual_kernel_helper (i, sc)))
-    |> List.concat
   in
   let kernel_step_helper_units =
     if not use_product_helper_contracts then []
@@ -1894,11 +2083,12 @@ let compile_node_from_ir_node
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     ?(group_why3_product_steps = true)
+    ?(why3_product_step_group_max_cost = 0)
     (node : Ir.node_ir) :
     (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   compile_node_with_info ~share_why3_facts ~simplify_why3_formulas
     ~simplify_why3_runtime_actions ~deduplicate_why3_terms
-    ~group_why3_product_steps
+    ~group_why3_product_steps ~why3_product_step_group_max_cost
     (prepare_ir_node ~simplify_why3_runtime_actions ~slice_why3_transition_bodies node)
 
 (** [compile_program_ast_from_ir_nodes] helper value. *)
@@ -1910,12 +2100,14 @@ let compile_program_ast_from_ir_nodes
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
     ?(group_why3_product_steps = true)
+    ?(why3_product_step_group_max_cost = 0)
     (program_nodes : Ir.node_ir list) : program_ast =
   let modules =
     List.concat_map
       (compile_node_from_ir_node ~share_why3_facts ~simplify_why3_formulas
          ~slice_why3_transition_bodies ~simplify_why3_runtime_actions
-         ~deduplicate_why3_terms ~group_why3_product_steps)
+         ~deduplicate_why3_terms ~group_why3_product_steps
+         ~why3_product_step_group_max_cost)
       program_nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _) -> (a, c)) modules) in

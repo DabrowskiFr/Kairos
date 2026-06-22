@@ -724,6 +724,8 @@ let proof_optimizations_json (opts : Pipeline_types.proof_optimizations) =
       ("simplify_why3_runtime_actions", json_bool opts.simplify_why3_runtime_actions);
       ("deduplicate_why3_terms", json_bool opts.deduplicate_why3_terms);
       ("group_why3_product_steps", json_bool opts.group_why3_product_steps);
+      ( "why3_product_step_group_max_cost",
+        json_int opts.why3_product_step_group_max_cost );
     ]
 
 let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =

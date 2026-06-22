@@ -61,6 +61,7 @@ module Why_text = struct
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms
         ~group_why3_product_steps:opts.group_why3_product_steps
+        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
         instrumentation
     in
     Why_text_render.emit_program_ast why_ast
@@ -115,6 +116,7 @@ module Obligations = struct
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
         ~deduplicate_why3_terms:opts.deduplicate_why3_terms
         ~group_why3_product_steps:opts.group_why3_product_steps
+        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
         instrumentation
     in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
@@ -233,6 +235,27 @@ module Timing = struct
               unique_inserted_count = family.unique_inserted_count;
             })
           d.ir_fact_families;
+      why3_product_groups =
+        List.map
+          (fun (group : External_timing.why3_product_group_snapshot) ->
+            {
+              Application_ports.group_name = group.group_name;
+              node_name = group.node_name;
+              transition_id = group.transition_id;
+              step_class = group.step_class;
+              source_state = group.source_state;
+              emitted_as_group = group.emitted_as_group;
+              split_due_to_cost = group.split_due_to_cost;
+              edge_count = group.edge_count;
+              distinct_pre_count = group.distinct_pre_count;
+              distinct_post_count = group.distinct_post_count;
+              post_implication_count = group.post_implication_count;
+              pre_text_bytes = group.pre_text_bytes;
+              post_text_bytes = group.post_text_bytes;
+              estimated_cost = group.estimated_cost;
+              max_cost = group.max_cost;
+            })
+          d.why3_product_groups;
     }
 
   let record_frontend_parse = External_timing.record_frontend_parse
@@ -258,6 +281,7 @@ module Proof_events = struct
          ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
          ~deduplicate_why3_terms:opts.deduplicate_why3_terms
          ~group_why3_product_steps:opts.group_why3_product_steps
+         ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
          instrumentation)
         .Why_compile.mlw
     in
