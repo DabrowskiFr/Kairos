@@ -536,6 +536,22 @@ let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
       (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
     proof_traces
 
+let goals_of_goal_results (goal_results : proof_goal_result list) :
+    Pipeline_types.goal_info list =
+  List.map
+    (fun (result : proof_goal_result) ->
+      ( result.result_goal_name,
+        result.result_status,
+        result.result_time_s,
+        result.result_dump_path,
+        result.result_vcid ))
+    goal_results
+
+let proof_traces_needed (cfg : Pipeline_types.config) : bool =
+  cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
+  || cfg.generate_vc_text || cfg.generate_smt_text
+  || Option.is_some cfg.proof_progress_path
+
 let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     (run_output, Pipeline_types.error) result =
   try
@@ -545,7 +561,9 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       match cfg.proof_encoding with
       | Pipeline_types.Explicit_product -> cfg.proof_optimizations
     in
-    let attributions = build_attribution_table ~opts instrumentation in
+    let attributions =
+      lazy (build_attribution_table ~opts instrumentation)
+    in
     let why_ast =
       Why_compile.compile_program_ast_from_ir_nodes
         ~share_why3_facts:opts.share_why3_facts
@@ -603,8 +621,16 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       let vc_ids_ordered =
         List.map (fun goal -> goal.result_index + 1) goal_results
       in
-      let proof_traces = build_fast_proof_traces ~attributions goal_results in
-      let goals = goals_of_proof_traces proof_traces in
+      let proof_traces =
+        if proof_traces_needed cfg then
+          build_fast_proof_traces ~attributions:(Lazy.force attributions)
+            goal_results
+        else []
+      in
+      let goals =
+        if proof_traces = [] then goals_of_goal_results goal_results
+        else goals_of_proof_traces proof_traces
+      in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       Ok
         {
@@ -655,8 +681,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
-        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks ~attributions
-          ~goal_results ~vc_ids_ordered
+        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks
+          ~attributions:(Lazy.force attributions) ~goal_results ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in
       let goals = goals_of_proof_traces proof_traces in
