@@ -107,6 +107,7 @@ let ir_pass_name = function
   | Orchestration.Product_reachability_pass -> "product_reachability"
   | Orchestration.Post_pass -> "post"
   | Orchestration.Temporal_lower_pass -> "temporal_lower"
+  | Orchestration.Formula_sharing_pass -> "formula_sharing"
 
 let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
   External_timing.record_ir_fact_family
@@ -181,7 +182,8 @@ let build_snapshot_from_frontend
               External_timing.record_product_reachability ~elapsed_s
           | Orchestration.Post_pass -> External_timing.record_post ~elapsed_s
           | Orchestration.Temporal_lower_pass ->
-              External_timing.record_temporal_lower ~elapsed_s);
+              External_timing.record_temporal_lower ~elapsed_s
+          | Orchestration.Formula_sharing_pass -> ());
           Option.iter
             (fun before ->
               let after_ = ir_size_metrics result in

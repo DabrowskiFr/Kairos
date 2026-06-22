@@ -18,5 +18,6 @@
   product_reachability
   post
   temporal_lower
+  formula_sharing
   orchestration)
  (libraries kairos_domain_core))

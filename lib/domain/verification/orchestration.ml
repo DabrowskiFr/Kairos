@@ -41,6 +41,7 @@ type instrumented_ir_pass =
   | Product_reachability_pass
   | Post_pass
   | Temporal_lower_pass
+  | Formula_sharing_pass
 
 (** [build_initial_ir] helper value. *)
 
@@ -63,6 +64,7 @@ let build_instrumented_ir
     |> run_pass Product_reachability_pass Product_reachability.run_program
     |> run_pass Post_pass (Post.run_program ?observe_family:observe_fact_family)
     |> run_pass Temporal_lower_pass Temporal_lower.run_program
+    |> run_pass Formula_sharing_pass Formula_sharing.run_program
   in
   ({ nodes } : Ir.program_ir)
 

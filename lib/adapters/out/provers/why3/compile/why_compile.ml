@@ -804,40 +804,7 @@ let compile_node_with_info ?kernel_ir
            | _ -> None)
   in
   let formula_key (formula : Core_syntax.hexpr) =
-    let binop_key = function
-      | Add -> "add"
-      | Sub -> "sub"
-      | Mul -> "mul"
-      | Div -> "div"
-      | And -> "and"
-      | Or -> "or"
-    in
-    let unop_key = function Neg -> "neg" | Not -> "not" in
-    let relop_key = function
-      | REq -> "eq"
-      | RNeq -> "neq"
-      | RLt -> "lt"
-      | RLe -> "le"
-      | RGt -> "gt"
-      | RGe -> "ge"
-    in
-    let rec go h =
-      match h.hexpr with
-      | HLitInt n -> "i:" ^ string_of_int n
-      | HLitBool b -> "b:" ^ string_of_bool b
-      | HLitEnum c -> "e:" ^ c
-      | HVar v -> "v:" ^ v
-      | HPreK (v, k) -> "pre:" ^ v ^ ":" ^ string_of_int k
-      | HPred (id, hs) -> "pred:" ^ id ^ "(" ^ String.concat "," (List.map go hs) ^ ")"
-      | HFunCall (fn, hs) ->
-          "fun:" ^ fn ^ "(" ^ String.concat "," (List.map go hs) ^ ")"
-      | HUn (op, inner) -> "un:" ^ unop_key op ^ "(" ^ go inner ^ ")"
-      | HBin (op, a, b) ->
-          "bin:" ^ binop_key op ^ "(" ^ go a ^ "," ^ go b ^ ")"
-      | HCmp (op, a, b) ->
-          "cmp:" ^ relop_key op ^ "(" ^ go a ^ "," ^ go b ^ ")"
-    in
-    go formula
+    Core_fo_simplifier.key_of_hexpr formula
   in
   let shared_formula_stats : (string, Core_syntax.hexpr * int * StringSet.t) Hashtbl.t =
     Hashtbl.create 128
