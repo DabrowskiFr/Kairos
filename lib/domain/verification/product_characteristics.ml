@@ -29,10 +29,106 @@ type entry = {
   post_disjuncts : Core_syntax.hexpr list;
 }
 
-type t = { entries : entry list }
+type t = {
+  entries : entry list;
+  by_state : (string, entry) Hashtbl.t;
+}
+
+let build_cache_limit = 64
+let build_cache : (string, t) Hashtbl.t = Hashtbl.create 16
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
+
+let product_state_key (st : Abs.product_state) =
+  Printf.sprintf "%s/a%d/g%d" st.prog_state st.assume_state_index
+    st.guarantee_state_index
+
+let formula_raw_key (f : Core_syntax.hexpr) : string =
+  Core_fo_simplifier.key_of_hexpr f
+
+let guard_expr_key = function
+  | None -> "true"
+  | Some guard -> guard |> hexpr_of_expr |> formula_raw_key
+
+let transition_key (t : Abs.transition) =
+  String.concat "|"
+    [ t.src_state; t.dst_state; guard_expr_key t.guard_expr ]
+
+let state_invariant_lookup (node : Abs.node_ir) :
+    ident -> Core_syntax.hexpr list =
+  let by_state = Hashtbl.create 16 in
+  List.iter
+    (fun (inv : Abs.state_invariant) ->
+      let existing =
+        Hashtbl.find_opt by_state inv.state |> Option.value ~default:[]
+      in
+      Hashtbl.replace by_state inv.state (inv.formula :: existing))
+    node.source_info.state_invariants;
+  fun state ->
+    Hashtbl.find_opt by_state state
+    |> Option.value ~default:[]
+    |> List.sort_uniq Stdlib.compare
+
+let build_cache_key (node : Abs.node_ir) : string =
+  (* The characteristic analysis reads only the node signature, input names,
+     invariants, product identity, program guards, and safe/unsafe product
+     cases. Generated requires/ensures are deliberately absent so Pre and Post
+     can reuse the same characteristics after earlier enrichment passes. *)
+  let input_names =
+    node.semantics.sem_inputs
+    |> List.map (fun (v : vdecl) -> v.vname)
+    |> List.sort_uniq String.compare
+    |> String.concat ";"
+  in
+  let state_invariants =
+    node.source_info.state_invariants
+    |> List.map (fun (inv : Abs.state_invariant) ->
+           String.concat ":" [ inv.state; formula_raw_key inv.formula ])
+    |> List.sort_uniq String.compare
+    |> String.concat ";"
+  in
+  let case_state_key dst guard =
+    product_state_key dst ^ ":" ^ formula_raw_key guard
+  in
+  let summaries =
+    node.summaries
+    |> List.map (fun (pc : Abs.product_step_summary) ->
+           let safe_cases =
+             pc.safe_cases
+             |> List.map (fun (case : Abs.safe_product_case) ->
+                    case_state_key case.product_dst
+                      case.admissible_guard.logic)
+             |> List.sort_uniq String.compare
+             |> String.concat ","
+           in
+           let unsafe_cases =
+             pc.unsafe_cases
+             |> List.map (fun (case : Abs.unsafe_product_case) ->
+                    case_state_key case.product_dst
+                      case.excluded_guard.logic)
+             |> List.sort_uniq String.compare
+             |> String.concat ","
+           in
+           String.concat "#"
+             [
+               product_state_key pc.identity.product_src;
+               transition_key pc.identity.program_step;
+               formula_raw_key pc.identity.assume_guard;
+               safe_cases;
+               unsafe_cases;
+             ])
+    |> List.sort_uniq String.compare
+    |> String.concat "\n"
+  in
+  String.concat "\n"
+    [
+      node.semantics.sem_nname;
+      node.semantics.sem_init_state;
+      input_names;
+      state_invariants;
+      summaries;
+    ]
 
 let is_htrue (f : Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool true -> true | _ -> false
@@ -184,18 +280,13 @@ let add_incoming ~src dst ~guard_formula ~program_entry_formula
   in
   loop [] incoming
 
-let invariants_of_state (n : Abs.node_ir) (state : ident) : Core_syntax.hexpr list =
-  n.source_info.state_invariants
-  |> List.filter_map (fun (inv : Abs.state_invariant) ->
-         if String.equal inv.state state then Some inv.formula else None)
-  |> List.sort_uniq Stdlib.compare
-
-let states_with_nontrivial_bad_guarantee_outgoing (node : Abs.node_ir) :
+let states_with_nontrivial_bad_guarantee_outgoing ~invariants_of_state
+    (node : Abs.node_ir) :
     Abs.product_state list =
   node.summaries
   |> List.filter (fun (pc : Abs.product_step_summary) ->
          let state_invariants =
-           invariants_of_state node pc.identity.product_src.prog_state
+           invariants_of_state pc.identity.product_src.prog_state
          in
          List.exists
            (fun (case : Abs.unsafe_product_case) ->
@@ -211,11 +302,20 @@ let needs_program_characteristic
     (st : Abs.product_state) : bool =
   List.exists (same_product_state st) bad_guarantee_sources
 
-let build ~(node : Abs.node_ir) : t =
+let build_table entries =
+  let by_state = Hashtbl.create (List.length entries * 2 + 1) in
+  List.iter
+    (fun (entry : entry) ->
+      Hashtbl.replace by_state (product_state_key entry.product_state) entry)
+    entries;
+  { entries; by_state }
+
+let build_uncached ~(node : Abs.node_ir) : t =
   let is_input = is_input_of_node node in
   let initial_product_state = infer_initial_product_state node in
+  let invariants_of_state = state_invariant_lookup node in
   let bad_guarantee_sources =
-    states_with_nontrivial_bad_guarantee_outgoing node
+    states_with_nontrivial_bad_guarantee_outgoing ~invariants_of_state node
   in
   let incoming =
     List.fold_left
@@ -277,10 +377,21 @@ let build ~(node : Abs.node_ir) : t =
                    else Some { product_state = dst; entry_fact; post_disjuncts })
     |> List.sort_uniq Stdlib.compare
   in
-  { entries }
+  build_table entries
+
+let build ~(node : Abs.node_ir) : t =
+  let key = build_cache_key node in
+  match Hashtbl.find_opt build_cache key with
+  | Some cached -> cached
+  | None ->
+      let built = build_uncached ~node in
+      if Hashtbl.length build_cache >= build_cache_limit then
+        Hashtbl.clear build_cache;
+      Hashtbl.replace build_cache key built;
+      built
 
 let entry_of_product_state (t : t) (st : Abs.product_state) : entry option =
-  List.find_opt (fun entry -> same_product_state st entry.product_state) t.entries
+  Hashtbl.find_opt t.by_state (product_state_key st)
 
 let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
     Core_syntax.hexpr list =
