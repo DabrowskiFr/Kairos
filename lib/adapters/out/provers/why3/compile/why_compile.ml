@@ -889,8 +889,10 @@ let compile_node_with_info ?kernel_ir
         in
         add_summary_formulas ~scope pc.requires;
         add_summary_formulas ~scope pc.local_requires;
-        add_summary_formulas ~scope pc.ensures;
-        add_summary_formulas ~scope pc.forbidden)
+        (* Forbidden facts are emitted transparently under negation.  Recording
+           them here would create shared predicates that the proof path no
+           longer calls. *)
+        add_summary_formulas ~scope pc.ensures)
       runtime_view.product_transitions;
   if share_why3_facts then
     Hashtbl.to_seq shared_formula_stats
@@ -1522,20 +1524,24 @@ let compile_node_with_info ?kernel_ir
   let predicate_param_of_name name =
     (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
   in
-  let formula_term_with_rec ~in_post rec_name logic =
+  let formula_term_with_rec ?(allow_shared = true) ~in_post rec_name logic =
     let normalized =
       if simplify_why3_formulas then Core_fo_simplifier.simplify logic
       else logic
     in
-    match abstract_formula_with_rec rec_name logic with
-    | Some term -> term
-    | None -> begin
-        match abstract_formula_with_rec rec_name normalized with
-        | Some term -> term
-        | None ->
-            let local_env = { env with rec_name } in
-            compile_local_fo_formula_term ~in_post local_env normalized
-      end
+    if allow_shared then
+      match abstract_formula_with_rec rec_name logic with
+      | Some term -> term
+      | None -> begin
+          match abstract_formula_with_rec rec_name normalized with
+          | Some term -> term
+          | None ->
+              let local_env = { env with rec_name } in
+              compile_local_fo_formula_term ~in_post local_env normalized
+        end
+    else
+      let local_env = { env with rec_name } in
+      compile_local_fo_formula_term ~in_post local_env normalized
   in
   let state_guard_with_rec rec_name state_name =
     let local_env = { env with rec_name } in
@@ -1553,7 +1559,8 @@ let compile_node_with_info ?kernel_ir
       |> List.map (fun (formula : Ir.summary_formula) ->
              mk_term
                (Tnot
-                  (formula_term_with_rec ~in_post:true rec_name formula.logic)))
+                  (formula_term_with_rec ~allow_shared:false ~in_post:true
+                     rec_name formula.logic)))
     in
     let ensures =
       sc.step.ensures
@@ -1865,9 +1872,19 @@ let compile_node_with_info ?kernel_ir
     List.rev !order
     |> List.concat_map (fun key ->
            let entries = Hashtbl.find groups key |> List.rev in
+           let group_is_safe =
+             match entries with
+             | [] -> false
+             | (_i, (sc : Why_contracts.step_contract_info), _t) :: _ ->
+                 sc.step.step_class = Why_runtime_view.StepSafe
+           in
            let groupable =
              group_why3_product_steps
              && List.length entries > 1
+             (* Bad-guarantee groups are small and dominated by large negated
+                exclusions; individual helpers are cheaper for SMT and keep
+                proof granularity finer. *)
+             && group_is_safe
              && List.for_all
                   (fun (_i, (sc : Why_contracts.step_contract_info), _t) ->
                     sc.local_cuts = [])

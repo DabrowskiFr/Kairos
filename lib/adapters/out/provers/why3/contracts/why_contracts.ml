@@ -271,7 +271,9 @@ let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term opt
            | c -> c)
   in
   let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
-    let term = compile_formula_term ~in_post:true f.logic in
+    (* Negated shared predicates are compact for Why3 but substantially harder
+       for SMT on exclusion VCs; keep forbidden facts transparent. *)
+    let term = compile_unshared_formula_term ~in_post:true f.logic in
     [ mk_term (Tnot term) ]
   in
   let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =

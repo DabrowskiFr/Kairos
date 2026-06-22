@@ -1002,7 +1002,8 @@ let cmd =
       value & flag
       & info [ "no-why3-product-step-grouping" ] ~docs:docs_proof
           ~doc:
-            "Disable grouping of product-step Why3 helpers by executable transition.")
+            "Disable grouping of safe product-step Why3 helpers by executable \
+             transition. Bad-guarantee exclusion helpers are kept individual.")
   in
   let why3_product_step_group_max_cost =
     Arg.(
