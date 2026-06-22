@@ -18,29 +18,42 @@
 
 open Why3
 
+let timed record f =
+  let t0 = Unix.gettimeofday () in
+  let result = f () in
+  record ~elapsed_s:(Unix.gettimeofday () -. t0);
+  result
+
 let ptree_of_text ~(filename : string) ~(text : string) : Ptree.mlw_file =
-  let lexbuf = Lexing.from_string text in
-  Loc.set_file filename lexbuf;
-  Lexer.parse_mlw_file lexbuf
+  timed External_timing.record_why3_parse (fun () ->
+      let lexbuf = Lexing.from_string text in
+      Loc.set_file filename lexbuf;
+      Lexer.parse_mlw_file lexbuf)
 
 let module_ptrees_of_ptree ptree = [ ptree ]
 
 (* Type un ptree Why3 et extrait les tâches top-level sans éclatement VC. *)
 let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
-  let modules = Typing.type_mlw_file env [] "<generated>" ptree in
-  Wstdlib.Mstr.fold
-    (fun _ m acc -> List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
-    modules []
-  |> List.rev
+  let modules =
+    timed External_timing.record_why3_typecheck (fun () ->
+        Typing.type_mlw_file env [] "<generated>" ptree)
+  in
+  timed External_timing.record_why3_task_extract (fun () ->
+      Wstdlib.Mstr.fold
+        (fun _ m acc ->
+          List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
+        modules []
+      |> List.rev)
 
 let tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) : Task.task list =
   List.concat_map (fun ptree -> tasks_of_ptree ~env ~ptree) ptrees
 
 let tasks_of_theories (theories : Theory.theory Wstdlib.Mstr.t) : Task.task list =
-  Wstdlib.Mstr.fold
-    (fun _ th acc -> List.rev_append (Task.split_theory th None None) acc)
-    theories []
-  |> List.rev
+  timed External_timing.record_why3_task_extract (fun () ->
+      Wstdlib.Mstr.fold
+        (fun _ th acc -> List.rev_append (Task.split_theory th None None) acc)
+        theories []
+      |> List.rev)
 
 let ensure_whyml_format_registered () =
   ignore (Lexer.parse_mlw_file : Lexing.lexbuf -> Ptree.mlw_file);
@@ -60,18 +73,23 @@ let read_theories_of_text ~(env : Env.env) ~(filename : string) ~(text : string)
     (fun () ->
       output_string oc text;
       close_out oc;
-      fst (Env.read_file Env.base_language env tmp))
+      timed External_timing.record_why3_typecheck (fun () ->
+          fst (Env.read_file Env.base_language env tmp)))
 
 let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
     Task.task list =
   let _ = filename in
   tasks_of_theories (read_theories_of_text ~env ~filename ~text)
 
+let split_vc_tasks ~(env : Env.env) (tasks : Task.task list) : Task.task list =
+  timed External_timing.record_why3_split_vc (fun () ->
+      List.concat_map (fun task -> Trans.apply_transform "split_vc" env task) tasks)
+
 (* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
    une liste stable d'obligations élémentaires. *)
 let normalize_tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
   tasks_of_ptree ~env ~ptree
-  |> List.concat_map (fun task -> Trans.apply_transform "split_vc" env task)
+  |> split_vc_tasks ~env
 
 let normalize_tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) :
     Task.task list =
@@ -80,7 +98,7 @@ let normalize_tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) :
 let normalize_tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
     Task.task list =
   tasks_of_text ~env ~filename ~text
-  |> List.concat_map (fun task -> Trans.apply_transform "split_vc" env task)
+  |> split_vc_tasks ~env
 
 (* Cherche un fichier de configuration Why3 explicite (env), puis sur les
    emplacements utilisateur habituels. *)
@@ -182,7 +200,9 @@ let setup_env () =
   match !setup_env_cache with
   | Some ctx -> ctx
   | None ->
-      let ctx = setup_env_uncached () in
+      let ctx =
+        timed External_timing.record_why3_setup (fun () -> setup_env_uncached ())
+      in
       setup_env_cache := Some ctx;
       ctx
 

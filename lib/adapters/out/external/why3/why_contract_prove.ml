@@ -23,7 +23,37 @@ type goal_proof_result = {
   goal_name : string;
   prover_result : Call_provers.prover_result;
   dump_path : string option;
+  timing : goal_timing;
 }
+
+and goal_timing = {
+  prepare_s : float;
+  print_s : float;
+  spawn_s : float;
+  wait_s : float;
+  solver_s : float;
+}
+
+let zero_goal_timing =
+  {
+    prepare_s = 0.0;
+    print_s = 0.0;
+    spawn_s = 0.0;
+    wait_s = 0.0;
+    solver_s = 0.0;
+  }
+
+let add_goal_timing left right =
+  {
+    prepare_s = left.prepare_s +. right.prepare_s;
+    print_s = left.print_s +. right.print_s;
+    spawn_s = left.spawn_s +. right.spawn_s;
+    wait_s = left.wait_s +. right.wait_s;
+    solver_s = left.solver_s +. right.solver_s;
+  }
+
+let goal_timing_with_prepare prepare_s =
+  { zero_goal_timing with prepare_s }
 
 type prover_handle = {
   driver : Driver.driver;
@@ -38,6 +68,28 @@ type goal_start_event = {
 type goal_done_event = {
   goal_index : int;
   result : goal_proof_result;
+}
+
+type worker_to_parent =
+  | Worker_started of {
+      task_index : int;
+      goal_name : string;
+      fingerprint : string;
+    }
+  | Worker_result of {
+      task_index : int;
+      fingerprint : string;
+      result : goal_proof_result;
+    }
+  | Worker_done of
+      External_timing.why3_worker_snapshot * External_timing.snapshot
+  | Worker_failed of string * External_timing.snapshot
+
+type proof_worker = {
+  worker_id : int;
+  worker_pid : int;
+  worker_input : in_channel;
+  worker_fd : Unix.file_descr;
 }
 
 let answer_status = function
@@ -72,17 +124,63 @@ let dump_failed_task_buffer ~(task_index : int) ~(buffer : Buffer.t) : string =
   tmp
 
 let dump_path_of_prover_answer 
+    ~(dump_failed_smt : bool)
     ~(task_index : int) 
     ~(prover_result : Call_provers.prover_result)
     ~(buffer : Buffer.t) : string option =
-      if prover_result.pr_answer = Call_provers.Valid then None
+      if (not dump_failed_smt) || prover_result.pr_answer = Call_provers.Valid then None
       else Some (dump_failed_task_buffer ~task_index ~buffer)
+
+let strip_smt_named_attributes (line : string) : string =
+  let named = ":named" in
+  let named_len = String.length named in
+  let line_len = String.length line in
+  let is_space = function ' ' | '\t' | '\r' | '\n' -> true | _ -> false in
+  let rec starts_with_at i =
+    i + named_len <= line_len
+    && String.sub line i named_len = named
+    && (i = 0 || is_space line.[i - 1] || line.[i - 1] = '(')
+    && (i + named_len = line_len
+       || is_space line.[i + named_len]
+       || line.[i + named_len] = ')')
+  in
+  let rec skip_spaces i =
+    if i < line_len && is_space line.[i] then skip_spaces (i + 1) else i
+  in
+  let skip_symbol i =
+    if i < line_len && line.[i] = '|' then
+      let rec skip_bar j =
+        if j >= line_len then j
+        else if line.[j] = '|' then j + 1
+        else skip_bar (j + 1)
+      in
+      skip_bar (i + 1)
+    else
+      let rec skip_plain j =
+        if j >= line_len || is_space line.[j] || line.[j] = ')' then j
+        else skip_plain (j + 1)
+      in
+      skip_plain i
+  in
+  let buffer = Buffer.create line_len in
+  let rec loop i =
+    if i >= line_len then ()
+    else if starts_with_at i then (
+      Buffer.add_string buffer ":named _";
+      loop (skip_symbol (skip_spaces (i + named_len))))
+    else (
+      Buffer.add_char buffer line.[i];
+      loop (i + 1))
+  in
+  loop 0;
+  Buffer.contents buffer
 
 let smt_fingerprint (text : string) : string =
   text |> String.split_on_char '\n'
   |> List.filter (fun line ->
          let trimmed = String.trim line in
          trimmed <> "" && not (String.starts_with ~prefix:";" trimmed))
+  |> List.map strip_smt_named_attributes
   |> String.concat "\n"
 
 let duplicate_detail_for_goal ~(goal_name : string)
@@ -91,7 +189,15 @@ let duplicate_detail_for_goal ~(goal_name : string)
     detail with
     goal_name;
     prover_result = { detail.prover_result with Call_provers.pr_time = 0.0 };
+    timing = zero_goal_timing;
   }
+
+let prepare_task_with_timing ~(driver : Driver.driver) task =
+  let t_prepare = Unix.gettimeofday () in
+  let prepared = Driver.prepare_task driver task in
+  External_timing.record_why3_prepare
+    ~elapsed_s:(Unix.gettimeofday () -. t_prepare);
+  prepared
 
 let print_prepared_task ~(handle : prover_handle) ~(prepared : Task.task) =
   let buffer = Buffer.create 4096 in
@@ -99,10 +205,11 @@ let print_prepared_task ~(handle : prover_handle) ~(prepared : Task.task) =
   let t_print = Unix.gettimeofday () in
   let printing_info = Driver.print_task_prepared handle.driver fmt prepared in
   Format.pp_print_flush fmt ();
-  External_timing.record_why3_print
-    ~elapsed_s:(Unix.gettimeofday () -. t_print);
+  let print_s = Unix.gettimeofday () -. t_print in
+  External_timing.record_why3_print ~elapsed_s:print_s;
   let fingerprint = smt_fingerprint (Buffer.contents buffer) in
-  (buffer, fingerprint, printing_info)
+  External_timing.record_why3_smt_fingerprint fingerprint;
+  (buffer, fingerprint, printing_info, print_s)
 
 let spawn_prover_call
     ~(why3_main : Whyconf.main)
@@ -116,9 +223,9 @@ let spawn_prover_call
     Driver.prove_buffer_prepared ~command:handle.command ~config:why3_main
       ~limits ~goal_name ~get_model:printing_info handle.driver buffer
   in
-  External_timing.record_why3_spawn
-    ~elapsed_s:(Unix.gettimeofday () -. t_spawn);
-  call
+  let spawn_s = Unix.gettimeofday () -. t_spawn in
+  External_timing.record_why3_spawn ~elapsed_s:spawn_s;
+  (call, spawn_s)
 
 let start_prover_call
     ~(why3_main : Whyconf.main)
@@ -126,20 +233,27 @@ let start_prover_call
     ~(handle : prover_handle)
     ~(prepared : Task.task)
     ~(goal_name : string) =
-  let buffer, fingerprint, printing_info = print_prepared_task ~handle ~prepared in
-  let call =
+  let buffer, fingerprint, printing_info, print_s =
+    print_prepared_task ~handle ~prepared
+  in
+  let call, spawn_s =
     spawn_prover_call ~why3_main ~limits ~handle ~goal_name ~buffer
       ~printing_info
   in
-  (call, buffer, fingerprint)
+  (call, buffer, fingerprint, { zero_goal_timing with print_s; spawn_s })
 
 let wait_on_prover_call call =
   let t_wait = Unix.gettimeofday () in
   let result = Call_provers.wait_on_call call in
-  External_timing.record_why3_wait
-    ~elapsed_s:(Unix.gettimeofday () -. t_wait)
+  let wait_s = Unix.gettimeofday () -. t_wait in
+  External_timing.record_why3_wait ~elapsed_s:wait_s
     ~solver_s:result.Call_provers.pr_time;
-  result
+  ( result,
+    {
+      zero_goal_timing with
+      wait_s;
+      solver_s = result.Call_provers.pr_time;
+    } )
 
 let run_prepared_task
     ~(why3_main : Whyconf.main)
@@ -147,10 +261,11 @@ let run_prepared_task
     ~(handle : prover_handle)
   ~(prepared : Task.task)
   ~(goal_name : string) =
-  let call, buffer, _fingerprint =
+  let call, buffer, _fingerprint, timing =
     start_prover_call ~why3_main ~limits ~handle ~prepared ~goal_name
   in
-  (wait_on_prover_call call, buffer)
+  let result, wait_timing = wait_on_prover_call call in
+  (result, buffer, add_goal_timing timing wait_timing)
 
 let result_after_optional_fallback
     ~(why3_main : Whyconf.main)
@@ -158,34 +273,37 @@ let result_after_optional_fallback
     ~(primary_result : Call_provers.prover_result)
     ~(primary_buffer : Buffer.t)
     ~(fallback : prover_handle option)
+    ~(dump_failed_smt : bool)
     ~(task_index : int)
     ~(prepared : Task.task)
-    ~(goal_name : string) : goal_proof_result =
+    ~(goal_name : string)
+    ~(timing : goal_timing) : goal_proof_result =
   match (primary_result.Call_provers.pr_answer, fallback) with
   | Call_provers.Valid, _ ->
-      { goal_name; prover_result = primary_result; dump_path = None }
+      { goal_name; prover_result = primary_result; dump_path = None; timing }
   | _, Some fallback_handle -> (
       External_timing.record_why3_fallback ();
-      let fallback_result, fallback_buffer =
+      let fallback_result, fallback_buffer, fallback_timing =
         run_prepared_task ~why3_main ~limits ~handle:fallback_handle ~prepared
           ~goal_name
       in
+      let timing = add_goal_timing timing fallback_timing in
       match fallback_result.Call_provers.pr_answer with
       | Call_provers.Valid ->
-          { goal_name; prover_result = fallback_result; dump_path = None }
+          { goal_name; prover_result = fallback_result; dump_path = None; timing }
       | _ ->
           let dump_path =
-            dump_path_of_prover_answer ~task_index ~prover_result:primary_result
-              ~buffer:primary_buffer
+            dump_path_of_prover_answer ~dump_failed_smt ~task_index
+              ~prover_result:primary_result ~buffer:primary_buffer
           in
           let _ = fallback_buffer in
-          { goal_name; prover_result = primary_result; dump_path })
+          { goal_name; prover_result = primary_result; dump_path; timing })
   | _, None ->
       let dump_path =
-        dump_path_of_prover_answer ~task_index ~prover_result:primary_result
-          ~buffer:primary_buffer
+        dump_path_of_prover_answer ~dump_failed_smt ~task_index
+          ~prover_result:primary_result ~buffer:primary_buffer
       in
-      { goal_name; prover_result = primary_result; dump_path }
+      { goal_name; prover_result = primary_result; dump_path; timing }
 
 (* Prove one prepared normalized task and return its detailed result. *)
 let prove_one_task_with_details 
@@ -193,14 +311,218 @@ let prove_one_task_with_details
     ~(limits : Call_provers.resource_limits) 
     ~(primary : prover_handle)
     ~(fallback : prover_handle option)
-    ~(task_index : int)
-    ~(prepared : Task.task) 
-    ~(goal_name : string) : goal_proof_result =
-  let primary_result, primary_buffer =
+  ~(dump_failed_smt : bool)
+  ~(task_index : int)
+  ~(prepared : Task.task)
+  ~(goal_name : string) : goal_proof_result =
+  let primary_result, primary_buffer, primary_timing =
     run_prepared_task ~why3_main ~limits ~handle:primary ~prepared ~goal_name
   in
   result_after_optional_fallback ~why3_main ~limits ~primary_result
-    ~primary_buffer ~fallback ~task_index ~prepared ~goal_name
+    ~primary_buffer ~fallback ~dump_failed_smt ~task_index ~prepared ~goal_name
+    ~timing:primary_timing
+
+let distribute_indexed_tasks ~jobs indexed_tasks =
+  let worker_count = min (max 1 jobs) (List.length indexed_tasks) in
+  if worker_count = 0 then []
+  else
+    let buckets = Array.make worker_count [] in
+    List.iteri
+      (fun pos task ->
+        let worker_id = pos mod worker_count in
+        buckets.(worker_id) <- task :: buckets.(worker_id))
+      indexed_tasks;
+    buckets |> Array.to_list |> List.mapi (fun worker_id tasks ->
+        (worker_id, List.rev tasks))
+
+let rec write_all_bytes fd bytes offset length =
+  if length > 0 then
+    let written = Unix.write fd bytes offset length in
+    if written = 0 then raise End_of_file
+    else write_all_bytes fd bytes (offset + written) (length - written)
+
+let send_marshaled_value_fd fd value =
+  let bytes = Marshal.to_bytes value [] in
+  write_all_bytes fd bytes 0 (Bytes.length bytes)
+
+let close_fd_noerr fd = try Unix.close fd with _ -> ()
+
+let set_close_on_exec_noerr fd = try Unix.set_close_on_exec fd with _ -> ()
+
+let worker_error_message exn =
+  let backtrace = Printexc.get_backtrace () in
+  if backtrace = "" then Printexc.to_string exn
+  else Printf.sprintf "%s\n%s" (Printexc.to_string exn) backtrace
+
+let prove_printed_prepared_task
+    ~(why3_main : Whyconf.main)
+    ~(limits : Call_provers.resource_limits)
+    ~(primary : prover_handle)
+    ~(fallback : prover_handle option)
+    ~(dump_failed_smt : bool)
+    ~(task_index : int)
+    ~(prepared : Task.task)
+    ~(goal_name : string)
+    ~(base_timing : goal_timing)
+    ~(primary_buffer : Buffer.t)
+    ~(printing_info : 'a) : goal_proof_result =
+  let call, spawn_s =
+    spawn_prover_call ~why3_main ~limits ~handle:primary ~goal_name
+      ~buffer:primary_buffer ~printing_info
+  in
+  let primary_result, wait_timing = wait_on_prover_call call in
+  let primary_timing =
+    add_goal_timing base_timing
+      (add_goal_timing { zero_goal_timing with spawn_s } wait_timing)
+  in
+  result_after_optional_fallback ~why3_main ~limits ~primary_result
+    ~primary_buffer ~fallback ~dump_failed_smt ~task_index ~prepared ~goal_name
+    ~timing:primary_timing
+
+let prove_worker_tasks
+    ~(why3_main : Whyconf.main)
+    ~(limits : Call_provers.resource_limits)
+    ~(primary : prover_handle)
+    ~(fallback : prover_handle option)
+    ~(dump_failed_smt : bool)
+    ~(worker_id : int)
+    ~(output_fd : Unix.file_descr)
+    (tasks : (int * Task.task) list) =
+  External_timing.reset ();
+  Prove_client.set_max_running_provers 1;
+  let worker_start_s = Unix.gettimeofday () in
+  let last_goal = ref "" in
+  try
+    let proved_by_fingerprint = Hashtbl.create (List.length tasks * 2 + 1) in
+    List.iter
+      (fun (task_index, task) ->
+        let t_prepare = Unix.gettimeofday () in
+        let prepared = prepare_task_with_timing ~driver:primary.driver task in
+        let prepare_s = Unix.gettimeofday () -. t_prepare in
+        let goal_name = goal_name_of_prepared_task prepared in
+        last_goal := goal_name;
+        let primary_buffer, fingerprint, printing_info, print_s =
+          print_prepared_task ~handle:primary ~prepared
+        in
+        send_marshaled_value_fd output_fd
+          (Worker_started { task_index; goal_name; fingerprint });
+        let result =
+          match Hashtbl.find_opt proved_by_fingerprint fingerprint with
+          | Some representative ->
+              External_timing.record_why3_duplicate_goal ();
+              duplicate_detail_for_goal ~goal_name representative
+          | None ->
+              let result =
+                prove_printed_prepared_task ~why3_main ~limits ~primary
+                  ~fallback ~dump_failed_smt ~task_index ~prepared ~goal_name
+                  ~base_timing:{ zero_goal_timing with prepare_s; print_s }
+                  ~primary_buffer ~printing_info
+              in
+              Hashtbl.replace proved_by_fingerprint fingerprint result;
+              result
+        in
+        send_marshaled_value_fd output_fd
+          (Worker_result { task_index; fingerprint; result }))
+      tasks;
+    let timing = External_timing.snapshot () in
+    let worker_summary : External_timing.why3_worker_snapshot =
+      {
+        worker_id;
+        worker_input_goal_count = List.length tasks;
+        worker_prover_goal_count = timing.why3_goal_count;
+        worker_duplicate_goal_count = timing.why3_duplicate_goal_count;
+        worker_fallback_count = timing.why3_fallback_count;
+        worker_wall_s = Unix.gettimeofday () -. worker_start_s;
+        worker_prepare_s = timing.why3_prepare_s;
+        worker_print_s = timing.why3_print_s;
+        worker_spawn_s = timing.why3_spawn_s;
+        worker_wait_s = timing.why3_wait_s;
+        worker_solver_s = timing.why3_solver_s;
+        worker_last_goal = !last_goal;
+      }
+    in
+    send_marshaled_value_fd output_fd (Worker_done (worker_summary, timing))
+  with exn ->
+    send_marshaled_value_fd output_fd
+      (Worker_failed (worker_error_message exn, External_timing.snapshot ()))
+
+let spawn_proof_worker
+    ~(why3_main : Whyconf.main)
+    ~(limits : Call_provers.resource_limits)
+    ~(primary : prover_handle)
+    ~(fallback : prover_handle option)
+    ~(dump_failed_smt : bool)
+    ~(inherited_workers : proof_worker list)
+    ~(worker_id : int)
+    ~(tasks : (int * Task.task) list) : proof_worker =
+  let parent_read_fd, child_write_fd = Unix.pipe () in
+  List.iter set_close_on_exec_noerr [ parent_read_fd; child_write_fd ];
+  match Unix.fork () with
+  | 0 ->
+      List.iter (fun worker -> close_fd_noerr worker.worker_fd) inherited_workers;
+      Unix.close parent_read_fd;
+      prove_worker_tasks ~why3_main ~limits ~primary ~fallback ~worker_id
+        ~dump_failed_smt ~output_fd:child_write_fd tasks;
+      close_fd_noerr child_write_fd;
+      Unix._exit 0
+  | worker_pid ->
+      Unix.close child_write_fd;
+      let worker_input = Unix.in_channel_of_descr parent_read_fd in
+      let worker_fd = Unix.descr_of_in_channel worker_input in
+      {
+        worker_id;
+        worker_pid;
+        worker_input;
+        worker_fd;
+      }
+
+let close_proof_worker_channels worker = close_in_noerr worker.worker_input
+
+let read_proof_worker_message worker =
+  try Some (Marshal.from_channel worker.worker_input : worker_to_parent)
+  with End_of_file -> None
+
+let stop_proof_worker worker =
+  close_proof_worker_channels worker
+
+let wait_for_proof_worker (worker : proof_worker) =
+  match Unix.waitpid [] worker.worker_pid with
+  | _, Unix.WEXITED 0 -> ()
+  | _, Unix.WEXITED code ->
+      failwith
+        (Printf.sprintf "Why3 worker %d exited with code %d" worker.worker_id
+           code)
+  | _, Unix.WSIGNALED signal ->
+      failwith
+        (Printf.sprintf "Why3 worker %d killed by signal %d" worker.worker_id
+           signal)
+  | _, Unix.WSTOPPED signal ->
+      failwith
+        (Printf.sprintf "Why3 worker %d stopped by signal %d" worker.worker_id
+           signal)
+
+let finish_proof_worker worker =
+  close_proof_worker_channels worker;
+  wait_for_proof_worker worker
+
+let rec wait_for_all_proof_workers = function
+  | [] -> ()
+  | worker :: rest ->
+      (try stop_proof_worker worker with _ -> ());
+      (try wait_for_proof_worker worker with _ -> ());
+      wait_for_all_proof_workers rest
+
+let proof_worker_for_fd workers fd =
+  List.find_opt (fun worker -> worker.worker_fd = fd) workers
+
+let select_ready_proof_worker workers =
+  match workers with
+  | [] -> None
+  | _ -> (
+      let fds = List.map (fun worker -> worker.worker_fd) workers in
+      match Unix.select fds [] [] (-1.0) with
+      | ready_fd :: _, _, _ -> proof_worker_for_fd workers ready_fd
+      | _ -> None)
 
 (* Prove normalized tasks one by one, emit progress callbacks, and collect
    per-goal results with optional failing SMT dumps.
@@ -221,6 +543,7 @@ let prove_tasks_with_details
     ~(primary : prover_handle)
     ~(fallback : prover_handle option)
     ~(jobs : int)
+    ~(dump_failed_smt : bool)
     ~(should_cancel : unit -> bool)
     ~(on_goal_start : goal_start_event -> unit) 
     ~(on_goal_done : goal_done_event -> unit)
@@ -232,11 +555,7 @@ let prove_tasks_with_details
   let jobs = max 1 jobs in
   let proved_by_fingerprint = Hashtbl.create (total_tasks * 2 + 1) in
   let prepare_task task =
-    let t_prepare = Unix.gettimeofday () in
-    let prepared = Driver.prepare_task primary.driver task in
-    External_timing.record_why3_prepare
-      ~elapsed_s:(Unix.gettimeofday () -. t_prepare);
-    prepared
+    prepare_task_with_timing ~driver:primary.driver task
   in
   let finish_detail ~log_failure ~pos ~task_index ~detail =
     on_goal_done { goal_index = task_index; result = detail };
@@ -254,17 +573,21 @@ let prove_tasks_with_details
     let detail = finish_detail ~log_failure:false ~pos ~task_index ~detail in
     detail :: details
   in
+  let sequential_last_goal = ref "" in
   let rec loop_sequential pos details = function
     | [] -> List.rev details
     | _ when should_cancel () -> List.rev details
     | (task_index, task) :: rest -> (
         log_progress ~pos ~total:total_tasks;
+        let t_prepare = Unix.gettimeofday () in
         let prepared = prepare_task task in
+        let prepare_s = Unix.gettimeofday () -. t_prepare in
         let goal_name = goal_name_of_prepared_task prepared in
+        sequential_last_goal := goal_name;
         on_goal_start { goal_index = task_index; goal_name = goal_name };
         if should_cancel () then List.rev details
         else
-          let primary_buffer, fingerprint, printing_info =
+          let primary_buffer, fingerprint, printing_info, print_s =
             print_prepared_task ~handle:primary ~prepared
           in
           match Hashtbl.find_opt proved_by_fingerprint fingerprint with
@@ -276,14 +599,19 @@ let prove_tasks_with_details
               if should_cancel () then List.rev details
               else loop_sequential (pos + 1) details rest
           | None ->
-              let call =
+              let call, spawn_s =
                 spawn_prover_call ~why3_main ~limits ~handle:primary ~goal_name
                   ~buffer:primary_buffer ~printing_info
               in
-              let primary_result = wait_on_prover_call call in
+              let primary_result, wait_timing = wait_on_prover_call call in
+              let primary_timing =
+                add_goal_timing { zero_goal_timing with prepare_s; print_s; spawn_s }
+                  wait_timing
+              in
               let detail =
                 result_after_optional_fallback ~why3_main ~limits ~primary_result
-                  ~primary_buffer ~fallback ~task_index ~prepared ~goal_name
+                  ~primary_buffer ~fallback ~dump_failed_smt ~task_index ~prepared
+                  ~goal_name ~timing:primary_timing
               in
               Hashtbl.replace proved_by_fingerprint fingerprint detail;
           let detail =
@@ -292,108 +620,110 @@ let prove_tasks_with_details
               if should_cancel () then List.rev (detail :: details)
               else loop_sequential (pos + 1) (detail :: details) rest)
   in
-  if jobs = 1 then loop_sequential 0 [] indexed_tasks
-  else
-    let inflight_waiters_by_fingerprint =
-      Hashtbl.create (min total_tasks (jobs * 4 + 1))
-    in
-    let start_one pos (task_index, task) =
-      log_progress ~pos ~total:total_tasks;
-      let prepared = prepare_task task in
-      let goal_name = goal_name_of_prepared_task prepared in
-      on_goal_start { goal_index = task_index; goal_name };
-      if should_cancel () then None
-      else
-        let primary_buffer, fingerprint, printing_info =
-          print_prepared_task ~handle:primary ~prepared
+  let loop_workers () =
+    if should_cancel () then []
+    else
+      let batches = distribute_indexed_tasks ~jobs indexed_tasks in
+      let started_count = ref 0 in
+      let positions_by_task = Hashtbl.create (total_tasks * 2 + 1) in
+      let details = ref [] in
+      let start_worker_goal ~task_index ~goal_name =
+        let pos = !started_count in
+        incr started_count;
+        Hashtbl.replace positions_by_task task_index pos;
+        log_progress ~pos ~total:total_tasks;
+        on_goal_start { goal_index = task_index; goal_name }
+      in
+      let finish_worker_result ~task_index ~(detail : goal_proof_result) =
+        let pos =
+          Option.value (Hashtbl.find_opt positions_by_task task_index)
+            ~default:(max 0 (!started_count - 1))
         in
-        match Hashtbl.find_opt proved_by_fingerprint fingerprint with
-        | Some representative ->
-            Some
-              (`Finished
-                (pos, task_index, goal_name, representative))
-        | None -> (
-            match Hashtbl.find_opt inflight_waiters_by_fingerprint fingerprint with
-            | Some waiters ->
-                waiters := (pos, task_index, goal_name) :: !waiters;
-                Some `Waiting
-            | None ->
-                let waiters = ref [] in
-                Hashtbl.add inflight_waiters_by_fingerprint fingerprint waiters;
-                let call =
-                  spawn_prover_call ~why3_main ~limits ~handle:primary ~goal_name
-                    ~buffer:primary_buffer ~printing_info
-                in
-                Some
-                  (`Running
-                    ( pos,
-                      task_index,
-                      prepared,
-                      goal_name,
-                      call,
-                      primary_buffer,
-                      fingerprint,
-                      waiters )))
+        let detail = finish_detail ~log_failure:true ~pos ~task_index ~detail in
+        details := (task_index, detail) :: !details
+      in
+      let workers =
+        let rec spawn_all spawned = function
+          | [] -> List.rev spawned
+          | (worker_id, tasks) :: rest ->
+              let worker =
+                spawn_proof_worker ~why3_main ~limits ~primary ~fallback
+                  ~dump_failed_smt ~inherited_workers:spawned ~worker_id ~tasks
+              in
+              spawn_all (worker :: spawned) rest
+        in
+        spawn_all [] batches
+      in
+      let rec loop_active active_workers =
+        if active_workers = [] then ()
+        else if should_cancel () then (
+          wait_for_all_proof_workers active_workers;
+          ())
+        else
+          match select_ready_proof_worker active_workers with
+          | None -> loop_active active_workers
+          | Some worker -> (
+              match read_proof_worker_message worker with
+              | None ->
+                  wait_for_all_proof_workers active_workers;
+                  failwith
+                    (Printf.sprintf "Why3 worker %d closed its stream early"
+                       worker.worker_id)
+              | Some (Worker_started { task_index; goal_name; fingerprint = _ }) ->
+                  start_worker_goal ~task_index ~goal_name;
+                  loop_active active_workers
+              | Some (Worker_result { task_index; fingerprint = _; result }) ->
+                  finish_worker_result ~task_index ~detail:result;
+                  loop_active active_workers
+              | Some (Worker_done (worker_summary, timing)) ->
+                  External_timing.add_snapshot timing;
+                  External_timing.record_why3_worker worker_summary;
+                  finish_proof_worker worker;
+                  loop_active
+                    (List.filter
+                       (fun other -> other.worker_id <> worker.worker_id)
+                       active_workers)
+              | Some (Worker_failed (message, timing)) ->
+                  External_timing.add_snapshot timing;
+                  wait_for_all_proof_workers active_workers;
+                  failwith
+                    (Printf.sprintf "Why3 worker %d failed: %s"
+                       worker.worker_id message))
+      in
+      loop_active workers;
+      !details
+      |> List.sort (fun (left, _) (right, _) -> Int.compare left right)
+      |> List.map snd
+  in
+  if jobs = 1 then (
+    let worker_start_s = Unix.gettimeofday () in
+    let before = External_timing.snapshot () in
+    let results = loop_sequential 0 [] indexed_tasks in
+    let timing =
+      External_timing.diff ~before ~after_:(External_timing.snapshot ())
     in
-    let rec fill_window pos inflight rest details =
-      if List.length inflight >= jobs || should_cancel () then
-        (pos, inflight, rest, details)
-      else
-        match rest with
-        | [] -> (pos, inflight, rest, details)
-        | task :: rest' -> (
-            match start_one pos task with
-            | None -> (pos + 1, inflight, rest', details)
-            | Some (`Finished (dup_pos, dup_task_index, dup_goal_name, representative)) ->
-                let details =
-                  finish_duplicate_detail ~pos:dup_pos ~task_index:dup_task_index
-                    ~goal_name:dup_goal_name ~representative details
-                in
-                fill_window (pos + 1) inflight rest' details
-            | Some `Waiting -> fill_window (pos + 1) inflight rest' details
-            | Some (`Running running) ->
-                fill_window (pos + 1) (inflight @ [ running ]) rest' details)
-    in
-    let rec drain pos inflight rest details =
-      match inflight with
-      | [] -> List.rev details
-      | ( run_pos,
-          task_index,
-          prepared,
-          goal_name,
-          call,
-          primary_buffer,
-          fingerprint,
-          waiters )
-        :: inflight_tail ->
-          let primary_result = wait_on_prover_call call in
-          let detail =
-            result_after_optional_fallback ~why3_main ~limits ~primary_result
-              ~primary_buffer ~fallback ~task_index ~prepared ~goal_name
-          in
-          Hashtbl.replace proved_by_fingerprint fingerprint detail;
-          Hashtbl.remove inflight_waiters_by_fingerprint fingerprint;
-          let detail =
-            finish_detail ~log_failure:true ~pos:run_pos ~task_index ~detail
-          in
-          let details =
-            List.fold_left
-              (fun details (dup_pos, dup_task_index, dup_goal_name) ->
-                finish_duplicate_detail ~pos:dup_pos ~task_index:dup_task_index
-                  ~goal_name:dup_goal_name ~representative:detail details)
-              (detail :: details) (List.rev !waiters)
-          in
-          let pos, inflight, rest, details =
-            fill_window pos inflight_tail rest details
-          in
-          drain pos inflight rest details
-    in
-    let pos, inflight, rest, details = fill_window 0 [] indexed_tasks [] in
-    drain pos inflight rest details
+    External_timing.record_why3_worker
+      {
+        worker_id = 0;
+        worker_input_goal_count = total_tasks;
+        worker_prover_goal_count = timing.why3_goal_count;
+        worker_duplicate_goal_count = timing.why3_duplicate_goal_count;
+        worker_fallback_count = timing.why3_fallback_count;
+        worker_wall_s = Unix.gettimeofday () -. worker_start_s;
+        worker_prepare_s = timing.why3_prepare_s;
+        worker_print_s = timing.why3_print_s;
+        worker_spawn_s = timing.why3_spawn_s;
+        worker_wait_s = timing.why3_wait_s;
+        worker_solver_s = timing.why3_solver_s;
+        worker_last_goal = !sequential_last_goal;
+      };
+    results)
+  else loop_workers ()
 
 let prove_tasks_with_events
   ?(timeout = 30)
   ?(jobs = 1)
+  ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
@@ -421,12 +751,13 @@ let prove_tasks_with_events
       { driver; command = Whyconf.get_complete_command prover_cfg ~with_steps:false }
     in
     prove_tasks_with_details ~why3_main ~limits ~primary ~fallback ~jobs
-      ~should_cancel ~on_goal_start ~on_goal_done tasks
+      ~dump_failed_smt ~should_cancel ~on_goal_start ~on_goal_done tasks
 
 let prove_ptrees_with_events
   ?(timeout = 30)
   ?(jobs = 1)
   ?(split_vc = true)
+  ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
@@ -436,8 +767,8 @@ let prove_ptrees_with_events
       if split_vc then normalize_tasks_of_ptrees ~env ~ptrees
       else tasks_of_ptrees ~env ~ptrees
     in
-    prove_tasks_with_events ~timeout ~jobs ~should_cancel ~on_goal_start
-      ~on_goal_done tasks
+    prove_tasks_with_events ~timeout ~jobs ~dump_failed_smt ~should_cancel
+      ~on_goal_start ~on_goal_done tasks
 
 (* Public entry point:
    build normalized tasks from a ptree and run the proof loop. *)
@@ -445,9 +776,10 @@ let prove_ptree_with_events
   ?(timeout = 30)
   ?(jobs = 1)
   ?(split_vc = true)
+  ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
   (ptree : Ptree.mlw_file) : goal_proof_result list =
-    prove_ptrees_with_events ~timeout ~jobs ~split_vc ~should_cancel ~on_goal_start
-      ~on_goal_done [ ptree ]
+    prove_ptrees_with_events ~timeout ~jobs ~split_vc ~dump_failed_smt
+      ~should_cancel ~on_goal_start ~on_goal_done [ ptree ]

@@ -102,12 +102,26 @@ let compute_generation ~(node : Abs.node_ir) : node_generation =
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
 
-let add_unique_formula (f : Core_syntax.hexpr)
-    (xs : Abs.summary_formula list) : Abs.summary_formula list =
-  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
-  else xs @ [ Ir_formula.make f ]
+let add_unique_formula_with_status ~family (f : Core_syntax.hexpr)
+    (xs : Abs.summary_formula list) : Abs.summary_formula list * bool =
+  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then (xs, false)
+  else (xs @ [ Ir_formula.make ~family f ], true)
 
-let run_node (n : Abs.node_ir) : Abs.node_ir =
+let add_formula_family ~record_family ~family_name formulas acc =
+  let inserted, acc =
+    List.fold_left
+      (fun (inserted, acc) f ->
+        let acc, was_inserted =
+          add_unique_formula_with_status ~family:family_name f acc
+        in
+        let inserted = if was_inserted then f :: inserted else inserted in
+        (inserted, acc))
+      ([], acc) formulas
+  in
+  record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
+  acc
+
+let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
   let pre_generation = compute_generation ~node:n in
   let summaries =
     List.map
@@ -116,33 +130,57 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
         let propagation_requires =
           Product_characteristics.entry_facts_of_product_state
             pre_generation.product_characteristics pc.identity.product_src
-          |> List.map Ir_formula.make
+          |> List.map (Ir_formula.make ~family:"propagation_requires")
+        in
+        let propagation_requires_formulas =
+          List.map (fun (f : Abs.summary_formula) -> f.logic) propagation_requires
+        in
+        let state_invariants =
+          invariants_of_state n pc.identity.product_src.prog_state
+        in
+        let stability_requires =
+          if same_product_state pc.identity.product_src pre_generation.initial_product_state
+          then []
+          else pre_generation.state_stability
         in
         let requires =
           []
-          |> fun acc ->
-          List.fold_left
-            (fun acc inv -> add_unique_formula inv acc)
-            acc (invariants_of_state n pc.identity.product_src.prog_state)
-          |> fun acc ->
-          List.fold_left (fun acc (f : Abs.summary_formula) -> add_unique_formula f.logic acc) acc propagation_requires
-          |> add_unique_formula pc.identity.assume_guard
-          |> add_unique_formula program_guard
-          |> fun acc ->
-          if same_product_state pc.identity.product_src pre_generation.initial_product_state then acc
-          else List.fold_left (fun acc f -> add_unique_formula f acc) acc pre_generation.state_stability
+          |> add_formula_family ~record_family
+               ~family_name:"state_invariant_requires" state_invariants
+          |> add_formula_family ~record_family
+               ~family_name:"propagation_requires" propagation_requires_formulas
+          |> add_formula_family ~record_family
+               ~family_name:"assume_guard_requires" [ pc.identity.assume_guard ]
+          |> add_formula_family ~record_family
+               ~family_name:"program_guard_requires" [ program_guard ]
+          |> add_formula_family ~record_family
+               ~family_name:"stability_requires" stability_requires
         in
         { pc with propagation_requires; requires })
       n.summaries
   in
+  let init_invariant_candidates = invariants_of_state n n.semantics.sem_init_state in
   let init_invariant_goals =
-    List.fold_left
-      (fun acc inv ->
-        if List.exists (fun (f : Abs.summary_formula) -> f.logic = inv) acc then acc
-        else acc @ [ Ir_formula.make inv ])
-      n.init_invariant_goals
-      (invariants_of_state n n.semantics.sem_init_state)
+    add_formula_family ~record_family ~family_name:"init_invariant_goals"
+      init_invariant_candidates n.init_invariant_goals
   in
   { n with summaries; init_invariant_goals }
 
-let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p
+let run_program ?observe_family (p : Abs.node_ir list) : Abs.node_ir list =
+  let collector =
+    match observe_family with
+    | None -> None
+    | Some _ -> Some (Ir_fact_family_metrics.create ())
+  in
+  let record_family ~family_name ~candidates ~inserted =
+    match collector with
+    | None -> ()
+    | Some collector ->
+        Ir_fact_family_metrics.add collector ~pass_name:"pre" ~family_name
+          ~candidates ~inserted
+  in
+  let result = List.map (run_node ~record_family) p in
+  (match (collector, observe_family) with
+  | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer
+  | _ -> ());
+  result

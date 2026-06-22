@@ -31,6 +31,7 @@ open Core_syntax
 type formula_meta = {
   oid : formula_id;
   loc : Loc.loc option;
+  family : string option;
 }
 
 (** Formula used in IR summaries and goals. *)

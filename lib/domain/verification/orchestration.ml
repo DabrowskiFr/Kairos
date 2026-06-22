@@ -34,6 +34,14 @@ type run_artifacts = {
   instrumentation_program : Ir.program_ir;
 }
 
+(** Type [instrumented_ir_pass]. *)
+
+type instrumented_ir_pass =
+  | Pre_pass
+  | Product_reachability_pass
+  | Post_pass
+  | Temporal_lower_pass
+
 (** [build_initial_ir] helper value. *)
 
 let build_initial_ir
@@ -44,13 +52,17 @@ let build_initial_ir
 
 (** [build_instrumented_ir] helper value. *)
 
-let build_instrumented_ir (initial_nodes : Ir.node_ir list) : Ir.program_ir =
+let build_instrumented_ir
+    ?observe_fact_family
+    ?(run_pass = fun _ pass nodes -> pass nodes)
+    (initial_nodes : Ir.node_ir list) :
+    Ir.program_ir =
   let nodes =
     initial_nodes
-    |> Pre.run_program
-    |> Product_reachability.run_program
-    |> Post.run_program
-    |> Temporal_lower.run_program
+    |> run_pass Pre_pass (Pre.run_program ?observe_family:observe_fact_family)
+    |> run_pass Product_reachability_pass Product_reachability.run_program
+    |> run_pass Post_pass (Post.run_program ?observe_family:observe_fact_family)
+    |> run_pass Temporal_lower_pass Temporal_lower.run_program
   in
   ({ nodes } : Ir.program_ir)
 

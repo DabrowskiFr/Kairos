@@ -12,6 +12,7 @@
   fo_time
   fo_contradiction
   product_characteristics
+  ir_fact_family_metrics
   from_model
   pre
   product_reachability

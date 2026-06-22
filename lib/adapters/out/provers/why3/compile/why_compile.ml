@@ -264,6 +264,17 @@ let product_step_helper_name ~(index : int)
     (step_class_suffix step.step_class)
     index
 
+let product_step_group_helper_name ~(index : int)
+    (step : Why_runtime_view.runtime_product_transition_view) =
+  let step_class_suffix = function
+    | Why_runtime_view.StepSafe -> "safe_group"
+    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee_group"
+  in
+  Printf.sprintf "step_%s_%s_%d"
+    (String.lowercase_ascii step.transition_id)
+    (step_class_suffix step.step_class)
+    index
+
 (** [empty_spec] helper value. *)
 
 let empty_spec () : Ptree.spec =
@@ -301,6 +312,15 @@ let term_and_list (terms : Ptree.term list) : Ptree.term =
   | [] -> mk_term Ttrue
   | [ term ] -> term
   | first :: rest -> List.fold_left term_and first rest
+
+let term_or (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinnop (a, Dterm.DTor, b))
+
+let term_or_list (terms : Ptree.term list) : Ptree.term =
+  match terms with
+  | [] -> mk_term Tfalse
+  | [ term ] -> term
+  | first :: rest -> List.fold_left term_or first rest
 
 let rec names_of_qualid (qid : Ptree.qualid) (acc : StringSet.t) : StringSet.t =
   match qid with
@@ -694,6 +714,7 @@ let compile_node_with_info ?kernel_ir
     ?(simplify_why3_formulas = true)
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
+    ?(group_why3_product_steps = true)
     (info : env_info) :
     (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   let runtime_view = info.runtime_view in
@@ -1020,8 +1041,8 @@ let compile_node_with_info ?kernel_ir
     in
     loop StringSet.empty (StringSet.elements names)
   in
-  let local_shared_formula_decls names =
-    let closure = shared_formula_closure names in
+  let local_shared_formula_decls ?(exclude = StringSet.empty) names =
+    let closure = StringSet.diff (shared_formula_closure names) exclude in
     shared_formula_entries
     |> List.filter_map (fun (name, _formula, decl) ->
            if StringSet.mem name closure then Some decl else None)
@@ -1205,12 +1226,21 @@ let compile_node_with_info ?kernel_ir
       ~(table : (string, string * string) Hashtbl.t) ~modules (terms : Ptree.term list) =
     let body = term_and_list terms in
     let key = string_of_term body in
-    let used = names_of_term body StringSet.empty in
+    let shared_names = shared_formula_names_in_terms [ body ] in
+    let used_names = names_of_term body StringSet.empty in
+    let bundle_imports =
+      Hashtbl.to_seq_values table
+      |> Seq.filter_map (fun (bundle_module_name, name) ->
+             if StringSet.mem name used_names then
+               Some (import_module bundle_module_name)
+             else None)
+      |> List.of_seq
+    in
     let used_inputs =
       inputs
       |> List.filter (fun (_, id_opt, _, _) ->
              match id_opt with
-             | Some id -> StringSet.mem id.id_str used
+             | Some id -> StringSet.mem id.id_str used_names
              | None -> false)
     in
     let params = List.filter_map param_of_binder used_inputs in
@@ -1237,15 +1267,16 @@ let compile_node_with_info ?kernel_ir
               ]
           in
           Hashtbl.add table key (bundle_module_name, name);
+          let shared_decls = local_shared_formula_decls shared_names in
           modules :=
             ( ident bundle_module_name,
               None,
-              imports @ [ common_import; decl ],
+              imports @ [ common_import ] @ bundle_imports @ shared_decls @ [ decl ],
               { pre_labels = []; post_labels = [] } )
             :: !modules;
           (bundle_module_name, name)
     in
-    (import_module bundle_module_name, mk_term (Tidapp (qid1 name, args)))
+    (import_module bundle_module_name, mk_term (Tidapp (qid1 name, args)), shared_names)
   in
   let shared_post_bundle_table : (string, string * string) Hashtbl.t = Hashtbl.create 128 in
   let shared_post_bundle_modules = ref [] in
@@ -1253,110 +1284,427 @@ let compile_node_with_info ?kernel_ir
     shared_bundle_call ~module_suffix:"Post" ~predicate_prefix:"shared_post_bundle"
       ~table:shared_post_bundle_table ~modules:shared_post_bundle_modules
   in
-  let prepared_step_helper_units =
-    if not use_product_helper_contracts then []
+  let shared_pre_bundle_table : (string, string * string) Hashtbl.t = Hashtbl.create 128 in
+  let shared_pre_bundle_modules = ref [] in
+  let shared_pre_bundle_call =
+    shared_bundle_call ~module_suffix:"Pre" ~predicate_prefix:"shared_pre_bundle"
+      ~table:shared_pre_bundle_table ~modules:shared_pre_bundle_modules
+  in
+  let contract_formula_term ~in_post logic =
+    match abstract_formula ~in_post logic with
+    | Some term -> term
+    | None ->
+        let normalized =
+          if simplify_why3_formulas then Core_fo_simplifier.simplify logic
+          else logic
+        in
+        begin
+          match abstract_formula ~in_post normalized with
+          | Some term -> term
+          | None -> compile_local_fo_formula_term ~in_post env normalized
+        end
+  in
+  let formula_family_is families (formula : Ir.summary_formula) =
+    match formula.meta.family with
+    | None -> false
+    | Some family -> List.mem family families
+  in
+  let sorted_unique_terms terms =
+    terms
+    |> List.sort_uniq (fun left right ->
+           String.compare (string_of_term left) (string_of_term right))
+  in
+  let selected_family_terms ~in_post families formulas =
+    formulas
+    |> List.filter (formula_family_is families)
+    |> List.map (fun (formula : Ir.summary_formula) ->
+           contract_formula_term ~in_post formula.logic)
+    |> sorted_unique_terms
+  in
+  let remove_terms removed terms =
+    let removed_keys =
+      removed
+      |> List.map string_of_term
+      |> List.fold_left (fun acc key -> StringSet.add key acc) StringSet.empty
+    in
+    List.filter
+      (fun term -> not (StringSet.mem (string_of_term term) removed_keys))
+      terms
+  in
+  let bundle_key terms = string_of_term (term_and_list terms) in
+  let count_bundles bundles =
+    let counts = Hashtbl.create 64 in
+    List.iter
+      (fun terms ->
+        if List.length terms > 1 then
+          let key = bundle_key terms in
+          let count = Option.value ~default:0 (Hashtbl.find_opt counts key) in
+          Hashtbl.replace counts key (count + 1))
+      bundles;
+    counts
+  in
+  let shared_pre_families =
+    [ "state_invariant_requires"; "stability_requires" ]
+  in
+  let shared_post_families = [ "common_destination_invariant_ensures" ] in
+  let pre_family_terms_by_step =
+    if not share_why3_facts then List.map (fun _ -> []) step_contracts
     else
       step_contracts
-      |> List.mapi (fun i sc -> (i, sc))
+      |> List.map (fun (sc : Why_contracts.step_contract_info) ->
+             selected_family_terms ~in_post:false shared_pre_families
+               sc.step.requires)
+  in
+  let post_family_terms_by_step =
+    if not share_why3_facts then List.map (fun _ -> []) step_contracts
+    else
+      step_contracts
+      |> List.map (fun (sc : Why_contracts.step_contract_info) ->
+             selected_family_terms ~in_post:true shared_post_families
+               sc.step.ensures)
+  in
+  let pre_family_bundle_counts = count_bundles pre_family_terms_by_step in
+  let post_family_bundle_counts = count_bundles post_family_terms_by_step in
+  let should_share_bundle counts terms =
+    List.length terms > 1
+    &&
+    match Hashtbl.find_opt counts (bundle_key terms) with
+    | Some count -> count > 1
+    | None -> false
+  in
+  let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
+  let seq_exprs (exprs : Ptree.expr list) =
+    let exprs =
+      List.filter
+        (fun expr -> match expr.expr_desc with Etuple [] -> false | _ -> true)
+        exprs
+    in
+    match exprs with
+    | [] -> mk_expr (Etuple [])
+    | first :: rest ->
+        List.fold_left (fun acc expr -> mk_expr (Esequence (acc, expr))) first rest
+  in
+  let helper_function helper_inputs spc helper_body =
+    mk_expr
+      (Efun
+         ( helper_inputs,
+           None,
+           { pat_desc = Pwild; pat_loc = loc },
+           Ity.MaskVisible,
+           spc,
+           helper_body ))
+  in
+  let build_individual_kernel_helper (i, (sc : Why_contracts.step_contract_info)) =
+    let t =
+      Why_runtime_view.transition_of_product_step
+        ~simplify_runtime_actions:simplify_why3_runtime_actions sc.step
+    in
+    let helper_name = ident (step_helper_name ~index:i sc) in
+    let state_guard =
+      term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
+    in
+    let pre_family_terms =
+      Option.value ~default:[] (List.nth_opt pre_family_terms_by_step i)
+    in
+    let share_pre_family_bundle =
+      should_share_bundle pre_family_bundle_counts pre_family_terms
+    in
+    let pre_terms =
+      if share_pre_family_bundle then remove_terms pre_family_terms sc.pre
+      else sc.pre
+    in
+    let pre_family_imports, pre_family_terms =
+      if share_pre_family_bundle then
+        let import_, call, _shared_names =
+          shared_pre_bundle_call pre_family_terms
+        in
+        ([ import_ ], [ call ])
+      else ([], [])
+    in
+    let post_family_terms =
+      Option.value ~default:[] (List.nth_opt post_family_terms_by_step i)
+    in
+    let share_post_family_bundle =
+      should_share_bundle post_family_bundle_counts post_family_terms
+      && not (List.exists term_has_old post_family_terms)
+    in
+    let post_terms =
+      if share_post_family_bundle then remove_terms post_family_terms sc.post
+      else sc.post
+    in
+    let post_family_imports, post_family_terms, post_family_shared_names =
+      if share_post_family_bundle then
+        let import_, call, shared_names =
+          shared_post_bundle_call post_family_terms
+        in
+        ([ import_ ], [ call ], shared_names)
+      else ([], [], StringSet.empty)
+    in
+    let raw_pre_terms = state_guard :: (pre_family_terms @ pre_terms) in
+    let raw_post_terms = sc.forbidden @ post_family_terms @ post_terms in
+    let bundle_post_terms =
+      List.length raw_post_terms > 1
+      && not (List.exists term_has_old raw_post_terms)
+    in
+    let pre_bundle_decls, pre_term =
+      let pre_decl, call =
+        predicate_bundle_decl_and_call
+          ~name:(helper_name.id_str ^ "_pre")
+          raw_pre_terms
+      in
+      ([ pre_decl ], call)
+    in
+    let post_bundle_decls, post_terms, imported_shared_names =
+      if not bundle_post_terms then
+        (post_family_imports, raw_post_terms, post_family_shared_names)
+      else
+        let post_import, call, shared_names =
+          shared_post_bundle_call raw_post_terms
+        in
+        (post_family_imports @ [ post_import ], [ call ],
+         StringSet.union post_family_shared_names shared_names)
+    in
+    let spc =
+      {
+        Ptree.sp_pre = [ pre_term ];
+        sp_post = List.rev_map mk_post post_terms;
+        sp_xpost = [];
+        sp_reads = [];
+        sp_writes = [];
+        sp_alias = [];
+        sp_variant = [];
+        sp_checkrw = false;
+        sp_diverge = false;
+        sp_partial = false;
+      }
+    in
+    let local_cut_asserts =
+      sc.local_cuts
+      |> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term)))
+    in
+    let helper_body =
+      seq_exprs (compile_transition_body env [] t :: local_cut_asserts)
+    in
+    let direct_shared_terms =
+      raw_pre_terms
+      @ (if bundle_post_terms then [] else raw_post_terms)
+      @ sc.local_cuts
+    in
+    let local_shared_decls =
+      direct_shared_terms
+      |> shared_formula_names_in_terms
+      |> local_shared_formula_decls ~exclude:imported_shared_names
+    in
+    let helper_inputs =
+      helper_binders_without_unused_parameters inputs spc helper_body
+    in
+    let fn = helper_function helper_inputs spc helper_body in
+    ( helper_name.id_str,
+      post_bundle_decls @ local_shared_decls @ pre_family_imports
+      @ pre_bundle_decls
+      @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+  in
+  let input_binders_without_vars =
+    match inputs with _vars :: rest -> rest | [] -> []
+  in
+  let predicate_param_of_name name =
+    (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
+  in
+  let formula_term_with_rec ~in_post rec_name logic =
+    let local_env = { env with rec_name } in
+    let normalized =
+      if simplify_why3_formulas then Core_fo_simplifier.simplify logic
+      else logic
+    in
+    compile_local_fo_formula_term ~in_post local_env normalized
+  in
+  let state_guard_with_rec rec_name state_name =
+    let local_env = { env with rec_name } in
+    term_eq (term_of_var local_env "st") (mk_term (Tident (qid1 state_name)))
+  in
+  let step_pre_terms_with_rec rec_name (sc : Why_contracts.step_contract_info) =
+    state_guard_with_rec rec_name sc.step.src_state
+    :: ((sc.step.requires @ sc.step.local_requires)
+       |> List.concat_map (fun (formula : Ir.summary_formula) ->
+              [ formula_term_with_rec ~in_post:false rec_name formula.logic ]))
+  in
+  let step_post_terms_with_rec rec_name (sc : Why_contracts.step_contract_info) =
+    let forbidden =
+      sc.step.forbidden
+      |> List.map (fun (formula : Ir.summary_formula) ->
+             mk_term
+               (Tnot
+                  (formula_term_with_rec ~in_post:true rec_name formula.logic)))
+    in
+    let ensures =
+      sc.step.ensures
+      |> List.map (fun (formula : Ir.summary_formula) ->
+             formula_term_with_rec ~in_post:true rec_name formula.logic)
+    in
+    forbidden @ ensures
+  in
+  let build_grouped_kernel_helper group_index entries =
+    let (first_i, (first_sc : Why_contracts.step_contract_info), first_t) =
+      List.hd entries
+    in
+    let helper_name =
+      ident (product_step_group_helper_name ~index:group_index first_sc.step)
+    in
+    let pre_term =
+      entries
+      |> List.map (fun (_i, sc, _t) ->
+             step_pre_terms_with_rec env.rec_name sc |> term_and_list)
+      |> term_or_list
+    in
+    let pre_vars_name = "__pre_vars" in
+    let post_vars_name = "__post_vars" in
+    let post_pred_name = helper_name.id_str ^ "_post" in
+    let grouped_post_preconditions =
+      let groups = Hashtbl.create 16 in
+      let order = ref [] in
+      entries
+      |> List.iter (fun (_i, sc, _t) ->
+             let pre =
+               step_pre_terms_with_rec pre_vars_name sc |> term_and_list
+             in
+             let post =
+               step_post_terms_with_rec post_vars_name sc |> term_and_list
+             in
+             if not (Hashtbl.mem groups post) then order := post :: !order;
+             let previous =
+               Hashtbl.find_opt groups post |> Option.value ~default:[]
+             in
+             Hashtbl.replace groups post (pre :: previous));
+      List.rev !order
+      |> List.map (fun post ->
+             let pres = Hashtbl.find groups post |> List.rev in
+             (term_or_list pres, post))
+    in
+    let post_body =
+      grouped_post_preconditions
+      |> List.map (fun (pre, post) -> term_implies pre post)
+      |> term_and_list
+    in
+    let post_used_names = names_of_term post_body StringSet.empty in
+    let post_input_binders =
+      input_binders_without_vars
+      |> List.filter (fun (_, id_opt, _, _) ->
+             match id_opt with
+             | None -> true
+             | Some id -> StringSet.mem id.id_str post_used_names)
+    in
+    let post_pred_params =
+      [ predicate_param_of_name pre_vars_name;
+        predicate_param_of_name post_vars_name ]
+      @ List.filter_map param_of_binder post_input_binders
+    in
+    let post_pred_decl =
+      Ptree.Dlogic
+        [
+          {
+            ld_loc = loc;
+            ld_ident = ident post_pred_name;
+            ld_params = post_pred_params;
+            ld_type = None;
+            ld_def = Some post_body;
+          };
+        ]
+    in
+    let post_call pre_snapshot_name =
+      let pre_vars_term = mk_term (Tident (qid1 pre_snapshot_name)) in
+      let vars_term = mk_term (Tident (qid1 env.rec_name)) in
+      let args =
+        [ pre_vars_term; vars_term ]
+        @ List.filter_map binder_term post_input_binders
+      in
+      mk_term (Tidapp (qid1 post_pred_name, args))
+    in
+    let spc =
+      {
+        Ptree.sp_pre = [ pre_term ];
+        sp_post = [];
+        sp_xpost = [];
+        sp_reads = [];
+        sp_writes = [];
+        sp_alias = [];
+        sp_variant = [];
+        sp_checkrw = false;
+        sp_diverge = false;
+        sp_partial = false;
+      }
+    in
+    let pre_snapshot_name = "__pre_snapshot" in
+    let snapshot_expr =
+      env.rec_vars
+      |> List.map (fun field_name -> (qid1 field_name, field env field_name))
+      |> fun fields -> mk_expr (Erecord fields)
+    in
+    let helper_body =
+      let proof_assert =
+        mk_expr (Eassert (Expr.Assert, post_call pre_snapshot_name))
+      in
+      let body = seq_exprs [ compile_transition_body env [] first_t; proof_assert ] in
+      mk_expr
+        (Elet
+           ( ident pre_snapshot_name,
+             true,
+             Expr.RKnone,
+             snapshot_expr,
+             body ))
+    in
+    let helper_inputs =
+      helper_binders_without_unused_parameters inputs spc helper_body
+    in
+    let fn = helper_function helper_inputs spc helper_body in
+    let _ = first_i in
+    ( helper_name.id_str,
+      [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+  in
+  let group_kernel_helpers indexed_contracts =
+    let indexed_transitions =
+      indexed_contracts
       |> List.map (fun (i, (sc : Why_contracts.step_contract_info)) ->
              let t =
                Why_runtime_view.transition_of_product_step
                  ~simplify_runtime_actions:simplify_why3_runtime_actions sc.step
              in
-             let helper_name = ident (step_helper_name ~index:i sc) in
-             let state_guard =
-               term_eq (term_of_var env "st") (mk_term (Tident (qid1 t.src_state)))
-             in
-             let raw_pre_terms = state_guard :: sc.pre in
-             let raw_post_terms = sc.forbidden @ sc.post in
-             let bundle_post_terms =
-               List.length raw_post_terms > 1
-               && not (List.exists term_has_old raw_post_terms)
-             in
-             (i, sc, t, helper_name, raw_pre_terms, raw_post_terms, bundle_post_terms))
+             (i, sc, t))
+    in
+    let groups = Hashtbl.create 128 in
+    let order = ref [] in
+    let group_key (_i, (sc : Why_contracts.step_contract_info), t) =
+      (sc.step.step_class, t)
+    in
+    List.iter
+      (fun entry ->
+        let key = group_key entry in
+        if not (Hashtbl.mem groups key) then order := key :: !order;
+        let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
+        Hashtbl.replace groups key (entry :: previous))
+      indexed_transitions;
+    List.rev !order
+    |> List.mapi (fun group_index key ->
+           let entries = Hashtbl.find groups key |> List.rev in
+           let groupable =
+             group_why3_product_steps
+             && List.length entries > 1
+             && List.for_all
+                  (fun (_i, (sc : Why_contracts.step_contract_info), _t) ->
+                    sc.local_cuts = [])
+                  entries
+           in
+           if groupable then [ build_grouped_kernel_helper group_index entries ]
+           else
+             entries
+             |> List.map (fun (i, sc, _t) -> build_individual_kernel_helper (i, sc)))
+    |> List.concat
   in
   let kernel_step_helper_units =
-    prepared_step_helper_units
-    |> List.map
-         (fun ( i,
-                (sc : Why_contracts.step_contract_info),
-                t,
-                helper_name,
-                raw_pre_terms,
-                raw_post_terms,
-                bundle_post_terms ) ->
-             let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
-             let pre_bundle_decls, pre_term =
-               let pre_decl, call =
-                 predicate_bundle_decl_and_call
-                   ~name:(helper_name.id_str ^ "_pre")
-                   raw_pre_terms
-               in
-               ([ pre_decl ], call)
-             in
-             let post_bundle_decls, post_terms =
-               if not bundle_post_terms then ([], raw_post_terms)
-               else
-                 let post_import, call = shared_post_bundle_call raw_post_terms in
-                 ([ post_import ], [ call ])
-             in
-             let spc =
-               {
-                 Ptree.sp_pre = [ pre_term ];
-                 (* Helper contracts may use shared predicates to control
-                    global text size.  Selected helper-local cuts are emitted
-                    unfolded in the body, as assertions, so they add proof
-                    obligations instead of weakening the postcondition. *)
-                 sp_post = List.rev_map mk_post post_terms;
-                 sp_xpost = [];
-                 sp_reads = [];
-                 sp_writes = [];
-                 sp_alias = [];
-                 sp_variant = [];
-                 sp_checkrw = false;
-                 sp_diverge = false;
-                 sp_partial = false;
-               }
-             in
-             let local_cut_asserts =
-               sc.local_cuts
-               |> List.map (fun term -> mk_expr (Eassert (Expr.Assert, term)))
-             in
-             let seq_exprs (exprs : Ptree.expr list) =
-               let exprs =
-                 List.filter
-                   (fun expr -> match expr.expr_desc with Etuple [] -> false | _ -> true)
-                   exprs
-               in
-               match exprs with
-               | [] -> mk_expr (Etuple [])
-               | first :: rest ->
-                   List.fold_left (fun acc expr -> mk_expr (Esequence (acc, expr))) first rest
-             in
-             let helper_body =
-               seq_exprs (compile_transition_body env [] t :: local_cut_asserts)
-             in
-             let helper_inputs =
-               helper_binders_without_unused_parameters inputs spc helper_body
-             in
-             let fn =
-               mk_expr
-                 (Efun
-                    ( helper_inputs,
-                      None,
-                      { pat_desc = Pwild; pat_loc = loc },
-                      Ity.MaskVisible,
-                      spc,
-                      helper_body ))
-             in
-             ( i,
-               sc,
-               helper_name.id_str,
-               pre_bundle_decls @ post_bundle_decls
-               @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] ))
+    if not use_product_helper_contracts then []
+    else step_contracts |> List.mapi (fun i sc -> (i, sc)) |> group_kernel_helpers
   in
   let kernel_step_helper_decls =
-    List.concat_map (fun (_i, _sc, _name, decls) -> decls) kernel_step_helper_units
+    List.concat_map (fun (_name, decls) -> decls) kernel_step_helper_units
   in
   let helper_decls =
     if use_product_helper_contracts then []
@@ -1504,7 +1852,7 @@ let compile_node_with_info ?kernel_ir
     let common_module =
       ( ident common_module_name,
         None,
-        common_decls @ shared_formula_decls,
+        common_decls,
         { pre_labels = []; post_labels = [] } )
     in
     let init_modules =
@@ -1521,18 +1869,15 @@ let compile_node_with_info ?kernel_ir
     let helper_modules =
       kernel_step_helper_units
       |> List.map
-           (fun
-             ( _i,
-               (_sc : Why_contracts.step_contract_info),
-               helper_name,
-               decls ) ->
+           (fun (helper_name, decls) ->
              ( ident (module_name ^ "__" ^ helper_name),
                None,
                imports @ [ common_import ] @ decls,
                { pre_labels; post_labels } ))
     in
     common_module
-    :: (List.rev !shared_post_bundle_modules @ init_modules @ helper_modules)
+    :: (List.rev !shared_pre_bundle_modules
+       @ List.rev !shared_post_bundle_modules @ init_modules @ helper_modules)
   else
     let decls =
       common_decls @ shared_formula_decls @ kernel_step_helper_decls @ helper_decls
@@ -1548,10 +1893,12 @@ let compile_node_from_ir_node
     ?(slice_why3_transition_bodies = true)
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
+    ?(group_why3_product_steps = true)
     (node : Ir.node_ir) :
     (Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups) list =
   compile_node_with_info ~share_why3_facts ~simplify_why3_formulas
     ~simplify_why3_runtime_actions ~deduplicate_why3_terms
+    ~group_why3_product_steps
     (prepare_ir_node ~simplify_why3_runtime_actions ~slice_why3_transition_bodies node)
 
 (** [compile_program_ast_from_ir_nodes] helper value. *)
@@ -1562,12 +1909,13 @@ let compile_program_ast_from_ir_nodes
     ?(slice_why3_transition_bodies = true)
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
+    ?(group_why3_product_steps = true)
     (program_nodes : Ir.node_ir list) : program_ast =
   let modules =
     List.concat_map
       (compile_node_from_ir_node ~share_why3_facts ~simplify_why3_formulas
          ~slice_why3_transition_bodies ~simplify_why3_runtime_actions
-         ~deduplicate_why3_terms)
+         ~deduplicate_why3_terms ~group_why3_product_steps)
       program_nodes
   in
   let mlw = Ptree.Modules (List.map (fun (a, _b, c, _) -> (a, c)) modules) in

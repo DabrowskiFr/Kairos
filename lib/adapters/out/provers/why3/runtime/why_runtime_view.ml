@@ -31,6 +31,15 @@ let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula
       Int.compare a.meta.oid b.meta.oid)
     xs
 
+let dedup_summary_formulas_by_logic
+    (xs : Abs.summary_formula list) : Abs.summary_formula list =
+  List.fold_left
+    (fun acc (x : Abs.summary_formula) ->
+      if List.exists (fun (y : Abs.summary_formula) -> y.logic = x.logic) acc
+      then acc
+      else acc @ [ x ])
+    [] xs
+
 type port_view = {
   port_name : ident;
   port_type : ty;
@@ -142,6 +151,21 @@ let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
   match f.hexpr with
   | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
   | _ -> [ f ]
+
+let disj_summary_formulas (formulas : Abs.summary_formula list) :
+    Abs.summary_formula option =
+  match dedup_summary_formulas_by_logic formulas with
+  | [] -> None
+  | f :: rest ->
+      let logic =
+        rest
+        |> List.fold_left
+             (fun acc (item : Abs.summary_formula) ->
+               Core_syntax_builders.mk_hor acc item.logic)
+             f.logic
+        |> Core_fo_simplifier.simplify
+      in
+      Some (Ir_formula.make logic)
 
 let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * StringSet.t =
   match s.stmt with
@@ -515,7 +539,12 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
     }
   in
   let reachability = Product_reachability.build ~node in
-  let product_transitions =
+  let transition_requires_without_assume_guard (pc : Ir.product_step_summary) =
+    pc.requires
+    |> List.filter (fun (f : Ir.summary_formula) ->
+           f.logic <> pc.identity.assume_guard)
+  in
+  let grouped_product_transition_entries =
     List.concat_map
       (fun (pc : Ir.product_step_summary) ->
         let t = pc.identity.program_step in
@@ -523,6 +552,10 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
           Product_reachability.local_requires_of_product_state reachability
             pc.identity.product_src
           |> List.map Ir_formula.make
+        in
+        let assume_guard = Ir_formula.make pc.identity.assume_guard in
+        let common_requires =
+          pc.propagation_requires @ transition_requires_without_assume_guard pc
         in
         let safe_ensures = dedup_summary_formulas pc.ensures in
         let safe_product_dsts =
@@ -544,51 +577,101 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
                 else t.body_stmts
               in
               [
-                {
-                  transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
-                  src_state = t.src_state;
-                  dst_state = t.dst_state;
-                  guard = t.guard_expr;
-                  body;
-                  step_class = StepSafe;
-                  product_src = pc.identity.product_src;
-                  product_dst;
-                  requires = pc.propagation_requires @ pc.requires;
-                  local_requires;
-                  propagates = admissible_guards;
-                  ensures = safe_ensures;
-                  forbidden = [];
-                };
+                ( {
+                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                    src_state = t.src_state;
+                    dst_state = t.dst_state;
+                    guard = t.guard_expr;
+                    body;
+                    step_class = StepSafe;
+                    product_src = pc.identity.product_src;
+                    product_dst;
+                    requires = common_requires;
+                    local_requires;
+                    propagates = admissible_guards;
+                    ensures = safe_ensures;
+                    forbidden = [];
+                  },
+                  assume_guard );
               ]
         in
         let bad_groups =
-          pc.unsafe_cases
-          |> List.map (fun (case : Ir.unsafe_product_case) ->
-                 let bad_body =
-                   if slice_transition_bodies then
-                     slice_body_for_formulas t.body_stmts [ case.excluded_guard ]
-                   else t.body_stmts
-                 in
-                 {
-                   transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
-                   src_state = t.src_state;
-                   dst_state = t.dst_state;
-                   guard = t.guard_expr;
-                   body = bad_body;
-                   step_class = StepBadGuarantee;
-                   product_src = pc.identity.product_src;
-                   product_dst = case.product_dst;
-                   requires = pc.propagation_requires @ pc.requires;
-                   local_requires;
-                   propagates = [];
-                   ensures = [];
-                   forbidden =
-                     case.excluded_guard.logic
-                     |> split_top_level_or
-                     |> List.map Ir_formula.make;
-                 })
+          match pc.unsafe_cases with
+          | [] -> []
+          | first_case :: _ ->
+              let forbidden =
+                pc.unsafe_cases
+                |> List.concat_map (fun (case : Ir.unsafe_product_case) ->
+                       case.excluded_guard.logic
+                       |> split_top_level_or
+                       |> List.map Ir_formula.make)
+              in
+              let bad_body =
+                if slice_transition_bodies then
+                  slice_body_for_formulas t.body_stmts forbidden
+                else t.body_stmts
+              in
+              [
+                ( {
+                    transition_id = Printf.sprintf "tr_%d" pc.trace.step_uid;
+                    src_state = t.src_state;
+                    dst_state = t.dst_state;
+                    guard = t.guard_expr;
+                    body = bad_body;
+                    step_class = StepBadGuarantee;
+                    product_src = pc.identity.product_src;
+                    product_dst = first_case.product_dst;
+                    requires = common_requires;
+                    local_requires;
+                    propagates = [];
+                    ensures = [];
+                    forbidden;
+                  },
+                  assume_guard );
+              ]
         in
         safe_group @ bad_groups)
       node.summaries
+  in
+  let group_key (t : runtime_product_transition_view) =
+    ( t.step_class,
+      t.transition_id,
+      t.src_state,
+      t.dst_state,
+      t.guard,
+      t.body,
+      t.product_src,
+      List.map (fun (f : Abs.summary_formula) -> f.logic) t.requires,
+      List.map (fun (f : Abs.summary_formula) -> f.logic) t.local_requires,
+      List.map (fun (f : Abs.summary_formula) -> f.logic) t.ensures,
+      List.map (fun (f : Abs.summary_formula) -> f.logic) t.forbidden )
+  in
+  let product_transition_groups = Hashtbl.create 256 in
+  let product_transition_order = ref [] in
+  grouped_product_transition_entries
+  |> List.iter (fun (transition, assume_guard) ->
+         let key = group_key transition in
+         if not (Hashtbl.mem product_transition_groups key) then
+           product_transition_order := key :: !product_transition_order;
+         let representative, assume_guards =
+           Hashtbl.find_opt product_transition_groups key
+           |> Option.value ~default:(transition, [])
+         in
+         Hashtbl.replace product_transition_groups key
+           (representative, assume_guards @ [ assume_guard ]));
+  let product_transitions =
+    List.rev !product_transition_order
+    |> List.filter_map (fun key ->
+           let representative, assume_guards =
+             Hashtbl.find product_transition_groups key
+           in
+           match disj_summary_formulas assume_guards with
+           | None -> None
+           | Some assume_guard ->
+               Some
+                 {
+                   representative with
+                   requires = representative.requires @ [ assume_guard ];
+                 })
   in
   { runtime with product_transitions }

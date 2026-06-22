@@ -16,15 +16,75 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+type why3_worker_counters = {
+  worker_id : int;
+  worker_input_goal_count : int;
+  worker_prover_goal_count : int;
+  worker_duplicate_goal_count : int;
+  worker_fallback_count : int;
+  worker_wall_s : float;
+  worker_prepare_s : float;
+  worker_print_s : float;
+  worker_spawn_s : float;
+  worker_wait_s : float;
+  worker_solver_s : float;
+  worker_last_goal : string;
+}
+
+type ir_size_metrics = {
+  node_count : int;
+  summary_count : int;
+  safe_case_count : int;
+  unsafe_case_count : int;
+  propagation_requires_count : int;
+  requires_count : int;
+  ensures_count : int;
+  init_invariant_goal_count : int;
+  formula_occurrence_count : int;
+  unique_formula_count : int;
+}
+
+type ir_pass_counters = {
+  pass_name : string;
+  before : ir_size_metrics;
+  after_ : ir_size_metrics;
+}
+
+type ir_fact_family_counters = {
+  pass_name : string;
+  family_name : string;
+  candidate_count : int;
+  inserted_count : int;
+  unique_candidate_count : int;
+  unique_inserted_count : int;
+}
+
 type timing_counters = {
+  frontend_parse_s : float;
+  snapshot_build_s : float;
+  contract_partition_s : float;
+  automata_generation_s : float;
   spot_s : float;
   spot_calls : int;
   z3_s : float;
   z3_calls : int;
   product_s : float;
   canonical_s : float;
+  pre_s : float;
+  product_reachability_s : float;
+  post_s : float;
+  temporal_lower_s : float;
+  instrumentation_info_s : float;
+  output_artifact_s : float;
+  output_proof_run_s : float;
+  output_map_s : float;
   why_gen_s : float;
   vc_smt_s : float;
+  why3_setup_s : float;
+  why3_parse_s : float;
+  why3_typecheck_s : float;
+  why3_task_extract_s : float;
+  why3_split_vc_s : float;
   why3_prepare_s : float;
   why3_print_s : float;
   why3_spawn_s : float;
@@ -34,6 +94,11 @@ type timing_counters = {
   why3_goal_count : int;
   why3_duplicate_goal_count : int;
   why3_fallback_count : int;
+  why3_smt_fingerprint_count : int;
+  why3_unique_smt_fingerprint_count : int;
+  why3_workers : why3_worker_counters list;
+  ir_passes : ir_pass_counters list;
+  ir_fact_families : ir_fact_family_counters list;
 }
 
 type goal_result = int * string * string * float * string option * string option
@@ -59,6 +124,8 @@ module type SNAPSHOT_PORT = sig
   type snapshot
 
   val build_snapshot :
+    collect_instrumentation_info:bool ->
+    collect_ir_metrics:bool ->
     proof_encoding:Pipeline_types.proof_encoding ->
     proof_optimizations:Pipeline_types.proof_optimizations ->
     frontend:frontend_input ->
@@ -119,6 +186,8 @@ module type TIMING_PORT = sig
   val now_s : unit -> float
   val snapshot : unit -> snapshot
   val diff : before:snapshot -> after_:snapshot -> timing_counters
+  val record_frontend_parse : elapsed_s:float -> unit
+  val record_snapshot_build : elapsed_s:float -> unit
 end
 
 module type PROOF_EVENTS_PORT = sig
@@ -126,6 +195,7 @@ module type PROOF_EVENTS_PORT = sig
 
   val prove_with_events :
     timeout_s:int ->
+    dump_failed_smt:bool ->
     should_cancel:(unit -> bool) ->
     snapshot:snapshot ->
     vc_ids_ordered:int list ->

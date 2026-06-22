@@ -35,6 +35,18 @@ type goal_proof_result = {
   goal_name : string;
   prover_result : Why3.Call_provers.prover_result;
   dump_path : string option;
+  timing : goal_timing;
+}
+
+(** Per-goal backend timing.  The solver time is the prover-reported CPU time;
+    the other fields are wall-clock time observed by Kairos around the Why3
+    driver/prover calls. *)
+and goal_timing = {
+  prepare_s : float;
+  print_s : float;
+  spawn_s : float;
+  wait_s : float;
+  solver_s : float;
 }
 
 (** Event payload emitted when one goal starts.
@@ -78,6 +90,7 @@ val prove_ptree_with_events :
   ?timeout:int ->
   ?jobs:int ->
   ?split_vc:bool ->
+  ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
@@ -91,6 +104,7 @@ val prove_ptree_with_events :
 val prove_tasks_with_events :
   ?timeout:int ->
   ?jobs:int ->
+  ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
@@ -104,6 +118,7 @@ val prove_ptrees_with_events :
   ?timeout:int ->
   ?jobs:int ->
   ?split_vc:bool ->
+  ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->

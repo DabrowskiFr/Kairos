@@ -22,6 +22,7 @@ open Ir_shared_types
 type formula_meta = {
   oid : formula_id;
   loc : Loc.loc option;
+  family : string option;
 }
 
 type summary_formula = {

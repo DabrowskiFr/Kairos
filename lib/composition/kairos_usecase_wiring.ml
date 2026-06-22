@@ -29,6 +29,8 @@ module Instrumentation = struct
     Verification_runtime_adapters.Snapshot.build_snapshot
       ~proof_encoding:Pipeline_types.default_proof_encoding
       ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
+      ~collect_instrumentation_info:true
+      ~collect_ir_metrics:false
   in
     Verification_runtime_adapters.instrumentation_from_snapshot ~generate_png ~snapshot
 end
@@ -54,5 +56,7 @@ let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result 
     Verification_runtime_adapters.Snapshot.build_snapshot
       ~proof_encoding:Pipeline_types.default_proof_encoding
       ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
+      ~collect_instrumentation_info:true
+      ~collect_ir_metrics:false
   in
   Verification_runtime_adapters.compile_object_from_snapshot ~input_file ~snapshot

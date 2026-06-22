@@ -45,6 +45,25 @@ let csv_escape field =
 
 type proof_progress = { emit : Pipeline_types.goal_info -> unit }
 
+type proof_goal_result = {
+  result_index : int;
+  result_goal_name : string;
+  result_status : string;
+  result_time_s : float;
+  result_timing : Why_contract_prove.goal_timing;
+  result_dump_path : string option;
+  result_vcid : string option;
+}
+
+let zero_goal_timing : Why_contract_prove.goal_timing =
+  {
+    prepare_s = 0.0;
+    print_s = 0.0;
+    spawn_s = 0.0;
+    wait_s = 0.0;
+    solver_s = 0.0;
+  }
+
 let open_proof_progress = function
   | None | Some "-" -> None
   | Some path ->
@@ -221,11 +240,79 @@ let attribution_of_step ~node_name ~index
     obligation_category;
   }
 
+let attribution_of_group ~node_name ~index ~group_size
+    (step : Why_runtime_view.runtime_product_transition_view) =
+  let obligation_kind, obligation_category =
+    attribution_step_class step.step_class
+  in
+  let source =
+    Printf.sprintf
+      "helper=%s;group_size=%d;product_src=%s;requires=%d;local_requires=%d;\
+       propagates=%d;ensures=%d;forbidden=%d"
+      (Why_compile.product_step_group_helper_name ~index step)
+      group_size
+      (product_state_source step.product_src)
+      (List.length step.requires)
+      (List.length step.local_requires)
+      (List.length step.propagates)
+      (List.length step.ensures)
+      (List.length step.forbidden)
+  in
+  {
+    source;
+    node = Some node_name;
+    transition =
+      Some
+        (Printf.sprintf "%s -> %s (%s)" step.src_state step.dst_state
+           step.transition_id);
+    obligation_kind;
+    obligation_family = Some "product-step-group";
+    obligation_category;
+  }
+
 let build_attribution_table
     ~(opts : Pipeline_types.proof_optimizations)
     (instrumentation : Ir.node_ir list) :
     (string, goal_attribution) Hashtbl.t =
   let table = Hashtbl.create 256 in
+  let add_step_attributions (runtime : Why_runtime_view.t) =
+    List.iteri
+      (fun index step ->
+        let helper_name = Why_compile.product_step_helper_name ~index step in
+        Hashtbl.replace table helper_name
+          (attribution_of_step ~node_name:runtime.node_name ~index step))
+      runtime.product_transitions
+  in
+  let add_group_attributions (runtime : Why_runtime_view.t) =
+    let groups = Hashtbl.create 128 in
+    let order = ref [] in
+    let group_key (step : Why_runtime_view.runtime_product_transition_view) =
+      let t =
+        Why_runtime_view.transition_of_product_step
+          ~simplify_runtime_actions:opts.simplify_why3_runtime_actions step
+      in
+      (step.step_class, t)
+    in
+    List.iter
+      (fun step ->
+        let key = group_key step in
+        if not (Hashtbl.mem groups key) then order := key :: !order;
+        let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
+        Hashtbl.replace groups key (step :: previous))
+      runtime.product_transitions;
+    List.rev !order
+    |> List.iteri (fun index key ->
+           let steps = Hashtbl.find groups key |> List.rev in
+           match steps with
+           | representative :: _ when List.length steps > 1 ->
+               let helper_name =
+                 Why_compile.product_step_group_helper_name ~index representative
+               in
+               Hashtbl.replace table helper_name
+                 (attribution_of_group ~node_name:runtime.node_name ~index
+                    ~group_size:(List.length steps) representative)
+           | _ -> ())
+  in
   instrumentation
   |> List.iter (fun (node : Ir.node_ir) ->
          let runtime =
@@ -233,12 +320,8 @@ let build_attribution_table
              ~simplify_runtime_actions:opts.simplify_why3_runtime_actions
              ~slice_transition_bodies:opts.slice_why3_transition_bodies node
          in
-         List.iteri
-           (fun index step ->
-             let helper_name = Why_compile.product_step_helper_name ~index step in
-             Hashtbl.replace table helper_name
-               (attribution_of_step ~node_name:runtime.node_name ~index step))
-           runtime.product_transitions);
+         add_step_attributions runtime;
+         if opts.group_why3_product_steps then add_group_attributions runtime);
   table
 
 let attribution_for_goal attributions goal_name =
@@ -264,7 +347,7 @@ let goal_name_of_task task =
 
 let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     ~(vc_ids_ordered : int list) ~normalized_tasks :
-    (int * string * string * float * string option * string option) list =
+    proof_goal_result list =
   if cfg.prove && not cfg.wp_only then
     let finished = ref [] in
     let stop_requested = ref false in
@@ -272,7 +355,7 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
     let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
     let _ =
       Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
-        ~jobs:proof_jobs ~should_cancel
+        ~jobs:proof_jobs ~dump_failed_smt:cfg.dump_failed_smt ~should_cancel
         ~on_goal_start:(fun _ -> ())
         ~on_goal_done:(fun ev ->
           let idx = ev.goal_index in
@@ -289,13 +372,23 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
                 (r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid))
             progress;
           finished :=
-            (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid)
+            {
+              result_index = idx;
+              result_goal_name = r.goal_name;
+              result_status = status;
+              result_time_s = r.prover_result.pr_time;
+              result_timing = r.timing;
+              result_dump_path = r.dump_path;
+              result_vcid = vcid;
+            }
             :: !finished;
           if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
             stop_requested := true)
         normalized_tasks
     in
-    List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> compare a b) !finished
+    List.sort
+      (fun left right -> compare left.result_index right.result_index)
+      !finished
   else
     List.mapi
       (fun idx task ->
@@ -303,35 +396,50 @@ let build_goal_results ~progress ~(cfg : Pipeline_types.config)
         let goal_name =
           try goal_name_of_task task with _ -> Printf.sprintf "vc-%03d" (idx + 1)
         in
-        (idx, goal_name, "pending", 0.0, None, Some (string_of_int vcid)))
+        {
+          result_index = idx;
+          result_goal_name = goal_name;
+          result_status = "pending";
+          result_time_s = 0.0;
+          result_timing = zero_goal_timing;
+          result_dump_path = None;
+          result_vcid = Some (string_of_int vcid);
+        })
       normalized_tasks
 
 let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
     ~attributions
-    ~(goal_results : (int * string * string * float * string option * string option) list)
+    ~(goal_results : proof_goal_result list)
     ~(vc_ids_ordered : int list)
     ~(vc_spans_ordered : Pipeline_types.text_span list)
     ~(smt_spans_ordered : Pipeline_types.text_span list) :
     Pipeline_types.proof_trace list =
   let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
-    (fun ((idx, _, _, _, _, _) as goal_result) ->
-      Hashtbl.replace goal_result_tbl idx goal_result)
+    (fun goal_result ->
+      Hashtbl.replace goal_result_tbl goal_result.result_index goal_result)
     goal_results;
   List.mapi (fun idx _task -> idx) normalized_tasks
   |> List.filter_map (fun idx ->
-         let _goal_idx, goal_name, status, time_s, dump_path, raw_vcid =
+         let goal_result =
            match Hashtbl.find_opt goal_result_tbl idx with
            | Some goal -> goal
            | None ->
                let fallback_id = Printf.sprintf "vc-%03d" (idx + 1) in
-               ( idx,
-                 fallback_id,
-                 "pending",
-                 0.0,
-                 None,
-                 Some (string_of_int (List.nth vc_ids_ordered idx)) )
+               {
+                 result_index = idx;
+                 result_goal_name = fallback_id;
+                 result_status = "pending";
+                 result_time_s = 0.0;
+                 result_timing = zero_goal_timing;
+                 result_dump_path = None;
+                 result_vcid = Some (string_of_int (List.nth vc_ids_ordered idx));
+               }
          in
+         let goal_name = goal_result.result_goal_name in
+         let status = goal_result.result_status in
+         let time_s = goal_result.result_time_s in
+         let timing = goal_result.result_timing in
          let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
          let native_core, native_probe =
            if not cfg.compute_proof_diagnostics then (None, None)
@@ -356,28 +464,38 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
              solver_status =
                (match native_probe with Some probe -> probe.status | None -> status);
              time_s;
+             why3_prepare_s = timing.prepare_s;
+             why3_print_s = timing.print_s;
+             why3_spawn_s = timing.spawn_s;
+             why3_wait_s = timing.wait_s;
+             why3_solver_s = timing.solver_s;
              source = "";
              node = None;
              transition = None;
              obligation_kind = "unknown";
              obligation_family = None;
              obligation_category = None;
-             vc_id = raw_vcid;
+             vc_id = goal_result.result_vcid;
              source_span = None;
              why_span = None;
              vc_span = List.nth_opt vc_spans_ordered idx;
              smt_span = List.nth_opt smt_spans_ordered idx;
-             dump_path;
+             dump_path = goal_result.result_dump_path;
              diagnostic;
            }
          in
          Some (apply_attribution attributions goal_name trace))
 
 let build_fast_proof_traces ~attributions
-    (goal_results : (int * string * string * float * string option * string option) list) :
+    (goal_results : proof_goal_result list) :
     Pipeline_types.proof_trace list =
   goal_results
-  |> List.map (fun (idx, goal_name, status, time_s, dump_path, raw_vcid) ->
+  |> List.map (fun goal_result ->
+         let idx = goal_result.result_index in
+         let goal_name = goal_result.result_goal_name in
+         let status = goal_result.result_status in
+         let time_s = goal_result.result_time_s in
+         let timing = goal_result.result_timing in
          let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
          let trace =
            {
@@ -387,18 +505,23 @@ let build_fast_proof_traces ~attributions
              status;
              solver_status = status;
              time_s;
+             why3_prepare_s = timing.prepare_s;
+             why3_print_s = timing.print_s;
+             why3_spawn_s = timing.spawn_s;
+             why3_wait_s = timing.wait_s;
+             why3_solver_s = timing.solver_s;
              source = "";
              node = None;
              transition = None;
              obligation_kind = "unknown";
              obligation_family = None;
              obligation_category = None;
-             vc_id = raw_vcid;
+             vc_id = goal_result.result_vcid;
              source_span = None;
              why_span = None;
              vc_span = None;
              smt_span = None;
-             dump_path;
+             dump_path = goal_result.result_dump_path;
              diagnostic =
                diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
                  ~native_probe:None;
@@ -429,13 +552,16 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         ~simplify_why3_formulas:opts.simplify_why3_formulas
         ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
+        ~group_why3_product_steps:opts.group_why3_product_steps
+        instrumentation
     in
-    let why_text, why_spans = Why_text_render.emit_program_ast_with_spans why_ast in
-    let proof_ptree =
-      Why_task_support.ptree_of_text ~filename:"<kairos-generated>" ~text:why_text
-    in
+    let proof_ptree = why_ast.Why_compile.mlw in
     let module_ptrees = Why_task_support.module_ptrees_of_ptree proof_ptree in
+    let output_why_text, output_why_spans =
+      if cfg.generate_why_text then Why_text_render.emit_program_ast_with_spans why_ast
+      else ("", [])
+    in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
     if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
@@ -448,35 +574,41 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
         let _ =
           Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
-            ~jobs:proof_jobs ~split_vc:true ~should_cancel ~on_goal_start:(fun _ -> ())
+            ~jobs:proof_jobs ~split_vc:true ~dump_failed_smt:cfg.dump_failed_smt
+            ~should_cancel ~on_goal_start:(fun _ -> ())
             ~on_goal_done:(fun ev ->
               let idx = ev.Why_contract_prove.goal_index in
               let r = ev.result in
               let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
               finished :=
-                ( idx,
-                  r.goal_name,
-                  status,
-                  r.prover_result.pr_time,
-                  r.dump_path,
-                  Some (string_of_int (idx + 1)) )
+                {
+                  result_index = idx;
+                  result_goal_name = r.goal_name;
+                  result_status = status;
+                  result_time_s = r.prover_result.pr_time;
+                  result_timing = r.timing;
+                  result_dump_path = r.dump_path;
+                  result_vcid = Some (string_of_int (idx + 1));
+                }
                 :: !finished;
               if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
                 stop_requested := true)
             module_ptrees
         in
         List.sort
-          (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b)
+          (fun left right -> Int.compare left.result_index right.result_index)
           !finished
       in
-      let vc_ids_ordered = List.map (fun (idx, _, _, _, _, _) -> idx + 1) goal_results in
+      let vc_ids_ordered =
+        List.map (fun goal -> goal.result_index + 1) goal_results
+      in
       let proof_traces = build_fast_proof_traces ~attributions goal_results in
       let goals = goals_of_proof_traces proof_traces in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       Ok
         {
-          why_text;
-          why_spans;
+          why_text = output_why_text;
+          why_spans = output_why_spans;
           vc_text = "";
           vc_spans_ordered = [];
           smt_text = "";
@@ -529,8 +661,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       let goals = goals_of_proof_traces proof_traces in
       Ok
         {
-          why_text;
-          why_spans;
+          why_text = output_why_text;
+          why_spans = output_why_spans;
           vc_text;
           vc_spans_ordered;
           smt_text;

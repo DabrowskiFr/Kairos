@@ -824,9 +824,12 @@ let () =
                               get_param_bool params "computeProofDiagnostics" false;
                             prove = get_param_bool params "prove" true;
                             proof_jobs = get_param_int params "proofJobs" 1;
-                            generate_vc_text = get_param_bool params "generateVcText" true;
-                            generate_smt_text = get_param_bool params "generateSmtText" true;
-                            generate_dot_png = get_param_bool params "generateDotPng" true;
+                            generate_why_text = not (get_param_bool params "prove" true);
+                            generate_vc_text = get_param_bool params "generateVcText" false;
+                            generate_smt_text = get_param_bool params "generateSmtText" false;
+                            generate_dot_png = get_param_bool params "generateDotPng" false;
+                            dump_failed_smt = false;
+                            collect_ir_metrics = false;
                             proof_progress_path = None;
                             stop_on_first_nonvalid = false;
                             proof_encoding = Pipeline_types.default_proof_encoding;
@@ -842,7 +845,7 @@ let () =
                     if !supports_work_done_progress then
                       send_work_done_report stdout ~token:progress_token
                         ~message:
-                          (if cfg.prove then "Building proof artifacts (OBC+/Why/VC) ..."
+                          (if cfg.prove then "Proving Kairos obligations ..."
                            else "Building Kairos artifacts ...");
                     let completed_goals = ref 0 in
                     let total_goals = ref 0 in
@@ -851,7 +854,7 @@ let () =
                         send_work_done_report stdout ~token:progress_token
                           ~message:
                             (if cfg.prove then
-                               "Artifacts ready; publishing proof goals and solver results ..."
+                               "Proof results ready; publishing goals ..."
                              else "Artifacts ready");
                       let payload : Lsp_protocol.outputs_ready_notification =
                         {

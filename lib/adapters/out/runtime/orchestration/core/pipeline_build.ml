@@ -46,7 +46,82 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
+let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics =
+  let summary_count = ref 0 in
+  let safe_case_count = ref 0 in
+  let unsafe_case_count = ref 0 in
+  let propagation_requires_count = ref 0 in
+  let requires_count = ref 0 in
+  let ensures_count = ref 0 in
+  let init_invariant_goal_count = ref 0 in
+  let formula_occurrence_count = ref 0 in
+  let formulas = ref [] in
+  let add_formula f =
+    incr formula_occurrence_count;
+    formulas := f :: !formulas
+  in
+  let add_summary_formula (f : Ir.summary_formula) = add_formula f.logic in
+  List.iter
+    (fun (node : Ir.node_ir) ->
+      init_invariant_goal_count :=
+        !init_invariant_goal_count + List.length node.init_invariant_goals;
+      List.iter add_summary_formula node.init_invariant_goals;
+      List.iter
+        (fun (summary : Ir.product_step_summary) ->
+          incr summary_count;
+          propagation_requires_count :=
+            !propagation_requires_count
+            + List.length summary.propagation_requires;
+          requires_count := !requires_count + List.length summary.requires;
+          ensures_count := !ensures_count + List.length summary.ensures;
+          safe_case_count := !safe_case_count + List.length summary.safe_cases;
+          unsafe_case_count := !unsafe_case_count + List.length summary.unsafe_cases;
+          List.iter add_summary_formula summary.propagation_requires;
+          List.iter add_summary_formula summary.requires;
+          List.iter add_summary_formula summary.ensures;
+          List.iter
+            (fun (case : Ir.safe_product_case) ->
+              add_summary_formula case.admissible_guard)
+            summary.safe_cases;
+          List.iter
+            (fun (case : Ir.unsafe_product_case) ->
+              add_summary_formula case.excluded_guard)
+            summary.unsafe_cases)
+        node.summaries)
+    nodes;
+  {
+    node_count = List.length nodes;
+    summary_count = !summary_count;
+    safe_case_count = !safe_case_count;
+    unsafe_case_count = !unsafe_case_count;
+    propagation_requires_count = !propagation_requires_count;
+    requires_count = !requires_count;
+    ensures_count = !ensures_count;
+    init_invariant_goal_count = !init_invariant_goal_count;
+    formula_occurrence_count = !formula_occurrence_count;
+    unique_formula_count = List.length (List.sort_uniq Stdlib.compare !formulas);
+  }
+
+let ir_pass_name = function
+  | Orchestration.Pre_pass -> "pre"
+  | Orchestration.Product_reachability_pass -> "product_reachability"
+  | Orchestration.Post_pass -> "post"
+  | Orchestration.Temporal_lower_pass -> "temporal_lower"
+
+let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
+  External_timing.record_ir_fact_family
+    {
+      pass_name = family.pass_name;
+      family_name = family.family_name;
+      candidate_count = family.candidate_count;
+      inserted_count = family.inserted_count;
+      unique_candidate_count = family.unique_candidate_count;
+      unique_inserted_count = family.unique_inserted_count;
+    }
+
 let build_snapshot_from_frontend
+    ~(collect_instrumentation_info : bool)
+    ~(collect_ir_metrics : bool)
     ~(proof_encoding : Pipeline_types.proof_encoding)
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
     ~(frontend : Application_ports.frontend_input) :
@@ -59,13 +134,22 @@ let build_snapshot_from_frontend
     match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->
-    let* runtime_model =
+    let t_partition = Unix.gettimeofday () in
+    let partition_result =
       Contract_partition.partition_program ~proof_optimizations p_model
+    in
+    External_timing.record_contract_partition
+      ~elapsed_s:(Unix.gettimeofday () -. t_partition);
+    let* runtime_model =
+      partition_result
       |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)
     in
+    let t_automata = Unix.gettimeofday () in
     let automata, automata_pass_info =
       Automata_generation.run runtime_model ~build_automaton:Spot_automaton_builder.build
     in
+    External_timing.record_automata_generation
+      ~elapsed_s:(Unix.gettimeofday () -. t_automata);
     let automata_info : Flow_info.automata_info =
       {
         residual_state_count = automata_pass_info.residual_state_count;
@@ -84,16 +168,53 @@ let build_snapshot_from_frontend
     match p_summaries with
     | Error _ as err -> err
     | Ok p_summaries -> (
+        let run_canonical_pass pass f nodes =
+          let before =
+            if collect_ir_metrics then Some (ir_size_metrics nodes) else None
+          in
+          let t_pass = Unix.gettimeofday () in
+          let result = f nodes in
+          let elapsed_s = Unix.gettimeofday () -. t_pass in
+          (match pass with
+          | Orchestration.Pre_pass -> External_timing.record_pre ~elapsed_s
+          | Orchestration.Product_reachability_pass ->
+              External_timing.record_product_reachability ~elapsed_s
+          | Orchestration.Post_pass -> External_timing.record_post ~elapsed_s
+          | Orchestration.Temporal_lower_pass ->
+              External_timing.record_temporal_lower ~elapsed_s);
+          Option.iter
+            (fun before ->
+              let after_ = ir_size_metrics result in
+              External_timing.record_ir_pass
+                { pass_name = ir_pass_name pass; before; after_ })
+            before;
+          result
+        in
         let t_canonical = Unix.gettimeofday () in
-        let ir_program = Orchestration.build_instrumented_ir p_summaries in
+        let ir_program =
+          Orchestration.build_instrumented_ir
+            ?observe_fact_family:
+              (if collect_ir_metrics then Some record_ir_fact_family else None)
+            ~run_pass:run_canonical_pass
+            p_summaries
+        in
         External_timing.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
         let p_instrumentation = ir_program.nodes in
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
-        match
-          Instrumentation_info_builder.instrumentation_info_of_ir ~automata
-            ~source_model:runtime_model ir_program
-        with
+        let instrumentation_info =
+          if collect_instrumentation_info then
+            let t_info = Unix.gettimeofday () in
+            let result =
+              Instrumentation_info_builder.instrumentation_info_of_ir ~automata
+                ~source_model:runtime_model ir_program
+            in
+            External_timing.record_instrumentation_info
+              ~elapsed_s:(Unix.gettimeofday () -. t_info);
+            result |> Result.map Option.some
+          else Ok None
+        in
+        match instrumentation_info with
         | Error msg -> Error (Pipeline_types.Flow_error msg)
         | Ok instrumentation_info ->
         let asts : Runtime_snapshot.ast_flow =
@@ -111,7 +232,7 @@ let build_snapshot_from_frontend
             parse = Some parse_info;
             automata_generation = Some automata_info;
             summaries = Some summaries_info;
-            instrumentation = Some instrumentation_info;
+            instrumentation = instrumentation_info;
           }
         in
         let snapshot : Runtime_snapshot.pipeline_snapshot =

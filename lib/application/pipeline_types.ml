@@ -55,6 +55,11 @@ open Core_syntax
     status : string;
     solver_status : string;
     time_s : float;
+    why3_prepare_s : float;
+    why3_print_s : float;
+    why3_spawn_s : float;
+    why3_wait_s : float;
+    why3_solver_s : float;
     source : string;
     node : string option;
     transition : string option;
@@ -163,6 +168,7 @@ type cost_report_outputs = { cost_report_json : string }
     slice_why3_transition_bodies : bool;
     simplify_why3_runtime_actions : bool;
     deduplicate_why3_terms : bool;
+    group_why3_product_steps : bool;
   }
 
   let reference_proof_optimizations =
@@ -173,6 +179,7 @@ type cost_report_outputs = { cost_report_json : string }
       slice_why3_transition_bodies = false;
       simplify_why3_runtime_actions = false;
       deduplicate_why3_terms = false;
+      group_why3_product_steps = false;
     }
 
   let default_proof_optimizations =
@@ -183,6 +190,7 @@ type cost_report_outputs = { cost_report_json : string }
       slice_why3_transition_bodies = true;
       simplify_why3_runtime_actions = true;
       deduplicate_why3_terms = true;
+      group_why3_product_steps = true;
     }
 
   type config = {
@@ -193,9 +201,12 @@ type cost_report_outputs = { cost_report_json : string }
     compute_proof_diagnostics : bool;
     prove : bool;
     proof_jobs : int;
+    generate_why_text : bool;
     generate_vc_text : bool;
     generate_smt_text : bool;
     generate_dot_png : bool;
+    dump_failed_smt : bool;
+    collect_ir_metrics : bool;
     proof_progress_path : string option;
     stop_on_first_nonvalid : bool;
     proof_encoding : proof_encoding;

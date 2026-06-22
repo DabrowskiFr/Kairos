@@ -22,6 +22,7 @@ open Core_syntax
 
 val make :
   ?loc:Loc.loc ->
+  ?family:string ->
   Core_syntax.hexpr ->
   Ir.summary_formula
 

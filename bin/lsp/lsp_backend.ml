@@ -34,9 +34,12 @@ let pipeline_config_of_protocol (cfg : Lsp_protocol.config) : Pipeline_types.con
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prove = cfg.prove;
     proof_jobs = 1;
+    generate_why_text = not cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;
     generate_dot_png = cfg.generate_dot_png;
+    dump_failed_smt = false;
+    collect_ir_metrics = false;
     proof_progress_path = None;
     stop_on_first_nonvalid = false;
     proof_encoding = Pipeline_types.default_proof_encoding;

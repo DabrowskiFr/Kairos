@@ -109,10 +109,10 @@ Full pipeline run with optional proof.
 - `timeoutS` (int, default 5)
 - `prefixFields` (bool, default false)
 - `prove` (bool, default true)
-- `generateVcText` (bool, default true)
-- `generateSmtText` (bool, default true)
+- `generateVcText` (bool, default false)
+- `generateSmtText` (bool, default false)
 - `generateMonitorText` (bool, default true)
-- `generateDotPng` (bool, default true)
+- `generateDotPng` (bool, default false)
 
 **Result**
 `outputs` JSON (`Lsp_protocol`).

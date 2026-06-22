@@ -93,8 +93,8 @@ function getRunSettings() {
     wpOnly: cfg.get<boolean>("run.wpOnly", false),
     smokeTests: cfg.get<boolean>("run.smokeTests", false),
     prefixFields: cfg.get<boolean>("run.prefixFields", false),
-    generateVcText: cfg.get<boolean>("run.generateVcText", true),
-    generateSmtText: cfg.get<boolean>("run.generateSmtText", true),
+    generateVcText: cfg.get<boolean>("run.generateVcText", false),
+    generateSmtText: cfg.get<boolean>("run.generateSmtText", false),
     generateMonitorText: cfg.get<boolean>("run.generateMonitorText", true),
     generateDotPng: cfg.get<boolean>("run.generateDotPng", false),
     openPanelsAfterProve: cfg.get<boolean>("ui.openDashboardAfterProve", true),
@@ -130,6 +130,9 @@ function writeKirFiles(
   historicalClausesText: string,
   eliminatedClausesText: string
 ): void {
+  if (!productText && !historicalClausesText && !eliminatedClausesText) {
+    return;
+  }
   try {
     const dir = path.dirname(inputFile);
     const base = path.basename(inputFile, path.extname(inputFile));

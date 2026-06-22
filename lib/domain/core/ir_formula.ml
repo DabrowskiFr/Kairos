@@ -22,8 +22,8 @@ let fresh_oid () =
   incr next_oid;
   !next_oid
 
-let make ?loc logic : Ir.summary_formula =
-  { logic; meta = { oid = fresh_oid (); loc } }
+let make ?loc ?family logic : Ir.summary_formula =
+  { logic; meta = { oid = fresh_oid (); loc; family } }
 
 let values (xs : Ir.summary_formula list) : Core_syntax.hexpr list =
   List.map (fun (x : Ir.summary_formula) -> x.logic) xs

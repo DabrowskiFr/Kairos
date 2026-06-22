@@ -70,6 +70,7 @@ let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations 
             ( "simplify_why3_runtime_actions",
               bool_s opts.simplify_why3_runtime_actions );
             ("deduplicate_why3_terms", bool_s opts.deduplicate_why3_terms);
+            ("group_why3_product_steps", bool_s opts.group_why3_product_steps);
           ] );
       ]
 

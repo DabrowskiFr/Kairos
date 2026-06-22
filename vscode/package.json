@@ -360,12 +360,12 @@
         },
         "kairos.run.generateVcText": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Keep VC text in run outputs."
         },
         "kairos.run.generateSmtText": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Keep SMT text in run outputs."
         },
         "kairos.run.generateMonitorText": {

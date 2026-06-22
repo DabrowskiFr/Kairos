@@ -49,15 +49,31 @@ let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
     | None -> []
     | Some xs -> List.sort_uniq compare xs)
 
-let add_unique_formula (f : Core_syntax.hexpr)
-    (xs : Abs.summary_formula list) : Abs.summary_formula list =
-  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
-  else xs @ [ Ir_formula.make f ]
+let add_unique_formula_with_status ~family (f : Core_syntax.hexpr)
+    (xs : Abs.summary_formula list) : Abs.summary_formula list * bool =
+  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then (xs, false)
+  else (xs @ [ Ir_formula.make ~family f ], true)
+
+let add_formula_family ~record_family ~family_name formulas acc =
+  let inserted, acc =
+    List.fold_left
+      (fun (inserted, acc) f ->
+        let acc, was_inserted =
+          add_unique_formula_with_status ~family:family_name f acc
+        in
+        let inserted = if was_inserted then f :: inserted else inserted in
+        (inserted, acc))
+      ([], acc) formulas
+  in
+  record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
+  acc
 
 let formula_mem (f : Core_syntax.hexpr) (xs : Core_syntax.hexpr list) : bool =
   List.exists (( = ) f) xs
 
-let enrich_product_step_summary ~(node : Abs.node_ir)
+let enrich_product_step_summary ~(record_family : family_name:string ->
+    candidates:Core_syntax.hexpr list -> inserted:Core_syntax.hexpr list -> unit)
+    ~(node : Abs.node_ir)
     ~(product_characteristics : Product_characteristics.t)
     (pc : Abs.product_step_summary) :
     Abs.product_step_summary =
@@ -106,38 +122,51 @@ let enrich_product_step_summary ~(node : Abs.node_ir)
   in
   let ensures =
     (pc.ensures
-    |> fun acc ->
-    (match safe_disjunction with
-    | None -> acc
-    | Some f -> add_unique_formula f acc)
-    |> fun acc ->
-    List.fold_left
-      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
-      acc shifted_common_destination_invariants
-    |> fun acc ->
-    List.fold_left
-      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
-      acc shifted_guarded_destination_invariants
-    |> fun acc ->
-    List.fold_left
-      (fun acc shifted_inv -> add_unique_formula shifted_inv acc)
-      acc shifted_product_characteristics)
+    |> add_formula_family ~record_family
+         ~family_name:"safe_disjunction_ensures"
+         (match safe_disjunction with None -> [] | Some f -> [ f ])
+    |> add_formula_family ~record_family
+         ~family_name:"common_destination_invariant_ensures"
+         shifted_common_destination_invariants
+    |> add_formula_family ~record_family
+         ~family_name:"guarded_destination_invariant_ensures"
+         shifted_guarded_destination_invariants
+    |> add_formula_family ~record_family
+         ~family_name:"product_characteristics_ensures"
+         shifted_product_characteristics)
   in
   { pc with ensures }
 
 type node_generation = { summaries : Abs.product_step_summary list }
 
-let compute_generation ~(node : Abs.node_ir) : node_generation =
+let compute_generation ~record_family ~(node : Abs.node_ir) : node_generation =
   let product_characteristics = Product_characteristics.build ~node in
   {
     summaries =
       List.map
-        (enrich_product_step_summary ~node ~product_characteristics)
+        (enrich_product_step_summary ~record_family ~node ~product_characteristics)
         node.summaries;
   }
 
-let run_node (n : Abs.node_ir) : Abs.node_ir =
-  let post_generation = compute_generation ~node:n in
+let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
+  let post_generation = compute_generation ~record_family ~node:n in
   { n with summaries = post_generation.summaries }
 
-let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p
+let run_program ?observe_family (p : Abs.node_ir list) : Abs.node_ir list =
+  let collector =
+    match observe_family with
+    | None -> None
+    | Some _ -> Some (Ir_fact_family_metrics.create ())
+  in
+  let record_family ~family_name ~candidates ~inserted =
+    match collector with
+    | None -> ()
+    | Some collector ->
+        Ir_fact_family_metrics.add collector ~pass_name:"post" ~family_name
+          ~candidates ~inserted
+  in
+  let result = List.map (run_node ~record_family) p in
+  (match (collector, observe_family) with
+  | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer
+  | _ -> ());
+  result

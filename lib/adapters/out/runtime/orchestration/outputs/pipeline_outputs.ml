@@ -18,17 +18,100 @@
 
 include Pipeline_outputs_helpers
 
+let is_prove_only_run (cfg : Pipeline_types.config) : bool =
+  cfg.prove && not cfg.wp_only && not cfg.generate_vc_text
+  && not cfg.generate_smt_text && not cfg.generate_dot_png
+  && not cfg.compute_proof_diagnostics
+  && Option.is_none cfg.proof_progress_path
+
+let proof_instrumentation_of_asts asts =
+  Runtime_ir_merge.merge_by_source ~source_model:asts.Runtime_snapshot.verification_model
+    asts.instrumentation
+
+let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
+    (proof : Proof_runner.run_output) : Pipeline_types.outputs =
+  {
+    Pipeline_types.why_text = proof.why_text;
+    vc_text = "";
+    smt_text = "";
+    dot_text = "";
+    labels_text = "";
+    program_automaton_text = "";
+    guarantee_automaton_text = "";
+    assume_automaton_text = "";
+    product_text = "";
+    canonical_text = "";
+    obligations_map_text = "";
+    program_dot = "";
+    guarantee_automaton_dot = "";
+    assume_automaton_dot = "";
+    product_dot = "";
+    canonical_dot = "";
+    flow_meta =
+      Pipeline_outputs_helpers.flow_meta
+        ~proof_encoding:snapshot.proof_encoding
+        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+    goals = proof.goals;
+    proof_traces = proof.proof_traces;
+    vc_locs = proof.vc_locs;
+    vc_locs_ordered = proof.vc_locs_ordered;
+    vc_spans_ordered =
+      List.map
+        (fun (span : Pipeline_types.text_span) ->
+          (span.start_offset, span.end_offset))
+        proof.vc_spans_ordered;
+    why_spans = proof.why_spans;
+    vc_ids_ordered = proof.vc_ids_ordered;
+    why_time_s = 0.0;
+    automata_generation_time_s = 0.0;
+    automata_build_time_s = 0.0;
+    why3_prep_time_s = 0.0;
+    dot_png = None;
+    dot_png_error = None;
+    program_png = None;
+    program_png_error = None;
+    guarantee_automaton_png = None;
+    guarantee_automaton_png_error = None;
+    assume_automaton_png = None;
+    assume_automaton_png_error = None;
+    product_png = None;
+    product_png_error = None;
+    historical_clauses_text = "";
+    eliminated_clauses_text = "";
+  }
+
 let build_outputs ~(cfg : Pipeline_types.config)
     ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
     (Pipeline_types.outputs, Pipeline_types.error) result =
   let asts = snapshot.asts in
-  match Pipeline_artifact_bundle.build ~asts with
-  | Error msg -> Error (Pipeline_types.Flow_error msg)
-  | Ok artifacts -> (
-      let proof_instrumentation =
-        Runtime_ir_merge.merge_by_source ~source_model:asts.verification_model
-          asts.instrumentation
-      in
-      match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
-      | Error _ as err -> err
-      | Ok proof -> Ok (Output_mapper.map_outputs ~cfg ~snapshot ~artifacts ~proof))
+  let proof_instrumentation = proof_instrumentation_of_asts asts in
+  if is_prove_only_run cfg then (
+    let t_proof = Unix.gettimeofday () in
+    match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
+    | Error _ as err -> err
+    | Ok proof ->
+        External_timing.record_output_proof_run
+          ~elapsed_s:(Unix.gettimeofday () -. t_proof);
+        let t_map = Unix.gettimeofday () in
+        let out = minimal_outputs_of_proof ~snapshot proof in
+        External_timing.record_output_map
+          ~elapsed_s:(Unix.gettimeofday () -. t_map);
+        Ok out)
+  else
+    let t_artifacts = Unix.gettimeofday () in
+    match Pipeline_artifact_bundle.build ~asts with
+    | Error msg -> Error (Pipeline_types.Flow_error msg)
+    | Ok artifacts -> (
+        External_timing.record_output_artifact
+          ~elapsed_s:(Unix.gettimeofday () -. t_artifacts);
+        let t_proof = Unix.gettimeofday () in
+        match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
+        | Error _ as err -> err
+        | Ok proof ->
+            External_timing.record_output_proof_run
+              ~elapsed_s:(Unix.gettimeofday () -. t_proof);
+            let t_map = Unix.gettimeofday () in
+            let out = Output_mapper.map_outputs ~cfg ~snapshot ~artifacts ~proof in
+            External_timing.record_output_map
+              ~elapsed_s:(Unix.gettimeofday () -. t_map);
+            Ok out)

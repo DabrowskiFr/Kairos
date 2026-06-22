@@ -19,9 +19,10 @@
 module Snapshot = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
-  let build_snapshot ~proof_encoding ~proof_optimizations ~frontend =
+  let build_snapshot ~collect_instrumentation_info ~collect_ir_metrics
+      ~proof_encoding ~proof_optimizations ~frontend =
     Pipeline_build.build_snapshot_from_frontend ~proof_encoding ~proof_optimizations
-      ~frontend
+      ~collect_instrumentation_info ~collect_ir_metrics ~frontend
 end
 
 module Outputs = struct
@@ -58,7 +59,9 @@ module Why_text = struct
         ~simplify_why3_formulas:opts.simplify_why3_formulas
         ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
+        ~group_why3_product_steps:opts.group_why3_product_steps
+        instrumentation
     in
     Why_text_render.emit_program_ast why_ast
 
@@ -110,7 +113,9 @@ module Obligations = struct
         ~simplify_why3_formulas:opts.simplify_why3_formulas
         ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation
+        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
+        ~group_why3_product_steps:opts.group_why3_product_steps
+        instrumentation
     in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end
@@ -137,15 +142,47 @@ module Timing = struct
 
   let diff ~before ~after_ : Application_ports.timing_counters =
     let d = External_timing.diff ~before ~after_ in
+    let map_ir_size (size : External_timing.ir_size_metrics) :
+        Application_ports.ir_size_metrics =
+      {
+        node_count = size.node_count;
+        summary_count = size.summary_count;
+        safe_case_count = size.safe_case_count;
+        unsafe_case_count = size.unsafe_case_count;
+        propagation_requires_count = size.propagation_requires_count;
+        requires_count = size.requires_count;
+        ensures_count = size.ensures_count;
+        init_invariant_goal_count = size.init_invariant_goal_count;
+        formula_occurrence_count = size.formula_occurrence_count;
+        unique_formula_count = size.unique_formula_count;
+      }
+    in
     {
+      frontend_parse_s = d.frontend_parse_s;
+      snapshot_build_s = d.snapshot_build_s;
+      contract_partition_s = d.contract_partition_s;
+      automata_generation_s = d.automata_generation_s;
       spot_s = d.spot_s;
       spot_calls = d.spot_calls;
       z3_s = d.z3_s;
       z3_calls = d.z3_calls;
       product_s = d.product_s;
       canonical_s = d.canonical_s;
+      pre_s = d.pre_s;
+      product_reachability_s = d.product_reachability_s;
+      post_s = d.post_s;
+      temporal_lower_s = d.temporal_lower_s;
+      instrumentation_info_s = d.instrumentation_info_s;
+      output_artifact_s = d.output_artifact_s;
+      output_proof_run_s = d.output_proof_run_s;
+      output_map_s = d.output_map_s;
       why_gen_s = d.why_gen_s;
       vc_smt_s = d.vc_smt_s;
+      why3_setup_s = d.why3_setup_s;
+      why3_parse_s = d.why3_parse_s;
+      why3_typecheck_s = d.why3_typecheck_s;
+      why3_task_extract_s = d.why3_task_extract_s;
+      why3_split_vc_s = d.why3_split_vc_s;
       why3_prepare_s = d.why3_prepare_s;
       why3_print_s = d.why3_print_s;
       why3_spawn_s = d.why3_spawn_s;
@@ -155,13 +192,57 @@ module Timing = struct
       why3_goal_count = d.why3_goal_count;
       why3_duplicate_goal_count = d.why3_duplicate_goal_count;
       why3_fallback_count = d.why3_fallback_count;
+      why3_smt_fingerprint_count = d.why3_smt_fingerprint_count;
+      why3_unique_smt_fingerprint_count = d.why3_unique_smt_fingerprint_count;
+      why3_workers =
+        List.map
+          (fun (worker : External_timing.why3_worker_snapshot) ->
+            {
+              Application_ports.worker_id = worker.worker_id;
+              worker_input_goal_count = worker.worker_input_goal_count;
+              worker_prover_goal_count = worker.worker_prover_goal_count;
+              worker_duplicate_goal_count = worker.worker_duplicate_goal_count;
+              worker_fallback_count = worker.worker_fallback_count;
+              worker_wall_s = worker.worker_wall_s;
+              worker_prepare_s = worker.worker_prepare_s;
+              worker_print_s = worker.worker_print_s;
+              worker_spawn_s = worker.worker_spawn_s;
+              worker_wait_s = worker.worker_wait_s;
+              worker_solver_s = worker.worker_solver_s;
+              worker_last_goal = worker.worker_last_goal;
+            })
+          d.why3_workers;
+      ir_passes =
+        List.map
+          (fun (pass : External_timing.ir_pass_snapshot) ->
+            {
+              Application_ports.pass_name = pass.pass_name;
+              before = map_ir_size pass.before;
+              after_ = map_ir_size pass.after_;
+            })
+          d.ir_passes;
+      ir_fact_families =
+        List.map
+          (fun (family : External_timing.ir_fact_family_snapshot) ->
+            {
+              Application_ports.pass_name = family.pass_name;
+              family_name = family.family_name;
+              candidate_count = family.candidate_count;
+              inserted_count = family.inserted_count;
+              unique_candidate_count = family.unique_candidate_count;
+              unique_inserted_count = family.unique_inserted_count;
+            })
+          d.ir_fact_families;
     }
+
+  let record_frontend_parse = External_timing.record_frontend_parse
+  let record_snapshot_build = External_timing.record_snapshot_build
 end
 
 module Proof_events = struct
   type snapshot = Runtime_snapshot.pipeline_snapshot
 
-  let prove_with_events ~timeout_s ~should_cancel ~(snapshot : snapshot)
+  let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel ~(snapshot : snapshot)
       ~(vc_ids_ordered : int list) ~on_goal_done : Application_ports.goal_result list =
     let instrumentation =
       Runtime_ir_merge.merge_by_source
@@ -175,13 +256,15 @@ module Proof_events = struct
          ~simplify_why3_formulas:opts.simplify_why3_formulas
          ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
          ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-         ~deduplicate_why3_terms:opts.deduplicate_why3_terms instrumentation)
+         ~deduplicate_why3_terms:opts.deduplicate_why3_terms
+         ~group_why3_product_steps:opts.group_why3_product_steps
+         instrumentation)
         .Why_compile.mlw
     in
     let finished = ref [] in
     let _ =
       Why_contract_prove.prove_ptree_with_events ~timeout:timeout_s ptree ~should_cancel
-        ~on_goal_start:(fun _ -> ()) ~on_goal_done:(fun ev ->
+        ~dump_failed_smt ~on_goal_start:(fun _ -> ()) ~on_goal_done:(fun ev ->
           let idx = ev.goal_index in
           let r = ev.result in
           let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in

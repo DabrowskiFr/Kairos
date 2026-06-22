@@ -723,6 +723,7 @@ let proof_optimizations_json (opts : Pipeline_types.proof_optimizations) =
       ("slice_why3_transition_bodies", json_bool opts.slice_why3_transition_bodies);
       ("simplify_why3_runtime_actions", json_bool opts.simplify_why3_runtime_actions);
       ("deduplicate_why3_terms", json_bool opts.deduplicate_why3_terms);
+      ("group_why3_product_steps", json_bool opts.group_why3_product_steps);
     ]
 
 let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =

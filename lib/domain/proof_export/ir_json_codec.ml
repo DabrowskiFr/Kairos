@@ -24,6 +24,7 @@ let formula_meta_to_yojson (m : Ir.formula_meta) : Yojson.Safe.t =
     [
       ("oid", `Int m.oid);
       ("loc", option_to_yojson Loc.loc_to_yojson m.loc);
+      ("family", option_to_yojson (fun s -> `String s) m.family);
     ]
 
 let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) result =
@@ -34,13 +35,18 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) re
       let* oid_json = Option.to_result ~none:"formula_meta: missing field 'oid'" (find "oid") in
       let* loc_json = Option.to_result ~none:"formula_meta: missing field 'loc'" (find "loc") in
       let* loc = option_of_yojson Loc.loc_of_yojson loc_json in
+      let* family =
+        match find "family" with
+        | None -> Ok None
+        | Some json -> option_of_yojson (function `String s -> Ok s | _ -> Error "formula_meta.family: expected string") json
+      in
       let oid =
         match oid_json with
         | `Int n -> Ok n
         | _ -> Error "formula_meta.oid: expected int"
       in
       let* oid = oid in
-      Ok { Ir.oid; loc }
+      Ok { Ir.oid; loc; family }
   | _ -> Error "formula_meta: expected object"
 
 let summary_formula_to_yojson (f : Ir.summary_formula) : Yojson.Safe.t =

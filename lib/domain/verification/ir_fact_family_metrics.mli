@@ -16,17 +16,29 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Snapshot builder for the application pipeline.
+(** Aggregated generation metrics for one IR fact family. *)
 
-    This module consumes a frontend payload (already parsed/lowered) and
-    performs automata + IR orchestration, returning a [pipeline_snapshot]
-    enriched with flow metadata.
-*)
+type snapshot = {
+  pass_name : string;
+  family_name : string;
+  candidate_count : int;
+  inserted_count : int;
+  unique_candidate_count : int;
+  unique_inserted_count : int;
+}
 
-val build_snapshot_from_frontend :
-  collect_instrumentation_info:bool ->
-  collect_ir_metrics:bool ->
-  proof_encoding:Pipeline_types.proof_encoding ->
-  proof_optimizations:Pipeline_types.proof_optimizations ->
-  frontend:Application_ports.frontend_input ->
-  (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result
+type observer = snapshot -> unit
+
+type collector
+
+val create : unit -> collector
+
+val add :
+  collector ->
+  pass_name:string ->
+  family_name:string ->
+  candidates:Core_syntax.hexpr list ->
+  inserted:Core_syntax.hexpr list ->
+  unit
+
+val emit : collector -> observer -> unit

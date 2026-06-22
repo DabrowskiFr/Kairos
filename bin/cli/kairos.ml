@@ -42,6 +42,7 @@ type cli_args = {
   no_why3_body_slicing : bool;
   no_why3_action_simplification : bool;
   no_why3_term_dedup : bool;
+  no_why3_product_step_grouping : bool;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;
@@ -55,6 +56,7 @@ type cli_args = {
   dump_cost_report : string option;
   dump_timings : string option;
   dump_goals : string option;
+  dump_failed_smt : bool;
   dump_why : string option;
   dump_why3_vc : string option;
   dump_smt2 : string option;
@@ -110,6 +112,8 @@ let proof_optimizations_of_args args =
       base.simplify_why3_runtime_actions && not args.no_why3_action_simplification;
     deduplicate_why3_terms =
       base.deduplicate_why3_terms && not args.no_why3_term_dedup;
+    group_why3_product_steps =
+      base.group_why3_product_steps && not args.no_why3_product_step_grouping;
   }
 
 let proof_encoding_parser s =
@@ -275,8 +279,9 @@ module Pipeline_service = struct
         in
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
 
-  let run_dump_data ~input_file ~timeout_s ~prove ~generate_vc_text ~generate_smt_text
-      ~proof_progress_path ~stop_on_first_nonvalid ~proof_jobs ~proof_encoding
+  let run_dump_data ~input_file ~timeout_s ~prove ~generate_why_text
+      ~generate_vc_text ~generate_smt_text ~dump_failed_smt ~proof_progress_path
+      ~collect_ir_metrics ~stop_on_first_nonvalid ~proof_jobs ~proof_encoding
       ~proof_optimizations =
     let cfg =
       {
@@ -287,9 +292,12 @@ module Pipeline_service = struct
         compute_proof_diagnostics = false;
         prove;
         proof_jobs;
+        generate_why_text;
         generate_vc_text;
         generate_smt_text;
         generate_dot_png = false;
+        dump_failed_smt;
+        collect_ir_metrics;
         proof_progress_path;
         stop_on_first_nonvalid;
         proof_encoding;
@@ -502,7 +510,8 @@ let csv_escape field =
 
 let write_goals_dump out (traces : Pipeline_types.proof_trace list) =
   let header =
-    "index,name,status,time_s,dump_path,vcid,node,transition,obligation_kind,\
+    "index,name,status,time_s,why3_prepare_s,why3_print_s,why3_spawn_s,\
+     why3_wait_s,why3_solver_s,dump_path,vcid,node,transition,obligation_kind,\
      obligation_family,obligation_category,source"
   in
   let rows =
@@ -513,6 +522,11 @@ let write_goals_dump out (traces : Pipeline_types.proof_trace list) =
           trace.goal_name;
           trace.status;
           Printf.sprintf "%.6f" trace.time_s;
+          Printf.sprintf "%.6f" trace.why3_prepare_s;
+          Printf.sprintf "%.6f" trace.why3_print_s;
+          Printf.sprintf "%.6f" trace.why3_spawn_s;
+          Printf.sprintf "%.6f" trace.why3_wait_s;
+          Printf.sprintf "%.6f" trace.why3_solver_s;
           Option.value trace.dump_path ~default:"";
           Option.value trace.vc_id ~default:"";
           Option.value trace.node ~default:"";
@@ -595,12 +609,15 @@ let has_dump_mode args = dump_mode_count args > 0
 let has_why_mode args =
   args.prove || Option.is_some args.dump_why || Option.is_some args.dump_why3_vc
   || Option.is_some args.dump_smt2 || Option.is_some args.dump_goals
+  || args.dump_failed_smt
 
 (* Validation only checks user-facing CLI consistency rules: incompatible dump vs
    proof modes, and the "at most one dump mode" constraint. *)
 let validate_args args =
   if args.check_frontend && (has_dump_mode args || has_why_mode args) then
     Error "--check-frontend cannot be combined with dump, proof, or Why3 options"
+  else if args.dump_failed_smt && not args.prove then
+    Error "--dump-failed-smt requires --prove"
   else if has_dump_mode args && has_why_mode args then
     Error
       "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--dump-kobj-* cannot be combined with --prove or Why3 dump options"
@@ -721,9 +738,12 @@ let exec_action args = function
   | Run { prove } -> (
       match
         Pipeline_service.run_dump_data ~input_file:args.file ~timeout_s:args.timeout_s ~prove
+          ~generate_why_text:(Option.is_some args.dump_why)
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
+          ~dump_failed_smt:args.dump_failed_smt
           ~proof_progress_path:(if prove then args.dump_goals else None)
+          ~collect_ir_metrics:(Option.is_some args.dump_timings)
           ~stop_on_first_nonvalid:args.stop_on_first_nonvalid ~proof_jobs:args.proof_jobs
           ~proof_encoding:args.proof_encoding
           ~proof_optimizations:(proof_optimizations_of_args args)
@@ -763,7 +783,12 @@ let cmd =
           ~doc:"Parse and lower the input without building automata or proof obligations.")
   in
   let prove =
-    Arg.(value & flag & info [ "prove" ] ~docs:docs_proof ~doc:"Run prover on generated Why3 obligations.")
+    Arg.(
+      value & flag
+      & info [ "prove" ] ~docs:docs_proof
+          ~doc:
+            "Run the prover on generated Why3 obligations. Proof artifacts are emitted only \
+             when explicit dump options are passed.")
   in
   let dump_automata =
     Arg.(
@@ -846,6 +871,12 @@ let cmd =
       value & opt (some string) None
       & info [ "dump-goals" ] ~docs:docs_proof ~docv:"FILE"
           ~doc:"Dump proof goal statuses and prover times as CSV.")
+  in
+  let dump_failed_smt =
+    Arg.(
+      value & flag
+      & info [ "dump-failed-smt" ] ~docs:docs_proof
+          ~doc:"Dump SMT-LIB scripts for goals that are not proved during --prove.")
   in
   let dump_why =
     Arg.(
@@ -962,17 +993,24 @@ let cmd =
       & info [ "no-why3-term-dedup" ] ~docs:docs_proof
           ~doc:"Disable syntactic deduplication of generated Why3 contract terms.")
   in
+  let no_why3_product_step_grouping =
+    Arg.(
+      value & flag
+      & info [ "no-why3-product-step-grouping" ] ~docs:docs_proof
+          ~doc:
+            "Disable grouping of product-step Why3 helpers by executable transition.")
+  in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
     let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
         no_why3_fact_sharing no_why3_fo_simplification no_why3_body_slicing
-        no_why3_action_simplification no_why3_term_dedup dump_automata
-        dump_product dump_canonical dump_automata_short
+        no_why3_action_simplification no_why3_term_dedup
+        no_why3_product_step_grouping dump_automata dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report dump_timings
-        dump_goals dump_why dump_why3_vc dump_smt2 dump_kobj_summary
+        dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 dump_kobj_summary
         dump_kobj_clauses dump_kobj_product dump_kobj_contracts =
       {
         file;
@@ -989,6 +1027,7 @@ let cmd =
         no_why3_body_slicing;
         no_why3_action_simplification;
         no_why3_term_dedup;
+        no_why3_product_step_grouping;
         dump_automata;
         dump_product;
         dump_canonical;
@@ -1002,6 +1041,7 @@ let cmd =
         dump_cost_report;
         dump_timings;
         dump_goals;
+        dump_failed_smt;
         dump_why;
         dump_why3_vc;
         dump_smt2;
@@ -1016,13 +1056,14 @@ let cmd =
       $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
       $ no_proof_grouping $ no_why3_fact_sharing
       $ no_why3_fo_simplification $ no_why3_body_slicing
-      $ no_why3_action_simplification $ no_why3_term_dedup $ dump_automata
-      $ dump_product $ dump_canonical $ dump_automata_short
+      $ no_why3_action_simplification $ no_why3_term_dedup
+      $ no_why3_product_step_grouping $ dump_automata $ dump_product
+      $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
-      $ dump_cost_report $ dump_timings $ dump_goals $ dump_why $ dump_why3_vc
-      $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses $ dump_kobj_product
-      $ dump_kobj_contracts)
+      $ dump_cost_report $ dump_timings $ dump_goals $ dump_failed_smt $ dump_why
+      $ dump_why3_vc $ dump_smt2 $ dump_kobj_summary $ dump_kobj_clauses
+      $ dump_kobj_product $ dump_kobj_contracts)
   in
   let term = Term.(ret (const eval_cli $ cli_args_term)) in
   let man =
