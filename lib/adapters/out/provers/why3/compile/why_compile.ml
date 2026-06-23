@@ -41,7 +41,7 @@ open Pre_k_layout
 open Why_compile_expr
 open Why_compile_ptree_helpers
 open Why_compile_logic
-module StringSet = Why_compile_ptree_helpers.StringSet
+module Formula_sharing = Why_compile_formula_sharing
 module Modules = Why_compile_modules
 module Product_pipeline = Why_compile_product_pipeline
 module Step_names = Why_compile_step_names
@@ -279,260 +279,15 @@ let compile_node_with_info ?(share_why3_facts = true)
     logic_getter_decl ~env "st" (TCustom "state")
     :: List.map mk locals_and_outputs
   in
-  let shared_formula_params =
-    inputs
-    |> List.filter_map (fun (_, id_opt, _, pty_opt) ->
-        match (id_opt, pty_opt) with
-        | Some id, Some pty when not (String.equal id.id_str env.rec_name) ->
-            Some (id.id_str, pty)
-        | _ -> None)
-  in
-  let formula_key (formula : Core_syntax.hexpr) =
-    Core_fo_simplifier.key_of_hexpr formula
-  in
-  let shared_formula_stats :
-      (string, Core_syntax.hexpr * int * StringSet.t) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_formula_table :
-      (string, string * (ident * Ptree.pty) list * int * bool) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_formula_order = ref [] in
-  let is_composite_fact (formula : Core_syntax.hexpr) =
-    match formula.hexpr with
-    | HBin (And, _, _) | HBin (Or, _, _) | HUn (Not, _) | HPred _ -> true
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HFunCall _
-    | HUn (Neg, _)
-    | HBin ((Add | Sub | Mul | Div), _, _)
-    | HCmp _ ->
-        false
-  in
-  let params_for_formula (formula : Core_syntax.hexpr) =
-    let vars = vars_of_hexpr StringSet.empty formula in
-    List.filter
-      (fun (param_name, _) -> StringSet.mem param_name vars)
-      shared_formula_params
-  in
-  let formula_uses_self (formula : Core_syntax.hexpr) =
-    let vars = vars_of_hexpr StringSet.empty formula in
-    List.exists (fun rec_var -> StringSet.mem rec_var vars) env.rec_vars
-  in
-  let record_formula_occurrence ~scope (formula : Core_syntax.hexpr) =
-    let key = formula_key formula in
-    match Hashtbl.find_opt shared_formula_stats key with
-    | Some (representative, count, scopes) ->
-        Hashtbl.replace shared_formula_stats key
-          (representative, count + 1, StringSet.add scope scopes)
-    | None ->
-        Hashtbl.add shared_formula_stats key
-          (formula, 1, StringSet.singleton scope)
-  in
-  let add_summary_formulas ~scope formulas =
-    List.iter
-      (fun (formula : Ir.summary_formula) ->
-        record_formula_occurrence ~scope formula.logic)
-      formulas
-  in
-  if share_why3_facts then
-    List.iteri
-      (fun idx (pc : Why_runtime_view.runtime_product_transition_view) ->
-        let scope =
-          Printf.sprintf "%d:%s:%s:%d:%d:%s" idx pc.transition_id
-            pc.product_src.prog_state pc.product_src.assume_state_index
-            pc.product_src.guarantee_state_index
-            (match pc.step_class with
-            | Why_runtime_view.StepSafe -> "safe"
-            | Why_runtime_view.StepBadGuarantee -> "bad_guarantee")
-        in
-        add_summary_formulas ~scope pc.requires;
-        add_summary_formulas ~scope pc.local_requires;
-        (* Forbidden facts are emitted transparently under negation.  Recording
-           them here would create shared predicates that the proof path no
-           longer calls. *)
-        add_summary_formulas ~scope pc.ensures)
-      runtime_view.product_transitions;
-  if share_why3_facts then
-    Hashtbl.to_seq shared_formula_stats
-    |> Seq.iter (fun (key, (formula, _count, scopes)) ->
-        if is_composite_fact formula && StringSet.cardinal scopes > 1 then (
-          let size = hexpr_size formula in
-          let name =
-            Printf.sprintf "shared_contract_formula_%03d"
-              (Hashtbl.length shared_formula_table + 1)
-          in
-          let params = params_for_formula formula in
-          let use_self = formula_uses_self formula in
-          Hashtbl.add shared_formula_table key (name, params, size, use_self);
-          shared_formula_order :=
-            (name, params, formula, size) :: !shared_formula_order));
-  let shared_formula_call_with_rec rec_name name params use_self =
-    let args =
-      (if use_self then [ mk_term (Tident (qid1 rec_name)) ] else [])
-      @ List.map
-          (fun (param_name, _) -> mk_term (Tident (qid1 param_name)))
-          params
-    in
-    mk_term (Tidapp (qid1 name, args))
-  in
-  let shared_formula_call name params use_self =
-    shared_formula_call_with_rec env.rec_name name params use_self
-  in
-  let rec compile_shared_hexpr current_key rec_name formula =
-    let key = formula_key formula in
-    match Hashtbl.find_opt shared_formula_table key with
-    | Some (name, params, _, use_self) when not (String.equal key current_key)
-      ->
-        shared_formula_call_with_rec rec_name name params use_self
-    | _ ->
-        let local_env = { env with rec_name } in
-        begin match formula.hexpr with
-        | HLitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
-        | HLitBool b -> mk_term (if b then Ttrue else Tfalse)
-        | HLitEnum c -> mk_term (Tident (qid1 c))
-        | HVar x -> mk_term (term_var local_env x)
-        | HPreK (_name, _k) ->
-            failwith
-              "compile_shared_hexpr: residual HPreK in Why3 emission input"
-        | HUn (Neg, a) ->
-            mk_term
-              (Tidapp
-                 (qid1 "(-)", [ compile_shared_hexpr current_key rec_name a ]))
-        | HUn (Not, a) ->
-            mk_term (Tnot (compile_shared_hexpr current_key rec_name a))
-        | HPred (id, hs) ->
-            mk_term
-              (Tidapp
-                 ( qid1 id,
-                   List.map (compile_shared_hexpr current_key rec_name) hs ))
-        | HFunCall (fn, hs) ->
-            mk_term
-              (Tidapp
-                 ( qid1 fn,
-                   List.map (compile_shared_hexpr current_key rec_name) hs ))
-        | HBin (And, a, b) ->
-            term_bool_binop Dterm.DTand
-              (compile_shared_hexpr current_key rec_name a)
-              (compile_shared_hexpr current_key rec_name b)
-        | HBin (Or, a, b) ->
-            term_bool_binop Dterm.DTor
-              (compile_shared_hexpr current_key rec_name a)
-              (compile_shared_hexpr current_key rec_name b)
-        | HBin (op, a, b) ->
-            mk_term
-              (Tinnfix
-                 ( compile_shared_hexpr current_key rec_name a,
-                   infix_ident (binop_id op),
-                   compile_shared_hexpr current_key rec_name b ))
-        | HCmp (op, a, b) ->
-            mk_term
-              (Tinnfix
-                 ( compile_shared_hexpr current_key rec_name a,
-                   infix_ident (relop_id op),
-                   compile_shared_hexpr current_key rec_name b ))
-        end
-  in
-  let abstract_formula ~in_post:_ (formula : Core_syntax.hexpr) =
-    if not share_why3_facts then None
-    else
-      Hashtbl.find_opt shared_formula_table (formula_key formula)
-      |> Option.map (fun (name, params, _, use_self) ->
-          shared_formula_call name params use_self)
-  in
-  let abstract_formula_with_rec rec_name (formula : Core_syntax.hexpr) =
-    if not share_why3_facts then None
-    else
-      Hashtbl.find_opt shared_formula_table (formula_key formula)
-      |> Option.map (fun (name, params, _, use_self) ->
-          shared_formula_call_with_rec rec_name name params use_self)
-  in
-  let emit_local_unfolded_cuts = false in
-  let local_cut_candidate (formula : Core_syntax.hexpr) =
-    emit_local_unfolded_cuts
-    &&
-    match formula.hexpr with
-    | HBin ((And | Or), _, _) | HUn (Not, _) | HPred _ -> true
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HFunCall _
-    | HUn (Neg, _)
-    | HBin ((Add | Sub | Mul | Div), _, _)
-    | HCmp _ ->
-        false
-  in
-  let shared_formula_entries =
-    if not share_why3_facts then []
-    else
-      !shared_formula_order
-      |> List.sort (fun (_, _, _, size_a) (_, _, _, size_b) ->
-          Int.compare size_a size_b)
-      |> List.map (fun (name, params, formula, _) ->
-          let body =
-            compile_shared_hexpr (formula_key formula) "self" formula
-          in
-          let decl =
-            logic_bool_pred_decl_with_body
-              ~use_self:(formula_uses_self formula)
-              ~params ~name ~body
-          in
-          (name, formula, decl))
-  in
-  let shared_formula_names_in_term term =
-    names_of_term term StringSet.empty
-    |> StringSet.filter (String.starts_with ~prefix:"shared_contract_formula_")
-  in
-  let shared_formula_names_in_terms terms =
-    List.fold_left
-      (fun acc term -> StringSet.union acc (shared_formula_names_in_term term))
-      StringSet.empty terms
-  in
-  let direct_shared_formula_deps (formula : Core_syntax.hexpr) =
-    let rec go current_key h acc =
-      let key = formula_key h in
-      match Hashtbl.find_opt shared_formula_table key with
-      | Some (name, _, _, _) when not (String.equal key current_key) ->
-          StringSet.add name acc
-      | _ ->
-          begin match h.hexpr with
-          | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> acc
-          | HUn (_, inner) -> go current_key inner acc
-          | HPred (_, hs) | HFunCall (_, hs) ->
-              List.fold_left (fun acc h -> go current_key h acc) acc hs
-          | HBin (_, a, b) | HCmp (_, a, b) ->
-              go current_key b (go current_key a acc)
-          end
-    in
-    go (formula_key formula) formula StringSet.empty
-  in
-  let shared_formula_deps_by_name =
-    shared_formula_entries
-    |> List.map (fun (name, formula, _decl) ->
-        (name, direct_shared_formula_deps formula))
-  in
-  let shared_formula_closure names =
-    let rec loop seen work =
-      match work with
-      | [] -> seen
-      | name :: rest ->
-          if StringSet.mem name seen then loop seen rest
-          else
-            let deps =
-              Option.value
-                (List.assoc_opt name shared_formula_deps_by_name)
-                ~default:StringSet.empty
-              |> StringSet.elements
-            in
-            loop (StringSet.add name seen) (deps @ rest)
-    in
-    loop StringSet.empty (StringSet.elements names)
-  in
-  let local_shared_formula_decls ?(exclude = StringSet.empty) names =
-    let closure = StringSet.diff (shared_formula_closure names) exclude in
-    shared_formula_entries
-    |> List.filter_map (fun (name, _formula, decl) ->
-        if StringSet.mem name closure then Some decl else None)
+  let formula_sharing =
+    Formula_sharing.build
+      { env; inputs; runtime_view; share_why3_facts }
   in
   let contracts =
-    Why_contracts.build_contracts ~abstract_formula ~local_cut_candidate
-      ~env:info.env ~runtime:runtime_view
+    Why_contracts.build_contracts
+      ~abstract_formula:formula_sharing.abstract_formula
+      ~local_cut_candidate:formula_sharing.local_cut_candidate ~env:info.env
+      ~runtime:runtime_view
       ~simplify_formulas:simplify_why3_formulas
       ~deduplicate_terms:deduplicate_why3_terms
   in
@@ -562,10 +317,11 @@ let compile_node_with_info ?(share_why3_facts = true)
       group_why3_product_steps;
       why3_product_step_group_max_cost;
       simplify_why3_runtime_actions;
-      abstract_formula;
-      abstract_formula_with_rec;
-      shared_formula_names_in_terms;
-      local_shared_formula_decls;
+      abstract_formula = formula_sharing.abstract_formula;
+      abstract_formula_with_rec = formula_sharing.abstract_formula_with_rec;
+      shared_formula_names_in_terms =
+        formula_sharing.shared_formula_names_in_terms;
+      local_shared_formula_decls = formula_sharing.local_shared_formula_decls;
     }
   in
   let product_pipeline =
