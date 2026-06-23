@@ -668,6 +668,8 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_bundles",
         "why_compile_product_bundle_state",
         "why_compile_product_groups",
+        "why_compile_product_spec_labels",
+        "why_compile_product_spec_terms",
         "why_compile_product_specs",
         "why_compile_product_metrics",
         "why_compile_contract_facts",
@@ -920,6 +922,76 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 product helper emission must not own product-step specs or "
             "presentation labels; keep them in why_compile_product_specs"
+        )
+
+    product_specs = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_specs_forbidden = [
+        r"\bmodule\s+Bundles\b",
+        r"\bBundles\.",
+        r"\blet\s+combine_labeled_terms\b",
+        r"\blet\s+remove_labeled_terms\b",
+        r"\blet\s+repeated_label\b",
+        r"\blet\s+product_state_guard\b",
+        r"\bshould_share_bundle\b",
+        r"\bremove_terms\b",
+        r"Product step preconditions",
+        r"Product step postconditions",
+        r"Grouped product preconditions",
+        r"Shared postcondition facts",
+    ]
+    found = [
+        pattern
+        for pattern in product_specs_forbidden
+        if re.search(pattern, product_specs)
+    ]
+    if found:
+        fail(
+            "Why3 product specs must only build concrete specs; sharing policy "
+            "and labels belong to focused product-spec modules"
+        )
+
+    product_spec_terms = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_spec_terms.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_spec_terms_forbidden = [
+        r"\bPtree\.sp_pre\s*=",
+        r"\bsp_post\s*=",
+        r"\bpost_pred_decl\b",
+        r"\bgrouped_helper_contract\b",
+        r"\bDlogic\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_spec_terms_forbidden
+        if re.search(pattern, product_spec_terms)
+    ]
+    if found:
+        fail(
+            "Why3 product spec-term sharing must not build Why3 specs or "
+            "grouped helper predicates"
+        )
+
+    product_spec_labels = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_spec_labels.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    label_forbidden = [r"\bWhy3\b", r"\bPtree\b", r"\bWhy_contracts\b"]
+    label_violations = []
+    for line_no, line in enumerate(product_spec_labels.splitlines(), start=1):
+        for pattern in label_forbidden:
+            if re.search(pattern, line):
+                label_violations.append(
+                    "lib/adapters/out/provers/why3/compile/"
+                    f"why_compile_product_spec_labels.ml:{line_no}: {line.strip()}"
+                )
+                break
+    if label_violations:
+        fail(
+            "Why3 product spec labels must stay presentation-only:\n  - "
+            + "\n  - ".join(label_violations)
         )
 
     product_groups = (

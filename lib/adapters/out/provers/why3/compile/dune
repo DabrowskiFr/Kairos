@@ -19,6 +19,8 @@
   why_compile_bundles
   why_compile_product_bundle_state
   why_compile_product_groups
+  why_compile_product_spec_labels
+  why_compile_product_spec_terms
   why_compile_product_specs
   why_compile_product_metrics
   why_compile_contract_facts

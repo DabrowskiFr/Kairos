@@ -20,7 +20,8 @@ open Why3
 open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
-module Bundles = Why_compile_bundles
+module Labels = Why_compile_product_spec_labels
+module Spec_terms = Why_compile_product_spec_terms
 module StringSet = Why_compile_ptree_helpers.StringSet
 
 type context = {
@@ -59,103 +60,27 @@ let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ])
 let predicate_param_of_name name =
   (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
 
-let combine_labeled_terms ~terms ~labels =
-  if List.length terms <> List.length labels then
-    invalid_arg "Why_compile_product_specs: contract terms/labels out of sync"
-  else List.combine terms labels
-
-let remove_labeled_terms terms labels removed =
-  let removed_keys =
-    removed
-    |> List.map string_of_term
-    |> List.fold_left (fun acc key -> StringSet.add key acc) StringSet.empty
-  in
-  combine_labeled_terms ~terms ~labels
-  |> List.filter (fun (term, _label) ->
-         not (StringSet.mem (string_of_term term) removed_keys))
-  |> List.split
-
-let repeated_label label terms = List.map (fun _ -> label) terms
-
-let product_state_guard env (sc : Why_contracts.step_contract_info) =
-  term_eq (term_of_var env "st") (mk_term (Tident (qid1 sc.step.src_state)))
+let term_context ctx : Spec_terms.context =
+  {
+    env = ctx.env;
+    pre_family_terms_by_step = ctx.pre_family_terms_by_step;
+    post_family_terms_by_step = ctx.post_family_terms_by_step;
+    pre_family_bundle_counts = ctx.pre_family_bundle_counts;
+    post_family_bundle_counts = ctx.post_family_bundle_counts;
+    predicate_bundle_decl_and_call = ctx.predicate_bundle_decl_and_call;
+    shared_pre_bundle_call = ctx.shared_pre_bundle_call;
+    shared_post_bundle_call = ctx.shared_post_bundle_call;
+  }
 
 let individual_helper_contract ctx ~step_index ~helper_name
     (sc : Why_contracts.step_contract_info) =
-  let state_guard = product_state_guard ctx.env sc in
-  let pre_family_terms =
-    Option.value ~default:[] (List.nth_opt ctx.pre_family_terms_by_step step_index)
-  in
-  let share_pre_family_bundle =
-    Bundles.should_share_bundle ctx.pre_family_bundle_counts pre_family_terms
-  in
-  let pre_terms =
-    if share_pre_family_bundle then Bundles.remove_terms pre_family_terms sc.pre
-    else sc.pre
-  in
-  let pre_imports, pre_family_terms =
-    if share_pre_family_bundle then
-      let import_, call, _shared_names =
-        ctx.shared_pre_bundle_call pre_family_terms
-      in
-      ([ import_ ], [ call ])
-    else ([], [])
-  in
-  let post_family_terms =
-    Option.value ~default:[]
-      (List.nth_opt ctx.post_family_terms_by_step step_index)
-  in
-  let share_post_family_bundle =
-    Bundles.should_share_bundle ctx.post_family_bundle_counts post_family_terms
-    && not (List.exists term_has_old post_family_terms)
-  in
-  let post_terms, post_labels =
-    if share_post_family_bundle then
-      remove_labeled_terms sc.post sc.post_labels post_family_terms
-    else (sc.post, sc.post_labels)
-  in
-  let post_imports, post_family_terms, post_family_shared_names =
-    if share_post_family_bundle then
-      let import_, call, shared_names =
-        ctx.shared_post_bundle_call post_family_terms
-      in
-      ([ import_ ], [ call ], shared_names)
-    else ([], [], StringSet.empty)
-  in
-  let raw_pre_terms = state_guard :: (pre_family_terms @ pre_terms) in
-  let raw_post_terms = sc.forbidden @ post_family_terms @ post_terms in
-  let raw_post_labels =
-    sc.forbidden_labels
-    @ repeated_label "Shared postcondition facts" post_family_terms
-    @ post_labels
-  in
-  let bundle_post_terms =
-    List.length raw_post_terms > 1
-    && not (List.exists term_has_old raw_post_terms)
-  in
-  let pre_decls, pre_term =
-    let pre_decl, call =
-      ctx.predicate_bundle_decl_and_call
-        ~name:(helper_name ^ "_pre")
-        raw_pre_terms
-    in
-    ([ pre_decl ], call)
-  in
-  let post_decls, post_terms, imported_shared_names =
-    if not bundle_post_terms then
-      (post_imports, raw_post_terms, post_family_shared_names)
-    else
-      let post_import, call, shared_names =
-        ctx.shared_post_bundle_call raw_post_terms
-      in
-      ( post_imports @ [ post_import ],
-        [ call ],
-        StringSet.union post_family_shared_names shared_names )
+  let terms =
+    Spec_terms.individual (term_context ctx) ~step_index ~helper_name sc
   in
   let spec =
     {
-      Ptree.sp_pre = [ pre_term ];
-      sp_post = List.rev_map mk_post post_terms;
+      Ptree.sp_pre = [ terms.pre_term ];
+      sp_post = List.rev_map mk_post terms.post_terms;
       sp_xpost = [];
       sp_reads = [];
       sp_writes = [];
@@ -167,19 +92,16 @@ let individual_helper_contract ctx ~step_index ~helper_name
     }
   in
   {
-    pre_imports = pre_imports @ pre_decls;
-    post_decls;
+    pre_imports = terms.pre_decls;
+    post_decls = terms.post_decls;
     spec;
     direct_shared_terms =
-      raw_pre_terms
-      @ (if bundle_post_terms then [] else raw_post_terms)
+      terms.raw_pre_terms
+      @ (if terms.bundle_post_terms then [] else terms.raw_post_terms)
       @ sc.local_cuts;
-    imported_shared_names;
-    pre_labels = [ "Product step preconditions" ];
-    post_labels =
-      (if bundle_post_terms && raw_post_terms <> [] then
-         [ "Product step postconditions" ]
-       else raw_post_labels);
+    imported_shared_names = terms.imported_shared_names;
+    pre_labels = [ Labels.product_step_preconditions ];
+    post_labels = terms.post_labels;
   }
 
 let grouped_helper_contract ~env ~inputs ~pre_vars_name ~post_vars_name
@@ -242,6 +164,6 @@ let grouped_helper_contract ~env ~inputs ~pre_vars_name ~post_vars_name
     spec;
     shared_terms = [ grouped.pre_term; grouped.post_body ];
     post_call;
-    pre_labels = [ "Grouped product preconditions" ];
+    pre_labels = [ Labels.grouped_product_preconditions ];
     post_labels = [];
   }

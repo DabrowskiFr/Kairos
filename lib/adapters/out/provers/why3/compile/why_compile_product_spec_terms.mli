@@ -16,12 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Product-step helper specifications.
+(** Term selection and sharing policy for individual product-step specs.
 
-    This module builds concrete Why3 pre/post specs from already-selected
-    terms. Term sharing policy and presentation labels live in focused sibling
-    modules. Helper emission remains responsible for function bodies and
-    declarations. *)
+    This module decides which pre/post terms are kept directly, moved through
+    shared bundle predicates, or hidden behind a post bundle. It does not build
+    Why3 function specs. *)
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 
@@ -39,37 +38,21 @@ type context = {
     Why3.Ptree.term list -> Why3.Ptree.decl * Why3.Ptree.term * StringSet.t;
 }
 
-type individual_contract = {
-  pre_imports : Why3.Ptree.decl list;
+type individual = {
+  pre_decls : Why3.Ptree.decl list;
   post_decls : Why3.Ptree.decl list;
-  spec : Why3.Ptree.spec;
-  direct_shared_terms : Why3.Ptree.term list;
+  pre_term : Why3.Ptree.term;
+  post_terms : Why3.Ptree.term list;
+  raw_pre_terms : Why3.Ptree.term list;
+  raw_post_terms : Why3.Ptree.term list;
+  bundle_post_terms : bool;
   imported_shared_names : StringSet.t;
-  pre_labels : string list;
   post_labels : string list;
 }
 
-type grouped_contract = {
-  post_pred_decl : Why3.Ptree.decl;
-  spec : Why3.Ptree.spec;
-  shared_terms : Why3.Ptree.term list;
-  post_call : pre_snapshot_name:string -> Why3.Ptree.term;
-  pre_labels : string list;
-  post_labels : string list;
-}
-
-val individual_helper_contract :
+val individual :
   context ->
   step_index:int ->
   helper_name:string ->
   Why_contracts.step_contract_info ->
-  individual_contract
-
-val grouped_helper_contract :
-  env:Why_compile_expr.env ->
-  inputs:Why3.Ptree.binder list ->
-  pre_vars_name:string ->
-  post_vars_name:string ->
-  post_pred_name:string ->
-  Why_compile_product_groups.grouped_terms ->
-  grouped_contract
+  individual
