@@ -227,6 +227,8 @@ let goal_name_lookup_key (goal_name : string) =
   | None -> goal_name
   | Some idx -> String.sub goal_name 0 idx
 
+module Step_names = Why_product_step_names
+
 let attribution_of_step ~node_name ~index
     (step : Why_runtime_view.runtime_product_transition_view) =
   let obligation_kind, obligation_category =
@@ -236,7 +238,7 @@ let attribution_of_step ~node_name ~index
     Printf.sprintf
       "helper=%s;product_src=%s;product_dst=%s;requires=%d;local_requires=%d;\
        propagates=%d;ensures=%d;forbidden=%d"
-      (Why_compile.product_step_helper_name ~index step)
+      (Step_names.product_step_helper_name ~index step)
       (product_state_source step.product_src)
       (product_state_source step.product_dst)
       (List.length step.requires)
@@ -266,7 +268,7 @@ let attribution_of_group ~node_name ~index ~group_size
     Printf.sprintf
       "helper=%s;group_size=%d;product_src=%s;requires=%d;local_requires=%d;\
        propagates=%d;ensures=%d;forbidden=%d"
-      (Why_compile.product_step_group_helper_name ~index step)
+      (Step_names.product_step_group_helper_name ~index step)
       group_size
       (product_state_source step.product_src)
       (List.length step.requires)
@@ -295,7 +297,7 @@ let build_attribution_table
   let add_step_attributions (runtime : Why_runtime_view.t) =
     List.iteri
       (fun index step ->
-        let helper_name = Why_compile.product_step_helper_name ~index step in
+        let helper_name = Step_names.product_step_helper_name ~index step in
         Hashtbl.replace table helper_name
           (attribution_of_step ~node_name:runtime.node_name ~index step))
       runtime.product_transitions
@@ -323,7 +325,7 @@ let build_attribution_table
              indexed_steps
              |> List.iter (fun (index, representative) ->
                     let helper_name =
-                      Why_compile.product_step_group_helper_name ~index
+                      Step_names.product_step_group_helper_name ~index
                         representative
                     in
                     Hashtbl.replace table helper_name

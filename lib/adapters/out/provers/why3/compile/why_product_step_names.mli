@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Stable naming conventions for product-step Why3 helpers. *)
+(** Public naming conventions for product-step proof helpers. *)
 
 val product_step_helper_name :
   index:int -> Why_runtime_view.runtime_product_transition_view -> string

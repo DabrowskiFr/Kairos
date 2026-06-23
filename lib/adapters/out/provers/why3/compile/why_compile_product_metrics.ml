@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 module Product_groups = Why_compile_product_groups
-module Step_names = Why_compile_step_names
+module Step_names = Why_product_step_names
 
 type context = {
   node_name : Core_syntax.ident;

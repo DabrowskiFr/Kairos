@@ -23,7 +23,7 @@ open Why_compile_ptree_helpers
 module Product_groups = Why_compile_product_groups
 module Product_layout = Why_compile_product_layout
 module Product_specs = Why_compile_product_specs
-module Step_names = Why_compile_step_names
+module Step_names = Why_product_step_names
 module StringSet = Why_compile_ptree_helpers.StringSet
 
 type helper_unit = {

@@ -578,7 +578,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_ptree_helpers",
         "why_compile_logic",
         "why_compile_step",
-        "why_compile_step_names",
+        "why_product_step_names",
         "why_compile_init_goals",
         "why_compile_formula_sharing",
         "why_compile_product_layout",
@@ -597,6 +597,20 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             path = compile_root / f"{module}{suffix}"
             if not path.exists():
                 fail(f"{path.relative_to(repo)} is missing")
+    stale_step_name_modules = [
+        "why_compile_step_names.ml",
+        "why_compile_step_names.mli",
+    ]
+    stale_paths = [
+        path.name
+        for path in (compile_root / name for name in stale_step_name_modules)
+        if path.exists()
+    ]
+    if stale_paths:
+        fail(
+            "product-step naming must live in why_product_step_names, not in "
+            + ", ".join(stale_paths)
+        )
     why_compile_mli = compile_root / "why_compile.mli"
     if not why_compile_mli.exists():
         fail("lib/adapters/out/provers/why3/compile/why_compile.mli is missing")
@@ -711,6 +725,8 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\bcompile_node_from_ir_node\b",
         r"\bprepare_runtime_view\b",
         r"\bprepare_ir_node\b",
+        r"\bproduct_step_helper_name\b",
+        r"\bproduct_step_group_helper_name\b",
     ]
     found = [
         pattern
@@ -721,6 +737,17 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why_compile.mli must stay a narrow backend facade; "
             "node-local compiler internals are publicly exported"
+        )
+
+    proof_runner = (
+        repo / "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if re.search(
+        r"\bWhy_compile\.product_step_(?:group_)?helper_name\b", proof_runner
+    ):
+        fail(
+            "proof_runner must use Why_product_step_names for helper naming, "
+            "not the Why_compile compiler facade"
         )
 
     product_backend_forbidden = [

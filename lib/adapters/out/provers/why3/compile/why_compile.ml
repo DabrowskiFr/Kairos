@@ -38,12 +38,8 @@ module Init_goals = Why_compile_init_goals
 module Modules = Why_compile_modules
 module Node_common = Why_compile_node_common
 module Product_pipeline = Why_compile_product_pipeline
-module Step_names = Why_compile_step_names
 
 type env_info = Node_common.t
-
-let product_step_helper_name = Step_names.product_step_helper_name
-let product_step_group_helper_name = Step_names.product_step_group_helper_name
 
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
    The active path builds [info] from the IR via [prepare_ir_node]. *)

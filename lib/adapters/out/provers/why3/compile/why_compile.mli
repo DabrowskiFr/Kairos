@@ -32,12 +32,6 @@ type program_ast = Why_compile_modules.program_ast = {
   module_info : (string * spec_groups) list;
 }
 
-val product_step_helper_name :
-  index:int -> Why_runtime_view.runtime_product_transition_view -> string
-
-val product_step_group_helper_name :
-  index:int -> Why_runtime_view.runtime_product_transition_view -> string
-
 val compile_program_ast_from_ir_nodes :
   ?share_why3_facts:bool ->
   ?simplify_why3_formulas:bool ->
