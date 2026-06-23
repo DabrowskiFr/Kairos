@@ -645,6 +645,12 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\blet\s+state_guard_with_rec\b",
         r"\blet\s+step_pre_terms_with_rec\b",
         r"\blet\s+step_post_terms_with_rec\b",
+        r"\bBundles\.predicate_bundle_decl_and_call\b",
+        r"\bBundles\.shared_bundle_call\b",
+        r"\bContract_facts\.product_helper_facts\b",
+        r"\bProduct_groups\.plan_kernel_helpers\b",
+        r"\bProduct_metrics\.record_plan\b",
+        r"\bProduct_helpers\.kernel_step_helper_units\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, why_compile)]
     if found:

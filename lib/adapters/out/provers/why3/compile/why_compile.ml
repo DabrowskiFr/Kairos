@@ -42,14 +42,8 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 open Why_compile_logic
 module StringSet = Why_compile_ptree_helpers.StringSet
-module Bundles = Why_compile_bundles
-module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
-module Product_groups = Why_compile_product_groups
-module Product_helpers = Why_compile_product_helpers
-module Product_layout = Why_compile_product_layout
-module Product_metrics = Why_compile_product_metrics
-module Product_specs = Why_compile_product_specs
+module Product_pipeline = Why_compile_product_pipeline
 module Step_names = Why_compile_step_names
 
 (** [why_type_name] maps source enum type names to WhyML type identifiers. WhyML
@@ -555,88 +549,27 @@ let compile_node_with_info ?(share_why3_facts = true)
   let import_module = Modules.import_module in
   let common_module_name = Modules.common_module_name module_name in
   let common_import = import_module common_module_name in
-  let bundle_context : spec_groups Bundles.context =
+  let product_pipeline_context : Product_pipeline.context =
     {
+      runtime_view;
       module_name;
       imports;
       common_import;
-      inputs;
-      empty_groups = Modules.empty_groups;
-      local_shared_formula_decls;
-      shared_formula_names_in_terms;
-    }
-  in
-  let predicate_bundle_decl_and_call =
-    Bundles.predicate_bundle_decl_and_call ~inputs
-  in
-  let shared_bundle_call = Bundles.shared_bundle_call ~context:bundle_context in
-  let shared_post_bundle_table : (string, string * string) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_post_bundle_modules = ref [] in
-  let shared_post_bundle_call =
-    shared_bundle_call ~module_suffix:"Post"
-      ~predicate_prefix:"shared_post_bundle" ~table:shared_post_bundle_table
-      ~modules:shared_post_bundle_modules
-  in
-  let shared_pre_bundle_table : (string, string * string) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_pre_bundle_modules = ref [] in
-  let shared_pre_bundle_call =
-    shared_bundle_call ~module_suffix:"Pre"
-      ~predicate_prefix:"shared_pre_bundle" ~table:shared_pre_bundle_table
-      ~modules:shared_pre_bundle_modules
-  in
-  let contract_fact_context : Contract_facts.context =
-    { env; simplify_why3_formulas; abstract_formula; abstract_formula_with_rec }
-  in
-  let product_helper_facts =
-    Contract_facts.product_helper_facts contract_fact_context ~share_why3_facts
-      step_contracts
-  in
-  let product_spec_context : Product_specs.context =
-    {
-      env;
-      pre_family_terms_by_step = product_helper_facts.pre_family_terms_by_step;
-      post_family_terms_by_step =
-        product_helper_facts.post_family_terms_by_step;
-      pre_family_bundle_counts = product_helper_facts.pre_family_bundle_counts;
-      post_family_bundle_counts =
-        product_helper_facts.post_family_bundle_counts;
-      predicate_bundle_decl_and_call;
-      shared_pre_bundle_call;
-      shared_post_bundle_call;
-    }
-  in
-  let product_helper_context : Product_helpers.context =
-    {
       env;
       inputs;
-      spec_context = product_spec_context;
+      share_why3_facts;
+      simplify_why3_formulas;
+      group_why3_product_steps;
+      why3_product_step_group_max_cost;
+      simplify_why3_runtime_actions;
+      abstract_formula;
+      abstract_formula_with_rec;
       shared_formula_names_in_terms;
       local_shared_formula_decls;
     }
   in
-  let product_helper_plan =
-    Product_groups.plan_kernel_helpers ~env
-      ~pre_vars_name:Product_layout.pre_vars_name
-      ~post_vars_name:Product_layout.post_vars_name ~group_why3_product_steps
-      ~max_cost:why3_product_step_group_max_cost
-      ~simplify_runtime_actions:simplify_why3_runtime_actions
-      ~step_pre_terms_with_rec:product_helper_facts.step_pre_terms_with_rec
-      ~step_post_terms_with_rec:product_helper_facts.step_post_terms_with_rec
-      step_contracts
-  in
-  Product_metrics.record_plan
-    {
-      node_name = runtime_view.node_name;
-      max_cost = why3_product_step_group_max_cost;
-    }
-    product_helper_plan;
-  let kernel_step_helper_units =
-    Product_helpers.kernel_step_helper_units product_helper_context
-      product_helper_plan
+  let product_pipeline =
+    Product_pipeline.build product_pipeline_context step_contracts
   in
 
   let coherency_goal_decls =
@@ -672,10 +605,10 @@ let compile_node_with_info ?(share_why3_facts = true)
   in
   Modules.assemble_node_modules ~module_name ~imports ~common_module_name
     ~common_import ~common_decls
-    ~shared_pre_bundle_modules:(List.rev !shared_pre_bundle_modules)
-    ~shared_post_bundle_modules:(List.rev !shared_post_bundle_modules)
+    ~shared_pre_bundle_modules:product_pipeline.shared_pre_bundle_modules
+    ~shared_post_bundle_modules:product_pipeline.shared_post_bundle_modules
     ~init_goal_decls:(coherency_goal_decls @ kernel_init_goal_decls)
-    ~kernel_step_helper_units
+    ~kernel_step_helper_units:product_pipeline.kernel_step_helper_units
 
 (** [compile_node_from_ir_node] helper value. *)
 

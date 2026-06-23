@@ -184,6 +184,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_product_metrics.ml` | Reporting des metriques du plan produit |
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
 | `why_compile_product_helpers.ml` | Emission des fonctions helpers de pas produit |
+| `why_compile_product_pipeline.ml` | Facade produit : facts, specs, plan, metriques, helpers |
 | `why_compile_modules.ml` | Assemblage final des declarations Why3 en modules et `program_ast` |
 | `why_compile_step.ml` | Compilation imperative des corps de transition deja selectionnes |
 | `why_compile.ml` | Orchestration de la compilation Why3 d'un noeud |
@@ -206,7 +207,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Ou sont ajoutees les obligations de sortie ? | `post.ml` |
 | Ou est gere `pre/pre_k` ? | `temporal_lower.ml`, `pre_k_layout.ml`, `pre_k_lowering.ml` |
 | Ou est produit le format Rocq ? | `proof_kernel_pass.ml`, `proof_kernel_types.mli` |
-| Ou sont les optimisations Why3 ? | `why_runtime_view.ml`, `why_compile_contract_facts.ml`, `why_compile_bundles.ml`, `why_compile_product_groups.ml`, `why_compile_product_specs.ml`, `why_compile_product_metrics.ml`, `why_compile_product_helpers.ml`, `proof_runner.ml` |
+| Ou sont les optimisations Why3 ? | `why_runtime_view.ml`, `why_compile_product_pipeline.ml`, `why_compile_contract_facts.ml`, `why_compile_bundles.ml`, `why_compile_product_groups.ml`, `why_compile_product_specs.ml`, `why_compile_product_metrics.ml`, `why_compile_product_helpers.ml`, `proof_runner.ml` |
 | Ou sont les options CLI ? | `bin/cli/kairos.ml`, `pipeline_types.ml` |
 
 ## Regle De Maintenance
