@@ -33,7 +33,6 @@ val common_module_name : string -> string
 val import_module : string -> Why3.Ptree.decl
 
 val assemble_node_modules :
-  use_product_helper_contracts:bool ->
   module_name:string ->
   imports:Why3.Ptree.decl list ->
   common_module_name:string ->
@@ -41,14 +40,10 @@ val assemble_node_modules :
   pre_labels:string list ->
   post_labels:string list ->
   common_decls:Why3.Ptree.decl list ->
-  shared_formula_decls:Why3.Ptree.decl list ->
   shared_pre_bundle_modules:module_unit list ->
   shared_post_bundle_modules:module_unit list ->
   init_goal_decls:Why3.Ptree.decl list ->
   kernel_step_helper_units:(string * Why3.Ptree.decl list) list ->
-  kernel_step_helper_decls:Why3.Ptree.decl list ->
-  helper_decls:Why3.Ptree.decl list ->
-  step_decl:Why3.Ptree.decl ->
   module_unit list
 
 val program_ast_of_modules : module_unit list -> program_ast

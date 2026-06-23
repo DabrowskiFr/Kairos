@@ -577,6 +577,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     required_modules = [
         "why_compile_ptree_helpers",
         "why_compile_logic",
+        "why_compile_step",
         "why_compile_step_names",
         "why_compile_bundles",
         "why_compile_product_groups",
@@ -650,6 +651,40 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 Ptree/logical helper logic must stay in focused why_compile_* modules; "
             "why_compile.ml reintroduced extracted helper definitions"
+        )
+
+    product_backend_forbidden = [
+        r"\buse_product_helper_contracts\b",
+        r"\bhelper_spec_for_state\b",
+        r"\bbranch_entry_asserts\b",
+        r"\bstep_from_",
+        r"\bcompile_runtime_view\b",
+        r"\bcompile_state_body\b",
+        r"\bcompile_transitions\b",
+        r"\bkernel_step_helper_decls\b",
+        r"\bhelper_decls\b",
+        r"\bstep_decl\b",
+    ]
+    product_backend_roots = [
+        "lib/adapters/out/provers/why3/compile/why_compile.ml",
+        "lib/adapters/out/provers/why3/compile/why_compile_modules.ml",
+        "lib/adapters/out/provers/why3/compile/why_compile_modules.mli",
+        "lib/adapters/out/provers/why3/compile/why_compile_step.ml",
+        "lib/adapters/out/provers/why3/compile/why_compile_step.mli",
+    ]
+    violations = []
+    for rel in product_backend_roots:
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in product_backend_forbidden:
+                if re.search(pattern, line):
+                    violations.append(f"{rel}:{line_no}: {line.strip()}")
+                    break
+    if violations:
+        fail(
+            "Why3 backend must use the product-step proof path only; "
+            "state-helper fallback code remains:\n  - "
+            + "\n  - ".join(violations)
         )
 
     ptree_helpers = (compile_root / "why_compile_ptree_helpers.ml").read_text(

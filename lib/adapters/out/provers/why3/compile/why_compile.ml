@@ -56,22 +56,6 @@ let why_type_name name =
   if String.equal name "state" then "state"
   else "kairos_" ^ String.uncapitalize_ascii name
 
-(** [compile_seq] helper value. *)
-
-let compile_seq = Why_compile_step.compile_seq
-(** [compile_transition_body] helper value. *)
-
-let compile_transition_body = Why_compile_step.compile_transition_body
-(** [compile_state_body] helper value. *)
-
-let compile_state_body = Why_compile_step.compile_state_body
-(** [compile_transitions] helper value. *)
-
-let compile_transitions = Why_compile_step.compile_transitions
-(** [compile_runtime_view] helper value. *)
-
-let compile_runtime_view = Why_compile_step.compile_runtime_view
-
 (** [module_name_of_node] helper value. *)
 
 let module_name_of_node (name : Core_syntax.ident) : string = String.capitalize_ascii name
@@ -547,140 +531,17 @@ let compile_node_with_info ?(share_why3_facts = true)
       ~simplify_formulas:simplify_why3_formulas
       ~deduplicate_terms:deduplicate_why3_terms
   in
-  let pre = contracts.pre in
-  let post = contracts.post in
   let pre_labels = contracts.pre_labels in
   let post_labels = contracts.post_labels in
-  let pre_source_states = contracts.pre_source_states in
-  let post_source_states = contracts.post_source_states in
-  let post_vcids = contracts.post_vcids in
-  let step_contracts = contracts.step_contracts in
-  let use_product_helper_contracts = step_contracts <> [] in
-
-  (* In kernel-first relational mode, helper-local proof facts must come from
-     relational preconditions, not from re-executing product-state tracking. *)
-  let branch_sticky_asserts = [] in
-  let branch_entry_asserts =
-    if use_product_helper_contracts then []
-    else
-      let maybe_uniq terms = if deduplicate_why3_terms then uniq_terms terms else terms in
-      let add_assert acc state_name term =
-        let prev = Option.value ~default:[] (List.assoc_opt state_name acc) in
-        (state_name, term :: prev) :: List.remove_assoc state_name acc
-      in
-      pre
-      |> List.mapi (fun idx term -> (idx, term))
-      |> List.fold_left
-           (fun acc (idx, term) ->
-             match List.nth_opt pre_source_states idx with
-             | Some (Some state_name) -> add_assert acc state_name term
-             | _ -> acc)
-           []
-      |> List.map (fun (state_name, terms) -> (state_name, List.rev (maybe_uniq terms)))
-  in
-  let full_step_body () = compile_runtime_view env runtime_view in
-  let pre = pre in
-  let post = post in
-  let add_vcid_attr vcid_opt term =
-    match vcid_opt with
-    | None -> term
-    | Some vcid -> mk_term (Tattr (ATstr (Ident.create_attribute vcid), term))
-  in
-  let post = List.map2 add_vcid_attr post_vcids post in
-  let helper_args = List.map binder_expr inputs in
-
-  let state_names = runtime_view.control_states in
-  let rec strip_term_attrs (term : Ptree.term) : Ptree.term =
-    match term.term_desc with Tattr (_, inner) -> strip_term_attrs inner | _ -> term
-  in
-  let qid_matches (qid : Ptree.qualid) (name : string) : bool = String.equal (string_of_qid qid) name in
-  let state_ctor_name = function
-    | { Ptree.term_desc = Tident (Qident id); _ } -> Some id.id_str
-    | _ -> None
-  in
-  let state_eq_name (lhs : Ptree.term) (rhs : Ptree.term) : ident option =
-    let lhs = strip_term_attrs lhs in
-    let rhs = strip_term_attrs rhs in
-    match (lhs.term_desc, rhs.term_desc) with
-    | Tident q, _ when qid_matches q (env.rec_name ^ ".st") -> state_ctor_name rhs
-    | _, Tident q when qid_matches q (env.rec_name ^ ".st") -> state_ctor_name lhs
-    | _ -> None
-  in
-  let rec collect_state_mentions ~(old_state : bool) ~(inside_old : bool) (term : Ptree.term)
-      (acc : ident list) : ident list =
-    let term = strip_term_attrs term in
-    match term.term_desc with
-    | Tapply (fn, arg) -> begin
-        match (strip_term_attrs fn).term_desc with
-        | Tident q when qid_matches q "old" -> collect_state_mentions ~old_state ~inside_old:true arg acc
-        | _ ->
-            let acc = collect_state_mentions ~old_state ~inside_old fn acc in
-            collect_state_mentions ~old_state ~inside_old arg acc
-      end
-    | Tinnfix (lhs, op, rhs) ->
-        let acc =
-          if op.id_str = "=" && Bool.equal inside_old old_state then
-            match state_eq_name lhs rhs with Some st -> st :: acc | None -> acc
-          else acc
-        in
-        let acc = collect_state_mentions ~old_state ~inside_old lhs acc in
-        collect_state_mentions ~old_state ~inside_old rhs acc
-    | Tbinnop (lhs, _, rhs) ->
-        let acc = collect_state_mentions ~old_state ~inside_old lhs acc in
-        collect_state_mentions ~old_state ~inside_old rhs acc
-    | Tnot inner -> collect_state_mentions ~old_state ~inside_old inner acc
-    | Tidapp (_q, args) -> List.fold_left (fun acc arg -> collect_state_mentions ~old_state ~inside_old arg acc) acc args
-    | Tif (c, t_then, t_else) ->
-        let acc = collect_state_mentions ~old_state ~inside_old c acc in
-        let acc = collect_state_mentions ~old_state ~inside_old t_then acc in
-        collect_state_mentions ~old_state ~inside_old t_else acc
-    | Ttuple terms ->
-        List.fold_left (fun acc arg -> collect_state_mentions ~old_state ~inside_old arg acc) acc terms
-    | Tident _ | Tconst _ | Ttrue | Tfalse -> acc
-    | _ -> acc
-  in
-  let classify_by_state ~(old_state : bool) (term : Ptree.term) : ident option =
-    let focus =
-      match (strip_term_attrs term).term_desc with
-      | Tbinnop (lhs, Dterm.DTimplies, _rhs) -> lhs
-      | _ -> term
-    in
-    let mentioned =
-      collect_state_mentions ~old_state ~inside_old:false focus []
-      |> List.filter (fun st -> List.mem st state_names)
-      |> List.sort_uniq String.compare
-    in
-    match mentioned with
-    | [ st ] -> Some st
-    | _ -> None
-  in
-  let keep_for_state ~old_state state_name term =
-    match classify_by_state ~old_state term with
-    | Some st -> st = state_name
-    | None -> true
-  in
-  let helper_spec_for_state state_name =
-    let state_guard =
-      term_eq (term_of_var env "st") (mk_term (Tident (qid1 state_name)))
-    in
-        let helper_pre =
-          state_guard
-          :: List.filteri
-              (fun idx term ->
-            match List.nth_opt pre_source_states idx with
-            | Some (Some tagged_state) -> String.equal tagged_state state_name
-            | _ -> keep_for_state ~old_state:false state_name term)
-              pre
-    in
-    let helper_post =
-      List.filteri
-        (fun idx term ->
-          match List.nth_opt post_source_states idx with
-          | Some (Some tagged_state) -> String.equal tagged_state state_name
-          | _ -> keep_for_state ~old_state:true state_name term)
-        post
-    in
-    (helper_pre, helper_post)
+  let step_contracts =
+    match contracts.step_contracts with
+    | [] ->
+        invalid_arg
+          (Printf.sprintf
+             "Why3 backend requires product-step contracts for node %s; the \
+              reference-product pipeline produced no product transitions"
+             runtime_view.node_name)
+    | step_contracts -> step_contracts
   in
   let import_module = Modules.import_module in
   let common_module_name = Modules.common_module_name module_name in
@@ -746,126 +607,7 @@ let compile_node_with_info ?(share_why3_facts = true)
     }
   in
   let kernel_step_helper_units =
-    if not use_product_helper_contracts then []
-    else Product_helpers.kernel_step_helper_units product_helper_context step_contracts
-  in
-  let kernel_step_helper_decls =
-    List.concat_map (fun (_name, decls) -> decls) kernel_step_helper_units
-  in
-  let helper_decls =
-    if use_product_helper_contracts then []
-    else
-    let mk_post t = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, t) ]) in
-    List.map
-      (fun (branch : Why_runtime_view.state_branch_view) ->
-        let helper_name =
-          ident (Printf.sprintf "step_from_%s" (String.lowercase_ascii branch.branch_state))
-        in
-        let helper_pre, helper_post =
-          helper_spec_for_state branch.branch_state
-        in
-        let spc =
-          {
-            Ptree.sp_pre = helper_pre;
-            sp_post = List.rev_map mk_post helper_post;
-            sp_xpost = [];
-            sp_reads = [];
-            sp_writes = [];
-            sp_alias = [];
-            sp_variant = [];
-            sp_checkrw = false;
-            sp_diverge = false;
-            sp_partial = false;
-          }
-        in
-        let helper_body =
-          compile_state_body env branch_entry_asserts branch_sticky_asserts branch.branch_state
-            branch.branch_transitions
-        in
-        let helper_inputs =
-          helper_binders_without_unused_warnings inputs spc helper_body
-        in
-        let fn =
-          mk_expr
-            (Efun
-               ( helper_inputs,
-                 None,
-                 { pat_desc = Pwild; pat_loc = loc },
-                 Ity.MaskVisible,
-                 spc,
-                 helper_body ))
-        in
-        Ptree.Dlet (helper_name, false, Expr.RKnone, fn))
-      runtime_view.state_branches
-  in
-  let wrapper_body =
-    if use_product_helper_contracts then ret_expr
-    else
-      let branches =
-        List.map
-          (fun (branch : Why_runtime_view.state_branch_view) ->
-            let helper_name =
-              Printf.sprintf "step_from_%s" (String.lowercase_ascii branch.branch_state)
-            in
-            let fallback_call =
-              apply_expr (mk_expr (Eident (qid1 helper_name))) helper_args
-            in
-            ( { pat_desc = Papp (qid1 branch.branch_state, []); pat_loc = loc },
-              fallback_call ))
-          runtime_view.state_branches
-      in
-      let covered_states =
-        runtime_view.state_branches
-        |> List.map (fun (branch : Why_runtime_view.state_branch_view) -> branch.branch_state)
-        |> List.sort_uniq String.compare
-      in
-      let all_states = List.sort_uniq String.compare runtime_view.control_states in
-      let exhaustive = covered_states = all_states in
-      mk_expr
-        (Ematch
-           ( field env "st",
-             (if exhaustive then branches
-              else
-                branches
-                @
-                [
-                  ( { pat_desc = Pwild; pat_loc = loc },
-                    mk_expr (Esequence (full_step_body (), ret_expr)) );
-                ]),
-             [] ))
-  in
-
-  let step_decl =
-    let wrapper_pre =
-      if not use_product_helper_contracts then pre
-      else pre
-    in
-    let spc =
-      {
-        Ptree.sp_pre = wrapper_pre;
-        sp_post = [];
-        sp_xpost = [];
-        sp_reads = [];
-        sp_writes = [];
-        sp_alias = [];
-        sp_variant = [];
-        sp_checkrw = false;
-        sp_diverge = false;
-        sp_partial = false;
-      }
-    in
-    let fun_body = wrapper_body in
-    let fn =
-      mk_expr
-        (Efun
-           ( inputs,
-             None,
-             { pat_desc = Pwild; pat_loc = loc },
-             Ity.MaskVisible,
-             spc,
-             fun_body ))
-    in
-    Ptree.Dlet (ident "step", false, Expr.RKnone, fn)
+    Product_helpers.kernel_step_helper_units product_helper_context step_contracts
   in
 
   let coherency_goal_decls =
@@ -894,13 +636,12 @@ let compile_node_with_info ?(share_why3_facts = true)
     imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ]
     @ getter_decls @ logic_getter_decls
   in
-  Modules.assemble_node_modules ~use_product_helper_contracts ~module_name
-    ~imports ~common_module_name ~common_import ~pre_labels ~post_labels
-    ~common_decls ~shared_formula_decls
+  Modules.assemble_node_modules ~module_name ~imports ~common_module_name
+    ~common_import ~pre_labels ~post_labels ~common_decls
     ~shared_pre_bundle_modules:(List.rev !shared_pre_bundle_modules)
     ~shared_post_bundle_modules:(List.rev !shared_post_bundle_modules)
     ~init_goal_decls:(coherency_goal_decls @ kernel_init_goal_decls)
-    ~kernel_step_helper_units ~kernel_step_helper_decls ~helper_decls ~step_decl
+    ~kernel_step_helper_units
 
 (** [compile_node_from_ir_node] helper value. *)
 

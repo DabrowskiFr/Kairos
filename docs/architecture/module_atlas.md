@@ -182,7 +182,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
 | `why_compile_product_helpers.ml` | Emission Why3 concrete des helpers de pas produit |
 | `why_compile_modules.ml` | Assemblage final des declarations Why3 en modules et `program_ast` |
-| `why_compile_step.ml` | Compilation des pas/transitions |
+| `why_compile_step.ml` | Compilation imperative des corps de transition deja selectionnes |
 | `why_compile.ml` | Orchestration de la compilation Why3 d'un noeud |
 | `why_contracts.ml` | Contrats Why3 |
 | `why_pipeline.ml` | Generation VC/SMT textuelle |
