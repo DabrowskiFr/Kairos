@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-[@@@ocaml.warning "-8-26-27-32-33"]
+[@@@ocaml.warning "-8"]
 
 open Why3
 open Ptree

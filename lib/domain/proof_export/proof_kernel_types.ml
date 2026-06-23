@@ -76,7 +76,6 @@ type product_step_kind =
 
 type product_step_origin =
   | StepFromExplicitExploration
-  | StepFromFallbackSynthesis
 [@@deriving yojson]
 
 type product_step_ir = {
@@ -95,7 +94,6 @@ type product_step_ir = {
 type product_coverage_ir =
   | CoverageEmpty
   | CoverageExplicit
-  | CoverageFallback
 [@@deriving yojson]
 
 type generated_clause_origin =

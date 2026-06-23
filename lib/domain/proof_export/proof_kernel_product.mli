@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Reactive program and explicit/fallback product construction for the kernel IR. *)
+(** Reactive program and explicit product construction for the kernel IR. *)
 open Core_syntax
 (** Module [Abs]. *)
 
@@ -57,17 +57,3 @@ val build_product_step :
   reactive_program:Proof_kernel_types.reactive_program_ir ->
   PT.product_step ->
   Proof_kernel_types.product_step_ir
-
-(** [synthesize_fallback_product_steps] service entrypoint. *)
-
-val synthesize_fallback_product_steps :
-  program_transitions:Abs.transition list ->
-  node:Abs.node_ir ->
-  analysis:Temporal_automata.node_data ->
-  reactive_program:Proof_kernel_types.reactive_program_ir ->
-  live_states:PT.product_state list ->
-  automaton_guard_fo:(Automaton_types.guard -> Core_syntax.hexpr) ->
-  product_state_of_pt:(PT.product_state -> Proof_kernel_types.product_state_ir) ->
-  product_step_kind_of_pt:(PT.step_class -> Proof_kernel_types.product_step_kind) ->
-  is_live_state:(analysis:Temporal_automata.node_data -> PT.product_state -> bool) ->
-  Proof_kernel_types.product_step_ir list

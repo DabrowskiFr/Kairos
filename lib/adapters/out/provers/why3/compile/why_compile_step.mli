@@ -22,15 +22,6 @@
     WhyML expressions. Product-step helper generation owns the proof structure;
     this module only emits the imperative code executed by a transition. *)
 
-(** [compile_seq env asserts actions] compiles a sequence of imperative actions
-    into a WhyML expression. [asserts] is the list of assertions to prepend
-    to the block (from invariants or entry contracts). *)
-val compile_seq :
-  Why_compile_expr.env ->
-  Why3.Ptree.term list ->
-  Why_runtime_view.runtime_action_view list ->
-  Why3.Ptree.expr
-
 (** [compile_transition_body env asserts t] compiles the body of transition [t]
     into a WhyML expression, prepending [asserts] at the entry point. *)
 val compile_transition_body :

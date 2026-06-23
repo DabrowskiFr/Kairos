@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-[@@@ocaml.warning "-8-26-27-32-33"]
+[@@@ocaml.warning "-8"]
 
 open Why3
 open Ptree
@@ -45,13 +45,8 @@ type step_contract_info = {
 }
 
 type contract_info = {
-  pre : Why3.Ptree.term list;
-  post : Why3.Ptree.term list;
   pre_labels : string list;
   post_labels : string list;
-  pre_source_states : string option list;
-  post_source_states : string option list;
-  post_vcids : string option list;
   step_contracts : step_contract_info list;
 }
 
@@ -60,8 +55,6 @@ type transition_clauses = {
   transition_requires_pre : Ptree.term list;
   post_contract_terms : Ptree.term list;
   pure_post : Ptree.term list;
-  post_terms : (Ptree.term * string) list;
-  post_terms_vcid : (Ptree.term * string) list;
 }
 
 type link_contracts = {
@@ -104,15 +97,10 @@ let compute_transition_contracts ~(compile_formula_term : in_post:bool -> hexpr 
     transition_requires_pre;
     post_contract_terms = post_contract_user @ transition_requires_post;
     pure_post = [];
-    post_terms = [];
-    post_terms_vcid = [];
   }
 
-let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t)
-    ~(hexpr_needs_old : hexpr -> bool) :
+let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t) :
     link_contracts =
-  let _ = env in
-  let _ = hexpr_needs_old in
   let link_terms_pre, link_terms_post = ([], []) in
   let output_links =
     let rec last_assigned_var (out : ident) (stmts : Core_syntax.stmt list) =
@@ -211,23 +199,10 @@ let build_labels (ctx : label_context) : string list * string list =
   let post_labels = List.map (label_for_term post_groups []) post_out in
   (pre_labels, post_labels)
 
-let rec term_has_old (t : Ptree.term) : bool =
-  match t.term_desc with
-  | Tapply (fn, _arg) -> begin
-      match fn.term_desc with Tident q -> string_of_qid q = "old" | _ -> term_has_old fn
-    end
-  | Tbinnop (a, _, b) | Tinnfix (a, _, b) -> term_has_old a || term_has_old b
-  | Tnot a -> term_has_old a
-  | Tidapp (_q, args) -> List.exists term_has_old args
-  | Tif (c, t1, t2) -> term_has_old c || term_has_old t1 || term_has_old t2
-  | Ttuple ts -> List.exists term_has_old ts
-  | Tident _ | Tconst _ | Ttrue | Tfalse -> false
-  | _ -> false
-
 let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term option)
     ~(local_cut_candidate : hexpr -> bool)
     ~(env : Why_compile_expr.env)
-    ~(hexpr_needs_old : hexpr -> bool) ~(runtime : Why_runtime_view.t)
+    ~(runtime : Why_runtime_view.t)
     ~(pure_translation : bool) ~(simplify_formulas : bool)
     ~(deduplicate_terms : bool) : contract_info =
   let normalize_fo f = if simplify_formulas then simplify_fo f else f in
@@ -276,12 +251,6 @@ let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term opt
     let term = compile_unshared_formula_term ~in_post:true f.logic in
     [ mk_term (Tnot term) ]
   in
-  let compile_labeled_requires (pc : Why_runtime_view.runtime_product_transition_view) =
-    pc.requires
-    |> List.concat_map (fun (f : Ir.summary_formula) ->
-           compile_formula ~in_post:false f
-           |> List.map (fun t -> (t, "Transition requires")))
-  in
   let compile_step_contract (pc : Why_runtime_view.runtime_product_transition_view) : step_contract_info =
     let forbidden =
       pc.forbidden
@@ -320,13 +289,9 @@ let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term opt
   let transition_requires_pre = transition_clauses.transition_requires_pre in
   let post_contract_terms = transition_clauses.post_contract_terms in
   let pure_post = transition_clauses.pure_post in
-  let post_terms = transition_clauses.post_terms in
-  let post_terms_vcid = transition_clauses.post_terms_vcid in
   let compiled_step_contracts = List.map compile_step_contract runtime.product_transitions in
   let pre_contract = transition_requires_pre in
-  let link_contracts =
-    compute_link_contracts ~env ~runtime ~hexpr_needs_old
-  in
+  let link_contracts = compute_link_contracts ~env ~runtime in
   let link_terms_pre = link_contracts.link_terms_pre in
   let link_terms_post = link_contracts.link_terms_post in
   let link_invariants = link_contracts.link_invariants in
@@ -359,112 +324,8 @@ let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term opt
     }
   in
   let pre_labels, post_labels = build_labels label_context in
-  let build_label_opts (labeled : (Ptree.term * string) list) (terms : Ptree.term list)
-      ~(is_candidate : Ptree.term -> bool) =
-    let buckets = Hashtbl.create 64 in
-    List.iter
-      (fun (term, lbl) ->
-        let q =
-          match Hashtbl.find_opt buckets term with
-          | Some q -> q
-          | None ->
-              let q = Queue.create () in
-              Hashtbl.add buckets term q;
-              q
-        in
-        Queue.add lbl q)
-      labeled;
-    List.map
-      (fun term ->
-        if not (is_candidate term) then None
-        else
-          match Hashtbl.find_opt buckets term with
-          | Some q when not (Queue.is_empty q) -> Some (Queue.take q)
-          | _ -> None)
-      terms
-  in
-  let build_vcid_opts (labeled : (Ptree.term * string) list) (terms : Ptree.term list)
-      ~(is_candidate : Ptree.term -> bool) =
-    let buckets = Hashtbl.create 64 in
-    List.iter
-      (fun (term, vcid) ->
-        let q =
-          match Hashtbl.find_opt buckets term with
-          | Some q -> q
-          | None ->
-              let q = Queue.create () in
-              Hashtbl.add buckets term q;
-              q
-        in
-        Queue.add vcid q)
-      labeled;
-    List.map
-      (fun term ->
-        if not (is_candidate term) then None
-        else
-          match Hashtbl.find_opt buckets term with
-          | Some q when not (Queue.is_empty q) -> Some (Queue.take q)
-          | _ -> None)
-      terms
-  in
-  let build_state_opts (tagged : (Ptree.term * ident option) list) (terms : Ptree.term list)
-      ~(is_candidate : Ptree.term -> bool) =
-    let buckets = Hashtbl.create 64 in
-    List.iter
-      (fun (term, state_opt) ->
-        let q =
-          match Hashtbl.find_opt buckets term with
-          | Some q -> q
-          | None ->
-              let q = Queue.create () in
-              Hashtbl.add buckets term q;
-              q
-        in
-        Queue.add state_opt q)
-      tagged;
-    List.map
-      (fun term ->
-        if not (is_candidate term) then None
-        else
-          match Hashtbl.find_opt buckets term with
-          | Some q when not (Queue.is_empty q) -> Queue.take q
-          | _ -> None)
-      terms
-  in
-  let pre_out = List.rev pre in
-  let post_out = List.rev post in
-  let pre_label_opts =
-    build_label_opts transition_requires_pre_terms pre_out
-      ~is_candidate:(fun _ -> true)
-  in
-  let post_label_opts =
-    build_label_opts post_terms post_out ~is_candidate:term_has_old
-  in
-  let post_vcid_opts = build_vcid_opts post_terms_vcid post_out ~is_candidate:term_has_old in
-  let pre_state_opts =
-    build_state_opts
-      (runtime.product_transitions
-      |> List.concat_map (fun (pc : Why_runtime_view.runtime_product_transition_view) ->
-             compile_labeled_requires pc
-             |> List.map (fun (term, _label) -> (term, Some pc.src_state))))
-      pre_out ~is_candidate:(fun _ -> true)
-  in
-  let post_state_opts =
-    build_state_opts [] post_out ~is_candidate:term_has_old
-  in
-  let merge_labels opts groups =
-    List.map2 (fun opt grp -> Option.value ~default:grp opt) opts groups
-  in
-  let pre_labels = merge_labels pre_label_opts pre_labels in
-  let post_labels = merge_labels post_label_opts post_labels in
-  let post_vcids = post_vcid_opts in
   {
-    pre = pre_out;
-    post = post_out;
     pre_labels;
     post_labels;
-    pre_source_states = pre_state_opts;
-    post_source_states = post_state_opts;
-    post_vcids;
     step_contracts = compiled_step_contracts;
   }

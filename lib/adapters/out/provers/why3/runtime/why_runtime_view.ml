@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-[@@@ocaml.warning "-8-26-27-32-33"]
+[@@@ocaml.warning "-8"]
 
 open Core_syntax
 
@@ -92,16 +92,6 @@ type runtime_product_transition_view = {
   forbidden : Abs.summary_formula list;
 }
 
-type transition_group_view = {
-  group_state : ident;
-  group_transitions : runtime_transition_view list;
-}
-
-type state_branch_view = {
-  branch_state : ident;
-  branch_transitions : runtime_transition_view list;
-}
-
 type t = {
   node_name : ident;
   type_decls : enum_decl list;
@@ -113,8 +103,6 @@ type t = {
   init_control_state : ident;
   transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
-  transition_groups : transition_group_view list;
-  state_branches : state_branch_view list;
   assumes : ltl list;
   guarantees : ltl list;
   init_invariant_goals : Abs.summary_formula list;
@@ -555,24 +543,6 @@ let transition_of_product_step ?(simplify_runtime_actions = true)
       body_stmts = step.body;
     }
 
-let group_transitions (transitions : runtime_transition_view list) : transition_group_view list =
-  let by_state =
-    List.fold_left
-      (fun acc (t : runtime_transition_view) ->
-        let prev = Option.value ~default:[] (List.assoc_opt t.src_state acc) in
-        (t.src_state, prev @ [ t ]) :: List.remove_assoc t.src_state acc)
-      [] transitions
-  in
-  List.map
-    (fun (group_state, group_transitions) -> { group_state; group_transitions })
-    by_state
-
-let state_branches_of_groups (groups : transition_group_view list) : state_branch_view list =
-  List.map
-    (fun (group : transition_group_view) ->
-      { branch_state = group.group_state; branch_transitions = group.group_transitions })
-    groups
-
 let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
     Abs.transition list =
   let seen : (Abs.transition, unit) Hashtbl.t = Hashtbl.create 64 in
@@ -597,7 +567,6 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
           ~simplify_runtime_actions t)
       program_transitions
   in
-  let transition_groups = group_transitions transitions in
   let runtime =
     {
       node_name = sem.sem_nname;
@@ -610,8 +579,6 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
       init_control_state = sem.sem_init_state;
       transitions;
       product_transitions = [];
-      transition_groups;
-      state_branches = state_branches_of_groups transition_groups;
       assumes = node.source_info.assumes;
       guarantees = node.source_info.guarantees;
       init_invariant_goals = node.init_invariant_goals;

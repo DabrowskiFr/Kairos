@@ -44,12 +44,10 @@ let string_of_step_kind = function
 
 let string_of_step_origin = function
   | StepFromExplicitExploration -> "explicit"
-  | StepFromFallbackSynthesis -> "fallback"
 
 let string_of_product_coverage = function
   | CoverageEmpty -> "empty"
   | CoverageExplicit -> "explicit"
-  | CoverageFallback -> "fallback"
 
 let string_of_clause_origin = function
   | OriginSourceProductSummary -> "source/product_summary"

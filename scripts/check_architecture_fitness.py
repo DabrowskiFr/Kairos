@@ -664,6 +664,12 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\bkernel_step_helper_decls\b",
         r"\bhelper_decls\b",
         r"\bstep_decl\b",
+        r"\bret_expr\b",
+        r"\bhexpr_needs_old\b",
+        r"\bpre_source_states\b",
+        r"\bpost_source_states\b",
+        r"\bpost_vcids\b",
+        r"\bstate_branches\b",
     ]
     product_backend_roots = [
         "lib/adapters/out/provers/why3/compile/why_compile.ml",
@@ -671,6 +677,10 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "lib/adapters/out/provers/why3/compile/why_compile_modules.mli",
         "lib/adapters/out/provers/why3/compile/why_compile_step.ml",
         "lib/adapters/out/provers/why3/compile/why_compile_step.mli",
+        "lib/adapters/out/provers/why3/runtime/why_runtime_view.ml",
+        "lib/adapters/out/provers/why3/runtime/why_runtime_view.mli",
+        "lib/adapters/out/provers/why3/contracts/why_contracts.ml",
+        "lib/adapters/out/provers/why3/contracts/why_contracts.mli",
     ]
     violations = []
     for rel in product_backend_roots:
@@ -684,6 +694,35 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 backend must use the product-step proof path only; "
             "state-helper fallback code remains:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+    proof_export_forbidden = [
+        r"\bStepFromFallbackSynthesis\b",
+        r"\bCoverageFallback\b",
+        r"\bsynthesize_fallback_product_steps\b",
+    ]
+    proof_export_roots = [
+        "lib/domain/proof_export/proof_kernel_pass.ml",
+        "lib/domain/proof_export/proof_kernel_product.ml",
+        "lib/domain/proof_export/proof_kernel_product.mli",
+        "lib/domain/proof_export/proof_kernel_types.ml",
+        "lib/domain/proof_export/proof_kernel_types.mli",
+        "lib/domain/proof_export/proof_kernel_naming.ml",
+        "lib/domain/proof_export/proof_kernel_naming.mli",
+    ]
+    violations = []
+    for rel in proof_export_roots:
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in proof_export_forbidden:
+                if re.search(pattern, line):
+                    violations.append(f"{rel}:{line_no}: {line.strip()}")
+                    break
+    if violations:
+        fail(
+            "proof export must reflect explicit product exploration; "
+            "fallback product-step synthesis remains:\n  - "
             + "\n  - ".join(violations)
         )
 

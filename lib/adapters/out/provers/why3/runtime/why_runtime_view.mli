@@ -19,10 +19,9 @@
 (** Why3-specific intermediate representation of a Kairos node.
 
     Reconstructs from an {!Ir.node_ir} a structured view exposing ports,
-    transitions (with guards, bodies and contracts), state-indexed branches,
-    global contracts and user invariants. All compilation and contract-building
-    modules in the backend consume this representation rather than the generic
-    IR. *)
+    source-program transitions, product transitions, contracts and user
+    invariants. All compilation and contract-building modules in the backend
+    consume this representation rather than the generic IR. *)
 
 open Core_syntax
 
@@ -108,19 +107,6 @@ type runtime_product_transition_view = {
       (** Formulas whose verification is intentionally deferred. *)
 }
 
-(** Transitions sharing the same source control state, grouped for helper
-    generation in {!Why_compile}. *)
-type transition_group_view = {
-  group_state : ident;
-  group_transitions : runtime_transition_view list;
-}
-
-(** One arm of the pattern match on the current control state in [step]. *)
-type state_branch_view = {
-  branch_state : ident;
-  branch_transitions : runtime_transition_view list;
-}
-
 (** Complete view of a node, ready to be compiled to WhyML. *)
 type t = {
   node_name : ident;
@@ -134,8 +120,6 @@ type t = {
       (** Initial control state (used for coherency goals). *)
   transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
-  transition_groups : transition_group_view list;
-  state_branches : state_branch_view list;
   assumes : ltl list;
   guarantees : ltl list;
   init_invariant_goals : Ir.summary_formula list;

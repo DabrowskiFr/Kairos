@@ -17,7 +17,6 @@
  *---------------------------------------------------------------------------*)
 open Core_syntax
 open Pretty
-open Core_syntax_builders
 
 module Abs = Ir
 module PT = Product_types
@@ -26,7 +25,8 @@ open Proof_kernel_types
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
+let fo_of_expr (e : expr) : Core_syntax.hexpr =
+  Core_syntax_builders.hexpr_of_expr e
 
 let build_reactive_program ~(node_name : ident) ~(source_node : Verification_model.node_model)
     ~(program_transitions : Abs.transition list) : reactive_program_ir =
@@ -39,7 +39,7 @@ let build_reactive_program ~(node_name : ident) ~(source_node : Verification_mod
           dst_state = t.dst_state;
           guard =
             (match t.guard_expr with
-            | None -> mk_hbool true
+            | None -> Core_syntax_builders.mk_hbool true
             | Some g -> fo_of_expr g |> simplify_fo);
           guard_expr = t.guard_expr;
           requires = [];
@@ -126,101 +126,3 @@ let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automat
   ignore node;
   step.src.assume_state_index <> analysis.assume_bad_idx
   && step.src.guarantee_state_index <> analysis.guarantee_bad_idx
-
-let synthesize_fallback_product_steps ~(program_transitions : Abs.transition list)
-    ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
-    ~(reactive_program : reactive_program_ir) ~(live_states : PT.product_state list)
-    ~automaton_guard_fo ~product_state_of_pt:_ ~product_step_kind_of_pt:_ ~is_live_state:_ :
-    product_step_ir list =
-  let live_states = List.sort_uniq PT.compare_state live_states in
-  let assume_edges =
-    List.map
-      (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
-        (src, dst, automaton_guard_fo guard_raw))
-      analysis.assume_grouped_edges
-  in
-  let guarantee_edges =
-    List.map
-      (fun ((src, guard_raw, dst) : PT.automaton_edge) ->
-        (src, dst, automaton_guard_fo guard_raw))
-      analysis.guarantee_grouped_edges
-  in
-  let matching_edges edges src dst =
-    edges
-    |> List.filter_map (fun (s, d, g) -> if s = src && d = dst then Some g else None)
-    |> List.sort_uniq Stdlib.compare
-  in
-  let transition_id_for ~(src : ident) ~(dst : ident) ~(guard : Core_syntax.hexpr) =
-    match
-      List.find_opt
-        (fun (tr : reactive_transition_ir) ->
-          String.equal tr.src_state src
-          && String.equal tr.dst_state dst
-          && simplify_fo tr.guard = simplify_fo guard)
-        reactive_program.transitions
-    with
-    | Some tr -> tr.transition_id
-    | None ->
-        failwith
-          (Printf.sprintf
-             "Unable to associate fallback product step %s->%s with a reactive transition in node %s"
-             src dst reactive_program.node_name)
-  in
-  program_transitions
-  |> List.concat_map (fun (t : Abs.transition) ->
-         let program_guard =
-           match t.guard_expr with
-           | None -> mk_hbool true
-           | Some g -> simplify_fo (fo_of_expr g)
-         in
-         live_states
-         |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.src_state)
-         |> List.concat_map (fun (src : PT.product_state) ->
-                live_states
-                |> List.filter (fun (st : PT.product_state) -> st.prog_state = t.dst_state)
-                |> List.filter_map (fun (dst : PT.product_state) ->
-                       let assume_guards = matching_edges assume_edges src.assume_state dst.assume_state in
-                       let guarantee_guards =
-                         matching_edges guarantee_edges src.guarantee_state dst.guarantee_state
-                       in
-                       let assume_guard =
-                         match assume_guards with
-                         | [] -> None
-                         | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left mk_hor g gs)
-                       in
-                       let guarantee_guard =
-                         match guarantee_guards with
-                         | [] -> None
-                         | [ g ] -> Some g
-                         | g :: gs -> Some (List.fold_left mk_hor g gs)
-                       in
-                       match (assume_guard, guarantee_guard) with
-                       | Some ag, Some gg ->
-                           Some
-                             {
-                               src =
-                                 {
-                                   prog_state = src.prog_state;
-                                   assume_state_index = src.assume_state;
-                                   guarantee_state_index = src.guarantee_state;
-                                 };
-                               dst =
-                                 {
-                                   prog_state = dst.prog_state;
-                                   assume_state_index = dst.assume_state;
-                                   guarantee_state_index = dst.guarantee_state;
-                                 };
-                               program_transition_id =
-                                 transition_id_for ~src:t.src_state ~dst:t.dst_state
-                                   ~guard:program_guard;
-                               program_transition = (t.src_state, t.dst_state);
-                               program_guard;
-                               assume_edge =
-                                 { src_index = src.assume_state; dst_index = dst.assume_state; guard = ag };
-                               guarantee_edge =
-                                 { src_index = src.guarantee_state; dst_index = dst.guarantee_state; guard = gg };
-                               step_kind = StepSafe;
-                               step_origin = StepFromFallbackSynthesis;
-                             }
-                       | _ -> None)))

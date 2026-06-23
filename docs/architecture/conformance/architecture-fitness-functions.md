@@ -13,6 +13,7 @@ before it becomes a proof or performance regression.
 | Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
 | Renderer purity | `python3 scripts/check_architecture_fitness.py` | Graph rendering must not depend on Z3 |
 | Why3 product path | `python3 scripts/check_architecture_fitness.py` | Why3 proof emission must not reintroduce the old state-helper fallback |
+| Proof export product path | `python3 scripts/check_architecture_fitness.py` | Proof export must not synthesize fallback product steps |
 | Backend stability | `bash tests/check_reference_stability.sh _build/default/bin/cli/kairos.exe` | Backend-only options do not change reference views |
 
 ## Rules That Must Eventually Become Checks

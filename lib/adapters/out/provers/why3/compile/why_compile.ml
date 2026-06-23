@@ -21,7 +21,7 @@
     This module assembles Why3 module declarations (types, accessors, step
     helpers, contracts and goals) from {!Ir.node_ir} runtime views. *)
 
-[@@@ocaml.warning "-8-26-27-32-33"]
+[@@@ocaml.warning "-8"]
 
 type spec_groups = Why_compile_modules.spec_groups = {
   pre_labels : string list;
@@ -71,9 +71,6 @@ type env_info = {
   type_vars : Why3.Ptree.decl;
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
-  ret_expr : Why3.Ptree.expr;
-  hexpr_needs_old : hexpr -> bool;
-  input_names : ident list;
 }
 
 (** [prepare_runtime_view] helper value. *)
@@ -122,12 +119,10 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
   in
   let pre_k_infos = temporal_layout in
   let inv_links = [] in
-  let input_names = List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.inputs in
   let base_vars =
     "st"
     :: List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) (runtime.locals @ runtime.outputs)
   in
-  let hexpr_needs_old (_h : hexpr) : bool = false in
   let env =
     {
       rec_name = "vars";
@@ -184,11 +179,6 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
         };
       ]
   in
-  let output_exprs =
-    List.map
-      (fun (v : Why_runtime_view.port_view) -> field env v.port_name)
-      runtime.outputs
-  in
   let vars_param = (loc, Some (ident "vars"), false, Some (Ptree.PTtyapp (qid1 "vars", []))) in
   let input_binders =
     List.map
@@ -208,12 +198,6 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
                     Some (loc, Some (ident name), false, Some (default_pty info.vty)))))
   in
   let inputs = vars_param :: (input_binders @ pre_k_binders) in
-  let ret_expr =
-    match output_exprs with
-    | [] -> mk_expr (Etuple [])
-    | [ e ] -> e
-    | es -> mk_expr (Etuple es)
-  in
   {
     runtime_view = runtime;
     module_name;
@@ -223,9 +207,6 @@ let prepare_runtime_view ~(temporal_layout : Ir.temporal_layout) (runtime : Why_
     type_vars;
     env;
     inputs;
-    ret_expr;
-    hexpr_needs_old;
-    input_names;
   }
 
 (** [prepare_ir_node] helper value. *)
@@ -240,7 +221,6 @@ let prepare_ir_node ?(simplify_why3_runtime_actions = true)
   prepare_runtime_view ~temporal_layout:node.temporal_layout runtime
 
 let product_step_helper_name = Step_names.product_step_helper_name
-let product_step_class_name = Step_names.product_step_class_name
 let product_step_group_helper_name = Step_names.product_step_group_helper_name
 
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
@@ -264,7 +244,6 @@ let compile_node_with_info ?(share_why3_facts = true)
   let env = info.env in
   let function_decls = List.map compile_pure_function_decl runtime_view.function_decls in
   let inputs = info.inputs in
-  let ret_expr = info.ret_expr in
   (* Locals and outputs as vdecl list (needed for getter generation). *)
   let locals_and_outputs =
     List.map port_view_to_vdecl (runtime_view.locals @ runtime_view.outputs)
@@ -469,9 +448,6 @@ let compile_node_with_info ?(share_why3_facts = true)
              in
              (name, formula, decl))
   in
-  let shared_formula_decls =
-    List.map (fun (_name, _formula, decl) -> decl) shared_formula_entries
-  in
   let shared_formula_names_in_term term =
     names_of_term term StringSet.empty
     |> StringSet.filter (String.starts_with ~prefix:"shared_contract_formula_")
@@ -527,7 +503,7 @@ let compile_node_with_info ?(share_why3_facts = true)
   in
   let contracts =
     Why_contracts.build_contracts ~abstract_formula ~local_cut_candidate ~env:info.env
-      ~hexpr_needs_old:info.hexpr_needs_old ~runtime:runtime_view ~pure_translation:false
+      ~runtime:runtime_view ~pure_translation:false
       ~simplify_formulas:simplify_why3_formulas
       ~deduplicate_terms:deduplicate_why3_terms
   in
