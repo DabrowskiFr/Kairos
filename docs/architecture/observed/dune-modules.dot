@@ -373,6 +373,8 @@ digraph G {
                                               shape=box, ];
   "kairos_runtime_proof__Proof_goal_attribution" [label="Proof_goal_attribution",
                                                   shape=box, ];
+  "kairos_runtime_proof__Proof_goal_results" [label="Proof_goal_results",
+                                              shape=box, ];
   "kairos_runtime_proof__Proof_runner" [label="Proof_runner", shape=box, ];
   "kairos_verification_runtime__Verification_runtime_adapters" [label="Verification_runtime_adapters",
                                                                 shape=box, ];
@@ -483,7 +485,7 @@ digraph G {
        };
     subgraph cluster_231918951 { label="kairos_why3_expr"; "kairos_why3_expr__Why_compile_expr";"kairos_why3_expr";
        };
-    subgraph cluster_235123767 { label="kairos_runtime_proof"; "kairos_runtime_proof__Proof_runner";"kairos_runtime_proof__Proof_goal_attribution";"kairos_runtime_proof";
+    subgraph cluster_235123767 { label="kairos_runtime_proof"; "kairos_runtime_proof__Proof_runner";"kairos_runtime_proof__Proof_goal_results";"kairos_runtime_proof__Proof_goal_attribution";"kairos_runtime_proof";
        };
     subgraph cluster_241769867 { label="kairos_why3"; "kairos_why3__Why_pipeline";"kairos_why3";
        };
@@ -826,6 +828,7 @@ digraph G {
                                            lhead="cluster_241769867",
                                            ltail="cluster_235123767", ];
   "kairos_runtime_proof" -> "kairos_runtime_proof__Proof_goal_attribution";
+  "kairos_runtime_proof" -> "kairos_runtime_proof__Proof_goal_results";
   "kairos_runtime_proof" -> "kairos_runtime_proof__Proof_runner";
   "kairos_verification_runtime" -> "kairos_runtime_automata" [minlen=2,
                                                               lhead="cluster_899597",
@@ -1154,6 +1157,7 @@ digraph G {
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_outputs_helpers";
   "kairos_runtime_outputs__Pipeline_outputs" -> "kairos_runtime_outputs__Output_mapper";
   "kairos_runtime_proof__Proof_runner" -> "kairos_runtime_proof__Proof_goal_attribution";
+  "kairos_runtime_proof__Proof_runner" -> "kairos_runtime_proof__Proof_goal_results";
   "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_formula_sharing";
   "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_init_goals";
   "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_node_common";

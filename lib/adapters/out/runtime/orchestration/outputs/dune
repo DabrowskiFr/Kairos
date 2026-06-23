@@ -1,7 +1,7 @@
 (library
  (name kairos_runtime_proof)
  (wrapped false)
- (modules proof_goal_attribution proof_runner)
+ (modules proof_goal_attribution proof_goal_results proof_runner)
  (libraries
   kairos_application
   kairos_domain_core

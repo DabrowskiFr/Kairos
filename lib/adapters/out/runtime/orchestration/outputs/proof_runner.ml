@@ -30,6 +30,8 @@ type run_output = {
   proof_traces : Pipeline_types.proof_trace list;
 }
 
+module Goal_results = Proof_goal_results
+
 let join_blocks_with_spans ~sep blocks =
   let b = Buffer.create 4096 in
   let spans = ref [] in
@@ -60,28 +62,8 @@ let csv_escape field =
     Buffer.contents b
   else field
 
-type proof_progress = { emit : Pipeline_types.goal_info -> unit }
-
-type proof_goal_result = {
-  result_index : int;
-  result_goal_name : string;
-  result_status : string;
-  result_time_s : float;
-  result_timing : Why_contract_prove.goal_timing;
-  result_dump_path : string option;
-  result_vcid : string option;
-}
-
-let zero_goal_timing : Why_contract_prove.goal_timing =
-  {
-    prepare_s = 0.0;
-    print_s = 0.0;
-    spawn_s = 0.0;
-    wait_s = 0.0;
-    solver_s = 0.0;
-  }
-
-let open_proof_progress = function
+let open_proof_progress : string option -> Goal_results.progress option =
+  function
   | None | Some "-" -> None
   | Some path ->
       let oc = open_out path in
@@ -196,79 +178,9 @@ let diagnostic_for_trace ~(status : string) ~(goal_text : string)
       ];
   }
 
-let proof_status_is_valid status =
-  match String.lowercase_ascii status with
-  | "valid" | "proved" -> true
-  | _ -> false
-
-let goal_name_of_task task =
-  Why_contract_prove.goal_name_of_prepared_task task
-
-let build_goal_results ~progress ~(cfg : Pipeline_types.config)
-    ~(vc_ids_ordered : int list) ~normalized_tasks :
-    proof_goal_result list =
-  if cfg.prove && not cfg.wp_only then
-    let finished = ref [] in
-    let stop_requested = ref false in
-    let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
-    let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
-    let _ =
-      Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
-        ~jobs:proof_jobs ~dump_failed_smt:cfg.dump_failed_smt ~should_cancel
-        ~on_goal_start:(fun _ -> ())
-        ~on_goal_done:(fun ev ->
-          let idx = ev.goal_index in
-          let r = ev.result in
-          let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
-          let vcid =
-            match List.nth_opt vc_ids_ordered idx with
-            | Some id -> Some (string_of_int id)
-            | None -> None
-          in
-          Option.iter
-            (fun (progress : proof_progress) ->
-              progress.emit
-                (r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid))
-            progress;
-          finished :=
-            {
-              result_index = idx;
-              result_goal_name = r.goal_name;
-              result_status = status;
-              result_time_s = r.prover_result.pr_time;
-              result_timing = r.timing;
-              result_dump_path = r.dump_path;
-              result_vcid = vcid;
-            }
-            :: !finished;
-          if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
-            stop_requested := true)
-        normalized_tasks
-    in
-    List.sort
-      (fun left right -> compare left.result_index right.result_index)
-      !finished
-  else
-    List.mapi
-      (fun idx task ->
-        let vcid = List.nth vc_ids_ordered idx in
-        let goal_name =
-          try goal_name_of_task task with _ -> Printf.sprintf "vc-%03d" (idx + 1)
-        in
-        {
-          result_index = idx;
-          result_goal_name = goal_name;
-          result_status = "pending";
-          result_time_s = 0.0;
-          result_timing = zero_goal_timing;
-          result_dump_path = None;
-          result_vcid = Some (string_of_int vcid);
-        })
-      normalized_tasks
-
 let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
     ~attributions
-    ~(goal_results : proof_goal_result list)
+    ~(goal_results : Proof_goal_results.t list)
     ~(vc_ids_ordered : int list)
     ~(vc_spans_ordered : Pipeline_types.text_span list)
     ~(smt_spans_ordered : Pipeline_types.text_span list) :
@@ -276,7 +188,8 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
   let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
     (fun goal_result ->
-      Hashtbl.replace goal_result_tbl goal_result.result_index goal_result)
+      Hashtbl.replace goal_result_tbl
+        goal_result.Goal_results.result_index goal_result)
     goal_results;
   List.mapi (fun idx _task -> idx) normalized_tasks
   |> List.filter_map (fun idx ->
@@ -285,20 +198,13 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
            | Some goal -> goal
            | None ->
                let fallback_id = Printf.sprintf "vc-%03d" (idx + 1) in
-               {
-                 result_index = idx;
-                 result_goal_name = fallback_id;
-                 result_status = "pending";
-                 result_time_s = 0.0;
-                 result_timing = zero_goal_timing;
-                 result_dump_path = None;
-                 result_vcid = Some (string_of_int (List.nth vc_ids_ordered idx));
-               }
+               Proof_goal_results.pending ~index:idx ~goal_name:fallback_id
+                 ~vcid:(Some (string_of_int (List.nth vc_ids_ordered idx)))
          in
-         let goal_name = goal_result.result_goal_name in
-         let status = goal_result.result_status in
-         let time_s = goal_result.result_time_s in
-         let timing = goal_result.result_timing in
+         let goal_name = goal_result.Goal_results.result_goal_name in
+         let status = goal_result.Goal_results.result_status in
+         let time_s = goal_result.Goal_results.result_time_s in
+         let timing = goal_result.Goal_results.result_timing in
          let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
          let native_core, native_probe =
            if not cfg.compute_proof_diagnostics then (None, None)
@@ -334,27 +240,27 @@ let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
              obligation_kind = "unknown";
              obligation_family = None;
              obligation_category = None;
-             vc_id = goal_result.result_vcid;
+             vc_id = goal_result.Goal_results.result_vcid;
              source_span = None;
              why_span = None;
              vc_span = List.nth_opt vc_spans_ordered idx;
              smt_span = List.nth_opt smt_spans_ordered idx;
-             dump_path = goal_result.result_dump_path;
+             dump_path = goal_result.Goal_results.result_dump_path;
              diagnostic;
            }
          in
          Some (Proof_goal_attribution.apply attributions ~goal_name trace))
 
 let build_fast_proof_traces ~attributions
-    (goal_results : proof_goal_result list) :
+    (goal_results : Proof_goal_results.t list) :
     Pipeline_types.proof_trace list =
   goal_results
   |> List.map (fun goal_result ->
-         let idx = goal_result.result_index in
-         let goal_name = goal_result.result_goal_name in
-         let status = goal_result.result_status in
-         let time_s = goal_result.result_time_s in
-         let timing = goal_result.result_timing in
+         let idx = goal_result.Goal_results.result_index in
+         let goal_name = goal_result.Goal_results.result_goal_name in
+         let status = goal_result.Goal_results.result_status in
+         let time_s = goal_result.Goal_results.result_time_s in
+         let timing = goal_result.Goal_results.result_timing in
          let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
          let trace =
            {
@@ -375,12 +281,12 @@ let build_fast_proof_traces ~attributions
              obligation_kind = "unknown";
              obligation_family = None;
              obligation_category = None;
-             vc_id = goal_result.result_vcid;
+             vc_id = goal_result.Goal_results.result_vcid;
              source_span = None;
              why_span = None;
              vc_span = None;
              smt_span = None;
-             dump_path = goal_result.result_dump_path;
+             dump_path = goal_result.Goal_results.result_dump_path;
              diagnostic =
                diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
                  ~native_probe:None;
@@ -395,16 +301,9 @@ let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
       (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
     proof_traces
 
-let goals_of_goal_results (goal_results : proof_goal_result list) :
+let goals_of_goal_results (goal_results : Proof_goal_results.t list) :
     Pipeline_types.goal_info list =
-  List.map
-    (fun (result : proof_goal_result) ->
-      ( result.result_goal_name,
-        result.result_status,
-        result.result_time_s,
-        result.result_dump_path,
-        result.result_vcid ))
-    goal_results
+  List.map Proof_goal_results.to_goal_info goal_results
 
 let proof_traces_needed (cfg : Pipeline_types.config) : bool =
   cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
@@ -446,39 +345,10 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
        && not cfg.generate_smt_text && not cfg.compute_proof_diagnostics
     then
       let goal_results =
-        let finished = ref [] in
-        let stop_requested = ref false in
-        let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
-        let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
-        let _ =
-          Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
-            ~jobs:proof_jobs ~split_vc:true ~dump_failed_smt:cfg.dump_failed_smt
-            ~should_cancel ~on_goal_start:(fun _ -> ())
-            ~on_goal_done:(fun ev ->
-              let idx = ev.Why_contract_prove.goal_index in
-              let r = ev.result in
-              let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
-              finished :=
-                {
-                  result_index = idx;
-                  result_goal_name = r.goal_name;
-                  result_status = status;
-                  result_time_s = r.prover_result.pr_time;
-                  result_timing = r.timing;
-                  result_dump_path = r.dump_path;
-                  result_vcid = Some (string_of_int (idx + 1));
-                }
-                :: !finished;
-              if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
-                stop_requested := true)
-            module_ptrees
-        in
-        List.sort
-          (fun left right -> Int.compare left.result_index right.result_index)
-          !finished
+        Proof_goal_results.of_module_ptrees_fast ~cfg ~module_ptrees
       in
       let vc_ids_ordered =
-        List.map (fun goal -> goal.result_index + 1) goal_results
+        Proof_goal_results.vc_ids_from_result_indices goal_results
       in
       let proof_traces =
         if proof_traces_needed cfg then
@@ -534,7 +404,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
       let vc_locs, vc_locs_ordered = ([], []) in
       let goal_results =
-        build_goal_results ~progress ~cfg ~vc_ids_ordered ~normalized_tasks
+        Proof_goal_results.of_normalized_tasks ~progress ~cfg ~vc_ids_ordered
+          ~normalized_tasks
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =

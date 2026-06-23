@@ -375,6 +375,8 @@ def check_runtime_split_dependencies(repo: Path) -> None:
     ).read_text(encoding="utf-8")
     if "proof_goal_attribution" not in proof_dune:
         fail("kairos_runtime_proof must expose proof_goal_attribution")
+    if "proof_goal_results" not in proof_dune:
+        fail("kairos_runtime_proof must expose proof_goal_results")
 
     proof_runner = (
         repo / "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
@@ -399,6 +401,27 @@ def check_runtime_split_dependencies(repo: Path) -> None:
         fail(
             "proof goal attribution must stay in proof_goal_attribution.ml; "
             "proof_runner reintroduced attribution logic"
+        )
+
+    forbidden_proof_runner_results = [
+        r"\btype\s+proof_goal_result\b",
+        r"\blet\s+zero_goal_timing\b",
+        r"\blet\s+proof_status_is_valid\b",
+        r"\blet\s+goal_name_of_task\b",
+        r"\blet\s+build_goal_results\b",
+        r"\bWhy_contract_prove\.prove_tasks_with_events\b",
+        r"\bWhy_contract_prove\.prove_ptrees_with_events\b",
+        r"\bProof_status_render\b",
+    ]
+    found = [
+        pattern
+        for pattern in forbidden_proof_runner_results
+        if re.search(pattern, proof_runner)
+    ]
+    if found:
+        fail(
+            "proof goal result construction must stay in proof_goal_results.ml; "
+            "proof_runner reintroduced result-building logic"
         )
 
 
