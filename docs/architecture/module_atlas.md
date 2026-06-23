@@ -173,9 +173,11 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Module | Responsabilite |
 | --- | --- |
 | `why_runtime_view.ml` | Vue runtime specialisee pour Why3 |
-| `why_compile.ml` | Compilation IR -> AST Why3 |
-| `why_compile_step.ml` | Compilation des pas/transitions |
 | `why_compile_expr.ml` | Compilation des expressions/formules |
+| `why_compile_ptree_helpers.ml` | Helpers Why3 `Ptree`, combinateurs de termes, analyse des noms utilises |
+| `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
+| `why_compile_step.ml` | Compilation des pas/transitions |
+| `why_compile.ml` | Assemblage des modules Why3, helpers de preuve et obligations de noeud |
 | `why_contracts.ml` | Contrats Why3 |
 | `why_pipeline.ml` | Generation VC/SMT textuelle |
 | `why_contract_prove.ml` | Interaction Why3/provers |

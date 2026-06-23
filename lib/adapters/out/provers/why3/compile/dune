@@ -9,7 +9,11 @@
 (library
  (name kairos_why3_compile)
  (wrapped false)
- (modules why_compile why_compile_step)
+ (modules
+  why_compile_ptree_helpers
+  why_compile_logic
+  why_compile
+  why_compile_step)
  (libraries
   kairos_domain_core
   kairos_domain_verification

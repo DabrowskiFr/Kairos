@@ -572,6 +572,75 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         )
 
 
+def check_why3_compile_boundaries(repo: Path) -> None:
+    compile_root = repo / "lib/adapters/out/provers/why3/compile"
+    required_modules = [
+        "why_compile_ptree_helpers",
+        "why_compile_logic",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = compile_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (compile_root / "dune").read_text(encoding="utf-8")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "Why3 compile helper modules must be explicit kairos_why3_compile modules: "
+            + ", ".join(missing_modules)
+        )
+
+    why_compile = (compile_root / "why_compile.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    forbidden_defs = [
+        r"\blet\s+empty_spec\s*\(",
+        r"\blet\s+term_and\s*\(",
+        r"\blet\s+term_or\s*\(",
+        r"\blet\s+rec\s+names_of_term\b",
+        r"\blet\s+rec\s+names_of_expr\b",
+        r"\blet\s+mark_unused_binders\b",
+        r"\blet\s+helper_binders_without_unused",
+        r"\blet\s+balance_boolean_hexpr\b",
+        r"\blet\s+logic_getter_decl\b",
+        r"\blet\s+logic_bool_pred_decl",
+        r"\blet\s+rec\s+hexpr_size\b",
+        r"\blet\s+rec\s+vars_of_hexpr\b",
+        r"\blet\s+compile_pure_function_decl\b",
+    ]
+    found = [pattern for pattern in forbidden_defs if re.search(pattern, why_compile)]
+    if found:
+        fail(
+            "Why3 Ptree/logical helper logic must stay in focused why_compile_* modules; "
+            "why_compile.ml reintroduced extracted helper definitions"
+        )
+
+    ptree_helpers = (compile_root / "why_compile_ptree_helpers.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    forbidden_ptree_deps = [
+        r"\bWhy_runtime_view\b",
+        r"\bWhy_contracts\b",
+        r"\bIr\.",
+        r"\bProof_kernel\b",
+    ]
+    violations: list[str] = []
+    for line_no, line in enumerate(ptree_helpers.splitlines(), start=1):
+        for pattern in forbidden_ptree_deps:
+            if re.search(pattern, line):
+                violations.append(
+                    f"lib/adapters/out/provers/why3/compile/why_compile_ptree_helpers.ml:{line_no}: {line.strip()}"
+                )
+                break
+    if violations:
+        fail(
+            "Why3 Ptree helpers must not depend on runtime/product contracts:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+
 def check_input_adapters_stay_thin(repo: Path) -> None:
     checks = [
         (
@@ -1366,6 +1435,7 @@ def main() -> int:
     check_reference_api_names_stay_explicit(repo)
     check_critical_subsystems_do_not_use_unqualified_subdirs(repo)
     check_kairos_frontend_elaboration_boundaries(repo)
+    check_why3_compile_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")
     return 0

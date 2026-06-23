@@ -429,6 +429,8 @@ flowchart TD
     end
     subgraph 95057747 ["kairos_why3_compile"]
       id356856735(Why_compile_step)
+      id416335878(Why_compile_ptree_helpers)
+      id290900148(Why_compile_logic)
       id301358582(Why_compile)
       id95057747(["kairos_why3_compile"])
     end
@@ -659,6 +661,8 @@ flowchart TD
   95057747-->1023048449
   95057747-->167272116
   id95057747-->id301358582
+  id95057747-->id290900148
+  id95057747-->id416335878
   id95057747-->id356856735
   167272116-->231918951
   167272116-->26443279
@@ -934,4 +938,6 @@ flowchart TD
   id746686775-->id568877505
   id746686775-->id731963121
   id551799941-->id277790137
+  id301358582-->id290900148
   id301358582-->id356856735
+  id290900148-->id416335878
