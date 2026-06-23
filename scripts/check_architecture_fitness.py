@@ -597,6 +597,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             path = compile_root / f"{module}{suffix}"
             if not path.exists():
                 fail(f"{path.relative_to(repo)} is missing")
+    why_compile_mli = compile_root / "why_compile.mli"
+    if not why_compile_mli.exists():
+        fail("lib/adapters/out/provers/why3/compile/why_compile.mli is missing")
 
     dune = (compile_root / "dune").read_text(encoding="utf-8")
     missing_modules = [module for module in required_modules if module not in dune]
@@ -697,6 +700,27 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 Ptree/logical helper logic must stay in focused why_compile_* modules; "
             "why_compile.ml reintroduced extracted helper definitions"
+        )
+
+    why_compile_interface = why_compile_mli.read_text(
+        encoding="utf-8", errors="replace"
+    )
+    forbidden_public_compile_api = [
+        r"\benv_info\b",
+        r"\bcompile_node_with_info\b",
+        r"\bcompile_node_from_ir_node\b",
+        r"\bprepare_runtime_view\b",
+        r"\bprepare_ir_node\b",
+    ]
+    found = [
+        pattern
+        for pattern in forbidden_public_compile_api
+        if re.search(pattern, why_compile_interface)
+    ]
+    if found:
+        fail(
+            "Why_compile.mli must stay a narrow backend facade; "
+            "node-local compiler internals are publicly exported"
         )
 
     product_backend_forbidden = [
