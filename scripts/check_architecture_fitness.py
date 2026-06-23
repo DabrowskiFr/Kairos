@@ -494,6 +494,52 @@ def check_critical_subsystems_do_not_use_unqualified_subdirs(repo: Path) -> None
         )
 
 
+def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
+    subst_ml = repo / "lib/adapters/in/kairos_lang/kx_elaborate_subst.ml"
+    subst_mli = repo / "lib/adapters/in/kairos_lang/kx_elaborate_subst.mli"
+    for path in [subst_ml, subst_mli]:
+        if not path.exists():
+            fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (repo / "lib/adapters/in/kairos_lang/dune").read_text(encoding="utf-8")
+    if "kx_elaborate_subst" not in dune:
+        fail("kx_elaborate_subst must be an explicit kairos_input_lang module")
+
+    elaborate = (repo / "lib/adapters/in/kairos_lang/kx_elaborate.ml").read_text(
+        encoding="utf-8"
+    )
+    forbidden_defs = [
+        r"\blet\s+rec\s+subst_expr\b",
+        r"\blet\s+rec\s+subst_hexpr\b",
+        r"\blet\s+rec\s+subst_stmt\b",
+        r"\blet\s+rec\s+subst_history_expr\b",
+        r"\band\s+subst_ltl\b",
+    ]
+    found = [pattern for pattern in forbidden_defs if re.search(pattern, elaborate)]
+    if found:
+        fail(
+            "surface substitution must stay in kx_elaborate_subst.ml; "
+            "kx_elaborate.ml reintroduced substitution definitions"
+        )
+
+    subst_text = subst_ml.read_text(encoding="utf-8")
+    forbidden_deps = [
+        r"\bKx_ast\b",
+        r"\bKx_core_syntax\b",
+        r"\bVerification_",
+        r"\bWhy",
+        r"\bSpot",
+        r"\bZ3\b",
+    ]
+    violations = [pattern for pattern in forbidden_deps if re.search(pattern, subst_text)]
+    if violations:
+        fail(
+            "kx_elaborate_subst.ml must stay a pure surface-syntax helper; "
+            "forbidden references found: "
+            + ", ".join(violations)
+        )
+
+
 def check_input_adapters_stay_thin(repo: Path) -> None:
     checks = [
         (
@@ -1287,6 +1333,7 @@ def main() -> int:
     check_automata_generation_stays_out_of_reference_domain(repo)
     check_reference_api_names_stay_explicit(repo)
     check_critical_subsystems_do_not_use_unqualified_subdirs(repo)
+    check_kairos_frontend_elaboration_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")
     return 0
