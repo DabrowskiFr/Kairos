@@ -162,7 +162,11 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kairos_runtime_proof` | Execution Why3/provers, attribution des buts, evenements de preuve |
 | `proof_goal_attribution.ml` | Attribution des buts Why3 aux pas produit et metadonnees de preuve |
 | `proof_goal_results.ml` | Construction des resultats de preuve depuis les evenements Why3 |
-| `proof_runner.ml` | Lance les preuves |
+| `proof_progress_output.ml` | Sortie CSV de progression des preuves |
+| `proof_text_blocks.ml` | Assemblage des dumps texte avec spans |
+| `proof_trace_diagnostics.ml` | Diagnostics attaches aux traces de preuve |
+| `proof_traces.ml` | Construction des traces de preuve publiques |
+| `proof_runner.ml` | Orchestre la projection Why3, les taches et les sorties de preuve |
 | `kairos_runtime_diagnostics` | Diagnostics, graphes, proof-export, rapports de cout |
 | `pipeline_artifact_bundle.ml` | Construit graphes, textes d'inspection et donnees proof-kernel |
 | `pipeline_cost_report.ml` | Rapport de cout du pipeline |

@@ -30,290 +30,10 @@ type run_output = {
   proof_traces : Pipeline_types.proof_trace list;
 }
 
-module Goal_results = Proof_goal_results
-
-let join_blocks_with_spans ~sep blocks =
-  let b = Buffer.create 4096 in
-  let spans = ref [] in
-  let offset = ref 0 in
-  List.iteri
-    (fun i s ->
-      if i > 0 then (
-        Buffer.add_string b sep;
-        offset := !offset + String.length sep);
-      let start_offset = !offset in
-      Buffer.add_string b s;
-      offset := !offset + String.length s;
-      spans :=
-        { Pipeline_types.start_offset = start_offset; end_offset = !offset } :: !spans)
-    blocks;
-  (Buffer.contents b, List.rev !spans)
-
-let csv_escape field =
-  if String.exists (fun c -> c = ',' || c = '"' || c = '\n' || c = '\r') field then
-    let b = Buffer.create (String.length field + 8) in
-    Buffer.add_char b '"';
-    String.iter
-      (function
-        | '"' -> Buffer.add_string b "\"\""
-        | c -> Buffer.add_char b c)
-      field;
-    Buffer.add_char b '"';
-    Buffer.contents b
-  else field
-
-let open_proof_progress : string option -> Goal_results.progress option =
-  function
-  | None | Some "-" -> None
-  | Some path ->
-      let oc = open_out path in
-      output_string oc "index,name,status,time_s,dump_path,vcid\n";
-      flush oc;
-      let rows = ref 0 in
-      let emit (name, status, time_s, dump_path, vcid) =
-        incr rows;
-        [
-          string_of_int !rows;
-          name;
-          status;
-          Printf.sprintf "%.6f" time_s;
-          Option.value dump_path ~default:"";
-          Option.value vcid ~default:"";
-        ]
-        |> List.map csv_escape |> String.concat "," |> output_string oc;
-        output_char oc '\n';
-        flush oc
-      in
-      Some { emit }
-
-let diagnostic_for_trace ~(status : string) ~(goal_text : string)
-    ~(native_core : Why_native_probe.native_unsat_core option)
-    ~(native_probe : Why_native_probe.native_solver_probe option) :
-    Pipeline_types.proof_diagnostic =
-  let status_norm = String.lowercase_ascii (String.trim status) in
-  let native_probe_status =
-    Option.map (fun (probe : Why_native_probe.native_solver_probe) -> probe.status) native_probe
-  in
-  let native_probe_detail =
-    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) -> probe.detail)
-  in
-  let native_probe_model =
-    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) -> probe.model_text)
-  in
-  let category, probable_cause, suggestions, detail =
-    match (status_norm, native_probe_status, native_probe_model) with
-    | (_, _, Some _) ->
-        ( "counterexample_found",
-          Some "The native solver produced a satisfying model for the negated VC.",
-          [ "Inspect the native model first, then compare against the VC and source intent." ],
-          Printf.sprintf "Goal `%s` is falsifiable: the native solver returned a concrete model."
-            goal_text )
-    | ("valid" | "proved"), _, _ ->
-        ( "proved",
-          Some "This VC was discharged successfully.",
-          [ "No action required." ],
-          Printf.sprintf "Goal `%s` was proved successfully." goal_text )
-    | "timeout", _, _ ->
-        ( "solver_timeout",
-          Some "The solver reached its time limit before closing this VC.",
-          [ "Retry with a larger timeout and inspect the generated VC." ],
-          Printf.sprintf "Goal `%s` timed out." goal_text )
-    | "unknown", _, _ ->
-        ( "solver_inconclusive",
-          Some
-            (match native_probe_detail with
-            | Some detail -> Printf.sprintf "The solver returned an inconclusive result (%s)." detail
-            | None -> "The solver returned an inconclusive result."),
-          [ "Inspect VC/SMT artifacts to identify unsupported or hard patterns." ],
-          Printf.sprintf "Goal `%s` is inconclusive." goal_text )
-    | "invalid", _, _ ->
-        ( "counterexample_found",
-          Some "The VC is falsifiable: the solver established the negated obligation as satisfiable.",
-          [ "Inspect the failing VC and SMT dump first." ],
-          Printf.sprintf "Goal `%s` is falsifiable under the current assumptions." goal_text )
-    | _ ->
-        ( "solver_failure",
-          Some
-            (match native_probe_detail with
-            | Some detail -> Printf.sprintf "The prover failed before a conclusive result (%s)." detail
-            | None -> "The prover failed before a conclusive result."),
-          [ "Inspect the dumped SMT task and prover configuration." ],
-          Printf.sprintf "Goal `%s` failed without a conclusive proof result." goal_text )
-  in
-  {
-    category;
-    summary = category;
-    detail;
-    probable_cause;
-    missing_elements = [];
-    goal_symbols = [];
-    analysis_method =
-      (match native_core with
-      | Some core ->
-          Printf.sprintf
-            "Native SMT unsat core recovered from %s on hid-named assertions, then remapped to Kairos hypotheses"
-            core.solver
-      | None when native_probe_model <> None ->
-          "Native SMT model recovered from the targeted solver on the focused VC"
-      | None -> "Status-based diagnostic without structured provenance mapping");
-    solver_detail = native_probe_detail;
-    native_unsat_core_solver =
-      Option.map (fun (core : Why_native_probe.native_unsat_core) -> core.solver) native_core;
-    native_unsat_core_hypothesis_ids =
-      (match native_core with Some core -> core.hypothesis_ids | None -> []);
-    native_counterexample_solver =
-      Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) ->
-          match probe.model_text with Some _ -> Some probe.solver | None -> None);
-    native_counterexample_model = native_probe_model;
-    kairos_core_hypotheses = [];
-    why3_noise_hypotheses = [];
-    relevant_hypotheses = [];
-    context_hypotheses = [];
-    unused_hypotheses = [];
-    suggestions;
-    limitations =
-      [
-        "This diagnostic view is status-oriented and does not rely on provenance/origin graph mapping.";
-        "Native counterexample extraction currently relies on a direct Z3 SMT replay path when available.";
-      ];
-  }
-
-let build_proof_traces ~(cfg : Pipeline_types.config) ~ptree ~normalized_tasks
-    ~attributions
-    ~(goal_results : Proof_goal_results.t list)
-    ~(vc_ids_ordered : int list)
-    ~(vc_spans_ordered : Pipeline_types.text_span list)
-    ~(smt_spans_ordered : Pipeline_types.text_span list) :
-    Pipeline_types.proof_trace list =
-  let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
-  List.iter
-    (fun goal_result ->
-      Hashtbl.replace goal_result_tbl
-        goal_result.Goal_results.result_index goal_result)
-    goal_results;
-  List.mapi (fun idx _task -> idx) normalized_tasks
-  |> List.filter_map (fun idx ->
-         let goal_result =
-           match Hashtbl.find_opt goal_result_tbl idx with
-           | Some goal -> goal
-           | None ->
-               let fallback_id = Printf.sprintf "vc-%03d" (idx + 1) in
-               Proof_goal_results.pending ~index:idx ~goal_name:fallback_id
-                 ~vcid:(Some (string_of_int (List.nth vc_ids_ordered idx)))
-         in
-         let goal_name = goal_result.Goal_results.result_goal_name in
-         let status = goal_result.Goal_results.result_status in
-         let time_s = goal_result.Goal_results.result_time_s in
-         let timing = goal_result.Goal_results.result_timing in
-         let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
-         let native_core, native_probe =
-           if not cfg.compute_proof_diagnostics then (None, None)
-           else
-             match String.lowercase_ascii status with
-             | "valid" | "proved" -> (None, None)
-             | "pending" -> (None, None)
-             | _ ->
-                 let native_probe =
-                   Why_native_probe.native_solver_probe_for_goal_of_ptree
-                     ~timeout:cfg.timeout_s ~ptree ~goal_index:idx ()
-                 in
-                 (None, native_probe)
-         in
-         let diagnostic = diagnostic_for_trace ~status ~goal_text:goal_name ~native_core ~native_probe in
-         let trace =
-           {
-             Pipeline_types.goal_index = idx;
-             stable_id;
-             goal_name;
-             status;
-             solver_status =
-               (match native_probe with Some probe -> probe.status | None -> status);
-             time_s;
-             why3_prepare_s = timing.prepare_s;
-             why3_print_s = timing.print_s;
-             why3_spawn_s = timing.spawn_s;
-             why3_wait_s = timing.wait_s;
-             why3_solver_s = timing.solver_s;
-             source = "";
-             node = None;
-             transition = None;
-             obligation_kind = "unknown";
-             obligation_family = None;
-             obligation_category = None;
-             vc_id = goal_result.Goal_results.result_vcid;
-             source_span = None;
-             why_span = None;
-             vc_span = List.nth_opt vc_spans_ordered idx;
-             smt_span = List.nth_opt smt_spans_ordered idx;
-             dump_path = goal_result.Goal_results.result_dump_path;
-             diagnostic;
-           }
-         in
-         Some (Proof_goal_attribution.apply attributions ~goal_name trace))
-
-let build_fast_proof_traces ~attributions
-    (goal_results : Proof_goal_results.t list) :
-    Pipeline_types.proof_trace list =
-  goal_results
-  |> List.map (fun goal_result ->
-         let idx = goal_result.Goal_results.result_index in
-         let goal_name = goal_result.Goal_results.result_goal_name in
-         let status = goal_result.Goal_results.result_status in
-         let time_s = goal_result.Goal_results.result_time_s in
-         let timing = goal_result.Goal_results.result_timing in
-         let stable_id = Printf.sprintf "vc-%03d" (idx + 1) in
-         let trace =
-           {
-             Pipeline_types.goal_index = idx;
-             stable_id;
-             goal_name;
-             status;
-             solver_status = status;
-             time_s;
-             why3_prepare_s = timing.prepare_s;
-             why3_print_s = timing.print_s;
-             why3_spawn_s = timing.spawn_s;
-             why3_wait_s = timing.wait_s;
-             why3_solver_s = timing.solver_s;
-             source = "";
-             node = None;
-             transition = None;
-             obligation_kind = "unknown";
-             obligation_family = None;
-             obligation_category = None;
-             vc_id = goal_result.Goal_results.result_vcid;
-             source_span = None;
-             why_span = None;
-             vc_span = None;
-             smt_span = None;
-             dump_path = goal_result.Goal_results.result_dump_path;
-             diagnostic =
-               diagnostic_for_trace ~status ~goal_text:goal_name ~native_core:None
-                 ~native_probe:None;
-           }
-         in
-         Proof_goal_attribution.apply attributions ~goal_name trace)
-
-let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
-    Pipeline_types.goal_info list =
-  List.map
-    (fun (trace : Pipeline_types.proof_trace) ->
-      (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
-    proof_traces
-
-let goals_of_goal_results (goal_results : Proof_goal_results.t list) :
-    Pipeline_types.goal_info list =
-  List.map Proof_goal_results.to_goal_info goal_results
-
-let proof_traces_needed (cfg : Pipeline_types.config) : bool =
-  cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
-  || cfg.generate_vc_text || cfg.generate_smt_text
-  || Option.is_some cfg.proof_progress_path
-
 let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     (run_output, Pipeline_types.error) result =
   try
-    let progress = open_proof_progress cfg.proof_progress_path in
+    let progress = Proof_progress_output.open_csv cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
     let opts =
       match cfg.proof_encoding with
@@ -351,14 +71,15 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
         Proof_goal_results.vc_ids_from_result_indices goal_results
       in
       let proof_traces =
-        if proof_traces_needed cfg then
-          build_fast_proof_traces ~attributions:(Lazy.force attributions)
+        if Proof_traces.needed cfg then
+          Proof_traces.build_fast ~attributions:(Lazy.force attributions)
             goal_results
         else []
       in
       let goals =
-        if proof_traces = [] then goals_of_goal_results goal_results
-        else goals_of_proof_traces proof_traces
+        if proof_traces = [] then
+          Proof_traces.goals_of_goal_results goal_results
+        else Proof_traces.goals_of_proof_traces proof_traces
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       Ok
@@ -387,7 +108,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       let vc_text, vc_spans_ordered =
         if cfg.generate_vc_text then
-          join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+          Proof_text_blocks.join_with_spans
+            ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
         else ("", [])
       in
       let smt_tasks =
@@ -397,7 +119,8 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       let smt_text, smt_spans_ordered =
         if cfg.generate_smt_text then
-          join_blocks_with_spans ~sep:"\n; ---- goal ----\n" smt_tasks
+          Proof_text_blocks.join_with_spans ~sep:"\n; ---- goal ----\n"
+            smt_tasks
         else ("", [])
       in
       let goal_count = List.length normalized_tasks in
@@ -409,11 +132,12 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
-        build_proof_traces ~cfg ~ptree:proof_ptree ~normalized_tasks
+        Proof_traces.build_from_normalized_tasks ~cfg ~ptree:proof_ptree
+          ~normalized_tasks
           ~attributions:(Lazy.force attributions) ~goal_results ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in
-      let goals = goals_of_proof_traces proof_traces in
+      let goals = Proof_traces.goals_of_proof_traces proof_traces in
       Ok
         {
           why_text = output_why_text;

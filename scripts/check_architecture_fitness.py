@@ -373,10 +373,16 @@ def check_runtime_split_dependencies(repo: Path) -> None:
     proof_dune = (
         repo / "lib/adapters/out/runtime/orchestration/outputs/dune"
     ).read_text(encoding="utf-8")
-    if "proof_goal_attribution" not in proof_dune:
-        fail("kairos_runtime_proof must expose proof_goal_attribution")
-    if "proof_goal_results" not in proof_dune:
-        fail("kairos_runtime_proof must expose proof_goal_results")
+    for module in [
+        "proof_goal_attribution",
+        "proof_goal_results",
+        "proof_progress_output",
+        "proof_text_blocks",
+        "proof_trace_diagnostics",
+        "proof_traces",
+    ]:
+        if module not in proof_dune:
+            fail(f"kairos_runtime_proof must expose {module}")
 
     proof_runner = (
         repo / "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
@@ -422,6 +428,29 @@ def check_runtime_split_dependencies(repo: Path) -> None:
         fail(
             "proof goal result construction must stay in proof_goal_results.ml; "
             "proof_runner reintroduced result-building logic"
+        )
+
+    forbidden_proof_runner_helpers = [
+        r"\blet\s+join_blocks_with_spans\b",
+        r"\blet\s+csv_escape\b",
+        r"\blet\s+open_proof_progress\b",
+        r"\blet\s+diagnostic_for_trace\b",
+        r"\blet\s+build_proof_traces\b",
+        r"\blet\s+build_fast_proof_traces\b",
+        r"\blet\s+goals_of_proof_traces\b",
+        r"\blet\s+goals_of_goal_results\b",
+        r"\blet\s+proof_traces_needed\b",
+        r"\bWhy_native_probe\b",
+    ]
+    found = [
+        pattern
+        for pattern in forbidden_proof_runner_helpers
+        if re.search(pattern, proof_runner)
+    ]
+    if found:
+        fail(
+            "proof runner must stay an orchestrator; extracted proof-output "
+            "helpers were reintroduced"
         )
 
 
