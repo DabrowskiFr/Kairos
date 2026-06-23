@@ -41,6 +41,9 @@ open Why_compile_ptree_helpers
 open Why_compile_logic
 
 module StringSet = Why_compile_ptree_helpers.StringSet
+module Bundles = Why_compile_bundles
+module Product_groups = Why_compile_product_groups
+module Step_names = Why_compile_step_names
 
 (** [why_type_name] maps source enum type names to WhyML type identifiers.
     WhyML type identifiers are lowercase, while Kairos examples commonly use
@@ -248,38 +251,9 @@ let prepare_ir_node ?(simplify_why3_runtime_actions = true)
   in
   prepare_runtime_view ~temporal_layout:node.temporal_layout runtime
 
-(** Stable helper-name convention for per-product-step proof obligations.
-
-    The proof runner uses this same function to map Why3 goal names back to
-    their Kairos product-step origin. *)
-let product_step_helper_name ~(index : int)
-    (step : Why_runtime_view.runtime_product_transition_view) =
-  let step_class_suffix = function
-    | Why_runtime_view.StepSafe -> "safe"
-    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee"
-  in
-  Printf.sprintf "step_%s_ps_%s_a%d_g%d_%s_%d"
-    (String.lowercase_ascii step.transition_id)
-    (String.lowercase_ascii step.product_src.prog_state)
-    step.product_src.assume_state_index
-    step.product_src.guarantee_state_index
-    (step_class_suffix step.step_class)
-    index
-
-let product_step_class_name = function
-  | Why_runtime_view.StepSafe -> "safe"
-  | Why_runtime_view.StepBadGuarantee -> "bad-guarantee"
-
-let product_step_group_helper_name ~(index : int)
-    (step : Why_runtime_view.runtime_product_transition_view) =
-  let step_class_suffix = function
-    | Why_runtime_view.StepSafe -> "safe_group"
-    | Why_runtime_view.StepBadGuarantee -> "bad_guarantee_group"
-  in
-  Printf.sprintf "step_%s_%s_%d"
-    (String.lowercase_ascii step.transition_id)
-    (step_class_suffix step.step_class)
-    index
+let product_step_helper_name = Step_names.product_step_helper_name
+let product_step_class_name = Step_names.product_step_class_name
+let product_step_group_helper_name = Step_names.product_step_group_helper_name
 
 (* Shared compilation core: all node-specific data is read from [info.runtime_view].
    The active path builds [info] from the IR via [prepare_ir_node]. *)
@@ -712,88 +686,21 @@ let compile_node_with_info ?(share_why3_facts = true)
   in
   let common_module_name = module_name ^ "__Common" in
   let common_import = import_module common_module_name in
-  let predicate_bundle_decl_and_call ~(name : string) (terms : Ptree.term list) =
-    let body = term_and_list terms in
-    let used = names_of_term body StringSet.empty in
-    let used_inputs =
-      inputs
-      |> List.filter (fun (_, id_opt, _, _) ->
-             match id_opt with
-             | Some id -> StringSet.mem id.id_str used
-             | None -> false)
-    in
-    let params = List.filter_map param_of_binder used_inputs in
-    let args = List.filter_map binder_term used_inputs in
-    let decl =
-      Ptree.Dlogic
-        [
-          {
-            ld_loc = loc;
-            ld_ident = ident name;
-            ld_params = params;
-            ld_type = None;
-            ld_def = Some body;
-          };
-        ]
-    in
-    (decl, mk_term (Tidapp (qid1 name, args)))
+  let bundle_context : spec_groups Bundles.context =
+    {
+      module_name;
+      imports;
+      common_import;
+      inputs;
+      empty_groups = (fun () -> { pre_labels = []; post_labels = [] });
+      local_shared_formula_decls;
+      shared_formula_names_in_terms;
+    }
   in
-  let shared_bundle_call ~(module_suffix : string) ~(predicate_prefix : string)
-      ~(table : (string, string * string) Hashtbl.t) ~modules (terms : Ptree.term list) =
-    let body = term_and_list terms in
-    let key = string_of_term body in
-    let shared_names = shared_formula_names_in_terms [ body ] in
-    let used_names = names_of_term body StringSet.empty in
-    let bundle_imports =
-      Hashtbl.to_seq_values table
-      |> Seq.filter_map (fun (bundle_module_name, name) ->
-             if StringSet.mem name used_names then
-               Some (import_module bundle_module_name)
-             else None)
-      |> List.of_seq
-    in
-    let used_inputs =
-      inputs
-      |> List.filter (fun (_, id_opt, _, _) ->
-             match id_opt with
-             | Some id -> StringSet.mem id.id_str used_names
-             | None -> false)
-    in
-    let params = List.filter_map param_of_binder used_inputs in
-    let args = List.filter_map binder_term used_inputs in
-    let bundle_module_name, name =
-      match Hashtbl.find_opt table key with
-      | Some existing -> existing
-      | None ->
-          let index = Hashtbl.length table + 1 in
-          let bundle_module_name =
-            Printf.sprintf "%s__%s_%03d" module_name module_suffix index
-          in
-          let name = Printf.sprintf "%s_%03d" predicate_prefix index in
-          let decl =
-            Ptree.Dlogic
-              [
-                {
-                  ld_loc = loc;
-                  ld_ident = ident name;
-                  ld_params = params;
-                  ld_type = None;
-                  ld_def = Some body;
-                };
-              ]
-          in
-          Hashtbl.add table key (bundle_module_name, name);
-          let shared_decls = local_shared_formula_decls shared_names in
-          modules :=
-            ( ident bundle_module_name,
-              None,
-              imports @ [ common_import ] @ bundle_imports @ shared_decls @ [ decl ],
-              { pre_labels = []; post_labels = [] } )
-            :: !modules;
-          (bundle_module_name, name)
-    in
-    (import_module bundle_module_name, mk_term (Tidapp (qid1 name, args)), shared_names)
+  let predicate_bundle_decl_and_call =
+    Bundles.predicate_bundle_decl_and_call ~inputs
   in
+  let shared_bundle_call = Bundles.shared_bundle_call ~context:bundle_context in
   let shared_post_bundle_table : (string, string * string) Hashtbl.t = Hashtbl.create 128 in
   let shared_post_bundle_modules = ref [] in
   let shared_post_bundle_call =
@@ -837,28 +744,7 @@ let compile_node_with_info ?(share_why3_facts = true)
            contract_formula_term ~in_post formula.logic)
     |> sorted_unique_terms
   in
-  let remove_terms removed terms =
-    let removed_keys =
-      removed
-      |> List.map string_of_term
-      |> List.fold_left (fun acc key -> StringSet.add key acc) StringSet.empty
-    in
-    List.filter
-      (fun term -> not (StringSet.mem (string_of_term term) removed_keys))
-      terms
-  in
-  let bundle_key terms = string_of_term (term_and_list terms) in
-  let count_bundles bundles =
-    let counts = Hashtbl.create 64 in
-    List.iter
-      (fun terms ->
-        if List.length terms > 1 then
-          let key = bundle_key terms in
-          let count = Option.value ~default:0 (Hashtbl.find_opt counts key) in
-          Hashtbl.replace counts key (count + 1))
-      bundles;
-    counts
-  in
+  let remove_terms = Bundles.remove_terms in
   let shared_pre_families =
     [ "state_invariant_requires"; "stability_requires" ]
   in
@@ -879,15 +765,9 @@ let compile_node_with_info ?(share_why3_facts = true)
              selected_family_terms ~in_post:true shared_post_families
                sc.step.ensures)
   in
-  let pre_family_bundle_counts = count_bundles pre_family_terms_by_step in
-  let post_family_bundle_counts = count_bundles post_family_terms_by_step in
-  let should_share_bundle counts terms =
-    List.length terms > 1
-    &&
-    match Hashtbl.find_opt counts (bundle_key terms) with
-    | Some count -> count > 1
-    | None -> false
-  in
+  let pre_family_bundle_counts = Bundles.count_bundles pre_family_terms_by_step in
+  let post_family_bundle_counts = Bundles.count_bundles post_family_terms_by_step in
+  let should_share_bundle = Bundles.should_share_bundle in
   let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ]) in
   let seq_exprs (exprs : Ptree.expr list) =
     let exprs =
@@ -1073,118 +953,6 @@ let compile_node_with_info ?(share_why3_facts = true)
   in
   let pre_vars_name = "__pre_vars" in
   let post_vars_name = "__post_vars" in
-  let unique_term_count terms =
-    terms
-    |> List.map string_of_term
-    |> List.sort_uniq String.compare
-    |> List.length
-  in
-  let grouped_kernel_terms entries =
-    let pre_terms =
-      entries
-      |> List.map (fun (_i, sc, _t) ->
-             step_pre_terms_with_rec env.rec_name sc |> term_and_list)
-    in
-    let pre_term = pre_terms |> term_or_list in
-    let grouped_post_preconditions =
-      let groups = Hashtbl.create 16 in
-      let order = ref [] in
-      entries
-      |> List.iter (fun (_i, sc, _t) ->
-             let pre =
-               step_pre_terms_with_rec pre_vars_name sc |> term_and_list
-             in
-             let post =
-               step_post_terms_with_rec post_vars_name sc |> term_and_list
-             in
-             if not (Hashtbl.mem groups post) then order := post :: !order;
-             let previous =
-               Hashtbl.find_opt groups post |> Option.value ~default:[]
-             in
-             Hashtbl.replace groups post (pre :: previous));
-      List.rev !order
-      |> List.map (fun post ->
-             let pres = Hashtbl.find groups post |> List.rev in
-             (term_or_list pres, post))
-    in
-    let post_body =
-      grouped_post_preconditions
-      |> List.map (fun (pre, post) -> term_implies pre post)
-      |> term_and_list
-    in
-    let post_terms =
-      grouped_post_preconditions |> List.map (fun (_pre, post) -> post)
-    in
-    let pre_text_bytes = String.length (string_of_term pre_term) in
-    let post_text_bytes = String.length (string_of_term post_body) in
-    ( pre_term,
-      post_body,
-      unique_term_count pre_terms,
-      unique_term_count post_terms,
-      List.length grouped_post_preconditions,
-      pre_text_bytes,
-      post_text_bytes,
-      pre_text_bytes + post_text_bytes )
-  in
-  let group_entry_profile ((_, sc, _) as entry) =
-    let pre_current =
-      step_pre_terms_with_rec env.rec_name sc |> term_and_list
-    in
-    let pre_snapshot =
-      step_pre_terms_with_rec pre_vars_name sc |> term_and_list
-    in
-    let post_snapshot =
-      step_post_terms_with_rec post_vars_name sc |> term_and_list
-    in
-    let pre_current_s = string_of_term pre_current in
-    let pre_snapshot_s = string_of_term pre_snapshot in
-    let post_snapshot_s = string_of_term post_snapshot in
-    ( entry,
-      pre_current_s,
-      String.length pre_current_s,
-      pre_snapshot_s,
-      String.length pre_snapshot_s,
-      post_snapshot_s,
-      String.length post_snapshot_s )
-  in
-  let profile_entry (entry, _pre_current_s, _pre_current_bytes,
-      _pre_snapshot_s, _pre_snapshot_bytes, _post_snapshot_s,
-      _post_snapshot_bytes) =
-    entry
-  in
-  let profiled_group_cost profiles =
-    let pre_bytes =
-      profiles
-      |> List.fold_left
-           (fun acc (_entry, _pre_current_s, pre_current_bytes,
-                _pre_snapshot_s, _pre_snapshot_bytes, _post_snapshot_s,
-                _post_snapshot_bytes) ->
-             acc + pre_current_bytes)
-           0
-    in
-    let post_groups = Hashtbl.create 16 in
-    profiles
-    |> List.iter
-         (fun (_entry, _pre_current_s, _pre_current_bytes, _pre_snapshot_s,
-              pre_snapshot_bytes, post_snapshot_s, post_snapshot_bytes) ->
-           let previous_pre_bytes, previous_post_bytes =
-             Hashtbl.find_opt post_groups post_snapshot_s
-             |> Option.value ~default:(0, post_snapshot_bytes)
-           in
-           Hashtbl.replace post_groups post_snapshot_s
-             (previous_pre_bytes + pre_snapshot_bytes, previous_post_bytes));
-    pre_bytes
-    + (post_groups
-      |> Hashtbl.to_seq_values
-      |> Seq.fold_left
-           (fun acc (pre_snapshot_bytes, post_snapshot_bytes) ->
-             acc + pre_snapshot_bytes + post_snapshot_bytes)
-           0)
-  in
-  let product_source_label (state : Ir.product_state) =
-    Printf.sprintf "%s/a%d/g%d" state.prog_state state.assume_state_index
-      state.guarantee_state_index
-  in
   let record_group_metrics ~group_name ~emitted_as_group ~split_due_to_cost
       ~entries ~distinct_pre_count ~distinct_post_count ~post_implication_count
       ~pre_text_bytes ~post_text_bytes ~estimated_cost =
@@ -1197,7 +965,7 @@ let compile_node_with_info ?(share_why3_facts = true)
         node_name = runtime_view.node_name;
         transition_id = first_sc.step.transition_id;
         step_class = product_step_class_name first_sc.step.step_class;
-        source_state = product_source_label first_sc.step.product_src;
+        source_state = Step_names.product_source_label first_sc.step.product_src;
         emitted_as_group;
         split_due_to_cost;
         edge_count = List.length entries;
@@ -1218,25 +986,24 @@ let compile_node_with_info ?(share_why3_facts = true)
       ident (product_step_group_helper_name ~index:first_i first_sc.step)
     in
     let post_pred_name = helper_name.id_str ^ "_post" in
-    let ( pre_term,
-          post_body,
-          distinct_pre_count,
-          distinct_post_count,
-          post_implication_count,
-          pre_text_bytes,
-          post_text_bytes,
-          estimated_cost ) =
-      grouped_kernel_terms entries
+    let grouped =
+      Product_groups.grouped_kernel_terms ~env ~pre_vars_name ~post_vars_name
+        ~step_pre_terms_with_rec ~step_post_terms_with_rec entries
     in
     record_group_metrics ~group_name:helper_name.id_str ~emitted_as_group:true
-      ~split_due_to_cost ~entries ~distinct_pre_count ~distinct_post_count
-      ~post_implication_count ~pre_text_bytes ~post_text_bytes ~estimated_cost;
+      ~split_due_to_cost ~entries
+      ~distinct_pre_count:grouped.distinct_pre_count
+      ~distinct_post_count:grouped.distinct_post_count
+      ~post_implication_count:grouped.post_implication_count
+      ~pre_text_bytes:grouped.pre_text_bytes
+      ~post_text_bytes:grouped.post_text_bytes
+      ~estimated_cost:grouped.estimated_cost;
     let local_shared_decls =
-      [ pre_term; post_body ]
+      [ grouped.pre_term; grouped.post_body ]
       |> shared_formula_names_in_terms
       |> local_shared_formula_decls
     in
-    let post_used_names = names_of_term post_body StringSet.empty in
+    let post_used_names = names_of_term grouped.post_body StringSet.empty in
     let post_input_binders =
       input_binders_without_vars
       |> List.filter (fun (_, id_opt, _, _) ->
@@ -1257,7 +1024,7 @@ let compile_node_with_info ?(share_why3_facts = true)
             ld_ident = ident post_pred_name;
             ld_params = post_pred_params;
             ld_type = None;
-            ld_def = Some post_body;
+            ld_def = Some grouped.post_body;
           };
         ]
     in
@@ -1272,7 +1039,7 @@ let compile_node_with_info ?(share_why3_facts = true)
     in
     let spc =
       {
-        Ptree.sp_pre = [ pre_term ];
+        Ptree.sp_pre = [ grouped.pre_term ];
         sp_post = [];
         sp_xpost = [];
         sp_reads = [];
@@ -1311,105 +1078,33 @@ let compile_node_with_info ?(share_why3_facts = true)
       local_shared_decls
       @ [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
   in
-  let split_group_by_cost entries =
-    if why3_product_step_group_max_cost <= 0 then [ entries ]
-    else
-      let profiles = List.map group_entry_profile entries in
-      let rec loop chunks current_rev rest =
-        match rest with
-        | [] ->
-            let chunks =
-              match current_rev with
-              | [] -> chunks
-              | _ -> (List.rev current_rev |> List.map profile_entry) :: chunks
-            in
-            List.rev chunks
-        | profile :: tail ->
-            let candidate = List.rev (profile :: current_rev) in
-            if current_rev <> []
-               && profiled_group_cost candidate
-                  > why3_product_step_group_max_cost
-            then
-              let chunk = List.rev current_rev |> List.map profile_entry in
-              loop (chunk :: chunks) [ profile ] tail
-            else loop chunks (profile :: current_rev) tail
-      in
-      loop [] [] profiles
-  in
-  let record_singleton_split_chunk ~split_due_to_cost i sc t =
+  let record_singleton_split_chunk ~split_due_to_cost (i, sc, t) =
     let entries = [ (i, sc, t) ] in
-    let (_pre_term, _post_body, distinct_pre_count, distinct_post_count,
-         post_implication_count, pre_text_bytes, post_text_bytes,
-         estimated_cost) =
-      grouped_kernel_terms entries
+    let grouped =
+      Product_groups.grouped_kernel_terms ~env ~pre_vars_name ~post_vars_name
+        ~step_pre_terms_with_rec ~step_post_terms_with_rec entries
     in
     record_group_metrics
       ~group_name:(product_step_helper_name ~index:i sc.step)
-      ~emitted_as_group:false ~split_due_to_cost ~entries ~distinct_pre_count
-      ~distinct_post_count ~post_implication_count ~pre_text_bytes
-      ~post_text_bytes ~estimated_cost
+      ~emitted_as_group:false ~split_due_to_cost ~entries
+      ~distinct_pre_count:grouped.distinct_pre_count
+      ~distinct_post_count:grouped.distinct_post_count
+      ~post_implication_count:grouped.post_implication_count
+      ~pre_text_bytes:grouped.pre_text_bytes
+      ~post_text_bytes:grouped.post_text_bytes
+      ~estimated_cost:grouped.estimated_cost
   in
-  let group_kernel_helpers indexed_contracts =
-    let indexed_transitions =
-      indexed_contracts
-      |> List.map (fun (i, (sc : Why_contracts.step_contract_info)) ->
-             let t =
-               Why_runtime_view.transition_of_product_step
-                 ~simplify_runtime_actions:simplify_why3_runtime_actions sc.step
-             in
-             (i, sc, t))
-    in
-    let groups = Hashtbl.create 128 in
-    let order = ref [] in
-    let group_key (_i, (sc : Why_contracts.step_contract_info), t) =
-      (sc.step.step_class, t)
-    in
-    List.iter
-      (fun entry ->
-        let key = group_key entry in
-        if not (Hashtbl.mem groups key) then order := key :: !order;
-        let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
-        Hashtbl.replace groups key (entry :: previous))
-      indexed_transitions;
-    List.rev !order
-    |> List.concat_map (fun key ->
-           let entries = Hashtbl.find groups key |> List.rev in
-           let group_is_safe =
-             match entries with
-             | [] -> false
-             | (_i, (sc : Why_contracts.step_contract_info), _t) :: _ ->
-                 sc.step.step_class = Why_runtime_view.StepSafe
-           in
-           let groupable =
-             group_why3_product_steps
-             && List.length entries > 1
-             (* Bad-guarantee groups are small and dominated by large negated
-                exclusions; individual helpers are cheaper for SMT and keep
-                proof granularity finer. *)
-             && group_is_safe
-             && List.for_all
-                  (fun (_i, (sc : Why_contracts.step_contract_info), _t) ->
-                    sc.local_cuts = [])
-                  entries
-           in
-           if groupable then
-             let chunks = split_group_by_cost entries in
-             let split_due_to_cost = List.length chunks > 1 in
-             chunks
-             |> List.concat_map (function
-                  | [] -> []
-                  | [ (i, sc, t) ] ->
-                      record_singleton_split_chunk ~split_due_to_cost i sc t;
-                      [ build_individual_kernel_helper (i, sc) ]
-                  | chunk ->
-                      [ build_grouped_kernel_helper ~split_due_to_cost chunk ])
-           else
-             entries
-             |> List.map (fun (i, sc, _t) -> build_individual_kernel_helper (i, sc)))
+  let group_kernel_helpers =
+    Product_groups.group_kernel_helpers ~env ~pre_vars_name ~post_vars_name
+      ~group_why3_product_steps
+      ~max_cost:why3_product_step_group_max_cost
+      ~simplify_runtime_actions:simplify_why3_runtime_actions
+      ~step_pre_terms_with_rec ~step_post_terms_with_rec
+      ~build_individual:build_individual_kernel_helper
+      ~build_grouped:build_grouped_kernel_helper ~record_singleton_split_chunk
   in
   let kernel_step_helper_units =
-    if not use_product_helper_contracts then []
-    else step_contracts |> List.mapi (fun i sc -> (i, sc)) |> group_kernel_helpers
+    if not use_product_helper_contracts then [] else group_kernel_helpers step_contracts
   in
   let kernel_step_helper_decls =
     List.concat_map (fun (_name, decls) -> decls) kernel_step_helper_units

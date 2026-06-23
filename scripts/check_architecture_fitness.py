@@ -577,6 +577,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     required_modules = [
         "why_compile_ptree_helpers",
         "why_compile_logic",
+        "why_compile_step_names",
+        "why_compile_bundles",
+        "why_compile_product_groups",
     ]
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
@@ -609,6 +612,17 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\blet\s+rec\s+hexpr_size\b",
         r"\blet\s+rec\s+vars_of_hexpr\b",
         r"\blet\s+compile_pure_function_decl\b",
+        r"\blet\s+product_step_helper_name\s*~",
+        r"\blet\s+product_step_class_name\s*=\s*function",
+        r"\blet\s+product_step_group_helper_name\s*~",
+        r"\blet\s+predicate_bundle_decl_and_call\s*~",
+        r"\blet\s+shared_bundle_call\s*~",
+        r"\blet\s+grouped_kernel_terms\s+entries\b",
+        r"\blet\s+group_entry_profile\b",
+        r"\blet\s+profiled_group_cost\b",
+        r"\blet\s+split_group_by_cost\s+entries\b",
+        r"\blet\s+product_source_label\s*\(",
+        r"\blet\s+group_kernel_helpers\s+indexed_contracts\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, why_compile)]
     if found:

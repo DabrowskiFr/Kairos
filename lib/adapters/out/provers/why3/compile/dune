@@ -12,6 +12,9 @@
  (modules
   why_compile_ptree_helpers
   why_compile_logic
+  why_compile_step_names
+  why_compile_bundles
+  why_compile_product_groups
   why_compile
   why_compile_step)
  (libraries
