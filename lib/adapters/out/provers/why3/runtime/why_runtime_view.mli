@@ -25,66 +25,55 @@
 
 open Core_syntax
 
+type port_view = { port_name : ident; port_type : ty }
 (** An input, output or local variable port. *)
-type port_view = {
-  port_name : ident;
-  port_type : ty;
-}
 
 (** An imperative action in the body of a transition. *)
 type runtime_action_view =
-  | ActionAssign of ident * expr
-      (** Simple assignment [x := e]. *)
+  | ActionAssign of ident * expr  (** Simple assignment [x := e]. *)
   | ActionAssert of hexpr
       (** Proof assertion generated from source annotations. *)
   | ActionIf of expr * runtime_action_view list * runtime_action_view list
       (** Conditional branch. *)
   | ActionWhile of expr * hexpr list * expr option * runtime_action_view list
       (** While loop with invariants and optional variant. *)
-  | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
+  | ActionMatch of
+      expr * (ident * runtime_action_view list) list * runtime_action_view list
       (** Constructor match. *)
-  | ActionSkip
-      (** No-op action. *)
+  | ActionSkip  (** No-op action. *)
 
 (** Category of an action block. *)
 type action_block_kind =
-  | ActionUser
-      (** Block corresponding to user-written code. *)
+  | ActionUser  (** Block corresponding to user-written code. *)
 
-(** A group of homogeneous actions within a transition. *)
 type action_block_view = {
   block_kind : action_block_kind;
   block_actions : runtime_action_view list;
 }
+(** A group of homogeneous actions within a transition. *)
 
-(** Full view of a source-program transition. *)
 type runtime_transition_view = {
-  transition_id : string;
-      (** Unique transition identifier. *)
-  src_state : ident;
-      (** Source control state. *)
-  dst_state : ident;
-      (** Target control state. *)
-  guard : expr option;
-      (** Triggering condition, or [None] if unconditional. *)
-  requires : Ir.summary_formula list;
-      (** Preconditions from the IR. *)
-  ensures : Ir.summary_formula list;
-      (** Postconditions from the IR. *)
+  transition_id : string;  (** Unique transition identifier. *)
+  src_state : ident;  (** Source control state. *)
+  dst_state : ident;  (** Target control state. *)
+  guard : expr option;  (** Triggering condition, or [None] if unconditional. *)
+  requires : Ir.summary_formula list;  (** Preconditions from the IR. *)
+  ensures : Ir.summary_formula list;  (** Postconditions from the IR. *)
   body : Core_syntax.stmt list;
       (** Raw transition body (list of statements). *)
   action_blocks : action_block_view list;
       (** Structured body as typed action blocks. *)
 }
+(** Full view of a source-program transition. *)
 
-(** Classification of a product transition with respect to guarantee violation. *)
+(** Classification of a product transition with respect to guarantee violation.
+*)
 type runtime_step_class =
-  | StepSafe
-      (** The transition does not violate any guarantee. *)
+  | StepSafe  (** The transition does not violate any guarantee. *)
   | StepBadGuarantee
-      (** The transition is allowed to violate a guarantee (worst-case assumption). *)
+      (** The transition is allowed to violate a guarantee (worst-case
+          assumption). *)
 
-(** View of a transition in the synchronized program x require x ensures product. *)
 type runtime_product_transition_view = {
   transition_id : string;
   src_state : ident;
@@ -94,8 +83,7 @@ type runtime_product_transition_view = {
   step_class : runtime_step_class;
   product_src : Ir.product_state;
       (** Source product state (program state x guarantee state). *)
-  product_dst : Ir.product_state;
-      (** Target product state. *)
+  product_dst : Ir.product_state;  (** Target product state. *)
   requires : Ir.summary_formula list;
   local_requires : Ir.summary_formula list;
       (** Backend-only helper preconditions. These are not global step
@@ -106,8 +94,9 @@ type runtime_product_transition_view = {
   forbidden : Ir.summary_formula list;
       (** Formulas whose verification is intentionally deferred. *)
 }
+(** View of a transition in the synchronized program x require x ensures
+    product. *)
 
-(** Complete view of a node, ready to be compiled to WhyML. *)
 type t = {
   node_name : ident;
   type_decls : enum_decl list;
@@ -118,24 +107,24 @@ type t = {
   control_states : ident list;
   init_control_state : ident;
       (** Initial control state (used for coherency goals). *)
-  transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
   assumes : ltl list;
   guarantees : ltl list;
   init_invariant_goals : Ir.summary_formula list;
       (** Formulas to check at the initial state (coherency goals). *)
 }
+(** Complete view of a node, ready to be compiled to WhyML. *)
 
-(** Projects a product transition to a plain transition by dropping relational
-    information, used to compile its imperative body. *)
 val transition_of_product_step :
   ?simplify_runtime_actions:bool ->
   runtime_product_transition_view ->
   runtime_transition_view
+(** Projects a product transition to a plain transition by dropping relational
+    information, used to compile its imperative body. *)
 
-(** Main entry point: builds the runtime view of a node from its IR. *)
 val of_ir_node :
   ?simplify_runtime_actions:bool ->
   ?slice_transition_bodies:bool ->
   Ir.node_ir ->
   t
+(** Main entry point: builds the runtime view of a node from its IR. *)

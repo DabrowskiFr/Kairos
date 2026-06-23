@@ -31,9 +31,7 @@ type module_unit =
   Ptree.ident * Ptree.qualid option * Ptree.decl list * spec_groups
 
 let empty_groups () = { pre_labels = []; post_labels = [] }
-
 let common_module_name module_name = module_name ^ "__Common"
-
 let import_module name = Ptree.Duseimport (loc, false, [ (qid1 name, None) ])
 
 let node_module name decls groups : module_unit =
@@ -43,14 +41,14 @@ let contract_groups ~pre_labels ~post_labels = { pre_labels; post_labels }
 
 let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
     ~(common_module_name : string) ~(common_import : Ptree.decl)
-    ~(pre_labels : string list) ~(post_labels : string list)
     ~(common_decls : Ptree.decl list)
     ~(shared_pre_bundle_modules : module_unit list)
     ~(shared_post_bundle_modules : module_unit list)
     ~(init_goal_decls : Ptree.decl list)
-    ~(kernel_step_helper_units : (string * Ptree.decl list) list) =
-  let groups = contract_groups ~pre_labels ~post_labels in
-  let common_module = node_module common_module_name common_decls (empty_groups ()) in
+    ~(kernel_step_helper_units : Why_compile_product_helpers.helper_unit list) =
+  let common_module =
+    node_module common_module_name common_decls (empty_groups ())
+  in
   let init_modules =
     match init_goal_decls with
     | [] -> []
@@ -58,23 +56,30 @@ let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
         [
           node_module (module_name ^ "__init")
             (imports @ [ common_import ] @ init_goals)
-            groups;
+            (empty_groups ());
         ]
   in
   let helper_modules =
     kernel_step_helper_units
-    |> List.map (fun (helper_name, decls) ->
-           node_module (module_name ^ "__" ^ helper_name)
-             (imports @ [ common_import ] @ decls)
-             groups)
+    |> List.map (fun (helper : Why_compile_product_helpers.helper_unit) ->
+        node_module
+          (module_name ^ "__" ^ helper.helper_name)
+          (imports @ [ common_import ] @ helper.decls)
+          (contract_groups ~pre_labels:helper.pre_labels
+             ~post_labels:helper.post_labels))
   in
   common_module
   :: (shared_pre_bundle_modules @ shared_post_bundle_modules @ init_modules
-     @ helper_modules)
+    @ helper_modules)
 
 let program_ast_of_modules modules =
-  let mlw = Ptree.Modules (List.map (fun (id, _path, decls, _groups) -> (id, decls)) modules) in
+  let mlw =
+    Ptree.Modules
+      (List.map (fun (id, _path, decls, _groups) -> (id, decls)) modules)
+  in
   let module_info =
-    List.map (fun (id, _path, _decls, groups) -> (id.Ptree.id_str, groups)) modules
+    List.map
+      (fun (id, _path, _decls, groups) -> (id.Ptree.id_str, groups))
+      modules
   in
   { mlw; module_info }

@@ -20,6 +20,13 @@
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 
+type helper_unit = {
+  helper_name : string;
+  decls : Why3.Ptree.decl list;
+  pre_labels : string list;
+  post_labels : string list;
+}
+
 type context = {
   runtime_view : Why_runtime_view.t;
   env : Why_compile_expr.env;
@@ -47,4 +54,4 @@ type context = {
 }
 
 val kernel_step_helper_units :
-  context -> Why_contracts.step_contract_info list -> (string * Why3.Ptree.decl list) list
+  context -> Why_contracts.step_contract_info list -> helper_unit list

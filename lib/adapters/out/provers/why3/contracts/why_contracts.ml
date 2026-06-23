@@ -39,293 +39,140 @@ let rec hexpr_size (h : Core_syntax.hexpr) : int =
 type step_contract_info = {
   step : Why_runtime_view.runtime_product_transition_view;
   pre : Why3.Ptree.term list;
+  pre_labels : string list;
   post : Why3.Ptree.term list;
+  post_labels : string list;
   local_cuts : Why3.Ptree.term list;
   forbidden : Why3.Ptree.term list;
+  forbidden_labels : string list;
 }
 
-type contract_info = {
-  pre_labels : string list;
-  post_labels : string list;
-  step_contracts : step_contract_info list;
-}
+type contract_info = { step_contracts : step_contract_info list }
 
-type transition_clauses = {
-  transition_requires_pre_terms : (Ptree.term * string) list;
-  transition_requires_pre : Ptree.term list;
-  post_contract_terms : Ptree.term list;
-  pure_post : Ptree.term list;
-}
-
-type link_contracts = {
-  link_terms_pre : Ptree.term list;
-  link_terms_post : Ptree.term list;
-  link_invariants : Ptree.term list;
-}
-
-type label_context = {
-  kernel_first : bool;
-  pre : Ptree.term list;
-  post : Ptree.term list;
-  transition_requires_pre : Ptree.term list;
-  transition_requires_pre_terms : (Ptree.term * string) list;
-  link_terms_pre : Ptree.term list;
-  link_terms_post : Ptree.term list;
-  link_invariants : Ptree.term list;
-  post_contract_user : Ptree.term list;
-}
-
-let compute_transition_contracts ~(compile_formula_term : in_post:bool -> hexpr -> Ptree.term)
-    ~(env : env)
-    ~(product_transitions : Why_runtime_view.runtime_product_transition_view list)
-    ~(post_contract_user : Ptree.term list) :
-    transition_clauses =
-  let compile_require ((f : Ir.summary_formula), label) =
-    [ compile_formula_term ~in_post:false f.logic ]
-    |> List.map (fun t -> (t, label))
-  in
-  let transition_requires_pre_terms =
-    product_transitions
-    |> List.concat_map (fun (t : Why_runtime_view.runtime_product_transition_view) ->
-           List.map (fun (f : Ir.summary_formula) -> (f, "Transition requires")) t.requires
-           |> List.concat_map compile_require)
-  in
-  let transition_requires_pre = List.map fst transition_requires_pre_terms in
-  let transition_requires_post = transition_requires_pre in
-  {
-    transition_requires_pre_terms;
-    transition_requires_pre;
-    post_contract_terms = post_contract_user @ transition_requires_post;
-    pure_post = [];
-  }
-
-let compute_link_contracts ~(env : env) ~(runtime : Why_runtime_view.t) :
-    link_contracts =
-  let link_terms_pre, link_terms_post = ([], []) in
-  let output_links =
-    let rec last_assigned_var (out : ident) (stmts : Core_syntax.stmt list) =
-      match stmts with
-      | [] -> None
-      | s :: rest -> (
-          match s.stmt with
-          | SAssign (x, e) when x = out -> begin
-              match e.expr with
-              | EVar v -> Some v
-              | _ -> last_assigned_var out rest
-            end
-          | _ -> last_assigned_var out rest)
-    in
-    List.filter_map
-      (fun out ->
-        let assigns =
-          List.filter_map
-            (fun (t : Why_runtime_view.runtime_transition_view) ->
-              last_assigned_var out (List.rev t.body))
-            runtime.transitions
-        in
-        match assigns with
-        | [] -> None
-        | v :: _ ->
-            if List.length assigns = List.length runtime.transitions
-               && List.for_all (( = ) v) assigns
-            then Some (term_eq (term_of_var env out) (term_of_var env v))
-            else None)
-      (List.map (fun (p : Why_runtime_view.port_view) -> p.port_name) runtime.outputs)
-  in
-  {
-    link_terms_pre;
-    link_terms_post;
-    link_invariants = output_links;
-  }
-
-let build_labels (ctx : label_context) : string list * string list =
-  let pre_out = List.rev ctx.pre in
-  let post_out = List.rev ctx.post in
-  let group_terms_by_pre terms = List.filter (fun t -> List.mem t pre_out) terms in
-  let group_terms_by_post terms = List.filter (fun t -> List.mem t post_out) terms in
-  let contains_sub s sub =
-    let len_s = String.length s in
-    let len_sub = String.length sub in
-    let rec loop i =
-      if i + len_sub > len_s then false
-      else if String.sub s i len_sub = sub then true
-      else loop (i + 1)
-    in
-    if len_sub = 0 then true else loop 0
-  in
-  let split_link_terms terms =
-    List.fold_right
-      (fun t (atom, user) ->
-        let s = Why_compile_expr.string_of_term t in
-        if contains_sub s "atom_" then (t :: atom, user) else (atom, t :: user))
-      terms ([], [])
-  in
-  let atom_pre, user_pre = split_link_terms ctx.link_terms_pre in
-  let atom_post, user_post = split_link_terms ctx.link_terms_post in
-  let pre_groups =
-    if ctx.kernel_first then
-      [
-        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
-        ("Internal links", group_terms_by_pre ctx.link_invariants);
-      ]
-    else
-      [
-        ("Transition requires", group_terms_by_pre ctx.transition_requires_pre);
-        ("Atoms", group_terms_by_pre atom_pre);
-        ("User invariants", group_terms_by_pre user_pre);
-        ("Internal links", group_terms_by_pre ctx.link_invariants);
-      ]
-  in
-  let post_groups =
-    if ctx.kernel_first then
-      [ ("Internal links", group_terms_by_post ctx.link_invariants) ]
-    else
-      [
-        ("User contract ensures", group_terms_by_post ctx.post_contract_user);
-        ("Atoms", group_terms_by_post atom_post);
-        ("User invariants", group_terms_by_post user_post);
-        ("Internal links", group_terms_by_post ctx.link_invariants);
-      ]
-  in
-  let label_for_term groups overrides t =
-    match List.find_opt (fun (term, _) -> term = t) overrides with
-    | Some (_, lbl) -> lbl
-    | None -> (
-        match List.find_opt (fun (_lbl, terms) -> List.mem t terms) groups with
-        | Some (lbl, _) -> lbl
-        | None -> "Other")
-  in
-  let pre_labels = List.map (label_for_term pre_groups ctx.transition_requires_pre_terms) pre_out in
-  let post_labels = List.map (label_for_term post_groups []) post_out in
-  (pre_labels, post_labels)
-
-let build_contracts ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term option)
-    ~(local_cut_candidate : hexpr -> bool)
-    ~(env : Why_compile_expr.env)
-    ~(runtime : Why_runtime_view.t)
-    ~(pure_translation : bool) ~(simplify_formulas : bool)
+let build_contracts
+    ~(abstract_formula : in_post:bool -> hexpr -> Ptree.term option)
+    ~(local_cut_candidate : hexpr -> bool) ~(env : Why_compile_expr.env)
+    ~(runtime : Why_runtime_view.t) ~(simplify_formulas : bool)
     ~(deduplicate_terms : bool) : contract_info =
   let normalize_fo f = if simplify_formulas then simplify_fo f else f in
-  let maybe_uniq terms = if deduplicate_terms then uniq_terms terms else terms in
+  let maybe_uniq_labeled terms =
+    if not deduplicate_terms then terms
+    else
+      let rec loop seen acc = function
+        | [] -> List.rev acc
+        | (term, label) :: rest ->
+            let key = string_of_term term in
+            if List.mem key seen then loop seen acc rest
+            else loop (key :: seen) ((term, label) :: acc) rest
+      in
+      loop [] [] terms
+  in
+  let split_labeled terms = (List.map fst terms, List.map snd terms) in
+  let family_label ~default (formula : Ir.summary_formula) =
+    match formula.meta.family with
+    | Some "propagation_requires" -> "Propagation requirements"
+    | Some "state_invariant_requires" -> "State invariants"
+    | Some "stability_requires" -> "Stability requirements"
+    | Some "common_destination_invariant_ensures" -> "Destination invariants"
+    | Some family -> family
+    | None -> default
+  in
   let compile_formula_term ~in_post logic =
     match abstract_formula ~in_post logic with
     | Some term -> term
     | None ->
         let normalized = normalize_fo logic in
-        begin
-          match abstract_formula ~in_post normalized with
-          | Some term -> term
-          | None -> Why_compile_expr.compile_local_fo_formula_term ~in_post env normalized
+        begin match abstract_formula ~in_post normalized with
+        | Some term -> term
+        | None ->
+            Why_compile_expr.compile_local_fo_formula_term ~in_post env
+              normalized
         end
   in
   let compile_unshared_formula_term ~in_post logic =
     let normalized = normalize_fo logic in
     Why_compile_expr.compile_local_fo_formula_term ~in_post env normalized
   in
-  let compile_formula ~in_post (f : Ir.summary_formula) : Ptree.term list =
-    [ compile_formula_term ~in_post f.logic ]
+  let compile_labeled_formula ~in_post ~default_label (f : Ir.summary_formula) :
+      (Ptree.term * string) list =
+    [
+      ( compile_formula_term ~in_post f.logic,
+        family_label ~default:default_label f );
+    ]
   in
   let rec split_top_level_and (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
     match f.hexpr with
     | HBin (And, a, b) -> split_top_level_and a @ split_top_level_and b
     | _ -> [ f ]
   in
-  let local_cut_formulas (formulas : Ir.summary_formula list) : Core_syntax.hexpr list =
+  let local_cut_formulas (formulas : Ir.summary_formula list) :
+      Core_syntax.hexpr list =
     formulas
     |> List.concat_map (fun (formula : Ir.summary_formula) ->
-           let pieces = split_top_level_and formula.logic in
-           let selected_pieces = List.filter local_cut_candidate pieces in
-           match selected_pieces with
-           | [] when local_cut_candidate formula.logic -> [ formula.logic ]
-           | [] -> []
-           | facts -> facts)
+        let pieces = split_top_level_and formula.logic in
+        let selected_pieces = List.filter local_cut_candidate pieces in
+        match selected_pieces with
+        | [] when local_cut_candidate formula.logic -> [ formula.logic ]
+        | [] -> []
+        | facts -> facts)
     |> List.sort_uniq Stdlib.compare
     |> List.sort (fun a b ->
-           match Int.compare (hexpr_size b) (hexpr_size a) with
-           | 0 -> Stdlib.compare a b
-           | c -> c)
+        match Int.compare (hexpr_size b) (hexpr_size a) with
+        | 0 -> Stdlib.compare a b
+        | c -> c)
   in
-  let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term list =
+  let compile_forbidden_formula (f : Ir.summary_formula) : Ptree.term * string =
     (* Negated shared predicates are compact for Why3 but substantially harder
        for SMT on exclusion VCs; keep forbidden facts transparent. *)
     let term = compile_unshared_formula_term ~in_post:true f.logic in
-    [ mk_term (Tnot term) ]
+    (mk_term (Tnot term), family_label ~default:"Excluded unsafe cases" f)
   in
-  let compile_step_contract (pc : Why_runtime_view.runtime_product_transition_view) : step_contract_info =
-    let forbidden =
-      pc.forbidden
-      |> List.concat_map compile_forbidden_formula
-      |> maybe_uniq
+  let compile_step_contract
+      (pc : Why_runtime_view.runtime_product_transition_view) :
+      step_contract_info =
+    let forbidden_labeled =
+      pc.forbidden |> List.map compile_forbidden_formula |> maybe_uniq_labeled
+    in
+    let pre_labeled =
+      (pc.requires
+      |> List.concat_map
+           (compile_labeled_formula ~in_post:false
+              ~default_label:"Transition requires"))
+      @ (pc.local_requires
+        |> List.concat_map
+             (compile_labeled_formula ~in_post:false
+                ~default_label:"Product reachability"))
+      |> maybe_uniq_labeled
+    in
+    let post_labeled =
+      pc.ensures
+      |> List.concat_map
+           (compile_labeled_formula ~in_post:true
+              ~default_label:"Transition ensures")
+      |> maybe_uniq_labeled
+    in
+    let pre, pre_labels = split_labeled pre_labeled in
+    let post, post_labels = split_labeled post_labeled in
+    let forbidden, forbidden_labels = split_labeled forbidden_labeled in
+    let local_cuts =
+      pc.ensures |> local_cut_formulas
+      |> List.map (fun logic ->
+          ( compile_unshared_formula_term ~in_post:true logic,
+            "Local cut assertions" ))
+      |> maybe_uniq_labeled |> List.map fst
     in
     {
       step = pc;
-      pre =
-        (pc.requires @ pc.local_requires)
-        |> List.concat_map (compile_formula ~in_post:false)
-        |> maybe_uniq;
-      post =
-        pc.ensures
-        |> List.concat_map (compile_formula ~in_post:true)
-        |> maybe_uniq;
-      local_cuts =
-        pc.ensures
-        |> local_cut_formulas
-        |> List.map (compile_unshared_formula_term ~in_post:true)
-        |> maybe_uniq;
-      forbidden;
-    }
-  in
-  (* Assumption LTL formulas are handled state-aware by middle-end injection on transitions.
-     Do not also inject them globally as step preconditions. *)
-  let post_contract_user =
-    ignore runtime.guarantees;
-    if pure_translation then [] else []
-  in
-  let transition_clauses =
-    compute_transition_contracts ~compile_formula_term ~env
-      ~product_transitions:runtime.product_transitions ~post_contract_user
-  in
-  let transition_requires_pre_terms = transition_clauses.transition_requires_pre_terms in
-  let transition_requires_pre = transition_clauses.transition_requires_pre in
-  let post_contract_terms = transition_clauses.post_contract_terms in
-  let pure_post = transition_clauses.pure_post in
-  let compiled_step_contracts = List.map compile_step_contract runtime.product_transitions in
-  let pre_contract = transition_requires_pre in
-  let link_contracts = compute_link_contracts ~env ~runtime in
-  let link_terms_pre = link_contracts.link_terms_pre in
-  let link_terms_post = link_contracts.link_terms_post in
-  let link_invariants = link_contracts.link_invariants in
-  let post = post_contract_terms in
-  let pre =
-    link_invariants @ link_terms_pre @ pre_contract
-    |> maybe_uniq
-  in
-  let post = link_invariants @ link_terms_post @ post |> maybe_uniq in
-  let pre, post = if pure_translation then (transition_requires_pre, pure_post) else (pre, post) in
-  let is_true_term t = match t.term_desc with Ttrue -> true | _ -> false in
-  let pre =
-    if simplify_formulas then List.filter (fun t -> not (is_true_term t)) pre else pre
-  in
-  let post =
-    if simplify_formulas then List.filter (fun t -> not (is_true_term t)) post else post
-  in
-
-  let label_context : label_context =
-    {
-      kernel_first = false;
       pre;
+      pre_labels;
       post;
-      transition_requires_pre;
-      transition_requires_pre_terms;
-      link_terms_pre;
-      link_terms_post;
-      link_invariants;
-      post_contract_user;
+      post_labels;
+      forbidden;
+      forbidden_labels;
+      local_cuts;
     }
   in
-  let pre_labels, post_labels = build_labels label_context in
-  {
-    pre_labels;
-    post_labels;
-    step_contracts = compiled_step_contracts;
-  }
+  let compiled_step_contracts =
+    List.map compile_step_contract runtime.product_transitions
+  in
+  { step_contracts = compiled_step_contracts }

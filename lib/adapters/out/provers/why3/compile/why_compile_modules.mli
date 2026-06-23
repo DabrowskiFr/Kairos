@@ -26,7 +26,10 @@ type program_ast = {
 }
 
 type module_unit =
-  Why3.Ptree.ident * Why3.Ptree.qualid option * Why3.Ptree.decl list * spec_groups
+  Why3.Ptree.ident
+  * Why3.Ptree.qualid option
+  * Why3.Ptree.decl list
+  * spec_groups
 
 val empty_groups : unit -> spec_groups
 val common_module_name : string -> string
@@ -37,13 +40,11 @@ val assemble_node_modules :
   imports:Why3.Ptree.decl list ->
   common_module_name:string ->
   common_import:Why3.Ptree.decl ->
-  pre_labels:string list ->
-  post_labels:string list ->
   common_decls:Why3.Ptree.decl list ->
   shared_pre_bundle_modules:module_unit list ->
   shared_post_bundle_modules:module_unit list ->
   init_goal_decls:Why3.Ptree.decl list ->
-  kernel_step_helper_units:(string * Why3.Ptree.decl list) list ->
+  kernel_step_helper_units:Why_compile_product_helpers.helper_unit list ->
   module_unit list
 
 val program_ast_of_modules : module_unit list -> program_ast

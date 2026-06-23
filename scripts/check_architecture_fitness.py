@@ -670,6 +670,14 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\bpost_source_states\b",
         r"\bpost_vcids\b",
         r"\bstate_branches\b",
+        r"\bcontracts\.pre_labels\b",
+        r"\bcontracts\.post_labels\b",
+        r"\bpure_translation\b",
+        r"\blabel_context\b",
+        r"\bbuild_labels\b",
+        r"\bcompute_transition_contracts\b",
+        r"\bcompute_link_contracts\b",
+        r"\btransitions\s*:\s*runtime_transition_view\s+list\b",
     ]
     product_backend_roots = [
         "lib/adapters/out/provers/why3/compile/why_compile.ml",

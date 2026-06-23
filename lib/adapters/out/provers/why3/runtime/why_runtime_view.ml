@@ -19,20 +19,19 @@
 [@@@ocaml.warning "-8"]
 
 open Core_syntax
-
 module Abs = Ir
 open Pre_k_layout
-
 module StringSet = Set.Make (String)
 
-let dedup_summary_formulas (xs : Abs.summary_formula list) : Abs.summary_formula list =
+let dedup_summary_formulas (xs : Abs.summary_formula list) :
+    Abs.summary_formula list =
   List.sort_uniq
     (fun (a : Abs.summary_formula) (b : Abs.summary_formula) ->
       Int.compare a.meta.oid b.meta.oid)
     xs
 
-let dedup_summary_formulas_by_logic
-    (xs : Abs.summary_formula list) : Abs.summary_formula list =
+let dedup_summary_formulas_by_logic (xs : Abs.summary_formula list) :
+    Abs.summary_formula list =
   List.fold_left
     (fun acc (x : Abs.summary_formula) ->
       if List.exists (fun (y : Abs.summary_formula) -> y.logic = x.logic) acc
@@ -40,21 +39,18 @@ let dedup_summary_formulas_by_logic
       else acc @ [ x ])
     [] xs
 
-type port_view = {
-  port_name : ident;
-  port_type : ty;
-}
+type port_view = { port_name : ident; port_type : ty }
 
 type runtime_action_view =
   | ActionAssign of ident * expr
   | ActionAssert of hexpr
   | ActionIf of expr * runtime_action_view list * runtime_action_view list
   | ActionWhile of expr * hexpr list * expr option * runtime_action_view list
-  | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
+  | ActionMatch of
+      expr * (ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
 
-type action_block_kind =
-  | ActionUser
+type action_block_kind = ActionUser
 
 type action_block_view = {
   block_kind : action_block_kind;
@@ -72,9 +68,7 @@ type runtime_transition_view = {
   action_blocks : action_block_view list;
 }
 
-type runtime_step_class =
-  | StepSafe
-  | StepBadGuarantee
+type runtime_step_class = StepSafe | StepBadGuarantee
 
 type runtime_product_transition_view = {
   transition_id : string;
@@ -101,19 +95,16 @@ type t = {
   locals : port_view list;
   control_states : ident list;
   init_control_state : ident;
-  transitions : runtime_transition_view list;
   product_transitions : runtime_product_transition_view list;
   assumes : ltl list;
   guarantees : ltl list;
   init_invariant_goals : Abs.summary_formula list;
 }
 
-type known_value =
-  | KnownInt of int
-  | KnownBool of bool
-  | KnownEnum of ident
+type known_value = KnownInt of int | KnownBool of bool | KnownEnum of ident
 
-let port_of_vdecl (v : vdecl) : port_view = { port_name = v.vname; port_type = v.vty }
+let port_of_vdecl (v : vdecl) : port_view =
+  { port_name = v.vname; port_type = v.vty }
 
 let rec vars_of_expr (acc : StringSet.t) (e : expr) : StringSet.t =
   match e.expr with
@@ -132,7 +123,8 @@ let rec vars_of_hexpr (acc : StringSet.t) (h : hexpr) : StringSet.t =
   | HUn (_, inner) -> vars_of_hexpr acc inner
   | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
 
-let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t =
+let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t
+    =
   List.fold_left
     (fun acc (f : Abs.summary_formula) -> vars_of_hexpr acc f.logic)
     StringSet.empty formulas
@@ -148,7 +140,9 @@ let rec vars_of_stmt (acc : StringSet.t) (s : stmt) : StringSet.t =
   | SWhile (cond, invariants, variant, body) ->
       let acc = vars_of_expr acc cond in
       let acc = List.fold_left vars_of_hexpr acc invariants in
-      let acc = Option.fold ~none:acc ~some:(fun e -> vars_of_expr acc e) variant in
+      let acc =
+        Option.fold ~none:acc ~some:(fun e -> vars_of_expr acc e) variant
+      in
       List.fold_left vars_of_stmt acc body
   | SMatch (scrutinee, branches, default_branch) ->
       let acc = vars_of_expr acc scrutinee in
@@ -180,12 +174,14 @@ let disj_summary_formulas (formulas : Abs.summary_formula list) :
       in
       Some (Ir_formula.make logic)
 
-let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * StringSet.t =
+let rec slice_stmt (needed_after : StringSet.t) (s : stmt) :
+    stmt option * StringSet.t =
   match s.stmt with
   | SAssign (name, expr) ->
       if StringSet.mem name needed_after then
         let needed_before =
-          needed_after |> StringSet.remove name |> fun acc -> vars_of_expr acc expr
+          needed_after |> StringSet.remove name |> fun acc ->
+          vars_of_expr acc expr
         in
         (Some s, needed_before)
       else (None, needed_after)
@@ -196,19 +192,24 @@ let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * Strin
       if then_branch' = [] && else_branch' = [] then (None, needed_after)
       else
         let needed_before =
-          StringSet.union then_needed else_needed |> fun acc -> vars_of_expr acc cond
+          StringSet.union then_needed else_needed |> fun acc ->
+          vars_of_expr acc cond
         in
-        (Some { s with stmt = SIf (cond, then_branch', else_branch') }, needed_before)
+        ( Some { s with stmt = SIf (cond, then_branch', else_branch') },
+          needed_before )
   | SWhile _ -> (Some s, vars_of_stmt needed_after s)
   | SMatch (scrutinee, branches, default_branch) ->
       let sliced_branches, branch_needed =
         List.fold_right
           (fun (ctor, body) (branches_acc, needed_acc) ->
             let body', body_needed = slice_stmts needed_after body in
-            ((ctor, body') :: branches_acc, StringSet.union needed_acc body_needed))
+            ( (ctor, body') :: branches_acc,
+              StringSet.union needed_acc body_needed ))
           branches ([], StringSet.empty)
       in
-      let default_branch', default_needed = slice_stmts needed_after default_branch in
+      let default_branch', default_needed =
+        slice_stmts needed_after default_branch
+      in
       let has_body =
         default_branch' <> []
         || List.exists (fun (_, body) -> body <> []) sliced_branches
@@ -216,25 +217,31 @@ let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * Strin
       if not has_body then (None, needed_after)
       else
         let needed_before =
-          StringSet.union branch_needed default_needed |> fun acc -> vars_of_expr acc scrutinee
+          StringSet.union branch_needed default_needed |> fun acc ->
+          vars_of_expr acc scrutinee
         in
-        (Some { s with stmt = SMatch (scrutinee, sliced_branches, default_branch') }, needed_before)
+        ( Some
+            {
+              s with
+              stmt = SMatch (scrutinee, sliced_branches, default_branch');
+            },
+          needed_before )
   | SSkip -> (None, needed_after)
   | SCall _ -> (Some s, needed_after)
 
-and slice_stmts (needed_after : StringSet.t) (stmts : stmt list) : stmt list * StringSet.t =
+and slice_stmts (needed_after : StringSet.t) (stmts : stmt list) :
+    stmt list * StringSet.t =
   List.fold_left
     (fun (kept, needed) stmt ->
       let kept_stmt, needed_before = slice_stmt needed stmt in
       let kept =
-        match kept_stmt with
-        | None -> kept
-        | Some stmt -> stmt :: kept
+        match kept_stmt with None -> kept | Some stmt -> stmt :: kept
       in
       (kept, needed_before))
     ([], needed_after) (List.rev stmts)
 
-let slice_body_for_formulas (body : stmt list) (formulas : Abs.summary_formula list) : stmt list =
+let slice_body_for_formulas (body : stmt list)
+    (formulas : Abs.summary_formula list) : stmt list =
   let needed = vars_of_summary_formulas formulas in
   fst (slice_stmts needed body)
 
@@ -278,13 +285,16 @@ let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   | SMatch (e, branches, def) ->
       let acc = collect_ctor_expr acc e in
       let acc =
-        List.fold_left (fun acc (_, body) -> List.fold_left collect_ctor_stmt acc body) acc branches
+        List.fold_left
+          (fun acc (_, body) -> List.fold_left collect_ctor_stmt acc body)
+          acc branches
       in
       List.fold_left collect_ctor_stmt acc def
   | SCall _ -> failwith "instance calls are not supported"
   | SSkip -> acc
 
-let rec actions_of_stmts (stmts : Core_syntax.stmt list) : runtime_action_view list =
+let rec actions_of_stmts (stmts : Core_syntax.stmt list) :
+    runtime_action_view list =
   List.map action_of_stmt stmts
 
 and action_of_stmt (s : Core_syntax.stmt) : runtime_action_view =
@@ -315,97 +325,100 @@ let known_expr_of_value = function
   | KnownBool b -> { expr = ELitBool b; loc = None }
   | KnownEnum c -> { expr = ELitEnum c; loc = None }
 
-let lookup_known (known : (ident * known_value) list) (x : ident) : known_value option =
+let lookup_known (known : (ident * known_value) list) (x : ident) :
+    known_value option =
   List.assoc_opt x known
 
-let bind_known (known : (ident * known_value) list) (x : ident) (v : known_value) :
-    (ident * known_value) list =
+let bind_known (known : (ident * known_value) list) (x : ident)
+    (v : known_value) : (ident * known_value) list =
   (x, v) :: List.remove_assoc x known
 
-let drop_known (known : (ident * known_value) list) (x : ident) : (ident * known_value) list =
+let drop_known (known : (ident * known_value) list) (x : ident) :
+    (ident * known_value) list =
   List.remove_assoc x known
 
 let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
   let mk desc = { e with expr = desc } in
   match e.expr with
-  | EVar x -> begin
-      match lookup_known known x with
+  | EVar x ->
+      begin match lookup_known known x with
       | Some v -> known_expr_of_value v
       | None -> e
-    end
+      end
   | ELitInt _ | ELitBool _ | ELitEnum _ -> e
-  | EFunCall (fn, args) -> mk (EFunCall (fn, List.map (simplify_expr known) args))
-  | EUn (Not, inner) -> begin
-      match (simplify_expr known inner).expr with
+  | EFunCall (fn, args) ->
+      mk (EFunCall (fn, List.map (simplify_expr known) args))
+  | EUn (Not, inner) ->
+      begin match (simplify_expr known inner).expr with
       | ELitBool b -> mk (ELitBool (not b))
       | inner' -> mk (EUn (Not, { e with expr = inner' }))
-    end
-  | EUn (Neg, inner) -> begin
-      match (simplify_expr known inner).expr with
+      end
+  | EUn (Neg, inner) ->
+      begin match (simplify_expr known inner).expr with
       | ELitInt n -> mk (ELitInt (-n))
       | inner' -> mk (EUn (Neg, { e with expr = inner' }))
-    end
+      end
   | EBin (op, a, b) ->
       let a' = simplify_expr known a in
       let b' = simplify_expr known b in
-      begin
-        match (op, a'.expr, b'.expr) with
-        | Add, ELitInt x, ELitInt y -> mk (ELitInt (x + y))
-        | Sub, ELitInt x, ELitInt y -> mk (ELitInt (x - y))
-        | Mul, ELitInt x, ELitInt y -> mk (ELitInt (x * y))
-        | Div, ELitInt x, ELitInt y when y <> 0 -> mk (ELitInt (x / y))
-        | And, ELitBool x, ELitBool y -> mk (ELitBool (x && y))
-        | Or, ELitBool x, ELitBool y -> mk (ELitBool (x || y))
-        | And, ELitBool true, _ -> b'
-        | And, _, ELitBool true -> a'
-        | And, ELitBool false, _ -> mk (ELitBool false)
-        | And, _, ELitBool false -> mk (ELitBool false)
-        | Or, ELitBool false, _ -> b'
-        | Or, _, ELitBool false -> a'
-        | Or, ELitBool true, _ -> mk (ELitBool true)
-        | Or, _, ELitBool true -> mk (ELitBool true)
-        | _ -> mk (EBin (op, a', b'))
+      begin match (op, a'.expr, b'.expr) with
+      | Add, ELitInt x, ELitInt y -> mk (ELitInt (x + y))
+      | Sub, ELitInt x, ELitInt y -> mk (ELitInt (x - y))
+      | Mul, ELitInt x, ELitInt y -> mk (ELitInt (x * y))
+      | Div, ELitInt x, ELitInt y when y <> 0 -> mk (ELitInt (x / y))
+      | And, ELitBool x, ELitBool y -> mk (ELitBool (x && y))
+      | Or, ELitBool x, ELitBool y -> mk (ELitBool (x || y))
+      | And, ELitBool true, _ -> b'
+      | And, _, ELitBool true -> a'
+      | And, ELitBool false, _ -> mk (ELitBool false)
+      | And, _, ELitBool false -> mk (ELitBool false)
+      | Or, ELitBool false, _ -> b'
+      | Or, _, ELitBool false -> a'
+      | Or, ELitBool true, _ -> mk (ELitBool true)
+      | Or, _, ELitBool true -> mk (ELitBool true)
+      | _ -> mk (EBin (op, a', b'))
       end
   | ECmp (op, a, b) ->
       let a' = simplify_expr known a in
       let b' = simplify_expr known b in
-      begin
-        match (op, a'.expr, b'.expr) with
-        | REq, ELitInt x, ELitInt y -> mk (ELitBool (x = y))
-        | REq, ELitBool x, ELitBool y -> mk (ELitBool (x = y))
-        | REq, ELitEnum x, ELitEnum y -> mk (ELitBool (String.equal x y))
-        | RNeq, ELitInt x, ELitInt y -> mk (ELitBool (x <> y))
-        | RNeq, ELitBool x, ELitBool y -> mk (ELitBool (x <> y))
-        | RNeq, ELitEnum x, ELitEnum y -> mk (ELitBool (not (String.equal x y)))
-        | RLt, ELitInt x, ELitInt y -> mk (ELitBool (x < y))
-        | RLe, ELitInt x, ELitInt y -> mk (ELitBool (x <= y))
-        | RGt, ELitInt x, ELitInt y -> mk (ELitBool (x > y))
-        | RGe, ELitInt x, ELitInt y -> mk (ELitBool (x >= y))
-        | _ -> mk (ECmp (op, a', b'))
+      begin match (op, a'.expr, b'.expr) with
+      | REq, ELitInt x, ELitInt y -> mk (ELitBool (x = y))
+      | REq, ELitBool x, ELitBool y -> mk (ELitBool (x = y))
+      | REq, ELitEnum x, ELitEnum y -> mk (ELitBool (String.equal x y))
+      | RNeq, ELitInt x, ELitInt y -> mk (ELitBool (x <> y))
+      | RNeq, ELitBool x, ELitBool y -> mk (ELitBool (x <> y))
+      | RNeq, ELitEnum x, ELitEnum y -> mk (ELitBool (not (String.equal x y)))
+      | RLt, ELitInt x, ELitInt y -> mk (ELitBool (x < y))
+      | RLe, ELitInt x, ELitInt y -> mk (ELitBool (x <= y))
+      | RGt, ELitInt x, ELitInt y -> mk (ELitBool (x > y))
+      | RGe, ELitInt x, ELitInt y -> mk (ELitBool (x >= y))
+      | _ -> mk (ECmp (op, a', b'))
       end
 
 let known_from_guard (guard : expr option) : (ident * known_value) list =
   let rec gather acc (e : expr) =
     match e.expr with
     | EBin (And, a, b) -> gather (gather acc a) b
-    | ECmp (REq, ({ expr = EVar x; _ } as _a), b) -> begin
-        match literal_known_value b with
+    | ECmp (REq, ({ expr = EVar x; _ } as _a), b) ->
+        begin match literal_known_value b with
         | Some v -> bind_known acc x v
         | None -> acc
-      end
-    | ECmp (REq, a, ({ expr = EVar x; _ } as _b)) -> begin
-        match literal_known_value a with
+        end
+    | ECmp (REq, a, ({ expr = EVar x; _ } as _b)) ->
+        begin match literal_known_value a with
         | Some v -> bind_known acc x v
         | None -> acc
-      end
+        end
     | _ -> acc
   in
   match guard with None -> [] | Some g -> gather [] g
 
-let known_context_of_transition_guard (guard : expr option) : (ident * known_value) list =
+let known_context_of_transition_guard (guard : expr option) :
+    (ident * known_value) list =
   known_from_guard guard
 
-let rec simplify_actions (known : (ident * known_value) list) (actions : runtime_action_view list) :
+let rec simplify_actions (known : (ident * known_value) list)
+    (actions : runtime_action_view list) :
     runtime_action_view list * (ident * known_value) list =
   match actions with
   | [] -> ([], known)
@@ -414,7 +427,8 @@ let rec simplify_actions (known : (ident * known_value) list) (actions : runtime
       let rest', known'' = simplify_actions known' rest in
       (action' @ rest', known'')
 
-and simplify_action (known : (ident * known_value) list) (action : runtime_action_view) :
+and simplify_action (known : (ident * known_value) list)
+    (action : runtime_action_view) :
     runtime_action_view list * (ident * known_value) list =
   match action with
   | ActionSkip -> ([ ActionSkip ], known)
@@ -423,28 +437,27 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       let e' = simplify_expr known e in
       let known' =
         match e'.expr with
-        | EVar y -> begin
-            match lookup_known known y with
+        | EVar y ->
+            begin match lookup_known known y with
             | Some v -> bind_known known x v
             | None -> drop_known known x
-          end
-        | _ -> begin
-            match literal_known_value e' with
+            end
+        | _ ->
+            begin match literal_known_value e' with
             | Some v -> bind_known known x v
             | None -> drop_known known x
-          end
+            end
       in
       ([ ActionAssign (x, e') ], known')
   | ActionIf (cond, then_actions, else_actions) ->
       let cond' = simplify_expr known cond in
-      begin
-        match cond'.expr with
-        | ELitBool true -> simplify_actions known then_actions
-        | ELitBool false -> simplify_actions known else_actions
-        | _ ->
-            let then_actions, _ = simplify_actions known then_actions in
-            let else_actions, _ = simplify_actions known else_actions in
-            ([ ActionIf (cond', then_actions, else_actions) ], known)
+      begin match cond'.expr with
+      | ELitBool true -> simplify_actions known then_actions
+      | ELitBool false -> simplify_actions known else_actions
+      | _ ->
+          let then_actions, _ = simplify_actions known then_actions in
+          let else_actions, _ = simplify_actions known else_actions in
+          ([ ActionIf (cond', then_actions, else_actions) ], known)
       end
   | ActionWhile (cond, invariants, variant, body) ->
       let assigned = assigned_vars_of_actions body in
@@ -452,16 +465,15 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
         List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
       in
       let cond' = simplify_expr known_for_loop cond in
-      begin
-        match cond'.expr with
-        | ELitBool false -> ([ ActionSkip ], known)
-        | _ ->
-            let variant' = Option.map (simplify_expr known_for_loop) variant in
-            let body', _ = simplify_actions known_for_loop body in
-            let known_after =
-              List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
-            in
-            ([ ActionWhile (cond', invariants, variant', body') ], known_after)
+      begin match cond'.expr with
+      | ELitBool false -> ([ ActionSkip ], known)
+      | _ ->
+          let variant' = Option.map (simplify_expr known_for_loop) variant in
+          let body', _ = simplify_actions known_for_loop body in
+          let known_after =
+            List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
+          in
+          ([ ActionWhile (cond', invariants, variant', body') ], known_after)
       end
   | ActionMatch (scrutinee, branches, default_actions) ->
       let scrutinee' = simplify_expr known scrutinee in
@@ -491,16 +503,15 @@ and assigned_vars_of_action (action : runtime_action_view) : StringSet.t =
         (assigned_vars_of_actions default_actions)
         branches
 
-and assigned_vars_of_actions (actions : runtime_action_view list) : StringSet.t =
+and assigned_vars_of_actions (actions : runtime_action_view list) : StringSet.t
+    =
   List.fold_left
     (fun acc action -> StringSet.union acc (assigned_vars_of_action action))
     StringSet.empty actions
 
-let action_blocks_of_transition ~(simplify_runtime_actions : bool) (t : Abs.transition) :
-    action_block_view list =
-  let raw_blocks =
-    [ (ActionUser, actions_of_stmts t.body_stmts) ]
-  in
+let action_blocks_of_transition ~(simplify_runtime_actions : bool)
+    (t : Abs.transition) : action_block_view list =
+  let raw_blocks = [ (ActionUser, actions_of_stmts t.body_stmts) ] in
   let blocks =
     if not simplify_runtime_actions then raw_blocks
     else
@@ -523,7 +534,9 @@ let transition_of_ir ?transition_id ?(simplify_runtime_actions = true)
   let action_blocks = action_blocks_of_transition ~simplify_runtime_actions t in
   {
     transition_id =
-      Option.value ~default:(Printf.sprintf "%s__%s" t.src_state t.dst_state) transition_id;
+      Option.value
+        ~default:(Printf.sprintf "%s__%s" t.src_state t.dst_state)
+        transition_id;
     src_state = t.src_state;
     dst_state = t.dst_state;
     guard = t.guard_expr;
@@ -543,30 +556,9 @@ let transition_of_product_step ?(simplify_runtime_actions = true)
       body_stmts = step.body;
     }
 
-let program_transitions_from_summaries (summaries : Abs.product_step_summary list) :
-    Abs.transition list =
-  let seen : (Abs.transition, unit) Hashtbl.t = Hashtbl.create 64 in
-  let ordered = ref [] in
-  List.iter
-    (fun (summary : Abs.product_step_summary) ->
-      let step = summary.identity.program_step in
-      if not (Hashtbl.mem seen step) then (
-        Hashtbl.add seen step ();
-        ordered := !ordered @ [ step ]))
-    summaries;
-  !ordered
-
-let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = true)
-    (node : Ir.node_ir) : t =
+let of_ir_node ?(simplify_runtime_actions = true)
+    ?(slice_transition_bodies = true) (node : Ir.node_ir) : t =
   let sem = node.semantics in
-  let program_transitions = program_transitions_from_summaries node.summaries in
-  let transitions =
-    List.mapi
-      (fun idx (t : Abs.transition) ->
-        transition_of_ir ~transition_id:(Printf.sprintf "tr_%d" idx)
-          ~simplify_runtime_actions t)
-      program_transitions
-  in
   let runtime =
     {
       node_name = sem.sem_nname;
@@ -577,7 +569,6 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
       locals = List.map port_of_vdecl sem.sem_locals;
       control_states = sem.sem_states;
       init_control_state = sem.sem_init_state;
-      transitions;
       product_transitions = [];
       assumes = node.source_info.assumes;
       guarantees = node.source_info.guarantees;
@@ -588,7 +579,7 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
   let transition_requires_without_assume_guard (pc : Ir.product_step_summary) =
     pc.requires
     |> List.filter (fun (f : Ir.summary_formula) ->
-           f.logic <> pc.identity.assume_guard)
+        f.logic <> pc.identity.assume_guard)
   in
   let grouped_product_transition_entries =
     List.concat_map
@@ -611,7 +602,8 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
         in
         let admissible_guards =
           pc.safe_cases
-          |> List.map (fun (case : Ir.safe_product_case) -> case.admissible_guard)
+          |> List.map (fun (case : Ir.safe_product_case) ->
+              case.admissible_guard)
         in
         let safe_group =
           match safe_product_dsts with
@@ -648,9 +640,8 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
               let forbidden =
                 pc.unsafe_cases
                 |> List.concat_map (fun (case : Ir.unsafe_product_case) ->
-                       case.excluded_guard.logic
-                       |> split_top_level_or
-                       |> List.map Ir_formula.make)
+                    case.excluded_guard.logic |> split_top_level_or
+                    |> List.map Ir_formula.make)
               in
               let bad_body =
                 if slice_transition_bodies then
@@ -696,28 +687,28 @@ let of_ir_node ?(simplify_runtime_actions = true) ?(slice_transition_bodies = tr
   let product_transition_order = ref [] in
   grouped_product_transition_entries
   |> List.iter (fun (transition, assume_guard) ->
-         let key = group_key transition in
-         if not (Hashtbl.mem product_transition_groups key) then
-           product_transition_order := key :: !product_transition_order;
-         let representative, assume_guards =
-           Hashtbl.find_opt product_transition_groups key
-           |> Option.value ~default:(transition, [])
-         in
-         Hashtbl.replace product_transition_groups key
-           (representative, assume_guards @ [ assume_guard ]));
+      let key = group_key transition in
+      if not (Hashtbl.mem product_transition_groups key) then
+        product_transition_order := key :: !product_transition_order;
+      let representative, assume_guards =
+        Hashtbl.find_opt product_transition_groups key
+        |> Option.value ~default:(transition, [])
+      in
+      Hashtbl.replace product_transition_groups key
+        (representative, assume_guards @ [ assume_guard ]));
   let product_transitions =
     List.rev !product_transition_order
     |> List.filter_map (fun key ->
-           let representative, assume_guards =
-             Hashtbl.find product_transition_groups key
-           in
-           match disj_summary_formulas assume_guards with
-           | None -> None
-           | Some assume_guard ->
-               Some
-                 {
-                   representative with
-                   requires = representative.requires @ [ assume_guard ];
-                 })
+        let representative, assume_guards =
+          Hashtbl.find product_transition_groups key
+        in
+        match disj_summary_formulas assume_guards with
+        | None -> None
+        | Some assume_guard ->
+            Some
+              {
+                representative with
+                requires = representative.requires @ [ assume_guard ];
+              })
   in
   { runtime with product_transitions }

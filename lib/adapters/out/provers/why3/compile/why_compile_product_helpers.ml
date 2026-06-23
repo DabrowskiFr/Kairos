@@ -20,11 +20,17 @@ open Why3
 open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
-
 module Bundles = Why_compile_bundles
 module Product_groups = Why_compile_product_groups
 module Step_names = Why_compile_step_names
 module StringSet = Why_compile_ptree_helpers.StringSet
+
+type helper_unit = {
+  helper_name : string;
+  decls : Ptree.decl list;
+  pre_labels : string list;
+  post_labels : string list;
+}
 
 type context = {
   runtime_view : Why_runtime_view.t;
@@ -54,7 +60,6 @@ type context = {
 
 let pre_vars_name = "__pre_vars"
 let post_vars_name = "__post_vars"
-
 let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ])
 
 let seq_exprs (exprs : Ptree.expr list) =
@@ -66,7 +71,9 @@ let seq_exprs (exprs : Ptree.expr list) =
   match exprs with
   | [] -> mk_expr (Etuple [])
   | first :: rest ->
-      List.fold_left (fun acc expr -> mk_expr (Esequence (acc, expr))) first rest
+      List.fold_left
+        (fun acc expr -> mk_expr (Esequence (acc, expr)))
+        first rest
 
 let helper_function helper_inputs spc helper_body =
   mk_expr
@@ -81,10 +88,19 @@ let helper_function helper_inputs spc helper_body =
 let predicate_param_of_name name =
   (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
 
+let remove_labeled_terms terms labels removed =
+  let removed_keys = List.map string_of_term removed in
+  List.combine terms labels
+  |> List.filter (fun (term, _label) ->
+      not (List.mem (string_of_term term) removed_keys))
+  |> List.split
+
+let repeated_label label terms = List.map (fun _ -> label) terms
+
 let record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
     ~entries ~distinct_pre_count ~distinct_post_count ~post_implication_count
     ~pre_text_bytes ~post_text_bytes ~estimated_cost =
-  let (_first_i, (first_sc : Why_contracts.step_contract_info), _first_t) =
+  let _first_i, (first_sc : Why_contracts.step_contract_info), _first_t =
     List.hd entries
   in
   External_timing.record_why3_product_group
@@ -106,12 +122,15 @@ let record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
       max_cost = ctx.why3_product_step_group_max_cost;
     }
 
-let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_info)) =
+let build_individual_kernel_helper ctx
+    (i, (sc : Why_contracts.step_contract_info)) =
   let t =
     Why_runtime_view.transition_of_product_step
       ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions sc.step
   in
-  let helper_name = ident (Step_names.product_step_helper_name ~index:i sc.step) in
+  let helper_name =
+    ident (Step_names.product_step_helper_name ~index:i sc.step)
+  in
   let state_guard =
     term_eq (term_of_var ctx.env "st") (mk_term (Tident (qid1 t.src_state)))
   in
@@ -141,8 +160,14 @@ let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_inf
     && not (List.exists term_has_old post_family_terms)
   in
   let post_terms =
-    if share_post_family_bundle then Bundles.remove_terms post_family_terms sc.post
+    if share_post_family_bundle then
+      Bundles.remove_terms post_family_terms sc.post
     else sc.post
+  in
+  let post_terms, post_labels =
+    if share_post_family_bundle then
+      remove_labeled_terms sc.post sc.post_labels post_family_terms
+    else (post_terms, sc.post_labels)
   in
   let post_family_imports, post_family_terms, post_family_shared_names =
     if share_post_family_bundle then
@@ -154,6 +179,11 @@ let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_inf
   in
   let raw_pre_terms = state_guard :: (pre_family_terms @ pre_terms) in
   let raw_post_terms = sc.forbidden @ post_family_terms @ post_terms in
+  let raw_post_labels =
+    sc.forbidden_labels
+    @ repeated_label "Shared postcondition facts" post_family_terms
+    @ post_labels
+  in
   let bundle_post_terms =
     List.length raw_post_terms > 1
     && not (List.exists term_has_old raw_post_terms)
@@ -173,8 +203,9 @@ let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_inf
       let post_import, call, shared_names =
         ctx.shared_post_bundle_call raw_post_terms
       in
-      (post_family_imports @ [ post_import ], [ call ],
-       StringSet.union post_family_shared_names shared_names)
+      ( post_family_imports @ [ post_import ],
+        [ call ],
+        StringSet.union post_family_shared_names shared_names )
   in
   let spc =
     {
@@ -196,7 +227,8 @@ let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_inf
   in
   let helper_body =
     seq_exprs
-      (Why_compile_step.compile_transition_body ctx.env [] t :: local_cut_asserts)
+      (Why_compile_step.compile_transition_body ctx.env [] t
+      :: local_cut_asserts)
   in
   let direct_shared_terms =
     raw_pre_terms
@@ -204,25 +236,33 @@ let build_individual_kernel_helper ctx (i, (sc : Why_contracts.step_contract_inf
     @ sc.local_cuts
   in
   let local_shared_decls =
-    direct_shared_terms
-    |> ctx.shared_formula_names_in_terms
+    direct_shared_terms |> ctx.shared_formula_names_in_terms
     |> ctx.local_shared_formula_decls ~exclude:imported_shared_names
   in
   let helper_inputs =
     helper_binders_without_unused_parameters ctx.inputs spc helper_body
   in
   let fn = helper_function helper_inputs spc helper_body in
-  ( helper_name.Ptree.id_str,
-    post_bundle_decls @ local_shared_decls @ pre_family_imports
-    @ pre_bundle_decls
-    @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+  {
+    helper_name = helper_name.Ptree.id_str;
+    decls =
+      post_bundle_decls @ local_shared_decls @ pre_family_imports
+      @ pre_bundle_decls
+      @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
+    pre_labels = [ "Product step preconditions" ];
+    post_labels =
+      (if bundle_post_terms && raw_post_terms <> [] then
+         [ "Product step postconditions" ]
+       else raw_post_labels);
+  }
 
 let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
-  let (first_i, (first_sc : Why_contracts.step_contract_info), first_t) =
+  let first_i, (first_sc : Why_contracts.step_contract_info), first_t =
     List.hd entries
   in
   let helper_name =
-    ident (Step_names.product_step_group_helper_name ~index:first_i first_sc.step)
+    ident
+      (Step_names.product_step_group_helper_name ~index:first_i first_sc.step)
   in
   let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
   let grouped =
@@ -240,8 +280,7 @@ let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
     ~estimated_cost:grouped.estimated_cost;
   let local_shared_decls =
     [ grouped.pre_term; grouped.post_body ]
-    |> ctx.shared_formula_names_in_terms
-    |> ctx.local_shared_formula_decls
+    |> ctx.shared_formula_names_in_terms |> ctx.local_shared_formula_decls
   in
   let post_used_names = names_of_term grouped.post_body StringSet.empty in
   let input_binders_without_vars =
@@ -250,13 +289,15 @@ let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
   let post_input_binders =
     input_binders_without_vars
     |> List.filter (fun (_, id_opt, _, _) ->
-           match id_opt with
-           | None -> true
-           | Some id -> StringSet.mem id.Ptree.id_str post_used_names)
+        match id_opt with
+        | None -> true
+        | Some id -> StringSet.mem id.Ptree.id_str post_used_names)
   in
   let post_pred_params =
-    [ predicate_param_of_name pre_vars_name;
-      predicate_param_of_name post_vars_name ]
+    [
+      predicate_param_of_name pre_vars_name;
+      predicate_param_of_name post_vars_name;
+    ]
     @ List.filter_map param_of_binder post_input_binders
   in
   let post_pred_decl =
@@ -306,23 +347,26 @@ let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
     in
     let body =
       seq_exprs
-        [ Why_compile_step.compile_transition_body ctx.env [] first_t; proof_assert ]
+        [
+          Why_compile_step.compile_transition_body ctx.env [] first_t;
+          proof_assert;
+        ]
     in
     mk_expr
-      (Elet
-         ( ident pre_snapshot_name,
-           true,
-           Expr.RKnone,
-           snapshot_expr,
-           body ))
+      (Elet (ident pre_snapshot_name, true, Expr.RKnone, snapshot_expr, body))
   in
   let helper_inputs =
     helper_binders_without_unused_parameters ctx.inputs spc helper_body
   in
   let fn = helper_function helper_inputs spc helper_body in
-  ( helper_name.Ptree.id_str,
-    local_shared_decls
-    @ [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ] )
+  {
+    helper_name = helper_name.Ptree.id_str;
+    decls =
+      local_shared_decls
+      @ [ post_pred_decl; Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
+    pre_labels = [ "Grouped product preconditions" ];
+    post_labels = [];
+  }
 
 let record_singleton_split_chunk ctx ~split_due_to_cost (i, sc, t) =
   let entries = [ (i, sc, t) ] in
@@ -342,8 +386,8 @@ let record_singleton_split_chunk ctx ~split_due_to_cost (i, sc, t) =
     ~estimated_cost:grouped.estimated_cost
 
 let kernel_step_helper_units ctx step_contracts =
-  Product_groups.group_kernel_helpers ~env:ctx.env ~pre_vars_name ~post_vars_name
-    ~group_why3_product_steps:ctx.group_why3_product_steps
+  Product_groups.group_kernel_helpers ~env:ctx.env ~pre_vars_name
+    ~post_vars_name ~group_why3_product_steps:ctx.group_why3_product_steps
     ~max_cost:ctx.why3_product_step_group_max_cost
     ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions
     ~step_pre_terms_with_rec:ctx.step_pre_terms_with_rec
