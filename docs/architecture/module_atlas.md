@@ -102,7 +102,12 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kx_lexer.ml`, `kx_parser.mly` | Lexer/parser du langage Kairos |
 | `kx_surface_syntax.ml` | AST de surface, avec sucre syntaxique |
 | `kx_ast.ml` | AST elabore plus proche du core |
-| `kx_elaborate.ml` | Desucrage : observers, actions, quantifications, affectations multiples, etc. |
+| `kx_elaborate.ml` | Orchestration de l'elaboration vers l'AST elabore |
+| `kx_elaborate_names.ml` | Conventions de nommage pour indices et historiques generes |
+| `kx_elaborate_subst.ml` | Substitution capture-avoiding sur la syntaxe de surface |
+| `kx_elaborate_observers.ml` | Generation des declarations et updates proof-only des observers |
+| `kx_elaborate_state_selectors.ml` | Expansion des selecteurs d'etats pour invariants de surface |
+| `kx_elaborate_validation.ml` | Validations de surface avant abaissement vers l'AST elabore |
 | `kx_parse_api.ml` | API de parsing utilisee par CLI/LSP/tests |
 | `kairos_to_model.ml` | Conversion vers `Verification_model` |
 | `kairos_frontend.ml` | Adaptateur frontend complet : fichier -> `Application_ports.frontend_input` |

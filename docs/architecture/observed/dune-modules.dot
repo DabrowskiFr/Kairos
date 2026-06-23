@@ -316,6 +316,16 @@ digraph G {
   "kairos_input_lang__Kx_core_syntax_builders" [label="Kx_core_syntax_builders",
                                                 shape=box, ];
   "kairos_input_lang__Kx_elaborate" [label="Kx_elaborate", shape=box, ];
+  "kairos_input_lang__Kx_elaborate_names" [label="Kx_elaborate_names",
+                                           shape=box, ];
+  "kairos_input_lang__Kx_elaborate_observers" [label="Kx_elaborate_observers",
+                                               shape=box, ];
+  "kairos_input_lang__Kx_elaborate_state_selectors" [label="Kx_elaborate_state_selectors",
+                                                     shape=box, ];
+  "kairos_input_lang__Kx_elaborate_subst" [label="Kx_elaborate_subst",
+                                           shape=box, ];
+  "kairos_input_lang__Kx_elaborate_validation" [label="Kx_elaborate_validation",
+                                                shape=box, ];
   "kairos_input_lang__Kx_lexer" [label="Kx_lexer", shape=box, ];
   "kairos_input_lang__Kx_loc" [label="Kx_loc", shape=box, ];
   "kairos_input_lang__Kx_parse_api" [label="Kx_parse_api", shape=box, ];
@@ -433,7 +443,7 @@ digraph G {
   subgraph cluster_899750038 { label="ppx_deriving_yojson 3.10.0"; "ppx_deriving_yojson.runtime";"ppx_deriving_yojson";
      };
   subgraph cluster_902546259 { label="(local)"; "local_package__";
-    subgraph cluster_1000965417 { label="kairos_input_lang"; "kairos_input_lang__Kx_surface_syntax";"kairos_input_lang__Kx_parser";"kairos_input_lang__Kx_parse_api";"kairos_input_lang__Kx_loc";"kairos_input_lang__Kx_lexer";"kairos_input_lang__Kx_elaborate";"kairos_input_lang__Kx_core_syntax_builders";"kairos_input_lang__Kx_core_syntax";"kairos_input_lang__Kx_ast_builders";"kairos_input_lang__Kx_ast";"kairos_input_lang__Kairos_to_model";"kairos_input_lang__Kairos_frontend";"kairos_input_lang";
+    subgraph cluster_1000965417 { label="kairos_input_lang"; "kairos_input_lang__Kx_surface_syntax";"kairos_input_lang__Kx_parser";"kairos_input_lang__Kx_parse_api";"kairos_input_lang__Kx_loc";"kairos_input_lang__Kx_lexer";"kairos_input_lang__Kx_elaborate_validation";"kairos_input_lang__Kx_elaborate_subst";"kairos_input_lang__Kx_elaborate_state_selectors";"kairos_input_lang__Kx_elaborate_observers";"kairos_input_lang__Kx_elaborate_names";"kairos_input_lang__Kx_elaborate";"kairos_input_lang__Kx_core_syntax_builders";"kairos_input_lang__Kx_core_syntax";"kairos_input_lang__Kx_ast_builders";"kairos_input_lang__Kx_ast";"kairos_input_lang__Kairos_to_model";"kairos_input_lang__Kairos_frontend";"kairos_input_lang";
        };
     subgraph cluster_1023048449 { label="kairos.external_timing"; "kairos.external_timing__External_timing";"kairos.external_timing";
        };
@@ -689,6 +699,11 @@ digraph G {
   "kairos_input_lang" -> "kairos_input_lang__Kx_core_syntax";
   "kairos_input_lang" -> "kairos_input_lang__Kx_core_syntax_builders";
   "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate_names";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate_observers";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate_state_selectors";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate_subst";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate_validation";
   "kairos_input_lang" -> "kairos_input_lang__Kx_lexer";
   "kairos_input_lang" -> "kairos_input_lang__Kx_loc";
   "kairos_input_lang" -> "kairos_input_lang__Kx_parse_api";
@@ -1059,7 +1074,15 @@ digraph G {
   "kairos_input_lang__Kx_core_syntax_builders" -> "kairos_input_lang__Kx_core_syntax";
   "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_ast_builders";
   "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_core_syntax_builders";
-  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_elaborate_observers";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_elaborate_state_selectors";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_elaborate_subst";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_elaborate_validation";
+  "kairos_input_lang__Kx_elaborate_names" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_elaborate_observers" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_elaborate_state_selectors" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_elaborate_subst" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_elaborate_validation" -> "kairos_input_lang__Kx_elaborate_names";
   "kairos_input_lang__Kx_lexer" -> "kairos_input_lang__Kx_parser";
   "kairos_input_lang__Kx_parse_api" -> "kairos_input_lang__Kx_elaborate";
   "kairos_input_lang__Kx_parse_api" -> "kairos_input_lang__Kx_lexer";

@@ -8,7 +8,11 @@
   kx_surface_syntax
   kx_ast
   kx_ast_builders
+  kx_elaborate_names
   kx_elaborate_subst
+  kx_elaborate_observers
+  kx_elaborate_state_selectors
+  kx_elaborate_validation
   kx_elaborate
   kx_parse_api
   kx_lexer

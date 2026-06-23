@@ -495,34 +495,57 @@ def check_critical_subsystems_do_not_use_unqualified_subdirs(repo: Path) -> None
 
 
 def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
-    subst_ml = repo / "lib/adapters/in/kairos_lang/kx_elaborate_subst.ml"
-    subst_mli = repo / "lib/adapters/in/kairos_lang/kx_elaborate_subst.mli"
-    for path in [subst_ml, subst_mli]:
-        if not path.exists():
-            fail(f"{path.relative_to(repo)} is missing")
+    frontend_root = repo / "lib/adapters/in/kairos_lang"
+    required_modules = [
+        "kx_elaborate_names",
+        "kx_elaborate_subst",
+        "kx_elaborate_observers",
+        "kx_elaborate_state_selectors",
+        "kx_elaborate_validation",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = frontend_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
 
     dune = (repo / "lib/adapters/in/kairos_lang/dune").read_text(encoding="utf-8")
-    if "kx_elaborate_subst" not in dune:
-        fail("kx_elaborate_subst must be an explicit kairos_input_lang module")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "front-end elaboration helper modules must be explicit kairos_input_lang modules: "
+            + ", ".join(missing_modules)
+        )
 
     elaborate = (repo / "lib/adapters/in/kairos_lang/kx_elaborate.ml").read_text(
         encoding="utf-8"
     )
     forbidden_defs = [
+        r"\blet\s+indexed_ident_many\s*\(",
+        r"\blet\s+indexed_ref_name\s*\(",
+        r"\blet\s+same_indexed_ref\s*\(",
+        r"\blet\s+generated_history_prefix\b",
         r"\blet\s+rec\s+subst_expr\b",
         r"\blet\s+rec\s+subst_hexpr\b",
         r"\blet\s+rec\s+subst_stmt\b",
         r"\blet\s+rec\s+subst_history_expr\b",
         r"\band\s+subst_ltl\b",
+        r"\blet\s+observer_raw_vdecl\b",
+        r"\blet\s+observer_init_stmts\b",
+        r"\blet\s+observer_step_stmts\b",
+        r"\blet\s+rec\s+expr_refs\b",
+        r"\blet\s+rec\s+stmt_refs\b",
+        r"\blet\s+validate_observer_body\b",
+        r"\blet\s+state_mem\b",
+        r"\blet\s+resolve_state_selector\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, elaborate)]
     if found:
         fail(
-            "surface substitution must stay in kx_elaborate_subst.ml; "
-            "kx_elaborate.ml reintroduced substitution definitions"
+            "front-end helper logic must stay in focused kx_elaborate_* modules; "
+            "kx_elaborate.ml reintroduced extracted helper definitions"
         )
 
-    subst_text = subst_ml.read_text(encoding="utf-8")
     forbidden_deps = [
         r"\bKx_ast\b",
         r"\bKx_core_syntax\b",
@@ -531,12 +554,21 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         r"\bSpot",
         r"\bZ3\b",
     ]
-    violations = [pattern for pattern in forbidden_deps if re.search(pattern, subst_text)]
+    violations: list[str] = []
+    for module in required_modules:
+        path = frontend_root / f"{module}.ml"
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in forbidden_deps:
+                if re.search(pattern, line):
+                    violations.append(
+                        f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
+                    )
+                    break
     if violations:
         fail(
-            "kx_elaborate_subst.ml must stay a pure surface-syntax helper; "
-            "forbidden references found: "
-            + ", ".join(violations)
+            "focused front-end elaboration helpers must stay pure surface-syntax helpers:\n  - "
+            + "\n  - ".join(violations)
         )
 
 
