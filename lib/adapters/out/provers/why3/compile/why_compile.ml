@@ -44,6 +44,7 @@ open Why_compile_logic
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 module Bundles = Why_compile_bundles
+module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
 module Product_helpers = Why_compile_product_helpers
 module Step_names = Why_compile_step_names
@@ -711,120 +712,34 @@ let compile_node_with_info ?(share_why3_facts = true)
     shared_bundle_call ~module_suffix:"Pre" ~predicate_prefix:"shared_pre_bundle"
       ~table:shared_pre_bundle_table ~modules:shared_pre_bundle_modules
   in
-  let contract_formula_term ~in_post logic =
-    match abstract_formula ~in_post logic with
-    | Some term -> term
-    | None ->
-        let normalized =
-          if simplify_why3_formulas then Core_fo_simplifier.simplify logic
-          else logic
-        in
-        begin
-          match abstract_formula ~in_post normalized with
-          | Some term -> term
-          | None -> compile_local_fo_formula_term ~in_post env normalized
-        end
+  let contract_fact_context : Contract_facts.context =
+    {
+      env;
+      simplify_why3_formulas;
+      abstract_formula;
+      abstract_formula_with_rec;
+    }
   in
-  let formula_family_is families (formula : Ir.summary_formula) =
-    match formula.meta.family with
-    | None -> false
-    | Some family -> List.mem family families
-  in
-  let sorted_unique_terms terms =
-    terms
-    |> List.sort_uniq (fun left right ->
-           String.compare (string_of_term left) (string_of_term right))
-  in
-  let selected_family_terms ~in_post families formulas =
-    formulas
-    |> List.filter (formula_family_is families)
-    |> List.map (fun (formula : Ir.summary_formula) ->
-           contract_formula_term ~in_post formula.logic)
-    |> sorted_unique_terms
-  in
-  let shared_pre_families =
-    [ "state_invariant_requires"; "stability_requires" ]
-  in
-  let shared_post_families = [ "common_destination_invariant_ensures" ] in
-  let pre_family_terms_by_step =
-    if not share_why3_facts then List.map (fun _ -> []) step_contracts
-    else
-      step_contracts
-      |> List.map (fun (sc : Why_contracts.step_contract_info) ->
-             selected_family_terms ~in_post:false shared_pre_families
-               sc.step.requires)
-  in
-  let post_family_terms_by_step =
-    if not share_why3_facts then List.map (fun _ -> []) step_contracts
-    else
-      step_contracts
-      |> List.map (fun (sc : Why_contracts.step_contract_info) ->
-             selected_family_terms ~in_post:true shared_post_families
-               sc.step.ensures)
-  in
-  let pre_family_bundle_counts = Bundles.count_bundles pre_family_terms_by_step in
-  let post_family_bundle_counts = Bundles.count_bundles post_family_terms_by_step in
-  let formula_term_with_rec ?(allow_shared = true) ~in_post rec_name logic =
-    let normalized =
-      if simplify_why3_formulas then Core_fo_simplifier.simplify logic
-      else logic
-    in
-    if allow_shared then
-      match abstract_formula_with_rec rec_name logic with
-      | Some term -> term
-      | None -> begin
-          match abstract_formula_with_rec rec_name normalized with
-          | Some term -> term
-          | None ->
-              let local_env = { env with rec_name } in
-              compile_local_fo_formula_term ~in_post local_env normalized
-        end
-    else
-      let local_env = { env with rec_name } in
-      compile_local_fo_formula_term ~in_post local_env normalized
-  in
-  let state_guard_with_rec rec_name state_name =
-    let local_env = { env with rec_name } in
-    term_eq (term_of_var local_env "st") (mk_term (Tident (qid1 state_name)))
-  in
-  let step_pre_terms_with_rec rec_name (sc : Why_contracts.step_contract_info) =
-    state_guard_with_rec rec_name sc.step.src_state
-    :: ((sc.step.requires @ sc.step.local_requires)
-       |> List.concat_map (fun (formula : Ir.summary_formula) ->
-              [ formula_term_with_rec ~in_post:false rec_name formula.logic ]))
-  in
-  let step_post_terms_with_rec rec_name (sc : Why_contracts.step_contract_info) =
-    let forbidden =
-      sc.step.forbidden
-      |> List.map (fun (formula : Ir.summary_formula) ->
-             mk_term
-               (Tnot
-                  (formula_term_with_rec ~allow_shared:false ~in_post:true
-                     rec_name formula.logic)))
-    in
-    let ensures =
-      sc.step.ensures
-      |> List.map (fun (formula : Ir.summary_formula) ->
-             formula_term_with_rec ~in_post:true rec_name formula.logic)
-    in
-    forbidden @ ensures
+  let product_helper_facts =
+    Contract_facts.product_helper_facts contract_fact_context
+      ~share_why3_facts step_contracts
   in
   let product_helper_context : Product_helpers.context =
     {
       runtime_view;
       env;
       inputs;
-      pre_family_terms_by_step;
-      post_family_terms_by_step;
-      pre_family_bundle_counts;
-      post_family_bundle_counts;
+      pre_family_terms_by_step = product_helper_facts.pre_family_terms_by_step;
+      post_family_terms_by_step = product_helper_facts.post_family_terms_by_step;
+      pre_family_bundle_counts = product_helper_facts.pre_family_bundle_counts;
+      post_family_bundle_counts = product_helper_facts.post_family_bundle_counts;
       predicate_bundle_decl_and_call;
       shared_pre_bundle_call;
       shared_post_bundle_call;
       shared_formula_names_in_terms;
       local_shared_formula_decls;
-      step_pre_terms_with_rec;
-      step_post_terms_with_rec;
+      step_pre_terms_with_rec = product_helper_facts.step_pre_terms_with_rec;
+      step_post_terms_with_rec = product_helper_facts.step_post_terms_with_rec;
       group_why3_product_steps;
       why3_product_step_group_max_cost;
       simplify_why3_runtime_actions;

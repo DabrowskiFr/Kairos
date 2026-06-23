@@ -580,6 +580,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_step_names",
         "why_compile_bundles",
         "why_compile_product_groups",
+        "why_compile_contract_facts",
         "why_compile_product_helpers",
         "why_compile_modules",
     ]
@@ -635,6 +636,14 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\blet\s+init_modules\s*=",
         r"\blet\s+helper_modules\s*=",
         r"\bPtree\.Modules\s*\(",
+        r"\blet\s+contract_formula_term\b",
+        r"\blet\s+formula_family_is\b",
+        r"\blet\s+sorted_unique_terms\b",
+        r"\blet\s+selected_family_terms\b",
+        r"\blet\s+formula_term_with_rec\b",
+        r"\blet\s+state_guard_with_rec\b",
+        r"\blet\s+step_pre_terms_with_rec\b",
+        r"\blet\s+step_post_terms_with_rec\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, why_compile)]
     if found:
