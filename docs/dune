@@ -8,6 +8,7 @@
   artifacts
   backends
   rocq_frontend_boundary
+  reference_verification_architecture
   temporal_phase_semantics
   product_proof_pipeline_audit
   pipeline_cost_model

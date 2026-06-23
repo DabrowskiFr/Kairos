@@ -19,14 +19,34 @@
 (** Snapshot builder for the application pipeline.
 
     This module consumes a frontend payload (already parsed/lowered) and
-    performs automata + IR orchestration, returning a [pipeline_snapshot]
-    enriched with flow metadata.
+    prepares the internal program consumed by the reference kernel. Automata
+    production is intentionally outside this module: callers must provide an
+    automata bundle. The reference pipeline is parametric in that bundle and
+    does not formalize how it was produced.
 *)
 
-val build_snapshot_from_frontend :
+type prepared_program = {
+  imports : string list;
+  parse_info : Flow_info.parse_info;
+  source_model : Verification_model.program_model;
+  reference_program : Verification_model.program_model;
+}
+
+type supplied_automata = {
+  automata : (Core_syntax.ident * Automaton_types.automata_spec) list;
+  automata_info : Flow_info.automata_info;
+}
+
+val prepare_program_from_frontend :
+  proof_optimizations:Pipeline_types.proof_optimizations ->
+  frontend:Application_ports.frontend_input ->
+  (prepared_program, Pipeline_types.error) result
+
+val build_snapshot_from_supplied_automata :
   collect_instrumentation_info:bool ->
   collect_ir_metrics:bool ->
   proof_encoding:Pipeline_types.proof_encoding ->
   proof_optimizations:Pipeline_types.proof_optimizations ->
-  frontend:Application_ports.frontend_input ->
+  prepared:prepared_program ->
+  supplied_automata:supplied_automata ->
   (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result

@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "classification_vocabulary": {
+    "surface": "Source language parsing, elaboration, and desugaring before the formal core entry point.",
+    "reference": "Correction-critical construction that must be mirrored by the formal model or exported to it.",
+    "reference_normalization": "Deterministic semantic normalization required by the reference view.",
+    "obligation_preserving_optimization": "Representation-only or proof-planning change that must preserve canonical obligations.",
+    "backend": "Target-specific projection, external proof execution, dumps, scheduling, profiling, or reporting.",
+    "external_boundary": "Boundary where an external tool may construct an input consumed by the reference kernel."
+  },
+  "reference_kernel": {
+    "description": "Correction-critical path from elaborated Kairos model plus supplied automata to canonical product/proof-kernel data.",
+    "inputs": [
+      "Verification_model.program_model",
+      "(Core_syntax.ident * Automaton_types.automata_spec) list"
+    ],
+    "outputs": [
+      "Ir.node_ir list",
+      "Proof_kernel_types.node_ir",
+      "Proof_kernel_types.exported_node_summary_ir"
+    ],
+    "path_roots": [
+      "lib/domain/core",
+      "lib/domain/verification/automaton_types.ml",
+      "lib/domain/verification/product_types.ml",
+      "lib/domain/verification/product_types.mli",
+      "lib/domain/verification/product_build.ml",
+      "lib/domain/verification/product_build.mli",
+      "lib/domain/verification/temporal_automata.ml",
+      "lib/domain/verification/temporal_automata.mli",
+      "lib/domain/verification/from_model.ml",
+      "lib/domain/verification/from_model.mli",
+      "lib/domain/verification/orchestration.ml",
+      "lib/domain/verification/orchestration.mli",
+      "lib/domain/proof_export"
+    ],
+    "forbidden_code_patterns": [
+      {
+        "pattern": "\\bSpot_",
+        "reason": "Spot is an automata-construction adapter, not part of the reference kernel."
+      },
+      {
+        "pattern": "\\bWhy3\\b|\\bWhy_",
+        "reason": "Why3 is a backend, not part of the reference kernel."
+      },
+      {
+        "pattern": "\\bZ3\\b|\\bZ3_",
+        "reason": "Z3 is an external prover, not part of the reference kernel."
+      },
+      {
+        "pattern": "\\bExternal_timing\\b|\\bUnix\\.gettimeofday\\b",
+        "reason": "Timing/profiling must stay outside the reference kernel."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "name": "surface_elaboration",
+      "classification": "surface",
+      "paths": [
+        "lib/adapters/in/kairos_lang"
+      ],
+      "rocq_role": "Outside the current trusted kernel; should later have a separate elaboration-correctness theorem."
+    },
+    {
+      "name": "core_model",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/core/core_syntax.ml",
+        "lib/domain/core/verification_model.ml",
+        "lib/domain/core/verification_model.mli"
+      ],
+      "rocq_role": "Formal entry point for the elaborated Kairos program."
+    },
+    {
+      "name": "automata_generation",
+      "classification": "external_boundary",
+      "paths": [
+        "lib/adapters/out/runtime/orchestration/automata/automata_generation.ml",
+        "lib/adapters/out/runtime/orchestration/automata/automata_generation.mli",
+        "lib/adapters/out/runtime/orchestration/automata",
+        "lib/adapters/out/external/spot"
+      ],
+      "rocq_role": "Automata are inputs to the reference kernel; the formal story is relative to supplied automata and does not formalize Spot's LTL-to-automata translation."
+    },
+    {
+      "name": "reference_product",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/verification/product_build.ml",
+        "lib/domain/verification/temporal_automata.ml",
+        "lib/domain/verification/from_model.ml",
+        "lib/domain/verification/orchestration.ml"
+      ],
+      "rocq_role": "Program/product construction that should be mirrored by Rocq."
+    },
+    {
+      "name": "pre_requirements",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/verification/pre.ml",
+        "lib/domain/verification/pre.mli",
+        "lib/domain/verification/product_characteristics.ml",
+        "lib/domain/verification/product_characteristics.mli"
+      ],
+      "rocq_role": "Generates source-state requirements for product-step obligations: state invariants, product-entry facts, assumption guards, program guards, and stability facts. These facts are part of the proof obligation shape and must be justified by the reference semantics.",
+      "allowed_effects": [
+        "add propagation_requires to product summaries",
+        "add requires to product summaries",
+        "add initial invariant goals"
+      ],
+      "forbidden_effects": [
+        "remove product summaries",
+        "remove product cases",
+        "shift step-context guards into later ticks without a semantic argument",
+        "depend on backend options"
+      ]
+    },
+    {
+      "name": "product_reachability_obligations",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/verification/product_reachability.ml",
+        "lib/domain/verification/product_reachability.mli"
+      ],
+      "rocq_role": "Adds preservation obligations for syntactically unreachable product destinations. This is not pruning: the pass emits obligations such as guard => false, so it belongs to the reference proof story until replaced by a more general certified reachability invariant.",
+      "allowed_effects": [
+        "add reachability preservation ensures"
+      ],
+      "forbidden_effects": [
+        "delete product states",
+        "delete product steps",
+        "delete outgoing obligations from a source state",
+        "turn graph reachability into an unproved backend assumption"
+      ]
+    },
+    {
+      "name": "post_ensures",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/verification/post.ml",
+        "lib/domain/verification/post.mli",
+        "lib/domain/verification/product_characteristics.ml",
+        "lib/domain/verification/product_characteristics.mli"
+      ],
+      "rocq_role": "Generates destination obligations: safe successor disjunctions, destination invariants, guarded destination invariants, and product-characteristic preservation facts. These facts define the proof obligations for progression/correction.",
+      "allowed_effects": [
+        "add ensures to product summaries"
+      ],
+      "forbidden_effects": [
+        "remove safe or unsafe cases",
+        "weaken destination obligations for backend convenience",
+        "depend on backend options"
+      ]
+    },
+    {
+      "name": "temporal_lowering",
+      "classification": "reference_normalization",
+      "paths": [
+        "lib/domain/verification/temporal_lower.ml",
+        "lib/domain/verification/temporal_lower.mli",
+        "lib/domain/core/pre_k_layout.ml",
+        "lib/domain/core/pre_k_layout.mli",
+        "lib/domain/core/pre_k_lowering.ml",
+        "lib/domain/core/pre_k_lowering.mli"
+      ],
+      "rocq_role": "Materializes the temporal layout and rewrites pre/pre_k occurrences into explicit temporal bindings. This normalization is part of the formal exchange view, not a backend optimization.",
+      "allowed_effects": [
+        "compute temporal_layout",
+        "rewrite summary formulas through temporal bindings",
+        "rewrite product-case guards through temporal bindings"
+      ],
+      "forbidden_effects": [
+        "change product topology",
+        "drop obligations",
+        "introduce backend-specific names"
+      ]
+    },
+    {
+      "name": "formula_sharing",
+      "classification": "obligation_preserving_optimization",
+      "paths": [
+        "lib/domain/verification/formula_sharing.ml"
+      ],
+      "rocq_role": "No semantic role. This pass only reuses physically equal formula representatives for structurally equal top-level formulas.",
+      "allowed_effects": [
+        "replace a formula by a structurally equal representative",
+        "preserve formula metadata shape except for physical identity"
+      ],
+      "forbidden_effects": [
+        "simplify formulas logically",
+        "drop formulas",
+        "introduce or remove obligations",
+        "affect the serialized reference-kernel meaning"
+      ]
+    },
+    {
+      "name": "proof_kernel_export",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/proof_export"
+      ],
+      "rocq_role": "Versioned exchange data for synchronization with Rocq."
+    },
+    {
+      "name": "runtime_orchestration",
+      "classification": "backend",
+      "paths": [
+        "lib/adapters/out/runtime"
+      ],
+      "rocq_role": "Wiring, options, dumps, instrumentation, and proof-running are outside the Rocq kernel boundary."
+    },
+    {
+      "name": "why3_backend",
+      "classification": "backend",
+      "paths": [
+        "lib/adapters/out/provers/why3"
+      ],
+      "rocq_role": "Backend projection and external proof discharge; not the semantic source of obligations."
+    }
+  ]
+}

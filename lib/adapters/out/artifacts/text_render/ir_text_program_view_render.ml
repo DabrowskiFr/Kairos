@@ -23,6 +23,8 @@ let indent_str (n : int) : string = String.make (2 * max 0 n) ' '
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with
   | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Pretty.string_of_expr e ^ ";" ]
+  | SAssert formula ->
+      [ indent_str indent_level ^ "assert " ^ Pretty.string_of_fo formula ^ ";" ]
   | SSkip -> [ indent_str indent_level ^ "skip;" ]
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SIf (c, t, e) ->
@@ -30,6 +32,24 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) t
       @ [ indent_str indent_level ^ "else" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) e
+      @ [ indent_str indent_level ^ "end;" ]
+  | SWhile (c, invariants, variant, body) ->
+      [ indent_str indent_level ^ "while " ^ Pretty.string_of_expr c ]
+      @ List.map
+          (fun invariant ->
+            indent_str (indent_level + 1) ^ "invariant: "
+            ^ Pretty.string_of_fo invariant ^ ";")
+          invariants
+      @
+      (match variant with
+      | None -> []
+      | Some variant ->
+          [
+            indent_str (indent_level + 1) ^ "variant: "
+            ^ Pretty.string_of_expr variant ^ ";";
+          ])
+      @ [ indent_str indent_level ^ "do" ]
+      @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) body
       @ [ indent_str indent_level ^ "end;" ]
   | SMatch (e, branches, dflt) ->
       [ indent_str indent_level ^ "match " ^ Pretty.string_of_expr e ^ " with" ]

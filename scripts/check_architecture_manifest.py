@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Lightweight architecture manifest checks for Kairos.
-
-This script validates high-level repository invariants used by CI to ensure
-that recent architectural refactors stay in place.
-"""
+"""Check that the documented Kairos architecture matches the current layout."""
 
 from __future__ import annotations
 
@@ -17,14 +13,14 @@ def fail(msg: str) -> None:
 
 
 def require_path(repo: Path, rel: str) -> None:
-    p = repo / rel
-    if not p.exists():
+    path = repo / rel
+    if not path.exists():
         fail(f"missing required path: {rel}")
 
 
 def forbid_path(repo: Path, rel: str) -> None:
-    p = repo / rel
-    if p.exists():
+    path = repo / rel
+    if path.exists():
         fail(f"forbidden legacy path still present: {rel}")
 
 
@@ -32,35 +28,52 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
     required = [
-        "lib/domain/foundation/core_syntax",
-        "lib/domain/verification/ir/types/ir.ml",
-        "lib/domain/verification/ir/types/ir.mli",
-        "lib/domain/verification/ir/temporal_support/pre_k_layout.ml",
-        "lib/domain/verification/ir/temporal_support/pre_k_lowering.ml",
-        "lib/application/ports",
-        "lib/application/usecases",
-        "lib/application/verification_flow",
+        "lib/domain/core",
+        "lib/domain/verification",
+        "lib/domain/proof_export",
+        "lib/application",
+        "lib/composition",
+        "lib/adapters/in/kairos_lang",
         "lib/adapters/in/lsp_protocol",
-        "lib/adapters/out/services",
         "lib/adapters/out/runtime",
-        "lib/adapters/out/runtime/orchestration",
+        "lib/adapters/out/provers/why3",
+        "lib/adapters/out/artifacts",
+        "lib/adapters/out/external",
+        "docs/architecture/README.md",
+        "docs/architecture/arc42/01-context.md",
+        "docs/architecture/arc42/03-solution-strategy.md",
+        "docs/architecture/arc42/04-building-blocks.md",
+        "docs/architecture/arc42/05-runtime-view.md",
+        "docs/architecture/arc42/08-crosscutting-concepts.md",
+        "docs/architecture/arc42/11-risks.md",
+        "docs/architecture/conformance/architecture-fitness-functions.md",
+        "docs/architecture/conformance/reference-boundary.md",
+        "docs/architecture/decisions/ADR-0001-reference-kernel-boundary.md",
+        "docs/architecture/decisions/ADR-0002-remove-kobj-artifact.md",
+        "docs/architecture/decisions/ADR-0003-rocq-sync-contract.md",
+        "docs/architecture/decisions/ADR-0004-prove-mode-is-minimal.md",
+        "docs/architecture/decisions/ADR-0005-backend-optimizations-after-reference.md",
+        "docs/architecture/structurizr/workspace.dsl",
+        "docs/reference_pipeline_boundaries.json",
+        "docs/architecture_layer_rules.json",
+        "scripts/check_layer_dependencies.py",
+        "scripts/check_reference_pipeline_boundaries.py",
+        "scripts/check_architecture_fitness.py",
+        "tests/check_reference_stability.sh",
         ".github/workflows/architecture.yml",
     ]
+
     forbidden = [
         "lib/common",
-        "lib/common/ir",
-        "lib/common/logic",
-        "lib/common/temporal_support",
-        "lib/common/core_syntax",
         "lib/frontend",
         "lib/middleend",
         "lib/protocols",
         "lib/pipeline",
         "lib/backends",
-        "lib/external",
-        "lib/artifacts",
         "lib/tools",
-        "lib/tools/services",
+        "lib/adapters/out/kobj",
+        "lib/adapters/out/kobj/kairos_object.ml",
+        "lib/adapters/out/kobj/kairos_object.mli",
     ]
 
     for rel in required:
@@ -68,7 +81,7 @@ def main() -> int:
     for rel in forbidden:
         forbid_path(repo, rel)
 
-    print("[architecture] OK: repository layout manifest is consistent")
+    print("[architecture] OK: architecture manifest matches current layout")
     return 0
 
 

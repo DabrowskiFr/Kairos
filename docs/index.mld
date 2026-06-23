@@ -31,8 +31,11 @@ For temporal proof work, read {!page-temporal_phase_semantics} before
 changing product construction or proof-obligation generation, then use
 {!page-product_proof_pipeline_audit} as a map of the current pipeline. Use
 {!page-pipeline_cost_model} before changing sharing, grouping, or backend
-thresholds. The conservative plan for replacing edge-oriented proof emission
-with a grouped encoding is recorded in {!page-grouped_product_encoding_plan}.
+thresholds. The architectural boundary between the reference verification
+kernel and backend optimizations is fixed in
+{!page-reference_verification_architecture}. The conservative plan for
+replacing edge-oriented proof emission with a grouped encoding is recorded in
+{!page-grouped_product_encoding_plan}.
 
 {1 Guides}
 
@@ -42,6 +45,7 @@ with a grouped encoding is recorded in {!page-grouped_product_encoding_plan}.
 - {!page-artifacts}
 - {!page-backends}
 - {!page-rocq_frontend_boundary}
+- {!page-reference_verification_architecture}
 - {!page-temporal_phase_semantics}
 - {!page-product_proof_pipeline_audit}
 - {!page-pipeline_cost_model}

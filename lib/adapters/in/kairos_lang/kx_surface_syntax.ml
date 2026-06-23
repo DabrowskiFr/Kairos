@@ -138,11 +138,13 @@ type stmt = { sstmt : stmt_desc; sloc : Kx_loc.loc option }
 and stmt_desc =
   | SSAssign of indexed_ref * expr
   | SSIf of expr * stmt list * stmt list
+  | SSWhile of expr * hexpr list * expr option * stmt list
   | SSMatch of expr * (ident * stmt list) list * stmt list
   | SSSkip
   | SSCall of ident * expr list * ident list
   | SSActionCall of ident * ident list
   | SSFor of ident * ident * stmt list
+  | SSForRange of ident * nat_expr * nat_expr * stmt list
 [@@deriving yojson]
 
 type history_expr = { shistory_expr : history_expr_desc; hvloc : Kx_loc.loc option }
@@ -155,6 +157,8 @@ and history_expr_desc =
 type action_decl = {
   action_name : ident;
   action_params : ident list;
+  action_requires : hexpr list;
+  action_ensures : hexpr list;
   action_body : stmt list;
 }
 [@@deriving yojson]

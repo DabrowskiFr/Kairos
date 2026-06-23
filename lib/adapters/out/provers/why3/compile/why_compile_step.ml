@@ -110,6 +110,8 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
     | Why_runtime_view.ActionSkip -> mk_expr (Etuple [])
     | Why_runtime_view.ActionAssign (x, e) ->
         compile_assignment x (compile_expr env e)
+    | Why_runtime_view.ActionAssert formula ->
+        mk_expr (Eassert (Expr.Assert, compile_local_fo_formula_term env formula))
     | Why_runtime_view.ActionIf (c, tbr, fbr) ->
         let cond = compile_expr env c in
         begin
@@ -131,6 +133,21 @@ let rec compile_seq (env : env) (sticky_asserts : Ptree.term list)
               in
               mk_expr (Eif (cond, compile_seq env sticky_asserts tbr, else_branch))
         end
+    | Why_runtime_view.ActionWhile (cond, invariants, variant, body) ->
+        let invariants =
+          List.map (compile_local_fo_formula_term env) invariants
+        in
+        let variant =
+          match variant with
+          | None -> []
+          | Some term -> [ (compile_term env term, None) ]
+        in
+        mk_expr
+          (Ewhile
+             ( compile_expr env cond,
+               invariants,
+               variant,
+               compile_seq env sticky_asserts body ))
     | Why_runtime_view.ActionMatch (e, branches, default) ->
         let scrut = compile_expr env e in
         let branches =

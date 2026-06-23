@@ -1,0 +1,42 @@
+digraph {
+  compound=true
+  graph [fontname="Arial", rankdir=LR, ranksep=1.0, nodesep=1.0]
+  node [fontname="Arial", shape=box, margin="0.4,0.3"]
+  edge [fontname="Arial"]
+  label=<<br /><font point-size="34">Component View: Kairos - Reference verification kernel</font>>
+
+  subgraph cluster_7 {
+    margin=25
+    label=<<font point-size="24"><br />Kairos</font><br /><font point-size="19">[Software System]</font>>
+    labelloc=b
+    color="#444444"
+    fontcolor="#444444"
+    fillcolor="#444444"
+
+    subgraph cluster_13 {
+      margin=25
+      label=<<font point-size="24"><br />Reference verification kernel</font><br /><font point-size="19">[Container: OCaml]</font>>
+      labelloc=b
+      color="#444444"
+      fontcolor="#444444"
+      fillcolor="#444444"
+
+      14 [id=14,shape=rect, label=<<font point-size="34">Product construction</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Builds product states, product<br />steps, and product summaries<br />from program plus automata.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      15 [id=15,shape=rect, label=<<font point-size="34">Reference passes</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Runs Pre,<br />Product_reachability, and Post<br />to shape<br />correction/progression<br />obligations.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      16 [id=16,shape=rect, label=<<font point-size="34">Temporal<br />normalization</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Lowers pre/pre_k through<br />explicit temporal layout.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      17 [id=17,shape=rect, label=<<font point-size="34">Formula sharing</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Shares structurally equal<br />formulas without changing<br />obligations.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+    }
+
+    18 [id=18,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    21 [id=21,shape=rect, label=<<font point-size="34">Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Coordinates prepared programs,<br />supplied automata, snapshots,<br />outputs, and proof execution.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
+  }
+
+  21 -> 18 [id=40, label=<<font point-size="24">Builds kernel exchange<br />artifacts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  14 -> 15 [id=62, label=<<font point-size="24">Produces product summaries</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  15 -> 16 [id=63, label=<<font point-size="24">Produces obligation-shaped<br />IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  16 -> 17 [id=64, label=<<font point-size="24">Produces temporally<br />explicit formulas</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  17 -> 18 [id=66, label=<<font point-size="24">Provides exchange-ready<br />reference view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  21 -> 14 [id=74, label=<<font point-size="24">Supplies automata to<br />reference product</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  21 -> 15 [id=78, label=<<font point-size="24">Builds instrumented IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+
+}

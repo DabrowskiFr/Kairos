@@ -1,0 +1,16 @@
+(library
+ (name kairos_runtime_core)
+ (wrapped false)
+ (modules
+  runtime_snapshot
+  runtime_ir_merge
+  result_utils
+  instrumentation_info_helpers
+  instrumentation_info_builder
+  contract_partition
+  pipeline_build)
+ (libraries
+  kairos_application
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_external_timing))

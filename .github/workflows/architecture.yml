@@ -16,7 +16,9 @@ jobs:
         run: python3 scripts/check_architecture_manifest.py
       - name: Verify layer dependency rules
         run: python3 scripts/check_layer_dependencies.py
-      - name: Verify Rocq axiom guard
-        run: python3 scripts/check_rocq_axiom_guard.py
+      - name: Verify reference pipeline boundary
+        run: python3 scripts/check_reference_pipeline_boundaries.py
+      - name: Verify architecture fitness functions
+        run: python3 scripts/check_architecture_fitness.py
       - name: Verify Why backend guardrail
         run: python3 scripts/check_why_backend_guardrail.py

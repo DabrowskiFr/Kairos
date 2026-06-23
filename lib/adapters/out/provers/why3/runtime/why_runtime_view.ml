@@ -47,7 +47,9 @@ type port_view = {
 
 type runtime_action_view =
   | ActionAssign of ident * expr
+  | ActionAssert of hexpr
   | ActionIf of expr * runtime_action_view list * runtime_action_view list
+  | ActionWhile of expr * hexpr list * expr option * runtime_action_view list
   | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
 
@@ -147,6 +149,29 @@ let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t
     (fun acc (f : Abs.summary_formula) -> vars_of_hexpr acc f.logic)
     StringSet.empty formulas
 
+let rec vars_of_stmt (acc : StringSet.t) (s : stmt) : StringSet.t =
+  match s.stmt with
+  | SAssign (_name, expr) -> vars_of_expr acc expr
+  | SAssert formula -> vars_of_hexpr acc formula
+  | SIf (cond, then_branch, else_branch) ->
+      let acc = vars_of_expr acc cond in
+      let acc = List.fold_left vars_of_stmt acc then_branch in
+      List.fold_left vars_of_stmt acc else_branch
+  | SWhile (cond, invariants, variant, body) ->
+      let acc = vars_of_expr acc cond in
+      let acc = List.fold_left vars_of_hexpr acc invariants in
+      let acc = Option.fold ~none:acc ~some:(fun e -> vars_of_expr acc e) variant in
+      List.fold_left vars_of_stmt acc body
+  | SMatch (scrutinee, branches, default_branch) ->
+      let acc = vars_of_expr acc scrutinee in
+      let acc =
+        List.fold_left
+          (fun acc (_ctor, body) -> List.fold_left vars_of_stmt acc body)
+          acc branches
+      in
+      List.fold_left vars_of_stmt acc default_branch
+  | SSkip | SCall _ -> acc
+
 let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
   match f.hexpr with
   | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
@@ -176,6 +201,7 @@ let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * Strin
         in
         (Some s, needed_before)
       else (None, needed_after)
+  | SAssert formula -> (Some s, vars_of_hexpr needed_after formula)
   | SIf (cond, then_branch, else_branch) ->
       let then_branch', then_needed = slice_stmts needed_after then_branch in
       let else_branch', else_needed = slice_stmts needed_after else_branch in
@@ -185,6 +211,7 @@ let rec slice_stmt (needed_after : StringSet.t) (s : stmt) : stmt option * Strin
           StringSet.union then_needed else_needed |> fun acc -> vars_of_expr acc cond
         in
         (Some { s with stmt = SIf (cond, then_branch', else_branch') }, needed_before)
+  | SWhile _ -> (Some s, vars_of_stmt needed_after s)
   | SMatch (scrutinee, branches, default_branch) ->
       let sliced_branches, branch_needed =
         List.fold_right
@@ -221,7 +248,7 @@ and slice_stmts (needed_after : StringSet.t) (stmts : stmt list) : stmt list * S
 
 let slice_body_for_formulas (body : stmt list) (formulas : Abs.summary_formula list) : stmt list =
   let needed = vars_of_summary_formulas formulas in
-  if StringSet.is_empty needed then [] else fst (slice_stmts needed body)
+  fst (slice_stmts needed body)
 
 let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
   let rec go acc (e : expr) =
@@ -246,10 +273,20 @@ let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
 let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
   match s.stmt with
   | SAssign (_, e) -> collect_ctor_expr acc e
+  | SAssert formula -> collect_ctor_hexpr acc formula
   | SIf (c, tbr, fbr) ->
       let acc = collect_ctor_expr acc c in
       let acc = List.fold_left collect_ctor_stmt acc tbr in
       List.fold_left collect_ctor_stmt acc fbr
+  | SWhile (c, invariants, variant, body) ->
+      let acc = collect_ctor_expr acc c in
+      let acc = List.fold_left collect_ctor_hexpr acc invariants in
+      let acc =
+        match variant with
+        | None -> acc
+        | Some variant -> collect_ctor_expr acc variant
+      in
+      List.fold_left collect_ctor_stmt acc body
   | SMatch (e, branches, def) ->
       let acc = collect_ctor_expr acc e in
       let acc =
@@ -265,8 +302,11 @@ let rec actions_of_stmts (stmts : Core_syntax.stmt list) : runtime_action_view l
 and action_of_stmt (s : Core_syntax.stmt) : runtime_action_view =
   match s.stmt with
   | SAssign (name, expr) -> ActionAssign (name, expr)
+  | SAssert formula -> ActionAssert formula
   | SIf (cond, then_branch, else_branch) ->
       ActionIf (cond, actions_of_stmts then_branch, actions_of_stmts else_branch)
+  | SWhile (cond, invariants, variant, body) ->
+      ActionWhile (cond, invariants, variant, actions_of_stmts body)
   | SMatch (scrutinee, branches, default_branch) ->
       let branches =
         List.map (fun (ctor, body) -> (ctor, actions_of_stmts body)) branches
@@ -390,6 +430,7 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
     runtime_action_view list * (ident * known_value) list =
   match action with
   | ActionSkip -> ([ ActionSkip ], known)
+  | ActionAssert formula -> ([ ActionAssert formula ], known)
   | ActionAssign (x, e) ->
       let e' = simplify_expr known e in
       let known' =
@@ -417,6 +458,23 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
             let else_actions, _ = simplify_actions known else_actions in
             ([ ActionIf (cond', then_actions, else_actions) ], known)
       end
+  | ActionWhile (cond, invariants, variant, body) ->
+      let assigned = assigned_vars_of_actions body in
+      let known_for_loop =
+        List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
+      in
+      let cond' = simplify_expr known_for_loop cond in
+      begin
+        match cond'.expr with
+        | ELitBool false -> ([ ActionSkip ], known)
+        | _ ->
+            let variant' = Option.map (simplify_expr known_for_loop) variant in
+            let body', _ = simplify_actions known_for_loop body in
+            let known_after =
+              List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
+            in
+            ([ ActionWhile (cond', invariants, variant', body') ], known_after)
+      end
   | ActionMatch (scrutinee, branches, default_actions) ->
       let scrutinee' = simplify_expr known scrutinee in
       let branches =
@@ -428,6 +486,27 @@ and simplify_action (known : (ident * known_value) list) (action : runtime_actio
       in
       let default_actions, _ = simplify_actions known default_actions in
       ([ ActionMatch (scrutinee', branches, default_actions) ], known)
+
+and assigned_vars_of_action (action : runtime_action_view) : StringSet.t =
+  match action with
+  | ActionAssign (x, _) -> StringSet.singleton x
+  | ActionAssert _ | ActionSkip -> StringSet.empty
+  | ActionIf (_, then_actions, else_actions) ->
+      StringSet.union
+        (assigned_vars_of_actions then_actions)
+        (assigned_vars_of_actions else_actions)
+  | ActionWhile (_, _, _, body) -> assigned_vars_of_actions body
+  | ActionMatch (_, branches, default_actions) ->
+      List.fold_left
+        (fun acc (_ctor, body) ->
+          StringSet.union acc (assigned_vars_of_actions body))
+        (assigned_vars_of_actions default_actions)
+        branches
+
+and assigned_vars_of_actions (actions : runtime_action_view list) : StringSet.t =
+  List.fold_left
+    (fun acc action -> StringSet.union acc (assigned_vars_of_action action))
+    StringSet.empty actions
 
 let action_blocks_of_transition ~(simplify_runtime_actions : bool) (t : Abs.transition) :
     action_block_view list =

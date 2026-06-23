@@ -30,28 +30,12 @@ val obligations_pass :
   Lsp_protocol.obligations_pass_request ->
   (Lsp_protocol.obligations_outputs, string) result
 
-val kobj_summary :
-  Lsp_protocol.kobj_summary_request ->
-  (string, string) result
-
-val kobj_clauses :
-  Lsp_protocol.kobj_summary_request ->
-  (string, string) result
-
-val kobj_product :
-  Lsp_protocol.kobj_summary_request ->
-  (string, string) result
-
-val kobj_contracts :
-  Lsp_protocol.kobj_summary_request ->
-  (string, string) result
-
 val normalized_program :
-  Lsp_protocol.kobj_summary_request ->
+  Lsp_protocol.text_dump_request ->
   (string, string) result
 
 val ir_pretty_dump :
-  Lsp_protocol.kobj_summary_request ->
+  Lsp_protocol.text_dump_request ->
   (string, string) result
 
 val dot_png_from_text :

@@ -1,0 +1,20 @@
+(library
+ (name kairos_why3_expr)
+ (wrapped false)
+ (modules why_compile_expr)
+ (libraries
+  kairos_domain_core
+  why3))
+
+(library
+ (name kairos_why3_compile)
+ (wrapped false)
+ (modules why_compile why_compile_step)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_why3_runtime_view
+  kairos_why3_expr
+  kairos_why3_contracts
+  kairos_external_timing
+  why3))

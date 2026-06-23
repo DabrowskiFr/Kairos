@@ -18,7 +18,8 @@
 
 (** Proof-kernel exchange data model.
 
-    This module defines all serializable structures exported in [.kobj]:
+    This module defines the serializable proof-kernel structures used for
+    diagnostics and future Rocq synchronization:
     product states/steps, generated clauses, relational clauses, proof-step
     summaries and exported node summaries. *)
 

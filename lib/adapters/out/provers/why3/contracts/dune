@@ -1,0 +1,10 @@
+(library
+ (name kairos_why3_contracts)
+ (wrapped false)
+ (modules why_contracts)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_why3_runtime_view
+  kairos_why3_expr
+  why3))

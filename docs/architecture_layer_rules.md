@@ -9,7 +9,8 @@ This document is the human-readable companion of
 - `verification`: merged domain verification (`domain_verification`) with automata + IR passes
 - `application`: use-cases and application-level flow types/ports (`application`)
 - `composition`: composition root wiring ports to concrete adapters (`composition`)
-- `adapters_out`: concrete outgoing adapters (runtime, kobj, Why3 backend, renderers)
+- `adapters_out`: concrete outgoing adapters (runtime core/automata/proof/
+  diagnostics libraries, Why3 backend, renderers)
 - `proof_export`: merged proof-kernel export domain (`domain_proof_export`)
 - `adapters_in`: language and protocol ingress adapters (`input_lang`, `lsp_protocol`, `lsp_app`)
 - `external`: external tool adapters (Spot/Why3/Z3/Graphviz/timing)

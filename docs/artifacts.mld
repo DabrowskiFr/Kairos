@@ -4,7 +4,6 @@ The artifacts layer renders and exports data produced by the middle-end:
 
 - IR and canonical renderings;
 - graph dumps (automata/product/canonical);
-- `.kobj` import/export helpers;
 - diagnostics and helper outputs.
 
 {1 Scope}

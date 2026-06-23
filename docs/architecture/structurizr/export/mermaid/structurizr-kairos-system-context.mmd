@@ -1,0 +1,29 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Kairos"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Kairos developer</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Develops Kairos programs,<br />runs proofs, inspects<br />artifacts, and keeps the Rocq<br />formalization aligned.</div>"]
+    style 1 fill:#164e63,stroke:#0f3645,color:#ffffff
+    2["<div style='font-weight: bold'>Rocq formalization</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Formal model of the<br />correction-critical<br />verification kernel.</div>"]
+    style 2 fill:#0f766e,stroke:#0a524d,color:#ffffff
+    3["<div style='font-weight: bold'>Spot</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External tool used to<br />construct temporal-property<br />automata.</div>"]
+    style 3 fill:#374151,stroke:#262d38,color:#ffffff
+    4["<div style='font-weight: bold'>Why3</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External VC generation and<br />proof-task infrastructure.</div>"]
+    style 4 fill:#374151,stroke:#262d38,color:#ffffff
+    5["<div style='font-weight: bold'>Z3</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External SMT solver used<br />through Why3 and selected<br />internal experiments.</div>"]
+    style 5 fill:#374151,stroke:#262d38,color:#ffffff
+    6["<div style='font-weight: bold'>Graphviz</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External renderer for graph<br />artifacts.</div>"]
+    style 6 fill:#374151,stroke:#262d38,color:#ffffff
+    7["<div style='font-weight: bold'>Kairos</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Deductive verification<br />pipeline for synchronous<br />imperative programs.</div>"]
+    style 7 fill:#0f766e,stroke:#0a524d,color:#ffffff
+
+    1-. "<div>Runs checks, dumps, and<br />proofs</div><div style='font-size: 70%'></div>" .->7
+    7-. "<div>Builds property automata</div><div style='font-size: 70%'></div>" .->3
+    7-. "<div>Builds and proves Why3 tasks</div><div style='font-size: 70%'></div>" .->4
+    7-. "<div>Runs selected SMT checks</div><div style='font-size: 70%'></div>" .->5
+    7-. "<div>Renders graphs</div><div style='font-size: 70%'></div>" .->6
+    2-. "<div>Synchronizes with versioned<br />kernel exchange format</div><div style='font-size: 70%'></div>" .->7
+
+  end

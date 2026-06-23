@@ -16,26 +16,43 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+type snapshot = Runtime_snapshot.pipeline_snapshot
+let ( let* ) = Result.bind
+
 module Snapshot = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let build_snapshot ~collect_instrumentation_info ~collect_ir_metrics
       ~proof_encoding ~proof_optimizations ~frontend =
-    Pipeline_build.build_snapshot_from_frontend ~proof_encoding ~proof_optimizations
-      ~collect_instrumentation_info ~collect_ir_metrics ~frontend
+    let* prepared =
+      Pipeline_build.prepare_program_from_frontend ~proof_optimizations
+        ~frontend
+    in
+    let* produced_automata =
+      Runtime_automata_source.produce_with_spot prepared.reference_program
+    in
+    let supplied_automata : Pipeline_build.supplied_automata =
+      {
+        automata = produced_automata.automata;
+        automata_info = produced_automata.automata_info;
+      }
+    in
+    Pipeline_build.build_snapshot_from_supplied_automata ~proof_encoding
+      ~proof_optimizations ~collect_instrumentation_info ~collect_ir_metrics
+      ~prepared ~supplied_automata
 end
 
 module Outputs = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let build_outputs = Pipeline_outputs.build_outputs
 end
 
-let explicit_product_optimizations (snapshot : Runtime_snapshot.pipeline_snapshot) =
+let explicit_product_optimizations (snapshot : snapshot) =
   match snapshot.proof_encoding with
   | Pipeline_types.Explicit_product -> snapshot.proof_optimizations
 
-let instrumentation_from_snapshot ~generate_png ~(snapshot : Runtime_snapshot.pipeline_snapshot) =
+let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
   match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
   | Error msg -> Error (Pipeline_types.Flow_error msg)
   | Ok artifacts ->
@@ -44,7 +61,7 @@ let instrumentation_from_snapshot ~generate_png ~(snapshot : Runtime_snapshot.pi
            ~artifacts)
 
 module Why_text = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let render_why_text ~(snapshot : snapshot) : string =
     let instrumentation =
@@ -78,7 +95,7 @@ module Why_text = struct
 end
 
 module Cost_report = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let cost_report ~input_file ~(snapshot : snapshot) :
       (Pipeline_types.cost_report_outputs, Pipeline_types.error) result =
@@ -99,7 +116,7 @@ module Cost_report = struct
 end
 
 module Obligations = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let obligations ~(snapshot : snapshot) : Pipeline_types.obligations_outputs =
     let instrumentation =
@@ -123,16 +140,16 @@ module Obligations = struct
 end
 
 module Ir_render = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let normalized_program ~(snapshot : snapshot) : string =
-    Ir_text_program_view_render.render_program ~source_program:(Some snapshot.asts.automata_generation)
+    Ir_text_program_view_render.render_program ~source_program:(Some snapshot.asts.reference_program)
       snapshot.asts.instrumentation
 
   let pretty_program ~(snapshot : snapshot) : string =
     let program : Ir.program_ir = { nodes = snapshot.asts.instrumentation } in
     Ir_text_proof_view_render.render_pretty_program
-      ~source_program:(Some snapshot.asts.automata_generation)
+      ~source_program:(Some snapshot.asts.reference_program)
       program
 end
 
@@ -263,7 +280,7 @@ module Timing = struct
 end
 
 module Proof_events = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type nonrec snapshot = snapshot
 
   let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel ~(snapshot : snapshot)
       ~(vc_ids_ordered : int list) ~on_goal_done : Application_ports.goal_result list =
@@ -303,19 +320,3 @@ module Proof_events = struct
     in
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b) !finished
 end
-
-let compile_object_from_snapshot ~input_file ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
-    (Kairos_object.t, Pipeline_types.error) result =
-  match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
-  | Error msg -> Error (Pipeline_types.Flow_error msg)
-  | Ok artifacts ->
-      let parse_info =
-        Option.value snapshot.infos.parse ~default:Flow_info.empty_parse_info
-      in
-      Kairos_object.build ~source_path:input_file
-        ~source_hash:parse_info.text_hash
-        ~imports:snapshot.asts.imports
-        ~program:snapshot.asts.verification_model
-        ~runtime_program:snapshot.asts.automata_generation
-        ~kernel_ir_nodes:artifacts.kernel_ir_nodes
-      |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)

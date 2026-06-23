@@ -1,0 +1,75 @@
+graph LR
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Container View: Kairos"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Kairos developer</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Develops Kairos programs,<br />runs proofs, inspects<br />artifacts, and keeps the Rocq<br />formalization aligned.</div>"]
+    style 1 fill:#164e63,stroke:#0f3645,color:#ffffff
+    2["<div style='font-weight: bold'>Rocq formalization</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Formal model of the<br />correction-critical<br />verification kernel.</div>"]
+    style 2 fill:#0f766e,stroke:#0a524d,color:#ffffff
+    3["<div style='font-weight: bold'>Spot</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External tool used to<br />construct temporal-property<br />automata.</div>"]
+    style 3 fill:#374151,stroke:#262d38,color:#ffffff
+    4["<div style='font-weight: bold'>Why3</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External VC generation and<br />proof-task infrastructure.</div>"]
+    style 4 fill:#374151,stroke:#262d38,color:#ffffff
+    5["<div style='font-weight: bold'>Z3</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External SMT solver used<br />through Why3 and selected<br />internal experiments.</div>"]
+    style 5 fill:#374151,stroke:#262d38,color:#ffffff
+    6["<div style='font-weight: bold'>Graphviz</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External renderer for graph<br />artifacts.</div>"]
+    style 6 fill:#374151,stroke:#262d38,color:#ffffff
+
+    subgraph 7 ["Kairos"]
+      style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
+
+      10["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
+      style 10 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+      11["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
+      style 11 fill:#075985,stroke:#043e5d,color:#ffffff
+      12["<div style='font-weight: bold'>Domain core</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula<br />utilities.</div>"]
+      style 12 fill:#166534,stroke:#0f4624,color:#ffffff
+      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product summaries and<br />reference proof obligations<br />from the core model plus<br />supplied automata.</div>"]
+      style 13 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
+      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
+      style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
+      27["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
+      style 27 fill:#be123c,stroke:#850c2a,color:#ffffff
+      28["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]
+      style 28 fill:#be123c,stroke:#850c2a,color:#ffffff
+      29["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
+      style 29 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      8["<div style='font-weight: bold'>CLI</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Cmdliner]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point for<br />checking, dumping, and<br />proving Kairos programs.</div>"]
+      style 8 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+      9["<div style='font-weight: bold'>LSP server</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / LSP]</div><div style='font-size: 80%; margin-top:10px'>Editor-facing protocol server<br />exposing frontend, proof, and<br />artifact services.</div>"]
+      style 9 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+    end
+
+    1-. "<div>Runs checks, dumps, and<br />proofs</div><div style='font-size: 70%'></div>" .->8
+    1-. "<div>Uses editor services</div><div style='font-size: 70%'></div>" .->9
+    8-. "<div>Invokes use-cases</div><div style='font-size: 70%'></div>" .->11
+    9-. "<div>Invokes use-cases</div><div style='font-size: 70%'></div>" .->11
+    11-. "<div>Requests parsing and<br />elaboration</div><div style='font-size: 70%'></div>" .->10
+    11-. "<div>Builds snapshots and outputs<br />through ports</div><div style='font-size: 70%'></div>" .->21
+    10-. "<div>Produces Verification_model</div><div style='font-size: 70%'></div>" .->12
+    21-. "<div>Consumes frontend input</div><div style='font-size: 70%'></div>" .->10
+    21-. "<div>Builds the reference product<br />and instrumented IR</div><div style='font-size: 70%'></div>" .->13
+    21-. "<div>Builds kernel exchange<br />artifacts</div><div style='font-size: 70%'></div>" .->18
+    21-. "<div>Builds human-facing outputs</div><div style='font-size: 70%'></div>" .->28
+    21-. "<div>Requests Why3 proof<br />projection and execution</div><div style='font-size: 70%'></div>" .->27
+    21-. "<div>Requests automata production,<br />graph rendering, timing, and<br />proof services</div><div style='font-size: 70%'></div>" .->29
+    13-. "<div>Uses core syntax, IR, and<br />temporal layout</div><div style='font-size: 70%'></div>" .->12
+    18-. "<div>Serializes core formulas and<br />signatures</div><div style='font-size: 70%'></div>" .->12
+    18-. "<div>Uses product and automata<br />analysis</div><div style='font-size: 70%'></div>" .->13
+    27-. "<div>Compiles formulas,<br />statements, and types</div><div style='font-size: 70%'></div>" .->12
+    27-. "<div>Consumes product summaries</div><div style='font-size: 70%'></div>" .->13
+    27-. "<div>Calls Why3 services</div><div style='font-size: 70%'></div>" .->29
+    28-. "<div>Renders product and automata<br />analyses</div><div style='font-size: 70%'></div>" .->13
+    28-. "<div>Uses Graphviz rendering</div><div style='font-size: 70%'></div>" .->29
+    29-. "<div>Builds property automata</div><div style='font-size: 70%'></div>" .->3
+    29-. "<div>Builds and proves Why3 tasks</div><div style='font-size: 70%'></div>" .->4
+    29-. "<div>Runs selected SMT checks</div><div style='font-size: 70%'></div>" .->5
+    29-. "<div>Renders graphs</div><div style='font-size: 70%'></div>" .->6
+    2-. "<div>Synchronizes with versioned<br />kernel exchange format</div><div style='font-size: 70%'></div>" .->18
+    13-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->18
+
+  end

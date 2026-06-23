@@ -1,0 +1,132 @@
+digraph KairosModuleFlow {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    pad="0.25",
+    nodesep="0.45",
+    ranksep="0.65",
+    fontname="Helvetica",
+    labelloc="t",
+    label="Kairos module flow: files and responsibilities"
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Helvetica",
+    fontsize=11,
+    margin="0.10,0.07",
+    color="#1f2937"
+  ];
+
+  edge [
+    fontname="Helvetica",
+    fontsize=9,
+    color="#374151",
+    arrowsize=0.75
+  ];
+
+  cli [
+    label="bin/cli/kairos.ml\nparse CLI options\nchoose dump/prove action",
+    fillcolor="#ede9fe"
+  ];
+
+  usecases [
+    label="Verification_flow_usecases\napplication flow\nparse -> snapshot -> outputs",
+    fillcolor="#dbeafe"
+  ];
+
+  wiring [
+    label="Kairos_usecase_wiring\nconnect ports to adapters",
+    fillcolor="#dbeafe"
+  ];
+
+  frontend [
+    label="Kairos_frontend\nread file\nKx_parse_api + Kairos_to_model",
+    fillcolor="#ede9fe"
+  ];
+
+  surface [
+    label="Kx_* frontend modules\nlexer/parser/surface AST/elaboration",
+    fillcolor="#ede9fe"
+  ];
+
+  model [
+    label="Verification_model\nCore_syntax\ncore program model",
+    fillcolor="#dcfce7",
+    penwidth=2
+  ];
+
+  snapshot [
+    label="kairos_runtime_core\nPipeline_build\nbuild Runtime_snapshot",
+    fillcolor="#fed7aa"
+  ];
+
+  partition [
+    label="Contract_partition\nproof-shaping before automata",
+    fillcolor="#fde68a"
+  ];
+
+  automata [
+    label="kairos_runtime_automata\nRuntime_automata_source\nSpot-backed supplied automata",
+    fillcolor="#e5e7eb"
+  ];
+
+  reference [
+    label="Orchestration.build_reference_product\nFrom_model / Product_build\nprogram x automata",
+    fillcolor="#bbf7d0",
+    penwidth=3
+  ];
+
+  passes [
+    label="Pre -> Product_reachability -> Post\n-> Temporal_lower -> Formula_sharing\nobligation pipeline",
+    fillcolor="#86efac",
+    penwidth=3
+  ];
+
+  snapshot_data [
+    label="Runtime_snapshot.ast_flow\nverification_model\nruntime_model\nautomata\nsummaries\ninstrumentation",
+    fillcolor="#fed7aa"
+  ];
+
+  proof_export [
+    label="kairos_runtime_diagnostics\nPipeline_artifact_bundle\nProof_kernel_pass",
+    fillcolor="#4ade80",
+    penwidth=3
+  ];
+
+  why3 [
+    label="kairos_runtime_proof + kairos_why3\nWhy_runtime_view\nWhy_compile / Proof_runner",
+    fillcolor="#fecdd3"
+  ];
+
+  outputs [
+    label="kairos_verification_runtime facade\nPipeline_outputs / Output_mapper",
+    fillcolor="#fed7aa"
+  ];
+
+  external [
+    label="External adapters\nSpot / Why3 / Z3 / Graphviz / timing",
+    fillcolor="#e5e7eb"
+  ];
+
+  cli -> usecases;
+  usecases -> wiring;
+  wiring -> frontend;
+  frontend -> surface;
+  surface -> model;
+  usecases -> snapshot;
+  snapshot -> partition;
+  partition -> automata;
+  automata -> external;
+  partition -> reference;
+  automata -> reference;
+  reference -> passes;
+  passes -> snapshot_data;
+  snapshot_data -> proof_export [label="non-prove diagnostics"];
+  snapshot_data -> why3 [label="prove / why dumps"];
+  why3 -> external;
+  snapshot_data -> outputs;
+  proof_export -> outputs [label="artifact modes"];
+  why3 -> outputs;
+}

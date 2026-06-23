@@ -1,12 +1,11 @@
 (executable
  (name kairos)
  (public_name kairos)
- (modules kairos)
+ (modules cli_types cli_pipeline_service cli_output cli_runtime kairos)
 (libraries
   kairos_application
   kairos_composition
   kairos_input_lang
-  kairos_kobj
   bos
   fpath
   cmdliner))

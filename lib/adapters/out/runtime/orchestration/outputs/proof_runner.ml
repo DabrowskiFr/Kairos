@@ -30,6 +30,23 @@ type run_output = {
   proof_traces : Pipeline_types.proof_trace list;
 }
 
+let join_blocks_with_spans ~sep blocks =
+  let b = Buffer.create 4096 in
+  let spans = ref [] in
+  let offset = ref 0 in
+  List.iteri
+    (fun i s ->
+      if i > 0 then (
+        Buffer.add_string b sep;
+        offset := !offset + String.length sep);
+      let start_offset = !offset in
+      Buffer.add_string b s;
+      offset := !offset + String.length s;
+      spans :=
+        { Pipeline_types.start_offset = start_offset; end_offset = !offset } :: !spans)
+    blocks;
+  (Buffer.contents b, List.rev !spans)
+
 let csv_escape field =
   if String.exists (fun c -> c = ',' || c = '"' || c = '\n' || c = '\r') field then
     let b = Buffer.create (String.length field + 8) in
@@ -658,8 +675,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       let vc_text, vc_spans_ordered =
         if cfg.generate_vc_text then
-          Pipeline_outputs_helpers.join_blocks_with_spans
-            ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
+          join_blocks_with_spans ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
         else ("", [])
       in
       let smt_tasks =
@@ -669,8 +685,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       in
       let smt_text, smt_spans_ordered =
         if cfg.generate_smt_text then
-          Pipeline_outputs_helpers.join_blocks_with_spans
-            ~sep:"\n; ---- goal ----\n" smt_tasks
+          join_blocks_with_spans ~sep:"\n; ---- goal ----\n" smt_tasks
         else ("", [])
       in
       let goal_count = List.length normalized_tasks in

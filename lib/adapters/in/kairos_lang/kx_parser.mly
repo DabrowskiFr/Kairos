@@ -170,6 +170,13 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
       mk_stmt_loc start_pos end_pos (SSAssign (target, value)))
     lhs rhs
 
+let range_strings lo hi =
+  if lo > hi then failwith "empty integer range in indexed declaration";
+  let rec loop acc n =
+    if n < lo then acc else loop (string_of_int n :: acc) (n - 1)
+  in
+  loop [] hi
+
 %}
 
 %token TYPE FUNCTION PREDICATE ACTION SPEC DEF HISTORY
@@ -182,7 +189,7 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
 %token LET
 %token IMPORT
 %token INSTANCE INSTANCES CALL
-%token IF THEN ELSE SKIP FOR FORALL EXISTS
+%token IF THEN ELSE SKIP FOR FORALL EXISTS WHILE DO VARIANT
 %token WHEN
 %token MATCH WITH BAR
 %token FROM TO
@@ -552,16 +559,32 @@ decl_name:
       { [($1, Some $3)] }
 
 decl_index_choices:
-  | decl_index_product COMMA decl_index_choices { $1 :: $3 }
+  | decl_index_choice COMMA decl_index_choices { $1 @ $3 }
+  | decl_index_choice { $1 }
+
+decl_index_choice:
   | decl_index_product { [$1] }
+  | INT DOT DOT INT { List.map (fun i -> [i]) (range_strings $1 $4) }
 
 decl_index_product:
-  | IDENT STAR decl_index_product { $1 :: $3 }
-  | IDENT { [$1] }
+  | decl_index_atom STAR decl_index_product { $1 :: $3 }
+  | decl_index_atom { [$1] }
+
+decl_index_atom:
+  | IDENT { $1 }
+  | INT { string_of_int $1 }
 
 ident_list:
   | IDENT COMMA ident_list { $1 :: $3 }
   | IDENT { [$1] }
+
+index_arg_list:
+  | index_arg COMMA index_arg_list { $1 :: $3 }
+  | index_arg { [$1] }
+
+index_arg:
+  | IDENT { $1 }
+  | INT { string_of_int $1 }
 
 alias_decls_opt:
   | /* empty */ { [] }
@@ -602,12 +625,37 @@ action_decls:
   | action_decl { [$1] }
 
 action_decl:
-  | ACTION IDENT LPAREN pred_params_opt RPAREN LBRACE stmt_list_opt RBRACE
+  | ACTION IDENT LPAREN pred_params_opt RPAREN action_contracts_opt LBRACE stmt_list_opt RBRACE
       {
         let () = forbid_reserved_identifier ~context:"action name" $2 in
         List.iter (fun name -> forbid_reserved_identifier ~context:"action parameter" name) $4;
-        { action_name = $2; action_params = $4; action_body = $7 }
+        let requires, ensures = $6 in
+        { action_name = $2; action_params = $4; action_requires = requires;
+          action_ensures = ensures; action_body = $8 }
       }
+
+action_contracts_opt:
+  | /* empty */ { ([], []) }
+  | CONTRACTS action_contracts { $2 }
+
+action_contracts:
+  | action_contract action_contracts
+      {
+        let reqs, enss = $2 in
+        match $1 with
+        | `Requires f -> (f :: reqs, enss)
+        | `Ensures f -> (reqs, f :: enss)
+      }
+  | action_contract
+      {
+        match $1 with
+        | `Requires f -> ([f], [])
+        | `Ensures f -> ([], [f])
+      }
+
+action_contract:
+  | REQUIRES COLON fo_formula SEMI { `Requires $3 }
+  | ENSURES COLON fo_formula SEMI { `Ensures $3 }
 
 state_decls:
   | state_decl COMMA state_decls {
@@ -745,6 +793,8 @@ stmt_item:
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SSActionCall ($1, $3))] }
   | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSFor ($2, $4, $6))] }
+  | FOR IDENT IN nat_expr DOT DOT nat_expr LBRACE stmt_list_opt RBRACE
+      { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 10) (SSForRange ($2, $4, $7, $9))] }
 
 assignment_stmt:
   | indexed_ref_list ASSIGN expr_list
@@ -758,13 +808,36 @@ assignment_stmt:
 
 stmt:
   | IF expr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSIf($2,$4,$6)) }
+  | WHILE expr loop_annotations DO stmt_list_opt END
+      {
+        let invariants, variant = $3 in
+        mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6)
+          (SSWhile ($2, invariants, variant, $5))
+      }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSSkip }
   | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SSCall($2, $4, $8)) }
 
+loop_annotations:
+  | /* empty */ { ([], None) }
+  | loop_annotation loop_annotations
+      {
+        let invs, variant = $2 in
+        match $1 with
+        | `Invariant inv -> (inv :: invs, variant)
+        | `Variant v ->
+            (match variant with
+            | None -> (invs, Some v)
+            | Some _ -> failwith "while loop has more than one variant")
+      }
+
+loop_annotation:
+  | INVARIANT COLON fo_formula SEMI { `Invariant $3 }
+  | VARIANT COLON expr SEMI { `Variant $3 }
+
 indexed_ref:
   | IDENT { scalar_ref $1 }
-  | IDENT LBRACK ident_list RBRACK { indexed_ref $1 $3 }
+  | IDENT LBRACK index_arg_list RBRACK { indexed_ref $1 $3 }
 
 indexed_ref_list:
   | indexed_ref COMMA indexed_ref_list { $1 :: $3 }

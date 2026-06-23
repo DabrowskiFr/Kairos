@@ -1,0 +1,21 @@
+node action_contract_inline(x: int) returns (y: int)
+action assignNonNeg(target, value)
+contracts
+  requires: value >= 0;
+  ensures: target >= 0;
+{
+  target := value;
+}
+
+contracts
+  requires: G(x >= 0);
+  ensures: G(y >= 0);
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      assignNonNeg(y, x);
+    }
+end

@@ -1,0 +1,44 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Dynamic View: Kairos"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 7 ["Kairos"]
+      style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
+
+      11["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
+      style 11 fill:#075985,stroke:#043e5d,color:#ffffff
+      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product summaries and<br />reference proof obligations<br />from the core model plus<br />supplied automata.</div>"]
+      style 13 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
+      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
+      style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
+      28["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]
+      style 28 fill:#be123c,stroke:#850c2a,color:#ffffff
+      29["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
+      style 29 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      8["<div style='font-weight: bold'>CLI</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Cmdliner]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point for<br />checking, dumping, and<br />proving Kairos programs.</div>"]
+      style 8 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+    end
+
+    1["<div style='font-weight: bold'>Kairos developer</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Develops Kairos programs,<br />runs proofs, inspects<br />artifacts, and keeps the Rocq<br />formalization aligned.</div>"]
+    style 1 fill:#164e63,stroke:#0f3645,color:#ffffff
+    3["<div style='font-weight: bold'>Spot</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External tool used to<br />construct temporal-property<br />automata.</div>"]
+    style 3 fill:#374151,stroke:#262d38,color:#ffffff
+    6["<div style='font-weight: bold'>Graphviz</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External renderer for graph<br />artifacts.</div>"]
+    style 6 fill:#374151,stroke:#262d38,color:#ffffff
+
+    1-. "<div>1. requests diagnostic dump</div><div style='font-size: 70%'></div>" .->8
+    8-. "<div>2. invokes dump use-case</div><div style='font-size: 70%'></div>" .->11
+    11-. "<div>3. builds snapshot and<br />artifacts</div><div style='font-size: 70%'></div>" .->21
+    21-. "<div>4. produces supplied automata<br />through Spot adapter</div><div style='font-size: 70%'></div>" .->29
+    29-. "<div>5. builds property automata</div><div style='font-size: 70%'></div>" .->3
+    21-. "<div>6. builds reference product</div><div style='font-size: 70%'></div>" .->13
+    21-. "<div>7. builds proof-kernel<br />diagnostic view</div><div style='font-size: 70%'></div>" .->18
+    21-. "<div>8. renders text/graph outputs</div><div style='font-size: 70%'></div>" .->28
+    28-. "<div>9. uses Graphviz when needed</div><div style='font-size: 70%'></div>" .->29
+    29-. "<div>10. renders graph images</div><div style='font-size: 70%'></div>" .->6
+
+  end

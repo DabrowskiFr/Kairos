@@ -53,12 +53,24 @@ let rec expr_size (e : expr) =
   | EUn (_, inner) -> 1 + expr_size inner
   | EBin (_, a, b) | ECmp (_, a, b) -> 1 + expr_size a + expr_size b
 
+let rec hexpr_size (h : hexpr) =
+  match h.hexpr with
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
+  | HPred (_, args) | HFunCall (_, args) -> 1 + sum_int (List.map hexpr_size args)
+  | HUn (_, inner) -> 1 + hexpr_size inner
+  | HBin (_, a, b) | HCmp (_, a, b) -> 1 + hexpr_size a + hexpr_size b
+
 let rec stmt_size (s : stmt) =
   match s.stmt with
   | SAssign (_, e) -> 1 + expr_size e
+  | SAssert formula -> 1 + hexpr_size formula
   | SIf (guard, then_branch, else_branch) ->
       1 + expr_size guard + sum_int (List.map stmt_size then_branch)
       + sum_int (List.map stmt_size else_branch)
+  | SWhile (guard, invariants, variant, body) ->
+      1 + expr_size guard + sum_int (List.map hexpr_size invariants)
+      + (match variant with None -> 0 | Some variant -> expr_size variant)
+      + sum_int (List.map stmt_size body)
   | SMatch (scrutinee, branches, default_branch) ->
       1 + expr_size scrutinee
       + sum_int
@@ -68,13 +80,6 @@ let rec stmt_size (s : stmt) =
       + sum_int (List.map stmt_size default_branch)
   | SSkip -> 1
   | SCall (_, args, outs) -> 1 + List.length outs + sum_int (List.map expr_size args)
-
-let rec hexpr_size (h : hexpr) =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
-  | HPred (_, args) | HFunCall (_, args) -> 1 + sum_int (List.map hexpr_size args)
-  | HUn (_, inner) -> 1 + hexpr_size inner
-  | HBin (_, a, b) | HCmp (_, a, b) -> 1 + hexpr_size a + hexpr_size b
 
 let rec hexpr_max_pre_depth (h : hexpr) =
   match h.hexpr with
@@ -1016,7 +1021,7 @@ let why3_json why_text ~why_text_s =
     ]
 
 let flow_meta_json snapshot =
-  Pipeline_outputs.flow_meta
+  Pipeline_outputs_helpers.flow_meta
     ~proof_encoding:snapshot.Runtime_snapshot.proof_encoding
     ~proof_optimizations:snapshot.Runtime_snapshot.proof_optimizations
     snapshot.Runtime_snapshot.infos

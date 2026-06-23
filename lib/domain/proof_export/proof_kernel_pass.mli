@@ -20,7 +20,7 @@
 
     This module converts one canonical IR node plus product analysis into:
     - normalized proof-kernel IR;
-    - exported summary payload for [.kobj]. *)
+    - exported summary payload for diagnostics and future Rocq synchronization. *)
 
 open Core_syntax
 

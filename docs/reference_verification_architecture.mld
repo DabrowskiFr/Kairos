@@ -1,0 +1,249 @@
+{0 Reference Verification Architecture}
+
+This page records the intended separation between the semantic verification
+kernel and implementation choices such as sharing, slicing, batching, dumps,
+Why3 emission, SMT calls, and profiling.
+
+The dependency-layer check described in [docs/architecture_layer_rules.md] is
+necessary but not sufficient. It verifies that libraries point in the right
+direction. It does not say which transformations are part of the correctness
+argument and which transformations are only representation or backend
+optimizations.
+
+{1 Architecture Type}
+
+Kairos uses a ports-and-adapters architecture with a layered domain:
+
+- incoming adapters parse and elaborate the source language;
+- the domain core contains the elaborated language and shared IR datatypes;
+- the verification domain consumes supplied automata to construct product proof
+  data;
+- the proof-export domain builds the exchange view used by diagnostics and
+  future Rocq synchronization;
+- outgoing adapters render artifacts or call external tools;
+- the composition layer wires concrete adapters to application use-cases.
+
+This structure should be preserved. The cleanup target is not to replace it,
+but to make the semantic boundary explicit inside it.
+
+{1 Reference Boundary}
+
+The reference verification kernel starts after frontend elaboration and after
+the property automata have been supplied:
+
+{[
+Verification_model.program_model
+  + supplied assumption and guarantee automata
+  -> product states
+  -> product steps
+  -> generated proof-kernel clauses
+  -> relational obligations
+]}
+
+This path must be deterministic and independent from:
+
+- Spot invocation;
+- Why3 or Z3;
+- backend grouping thresholds;
+- textual WhyML size optimizations;
+- worker scheduling;
+- dump generation;
+- profiling counters.
+
+Spot may be used to produce automata, but the reference kernel consumes
+automata as parameters. Rocq should therefore synchronize with the supplied
+automata and the generated kernel obligations, not with Spot itself or with a
+formalization of the LTL-to-automata translation.
+
+{1 Current Pipeline Map}
+
+The current implementation roughly has the following stages:
+
+- surface parsing and elaboration:
+  [Kx_surface_syntax], [Kx_elaborate], [Kx_ast], [Kairos_to_model];
+- core semantic model:
+  [Verification_model], [Core_syntax];
+- automata construction:
+  [Automata_generation] in [kairos_runtime_automata], wired to Spot from
+  runtime orchestration;
+- reference product construction:
+  [Product_build], [Temporal_automata], [From_model],
+  [Orchestration.build_reference_product];
+- proof-kernel export:
+  [Proof_kernel_types], [Proof_kernel_product],
+  [Proof_kernel_generated_clauses], [Proof_kernel_clause_lowering],
+  [Proof_kernel_step_summaries], [Proof_kernel_pass];
+- proof/IR shaping passes:
+  [Pre], [Product_reachability], [Post], [Temporal_lower],
+  [Formula_sharing];
+- runtime/backend orchestration:
+  [Pipeline_build] and [Runtime_snapshot] in [kairos_runtime_core],
+  external automata production in [kairos_runtime_automata], [Proof_runner]
+  in [kairos_runtime_proof], diagnostics in [kairos_runtime_diagnostics],
+  and the public facade in [kairos_verification_runtime];
+- Why3-specific representation and emission:
+  [Why_runtime_view], [Why_compile], [Why_compile_step],
+  [Why_text_render], [Why_pipeline].
+
+The current technical debt is that some stages named as domain passes still
+contain representation or cost decisions, and some backend views perform
+simplifications rather than only projecting data to Why3.
+
+{1 Pass Classification}
+
+Every pass should be classified before it is moved or optimized:
+
+- {b reference}: part of the semantic construction mirrored by Rocq;
+- {b reference_normalization}: deterministic semantic normalization required
+  by the reference view;
+- {b obligation-preserving optimization}: grouping, sharing, slicing, or cuts
+  that must preserve generated obligations;
+- {b backend}: target-specific representation, command invocation, proof
+  result collection, and reporting;
+- {b external}: Spot, Why3, Z3, Graphviz, timing services, and filesystem
+  artifact generation.
+
+The rule is:
+
+{[
+reference output is stable under backend options
+]}
+
+Changing a sharing threshold, worker count, dump option, or Why3 grouping mode
+must not change the canonical product steps or canonical proof-kernel clauses.
+
+{2 Current Classification}
+
+The current pass classification is:
+
+- [Pre] is {b reference}. It adds [propagation_requires], local [requires],
+  assumption/program guard requirements, stability requirements, and initial
+  invariant goals. These facts shape the proof obligations for a product step.
+- [Product_reachability] is {b reference}. Despite its name, it must not be
+  treated as pruning. The current pass adds obligations such as
+  [guard => false] for destinations classified as unreachable by the finite
+  analysis. Until this is replaced by a more general certified reachability
+  invariant, it belongs to the correction story.
+- [Post] is {b reference}. It adds the safe-successor disjunction, destination
+  invariant obligations, guarded destination invariant obligations, and
+  product-characteristic preservation facts.
+- [Temporal_lower] is {b reference_normalization}. It computes the
+  [temporal_layout] and rewrites [pre]/[pre_k] occurrences through explicit
+  temporal bindings. This is a semantic normalization that Rocq must see.
+- [Formula_sharing] is {b obligation-preserving optimization}. It only replaces
+  structurally equal top-level formulas by shared physical representatives.
+  It must not simplify, add, or remove obligations.
+
+The machine-readable version of this classification is
+[docs/reference_pipeline_boundaries.json]. The check
+[scripts/check_reference_pipeline_boundaries.py] rejects missing stages,
+unknown classification names, and stages left as [to_classify].
+
+{1 Rigorous Architecture Modeling}
+
+Architecture should be represented at three complementary levels.
+
+First, use diagrams for orientation, not as the source of truth:
+
+- a C4-style context diagram for users, Kairos, Rocq, Spot, Why3, and Z3;
+- a container/component diagram for frontend, domain core, verification
+  kernel, proof export, runtime orchestration, and backends;
+- a pipeline diagram showing data artifacts and pass boundaries.
+
+Second, keep a versioned manifest as the source of truth for architecture
+classification. The manifest should record:
+
+- stage name;
+- classification vocabulary;
+- owned paths;
+- inputs and outputs;
+- allowed effects;
+- forbidden effects;
+- Rocq synchronization role.
+
+Third, enforce the manifest with scripts. Checks should fail when:
+
+- a reference stage imports or mentions external-tool adapters;
+- a pass remains unclassified;
+- a path in the manifest disappears;
+- backend options affect canonical kernel output;
+- a reference pass starts deleting product cases without an explicit certified
+  reachability argument.
+
+The current regression for the fourth point is
+[tests/check_reference_stability.sh]. It compares the normalized program and
+proof IR dumps produced for the same source program under different
+backend-only options. This test deliberately does not vary source-level or
+proof-shaping options such as public guarantee grouping.
+
+For design history, use short Architecture Decision Records. An ADR should
+record one decision, its alternatives, and the invariant that must survive
+future refactors. The manifest says what the architecture is; ADRs say why it
+became that way.
+
+{1 Rocq Synchronization Contract}
+
+Rocq should track a versioned kernel exchange format. The best current
+candidate is [Proof_kernel_types.node_ir] plus the exported summary payload.
+
+The exchange format should become the contract:
+
+{[
+kernel schema version
+  + normalized reactive program
+  + assumption automaton
+  + guarantee automaton
+  + explicit product states
+  + explicit product steps
+  + generated clauses
+  + relational clauses
+  + temporal layout
+]}
+
+When Rocq evolves, the boundary adapter should evolve with it. Why3 backend
+thresholds and external tool orchestration should not need to be reflected in
+the Rocq development.
+
+{1 Optimization Discipline}
+
+Optimizations should live after the reference kernel, or be marked explicitly
+as normalization with a simple proof obligation.
+
+Acceptable optimization shapes include:
+
+- replacing repeated formulas by definitions;
+- grouping conclusions that already share the same source precondition;
+- introducing explicit local cuts and their proof obligations;
+- choosing a backend-specific representation for already generated facts;
+- scheduling independent obligations in parallel.
+
+The following are not optimizations unless justified by a separate certified
+argument:
+
+- deleting product edges;
+- filtering mixed-phase guards by syntactic contradiction;
+- shifting program guards or assumption guards into later ticks;
+- hiding reachability assumptions in the backend;
+- changing generated product obligations because a backend cannot prove them.
+
+The phase discipline behind these rules is described in
+{!page-temporal_phase_semantics}. The current product-proof status is recorded
+in {!page-product_proof_pipeline_audit}. The performance motivation for
+sharing and grouping is recorded in {!page-pipeline_cost_model}.
+
+{1 Cleanup Plan}
+
+The cleanup should be done in this order:
+
+1. keep the existing layer rules, but add a reference-boundary manifest;
+2. expose a named reference-product entry point in the domain orchestration;
+3. classify every pipeline pass in the manifest before moving code;
+4. make the proof-kernel export the versioned Rocq synchronization point;
+5. move Why3-only simplification/slicing behind explicit backend pass names;
+6. keep profiling and dump decisions out of the reference data path;
+7. add regression checks that canonical kernel output is unchanged by backend
+   options;
+8. only then resume performance work on grouped or shared obligations.
+
+This ordering avoids a large mechanical rewrite while still making the
+correction-critical path visible.

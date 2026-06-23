@@ -1,0 +1,1087 @@
+digraph G {
+  compound=true;
+  "kairos" [shape=diamond, ];
+  "kairos_lsp" [shape=diamond, ];
+  "astring" [style="filled", ];
+  "bos" [style="filled", ];
+  "zip" [style="filled", ];
+  "cmdliner" [style="filled", ];
+  "fmt" [style="filled", ];
+  "fpath" [style="filled", ];
+  "gen" [style="filled", ];
+  "jsonrpc" [style="filled", ];
+  "logs" [style="filled", ];
+  "logs.fmt" [style="filled", ];
+  "lsp" [style="filled", ];
+  "menhirLib" [style="filled", ];
+  "ocaml-compiler-libs.common" [style="filled", ];
+  "ocaml-compiler-libs.shadow" [style="filled", ];
+  "parsexp" [style="filled", ];
+  "ppx_derivers" [style="filled", ];
+  "ppx_deriving.api" [style="filled", ];
+  "ppx_deriving.runtime" [style="filled", ];
+  "ppx_deriving.show" [style="filled", ];
+  "ppx_deriving_yojson" [style="filled", ];
+  "ppx_deriving_yojson.runtime" [style="filled", ];
+  "ppx_yojson_conv_lib" [style="filled", ];
+  "ppxlib" [style="filled", ];
+  "ppxlib.ast" [style="filled", ];
+  "ppxlib.astlib" [style="filled", ];
+  "ppxlib.print_diff" [style="filled", ];
+  "ppxlib.stdppx" [style="filled", ];
+  "ppxlib.traverse_builtins" [style="filled", ];
+  "rresult" [style="filled", ];
+  "sedlex" [style="filled", ];
+  "sedlex.ppx" [style="filled", ];
+  "sedlex.utils" [style="filled", ];
+  "seq" [style="filled", ];
+  "sexplib" [style="filled", ];
+  "sexplib0" [style="filled", ];
+  "stdlib-shims" [style="filled", ];
+  "uutf" [style="filled", ];
+  "why3" [style="filled", ];
+  "yojson" [style="filled", ];
+  "z3" [style="filled", ];
+  "zarith" [style="filled", ];
+  "compiler-libs" [style="filled", ];
+  "compiler-libs.common" [style="filled", ];
+  "dynlink" [style="filled", ];
+  "str" [style="filled", ];
+  "threads" [style="filled", ];
+  "unix" [style="filled", ];
+  "kairos.domain_core";
+  "kairos.domain_proof_export";
+  "kairos.domain_verification";
+  "kairos.external_spot";
+  "kairos.external_timing";
+  "kairos.external_z3";
+  "kairos.lsp_protocol";
+  "kairos_application";
+  "kairos_artifact_graph_render";
+  "kairos_artifact_text_render";
+  "kairos_artifact_why_task_dump";
+  "kairos_composition";
+  "kairos_external_graphviz";
+  "kairos_external_why3";
+  "kairos_input_lang";
+  "kairos_lsp_app";
+  "kairos_runtime_automata";
+  "kairos_runtime_core";
+  "kairos_runtime_diagnostics";
+  "kairos_runtime_outputs";
+  "kairos_runtime_proof";
+  "kairos_verification_runtime";
+  "kairos_why3";
+  "kairos_why3_compile";
+  "kairos_why3_contracts";
+  "kairos_why3_expr";
+  "kairos_why3_render";
+  "kairos_why3_runtime_view";
+  "kairos__Cli_output" [label="Cli_output", shape=box, ];
+  "kairos__Cli_pipeline_service" [label="Cli_pipeline_service", shape=box, ];
+  "kairos__Cli_runtime" [label="Cli_runtime", shape=box, ];
+  "kairos__Cli_types" [label="Cli_types", shape=box, ];
+  "kairos__Kairos" [label="Kairos", shape=box, ];
+  "kairos_lsp__Engine_service" [label="Engine_service", shape=box, ];
+  "kairos_lsp__Kairos_lsp" [label="Kairos_lsp", shape=box, ];
+  "kairos_lsp__Lsp_backend" [label="Lsp_backend", shape=box, ];
+  "kairos_lsp__Lsp_backend_config" [label="Lsp_backend_config", shape=box, ];
+  "kairos_lsp__Lsp_backend_graph" [label="Lsp_backend_graph", shape=box, ];
+  "kairos_lsp__Lsp_backend_usecases" [label="Lsp_backend_usecases",
+                                      shape=box, ];
+  "kairos_lsp__Lsp_call" [label="Lsp_call", shape=box, ];
+  "kairos_lsp__Lsp_call_dispatch" [label="Lsp_call_dispatch", shape=box, ];
+  "kairos_lsp__Lsp_cancel_decode" [label="Lsp_cancel_decode", shape=box, ];
+  "kairos_lsp__Lsp_cancel_handler" [label="Lsp_cancel_handler", shape=box, ];
+  "kairos_lsp__Lsp_cancel_state" [label="Lsp_cancel_state", shape=box, ];
+  "kairos_lsp__Lsp_completion_handler" [label="Lsp_completion_handler",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_completion_view" [label="Lsp_completion_view", shape=box, ];
+  "kairos_lsp__Lsp_definition_handler" [label="Lsp_definition_handler",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_diagnostic_view" [label="Lsp_diagnostic_view", shape=box, ];
+  "kairos_lsp__Lsp_dispatch_guard" [label="Lsp_dispatch_guard", shape=box, ];
+  "kairos_lsp__Lsp_document_diagnostics" [label="Lsp_document_diagnostics",
+                                          shape=box, ];
+  "kairos_lsp__Lsp_document_store" [label="Lsp_document_store", shape=box, ];
+  "kairos_lsp__Lsp_document_symbol_handler" [label="Lsp_document_symbol_handler",
+                                             shape=box, ];
+  "kairos_lsp__Lsp_document_sync_decode" [label="Lsp_document_sync_decode",
+                                          shape=box, ];
+  "kairos_lsp__Lsp_document_sync_handlers" [label="Lsp_document_sync_handlers",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_document_sync_state" [label="Lsp_document_sync_state",
+                                         shape=box, ];
+  "kairos_lsp__Lsp_formatting_handler" [label="Lsp_formatting_handler",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_goal_tree_decode" [label="Lsp_goal_tree_decode",
+                                      shape=box, ];
+  "kairos_lsp__Lsp_goal_tree_final_handler" [label="Lsp_goal_tree_final_handler",
+                                             shape=box, ];
+  "kairos_lsp__Lsp_goal_tree_handlers" [label="Lsp_goal_tree_handlers",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_goal_tree_pending_handler" [label="Lsp_goal_tree_pending_handler",
+                                               shape=box, ];
+  "kairos_lsp__Lsp_goal_tree_view" [label="Lsp_goal_tree_view", shape=box, ];
+  "kairos_lsp__Lsp_graph_decode" [label="Lsp_graph_decode", shape=box, ];
+  "kairos_lsp__Lsp_graph_handler" [label="Lsp_graph_handler", shape=box, ];
+  "kairos_lsp__Lsp_hover_handler" [label="Lsp_hover_handler", shape=box, ];
+  "kairos_lsp__Lsp_hover_view" [label="Lsp_hover_view", shape=box, ];
+  "kairos_lsp__Lsp_initialize_result_view" [label="Lsp_initialize_result_view",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_instrumentation_pass_handler" [label="Lsp_instrumentation_pass_handler",
+                                                  shape=box, ];
+  "kairos_lsp__Lsp_jsonrpc_id" [label="Lsp_jsonrpc_id", shape=box, ];
+  "kairos_lsp__Lsp_kairos_handlers" [label="Lsp_kairos_handlers", shape=box, ];
+  "kairos_lsp__Lsp_kairos_method_dispatch" [label="Lsp_kairos_method_dispatch",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_kairos_method_route" [label="Lsp_kairos_method_route",
+                                         shape=box, ];
+  "kairos_lsp__Lsp_lifecycle_dispatch" [label="Lsp_lifecycle_dispatch",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_lifecycle_handlers" [label="Lsp_lifecycle_handlers",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_lifecycle_method_route" [label="Lsp_lifecycle_method_route",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_lifecycle_state" [label="Lsp_lifecycle_state", shape=box, ];
+  "kairos_lsp__Lsp_location_view" [label="Lsp_location_view", shape=box, ];
+  "kairos_lsp__Lsp_method_dispatch" [label="Lsp_method_dispatch", shape=box, ];
+  "kairos_lsp__Lsp_method_route" [label="Lsp_method_route", shape=box, ];
+  "kairos_lsp__Lsp_obligations_pass_handler" [label="Lsp_obligations_pass_handler",
+                                              shape=box, ];
+  "kairos_lsp__Lsp_outline_decode" [label="Lsp_outline_decode", shape=box, ];
+  "kairos_lsp__Lsp_outline_handler" [label="Lsp_outline_handler", shape=box, ];
+  "kairos_lsp__Lsp_outline_request_handler" [label="Lsp_outline_request_handler",
+                                             shape=box, ];
+  "kairos_lsp__Lsp_outline_texts" [label="Lsp_outline_texts", shape=box, ];
+  "kairos_lsp__Lsp_outline_view" [label="Lsp_outline_view", shape=box, ];
+  "kairos_lsp__Lsp_packet_decode" [label="Lsp_packet_decode", shape=box, ];
+  "kairos_lsp__Lsp_packet_handler" [label="Lsp_packet_handler", shape=box, ];
+  "kairos_lsp__Lsp_packet_trace" [label="Lsp_packet_trace", shape=box, ];
+  "kairos_lsp__Lsp_pipeline_pass_decode" [label="Lsp_pipeline_pass_decode",
+                                          shape=box, ];
+  "kairos_lsp__Lsp_pipeline_pass_handlers" [label="Lsp_pipeline_pass_handlers",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_pipeline_pass_input" [label="Lsp_pipeline_pass_input",
+                                         shape=box, ];
+  "kairos_lsp__Lsp_protocol_view" [label="Lsp_protocol_view", shape=box, ];
+  "kairos_lsp__Lsp_references_handler" [label="Lsp_references_handler",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_request_helpers" [label="Lsp_request_helpers", shape=box, ];
+  "kairos_lsp__Lsp_request_id_view" [label="Lsp_request_id_view", shape=box, ];
+  "kairos_lsp__Lsp_run_backend" [label="Lsp_run_backend", shape=box, ];
+  "kairos_lsp__Lsp_run_config" [label="Lsp_run_config", shape=box, ];
+  "kairos_lsp__Lsp_run_context" [label="Lsp_run_context", shape=box, ];
+  "kairos_lsp__Lsp_run_execution_handler" [label="Lsp_run_execution_handler",
+                                           shape=box, ];
+  "kairos_lsp__Lsp_run_handler" [label="Lsp_run_handler", shape=box, ];
+  "kairos_lsp__Lsp_run_method_dispatch" [label="Lsp_run_method_dispatch",
+                                         shape=box, ];
+  "kairos_lsp__Lsp_run_method_route" [label="Lsp_run_method_route",
+                                      shape=box, ];
+  "kairos_lsp__Lsp_run_notifications" [label="Lsp_run_notifications",
+                                       shape=box, ];
+  "kairos_lsp__Lsp_run_preflight" [label="Lsp_run_preflight", shape=box, ];
+  "kairos_lsp__Lsp_run_progress" [label="Lsp_run_progress", shape=box, ];
+  "kairos_lsp__Lsp_run_response" [label="Lsp_run_response", shape=box, ];
+  "kairos_lsp__Lsp_server_loop" [label="Lsp_server_loop", shape=box, ];
+  "kairos_lsp__Lsp_server_state" [label="Lsp_server_state", shape=box, ];
+  "kairos_lsp__Lsp_server_state_gate" [label="Lsp_server_state_gate",
+                                       shape=box, ];
+  "kairos_lsp__Lsp_standard_method_dispatch" [label="Lsp_standard_method_dispatch",
+                                              shape=box, ];
+  "kairos_lsp__Lsp_standard_method_route" [label="Lsp_standard_method_route",
+                                           shape=box, ];
+  "kairos_lsp__Lsp_symbol_context" [label="Lsp_symbol_context", shape=box, ];
+  "kairos_lsp__Lsp_symbol_handlers" [label="Lsp_symbol_handlers", shape=box, ];
+  "kairos_lsp__Lsp_symbol_view" [label="Lsp_symbol_view", shape=box, ];
+  "kairos_lsp__Lsp_text_document_handlers" [label="Lsp_text_document_handlers",
+                                            shape=box, ];
+  "kairos_lsp__Lsp_text_document_request" [label="Lsp_text_document_request",
+                                           shape=box, ];
+  "kairos_lsp__Lsp_text_edit_view" [label="Lsp_text_edit_view", shape=box, ];
+  "kairos_lsp__Lsp_trace" [label="Lsp_trace", shape=box, ];
+  "kairos_lsp__Lsp_transport" [label="Lsp_transport", shape=box, ];
+  "kairos_lsp__Lsp_transport_io" [label="Lsp_transport_io", shape=box, ];
+  "kairos_lsp__Lsp_transport_messages" [label="Lsp_transport_messages",
+                                        shape=box, ];
+  "kairos_lsp__Lsp_why_pass_handler" [label="Lsp_why_pass_handler",
+                                      shape=box, ];
+  "kairos_lsp__Lsp_work_done_transport" [label="Lsp_work_done_transport",
+                                         shape=box, ];
+  "kairos_lsp__Lsp_workspace_symbol_handler" [label="Lsp_workspace_symbol_handler",
+                                              shape=box, ];
+  "kairos.domain_core__Core_fo_simplifier" [label="Core_fo_simplifier",
+                                            shape=box, ];
+  "kairos.domain_core__Core_syntax" [label="Core_syntax", shape=box, ];
+  "kairos.domain_core__Core_syntax_builders" [label="Core_syntax_builders",
+                                              shape=box, ];
+  "kairos.domain_core__Ir" [label="Ir", shape=box, ];
+  "kairos.domain_core__Ir_formula" [label="Ir_formula", shape=box, ];
+  "kairos.domain_core__Ir_shared_types" [label="Ir_shared_types", shape=box, ];
+  "kairos.domain_core__Ir_transition" [label="Ir_transition", shape=box, ];
+  "kairos.domain_core__Loc" [label="Loc", shape=box, ];
+  "kairos.domain_core__Log" [label="Log", shape=box, ];
+  "kairos.domain_core__Pre_k_layout" [label="Pre_k_layout", shape=box, ];
+  "kairos.domain_core__Pre_k_lowering" [label="Pre_k_lowering", shape=box, ];
+  "kairos.domain_core__Pretty" [label="Pretty", shape=box, ];
+  "kairos.domain_core__Verification_model" [label="Verification_model",
+                                            shape=box, ];
+  "kairos.domain_proof_export__Ir_json_codec" [label="Ir_json_codec",
+                                               shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_clause_lowering" [label="Proof_kernel_clause_lowering",
+                                                              shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_generated_clauses" [label="Proof_kernel_generated_clauses",
+                                                                shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_naming" [label="Proof_kernel_naming",
+                                                     shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_pass" [label="Proof_kernel_pass",
+                                                   shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_product" [label="Proof_kernel_product",
+                                                      shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_step_summaries" [label="Proof_kernel_step_summaries",
+                                                             shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_types" [label="Proof_kernel_types",
+                                                    shape=box, ];
+  "kairos.domain_verification__Automaton_types" [label="Automaton_types",
+                                                 shape=box, ];
+  "kairos.domain_verification__Fo_contradiction" [label="Fo_contradiction",
+                                                  shape=box, ];
+  "kairos.domain_verification__Fo_time" [label="Fo_time", shape=box, ];
+  "kairos.domain_verification__Formula_sharing" [label="Formula_sharing",
+                                                 shape=box, ];
+  "kairos.domain_verification__From_model" [label="From_model", shape=box, ];
+  "kairos.domain_verification__Ir_fact_family_metrics" [label="Ir_fact_family_metrics",
+                                                        shape=box, ];
+  "kairos.domain_verification__Ltl_valuation" [label="Ltl_valuation",
+                                               shape=box, ];
+  "kairos.domain_verification__Orchestration" [label="Orchestration",
+                                               shape=box, ];
+  "kairos.domain_verification__Post" [label="Post", shape=box, ];
+  "kairos.domain_verification__Pre" [label="Pre", shape=box, ];
+  "kairos.domain_verification__Product_build" [label="Product_build",
+                                               shape=box, ];
+  "kairos.domain_verification__Product_characteristics" [label="Product_characteristics",
+                                                         shape=box, ];
+  "kairos.domain_verification__Product_reachability" [label="Product_reachability",
+                                                      shape=box, ];
+  "kairos.domain_verification__Product_types" [label="Product_types",
+                                               shape=box, ];
+  "kairos.domain_verification__Temporal_automata" [label="Temporal_automata",
+                                                   shape=box, ];
+  "kairos.domain_verification__Temporal_lower" [label="Temporal_lower",
+                                                shape=box, ];
+  "kairos.external_spot__Automaton_spot" [label="Automaton_spot", shape=box, ];
+  "kairos.external_spot__Spot_automaton_builder" [label="Spot_automaton_builder",
+                                                  shape=box, ];
+  "kairos.external_timing__External_timing" [label="External_timing",
+                                             shape=box, ];
+  "kairos.external_z3__Fo_z3_solver" [label="Fo_z3_solver", shape=box, ];
+  "kairos.lsp_protocol__Lsp_protocol" [label="Lsp_protocol", shape=box, ];
+  "kairos_application__Application_observability" [label="Application_observability",
+                                                   shape=box, ];
+  "kairos_application__Application_ports" [label="Application_ports",
+                                           shape=box, ];
+  "kairos_application__Flow_info" [label="Flow_info", shape=box, ];
+  "kairos_application__Pipeline_types" [label="Pipeline_types", shape=box, ];
+  "kairos_application__Proof_diagnostics" [label="Proof_diagnostics",
+                                           shape=box, ];
+  "kairos_application__Verification_flow_usecases" [label="Verification_flow_usecases",
+                                                    shape=box, ];
+  "kairos_artifact_graph_render__Automata_graph_render" [label="Automata_graph_render",
+                                                         shape=box, ];
+  "kairos_artifact_text_render__Ir_text_program_view_render" [label="Ir_text_program_view_render",
+                                                              shape=box, ];
+  "kairos_artifact_text_render__Ir_text_proof_view_render" [label="Ir_text_proof_view_render",
+                                                            shape=box, ];
+  "kairos_artifact_text_render__Proof_status_render" [label="Proof_status_render",
+                                                      shape=box, ];
+  "kairos_artifact_why_task_dump__Why_task_dump_render" [label="Why_task_dump_render",
+                                                         shape=box, ];
+  "kairos_composition__Kairos_usecase_wiring" [label="Kairos_usecase_wiring",
+                                               shape=box, ];
+  "kairos_external_graphviz__Graphviz_render" [label="Graphviz_render",
+                                               shape=box, ];
+  "kairos_external_why3__Why_contract_prove" [label="Why_contract_prove",
+                                              shape=box, ];
+  "kairos_external_why3__Why_native_probe" [label="Why_native_probe",
+                                            shape=box, ];
+  "kairos_external_why3__Why_task_support" [label="Why_task_support",
+                                            shape=box, ];
+  "kairos_input_lang__Kairos_frontend" [label="Kairos_frontend", shape=box, ];
+  "kairos_input_lang__Kairos_to_model" [label="Kairos_to_model", shape=box, ];
+  "kairos_input_lang__Kx_ast" [label="Kx_ast", shape=box, ];
+  "kairos_input_lang__Kx_ast_builders" [label="Kx_ast_builders", shape=box, ];
+  "kairos_input_lang__Kx_core_syntax" [label="Kx_core_syntax", shape=box, ];
+  "kairos_input_lang__Kx_core_syntax_builders" [label="Kx_core_syntax_builders",
+                                                shape=box, ];
+  "kairos_input_lang__Kx_elaborate" [label="Kx_elaborate", shape=box, ];
+  "kairos_input_lang__Kx_lexer" [label="Kx_lexer", shape=box, ];
+  "kairos_input_lang__Kx_loc" [label="Kx_loc", shape=box, ];
+  "kairos_input_lang__Kx_parse_api" [label="Kx_parse_api", shape=box, ];
+  "kairos_input_lang__Kx_parser" [label="Kx_parser", shape=box, ];
+  "kairos_input_lang__Kx_surface_syntax" [label="Kx_surface_syntax",
+                                          shape=box, ];
+  "kairos_lsp_app__Lsp_app" [label="Lsp_app", shape=box, ];
+  "kairos_lsp_app__Lsp_completion" [label="Lsp_completion", shape=box, ];
+  "kairos_lsp_app__Lsp_diagnostics" [label="Lsp_diagnostics", shape=box, ];
+  "kairos_lsp_app__Lsp_formatting" [label="Lsp_formatting", shape=box, ];
+  "kairos_lsp_app__Lsp_goal_tree" [label="Lsp_goal_tree", shape=box, ];
+  "kairos_lsp_app__Lsp_outline" [label="Lsp_outline", shape=box, ];
+  "kairos_lsp_app__Lsp_pipeline_mapper" [label="Lsp_pipeline_mapper",
+                                         shape=box, ];
+  "kairos_lsp_app__Lsp_request_decode" [label="Lsp_request_decode",
+                                        shape=box, ];
+  "kairos_lsp_app__Lsp_services" [label="Lsp_services", shape=box, ];
+  "kairos_lsp_app__Lsp_symbols" [label="Lsp_symbols", shape=box, ];
+  "kairos_runtime_automata__Automata_generation" [label="Automata_generation",
+                                                  shape=box, ];
+  "kairos_runtime_automata__Runtime_automata_source" [label="Runtime_automata_source",
+                                                      shape=box, ];
+  "kairos_runtime_core__Contract_partition" [label="Contract_partition",
+                                             shape=box, ];
+  "kairos_runtime_core__Instrumentation_info_builder" [label="Instrumentation_info_builder",
+                                                       shape=box, ];
+  "kairos_runtime_core__Instrumentation_info_helpers" [label="Instrumentation_info_helpers",
+                                                       shape=box, ];
+  "kairos_runtime_core__Pipeline_build" [label="Pipeline_build", shape=box, ];
+  "kairos_runtime_core__Result_utils" [label="Result_utils", shape=box, ];
+  "kairos_runtime_core__Runtime_ir_merge" [label="Runtime_ir_merge",
+                                           shape=box, ];
+  "kairos_runtime_core__Runtime_snapshot" [label="Runtime_snapshot",
+                                           shape=box, ];
+  "kairos_runtime_diagnostics__Pipeline_artifact_bundle" [label="Pipeline_artifact_bundle",
+                                                          shape=box, ];
+  "kairos_runtime_diagnostics__Pipeline_cost_report" [label="Pipeline_cost_report",
+                                                      shape=box, ];
+  "kairos_runtime_diagnostics__Pipeline_outputs_helpers" [label="Pipeline_outputs_helpers",
+                                                          shape=box, ];
+  "kairos_runtime_outputs__Instrumentation_artifacts" [label="Instrumentation_artifacts",
+                                                       shape=box, ];
+  "kairos_runtime_outputs__Output_mapper" [label="Output_mapper", shape=box, ];
+  "kairos_runtime_outputs__Pipeline_outputs" [label="Pipeline_outputs",
+                                              shape=box, ];
+  "kairos_runtime_proof__Proof_runner" [label="Proof_runner", shape=box, ];
+  "kairos_verification_runtime__Verification_runtime_adapters" [label="Verification_runtime_adapters",
+                                                                shape=box, ];
+  "kairos_why3__Why_pipeline" [label="Why_pipeline", shape=box, ];
+  "kairos_why3_compile__Why_compile" [label="Why_compile", shape=box, ];
+  "kairos_why3_compile__Why_compile_step" [label="Why_compile_step",
+                                           shape=box, ];
+  "kairos_why3_contracts__Why_contracts" [label="Why_contracts", shape=box, ];
+  "kairos_why3_expr__Why_compile_expr" [label="Why_compile_expr", shape=box, ];
+  "kairos_why3_render__Why_text_render" [label="Why_text_render", shape=box, ];
+  "kairos_why3_runtime_view__Why_runtime_view" [label="Why_runtime_view",
+                                                shape=box, ];
+  "local_package__" [label="", height=0.000000, width=0.000000,
+                     fixedsize=true, style="invis", ];
+
+  subgraph cluster_105050893 { label="ppx_derivers 1.2.1"; "ppx_derivers";
+     };
+  subgraph cluster_129913994 { label="(compiler)"; "unix";"threads";"str";"dynlink";"compiler-libs.common";"compiler-libs";
+     };
+  subgraph cluster_131039579 { label="uutf 1.0.4"; "uutf";
+     };
+  subgraph cluster_292359173 { label="astring 0.8.5"; "astring";
+     };
+  subgraph cluster_308410071 { label="ppx_yojson_conv_lib v0.17.0"; "ppx_yojson_conv_lib";
+     };
+  subgraph cluster_315429389 { label="ppxlib 0.38.0"; "ppxlib.traverse_builtins";"ppxlib.stdppx";"ppxlib.print_diff";"ppxlib.astlib";"ppxlib.ast";"ppxlib";
+     };
+  subgraph cluster_362371254 { label="menhirLib 20260209"; "menhirLib";
+     };
+  subgraph cluster_438175530 { label="fpath 0.7.3"; "fpath";
+     };
+  subgraph cluster_458205106 { label="seq base"; "seq";
+     };
+  subgraph cluster_487364673 { label="ocaml-compiler-libs v0.17.0"; "ocaml-compiler-libs.shadow";"ocaml-compiler-libs.common";
+     };
+  subgraph cluster_488651423 { label="lsp 1.26.0"; "lsp";
+     };
+  subgraph cluster_496627304 { label="sedlex 3.7"; "sedlex.utils";"sedlex.ppx";"sedlex";
+     };
+  subgraph cluster_540379587 { label="gen 1.1"; "gen";
+     };
+  subgraph cluster_580413441 { label="jsonrpc 1.26.0"; "jsonrpc";
+     };
+  subgraph cluster_58692198 { label="zarith 1.14"; "zarith";
+     };
+  subgraph cluster_591990434 { label="bos 0.2.1"; "bos";
+     };
+  subgraph cluster_641104511 { label="cmdliner 1.3.0"; "cmdliner";
+     };
+  subgraph cluster_677165808 { label="logs 0.10.0"; "logs.fmt";"logs";
+     };
+  subgraph cluster_692678782 { label="fmt 0.11.0"; "fmt";
+     };
+  subgraph cluster_696859669 { label="sexplib0 v0.17.0"; "sexplib0";
+     };
+  subgraph cluster_71904234 { label="why3 1.8.2"; "why3";
+     };
+  subgraph cluster_747883779 { label="stdlib-shims 0.3.0"; "stdlib-shims";
+     };
+  subgraph cluster_750503062 { label="sexplib v0.17.0"; "sexplib";
+     };
+  subgraph cluster_759172555 { label="ppx_deriving 6.1.1"; "ppx_deriving.show";"ppx_deriving.runtime";"ppx_deriving.api";
+     };
+  subgraph cluster_766362805 { label="rresult 0.7.0"; "rresult";
+     };
+  subgraph cluster_830443160 { label="parsexp v0.17.0"; "parsexp";
+     };
+  subgraph cluster_873377015 { label="z3 4.15.2"; "z3";
+     };
+  subgraph cluster_899750038 { label="ppx_deriving_yojson 3.10.0"; "ppx_deriving_yojson.runtime";"ppx_deriving_yojson";
+     };
+  subgraph cluster_902546259 { label="(local)"; "local_package__";
+    subgraph cluster_1000965417 { label="kairos_input_lang"; "kairos_input_lang__Kx_surface_syntax";"kairos_input_lang__Kx_parser";"kairos_input_lang__Kx_parse_api";"kairos_input_lang__Kx_loc";"kairos_input_lang__Kx_lexer";"kairos_input_lang__Kx_elaborate";"kairos_input_lang__Kx_core_syntax_builders";"kairos_input_lang__Kx_core_syntax";"kairos_input_lang__Kx_ast_builders";"kairos_input_lang__Kx_ast";"kairos_input_lang__Kairos_to_model";"kairos_input_lang__Kairos_frontend";"kairos_input_lang";
+       };
+    subgraph cluster_1023048449 { label="kairos.external_timing"; "kairos.external_timing__External_timing";"kairos.external_timing";
+       };
+    subgraph cluster_167272116 { label="kairos_why3_contracts"; "kairos_why3_contracts__Why_contracts";"kairos_why3_contracts";
+       };
+    subgraph cluster_231918951 { label="kairos_why3_expr"; "kairos_why3_expr__Why_compile_expr";"kairos_why3_expr";
+       };
+    subgraph cluster_235123767 { label="kairos_runtime_proof"; "kairos_runtime_proof__Proof_runner";"kairos_runtime_proof";
+       };
+    subgraph cluster_241769867 { label="kairos_why3"; "kairos_why3__Why_pipeline";"kairos_why3";
+       };
+    subgraph cluster_244587595 { label="kairos_lsp"; "kairos_lsp__Lsp_workspace_symbol_handler";"kairos_lsp__Lsp_work_done_transport";"kairos_lsp__Lsp_why_pass_handler";"kairos_lsp__Lsp_transport_messages";"kairos_lsp__Lsp_transport_io";"kairos_lsp__Lsp_transport";"kairos_lsp__Lsp_trace";"kairos_lsp__Lsp_text_edit_view";"kairos_lsp__Lsp_text_document_request";"kairos_lsp__Lsp_text_document_handlers";"kairos_lsp__Lsp_symbol_view";"kairos_lsp__Lsp_symbol_handlers";"kairos_lsp__Lsp_symbol_context";"kairos_lsp__Lsp_standard_method_route";"kairos_lsp__Lsp_standard_method_dispatch";"kairos_lsp__Lsp_server_state_gate";"kairos_lsp__Lsp_server_state";"kairos_lsp__Lsp_server_loop";"kairos_lsp__Lsp_run_response";"kairos_lsp__Lsp_run_progress";"kairos_lsp__Lsp_run_preflight";"kairos_lsp__Lsp_run_notifications";"kairos_lsp__Lsp_run_method_route";"kairos_lsp__Lsp_run_method_dispatch";"kairos_lsp__Lsp_run_handler";"kairos_lsp__Lsp_run_execution_handler";"kairos_lsp__Lsp_run_context";"kairos_lsp__Lsp_run_config";"kairos_lsp__Lsp_run_backend";"kairos_lsp__Lsp_request_id_view";"kairos_lsp__Lsp_request_helpers";"kairos_lsp__Lsp_references_handler";"kairos_lsp__Lsp_protocol_view";"kairos_lsp__Lsp_pipeline_pass_input";"kairos_lsp__Lsp_pipeline_pass_handlers";"kairos_lsp__Lsp_pipeline_pass_decode";"kairos_lsp__Lsp_packet_trace";"kairos_lsp__Lsp_packet_handler";"kairos_lsp__Lsp_packet_decode";"kairos_lsp__Lsp_outline_view";"kairos_lsp__Lsp_outline_texts";"kairos_lsp__Lsp_outline_request_handler";"kairos_lsp__Lsp_outline_handler";"kairos_lsp__Lsp_outline_decode";"kairos_lsp__Lsp_obligations_pass_handler";"kairos_lsp__Lsp_method_route";"kairos_lsp__Lsp_method_dispatch";"kairos_lsp__Lsp_location_view";"kairos_lsp__Lsp_lifecycle_state";"kairos_lsp__Lsp_lifecycle_method_route";"kairos_lsp__Lsp_lifecycle_handlers";"kairos_lsp__Lsp_lifecycle_dispatch";"kairos_lsp__Lsp_kairos_method_route";"kairos_lsp__Lsp_kairos_method_dispatch";"kairos_lsp__Lsp_kairos_handlers";"kairos_lsp__Lsp_jsonrpc_id";"kairos_lsp__Lsp_instrumentation_pass_handler";"kairos_lsp__Lsp_initialize_result_view";"kairos_lsp__Lsp_hover_view";"kairos_lsp__Lsp_hover_handler";"kairos_lsp__Lsp_graph_handler";"kairos_lsp__Lsp_graph_decode";"kairos_lsp__Lsp_goal_tree_view";"kairos_lsp__Lsp_goal_tree_pending_handler";"kairos_lsp__Lsp_goal_tree_handlers";"kairos_lsp__Lsp_goal_tree_final_handler";"kairos_lsp__Lsp_goal_tree_decode";"kairos_lsp__Lsp_formatting_handler";"kairos_lsp__Lsp_document_sync_state";"kairos_lsp__Lsp_document_sync_handlers";"kairos_lsp__Lsp_document_sync_decode";"kairos_lsp__Lsp_document_symbol_handler";"kairos_lsp__Lsp_document_store";"kairos_lsp__Lsp_document_diagnostics";"kairos_lsp__Lsp_dispatch_guard";"kairos_lsp__Lsp_diagnostic_view";"kairos_lsp__Lsp_definition_handler";"kairos_lsp__Lsp_completion_view";"kairos_lsp__Lsp_completion_handler";"kairos_lsp__Lsp_cancel_state";"kairos_lsp__Lsp_cancel_handler";"kairos_lsp__Lsp_cancel_decode";"kairos_lsp__Lsp_call_dispatch";"kairos_lsp__Lsp_call";"kairos_lsp__Lsp_backend_usecases";"kairos_lsp__Lsp_backend_graph";"kairos_lsp__Lsp_backend_config";"kairos_lsp__Lsp_backend";"kairos_lsp__Kairos_lsp";"kairos_lsp__Engine_service";"kairos_lsp";
+       };
+    subgraph cluster_259949867 { label="kairos.external_z3"; "kairos.external_z3__Fo_z3_solver";"kairos.external_z3";
+       };
+    subgraph cluster_26443279 { label="kairos_why3_runtime_view"; "kairos_why3_runtime_view__Why_runtime_view";"kairos_why3_runtime_view";
+       };
+    subgraph cluster_308459985 { label="kairos_external_graphviz"; "kairos_external_graphviz__Graphviz_render";"kairos_external_graphviz";
+       };
+    subgraph cluster_34334489 { label="kairos_verification_runtime"; "kairos_verification_runtime__Verification_runtime_adapters";"kairos_verification_runtime";
+       };
+    subgraph cluster_443058325 { label="kairos_application"; "kairos_application__Verification_flow_usecases";"kairos_application__Proof_diagnostics";"kairos_application__Pipeline_types";"kairos_application__Flow_info";"kairos_application__Application_ports";"kairos_application__Application_observability";"kairos_application";
+       };
+    subgraph cluster_457740223 { label="kairos_runtime_diagnostics"; "kairos_runtime_diagnostics__Pipeline_outputs_helpers";"kairos_runtime_diagnostics__Pipeline_cost_report";"kairos_runtime_diagnostics__Pipeline_artifact_bundle";"kairos_runtime_diagnostics";
+       };
+    subgraph cluster_561703002 { label="kairos_why3_render"; "kairos_why3_render__Why_text_render";"kairos_why3_render";
+       };
+    subgraph cluster_586834900 { label="kairos_artifact_graph_render"; "kairos_artifact_graph_render__Automata_graph_render";"kairos_artifact_graph_render";
+       };
+    subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
+       };
+    subgraph cluster_681484642 { label="kairos"; "kairos__Kairos";"kairos__Cli_types";"kairos__Cli_runtime";"kairos__Cli_pipeline_service";"kairos__Cli_output";"kairos";
+       };
+    subgraph cluster_686269747 { label="kairos.external_spot"; "kairos.external_spot__Spot_automaton_builder";"kairos.external_spot__Automaton_spot";"kairos.external_spot";
+       };
+    subgraph cluster_743759569 { label="kairos_lsp_app"; "kairos_lsp_app__Lsp_symbols";"kairos_lsp_app__Lsp_services";"kairos_lsp_app__Lsp_request_decode";"kairos_lsp_app__Lsp_pipeline_mapper";"kairos_lsp_app__Lsp_outline";"kairos_lsp_app__Lsp_goal_tree";"kairos_lsp_app__Lsp_formatting";"kairos_lsp_app__Lsp_diagnostics";"kairos_lsp_app__Lsp_completion";"kairos_lsp_app__Lsp_app";"kairos_lsp_app";
+       };
+    subgraph cluster_756173789 { label="kairos.lsp_protocol"; "kairos.lsp_protocol__Lsp_protocol";"kairos.lsp_protocol";
+       };
+    subgraph cluster_757729241 { label="kairos.domain_core"; "kairos.domain_core__Verification_model";"kairos.domain_core__Pretty";"kairos.domain_core__Pre_k_lowering";"kairos.domain_core__Pre_k_layout";"kairos.domain_core__Log";"kairos.domain_core__Loc";"kairos.domain_core__Ir_transition";"kairos.domain_core__Ir_shared_types";"kairos.domain_core__Ir_formula";"kairos.domain_core__Ir";"kairos.domain_core__Core_syntax_builders";"kairos.domain_core__Core_syntax";"kairos.domain_core__Core_fo_simplifier";"kairos.domain_core";
+       };
+    subgraph cluster_81314696 { label="kairos_external_why3"; "kairos_external_why3__Why_task_support";"kairos_external_why3__Why_native_probe";"kairos_external_why3__Why_contract_prove";"kairos_external_why3";
+       };
+    subgraph cluster_821673316 { label="kairos.domain_verification"; "kairos.domain_verification__Temporal_lower";"kairos.domain_verification__Temporal_automata";"kairos.domain_verification__Product_types";"kairos.domain_verification__Product_reachability";"kairos.domain_verification__Product_characteristics";"kairos.domain_verification__Product_build";"kairos.domain_verification__Pre";"kairos.domain_verification__Post";"kairos.domain_verification__Orchestration";"kairos.domain_verification__Ltl_valuation";"kairos.domain_verification__Ir_fact_family_metrics";"kairos.domain_verification__From_model";"kairos.domain_verification__Formula_sharing";"kairos.domain_verification__Fo_time";"kairos.domain_verification__Fo_contradiction";"kairos.domain_verification__Automaton_types";"kairos.domain_verification";
+       };
+    subgraph cluster_825363400 { label="kairos_runtime_core"; "kairos_runtime_core__Runtime_snapshot";"kairos_runtime_core__Runtime_ir_merge";"kairos_runtime_core__Result_utils";"kairos_runtime_core__Pipeline_build";"kairos_runtime_core__Instrumentation_info_helpers";"kairos_runtime_core__Instrumentation_info_builder";"kairos_runtime_core__Contract_partition";"kairos_runtime_core";
+       };
+    subgraph cluster_848083113 { label="kairos_artifact_text_render"; "kairos_artifact_text_render__Proof_status_render";"kairos_artifact_text_render__Ir_text_proof_view_render";"kairos_artifact_text_render__Ir_text_program_view_render";"kairos_artifact_text_render";
+       };
+    subgraph cluster_863111970 { label="kairos_composition"; "kairos_composition__Kairos_usecase_wiring";"kairos_composition";
+       };
+    subgraph cluster_899597 { label="kairos_runtime_automata"; "kairos_runtime_automata__Runtime_automata_source";"kairos_runtime_automata__Automata_generation";"kairos_runtime_automata";
+       };
+    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
+       };
+    subgraph cluster_978765347 { label="kairos_artifact_why_task_dump"; "kairos_artifact_why_task_dump__Why_task_dump_render";"kairos_artifact_why_task_dump";
+       };
+    subgraph cluster_993802230 { label="kairos_runtime_outputs"; "kairos_runtime_outputs__Pipeline_outputs";"kairos_runtime_outputs__Output_mapper";"kairos_runtime_outputs__Instrumentation_artifacts";"kairos_runtime_outputs";
+       };
+     };
+  subgraph cluster_916651657 { label="camlzip 1.14"; "zip";
+     };
+  subgraph cluster_959336548 { label="yojson 3.0.0"; "yojson";
+     };
+
+  "kairos" -> "cmdliner" [ltail="cluster_681484642", ];
+  "kairos" -> "kairos_composition" [minlen=2, lhead="cluster_863111970",
+                                    ltail="cluster_681484642", ];
+  "kairos" -> "kairos__Kairos";
+  "kairos_lsp" -> "lsp" [ltail="cluster_244587595", ];
+  "kairos_lsp" -> "kairos_composition" [minlen=2, lhead="cluster_863111970",
+                                        ltail="cluster_244587595", ];
+  "kairos_lsp" -> "kairos_lsp_app" [minlen=2, lhead="cluster_743759569",
+                                    ltail="cluster_244587595", ];
+  "kairos_lsp" -> "kairos_lsp__Kairos_lsp";
+  "bos" -> "fmt";
+  "bos" -> "fpath";
+  "bos" -> "logs";
+  "bos" -> "rresult";
+  "bos" -> "unix";
+  "zip" -> "unix";
+  "fpath" -> "astring";
+  "gen" -> "seq";
+  "jsonrpc" -> "yojson";
+  "logs.fmt" -> "fmt";
+  "logs.fmt" -> "logs";
+  "lsp" -> "jsonrpc";
+  "lsp" -> "ppx_yojson_conv_lib";
+  "lsp" -> "uutf";
+  "ocaml-compiler-libs.common" -> "compiler-libs.common";
+  "parsexp" -> "sexplib0";
+  "ppx_deriving.api" -> "ppxlib";
+  "ppx_deriving.show" -> "ppx_deriving.api";
+  "ppx_deriving_yojson" -> "ppx_deriving.api";
+  "ppx_deriving_yojson.runtime" -> "ppx_deriving.runtime";
+  "ppx_yojson_conv_lib" -> "yojson";
+  "ppxlib" -> "ocaml-compiler-libs.shadow";
+  "ppxlib" -> "ppx_derivers";
+  "ppxlib" -> "ppxlib.ast";
+  "ppxlib" -> "ppxlib.print_diff";
+  "ppxlib" -> "ppxlib.stdppx";
+  "ppxlib" -> "ppxlib.traverse_builtins";
+  "ppxlib.ast" -> "ppxlib.astlib";
+  "ppxlib.ast" -> "stdlib-shims";
+  "ppxlib.astlib" -> "ocaml-compiler-libs.common";
+  "ppxlib.stdppx" -> "sexplib0";
+  "ppxlib.stdppx" -> "stdlib-shims";
+  "sedlex" -> "gen";
+  "sedlex.ppx" -> "ppxlib";
+  "sedlex.ppx" -> "sedlex";
+  "sedlex.ppx" -> "sedlex.utils";
+  "sexplib" -> "parsexp";
+  "why3" -> "zip";
+  "why3" -> "menhirLib";
+  "why3" -> "sexplib";
+  "why3" -> "zarith";
+  "why3" -> "dynlink";
+  "why3" -> "str";
+  "z3" -> "zarith";
+  "z3" -> "threads";
+  "compiler-libs.common" -> "compiler-libs";
+  "threads" -> "unix";
+  "kairos.domain_core" -> "logs.fmt" [ltail="cluster_757729241", ];
+  "kairos.domain_core" -> "ppx_deriving_yojson.runtime" [ltail="cluster_757729241",
+                                                         ];
+  "kairos.domain_core" -> "yojson" [ltail="cluster_757729241", ];
+  "kairos.domain_core" -> "kairos.domain_core__Core_fo_simplifier";
+  "kairos.domain_core" -> "kairos.domain_core__Core_syntax";
+  "kairos.domain_core" -> "kairos.domain_core__Core_syntax_builders";
+  "kairos.domain_core" -> "kairos.domain_core__Ir";
+  "kairos.domain_core" -> "kairos.domain_core__Ir_formula";
+  "kairos.domain_core" -> "kairos.domain_core__Ir_shared_types";
+  "kairos.domain_core" -> "kairos.domain_core__Ir_transition";
+  "kairos.domain_core" -> "kairos.domain_core__Loc";
+  "kairos.domain_core" -> "kairos.domain_core__Log";
+  "kairos.domain_core" -> "kairos.domain_core__Pre_k_layout";
+  "kairos.domain_core" -> "kairos.domain_core__Pre_k_lowering";
+  "kairos.domain_core" -> "kairos.domain_core__Pretty";
+  "kairos.domain_core" -> "kairos.domain_core__Verification_model";
+  "kairos.domain_proof_export" -> "kairos.domain_verification" [minlen=2,
+                                                                lhead="cluster_821673316",
+                                                                ltail="cluster_601961544",
+                                                                ];
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Ir_json_codec";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_clause_lowering";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_generated_clauses";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_naming";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_pass";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_product";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_verification" -> "kairos.domain_core" [minlen=2,
+                                                        lhead="cluster_757729241",
+                                                        ltail="cluster_821673316",
+                                                        ];
+  "kairos.domain_verification" -> "kairos.domain_verification__Automaton_types";
+  "kairos.domain_verification" -> "kairos.domain_verification__Fo_contradiction";
+  "kairos.domain_verification" -> "kairos.domain_verification__Fo_time";
+  "kairos.domain_verification" -> "kairos.domain_verification__Formula_sharing";
+  "kairos.domain_verification" -> "kairos.domain_verification__From_model";
+  "kairos.domain_verification" -> "kairos.domain_verification__Ir_fact_family_metrics";
+  "kairos.domain_verification" -> "kairos.domain_verification__Ltl_valuation";
+  "kairos.domain_verification" -> "kairos.domain_verification__Orchestration";
+  "kairos.domain_verification" -> "kairos.domain_verification__Post";
+  "kairos.domain_verification" -> "kairos.domain_verification__Pre";
+  "kairos.domain_verification" -> "kairos.domain_verification__Product_build";
+  "kairos.domain_verification" -> "kairos.domain_verification__Product_characteristics";
+  "kairos.domain_verification" -> "kairos.domain_verification__Product_reachability";
+  "kairos.domain_verification" -> "kairos.domain_verification__Product_types";
+  "kairos.domain_verification" -> "kairos.domain_verification__Temporal_automata";
+  "kairos.domain_verification" -> "kairos.domain_verification__Temporal_lower";
+  "kairos.external_spot" -> "kairos.domain_verification" [minlen=2,
+                                                          lhead="cluster_821673316",
+                                                          ltail="cluster_686269747",
+                                                          ];
+  "kairos.external_spot" -> "kairos.external_z3" [minlen=2,
+                                                  lhead="cluster_259949867",
+                                                  ltail="cluster_686269747", ];
+  "kairos.external_spot" -> "kairos.external_spot__Automaton_spot";
+  "kairos.external_spot" -> "kairos.external_spot__Spot_automaton_builder";
+  "kairos.external_timing" -> "unix" [ltail="cluster_1023048449", ];
+  "kairos.external_timing" -> "kairos.external_timing__External_timing";
+  "kairos.external_z3" -> "z3" [ltail="cluster_259949867", ];
+  "kairos.external_z3" -> "kairos.domain_core" [minlen=2,
+                                                lhead="cluster_757729241",
+                                                ltail="cluster_259949867", ];
+  "kairos.external_z3" -> "kairos.external_timing" [minlen=2,
+                                                    lhead="cluster_1023048449",
+                                                    ltail="cluster_259949867",
+                                                    ];
+  "kairos.external_z3" -> "kairos.external_z3__Fo_z3_solver";
+  "kairos.lsp_protocol" -> "ppx_deriving_yojson.runtime" [ltail="cluster_756173789",
+                                                          ];
+  "kairos.lsp_protocol" -> "yojson" [ltail="cluster_756173789", ];
+  "kairos.lsp_protocol" -> "kairos.lsp_protocol__Lsp_protocol";
+  "kairos_application" -> "kairos.domain_core" [minlen=2,
+                                                lhead="cluster_757729241",
+                                                ltail="cluster_443058325", ];
+  "kairos_application" -> "kairos_application__Application_observability";
+  "kairos_application" -> "kairos_application__Application_ports";
+  "kairos_application" -> "kairos_application__Flow_info";
+  "kairos_application" -> "kairos_application__Pipeline_types";
+  "kairos_application" -> "kairos_application__Proof_diagnostics";
+  "kairos_application" -> "kairos_application__Verification_flow_usecases";
+  "kairos_artifact_graph_render" -> "kairos.domain_verification" [minlen=2,
+                                                                  lhead="cluster_821673316",
+                                                                  ltail="cluster_586834900",
+                                                                  ];
+  "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_render";
+  "kairos_artifact_text_render" -> "why3" [ltail="cluster_848083113", ];
+  "kairos_artifact_text_render" -> "kairos.domain_core" [minlen=2,
+                                                         lhead="cluster_757729241",
+                                                         ltail="cluster_848083113",
+                                                         ];
+  "kairos_artifact_text_render" -> "kairos_artifact_text_render__Ir_text_program_view_render";
+  "kairos_artifact_text_render" -> "kairos_artifact_text_render__Ir_text_proof_view_render";
+  "kairos_artifact_text_render" -> "kairos_artifact_text_render__Proof_status_render";
+  "kairos_artifact_why_task_dump" -> "kairos_external_why3" [minlen=2,
+                                                             lhead="cluster_81314696",
+                                                             ltail="cluster_978765347",
+                                                             ];
+  "kairos_artifact_why_task_dump" -> "kairos_artifact_why_task_dump__Why_task_dump_render";
+  "kairos_composition" -> "kairos_input_lang" [minlen=2,
+                                               lhead="cluster_1000965417",
+                                               ltail="cluster_863111970", ];
+  "kairos_composition" -> "kairos_verification_runtime" [minlen=2,
+                                                         lhead="cluster_34334489",
+                                                         ltail="cluster_863111970",
+                                                         ];
+  "kairos_composition" -> "kairos_composition__Kairos_usecase_wiring";
+  "kairos_external_graphviz" -> "bos" [ltail="cluster_308459985", ];
+  "kairos_external_graphviz" -> "kairos_external_graphviz__Graphviz_render";
+  "kairos_external_why3" -> "why3" [ltail="cluster_81314696", ];
+  "kairos_external_why3" -> "kairos.domain_core" [minlen=2,
+                                                  lhead="cluster_757729241",
+                                                  ltail="cluster_81314696", ];
+  "kairos_external_why3" -> "kairos.external_timing" [minlen=2,
+                                                      lhead="cluster_1023048449",
+                                                      ltail="cluster_81314696",
+                                                      ];
+  "kairos_external_why3" -> "kairos_external_why3__Why_contract_prove";
+  "kairos_external_why3" -> "kairos_external_why3__Why_native_probe";
+  "kairos_external_why3" -> "kairos_external_why3__Why_task_support";
+  "kairos_input_lang" -> "menhirLib" [ltail="cluster_1000965417", ];
+  "kairos_input_lang" -> "sedlex" [ltail="cluster_1000965417", ];
+  "kairos_input_lang" -> "kairos_application" [minlen=2,
+                                               lhead="cluster_443058325",
+                                               ltail="cluster_1000965417", ];
+  "kairos_input_lang" -> "kairos_input_lang__Kairos_frontend";
+  "kairos_input_lang" -> "kairos_input_lang__Kairos_to_model";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_ast";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_ast_builders";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_core_syntax";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_core_syntax_builders";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_elaborate";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_lexer";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_loc";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_parse_api";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_parser";
+  "kairos_input_lang" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_lsp_app" -> "str" [ltail="cluster_743759569", ];
+  "kairos_lsp_app" -> "kairos.lsp_protocol" [minlen=2,
+                                             lhead="cluster_756173789",
+                                             ltail="cluster_743759569", ];
+  "kairos_lsp_app" -> "kairos_input_lang" [minlen=2,
+                                           lhead="cluster_1000965417",
+                                           ltail="cluster_743759569", ];
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_app";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_completion";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_diagnostics";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_formatting";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_goal_tree";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_outline";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_pipeline_mapper";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_request_decode";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_services";
+  "kairos_lsp_app" -> "kairos_lsp_app__Lsp_symbols";
+  "kairos_runtime_automata" -> "kairos.external_spot" [minlen=2,
+                                                       lhead="cluster_686269747",
+                                                       ltail="cluster_899597",
+                                                       ];
+  "kairos_runtime_automata" -> "kairos_application" [minlen=2,
+                                                     lhead="cluster_443058325",
+                                                     ltail="cluster_899597", ];
+  "kairos_runtime_automata" -> "kairos_runtime_automata__Automata_generation";
+  "kairos_runtime_automata" -> "kairos_runtime_automata__Runtime_automata_source";
+  "kairos_runtime_core" -> "kairos.domain_verification" [minlen=2,
+                                                         lhead="cluster_821673316",
+                                                         ltail="cluster_825363400",
+                                                         ];
+  "kairos_runtime_core" -> "kairos.external_timing" [minlen=2,
+                                                     lhead="cluster_1023048449",
+                                                     ltail="cluster_825363400",
+                                                     ];
+  "kairos_runtime_core" -> "kairos_application" [minlen=2,
+                                                 lhead="cluster_443058325",
+                                                 ltail="cluster_825363400", ];
+  "kairos_runtime_core" -> "kairos_runtime_core__Contract_partition";
+  "kairos_runtime_core" -> "kairos_runtime_core__Instrumentation_info_builder";
+  "kairos_runtime_core" -> "kairos_runtime_core__Instrumentation_info_helpers";
+  "kairos_runtime_core" -> "kairos_runtime_core__Pipeline_build";
+  "kairos_runtime_core" -> "kairos_runtime_core__Result_utils";
+  "kairos_runtime_core" -> "kairos_runtime_core__Runtime_ir_merge";
+  "kairos_runtime_core" -> "kairos_runtime_core__Runtime_snapshot";
+  "kairos_runtime_diagnostics" -> "kairos.domain_proof_export" [minlen=2,
+                                                                lhead="cluster_601961544",
+                                                                ltail="cluster_457740223",
+                                                                ];
+  "kairos_runtime_diagnostics" -> "kairos_artifact_graph_render" [minlen=2,
+                                                                  lhead="cluster_586834900",
+                                                                  ltail="cluster_457740223",
+                                                                  ];
+  "kairos_runtime_diagnostics" -> "kairos_runtime_core" [minlen=2,
+                                                         lhead="cluster_825363400",
+                                                         ltail="cluster_457740223",
+                                                         ];
+  "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle";
+  "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_cost_report";
+  "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_outputs_helpers";
+  "kairos_runtime_outputs" -> "kairos_external_graphviz" [minlen=2,
+                                                          lhead="cluster_308459985",
+                                                          ltail="cluster_993802230",
+                                                          ];
+  "kairos_runtime_outputs" -> "kairos_runtime_diagnostics" [minlen=2,
+                                                            lhead="cluster_457740223",
+                                                            ltail="cluster_993802230",
+                                                            ];
+  "kairos_runtime_outputs" -> "kairos_runtime_proof" [minlen=2,
+                                                      lhead="cluster_235123767",
+                                                      ltail="cluster_993802230",
+                                                      ];
+  "kairos_runtime_outputs" -> "kairos_runtime_outputs__Instrumentation_artifacts";
+  "kairos_runtime_outputs" -> "kairos_runtime_outputs__Output_mapper";
+  "kairos_runtime_outputs" -> "kairos_runtime_outputs__Pipeline_outputs";
+  "kairos_runtime_proof" -> "kairos_application" [minlen=2,
+                                                  lhead="cluster_443058325",
+                                                  ltail="cluster_235123767", ];
+  "kairos_runtime_proof" -> "kairos_artifact_text_render" [minlen=2,
+                                                           lhead="cluster_848083113",
+                                                           ltail="cluster_235123767",
+                                                           ];
+  "kairos_runtime_proof" -> "kairos_why3" [minlen=2,
+                                           lhead="cluster_241769867",
+                                           ltail="cluster_235123767", ];
+  "kairos_runtime_proof" -> "kairos_runtime_proof__Proof_runner";
+  "kairos_verification_runtime" -> "kairos_runtime_automata" [minlen=2,
+                                                              lhead="cluster_899597",
+                                                              ltail="cluster_34334489",
+                                                              ];
+  "kairos_verification_runtime" -> "kairos_runtime_outputs" [minlen=2,
+                                                             lhead="cluster_993802230",
+                                                             ltail="cluster_34334489",
+                                                             ];
+  "kairos_verification_runtime" -> "kairos_verification_runtime__Verification_runtime_adapters";
+  "kairos_why3" -> "kairos_artifact_why_task_dump" [minlen=2,
+                                                    lhead="cluster_978765347",
+                                                    ltail="cluster_241769867",
+                                                    ];
+  "kairos_why3" -> "kairos_why3_render" [minlen=2, lhead="cluster_561703002",
+                                         ltail="cluster_241769867", ];
+  "kairos_why3" -> "kairos_why3__Why_pipeline";
+  "kairos_why3_compile" -> "kairos.external_timing" [minlen=2,
+                                                     lhead="cluster_1023048449",
+                                                     ltail="cluster_95057747",
+                                                     ];
+  "kairos_why3_compile" -> "kairos_why3_contracts" [minlen=2,
+                                                    lhead="cluster_167272116",
+                                                    ltail="cluster_95057747", ];
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_step";
+  "kairos_why3_contracts" -> "kairos_why3_expr" [minlen=2,
+                                                 lhead="cluster_231918951",
+                                                 ltail="cluster_167272116", ];
+  "kairos_why3_contracts" -> "kairos_why3_runtime_view" [minlen=2,
+                                                         lhead="cluster_26443279",
+                                                         ltail="cluster_167272116",
+                                                         ];
+  "kairos_why3_contracts" -> "kairos_why3_contracts__Why_contracts";
+  "kairos_why3_expr" -> "why3" [ltail="cluster_231918951", ];
+  "kairos_why3_expr" -> "kairos.domain_core" [minlen=2,
+                                              lhead="cluster_757729241",
+                                              ltail="cluster_231918951", ];
+  "kairos_why3_expr" -> "kairos_why3_expr__Why_compile_expr";
+  "kairos_why3_render" -> "kairos_why3_compile" [minlen=2,
+                                                 lhead="cluster_95057747",
+                                                 ltail="cluster_561703002", ];
+  "kairos_why3_render" -> "kairos_why3_render__Why_text_render";
+  "kairos_why3_runtime_view" -> "kairos.domain_verification" [minlen=2,
+                                                              lhead="cluster_821673316",
+                                                              ltail="cluster_26443279",
+                                                              ];
+  "kairos_why3_runtime_view" -> "kairos_why3_runtime_view__Why_runtime_view";
+  "kairos__Cli_output" -> "kairos__Cli_pipeline_service";
+  "kairos__Cli_pipeline_service" -> "kairos__Cli_types";
+  "kairos__Cli_runtime" -> "kairos__Cli_output";
+  "kairos__Kairos" -> "kairos__Cli_runtime";
+  "kairos_lsp__Kairos_lsp" -> "kairos_lsp__Lsp_server_loop";
+  "kairos_lsp__Lsp_backend" -> "kairos_lsp__Lsp_backend_graph";
+  "kairos_lsp__Lsp_backend" -> "kairos_lsp__Lsp_backend_usecases";
+  "kairos_lsp__Lsp_backend_usecases" -> "kairos_lsp__Engine_service";
+  "kairos_lsp__Lsp_backend_usecases" -> "kairos_lsp__Lsp_backend_config";
+  "kairos_lsp__Lsp_call_dispatch" -> "kairos_lsp__Lsp_dispatch_guard";
+  "kairos_lsp__Lsp_call_dispatch" -> "kairos_lsp__Lsp_lifecycle_dispatch";
+  "kairos_lsp__Lsp_cancel_handler" -> "kairos_lsp__Lsp_cancel_decode";
+  "kairos_lsp__Lsp_cancel_handler" -> "kairos_lsp__Lsp_cancel_state";
+  "kairos_lsp__Lsp_cancel_state" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_cancel_state" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_completion_handler" -> "kairos_lsp__Lsp_completion_view";
+  "kairos_lsp__Lsp_completion_handler" -> "kairos_lsp__Lsp_text_document_request";
+  "kairos_lsp__Lsp_completion_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_definition_handler" -> "kairos_lsp__Lsp_location_view";
+  "kairos_lsp__Lsp_definition_handler" -> "kairos_lsp__Lsp_symbol_context";
+  "kairos_lsp__Lsp_definition_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_diagnostic_view" -> "kairos_lsp__Lsp_location_view";
+  "kairos_lsp__Lsp_diagnostic_view" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_dispatch_guard" -> "kairos_lsp__Lsp_call";
+  "kairos_lsp__Lsp_dispatch_guard" -> "kairos_lsp__Lsp_method_dispatch";
+  "kairos_lsp__Lsp_dispatch_guard" -> "kairos_lsp__Lsp_server_state_gate";
+  "kairos_lsp__Lsp_document_diagnostics" -> "kairos_lsp__Lsp_diagnostic_view";
+  "kairos_lsp__Lsp_document_symbol_handler" -> "kairos_lsp__Lsp_symbol_view";
+  "kairos_lsp__Lsp_document_symbol_handler" -> "kairos_lsp__Lsp_text_document_request";
+  "kairos_lsp__Lsp_document_symbol_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_document_sync_handlers" -> "kairos_lsp__Lsp_document_diagnostics";
+  "kairos_lsp__Lsp_document_sync_handlers" -> "kairos_lsp__Lsp_document_sync_state";
+  "kairos_lsp__Lsp_document_sync_state" -> "kairos_lsp__Lsp_document_store";
+  "kairos_lsp__Lsp_document_sync_state" -> "kairos_lsp__Lsp_document_sync_decode";
+  "kairos_lsp__Lsp_formatting_handler" -> "kairos_lsp__Lsp_text_document_request";
+  "kairos_lsp__Lsp_formatting_handler" -> "kairos_lsp__Lsp_text_edit_view";
+  "kairos_lsp__Lsp_formatting_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_goal_tree_decode" -> "kairos_lsp__Lsp_request_helpers";
+  "kairos_lsp__Lsp_goal_tree_final_handler" -> "kairos_lsp__Lsp_goal_tree_decode";
+  "kairos_lsp__Lsp_goal_tree_final_handler" -> "kairos_lsp__Lsp_goal_tree_view";
+  "kairos_lsp__Lsp_goal_tree_final_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_goal_tree_handlers" -> "kairos_lsp__Lsp_goal_tree_final_handler";
+  "kairos_lsp__Lsp_goal_tree_handlers" -> "kairos_lsp__Lsp_goal_tree_pending_handler";
+  "kairos_lsp__Lsp_goal_tree_pending_handler" -> "kairos_lsp__Lsp_goal_tree_decode";
+  "kairos_lsp__Lsp_goal_tree_pending_handler" -> "kairos_lsp__Lsp_goal_tree_view";
+  "kairos_lsp__Lsp_goal_tree_pending_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_graph_decode" -> "kairos_lsp__Lsp_request_helpers";
+  "kairos_lsp__Lsp_graph_handler" -> "kairos_lsp__Lsp_backend_graph";
+  "kairos_lsp__Lsp_graph_handler" -> "kairos_lsp__Lsp_graph_decode";
+  "kairos_lsp__Lsp_graph_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_hover_handler" -> "kairos_lsp__Lsp_hover_view";
+  "kairos_lsp__Lsp_hover_handler" -> "kairos_lsp__Lsp_symbol_context";
+  "kairos_lsp__Lsp_hover_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_instrumentation_pass_handler" -> "kairos_lsp__Lsp_backend_usecases";
+  "kairos_lsp__Lsp_instrumentation_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_decode";
+  "kairos_lsp__Lsp_instrumentation_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_input";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_goal_tree_final_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_goal_tree_pending_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_graph_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_instrumentation_pass_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_obligations_pass_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_outline_request_handler";
+  "kairos_lsp__Lsp_kairos_handlers" -> "kairos_lsp__Lsp_why_pass_handler";
+  "kairos_lsp__Lsp_kairos_method_dispatch" -> "kairos_lsp__Lsp_kairos_method_route";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_goal_tree_final_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_goal_tree_pending_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_graph_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_instrumentation_pass_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_method_route";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_obligations_pass_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_outline_request_handler";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_kairos_method_route" -> "kairos_lsp__Lsp_why_pass_handler";
+  "kairos_lsp__Lsp_lifecycle_dispatch" -> "kairos_lsp__Lsp_lifecycle_method_route";
+  "kairos_lsp__Lsp_lifecycle_handlers" -> "kairos_lsp__Lsp_initialize_result_view";
+  "kairos_lsp__Lsp_lifecycle_handlers" -> "kairos_lsp__Lsp_lifecycle_state";
+  "kairos_lsp__Lsp_lifecycle_handlers" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_lifecycle_method_route" -> "kairos_lsp__Lsp_call";
+  "kairos_lsp__Lsp_lifecycle_method_route" -> "kairos_lsp__Lsp_cancel_handler";
+  "kairos_lsp__Lsp_lifecycle_method_route" -> "kairos_lsp__Lsp_lifecycle_handlers";
+  "kairos_lsp__Lsp_lifecycle_method_route" -> "kairos_lsp__Lsp_method_route";
+  "kairos_lsp__Lsp_lifecycle_state" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_method_dispatch" -> "kairos_lsp__Lsp_kairos_method_dispatch";
+  "kairos_lsp__Lsp_method_dispatch" -> "kairos_lsp__Lsp_run_method_dispatch";
+  "kairos_lsp__Lsp_method_dispatch" -> "kairos_lsp__Lsp_standard_method_dispatch";
+  "kairos_lsp__Lsp_obligations_pass_handler" -> "kairos_lsp__Lsp_backend_usecases";
+  "kairos_lsp__Lsp_obligations_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_decode";
+  "kairos_lsp__Lsp_obligations_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_input";
+  "kairos_lsp__Lsp_outline_decode" -> "kairos_lsp__Lsp_request_helpers";
+  "kairos_lsp__Lsp_outline_handler" -> "kairos_lsp__Lsp_outline_request_handler";
+  "kairos_lsp__Lsp_outline_request_handler" -> "kairos_lsp__Lsp_outline_view";
+  "kairos_lsp__Lsp_outline_request_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_outline_texts" -> "kairos_lsp__Lsp_document_store";
+  "kairos_lsp__Lsp_outline_texts" -> "kairos_lsp__Lsp_outline_decode";
+  "kairos_lsp__Lsp_outline_view" -> "kairos_lsp__Lsp_outline_texts";
+  "kairos_lsp__Lsp_packet_decode" -> "kairos_lsp__Lsp_call";
+  "kairos_lsp__Lsp_packet_decode" -> "kairos_lsp__Lsp_packet_trace";
+  "kairos_lsp__Lsp_packet_handler" -> "kairos_lsp__Lsp_call_dispatch";
+  "kairos_lsp__Lsp_packet_handler" -> "kairos_lsp__Lsp_packet_decode";
+  "kairos_lsp__Lsp_packet_trace" -> "kairos_lsp__Lsp_trace";
+  "kairos_lsp__Lsp_pipeline_pass_decode" -> "kairos_lsp__Lsp_request_helpers";
+  "kairos_lsp__Lsp_pipeline_pass_handlers" -> "kairos_lsp__Lsp_instrumentation_pass_handler";
+  "kairos_lsp__Lsp_pipeline_pass_handlers" -> "kairos_lsp__Lsp_obligations_pass_handler";
+  "kairos_lsp__Lsp_pipeline_pass_handlers" -> "kairos_lsp__Lsp_why_pass_handler";
+  "kairos_lsp__Lsp_pipeline_pass_input" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_completion_view";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_diagnostic_view";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_hover_view";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_request_id_view";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_symbol_view";
+  "kairos_lsp__Lsp_protocol_view" -> "kairos_lsp__Lsp_text_edit_view";
+  "kairos_lsp__Lsp_references_handler" -> "kairos_lsp__Lsp_location_view";
+  "kairos_lsp__Lsp_references_handler" -> "kairos_lsp__Lsp_symbol_context";
+  "kairos_lsp__Lsp_references_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_request_helpers" -> "kairos_lsp__Engine_service";
+  "kairos_lsp__Lsp_run_backend" -> "kairos_lsp__Lsp_backend_usecases";
+  "kairos_lsp__Lsp_run_backend" -> "kairos_lsp__Lsp_run_notifications";
+  "kairos_lsp__Lsp_run_backend" -> "kairos_lsp__Lsp_run_preflight";
+  "kairos_lsp__Lsp_run_config" -> "kairos_lsp__Lsp_backend_config";
+  "kairos_lsp__Lsp_run_config" -> "kairos_lsp__Lsp_request_helpers";
+  "kairos_lsp__Lsp_run_context" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_run_execution_handler" -> "kairos_lsp__Lsp_run_backend";
+  "kairos_lsp__Lsp_run_execution_handler" -> "kairos_lsp__Lsp_run_response";
+  "kairos_lsp__Lsp_run_handler" -> "kairos_lsp__Lsp_run_execution_handler";
+  "kairos_lsp__Lsp_run_method_dispatch" -> "kairos_lsp__Lsp_run_method_route";
+  "kairos_lsp__Lsp_run_method_route" -> "kairos_lsp__Lsp_method_route";
+  "kairos_lsp__Lsp_run_method_route" -> "kairos_lsp__Lsp_run_execution_handler";
+  "kairos_lsp__Lsp_run_notifications" -> "kairos_lsp__Lsp_request_id_view";
+  "kairos_lsp__Lsp_run_notifications" -> "kairos_lsp__Lsp_run_progress";
+  "kairos_lsp__Lsp_run_preflight" -> "kairos_lsp__Lsp_run_config";
+  "kairos_lsp__Lsp_run_preflight" -> "kairos_lsp__Lsp_run_context";
+  "kairos_lsp__Lsp_run_preflight" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_run_progress" -> "kairos_lsp__Lsp_run_context";
+  "kairos_lsp__Lsp_run_progress" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_run_response" -> "kairos_lsp__Lsp_transport";
+  "kairos_lsp__Lsp_server_loop" -> "kairos_lsp__Lsp_packet_handler";
+  "kairos_lsp__Lsp_server_state" -> "kairos_lsp__Lsp_document_store";
+  "kairos_lsp__Lsp_server_state_gate" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_standard_method_dispatch" -> "kairos_lsp__Lsp_standard_method_route";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_completion_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_definition_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_document_symbol_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_document_sync_handlers";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_formatting_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_hover_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_method_route";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_references_handler";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_server_state";
+  "kairos_lsp__Lsp_standard_method_route" -> "kairos_lsp__Lsp_workspace_symbol_handler";
+  "kairos_lsp__Lsp_symbol_context" -> "kairos_lsp__Lsp_text_document_request";
+  "kairos_lsp__Lsp_symbol_handlers" -> "kairos_lsp__Lsp_definition_handler";
+  "kairos_lsp__Lsp_symbol_handlers" -> "kairos_lsp__Lsp_document_symbol_handler";
+  "kairos_lsp__Lsp_symbol_handlers" -> "kairos_lsp__Lsp_hover_handler";
+  "kairos_lsp__Lsp_symbol_handlers" -> "kairos_lsp__Lsp_references_handler";
+  "kairos_lsp__Lsp_symbol_handlers" -> "kairos_lsp__Lsp_workspace_symbol_handler";
+  "kairos_lsp__Lsp_symbol_view" -> "kairos_lsp__Lsp_location_view";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_completion_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_definition_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_document_symbol_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_document_sync_handlers";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_formatting_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_hover_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_references_handler";
+  "kairos_lsp__Lsp_text_document_handlers" -> "kairos_lsp__Lsp_workspace_symbol_handler";
+  "kairos_lsp__Lsp_text_document_request" -> "kairos_lsp__Lsp_document_store";
+  "kairos_lsp__Lsp_text_edit_view" -> "kairos_lsp__Lsp_location_view";
+  "kairos_lsp__Lsp_transport" -> "kairos_lsp__Lsp_jsonrpc_id";
+  "kairos_lsp__Lsp_transport" -> "kairos_lsp__Lsp_work_done_transport";
+  "kairos_lsp__Lsp_transport_messages" -> "kairos_lsp__Lsp_trace";
+  "kairos_lsp__Lsp_transport_messages" -> "kairos_lsp__Lsp_transport_io";
+  "kairos_lsp__Lsp_why_pass_handler" -> "kairos_lsp__Lsp_backend_usecases";
+  "kairos_lsp__Lsp_why_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_decode";
+  "kairos_lsp__Lsp_why_pass_handler" -> "kairos_lsp__Lsp_pipeline_pass_input";
+  "kairos_lsp__Lsp_work_done_transport" -> "kairos_lsp__Lsp_transport_messages";
+  "kairos_lsp__Lsp_workspace_symbol_handler" -> "kairos_lsp__Lsp_transport";
+  "kairos.domain_core__Core_fo_simplifier" -> "kairos.domain_core__Core_syntax_builders";
+  "kairos.domain_core__Core_syntax" -> "kairos.domain_core__Loc";
+  "kairos.domain_core__Core_syntax_builders" -> "kairos.domain_core__Core_syntax";
+  "kairos.domain_core__Ir" -> "kairos.domain_core__Ir_shared_types";
+  "kairos.domain_core__Ir" -> "kairos.domain_core__Pre_k_layout";
+  "kairos.domain_core__Ir_formula" -> "kairos.domain_core__Ir";
+  "kairos.domain_core__Ir_formula" -> "kairos.domain_core__Pre_k_lowering";
+  "kairos.domain_core__Ir_shared_types" -> "kairos.domain_core__Core_syntax";
+  "kairos.domain_core__Ir_transition" -> "kairos.domain_core__Ir";
+  "kairos.domain_core__Pre_k_layout" -> "kairos.domain_core__Verification_model";
+  "kairos.domain_core__Pre_k_lowering" -> "kairos.domain_core__Pre_k_layout";
+  "kairos.domain_core__Pretty" -> "kairos.domain_core__Core_syntax";
+  "kairos.domain_core__Verification_model" -> "kairos.domain_core__Core_syntax_builders";
+  "kairos.domain_proof_export__Proof_kernel_clause_lowering" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_generated_clauses" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_naming" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_clause_lowering";
+  "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_generated_clauses";
+  "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_product";
+  "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
+  "kairos.domain_proof_export__Proof_kernel_product" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_step_summaries" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_types" -> "kairos.domain_proof_export__Ir_json_codec";
+  "kairos.domain_verification__From_model" -> "kairos.domain_verification__Product_build";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Formula_sharing";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__From_model";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Post";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Pre";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Product_reachability";
+  "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Temporal_lower";
+  "kairos.domain_verification__Post" -> "kairos.domain_verification__Ir_fact_family_metrics";
+  "kairos.domain_verification__Post" -> "kairos.domain_verification__Product_characteristics";
+  "kairos.domain_verification__Pre" -> "kairos.domain_verification__Ir_fact_family_metrics";
+  "kairos.domain_verification__Pre" -> "kairos.domain_verification__Product_characteristics";
+  "kairos.domain_verification__Product_build" -> "kairos.domain_verification__Temporal_automata";
+  "kairos.domain_verification__Product_characteristics" -> "kairos.domain_verification__Fo_contradiction";
+  "kairos.domain_verification__Product_characteristics" -> "kairos.domain_verification__Fo_time";
+  "kairos.domain_verification__Product_reachability" -> "kairos.domain_verification__Fo_contradiction";
+  "kairos.domain_verification__Product_types" -> "kairos.domain_verification__Automaton_types";
+  "kairos.domain_verification__Temporal_automata" -> "kairos.domain_verification__Product_types";
+  "kairos.external_spot__Spot_automaton_builder" -> "kairos.external_spot__Automaton_spot";
+  "kairos_application__Application_ports" -> "kairos_application__Application_observability";
+  "kairos_application__Application_ports" -> "kairos_application__Flow_info";
+  "kairos_application__Application_ports" -> "kairos_application__Pipeline_types";
+  "kairos_application__Proof_diagnostics" -> "kairos_application__Pipeline_types";
+  "kairos_application__Verification_flow_usecases" -> "kairos_application__Application_ports";
+  "kairos_application__Verification_flow_usecases" -> "kairos_application__Proof_diagnostics";
+  "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_task_support";
+  "kairos_external_why3__Why_native_probe" -> "kairos_external_why3__Why_task_support";
+  "kairos_input_lang__Kairos_frontend" -> "kairos_input_lang__Kairos_to_model";
+  "kairos_input_lang__Kairos_frontend" -> "kairos_input_lang__Kx_parse_api";
+  "kairos_input_lang__Kairos_to_model" -> "kairos_input_lang__Kx_ast";
+  "kairos_input_lang__Kx_ast" -> "kairos_input_lang__Kx_core_syntax";
+  "kairos_input_lang__Kx_ast_builders" -> "kairos_input_lang__Kx_ast";
+  "kairos_input_lang__Kx_core_syntax" -> "kairos_input_lang__Kx_loc";
+  "kairos_input_lang__Kx_core_syntax_builders" -> "kairos_input_lang__Kx_core_syntax";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_ast_builders";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_core_syntax_builders";
+  "kairos_input_lang__Kx_elaborate" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_lexer" -> "kairos_input_lang__Kx_parser";
+  "kairos_input_lang__Kx_parse_api" -> "kairos_input_lang__Kx_elaborate";
+  "kairos_input_lang__Kx_parse_api" -> "kairos_input_lang__Kx_lexer";
+  "kairos_input_lang__Kx_parser" -> "kairos_input_lang__Kx_surface_syntax";
+  "kairos_input_lang__Kx_surface_syntax" -> "kairos_input_lang__Kx_core_syntax";
+  "kairos_lsp_app__Lsp_app" -> "kairos_lsp_app__Lsp_pipeline_mapper";
+  "kairos_lsp_app__Lsp_app" -> "kairos_lsp_app__Lsp_request_decode";
+  "kairos_lsp_app__Lsp_completion" -> "kairos_lsp_app__Lsp_symbols";
+  "kairos_lsp_app__Lsp_services" -> "kairos_lsp_app__Lsp_completion";
+  "kairos_lsp_app__Lsp_services" -> "kairos_lsp_app__Lsp_diagnostics";
+  "kairos_lsp_app__Lsp_services" -> "kairos_lsp_app__Lsp_formatting";
+  "kairos_lsp_app__Lsp_services" -> "kairos_lsp_app__Lsp_goal_tree";
+  "kairos_lsp_app__Lsp_symbols" -> "kairos_lsp_app__Lsp_outline";
+  "kairos_runtime_automata__Runtime_automata_source" -> "kairos_runtime_automata__Automata_generation";
+  "kairos_runtime_core__Instrumentation_info_builder" -> "kairos_runtime_core__Instrumentation_info_helpers";
+  "kairos_runtime_core__Instrumentation_info_helpers" -> "kairos_runtime_core__Result_utils";
+  "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Contract_partition";
+  "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Instrumentation_info_builder";
+  "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Runtime_snapshot";
+  "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle";
+  "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_outputs_helpers";
+  "kairos_runtime_outputs__Pipeline_outputs" -> "kairos_runtime_outputs__Output_mapper";
+  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_step";
+
+  }

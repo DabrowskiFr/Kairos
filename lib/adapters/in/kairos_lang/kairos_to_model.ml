@@ -190,8 +190,15 @@ let rec stmt ~(type_decls : Core_syntax.enum_decl list) (source_stmt : Kx_ast.st
   let lowered =
     match source_stmt.stmt with
     | Kx_ast.SAssign (id, e) -> Core_syntax.SAssign (id, expr ~type_decls e)
+    | Kx_ast.SAssert h -> Core_syntax.SAssert (hexpr ~type_decls h)
     | Kx_ast.SIf (c, t, e) ->
         Core_syntax.SIf (expr ~type_decls c, List.map (stmt ~type_decls) t, List.map (stmt ~type_decls) e)
+    | Kx_ast.SWhile (c, invariants, variant, body) ->
+        Core_syntax.SWhile
+          ( expr ~type_decls c,
+            List.map (hexpr ~type_decls) invariants,
+            Option.map (expr ~type_decls) variant,
+            List.map (stmt ~type_decls) body )
     | Kx_ast.SMatch (e, branches, dflt) ->
         Core_syntax.SMatch
           ( expr ~type_decls e,
@@ -604,8 +611,10 @@ let validate_node (n : Verification_model.node_model) : unit =
   let rec stmt_writes_real (s : Core_syntax.stmt) : bool =
     match s.stmt with
     | SAssign (id, _) -> List.mem id real_var_names
+    | SAssert _ -> false
     | SIf (_, then_branch, else_branch) ->
         List.exists stmt_writes_real (then_branch @ else_branch)
+    | SWhile (_, _, _, body) -> List.exists stmt_writes_real body
     | SMatch (_, branches, default_branch) ->
         List.exists stmt_writes_real (List.concat_map snd branches @ default_branch)
     | SSkip -> false
@@ -619,12 +628,25 @@ let validate_node (n : Verification_model.node_model) : unit =
         if List.mem id real_var_names then
           reject_ghost_use ("assignment to non-ghost variable '" ^ id ^ "'")
             (vars_of_expr rhs)
+    | SAssert formula ->
+        expect_ty "assertion" TBool (hexpr_ty formula)
     | SIf (cond, then_branch, else_branch) ->
         expect_ty "if condition" TBool (expr_ty cond);
         if stmt_list_writes_real (then_branch @ else_branch) then
           reject_ghost_use "if condition" (vars_of_expr cond);
         List.iter validate_stmt then_branch;
         List.iter validate_stmt else_branch
+    | SWhile (cond, invariants, variant, body) ->
+        expect_ty "while condition" TBool (expr_ty cond);
+        if stmt_list_writes_real body then
+          reject_ghost_use "while condition" (vars_of_expr cond);
+        List.iter
+          (fun invariant -> expect_ty "while invariant" TBool (hexpr_ty invariant))
+          invariants;
+        Option.iter
+          (fun variant -> expect_ty "while variant" TInt (expr_ty variant))
+          variant;
+        List.iter validate_stmt body
     | SMatch (scrutinee, branches, default_branch) ->
         let scrutinee_ty = expr_ty scrutinee in
         if stmt_list_writes_real (List.concat_map snd branches @ default_branch) then

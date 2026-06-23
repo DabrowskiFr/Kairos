@@ -36,8 +36,12 @@ type port_view = {
 type runtime_action_view =
   | ActionAssign of ident * expr
       (** Simple assignment [x := e]. *)
+  | ActionAssert of hexpr
+      (** Proof assertion generated from source annotations. *)
   | ActionIf of expr * runtime_action_view list * runtime_action_view list
       (** Conditional branch. *)
+  | ActionWhile of expr * hexpr list * expr option * runtime_action_view list
+      (** While loop with invariants and optional variant. *)
   | ActionMatch of expr * (ident * runtime_action_view list) list * runtime_action_view list
       (** Constructor match. *)
   | ActionSkip

@@ -51,8 +51,11 @@ let render_ident_list (ids : ident list) : string =
 let render_stmt (s : Core_syntax.stmt) : string =
   match s.stmt with
   | SAssign (v, e) -> v ^ " := " ^ Pretty.string_of_expr e
+  | SAssert formula -> "assert " ^ Pretty.string_of_fo formula
   | SIf (c, _t, []) -> "if " ^ Pretty.string_of_expr c ^ " then { ... }"
   | SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then { ... } else { ... }"
+  | SWhile (c, _invariants, _variant, _body) ->
+      "while " ^ Pretty.string_of_expr c ^ " { ... }"
   | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->

@@ -113,7 +113,7 @@ let flow_meta ?proof_encoding ?proof_optimizations (infos : Runtime_snapshot.flo
 (** [program_automaton_texts] helper value. *)
 
 let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
-  match asts.automata_generation with
+  match asts.reference_program with
   | [] -> ("", "")
   | node :: _ ->
       let graph =

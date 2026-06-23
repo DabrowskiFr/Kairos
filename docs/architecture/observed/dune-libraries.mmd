@@ -1,0 +1,297 @@
+flowchart TD
+
+  subgraph 105050893 ["ppx_derivers 1.2.1"]
+    id469005569(["ppx_derivers"])
+    style id469005569 fill:#BBB
+  end
+  subgraph 129913994 ["(compiler)"]
+    id445558595(["unix"])
+    style id445558595 fill:#BBB
+    id213355806(["threads"])
+    style id213355806 fill:#BBB
+    id813421022(["str"])
+    style id813421022 fill:#BBB
+    id955311961(["dynlink"])
+    style id955311961 fill:#BBB
+    id499228351(["compiler-libs.common"])
+    style id499228351 fill:#BBB
+    id939231628(["compiler-libs"])
+    style id939231628 fill:#BBB
+  end
+  subgraph 131039579 ["uutf 1.0.4"]
+    id1002314104(["uutf"])
+    style id1002314104 fill:#BBB
+  end
+  subgraph 292359173 ["astring 0.8.5"]
+    id5035321(["astring"])
+    style id5035321 fill:#BBB
+  end
+  subgraph 308410071 ["ppx_yojson_conv_lib v0.17.0"]
+    id236849345(["ppx_yojson_conv_lib"])
+    style id236849345 fill:#BBB
+  end
+  subgraph 315429389 ["ppxlib 0.38.0"]
+    id13861918(["ppxlib.traverse_builtins"])
+    style id13861918 fill:#BBB
+    id617364069(["ppxlib.stdppx"])
+    style id617364069 fill:#BBB
+    id262402277(["ppxlib.print_diff"])
+    style id262402277 fill:#BBB
+    id176976980(["ppxlib.astlib"])
+    style id176976980 fill:#BBB
+    id98711372(["ppxlib.ast"])
+    style id98711372 fill:#BBB
+    id793200189(["ppxlib"])
+    style id793200189 fill:#BBB
+  end
+  subgraph 362371254 ["menhirLib 20260209"]
+    id550106276(["menhirLib"])
+    style id550106276 fill:#BBB
+  end
+  subgraph 438175530 ["fpath 0.7.3"]
+    id359279316(["fpath"])
+    style id359279316 fill:#BBB
+  end
+  subgraph 458205106 ["seq base"]
+    id77802623(["seq"])
+    style id77802623 fill:#BBB
+  end
+  subgraph 487364673 ["ocaml-compiler-libs v0.17.0"]
+    id525327960(["ocaml-compiler-libs.shadow"])
+    style id525327960 fill:#BBB
+    id1006162927(["ocaml-compiler-libs.common"])
+    style id1006162927 fill:#BBB
+  end
+  subgraph 488651423 ["lsp 1.26.0"]
+    id312940537(["lsp"])
+    style id312940537 fill:#BBB
+  end
+  subgraph 496627304 ["sedlex 3.7"]
+    id356865720(["sedlex.utils"])
+    style id356865720 fill:#BBB
+    id232455684(["sedlex.ppx"])
+    style id232455684 fill:#BBB
+    id615927850(["sedlex"])
+    style id615927850 fill:#BBB
+  end
+  subgraph 540379587 ["gen 1.1"]
+    id254130227(["gen"])
+    style id254130227 fill:#BBB
+  end
+  subgraph 580413441 ["jsonrpc 1.26.0"]
+    id164759162(["jsonrpc"])
+    style id164759162 fill:#BBB
+  end
+  subgraph 58692198 ["zarith 1.14"]
+    id479941517(["zarith"])
+    style id479941517 fill:#BBB
+  end
+  subgraph 591990434 ["bos 0.2.1"]
+    id1060604959(["bos"])
+    style id1060604959 fill:#BBB
+  end
+  subgraph 641104511 ["cmdliner 1.3.0"]
+    id746976749(["cmdliner"])
+    style id746976749 fill:#BBB
+  end
+  subgraph 677165808 ["logs 0.10.0"]
+    id901935611(["logs.fmt"])
+    style id901935611 fill:#BBB
+    id513878372(["logs"])
+    style id513878372 fill:#BBB
+  end
+  subgraph 692678782 ["fmt 0.11.0"]
+    id475016005(["fmt"])
+    style id475016005 fill:#BBB
+  end
+  subgraph 696859669 ["sexplib0 v0.17.0"]
+    id903959837(["sexplib0"])
+    style id903959837 fill:#BBB
+  end
+  subgraph 71904234 ["why3 1.8.2"]
+    id378552737(["why3"])
+    style id378552737 fill:#BBB
+  end
+  subgraph 747883779 ["stdlib-shims 0.3.0"]
+    id394632140(["stdlib-shims"])
+    style id394632140 fill:#BBB
+  end
+  subgraph 750503062 ["sexplib v0.17.0"]
+    id683807590(["sexplib"])
+    style id683807590 fill:#BBB
+  end
+  subgraph 759172555 ["ppx_deriving 6.1.1"]
+    id119084129(["ppx_deriving.show"])
+    style id119084129 fill:#BBB
+    id77953020(["ppx_deriving.runtime"])
+    style id77953020 fill:#BBB
+    id55340172(["ppx_deriving.api"])
+    style id55340172 fill:#BBB
+  end
+  subgraph 766362805 ["rresult 0.7.0"]
+    id987760472(["rresult"])
+    style id987760472 fill:#BBB
+  end
+  subgraph 830443160 ["parsexp v0.17.0"]
+    id701524681(["parsexp"])
+    style id701524681 fill:#BBB
+  end
+  subgraph 873377015 ["z3 4.15.2"]
+    id146913521(["z3"])
+    style id146913521 fill:#BBB
+  end
+  subgraph 899750038 ["ppx_deriving_yojson 3.10.0"]
+    id951852321(["ppx_deriving_yojson.runtime"])
+    style id951852321 fill:#BBB
+    id21108445(["ppx_deriving_yojson"])
+    style id21108445 fill:#BBB
+  end
+  subgraph 902546259 ["(local)"]
+
+    id425900478(["kairos_why3_runtime_view"])
+    id642703016(["kairos_why3_render"])
+    id314920730(["kairos_why3_expr"])
+    id95718459(["kairos_why3_contracts"])
+    id459626317(["kairos_why3_compile"])
+    id430341543(["kairos_why3"])
+    id891116092(["kairos_verification_runtime"])
+    id12656250(["kairos_runtime_proof"])
+    id541219513(["kairos_runtime_outputs"])
+    id137781109(["kairos_runtime_diagnostics"])
+    id1024167296(["kairos_runtime_core"])
+    id528187403(["kairos_runtime_automata"])
+    id1041493191(["kairos_lsp_app"])
+    id617392183(["kairos_input_lang"])
+    id384666756(["kairos_external_why3"])
+    id381742327(["kairos_external_graphviz"])
+    id800053700(["kairos_composition"])
+    id161718582(["kairos_artifact_why_task_dump"])
+    id824396120(["kairos_artifact_text_render"])
+    id942172519(["kairos_artifact_graph_render"])
+    id1062694434(["kairos_application"])
+    id956540366(["kairos.lsp_protocol"])
+    id493204891(["kairos.external_z3"])
+    id1047939387(["kairos.external_timing"])
+    id576094327(["kairos.external_spot"])
+    id930986246(["kairos.domain_verification"])
+    id35199649(["kairos.domain_proof_export"])
+    id1025403665(["kairos.domain_core"])
+    id839032564{"kairos_lsp"}
+    id976590762{"kairos"}
+  end
+  subgraph 916651657 ["camlzip 1.14"]
+    id356777939(["zip"])
+    style id356777939 fill:#BBB
+  end
+  subgraph 959336548 ["yojson 3.0.0"]
+    id268189549(["yojson"])
+    style id268189549 fill:#BBB
+  end
+  id976590762-->id746976749
+  id976590762-->id800053700
+  id839032564-->id312940537
+  id839032564-->id800053700
+  id839032564-->id1041493191
+  id1060604959-->id475016005
+  id1060604959-->id359279316
+  id1060604959-->id513878372
+  id1060604959-->id987760472
+  id1060604959-->id445558595
+  id356777939-->id445558595
+  id359279316-->id5035321
+  id254130227-->id77802623
+  id164759162-->id268189549
+  id901935611-->id475016005
+  id901935611-->id513878372
+  id312940537-->id164759162
+  id312940537-->id236849345
+  id312940537-->id1002314104
+  id1006162927-->id499228351
+  id701524681-->id903959837
+  id55340172-->id793200189
+  id119084129-->id55340172
+  id21108445-->id55340172
+  id951852321-->id77953020
+  id236849345-->id268189549
+  id793200189-->id525327960
+  id793200189-->id469005569
+  id793200189-->id98711372
+  id793200189-->id262402277
+  id793200189-->id617364069
+  id793200189-->id13861918
+  id98711372-->id176976980
+  id98711372-->id394632140
+  id176976980-->id1006162927
+  id617364069-->id903959837
+  id617364069-->id394632140
+  id615927850-->id254130227
+  id232455684-->id793200189
+  id232455684-->id615927850
+  id232455684-->id356865720
+  id683807590-->id701524681
+  id378552737-->id356777939
+  id378552737-->id550106276
+  id378552737-->id683807590
+  id378552737-->id479941517
+  id378552737-->id955311961
+  id378552737-->id813421022
+  id146913521-->id479941517
+  id146913521-->id213355806
+  id499228351-->id939231628
+  id213355806-->id445558595
+  id1025403665-->id901935611
+  id1025403665-->id951852321
+  id1025403665-->id268189549
+  id35199649-->id930986246
+  id930986246-->id1025403665
+  id576094327-->id930986246
+  id576094327-->id493204891
+  id1047939387-->id445558595
+  id493204891-->id146913521
+  id493204891-->id1025403665
+  id493204891-->id1047939387
+  id956540366-->id951852321
+  id956540366-->id268189549
+  id1062694434-->id1025403665
+  id942172519-->id930986246
+  id824396120-->id378552737
+  id824396120-->id1025403665
+  id161718582-->id384666756
+  id800053700-->id617392183
+  id800053700-->id891116092
+  id381742327-->id1060604959
+  id384666756-->id378552737
+  id384666756-->id1025403665
+  id384666756-->id1047939387
+  id617392183-->id550106276
+  id617392183-->id615927850
+  id617392183-->id1062694434
+  id1041493191-->id813421022
+  id1041493191-->id956540366
+  id1041493191-->id617392183
+  id528187403-->id576094327
+  id528187403-->id1062694434
+  id1024167296-->id930986246
+  id1024167296-->id1047939387
+  id1024167296-->id1062694434
+  id137781109-->id35199649
+  id137781109-->id942172519
+  id137781109-->id1024167296
+  id541219513-->id381742327
+  id541219513-->id137781109
+  id541219513-->id12656250
+  id12656250-->id1062694434
+  id12656250-->id824396120
+  id12656250-->id430341543
+  id891116092-->id528187403
+  id891116092-->id541219513
+  id430341543-->id161718582
+  id430341543-->id642703016
+  id459626317-->id1047939387
+  id459626317-->id95718459
+  id95718459-->id314920730
+  id95718459-->id425900478
+  id314920730-->id378552737
+  id314920730-->id1025403665
+  id642703016-->id459626317
+  id425900478-->id930986246

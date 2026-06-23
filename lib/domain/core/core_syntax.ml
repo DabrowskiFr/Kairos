@@ -132,7 +132,9 @@ type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 
 and stmt_desc =
   | SAssign of ident * expr
+  | SAssert of hexpr
   | SIf of expr * stmt list * stmt list
+  | SWhile of expr * hexpr list * expr option * stmt list
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * expr list * ident list

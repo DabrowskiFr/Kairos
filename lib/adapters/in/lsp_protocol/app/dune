@@ -1,7 +1,17 @@
 (library
  (name kairos_lsp_app)
  (wrapped false)
- (modules lsp_app lsp_services)
+ (modules
+  lsp_request_decode
+  lsp_pipeline_mapper
+  lsp_diagnostics
+  lsp_outline
+  lsp_goal_tree
+  lsp_symbols
+  lsp_completion
+  lsp_formatting
+  lsp_app
+  lsp_services)
  (libraries
   kairos_application
   kairos_lsp_protocol

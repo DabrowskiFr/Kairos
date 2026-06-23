@@ -36,7 +36,7 @@ module Instrumentation = struct
 end
 
 module Ports = struct
-  type snapshot = Runtime_snapshot.pipeline_snapshot
+  type snapshot = Verification_runtime_adapters.snapshot
 
   module Frontend = Frontend
   module Snapshot = Verification_runtime_adapters.Snapshot
@@ -49,14 +49,3 @@ module Ports = struct
   module Timing = Verification_runtime_adapters.Timing
   module Proof_events = Verification_runtime_adapters.Proof_events
 end
-
-let compile_object ~input_file : (Kairos_object.t, Pipeline_types.error) result =
-  let* frontend = Frontend.parse_input ~input_file in
-  let* snapshot =
-    Verification_runtime_adapters.Snapshot.build_snapshot
-      ~proof_encoding:Pipeline_types.default_proof_encoding
-      ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
-      ~collect_instrumentation_info:true
-      ~collect_ir_metrics:false
-  in
-  Verification_runtime_adapters.compile_object_from_snapshot ~input_file ~snapshot

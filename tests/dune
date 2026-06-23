@@ -1,7 +1,21 @@
 (rule
  (alias runtest)
  (deps
+  (source_tree ../docs/architecture)
+  (source_tree ../lib)
+  (source_tree ../bin)
+  (source_tree ../vscode/src)
+  ../vscode/package.json
+  dune
+  ../docs/architecture_layer_rules.json
+  ../docs/reference_pipeline_boundaries.json
+  ../.github/workflows/architecture.yml
+  ../scripts/check_architecture_fitness.py
+  ../scripts/check_architecture_manifest.py
+  ../scripts/check_layer_dependencies.py
+  ../scripts/check_reference_pipeline_boundaries.py
   check_elaboration_frontier.sh
+  check_reference_stability.sh
   frontend/spec_past_formula_frontier.kairos
   ok/explicit_single_route_safety.kairos
   ok/enum_quantified_predicate.kairos
@@ -12,6 +26,7 @@
   ok/multiple_assignment_sugar.kairos
   ok/named_action_inline.kairos
   ok/public_observer_contract.kairos
+  ok/reactive_alarm_cover.kairos
   ok/spec_definition_past.kairos
   ok/state_selector_invariants.kairos
   ko/internal_prefix_reserved.kairos
@@ -23,4 +38,10 @@
   ko/unknown_history_definition.kairos
   ko/unknown_predicate_fallback.kairos)
  (action
-  (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})))
+  (progn
+   (run python3 ../scripts/check_architecture_manifest.py)
+   (run python3 ../scripts/check_layer_dependencies.py)
+   (run python3 ../scripts/check_reference_pipeline_boundaries.py)
+   (run python3 ../scripts/check_architecture_fitness.py)
+   (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
+   (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))

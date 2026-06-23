@@ -7,5 +7,4 @@
   proof_status_render)
  (libraries
   kairos_domain_core
-  kairos_domain_proof_export
   why3))

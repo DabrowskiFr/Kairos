@@ -1,0 +1,109 @@
+digraph KairosCorrectionPath {
+  graph [
+    rankdir=TB,
+    bgcolor="white",
+    pad="0.25",
+    nodesep="0.45",
+    ranksep="0.55",
+    fontname="Helvetica",
+    labelloc="t",
+    label="Correction path: what Rocq must understand"
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Helvetica",
+    fontsize=12,
+    margin="0.12,0.08",
+    color="#1f2937"
+  ];
+
+  edge [
+    fontname="Helvetica",
+    fontsize=10,
+    color="#374151",
+    arrowsize=0.8
+  ];
+
+  surface [
+    label="Surface Kairos\nsyntax sugar, observers, actions",
+    fillcolor="#ede9fe"
+  ];
+
+  elaboration [
+    label="Elaboration frontier\nsurface -> core model\nnot yet the Rocq kernel",
+    fillcolor="#ddd6fe"
+  ];
+
+  core [
+    label="Core program model\nVerification_model + Core_syntax",
+    fillcolor="#dcfce7",
+    penwidth=2
+  ];
+
+  automata [
+    label="Assumption/guarantee automata\nexternal parameters of the kernel\nSpot is outside this box",
+    fillcolor="#e5e7eb"
+  ];
+
+  product [
+    label="Reference product\nprogram states x automata states\nProduct_build / From_model",
+    fillcolor="#bbf7d0",
+    penwidth=3
+  ];
+
+  prepost [
+    label="Reference obligation shaping\nPre, Product_reachability, Post",
+    fillcolor="#86efac",
+    penwidth=3
+  ];
+
+  temporal [
+    label="Reference temporal normalization\nTemporal_lower\npre/pre_k -> temporal layout",
+    fillcolor="#86efac",
+    penwidth=3
+  ];
+
+  kernel_export [
+    label="Proof-kernel export\nProof_kernel_types.node_ir\nRocq exchange view",
+    fillcolor="#4ade80",
+    penwidth=3
+  ];
+
+  rocq [
+    label="Rocq formalization\nmust match this exchange view",
+    shape=oval,
+    fillcolor="#dcfce7",
+    penwidth=2
+  ];
+
+  sharing [
+    label="Formula_sharing\nobligation-preserving optimization\nnot semantic",
+    fillcolor="#fef3c7"
+  ];
+
+  backend [
+    label="Why3 backend\nslicing, grouping, printing, solver calls\nnot the source of truth",
+    fillcolor="#fecdd3"
+  ];
+
+  external [
+    label="External tools\nSpot, Why3, Z3, Graphviz",
+    fillcolor="#e5e7eb"
+  ];
+
+  surface -> elaboration;
+  elaboration -> core;
+  core -> product;
+  automata -> product;
+  product -> prepost;
+  prepost -> temporal;
+  temporal -> kernel_export;
+  kernel_export -> rocq;
+
+  temporal -> sharing [style=dashed, label="may share identical formulas"];
+  sharing -> backend [style=dashed];
+  backend -> external [style=dashed];
+  external -> automata [style=dashed, label="Spot may produce them"];
+}

@@ -18,7 +18,4 @@
 
 (** Composition root wiring application ports to concrete adapters. *)
 
-module Ports : Application_ports.PORTS with type snapshot = Runtime_snapshot.pipeline_snapshot
-
-val compile_object :
-  input_file:string -> (Kairos_object.t, Pipeline_types.error) result
+module Ports : Application_ports.PORTS with type snapshot = Verification_runtime_adapters.snapshot

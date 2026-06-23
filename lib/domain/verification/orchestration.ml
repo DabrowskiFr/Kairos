@@ -16,10 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Orchestration entrypoint for canonical IR construction.
+(** Orchestration entrypoint for domain IR construction.
 
-    The module drives the IR pipeline from parsed AST + automata builds and
-    returns both initial summaries and fully instrumented IR. *)
+    The reference-product entry point names the correction-critical path from
+    an elaborated program plus supplied automata to product summaries. The
+    instrumentation passes remain separate: they are useful for proof/backend
+    construction, but they must not be confused with external tool choices,
+    dumps, profiling, or backend-specific grouping. *)
 
 open Automaton_types
 
@@ -27,11 +30,17 @@ open Automaton_types
 
 let ( let* ) = Result.bind
 
-(** Type [run_artifacts]. *)
+(** Type [reference_product_input]. *)
 
-type run_artifacts = {
-  summaries_nodes : Ir.node_ir list;
-  instrumentation_program : Ir.program_ir;
+type reference_product_input = {
+  reference_program : Verification_model.program_model;
+  reference_automata : (Core_syntax.ident * automata_spec) list;
+}
+
+(** Type [reference_product]. *)
+
+type reference_product = {
+  reference_nodes : Ir.node_ir list;
 }
 
 (** Type [instrumented_ir_pass]. *)
@@ -43,13 +52,15 @@ type instrumented_ir_pass =
   | Temporal_lower_pass
   | Formula_sharing_pass
 
-(** [build_initial_ir] helper value. *)
+(** [build_reference_product] helper value. *)
 
-let build_initial_ir
-    ~(automata : (Core_syntax.ident * automata_spec) list)
-    (program : Verification_model.program_model) :
-    (Ir.node_ir list, string) result =
-  From_model.of_model_program ~automata program
+let build_reference_product
+    ({ reference_program; reference_automata } : reference_product_input) :
+    (reference_product, string) result =
+  let* reference_nodes =
+    From_model.of_model_program ~automata:reference_automata reference_program
+  in
+  Ok { reference_nodes }
 
 (** [build_instrumented_ir] helper value. *)
 
@@ -67,13 +78,3 @@ let build_instrumented_ir
     |> run_pass Formula_sharing_pass Formula_sharing.run_program
   in
   ({ nodes } : Ir.program_ir)
-
-(** [run] helper value. *)
-
-let run
-    (program : Verification_model.program_model)
-    (automata : (Core_syntax.ident * automata_spec) list) :
-    (run_artifacts, string) result =
-  let* summaries_nodes = build_initial_ir ~automata program in
-  let instrumentation_program = build_instrumented_ir summaries_nodes in
-  Ok { summaries_nodes; instrumentation_program }

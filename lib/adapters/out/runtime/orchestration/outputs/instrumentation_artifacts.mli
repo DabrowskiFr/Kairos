@@ -23,8 +23,3 @@ val instrumentation_pass :
   generate_png:bool ->
   input_file:string ->
   (Pipeline_types.automata_outputs, Pipeline_types.error) result
-
-(** Compile a source file to an in-memory [.kobj] object. *)
-
-val compile_object :
-  input_file:string -> (Kairos_object.t, Pipeline_types.error) result

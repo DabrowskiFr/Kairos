@@ -23,12 +23,13 @@ let rec stmt_contains_call (s : Core_syntax.stmt) : bool =
   | SCall _ -> true
   | SIf (_, then_branch, else_branch) ->
       List.exists stmt_contains_call then_branch || List.exists stmt_contains_call else_branch
+  | SWhile (_, _, _, body) -> List.exists stmt_contains_call body
   | SMatch (_, branches, default_branch) ->
       List.exists
         (fun (_ctor, body) -> List.exists stmt_contains_call body)
         branches
       || List.exists stmt_contains_call default_branch
-  | SAssign _ | SSkip -> false
+  | SAssign _ | SAssert _ | SSkip -> false
 
 let transition_contains_call (t : Verification_model.program_step) : bool =
   List.exists stmt_contains_call t.body_stmts
@@ -120,14 +121,22 @@ let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
       unique_inserted_count = family.unique_inserted_count;
     }
 
-let build_snapshot_from_frontend
-    ~(collect_instrumentation_info : bool)
-    ~(collect_ir_metrics : bool)
-    ~(proof_encoding : Pipeline_types.proof_encoding)
+type prepared_program = {
+  imports : string list;
+  parse_info : Flow_info.parse_info;
+  source_model : Verification_model.program_model;
+  reference_program : Verification_model.program_model;
+}
+
+type supplied_automata = {
+  automata : (Core_syntax.ident * Automaton_types.automata_spec) list;
+  automata_info : Flow_info.automata_info;
+}
+
+let prepare_program_from_frontend
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
     ~(frontend : Application_ports.frontend_input) :
-    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
-    result =
+    (prepared_program, Pipeline_types.error) result =
   try
     let imports = frontend.imports in
     let parse_info = frontend.parse_info in
@@ -145,26 +154,41 @@ let build_snapshot_from_frontend
       partition_result
       |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)
     in
-    let t_automata = Unix.gettimeofday () in
-    let automata, automata_pass_info =
-      Automata_generation.run runtime_model ~build_automaton:Spot_automaton_builder.build
-    in
-    External_timing.record_automata_generation
-      ~elapsed_s:(Unix.gettimeofday () -. t_automata);
-    let automata_info : Flow_info.automata_info =
+    Ok
       {
-        residual_state_count = automata_pass_info.residual_state_count;
-        residual_edge_count = automata_pass_info.residual_edge_count;
-        warnings = automata_pass_info.warnings;
+        imports;
+        parse_info;
+        source_model = p_model;
+        reference_program = runtime_model;
       }
-    in
+  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+
+let build_snapshot_from_supplied_automata
+    ~(collect_instrumentation_info : bool)
+    ~(collect_ir_metrics : bool)
+    ~(proof_encoding : Pipeline_types.proof_encoding)
+    ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    ~(prepared : prepared_program)
+    ~(supplied_automata : supplied_automata) :
+    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
+    result =
+  try
+    let imports = prepared.imports in
+    let parse_info = prepared.parse_info in
+    let p_model = prepared.source_model in
+    let runtime_model = prepared.reference_program in
+    let automata = supplied_automata.automata in
+    let automata_info = supplied_automata.automata_info in
     let t_product = Unix.gettimeofday () in
+    let reference_input : Orchestration.reference_product_input =
+      { reference_program = runtime_model; reference_automata = automata }
+    in
     let p_summaries =
-      match Orchestration.build_initial_ir ~automata runtime_model with
+      match Orchestration.build_reference_product reference_input with
       | Error msg -> Error (Pipeline_types.Flow_error msg)
-      | Ok summaries ->
+      | Ok reference_product ->
           External_timing.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
-          Ok summaries
+          Ok reference_product.reference_nodes
     in
     match p_summaries with
     | Error _ as err -> err
@@ -223,7 +247,7 @@ let build_snapshot_from_frontend
           {
             imports;
             verification_model = p_model;
-            automata_generation = runtime_model;
+            reference_program = runtime_model;
             automata;
             summaries = p_summaries;
             instrumentation = p_instrumentation;

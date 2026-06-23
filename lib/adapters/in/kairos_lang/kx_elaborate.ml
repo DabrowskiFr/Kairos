@@ -115,6 +115,11 @@ let lower_raw_vdecls env raws = List.concat_map (lower_raw_vdecl env) raws
 let subst_ident ~(param : ident) ~(value : ident) id =
   if String.equal id param then value else id
 
+let nat_literal_of_ident id =
+  match int_of_string_opt id with
+  | Some n when n >= 0 -> Some n
+  | _ -> None
+
 let subst_ref ~(param : ident) ~(value : ident) (r : S.indexed_ref) : S.indexed_ref =
   {
     S.ref_base = subst_ident ~param ~value r.ref_base;
@@ -123,7 +128,9 @@ let subst_ref ~(param : ident) ~(value : ident) (r : S.indexed_ref) : S.indexed_
 
 let subst_nat_expr ~(param : ident) ~(value : ident) = function
   | SNNat _ as n -> n
-  | SNVar id -> SNVar (subst_ident ~param ~value id)
+  | SNVar id when String.equal id param -> (
+      match nat_literal_of_ident value with Some n -> SNNat n | None -> SNVar value)
+  | SNVar id -> SNVar id
 
 let rec subst_expr ~(param : ident) ~(value : ident) (e : S.expr) : S.expr =
   let sexpr =
@@ -228,6 +235,12 @@ let rec subst_stmt ~(param : ident) ~(value : ident) (s : S.stmt) : S.stmt =
           ( subst_expr ~param ~value cond,
             List.map (subst_stmt ~param ~value) t,
             List.map (subst_stmt ~param ~value) e )
+    | SSWhile (cond, invariants, variant, body) ->
+        SSWhile
+          ( subst_expr ~param ~value cond,
+            List.map (subst_hexpr ~param ~value) invariants,
+            Option.map (subst_expr ~param ~value) variant,
+            List.map (subst_stmt ~param ~value) body )
     | SSMatch (scrutinee, branches, dflt) ->
         SSMatch
           ( subst_expr ~param ~value scrutinee,
@@ -241,6 +254,18 @@ let rec subst_stmt ~(param : ident) ~(value : ident) (s : S.stmt) : S.stmt =
     | SSActionCall (callee, args) -> SSActionCall (callee, List.map (subst_ident ~param ~value) args)
     | SSFor (bound, enum_name, body) when String.equal bound param -> SSFor (bound, enum_name, body)
     | SSFor (bound, enum_name, body) -> SSFor (bound, enum_name, List.map (subst_stmt ~param ~value) body)
+    | SSForRange (bound, lo, hi, body) when String.equal bound param ->
+        SSForRange
+          ( bound,
+            subst_nat_expr ~param ~value lo,
+            subst_nat_expr ~param ~value hi,
+            body )
+    | SSForRange (bound, lo, hi, body) ->
+        SSForRange
+          ( bound,
+            subst_nat_expr ~param ~value lo,
+            subst_nat_expr ~param ~value hi,
+            List.map (subst_stmt ~param ~value) body )
   in
   { s with sstmt }
 
@@ -317,7 +342,24 @@ let eval_nat ctx = function
 let is_scalar_ref_named name (r : S.indexed_ref) =
   String.equal r.ref_base name && r.ref_indices = []
 
+let ref_with_nat_params ctx (r : S.indexed_ref) : S.indexed_ref =
+  let resolve_index id =
+    match List.assoc_opt id ctx.nat_params with
+    | Some n -> string_of_int n
+    | None -> id
+  in
+  { r with ref_indices = List.map resolve_index r.ref_indices }
+
+let scalar_nat_value ctx (r : S.indexed_ref) : int option =
+  match r.ref_indices with
+  | [] -> (
+      match List.assoc_opt r.ref_base ctx.nat_params with
+      | Some n -> Some n
+      | None -> nat_literal_of_ident r.ref_base)
+  | _ -> None
+
 let resolve_history_source_ref ctx (r : S.indexed_ref) =
+  let r = ref_with_nat_params ctx r in
   match (r.ref_indices, List.assoc_opt r.ref_base ctx.hexpr_params) with
   | [], Some { shexpr = SHVar actual; _ } -> actual
   | [], Some _ ->
@@ -429,6 +471,10 @@ let rec lower_expr env (e : S.expr) : expr =
     match e.sexpr with
     | SELitInt n -> ELitInt n
     | SELitBool b -> ELitBool b
+    | SEVar r when r.ref_indices = [] -> (
+        match nat_literal_of_ident r.ref_base with
+        | Some n -> ELitInt n
+        | None -> EVar (indexed_ref_name r))
     | SEVar r -> EVar (indexed_ref_name r)
     | SECall (callee, args) -> (
         match function_sig env callee with
@@ -449,21 +495,32 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
   match h.shexpr with
   | SHLitInt n -> mk (HLitInt n)
   | SHLitBool b -> mk (HLitBool b)
-  | SHVar ({ ref_base; _ } as r) when is_scalar_ref_named ref_base r -> (
-      match List.assoc_opt ref_base ctx.hexpr_params with
-      | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
-          mk (HVar (indexed_ref_name actual))
-      | Some actual -> lower_hexpr env ctx stack actual
-      | None -> mk (HVar (indexed_ref_name r)))
-  | SHVar r -> mk (HVar (indexed_ref_name r))
-  | SHPreK (({ ref_base; _ } as r), k) when is_scalar_ref_named ref_base r -> (
+  | SHVar r -> (
+      match scalar_nat_value ctx r with
+      | Some n -> mk (HLitInt n)
+      | None ->
+          let r = ref_with_nat_params ctx r in
+          begin
+            match r with
+            | { ref_base; _ } when is_scalar_ref_named ref_base r -> (
+                match List.assoc_opt ref_base ctx.hexpr_params with
+                | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
+                    mk (HVar (indexed_ref_name actual))
+                | Some actual -> lower_hexpr env ctx stack actual
+                | None -> mk (HVar (indexed_ref_name r)))
+            | _ -> mk (HVar (indexed_ref_name r))
+          end)
+  | SHPreK (r, k) -> (
       let k = eval_nat ctx k in
-      match List.assoc_opt ref_base ctx.hexpr_params with
-      | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
-          mk (HVar (indexed_ref_name actual)) |> shift_hexpr_past k
-      | Some actual -> lower_hexpr env ctx stack actual |> shift_hexpr_past k
-      | None -> mk (HPreK (indexed_ref_name r, k)))
-  | SHPreK (r, k) -> mk (HPreK (indexed_ref_name r, eval_nat ctx k))
+      let r = ref_with_nat_params ctx r in
+      match r with
+      | { ref_base; _ } when is_scalar_ref_named ref_base r -> (
+          match List.assoc_opt ref_base ctx.hexpr_params with
+          | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
+              mk (HVar (indexed_ref_name actual)) |> shift_hexpr_past k
+          | Some actual -> lower_hexpr env ctx stack actual |> shift_hexpr_past k
+          | None -> mk (HPreK (indexed_ref_name r, k)))
+      | _ -> mk (HPreK (indexed_ref_name r, k)))
   | SHPast (inner, k) -> lower_hexpr env ctx stack inner |> shift_hexpr_past (eval_nat ctx k)
   | SHHistoryCall (name, r) ->
       let r = resolve_history_source_ref ctx r in
@@ -1014,6 +1071,15 @@ let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
                lower_stmt_list env stack then_branch,
                lower_stmt_list env stack else_branch ));
       ]
+  | SSWhile (cond, invariants, variant, body) ->
+      [
+        Kx_ast_builders.mk_stmt ?loc:s.sloc
+          (SWhile
+             ( lower_expr env cond,
+               List.map (lower_hexpr env empty_spec_context []) invariants,
+               Option.map (lower_expr env) variant,
+               lower_stmt_list env stack body ));
+      ]
   | SSMatch (scrutinee, branches, default_branch) ->
       [
         Kx_ast_builders.mk_stmt ?loc:s.sloc
@@ -1031,6 +1097,12 @@ let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
       |> List.concat_map (fun value ->
              body
              |> List.map (subst_stmt ~param ~value)
+             |> lower_stmt_list env stack)
+  | SSForRange (param, lo, hi, body) ->
+      range_values (eval_nat empty_spec_context lo) (eval_nat empty_spec_context hi)
+      |> List.concat_map (fun value ->
+             body
+             |> List.map (subst_stmt ~param ~value:(string_of_int value))
              |> lower_stmt_list env stack)
 
 and lower_stmt_list env stack stmts =
@@ -1051,7 +1123,18 @@ and expand_action env stack name args =
           (fun acc param value -> List.map (subst_stmt ~param ~value) acc)
           action.action_body action.action_params args
       in
-      lower_stmt_list env (name :: stack) body
+      let instantiate formulas =
+        List.fold_left2
+          (fun acc param value -> List.map (subst_hexpr ~param ~value) acc)
+          formulas action.action_params args
+      in
+      let assertion formula =
+        Kx_ast_builders.mk_stmt
+          (SAssert (lower_hexpr env empty_spec_context [] formula))
+      in
+      List.map assertion (instantiate action.action_requires)
+      @ lower_stmt_list env (name :: stack) body
+      @ List.map assertion (instantiate action.action_ensures)
 
 let validate_unique_named_decls kind get_name decls =
   let seen = Hashtbl.create 17 in
@@ -1085,11 +1168,13 @@ let rec stmt_assigns_to targets (s : S.stmt) : ident option =
   | SSAssign (lhs, _) -> assigned_ref lhs
   | SSIf (_, then_branch, else_branch) ->
       List.find_map (stmt_assigns_to targets) (then_branch @ else_branch)
+  | SSWhile (_, _, _, body) -> List.find_map (stmt_assigns_to targets) body
   | SSMatch (_, branches, default_branch) ->
       List.find_map (stmt_assigns_to targets)
         (List.concat_map snd branches @ default_branch)
   | SSSkip | SSCall _ | SSActionCall _ -> None
   | SSFor (_, _, body) -> List.find_map (stmt_assigns_to targets) body
+  | SSForRange (_, _, _, body) -> List.find_map (stmt_assigns_to targets) body
 
 let rec expr_refs (e : S.expr) : ident list =
   match e.sexpr with
@@ -1099,27 +1184,50 @@ let rec expr_refs (e : S.expr) : ident list =
   | SEBin (_, a, b) | SECmp (_, a, b) -> expr_refs a @ expr_refs b
   | SEUn (_, inner) -> expr_refs inner
 
+let rec hexpr_refs (h : S.hexpr) : ident list =
+  match h.shexpr with
+  | SHLitInt _ | SHLitBool _ -> []
+  | SHVar r | SHPreK (r, _) | SHHistoryCall (_, r) | SHHistoryAlias (_, r) ->
+      [ indexed_ref_name r ]
+  | SHPast (inner, _) -> hexpr_refs inner
+  | SHCall (_, args) -> args
+  | SHExpr e -> expr_refs e
+  | SHBin (_, a, b) | SHCmp (_, a, b) -> hexpr_refs a @ hexpr_refs b
+  | SHUn (_, inner) -> hexpr_refs inner
+  | SHForall (bound, _, body) | SHExists (bound, _, body) ->
+      List.filter (fun name -> not (String.equal name bound)) (hexpr_refs body)
+  | SHRangeForall (bound, _, _, body) | SHRangeExists (bound, _, _, body) ->
+      List.filter (fun name -> not (String.equal name bound)) (hexpr_refs body)
+
 let rec stmt_refs (s : S.stmt) : ident list =
   match s.sstmt with
   | SSAssign (_, rhs) -> expr_refs rhs
   | SSIf (cond, then_branch, else_branch) ->
       expr_refs cond @ List.concat_map stmt_refs (then_branch @ else_branch)
+  | SSWhile (cond, invariants, variant, body) ->
+      expr_refs cond
+      @ List.concat_map hexpr_refs invariants
+      @ Option.fold ~none:[] ~some:expr_refs variant
+      @ List.concat_map stmt_refs body
   | SSMatch (scrutinee, branches, default_branch) ->
       expr_refs scrutinee @ List.concat_map stmt_refs (List.concat_map snd branches @ default_branch)
   | SSSkip -> []
   | SSCall (_, args, _) -> List.concat_map expr_refs args
   | SSActionCall _ -> []
   | SSFor (_, _, body) -> List.concat_map stmt_refs body
+  | SSForRange (_, _, _, body) -> List.concat_map stmt_refs body
 
 let rec stmt_assignment_targets (s : S.stmt) : ident list =
   match s.sstmt with
   | SSAssign (lhs, _) -> [ indexed_ref_name lhs ]
   | SSIf (_, then_branch, else_branch) ->
       List.concat_map stmt_assignment_targets (then_branch @ else_branch)
+  | SSWhile (_, _, _, body) -> List.concat_map stmt_assignment_targets body
   | SSMatch (_, branches, default_branch) ->
       List.concat_map stmt_assignment_targets (List.concat_map snd branches @ default_branch)
   | SSSkip | SSCall _ | SSActionCall _ -> []
   | SSFor (_, _, body) -> List.concat_map stmt_assignment_targets body
+  | SSForRange (_, _, _, body) -> List.concat_map stmt_assignment_targets body
 
 let rec stmt_must_assign target (s : S.stmt) : bool =
   match s.sstmt with
@@ -1129,7 +1237,7 @@ let rec stmt_must_assign target (s : S.stmt) : bool =
   | SSMatch (_, branches, default_branch) ->
       List.for_all (fun (_, body) -> stmt_list_must_assign target body) branches
       && stmt_list_must_assign target default_branch
-  | SSSkip | SSCall _ | SSActionCall _ | SSFor _ -> false
+  | SSSkip | SSCall _ | SSActionCall _ | SSFor _ | SSForRange _ | SSWhile _ -> false
 
 and stmt_list_must_assign target body =
   List.exists (stmt_must_assign target) body
@@ -1143,6 +1251,9 @@ let validate_observer_body observer_names (obs : S.observer_decl) phase body =
     | SSAssign _ | SSSkip -> ()
     | SSIf (_, then_branch, else_branch) ->
         List.iter reject_unsupported_stmt (then_branch @ else_branch)
+    | SSWhile _ ->
+        failwith
+          (Printf.sprintf "%s cannot contain a while loop; observer updates must be scalar" context)
     | SSMatch (_, branches, default_branch) ->
         List.iter reject_unsupported_stmt (List.concat_map snd branches @ default_branch)
     | SSCall _ ->
@@ -1152,6 +1263,9 @@ let validate_observer_body observer_names (obs : S.observer_decl) phase body =
         failwith
           (Printf.sprintf "%s cannot call an action; observer updates must be explicit" context)
     | SSFor _ ->
+        failwith
+          (Printf.sprintf "%s cannot contain a for loop; observer updates must be scalar" context)
+    | SSForRange _ ->
         failwith
           (Printf.sprintf "%s cannot contain a for loop; observer updates must be scalar" context)
   in
@@ -1235,20 +1349,42 @@ let validate_observers (n : S.node) =
 	      a.action_body)
 	  n.actions)
 
-let rec hexpr_refs (h : S.hexpr) : ident list =
-  match h.shexpr with
-  | SHLitInt _ | SHLitBool _ -> []
-  | SHVar r | SHPreK (r, _) | SHHistoryCall (_, r) | SHHistoryAlias (_, r) ->
-      [ indexed_ref_name r ]
-  | SHPast (inner, _) -> hexpr_refs inner
-  | SHCall (_, args) -> args
-  | SHExpr e -> expr_refs e
-  | SHBin (_, a, b) | SHCmp (_, a, b) -> hexpr_refs a @ hexpr_refs b
-  | SHUn (_, inner) -> hexpr_refs inner
-  | SHForall (bound, _, body) | SHExists (bound, _, body) ->
-      List.filter (fun name -> not (String.equal name bound)) (hexpr_refs body)
-  | SHRangeForall (bound, _, _, body) | SHRangeExists (bound, _, _, body) ->
-      List.filter (fun name -> not (String.equal name bound)) (hexpr_refs body)
+let validate_action_contracts (n : S.node) =
+  let rec check_formula context (h : S.hexpr) =
+    match h.shexpr with
+    | SHLitInt _ | SHLitBool _ | SHVar _ -> ()
+    | SHPreK _ | SHPast _ | SHHistoryCall _ | SHHistoryAlias _ ->
+        failwith
+          (Printf.sprintf
+             "%s cannot use temporal or history operators; action contracts are local block contracts"
+             context)
+    | SHCall _ ->
+        failwith
+          (Printf.sprintf
+             "%s cannot call predicates yet; action contracts must expose their local formula directly"
+             context)
+    | SHExpr _ -> ()
+    | SHBin (_, a, b) | SHCmp (_, a, b) ->
+        check_formula context a;
+        check_formula context b
+    | SHUn (_, inner) -> check_formula context inner
+    | SHForall (_, _, body) | SHExists (_, _, body)
+    | SHRangeForall (_, _, _, body) | SHRangeExists (_, _, _, body) ->
+        check_formula context body
+  in
+  List.iter
+    (fun (a : S.action_decl) ->
+      List.iter
+        (check_formula
+           (Printf.sprintf "requires clause of action '%s' in node '%s'" a.action_name
+              n.node_name))
+        a.action_requires;
+      List.iter
+        (check_formula
+           (Printf.sprintf "ensures clause of action '%s' in node '%s'" a.action_name
+              n.node_name))
+        a.action_ensures)
+    n.actions
 
 let validate_history_def_decl (d : S.history_def_decl) =
   let context = Printf.sprintf "history definition '%s'" d.history_def_name in
@@ -1487,6 +1623,7 @@ let expand_state_invariants (n : S.node) =
 let lower_node base_env (n : S.node) : Kx_ast.node =
   let env = node_env base_env n in
   validate_observers n;
+  validate_action_contracts n;
   let contracts = n.contracts in
   let generated_histories = collect_node_histories env n contracts in
   let generated_history_ghosts = history_ghosts generated_histories in

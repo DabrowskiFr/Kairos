@@ -71,6 +71,9 @@ let () =
       ("if", IF);
       ("then", THEN);
       ("else", ELSE);
+      ("while", WHILE);
+      ("do", DO);
+      ("variant", VARIANT);
       ("for", FOR);
       ("forall", FORALL);
       ("exists", EXISTS);
@@ -165,6 +168,9 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("if", IF);
     ("then", THEN);
     ("else", ELSE);
+    ("while", WHILE);
+    ("do", DO);
+    ("variant", VARIANT);
     ("for", FOR);
     ("forall", FORALL);
     ("exists", EXISTS);

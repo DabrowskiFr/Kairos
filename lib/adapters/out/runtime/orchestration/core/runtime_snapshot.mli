@@ -28,7 +28,7 @@ open Core_syntax
 type ast_flow = {
   imports : string list;
   verification_model : Verification_model.program_model;
-  automata_generation : Verification_model.program_model;
+  reference_program : Verification_model.program_model;
   automata : (ident * Automaton_types.automata_spec) list;
   summaries : Ir.node_ir list;
   instrumentation : Ir.node_ir list;

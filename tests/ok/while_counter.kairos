@@ -1,0 +1,37 @@
+node while_counter(limit: int) returns (out: int)
+
+contracts
+  requires: G(limit >= 0);
+  ensures: G(out >= 0);
+
+states Init(init), Run;
+
+invariants
+  in Run:
+    out >= 0;
+
+trans
+  Init:
+    to Run {
+      out := 0;
+      while out < limit
+        invariant: out >= 0;
+        invariant: out <= limit;
+        variant: limit - out;
+      do
+        out := out + 1;
+      end;
+    }
+
+  Run:
+    to Run {
+      out := 0;
+      while out < limit
+        invariant: out >= 0;
+        invariant: out <= limit;
+        variant: limit - out;
+      do
+        out := out + 1;
+      end;
+    }
+end

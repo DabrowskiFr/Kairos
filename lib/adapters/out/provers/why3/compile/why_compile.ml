@@ -713,8 +713,7 @@ let compile_pure_function_decl (f : pure_function_decl) : Ptree.decl =
    The active path builds [info] from the IR via [prepare_ir_node]. *)
 (** [compile_node_with_info] helper value. *)
 
-let compile_node_with_info ?kernel_ir
-    ?(share_why3_facts = true)
+let compile_node_with_info ?(share_why3_facts = true)
     ?(simplify_why3_formulas = true)
     ?(simplify_why3_runtime_actions = true)
     ?(deduplicate_why3_terms = true)
@@ -759,42 +758,6 @@ let compile_node_with_info ?kernel_ir
   let logic_getter_decls =
     let mk (v : vdecl) = logic_getter_decl ~env v.vname v.vty in
     logic_getter_decl ~env "st" (TCustom "state") :: List.map mk locals_and_outputs
-  in
-  let phase_case_logic_decls =
-    match kernel_ir with
-    | None -> []
-    | Some (ir : Proof_kernel_types.node_ir) ->
-        let seen = Hashtbl.create 32 in
-        let add_decl acc name formula =
-          if Hashtbl.mem seen name then acc
-          else (
-            Hashtbl.add seen name ();
-            logic_bool_pred_decl ~env ~input_ports:runtime_view.inputs ~name ~formula :: acc)
-        in
-        ir.eliminated_generated_clauses
-        |> List.fold_left
-             (fun acc (clause : Proof_kernel_types.generated_clause_ir) ->
-               match (clause.origin, clause.anchor) with
-               | Proof_kernel_types.OriginSourceProductSummary, ClauseAnchorProductState st -> begin
-                   let phase_formula =
-                     clause.conclusions
-                     |> List.find_map (fun (fact : Proof_kernel_types.clause_fact_ir) ->
-                            match (fact.time, fact.desc) with
-                            | Proof_kernel_types.CurrentTick, Proof_kernel_types.FactPhaseFormula phase_formula ->
-                                Some phase_formula
-                            | _ -> None)
-                   in
-                   match phase_formula with
-                   | None -> acc
-                   | Some phase_formula ->
-                       add_decl acc
-                         (Proof_kernel_naming.phase_state_case_name ~prog_state:st.prog_state
-                            ~guarantee_state:st.guarantee_state_index)
-                         phase_formula
-                 end
-               | _ -> acc)
-             []
-        |> List.rev
   in
   let shared_formula_params =
     inputs
@@ -2019,7 +1982,7 @@ let compile_node_with_info ?kernel_ir
 
   let common_decls =
     imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ]
-    @ getter_decls @ logic_getter_decls @ phase_case_logic_decls
+    @ getter_decls @ logic_getter_decls
   in
   if use_product_helper_contracts then
     let common_module =

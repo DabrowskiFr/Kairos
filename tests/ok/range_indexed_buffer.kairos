@@ -1,0 +1,32 @@
+node range_indexed_buffer(reset: bool) returns (
+  buf[0..3]: int
+)
+
+contracts
+  ensures: forall i in 0..3. G(buf[i] >= 0);
+
+states Init(init), Run;
+
+invariants
+  in Run:
+    forall i in 0..3. buf[i] >= 0;
+
+trans
+  Init:
+    to Run {
+      for i in 0..3 {
+        buf[i] := 0;
+      }
+    }
+
+  Run:
+    to Run {
+      for i in 0..3 {
+        if reset then
+          buf[i] := 0;
+        else
+          buf[i] := buf[i] + 1;
+        end;
+      }
+    }
+end

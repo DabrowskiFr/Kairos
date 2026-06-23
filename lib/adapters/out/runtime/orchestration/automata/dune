@@ -1,0 +1,10 @@
+(library
+ (name kairos_runtime_automata)
+ (wrapped false)
+ (modules automata_generation runtime_automata_source)
+ (libraries
+  kairos_application
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_external_spot
+  kairos_external_timing))

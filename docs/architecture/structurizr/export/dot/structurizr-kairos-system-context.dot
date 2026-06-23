@@ -1,0 +1,23 @@
+digraph {
+  compound=true
+  graph [fontname="Arial", rankdir=LR, ranksep=1.0, nodesep=1.0]
+  node [fontname="Arial", shape=box, margin="0.4,0.3"]
+  edge [fontname="Arial"]
+  label=<<br /><font point-size="34">System Context View: Kairos</font>>
+
+  1 [id=1,shape=rect, label=<<font point-size="34">Kairos developer</font><br /><font point-size="19">[Person]</font><br /><br /><font point-size="24">Develops Kairos programs, runs<br />proofs, inspects artifacts,<br />and keeps the Rocq<br />formalization aligned.</font>>, style=filled, color="#0f3645", fillcolor="#164e63", fontcolor="#ffffff"]
+  2 [id=2,shape=rect, label=<<font point-size="34">Rocq formalization</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">Formal model of the<br />correction-critical<br />verification kernel.</font>>, style=filled, color="#0a524d", fillcolor="#0f766e", fontcolor="#ffffff"]
+  3 [id=3,shape=rect, label=<<font point-size="34">Spot</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External tool used to<br />construct temporal-property<br />automata.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
+  4 [id=4,shape=rect, label=<<font point-size="34">Why3</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External VC generation and<br />proof-task infrastructure.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
+  5 [id=5,shape=rect, label=<<font point-size="34">Z3</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External SMT solver used<br />through Why3 and selected<br />internal experiments.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
+  6 [id=6,shape=rect, label=<<font point-size="34">Graphviz</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External renderer for graph<br />artifacts.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
+  7 [id=7,shape=rect, label=<<font point-size="34">Kairos</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">Deductive verification<br />pipeline for synchronous<br />imperative programs.</font>>, style=filled, color="#0a524d", fillcolor="#0f766e", fontcolor="#ffffff"]
+
+  1 -> 7 [id=31, label=<<font point-size="24">Runs checks, dumps, and<br />proofs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 3 [id=53, label=<<font point-size="24">Builds property automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 4 [id=55, label=<<font point-size="24">Builds and proves Why3<br />tasks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 5 [id=57, label=<<font point-size="24">Runs selected SMT checks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 6 [id=59, label=<<font point-size="24">Renders graphs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  2 -> 7 [id=61, label=<<font point-size="24">Synchronizes with<br />versioned kernel exchange<br />format</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+
+}

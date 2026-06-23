@@ -11,8 +11,10 @@ The middle-end builds semantic proof data from the source program:
 The temporal proof passes rely on a phase distinction that is easy to
 break accidentally. The intended vocabulary is documented in
 {!page-temporal_phase_semantics}; the current product-proof pipeline is
-audited in {!page-product_proof_pipeline_audit}. Cost and sharing decisions
-across the whole proof pipeline are tracked in {!page-pipeline_cost_model}.
+audited in {!page-product_proof_pipeline_audit}. The reference boundary between
+semantic obligation generation and backend optimization is documented in
+{!page-reference_verification_architecture}. Cost and sharing decisions across
+the whole proof pipeline are tracked in {!page-pipeline_cost_model}.
 
 {1 Scope}
 

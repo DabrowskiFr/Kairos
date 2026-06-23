@@ -18,7 +18,7 @@
 
 (** Intermediate artifact bundle derived from a pipeline snapshot.
 
-    This payload is consumed by output mappers and [.kobj] construction.
+    This payload is consumed by output mappers and diagnostic reports.
 *)
 
 type t = {

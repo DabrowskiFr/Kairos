@@ -286,9 +286,9 @@ type obligations_pass_request = {
   engine : string;
 }
 
-(** Type [kobj_summary_request]. *)
+(** Type [text_dump_request]. *)
 
-type kobj_summary_request = {
+type text_dump_request = {
   input_file : string;
   engine : string;
 }
@@ -495,12 +495,12 @@ val yojson_of_obligations_pass_request : obligations_pass_request -> Yojson.Safe
 
 val obligations_pass_request_of_yojson : Yojson.Safe.t -> (obligations_pass_request, string) result
 
-(** [yojson_of_kobj_summary_request] service entrypoint. *)
+(** [yojson_of_text_dump_request] service entrypoint. *)
 
-val yojson_of_kobj_summary_request : kobj_summary_request -> Yojson.Safe.t
-(** [kobj_summary_request_of_yojson] service entrypoint. *)
+val yojson_of_text_dump_request : text_dump_request -> Yojson.Safe.t
+(** [text_dump_request_of_yojson] service entrypoint. *)
 
-val kobj_summary_request_of_yojson : Yojson.Safe.t -> (kobj_summary_request, string) result
+val text_dump_request_of_yojson : Yojson.Safe.t -> (text_dump_request, string) result
 
 (** [yojson_of_dot_png_from_text_request] service entrypoint. *)
 
