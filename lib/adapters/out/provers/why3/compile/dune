@@ -23,6 +23,7 @@
   why_compile_contract_facts
   why_compile_product_helpers
   why_compile_modules
+  why_compile_node_common
   why_compile_product_pipeline
   why_compile
   why_compile_step)

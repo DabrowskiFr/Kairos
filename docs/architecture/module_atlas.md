@@ -187,6 +187,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
 | `why_compile_product_helpers.ml` | Emission des fonctions helpers de pas produit |
 | `why_compile_product_pipeline.ml` | Facade produit : facts, specs, plan, metriques, helpers |
+| `why_compile_node_common.ml` | Squelette commun Why3 d'un noeud : imports, types, binders, getters |
 | `why_compile_modules.ml` | Assemblage final des declarations Why3 en modules et `program_ast` |
 | `why_compile_step.ml` | Compilation imperative des corps de transition deja selectionnes |
 | `why_compile.ml` | Orchestration de la compilation Why3 d'un noeud |
