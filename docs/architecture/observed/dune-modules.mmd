@@ -438,11 +438,13 @@ flowchart TD
       id356856735(Why_compile_step)
       id416335878(Why_compile_ptree_helpers)
       id256765296(Why_compile_product_specs)
+      id799026706(Why_compile_product_plan)
       id709043121(Why_compile_product_pipeline)
       id350835692(Why_compile_product_metrics)
       id533518584(Why_compile_product_layout)
       id533724720(Why_compile_product_helpers)
       id148867336(Why_compile_product_groups)
+      id405909288(Why_compile_product_bundle_state)
       id688013064(Why_compile_node_common)
       id488283078(Why_compile_modules)
       id290900148(Why_compile_logic)
@@ -693,11 +695,13 @@ flowchart TD
   id95057747-->id290900148
   id95057747-->id488283078
   id95057747-->id688013064
+  id95057747-->id405909288
   id95057747-->id148867336
   id95057747-->id533724720
   id95057747-->id533518584
   id95057747-->id350835692
   id95057747-->id709043121
+  id95057747-->id799026706
   id95057747-->id256765296
   id95057747-->id416335878
   id95057747-->id356856735
@@ -995,6 +999,7 @@ flowchart TD
   id488283078-->id533724720
   id688013064-->id290900148
   id688013064-->id488283078
+  id405909288-->id488283078
   id148867336-->id416335878
   id533724720-->id533518584
   id533724720-->id256765296
@@ -1002,8 +1007,10 @@ flowchart TD
   id533724720-->id949600698
   id350835692-->id148867336
   id350835692-->id949600698
-  id709043121-->id667504946
-  id709043121-->id488283078
-  id709043121-->id350835692
+  id709043121-->id405909288
+  id709043121-->id799026706
+  id799026706-->id667504946
+  id799026706-->id533518584
+  id799026706-->id350835692
   id256765296-->id682001964
   id256765296-->id148867336

@@ -16,13 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Bundles = Why_compile_bundles
+module Bundle_state = Why_compile_product_bundle_state
 module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
-module Product_groups = Why_compile_product_groups
 module Product_helpers = Why_compile_product_helpers
-module Product_layout = Why_compile_product_layout
-module Product_metrics = Why_compile_product_metrics
+module Product_plan = Why_compile_product_plan
 module Product_specs = Why_compile_product_specs
 module StringSet = Why_compile_ptree_helpers.StringSet
 
@@ -53,51 +51,17 @@ type result = {
   kernel_step_helper_units : Product_helpers.helper_unit list;
 }
 
-let build_bundle_calls ctx =
-  let bundle_context : Modules.spec_groups Bundles.context =
-    {
-      module_name = ctx.module_name;
-      imports = ctx.imports;
-      common_import = ctx.common_import;
-      inputs = ctx.inputs;
-      empty_groups = Modules.empty_groups;
-      local_shared_formula_decls = ctx.local_shared_formula_decls;
-      shared_formula_names_in_terms = ctx.shared_formula_names_in_terms;
-    }
-  in
-  let shared_bundle_call = Bundles.shared_bundle_call ~context:bundle_context in
-  let shared_post_bundle_table : (string, string * string) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_post_bundle_modules = ref [] in
-  let shared_post_bundle_call =
-    shared_bundle_call ~module_suffix:"Post"
-      ~predicate_prefix:"shared_post_bundle" ~table:shared_post_bundle_table
-      ~modules:shared_post_bundle_modules
-  in
-  let shared_pre_bundle_table : (string, string * string) Hashtbl.t =
-    Hashtbl.create 128
-  in
-  let shared_pre_bundle_modules = ref [] in
-  let shared_pre_bundle_call =
-    shared_bundle_call ~module_suffix:"Pre"
-      ~predicate_prefix:"shared_pre_bundle" ~table:shared_pre_bundle_table
-      ~modules:shared_pre_bundle_modules
-  in
-  ( shared_pre_bundle_modules,
-    shared_pre_bundle_call,
-    shared_post_bundle_modules,
-    shared_post_bundle_call )
-
 let build ctx step_contracts =
-  let ( shared_pre_bundle_modules,
-        shared_pre_bundle_call,
-        shared_post_bundle_modules,
-        shared_post_bundle_call ) =
-    build_bundle_calls ctx
-  in
-  let predicate_bundle_decl_and_call =
-    Bundles.predicate_bundle_decl_and_call ~inputs:ctx.inputs
+  let bundle_state =
+    Bundle_state.create
+      {
+        module_name = ctx.module_name;
+        imports = ctx.imports;
+        common_import = ctx.common_import;
+        inputs = ctx.inputs;
+        local_shared_formula_decls = ctx.local_shared_formula_decls;
+        shared_formula_names_in_terms = ctx.shared_formula_names_in_terms;
+      }
   in
   let contract_fact_context : Contract_facts.context =
     {
@@ -120,9 +84,11 @@ let build ctx step_contracts =
       pre_family_bundle_counts = product_helper_facts.pre_family_bundle_counts;
       post_family_bundle_counts =
         product_helper_facts.post_family_bundle_counts;
-      predicate_bundle_decl_and_call;
-      shared_pre_bundle_call;
-      shared_post_bundle_call;
+      predicate_bundle_decl_and_call =
+        Bundle_state.predicate_bundle_decl_and_call bundle_state;
+      shared_pre_bundle_call = Bundle_state.shared_pre_bundle_call bundle_state;
+      shared_post_bundle_call =
+        Bundle_state.shared_post_bundle_call bundle_state;
     }
   in
   let product_helper_context : Product_helpers.context =
@@ -134,26 +100,24 @@ let build ctx step_contracts =
       local_shared_formula_decls = ctx.local_shared_formula_decls;
     }
   in
-  let product_helper_plan =
-    Product_groups.plan_kernel_helpers ~env:ctx.env
-      ~pre_vars_name:Product_layout.pre_vars_name
-      ~post_vars_name:Product_layout.post_vars_name
-      ~group_why3_product_steps:ctx.group_why3_product_steps
-      ~max_cost:ctx.why3_product_step_group_max_cost
-      ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions
-      ~step_pre_terms_with_rec:product_helper_facts.step_pre_terms_with_rec
-      ~step_post_terms_with_rec:product_helper_facts.step_post_terms_with_rec
-      step_contracts
-  in
-  Product_metrics.record_plan
+  let product_plan_context : Product_plan.context =
     {
-      node_name = ctx.runtime_view.node_name;
-      max_cost = ctx.why3_product_step_group_max_cost;
+      runtime_view = ctx.runtime_view;
+      env = ctx.env;
+      group_why3_product_steps = ctx.group_why3_product_steps;
+      why3_product_step_group_max_cost =
+        ctx.why3_product_step_group_max_cost;
+      simplify_why3_runtime_actions = ctx.simplify_why3_runtime_actions;
     }
-    product_helper_plan;
+  in
+  let product_helper_plan =
+    Product_plan.build product_plan_context product_helper_facts step_contracts
+  in
   {
-    shared_pre_bundle_modules = List.rev !shared_pre_bundle_modules;
-    shared_post_bundle_modules = List.rev !shared_post_bundle_modules;
+    shared_pre_bundle_modules =
+      Bundle_state.shared_pre_bundle_modules bundle_state;
+    shared_post_bundle_modules =
+      Bundle_state.shared_post_bundle_modules bundle_state;
     kernel_step_helper_units =
       Product_helpers.kernel_step_helper_units product_helper_context
         product_helper_plan;

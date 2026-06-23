@@ -17,11 +17,13 @@
   why_compile_formula_sharing
   why_compile_product_layout
   why_compile_bundles
+  why_compile_product_bundle_state
   why_compile_product_groups
   why_compile_product_specs
   why_compile_product_metrics
   why_compile_contract_facts
   why_compile_product_helpers
+  why_compile_product_plan
   why_compile_modules
   why_compile_node_common
   why_compile_product_pipeline

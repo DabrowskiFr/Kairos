@@ -666,11 +666,13 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_formula_sharing",
         "why_compile_product_layout",
         "why_compile_bundles",
+        "why_compile_product_bundle_state",
         "why_compile_product_groups",
         "why_compile_product_specs",
         "why_compile_product_metrics",
         "why_compile_contract_facts",
         "why_compile_product_helpers",
+        "why_compile_product_plan",
         "why_compile_modules",
         "why_compile_node_common",
         "why_compile_product_pipeline",
@@ -939,6 +941,56 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 product grouping must produce an explicit helper plan; "
             "do not reintroduce emission callbacks in why_compile_product_groups"
+        )
+
+    product_pipeline = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_pipeline.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_pipeline_forbidden = [
+        r"\bmodule\s+Bundles\b",
+        r"\bmodule\s+Product_groups\b",
+        r"\bmodule\s+Product_layout\b",
+        r"\bmodule\s+Product_metrics\b",
+        r"\bHashtbl\.create\b",
+        r"\bref\s+\[\]",
+        r"\bBundles\.",
+        r"\bProduct_groups\.",
+        r"\bProduct_layout\.",
+        r"\bProduct_metrics\.",
+        r"\blet\s+build_bundle_calls\b",
+        r"\bplan_kernel_helpers\b",
+        r"\brecord_plan\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_pipeline_forbidden
+        if re.search(pattern, product_pipeline)
+    ]
+    if found:
+        fail(
+            "Why3 product pipeline must stay a phase orchestrator; bundle "
+            "state and product planning belong to focused modules"
+        )
+
+    product_plan = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_plan.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_plan_forbidden = [
+        r"\bProduct_helpers\b",
+        r"\bWhy_compile_product_specs\b",
+        r"\bWhy_compile_step\b",
+        r"\bPtree\.Dlet\b",
+        r"\bEfun\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_plan_forbidden
+        if re.search(pattern, product_plan)
+    ]
+    if found:
+        fail(
+            "Why3 product planning must not emit helper declarations or own "
+            "helper specifications"
         )
 
     proof_export_forbidden = [
