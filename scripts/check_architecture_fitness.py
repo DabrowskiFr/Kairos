@@ -716,6 +716,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"Product step preconditions",
         r"Product step postconditions",
         r"Grouped product preconditions",
+        r"\bgrouped_kernel_terms\b",
     ]
     found = [
         pattern
@@ -726,6 +727,27 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 product helper emission must not own product-step specs or "
             "presentation labels; keep them in why_compile_product_specs"
+        )
+
+    product_groups = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_groups.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_groups_forbidden = [
+        r"\bgroup_kernel_helpers\b",
+        r"\b~build_individual\b",
+        r"\b~build_grouped\b",
+        r"\b~record_singleton_split_chunk\b",
+        r"\brecord_singleton_split_chunk\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_groups_forbidden
+        if re.search(pattern, product_groups)
+    ]
+    if found:
+        fail(
+            "Why3 product grouping must produce an explicit helper plan; "
+            "do not reintroduce emission callbacks in why_compile_product_groups"
         )
 
     proof_export_forbidden = [

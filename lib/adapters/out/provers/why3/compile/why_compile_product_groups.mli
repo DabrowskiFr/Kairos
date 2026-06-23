@@ -16,7 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Grouping and cost estimation for product-step Why3 helpers. *)
+(** Product-step helper planning and cost estimation.
+
+    This module decides which product steps are emitted individually and which
+    ones are bundled into grouped helpers. It does not emit Why3 declarations. *)
 
 type entry =
   int * Why_contracts.step_contract_info * Why_runtime_view.runtime_transition_view
@@ -32,16 +35,29 @@ type grouped_terms = {
   estimated_cost : int;
 }
 
-val grouped_kernel_terms :
-  env:Why_compile_expr.env ->
-  pre_vars_name:string ->
-  post_vars_name:string ->
-  step_pre_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  step_post_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  entry list ->
-  grouped_terms
+type group_metrics = {
+  split_due_to_cost : bool;
+  grouped_terms : grouped_terms;
+}
 
-val group_kernel_helpers :
+type individual_plan = {
+  index : int;
+  contract : Why_contracts.step_contract_info;
+  transition : Why_runtime_view.runtime_transition_view;
+  split_metrics : group_metrics option;
+}
+
+type grouped_plan = {
+  entries : entry list;
+  split_due_to_cost : bool;
+  grouped_terms : grouped_terms;
+}
+
+type helper_plan_item =
+  | Individual of individual_plan
+  | Grouped of grouped_plan
+
+val plan_kernel_helpers :
   env:Why_compile_expr.env ->
   pre_vars_name:string ->
   post_vars_name:string ->
@@ -50,8 +66,5 @@ val group_kernel_helpers :
   simplify_runtime_actions:bool ->
   step_pre_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
   step_post_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  build_individual:(int * Why_contracts.step_contract_info -> 'a) ->
-  build_grouped:(split_due_to_cost:bool -> entry list -> 'a) ->
-  record_singleton_split_chunk:(split_due_to_cost:bool -> entry -> unit) ->
   Why_contracts.step_contract_info list ->
-  'a list
+  helper_plan_item list

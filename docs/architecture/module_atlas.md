@@ -178,7 +178,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
 | `why_compile_step_names.ml` | Nommage stable des helpers Why3 par pas produit |
 | `why_compile_bundles.ml` | Factorisation des familles de faits Why3 en predicates auxiliaires |
-| `why_compile_product_groups.ml` | Planification et cout des groupes de helpers produit |
+| `why_compile_product_groups.ml` | Plan explicite et cout des groupes de helpers produit |
 | `why_compile_product_specs.ml` | Construction des specs Why3 et labels des helpers produit |
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
 | `why_compile_product_helpers.ml` | Emission des fonctions helpers de pas produit et metriques associees |

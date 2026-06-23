@@ -99,12 +99,29 @@ let record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
       max_cost = ctx.why3_product_step_group_max_cost;
     }
 
+let record_grouped_terms_metrics ctx ~group_name ~emitted_as_group
+    ~split_due_to_cost ~entries
+    (grouped : Product_groups.grouped_terms) =
+  record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
+    ~entries ~distinct_pre_count:grouped.distinct_pre_count
+    ~distinct_post_count:grouped.distinct_post_count
+    ~post_implication_count:grouped.post_implication_count
+    ~pre_text_bytes:grouped.pre_text_bytes
+    ~post_text_bytes:grouped.post_text_bytes ~estimated_cost:grouped.estimated_cost
+
 let build_individual_kernel_helper ctx
-    (i, (sc : Why_contracts.step_contract_info)) =
-  let t =
-    Why_runtime_view.transition_of_product_step
-      ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions sc.step
-  in
+    (plan : Product_groups.individual_plan) =
+  let i = plan.index in
+  let sc = plan.contract in
+  let t = plan.transition in
+  Option.iter
+    (fun (metrics : Product_groups.group_metrics) ->
+      record_grouped_terms_metrics ctx
+        ~group_name:(Step_names.product_step_helper_name ~index:i sc.step)
+        ~emitted_as_group:false
+        ~split_due_to_cost:metrics.split_due_to_cost ~entries:[ (i, sc, t) ]
+        metrics.grouped_terms)
+    plan.split_metrics;
   let helper_name =
     ident (Step_names.product_step_helper_name ~index:i sc.step)
   in
@@ -145,7 +162,8 @@ let build_individual_kernel_helper ctx
     post_labels = helper_contract.post_labels;
   }
 
-let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
+let build_grouped_kernel_helper ctx (plan : Product_groups.grouped_plan) =
+  let entries = plan.entries in
   let first_i, (first_sc : Why_contracts.step_contract_info), first_t =
     List.hd entries
   in
@@ -154,19 +172,10 @@ let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
       (Step_names.product_step_group_helper_name ~index:first_i first_sc.step)
   in
   let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
-  let grouped =
-    Product_groups.grouped_kernel_terms ~env:ctx.env ~pre_vars_name
-      ~post_vars_name ~step_pre_terms_with_rec:ctx.step_pre_terms_with_rec
-      ~step_post_terms_with_rec:ctx.step_post_terms_with_rec entries
-  in
-  record_group_metrics ctx ~group_name:helper_name.Ptree.id_str
-    ~emitted_as_group:true ~split_due_to_cost ~entries
-    ~distinct_pre_count:grouped.distinct_pre_count
-    ~distinct_post_count:grouped.distinct_post_count
-    ~post_implication_count:grouped.post_implication_count
-    ~pre_text_bytes:grouped.pre_text_bytes
-    ~post_text_bytes:grouped.post_text_bytes
-    ~estimated_cost:grouped.estimated_cost;
+  let grouped = plan.grouped_terms in
+  record_grouped_terms_metrics ctx ~group_name:helper_name.Ptree.id_str
+    ~emitted_as_group:true ~split_due_to_cost:plan.split_due_to_cost ~entries
+    grouped;
   let grouped_contract =
     Product_specs.grouped_helper_contract ~env:ctx.env ~inputs:ctx.inputs
       ~pre_vars_name ~post_vars_name ~post_pred_name grouped
@@ -215,31 +224,18 @@ let build_grouped_kernel_helper ctx ~split_due_to_cost entries =
     post_labels = grouped_contract.post_labels;
   }
 
-let record_singleton_split_chunk ctx ~split_due_to_cost (i, sc, t) =
-  let entries = [ (i, sc, t) ] in
-  let grouped =
-    Product_groups.grouped_kernel_terms ~env:ctx.env ~pre_vars_name
-      ~post_vars_name ~step_pre_terms_with_rec:ctx.step_pre_terms_with_rec
-      ~step_post_terms_with_rec:ctx.step_post_terms_with_rec entries
-  in
-  record_group_metrics ctx
-    ~group_name:(Step_names.product_step_helper_name ~index:i sc.step)
-    ~emitted_as_group:false ~split_due_to_cost ~entries
-    ~distinct_pre_count:grouped.distinct_pre_count
-    ~distinct_post_count:grouped.distinct_post_count
-    ~post_implication_count:grouped.post_implication_count
-    ~pre_text_bytes:grouped.pre_text_bytes
-    ~post_text_bytes:grouped.post_text_bytes
-    ~estimated_cost:grouped.estimated_cost
-
 let kernel_step_helper_units ctx step_contracts =
-  Product_groups.group_kernel_helpers ~env:ctx.env ~pre_vars_name
+  let plan =
+    Product_groups.plan_kernel_helpers ~env:ctx.env ~pre_vars_name
     ~post_vars_name ~group_why3_product_steps:ctx.group_why3_product_steps
     ~max_cost:ctx.why3_product_step_group_max_cost
     ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions
     ~step_pre_terms_with_rec:ctx.step_pre_terms_with_rec
     ~step_post_terms_with_rec:ctx.step_post_terms_with_rec
-    ~build_individual:(build_individual_kernel_helper ctx)
-    ~build_grouped:(build_grouped_kernel_helper ctx)
-    ~record_singleton_split_chunk:(record_singleton_split_chunk ctx)
     step_contracts
+  in
+  plan
+  |> List.map (function
+       | Product_groups.Individual individual ->
+           build_individual_kernel_helper ctx individual
+       | Product_groups.Grouped grouped -> build_grouped_kernel_helper ctx grouped)

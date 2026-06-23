@@ -33,6 +33,28 @@ type grouped_terms = {
   estimated_cost : int;
 }
 
+type group_metrics = {
+  split_due_to_cost : bool;
+  grouped_terms : grouped_terms;
+}
+
+type individual_plan = {
+  index : int;
+  contract : Why_contracts.step_contract_info;
+  transition : Why_runtime_view.runtime_transition_view;
+  split_metrics : group_metrics option;
+}
+
+type grouped_plan = {
+  entries : entry list;
+  split_due_to_cost : bool;
+  grouped_terms : grouped_terms;
+}
+
+type helper_plan_item =
+  | Individual of individual_plan
+  | Grouped of grouped_plan
+
 type profile =
   entry * string * int * string * int * string * int
 
@@ -165,11 +187,17 @@ let split_group_by_cost ~(max_cost : int) ~(env : Why_compile_expr.env)
     in
     loop [] [] profiles
 
-let group_kernel_helpers ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
+let individual ?split_metrics (index, contract, transition) =
+  Individual { index; contract; transition; split_metrics }
+
+let plan_kernel_helpers ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
     ~(post_vars_name : string) ~(group_why3_product_steps : bool)
     ~(max_cost : int) ~(simplify_runtime_actions : bool)
-    ~step_pre_terms_with_rec ~step_post_terms_with_rec ~build_individual
-    ~build_grouped ~record_singleton_split_chunk step_contracts =
+    ~step_pre_terms_with_rec ~step_post_terms_with_rec step_contracts =
+  let grouped_terms entries =
+    grouped_kernel_terms ~env ~pre_vars_name ~post_vars_name
+      ~step_pre_terms_with_rec ~step_post_terms_with_rec entries
+  in
   let indexed_transitions =
     step_contracts
     |> List.mapi (fun i (sc : Why_contracts.step_contract_info) ->
@@ -218,10 +246,25 @@ let group_kernel_helpers ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
            chunks
            |> List.concat_map (function
                 | [] -> []
-                | [ (i, sc, _t) as entry ] ->
-                    record_singleton_split_chunk ~split_due_to_cost entry;
-                    [ build_individual (i, sc) ]
-                | chunk -> [ build_grouped ~split_due_to_cost chunk ])
+                | [ (i, sc, t) as entry ] ->
+                    [
+                      individual
+                        ~split_metrics:
+                          {
+                            split_due_to_cost;
+                            grouped_terms = grouped_terms [ entry ];
+                          }
+                        (i, sc, t);
+                    ]
+                | chunk ->
+                    [
+                      Grouped
+                        {
+                          entries = chunk;
+                          split_due_to_cost;
+                          grouped_terms = grouped_terms chunk;
+                        };
+                    ])
          else
            entries
-           |> List.map (fun (i, sc, _t) -> build_individual (i, sc)))
+           |> List.map (fun entry -> individual entry))
