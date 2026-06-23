@@ -15,6 +15,7 @@
   why_compile_step_names
   why_compile_bundles
   why_compile_product_groups
+  why_compile_product_helpers
   why_compile_modules
   why_compile
   why_compile_step)

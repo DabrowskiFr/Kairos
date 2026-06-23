@@ -384,6 +384,8 @@ digraph G {
                                               shape=box, ];
   "kairos_why3_compile__Why_compile_product_groups" [label="Why_compile_product_groups",
                                                      shape=box, ];
+  "kairos_why3_compile__Why_compile_product_helpers" [label="Why_compile_product_helpers",
+                                                      shape=box, ];
   "kairos_why3_compile__Why_compile_ptree_helpers" [label="Why_compile_ptree_helpers",
                                                     shape=box, ];
   "kairos_why3_compile__Why_compile_step" [label="Why_compile_step",
@@ -509,7 +511,7 @@ digraph G {
        };
     subgraph cluster_899597 { label="kairos_runtime_automata"; "kairos_runtime_automata__Runtime_automata_source";"kairos_runtime_automata__Automata_generation";"kairos_runtime_automata";
        };
-    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_compile_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
+    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_compile_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_product_helpers";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
        };
     subgraph cluster_978765347 { label="kairos_artifact_why_task_dump"; "kairos_artifact_why_task_dump__Why_task_dump_render";"kairos_artifact_why_task_dump";
        };
@@ -834,6 +836,7 @@ digraph G {
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_modules";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_groups";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_helpers";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_step";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_step_names";
@@ -1123,15 +1126,16 @@ digraph G {
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle";
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_outputs_helpers";
   "kairos_runtime_outputs__Pipeline_outputs" -> "kairos_runtime_outputs__Output_mapper";
-  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_bundles";
   "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_modules";
-  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_product_groups";
-  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_step";
-  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_step_names";
+  "kairos_why3_compile__Why_compile" -> "kairos_why3_compile__Why_compile_product_helpers";
   "kairos_why3_compile__Why_compile_bundles" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_logic" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_modules" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_product_groups" -> "kairos_why3_compile__Why_compile_ptree_helpers";
+  "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_bundles";
+  "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_product_groups";
+  "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_step";
+  "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_step_names";
 
   }

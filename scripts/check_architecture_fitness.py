@@ -580,6 +580,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_step_names",
         "why_compile_bundles",
         "why_compile_product_groups",
+        "why_compile_product_helpers",
         "why_compile_modules",
     ]
     for module in required_modules:
@@ -624,6 +625,12 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\blet\s+split_group_by_cost\s+entries\b",
         r"\blet\s+product_source_label\s*\(",
         r"\blet\s+group_kernel_helpers\s+indexed_contracts\b",
+        r"\blet\s+build_individual_kernel_helper\b",
+        r"\blet\s+build_grouped_kernel_helper\b",
+        r"\blet\s+record_group_metrics\b",
+        r"\blet\s+record_singleton_split_chunk\b",
+        r"\blet\s+helper_function\b",
+        r"\blet\s+predicate_param_of_name\b",
         r"\blet\s+common_module\s*=",
         r"\blet\s+init_modules\s*=",
         r"\blet\s+helper_modules\s*=",
