@@ -177,6 +177,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_ptree_helpers.ml` | Helpers Why3 `Ptree`, combinateurs de termes, analyse des noms utilises |
 | `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
 | `why_compile_step_names.ml` | Nommage stable des helpers Why3 par pas produit |
+| `why_compile_init_goals.ml` | Buts Why3 de coherence de l'etat initial |
 | `why_compile_formula_sharing.ml` | Abstraction et declarations des formules Why3 partagees |
 | `why_compile_product_layout.ml` | Noms partages par le plan produit et son emission Why3 |
 | `why_compile_bundles.ml` | Factorisation des familles de faits Why3 en predicates auxiliaires |

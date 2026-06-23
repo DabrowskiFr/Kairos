@@ -13,6 +13,7 @@
   why_compile_ptree_helpers
   why_compile_logic
   why_compile_step_names
+  why_compile_init_goals
   why_compile_formula_sharing
   why_compile_product_layout
   why_compile_bundles

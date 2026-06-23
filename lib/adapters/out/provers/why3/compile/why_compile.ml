@@ -42,6 +42,7 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 open Why_compile_logic
 module Formula_sharing = Why_compile_formula_sharing
+module Init_goals = Why_compile_init_goals
 module Modules = Why_compile_modules
 module Product_pipeline = Why_compile_product_pipeline
 module Step_names = Why_compile_step_names
@@ -328,32 +329,7 @@ let compile_node_with_info ?(share_why3_facts = true)
     Product_pipeline.build product_pipeline_context step_contracts
   in
 
-  let coherency_goal_decls =
-    let goals = runtime_view.init_invariant_goals in
-    if goals = [] then []
-    else
-      let init_guard =
-        term_eq (term_of_var env "st")
-          (mk_term (Tident (qid1 runtime_view.init_control_state)))
-      in
-      List.mapi
-        (fun i (f : Ir.summary_formula) ->
-          let base = compile_local_fo_formula_term env f.logic in
-          let coherent_initial_state = term_and init_guard base in
-          let vars_only =
-            match inputs with vars_param :: _ -> [ vars_param ] | [] -> inputs
-          in
-          let quantified =
-            mk_term
-              (Tquant (Dterm.DTexists, vars_only, [], coherent_initial_state))
-          in
-          Ptree.Dprop
-            ( Decl.Pgoal,
-              ident (Printf.sprintf "coherency_goal_%d" (i + 1)),
-              quantified ))
-        goals
-  in
-  let kernel_init_goal_decls = [] in
+  let init_goal_decls = Init_goals.build { env; inputs; runtime_view } in
 
   let common_decls =
     imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ]
@@ -363,7 +339,7 @@ let compile_node_with_info ?(share_why3_facts = true)
     ~common_import ~common_decls
     ~shared_pre_bundle_modules:product_pipeline.shared_pre_bundle_modules
     ~shared_post_bundle_modules:product_pipeline.shared_post_bundle_modules
-    ~init_goal_decls:(coherency_goal_decls @ kernel_init_goal_decls)
+    ~init_goal_decls
     ~kernel_step_helper_units:product_pipeline.kernel_step_helper_units
 
 (** [compile_node_from_ir_node] helper value. *)
