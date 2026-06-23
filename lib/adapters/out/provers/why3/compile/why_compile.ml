@@ -23,13 +23,15 @@
 
 [@@@ocaml.warning "-8-26-27-32-33"]
 
-(** Type [spec_groups]. *)
+type spec_groups = Why_compile_modules.spec_groups = {
+  pre_labels : string list;
+  post_labels : string list;
+}
 
-type spec_groups = { pre_labels : string list; post_labels : string list }
-
-(** Type [program_ast]. *)
-
-type program_ast = { mlw : Why3.Ptree.mlw_file; module_info : (string * spec_groups) list }
+type program_ast = Why_compile_modules.program_ast = {
+  mlw : Why3.Ptree.mlw_file;
+  module_info : (string * spec_groups) list;
+}
 
 open Why3
 open Ptree
@@ -42,6 +44,7 @@ open Why_compile_logic
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 module Bundles = Why_compile_bundles
+module Modules = Why_compile_modules
 module Product_groups = Why_compile_product_groups
 module Step_names = Why_compile_step_names
 
@@ -681,10 +684,8 @@ let compile_node_with_info ?(share_why3_facts = true)
   let step_helper_name ~(index : int) (sc : Why_contracts.step_contract_info) =
     product_step_helper_name ~index sc.step
   in
-  let import_module name =
-    Ptree.Duseimport (loc, false, [ (qid1 name, None) ])
-  in
-  let common_module_name = module_name ^ "__Common" in
+  let import_module = Modules.import_module in
+  let common_module_name = Modules.common_module_name module_name in
   let common_import = import_module common_module_name in
   let bundle_context : spec_groups Bundles.context =
     {
@@ -692,7 +693,7 @@ let compile_node_with_info ?(share_why3_facts = true)
       imports;
       common_import;
       inputs;
-      empty_groups = (fun () -> { pre_labels = []; post_labels = [] });
+      empty_groups = Modules.empty_groups;
       local_shared_formula_decls;
       shared_formula_names_in_terms;
     }
@@ -1251,42 +1252,13 @@ let compile_node_with_info ?(share_why3_facts = true)
     imports @ type_enum_decls @ function_decls @ [ type_state; type_vars ]
     @ getter_decls @ logic_getter_decls
   in
-  if use_product_helper_contracts then
-    let common_module =
-      ( ident common_module_name,
-        None,
-        common_decls,
-        { pre_labels = []; post_labels = [] } )
-    in
-    let init_modules =
-      match coherency_goal_decls @ kernel_init_goal_decls with
-      | [] -> []
-      | init_goals ->
-          [
-            ( ident (module_name ^ "__init"),
-              None,
-              imports @ [ common_import ] @ init_goals,
-              { pre_labels; post_labels } );
-          ]
-    in
-    let helper_modules =
-      kernel_step_helper_units
-      |> List.map
-           (fun (helper_name, decls) ->
-             ( ident (module_name ^ "__" ^ helper_name),
-               None,
-               imports @ [ common_import ] @ decls,
-               { pre_labels; post_labels } ))
-    in
-    common_module
-    :: (List.rev !shared_pre_bundle_modules
-       @ List.rev !shared_post_bundle_modules @ init_modules @ helper_modules)
-  else
-    let decls =
-      common_decls @ shared_formula_decls @ kernel_step_helper_decls @ helper_decls
-      @ [ step_decl ] @ coherency_goal_decls @ kernel_init_goal_decls
-    in
-    [ (ident module_name, None, decls, { pre_labels; post_labels }) ]
+  Modules.assemble_node_modules ~use_product_helper_contracts ~module_name
+    ~imports ~common_module_name ~common_import ~pre_labels ~post_labels
+    ~common_decls ~shared_formula_decls
+    ~shared_pre_bundle_modules:(List.rev !shared_pre_bundle_modules)
+    ~shared_post_bundle_modules:(List.rev !shared_post_bundle_modules)
+    ~init_goal_decls:(coherency_goal_decls @ kernel_init_goal_decls)
+    ~kernel_step_helper_units ~kernel_step_helper_decls ~helper_decls ~step_decl
 
 (** [compile_node_from_ir_node] helper value. *)
 
@@ -1324,6 +1296,4 @@ let compile_program_ast_from_ir_nodes
          ~why3_product_step_group_max_cost)
       program_nodes
   in
-  let mlw = Ptree.Modules (List.map (fun (a, _b, c, _) -> (a, c)) modules) in
-  let module_info = List.map (fun (id, _, _, groups) -> (id.id_str, groups)) modules in
-  { mlw; module_info }
+  Modules.program_ast_of_modules modules

@@ -179,8 +179,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_step_names.ml` | Nommage stable des helpers Why3 par pas produit |
 | `why_compile_bundles.ml` | Factorisation des familles de faits Why3 en predicates auxiliaires |
 | `why_compile_product_groups.ml` | Planification et cout des groupes de helpers produit |
+| `why_compile_modules.ml` | Assemblage final des declarations Why3 en modules et `program_ast` |
 | `why_compile_step.ml` | Compilation des pas/transitions |
-| `why_compile.ml` | Assemblage des modules Why3, helpers de preuve et obligations de noeud |
+| `why_compile.ml` | Orchestration de la compilation Why3 d'un noeud |
 | `why_contracts.ml` | Contrats Why3 |
 | `why_pipeline.ml` | Generation VC/SMT textuelle |
 | `why_contract_prove.ml` | Interaction Why3/provers |
