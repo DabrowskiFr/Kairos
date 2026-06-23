@@ -16,7 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Concrete Why3 emission for product-step proof helpers. *)
+(** Concrete Why3 emission for product-step proof helpers.
+
+    This module builds helper declarations and records product-step metrics.
+    Contract shape and proof-task labels are owned by
+    {!Why_compile_product_specs}. *)
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 
@@ -31,16 +35,7 @@ type context = {
   runtime_view : Why_runtime_view.t;
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
-  pre_family_terms_by_step : Why3.Ptree.term list list;
-  post_family_terms_by_step : Why3.Ptree.term list list;
-  pre_family_bundle_counts : (string, int) Hashtbl.t;
-  post_family_bundle_counts : (string, int) Hashtbl.t;
-  predicate_bundle_decl_and_call :
-    name:string -> Why3.Ptree.term list -> Why3.Ptree.decl * Why3.Ptree.term;
-  shared_pre_bundle_call :
-    Why3.Ptree.term list -> Why3.Ptree.decl * Why3.Ptree.term * StringSet.t;
-  shared_post_bundle_call :
-    Why3.Ptree.term list -> Why3.Ptree.decl * Why3.Ptree.term * StringSet.t;
+  spec_context : Why_compile_product_specs.context;
   shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
   local_shared_formula_decls :
     ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;

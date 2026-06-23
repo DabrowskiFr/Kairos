@@ -705,6 +705,29 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             + "\n  - ".join(violations)
         )
 
+    product_helpers = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_helpers_forbidden = [
+        r"\blet\s+remove_labeled_terms\b",
+        r"\blet\s+repeated_label\b",
+        r"\bPtree\.sp_pre\s*=",
+        r"\bsp_post\s*=",
+        r"Product step preconditions",
+        r"Product step postconditions",
+        r"Grouped product preconditions",
+    ]
+    found = [
+        pattern
+        for pattern in product_helpers_forbidden
+        if re.search(pattern, product_helpers)
+    ]
+    if found:
+        fail(
+            "Why3 product helper emission must not own product-step specs or "
+            "presentation labels; keep them in why_compile_product_specs"
+        )
+
     proof_export_forbidden = [
         r"\bStepFromFallbackSynthesis\b",
         r"\bCoverageFallback\b",

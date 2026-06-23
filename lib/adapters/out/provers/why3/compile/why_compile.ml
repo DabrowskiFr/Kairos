@@ -46,6 +46,7 @@ module Bundles = Why_compile_bundles
 module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
 module Product_helpers = Why_compile_product_helpers
+module Product_specs = Why_compile_product_specs
 module Step_names = Why_compile_step_names
 
 (** [why_type_name] maps source enum type names to WhyML type identifiers. WhyML
@@ -591,18 +592,26 @@ let compile_node_with_info ?(share_why3_facts = true)
     Contract_facts.product_helper_facts contract_fact_context ~share_why3_facts
       step_contracts
   in
+  let product_spec_context : Product_specs.context =
+    {
+      env;
+      pre_family_terms_by_step = product_helper_facts.pre_family_terms_by_step;
+      post_family_terms_by_step =
+        product_helper_facts.post_family_terms_by_step;
+      pre_family_bundle_counts = product_helper_facts.pre_family_bundle_counts;
+      post_family_bundle_counts =
+        product_helper_facts.post_family_bundle_counts;
+      predicate_bundle_decl_and_call;
+      shared_pre_bundle_call;
+      shared_post_bundle_call;
+    }
+  in
   let product_helper_context : Product_helpers.context =
     {
       runtime_view;
       env;
       inputs;
-      pre_family_terms_by_step = product_helper_facts.pre_family_terms_by_step;
-      post_family_terms_by_step = product_helper_facts.post_family_terms_by_step;
-      pre_family_bundle_counts = product_helper_facts.pre_family_bundle_counts;
-      post_family_bundle_counts = product_helper_facts.post_family_bundle_counts;
-      predicate_bundle_decl_and_call;
-      shared_pre_bundle_call;
-      shared_post_bundle_call;
+      spec_context = product_spec_context;
       shared_formula_names_in_terms;
       local_shared_formula_decls;
       step_pre_terms_with_rec = product_helper_facts.step_pre_terms_with_rec;
