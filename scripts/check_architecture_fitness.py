@@ -717,6 +717,17 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"Product step postconditions",
         r"Grouped product preconditions",
         r"\bgrouped_kernel_terms\b",
+        r"\bExternal_timing\b",
+        r"\brecord_why3_product_group\b",
+        r"\brecord_group_metrics\b",
+        r"\brecord_grouped_terms_metrics\b",
+        r"\bplan_kernel_helpers\b",
+        r"\bruntime_view\s*:",
+        r"\bgroup_why3_product_steps\b",
+        r"\bwhy3_product_step_group_max_cost\b",
+        r"\bstep_pre_terms_with_rec\b",
+        r"\bstep_post_terms_with_rec\b",
+        r"\bsimplify_why3_runtime_actions\b",
     ]
     found = [
         pattern

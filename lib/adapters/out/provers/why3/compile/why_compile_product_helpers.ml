@@ -21,6 +21,7 @@ open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
 module Product_groups = Why_compile_product_groups
+module Product_layout = Why_compile_product_layout
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_compile_step_names
 module StringSet = Why_compile_ptree_helpers.StringSet
@@ -33,24 +34,14 @@ type helper_unit = {
 }
 
 type context = {
-  runtime_view : Why_runtime_view.t;
   env : Why_compile_expr.env;
   inputs : Ptree.binder list;
   spec_context : Product_specs.context;
   shared_formula_names_in_terms : Ptree.term list -> StringSet.t;
   local_shared_formula_decls :
     ?exclude:StringSet.t -> StringSet.t -> Ptree.decl list;
-  step_pre_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Ptree.term list;
-  step_post_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Ptree.term list;
-  group_why3_product_steps : bool;
-  why3_product_step_group_max_cost : int;
-  simplify_why3_runtime_actions : bool;
 }
 
-let pre_vars_name = "__pre_vars"
-let post_vars_name = "__post_vars"
 let seq_exprs (exprs : Ptree.expr list) =
   let exprs =
     List.filter
@@ -74,54 +65,11 @@ let helper_function helper_inputs spc helper_body =
          spc,
          helper_body ))
 
-let record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
-    ~entries ~distinct_pre_count ~distinct_post_count ~post_implication_count
-    ~pre_text_bytes ~post_text_bytes ~estimated_cost =
-  let _first_i, (first_sc : Why_contracts.step_contract_info), _first_t =
-    List.hd entries
-  in
-  External_timing.record_why3_product_group
-    {
-      group_name;
-      node_name = ctx.runtime_view.node_name;
-      transition_id = first_sc.step.transition_id;
-      step_class = Step_names.product_step_class_name first_sc.step.step_class;
-      source_state = Step_names.product_source_label first_sc.step.product_src;
-      emitted_as_group;
-      split_due_to_cost;
-      edge_count = List.length entries;
-      distinct_pre_count;
-      distinct_post_count;
-      post_implication_count;
-      pre_text_bytes;
-      post_text_bytes;
-      estimated_cost;
-      max_cost = ctx.why3_product_step_group_max_cost;
-    }
-
-let record_grouped_terms_metrics ctx ~group_name ~emitted_as_group
-    ~split_due_to_cost ~entries
-    (grouped : Product_groups.grouped_terms) =
-  record_group_metrics ctx ~group_name ~emitted_as_group ~split_due_to_cost
-    ~entries ~distinct_pre_count:grouped.distinct_pre_count
-    ~distinct_post_count:grouped.distinct_post_count
-    ~post_implication_count:grouped.post_implication_count
-    ~pre_text_bytes:grouped.pre_text_bytes
-    ~post_text_bytes:grouped.post_text_bytes ~estimated_cost:grouped.estimated_cost
-
 let build_individual_kernel_helper ctx
     (plan : Product_groups.individual_plan) =
   let i = plan.index in
   let sc = plan.contract in
   let t = plan.transition in
-  Option.iter
-    (fun (metrics : Product_groups.group_metrics) ->
-      record_grouped_terms_metrics ctx
-        ~group_name:(Step_names.product_step_helper_name ~index:i sc.step)
-        ~emitted_as_group:false
-        ~split_due_to_cost:metrics.split_due_to_cost ~entries:[ (i, sc, t) ]
-        metrics.grouped_terms)
-    plan.split_metrics;
   let helper_name =
     ident (Step_names.product_step_helper_name ~index:i sc.step)
   in
@@ -173,12 +121,10 @@ let build_grouped_kernel_helper ctx (plan : Product_groups.grouped_plan) =
   in
   let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
   let grouped = plan.grouped_terms in
-  record_grouped_terms_metrics ctx ~group_name:helper_name.Ptree.id_str
-    ~emitted_as_group:true ~split_due_to_cost:plan.split_due_to_cost ~entries
-    grouped;
   let grouped_contract =
     Product_specs.grouped_helper_contract ~env:ctx.env ~inputs:ctx.inputs
-      ~pre_vars_name ~post_vars_name ~post_pred_name grouped
+      ~pre_vars_name:Product_layout.pre_vars_name
+      ~post_vars_name:Product_layout.post_vars_name ~post_pred_name grouped
   in
   let local_shared_decls =
     grouped_contract.shared_terms
@@ -224,16 +170,7 @@ let build_grouped_kernel_helper ctx (plan : Product_groups.grouped_plan) =
     post_labels = grouped_contract.post_labels;
   }
 
-let kernel_step_helper_units ctx step_contracts =
-  let plan =
-    Product_groups.plan_kernel_helpers ~env:ctx.env ~pre_vars_name
-    ~post_vars_name ~group_why3_product_steps:ctx.group_why3_product_steps
-    ~max_cost:ctx.why3_product_step_group_max_cost
-    ~simplify_runtime_actions:ctx.simplify_why3_runtime_actions
-    ~step_pre_terms_with_rec:ctx.step_pre_terms_with_rec
-    ~step_post_terms_with_rec:ctx.step_post_terms_with_rec
-    step_contracts
-  in
+let kernel_step_helper_units ctx plan =
   plan
   |> List.map (function
        | Product_groups.Individual individual ->

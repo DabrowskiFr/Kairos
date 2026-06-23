@@ -13,9 +13,11 @@
   why_compile_ptree_helpers
   why_compile_logic
   why_compile_step_names
+  why_compile_product_layout
   why_compile_bundles
   why_compile_product_groups
   why_compile_product_specs
+  why_compile_product_metrics
   why_compile_contract_facts
   why_compile_product_helpers
   why_compile_modules

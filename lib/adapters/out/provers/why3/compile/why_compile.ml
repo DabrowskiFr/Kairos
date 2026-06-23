@@ -45,7 +45,10 @@ module StringSet = Why_compile_ptree_helpers.StringSet
 module Bundles = Why_compile_bundles
 module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
+module Product_groups = Why_compile_product_groups
 module Product_helpers = Why_compile_product_helpers
+module Product_layout = Why_compile_product_layout
+module Product_metrics = Why_compile_product_metrics
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_compile_step_names
 
@@ -608,22 +611,32 @@ let compile_node_with_info ?(share_why3_facts = true)
   in
   let product_helper_context : Product_helpers.context =
     {
-      runtime_view;
       env;
       inputs;
       spec_context = product_spec_context;
       shared_formula_names_in_terms;
       local_shared_formula_decls;
-      step_pre_terms_with_rec = product_helper_facts.step_pre_terms_with_rec;
-      step_post_terms_with_rec = product_helper_facts.step_post_terms_with_rec;
-      group_why3_product_steps;
-      why3_product_step_group_max_cost;
-      simplify_why3_runtime_actions;
     }
   in
+  let product_helper_plan =
+    Product_groups.plan_kernel_helpers ~env
+      ~pre_vars_name:Product_layout.pre_vars_name
+      ~post_vars_name:Product_layout.post_vars_name ~group_why3_product_steps
+      ~max_cost:why3_product_step_group_max_cost
+      ~simplify_runtime_actions:simplify_why3_runtime_actions
+      ~step_pre_terms_with_rec:product_helper_facts.step_pre_terms_with_rec
+      ~step_post_terms_with_rec:product_helper_facts.step_post_terms_with_rec
+      step_contracts
+  in
+  Product_metrics.record_plan
+    {
+      node_name = runtime_view.node_name;
+      max_cost = why3_product_step_group_max_cost;
+    }
+    product_helper_plan;
   let kernel_step_helper_units =
     Product_helpers.kernel_step_helper_units product_helper_context
-      step_contracts
+      product_helper_plan
   in
 
   let coherency_goal_decls =

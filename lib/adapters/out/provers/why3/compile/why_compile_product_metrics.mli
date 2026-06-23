@@ -16,30 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Concrete Why3 emission for product-step proof helpers.
+(** Reporting of product-step helper planning metrics.
 
-    This module interprets an explicit helper plan and builds helper
-    declarations. Contract shape and proof-task labels are owned by
-    {!Why_compile_product_specs}; planning and metrics are owned by
-    {!Why_compile_product_groups} and {!Why_compile_product_metrics}. *)
-
-module StringSet = Why_compile_ptree_helpers.StringSet
-
-type helper_unit = {
-  helper_name : string;
-  decls : Why3.Ptree.decl list;
-  pre_labels : string list;
-  post_labels : string list;
-}
+    This module is intentionally separated from helper emission: it observes the
+    explicit helper plan and records diagnostics, but it does not build Why3
+    declarations. *)
 
 type context = {
-  env : Why_compile_expr.env;
-  inputs : Why3.Ptree.binder list;
-  spec_context : Why_compile_product_specs.context;
-  shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
-  local_shared_formula_decls :
-    ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
+  node_name : Core_syntax.ident;
+  max_cost : int;
 }
 
-val kernel_step_helper_units :
-  context -> Why_compile_product_groups.helper_plan_item list -> helper_unit list
+val record_plan :
+  context -> Why_compile_product_groups.helper_plan_item list -> unit
