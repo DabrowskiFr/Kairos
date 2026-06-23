@@ -370,6 +370,37 @@ def check_runtime_split_dependencies(repo: Path) -> None:
         if violations:
             fail("runtime split source-boundary violations:\n  - " + "\n  - ".join(violations))
 
+    proof_dune = (
+        repo / "lib/adapters/out/runtime/orchestration/outputs/dune"
+    ).read_text(encoding="utf-8")
+    if "proof_goal_attribution" not in proof_dune:
+        fail("kairos_runtime_proof must expose proof_goal_attribution")
+
+    proof_runner = (
+        repo / "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    forbidden_proof_runner_attribution = [
+        r"\btype\s+goal_attribution\b",
+        r"\blet\s+product_state_source\b",
+        r"\blet\s+attribution_step_class\b",
+        r"\blet\s+attribution_of_step\b",
+        r"\blet\s+attribution_of_group\b",
+        r"\blet\s+build_attribution_table\b",
+        r"\blet\s+attribution_for_goal\b",
+        r"\blet\s+apply_attribution\b",
+        r"\bWhy_product_step_names\b",
+    ]
+    found = [
+        pattern
+        for pattern in forbidden_proof_runner_attribution
+        if re.search(pattern, proof_runner)
+    ]
+    if found:
+        fail(
+            "proof goal attribution must stay in proof_goal_attribution.ml; "
+            "proof_runner reintroduced attribution logic"
+        )
+
 
 def check_automata_boundary_wording(repo: Path) -> None:
     stale_patterns = [

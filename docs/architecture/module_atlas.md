@@ -160,6 +160,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kairos_runtime_automata` | Production externe des automates fournis au core runtime |
 | `runtime_automata_source.ml` | Appel Spot actuel derriere une frontiere explicite |
 | `kairos_runtime_proof` | Execution Why3/provers, attribution des buts, evenements de preuve |
+| `proof_goal_attribution.ml` | Attribution des buts Why3 aux pas produit et metadonnees de preuve |
 | `proof_runner.ml` | Lance les preuves |
 | `kairos_runtime_diagnostics` | Diagnostics, graphes, proof-export, rapports de cout |
 | `pipeline_artifact_bundle.ml` | Construit graphes, textes d'inspection et donnees proof-kernel |
