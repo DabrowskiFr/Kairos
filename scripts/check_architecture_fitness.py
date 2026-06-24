@@ -3189,6 +3189,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
 def check_runtime_diagnostics_boundaries(repo: Path) -> None:
     diagnostics_root = repo / "lib/adapters/out/runtime/orchestration/outputs"
     required_modules = [
+        "pipeline_artifact_bundle_text",
         "pipeline_cost_report_common",
         "pipeline_cost_report_syntax",
         "pipeline_cost_report_labels",
@@ -3211,6 +3212,28 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         fail(
             "runtime diagnostics modules must be explicit kairos_runtime_diagnostics modules: "
             + ", ".join(missing_modules)
+        )
+
+    artifact_bundle = (diagnostics_root / "pipeline_artifact_bundle.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    artifact_bundle_forbidden = [
+        r"\blet\s+string_of_product_state\b",
+        r"\blet\s+string_of_step_kind\b",
+        r"\blet\s+string_of_origin\b",
+        r"\blet\s+string_of_rel_clause\b",
+        r"\blet\s+render_canonical\b",
+        r"\blet\s+render_obligations_map\b",
+    ]
+    found = [
+        pattern
+        for pattern in artifact_bundle_forbidden
+        if re.search(pattern, artifact_bundle)
+    ]
+    if found:
+        fail(
+            "pipeline_artifact_bundle.ml must build artifact data; text rendering "
+            "belongs in pipeline_artifact_bundle_text.ml"
         )
 
     report = (diagnostics_root / "pipeline_cost_report.ml").read_text(

@@ -407,6 +407,8 @@ digraph G {
                                            shape=box, ];
   "kairos_runtime_diagnostics__Pipeline_artifact_bundle" [label="Pipeline_artifact_bundle",
                                                           shape=box, ];
+  "kairos_runtime_diagnostics__Pipeline_artifact_bundle_text" [label="Pipeline_artifact_bundle_text",
+                                                               shape=box, ];
   "kairos_runtime_diagnostics__Pipeline_cost_report" [label="Pipeline_cost_report",
                                                       shape=box, ];
   "kairos_runtime_diagnostics__Pipeline_cost_report_common" [label="Pipeline_cost_report_common",
@@ -625,7 +627,7 @@ digraph G {
        };
     subgraph cluster_443058325 { label="kairos_application"; "kairos_application__Verification_flow_vc_taxonomy";"kairos_application__Verification_flow_usecases";"kairos_application__Verification_flow_timing_meta";"kairos_application__Verification_flow_timing_fields";"kairos_application__Proof_diagnostics";"kairos_application__Pipeline_types";"kairos_application__Flow_info";"kairos_application__Application_ports";"kairos_application__Application_observability";"kairos_application";
        };
-    subgraph cluster_457740223 { label="kairos_runtime_diagnostics"; "kairos_runtime_diagnostics__Pipeline_outputs_helpers";"kairos_runtime_diagnostics__Pipeline_cost_report_why3";"kairos_runtime_diagnostics__Pipeline_cost_report_transition_lemmas";"kairos_runtime_diagnostics__Pipeline_cost_report_syntax";"kairos_runtime_diagnostics__Pipeline_cost_report_source";"kairos_runtime_diagnostics__Pipeline_cost_report_labels";"kairos_runtime_diagnostics__Pipeline_cost_report_kernel";"kairos_runtime_diagnostics__Pipeline_cost_report_facts";"kairos_runtime_diagnostics__Pipeline_cost_report_common";"kairos_runtime_diagnostics__Pipeline_cost_report";"kairos_runtime_diagnostics__Pipeline_artifact_bundle";"kairos_runtime_diagnostics";
+    subgraph cluster_457740223 { label="kairos_runtime_diagnostics"; "kairos_runtime_diagnostics__Pipeline_outputs_helpers";"kairos_runtime_diagnostics__Pipeline_cost_report_why3";"kairos_runtime_diagnostics__Pipeline_cost_report_transition_lemmas";"kairos_runtime_diagnostics__Pipeline_cost_report_syntax";"kairos_runtime_diagnostics__Pipeline_cost_report_source";"kairos_runtime_diagnostics__Pipeline_cost_report_labels";"kairos_runtime_diagnostics__Pipeline_cost_report_kernel";"kairos_runtime_diagnostics__Pipeline_cost_report_facts";"kairos_runtime_diagnostics__Pipeline_cost_report_common";"kairos_runtime_diagnostics__Pipeline_cost_report";"kairos_runtime_diagnostics__Pipeline_artifact_bundle_text";"kairos_runtime_diagnostics__Pipeline_artifact_bundle";"kairos_runtime_diagnostics";
        };
     subgraph cluster_561703002 { label="kairos_why3_render"; "kairos_why3_render__Why_text_render";"kairos_why3_render";
        };
@@ -938,6 +940,7 @@ digraph G {
                                                          ltail="cluster_457740223",
                                                          ];
   "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle";
+  "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle_text";
   "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_cost_report";
   "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_cost_report_common";
   "kairos_runtime_diagnostics" -> "kairos_runtime_diagnostics__Pipeline_cost_report_facts";
@@ -1364,6 +1367,7 @@ digraph G {
   "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Contract_partition";
   "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Instrumentation_info_builder";
   "kairos_runtime_core__Pipeline_build" -> "kairos_runtime_core__Runtime_snapshot";
+  "kairos_runtime_diagnostics__Pipeline_artifact_bundle" -> "kairos_runtime_diagnostics__Pipeline_artifact_bundle_text";
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_cost_report_facts";
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_cost_report_kernel";
   "kairos_runtime_diagnostics__Pipeline_cost_report" -> "kairos_runtime_diagnostics__Pipeline_cost_report_transition_lemmas";

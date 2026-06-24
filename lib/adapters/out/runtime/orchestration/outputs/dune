@@ -27,6 +27,7 @@
  (wrapped false)
  (modules
  pipeline_outputs_helpers
+  pipeline_artifact_bundle_text
   pipeline_artifact_bundle
   pipeline_cost_report_common
   pipeline_cost_report_labels

@@ -180,6 +180,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `proof_traces.ml` | Construction des traces de preuve publiques |
 | `proof_runner.ml` | Orchestre la projection Why3, les taches et les sorties de preuve |
 | `kairos_runtime_diagnostics` | Diagnostics, graphes, proof-export, rapports de cout |
+| `pipeline_artifact_bundle_text.ml` | Rendus texte du bundle d'artefacts |
 | `pipeline_artifact_bundle.ml` | Construit graphes, textes d'inspection et donnees proof-kernel |
 | `pipeline_cost_report_common.ml` | Primitives JSON, collections et statistiques du rapport de cout |
 | `pipeline_cost_report_syntax.ml` | Metriques syntaxiques du rapport de cout |
