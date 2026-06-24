@@ -320,6 +320,7 @@ flowchart TD
       id585240334(Pipeline_cost_report_transition_lemmas)
       id612718117(Pipeline_cost_report_syntax)
       id586403816(Pipeline_cost_report_labels)
+      id360403098(Pipeline_cost_report_facts)
       id263118754(Pipeline_cost_report_common)
       id746686775(Pipeline_cost_report)
       id568877505(Pipeline_artifact_bundle)
@@ -710,6 +711,7 @@ flowchart TD
   id457740223-->id568877505
   id457740223-->id746686775
   id457740223-->id263118754
+  id457740223-->id360403098
   id457740223-->id586403816
   id457740223-->id612718117
   id457740223-->id585240334
@@ -1077,8 +1079,12 @@ flowchart TD
   id991203540-->id402356731
   id991203540-->id776702526
   id991203540-->id1012610048
+  id746686775-->id360403098
   id746686775-->id585240334
   id746686775-->id731963121
+  id360403098-->id568877505
+  id360403098-->id586403816
+  id360403098-->id612718117
   id612718117-->id263118754
   id585240334-->id568877505
   id585240334-->id586403816

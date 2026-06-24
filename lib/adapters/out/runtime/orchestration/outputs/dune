@@ -32,6 +32,7 @@
   pipeline_cost_report_labels
   pipeline_cost_report_syntax
   pipeline_cost_report_transition_lemmas
+  pipeline_cost_report_facts
   pipeline_cost_report)
  (libraries
   kairos_application

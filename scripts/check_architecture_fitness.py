@@ -3102,6 +3102,7 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         "pipeline_cost_report_syntax",
         "pipeline_cost_report_labels",
         "pipeline_cost_report_transition_lemmas",
+        "pipeline_cost_report_facts",
         "pipeline_cost_report",
     ]
     for module in required_modules:
@@ -3132,6 +3133,14 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         r"\blet\s+phase_string\b",
         r"\blet\s+step_kind_string\b",
         r"\blet\s+string_of_product_state\b",
+        r"\btype\s+fact_stat\b",
+        r"\blet\s+new_fact_stat\b",
+        r"\blet\s+add_fact\b",
+        r"\blet\s+formula_population_json\b",
+        r"\blet\s+collect_summary_facts\b",
+        r"\blet\s+collect_kernel_facts\b",
+        r"\blet\s+collect_source_ltl_facts\b",
+        r"\blet\s+collect_all_facts\b",
         r"\btype\s+transition_lemma_fact_stat\b",
         r"\blet\s+collect_transition_lemma_candidates\b",
         r"\blet\s+transition_lemma_candidates_json\b",
@@ -3154,6 +3163,12 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
     ).read_text(encoding="utf-8", errors="replace")
     if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bflow_meta_json\b", transition):
         fail("transition-lemma report module must not own whole-report rendering")
+
+    facts = (diagnostics_root / "pipeline_cost_report_facts.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bflow_meta_json\b", facts):
+        fail("formula-population report module must not own whole-report rendering")
 
 
 def main() -> int:
