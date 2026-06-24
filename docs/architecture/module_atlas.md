@@ -264,7 +264,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contract_workers.ml` | Distribution, IPC et cycle de vie des workers de preuve Why3 |
 | `why_contract_prove.ml` | Interaction Why3/provers |
 | `spot_automaton_builder.ml` | Adaptateur Spot |
-| `external_timing.ml` | Mesures de couts |
+| `external_timing_types.ml` | Types des snapshots et compteurs de timing |
+| `external_timing_store.ml` | Etat mutable process-local des mesures de couts |
+| `external_timing.ml` | Facade publique des mesures de couts |
 
 ## Questions Pratiques
 

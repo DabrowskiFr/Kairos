@@ -3244,6 +3244,60 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         fail("formula-population report module must not own whole-report rendering")
 
 
+def check_external_timing_boundaries(repo: Path) -> None:
+    timing_root = repo / "lib/adapters/out/external/timing"
+    required_modules = [
+        "external_timing_types",
+        "external_timing_store",
+        "external_timing",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = timing_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (timing_root / "dune").read_text(encoding="utf-8")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "external timing modules must be explicit kairos_external_timing modules: "
+            + ", ".join(missing_modules)
+        )
+
+    facade = (timing_root / "external_timing.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    facade_forbidden = [
+        r"\btype\s+snapshot\s*=",
+        r"\blet\s+\w+\s*=\s*ref\b",
+        r"\blet\s+reset\s*\(",
+        r"\blet\s+snapshot\s*\(",
+        r"\blet\s+diff\s+~before",
+        r"\blet\s+add_snapshot\s*\(",
+        r"\blet\s+record_",
+    ]
+    found = [pattern for pattern in facade_forbidden if re.search(pattern, facade)]
+    if found:
+        fail(
+            "external_timing.ml must stay a public facade; metric records belong "
+            "in external_timing_types.ml and mutable counters belong in "
+            "external_timing_store.ml"
+        )
+
+    types = (timing_root / "external_timing_types.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+\w+\s*=\s*ref\b|\bHashtbl\b|\bUnix\b", types):
+        fail("external_timing_types.ml must define data only, not mutable timing state")
+
+    store = (timing_root / "external_timing_store.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\btype\s+snapshot\s*=", store):
+        fail("external_timing_store.ml must use timing types, not redefine them")
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -3266,6 +3320,7 @@ def main() -> int:
     check_why3_compile_boundaries(repo)
     check_why3_runtime_view_boundaries(repo)
     check_external_why3_prover_boundaries(repo)
+    check_external_timing_boundaries(repo)
     check_runtime_diagnostics_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")

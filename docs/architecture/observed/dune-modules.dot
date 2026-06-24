@@ -277,6 +277,10 @@ digraph G {
                                                   shape=box, ];
   "kairos.external_timing__External_timing" [label="External_timing",
                                              shape=box, ];
+  "kairos.external_timing__External_timing_store" [label="External_timing_store",
+                                                   shape=box, ];
+  "kairos.external_timing__External_timing_types" [label="External_timing_types",
+                                                   shape=box, ];
   "kairos.lsp_protocol__Lsp_protocol" [label="Lsp_protocol", shape=box, ];
   "kairos_application__Application_observability" [label="Application_observability",
                                                    shape=box, ];
@@ -591,7 +595,7 @@ digraph G {
   subgraph cluster_902546259 { label="(local)"; "local_package__";
     subgraph cluster_1000965417 { label="kairos_input_lang"; "kairos_input_lang__Kx_surface_syntax";"kairos_input_lang__Kx_parser";"kairos_input_lang__Kx_parse_api";"kairos_input_lang__Kx_loc";"kairos_input_lang__Kx_lexer";"kairos_input_lang__Kx_elaborate_validation";"kairos_input_lang__Kx_elaborate_subst";"kairos_input_lang__Kx_elaborate_state_selectors";"kairos_input_lang__Kx_elaborate_observers";"kairos_input_lang__Kx_elaborate_names";"kairos_input_lang__Kx_elaborate_logic";"kairos_input_lang__Kx_elaborate_histories";"kairos_input_lang__Kx_elaborate_env";"kairos_input_lang__Kx_elaborate";"kairos_input_lang__Kx_core_syntax_builders";"kairos_input_lang__Kx_core_syntax";"kairos_input_lang__Kx_ast_builders";"kairos_input_lang__Kx_ast";"kairos_input_lang__Kairos_to_model_validation_common";"kairos_input_lang__Kairos_to_model_validation";"kairos_input_lang__Kairos_to_model_node_validation";"kairos_input_lang__Kairos_to_model_function_validation";"kairos_input_lang__Kairos_to_model";"kairos_input_lang__Kairos_frontend";"kairos_input_lang";
        };
-    subgraph cluster_1023048449 { label="kairos.external_timing"; "kairos.external_timing__External_timing";"kairos.external_timing";
+    subgraph cluster_1023048449 { label="kairos.external_timing"; "kairos.external_timing__External_timing_types";"kairos.external_timing__External_timing_store";"kairos.external_timing__External_timing";"kairos.external_timing";
        };
     subgraph cluster_167272116 { label="kairos_why3_contracts"; "kairos_why3_contracts__Why_contracts";"kairos_why3_contracts";
        };
@@ -770,6 +774,8 @@ digraph G {
   "kairos.external_spot" -> "kairos.external_spot__Spot_automaton_builder";
   "kairos.external_timing" -> "unix" [ltail="cluster_1023048449", ];
   "kairos.external_timing" -> "kairos.external_timing__External_timing";
+  "kairos.external_timing" -> "kairos.external_timing__External_timing_store";
+  "kairos.external_timing" -> "kairos.external_timing__External_timing_types";
   "kairos.lsp_protocol" -> "ppx_deriving_yojson.runtime" [ltail="cluster_756173789",
                                                           ];
   "kairos.lsp_protocol" -> "yojson" [ltail="cluster_756173789", ];
@@ -1269,6 +1275,8 @@ digraph G {
   "kairos.domain_verification__Product_types" -> "kairos.domain_verification__Automaton_types";
   "kairos.domain_verification__Temporal_automata" -> "kairos.domain_verification__Product_types";
   "kairos.external_spot__Spot_automaton_builder" -> "kairos.external_spot__Automaton_spot";
+  "kairos.external_timing__External_timing" -> "kairos.external_timing__External_timing_store";
+  "kairos.external_timing__External_timing_store" -> "kairos.external_timing__External_timing_types";
   "kairos_application__Application_ports" -> "kairos_application__Application_observability";
   "kairos_application__Application_ports" -> "kairos_application__Flow_info";
   "kairos_application__Application_ports" -> "kairos_application__Pipeline_types";
