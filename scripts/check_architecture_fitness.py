@@ -663,6 +663,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_step",
         "why_product_step_names",
         "why_compile_init_goals",
+        "why_compile_formula_sharing_inventory",
+        "why_compile_formula_sharing_emit",
+        "why_compile_formula_sharing_deps",
         "why_compile_formula_sharing",
         "why_compile_product_layout",
         "why_compile_bundles",
@@ -830,6 +833,112 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why_compile.mli must stay a narrow backend facade; "
             "node-local compiler internals are publicly exported"
+        )
+
+    formula_sharing_facade = (
+        compile_root / "why_compile_formula_sharing.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    formula_sharing_facade_forbidden = [
+        r"\blet\s+formula_key\b",
+        r"\blet\s+is_composite_fact\b",
+        r"\blet\s+shared_formula_params\b",
+        r"\blet\s+params_for_formula\b",
+        r"\blet\s+formula_uses_self\b",
+        r"\blet\s+record_formula_occurrence\b",
+        r"\blet\s+add_summary_formulas\b",
+        r"\blet\s+record_product_formulas\b",
+        r"\blet\s+select_shared_formulas\b",
+        r"\blet\s+shared_formula_call_with_rec\b",
+        r"\blet\s+rec\s+compile_shared_hexpr\b",
+        r"\blet\s+build_shared_formula_entries\b",
+        r"\blet\s+shared_formula_names_in_term\b",
+        r"\blet\s+direct_shared_formula_deps\b",
+        r"\blet\s+shared_formula_closure\b",
+        r"\bHashtbl\.to_seq\b",
+        r"\blogic_bool_pred_decl_with_body\b",
+        r"\bnames_of_term\b",
+    ]
+    found = [
+        pattern
+        for pattern in formula_sharing_facade_forbidden
+        if re.search(pattern, formula_sharing_facade)
+    ]
+    if found:
+        fail(
+            "Why3 formula-sharing facade must only orchestrate inventory, "
+            "emission, and dependency phases"
+        )
+
+    formula_sharing_inventory = (
+        compile_root / "why_compile_formula_sharing_inventory.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    inventory_forbidden = [
+        r"\blet\s+rec\s+compile_shared_hexpr\b",
+        r"\blogic_bool_pred_decl_with_body\b",
+        r"\bnames_of_term\b",
+        r"\blet\s+shared_formula_names_in_term\b",
+        r"\blet\s+local_shared_formula_decls\b",
+        r"\blet\s+direct_shared_formula_deps\b",
+        r"\blet\s+shared_formula_closure\b",
+        r"\bTidapp\b",
+        r"\bTinnfix\b",
+    ]
+    found = [
+        pattern
+        for pattern in inventory_forbidden
+        if re.search(pattern, formula_sharing_inventory)
+    ]
+    if found:
+        fail(
+            "Why3 formula-sharing inventory must not emit Why3 predicates or "
+            "compute local dependency closures"
+        )
+
+    formula_sharing_emit = (
+        compile_root / "why_compile_formula_sharing_emit.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    emit_forbidden = [
+        r"\blet\s+record_product_formulas\b",
+        r"\blet\s+select_shared_formulas\b",
+        r"\bruntime_view\.product_transitions\b",
+        r"\bnames_of_term\b",
+        r"\blet\s+shared_formula_names_in_term\b",
+        r"\blet\s+local_shared_formula_decls\b",
+        r"\blet\s+direct_shared_formula_deps\b",
+        r"\blet\s+shared_formula_closure\b",
+    ]
+    found = [
+        pattern
+        for pattern in emit_forbidden
+        if re.search(pattern, formula_sharing_emit)
+    ]
+    if found:
+        fail(
+            "Why3 formula-sharing emission must not select formulas from the "
+            "product or compute local dependency closures"
+        )
+
+    formula_sharing_deps = (
+        compile_root / "why_compile_formula_sharing_deps.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    deps_forbidden = [
+        r"\blet\s+rec\s+compile_shared_hexpr\b",
+        r"\blogic_bool_pred_decl_with_body\b",
+        r"\blet\s+record_product_formulas\b",
+        r"\blet\s+select_shared_formulas\b",
+        r"\bruntime_view\.product_transitions\b",
+        r"\bTidapp\b",
+        r"\bTinnfix\b",
+    ]
+    found = [
+        pattern
+        for pattern in deps_forbidden
+        if re.search(pattern, formula_sharing_deps)
+    ]
+    if found:
+        fail(
+            "Why3 formula-sharing dependency closure must not select formulas "
+            "or emit predicate bodies"
         )
 
     proof_runner = (

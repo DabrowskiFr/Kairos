@@ -14,6 +14,9 @@
   why_compile_logic
   why_product_step_names
   why_compile_init_goals
+  why_compile_formula_sharing_inventory
+  why_compile_formula_sharing_emit
+  why_compile_formula_sharing_deps
   why_compile_formula_sharing
   why_compile_product_layout
   why_compile_bundles
