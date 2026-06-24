@@ -172,7 +172,11 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `proof_runner.ml` | Orchestre la projection Why3, les taches et les sorties de preuve |
 | `kairos_runtime_diagnostics` | Diagnostics, graphes, proof-export, rapports de cout |
 | `pipeline_artifact_bundle.ml` | Construit graphes, textes d'inspection et donnees proof-kernel |
-| `pipeline_cost_report.ml` | Rapport de cout du pipeline |
+| `pipeline_cost_report_common.ml` | Primitives JSON, collections et statistiques du rapport de cout |
+| `pipeline_cost_report_syntax.ml` | Metriques syntaxiques du rapport de cout |
+| `pipeline_cost_report_labels.ml` | Labels stables pour origines, phases et etats produit |
+| `pipeline_cost_report_transition_lemmas.ml` | Analyse diagnostique des candidats de lemmes de transition |
+| `pipeline_cost_report.ml` | Composition du rapport de cout du pipeline |
 | `kairos_verification_runtime` | Facade publique et orchestration des sorties |
 | `pipeline_outputs.ml` | Choisit entre sortie minimale prove et sorties avec artifacts |
 | `output_mapper.ml` | Assemble les sorties utilisateur |

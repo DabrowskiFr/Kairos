@@ -2786,6 +2786,67 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         fail("Why3 Unix IO helpers must stay solver-agnostic")
 
 
+def check_runtime_diagnostics_boundaries(repo: Path) -> None:
+    diagnostics_root = repo / "lib/adapters/out/runtime/orchestration/outputs"
+    required_modules = [
+        "pipeline_cost_report_common",
+        "pipeline_cost_report_syntax",
+        "pipeline_cost_report_labels",
+        "pipeline_cost_report_transition_lemmas",
+        "pipeline_cost_report",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = diagnostics_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (diagnostics_root / "dune").read_text(encoding="utf-8")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "runtime diagnostics modules must be explicit kairos_runtime_diagnostics modules: "
+            + ", ".join(missing_modules)
+        )
+
+    report = (diagnostics_root / "pipeline_cost_report.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    report_forbidden = [
+        r"\blet\s+json_int\b",
+        r"\blet\s+count_if\b",
+        r"\blet\s+rec\s+expr_size\b",
+        r"\blet\s+rec\s+hexpr_size\b",
+        r"\blet\s+rec\s+stmt_size\b",
+        r"\blet\s+rec\s+ltl_size\b",
+        r"\blet\s+clause_origin_string\b",
+        r"\blet\s+phase_string\b",
+        r"\blet\s+step_kind_string\b",
+        r"\blet\s+string_of_product_state\b",
+        r"\btype\s+transition_lemma_fact_stat\b",
+        r"\blet\s+collect_transition_lemma_candidates\b",
+        r"\blet\s+transition_lemma_candidates_json\b",
+    ]
+    found = [pattern for pattern in report_forbidden if re.search(pattern, report)]
+    if found:
+        fail(
+            "pipeline_cost_report.ml must compose focused diagnostic modules, "
+            "not reintroduce common metrics or transition-lemma analysis"
+        )
+
+    common = (diagnostics_root / "pipeline_cost_report_common.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\bProof_kernel_types\b|\bCore_syntax\b|\bPipeline_artifact_bundle\b", common):
+        fail("pipeline_cost_report_common.ml must stay domain-agnostic")
+
+    transition = (
+        diagnostics_root / "pipeline_cost_report_transition_lemmas.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bflow_meta_json\b", transition):
+        fail("transition-lemma report module must not own whole-report rendering")
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -2804,6 +2865,7 @@ def main() -> int:
     check_kairos_frontend_elaboration_boundaries(repo)
     check_why3_compile_boundaries(repo)
     check_external_why3_prover_boundaries(repo)
+    check_runtime_diagnostics_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")
     return 0

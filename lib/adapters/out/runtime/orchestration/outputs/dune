@@ -26,8 +26,12 @@
  (name kairos_runtime_diagnostics)
  (wrapped false)
  (modules
-  pipeline_outputs_helpers
+ pipeline_outputs_helpers
   pipeline_artifact_bundle
+  pipeline_cost_report_common
+  pipeline_cost_report_labels
+  pipeline_cost_report_syntax
+  pipeline_cost_report_transition_lemmas
   pipeline_cost_report)
  (libraries
   kairos_application

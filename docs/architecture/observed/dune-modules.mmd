@@ -322,6 +322,10 @@ flowchart TD
     end
     subgraph 457740223 ["kairos_runtime_diagnostics"]
       id731963121(Pipeline_outputs_helpers)
+      id585240334(Pipeline_cost_report_transition_lemmas)
+      id612718117(Pipeline_cost_report_syntax)
+      id586403816(Pipeline_cost_report_labels)
+      id263118754(Pipeline_cost_report_common)
       id746686775(Pipeline_cost_report)
       id568877505(Pipeline_artifact_bundle)
       id457740223(["kairos_runtime_diagnostics"])
@@ -705,6 +709,10 @@ flowchart TD
   457740223-->825363400
   id457740223-->id568877505
   id457740223-->id746686775
+  id457740223-->id263118754
+  id457740223-->id586403816
+  id457740223-->id612718117
+  id457740223-->id585240334
   id457740223-->id731963121
   993802230-->308459985
   993802230-->457740223
@@ -1055,8 +1063,12 @@ flowchart TD
   id991203540-->id402356731
   id991203540-->id776702526
   id991203540-->id1012610048
-  id746686775-->id568877505
+  id746686775-->id585240334
   id746686775-->id731963121
+  id612718117-->id263118754
+  id585240334-->id568877505
+  id585240334-->id586403816
+  id585240334-->id612718117
   id551799941-->id277790137
   id911506235-->id422455612
   id936140841-->id911506235

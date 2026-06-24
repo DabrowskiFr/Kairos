@@ -18,130 +18,11 @@
 
 open Core_syntax
 open Pretty
+open Pipeline_cost_report_common
+open Pipeline_cost_report_labels
+open Pipeline_cost_report_syntax
 
-module Json = Yojson.Safe
 module PK = Proof_kernel_types
-module StringMap = Map.Make (String)
-module StringSet = Set.Make (String)
-
-let json_int n = `Int n
-let json_float f = `Float f
-let json_string s = `String s
-let json_bool b = `Bool b
-let json_list f xs = `List (List.map f xs)
-let json_assoc xs = `Assoc xs
-
-let json_opt f = function None -> `Null | Some x -> f x
-
-let count_if pred xs =
-  List.fold_left (fun acc x -> if pred x then acc + 1 else acc) 0 xs
-
-let sum_int xs = List.fold_left ( + ) 0 xs
-
-let max_int xs =
-  List.fold_left max 0 xs
-
-let average_int xs =
-  match xs with
-  | [] -> 0.0
-  | _ -> float_of_int (sum_int xs) /. float_of_int (List.length xs)
-
-let rec expr_size (e : expr) =
-  match e.expr with
-  | ELitInt _ | ELitBool _ | ELitEnum _ | EVar _ -> 1
-  | EFunCall (_, args) -> 1 + sum_int (List.map expr_size args)
-  | EUn (_, inner) -> 1 + expr_size inner
-  | EBin (_, a, b) | ECmp (_, a, b) -> 1 + expr_size a + expr_size b
-
-let rec hexpr_size (h : hexpr) =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
-  | HPred (_, args) | HFunCall (_, args) -> 1 + sum_int (List.map hexpr_size args)
-  | HUn (_, inner) -> 1 + hexpr_size inner
-  | HBin (_, a, b) | HCmp (_, a, b) -> 1 + hexpr_size a + hexpr_size b
-
-let rec stmt_size (s : stmt) =
-  match s.stmt with
-  | SAssign (_, e) -> 1 + expr_size e
-  | SAssert formula -> 1 + hexpr_size formula
-  | SIf (guard, then_branch, else_branch) ->
-      1 + expr_size guard + sum_int (List.map stmt_size then_branch)
-      + sum_int (List.map stmt_size else_branch)
-  | SWhile (guard, invariants, variant, body) ->
-      1 + expr_size guard + sum_int (List.map hexpr_size invariants)
-      + (match variant with None -> 0 | Some variant -> expr_size variant)
-      + sum_int (List.map stmt_size body)
-  | SMatch (scrutinee, branches, default_branch) ->
-      1 + expr_size scrutinee
-      + sum_int
-          (List.map
-             (fun (_, body) -> sum_int (List.map stmt_size body))
-             branches)
-      + sum_int (List.map stmt_size default_branch)
-  | SSkip -> 1
-  | SCall (_, args, outs) -> 1 + List.length outs + sum_int (List.map expr_size args)
-
-let rec hexpr_max_pre_depth (h : hexpr) =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> 0
-  | HPreK (_, k) -> k
-  | HPred (_, args) | HFunCall (_, args) -> max_int (List.map hexpr_max_pre_depth args)
-  | HUn (_, inner) -> hexpr_max_pre_depth inner
-  | HBin (_, a, b) | HCmp (_, a, b) ->
-      max (hexpr_max_pre_depth a) (hexpr_max_pre_depth b)
-
-let rec hexpr_free_variables (h : hexpr) =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ -> StringSet.empty
-  | HVar v | HPreK (v, _) -> StringSet.singleton v
-  | HPred (_, args) | HFunCall (_, args) ->
-      List.fold_left
-        (fun acc h -> StringSet.union acc (hexpr_free_variables h))
-        StringSet.empty args
-  | HUn (_, inner) -> hexpr_free_variables inner
-  | HBin (_, a, b) | HCmp (_, a, b) ->
-      StringSet.union (hexpr_free_variables a) (hexpr_free_variables b)
-
-let rec ltl_size = function
-  | LTrue | LFalse -> 1
-  | LAtom (a, _, b) -> 1 + hexpr_size a + hexpr_size b
-  | LNot a | LX a | LG a -> 1 + ltl_size a
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-      1 + ltl_size a + ltl_size b
-
-let rec ltl_temporal_depth = function
-  | LTrue | LFalse | LAtom _ -> 0
-  | LNot a -> ltl_temporal_depth a
-  | LX a | LG a -> 1 + ltl_temporal_depth a
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) ->
-      max (ltl_temporal_depth a) (ltl_temporal_depth b)
-  | LW (a, b) -> 1 + max (ltl_temporal_depth a) (ltl_temporal_depth b)
-
-let rec ltl_max_pre_depth = function
-  | LTrue | LFalse -> 0
-  | LAtom (a, _, b) -> max (hexpr_max_pre_depth a) (hexpr_max_pre_depth b)
-  | LNot a | LX a | LG a -> ltl_max_pre_depth a
-  | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
-      max (ltl_max_pre_depth a) (ltl_max_pre_depth b)
-
-let truncate_string max_len s =
-  if String.length s <= max_len then s
-  else String.sub s 0 max_len ^ "..."
-
-let starts_with ~prefix s =
-  let lp = String.length prefix in
-  String.length s >= lp && String.sub s 0 lp = prefix
-
-let contains_substring s sub =
-  let len_s = String.length s in
-  let len_sub = String.length sub in
-  let rec loop i =
-    if len_sub = 0 then true
-    else if i + len_sub > len_s then false
-    else if String.sub s i len_sub = sub then true
-    else loop (i + 1)
-  in
-  loop 0
 
 type fact_stat = {
   key : string;
@@ -326,10 +207,6 @@ let count_steps_by_kind steps =
   in
   (safe, bad_assumption, bad_guarantee)
 
-let string_of_product_state (st : PK.product_state_ir) =
-  Printf.sprintf "(P=%s,A=%d,G=%d)" st.prog_state st.assume_state_index
-    st.guarantee_state_index
-
 let top_counts limit counts =
   counts |> StringMap.bindings
   |> List.sort (fun (_, a) (_, b) -> Int.compare b a)
@@ -340,16 +217,6 @@ let top_counts limit counts =
     | x :: tl -> x :: take (n - 1) tl
   in
   take limit xs
-
-let top_values limit xs =
-  let rec take n = function
-    | _ when n <= 0 -> []
-    | [] -> []
-    | x :: tl -> x :: take (n - 1) tl
-  in
-  take limit xs
-
-let top_string_values limit xs = top_values limit xs
 
 let increment key map =
   let current = Option.value (StringMap.find_opt key map) ~default:0 in
@@ -384,26 +251,6 @@ let product_json (node : PK.node_ir) =
             json_assoc [ ("source", json_string src); ("count", json_int count) ])
           (top_counts 20 by_source) );
     ]
-
-let clause_origin_string = function
-  | PK.OriginSourceProductSummary -> "source_product_summary"
-  | PK.OriginPhaseStepPreSummary -> "phase_step_pre_summary"
-  | PK.OriginPhaseStepSummary -> "phase_step_summary"
-  | PK.OriginSafety -> "safety"
-  | PK.OriginInitNodeInvariant -> "init_node_invariant"
-  | PK.OriginInitAutomatonCoherence -> "init_automaton_coherence"
-  | PK.OriginPropagationNodeInvariant -> "propagation_node_invariant"
-  | PK.OriginPropagationAutomatonCoherence -> "propagation_automaton_coherence"
-
-let phase_string = function
-  | PK.CurrentTick -> "current_tick"
-  | PK.PreviousTick -> "previous_tick"
-  | PK.StepTickContext -> "step_tick_context"
-
-let step_kind_string = function
-  | PK.StepSafe -> "safe"
-  | PK.StepBadAssumption -> "bad_assumption"
-  | PK.StepBadGuarantee -> "bad_guarantee"
 
 let add_rel_fact_formula table ~origin (fact : PK.relational_clause_fact_ir) =
   let phase = phase_string fact.time in
@@ -463,310 +310,6 @@ let proof_kernel_json (node : PK.node_ir) =
       ("post_clauses", clause_json "post" post_clauses);
     ]
 
-type transition_lemma_fact_stat = {
-  lemma_fact_key : string;
-  lemma_fact_hash : string;
-  lemma_fact_size : int;
-  lemma_fact_max_pre_depth : int;
-  lemma_fact_arity : int;
-  mutable lemma_fact_occurrences : int;
-  mutable lemma_fact_origins : StringSet.t;
-  mutable lemma_fact_phases : StringSet.t;
-  mutable lemma_fact_contexts : StringSet.t;
-  mutable lemma_fact_runtime_nodes : StringSet.t;
-}
-
-type transition_lemma_stat = {
-  transition_key : string;
-  transition_id : string;
-  program_src : string;
-  program_dst : string;
-  mutable transition_clause_count : int;
-  mutable transition_formula_conclusion_count : int;
-  mutable transition_structural_conclusion_count : int;
-  mutable transition_false_conclusion_count : int;
-  mutable transition_contexts : StringSet.t;
-  mutable transition_runtime_nodes : StringSet.t;
-  mutable transition_step_kinds : StringSet.t;
-  mutable transition_origins : StringSet.t;
-  mutable transition_phases : StringSet.t;
-  transition_facts : (string, transition_lemma_fact_stat) Hashtbl.t;
-}
-
-let new_transition_lemma_fact_stat key formula ~origin ~phase ~context ~runtime_node =
-  {
-    lemma_fact_key = key;
-    lemma_fact_hash = Digest.to_hex (Digest.string key);
-    lemma_fact_size = hexpr_size formula;
-    lemma_fact_max_pre_depth = hexpr_max_pre_depth formula;
-    lemma_fact_arity = StringSet.cardinal (hexpr_free_variables formula);
-    lemma_fact_occurrences = 1;
-    lemma_fact_origins = StringSet.singleton origin;
-    lemma_fact_phases = StringSet.singleton phase;
-    lemma_fact_contexts = StringSet.singleton context;
-    lemma_fact_runtime_nodes = StringSet.singleton runtime_node;
-  }
-
-let transition_lemma_fact_repeated_cost fact =
-  fact.lemma_fact_size * max 0 (fact.lemma_fact_occurrences - 1)
-
-let transition_lemma_fact_total_cost fact =
-  fact.lemma_fact_size * fact.lemma_fact_occurrences
-
-let add_transition_lemma_fact table ~origin ~phase ~context ~runtime_node formula =
-  let key = string_of_fo formula in
-  match Hashtbl.find_opt table key with
-  | Some fact ->
-      fact.lemma_fact_occurrences <- fact.lemma_fact_occurrences + 1;
-      fact.lemma_fact_origins <- StringSet.add origin fact.lemma_fact_origins;
-      fact.lemma_fact_phases <- StringSet.add phase fact.lemma_fact_phases;
-      fact.lemma_fact_contexts <- StringSet.add context fact.lemma_fact_contexts;
-      fact.lemma_fact_runtime_nodes <- StringSet.add runtime_node fact.lemma_fact_runtime_nodes
-  | None ->
-      Hashtbl.add table key
-        (new_transition_lemma_fact_stat key formula ~origin ~phase ~context
-           ~runtime_node)
-
-let compare_transition_lemma_fact_hotness a b =
-  match
-    Int.compare
-      (transition_lemma_fact_repeated_cost b)
-      (transition_lemma_fact_repeated_cost a)
-  with
-  | 0 -> begin
-      match Int.compare b.lemma_fact_occurrences a.lemma_fact_occurrences with
-      | 0 -> Int.compare b.lemma_fact_size a.lemma_fact_size
-      | c -> c
-    end
-  | c -> c
-
-let transition_lemma_facts stat =
-  Hashtbl.fold (fun _ fact acc -> fact :: acc) stat.transition_facts []
-
-let transition_lemma_repeated_cost stat =
-  stat |> transition_lemma_facts
-  |> List.map transition_lemma_fact_repeated_cost |> sum_int
-
-let transition_lemma_total_cost stat =
-  stat |> transition_lemma_facts
-  |> List.map transition_lemma_fact_total_cost |> sum_int
-
-let compare_transition_lemma_hotness a b =
-  match Int.compare (transition_lemma_repeated_cost b) (transition_lemma_repeated_cost a) with
-  | 0 -> begin
-      match
-        Int.compare b.transition_formula_conclusion_count
-          a.transition_formula_conclusion_count
-      with
-      | 0 -> String.compare a.transition_key b.transition_key
-      | c -> c
-    end
-  | c -> c
-
-let new_transition_lemma_stat (step : PK.product_step_ir) =
-  let program_src, program_dst = step.program_transition in
-  let transition_key =
-    Printf.sprintf "%s|%s|%s" step.program_transition_id program_src program_dst
-  in
-  {
-    transition_key;
-    transition_id = step.program_transition_id;
-    program_src;
-    program_dst;
-    transition_clause_count = 0;
-    transition_formula_conclusion_count = 0;
-    transition_structural_conclusion_count = 0;
-    transition_false_conclusion_count = 0;
-    transition_contexts = StringSet.empty;
-    transition_runtime_nodes = StringSet.empty;
-    transition_step_kinds = StringSet.empty;
-    transition_origins = StringSet.empty;
-    transition_phases = StringSet.empty;
-    transition_facts = Hashtbl.create 64;
-  }
-
-let transition_lemma_stat table (step : PK.product_step_ir) =
-  let program_src, program_dst = step.program_transition in
-  let key =
-    Printf.sprintf "%s|%s|%s" step.program_transition_id program_src program_dst
-  in
-  match Hashtbl.find_opt table key with
-  | Some stat -> stat
-  | None ->
-      let stat = new_transition_lemma_stat step in
-      Hashtbl.add table key stat;
-      stat
-
-let transition_context ~node_name (step : PK.product_step_ir) ~origin ~phase =
-  Printf.sprintf "%s;%s;%s;%s->%s;%s->%s;%s;%s" node_name
-    (step_kind_string step.step_kind) step.program_transition_id
-    step.src.prog_state step.dst.prog_state
-    (string_of_product_state step.src) (string_of_product_state step.dst)
-    origin phase
-
-let transition_formula_of_rel_fact (fact : PK.relational_clause_fact_ir) =
-  match fact.desc with
-  | PK.RelFactPhaseFormula formula | PK.RelFactFormula formula -> Some formula
-  | PK.RelFactProgramState _ | PK.RelFactGuaranteeState _ | PK.RelFactFalse -> None
-
-let collect_transition_lemma_candidates_for_clause table ~node_name
-    (clause : PK.relational_generated_clause_ir) =
-  match clause.anchor with
-  | PK.ClauseAnchorProductState _ -> ()
-  | PK.ClauseAnchorProductStep step ->
-      let stat = transition_lemma_stat table step in
-      let origin = clause_origin_string clause.origin in
-      stat.transition_clause_count <- stat.transition_clause_count + 1;
-      stat.transition_runtime_nodes <- StringSet.add node_name stat.transition_runtime_nodes;
-      stat.transition_step_kinds <-
-        StringSet.add (step_kind_string step.step_kind) stat.transition_step_kinds;
-      stat.transition_origins <- StringSet.add origin stat.transition_origins;
-      List.iter
-        (fun (fact : PK.relational_clause_fact_ir) ->
-          let phase = phase_string fact.time in
-          let context = transition_context ~node_name step ~origin ~phase in
-          stat.transition_contexts <- StringSet.add context stat.transition_contexts;
-          stat.transition_phases <- StringSet.add phase stat.transition_phases;
-          match transition_formula_of_rel_fact fact with
-          | Some formula ->
-              stat.transition_formula_conclusion_count <-
-                stat.transition_formula_conclusion_count + 1;
-              add_transition_lemma_fact stat.transition_facts ~origin ~phase
-                ~context ~runtime_node:node_name formula
-          | None -> begin
-              match fact.desc with
-              | PK.RelFactFalse ->
-                  stat.transition_false_conclusion_count <-
-                    stat.transition_false_conclusion_count + 1
-              | PK.RelFactProgramState _ | PK.RelFactGuaranteeState _ ->
-                  stat.transition_structural_conclusion_count <-
-                    stat.transition_structural_conclusion_count + 1
-              | PK.RelFactPhaseFormula _ | PK.RelFactFormula _ -> ()
-            end)
-        clause.conclusions
-
-let collect_transition_lemma_candidates artifacts =
-  let table = Hashtbl.create 128 in
-  List.iter
-    (fun (summary : PK.exported_node_summary_ir) ->
-      let node_name = summary.signature.node_name in
-      List.iter
-        (fun (step_summary : PK.proof_step_summary_ir) ->
-          List.iter
-            (collect_transition_lemma_candidates_for_clause table ~node_name)
-            step_summary.clauses)
-        summary.normalized_ir.proof_step_summaries)
-    artifacts.Pipeline_artifact_bundle.exported_node_summaries;
-  Hashtbl.fold (fun _ stat acc -> stat :: acc) table []
-
-let json_transition_lemma_fact fact =
-  json_assoc
-    [
-      ("hash", json_string fact.lemma_fact_hash);
-      ("size", json_int fact.lemma_fact_size);
-      ("occurrences", json_int fact.lemma_fact_occurrences);
-      ("repeated_node_cost", json_int (transition_lemma_fact_repeated_cost fact));
-      ("total_node_cost", json_int (transition_lemma_fact_total_cost fact));
-      ("arity", json_int fact.lemma_fact_arity);
-      ("max_pre_depth", json_int fact.lemma_fact_max_pre_depth);
-      ("origin_count", json_int (StringSet.cardinal fact.lemma_fact_origins));
-      ("phase_count", json_int (StringSet.cardinal fact.lemma_fact_phases));
-      ("context_count", json_int (StringSet.cardinal fact.lemma_fact_contexts));
-      ("runtime_node_count", json_int (StringSet.cardinal fact.lemma_fact_runtime_nodes));
-      ("origins", json_list json_string (StringSet.elements fact.lemma_fact_origins));
-      ("phases", json_list json_string (StringSet.elements fact.lemma_fact_phases));
-      ( "sample_contexts",
-        json_list json_string
-          (fact.lemma_fact_contexts |> StringSet.elements |> top_string_values 5) );
-      ("formula", json_string (truncate_string 260 fact.lemma_fact_key));
-    ]
-
-let json_transition_lemma_stat stat =
-  let facts = transition_lemma_facts stat in
-  let duplicated_fact_count = count_if (fun f -> f.lemma_fact_occurrences > 1) facts in
-  let top_facts =
-    facts |> List.sort compare_transition_lemma_fact_hotness |> top_values 12
-  in
-  json_assoc
-    [
-      ("transition_id", json_string stat.transition_id);
-      ( "program_transition",
-        json_string (Printf.sprintf "%s -> %s" stat.program_src stat.program_dst) );
-      ("clause_count", json_int stat.transition_clause_count);
-      ( "formula_conclusion_occurrence_count",
-        json_int stat.transition_formula_conclusion_count );
-      ("unique_formula_count", json_int (List.length facts));
-      ("duplicated_formula_count", json_int duplicated_fact_count);
-      ("repeated_node_cost", json_int (transition_lemma_repeated_cost stat));
-      ("total_node_cost", json_int (transition_lemma_total_cost stat));
-      ( "structural_conclusion_count",
-        json_int stat.transition_structural_conclusion_count );
-      ("false_conclusion_count", json_int stat.transition_false_conclusion_count);
-      ("context_count", json_int (StringSet.cardinal stat.transition_contexts));
-      ("runtime_node_count", json_int (StringSet.cardinal stat.transition_runtime_nodes));
-      ("step_kinds", json_list json_string (StringSet.elements stat.transition_step_kinds));
-      ("origins", json_list json_string (StringSet.elements stat.transition_origins));
-      ("phases", json_list json_string (StringSet.elements stat.transition_phases));
-      ( "sample_contexts",
-        json_list json_string
-          (stat.transition_contexts |> StringSet.elements |> top_string_values 8) );
-      ("top_facts", json_list json_transition_lemma_fact top_facts);
-    ]
-
-let transition_lemma_candidates_json candidates =
-  let unique_fact_count =
-    sum_int
-      (List.map
-         (fun stat -> List.length (transition_lemma_facts stat))
-         candidates)
-  in
-  let formula_occurrences =
-    sum_int
-      (List.map
-         (fun stat -> stat.transition_formula_conclusion_count)
-         candidates)
-  in
-  let duplicated_fact_count =
-    sum_int
-      (List.map
-         (fun stat ->
-           count_if
-             (fun fact -> fact.lemma_fact_occurrences > 1)
-             (transition_lemma_facts stat))
-         candidates)
-  in
-  let repeated_node_cost =
-    sum_int (List.map transition_lemma_repeated_cost candidates)
-  in
-  let total_node_cost =
-    sum_int (List.map transition_lemma_total_cost candidates)
-  in
-  let top_transitions =
-    candidates |> List.sort compare_transition_lemma_hotness |> top_values 20
-  in
-  json_assoc
-    [
-      ("transition_count", json_int (List.length candidates));
-      ("formula_conclusion_occurrence_count", json_int formula_occurrences);
-      ("unique_transition_formula_count", json_int unique_fact_count);
-      ("duplicated_transition_formula_count", json_int duplicated_fact_count);
-      ("repeated_node_cost", json_int repeated_node_cost);
-      ("total_node_cost", json_int total_node_cost);
-      ( "structural_conclusion_count",
-        json_int
-          (sum_int
-             (List.map
-                (fun stat -> stat.transition_structural_conclusion_count)
-                candidates)) );
-      ( "false_conclusion_count",
-        json_int
-          (sum_int
-             (List.map
-                (fun stat -> stat.transition_false_conclusion_count)
-                candidates)) );
-      ("top_transitions", json_list json_transition_lemma_stat top_transitions);
-    ]
-
 let find_ir_node name nodes =
   List.find_opt (fun (node : Ir.node_ir) -> node.semantics.sem_nname = name) nodes
 
@@ -824,8 +367,6 @@ let canonical_summaries_json (node : Ir.node_ir option) =
           ("ensures_count", json_int ensures);
           ("summaries", `List summary_jsons);
         ]
-
-let origin_for_node node_name suffix = node_name ^ "." ^ suffix
 
 let collect_summary_facts table (node : Ir.node_ir) =
   let node_name = node.semantics.sem_nname in
@@ -1052,9 +593,6 @@ let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =
 
 let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~why_text =
   let facts = collect_all_facts snapshot artifacts in
-  let transition_lemma_candidates =
-    collect_transition_lemma_candidates artifacts
-  in
   let nodes =
     List.map (node_report_json snapshot) artifacts.Pipeline_artifact_bundle.exported_node_summaries
   in
@@ -1076,7 +614,7 @@ let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~
         ("nodes", `List nodes);
         ("formula_population", formula_population_json facts);
         ( "transition_lemma_candidates",
-          transition_lemma_candidates_json transition_lemma_candidates );
+          Pipeline_cost_report_transition_lemmas.json artifacts );
         ("why3", why3_json why_text ~why_text_s);
         ( "notes",
           json_list json_string
