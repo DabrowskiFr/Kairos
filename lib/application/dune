@@ -7,6 +7,8 @@
   proof_diagnostics
   application_observability
   application_ports
+  verification_flow_timing_fields
+  verification_flow_vc_taxonomy
   verification_flow_timing_meta
   verification_flow_usecases)
  (libraries kairos_domain_core))

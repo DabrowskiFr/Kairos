@@ -290,10 +290,14 @@ digraph G {
   "kairos_application__Pipeline_types" [label="Pipeline_types", shape=box, ];
   "kairos_application__Proof_diagnostics" [label="Proof_diagnostics",
                                            shape=box, ];
+  "kairos_application__Verification_flow_timing_fields" [label="Verification_flow_timing_fields",
+                                                         shape=box, ];
   "kairos_application__Verification_flow_timing_meta" [label="Verification_flow_timing_meta",
                                                        shape=box, ];
   "kairos_application__Verification_flow_usecases" [label="Verification_flow_usecases",
                                                     shape=box, ];
+  "kairos_application__Verification_flow_vc_taxonomy" [label="Verification_flow_vc_taxonomy",
+                                                       shape=box, ];
   "kairos_artifact_graph_render__Automata_graph_contract" [label="Automata_graph_contract",
                                                            shape=box, ];
   "kairos_artifact_graph_render__Automata_graph_dot" [label="Automata_graph_dot",
@@ -619,7 +623,7 @@ digraph G {
        };
     subgraph cluster_34334489 { label="kairos_verification_runtime"; "kairos_verification_runtime__Verification_runtime_adapters";"kairos_verification_runtime";
        };
-    subgraph cluster_443058325 { label="kairos_application"; "kairos_application__Verification_flow_usecases";"kairos_application__Verification_flow_timing_meta";"kairos_application__Proof_diagnostics";"kairos_application__Pipeline_types";"kairos_application__Flow_info";"kairos_application__Application_ports";"kairos_application__Application_observability";"kairos_application";
+    subgraph cluster_443058325 { label="kairos_application"; "kairos_application__Verification_flow_vc_taxonomy";"kairos_application__Verification_flow_usecases";"kairos_application__Verification_flow_timing_meta";"kairos_application__Verification_flow_timing_fields";"kairos_application__Proof_diagnostics";"kairos_application__Pipeline_types";"kairos_application__Flow_info";"kairos_application__Application_ports";"kairos_application__Application_observability";"kairos_application";
        };
     subgraph cluster_457740223 { label="kairos_runtime_diagnostics"; "kairos_runtime_diagnostics__Pipeline_outputs_helpers";"kairos_runtime_diagnostics__Pipeline_cost_report_why3";"kairos_runtime_diagnostics__Pipeline_cost_report_transition_lemmas";"kairos_runtime_diagnostics__Pipeline_cost_report_syntax";"kairos_runtime_diagnostics__Pipeline_cost_report_source";"kairos_runtime_diagnostics__Pipeline_cost_report_labels";"kairos_runtime_diagnostics__Pipeline_cost_report_kernel";"kairos_runtime_diagnostics__Pipeline_cost_report_facts";"kairos_runtime_diagnostics__Pipeline_cost_report_common";"kairos_runtime_diagnostics__Pipeline_cost_report";"kairos_runtime_diagnostics__Pipeline_artifact_bundle";"kairos_runtime_diagnostics";
        };
@@ -794,8 +798,10 @@ digraph G {
   "kairos_application" -> "kairos_application__Flow_info";
   "kairos_application" -> "kairos_application__Pipeline_types";
   "kairos_application" -> "kairos_application__Proof_diagnostics";
+  "kairos_application" -> "kairos_application__Verification_flow_timing_fields";
   "kairos_application" -> "kairos_application__Verification_flow_timing_meta";
   "kairos_application" -> "kairos_application__Verification_flow_usecases";
+  "kairos_application" -> "kairos_application__Verification_flow_vc_taxonomy";
   "kairos_artifact_graph_render" -> "kairos.domain_verification" [minlen=2,
                                                                   lhead="cluster_821673316",
                                                                   ltail="cluster_586834900",
@@ -1290,9 +1296,11 @@ digraph G {
   "kairos_application__Application_ports" -> "kairos_application__Flow_info";
   "kairos_application__Application_ports" -> "kairos_application__Pipeline_types";
   "kairos_application__Proof_diagnostics" -> "kairos_application__Pipeline_types";
-  "kairos_application__Verification_flow_timing_meta" -> "kairos_application__Application_ports";
+  "kairos_application__Verification_flow_timing_fields" -> "kairos_application__Application_ports";
+  "kairos_application__Verification_flow_timing_meta" -> "kairos_application__Verification_flow_vc_taxonomy";
   "kairos_application__Verification_flow_usecases" -> "kairos_application__Proof_diagnostics";
   "kairos_application__Verification_flow_usecases" -> "kairos_application__Verification_flow_timing_meta";
+  "kairos_application__Verification_flow_vc_taxonomy" -> "kairos_application__Verification_flow_timing_fields";
   "kairos_artifact_graph_render__Automata_graph_contract" -> "kairos_artifact_graph_render__Automata_graph_dot";
   "kairos_artifact_graph_render__Automata_graph_contract" -> "kairos_artifact_graph_render__Automata_graph_format";
   "kairos_artifact_graph_render__Automata_graph_product" -> "kairos_artifact_graph_render__Automata_graph_dot";

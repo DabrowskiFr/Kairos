@@ -125,7 +125,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | --- | --- |
 | `application_ports.ml/mli` | Interfaces abstraites entre use-cases et adaptateurs |
 | `pipeline_types.ml/mli` | Types de configuration, options, sorties et erreurs |
-| `verification_flow_timing_meta.ml` | Construction des metadonnees de timing et taxonomie VC |
+| `verification_flow_timing_fields.ml` | Champs de metriques pour les metadonnees de timing |
+| `verification_flow_vc_taxonomy.ml` | Agrégation de taxonomie VC pour les metadonnees de timing |
+| `verification_flow_timing_meta.ml` | Assemblage applicatif des metadonnees de timing |
 | `verification_flow_usecases.ml` | Orchestration des use-cases et callbacks |
 | `kairos_usecase_wiring.ml` | Composition root : branche les ports sur les modules concrets |
 

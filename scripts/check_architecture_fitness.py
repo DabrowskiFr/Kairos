@@ -706,6 +706,8 @@ def check_critical_subsystems_do_not_use_unqualified_subdirs(repo: Path) -> None
 def check_application_usecases_stay_thin(repo: Path) -> None:
     application_root = repo / "lib/application"
     required_modules = [
+        "verification_flow_timing_fields",
+        "verification_flow_vc_taxonomy",
         "verification_flow_timing_meta",
         "verification_flow_usecases",
     ]
@@ -756,6 +758,10 @@ def check_application_usecases_stay_thin(repo: Path) -> None:
         r"\bP\.Obligations\b",
         r"\bP\.Cost_report\b",
         r"\bP\.Ir_render\b",
+        r"\btype\s+vc_taxonomy_acc\b",
+        r"\blet\s+grouped_vc_taxonomy\b",
+        r"\blet\s+product_group_fields\s*\(",
+        r"\blet\s+why3_worker_timing_fields\s*\(",
     ]
     found = [pattern for pattern in timing_forbidden if re.search(pattern, timing_meta)]
     if found:
@@ -764,6 +770,18 @@ def check_application_usecases_stay_thin(repo: Path) -> None:
             "not orchestrate application ports: "
             + ", ".join(found)
         )
+
+    timing_fields = (
+        application_root / "verification_flow_timing_fields.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\bP\.|\bwith_timing_flow_meta\b|\btype\s+vc_taxonomy_acc\b", timing_fields):
+        fail("verification_flow_timing_fields.ml must stay a port-free field formatter")
+
+    vc_taxonomy = (
+        application_root / "verification_flow_vc_taxonomy.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if re.search(r"\bP\.|\bwith_timing_flow_meta\b|\bApplication_ports\b", vc_taxonomy):
+        fail("verification_flow_vc_taxonomy.ml must aggregate proof traces only")
 
 
 def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
