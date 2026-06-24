@@ -16,8 +16,30 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 logical declarations and formula utilities. *)
+(** Why3 logical declarations and small port conversions. *)
 
-include Why_compile_logic_formula
-include Why_compile_logic_decls
-include Why_compile_logic_functions
+val logic_getter_decl :
+  env:Why_compile_expr.env -> Core_syntax.ident -> Core_syntax.ty -> Why3.Ptree.decl
+
+val logic_bool_pred_decl :
+  env:Why_compile_expr.env ->
+  input_ports:Why_runtime_view.port_view list ->
+  name:string ->
+  formula:Core_syntax.hexpr ->
+  Why3.Ptree.decl
+
+val logic_bool_pred_decl_with_params :
+  env:Why_compile_expr.env ->
+  params:(Core_syntax.ident * Why3.Ptree.pty) list ->
+  name:string ->
+  formula:Core_syntax.hexpr ->
+  Why3.Ptree.decl
+
+val logic_bool_pred_decl_with_body :
+  use_self:bool ->
+  params:(Core_syntax.ident * Why3.Ptree.pty) list ->
+  name:string ->
+  body:Why3.Ptree.term ->
+  Why3.Ptree.decl
+
+val port_view_to_vdecl : Why_runtime_view.port_view -> Core_syntax.vdecl

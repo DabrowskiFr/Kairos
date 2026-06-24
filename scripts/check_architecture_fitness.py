@@ -670,6 +670,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_ptree_names",
         "why_compile_ptree_binders",
         "why_compile_ptree_helpers",
+        "why_compile_logic_formula",
+        "why_compile_logic_decls",
+        "why_compile_logic_functions",
         "why_compile_logic",
         "why_compile_step",
         "why_product_step_names",
@@ -1116,6 +1119,80 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Why3 node getters must not own type declarations or input binders")
+
+    logic_facade = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_logic.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    logic_facade_forbidden = [
+        r"\blet\s+balance_boolean_hexpr\b",
+        r"\blet\s+logic_getter_decl\b",
+        r"\blet\s+logic_bool_pred_decl\b",
+        r"\blet\s+rec\s+hexpr_size\b",
+        r"\blet\s+rec\s+vars_of_hexpr\b",
+        r"\blet\s+port_view_to_vdecl\b",
+        r"\blet\s+compile_pure_function_decl\b",
+        r"\blet\s+is_definition_postcondition\b",
+    ]
+    found = [
+        pattern for pattern in logic_facade_forbidden if re.search(pattern, logic_facade)
+    ]
+    if found:
+        fail("Why3 logic facade must only re-export focused logic modules")
+
+    logic_formula = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_logic_formula.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    logic_formula_forbidden = [
+        r"\blet\s+logic_getter_decl\b",
+        r"\blet\s+logic_bool_pred_decl\b",
+        r"\blet\s+port_view_to_vdecl\b",
+        r"\blet\s+compile_pure_function_decl\b",
+        r"\bDlogic\b",
+        r"\bDlet\b",
+        r"\bEfun\b",
+    ]
+    found = [
+        pattern for pattern in logic_formula_forbidden if re.search(pattern, logic_formula)
+    ]
+    if found:
+        fail("Why3 formula utilities must not emit declarations or functions")
+
+    logic_decls = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_logic_decls.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    logic_decls_forbidden = [
+        r"\blet\s+rec\s+hexpr_size\b",
+        r"\blet\s+rec\s+vars_of_hexpr\b",
+        r"\blet\s+compile_pure_function_decl\b",
+        r"\blet\s+is_definition_postcondition\b",
+        r"\bDlet\b",
+        r"\bEfun\b",
+    ]
+    found = [
+        pattern for pattern in logic_decls_forbidden if re.search(pattern, logic_decls)
+    ]
+    if found:
+        fail("Why3 logical declarations must not own formula analysis or functions")
+
+    logic_functions = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_logic_functions.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    logic_functions_forbidden = [
+        r"\blet\s+balance_boolean_hexpr\b",
+        r"\blet\s+logic_getter_decl\b",
+        r"\blet\s+logic_bool_pred_decl\b",
+        r"\blet\s+rec\s+hexpr_size\b",
+        r"\blet\s+rec\s+vars_of_hexpr\b",
+        r"\bDlogic\b",
+    ]
+    found = [
+        pattern
+        for pattern in logic_functions_forbidden
+        if re.search(pattern, logic_functions)
+    ]
+    if found:
+        fail("Why3 pure-function compilation must not own formula utilities or predicates")
 
     formula_sharing_facade = (
         compile_root / "why_compile_formula_sharing.ml"

@@ -16,7 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Logical declarations and pure-function compilation for the Why3 backend. *)
+(** Compatibility facade for Why3 logical declarations and formula utilities.
+
+    Focused sibling modules own formula analysis, logical declarations, and
+    pure-function compilation. *)
 
 val balance_boolean_hexpr : Core_syntax.hexpr -> Core_syntax.hexpr
 

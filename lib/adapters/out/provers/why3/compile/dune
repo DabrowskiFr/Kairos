@@ -20,6 +20,9 @@
   why_compile_ptree_names
   why_compile_ptree_binders
   why_compile_ptree_helpers
+  why_compile_logic_formula
+  why_compile_logic_decls
+  why_compile_logic_functions
   why_compile_logic
   why_product_step_names
   why_compile_init_goals

@@ -16,8 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 logical declarations and formula utilities. *)
+(** Backend-local structural utilities for Kairos logical formulas. *)
 
-include Why_compile_logic_formula
-include Why_compile_logic_decls
-include Why_compile_logic_functions
+module StringSet = Why_compile_ptree_helpers.StringSet
+
+val balance_boolean_hexpr : Core_syntax.hexpr -> Core_syntax.hexpr
+val hexpr_size : Core_syntax.hexpr -> int
+val vars_of_hexpr : StringSet.t -> Core_syntax.hexpr -> StringSet.t

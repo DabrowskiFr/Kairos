@@ -466,6 +466,9 @@ flowchart TD
       id314881365(Why_compile_node_getters)
       id688013064(Why_compile_node_common)
       id488283078(Why_compile_modules)
+      id469638604(Why_compile_logic_functions)
+      id797567739(Why_compile_logic_formula)
+      id1043436634(Why_compile_logic_decls)
       id290900148(Why_compile_logic)
       id619761209(Why_compile_init_goals)
       id476163693(Why_compile_formula_sharing_inventory)
@@ -718,6 +721,9 @@ flowchart TD
   id95057747-->id476163693
   id95057747-->id619761209
   id95057747-->id290900148
+  id95057747-->id1043436634
+  id95057747-->id797567739
+  id95057747-->id469638604
   id95057747-->id488283078
   id95057747-->id688013064
   id95057747-->id314881365
@@ -1042,7 +1048,11 @@ flowchart TD
   id432909586-->id476163693
   id476163693-->id290900148
   id619761209-->id290900148
-  id290900148-->id416335878
+  id290900148-->id1043436634
+  id290900148-->id469638604
+  id1043436634-->id797567739
+  id797567739-->id416335878
+  id469638604-->id416335878
   id488283078-->id520912783
   id688013064-->id488283078
   id688013064-->id314881365

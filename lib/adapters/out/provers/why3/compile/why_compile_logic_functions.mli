@@ -16,8 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 logical declarations and formula utilities. *)
+(** Compilation of pure Kairos functions to Why3 definitions. *)
 
-include Why_compile_logic_formula
-include Why_compile_logic_decls
-include Why_compile_logic_functions
+val compile_pure_function_decl : Core_syntax.pure_function_decl -> Why3.Ptree.decl

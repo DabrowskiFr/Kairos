@@ -189,7 +189,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_ptree_names.ml` | Analyse des noms utilises dans termes/specs/expressions Why3 |
 | `why_compile_ptree_binders.ml` | Conversion et filtrage des binders Why3 |
 | `why_compile_ptree_helpers.ml` | Facade historique des helpers Why3 `Ptree` |
-| `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
+| `why_compile_logic_formula.ml` | Analyse et normalisation des formules logiques |
+| `why_compile_logic_decls.ml` | Declarations logiques et predicates Why3 |
+| `why_compile_logic_functions.ml` | Compilation des fonctions pures Kairos |
+| `why_compile_logic.ml` | Facade historique de la logique Why3 |
 | `why_product_step_names.ml` | Facade publique de nommage stable des helpers Why3 par pas produit |
 | `why_compile_init_goals.ml` | Buts Why3 de coherence de l'etat initial |
 | `why_compile_formula_sharing_inventory.ml` | Inventaire et selection des formules Why3 partagees |
