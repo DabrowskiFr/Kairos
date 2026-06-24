@@ -8,6 +8,7 @@
   why_contract_smt_utils
   why_contract_persistent_z3
   why_contract_prover_call
+  why_contract_workers
   why_contract_prove
   why_native_probe)
  (libraries kairos_domain_core kairos_external_timing why3))

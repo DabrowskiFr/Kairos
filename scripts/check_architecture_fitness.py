@@ -2553,6 +2553,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         "why_contract_smt_utils",
         "why_contract_persistent_z3",
         "why_contract_prover_call",
+        "why_contract_workers",
         "why_contract_prove",
         "why_native_probe",
     ]
@@ -2599,6 +2600,15 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         r"\blet\s+result_after_optional_fallback\b",
         r"\blet\s+prove_one_task_with_details\b",
         r"\blet\s+prove_printed_prepared_task\b",
+        r"\btype\s+worker_to_parent\b",
+        r"\btype\s+proof_worker\b",
+        r"\blet\s+worker_error_message\b",
+        r"\blet\s+prove_worker_tasks\b",
+        r"\blet\s+read_proof_worker_message\b",
+        r"\blet\s+finish_proof_worker\b",
+        r"\bUnix\.fork\b",
+        r"\bUnix\.select\b",
+        r"\bMarshal\b",
         r"\blet\s+write_all_bytes\b",
         r"\blet\s+send_marshaled_value_fd\b",
         r"\blet\s+create_pipe_noerr\b",
@@ -2670,6 +2680,23 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Why3 prover-call helper must not own worker scheduling or IPC")
+
+    workers = (why3_root / "why_contract_workers.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    workers_forbidden = [
+        r"\bsetup_env\b",
+        r"\bnormalize_tasks_of_ptrees\b",
+        r"\btasks_of_ptrees\b",
+        r"\bprove_tasks_with_events\b",
+        r"\bprove_ptrees_with_events\b",
+        r"\bprove_ptree_with_events\b",
+        r"\bselect_z3_prover_cfg\b",
+        r"\bselect_alt_ergo_prover_cfg\b",
+    ]
+    found = [pattern for pattern in workers_forbidden if re.search(pattern, workers)]
+    if found:
+        fail("Why3 workers must not own public proof setup or task normalization")
 
     smt_utils = (why3_root / "why_contract_smt_utils.ml").read_text(
         encoding="utf-8", errors="replace"
