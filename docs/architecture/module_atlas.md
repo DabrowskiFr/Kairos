@@ -182,6 +182,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `pipeline_cost_report_common.ml` | Primitives JSON, collections et statistiques du rapport de cout |
 | `pipeline_cost_report_syntax.ml` | Metriques syntaxiques du rapport de cout |
 | `pipeline_cost_report_labels.ml` | Labels stables pour origines, phases et etats produit |
+| `pipeline_cost_report_source.ml` | Section source du rapport de cout |
+| `pipeline_cost_report_kernel.ml` | Sections proof-kernel et summaries canoniques du rapport de cout |
+| `pipeline_cost_report_why3.ml` | Section texte Why3 du rapport de cout |
 | `pipeline_cost_report_transition_lemmas.ml` | Analyse diagnostique des candidats de lemmes de transition |
 | `pipeline_cost_report_facts.ml` | Population de formules et repetitions dans le rapport de cout |
 | `pipeline_cost_report.ml` | Composition du rapport de cout du pipeline |

@@ -3174,6 +3174,9 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         "pipeline_cost_report_common",
         "pipeline_cost_report_syntax",
         "pipeline_cost_report_labels",
+        "pipeline_cost_report_source",
+        "pipeline_cost_report_kernel",
+        "pipeline_cost_report_why3",
         "pipeline_cost_report_transition_lemmas",
         "pipeline_cost_report_facts",
         "pipeline_cost_report",
@@ -3214,6 +3217,15 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
         r"\blet\s+collect_kernel_facts\b",
         r"\blet\s+collect_source_ltl_facts\b",
         r"\blet\s+collect_all_facts\b",
+        r"\blet\s+source_node_json\b",
+        r"\blet\s+source_json\b",
+        r"\blet\s+runtime_spec_json\b",
+        r"\blet\s+automaton_json\b",
+        r"\blet\s+product_json\b",
+        r"\blet\s+proof_kernel_json\b",
+        r"\blet\s+node_report_json\b",
+        r"\blet\s+line_count\b",
+        r"\blet\s+why3_json\b",
         r"\btype\s+transition_lemma_fact_stat\b",
         r"\blet\s+collect_transition_lemma_candidates\b",
         r"\blet\s+transition_lemma_candidates_json\b",
@@ -3242,6 +3254,24 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
     )
     if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bflow_meta_json\b", facts):
         fail("formula-population report module must not own whole-report rendering")
+
+    source = (diagnostics_root / "pipeline_cost_report_source.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bProof_kernel_types\b", source):
+        fail("source cost-report section must not own whole-report or proof-kernel rendering")
+
+    kernel = (diagnostics_root / "pipeline_cost_report_kernel.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+render_json\b|\bwhy3_json\b|\bflow_meta_json\b", kernel):
+        fail("proof-kernel cost-report section must not own whole-report rendering")
+
+    why3 = (diagnostics_root / "pipeline_cost_report_why3.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+render_json\b|\bProof_kernel_types\b|\bRuntime_snapshot\b", why3):
+        fail("Why3 cost-report section must stay limited to generated WhyML text metrics")
 
 
 def check_external_timing_boundaries(repo: Path) -> None:
