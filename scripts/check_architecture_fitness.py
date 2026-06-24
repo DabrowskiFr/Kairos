@@ -2552,6 +2552,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         "why_contract_proof_types",
         "why_contract_smt_utils",
         "why_contract_persistent_z3",
+        "why_contract_prover_call",
         "why_contract_prove",
         "why_native_probe",
     ]
@@ -2588,6 +2589,16 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         r"\blet\s+zero_goal_timing\b",
         r"\blet\s+add_goal_timing\b",
         r"\blet\s+goal_timing_with_prepare\b",
+        r"\blet\s+goal_name_of_prepared_task\b",
+        r"\blet\s+duplicate_detail_for_goal\b",
+        r"\blet\s+prepare_task_with_timing\b",
+        r"\blet\s+print_prepared_task\b",
+        r"\blet\s+spawn_prover_call\b",
+        r"\blet\s+wait_on_prover_call\b",
+        r"\blet\s+run_prepared_task\b",
+        r"\blet\s+result_after_optional_fallback\b",
+        r"\blet\s+prove_one_task_with_details\b",
+        r"\blet\s+prove_printed_prepared_task\b",
         r"\blet\s+write_all_bytes\b",
         r"\blet\s+send_marshaled_value_fd\b",
         r"\blet\s+create_pipe_noerr\b",
@@ -2637,6 +2648,28 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Why3 proof result types must stay independent from proving machinery")
+
+    prover_call = (why3_root / "why_contract_prover_call.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    prover_call_forbidden = [
+        r"\bWorker_started\b",
+        r"\bWorker_result\b",
+        r"\bWorker_done\b",
+        r"\bWorker_failed\b",
+        r"\bproof_worker\b",
+        r"\bspawn_proof_worker\b",
+        r"\bdistribute_indexed_tasks\b",
+        r"\bMarshal\b",
+        r"\bUnix\.fork\b",
+        r"\bUnix\.select\b",
+        r"\bsend_marshaled_value_fd\b",
+    ]
+    found = [
+        pattern for pattern in prover_call_forbidden if re.search(pattern, prover_call)
+    ]
+    if found:
+        fail("Why3 prover-call helper must not own worker scheduling or IPC")
 
     smt_utils = (why3_root / "why_contract_smt_utils.ml").read_text(
         encoding="utf-8", errors="replace"

@@ -230,6 +230,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contract_proof_types.ml` | Types de résultats, événements et timings de preuve Why3 |
 | `why_contract_smt_utils.ml` | Statuts, empreintes et dumps SMT-LIB |
 | `why_contract_persistent_z3.ml` | Session Z3 persistante pour buffers SMT-LIB |
+| `why_contract_prover_call.ml` | Préparation, impression, lancement et fallback d'un appel prouveur |
 | `why_contract_prove.ml` | Interaction Why3/provers |
 | `spot_automaton_builder.ml` | Adaptateur Spot |
 | `fo_z3_solver.ml` | Adaptateur Z3 |
