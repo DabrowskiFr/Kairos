@@ -675,6 +675,10 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_specs",
         "why_compile_product_metrics",
         "why_compile_contract_facts",
+        "why_compile_product_helper_types",
+        "why_compile_product_helper_body",
+        "why_compile_product_individual_helper",
+        "why_compile_product_grouped_helper",
         "why_compile_product_helpers",
         "why_compile_product_plan",
         "why_compile_modules",
@@ -914,6 +918,19 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\bstep_pre_terms_with_rec\b",
         r"\bstep_post_terms_with_rec\b",
         r"\bsimplify_why3_runtime_actions\b",
+        r"\blet\s+seq_exprs\b",
+        r"\blet\s+helper_function\b",
+        r"\blet\s+build_individual_kernel_helper\b",
+        r"\blet\s+build_grouped_kernel_helper\b",
+        r"\bWhy_compile_step\b",
+        r"\bProduct_layout\b",
+        r"\bProduct_specs\.individual_helper_contract\b",
+        r"\bProduct_specs\.grouped_helper_contract\b",
+        r"\bStep_names\b",
+        r"\bhelper_binders_without_unused_parameters\b",
+        r"\bPtree\.Dlet\b",
+        r"\bEfun\b",
+        r"\bElet\b",
     ]
     found = [
         pattern
@@ -924,6 +941,74 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail(
             "Why3 product helper emission must not own product-step specs or "
             "presentation labels; keep them in why_compile_product_specs"
+        )
+
+    product_helper_body = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_helper_body.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    helper_body_forbidden = [
+        r"\bWhy_compile_product_specs\b",
+        r"\bWhy_product_step_names\b",
+        r"\bWhy_compile_product_groups\b",
+        r"\bPtree\.Dlet\b",
+        r"\bhelper_unit\b",
+        r"\blocal_shared_formula_decls\b",
+        r"\bpre_labels\b",
+        r"\bpost_labels\b",
+    ]
+    found = [
+        pattern
+        for pattern in helper_body_forbidden
+        if re.search(pattern, product_helper_body)
+    ]
+    if found:
+        fail(
+            "Why3 product helper bodies must not own helper specs, naming, or "
+            "unit assembly"
+        )
+
+    individual_helper = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_individual_helper.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    individual_helper_forbidden = [
+        r"\bgrouped_helper_contract\b",
+        r"\bProduct_layout\b",
+        r"\bproduct_step_group_helper_name\b",
+        r"\bgrouped_body\b",
+        r"__pre_snapshot",
+    ]
+    found = [
+        pattern
+        for pattern in individual_helper_forbidden
+        if re.search(pattern, individual_helper)
+    ]
+    if found:
+        fail(
+            "Why3 individual product helper emission must not own grouped "
+            "snapshot/helper concerns"
+        )
+
+    grouped_helper = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_grouped_helper.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    grouped_helper_forbidden = [
+        r"\bindividual_helper_contract\b",
+        r"\bproduct_step_helper_name\s*~",
+        r"\bindividual_body\b",
+        r"\blocal_cuts\b",
+    ]
+    found = [
+        pattern
+        for pattern in grouped_helper_forbidden
+        if re.search(pattern, grouped_helper)
+    ]
+    if found:
+        fail(
+            "Why3 grouped product helper emission must not own individual "
+            "helper concerns"
         )
 
     product_specs = (

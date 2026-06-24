@@ -26,6 +26,10 @@
   why_compile_product_specs
   why_compile_product_metrics
   why_compile_contract_facts
+  why_compile_product_helper_types
+  why_compile_product_helper_body
+  why_compile_product_individual_helper
+  why_compile_product_grouped_helper
   why_compile_product_helpers
   why_compile_product_plan
   why_compile_modules
