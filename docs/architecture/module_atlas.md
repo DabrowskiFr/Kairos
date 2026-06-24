@@ -181,6 +181,14 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `pipeline_outputs.ml` | Choisit entre sortie minimale prove et sorties avec artifacts |
 | `output_mapper.ml` | Assemble les sorties utilisateur |
 
+### Sorties Diagnostic Et Graphes
+
+| Module | Responsabilite |
+| --- | --- |
+| `automata_graph_dot.ml` | Primitives neutres d'emission DOT/HTML |
+| `automata_graph_render.ml` | Rendu DOT des automates assumes, ensures et produit |
+| `graphviz_render.ml` | Adaptateur Graphviz |
+
 ### Backend Why3 Et Outils Externes
 
 | Module | Responsabilite |
@@ -241,7 +249,6 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contract_workers.ml` | Distribution, IPC et cycle de vie des workers de preuve Why3 |
 | `why_contract_prove.ml` | Interaction Why3/provers |
 | `spot_automaton_builder.ml` | Adaptateur Spot |
-| `graphviz_render.ml` | Adaptateur Graphviz |
 | `external_timing.ml` | Mesures de couts |
 
 ## Questions Pratiques

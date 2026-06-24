@@ -25,6 +25,7 @@
 open Core_syntax
 open Core_syntax_builders
 open Pretty
+open Automata_graph_dot
 
 module PT = Product_types
 
@@ -34,89 +35,6 @@ type graph = {
   dot : string;
   labels : string;
 }
-
-(* ------------------------------------------------------------------ *)
-(* DOT / HTML escaping and low-level emission primitives                *)
-(* ------------------------------------------------------------------ *)
-
-(* Escapes double-quotes and newlines so the string is safe inside a DOT plain label. *)
-let escape_dot_label (s : string) : string =
-  let b = Buffer.create (String.length s) in
-  String.iter
-    (function
-      | '"' -> Buffer.add_string b "\\\""
-      | '\n' -> Buffer.add_string b "\\n"
-      | c -> Buffer.add_char b c)
-    s;
-  Buffer.contents b
-
-(* Escapes [& < > ] and double-quotes so the string is safe inside a Graphviz HTML label. *)
-let escape_html_label (s : string) : string =
-  let b = Buffer.create (String.length s) in
-  String.iter
-    (function
-      | '&' -> Buffer.add_string b "&amp;"
-      | '<' -> Buffer.add_string b "&lt;"
-      | '>' -> Buffer.add_string b "&gt;"
-      | '"' -> Buffer.add_string b "&quot;"
-      | c -> Buffer.add_char b c)
-    s;
-  Buffer.contents b
-
-(* Converts newlines to [<BR ALIGN="LEFT"/>] so multi-line formulas render
-   correctly inside an HTML label table cell. *)
-let html_of_multiline_formula (s : string) : string =
-  let escaped = escape_html_label s in
-  let b = Buffer.create (String.length escaped) in
-  String.iter
-    (function
-      | '\n' -> Buffer.add_string b "<BR ALIGN=\"LEFT\"/>"
-      | c -> Buffer.add_char b c)
-    escaped;
-  Buffer.contents b
-
-(* Appends HTML [<TR>] rows for a two-column alias table (alias | formula)
-   headed by [title]. Does nothing when [defs] is empty. *)
-let add_formula_legend_rows_html buf ~title ~defs =
-  if defs <> [] then (
-    Buffer.add_string buf
-      (Printf.sprintf
-         "      <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
-         (escape_html_label title));
-    List.iter
-      (fun (alias, formula) ->
-        Buffer.add_string buf
-          (Printf.sprintf
-             "      <TR><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">%s</FONT></TD></TR>\n"
-             (escape_html_label alias) (html_of_multiline_formula formula)))
-      defs)
-
-(* Emits a [rank=sink] subgraph containing a plaintext HTML-table node that
-   acts as a floating legend. An invisible edge from [anchor_id] keeps the
-   legend anchored near the graph body. *)
-let add_sink_legend_block_html buf ~legend_id ~title ~rows_html ~anchor_id =
-  Buffer.add_string buf "  subgraph cluster_legend_sink {\n";
-  Buffer.add_string buf "    rank=sink;\n";
-  Buffer.add_string buf "    color=\"transparent\";\n";
-  Buffer.add_string buf "    margin=0;\n";
-  Buffer.add_string buf
-    (Printf.sprintf "    %s [shape=plaintext,margin=0.1,label=<\n" legend_id);
-  Buffer.add_string buf "      <TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"0\" CELLPADDING=\"2\">\n";
-  Buffer.add_string buf
-    (Printf.sprintf
-       "        <TR><TD COLSPAN=\"2\" ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\"><B>%s</B></FONT></TD></TR>\n"
-       (escape_html_label title));
-  Buffer.add_string buf rows_html;
-  Buffer.add_string buf "      </TABLE>>];\n";
-  Buffer.add_string buf "  }\n";
-  Buffer.add_string buf
-    (Printf.sprintf "  %s -> %s [style=invis,weight=0];\n" anchor_id legend_id)
-
-(* Emits a single DOT edge with a plain-text label, colour and style. *)
-let add_labeled_edge buf ~src_id ~dst_id ~label ~color ~style =
-  Buffer.add_string buf
-    (Printf.sprintf "  %s -> %s [label=\"%s\",color=\"%s\",fontcolor=\"%s\",style=\"%s\"];\n"
-       src_id dst_id (escape_dot_label label) color color style)
 
 (* ------------------------------------------------------------------ *)
 (* Formula display pipeline                                             *)
@@ -514,68 +432,6 @@ let product_edge_visual ~(analysis : Temporal_automata.node_data) (step : merged
     { color = clr_to_gbad; style = "solid"; category = "to G_bad" }
   else
     { color = clr_live_to_live; style = "solid"; category = "live to live" }
-
-(* ------------------------------------------------------------------ *)
-(* Ready-to-emit data types                                             *)
-(* ------------------------------------------------------------------ *)
-
-(* A fully-resolved node descriptor ready for emission to a DOT buffer.
-   [node_label] is either a plain string or an HTML label fragment. *)
-type ready_node = {
-  node_id       : string;
-  node_label    : [ `Plain of string | `Html of string ];
-  node_fill     : string;
-  node_border   : string;
-  node_fontcolor: string option;
-}
-
-(* A fully-resolved edge descriptor ready for emission to a DOT buffer. *)
-type ready_edge = {
-  edge_src   : string;
-  edge_dst   : string;
-  edge_label : string;
-  edge_color : string;
-  edge_style : string;
-}
-
-(* Appends a single DOT node statement to [buf], handling both plain and HTML
-   label variants and the optional font-colour attribute. *)
-let emit_node buf (n : ready_node) =
-  let label_attr = match n.node_label with
-    | `Plain s -> Printf.sprintf "label=\"%s\"" (escape_dot_label s)
-    | `Html s  -> Printf.sprintf "label=<%s>" s
-  in
-  let fontcolor_attr = match n.node_fontcolor with
-    | None   -> ""
-    | Some c -> Printf.sprintf ",fontcolor=\"%s\"" c
-  in
-  Buffer.add_string buf
-    (Printf.sprintf "  %s [fillcolor=\"%s\",color=\"%s\"%s,%s];\n"
-       n.node_id n.node_fill n.node_border fontcolor_attr label_attr)
-
-(* Appends a single DOT edge statement to [buf].  Omits the label attribute
-   entirely when [edge_label] is empty so that Graphviz does not reserve space
-   for it. *)
-let emit_edge buf (e : ready_edge) =
-  if e.edge_label = "" then
-    Buffer.add_string buf
-      (Printf.sprintf "  %s -> %s [color=\"%s\",style=\"%s\"];\n"
-         e.edge_src e.edge_dst e.edge_color e.edge_style)
-  else
-    add_labeled_edge buf ~src_id:e.edge_src ~dst_id:e.edge_dst
-      ~label:e.edge_label ~color:e.edge_color ~style:e.edge_style
-
-(* Appends a floating legend subgraph (rank=sink) to [buf] listing [defs] as an
-   alias table under [title].  Does nothing when [defs] is empty or [anchor]
-   is [None]. *)
-let emit_formula_legend buf ~legend_id ~title ~defs ~anchor =
-  if defs <> [] then
-    Option.iter (fun anchor_id ->
-      let rows_buf = Buffer.create 256 in
-      add_formula_legend_rows_html rows_buf ~title ~defs;
-      add_sink_legend_block_html buf ~legend_id ~title
-        ~rows_html:(Buffer.contents rows_buf) ~anchor_id)
-    anchor
 
 (* ------------------------------------------------------------------ *)
 (* Product automaton                                                    *)

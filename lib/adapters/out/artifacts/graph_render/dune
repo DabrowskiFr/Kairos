@@ -1,7 +1,7 @@
 (library
  (name kairos_artifact_graph_render)
  (wrapped false)
- (modules automata_graph_render)
+ (modules automata_graph_dot automata_graph_render)
  (libraries
   kairos_domain_core
   kairos_domain_verification))

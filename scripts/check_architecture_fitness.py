@@ -220,6 +220,58 @@ def check_renderers_do_not_depend_on_z3(repo: Path) -> None:
         fail("graph renderer contains direct Z3 references:\n  - " + "\n  - ".join(violations))
 
 
+def check_automata_graph_render_boundaries(repo: Path) -> None:
+    graph_render_root = repo / "lib/adapters/out/artifacts/graph_render"
+    dune = (graph_render_root / "dune").read_text(encoding="utf-8", errors="replace")
+    for module in ["automata_graph_dot", "automata_graph_render"]:
+        for suffix in [".ml", ".mli"]:
+            if not (graph_render_root / f"{module}{suffix}").exists():
+                fail(f"graph renderer boundary module is missing: {module}{suffix}")
+        if module not in dune:
+            fail(f"graph renderer dune file must list boundary module {module}")
+
+    renderer = (graph_render_root / "automata_graph_render.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    renderer_forbidden = [
+        r"\blet\s+escape_dot_label\b",
+        r"\blet\s+escape_html_label\b",
+        r"\blet\s+add_labeled_edge\b",
+        r"\btype\s+ready_node\b",
+        r"\btype\s+ready_edge\b",
+        r"\blet\s+emit_node\b",
+        r"\blet\s+emit_edge\b",
+        r"\blet\s+emit_formula_legend\b",
+    ]
+    found = [pattern for pattern in renderer_forbidden if re.search(pattern, renderer)]
+    if found:
+        fail(
+            "automata_graph_render.ml must orchestrate graph rendering, "
+            "not re-own low-level DOT emission"
+        )
+
+    dot = (graph_render_root / "automata_graph_dot.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    dot_forbidden = [
+        r"\bCore_syntax\b",
+        r"\bCore_syntax_builders\b",
+        r"\bPretty\b",
+        r"\bProduct_types\b",
+        r"\bVerification_model\b",
+        r"\bTemporal_automata\b",
+        r"\bZ3\b",
+        r"\bSpot\b",
+    ]
+    found = [pattern for pattern in dot_forbidden if re.search(pattern, dot)]
+    if found:
+        fail(
+            "automata_graph_dot.ml must remain a domain-neutral DOT/HTML emitter, "
+            "but contains: "
+            + ", ".join(found)
+        )
+
+
 def check_stale_external_z3_adapter_removed(repo: Path) -> None:
     stale_paths = [
         "lib/adapters/out/external/z3/dune",
@@ -2885,6 +2937,7 @@ def main() -> int:
     check_reference_stability_wired(repo)
     check_domain_has_no_external_deps(repo)
     check_renderers_do_not_depend_on_z3(repo)
+    check_automata_graph_render_boundaries(repo)
     check_stale_external_z3_adapter_removed(repo)
     check_backend_and_renderers_do_not_depend_on_proof_export(repo)
     check_runtime_split_dependencies(repo)
