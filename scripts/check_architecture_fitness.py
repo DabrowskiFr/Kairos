@@ -2549,6 +2549,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     required_modules = [
         "why_task_support",
         "why_contract_unix_io",
+        "why_contract_smt_utils",
         "why_contract_persistent_z3",
         "why_contract_prove",
         "why_native_probe",
@@ -2579,6 +2580,10 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         r"\blet\s+open_persistent_z3_session\b",
         r"\blet\s+read_persistent_z3_",
         r"\blet\s+prove_buffer_with_persistent_z3\b",
+        r"\blet\s+answer_status\b",
+        r"\blet\s+strip_smt_named_attributes\b",
+        r"\blet\s+smt_fingerprint\b",
+        r"\blet\s+dump_path_of_prover_answer\b",
         r"\blet\s+write_all_bytes\b",
         r"\blet\s+send_marshaled_value_fd\b",
         r"\blet\s+create_pipe_noerr\b",
@@ -2608,6 +2613,22 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Persistent Z3 runner must not own worker scheduling or IPC protocol")
+
+    smt_utils = (why3_root / "why_contract_smt_utils.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    smt_utils_forbidden = [
+        r"\bWorker_started\b",
+        r"\bWorker_result\b",
+        r"\bprove_tasks_with_details\b",
+        r"\bspawn_proof_worker\b",
+        r"\bDriver\b",
+        r"\bTask\b",
+        r"\bUnix\.create_process\b",
+    ]
+    found = [pattern for pattern in smt_utils_forbidden if re.search(pattern, smt_utils)]
+    if found:
+        fail("Why3 SMT utilities must stay independent from worker/prover scheduling")
 
     unix_io = (why3_root / "why_contract_unix_io.ml").read_text(
         encoding="utf-8", errors="replace"

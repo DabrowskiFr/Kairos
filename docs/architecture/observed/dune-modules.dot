@@ -306,6 +306,8 @@ digraph G {
                                                       shape=box, ];
   "kairos_external_why3__Why_contract_prove" [label="Why_contract_prove",
                                               shape=box, ];
+  "kairos_external_why3__Why_contract_smt_utils" [label="Why_contract_smt_utils",
+                                                  shape=box, ];
   "kairos_external_why3__Why_contract_unix_io" [label="Why_contract_unix_io",
                                                 shape=box, ];
   "kairos_external_why3__Why_native_probe" [label="Why_native_probe",
@@ -584,7 +586,7 @@ digraph G {
        };
     subgraph cluster_757729241 { label="kairos.domain_core"; "kairos.domain_core__Verification_model";"kairos.domain_core__Pretty";"kairos.domain_core__Pre_k_lowering";"kairos.domain_core__Pre_k_layout";"kairos.domain_core__Log";"kairos.domain_core__Loc";"kairos.domain_core__Ir_transition";"kairos.domain_core__Ir_shared_types";"kairos.domain_core__Ir_formula";"kairos.domain_core__Ir";"kairos.domain_core__Core_syntax_builders";"kairos.domain_core__Core_syntax";"kairos.domain_core__Core_fo_simplifier";"kairos.domain_core";
        };
-    subgraph cluster_81314696 { label="kairos_external_why3"; "kairos_external_why3__Why_task_support";"kairos_external_why3__Why_native_probe";"kairos_external_why3__Why_contract_unix_io";"kairos_external_why3__Why_contract_prove";"kairos_external_why3__Why_contract_persistent_z3";"kairos_external_why3";
+    subgraph cluster_81314696 { label="kairos_external_why3"; "kairos_external_why3__Why_task_support";"kairos_external_why3__Why_native_probe";"kairos_external_why3__Why_contract_unix_io";"kairos_external_why3__Why_contract_smt_utils";"kairos_external_why3__Why_contract_prove";"kairos_external_why3__Why_contract_persistent_z3";"kairos_external_why3";
        };
     subgraph cluster_821673316 { label="kairos.domain_verification"; "kairos.domain_verification__Temporal_lower";"kairos.domain_verification__Temporal_automata";"kairos.domain_verification__Product_types";"kairos.domain_verification__Product_reachability";"kairos.domain_verification__Product_characteristics";"kairos.domain_verification__Product_build";"kairos.domain_verification__Pre";"kairos.domain_verification__Post";"kairos.domain_verification__Orchestration";"kairos.domain_verification__Ltl_valuation";"kairos.domain_verification__Ir_fact_family_metrics";"kairos.domain_verification__From_model";"kairos.domain_verification__Formula_sharing";"kairos.domain_verification__Fo_time";"kairos.domain_verification__Fo_contradiction";"kairos.domain_verification__Automaton_types";"kairos.domain_verification";
        };
@@ -785,6 +787,7 @@ digraph G {
                                                       ];
   "kairos_external_why3" -> "kairos_external_why3__Why_contract_persistent_z3";
   "kairos_external_why3" -> "kairos_external_why3__Why_contract_prove";
+  "kairos_external_why3" -> "kairos_external_why3__Why_contract_smt_utils";
   "kairos_external_why3" -> "kairos_external_why3__Why_contract_unix_io";
   "kairos_external_why3" -> "kairos_external_why3__Why_native_probe";
   "kairos_external_why3" -> "kairos_external_why3__Why_task_support";
@@ -1214,6 +1217,7 @@ digraph G {
   "kairos_application__Verification_flow_usecases" -> "kairos_application__Proof_diagnostics";
   "kairos_external_why3__Why_contract_persistent_z3" -> "kairos_external_why3__Why_contract_unix_io";
   "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_contract_persistent_z3";
+  "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_contract_smt_utils";
   "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_task_support";
   "kairos_external_why3__Why_native_probe" -> "kairos_external_why3__Why_task_support";
   "kairos_input_lang__Kairos_frontend" -> "kairos_input_lang__Kairos_to_model";

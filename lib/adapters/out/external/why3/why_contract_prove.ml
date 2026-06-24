@@ -21,6 +21,7 @@ open Why_task_support
 open Why_contract_unix_io
 
 module Persistent_z3 = Why_contract_persistent_z3
+module Smt_utils = Why_contract_smt_utils
 
 type goal_proof_result = {
   goal_name : string;
@@ -95,14 +96,6 @@ type proof_worker = {
   worker_fd : Unix.file_descr;
 }
 
-let answer_status = function
-  | Call_provers.Valid -> "valid"
-  | Call_provers.Invalid -> "invalid"
-  | Call_provers.Timeout | Call_provers.StepLimitExceeded -> "timeout"
-  | Call_provers.Unknown _ -> "unknown"
-  | Call_provers.OutOfMemory -> "oom"
-  | Call_provers.Failure _ | Call_provers.HighFailure _ -> "failure"
-
 let log_progress ~pos ~total =
   let should_log_progress ~pos ~total =
     pos = 0 || pos = total - 1 || (pos + 1) mod 10 = 0
@@ -114,77 +107,12 @@ let log_progress ~pos ~total =
 let log_failed_goal ~pos ~total ~answer ~dump_path =
   Log.warning ~stage:"prove"
     (Printf.sprintf "goal %d/%d failed (%s); dumped to %s" (pos + 1) total
-       (answer_status answer)
+       (Smt_utils.answer_status answer)
        dump_path)
 
 let goal_name_of_prepared_task (prepared : Task.task) : string =
   let pr = Task.task_goal prepared in
   pr.Decl.pr_name.Ident.id_string
-
-let dump_failed_task_buffer ~(task_index : int) ~(buffer : Buffer.t) : string =
-  let tmp = Filename.temp_file (Printf.sprintf "why3_failed_%d_" (task_index + 1)) ".smt2" in
-  Out_channel.with_open_text tmp (fun oc -> output_string oc (Buffer.contents buffer));
-  tmp
-
-let dump_path_of_prover_answer 
-    ~(dump_failed_smt : bool)
-    ~(task_index : int) 
-    ~(prover_result : Call_provers.prover_result)
-    ~(buffer : Buffer.t) : string option =
-      if (not dump_failed_smt) || prover_result.pr_answer = Call_provers.Valid then None
-      else Some (dump_failed_task_buffer ~task_index ~buffer)
-
-let strip_smt_named_attributes (line : string) : string =
-  let named = ":named" in
-  let named_len = String.length named in
-  let line_len = String.length line in
-  let is_space = function ' ' | '\t' | '\r' | '\n' -> true | _ -> false in
-  let rec starts_with_at i =
-    i + named_len <= line_len
-    && String.sub line i named_len = named
-    && (i = 0 || is_space line.[i - 1] || line.[i - 1] = '(')
-    && (i + named_len = line_len
-       || is_space line.[i + named_len]
-       || line.[i + named_len] = ')')
-  in
-  let rec skip_spaces i =
-    if i < line_len && is_space line.[i] then skip_spaces (i + 1) else i
-  in
-  let skip_symbol i =
-    if i < line_len && line.[i] = '|' then
-      let rec skip_bar j =
-        if j >= line_len then j
-        else if line.[j] = '|' then j + 1
-        else skip_bar (j + 1)
-      in
-      skip_bar (i + 1)
-    else
-      let rec skip_plain j =
-        if j >= line_len || is_space line.[j] || line.[j] = ')' then j
-        else skip_plain (j + 1)
-      in
-      skip_plain i
-  in
-  let buffer = Buffer.create line_len in
-  let rec loop i =
-    if i >= line_len then ()
-    else if starts_with_at i then (
-      Buffer.add_string buffer ":named _";
-      loop (skip_symbol (skip_spaces (i + named_len))))
-    else (
-      Buffer.add_char buffer line.[i];
-      loop (i + 1))
-  in
-  loop 0;
-  Buffer.contents buffer
-
-let smt_fingerprint (text : string) : string =
-  text |> String.split_on_char '\n'
-  |> List.filter (fun line ->
-         let trimmed = String.trim line in
-         trimmed <> "" && not (String.starts_with ~prefix:";" trimmed))
-  |> List.map strip_smt_named_attributes
-  |> String.concat "\n"
 
 let duplicate_detail_for_goal ~(goal_name : string)
     (detail : goal_proof_result) : goal_proof_result =
@@ -210,7 +138,7 @@ let print_prepared_task ~(handle : prover_handle) ~(prepared : Task.task) =
   Format.pp_print_flush fmt ();
   let print_s = Unix.gettimeofday () -. t_print in
   External_timing.record_why3_print ~elapsed_s:print_s;
-  let fingerprint = smt_fingerprint (Buffer.contents buffer) in
+  let fingerprint = Smt_utils.smt_fingerprint (Buffer.contents buffer) in
   External_timing.record_why3_smt_fingerprint fingerprint;
   (buffer, fingerprint, printing_info, print_s)
 
@@ -296,14 +224,14 @@ let result_after_optional_fallback
           { goal_name; prover_result = fallback_result; dump_path = None; timing }
       | _ ->
           let dump_path =
-            dump_path_of_prover_answer ~dump_failed_smt ~task_index
+            Smt_utils.dump_path_of_prover_answer ~dump_failed_smt ~task_index
               ~prover_result:primary_result ~buffer:primary_buffer
           in
           let _ = fallback_buffer in
           { goal_name; prover_result = primary_result; dump_path; timing })
   | _, None ->
       let dump_path =
-        dump_path_of_prover_answer ~dump_failed_smt ~task_index
+        Smt_utils.dump_path_of_prover_answer ~dump_failed_smt ~task_index
           ~prover_result:primary_result ~buffer:primary_buffer
       in
       { goal_name; prover_result = primary_result; dump_path; timing }

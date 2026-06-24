@@ -227,6 +227,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contracts.ml` | Contrats Why3 |
 | `why_pipeline.ml` | Generation VC/SMT textuelle |
 | `why_contract_unix_io.ml` | Helpers Unix/IPC du proof runner Why3 |
+| `why_contract_smt_utils.ml` | Statuts, empreintes et dumps SMT-LIB |
 | `why_contract_persistent_z3.ml` | Session Z3 persistante pour buffers SMT-LIB |
 | `why_contract_prove.ml` | Interaction Why3/provers |
 | `spot_automaton_builder.ml` | Adaptateur Spot |
