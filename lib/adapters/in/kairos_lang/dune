@@ -20,6 +20,9 @@
   kx_parse_api
   kx_lexer
   kx_parser
+  kairos_to_model_validation_common
+  kairos_to_model_function_validation
+  kairos_to_model_node_validation
   kairos_to_model_validation
   kairos_to_model
   kairos_frontend)

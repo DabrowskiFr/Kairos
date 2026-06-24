@@ -781,6 +781,9 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         "kx_elaborate_histories",
     ]
     model_modules = [
+        "kairos_to_model_validation_common",
+        "kairos_to_model_function_validation",
+        "kairos_to_model_node_validation",
         "kairos_to_model_validation",
         "kairos_to_model",
     ]
@@ -927,6 +930,23 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
     model_validation = (frontend_root / "kairos_to_model_validation.ml").read_text(
         encoding="utf-8", errors="replace"
     )
+    model_validation_forbidden_defs = [
+        r"\blet\s+fail_node\b",
+        r"\blet\s+validate_identifier_collisions\b",
+        r"\blet\s+validate_function_decls\s*\(",
+        r"\blet\s+validate_node\s*\(",
+    ]
+    found = [
+        pattern
+        for pattern in model_validation_forbidden_defs
+        if re.search(pattern, model_validation)
+    ]
+    if found:
+        fail(
+            "kairos_to_model_validation.ml must stay a facade; shared helpers, "
+            "function validation and node validation belong in focused modules"
+        )
+
     validation_forbidden_deps = [
         r"\bKx_ast\b",
         r"\bKx_core_syntax\b",
@@ -945,6 +965,26 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
             "not depend on Kx surface/elaborated syntax or external tools: "
             + ", ".join(found)
         )
+
+    validation_parts = [
+        "kairos_to_model_validation_common",
+        "kairos_to_model_function_validation",
+        "kairos_to_model_node_validation",
+    ]
+    for module in validation_parts:
+        path = frontend_root / f"{module}.ml"
+        text = path.read_text(encoding="utf-8", errors="replace")
+        found = [
+            pattern
+            for pattern in validation_forbidden_deps
+            if re.search(pattern, text)
+        ]
+        if found:
+            fail(
+                f"{module}.ml must validate the core verification model, "
+                "not depend on Kx surface/elaborated syntax or external tools: "
+                + ", ".join(found)
+            )
 
 
 def check_why3_compile_boundaries(repo: Path) -> None:

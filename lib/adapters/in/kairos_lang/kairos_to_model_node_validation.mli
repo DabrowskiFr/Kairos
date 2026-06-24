@@ -16,14 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic-validation facade for the elaborated Kairos model. *)
+(** Validation of elaborated Kairos node models. *)
 
-let lookup_constructor = Kairos_to_model_validation_common.lookup_constructor
-
-let validate_unique_type_decls =
-  Kairos_to_model_validation_common.validate_unique_type_decls
-
-let validate_function_decls =
-  Kairos_to_model_function_validation.validate_function_decls
-
-let validate_node = Kairos_to_model_node_validation.validate_node
+val validate_node : Verification_model.node_model -> unit

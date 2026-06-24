@@ -16,14 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic-validation facade for the elaborated Kairos model. *)
+(** Shared semantic-validation helpers for the elaborated Kairos model. *)
 
-let lookup_constructor = Kairos_to_model_validation_common.lookup_constructor
+val fail_node : string -> string -> 'a
 
-let validate_unique_type_decls =
-  Kairos_to_model_validation_common.validate_unique_type_decls
+val lookup_constructor :
+  Core_syntax.enum_decl list -> Core_syntax.ident -> Core_syntax.ty option
 
-let validate_function_decls =
-  Kairos_to_model_function_validation.validate_function_decls
+val validate_unique_type_decls : Core_syntax.enum_decl list -> unit
 
-let validate_node = Kairos_to_model_node_validation.validate_node
+val validate_identifier_collisions :
+  string ->
+  Core_syntax.enum_decl list ->
+  vars:Core_syntax.vdecl list ->
+  states:Core_syntax.ident list ->
+  unit
+
+val type_name : Core_syntax.ty -> string
+
+val same_ty : Core_syntax.ty -> Core_syntax.ty -> bool
