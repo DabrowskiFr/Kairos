@@ -284,8 +284,16 @@ digraph G {
                                            shape=box, ];
   "kairos_application__Verification_flow_usecases" [label="Verification_flow_usecases",
                                                     shape=box, ];
+  "kairos_artifact_graph_render__Automata_graph_contract" [label="Automata_graph_contract",
+                                                           shape=box, ];
   "kairos_artifact_graph_render__Automata_graph_dot" [label="Automata_graph_dot",
                                                       shape=box, ];
+  "kairos_artifact_graph_render__Automata_graph_format" [label="Automata_graph_format",
+                                                         shape=box, ];
+  "kairos_artifact_graph_render__Automata_graph_product" [label="Automata_graph_product",
+                                                          shape=box, ];
+  "kairos_artifact_graph_render__Automata_graph_program" [label="Automata_graph_program",
+                                                          shape=box, ];
   "kairos_artifact_graph_render__Automata_graph_render" [label="Automata_graph_render",
                                                          shape=box, ];
   "kairos_artifact_text_render__Ir_text_program_view_render" [label="Ir_text_program_view_render",
@@ -585,7 +593,7 @@ digraph G {
        };
     subgraph cluster_561703002 { label="kairos_why3_render"; "kairos_why3_render__Why_text_render";"kairos_why3_render";
        };
-    subgraph cluster_586834900 { label="kairos_artifact_graph_render"; "kairos_artifact_graph_render__Automata_graph_render";"kairos_artifact_graph_render__Automata_graph_dot";"kairos_artifact_graph_render";
+    subgraph cluster_586834900 { label="kairos_artifact_graph_render"; "kairos_artifact_graph_render__Automata_graph_render";"kairos_artifact_graph_render__Automata_graph_program";"kairos_artifact_graph_render__Automata_graph_product";"kairos_artifact_graph_render__Automata_graph_format";"kairos_artifact_graph_render__Automata_graph_dot";"kairos_artifact_graph_render__Automata_graph_contract";"kairos_artifact_graph_render";
        };
     subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
        };
@@ -755,7 +763,11 @@ digraph G {
                                                                   lhead="cluster_821673316",
                                                                   ltail="cluster_586834900",
                                                                   ];
+  "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_contract";
   "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_dot";
+  "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_format";
+  "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_product";
+  "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_program";
   "kairos_artifact_graph_render" -> "kairos_artifact_graph_render__Automata_graph_render";
   "kairos_artifact_text_render" -> "why3" [ltail="cluster_848083113", ];
   "kairos_artifact_text_render" -> "kairos.domain_core" [minlen=2,
@@ -1228,7 +1240,15 @@ digraph G {
   "kairos_application__Proof_diagnostics" -> "kairos_application__Pipeline_types";
   "kairos_application__Verification_flow_usecases" -> "kairos_application__Application_ports";
   "kairos_application__Verification_flow_usecases" -> "kairos_application__Proof_diagnostics";
-  "kairos_artifact_graph_render__Automata_graph_render" -> "kairos_artifact_graph_render__Automata_graph_dot";
+  "kairos_artifact_graph_render__Automata_graph_contract" -> "kairos_artifact_graph_render__Automata_graph_dot";
+  "kairos_artifact_graph_render__Automata_graph_contract" -> "kairos_artifact_graph_render__Automata_graph_format";
+  "kairos_artifact_graph_render__Automata_graph_product" -> "kairos_artifact_graph_render__Automata_graph_dot";
+  "kairos_artifact_graph_render__Automata_graph_product" -> "kairos_artifact_graph_render__Automata_graph_format";
+  "kairos_artifact_graph_render__Automata_graph_program" -> "kairos_artifact_graph_render__Automata_graph_dot";
+  "kairos_artifact_graph_render__Automata_graph_program" -> "kairos_artifact_graph_render__Automata_graph_format";
+  "kairos_artifact_graph_render__Automata_graph_render" -> "kairos_artifact_graph_render__Automata_graph_contract";
+  "kairos_artifact_graph_render__Automata_graph_render" -> "kairos_artifact_graph_render__Automata_graph_product";
+  "kairos_artifact_graph_render__Automata_graph_render" -> "kairos_artifact_graph_render__Automata_graph_program";
   "kairos_external_why3__Why_contract_persistent_z3" -> "kairos_external_why3__Why_contract_unix_io";
   "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_contract_workers";
   "kairos_external_why3__Why_contract_prove" -> "kairos_external_why3__Why_task_support";

@@ -186,7 +186,11 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Module | Responsabilite |
 | --- | --- |
 | `automata_graph_dot.ml` | Primitives neutres d'emission DOT/HTML |
-| `automata_graph_render.ml` | Rendu DOT des automates assumes, ensures et produit |
+| `automata_graph_format.ml` | Formatage partage des formules et labels de graphes |
+| `automata_graph_contract.ml` | Rendu des automates assume/guarantee |
+| `automata_graph_product.ml` | Rendu du produit programme/assume/guarantee |
+| `automata_graph_program.ml` | Rendu de l'automate de controle programme |
+| `automata_graph_render.ml` | Facade publique des rendus d'automates |
 | `graphviz_render.ml` | Adaptateur Graphviz |
 
 ### Backend Why3 Et Outils Externes

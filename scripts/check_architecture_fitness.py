@@ -223,7 +223,15 @@ def check_renderers_do_not_depend_on_z3(repo: Path) -> None:
 def check_automata_graph_render_boundaries(repo: Path) -> None:
     graph_render_root = repo / "lib/adapters/out/artifacts/graph_render"
     dune = (graph_render_root / "dune").read_text(encoding="utf-8", errors="replace")
-    for module in ["automata_graph_dot", "automata_graph_render"]:
+    required_modules = [
+        "automata_graph_dot",
+        "automata_graph_format",
+        "automata_graph_contract",
+        "automata_graph_product",
+        "automata_graph_program",
+        "automata_graph_render",
+    ]
+    for module in required_modules:
         for suffix in [".ml", ".mli"]:
             if not (graph_render_root / f"{module}{suffix}").exists():
                 fail(f"graph renderer boundary module is missing: {module}{suffix}")
@@ -242,12 +250,17 @@ def check_automata_graph_render_boundaries(repo: Path) -> None:
         r"\blet\s+emit_node\b",
         r"\blet\s+emit_edge\b",
         r"\blet\s+emit_formula_legend\b",
+        r"\blet\s+merge_product_steps_for_dot\b",
+        r"\blet\s+prepare_product_graph\b",
+        r"\blet\s+prepare_program_graph\b",
+        r"\blet\s+prepare_automaton_graph\b",
+        r"\blet\s+grouped_guard_rows\b",
     ]
     found = [pattern for pattern in renderer_forbidden if re.search(pattern, renderer)]
     if found:
         fail(
-            "automata_graph_render.ml must orchestrate graph rendering, "
-            "not re-own low-level DOT emission"
+            "automata_graph_render.ml must remain a thin public facade, "
+            "not re-own specialized graph rendering"
         )
 
     dot = (graph_render_root / "automata_graph_dot.ml").read_text(
@@ -270,6 +283,38 @@ def check_automata_graph_render_boundaries(repo: Path) -> None:
             "but contains: "
             + ", ".join(found)
         )
+
+    format_module = (graph_render_root / "automata_graph_format.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    format_forbidden = [
+        r"\bProduct_types\b",
+        r"\bVerification_model\b",
+        r"\bTemporal_automata\b",
+        r"\bAutomaton_types\b",
+        r"\bAutomata_graph_dot\b",
+        r"\bZ3\b",
+        r"\bSpot\b",
+    ]
+    found = [pattern for pattern in format_forbidden if re.search(pattern, format_module)]
+    if found:
+        fail(
+            "automata_graph_format.ml must format formulas and labels without "
+            "depending on graph/model structures: "
+            + ", ".join(found)
+        )
+
+    contract = (graph_render_root / "automata_graph_contract.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\bTemporal_automata\b|\bProduct_types\b|\bVerification_model\b", contract):
+        fail("automata_graph_contract.ml must only render contract automata inputs")
+
+    program = (graph_render_root / "automata_graph_program.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\bTemporal_automata\b|\bProduct_types\b|\bAutomaton_types\b", program):
+        fail("automata_graph_program.ml must only render program-control inputs")
 
 
 def check_stale_external_z3_adapter_removed(repo: Path) -> None:
