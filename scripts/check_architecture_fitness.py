@@ -703,6 +703,69 @@ def check_critical_subsystems_do_not_use_unqualified_subdirs(repo: Path) -> None
         )
 
 
+def check_application_usecases_stay_thin(repo: Path) -> None:
+    application_root = repo / "lib/application"
+    required_modules = [
+        "verification_flow_timing_meta",
+        "verification_flow_usecases",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = application_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (application_root / "dune").read_text(encoding="utf-8", errors="replace")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "application use-case helper modules must be explicit modules: "
+            + ", ".join(missing_modules)
+        )
+
+    usecases = (application_root / "verification_flow_usecases.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    usecase_forbidden = [
+        r"\blet\s+fmt_s\b",
+        r"\blet\s+sanitize_csv_value\b",
+        r"\blet\s+why3_worker_timing_fields\b",
+        r"\blet\s+ir_pass_size_fields\b",
+        r"\blet\s+product_group_fields\b",
+        r"\btype\s+vc_taxonomy_acc\b",
+        r"\blet\s+grouped_vc_taxonomy\b",
+        r"\blet\s+vc_taxonomy_fields\b",
+        r"\blet\s+with_timing_flow_meta\b",
+    ]
+    found = [pattern for pattern in usecase_forbidden if re.search(pattern, usecases)]
+    if found:
+        fail(
+            "verification_flow_usecases.ml must orchestrate use-cases and delegate "
+            "timing/diagnostic metadata to verification_flow_timing_meta.ml"
+        )
+
+    timing_meta = (application_root / "verification_flow_timing_meta.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    timing_forbidden = [
+        r"\bP\.Frontend\b",
+        r"\bP\.Snapshot\b",
+        r"\bP\.Outputs\b",
+        r"\bP\.Proof_events\b",
+        r"\bP\.Why_text\b",
+        r"\bP\.Obligations\b",
+        r"\bP\.Cost_report\b",
+        r"\bP\.Ir_render\b",
+    ]
+    found = [pattern for pattern in timing_forbidden if re.search(pattern, timing_meta)]
+    if found:
+        fail(
+            "verification_flow_timing_meta.ml must format already-produced outputs, "
+            "not orchestrate application ports: "
+            + ", ".join(found)
+        )
+
+
 def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
     frontend_root = repo / "lib/adapters/in/kairos_lang"
     surface_helper_modules = [
@@ -3110,6 +3173,7 @@ def main() -> int:
     check_automata_generation_stays_out_of_reference_domain(repo)
     check_reference_api_names_stay_explicit(repo)
     check_critical_subsystems_do_not_use_unqualified_subdirs(repo)
+    check_application_usecases_stay_thin(repo)
     check_kairos_frontend_elaboration_boundaries(repo)
     check_why3_compile_boundaries(repo)
     check_why3_runtime_view_boundaries(repo)
