@@ -16,23 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Why3-specific intermediate representation of a Kairos node.
-
-    Reconstructs from an {!Ir.node_ir} a structured view exposing ports,
-    product transitions, contracts and user invariants. Compilation and
-    contract-building modules consume this representation rather than the
-    generic IR. *)
+(** Shared types for the Why3 runtime view. *)
 
 open Core_syntax
 
-type port_view = Why_runtime_view_types.port_view = {
-  port_name : ident;
-  port_type : ty;
-}
-(** An input, output or local variable port. *)
+type port_view = { port_name : ident; port_type : ty }
 
 type runtime_action_view =
-  Why_runtime_view_types.runtime_action_view =
   | ActionAssign of ident * expr
   | ActionAssert of hexpr
   | ActionIf of expr * runtime_action_view list * runtime_action_view list
@@ -40,19 +30,15 @@ type runtime_action_view =
   | ActionMatch of
       expr * (ident * runtime_action_view list) list * runtime_action_view list
   | ActionSkip
-(** An imperative action in the body of a transition. *)
 
-type action_block_kind = Why_runtime_view_types.action_block_kind = ActionUser
-(** Category of an action block. *)
+type action_block_kind = ActionUser
 
-type action_block_view = Why_runtime_view_types.action_block_view = {
+type action_block_view = {
   block_kind : action_block_kind;
   block_actions : runtime_action_view list;
 }
-(** A group of homogeneous actions within a transition. *)
 
-type runtime_transition_view =
-  Why_runtime_view_types.runtime_transition_view = {
+type runtime_transition_view = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
@@ -62,16 +48,10 @@ type runtime_transition_view =
   body : Core_syntax.stmt list;
   action_blocks : action_block_view list;
 }
-(** Full view of a source-program transition. *)
 
-type runtime_step_class =
-  Why_runtime_view_types.runtime_step_class =
-  | StepSafe
-  | StepBadGuarantee
-(** Classification of a product transition. *)
+type runtime_step_class = StepSafe | StepBadGuarantee
 
-type runtime_product_transition_view =
-  Why_runtime_view_types.runtime_product_transition_view = {
+type runtime_product_transition_view = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
@@ -86,9 +66,8 @@ type runtime_product_transition_view =
   ensures : Ir.summary_formula list;
   forbidden : Ir.summary_formula list;
 }
-(** View of a transition in the synchronized product. *)
 
-type t = Why_runtime_view_types.t = {
+type t = {
   node_name : ident;
   type_decls : enum_decl list;
   function_decls : pure_function_decl list;
@@ -102,18 +81,3 @@ type t = Why_runtime_view_types.t = {
   guarantees : ltl list;
   init_invariant_goals : Ir.summary_formula list;
 }
-(** Complete view of a node, ready to be compiled to WhyML. *)
-
-val transition_of_product_step :
-  ?simplify_runtime_actions:bool ->
-  runtime_product_transition_view ->
-  runtime_transition_view
-(** Projects a product transition to a plain transition by dropping relational
-    information, used to compile its imperative body. *)
-
-val of_ir_node :
-  ?simplify_runtime_actions:bool ->
-  ?slice_transition_bodies:bool ->
-  Ir.node_ir ->
-  t
-(** Main entry point: builds the runtime view of a node from its IR. *)

@@ -291,6 +291,9 @@ flowchart TD
       id11834760{"kairos_lsp"}
     end
     subgraph 26443279 ["kairos_why3_runtime_view"]
+      id827752350(Why_runtime_view_types)
+      id877986279(Why_runtime_view_slicing)
+      id861742165(Why_runtime_view_actions)
       id256715028(Why_runtime_view)
       id26443279(["kairos_why3_runtime_view"])
     end
@@ -787,6 +790,9 @@ flowchart TD
   id561703002-->id269559131
   26443279-->821673316
   id26443279-->id256715028
+  id26443279-->id861742165
+  id26443279-->id877986279
+  id26443279-->id827752350
   id375326599-->id19386066
   id19386066-->id262940355
   id22729935-->id375326599
@@ -1140,3 +1146,6 @@ flowchart TD
   id599301430-->id151231696
   id907961342-->id686235388
   id151231696-->id686235388
+  id256715028-->id861742165
+  id256715028-->id877986279
+  id861742165-->id827752350

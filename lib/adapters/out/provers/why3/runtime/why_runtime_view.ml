@@ -16,522 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-[@@@ocaml.warning "-8"]
-
 open Core_syntax
+include Why_runtime_view_types
+
 module Abs = Ir
-open Pre_k_layout
-module StringSet = Set.Make (String)
-
-let dedup_summary_formulas (xs : Abs.summary_formula list) :
-    Abs.summary_formula list =
-  List.sort_uniq
-    (fun (a : Abs.summary_formula) (b : Abs.summary_formula) ->
-      Int.compare a.meta.oid b.meta.oid)
-    xs
-
-let dedup_summary_formulas_by_logic (xs : Abs.summary_formula list) :
-    Abs.summary_formula list =
-  List.fold_left
-    (fun acc (x : Abs.summary_formula) ->
-      if List.exists (fun (y : Abs.summary_formula) -> y.logic = x.logic) acc
-      then acc
-      else acc @ [ x ])
-    [] xs
-
-type port_view = { port_name : ident; port_type : ty }
-
-type runtime_action_view =
-  | ActionAssign of ident * expr
-  | ActionAssert of hexpr
-  | ActionIf of expr * runtime_action_view list * runtime_action_view list
-  | ActionWhile of expr * hexpr list * expr option * runtime_action_view list
-  | ActionMatch of
-      expr * (ident * runtime_action_view list) list * runtime_action_view list
-  | ActionSkip
-
-type action_block_kind = ActionUser
-
-type action_block_view = {
-  block_kind : action_block_kind;
-  block_actions : runtime_action_view list;
-}
-
-type runtime_transition_view = {
-  transition_id : string;
-  src_state : ident;
-  dst_state : ident;
-  guard : expr option;
-  requires : Abs.summary_formula list;
-  ensures : Abs.summary_formula list;
-  body : Core_syntax.stmt list;
-  action_blocks : action_block_view list;
-}
-
-type runtime_step_class = StepSafe | StepBadGuarantee
-
-type runtime_product_transition_view = {
-  transition_id : string;
-  src_state : ident;
-  dst_state : ident;
-  guard : expr option;
-  body : Core_syntax.stmt list;
-  step_class : runtime_step_class;
-  product_src : Ir.product_state;
-  product_dst : Ir.product_state;
-  requires : Abs.summary_formula list;
-  local_requires : Abs.summary_formula list;
-  propagates : Abs.summary_formula list;
-  ensures : Abs.summary_formula list;
-  forbidden : Abs.summary_formula list;
-}
-
-type t = {
-  node_name : ident;
-  type_decls : enum_decl list;
-  function_decls : pure_function_decl list;
-  inputs : port_view list;
-  outputs : port_view list;
-  locals : port_view list;
-  control_states : ident list;
-  init_control_state : ident;
-  product_transitions : runtime_product_transition_view list;
-  assumes : ltl list;
-  guarantees : ltl list;
-  init_invariant_goals : Abs.summary_formula list;
-}
-
-type known_value = KnownInt of int | KnownBool of bool | KnownEnum of ident
+module Slicing = Why_runtime_view_slicing
+module Actions = Why_runtime_view_actions
 
 let port_of_vdecl (v : vdecl) : port_view =
   { port_name = v.vname; port_type = v.vty }
 
-let rec vars_of_expr (acc : StringSet.t) (e : expr) : StringSet.t =
-  match e.expr with
-  | EVar name -> StringSet.add name acc
-  | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
-  | EFunCall (_, args) -> List.fold_left vars_of_expr acc args
-  | EUn (_, inner) -> vars_of_expr acc inner
-  | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr (vars_of_expr acc a) b
-
-let rec vars_of_hexpr (acc : StringSet.t) (h : hexpr) : StringSet.t =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ -> acc
-  | HVar name | HPreK (name, _) -> StringSet.add name acc
-  | HPred (_, hs) -> List.fold_left vars_of_hexpr acc hs
-  | HFunCall (_, hs) -> List.fold_left vars_of_hexpr acc hs
-  | HUn (_, inner) -> vars_of_hexpr acc inner
-  | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr (vars_of_hexpr acc a) b
-
-let vars_of_summary_formulas (formulas : Abs.summary_formula list) : StringSet.t
-    =
-  List.fold_left
-    (fun acc (f : Abs.summary_formula) -> vars_of_hexpr acc f.logic)
-    StringSet.empty formulas
-
-let rec vars_of_stmt (acc : StringSet.t) (s : stmt) : StringSet.t =
-  match s.stmt with
-  | SAssign (_name, expr) -> vars_of_expr acc expr
-  | SAssert formula -> vars_of_hexpr acc formula
-  | SIf (cond, then_branch, else_branch) ->
-      let acc = vars_of_expr acc cond in
-      let acc = List.fold_left vars_of_stmt acc then_branch in
-      List.fold_left vars_of_stmt acc else_branch
-  | SWhile (cond, invariants, variant, body) ->
-      let acc = vars_of_expr acc cond in
-      let acc = List.fold_left vars_of_hexpr acc invariants in
-      let acc =
-        Option.fold ~none:acc ~some:(fun e -> vars_of_expr acc e) variant
-      in
-      List.fold_left vars_of_stmt acc body
-  | SMatch (scrutinee, branches, default_branch) ->
-      let acc = vars_of_expr acc scrutinee in
-      let acc =
-        List.fold_left
-          (fun acc (_ctor, body) -> List.fold_left vars_of_stmt acc body)
-          acc branches
-      in
-      List.fold_left vars_of_stmt acc default_branch
-  | SSkip | SCall _ -> acc
-
-let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
-  match f.hexpr with
-  | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
-  | _ -> [ f ]
-
-let disj_summary_formulas (formulas : Abs.summary_formula list) :
-    Abs.summary_formula option =
-  match dedup_summary_formulas_by_logic formulas with
-  | [] -> None
-  | f :: rest ->
-      let logic =
-        rest
-        |> List.fold_left
-             (fun acc (item : Abs.summary_formula) ->
-               Core_syntax_builders.mk_hor acc item.logic)
-             f.logic
-        |> Core_fo_simplifier.simplify
-      in
-      Some (Ir_formula.make logic)
-
-let rec slice_stmt (needed_after : StringSet.t) (s : stmt) :
-    stmt option * StringSet.t =
-  match s.stmt with
-  | SAssign (name, expr) ->
-      if StringSet.mem name needed_after then
-        let needed_before =
-          needed_after |> StringSet.remove name |> fun acc ->
-          vars_of_expr acc expr
-        in
-        (Some s, needed_before)
-      else (None, needed_after)
-  | SAssert formula -> (Some s, vars_of_hexpr needed_after formula)
-  | SIf (cond, then_branch, else_branch) ->
-      let then_branch', then_needed = slice_stmts needed_after then_branch in
-      let else_branch', else_needed = slice_stmts needed_after else_branch in
-      if then_branch' = [] && else_branch' = [] then (None, needed_after)
-      else
-        let needed_before =
-          StringSet.union then_needed else_needed |> fun acc ->
-          vars_of_expr acc cond
-        in
-        ( Some { s with stmt = SIf (cond, then_branch', else_branch') },
-          needed_before )
-  | SWhile _ -> (Some s, vars_of_stmt needed_after s)
-  | SMatch (scrutinee, branches, default_branch) ->
-      let sliced_branches, branch_needed =
-        List.fold_right
-          (fun (ctor, body) (branches_acc, needed_acc) ->
-            let body', body_needed = slice_stmts needed_after body in
-            ( (ctor, body') :: branches_acc,
-              StringSet.union needed_acc body_needed ))
-          branches ([], StringSet.empty)
-      in
-      let default_branch', default_needed =
-        slice_stmts needed_after default_branch
-      in
-      let has_body =
-        default_branch' <> []
-        || List.exists (fun (_, body) -> body <> []) sliced_branches
-      in
-      if not has_body then (None, needed_after)
-      else
-        let needed_before =
-          StringSet.union branch_needed default_needed |> fun acc ->
-          vars_of_expr acc scrutinee
-        in
-        ( Some
-            {
-              s with
-              stmt = SMatch (scrutinee, sliced_branches, default_branch');
-            },
-          needed_before )
-  | SSkip -> (None, needed_after)
-  | SCall _ -> (Some s, needed_after)
-
-and slice_stmts (needed_after : StringSet.t) (stmts : stmt list) :
-    stmt list * StringSet.t =
-  List.fold_left
-    (fun (kept, needed) stmt ->
-      let kept_stmt, needed_before = slice_stmt needed stmt in
-      let kept =
-        match kept_stmt with None -> kept | Some stmt -> stmt :: kept
-      in
-      (kept, needed_before))
-    ([], needed_after) (List.rev stmts)
-
-let slice_body_for_formulas (body : stmt list)
-    (formulas : Abs.summary_formula list) : stmt list =
-  let needed = vars_of_summary_formulas formulas in
-  fst (slice_stmts needed body)
-
-let collect_ctor_expr (acc : ident list) (e : expr) : ident list =
-  let rec go acc (e : expr) =
-    match e.expr with
-    | EVar _name -> acc
-    | ELitInt _ | ELitBool _ | ELitEnum _ -> acc
-    | EFunCall (_, args) -> List.fold_left go acc args
-    | EUn (_, inner) -> go acc inner
-    | EBin (_, a, b) | ECmp (_, a, b) -> go (go acc a) b
-  in
-  go acc e
-
-let rec collect_ctor_hexpr (acc : ident list) (h : hexpr) : ident list =
-  match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> acc
-  | HPred (_, args) -> List.fold_left collect_ctor_hexpr acc args
-  | HFunCall (_, args) -> List.fold_left collect_ctor_hexpr acc args
-  | HUn (_, inner) -> collect_ctor_hexpr acc inner
-  | HBin (_, a, b) | HCmp (_, a, b) ->
-      collect_ctor_hexpr (collect_ctor_hexpr acc a) b
-
-let rec collect_ctor_stmt (acc : ident list) (s : stmt) : ident list =
-  match s.stmt with
-  | SAssign (_, e) -> collect_ctor_expr acc e
-  | SAssert formula -> collect_ctor_hexpr acc formula
-  | SIf (c, tbr, fbr) ->
-      let acc = collect_ctor_expr acc c in
-      let acc = List.fold_left collect_ctor_stmt acc tbr in
-      List.fold_left collect_ctor_stmt acc fbr
-  | SWhile (c, invariants, variant, body) ->
-      let acc = collect_ctor_expr acc c in
-      let acc = List.fold_left collect_ctor_hexpr acc invariants in
-      let acc =
-        match variant with
-        | None -> acc
-        | Some variant -> collect_ctor_expr acc variant
-      in
-      List.fold_left collect_ctor_stmt acc body
-  | SMatch (e, branches, def) ->
-      let acc = collect_ctor_expr acc e in
-      let acc =
-        List.fold_left
-          (fun acc (_, body) -> List.fold_left collect_ctor_stmt acc body)
-          acc branches
-      in
-      List.fold_left collect_ctor_stmt acc def
-  | SCall _ -> failwith "instance calls are not supported"
-  | SSkip -> acc
-
-let rec actions_of_stmts (stmts : Core_syntax.stmt list) :
-    runtime_action_view list =
-  List.map action_of_stmt stmts
-
-and action_of_stmt (s : Core_syntax.stmt) : runtime_action_view =
-  match s.stmt with
-  | SAssign (name, expr) -> ActionAssign (name, expr)
-  | SAssert formula -> ActionAssert formula
-  | SIf (cond, then_branch, else_branch) ->
-      ActionIf (cond, actions_of_stmts then_branch, actions_of_stmts else_branch)
-  | SWhile (cond, invariants, variant, body) ->
-      ActionWhile (cond, invariants, variant, actions_of_stmts body)
-  | SMatch (scrutinee, branches, default_branch) ->
-      let branches =
-        List.map (fun (ctor, body) -> (ctor, actions_of_stmts body)) branches
-      in
-      ActionMatch (scrutinee, branches, actions_of_stmts default_branch)
-  | SSkip -> ActionSkip
-  | SCall _ -> failwith "instance calls are not supported"
-
-let literal_known_value (e : expr) : known_value option =
-  match e.expr with
-  | ELitInt n -> Some (KnownInt n)
-  | ELitBool b -> Some (KnownBool b)
-  | ELitEnum c -> Some (KnownEnum c)
-  | _ -> None
-
-let known_expr_of_value = function
-  | KnownInt n -> { expr = ELitInt n; loc = None }
-  | KnownBool b -> { expr = ELitBool b; loc = None }
-  | KnownEnum c -> { expr = ELitEnum c; loc = None }
-
-let lookup_known (known : (ident * known_value) list) (x : ident) :
-    known_value option =
-  List.assoc_opt x known
-
-let bind_known (known : (ident * known_value) list) (x : ident)
-    (v : known_value) : (ident * known_value) list =
-  (x, v) :: List.remove_assoc x known
-
-let drop_known (known : (ident * known_value) list) (x : ident) :
-    (ident * known_value) list =
-  List.remove_assoc x known
-
-let rec simplify_expr (known : (ident * known_value) list) (e : expr) : expr =
-  let mk desc = { e with expr = desc } in
-  match e.expr with
-  | EVar x ->
-      begin match lookup_known known x with
-      | Some v -> known_expr_of_value v
-      | None -> e
-      end
-  | ELitInt _ | ELitBool _ | ELitEnum _ -> e
-  | EFunCall (fn, args) ->
-      mk (EFunCall (fn, List.map (simplify_expr known) args))
-  | EUn (Not, inner) ->
-      begin match (simplify_expr known inner).expr with
-      | ELitBool b -> mk (ELitBool (not b))
-      | inner' -> mk (EUn (Not, { e with expr = inner' }))
-      end
-  | EUn (Neg, inner) ->
-      begin match (simplify_expr known inner).expr with
-      | ELitInt n -> mk (ELitInt (-n))
-      | inner' -> mk (EUn (Neg, { e with expr = inner' }))
-      end
-  | EBin (op, a, b) ->
-      let a' = simplify_expr known a in
-      let b' = simplify_expr known b in
-      begin match (op, a'.expr, b'.expr) with
-      | Add, ELitInt x, ELitInt y -> mk (ELitInt (x + y))
-      | Sub, ELitInt x, ELitInt y -> mk (ELitInt (x - y))
-      | Mul, ELitInt x, ELitInt y -> mk (ELitInt (x * y))
-      | Div, ELitInt x, ELitInt y when y <> 0 -> mk (ELitInt (x / y))
-      | And, ELitBool x, ELitBool y -> mk (ELitBool (x && y))
-      | Or, ELitBool x, ELitBool y -> mk (ELitBool (x || y))
-      | And, ELitBool true, _ -> b'
-      | And, _, ELitBool true -> a'
-      | And, ELitBool false, _ -> mk (ELitBool false)
-      | And, _, ELitBool false -> mk (ELitBool false)
-      | Or, ELitBool false, _ -> b'
-      | Or, _, ELitBool false -> a'
-      | Or, ELitBool true, _ -> mk (ELitBool true)
-      | Or, _, ELitBool true -> mk (ELitBool true)
-      | _ -> mk (EBin (op, a', b'))
-      end
-  | ECmp (op, a, b) ->
-      let a' = simplify_expr known a in
-      let b' = simplify_expr known b in
-      begin match (op, a'.expr, b'.expr) with
-      | REq, ELitInt x, ELitInt y -> mk (ELitBool (x = y))
-      | REq, ELitBool x, ELitBool y -> mk (ELitBool (x = y))
-      | REq, ELitEnum x, ELitEnum y -> mk (ELitBool (String.equal x y))
-      | RNeq, ELitInt x, ELitInt y -> mk (ELitBool (x <> y))
-      | RNeq, ELitBool x, ELitBool y -> mk (ELitBool (x <> y))
-      | RNeq, ELitEnum x, ELitEnum y -> mk (ELitBool (not (String.equal x y)))
-      | RLt, ELitInt x, ELitInt y -> mk (ELitBool (x < y))
-      | RLe, ELitInt x, ELitInt y -> mk (ELitBool (x <= y))
-      | RGt, ELitInt x, ELitInt y -> mk (ELitBool (x > y))
-      | RGe, ELitInt x, ELitInt y -> mk (ELitBool (x >= y))
-      | _ -> mk (ECmp (op, a', b'))
-      end
-
-let known_from_guard (guard : expr option) : (ident * known_value) list =
-  let rec gather acc (e : expr) =
-    match e.expr with
-    | EBin (And, a, b) -> gather (gather acc a) b
-    | ECmp (REq, ({ expr = EVar x; _ } as _a), b) ->
-        begin match literal_known_value b with
-        | Some v -> bind_known acc x v
-        | None -> acc
-        end
-    | ECmp (REq, a, ({ expr = EVar x; _ } as _b)) ->
-        begin match literal_known_value a with
-        | Some v -> bind_known acc x v
-        | None -> acc
-        end
-    | _ -> acc
-  in
-  match guard with None -> [] | Some g -> gather [] g
-
-let known_context_of_transition_guard (guard : expr option) :
-    (ident * known_value) list =
-  known_from_guard guard
-
-let rec simplify_actions (known : (ident * known_value) list)
-    (actions : runtime_action_view list) :
-    runtime_action_view list * (ident * known_value) list =
-  match actions with
-  | [] -> ([], known)
-  | action :: rest ->
-      let action', known' = simplify_action known action in
-      let rest', known'' = simplify_actions known' rest in
-      (action' @ rest', known'')
-
-and simplify_action (known : (ident * known_value) list)
-    (action : runtime_action_view) :
-    runtime_action_view list * (ident * known_value) list =
-  match action with
-  | ActionSkip -> ([ ActionSkip ], known)
-  | ActionAssert formula -> ([ ActionAssert formula ], known)
-  | ActionAssign (x, e) ->
-      let e' = simplify_expr known e in
-      let known' =
-        match e'.expr with
-        | EVar y ->
-            begin match lookup_known known y with
-            | Some v -> bind_known known x v
-            | None -> drop_known known x
-            end
-        | _ ->
-            begin match literal_known_value e' with
-            | Some v -> bind_known known x v
-            | None -> drop_known known x
-            end
-      in
-      ([ ActionAssign (x, e') ], known')
-  | ActionIf (cond, then_actions, else_actions) ->
-      let cond' = simplify_expr known cond in
-      begin match cond'.expr with
-      | ELitBool true -> simplify_actions known then_actions
-      | ELitBool false -> simplify_actions known else_actions
-      | _ ->
-          let then_actions, _ = simplify_actions known then_actions in
-          let else_actions, _ = simplify_actions known else_actions in
-          ([ ActionIf (cond', then_actions, else_actions) ], known)
-      end
-  | ActionWhile (cond, invariants, variant, body) ->
-      let assigned = assigned_vars_of_actions body in
-      let known_for_loop =
-        List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
-      in
-      let cond' = simplify_expr known_for_loop cond in
-      begin match cond'.expr with
-      | ELitBool false -> ([ ActionSkip ], known)
-      | _ ->
-          let variant' = Option.map (simplify_expr known_for_loop) variant in
-          let body', _ = simplify_actions known_for_loop body in
-          let known_after =
-            List.filter (fun (x, _) -> not (StringSet.mem x assigned)) known
-          in
-          ([ ActionWhile (cond', invariants, variant', body') ], known_after)
-      end
-  | ActionMatch (scrutinee, branches, default_actions) ->
-      let scrutinee' = simplify_expr known scrutinee in
-      let branches =
-        List.map
-          (fun (ctor, body) ->
-            let body', _ = simplify_actions known body in
-            (ctor, body'))
-          branches
-      in
-      let default_actions, _ = simplify_actions known default_actions in
-      ([ ActionMatch (scrutinee', branches, default_actions) ], known)
-
-and assigned_vars_of_action (action : runtime_action_view) : StringSet.t =
-  match action with
-  | ActionAssign (x, _) -> StringSet.singleton x
-  | ActionAssert _ | ActionSkip -> StringSet.empty
-  | ActionIf (_, then_actions, else_actions) ->
-      StringSet.union
-        (assigned_vars_of_actions then_actions)
-        (assigned_vars_of_actions else_actions)
-  | ActionWhile (_, _, _, body) -> assigned_vars_of_actions body
-  | ActionMatch (_, branches, default_actions) ->
-      List.fold_left
-        (fun acc (_ctor, body) ->
-          StringSet.union acc (assigned_vars_of_actions body))
-        (assigned_vars_of_actions default_actions)
-        branches
-
-and assigned_vars_of_actions (actions : runtime_action_view list) : StringSet.t
-    =
-  List.fold_left
-    (fun acc action -> StringSet.union acc (assigned_vars_of_action action))
-    StringSet.empty actions
-
-let action_blocks_of_transition ~(simplify_runtime_actions : bool)
-    (t : Abs.transition) : action_block_view list =
-  let raw_blocks = [ (ActionUser, actions_of_stmts t.body_stmts) ] in
-  let blocks =
-    if not simplify_runtime_actions then raw_blocks
-    else
-      let known = known_context_of_transition_guard t.guard_expr in
-      fst
-        (List.fold_left
-           (fun (acc, known) (block_kind, actions) ->
-             let actions, known = simplify_actions known actions in
-             ((block_kind, actions) :: acc, known))
-           ([], known) raw_blocks)
-      |> List.rev
-  in
-  List.filter_map
-    (fun (block_kind, block_actions) ->
-      if block_actions = [] then None else Some { block_kind; block_actions })
-    blocks
-
 let transition_of_ir ?transition_id ?(simplify_runtime_actions = true)
     (t : Abs.transition) : runtime_transition_view =
-  let action_blocks = action_blocks_of_transition ~simplify_runtime_actions t in
+  let action_blocks =
+    Actions.action_blocks_of_transition ~simplify_runtime_actions t
+  in
   {
     transition_id =
       Option.value
@@ -579,7 +78,7 @@ let of_ir_node ?(simplify_runtime_actions = true)
   let transition_requires_without_assume_guard (pc : Ir.product_step_summary) =
     pc.requires
     |> List.filter (fun (f : Ir.summary_formula) ->
-        f.logic <> pc.identity.assume_guard)
+           f.logic <> pc.identity.assume_guard)
   in
   let grouped_product_transition_entries =
     List.concat_map
@@ -594,7 +93,7 @@ let of_ir_node ?(simplify_runtime_actions = true)
         let common_requires =
           pc.propagation_requires @ transition_requires_without_assume_guard pc
         in
-        let safe_ensures = dedup_summary_formulas pc.ensures in
+        let safe_ensures = Slicing.dedup_summary_formulas pc.ensures in
         let safe_product_dsts =
           pc.safe_cases
           |> List.map (fun (case : Ir.safe_product_case) -> case.product_dst)
@@ -602,8 +101,7 @@ let of_ir_node ?(simplify_runtime_actions = true)
         in
         let admissible_guards =
           pc.safe_cases
-          |> List.map (fun (case : Ir.safe_product_case) ->
-              case.admissible_guard)
+          |> List.map (fun (case : Ir.safe_product_case) -> case.admissible_guard)
         in
         let safe_group =
           match safe_product_dsts with
@@ -611,7 +109,7 @@ let of_ir_node ?(simplify_runtime_actions = true)
           | product_dst :: _ ->
               let body =
                 if slice_transition_bodies then
-                  slice_body_for_formulas t.body_stmts safe_ensures
+                  Slicing.slice_body_for_formulas t.body_stmts safe_ensures
                 else t.body_stmts
               in
               [
@@ -640,12 +138,13 @@ let of_ir_node ?(simplify_runtime_actions = true)
               let forbidden =
                 pc.unsafe_cases
                 |> List.concat_map (fun (case : Ir.unsafe_product_case) ->
-                    case.excluded_guard.logic |> split_top_level_or
-                    |> List.map Ir_formula.make)
+                       case.excluded_guard.logic
+                       |> Slicing.split_top_level_or
+                       |> List.map Ir_formula.make)
               in
               let bad_body =
                 if slice_transition_bodies then
-                  slice_body_for_formulas t.body_stmts forbidden
+                  Slicing.slice_body_for_formulas t.body_stmts forbidden
                 else t.body_stmts
               in
               [
@@ -687,28 +186,28 @@ let of_ir_node ?(simplify_runtime_actions = true)
   let product_transition_order = ref [] in
   grouped_product_transition_entries
   |> List.iter (fun (transition, assume_guard) ->
-      let key = group_key transition in
-      if not (Hashtbl.mem product_transition_groups key) then
-        product_transition_order := key :: !product_transition_order;
-      let representative, assume_guards =
-        Hashtbl.find_opt product_transition_groups key
-        |> Option.value ~default:(transition, [])
-      in
-      Hashtbl.replace product_transition_groups key
-        (representative, assume_guards @ [ assume_guard ]));
+         let key = group_key transition in
+         if not (Hashtbl.mem product_transition_groups key) then
+           product_transition_order := key :: !product_transition_order;
+         let representative, assume_guards =
+           Hashtbl.find_opt product_transition_groups key
+           |> Option.value ~default:(transition, [])
+         in
+         Hashtbl.replace product_transition_groups key
+           (representative, assume_guards @ [ assume_guard ]));
   let product_transitions =
     List.rev !product_transition_order
     |> List.filter_map (fun key ->
-        let representative, assume_guards =
-          Hashtbl.find product_transition_groups key
-        in
-        match disj_summary_formulas assume_guards with
-        | None -> None
-        | Some assume_guard ->
-            Some
-              {
-                representative with
-                requires = representative.requires @ [ assume_guard ];
-              })
+           let representative, assume_guards =
+             Hashtbl.find product_transition_groups key
+           in
+           match Slicing.disj_summary_formulas assume_guards with
+           | None -> None
+           | Some assume_guard ->
+               Some
+                 {
+                   representative with
+                   requires = representative.requires @ [ assume_guard ];
+                 })
   in
   { runtime with product_transitions }

@@ -1986,6 +1986,80 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         )
 
 
+def check_why3_runtime_view_boundaries(repo: Path) -> None:
+    runtime_root = repo / "lib/adapters/out/provers/why3/runtime"
+    required_modules = [
+        "why_runtime_view_types",
+        "why_runtime_view_slicing",
+        "why_runtime_view_actions",
+        "why_runtime_view",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = runtime_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (runtime_root / "dune").read_text(encoding="utf-8", errors="replace")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "Why3 runtime view helper modules must be explicit modules: "
+            + ", ".join(missing_modules)
+        )
+
+    facade = (runtime_root / "why_runtime_view.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    facade_forbidden = [
+        r"\blet\s+rec\s+vars_of_expr\b",
+        r"\blet\s+rec\s+slice_stmt\b",
+        r"\blet\s+slice_body_for_formulas\b",
+        r"\blet\s+rec\s+actions_of_stmts\b",
+        r"\blet\s+literal_known_value\b",
+        r"\blet\s+rec\s+simplify_expr\b",
+        r"\blet\s+rec\s+simplify_actions\b",
+        r"\blet\s+known_from_guard\b",
+        r"\bcollect_ctor_",
+    ]
+    found = [pattern for pattern in facade_forbidden if re.search(pattern, facade)]
+    if found:
+        fail(
+            "why_runtime_view.ml must assemble the runtime view and delegate "
+            "slicing/action helpers to focused modules"
+        )
+
+    types = (runtime_root / "why_runtime_view_types.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blet\s+", types):
+        fail("why_runtime_view_types.ml must contain shared type declarations only")
+
+    helper_forbidden = [
+        r"\bWhy_compile",
+        r"\bWhy_contract",
+        r"\bWhy_pipeline",
+        r"\bPtree\b",
+        r"\bWhy3\b",
+        r"\bSpot\b",
+        r"\bZ3\b",
+    ]
+    violations: list[str] = []
+    for module in ["why_runtime_view_slicing", "why_runtime_view_actions"]:
+        path = runtime_root / f"{module}.ml"
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in helper_forbidden:
+                if re.search(pattern, line):
+                    violations.append(f"{path.relative_to(repo)}:{line_no}: {line.strip()}")
+                    break
+    if violations:
+        fail(
+            "Why3 runtime view helpers must stay before Why3 compilation/prover APIs:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+
 def check_input_adapters_stay_thin(repo: Path) -> None:
     checks = [
         (
@@ -3038,6 +3112,7 @@ def main() -> int:
     check_critical_subsystems_do_not_use_unqualified_subdirs(repo)
     check_kairos_frontend_elaboration_boundaries(repo)
     check_why3_compile_boundaries(repo)
+    check_why3_runtime_view_boundaries(repo)
     check_external_why3_prover_boundaries(repo)
     check_runtime_diagnostics_boundaries(repo)
     check_input_adapters_stay_thin(repo)

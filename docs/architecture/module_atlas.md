@@ -198,7 +198,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 
 | Module | Responsabilite |
 | --- | --- |
-| `why_runtime_view.ml` | Vue runtime specialisee pour Why3 |
+| `why_runtime_view_types.ml` | Types partages de la vue runtime Why3 |
+| `why_runtime_view_slicing.ml` | Slicing des corps de transitions par formules utiles |
+| `why_runtime_view_actions.ml` | Structuration et simplification locale des actions runtime |
+| `why_runtime_view.ml` | Facade de construction de la vue runtime specialisee Why3 |
 | `why_compile_expr_primitives.ml` | Constructeurs Why3 `Ptree` de bas niveau |
 | `why_compile_expr_mapping.ml` | Mapping des types et operateurs Kairos vers Why3 |
 | `why_compile_expr_env.ml` | Environnement de compilation et acces aux variables |

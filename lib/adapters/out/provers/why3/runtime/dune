@@ -1,7 +1,11 @@
 (library
  (name kairos_why3_runtime_view)
  (wrapped false)
- (modules why_runtime_view)
+ (modules
+  why_runtime_view_types
+  why_runtime_view_slicing
+  why_runtime_view_actions
+  why_runtime_view)
  (libraries
   kairos_domain_core
   kairos_domain_verification))
