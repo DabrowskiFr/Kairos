@@ -84,6 +84,38 @@ module Make (P : Application_ports.PORTS) = struct
         ((t_build_done -. t0)
         -. counters.frontend_parse_s -. snapshot_known_stages_s)
     in
+    let worker_count = List.length counters.why3_workers in
+    let worker_wall_sum_s =
+      List.fold_left
+        (fun acc (worker : Application_ports.why3_worker_counters) ->
+          acc +. worker.worker_wall_s)
+        0.0 counters.why3_workers
+    in
+    let worker_wall_max_s =
+      List.fold_left
+        (fun acc (worker : Application_ports.why3_worker_counters) ->
+          max acc worker.worker_wall_s)
+        0.0 counters.why3_workers
+    in
+    let worker_wall_min_s =
+      match counters.why3_workers with
+      | [] -> 0.0
+      | worker :: rest ->
+          List.fold_left
+            (fun acc (worker : Application_ports.why3_worker_counters) ->
+              min acc worker.worker_wall_s)
+            worker.worker_wall_s rest
+    in
+    let worker_wall_imbalance_s =
+      max 0.0 (worker_wall_max_s -. worker_wall_min_s)
+    in
+    let worker_parallel_efficiency =
+      if worker_count = 0 || worker_wall_max_s = 0.0 then 0.0
+      else worker_wall_sum_s /. (worker_wall_max_s *. float_of_int worker_count)
+    in
+    let why3_parent_orchestration_s =
+      max 0.0 (counters.vc_smt_s -. worker_wall_max_s)
+    in
     let worker_timing_fields =
       counters.why3_workers
       |> List.sort
@@ -130,6 +162,13 @@ module Make (P : Application_ports.PORTS) = struct
         ("output_map_s", fmt_s counters.output_map_s);
         ("why_gen_s", fmt_s counters.why_gen_s);
         ("vc_smt_s", fmt_s counters.vc_smt_s);
+        ("why3_worker_count", string_of_int worker_count);
+        ("why3_worker_wall_sum_s", fmt_s worker_wall_sum_s);
+        ("why3_worker_wall_max_s", fmt_s worker_wall_max_s);
+        ("why3_worker_wall_min_s", fmt_s worker_wall_min_s);
+        ("why3_worker_wall_imbalance_s", fmt_s worker_wall_imbalance_s);
+        ("why3_worker_parallel_efficiency", fmt_s worker_parallel_efficiency);
+        ("why3_parent_orchestration_s", fmt_s why3_parent_orchestration_s);
         ("why3_setup_s", fmt_s counters.why3_setup_s);
         ("why3_parse_s", fmt_s counters.why3_parse_s);
         ("why3_typecheck_s", fmt_s counters.why3_typecheck_s);

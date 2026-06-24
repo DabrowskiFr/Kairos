@@ -114,13 +114,35 @@ let kill_session (session : session) =
     (try ignore (Unix.waitpid [] session.pid) with _ -> ())
   end
 
+let waitpid_nohang pid =
+  try
+    match Unix.waitpid [ Unix.WNOHANG ] pid with
+    | 0, _ -> false
+    | _ -> true
+  with Unix.Unix_error (Unix.ECHILD, _, _) -> true
+
+let rec waitpid_until ~deadline_s pid =
+  if waitpid_nohang pid then true
+  else if Unix.gettimeofday () >= deadline_s then false
+  else begin
+    ignore (Unix.select [] [] [] 0.01);
+    waitpid_until ~deadline_s pid
+  end
+
 let close_session (session : session) =
   if not session.closed then begin
     session.closed <- true;
     (try write_string_fd session.stdin_fd "(exit)\n" with _ -> ());
+    close_fd_noerr session.stdin_fd;
+    let exited =
+      waitpid_until ~deadline_s:(Unix.gettimeofday () +. 0.2) session.pid
+    in
+    if not exited then begin
+      (try Unix.kill session.pid Sys.sigkill with _ -> ());
+      (try ignore (Unix.waitpid [] session.pid) with _ -> ())
+    end;
     List.iter close_fd_noerr
-      [ session.stdin_fd; session.stdout_fd; session.stderr_fd ];
-    (try ignore (Unix.waitpid [] session.pid) with _ -> ())
+      [ session.stdout_fd; session.stderr_fd ]
   end
 
 let create ~(timeout_s : float) ~(command : string) : runner =
