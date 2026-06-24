@@ -26,7 +26,7 @@ let pipeline_config_of_protocol
     timeout_s = cfg.timeout_s;
     compute_proof_diagnostics = cfg.compute_proof_diagnostics;
     prove = cfg.prove;
-    proof_jobs = 1;
+    proof_jobs = cfg.proof_jobs;
     generate_why_text = not cfg.prove;
     generate_vc_text = cfg.generate_vc_text;
     generate_smt_text = cfg.generate_smt_text;

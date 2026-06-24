@@ -173,12 +173,12 @@ let cmd =
   in
   let proof_jobs =
     Arg.(
-      value & opt int 1
+      value & opt int Pipeline_types.default_proof_jobs
       & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
           ~doc:
             "Maximum number of Why3 prover calls to keep in flight. The default \
-             is 1. With --stop-on-first-nonvalid, Kairos uses one job to keep \
-             strict first-failure semantics.")
+             is the prover-oriented default. With --stop-on-first-nonvalid, \
+             Kairos uses one job to keep strict first-failure semantics.")
   in
   let proof_encoding =
     Arg.(

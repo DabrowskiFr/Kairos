@@ -152,6 +152,36 @@ def check_minimal_prove_path(repo: Path) -> None:
     if "Pipeline_artifact_bundle.build" not in artifact_branch:
         fail("artifact branch no longer calls Pipeline_artifact_bundle.build")
 
+    pipeline_types = (repo / "lib/application/pipeline_types.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if not re.search(r"\blet\s+default_proof_jobs\s*=\s*8\b", pipeline_types):
+        fail("default prove path must keep prover-oriented parallelism at 8 jobs")
+
+    cli = (repo / "bin/cli/kairos.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if not re.search(
+        r"opt\s+int\s+Pipeline_types\.default_proof_jobs", cli
+    ):
+        fail("CLI --proof-jobs default must use Pipeline_types.default_proof_jobs")
+
+    lsp_files = [
+        "bin/lsp/lsp_run_config.ml",
+        "bin/lsp/lsp_backend_config.ml",
+    ]
+    violations = []
+    for rel in lsp_files:
+        lsp_text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(lsp_text.splitlines(), start=1):
+            if re.search(r"\bproof_jobs\s*=\s*1\b|\"proofJobs\"\s+1\b", line):
+                violations.append(f"{rel}:{line_no}: {line.strip()}")
+    if violations:
+        fail(
+            "LSP proof jobs must not silently fall back to serial proving:\n  - "
+            + "\n  - ".join(violations)
+        )
+
 
 def check_adrs(repo: Path) -> None:
     adr_dir = repo / "docs/architecture/decisions"

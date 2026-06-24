@@ -161,6 +161,8 @@ type cost_report_outputs = { cost_report_json : string }
 
   let default_proof_encoding = Explicit_product
 
+  let default_proof_jobs = 8
+
   type proof_optimizations = {
     group_public_non_w_guarantees : bool;
     share_why3_facts : bool;

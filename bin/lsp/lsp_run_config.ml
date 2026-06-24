@@ -27,7 +27,9 @@ let config_from_compat_params ~input_file params =
     compute_proof_diagnostics =
       Lsp_request_decode.get_param_bool params "computeProofDiagnostics" false;
     prove = Lsp_request_decode.get_param_bool params "prove" true;
-    proof_jobs = Lsp_request_decode.get_param_int params "proofJobs" 1;
+    proof_jobs =
+      Lsp_request_decode.get_param_int params "proofJobs"
+        Pipeline_types.default_proof_jobs;
     generate_why_text =
       not (Lsp_request_decode.get_param_bool params "prove" true);
     generate_vc_text =
