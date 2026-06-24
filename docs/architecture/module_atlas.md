@@ -152,7 +152,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | --- | --- |
 | `proof_kernel_types.ml/mli` | Format d'echange proof-kernel |
 | `proof_kernel_product.ml` | Produit explicite exporte |
-| `proof_kernel_generated_clauses.ml` | Clauses generees avant lowering relationnel |
+| `proof_kernel_product_lookup.ml` | Appariement entre pas produit exportes et summaries canoniques |
+| `proof_kernel_source_clauses.ml` | Clauses source issues des summaries produit |
+| `proof_kernel_generated_clauses.ml` | Facade et clauses de pas avant lowering relationnel |
 | `proof_kernel_clause_lowering.ml` | Clauses relationnelles |
 | `proof_kernel_step_summaries.ml` | Groupes de pas proof-kernel |
 | `proof_kernel_pass.ml` | Compilation d'un noeud vers `Proof_kernel_types.node_ir` |

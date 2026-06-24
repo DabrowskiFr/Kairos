@@ -236,6 +236,10 @@ digraph G {
                                                    shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_product" [label="Proof_kernel_product",
                                                       shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_product_lookup" [label="Proof_kernel_product_lookup",
+                                                             shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_source_clauses" [label="Proof_kernel_source_clauses",
+                                                             shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_step_summaries" [label="Proof_kernel_step_summaries",
                                                              shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_types" [label="Proof_kernel_types",
@@ -613,7 +617,7 @@ digraph G {
        };
     subgraph cluster_586834900 { label="kairos_artifact_graph_render"; "kairos_artifact_graph_render__Automata_graph_render";"kairos_artifact_graph_render__Automata_graph_program";"kairos_artifact_graph_render__Automata_graph_product";"kairos_artifact_graph_render__Automata_graph_format";"kairos_artifact_graph_render__Automata_graph_dot";"kairos_artifact_graph_render__Automata_graph_contract";"kairos_artifact_graph_render";
        };
-    subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
+    subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_source_clauses";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
        };
     subgraph cluster_681484642 { label="kairos"; "kairos__Kairos";"kairos__Cli_types";"kairos__Cli_runtime";"kairos__Cli_pipeline_service";"kairos__Cli_output";"kairos";
        };
@@ -730,6 +734,8 @@ digraph G {
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_naming";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_pass";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_product";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_product_lookup";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_source_clauses";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_verification" -> "kairos.domain_core" [minlen=2,
@@ -1234,13 +1240,15 @@ digraph G {
   "kairos.domain_core__Pretty" -> "kairos.domain_core__Core_syntax";
   "kairos.domain_core__Verification_model" -> "kairos.domain_core__Core_syntax_builders";
   "kairos.domain_proof_export__Proof_kernel_clause_lowering" -> "kairos.domain_proof_export__Proof_kernel_types";
-  "kairos.domain_proof_export__Proof_kernel_generated_clauses" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_generated_clauses" -> "kairos.domain_proof_export__Proof_kernel_source_clauses";
   "kairos.domain_proof_export__Proof_kernel_naming" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_clause_lowering";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_generated_clauses";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_product";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
   "kairos.domain_proof_export__Proof_kernel_product" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_product_lookup" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_source_clauses" -> "kairos.domain_proof_export__Proof_kernel_product_lookup";
   "kairos.domain_proof_export__Proof_kernel_step_summaries" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_proof_export__Proof_kernel_types" -> "kairos.domain_proof_export__Ir_json_codec";
   "kairos.domain_verification__From_model" -> "kairos.domain_verification__Product_build";

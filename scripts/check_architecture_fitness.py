@@ -2045,6 +2045,10 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "lib/domain/proof_export/proof_kernel_pass.ml",
         "lib/domain/proof_export/proof_kernel_product.ml",
         "lib/domain/proof_export/proof_kernel_product.mli",
+        "lib/domain/proof_export/proof_kernel_product_lookup.ml",
+        "lib/domain/proof_export/proof_kernel_product_lookup.mli",
+        "lib/domain/proof_export/proof_kernel_source_clauses.ml",
+        "lib/domain/proof_export/proof_kernel_source_clauses.mli",
         "lib/domain/proof_export/proof_kernel_types.ml",
         "lib/domain/proof_export/proof_kernel_types.mli",
         "lib/domain/proof_export/proof_kernel_naming.ml",
@@ -2063,6 +2067,35 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             "proof export must reflect explicit product exploration; "
             "fallback product-step synthesis remains:\n  - "
             + "\n  - ".join(violations)
+        )
+
+    proof_export_dune = (
+        repo / "lib/domain/proof_export/dune"
+    ).read_text(encoding="utf-8", errors="replace")
+    for module in [
+        "proof_kernel_product_lookup",
+        "proof_kernel_source_clauses",
+    ]:
+        if module not in proof_export_dune:
+            fail(f"proof export helper module is missing from dune: {module}")
+
+    generated_clauses = (
+        repo / "lib/domain/proof_export/proof_kernel_generated_clauses.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    generated_forbidden = [
+        r"\blet\s+product_summary_of_step\s*\(",
+        r"\blet\s+build_source_summary_clauses\s*\(",
+    ]
+    found = [
+        pattern
+        for pattern in generated_forbidden
+        if re.search(pattern, generated_clauses)
+    ]
+    if found:
+        fail(
+            "proof_kernel_generated_clauses.ml must stay focused on generated "
+            "step clauses; product lookup and source-summary clauses belong in "
+            "their focused modules"
         )
 
     ptree_helpers = (compile_root / "why_compile_ptree_helpers.ml").read_text(
