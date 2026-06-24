@@ -579,13 +579,18 @@ def check_critical_subsystems_do_not_use_unqualified_subdirs(repo: Path) -> None
 
 def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
     frontend_root = repo / "lib/adapters/in/kairos_lang"
-    required_modules = [
+    surface_helper_modules = [
         "kx_elaborate_names",
         "kx_elaborate_subst",
         "kx_elaborate_observers",
         "kx_elaborate_state_selectors",
         "kx_elaborate_validation",
     ]
+    lowering_modules = [
+        "kx_elaborate_env",
+        "kx_elaborate_logic",
+    ]
+    required_modules = surface_helper_modules + lowering_modules
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
             path = frontend_root / f"{module}{suffix}"
@@ -621,6 +626,24 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         r"\blet\s+validate_observer_body\b",
         r"\blet\s+state_mem\b",
         r"\blet\s+resolve_state_selector\b",
+        r"\btype\s+env\s*=",
+        r"\btype\s+spec_context\s*=",
+        r"\blet\s+add_enum_set\b",
+        r"\blet\s+enum_members\b",
+        r"\blet\s+lower_raw_vdecl\b",
+        r"\blet\s+lower_raw_vdecls\b",
+        r"\blet\s+eval_nat\b",
+        r"\blet\s+is_bool_function\b",
+        r"\blet\s+is_scalar_ref_named\b",
+        r"\blet\s+resolve_history_source_ref\b",
+        r"\blet\s+ident_arg_of_name\b",
+        r"\blet\s+rec\s+ltl_of_fo\b",
+        r"\blet\s+rec\s+expr_of_fo\b",
+        r"\blet\s+rec\s+lower_expr\b",
+        r"\band\s+lower_hexpr\b",
+        r"\band\s+expand_predicate\b",
+        r"\band\s+lower_ltl\b",
+        r"\blet\s+rec\s+lower_contract_ltls\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, elaborate)]
     if found:
@@ -629,7 +652,7 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
             "kx_elaborate.ml reintroduced extracted helper definitions"
         )
 
-    forbidden_deps = [
+    surface_forbidden_deps = [
         r"\bKx_ast\b",
         r"\bKx_core_syntax\b",
         r"\bVerification_",
@@ -638,11 +661,11 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         r"\bZ3\b",
     ]
     violations: list[str] = []
-    for module in required_modules:
+    for module in surface_helper_modules:
         path = frontend_root / f"{module}.ml"
         text = path.read_text(encoding="utf-8", errors="replace")
         for line_no, line in enumerate(text.splitlines(), start=1):
-            for pattern in forbidden_deps:
+            for pattern in surface_forbidden_deps:
                 if re.search(pattern, line):
                     violations.append(
                         f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
@@ -651,6 +674,30 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
     if violations:
         fail(
             "focused front-end elaboration helpers must stay pure surface-syntax helpers:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+    lowering_forbidden_deps = [
+        r"\bKx_ast\b",
+        r"\bVerification_",
+        r"\bWhy",
+        r"\bSpot",
+        r"\bZ3\b",
+    ]
+    violations = []
+    for module in lowering_modules:
+        path = frontend_root / f"{module}.ml"
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in lowering_forbidden_deps:
+                if re.search(pattern, line):
+                    violations.append(
+                        f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
+                    )
+                    break
+    if violations:
+        fail(
+            "front-end lowering modules must stop at the core syntax boundary:\n  - "
             + "\n  - ".join(violations)
         )
 

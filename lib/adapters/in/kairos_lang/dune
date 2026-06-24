@@ -9,7 +9,9 @@
   kx_ast
   kx_ast_builders
   kx_elaborate_names
+  kx_elaborate_env
   kx_elaborate_subst
+  kx_elaborate_logic
   kx_elaborate_observers
   kx_elaborate_state_selectors
   kx_elaborate_validation
