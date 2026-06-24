@@ -391,7 +391,9 @@ flowchart TD
     subgraph 81314696 ["kairos_external_why3"]
       id846750013(Why_task_support)
       id725729359(Why_native_probe)
+      id675318079(Why_contract_unix_io)
       id225471489(Why_contract_prove)
+      id55167640(Why_contract_persistent_z3)
       id81314696(["kairos_external_why3"])
     end
     subgraph 821673316 ["kairos.domain_verification"]
@@ -632,7 +634,9 @@ flowchart TD
   81314696-->id56282679
   81314696-->757729241
   81314696-->1023048449
+  id81314696-->id55167640
   id81314696-->id225471489
+  id81314696-->id675318079
   id81314696-->id725729359
   id81314696-->id846750013
   1000965417-->id834811779
@@ -988,6 +992,8 @@ flowchart TD
   id761989609-->id117172767
   id50697880-->id288956159
   id50697880-->id761989609
+  id55167640-->id675318079
+  id225471489-->id55167640
   id225471489-->id846750013
   id725729359-->id846750013
   id243908248-->id542636126

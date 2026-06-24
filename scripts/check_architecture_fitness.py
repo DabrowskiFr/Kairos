@@ -2544,6 +2544,86 @@ def check_input_adapters_stay_thin(repo: Path) -> None:
         fail("input adapter modules must have explicit interfaces: " + ", ".join(missing))
 
 
+def check_external_why3_prover_boundaries(repo: Path) -> None:
+    why3_root = repo / "lib/adapters/out/external/why3"
+    required_modules = [
+        "why_task_support",
+        "why_contract_unix_io",
+        "why_contract_persistent_z3",
+        "why_contract_prove",
+        "why_native_probe",
+    ]
+    for module in required_modules:
+        for suffix in [".ml", ".mli"]:
+            path = why3_root / f"{module}{suffix}"
+            if module == "why_native_probe" and suffix == ".mli":
+                continue
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
+
+    dune = (why3_root / "dune").read_text(encoding="utf-8")
+    missing_modules = [module for module in required_modules if module not in dune]
+    if missing_modules:
+        fail(
+            "Why3 external prover modules must be explicit kairos_external_why3 modules: "
+            + ", ".join(missing_modules)
+        )
+
+    prove = (why3_root / "why_contract_prove.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    prove_forbidden = [
+        r"\btype\s+persistent_z3_",
+        r"\blet\s+shell_words\b",
+        r"\blet\s+word_contains_placeholder\b",
+        r"\blet\s+open_persistent_z3_session\b",
+        r"\blet\s+read_persistent_z3_",
+        r"\blet\s+prove_buffer_with_persistent_z3\b",
+        r"\blet\s+write_all_bytes\b",
+        r"\blet\s+send_marshaled_value_fd\b",
+        r"\blet\s+create_pipe_noerr\b",
+        r"\bUnix\.create_process\b",
+    ]
+    found = [pattern for pattern in prove_forbidden if re.search(pattern, prove)]
+    if found:
+        fail(
+            "Why3 proof runner must delegate raw Unix IO and persistent Z3 "
+            "sessions to focused modules"
+        )
+
+    persistent_z3 = (why3_root / "why_contract_persistent_z3.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    persistent_z3_forbidden = [
+        r"\bWorker_started\b",
+        r"\bWorker_result\b",
+        r"\bprove_tasks_with_details\b",
+        r"\bspawn_proof_worker\b",
+        r"\bMarshal\b",
+    ]
+    found = [
+        pattern
+        for pattern in persistent_z3_forbidden
+        if re.search(pattern, persistent_z3)
+    ]
+    if found:
+        fail("Persistent Z3 runner must not own worker scheduling or IPC protocol")
+
+    unix_io = (why3_root / "why_contract_unix_io.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    unix_io_forbidden = [
+        r"\bCall_provers\b",
+        r"\bDriver\b",
+        r"\bTask\b",
+        r"\bWorker_started\b",
+        r"\bUnix\.create_process\b",
+    ]
+    found = [pattern for pattern in unix_io_forbidden if re.search(pattern, unix_io)]
+    if found:
+        fail("Why3 Unix IO helpers must stay solver-agnostic")
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -2561,6 +2641,7 @@ def main() -> int:
     check_critical_subsystems_do_not_use_unqualified_subdirs(repo)
     check_kairos_frontend_elaboration_boundaries(repo)
     check_why3_compile_boundaries(repo)
+    check_external_why3_prover_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")
     return 0

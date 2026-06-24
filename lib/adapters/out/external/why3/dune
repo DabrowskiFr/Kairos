@@ -1,5 +1,10 @@
 (library
  (name kairos_external_why3)
  (wrapped false)
- (modules why_task_support why_contract_prove why_native_probe)
+ (modules
+  why_task_support
+  why_contract_unix_io
+  why_contract_persistent_z3
+  why_contract_prove
+  why_native_probe)
  (libraries kairos_domain_core kairos_external_timing why3))
