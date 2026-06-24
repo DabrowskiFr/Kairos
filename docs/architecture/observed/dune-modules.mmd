@@ -441,7 +441,10 @@ flowchart TD
     subgraph 95057747 ["kairos_why3_compile"]
       id949600698(Why_product_step_names)
       id356856735(Why_compile_step)
+      id693638410(Why_compile_ptree_terms)
+      id478263571(Why_compile_ptree_names)
       id416335878(Why_compile_ptree_helpers)
+      id368511651(Why_compile_ptree_binders)
       id256765296(Why_compile_product_specs)
       id963611932(Why_compile_product_spec_terms)
       id991145591(Why_compile_product_spec_labels)
@@ -730,7 +733,10 @@ flowchart TD
   id95057747-->id991145591
   id95057747-->id963611932
   id95057747-->id256765296
+  id95057747-->id368511651
   id95057747-->id416335878
+  id95057747-->id478263571
+  id95057747-->id693638410
   id95057747-->id356856735
   id95057747-->id949600698
   167272116-->231918951
@@ -1061,6 +1067,9 @@ flowchart TD
   id963611932-->id991145591
   id256765296-->id148867336
   id256765296-->id963611932
+  id368511651-->id478263571
+  id416335878-->id368511651
+  id416335878-->id693638410
   id373040467-->id599301430
   id373040467-->id235180949
   id599301430-->id907961342

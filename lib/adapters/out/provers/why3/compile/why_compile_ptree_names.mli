@@ -16,8 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 Ptree helpers. *)
+(** Name inspection for generated Why3 Ptree terms, specs, and expressions. *)
 
-include Why_compile_ptree_names
-include Why_compile_ptree_terms
-include Why_compile_ptree_binders
+module StringSet : Set.S with type elt = string
+
+val names_of_qualid : Why3.Ptree.qualid -> StringSet.t -> StringSet.t
+val names_of_term : Why3.Ptree.term -> StringSet.t -> StringSet.t
+val names_of_spec : Why3.Ptree.spec -> StringSet.t -> StringSet.t
+val names_of_expr : Why3.Ptree.expr -> StringSet.t -> StringSet.t
+val term_has_old : Why3.Ptree.term -> bool

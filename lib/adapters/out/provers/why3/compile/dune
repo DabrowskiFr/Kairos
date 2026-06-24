@@ -16,6 +16,9 @@
  (name kairos_why3_compile)
  (wrapped false)
  (modules
+  why_compile_ptree_terms
+  why_compile_ptree_names
+  why_compile_ptree_binders
   why_compile_ptree_helpers
   why_compile_logic
   why_product_step_names

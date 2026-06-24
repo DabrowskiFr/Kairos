@@ -16,8 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 Ptree helpers. *)
+(** Binder conversion and unused-parameter handling for generated Why3 code. *)
 
-include Why_compile_ptree_names
-include Why_compile_ptree_terms
-include Why_compile_ptree_binders
+module StringSet = Why_compile_ptree_names.StringSet
+
+val binder_expr : Why3.Ptree.binder -> Why3.Ptree.expr
+val binder_term : Why3.Ptree.binder -> Why3.Ptree.term option
+val param_of_binder : Why3.Ptree.binder -> Why3.Ptree.param option
+
+val mark_unused_binders :
+  StringSet.t -> Why3.Ptree.binder list -> Why3.Ptree.binder list
+
+val helper_binders_without_unused_warnings :
+  Why3.Ptree.binder list -> Why3.Ptree.spec -> Why3.Ptree.expr -> Why3.Ptree.binder list
+
+val helper_binders_without_unused_parameters :
+  Why3.Ptree.binder list -> Why3.Ptree.spec -> Why3.Ptree.expr -> Why3.Ptree.binder list

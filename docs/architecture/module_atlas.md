@@ -185,7 +185,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_expr_print.ml` | Cles textuelles stables des termes Why3 |
 | `why_compile_expr_compile.ml` | Compilation des expressions et formules Kairos |
 | `why_compile_expr.ml` | Facade historique du compilateur d'expressions Why3 |
-| `why_compile_ptree_helpers.ml` | Helpers Why3 `Ptree`, combinateurs de termes, analyse des noms utilises |
+| `why_compile_ptree_terms.ml` | Constructeurs Why3 `Ptree` pour specs et termes booleens |
+| `why_compile_ptree_names.ml` | Analyse des noms utilises dans termes/specs/expressions Why3 |
+| `why_compile_ptree_binders.ml` | Conversion et filtrage des binders Why3 |
+| `why_compile_ptree_helpers.ml` | Facade historique des helpers Why3 `Ptree` |
 | `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
 | `why_product_step_names.ml` | Facade publique de nommage stable des helpers Why3 par pas produit |
 | `why_compile_init_goals.ml` | Buts Why3 de coherence de l'etat initial |

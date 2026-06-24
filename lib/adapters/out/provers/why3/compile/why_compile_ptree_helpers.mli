@@ -16,7 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Why3 Ptree construction and inspection helpers used by the Why3 backend. *)
+(** Compatibility facade for Why3 Ptree helpers used by the backend.
+
+    Focused sibling modules own Boolean term/spec constructors, name
+    inspection, and binder manipulation. *)
 
 module StringSet : Set.S with type elt = string
 

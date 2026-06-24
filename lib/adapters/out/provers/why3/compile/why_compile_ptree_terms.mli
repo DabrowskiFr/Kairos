@@ -16,8 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 Ptree helpers. *)
+(** Small Why3 Ptree term/spec constructors. *)
 
-include Why_compile_ptree_names
-include Why_compile_ptree_terms
-include Why_compile_ptree_binders
+val empty_spec : unit -> Why3.Ptree.spec
+val term_and : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_and_list : Why3.Ptree.term list -> Why3.Ptree.term
+val term_or : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_or_list : Why3.Ptree.term list -> Why3.Ptree.term

@@ -16,8 +16,38 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for Why3 Ptree helpers. *)
+open Why3
+open Ptree
+open Why_compile_expr
 
-include Why_compile_ptree_names
-include Why_compile_ptree_terms
-include Why_compile_ptree_binders
+let empty_spec () : Ptree.spec =
+  {
+    Ptree.sp_pre = [];
+    sp_post = [];
+    sp_xpost = [];
+    sp_reads = [];
+    sp_writes = [];
+    sp_alias = [];
+    sp_variant = [];
+    sp_checkrw = false;
+    sp_diverge = false;
+    sp_partial = false;
+  }
+
+let term_and (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinnop (a, Dterm.DTand, b))
+
+let term_and_list (terms : Ptree.term list) : Ptree.term =
+  match terms with
+  | [] -> mk_term Ttrue
+  | [ term ] -> term
+  | first :: rest -> List.fold_left term_and first rest
+
+let term_or (a : Ptree.term) (b : Ptree.term) : Ptree.term =
+  mk_term (Tbinnop (a, Dterm.DTor, b))
+
+let term_or_list (terms : Ptree.term list) : Ptree.term =
+  match terms with
+  | [] -> mk_term Tfalse
+  | [ term ] -> term
+  | first :: rest -> List.fold_left term_or first rest

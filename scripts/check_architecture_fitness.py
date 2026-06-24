@@ -666,6 +666,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_expr",
     ]
     required_modules = [
+        "why_compile_ptree_terms",
+        "why_compile_ptree_names",
+        "why_compile_ptree_binders",
         "why_compile_ptree_helpers",
         "why_compile_logic",
         "why_compile_step",
@@ -953,6 +956,82 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Why3 expression compilation must consume env/mapping helpers, not own them")
+
+    ptree_helpers = (compile_root / "why_compile_ptree_helpers.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    ptree_facade_forbidden = [
+        r"\blet\s+empty_spec\b",
+        r"\blet\s+term_and\b",
+        r"\blet\s+term_or\b",
+        r"\blet\s+binder_expr\b",
+        r"\blet\s+binder_term\b",
+        r"\blet\s+param_of_binder\b",
+        r"\blet\s+rec\s+names_of_qualid\b",
+        r"\blet\s+rec\s+names_of_term\b",
+        r"\blet\s+rec\s+names_of_expr\b",
+        r"\blet\s+term_has_old\b",
+        r"\blet\s+mark_unused_binders\b",
+    ]
+    found = [
+        pattern for pattern in ptree_facade_forbidden if re.search(pattern, ptree_helpers)
+    ]
+    if found:
+        fail("Why3 Ptree helpers facade must only re-export focused helper modules")
+
+    ptree_terms = (compile_root / "why_compile_ptree_terms.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    ptree_terms_forbidden = [
+        r"\blet\s+binder_expr\b",
+        r"\blet\s+mark_unused_binders\b",
+        r"\blet\s+rec\s+names_of_qualid\b",
+        r"\blet\s+rec\s+names_of_term\b",
+        r"\blet\s+rec\s+names_of_expr\b",
+    ]
+    found = [
+        pattern for pattern in ptree_terms_forbidden if re.search(pattern, ptree_terms)
+    ]
+    if found:
+        fail("Why3 Ptree term helpers must not own binders or name inspection")
+
+    ptree_names = (compile_root / "why_compile_ptree_names.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    ptree_names_forbidden = [
+        r"\blet\s+empty_spec\b",
+        r"\blet\s+term_and\b",
+        r"\blet\s+term_or\b",
+        r"\blet\s+binder_expr\b",
+        r"\blet\s+binder_term\b",
+        r"\blet\s+param_of_binder\b",
+        r"\blet\s+mark_unused_binders\b",
+    ]
+    found = [
+        pattern for pattern in ptree_names_forbidden if re.search(pattern, ptree_names)
+    ]
+    if found:
+        fail("Why3 Ptree name inspection must not own terms or binder mutation")
+
+    ptree_binders = (compile_root / "why_compile_ptree_binders.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    ptree_binders_forbidden = [
+        r"\blet\s+empty_spec\b",
+        r"\blet\s+term_and\b",
+        r"\blet\s+term_or\b",
+        r"\blet\s+rec\s+names_of_qualid\b",
+        r"\blet\s+rec\s+names_of_term\b",
+        r"\blet\s+rec\s+names_of_expr\b",
+        r"\blet\s+term_has_old\b",
+    ]
+    found = [
+        pattern
+        for pattern in ptree_binders_forbidden
+        if re.search(pattern, ptree_binders)
+    ]
+    if found:
+        fail("Why3 Ptree binder helpers must not own terms or name traversal")
 
     formula_sharing_facade = (
         compile_root / "why_compile_formula_sharing.ml"
