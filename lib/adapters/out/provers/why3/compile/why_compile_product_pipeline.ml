@@ -21,6 +21,7 @@ module Contract_facts = Why_compile_contract_facts
 module Modules = Why_compile_modules
 module Product_helpers = Why_compile_product_helpers
 module Product_plan = Why_compile_product_plan
+module Product_plan_metrics = Why_compile_product_plan_metrics
 module Product_specs = Why_compile_product_specs
 module StringSet = Why_compile_ptree_helpers.StringSet
 
@@ -102,7 +103,6 @@ let build ctx step_contracts =
   in
   let product_plan_context : Product_plan.context =
     {
-      runtime_view = ctx.runtime_view;
       env = ctx.env;
       group_why3_product_steps = ctx.group_why3_product_steps;
       why3_product_step_group_max_cost =
@@ -113,6 +113,12 @@ let build ctx step_contracts =
   let product_helper_plan =
     Product_plan.build product_plan_context product_helper_facts step_contracts
   in
+  Product_plan_metrics.observe
+    {
+      node_name = ctx.runtime_view.node_name;
+      max_cost = ctx.why3_product_step_group_max_cost;
+    }
+    product_helper_plan;
   {
     shared_pre_bundle_modules =
       Bundle_state.shared_pre_bundle_modules bundle_state;

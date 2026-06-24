@@ -238,20 +238,25 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_product_layout.ml` | Noms partages par le plan produit et son emission Why3 |
 | `why_compile_bundles.ml` | Factorisation des familles de faits Why3 en predicates auxiliaires |
 | `why_compile_product_bundle_state.ml` | Etat de generation des bundles partages pre/post |
-| `why_compile_product_group_terms.ml` | Construction des termes symboliques des helpers groupes |
+| `why_compile_product_group_boundary.ml` | Types frontieres des groupes produit |
+| `why_compile_product_group_policy.ml` | Politique d'eligibilite au groupage |
+| `why_compile_product_group_partition.ml` | Partition stable des pas produit |
+| `why_compile_product_group_factoring.ml` | Choix equivalent des specs groupees |
+| `why_compile_product_group_terms.ml` | Construction des entrees symboliques des helpers groupes |
 | `why_compile_product_group_cost.ml` | Modele de cout et decoupage des groupes produit |
 | `why_compile_product_groups.ml` | Plan explicite des helpers produit individuels/groupes |
 | `why_compile_product_spec_labels.ml` | Labels publics associes aux obligations produit |
 | `why_compile_product_spec_terms.ml` | Selection des termes et politique de partage des specs individuelles |
 | `why_compile_product_specs.ml` | Construction des specs Why3 des helpers produit |
-| `why_compile_product_metrics.ml` | Reporting des metriques du plan produit |
+| `why_compile_product_metrics.ml` | Reporting des metriques du plan produit et des raisons individuelles |
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
 | `why_compile_product_helper_types.ml` | Types partages de l'emission des helpers produit |
 | `why_compile_product_helper_body.ml` | Corps Why3 des helpers individuels/groupes |
 | `why_compile_product_individual_helper.ml` | Emission des helpers produit individuels |
 | `why_compile_product_grouped_helper.ml` | Emission des helpers produit groupes |
 | `why_compile_product_helpers.ml` | Dispatcher public d'emission des helpers produit |
-| `why_compile_product_plan.ml` | Construction du plan produit et enregistrement des metriques |
+| `why_compile_product_plan_metrics.ml` | Observation diagnostique des plans produit |
+| `why_compile_product_plan.ml` | Construction du plan produit |
 | `why_compile_product_pipeline.ml` | Facade produit : enchaine facts, specs, plan, helpers |
 | `why_compile_node_types.ml` | Declarations de types Why3 communes d'un noeud |
 | `why_compile_node_inputs.ml` | Binders Why3 des entrees et historiques |
@@ -285,7 +290,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Ou sont ajoutees les obligations de sortie ? | `post.ml` |
 | Ou est gere `pre/pre_k` ? | `temporal_lower.ml`, `pre_k_layout.ml`, `pre_k_lowering.ml` |
 | Ou est produit le format Rocq ? | `proof_kernel_pass.ml`, `proof_kernel_types.mli` |
-| Ou sont les optimisations Why3 ? | `why_runtime_view.ml`, `why_compile_formula_sharing_inventory.ml`, `why_compile_formula_sharing_emit.ml`, `why_compile_formula_sharing_deps.ml`, `why_compile_formula_sharing.ml`, `why_compile_product_pipeline.ml`, `why_compile_contract_facts.ml`, `why_compile_bundles.ml`, `why_compile_product_bundle_state.ml`, `why_compile_product_group_terms.ml`, `why_compile_product_group_cost.ml`, `why_compile_product_groups.ml`, `why_compile_product_plan.ml`, `why_compile_product_spec_terms.ml`, `why_compile_product_specs.ml`, `why_compile_product_metrics.ml`, `why_compile_product_helper_body.ml`, `why_compile_product_individual_helper.ml`, `why_compile_product_grouped_helper.ml`, `why_compile_product_helpers.ml`, `proof_runner.ml` |
+| Ou sont les optimisations Why3 ? | Voir la section "Backend Why3 Et Outils Externes" ci-dessus |
 | Ou sont les options CLI ? | `bin/cli/kairos.ml`, `pipeline_types.ml` |
 
 ## Regle De Maintenance

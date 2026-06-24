@@ -17,6 +17,8 @@
  *---------------------------------------------------------------------------*)
 
 module Product_groups = Why_compile_product_groups
+module Group_boundary = Why_compile_product_group_boundary
+module Group_terms = Why_compile_product_group_terms
 module Step_names = Why_product_step_names
 
 type context = {
@@ -29,6 +31,8 @@ let record_group ctx ~group_name ~emitted_as_group ~split_due_to_cost ~entries
   match entries with
   | [] -> ()
   | (_first_i, (first_sc : Why_contracts.step_contract_info), _first_t) :: _ ->
+      let profile = Group_terms.profile grouped in
+      let factor_candidate_costs = profile.factor_candidate_costs in
       External_timing.record_why3_product_group
         {
           group_name;
@@ -39,12 +43,22 @@ let record_group ctx ~group_name ~emitted_as_group ~split_due_to_cost ~entries
           emitted_as_group;
           split_due_to_cost;
           edge_count = List.length entries;
-          distinct_pre_count = grouped.distinct_pre_count;
-          distinct_post_count = grouped.distinct_post_count;
-          post_implication_count = grouped.post_implication_count;
-          pre_text_bytes = grouped.pre_text_bytes;
-          post_text_bytes = grouped.post_text_bytes;
-          estimated_cost = grouped.estimated_cost;
+          distinct_pre_count = profile.distinct_pre_count;
+          distinct_post_count = profile.distinct_post_count;
+          post_implication_count = profile.post_implication_count;
+          pre_text_bytes = profile.pre_text_bytes;
+          post_text_bytes = profile.post_text_bytes;
+          estimated_cost = profile.estimated_cost;
+          factor_kind =
+            Group_boundary.factor_kind_name profile.factor_kind;
+          factor_original_estimated_cost =
+            factor_candidate_costs.original_estimated_cost;
+          factor_post_common_estimated_cost =
+            factor_candidate_costs.post_common_estimated_cost;
+          factor_pre_common_estimated_cost =
+            factor_candidate_costs.pre_common_estimated_cost;
+          factor_pre_and_post_common_estimated_cost =
+            factor_candidate_costs.pre_and_post_common_estimated_cost;
           max_cost = ctx.max_cost;
         }
 
@@ -72,7 +86,32 @@ let record_grouped ctx (plan : Product_groups.grouped_plan) =
         ~emitted_as_group:true ~split_due_to_cost:plan.split_due_to_cost
         ~entries:plan.entries plan.grouped_terms
 
+let record_individual_reason_counts ctx plan =
+  let add reason counts =
+    let rec loop acc = function
+      | [] -> List.rev ((reason, 1) :: acc)
+      | (known_reason, count) :: rest when known_reason = reason ->
+          List.rev_append acc ((known_reason, count + 1) :: rest)
+      | item :: rest -> loop (item :: acc) rest
+    in
+    loop [] counts
+  in
+  plan
+  |> List.fold_left
+       (fun acc -> function
+         | Product_groups.Individual individual ->
+             add
+               (Product_groups.individual_reason_name
+                  individual.individual_reason)
+               acc
+         | Product_groups.Grouped _ -> acc)
+       []
+  |> List.iter (fun (reason, count) ->
+         External_timing.record_why3_product_individual_reason
+           { node_name = ctx.node_name; reason; count })
+
 let record_plan ctx plan =
+  record_individual_reason_counts ctx plan;
   plan
   |> List.iter (function
        | Product_groups.Individual individual -> record_individual ctx individual

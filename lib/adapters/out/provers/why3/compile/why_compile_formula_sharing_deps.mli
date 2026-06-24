@@ -33,3 +33,13 @@ val build_index :
 
 val local_shared_formula_decls :
   index -> ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list
+
+val local_shared_formula_imports :
+  index ->
+  module_name_of_formula:(string -> string) ->
+  ?exclude:StringSet.t ->
+  StringSet.t ->
+  Why3.Ptree.decl list
+
+val shared_formula_closure :
+  index -> ?exclude:StringSet.t -> StringSet.t -> StringSet.t

@@ -33,7 +33,18 @@ type module_unit =
 
 val empty_groups : unit -> spec_groups
 val common_module_name : string -> string
+val shared_formula_module_name : string -> string -> string
 val import_module : string -> Why3.Ptree.decl
+
+val shared_formula_modules :
+  module_name:string ->
+  imports:Why3.Ptree.decl list ->
+  common_import:Why3.Ptree.decl ->
+  shared_formula_decls:(string * Why3.Ptree.decl) list ->
+  shared_formula_closure:
+    (Why_compile_ptree_helpers.StringSet.t ->
+    Why_compile_ptree_helpers.StringSet.t) ->
+  module_unit list
 
 val assemble_node_modules :
   module_name:string ->
@@ -41,6 +52,7 @@ val assemble_node_modules :
   common_module_name:string ->
   common_import:Why3.Ptree.decl ->
   common_decls:Why3.Ptree.decl list ->
+  shared_formula_modules:module_unit list ->
   shared_pre_bundle_modules:module_unit list ->
   shared_post_bundle_modules:module_unit list ->
   init_goal_decls:Why3.Ptree.decl list ->

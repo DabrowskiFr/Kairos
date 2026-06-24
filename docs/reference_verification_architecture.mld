@@ -231,6 +231,44 @@ The phase discipline behind these rules is described in
 in {!page-product_proof_pipeline_audit}. The performance motivation for
 sharing and grouping is recorded in {!page-pipeline_cost_model}.
 
+{2 Why3 Product Backend Boundary}
+
+The Why3 product backend has a smaller internal boundary. This boundary is not
+part of the Rocq synchronization contract, but it prevents backend performance
+work from becoming implicit proof-obligation construction.
+
+- [Why_compile_product_group_boundary] defines the typed boundary between
+  proof-emission terms and diagnostic profiles.
+- [Why_compile_product_group_partition] owns stable partitioning by executable
+  transition.
+- [Why_compile_product_group_policy] owns grouping eligibility and explicit
+  individual-helper reasons.
+- [Why_compile_product_group_terms] is a backend projection step. It builds
+  symbolic Why3 pre/post terms for already selected product-step obligations.
+- [Why_compile_product_group_factoring] is an obligation-preserving
+  representation optimization. It may choose between equivalent forms such as
+  original grouping, common-post factoring, common-pre factoring, and combined
+  pre/post factoring. The choice is based on backend cost only.
+- [Why_compile_product_group_cost] is a backend heuristic. It may split helper
+  groups to control generated term size, but must not delete edges or weaken
+  obligations.
+- [Why_compile_product_metrics] is diagnostic. It records choices, individual
+  helper reasons, estimated costs, and text sizes, but must not feed back into
+  generation.
+
+The permitted data flow is:
+
+{[
+reference obligations
+  -> Why3 symbolic terms
+  -> obligation-preserving representation choice
+  -> helper planning and emission
+  -> metrics
+]}
+
+There must be no reverse dependency from metrics or external prover results to
+the reference kernel or to the selected canonical obligations.
+
 {1 Cleanup Plan}
 
 The cleanup should be done in this order:

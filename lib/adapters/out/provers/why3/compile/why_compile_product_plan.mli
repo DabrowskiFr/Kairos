@@ -18,11 +18,10 @@
 
 (** Product helper planning facade.
 
-    This module connects contract facts to the explicit helper plan and records
-    planning metrics. It does not emit Why3 declarations. *)
+    This module connects contract facts to the explicit helper plan. It does
+    not emit Why3 declarations and does not record diagnostics. *)
 
 type context = {
-  runtime_view : Why_runtime_view.t;
   env : Why_compile_expr.env;
   group_why3_product_steps : bool;
   why3_product_step_group_max_cost : int;

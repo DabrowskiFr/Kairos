@@ -27,6 +27,8 @@ type prover_handle = {
   command : string;
 }
 
+type fallback_handle = prover_handle Lazy.t
+
 let goal_name_of_prepared_task (prepared : Task.task) : string =
   let pr = Task.task_goal prepared in
   pr.Decl.pr_name.Ident.id_string
@@ -120,7 +122,7 @@ let result_after_optional_fallback
     ~(limits : Call_provers.resource_limits)
     ~(primary_result : Call_provers.prover_result)
     ~(primary_buffer : Buffer.t)
-    ~(fallback : prover_handle option)
+    ~(fallback : fallback_handle option)
     ~(dump_failed_smt : bool)
     ~(task_index : int)
     ~(prepared : Task.task)
@@ -129,8 +131,9 @@ let result_after_optional_fallback
   match (primary_result.Call_provers.pr_answer, fallback) with
   | Call_provers.Valid, _ ->
       { goal_name; prover_result = primary_result; dump_path = None; timing }
-  | _, Some fallback_handle -> (
+  | _, Some fallback -> (
       External_timing.record_why3_fallback ();
+      let fallback_handle = Lazy.force fallback in
       let fallback_result, fallback_buffer, fallback_timing =
         run_prepared_task ~why3_main ~limits ~handle:fallback_handle ~prepared
           ~goal_name
@@ -157,7 +160,7 @@ let prove_one_task_with_details
     ~(why3_main : Whyconf.main)
     ~(limits : Call_provers.resource_limits)
     ~(primary : prover_handle)
-    ~(fallback : prover_handle option)
+    ~(fallback : fallback_handle option)
     ~(dump_failed_smt : bool)
     ~(task_index : int)
     ~(prepared : Task.task)
@@ -173,7 +176,7 @@ let prove_printed_prepared_task
     ~(why3_main : Whyconf.main)
     ~(limits : Call_provers.resource_limits)
     ~(primary : prover_handle)
-    ~(fallback : prover_handle option)
+    ~(fallback : fallback_handle option)
     ~(persistent_z3 : Persistent_z3.runner option)
     ~(dump_failed_smt : bool)
     ~(task_index : int)

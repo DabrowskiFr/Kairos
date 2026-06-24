@@ -71,5 +71,5 @@ val grouped_helper_contract :
   pre_vars_name:string ->
   post_vars_name:string ->
   post_pred_name:string ->
-  Why_compile_product_groups.grouped_terms ->
+  Why_compile_product_group_boundary.proof_terms ->
   grouped_contract

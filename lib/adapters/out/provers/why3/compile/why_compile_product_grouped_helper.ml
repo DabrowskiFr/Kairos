@@ -22,6 +22,7 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 module Body = Why_compile_product_helper_body
 module Product_groups = Why_compile_product_groups
+module Group_terms = Why_compile_product_group_terms
 module Product_layout = Why_compile_product_layout
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_product_step_names
@@ -42,7 +43,7 @@ let build (ctx : Types.context) (plan : Product_groups.grouped_plan) :
     Product_specs.grouped_helper_contract ~env:ctx.env ~inputs:ctx.inputs
       ~pre_vars_name:Product_layout.pre_vars_name
       ~post_vars_name:Product_layout.post_vars_name ~post_pred_name
-      plan.grouped_terms
+      (Group_terms.proof_terms plan.grouped_terms)
   in
   let local_shared_decls =
     grouped_contract.shared_terms

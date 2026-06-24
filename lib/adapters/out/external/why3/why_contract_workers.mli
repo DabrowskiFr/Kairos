@@ -49,7 +49,7 @@ val spawn_proof_worker :
   why3_main:Why3.Whyconf.main ->
   limits:Why3.Call_provers.resource_limits ->
   primary:Why_contract_prover_call.prover_handle ->
-  fallback:Why_contract_prover_call.prover_handle option ->
+  fallback:Why_contract_prover_call.fallback_handle option ->
   dump_failed_smt:bool ->
   inherited_workers:proof_worker list ->
   worker_id:int ->

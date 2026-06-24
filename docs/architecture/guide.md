@@ -90,6 +90,33 @@ Le check associe est :
 python3 scripts/check_reference_pipeline_boundaries.py
 ```
 
+## Frontiere Locale Du Backend Why3
+
+Le backend Why3 a sa propre separation interne. Elle ne fait pas partie de la
+frontiere Rocq, mais elle doit rester claire pour ne pas transformer une
+optimisation de representation en changement d'obligations.
+
+- `why_compile_product_group_boundary` definit les types frontieres :
+  `proof_terms` pour l'emission, `profile` pour le diagnostic.
+- `why_compile_product_group_partition` regroupe les pas par transition
+  executable sans connaitre la politique de groupage.
+- `why_compile_product_group_policy` decide si un groupe est eligible et donne
+  la raison explicite d'un helper individuel.
+- `why_compile_product_group_terms` est une projection backend. Il transforme
+  les obligations deja choisies en termes Why3, sans politique de cout.
+- `why_compile_product_group_factoring` est une optimisation preservant les
+  obligations. Il choisit entre des formes logiquement equivalentes de la meme
+  spec groupee.
+- `why_compile_product_group_cost` est une heuristique backend. Il decoupe les
+  groupes selon un cout estime, sans supprimer d'obligation.
+- `why_compile_product_metrics` est du diagnostic. Il enregistre les choix et
+  couts, ainsi que les raisons d'individualisation ; il ne doit jamais
+  influencer la generation.
+
+La metrique de factorisation sert a comprendre le backend. Elle ne doit pas
+etre lue par le noyau de reference, ni par Rocq, ni par une passe qui change le
+contenu canonique des obligations.
+
 ## Comment Utiliser Les Graphes Detaillees
 
 Les vues automatiques sont dans `observed/`.

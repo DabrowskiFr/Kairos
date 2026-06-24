@@ -18,19 +18,10 @@
 
 (** Construction of symbolic terms for grouped product-step helpers. *)
 
-type entry =
-  int * Why_contracts.step_contract_info * Why_runtime_view.runtime_transition_view
+module Boundary = Why_compile_product_group_boundary
 
-type t = {
-  pre_term : Why3.Ptree.term;
-  post_body : Why3.Ptree.term;
-  distinct_pre_count : int;
-  distinct_post_count : int;
-  post_implication_count : int;
-  pre_text_bytes : int;
-  post_text_bytes : int;
-  estimated_cost : int;
-}
+type entry = Boundary.entry
+type t = Boundary.t
 
 val build :
   env:Why_compile_expr.env ->
@@ -42,3 +33,6 @@ val build :
     (string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
   entry list ->
   t
+
+val proof_terms : t -> Boundary.proof_terms
+val profile : t -> Boundary.profile

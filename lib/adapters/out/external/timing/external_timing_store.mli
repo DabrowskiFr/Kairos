@@ -46,6 +46,10 @@ val record_ir_fact_family : ir_fact_family_snapshot -> unit
 val record_why3_product_group : why3_product_group_snapshot -> unit
 (** Add one generated Why3 product-step group size snapshot. *)
 
+val record_why3_product_individual_reason :
+  why3_product_individual_reason_snapshot -> unit
+(** Add one product-step helper individualization reason counter. *)
+
 val record_frontend_parse : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent parsing/lowering the frontend input. *)
 

@@ -31,6 +31,7 @@ type context = {
 }
 
 type t = {
+  shared_formula_decls : (string * Why3.Ptree.decl) list;
   abstract_formula : in_post:bool -> Core_syntax.hexpr -> Why3.Ptree.term option;
   abstract_formula_with_rec :
     string -> Core_syntax.hexpr -> Why3.Ptree.term option;
@@ -38,6 +39,12 @@ type t = {
   shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
   local_shared_formula_decls :
     ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
+  local_shared_formula_imports :
+    module_name_of_formula:(string -> string) ->
+    ?exclude:StringSet.t ->
+    StringSet.t ->
+    Why3.Ptree.decl list;
+  shared_formula_closure : ?exclude:StringSet.t -> StringSet.t -> StringSet.t;
 }
 
 let empty_selection () : Inventory.selection =
@@ -85,16 +92,31 @@ let build ctx =
       Emit.build_shared_formula_entries ~env:ctx.env ~table:selection.table
         ~order:selection.order
   in
+  let shared_formula_decls =
+    List.map
+      (fun (name, _formula, decl) -> (name, decl))
+      shared_formula_entries
+  in
   let shared_formula_index =
     Deps.build_index ~table:selection.table ~entries:shared_formula_entries
   in
   let local_shared_formula_decls ?exclude names =
     Deps.local_shared_formula_decls shared_formula_index ?exclude names
   in
+  let local_shared_formula_imports ~module_name_of_formula ?exclude names =
+    Deps.local_shared_formula_imports shared_formula_index ~module_name_of_formula
+      ?exclude names
+  in
+  let formula_dependency_closure ?exclude names =
+    Deps.shared_formula_closure shared_formula_index ?exclude names
+  in
   {
+    shared_formula_decls;
     abstract_formula;
     abstract_formula_with_rec;
     local_cut_candidate;
     shared_formula_names_in_terms = Deps.shared_formula_names_in_terms;
     local_shared_formula_decls;
+    local_shared_formula_imports;
+    shared_formula_closure = formula_dependency_closure;
   }

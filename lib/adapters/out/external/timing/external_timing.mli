@@ -76,7 +76,18 @@ type why3_product_group_snapshot = {
   pre_text_bytes : int;
   post_text_bytes : int;
   estimated_cost : int;
+  factor_kind : string;
+  factor_original_estimated_cost : int;
+  factor_post_common_estimated_cost : int;
+  factor_pre_common_estimated_cost : int;
+  factor_pre_and_post_common_estimated_cost : int;
   max_cost : int;
+}
+
+type why3_product_individual_reason_snapshot = {
+  node_name : string;
+  reason : string;
+  count : int;
 }
 
 type snapshot = {
@@ -120,6 +131,8 @@ type snapshot = {
   ir_passes : ir_pass_snapshot list;
   ir_fact_families : ir_fact_family_snapshot list;
   why3_product_groups : why3_product_group_snapshot list;
+  why3_product_individual_reasons :
+    why3_product_individual_reason_snapshot list;
   why3_smt_fingerprints : string list;
 }
 
@@ -148,6 +161,10 @@ val record_ir_fact_family : ir_fact_family_snapshot -> unit
 
 val record_why3_product_group : why3_product_group_snapshot -> unit
 (** Add one generated Why3 product-step group size snapshot. *)
+
+val record_why3_product_individual_reason :
+  why3_product_individual_reason_snapshot -> unit
+(** Add one product-step helper individualization reason counter. *)
 
 val record_frontend_parse : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent parsing/lowering the frontend input. *)

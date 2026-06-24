@@ -1069,6 +1069,10 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_layout",
         "why_compile_bundles",
         "why_compile_product_bundle_state",
+        "why_compile_product_group_boundary",
+        "why_compile_product_group_policy",
+        "why_compile_product_group_partition",
+        "why_compile_product_group_factoring",
         "why_compile_product_group_terms",
         "why_compile_product_group_cost",
         "why_compile_product_groups",
@@ -1082,6 +1086,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_individual_helper",
         "why_compile_product_grouped_helper",
         "why_compile_product_helpers",
+        "why_compile_product_plan_metrics",
         "why_compile_product_plan",
         "why_compile_modules",
         "why_compile_node_types",
@@ -1131,6 +1136,211 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             "Why3 compile helper modules must be explicit kairos_why3_compile modules: "
             + ", ".join(missing_modules)
         )
+
+    group_factoring = (
+        compile_root / "why_compile_product_group_factoring.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    group_factoring_forbidden = [
+        r"\bExternal_timing\b",
+        r"\brecord_why3_product_group\b",
+        r"\bRuntime_snapshot\b",
+        r"\bCall_provers\b",
+        r"\bDriver\b",
+        r"\bTask\b",
+        r"\bUnix\b",
+    ]
+    found = [
+        pattern
+        for pattern in group_factoring_forbidden
+        if re.search(pattern, group_factoring)
+    ]
+    if found:
+        fail(
+            "Why3 product group factoring must remain a pure representation "
+            "choice, not a timing/prover/runtime integration point: "
+            + ", ".join(found)
+        )
+
+    group_terms_mli = (
+        compile_root / "why_compile_product_group_terms.mli"
+    ).read_text(encoding="utf-8", errors="replace")
+    group_terms_surface_forbidden = [
+        r"\bpre_term\s*:\s*Why3\.Ptree\.term",
+        r"\bpost_body\s*:\s*Why3\.Ptree\.term",
+        r"\bdistinct_pre_count\b",
+        r"\bfactor_original_estimated_cost\b",
+    ]
+    found = [
+        pattern
+        for pattern in group_terms_surface_forbidden
+        if re.search(pattern, group_terms_mli)
+    ]
+    if found:
+        fail(
+            "why_compile_product_group_terms.mli must expose typed boundary "
+            "views, not a flat proof+diagnostic record: "
+            + ", ".join(found)
+        )
+
+    group_cost_text = "\n".join(
+        (compile_root / name).read_text(encoding="utf-8", errors="replace")
+        for name in [
+            "why_compile_product_group_cost.ml",
+            "why_compile_product_group_cost.mli",
+        ]
+    )
+    if "Why_compile_product_group_terms" in group_cost_text:
+        fail(
+            "Why3 product group cost must depend on boundary entries, not on "
+            "the symbolic term projection module"
+        )
+    group_cost_ml = (
+        compile_root / "why_compile_product_group_cost.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "type entry_profile = {" not in group_cost_ml:
+        fail("Why3 product group cost must use a named entry_profile record")
+    if re.search(r"type\s+\w*profile\s*=\s*entry\s*\*", group_cost_ml):
+        fail(
+            "Why3 product group cost must not encode cost profiles as "
+            "anonymous entry tuples"
+        )
+
+    product_specs_text = "\n".join(
+        (compile_root / name).read_text(encoding="utf-8", errors="replace")
+        for name in [
+            "why_compile_product_specs.ml",
+            "why_compile_product_specs.mli",
+        ]
+    )
+    if "Why_compile_product_groups.grouped_terms" in product_specs_text:
+        fail(
+            "Why3 grouped helper specs must consume proof_terms, not the full "
+            "grouped plan metadata"
+        )
+
+    grouped_helper = (
+        compile_root / "why_compile_product_grouped_helper.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "Group_terms.proof_terms" not in grouped_helper:
+        fail("grouped helper emission must explicitly project proof_terms")
+
+    product_metrics = (
+        compile_root / "why_compile_product_metrics.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "Group_terms.profile" not in product_metrics:
+        fail("grouped metrics must explicitly project the diagnostic profile")
+    if "record_why3_product_individual_reason" not in product_metrics:
+        fail("product metrics must record individual helper reasons")
+    if "Product_groups.individual_reason_name" not in product_metrics:
+        fail("product metrics must use the explicit individual reason names")
+
+    product_plan_text = "\n".join(
+        (compile_root / name).read_text(encoding="utf-8", errors="replace")
+        for name in [
+            "why_compile_product_plan.ml",
+            "why_compile_product_plan.mli",
+        ]
+    )
+    if "Product_metrics" in product_plan_text or "record_plan" in product_plan_text:
+        fail("product plan construction must not record metrics")
+    product_plan_metrics = "\n".join(
+        (compile_root / name).read_text(encoding="utf-8", errors="replace")
+        for name in [
+            "why_compile_product_plan_metrics.ml",
+            "why_compile_product_plan_metrics.mli",
+        ]
+    )
+    if "Product_metrics.record_plan" not in product_plan_metrics:
+        fail("product plan metrics must be the only product-plan observer")
+    product_pipeline = (
+        compile_root / "why_compile_product_pipeline.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "Product_plan_metrics.observe" not in product_pipeline:
+        fail("product pipeline must observe the constructed plan for metrics")
+
+    product_groups = "\n".join(
+        (compile_root / name).read_text(encoding="utf-8", errors="replace")
+        for name in [
+            "why_compile_product_groups.ml",
+            "why_compile_product_groups.mli",
+        ]
+    )
+    if "Group_partition.partition" not in product_groups:
+        fail("Why3 product groups must delegate stable partitioning")
+    if "Group_policy.decide_group" not in product_groups:
+        fail("Why3 product groups must delegate grouping eligibility policy")
+    if "individual_reason :" not in product_groups:
+        fail("individual product helper plans must expose an explicit reason")
+    product_groups_forbidden = [
+        r"\bHashtbl\b",
+        r"\bStepSafe\b",
+        r"\blocal_cuts\s*(?:=|<>)",
+    ]
+    found = [
+        pattern
+        for pattern in product_groups_forbidden
+        if re.search(pattern, product_groups)
+    ]
+    if found:
+        fail(
+            "why_compile_product_groups must assemble the plan, not own "
+            "partitioning or grouping policy: "
+            + ", ".join(found)
+        )
+
+    group_policy = (
+        compile_root / "why_compile_product_group_policy.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    for marker in ["StepSafe", "local_cuts", "group_why3_product_steps"]:
+        if marker not in group_policy:
+            fail(f"group policy must own grouping marker: {marker}")
+    group_policy_forbidden = [
+        "Why_compile_product_group_cost",
+        "Why_compile_product_group_terms",
+        "External_timing",
+    ]
+    found = [token for token in group_policy_forbidden if token in group_policy]
+    if found:
+        fail("group policy must stay independent from cost, terms, and metrics")
+
+    group_partition = (
+        compile_root / "why_compile_product_group_partition.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "Hashtbl" not in group_partition or "group_key" not in group_partition:
+        fail("group partition must own stable key-based grouping")
+    group_partition_forbidden = [
+        "Why_compile_product_group_policy",
+        "Why_compile_product_group_cost",
+        "Why_compile_product_group_terms",
+        "External_timing",
+    ]
+    found = [
+        token for token in group_partition_forbidden if token in group_partition
+    ]
+    if found:
+        fail("group partition must stay independent from policy, cost, and metrics")
+
+    architecture_docs = {
+        "docs/architecture/guide.md": "Frontiere Locale Du Backend Why3",
+        "docs/architecture/module_atlas.md": "why_compile_product_group_policy",
+        "docs/reference_verification_architecture.mld": "Why3 Product Backend Boundary",
+    }
+    for rel, marker in architecture_docs.items():
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        if marker not in text:
+            fail(f"{rel} must document the Why3 product backend boundary")
+
+    timing_fields = (
+        repo / "lib/application/verification_flow_timing_fields.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "product_individual_reason_fields" not in timing_fields:
+        fail("timing fields must expose product individual reason counters")
+
+    tests_dune = (repo / "tests/dune").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if "product_group_policy_partition_tests" not in tests_dune:
+        fail("group policy and partition tests must be wired into dune runtest")
 
     why_compile = (compile_root / "why_compile.ml").read_text(
         encoding="utf-8", errors="replace"

@@ -19,7 +19,7 @@
 open Why_compile_ptree_helpers
 open Why_compile_expr
 
-type entry = Why_compile_product_group_terms.entry
+type entry = Why_compile_product_group_boundary.entry
 
 type context = {
   env : Why_compile_expr.env;
@@ -31,10 +31,15 @@ type context = {
     string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
 }
 
-type profile =
-  entry * string * int * string * int * string * int
+type entry_profile = {
+  entry : entry;
+  pre_current_bytes : int;
+  pre_snapshot_bytes : int;
+  post_snapshot_text : string;
+  post_snapshot_bytes : int;
+}
 
-let group_entry_profile ctx (((_i, sc, _t) as entry) : entry) : profile =
+let group_entry_profile ctx (((_i, sc, _t) as entry) : entry) =
   let pre_current =
     ctx.step_pre_terms_with_rec ctx.env.rec_name sc |> term_and_list
   in
@@ -47,40 +52,33 @@ let group_entry_profile ctx (((_i, sc, _t) as entry) : entry) : profile =
   let pre_current_s = string_of_term pre_current in
   let pre_snapshot_s = string_of_term pre_snapshot in
   let post_snapshot_s = string_of_term post_snapshot in
-  ( entry,
-    pre_current_s,
-    String.length pre_current_s,
-    pre_snapshot_s,
-    String.length pre_snapshot_s,
-    post_snapshot_s,
-    String.length post_snapshot_s )
+  {
+    entry;
+    pre_current_bytes = String.length pre_current_s;
+    pre_snapshot_bytes = String.length pre_snapshot_s;
+    post_snapshot_text = post_snapshot_s;
+    post_snapshot_bytes = String.length post_snapshot_s;
+  }
 
-let profile_entry
-    (entry, _pre_current_s, _pre_current_bytes, _pre_snapshot_s,
-     _pre_snapshot_bytes, _post_snapshot_s, _post_snapshot_bytes) =
-  entry
+let profile_entry profile = profile.entry
 
 let profiled_group_cost profiles =
   let pre_bytes =
     profiles
     |> List.fold_left
-         (fun acc
-              (_entry, _pre_current_s, pre_current_bytes, _pre_snapshot_s,
-               _pre_snapshot_bytes, _post_snapshot_s, _post_snapshot_bytes) ->
-           acc + pre_current_bytes)
+         (fun acc profile -> acc + profile.pre_current_bytes)
          0
   in
   let post_groups = Hashtbl.create 16 in
   profiles
-  |> List.iter
-       (fun (_entry, _pre_current_s, _pre_current_bytes, _pre_snapshot_s,
-            pre_snapshot_bytes, post_snapshot_s, post_snapshot_bytes) ->
+  |> List.iter (fun profile ->
          let previous_pre_bytes, previous_post_bytes =
-           Hashtbl.find_opt post_groups post_snapshot_s
-           |> Option.value ~default:(0, post_snapshot_bytes)
+           Hashtbl.find_opt post_groups profile.post_snapshot_text
+           |> Option.value ~default:(0, profile.post_snapshot_bytes)
          in
-         Hashtbl.replace post_groups post_snapshot_s
-           (previous_pre_bytes + pre_snapshot_bytes, previous_post_bytes));
+         Hashtbl.replace post_groups profile.post_snapshot_text
+           ( previous_pre_bytes + profile.pre_snapshot_bytes,
+             previous_post_bytes ));
   pre_bytes
   + (post_groups
     |> Hashtbl.to_seq_values

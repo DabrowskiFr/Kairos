@@ -61,6 +61,20 @@ let compile_node_with_info ?(share_why3_facts = true)
     Formula_sharing.build
       { env; inputs; runtime_view; share_why3_facts }
   in
+  let shared_formula_modules =
+    Modules.shared_formula_modules ~module_name ~imports ~common_import
+      ~shared_formula_decls:formula_sharing.shared_formula_decls
+      ~shared_formula_closure:(fun names ->
+        formula_sharing.shared_formula_closure names)
+  in
+  let shared_formula_materializer =
+    match formula_sharing.shared_formula_decls with
+    | [] -> formula_sharing.local_shared_formula_decls
+    | _ ->
+        formula_sharing.local_shared_formula_imports
+          ~module_name_of_formula:
+            (Modules.shared_formula_module_name module_name)
+  in
   let contracts =
     Why_contracts.build_contracts
       ~abstract_formula:formula_sharing.abstract_formula
@@ -96,7 +110,7 @@ let compile_node_with_info ?(share_why3_facts = true)
       abstract_formula_with_rec = formula_sharing.abstract_formula_with_rec;
       shared_formula_names_in_terms =
         formula_sharing.shared_formula_names_in_terms;
-      local_shared_formula_decls = formula_sharing.local_shared_formula_decls;
+      local_shared_formula_decls = shared_formula_materializer;
     }
   in
   let product_pipeline =
@@ -107,6 +121,7 @@ let compile_node_with_info ?(share_why3_facts = true)
 
   Modules.assemble_node_modules ~module_name ~imports ~common_module_name
     ~common_import ~common_decls:info.common_decls
+    ~shared_formula_modules
     ~shared_pre_bundle_modules:product_pipeline.shared_pre_bundle_modules
     ~shared_post_bundle_modules:product_pipeline.shared_post_bundle_modules
     ~init_goal_decls

@@ -27,6 +27,8 @@ type prover_handle = {
   command : string;
 }
 
+type fallback_handle = prover_handle Lazy.t
+
 val goal_name_of_prepared_task : Why3.Task.task -> string
 
 val duplicate_detail_for_goal :
@@ -46,7 +48,7 @@ val prove_one_task_with_details :
   why3_main:Why3.Whyconf.main ->
   limits:Why3.Call_provers.resource_limits ->
   primary:prover_handle ->
-  fallback:prover_handle option ->
+  fallback:fallback_handle option ->
   dump_failed_smt:bool ->
   task_index:int ->
   prepared:Why3.Task.task ->
@@ -57,7 +59,7 @@ val prove_printed_prepared_task :
   why3_main:Why3.Whyconf.main ->
   limits:Why3.Call_provers.resource_limits ->
   primary:prover_handle ->
-  fallback:prover_handle option ->
+  fallback:fallback_handle option ->
   persistent_z3:Why_contract_persistent_z3.runner option ->
   dump_failed_smt:bool ->
   task_index:int ->

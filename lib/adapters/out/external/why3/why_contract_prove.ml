@@ -56,7 +56,7 @@ let prove_tasks_with_details
     ~(why3_main : Whyconf.main)
     ~(limits : Call_provers.resource_limits) 
     ~(primary : prover_handle)
-    ~(fallback : prover_handle option)
+    ~(fallback : fallback_handle option)
     ~(jobs : int)
     ~(dump_failed_smt : bool)
     ~(should_cancel : unit -> bool)
@@ -257,25 +257,29 @@ let prove_tasks_with_details
     results)
   else loop_workers ()
 
-let prove_tasks_with_events
-  ?(timeout = 30)
-  ?(jobs = 1)
-  ?(dump_failed_smt = false)
-  ?(should_cancel = fun () -> false)
-  ?(on_goal_start = fun (_ : goal_start_event) -> ())
-  ?(on_goal_done = fun (_ : goal_done_event) -> ())
-  (tasks : Task.task list) : goal_proof_result list =
-    let why3_config, why3_main, env, datadir_opt = setup_env () in
+let prove_tasks_with_events_in_env
+    ~(why3_config : Whyconf.config)
+    ~(why3_main : Whyconf.main)
+    ~(env : Env.env)
+    ~(datadir_opt : string option)
+    ~(timeout : int)
+    ~(jobs : int)
+    ~(dump_failed_smt : bool)
+    ~(should_cancel : unit -> bool)
+    ~(on_goal_start : goal_start_event -> unit)
+    ~(on_goal_done : goal_done_event -> unit)
+    (tasks : Task.task list) : goal_proof_result list =
     Prove_client.set_max_running_provers (max 1 jobs);
     let prover_cfg = select_z3_prover_cfg ~config:why3_config ~datadir_opt in
     let driver = Driver.load_driver_for_prover why3_main env prover_cfg in
     let fallback =
       select_alt_ergo_prover_cfg ~config:why3_config
       |> Option.map (fun cfg ->
-             {
-               driver = Driver.load_driver_for_prover why3_main env cfg;
-               command = Whyconf.get_complete_command cfg ~with_steps:false;
-             })
+             lazy
+               {
+                 driver = Driver.load_driver_for_prover why3_main env cfg;
+                 command = Whyconf.get_complete_command cfg ~with_steps:false;
+               })
     in
     let limits =
       {
@@ -290,6 +294,19 @@ let prove_tasks_with_events
     prove_tasks_with_details ~why3_main ~limits ~primary ~fallback ~jobs
       ~dump_failed_smt ~should_cancel ~on_goal_start ~on_goal_done tasks
 
+let prove_tasks_with_events
+  ?(timeout = 30)
+  ?(jobs = 1)
+  ?(dump_failed_smt = false)
+  ?(should_cancel = fun () -> false)
+  ?(on_goal_start = fun (_ : goal_start_event) -> ())
+  ?(on_goal_done = fun (_ : goal_done_event) -> ())
+  (tasks : Task.task list) : goal_proof_result list =
+    let why3_config, why3_main, env, datadir_opt = setup_env () in
+    prove_tasks_with_events_in_env ~why3_config ~why3_main ~env ~datadir_opt
+      ~timeout ~jobs ~dump_failed_smt ~should_cancel ~on_goal_start
+      ~on_goal_done tasks
+
 let prove_ptrees_with_events
   ?(timeout = 30)
   ?(jobs = 1)
@@ -299,13 +316,14 @@ let prove_ptrees_with_events
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
   (ptrees : Ptree.mlw_file list) : goal_proof_result list =
-    let _why3_config, _why3_main, env, _datadir_opt = setup_env () in
+    let why3_config, why3_main, env, datadir_opt = setup_env () in
     let tasks =
       if split_vc then normalize_tasks_of_ptrees ~env ~ptrees
       else tasks_of_ptrees ~env ~ptrees
     in
-    prove_tasks_with_events ~timeout ~jobs ~dump_failed_smt ~should_cancel
-      ~on_goal_start ~on_goal_done tasks
+    prove_tasks_with_events_in_env ~why3_config ~why3_main ~env ~datadir_opt
+      ~timeout ~jobs ~dump_failed_smt ~should_cancel ~on_goal_start
+      ~on_goal_done tasks
 
 (* Public entry point:
    build normalized tasks from a ptree and run the proof loop. *)

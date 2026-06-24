@@ -45,3 +45,7 @@
    (run python3 ../scripts/check_architecture_fitness.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))
+
+(test
+ (name product_group_policy_partition_tests)
+ (libraries kairos_why3_compile))

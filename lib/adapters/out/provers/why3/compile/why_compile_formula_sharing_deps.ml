@@ -17,9 +17,12 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
+open Why3
 
 module Inventory = Why_compile_formula_sharing_inventory
 module Emit = Why_compile_formula_sharing_emit
+open Why_compile_expr_primitives
+open Why_compile_ptree_helpers
 module StringSet = Why_compile_ptree_helpers.StringSet
 
 type shared_entry = Inventory.shared_entry
@@ -58,7 +61,7 @@ let direct_shared_formula_deps table (formula : Core_syntax.hexpr) =
   in
   go (Inventory.formula_key formula) formula StringSet.empty
 
-let shared_formula_closure deps_by_name names =
+let shared_formula_closure_names deps_by_name names =
   let rec loop seen work =
     match work with
     | [] -> seen
@@ -83,10 +86,21 @@ let build_index ~table ~entries =
   in
   { entries; deps_by_name }
 
+let shared_formula_closure index ?(exclude = StringSet.empty) names =
+  let closure = shared_formula_closure_names index.deps_by_name names in
+  StringSet.union names (StringSet.diff closure exclude)
+
 let local_shared_formula_decls index ?(exclude = StringSet.empty) names =
-  let closure =
-    StringSet.diff (shared_formula_closure index.deps_by_name names) exclude
-  in
+  let closure = shared_formula_closure index ~exclude names in
   index.entries
   |> List.filter_map (fun (name, _formula, decl) ->
          if StringSet.mem name closure then Some decl else None)
+
+let local_shared_formula_imports index ~module_name_of_formula
+    ?(exclude = StringSet.empty) names =
+  let closure = shared_formula_closure index ~exclude names in
+  closure
+  |> StringSet.elements
+  |> List.map (fun name ->
+         Ptree.Duseimport
+           (loc, false, [ (qid1 (module_name_of_formula name), None) ]))

@@ -36,6 +36,9 @@ module Make (P : Application_ports.PORTS) = struct
   let product_group_fields =
     Verification_flow_timing_fields.product_group_fields
 
+  let product_individual_reason_fields =
+    Verification_flow_timing_fields.product_individual_reason_fields
+
   let vc_taxonomy_fields = Verification_flow_vc_taxonomy.fields
 
   let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
@@ -116,6 +119,12 @@ module Make (P : Application_ports.PORTS) = struct
     let why3_parent_orchestration_s =
       max 0.0 (counters.vc_smt_s -. worker_wall_max_s)
     in
+    let why3_cross_worker_duplicate_goal_count =
+      max 0
+        (counters.why3_smt_fingerprint_count
+        - counters.why3_unique_smt_fingerprint_count
+        - counters.why3_duplicate_goal_count)
+    in
     let worker_timing_fields =
       counters.why3_workers
       |> List.sort
@@ -131,6 +140,10 @@ module Make (P : Application_ports.PORTS) = struct
       counters.ir_fact_families |> List.concat_map ir_fact_family_fields
     in
     let product_group_fields = product_group_fields counters.why3_product_groups in
+    let product_individual_reason_fields =
+      product_individual_reason_fields
+        counters.why3_product_individual_reasons
+    in
     let vc_taxonomy_fields = vc_taxonomy_fields out.proof_traces in
     let timing_fields =
       [
@@ -194,12 +207,15 @@ module Make (P : Application_ports.PORTS) = struct
           string_of_int counters.why3_smt_fingerprint_count );
         ( "why3_unique_smt_fingerprint_count",
           string_of_int counters.why3_unique_smt_fingerprint_count );
+        ( "why3_cross_worker_duplicate_goal_count",
+          string_of_int why3_cross_worker_duplicate_goal_count );
         ("solver_sum_s", fmt_s solver_s);
         ("solver_goal_count", string_of_int attempted_goal_count);
         ("pending_goal_count", string_of_int pending_goal_count);
       ]
       @ vc_taxonomy_fields
       @ product_group_fields
+      @ product_individual_reason_fields
       @ ir_pass_size_fields
       @ ir_fact_family_fields
       @ worker_timing_fields

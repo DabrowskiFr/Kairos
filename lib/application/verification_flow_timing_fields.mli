@@ -39,3 +39,7 @@ val ir_fact_family_fields :
 
 val product_group_fields :
   Application_ports.why3_product_group_counters list -> (string * string) list
+
+val product_individual_reason_fields :
+  Application_ports.why3_product_individual_reason_counters list ->
+  (string * string) list

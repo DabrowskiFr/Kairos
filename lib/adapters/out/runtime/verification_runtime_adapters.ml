@@ -270,9 +270,30 @@ module Timing = struct
               pre_text_bytes = group.pre_text_bytes;
               post_text_bytes = group.post_text_bytes;
               estimated_cost = group.estimated_cost;
+              factor_kind = group.factor_kind;
+              factor_original_estimated_cost =
+                group.factor_original_estimated_cost;
+              factor_post_common_estimated_cost =
+                group.factor_post_common_estimated_cost;
+              factor_pre_common_estimated_cost =
+                group.factor_pre_common_estimated_cost;
+              factor_pre_and_post_common_estimated_cost =
+                group.factor_pre_and_post_common_estimated_cost;
               max_cost = group.max_cost;
             })
           d.why3_product_groups;
+      why3_product_individual_reasons =
+        List.map
+          (fun
+            (reason :
+              External_timing.why3_product_individual_reason_snapshot)
+          ->
+            {
+              Application_ports.node_name = reason.node_name;
+              reason = reason.reason;
+              count = reason.count;
+            })
+          d.why3_product_individual_reasons;
     }
 
   let record_frontend_parse = External_timing.record_frontend_parse

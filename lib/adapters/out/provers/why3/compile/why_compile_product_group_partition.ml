@@ -9,25 +9,32 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Cost model and chunking for grouped product-step helpers. *)
-
 type entry = Why_compile_product_group_boundary.entry
 
-type context = {
-  env : Why_compile_expr.env;
-  pre_vars_name : string;
-  post_vars_name : string;
-  step_pre_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
-  step_post_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
-}
+type t = { entries : entry list }
 
-val split_by_cost : context -> max_cost:int -> entry list -> entry list list
+let entries group = group.entries
+
+let group_key (_i, (sc : Why_contracts.step_contract_info), transition) =
+  (sc.step.step_class, transition)
+
+let partition entries =
+  let groups = Hashtbl.create 128 in
+  let order = ref [] in
+  List.iter
+    (fun entry ->
+      let key = group_key entry in
+      if not (Hashtbl.mem groups key) then order := key :: !order;
+      let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
+      Hashtbl.replace groups key (entry :: previous))
+    entries;
+  List.rev !order
+  |> List.map (fun key ->
+         { entries = Hashtbl.find groups key |> List.rev })

@@ -17,20 +17,21 @@
  *---------------------------------------------------------------------------*)
 
 module Group_cost = Why_compile_product_group_cost
+module Group_partition = Why_compile_product_group_partition
+module Group_policy = Why_compile_product_group_policy
 module Group_terms = Why_compile_product_group_terms
 
 type entry = Group_terms.entry
 
-type grouped_terms = Group_terms.t = {
-  pre_term : Why3.Ptree.term;
-  post_body : Why3.Ptree.term;
-  distinct_pre_count : int;
-  distinct_post_count : int;
-  post_implication_count : int;
-  pre_text_bytes : int;
-  post_text_bytes : int;
-  estimated_cost : int;
-}
+type grouped_terms = Group_terms.t
+
+type individual_reason = Group_policy.individual_reason =
+  | Grouping_disabled
+  | Empty_group
+  | Singleton_group
+  | Non_safe_step
+  | Has_local_cuts
+  | Split_singleton
 
 type group_metrics = {
   split_due_to_cost : bool;
@@ -41,6 +42,7 @@ type individual_plan = {
   index : int;
   contract : Why_contracts.step_contract_info;
   transition : Why_runtime_view.runtime_transition_view;
+  individual_reason : individual_reason;
   split_metrics : group_metrics option;
 }
 
@@ -54,8 +56,29 @@ type helper_plan_item =
   | Individual of individual_plan
   | Grouped of grouped_plan
 
-let individual ?split_metrics (index, contract, transition) =
-  Individual { index; contract; transition; split_metrics }
+let individual_reason_name = Group_policy.individual_reason_name
+
+let individual ?split_metrics ~individual_reason (index, contract, transition) =
+  Individual { index; contract; transition; individual_reason; split_metrics }
+
+let grouped_plan ~grouped_terms ~split_due_to_cost entries =
+  Grouped { entries; split_due_to_cost; grouped_terms = grouped_terms entries }
+
+let split_groupable_entries ~grouped_terms group_cost_context ~max_cost entries =
+  let chunks = Group_cost.split_by_cost group_cost_context ~max_cost entries in
+  let split_due_to_cost = List.length chunks > 1 in
+  chunks
+  |> List.concat_map (function
+       | [] -> []
+       | [ (i, sc, t) as entry ] ->
+           [
+             individual
+               ~individual_reason:Split_singleton
+               ~split_metrics:
+                 { split_due_to_cost; grouped_terms = grouped_terms [ entry ] }
+               (i, sc, t);
+           ]
+       | chunk -> [ grouped_plan ~grouped_terms ~split_due_to_cost chunk ])
 
 let plan_kernel_helpers ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
     ~(post_vars_name : string) ~(group_why3_product_steps : bool)
@@ -83,63 +106,17 @@ let plan_kernel_helpers ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
            in
            (i, sc, t))
   in
-  let groups = Hashtbl.create 128 in
-  let order = ref [] in
-  let group_key (_i, (sc : Why_contracts.step_contract_info), t) =
-    (sc.step.step_class, t)
-  in
-  List.iter
-    (fun entry ->
-      let key = group_key entry in
-      if not (Hashtbl.mem groups key) then order := key :: !order;
-      let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
-      Hashtbl.replace groups key (entry :: previous))
-    indexed_transitions;
-  List.rev !order
-  |> List.concat_map (fun key ->
-         let entries = Hashtbl.find groups key |> List.rev in
-         let group_is_safe =
-           match entries with
-           | [] -> false
-           | (_i, (sc : Why_contracts.step_contract_info), _t) :: _ ->
-               sc.step.step_class = Why_runtime_view.StepSafe
-         in
-         let groupable =
-           group_why3_product_steps
-           && List.length entries > 1
-           && group_is_safe
-           && List.for_all
-                (fun (_i, (sc : Why_contracts.step_contract_info), _t) ->
-                  sc.local_cuts = [])
-                entries
-         in
-         if groupable then
-           let chunks =
-             Group_cost.split_by_cost group_cost_context ~max_cost entries
-           in
-           let split_due_to_cost = List.length chunks > 1 in
-           chunks
-           |> List.concat_map (function
-                | [] -> []
-                | [ (i, sc, t) as entry ] ->
-                    [
-                      individual
-                        ~split_metrics:
-                          {
-                            split_due_to_cost;
-                            grouped_terms = grouped_terms [ entry ];
-                          }
-                        (i, sc, t);
-                    ]
-                | chunk ->
-                    [
-                      Grouped
-                        {
-                          entries = chunk;
-                          split_due_to_cost;
-                          grouped_terms = grouped_terms chunk;
-                        };
-                    ])
-         else
-           entries
-           |> List.map (fun entry -> individual entry))
+  indexed_transitions
+  |> Group_partition.partition
+  |> List.concat_map (fun group ->
+         let entries = Group_partition.entries group in
+         match
+           Group_policy.decide_group ~group_why3_product_steps entries
+         with
+         | Group_policy.Groupable ->
+             split_groupable_entries ~grouped_terms group_cost_context
+               ~max_cost entries
+         | Group_policy.Individual Empty_group -> []
+         | Group_policy.Individual individual_reason ->
+             entries
+             |> List.map (fun entry -> individual ~individual_reason entry))

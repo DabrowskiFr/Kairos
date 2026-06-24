@@ -21,6 +21,7 @@ open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
 module Labels = Why_compile_product_spec_labels
+module Group_boundary = Why_compile_product_group_boundary
 module Spec_terms = Why_compile_product_spec_terms
 module StringSet = Why_compile_ptree_helpers.StringSet
 
@@ -105,7 +106,7 @@ let individual_helper_contract ctx ~step_index ~helper_name
   }
 
 let grouped_helper_contract ~env ~inputs ~pre_vars_name ~post_vars_name
-    ~post_pred_name (grouped : Why_compile_product_groups.grouped_terms) =
+    ~post_pred_name (grouped : Group_boundary.proof_terms) =
   let post_used_names = names_of_term grouped.post_body StringSet.empty in
   let input_binders_without_vars =
     match inputs with _vars :: rest -> rest | [] -> []

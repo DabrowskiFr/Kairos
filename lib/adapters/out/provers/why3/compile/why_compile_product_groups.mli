@@ -23,16 +23,15 @@
 
 type entry = Why_compile_product_group_terms.entry
 
-type grouped_terms = Why_compile_product_group_terms.t = {
-  pre_term : Why3.Ptree.term;
-  post_body : Why3.Ptree.term;
-  distinct_pre_count : int;
-  distinct_post_count : int;
-  post_implication_count : int;
-  pre_text_bytes : int;
-  post_text_bytes : int;
-  estimated_cost : int;
-}
+type grouped_terms = Why_compile_product_group_terms.t
+
+type individual_reason = Why_compile_product_group_policy.individual_reason =
+  | Grouping_disabled
+  | Empty_group
+  | Singleton_group
+  | Non_safe_step
+  | Has_local_cuts
+  | Split_singleton
 
 type group_metrics = {
   split_due_to_cost : bool;
@@ -43,6 +42,7 @@ type individual_plan = {
   index : int;
   contract : Why_contracts.step_contract_info;
   transition : Why_runtime_view.runtime_transition_view;
+  individual_reason : individual_reason;
   split_metrics : group_metrics option;
 }
 
@@ -55,6 +55,8 @@ type grouped_plan = {
 type helper_plan_item =
   | Individual of individual_plan
   | Grouped of grouped_plan
+
+val individual_reason_name : individual_reason -> string
 
 val plan_kernel_helpers :
   env:Why_compile_expr.env ->

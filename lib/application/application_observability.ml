@@ -74,7 +74,18 @@ type why3_product_group_counters = {
   pre_text_bytes : int;
   post_text_bytes : int;
   estimated_cost : int;
+  factor_kind : string;
+  factor_original_estimated_cost : int;
+  factor_post_common_estimated_cost : int;
+  factor_pre_common_estimated_cost : int;
+  factor_pre_and_post_common_estimated_cost : int;
   max_cost : int;
+}
+
+type why3_product_individual_reason_counters = {
+  node_name : string;
+  reason : string;
+  count : int;
 }
 
 type timing_counters = {
@@ -118,4 +129,6 @@ type timing_counters = {
   ir_passes : ir_pass_counters list;
   ir_fact_families : ir_fact_family_counters list;
   why3_product_groups : why3_product_group_counters list;
+  why3_product_individual_reasons :
+    why3_product_individual_reason_counters list;
 }

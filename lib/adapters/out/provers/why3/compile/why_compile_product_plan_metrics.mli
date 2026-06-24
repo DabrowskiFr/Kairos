@@ -9,25 +9,18 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Cost model and chunking for grouped product-step helpers. *)
-
-type entry = Why_compile_product_group_boundary.entry
+(** Diagnostic observation of already-built product helper plans. *)
 
 type context = {
-  env : Why_compile_expr.env;
-  pre_vars_name : string;
-  post_vars_name : string;
-  step_pre_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
-  step_post_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
+  node_name : Core_syntax.ident;
+  max_cost : int;
 }
 
-val split_by_cost : context -> max_cost:int -> entry list -> entry list list
+val observe : context -> Why_compile_product_groups.helper_plan_item list -> unit

@@ -19,6 +19,7 @@
 open Why3
 open Why_compile_expr
 open Why_compile_ptree_helpers
+module StringSet = Why_compile_ptree_helpers.StringSet
 
 type spec_groups = { pre_labels : string list; post_labels : string list }
 
@@ -32,6 +33,9 @@ type module_unit =
 
 let empty_groups () = { pre_labels = []; post_labels = [] }
 let common_module_name module_name = module_name ^ "__Common"
+let shared_formula_module_name module_name formula_name =
+  module_name ^ "__" ^ formula_name
+
 let import_module name = Ptree.Duseimport (loc, false, [ (qid1 name, None) ])
 
 let node_module name decls groups : module_unit =
@@ -39,9 +43,30 @@ let node_module name decls groups : module_unit =
 
 let contract_groups ~pre_labels ~post_labels = { pre_labels; post_labels }
 
+let shared_formula_modules ~(module_name : string) ~(imports : Ptree.decl list)
+    ~(common_import : Ptree.decl)
+    ~(shared_formula_decls : (string * Ptree.decl) list)
+    ~shared_formula_closure =
+  let import_formula name =
+    import_module (shared_formula_module_name module_name name)
+  in
+  shared_formula_decls
+  |> List.map (fun (name, decl) ->
+         let deps =
+           let names = StringSet.singleton name in
+           shared_formula_closure names
+           |> fun closure -> StringSet.remove name closure
+           |> StringSet.elements
+         in
+         node_module
+           (shared_formula_module_name module_name name)
+           (imports @ [ common_import ] @ List.map import_formula deps @ [ decl ])
+           (empty_groups ()))
+
 let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
     ~(common_module_name : string) ~(common_import : Ptree.decl)
     ~(common_decls : Ptree.decl list)
+    ~(shared_formula_modules : module_unit list)
     ~(shared_pre_bundle_modules : module_unit list)
     ~(shared_post_bundle_modules : module_unit list)
     ~(init_goal_decls : Ptree.decl list)
@@ -69,8 +94,8 @@ let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
              ~post_labels:helper.post_labels))
   in
   common_module
-  :: (shared_pre_bundle_modules @ shared_post_bundle_modules @ init_modules
-    @ helper_modules)
+  :: (shared_formula_modules @ shared_pre_bundle_modules
+     @ shared_post_bundle_modules @ init_modules @ helper_modules)
 
 let program_ast_of_modules modules =
   let mlw =

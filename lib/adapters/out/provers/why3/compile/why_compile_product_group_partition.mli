@@ -9,25 +9,17 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Cost model and chunking for grouped product-step helpers. *)
+(** Stable partition of product-step entries by executable transition. *)
 
 type entry = Why_compile_product_group_boundary.entry
+type t
 
-type context = {
-  env : Why_compile_expr.env;
-  pre_vars_name : string;
-  post_vars_name : string;
-  step_pre_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
-  step_post_terms_with_rec :
-    string -> Why_contracts.step_contract_info -> Why3.Ptree.term list;
-}
-
-val split_by_cost : context -> max_cost:int -> entry list -> entry list list
+val entries : t -> entry list
+val partition : entry list -> t list

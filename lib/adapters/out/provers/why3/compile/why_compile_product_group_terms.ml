@@ -17,27 +17,11 @@
  *---------------------------------------------------------------------------*)
 
 open Why_compile_ptree_helpers
-open Why_compile_expr
+module Boundary = Why_compile_product_group_boundary
+module Factoring = Why_compile_product_group_factoring
 
-type entry =
-  int * Why_contracts.step_contract_info * Why_runtime_view.runtime_transition_view
-
-type t = {
-  pre_term : Why3.Ptree.term;
-  post_body : Why3.Ptree.term;
-  distinct_pre_count : int;
-  distinct_post_count : int;
-  post_implication_count : int;
-  pre_text_bytes : int;
-  post_text_bytes : int;
-  estimated_cost : int;
-}
-
-let unique_term_count terms =
-  terms
-  |> List.map string_of_term
-  |> List.sort_uniq String.compare
-  |> List.length
+type entry = Boundary.entry
+type t = Boundary.t
 
 let build ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
     ~(post_vars_name : string) ~step_pre_terms_with_rec
@@ -47,43 +31,17 @@ let build ~(env : Why_compile_expr.env) ~(pre_vars_name : string)
     |> List.map (fun (_i, sc, _t) ->
            step_pre_terms_with_rec env.rec_name sc |> term_and_list)
   in
-  let pre_term = pre_terms |> term_or_list in
-  let grouped_post_preconditions =
-    let groups = Hashtbl.create 16 in
-    let order = ref [] in
+  let entry_terms =
     entries
-    |> List.iter (fun (_i, sc, _t) ->
-           let pre = step_pre_terms_with_rec pre_vars_name sc |> term_and_list in
-           let post =
-             step_post_terms_with_rec post_vars_name sc |> term_and_list
-           in
-           if not (Hashtbl.mem groups post) then order := post :: !order;
-           let previous =
-             Hashtbl.find_opt groups post |> Option.value ~default:[]
-           in
-           Hashtbl.replace groups post (pre :: previous));
-    List.rev !order
-    |> List.map (fun post ->
-           let pres = Hashtbl.find groups post |> List.rev in
-           (term_or_list pres, post))
+    |> List.map (fun (_i, sc, _t) ->
+           {
+             Factoring.pre_terms = step_pre_terms_with_rec pre_vars_name sc;
+             post_terms = step_post_terms_with_rec post_vars_name sc;
+           })
   in
-  let post_body =
-    grouped_post_preconditions
-    |> List.map (fun (pre, post) -> term_implies pre post)
-    |> term_and_list
-  in
-  let post_terms =
-    grouped_post_preconditions |> List.map (fun (_pre, post) -> post)
-  in
-  let pre_text_bytes = String.length (string_of_term pre_term) in
-  let post_text_bytes = String.length (string_of_term post_body) in
-  {
-    pre_term;
-    post_body;
-    distinct_pre_count = unique_term_count pre_terms;
-    distinct_post_count = unique_term_count post_terms;
-    post_implication_count = List.length grouped_post_preconditions;
-    pre_text_bytes;
-    post_text_bytes;
-    estimated_cost = pre_text_bytes + post_text_bytes;
-  }
+  let factored = Factoring.build ~pre_terms ~entry_terms in
+  Boundary.make factored.proof_terms factored.profile
+
+let proof_terms = Boundary.proof_terms
+
+let profile = Boundary.profile

@@ -32,6 +32,7 @@ type context = {
 }
 
 type t = {
+  shared_formula_decls : (string * Why3.Ptree.decl) list;
   abstract_formula :
     in_post:bool -> Core_syntax.hexpr -> Why3.Ptree.term option;
   abstract_formula_with_rec :
@@ -40,6 +41,12 @@ type t = {
   shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
   local_shared_formula_decls :
     ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
+  local_shared_formula_imports :
+    module_name_of_formula:(string -> string) ->
+    ?exclude:StringSet.t ->
+    StringSet.t ->
+    Why3.Ptree.decl list;
+  shared_formula_closure : ?exclude:StringSet.t -> StringSet.t -> StringSet.t;
 }
 
 val build : context -> t

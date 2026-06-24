@@ -33,6 +33,10 @@
   why_compile_product_layout
   why_compile_bundles
   why_compile_product_bundle_state
+  why_compile_product_group_boundary
+  why_compile_product_group_policy
+  why_compile_product_group_partition
+  why_compile_product_group_factoring
   why_compile_product_group_terms
   why_compile_product_group_cost
   why_compile_product_groups
@@ -46,6 +50,7 @@
   why_compile_product_individual_helper
   why_compile_product_grouped_helper
   why_compile_product_helpers
+  why_compile_product_plan_metrics
   why_compile_product_plan
   why_compile_modules
   why_compile_node_types

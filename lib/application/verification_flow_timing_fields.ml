@@ -165,11 +165,35 @@ let product_group_fields
       (group : Application_ports.why3_product_group_counters) =
     group.estimated_cost
   in
+  let factor_kind (group : Application_ports.why3_product_group_counters) =
+    group.factor_kind
+  in
+  let factor_original_estimated_cost
+      (group : Application_ports.why3_product_group_counters) =
+    group.factor_original_estimated_cost
+  in
+  let factor_post_common_estimated_cost
+      (group : Application_ports.why3_product_group_counters) =
+    group.factor_post_common_estimated_cost
+  in
+  let factor_pre_common_estimated_cost
+      (group : Application_ports.why3_product_group_counters) =
+    group.factor_pre_common_estimated_cost
+  in
+  let factor_pre_and_post_common_estimated_cost
+      (group : Application_ports.why3_product_group_counters) =
+    group.factor_pre_and_post_common_estimated_cost
+  in
   let max_cost (group : Application_ports.why3_product_group_counters) =
     group.max_cost
   in
   let sum_by f = List.fold_left (fun acc group -> acc + f group) 0 groups in
   let max_by f = List.fold_left (fun acc group -> max acc (f group)) 0 groups in
+  let count_factor kind =
+    List.fold_left
+      (fun acc group -> if factor_kind group = kind then acc + 1 else acc)
+      0 groups
+  in
   let emitted_group_count =
     List.fold_left
       (fun acc group -> if emitted_as_group group then acc + 1 else acc)
@@ -210,6 +234,16 @@ let product_group_fields
              ( prefix ^ "post_text_bytes",
                string_of_int (post_text_bytes group) );
              (prefix ^ "estimated_cost", string_of_int (estimated_cost group));
+             (prefix ^ "factor_kind", sanitize_csv_value (factor_kind group));
+             ( prefix ^ "factor_original_estimated_cost",
+               string_of_int (factor_original_estimated_cost group) );
+             ( prefix ^ "factor_post_common_estimated_cost",
+               string_of_int (factor_post_common_estimated_cost group) );
+             ( prefix ^ "factor_pre_common_estimated_cost",
+               string_of_int (factor_pre_common_estimated_cost group) );
+             ( prefix ^ "factor_pre_and_post_common_estimated_cost",
+               string_of_int
+                 (factor_pre_and_post_common_estimated_cost group) );
              (prefix ^ "max_cost", string_of_int (max_cost group));
            ])
     |> List.concat
@@ -233,5 +267,65 @@ let product_group_fields
       string_of_int (max_by post_text_bytes) );
     ( "why3_product_group_max_estimated_cost",
       string_of_int (max_by estimated_cost) );
+    ( "why3_product_group_total_estimated_cost",
+      string_of_int (sum_by estimated_cost) );
+    ( "why3_product_group_factor_original_count",
+      string_of_int (count_factor "original") );
+    ( "why3_product_group_factor_post_common_count",
+      string_of_int (count_factor "post_common") );
+    ( "why3_product_group_factor_pre_common_count",
+      string_of_int (count_factor "pre_common") );
+    ( "why3_product_group_factor_pre_and_post_common_count",
+      string_of_int (count_factor "pre_and_post_common") );
+    ( "why3_product_group_factor_original_total_estimated_cost",
+      string_of_int (sum_by factor_original_estimated_cost) );
+    ( "why3_product_group_factor_post_common_total_estimated_cost",
+      string_of_int (sum_by factor_post_common_estimated_cost) );
+    ( "why3_product_group_factor_pre_common_total_estimated_cost",
+      string_of_int (sum_by factor_pre_common_estimated_cost) );
+    ( "why3_product_group_factor_pre_and_post_common_total_estimated_cost",
+      string_of_int (sum_by factor_pre_and_post_common_estimated_cost) );
   ]
   @ top_groups
+
+let sanitize_field_suffix value =
+  String.map
+    (function
+      | 'a' .. 'z' as c -> c
+      | 'A' .. 'Z' as c -> Char.lowercase_ascii c
+      | '0' .. '9' as c -> c
+      | _ -> '_')
+    value
+
+let product_individual_reason_fields
+    (reasons :
+      Application_ports.why3_product_individual_reason_counters list) =
+  let add_count reason count counts =
+    let rec loop acc = function
+      | [] -> List.rev ((reason, count) :: acc)
+      | (known_reason, known_count) :: rest when known_reason = reason ->
+          List.rev_append acc ((known_reason, known_count + count) :: rest)
+      | item :: rest -> loop (item :: acc) rest
+    in
+    loop [] counts
+  in
+  let reason_counts =
+    reasons
+    |> List.fold_left
+         (fun acc
+              (item :
+                Application_ports.why3_product_individual_reason_counters)
+            -> add_count item.reason item.count acc)
+         []
+    |> List.sort (fun (left, _) (right, _) -> String.compare left right)
+  in
+  let total =
+    List.fold_left (fun acc (_reason, count) -> acc + count) 0 reason_counts
+  in
+  ("why3_product_individual_count", string_of_int total)
+  :: List.map
+       (fun (reason, count) ->
+         ( "why3_product_individual_reason_"
+           ^ sanitize_field_suffix reason ^ "_count",
+           string_of_int count ))
+       reason_counts
