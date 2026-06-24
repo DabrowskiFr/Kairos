@@ -112,7 +112,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kx_elaborate_state_selectors.ml` | Expansion des selecteurs d'etats pour invariants de surface |
 | `kx_elaborate_validation.ml` | Validations de surface avant abaissement vers l'AST elabore |
 | `kx_parse_api.ml` | API de parsing utilisee par CLI/LSP/tests |
-| `kairos_to_model.ml` | Conversion vers `Verification_model` |
+| `kairos_to_model_validation.ml` | Validation semantique du `Verification_model` elabore |
+| `kairos_to_model.ml` | Conversion Kx AST vers `Verification_model` |
 | `kairos_frontend.ml` | Adaptateur frontend complet : fichier -> `Application_ports.frontend_input` |
 
 ### Application Et Wiring

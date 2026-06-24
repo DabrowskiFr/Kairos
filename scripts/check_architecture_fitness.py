@@ -717,7 +717,11 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         "kx_elaborate_logic",
         "kx_elaborate_histories",
     ]
-    required_modules = surface_helper_modules + lowering_modules
+    model_modules = [
+        "kairos_to_model_validation",
+        "kairos_to_model",
+    ]
+    required_modules = surface_helper_modules + lowering_modules + model_modules
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
             path = frontend_root / f"{module}{suffix}"
@@ -835,6 +839,48 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         fail(
             "front-end lowering modules must stop at the core syntax boundary:\n  - "
             + "\n  - ".join(violations)
+        )
+
+    to_model = (frontend_root / "kairos_to_model.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    to_model_forbidden_defs = [
+        r"\blet\s+fail_node\b",
+        r"\blet\s+lookup_constructor\b",
+        r"\blet\s+validate_unique_type_decls\b",
+        r"\blet\s+validate_identifier_collisions\b",
+        r"\blet\s+type_name\b",
+        r"\blet\s+same_ty\b",
+        r"\blet\s+validate_function_decls\b",
+        r"\blet\s+validate_node\b",
+    ]
+    found = [pattern for pattern in to_model_forbidden_defs if re.search(pattern, to_model)]
+    if found:
+        fail(
+            "kairos_to_model.ml must lower Kx ASTs and delegate semantic validation "
+            "to kairos_to_model_validation.ml"
+        )
+
+    model_validation = (frontend_root / "kairos_to_model_validation.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    validation_forbidden_deps = [
+        r"\bKx_ast\b",
+        r"\bKx_core_syntax\b",
+        r"\bKx_surface_syntax\b",
+        r"\bKx_elaborate\b",
+        r"\bWhy",
+        r"\bSpot",
+        r"\bZ3\b",
+    ]
+    found = [
+        pattern for pattern in validation_forbidden_deps if re.search(pattern, model_validation)
+    ]
+    if found:
+        fail(
+            "kairos_to_model_validation.ml must validate the core verification model, "
+            "not depend on Kx surface/elaborated syntax or external tools: "
+            + ", ".join(found)
         )
 
 
