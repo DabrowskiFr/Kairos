@@ -157,6 +157,8 @@ def check_minimal_prove_path(repo: Path) -> None:
     )
     if "Domain.recommended_domain_count" not in runtime_defaults:
         fail("default proof jobs must be derived from runtime available parallelism")
+    if "hw.perflevel" not in runtime_defaults:
+        fail("default proof jobs must use OS CPU topology when available")
     if not re.search(r"\blet\s+default_proof_jobs\s*\(\)\s*=", runtime_defaults):
         fail("default proof jobs must be computed dynamically")
 

@@ -177,7 +177,7 @@ let cmd =
       & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
           ~doc:
             "Maximum number of Why3 prover calls to keep in flight. The default \
-             is derived from the available parallelism. With \
+             is derived from the CPU topology and available parallelism. With \
              --stop-on-first-nonvalid, Kairos uses one job to keep strict \
              first-failure semantics.")
   in
