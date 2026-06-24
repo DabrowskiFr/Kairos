@@ -204,7 +204,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_product_plan.ml` | Construction du plan produit et enregistrement des metriques |
 | `why_compile_product_pipeline.ml` | Facade produit : enchaine facts, specs, plan, helpers |
 | `why_compile_node_common.ml` | Squelette commun Why3 d'un noeud : imports, types, binders, getters |
-| `why_compile_modules.ml` | Assemblage final des declarations Why3 en modules et `program_ast` |
+| `why_compile_modules.ml` | Assemblage final des declarations et helper units en modules Why3 |
 | `why_compile_step.ml` | Compilation imperative des corps de transition deja selectionnes |
 | `why_compile.ml/mli` | Facade publique et orchestration de la compilation Why3 d'un noeud |
 | `why_contracts.ml` | Contrats Why3 |

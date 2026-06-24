@@ -44,7 +44,7 @@ val assemble_node_modules :
   shared_pre_bundle_modules:module_unit list ->
   shared_post_bundle_modules:module_unit list ->
   init_goal_decls:Why3.Ptree.decl list ->
-  kernel_step_helper_units:Why_compile_product_helpers.helper_unit list ->
+  kernel_step_helper_units:Why_compile_product_helper_types.helper_unit list ->
   module_unit list
 
 val program_ast_of_modules : module_unit list -> program_ast

@@ -48,7 +48,7 @@ type context = {
 type result = {
   shared_pre_bundle_modules : Why_compile_modules.module_unit list;
   shared_post_bundle_modules : Why_compile_modules.module_unit list;
-  kernel_step_helper_units : Why_compile_product_helpers.helper_unit list;
+  kernel_step_helper_units : Why_compile_product_helper_types.helper_unit list;
 }
 
 val build : context -> Why_contracts.step_contract_info list -> result

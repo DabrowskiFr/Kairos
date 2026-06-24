@@ -895,6 +895,31 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             + "\n  - ".join(violations)
         )
 
+    module_assembler_surfaces = [
+        "lib/adapters/out/provers/why3/compile/why_compile_modules.ml",
+        "lib/adapters/out/provers/why3/compile/why_compile_modules.mli",
+        "lib/adapters/out/provers/why3/compile/why_compile_product_pipeline.mli",
+    ]
+    module_assembler_forbidden = [
+        r"\bWhy_compile_product_helpers\.helper_unit\b",
+        r"\bProduct_helpers\.helper_unit\b",
+        r"\bWhy_compile_product_helpers\b",
+    ]
+    violations = []
+    for rel in module_assembler_surfaces:
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            for pattern in module_assembler_forbidden:
+                if re.search(pattern, line):
+                    violations.append(f"{rel}:{line_no}: {line.strip()}")
+                    break
+    if violations:
+        fail(
+            "Why3 module assembly must depend only on product helper data "
+            "types, not on the helper-emission facade:\n  - "
+            + "\n  - ".join(violations)
+        )
+
     product_helpers = (
         repo / "lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml"
     ).read_text(encoding="utf-8", errors="replace")
