@@ -589,6 +589,7 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
     lowering_modules = [
         "kx_elaborate_env",
         "kx_elaborate_logic",
+        "kx_elaborate_histories",
     ]
     required_modules = surface_helper_modules + lowering_modules
     for module in required_modules:
@@ -644,6 +645,15 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
         r"\band\s+expand_predicate\b",
         r"\band\s+lower_ltl\b",
         r"\blet\s+rec\s+lower_contract_ltls\b",
+        r"\btype\s+generated_history\b",
+        r"\blet\s+generated_history_key\b",
+        r"\blet\s+generated_history_raw_vdecls\b",
+        r"\blet\s+rec\s+collect_history_hexpr\b",
+        r"\blet\s+collect_node_histories\b",
+        r"\blet\s+history_ghosts\b",
+        r"\blet\s+history_updates_for_transition\b",
+        r"\blet\s+history_ensures_for_transition\b",
+        r"\blet\s+expand_histories_in_transition\b",
     ]
     found = [pattern for pattern in forbidden_defs if re.search(pattern, elaborate)]
     if found:

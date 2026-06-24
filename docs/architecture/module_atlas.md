@@ -107,6 +107,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kx_elaborate_env.ml` | Environnement d'elaboration et expansion des declarations indexees |
 | `kx_elaborate_subst.ml` | Substitution capture-avoiding sur la syntaxe de surface |
 | `kx_elaborate_logic.ml` | Abaissement des expressions, predicates et formules LTL de surface |
+| `kx_elaborate_histories.ml` | Generation des ghosts et transitions pour historiques de surface |
 | `kx_elaborate_observers.ml` | Generation des declarations et updates proof-only des observers |
 | `kx_elaborate_state_selectors.ml` | Expansion des selecteurs d'etats pour invariants de surface |
 | `kx_elaborate_validation.ml` | Validations de surface avant abaissement vers l'AST elabore |
