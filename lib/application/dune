@@ -11,4 +11,4 @@
   verification_flow_vc_taxonomy
   verification_flow_timing_meta
   verification_flow_usecases)
- (libraries kairos_domain_core))
+ (libraries kairos_domain_core kairos_shared))

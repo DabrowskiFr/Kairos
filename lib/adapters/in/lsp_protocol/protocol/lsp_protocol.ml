@@ -345,7 +345,9 @@ let config_of_yojson json =
           timeout_s = repr.timeout_s;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prove = repr.prove;
-          proof_jobs = Option.value repr.proof_jobs ~default:1;
+          proof_jobs =
+            Option.value repr.proof_jobs
+              ~default:(Kairos_runtime_defaults.default_proof_jobs ());
           generate_vc_text = repr.generate_vc_text;
           generate_smt_text = repr.generate_smt_text;
           generate_dot_png = repr.generate_dot_png;

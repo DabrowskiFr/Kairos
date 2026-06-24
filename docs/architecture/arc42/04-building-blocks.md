@@ -5,6 +5,7 @@
 | Block | Main paths | Responsibility | Correction role |
 | --- | --- | --- | --- |
 | CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
+| Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
 | Composition root | `lib/composition` | Wire ports to concrete adapters | None |

@@ -1,5 +1,8 @@
 {
   "layers": {
+    "shared": [
+      "kairos_shared"
+    ],
     "foundation": [
       "kairos_domain_core"
     ],
@@ -41,24 +44,30 @@
       "kairos_external_graphviz",
       "kairos_external_spot",
       "kairos_external_timing",
-      "kairos_external_why3",
-      "kairos_external_z3"
+      "kairos_external_why3"
     ]
   },
   "allow": {
+    "shared": [
+      "shared"
+    ],
     "foundation": [
+      "shared",
       "foundation"
     ],
     "verification": [
+      "shared",
       "foundation",
       "verification"
     ],
     "application": [
+      "shared",
       "application",
       "verification",
       "foundation"
     ],
     "adapters_out": [
+      "shared",
       "adapters_out",
       "application",
       "external",
@@ -67,6 +76,7 @@
       "foundation"
     ],
     "composition": [
+      "shared",
       "composition",
       "application",
       "adapters_in",
@@ -75,16 +85,19 @@
       "foundation"
     ],
     "proof_export": [
+      "shared",
       "proof_export",
       "foundation",
       "verification"
     ],
     "adapters_in": [
+      "shared",
       "adapters_in",
       "application",
       "foundation"
     ],
     "external": [
+      "shared",
       "external",
       "foundation",
       "verification"

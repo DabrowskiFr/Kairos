@@ -3,5 +3,6 @@
  (public_name kairos.lsp_protocol)
  (wrapped false)
  (modules lsp_protocol)
+ (libraries kairos_shared)
  (preprocess
   (pps ppx_deriving_yojson)))

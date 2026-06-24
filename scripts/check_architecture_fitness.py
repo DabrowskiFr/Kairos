@@ -152,23 +152,26 @@ def check_minimal_prove_path(repo: Path) -> None:
     if "Pipeline_artifact_bundle.build" not in artifact_branch:
         fail("artifact branch no longer calls Pipeline_artifact_bundle.build")
 
-    pipeline_types = (repo / "lib/application/pipeline_types.ml").read_text(
+    runtime_defaults = (repo / "lib/shared/kairos_runtime_defaults.ml").read_text(
         encoding="utf-8", errors="replace"
     )
-    if not re.search(r"\blet\s+default_proof_jobs\s*=\s*8\b", pipeline_types):
-        fail("default prove path must keep prover-oriented parallelism at 8 jobs")
+    if "Domain.recommended_domain_count" not in runtime_defaults:
+        fail("default proof jobs must be derived from runtime available parallelism")
+    if not re.search(r"\blet\s+default_proof_jobs\s*\(\)\s*=", runtime_defaults):
+        fail("default proof jobs must be computed dynamically")
 
     cli = (repo / "bin/cli/kairos.ml").read_text(
         encoding="utf-8", errors="replace"
     )
     if not re.search(
-        r"opt\s+int\s+Pipeline_types\.default_proof_jobs", cli
+        r"opt\s+int\s+\(Pipeline_types\.default_proof_jobs\s*\(\)\)", cli
     ):
-        fail("CLI --proof-jobs default must use Pipeline_types.default_proof_jobs")
+        fail("CLI --proof-jobs default must call Pipeline_types.default_proof_jobs")
 
     lsp_files = [
         "bin/lsp/lsp_run_config.ml",
         "bin/lsp/lsp_backend_config.ml",
+        "lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml",
     ]
     violations = []
     for rel in lsp_files:

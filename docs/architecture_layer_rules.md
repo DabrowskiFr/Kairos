@@ -6,6 +6,7 @@ This document is the human-readable companion of
 ## Layers
 
 - `foundation`: merged domain core (`domain_core`) with syntax/model/IR base
+- `shared`: dependency-free technical defaults and helpers shared across layers
 - `verification`: merged domain verification (`domain_verification`) with automata + IR passes
 - `application`: use-cases and application-level flow types/ports (`application`)
 - `composition`: composition root wiring ports to concrete adapters (`composition`)
@@ -28,6 +29,7 @@ For strict clean boundaries, domain-side layers (`verification`,
 `proof_export`) do not allow direct dependencies to `external`.
 Application-side layer (`application`) does not allow direct dependencies to
 `adapters_out` or `external`.
+Shared technical helpers (`shared`) must not depend on any Kairos layer.
 Incoming adapters (`adapters_in`) may depend inward on `application`
 (use-case ports), `foundation`, `verification`, and `proof_export`, but not
 on `adapters_out`.
