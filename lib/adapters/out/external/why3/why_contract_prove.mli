@@ -25,23 +25,10 @@
     (notably VC splitting), so each resulting task is an atomic goal that can be
     proved, dumped, diagnosed, and traced independently. *)
 
-(** Per-goal proof result returned by batch proving.
-
-    Fields:
-    - [goal_name]: normalized Why3 goal identifier.
-    - [prover_result]: full typed Why3 prover result for this goal.
-    - [dump_path]: optional path to dumped failing SMT script. *)
-type goal_proof_result = {
-  goal_name : string;
-  prover_result : Why3.Call_provers.prover_result;
-  dump_path : string option;
-  timing : goal_timing;
-}
-
 (** Per-goal backend timing.  The solver time is the prover-reported CPU time;
     the other fields are wall-clock time observed by Kairos around the Why3
     driver/prover calls. *)
-and goal_timing = {
+type goal_timing = Why_contract_proof_types.goal_timing = {
   prepare_s : float;
   print_s : float;
   spawn_s : float;
@@ -49,12 +36,25 @@ and goal_timing = {
   solver_s : float;
 }
 
+(** Per-goal proof result returned by batch proving.
+
+    Fields:
+    - [goal_name]: normalized Why3 goal identifier.
+    - [prover_result]: full typed Why3 prover result for this goal.
+    - [dump_path]: optional path to dumped failing SMT script. *)
+type goal_proof_result = Why_contract_proof_types.goal_proof_result = {
+  goal_name : string;
+  prover_result : Why3.Call_provers.prover_result;
+  dump_path : string option;
+  timing : goal_timing;
+}
+
 (** Event payload emitted when one goal starts.
 
     Fields:
     - [goal_index]: zero-based index in normalized goal order.
     - [goal_name]: Why3 goal identifier. *)
-type goal_start_event = {
+type goal_start_event = Why_contract_proof_types.goal_start_event = {
   goal_index : int;
   goal_name : string;
 }
@@ -64,7 +64,7 @@ type goal_start_event = {
     Fields:
     - [goal_index]: zero-based index in normalized goal order.
     - [result]: structured proof outcome for that goal. *)
-type goal_done_event = {
+type goal_done_event = Why_contract_proof_types.goal_done_event = {
   goal_index : int;
   result : goal_proof_result;
 }

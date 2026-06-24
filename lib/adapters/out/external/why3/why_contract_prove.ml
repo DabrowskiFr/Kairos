@@ -22,56 +22,11 @@ open Why_contract_unix_io
 
 module Persistent_z3 = Why_contract_persistent_z3
 module Smt_utils = Why_contract_smt_utils
-
-type goal_proof_result = {
-  goal_name : string;
-  prover_result : Call_provers.prover_result;
-  dump_path : string option;
-  timing : goal_timing;
-}
-
-and goal_timing = {
-  prepare_s : float;
-  print_s : float;
-  spawn_s : float;
-  wait_s : float;
-  solver_s : float;
-}
-
-let zero_goal_timing =
-  {
-    prepare_s = 0.0;
-    print_s = 0.0;
-    spawn_s = 0.0;
-    wait_s = 0.0;
-    solver_s = 0.0;
-  }
-
-let add_goal_timing left right =
-  {
-    prepare_s = left.prepare_s +. right.prepare_s;
-    print_s = left.print_s +. right.print_s;
-    spawn_s = left.spawn_s +. right.spawn_s;
-    wait_s = left.wait_s +. right.wait_s;
-    solver_s = left.solver_s +. right.solver_s;
-  }
-
-let goal_timing_with_prepare prepare_s =
-  { zero_goal_timing with prepare_s }
+include Why_contract_proof_types
 
 type prover_handle = {
   driver : Driver.driver;
   command : string;
-}
-
-type goal_start_event = {
-  goal_index : int;
-  goal_name : string;
-}
-
-type goal_done_event = {
-  goal_index : int;
-  result : goal_proof_result;
 }
 
 type worker_to_parent =
