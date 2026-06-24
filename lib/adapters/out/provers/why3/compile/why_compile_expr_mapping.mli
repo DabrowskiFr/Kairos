@@ -16,14 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+(** Kairos-to-Why3 type and operator mappings. *)
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
-
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+val default_pty : Core_syntax.ty -> Why3.Ptree.pty
+val binop_id : Core_syntax.binop -> string
+val relop_id : Core_syntax.relop -> string

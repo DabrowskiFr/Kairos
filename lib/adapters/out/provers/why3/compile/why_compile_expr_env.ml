@@ -16,14 +16,30 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+open Why3
+open Ptree
+open Core_syntax
+open Why_compile_expr_primitives
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
+type env = {
+  rec_name : string;
+  rec_vars : string list;
+  links : (hexpr * ident) list;
+}
 
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+let field (env : env) (name : ident) : Ptree.expr =
+  mk_expr (Eidapp (qid1 name, [ mk_expr (Eident (qid1 env.rec_name)) ]))
+
+let is_rec_var (env : env) (x : ident) : bool =
+  List.exists (( = ) x) env.rec_vars
+
+let term_var (env : env) (x : ident) : Ptree.term_desc =
+  if is_rec_var env x then
+    Tidapp (qid1 x, [ mk_term (Tident (qid1 env.rec_name)) ])
+  else Tident (qid1 x)
+
+let find_link (env : env) (h : hexpr) : ident option =
+  List.find_map (fun (h', id) -> if h' = h then Some id else None) env.links
+
+let term_of_var (env : env) (name : ident) : Ptree.term =
+  mk_term (term_var env name)

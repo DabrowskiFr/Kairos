@@ -16,14 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+(** Stable textual keys for Why3 terms used by backend sharing heuristics. *)
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
-
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+val string_of_qid : Why3.Ptree.qualid -> string
+val string_of_term : Why3.Ptree.term -> string
+val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list

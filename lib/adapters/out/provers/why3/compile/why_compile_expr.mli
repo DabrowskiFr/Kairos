@@ -16,11 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compilation environment, Why3 primitives, and Kairos expression compiler.
+(** Compatibility facade for the Why3 expression compiler.
 
-    Defines the [env] type shared by all Why3 backend modules, the low-level
-    Why3 [Ptree] construction helpers, and the functions that translate Kairos
-    expressions and formulas into Why3 terms and expressions. *)
+    Focused sibling modules own the actual responsibilities: Ptree primitives,
+    type/operator mappings, environment access, stable term keys, and
+    expression/formula compilation. This interface is kept stable for existing
+    backend consumers. *)
 
 (** Compilation context for a single node.
 

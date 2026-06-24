@@ -16,14 +16,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+(** Compilation of Kairos expressions and formulas to Why3 Ptree nodes. *)
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
+val compile_expr :
+  Why_compile_expr_env.env -> Core_syntax.expr -> Why3.Ptree.expr
 
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+val compile_term :
+  Why_compile_expr_env.env -> Core_syntax.expr -> Why3.Ptree.term
+
+val term_of_outputs :
+  Why_compile_expr_env.env -> Core_syntax.vdecl list -> Why3.Ptree.term option
+
+val compile_hexpr :
+  ?old:bool ->
+  ?prefer_link:bool ->
+  ?in_post:bool ->
+  Why_compile_expr_env.env ->
+  Core_syntax.hexpr ->
+  Why3.Ptree.term
+
+val compile_local_fo_formula_term :
+  ?prefer_link:bool ->
+  ?in_post:bool ->
+  Why_compile_expr_env.env ->
+  Core_syntax.hexpr ->
+  Why3.Ptree.term
+
+val pre_k_source_expr :
+  Why_compile_expr_env.env -> Core_syntax.ident -> Why3.Ptree.expr
+
+val pre_k_source_term :
+  Why_compile_expr_env.env -> Core_syntax.ident -> Why3.Ptree.term

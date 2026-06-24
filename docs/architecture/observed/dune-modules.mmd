@@ -177,6 +177,11 @@ flowchart TD
       id167272116(["kairos_why3_contracts"])
     end
     subgraph 231918951 ["kairos_why3_expr"]
+      id235180949(Why_compile_expr_print)
+      id686235388(Why_compile_expr_primitives)
+      id151231696(Why_compile_expr_mapping)
+      id907961342(Why_compile_expr_env)
+      id599301430(Why_compile_expr_compile)
       id373040467(Why_compile_expr)
       id231918951(["kairos_why3_expr"])
     end
@@ -734,6 +739,11 @@ flowchart TD
   231918951-->id56282679
   231918951-->757729241
   id231918951-->id373040467
+  id231918951-->id599301430
+  id231918951-->id907961342
+  id231918951-->id151231696
+  id231918951-->id686235388
+  id231918951-->id235180949
   561703002-->95057747
   id561703002-->id269559131
   26443279-->821673316
@@ -1051,3 +1061,9 @@ flowchart TD
   id963611932-->id991145591
   id256765296-->id148867336
   id256765296-->id963611932
+  id373040467-->id599301430
+  id373040467-->id235180949
+  id599301430-->id907961342
+  id599301430-->id151231696
+  id907961342-->id686235388
+  id151231696-->id686235388

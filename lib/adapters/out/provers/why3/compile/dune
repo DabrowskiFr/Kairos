@@ -1,7 +1,13 @@
 (library
  (name kairos_why3_expr)
  (wrapped false)
- (modules why_compile_expr)
+ (modules
+  why_compile_expr_primitives
+  why_compile_expr_mapping
+  why_compile_expr_env
+  why_compile_expr_print
+  why_compile_expr_compile
+  why_compile_expr)
  (libraries
   kairos_domain_core
   why3))

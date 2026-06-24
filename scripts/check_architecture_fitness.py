@@ -657,6 +657,14 @@ def check_kairos_frontend_elaboration_boundaries(repo: Path) -> None:
 
 def check_why3_compile_boundaries(repo: Path) -> None:
     compile_root = repo / "lib/adapters/out/provers/why3/compile"
+    expr_modules = [
+        "why_compile_expr_primitives",
+        "why_compile_expr_mapping",
+        "why_compile_expr_env",
+        "why_compile_expr_print",
+        "why_compile_expr_compile",
+        "why_compile_expr",
+    ]
     required_modules = [
         "why_compile_ptree_helpers",
         "why_compile_logic",
@@ -688,6 +696,11 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_node_common",
         "why_compile_product_pipeline",
     ]
+    for module in expr_modules:
+        for suffix in [".ml", ".mli"]:
+            path = compile_root / f"{module}{suffix}"
+            if not path.exists():
+                fail(f"{path.relative_to(repo)} is missing")
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
             path = compile_root / f"{module}{suffix}"
@@ -712,6 +725,12 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         fail("lib/adapters/out/provers/why3/compile/why_compile.mli is missing")
 
     dune = (compile_root / "dune").read_text(encoding="utf-8")
+    missing_expr_modules = [module for module in expr_modules if module not in dune]
+    if missing_expr_modules:
+        fail(
+            "Why3 expression compiler modules must be explicit kairos_why3_expr modules: "
+            + ", ".join(missing_expr_modules)
+        )
     missing_modules = [module for module in required_modules if module not in dune]
     if missing_modules:
         fail(
@@ -834,6 +853,106 @@ def check_why3_compile_boundaries(repo: Path) -> None:
             "Why_compile.mli must stay a narrow backend facade; "
             "node-local compiler internals are publicly exported"
         )
+
+    why_compile_expr = (compile_root / "why_compile_expr.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    expr_facade_forbidden = [
+        r"\blet\s+loc\b",
+        r"\blet\s+ident\b",
+        r"\blet\s+qid1\b",
+        r"\blet\s+mk_expr\b",
+        r"\blet\s+default_pty\b",
+        r"\btype\s+env\s*=",
+        r"\blet\s+field\b",
+        r"\blet\s+string_of_term\b",
+        r"\blet\s+rec\s+compile_expr\b",
+        r"\blet\s+rec\s+compile_term\b",
+        r"\blet\s+compile_hexpr\b",
+    ]
+    found = [
+        pattern for pattern in expr_facade_forbidden if re.search(pattern, why_compile_expr)
+    ]
+    if found:
+        fail(
+            "Why3 expression compiler facade must only re-export focused "
+            "expression modules"
+        )
+
+    expr_primitives = (
+        compile_root / "why_compile_expr_primitives.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    primitive_forbidden = [
+        r"\btype\s+env\s*=",
+        r"\blet\s+default_pty\b",
+        r"\blet\s+string_of_term\b",
+        r"\blet\s+rec\s+compile_expr\b",
+        r"\blet\s+compile_hexpr\b",
+    ]
+    found = [
+        pattern for pattern in primitive_forbidden if re.search(pattern, expr_primitives)
+    ]
+    if found:
+        fail("Why3 Ptree primitives must not own env, mapping, or compilation")
+
+    expr_mapping = (compile_root / "why_compile_expr_mapping.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    mapping_forbidden = [
+        r"\btype\s+env\s*=",
+        r"\blet\s+field\b",
+        r"\blet\s+string_of_term\b",
+        r"\blet\s+rec\s+compile_expr\b",
+        r"\blet\s+compile_hexpr\b",
+    ]
+    found = [pattern for pattern in mapping_forbidden if re.search(pattern, expr_mapping)]
+    if found:
+        fail("Why3 expression mappings must not own env access or compilation")
+
+    expr_env = (compile_root / "why_compile_expr_env.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    env_forbidden = [
+        r"\blet\s+default_pty\b",
+        r"\blet\s+string_of_term\b",
+        r"\blet\s+rec\s+compile_expr\b",
+        r"\blet\s+compile_hexpr\b",
+        r"\bEinnfix\b",
+        r"\bTinnfix\b",
+    ]
+    found = [pattern for pattern in env_forbidden if re.search(pattern, expr_env)]
+    if found:
+        fail("Why3 expression env must not own type mapping, printing, or compilation")
+
+    expr_print = (compile_root / "why_compile_expr_print.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    print_forbidden = [
+        r"\btype\s+env\s*=",
+        r"\blet\s+default_pty\b",
+        r"\blet\s+field\b",
+        r"\blet\s+rec\s+compile_expr\b",
+        r"\blet\s+compile_hexpr\b",
+        r"\bmk_expr\b",
+        r"\bmk_term\b",
+    ]
+    found = [pattern for pattern in print_forbidden if re.search(pattern, expr_print)]
+    if found:
+        fail("Why3 expression printing must stay independent from env and compilation")
+
+    expr_compile = (
+        compile_root / "why_compile_expr_compile.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    compile_forbidden = [
+        r"\blet\s+default_pty\b",
+        r"\blet\s+string_of_term\b",
+        r"\btype\s+env\s*=",
+    ]
+    found = [
+        pattern for pattern in compile_forbidden if re.search(pattern, expr_compile)
+    ]
+    if found:
+        fail("Why3 expression compilation must consume env/mapping helpers, not own them")
 
     formula_sharing_facade = (
         compile_root / "why_compile_formula_sharing.ml"

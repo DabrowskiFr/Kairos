@@ -16,14 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+(** Low-level Why3 Ptree constructors used by the backend. *)
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
-
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+val loc : Why3.Loc.position
+val ident : string -> Why3.Ptree.ident
+val infix_ident : string -> Why3.Ptree.ident
+val qid1 : string -> Why3.Ptree.qualid
+val qdot : Why3.Ptree.qualid -> string -> Why3.Ptree.qualid
+val mk_expr : Why3.Ptree.expr_desc -> Why3.Ptree.expr
+val mk_term : Why3.Ptree.term_desc -> Why3.Ptree.term
+val term_eq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_neq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_bool_binop : Why3.Dterm.dbinop -> Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_implies : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
+val term_old : Why3.Ptree.term -> Why3.Ptree.term
+val apply_expr : Why3.Ptree.expr -> Why3.Ptree.expr list -> Why3.Ptree.expr
+val apply_term : Why3.Ptree.term -> Why3.Ptree.term list -> Why3.Ptree.term

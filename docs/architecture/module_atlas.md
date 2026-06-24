@@ -179,7 +179,12 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Module | Responsabilite |
 | --- | --- |
 | `why_runtime_view.ml` | Vue runtime specialisee pour Why3 |
-| `why_compile_expr.ml` | Compilation des expressions/formules |
+| `why_compile_expr_primitives.ml` | Constructeurs Why3 `Ptree` de bas niveau |
+| `why_compile_expr_mapping.ml` | Mapping des types et operateurs Kairos vers Why3 |
+| `why_compile_expr_env.ml` | Environnement de compilation et acces aux variables |
+| `why_compile_expr_print.ml` | Cles textuelles stables des termes Why3 |
+| `why_compile_expr_compile.ml` | Compilation des expressions et formules Kairos |
+| `why_compile_expr.ml` | Facade historique du compilateur d'expressions Why3 |
 | `why_compile_ptree_helpers.ml` | Helpers Why3 `Ptree`, combinateurs de termes, analyse des noms utilises |
 | `why_compile_logic.ml` | Declarations logiques, getters logiques, fonctions pures |
 | `why_product_step_names.ml` | Facade publique de nommage stable des helpers Why3 par pas produit |

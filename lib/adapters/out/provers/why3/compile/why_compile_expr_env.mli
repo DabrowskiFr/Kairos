@@ -16,14 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+(** Compilation environment and variable access helpers. *)
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
+type env = {
+  rec_name : string;
+  rec_vars : string list;
+  links : (Core_syntax.hexpr * Core_syntax.ident) list;
+}
 
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+val field : env -> Core_syntax.ident -> Why3.Ptree.expr
+val is_rec_var : env -> Core_syntax.ident -> bool
+val term_var : env -> Core_syntax.ident -> Why3.Ptree.term_desc
+val find_link : env -> Core_syntax.hexpr -> Core_syntax.ident option
+val term_of_var : env -> Core_syntax.ident -> Why3.Ptree.term

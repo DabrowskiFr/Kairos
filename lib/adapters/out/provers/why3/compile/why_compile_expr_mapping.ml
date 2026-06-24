@@ -16,14 +16,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compatibility facade for the Why3 expression compiler.
+open Core_syntax
+open Why3
+open Why_compile_expr_primitives
 
-    Focused implementation modules own Ptree primitives, type mappings,
-    variable environment access, stable term keys, and expression/formula
-    compilation. *)
+let default_pty (t : ty) : Ptree.pty =
+  let why_type_name name =
+    if String.equal name "state" then "state"
+    else "kairos_" ^ String.uncapitalize_ascii name
+  in
+  match t with
+  | TInt -> Ptree.PTtyapp (qid1 "int", [])
+  | TBool -> Ptree.PTtyapp (qid1 "bool", [])
+  | TReal -> Ptree.PTtyapp (qid1 "real", [])
+  | TCustom s -> Ptree.PTtyapp (qid1 (why_type_name s), [])
 
-include Why_compile_expr_primitives
-include Why_compile_expr_mapping
-include Why_compile_expr_env
-include Why_compile_expr_print
-include Why_compile_expr_compile
+let binop_id (op : binop) : string =
+  match op with
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | And | Or -> invalid_arg "binop_id: expected arithmetic operator"
+
+let relop_id (r : relop) : string =
+  match r with
+  | REq -> "="
+  | RNeq -> "<>"
+  | RLt -> "<"
+  | RLe -> "<="
+  | RGt -> ">"
+  | RGe -> ">="
