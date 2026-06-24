@@ -407,6 +407,12 @@ digraph G {
                                               shape=box, ];
   "kairos_why3_compile__Why_compile_node_common" [label="Why_compile_node_common",
                                                   shape=box, ];
+  "kairos_why3_compile__Why_compile_node_getters" [label="Why_compile_node_getters",
+                                                   shape=box, ];
+  "kairos_why3_compile__Why_compile_node_inputs" [label="Why_compile_node_inputs",
+                                                  shape=box, ];
+  "kairos_why3_compile__Why_compile_node_types" [label="Why_compile_node_types",
+                                                 shape=box, ];
   "kairos_why3_compile__Why_compile_product_bundle_state" [label="Why_compile_product_bundle_state",
                                                            shape=box, ];
   "kairos_why3_compile__Why_compile_product_group_cost" [label="Why_compile_product_group_cost",
@@ -580,7 +586,7 @@ digraph G {
        };
     subgraph cluster_899597 { label="kairos_runtime_automata"; "kairos_runtime_automata__Runtime_automata_source";"kairos_runtime_automata__Automata_generation";"kairos_runtime_automata";
        };
-    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_product_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_terms";"kairos_why3_compile__Why_compile_ptree_names";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_ptree_binders";"kairos_why3_compile__Why_compile_product_specs";"kairos_why3_compile__Why_compile_product_spec_terms";"kairos_why3_compile__Why_compile_product_spec_labels";"kairos_why3_compile__Why_compile_product_plan";"kairos_why3_compile__Why_compile_product_pipeline";"kairos_why3_compile__Why_compile_product_metrics";"kairos_why3_compile__Why_compile_product_layout";"kairos_why3_compile__Why_compile_product_individual_helper";"kairos_why3_compile__Why_compile_product_helpers";"kairos_why3_compile__Why_compile_product_helper_types";"kairos_why3_compile__Why_compile_product_helper_body";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_product_grouped_helper";"kairos_why3_compile__Why_compile_product_group_terms";"kairos_why3_compile__Why_compile_product_group_cost";"kairos_why3_compile__Why_compile_product_bundle_state";"kairos_why3_compile__Why_compile_node_common";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_init_goals";"kairos_why3_compile__Why_compile_formula_sharing_inventory";"kairos_why3_compile__Why_compile_formula_sharing_emit";"kairos_why3_compile__Why_compile_formula_sharing_deps";"kairos_why3_compile__Why_compile_formula_sharing";"kairos_why3_compile__Why_compile_contract_facts";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
+    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_product_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_terms";"kairos_why3_compile__Why_compile_ptree_names";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_ptree_binders";"kairos_why3_compile__Why_compile_product_specs";"kairos_why3_compile__Why_compile_product_spec_terms";"kairos_why3_compile__Why_compile_product_spec_labels";"kairos_why3_compile__Why_compile_product_plan";"kairos_why3_compile__Why_compile_product_pipeline";"kairos_why3_compile__Why_compile_product_metrics";"kairos_why3_compile__Why_compile_product_layout";"kairos_why3_compile__Why_compile_product_individual_helper";"kairos_why3_compile__Why_compile_product_helpers";"kairos_why3_compile__Why_compile_product_helper_types";"kairos_why3_compile__Why_compile_product_helper_body";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_product_grouped_helper";"kairos_why3_compile__Why_compile_product_group_terms";"kairos_why3_compile__Why_compile_product_group_cost";"kairos_why3_compile__Why_compile_product_bundle_state";"kairos_why3_compile__Why_compile_node_types";"kairos_why3_compile__Why_compile_node_inputs";"kairos_why3_compile__Why_compile_node_getters";"kairos_why3_compile__Why_compile_node_common";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_init_goals";"kairos_why3_compile__Why_compile_formula_sharing_inventory";"kairos_why3_compile__Why_compile_formula_sharing_emit";"kairos_why3_compile__Why_compile_formula_sharing_deps";"kairos_why3_compile__Why_compile_formula_sharing";"kairos_why3_compile__Why_compile_contract_facts";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
        };
     subgraph cluster_978765347 { label="kairos_artifact_why_task_dump"; "kairos_artifact_why_task_dump__Why_task_dump_render";"kairos_artifact_why_task_dump";
        };
@@ -917,6 +923,9 @@ digraph G {
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_modules";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_common";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_getters";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_inputs";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_types";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_bundle_state";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_cost";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_terms";
@@ -1250,8 +1259,11 @@ digraph G {
   "kairos_why3_compile__Why_compile_init_goals" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile__Why_compile_logic" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_modules" -> "kairos_why3_compile__Why_compile_product_helper_types";
-  "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_modules";
+  "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_getters";
+  "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_inputs";
+  "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_types";
+  "kairos_why3_compile__Why_compile_node_getters" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile__Why_compile_product_bundle_state" -> "kairos_why3_compile__Why_compile_modules";
   "kairos_why3_compile__Why_compile_product_group_cost" -> "kairos_why3_compile__Why_compile_product_group_terms";
   "kairos_why3_compile__Why_compile_product_group_terms" -> "kairos_why3_compile__Why_compile_ptree_helpers";

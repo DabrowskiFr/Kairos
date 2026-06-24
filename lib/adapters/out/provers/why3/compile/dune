@@ -45,6 +45,9 @@
   why_compile_product_helpers
   why_compile_product_plan
   why_compile_modules
+  why_compile_node_types
+  why_compile_node_inputs
+  why_compile_node_getters
   why_compile_node_common
   why_compile_product_pipeline
   why_compile

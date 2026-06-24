@@ -16,28 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Common Why3 node skeleton facade.
+(** Input and temporal-history binders for generated Why3 helpers. *)
 
-    Focused sibling modules build enum/state/vars types, input/history binders,
-    and generated getters. This module assembles those declarations into the
-    shared context consumed by the rest of the Why3 backend. *)
-
-type t = {
-  runtime_view : Why_runtime_view.t;
-  module_name : string;
-  imports : Why3.Ptree.decl list;
-  common_module_name : string;
-  common_import : Why3.Ptree.decl;
-  env : Why_compile_expr.env;
-  inputs : Why3.Ptree.binder list;
-  common_decls : Why3.Ptree.decl list;
-}
-
-val prepare_runtime_view :
-  temporal_layout:Ir.temporal_layout -> Why_runtime_view.t -> t
-
-val prepare_ir_node :
-  ?simplify_why3_runtime_actions:bool ->
-  ?slice_why3_transition_bodies:bool ->
-  Ir.node_ir ->
-  t
+val compile_inputs :
+  Ir.temporal_layout -> Why_runtime_view.t -> Why3.Ptree.binder list

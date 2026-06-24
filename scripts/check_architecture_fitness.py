@@ -696,6 +696,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_helpers",
         "why_compile_product_plan",
         "why_compile_modules",
+        "why_compile_node_types",
+        "why_compile_node_inputs",
+        "why_compile_node_getters",
         "why_compile_node_common",
         "why_compile_product_pipeline",
     ]
@@ -1032,6 +1035,87 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     ]
     if found:
         fail("Why3 Ptree binder helpers must not own terms or name traversal")
+
+    node_common = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_node_common.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    node_common_forbidden = [
+        r"\blet\s+why_type_name\b",
+        r"\blet\s+compile_state_type\b",
+        r"\blet\s+compile_enum_types\b",
+        r"\blet\s+mutable_field\b",
+        r"\blet\s+compile_vars_type\b",
+        r"\blet\s+compile_inputs\b",
+        r"\blet\s+compile_getter_decls\b",
+        r"\blet\s+compile_logic_getter_decls\b",
+        r"\bTDalgebraic\b",
+        r"\bTDrecord\b",
+        r"\bEfun\b",
+        r"\bHashtbl\.create\b",
+    ]
+    found = [
+        pattern for pattern in node_common_forbidden if re.search(pattern, node_common)
+    ]
+    if found:
+        fail(
+            "Why3 node common facade must assemble focused node type, input, "
+            "and getter modules"
+        )
+
+    node_types = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_node_types.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    node_types_forbidden = [
+        r"\blet\s+compile_inputs\b",
+        r"\blet\s+compile_getter_decls\b",
+        r"\blet\s+compile_logic_getter_decls\b",
+        r"\bDlet\b",
+        r"\bEfun\b",
+        r"\bHashtbl\.create\b",
+    ]
+    found = [
+        pattern for pattern in node_types_forbidden if re.search(pattern, node_types)
+    ]
+    if found:
+        fail("Why3 node type declarations must not own inputs or getters")
+
+    node_inputs = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_node_inputs.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    node_inputs_forbidden = [
+        r"\blet\s+compile_state_type\b",
+        r"\blet\s+compile_enum_types\b",
+        r"\blet\s+compile_vars_type\b",
+        r"\blet\s+compile_getter_decls\b",
+        r"\blet\s+compile_logic_getter_decls\b",
+        r"\bDtype\b",
+        r"\bTDrecord\b",
+        r"\bDlet\b",
+        r"\bEfun\b",
+    ]
+    found = [
+        pattern for pattern in node_inputs_forbidden if re.search(pattern, node_inputs)
+    ]
+    if found:
+        fail("Why3 node input binders must not own type declarations or getters")
+
+    node_getters = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_node_getters.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    node_getters_forbidden = [
+        r"\blet\s+compile_state_type\b",
+        r"\blet\s+compile_enum_types\b",
+        r"\blet\s+compile_vars_type\b",
+        r"\blet\s+compile_inputs\b",
+        r"\bDtype\b",
+        r"\bTDrecord\b",
+        r"\bHashtbl\.create\b",
+    ]
+    found = [
+        pattern for pattern in node_getters_forbidden if re.search(pattern, node_getters)
+    ]
+    if found:
+        fail("Why3 node getters must not own type declarations or input binders")
 
     formula_sharing_facade = (
         compile_root / "why_compile_formula_sharing.ml"

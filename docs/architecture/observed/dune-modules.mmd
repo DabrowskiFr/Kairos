@@ -461,6 +461,9 @@ flowchart TD
       id479410010(Why_compile_product_group_terms)
       id661004920(Why_compile_product_group_cost)
       id405909288(Why_compile_product_bundle_state)
+      id687067351(Why_compile_node_types)
+      id695860406(Why_compile_node_inputs)
+      id314881365(Why_compile_node_getters)
       id688013064(Why_compile_node_common)
       id488283078(Why_compile_modules)
       id290900148(Why_compile_logic)
@@ -717,6 +720,9 @@ flowchart TD
   id95057747-->id290900148
   id95057747-->id488283078
   id95057747-->id688013064
+  id95057747-->id314881365
+  id95057747-->id695860406
+  id95057747-->id687067351
   id95057747-->id405909288
   id95057747-->id661004920
   id95057747-->id479410010
@@ -1038,8 +1044,11 @@ flowchart TD
   id619761209-->id290900148
   id290900148-->id416335878
   id488283078-->id520912783
-  id688013064-->id290900148
   id688013064-->id488283078
+  id688013064-->id314881365
+  id688013064-->id695860406
+  id688013064-->id687067351
+  id314881365-->id290900148
   id405909288-->id488283078
   id661004920-->id479410010
   id479410010-->id416335878
