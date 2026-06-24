@@ -8,7 +8,7 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-(** Decode proof-goal tree requests, including legacy JSON payloads. *)
+(** Decode proof-goal tree requests, including compatibility JSON payloads. *)
 
 type final_request = {
   goals : Pipeline_types.goal_info list;

@@ -8,7 +8,7 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-(** Decode non-streaming Kairos pipeline pass requests, including legacy JSON. *)
+(** Decode non-streaming Kairos pipeline pass requests, including compatibility JSON. *)
 
 val instrumentation_pass :
   Yojson.Safe.t ->

@@ -1583,6 +1583,15 @@ def check_input_adapters_stay_thin(repo: Path) -> None:
             + "\n  - ".join(violations)
         )
 
+    lsp_run_config = (repo / "bin/lsp/lsp_run_config.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    if re.search(r"\blegacy_config\b", lsp_run_config):
+        fail(
+            "LSP run config compatibility decoding must not be described as a "
+            "separate legacy execution path"
+        )
+
     facade_checks = [
         (
             "bin/lsp/lsp_backend.ml",

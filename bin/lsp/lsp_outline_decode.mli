@@ -8,7 +8,7 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-(** Decode outline requests, including legacy JSON payloads. *)
+(** Decode outline requests, including compatibility JSON payloads. *)
 
 type t = {
   uri : string option;

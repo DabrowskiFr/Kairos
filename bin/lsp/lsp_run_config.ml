@@ -18,7 +18,7 @@ type decoded = {
 
 let pipeline_config_of_protocol = Lsp_backend_config.pipeline_config_of_protocol
 
-let legacy_config ~input_file params =
+let config_from_compat_params ~input_file params =
   {
     Pipeline_types.input_file;
     wp_only = Lsp_request_decode.get_param_bool params "wpOnly" false;
@@ -75,7 +75,7 @@ let decode (params : Yojson.Safe.t) : decoded option =
         | Some cfg ->
             let cfg = pipeline_config_of_protocol cfg in
             { cfg with input_file }
-        | None -> legacy_config ~input_file params
+        | None -> config_from_compat_params ~input_file params
       in
       let engine =
         match cfg_from_protocol with
