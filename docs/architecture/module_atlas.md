@@ -241,7 +241,6 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contract_workers.ml` | Distribution, IPC et cycle de vie des workers de preuve Why3 |
 | `why_contract_prove.ml` | Interaction Why3/provers |
 | `spot_automaton_builder.ml` | Adaptateur Spot |
-| `fo_z3_solver.ml` | Adaptateur Z3 |
 | `graphviz_render.ml` | Adaptateur Graphviz |
 | `external_timing.ml` | Mesures de couts |
 

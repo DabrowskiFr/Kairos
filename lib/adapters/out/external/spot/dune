@@ -7,5 +7,4 @@
   kairos_domain_verification
   kairos_domain_core
   kairos_external_timing
-  kairos_external_z3
   unix))

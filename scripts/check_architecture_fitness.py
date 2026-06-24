@@ -220,6 +220,35 @@ def check_renderers_do_not_depend_on_z3(repo: Path) -> None:
         fail("graph renderer contains direct Z3 references:\n  - " + "\n  - ".join(violations))
 
 
+def check_stale_external_z3_adapter_removed(repo: Path) -> None:
+    stale_paths = [
+        "lib/adapters/out/external/z3/dune",
+        "lib/adapters/out/external/z3/fo_z3_solver.ml",
+        "lib/adapters/out/external/z3/fo_z3_solver.mli",
+    ]
+    existing = [rel for rel in stale_paths if (repo / rel).exists()]
+    if existing:
+        fail("stale external Z3 adapter remains: " + ", ".join(existing))
+
+    violations: list[str] = []
+    for rel in [
+        "lib/adapters/out/external/spot/dune",
+        "lib/adapters/out/runtime/orchestration/outputs/dune",
+        "lib/adapters/out/runtime/orchestration/core/dune",
+        "lib/adapters/out/runtime/dune",
+    ]:
+        path = repo / rel
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if "kairos_external_z3" in line:
+                violations.append(f"{rel}:{line_no}: {line.strip()}")
+    if violations:
+        fail(
+            "stale kairos_external_z3 dependency remains:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+
 def check_backend_and_renderers_do_not_depend_on_proof_export(repo: Path) -> None:
     dune_files = [
         "lib/adapters/out/provers/why3/dune",
@@ -2856,6 +2885,7 @@ def main() -> int:
     check_reference_stability_wired(repo)
     check_domain_has_no_external_deps(repo)
     check_renderers_do_not_depend_on_z3(repo)
+    check_stale_external_z3_adapter_removed(repo)
     check_backend_and_renderers_do_not_depend_on_proof_export(repo)
     check_runtime_split_dependencies(repo)
     check_automata_boundary_wording(repo)

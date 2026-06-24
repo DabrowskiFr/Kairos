@@ -7,8 +7,6 @@ flowchart TD
   subgraph 129913994 ["(compiler)"]
     id445558595(["unix"])
     style id445558595 fill:#BBB
-    id213355806(["threads"])
-    style id213355806 fill:#BBB
     id813421022(["str"])
     style id813421022 fill:#BBB
     id955311961(["dynlink"])
@@ -136,10 +134,6 @@ flowchart TD
     id701524681(["parsexp"])
     style id701524681 fill:#BBB
   end
-  subgraph 873377015 ["z3 4.15.2"]
-    id146913521(["z3"])
-    style id146913521 fill:#BBB
-  end
   subgraph 899750038 ["ppx_deriving_yojson 3.10.0"]
     id951852321(["ppx_deriving_yojson.runtime"])
     style id951852321 fill:#BBB
@@ -170,7 +164,6 @@ flowchart TD
     id942172519(["kairos_artifact_graph_render"])
     id1062694434(["kairos_application"])
     id956540366(["kairos.lsp_protocol"])
-    id493204891(["kairos.external_z3"])
     id1047939387(["kairos.external_timing"])
     id576094327(["kairos.external_spot"])
     id930986246(["kairos.domain_verification"])
@@ -235,21 +228,15 @@ flowchart TD
   id378552737-->id479941517
   id378552737-->id955311961
   id378552737-->id813421022
-  id146913521-->id479941517
-  id146913521-->id213355806
   id499228351-->id939231628
-  id213355806-->id445558595
   id1025403665-->id901935611
   id1025403665-->id951852321
   id1025403665-->id268189549
   id35199649-->id930986246
   id930986246-->id1025403665
   id576094327-->id930986246
-  id576094327-->id493204891
+  id576094327-->id1047939387
   id1047939387-->id445558595
-  id493204891-->id146913521
-  id493204891-->id1025403665
-  id493204891-->id1047939387
   id956540366-->id951852321
   id956540366-->id268189549
   id1062694434-->id1025403665
