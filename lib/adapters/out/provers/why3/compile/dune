@@ -18,6 +18,8 @@
   why_compile_product_layout
   why_compile_bundles
   why_compile_product_bundle_state
+  why_compile_product_group_terms
+  why_compile_product_group_cost
   why_compile_product_groups
   why_compile_product_spec_labels
   why_compile_product_spec_terms

@@ -667,6 +667,8 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_layout",
         "why_compile_bundles",
         "why_compile_product_bundle_state",
+        "why_compile_product_group_terms",
+        "why_compile_product_group_cost",
         "why_compile_product_groups",
         "why_compile_product_spec_labels",
         "why_compile_product_spec_terms",
@@ -998,11 +1000,20 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         repo / "lib/adapters/out/provers/why3/compile/why_compile_product_groups.ml"
     ).read_text(encoding="utf-8", errors="replace")
     product_groups_forbidden = [
+        r"\blet\s+unique_term_count\b",
+        r"\blet\s+grouped_kernel_terms\b",
+        r"\blet\s+group_entry_profile\b",
+        r"\blet\s+profiled_group_cost\b",
+        r"\blet\s+split_group_by_cost\b",
         r"\bgroup_kernel_helpers\b",
         r"\b~build_individual\b",
         r"\b~build_grouped\b",
         r"\b~record_singleton_split_chunk\b",
         r"\brecord_singleton_split_chunk\b",
+        r"\bstring_of_term\b",
+        r"\bterm_implies\b",
+        r"\bterm_and_list\b",
+        r"\bterm_or_list\b",
     ]
     found = [
         pattern
@@ -1012,7 +1023,57 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     if found:
         fail(
             "Why3 product grouping must produce an explicit helper plan; "
-            "do not reintroduce emission callbacks in why_compile_product_groups"
+            "do not reintroduce term construction, cost model, or emission "
+            "callbacks in why_compile_product_groups"
+        )
+
+    product_group_terms = (
+        repo
+        / "lib/adapters/out/provers/why3/compile/why_compile_product_group_terms.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_group_terms_forbidden = [
+        r"\blet\s+profiled_group_cost\b",
+        r"\blet\s+split_by_cost\b",
+        r"\bmax_cost\b",
+        r"\bsplit_due_to_cost\b",
+        r"\btransition_of_product_step\b",
+        r"\bIndividual\b",
+        r"\bGrouped\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_group_terms_forbidden
+        if re.search(pattern, product_group_terms)
+    ]
+    if found:
+        fail(
+            "Why3 grouped-term construction must not own planning or cost "
+            "chunking"
+        )
+
+    product_group_cost = (
+        repo / "lib/adapters/out/provers/why3/compile/why_compile_product_group_cost.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    product_group_cost_forbidden = [
+        r"\bterm_implies\b",
+        r"\bterm_or_list\b",
+        r"\bpost_body\b",
+        r"\bdistinct_pre_count\b",
+        r"\bdistinct_post_count\b",
+        r"\bpost_implication_count\b",
+        r"\btransition_of_product_step\b",
+        r"\bIndividual\b",
+        r"\bGrouped\b",
+    ]
+    found = [
+        pattern
+        for pattern in product_group_cost_forbidden
+        if re.search(pattern, product_group_cost)
+    ]
+    if found:
+        fail(
+            "Why3 product group cost model must not construct grouped proof "
+            "terms or final helper plans"
         )
 
     product_pipeline = (

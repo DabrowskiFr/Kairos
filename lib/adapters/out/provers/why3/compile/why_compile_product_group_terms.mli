@@ -16,14 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Product-step helper planning and cost estimation.
+(** Construction of symbolic terms for grouped product-step helpers. *)
 
-    This module decides which product steps are emitted individually and which
-    ones are bundled into grouped helpers. It does not emit Why3 declarations. *)
+type entry =
+  int * Why_contracts.step_contract_info * Why_runtime_view.runtime_transition_view
 
-type entry = Why_compile_product_group_terms.entry
-
-type grouped_terms = Why_compile_product_group_terms.t = {
+type t = {
   pre_term : Why3.Ptree.term;
   post_body : Why3.Ptree.term;
   distinct_pre_count : int;
@@ -34,36 +32,13 @@ type grouped_terms = Why_compile_product_group_terms.t = {
   estimated_cost : int;
 }
 
-type group_metrics = {
-  split_due_to_cost : bool;
-  grouped_terms : grouped_terms;
-}
-
-type individual_plan = {
-  index : int;
-  contract : Why_contracts.step_contract_info;
-  transition : Why_runtime_view.runtime_transition_view;
-  split_metrics : group_metrics option;
-}
-
-type grouped_plan = {
-  entries : entry list;
-  split_due_to_cost : bool;
-  grouped_terms : grouped_terms;
-}
-
-type helper_plan_item =
-  | Individual of individual_plan
-  | Grouped of grouped_plan
-
-val plan_kernel_helpers :
+val build :
   env:Why_compile_expr.env ->
   pre_vars_name:string ->
   post_vars_name:string ->
-  group_why3_product_steps:bool ->
-  max_cost:int ->
-  simplify_runtime_actions:bool ->
-  step_pre_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  step_post_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  Why_contracts.step_contract_info list ->
-  helper_plan_item list
+  step_pre_terms_with_rec:
+    (string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
+  step_post_terms_with_rec:
+    (string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
+  entry list ->
+  t
