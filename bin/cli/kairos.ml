@@ -201,7 +201,7 @@ let cmd =
       value & flag
       & info [ "no-proof-optimizations" ] ~docs:docs_proof
           ~doc:
-            "Disable proof-generation optimizations. This selects the reference pipeline shape intended for the first Rocq formalization.")
+            "Disable proof-generation optimizations. This selects the reference pipeline shape used for Rocq alignment checks.")
   in
   let no_proof_grouping =
     Arg.(

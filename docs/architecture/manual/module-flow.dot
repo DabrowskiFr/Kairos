@@ -79,9 +79,20 @@ digraph KairosModuleFlow {
   ];
 
   passes [
-    label="Pre -> Product_reachability -> Post\n-> Temporal_lower -> Formula_sharing\nobligation pipeline",
+    label="Pre / Post / Temporal_lower\nessential obligation pipeline",
     fillcolor="#86efac",
     penwidth=3
+  ];
+
+  reachability [
+    label="Product_reachability\nreference extension\nnot pruning",
+    fillcolor="#fde68a",
+    penwidth=2
+  ];
+
+  sharing [
+    label="Formula_sharing\nobligation-preserving optimization",
+    fillcolor="#fef3c7"
   ];
 
   snapshot_data [
@@ -90,9 +101,9 @@ digraph KairosModuleFlow {
   ];
 
   proof_export [
-    label="kairos_runtime_diagnostics\nPipeline_artifact_bundle\nProof_kernel_pass",
-    fillcolor="#4ade80",
-    penwidth=3
+    label="kairos_runtime_diagnostics\nPipeline_artifact_bundle\nProof_kernel_pass\nexchange projection",
+    fillcolor="#dbeafe",
+    penwidth=2
   ];
 
   why3 [
@@ -122,7 +133,11 @@ digraph KairosModuleFlow {
   partition -> reference;
   automata -> reference;
   reference -> passes;
+  passes -> reachability [style=dashed, label="extension"];
+  passes -> sharing [style=dashed, label="optimization"];
   passes -> snapshot_data;
+  reachability -> snapshot_data [style=dashed];
+  sharing -> snapshot_data [style=dashed];
   snapshot_data -> proof_export [label="non-prove diagnostics"];
   snapshot_data -> why3 [label="prove / why dumps"];
   why3 -> external;

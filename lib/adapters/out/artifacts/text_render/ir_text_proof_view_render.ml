@@ -132,6 +132,7 @@ let collect_formula_pool (program : Ir.program_ir) : Ir.summary_formula list =
     add_formulas summary.propagation_requires;
     add_formulas summary.requires;
     add_formulas summary.ensures;
+    add_formulas summary.elaboration_checks;
     List.iter
       (fun (c : Ir.safe_product_case) ->
         add_formula c.admissible_guard)
@@ -199,6 +200,8 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   line ~indent:(indent + 2) buf ("propagation_requires=" ^ render_formula_refs summary.propagation_requires);
   line ~indent:(indent + 2) buf ("requires=" ^ render_formula_refs summary.requires);
   line ~indent:(indent + 2) buf ("ensures =" ^ render_formula_refs summary.ensures);
+  line ~indent:(indent + 2) buf
+    ("elaboration_checks=" ^ render_formula_refs summary.elaboration_checks);
   line ~indent:(indent + 1) buf "safe_aggregate:";
   line ~indent:(indent + 2) buf
     ("destination_id="

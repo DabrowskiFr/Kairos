@@ -20,7 +20,7 @@
 
 module StringSet = Why_compile_ptree_helpers.StringSet
 
-type helper_unit = {
+type helper_unit = Why_compile_helper_unit.t = {
   helper_name : string;
   decls : Why3.Ptree.decl list;
   pre_labels : string list;

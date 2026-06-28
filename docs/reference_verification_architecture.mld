@@ -18,8 +18,8 @@ Kairos uses a ports-and-adapters architecture with a layered domain:
 - the domain core contains the elaborated language and shared IR datatypes;
 - the verification domain consumes supplied automata to construct product proof
   data;
-- the proof-export domain builds the exchange view used by diagnostics and
-  future Rocq synchronization;
+- the proof-export domain builds a derived exchange view used by diagnostics
+  and possible Rocq synchronization after an adequacy decision;
 - outgoing adapters render artifacts or call external tools;
 - the composition layer wires concrete adapters to application use-cases.
 
@@ -28,7 +28,7 @@ but to make the semantic boundary explicit inside it.
 
 {1 Reference Boundary}
 
-The reference verification kernel starts after frontend elaboration and after
+The essential reference boundary starts after frontend elaboration and after
 the property automata have been supplied:
 
 {[
@@ -36,9 +36,15 @@ Verification_model.program_model
   + supplied assumption and guarantee automata
   -> product states
   -> product steps
-  -> generated proof-kernel clauses
-  -> relational obligations
+  -> generated source/destination obligations
 ]}
+
+The [Verification_model.program_model] at this boundary is the normalized core
+model. [Verification_model.normalize_node_semantics] is the named entry point:
+it applies source-order transition priority and makes the implicit default
+skip explicit as a generated self-loop step. This corresponds to the source
+step principle formalized in Rocq, without forcing the OCaml implementation to
+reuse Rocq's [Real]/[Default] representation.
 
 This path must be deterministic and independent from:
 
@@ -50,10 +56,48 @@ This path must be deterministic and independent from:
 - dump generation;
 - profiling counters.
 
-Spot may be used to produce automata, but the reference kernel consumes
-automata as parameters. Rocq should therefore synchronize with the supplied
-automata and the generated kernel obligations, not with Spot itself or with a
-formalization of the LTL-to-automata translation.
+Spot may be used to produce automata, but the essential boundary consumes
+automata as parameters. Rocq adequacy should therefore be checked relative to
+the supplied automata and the generated product obligations, not with Spot
+itself or with a formalization of the LTL-to-automata translation.
+The reference product is still responsible for validating the automata normal
+form it consumes: non-empty automata, well-formed transition indices,
+absorbing bad states, and the assumption-edge determinism needed by canonical
+summary identity. This validation rejects malformed supplied automata; it does
+not prove monitor correctness for the source temporal formulas.
+
+{1 Rocq Adequacy Boundary}
+
+The Rocq development is not derived from the OCaml implementation. It already
+captures the mathematical core. The OCaml architecture must therefore expose
+which pieces belong to the corresponding essential boundary and which pieces
+are only extensions, exchange projections, optimizations, or backends.
+
+The Rocq source used for alignment is recorded in
+[docs/rocq_alignment_manifest.json]. The central theorem cut is:
+
+{[
+GeneratedObligationsValid
+  -> contract_valid
+]}
+
+This is the theorem shape the paper should present mathematically. Kairos must
+make the implementation artifacts behind [GeneratedObligationsValid]
+inspectable and stable, while the concrete instance exposes
+[concrete_environment_generated_obligations_sound].
+
+The manifest records this with [rocq_scope]:
+
+- {b essential}: semantic stages whose meaning must match the Rocq core;
+- {b extension}: generated invariant or obligation schemes that require a
+  general semantic principle if used;
+- {b projection}: exchange or diagnostic views derived from the boundary;
+- {b excluded}: frontend, external tools, optimizations, backends, and
+  presentation.
+
+This prevents the wrong direction of work: OCaml modules do not prescribe a
+new Rocq theorem inventory. They must be organized so the existing
+formalization can be compared with the essential path.
 
 {1 Current Pipeline Map}
 
@@ -61,6 +105,10 @@ The current implementation roughly has the following stages:
 
 - surface parsing and elaboration:
   [Kx_surface_syntax], [Kx_elaborate], [Kx_ast], [Kairos_to_model];
+- source well-formedness frontiers:
+  [Historical_initialization] and [Kairos_to_model_node_validation] check that
+  formulas using [pre]/[pre_k] have enough available history at their source
+  point;
 - core semantic model:
   [Verification_model], [Core_syntax];
 - automata construction:
@@ -69,7 +117,7 @@ The current implementation roughly has the following stages:
 - reference product construction:
   [Product_build], [Temporal_automata], [From_model],
   [Orchestration.build_reference_product];
-- proof-kernel export:
+- proof-kernel exchange projection:
   [Proof_kernel_types], [Proof_kernel_product],
   [Proof_kernel_generated_clauses], [Proof_kernel_clause_lowering],
   [Proof_kernel_step_summaries], [Proof_kernel_pass];
@@ -93,9 +141,15 @@ simplifications rather than only projecting data to Why3.
 
 Every pass should be classified before it is moved or optimized:
 
-- {b reference}: part of the semantic construction mirrored by Rocq;
+- {b reference}: part of the essential semantic construction whose adequacy
+  must be checked against Rocq;
+- {b reference_extension}: generated invariant or obligation scheme that is
+  correction-relevant, but should be justified by a general semantic
+  principle rather than baked into the minimal core;
 - {b reference_normalization}: deterministic semantic normalization required
   by the reference view;
+- {b reference_projection}: derived exchange or diagnostic view, not the
+  semantic source of obligations;
 - {b obligation-preserving optimization}: grouping, sharing, slicing, or cuts
   that must preserve generated obligations;
 - {b backend}: target-specific representation, command invocation, proof
@@ -118,26 +172,82 @@ The current pass classification is:
 
 - [Pre] is {b reference}. It adds [propagation_requires], local [requires],
   assumption/program guard requirements, stability requirements, and initial
-  invariant goals. These facts shape the proof obligations for a product step.
-- [Product_reachability] is {b reference}. Despite its name, it must not be
-  treated as pruning. The current pass adds obligations such as
+  invariant goals. Product-entry facts must satisfy the [Fo_current_input]
+  current-input-free predicate: any current input needed as an end-of-instant
+  fact must have been shifted to a historical occurrence first. These facts
+  shape the proof obligations for a product step.
+- [Product_reachability] is {b reference_extension}. Despite its name, it
+  must not be treated as pruning. The current pass adds obligations such as
   [guard => false] for destinations classified as unreachable by the finite
-  analysis. Until this is replaced by a more general certified reachability
-  invariant, it belongs to the correction story.
+  analysis. The essential proof story should see the generic invariant
+  principle; this synthesis is one implementation-side extension of that
+  principle.
+- [Historical_initialization] is {b reference_normalization}. It is the
+  implementation-side witness for Rocq [InitializationFrontier]: a formula is
+  accepted at a source point only if its required historical depth is bounded
+  by the age available at that point. The OCaml computation
+  [min_ticks_by_state] is not certified by Rocq; it is the current frontend
+  algorithm for producing the ages used by the validator. This check may
+  reject source programs, but it must not rewrite, drop, or weaken proof
+  obligations.
 - [Post] is {b reference}. It adds the safe-successor disjunction, destination
   invariant obligations, guarded destination invariant obligations, and
   product-characteristic preservation facts.
 - [Temporal_lower] is {b reference_normalization}. It computes the
   [temporal_layout] and rewrites [pre]/[pre_k] occurrences through explicit
-  temporal bindings. This is a semantic normalization that Rocq must see.
+  temporal bindings. Its meaning must match the temporal model used by the
+  existing Rocq formalization.
+- [Canonical_obligations] is {b reference}. It names the canonical Stage 1
+  clause family and Stage 2 step-contract family before proof export, backend
+  grouping, Why3 lowering, diagnostics, or dumps. In particular, unsafe Stage
+  2 contracts stay one-per-unsafe-case here.
 - [Formula_sharing] is {b obligation-preserving optimization}. It only replaces
   structurally equal top-level formulas by shared physical representatives.
   It must not simplify, add, or remove obligations.
+- [Proof_kernel_export] is {b reference_projection}. It builds a versioned
+  exchange/diagnostic view derived from the reference boundary. It can become
+  a synchronization format only after an explicit adequacy decision for the
+  chosen fields.
+- [Product_summary_projection], [Obligation_family_projection], and
+  [Step_contract_projection] are {b reference_projection}. They are derived
+  Rocq-alignment views. [Step_contract_projection] must be constructed from
+  [Canonical_obligations.stage2] and may group unsafe contracts only as a
+  backend-facing preservation step.
 
 The machine-readable version of this classification is
 [docs/reference_pipeline_boundaries.json]. The check
 [scripts/check_reference_pipeline_boundaries.py] rejects missing stages,
-unknown classification names, and stages left as [to_classify].
+unknown classification names, stages left as [to_classify], and references to
+unknown Rocq alignment units.
+
+{2 Rocq Alignment Cut}
+
+The current Rocq alignment manifest distinguishes:
+
+- source language and well-formed programs;
+- instrumented runs and observations;
+- historical-initialization frontier for source formulas using [pre]/[pre_k];
+- supplied contract automata;
+- product anchors and classification;
+- product summaries and clause families:
+  [ProofStepSummary] and [SummaryClauseFamilies], corresponding to Rocq
+  Stage 1;
+- step-contract extraction:
+  [StepContract] and lowering, corresponding to Rocq Stage 2;
+- generated safe, unsafe, and initialization obligation validity;
+- soundness assembly.
+
+This cut is the bridge to the POPL paper: the paper formalization should
+follow these Rocq concepts, while the implementation section explains which
+Kairos modules realize the semantic objects and which modules merely expose
+derived views for tooling.
+
+The field-by-field comparison is recorded in
+[docs/rocq_projection_audit.json]. The current conclusion is that
+[Proof_kernel_types] is not the Rocq alignment projection itself: it is an
+exchange/diagnostic view. The neutral boundaries are
+[Product_summary_projection], [Obligation_family_projection], and
+[Step_contract_projection], all derived from the canonical obligation boundary.
 
 {1 Rigorous Architecture Modeling}
 
@@ -159,7 +269,7 @@ classification. The manifest should record:
 - inputs and outputs;
 - allowed effects;
 - forbidden effects;
-- Rocq synchronization role.
+- Rocq adequacy role.
 
 Third, enforce the manifest with scripts. Checks should fail when:
 
@@ -181,12 +291,14 @@ record one decision, its alternatives, and the invariant that must survive
 future refactors. The manifest says what the architecture is; ADRs say why it
 became that way.
 
-{1 Rocq Synchronization Contract}
+{1 Exchange Projection Contract}
 
-Rocq should track a versioned kernel exchange format. The best current
-candidate is [Proof_kernel_types.node_ir] plus the exported summary payload.
+[Proof_kernel_types.node_ir] plus the exported summary payload are projection
+candidates. They are useful for diagnostics and may later serve as a versioned
+exchange format for Rocq synchronization, but they are not the semantic source
+of the theorem.
 
-The exchange format should become the contract:
+If this projection is chosen as an exchange contract, it should contain:
 
 {[
 kernel schema version
@@ -199,6 +311,11 @@ kernel schema version
   + relational clauses
   + temporal layout
 ]}
+
+Before that projection becomes a Rocq synchronization contract, each chosen
+field must be related back to the essential boundary: product coverage,
+summary coverage, generated-clause adequacy, temporal lowering, and any
+relationalization or clause lowering used by the exchange view.
 
 When Rocq evolves, the boundary adapter should evolve with it. Why3 backend
 thresholds and external tool orchestration should not need to be reflected in
@@ -229,7 +346,9 @@ argument:
 The phase discipline behind these rules is described in
 {!page-temporal_phase_semantics}. The current product-proof status is recorded
 in {!page-product_proof_pipeline_audit}. The performance motivation for
-sharing and grouping is recorded in {!page-pipeline_cost_model}.
+sharing and grouping is recorded in {!page-pipeline_cost_model}. The boundary
+needed for later Rocq adequacy checking is recorded in
+{!page-rocq_proof_scope}.
 
 {2 Why3 Product Backend Boundary}
 
@@ -276,7 +395,8 @@ The cleanup should be done in this order:
 1. keep the existing layer rules, but add a reference-boundary manifest;
 2. expose a named reference-product entry point in the domain orchestration;
 3. classify every pipeline pass in the manifest before moving code;
-4. make the proof-kernel export the versioned Rocq synchronization point;
+4. keep proof-kernel export as a projection candidate, not as the essential
+   theorem source;
 5. move Why3-only simplification/slicing behind explicit backend pass names;
 6. keep profiling and dump decisions out of the reference data path;
 7. add regression checks that canonical kernel output is unchanged by backend

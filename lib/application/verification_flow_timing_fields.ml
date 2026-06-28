@@ -64,6 +64,7 @@ let ir_size_count (name : string) (size : Application_ports.ir_size_metrics) :
   | "propagation_requires_count" -> size.propagation_requires_count
   | "requires_count" -> size.requires_count
   | "ensures_count" -> size.ensures_count
+  | "elaboration_checks_count" -> size.elaboration_checks_count
   | "init_invariant_goal_count" -> size.init_invariant_goal_count
   | "formula_occurrence_count" -> size.formula_occurrence_count
   | "unique_formula_count" -> size.unique_formula_count
@@ -81,6 +82,7 @@ let ir_pass_size_fields (pass : Application_ports.ir_pass_counters) =
     "propagation_requires_count";
     "requires_count";
     "ensures_count";
+    "elaboration_checks_count";
     "init_invariant_goal_count";
     "formula_occurrence_count";
     "unique_formula_count";

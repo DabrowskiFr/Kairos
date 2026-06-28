@@ -34,6 +34,9 @@ The public runtime facade wires those stages together with
 - `kairos_runtime_core` no longer depends on Spot.
 - The correction boundary is visible in the code: automata are supplied to the
   reference-product construction.
+- The reference product validates the normal form required for exploration:
+  non-empty automata, valid transition indices, absorbing bad states, and
+  deterministic assumption targets for each source/guard key.
 - Another external automata source can replace the Spot-backed source without
   changing the reference-product assembly.
 - The Rocq story remains relative to the supplied automata; it does not

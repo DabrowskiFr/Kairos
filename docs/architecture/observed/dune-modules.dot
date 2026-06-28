@@ -53,6 +53,7 @@ digraph G {
   "kairos.external_spot";
   "kairos.external_timing";
   "kairos.lsp_protocol";
+  "kairos.shared";
   "kairos_application";
   "kairos_artifact_graph_render";
   "kairos_artifact_text_render";
@@ -226,6 +227,8 @@ digraph G {
                                             shape=box, ];
   "kairos.domain_proof_export__Ir_json_codec" [label="Ir_json_codec",
                                                shape=box, ];
+  "kairos.domain_proof_export__Proof_kernel_clause_context" [label="Proof_kernel_clause_context",
+                                                             shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_clause_lowering" [label="Proof_kernel_clause_lowering",
                                                               shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_generated_clauses" [label="Proof_kernel_generated_clauses",
@@ -238,15 +241,17 @@ digraph G {
                                                       shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_product_lookup" [label="Proof_kernel_product_lookup",
                                                              shape=box, ];
-  "kairos.domain_proof_export__Proof_kernel_source_clauses" [label="Proof_kernel_source_clauses",
-                                                             shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_step_summaries" [label="Proof_kernel_step_summaries",
                                                              shape=box, ];
   "kairos.domain_proof_export__Proof_kernel_types" [label="Proof_kernel_types",
                                                     shape=box, ];
   "kairos.domain_verification__Automaton_types" [label="Automaton_types",
                                                  shape=box, ];
+  "kairos.domain_verification__Canonical_obligations" [label="Canonical_obligations",
+                                                       shape=box, ];
   "kairos.domain_verification__Fo_contradiction" [label="Fo_contradiction",
+                                                  shape=box, ];
+  "kairos.domain_verification__Fo_current_input" [label="Fo_current_input",
                                                   shape=box, ];
   "kairos.domain_verification__Fo_time" [label="Fo_time", shape=box, ];
   "kairos.domain_verification__Formula_sharing" [label="Formula_sharing",
@@ -254,8 +259,12 @@ digraph G {
   "kairos.domain_verification__From_model" [label="From_model", shape=box, ];
   "kairos.domain_verification__Ir_fact_family_metrics" [label="Ir_fact_family_metrics",
                                                         shape=box, ];
+  "kairos.domain_verification__Kernel_clause_projection" [label="Kernel_clause_projection",
+                                                          shape=box, ];
   "kairos.domain_verification__Ltl_valuation" [label="Ltl_valuation",
                                                shape=box, ];
+  "kairos.domain_verification__Obligation_family_projection" [label="Obligation_family_projection",
+                                                              shape=box, ];
   "kairos.domain_verification__Orchestration" [label="Orchestration",
                                                shape=box, ];
   "kairos.domain_verification__Post" [label="Post", shape=box, ];
@@ -266,8 +275,12 @@ digraph G {
                                                          shape=box, ];
   "kairos.domain_verification__Product_reachability" [label="Product_reachability",
                                                       shape=box, ];
+  "kairos.domain_verification__Product_summary_projection" [label="Product_summary_projection",
+                                                            shape=box, ];
   "kairos.domain_verification__Product_types" [label="Product_types",
                                                shape=box, ];
+  "kairos.domain_verification__Step_contract_projection" [label="Step_contract_projection",
+                                                          shape=box, ];
   "kairos.domain_verification__Temporal_automata" [label="Temporal_automata",
                                                    shape=box, ];
   "kairos.domain_verification__Temporal_lower" [label="Temporal_lower",
@@ -282,6 +295,8 @@ digraph G {
   "kairos.external_timing__External_timing_types" [label="External_timing_types",
                                                    shape=box, ];
   "kairos.lsp_protocol__Lsp_protocol" [label="Lsp_protocol", shape=box, ];
+  "kairos.shared__Kairos_runtime_defaults" [label="Kairos_runtime_defaults",
+                                            shape=box, ];
   "kairos_application__Application_observability" [label="Application_observability",
                                                    shape=box, ];
   "kairos_application__Application_ports" [label="Application_ports",
@@ -462,6 +477,8 @@ digraph G {
                                                            shape=box, ];
   "kairos_why3_compile__Why_compile_formula_sharing_inventory" [label="Why_compile_formula_sharing_inventory",
                                                                 shape=box, ];
+  "kairos_why3_compile__Why_compile_helper_unit" [label="Why_compile_helper_unit",
+                                                  shape=box, ];
   "kairos_why3_compile__Why_compile_init_goals" [label="Why_compile_init_goals",
                                                  shape=box, ];
   "kairos_why3_compile__Why_compile_logic" [label="Why_compile_logic",
@@ -484,8 +501,16 @@ digraph G {
                                                  shape=box, ];
   "kairos_why3_compile__Why_compile_product_bundle_state" [label="Why_compile_product_bundle_state",
                                                            shape=box, ];
+  "kairos_why3_compile__Why_compile_product_group_boundary" [label="Why_compile_product_group_boundary",
+                                                             shape=box, ];
   "kairos_why3_compile__Why_compile_product_group_cost" [label="Why_compile_product_group_cost",
                                                          shape=box, ];
+  "kairos_why3_compile__Why_compile_product_group_factoring" [label="Why_compile_product_group_factoring",
+                                                              shape=box, ];
+  "kairos_why3_compile__Why_compile_product_group_partition" [label="Why_compile_product_group_partition",
+                                                              shape=box, ];
+  "kairos_why3_compile__Why_compile_product_group_policy" [label="Why_compile_product_group_policy",
+                                                           shape=box, ];
   "kairos_why3_compile__Why_compile_product_group_terms" [label="Why_compile_product_group_terms",
                                                           shape=box, ];
   "kairos_why3_compile__Why_compile_product_grouped_helper" [label="Why_compile_product_grouped_helper",
@@ -508,6 +533,8 @@ digraph G {
                                                        shape=box, ];
   "kairos_why3_compile__Why_compile_product_plan" [label="Why_compile_product_plan",
                                                    shape=box, ];
+  "kairos_why3_compile__Why_compile_product_plan_metrics" [label="Why_compile_product_plan_metrics",
+                                                           shape=box, ];
   "kairos_why3_compile__Why_compile_product_spec_labels" [label="Why_compile_product_spec_labels",
                                                           shape=box, ];
   "kairos_why3_compile__Why_compile_product_spec_terms" [label="Why_compile_product_spec_terms",
@@ -611,6 +638,8 @@ digraph G {
        };
     subgraph cluster_167272116 { label="kairos_why3_contracts"; "kairos_why3_contracts__Why_contracts";"kairos_why3_contracts";
        };
+    subgraph cluster_209287327 { label="kairos.shared"; "kairos.shared__Kairos_runtime_defaults";"kairos.shared";
+       };
     subgraph cluster_231918951 { label="kairos_why3_expr"; "kairos_why3_expr__Why_compile_expr_print";"kairos_why3_expr__Why_compile_expr_primitives";"kairos_why3_expr__Why_compile_expr_mapping";"kairos_why3_expr__Why_compile_expr_env";"kairos_why3_expr__Why_compile_expr_compile";"kairos_why3_expr__Why_compile_expr";"kairos_why3_expr";
        };
     subgraph cluster_235123767 { label="kairos_runtime_proof"; "kairos_runtime_proof__Proof_traces";"kairos_runtime_proof__Proof_trace_diagnostics";"kairos_runtime_proof__Proof_text_blocks";"kairos_runtime_proof__Proof_runner";"kairos_runtime_proof__Proof_progress_output";"kairos_runtime_proof__Proof_goal_results";"kairos_runtime_proof__Proof_goal_attribution";"kairos_runtime_proof";
@@ -633,7 +662,7 @@ digraph G {
        };
     subgraph cluster_586834900 { label="kairos_artifact_graph_render"; "kairos_artifact_graph_render__Automata_graph_render";"kairos_artifact_graph_render__Automata_graph_program";"kairos_artifact_graph_render__Automata_graph_product";"kairos_artifact_graph_render__Automata_graph_format";"kairos_artifact_graph_render__Automata_graph_dot";"kairos_artifact_graph_render__Automata_graph_contract";"kairos_artifact_graph_render";
        };
-    subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_source_clauses";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
+    subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Proof_kernel_clause_context";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
        };
     subgraph cluster_681484642 { label="kairos"; "kairos__Kairos";"kairos__Cli_types";"kairos__Cli_runtime";"kairos__Cli_pipeline_service";"kairos__Cli_output";"kairos";
        };
@@ -647,7 +676,7 @@ digraph G {
        };
     subgraph cluster_81314696 { label="kairos_external_why3"; "kairos_external_why3__Why_task_support";"kairos_external_why3__Why_native_probe";"kairos_external_why3__Why_contract_workers";"kairos_external_why3__Why_contract_unix_io";"kairos_external_why3__Why_contract_smt_utils";"kairos_external_why3__Why_contract_prover_call";"kairos_external_why3__Why_contract_prove";"kairos_external_why3__Why_contract_proof_types";"kairos_external_why3__Why_contract_persistent_z3";"kairos_external_why3";
        };
-    subgraph cluster_821673316 { label="kairos.domain_verification"; "kairos.domain_verification__Temporal_lower";"kairos.domain_verification__Temporal_automata";"kairos.domain_verification__Product_types";"kairos.domain_verification__Product_reachability";"kairos.domain_verification__Product_characteristics";"kairos.domain_verification__Product_build";"kairos.domain_verification__Pre";"kairos.domain_verification__Post";"kairos.domain_verification__Orchestration";"kairos.domain_verification__Ltl_valuation";"kairos.domain_verification__Ir_fact_family_metrics";"kairos.domain_verification__From_model";"kairos.domain_verification__Formula_sharing";"kairos.domain_verification__Fo_time";"kairos.domain_verification__Fo_contradiction";"kairos.domain_verification__Automaton_types";"kairos.domain_verification";
+    subgraph cluster_821673316 { label="kairos.domain_verification"; "kairos.domain_verification__Temporal_lower";"kairos.domain_verification__Temporal_automata";"kairos.domain_verification__Step_contract_projection";"kairos.domain_verification__Product_types";"kairos.domain_verification__Product_summary_projection";"kairos.domain_verification__Product_reachability";"kairos.domain_verification__Product_characteristics";"kairos.domain_verification__Product_build";"kairos.domain_verification__Pre";"kairos.domain_verification__Post";"kairos.domain_verification__Orchestration";"kairos.domain_verification__Obligation_family_projection";"kairos.domain_verification__Ltl_valuation";"kairos.domain_verification__Kernel_clause_projection";"kairos.domain_verification__Ir_fact_family_metrics";"kairos.domain_verification__From_model";"kairos.domain_verification__Formula_sharing";"kairos.domain_verification__Fo_time";"kairos.domain_verification__Fo_current_input";"kairos.domain_verification__Fo_contradiction";"kairos.domain_verification__Canonical_obligations";"kairos.domain_verification__Automaton_types";"kairos.domain_verification";
        };
     subgraph cluster_825363400 { label="kairos_runtime_core"; "kairos_runtime_core__Runtime_snapshot";"kairos_runtime_core__Runtime_ir_merge";"kairos_runtime_core__Result_utils";"kairos_runtime_core__Pipeline_build";"kairos_runtime_core__Instrumentation_info_helpers";"kairos_runtime_core__Instrumentation_info_builder";"kairos_runtime_core__Contract_partition";"kairos_runtime_core";
        };
@@ -657,7 +686,7 @@ digraph G {
        };
     subgraph cluster_899597 { label="kairos_runtime_automata"; "kairos_runtime_automata__Runtime_automata_source";"kairos_runtime_automata__Automata_generation";"kairos_runtime_automata";
        };
-    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_product_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_terms";"kairos_why3_compile__Why_compile_ptree_names";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_ptree_binders";"kairos_why3_compile__Why_compile_product_specs";"kairos_why3_compile__Why_compile_product_spec_terms";"kairos_why3_compile__Why_compile_product_spec_labels";"kairos_why3_compile__Why_compile_product_plan";"kairos_why3_compile__Why_compile_product_pipeline";"kairos_why3_compile__Why_compile_product_metrics";"kairos_why3_compile__Why_compile_product_layout";"kairos_why3_compile__Why_compile_product_individual_helper";"kairos_why3_compile__Why_compile_product_helpers";"kairos_why3_compile__Why_compile_product_helper_types";"kairos_why3_compile__Why_compile_product_helper_body";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_product_grouped_helper";"kairos_why3_compile__Why_compile_product_group_terms";"kairos_why3_compile__Why_compile_product_group_cost";"kairos_why3_compile__Why_compile_product_bundle_state";"kairos_why3_compile__Why_compile_node_types";"kairos_why3_compile__Why_compile_node_inputs";"kairos_why3_compile__Why_compile_node_getters";"kairos_why3_compile__Why_compile_node_common";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic_functions";"kairos_why3_compile__Why_compile_logic_formula";"kairos_why3_compile__Why_compile_logic_decls";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_init_goals";"kairos_why3_compile__Why_compile_formula_sharing_inventory";"kairos_why3_compile__Why_compile_formula_sharing_emit";"kairos_why3_compile__Why_compile_formula_sharing_deps";"kairos_why3_compile__Why_compile_formula_sharing";"kairos_why3_compile__Why_compile_contract_facts";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
+    subgraph cluster_95057747 { label="kairos_why3_compile"; "kairos_why3_compile__Why_product_step_names";"kairos_why3_compile__Why_compile_step";"kairos_why3_compile__Why_compile_ptree_terms";"kairos_why3_compile__Why_compile_ptree_names";"kairos_why3_compile__Why_compile_ptree_helpers";"kairos_why3_compile__Why_compile_ptree_binders";"kairos_why3_compile__Why_compile_product_specs";"kairos_why3_compile__Why_compile_product_spec_terms";"kairos_why3_compile__Why_compile_product_spec_labels";"kairos_why3_compile__Why_compile_product_plan_metrics";"kairos_why3_compile__Why_compile_product_plan";"kairos_why3_compile__Why_compile_product_pipeline";"kairos_why3_compile__Why_compile_product_metrics";"kairos_why3_compile__Why_compile_product_layout";"kairos_why3_compile__Why_compile_product_individual_helper";"kairos_why3_compile__Why_compile_product_helpers";"kairos_why3_compile__Why_compile_product_helper_types";"kairos_why3_compile__Why_compile_product_helper_body";"kairos_why3_compile__Why_compile_product_groups";"kairos_why3_compile__Why_compile_product_grouped_helper";"kairos_why3_compile__Why_compile_product_group_terms";"kairos_why3_compile__Why_compile_product_group_policy";"kairos_why3_compile__Why_compile_product_group_partition";"kairos_why3_compile__Why_compile_product_group_factoring";"kairos_why3_compile__Why_compile_product_group_cost";"kairos_why3_compile__Why_compile_product_group_boundary";"kairos_why3_compile__Why_compile_product_bundle_state";"kairos_why3_compile__Why_compile_node_types";"kairos_why3_compile__Why_compile_node_inputs";"kairos_why3_compile__Why_compile_node_getters";"kairos_why3_compile__Why_compile_node_common";"kairos_why3_compile__Why_compile_modules";"kairos_why3_compile__Why_compile_logic_functions";"kairos_why3_compile__Why_compile_logic_formula";"kairos_why3_compile__Why_compile_logic_decls";"kairos_why3_compile__Why_compile_logic";"kairos_why3_compile__Why_compile_init_goals";"kairos_why3_compile__Why_compile_helper_unit";"kairos_why3_compile__Why_compile_formula_sharing_inventory";"kairos_why3_compile__Why_compile_formula_sharing_emit";"kairos_why3_compile__Why_compile_formula_sharing_deps";"kairos_why3_compile__Why_compile_formula_sharing";"kairos_why3_compile__Why_compile_contract_facts";"kairos_why3_compile__Why_compile_bundles";"kairos_why3_compile__Why_compile";"kairos_why3_compile";
        };
     subgraph cluster_978765347 { label="kairos_artifact_why_task_dump"; "kairos_artifact_why_task_dump__Why_task_dump_render";"kairos_artifact_why_task_dump";
        };
@@ -745,13 +774,13 @@ digraph G {
                                                                 ltail="cluster_601961544",
                                                                 ];
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Ir_json_codec";
+  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_clause_context";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_clause_lowering";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_generated_clauses";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_naming";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_pass";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_product";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_product_lookup";
-  "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_source_clauses";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
   "kairos.domain_proof_export" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_verification" -> "kairos.domain_core" [minlen=2,
@@ -759,19 +788,25 @@ digraph G {
                                                         ltail="cluster_821673316",
                                                         ];
   "kairos.domain_verification" -> "kairos.domain_verification__Automaton_types";
+  "kairos.domain_verification" -> "kairos.domain_verification__Canonical_obligations";
   "kairos.domain_verification" -> "kairos.domain_verification__Fo_contradiction";
+  "kairos.domain_verification" -> "kairos.domain_verification__Fo_current_input";
   "kairos.domain_verification" -> "kairos.domain_verification__Fo_time";
   "kairos.domain_verification" -> "kairos.domain_verification__Formula_sharing";
   "kairos.domain_verification" -> "kairos.domain_verification__From_model";
   "kairos.domain_verification" -> "kairos.domain_verification__Ir_fact_family_metrics";
+  "kairos.domain_verification" -> "kairos.domain_verification__Kernel_clause_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Ltl_valuation";
+  "kairos.domain_verification" -> "kairos.domain_verification__Obligation_family_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Orchestration";
   "kairos.domain_verification" -> "kairos.domain_verification__Post";
   "kairos.domain_verification" -> "kairos.domain_verification__Pre";
   "kairos.domain_verification" -> "kairos.domain_verification__Product_build";
   "kairos.domain_verification" -> "kairos.domain_verification__Product_characteristics";
   "kairos.domain_verification" -> "kairos.domain_verification__Product_reachability";
+  "kairos.domain_verification" -> "kairos.domain_verification__Product_summary_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Product_types";
+  "kairos.domain_verification" -> "kairos.domain_verification__Step_contract_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_automata";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_lower";
   "kairos.external_spot" -> "kairos.domain_verification" [minlen=2,
@@ -791,10 +826,18 @@ digraph G {
   "kairos.lsp_protocol" -> "ppx_deriving_yojson.runtime" [ltail="cluster_756173789",
                                                           ];
   "kairos.lsp_protocol" -> "yojson" [ltail="cluster_756173789", ];
+  "kairos.lsp_protocol" -> "kairos.shared" [minlen=2,
+                                            lhead="cluster_209287327",
+                                            ltail="cluster_756173789", ];
   "kairos.lsp_protocol" -> "kairos.lsp_protocol__Lsp_protocol";
+  "kairos.shared" -> "unix" [ltail="cluster_209287327", ];
+  "kairos.shared" -> "kairos.shared__Kairos_runtime_defaults";
   "kairos_application" -> "kairos.domain_core" [minlen=2,
                                                 lhead="cluster_757729241",
                                                 ltail="cluster_443058325", ];
+  "kairos_application" -> "kairos.shared" [minlen=2,
+                                           lhead="cluster_209287327",
+                                           ltail="cluster_443058325", ];
   "kairos_application" -> "kairos_application__Application_observability";
   "kairos_application" -> "kairos_application__Application_ports";
   "kairos_application" -> "kairos_application__Flow_info";
@@ -1013,6 +1056,7 @@ digraph G {
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_formula_sharing_deps";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_formula_sharing_emit";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_formula_sharing_inventory";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_helper_unit";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_init_goals";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_logic";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_logic_decls";
@@ -1024,7 +1068,11 @@ digraph G {
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_inputs";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_node_types";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_bundle_state";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_boundary";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_cost";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_factoring";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_partition";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_policy";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_group_terms";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_grouped_helper";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_groups";
@@ -1036,6 +1084,7 @@ digraph G {
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_metrics";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_pipeline";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_plan";
+  "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_plan_metrics";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_spec_labels";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_spec_terms";
   "kairos_why3_compile" -> "kairos_why3_compile__Why_compile_product_specs";
@@ -1263,8 +1312,9 @@ digraph G {
   "kairos.domain_core__Pre_k_lowering" -> "kairos.domain_core__Pre_k_layout";
   "kairos.domain_core__Pretty" -> "kairos.domain_core__Core_syntax";
   "kairos.domain_core__Verification_model" -> "kairos.domain_core__Core_syntax_builders";
+  "kairos.domain_proof_export__Proof_kernel_clause_context" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_proof_export__Proof_kernel_clause_lowering" -> "kairos.domain_proof_export__Proof_kernel_types";
-  "kairos.domain_proof_export__Proof_kernel_generated_clauses" -> "kairos.domain_proof_export__Proof_kernel_source_clauses";
+  "kairos.domain_proof_export__Proof_kernel_generated_clauses" -> "kairos.domain_proof_export__Proof_kernel_clause_context";
   "kairos.domain_proof_export__Proof_kernel_naming" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_clause_lowering";
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_generated_clauses";
@@ -1272,10 +1322,14 @@ digraph G {
   "kairos.domain_proof_export__Proof_kernel_pass" -> "kairos.domain_proof_export__Proof_kernel_step_summaries";
   "kairos.domain_proof_export__Proof_kernel_product" -> "kairos.domain_proof_export__Proof_kernel_types";
   "kairos.domain_proof_export__Proof_kernel_product_lookup" -> "kairos.domain_proof_export__Proof_kernel_types";
-  "kairos.domain_proof_export__Proof_kernel_source_clauses" -> "kairos.domain_proof_export__Proof_kernel_product_lookup";
-  "kairos.domain_proof_export__Proof_kernel_step_summaries" -> "kairos.domain_proof_export__Proof_kernel_types";
+  "kairos.domain_proof_export__Proof_kernel_step_summaries" -> "kairos.domain_proof_export__Proof_kernel_clause_context";
   "kairos.domain_proof_export__Proof_kernel_types" -> "kairos.domain_proof_export__Ir_json_codec";
+  "kairos.domain_verification__Canonical_obligations" -> "kairos.domain_verification__Kernel_clause_projection";
+  "kairos.domain_verification__From_model" -> "kairos.domain_verification__Fo_current_input";
   "kairos.domain_verification__From_model" -> "kairos.domain_verification__Product_build";
+  "kairos.domain_verification__Kernel_clause_projection" -> "kairos.domain_verification__Fo_current_input";
+  "kairos.domain_verification__Kernel_clause_projection" -> "kairos.domain_verification__Obligation_family_projection";
+  "kairos.domain_verification__Kernel_clause_projection" -> "kairos.domain_verification__Product_summary_projection";
   "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Formula_sharing";
   "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__From_model";
   "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Post";
@@ -1284,6 +1338,7 @@ digraph G {
   "kairos.domain_verification__Orchestration" -> "kairos.domain_verification__Temporal_lower";
   "kairos.domain_verification__Post" -> "kairos.domain_verification__Ir_fact_family_metrics";
   "kairos.domain_verification__Post" -> "kairos.domain_verification__Product_characteristics";
+  "kairos.domain_verification__Pre" -> "kairos.domain_verification__Fo_current_input";
   "kairos.domain_verification__Pre" -> "kairos.domain_verification__Ir_fact_family_metrics";
   "kairos.domain_verification__Pre" -> "kairos.domain_verification__Product_characteristics";
   "kairos.domain_verification__Product_build" -> "kairos.domain_verification__Temporal_automata";
@@ -1291,6 +1346,8 @@ digraph G {
   "kairos.domain_verification__Product_characteristics" -> "kairos.domain_verification__Fo_time";
   "kairos.domain_verification__Product_reachability" -> "kairos.domain_verification__Fo_contradiction";
   "kairos.domain_verification__Product_types" -> "kairos.domain_verification__Automaton_types";
+  "kairos.domain_verification__Step_contract_projection" -> "kairos.domain_verification__Canonical_obligations";
+  "kairos.domain_verification__Step_contract_projection" -> "kairos.domain_verification__Product_reachability";
   "kairos.domain_verification__Temporal_automata" -> "kairos.domain_verification__Product_types";
   "kairos.external_spot__Spot_automaton_builder" -> "kairos.external_spot__Automaton_spot";
   "kairos.external_timing__External_timing" -> "kairos.external_timing__External_timing_store";
@@ -1408,24 +1465,37 @@ digraph G {
   "kairos_why3_compile__Why_compile_logic_decls" -> "kairos_why3_compile__Why_compile_logic_formula";
   "kairos_why3_compile__Why_compile_logic_formula" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_logic_functions" -> "kairos_why3_compile__Why_compile_ptree_helpers";
-  "kairos_why3_compile__Why_compile_modules" -> "kairos_why3_compile__Why_compile_product_helper_types";
+  "kairos_why3_compile__Why_compile_modules" -> "kairos_why3_compile__Why_compile_helper_unit";
+  "kairos_why3_compile__Why_compile_modules" -> "kairos_why3_compile__Why_compile_ptree_helpers";
   "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_modules";
   "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_getters";
   "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_inputs";
   "kairos_why3_compile__Why_compile_node_common" -> "kairos_why3_compile__Why_compile_node_types";
   "kairos_why3_compile__Why_compile_node_getters" -> "kairos_why3_compile__Why_compile_logic";
+  "kairos_why3_compile__Why_compile_product_bundle_state" -> "kairos_why3_compile__Why_compile_bundles";
   "kairos_why3_compile__Why_compile_product_bundle_state" -> "kairos_why3_compile__Why_compile_modules";
-  "kairos_why3_compile__Why_compile_product_group_cost" -> "kairos_why3_compile__Why_compile_product_group_terms";
-  "kairos_why3_compile__Why_compile_product_group_terms" -> "kairos_why3_compile__Why_compile_ptree_helpers";
+  "kairos_why3_compile__Why_compile_product_group_cost" -> "kairos_why3_compile__Why_compile_product_group_boundary";
+  "kairos_why3_compile__Why_compile_product_group_cost" -> "kairos_why3_compile__Why_compile_ptree_helpers";
+  "kairos_why3_compile__Why_compile_product_group_factoring" -> "kairos_why3_compile__Why_compile_product_group_boundary";
+  "kairos_why3_compile__Why_compile_product_group_factoring" -> "kairos_why3_compile__Why_compile_ptree_helpers";
+  "kairos_why3_compile__Why_compile_product_group_partition" -> "kairos_why3_compile__Why_compile_product_group_boundary";
+  "kairos_why3_compile__Why_compile_product_group_policy" -> "kairos_why3_compile__Why_compile_product_group_boundary";
+  "kairos_why3_compile__Why_compile_product_group_terms" -> "kairos_why3_compile__Why_compile_product_group_factoring";
+  "kairos_why3_compile__Why_compile_product_grouped_helper" -> "kairos_why3_compile__Why_compile_product_groups";
   "kairos_why3_compile__Why_compile_product_grouped_helper" -> "kairos_why3_compile__Why_compile_product_helper_body";
   "kairos_why3_compile__Why_compile_product_grouped_helper" -> "kairos_why3_compile__Why_compile_product_helper_types";
   "kairos_why3_compile__Why_compile_product_grouped_helper" -> "kairos_why3_compile__Why_compile_product_layout";
   "kairos_why3_compile__Why_compile_product_grouped_helper" -> "kairos_why3_compile__Why_product_step_names";
   "kairos_why3_compile__Why_compile_product_groups" -> "kairos_why3_compile__Why_compile_product_group_cost";
+  "kairos_why3_compile__Why_compile_product_groups" -> "kairos_why3_compile__Why_compile_product_group_partition";
+  "kairos_why3_compile__Why_compile_product_groups" -> "kairos_why3_compile__Why_compile_product_group_policy";
+  "kairos_why3_compile__Why_compile_product_groups" -> "kairos_why3_compile__Why_compile_product_group_terms";
   "kairos_why3_compile__Why_compile_product_helper_body" -> "kairos_why3_compile__Why_compile_step";
+  "kairos_why3_compile__Why_compile_product_helper_types" -> "kairos_why3_compile__Why_compile_helper_unit";
   "kairos_why3_compile__Why_compile_product_helper_types" -> "kairos_why3_compile__Why_compile_product_specs";
   "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_product_grouped_helper";
   "kairos_why3_compile__Why_compile_product_helpers" -> "kairos_why3_compile__Why_compile_product_individual_helper";
+  "kairos_why3_compile__Why_compile_product_individual_helper" -> "kairos_why3_compile__Why_compile_product_groups";
   "kairos_why3_compile__Why_compile_product_individual_helper" -> "kairos_why3_compile__Why_compile_product_helper_body";
   "kairos_why3_compile__Why_compile_product_individual_helper" -> "kairos_why3_compile__Why_compile_product_helper_types";
   "kairos_why3_compile__Why_compile_product_individual_helper" -> "kairos_why3_compile__Why_product_step_names";
@@ -1434,12 +1504,14 @@ digraph G {
   "kairos_why3_compile__Why_compile_product_pipeline" -> "kairos_why3_compile__Why_compile_product_bundle_state";
   "kairos_why3_compile__Why_compile_product_pipeline" -> "kairos_why3_compile__Why_compile_product_helpers";
   "kairos_why3_compile__Why_compile_product_pipeline" -> "kairos_why3_compile__Why_compile_product_plan";
+  "kairos_why3_compile__Why_compile_product_pipeline" -> "kairos_why3_compile__Why_compile_product_plan_metrics";
   "kairos_why3_compile__Why_compile_product_plan" -> "kairos_why3_compile__Why_compile_contract_facts";
+  "kairos_why3_compile__Why_compile_product_plan" -> "kairos_why3_compile__Why_compile_product_groups";
   "kairos_why3_compile__Why_compile_product_plan" -> "kairos_why3_compile__Why_compile_product_layout";
-  "kairos_why3_compile__Why_compile_product_plan" -> "kairos_why3_compile__Why_compile_product_metrics";
+  "kairos_why3_compile__Why_compile_product_plan_metrics" -> "kairos_why3_compile__Why_compile_product_metrics";
   "kairos_why3_compile__Why_compile_product_spec_terms" -> "kairos_why3_compile__Why_compile_bundles";
   "kairos_why3_compile__Why_compile_product_spec_terms" -> "kairos_why3_compile__Why_compile_product_spec_labels";
-  "kairos_why3_compile__Why_compile_product_specs" -> "kairos_why3_compile__Why_compile_product_groups";
+  "kairos_why3_compile__Why_compile_product_specs" -> "kairos_why3_compile__Why_compile_product_group_boundary";
   "kairos_why3_compile__Why_compile_product_specs" -> "kairos_why3_compile__Why_compile_product_spec_terms";
   "kairos_why3_compile__Why_compile_ptree_binders" -> "kairos_why3_compile__Why_compile_ptree_names";
   "kairos_why3_compile__Why_compile_ptree_helpers" -> "kairos_why3_compile__Why_compile_ptree_binders";

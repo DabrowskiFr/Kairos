@@ -104,10 +104,6 @@ contracts
 states Init(init), Run;
 
 invariants
-  in Init:
-    forall r in Route. signal[r] = Red;
-    forall r in Route. routeIdle(r);
-    forall r in Route. reserved[r] = false;
   in Run:
     forall r in Route. routeState[r] = Idle or routeState[r] = Locked or routeState[r] = Releasing;
     forall r in Route. routeState[r] != Idle => reserved[r] = true;

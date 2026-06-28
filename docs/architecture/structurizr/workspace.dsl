@@ -31,15 +31,15 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       core = container "Domain core" "Core syntax, verification model, shared IR, temporal layout, and formula utilities." "OCaml" {
         tags "Reference"
       }
-      verification = container "Reference verification kernel" "Builds product summaries and reference proof obligations from the core model plus supplied automata." "OCaml" {
+      verification = container "Reference verification kernel" "Validates supplied automata normal form, then builds product summaries and reference proof obligations from the core model." "OCaml" {
         tags "Reference"
-        product = component "Product construction" "Builds product states, product steps, and product summaries from program plus automata." "OCaml"
+        product = component "Product construction" "Validates automata normal form and builds product states, product steps, and product summaries from program plus automata." "OCaml"
         passes = component "Reference passes" "Runs Pre, Product_reachability, and Post to shape correction/progression obligations." "OCaml"
         temporal = component "Temporal normalization" "Lowers pre/pre_k through explicit temporal layout." "OCaml"
         sharing = component "Formula sharing" "Shares structurally equal formulas without changing obligations." "OCaml"
       }
-      proofExport = container "Proof-kernel export" "Builds versioned kernel exchange data used by diagnostics and future Rocq synchronization." "OCaml / JSON" {
-        tags "Reference"
+      proofExport = container "Proof-kernel export" "Builds exchange projection data used by diagnostics and possible Rocq synchronization after an adequacy decision." "OCaml / JSON" {
+        tags "Application"
         kernelTypes = component "Proof-kernel schema" "Serializable product, clause, and summary structures." "OCaml / JSON"
         kernelPass = component "Proof-kernel pass" "Compiles one reference node into the exchange schema." "OCaml"
       }
@@ -92,7 +92,8 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     externalAdapters -> z3 "Runs selected SMT checks"
     externalAdapters -> graphviz "Renders graphs"
 
-    rocq -> proofExport "Synchronizes with versioned kernel exchange format"
+    rocq -> verification "Checks adequacy against the essential reference boundary"
+    rocq -> proofExport "May consume a versioned exchange projection"
 
     product -> passes "Produces product summaries"
     passes -> temporal "Produces obligation-shaped IR"
@@ -102,8 +103,8 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
 
     snapshot -> automataSource "Requests supplied automata"
     automataSource -> externalAdapters "Calls Spot adapter"
-    automataSource -> product "Supplies automata to reference product"
-    snapshot -> product "Builds reference product from supplied automata"
+    automataSource -> product "Supplies automata for validation"
+    snapshot -> product "Builds reference product from validated automata"
     snapshot -> passes "Builds instrumented IR"
     outputs -> proofRun "Runs minimal proof path"
     outputs -> diagnostics "Builds diagnostics only when requested"
@@ -160,8 +161,9 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     }
 
     dynamic kairos "kairos-rocq-sync-flow" {
-      rocq -> proofExport "targets exchange schema"
-      proofExport -> verification "uses reference product and clauses"
+      rocq -> verification "aligns with essential reference boundary"
+      rocq -> proofExport "may inspect exchange projection"
+      proofExport -> verification "projects reference product and clauses"
       proofExport -> core "uses core formulas and signatures"
     }
 

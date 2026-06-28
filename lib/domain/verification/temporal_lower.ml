@@ -27,7 +27,9 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     let product_formulas =
       node.summaries
       |> List.concat_map (fun (summary : Abs.product_step_summary) ->
-             Ir_formula.values (summary.propagation_requires @ summary.requires @ summary.ensures)
+             Ir_formula.values
+               (summary.propagation_requires @ summary.requires @ summary.ensures
+              @ summary.elaboration_checks)
              @
              let case_formulas =
                List.concat_map
@@ -65,6 +67,7 @@ let run_node (node : Abs.node_ir) : Abs.node_ir =
            let propagation_requires = List.map lower summary.propagation_requires in
            let requires = List.map lower summary.requires in
            let ensures = List.map lower summary.ensures in
+           let elaboration_checks = List.map lower summary.elaboration_checks in
            let safe_cases =
              summary.safe_cases
              |> List.map (fun (c : Abs.safe_product_case) ->
@@ -75,7 +78,15 @@ let run_node (node : Abs.node_ir) : Abs.node_ir =
              |> List.map (fun (c : Abs.unsafe_product_case) ->
                     { c with excluded_guard = lower c.excluded_guard })
            in
-           { summary with propagation_requires; requires; ensures; safe_cases; unsafe_cases })
+           {
+             summary with
+             propagation_requires;
+             requires;
+             ensures;
+             elaboration_checks;
+             safe_cases;
+             unsafe_cases;
+           })
   in
   let init_invariant_goals = List.map lower node.init_invariant_goals in
   { node with temporal_layout; summaries; init_invariant_goals }

@@ -26,10 +26,10 @@ graph LR
       style 11 fill:#075985,stroke:#043e5d,color:#ffffff
       12["<div style='font-weight: bold'>Domain core</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula<br />utilities.</div>"]
       style 12 fill:#166534,stroke:#0f4624,color:#ffffff
-      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product summaries and<br />reference proof obligations<br />from the core model plus<br />supplied automata.</div>"]
+      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
       style 13 fill:#166534,stroke:#0f4624,color:#ffffff
-      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
-      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 18 fill:#075985,stroke:#043e5d,color:#ffffff
       21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
       style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
       27["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
@@ -69,7 +69,8 @@ graph LR
     29-. "<div>Builds and proves Why3 tasks</div><div style='font-size: 70%'></div>" .->4
     29-. "<div>Runs selected SMT checks</div><div style='font-size: 70%'></div>" .->5
     29-. "<div>Renders graphs</div><div style='font-size: 70%'></div>" .->6
-    2-. "<div>Synchronizes with versioned<br />kernel exchange format</div><div style='font-size: 70%'></div>" .->18
+    2-. "<div>Checks adequacy against the<br />essential reference boundary</div><div style='font-size: 70%'></div>" .->13
+    2-. "<div>May consume a versioned<br />exchange projection</div><div style='font-size: 70%'></div>" .->18
     13-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->18
 
   end

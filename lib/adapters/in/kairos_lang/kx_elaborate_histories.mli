@@ -19,8 +19,12 @@
 (** Generated-history elaboration.
 
     Histories are expanded at the surface level into ghost declarations,
-    transition updates, and transition-local ensures before the final AST
-    lowering pass. *)
+    transition updates, and elaboration checks before the final AST lowering
+    pass.
+
+    These source-level constructs are syntactic sugar. They must stay outside
+    the Rocq-facing core boundary; the formal entry point is the elaborated
+    core program. *)
 
 type generated_history
 

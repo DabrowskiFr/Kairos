@@ -57,7 +57,12 @@ multiple_assignment_arity="$test_root/ko/multiple_assignment_arity.kairos"
 multiple_assignment_rhs_depends="$test_root/ko/multiple_assignment_rhs_depends.kairos"
 observer_drives_output="$test_root/ko/observer_drives_output.kairos"
 private_ghost_contract="$test_root/ko/private_ghost_contract.kairos"
+node_requires_output="$test_root/ko/node_requires_output.kairos"
+assign_input="$test_root/ko/assign_input.kairos"
+state_invariant_current_input="$test_root/ko/state_invariant_current_input.kairos"
 internal_prefix_reserved="$test_root/ko/internal_prefix_reserved.kairos"
+uninitialized_pre_contract="$test_root/ko/uninitialized_pre_contract.kairos"
+uninitialized_pre_k_invariant="$test_root/ko/uninitialized_pre_k_invariant.kairos"
 
 surface_named="$tmpdir/named.surface.json"
 elaborated_named="$tmpdir/named.elaborated.json"
@@ -100,9 +105,24 @@ observer_combined="$tmpdir/observer.combined"
 private_ghost_out="$tmpdir/private-ghost.out"
 private_ghost_err="$tmpdir/private-ghost.err"
 private_ghost_combined="$tmpdir/private-ghost.combined"
+node_requires_out="$tmpdir/node-requires.out"
+node_requires_err="$tmpdir/node-requires.err"
+node_requires_combined="$tmpdir/node-requires.combined"
+assign_input_out="$tmpdir/assign-input.out"
+assign_input_err="$tmpdir/assign-input.err"
+assign_input_combined="$tmpdir/assign-input.combined"
+state_inv_current_input_out="$tmpdir/state-inv-current-input.out"
+state_inv_current_input_err="$tmpdir/state-inv-current-input.err"
+state_inv_current_input_combined="$tmpdir/state-inv-current-input.combined"
 internal_out="$tmpdir/internal.out"
 internal_err="$tmpdir/internal.err"
 internal_combined="$tmpdir/internal.combined"
+uninitialized_pre_contract_out="$tmpdir/uninitialized-pre-contract.out"
+uninitialized_pre_contract_err="$tmpdir/uninitialized-pre-contract.err"
+uninitialized_pre_contract_combined="$tmpdir/uninitialized-pre-contract.combined"
+uninitialized_pre_k_invariant_out="$tmpdir/uninitialized-pre-k-invariant.out"
+uninitialized_pre_k_invariant_err="$tmpdir/uninitialized-pre-k-invariant.err"
+uninitialized_pre_k_invariant_combined="$tmpdir/uninitialized-pre-k-invariant.combined"
 
 "$cli" --dump-surface="$surface_named" "$named"
 "$cli" --dump-elaborated="$elaborated_named" "$named"
@@ -125,6 +145,7 @@ internal_combined="$tmpdir/internal.combined"
 "$cli" --dump-elaborated="$elaborated_past_formula" "$past_formula"
 "$cli" --check-frontend "$enum_quantified" > "$enum_frontend"
 "$cli" --check-frontend "$public_observer_contract" > "$tmpdir/public-observer.frontend.txt"
+"$cli" --check-frontend "$specdef" > "$tmpdir/specdef.frontend.txt"
 
 require_contains "$surface_named" "SSFor" "surface named-action dump"
 require_contains "$surface_named" "SSActionCall" "surface named-action dump"
@@ -269,11 +290,56 @@ cat "$private_ghost_out" "$private_ghost_err" > "$private_ghost_combined"
 require_contains "$private_ghost_combined" "ensures contract mentions ghost variable 'private'" \
   "private ghost contract failure"
 
+if "$cli" --check-frontend "$node_requires_output" >"$node_requires_out" 2>"$node_requires_err"; then
+  echo "Expected node requires output test to fail during frontend checking" >&2
+  exit 1
+fi
+cat "$node_requires_out" "$node_requires_err" > "$node_requires_combined"
+require_contains "$node_requires_combined" "requires contract mentions non-input variable 'y'" \
+  "node requires output failure"
+
+if "$cli" --check-frontend "$assign_input" >"$assign_input_out" 2>"$assign_input_err"; then
+  echo "Expected input assignment test to fail during frontend checking" >&2
+  exit 1
+fi
+cat "$assign_input_out" "$assign_input_err" > "$assign_input_combined"
+require_contains "$assign_input_combined" "assignment cannot target input variable 'x'" \
+  "input assignment failure"
+
+if "$cli" --dump-ir-pretty="$tmpdir/state-inv-current-input.ir" "$state_invariant_current_input" >"$state_inv_current_input_out" 2>"$state_inv_current_input_err"; then
+  echo "Expected state invariant current-input test to fail during IR construction" >&2
+  exit 1
+fi
+cat "$state_inv_current_input_out" "$state_inv_current_input_err" > "$state_inv_current_input_combined"
+require_contains "$state_inv_current_input_combined" \
+  "State invariant for node state_invariant_current_input in state Run" \
+  "state invariant current-input failure"
+require_contains "$state_inv_current_input_combined" "must not mention current inputs" \
+  "state invariant current-input failure"
+
 if "$cli" --dump-elaborated="$tmpdir/internal.json" "$internal_prefix_reserved" >"$internal_out" 2>"$internal_err"; then
   echo "Expected internal prefix reservation test to fail during parsing" >&2
   exit 1
 fi
 cat "$internal_out" "$internal_err" > "$internal_combined"
 require_contains "$internal_combined" "reserved internal prefix __kairos_" "internal prefix failure"
+
+if "$cli" --check-frontend "$uninitialized_pre_contract" >"$uninitialized_pre_contract_out" 2>"$uninitialized_pre_contract_err"; then
+  echo "Expected uninitialized pre contract test to fail during validation" >&2
+  exit 1
+fi
+cat "$uninitialized_pre_contract_out" "$uninitialized_pre_contract_err" > "$uninitialized_pre_contract_combined"
+require_contains "$uninitialized_pre_contract_combined" \
+  "ensures contract requires 1 completed instant" \
+  "uninitialized pre contract failure"
+
+if "$cli" --check-frontend "$uninitialized_pre_k_invariant" >"$uninitialized_pre_k_invariant_out" 2>"$uninitialized_pre_k_invariant_err"; then
+  echo "Expected uninitialized pre_k invariant test to fail during validation" >&2
+  exit 1
+fi
+cat "$uninitialized_pre_k_invariant_out" "$uninitialized_pre_k_invariant_err" > "$uninitialized_pre_k_invariant_combined"
+require_contains "$uninitialized_pre_k_invariant_combined" \
+  "invariant in Run requires 2 completed instant" \
+  "uninitialized pre_k invariant failure"
 
 echo "[elaboration] OK"

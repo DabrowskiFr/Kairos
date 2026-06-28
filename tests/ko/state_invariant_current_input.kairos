@@ -1,0 +1,20 @@
+node state_invariant_current_input(i: int) returns (
+  y: int
+)
+contracts
+  ensures: X G(y >= 0);
+states
+  Init(init), Run;
+invariants
+  in Run:
+    i >= 0;
+transitions
+  Init:
+    to Run {
+      y := 0;
+    }
+  Run:
+    to Run {
+      y := 0;
+    }
+end

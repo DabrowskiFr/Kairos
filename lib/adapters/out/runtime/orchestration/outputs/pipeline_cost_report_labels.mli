@@ -18,10 +18,10 @@
 
 (** Stable textual labels used by diagnostic cost reports. *)
 
-val clause_origin_string :
-  Proof_kernel_types.generated_clause_origin -> string
+val clause_family_string :
+  Obligation_family_projection.clause_family -> string
 
-val phase_string : Proof_kernel_types.clause_time_ir -> string
+val phase_string : Kernel_clause_projection.time_tag -> string
 val step_kind_string : Proof_kernel_types.product_step_kind -> string
 val string_of_product_state : Proof_kernel_types.product_state_ir -> string
 val origin_for_node : string -> string -> string

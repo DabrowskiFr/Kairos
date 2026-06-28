@@ -7,14 +7,15 @@ Accepted
 ## Context
 
 `lib/domain/proof_export` contains the current proof-kernel exchange view. It
-is useful for diagnostics, cost reports, and future Rocq synchronization. A
-backend can be tempted to reuse this data because it contains names and
-summaries close to proof obligations.
+is useful for diagnostics, cost reports, and possible future Rocq
+synchronization after an adequacy decision. A backend can be tempted to reuse
+this data because it contains names and summaries close to proof obligations.
 
 That reuse is architecturally expensive: backend proof planning and exchange
 schema evolution then start to constrain each other. This is especially risky
-for Rocq synchronization, where the exchange schema should be justified by the
-correction/progression/completeness argument rather than by Why3 convenience.
+for a possible Rocq exchange, where the exchange schema must be justified by
+the essential correction/progression/completeness boundary rather than by Why3
+convenience.
 
 ## Decision
 

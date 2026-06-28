@@ -69,6 +69,7 @@ type product_step_summary = {
   propagation_requires : summary_formula list;
   requires : summary_formula list;
   ensures : summary_formula list;
+  elaboration_checks : summary_formula list;
   safe_cases : safe_product_case list;
   unsafe_cases : unsafe_product_case list;
 }

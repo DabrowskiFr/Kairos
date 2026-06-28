@@ -22,10 +22,10 @@ graph LR
         style 26 fill:#ffffff,stroke:#444444,color:#444444
       end
 
-      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product summaries and<br />reference proof obligations<br />from the core model plus<br />supplied automata.</div>"]
+      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
       style 13 fill:#166534,stroke:#0f4624,color:#ffffff
-      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
-      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 18 fill:#075985,stroke:#043e5d,color:#ffffff
       29["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
       style 29 fill:#6b7280,stroke:#4a4f59,color:#ffffff
     end
@@ -34,8 +34,8 @@ graph LR
     13-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->18
     22-. "<div>Requests supplied automata</div><div style='font-size: 70%'></div>" .->23
     23-. "<div>Calls Spot adapter</div><div style='font-size: 70%'></div>" .->29
-    23-. "<div>Supplies automata to<br />reference product</div><div style='font-size: 70%'></div>" .->13
-    22-. "<div>Builds reference product from<br />supplied automata</div><div style='font-size: 70%'></div>" .->13
+    23-. "<div>Supplies automata for<br />validation</div><div style='font-size: 70%'></div>" .->13
+    22-. "<div>Builds reference product from<br />validated automata</div><div style='font-size: 70%'></div>" .->13
     24-. "<div>Runs minimal proof path</div><div style='font-size: 70%'></div>" .->25
     24-. "<div>Builds diagnostics only when<br />requested</div><div style='font-size: 70%'></div>" .->26
     26-. "<div>Builds proof-kernel<br />diagnostics</div><div style='font-size: 70%'></div>" .->18

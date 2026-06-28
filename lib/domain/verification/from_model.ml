@@ -24,31 +24,19 @@ module Vm = Verification_model
 
 let ( let* ) = Result.bind
 
-let fo_mentions_current_input ~(is_input : ident -> bool) (f : Core_syntax.hexpr) =
-  let rec go (h : hexpr) =
-    match h.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> false
-    | HVar name -> is_input name
-    | HPred (_, args) -> List.exists go args
-    | HFunCall (_, args) -> List.exists go args
-    | HUn (_, inner) -> go inner
-    | HBin (_, a, b) | HCmp (_, a, b) -> go a || go b
-  in
-  go f
-
 let convert_state_invariants (node_name : ident) (inputs : vdecl list)
     (invs : Vm.state_invariant list) : Ir.state_invariant list =
-  let input_names = List.map (fun (v : vdecl) -> v.vname) inputs in
-  let is_input x = List.mem x input_names in
+  let input_names = Fo_current_input.input_names inputs in
   List.map
     (fun (inv : Vm.state_invariant) ->
-      if fo_mentions_current_input ~is_input inv.formula then
-        failwith
-          (Printf.sprintf
-             "State invariant for node %s in state %s mentions a current input, \
-              which is forbidden for node-entry invariants: %s"
-             node_name inv.state (Pretty.string_of_fo inv.formula));
-      { Ir.state = inv.state; formula = inv.formula })
+      let formula =
+        Fo_current_input.require_no_current_input
+          ~context:
+            (Printf.sprintf
+               "State invariant for node %s in state %s" node_name inv.state)
+          ~input_names inv.formula
+      in
+      { Ir.state = inv.state; formula })
     invs
 
 let of_model_node (n : Vm.node_model) : Ir.node_ir =
@@ -282,7 +270,10 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                     };
                   propagation_requires = [];
                   requires = [];
-                  ensures = List.map Ir_formula.make repr_step.prog_transition.ensures;
+                  ensures = [];
+                  elaboration_checks =
+                    List.map Ir_formula.make
+                      repr_step.prog_transition.elaboration_checks;
                   safe_cases;
                   unsafe_cases;
                 }

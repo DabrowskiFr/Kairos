@@ -1,0 +1,18 @@
+node assign_input(x: int) returns (
+  y: int
+)
+contracts
+  ensures: G(y = x);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      x := 0;
+      y := x;
+    }
+  Run:
+    to Run {
+      y := x;
+    }
+end

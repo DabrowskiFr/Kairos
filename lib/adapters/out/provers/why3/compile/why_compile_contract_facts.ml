@@ -112,7 +112,7 @@ let step_post_terms_with_rec ctx rec_name (sc : Why_contracts.step_contract_info
                    formula.logic)))
   in
   let ensures =
-    sc.step.ensures
+    (sc.step.ensures @ sc.step.elaboration_checks)
     |> List.map (fun (formula : Ir.summary_formula) ->
            formula_term_with_rec ctx ~in_post:true rec_name formula.logic)
   in

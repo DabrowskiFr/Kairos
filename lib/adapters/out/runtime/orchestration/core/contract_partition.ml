@@ -41,7 +41,7 @@ let ( let* ) = Result.bind
     keeps the transformation compositional while avoiding a product automaton
     whose edges encode unrelated public guarantees in one large guard. The
     grouping is controlled by [Pipeline_types.proof_optimizations] and can be
-    disabled for the Rocq-facing baseline. *)
+    disabled for the Rocq-alignment baseline. *)
 
 type guarantee_ref = {
   gid : int;

@@ -8,8 +8,8 @@ it to the core model, builds automata/product proof data, generates proof
 obligations, and discharges them through Why3/provers.
 
 Kairos must also expose a clean formal boundary for the Rocq development. Rocq
-should track the correction-critical construction, not the concrete execution
-of the tool.
+adequacy should be checked against the correction-critical construction, not
+against the concrete execution of the tool or a diagnostic exchange format.
 
 ## External Actors And Systems
 
@@ -17,7 +17,7 @@ of the tool.
 | --- | --- | --- |
 | Kairos developer | Writes programs, runs proofs, inspects diagnostics | No |
 | Rocq formalization | Formal reference for correction/progression/completeness arguments | Yes, for the modeled kernel |
-| Spot | Constructs temporal-property automata | No; correction is relative to the supplied automata |
+| Spot | Constructs temporal-property automata | No; correction is relative to supplied automata whose product-level normal form is validated by Kairos |
 | Why3 | Builds proof tasks and orchestrates provers | No; backend execution |
 | Z3 | Discharges SMT goals | No; external solver |
 | Graphviz | Renders diagnostic graphs | No |
@@ -30,14 +30,15 @@ The semantic boundary is not "everything needed to prove". It is:
 ```text
 elaborated Kairos model
   + supplied automata
+  + product-level automata normal-form validation
   -> product states and product steps
   -> reference obligations
-  -> proof-kernel exchange view
 ```
 
-Everything after that boundary can be useful, but must be replaceable without
-changing the correction story:
+Everything after that boundary, including proof-kernel exchange projections,
+can be useful, but must be replaceable without changing the correction story:
 
+- proof-kernel exchange views;
 - Why3 projection;
 - SMT execution;
 - worker scheduling;
@@ -52,7 +53,8 @@ whether `runtime` and `proof_export` are real semantic boundaries or accidental
 implementation groupings. Today:
 
 - `domain/verification` is a plausible reference-kernel home;
-- `domain/proof_export` is a plausible Rocq exchange home;
+- `domain/proof_export` is a plausible exchange-projection home, not the
+  essential semantic boundary itself;
 - `adapters/out/runtime` is split into core, automata, proof, diagnostics, and
   facade libraries, but the facade still coordinates several concerns;
 - the Why3 backend should be a projection from the reference/runtime proof view,

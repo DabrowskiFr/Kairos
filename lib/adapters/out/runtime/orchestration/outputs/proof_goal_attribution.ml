@@ -54,7 +54,7 @@ let attribution_of_step ~node_name ~index
   let source =
     Printf.sprintf
       "helper=%s;product_src=%s;product_dst=%s;requires=%d;local_requires=%d;\
-       propagates=%d;ensures=%d;forbidden=%d"
+       propagates=%d;ensures=%d;elaboration_checks=%d;forbidden=%d"
       (Step_names.product_step_helper_name ~index step)
       (product_state_source step.product_src)
       (product_state_source step.product_dst)
@@ -62,6 +62,7 @@ let attribution_of_step ~node_name ~index
       (List.length step.local_requires)
       (List.length step.propagates)
       (List.length step.ensures)
+      (List.length step.elaboration_checks)
       (List.length step.forbidden)
   in
   {
@@ -84,7 +85,7 @@ let attribution_of_group ~node_name ~index ~group_size
   let source =
     Printf.sprintf
       "helper=%s;group_size=%d;product_src=%s;requires=%d;local_requires=%d;\
-       propagates=%d;ensures=%d;forbidden=%d"
+       propagates=%d;ensures=%d;elaboration_checks=%d;forbidden=%d"
       (Step_names.product_step_group_helper_name ~index step)
       group_size
       (product_state_source step.product_src)
@@ -92,6 +93,7 @@ let attribution_of_group ~node_name ~index ~group_size
       (List.length step.local_requires)
       (List.length step.propagates)
       (List.length step.ensures)
+      (List.length step.elaboration_checks)
       (List.length step.forbidden)
   in
   {

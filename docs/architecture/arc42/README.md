@@ -3,7 +3,7 @@
 This directory uses a small arc42-style structure. It is deliberately not a
 complete architecture book: each page records the architectural facts needed to
 protect correction, progression, relative completeness, and future Rocq
-synchronization.
+adequacy checking.
 
 Read in this order:
 
@@ -16,5 +16,5 @@ Read in this order:
 
 The current conclusion is not "the architecture is fine". The conclusion is:
 the ports-and-adapters shape is worth keeping, but the runtime/proof-export
-boundary is too broad and must be split before the Rocq synchronization
-contract becomes stable.
+boundary is too broad and must stay split so the essential Rocq adequacy
+boundary is not confused with an exchange projection.

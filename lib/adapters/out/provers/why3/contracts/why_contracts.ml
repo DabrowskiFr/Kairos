@@ -145,17 +145,22 @@ let build_contracts
       |> maybe_uniq_labeled
     in
     let post_labeled =
-      pc.ensures
-      |> List.concat_map
-           (compile_labeled_formula ~in_post:true
-              ~default_label:"Transition ensures")
+      ((pc.ensures
+       |> List.concat_map
+            (compile_labeled_formula ~in_post:true
+               ~default_label:"Transition ensures"))
+      @ (pc.elaboration_checks
+         |> List.concat_map
+              (compile_labeled_formula ~in_post:true
+                 ~default_label:"Elaboration checks")))
       |> maybe_uniq_labeled
     in
     let pre, pre_labels = split_labeled pre_labeled in
     let post, post_labels = split_labeled post_labeled in
     let forbidden, forbidden_labels = split_labeled forbidden_labeled in
     let local_cuts =
-      pc.ensures |> local_cut_formulas
+      (pc.ensures @ pc.elaboration_checks)
+      |> local_cut_formulas
       |> List.map (fun logic ->
           ( compile_unshared_formula_term ~in_post:true logic,
             "Local cut assertions" ))

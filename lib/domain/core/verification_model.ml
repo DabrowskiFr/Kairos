@@ -23,7 +23,7 @@ type program_step = {
   dst_state : ident;
   guard_expr : expr option;
   body_stmts : stmt list;
-  ensures : hexpr list;
+  elaboration_checks : hexpr list;
 }
 
 type state_invariant = {
@@ -112,5 +112,43 @@ let prioritized_steps (steps : program_step list) : program_step list =
          Hashtbl.replace previous_guards_by_src step.src_state updated_previous_guard;
          ({ step with guard_expr = guard_of_formula effective_guard } : program_step))
 
-let prioritize_node_steps (node : node_model) : node_model =
-  { node with steps = prioritized_steps node.steps }
+let original_guards_by_state (steps : program_step list) : (ident, guard_formula) Hashtbl.t =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (step : program_step) ->
+      let previous =
+        Hashtbl.find_opt tbl step.src_state |> Option.value ~default:GFalse
+      in
+      let guard = guard_formula_of_guard step.guard_expr in
+      Hashtbl.replace tbl step.src_state (or_formula previous guard))
+    steps;
+  tbl
+
+let implicit_default_step ~(original_guards : (ident, guard_formula) Hashtbl.t)
+    (state : ident) : program_step option =
+  let any_explicit_guard =
+    Hashtbl.find_opt original_guards state |> Option.value ~default:GFalse
+  in
+  match not_formula any_explicit_guard with
+  | GFalse -> None
+  | default_guard ->
+      Some
+        {
+          src_state = state;
+          dst_state = state;
+          guard_expr = guard_of_formula default_guard;
+          body_stmts = [];
+          elaboration_checks = [];
+        }
+
+let implicit_default_steps ~(states : ident list) (steps : program_step list) :
+    program_step list =
+  let original_guards = original_guards_by_state steps in
+  List.filter_map (implicit_default_step ~original_guards) states
+
+let normalize_node_semantics (node : node_model) : node_model =
+  let explicit_steps = prioritized_steps node.steps in
+  {
+    node with
+    steps = explicit_steps @ implicit_default_steps ~states:node.states node.steps;
+  }

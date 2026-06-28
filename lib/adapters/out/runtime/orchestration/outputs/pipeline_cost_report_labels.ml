@@ -17,21 +17,15 @@
  *---------------------------------------------------------------------------*)
 
 module PK = Proof_kernel_types
+module K = Kernel_clause_projection
 
-let clause_origin_string = function
-  | PK.OriginSourceProductSummary -> "source_product_summary"
-  | PK.OriginPhaseStepPreSummary -> "phase_step_pre_summary"
-  | PK.OriginPhaseStepSummary -> "phase_step_summary"
-  | PK.OriginSafety -> "safety"
-  | PK.OriginInitNodeInvariant -> "init_node_invariant"
-  | PK.OriginInitAutomatonCoherence -> "init_automaton_coherence"
-  | PK.OriginPropagationNodeInvariant -> "propagation_node_invariant"
-  | PK.OriginPropagationAutomatonCoherence -> "propagation_automaton_coherence"
+let clause_family_string =
+  Obligation_family_projection.stable_name
 
 let phase_string = function
-  | PK.CurrentTick -> "current_tick"
-  | PK.PreviousTick -> "previous_tick"
-  | PK.StepTickContext -> "step_tick_context"
+  | K.CurrentTick -> "current_tick"
+  | K.PreviousTick -> "previous_tick"
+  | K.StepTickContext -> "step_tick_context"
 
 let step_kind_string = function
   | PK.StepSafe -> "safe"

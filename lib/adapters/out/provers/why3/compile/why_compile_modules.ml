@@ -70,7 +70,7 @@ let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
     ~(shared_pre_bundle_modules : module_unit list)
     ~(shared_post_bundle_modules : module_unit list)
     ~(init_goal_decls : Ptree.decl list)
-    ~(kernel_step_helper_units : Why_compile_product_helper_types.helper_unit list) =
+    ~(kernel_step_helper_units : Why_compile_helper_unit.t list) =
   let common_module =
     node_module common_module_name common_decls (empty_groups ())
   in
@@ -86,7 +86,7 @@ let assemble_node_modules ~(module_name : string) ~(imports : Ptree.decl list)
   in
   let helper_modules =
     kernel_step_helper_units
-    |> List.map (fun (helper : Why_compile_product_helper_types.helper_unit) ->
+    |> List.map (fun (helper : Why_compile_helper_unit.t) ->
         node_module
           (module_name ^ "__" ^ helper.helper_name)
           (imports @ [ common_import ] @ helper.decls)

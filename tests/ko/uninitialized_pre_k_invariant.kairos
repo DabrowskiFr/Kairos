@@ -1,0 +1,23 @@
+node uninitialized_pre_k_invariant(x: int) returns (out: int)
+
+contracts
+  ensures: G(out = x);
+
+states
+  Init(init), Run;
+
+invariants
+  in Run:
+    pre_k(x, 2) = x;
+
+transitions
+  Init:
+    to Run {
+      out := x;
+    }
+
+  Run:
+    to Run {
+      out := x;
+    }
+end

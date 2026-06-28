@@ -1,0 +1,471 @@
+{0 Rocq/OCaml Adequacy Audit}
+
+This page answers one precise question:
+
+{[
+Does the existing Rocq formalization faithfully model the mathematical
+principles implemented by Kairos?
+]}
+
+Current answer: not yet as a theorem, and not yet as an exact paper claim.
+The Rocq development captures the intended proof architecture, but the
+current OCaml implementation contains proof-relevant extensions, surface
+desugarings, and different decompositions that must be accounted for before
+claiming full adequacy.
+
+This audit is deliberately about mathematical principles. It is not about
+certifying the OCaml implementation, JSON exports, Why3 scheduling, solver
+workers, dumps, or diagnostic artifacts.
+
+The direction is also fixed. Rocq validates a small mathematical account of
+Kairos; the implementation must make the corresponding principles visible.
+Derived OCaml views may help inspect or export those objects, but they are not
+the formal source of the paper theorem.
+
+{1 Status Vocabulary}
+
+- [MATCH]: the Rocq object and the OCaml object represent the same
+  mathematical structure, modulo names and representation.
+- [ADEQUATE_IF]: the correspondence is plausible but needs an explicit
+  side-condition, representation lemma, or preservation argument.
+- [GAP]: the current OCaml implementation and the current Rocq formalization
+  do not expose the same mathematical object.
+- [OUTSIDE]: the component is intentionally outside the Rocq core.
+
+{1 Overall Verdict}
+
+Rocq is a faithful model of the intended abstract proof architecture:
+
+{[
+elaborated core program + supplied automata
+  -> product summaries
+  -> step contracts
+  -> generated obligation validity
+  -> global automata validity
+]}
+
+The principles covered by the current Rocq development are:
+
+- source-step semantics, including source-order priority and the implicit
+  default skip when no explicit transition is enabled;
+- supplied assumption and guarantee automata, taken as parameters;
+- product states, product steps, and safe/bad-assumption/bad-guarantee
+  classification;
+- local obligation families and step-contract extraction;
+- soundness: discharging the generated obligations implies global automata
+  validity for canonical runs.
+
+The following are outside that Rocq core by design:
+
+- surface syntax and syntactic sugar, including observers, histories, compact
+  assignments, and selector notation;
+- Spot translation from LTL to automata; product-boundary normal-form
+  validation is in the OCaml reference product, but monitor correctness is not
+  proved by Rocq;
+- Why3/Z3 encoding, scheduling, grouping, dumps, diagnostics, and profiling;
+- implementation projections and serialized exchange formats.
+
+However, the current implementation is not yet shown to be an exact instance
+of that model. The remaining main gaps are:
+
+- Rocq Stage 1 enumerates candidates globally, while OCaml builds summaries
+  from a structurally reachable product exploration;
+- Rocq kernel clauses include entry-requires clauses and phase clauses for
+  all [pssEnsures], while OCaml [Kernel_clause_projection] currently exposes
+  a different clause decomposition;
+- backend views group and split some Stage 2 contracts, so the preservation
+  argument from the canonical Stage 2 family to backend VCs must stay explicit.
+
+Surface-generated checks from histories and observers are intentionally
+outside the Rocq core. OCaml now carries them separately as
+[elaboration_checks], so they can still be proved by the backend without being
+confused with Rocq [pssEnsures].
+
+Until these points are resolved, the honest claim is:
+
+{[
+The Rocq development formalizes the intended Kairos proof principle.
+The OCaml implementation exposes many corresponding kernel objects.
+Full adequacy of the current implementation to the Rocq principle remains
+to be established.
+]}
+
+{1 Adequacy Matrix}
+
+{[
+Area
+  Rocq principle
+  OCaml witness
+  Status
+  Required action
+
+Source program shape
+  ProgramSource, Transition {src,dst,guard,body}
+  Verification_model.node_model after normalize_node_semantics, with
+  program_step {src,dst,guard,body}
+  ADEQUATE_IF
+  Relate string states to finite ProgState values; relate frontend
+  elaboration to the normalized verification model. The normalization
+  embodies the source semantic principle: explicit transition priority plus
+  implicit default skip.
+
+Surface-generated checks
+  No field in Rocq Transition
+  History init/step ensures elaborate into program_step.elaboration_checks and
+  product_step_summary.elaboration_checks
+  OUTSIDE
+  Do not formalize history definitions or observers in Rocq. The Rocq-facing
+  program is the elaborated core program. Backends may prove these checks,
+  but they are not canonical Rocq summary ensures.
+
+State invariants
+  psStateInvariant : ProgState -> HistExpr
+  Ir.source_info.state_invariants : list state_invariant
+  ADEQUATE_IF
+  Relate multiple named invariants to one Rocq invariant formula per state,
+  typically by conjunction, with the current-input restriction as a static
+  well-formedness condition.
+
+Initial invariant goals
+  kairosInitInvariantGoals ps = []
+  Pre.run_node leaves init_invariant_goals empty
+  MATCH
+  OCaml aligns with Rocq: an initial state must not have ordinary state
+  invariants. The frontend/model boundary enforces this as a static
+  well-formedness condition.
+
+Temporal facts
+  TimeTag, TimedFactDesc, TimedFact
+  Kernel_clause_projection.time_tag and timed_fact_desc
+  MATCH
+  Keep this as the common vocabulary for local clauses.
+
+Temporal lowering
+  lowerHexpr, LowExpr, previous/current/step memories
+  Pre_k_layout, Pre_k_lowering, Temporal_lower
+  ADEQUATE_IF
+  State the exact relation between source pre/pre_k syntax and lowered
+  history slots. This is part of the paper calculus.
+
+Historical initialization frontier
+  InitializationFrontier and hformula_initialized_at
+  Historical_initialization.required_depth_hexpr,
+  Historical_initialization.required_depth_ltl,
+  Historical_initialization.min_ticks_by_state, and
+  Kairos_to_model_node_validation.validate_node
+  ADEQUATE_IF
+  Rocq states the mathematical contract: if a formula is available at a
+  source point, its required historical depth is bounded by the point age.
+  OCaml currently computes the point age with min_ticks_by_state and enforces
+  the contract in the frontend/model validator. This is an implementation
+  witness for the contract, not a Rocq certification of the graph algorithm.
+
+Contract automata
+  ContractAutomataBundle with assume/guarantee automata
+  Automaton_types plus supplied automata consumed by Product_build
+  ADEQUATE_IF
+  The Rocq theorem is relative to supplied automata. Spot translation stays
+  outside the core. OCaml must validate the product-level automata normal form
+  before exploration: non-empty automata, valid transition indices, absorbing
+  bad states, and deterministic assumption targets for each source/guard key.
+
+Product-state anchors
+  ProductStateAnchor {program,assume,guarantee}
+  Ir.product_state / Kernel_clause_projection.product_state_anchor
+  MATCH
+  No issue beyond representation names.
+
+Product-step classification
+  productStepClassOf / kairosStepClassOfDst
+  Product_build.classify_step / From_model.classify_case
+  MATCH
+  Both classify by bad destination states: bad assumption first, then bad
+  guarantee, otherwise safe.
+
+Product-step anchors
+  ProductStepAnchor {src,dst,Choice}
+  Kernel_clause_projection.product_step_anchor with string transition id
+  ADEQUATE_IF
+  Make the Choice/int/string transition-id correspondence explicit, including
+  the implicit [Default] branch. Rocq models it as [Default]; OCaml witnesses
+  the same source semantics by normalizing default skips into generated
+  self-loop program steps before product construction.
+
+Product-step enumeration
+  kairosIndexedTransitions x assume transitions x guarantee transitions
+  Product_build/From_model exploration from the initial product state
+  GAP
+  Prove equivalence under the chosen notion of structural reachability, or
+  change one side so Stage 1 has the same candidate set.
+
+Summary relevance
+  live source and non-bad assumption destination
+  From_model.is_relevant_product_step
+  MATCH
+  This preserves bad-guarantee cases and drops bad-assumption destinations.
+
+Summary identity and grouping
+  ProofStepSummaryIdentity {transition id, product src, assume guard}
+  Product_summary_projection.summary_identity
+  ADEQUATE_IF
+  Identity fields match modulo transition-id representation. Grouping by the
+  same identity must preserve safe and unsafe case coverage.
+
+Propagation requirements
+  kairosPropagationRequiresForSrc
+  Pre.propagation_requires via Product_characteristics.entry_facts_of_product_state
+  ADEQUATE_IF
+  Prove that the OCaml product-characteristic computation is the same
+  source-state phase formula as Rocq, including the initial true case and
+  the input-shift convention.
+
+Step requires
+  state invariant, propagation requires, assume guard, program guard,
+  stability
+  Pre.run_node summary.requires
+  ADEQUATE_IF
+  The categories match. The equality depends on the propagation-requires
+  and state-invariant correspondences.
+
+Summary ensures
+  ensures_h = safe guards, safe disjunction, shifted destination invariants,
+  guarded destination phase facts
+  From_model starts canonical ensures empty; Post adds safe disjunction,
+  destination invariants, and product-characteristic ensures
+  ADEQUATE_IF
+  Prove that the structural OCaml part is equal to Rocq ensures_h.
+
+Source clauses
+  kairosSourceSummaryClauses / kairosSourceClause
+  Kernel_clause_projection.build_source_summary_clauses
+  ADEQUATE_IF
+  Both build source phase facts from propagation requirements, but the
+  OCaml current-input check must be a static well-formedness condition, not
+  a semantic filter.
+
+Entry-requires clauses
+  kairosEntryRequiresClause for each summary requirement
+  No direct equivalent in Kernel_clause_projection.build
+  GAP
+  Decide whether these clauses are a Rocq-only proof device, or expose them
+  explicitly in OCaml before step-contract extraction.
+
+Phase clauses
+  kairosPhaseClause for every h in pssEnsures
+  Kernel_clause_projection emits PhaseStepSummary for guarantee_guard and
+  PhaseStepPreSummary from compatibility formulas
+  GAP
+  Align the clause families. The current names are close, but the generated
+  formulas are not the same object.
+
+Propagation clauses
+  kairosPropagationNodeClause and kairosPropagationAutomatonClause
+  Kernel_clause_projection PropagationNodeInvariant and
+  PropagationAutomatonCoherence
+  ADEQUATE_IF
+  The shape matches. The invariant list and phase facts depend on the
+  previous rows.
+
+Safety clauses
+  kairosSafetyClause with bad guarantee case
+  Kernel_clause_projection Safety with split bad guarantee cases
+  ADEQUATE_IF
+  Splitting top-level disjunctions is valid only with an explicit logical
+  equivalence argument.
+
+Safe step-contract extraction
+  kairosSafeContractOfSummary with all pssSteps and lowerDedupEnsures
+  Canonical_obligations.build_stage2 safe contract, consumed by
+  Step_contract_projection and Why_runtime_view
+  ADEQUATE_IF
+  Deduplication and lowering must be justified as preservation after the
+  canonical Stage 2 contract exists.
+
+Unsafe step-contract extraction
+  one bad-guarantee contract per unsafe case
+  Canonical_obligations.build_stage2 has one contract per unsafe case;
+  Step_contract_projection groups them only as a derived backend view
+  MATCH as canonical object; ADEQUATE_IF for backend grouping
+  The canonical object now matches the Rocq granularity. The remaining
+  obligation is to justify that the grouped backend view proves every
+  canonical unsafe contract it covers.
+
+Generated obligation validity
+  kairosGeneratedSafeObligationsValid and
+  kairosGeneratedUnsafeObligationsValid
+  Why3-generated VCs before backend grouping and scheduling
+  ADEQUATE_IF
+  The canonical obligation set must be identifiable before Why3 helper
+  grouping, worker scheduling, and diagnostics.
+
+Global theorem
+  generated_obligations_sound / concrete_environment_generated_obligations_sound
+  Successful proof run interpreted as external discharge of generated VCs
+  MATCH as principle
+  The theorem shape is the right one. The pending work is adequacy of the
+  generated objects supplied to the theorem.
+
+Spot, Why3, Z3, dumps, scheduling, diagnostics
+  Not part of the Rocq mathematical kernel
+  Backend and artifact layers
+  OUTSIDE
+  These may optimize or display obligations, but must not define the
+  theorem shape.
+]}
+
+{1 Blocking Gaps}
+
+The following gaps must be closed before the paper can honestly claim that
+the implementation follows the Rocq-backed mathematical formalization.
+
+The Stage 1 gaps must be handled by the case-by-case arbitration recorded in
+{!page-stage1_ocaml_rocq_arbitration}. That page decides, for each mismatch,
+whether Rocq, OCaml, presentation, or only a derived/backend view should
+change.
+
+{2 B1. Surface-generated checks}
+
+OCaml transitions carry [ensures], but the current parser does not expose a
+general syntax for arbitrary transition-local postconditions. Ordinary
+transition productions initialize [ensures] to [[]]. The proof-relevant
+[ensures] observed in the pipeline are generated mainly by history
+elaboration: [history init ensures] and [history step ensures] are attached
+to each expanded transition after ghost history updates.
+
+These generated checks are not diagnostics and not backend noise: they are
+compiled as Why3 postconditions. They are, however, surface-elaboration
+checks, not Rocq [pssEnsures].
+
+The clean rule is:
+
+- do not add history definitions, observers, or other syntactic sugar to the
+  Rocq formalization;
+- take the elaborated core program as the Rocq-facing program;
+- keep sugar-generated proof checks outside the canonical Rocq summary
+  [ensures], or classify them in a separate elaboration-check family.
+
+The implementation now exposes this boundary explicitly:
+[program_step.elaboration_checks] flows into
+[product_step_summary.elaboration_checks]. The canonical
+[product_step_summary.ensures] field is reserved for structural product
+ensures corresponding to Rocq [pssEnsures].
+
+{2 G2. Initial invariant goals}
+
+Rocq currently has [kairosInitInvariantGoals ps = []]. OCaml generates
+[init_invariant_goals] as the empty list.
+
+The mathematical rule is the Rocq one: an initial state is not a state in
+which an ordinary state invariant has to be re-established by an incoming
+step. It is the starting point of runs.
+
+OCaml now aligns with this rule. Surface state-invariant expansion rejects any
+selector whose final denotation contains the initial state, the verification
+model validator rejects initial-state invariants, and [Pre.run_node] no longer
+creates initial invariant goals. Examples that used [in Init] as an
+initialization reminder were migrated to explicit initialization code instead
+of being silently kept as ordinary state invariants.
+
+{2 G3. Candidate generation}
+
+Rocq Stage 1 enumerates all real indexed source transitions plus one implicit
+default-skip transition per source state, against all assumption and guarantee
+automaton transitions, then filters for relevance. The operational meaning of
+[Default] is: no explicit outgoing transition from the current source state is
+enabled, so the program skips and stays in the same control state.
+
+OCaml now materializes the same source semantics in
+[Verification_model.normalize_node_semantics]: after source-order
+prioritization, it appends one generated self-loop step per control state with
+an empty body and a guard expressing that no original outgoing guard from that
+state is true. Generated defaults whose guard is syntactically [false] are
+omitted, because the fallback is then unreachable by construction. This keeps
+explicit transition indices stable and makes reachable implicit skips visible
+to product exploration and proof obligation generation.
+
+OCaml builds product data by exploration from the initial product state. That
+can be the right implementation, but the adequacy statement must say why it
+generates exactly the product candidates needed by the Rocq proof, or else
+the two sides must be aligned.
+
+{2 G4. Kernel clause families}
+
+The principle to compare with Rocq is the generated family of source and
+product clauses. [Kernel_clause_projection] is only a derived OCaml view that
+may expose this family to proof export or diagnostics; it is not the formal
+definition of Stage 1.
+
+The current view is close to the Rocq vocabulary ([KernelClause],
+[TimedFact], product anchors), but the family contents do not currently match
+Rocq Stage 1 exactly:
+
+- Rocq has entry clauses for each summary requirement;
+- Rocq phase clauses range over [pssEnsures];
+- OCaml phase clauses currently expose guarantee guards and compatibility
+  formulas.
+
+This must be resolved before claiming that the implementation exposes the
+same Stage 1 clauses as the Rocq principle.
+
+{2 G5. Step-contract granularity}
+
+Rocq Stage 2 gives one bad-guarantee contract per unsafe case. OCaml now
+exposes that granularity in [Canonical_obligations.build_stage2].
+
+[Step_contract_projection] is a derived grouped view of the canonical family:
+safe contracts are kept as canonical summary contracts; unsafe contracts with
+the same summary identity are grouped for the backend, and top-level
+disjunctions may be split into several forbidden formulas. This grouping is
+outside the Rocq principle. Its required preservation argument is:
+
+{[
+For each grouped unsafe contract G and every canonical unsafe contract C
+covered by G, proving all forbidden formulas emitted by G under the shared
+pre/exec relation proves C's forbidden formula.
+]}
+
+The implementation keeps the link explicit through [covered_cases] and the
+[canonical] field carried by [Step_contract_projection.t].
+
+{1 Clean Adequacy Target}
+
+The implementation should expose a canonical proof boundary with these
+mathematical relations:
+
+{[
+CoreProgramAdequate(ocaml_model, rocq_ps)
+
+SuppliedAutomataAdequate(ocaml_automata, rocq_ca)
+
+Stage1Adequate:
+  OCaml product summaries and kernel clause families
+  are equivalent to kairosSummariesFromSourceAndContracts and
+  kairosSummaryFamilies.
+
+Stage2Adequate:
+  OCaml canonical step contracts are equivalent to
+  kairosStage2StepContracts, before backend grouping.
+
+BackendPreservesValidity:
+  If the backend discharges its grouped VCs, then
+  GeneratedObligationsValid holds.
+]}
+
+Only [Stage1Adequate] and [Stage2Adequate] are about the proof-generation
+principle. [BackendPreservesValidity] is about Why3 encoding, not about the
+Rocq mathematical kernel.
+
+{1 Consequence For The Paper}
+
+The paper should present the Rocq-backed mathematical principle first. The
+implementation section should then state:
+
+- which implementation objects are the witnesses for the mathematical
+  objects;
+- which transformations are merely obligation-preserving optimizations;
+- which components are outside the theorem.
+
+At the current point, the paper must not claim that the existing OCaml
+pipeline is fully matched by the Rocq development. The correct claim is that
+Rocq gives the intended proof principle, and this audit identifies the exact
+implementation/formalization adequacy obligations that remain.

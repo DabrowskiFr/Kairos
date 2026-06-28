@@ -32,9 +32,14 @@ The following choices are structurally good:
 | Area | Current state | Architectural concern | Direction |
 | --- | --- | --- | --- |
 | Runtime orchestration | Split into core, proof, diagnostics, and facade libraries | The facade still coordinates several concerns | Keep dependency checks strict and avoid adding semantic construction to the facade |
-| Proof export | Used by runtime diagnostics/cost reports, intended for Rocq | Exchange view and diagnostic needs can evolve at different speeds | Keep Why3/backend metadata out of this schema; version the exchange view before Rocq sync |
-| External automata | Spot builds automata supplied to the reference kernel | Spot translation is not part of the correction story | Keep automata explicit parameters of the reference kernel; state claims relative to them |
+| Proof export | Used by runtime diagnostics/cost reports, possible Rocq exchange projection | Exchange view and diagnostic needs can evolve at different speeds | Keep Why3/backend metadata out of this schema; justify selected fields against the Rocq alignment manifest before synchronization |
+| External automata | Spot builds automata supplied to the reference kernel | Spot translation is not part of the correction story, but malformed automata must not be consumed silently | Keep automata explicit parameters of the reference kernel; validate product-level normal form before exploration; state monitor-correctness claims relative to supplied automata |
 | Source elaboration | Frontend is outside current Rocq boundary | Desugaring can change semantics | Later add an elaboration theorem or a checked core export |
+
+The Rocq alignment source is explicit in
+`docs/rocq_alignment_manifest.json`. The POPL mathematical formalization
+should follow those Rocq theorem cuts first, then describe how the Kairos
+implementation exposes the corresponding artifacts.
 
 ## Target Architecture
 
@@ -43,7 +48,10 @@ Surface language
   -> elaboration adapter
   -> core model
   -> reference kernel
-  -> proof-kernel exchange schema
+  -> product summaries / clause families
+  -> canonical obligations
+  -> derived step-contract views / lowering
+  -> proof-kernel derived views when needed
   -> backend projections
   -> external provers/renderers
 ```
@@ -69,7 +77,7 @@ The runtime split now separates:
 
 ```text
 kairos_runtime_core
-  -> prepared program, supplied automata consumption, reference pipeline assembly
+  -> prepared program, supplied automata validation/consumption, reference pipeline assembly
 
 kairos_runtime_automata
   -> external automata production through Spot today
@@ -108,7 +116,8 @@ planning must use its own runtime/reference projection.
 `kairos_verification_runtime` is now a facade over three narrower runtime
 libraries:
 
-- `kairos_runtime_core` builds snapshots and reference pipeline data;
+- `kairos_runtime_core` builds snapshots and reference pipeline data from
+  supplied automata that the reference product validates before exploration;
 - `kairos_runtime_automata` produces the supplied automata through Spot today;
 - `kairos_runtime_proof` owns proof execution and Why3 goal reporting;
 - `kairos_runtime_diagnostics` owns diagnostic artifact bundles and cost
@@ -123,4 +132,5 @@ dependencies auditable.
 `kairos_runtime_automata` to produce automata, then passes those automata
 explicitly to `Pipeline_build.build_snapshot_from_supplied_automata`. This
 matches the correction boundary: the reference kernel consumes supplied
-automata, while Spot remains an external producer.
+automata, validates the product-level normal form, and Spot remains an
+external producer.

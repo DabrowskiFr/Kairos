@@ -49,6 +49,81 @@ let first_false_idx (states : ltl list) : int =
   in
   loop 0 states
 
+let bad_indices (states : ltl list) : int list =
+  states
+  |> List.mapi (fun i st -> (i, st))
+  |> List.filter_map (function i, LFalse -> Some i | _ -> None)
+
+let validate_transition_index ~role ~kind ~state_count idx =
+  if idx < 0 || idx >= state_count then
+    failwith
+      (Printf.sprintf
+         "%s automaton has an out-of-range transition %s index %d (state count: %d)"
+         role kind idx state_count)
+
+let validate_non_empty_states ~role (automaton : Automaton_types.automaton) =
+  if automaton.states = [] then
+    failwith
+      (Printf.sprintf
+         "%s automaton has no states; product exploration requires initial \
+          automaton state 0"
+         role)
+
+let validate_transition_indices ~role (automaton : Automaton_types.automaton) =
+  let state_count = List.length automaton.states in
+  List.iter
+    (fun (src, _guard, dst) ->
+      validate_transition_index ~role ~kind:"source" ~state_count src;
+      validate_transition_index ~role ~kind:"destination" ~state_count dst)
+    automaton.transitions
+
+let validate_bad_state_normal_form ~role (automaton : Automaton_types.automaton) =
+  match bad_indices automaton.states with
+  | [] -> ()
+  | [ bad_idx ] ->
+      List.iter
+        (fun (src, _guard, dst) ->
+          if src = bad_idx && dst <> bad_idx then
+            failwith
+              (Printf.sprintf
+                 "%s automaton bad state %d must be absorbing, but has a \
+                  transition to %d"
+                 role bad_idx dst))
+        automaton.transitions
+  | _ ->
+      failwith
+        (Printf.sprintf
+           "%s automaton has multiple bad states; expected at most one LFalse \
+            state"
+           role)
+
+let validate_assumption_guard_targets (automaton : Automaton_types.automaton) =
+  let targets = Hashtbl.create 32 in
+  List.iter
+    (fun (src, guard, dst) ->
+      let guard_key = guard |> simplify_fo |> Core_fo_simplifier.key_of_hexpr in
+      let key = (src, guard_key) in
+      match Hashtbl.find_opt targets key with
+      | None -> Hashtbl.add targets key dst
+      | Some previous when previous = dst -> ()
+      | Some previous ->
+          failwith
+            (Printf.sprintf
+               "assumption automaton has same-guard transitions from state %d \
+                to both %d and %d; product summaries identify assumption edges \
+                by source and guard"
+               src previous dst))
+    automaton.transitions
+
+let validate_automata_spec (build : Automaton_types.automata_spec) =
+  validate_non_empty_states ~role:"assumption" build.assume_automaton;
+  validate_non_empty_states ~role:"guarantee" build.guarantee_automaton;
+  validate_transition_indices ~role:"assumption" build.assume_automaton;
+  validate_transition_indices ~role:"guarantee" build.guarantee_automaton;
+  validate_bad_state_normal_form ~role:"assumption" build.assume_automaton;
+  validate_bad_state_normal_form ~role:"guarantee" build.guarantee_automaton;
+  validate_assumption_guard_targets build.assume_automaton
+
 let make_assume_view (build : Automaton_types.automata_spec) : automaton_view =
   let automaton = build.assume_automaton in
   {
@@ -98,6 +173,7 @@ let classify_step ~(assume_bad_idx : int) ~(guarantee_bad_idx : int) (dst : PT.p
 
 let analyze_node ~(build : Automaton_types.automata_spec) ~(node : Vm.node_model)
     ~(program_transitions : Vm.program_step list) : Temporal_automata.node_data =
+  validate_automata_spec build;
   let assume = make_assume_view build in
   let guarantee = make_guarantee_view build in
   let prog_outgoing = node_outgoing program_transitions in

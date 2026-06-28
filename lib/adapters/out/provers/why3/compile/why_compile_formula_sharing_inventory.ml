@@ -92,7 +92,8 @@ let record_product_formulas stats (runtime_view : Why_runtime_view.t) =
          (* Forbidden facts are emitted transparently under negation. Recording
             them here would create shared predicates that the proof path no
             longer calls. *)
-         add_summary_formulas stats ~scope pc.ensures)
+         add_summary_formulas stats ~scope pc.ensures;
+         add_summary_formulas stats ~scope pc.elaboration_checks)
 
 let select_shared_formulas env shared_params stats table order =
   Hashtbl.to_seq stats

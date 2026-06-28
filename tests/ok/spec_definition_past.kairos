@@ -9,8 +9,8 @@ spec def implies_now(effect: Formula, cause: Formula) =
 
 node spec_definition_past(x: bool) returns (out: bool)
 contracts
-  ensures: G(rose(x) => out = true);
-  ensures: G(stable_for(x, 1) => out = x);
+  ensures: X G(rose(x) => out = true);
+  ensures: X G(stable_for(x, 1) => out = x);
   ensures: G(implies_now([out = true], [x = true]));
 states
   Run(init);

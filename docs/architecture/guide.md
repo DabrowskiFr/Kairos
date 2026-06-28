@@ -8,6 +8,10 @@ Cette page est le point d'entree humain. Les diagrammes C4 et les graphes
 Commencer par l'atlas des modules si tu cherches quel fichier ouvrir :
 
 - `module_atlas.md`
+- `../rocq_alignment_manifest.json` pour savoir quelle unite Kairos doit
+  matcher quelle couche Rocq.
+- `../rocq_projection_audit.json` pour le detail champ par champ
+  `ProofStepSummary` / `SummaryClauseFamilies` / `StepContract`.
 
 Puis regarder cette carte simplifiee :
 
@@ -19,7 +23,10 @@ Le code important pour la correction est en vert :
 
 - `lib/domain/core`
 - `lib/domain/verification`
-- `lib/domain/proof_export`
+
+`lib/domain/proof_export` est une projection d'echange utile pour les
+diagnostics et une synchronisation Rocq future, mais ce n'est pas le noyau
+essentiel a prouver.
 
 Le reste est necessaire pour faire tourner l'outil, mais ne doit pas definir
 la semantique de verification :
@@ -31,7 +38,8 @@ la semantique de verification :
 
 ## Chemin De Correction
 
-La vue suivante montre seulement ce que Rocq doit comprendre :
+La vue suivante montre seulement le noyau essentiel a comparer avec Rocq. La
+granularite exacte est dans `../rocq_alignment_manifest.json`.
 
 ![Kairos correction path](manual/correction-path.svg)
 
@@ -40,11 +48,12 @@ Le chemin de reference est :
 ```text
 Core program model
   + supplied automata
+  + validation de forme normale des automates
   -> reference product
-  -> Pre / Product_reachability / Post
-  -> Temporal_lower
-  -> Proof_kernel_types.node_ir
-  -> Rocq
+  -> product summaries and clause families
+  -> step contracts / lowering
+  -> obligations essentielles
+  -> vues derivees pour export/diagnostic si necessaire
 ```
 
 La regle de lecture est simple :
@@ -63,8 +72,10 @@ elle ne doit pas changer la sortie kernel.
 | Frontend | `lib/adapters/in/kairos_lang` | Parse et elabore le langage de surface | Pas encore, sauf theoreme d'elaboration futur |
 | Application | `lib/application` | Ports et use-cases | Non |
 | Domain core | `lib/domain/core` | Syntaxe, modeles, IR, temporal layout | Oui |
-| Verification kernel | `lib/domain/verification` | Produit programme x automates, obligations de reference | Oui, avec classification par passe |
-| Proof export | `lib/domain/proof_export` | Vue d'echange proof-kernel pour diagnostics et Rocq futur | Oui |
+| Verification kernel | `lib/domain/verification` | Valide la forme des automates, produit programme x automates, obligations de reference | Oui, avec classification par passe |
+| Obligations canoniques | `lib/domain/verification/canonical_obligations.*` | Familles Stage 1 / Stage 2 a comparer avec Rocq, avant export et backend | Reference |
+| Rocq alignment views | `lib/domain/verification/product_summary_projection.*`, `lib/domain/verification/kernel_clause_projection.*`, `lib/domain/verification/obligation_family_projection.*`, `lib/domain/verification/step_contract_projection.*` | Vues derivees product-summary, KernelClause, familles d'obligations et step-contract consommees par proof_export et Why3 | Projection |
+| Proof export | `lib/domain/proof_export` | Vue d'echange proof-kernel pour diagnostics et Rocq futur | Projection, peut servir de temoin des vues product-summary / step-contract |
 | Runtime | `lib/adapters/out/runtime` | Snapshots, dumps, orchestration, proof runs | Non |
 | Why3 backend | `lib/adapters/out/provers/why3` | Projection Why3 et choix backend | Non |
 | Artifacts | `lib/adapters/out/artifacts` | Rendus texte/graphe/diagnostic | Non |
@@ -75,10 +86,49 @@ elle ne doit pas changer la sortie kernel.
 | Passe | Classification | Pourquoi |
 | --- | --- | --- |
 | `Pre` | Reference | Ajoute les hypotheses necessaires aux pas produit |
-| `Product_reachability` | Reference | Ajoute des obligations d'inatteignabilite/preservation, ne doit pas etre vu comme pruning |
+| `Product_reachability` | Reference extension | Ajoute des obligations d'inatteignabilite/preservation, ne doit pas etre vu comme pruning |
 | `Post` | Reference | Ajoute les obligations de sortie et de progression |
 | `Temporal_lower` | Reference normalization | Rend explicites `pre/pre_k` via le layout temporel |
 | `Formula_sharing` | Obligation-preserving optimization | Ne doit que partager physiquement des formules egales |
+
+## Alignement Rocq
+
+La formalisation Rocq courante prise comme source est :
+
+```text
+/Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq
+branch lab/rocq-paper-core
+commit f3facc051901245e33a4d79676fcff6fcd464087
+```
+
+Le theoreme de coeur a aligner est :
+
+```text
+GeneratedObligationsValid
+  -> contract_valid
+```
+
+Pour le papier, on part de ces coupures Rocq :
+
+- programmes bien formes ;
+- runs instrumentes et observations ;
+- automates de contrat ;
+- ancres produit et summaries ;
+- projection product-summary : `ProofStepSummary` /
+  `SummaryClauseFamilies` (coupe Rocq Stage 1) ;
+- obligations canoniques : clauses Stage 1 et `StepContract` Stage 2 ;
+- vue step-contract : contrats groupes derives pour le backend ;
+- validite des obligations generees ;
+- soundness globale.
+
+Le fichier `../rocq_alignment_manifest.json` donne la table precise
+Rocq -> Kairos pour chacune de ces coupures.
+
+Le fichier `../rocq_projection_audit.json` donne la conclusion d'architecture :
+il faut introduire des projections explicites product-summary et
+step-contract, parce que les champs Rocq sont actuellement eparpilles entre
+`Ir.product_step_summary`, `Proof_kernel_types.proof_step_summary_ir`,
+`Why_runtime_view` et les contrats Why3.
 
 La version machine-lisible de cette table est :
 
@@ -95,6 +145,8 @@ python3 scripts/check_reference_pipeline_boundaries.py
 Le backend Why3 a sa propre separation interne. Elle ne fait pas partie de la
 frontiere Rocq, mais elle doit rester claire pour ne pas transformer une
 optimisation de representation en changement d'obligations.
+
+![Intentional Why3 product backend](manual/why3-product-backend-intent.svg)
 
 - `why_compile_product_group_boundary` definit les types frontieres :
   `proof_terms` pour l'emission, `profile` pour le diagnostic.
@@ -125,6 +177,14 @@ Les vues automatiques sont dans `observed/`.
   bibliotheques Dune.
 - `observed/dune-modules.svg` : utile pour enqueter localement, mais trop
   dense comme vue de depart.
+- `observed/why3-product-backend.svg` : vue filtree des dependances observees
+  du backend Why3 produit, a utiliser avant le graphe complet quand on travaille
+  sur le plan et l'emission des helpers produit.
+
+Comparer cette vue observee avec `manual/why3-product-backend-intent.svg` :
+la premiere dit ce que Dune voit, la seconde dit quelle separation on veut
+maintenir. La synthese des ecarts est dans
+`why3_product_backend_alignment.md`.
 
 Les vues C4 Structurizr sont dans `structurizr/export/`.
 

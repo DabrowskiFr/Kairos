@@ -60,9 +60,9 @@ digraph KairosArchitectureMap {
   ];
 
   proof_export [
-    label="Proof-kernel export\ndiagnostics / Rocq exchange\nlib/domain/proof_export",
-    fillcolor="#86efac",
-    penwidth=3
+    label="Proof-kernel export\ndiagnostics / optional Rocq exchange\nlib/domain/proof_export",
+    fillcolor="#dbeafe",
+    penwidth=2
   ];
 
   runtime [
@@ -86,7 +86,7 @@ digraph KairosArchitectureMap {
   ];
 
   rocq [
-    label="Rocq formalization\nsyncs with proof-kernel export",
+    label="Rocq formalization\nadequacy with essential boundary",
     shape=oval,
     fillcolor="#dcfce7",
     penwidth=2
@@ -111,7 +111,8 @@ digraph KairosArchitectureMap {
   runtime -> why3_backend [label="prove/dump why"];
   why3_backend -> external [label="Why3/Z3"];
   artifacts -> external [label="Graphviz"];
-  proof_export -> rocq [label="versioned boundary"];
+  kernel -> rocq [label="essential boundary"];
+  proof_export -> rocq [style=dashed, label="optional exchange"];
 
   subgraph cluster_legend {
     label="Legend";
@@ -119,8 +120,12 @@ digraph KairosArchitectureMap {
     color="#9ca3af";
     style="rounded,dashed";
     legend_reference [
-      label="green = correction-critical / Rocq-visible",
+      label="green = essential correction boundary",
       fillcolor="#bbf7d0"
+    ];
+    legend_projection [
+      label="blue = exchange projection / use-case wiring",
+      fillcolor="#dbeafe"
     ];
     legend_adapter [
       label="purple/blue = entry + use-case wiring",

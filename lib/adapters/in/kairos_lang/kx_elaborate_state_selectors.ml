@@ -59,6 +59,13 @@ let resolve_state_selector ~node_name ~states selector =
   in
   resolve selector
 
+let reject_initial_state_invariant ~node_name ~init_state states =
+  if List.exists (String.equal init_state) states then
+    failwith
+      (Printf.sprintf
+         "state invariant in node '%s' selects initial state '%s'; use invariants only for non-initial states"
+         node_name init_state)
+
 let expand_state_invariants (n : S.node) =
   List.concat_map
     (fun (inv : S.state_invariant) ->
@@ -70,5 +77,7 @@ let expand_state_invariants (n : S.node) =
           (Printf.sprintf
              "state selector for an invariant in node '%s' does not select any state"
              n.node_name);
+      reject_initial_state_invariant ~node_name:n.node_name
+        ~init_state:n.state_decls.init_state states;
       List.map (fun state -> (state, inv.formula)) states)
     n.state_invariants

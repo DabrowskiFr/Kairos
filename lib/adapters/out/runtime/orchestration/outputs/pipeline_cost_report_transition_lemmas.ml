@@ -172,10 +172,11 @@ let transition_formula_of_rel_fact (fact : PK.relational_clause_fact_ir) =
 let collect_transition_lemma_candidates_for_clause table ~node_name
     (clause : PK.relational_generated_clause_ir) =
   match clause.anchor with
-  | PK.ClauseAnchorProductState _ -> ()
-  | PK.ClauseAnchorProductStep step ->
+  | Kernel_clause_projection.ClauseProductState _ -> ()
+  | Kernel_clause_projection.ClauseProductStep kernel_step ->
+      let step = Proof_kernel_clause_context.product_step_of_kernel kernel_step in
       let stat = transition_lemma_stat table step in
-      let origin = clause_origin_string clause.origin in
+      let origin = clause_family_string clause.family in
       stat.transition_clause_count <- stat.transition_clause_count + 1;
       stat.transition_runtime_nodes <- StringSet.add node_name stat.transition_runtime_nodes;
       stat.transition_step_kinds <-

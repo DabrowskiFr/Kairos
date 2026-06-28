@@ -25,6 +25,8 @@ open Core_syntax
 open Core_syntax_builders
 open Proof_kernel_types
 
+module K = Kernel_clause_projection
+
 (** [simplify_fo] helper value. *)
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
@@ -43,42 +45,57 @@ let is_htrue (h : Core_syntax.hexpr) =
 (** [fact_desc_is_false] helper value. *)
 
 let fact_desc_is_false = function
-  | FactFormula h | FactPhaseFormula h -> is_hfalse h
-  | FactFalse -> true
-  | FactProgramState _ | FactGuaranteeState _ -> false
+  | K.FactFormula h | K.FactPhaseFormula h -> is_hfalse h
+  | K.FactFalse -> true
+  | K.FactProgramState _ | K.FactGuaranteeState _ -> false
 
 (** [fact_desc_is_true] helper value. *)
 
 let fact_desc_is_true = function
-  | FactFormula h | FactPhaseFormula h -> is_htrue h
-  | FactFalse | FactProgramState _ | FactGuaranteeState _ -> false
+  | K.FactFormula h | K.FactPhaseFormula h -> is_htrue h
+  | K.FactFalse | K.FactProgramState _ | K.FactGuaranteeState _ -> false
 
 (** [lower_generated_clause] helper value. *)
 
 let lower_generated_clause (clause : generated_clause_ir) : generated_clause_ir option =
-  if List.exists (fun (fact : clause_fact_ir) -> fact_desc_is_false fact.desc) clause.hypotheses
+  let kernel_clause = clause.K.clause in
+  if
+    List.exists
+      (fun (fact : K.timed_fact) -> fact_desc_is_false fact.K.tf_desc)
+      kernel_clause.K.kc_hypotheses
   then None
-  else
+  else (
     let hypotheses =
-      List.filter (fun (fact : clause_fact_ir) -> not (fact_desc_is_true fact.desc)) clause.hypotheses
+      List.filter
+        (fun (fact : K.timed_fact) -> not (fact_desc_is_true fact.K.tf_desc))
+        kernel_clause.K.kc_hypotheses
     in
     let conclusions =
-      List.filter (fun (fact : clause_fact_ir) -> not (fact_desc_is_true fact.desc)) clause.conclusions
+      List.filter
+        (fun (fact : K.timed_fact) -> not (fact_desc_is_true fact.K.tf_desc))
+        kernel_clause.K.kc_conclusions
     in
-    match conclusions with [] -> None | _ -> Some { clause with hypotheses; conclusions }
+    match conclusions with
+    | [] -> None
+    | _ ->
+        Some
+          {
+            clause with
+            K.clause = { kernel_clause with K.kc_hypotheses = hypotheses; kc_conclusions = conclusions };
+          })
 
 (** [relationalize_clause_fact] helper value. *)
 
-let relationalize_clause_fact (fact : clause_fact_ir) : relational_clause_fact_ir =
+let relationalize_clause_fact (fact : K.timed_fact) : relational_clause_fact_ir =
   let desc =
-    match fact.desc with
-    | FactProgramState st -> RelFactProgramState st
-    | FactGuaranteeState idx -> RelFactGuaranteeState idx
-    | FactPhaseFormula fo_formula -> RelFactPhaseFormula fo_formula
-    | FactFormula fo_formula -> RelFactFormula fo_formula
-    | FactFalse -> RelFactFalse
+    match fact.K.tf_desc with
+    | K.FactProgramState st -> RelFactProgramState st
+    | K.FactGuaranteeState idx -> RelFactGuaranteeState idx
+    | K.FactPhaseFormula fo_formula -> RelFactPhaseFormula fo_formula
+    | K.FactFormula fo_formula -> RelFactFormula fo_formula
+    | K.FactFalse -> RelFactFalse
   in
-  { time = fact.time; desc }
+  { time = fact.K.tf_time; desc }
 
 (** [rel_fact_desc_is_true] helper value. *)
 
@@ -144,9 +161,10 @@ let normalize_relational_hypotheses (facts : relational_clause_fact_ir list) :
 (** [relationalize_generated_clause] helper value. *)
 
 let relationalize_generated_clause (clause : generated_clause_ir) : relational_generated_clause_ir list =
-  let hypotheses = List.map relationalize_clause_fact clause.hypotheses in
+  let kernel_clause = clause.K.clause in
+  let hypotheses = List.map relationalize_clause_fact kernel_clause.K.kc_hypotheses in
   let conclusions =
-    clause.conclusions
+    kernel_clause.K.kc_conclusions
     |> List.map relationalize_clause_fact
     |> List.filter (fun (fact : relational_clause_fact_ir) -> not (rel_fact_desc_is_true fact.desc))
   in
@@ -156,4 +174,11 @@ let relationalize_generated_clause (clause : generated_clause_ir) : relational_g
     |> List.filter_map (fun hypotheses ->
            match normalize_relational_hypotheses hypotheses with
            | None -> None
-           | Some hypotheses -> Some { origin = clause.origin; anchor = clause.anchor; hypotheses; conclusions })
+           | Some hypotheses ->
+               Some
+                 {
+                   family = clause.K.family;
+                   anchor = clause.K.context;
+                   hypotheses;
+                   conclusions;
+                 })

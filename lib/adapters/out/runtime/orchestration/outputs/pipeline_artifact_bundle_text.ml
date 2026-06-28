@@ -37,21 +37,14 @@ let string_of_step_kind = function
   | Proof_kernel_types.StepBadAssumption -> "bad_assumption"
   | Proof_kernel_types.StepBadGuarantee -> "bad_guarantee"
 
-let string_of_origin = function
-  | Proof_kernel_types.OriginSourceProductSummary -> "source-product-summary"
-  | Proof_kernel_types.OriginPhaseStepPreSummary -> "phase-step-pre"
-  | Proof_kernel_types.OriginPhaseStepSummary -> "phase-step"
-  | Proof_kernel_types.OriginSafety -> "safety"
-  | Proof_kernel_types.OriginInitNodeInvariant -> "init-node-invariant"
-  | Proof_kernel_types.OriginInitAutomatonCoherence -> "init-automaton-coherence"
-  | Proof_kernel_types.OriginPropagationNodeInvariant -> "propagation-node-invariant"
-  | Proof_kernel_types.OriginPropagationAutomatonCoherence ->
-      "propagation-automaton-coherence"
+let string_of_family family =
+  Obligation_family_projection.stable_name family
+  |> String.map (function '_' -> '-' | c -> c)
 
 let string_of_time = function
-  | Proof_kernel_types.CurrentTick -> "current"
-  | Proof_kernel_types.PreviousTick -> "previous"
-  | Proof_kernel_types.StepTickContext -> "step"
+  | Kernel_clause_projection.CurrentTick -> "current"
+  | Kernel_clause_projection.PreviousTick -> "previous"
+  | Kernel_clause_projection.StepTickContext -> "step"
 
 let string_of_rel_desc = function
   | Proof_kernel_types.RelFactProgramState st -> "state = " ^ st
@@ -71,7 +64,7 @@ let string_of_rel_clause (clause : Proof_kernel_types.relational_generated_claus
     | [] -> "true"
     | xs -> xs |> List.map string_of_rel_fact |> String.concat "; "
   in
-  Printf.sprintf "[%s] %s ==> %s" (string_of_origin clause.origin)
+  Printf.sprintf "[%s] %s ==> %s" (string_of_family clause.family)
     (side clause.hypotheses) (side clause.conclusions)
 
 let helper_prefix_of_step (step : Proof_kernel_types.product_step_ir) =

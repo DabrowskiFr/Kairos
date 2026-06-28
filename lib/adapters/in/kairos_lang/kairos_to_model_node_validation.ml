@@ -23,6 +23,7 @@ open Kairos_to_model_validation_common
 let validate_node (n : Verification_model.node_model) : unit =
   let node_name = n.node_name in
   let vars = n.inputs @ n.outputs @ n.locals @ n.ghosts in
+  let input_var_names = List.map (fun (v : Core_syntax.vdecl) -> v.vname) n.inputs in
   let real_var_names =
     List.map (fun (v : Core_syntax.vdecl) -> v.vname)
       (n.inputs @ n.outputs @ n.locals)
@@ -89,6 +90,15 @@ let validate_node (n : Verification_model.node_model) : unit =
         vars
     with
     | Some x -> fail_node node_name (Printf.sprintf "%s mentions ghost variable '%s'" context x)
+    | None -> ()
+  in
+  let reject_non_input_assumption assume_vars =
+    match List.find_opt (fun x -> not (List.mem x input_var_names)) assume_vars with
+    | Some x ->
+        fail_node node_name
+          (Printf.sprintf
+             "requires contract mentions non-input variable '%s'; requires contracts may only mention declared inputs"
+             x)
     | None -> ()
   in
   let rec vars_of_expr (e : Core_syntax.expr) : Core_syntax.ident list =
@@ -230,6 +240,28 @@ let validate_node (n : Verification_model.node_model) : unit =
         validate_ltl a;
         validate_ltl b
   in
+  let min_ticks = Historical_initialization.min_ticks_by_state n in
+  let available_at_state state =
+    Historical_initialization.min_ticks_for_state min_ticks state
+  in
+  let validate_history_availability context ~available required =
+    match available with
+    | None -> ()
+    | Some available when required <= available -> ()
+    | Some available ->
+        fail_node node_name
+          (Printf.sprintf
+             "%s requires %d completed instant(s) of history, but only %d can be guaranteed; add enough X modalities or use an explicitly initialized history"
+             context required available)
+  in
+  let validate_hexpr_history_availability context ~available formula =
+    validate_history_availability context ~available
+      (Historical_initialization.required_depth_hexpr formula)
+  in
+  let validate_ltl_history_availability context formula =
+    validate_history_availability context ~available:(Some 0)
+      (Historical_initialization.required_depth_ltl formula)
+  in
   let rec stmt_writes_real (s : Core_syntax.stmt) : bool =
     match s.stmt with
     | SAssign (id, _) -> List.mem id real_var_names
@@ -243,31 +275,39 @@ let validate_node (n : Verification_model.node_model) : unit =
     | SCall _ -> true
   in
   let stmt_list_writes_real body = List.exists stmt_writes_real body in
-  let rec validate_stmt (s : Core_syntax.stmt) : unit =
+  let rec validate_stmt ~available (s : Core_syntax.stmt) : unit =
     match s.stmt with
     | SAssign (id, rhs) ->
         expect_ty ("assignment to " ^ id) (find_var id) (expr_ty rhs);
+        if List.mem id input_var_names then
+          fail_node node_name
+            (Printf.sprintf "assignment cannot target input variable '%s'" id);
         if List.mem id real_var_names then
           reject_ghost_use ("assignment to non-ghost variable '" ^ id ^ "'")
             (vars_of_expr rhs)
-    | SAssert formula -> expect_ty "assertion" TBool (hexpr_ty formula)
+    | SAssert formula ->
+        expect_ty "assertion" TBool (hexpr_ty formula);
+        validate_hexpr_history_availability "assertion" ~available formula
     | SIf (cond, then_branch, else_branch) ->
         expect_ty "if condition" TBool (expr_ty cond);
         if stmt_list_writes_real (then_branch @ else_branch) then
           reject_ghost_use "if condition" (vars_of_expr cond);
-        List.iter validate_stmt then_branch;
-        List.iter validate_stmt else_branch
+        List.iter (validate_stmt ~available) then_branch;
+        List.iter (validate_stmt ~available) else_branch
     | SWhile (cond, invariants, variant, body) ->
         expect_ty "while condition" TBool (expr_ty cond);
         if stmt_list_writes_real body then
           reject_ghost_use "while condition" (vars_of_expr cond);
         List.iter
-          (fun invariant -> expect_ty "while invariant" TBool (hexpr_ty invariant))
+          (fun invariant ->
+            expect_ty "while invariant" TBool (hexpr_ty invariant);
+            validate_hexpr_history_availability "while invariant" ~available
+              invariant)
           invariants;
         Option.iter
           (fun variant -> expect_ty "while variant" TInt (expr_ty variant))
           variant;
-        List.iter validate_stmt body
+        List.iter (validate_stmt ~available) body
     | SMatch (scrutinee, branches, default_branch) ->
         let scrutinee_ty = expr_ty scrutinee in
         if stmt_list_writes_real (List.concat_map snd branches @ default_branch) then
@@ -275,9 +315,9 @@ let validate_node (n : Verification_model.node_model) : unit =
         List.iter
           (fun (ctor, body) ->
             expect_ty ("match branch " ^ ctor) scrutinee_ty (find_ctor ctor);
-            List.iter validate_stmt body)
+            List.iter (validate_stmt ~available) body)
           branches;
-        List.iter validate_stmt default_branch
+        List.iter (validate_stmt ~available) default_branch
     | SSkip -> ()
     | SCall (_callee, args, outs) ->
         List.iteri
@@ -289,6 +329,10 @@ let validate_node (n : Verification_model.node_model) : unit =
           args;
         List.iter
           (fun out ->
+            if List.mem out input_var_names then
+              fail_node node_name
+                (Printf.sprintf
+                   "call output cannot target input variable '%s'" out);
             if is_ghost_var out then
               fail_node node_name
                 (Printf.sprintf "call output cannot target ghost variable '%s'" out);
@@ -297,35 +341,49 @@ let validate_node (n : Verification_model.node_model) : unit =
   in
   List.iter
     (fun (step : Verification_model.program_step) ->
+      let source_available = available_at_state step.src_state in
+      let destination_available = Option.map (fun n -> n + 1) source_available in
       Option.iter
         (fun guard ->
           expect_ty "transition guard" TBool (expr_ty guard);
           reject_ghost_use "transition guard" (vars_of_expr guard))
         step.guard_expr;
-      List.iter validate_stmt step.body_stmts;
+      List.iter (validate_stmt ~available:source_available) step.body_stmts;
       List.iter
         (fun ensure ->
-          expect_ty "transition ensures" TBool (hexpr_ty ensure);
+          expect_ty "transition elaboration check" TBool (hexpr_ty ensure);
+          validate_hexpr_history_availability "transition elaboration check"
+            ~available:destination_available ensure;
           reject_ghost_use ~allow_generated_history:true
-            ~allow_public_ghosts:true "transition ensures"
+            ~allow_public_ghosts:true "transition elaboration check"
             (vars_of_hexpr ensure))
-        step.ensures)
+        step.elaboration_checks)
     n.steps;
   List.iter
     (fun (inv : Verification_model.state_invariant) ->
       if not (List.mem inv.state n.states) then
         fail_node node_name (Printf.sprintf "unknown invariant state '%s'" inv.state);
-      expect_ty ("invariant in " ^ inv.state) TBool (hexpr_ty inv.formula))
+      if String.equal inv.state n.init_state then
+        fail_node node_name
+          (Printf.sprintf
+             "state invariant cannot target initial state '%s'" inv.state);
+      expect_ty ("invariant in " ^ inv.state) TBool (hexpr_ty inv.formula);
+      validate_hexpr_history_availability ("invariant in " ^ inv.state)
+        ~available:(available_at_state inv.state) inv.formula)
     n.state_invariants;
   List.iter
     (fun assume ->
       validate_ltl assume;
+      validate_ltl_history_availability "requires contract" assume;
+      let assume_vars = vars_of_ltl assume in
+      reject_non_input_assumption assume_vars;
       reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
-        "requires contract" (vars_of_ltl assume))
+        "requires contract" assume_vars)
     n.assumes;
   List.iter
     (fun guarantee ->
       validate_ltl guarantee;
+      validate_ltl_history_availability "ensures contract" guarantee;
       reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
         "ensures contract" (vars_of_ltl guarantee))
     n.guarantees

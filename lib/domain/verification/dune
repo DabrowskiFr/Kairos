@@ -10,13 +10,19 @@
   product_build
   fo_time
   fo_contradiction
+  fo_current_input
+  obligation_family_projection
   product_characteristics
+  product_summary_projection
+  kernel_clause_projection
+  canonical_obligations
   ir_fact_family_metrics
   from_model
   pre
   product_reachability
   post
   temporal_lower
+  step_contract_projection
   formula_sharing
   orchestration)
  (libraries kairos_domain_core))

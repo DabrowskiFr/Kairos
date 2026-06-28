@@ -64,6 +64,7 @@ type runtime_product_transition_view = {
   local_requires : Ir.summary_formula list;
   propagates : Ir.summary_formula list;
   ensures : Ir.summary_formula list;
+  elaboration_checks : Ir.summary_formula list;
   forbidden : Ir.summary_formula list;
 }
 

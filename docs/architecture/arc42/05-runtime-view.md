@@ -48,8 +48,8 @@ runtime-prepared program
 ```
 
 The reference product does not know whether automata came from Spot, a future
-external producer, or a hand-written source. This is the boundary Rocq should
-see: automata are parameters, not objects whose production is formalized.
+external producer, or a hand-written source. This is the adequacy boundary for
+Rocq: automata are parameters, not objects whose production is formalized.
 
 ## Scenario: Why3 Text / VC / SMT Dumps
 
@@ -64,16 +64,17 @@ CLI
 These outputs are backend views. They are useful for debugging performance and
 proof failures, but they are not the canonical correction artifact.
 
-## Scenario: Future Rocq Synchronization
+## Scenario: Future Rocq Exchange Projection
 
 ```text
 core model + supplied automata
-  -> reference kernel
+  -> essential reference boundary
   -> proof-kernel exchange schema
-  -> Rocq mirror/check
+  -> optional Rocq adequacy/synchronization check
 ```
 
-The exchange should be versioned and independent from:
+The exchange is a projection candidate. If it is used for Rocq
+synchronization, it should be versioned and independent from:
 
 - Why3 helper names;
 - worker scheduling;

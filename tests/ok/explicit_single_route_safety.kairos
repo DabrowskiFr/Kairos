@@ -16,10 +16,6 @@ contracts
 states
   Init(init), Run;
 invariants
-  in Init:
-    signal[R1] = Red;
-    routeState[R1] = Idle;
-    reserved[R1] = false;
   in Run:
     signal[R1] = Red;
     routeState[R1] = Idle;

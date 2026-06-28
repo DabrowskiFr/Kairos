@@ -1,0 +1,294 @@
+{
+  "schema_version": 1,
+  "rocq_source": {
+    "description": "PaperCore Rocq formalization used as the source of truth for the mathematical POPL presentation.",
+    "directory": "/Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq",
+    "branch": "lab/rocq-paper-core",
+    "commit": "f3facc051901245e33a4d79676fcff6fcd464087",
+    "logical_root": "KairosRocq",
+    "public_results": [
+      {
+        "name": "local_obligations_sound",
+        "path": "theories/PaperCore/Soundness.v",
+        "role": "Paper-level soundness theorem: a local invariant certificate implies automata-level contract validity."
+      },
+      {
+        "name": "generated_obligations_sound",
+        "path": "theories/PaperCore/GeneratedObligations.v",
+        "role": "Generated-obligation bridge: exact generated obligations imply automata-level contract validity through the local certificate theorem."
+      },
+      {
+        "name": "concrete_environment_generated_obligations_sound",
+        "path": "theories/PaperCore/ConcreteAdequacy.v",
+        "role": "Concrete imperative/environment-assumption adequacy theorem used by the paper."
+      },
+      {
+        "name": "true_annotations_have_semantic_witness",
+        "path": "theories/PaperCore/RelativeCompleteness.v",
+        "role": "Semantic-witness completeness for true annotations."
+      }
+    ]
+  },
+  "paper_formalization_source": {
+    "principle": "The POPL mathematical presentation should follow the Rocq concepts, names, and theorem cuts first; Kairos implementation names are secondary.",
+    "main_theorem_shape": "GeneratedObligationsValid -> contract_valid, plus semantic-witness completeness for product-local certificates",
+    "projection_audit": "docs/rocq_projection_audit.json",
+    "paper_sections_suggested_by_rocq": [
+      "source language and well-formed programs",
+      "instrumented runs and observations",
+      "contract automata and global assume-guarantee validity",
+      "product anchors and proof-step summaries",
+      "product-summary generation",
+      "step-contract extraction",
+      "generated obligation validity",
+      "global soundness"
+    ]
+  },
+  "alignment_units": [
+    {
+      "name": "source_language_and_wf",
+      "proof_role": "Defines the program object quantified by the main theorem and the static assumptions required before obligation generation.",
+      "rocq_modules": [
+        "theories/PaperCore/TransitionSystem.v",
+        "theories/PaperCore/CoreImperative.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/core/verification_model.ml",
+        "lib/domain/core/verification_model.mli",
+        "lib/domain/core/core_syntax.ml",
+        "lib/adapters/in/kairos_lang"
+      ],
+      "architecture_status": "core_model essential; frontend elaboration is outside the current proof boundary",
+      "must_be_identifiable_in_kairos": [
+        "the normalized core program consumed by verification",
+        "state count, initial state, transitions, guards, bodies, inputs, outputs, locals",
+        "well-formedness checks that are assumed by Rocq or delegated to a later elaboration theorem"
+      ]
+    },
+    {
+      "name": "instrumented_run_and_observations",
+      "proof_role": "Gives the execution semantics and observation trace used by contracts and temporal formulas.",
+      "rocq_modules": [
+        "theories/PaperCore/TransitionSystem.v",
+        "theories/PaperCore/HistoricalExpressions.v",
+        "theories/PaperCore/HistoricalSlots.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/core/pre_k_layout.ml",
+        "lib/domain/core/pre_k_layout.mli",
+        "lib/domain/core/pre_k_lowering.ml",
+        "lib/domain/core/pre_k_lowering.mli",
+        "lib/domain/verification/temporal_lower.ml",
+        "lib/domain/verification/temporal_lower.mli"
+      ],
+      "architecture_status": "temporal_lowering essential normalization",
+      "must_be_identifiable_in_kairos": [
+        "current tick, previous tick, and pre_k slots",
+        "which generated facts are previous-tick, step-context, or current-tick facts",
+        "temporal lowering from source formulas to explicit history slots"
+      ]
+    },
+    {
+      "name": "historical_initialization_frontier",
+      "proof_role": "States the source-point availability contract for historical formulas: every formula accepted at a point must have required depth bounded by the point age.",
+      "rocq_modules": [
+        "theories/PaperCore/HistoricalInitialization.v",
+        "theories/PaperCore/InitializationFrontier.v",
+        "theories/PaperCore/CurrentInputFrontier.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/core/historical_initialization.ml",
+        "lib/domain/core/historical_initialization.mli",
+        "lib/adapters/in/kairos_lang/kairos_to_model_node_validation.ml",
+        "tests/ko/uninitialized_pre_contract.kairos",
+        "tests/ko/uninitialized_pre_k_invariant.kairos",
+        "tests/ok/spec_definition_past.kairos"
+      ],
+      "architecture_status": "source well-formedness frontier; Rocq formalizes the contract, while min_ticks_by_state is the current OCaml implementation witness rather than a certified algorithm",
+      "must_be_identifiable_in_kairos": [
+        "required depth of each historical source formula",
+        "age available at each source point where the formula is checked",
+        "the validator rejection point for required_depth > age",
+        "the separation between historical availability and current-input admissibility"
+      ]
+    },
+    {
+      "name": "contract_automata",
+      "proof_role": "Supplied assumption and guarantee automata are parameters of the proof; Spot translation is outside the theorem, while the implementation validates the product-level normal form before exploration.",
+      "rocq_modules": [
+        "theories/PaperCore/TransitionSystem.v",
+        "theories/PaperCore/ConcreteAdequacy.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/automaton_types.ml",
+        "lib/domain/verification/temporal_automata.ml",
+        "lib/domain/verification/temporal_automata.mli",
+        "lib/adapters/out/runtime/orchestration/automata",
+        "lib/adapters/out/external/spot"
+      ],
+      "architecture_status": "supplied automata are essential inputs; automata generation is an external boundary; product normal-form validation is a reference-product boundary check",
+      "must_be_identifiable_in_kairos": [
+        "assumption automaton states, initial state, bad state, and transitions",
+        "guarantee automaton states, initial state, bad state, and transitions",
+        "the point where generated automata become supplied reference inputs",
+        "the point where Product_build validates the automata normal form consumed by product exploration"
+      ]
+    },
+    {
+      "name": "product_anchors_and_classification",
+      "proof_role": "Defines product states, product steps, and the safe/bad-assumption/bad-guarantee classification used by progression and contradiction.",
+      "rocq_modules": [
+        "theories/PaperCore/TransitionSystem.v",
+        "theories/PaperCore/LocalObligations.v",
+        "theories/PaperCore/Soundness.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/product_types.ml",
+        "lib/domain/verification/product_types.mli",
+        "lib/domain/verification/product_build.ml",
+        "lib/domain/verification/product_build.mli",
+        "lib/domain/verification/from_model.ml",
+        "lib/domain/verification/from_model.mli"
+      ],
+      "architecture_status": "reference_product essential",
+      "must_be_identifiable_in_kairos": [
+        "ProductStateAnchor: program state, assume state, guarantee state",
+        "ProductStepAnchor: source, destination, selected program transition",
+        "StepSafe, StepBadAssumption, StepBadGuarantee classification",
+        "default transitions and real indexed transitions",
+        "the policy for stopping or continuing after bad automaton states"
+      ]
+    },
+    {
+      "name": "product_summary_generation",
+      "proof_role": "Produces proof-step summaries, clause families, requirements, safe cases, unsafe cases, and ensures from source program plus supplied automata.",
+      "rocq_modules": [
+        "theories/PaperCore/ProductSummaries.v",
+        "theories/PaperCore/GeneratedObligations.v",
+        "theories/PaperCore/TemporalAssertions.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/pre.ml",
+        "lib/domain/verification/pre.mli",
+        "lib/domain/verification/post.ml",
+        "lib/domain/verification/post.mli",
+        "lib/domain/verification/product_characteristics.ml",
+        "lib/domain/verification/product_characteristics.mli",
+        "lib/domain/verification/temporal_lower.ml",
+        "lib/domain/verification/temporal_lower.mli",
+        "lib/domain/verification/obligation_family_projection.ml",
+        "lib/domain/verification/obligation_family_projection.mli",
+        "lib/domain/verification/product_summary_projection.ml",
+        "lib/domain/verification/product_summary_projection.mli",
+        "lib/domain/verification/kernel_clause_projection.ml",
+        "lib/domain/verification/kernel_clause_projection.mli",
+        "lib/domain/proof_export/proof_kernel_step_summaries.ml",
+        "lib/domain/proof_export/proof_kernel_generated_clauses.ml"
+      ],
+      "architecture_status": "Pre/Post/Temporal_lower are essential; Product_summary_projection, Kernel_clause_projection and Obligation_family_projection are neutral alignment views; proof_export summaries and clauses are projection witnesses that must consume them if used",
+      "must_be_identifiable_in_kairos": [
+        "ProofStepSummaryIdentity: program transition id, product source, assume guard",
+        "propagation_requires, requires, runtime_requires, ensures",
+        "safe cases and unsafe cases",
+        "entry clauses and non-entry clause families",
+        "safe summary grouping and its coverage/preservation argument"
+      ]
+    },
+    {
+      "name": "step_contract_extraction",
+      "proof_role": "Relates product summaries to lowered step contracts used for generated obligation validity.",
+      "rocq_modules": [
+        "theories/PaperCore/GeneratedObligations.v",
+        "theories/PaperCore/TemporalAssertions.v",
+        "theories/PaperCore/HistoricalExpressions.v",
+        "theories/PaperCore/HistoricalSlots.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/step_contract_projection.ml",
+        "lib/domain/verification/step_contract_projection.mli",
+        "lib/adapters/out/provers/why3/runtime",
+        "lib/adapters/out/provers/why3/compile",
+        "lib/domain/core/pre_k_lowering.ml",
+        "lib/domain/core/pre_k_lowering.mli"
+      ],
+      "architecture_status": "Step_contract_projection is the neutral alignment view; Why3 scheduling and encoding choices are backend",
+      "must_be_identifiable_in_kairos": [
+        "safe step contract generation from summaries",
+        "bad-guarantee step contract generation from unsafe cases",
+        "lowering of requires, ensures, and forbidden formulas",
+        "deduplication that preserves members",
+        "the boundary before backend grouping, helper naming, or solver calls"
+      ]
+    },
+    {
+      "name": "generated_obligation_validity",
+      "proof_role": "Collects exactly the semantic assumptions discharged by external provers before applying the main soundness theorem.",
+      "rocq_modules": [
+        "theories/PaperCore/GeneratedObligations.v",
+        "theories/PaperCore/Soundness.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/obligation_family_projection.ml",
+        "lib/domain/verification/obligation_family_projection.mli",
+        "lib/domain/verification/kernel_clause_projection.ml",
+        "lib/domain/verification/kernel_clause_projection.mli",
+        "lib/adapters/out/provers/why3",
+        "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
+      ],
+      "architecture_status": "external proof discharge is backend; the set and meaning of obligations must be determined before backend execution",
+      "must_be_identifiable_in_kairos": [
+        "safe obligation validity",
+        "unsafe obligation validity",
+        "initial invariant goal validity",
+        "the exact canonical obligation set before Why3 grouping and scheduling"
+      ]
+    },
+    {
+      "name": "soundness_assembly",
+      "proof_role": "Assembles propagation, contradiction of bad guarantee steps, and global automata validity.",
+      "rocq_modules": [
+        "theories/PaperCore/Soundness.v",
+        "theories/PaperCore/GeneratedObligations.v",
+        "theories/PaperCore/ConcreteAdequacy.v",
+        "theories/PaperCore/RelativeCompleteness.v"
+      ],
+      "kairos_paths": [
+        "lib/domain/verification/orchestration.ml",
+        "lib/domain/verification/orchestration.mli",
+        "docs/reference_pipeline_boundaries.json"
+      ],
+      "architecture_status": "the implementation must expose the canonical objects consumed by this argument; it must not hide them behind backend artifacts",
+      "must_be_identifiable_in_kairos": [
+        "where propagation hypotheses come from",
+        "where bad-guarantee exclusions are generated",
+        "where assumption-never-bad remains an assumption",
+        "where the proof result plugs into the global assume-guarantee theorem"
+      ]
+    }
+  ],
+  "not_part_of_rocq_core": [
+    {
+      "name": "spot_translation",
+      "kairos_paths": [
+        "lib/adapters/out/external/spot",
+        "lib/adapters/out/runtime/orchestration/automata"
+      ],
+      "reason": "Rocq theorem is relative to supplied automata."
+    },
+    {
+      "name": "why3_backend_planning",
+      "kairos_paths": [
+        "lib/adapters/out/provers/why3"
+      ],
+      "reason": "Why3 encoding, helper grouping, worker scheduling, and solver statuses discharge obligations but do not define them."
+    },
+    {
+      "name": "diagnostics_and_dumps",
+      "kairos_paths": [
+        "lib/adapters/out/runtime/orchestration/outputs",
+        "lib/adapters/out/artifacts"
+      ],
+      "reason": "These are presentation and inspection artifacts."
+    }
+  ]
+}

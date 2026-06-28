@@ -34,6 +34,12 @@ let non_input_program_var_names (n : Abs.node_ir) : ident list =
     (n.semantics.sem_outputs @ n.semantics.sem_locals)
   |> List.sort_uniq String.compare
 
+let reject_current_inputs_in_propagation_requires ~(node_name : ident)
+    ~(input_names : ident list) (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+  Fo_current_input.require_no_current_input
+    ~context:(Printf.sprintf "pre: propagation requirements for node %s" node_name)
+    ~input_names f
+
 let ivar (name : ident) : expr = { expr = EVar name; loc = None }
 
 let stability_formula (name : ident) : Core_syntax.hexpr =
@@ -123,6 +129,7 @@ let add_formula_family ~record_family ~family_name formulas acc =
 
 let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
   let pre_generation = compute_generation ~node:n in
+  let input_names = Fo_current_input.input_names n.semantics.sem_inputs in
   let summaries =
     List.map
       (fun (pc : Abs.product_step_summary) ->
@@ -130,6 +137,9 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
         let propagation_requires =
           Product_characteristics.entry_facts_of_product_state
             pre_generation.product_characteristics pc.identity.product_src
+          |> List.map
+               (reject_current_inputs_in_propagation_requires
+                  ~node_name:n.semantics.sem_nname ~input_names)
           |> List.map (Ir_formula.make ~family:"propagation_requires")
         in
         let propagation_requires_formulas =
@@ -159,12 +169,7 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
         { pc with propagation_requires; requires })
       n.summaries
   in
-  let init_invariant_candidates = invariants_of_state n n.semantics.sem_init_state in
-  let init_invariant_goals =
-    add_formula_family ~record_family ~family_name:"init_invariant_goals"
-      init_invariant_candidates n.init_invariant_goals
-  in
-  { n with summaries; init_invariant_goals }
+  { n with summaries }
 
 let run_program ?observe_family (p : Abs.node_ir list) : Abs.node_ir list =
   let collector =

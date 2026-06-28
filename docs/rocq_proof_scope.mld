@@ -1,0 +1,190 @@
+{0 Rocq Alignment Boundary}
+
+This page records how Kairos should stay alignable with the existing Rocq
+formalization and with the mathematical formalization intended for the paper.
+The direction is fixed:
+
+{[
+Rocq formalization
+  -> paper mathematical presentation
+  -> Kairos implementation alignment boundary
+]}
+
+The OCaml implementation does not invent the proof architecture. It must
+expose the semantic objects that correspond to the Rocq proof architecture,
+and it must mark everything else as derived view, backend, diagnostic, or
+external tooling.
+Syntactic sugar is also outside this Rocq core: observers, history
+definitions, concise assignments, and other surface conveniences must be
+elaborated before the Rocq-facing boundary.
+
+The machine-readable source of truth is
+[docs/rocq_alignment_manifest.json]. It records:
+
+- the Rocq checkout and branch used for alignment;
+- the public theorem entry points;
+- the Rocq concepts that the paper should present;
+- the Kairos modules that must expose matching artifacts;
+- the implementation details that are outside the Rocq core.
+
+The field-by-field audit is [docs/rocq_projection_audit.json]. Its conclusion
+is architectural: Kairos needs explicit product-summary and step-contract
+views so that the proof-relevant objects can be inspected before backend
+encoding. These views are derived from the semantic boundary; they are not the
+formal source of the Rocq or paper theorem. The decision is recorded in
+[docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md].
+
+The current principle-level adequacy audit is
+{!page-rocq_ocaml_adequacy}. It records which Rocq objects already match the
+OCaml implementation, which correspondences need a preservation lemma, and
+which proof-relevant gaps must be resolved before claiming full adequacy.
+
+{1 Rocq Source}
+
+The current Rocq source recorded by the manifest is:
+
+{[
+/Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq
+branch lab/rocq-paper-core
+commit f3facc051901245e33a4d79676fcff6fcd464087
+]}
+
+The public theorem cut used by the paper is centered on:
+
+- [local_obligations_sound] in [theories/PaperCore/Soundness.v];
+- [generated_obligations_sound] in
+  [theories/PaperCore/GeneratedObligations.v];
+- [concrete_environment_generated_obligations_sound] in
+  [theories/PaperCore/ConcreteAdequacy.v];
+- [true_annotations_have_semantic_witness] in
+  [theories/PaperCore/RelativeCompleteness.v].
+
+The core theorem shape is:
+
+{[
+GeneratedObligationsValid
+  -> contract_valid
+]}
+
+The paper formalization should present this structure mathematically, with
+notation adapted for readability but with the same proof cuts.
+
+The internal Rocq module organization should preserve this cut.  In particular,
+definition modules may introduce the mathematical predicates used by the paper,
+while construction-correctness modules may contain the local singleton, fold, or
+lookup facts needed to prove those predicates for the generated objects.  Those
+local facts are not additional paper principles and should not force new final
+theorems.
+
+{1 What Kairos Must Expose}
+
+Kairos must make the following proof-relevant units identifiable:
+
+- normalized source program and well-formedness assumptions;
+- the boundary between surface elaboration checks and the normalized
+  Rocq-facing core program;
+- instrumented runs, observations, and temporal slots;
+- supplied assumption and guarantee automata, plus the implementation point
+  where their product-level normal form is validated;
+- product-state and product-step anchors;
+- step classification into safe, bad-assumption, and bad-guarantee cases;
+- product-summary proof-step summaries;
+- product-summary clause families and their coverage;
+- step-contract extraction and lowering;
+- generated safe, unsafe, and initialization obligations;
+- the canonical obligation set before Why3 grouping, scheduling, or solver
+  execution.
+
+These are not optional diagnostics. They are the implementation-side handles
+needed to state that Kairos matches the Rocq theorem and the paper
+formalization.
+
+{1 Proof-Principle Cut}
+
+The current Rocq proof has a useful pipeline cut:
+
+{[
+source program + supplied automata
+  -> automata normal-form validation at the product boundary
+  -> product summaries and clause families
+       (ProofStepSummary + SummaryClauseFamilies)
+  -> step contracts
+       (StepContract)
+  -> generated obligation validity
+  -> global automata validity
+]}
+
+In Kairos, this means:
+
+- [Product_build], [From_model], [Pre], [Post], and [Temporal_lower] are
+  proof-relevant reference stages;
+- [Canonical_obligations] is the reference boundary that names the canonical
+  Stage 1 clauses and Stage 2 contracts before export, backend grouping, or
+  Why3 lowering;
+- [Product_reachability] is a proof-relevant extension only if it is justified
+  as a general invariant principle, not as pruning;
+- [Proof_kernel_types] and related [proof_export] modules are projection
+  candidates that may witness product-summary objects, but they are not
+  automatically the theorem source;
+- Why3 modules are backend realization territory: the step-contract extraction
+  and lowering relation is proof-relevant, while helper names, grouping,
+  worker counts, dumps, and solver statuses are not.
+
+The derived OCaml views are now split into:
+
+- [Product_summary_projection], which exposes product-summary identity,
+  requirements, runtime requirements, ensures, and safe/unsafe cases;
+- [Kernel_clause_projection], which exposes [KernelClause], [TimedFact],
+  product anchors and classified clause families before proof-export lowering;
+- [Obligation_family_projection], which classifies generated clauses by proof
+  schema and exposes the Rocq-facing [SummaryClauseFamilies] predicates;
+- [Step_contract_projection], which exposes pre-Why3 step contracts with
+  summary identity and covered cases as a grouped view of
+  [Canonical_obligations.stage2].
+
+The `proof_export` data model is still not enough by itself:
+
+- [Ir.product_step_summary] has most summary logic but lacks explicit steps
+  and clause families;
+- [Proof_kernel_types.proof_step_summary_ir] has steps and clauses but lacks
+  first-class summary identity, requires, ensures, safe cases, and unsafe
+  cases;
+- [Proof_kernel_types.generated_clause_ir] is now only a typed alias to
+  [Kernel_clause_projection.classified_clause] with a proof-export codec; it is
+  not a second generated-clause data model;
+- [Why_runtime_view] is backend-shaped and must consume
+  [Step_contract_projection] rather than define the neutral [StepContract]
+  projection.
+
+Therefore the implementation-side Rocq/paper correspondence should go through
+[Canonical_obligations] for the proof principle, then explain which derived
+views expose or group those objects before diagnostics and Why3 emission.
+
+{1 Paper Consequence}
+
+The POPL paper should not present an OCaml-centric pipeline first and then try
+to retrofit Rocq. It should present the Rocq-backed mathematical objects:
+
+- program semantics and observation traces;
+- contract automata and assume-guarantee validity;
+- product anchors and summaries;
+- local obligations and step contracts;
+- soundness from generated obligations.
+
+The implementation section can then explain how Kairos exposes and realizes
+these objects, and which parts are deliberately outside the theorem.
+
+{1 Enforcement}
+
+The alignment is checked by:
+
+- [scripts/check_rocq_alignment_manifest.py], which verifies the recorded
+  Rocq branch, Rocq theorem files, and Kairos paths;
+- [scripts/check_reference_pipeline_boundaries.py], which verifies the
+  implementation-side reference/projection/backend classification;
+- [tests/check_reference_stability.sh], which checks that backend-only options
+  do not change canonical reference views.
+
+These checks are not proofs. They keep the implementation architecture clean
+enough that the adequacy proof obligation remains visible instead of being
+buried in Why3, dumps, or diagnostics.

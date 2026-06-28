@@ -79,6 +79,8 @@ let share_summary table (summary : Abs.product_step_summary) :
       List.map (share_summary_formula table) summary.propagation_requires;
     requires = List.map (share_summary_formula table) summary.requires;
     ensures = List.map (share_summary_formula table) summary.ensures;
+    elaboration_checks =
+      List.map (share_summary_formula table) summary.elaboration_checks;
     safe_cases = List.map (share_safe_case table) summary.safe_cases;
     unsafe_cases = List.map (share_unsafe_case table) summary.unsafe_cases;
   }

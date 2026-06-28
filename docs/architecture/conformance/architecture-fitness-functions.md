@@ -9,6 +9,7 @@ before it becomes a proof or performance regression.
 | --- | --- | --- |
 | Layer dependencies | `python3 scripts/check_layer_dependencies.py` | No forbidden library dependency across layers |
 | Reference boundary | `python3 scripts/check_reference_pipeline_boundaries.py` | Reference kernel has no external-tool references and all stages are classified |
+| Rocq alignment | `python3 scripts/check_rocq_alignment_manifest.py` | Rocq source, theorem entry points, Kairos proof-relevant units, and alignment projection audit stay traceable |
 | Architecture manifest | `python3 scripts/check_architecture_manifest.py` | Required architecture docs/scripts and removed legacy paths stay consistent |
 | Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
 | Renderer purity | `python3 scripts/check_architecture_fitness.py` | Graph rendering must not depend on Z3 |
@@ -20,8 +21,16 @@ before it becomes a proof or performance regression.
 
 - Spot-produced automata are treated as explicit reference-kernel inputs; the
   Spot translation itself is outside the correction claim.
+- Product construction validates the normal form of supplied automata before
+  exploration; this check is part of the reference boundary, not of Spot
+  construction or backend planning.
+- Historical-initialization checks remain traceable to Rocq
+  `InitializationFrontier`: the implementation may compute ages with
+  `min_ticks_by_state`, but documentation and tests must not present that
+  computation as certified by Rocq.
 - Rocq exchange schemas are versioned and do not contain backend-only fields.
-- Each reference pass has a corresponding Rocq theorem or planned theorem.
+- Each proof-relevant implementation unit has an explicit Rocq alignment unit
+  or is marked outside the Rocq core.
 - Each backend optimization has either a preservation test or a proof argument.
 
 ## How To Add A Rule

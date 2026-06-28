@@ -10,9 +10,9 @@ Kairos mixes several activities in one verification run: parsing, automata
 construction, product exploration, obligation generation, Why3 projection,
 SMT/prover calls, dumps, graphs, cost reports, and editor services.
 
-For Rocq synchronization, only part of this pipeline is correction-critical.
-External tools and backend scheduling must not become implicit semantic
-dependencies.
+For Rocq adequacy, only part of this pipeline is correction-critical.
+External tools, exchange projections, and backend scheduling must not become
+implicit semantic dependencies.
 
 ## Decision
 
@@ -27,9 +27,12 @@ and produces:
 
 ```text
 Ir.node_ir list
-  + Proof_kernel_types.node_ir
-  + Proof_kernel_types.exported_node_summary_ir
+  + product states and product steps
+  + canonical source/destination obligations
 ```
+
+`Proof_kernel_types.node_ir` plus exported node summaries are projection
+candidates derived from this boundary, not part of the essential kernel.
 
 The reference boundary is tracked in
 `docs/reference_pipeline_boundaries.json` and checked by
@@ -39,10 +42,12 @@ The reference boundary is tracked in
 
 - Spot is outside the trusted kernel; automata are kernel inputs and claims are
   relative to them.
+- The reference kernel validates the automata normal form it consumes; this is
+  a boundary check on supplied automata, not a proof of Spot translation.
 - Why3/Z3 are outside the trusted kernel; they discharge generated tasks.
 - Backend options must not change reference views.
 - Any pass that changes product cases or obligations must be classified as
-  reference or reference normalization.
+  reference, reference extension, or reference normalization.
 
 ## Current Challenge
 

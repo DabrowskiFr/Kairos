@@ -8,6 +8,10 @@
   artifacts
   backends
   rocq_frontend_boundary
+  rocq_proof_scope
+  rocq_ocaml_adequacy
+  stage1_ocaml_rocq_arbitration
+  stage1_phase_facts_audit
   reference_verification_architecture
   temporal_phase_semantics
   product_proof_pipeline_audit

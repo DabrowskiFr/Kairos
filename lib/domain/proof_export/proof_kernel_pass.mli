@@ -20,7 +20,12 @@
 
     This module converts one canonical IR node plus product analysis into:
     - normalized proof-kernel IR;
-    - exported summary payload for diagnostics and future Rocq synchronization. *)
+    - exported summary payload for diagnostics and possible Rocq
+      synchronization after an explicit adequacy decision.
+
+    The output is an exchange projection. The essential proof boundary remains
+    the reference product, summaries, and obligations classified in the Rocq
+    alignment manifest. *)
 
 open Core_syntax
 

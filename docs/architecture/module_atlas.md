@@ -52,8 +52,8 @@ Execution de l'outil:
 | 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
 | 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
 | 9 | `lib/adapters/out/external/spot/spot_automaton_builder.ml` | `build` | Appelle Spot pour construire les automates |
-| 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference |
-| 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates |
+| 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
+| 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
 | 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Lance `Pre`, `Product_reachability`, `Post`, `Temporal_lower`, `Formula_sharing` |
 | 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
 | 14 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
@@ -89,8 +89,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
 | Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
 | Instrumented IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` | Why3 backend, proof export |
+| Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification` | proof export, Why3 runtime view |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` in `kairos_runtime_core` | facade outputs, proof runner, diagnostics |
-| Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, Rocq sync futur, cost report |
+| Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Why3/external prover |
 
 ## Modules Par Responsabilite
@@ -141,10 +142,12 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `pre_k_layout.ml`, `pre_k_lowering.ml` | Representation explicite de l'historique temporel |
 | `product_build.ml` | Exploration du produit programme x automates |
 | `from_model.ml` | Conversion modele + automates -> summaries |
+| `fo_current_input.ml` | Predicat `no_current_input` pour les faits end-of-instant |
 | `pre.ml` | Ajoute les hypotheses de pas |
 | `product_reachability.ml` | Ajoute les obligations liees aux destinations inatteignables |
 | `post.ml` | Ajoute les obligations de sortie/progression |
 | `temporal_lower.ml` | Abaisse `pre/pre_k` vers le layout temporel |
+| `kernel_clause_projection.ml/mli` | Projection neutre des `KernelClause` Rocq et clauses classifiees |
 | `formula_sharing.ml` | Optimisation de representation, pas semantique |
 | `orchestration.ml` | Ordre des passes et point `build_reference_product` |
 
@@ -155,8 +158,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `proof_kernel_types.ml/mli` | Format d'echange proof-kernel |
 | `proof_kernel_product.ml` | Produit explicite exporte |
 | `proof_kernel_product_lookup.ml` | Appariement entre pas produit exportes et summaries canoniques |
-| `proof_kernel_source_clauses.ml` | Clauses source issues des summaries produit |
-| `proof_kernel_generated_clauses.ml` | Facade et clauses de pas avant lowering relationnel |
+| `proof_kernel_clause_context.ml/mli` | Bridge de contexte produit IR vers `Kernel_clause_projection` |
+| `proof_kernel_generated_clauses.ml` | Adaptateur depuis `Kernel_clause_projection` avant lowering relationnel |
 | `proof_kernel_clause_lowering.ml` | Clauses relationnelles |
 | `proof_kernel_step_summaries.ml` | Groupes de pas proof-kernel |
 | `proof_kernel_pass.ml` | Compilation d'un noeud vers `Proof_kernel_types.node_ir` |
@@ -250,7 +253,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_compile_product_specs.ml` | Construction des specs Why3 des helpers produit |
 | `why_compile_product_metrics.ml` | Reporting des metriques du plan produit et des raisons individuelles |
 | `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
-| `why_compile_product_helper_types.ml` | Types partages de l'emission des helpers produit |
+| `why_compile_helper_unit.ml` | Type neutre d'un module helper Why3 emis |
+| `why_compile_product_helper_types.ml` | Contexte produit et alias vers le type neutre des helpers |
 | `why_compile_product_helper_body.ml` | Corps Why3 des helpers individuels/groupes |
 | `why_compile_product_individual_helper.ml` | Emission des helpers produit individuels |
 | `why_compile_product_grouped_helper.ml` | Emission des helpers produit groupes |

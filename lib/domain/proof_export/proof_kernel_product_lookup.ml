@@ -45,6 +45,13 @@ let same_product_state_ref (a : Abs.product_state) (b : product_state_ir) =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
+let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
+  {
+    prog_state = st.prog_state;
+    assume_state_index = st.assume_state_index;
+    guarantee_state_index = st.guarantee_state_index;
+  }
+
 (** [same_safe_case_step] helper value. *)
 
 let same_safe_case_step (case : Abs.safe_product_case) (step : product_step_ir) =
@@ -80,22 +87,33 @@ let product_transition_index_of_step (step : product_step_ir) : int option =
 
 (** [product_summary_of_step] helper value. *)
 
-let product_summary_of_step ~(node : Abs.node_ir) (step : product_step_ir) :
-    Abs.product_step_summary option =
+let product_summary_of_step ?projection ~(node : Abs.node_ir)
+    (step : product_step_ir) : Abs.product_step_summary option =
   match product_transition_index_of_step step with
   | None -> None
   | Some idx ->
-      List.find_opt
-        (fun (pc : Abs.product_step_summary) ->
-          pc.trace.step_uid = idx
-          && same_product_state_ref pc.identity.product_src step.src
-          && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard
-          &&
-          match step.step_kind with
-          | StepSafe -> List.exists (fun case -> same_safe_case_step case step) pc.safe_cases
-          | StepBadGuarantee ->
-              List.exists (fun case -> same_unsafe_case_step case step) pc.unsafe_cases
-          | StepBadAssumption -> false)
-        node.summaries
+      let projection =
+        match projection with
+        | Some projection -> projection
+        | None -> Product_summary_projection.of_ir_node node
+      in
+      Product_summary_projection.find_by_identity projection
+        ~program_transition_id:idx
+        ~product_src:(product_state_ref_of_ir step.src)
+        ~assume_guard:step.assume_edge.guard
+      |> Option.map (fun summary -> summary.Product_summary_projection.source_summary)
+      |> (function
+      | None -> None
+      | Some pc ->
+          if
+             match step.step_kind with
+             | StepSafe ->
+                 List.exists (fun case -> same_safe_case_step case step) pc.safe_cases
+             | StepBadGuarantee ->
+                 List.exists (fun case -> same_unsafe_case_step case step)
+                   pc.unsafe_cases
+             | StepBadAssumption -> false
+          then Some pc
+          else None)
 
-(** [build_source_summary_clauses] helper value. *)
+(** [product_summary_of_step] helper value. *)

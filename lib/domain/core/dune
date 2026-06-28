@@ -10,6 +10,7 @@
   pretty
   log
   verification_model
+  historical_initialization
   pre_k_layout
   pre_k_lowering
   ir

@@ -1,0 +1,18 @@
+node node_requires_output(x: int) returns (
+  y: int
+)
+contracts
+  requires: G(y >= 0);
+  ensures: G(y = x);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      y := x;
+    }
+  Run:
+    to Run {
+      y := x;
+    }
+end

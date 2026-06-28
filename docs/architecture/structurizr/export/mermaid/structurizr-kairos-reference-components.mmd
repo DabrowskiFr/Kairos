@@ -10,7 +10,7 @@ graph LR
       subgraph 13 ["Reference verification kernel"]
         style 13 fill:#ffffff,stroke:#0f4624,color:#0f4624
 
-        14["<div style='font-weight: bold'>Product construction</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product states,<br />product steps, and product<br />summaries from program plus<br />automata.</div>"]
+        14["<div style='font-weight: bold'>Product construction</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates automata normal<br />form and builds product<br />states, product steps, and<br />product summaries from<br />program plus automata.</div>"]
         style 14 fill:#ffffff,stroke:#444444,color:#444444
         15["<div style='font-weight: bold'>Reference passes</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Runs Pre,<br />Product_reachability, and<br />Post to shape<br />correction/progression<br />obligations.</div>"]
         style 15 fill:#ffffff,stroke:#444444,color:#444444
@@ -20,8 +20,8 @@ graph LR
         style 17 fill:#ffffff,stroke:#444444,color:#444444
       end
 
-      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
-      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 18 fill:#075985,stroke:#043e5d,color:#ffffff
       21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
       style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
     end
@@ -31,7 +31,7 @@ graph LR
     15-. "<div>Produces obligation-shaped IR</div><div style='font-size: 70%'></div>" .->16
     16-. "<div>Produces temporally explicit<br />formulas</div><div style='font-size: 70%'></div>" .->17
     17-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->18
-    21-. "<div>Supplies automata to<br />reference product</div><div style='font-size: 70%'></div>" .->14
+    21-. "<div>Supplies automata for<br />validation</div><div style='font-size: 70%'></div>" .->14
     21-. "<div>Builds instrumented IR</div><div style='font-size: 70%'></div>" .->15
 
   end

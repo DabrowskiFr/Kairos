@@ -8,7 +8,7 @@
   proof_kernel_naming
   proof_kernel_product
   proof_kernel_product_lookup
-  proof_kernel_source_clauses
+  proof_kernel_clause_context
   proof_kernel_generated_clauses
   proof_kernel_clause_lowering
   proof_kernel_step_summaries

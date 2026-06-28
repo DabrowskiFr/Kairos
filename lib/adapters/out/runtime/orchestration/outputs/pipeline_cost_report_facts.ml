@@ -137,6 +137,9 @@ let collect_summary_facts table (node : Ir.node_ir) =
       List.iter (add_summary_formula "canonical.ensures" "current_tick")
         summary.ensures;
       List.iter
+        (add_summary_formula "elaboration.checks" "current_tick")
+        summary.elaboration_checks;
+      List.iter
         (fun (case : Ir.safe_product_case) ->
           add_summary_formula "canonical.safe_case.admissible_guard"
             "step_tick_context" case.admissible_guard)
@@ -177,7 +180,7 @@ let collect_kernel_facts table ~node_name (node : PK.node_ir) =
       List.iter
         (fun (clause : PK.relational_generated_clause_ir) ->
           let origin =
-            origin ("kernel.entry_clause." ^ clause_origin_string clause.origin)
+            origin ("kernel.entry_clause." ^ clause_family_string clause.family)
           in
           List.iter (add_rel_fact_formula table ~origin) clause.hypotheses;
           List.iter (add_rel_fact_formula table ~origin) clause.conclusions)
@@ -185,7 +188,7 @@ let collect_kernel_facts table ~node_name (node : PK.node_ir) =
       List.iter
         (fun (clause : PK.relational_generated_clause_ir) ->
           let origin =
-            origin ("kernel.post_clause." ^ clause_origin_string clause.origin)
+            origin ("kernel.post_clause." ^ clause_family_string clause.family)
           in
           List.iter (add_rel_fact_formula table ~origin) clause.hypotheses;
           List.iter (add_rel_fact_formula table ~origin) clause.conclusions)

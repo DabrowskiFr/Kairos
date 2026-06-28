@@ -50,10 +50,10 @@ state facts.
 This file is therefore the main place where the current approximation can
 create spurious source product states in later proof obligations.
 
-{1 Generated clauses}
+{1 Kernel clauses}
 
-[lib/domain/proof_export/proof_kernel_generated_clauses.ml] introduces three
-time classes:
+[lib/domain/verification/kernel_clause_projection.ml] owns the neutral
+Rocq-facing kernel clauses and introduces three time classes:
 
 - [PreviousTick], for facts about the completed previous instant;
 - [CurrentTick], for facts about the completed current instant;
@@ -64,9 +64,14 @@ step-context program and assumption guards to prove current program and
 guarantee states. Safety obligations for bad-guarantee edges also keep the bad
 guarantee case in [StepTickContext].
 
-This separation is the right shape. The delicate part is
-[OriginPhaseStepPreSummary], which reuses [propagation_requires] as a previous
-phase formula. Since [propagation_requires] comes from the weak pre-generation
+[lib/domain/proof_export/proof_kernel_generated_clauses.ml] is only the
+entry point that invokes these neutral clauses for the proof-kernel pass.
+Serialization is handled by a codec for [Kernel_clause_projection]; it is not a
+second generated-clause record.
+
+This separation is the right shape. The delicate family is
+[PhaseStepPreSummary], which reuses [propagation_requires] as a previous phase
+formula. Since [propagation_requires] comes from the weak pre-generation
 described above, this clause inherits the same approximation.
 
 {1 Product export}

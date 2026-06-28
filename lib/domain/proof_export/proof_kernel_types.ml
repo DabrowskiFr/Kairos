@@ -96,49 +96,20 @@ type product_coverage_ir =
   | CoverageExplicit
 [@@deriving yojson]
 
-type generated_clause_origin =
-  | OriginSourceProductSummary
-  | OriginPhaseStepPreSummary
-  | OriginPhaseStepSummary
-  | OriginSafety
-  | OriginInitNodeInvariant
-  | OriginInitAutomatonCoherence
-  | OriginPropagationNodeInvariant
-  | OriginPropagationAutomatonCoherence
-[@@deriving yojson]
+type clause_time_ir = Kernel_clause_projection.time_tag
 
-type clause_time_ir =
-  | CurrentTick
-  | PreviousTick
-  | StepTickContext
-[@@deriving yojson]
+let clause_time_ir_to_yojson = Ir_json_codec.time_tag_to_yojson
+let clause_time_ir_of_yojson = Ir_json_codec.time_tag_of_yojson
 
-type clause_fact_desc_ir =
-  | FactProgramState of ident
-  | FactGuaranteeState of int
-  | FactPhaseFormula of Core_syntax.hexpr
-  | FactFormula of Core_syntax.hexpr
-  | FactFalse
-[@@deriving yojson]
+type generated_clause_ir = Kernel_clause_projection.classified_clause
 
-type clause_fact_ir = {
-  time : clause_time_ir;
-  desc : clause_fact_desc_ir;
-}
-[@@deriving yojson]
+let generated_clause_ir_to_yojson = Ir_json_codec.classified_clause_to_yojson
+let generated_clause_ir_of_yojson = Ir_json_codec.classified_clause_of_yojson
 
-type generated_clause_anchor_ir =
-  | ClauseAnchorProductState of product_state_ir
-  | ClauseAnchorProductStep of product_step_ir
-[@@deriving yojson]
+type relational_clause_anchor_ir = Kernel_clause_projection.clause_context
 
-type generated_clause_ir = {
-  origin : generated_clause_origin;
-  anchor : generated_clause_anchor_ir;
-  hypotheses : clause_fact_ir list;
-  conclusions : clause_fact_ir list;
-}
-[@@deriving yojson]
+let relational_clause_anchor_ir_to_yojson = Ir_json_codec.clause_context_to_yojson
+let relational_clause_anchor_ir_of_yojson = Ir_json_codec.clause_context_of_yojson
 
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of ident
@@ -155,8 +126,10 @@ type relational_clause_fact_ir = {
 [@@deriving yojson]
 
 type relational_generated_clause_ir = {
-  origin : generated_clause_origin;
-  anchor : generated_clause_anchor_ir;
+  family : Obligation_family_projection.clause_family
+      [@to_yojson Ir_json_codec.clause_family_to_yojson]
+      [@of_yojson Ir_json_codec.clause_family_of_yojson];
+  anchor : relational_clause_anchor_ir;
   hypotheses : relational_clause_fact_ir list;
   conclusions : relational_clause_fact_ir list;
 }

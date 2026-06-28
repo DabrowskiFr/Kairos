@@ -65,6 +65,7 @@ let product_transition ?(step_class = Why_runtime_view.StepSafe)
     local_requires = [];
     propagates = [];
     ensures = [];
+    elaboration_checks = [];
     forbidden = [];
   }
 

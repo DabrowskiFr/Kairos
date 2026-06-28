@@ -1,0 +1,14 @@
+node uninitialized_pre_contract(x: int) returns (out: int)
+
+contracts
+  ensures: G(pre(x) = x);
+
+states
+  Run(init);
+
+transitions
+  Run:
+    to Run {
+      out := x;
+    }
+end

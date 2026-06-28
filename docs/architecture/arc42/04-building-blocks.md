@@ -11,7 +11,7 @@
 | Composition root | `lib/composition` | Wire ports to concrete adapters | None |
 | Domain core | `lib/domain/core` | Core syntax, formulas, model, temporal layout | Reference input |
 | Verification kernel | `lib/domain/verification` | Product construction and reference passes | Correction-critical |
-| Proof export | `lib/domain/proof_export` | Kernel exchange structures and summaries | Rocq sync candidate |
+| Proof export | `lib/domain/proof_export` | Exchange structures and summaries derived from the kernel | Projection candidate |
 | Runtime orchestration | `lib/adapters/out/runtime` | Snapshots, outputs, proof runs, diagnostics | Should stay outside correction |
 | Why3 backend | `lib/adapters/out/provers/why3` | Projection to Why3 and proof planning | Backend only |
 | Artifacts | `lib/adapters/out/artifacts` | Text/graph/diagnostic rendering | Backend only |
@@ -21,9 +21,9 @@
 
 | Module family | Role | Architectural status |
 | --- | --- | --- |
-| `product_build`, `temporal_automata`, `from_model` | Construct product summaries from program + automata | Reference |
+| `product_build`, `temporal_automata`, `from_model` | Validate automata normal form and construct product summaries from program + automata | Reference |
 | `pre` | Adds source-side facts and initial obligations | Reference |
-| `product_reachability` | Adds reachability preservation obligations, not pruning | Reference for now |
+| `product_reachability` | Adds reachability preservation obligations, not pruning | Reference extension |
 | `post` | Adds destination/progression obligations | Reference |
 | `temporal_lower` | Makes temporal history explicit | Reference normalization |
 | `formula_sharing` | Shares equal formulas physically | Obligation-preserving optimization |
@@ -33,7 +33,7 @@
 
 | Library / module family | Current role | Architectural concern |
 | --- | --- | --- |
-| `kairos_runtime_core` | Prepares runtime program and consumes supplied automata to build snapshots | Must stay free of Spot, Why3, and proof export |
+| `kairos_runtime_core` | Prepares runtime program and consumes supplied automata to build snapshots after reference validation | Must stay free of Spot, Why3, and proof export |
 | `kairos_runtime_automata` | Produces supplied automata using Spot today | External boundary, not part of reference kernel |
 | `kairos_runtime_proof` | Runs Why3 proof pipeline and callbacks | Backend execution, no proof-export dependency |
 | `kairos_runtime_diagnostics` | Builds graph/text/kernel diagnostic artifacts and cost reports | May use proof export, must not become a Why3 backend |
@@ -53,7 +53,9 @@ true:
 - only `kairos_runtime_automata` invokes the Spot-backed automata producer;
 - `kairos_runtime_proof` does not depend on `proof_export`;
 - backend options do not change the reference views;
-- Rocq synchronization targets `Proof_kernel_types`, not runtime artifacts.
+- Rocq adequacy targets the essential reference boundary; `Proof_kernel_types`
+  is only a possible exchange projection, not a runtime artifact and not the
+  theorem source.
 
 If any of these stop being true, the current architecture must be refactored,
 not merely documented.

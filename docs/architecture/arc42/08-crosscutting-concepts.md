@@ -20,7 +20,7 @@ Reference stages may:
 - construct product states and steps;
 - add obligations;
 - normalize temporal references;
-- expose a proof-kernel exchange view.
+- expose data from which a proof-kernel exchange view can be derived.
 
 Backend stages may:
 
@@ -45,6 +45,14 @@ new language feature that changes temporal state must declare:
 - which obligations mention step-local facts;
 - which facts can be propagated to the next tick.
 
+Historical initialization is a separate frontier. The Rocq principle is
+`InitializationFrontier`: if a formula is available at a source point, its
+required historical depth is bounded by the point age. The implementation
+realizes that frontier with `Historical_initialization.required_depth_*`,
+`Historical_initialization.min_ticks_by_state`, and the
+`Kairos_to_model_node_validation` checks. This is a source well-formedness
+contract, not a proof that Rocq certifies the OCaml age-computation algorithm.
+
 ## External Tool Boundaries
 
 Spot, Why3, Z3, Graphviz, and timing services are adapters. Their results may
@@ -52,8 +60,12 @@ be consumed, checked, or reported, but the correction story must not depend on
 their implementation details.
 
 The important boundary is parametric automata input: Spot may build automata,
-but Rocq should reason from supplied automata. Kairos does not formalize the
-Spot/LTL-to-automata translation.
+but the Rocq adequacy claim is relative to supplied automata. Kairos does not
+formalize the Spot/LTL-to-automata translation.
+The reference product does validate the automata normal form it consumes:
+non-empty automata, valid transition indices, absorbing bad states, and
+deterministic assumption targets for each source/guard key. This is a
+malformed-input check, not monitor-correctness certification.
 
 The implementation now reflects that boundary structurally:
 `kairos_runtime_automata` is the external producer, while

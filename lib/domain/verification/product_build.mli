@@ -25,15 +25,19 @@
     and records one {!Product_types.product_step} for every local combination of
     program transition, assumption edge, and guarantee edge. *)
 
-val analyze_node :
-  build:Automaton_types.automata_spec ->
-  node:Verification_model.node_model ->
-  program_transitions:Verification_model.program_step list ->
-  Temporal_automata.node_data
 (** [analyze_node ~build ~node] explores the explicit product associated with
-    [node] using the automata already built in [build].
+    [node] using the automata already built in [build].  It first validates
+    the automata normal form used by the canonical summaries: non-empty
+    automata, well-formed transition indices, at most one absorbing bad state
+    per automaton, and deterministic assumption targets for each source/guard
+    pair.
 
     The result contains:
     - the reachable product states;
     - the explicit product steps between them;
     - the bad-state indices and rendering metadata required downstream. *)
+val analyze_node :
+  build:Automaton_types.automata_spec ->
+  node:Verification_model.node_model ->
+  program_transitions:Verification_model.program_step list ->
+  Temporal_automata.node_data

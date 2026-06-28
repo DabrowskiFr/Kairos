@@ -49,7 +49,7 @@ type context = {
 type result = {
   shared_pre_bundle_modules : Modules.module_unit list;
   shared_post_bundle_modules : Modules.module_unit list;
-  kernel_step_helper_units : Why_compile_product_helper_types.helper_unit list;
+  kernel_step_helper_units : Why_compile_helper_unit.t list;
 }
 
 let build ctx step_contracts =

@@ -9,10 +9,10 @@ graph TB
 
       11["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
       style 11 fill:#075985,stroke:#043e5d,color:#ffffff
-      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds product summaries and<br />reference proof obligations<br />from the core model plus<br />supplied automata.</div>"]
+      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
       style 13 fill:#166534,stroke:#0f4624,color:#ffffff
-      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds versioned kernel<br />exchange data used by<br />diagnostics and future Rocq<br />synchronization.</div>"]
-      style 18 fill:#166534,stroke:#0f4624,color:#ffffff
+      18["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 18 fill:#075985,stroke:#043e5d,color:#ffffff
       21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
       style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
       28["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]

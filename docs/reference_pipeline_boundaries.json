@@ -2,22 +2,26 @@
   "schema_version": 1,
   "classification_vocabulary": {
     "surface": "Source language parsing, elaboration, and desugaring before the formal core entry point.",
-    "reference": "Correction-critical construction that must be mirrored by the formal model or exported to it.",
+    "reference": "Correction-critical semantic construction that belongs to the essential proof boundary.",
+    "reference_extension": "Correction-relevant obligation or invariant extension that must be justified by a general semantic argument, but is not part of the minimal proof boundary.",
     "reference_normalization": "Deterministic semantic normalization required by the reference view.",
+    "reference_projection": "Rocq-alignment, exchange, or diagnostic view derived from the reference boundary; it is not the semantic source of obligations.",
     "obligation_preserving_optimization": "Representation-only or proof-planning change that must preserve canonical obligations.",
     "backend": "Target-specific projection, external proof execution, dumps, scheduling, profiling, or reporting.",
     "external_boundary": "Boundary where an external tool may construct an input consumed by the reference kernel."
   },
   "reference_kernel": {
-    "description": "Correction-critical path from elaborated Kairos model plus supplied automata to canonical product/proof-kernel data.",
+    "description": "Essential correction path from elaborated Kairos model plus supplied automata to canonical product states, product steps, and obligations. The reference product validates the automata normal form it consumes, while Spot construction remains outside this boundary. This is the part whose adequacy must be checked against the existing Rocq formalization.",
     "inputs": [
       "Verification_model.program_model",
       "(Core_syntax.ident * Automaton_types.automata_spec) list"
     ],
     "outputs": [
       "Ir.node_ir list",
-      "Proof_kernel_types.node_ir",
-      "Proof_kernel_types.exported_node_summary_ir"
+      "Product_types.product_step list",
+      "Product_types.product_step_summary list",
+      "Canonical_obligations.stage1",
+      "Canonical_obligations.stage2"
     ],
     "path_roots": [
       "lib/domain/core",
@@ -28,11 +32,24 @@
       "lib/domain/verification/product_build.mli",
       "lib/domain/verification/temporal_automata.ml",
       "lib/domain/verification/temporal_automata.mli",
+      "lib/domain/verification/fo_current_input.ml",
+      "lib/domain/verification/fo_current_input.mli",
       "lib/domain/verification/from_model.ml",
       "lib/domain/verification/from_model.mli",
+      "lib/domain/verification/pre.ml",
+      "lib/domain/verification/pre.mli",
+      "lib/domain/verification/post.ml",
+      "lib/domain/verification/post.mli",
+      "lib/domain/verification/product_characteristics.ml",
+      "lib/domain/verification/product_characteristics.mli",
+      "lib/domain/verification/product_reachability.ml",
+      "lib/domain/verification/product_reachability.mli",
+      "lib/domain/verification/temporal_lower.ml",
+      "lib/domain/verification/temporal_lower.mli",
+      "lib/domain/verification/canonical_obligations.ml",
+      "lib/domain/verification/canonical_obligations.mli",
       "lib/domain/verification/orchestration.ml",
-      "lib/domain/verification/orchestration.mli",
-      "lib/domain/proof_export"
+      "lib/domain/verification/orchestration.mli"
     ],
     "forbidden_code_patterns": [
       {
@@ -53,6 +70,46 @@
       }
     ]
   },
+  "exchange_views": {
+    "description": "Derived views used for diagnostics, cost reports, and possible Rocq synchronization after an adequacy decision. They must not define the essential theorem.",
+    "outputs": [
+      "Proof_kernel_types.node_ir",
+      "Proof_kernel_types.exported_node_summary_ir"
+    ],
+    "path_roots": [
+      "lib/domain/proof_export"
+    ]
+  },
+  "rocq_alignment_manifest": "docs/rocq_alignment_manifest.json",
+  "rocq_boundary": {
+    "description": "Architecture classification for checking adequacy with the existing Rocq formalization. This is not a generated Rocq theorem inventory.",
+    "essential_stage_names": [
+      "core_model",
+      "historical_initialization_frontier",
+      "reference_product",
+      "pre_requirements",
+      "post_ensures",
+      "temporal_lowering",
+      "canonical_obligations"
+    ],
+    "extension_stage_names": [
+      "product_reachability_obligations"
+    ],
+      "projection_stage_names": [
+        "obligation_family_projection",
+        "kernel_clause_projection",
+        "product_summary_projection",
+        "step_contract_projection",
+        "proof_kernel_export"
+    ],
+    "excluded_stage_names": [
+      "surface_elaboration",
+      "automata_generation",
+      "formula_sharing",
+      "runtime_orchestration",
+      "why3_backend"
+    ]
+  },
   "stages": [
     {
       "name": "surface_elaboration",
@@ -60,7 +117,11 @@
       "paths": [
         "lib/adapters/in/kairos_lang"
       ],
-      "rocq_role": "Outside the current trusted kernel; should later have a separate elaboration-correctness theorem."
+      "rocq_scope": "excluded",
+      "rocq_role": "Outside the current trusted kernel; a separate elaboration-correctness theorem may be added later.",
+      "rocq_alignment_units": [
+        "source_language_and_wf"
+      ]
     },
     {
       "name": "core_model",
@@ -70,7 +131,34 @@
         "lib/domain/core/verification_model.ml",
         "lib/domain/core/verification_model.mli"
       ],
-      "rocq_role": "Formal entry point for the elaborated Kairos program."
+      "rocq_scope": "essential",
+      "rocq_role": "Formal entry point for the elaborated Kairos program.",
+      "rocq_alignment_units": [
+        "source_language_and_wf"
+      ]
+    },
+    {
+      "name": "historical_initialization_frontier",
+      "classification": "reference_normalization",
+      "paths": [
+        "lib/domain/core/historical_initialization.ml",
+        "lib/domain/core/historical_initialization.mli",
+        "lib/adapters/in/kairos_lang/kairos_to_model_node_validation.ml"
+      ],
+      "rocq_scope": "essential",
+      "rocq_role": "Source well-formedness frontier for historical formulas. Rocq InitializationFrontier states the age contract; the OCaml validator enforces required_depth <= age using min_ticks_by_state as the current implementation witness, not as a certified algorithm.",
+      "rocq_alignment_units": [
+        "historical_initialization_frontier"
+      ],
+      "allowed_effects": [
+        "reject source formulas whose required historical depth exceeds the age available at their source point",
+        "compute source-point ages used by the validator"
+      ],
+      "forbidden_effects": [
+        "drop obligations after accepting a formula",
+        "weaken formulas to make them initialized",
+        "treat min_ticks_by_state as a Rocq-certified algorithm"
+      ]
     },
     {
       "name": "automata_generation",
@@ -81,7 +169,11 @@
         "lib/adapters/out/runtime/orchestration/automata",
         "lib/adapters/out/external/spot"
       ],
-      "rocq_role": "Automata are inputs to the reference kernel; the formal story is relative to supplied automata and does not formalize Spot's LTL-to-automata translation."
+      "rocq_scope": "excluded",
+      "rocq_role": "Automata are inputs to the reference kernel; the formal story is relative to supplied automata and does not formalize Spot's LTL-to-automata translation. Product-boundary normal-form validation belongs to reference_product, not to this external generation stage.",
+      "rocq_alignment_units": [
+        "contract_automata"
+      ]
     },
     {
       "name": "reference_product",
@@ -92,7 +184,12 @@
         "lib/domain/verification/from_model.ml",
         "lib/domain/verification/orchestration.ml"
       ],
-      "rocq_role": "Program/product construction that should be mirrored by Rocq."
+      "rocq_scope": "essential",
+      "rocq_role": "Program/product construction that must match the existing Rocq product-step semantics for adequacy, including validation of the supplied automata normal form consumed by product exploration.",
+      "rocq_alignment_units": [
+        "product_anchors_and_classification",
+        "product_summary_generation"
+      ]
     },
     {
       "name": "pre_requirements",
@@ -100,10 +197,17 @@
       "paths": [
         "lib/domain/verification/pre.ml",
         "lib/domain/verification/pre.mli",
+        "lib/domain/verification/fo_current_input.ml",
+        "lib/domain/verification/fo_current_input.mli",
         "lib/domain/verification/product_characteristics.ml",
         "lib/domain/verification/product_characteristics.mli"
       ],
-      "rocq_role": "Generates source-state requirements for product-step obligations: state invariants, product-entry facts, assumption guards, program guards, and stability facts. These facts are part of the proof obligation shape and must be justified by the reference semantics.",
+      "rocq_scope": "essential",
+      "rocq_role": "Generates source-state requirements for product-step obligations: state invariants, product-entry facts, assumption guards, program guards, and stability facts. Product-entry facts must satisfy the current-input-free architecture invariant expressed by Fo_current_input. These facts are part of the proof obligation shape; they must not be silently filtered by implementation convenience.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "generated_obligation_validity"
+      ],
       "allowed_effects": [
         "add propagation_requires to product summaries",
         "add requires to product summaries",
@@ -118,12 +222,16 @@
     },
     {
       "name": "product_reachability_obligations",
-      "classification": "reference",
+      "classification": "reference_extension",
       "paths": [
         "lib/domain/verification/product_reachability.ml",
         "lib/domain/verification/product_reachability.mli"
       ],
-      "rocq_role": "Adds preservation obligations for syntactically unreachable product destinations. This is not pruning: the pass emits obligations such as guard => false, so it belongs to the reference proof story until replaced by a more general certified reachability invariant.",
+      "rocq_scope": "extension",
+      "rocq_role": "Adds preservation obligations for a generated reachability invariant. This is not pruning: the pass emits obligations such as guard => false. The essential Rocq boundary should see only the generic invariant principle, not this particular synthesis as a backend trick.",
+      "rocq_alignment_units": [
+        "product_summary_generation"
+      ],
       "allowed_effects": [
         "add reachability preservation ensures"
       ],
@@ -143,7 +251,12 @@
         "lib/domain/verification/product_characteristics.ml",
         "lib/domain/verification/product_characteristics.mli"
       ],
+      "rocq_scope": "essential",
       "rocq_role": "Generates destination obligations: safe successor disjunctions, destination invariants, guarded destination invariants, and product-characteristic preservation facts. These facts define the proof obligations for progression/correction.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "generated_obligation_validity"
+      ],
       "allowed_effects": [
         "add ensures to product summaries"
       ],
@@ -164,7 +277,13 @@
         "lib/domain/core/pre_k_lowering.ml",
         "lib/domain/core/pre_k_lowering.mli"
       ],
-      "rocq_role": "Materializes the temporal layout and rewrites pre/pre_k occurrences into explicit temporal bindings. This normalization is part of the formal exchange view, not a backend optimization.",
+      "rocq_scope": "essential",
+      "rocq_role": "Materializes the temporal layout and rewrites pre/pre_k occurrences into explicit temporal bindings. This normalization must match the temporal model used by the existing Rocq formalization; it is not a backend optimization.",
+      "rocq_alignment_units": [
+        "instrumented_run_and_observations",
+        "product_summary_generation",
+        "step_contract_extraction"
+      ],
       "allowed_effects": [
         "compute temporal_layout",
         "rewrite summary formulas through temporal bindings",
@@ -177,12 +296,97 @@
       ]
     },
     {
+      "name": "product_summary_projection",
+      "classification": "reference_projection",
+      "paths": [
+        "lib/domain/verification/product_summary_projection.ml",
+        "lib/domain/verification/product_summary_projection.mli"
+      ],
+      "rocq_scope": "projection",
+      "rocq_role": "Neutral OCaml projection for product-summary objects corresponding to ProofStepSummary and summary-case data. It is derived from Ir.node_ir and must stay independent from proof-export JSON and Why3.",
+      "rocq_alignment_units": [
+        "product_summary_generation"
+      ]
+    },
+    {
+      "name": "canonical_obligations",
+      "classification": "reference",
+      "paths": [
+        "lib/domain/verification/canonical_obligations.ml",
+        "lib/domain/verification/canonical_obligations.mli"
+      ],
+      "rocq_scope": "essential",
+      "rocq_role": "Names the canonical Stage 1 clause family and Stage 2 step-contract family before proof_export, backend grouping, Why3 lowering, or diagnostics. This is the implementation-side object to compare with the Rocq proof principle.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "step_contract_extraction",
+        "generated_obligation_validity"
+      ],
+      "allowed_effects": [
+        "expose canonical Stage 1 clauses",
+        "extract canonical Stage 2 contracts",
+        "keep one bad-guarantee contract per unsafe case"
+      ],
+      "forbidden_effects": [
+        "group unsafe cases",
+        "split forbidden formulas for backend convenience",
+        "lower formulas to Why3",
+        "depend on backend options"
+      ]
+    },
+    {
+      "name": "obligation_family_projection",
+      "classification": "reference_projection",
+      "paths": [
+        "lib/domain/verification/obligation_family_projection.ml",
+        "lib/domain/verification/obligation_family_projection.mli"
+      ],
+      "rocq_scope": "projection",
+      "rocq_role": "Neutral semantic classification of generated obligation families. These are proof schemas, not diagnostic provenance tags.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "generated_obligation_validity"
+      ]
+    },
+    {
+      "name": "kernel_clause_projection",
+      "classification": "reference_projection",
+      "paths": [
+        "lib/domain/verification/kernel_clause_projection.ml",
+        "lib/domain/verification/kernel_clause_projection.mli"
+      ],
+      "rocq_scope": "projection",
+      "rocq_role": "Neutral OCaml projection for KernelClause, TimedFact, product anchors, and classified clause families before proof_export JSON, relational lowering, or Why3.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "generated_obligation_validity"
+      ]
+    },
+    {
+      "name": "step_contract_projection",
+      "classification": "reference_projection",
+      "paths": [
+        "lib/domain/verification/step_contract_projection.ml",
+        "lib/domain/verification/step_contract_projection.mli"
+      ],
+      "rocq_scope": "projection",
+      "rocq_role": "Derived grouped OCaml view of canonical Stage 2 contracts before Why3 helper naming, term sharing, or solver scheduling. It must be constructed from Canonical_obligations.stage2.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "step_contract_extraction"
+      ]
+    },
+    {
       "name": "formula_sharing",
       "classification": "obligation_preserving_optimization",
       "paths": [
         "lib/domain/verification/formula_sharing.ml"
       ],
+      "rocq_scope": "excluded",
       "rocq_role": "No semantic role. This pass only reuses physically equal formula representatives for structurally equal top-level formulas.",
+      "rocq_alignment_units": [
+        "step_contract_extraction"
+      ],
       "allowed_effects": [
         "replace a formula by a structurally equal representative",
         "preserve formula metadata shape except for physical identity"
@@ -196,11 +400,16 @@
     },
     {
       "name": "proof_kernel_export",
-      "classification": "reference",
+      "classification": "reference_projection",
       "paths": [
         "lib/domain/proof_export"
       ],
-      "rocq_role": "Versioned exchange data for synchronization with Rocq."
+      "rocq_scope": "projection",
+      "rocq_role": "Versioned exchange/projection data for diagnostics and possible Rocq synchronization after an explicit adequacy decision. It is not the semantic source of the theorem.",
+      "rocq_alignment_units": [
+        "product_summary_generation",
+        "step_contract_extraction"
+      ]
     },
     {
       "name": "runtime_orchestration",
@@ -208,7 +417,11 @@
       "paths": [
         "lib/adapters/out/runtime"
       ],
-      "rocq_role": "Wiring, options, dumps, instrumentation, and proof-running are outside the Rocq kernel boundary."
+      "rocq_scope": "excluded",
+      "rocq_role": "Wiring, options, dumps, instrumentation, and proof-running are outside the Rocq kernel boundary.",
+      "rocq_alignment_units": [
+        "generated_obligation_validity"
+      ]
     },
     {
       "name": "why3_backend",
@@ -216,7 +429,12 @@
       "paths": [
         "lib/adapters/out/provers/why3"
       ],
-      "rocq_role": "Backend projection and external proof discharge; not the semantic source of obligations."
+      "rocq_scope": "excluded",
+      "rocq_role": "Backend projection and external proof discharge; not the semantic source of obligations.",
+      "rocq_alignment_units": [
+        "step_contract_extraction",
+        "generated_obligation_validity"
+      ]
     }
   ]
 }

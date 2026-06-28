@@ -186,7 +186,7 @@ let step ~(type_decls : Core_syntax.enum_decl list)
     dst_state = source_transition.dst;
     guard_expr = Option.map (expr ~type_decls) source_transition.guard;
     body_stmts = List.map (stmt ~type_decls) source_transition.body;
-    ensures = List.map (hexpr ~type_decls) source_transition.ensures;
+    elaboration_checks = List.map (hexpr ~type_decls) source_transition.ensures;
   }
 
 let node ~(type_decls : Core_syntax.enum_decl list)
@@ -215,7 +215,7 @@ let node ~(type_decls : Core_syntax.enum_decl list)
     }
   in
   Validation.validate_node lowered;
-  Verification_model.prioritize_node_steps lowered
+  Verification_model.normalize_node_semantics lowered
 
 let program ?(type_decls : Kx_core_syntax.enum_decl list = [])
     ?(function_decls : Kx_core_syntax.pure_function_decl list = [])

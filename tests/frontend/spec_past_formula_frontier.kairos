@@ -2,11 +2,15 @@ node spec_past_formula_frontier(x: bool) returns (out: bool)
 contracts
   ensures: G(out = x);
 states
-  Run(init);
+  Init(init), Run;
 invariants
   in Run:
     past(x = true and out = true, 1) = true => past(out = true, 1) = true;
 transitions
+  Init:
+    to Run {
+      out := x;
+    }
   Run:
     to Run {
       out := x;

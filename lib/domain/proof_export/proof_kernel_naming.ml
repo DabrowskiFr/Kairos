@@ -19,6 +19,8 @@ open Core_syntax
 open Pretty
 open Proof_kernel_types
 
+module K = Kernel_clause_projection
+
 let phase_state_case_name ~(prog_state : ident) ~(guarantee_state : int) : string =
   Printf.sprintf "phase_case_%s_g%d" (String.lowercase_ascii prog_state) guarantee_state
 
@@ -49,27 +51,20 @@ let string_of_product_coverage = function
   | CoverageEmpty -> "empty"
   | CoverageExplicit -> "explicit"
 
-let string_of_clause_origin = function
-  | OriginSourceProductSummary -> "source/product_summary"
-  | OriginPhaseStepPreSummary -> "phase/step_pre_summary"
-  | OriginPhaseStepSummary -> "phase/step_summary"
-  | OriginSafety -> "safety"
-  | OriginInitNodeInvariant -> "init/node_inv"
-  | OriginInitAutomatonCoherence -> "init/automaton"
-  | OriginPropagationNodeInvariant -> "propagation/node_inv"
-  | OriginPropagationAutomatonCoherence -> "propagation/automaton"
+let string_of_clause_family =
+  Obligation_family_projection.display_name
 
 let string_of_clause_time = function
-  | CurrentTick -> "current"
-  | PreviousTick -> "previous"
-  | StepTickContext -> "step_ctx"
+  | K.CurrentTick -> "current"
+  | K.PreviousTick -> "previous"
+  | K.StepTickContext -> "step_ctx"
 
 let string_of_clause_fact_desc = function
-  | FactProgramState st -> "st = " ^ st
-  | FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
-  | FactPhaseFormula f -> "phase(" ^ string_of_fo f ^ ")"
-  | FactFormula f -> string_of_fo f
-  | FactFalse -> "false"
+  | K.FactProgramState st -> "st = " ^ st
+  | K.FactGuaranteeState idx -> "guarantee_state = " ^ string_of_int idx
+  | K.FactPhaseFormula f -> "phase(" ^ string_of_fo f ^ ")"
+  | K.FactFormula f -> string_of_fo f
+  | K.FactFalse -> "false"
 
 let string_of_relational_clause_fact_desc = function
   | RelFactProgramState st -> "st = " ^ st
@@ -78,8 +73,9 @@ let string_of_relational_clause_fact_desc = function
   | RelFactFormula f -> string_of_fo f
   | RelFactFalse -> "false"
 
-let string_of_clause_fact (fact : clause_fact_ir) =
-  Printf.sprintf "%s:%s" (string_of_clause_time fact.time) (string_of_clause_fact_desc fact.desc)
+let string_of_clause_fact (fact : K.timed_fact) =
+  Printf.sprintf "%s:%s" (string_of_clause_time fact.K.tf_time)
+    (string_of_clause_fact_desc fact.K.tf_desc)
 
 let string_of_relational_clause_fact (fact : relational_clause_fact_ir) =
   Printf.sprintf "%s:%s" (string_of_clause_time fact.time)

@@ -171,6 +171,7 @@ module Timing = struct
         propagation_requires_count = size.propagation_requires_count;
         requires_count = size.requires_count;
         ensures_count = size.ensures_count;
+        elaboration_checks_count = size.elaboration_checks_count;
         init_invariant_goal_count = size.init_invariant_goal_count;
         formula_occurrence_count = size.formula_occurrence_count;
         unique_formula_count = size.unique_formula_count;

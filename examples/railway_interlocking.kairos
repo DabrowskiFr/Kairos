@@ -63,11 +63,6 @@ contracts
 states
   Init(init), Run;
 invariants
-  in Init:
-    signal[R_AB] = Red;
-    signal[R_AC] = Red;
-    signal[R_DE] = Red;
-    signal[R_CD] = Red;
   in Run:
     routeState[R_AB] = Idle or routeState[R_AB] = Locked or routeState[R_AB] = Releasing;
     routeState[R_AC] = Idle or routeState[R_AC] = Locked or routeState[R_AC] = Releasing;

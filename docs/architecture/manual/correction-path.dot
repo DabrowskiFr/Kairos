@@ -7,7 +7,7 @@ digraph KairosCorrectionPath {
     ranksep="0.55",
     fontname="Helvetica",
     labelloc="t",
-    label="Correction path: what Rocq must understand"
+    label="Essential correction boundary for Rocq adequacy"
   ];
 
   node [
@@ -54,9 +54,15 @@ digraph KairosCorrectionPath {
   ];
 
   prepost [
-    label="Reference obligation shaping\nPre, Product_reachability, Post",
+    label="Essential obligation shaping\nPre / Post\nsource and destination obligations",
     fillcolor="#86efac",
     penwidth=3
+  ];
+
+  reachability [
+    label="Reachability invariant extension\nProduct_reachability\nnot pruning",
+    fillcolor="#fde68a",
+    penwidth=2
   ];
 
   temporal [
@@ -65,14 +71,20 @@ digraph KairosCorrectionPath {
     penwidth=3
   ];
 
-  kernel_export [
-    label="Proof-kernel export\nProof_kernel_types.node_ir\nRocq exchange view",
+  obligations [
+    label="Essential obligations\ncorrection / progression\nrelative completeness",
     fillcolor="#4ade80",
     penwidth=3
   ];
 
+  kernel_export [
+    label="Proof-kernel export\nProof_kernel_types.node_ir\nprojection candidate",
+    fillcolor="#dbeafe",
+    penwidth=2
+  ];
+
   rocq [
-    label="Rocq formalization\nmust match this exchange view",
+    label="Rocq formalization\nadequacy against essential boundary",
     shape=oval,
     fillcolor="#dcfce7",
     penwidth=2
@@ -99,8 +111,12 @@ digraph KairosCorrectionPath {
   automata -> product;
   product -> prepost;
   prepost -> temporal;
-  temporal -> kernel_export;
-  kernel_export -> rocq;
+  temporal -> obligations;
+  obligations -> rocq [label="adequacy check"];
+  prepost -> reachability [style=dashed, label="optional invariant scheme"];
+  reachability -> obligations [style=dashed];
+  obligations -> kernel_export [style=dashed, label="derived exchange view"];
+  kernel_export -> rocq [style=dashed, label="optional sync format"];
 
   temporal -> sharing [style=dashed, label="may share identical formulas"];
   sharing -> backend [style=dashed];

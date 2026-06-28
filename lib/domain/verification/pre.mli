@@ -22,8 +22,11 @@
     - propagated guarantee context from predecessor safe branches,
     - assume/program guards,
     - state-stability equalities,
-    - source-state invariants,
-    - initial-state treatment (including coherency invariant goal). *)
+    - source-state invariants.
+
+    Initial states do not carry ordinary state invariants; this is enforced by
+    the frontend/model validation boundary, so this pass does not generate
+    initial invariant goals. *)
 
 val run_program :
   ?observe_family:Ir_fact_family_metrics.observer ->

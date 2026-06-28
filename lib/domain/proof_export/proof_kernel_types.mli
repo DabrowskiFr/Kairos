@@ -18,10 +18,14 @@
 
 (** Proof-kernel exchange data model.
 
-    This module defines the serializable proof-kernel structures used for
-    diagnostics and future Rocq synchronization:
-    product states/steps, generated clauses, relational clauses, proof-step
-    summaries and exported node summaries. *)
+    This module defines the proof-kernel exchange structures used for
+    diagnostics and possible Rocq synchronization after an explicit adequacy
+    decision. It owns product export records, relational/lowered clauses,
+    proof-step summaries and exported node summaries.
+
+    It does not own generated kernel clauses: [generated_clause_ir] is an alias
+    for {!Kernel_clause_projection.classified_clause}. Serialization is
+    provided here as a boundary codec, not as a second proof object. *)
 
 open Core_syntax
 (** Core type definitions for the product and proof-kernel IR.
@@ -30,7 +34,7 @@ open Core_syntax
     {ul
     {- reactive-program fragments;}
     {- automata and product data;}
-    {- generated clauses;}
+    {- generated kernel-clause projection aliases;}
     {- proof-step summaries;}
     {- exported node summaries.}} *)
 
@@ -128,60 +132,29 @@ type product_coverage_ir =
   | CoverageExplicit
 [@@deriving yojson]
 
-(** Type [generated_clause_origin]. *)
+(** Time tag reused by lowered proof-export facts. The source of this
+    vocabulary is {!Kernel_clause_projection}. *)
+type clause_time_ir = Kernel_clause_projection.time_tag
 
-type generated_clause_origin =
-  | OriginSourceProductSummary
-  | OriginPhaseStepPreSummary
-  | OriginPhaseStepSummary
-  | OriginSafety
-  | OriginInitNodeInvariant
-  | OriginInitAutomatonCoherence
-  | OriginPropagationNodeInvariant
-  | OriginPropagationAutomatonCoherence
-[@@deriving yojson]
+val clause_time_ir_to_yojson : clause_time_ir -> Yojson.Safe.t
+val clause_time_ir_of_yojson : Yojson.Safe.t -> (clause_time_ir, string) result
 
-(** Type [clause_time_ir]. *)
+(** Clause produced before relational lowering. This is the neutral
+    Rocq-facing kernel clause projection; proof_export must not define another
+    generated-clause record. *)
+type generated_clause_ir = Kernel_clause_projection.classified_clause
 
-type clause_time_ir =
-  | CurrentTick
-  | PreviousTick
-  | StepTickContext
-[@@deriving yojson]
+val generated_clause_ir_to_yojson : generated_clause_ir -> Yojson.Safe.t
+val generated_clause_ir_of_yojson :
+  Yojson.Safe.t -> (generated_clause_ir, string) result
 
-(** Type [clause_fact_desc_ir]. *)
+(** Anchor of a lowered relational clause. *)
+type relational_clause_anchor_ir = Kernel_clause_projection.clause_context
 
-type clause_fact_desc_ir =
-  | FactProgramState of ident
-  | FactGuaranteeState of int
-  | FactPhaseFormula of Core_syntax.hexpr
-  | FactFormula of Core_syntax.hexpr
-  | FactFalse
-[@@deriving yojson]
-
-(** Type [clause_fact_ir]. *)
-
-type clause_fact_ir = {
-  time : clause_time_ir;
-  desc : clause_fact_desc_ir;
-}
-[@@deriving yojson]
-
-(** Type [generated_clause_anchor_ir]. *)
-
-type generated_clause_anchor_ir =
-  | ClauseAnchorProductState of product_state_ir
-  | ClauseAnchorProductStep of product_step_ir
-[@@deriving yojson]
-
-(** Clause produced before relational lowering. *)
-type generated_clause_ir = {
-  origin : generated_clause_origin;
-  anchor : generated_clause_anchor_ir;
-  hypotheses : clause_fact_ir list;
-  conclusions : clause_fact_ir list;
-}
-[@@deriving yojson]
+val relational_clause_anchor_ir_to_yojson :
+  relational_clause_anchor_ir -> Yojson.Safe.t
+val relational_clause_anchor_ir_of_yojson :
+  Yojson.Safe.t -> (relational_clause_anchor_ir, string) result
 
 (** Type [relational_clause_fact_desc_ir]. *)
 
@@ -203,8 +176,10 @@ type relational_clause_fact_ir = {
 
 (** Clause after relational lowering. *)
 type relational_generated_clause_ir = {
-  origin : generated_clause_origin;
-  anchor : generated_clause_anchor_ir;
+  family : Obligation_family_projection.clause_family
+      [@to_yojson Ir_json_codec.clause_family_to_yojson]
+      [@of_yojson Ir_json_codec.clause_family_of_yojson];
+  anchor : relational_clause_anchor_ir;
   hypotheses : relational_clause_fact_ir list;
   conclusions : relational_clause_fact_ir list;
 }

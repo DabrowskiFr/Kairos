@@ -390,7 +390,8 @@ let rec shift_input_pre_for_transition input_names (formula : S.hexpr) =
     | SNNat n ->
         if n <= 1 then None else Some (SNNat (n - 1))
     | SNVar _ ->
-        failwith "history transition ensures uses non-constant pre_k depth on an input"
+        failwith
+          "history elaboration check uses non-constant pre_k depth on an input"
   in
   let shexpr =
     match formula.shexpr with

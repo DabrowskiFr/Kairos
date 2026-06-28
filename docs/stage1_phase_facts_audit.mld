@@ -1,0 +1,369 @@
+{0 Stage 1 Phase Facts Audit}
+
+This page audits the Rocq use of [pssEnsures], [kairosPhaseClause], and
+[FactPhaseFormula]. It follows the arbitration rule from
+{!page-stage1_ocaml_rocq_arbitration}: do not change OCaml merely to mimic a
+Rocq proof artifact; first identify the mathematical role.
+
+{1 Question}
+
+Does Rocq really need every [pssEnsures] formula to be a phase fact, or should
+Rocq distinguish step-contract postconditions from product/phase propagation
+facts?
+
+Current answer:
+
+{[
+Rocq currently maps every pssEnsures formula to a phase clause, but the
+soundness proof uses pssEnsures primarily as safe-step postconditions. Only
+specific subfamilies of ensures are needed to reconstruct next-tick
+propagation facts.
+]}
+
+Therefore the direction is {b OCaml -> Rocq}: Rocq should be refined so that
+postconditions and phase/propagation facts are separate notions, or at least
+so that phase clauses range over an explicit phase-fact subset rather than
+all [pssEnsures].
+
+{1 Rocq Construction}
+
+In [theories/Compilation/Stage1/Construction/SummaryGeneration.v],
+[kairosSummary] builds [ensures_h] from four components:
+
+- safe-case guarantee guards;
+- the disjunction of safe-case guards;
+- shifted destination state invariants;
+- guarded destination phase formulas
+  [kairosHistImp guard phase].
+
+It then does:
+
+{[
+phase_clauses := map (kairosPhaseClause step base_hypotheses) ensures_h
+pssEnsures := ensures_h
+]}
+
+So every safe-step postcondition becomes both:
+
+- a Stage 2 safe-contract ensure, through [pssEnsures];
+- a Stage 1 phase clause, through [kairosPhaseClause].
+
+This is exactly the conflation under audit.
+
+{1 Classification Use}
+
+[kairosSummaryFamilies] classifies a phase clause by shape:
+
+{[
+isPhaseClause pss kc :=
+  In kc pss.(pssClauses) /\ kairosClauseIsPhase kc = true
+]}
+
+and [kairosClauseIsPhase] only checks whether the clause conclusions contain a
+[FactPhaseFormula].
+
+The only direct uses found for [isPhaseClause], [FactPhaseFormula], and
+[summaryClauseFamiliesWf] are structural well-formedness/classification
+proofs:
+
+- [kairosSummaryFamiliesWfAny] in
+  [theories/Compilation/Stage1/Construction/SummaryShapes.v];
+- the generic pass contracts in
+  [theories/Obligations/Generation/GeneratedObligations.v].
+
+I did not find a run-level soundness step that consumes [isPhaseClause] itself
+to prove automata validity. The run-level proof consumes generated safe
+obligations and selected [pssEnsures] members.
+
+{1 Soundness Use}
+
+The semantic use of [pssEnsures] is in
+[theories/Soundness/Compiler/CompilerSoundness.v]:
+
+{[
+safeTripletOfSummary ps pss
+  postcondition:
+    forall h, In h (lowerDedupEnsures pss.(pssEnsures)) -> h holds
+]}
+
+Then [kairosGeneratedSafeEnsuresMemberHolds] gives access to one proved
+ensure of a safe generated contract.
+
+The predecessor witness is isolated in
+[theories/Soundness/RequiresPropagation/RequiresPropagationSafePredecessor.v].
+It reconstructs the safe predecessor at tick [k] and attaches it to one
+generated safe contract.  Low-level facts are kept at their semantic layer:
+transition-selection inversion is in the instrumented step semantics,
+product-state live/safe facts are in Stage1 product-step construction, and
+run/product-anchor bridges shared by soundness proofs are isolated in
+[theories/Soundness/RunStepFacts.v].  Singleton step-contract anchor facts stay
+in [theories/Obligations/Proofs/TripletValidity.v], because they only describe
+the generic shape of [stepContractAnchorHolds] and [ProductStepAnchor] field
+equality.  Summary/contract step-list
+adaptation stays in [theories/Soundness/GeneratedContracts/GeneratedContractsDefs.v],
+where [summaryAnchorHolds] is defined.
+The main transport lemma
+[kairosSrcInvAndPropagationHoldNextTickFromSafe] in
+[theories/Soundness/RequiresPropagation/RequiresPropagationSharedStep.v]
+then uses this mechanism for two concrete subfamilies:
+
+- shifted destination state invariants, via
+  [kairosGroupedSafeDirectMemberShiftedDstInvInv];
+- safe-case guarantee guards, via
+  [kairosGroupedSafeDirectMemberSafeCaseInEnsuresInv].
+
+The proof then transports these postconditions across ticks to reconstruct:
+
+- destination state invariants at the next source state;
+- propagation requirements built from incoming safe guards.
+
+This is a postcondition/transport story. It does not require every ensure to
+be classified as a phase clause.
+
+{1 Guarded Destination Phase}
+
+An earlier Rocq version also proved that guarded destination phase formulas
+were present in [pssEnsures], through a dedicated invariant and its
+singleton/merge/insert preservation lemmas.
+
+The audit found no current run-level soundness use of this guarded phase
+subfamily. Since it did not contribute to a final result, this predicate and
+its preservation lemmas were removed from the main Rocq development. Guarded
+destination phase formulas may still be generated as postconditions, but Rocq
+does not maintain a separate invariant family for them until a final theorem
+actually consumes it.
+
+{1 OCaml Comparison}
+
+OCaml currently separates these roles more clearly:
+
+- [Post.run_node] adds step-contract postconditions to [summary.ensures]:
+  safe disjunctions, destination invariants, guarded destination invariants,
+  and product-characteristic preservation facts;
+- [Kernel_clause_projection.build] emits phase-related classified clauses
+  from guarantee guards and compatibility/source-phase formulas;
+- it does not classify every [summary.ensures] formula as a phase fact.
+
+This is conceptually healthier. A local postcondition may be useful for Why3
+and for transport, but it is not automatically a product phase fact.
+
+{1 Decision}
+
+Do not change OCaml to emit a [PhaseStepSummary] for every
+[summary.ensures] formula.
+
+The right alignment direction is:
+
+1. refine the Rocq paper model so [pssEnsures] remains the Stage 2
+   postcondition set;
+2. introduce, if needed, a separate Stage 1 phase-fact set or predicate;
+3. state which postcondition subfamilies are sufficient for propagation:
+   safe-case guards and shifted destination invariants are currently used;
+4. keep guarded destination phase formulas separate until a proof actually
+   consumes them at run level;
+5. only then decide whether [Canonical_obligations.stage1] needs an explicit
+   phase-fact field.
+
+{1 Rocq Status}
+
+The Rocq development now names only the part of this distinction consumed by
+the final proof, without changing the final theorems or the
+[ProofStepSummary] record:
+
+- [kairosGroupedSafeSummaryCoreProgressionFactsInv] groups the two
+  postcondition subfamilies currently consumed by next-tick propagation:
+  safe-case guards and shifted destination state invariants.
+
+The next-tick propagation proof now consumes the core predicate explicitly:
+[kairosSrcInvAndPropagationHoldNextTickFromSafe] obtains
+[kairosGroupedSafeSummaryCoreProgressionFactsInv] once for the safe
+predecessor summary, then uses its two components to recover shifted
+destination invariants and safe-case guards.
+
+This is intentionally not an implementation certification layer.  It is the
+Rocq/paper vocabulary for the proof principle: safe-step postconditions remain
+the contract facts, and the only named progression facts in Rocq are the
+subfamilies needed by a final soundness argument.
+
+{1 Dead Proof Surface Audit}
+
+The Rocq cleanup follows this rule: a named fact belongs to the main
+formalization only when it contributes to a final soundness result or to a
+lemma consumed by such a result. Otherwise it must either be local proof
+structure or be removed.
+
+The audit removed the following unused proof families:
+
+- the guarded destination phase invariant family, which was preserved through
+  grouping but consumed by no final run-level theorem;
+- the generic grouped-safe-summary invariant, which only propagated inside
+  grouping modules and had no soundness consumer;
+- unused wrapper lemmas for shifted destination invariants and safe-case
+  guards in grouped summaries;
+- unused shape wrappers in [SummaryShapes];
+- the public unsafe-case coverage branch in [GroupingConstruction], whose
+  live analogue is a local proof in [SummaryGeneration];
+- one dead helper in generated-contract origins.
+
+The audit also reduced the public proof surface by making helper lemmas local
+when they are used only to establish the next exported result. The remaining
+grouping invariants are all consumed by [Soundness] or by witnesses used by
+[Soundness]: identity, canonical requires, source liveness, safe-case guards,
+shifted destination invariants, and the core progression predicate.
+
+The second cleanup pass also factored duplicated live facts into the Stage 1
+grouping layer, [GroupingCorrectness]. This layer now owns the construction
+proofs that start from relevant singleton summaries and lift them through
+grouping. Its facts cover:
+
+- identity invariants for relevant singleton summaries;
+- identity invariants for direct grouped safe summaries;
+- canonical-requires invariants for relevant singleton summaries;
+- canonical-requires invariants for direct grouped safe summaries.
+
+This removed repeated local proofs from generated-contract origins, generated
+contract class facts, safe requires propagation, compiler soundness, and the
+unsafe contradiction kernel while keeping the final theorem statements
+unchanged.
+
+A third cleanup pass factored lookup facts for [kairosFindBadStepForDst] into
+[ContractExtraction]. Successful lookup inversion and witness completeness are
+properties of the Stage 2 extraction function itself, not local facts of
+generated-contract origins, concrete Stage 2 packaging, or the unsafe
+contradiction kernel.
+
+The same pass moved [kairosCollectUnsafeContractsContainsCase] to
+[ContractExtraction]. Membership in the collected unsafe-contract list is a
+property of the collector, not a duplicated proof obligation of each consumer.
+
+A fourth cleanup pass moved the remaining live grouped-summary facts out of
+requires propagation and into [GroupingCorrectness]: source liveness,
+safe-case guards in ensures, shifted destination invariants, and the core
+progression predicate. The requires-propagation modules now keep only the
+local witness-packaging facts that are specific to their temporal proof.
+
+A fifth cleanup pass audited [MainSoundness]. The final theorem no longer
+owns elementary facts about bad-state booleans, product-step classification,
+summary relevance, or selected-transition inversion. These facts now live in
+the lower layers that define the corresponding notions: [AnchorsAndInvariants],
+[SummaryGeneration], and the instrumented step semantics. [MainSoundness]
+keeps only the final one-step contradiction and induction structure.
+
+A sixth cleanup pass audited generated-contract origins. Unsafe-case origin
+through safe-summary grouping is now stated in Stage1 as
+[kairosGroupSafeSingletonsUnsafeCaseOrigin], because it is a property of the
+grouping construction rather than of generated contracts. The origins module
+keeps only the local record-shape equality needed to identify one generated
+bad contract with [kairosBadContractOfSummaryStep].
+
+The same pass moved bad-guarantee summary coverage from [SummaryGeneration]
+to [GroupingConstruction]. The constructor file still defines summaries and
+singleton membership, while the proof that grouped Stage1 summaries cover an
+input step/unsafe-case pair now lives with the other grouping coverage facts.
+The safe-case and unsafe-case coverage proofs now share one local generic
+proof parameterized by the case-list projection; the public API remains
+specialized as [kairosGroupSafeSingletonsCoversInputStepAndSafeCaseWithIdentity]
+and [kairosGroupSafeSingletonsCoversInputStepAndUnsafeCaseWithIdentity].
+
+The witness pass follows the same pattern.  A local generic
+[summaryCaseWitnessInv] proof handles preservation through
+merge/insert/fold/grouping, while the witness-facing predicates remain
+specialized as safe-case and unsafe-case witness invariants.
+
+The exported witness surface was then audited.  The intermediate witness
+invariants are local proof structure.  The remaining non-local facts are
+exactly the bridge facts consumed outside the witness module: concrete
+safe-step recovery for requires propagation, unsafe-case bad-step recovery
+for Stage 2/unsafe contradiction, summary well-formedness for generated
+contract origins, and the grouped-summary membership fact used by generated
+contract class facts.
+
+Imports were pruned accordingly: [SafeUnsafeWitnesses] is no longer imported
+by modules that only needed generic Stage 1 or Stage 2 construction facts.
+The remaining imports are direct consumers of one of the exported bridge
+facts above.
+
+The same import audit was applied to the Stage 1 grouping modules.  Consumers
+now import only the grouping layer they actually use:
+[GroupedSummaryInvariants] for invariant predicates that are unfolded in
+soundness proofs, [GroupingConstruction] for coverage/origin bridge facts, and
+[GroupingCorrectness] only where member-level preservation lemmas are consumed.
+[GroupedSummaryInvariants] now only defines the invariant predicates; singleton
+bases were moved into [GroupingCorrectness], because they are proof structure
+for the grouping algorithm rather than standalone mathematical vocabulary.
+The temporary [GeneratedContractsGroupingFacts] module was removed: its facts
+were Stage 1 grouping facts, not generated-contract facts. Modules that only
+needed generic summaries or concrete stages no longer import the whole
+grouping stack.
+
+Inside [GroupingCorrectness], fold-preservation helpers are local, as are the
+intermediate direct safe-case and shifted-invariant facts used only to build
+the exported core progression fact.  The public surface now consists of the
+member/direct bridge facts that are consumed outside the module.
+
+The lower grouping layers were tightened as well.  [GroupingKeys] now exposes
+only insert-preservation lemmas; merge-preservation facts are local helpers
+for proving insertion.  [GroupingConstruction] no longer imports invariant or
+key-preservation layers, because coverage/origin construction only depends on
+summary construction and identity equality.
+
+The final import pass applied the same principle across the Stage 2 and
+Soundness modules.  Files now import [ContractExtraction], [TransportPrevToStep],
+[TransportStepToPost], [ShiftBackward], [LoweringSemantics], and concrete stage
+packaging only when they call a fact from that layer directly.  This keeps the
+Rocq code organized by proof role:
+
+- invariant definitions;
+- semantic transition/product-state facts;
+- singleton step-contract anchor facts;
+- product-step structural equality facts;
+- summary/contract anchor adaptation facts;
+- run-step bridge facts for soundness;
+- grouping construction and grouping correctness;
+- Stage1-to-Stage2 witness extraction;
+- safe-predecessor extraction for next-tick propagation;
+- StepContract extraction and temporal transport;
+- Soundness assembly.
+
+The latest cleanup pass made the proof packaging explicit at the remaining
+crossing points without changing definitions:
+
+- [GroupingConstruction] names the left/right unsafe-case origin packaging used
+  by fold grouping;
+- [SummaryShapes] names the component package for safe singleton summaries;
+- [SafeUnsafeWitnesses] factors the inversion from relevant singleton summaries
+  to their generating product-transition components;
+- [RequiresPropagationSharedBase] consumes the named product-step anchor
+  projection from [TripletValidity] instead of destructuring the anchor shape
+  directly;
+- [ContractExtraction] owns the bad-step lookup packaging and [Concrete] uses
+  the successful-lookup inversion once, then reuses the projected facts.
+
+No final theorem statement was changed by this cleanup.
+
+{1 Consequence For Completeness}
+
+This is not a weakening of the proof principle. It removes a conflation:
+
+- completeness of local deductive obligations should be about proving the
+  necessary postconditions and unsafe exclusions;
+- phase/source facts should be the facts required to progress the product
+  proof;
+- backend grouping or clause classification should not decide which formulas
+  are semantically phase facts.
+
+The completeness story is cleaner if Rocq states exactly which generated facts
+are needed for progression, instead of making every postcondition a phase
+formula by construction.
+
+{1 Next Work}
+
+The next concrete step is to decide how much of this vocabulary should appear
+in the paper calculus:
+
+- leave [pssEnsures] as the safe-contract postcondition set;
+- present core progression facts as the postconditions needed by the
+  next-instant proof;
+- present phase facts as a separate optional/product-state family;
+- keep [SummaryClauseFamilies] as a classifier over generated clauses, and
+  avoid defining phase clauses as "all ensured formulas" in the paper model.

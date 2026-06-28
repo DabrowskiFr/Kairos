@@ -29,7 +29,7 @@ type program_step = {
   dst_state : ident;
   guard_expr : expr option;
   body_stmts : stmt list;
-  ensures : hexpr list;
+  elaboration_checks : hexpr list;
 }
 
 (** State invariant attached to a control state. *)
@@ -62,5 +62,8 @@ type program_model = node_model list
 (** Apply source-order priority semantics to transitions from each source state. *)
 val prioritized_steps : program_step list -> program_step list
 
-(** Apply transition prioritization to one node model. *)
-val prioritize_node_steps : node_model -> node_model
+(** Normalize the elaborated core program to the source-step semantics used by
+    verification: source-order priority, then one implicit default-skip step
+    per control state. This is a semantic normalization, not a backend
+    optimization. *)
+val normalize_node_semantics : node_model -> node_model

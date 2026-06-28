@@ -13,10 +13,14 @@ Verification_model.node_model
 proof obligations
 ]}
 
-The existing Rocq development should be compared against the semantics of
-[Kx_ast] / [Verification_model] and the obligation generation that follows.
-Surface constructs such as enum-indexed quantifiers and named actions are
-frontend elaborations.
+The existing Rocq development should be compared against the desugared core
+program and the obligation generation that follows. Surface constructs such
+as enum-indexed quantifiers, named actions, observers, history definitions,
+and compact assignment notation are frontend elaborations.
+
+Surface syntax must not be added to the Rocq core. If a surface construct is
+only syntactic sugar, the Rocq-facing object is the elaborated core object,
+not the original surface phrase.
 
 {1 What This Means}
 
@@ -28,20 +32,80 @@ For the current implementation:
   ghost variables and ghost-only updates, with no influence on observable
   behavior;
 - [history def] declarations and [history name(x)] applications are frontend
-	  constructs; they elaborate to reserved generated ghosts, ghost-only updates,
-	  and phase-specific transition [ensures] clauses before the verification
-	  model is built. Bounded [pre_k(self,k)] in a history update is implemented by
-	  reserved generated delay/snapshot ghosts;
+  constructs; they elaborate to reserved generated ghosts, ghost-only updates,
+  and phase-specific elaboration checks before the verification model is
+  built. Bounded [pre_k(self,k)] in a history update is implemented by reserved
+  generated delay/snapshot ghosts;
 - high-level safety schemas such as [maintainedUntil] should be ordinary
   [spec def] declarations or explicit LTL formulas using [G], [X] and [W],
   not proof-kernel features;
 - pure functions and enum literals are core constructs and must be accounted
   for when lowering to Why3 or to any formal semantic model.
 
-{1 Future Formalization Obligation}
+{1 Historical Initialization Frontier}
 
-To connect the extended language to Rocq cleanly, add a separate elaboration
-correctness theorem:
+Historical reads are not just surface syntax. A source formula mentioning
+[pre] or [pre_k] is meaningful only at a point where enough completed
+instants are available. The Rocq development records this principle in two
+separate layers:
+
+- [HistoricalInitialization] defines the required historical depth of a
+  formula and proves that formulas initialized at age [n] are insensitive to
+  deeper, unproduced historical slots;
+- [InitializationFrontier] abstracts a source-point frontier with the contract
+  [frontier_available p alpha -> hformula_initialized_at (frontier_age p)
+  alpha].
+
+The OCaml implementation witnesses this contract at the source/frontend
+boundary:
+
+- [Historical_initialization.required_depth_hexpr] and
+  [Historical_initialization.required_depth_ltl] compute the source-side
+  required depth;
+- [Historical_initialization.min_ticks_by_state] computes a control-flow
+  lower bound on the number of completed instants available at each control
+  state;
+- [Kairos_to_model_node_validation.validate_node] rejects a formula when its
+  required depth is greater than the age available at the point where the
+  formula is placed.
+
+The point-to-age convention is:
+
+- global temporal contracts are checked at trace start, with [X] decreasing
+  the required depth before the initial age-[0] check;
+- state invariants are checked against the minimum tick count of their control
+  state;
+- transition-body assertions and while invariants are checked against the age
+  of the source control state;
+- transition elaboration checks are checked at the destination of the step,
+  with one additional completed instant available.
+
+This is an architectural contract, not a certification of the OCaml graph
+algorithm. Rocq proves the mathematical meaning of an initialization frontier;
+the implementation must keep [min_ticks_by_state] and the validator aligned
+with that frontier. Tests can catch representative invalid uses, but they do
+not replace a future elaboration/adequacy theorem. Unreachable control states
+currently have no finite age obligation in the frontend check; if later
+semantics make such points reachable, the frontier computation must be
+revisited rather than treated as a Rocq theorem.
+
+{1 Boundary Obligation}
+
+The Rocq formalization should not include the surface language merely to
+justify syntactic sugar. The obligation is instead architectural:
+
+- the implementation must expose the desugared core program used as the
+  Rocq-facing entry point;
+- historical formulas accepted at each source point must satisfy the
+  [InitializationFrontier] age contract before they are interpreted using
+  total historical stores;
+- sugar-generated proof checks must be classified separately from the
+  canonical Rocq obligation families;
+- tests may validate surface elaboration, but the Rocq theorem is stated for
+  the core program after elaboration.
+
+An optional, separate elaboration theorem could relate a future formal
+surface semantics to the core semantics:
 
 {[
 surface_program P
@@ -50,6 +114,6 @@ surface_program P
   <-> sem_core C traces
 ]}
 
-The current codebase does not yet formalize this theorem. Until it does, Rocq
-should treat the elaborated AST as the formal entry point and document the
-surface elaborator as an implementation component whose behavior is tested.
+That theorem is not part of the current Rocq core and should not drive the
+paper mechanization. For the current claim, Rocq treats the elaborated core
+program as the formal entry point.

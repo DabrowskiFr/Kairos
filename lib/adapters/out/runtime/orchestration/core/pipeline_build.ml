@@ -54,6 +54,7 @@ let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics 
   let propagation_requires_count = ref 0 in
   let requires_count = ref 0 in
   let ensures_count = ref 0 in
+  let elaboration_checks_count = ref 0 in
   let init_invariant_goal_count = ref 0 in
   let formula_occurrence_count = ref 0 in
   let formulas = ref [] in
@@ -75,11 +76,15 @@ let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics 
             + List.length summary.propagation_requires;
           requires_count := !requires_count + List.length summary.requires;
           ensures_count := !ensures_count + List.length summary.ensures;
+          elaboration_checks_count :=
+            !elaboration_checks_count
+            + List.length summary.elaboration_checks;
           safe_case_count := !safe_case_count + List.length summary.safe_cases;
           unsafe_case_count := !unsafe_case_count + List.length summary.unsafe_cases;
           List.iter add_summary_formula summary.propagation_requires;
           List.iter add_summary_formula summary.requires;
           List.iter add_summary_formula summary.ensures;
+          List.iter add_summary_formula summary.elaboration_checks;
           List.iter
             (fun (case : Ir.safe_product_case) ->
               add_summary_formula case.admissible_guard)
@@ -98,6 +103,7 @@ let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics 
     propagation_requires_count = !propagation_requires_count;
     requires_count = !requires_count;
     ensures_count = !ensures_count;
+    elaboration_checks_count = !elaboration_checks_count;
     init_invariant_goal_count = !init_invariant_goal_count;
     formula_occurrence_count = !formula_occurrence_count;
     unique_formula_count = List.length (List.sort_uniq Stdlib.compare !formulas);

@@ -1,0 +1,18 @@
+node all_states_invariant_includes_init() returns (x: int)
+contracts
+  ensures: X G(x >= 0);
+states
+  Init(init), Run;
+invariants
+  in states:
+    x >= 0;
+transitions
+  Init:
+    to Run {
+      x := 0;
+    }
+  Run:
+    to Run {
+      x := x + 1;
+    }
+end

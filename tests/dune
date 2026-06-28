@@ -9,11 +9,16 @@
   dune
   ../docs/architecture_layer_rules.json
   ../docs/reference_pipeline_boundaries.json
+  ../docs/rocq_alignment_manifest.json
+  ../docs/rocq_projection_audit.json
   ../.github/workflows/architecture.yml
   ../scripts/check_architecture_fitness.py
   ../scripts/check_architecture_manifest.py
   ../scripts/check_layer_dependencies.py
+  ../scripts/check_rocq_alignment_manifest.py
   ../scripts/check_reference_pipeline_boundaries.py
+  ../scripts/filter_why3_product_backend_graph.py
+  ../scripts/generate_architecture_views.sh
   check_elaboration_frontier.sh
   check_reference_stability.sh
   frontend/spec_past_formula_frontier.kairos
@@ -29,12 +34,17 @@
   ok/reactive_alarm_cover.kairos
   ok/spec_definition_past.kairos
   ok/state_selector_invariants.kairos
+  ko/assign_input.kairos
   ko/internal_prefix_reserved.kairos
   ko/concise_observer_bad_pre.kairos
   ko/multiple_assignment_arity.kairos
   ko/multiple_assignment_rhs_depends.kairos
   ko/observer_drives_output.kairos
+  ko/node_requires_output.kairos
   ko/private_ghost_contract.kairos
+  ko/state_invariant_current_input.kairos
+  ko/uninitialized_pre_contract.kairos
+  ko/uninitialized_pre_k_invariant.kairos
   ko/unknown_history_definition.kairos
   ko/unknown_predicate_fallback.kairos)
  (action
@@ -42,6 +52,7 @@
    (run python3 ../scripts/check_architecture_manifest.py)
    (run python3 ../scripts/check_layer_dependencies.py)
    (run python3 ../scripts/check_reference_pipeline_boundaries.py)
+   (run python3 ../scripts/check_rocq_alignment_manifest.py)
    (run python3 ../scripts/check_architecture_fitness.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))
@@ -49,3 +60,7 @@
 (test
  (name product_group_policy_partition_tests)
  (libraries kairos_why3_compile))
+
+(test
+ (name canonical_obligations_tests)
+ (libraries kairos_domain_core kairos_domain_verification))

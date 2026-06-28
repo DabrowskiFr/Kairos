@@ -45,6 +45,7 @@ type ir_size_metrics = {
   propagation_requires_count : int;
   requires_count : int;
   ensures_count : int;
+  elaboration_checks_count : int;
   init_invariant_goal_count : int;
   formula_occurrence_count : int;
   unique_formula_count : int;

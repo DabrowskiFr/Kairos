@@ -27,19 +27,21 @@ open Core_syntax_builders
 (** Module [Abs]. *)
 
 module Abs = Ir
+module K = Kernel_clause_projection
 open Proof_kernel_types
+open Obligation_family_projection
 
 (** [simplify_fo] helper value. *)
 
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-(** [same_product_state] helper value. *)
-
-let same_product_state (a : Abs.product_state) (b : product_state_ir) : bool =
-  String.equal a.prog_state b.prog_state
-  && a.assume_state_index = b.assume_state_index
-  && a.guarantee_state_index = b.guarantee_state_index
+let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
+  {
+    prog_state = st.prog_state;
+    assume_state_index = st.assume_state_index;
+    guarantee_state_index = st.guarantee_state_index;
+  }
 
 (** [build_proof_step_summaries] helper value. *)
 
@@ -55,16 +57,18 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     |> List.mapi (fun idx (tr : reactive_transition_ir) -> (tr.transition_id, idx))
     |> List.to_seq |> Hashtbl.of_seq
   in
+  let product_summary_projection =
+    Product_summary_projection.of_ir_node node
+  in
   let product_summary_of_step (step : product_step_ir) : Abs.product_step_summary option =
     match Hashtbl.find_opt transition_index_by_id step.program_transition_id with
     | None -> None
     | Some step_uid ->
-        List.find_opt
-          (fun (pc : Abs.product_step_summary) ->
-            pc.trace.step_uid = step_uid
-            && same_product_state pc.identity.product_src step.src
-            && simplify_fo pc.identity.assume_guard = simplify_fo step.assume_edge.guard)
-          node.summaries
+        Product_summary_projection.find_by_identity product_summary_projection
+          ~program_transition_id:step_uid
+          ~product_src:(product_state_ref_of_ir step.src)
+          ~assume_guard:step.assume_edge.guard
+        |> Option.map (fun summary -> summary.Product_summary_projection.source_summary)
   in
   let slot_to_current_expr =
     let add acc (info : Pre_k_layout.pre_k_info) =
@@ -179,10 +183,11 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   let raw_clauses_for_step (step : product_step_ir) =
     symbolic_generated_clauses
     |> List.filter (fun (clause : relational_generated_clause_ir) ->
-           match (clause.origin, clause.anchor) with
-           | OriginPhaseStepPreSummary, _ -> false
-           | _, ClauseAnchorProductStep anchored_step -> anchored_step = step
-           | _, ClauseAnchorProductState _ -> false)
+           match (clause.family, clause.anchor) with
+           | PhaseStepPreSummary, _ -> false
+           | _, K.ClauseProductStep anchored_step ->
+               Proof_kernel_clause_context.same_product_step anchored_step step
+           | _, K.ClauseProductState _ -> false)
     |> List.map strip_structural_step_facts
   in
   let shift_post_fact (fact : relational_clause_fact_ir) =
@@ -198,20 +203,20 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
     raw_clauses_for_step step
     |> List.filter_map (fun clause ->
            let clause =
-             match clause.origin with
-             | OriginPropagationNodeInvariant ->
+             match clause.family with
+             | PropagationNodeInvariant ->
                  {
                    clause with
                    hypotheses = List.map shift_post_fact clause.hypotheses;
                    conclusions = List.map shift_post_fact clause.conclusions;
                  }
-           | OriginPropagationAutomatonCoherence
-           | OriginPhaseStepSummary
-           | OriginSafety
-           | OriginSourceProductSummary
-           | OriginPhaseStepPreSummary
-           | OriginInitNodeInvariant
-           | OriginInitAutomatonCoherence ->
+           | PropagationAutomatonCoherence
+           | PhaseStepSummary
+           | Safety
+           | SourceProductSummary
+           | PhaseStepPreSummary
+           | InitNodeInvariant
+           | InitAutomatonCoherence ->
                clause
            in
            normalize_relational_clause clause)
@@ -229,12 +234,15 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
                    if is_true_fo logic then None
                    else
                      Some
-                       {
-                         origin = OriginPhaseStepPreSummary;
-                         anchor = ClauseAnchorProductStep step;
-                         hypotheses = [];
-                         conclusions = [ { time = CurrentTick; desc = RelFactFormula logic } ];
-                       }))
+                      {
+                        family = PhaseStepPreSummary;
+                        anchor =
+                          K.ClauseProductStep
+                            (Proof_kernel_clause_context.product_step_to_kernel step);
+                        hypotheses = [];
+                        conclusions =
+                          [ { time = K.CurrentTick; desc = RelFactFormula logic } ];
+                      }))
   in
   let dedup_clauses (clauses : relational_generated_clause_ir list) =
     List.sort_uniq Stdlib.compare clauses

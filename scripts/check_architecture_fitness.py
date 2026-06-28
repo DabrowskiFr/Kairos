@@ -1081,6 +1081,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_product_specs",
         "why_compile_product_metrics",
         "why_compile_contract_facts",
+        "why_compile_helper_unit",
         "why_compile_product_helper_types",
         "why_compile_product_helper_body",
         "why_compile_product_individual_helper",
@@ -1324,11 +1325,108 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "docs/architecture/guide.md": "Frontiere Locale Du Backend Why3",
         "docs/architecture/module_atlas.md": "why_compile_product_group_policy",
         "docs/reference_verification_architecture.mld": "Why3 Product Backend Boundary",
+        "docs/architecture/why3_product_backend_alignment.md":
+            "Why_compile_modules -> Why_compile_helper_unit",
     }
     for rel, marker in architecture_docs.items():
         text = (repo / rel).read_text(encoding="utf-8", errors="replace")
         if marker not in text:
             fail(f"{rel} must document the Why3 product backend boundary")
+
+    intentional_graph_paths = [
+        "docs/architecture/manual/why3-product-backend-intent.dot",
+        "docs/architecture/manual/why3-product-backend-intent.svg",
+    ]
+    missing_intent_graphs = [
+        rel for rel in intentional_graph_paths if not (repo / rel).exists()
+    ]
+    if missing_intent_graphs:
+        fail(
+            "intentional Why3 product backend graph outputs are missing: "
+            + ", ".join(missing_intent_graphs)
+        )
+    intentional_graph = (repo / intentional_graph_paths[0]).read_text(
+        encoding="utf-8", errors="replace"
+    )
+    intentional_required_markers = [
+        "Why_compile_product_group_boundary",
+        "Why_compile_product_group_policy",
+        "Why_compile_product_group_partition",
+        "Why_compile_product_group_factoring",
+        "Why_compile_product_plan_metrics",
+        "Diagnostics and cost profiles must never feed back",
+        "reference obligation pipeline is upstream",
+    ]
+    missing_intent_markers = [
+        marker
+        for marker in intentional_required_markers
+        if marker not in intentional_graph
+    ]
+    if missing_intent_markers:
+        fail(
+            "intentional Why3 product backend graph must state the intended "
+            "backend boundary: "
+            + ", ".join(missing_intent_markers)
+        )
+
+    observed_modules = "\n".join(
+        (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for rel in [
+            "docs/architecture/observed/dune-modules.dot",
+            "docs/architecture/observed/dune-modules.mmd",
+        ]
+    )
+    observed_required_modules = [
+        "Why_compile_product_group_boundary",
+        "Why_compile_product_group_policy",
+        "Why_compile_product_group_partition",
+        "Why_compile_product_group_factoring",
+        "Why_compile_helper_unit",
+        "Why_compile_product_plan_metrics",
+    ]
+    missing_observed = [
+        module for module in observed_required_modules if module not in observed_modules
+    ]
+    if missing_observed:
+        fail(
+            "observed Dune module graphs must be regenerated for the Why3 "
+            "product backend boundary: "
+            + ", ".join(missing_observed)
+        )
+
+    generate_architecture_views = (
+        repo / "scripts/generate_architecture_views.sh"
+    ).read_text(encoding="utf-8", errors="replace")
+    if "filter_why3_product_backend_graph.py" not in generate_architecture_views:
+        fail("architecture view generation must build the focused Why3 product graph")
+
+    focused_graph_paths = [
+        "docs/architecture/observed/why3-product-backend.dot",
+        "docs/architecture/observed/why3-product-backend.mmd",
+        "docs/architecture/observed/why3-product-backend.svg",
+    ]
+    missing_focused_graphs = [
+        rel for rel in focused_graph_paths if not (repo / rel).exists()
+    ]
+    if missing_focused_graphs:
+        fail(
+            "focused Why3 product backend graph outputs are missing: "
+            + ", ".join(missing_focused_graphs)
+        )
+    focused_graph = "\n".join(
+        (repo / rel).read_text(encoding="utf-8", errors="replace")
+        for rel in focused_graph_paths[:2]
+    )
+    missing_focused_modules = [
+        module
+        for module in observed_required_modules
+        if module not in focused_graph
+    ]
+    if missing_focused_modules:
+        fail(
+            "focused Why3 product backend graph must show the backend boundary: "
+            + ", ".join(missing_focused_modules)
+        )
 
     timing_fields = (
         repo / "lib/application/verification_flow_timing_fields.ml"
@@ -1967,6 +2065,8 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         r"\bWhy_compile_product_helpers\.helper_unit\b",
         r"\bProduct_helpers\.helper_unit\b",
         r"\bWhy_compile_product_helpers\b",
+        r"\bWhy_compile_product_helper_types\b",
+        r"\bProduct_helper_types\b",
     ]
     violations = []
     for rel in module_assembler_surfaces:
@@ -1978,9 +2078,38 @@ def check_why3_compile_boundaries(repo: Path) -> None:
                     break
     if violations:
         fail(
-            "Why3 module assembly must depend only on product helper data "
-            "types, not on the helper-emission facade:\n  - "
+            "Why3 module assembly must depend only on neutral helper-unit "
+            "types, not on product helper types or the helper-emission "
+            "facade:\n  - "
             + "\n  - ".join(violations)
+        )
+    module_assembler_required = r"\bWhy_compile_helper_unit\.t\b"
+    missing_neutral_unit = []
+    for rel in module_assembler_surfaces:
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        if not re.search(module_assembler_required, text):
+            missing_neutral_unit.append(rel)
+    if missing_neutral_unit:
+        fail(
+            "Why3 module assembly surfaces must expose the neutral "
+            "Why_compile_helper_unit.t type:\n  - "
+            + "\n  - ".join(missing_neutral_unit)
+        )
+
+    product_helper_types_paths = [
+        "lib/adapters/out/provers/why3/compile/why_compile_product_helper_types.ml",
+        "lib/adapters/out/provers/why3/compile/why_compile_product_helper_types.mli",
+    ]
+    missing_alias = []
+    for rel in product_helper_types_paths:
+        text = (repo / rel).read_text(encoding="utf-8", errors="replace")
+        if "type helper_unit = Why_compile_helper_unit.t" not in text:
+            missing_alias.append(rel)
+    if missing_alias:
+        fail(
+            "Product helper types must alias the neutral helper-unit type "
+            "instead of owning another helper-unit record:\n  - "
+            + "\n  - ".join(missing_alias)
         )
 
     product_helpers = (
@@ -2310,8 +2439,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "lib/domain/proof_export/proof_kernel_product.mli",
         "lib/domain/proof_export/proof_kernel_product_lookup.ml",
         "lib/domain/proof_export/proof_kernel_product_lookup.mli",
-        "lib/domain/proof_export/proof_kernel_source_clauses.ml",
-        "lib/domain/proof_export/proof_kernel_source_clauses.mli",
+        "lib/domain/proof_export/proof_kernel_generated_clauses.ml",
         "lib/domain/proof_export/proof_kernel_types.ml",
         "lib/domain/proof_export/proof_kernel_types.mli",
         "lib/domain/proof_export/proof_kernel_naming.ml",
@@ -2335,12 +2463,31 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     proof_export_dune = (
         repo / "lib/domain/proof_export/dune"
     ).read_text(encoding="utf-8", errors="replace")
-    for module in [
-        "proof_kernel_product_lookup",
-        "proof_kernel_source_clauses",
-    ]:
+    for module in ["proof_kernel_product_lookup", "proof_kernel_generated_clauses"]:
         if module not in proof_export_dune:
             fail(f"proof export helper module is missing from dune: {module}")
+
+    kernel_clauses = (
+        repo / "lib/domain/verification/kernel_clause_projection.ml"
+    ).read_text(encoding="utf-8", errors="replace")
+    source_clause_forbidden = [
+        r"List\.filter\s*\([^)]*mentions_current_input",
+        r"List\.filter\s*\([^)]*current_input",
+        r"List\.filter\s*\([^)]*current input",
+        r"filter_map\s*\([^)]*mentions_current_input",
+        r"filter_map\s*\([^)]*current_input",
+        r"filter_map\s*\([^)]*current input",
+    ]
+    found = [
+        pattern
+        for pattern in source_clause_forbidden
+        if re.search(pattern, kernel_clauses)
+    ]
+    if found:
+        fail(
+            "kernel source-summary generation must reject invalid current-input "
+            "facts explicitly, not filter formulas out of the proof object"
+        )
 
     generated_clauses = (
         repo / "lib/domain/proof_export/proof_kernel_generated_clauses.ml"
@@ -2356,9 +2503,9 @@ def check_why3_compile_boundaries(repo: Path) -> None:
     ]
     if found:
         fail(
-            "proof_kernel_generated_clauses.ml must stay focused on generated "
-            "step clauses; product lookup and source-summary clauses belong in "
-            "their focused modules"
+            "proof_kernel_generated_clauses.ml must stay an adapter from "
+            "Kernel_clause_projection; product lookup and source-summary "
+            "construction belong in the neutral verification projection"
         )
 
     ptree_helpers = (compile_root / "why_compile_ptree_helpers.ml").read_text(

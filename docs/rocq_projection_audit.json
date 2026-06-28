@@ -1,0 +1,409 @@
+{
+  "schema_version": 1,
+  "purpose": "Field-by-field audit between Rocq proof records and current Kairos projection structures.",
+  "decision": {
+    "outcome": "introduce_explicit_kernel_summary_and_step_contract_projections",
+    "summary": "Kairos now has dedicated kernel-clause, product-summary and step-contract projection modules before diagnostics and backend planning. The audit keeps tracking remaining gaps: lowered low-level proof objects are not yet a standalone Rocq exchange schema.",
+    "principles": [
+      "Rocq concepts define the comparison target; proof_export must not define the theorem shape by accident.",
+      "The product-summary projection must expose ProofStepSummary and SummaryClauseFamilies explicitly.",
+      "The kernel-clause projection must expose KernelClause explicitly before proof_export JSON, relational lowering, or Why3.",
+      "The step-contract projection must expose StepContract explicitly before Why3 helper grouping, labels, scheduling, or term-level sharing.",
+      "The projections record which Rocq stage cut they correspond to, but their Kairos names are semantic.",
+      "Diagnostics may serialize the projection, but may not be the only place where the projection exists."
+    ]
+  },
+  "current_fragments": [
+    {
+      "name": "Ir.product_step_summary",
+      "path": "lib/domain/core/ir.mli",
+      "role": "Canonical summary carrier used by verification passes.",
+      "limitation": "It contains identity, requires, ensures, safe cases and unsafe cases, but not explicit product-step anchors or generated clause families."
+    },
+    {
+      "name": "Product_summary_projection.summary",
+      "path": "lib/domain/verification/product_summary_projection.mli",
+      "role": "Neutral domain projection for product-summary identity, requirements, runtime requirements, ensures, and safe/unsafe cases.",
+      "limitation": "It gives the alignment boundary for product summaries. Kernel clauses are exposed separately by Kernel_clause_projection."
+    },
+    {
+      "name": "Kernel_clause_projection.kernel_clause",
+      "path": "lib/domain/verification/kernel_clause_projection.mli",
+      "role": "Neutral domain projection for TimeTag, TimedFact, product anchors, KernelClause, and classified clauses before proof_export.",
+      "limitation": "The classified wrapper carries implementation context for backend lowering; the underlying kernel_clause is the Rocq-facing object."
+    },
+    {
+      "name": "Step_contract_projection.step_contract",
+      "path": "lib/domain/verification/step_contract_projection.mli",
+      "role": "Neutral domain projection for step contracts before Why3 grouping, helper naming, term sharing, or scheduling.",
+      "limitation": "It exposes summary identity and covered cases, but the eventual lowered LowExpr proof object is still represented by backend/runtime formulas."
+    },
+    {
+      "name": "Proof_kernel_types.proof_step_summary_ir",
+      "path": "lib/domain/proof_export/proof_kernel_types.mli",
+      "role": "Diagnostic/exchange grouping of product steps and relational clauses.",
+      "limitation": "It contains steps and clauses, but drops explicit summary identity, propagation_requires, requires, runtime_requires, ensures, safe cases and unsafe cases as first-class fields."
+    },
+    {
+      "name": "Why_runtime_view.runtime_product_transition_view",
+      "path": "lib/adapters/out/provers/why3/runtime/why_runtime_view_types.mli",
+      "role": "Why3-oriented runtime product transition view.",
+      "limitation": "It approximates step contracts but is backend-shaped, not a neutral StepContract projection: it lacks summary identity, explicit covered step list for grouped contracts, and lowered LowExpr data as a proof object."
+    },
+    {
+      "name": "Why_contracts.step_contract_info",
+      "path": "lib/adapters/out/provers/why3/contracts/why_contracts.ml",
+      "role": "Why3 terms and labels used for backend emission.",
+      "limitation": "It is already after backend term compilation, so it is too late to be the neutral step-contract projection."
+    }
+  ],
+  "record_audit": [
+    {
+      "rocq_record": "TimeTag",
+      "rocq_path": "theories/PaperCore/TemporalAssertions.v",
+      "status": "exact",
+      "fields": [
+        {
+          "rocq_field": "PreviousTick",
+          "kairos_field": "Kernel_clause_projection.PreviousTick",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "StepTickContext",
+          "kairos_field": "Kernel_clause_projection.StepTickContext",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "CurrentTick",
+          "kairos_field": "Kernel_clause_projection.CurrentTick",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "The time-tag vocabulary matches."
+    },
+    {
+      "rocq_record": "TimedFactDesc",
+      "rocq_path": "theories/PaperCore/TemporalAssertions.v",
+      "status": "exact",
+      "fields": [
+        {
+          "rocq_field": "FactProgramState",
+          "kairos_field": "Kernel_clause_projection.FactProgramState",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "FactGuaranteeState",
+          "kairos_field": "Kernel_clause_projection.FactGuaranteeState",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "FactPhaseFormula",
+          "kairos_field": "Kernel_clause_projection.FactPhaseFormula",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "FactFormula",
+          "kairos_field": "Kernel_clause_projection.FactFormula",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "FactFalse",
+          "kairos_field": "Kernel_clause_projection.FactFalse",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "The raw fact vocabulary matches. Relational fact descriptors are a lowered projection and should stay separate."
+    },
+    {
+      "rocq_record": "ProductStateAnchor",
+      "rocq_path": "theories/PaperCore/TransitionSystem.v",
+      "status": "exact",
+      "fields": [
+        {
+          "rocq_field": "psaProgState",
+          "kairos_field": "Kernel_clause_projection.product_state_anchor.prog_state",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "psaAssumeState",
+          "kairos_field": "Kernel_clause_projection.product_state_anchor.assume_state_index",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "psaGuaranteeState",
+          "kairos_field": "Kernel_clause_projection.product_state_anchor.guarantee_state_index",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "The product-state anchor is available directly."
+    },
+    {
+      "rocq_record": "ProductStepAnchor",
+      "rocq_path": "theories/PaperCore/TransitionSystem.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "pstaSrc",
+          "kairos_field": "Kernel_clause_projection.product_step_anchor.psta_src",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pstaDst",
+          "kairos_field": "Kernel_clause_projection.product_step_anchor.psta_dst",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pstaTransitionId",
+          "kairos_field": "Kernel_clause_projection.product_step_anchor.psta_transition_id",
+          "status": "derived"
+        },
+        {
+          "rocq_field": "No Rocq field",
+          "kairos_field": "Kernel_clause_projection.product_step construction context: program_guard, assume_guard, guarantee_guard, step_class",
+          "status": "extra"
+        }
+      ],
+      "conclusion": "The Rocq anchor is now explicit; the concrete product_step wrapper only carries construction/lowering context."
+    },
+    {
+      "rocq_record": "KernelClause",
+      "rocq_path": "theories/PaperCore/GeneratedObligations.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "kcAnchor",
+          "kairos_field": "Kernel_clause_projection.kernel_clause.kc_anchor",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "kcHypotheses",
+          "kairos_field": "Kernel_clause_projection.kernel_clause.kc_hypotheses",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "kcConclusions",
+          "kairos_field": "Kernel_clause_projection.kernel_clause.kc_conclusions",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "No KernelClause field; classified by SummaryClauseFamilies",
+          "kairos_field": "Kernel_clause_projection.classified_clause.family : Obligation_family_projection.clause_family",
+          "status": "extra"
+        }
+      ],
+      "conclusion": "Kernel_clause_projection exposes the Rocq KernelClause payload plus a semantic family used to instantiate SummaryClauseFamilies. Relational clauses are a later projection."
+    },
+    {
+      "rocq_record": "ProofStepSummaryIdentity",
+      "rocq_path": "theories/PaperCore/ProductSummaries.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "pssiProgramTransitionId",
+          "kairos_field": "Ir.product_step_summary.trace.step_uid / product_step_ir.program_transition_id",
+          "status": "derived"
+        },
+        {
+          "rocq_field": "pssiProductSrc",
+          "kairos_field": "Ir.product_step_summary.identity.product_src",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssiAssumeGuard",
+          "kairos_field": "Ir.product_step_summary.identity.assume_guard",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "The identity exists in canonical IR, but proof_step_summary_ir does not store it explicitly."
+    },
+    {
+      "rocq_record": "ProofStepSummary",
+      "rocq_path": "theories/PaperCore/ProductSummaries.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "pssIdentity",
+          "kairos_field": "Ir.product_step_summary.identity",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssPropagationRequires",
+          "kairos_field": "Ir.product_step_summary.propagation_requires",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssRequires",
+          "kairos_field": "Ir.product_step_summary.requires",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssRuntimeRequires",
+          "kairos_field": "Product_summary_projection.summary.runtime_requires",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssEnsures",
+          "kairos_field": "Ir.product_step_summary.ensures",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssSafeCases",
+          "kairos_field": "Ir.product_step_summary.safe_cases",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssUnsafeCases",
+          "kairos_field": "Ir.product_step_summary.unsafe_cases",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "pssSteps",
+          "kairos_field": "Proof_kernel_types.proof_step_summary_ir.steps",
+          "status": "partial"
+        },
+        {
+          "rocq_field": "pssEntryClauses",
+          "kairos_field": "Proof_kernel_types.proof_step_summary_ir.entry_clauses",
+          "status": "partial"
+        },
+        {
+          "rocq_field": "pssClauses",
+          "kairos_field": "Proof_kernel_types.proof_step_summary_ir.clauses",
+          "status": "partial"
+        }
+      ],
+      "conclusion": "Product_summary_projection now exposes the summary fields used by step-contract extraction. Generated clause payloads are exposed separately by Kernel_clause_projection, and their families are defined by Obligation_family_projection."
+    },
+    {
+      "rocq_record": "SummaryClauseFamilies",
+      "rocq_path": "theories/PaperCore/ProductSummaries.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "isSourceClause",
+          "kairos_field": "Obligation_family_projection.is_source_clause",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "isPhasePreClause",
+          "kairos_field": "Obligation_family_projection.is_phase_pre_clause",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "isPhaseClause",
+          "kairos_field": "Obligation_family_projection.is_phase_clause",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "isSafetyClause",
+          "kairos_field": "Obligation_family_projection.is_safety_clause",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "isInitClause",
+          "kairos_field": "Obligation_family_projection.is_init_clause",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "isPropagationClause",
+          "kairos_field": "Obligation_family_projection.is_propagation_clause",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "Obligation_family_projection now exposes the OCaml predicates corresponding to Rocq SummaryClauseFamilies."
+    },
+    {
+      "rocq_record": "StepContract",
+      "rocq_path": "theories/PaperCore/GeneratedObligations.v",
+      "status": "partial",
+      "fields": [
+        {
+          "rocq_field": "wscSummaryIdentity",
+          "kairos_field": "Step_contract_projection.step_contract.summary_identity",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "wscSteps",
+          "kairos_field": "Step_contract_projection.step_contract.covered_cases",
+          "status": "partial"
+        },
+        {
+          "rocq_field": "wscClass",
+          "kairos_field": "Step_contract_projection.step_class",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "wscRequires",
+          "kairos_field": "Step_contract_projection.step_contract.requires/runtime_requires",
+          "status": "partial"
+        },
+        {
+          "rocq_field": "wscEnsures",
+          "kairos_field": "Step_contract_projection.step_contract.ensures",
+          "status": "exact"
+        },
+        {
+          "rocq_field": "wscForbidden",
+          "kairos_field": "Step_contract_projection.step_contract.forbidden",
+          "status": "exact"
+        }
+      ],
+      "conclusion": "Step_contract_projection is now the neutral pre-Why3 step-contract view. The remaining partial field is the exact Rocq notion of covered product steps versus current covered summary cases."
+    }
+  ],
+  "target_projection": [
+    {
+      "name": "kernel_clause_projection",
+      "corresponds_to_rocq_stage": "Stage1",
+      "must_expose": [
+        "TimeTag",
+        "TimedFact",
+        "ProductStateAnchor",
+        "ProductStepAnchor",
+        "KernelClause",
+        "classified clauses"
+      ],
+      "must_not_include": [
+        "Why3 terms",
+        "JSON codecs",
+        "relational lowering",
+        "helper names",
+        "worker scheduling",
+        "SMT/prover statuses"
+      ]
+    },
+    {
+      "name": "product_summary_projection",
+      "corresponds_to_rocq_stage": "Stage1",
+      "must_expose": [
+        "ProofStepSummaryIdentity",
+        "ProofStepSummary",
+        "SummaryClauseFamilies"
+      ],
+      "must_not_include": [
+        "Why3 terms",
+        "helper names",
+        "worker scheduling",
+        "diagnostic labels as proof data",
+        "relational lowering unless explicitly marked as derived"
+      ]
+    },
+    {
+      "name": "step_contract_projection",
+      "corresponds_to_rocq_stage": "Stage2",
+      "must_expose": [
+        "StepContract",
+        "lowered requires",
+        "lowered ensures",
+        "lowered forbidden formulas",
+        "coverage relation from product summaries"
+      ],
+      "must_not_include": [
+        "Why3 helper modules",
+        "grouping cost heuristics",
+        "term-sharing declarations",
+        "SMT/prover statuses"
+      ]
+    }
+  ]
+}

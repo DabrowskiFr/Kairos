@@ -42,7 +42,58 @@
     Assumption automata are intentionally not propagated here: assumption guards
     are used as environment preconditions in the current backend, so treating
     them as post-state facts would only be sound under an additional
-    input-only restriction. *)
+    input-only restriction.
+
+    Architecture invariant: every formula returned by
+    {!entry_facts_of_product_state} must satisfy
+    [Fo_current_input.no_current_input] for the node inputs. This is not a
+    user obligation and not a Rocq theorem inventory generated from OCaml.
+    It is the local well-formedness condition that keeps generated
+    product-state facts in the end-of-instant phase. Current input
+    occurrences must be shifted to [pre]/[pre_k] before the fact can become an
+    end-of-instant product-state fact; otherwise construction should fail
+    rather than filtering the formula away.
+
+    The local preservation checklist for this invariant is:
+    {ul
+    {- [no_current_input_simplify_fo]:
+       [no_current_input inputs f] implies
+       [no_current_input inputs (simplify_fo f)].}
+    {- [no_current_input_bool_constructors]:
+       [mk_hand], [mk_hor], [mk_himp], [term_not], and top-level boolean
+       flattening preserve [no_current_input] when their operands do.}
+    {- [no_current_input_dedup_formulas]:
+       [dedup_formulas] preserves the property elementwise, because it only
+       simplifies, keys, sorts, and removes duplicates.}
+    {- [no_current_input_disj_fo]:
+       if every input formula is current-input-free, then any formula returned
+       by [disj_fo] is current-input-free.}
+    {- [shift_formula_forward_inputs_no_current_input]:
+       [shift_formula_forward_inputs] turns every current input occurrence into
+       a historical [pre]/[pre_k] occurrence, so its result is
+       current-input-free even if the source formula was not.}
+    {- [shift_hexpr_forward_all_no_current_input]:
+       [shift_hexpr_forward_all] turns every variable occurrence into a
+       historical occurrence, so its result is current-input-free.}
+    {- [program_entry_formula_no_current_input]:
+       the formula
+       [shift_hexpr_forward_all program_guard
+        && shift_formula_forward_inputs admissible_guard]
+       is current-input-free.}
+    {- [entry_fact_no_current_input]:
+       every [entry_fact] stored in the characteristic table is
+       current-input-free. The normal branch follows from
+       [shift_formula_forward_inputs_no_current_input]; the refined branch
+       follows from [program_entry_formula_no_current_input] and
+       [no_current_input_disj_fo].}
+    {- [entry_facts_of_product_state_no_current_input]:
+       every formula returned by [entry_facts_of_product_state] is
+       current-input-free.}
+    }
+
+    [shift_formula_forward_non_inputs] is deliberately not in this list: it
+    preserves current input occurrences. It is used for post-state preservation
+    obligations, not for exported entry facts. *)
 
 type t
 

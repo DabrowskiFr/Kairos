@@ -140,7 +140,7 @@ let clause_json name clauses =
   let by_origin =
     List.fold_left
       (fun acc (clause : PK.relational_generated_clause_ir) ->
-        increment (clause_origin_string clause.origin) acc)
+        increment (clause_family_string clause.family) acc)
       StringMap.empty clauses
   in
   json_assoc
@@ -183,6 +183,7 @@ let canonical_summary_json (summary : Ir.product_step_summary) =
   in
   let all_summary_formulas =
     summary.propagation_requires @ summary.requires @ summary.ensures
+    @ summary.elaboration_checks
   in
   let sizes = formula_sizes all_summary_formulas in
   json_assoc
@@ -192,6 +193,7 @@ let canonical_summary_json (summary : Ir.product_step_summary) =
       ("propagation_requires_count", json_int (List.length summary.propagation_requires));
       ("requires_count", json_int (List.length summary.requires));
       ("ensures_count", json_int (List.length summary.ensures));
+      ("elaboration_checks_count", json_int (List.length summary.elaboration_checks));
       ("total_summary_formula_size", json_int (sum_int sizes));
       ("max_summary_formula_size", json_int (max_int sizes));
     ]
@@ -219,6 +221,13 @@ let canonical_summaries_json (node : Ir.node_ir option) =
       let ensures =
         sum_int (List.map (fun (s : Ir.product_step_summary) -> List.length s.ensures) summaries)
       in
+      let elaboration_checks =
+        sum_int
+          (List.map
+             (fun (s : Ir.product_step_summary) ->
+               List.length s.elaboration_checks)
+             summaries)
+      in
       let summary_jsons = List.map canonical_summary_json summaries in
       json_assoc
         [
@@ -229,6 +238,7 @@ let canonical_summaries_json (node : Ir.node_ir option) =
           ("propagation_requires_count", json_int propagation_requires);
           ("requires_count", json_int requires);
           ("ensures_count", json_int ensures);
+          ("elaboration_checks_count", json_int elaboration_checks);
           ("summaries", `List summary_jsons);
         ]
 

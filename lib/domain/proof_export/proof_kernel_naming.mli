@@ -41,22 +41,23 @@ val string_of_step_origin : Proof_kernel_types.product_step_origin -> string
 (** [string_of_product_coverage] service entrypoint. *)
 
 val string_of_product_coverage : Proof_kernel_types.product_coverage_ir -> string
-(** [string_of_clause_origin] service entrypoint. *)
+(** [string_of_clause_family] service entrypoint. *)
 
-val string_of_clause_origin : Proof_kernel_types.generated_clause_origin -> string
+val string_of_clause_family : Obligation_family_projection.clause_family -> string
 (** [string_of_clause_time] service entrypoint. *)
 
-val string_of_clause_time : Proof_kernel_types.clause_time_ir -> string
+val string_of_clause_time : Kernel_clause_projection.time_tag -> string
 (** [string_of_clause_fact_desc] service entrypoint. *)
 
-val string_of_clause_fact_desc : Proof_kernel_types.clause_fact_desc_ir -> string
+val string_of_clause_fact_desc :
+  Kernel_clause_projection.timed_fact_desc -> string
 (** [string_of_relational_clause_fact_desc] service entrypoint. *)
 
 val string_of_relational_clause_fact_desc :
   Proof_kernel_types.relational_clause_fact_desc_ir -> string
 (** [string_of_clause_fact] service entrypoint. *)
 
-val string_of_clause_fact : Proof_kernel_types.clause_fact_ir -> string
+val string_of_clause_fact : Kernel_clause_projection.timed_fact -> string
 (** [string_of_relational_clause_fact] service entrypoint. *)
 
 val string_of_relational_clause_fact : Proof_kernel_types.relational_clause_fact_ir -> string

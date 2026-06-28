@@ -18,10 +18,11 @@
 
 (** Why3-specific intermediate representation of a Kairos node.
 
-    Reconstructs from an {!Ir.node_ir} a structured view exposing ports,
-    product transitions, contracts and user invariants. Compilation and
-    contract-building modules consume this representation rather than the
-    generic IR. *)
+    Projects the grouped {!Step_contract_projection} view into the structured
+    view consumed by Why3 compilation. The canonical contracts are owned by
+    {!Canonical_obligations}; this module owns backend choices such as body
+    slicing and final grouping, but it must not decide which product-step
+    contracts logically exist. *)
 
 open Core_syntax
 
@@ -84,6 +85,7 @@ type runtime_product_transition_view =
   local_requires : Ir.summary_formula list;
   propagates : Ir.summary_formula list;
   ensures : Ir.summary_formula list;
+  elaboration_checks : Ir.summary_formula list;
   forbidden : Ir.summary_formula list;
 }
 (** View of a transition in the synchronized product. *)

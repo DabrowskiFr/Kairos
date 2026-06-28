@@ -38,3 +38,34 @@ val summary_formula_list_to_yojson : Ir.summary_formula list -> Yojson.Safe.t
 
 (** JSON decoder for lists of summary formulas. *)
 val summary_formula_list_of_yojson : Yojson.Safe.t -> (Ir.summary_formula list, string) result
+
+(** JSON encoder for semantic generated-obligation families. *)
+val clause_family_to_yojson :
+  Obligation_family_projection.clause_family -> Yojson.Safe.t
+
+(** JSON decoder for semantic generated-obligation families. *)
+val clause_family_of_yojson :
+  Yojson.Safe.t -> (Obligation_family_projection.clause_family, string) result
+
+(** JSON encoder for kernel-clause time tags. *)
+val time_tag_to_yojson : Kernel_clause_projection.time_tag -> Yojson.Safe.t
+
+(** JSON decoder for kernel-clause time tags. *)
+val time_tag_of_yojson :
+  Yojson.Safe.t -> (Kernel_clause_projection.time_tag, string) result
+
+(** JSON encoder for classified kernel clauses. *)
+val classified_clause_to_yojson :
+  Kernel_clause_projection.classified_clause -> Yojson.Safe.t
+
+(** JSON decoder for classified kernel clauses. *)
+val classified_clause_of_yojson :
+  Yojson.Safe.t -> (Kernel_clause_projection.classified_clause, string) result
+
+(** JSON encoder for kernel-clause contexts. *)
+val clause_context_to_yojson :
+  Kernel_clause_projection.clause_context -> Yojson.Safe.t
+
+(** JSON decoder for kernel-clause contexts. *)
+val clause_context_of_yojson :
+  Yojson.Safe.t -> (Kernel_clause_projection.clause_context, string) result
