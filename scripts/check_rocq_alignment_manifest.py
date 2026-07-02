@@ -3,8 +3,9 @@
 
 This is intentionally an architecture check, not a proof checker. It keeps the
 traceability file honest: the recorded Rocq source must exist, the recorded
-branch and commit must match the local checkout, and each alignment unit must
-point to real Rocq and Kairos paths.
+paper branch must still point to the recorded commit, and each alignment unit
+must point to real Rocq paths at that immutable commit and real Kairos paths in
+the current checkout.
 """
 
 from __future__ import annotations
@@ -66,21 +67,10 @@ def require_string_list(raw: Any, context: str) -> list[str]:
     return out
 
 
-def current_branch_from_head(rocq_dir: Path) -> str:
-    head = rocq_dir / ".git" / "HEAD"
-    if not head.exists():
-        fail(f"Rocq directory is not a Git checkout or has no .git/HEAD: {rocq_dir}")
-    content = head.read_text(encoding="utf-8").strip()
-    prefix = "ref: refs/heads/"
-    if content.startswith(prefix):
-        return content[len(prefix) :]
-    return content
-
-
-def current_commit_from_git(rocq_dir: Path) -> str:
+def git_output(rocq_dir: Path, args: list[str], context: str) -> str:
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
+            ["git", *args],
             cwd=rocq_dir,
             check=True,
             text=True,
@@ -88,8 +78,30 @@ def current_commit_from_git(rocq_dir: Path) -> str:
             stderr=subprocess.PIPE,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
-        fail(f"cannot read Rocq Git commit in {rocq_dir}: {exc}")
+        fail(f"{context} in {rocq_dir}: {exc}")
     return result.stdout.strip()
+
+
+def require_rocq_commit(rocq_dir: Path, commit: str) -> None:
+    git_output(
+        rocq_dir,
+        ["cat-file", "-e", f"{commit}^{{commit}}"],
+        f"recorded Rocq commit {commit!r} does not exist",
+    )
+
+
+def require_rocq_branch_commit(rocq_dir: Path, branch: str, commit: str) -> None:
+    ref = f"refs/heads/{branch}"
+    actual = git_output(
+        rocq_dir,
+        ["rev-parse", "--verify", ref],
+        f"recorded Rocq branch {branch!r} does not exist",
+    )
+    if actual != commit:
+        fail(
+            "Rocq paper branch no longer points to the recorded commit: "
+            f"branch {branch!r} points to {actual!r}, manifest records {commit!r}"
+        )
 
 
 def require_existing_path(base: Path, rel: str, context: str) -> Path:
@@ -99,7 +111,24 @@ def require_existing_path(base: Path, rel: str, context: str) -> Path:
     return path
 
 
-def validate_public_results(rocq_dir: Path, raw: Any) -> None:
+def require_rocq_path_at_commit(rocq_dir: Path, commit: str, rel: str, context: str) -> None:
+    git_output(
+        rocq_dir,
+        ["cat-file", "-e", f"{commit}:{rel}"],
+        f"{context} references missing Rocq path at recorded commit: {rel}",
+    )
+
+
+def read_rocq_file_at_commit(rocq_dir: Path, commit: str, rel: str, context: str) -> str:
+    require_rocq_path_at_commit(rocq_dir, commit, rel, context)
+    return git_output(
+        rocq_dir,
+        ["show", f"{commit}:{rel}"],
+        f"cannot read Rocq file at recorded commit for {context}: {rel}",
+    )
+
+
+def validate_public_results(rocq_dir: Path, commit: str, raw: Any) -> None:
     if not isinstance(raw, list) or not raw:
         fail("rocq_source.public_results must be a non-empty list")
     for i, item in enumerate(raw):
@@ -107,15 +136,12 @@ def validate_public_results(rocq_dir: Path, raw: Any) -> None:
         name = require_non_empty_string(result.get("name"), f"public_results[{i}].name")
         path = require_non_empty_string(result.get("path"), f"public_results[{i}].path")
         require_non_empty_string(result.get("role"), f"public_results[{i}].role")
-        result_path = rocq_dir / path
-        if not result_path.exists():
-            fail(f"public result {name} references missing Rocq path: {result_path}")
-        text = result_path.read_text(encoding="utf-8", errors="replace")
+        text = read_rocq_file_at_commit(rocq_dir, commit, path, f"public result {name}")
         if name not in text:
-            fail(f"public result {name} is not mentioned in {result_path}")
+            fail(f"public result {name} is not mentioned in {path} at recorded Rocq commit")
 
 
-def validate_alignment_units(repo: Path, rocq_dir: Path, raw: Any) -> None:
+def validate_alignment_units(repo: Path, rocq_dir: Path, commit: str, raw: Any) -> None:
     if not isinstance(raw, list) or not raw:
         fail("alignment_units must be a non-empty list")
     seen: set[str] = set()
@@ -131,7 +157,7 @@ def validate_alignment_units(repo: Path, rocq_dir: Path, raw: Any) -> None:
         require_non_empty_string(unit.get("proof_role"), f"alignment unit {name}.proof_role")
         require_non_empty_string(unit.get("architecture_status"), f"alignment unit {name}.architecture_status")
         for rel in require_string_list(unit.get("rocq_modules"), f"alignment unit {name}.rocq_modules"):
-            require_existing_path(rocq_dir, rel, f"alignment unit {name}.rocq_modules")
+            require_rocq_path_at_commit(rocq_dir, commit, rel, f"alignment unit {name}.rocq_modules")
         for rel in require_string_list(unit.get("kairos_paths"), f"alignment unit {name}.kairos_paths"):
             require_existing_path(repo, rel, f"alignment unit {name}.kairos_paths")
         require_string_list(
@@ -151,7 +177,7 @@ def validate_non_core(repo: Path, raw: Any) -> None:
             require_existing_path(repo, rel, f"not_part_of_rocq_core {name}.kairos_paths")
 
 
-def validate_projection_audit(repo: Path, rocq_dir: Path, rel: str) -> None:
+def validate_projection_audit(repo: Path, rocq_dir: Path, commit: str, rel: str) -> None:
     audit_file = require_existing_path(repo, rel, "paper_formalization_source.projection_audit")
     audit = require_object(json.loads(audit_file.read_text(encoding="utf-8")), "projection audit")
     if audit.get("schema_version") != 1:
@@ -187,7 +213,7 @@ def validate_projection_audit(repo: Path, rocq_dir: Path, rel: str) -> None:
             fail(f"{rel}: duplicate rocq_record {name!r}")
         seen_records.add(name)
         rocq_path = require_non_empty_string(record.get("rocq_path"), f"{rel}.{name}.rocq_path")
-        require_existing_path(rocq_dir, rocq_path, f"{rel}.{name}.rocq_path")
+        require_rocq_path_at_commit(rocq_dir, commit, rocq_path, f"{rel}.{name}.rocq_path")
         status = require_non_empty_string(record.get("status"), f"{rel}.{name}.status")
         if status not in ALLOWED_RECORD_STATUSES:
             fail(f"{rel}.{name}: unknown status {status!r}")
@@ -257,18 +283,11 @@ def main() -> int:
     if not rocq_dir.exists():
         fail(f"Rocq directory does not exist: {rocq_dir}")
     expected_branch = require_non_empty_string(rocq_source.get("branch"), "rocq_source.branch")
-    actual_branch = current_branch_from_head(rocq_dir)
-    if actual_branch != expected_branch:
-        fail(f"Rocq branch mismatch: expected {expected_branch!r}, found {actual_branch!r}")
     expected_commit = require_non_empty_string(rocq_source.get("commit"), "rocq_source.commit")
-    actual_commit = current_commit_from_git(rocq_dir)
-    if actual_commit != expected_commit:
-        fail(
-            "Rocq commit mismatch: "
-            f"expected {expected_commit!r}, found {actual_commit!r}"
-        )
+    require_rocq_commit(rocq_dir, expected_commit)
+    require_rocq_branch_commit(rocq_dir, expected_branch, expected_commit)
     require_non_empty_string(rocq_source.get("logical_root"), "rocq_source.logical_root")
-    validate_public_results(rocq_dir, rocq_source.get("public_results"))
+    validate_public_results(rocq_dir, expected_commit, rocq_source.get("public_results"))
 
     paper_source = require_object(manifest.get("paper_formalization_source"), "paper_formalization_source")
     require_non_empty_string(paper_source.get("principle"), "paper_formalization_source.principle")
@@ -276,6 +295,7 @@ def main() -> int:
     validate_projection_audit(
         repo,
         rocq_dir,
+        expected_commit,
         require_non_empty_string(
             paper_source.get("projection_audit"),
             "paper_formalization_source.projection_audit",
@@ -286,7 +306,7 @@ def main() -> int:
         "paper_formalization_source.paper_sections_suggested_by_rocq",
     )
 
-    validate_alignment_units(repo, rocq_dir, manifest.get("alignment_units"))
+    validate_alignment_units(repo, rocq_dir, expected_commit, manifest.get("alignment_units"))
     validate_non_core(repo, manifest.get("not_part_of_rocq_core"))
 
     print("[rocq-alignment] OK: Rocq/Kairos alignment manifest checks passed")

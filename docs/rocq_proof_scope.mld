@@ -21,7 +21,7 @@ elaborated before the Rocq-facing boundary.
 The machine-readable source of truth is
 [docs/rocq_alignment_manifest.json]. It records:
 
-- the Rocq checkout and branch used for alignment;
+- the Rocq repository, paper branch, and immutable commit used for alignment;
 - the public theorem entry points;
 - the Rocq concepts that the paper should present;
 - the Kairos modules that must expose matching artifacts;
@@ -48,6 +48,13 @@ The current Rocq source recorded by the manifest is:
 branch lab/rocq-paper-core
 commit f3facc051901245e33a4d79676fcff6fcd464087
 ]}
+
+The paper branch is treated as a frozen source reference.  The Kairos checks do
+not require the local Rocq checkout to be on that branch.  They verify instead
+that the recorded branch still points to the recorded commit and that the
+recorded theorem files and names exist at that commit.  This keeps ordinary
+Kairos development independent from Rocq work branches while preventing silent
+drift of the paper reference.
 
 The public theorem cut used by the paper is centered on:
 
@@ -179,7 +186,8 @@ these objects, and which parts are deliberately outside the theorem.
 The alignment is checked by:
 
 - [scripts/check_rocq_alignment_manifest.py], which verifies the recorded
-  Rocq branch, Rocq theorem files, and Kairos paths;
+  Rocq paper branch/commit, theorem files at that commit, theorem names, and
+  Kairos paths;
 - [scripts/check_reference_pipeline_boundaries.py], which verifies the
   implementation-side reference/projection/backend classification;
 - [tests/check_reference_stability.sh], which checks that backend-only options

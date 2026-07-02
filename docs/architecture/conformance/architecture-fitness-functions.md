@@ -9,7 +9,7 @@ before it becomes a proof or performance regression.
 | --- | --- | --- |
 | Layer dependencies | `python3 scripts/check_layer_dependencies.py` | No forbidden library dependency across layers |
 | Reference boundary | `python3 scripts/check_reference_pipeline_boundaries.py` | Reference kernel has no external-tool references and all stages are classified |
-| Rocq alignment | `python3 scripts/check_rocq_alignment_manifest.py` | Rocq source, theorem entry points, Kairos proof-relevant units, and alignment projection audit stay traceable |
+| Rocq alignment | `python3 scripts/check_rocq_alignment_manifest.py` | Frozen Rocq paper branch/commit, theorem entry points at that commit, Kairos proof-relevant units, and alignment projection audit stay traceable |
 | Architecture manifest | `python3 scripts/check_architecture_manifest.py` | Required architecture docs/scripts and removed legacy paths stay consistent |
 | Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
 | Renderer purity | `python3 scripts/check_architecture_fitness.py` | Graph rendering must not depend on Z3 |
