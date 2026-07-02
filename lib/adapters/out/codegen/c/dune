@@ -1,6 +1,5 @@
 (library
  (name kairos_c_codegen)
- (wrapped false)
  (modules
   c_codegen_types
   c_codegen_common
@@ -12,4 +11,14 @@
   c_codegen_node
   c_codegen_program
   c_codegen)
+ (private_modules
+  c_codegen_types
+  c_codegen_common
+  c_codegen_names
+  c_codegen_env
+  c_codegen_expr
+  c_codegen_stmt
+  c_codegen_functions
+  c_codegen_node
+  c_codegen_program)
  (libraries kairos_domain_core))

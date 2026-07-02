@@ -45,7 +45,7 @@ type frontend_check_data = {
   guarantee_count : int;
 }
 
-type c_generation_data = C_codegen.generated_file list
+type c_generation_data = Kairos_c_codegen.C_codegen.generated_file list
 
 val proof_optimizations_of_args :
   Cli_types.cli_args -> Pipeline_types.proof_optimizations

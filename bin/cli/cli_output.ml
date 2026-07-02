@@ -17,6 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 module Pipeline_service = Cli_pipeline_service
+module C_codegen = Kairos_c_codegen.C_codegen
 
 let write_target out text =
   match out with

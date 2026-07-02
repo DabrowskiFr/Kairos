@@ -18,6 +18,7 @@
 
 open Cli_types
 
+module C_codegen = Kairos_c_codegen.C_codegen
 module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
 
 let proof_optimizations_of_args args =

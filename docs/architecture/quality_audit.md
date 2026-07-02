@@ -41,7 +41,7 @@ Size and maintainability indicators:
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
   - `lib/adapters/out/external/timing/external_timing_store.ml`: 405 lines
 - `ml` files without matching `mli`: 15
-- Libraries declared with `(wrapped false)`: 29
+- Libraries declared with `(wrapped false)`: 28
 - Direct `open` directives in OCaml files: 347
 - Repository-level OCaml formatting configuration: opt-in OCamlFormat policy
 - Frontend/model-validation `failwith` occurrences in `kairos_lang`: 0.
@@ -210,9 +210,9 @@ python3 scripts/check_quality_baseline.py --max-module-lines 576
 
 ### Q7. Formatting And Namespaces Are Deliberate
 
-Kairos currently has no repository-level OCaml formatting configuration and
-uses `(wrapped false)` widely.  That is workable for a fast-moving prototype,
-but not for a professional-quality implementation.
+Kairos has an opt-in OCamlFormat policy and still uses `(wrapped false)` in
+several libraries.  That is workable for compatibility, but not as the default
+architecture for new code.
 
 Acceptance target:
 
@@ -225,12 +225,17 @@ Acceptance target:
 The first executable check only prevents regression:
 
 ```sh
-python3 scripts/check_quality_baseline.py --max-wrapped-false 29
+python3 scripts/check_quality_baseline.py --max-wrapped-false 28
 ```
 
 The migration policy is recorded in
 `docs/architecture/ocaml_formatting_policy.md`.  The quality baseline now fails
 if the repository-level OCamlFormat configuration is removed.
+
+The namespace policy for `(wrapped false)` is recorded in
+`docs/architecture/wrapped_namespace_policy.md`.  The C backend is the first
+completed pilot: `kairos_c_codegen` is wrapped, and its implementation modules
+are private behind the public `C_codegen` facade.
 
 ### Q8. Performance Has Stable Baselines
 
@@ -322,7 +327,8 @@ paper benchmark policy is frozen.
 ### P2 - Professional Polish
 
 1. Reduce `(wrapped false)` use.
-   - Start with new libraries and adapters.
+   - Status: policy defined; first pilot done for `kairos_c_codegen`.
+   - New libraries should stay wrapped unless an exception is documented.
    - Existing public module names can be migrated gradually.
 
 2. Reduce global `open` usage in proof-relevant modules.
@@ -341,6 +347,6 @@ paper benchmark policy is frozen.
 ## Immediate Recommended Sequence
 
 1. Ratchet quality-baseline thresholds down as debts are fixed.
-2. Start a `(wrapped false)` migration policy for new code only.
-3. Split or justify the next modules over 400 lines.
-4. Replace more expected exception plumbing with structured errors.
+2. Split or justify the next modules over 400 lines.
+3. Replace more expected exception plumbing with structured errors.
+4. Choose the next wrapped-library migration candidate.
