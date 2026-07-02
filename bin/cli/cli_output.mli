@@ -17,6 +17,11 @@ val report_failed_goals :
 
 val write_text_output : string -> string -> [> `Ok of unit ]
 
+val write_generated_files :
+  out_dir:string ->
+  C_codegen.generated_file list ->
+  [> `Error of bool * string | `Ok of unit ]
+
 val write_timing_dump :
   string -> (string * (string * string) list) list -> unit
 

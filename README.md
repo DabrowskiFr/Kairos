@@ -39,8 +39,26 @@ To list all available CLI commands and options:
 dune exec -j 1 -- kairos --help
 ```
 
+## Generate portable C
+
+Kairos can emit a C99 runtime for the executable node model:
+
+```bash
+dune exec -j 1 -- kairos --emit-c _build/embedded-c tests/ok/resettable_delay.kairos
+```
+
+The command writes:
+
+```text
+_build/embedded-c/kairos_generated.h
+_build/embedded-c/kairos_generated.c
+```
+
+The generated C is board-agnostic. Arduino, PlatformIO, sensor bindings, pin
+mapping, and upload configuration should wrap these files from a separate
+embedded project layer.
+
 ## Where test examples are located
 
 - Expected **valid** examples: `tests/ok/`
 - Expected **invalid** examples: `tests/ko/`
-

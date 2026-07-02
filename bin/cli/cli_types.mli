@@ -38,6 +38,7 @@ type cli_args = {
   dump_normalized_program : string option;
   dump_ir_pretty : string option;
   dump_cost_report : string option;
+  emit_c : string option;
   dump_timings : string option;
   dump_goals : string option;
   dump_failed_smt : bool;
@@ -56,6 +57,7 @@ type dump_mode =
   | Dump_normalized_program of { out : string }
   | Dump_ir_pretty of { out : string }
   | Dump_cost_report of { out : string }
+  | Emit_c of { out_dir : string }
 
 type action =
   | Dump of dump_mode

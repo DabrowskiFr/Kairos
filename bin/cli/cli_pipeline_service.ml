@@ -79,6 +79,8 @@ let proof_optimizations_of_args args =
     guarantee_count : int;
   }
 
+  type c_generation_data = C_codegen.generated_file list
+
   let instrumentation_pass = Usecases.instrumentation_pass
   let why_pass = Usecases.why_pass
   let obligations_pass = Usecases.obligations_pass
@@ -163,6 +165,14 @@ let proof_optimizations_of_args args =
           |> List.fold_left ( + ) 0
         in
         Ok { node_count = List.length nodes; assume_count; guarantee_count }
+
+  let c_generation ~input_file =
+    match Kairos_frontend.parse_input ~input_file with
+    | Error _ as e -> e
+    | Ok frontend -> (
+        match C_codegen.emit_program frontend.Application_ports.verification_model with
+        | Ok files -> Ok files
+        | Error msg -> Error (Pipeline_types.Flow_error msg))
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_why_text
       ~generate_vc_text ~generate_smt_text ~dump_failed_smt ~proof_progress_path

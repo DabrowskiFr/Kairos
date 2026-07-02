@@ -19,9 +19,11 @@
   ../scripts/check_reference_pipeline_boundaries.py
   ../scripts/filter_why3_product_backend_graph.py
   ../scripts/generate_architecture_views.sh
+  check_c_codegen.sh
   check_elaboration_frontier.sh
   check_reference_stability.sh
   frontend/spec_past_formula_frontier.kairos
+  ok/action_contract_inline.kairos
   ok/explicit_single_route_safety.kairos
   ok/enum_quantified_predicate.kairos
   ok/history_observers.kairos
@@ -30,10 +32,15 @@
   ok/history_spec_expressions.kairos
   ok/multiple_assignment_sugar.kairos
   ok/named_action_inline.kairos
+  ok/pure_function_bool_enum.kairos
   ok/public_observer_contract.kairos
   ok/reactive_alarm_cover.kairos
+  ok/resettable_delay.kairos
   ok/spec_definition_past.kairos
   ok/state_selector_invariants.kairos
+  ok/toggle.kairos
+  ok/w_bundle_prev_window.kairos
+  ok/while_counter.kairos
   ko/assign_input.kairos
   ko/internal_prefix_reserved.kairos
   ko/concise_observer_bad_pre.kairos
@@ -55,6 +62,7 @@
    (run python3 ../scripts/check_rocq_alignment_manifest.py)
    (run python3 ../scripts/check_architecture_fitness.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
+   (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))
 
 (test

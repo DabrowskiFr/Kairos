@@ -5,6 +5,7 @@
 (libraries
   kairos_application
   kairos_composition
+  kairos_c_codegen
   kairos_input_lang
   bos
   fpath

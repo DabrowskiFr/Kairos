@@ -22,6 +22,7 @@ let docs_general = Manpage.s_common_options
 let docs_proof = "PROOF"
 let docs_graph = "GRAPH DUMPS"
 let docs_text = "TEXT EXPORTS"
+let docs_codegen = "CODE GENERATION"
 let why3_proof = "WHY3"
 let docs_frontend = "FRONTEND"
 
@@ -129,6 +130,12 @@ let cmd =
       & info [ "dump-cost-report" ] ~docs:docs_text ~docv:"FILE"
           ~doc:
             "Dump a JSON cost report from source, automata, product summaries, proof kernel, and generated WhyML.")
+  in
+  let emit_c =
+    Arg.(
+      value & opt (some string) None
+      & info [ "emit-c" ] ~docs:docs_codegen ~docv:"DIR"
+          ~doc:"Generate portable C99 sources into DIR.")
   in
   let dump_timings =
     Arg.(
@@ -271,7 +278,7 @@ let cmd =
         no_why3_product_step_grouping why3_product_step_group_max_cost
         dump_automata dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
-        dump_normalized_program dump_ir_pretty dump_cost_report dump_timings
+        dump_normalized_program dump_ir_pretty dump_cost_report emit_c dump_timings
         dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 =
       {
         file;
@@ -301,6 +308,7 @@ let cmd =
         dump_normalized_program;
         dump_ir_pretty;
         dump_cost_report;
+        emit_c;
         dump_timings;
         dump_goals;
         dump_failed_smt;
@@ -319,8 +327,8 @@ let cmd =
       $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
-      $ dump_cost_report $ dump_timings $ dump_goals $ dump_failed_smt $ dump_why
-      $ dump_why3_vc $ dump_smt2)
+      $ dump_cost_report $ emit_c $ dump_timings $ dump_goals $ dump_failed_smt
+      $ dump_why $ dump_why3_vc $ dump_smt2)
   in
   let term = Term.(ret (const Cli_runtime.eval_cli $ cli_args_term)) in
   let man =
@@ -331,6 +339,7 @@ let cmd =
       `S docs_frontend;
       `S docs_graph;
       `S docs_text;
+      `S docs_codegen;
       `S Manpage.s_common_options;
     ]
   in

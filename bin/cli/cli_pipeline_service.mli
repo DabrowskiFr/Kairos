@@ -45,6 +45,8 @@ type frontend_check_data = {
   guarantee_count : int;
 }
 
+type c_generation_data = C_codegen.generated_file list
+
 val proof_optimizations_of_args :
   Cli_types.cli_args -> Pipeline_types.proof_optimizations
 
@@ -93,6 +95,10 @@ val elaborated_dump :
 val frontend_check :
   input_file:string ->
   (frontend_check_data, Pipeline_types.error) result
+
+val c_generation :
+  input_file:string ->
+  (c_generation_data, Pipeline_types.error) result
 
 val run_dump_data :
   input_file:string ->

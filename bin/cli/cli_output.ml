@@ -88,6 +88,16 @@ let write_text_output out text =
   write_target out text;
   `Ok ()
 
+let write_generated_files ~out_dir (files : C_codegen.generated_file list) =
+  match Bos.OS.Dir.create ~path:true (Fpath.v out_dir) with
+  | Error (`Msg msg) -> `Error (false, msg)
+  | Ok _ ->
+      List.iter
+        (fun (file : C_codegen.generated_file) ->
+          write_target Fpath.(to_string (v out_dir / file.file_name)) file.contents)
+        files;
+      `Ok ()
+
 let write_timing_dump out (flow_meta : (string * (string * string) list) list) =
   let section_lines name =
     match List.assoc_opt name flow_meta with

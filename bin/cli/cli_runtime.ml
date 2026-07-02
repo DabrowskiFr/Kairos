@@ -76,6 +76,11 @@ let with_cost_report args f =
   | Error e -> `Error (false, map_error e)
   | Ok text -> f text
 
+let with_c_generation args f =
+  match Pipeline_service.c_generation ~input_file:args.file with
+  | Error e -> `Error (false, map_error e)
+  | Ok files -> f files
+
 let with_surface_dump args f =
   match Pipeline_service.surface_dump ~input_file:args.file with
   | Error e -> `Error (false, map_error e)
@@ -106,6 +111,7 @@ let dump_mode_count args =
       args.dump_normalized_program;
       args.dump_ir_pretty;
       args.dump_cost_report;
+      args.emit_c;
     ]
 
 let has_dump_mode args = dump_mode_count args > 0
@@ -124,10 +130,10 @@ let validate_args args =
     Error "--dump-failed-smt requires --prove"
   else if has_dump_mode args && has_why_mode args then
     Error
-      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report cannot be combined with --prove or Why3 dump options"
+      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
     Error
-      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report"
+      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c"
   else Ok ()
 
 (* Preserve the previous precedence between dump options while converting the raw
@@ -167,6 +173,8 @@ let resolve_dump_mode args =
         (Some
            (Dump_cost_report
               { out = get_some "dump-cost-report" args.dump_cost_report }))
+  | _ when Option.is_some args.emit_c ->
+      Ok (Some (Emit_c { out_dir = get_some "emit-c" args.emit_c }))
   | _ -> Ok None
 
 (* Non-dump actions preserve the current special cases:
@@ -201,6 +209,7 @@ let exec_dump_mode args = function
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)
   | Dump_ir_pretty { out } -> with_ir_pretty args (write_text_output out)
   | Dump_cost_report { out } -> with_cost_report args (write_text_output out)
+  | Emit_c { out_dir } -> with_c_generation args (write_generated_files ~out_dir)
 
 (* The generic run path remains the only branch that calls the full run use-case.
    It still handles optional side dumps and proof failure reporting. *)
