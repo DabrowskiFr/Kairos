@@ -15,6 +15,7 @@
   ../scripts/check_architecture_fitness.py
   ../scripts/check_architecture_manifest.py
   ../scripts/check_layer_dependencies.py
+  ../scripts/check_quality_baseline.py
   ../scripts/check_rocq_alignment_manifest.py
   ../scripts/check_reference_pipeline_boundaries.py
   ../scripts/filter_why3_product_backend_graph.py
@@ -61,6 +62,7 @@
    (run python3 ../scripts/check_reference_pipeline_boundaries.py)
    (run python3 ../scripts/check_rocq_alignment_manifest.py)
    (run python3 ../scripts/check_architecture_fitness.py)
+   (run python3 ../scripts/check_quality_baseline.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))

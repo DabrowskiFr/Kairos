@@ -12,6 +12,7 @@ before it becomes a proof or performance regression.
 | Rocq alignment | `python3 scripts/check_rocq_alignment_manifest.py` | Frozen Rocq paper branch/commit, theorem entry points at that commit, Kairos proof-relevant units, and alignment projection audit stay traceable |
 | Architecture manifest | `python3 scripts/check_architecture_manifest.py` | Required architecture docs/scripts and removed legacy paths stay consistent |
 | Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
+| Quality baseline | `python3 scripts/check_quality_baseline.py` | Non-semantic quality metrics do not regress while the baseline is ratcheted down |
 | Renderer purity | `python3 scripts/check_architecture_fitness.py` | Graph rendering must not depend on Z3 |
 | Why3 product path | `python3 scripts/check_architecture_fitness.py` | Why3 proof emission must not reintroduce the old state-helper fallback |
 | Proof export product path | `python3 scripts/check_architecture_fitness.py` | Proof export must not synthesize fallback product steps |
