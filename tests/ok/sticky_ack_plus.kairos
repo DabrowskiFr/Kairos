@@ -1,5 +1,6 @@
 node sticky_ack_plus(req: int) returns (ack: int)
 contracts
+  requires: G (req = 0 or req = 1);
   ensures: G (req = 1 => G (ack = 1));
   ensures: G (ack = 1 => G (ack = 1));
 states

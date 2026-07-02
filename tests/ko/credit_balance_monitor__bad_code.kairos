@@ -30,6 +30,10 @@ transitions
       bal := credit - debit;
       m := credit - debit;
     }
+    to Run when reset = 0 and debit > credit {
+      bal := 0;
+      m := 0;
+    }
   Run:
     to Run when reset = 1 {
       bal := 0;
