@@ -16,9 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** Shared utilities for the C backend. *)
 
-let emit_program = C_codegen_program.emit_program
+module StringSet : Set.S with type elt = string
+
+val ( let* ) : ('a, 'e) result -> ('a -> ('b, 'e) result) -> ('b, 'e) result
+val errorf : ('a, unit, string, ('b, string) result) format4 -> 'a
+val map_result : ('a -> ('b, 'e) result) -> 'a list -> ('b list, 'e) result
+val concat_map_result :
+  ('a -> ('b list, 'e) result) -> 'a list -> ('b list, 'e) result
+
+val line : int -> string -> string
+val blank : string
+val join_lines : string list -> string

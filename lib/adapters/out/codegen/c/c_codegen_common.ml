@@ -16,9 +16,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+let ( let* ) = Result.bind
 
-let emit_program = C_codegen_program.emit_program
+module StringSet = Set.Make (String)
+
+let errorf fmt = Printf.ksprintf (fun msg -> Error msg) fmt
+
+let map_result f xs =
+  let rec loop acc = function
+    | [] -> Ok (List.rev acc)
+    | x :: rest ->
+        let* y = f x in
+        loop (y :: acc) rest
+  in
+  loop [] xs
+
+let concat_map_result f xs =
+  let* chunks = map_result f xs in
+  Ok (List.concat chunks)
+
+let indent n = String.make (2 * n) ' '
+let line n s = indent n ^ s
+let blank = ""
+let join_lines lines = String.concat "\n" lines ^ "\n"

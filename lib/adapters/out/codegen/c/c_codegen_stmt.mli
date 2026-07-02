@@ -16,9 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** C emission for imperative core statements. *)
 
-let emit_program = C_codegen_program.emit_program
+val emit_stmt :
+  C_codegen_env.node_env ->
+  int ->
+  Core_syntax.stmt ->
+  (string list, string) result
+
+val emit_stmts :
+  C_codegen_env.node_env ->
+  int ->
+  Core_syntax.stmt list ->
+  (string list, string) result

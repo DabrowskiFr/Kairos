@@ -16,9 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** C emission for executable pure functions. *)
 
-let emit_program = C_codegen_program.emit_program
+val emit_function_prototype : Core_syntax.pure_function_decl -> string
+
+val emit_function_definition :
+  C_codegen_env.program_env ->
+  Core_syntax.pure_function_decl ->
+  (string list, string) result

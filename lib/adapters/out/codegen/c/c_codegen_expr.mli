@@ -16,9 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** C emission for executable and assertion expressions. *)
 
-let emit_program = C_codegen_program.emit_program
+val condition_text : string -> string
+
+val c_expr :
+  C_codegen_env.expr_env -> Core_syntax.expr -> (string, string) result
+
+val c_hexpr :
+  C_codegen_env.expr_env -> Core_syntax.hexpr -> (string, string) result

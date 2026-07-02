@@ -31,18 +31,18 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 45,676 lines
+- OCaml size in `lib` and `bin`: 46,170 lines
 - Largest modules:
-  - `lib/adapters/out/codegen/c/c_codegen.ml`: 650 lines
   - `lib/domain/core/core_fo_simplifier.ml`: 576 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.mli`: 517 lines
   - `lib/domain/verification/kernel_clause_projection.ml`: 491 lines
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`: 435 lines
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
+  - `lib/adapters/out/external/timing/external_timing_store.ml`: 405 lines
 - `ml` files without matching `mli`: 15
 - Libraries declared with `(wrapped false)`: 29
-- Direct `open` directives in OCaml files: 348
+- Direct `open` directives in OCaml files: 347
 - Repository-level OCaml formatting configuration: none
 - Frontend/model-validation `failwith` occurrences in `kairos_lang`: 0.
 - Expected user errors outside the frontend are still sometimes represented by
@@ -183,10 +183,13 @@ errors that can be triggered by a source program.
 Large modules are acceptable only when they represent a single coherent
 algorithm.  Otherwise they should be split along stable sub-responsibilities.
 
-Initial targets:
+Completed target:
 
 - split `c_codegen.ml` into naming, type emission, expression emission,
-  statement emission, node emission, and file assembly;
+  statement emission, node emission, and file assembly.
+
+Remaining targets:
+
 - split `core_fo_simplifier.ml` into keys/literals, boolean simplification,
   cube/DNF simplification, and public facade;
 - review `kernel_clause_projection.ml` and `product_characteristics.ml` after
@@ -202,7 +205,7 @@ Temporary exceptions must be named and justified.
 The current no-regression baseline is:
 
 ```sh
-python3 scripts/check_quality_baseline.py --max-module-lines 650
+python3 scripts/check_quality_baseline.py --max-module-lines 576
 ```
 
 ### Q7. Formatting And Namespaces Are Deliberate
@@ -289,7 +292,9 @@ paper benchmark policy is frozen.
      domain/proof_export.
 
 2. Split `lib/adapters/out/codegen/c/c_codegen.ml`.
-   - The current file is functional but monolithic.
+   - Status: done.  The backend now has separate modules for common helpers,
+     names, environments, expression emission, statement emission, function
+     emission, node emission, program assembly, and the public facade.
    - Acceptance: no generated-C behavior regression;
      `bash tests/check_c_codegen.sh _build/default/bin/cli/kairos.exe`.
 
@@ -330,6 +335,6 @@ paper benchmark policy is frozen.
 ## Immediate Recommended Sequence
 
 1. Ratchet quality-baseline thresholds down as debts are fixed.
-2. Split the C backend.
-3. Define `.ocamlformat` and formatting migration policy.
-4. Start a `(wrapped false)` migration policy for new code only.
+2. Define `.ocamlformat` and formatting migration policy.
+3. Start a `(wrapped false)` migration policy for new code only.
+4. Split or justify the next modules over 400 lines.

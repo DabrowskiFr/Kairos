@@ -16,9 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** C emission for enum declarations and node state/step functions. *)
 
-let emit_program = C_codegen_program.emit_program
+val emit_enum_decl : Core_syntax.enum_decl -> string list
+val emit_node_header : Verification_model.node_model -> string list
+val emit_init_function : Verification_model.node_model -> string list
+
+val emit_step_function :
+  C_codegen_env.program_env ->
+  Verification_model.node_model ->
+  (string list, string) result

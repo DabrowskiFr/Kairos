@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+(** Whole-program C header/source assembly. *)
 
-let emit_program = C_codegen_program.emit_program
+val emit_program :
+  ?header_name:string ->
+  Verification_model.program_model ->
+  (C_codegen_types.generated_file list, string) result
