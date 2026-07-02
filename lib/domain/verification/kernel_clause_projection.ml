@@ -20,7 +20,9 @@ open Core_syntax
 
 module Abs = Ir
 module Family = Obligation_family_projection
+module Formula = Kernel_clause_projection_formula
 module Summary = Product_summary_projection
+module Transition_id = Kernel_clause_projection_transition_id
 
 type time_tag =
   | PreviousTick
@@ -86,24 +88,6 @@ let current tf_desc = { tf_time = CurrentTick; tf_desc }
 let previous tf_desc = { tf_time = PreviousTick; tf_desc }
 let step_ctx tf_desc = { tf_time = StepTickContext; tf_desc }
 
-let product_transition_index_of_id transition_id : int option =
-  let raw =
-    if String.starts_with ~prefix:"tr_" transition_id then
-      String.sub transition_id 3 (String.length transition_id - 3)
-    else ""
-  in
-  let len = String.length raw in
-  let rec first_non_digit i =
-    if i >= len then len
-    else
-      match raw.[i] with
-      | '0' .. '9' -> first_non_digit (i + 1)
-      | _ -> i
-  in
-  let prefix_len = first_non_digit 0 in
-  if prefix_len = 0 then None
-  else int_of_string_opt (String.sub raw 0 prefix_len)
-
 let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
@@ -121,7 +105,7 @@ let same_unsafe_case_step (case : Abs.unsafe_product_case) (step : product_step)
 
 let product_summary_of_step ~(projection : Summary.t) (step : product_step) :
     Abs.product_step_summary option =
-  match product_transition_index_of_id step.step_anchor.psta_transition_id with
+  match Transition_id.product_transition_index_of_id step.step_anchor.psta_transition_id with
   | None -> None
   | Some program_transition_id -> (
       Summary.find_by_identity projection ~program_transition_id
@@ -142,83 +126,6 @@ let product_summary_of_step ~(projection : Summary.t) (step : product_step) :
 
 let guarantee_propagation_requires (pc : Abs.product_step_summary) : hexpr list =
   List.map (fun (f : Abs.summary_formula) -> f.logic) pc.propagation_requires
-
-let rec split_top_level_or (f : hexpr) : hexpr list =
-  match f.hexpr with
-  | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
-  | _ -> [ f ]
-
-let rec normalize_phase_summary (f : hexpr) : hexpr =
-  match f.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ -> f
-  | HFunCall (fn, hs) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HFunCall (fn, List.map normalize_phase_summary hs))
-  | HUn (op, inner) ->
-      Core_syntax_builders.with_hexpr_desc f (HUn (op, normalize_phase_summary inner))
-  | HBin (op, a, b) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HBin (op, normalize_phase_summary a, normalize_phase_summary b))
-  | HCmp (r, a, b) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HCmp (r, normalize_phase_summary a, normalize_phase_summary b))
-
-let rec normalize_source_summary (f : hexpr) : hexpr =
-  match f.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ -> f
-  | HFunCall (fn, hs) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HFunCall (fn, List.map normalize_source_summary hs))
-  | HUn (Neg, inner) ->
-      Core_syntax_builders.with_hexpr_desc f (HUn (Neg, normalize_source_summary inner))
-  | HUn (Not, inner) -> (
-      match normalize_source_summary inner with
-      | { hexpr = HLitBool true; _ } -> Core_syntax_builders.mk_hbool false
-      | { hexpr = HLitBool false; _ } -> Core_syntax_builders.mk_hbool true
-      | inner' -> Core_syntax_builders.mk_hnot inner')
-  | HBin (And, a, b) -> begin
-      match (normalize_source_summary a, normalize_source_summary b) with
-      | ({ hexpr = HLitBool false; _ } as x), _ -> x
-      | _, ({ hexpr = HLitBool false; _ } as x) -> x
-      | { hexpr = HLitBool true; _ }, rhs -> rhs
-      | lhs, { hexpr = HLitBool true; _ } -> lhs
-      | lhs, rhs -> Core_syntax_builders.mk_hand lhs rhs
-    end
-  | HBin (Or, a, b) -> begin
-      match (normalize_source_summary a, normalize_source_summary b) with
-      | ({ hexpr = HLitBool true; _ } as x), _ -> x
-      | _, ({ hexpr = HLitBool true; _ } as x) -> x
-      | { hexpr = HLitBool false; _ }, rhs -> rhs
-      | lhs, { hexpr = HLitBool false; _ } -> lhs
-      | lhs, rhs -> Core_syntax_builders.mk_hor lhs rhs
-    end
-  | HBin (op, a, b) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HBin (op, normalize_source_summary a, normalize_source_summary b))
-  | HCmp (r, a, b) ->
-      Core_syntax_builders.with_hexpr_desc f
-        (HCmp (r, normalize_source_summary a, normalize_source_summary b))
-
-let term_or a b = normalize_source_summary (Core_syntax_builders.mk_hor a b)
-let term_and a b = normalize_source_summary (Core_syntax_builders.mk_hand a b)
-let term_not a = normalize_source_summary (Core_syntax_builders.mk_hnot a)
-
-let rec phase_summary_obviously_inconsistent (f : hexpr) : bool =
-  match normalize_source_summary f with
-  | { hexpr = HLitBool false; _ } -> true
-  | { hexpr = HCmp (RNeq, { hexpr = HVar x; _ }, { hexpr = HVar y; _ }); _ }
-    when String.equal x y ->
-      true
-  | {
-   hexpr = HUn (Not, { hexpr = HCmp (REq, { hexpr = HVar x; _ }, { hexpr = HVar y; _ }); _ });
-   _;
-  }
-    when String.equal x y ->
-      true
-  | { hexpr = HUn (Not, { hexpr = HLitBool true; _ }); _ } -> true
-  | { hexpr = HBin (And, a, b); _ } ->
-      phase_summary_obviously_inconsistent a || phase_summary_obviously_inconsistent b
-  | _ -> false
 
 let anchor_of_context = function
   | ClauseProductState state -> AnchorProductState state
@@ -276,12 +183,12 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(steps : product_step li
              | f :: rest ->
                  Some
                    (List.fold_left Core_syntax_builders.mk_hor f rest
-                   |> normalize_source_summary)
+                   |> Formula.normalize_source_summary)
            in
            match phase_formula with
            | None -> None
            | Some phase_formula ->
-               if phase_summary_obviously_inconsistent phase_formula then None
+               if Formula.phase_summary_obviously_inconsistent phase_formula then None
                else
                  Some
                    (mk_clause Family.SourceProductSummary
@@ -318,7 +225,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(steps : product_step li
           let merged =
             match Hashtbl.find_opt raw_formula_table key with
             | None -> phase_formula
-            | Some prev -> term_or prev phase_formula
+            | Some prev -> Formula.term_or prev phase_formula
           in
           Hashtbl.replace raw_formula_table key merged
       | _ -> ())
@@ -339,13 +246,14 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(steps : product_step li
             let exclusive =
               match covered_opt with
               | None -> raw_fo
-              | Some covered -> term_and raw_fo (term_not covered)
+              | Some covered -> Formula.term_and raw_fo (Formula.term_not covered)
             in
-            Hashtbl.replace exclusive_formula_table key (normalize_source_summary exclusive);
+            Hashtbl.replace exclusive_formula_table key
+              (Formula.normalize_source_summary exclusive);
             let covered_opt =
               match covered_opt with
               | None -> Some raw_fo
-              | Some covered -> Some (term_or covered raw_fo)
+              | Some covered -> Some (Formula.term_or covered raw_fo)
             in
             (covered_opt, ()))
           (None, ()) entries
@@ -360,7 +268,7 @@ let build_source_summary_clauses ~(node : Abs.node_ir) ~(steps : product_step li
              let key = (st.prog_state, st.guarantee_state_index) in
              match Hashtbl.find_opt exclusive_formula_table key with
              | Some phase_formula
-               when not (phase_summary_obviously_inconsistent phase_formula) ->
+               when not (Formula.phase_summary_obviously_inconsistent phase_formula) ->
                  {
                    classified with
                    clause =
@@ -386,7 +294,7 @@ let compatibility_phase_formula_for_step ~projection step =
       | f :: rest ->
           Some
             (List.fold_left Core_syntax_builders.mk_hor f rest
-            |> normalize_phase_summary))
+            |> Formula.normalize_phase_summary))
 
 let invariant_formulas_for_state (node : Abs.node_ir) state_name =
   node.source_info.state_invariants
@@ -471,7 +379,7 @@ let build ~(node : Abs.node_ir) ~(initial_state : product_state_anchor)
         let safety =
           match step.step_class with
           | StepBadGuarantee ->
-              split_top_level_or step.guarantee_guard
+              Formula.split_top_level_or step.guarantee_guard
               |> List.map (fun bad_case ->
                      mk_clause Family.Safety step_context
                        ~hypotheses:

@@ -31,14 +31,14 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 46,221 lines
+- OCaml size in `lib` and `bin`: 46,303 lines
 - Largest modules:
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.mli`: 517 lines
-  - `lib/domain/verification/kernel_clause_projection.ml`: 491 lines
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`: 435 lines
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
   - `lib/adapters/out/external/timing/external_timing_store.ml`: 405 lines
+  - `lib/domain/verification/kernel_clause_projection.ml`: 399 lines
 - `ml` files without matching `mli`: 15
 - Libraries declared with `(wrapped false)`: 28
 - Direct `open` directives in OCaml files: 347
@@ -188,11 +188,13 @@ Completed target:
   statement emission, node emission, and file assembly.
 - split `core_fo_simplifier.ml` into keys/literals, Boolean/DNF
   reconstruction, and public cache/facade.
+- split `kernel_clause_projection.ml` into formula normalization,
+  transition-identifier parsing, and the public clause builder/facade.
 
 Remaining targets:
 
-- review `kernel_clause_projection.ml` and `product_characteristics.ml` after
-  the correction-boundary API is stable.
+- review `product_characteristics.ml` after the correction-boundary API is
+  stable.
 
 Refactoring target:
 
