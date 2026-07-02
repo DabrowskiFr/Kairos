@@ -1,0 +1,4 @@
+# Formatting is opt-in while the repository is migrated.
+# Add paths here only in commits that format those paths intentionally.
+lib/adapters/out/codegen/c/c_codegen*.ml
+lib/adapters/out/codegen/c/c_codegen*.mli

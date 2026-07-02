@@ -2,7 +2,7 @@
  (name kairos)
  (public_name kairos)
  (modules cli_types cli_pipeline_service cli_output cli_runtime kairos)
-(libraries
+ (libraries
   kairos_application
   kairos_composition
   kairos_c_codegen

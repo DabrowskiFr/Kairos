@@ -16,8 +16,5 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+type generated_file = { file_name : string; contents : string }
 (** File emitted by the C backend. *)
-type generated_file = {
-  file_name : string;
-  contents : string;
-}

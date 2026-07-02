@@ -18,14 +18,7 @@
 
 (** C emission for imperative core statements. *)
 
-val emit_stmt :
-  C_codegen_env.node_env ->
-  int ->
-  Core_syntax.stmt ->
-  (string list, string) result
+val emit_stmt : C_codegen_env.node_env -> int -> Core_syntax.stmt -> (string list, string) result
 
 val emit_stmts :
-  C_codegen_env.node_env ->
-  int ->
-  Core_syntax.stmt list ->
-  (string list, string) result
+  C_codegen_env.node_env -> int -> Core_syntax.stmt list -> (string list, string) result

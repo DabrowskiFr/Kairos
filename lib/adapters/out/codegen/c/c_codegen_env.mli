@@ -20,11 +20,7 @@
 
 type program_env = { enum_ctor_types : (Core_syntax.ident, Core_syntax.ident) Hashtbl.t }
 type variable_scope = Core_syntax.ident -> string option
-
-type expr_env = {
-  program_env : program_env;
-  variable_name : variable_scope;
-}
+type expr_env = { program_env : program_env; variable_name : variable_scope }
 
 type node_env = {
   expr_env : expr_env;
@@ -36,14 +32,7 @@ type node_env = {
 }
 
 val program_env : Core_syntax.enum_decl list -> program_env
-
-val enum_ctor_c_name :
-  expr_env -> Core_syntax.ident -> (string, string) result
-
-val function_scope :
-  Core_syntax.vdecl list -> Core_syntax.ident -> string option
-
+val enum_ctor_c_name : expr_env -> Core_syntax.ident -> (string, string) result
+val function_scope : Core_syntax.vdecl list -> Core_syntax.ident -> string option
 val node_env : program_env -> Verification_model.node_model -> node_env
-
-val lvalue_of_ident :
-  node_env -> Core_syntax.ident -> (string, string) result
+val lvalue_of_ident : node_env -> Core_syntax.ident -> (string, string) result

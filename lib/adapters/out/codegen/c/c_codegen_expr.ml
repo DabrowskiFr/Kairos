@@ -82,10 +82,8 @@ let rec c_hexpr env (h : C.hexpr) =
       | Some c_name -> Ok c_name
       | None -> Common.errorf "unknown variable '%s' in assertion expression" name)
   | C.HPreK (name, k) ->
-      Common.errorf
-        "historical expression pre^%d(%s) cannot be emitted as a C runtime \
-         assertion"
-        k name
+      Common.errorf "historical expression pre^%d(%s) cannot be emitted as a C runtime assertion" k
+        name
   | C.HPred (name, _) ->
       Common.errorf "predicate '%s' cannot be emitted as a C runtime assertion" name
   | C.HFunCall (fn, args) ->

@@ -28,12 +28,7 @@
   kairos_to_model
   kairos_frontend)
  (private_modules kx_lexer kx_parser)
- (libraries
-  kairos_application
-  kairos_domain_core
-  menhirLib
-  sedlex
-  yojson)
+ (libraries kairos_application kairos_domain_core menhirLib sedlex yojson)
  (preprocess
   (pps sedlex.ppx ppx_deriving_yojson)))
 

@@ -31,7 +31,7 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 46,170 lines
+- OCaml size in `lib` and `bin`: 46,117 lines
 - Largest modules:
   - `lib/domain/core/core_fo_simplifier.ml`: 576 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.mli`: 517 lines
@@ -43,7 +43,7 @@ Size and maintainability indicators:
 - `ml` files without matching `mli`: 15
 - Libraries declared with `(wrapped false)`: 29
 - Direct `open` directives in OCaml files: 347
-- Repository-level OCaml formatting configuration: none
+- Repository-level OCaml formatting configuration: opt-in OCamlFormat policy
 - Frontend/model-validation `failwith` occurrences in `kairos_lang`: 0.
 - Expected user errors outside the frontend are still sometimes represented by
   exceptions and later converted through `Printexc.to_string`.
@@ -228,6 +228,10 @@ The first executable check only prevents regression:
 python3 scripts/check_quality_baseline.py --max-wrapped-false 29
 ```
 
+The migration policy is recorded in
+`docs/architecture/ocaml_formatting_policy.md`.  The quality baseline now fails
+if the repository-level OCamlFormat configuration is removed.
+
 ### Q8. Performance Has Stable Baselines
 
 Performance work must distinguish:
@@ -303,7 +307,9 @@ paper benchmark policy is frozen.
      responsibility or a split plan.
 
 4. Establish OCaml formatting policy.
-   - Acceptance: `.ocamlformat` exists and the migration policy is documented.
+   - Status: done. `.ocamlformat` exists, formatting is opt-in through
+     `.ocamlformat-enable`, and the migration policy is documented in
+     `docs/architecture/ocaml_formatting_policy.md`.
 
 5. Replace exception plumbing in the main pipeline with structured errors.
    - Acceptance: expected frontend/product/backend errors are classified in
@@ -335,6 +341,6 @@ paper benchmark policy is frozen.
 ## Immediate Recommended Sequence
 
 1. Ratchet quality-baseline thresholds down as debts are fixed.
-2. Define `.ocamlformat` and formatting migration policy.
-3. Start a `(wrapped false)` migration policy for new code only.
-4. Split or justify the next modules over 400 lines.
+2. Start a `(wrapped false)` migration policy for new code only.
+3. Split or justify the next modules over 400 lines.
+4. Replace more expected exception plumbing with structured errors.

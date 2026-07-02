@@ -21,6 +21,4 @@
 val emit_function_prototype : Core_syntax.pure_function_decl -> string
 
 val emit_function_definition :
-  C_codegen_env.program_env ->
-  Core_syntax.pure_function_decl ->
-  (string list, string) result
+  C_codegen_env.program_env -> Core_syntax.pure_function_decl -> (string list, string) result

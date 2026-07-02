@@ -16,9 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = C_codegen_types.generated_file = {
-  file_name : string;
-  contents : string;
-}
+type generated_file = C_codegen_types.generated_file = { file_name : string; contents : string }
 
 let emit_program = C_codegen_program.emit_program

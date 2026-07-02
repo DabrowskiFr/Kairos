@@ -38,36 +38,37 @@ let rec emit_stmt env level (s : C.stmt) =
       let* else_lines = emit_stmts env (level + 1) else_stmts in
       let open_line = Common.line level ("if " ^ Expr.condition_text cond ^ " {") in
       let close_line = Common.line level "}" in
-      if else_lines = [] then Ok (open_line :: then_lines @ [ close_line ])
+      if else_lines = [] then Ok ((open_line :: then_lines) @ [ close_line ])
       else
         Ok
-          (open_line :: then_lines
+          ((open_line :: then_lines)
           @ [ Common.line level "} else {" ]
           @ else_lines @ [ close_line ])
   | C.SWhile (cond, _invariants, _variant, body) ->
       let* cond = Expr.c_expr env.expr_env cond in
       let* body_lines = emit_stmts env (level + 1) body in
       Ok
-        (Common.line level ("while " ^ Expr.condition_text cond ^ " {")
-        :: body_lines @ [ Common.line level "}" ])
+        ((Common.line level ("while " ^ Expr.condition_text cond ^ " {") :: body_lines)
+        @ [ Common.line level "}" ])
   | C.SMatch (scrutinee, branches, default_branch) ->
       let* scrutinee = Expr.c_expr env.expr_env scrutinee in
       let emit_branch (ctor, stmts) =
         let* ctor = Env.enum_ctor_c_name env.expr_env ctor in
         let* body_lines = emit_stmts env (level + 1) stmts in
         Ok
-          (Common.line level ("case " ^ ctor ^ ":")
-          :: body_lines @ [ Common.line (level + 1) "break;" ])
+          ((Common.line level ("case " ^ ctor ^ ":") :: body_lines)
+          @ [ Common.line (level + 1) "break;" ])
       in
       let* branch_lines = Common.concat_map_result emit_branch branches in
       let* default_lines = emit_stmts env (level + 1) default_branch in
       let default_block =
         if default_lines = [] then []
-        else Common.line level "default:" :: default_lines @ [ Common.line (level + 1) "break;" ]
+        else (Common.line level "default:" :: default_lines) @ [ Common.line (level + 1) "break;" ]
       in
       Ok
-        (Common.line level ("switch (" ^ scrutinee ^ ") {")
-        :: branch_lines @ default_block @ [ Common.line level "}" ])
+        ((Common.line level ("switch (" ^ scrutinee ^ ") {") :: branch_lines)
+        @ default_block
+        @ [ Common.line level "}" ])
   | C.SSkip -> Ok []
   | C.SCall (callee, _, _) ->
       Common.errorf "node call '%s' is not supported by the C backend yet" callee

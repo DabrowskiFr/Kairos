@@ -8,6 +8,4 @@
   automata_graph_product
   automata_graph_program
   automata_graph_render)
- (libraries
-  kairos_domain_core
-  kairos_domain_verification))
+ (libraries kairos_domain_core kairos_domain_verification))

@@ -6,6 +6,4 @@
   why_runtime_view_slicing
   why_runtime_view_actions
   why_runtime_view)
- (libraries
-  kairos_domain_core
-  kairos_domain_verification))
+ (libraries kairos_domain_core kairos_domain_verification))

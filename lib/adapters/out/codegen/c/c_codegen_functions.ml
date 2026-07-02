@@ -31,18 +31,15 @@ let function_signature (f : C.pure_function_decl) =
       f.function_params
   in
   let params = if params = [] then [ "void" ] else params in
-  "static inline " ^ Names.c_type_name f.function_return ^ " "
-  ^ Names.pure_function_name f.function_name ^ "("
-  ^ String.concat ", " params ^ ")"
+  "static inline "
+  ^ Names.c_type_name f.function_return
+  ^ " "
+  ^ Names.pure_function_name f.function_name
+  ^ "(" ^ String.concat ", " params ^ ")"
 
 let emit_function_prototype f = function_signature f ^ ";"
 
 let emit_function_definition program_env (f : C.pure_function_decl) =
   let env = { Env.program_env; variable_name = Env.function_scope f.function_params } in
   let* body = Expr.c_expr env f.function_body in
-  Ok
-    [
-      function_signature f ^ " {";
-      Common.line 1 ("return " ^ body ^ ";");
-      "}";
-    ]
+  Ok [ function_signature f ^ " {"; Common.line 1 ("return " ^ body ^ ";"); "}" ]

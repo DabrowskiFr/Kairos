@@ -67,22 +67,13 @@ let c_keywords =
     "_Thread_local";
   ]
 
-let c_keyword_set =
-  List.fold_left (fun acc kw -> StringSet.add kw acc) StringSet.empty c_keywords
-
-let is_ident_start = function
-  | 'A' .. 'Z' | 'a' .. 'z' | '_' -> true
-  | _ -> false
-
-let is_ident_char = function
-  | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' -> true
-  | _ -> false
+let c_keyword_set = List.fold_left (fun acc kw -> StringSet.add kw acc) StringSet.empty c_keywords
+let is_ident_start = function 'A' .. 'Z' | 'a' .. 'z' | '_' -> true | _ -> false
+let is_ident_char = function 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' -> true | _ -> false
 
 let sanitize_ident raw =
   let b = Buffer.create (String.length raw + 8) in
-  String.iter
-    (fun c -> Buffer.add_char b (if is_ident_char c then c else '_'))
-    raw;
+  String.iter (fun c -> Buffer.add_char b (if is_ident_char c then c else '_')) raw;
   let s = Buffer.contents b in
   let s = if s = "" then "x" else s in
   let s = if is_ident_start s.[0] then s else "_" ^ s in
@@ -109,8 +100,10 @@ let state_type_name node = node_base_name node ^ "_state_t"
 let control_state_type_name node = node_base_name node ^ "_control_state_t"
 let init_function_name node = node_base_name node ^ "_init"
 let step_function_name node = node_base_name node ^ "_step"
+
 let control_state_ctor node state =
   "KAIROS_" ^ upper_ident (node_base_name node) ^ "_STATE_" ^ upper_ident state
+
 let pure_function_name name = "kairos_fn_" ^ sanitize_ident name
 let input_name (v : C.vdecl) = "in_" ^ sanitize_ident v.vname
 let input_name_of_ident name = "in_" ^ sanitize_ident name

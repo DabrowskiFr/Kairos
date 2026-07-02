@@ -8,9 +8,7 @@
   why_compile_expr_print
   why_compile_expr_compile
   why_compile_expr)
- (libraries
-  kairos_domain_core
-  why3))
+ (libraries kairos_domain_core why3))
 
 (library
  (name kairos_why3_compile)

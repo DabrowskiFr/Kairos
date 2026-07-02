@@ -2,7 +2,7 @@
  (name kairos_external_why3)
  (wrapped false)
  (modules
- why_task_support
+  why_task_support
   why_contract_unix_io
   why_contract_proof_types
   why_contract_smt_utils

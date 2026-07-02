@@ -20,21 +20,16 @@
 
 val sanitize_ident : string -> string
 val upper_ident : string -> string
-
 val c_type_name : Core_syntax.ty -> string
 val zero_value : Core_syntax.ty -> string
-
 val enum_type_name : Core_syntax.ident -> string
 val enum_ctor_name : Core_syntax.ident -> Core_syntax.ident -> string
-
 val node_base_name : Verification_model.node_model -> string
 val state_type_name : Verification_model.node_model -> string
 val control_state_type_name : Verification_model.node_model -> string
 val init_function_name : Verification_model.node_model -> string
 val step_function_name : Verification_model.node_model -> string
-val control_state_ctor :
-  Verification_model.node_model -> Core_syntax.ident -> string
-
+val control_state_ctor : Verification_model.node_model -> Core_syntax.ident -> string
 val pure_function_name : Core_syntax.ident -> string
 val input_name : Core_syntax.vdecl -> string
 val input_name_of_ident : Core_syntax.ident -> string
@@ -45,5 +40,4 @@ val field_name : Core_syntax.vdecl -> string
 val field_name_of_ident : Core_syntax.ident -> string
 val function_param_name : Core_syntax.vdecl -> string
 val function_param_name_of_ident : Core_syntax.ident -> string
-
 val header_guard_of_name : string -> string

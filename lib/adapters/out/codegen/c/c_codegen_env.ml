@@ -23,11 +23,7 @@ module StringSet = Common.StringSet
 
 type program_env = { enum_ctor_types : (C.ident, C.ident) Hashtbl.t }
 type variable_scope = C.ident -> string option
-
-type expr_env = {
-  program_env : program_env;
-  variable_name : variable_scope;
-}
+type expr_env = { program_env : program_env; variable_name : variable_scope }
 
 type node_env = {
   expr_env : expr_env;
@@ -58,9 +54,7 @@ let node_env program_env (node : Verification_model.node_model) =
   let output_names = set_of_vdecls node.outputs in
   let local_names = set_of_vdecls node.locals in
   let ghost_names = set_of_vdecls node.ghosts in
-  let variable_name =
-    node_variable_name input_names output_names local_names ghost_names
-  in
+  let variable_name = node_variable_name input_names output_names local_names ghost_names in
   {
     expr_env = { program_env; variable_name };
     node;

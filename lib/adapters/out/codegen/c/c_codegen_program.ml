@@ -30,11 +30,11 @@ let dedup_by key xs =
   let seen = Hashtbl.create 16 in
   xs
   |> List.filter (fun x ->
-         let k = key x in
-         if Hashtbl.mem seen k then false
-         else (
-           Hashtbl.add seen k ();
-           true))
+      let k = key x in
+      if Hashtbl.mem seen k then false
+      else (
+        Hashtbl.add seen k ();
+        true))
 
 let collect_type_decls program =
   program
@@ -49,8 +49,7 @@ let collect_function_decls program =
 let rec expr_function_calls acc (e : C.expr) =
   match e.expr with
   | C.ELitInt _ | C.ELitBool _ | C.ELitEnum _ | C.EVar _ -> acc
-  | C.EFunCall (fn, args) ->
-      List.fold_left expr_function_calls (Common.StringSet.add fn acc) args
+  | C.EFunCall (fn, args) -> List.fold_left expr_function_calls (Common.StringSet.add fn acc) args
   | C.EBin (_, left, right) | C.ECmp (_, left, right) ->
       expr_function_calls (expr_function_calls acc left) right
   | C.EUn (_, inner) -> expr_function_calls acc inner
@@ -58,10 +57,8 @@ let rec expr_function_calls acc (e : C.expr) =
 let rec hexpr_function_calls acc (h : C.hexpr) =
   match h.hexpr with
   | C.HLitInt _ | C.HLitBool _ | C.HLitEnum _ | C.HVar _ | C.HPreK _ -> acc
-  | C.HPred (_, args) ->
-      List.fold_left hexpr_function_calls acc args
-  | C.HFunCall (fn, args) ->
-      List.fold_left hexpr_function_calls (Common.StringSet.add fn acc) args
+  | C.HPred (_, args) -> List.fold_left hexpr_function_calls acc args
+  | C.HFunCall (fn, args) -> List.fold_left hexpr_function_calls (Common.StringSet.add fn acc) args
   | C.HBin (_, left, right) | C.HCmp (_, left, right) ->
       hexpr_function_calls (hexpr_function_calls acc left) right
   | C.HUn (_, inner) -> hexpr_function_calls acc inner
@@ -90,9 +87,7 @@ let rec stmt_function_calls acc (s : C.stmt) =
 
 let step_function_calls acc (step : Verification_model.program_step) =
   let acc =
-    match step.guard_expr with
-    | None -> acc
-    | Some guard -> expr_function_calls acc guard
+    match step.guard_expr with None -> acc | Some guard -> expr_function_calls acc guard
   in
   let acc = List.fold_left stmt_function_calls acc step.body_stmts in
   acc
@@ -136,8 +131,7 @@ let emit_header ~header_name program =
   let guard = Names.header_guard_of_name header_name in
   let type_lines = List.concat_map Node.emit_enum_decl type_decls in
   let node_lines =
-    program
-    |> List.concat_map (fun node -> Node.emit_node_header node @ [ Common.blank ])
+    program |> List.concat_map (fun node -> Node.emit_node_header node @ [ Common.blank ])
   in
   Common.join_lines
     ([
@@ -151,15 +145,10 @@ let emit_header ~header_name program =
        "#endif";
        Common.blank;
      ]
-    @ type_lines @ (if type_lines = [] then [] else [ Common.blank ])
+    @ type_lines
+    @ (if type_lines = [] then [] else [ Common.blank ])
     @ node_lines
-    @ [
-        "#ifdef __cplusplus";
-        "}";
-        "#endif";
-        Common.blank;
-        "#endif";
-      ])
+    @ [ "#ifdef __cplusplus"; "}"; "#endif"; Common.blank; "#endif" ])
 
 let emit_source ~header_name program =
   let type_decls = collect_type_decls program in
@@ -172,7 +161,8 @@ let emit_source ~header_name program =
   let* step_blocks = Common.map_result (Node.emit_step_function env) program in
   let init_blocks = List.map Node.emit_init_function program in
   let function_lines =
-    prototypes @ (if prototypes = [] then [] else [ Common.blank ])
+    prototypes
+    @ (if prototypes = [] then [] else [ Common.blank ])
     @ List.concat_map (fun lines -> lines @ [ Common.blank ]) function_blocks
   in
   let node_lines =
@@ -181,11 +171,7 @@ let emit_source ~header_name program =
   in
   Ok
     (Common.join_lines
-       ([
-          "#include \"" ^ header_name ^ "\"";
-          "#include <assert.h>";
-          Common.blank;
-        ]
+       ([ "#include \"" ^ header_name ^ "\""; "#include <assert.h>"; Common.blank ]
        @ function_lines @ node_lines))
 
 let emit_program ?(header_name = "kairos_generated.h") program :
@@ -193,8 +179,7 @@ let emit_program ?(header_name = "kairos_generated.h") program :
   let* source = emit_source ~header_name program in
   let header = emit_header ~header_name program in
   let source_name =
-    if Filename.check_suffix header_name ".h" then
-      Filename.chop_suffix header_name ".h" ^ ".c"
+    if Filename.check_suffix header_name ".h" then Filename.chop_suffix header_name ".h" ^ ".c"
     else header_name ^ ".c"
   in
   Ok

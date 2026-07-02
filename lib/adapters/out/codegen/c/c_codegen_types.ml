@@ -16,7 +16,4 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type generated_file = {
-  file_name : string;
-  contents : string;
-}
+type generated_file = { file_name : string; contents : string }

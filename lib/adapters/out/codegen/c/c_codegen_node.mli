@@ -23,6 +23,4 @@ val emit_node_header : Verification_model.node_model -> string list
 val emit_init_function : Verification_model.node_model -> string list
 
 val emit_step_function :
-  C_codegen_env.program_env ->
-  Verification_model.node_model ->
-  (string list, string) result
+  C_codegen_env.program_env -> Verification_model.node_model -> (string list, string) result

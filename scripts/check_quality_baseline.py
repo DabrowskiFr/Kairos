@@ -166,7 +166,6 @@ def main() -> int:
     parser.add_argument("--max-printexc", type=int, default=DEFAULT_MAX_PRINTEXC)
     parser.add_argument("--max-assert-false", type=int, default=DEFAULT_MAX_ASSERT_FALSE)
     parser.add_argument("--max-marshal", type=int, default=DEFAULT_MAX_MARSHAL)
-    parser.add_argument("--require-ocamlformat", action="store_true")
     args = parser.parse_args()
 
     repo = Path(args.repo_root).resolve() if args.repo_root else default_repo_root()
@@ -186,7 +185,7 @@ def main() -> int:
     check_leq("assert false occurrences", metrics.assert_false, args.max_assert_false)
     check_leq("Marshal occurrences", metrics.marshal, args.max_marshal)
 
-    if args.require_ocamlformat and not metrics.has_ocamlformat:
+    if not metrics.has_ocamlformat:
         fail("missing repository-level .ocamlformat")
 
     print("[quality] OK: quality baseline checks passed")
