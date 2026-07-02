@@ -31,7 +31,7 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 45,327 lines
+- OCaml size in `lib` and `bin`: 45,676 lines
 - Largest modules:
   - `lib/adapters/out/codegen/c/c_codegen.ml`: 650 lines
   - `lib/domain/core/core_fo_simplifier.ml`: 576 lines
@@ -40,7 +40,7 @@ Size and maintainability indicators:
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`: 435 lines
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
-- `ml` files without matching `mli`: 23
+- `ml` files without matching `mli`: 15
 - Libraries declared with `(wrapped false)`: 29
 - Direct `open` directives in OCaml files: 348
 - Repository-level OCaml formatting configuration: none
@@ -140,21 +140,15 @@ python3 scripts/check_quality_baseline.py --max-missing-mli 0
 Current executable baseline:
 
 ```sh
-python3 scripts/check_quality_baseline.py --max-missing-mli 23
+python3 scripts/check_quality_baseline.py --max-missing-mli 15
 ```
 
 The current executable check is deliberately repository-wide and conservative.
-It prevents regression while the thresholds are ratcheted down.  The next
-manual priority is the proof-relevant subset, starting with:
-
-- `lib/domain/core/core_fo_simplifier.ml`
-- `lib/domain/core/core_syntax.ml`
-- `lib/domain/core/loc.ml`
-- `lib/domain/verification/automaton_types.ml`
-- `lib/domain/verification/formula_sharing.ml`
-- `lib/domain/proof_export/proof_kernel_clause_lowering.ml`
-- `lib/domain/proof_export/proof_kernel_generated_clauses.ml`
-- `lib/domain/proof_export/proof_kernel_step_summaries.ml`
+It prevents regression while the thresholds are ratcheted down.  The
+proof-relevant subset in `domain/core`, `domain/verification`, and
+`domain/proof_export` has explicit interfaces.  The remaining missing
+interfaces are in frontend adapter internals, runtime-orchestration helpers,
+and executable entry points.
 
 ### Q5. Expected Failures Are Structured
 
@@ -291,7 +285,8 @@ paper benchmark policy is frozen.
 ### P1 - Required For Maintainability
 
 1. Add `.mli` files to proof-relevant modules that currently lack them.
-   - Start with domain/core, domain/verification, domain/proof_export.
+   - Status: done for domain/core, domain/verification, and
+     domain/proof_export.
 
 2. Split `lib/adapters/out/codegen/c/c_codegen.ml`.
    - The current file is functional but monolithic.
@@ -335,7 +330,6 @@ paper benchmark policy is frozen.
 ## Immediate Recommended Sequence
 
 1. Ratchet quality-baseline thresholds down as debts are fixed.
-2. Add `.mli` files for proof-relevant modules without changing behavior.
-3. Split the C backend.
-4. Define `.ocamlformat` and formatting migration policy.
-5. Start a `(wrapped false)` migration policy for new code only.
+2. Split the C backend.
+3. Define `.ocamlformat` and formatting migration policy.
+4. Start a `(wrapped false)` migration policy for new code only.
