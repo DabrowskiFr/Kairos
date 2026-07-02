@@ -31,9 +31,8 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 46,117 lines
+- OCaml size in `lib` and `bin`: 46,221 lines
 - Largest modules:
-  - `lib/domain/core/core_fo_simplifier.ml`: 576 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.mli`: 517 lines
   - `lib/domain/verification/kernel_clause_projection.ml`: 491 lines
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
@@ -187,11 +186,11 @@ Completed target:
 
 - split `c_codegen.ml` into naming, type emission, expression emission,
   statement emission, node emission, and file assembly.
+- split `core_fo_simplifier.ml` into keys/literals, Boolean/DNF
+  reconstruction, and public cache/facade.
 
 Remaining targets:
 
-- split `core_fo_simplifier.ml` into keys/literals, boolean simplification,
-  cube/DNF simplification, and public facade;
 - review `kernel_clause_projection.ml` and `product_characteristics.ml` after
   the correction-boundary API is stable.
 
@@ -205,7 +204,7 @@ Temporary exceptions must be named and justified.
 The current no-regression baseline is:
 
 ```sh
-python3 scripts/check_quality_baseline.py --max-module-lines 576
+python3 scripts/check_quality_baseline.py --max-module-lines 517
 ```
 
 ### Q7. Formatting And Namespaces Are Deliberate

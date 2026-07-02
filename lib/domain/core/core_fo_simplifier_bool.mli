@@ -16,17 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Conservative first-order simplification for core historical formulas.
+(** Boolean reconstruction and bounded DNF simplifications. *)
 
-    The simplifier is used by reference construction and backend preparation to remove local
-    Boolean/relational noise. It must preserve formula meaning; callers must not rely on any
-    particular normal form beyond structural equality of the returned syntax. *)
-
-val key_of_hexpr : Core_syntax.hexpr -> string
-(** Deterministic structural key for formulas.
-
-    The key is for memoization and deduplication only. It is not a semantic hash and must not be
-    used as a proof object. *)
-
-val simplify : Core_syntax.hexpr -> Core_syntax.hexpr
-(** Simplify a historical first-order formula while preserving its meaning. *)
+val rebuild_and_syntax : Core_syntax.hexpr list -> Core_syntax.hexpr
+val rebuild_or_syntax : Core_syntax.hexpr list -> Core_syntax.hexpr

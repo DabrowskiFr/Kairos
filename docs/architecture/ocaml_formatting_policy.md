@@ -34,3 +34,5 @@ them should keep that alias clean.
 
 - `lib/adapters/out/codegen/c/c_codegen*.ml`
 - `lib/adapters/out/codegen/c/c_codegen*.mli`
+- `lib/domain/core/core_fo_simplifier*.ml`
+- `lib/domain/core/core_fo_simplifier*.mli`

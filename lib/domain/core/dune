@@ -6,6 +6,8 @@
   loc
   core_syntax
   core_syntax_builders
+  core_fo_simplifier_keys
+  core_fo_simplifier_bool
   core_fo_simplifier
   pretty
   log
@@ -17,6 +19,7 @@
   ir_shared_types
   ir_formula
   ir_transition)
+ (private_modules core_fo_simplifier_keys core_fo_simplifier_bool)
  (libraries yojson logs logs.fmt fmt)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))
