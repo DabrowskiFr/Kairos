@@ -238,10 +238,14 @@ type config = {
 
 type error =
   | Parse_error of string
+  | Elaboration_error of string
+  | Type_error of string
+  | Well_formedness_error of string
   | Flow_error of string
   | Why3_error of string
   | Prove_error of string
   | Io_error of string
+  | Internal_error of string
 
 (** Pretty-printer for pipeline errors. *)
 

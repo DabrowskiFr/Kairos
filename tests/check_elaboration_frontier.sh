@@ -35,6 +35,13 @@ require_not_contains() {
   fi
 }
 
+require_structured_frontend_failure() {
+  local file="$1"
+  local label="$2"
+  require_not_contains "$file" "Failure\\(" "$label"
+  require_not_contains "$file" "Kx_frontend_error" "$label"
+}
+
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
@@ -246,6 +253,7 @@ if "$cli" --dump-elaborated="$tmpdir/unknown.json" "$unknown_pred" >"$unknown_ou
 fi
 cat "$unknown_out" "$unknown_err" > "$unknown_combined"
 require_contains "$unknown_combined" "unknown predicate 'ghostPredicate'" "unknown predicate failure"
+require_structured_frontend_failure "$unknown_combined" "unknown predicate failure"
 
 if "$cli" --dump-elaborated="$tmpdir/unknown-history.json" "$unknown_history" >"$unknown_history_out" 2>"$unknown_history_err"; then
   echo "Expected unknown history definition test to fail during elaboration" >&2
@@ -253,6 +261,7 @@ if "$cli" --dump-elaborated="$tmpdir/unknown-history.json" "$unknown_history" >"
 fi
 cat "$unknown_history_out" "$unknown_history_err" > "$unknown_history_combined"
 require_contains "$unknown_history_combined" "unknown history definition 'missing'" "unknown history definition failure"
+require_structured_frontend_failure "$unknown_history_combined" "unknown history definition failure"
 
 if "$cli" --dump-elaborated="$tmpdir/concise-observer.json" "$concise_observer_bad_pre" >"$concise_observer_out" 2>"$concise_observer_err"; then
   echo "Expected concise observer bad pre test to fail during parsing" >&2
@@ -260,6 +269,7 @@ if "$cli" --dump-elaborated="$tmpdir/concise-observer.json" "$concise_observer_b
 fi
 cat "$concise_observer_out" "$concise_observer_err" > "$concise_observer_combined"
 require_contains "$concise_observer_combined" "observer being defined" "concise observer bad pre failure"
+require_structured_frontend_failure "$concise_observer_combined" "concise observer bad pre failure"
 
 if "$cli" --dump-elaborated="$tmpdir/multi-arity.json" "$multiple_assignment_arity" >"$multi_arity_out" 2>"$multi_arity_err"; then
   echo "Expected multiple-assignment arity test to fail during parsing" >&2
@@ -267,6 +277,7 @@ if "$cli" --dump-elaborated="$tmpdir/multi-arity.json" "$multiple_assignment_ari
 fi
 cat "$multi_arity_out" "$multi_arity_err" > "$multi_arity_combined"
 require_contains "$multi_arity_combined" "multiple assignment arity mismatch" "multiple-assignment arity failure"
+require_structured_frontend_failure "$multi_arity_combined" "multiple-assignment arity failure"
 
 if "$cli" --dump-elaborated="$tmpdir/multi-rhs.json" "$multiple_assignment_rhs_depends" >"$multi_rhs_out" 2>"$multi_rhs_err"; then
   echo "Expected multiple-assignment rhs dependency test to fail during parsing" >&2
@@ -274,6 +285,7 @@ if "$cli" --dump-elaborated="$tmpdir/multi-rhs.json" "$multiple_assignment_rhs_d
 fi
 cat "$multi_rhs_out" "$multi_rhs_err" > "$multi_rhs_combined"
 require_contains "$multi_rhs_combined" "right-hand side mentions assigned variable" "multiple-assignment rhs dependency failure"
+require_structured_frontend_failure "$multi_rhs_combined" "multiple-assignment rhs dependency failure"
 
 if "$cli" --dump-elaborated="$tmpdir/observer.json" "$observer_drives_output" >"$observer_out" 2>"$observer_err"; then
   echo "Expected observer behavior test to fail during elaboration" >&2
@@ -281,6 +293,7 @@ if "$cli" --dump-elaborated="$tmpdir/observer.json" "$observer_drives_output" >"
 fi
 cat "$observer_out" "$observer_err" > "$observer_combined"
 require_contains "$observer_combined" "reads observer 'peak'" "observer behavior failure"
+require_structured_frontend_failure "$observer_combined" "observer behavior failure"
 
 if "$cli" --check-frontend "$private_ghost_contract" >"$private_ghost_out" 2>"$private_ghost_err"; then
   echo "Expected private ghost contract test to fail during frontend checking" >&2
@@ -289,6 +302,7 @@ fi
 cat "$private_ghost_out" "$private_ghost_err" > "$private_ghost_combined"
 require_contains "$private_ghost_combined" "ensures contract mentions ghost variable 'private'" \
   "private ghost contract failure"
+require_structured_frontend_failure "$private_ghost_combined" "private ghost contract failure"
 
 if "$cli" --check-frontend "$node_requires_output" >"$node_requires_out" 2>"$node_requires_err"; then
   echo "Expected node requires output test to fail during frontend checking" >&2
@@ -297,6 +311,7 @@ fi
 cat "$node_requires_out" "$node_requires_err" > "$node_requires_combined"
 require_contains "$node_requires_combined" "requires contract mentions non-input variable 'y'" \
   "node requires output failure"
+require_structured_frontend_failure "$node_requires_combined" "node requires output failure"
 
 if "$cli" --check-frontend "$assign_input" >"$assign_input_out" 2>"$assign_input_err"; then
   echo "Expected input assignment test to fail during frontend checking" >&2
@@ -305,6 +320,7 @@ fi
 cat "$assign_input_out" "$assign_input_err" > "$assign_input_combined"
 require_contains "$assign_input_combined" "assignment cannot target input variable 'x'" \
   "input assignment failure"
+require_structured_frontend_failure "$assign_input_combined" "input assignment failure"
 
 if "$cli" --dump-ir-pretty="$tmpdir/state-inv-current-input.ir" "$state_invariant_current_input" >"$state_inv_current_input_out" 2>"$state_inv_current_input_err"; then
   echo "Expected state invariant current-input test to fail during IR construction" >&2
@@ -323,6 +339,7 @@ if "$cli" --dump-elaborated="$tmpdir/internal.json" "$internal_prefix_reserved" 
 fi
 cat "$internal_out" "$internal_err" > "$internal_combined"
 require_contains "$internal_combined" "reserved internal prefix __kairos_" "internal prefix failure"
+require_structured_frontend_failure "$internal_combined" "internal prefix failure"
 
 if "$cli" --check-frontend "$uninitialized_pre_contract" >"$uninitialized_pre_contract_out" 2>"$uninitialized_pre_contract_err"; then
   echo "Expected uninitialized pre contract test to fail during validation" >&2
@@ -332,6 +349,8 @@ cat "$uninitialized_pre_contract_out" "$uninitialized_pre_contract_err" > "$unin
 require_contains "$uninitialized_pre_contract_combined" \
   "ensures contract requires 1 completed instant" \
   "uninitialized pre contract failure"
+require_structured_frontend_failure "$uninitialized_pre_contract_combined" \
+  "uninitialized pre contract failure"
 
 if "$cli" --check-frontend "$uninitialized_pre_k_invariant" >"$uninitialized_pre_k_invariant_out" 2>"$uninitialized_pre_k_invariant_err"; then
   echo "Expected uninitialized pre_k invariant test to fail during validation" >&2
@@ -340,6 +359,8 @@ fi
 cat "$uninitialized_pre_k_invariant_out" "$uninitialized_pre_k_invariant_err" > "$uninitialized_pre_k_invariant_combined"
 require_contains "$uninitialized_pre_k_invariant_combined" \
   "invariant in Run requires 2 completed instant" \
+  "uninitialized pre_k invariant failure"
+require_structured_frontend_failure "$uninitialized_pre_k_invariant_combined" \
   "uninitialized pre_k invariant failure"
 
 echo "[elaboration] OK"

@@ -43,7 +43,17 @@ let read_all_text (path : string) : (string, Application_ports.frontend_error) r
     let s = really_input_string ic len in
     close_in ic;
     Ok s
-  with exn -> Error (Application_ports.flow_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_types.Io_error (Printexc.to_string exn))
+
+let structured_frontend_error (err : Kx_frontend_error.t) :
+    Application_ports.frontend_error =
+  match err.kind with
+  | Kx_frontend_error.Parse -> Pipeline_types.Parse_error err.message
+  | Kx_frontend_error.Elaboration -> Pipeline_types.Elaboration_error err.message
+  | Kx_frontend_error.Type -> Pipeline_types.Type_error err.message
+  | Kx_frontend_error.Well_formedness ->
+      Pipeline_types.Well_formedness_error err.message
+  | Kx_frontend_error.Internal -> Pipeline_types.Internal_error err.message
 
 let parse_input ~(input_file : string) :
     (Application_ports.frontend_input, Application_ports.frontend_error) result =
@@ -65,4 +75,6 @@ let parse_input ~(input_file : string) :
             parse_info;
             verification_model;
           }
-      with exn -> Error (Application_ports.parse_error (Printexc.to_string exn)))
+      with
+      | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
+      | exn -> Error (Pipeline_types.Internal_error (Printexc.to_string exn)))

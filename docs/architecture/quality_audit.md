@@ -31,20 +31,22 @@ Validation:
 
 Size and maintainability indicators:
 
-- OCaml size in `lib` and `bin`: 45,190 lines
+- OCaml size in `lib` and `bin`: 45,327 lines
 - Largest modules:
   - `lib/adapters/out/codegen/c/c_codegen.ml`: 650 lines
   - `lib/domain/core/core_fo_simplifier.ml`: 576 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.mli`: 517 lines
   - `lib/domain/verification/kernel_clause_projection.ml`: 491 lines
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
+  - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`: 435 lines
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
 - `ml` files without matching `mli`: 23
 - Libraries declared with `(wrapped false)`: 29
 - Direct `open` directives in OCaml files: 348
 - Repository-level OCaml formatting configuration: none
-- Expected user errors are still often represented by `failwith` and later
-  converted through `Printexc.to_string`.
+- Frontend/model-validation `failwith` occurrences in `kairos_lang`: 0.
+- Expected user errors outside the frontend are still sometimes represented by
+  exceptions and later converted through `Printexc.to_string`.
 
 ## Quality Criteria
 
@@ -175,12 +177,12 @@ Error classes:
 Current executable baseline:
 
 ```sh
-python3 scripts/check_quality_baseline.py --max-failwith 128 --max-printexc 15
+python3 scripts/check_quality_baseline.py --max-failwith 39 --max-frontend-failwith 0 --max-printexc 15
 ```
 
-This is a no-regression guard, not the final quality target.  The first
-targeted cleanup is: no `failwith` in frontend elaboration/model validation
-for errors that can be triggered by a source program.
+This is a no-regression guard, not the final quality target.  The completed
+first cleanup is: no `failwith` in frontend elaboration/model validation for
+errors that can be triggered by a source program.
 
 ### Q6. Large Modules Are Split By Responsibility
 
@@ -278,11 +280,13 @@ paper benchmark policy is frozen.
 4. Introduce an executable quality-baseline script for non-semantic quality
    checks.
    - Initial checks: missing `.mli`, `(wrapped false)`, module line count,
-     `failwith` in user-triggerable paths, absence of `.ocamlformat`.
+     frontend `failwith`, global `failwith`, absence of `.ocamlformat`.
 
 5. Remove source-program-triggered `failwith` from frontend/model validation.
    - Acceptance: typed errors reach CLI/LSP without relying on
      `Printexc.to_string` for expected cases.
+   - Status: done for `lib/adapters/in/kairos_lang`, with an executable
+     no-regression check.
 
 ### P1 - Required For Maintainability
 
@@ -331,8 +335,7 @@ paper benchmark policy is frozen.
 ## Immediate Recommended Sequence
 
 1. Ratchet quality-baseline thresholds down as debts are fixed.
-2. Convert frontend/model-validation `failwith` paths to structured errors.
-3. Add `.mli` files for proof-relevant modules without changing behavior.
-4. Split the C backend.
-5. Define `.ocamlformat` and formatting migration policy.
-6. Start a `(wrapped false)` migration policy for new code only.
+2. Add `.mli` files for proof-relevant modules without changing behavior.
+3. Split the C backend.
+4. Define `.ocamlformat` and formatting migration policy.
+5. Start a `(wrapped false)` migration policy for new code only.

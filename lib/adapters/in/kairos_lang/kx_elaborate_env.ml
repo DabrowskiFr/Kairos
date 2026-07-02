@@ -52,17 +52,23 @@ let empty_spec_context =
   { formula_params = []; hexpr_params = []; nat_params = []; spec_stack = [] }
 
 let add_unique_assoc what key value assoc =
-  if List.mem_assoc key assoc then failwith (Printf.sprintf "duplicate %s '%s'" what key)
+  if List.mem_assoc key assoc then
+    Kx_frontend_error.elaboration
+      (Printf.sprintf "duplicate %s '%s'" what key)
   else (key, value) :: assoc
 
 let add_enum_set env name members =
-  if members = [] then failwith (Printf.sprintf "enum type '%s' has no constructors" name);
+  if members = [] then
+    Kx_frontend_error.well_formedness
+      (Printf.sprintf "enum type '%s' has no constructors" name);
   { env with enum_sets = add_unique_assoc "enum type" name members env.enum_sets }
 
 let enum_members env name =
   match List.assoc_opt name env.enum_sets with
   | Some members -> members
-  | None -> failwith (Printf.sprintf "unknown enum type '%s'" name)
+  | None ->
+      Kx_frontend_error.elaboration
+        (Printf.sprintf "unknown enum type '%s'" name)
 
 let expand_enum_or_single env name =
   match List.assoc_opt name env.enum_sets with Some members -> members | None -> [ name ]
@@ -95,12 +101,16 @@ let rec range_values lo hi =
 
 let eval_nat ctx = function
   | S.SNNat n ->
-      if n < 0 then failwith "natural number literal must be non-negative";
+      if n < 0 then
+        Kx_frontend_error.well_formedness
+          "natural number literal must be non-negative";
       n
   | S.SNVar id -> (
       match List.assoc_opt id ctx.nat_params with
       | Some n -> n
-      | None -> failwith (Printf.sprintf "unknown Nat parameter '%s'" id))
+      | None ->
+          Kx_frontend_error.elaboration
+            (Printf.sprintf "unknown Nat parameter '%s'" id))
 
 let function_sig env name = List.assoc_opt name env.functions
 

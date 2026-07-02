@@ -92,12 +92,12 @@ and lower_stmt_list env stack stmts =
 
 and expand_action env stack name args =
   match List.assoc_opt name env.actions with
-  | None -> failwith (Printf.sprintf "unknown action '%s'" name)
+  | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown action '%s'" name)
   | Some action ->
       if List.mem name stack then
-        failwith (Printf.sprintf "cyclic action expansion involving '%s'" name);
+        Kx_frontend_error.elaboration (Printf.sprintf "cyclic action expansion involving '%s'" name);
       if List.length action.action_params <> List.length args then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' expects %d arguments but got %d" name
              (List.length action.action_params) (List.length args));
       let body =
@@ -154,43 +154,43 @@ let node_env base_env (n : S.node) =
   List.iter
     (fun (p : S.predicate_decl) ->
       if List.mem_assoc p.predicate_name base_env.functions then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "predicate '%s' conflicts with a pure function of the same name" p.predicate_name))
     n.predicates;
   List.iter
     (fun (p : S.predicate_decl) ->
       if List.mem_assoc p.predicate_name base_env.spec_defs then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "predicate '%s' conflicts with a spec definition of the same name" p.predicate_name))
     n.predicates;
   List.iter
     (fun (p : S.predicate_decl) ->
       if List.mem_assoc p.predicate_name base_env.history_defs then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "predicate '%s' conflicts with a history definition of the same name" p.predicate_name))
     n.predicates;
   List.iter
     (fun (a : S.action_decl) ->
       if List.mem_assoc a.action_name base_env.functions then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' conflicts with a pure function of the same name" a.action_name))
     n.actions;
   List.iter
     (fun (a : S.action_decl) ->
       if List.mem_assoc a.action_name base_env.spec_defs then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' conflicts with a spec definition of the same name" a.action_name))
     n.actions;
   List.iter
     (fun (a : S.action_decl) ->
       if List.mem_assoc a.action_name base_env.history_defs then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' conflicts with a history definition of the same name" a.action_name))
     n.actions;
   List.iter
     (fun (a : S.action_decl) ->
       if List.exists (fun (p : S.predicate_decl) -> String.equal p.predicate_name a.action_name) n.predicates then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' conflicts with a predicate of the same name" a.action_name))
     n.actions;
   {
@@ -201,10 +201,10 @@ let node_env base_env (n : S.node) =
       List.map
         (fun a ->
           if a.S.alias_k < 1 then
-            failwith
+            Kx_frontend_error.elaboration
               (Printf.sprintf "history alias '%s' uses invalid k=%d (expected >= 1)" a.alias_name a.alias_k);
           if not (String.equal a.alias_param a.alias_rhs_param) then
-            failwith
+            Kx_frontend_error.elaboration
               (Printf.sprintf
                  "history alias '%s' is inconsistent: parameter is '%s' but rhs uses '%s'"
                  a.alias_name a.alias_param a.alias_rhs_param);
@@ -270,12 +270,12 @@ let elaborate_frontend_decl (env, type_decls, function_decls) = function
       (env, decl :: type_decls, function_decls)
 	  | S.SFunctionDecl f ->
 	      if List.mem_assoc f.function_name env.functions then
-	        failwith (Printf.sprintf "duplicate pure function '%s'" f.function_name);
+	        Kx_frontend_error.elaboration (Printf.sprintf "duplicate pure function '%s'" f.function_name);
 	      if List.mem_assoc f.function_name env.spec_defs then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "pure function '%s' conflicts with a spec definition of the same name" f.function_name);
 	      if List.mem_assoc f.function_name env.history_defs then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "pure function '%s' conflicts with a history definition of the same name" f.function_name);
 	      let lowered = lower_function_decl env f in
 	      let signature = (lowered.function_params, lowered.function_return) in
@@ -284,24 +284,24 @@ let elaborate_frontend_decl (env, type_decls, function_decls) = function
 	  | S.SSpecDefDecl d ->
       validate_spec_def_decl d;
       if List.mem_assoc d.spec_def_name env.spec_defs then
-        failwith (Printf.sprintf "duplicate spec definition '%s'" d.spec_def_name);
+        Kx_frontend_error.elaboration (Printf.sprintf "duplicate spec definition '%s'" d.spec_def_name);
 	      if List.mem_assoc d.spec_def_name env.functions then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "spec definition '%s' conflicts with a pure function of the same name" d.spec_def_name);
 	      if List.mem_assoc d.spec_def_name env.history_defs then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "spec definition '%s' conflicts with a history definition of the same name" d.spec_def_name);
 	      let env = { env with spec_defs = (d.spec_def_name, d) :: env.spec_defs } in
 	      (env, type_decls, function_decls)
 	  | S.SHistoryDefDecl d ->
 	      validate_history_def_decl d;
 	      if List.mem_assoc d.history_def_name env.history_defs then
-	        failwith (Printf.sprintf "duplicate history definition '%s'" d.history_def_name);
+	        Kx_frontend_error.elaboration (Printf.sprintf "duplicate history definition '%s'" d.history_def_name);
 	      if List.mem_assoc d.history_def_name env.functions then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "history definition '%s' conflicts with a pure function of the same name" d.history_def_name);
 	      if List.mem_assoc d.history_def_name env.spec_defs then
-	        failwith
+	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "history definition '%s' conflicts with a spec definition of the same name" d.history_def_name);
 	      let env = { env with history_defs = (d.history_def_name, d) :: env.history_defs } in
 	      (env, type_decls, function_decls)

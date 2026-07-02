@@ -96,10 +96,9 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
         | [ a ] -> Printf.sprintf " after '%s'" a
         | _ -> ""
       in
-      raise
-        (Failure
-           (Printf.sprintf "Parse error at %s:%d:%d near '%s'%s.%s" pos.pos_fname pos.pos_lnum col
-              lexeme context expected))
+      Kx_frontend_error.parse
+        (Printf.sprintf "Parse error at %s:%d:%d near '%s'%s.%s" pos.pos_fname
+           pos.pos_lnum col lexeme context expected)
     in
     let checkpoint = Kx_parser.Incremental.source_file start_pos in
     let surface_source = I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint in
@@ -108,36 +107,29 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
   | Kx_lexer.Lexing_error msg ->
       let pos, _ = Sedlexing.lexing_positions lb in
       let col = pos.pos_cnum - pos.pos_bol + 1 in
-      raise
-        (Failure
-           (Printf.sprintf "Lexing error at %s:%d:%d: %s" pos.pos_fname pos.pos_lnum col msg))
+      Kx_frontend_error.parse
+        (Printf.sprintf "Lexing error at %s:%d:%d: %s" pos.pos_fname
+           pos.pos_lnum col msg)
   | e ->
-      let pos, _ = Sedlexing.lexing_positions lb in
-      Printf.eprintf "Parse error at %s:%d:%d\n" pos.pos_fname pos.pos_lnum
-        (pos.pos_cnum - pos.pos_bol);
       raise e
 
 let parse_source_text_with_info ~(filename : string) ~(text : string) : source * parse_info =
   let surface_source, info = parse_surface_text_with_info ~filename ~text in
-  try
-    let elaborated_source = Kx_elaborate.elaborate_source surface_source in
-    let imports =
-      List.map
-        (fun (import_path, import_loc) -> { import_path; import_loc })
-        elaborated_source.imports
-    in
-    let parsed_source =
-      {
-        imports;
-        type_decls = elaborated_source.type_decls;
-        function_decls = elaborated_source.function_decls;
-        nodes = elaborated_source.nodes;
-      }
-    in
-    (parsed_source, info)
-  with e ->
-    Printf.eprintf "Elaboration error in %s\n" filename;
-    raise e
+  let elaborated_source = Kx_elaborate.elaborate_source surface_source in
+  let imports =
+    List.map
+      (fun (import_path, import_loc) -> { import_path; import_loc })
+      elaborated_source.imports
+  in
+  let parsed_source =
+    {
+      imports;
+      type_decls = elaborated_source.type_decls;
+      function_decls = elaborated_source.function_decls;
+      nodes = elaborated_source.nodes;
+    }
+  in
+  (parsed_source, info)
 
 let import_decl_to_yojson (decl : import_decl) : Yojson.Safe.t =
   let loc_json =

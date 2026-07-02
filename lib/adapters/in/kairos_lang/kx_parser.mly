@@ -34,7 +34,7 @@ let is_scalar_ref_named (name:string) (r:indexed_ref) : bool =
 let resolve_init_state ~(inline_init:ident option) : ident =
   match inline_init with
   | Some s -> s
-  | None -> failwith "missing init state: mark one state with '(init)'"
+  | None -> Kx_frontend_error.well_formedness "missing init state: mark one state with '(init)'"
 
 let implicit_history_alias_k (alias:string) : int option =
   let prefix = "prev" in
@@ -71,16 +71,17 @@ let internal_identifier_prefix = "__kairos_"
 
 let forbid_reserved_identifier ~(context:string) (id:string) : unit =
   if is_reserved_history_alias_name id then
-    failwith
+    Kx_frontend_error.well_formedness
       (Printf.sprintf
          "identifier '%s' is reserved for implicit history aliases (context: %s)" id context)
   else if has_prefix ~prefix:internal_identifier_prefix id then
-    failwith
+    Kx_frontend_error.well_formedness
       (Printf.sprintf "identifier '%s' uses the reserved internal prefix %s (context: %s)"
          id internal_identifier_prefix context)
 
 let concise_observer_error ~(observer:string) ~(phase:string) (msg:string) : 'a =
-  failwith (Printf.sprintf "concise observer '%s' %s expression %s" observer phase msg)
+  Kx_frontend_error.well_formedness
+    (Printf.sprintf "concise observer '%s' %s expression %s" observer phase msg)
 
 let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : expr =
   let mk desc = Kx_surface_syntax.mk_expr ?loc:h.hloc desc in
@@ -148,7 +149,7 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
   let lhs_len = List.length lhs in
   let rhs_len = List.length rhs in
   if lhs_len <> rhs_len then
-    failwith
+    Kx_frontend_error.well_formedness
       (Printf.sprintf
          "multiple assignment arity mismatch: %d left-hand side(s) but %d right-hand side(s)"
          lhs_len rhs_len);
@@ -156,12 +157,13 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
   if lhs_len > 1 then (
     (match first_duplicate lhs_names with
     | Some name ->
-        failwith (Printf.sprintf "multiple assignment assigns '%s' more than once" name)
+        Kx_frontend_error.well_formedness
+          (Printf.sprintf "multiple assignment assigns '%s' more than once" name)
     | None -> ());
     let rhs_refs = List.concat_map expr_refs rhs in
     (match List.find_opt (fun name -> List.mem name rhs_refs) lhs_names with
     | Some name ->
-        failwith
+        Kx_frontend_error.well_formedness
           (Printf.sprintf
              "multiple assignment right-hand side mentions assigned variable '%s'" name)
     | None -> ()));
@@ -171,7 +173,8 @@ let multiple_assign_stmts start_pos end_pos (lhs:indexed_ref list) (rhs:expr lis
     lhs rhs
 
 let range_strings lo hi =
-  if lo > hi then failwith "empty integer range in indexed declaration";
+  if lo > hi then
+    Kx_frontend_error.well_formedness "empty integer range in indexed declaration";
   let rec loop acc n =
     if n < lo then acc else loop (string_of_int n :: acc) (n - 1)
   in
@@ -274,12 +277,14 @@ function_decl:
       {
         let () = forbid_reserved_identifier ~context:"function name" $2 in
         if String.equal $2 "result" then
-          failwith "function name 'result' is reserved for function postconditions";
+          Kx_frontend_error.well_formedness
+            "function name 'result' is reserved for function postconditions";
         List.iter
           (fun (v:raw_vdecl) ->
             forbid_reserved_identifier ~context:"function parameter" v.raw_vname;
             if String.equal v.raw_vname "result" then
-              failwith "function parameter 'result' is reserved for function postconditions")
+              Kx_frontend_error.well_formedness
+                "function parameter 'result' is reserved for function postconditions")
           $4;
         let reqs, enss = $8 in
         {
@@ -329,7 +334,8 @@ history_def_decl:
         let () = forbid_reserved_identifier ~context:"history definition name" $3 in
         let () = forbid_reserved_identifier ~context:"history definition parameter" $5 in
         if String.equal $5 "self" then
-          failwith "history definition parameter 'self' is reserved for the generated history value";
+          Kx_frontend_error.well_formedness
+            "history definition parameter 'self' is reserved for the generated history value";
         {
           history_def_name = $3;
           history_param = $5;
@@ -666,7 +672,7 @@ state_decls:
         | None, x | x, None -> x
         | Some a, Some b when String.equal a b -> Some a
         | Some a, Some b ->
-            failwith
+            Kx_frontend_error.well_formedness
               (Printf.sprintf
                  "multiple inline init states are not allowed: '%s' and '%s'" a b)
       in
@@ -733,7 +739,7 @@ transitions:
   | MATCH IDENT WITH match_transitions
       {
         if not (String.equal $2 "state") then
-          failwith
+          Kx_frontend_error.well_formedness
             (Printf.sprintf
                "unsupported match target '%s' in transitions (expected 'state')" $2);
         $4
@@ -828,7 +834,7 @@ loop_annotations:
         | `Variant v ->
             (match variant with
             | None -> (invs, Some v)
-            | Some _ -> failwith "while loop has more than one variant")
+            | Some _ -> Kx_frontend_error.well_formedness "while loop has more than one variant")
       }
 
 loop_annotation:

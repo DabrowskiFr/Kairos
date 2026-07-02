@@ -40,6 +40,13 @@ let mk_diag ~severity ~source ~message : diagnostic =
   in
   { line; col; severity; source; message }
 
+let frontend_error_source = function
+  | Kx_frontend_error.Parse -> "kairos-parse"
+  | Kx_frontend_error.Elaboration -> "kairos-elaboration"
+  | Kx_frontend_error.Type -> "kairos-type"
+  | Kx_frontend_error.Well_formedness -> "kairos-well-formedness"
+  | Kx_frontend_error.Internal -> "kairos-internal"
+
 let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
   try
     let _source, info =
@@ -59,6 +66,12 @@ let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
           mk_diag ~severity:2 ~source:"kairos-parse" ~message:w :: !diags)
       info.Kx_parse_api.warnings;
     List.rev !diags
-  with exn ->
-    let msg = Printexc.to_string exn in
-    [ mk_diag ~severity:1 ~source:"kairos-parse" ~message:msg ]
+  with
+  | Kx_frontend_error.Error err ->
+      [
+        mk_diag ~severity:1 ~source:(frontend_error_source err.kind)
+          ~message:err.message;
+      ]
+  | exn ->
+      let msg = Printexc.to_string exn in
+      [ mk_diag ~severity:1 ~source:"kairos-internal" ~message:msg ]

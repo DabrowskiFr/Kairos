@@ -23,7 +23,7 @@ open Kairos_to_model_validation_common
 let validate_function_decls (type_decls : Core_syntax.enum_decl list)
     (function_decls : Core_syntax.pure_function_decl list) : unit =
   let fail_function fname msg =
-    failwith (Printf.sprintf "Type error in function %s: %s" fname msg)
+    Kx_frontend_error.type_error (Printf.sprintf "Type error in function %s: %s" fname msg)
   in
   let function_names = Hashtbl.create (List.length function_decls * 2 + 1) in
   List.iter

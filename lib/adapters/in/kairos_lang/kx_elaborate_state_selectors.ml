@@ -36,7 +36,7 @@ let first_duplicate names =
 let resolve_state_selector ~node_name ~states selector =
   let validate_state state =
     if not (state_mem state states) then
-      failwith
+      Kx_frontend_error.well_formedness
         (Printf.sprintf "unknown invariant state '%s' in node '%s'" state node_name)
   in
   let rec resolve = function
@@ -46,7 +46,7 @@ let resolve_state_selector ~node_name ~states selector =
     | S.SSelSet selected ->
         (match first_duplicate selected with
         | Some state ->
-            failwith
+            Kx_frontend_error.well_formedness
               (Printf.sprintf "duplicate invariant state '%s' in node '%s'" state node_name)
         | None -> ());
         List.iter validate_state selected;
@@ -61,7 +61,7 @@ let resolve_state_selector ~node_name ~states selector =
 
 let reject_initial_state_invariant ~node_name ~init_state states =
   if List.exists (String.equal init_state) states then
-    failwith
+    Kx_frontend_error.well_formedness
       (Printf.sprintf
          "state invariant in node '%s' selects initial state '%s'; use invariants only for non-initial states"
          node_name init_state)
@@ -73,7 +73,7 @@ let expand_state_invariants (n : S.node) =
         resolve_state_selector ~node_name:n.node_name ~states:n.state_decls.states inv.selector
       in
       if states = [] then
-        failwith
+        Kx_frontend_error.well_formedness
           (Printf.sprintf
              "state selector for an invariant in node '%s' does not select any state"
              n.node_name);

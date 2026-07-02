@@ -6,6 +6,7 @@
   kx_core_syntax
   kx_core_syntax_builders
   kx_surface_syntax
+  kx_frontend_error
   kx_ast
   kx_ast_builders
   kx_elaborate_names

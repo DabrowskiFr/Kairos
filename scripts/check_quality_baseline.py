@@ -20,7 +20,8 @@ DEFAULT_MAX_MISSING_MLI = 23
 DEFAULT_MAX_WRAPPED_FALSE = 29
 DEFAULT_MAX_MODULE_LINES = 650
 DEFAULT_MAX_OPEN_DIRECTIVES = 348
-DEFAULT_MAX_FAILWITH = 128
+DEFAULT_MAX_FAILWITH = 39
+DEFAULT_MAX_FRONTEND_FAILWITH = 0
 DEFAULT_MAX_PRINTEXC = 15
 DEFAULT_MAX_ASSERT_FALSE = 1
 DEFAULT_MAX_MARSHAL = 2
@@ -34,6 +35,7 @@ class Metrics:
     max_module_path: Path | None
     open_directives: int
     failwith: int
+    frontend_failwith: int
     printexc: int
     assert_false: int
     marshal: int
@@ -70,6 +72,15 @@ def dune_files(repo: Path) -> list[Path]:
     for root in roots:
         if root.exists():
             files.extend(root.rglob("dune"))
+    return sorted(files)
+
+
+def frontend_source_files(repo: Path) -> list[Path]:
+    root = repo / "lib" / "adapters" / "in" / "kairos_lang"
+    files: list[Path] = []
+    if root.exists():
+        for pattern in ("*.ml", "*.mli", "*.mly"):
+            files.extend(root.rglob(pattern))
     return sorted(files)
 
 
@@ -114,6 +125,7 @@ def collect_metrics(repo: Path) -> Metrics:
         max_module_path=max_path,
         open_directives=count_pattern(ocaml, r"^\s*open\s+[A-Z][A-Za-z0-9_]*\b"),
         failwith=count_pattern(ocaml, r"\bfailwith\b"),
+        frontend_failwith=count_pattern(frontend_source_files(repo), r"\bfailwith\b"),
         printexc=count_pattern(ocaml, r"\bPrintexc\."),
         assert_false=count_pattern(ocaml, r"\bassert false\b"),
         marshal=count_pattern(ocaml, r"\bMarshal\."),
@@ -150,6 +162,7 @@ def main() -> int:
     parser.add_argument("--max-module-lines", type=int, default=DEFAULT_MAX_MODULE_LINES)
     parser.add_argument("--max-open-directives", type=int, default=DEFAULT_MAX_OPEN_DIRECTIVES)
     parser.add_argument("--max-failwith", type=int, default=DEFAULT_MAX_FAILWITH)
+    parser.add_argument("--max-frontend-failwith", type=int, default=DEFAULT_MAX_FRONTEND_FAILWITH)
     parser.add_argument("--max-printexc", type=int, default=DEFAULT_MAX_PRINTEXC)
     parser.add_argument("--max-assert-false", type=int, default=DEFAULT_MAX_ASSERT_FALSE)
     parser.add_argument("--max-marshal", type=int, default=DEFAULT_MAX_MARSHAL)
@@ -164,6 +177,11 @@ def main() -> int:
     check_leq("largest OCaml module lines", metrics.max_module_lines, args.max_module_lines)
     check_leq("open directives", metrics.open_directives, args.max_open_directives)
     check_leq("failwith occurrences", metrics.failwith, args.max_failwith)
+    check_leq(
+        "kairos_lang failwith occurrences",
+        metrics.frontend_failwith,
+        args.max_frontend_failwith,
+    )
     check_leq("Printexc occurrences", metrics.printexc, args.max_printexc)
     check_leq("assert false occurrences", metrics.assert_false, args.max_assert_false)
     check_leq("Marshal occurrences", metrics.marshal, args.max_marshal)
@@ -180,6 +198,7 @@ def main() -> int:
     )
     print(f"[quality] open_directives={metrics.open_directives}")
     print(f"[quality] failwith={metrics.failwith}")
+    print(f"[quality] frontend_failwith={metrics.frontend_failwith}")
     print(f"[quality] printexc={metrics.printexc}")
     print(f"[quality] assert_false={metrics.assert_false}")
     print(f"[quality] marshal={metrics.marshal}")

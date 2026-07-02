@@ -71,7 +71,7 @@ let rec max_self_pre_depth_hexpr (self_name : ident) (h : S.hexpr) =
         match k with
         | SNNat n -> n
         | SNVar _ ->
-            failwith "history definition update uses non-constant pre_k(self, k)"
+            Kx_frontend_error.elaboration "history definition update uses non-constant pre_k(self, k)"
       else 0
   | SHPast (inner, _) -> max_self_pre_depth_hexpr self_name inner
   | SHHistoryCall _ -> 0
@@ -102,7 +102,7 @@ let validate_history_source_ref env (n : S.node) (r : S.indexed_ref) =
   match List.find_opt (fun (v : vdecl) -> String.equal v.vname name) vars with
   | Some _ -> ()
   | None ->
-      failwith
+      Kx_frontend_error.elaboration
         (Printf.sprintf
            "historical expression source '%s' is not a node input, output, local, or declared ghost"
            name)
@@ -119,7 +119,7 @@ let add_generated_history env n def_name r acc =
   then acc
   else
     match List.assoc_opt def_name env.history_defs with
-    | None -> failwith (Printf.sprintf "unknown history definition '%s'" def_name)
+    | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown history definition '%s'" def_name)
     | Some hist_def ->
         validate_history_source_ref env n r;
         let hist_self_pre_depth =
@@ -160,9 +160,9 @@ let rec collect_history_hexpr env n ctx stack acc (h : S.hexpr) =
       | None -> acc
       | Some pred ->
           if List.mem callee stack then
-            failwith (Printf.sprintf "cyclic predicate expansion involving '%s'" callee);
+            Kx_frontend_error.elaboration (Printf.sprintf "cyclic predicate expansion involving '%s'" callee);
           if List.length pred.predicate_params <> List.length args then
-            failwith
+            Kx_frontend_error.elaboration
               (Printf.sprintf "predicate '%s' expects %d arguments but got %d" callee
                  (List.length pred.predicate_params) (List.length args));
           let body =
@@ -210,9 +210,9 @@ and collect_history_ltl env n ctx stack acc (f : S.ltl) =
       (match List.assoc_opt name env.spec_defs with
       | Some def ->
           if List.mem name stack then
-            failwith (Printf.sprintf "cyclic spec definition expansion involving '%s'" name);
+            Kx_frontend_error.elaboration (Printf.sprintf "cyclic spec definition expansion involving '%s'" name);
           if List.length def.spec_def_params <> List.length args then
-            failwith
+            Kx_frontend_error.elaboration
               (Printf.sprintf "spec definition '%s' expects %d arguments but got %d" name
                  (List.length def.spec_def_params) (List.length args));
           let ctx =
@@ -273,14 +273,14 @@ let scalar_assign name rhs =
   S.mk_stmt (SSAssign (scalar_ref name, rhs))
 
 let self_expr_for_depth h depth =
-  if depth < 1 then failwith "pre_k(self, k) expects k >= 1";
+  if depth < 1 then Kx_frontend_error.elaboration "pre_k(self, k) expects k >= 1";
   if generated_history_snapshot_count h > 0 then
     generated_history_snapshot_name h (depth - 1) |> scalar_expr
   else if depth = 1 then scalar_expr h.hist_name
   else generated_history_delay_name h (depth - 1) |> scalar_expr
 
 let history_expr_failure h msg =
-  failwith (Printf.sprintf "history definition '%s': %s" h.hist_def.S.history_def_name msg)
+  Kx_frontend_error.elaboration (Printf.sprintf "history definition '%s': %s" h.hist_def.S.history_def_name msg)
 
 let rec expr_mentions name (e : S.expr) =
   match e.sexpr with
@@ -390,7 +390,7 @@ let rec shift_input_pre_for_transition input_names (formula : S.hexpr) =
     | SNNat n ->
         if n <= 1 then None else Some (SNNat (n - 1))
     | SNVar _ ->
-        failwith
+        Kx_frontend_error.elaboration
           "history elaboration check uses non-constant pre_k depth on an input"
   in
   let shexpr =

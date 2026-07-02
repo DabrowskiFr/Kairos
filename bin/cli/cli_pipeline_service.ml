@@ -122,6 +122,15 @@ let proof_optimizations_of_args args =
   let ir_pretty_dump = Usecases.ir_pretty_dump
   let run = Usecases.run
 
+  let structured_frontend_error (err : Kx_frontend_error.t) =
+    match err.kind with
+    | Kx_frontend_error.Parse -> Pipeline_types.Parse_error err.message
+    | Kx_frontend_error.Elaboration -> Pipeline_types.Elaboration_error err.message
+    | Kx_frontend_error.Type -> Pipeline_types.Type_error err.message
+    | Kx_frontend_error.Well_formedness ->
+        Pipeline_types.Well_formedness_error err.message
+    | Kx_frontend_error.Internal -> Pipeline_types.Internal_error err.message
+
   let read_text_for_dump input_file =
     try
       let ic = open_in_bin input_file in
@@ -129,7 +138,7 @@ let proof_optimizations_of_args args =
       let text = really_input_string ic len in
       close_in ic;
       Ok text
-    with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn))
+    with exn -> Error (Pipeline_types.Io_error (Printexc.to_string exn))
 
   let surface_dump ~input_file =
     match read_text_for_dump input_file with
@@ -140,7 +149,9 @@ let proof_optimizations_of_args args =
             Kx_parse_api.parse_surface_text_with_info ~filename:input_file ~text
           in
           Ok (Kx_parse_api.surface_source_to_json surface)
-        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+        with
+        | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
+        | exn -> Error (Pipeline_types.Internal_error (Printexc.to_string exn)))
 
   let elaborated_dump ~input_file =
     match read_text_for_dump input_file with
@@ -149,7 +160,9 @@ let proof_optimizations_of_args args =
         try
           let source, _ = Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text in
           Ok (Kx_parse_api.source_to_json source)
-        with exn -> Error (Pipeline_types.Parse_error (Printexc.to_string exn)))
+        with
+        | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
+        | exn -> Error (Pipeline_types.Internal_error (Printexc.to_string exn)))
 
   let frontend_check ~input_file =
     match Kairos_frontend.parse_input ~input_file with

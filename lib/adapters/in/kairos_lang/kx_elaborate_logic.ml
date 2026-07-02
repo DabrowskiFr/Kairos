@@ -47,8 +47,8 @@ let rec expr_of_fo (h : hexpr) : expr =
     | HLitInt n -> ELitInt n
     | HLitBool b -> ELitBool b
     | HVar id -> EVar id
-    | HPreK _ -> failwith "historical predicate cannot be used in executable expressions"
-    | HPred _ -> failwith "unexpanded predicate cannot be used in executable expressions"
+    | HPreK _ -> Kx_frontend_error.elaboration "historical predicate cannot be used in executable expressions"
+    | HPred _ -> Kx_frontend_error.elaboration "unexpanded predicate cannot be used in executable expressions"
     | HFunCall (fn, args) -> EFunCall (fn, List.map expr_of_fo args)
     | HBin (op, a, b) -> EBin (op, expr_of_fo a, expr_of_fo b)
     | HCmp (op, a, b) -> ECmp (op, expr_of_fo a, expr_of_fo b)
@@ -100,14 +100,15 @@ let resolve_history_source_ref ctx (r : S.indexed_ref) =
   match (r.ref_indices, List.assoc_opt r.ref_base ctx.hexpr_params) with
   | [], Some { shexpr = SHVar actual; _ } -> actual
   | [], Some _ ->
-      failwith
+      Kx_frontend_error.elaboration
         (Printf.sprintf
            "historical expression operator expects variable argument '%s' to be a variable reference"
            r.ref_base)
   | _ -> r
 
 let rec shift_hexpr_past k (h : hexpr) : hexpr =
-  if k < 0 then failwith "past offset must be non-negative";
+  if k < 0 then
+    Kx_frontend_error.well_formedness "past offset must be non-negative";
   if k = 0 then h
   else
     let mk desc = B.mk_hexpr ?loc:h.loc desc in
@@ -126,7 +127,7 @@ let ident_args_of_exprs ~(context : string) (args : S.expr list) : ident list =
     (fun arg ->
       match arg.sexpr with
       | SEVar { ref_base; ref_indices = [] } -> ref_base
-      | _ -> failwith (Printf.sprintf "%s expects identifier arguments" context))
+      | _ -> Kx_frontend_error.elaboration (Printf.sprintf "%s expects identifier arguments" context))
     args
 
 let implicit_history_alias_k (alias : string) : int option =
@@ -159,7 +160,7 @@ let expand_history_alias env alias arg =
   | None -> (
       match implicit_history_alias_k alias with
       | Some k -> B.mk_hpre_k arg k
-      | None -> failwith (Printf.sprintf "unknown history alias '%s'" alias))
+      | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown history alias '%s'" alias))
 
 let rec ident_arg_of_surface_hexpr ctx (h : S.hexpr) : ident =
   match h.shexpr with
@@ -167,7 +168,7 @@ let rec ident_arg_of_surface_hexpr ctx (h : S.hexpr) : ident =
       match List.assoc_opt ref_base ctx.hexpr_params with
       | Some actual -> ident_arg_of_surface_hexpr ctx actual
       | None -> indexed_ref_name r)
-  | _ -> failwith "predicate arguments must be identifiers"
+  | _ -> Kx_frontend_error.elaboration "predicate arguments must be identifiers"
 
 let ident_arg_of_name ctx id =
   match List.assoc_opt id ctx.hexpr_params with
@@ -176,11 +177,11 @@ let ident_arg_of_name ctx id =
 
 let spec_arg_as_ident ctx = function
   | SAHExpr h -> ident_arg_of_surface_hexpr ctx h
-  | SAFormula _ -> failwith "predicate arguments must be identifiers"
+  | SAFormula _ -> Kx_frontend_error.elaboration "predicate arguments must be identifiers"
 
 let formula_arg_of_spec_arg _ctx = function
   | SAFormula f -> f
-  | SAHExpr _ -> failwith "Formula parameter expects a formula argument"
+  | SAHExpr _ -> Kx_frontend_error.elaboration "Formula parameter expects a formula argument"
 
 let hexpr_arg_of_spec_arg ctx = function
   | SAHExpr ({ shexpr = SHVar { ref_base; ref_indices = [] }; _ }) as arg -> (
@@ -189,14 +190,16 @@ let hexpr_arg_of_spec_arg ctx = function
       | None -> (
           match arg with SAHExpr h -> h | SAFormula _ -> assert false))
   | SAHExpr h -> h
-  | SAFormula _ -> failwith "HExpr parameter expects a historical expression argument"
+  | SAFormula _ -> Kx_frontend_error.elaboration "HExpr parameter expects a historical expression argument"
 
 let nat_arg_of_spec_arg ctx = function
   | SAHExpr { shexpr = SHLitInt n; _ } ->
-      if n < 0 then failwith "Nat parameter expects a non-negative integer";
+      if n < 0 then
+        Kx_frontend_error.well_formedness
+          "Nat parameter expects a non-negative integer";
       n
   | SAHExpr { shexpr = SHVar { ref_base; ref_indices = [] }; _ } -> eval_nat ctx (SNVar ref_base)
-  | _ -> failwith "Nat parameter expects an integer literal or Nat parameter"
+  | _ -> Kx_frontend_error.elaboration "Nat parameter expects an integer literal or Nat parameter"
 
 let rec lower_expr env (e : S.expr) : expr =
   let expr =
@@ -257,7 +260,7 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
   | SHHistoryCall (name, r) ->
       let r = resolve_history_source_ref ctx r in
       if not (List.mem_assoc name env.history_defs) then
-        failwith (Printf.sprintf "unknown history definition '%s'" name);
+        Kx_frontend_error.elaboration (Printf.sprintf "unknown history definition '%s'" name);
       mk (HVar (generated_history_name name r))
   | SHHistoryAlias (alias, r) -> expand_history_alias env alias (indexed_ref_name r)
   | SHCall (callee, args) ->
@@ -292,12 +295,12 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
 
 and expand_predicate env ctx stack name args =
   match List.assoc_opt name env.predicates with
-  | None -> failwith (Printf.sprintf "unknown predicate '%s'" name)
+  | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown predicate '%s'" name)
   | Some pred ->
       if List.mem name stack then
-        failwith (Printf.sprintf "cyclic predicate expansion involving '%s'" name);
+        Kx_frontend_error.elaboration (Printf.sprintf "cyclic predicate expansion involving '%s'" name);
       if List.length pred.predicate_params <> List.length args then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "predicate '%s' expects %d arguments but got %d" name
              (List.length pred.predicate_params) (List.length args));
       let body =
@@ -320,9 +323,9 @@ and expand_spec_call env ctx name args =
   match List.assoc_opt name env.spec_defs with
   | Some def ->
       if List.mem name ctx.spec_stack then
-        failwith (Printf.sprintf "cyclic spec definition expansion involving '%s'" name);
+        Kx_frontend_error.elaboration (Printf.sprintf "cyclic spec definition expansion involving '%s'" name);
       if List.length def.spec_def_params <> List.length args then
-        failwith
+        Kx_frontend_error.elaboration
           (Printf.sprintf "spec definition '%s' expects %d arguments but got %d" name
              (List.length def.spec_def_params) (List.length args));
       let ctx =
@@ -346,7 +349,7 @@ and lower_ltl env ctx (f : S.ltl) : ltl =
   | SLFormulaParam name -> (
       match List.assoc_opt name ctx.formula_params with
       | Some f -> lower_ltl env ctx f
-      | None -> failwith (Printf.sprintf "unknown Formula parameter '%s'" name))
+      | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown Formula parameter '%s'" name))
   | SLCall (name, args) -> expand_spec_call env ctx name args
   | SLNot inner -> LNot (lower_ltl env ctx inner)
   | SLAnd (a, b) -> LAnd (lower_ltl env ctx a, lower_ltl env ctx b)

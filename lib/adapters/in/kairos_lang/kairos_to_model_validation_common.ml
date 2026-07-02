@@ -19,7 +19,7 @@
 open Core_syntax
 
 let fail_node node_name msg =
-  failwith (Printf.sprintf "Type error in node %s: %s" node_name msg)
+  Kx_frontend_error.type_error (Printf.sprintf "Type error in node %s: %s" node_name msg)
 
 let lookup_constructor (type_decls : Core_syntax.enum_decl list)
     (ctor : Core_syntax.ident) : Core_syntax.ty option =
@@ -35,18 +35,18 @@ let validate_unique_type_decls (type_decls : Core_syntax.enum_decl list) : unit 
   List.iter
     (fun (decl : Core_syntax.enum_decl) ->
       if String.equal decl.enum_name "state" then
-        failwith
+        Kx_frontend_error.type_error
           "Type error: enum type name 'state' is reserved by the Kairos control-state encoding";
       if Hashtbl.mem type_names decl.enum_name then
-        failwith (Printf.sprintf "Type error: duplicate enum type '%s'" decl.enum_name);
+        Kx_frontend_error.type_error (Printf.sprintf "Type error: duplicate enum type '%s'" decl.enum_name);
       Hashtbl.add type_names decl.enum_name ();
       if decl.enum_constructors = [] then
-        failwith (Printf.sprintf "Type error: enum type '%s' has no constructors" decl.enum_name);
+        Kx_frontend_error.type_error (Printf.sprintf "Type error: enum type '%s' has no constructors" decl.enum_name);
       List.iter
         (fun ctor ->
           match Hashtbl.find_opt ctors ctor with
           | Some previous ->
-              failwith
+              Kx_frontend_error.type_error
                 (Printf.sprintf
                    "Type error: enum constructor '%s' is declared in both '%s' and '%s'"
                    ctor previous decl.enum_name)
