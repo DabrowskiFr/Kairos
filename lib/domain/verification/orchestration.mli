@@ -44,6 +44,11 @@ type instrumented_ir_pass =
   | Temporal_lower_pass
   | Formula_sharing_pass
 
+type instrumented_ir = {
+  proof_nodes : Ir.node_ir list;
+  backend_program : Ir.program_ir;
+}
+
 (** Build the named reference product from an elaborated program and supplied
     automata. *)
 val build_reference_product :
@@ -59,4 +64,4 @@ val build_instrumented_ir :
      Ir.node_ir list ->
      Ir.node_ir list) ->
   Ir.node_ir list ->
-  Ir.program_ir
+  instrumented_ir

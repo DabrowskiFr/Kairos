@@ -23,6 +23,7 @@
   ../scripts/generate_architecture_views.sh
   check_c_codegen.sh
   check_elaboration_frontier.sh
+  check_proof_export_history.sh
   check_reference_stability.sh
   frontend/spec_past_formula_frontier.kairos
   ok/action_contract_inline.kairos
@@ -67,6 +68,11 @@
    (run python3 ../scripts/check_quality_baseline.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
+   (run
+    bash
+    ./check_proof_export_history.sh
+    %{exe:../bin/cli/kairos.exe}
+    ok/history_self_pre_k.kairos)
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))
 
 (test

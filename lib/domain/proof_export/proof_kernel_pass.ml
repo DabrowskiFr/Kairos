@@ -184,7 +184,6 @@ let build_normalized_ir (input : node_input) : Proof_kernel_types.node_ir =
   in
   let proof_step_summaries =
     Proof_kernel_step_summaries.build_proof_step_summaries ~node ~reactive_program ~product_steps
-      ~temporal_layout:node.temporal_layout
       ~initial_product_state ~symbolic_generated_clauses
   in
   let ghost_locals =

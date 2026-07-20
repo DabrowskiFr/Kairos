@@ -44,91 +44,16 @@ type node_artifacts = {
   product_graph : Automata_graph_render.graph;
 }
 
-let lower_guard_for_kernel ~(node_name : ident)
-    ~(temporal_bindings : Pre_k_lowering.temporal_binding list) ~(context : string)
-    (guard : Core_syntax.hexpr) : (Core_syntax.hexpr, string) result =
-  match Pre_k_lowering.lower_fo_formula_temporal_bindings ~temporal_bindings guard with
-  | Some lowered -> Ok lowered
-  | None ->
-      Error
-        (Printf.sprintf
-           "Unable to lower temporal guard (%s) in product analysis for node %s: %s"
-           context node_name (string_of_fo guard))
-
-let lower_transition_for_kernel ~(node_name : ident)
-    ~(temporal_bindings : Pre_k_lowering.temporal_binding list) ~(context : string)
-    ((src, guard, dst) : Automaton_types.transition) :
-    (Automaton_types.transition, string) result =
-  let* guard = lower_guard_for_kernel ~node_name ~temporal_bindings ~context guard in
-  Ok (src, guard, dst)
-
-let lower_product_step_for_kernel ~(node_name : ident)
-    ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (step : Product_types.product_step) : (Product_types.product_step, string) result =
-  let* prog_guard =
-    lower_guard_for_kernel ~node_name ~temporal_bindings ~context:"program guard"
-      step.prog_guard
-  in
-  let* assume_guard =
-    lower_guard_for_kernel ~node_name ~temporal_bindings ~context:"assume guard"
-      step.assume_guard
-  in
-  let* guarantee_guard =
-    lower_guard_for_kernel ~node_name ~temporal_bindings ~context:"guarantee guard"
-      step.guarantee_guard
-  in
-  let* assume_edge =
-    lower_transition_for_kernel ~node_name ~temporal_bindings ~context:"assume edge"
-      step.assume_edge
-  in
-  let* guarantee_edge =
-    lower_transition_for_kernel ~node_name ~temporal_bindings ~context:"guarantee edge"
-      step.guarantee_edge
-  in
-  Ok { step with prog_guard; assume_guard; guarantee_guard; assume_edge; guarantee_edge }
-
-let lower_analysis_for_kernel ~(node : Ir.node_ir)
-    ~(analysis : Temporal_automata.node_data) :
-    (Temporal_automata.node_data, string) result =
-  let temporal_bindings = Ir_formula.temporal_bindings_of_node node in
-  let node_name = node.semantics.sem_nname in
-  let* assume_grouped_edges =
-    analysis.assume_grouped_edges
-    |> List.map
-         (lower_transition_for_kernel ~node_name ~temporal_bindings ~context:"assume automaton")
-    |> Result_utils.all
-  in
-  let* guarantee_grouped_edges =
-    analysis.guarantee_grouped_edges
-    |> List.map
-         (lower_transition_for_kernel ~node_name ~temporal_bindings
-            ~context:"guarantee automaton")
-    |> Result_utils.all
-  in
-  let* steps =
-    analysis.exploration.steps
-    |> List.map (lower_product_step_for_kernel ~node_name ~temporal_bindings)
-    |> Result_utils.all
-  in
-  Ok
-    {
-      analysis with
-      assume_grouped_edges;
-      guarantee_grouped_edges;
-      exploration = { analysis.exploration with steps };
-    }
-
 let build_node_artifacts ~(source_node : Verification_model.node_model)
     ~(analysis : Temporal_automata.node_data) (node : Ir.node_ir) :
     (node_artifacts, string) result =
-  let* analysis_for_kernel = lower_analysis_for_kernel ~node ~analysis in
   let kernel_output =
     Proof_kernel_pass.compile_node
       {
         Proof_kernel_pass.node_name = node.semantics.sem_nname;
         source_node;
         node;
-        analysis = analysis_for_kernel;
+        analysis;
       }
   in
   let require_graph =
@@ -160,7 +85,7 @@ let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
   in
   let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes:source_nodes_model in
   let* node_artifacts =
-    asts.instrumentation
+    asts.proof_instrumentation
     |> List.map (fun (node : Ir.node_ir) ->
            let* source_node = source_node_of_name node.semantics.sem_nname in
            let* analysis = Info_helpers.analysis_of_node ~analyses node in

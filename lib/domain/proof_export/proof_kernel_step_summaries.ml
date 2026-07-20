@@ -18,8 +18,9 @@
 
 (** Proof-step summary synthesis for proof-kernel export.
 
-    This module groups product steps by canonical summary identity and rewrites
-    pre/post formulas according to temporal layout slots. *)
+    This module groups product steps by canonical summary identity while
+    preserving the relational historical formulas produced before temporal
+    lowering. *)
 
 open Core_syntax
 open Core_syntax_builders
@@ -47,7 +48,6 @@ let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
 
 let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reactive_program_ir)
     ~(product_steps : product_step_ir list)
-    ~(temporal_layout : Ir.temporal_layout)
     ~(initial_product_state : product_state_ir)
     ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
     proof_step_summary_ir list =
@@ -69,86 +69,6 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
           ~product_src:(product_state_ref_of_ir step.src)
           ~assume_guard:step.assume_edge.guard
         |> Option.map (fun summary -> summary.Product_summary_projection.source_summary)
-  in
-  let slot_to_current_expr =
-    let add acc (info : Pre_k_layout.pre_k_info) =
-      info.Pre_k_layout.names
-      |> List.mapi (fun idx name ->
-             let lowered =
-               if idx = 0 then Core_syntax_builders.mk_hvar info.Pre_k_layout.var_name
-               else Core_syntax_builders.mk_hpre_k info.Pre_k_layout.var_name idx
-             in
-             (name, lowered))
-      |> List.rev_append acc
-    in
-    List.fold_left add [] temporal_layout
-  in
-  let current_expr_to_next_slot =
-    let add acc (info : Pre_k_layout.pre_k_info) =
-      (info.Pre_k_layout.var_name, info.Pre_k_layout.names) :: acc
-    in
-    List.fold_left add [] temporal_layout
-  in
-  let rec rewrite_hexpr_post (h : hexpr) : hexpr =
-    match h.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> h
-    | HVar name -> (
-        match List.assoc_opt name slot_to_current_expr with
-        | Some lowered -> lowered
-        | None -> h)
-    | HUn (op, inner) ->
-        Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_post inner))
-    | HPred (id, hs) ->
-        Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_post hs))
-    | HFunCall (fn, hs) ->
-        Core_syntax_builders.with_hexpr_desc h
-          (HFunCall (fn, List.map rewrite_hexpr_post hs))
-    | HBin (op, a, b) ->
-        Core_syntax_builders.with_hexpr_desc h
-          (HBin (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
-    | HCmp (op, a, b) ->
-        Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_post a, rewrite_hexpr_post b))
-  in
-  let rec rewrite_formula_post (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-    match f.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_post f
-    | HPred _ | HFunCall _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_post f
-  in
-  let slot_name_for_depth base_var depth =
-    match List.assoc_opt base_var current_expr_to_next_slot with
-    | None -> None
-    | Some names ->
-        let idx = depth - 1 in
-        if idx < 0 || idx >= List.length names then None else Some (List.nth names idx)
-  in
-  let rec rewrite_hexpr_pre (h : hexpr) : hexpr =
-    match h.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
-    | HVar name -> (
-        match slot_name_for_depth name 1 with
-        | Some slot -> Core_syntax_builders.mk_hvar slot
-        | None -> h)
-    | HPreK (name, k) -> (
-        match slot_name_for_depth name (k + 1) with
-        | Some slot -> Core_syntax_builders.mk_hvar slot
-        | None -> h)
-    | HPred (id, hs) ->
-        Core_syntax_builders.with_hexpr_desc h (HPred (id, List.map rewrite_hexpr_pre hs))
-    | HFunCall (fn, hs) ->
-        Core_syntax_builders.with_hexpr_desc h
-          (HFunCall (fn, List.map rewrite_hexpr_pre hs))
-    | HUn (op, inner) ->
-        Core_syntax_builders.with_hexpr_desc h (HUn (op, rewrite_hexpr_pre inner))
-    | HBin (op, a, b) ->
-        Core_syntax_builders.with_hexpr_desc h
-          (HBin (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
-    | HCmp (op, a, b) ->
-        Core_syntax_builders.with_hexpr_desc h (HCmp (op, rewrite_hexpr_pre a, rewrite_hexpr_pre b))
-  in
-  let rec rewrite_formula_pre (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-    match f.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> rewrite_hexpr_pre f
-    | HPred _ | HFunCall _ | HUn _ | HBin _ | HCmp _ -> rewrite_hexpr_pre f
   in
   let is_true_fo (f : Core_syntax.hexpr) =
     match f.hexpr with HLitBool true -> true | _ -> false
@@ -190,36 +110,9 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
            | _, K.ClauseProductState _ -> false)
     |> List.map strip_structural_step_facts
   in
-  let shift_post_fact (fact : relational_clause_fact_ir) =
-    let desc =
-      match fact.desc with
-      | RelFactPhaseFormula fo_formula -> RelFactPhaseFormula (rewrite_formula_post fo_formula)
-      | RelFactFormula fo_formula -> RelFactFormula (rewrite_formula_post fo_formula)
-      | _ -> fact.desc
-    in
-    { fact with desc }
-  in
   let clauses_for_step (step : product_step_ir) =
     raw_clauses_for_step step
-    |> List.filter_map (fun clause ->
-           let clause =
-             match clause.family with
-             | PropagationNodeInvariant ->
-                 {
-                   clause with
-                   hypotheses = List.map shift_post_fact clause.hypotheses;
-                   conclusions = List.map shift_post_fact clause.conclusions;
-                 }
-           | PropagationAutomatonCoherence
-           | PhaseStepSummary
-           | Safety
-           | SourceProductSummary
-           | PhaseStepPreSummary
-           | InitNodeInvariant
-           | InitAutomatonCoherence ->
-               clause
-           in
-           normalize_relational_clause clause)
+    |> List.filter_map normalize_relational_clause
   in
   let entry_clauses_for_steps (steps : product_step_ir list) =
     match steps with
@@ -230,7 +123,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         | Some pc ->
             pc.requires
             |> List.filter_map (fun (f : Ir.summary_formula) ->
-                   let logic = simplify_fo (rewrite_formula_pre f.logic) in
+                   let logic = simplify_fo f.logic in
                    if is_true_fo logic then None
                    else
                      Some

@@ -223,7 +223,7 @@ let build_snapshot_from_supplied_automata
           result
         in
         let t_canonical = Unix.gettimeofday () in
-        let ir_program =
+        let instrumented_ir =
           Orchestration.build_instrumented_ir
             ?observe_fact_family:
               (if collect_ir_metrics then Some record_ir_fact_family else None)
@@ -231,6 +231,8 @@ let build_snapshot_from_supplied_automata
             p_summaries
         in
         External_timing.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
+        let p_proof_instrumentation = instrumented_ir.proof_nodes in
+        let ir_program = instrumented_ir.backend_program in
         let p_instrumentation = ir_program.nodes in
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
@@ -256,6 +258,7 @@ let build_snapshot_from_supplied_automata
             reference_program = runtime_model;
             automata;
             summaries = p_summaries;
+            proof_instrumentation = p_proof_instrumentation;
             instrumentation = p_instrumentation;
           }
         in
