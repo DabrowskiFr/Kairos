@@ -9,6 +9,7 @@
   dune
   ../docs/architecture_layer_rules.json
   ../docs/reference_pipeline_boundaries.json
+  ../docs/reference_verification_architecture.mld
   ../docs/rocq_alignment_manifest.json
   ../docs/rocq_projection_audit.json
   ../.github/workflows/architecture.yml
