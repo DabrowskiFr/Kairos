@@ -32,6 +32,7 @@
   ok/history_observers_concise.kairos
   ok/history_self_pre_k.kairos
   ok/history_spec_expressions.kairos
+  ok/if_without_else.kairos
   ok/multiple_assignment_sugar.kairos
   ok/named_action_inline.kairos
   ok/pure_function_bool_enum.kairos

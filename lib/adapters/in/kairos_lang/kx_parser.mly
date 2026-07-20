@@ -813,7 +813,11 @@ assignment_stmt:
       }
 
 stmt:
-  | IF expr THEN stmt_list_opt ELSE stmt_list_opt END { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSIf($2,$4,$6)) }
+  | IF expr THEN stmt_list_opt if_tail
+      {
+        let else_branch, end_pos = $5 in
+        mk_stmt_loc (Parsing.rhs_start_pos 1) end_pos (SSIf($2,$4,else_branch))
+      }
   | WHILE expr loop_annotations DO stmt_list_opt END
       {
         let invariants, variant = $3 in
@@ -823,6 +827,10 @@ stmt:
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSSkip }
   | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SSCall($2, $4, $8)) }
+
+if_tail:
+  | ELSE stmt_list_opt END { ($2, Parsing.rhs_end_pos 3) }
+  | END { ([], Parsing.rhs_end_pos 1) }
 
 loop_annotations:
   | /* empty */ { ([], None) }

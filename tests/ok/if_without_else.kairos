@@ -1,0 +1,15 @@
+node if_without_else(request: bool) returns (latched: bool)
+contracts
+  ensures: G (latched = true => X (latched = true));
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { latched := false; }
+  Run:
+    to Run {
+      if request then
+        latched := true;
+      end;
+    }
+end
