@@ -63,9 +63,10 @@ The important boundary is parametric automata input: Spot may build automata,
 but the Rocq adequacy claim is relative to supplied automata. Kairos does not
 formalize the Spot/LTL-to-automata translation.
 The reference product does validate the automata normal form it consumes:
-non-empty automata, valid transition indices, absorbing bad states, and
-deterministic assumption targets for each source/guard key. This is a
-malformed-input check, not monitor-correctness certification.
+non-empty automata, valid transition indices, at most one bad state per
+automaton, an absorbing assumption bad state, and deterministic assumption
+targets for each source/guard key. This is a malformed-input check, not
+monitor-correctness certification.
 
 The implementation now reflects that boundary structurally:
 `kairos_runtime_automata` is the external producer, while

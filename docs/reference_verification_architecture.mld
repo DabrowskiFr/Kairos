@@ -62,9 +62,10 @@ the supplied automata and the generated product obligations, not with Spot
 itself or with a formalization of the LTL-to-automata translation.
 The reference product is still responsible for validating the automata normal
 form it consumes: non-empty automata, well-formed transition indices,
-absorbing bad states, and the assumption-edge determinism needed by canonical
-summary identity. This validation rejects malformed supplied automata; it does
-not prove monitor correctness for the source temporal formulas.
+at most one bad state per automaton, an absorbing assumption bad state, and
+the assumption-edge determinism needed by canonical summary identity. This
+validation rejects malformed supplied automata; it does not prove monitor
+correctness for the source temporal formulas.
 
 {1 Rocq Adequacy Boundary}
 
@@ -193,10 +194,11 @@ The current pass classification is:
 - [Post] is {b reference}. It adds the safe-successor disjunction, destination
   invariant obligations, guarded destination invariant obligations, and
   product-characteristic preservation facts.
-- [Temporal_lower] is {b reference_normalization}. It computes the
-  [temporal_layout] and rewrites [pre]/[pre_k] occurrences through explicit
-  temporal bindings. Its meaning must match the temporal model used by the
-  existing Rocq formalization.
+- [Temporal_lower] is {b backend}. It computes the [temporal_layout] and
+  rewrites [pre]/[pre_k] occurrences through explicit temporal bindings for
+  Why3. The runtime snapshot retains the relational output of [Post]
+  separately; proof-kernel export consumes that pre-lowering IR, so
+  materialized [__pre_k*] identifiers cannot enter the Rocq-alignment view.
 - [Canonical_obligations] is {b reference}. It names the canonical Stage 1
   clause family and Stage 2 step-contract family before proof export, backend
   grouping, Why3 lowering, diagnostics, or dumps. In particular, unsafe Stage
@@ -205,9 +207,9 @@ The current pass classification is:
   structurally equal top-level formulas by shared physical representatives.
   It must not simplify, add, or remove obligations.
 - [Proof_kernel_export] is {b reference_projection}. It builds a versioned
-  exchange/diagnostic view derived from the reference boundary. It can become
-  a synchronization format only after an explicit adequacy decision for the
-  chosen fields.
+  exchange/diagnostic view from the relational [Post] output, before
+  [Temporal_lower]. It can become a synchronization format only after an
+  explicit adequacy decision for the chosen fields.
 - [Product_summary_projection], [Obligation_family_projection], and
   [Step_contract_projection] are {b reference_projection}. They are derived
   Rocq-alignment views. [Step_contract_projection] must be constructed from

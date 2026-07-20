@@ -54,7 +54,7 @@ Execution de l'outil:
 | 9 | `lib/adapters/out/external/spot/spot_automaton_builder.ml` | `build` | Appelle Spot pour construire les automates |
 | 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
 | 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
-| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Lance `Pre`, `Product_reachability`, `Post`, `Temporal_lower`, `Formula_sharing` |
+| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
 | 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
 | 14 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
 | 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Prepare et lance les obligations Why3/Z3 |
@@ -88,7 +88,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Runtime model | `Verification_model.program_model` | `Contract_partition` | Automata/product |
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
 | Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
-| Instrumented IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` | Why3 backend, proof export |
+| Relational proof IR | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | proof export |
+| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | Why3 backend |
 | Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification` | proof export, Why3 runtime view |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` in `kairos_runtime_core` | facade outputs, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |

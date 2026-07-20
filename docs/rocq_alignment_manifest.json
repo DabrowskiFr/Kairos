@@ -185,7 +185,7 @@
         "lib/domain/proof_export/proof_kernel_step_summaries.ml",
         "lib/domain/proof_export/proof_kernel_generated_clauses.ml"
       ],
-      "architecture_status": "Pre/Post/Temporal_lower are essential; Product_summary_projection, Kernel_clause_projection and Obligation_family_projection are neutral alignment views; proof_export summaries and clauses are projection witnesses that must consume them if used",
+      "architecture_status": "Pre/Post are correction-relevant; Temporal_lower is backend-only; Product_summary_projection, Kernel_clause_projection and Obligation_family_projection are neutral alignment views; proof_export must consume the relational post-Post IR and preserve historical reads",
       "must_be_identifiable_in_kairos": [
         "ProofStepSummaryIdentity: program transition id, product source, assume guard",
         "propagation_requires, requires, runtime_requires, ensures",
