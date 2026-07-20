@@ -242,8 +242,8 @@ let exec_action args = function
           ~generate_vc_text:(Option.is_some args.dump_why3_vc)
           ~generate_smt_text:(Option.is_some args.dump_smt2)
           ~dump_failed_smt:args.dump_failed_smt
-          ~proof_progress_path:(if prove then args.dump_goals else None)
-          ~collect_ir_metrics:(Option.is_some args.dump_timings)
+          ~proof_progress_path:None
+          ~collect_ir_metrics:(Option.is_some args.dump_timings || Option.is_some args.dump_goals)
           ~stop_on_first_nonvalid:args.stop_on_first_nonvalid ~proof_jobs:args.proof_jobs
           ~proof_encoding:args.proof_encoding
           ~proof_optimizations:(proof_optimizations_of_args args)

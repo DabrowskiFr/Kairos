@@ -78,7 +78,8 @@ module Make (P : Application_ports.PORTS) = struct
     let* snapshot =
       P.Snapshot.build_snapshot ~proof_encoding:cfg.proof_encoding
         ~proof_optimizations:cfg.proof_optimizations ~frontend
-        ~collect_instrumentation_info:(not (is_minimal_prove_run cfg))
+        ~collect_instrumentation_info:
+          ((not (is_minimal_prove_run cfg)) || cfg.collect_ir_metrics)
         ~collect_ir_metrics:cfg.collect_ir_metrics
     in
     P.Timing.record_snapshot_build
@@ -161,7 +162,8 @@ module Make (P : Application_ports.PORTS) = struct
       let* snapshot =
         P.Snapshot.build_snapshot ~proof_encoding:cfg.proof_encoding
           ~proof_optimizations:cfg.proof_optimizations ~frontend
-          ~collect_instrumentation_info:(not (is_minimal_prove_run cfg))
+          ~collect_instrumentation_info:
+            ((not (is_minimal_prove_run cfg)) || cfg.collect_ir_metrics)
           ~collect_ir_metrics:cfg.collect_ir_metrics
       in
       if is_minimal_prove_run cfg then
