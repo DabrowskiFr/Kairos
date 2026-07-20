@@ -26,7 +26,6 @@ module StringSet = Set.Make (String)
 type entry = {
   product_state : Abs.product_state;
   entry_fact : Core_syntax.hexpr;
-  post_disjuncts : Core_syntax.hexpr list;
 }
 
 type t = {
@@ -51,24 +50,35 @@ let guard_expr_key = function
   | None -> "true"
   | Some guard -> guard |> hexpr_of_expr |> formula_raw_key
 
-let transition_key (t : Abs.transition) =
-  String.concat "|"
-    [ t.src_state; t.dst_state; guard_expr_key t.guard_expr ]
+let rec assigned_vars_of_stmt (stmt : Core_syntax.stmt) : StringSet.t =
+  match stmt.stmt with
+  | SAssign (name, _) -> StringSet.singleton name
+  | SAssert _ | SSkip -> StringSet.empty
+  | SIf (_, then_branch, else_branch) ->
+      StringSet.union
+        (assigned_vars_of_stmts then_branch)
+        (assigned_vars_of_stmts else_branch)
+  | SWhile (_, _, _, body) -> assigned_vars_of_stmts body
+  | SMatch (_, branches, default_branch) ->
+      List.fold_left
+        (fun assigned (_, body) ->
+          StringSet.union assigned (assigned_vars_of_stmts body))
+        (assigned_vars_of_stmts default_branch) branches
+  | SCall (_, _, destinations) ->
+      List.fold_left
+        (fun assigned name -> StringSet.add name assigned)
+        StringSet.empty destinations
 
-let state_invariant_lookup (node : Abs.node_ir) :
-    ident -> Core_syntax.hexpr list =
-  let by_state = Hashtbl.create 16 in
-  List.iter
-    (fun (inv : Abs.state_invariant) ->
-      let existing =
-        Hashtbl.find_opt by_state inv.state |> Option.value ~default:[]
-      in
-      Hashtbl.replace by_state inv.state (inv.formula :: existing))
-    node.source_info.state_invariants;
-  fun state ->
-    Hashtbl.find_opt by_state state
-    |> Option.value ~default:[]
-    |> List.sort_uniq Stdlib.compare
+and assigned_vars_of_stmts (stmts : Core_syntax.stmt list) : StringSet.t =
+  List.fold_left
+    (fun assigned stmt ->
+      StringSet.union assigned (assigned_vars_of_stmt stmt))
+    StringSet.empty stmts
+
+let transition_key (t : Abs.transition) =
+  let body_key = string_of_int (Hashtbl.hash t.body_stmts) in
+  String.concat "|"
+    [ t.src_state; t.dst_state; guard_expr_key t.guard_expr; body_key ]
 
 let build_cache_key (node : Abs.node_ir) : string =
   (* The characteristic analysis reads only the node signature, input names,
@@ -144,38 +154,6 @@ let formula_key (f : Core_syntax.hexpr) : string =
 let same_formula (a : Core_syntax.hexpr) (b : Core_syntax.hexpr) : bool =
   String.equal (formula_key a) (formula_key b)
 
-let flatten_bool (op : binop) (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
-  let rec loop acc h =
-    match h.hexpr with
-    | HBin (op', a, b) when op = op' -> loop (loop acc b) a
-    | _ -> h :: acc
-  in
-  List.rev (loop [] (simplify_fo f))
-
-let key_set_of_conjuncts (f : Core_syntax.hexpr) : StringSet.t =
-  flatten_bool And f
-  |> List.fold_left
-       (fun acc conjunct -> StringSet.add (formula_key conjunct) acc)
-       StringSet.empty
-
-let contradictory_context (context : Core_syntax.hexpr list)
-    (candidate : Core_syntax.hexpr) : bool =
-  Fo_contradiction.contradictory_context context candidate
-
-let dnf_subsumes ~(antecedent : Core_syntax.hexpr)
-    ~(consequent : Core_syntax.hexpr) : bool =
-  let antecedent_disjuncts = flatten_bool Or antecedent in
-  let consequent_disjuncts = flatten_bool Or consequent in
-  let consequent_cubes = List.map key_set_of_conjuncts consequent_disjuncts in
-  List.for_all
-    (fun antecedent_disjunct ->
-      let antecedent_cube = key_set_of_conjuncts antecedent_disjunct in
-      List.exists
-        (fun consequent_cube ->
-          StringSet.subset consequent_cube antecedent_cube)
-        consequent_cubes)
-    antecedent_disjuncts
-
 let dedup_formulas (xs : Core_syntax.hexpr list) : Core_syntax.hexpr list =
   let keyed = List.map (fun f -> (formula_key f, simplify_fo f)) xs in
   keyed
@@ -219,88 +197,158 @@ let is_input_of_node (n : Abs.node_ir) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
+let non_input_program_names (n : Abs.node_ir) : ident list =
+  n.semantics.sem_outputs @ n.semantics.sem_locals
+  |> List.map (fun (v : vdecl) -> v.vname)
+  |> List.sort_uniq String.compare
+
+let control_annotation_formula (n : Abs.node_ir) (state : ident) :
+    Core_syntax.hexpr =
+  n.source_info.state_invariants
+  |> List.filter_map (fun (inv : Abs.state_invariant) ->
+         if String.equal inv.state state then Some inv.formula else None)
+  |> List.fold_left mk_hand (mk_hbool true)
+  |> simplify_fo
+
+let lookup_symbolic_value env name =
+  List.assoc_opt name env |> Option.join
+
+let bind_symbolic_value env name value =
+  (name, value) :: List.remove_assoc name env
+
+let rec post_expr_of_expr env (expr : Core_syntax.expr) :
+    Core_syntax.hexpr option =
+  let recurse = post_expr_of_expr env in
+  let map2 make left right =
+    match (recurse left, recurse right) with
+    | Some left, Some right -> Some (make left right)
+    | _ -> None
+  in
+  match expr.expr with
+  | ELitInt value -> Some (mk_hint value)
+  | ELitBool value -> Some (mk_hbool value)
+  | ELitEnum value -> Some (mk_hexpr (HLitEnum value))
+  | EVar name -> lookup_symbolic_value env name
+  | EFunCall (name, arguments) ->
+      let rec map_arguments acc = function
+        | [] -> Some (List.rev acc)
+        | argument :: rest -> (
+            match recurse argument with
+            | None -> None
+            | Some argument -> map_arguments (argument :: acc) rest)
+      in
+      Option.map (fun arguments -> mk_hexpr (HFunCall (name, arguments)))
+        (map_arguments [] arguments)
+  | EBin (operator, left, right) ->
+      map2 (fun left right -> mk_hexpr (HBin (operator, left, right)))
+        left right
+  | ECmp (operator, left, right) ->
+      map2 (fun left right -> mk_hexpr (HCmp (operator, left, right)))
+        left right
+  | EUn (operator, argument) ->
+      Option.map (fun argument -> mk_hexpr (HUn (operator, argument)))
+        (recurse argument)
+
+let forget_assigned env statements =
+  StringSet.fold
+    (fun name env -> bind_symbolic_value env name None)
+    (assigned_vars_of_stmts statements) env
+
+let rec symbolic_execute_statement env (statement : Core_syntax.stmt) =
+  match statement.stmt with
+  | SAssign (name, rhs) ->
+      bind_symbolic_value env name (post_expr_of_expr env rhs)
+  | SAssert _ | SSkip -> env
+  | SIf _ | SWhile _ | SMatch _ -> forget_assigned env [ statement ]
+  | SCall (_, _, destinations) ->
+      List.fold_left
+        (fun env name -> bind_symbolic_value env name None)
+        env destinations
+
+let symbolic_execute_statements env statements =
+  List.fold_left symbolic_execute_statement env statements
+
+let transition_effect_formula ~(node : Abs.node_ir)
+    (transition : Abs.transition) : Core_syntax.hexpr =
+  let inputs = input_names node in
+  let non_inputs = non_input_program_names node in
+  let initial =
+    List.map (fun name -> (name, Some (mk_hvar name))) inputs
+    @ List.map (fun name -> (name, Some (mk_hpre_k name 1))) non_inputs
+  in
+  let final = symbolic_execute_statements initial transition.body_stmts in
+  non_inputs
+  |> List.filter_map (fun name ->
+         Option.map
+           (fun value -> mk_hexpr (HCmp (REq, mk_hvar name, value)))
+           (lookup_symbolic_value final name))
+  |> List.fold_left mk_hand (mk_hbool true)
+  |> simplify_fo
+
 let guard_fo_of_transition (t : Abs.transition) : Core_syntax.hexpr =
   match t.guard_expr with
   | None -> mk_hbool true
   | Some guard -> hexpr_of_expr guard |> simplify_fo
 
-let shift_formula_forward_non_inputs ~(is_input : ident -> bool)
-    (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  let rec go h =
-    match h.hexpr with
-    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
-    | HVar v -> if is_input v then h else mk_hpre_k v 1
-    | HPreK (v, k) -> mk_hpre_k v (k + 1)
-    | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
-    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
-    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
-    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
-    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+let incoming_post_formula ~(node : Abs.node_ir)
+    (summary : Abs.product_step_summary)
+    (case : Abs.safe_product_case) : Core_syntax.hexpr =
+  let is_input = is_input_of_node node in
+  let program_guard = guard_fo_of_transition summary.identity.program_step in
+  let source_annotation =
+    control_annotation_formula node summary.identity.product_src.prog_state
   in
-  go f
+  let body_effect =
+    transition_effect_formula ~node summary.identity.program_step
+  in
+  mk_hand
+    (mk_hand
+      (mk_hand
+        (mk_hand
+          (shift_formula_entry_to_post ~is_input source_annotation)
+          (shift_formula_entry_to_post ~is_input program_guard))
+        summary.identity.assume_guard)
+      case.admissible_guard.logic)
+    body_effect
+  |> simplify_fo
 
 type incoming_entry = {
   dst : Abs.product_state;
-  guard_formulas : Core_syntax.hexpr list;
   program_entry_formulas : Core_syntax.hexpr list;
-  program_post_formulas : Core_syntax.hexpr list;
-  has_noninitial_true_guard : bool;
 }
 
-let add_incoming ~src dst ~guard_formula ~program_entry_formula
-    ~program_post_formula incoming =
-  let noninitial_true_guard =
-    is_htrue guard_formula && src.Abs.guarantee_state_index <> 0
-  in
+let states_needing_characteristic (node : Abs.node_ir) : Abs.product_state list =
+  node.summaries
+  |> List.filter (fun (summary : Abs.product_step_summary) ->
+         summary.unsafe_cases <> [])
+  |> List.map (fun (summary : Abs.product_step_summary) ->
+         summary.identity.product_src)
+  |> List.sort_uniq Stdlib.compare
+
+let needs_characteristic
+    ~(states : Abs.product_state list) (state : Abs.product_state) : bool =
+  List.exists (same_product_state state) states
+
+let add_incoming dst ~program_entry_formula incoming =
   let rec loop acc = function
     | [] ->
         List.rev
           ({
              dst;
-             guard_formulas = [ guard_formula ];
              program_entry_formulas = [ program_entry_formula ];
-             program_post_formulas = [ program_post_formula ];
-             has_noninitial_true_guard = noninitial_true_guard;
            }
             :: acc)
     | entry :: rest when same_product_state dst entry.dst ->
         List.rev_append acc
           ({
              entry with
-             guard_formulas = guard_formula :: entry.guard_formulas;
              program_entry_formulas =
                program_entry_formula :: entry.program_entry_formulas;
-             program_post_formulas =
-               program_post_formula :: entry.program_post_formulas;
-             has_noninitial_true_guard =
-               entry.has_noninitial_true_guard || noninitial_true_guard;
            }
             :: rest)
     | x :: rest -> loop (x :: acc) rest
   in
   loop [] incoming
-
-let states_with_nontrivial_bad_guarantee_outgoing ~invariants_of_state
-    (node : Abs.node_ir) :
-    Abs.product_state list =
-  node.summaries
-  |> List.filter (fun (pc : Abs.product_step_summary) ->
-         let state_invariants =
-           invariants_of_state pc.identity.product_src.prog_state
-         in
-         List.exists
-           (fun (case : Abs.unsafe_product_case) ->
-             not
-               (contradictory_context state_invariants
-                  case.excluded_guard.logic))
-           pc.unsafe_cases)
-  |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
-  |> List.sort_uniq Stdlib.compare
-
-let needs_program_characteristic
-    ~(bad_guarantee_sources : Abs.product_state list)
-    (st : Abs.product_state) : bool =
-  List.exists (same_product_state st) bad_guarantee_sources
 
 let build_table entries =
   let by_state = Hashtbl.create (List.length entries * 2 + 1) in
@@ -313,68 +361,39 @@ let build_table entries =
 let build_uncached ~(node : Abs.node_ir) : t =
   let is_input = is_input_of_node node in
   let initial_product_state = infer_initial_product_state node in
-  let invariants_of_state = state_invariant_lookup node in
-  let bad_guarantee_sources =
-    states_with_nontrivial_bad_guarantee_outgoing ~invariants_of_state node
-  in
+  let characteristic_states = states_needing_characteristic node in
   let incoming =
     List.fold_left
       (fun acc (pc : Abs.product_step_summary) ->
-        let program_guard = guard_fo_of_transition pc.identity.program_step in
         List.fold_left
           (fun acc (case : Abs.safe_product_case) ->
-            let program_entry_formula =
-              mk_hand
-                (shift_hexpr_forward_all program_guard)
-                (shift_formula_forward_inputs ~is_input
-                   case.admissible_guard.logic)
-              |> simplify_fo
-            in
             let program_post_formula =
-              mk_hand
-                (shift_formula_forward_non_inputs ~is_input program_guard)
-                case.admissible_guard.logic
+              incoming_post_formula ~node pc case
+            in
+            let program_entry_formula =
+              shift_formula_forward_inputs ~is_input program_post_formula
               |> simplify_fo
             in
-            add_incoming ~src:pc.identity.product_src case.product_dst
-              ~guard_formula:case.admissible_guard.logic
-              ~program_entry_formula ~program_post_formula acc)
+            add_incoming case.product_dst ~program_entry_formula acc)
           acc pc.safe_cases)
       [] node.summaries
   in
   let entries =
     incoming
     |> List.filter_map (fun entry ->
-           let dst = entry.dst in
-           if same_product_state dst initial_product_state then None
+         let dst = entry.dst in
+           if
+             same_product_state dst initial_product_state
+             || not (needs_characteristic ~states:characteristic_states dst)
+           then None
            else
-             let guard_disjuncts = dedup_formulas entry.guard_formulas in
-             let use_program_characteristic =
-               needs_program_characteristic ~bad_guarantee_sources dst
-             in
-             if use_program_characteristic then
-               let entry_disjuncts = entry.program_entry_formulas in
-               match disj_fo entry_disjuncts with
-               | None -> None
-               | Some entry_fact ->
-                   let entry_fact = simplify_fo entry_fact in
-                   if is_htrue entry_fact then None
-                   else
-                     let post_disjuncts =
-                       entry.program_post_formulas |> dedup_formulas
-                     in
-                     Some { product_state = dst; entry_fact; post_disjuncts }
-             else
-               let post_disjuncts = guard_disjuncts in
-               match disj_fo post_disjuncts with
-               | None -> None
-               | Some post_fact ->
-                   let entry_fact =
-                     shift_formula_forward_inputs ~is_input post_fact
-                     |> simplify_fo
-                   in
-                   if is_htrue entry_fact then None
-                   else Some { product_state = dst; entry_fact; post_disjuncts })
+             match disj_fo entry.program_entry_formulas with
+             | None -> None
+             | Some entry_fact ->
+                 let entry_fact = simplify_fo entry_fact in
+                 if is_htrue entry_fact then None
+                 else
+                   Some { product_state = dst; entry_fact })
     |> List.sort_uniq Stdlib.compare
   in
   build_table entries
@@ -399,32 +418,18 @@ let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
   | None -> []
   | Some entry -> [ entry.entry_fact ]
 
-let formula_is_post_disjunct (entry : entry) (formula : Core_syntax.hexpr) :
-    bool =
-  let key = formula_key formula in
-  List.exists
-    (fun disjunct -> String.equal key (formula_key disjunct))
-    entry.post_disjuncts
-
-let preservation_ensures (t : t) ~(is_input : ident -> bool)
+let preservation_ensures (t : t) ~(node : Abs.node_ir)
     (pc : Abs.product_step_summary) : Core_syntax.hexpr list =
   pc.safe_cases
   |> List.filter_map (fun (case : Abs.safe_product_case) ->
          match entry_of_product_state t case.product_dst with
          | None -> None
-         | Some entry ->
-             let post_fact = disj_fo entry.post_disjuncts in
-             (match post_fact with
-             | None -> None
-             | Some post_fact ->
-             if
-               same_formula case.admissible_guard.logic post_fact
-               || formula_is_post_disjunct entry case.admissible_guard.logic
-               || dnf_subsumes ~antecedent:case.admissible_guard.logic
-                    ~consequent:post_fact
-             then None
+         | Some _ ->
+             let contribution = incoming_post_formula ~node pc case in
+             if same_formula case.admissible_guard.logic contribution then None
              else
-               Some (mk_himp case.admissible_guard.logic post_fact |> simplify_fo))
-         )
+               Some
+                 (mk_himp case.admissible_guard.logic contribution
+                 |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))
   |> List.sort_uniq Stdlib.compare

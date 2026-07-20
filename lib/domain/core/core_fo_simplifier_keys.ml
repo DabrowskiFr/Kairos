@@ -143,18 +143,31 @@ let rel_lit_of_hexpr (h : hexpr) : rel_lit option =
       end
   | _ -> None
 
+let ordered_pair_key prefix a b =
+  let ka = key_of_hexpr a in
+  let kb = key_of_hexpr b in
+  if String.compare ka kb <= 0 then prefix ^ ka ^ ":" ^ kb
+  else prefix ^ kb ^ ":" ^ ka
+
+let comparison_literal_key op a b =
+  let ka = key_of_hexpr a in
+  let kb = key_of_hexpr b in
+  match op with
+  | Core_syntax.REq -> Some (ordered_pair_key "eq:" a b, true)
+  | Core_syntax.RNeq -> Some (ordered_pair_key "eq:" a b, false)
+  | Core_syntax.RLt -> Some ("lt:" ^ ka ^ ":" ^ kb, true)
+  | Core_syntax.RGe -> Some ("lt:" ^ ka ^ ":" ^ kb, false)
+  | Core_syntax.RGt -> Some ("lt:" ^ kb ^ ":" ^ ka, true)
+  | Core_syntax.RLe -> Some ("lt:" ^ kb ^ ":" ^ ka, false)
+
 let rec literal_key (h : hexpr) : (string * bool) option =
   let open Core_syntax in
-  match rel_lit_of_hexpr h with
-  | Some { subject; op = REq; value } -> Some ("rel:" ^ subject ^ ":" ^ value, true)
-  | Some { subject; op = RNeq; value } -> Some ("rel:" ^ subject ^ ":" ^ value, false)
-  | Some _ -> None
-  | None ->
-      begin match h.hexpr with
-      | HUn (Not, inner) -> Option.map (fun (key, sign) -> (key, not sign)) (literal_key inner)
-      | HVar _ | HPred _ | HFunCall _ -> Some ("bool:" ^ key_of_hexpr h, true)
-      | _ -> None
-      end
+  match h.hexpr with
+  | HCmp (op, a, b) -> comparison_literal_key op a b
+  | HUn (Not, inner) ->
+      Option.map (fun (key, sign) -> (key, not sign)) (literal_key inner)
+  | HVar _ | HPred _ | HFunCall _ -> Some ("bool:" ^ key_of_hexpr h, true)
+  | _ -> None
 
 let are_complements a b =
   match (literal_key a, literal_key b) with

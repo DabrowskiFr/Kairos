@@ -24,18 +24,21 @@
 open Core_syntax
 (** Time-shifting utilities for formulas and history expressions. *)
 
-(** Shift one step forward all input-dependent references in a non-temporal
-    boolean formula. *)
+(** Transport a formula from tick entry to the completed post-state: current
+    inputs and existing historical reads are unchanged, while current
+    non-inputs become depth-one reads. *)
+val shift_formula_entry_to_post :
+  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
+
+(** Transport a post-tick formula to the next entry: current inputs become
+    depth-one reads, current non-inputs are unchanged, and every existing
+    historical read gains one level. *)
 val shift_formula_forward_inputs :
   is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
 
-(** Shift one step backward all input-dependent references in a non-temporal
-    boolean formula. *)
+(** Transport a persistent state formula to the preceding postcondition:
+    current non-inputs are unchanged and every historical read loses one
+    level. Current inputs are rejected because they have no value at the
+    preceding post-tick endpoint. *)
 val shift_formula_backward_inputs :
   is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
-
-(** Shift one step forward all variable references in a formula. This is used
-    when a fact about the beginning of a program step is transported to the
-    entry of the next step, where every value from the previous beginning is a
-    historical value. *)
-val shift_hexpr_forward_all : Core_syntax.hexpr -> Core_syntax.hexpr

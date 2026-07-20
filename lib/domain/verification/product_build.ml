@@ -77,9 +77,19 @@ let validate_transition_indices ~role (automaton : Automaton_types.automaton) =
       validate_transition_index ~role ~kind:"destination" ~state_count dst)
     automaton.transitions
 
-let validate_bad_state_normal_form ~role (automaton : Automaton_types.automaton) =
+let validate_single_bad_state ~role (automaton : Automaton_types.automaton) =
   match bad_indices automaton.states with
-  | [] -> ()
+  | [] | [ _ ] -> ()
+  | _ ->
+      failwith
+        (Printf.sprintf
+           "%s automaton has multiple bad states; expected at most one LFalse \
+            state"
+           role)
+
+let validate_bad_state_absorbing ~role
+    (automaton : Automaton_types.automaton) =
+  match bad_indices automaton.states with
   | [ bad_idx ] ->
       List.iter
         (fun (src, _guard, dst) ->
@@ -90,12 +100,7 @@ let validate_bad_state_normal_form ~role (automaton : Automaton_types.automaton)
                   transition to %d"
                  role bad_idx dst))
         automaton.transitions
-  | _ ->
-      failwith
-        (Printf.sprintf
-           "%s automaton has multiple bad states; expected at most one LFalse \
-            state"
-           role)
+  | [] | _ :: _ :: _ -> ()
 
 let validate_assumption_guard_targets (automaton : Automaton_types.automaton) =
   let targets = Hashtbl.create 32 in
@@ -120,8 +125,9 @@ let validate_automata_spec (build : Automaton_types.automata_spec) =
   validate_non_empty_states ~role:"guarantee" build.guarantee_automaton;
   validate_transition_indices ~role:"assumption" build.assume_automaton;
   validate_transition_indices ~role:"guarantee" build.guarantee_automaton;
-  validate_bad_state_normal_form ~role:"assumption" build.assume_automaton;
-  validate_bad_state_normal_form ~role:"guarantee" build.guarantee_automaton;
+  validate_single_bad_state ~role:"assumption" build.assume_automaton;
+  validate_single_bad_state ~role:"guarantee" build.guarantee_automaton;
+  validate_bad_state_absorbing ~role:"assumption" build.assume_automaton;
   validate_assumption_guard_targets build.assume_automaton
 
 let make_assume_view (build : Automaton_types.automata_spec) : automaton_view =

@@ -118,7 +118,8 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
     |> List.sort_uniq compare
   in
   let shifted_product_characteristics =
-    Product_characteristics.preservation_ensures product_characteristics ~is_input pc
+    Product_characteristics.preservation_ensures product_characteristics
+      ~node pc
   in
   let ensures =
     (pc.ensures

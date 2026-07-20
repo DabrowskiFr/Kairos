@@ -138,7 +138,8 @@ let input_history_node () : Ir.node_ir =
   let summary : Ir.product_step_summary =
     {
       trace = { step_uid = 0 };
-      identity = { program_step; product_src = src; assume_guard = htrue };
+      identity =
+        { program_step; product_src = src; assume_guard = hvar "assume_i" };
       propagation_requires = [];
       requires = [];
       ensures = [];
@@ -147,21 +148,55 @@ let input_history_node () : Ir.node_ir =
       unsafe_cases = [];
     }
   in
+  let unsafe_summary : Ir.product_step_summary =
+    {
+      trace = { step_uid = 1 };
+      identity =
+        {
+          program_step =
+            {
+              Ir.src_state = "T";
+              dst_state = "T";
+              guard_expr = None;
+              body_stmts = [];
+            };
+          product_src = dst;
+          assume_guard = htrue;
+        };
+      propagation_requires = [];
+      requires = [];
+      ensures = [];
+      elaboration_checks = [];
+      safe_cases = [];
+      unsafe_cases =
+        [
+          {
+            product_dst = product_state "T" 2;
+            excluded_guard = formula (hvar "bad");
+          };
+        ];
+    }
+  in
   {
     semantics =
       {
         sem_nname = "InputHistory";
         sem_type_decls = [];
         sem_function_decls = [];
-        sem_inputs = [ var "i" TBool ];
-        sem_outputs = [];
+        sem_inputs = [ var "i" TBool; var "assume_i" TBool ];
+        sem_outputs = [ var "o" TBool ];
         sem_locals = [];
         sem_states = [ "S"; "T" ];
         sem_init_state = "S";
       };
-    source_info = { assumes = []; guarantees = []; state_invariants = [] };
+    source_info =
+      {
+        assumes = [];
+        guarantees = [];
+        state_invariants = [ { state = "S"; formula = hvar "o" } ];
+      };
     temporal_layout = [];
-    summaries = [ summary ];
+    summaries = [ summary; unsafe_summary ];
     init_invariant_goals = [];
   }
 
@@ -200,6 +235,57 @@ let parity_automata () : Automaton_types.automata_spec =
       {
         states = [ LTrue; LFalse ];
         transitions = [ (0, hvar "ok", 0); (0, hvar "bad", 1); (1, htrue, 1) ];
+      };
+  }
+
+let bad_source_model_node () : Verification_model.node_model =
+  let loop =
+    {
+      Verification_model.src_state = "S";
+      dst_state = "S";
+      guard_expr = None;
+      body_stmts = [];
+      elaboration_checks = [];
+    }
+  in
+  {
+    node_name = "BadSources";
+    type_decls = [];
+    function_decls = [];
+    inputs = [];
+    outputs = [];
+    locals = [];
+    ghosts = [];
+    public_ghosts = [];
+    states = [ "S" ];
+    init_state = "S";
+    steps = [ loop ];
+    assumes = [];
+    guarantees = [];
+    state_invariants = [];
+  }
+
+let bad_source_automata () : Automaton_types.automata_spec =
+  {
+    assume_automaton =
+      {
+        states = [ LTrue; LFalse ];
+        transitions =
+          [
+            (0, hvar "assume_ok", 0);
+            (0, hvar "assume_bad", 1);
+            (1, htrue, 1);
+          ];
+      };
+    guarantee_automaton =
+      {
+        states = [ LTrue; LFalse ];
+        transitions =
+          [
+            (0, hvar "guarantee_ok", 0);
+            (0, hvar "guarantee_bad", 1);
+            (1, htrue, 1);
+          ];
       };
   }
 
@@ -329,19 +415,20 @@ let test_temporal_endpoint_shifts () =
   let shifted_forward =
     Fo_time.shift_formula_forward_inputs ~is_input source_formula
   in
+  let expected_entry_to_post =
+    hand
+      (hcmp REq (hvar "i") (hpre "i" 1))
+      (hcmp REq (hpre "x" 1) (hpre "x" 2))
+  in
+  check_equal_formula
+    "entry-to-post shift preserves inputs and histories non-inputs"
+    expected_entry_to_post
+    (Fo_time.shift_formula_entry_to_post ~is_input source_formula);
   check_equal_formula "forward shift moves current inputs into history"
     expected_forward_inputs shifted_forward;
   check_equal_formula "backward shift inverts the forward input shift"
     source_formula
     (Fo_time.shift_formula_backward_inputs ~is_input shifted_forward);
-  let expected_forward_all =
-    hand
-      (hcmp REq (hpre "i" 1) (hpre "i" 2))
-      (hcmp REq (hpre "x" 1) (hpre "x" 3))
-  in
-  check_equal_formula "forward-all shift moves every variable into history"
-    expected_forward_all
-    (Fo_time.shift_hexpr_forward_all source_formula);
   check_raises "backward shift rejects current input" "current input" (fun () ->
       ignore (Fo_time.shift_formula_backward_inputs ~is_input (hvar "i")))
 
@@ -407,9 +494,16 @@ let test_product_characteristics_entry_facts_shift_current_inputs () =
   match Product_characteristics.entry_facts_of_product_state table dst with
   | [ fact ] ->
       check "entry fact generated from current input is a historical fact"
-        (Fo_current_input.no_current_input ~input_names:[ "i" ] fact);
-      check_equal_formula "current input safe guard is shifted to pre(input)"
-        (hpre "i" 1) fact
+        (Fo_current_input.no_current_input
+           ~input_names:[ "i"; "assume_i" ] fact);
+      check_equal_formula
+        "entry fact retains the source annotation, assumption guard, and body effect"
+        (hand
+           (hand
+              (hand (hpre "assume_i" 1) (hpre "i" 1))
+              (hpre "o" 2))
+           (hcmp REq (hvar "o") (hpre "o" 2)))
+        fact
   | facts ->
       fail "failed: expected one entry fact, got %d" (List.length facts)
 
@@ -428,6 +522,61 @@ let test_product_exploration_and_summary_parity () =
   in
   check_equal_string_list "product exploration and summaries expose the same cases"
     expected (actual_summary_case_keys node_ir)
+
+let test_bad_product_sources_do_not_generate_summaries () =
+  let node = bad_source_model_node () in
+  let automata = bad_source_automata () in
+  let analysis =
+    Product_build.analyze_node ~build:automata ~node
+      ~program_transitions:node.steps
+  in
+  check "product exploration retains edges from bad sources"
+    (List.exists
+       (fun (step : Product_types.product_step) ->
+         step.src.assume_state = analysis.assume_bad_idx
+         || step.src.guarantee_state = analysis.guarantee_bad_idx)
+       analysis.exploration.steps);
+  let node_ir =
+    match
+      From_model.of_model_program
+        ~automata:[ (node.node_name, automata) ] [ node ]
+    with
+    | Ok [ node_ir ] -> node_ir
+    | Ok nodes -> fail "failed: expected one IR node, got %d" (List.length nodes)
+    | Error msg -> fail "failed: From_model rejected bad-source node: %s" msg
+  in
+  check "active source still generates summaries" (node_ir.summaries <> []);
+  check "summary sources are active"
+    (List.for_all
+       (fun (summary : Ir.product_step_summary) ->
+         summary.identity.product_src.assume_state_index
+           <> analysis.assume_bad_idx
+         && summary.identity.product_src.guarantee_state_index
+              <> analysis.guarantee_bad_idx)
+       node_ir.summaries);
+  check "assumption-bad destinations generate no cases"
+    (List.for_all
+       (fun (summary : Ir.product_step_summary) ->
+         List.for_all
+           (fun (case : Ir.safe_product_case) ->
+             case.product_dst.assume_state_index <> analysis.assume_bad_idx)
+           summary.safe_cases
+         && List.for_all
+              (fun (case : Ir.unsafe_product_case) ->
+                case.product_dst.assume_state_index
+                  <> analysis.assume_bad_idx)
+              summary.unsafe_cases)
+       node_ir.summaries);
+  check "active-to-safe cases remain"
+    (List.exists
+       (fun (summary : Ir.product_step_summary) ->
+         summary.safe_cases <> [])
+       node_ir.summaries);
+  check "active-to-bad-guarantee cases remain as exclusions"
+    (List.exists
+       (fun (summary : Ir.product_step_summary) ->
+         summary.unsafe_cases <> [])
+       node_ir.summaries)
 
 let test_product_automata_normal_form_validation () =
   let node = parity_model_node () in
@@ -465,8 +614,19 @@ let test_product_automata_normal_form_validation () =
         };
     }
   in
-  check_raises "bad state must be absorbing" "must be absorbing" (fun () ->
-      analyze non_absorbing_bad_guarantee);
+  analyze non_absorbing_bad_guarantee;
+  let non_absorbing_bad_assumption =
+    {
+      valid with
+      assume_automaton =
+        {
+          states = [ LTrue; LFalse ];
+          transitions = [ (0, htrue, 1); (1, htrue, 0) ];
+        };
+    }
+  in
+  check_raises "assumption bad state must be absorbing" "must be absorbing"
+    (fun () -> analyze non_absorbing_bad_assumption);
   let multiple_bad_guarantee =
     {
       valid with
@@ -487,5 +647,6 @@ let () =
   test_pre_k_layout_and_lowering ();
   test_product_characteristics_entry_facts_shift_current_inputs ();
   test_product_exploration_and_summary_parity ();
+  test_bad_product_sources_do_not_generate_summaries ();
   test_product_automata_normal_form_validation ();
   print_endline "canonical_obligations_tests: ok"
