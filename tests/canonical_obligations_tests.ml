@@ -432,6 +432,80 @@ let test_temporal_endpoint_shifts () =
   check_raises "backward shift rejects current input" "current input" (fun () ->
       ignore (Fo_time.shift_formula_backward_inputs ~is_input (hvar "i")))
 
+let test_temporal_endpoint_shift_semantics () =
+  let is_input name = String.equal name "i" in
+  let eval_read frame (read : Core_syntax.hexpr) =
+    match read.hexpr with
+    | HVar name -> frame name 0
+    | HPreK (name, depth) -> frame name depth
+    | _ -> fail "failed: expected a temporal read"
+  in
+  let source name depth =
+    match (name, depth) with
+    | "i", 0 -> 3
+    | "i", 1 -> 3
+    | "i", 2 -> 2
+    | "i", _ -> 1
+    | "x", 0 -> 10
+    | "x", 1 -> 10
+    | "x", 2 -> 8
+    | "x", _ -> 6
+    | _ -> fail "failed: unknown temporal read %s@%d" name depth
+  in
+  let entry name depth =
+    if depth = 0 && String.equal name "i" then 7 else source name depth
+  in
+  let post name depth =
+    if depth = 0 then if String.equal name "i" then 7 else 20
+    else source name depth
+  in
+  let destination name depth =
+    if depth <= 1 then post name 0 else source name (depth - 1)
+  in
+  let reads = [ hvar "i"; hvar "x"; hpre "i" 1; hpre "x" 1; hpre "x" 2 ] in
+  List.iter
+    (fun read ->
+      check "entry-to-post shift preserves read denotation"
+        (eval_read post (Fo_time.shift_formula_entry_to_post ~is_input read)
+        = eval_read entry read);
+      check "forward shift preserves read denotation"
+        (eval_read destination (Fo_time.shift_formula_forward_inputs ~is_input read)
+        = eval_read post read))
+    reads;
+  let backward_reads = [ hvar "x"; hpre "i" 1; hpre "x" 1; hpre "x" 2 ] in
+  List.iter
+    (fun read ->
+      check "backward shift preserves read denotation"
+        (eval_read post (Fo_time.shift_formula_backward_inputs ~is_input read)
+        = eval_read destination read))
+    backward_reads
+
+let test_initial_state_requires_history_stability () =
+  let node = input_history_node () in
+  let enriched =
+    match Pre.run_program [ node ] with
+    | [ enriched ] -> enriched
+    | nodes -> fail "failed: expected one enriched node, got %d" (List.length nodes)
+  in
+  let initial_summary =
+    match
+      List.find_opt
+        (fun (summary : Ir.product_step_summary) ->
+          String.equal summary.identity.product_src.prog_state
+            enriched.semantics.sem_init_state)
+        enriched.summaries
+    with
+    | Some summary -> summary
+    | None -> fail "failed: missing initial product summary"
+  in
+  let expected = hcmp REq (hvar "o") (hpre "o" 1) in
+  check "initial state requires output/history coherence"
+    (List.exists
+       (fun (requirement : Ir.summary_formula) ->
+         requirement.meta.family = Some "stability_requires"
+         && requirement.logic = expected)
+       initial_summary.requires)
+
 let test_current_input_frontier () =
   let input_names = [ "i"; "j" ] in
   check "current-input detector ignores historical input"
@@ -643,6 +717,8 @@ let test_product_automata_normal_form_validation () =
 let () =
   test_stage2_keeps_unsafe_cases_canonical ();
   test_temporal_endpoint_shifts ();
+  test_temporal_endpoint_shift_semantics ();
+  test_initial_state_requires_history_stability ();
   test_current_input_frontier ();
   test_pre_k_layout_and_lowering ();
   test_product_characteristics_entry_facts_shift_current_inputs ();

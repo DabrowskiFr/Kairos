@@ -45,11 +45,6 @@ let ivar (name : ident) : expr = { expr = EVar name; loc = None }
 let stability_formula (name : ident) : Core_syntax.hexpr =
   mk_hexpr (HCmp (REq, hexpr_of_expr (ivar name), mk_hpre_k name 1))
 
-let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
-  String.equal a.prog_state b.prog_state
-  && a.assume_state_index = b.assume_state_index
-  && a.guarantee_state_index = b.guarantee_state_index
-
 let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.hexpr =
   match t.guard_expr with
   | None -> Core_syntax_builders.mk_hbool true
@@ -68,42 +63,15 @@ let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
     | None -> []
     | Some xs -> List.sort_uniq compare xs)
 
-let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
-  let candidates =
-    node.summaries
-    |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
-    |> List.filter (fun (st : Abs.product_state) ->
-           String.equal st.prog_state node.semantics.sem_init_state)
-    |> List.sort_uniq Stdlib.compare
-  in
-  match
-    List.find_opt
-      (fun (st : Abs.product_state) -> st.assume_state_index = 0 && st.guarantee_state_index = 0)
-      candidates
-  with
-  | Some st -> st
-  | None -> (
-      match candidates with
-      | st :: _ -> st
-      | [] ->
-          {
-            Abs.prog_state = node.semantics.sem_init_state;
-            assume_state_index = 0;
-            guarantee_state_index = 0;
-          })
-
 type node_generation = {
   product_characteristics : Product_characteristics.t;
-  initial_product_state : Abs.product_state;
   state_stability : Core_syntax.hexpr list;
   invariant_of_state : ident -> Core_syntax.hexpr option;
 }
 
 let compute_generation ~(node : Abs.node_ir) : node_generation =
-  let initial_product_state = infer_initial_product_state node in
   {
     product_characteristics = Product_characteristics.build ~node;
-    initial_product_state;
     state_stability = List.map stability_formula (non_input_program_var_names node);
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
@@ -148,11 +116,6 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
         let state_invariants =
           invariants_of_state n pc.identity.product_src.prog_state
         in
-        let stability_requires =
-          if same_product_state pc.identity.product_src pre_generation.initial_product_state
-          then []
-          else pre_generation.state_stability
-        in
         let requires =
           []
           |> add_formula_family ~record_family
@@ -164,7 +127,7 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
           |> add_formula_family ~record_family
                ~family_name:"program_guard_requires" [ program_guard ]
           |> add_formula_family ~record_family
-               ~family_name:"stability_requires" stability_requires
+               ~family_name:"stability_requires" pre_generation.state_stability
         in
         { pc with propagation_requires; requires })
       n.summaries
