@@ -30,7 +30,9 @@ bin/cli/kairos.ml
 Le serveur LSP et la CLI entrent par `Kairos_engine.Api`. Leurs données
 publiques viennent du paquet autonome et sans dépendance
 `kairos-engine-contract`; la façade effectue une conversion explicite vers
-les types d'orchestration internes. Cette façade appelle
+les types d'orchestration internes. La façade et la composition concrète
+appartiennent à `kairos-engine-runtime`, tandis que le domaine, l'application
+et le frontend restent dans `kairos`. Cette façade appelle
 les mêmes use-cases et le même câblage, mais empêche les paquets
 `kairos-lsp` et `kairos-cli` d'importer directement le domaine, les backends ou
 l'orchestration interne.

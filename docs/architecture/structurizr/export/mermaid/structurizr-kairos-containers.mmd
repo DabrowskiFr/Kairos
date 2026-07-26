@@ -20,7 +20,7 @@ graph LR
     subgraph 7 ["Kairos"]
       style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
 
-      10["<div style='font-weight: bold'>Engine facade</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Stable in-process API used by<br />optional delivery adapters.</div>"]
+      10["<div style='font-weight: bold'>Engine facade</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / kairos-engine-runtime]</div><div style='font-size: 80%; margin-top:10px'>Stable in-process API<br />distributed by<br />kairos-engine-runtime and<br />used by optional delivery<br />adapters.</div>"]
       style 10 fill:#075985,stroke:#043e5d,color:#ffffff
       11["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
       style 11 fill:#7c3aed,stroke:#5628a5,color:#ffffff
@@ -32,7 +32,7 @@ graph LR
       style 14 fill:#166534,stroke:#0f4624,color:#ffffff
       19["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
       style 19 fill:#075985,stroke:#043e5d,color:#ffffff
-      22["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
+      22["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / kairos-engine-runtime]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution inside<br />kairos-engine-runtime.</div>"]
       style 22 fill:#b45309,stroke:#7d3a06,color:#ffffff
       28["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
       style 28 fill:#be123c,stroke:#850c2a,color:#ffffff

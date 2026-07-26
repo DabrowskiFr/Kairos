@@ -78,6 +78,7 @@
 
 (test
  (name product_group_policy_partition_tests)
+ (package kairos-engine-runtime)
  (libraries kairos_why3_compile))
 
 (test
@@ -90,6 +91,7 @@
 
 (test
  (name automata_exchange_adapter_tests)
+ (package kairos-engine-runtime)
  (libraries
   kairos_automata_contract
   kairos_domain_core

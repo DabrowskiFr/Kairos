@@ -1,6 +1,6 @@
 (library
  (name kairos_why3_expr)
- (public_name kairos.internal.why3_expr)
+ (public_name kairos-engine-runtime.internal.why3_expr)
  (wrapped false)
  (modules
   why_compile_expr_primitives
@@ -13,7 +13,7 @@
 
 (library
  (name kairos_why3_compile)
- (public_name kairos.internal.why3_compile)
+ (public_name kairos-engine-runtime.internal.why3_compile)
  (wrapped false)
  (modules
   why_compile_ptree_terms

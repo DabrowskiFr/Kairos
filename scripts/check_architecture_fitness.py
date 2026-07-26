@@ -4009,7 +4009,7 @@ def check_lsp_package_boundary(repo: Path) -> None:
 
     lsp_opam = (repo / "kairos-lsp.opam").read_text(encoding="utf-8")
     for dependency in [
-        '"kairos"',
+        '"kairos-engine-runtime"',
         '"kairos-engine-contract"',
         '"jsonrpc"',
         '"lsp"',
@@ -4063,7 +4063,11 @@ def check_cli_package_boundary(repo: Path) -> None:
         fail("kairos.opam must not depend on the optional CLI dependency cmdliner")
 
     cli_opam = (repo / "kairos-cli.opam").read_text(encoding="utf-8")
-    for dependency in ['"kairos"', '"kairos-engine-contract"', '"cmdliner"']:
+    for dependency in [
+        '"kairos-engine-runtime"',
+        '"kairos-engine-contract"',
+        '"cmdliner"',
+    ]:
         if dependency not in cli_opam:
             fail(f"kairos-cli.opam is missing dependency {dependency}")
 
@@ -4161,7 +4165,7 @@ def check_engine_runtime_split_plan(repo: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != 1:
         fail("engine runtime split manifest has an unsupported schema")
-    if manifest.get("status") != "proposed":
+    if manifest.get("status") != "implemented":
         fail("engine runtime split manifest must record its current status")
 
     runtime = manifest["runtime_package"]
@@ -4189,7 +4193,7 @@ def check_engine_runtime_split_plan(repo: Path) -> None:
             fail(f"engine runtime split Dune file is missing: {dune_file}")
         dune = dune_file.read_text(encoding="utf-8", errors="replace")
         dune_name = re.escape(entry["dune_name"])
-        public_name = re.escape(entry["current_public_name"])
+        public_name = re.escape(entry["target_public_name"])
         if not re.search(rf"\(name\s+{dune_name}\)", dune):
             fail(
                 "engine runtime split no longer matches Dune library "
@@ -4198,7 +4202,7 @@ def check_engine_runtime_split_plan(repo: Path) -> None:
         if not re.search(rf"\(public_name\s+{public_name}\)", dune):
             fail(
                 "engine runtime split no longer matches public library "
-                + entry["current_public_name"]
+                + entry["target_public_name"]
             )
         target_name = entry["target_public_name"]
         if not (
@@ -4216,18 +4220,35 @@ def check_engine_runtime_split_plan(repo: Path) -> None:
 
     main_opam = (repo / "kairos.opam").read_text(encoding="utf-8")
     for dependency in manifest["core_package"]["dependencies_to_remove"]:
-        if f'"{dependency}"' not in main_opam:
+        if f'"{dependency}"' in main_opam:
             fail(
-                "engine runtime split removal list is stale for dependency "
+                "kairos core still depends on extracted runtime dependency "
                 + dependency
             )
+    for dependency in manifest["core_package"]["direct_dependencies_to_declare"]:
+        if f'"{dependency}"' not in main_opam:
+            fail(f"kairos core is missing direct dependency {dependency}")
+
+    runtime_opam_path = repo / runtime["opam_file"]
+    if not runtime_opam_path.is_file():
+        fail("kairos-engine-runtime opam file is missing")
+    runtime_opam = runtime_opam_path.read_text(encoding="utf-8")
+    for dependency in runtime["dependencies"]:
+        if f'"{dependency}"' not in runtime_opam:
+            fail(f"kairos-engine-runtime is missing dependency {dependency}")
 
     graph = (
         repo / "docs/architecture/observed/dune-libraries.dot"
     ).read_text(encoding="utf-8", errors="replace")
     target_names = {
-        entry["current_public_name"] for entry in libraries
+        entry["target_public_name"] for entry in libraries
     }
+    for target_name in target_names:
+        if f'"{target_name}"' not in graph:
+            fail(
+                "observed dependency graph is stale for runtime library "
+                + target_name
+            )
     allowed_clients = {"kairos", "kairos-lsp.app"}
     edge = re.compile(r'^\s*"([^"]+)" -> "([^"]+)";$', re.MULTILINE)
     unexpected_inbound = sorted(

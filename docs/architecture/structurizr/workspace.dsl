@@ -22,7 +22,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       lsp = container "LSP server" "Editor-facing protocol server exposing frontend, proof, and artifact services." "OCaml / LSP" {
         tags "Adapter"
       }
-      engineFacade = container "Engine facade" "Stable in-process API used by optional delivery adapters." "OCaml" {
+      engineFacade = container "Engine facade" "Stable in-process API distributed by kairos-engine-runtime and used by optional delivery adapters." "OCaml / kairos-engine-runtime" {
         tags "Application"
       }
       frontend = container "Kairos frontend" "Parses the surface language and elaborates it to the core verification model." "OCaml" {
@@ -46,7 +46,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
         kernelTypes = component "Proof-kernel schema" "Serializable product, clause, and summary structures." "OCaml / JSON"
         kernelPass = component "Proof-kernel pass" "Compiles one reference node into the exchange schema." "OCaml"
       }
-      runtime = container "Runtime orchestration" "Coordinates prepared programs, supplied automata, snapshots, outputs, and proof execution." "OCaml" {
+      runtime = container "Runtime orchestration" "Coordinates prepared programs, supplied automata, snapshots, outputs, and proof execution inside kairos-engine-runtime." "OCaml / kairos-engine-runtime" {
         tags "Runtime"
         snapshot = component "Snapshot build" "Consumes supplied automata and assembles reference summaries, instrumentation, and metrics." "OCaml"
         automataSource = component "External automata source" "Produces supplied automata with Spot today, outside the runtime core." "OCaml"

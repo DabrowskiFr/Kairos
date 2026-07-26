@@ -1,6 +1,6 @@
 (library
  (name kairos_c_codegen)
- (public_name kairos.internal.c_codegen)
+ (public_name kairos-engine-runtime.internal.c_codegen)
  (modules
   c_codegen_types
   c_codegen_common

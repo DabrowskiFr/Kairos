@@ -2,7 +2,7 @@
 
 Date : 2026-07-26
 
-Statut : frontière recommandée, non implémentée.
+Statut : frontière implémentée.
 
 Référence analysée : `9aa180f5`, branche `externalization`.
 
@@ -29,10 +29,10 @@ kairos-cli / kairos-lsp
   clients du moteur d'exécution
 ```
 
-Cette séparation est acyclique dans le graphe Dune observé. Elle ne demande
+Cette séparation est acyclique dans le graphe Dune observé. Elle n'a demandé
 aucune modification des corps OCaml, des obligations, de Why3 ou de Rocq. La
-première implémentation doit être un changement de propriété Dune/opam et de
-noms publics de bibliothèques, pas un déplacement physique de fichiers.
+réalisation est un changement de propriété Dune/opam et de noms publics de
+bibliothèques, sans déplacement physique de fichiers.
 
 ## Problème actuel
 
@@ -171,7 +171,7 @@ de paquet ne prétend pas le rendre générique ou indépendant du domaine.
 `kairos-engine-runtime`. Ils conservent leur dépendance directe sur
 `kairos-engine-contract`, puisqu'ils nomment ses DTO dans leurs interfaces.
 
-## Ordre d'implémentation
+## Ordre d'implémentation réalisé
 
 1. Ajouter `kairos-engine-runtime` à `dune-project` et créer son fichier opam.
 2. Changer uniquement les `public_name` des 17 bibliothèques recensées.
@@ -203,6 +203,19 @@ Puis :
 - corpus complet : 44/44 verts, 46 invalides, 10 timeouts, 0 faux vert ;
 - contrôle Git interdisant toute modification sous `rocq`, `lib/domain`,
   `lib/application`, `lib/adapters/in/kairos_lang` et `lib/ir`.
+
+## Résultat de validation
+
+La réalisation du 27 juillet 2026 satisfait ces critères :
+
+- build isolé de `kairos` avec `--only-packages kairos` ;
+- build isolé de `kairos-engine-runtime` contre les paquets installés ;
+- builds isolés de `kairos-cli` et `kairos-lsp` contre le runtime installé ;
+- suite Dune, architecture, couches, format, élaboration, génération C,
+  historique de preuve et stabilité de référence : OK ;
+- corpus : 44/44 verts, 46 invalides, 10 timeouts, 0 faux vert ;
+- aucune modification `.ml`, `.mli`, Rocq, domaine, application, frontend ou
+  IR.
 
 ## Risques
 
@@ -238,7 +251,6 @@ Le découpage est faisable, utile et acyclique. Il retire réellement les outils
 externes des dépendances d'installation du noyau, contrairement à une nouvelle
 micro-extraction.
 
-La prochaine passe peut implémenter exactement le manifeste, uniquement par
-changements Dune/opam et affectation des tests. Toute nécessité de modifier un
-corps de preuve, de domaine, de frontend ou de backend doit arrêter la passe et
-être traitée comme un défaut de frontière.
+Le manifeste a été implémenté uniquement par changements Dune/opam et
+affectation des tests. Aucun corps de preuve, de domaine, de frontend ou de
+backend n'a été modifié.

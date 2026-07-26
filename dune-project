@@ -12,6 +12,8 @@
 (package
  (name kairos-engine-contract))
 (package
+ (name kairos-engine-runtime))
+(package
  (name kairos-automata-contract))
 (package
  (name kairos-spot-adapter))

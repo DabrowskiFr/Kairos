@@ -1,6 +1,6 @@
 (library
  (name kairos_engine)
- (public_name kairos.engine)
+ (public_name kairos-engine-runtime)
  (wrapped true)
  (modules engine_contract_mapping api)
  (private_modules engine_contract_mapping)

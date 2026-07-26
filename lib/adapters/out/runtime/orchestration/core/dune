@@ -1,6 +1,6 @@
 (library
  (name kairos_runtime_core)
- (public_name kairos.internal.runtime_core)
+ (public_name kairos-engine-runtime.internal.runtime_core)
  (wrapped false)
  (modules
   runtime_snapshot

@@ -1,6 +1,6 @@
 (library
  (name kairos_composition)
- (public_name kairos.internal.composition)
+ (public_name kairos-engine-runtime.internal.composition)
  (wrapped false)
  (modules kairos_usecase_wiring)
  (libraries kairos_application kairos_input_lang kairos_verification_runtime))

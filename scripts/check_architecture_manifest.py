@@ -87,6 +87,7 @@ def main() -> int:
         "kairos-lsp.opam",
         "kairos-cli.opam",
         "kairos-engine-contract.opam",
+        "kairos-engine-runtime.opam",
         "tests/check_reference_stability.sh",
         ".github/workflows/architecture.yml",
     ]

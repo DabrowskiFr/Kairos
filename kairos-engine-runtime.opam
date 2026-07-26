@@ -1,0 +1,25 @@
+opam-version: "2.0"
+name: "kairos-engine-runtime"
+version: "dev"
+synopsis: "Concrete execution engine for Kairos verification"
+description: "Kairos engine facade, concrete composition, runtime orchestration, Kairos-specific backend projections, and code generation."
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+  "kairos" {= version}
+  "kairos-engine-contract" {= version}
+  "kairos-automata-contract" {= version}
+  "kairos-spot-adapter" {= version}
+  "kairos-proof-contract" {= version}
+  "kairos-telemetry" {= version}
+  "kairos-why3-adapter" {= version}
+  "kairos-graphviz-adapter" {= version}
+  "why3"
+  "yojson"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs "@install"]
+]
+install: [
+  ["dune" "install" "-p" name "--create-install-files" "--prefix" prefix "--libdir" lib]
+]

@@ -4,9 +4,10 @@
 
 | Block | Main paths | Responsibility | Correction role |
 | --- | --- | --- | --- |
-| CLI package | `bin/cli` | Optional command-line interaction through `kairos.engine` | None |
-| LSP package | `bin/lsp`, `lib/adapters/in/lsp_protocol`, `vscode` | Optional editor interaction through `kairos.engine` | None |
-| Engine facade | `lib/engine` | Stable in-process embedding boundary | None |
+| CLI package | `bin/cli` | Optional command-line interaction through `Kairos_engine.Api` | None |
+| LSP package | `bin/lsp`, `lib/adapters/in/lsp_protocol`, `vscode` | Optional editor interaction through `Kairos_engine.Api` | None |
+| Engine contract | `packages/engine-contract` | Dependency-free public request/result data | None |
+| Engine runtime package | `lib/engine`, `lib/composition`, runtime and backend adapters | Concrete in-process behavior distributed as `kairos-engine-runtime` | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
 | Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML execution/results exchange | None |
@@ -16,7 +17,7 @@
 | Telemetry package | `packages/timing` | Process-local technical measurements shared through a data-only API | External utility |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
-| Composition root | `lib/composition` | Wire ports to concrete adapters | None |
+| Composition root | `lib/composition` | Wire ports to concrete adapters inside `kairos-engine-runtime` | None |
 | Domain core | `lib/domain/core` | Core syntax, formulas, model, temporal layout | Reference input |
 | Verification kernel | `lib/domain/verification` | Product construction and reference passes | Correction-critical |
 | Proof export | `lib/domain/proof_export` | Exchange structures and summaries derived from the kernel | Projection candidate |

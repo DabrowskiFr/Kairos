@@ -1,8 +1,8 @@
 opam-version: "2.0"
 name: "kairos"
 version: "dev"
-synopsis: "Kairos verification engine"
-description: "Embeddable Kairos verification engine and language frontend."
+synopsis: "Kairos semantic verification core"
+description: "Kairos domain, reference verification, application interfaces, language frontend, neutral IRs, and Rocq development."
 depends: [
   "dune" {>= "3.10"}
   "rocq-prover"
@@ -11,13 +11,9 @@ depends: [
   "ppx_deriving_yojson"
   "ocaml"
   "yojson"
-  "kairos-engine-contract" {= version}
-  "kairos-automata-contract" {= version}
-  "kairos-spot-adapter" {= version}
-  "kairos-proof-contract" {= version}
-  "kairos-telemetry" {= version}
-  "kairos-why3-adapter" {= version}
-  "kairos-graphviz-adapter" {= version}
+  "fmt"
+  "logs"
+  "sedlex"
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs "@install"]

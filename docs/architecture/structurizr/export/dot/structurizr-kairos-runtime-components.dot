@@ -15,7 +15,7 @@ digraph {
 
     subgraph cluster_22 {
       margin=25
-      label=<<font point-size="24"><br />Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font>>
+      label=<<font point-size="24"><br />Runtime orchestration</font><br /><font point-size="19">[Container: OCaml / kairos-engine-runtime]</font>>
       labelloc=b
       color="#444444"
       fontcolor="#444444"

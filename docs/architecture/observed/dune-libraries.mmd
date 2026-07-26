@@ -146,25 +146,8 @@ flowchart TD
     id41381939(["kairos.shared"])
     id667085455(["kairos.sequential_ir"])
     id745393601(["kairos.observation_model"])
-    id818182390(["kairos.internal.why3_runtime_view"])
-    id1012753001(["kairos.internal.why3_render"])
-    id143033156(["kairos.internal.why3_expr"])
-    id831551540(["kairos.internal.why3_contracts"])
-    id61037662(["kairos.internal.why3_compile"])
-    id363607354(["kairos.internal.why3"])
-    id356889899(["kairos.internal.verification_runtime"])
-    id835658494(["kairos.internal.runtime_proof"])
-    id902833893(["kairos.internal.runtime_outputs"])
-    id476194349(["kairos.internal.runtime_diagnostics"])
-    id385947710(["kairos.internal.runtime_core"])
-    id248638701(["kairos.internal.runtime_automata"])
     id16686930(["kairos.internal.input_lang"])
-    id962147077(["kairos.internal.composition"])
-    id614824427(["kairos.internal.c_codegen"])
-    id958243360(["kairos.internal.artifact_text_render"])
-    id266353272(["kairos.internal.artifact_graph_render"])
     id1070284156(["kairos.internal.application"])
-    id97846301(["kairos.engine"])
     id930986246(["kairos.domain_verification"])
     id35199649(["kairos.domain_proof_export"])
     id1025403665(["kairos.domain_core"])
@@ -175,6 +158,23 @@ flowchart TD
     id1072327609(["kairos-lsp.protocol"])
     id890026226(["kairos-lsp.app"])
     id1017323711(["kairos-graphviz-adapter"])
+    id833188737(["kairos-engine-runtime.internal.why3_runtime_view"])
+    id441264708(["kairos-engine-runtime.internal.why3_render"])
+    id252425864(["kairos-engine-runtime.internal.why3_expr"])
+    id772767509(["kairos-engine-runtime.internal.why3_contracts"])
+    id208489746(["kairos-engine-runtime.internal.why3_compile"])
+    id21543623(["kairos-engine-runtime.internal.why3"])
+    id83910197(["kairos-engine-runtime.internal.verification_runtime"])
+    id87433629(["kairos-engine-runtime.internal.runtime_proof"])
+    id223335607(["kairos-engine-runtime.internal.runtime_outputs"])
+    id531003928(["kairos-engine-runtime.internal.runtime_diagnostics"])
+    id881466317(["kairos-engine-runtime.internal.runtime_core"])
+    id286047422(["kairos-engine-runtime.internal.runtime_automata"])
+    id766615463(["kairos-engine-runtime.internal.composition"])
+    id592998837(["kairos-engine-runtime.internal.c_codegen"])
+    id195380539(["kairos-engine-runtime.internal.artifact_text_render"])
+    id1002127627(["kairos-engine-runtime.internal.artifact_graph_render"])
+    id850281554(["kairos-engine-runtime"])
     id1006626411(["kairos-engine-contract"])
     id590397133(["kairos-automata-contract"])
     id839032564{"kairos_lsp"}
@@ -189,7 +189,7 @@ flowchart TD
     style id268189549 fill:#BBB
   end
   id976590762-->id746976749
-  id976590762-->id97846301
+  id976590762-->id850281554
   id839032564-->id312940537
   id839032564-->id890026226
   id1060604959-->id475016005
@@ -238,9 +238,45 @@ flowchart TD
   id499228351-->id939231628
   id590397133-->id951852321
   id590397133-->id268189549
+  id850281554-->id1006626411
+  id850281554-->id592998837
+  id850281554-->id766615463
+  id1002127627-->id930986246
+  id195380539-->id1025403665
+  id592998837-->id1025403665
+  id766615463-->id83910197
+  id766615463-->id16686930
+  id286047422-->id953615773
+  id286047422-->id458148623
+  id286047422-->id930986246
+  id286047422-->id1070284156
+  id881466317-->id458148623
+  id881466317-->id930986246
+  id881466317-->id1070284156
+  id531003928-->id1002127627
+  id531003928-->id881466317
+  id531003928-->id35199649
+  id223335607-->id531003928
+  id223335607-->id87433629
+  id223335607-->id1017323711
+  id87433629-->id21543623
+  id87433629-->id1070284156
+  id83910197-->id195380539
+  id83910197-->id286047422
+  id83910197-->id223335607
+  id21543623-->id441264708
+  id21543623-->id798752935
+  id208489746-->id772767509
+  id208489746-->id458148623
+  id772767509-->id252425864
+  id772767509-->id833188737
+  id252425864-->id378552737
+  id252425864-->id1025403665
+  id441264708-->id208489746
+  id833188737-->id930986246
   id1017323711-->id1060604959
+  id890026226-->id850281554
   id890026226-->id1072327609
-  id890026226-->id97846301
   id1072327609-->id951852321
   id1072327609-->id268189549
   id356887988-->id951852321
@@ -256,47 +292,11 @@ flowchart TD
   id1025403665-->id268189549
   id35199649-->id930986246
   id930986246-->id1025403665
-  id97846301-->id1006626411
-  id97846301-->id614824427
-  id97846301-->id962147077
   id1070284156-->id1025403665
   id1070284156-->id41381939
-  id266353272-->id930986246
-  id958243360-->id1025403665
-  id614824427-->id1025403665
-  id962147077-->id16686930
-  id962147077-->id356889899
   id16686930-->id550106276
   id16686930-->id615927850
   id16686930-->id1070284156
-  id248638701-->id953615773
-  id248638701-->id458148623
-  id248638701-->id930986246
-  id248638701-->id1070284156
-  id385947710-->id458148623
-  id385947710-->id930986246
-  id385947710-->id1070284156
-  id476194349-->id35199649
-  id476194349-->id266353272
-  id476194349-->id385947710
-  id902833893-->id1017323711
-  id902833893-->id476194349
-  id902833893-->id835658494
-  id835658494-->id1070284156
-  id835658494-->id363607354
-  id356889899-->id958243360
-  id356889899-->id248638701
-  id356889899-->id902833893
-  id363607354-->id798752935
-  id363607354-->id1012753001
-  id61037662-->id458148623
-  id61037662-->id831551540
-  id831551540-->id143033156
-  id831551540-->id818182390
-  id143033156-->id378552737
-  id143033156-->id1025403665
-  id1012753001-->id61037662
-  id818182390-->id930986246
   id745393601-->id667085455
   id667085455-->id951852321
   id667085455-->id268189549

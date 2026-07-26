@@ -1,6 +1,6 @@
 (library
  (name kairos_verification_runtime)
- (public_name kairos.internal.verification_runtime)
+ (public_name kairos-engine-runtime.internal.verification_runtime)
  (wrapped false)
  (modules verification_runtime_adapters)
  (libraries

@@ -6,7 +6,7 @@ description: "Optional command-line delivery adapter embedding the public Kairos
 depends: [
   "dune" {>= "3.10"}
   "ocaml"
-  "kairos" {= version}
+  "kairos-engine-runtime" {= version}
   "kairos-engine-contract" {= version}
   "bos"
   "fpath"

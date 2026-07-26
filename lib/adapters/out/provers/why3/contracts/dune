@@ -1,6 +1,6 @@
 (library
  (name kairos_why3_contracts)
- (public_name kairos.internal.why3_contracts)
+ (public_name kairos-engine-runtime.internal.why3_contracts)
  (wrapped false)
  (modules why_contracts)
  (libraries

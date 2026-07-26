@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
-  "status": "proposed",
+  "status": "implemented",
   "analyzed_commit": "9aa180f5",
+  "implementation_base_commit": "749f23a0",
   "core_package": {
     "name": "kairos",
     "retained_source_roots": [

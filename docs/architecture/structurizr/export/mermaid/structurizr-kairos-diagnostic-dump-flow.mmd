@@ -7,7 +7,7 @@ graph TB
     subgraph 7 ["Kairos"]
       style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
 
-      10["<div style='font-weight: bold'>Engine facade</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Stable in-process API used by<br />optional delivery adapters.</div>"]
+      10["<div style='font-weight: bold'>Engine facade</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / kairos-engine-runtime]</div><div style='font-size: 80%; margin-top:10px'>Stable in-process API<br />distributed by<br />kairos-engine-runtime and<br />used by optional delivery<br />adapters.</div>"]
       style 10 fill:#075985,stroke:#043e5d,color:#ffffff
       12["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
       style 12 fill:#075985,stroke:#043e5d,color:#ffffff
@@ -15,7 +15,7 @@ graph TB
       style 14 fill:#166534,stroke:#0f4624,color:#ffffff
       19["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
       style 19 fill:#075985,stroke:#043e5d,color:#ffffff
-      22["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
+      22["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / kairos-engine-runtime]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution inside<br />kairos-engine-runtime.</div>"]
       style 22 fill:#b45309,stroke:#7d3a06,color:#ffffff
       30["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]
       style 30 fill:#be123c,stroke:#850c2a,color:#ffffff

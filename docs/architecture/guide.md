@@ -69,7 +69,8 @@ elle ne doit pas changer la sortie kernel.
 | Bloc | Chemins | Role | Rocq |
 | --- | --- | --- | --- |
 | Contrat moteur | paquet `kairos-engine-contract` | DTO publics stables et localisations source neutres | Non |
-| CLI / LSP | paquets `kairos-cli`, `kairos-lsp` | Entrees utilisateur via `kairos.engine`, données via `kairos-engine-contract` | Non |
+| Moteur concret | paquet `kairos-engine-runtime` | Composition, orchestration et projections backend propres à Kairos | Non |
+| CLI / LSP | paquets `kairos-cli`, `kairos-lsp` | Entrées utilisateur via `Kairos_engine.Api`, données via `kairos-engine-contract` | Non |
 | Frontend | `lib/adapters/in/kairos_lang` | Parse et elabore le langage de surface | Pas encore, sauf theoreme d'elaboration futur |
 | Application | `lib/application` | Ports et use-cases | Non |
 | Domain core | `lib/domain/core` | Syntaxe, modeles, IR, temporal layout | Oui |

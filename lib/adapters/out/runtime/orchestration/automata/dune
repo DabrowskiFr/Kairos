@@ -1,6 +1,6 @@
 (library
  (name kairos_runtime_automata)
- (public_name kairos.internal.runtime_automata)
+ (public_name kairos-engine-runtime.internal.runtime_automata)
  (wrapped false)
  (modules
   automata_exchange_adapter

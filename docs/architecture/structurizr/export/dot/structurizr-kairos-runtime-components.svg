@@ -19,7 +19,7 @@
 <title>cluster_22</title>
 <polygon fill="none" stroke="#444444" points="33,-164 33,-1023 1259.45,-1023 1259.45,-164 33,-164"/>
 <text xml:space="preserve" text-anchor="start" x="527.72" y="-189.2" font-family="Arial" font-size="24.00" fill="#444444">Runtime orchestration</text>
-<text xml:space="preserve" text-anchor="start" x="565.22" y="-169.95" font-family="Arial" font-size="19.00" fill="#444444">[Container: OCaml]</text>
+<text xml:space="preserve" text-anchor="start" x="465.85" y="-169.95" font-family="Arial" font-size="19.00" fill="#444444">[Container: OCaml / kairos&#45;engine&#45;runtime]</text>
 </g>
 <!-- 23 -->
 <g id="23" class="node">

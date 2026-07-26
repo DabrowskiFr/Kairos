@@ -2,20 +2,14 @@
 
 Date : 2026-07-26
 
-Statut : recommandation LSP réalisée par l'ADR-0016. Le paquet principal
-expose désormais `kairos.engine`; le protocole, l'adaptateur et l'exécutable
-appartiennent au paquet `kairos-lsp`.
+Statut : recommandations réalisées par les ADR-0016 à ADR-0019. Le protocole
+et l'exécutable LSP appartiennent à `kairos-lsp`, tandis que `kairos-cli`
+fournit l'exécutable `kairos`.
 
-La séparation de la seconde surface de livraison est réalisée par l'ADR-0017 :
-le paquet `kairos-cli` fournit l'exécutable `kairos`, tandis que le paquet
-`kairos` ne contient plus que le moteur embarquable. Cette frontière retire
-1 327 lignes OCaml de livraison CLI du paquet moteur.
-
-Mise à jour après l'ADR-0018 : les données publiques du moteur appartiennent
-désormais au paquet autonome `kairos-engine-contract`. L'audit de suivi
-`engine_runtime_split_audit.md` établit que la prochaine frontière utile est
-la propriété Dune/opam du moteur concret, et non une nouvelle
-micro-extraction.
+Les données publiques du moteur
+appartiennent au paquet autonome `kairos-engine-contract`, et sa composition
+concrète appartient à `kairos-engine-runtime`. Le paquet `kairos` conserve le
+noyau sémantique, les interfaces applicatives, le frontend et les IR.
 
 ## Objet
 
@@ -220,6 +214,7 @@ moteur Kairos en processus ; aucun protocole interprocessus n'est nécessaire.
 | Option | Volume brut déplacé | Effet sur le chemin actif | Contrat requis | Décision |
 | --- | ---: | --- | --- | --- |
 | paquet LSP séparé | 6 734 | retire une surface périphérique complète | façade applicative étroite | **réalisé** |
+| paquet moteur concret | 17 502 | retire les outils externes du noyau installable | `kairos-engine-contract` | **réalisé** |
 | paquet IR séquentiel | 1 002 | aucun actuellement | déjà stable structurellement | attendre un producteur/consommateur |
 | backend C autonome | 1 128 | conserve une dépendance au modèle Kairos | nouvel abaissement séquentiel | différer |
 | émission DOT générique | 203 | aucun effet sémantique | graphe prêt à émettre | option opportuniste |
@@ -252,9 +247,7 @@ Critères d'acceptation :
 
 ## Conclusion
 
-Cette recommandation historique est réalisée : LSP, CLI et contrat moteur ont
-maintenant leurs propres paquets. L'étape suivante n'est ni l'IR séquentiel
-inactif, ni le backend C pris isolément. Elle consiste à placer la fermeture
-acyclique du moteur concret dans `kairos-engine-runtime`, conformément à
-`engine_runtime_split_audit.md` et
-`engine_runtime_split_manifest.json`.
+Cette recommandation historique est réalisée : LSP, CLI, contrat moteur et
+moteur concret ont maintenant leurs propres paquets. La fermeture acyclique
+du moteur appartient à `kairos-engine-runtime`, conformément à
+`engine_runtime_split_audit.md` et `engine_runtime_split_manifest.json`.
