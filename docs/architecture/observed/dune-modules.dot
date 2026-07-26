@@ -48,6 +48,7 @@ digraph G {
   "str" [style="filled", ];
   "unix" [style="filled", ];
   "kairos-automata-contract";
+  "kairos-engine-contract";
   "kairos-graphviz-adapter";
   "kairos-lsp.app";
   "kairos-lsp.protocol";
@@ -219,6 +220,9 @@ digraph G {
                                                  shape=box, ];
   "kairos-automata-contract__Kairos_automata_contract" [label="Kairos_automata_contract",
                                                         shape=box, ];
+  "kairos-engine-contract__Contract" [label="Contract", shape=box, ];
+  "kairos-engine-contract__Kairos_engine_contract" [label="Kairos_engine_contract",
+                                                    shape=box, ];
   "kairos-graphviz-adapter__Graphviz_render" [label="Graphviz_render",
                                               shape=box, ];
   "kairos-lsp.app__Lsp_app" [label="Lsp_app", shape=box, ];
@@ -361,6 +365,8 @@ digraph G {
   "kairos.domain_verification__Temporal_lower" [label="Temporal_lower",
                                                 shape=box, ];
   "kairos.engine__Api" [label="Api", shape=box, ];
+  "kairos.engine__Engine_contract_mapping" [label="Engine_contract_mapping",
+                                            shape=box, ];
   "kairos.engine__Kairos_engine" [label="Kairos_engine", shape=box, ];
   "kairos.internal.application__Application_observability" [label="Application_observability",
                                                             shape=box, ];
@@ -753,13 +759,15 @@ digraph G {
        };
     subgraph cluster_456626572 { label="kairos.internal.why3_compile"; "kairos.internal.why3_compile__Why_compile_step";"kairos.internal.why3_compile__Why_compile_ptree_terms";"kairos.internal.why3_compile__Why_compile_ptree_names";"kairos.internal.why3_compile__Why_compile_ptree_helpers";"kairos.internal.why3_compile__Why_compile_ptree_binders";"kairos.internal.why3_compile__Why_compile_product_specs";"kairos.internal.why3_compile__Why_compile_product_spec_terms";"kairos.internal.why3_compile__Why_compile_product_spec_labels";"kairos.internal.why3_compile__Why_compile_product_plan_metrics";"kairos.internal.why3_compile__Why_compile_product_plan";"kairos.internal.why3_compile__Why_compile_product_pipeline";"kairos.internal.why3_compile__Why_compile_product_metrics";"kairos.internal.why3_compile__Why_compile_product_layout";"kairos.internal.why3_compile__Why_compile_product_individual_helper";"kairos.internal.why3_compile__Why_compile_product_helpers";"kairos.internal.why3_compile__Why_compile_product_helper_types";"kairos.internal.why3_compile__Why_compile_product_helper_body";"kairos.internal.why3_compile__Why_compile_product_groups";"kairos.internal.why3_compile__Why_compile_product_grouped_helper";"kairos.internal.why3_compile__Why_compile_product_group_terms";"kairos.internal.why3_compile__Why_compile_product_group_policy";"kairos.internal.why3_compile__Why_compile_product_group_partition";"kairos.internal.why3_compile__Why_compile_product_group_factoring";"kairos.internal.why3_compile__Why_compile_product_group_cost";"kairos.internal.why3_compile__Why_compile_product_group_boundary";"kairos.internal.why3_compile__Why_compile_product_bundle_state";"kairos.internal.why3_compile__Why_compile_node_types";"kairos.internal.why3_compile__Why_compile_node_inputs";"kairos.internal.why3_compile__Why_compile_node_getters";"kairos.internal.why3_compile__Why_compile_node_common";"kairos.internal.why3_compile__Why_compile_modules";"kairos.internal.why3_compile__Why_compile_logic_functions";"kairos.internal.why3_compile__Why_compile_logic_formula";"kairos.internal.why3_compile__Why_compile_logic_decls";"kairos.internal.why3_compile__Why_compile_logic";"kairos.internal.why3_compile__Why_compile_init_goals";"kairos.internal.why3_compile__Why_compile_helper_unit";"kairos.internal.why3_compile__Why_compile_formula_sharing_inventory";"kairos.internal.why3_compile__Why_compile_formula_sharing_emit";"kairos.internal.why3_compile__Why_compile_formula_sharing_deps";"kairos.internal.why3_compile__Why_compile_formula_sharing";"kairos.internal.why3_compile__Why_compile_contract_facts";"kairos.internal.why3_compile__Why_compile_bundles";"kairos.internal.why3_compile__Why_compile";"kairos.internal.why3_compile";
        };
-    subgraph cluster_595702618 { label="kairos.engine"; "kairos.engine__Kairos_engine";"kairos.engine__Api";"kairos.engine";
+    subgraph cluster_595702618 { label="kairos.engine"; "kairos.engine__Kairos_engine";"kairos.engine__Engine_contract_mapping";"kairos.engine__Api";"kairos.engine";
        };
     subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Proof_kernel_clause_context";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
        };
     subgraph cluster_628376303 { label="kairos.internal.why3"; "kairos.internal.why3__Why_pipeline";"kairos.internal.why3";
        };
     subgraph cluster_681484642 { label="kairos"; "kairos__Kairos";"kairos__Cli_types";"kairos__Cli_runtime";"kairos__Cli_pipeline_service";"kairos__Cli_output";"kairos";
+       };
+    subgraph cluster_706318726 { label="kairos-engine-contract"; "kairos-engine-contract__Kairos_engine_contract";"kairos-engine-contract__Contract";"kairos-engine-contract";
        };
     subgraph cluster_708192656 { label="kairos.verification_unit"; "kairos.verification_unit__Verification_unit";"kairos.verification_unit__Kairos_verification_unit";"kairos.verification_unit";
        };
@@ -861,6 +869,7 @@ digraph G {
                                                                ];
   "kairos-automata-contract" -> "yojson" [ltail="cluster_912230518", ];
   "kairos-automata-contract" -> "kairos-automata-contract__Kairos_automata_contract";
+  "kairos-engine-contract" -> "kairos-engine-contract__Kairos_engine_contract";
   "kairos-graphviz-adapter" -> "bos" [ltail="cluster_362625174", ];
   "kairos-graphviz-adapter" -> "kairos-graphviz-adapter__Graphviz_render";
   "kairos-lsp.app" -> "kairos-lsp.protocol" [minlen=2,
@@ -978,6 +987,9 @@ digraph G {
   "kairos.domain_verification" -> "kairos.domain_verification__Step_contract_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_automata";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_lower";
+  "kairos.engine" -> "kairos-engine-contract" [minlen=2,
+                                               lhead="cluster_706318726",
+                                               ltail="cluster_595702618", ];
   "kairos.engine" -> "kairos.internal.c_codegen" [minlen=2,
                                                   lhead="cluster_730557414",
                                                   ltail="cluster_595702618", ];
@@ -1425,6 +1437,7 @@ digraph G {
   "kairos_lsp__Lsp_work_done_transport" -> "kairos_lsp__Lsp_transport_messages";
   "kairos_lsp__Lsp_workspace_symbol_handler" -> "kairos_lsp__Lsp_transport";
   "kairos-automata-contract__Kairos_automata_contract" -> "kairos-automata-contract__Automata_exchange";
+  "kairos-engine-contract__Kairos_engine_contract" -> "kairos-engine-contract__Contract";
   "kairos-lsp.app__Lsp_app" -> "kairos-lsp.app__Lsp_pipeline_mapper";
   "kairos-lsp.app__Lsp_app" -> "kairos-lsp.app__Lsp_request_decode";
   "kairos-lsp.app__Lsp_completion" -> "kairos-lsp.app__Lsp_symbols";
@@ -1507,6 +1520,7 @@ digraph G {
   "kairos.domain_verification__Step_contract_projection" -> "kairos.domain_verification__Canonical_obligations";
   "kairos.domain_verification__Step_contract_projection" -> "kairos.domain_verification__Product_reachability";
   "kairos.domain_verification__Temporal_automata" -> "kairos.domain_verification__Product_types";
+  "kairos.engine__Api" -> "kairos.engine__Engine_contract_mapping";
   "kairos.engine__Kairos_engine" -> "kairos.engine__Api";
   "kairos.internal.application__Application_ports" -> "kairos.internal.application__Application_observability";
   "kairos.internal.application__Application_ports" -> "kairos.internal.application__Flow_info";

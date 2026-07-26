@@ -166,7 +166,8 @@ def check_minimal_prove_path(repo: Path) -> None:
         encoding="utf-8", errors="replace"
     )
     if not re.search(
-        r"opt\s+int\s+\(Pipeline\.default_proof_jobs\s*\(\)\)", cli
+        r"opt\s+int\s+\(Kairos_engine\.Api\.default_proof_jobs\s*\(\)\)",
+        cli,
     ):
         fail("CLI --proof-jobs default must call the kairos.engine pipeline default")
 
@@ -4006,7 +4007,12 @@ def check_lsp_package_boundary(repo: Path) -> None:
             fail(f"kairos.opam must not depend on optional LSP dependency {dependency}")
 
     lsp_opam = (repo / "kairos-lsp.opam").read_text(encoding="utf-8")
-    for dependency in ['"kairos"', '"jsonrpc"', '"lsp"']:
+    for dependency in [
+        '"kairos"',
+        '"kairos-engine-contract"',
+        '"jsonrpc"',
+        '"lsp"',
+    ]:
         if dependency not in lsp_opam:
             fail(f"kairos-lsp.opam is missing dependency {dependency}")
 
@@ -4020,6 +4026,7 @@ def check_lsp_package_boundary(repo: Path) -> None:
         fail("kairos-lsp executable must depend on kairos.engine")
 
     forbidden_references = [
+        r"\b(?:Kairos_engine\.Api|Engine)\.Types\b",
         r"\bPipeline_types\b",
         r"\bCore_syntax\b",
         r"\bVerification_model\b",
@@ -4055,7 +4062,7 @@ def check_cli_package_boundary(repo: Path) -> None:
         fail("kairos.opam must not depend on the optional CLI dependency cmdliner")
 
     cli_opam = (repo / "kairos-cli.opam").read_text(encoding="utf-8")
-    for dependency in ['"kairos"', '"cmdliner"']:
+    for dependency in ['"kairos"', '"kairos-engine-contract"', '"cmdliner"']:
         if dependency not in cli_opam:
             fail(f"kairos-cli.opam is missing dependency {dependency}")
 
@@ -4074,6 +4081,7 @@ def check_cli_package_boundary(repo: Path) -> None:
             fail(f"kairos CLI bypasses kairos.engine through {forbidden}")
 
     forbidden_references = [
+        r"\b(?:Kairos_engine\.Api|Engine)\.Types\b",
         r"\bPipeline_types\b",
         r"\bApplication_ports\b",
         r"\bVerification_model\b",
@@ -4101,6 +4109,50 @@ def check_cli_package_boundary(repo: Path) -> None:
         )
 
 
+def check_engine_contract_boundary(repo: Path) -> None:
+    contract_root = repo / "packages/engine-contract"
+    dune = (contract_root / "dune").read_text(encoding="utf-8")
+    if "(public_name kairos-engine-contract)" not in dune:
+        fail("engine contract must be published as kairos-engine-contract")
+    if "(libraries" in dune:
+        fail("kairos-engine-contract must remain dependency-free")
+
+    forbidden = [
+        r"\bPipeline_types\b",
+        r"\bLoc\b",
+        r"\bCore_syntax\b",
+        r"\bVerification_model\b",
+        r"\bKairos_runtime\b",
+        r"\bWhy3\b",
+    ]
+    for path in contract_root.glob("contract.ml*"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for pattern in forbidden:
+            if re.search(pattern, text):
+                fail(
+                    f"{path.relative_to(repo)} leaks internal dependency "
+                    f"matching {pattern}"
+                )
+
+    api = (repo / "lib/engine/api.mli").read_text(encoding="utf-8")
+    if "Kairos_engine_contract.Contract" not in api:
+        fail("kairos.engine API must expose the autonomous engine contract")
+    if re.search(r"\bPipeline_types\b|\bmodule\s+Types\b", api):
+        fail("kairos.engine API must not re-export internal Pipeline_types")
+
+    mapping = (repo / "lib/engine/engine_contract_mapping.ml").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    for required in [
+        "config_to_internal",
+        "error_to_contract",
+        "outputs_to_contract",
+        "source_location_to_contract",
+    ]:
+        if required not in mapping:
+            fail(f"engine contract mapping is missing {required}")
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -4125,6 +4177,7 @@ def main() -> int:
     check_why3_runtime_view_boundaries(repo)
     check_external_why3_prover_boundaries(repo)
     check_external_timing_boundaries(repo)
+    check_engine_contract_boundary(repo)
     check_lsp_package_boundary(repo)
     check_cli_package_boundary(repo)
     check_runtime_diagnostics_boundaries(repo)

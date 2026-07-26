@@ -28,7 +28,7 @@ let docs_frontend = "FRONTEND"
 
 open Cli_types
 
-module Pipeline = Kairos_engine.Api.Types
+module Pipeline = Kairos_engine_contract.Contract
 
 let proof_encoding_parser s =
   match Pipeline.proof_encoding_of_string s with
@@ -182,7 +182,7 @@ let cmd =
   in
   let proof_jobs =
     Arg.(
-      value & opt int (Pipeline.default_proof_jobs ())
+      value & opt int (Kairos_engine.Api.default_proof_jobs ())
       & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
           ~doc:
             "Maximum number of Why3 prover calls to keep in flight. The default \

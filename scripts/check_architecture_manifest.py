@@ -33,6 +33,7 @@ def main() -> int:
         "lib/domain/proof_export",
         "lib/contracts",
         "packages/automata-contract",
+        "packages/engine-contract",
         "packages/spot",
         "packages/graphviz",
         "packages/proof-contract",
@@ -68,6 +69,7 @@ def main() -> int:
         "docs/architecture/decisions/ADR-0015-standalone-graphviz-adapter.md",
         "docs/architecture/decisions/ADR-0016-standalone-lsp-package.md",
         "docs/architecture/decisions/ADR-0017-standalone-cli-package.md",
+        "docs/architecture/decisions/ADR-0018-autonomous-engine-contract.md",
         "docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md",
         "docs/architecture/structurizr/workspace.dsl",
         "docs/reference_pipeline_boundaries.json",
@@ -81,6 +83,7 @@ def main() -> int:
         "scripts/check_architecture_fitness.py",
         "kairos-lsp.opam",
         "kairos-cli.opam",
+        "kairos-engine-contract.opam",
         "tests/check_reference_stability.sh",
         ".github/workflows/architecture.yml",
     ]

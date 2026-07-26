@@ -367,6 +367,7 @@ flowchart TD
     end
     subgraph 595702618 ["kairos.engine"]
       id544999546(Kairos_engine)
+      id425015647(Engine_contract_mapping)
       id536125380(Api)
       id595702618(["kairos.engine"])
     end
@@ -394,6 +395,11 @@ flowchart TD
       id19386066(Cli_pipeline_service)
       id375326599(Cli_output)
       id891692163{"kairos"}
+    end
+    subgraph 706318726 ["kairos-engine-contract"]
+      id917947262(Kairos_engine_contract)
+      id466898052(Contract)
+      id706318726(["kairos-engine-contract"])
     end
     subgraph 708192656 ["kairos.verification_unit"]
       id178506345(Verification_unit)
@@ -646,6 +652,7 @@ flowchart TD
   912230518-->id424287186
   912230518-->id209475686
   id912230518-->id77651922
+  id706318726-->id917947262
   362625174-->id44574048
   id362625174-->id1003175748
   216678547-->295748073
@@ -742,6 +749,7 @@ flowchart TD
   id821673316-->id793877560
   id821673316-->id923934307
   id821673316-->id600148261
+  595702618-->706318726
   595702618-->730557414
   595702618-->826421166
   id595702618-->id544999546
@@ -1102,6 +1110,7 @@ flowchart TD
   id689999050-->id637910755
   id347969878-->id620239537
   id77651922-->id1072753846
+  id917947262-->id466898052
   id1023832608-->id74701971
   id1023832608-->id592820751
   id258509333-->id102888738
@@ -1184,6 +1193,7 @@ flowchart TD
   id793877560-->id364997775
   id793877560-->id901103423
   id923934307-->id144284648
+  id536125380-->id425015647
   id544999546-->id536125380
   id479842985-->id319303809
   id479842985-->id970861495

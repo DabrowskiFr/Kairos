@@ -1,0 +1,224 @@
+(** Stable, dependency-free data contract exposed by the Kairos engine. *)
+
+type goal_info = string * string * float * string option * string option
+
+type text_span = {
+  start_offset : int;
+  end_offset : int;
+}
+
+(** Source location independent from the Kairos parser representation. *)
+type source_location = {
+  line : int;
+  column : int;
+  end_line : int;
+  end_column : int;
+}
+
+type proof_diagnostic = {
+  category : string;
+  summary : string;
+  detail : string;
+  probable_cause : string option;
+  missing_elements : string list;
+  goal_symbols : string list;
+  analysis_method : string;
+  solver_detail : string option;
+  native_unsat_core_solver : string option;
+  native_unsat_core_hypothesis_ids : int list;
+  native_counterexample_solver : string option;
+  native_counterexample_model : string option;
+  kairos_core_hypotheses : string list;
+  why3_noise_hypotheses : string list;
+  relevant_hypotheses : string list;
+  context_hypotheses : string list;
+  unused_hypotheses : string list;
+  suggestions : string list;
+  limitations : string list;
+}
+
+type proof_trace = {
+  goal_index : int;
+  stable_id : string;
+  goal_name : string;
+  status : string;
+  solver_status : string;
+  time_s : float;
+  why3_prepare_s : float;
+  why3_print_s : float;
+  why3_spawn_s : float;
+  why3_wait_s : float;
+  why3_solver_s : float;
+  source : string;
+  node : string option;
+  transition : string option;
+  obligation_kind : string;
+  obligation_family : string option;
+  obligation_category : string option;
+  vc_id : string option;
+  source_span : source_location option;
+  why_span : text_span option;
+  vc_span : text_span option;
+  smt_span : text_span option;
+  dump_path : string option;
+  diagnostic : proof_diagnostic;
+}
+
+type outputs = {
+  why_text : string;
+  vc_text : string;
+  smt_text : string;
+  dot_text : string;
+  labels_text : string;
+  program_automaton_text : string;
+  guarantee_automaton_text : string;
+  assume_automaton_text : string;
+  product_text : string;
+  canonical_text : string;
+  obligations_map_text : string;
+  program_dot : string;
+  guarantee_automaton_dot : string;
+  assume_automaton_dot : string;
+  product_dot : string;
+  canonical_dot : string;
+  flow_meta : (string * (string * string) list) list;
+  goals : goal_info list;
+  proof_traces : proof_trace list;
+  vc_locs : (int * source_location) list;
+  vc_locs_ordered : source_location list;
+  vc_spans_ordered : (int * int) list;
+  why_spans : (int * (int * int)) list;
+  vc_ids_ordered : int list;
+  why_time_s : float;
+  automata_generation_time_s : float;
+  automata_build_time_s : float;
+  why3_prep_time_s : float;
+  dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
+  historical_clauses_text : string;
+  eliminated_clauses_text : string;
+}
+
+type automata_outputs = {
+  dot_text : string;
+  labels_text : string;
+  program_automaton_text : string;
+  guarantee_automaton_text : string;
+  assume_automaton_text : string;
+  product_text : string;
+  canonical_text : string;
+  obligations_map_text : string;
+  program_dot : string;
+  guarantee_automaton_dot : string;
+  assume_automaton_dot : string;
+  product_dot : string;
+  canonical_dot : string;
+  dot_png : string option;
+  dot_png_error : string option;
+  program_png : string option;
+  program_png_error : string option;
+  guarantee_automaton_png : string option;
+  guarantee_automaton_png_error : string option;
+  assume_automaton_png : string option;
+  assume_automaton_png_error : string option;
+  product_png : string option;
+  product_png_error : string option;
+  flow_meta : (string * (string * string) list) list;
+  historical_clauses_text : string;
+  eliminated_clauses_text : string;
+}
+
+type why_outputs = {
+  why_text : string;
+  flow_meta : (string * (string * string) list) list;
+}
+
+type obligations_outputs = { vc_text : string; smt_text : string }
+type cost_report_outputs = { cost_report_json : string }
+
+type proof_encoding = Explicit_product
+
+val string_of_proof_encoding : proof_encoding -> string
+val proof_encoding_of_string : string -> proof_encoding option
+val default_proof_encoding : proof_encoding
+
+type proof_optimizations = {
+  group_public_non_w_guarantees : bool;
+  share_why3_facts : bool;
+  simplify_why3_formulas : bool;
+  slice_why3_transition_bodies : bool;
+  simplify_why3_runtime_actions : bool;
+  deduplicate_why3_terms : bool;
+  group_why3_product_steps : bool;
+  why3_product_step_group_max_cost : int;
+}
+
+val reference_proof_optimizations : proof_optimizations
+val default_proof_optimizations : proof_optimizations
+
+type config = {
+  input_file : string;
+  wp_only : bool;
+  smoke_tests : bool;
+  timeout_s : int;
+  compute_proof_diagnostics : bool;
+  prove : bool;
+  proof_jobs : int;
+  generate_why_text : bool;
+  generate_vc_text : bool;
+  generate_smt_text : bool;
+  generate_dot_png : bool;
+  dump_failed_smt : bool;
+  collect_ir_metrics : bool;
+  proof_progress_path : string option;
+  stop_on_first_nonvalid : bool;
+  proof_encoding : proof_encoding;
+  proof_optimizations : proof_optimizations;
+}
+
+type error =
+  | Parse_error of string
+  | Elaboration_error of string
+  | Type_error of string
+  | Well_formedness_error of string
+  | Flow_error of string
+  | Why3_error of string
+  | Prove_error of string
+  | Io_error of string
+  | Internal_error of string
+
+val error_to_string : error -> string
+
+type source_diagnostic = {
+  line : int;
+  column : int;
+  severity : int;
+  source : string;
+  message : string;
+}
+
+type semantic_symbols = {
+  all : string list;
+  nodes : string list;
+  states : string list;
+  variables : string list;
+}
+
+type frontend_summary = {
+  node_count : int;
+  assume_count : int;
+  guarantee_count : int;
+}
+
+type generated_file = {
+  file_name : string;
+  contents : string;
+}

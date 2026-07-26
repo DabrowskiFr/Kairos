@@ -11,6 +11,7 @@ depends: [
   "ppx_deriving_yojson"
   "ocaml"
   "yojson"
+  "kairos-engine-contract" {= version}
   "kairos-automata-contract" {= version}
   "kairos-spot-adapter" {= version}
   "kairos-proof-contract" {= version}

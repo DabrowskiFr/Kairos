@@ -2,8 +2,10 @@
  (name kairos_engine)
  (public_name kairos.engine)
  (wrapped true)
- (modules api)
+ (modules engine_contract_mapping api)
+ (private_modules engine_contract_mapping)
  (libraries
+  kairos_engine_contract
   kairos_application
   kairos_composition
   kairos_input_lang

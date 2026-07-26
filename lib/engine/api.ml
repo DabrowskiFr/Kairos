@@ -1,21 +1,30 @@
-module Types = Pipeline_types
+module Contract = Kairos_engine_contract.Contract
+module Mapping = Engine_contract_mapping
 module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
 
-type config = Types.config
-type error = Types.error
+type config = Contract.config
+type error = Contract.error
 
-let default_proof_jobs = Types.default_proof_jobs
-let error_to_string = Types.error_to_string
+let default_proof_jobs = Pipeline_types.default_proof_jobs
+let error_to_string = Contract.error_to_string
+
+let map_result convert = function
+  | Ok value -> Ok (convert value)
+  | Error error -> Error (Mapping.error_to_contract error)
+
+let internal_options ~proof_encoding ~proof_optimizations =
+  ( Mapping.proof_encoding_to_internal proof_encoding,
+    Mapping.proof_optimizations_to_internal proof_optimizations )
 
 let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
     ~compute_proof_diagnostics ~prove ?proof_jobs
     ?(dump_failed_smt = false) ?(collect_ir_metrics = false)
     ?proof_progress_path ?(stop_on_first_nonvalid = false)
-    ?(proof_encoding = Types.default_proof_encoding)
-    ?(proof_optimizations = Types.default_proof_optimizations)
+    ?(proof_encoding = Contract.default_proof_encoding)
+    ?(proof_optimizations = Contract.default_proof_optimizations)
     ~generate_vc_text ~generate_smt_text ~generate_dot_png () =
   {
-    Types.input_file;
+    Contract.input_file;
     wp_only;
     smoke_tests;
     timeout_s;
@@ -34,55 +43,83 @@ let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
     proof_optimizations;
   }
 
-let instrumentation_pass = Usecases.instrumentation_pass
+let instrumentation_pass ~generate_png ~input_file =
+  Usecases.instrumentation_pass ~generate_png ~input_file
+  |> map_result Mapping.automata_outputs_to_contract
 
 let why_pass ~input_file =
-  Usecases.why_pass ~proof_encoding:Types.default_proof_encoding
-    ~proof_optimizations:Types.default_proof_optimizations ~input_file
+  Usecases.why_pass ~proof_encoding:Pipeline_types.default_proof_encoding
+    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+  |> map_result Mapping.why_outputs_to_contract
 
-let why_pass_with_options = Usecases.why_pass
+let why_pass_with_options ~proof_encoding ~proof_optimizations ~input_file =
+  let proof_encoding, proof_optimizations =
+    internal_options ~proof_encoding ~proof_optimizations
+  in
+  Usecases.why_pass ~proof_encoding ~proof_optimizations ~input_file
+  |> map_result Mapping.why_outputs_to_contract
 
 let obligations_pass ~input_file =
-  Usecases.obligations_pass ~proof_encoding:Types.default_proof_encoding
-    ~proof_optimizations:Types.default_proof_optimizations ~input_file
+  Usecases.obligations_pass
+    ~proof_encoding:Pipeline_types.default_proof_encoding
+    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+  |> map_result Mapping.obligations_outputs_to_contract
 
-let obligations_pass_with_options = Usecases.obligations_pass
-let cost_report = Usecases.cost_report
+let obligations_pass_with_options ~proof_encoding ~proof_optimizations
+    ~input_file =
+  let proof_encoding, proof_optimizations =
+    internal_options ~proof_encoding ~proof_optimizations
+  in
+  Usecases.obligations_pass ~proof_encoding ~proof_optimizations ~input_file
+  |> map_result Mapping.obligations_outputs_to_contract
+
+let cost_report ~proof_encoding ~proof_optimizations ~input_file =
+  let proof_encoding, proof_optimizations =
+    internal_options ~proof_encoding ~proof_optimizations
+  in
+  Usecases.cost_report ~proof_encoding ~proof_optimizations ~input_file
+  |> map_result Mapping.cost_report_outputs_to_contract
 
 let normalized_program ~input_file =
-  Usecases.normalized_program ~proof_encoding:Types.default_proof_encoding
-    ~proof_optimizations:Types.default_proof_optimizations ~input_file
+  Usecases.normalized_program
+    ~proof_encoding:Pipeline_types.default_proof_encoding
+    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+  |> map_result Fun.id
 
 let ir_pretty_dump ~input_file =
-  Usecases.ir_pretty_dump ~proof_encoding:Types.default_proof_encoding
-    ~proof_optimizations:Types.default_proof_optimizations ~input_file
+  Usecases.ir_pretty_dump
+    ~proof_encoding:Pipeline_types.default_proof_encoding
+    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+  |> map_result Fun.id
 
-let normalized_program_with_options = Usecases.normalized_program
-let ir_pretty_dump_with_options = Usecases.ir_pretty_dump
+let normalized_program_with_options ~proof_encoding ~proof_optimizations
+    ~input_file =
+  let proof_encoding, proof_optimizations =
+    internal_options ~proof_encoding ~proof_optimizations
+  in
+  Usecases.normalized_program ~proof_encoding ~proof_optimizations ~input_file
+  |> map_result Fun.id
 
-let run = Usecases.run
-let run_with_callbacks = Usecases.run_with_callbacks
+let ir_pretty_dump_with_options ~proof_encoding ~proof_optimizations
+    ~input_file =
+  let proof_encoding, proof_optimizations =
+    internal_options ~proof_encoding ~proof_optimizations
+  in
+  Usecases.ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file
+  |> map_result Fun.id
 
-type source_location = Loc.loc
+let run config =
+  Usecases.run (Mapping.config_to_internal config)
+  |> map_result Mapping.outputs_to_contract
 
-let source_location_line (location : source_location) = location.line
-let source_location_column (location : source_location) = location.col
-let source_location_end_line (location : source_location) = location.line_end
-let source_location_end_column (location : source_location) = location.col_end
-
-let proof_trace_source_location (trace : Types.proof_trace) =
-  trace.source_span
-
-let output_vc_locations (output : Types.outputs) = output.vc_locs
-let output_ordered_vc_locations (output : Types.outputs) = output.vc_locs_ordered
-
-type source_diagnostic = {
-  line : int;
-  column : int;
-  severity : int;
-  source : string;
-  message : string;
-}
+let run_with_callbacks ~should_cancel config ~on_outputs_ready
+    ~on_goals_ready ~on_goal_done =
+  Usecases.run_with_callbacks ~should_cancel
+    (Mapping.config_to_internal config)
+    ~on_outputs_ready:(fun outputs ->
+      on_outputs_ready (Mapping.outputs_to_contract outputs))
+    ~on_goals_ready ~on_goal_done
+  |> map_result Mapping.outputs_to_contract
 
 let parse_line_column message =
   let pattern = Str.regexp ".*:\\([0-9]+\\):\\([0-9]+\\)" in
@@ -98,7 +135,7 @@ let source_diagnostic ~severity ~source ~message =
     | Some (line, column) -> (max 0 (line - 1), max 0 (column - 1))
     | None -> (0, 0)
   in
-  { line; column; severity; source; message }
+  { Contract.line; column; severity; source; message }
 
 let frontend_error_source = function
   | Kx_frontend_error.Parse -> "kairos-parse"
@@ -142,13 +179,6 @@ let source_diagnostics ~text =
           ~message:(Printexc.to_string exn);
       ]
 
-type semantic_symbols = {
-  all : string list;
-  nodes : string list;
-  states : string list;
-  variables : string list;
-}
-
 let semantic_symbols ~text =
   try
     let source, _info =
@@ -184,6 +214,7 @@ let semantic_symbols ~text =
       |> List.sort_uniq String.compare
     in
     Some
+      Contract.
       {
         all = keys all;
         nodes = keys nodes;
@@ -192,21 +223,15 @@ let semantic_symbols ~text =
       }
   with _ -> None
 
-type frontend_summary = {
-  node_count : int;
-  assume_count : int;
-  guarantee_count : int;
-}
-
 let structured_frontend_error (error : Kx_frontend_error.t) =
   match error.kind with
-  | Kx_frontend_error.Parse -> Types.Parse_error error.message
+  | Kx_frontend_error.Parse -> Contract.Parse_error error.message
   | Kx_frontend_error.Elaboration ->
-      Types.Elaboration_error error.message
-  | Kx_frontend_error.Type -> Types.Type_error error.message
+      Contract.Elaboration_error error.message
+  | Kx_frontend_error.Type -> Contract.Type_error error.message
   | Kx_frontend_error.Well_formedness ->
-      Types.Well_formedness_error error.message
-  | Kx_frontend_error.Internal -> Types.Internal_error error.message
+      Contract.Well_formedness_error error.message
+  | Kx_frontend_error.Internal -> Contract.Internal_error error.message
 
 let read_text input_file =
   try
@@ -215,7 +240,7 @@ let read_text input_file =
     let text = really_input_string channel length in
     close_in channel;
     Ok text
-  with exn -> Error (Types.Io_error (Printexc.to_string exn))
+  with exn -> Error (Contract.Io_error (Printexc.to_string exn))
 
 let surface_dump ~input_file =
   match read_text input_file with
@@ -230,7 +255,7 @@ let surface_dump ~input_file =
       with
       | Kx_frontend_error.Error error ->
           Error (structured_frontend_error error)
-      | exn -> Error (Types.Internal_error (Printexc.to_string exn)))
+      | exn -> Error (Contract.Internal_error (Printexc.to_string exn)))
 
 let elaborated_dump ~input_file =
   match read_text input_file with
@@ -244,11 +269,11 @@ let elaborated_dump ~input_file =
       with
       | Kx_frontend_error.Error error ->
           Error (structured_frontend_error error)
-      | exn -> Error (Types.Internal_error (Printexc.to_string exn)))
+      | exn -> Error (Contract.Internal_error (Printexc.to_string exn)))
 
 let frontend_summary ~input_file =
   match Kairos_frontend.parse_input ~input_file with
-  | Error _ as error -> error
+  | Error error -> Error (Mapping.error_to_contract error)
   | Ok frontend ->
       let nodes = frontend.Application_ports.verification_model in
       let count_contracts select =
@@ -258,30 +283,27 @@ let frontend_summary ~input_file =
         |> List.fold_left ( + ) 0
       in
       Ok
+        Contract.
         {
           node_count = List.length nodes;
           assume_count = count_contracts (fun node -> node.assumes);
           guarantee_count = count_contracts (fun node -> node.guarantees);
         }
 
-type generated_file = {
-  file_name : string;
-  contents : string;
-}
-
 let generate_c ~input_file =
   match Kairos_frontend.parse_input ~input_file with
-  | Error _ as error -> error
+  | Error error -> Error (Mapping.error_to_contract error)
   | Ok frontend -> (
       match
         Kairos_c_codegen.C_codegen.emit_program
           frontend.Application_ports.verification_model
       with
-      | Error message -> Error (Types.Flow_error message)
+      | Error message -> Error (Contract.Flow_error message)
       | Ok files ->
           Ok
             (List.map
                (fun (file : Kairos_c_codegen.C_codegen.generated_file) ->
+                 Contract.
                  {
                    file_name = file.file_name;
                    contents = file.contents;

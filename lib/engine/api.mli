@@ -3,10 +3,10 @@
     Delivery adapters depend on this facade instead of importing domain,
     backend, or runtime-orchestration modules. *)
 
-module Types = Pipeline_types
+module Contract = Kairos_engine_contract.Contract
 
-type config = Types.config
-type error = Types.error
+type config = Contract.config
+type error = Contract.error
 
 val make_config :
   input_file:string ->
@@ -20,8 +20,8 @@ val make_config :
   ?collect_ir_metrics:bool ->
   ?proof_progress_path:string ->
   ?stop_on_first_nonvalid:bool ->
-  ?proof_encoding:Types.proof_encoding ->
-  ?proof_optimizations:Types.proof_optimizations ->
+  ?proof_encoding:Contract.proof_encoding ->
+  ?proof_optimizations:Contract.proof_optimizations ->
   generate_vc_text:bool ->
   generate_smt_text:bool ->
   generate_dot_png:bool ->
@@ -34,100 +34,66 @@ val error_to_string : error -> string
 val instrumentation_pass :
   generate_png:bool ->
   input_file:string ->
-  (Types.automata_outputs, error) result
+  (Contract.automata_outputs, error) result
 
-val why_pass : input_file:string -> (Types.why_outputs, error) result
+val why_pass : input_file:string -> (Contract.why_outputs, error) result
 
 val why_pass_with_options :
-  proof_encoding:Types.proof_encoding ->
-  proof_optimizations:Types.proof_optimizations ->
+  proof_encoding:Contract.proof_encoding ->
+  proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
-  (Types.why_outputs, error) result
+  (Contract.why_outputs, error) result
 
 val obligations_pass :
   input_file:string ->
-  (Types.obligations_outputs, error) result
+  (Contract.obligations_outputs, error) result
 
 val obligations_pass_with_options :
-  proof_encoding:Types.proof_encoding ->
-  proof_optimizations:Types.proof_optimizations ->
+  proof_encoding:Contract.proof_encoding ->
+  proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
-  (Types.obligations_outputs, error) result
+  (Contract.obligations_outputs, error) result
 
 val cost_report :
-  proof_encoding:Types.proof_encoding ->
-  proof_optimizations:Types.proof_optimizations ->
+  proof_encoding:Contract.proof_encoding ->
+  proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
-  (Types.cost_report_outputs, error) result
+  (Contract.cost_report_outputs, error) result
 
 val normalized_program : input_file:string -> (string, error) result
 val ir_pretty_dump : input_file:string -> (string, error) result
 
 val normalized_program_with_options :
-  proof_encoding:Types.proof_encoding ->
-  proof_optimizations:Types.proof_optimizations ->
+  proof_encoding:Contract.proof_encoding ->
+  proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (string, error) result
 
 val ir_pretty_dump_with_options :
-  proof_encoding:Types.proof_encoding ->
-  proof_optimizations:Types.proof_optimizations ->
+  proof_encoding:Contract.proof_encoding ->
+  proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (string, error) result
 
-val run : config -> (Types.outputs, error) result
+val run : config -> (Contract.outputs, error) result
 
 val run_with_callbacks :
   should_cancel:(unit -> bool) ->
   config ->
-  on_outputs_ready:(Types.outputs -> unit) ->
+  on_outputs_ready:(Contract.outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->
   on_goal_done:
     (int -> string -> string -> float -> string option -> string option -> unit) ->
-  (Types.outputs, error) result
+  (Contract.outputs, error) result
 
-type source_location
+val source_diagnostics : text:string -> Contract.source_diagnostic list
 
-val source_location_line : source_location -> int
-val source_location_column : source_location -> int
-val source_location_end_line : source_location -> int
-val source_location_end_column : source_location -> int
-val proof_trace_source_location : Types.proof_trace -> source_location option
-val output_vc_locations : Types.outputs -> (int * source_location) list
-val output_ordered_vc_locations : Types.outputs -> source_location list
-
-type source_diagnostic = {
-  line : int;
-  column : int;
-  severity : int;
-  source : string;
-  message : string;
-}
-
-val source_diagnostics : text:string -> source_diagnostic list
-
-type semantic_symbols = {
-  all : string list;
-  nodes : string list;
-  states : string list;
-  variables : string list;
-}
-
-val semantic_symbols : text:string -> semantic_symbols option
-
-type frontend_summary = {
-  node_count : int;
-  assume_count : int;
-  guarantee_count : int;
-}
+val semantic_symbols : text:string -> Contract.semantic_symbols option
 
 val surface_dump : input_file:string -> (string, error) result
 val elaborated_dump : input_file:string -> (string, error) result
-val frontend_summary : input_file:string -> (frontend_summary, error) result
+val frontend_summary :
+  input_file:string -> (Contract.frontend_summary, error) result
 
-type generated_file = {
-  file_name : string;
-  contents : string;
-}
-
-val generate_c : input_file:string -> (generated_file list, error) result
+val generate_c :
+  input_file:string -> (Contract.generated_file list, error) result

@@ -27,7 +27,10 @@ bin/cli/kairos.ml
   -> kairos_runtime_proof ou kairos_runtime_diagnostics
 ```
 
-Le serveur LSP et la CLI entrent par `Kairos_engine.Api`. Cette façade appelle
+Le serveur LSP et la CLI entrent par `Kairos_engine.Api`. Leurs données
+publiques viennent du paquet autonome et sans dépendance
+`kairos-engine-contract`; la façade effectue une conversion explicite vers
+les types d'orchestration internes. Cette façade appelle
 les mêmes use-cases et le même câblage, mais empêche les paquets
 `kairos-lsp` et `kairos-cli` d'importer directement le domaine, les backends ou
 l'orchestration interne.
@@ -92,6 +95,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 
 | Donnee | Type / module | Cree par | Consomme par |
 | --- | --- | --- | --- |
+| Contrat public du moteur | `Kairos_engine_contract.Contract` | `kairos.engine` à sa frontière | CLI, LSP, clients embarqués |
 | Surface AST | `Kx_surface_syntax` | Parser/frontend | `Kx_elaborate` |
 | Elaborated AST | `Kx_ast` | `Kx_parse_api` / `Kx_elaborate` | `Kairos_to_model` |
 | Core program model | `Verification_model.program_model` | `Kairos_to_model` | `Pipeline_build`, runtime automata source, `From_model` |

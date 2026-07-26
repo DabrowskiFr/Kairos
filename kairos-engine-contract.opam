@@ -1,0 +1,15 @@
+opam-version: "2.0"
+name: "kairos-engine-contract"
+version: "dev"
+synopsis: "Stable public data contract for the Kairos verification engine"
+description: "Dependency-free request, result, diagnostic, and source-location types shared by the Kairos engine and delivery adapters."
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs "@install"]
+]
+install: [
+  ["dune" "install" "-p" name "--create-install-files" "--prefix" prefix "--libdir" lib]
+]

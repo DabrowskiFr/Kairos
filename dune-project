@@ -10,6 +10,8 @@
 (package
  (name kairos-lsp))
 (package
+ (name kairos-engine-contract))
+(package
  (name kairos-automata-contract))
 (package
  (name kairos-spot-adapter))

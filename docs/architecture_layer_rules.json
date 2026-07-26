@@ -7,6 +7,7 @@
       "kairos_domain_core"
     ],
     "contracts": [
+      "kairos_engine_contract",
       "kairos_proof_contract",
       "kairos_automata_contract"
     ],
@@ -101,6 +102,7 @@
     "engine": [
       "shared",
       "engine",
+      "contracts",
       "composition",
       "application",
       "adapters_in",
@@ -116,6 +118,7 @@
       "shared",
       "adapters_in",
       "engine",
+      "contracts",
       "application",
       "foundation"
     ],

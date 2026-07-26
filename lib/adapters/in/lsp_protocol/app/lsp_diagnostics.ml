@@ -27,7 +27,7 @@ type diagnostic = {
 let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
   Kairos_engine.Api.source_diagnostics ~text
   |> List.map
-       (fun (item : Kairos_engine.Api.source_diagnostic) ->
+       (fun (item : Kairos_engine_contract.Contract.source_diagnostic) ->
          {
            line = item.line;
            col = item.column;

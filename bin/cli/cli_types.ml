@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 (* Parsed CLI arguments *)
-module Pipeline = Kairos_engine.Api.Types
+module Pipeline = Kairos_engine_contract.Contract
 
 type cli_args = {
   file : string;

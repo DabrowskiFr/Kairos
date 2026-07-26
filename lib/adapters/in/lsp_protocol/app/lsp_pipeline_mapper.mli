@@ -18,13 +18,16 @@
 
 (** Map application pipeline records to public LSP protocol records. *)
 
-val map_outputs : Kairos_engine.Api.Types.outputs -> Lsp_protocol.outputs
+val map_outputs :
+  Kairos_engine_contract.Contract.outputs -> Lsp_protocol.outputs
 
 val map_automata :
-  Kairos_engine.Api.Types.automata_outputs -> Lsp_protocol.automata_outputs
+  Kairos_engine_contract.Contract.automata_outputs ->
+  Lsp_protocol.automata_outputs
 
-val map_why : Kairos_engine.Api.Types.why_outputs -> Lsp_protocol.why_outputs
+val map_why :
+  Kairos_engine_contract.Contract.why_outputs -> Lsp_protocol.why_outputs
 
 val map_oblig :
-  Kairos_engine.Api.Types.obligations_outputs ->
+  Kairos_engine_contract.Contract.obligations_outputs ->
   Lsp_protocol.obligations_outputs

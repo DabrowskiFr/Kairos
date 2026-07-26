@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type semantic_symbols = Kairos_engine.Api.semantic_symbols = {
+type semantic_symbols = Kairos_engine_contract.Contract.semantic_symbols = {
   all : string list;
   nodes : string list;
   states : string list;

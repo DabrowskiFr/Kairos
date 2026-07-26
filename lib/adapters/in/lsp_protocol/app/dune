@@ -13,4 +13,9 @@
   lsp_formatting
   lsp_app
   lsp_services)
- (libraries kairos_engine kairos_lsp_protocol yojson str))
+ (libraries
+  kairos_engine
+  kairos_engine_contract
+  kairos_lsp_protocol
+  yojson
+  str))
