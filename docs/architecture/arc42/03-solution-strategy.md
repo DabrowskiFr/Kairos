@@ -110,6 +110,9 @@ kairos-spot-adapter
 
 kairos-why3-adapter
   -> depends only on kairos-proof-contract, kairos-telemetry, and Why3
+
+kairos-graphviz-adapter
+  -> depends only on Bos, Fpath, and Unix; consumes DOT text
 ```
 
 Spot is now an independently buildable OCaml package. It consumes and produces

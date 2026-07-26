@@ -23,6 +23,10 @@ artifacts.
   interaction without internal Kairos dependencies. Why3 typed values do not
   cross into runtime orchestration.
 
+- `packages/graphviz`
+  Standalone DOT-to-PNG process adapter; DOT construction remains in artifact
+  renderers.
+
 {1 Notes}
 
 The Why3 backend is driven by canonical obligations and proof views emitted by

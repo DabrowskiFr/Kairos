@@ -59,6 +59,10 @@ Spot, Why3, Z3, Graphviz, and timing services are adapters. Their results may
 be consumed, checked, or reported, but the correction story must not depend on
 their implementation details.
 
+Spot, Why3, telemetry, and Graphviz adapters are independently buildable
+packages. Graphviz accepts only DOT text and returns a PNG path or diagnostic;
+DOT construction remains an artifact-rendering responsibility.
+
 The important boundary is parametric automata input: Spot may build automata,
 but the Rocq adequacy claim is relative to supplied automata. Kairos does not
 formalize the Spot/LTL-to-automata translation.

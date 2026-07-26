@@ -15,3 +15,5 @@
  (name kairos-telemetry))
 (package
  (name kairos-why3-adapter))
+(package
+ (name kairos-graphviz-adapter))

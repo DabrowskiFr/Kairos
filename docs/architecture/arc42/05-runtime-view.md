@@ -34,6 +34,7 @@ CLI or LSP
   -> frontend + runtime snapshot
   -> Pipeline_artifact_bundle.build
   -> graph/text/canonical/obligations-map output
+  -> standalone Graphviz adapter when PNG output is requested
 ```
 
 Diagnostic dumps may inspect proof-kernel summaries, but they must not define

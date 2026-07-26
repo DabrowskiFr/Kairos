@@ -16,6 +16,7 @@ depends: [
   "kairos-proof-contract" {= version}
   "kairos-telemetry" {= version}
   "kairos-why3-adapter" {= version}
+  "kairos-graphviz-adapter" {= version}
   "jsonrpc"
   "lsp"
 ]

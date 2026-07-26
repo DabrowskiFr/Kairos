@@ -10,6 +10,7 @@
 | Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML execution/results exchange | None |
 | Spot package | `packages/spot` | Independently buildable in-process adapter over the automata contract | External boundary |
 | Why3 adapter | `packages/why3` | WhyML parsing, obligation dumps, proving and solver interaction | External boundary |
+| Graphviz adapter | `packages/graphviz` | Independently buildable DOT-to-PNG process adapter | External boundary |
 | Telemetry package | `packages/timing` | Process-local technical measurements shared through a data-only API | External utility |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
@@ -20,7 +21,7 @@
 | Runtime orchestration | `lib/adapters/out/runtime` | Snapshots, outputs, proof runs, diagnostics | Should stay outside correction |
 | Why3 projection | `lib/adapters/out/provers/why3` | Kairos IR to WhyML compilation and proof planning | Backend only |
 | Artifacts | `lib/adapters/out/artifacts` | Text/graph/diagnostic rendering | Backend only |
-| External adapters | `lib/adapters/out/external` | Graphviz and relocation markers | External boundary |
+| External adapter markers | `lib/adapters/out/external` | Relocation markers only | None |
 
 ## Verification Kernel Internals
 
@@ -60,6 +61,8 @@ true:
   callable directly without IPC;
 - `kairos_external_why3` depends on no internal Kairos library; the semantic
   IR-to-WhyML projection remains owned by Kairos;
+- `kairos_external_graphviz` depends only on Bos, Fpath, and Unix and consumes
+  already-rendered DOT text;
 - runtime libraries contain no direct Why3 dependency or `Why3.*` data type;
 - runtime automata orchestration owns all conversions between the neutral
   automata contract and core formulas;

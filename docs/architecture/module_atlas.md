@@ -62,6 +62,7 @@ Execution de l'outil:
 | 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
 | 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
 | 17 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
+| 18 | `packages/graphviz/graphviz_render.ml` | `dot_png_from_text_diagnostic` | Paquet autonome appelant Graphviz sur du texte DOT |
 
 Point important : en mode `--prove` minimal, `Pipeline_outputs.is_prove_only_run`
 fait que `Pipeline_artifact_bundle.build` n'est pas appele. Donc les graphes
@@ -224,7 +225,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `automata_graph_product.ml` | Rendu du produit programme/assume/guarantee |
 | `automata_graph_program.ml` | Rendu de l'automate de controle programme |
 | `automata_graph_render.ml` | Facade publique des rendus d'automates |
-| `graphviz_render.ml` | Adaptateur Graphviz |
+| `packages/graphviz/graphviz_render.ml` | Adaptateur Graphviz autonome |
 
 ### Backend Why3 Et Outils Externes
 

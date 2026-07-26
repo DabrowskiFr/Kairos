@@ -510,6 +510,41 @@ def check_external_tool_contract_boundary(repo: Path) -> None:
             + ", ".join(str(path.relative_to(repo)) for path in stale_spot_code)
         )
 
+    graphviz_dune = (repo / "packages/graphviz/dune").read_text(
+        encoding="utf-8"
+    )
+    if "(public_name kairos-graphviz-adapter)" not in graphviz_dune:
+        fail("packages/graphviz must define the standalone Graphviz adapter")
+    for dependency in [
+        "kairos_domain_",
+        "kairos_application",
+        "kairos_runtime_",
+        "kairos_external_timing",
+        "kairos_proof_contract",
+    ]:
+        if dependency in graphviz_dune:
+            fail(
+                "the standalone Graphviz adapter contains forbidden Kairos "
+                f"dependency {dependency}"
+            )
+    former_graphviz_root = repo / "lib/adapters/out/external/graphviz"
+    stale_graphviz_code = (
+        [
+            path
+            for path in former_graphviz_root.iterdir()
+            if path.suffix in {".ml", ".mli"} or path.name == "dune"
+        ]
+        if former_graphviz_root.exists()
+        else []
+    )
+    if stale_graphviz_code:
+        fail(
+            "former in-tree Graphviz adapter code remains: "
+            + ", ".join(
+                str(path.relative_to(repo)) for path in stale_graphviz_code
+            )
+        )
+
     stale_valuation = [
         rel
         for rel in [
