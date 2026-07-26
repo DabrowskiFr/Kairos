@@ -23,6 +23,7 @@ The following choices are structurally good:
 | --- | --- |
 | `lib/domain/core` as foundational layer | It contains syntax, formulas, models, and temporal layout data shared by the kernel. |
 | `lib/domain/verification` as reference-kernel layer | It builds product summaries and obligation-shaping passes from program + automata. |
+| `lib/contracts` as external-tool contract layer | It exposes narrow, versioned requests and responses without importing tool implementations or application orchestration. |
 | `lib/application` ports/use-cases | They prevent CLI/LSP details from becoming semantic dependencies. |
 | Concrete external adapters | Spot, Why3, Z3, Graphviz and timing are correctly outside the domain. |
 | Minimal `--prove` path | It protects performance and keeps proof execution independent from heavy diagnostics. |
@@ -47,6 +48,9 @@ implementation exposes the corresponding artifacts.
 Surface language
   -> elaboration adapter
   -> core model
+  -> versioned automata request
+  -> external automata producer
+  -> supplied automata response
   -> reference kernel
   -> product summaries / clause families
   -> canonical obligations
@@ -91,6 +95,20 @@ kairos_runtime_diagnostics
 kairos_verification_runtime
   -> application-facing facade and output orchestration
 ```
+
+Externalization begins with typed contracts, not processes:
+
+```text
+kairos_tool_contracts
+  -> Automata_exchange (versioned and JSON serializable)
+  -> Proof_backend_contract (versioned, in-process until the sequential IR codec exists)
+```
+
+Spot now consumes and produces only `Automata_exchange` values. Runtime
+orchestration owns the conversion to `Automaton_types`, so the Spot adapter no
+longer depends on the verification kernel. Why3 consumes an explicit
+`Proof_backend_contract.request`; it does not consume the Rocq-oriented proof
+export.
 
 The split is kept honest by architecture fitness checks: the core library must
 not depend on Spot, Why3, or proof export, the proof library must not depend on

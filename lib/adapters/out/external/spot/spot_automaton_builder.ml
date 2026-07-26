@@ -18,10 +18,12 @@
 open Core_syntax
 open Core_syntax_builders
 
+module Automata_exchange = Kairos_tool_contracts.Automata_exchange
+
 let normalize_spot_automaton ~(atom_names : string list)
     ~(atom_map : (ltl_atom * ident) list)
     (hoa : Automaton_spot.hoa_automaton) :
-    Automaton_types.automaton =
+    Automata_exchange.automaton =
   let by_id = Hashtbl.create (List.length hoa.states * 2) in
   List.iter (fun (st : Automaton_spot.hoa_state) -> Hashtbl.replace by_id st.id st) hoa.states;
   let rejecting =
@@ -44,10 +46,13 @@ let normalize_spot_automaton ~(atom_names : string list)
   in
   let states =
     if has_bad && List.mem hoa.start rejecting then
-      [ LFalse ]
+      [ Automata_exchange.Rejecting ]
     else
-      let acc_states = List.map (fun _ -> LTrue) ordered_accepting in
-      if has_bad then acc_states @ [ LFalse ] else acc_states
+      let accepting_states =
+        List.map (fun _ -> Automata_exchange.Accepting) ordered_accepting
+      in
+      if has_bad then accepting_states @ [ Automata_exchange.Rejecting ]
+      else accepting_states
   in
   let bad_idx = if has_bad then List.length states - 1 else -1 in
   let id_map = Hashtbl.create (List.length hoa.states * 2) in
@@ -91,15 +96,29 @@ let normalize_spot_automaton ~(atom_names : string list)
         with_hexpr_desc h (HCmp (rel, substitute_atom_vars lhs, substitute_atom_vars rhs))
   in
   let guard_to_fo (g : Automaton_spot.raw_guard) : Core_syntax.hexpr =
-    Ltl_valuation.terms_to_expr g |> hexpr_of_expr |> substitute_atom_vars
+    Spot_boolean_valuation.terms_to_expr g
+    |> hexpr_of_expr |> substitute_atom_vars
   in
   let transitions =
-    List.map (fun (src, guard_raw, dst) -> (src, guard_to_fo guard_raw, dst)) transitions_raw
+    List.map
+      (fun (source, guard, target) ->
+        { Automata_exchange.source; guard = guard_to_fo guard; target })
+      transitions_raw
   in
   let _ = atom_names in
-  { states; transitions }
+  { Automata_exchange.initial_state = 0; states; transitions }
 
-let build ~(atom_map : (ltl_atom * ident) list) (spec : ltl) : Automaton_types.automaton =
+let build (request : Automata_exchange.request) : Automata_exchange.response =
+  (match Automata_exchange.validate_request request with
+  | Ok () -> ()
+  | Error message -> invalid_arg message);
+  let atom_map =
+    List.map
+      (fun (binding : Automata_exchange.atom_binding) ->
+        (binding.atom, binding.name))
+      request.atoms
+  in
+  let spec = request.formula in
   let atom_names = List.map snd atom_map in
   let formula = Automaton_spot.string_of_spot_ltl ~atom_map spec in
   let () = Automaton_spot.ensure_safety formula in
@@ -110,3 +129,4 @@ let build ~(atom_map : (ltl_atom * ident) list) (spec : ltl) : Automaton_types.a
       (Printf.sprintf "Spot backend returned %d APs but Kairos expected %d" hoa.ap_count
          (List.length atom_names));
   normalize_spot_automaton ~atom_names ~atom_map hoa
+  |> Automata_exchange.make_response

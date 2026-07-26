@@ -16,25 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Boolean implicant helpers used by Spot automata normalization. *)
+(** Version shared by the contracts between Kairos and external tools. *)
 
-(** Implicant representation used by boolean minimization. *)
-type term = (string * bool option) list
+type version = int [@@deriving yojson]
 
-(** Decide whether two minterms can be merged. *)
-val can_merge_terms : term -> term -> bool
+(** Current contract version emitted by Kairos. *)
+val current_version : version
 
-(** Merge two minterms into a more general implicant. *)
-val merge_terms : term -> term -> term
-
-(** Remove duplicate implicants. *)
-val uniq_terms : term list -> term list
-
-(** Compute prime implicants by repeated merging. *)
-val prime_implicants : term list -> term list
-
-(** Convert an implicant into an immediate expression. *)
-val term_to_expr : term -> Core_syntax.expr
-
-(** Convert a disjunction of implicants into an immediate expression. *)
-val terms_to_expr : term list -> Core_syntax.expr
+(** Check that a payload uses the current contract version. *)
+val validate : component:string -> version -> (unit, string) result

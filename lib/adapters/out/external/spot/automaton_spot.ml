@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Core_syntax
-open Ltl_valuation
+open Spot_boolean_valuation
 open Pretty
 
 type process_result = {

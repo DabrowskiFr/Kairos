@@ -27,9 +27,6 @@ common
 - {!module-Fo_time}
   Time-shifting helpers for formulas.
 
-- {!module-Ltl_valuation}
-  Finite valuation helpers used by the automata pipeline.
-
 - {!module-Ir}
   Normalized program representation used by the middle-end.
 
@@ -84,7 +81,7 @@ A useful reading order is:
 3. `Ir`
 4. `Ir`
 5. `Proof_kernel_types`
-6. `Core_syntax_builders`, `Fo_simplifier`, `Fo_time`, `Ltl_valuation`
+6. `Core_syntax_builders`, `Fo_simplifier`, `Fo_time`
 7. `Automaton_types`
 
 {1 Scope}

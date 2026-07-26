@@ -16,21 +16,35 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
+(** Typed contract between the reference pipeline and a proof backend.
 
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
+    This first extraction is an in-process OCaml contract. It deliberately
+    consumes canonical [Ir.node_ir] values rather than the Rocq-oriented
+    [Proof_kernel_types] exchange projection. A transport codec can be added
+    when the sequential IR itself has a stable serialization. *)
 
-(** Text payload emitted by the obligations pass. *)
-type obligations_outputs =
-  Kairos_tool_contracts.Proof_backend_contract.obligations_outputs = {
+type optimization_policy = {
+  share_facts : bool;
+  simplify_formulas : bool;
+  slice_transition_bodies : bool;
+  simplify_runtime_actions : bool;
+  deduplicate_terms : bool;
+  group_product_steps : bool;
+  product_step_group_max_cost : int;
+}
+
+type request = {
+  protocol_version : Tool_protocol.version;
+  nodes : Ir.node_ir list;
+  optimizations : optimization_policy;
+}
+
+type obligations_outputs = {
   vc_text : string;
   smt_text : string;
 }
 
-(** [obligations_pass request] compiles the canonical IR carried by the
-    versioned backend request and generates
-    verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass :
-  Kairos_tool_contracts.Proof_backend_contract.request ->
-  obligations_outputs
+val make_request :
+  nodes:Ir.node_ir list -> optimizations:optimization_policy -> request
+
+val validate_request : request -> (unit, string) result

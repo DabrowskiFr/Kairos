@@ -4,6 +4,7 @@
  (modules why_pipeline)
  (libraries
   kairos_domain_core
+  kairos_tool_contracts
   kairos_why3_compile
   kairos_why3_render
   kairos_artifact_why_task_dump

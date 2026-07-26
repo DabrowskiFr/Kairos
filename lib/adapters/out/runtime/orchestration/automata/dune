@@ -6,5 +6,6 @@
   kairos_application
   kairos_domain_core
   kairos_domain_verification
+  kairos_tool_contracts
   kairos_external_spot
   kairos_external_timing))

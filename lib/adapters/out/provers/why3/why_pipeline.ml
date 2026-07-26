@@ -18,7 +18,10 @@
 
 (** Why/VC/SMT obligations export pass extracted from the v2 pipeline implementation. *)
 
-type obligations_outputs = {
+module Proof_backend_contract =
+  Kairos_tool_contracts.Proof_backend_contract
+
+type obligations_outputs = Proof_backend_contract.obligations_outputs = {
   vc_text : string;
   smt_text : string;
 }
@@ -32,20 +35,22 @@ let join_blocks ~sep blocks =
     blocks;
   Buffer.contents b
 
-let obligations_pass
-    ?(share_why3_facts = true)
-    ?(simplify_why3_formulas = true)
-    ?(slice_why3_transition_bodies = true)
-    ?(simplify_why3_runtime_actions = true)
-    ?(deduplicate_why3_terms = true)
-    ?(group_why3_product_steps = true)
-    ?(why3_product_step_group_max_cost = 0)
-    (nodes : Ir.node_ir list) : obligations_outputs =
+let obligations_pass (request : Proof_backend_contract.request) :
+    obligations_outputs =
+  (match Proof_backend_contract.validate_request request with
+  | Ok () -> ()
+  | Error message -> invalid_arg message);
+  let options = request.optimizations in
   let why_ast =
-    Why_compile.compile_program_ast_from_ir_nodes ~share_why3_facts
-      ~simplify_why3_formulas ~slice_why3_transition_bodies
-      ~simplify_why3_runtime_actions ~deduplicate_why3_terms
-      ~group_why3_product_steps ~why3_product_step_group_max_cost nodes
+    Why_compile.compile_program_ast_from_ir_nodes
+      ~share_why3_facts:options.share_facts
+      ~simplify_why3_formulas:options.simplify_formulas
+      ~slice_why3_transition_bodies:options.slice_transition_bodies
+      ~simplify_why3_runtime_actions:options.simplify_runtime_actions
+      ~deduplicate_why3_terms:options.deduplicate_terms
+      ~group_why3_product_steps:options.group_product_steps
+      ~why3_product_step_group_max_cost:options.product_step_group_max_cost
+      request.nodes
   in
   let why_text = Why_text_render.emit_program_ast why_ast in
   let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in

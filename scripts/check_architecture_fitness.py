@@ -410,6 +410,59 @@ def check_backend_and_renderers_do_not_depend_on_proof_export(repo: Path) -> Non
         fail("backend/renderers contain direct proof-kernel references:\n  - " + "\n  - ".join(violations))
 
 
+def check_external_tool_contract_boundary(repo: Path) -> None:
+    contracts_dune = (repo / "lib/contracts/dune").read_text(encoding="utf-8")
+    if "(name kairos_tool_contracts)" not in contracts_dune:
+        fail("lib/contracts must define the kairos_tool_contracts library")
+    forbidden_contract_dependencies = [
+        "kairos_application",
+        "kairos_domain_verification",
+        "kairos_domain_proof_export",
+        "kairos_external_",
+        "kairos_why3",
+        "why3",
+        "unix",
+    ]
+    found = [
+        dependency
+        for dependency in forbidden_contract_dependencies
+        if dependency in contracts_dune
+    ]
+    if found:
+        fail(
+            "kairos_tool_contracts contains forbidden dependencies: "
+            + ", ".join(found)
+        )
+
+    spot_dune = (
+        repo / "lib/adapters/out/external/spot/dune"
+    ).read_text(encoding="utf-8")
+    if "kairos_tool_contracts" not in spot_dune:
+        fail("the Spot adapter must consume kairos_tool_contracts")
+    if "kairos_domain_verification" in spot_dune:
+        fail("the Spot adapter must not depend on the verification kernel")
+
+    stale_valuation = [
+        rel
+        for rel in [
+            "lib/domain/verification/ltl_valuation.ml",
+            "lib/domain/verification/ltl_valuation.mli",
+        ]
+        if (repo / rel).exists()
+    ]
+    if stale_valuation:
+        fail(
+            "Spot boolean valuation remains in the verification kernel: "
+            + ", ".join(stale_valuation)
+        )
+
+    why_pipeline = (
+        repo / "lib/adapters/out/provers/why3/why_pipeline.mli"
+    ).read_text(encoding="utf-8")
+    if "Proof_backend_contract.request" not in why_pipeline:
+        fail("the Why3 service must consume Proof_backend_contract.request")
+
+
 def check_runtime_split_dependencies(repo: Path) -> None:
     checks = [
         (
@@ -3773,6 +3826,7 @@ def main() -> int:
     check_automata_graph_render_boundaries(repo)
     check_stale_external_z3_adapter_removed(repo)
     check_backend_and_renderers_do_not_depend_on_proof_export(repo)
+    check_external_tool_contract_boundary(repo)
     check_runtime_split_dependencies(repo)
     check_automata_boundary_wording(repo)
     check_automata_generation_stays_out_of_reference_domain(repo)

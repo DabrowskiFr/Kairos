@@ -16,21 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
+type version = int [@@deriving yojson]
 
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
+let current_version = 1
 
-(** Text payload emitted by the obligations pass. *)
-type obligations_outputs =
-  Kairos_tool_contracts.Proof_backend_contract.obligations_outputs = {
-  vc_text : string;
-  smt_text : string;
-}
-
-(** [obligations_pass request] compiles the canonical IR carried by the
-    versioned backend request and generates
-    verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass :
-  Kairos_tool_contracts.Proof_backend_contract.request ->
-  obligations_outputs
+let validate ~component version =
+  if version = current_version then Ok ()
+  else
+    Error
+      (Printf.sprintf "%s contract version %d is unsupported; expected %d"
+         component version current_version)

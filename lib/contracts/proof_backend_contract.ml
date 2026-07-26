@@ -16,21 +16,34 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
+type optimization_policy = {
+  share_facts : bool;
+  simplify_formulas : bool;
+  slice_transition_bodies : bool;
+  simplify_runtime_actions : bool;
+  deduplicate_terms : bool;
+  group_product_steps : bool;
+  product_step_group_max_cost : int;
+}
 
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
+type request = {
+  protocol_version : Tool_protocol.version;
+  nodes : Ir.node_ir list;
+  optimizations : optimization_policy;
+}
 
-(** Text payload emitted by the obligations pass. *)
-type obligations_outputs =
-  Kairos_tool_contracts.Proof_backend_contract.obligations_outputs = {
+type obligations_outputs = {
   vc_text : string;
   smt_text : string;
 }
 
-(** [obligations_pass request] compiles the canonical IR carried by the
-    versioned backend request and generates
-    verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass :
-  Kairos_tool_contracts.Proof_backend_contract.request ->
-  obligations_outputs
+let make_request ~nodes ~optimizations =
+  { protocol_version = Tool_protocol.current_version; nodes; optimizations }
+
+let validate_request (request : request) =
+  match Tool_protocol.validate ~component:"proof backend request" request.protocol_version with
+  | Error _ as error -> error
+  | Ok () ->
+      if request.optimizations.product_step_group_max_cost < 0 then
+        Error "proof backend request has a negative product-step group cost"
+      else Ok ()

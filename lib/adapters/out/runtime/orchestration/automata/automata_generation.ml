@@ -21,6 +21,8 @@ open Automaton_types
 open Core_syntax_builders
 open Pretty
 
+module Automata_exchange = Kairos_tool_contracts.Automata_exchange
+
 type atom_map = (ltl_atom * ident) list
 
 let rec collect_atoms_ltl (f : ltl) (acc : ltl_atom list) : ltl_atom list =
@@ -225,13 +227,32 @@ let build_assumption_spec ~(atom_map : atom_map) (n : Verification_model.node_mo
 
 type automata_automaton = Automaton_types.automaton
 
+let automaton_of_exchange_response
+    (response : Automata_exchange.response) : automata_automaton =
+  (match Automata_exchange.validate_response response with
+  | Ok () -> ()
+  | Error message -> invalid_arg message);
+  let states =
+    List.map
+      (function
+        | Automata_exchange.Accepting -> LTrue
+        | Automata_exchange.Rejecting -> LFalse)
+      response.automaton.states
+  in
+  let transitions =
+    List.map
+      (fun (edge : Automata_exchange.edge) ->
+        (edge.source, edge.guard, edge.target))
+      response.automaton.transitions
+  in
+  { Automaton_types.states; transitions }
+
 let build_guarantee_automaton
     ~(build_automaton :
-       atom_map:atom_map ->
-       ltl ->
-       automata_automaton)
+       Automata_exchange.request -> Automata_exchange.response)
     ~(atom_map : atom_map) (spec : ltl) : automata_automaton =
-  build_automaton ~atom_map spec
+  Automata_exchange.make_request ~atom_map spec
+  |> build_automaton |> automaton_of_exchange_response
 
 (* type automata_build = Automaton_types.automata_build = {
   guarantee_automaton : automata_automaton;
@@ -240,9 +261,7 @@ let build_guarantee_automaton
 
 let build_for_node
     ~(build_automaton :
-       atom_map:atom_map ->
-       ltl ->
-       automata_automaton)
+       Automata_exchange.request -> Automata_exchange.response)
     (n : Verification_model.node_model) : automata_spec =
   let atoms = collect_atoms n in
   let guarantee_spec = build_guarantee_spec ~atom_map:atoms n in
@@ -273,9 +292,7 @@ type automata_info = {
 
 let run (p : Verification_model.program_model)
     ~(build_automaton :
-       atom_map:atom_map ->
-       ltl ->
-       automata_automaton) :
+       Automata_exchange.request -> Automata_exchange.response) :
     (ident * automata_spec) list * automata_info =
   let state_count = ref 0 in
   let edge_count = ref 0 in

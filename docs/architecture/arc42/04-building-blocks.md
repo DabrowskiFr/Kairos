@@ -6,6 +6,7 @@
 | --- | --- | --- | --- |
 | CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
+| External tool contracts | `lib/contracts` | Versioned requests and responses shared with external adapters | None |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
 | Composition root | `lib/composition` | Wire ports to concrete adapters | None |
@@ -47,6 +48,11 @@ true:
 
 - `domain/verification` and `domain/proof_export` have no external-tool
   dependencies;
+- `kairos_tool_contracts` depends only on foundational data and serialization,
+  never on application orchestration, verification algorithms, or tool
+  implementations;
+- the Spot adapter consumes `Automata_exchange` and has no dependency on
+  `kairos_domain_verification`;
 - `--prove` does not construct diagnostic artifacts;
 - `kairos_runtime_core` does not depend on Spot, Why3, Graphviz, Z3, or
   `proof_export`;

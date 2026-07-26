@@ -16,21 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
+(** Boolean implicant helpers local to the Spot adapter. *)
 
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
+type term = (string * bool option) list
 
-(** Text payload emitted by the obligations pass. *)
-type obligations_outputs =
-  Kairos_tool_contracts.Proof_backend_contract.obligations_outputs = {
-  vc_text : string;
-  smt_text : string;
-}
-
-(** [obligations_pass request] compiles the canonical IR carried by the
-    versioned backend request and generates
-    verification obligations as WhyML and SMT-LIB2 text. *)
-val obligations_pass :
-  Kairos_tool_contracts.Proof_backend_contract.request ->
-  obligations_outputs
+val prime_implicants : term list -> term list
+val terms_to_expr : term list -> Core_syntax.expr

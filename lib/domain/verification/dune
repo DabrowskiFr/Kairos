@@ -4,7 +4,6 @@
  (wrapped false)
  (modules
   automaton_types
-  ltl_valuation
   product_types
   temporal_automata
   product_build

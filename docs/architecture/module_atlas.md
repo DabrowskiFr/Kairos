@@ -18,6 +18,7 @@ bin/cli/kairos.ml
   -> Kairos_usecase_wiring
   -> Kairos_frontend
   -> kairos_runtime_core / Pipeline_build
+  -> kairos_tool_contracts
   -> kairos_runtime_automata / Runtime_automata_source
   -> Orchestration / From_model / passes
   -> kairos_verification_runtime / Pipeline_outputs
@@ -85,6 +86,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Surface AST | `Kx_surface_syntax` | Parser/frontend | `Kx_elaborate` |
 | Elaborated AST | `Kx_ast` | `Kx_parse_api` / `Kx_elaborate` | `Kairos_to_model` |
 | Core program model | `Verification_model.program_model` | `Kairos_to_model` | `Pipeline_build`, runtime automata source, `From_model` |
+| Automata tool request/response | `Automata_exchange.request/response` | `kairos_runtime_automata` / Spot | Spot adapter / runtime conversion |
 | Runtime model | `Verification_model.program_model` | `Contract_partition` | Automata/product |
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
 | Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
@@ -94,6 +96,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` in `kairos_runtime_core` | facade outputs, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Why3/external prover |
+| Proof backend request | `Proof_backend_contract.request` | Runtime facade | `Why_pipeline` |
 
 ## Modules Par Responsabilite
 
@@ -132,6 +135,14 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `verification_flow_timing_meta.ml` | Assemblage applicatif des metadonnees de timing |
 | `verification_flow_usecases.ml` | Orchestration des use-cases et callbacks |
 | `kairos_usecase_wiring.ml` | Composition root : branche les ports sur les modules concrets |
+
+### Contrats Des Outils Externes
+
+| Module | Responsabilite |
+| --- | --- |
+| `tool_protocol.ml/mli` | Version commune et rejet explicite des protocoles incompatibles |
+| `automata_exchange.ml/mli` | Requete LTL et reponse automate, independantes du noyau de verification et serialisables en JSON |
+| `proof_backend_contract.ml/mli` | IR canonique et politique d'optimisation remis explicitement au backend de preuve |
 
 ### Noyau De Correction
 
@@ -174,7 +185,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `runtime_snapshot.ml` | Type du snapshot |
 | `instrumentation_info_builder.ml` | Informations supplementaires pour l'inspection |
 | `kairos_runtime_automata` | Production externe des automates fournis au core runtime |
-| `runtime_automata_source.ml` | Appel Spot actuel derriere une frontiere explicite |
+| `runtime_automata_source.ml` | Appel Spot actuel derrière `Automata_exchange` et conversion vers les automates fournis au noyau |
 | `kairos_runtime_proof` | Execution Why3/provers, attribution des buts, evenements de preuve |
 | `proof_goal_attribution.ml` | Attribution des buts Why3 aux pas produit et metadonnees de preuve |
 | `proof_goal_results.ml` | Construction des resultats de preuve depuis les evenements Why3 |

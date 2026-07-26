@@ -19,6 +19,9 @@
 type snapshot = Runtime_snapshot.pipeline_snapshot
 let ( let* ) = Result.bind
 
+module Proof_backend_contract =
+  Kairos_tool_contracts.Proof_backend_contract
+
 module Snapshot = struct
   type nonrec snapshot = snapshot
 
@@ -125,16 +128,22 @@ module Obligations = struct
         snapshot.asts.instrumentation
     in
     let opts = explicit_product_optimizations snapshot in
+    let optimizations : Proof_backend_contract.optimization_policy =
+      {
+        share_facts = opts.share_why3_facts;
+        simplify_formulas = opts.simplify_why3_formulas;
+        slice_transition_bodies = opts.slice_why3_transition_bodies;
+        simplify_runtime_actions = opts.simplify_why3_runtime_actions;
+        deduplicate_terms = opts.deduplicate_why3_terms;
+        group_product_steps = opts.group_why3_product_steps;
+        product_step_group_max_cost = opts.why3_product_step_group_max_cost;
+      }
+    in
+    let request =
+      Proof_backend_contract.make_request ~nodes:instrumentation ~optimizations
+    in
     let out =
-      Why_pipeline.obligations_pass
-        ~share_why3_facts:opts.share_why3_facts
-        ~simplify_why3_formulas:opts.simplify_why3_formulas
-        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
-        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
-        ~group_why3_product_steps:opts.group_why3_product_steps
-        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
-        instrumentation
+      Why_pipeline.obligations_pass request
     in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end

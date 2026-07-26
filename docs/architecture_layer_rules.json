@@ -6,6 +6,9 @@
     "foundation": [
       "kairos_domain_core"
     ],
+    "contracts": [
+      "kairos_tool_contracts"
+    ],
     "verification": [
       "kairos_domain_verification"
     ],
@@ -56,6 +59,11 @@
       "shared",
       "foundation"
     ],
+    "contracts": [
+      "shared",
+      "foundation",
+      "contracts"
+    ],
     "verification": [
       "shared",
       "foundation",
@@ -71,6 +79,7 @@
       "shared",
       "adapters_out",
       "application",
+      "contracts",
       "external",
       "proof_export",
       "verification",
@@ -80,6 +89,7 @@
       "shared",
       "composition",
       "application",
+      "contracts",
       "adapters_in",
       "adapters_out",
       "verification",
@@ -100,6 +110,7 @@
     "external": [
       "shared",
       "external",
+      "contracts",
       "foundation",
       "verification"
     ]

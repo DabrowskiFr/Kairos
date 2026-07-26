@@ -82,3 +82,7 @@
 (test
  (name canonical_obligations_tests)
  (libraries kairos_domain_core kairos_domain_verification))
+
+(test
+ (name tool_contract_tests)
+ (libraries kairos_tool_contracts))

@@ -72,6 +72,13 @@ The implementation now reflects that boundary structurally:
 `kairos_runtime_automata` is the external producer, while
 `kairos_runtime_core` consumes an explicit supplied-automata bundle.
 
+The API boundary is explicit as well. `kairos_tool_contracts` owns protocol
+versions and tool-neutral payloads. Spot exchanges JSON-serializable
+`Automata_exchange` values; runtime orchestration converts them to the
+verification representation. Why3 receives a typed
+`Proof_backend_contract.request`. Direct OCaml calls remain the current
+transport, so this separation does not impose process or serialization costs.
+
 ## Architecture Fitness
 
 Architecture is enforced by scripts, not only by prose:

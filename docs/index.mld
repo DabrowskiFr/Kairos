@@ -71,7 +71,7 @@ edge-oriented proof emission with a grouped encoding is recorded in
 {1 Common API}
 
 - {!modules:Automaton_types}
-- {!modules:Core_syntax_builders Fo_simplifier Fo_time Ltl_valuation}
+- {!modules:Core_syntax_builders Fo_simplifier Fo_time}
 - {!modules:Ir Proof_kernel_types}
 - {!modules:Ast_provenance Provenance Flow_info Temporal_support Pre_k_layout Pre_k_lowering Syntax_pretty}
 

@@ -16,18 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Low-level bridge from a normalized Kairos LTL formula to the internal
-    automaton representation.
+(** Low-level bridge from the versioned automata request to Spot.
 
     This module is responsible for invoking the external safety-automaton
-    backend and normalizing its result into {!Automaton_types.automaton}. *)
-open Core_syntax
+    backend and normalizing its result into the tool-neutral exchange
+    representation. It does not depend on the verification kernel. *)
 (** [build] service entrypoint. *)
 
 val build :
-  atom_map:(ltl_atom * ident) list ->
-  ltl ->
-  Automaton_types.automaton
-(** [build ~atom_map spec] constructs the safety
-    automaton for [spec], then normalizes states and guards into the automaton
-    format consumed by the rest of the middleend. *)
+  Kairos_tool_contracts.Automata_exchange.request ->
+  Kairos_tool_contracts.Automata_exchange.response
+(** [build request] constructs the safety automaton requested by Kairos and
+    returns a versioned response. *)
