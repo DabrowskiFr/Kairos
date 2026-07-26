@@ -1,0 +1,41 @@
+name: package-boundaries
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  opam-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.4.1"
+          dune-cache: true
+      - name: Lint opam manifests
+        run: opam lint ./*.opam
+
+  isolated-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        boundary:
+          - core
+          - runtime
+          - cli
+          - lsp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.4.1"
+          dune-cache: true
+      - name: Install external dependencies
+        run: opam install . --deps-only --with-test
+      - name: Build isolated package boundary
+        run: opam exec -- scripts/check_package_boundaries.sh "${{ matrix.boundary }}"

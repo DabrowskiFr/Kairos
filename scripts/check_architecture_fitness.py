@@ -4265,6 +4265,51 @@ def check_engine_runtime_split_plan(repo: Path) -> None:
         fail("engine runtime split has unexpected inbound edges: " + rendered)
 
 
+def check_package_boundary_ci(repo: Path) -> None:
+    workflow = (
+        repo / ".github/workflows/package-boundaries.yml"
+    ).read_text(encoding="utf-8", errors="replace")
+    script = (
+        repo / "scripts/check_package_boundaries.sh"
+    ).read_text(encoding="utf-8", errors="replace")
+
+    for boundary in ["core", "runtime", "cli", "lsp"]:
+        if not re.search(rf"^\s*-\s+{boundary}\s*$", workflow, re.MULTILINE):
+            fail(f"package-boundary CI matrix is missing {boundary}")
+        if re.search(rf"^\s*{boundary}\)", script, re.MULTILINE) is None:
+            fail(f"package-boundary script is missing {boundary}")
+
+    for required in [
+        "opam lint ./*.opam",
+        "opam install . --deps-only --with-test",
+        "scripts/check_package_boundaries.sh",
+    ]:
+        if required not in workflow:
+            fail(f"package-boundary workflow is missing: {required}")
+    for required in [
+        "--only-packages",
+        "--build-dir",
+        "OCAMLPATH",
+        "kairos-engine-runtime",
+    ]:
+        if required not in script:
+            fail(f"package-boundary script is missing invariant: {required}")
+
+    metadata_fields = [
+        "maintainer:",
+        "authors:",
+        "license:",
+        "homepage:",
+        "bug-reports:",
+        "dev-repo:",
+    ]
+    for opam_path in sorted(repo.glob("*.opam")):
+        opam = opam_path.read_text(encoding="utf-8", errors="replace")
+        for field in metadata_fields:
+            if field not in opam:
+                fail(f"{opam_path.name} is missing opam metadata {field}")
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -4291,6 +4336,7 @@ def main() -> int:
     check_external_timing_boundaries(repo)
     check_engine_contract_boundary(repo)
     check_engine_runtime_split_plan(repo)
+    check_package_boundary_ci(repo)
     check_lsp_package_boundary(repo)
     check_cli_package_boundary(repo)
     check_runtime_diagnostics_boundaries(repo)

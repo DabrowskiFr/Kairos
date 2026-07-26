@@ -10,6 +10,7 @@ Start here:
 - `externalization_audit.md`
 - `engine_runtime_split_audit.md`
 - `engine_runtime_split_manifest.json`
+- `package_build_order.md`
 - `../rocq_alignment_manifest.json`
 - `../rocq_projection_audit.json`
 - `why3_product_backend_alignment.md`

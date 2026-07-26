@@ -13,6 +13,8 @@ before it becomes a proof or performance regression.
 | Architecture manifest | `python3 scripts/check_architecture_manifest.py` | Required architecture docs/scripts and removed legacy paths stay consistent |
 | Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
 | Engine runtime package | `python3 scripts/check_architecture_fitness.py` | The implemented 17-library boundary matches Dune/opam and has no unexpected inbound dependency |
+| Isolated package builds | `scripts/check_package_boundaries.sh core|runtime|cli|lsp` | Core, runtime, CLI, and LSP resolve only their declared installed package closure |
+| Opam metadata | `opam lint ./*.opam` | Every distributable package has valid dependency and project metadata |
 | Quality baseline | `python3 scripts/check_quality_baseline.py` | Non-semantic quality metrics do not regress while the baseline is ratcheted down |
 | Renderer purity | `python3 scripts/check_architecture_fitness.py` | Graph rendering must not depend on Z3 |
 | Why3 product path | `python3 scripts/check_architecture_fitness.py` | Why3 proof emission must not reintroduce the old state-helper fallback |

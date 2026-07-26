@@ -14,8 +14,11 @@
   ../docs/rocq_alignment_manifest.json
   ../docs/rocq_projection_audit.json
   ../.github/workflows/architecture.yml
+  ../.github/workflows/package-boundaries.yml
+  (glob_files ../*.opam)
   ../scripts/check_architecture_fitness.py
   ../scripts/check_architecture_manifest.py
+  ../scripts/check_package_boundaries.sh
   ../scripts/check_layer_dependencies.py
   ../scripts/check_quality_baseline.py
   ../scripts/check_rocq_alignment_manifest.py

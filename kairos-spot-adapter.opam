@@ -1,6 +1,12 @@
 opam-version: "2.0"
 name: "kairos-spot-adapter"
 version: "dev"
+maintainer: "Frédéric Dabrowski <frederic.dabrowski@univ-orleans.fr>"
+authors: ["Frédéric Dabrowski"]
+license: "GPL-3.0-or-later"
+homepage: "https://github.com/DabrowskiFr/Kairos"
+bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
+dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Standalone in-process Spot adapter for Kairos automata contracts"
 depends: [
   "dune" {>= "3.10"}

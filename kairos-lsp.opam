@@ -1,6 +1,12 @@
 opam-version: "2.0"
 name: "kairos-lsp"
 version: "dev"
+maintainer: "Frédéric Dabrowski <frederic.dabrowski@univ-orleans.fr>"
+authors: ["Frédéric Dabrowski"]
+license: "GPL-3.0-or-later"
+homepage: "https://github.com/DabrowskiFr/Kairos"
+bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
+dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Language Server Protocol adapter for Kairos"
 description: "Optional JSON-RPC/LSP delivery adapter embedding the public Kairos engine facade."
 depends: [

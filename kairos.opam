@@ -1,6 +1,12 @@
 opam-version: "2.0"
 name: "kairos"
 version: "dev"
+maintainer: "Frédéric Dabrowski <frederic.dabrowski@univ-orleans.fr>"
+authors: ["Frédéric Dabrowski"]
+license: "GPL-3.0-or-later"
+homepage: "https://github.com/DabrowskiFr/Kairos"
+bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
+dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Kairos semantic verification core"
 description: "Kairos domain, reference verification, application interfaces, language frontend, neutral IRs, and Rocq development."
 depends: [

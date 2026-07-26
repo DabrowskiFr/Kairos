@@ -1,6 +1,12 @@
 opam-version: "2.0"
 name: "kairos-engine-runtime"
 version: "dev"
+maintainer: "Frédéric Dabrowski <frederic.dabrowski@univ-orleans.fr>"
+authors: ["Frédéric Dabrowski"]
+license: "GPL-3.0-or-later"
+homepage: "https://github.com/DabrowskiFr/Kairos"
+bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
+dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Concrete execution engine for Kairos verification"
 description: "Kairos engine facade, concrete composition, runtime orchestration, Kairos-specific backend projections, and code generation."
 depends: [
