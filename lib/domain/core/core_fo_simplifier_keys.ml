@@ -146,8 +146,7 @@ let rel_lit_of_hexpr (h : hexpr) : rel_lit option =
 let ordered_pair_key prefix a b =
   let ka = key_of_hexpr a in
   let kb = key_of_hexpr b in
-  if String.compare ka kb <= 0 then prefix ^ ka ^ ":" ^ kb
-  else prefix ^ kb ^ ":" ^ ka
+  if String.compare ka kb <= 0 then prefix ^ ka ^ ":" ^ kb else prefix ^ kb ^ ":" ^ ka
 
 let comparison_literal_key op a b =
   let ka = key_of_hexpr a in
@@ -164,8 +163,7 @@ let rec literal_key (h : hexpr) : (string * bool) option =
   let open Core_syntax in
   match h.hexpr with
   | HCmp (op, a, b) -> comparison_literal_key op a b
-  | HUn (Not, inner) ->
-      Option.map (fun (key, sign) -> (key, not sign)) (literal_key inner)
+  | HUn (Not, inner) -> Option.map (fun (key, sign) -> (key, not sign)) (literal_key inner)
   | HVar _ | HPred _ | HFunCall _ -> Some ("bool:" ^ key_of_hexpr h, true)
   | _ -> None
 
