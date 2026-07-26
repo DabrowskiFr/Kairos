@@ -86,7 +86,8 @@
 
 (test
  (name tool_contract_tests)
- (libraries kairos_tool_contracts))
+ (libraries kairos_proof_contract))
+
 (test
  (name automata_exchange_adapter_tests)
  (libraries

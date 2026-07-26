@@ -16,12 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Version shared by the contracts between Kairos and external tools. *)
+(** Neutral contract for submitting generated WhyML to a proof backend.
 
-type version = int [@@deriving yojson]
+    The payload contains no Kairos IR and no Why3 value. WhyML is the stable ownership boundary:
+    Kairos generates it, while a Why3 adapter parses it and produces backend-neutral textual
+    obligations. *)
 
-(** Current contract version emitted by Kairos. *)
-val current_version : version
+type request = { protocol_version : Tool_protocol.version; filename : string; whyml_text : string }
+[@@deriving yojson]
 
-(** Check that a payload uses the current contract version. *)
-val validate : component:string -> version -> (unit, string) result
+type response = { protocol_version : Tool_protocol.version; vc_text : string; smt_text : string }
+[@@deriving yojson]
+
+val make_request : ?filename:string -> whyml_text:string -> unit -> request
+val validate_request : request -> (unit, string) result
+val make_response : vc_text:string -> smt_text:string -> response
+val validate_response : response -> (unit, string) result

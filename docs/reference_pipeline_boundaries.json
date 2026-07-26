@@ -427,7 +427,9 @@
       "name": "why3_backend",
       "classification": "backend",
       "paths": [
-        "lib/adapters/out/provers/why3"
+        "lib/adapters/out/provers/why3",
+        "packages/proof-contract",
+        "packages/why3"
       ],
       "rocq_scope": "excluded",
       "rocq_role": "Backend projection and external proof discharge; not the semantic source of obligations.",

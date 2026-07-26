@@ -7,8 +7,10 @@
 | CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
-| Proof backend contract | `lib/contracts` | Typed request currently shared with the Why3 backend | None |
+| Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML/text exchange | None |
 | Spot package | `packages/spot` | Independently buildable in-process adapter over the automata contract | External boundary |
+| Why3 adapter | `packages/why3` | WhyML parsing, obligation dumps, proving and solver interaction | External boundary |
+| Telemetry package | `packages/timing` | Process-local technical measurements shared through a data-only API | External utility |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
 | Composition root | `lib/composition` | Wire ports to concrete adapters | None |
@@ -16,9 +18,9 @@
 | Verification kernel | `lib/domain/verification` | Product construction and reference passes | Correction-critical |
 | Proof export | `lib/domain/proof_export` | Exchange structures and summaries derived from the kernel | Projection candidate |
 | Runtime orchestration | `lib/adapters/out/runtime` | Snapshots, outputs, proof runs, diagnostics | Should stay outside correction |
-| Why3 backend | `lib/adapters/out/provers/why3` | Projection to Why3 and proof planning | Backend only |
+| Why3 projection | `lib/adapters/out/provers/why3` | Kairos IR to WhyML compilation and proof planning | Backend only |
 | Artifacts | `lib/adapters/out/artifacts` | Text/graph/diagnostic rendering | Backend only |
-| External adapters | `lib/adapters/out/external` | Why3, Graphviz, timing | External boundary |
+| External adapters | `lib/adapters/out/external` | Graphviz and relocation markers | External boundary |
 
 ## Verification Kernel Internals
 
@@ -50,13 +52,14 @@ true:
 
 - `domain/verification` and `domain/proof_export` have no external-tool
   dependencies;
-- `kairos_tool_contracts` depends only on foundational data and serialization,
-  never on application orchestration, verification algorithms, or tool
-  implementations;
+- `kairos_proof_contract` contains only versioned WhyML/text payloads and
+  serialization, with no Kairos or Why3 dependency;
 - `kairos_automata_contract` depends only on serialization support and exposes
   opaque atom names rather than Kairos expressions;
 - `kairos_spot_adapter` depends on no internal Kairos library and remains
   callable directly without IPC;
+- `kairos_external_why3` depends on no internal Kairos library; the semantic
+  IR-to-WhyML projection remains owned by Kairos;
 - runtime automata orchestration owns all conversions between the neutral
   automata contract and core formulas;
 - `--prove` does not construct diagnostic artifacts;

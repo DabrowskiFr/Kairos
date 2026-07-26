@@ -13,6 +13,9 @@ depends: [
   "yojson"
   "kairos-automata-contract" {= version}
   "kairos-spot-adapter" {= version}
+  "kairos-proof-contract" {= version}
+  "kairos-telemetry" {= version}
+  "kairos-why3-adapter" {= version}
   "jsonrpc"
   "lsp"
 ]

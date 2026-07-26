@@ -19,28 +19,25 @@
 (** Why/VC/SMT obligations export pass extracted from the v2 pipeline implementation. *)
 
 module Proof_backend_contract =
-  Kairos_tool_contracts.Proof_backend_contract
+  Kairos_proof_contract.Proof_backend_contract
 
-type obligations_outputs = Proof_backend_contract.obligations_outputs = {
+type compilation_options = {
+  share_facts : bool;
+  simplify_formulas : bool;
+  slice_transition_bodies : bool;
+  simplify_runtime_actions : bool;
+  deduplicate_terms : bool;
+  group_product_steps : bool;
+  product_step_group_max_cost : int;
+}
+
+type obligations_outputs = {
   vc_text : string;
   smt_text : string;
 }
 
-let join_blocks ~sep blocks =
-  let b = Buffer.create 4096 in
-  List.iteri
-    (fun i s ->
-      if i > 0 then Buffer.add_string b sep;
-      Buffer.add_string b s)
-    blocks;
-  Buffer.contents b
-
-let obligations_pass (request : Proof_backend_contract.request) :
+let obligations_pass ~nodes ~(options : compilation_options) :
     obligations_outputs =
-  (match Proof_backend_contract.validate_request request with
-  | Ok () -> ()
-  | Error message -> invalid_arg message);
-  let options = request.optimizations in
   let why_ast =
     Why_compile.compile_program_ast_from_ir_nodes
       ~share_why3_facts:options.share_facts
@@ -50,20 +47,11 @@ let obligations_pass (request : Proof_backend_contract.request) :
       ~deduplicate_why3_terms:options.deduplicate_terms
       ~group_why3_product_steps:options.group_product_steps
       ~why3_product_step_group_max_cost:options.product_step_group_max_cost
-      request.nodes
+      nodes
   in
   let why_text = Why_text_render.emit_program_ast why_ast in
-  let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
-  let tasks =
-    Why_task_support.normalize_tasks_of_text ~env ~filename:"<kairos-generated>"
-      ~text:why_text
+  let request =
+    Proof_backend_contract.make_request ~whyml_text:why_text ()
   in
-  let vc_text =
-    join_blocks ~sep:"\n(* ---- goal ---- *)\n"
-      (Why_task_dump_render.dump_why3_tasks_with_attrs_of_tasks tasks)
-  in
-  let smt_text =
-    join_blocks ~sep:"\n; ---- goal ----\n"
-      (Why_task_dump_render.dump_smt2_tasks_of_tasks tasks)
-  in
-  { vc_text; smt_text }
+  let response = Why_obligations.run request in
+  { vc_text = response.vc_text; smt_text = response.smt_text }

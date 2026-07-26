@@ -22,8 +22,8 @@ recorded by ADR-0007.
 
 ## Decision
 
-Kairos first introduced a small `kairos_tool_contracts` library containing
-versioned request and response types.
+Kairos first introduced versioned request and response types, since moved into
+autonomous contract packages.
 
 - The automata contract is JSON serializable. It is now owned by the
   autonomous `kairos-automata-contract` package described by ADR-0013.
@@ -31,10 +31,11 @@ versioned request and response types.
 - Runtime orchestration converts the external automaton response into
   `Automaton_types.automaton`; the verification kernel still validates the
   supplied automata before product exploration.
-- Why3 consumes a `Proof_backend_contract.request` containing canonical
-  `Ir.node_ir` values and an explicit optimization policy.
-- The Why3 contract is initially in-process. Its transport codec is deferred
-  until the sequential IR has a stable serialization.
+- Why3 consumes a `Proof_backend_contract.request` containing generated WhyML,
+  a filename, and a protocol version.
+- Why3 compilation options remain on the Kairos side because they control the
+  semantic projection from internal IR to WhyML.
+- The Why3 contract is JSON serializable but remains in-process by default.
 - The automata contract depends on no Kairos library. The proof backend
   contract does not depend on application orchestration, external tool
   implementations, Why3, Spot, or the proof-kernel exchange projection.
@@ -47,6 +48,6 @@ versioned request and response types.
   overhead.
 - Protocol incompatibilities fail explicitly instead of being accepted
   silently.
-- Moving Why3 out of process still requires a stable codec for the canonical
-  sequential IR.
+- Moving Why3 out of process no longer requires serializing Kairos IR; the
+  transport boundary is generated WhyML.
 - Backend planning remains independent from the Rocq exchange schema.

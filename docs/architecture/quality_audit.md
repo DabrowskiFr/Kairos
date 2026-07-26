@@ -37,7 +37,7 @@ Size and maintainability indicators:
   - `lib/adapters/in/kairos_lang/kx_elaborate_histories.ml`: 449 lines
   - `lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`: 435 lines
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
-  - `lib/adapters/out/external/timing/external_timing_store.ml`: 405 lines
+  - `packages/timing/external_timing_store.ml`: 405 lines
   - `lib/domain/verification/kernel_clause_projection.ml`: 399 lines
 - `ml` files without matching `mli`: 15
 - Libraries declared with `(wrapped false)`: 28

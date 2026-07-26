@@ -9,3 +9,9 @@
  (name kairos-automata-contract))
 (package
  (name kairos-spot-adapter))
+(package
+ (name kairos-proof-contract))
+(package
+ (name kairos-telemetry))
+(package
+ (name kairos-why3-adapter))

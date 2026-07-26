@@ -16,13 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Version shared by the contracts between Kairos and external tools. *)
+
 type version = int [@@deriving yojson]
 
-let current_version = 1
+val current_version : version
+(** Current contract version emitted by Kairos. *)
 
-let validate ~component version =
-  if version = current_version then Ok ()
-  else
-    Error
-      (Printf.sprintf "%s contract version %d is unsupported; expected %d"
-         component version current_version)
+val validate : component:string -> version -> (unit, string) result
+(** Check that a payload uses the current contract version. *)

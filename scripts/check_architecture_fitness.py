@@ -411,28 +411,36 @@ def check_backend_and_renderers_do_not_depend_on_proof_export(repo: Path) -> Non
 
 
 def check_external_tool_contract_boundary(repo: Path) -> None:
-    contracts_dune = (repo / "lib/contracts/dune").read_text(encoding="utf-8")
-    if "(name kairos_tool_contracts)" not in contracts_dune:
-        fail("lib/contracts must define the kairos_tool_contracts library")
+    proof_contract_dune = (
+        repo / "packages/proof-contract/dune"
+    ).read_text(encoding="utf-8")
+    if "(name kairos_proof_contract)" not in proof_contract_dune:
+        fail("packages/proof-contract must define kairos_proof_contract")
     forbidden_contract_dependencies = [
+        "kairos_domain_",
         "kairos_application",
-        "kairos_domain_verification",
-        "kairos_domain_proof_export",
         "kairos_external_",
         "kairos_why3",
         "why3",
         "unix",
+        "Ir.",
     ]
     found = [
         dependency
         for dependency in forbidden_contract_dependencies
-        if dependency in contracts_dune
+        if dependency in proof_contract_dune
     ]
     if found:
         fail(
-            "kairos_tool_contracts contains forbidden dependencies: "
+            "kairos_proof_contract contains forbidden dependencies: "
             + ", ".join(found)
         )
+    proof_contract_sources = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (repo / "packages/proof-contract").glob("*.ml*")
+    )
+    if re.search(r"\bIr\.|\bCore_syntax\b|\bWhy3\.", proof_contract_sources):
+        fail("the proof contract must contain only neutral WhyML/text payloads")
 
     automata_contract_dune = (
         repo / "packages/automata-contract/dune"
@@ -517,10 +525,12 @@ def check_external_tool_contract_boundary(repo: Path) -> None:
         )
 
     why_pipeline = (
-        repo / "lib/adapters/out/provers/why3/why_pipeline.mli"
+        repo / "lib/adapters/out/provers/why3/why_pipeline.ml"
     ).read_text(encoding="utf-8")
-    if "Proof_backend_contract.request" not in why_pipeline:
-        fail("the Why3 service must consume Proof_backend_contract.request")
+    if "Proof_backend_contract.make_request" not in why_pipeline:
+        fail("the Why3 projection must construct a neutral proof request")
+    if "Why_obligations.run" not in why_pipeline:
+        fail("the Why3 projection must delegate obligation export to the adapter")
 
 
 def check_runtime_split_dependencies(repo: Path) -> None:
@@ -3507,9 +3517,11 @@ def check_input_adapters_stay_thin(repo: Path) -> None:
 
 
 def check_external_why3_prover_boundaries(repo: Path) -> None:
-    why3_root = repo / "lib/adapters/out/external/why3"
+    why3_root = repo / "packages/why3"
     required_modules = [
         "why_task_support",
+        "why_task_dump_render",
+        "why_adapter_log",
         "why_contract_unix_io",
         "why_contract_proof_types",
         "why_contract_smt_utils",
@@ -3518,6 +3530,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         "why_contract_workers",
         "why_contract_prove",
         "why_native_probe",
+        "why_obligations",
     ]
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
@@ -3533,6 +3546,38 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         fail(
             "Why3 external prover modules must be explicit kairos_external_why3 modules: "
             + ", ".join(missing_modules)
+        )
+
+    why3_dune = (why3_root / "dune").read_text(encoding="utf-8")
+    if "kairos_proof_contract" not in why3_dune:
+        fail("the standalone Why3 adapter must consume kairos_proof_contract")
+    for dependency in [
+        "kairos_domain_",
+        "kairos_application",
+        "kairos_runtime_",
+        "kairos_why3_compile",
+        "kairos_why3_runtime_view",
+    ]:
+        if dependency in why3_dune:
+            fail(
+                "the standalone Why3 adapter contains forbidden Kairos "
+                f"dependency {dependency}"
+            )
+
+    former_why3_root = repo / "lib/adapters/out/external/why3"
+    stale_why3_code = (
+        [
+            path
+            for path in former_why3_root.iterdir()
+            if path.suffix in {".ml", ".mli"} or path.name == "dune"
+        ]
+        if former_why3_root.exists()
+        else []
+    )
+    if stale_why3_code:
+        fail(
+            "former in-tree Why3 adapter code remains: "
+            + ", ".join(str(path.relative_to(repo)) for path in stale_why3_code)
         )
 
     prove = (why3_root / "why_contract_prove.ml").read_text(
@@ -3821,7 +3866,7 @@ def check_runtime_diagnostics_boundaries(repo: Path) -> None:
 
 
 def check_external_timing_boundaries(repo: Path) -> None:
-    timing_root = repo / "lib/adapters/out/external/timing"
+    timing_root = repo / "packages/timing"
     required_modules = [
         "external_timing_types",
         "external_timing_store",

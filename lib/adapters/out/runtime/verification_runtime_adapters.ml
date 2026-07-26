@@ -16,11 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+let () =
+  Why_adapter_log.set_handlers
+    ~progress:(fun message -> Log.flow_info (Some "prove") message [])
+    ~warning:(fun message -> Log.warning ~stage:"prove" message)
+
 type snapshot = Runtime_snapshot.pipeline_snapshot
 let ( let* ) = Result.bind
-
-module Proof_backend_contract =
-  Kairos_tool_contracts.Proof_backend_contract
 
 module Snapshot = struct
   type nonrec snapshot = snapshot
@@ -128,7 +130,7 @@ module Obligations = struct
         snapshot.asts.instrumentation
     in
     let opts = explicit_product_optimizations snapshot in
-    let optimizations : Proof_backend_contract.optimization_policy =
+    let options : Why_pipeline.compilation_options =
       {
         share_facts = opts.share_why3_facts;
         simplify_formulas = opts.simplify_why3_formulas;
@@ -139,12 +141,7 @@ module Obligations = struct
         product_step_group_max_cost = opts.why3_product_step_group_max_cost;
       }
     in
-    let request =
-      Proof_backend_contract.make_request ~nodes:instrumentation ~optimizations
-    in
-    let out =
-      Why_pipeline.obligations_pass request
-    in
+    let out = Why_pipeline.obligations_pass ~nodes:instrumentation ~options in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end
 

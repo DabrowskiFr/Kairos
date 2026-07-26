@@ -19,5 +19,5 @@ semantic data. It does not define proof semantics by itself.
 - `lib/adapters/out/artifacts/text_render`
   Text renderers for IR views, proof status, and Why text output.
 
-- `lib/adapters/out/artifacts/why_task_dump`
+- `packages/why3` for Why3 and SMT task dumps
   Why3 task dump rendering helpers.

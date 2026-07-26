@@ -1,0 +1,14 @@
+opam-version: "2.0"
+name: "kairos-proof-contract"
+version: "dev"
+synopsis: "Neutral versioned contract for WhyML proof backends"
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+  "yojson"
+  "ppx_deriving"
+  "ppx_deriving_yojson"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]

@@ -1,0 +1,24 @@
+(library
+ (name kairos_external_why3)
+ (public_name kairos-why3-adapter.runtime)
+ (wrapped false)
+ (modules
+  why_task_support
+  why_task_dump_render
+  why_adapter_log
+  why_contract_unix_io
+  why_contract_proof_types
+  why_contract_smt_utils
+  why_contract_persistent_z3
+  why_contract_prover_call
+  why_contract_workers
+  why_contract_prove
+  why_native_probe
+  why_obligations)
+ (libraries kairos_proof_contract kairos_external_timing why3))
+
+(test
+ (name why3_adapter_tests)
+ (modules why3_adapter_tests)
+ (package kairos-why3-adapter)
+ (libraries kairos_external_why3 kairos_proof_contract))

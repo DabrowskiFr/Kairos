@@ -60,8 +60,8 @@ Execution de l'outil:
 | 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
 | 14 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
 | 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Prepare et lance les obligations Why3/Z3 |
-| 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection Why3 et generation de taches |
-| 17 | `lib/adapters/out/external/why3/*` | `Why_contract_prove` | Interaction avec Why3/provers |
+| 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
+| 17 | `packages/why3/*` | `Why_obligations`, `Why_contract_prove` | Paquet autonome d'interaction avec Why3/provers |
 
 Point important : en mode `--prove` minimal, `Pipeline_outputs.is_prove_only_run`
 fait que `Pipeline_artifact_bundle.build` n'est pas appele. Donc les graphes
@@ -96,8 +96,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification` | proof export, Why3 runtime view |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` in `kairos_runtime_core` | facade outputs, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
-| Why3 AST/text | backend-specific | `Why_compile` | Why3/external prover |
-| Proof backend request | `Proof_backend_contract.request` | Runtime facade | `Why_pipeline` |
+| Why3 AST/text | backend-specific | `Why_compile` | Contrat de preuve |
+| Proof backend request | `Proof_backend_contract.request` | `Why_pipeline` | `kairos-why3-adapter` |
 
 ## Modules Par Responsabilite
 

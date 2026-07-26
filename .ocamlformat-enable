@@ -13,5 +13,10 @@ packages/automata-contract/*.ml
 packages/automata-contract/*.mli
 packages/spot/*.ml
 packages/spot/*.mli
+packages/proof-contract/*.ml
+packages/proof-contract/*.mli
+packages/why3/why_obligations.ml
+packages/why3/why_obligations.mli
+packages/why3/why3_adapter_tests.ml
 lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml
 lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.mli

@@ -5,7 +5,6 @@
  (libraries
   kairos_application
   kairos_domain_core
-  kairos_tool_contracts
   kairos_runtime_core
   kairos_runtime_automata
   kairos_runtime_proof

@@ -102,20 +102,24 @@ Externalization uses typed contracts without imposing processes:
 kairos-automata-contract
   -> Automata_exchange (neutral, versioned and JSON serializable)
 
-kairos_tool_contracts
-  -> Proof_backend_contract (versioned and still in-process)
+kairos-proof-contract
+  -> Proof_backend_contract (neutral WhyML request/response)
 
 kairos-spot-adapter
   -> depends only on kairos-automata-contract and Unix
+
+kairos-why3-adapter
+  -> depends only on kairos-proof-contract, kairos-telemetry, and Why3
 ```
 
 Spot is now an independently buildable OCaml package. It consumes and produces
 only `Automata_exchange` values over opaque atom names. Runtime orchestration
 owns both conversions between core formulas and the neutral contract, so the
 Spot package imports no internal Kairos library. The call remains in-process.
-Why3 consumes an explicit
-`Proof_backend_contract.request`; it does not consume the Rocq-oriented proof
-export.
+Kairos still owns the semantic projection from its relational IR to WhyML.
+The independently buildable Why3 adapter starts at the generated WhyML text
+and consumes an explicit `Proof_backend_contract.request`; it imports neither
+the Kairos IR nor the proof-export projection. Calls remain in-process.
 
 The split is kept honest by architecture fitness checks: the core library must
 not depend on Spot, Why3, or proof export, the proof library must not depend on

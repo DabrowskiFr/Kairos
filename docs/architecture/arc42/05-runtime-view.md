@@ -10,7 +10,9 @@ CLI
   -> external automata source produces supplied automata
   -> runtime core builds reference product + instrumented IR
   -> proof runner
-  -> Why3/provers
+  -> Kairos IR-to-WhyML projection
+  -> neutral proof contract
+  -> standalone Why3 adapter/provers
   -> minimal proof output
 ```
 
@@ -58,12 +60,15 @@ Rocq: automata are parameters, not objects whose production is formalized.
 CLI
   -> application use-case
   -> snapshot
-  -> Why3 backend projection
+  -> Kairos IR-to-WhyML projection
+  -> `kairos-proof-contract`
+  -> `kairos-why3-adapter`
   -> Why3 task or SMT text
 ```
 
 These outputs are backend views. They are useful for debugging performance and
-proof failures, but they are not the canonical correction artifact.
+proof failures, but they are not the canonical correction artifact. The
+external adapter receives generated WhyML and never receives Kairos IR values.
 
 ## Scenario: Future Rocq Exchange Projection
 

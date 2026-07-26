@@ -16,34 +16,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type optimization_policy = {
-  share_facts : bool;
-  simplify_formulas : bool;
-  slice_transition_bodies : bool;
-  simplify_runtime_actions : bool;
-  deduplicate_terms : bool;
-  group_product_steps : bool;
-  product_step_group_max_cost : int;
-}
+type request = { protocol_version : Tool_protocol.version; filename : string; whyml_text : string }
+[@@deriving yojson]
 
-type request = {
-  protocol_version : Tool_protocol.version;
-  nodes : Ir.node_ir list;
-  optimizations : optimization_policy;
-}
+type response = { protocol_version : Tool_protocol.version; vc_text : string; smt_text : string }
+[@@deriving yojson]
 
-type obligations_outputs = {
-  vc_text : string;
-  smt_text : string;
-}
-
-let make_request ~nodes ~optimizations =
-  { protocol_version = Tool_protocol.current_version; nodes; optimizations }
+let make_request ?(filename = "<kairos-generated>") ~whyml_text () =
+  { protocol_version = Tool_protocol.current_version; filename; whyml_text }
 
 let validate_request (request : request) =
   match Tool_protocol.validate ~component:"proof backend request" request.protocol_version with
   | Error _ as error -> error
   | Ok () ->
-      if request.optimizations.product_step_group_max_cost < 0 then
-        Error "proof backend request has a negative product-step group cost"
+      if String.trim request.filename = "" then Error "proof backend request has an empty filename"
+      else if String.trim request.whyml_text = "" then
+        Error "proof backend request has an empty WhyML payload"
       else Ok ()
+
+let make_response ~vc_text ~smt_text =
+  { protocol_version = Tool_protocol.current_version; vc_text; smt_text }
+
+let validate_response (response : response) =
+  Tool_protocol.validate ~component:"proof backend response" response.protocol_version

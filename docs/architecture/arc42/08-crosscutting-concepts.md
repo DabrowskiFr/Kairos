@@ -76,9 +76,11 @@ The automata API boundary is an autonomous package.
 `kairos-automata-contract` exchanges JSON-serializable LTL and guard formulas
 over opaque atom names. `kairos-spot-adapter` depends only on that contract and
 Unix. Runtime orchestration converts between opaque atoms and the verification
-representation. Why3 receives a typed
-`Proof_backend_contract.request`. Direct OCaml calls remain the current
-transport, so this separation does not impose process or serialization costs.
+representation. The Why3 projection creates a typed, JSON-serializable
+`Proof_backend_contract.request` containing generated WhyML. The independent
+adapter parses that text and produces VC/SMT outputs. Direct OCaml calls remain
+the current transport, so this separation does not impose process or
+serialization costs.
 
 ## Architecture Fitness
 

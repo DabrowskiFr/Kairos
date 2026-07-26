@@ -16,31 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
+type version = int [@@deriving yojson]
 
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
+let current_version = 1
 
-(** Kairos-owned policy for compiling its IR to WhyML. *)
-type compilation_options = {
-  share_facts : bool;
-  simplify_formulas : bool;
-  slice_transition_bodies : bool;
-  simplify_runtime_actions : bool;
-  deduplicate_terms : bool;
-  group_product_steps : bool;
-  product_step_group_max_cost : int;
-}
-
-(** Text payload emitted by the obligations pass. *)
-type obligations_outputs = {
-  vc_text : string;
-  smt_text : string;
-}
-
-(** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
-    independent Why3 adapter. *)
-val obligations_pass :
-  nodes:Ir.node_ir list ->
-  options:compilation_options ->
-  obligations_outputs
+let validate ~component version =
+  if version = current_version then Ok ()
+  else
+    Error
+      (Printf.sprintf "%s contract version %d is unsupported; expected %d" component version
+         current_version)

@@ -28,13 +28,13 @@ include Why_contract_workers
 let log_progress ~pos ~total =
   let should_log_progress ~pos ~total =
     pos = 0 || pos = total - 1 || (pos + 1) mod 10 = 0
-  in if should_log_progress ~pos ~total then
-      Log.flow_info (Some "prove")
-        (Printf.sprintf "proving goal %d/%d" (pos + 1) total)
-        []
+  in
+  if should_log_progress ~pos ~total then
+    Why_adapter_log.progress
+      (Printf.sprintf "proving goal %d/%d" (pos + 1) total)
 
 let log_failed_goal ~pos ~total ~answer ~dump_path =
-  Log.warning ~stage:"prove"
+  Why_adapter_log.warning
     (Printf.sprintf "goal %d/%d failed (%s); dumped to %s" (pos + 1) total
        (Smt_utils.answer_status answer)
        dump_path)

@@ -12,10 +12,14 @@ artifacts.
 {1 Main areas in the repository}
 
 - `lib/adapters/out/provers/why3`
-  Why3 translation, runtime views, and backend planning.
+  Kairos IR-to-WhyML translation, runtime views, and backend planning.
 
-- `lib/domain/verification/proof_export`
-  Proof-kernel export data consumed for interop and guided flows.
+- `packages/proof-contract`
+  Versioned neutral WhyML/VC/SMT exchange.
+
+- `packages/why3`
+  Why3 parsing, task normalization, dumps, prover execution, and solver
+  interaction without internal Kairos dependencies.
 
 {1 Notes}
 

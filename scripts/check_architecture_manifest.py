@@ -34,6 +34,9 @@ def main() -> int:
         "lib/contracts",
         "packages/automata-contract",
         "packages/spot",
+        "packages/proof-contract",
+        "packages/timing",
+        "packages/why3",
         "lib/application",
         "lib/composition",
         "lib/adapters/in/kairos_lang",
@@ -59,6 +62,7 @@ def main() -> int:
         "docs/architecture/decisions/ADR-0005-backend-optimizations-after-reference.md",
         "docs/architecture/decisions/ADR-0011-versioned-external-tool-contracts.md",
         "docs/architecture/decisions/ADR-0013-standalone-spot-packages.md",
+        "docs/architecture/decisions/ADR-0014-standalone-why3-adapter.md",
         "docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md",
         "docs/architecture/structurizr/workspace.dsl",
         "docs/reference_pipeline_boundaries.json",
@@ -89,6 +93,14 @@ def main() -> int:
         "lib/adapters/out/external/spot/automaton_spot.ml",
         "lib/adapters/out/external/spot/spot_automaton_builder.ml",
         "lib/adapters/out/external/spot/spot_boolean_valuation.ml",
+        "lib/contracts/dune",
+        "lib/adapters/out/external/why3/dune",
+        "lib/adapters/out/external/why3/why_task_support.ml",
+        "lib/adapters/out/external/why3/why_contract_prove.ml",
+        "lib/adapters/out/external/timing/dune",
+        "lib/adapters/out/external/timing/external_timing.ml",
+        "lib/adapters/out/artifacts/why_task_dump/dune",
+        "lib/adapters/out/artifacts/why_task_dump/why_task_dump_render.ml",
     ]
 
     for rel in required:
