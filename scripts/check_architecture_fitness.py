@@ -527,10 +527,10 @@ def check_external_tool_contract_boundary(repo: Path) -> None:
     why_pipeline = (
         repo / "lib/adapters/out/provers/why3/why_pipeline.ml"
     ).read_text(encoding="utf-8")
-    if "Proof_backend_contract.make_request" not in why_pipeline:
-        fail("the Why3 projection must construct a neutral proof request")
-    if "Why_obligations.run" not in why_pipeline:
-        fail("the Why3 projection must delegate obligation export to the adapter")
+    if "Proof_backend_contract.make_execution_request" not in why_pipeline:
+        fail("the Why3 projection must construct a neutral execution request")
+    if "Why_execution.execute" not in why_pipeline:
+        fail("the Why3 projection must delegate all backend work to one adapter")
 
 
 def check_runtime_split_dependencies(repo: Path) -> None:
@@ -3531,7 +3531,6 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         "why_contract_prove",
         "why_native_probe",
         "why_execution",
-        "why_obligations",
     ]
     for module in required_modules:
         for suffix in [".ml", ".mli"]:
@@ -3552,6 +3551,14 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     why3_dune = (why3_root / "dune").read_text(encoding="utf-8")
     if "kairos_proof_contract" not in why3_dune:
         fail("the standalone Why3 adapter must consume kairos_proof_contract")
+    legacy_obligations = [
+        why3_root / "why_obligations.ml",
+        why3_root / "why_obligations.mli",
+    ]
+    if "why_obligations" in why3_dune or any(
+        path.exists() for path in legacy_obligations
+    ):
+        fail("Why3 dumps and proofs must share the single why_execution API")
     private_why3_modules = [
         "why_task_support",
         "why_task_dump_render",
@@ -3566,7 +3573,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     ):
         fail(
             "Why3 implementation modules must be private behind "
-            "why_execution/why_obligations"
+            "why_execution"
         )
     for dependency in [
         "kairos_domain_",

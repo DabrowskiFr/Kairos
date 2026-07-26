@@ -59,11 +59,37 @@ let compile_whyml ?(with_spans = false) ~nodes
     { text; spans }
   else { text = Why_text_render.emit_program_ast why_ast; spans = [] }
 
+let join_blocks ~sep blocks =
+  let buffer = Buffer.create 4096 in
+  List.iteri
+    (fun index block ->
+      if index > 0 then Buffer.add_string buffer sep;
+      Buffer.add_string buffer block)
+    blocks;
+  Buffer.contents buffer
+
 let obligations_pass ~nodes ~(options : compilation_options) :
     obligations_outputs =
   let whyml = compile_whyml ~nodes ~options () in
-  let request =
-    Proof_backend_contract.make_request ~whyml_text:whyml.text ()
+  let execution_options : Proof_backend_contract.execution_options =
+    {
+      timeout_s = 1;
+      jobs = 1;
+      split_vc = true;
+      dump_failed_smt = false;
+      prove = false;
+      emit_vc_text = true;
+      emit_smt_text = true;
+      diagnose_nonvalid = false;
+    }
   in
-  let response = Why_obligations.run request in
-  { vc_text = response.vc_text; smt_text = response.smt_text }
+  let request =
+    Proof_backend_contract.make_execution_request ~whyml_text:whyml.text
+      ~options:execution_options ()
+  in
+  let response = Why_execution.execute request in
+  {
+    vc_text =
+      join_blocks ~sep:"\n(* ---- goal ---- *)\n" response.vc_blocks;
+    smt_text = join_blocks ~sep:"\n; ---- goal ----\n" response.smt_blocks;
+  }

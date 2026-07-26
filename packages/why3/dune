@@ -14,8 +14,7 @@
   why_contract_workers
   why_contract_prove
   why_native_probe
-  why_execution
-  why_obligations)
+  why_execution)
  (private_modules
   why_task_support
   why_task_dump_render

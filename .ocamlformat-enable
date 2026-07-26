@@ -15,8 +15,6 @@ packages/spot/*.ml
 packages/spot/*.mli
 packages/proof-contract/*.ml
 packages/proof-contract/*.mli
-packages/why3/why_obligations.ml
-packages/why3/why_obligations.mli
 packages/why3/why_execution.ml
 packages/why3/why_execution.mli
 packages/why3/why3_adapter_tests.ml

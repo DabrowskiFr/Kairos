@@ -35,8 +35,8 @@ type may cross back into runtime orchestration. The adapter exposes
 `Why_execution.execute`, with host callbacks for cancellation and goal
 progress; the serializable request and response remain independent of those
 in-process callbacks. Low-level task, prover-call, worker, and probe modules
-are private Dune modules; only the neutral execution/obligation façades and
-host logging hook are installable.
+are private Dune modules; only the single neutral execution façade and host
+logging hook are installable.
 
 Calls remain direct OCaml calls. Serialization is available for a future
 process boundary but is not mandatory.
@@ -51,6 +51,8 @@ process boundary but is not mandatory.
   typed API.
 - Goal attribution and user-facing rendering remain in Kairos and consume
   neutral goal descriptors/results.
+- Proof runs and VC/SMT-only exports use the same `Why_execution` path; the
+  former parallel `Why_obligations` façade is removed.
 - No IPC overhead is introduced.
 - The existing generated WhyML and executed proof bodies are unchanged; the
   extraction changes ownership and contracts, not verification semantics.
