@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "status": "proposed",
+  "analyzed_commit": "9aa180f5",
+  "core_package": {
+    "name": "kairos",
+    "retained_source_roots": [
+      "lib/shared",
+      "lib/domain",
+      "lib/application",
+      "lib/adapters/in/kairos_lang",
+      "lib/ir"
+    ],
+    "dependencies_to_remove": [
+      "kairos-engine-contract",
+      "kairos-automata-contract",
+      "kairos-spot-adapter",
+      "kairos-proof-contract",
+      "kairos-telemetry",
+      "kairos-why3-adapter",
+      "kairos-graphviz-adapter"
+    ],
+    "direct_dependencies_to_declare": [
+      "fmt",
+      "logs",
+      "sedlex"
+    ]
+  },
+  "runtime_package": {
+    "name": "kairos-engine-runtime",
+    "opam_file": "kairos-engine-runtime.opam",
+    "source_roots": [
+      "lib/engine",
+      "lib/composition",
+      "lib/adapters/out/runtime",
+      "lib/adapters/out/provers/why3",
+      "lib/adapters/out/artifacts",
+      "lib/adapters/out/codegen/c"
+    ],
+    "dependencies": [
+      "kairos",
+      "kairos-engine-contract",
+      "kairos-automata-contract",
+      "kairos-spot-adapter",
+      "kairos-proof-contract",
+      "kairos-telemetry",
+      "kairos-why3-adapter",
+      "kairos-graphviz-adapter",
+      "why3",
+      "yojson"
+    ]
+  },
+  "libraries": [
+    {
+      "dune_name": "kairos_engine",
+      "dune_file": "lib/engine/dune",
+      "current_public_name": "kairos.engine",
+      "target_public_name": "kairos-engine-runtime"
+    },
+    {
+      "dune_name": "kairos_composition",
+      "dune_file": "lib/composition/dune",
+      "current_public_name": "kairos.internal.composition",
+      "target_public_name": "kairos-engine-runtime.internal.composition"
+    },
+    {
+      "dune_name": "kairos_verification_runtime",
+      "dune_file": "lib/adapters/out/runtime/dune",
+      "current_public_name": "kairos.internal.verification_runtime",
+      "target_public_name": "kairos-engine-runtime.internal.verification_runtime"
+    },
+    {
+      "dune_name": "kairos_runtime_automata",
+      "dune_file": "lib/adapters/out/runtime/orchestration/automata/dune",
+      "current_public_name": "kairos.internal.runtime_automata",
+      "target_public_name": "kairos-engine-runtime.internal.runtime_automata"
+    },
+    {
+      "dune_name": "kairos_runtime_core",
+      "dune_file": "lib/adapters/out/runtime/orchestration/core/dune",
+      "current_public_name": "kairos.internal.runtime_core",
+      "target_public_name": "kairos-engine-runtime.internal.runtime_core"
+    },
+    {
+      "dune_name": "kairos_runtime_proof",
+      "dune_file": "lib/adapters/out/runtime/orchestration/outputs/dune",
+      "current_public_name": "kairos.internal.runtime_proof",
+      "target_public_name": "kairos-engine-runtime.internal.runtime_proof"
+    },
+    {
+      "dune_name": "kairos_runtime_diagnostics",
+      "dune_file": "lib/adapters/out/runtime/orchestration/outputs/dune",
+      "current_public_name": "kairos.internal.runtime_diagnostics",
+      "target_public_name": "kairos-engine-runtime.internal.runtime_diagnostics"
+    },
+    {
+      "dune_name": "kairos_runtime_outputs",
+      "dune_file": "lib/adapters/out/runtime/orchestration/outputs/dune",
+      "current_public_name": "kairos.internal.runtime_outputs",
+      "target_public_name": "kairos-engine-runtime.internal.runtime_outputs"
+    },
+    {
+      "dune_name": "kairos_why3",
+      "dune_file": "lib/adapters/out/provers/why3/dune",
+      "current_public_name": "kairos.internal.why3",
+      "target_public_name": "kairos-engine-runtime.internal.why3"
+    },
+    {
+      "dune_name": "kairos_why3_expr",
+      "dune_file": "lib/adapters/out/provers/why3/compile/dune",
+      "current_public_name": "kairos.internal.why3_expr",
+      "target_public_name": "kairos-engine-runtime.internal.why3_expr"
+    },
+    {
+      "dune_name": "kairos_why3_compile",
+      "dune_file": "lib/adapters/out/provers/why3/compile/dune",
+      "current_public_name": "kairos.internal.why3_compile",
+      "target_public_name": "kairos-engine-runtime.internal.why3_compile"
+    },
+    {
+      "dune_name": "kairos_why3_contracts",
+      "dune_file": "lib/adapters/out/provers/why3/contracts/dune",
+      "current_public_name": "kairos.internal.why3_contracts",
+      "target_public_name": "kairos-engine-runtime.internal.why3_contracts"
+    },
+    {
+      "dune_name": "kairos_why3_render",
+      "dune_file": "lib/adapters/out/provers/why3/render/dune",
+      "current_public_name": "kairos.internal.why3_render",
+      "target_public_name": "kairos-engine-runtime.internal.why3_render"
+    },
+    {
+      "dune_name": "kairos_why3_runtime_view",
+      "dune_file": "lib/adapters/out/provers/why3/runtime/dune",
+      "current_public_name": "kairos.internal.why3_runtime_view",
+      "target_public_name": "kairos-engine-runtime.internal.why3_runtime_view"
+    },
+    {
+      "dune_name": "kairos_artifact_graph_render",
+      "dune_file": "lib/adapters/out/artifacts/graph_render/dune",
+      "current_public_name": "kairos.internal.artifact_graph_render",
+      "target_public_name": "kairos-engine-runtime.internal.artifact_graph_render"
+    },
+    {
+      "dune_name": "kairos_artifact_text_render",
+      "dune_file": "lib/adapters/out/artifacts/text_render/dune",
+      "current_public_name": "kairos.internal.artifact_text_render",
+      "target_public_name": "kairos-engine-runtime.internal.artifact_text_render"
+    },
+    {
+      "dune_name": "kairos_c_codegen",
+      "dune_file": "lib/adapters/out/codegen/c/dune",
+      "current_public_name": "kairos.internal.c_codegen",
+      "target_public_name": "kairos-engine-runtime.internal.c_codegen"
+    }
+  ],
+  "clients": [
+    {
+      "package": "kairos-cli",
+      "replace_dependency": "kairos",
+      "with_dependency": "kairos-engine-runtime"
+    },
+    {
+      "package": "kairos-lsp",
+      "replace_dependency": "kairos",
+      "with_dependency": "kairos-engine-runtime"
+    }
+  ],
+  "forbidden_source_changes": [
+    "rocq",
+    "lib/domain",
+    "lib/application",
+    "lib/adapters/in/kairos_lang",
+    "lib/ir"
+  ],
+  "acceptance": [
+    "kairos builds and installs without any standalone Kairos tool adapter",
+    "kairos-engine-runtime builds against an installed kairos and installed contracts/adapters",
+    "kairos-cli and kairos-lsp build against an installed kairos-engine-runtime",
+    "the OCaml module path Kairos_engine.Api remains unchanged",
+    "the full Dune test suite passes",
+    "the OK/KO corpus remains 44 green, 46 invalid, 10 timeout, and 0 false green",
+    "no Rocq, domain, application, frontend, IR, proof-obligation, or Why3 source body changes"
+  ]
+}

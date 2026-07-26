@@ -8,6 +8,8 @@ Start here:
 - `module_atlas.md`
 - `quality_audit.md`
 - `externalization_audit.md`
+- `engine_runtime_split_audit.md`
+- `engine_runtime_split_manifest.json`
 - `../rocq_alignment_manifest.json`
 - `../rocq_projection_audit.json`
 - `why3_product_backend_alignment.md`

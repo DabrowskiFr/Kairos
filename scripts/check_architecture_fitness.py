@@ -8,6 +8,7 @@ less credible.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -4153,6 +4154,96 @@ def check_engine_contract_boundary(repo: Path) -> None:
             fail(f"engine contract mapping is missing {required}")
 
 
+def check_engine_runtime_split_plan(repo: Path) -> None:
+    manifest_path = (
+        repo / "docs/architecture/engine_runtime_split_manifest.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != 1:
+        fail("engine runtime split manifest has an unsupported schema")
+    if manifest.get("status") != "proposed":
+        fail("engine runtime split manifest must record its current status")
+
+    runtime = manifest["runtime_package"]
+    runtime_name = runtime["name"]
+    if runtime_name != "kairos-engine-runtime":
+        fail("engine runtime split must use the documented package name")
+
+    libraries = manifest["libraries"]
+    if len(libraries) != 17:
+        fail("engine runtime split must account for exactly 17 libraries")
+    dune_names = [entry["dune_name"] for entry in libraries]
+    if len(dune_names) != len(set(dune_names)):
+        fail("engine runtime split contains duplicate Dune library names")
+
+    for root in runtime["source_roots"]:
+        if not (repo / root).is_dir():
+            fail(f"engine runtime split source root is missing: {root}")
+    for root in manifest["core_package"]["retained_source_roots"]:
+        if not (repo / root).is_dir():
+            fail(f"engine runtime split retained root is missing: {root}")
+
+    for entry in libraries:
+        dune_file = repo / entry["dune_file"]
+        if not dune_file.is_file():
+            fail(f"engine runtime split Dune file is missing: {dune_file}")
+        dune = dune_file.read_text(encoding="utf-8", errors="replace")
+        dune_name = re.escape(entry["dune_name"])
+        public_name = re.escape(entry["current_public_name"])
+        if not re.search(rf"\(name\s+{dune_name}\)", dune):
+            fail(
+                "engine runtime split no longer matches Dune library "
+                + entry["dune_name"]
+            )
+        if not re.search(rf"\(public_name\s+{public_name}\)", dune):
+            fail(
+                "engine runtime split no longer matches public library "
+                + entry["current_public_name"]
+            )
+        target_name = entry["target_public_name"]
+        if not (
+            target_name == runtime_name
+            or target_name.startswith(runtime_name + ".")
+        ):
+            fail(
+                f"engine runtime target {target_name} does not belong to "
+                f"{runtime_name}"
+            )
+
+    forbidden = set(manifest["forbidden_source_changes"])
+    if "rocq" not in forbidden or "lib/domain" not in forbidden:
+        fail("engine runtime split must protect Rocq and the domain")
+
+    main_opam = (repo / "kairos.opam").read_text(encoding="utf-8")
+    for dependency in manifest["core_package"]["dependencies_to_remove"]:
+        if f'"{dependency}"' not in main_opam:
+            fail(
+                "engine runtime split removal list is stale for dependency "
+                + dependency
+            )
+
+    graph = (
+        repo / "docs/architecture/observed/dune-libraries.dot"
+    ).read_text(encoding="utf-8", errors="replace")
+    target_names = {
+        entry["current_public_name"] for entry in libraries
+    }
+    allowed_clients = {"kairos", "kairos-lsp.app"}
+    edge = re.compile(r'^\s*"([^"]+)" -> "([^"]+)";$', re.MULTILINE)
+    unexpected_inbound = sorted(
+        (source, target)
+        for source, target in edge.findall(graph)
+        if target in target_names
+        and source not in target_names
+        and source not in allowed_clients
+    )
+    if unexpected_inbound:
+        rendered = ", ".join(
+            f"{source} -> {target}" for source, target in unexpected_inbound
+        )
+        fail("engine runtime split has unexpected inbound edges: " + rendered)
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -4178,6 +4269,7 @@ def main() -> int:
     check_external_why3_prover_boundaries(repo)
     check_external_timing_boundaries(repo)
     check_engine_contract_boundary(repo)
+    check_engine_runtime_split_plan(repo)
     check_lsp_package_boundary(repo)
     check_cli_package_boundary(repo)
     check_runtime_diagnostics_boundaries(repo)

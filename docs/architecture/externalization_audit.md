@@ -11,6 +11,12 @@ le paquet `kairos-cli` fournit l'exécutable `kairos`, tandis que le paquet
 `kairos` ne contient plus que le moteur embarquable. Cette frontière retire
 1 327 lignes OCaml de livraison CLI du paquet moteur.
 
+Mise à jour après l'ADR-0018 : les données publiques du moteur appartiennent
+désormais au paquet autonome `kairos-engine-contract`. L'audit de suivi
+`engine_runtime_split_audit.md` établit que la prochaine frontière utile est
+la propriété Dune/opam du moteur concret, et non une nouvelle
+micro-extraction.
+
 ## Objet
 
 Cet audit cherche les prochaines séparations qui diminuent réellement la
@@ -246,9 +252,9 @@ Critères d'acceptation :
 
 ## Conclusion
 
-L'externalisation des outils techniques est déjà largement accomplie. Le
-gisement restant n'est pas dans les 1 726 lignes de rendu, mais dans les
-surfaces de livraison facultatives. Séparer le LSP est le meilleur rapport
-gain/risque : la frontière suit l'architecture en couches, retire 6 734 lignes
-du paquet principal et évite d'inventer un IR « neutre » qui ne ferait que
-reproduire les structures de vérification Kairos.
+Cette recommandation historique est réalisée : LSP, CLI et contrat moteur ont
+maintenant leurs propres paquets. L'étape suivante n'est ni l'IR séquentiel
+inactif, ni le backend C pris isolément. Elle consiste à placer la fermeture
+acyclique du moteur concret dans `kairos-engine-runtime`, conformément à
+`engine_runtime_split_audit.md` et
+`engine_runtime_split_manifest.json`.
