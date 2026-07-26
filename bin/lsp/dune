@@ -1,6 +1,7 @@
 (executable
  (name kairos_lsp)
  (public_name kairos-lsp)
+ (package kairos)
  (modules
   lsp_transport_io
   lsp_trace

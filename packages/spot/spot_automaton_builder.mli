@@ -9,22 +9,16 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Low-level bridge from the versioned automata request to Spot.
-
-    This module is responsible for invoking the external safety-automaton
-    backend and normalizing its result into the tool-neutral exchange
-    representation. It does not depend on the verification kernel. *)
-(** [build] service entrypoint. *)
+(** Standalone in-process Spot service over the neutral automata contract. *)
 
 val build :
-  Kairos_tool_contracts.Automata_exchange.request ->
-  Kairos_tool_contracts.Automata_exchange.response
-(** [build request] constructs the safety automaton requested by Kairos and
-    returns a versioned response. *)
+  ?record_elapsed:(float -> unit) ->
+  Kairos_automata_contract.Automata_exchange.request ->
+  Kairos_automata_contract.Automata_exchange.response

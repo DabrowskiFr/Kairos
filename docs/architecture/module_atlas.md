@@ -18,7 +18,8 @@ bin/cli/kairos.ml
   -> Kairos_usecase_wiring
   -> Kairos_frontend
   -> kairos_runtime_core / Pipeline_build
-  -> kairos_tool_contracts
+  -> kairos-automata-contract
+  -> kairos-spot-adapter
   -> kairos_runtime_automata / Runtime_automata_source
   -> Orchestration / From_model / passes
   -> kairos_verification_runtime / Pipeline_outputs
@@ -52,7 +53,7 @@ Execution de l'outil:
 | 6 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
 | 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
 | 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
-| 9 | `lib/adapters/out/external/spot/spot_automaton_builder.ml` | `build` | Appelle Spot pour construire les automates |
+| 9 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
 | 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
 | 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
 | 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
@@ -141,8 +142,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Module | Responsabilite |
 | --- | --- |
 | `tool_protocol.ml/mli` | Version commune et rejet explicite des protocoles incompatibles |
-| `automata_exchange.ml/mli` | Requete LTL et reponse automate, independantes du noyau de verification et serialisables en JSON |
 | `proof_backend_contract.ml/mli` | IR canonique et politique d'optimisation remis explicitement au backend de preuve |
+| `packages/automata-contract/automata_exchange.ml/mli` | Contrat LTL/automates autonome, serialisable et fonde uniquement sur des noms d'atomes opaques |
+| `automata_exchange_adapter.ml/mli` | Conversions Kairos vers le contrat neutre et retour vers `Automaton_types` |
+| `packages/spot/*` | Adaptateur Spot emballable et testable independamment, sans dependance interne a Kairos |
 
 ### Noyau De Correction
 
@@ -185,7 +188,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `runtime_snapshot.ml` | Type du snapshot |
 | `instrumentation_info_builder.ml` | Informations supplementaires pour l'inspection |
 | `kairos_runtime_automata` | Production externe des automates fournis au core runtime |
-| `runtime_automata_source.ml` | Appel Spot actuel derrière `Automata_exchange` et conversion vers les automates fournis au noyau |
+| `runtime_automata_source.ml` | Appel direct du paquet Spot et enregistrement du timing |
+| `automata_exchange_adapter.ml` | Conversion entre formules Kairos et contrat d'automates neutre |
 | `kairos_runtime_proof` | Execution Why3/provers, attribution des buts, evenements de preuve |
 | `proof_goal_attribution.ml` | Attribution des buts Why3 aux pas produit et metadonnees de preuve |
 | `proof_goal_results.ml` | Construction des resultats de preuve depuis les evenements Why3 |
@@ -290,7 +294,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `why_contract_prover_call.ml` | Préparation, impression, lancement et fallback d'un appel prouveur |
 | `why_contract_workers.ml` | Distribution, IPC et cycle de vie des workers de preuve Why3 |
 | `why_contract_prove.ml` | Interaction Why3/provers |
-| `spot_automaton_builder.ml` | Adaptateur Spot |
+| `packages/spot/spot_automaton_builder.ml` | Adaptateur Spot autonome |
 | `external_timing_types.ml` | Types des snapshots et compteurs de timing |
 | `external_timing_store.ml` | Etat mutable process-local des mesures de couts |
 | `external_timing.ml` | Facade publique des mesures de couts |

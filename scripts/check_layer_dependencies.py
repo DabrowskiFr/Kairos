@@ -66,7 +66,11 @@ def section_tokens(block: str, section_name: str) -> list[str]:
 
 def load_library_deps(repo: Path) -> dict[str, set[str]]:
     deps: dict[str, set[str]] = {}
-    for dune in sorted((repo / "lib").rglob("dune")):
+    roots = [repo / "lib", repo / "packages"]
+    dune_files = sorted(
+        dune for root in roots if root.exists() for dune in root.rglob("dune")
+    )
+    for dune in dune_files:
         text = dune.read_text(encoding="utf-8")
         for block in library_blocks(text):
             names = section_tokens(block, "name")

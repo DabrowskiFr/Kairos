@@ -1,0 +1,12 @@
+(library
+ (name kairos_spot_adapter)
+ (public_name kairos-spot-adapter)
+ (wrapped true)
+ (modules spot_boolean_valuation automaton_spot spot_automaton_builder)
+ (libraries kairos_automata_contract unix))
+
+(test
+ (name spot_adapter_tests)
+ (modules spot_adapter_tests)
+ (package kairos-spot-adapter)
+ (libraries kairos_spot_adapter kairos_automata_contract))

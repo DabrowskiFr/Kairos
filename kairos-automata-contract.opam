@@ -1,0 +1,14 @@
+opam-version: "2.0"
+name: "kairos-automata-contract"
+version: "dev"
+synopsis: "Versioned neutral safety-automata exchange contract"
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+  "yojson"
+  "ppx_deriving"
+  "ppx_deriving_yojson"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]

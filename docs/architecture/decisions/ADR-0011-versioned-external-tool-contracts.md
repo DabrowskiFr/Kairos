@@ -22,11 +22,11 @@ recorded by ADR-0007.
 
 ## Decision
 
-Kairos owns a small `kairos_tool_contracts` library containing versioned,
-tool-neutral request and response types.
+Kairos first introduced a small `kairos_tool_contracts` library containing
+versioned request and response types.
 
-- The automata contract is JSON serializable. Spot consumes an
-  `Automata_exchange.request` and emits an `Automata_exchange.response`.
+- The automata contract is JSON serializable. It is now owned by the
+  autonomous `kairos-automata-contract` package described by ADR-0013.
 - The Spot adapter does not depend on `kairos_domain_verification`.
 - Runtime orchestration converts the external automaton response into
   `Automaton_types.automaton`; the verification kernel still validates the
@@ -35,12 +35,13 @@ tool-neutral request and response types.
   `Ir.node_ir` values and an explicit optimization policy.
 - The Why3 contract is initially in-process. Its transport codec is deferred
   until the sequential IR has a stable serialization.
-- Neither contract depends on application orchestration, external tool
+- The automata contract depends on no Kairos library. The proof backend
+  contract does not depend on application orchestration, external tool
   implementations, Why3, Spot, or the proof-kernel exchange projection.
 
 ## Consequences
 
-- External tools can be split into separate packages without changing the
+- Spot and its automata contract are separate packages without a change to the
   verification kernel API.
 - Direct OCaml calls remain possible, so the first extraction adds no IPC
   overhead.

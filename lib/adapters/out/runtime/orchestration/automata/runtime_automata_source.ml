@@ -32,10 +32,16 @@ let flow_info_of_automata_info (info : Automata_generation.automata_info) :
 let produce_with_spot (program : Verification_model.program_model) :
     (produced, Pipeline_types.error) result =
   try
+    let build_automaton request =
+      Kairos_spot_adapter.Spot_automaton_builder.build
+        ~record_elapsed:(fun elapsed_s ->
+          External_timing.record_spot ~elapsed_s)
+        request
+    in
     let t_automata = Unix.gettimeofday () in
     let automata, automata_info =
       Automata_generation.run program
-        ~build_automaton:Spot_automaton_builder.build
+        ~build_automaton
     in
     External_timing.record_automata_generation
       ~elapsed_s:(Unix.gettimeofday () -. t_automata);

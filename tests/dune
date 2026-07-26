@@ -3,6 +3,7 @@
  (deps
   (source_tree ../docs/architecture)
   (source_tree ../lib)
+  (source_tree ../packages)
   (source_tree ../bin)
   (source_tree ../vscode/src)
   ../vscode/package.json
@@ -86,3 +87,9 @@
 (test
  (name tool_contract_tests)
  (libraries kairos_tool_contracts))
+(test
+ (name automata_exchange_adapter_tests)
+ (libraries
+  kairos_automata_contract
+  kairos_domain_core
+  kairos_runtime_automata))

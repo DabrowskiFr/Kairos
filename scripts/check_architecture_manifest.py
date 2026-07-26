@@ -32,6 +32,8 @@ def main() -> int:
         "lib/domain/verification",
         "lib/domain/proof_export",
         "lib/contracts",
+        "packages/automata-contract",
+        "packages/spot",
         "lib/application",
         "lib/composition",
         "lib/adapters/in/kairos_lang",
@@ -56,6 +58,7 @@ def main() -> int:
         "docs/architecture/decisions/ADR-0004-prove-mode-is-minimal.md",
         "docs/architecture/decisions/ADR-0005-backend-optimizations-after-reference.md",
         "docs/architecture/decisions/ADR-0011-versioned-external-tool-contracts.md",
+        "docs/architecture/decisions/ADR-0013-standalone-spot-packages.md",
         "docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md",
         "docs/architecture/structurizr/workspace.dsl",
         "docs/reference_pipeline_boundaries.json",
@@ -82,6 +85,10 @@ def main() -> int:
         "lib/adapters/out/kobj",
         "lib/adapters/out/kobj/kairos_object.ml",
         "lib/adapters/out/kobj/kairos_object.mli",
+        "lib/adapters/out/external/spot/dune",
+        "lib/adapters/out/external/spot/automaton_spot.ml",
+        "lib/adapters/out/external/spot/spot_automaton_builder.ml",
+        "lib/adapters/out/external/spot/spot_boolean_valuation.ml",
     ]
 
     for rel in required:

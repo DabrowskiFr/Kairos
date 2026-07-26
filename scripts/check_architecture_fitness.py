@@ -364,7 +364,7 @@ def check_stale_external_z3_adapter_removed(repo: Path) -> None:
 
     violations: list[str] = []
     for rel in [
-        "lib/adapters/out/external/spot/dune",
+        "packages/spot/dune",
         "lib/adapters/out/runtime/orchestration/outputs/dune",
         "lib/adapters/out/runtime/orchestration/core/dune",
         "lib/adapters/out/runtime/dune",
@@ -434,13 +434,73 @@ def check_external_tool_contract_boundary(repo: Path) -> None:
             + ", ".join(found)
         )
 
-    spot_dune = (
-        repo / "lib/adapters/out/external/spot/dune"
+    automata_contract_dune = (
+        repo / "packages/automata-contract/dune"
     ).read_text(encoding="utf-8")
-    if "kairos_tool_contracts" not in spot_dune:
-        fail("the Spot adapter must consume kairos_tool_contracts")
-    if "kairos_domain_verification" in spot_dune:
-        fail("the Spot adapter must not depend on the verification kernel")
+    spot_dune = (repo / "packages/spot/dune").read_text(encoding="utf-8")
+    for dependency in [
+        "kairos_domain_",
+        "kairos_application",
+        "kairos_runtime_",
+        "kairos_external_",
+        "unix",
+    ]:
+        if dependency in automata_contract_dune:
+            fail(
+                "the standalone automata contract contains forbidden "
+                f"dependency {dependency}"
+            )
+    if "kairos_automata_contract" not in spot_dune:
+        fail("the standalone Spot adapter must consume kairos_automata_contract")
+    for dependency in [
+        "kairos_domain_",
+        "kairos_application",
+        "kairos_runtime_",
+        "kairos_tool_contracts",
+        "kairos_external_timing",
+    ]:
+        if dependency in spot_dune:
+            fail(
+                "the standalone Spot adapter contains forbidden Kairos "
+                f"dependency {dependency}"
+            )
+
+    forbidden_spot_source = re.compile(
+        r"\bCore_syntax\b|\bAutomaton_types\b|\bVerification_model\b|\bExternal_timing\b"
+    )
+    spot_violations: list[str] = []
+    for path in iter_text_files_under(repo, ["packages/spot"]):
+        if path.suffix not in {".ml", ".mli"}:
+            continue
+        for line_no, line in enumerate(
+            path.read_text(encoding="utf-8", errors="replace").splitlines(),
+            start=1,
+        ):
+            if forbidden_spot_source.search(line):
+                spot_violations.append(
+                    f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
+                )
+    if spot_violations:
+        fail(
+            "standalone Spot sources reference Kairos internals:\n  - "
+            + "\n  - ".join(spot_violations)
+        )
+
+    former_spot_root = repo / "lib/adapters/out/external/spot"
+    stale_spot_code = (
+        [
+            path
+            for path in former_spot_root.iterdir()
+            if path.suffix in {".ml", ".mli"} or path.name == "dune"
+        ]
+        if former_spot_root.exists()
+        else []
+    )
+    if stale_spot_code:
+        fail(
+            "former in-tree Spot adapter code remains: "
+            + ", ".join(str(path.relative_to(repo)) for path in stale_spot_code)
+        )
 
     stale_valuation = [
         rel

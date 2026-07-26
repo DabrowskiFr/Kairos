@@ -44,8 +44,8 @@ type automata_info = {
 
 val build_for_node :
   build_automaton:
-    (Kairos_tool_contracts.Automata_exchange.request ->
-    Kairos_tool_contracts.Automata_exchange.response) ->
+    (Kairos_automata_contract.Automata_exchange.request ->
+    Kairos_automata_contract.Automata_exchange.response) ->
   Verification_model.node_model ->
   automata_spec
 (** Build the full automata bundle for one node:
@@ -56,6 +56,6 @@ val build_for_node :
 val run :
   Verification_model.program_model ->
   build_automaton:
-    (Kairos_tool_contracts.Automata_exchange.request ->
-    Kairos_tool_contracts.Automata_exchange.response) ->
+    (Kairos_automata_contract.Automata_exchange.request ->
+    Kairos_automata_contract.Automata_exchange.response) ->
   (ident * automata_spec) list * automata_info

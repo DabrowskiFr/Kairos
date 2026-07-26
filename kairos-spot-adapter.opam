@@ -1,0 +1,12 @@
+opam-version: "2.0"
+name: "kairos-spot-adapter"
+version: "dev"
+synopsis: "Standalone in-process Spot adapter for Kairos automata contracts"
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+  "kairos-automata-contract" {= version}
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]

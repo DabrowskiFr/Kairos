@@ -7,7 +7,8 @@
       "kairos_domain_core"
     ],
     "contracts": [
-      "kairos_tool_contracts"
+      "kairos_tool_contracts",
+      "kairos_automata_contract"
     ],
     "verification": [
       "kairos_domain_verification"
@@ -46,7 +47,7 @@
     ],
     "external": [
       "kairos_external_graphviz",
-      "kairos_external_spot",
+      "kairos_spot_adapter",
       "kairos_external_timing",
       "kairos_external_why3"
     ]

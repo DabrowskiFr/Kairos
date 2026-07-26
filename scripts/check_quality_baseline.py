@@ -48,26 +48,35 @@ def fail(msg: str) -> None:
 
 
 def ocaml_files(repo: Path) -> list[Path]:
-    roots = [repo / "lib", repo / "bin"]
+    roots = [repo / "lib", repo / "bin", repo / "packages"]
     files: list[Path] = []
     for root in roots:
         if not root.exists():
             continue
-        files.extend(root.rglob("*.ml"))
+        files.extend(
+            path for path in root.rglob("*.ml") if not path.name.endswith("_tests.ml")
+        )
         files.extend(root.rglob("*.mli"))
     return sorted(files)
 
 
 def ml_files(repo: Path) -> list[Path]:
-    return sorted((repo / "lib").rglob("*.ml")) + sorted((repo / "bin").rglob("*.ml"))
+    roots = [repo / "lib", repo / "bin", repo / "packages"]
+    return sorted(
+        path
+        for root in roots
+        for path in root.rglob("*.ml")
+        if not path.name.endswith("_tests.ml")
+    )
 
 
 def mli_files(repo: Path) -> list[Path]:
-    return sorted((repo / "lib").rglob("*.mli")) + sorted((repo / "bin").rglob("*.mli"))
+    roots = [repo / "lib", repo / "bin", repo / "packages"]
+    return sorted(path for root in roots for path in root.rglob("*.mli"))
 
 
 def dune_files(repo: Path) -> list[Path]:
-    roots = [repo / "lib", repo / "bin"]
+    roots = [repo / "lib", repo / "bin", repo / "packages"]
     files: list[Path] = []
     for root in roots:
         if root.exists():

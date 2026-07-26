@@ -42,7 +42,8 @@ which obligations exist. They are projections of already-computed data.
 ```text
 runtime-prepared program
   -> kairos_runtime_automata
-  -> Spot adapter
+  -> kairos-automata-contract
+  -> standalone Spot package
   -> supplied automata bundle
   -> reference product input
 ```

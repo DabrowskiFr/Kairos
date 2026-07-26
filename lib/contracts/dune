@@ -2,7 +2,7 @@
  (name kairos_tool_contracts)
  (public_name kairos.tool_contracts)
  (wrapped true)
- (modules tool_protocol automata_exchange proof_backend_contract)
+ (modules tool_protocol proof_backend_contract)
  (libraries kairos_domain_core yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

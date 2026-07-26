@@ -23,7 +23,7 @@ The following choices are structurally good:
 | --- | --- |
 | `lib/domain/core` as foundational layer | It contains syntax, formulas, models, and temporal layout data shared by the kernel. |
 | `lib/domain/verification` as reference-kernel layer | It builds product summaries and obligation-shaping passes from program + automata. |
-| `lib/contracts` as external-tool contract layer | It exposes narrow, versioned requests and responses without importing tool implementations or application orchestration. |
+| Standalone contract packages | They expose narrow, versioned requests and responses without importing Kairos internals, tool implementations, or application orchestration. |
 | `lib/application` ports/use-cases | They prevent CLI/LSP details from becoming semantic dependencies. |
 | Concrete external adapters | Spot, Why3, Z3, Graphviz and timing are correctly outside the domain. |
 | Minimal `--prove` path | It protects performance and keeps proof execution independent from heavy diagnostics. |
@@ -96,17 +96,24 @@ kairos_verification_runtime
   -> application-facing facade and output orchestration
 ```
 
-Externalization begins with typed contracts, not processes:
+Externalization uses typed contracts without imposing processes:
 
 ```text
+kairos-automata-contract
+  -> Automata_exchange (neutral, versioned and JSON serializable)
+
 kairos_tool_contracts
-  -> Automata_exchange (versioned and JSON serializable)
-  -> Proof_backend_contract (versioned, in-process until the sequential IR codec exists)
+  -> Proof_backend_contract (versioned and still in-process)
+
+kairos-spot-adapter
+  -> depends only on kairos-automata-contract and Unix
 ```
 
-Spot now consumes and produces only `Automata_exchange` values. Runtime
-orchestration owns the conversion to `Automaton_types`, so the Spot adapter no
-longer depends on the verification kernel. Why3 consumes an explicit
+Spot is now an independently buildable OCaml package. It consumes and produces
+only `Automata_exchange` values over opaque atom names. Runtime orchestration
+owns both conversions between core formulas and the neutral contract, so the
+Spot package imports no internal Kairos library. The call remains in-process.
+Why3 consumes an explicit
 `Proof_backend_contract.request`; it does not consume the Rocq-oriented proof
 export.
 

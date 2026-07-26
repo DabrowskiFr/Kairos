@@ -18,15 +18,11 @@
 
 (** Spot adapter interface for safety automata.
 
-    This module defines the typed data extracted from HOA files and the
-    conversion helpers used by the automata-generation pipeline. *)
+    This module defines the typed data extracted from HOA files and the conversion helpers used by
+    the automata-generation pipeline. *)
 
+type process_result = { status : Unix.process_status; stdout : string; stderr : string }
 (** Result of one external process execution. *)
-type process_result = {
-  status : Unix.process_status;
-  stdout : string;
-  stderr : string;
-}
 
 (** Boolean label language used in HOA transitions. *)
 type label_expr =
@@ -37,19 +33,12 @@ type label_expr =
   | Label_and of label_expr * label_expr
   | Label_or of label_expr * label_expr
 
+type hoa_state = { id : int; accepting : bool; transitions : (label_expr * int) list }
 (** One HOA state with accepting flag and outgoing transitions. *)
-type hoa_state = {
-  id : int;
-  accepting : bool;
-  transitions : (label_expr * int) list;
-}
 
 (** Acceptance mode supported by this parser. *)
-type acceptance =
-  | Acceptance_all
-  | Acceptance_buchi
+type acceptance = Acceptance_all | Acceptance_buchi
 
-(** Parsed HOA automaton used downstream by product construction. *)
 type hoa_automaton = {
   start : int;
   ap_count : int;
@@ -57,35 +46,33 @@ type hoa_automaton = {
   acceptance : acceptance;
   states : hoa_state list;
 }
+(** Parsed HOA automaton used downstream by product construction. *)
 
+type raw_guard = (string * bool option) list list
 (** Disjunction of conjunctions over named atoms.
 
-    A literal [(name, Some true)] means [name];
-    [(name, Some false)] means [not name];
+    A literal [(name, Some true)] means [name]; [(name, Some false)] means [not name];
     [(name, None)] means unconstrained/neutral. *)
-type raw_guard = (string * bool option) list list
 
-(** Whether Spot debug logging is enabled by environment. *)
 val automata_log_enabled : bool
+(** Whether Spot debug logging is enabled by environment. *)
 
-(** Render a Kairos LTL formula into Spot syntax with the given atom map. *)
 val string_of_spot_ltl :
-  atom_map:(Core_syntax.ltl_atom * Core_syntax.ident) list ->
-  Core_syntax.ltl ->
-  string
+  atom_names:string list -> Kairos_automata_contract.Automata_exchange.ltl -> string
+(** Render a Kairos LTL formula into Spot syntax with the given atom map. *)
 
+val ensure_safety : record_elapsed:(float -> unit) -> string -> unit
 (** Fail if Spot reports that the queried formula is not a safety formula. *)
-val ensure_safety : string -> unit
 
+val call_spot : record_elapsed:(float -> unit) -> string -> string
 (** Run Spot and return the process standard output. *)
-val call_spot : string -> string
 
-(** Parse a Spot HOA output into a typed automaton. *)
 val parse_hoa : string -> hoa_automaton
+(** Parse a Spot HOA output into a typed automaton. *)
 
-(** Convert one HOA label into the internal raw-guard representation. *)
 val raw_guard_of_label :
   atom_names:string list -> hoa_ap_names:string list -> label_expr -> raw_guard
+(** Convert one HOA label into the internal raw-guard representation. *)
 
-(** Tautological raw guard over the given atom domain. *)
 val raw_guard_true : string list -> raw_guard
+(** Tautological raw guard over the given atom domain. *)

@@ -167,7 +167,7 @@
         "lib/adapters/out/runtime/orchestration/automata/automata_generation.ml",
         "lib/adapters/out/runtime/orchestration/automata/automata_generation.mli",
         "lib/adapters/out/runtime/orchestration/automata",
-        "lib/adapters/out/external/spot"
+        "packages/spot"
       ],
       "rocq_scope": "excluded",
       "rocq_role": "Automata are inputs to the reference kernel; the formal story is relative to supplied automata and does not formalize Spot's LTL-to-automata translation. Product-boundary normal-form validation belongs to reference_product, not to this external generation stage.",

@@ -9,16 +9,17 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Boolean implicant helpers local to the Spot adapter. *)
+(** Boolean implicant conversion local to the Spot adapter. *)
+
+module Automata_exchange = Kairos_automata_contract.Automata_exchange
 
 type term = (string * bool option) list
 
-val prime_implicants : term list -> term list
-val terms_to_expr : term list -> Core_syntax.expr
+val terms_to_guard : term list -> Automata_exchange.guard

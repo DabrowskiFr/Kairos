@@ -1,4 +1,5 @@
 _build/
+*.install
 .DS_Store
 .claude/
 .vscode/

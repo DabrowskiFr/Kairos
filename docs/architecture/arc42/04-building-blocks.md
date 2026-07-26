@@ -6,7 +6,9 @@
 | --- | --- | --- | --- |
 | CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
-| External tool contracts | `lib/contracts` | Versioned requests and responses shared with external adapters | None |
+| Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
+| Proof backend contract | `lib/contracts` | Typed request currently shared with the Why3 backend | None |
+| Spot package | `packages/spot` | Independently buildable in-process adapter over the automata contract | External boundary |
 | Frontend adapter | `lib/adapters/in/kairos_lang` | Parse and elaborate source programs | Outside current trusted kernel |
 | Application layer | `lib/application` | Ports and use-cases | None |
 | Composition root | `lib/composition` | Wire ports to concrete adapters | None |
@@ -16,7 +18,7 @@
 | Runtime orchestration | `lib/adapters/out/runtime` | Snapshots, outputs, proof runs, diagnostics | Should stay outside correction |
 | Why3 backend | `lib/adapters/out/provers/why3` | Projection to Why3 and proof planning | Backend only |
 | Artifacts | `lib/adapters/out/artifacts` | Text/graph/diagnostic rendering | Backend only |
-| External adapters | `lib/adapters/out/external` | Spot, Why3, Z3, Graphviz, timing | External boundary |
+| External adapters | `lib/adapters/out/external` | Why3, Graphviz, timing | External boundary |
 
 ## Verification Kernel Internals
 
@@ -51,8 +53,12 @@ true:
 - `kairos_tool_contracts` depends only on foundational data and serialization,
   never on application orchestration, verification algorithms, or tool
   implementations;
-- the Spot adapter consumes `Automata_exchange` and has no dependency on
-  `kairos_domain_verification`;
+- `kairos_automata_contract` depends only on serialization support and exposes
+  opaque atom names rather than Kairos expressions;
+- `kairos_spot_adapter` depends on no internal Kairos library and remains
+  callable directly without IPC;
+- runtime automata orchestration owns all conversions between the neutral
+  automata contract and core formulas;
 - `--prove` does not construct diagnostic artifacts;
 - `kairos_runtime_core` does not depend on Spot, Why3, Graphviz, Z3, or
   `proof_export`;

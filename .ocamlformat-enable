@@ -8,3 +8,10 @@ lib/domain/verification/kernel_clause_projection_formula.ml
 lib/domain/verification/kernel_clause_projection_formula.mli
 lib/domain/verification/kernel_clause_projection_transition_id.ml
 lib/domain/verification/kernel_clause_projection_transition_id.mli
+tests/automata_exchange_adapter_tests.ml
+packages/automata-contract/*.ml
+packages/automata-contract/*.mli
+packages/spot/*.ml
+packages/spot/*.mli
+lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml
+lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.mli

@@ -1,6 +1,7 @@
 (executable
  (name kairos)
  (public_name kairos)
+ (package kairos)
  (modules cli_types cli_pipeline_service cli_output cli_runtime kairos)
  (libraries
   kairos_application

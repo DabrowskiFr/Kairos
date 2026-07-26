@@ -1,3 +1,3 @@
 (include_subdirs no)
 
-(dirs lib bin tests docs scripts vscode .github)
+(dirs lib bin tests docs scripts vscode packages .github)
